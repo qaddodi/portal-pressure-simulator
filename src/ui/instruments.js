@@ -53,7 +53,7 @@ export function createEndoscopy({ onAction }) {
     h('div', { class: 'endo-g', title: 'Small, <5 mm; Large, ≥5 mm.' }, h('dt', {}, 'Grade'), grade),
     item('endo-tile', h('dt', {}, 'Diameter'), diam),
     item('endo-tile', h('dt', {}, 'Wall', h('span', { class: 'endo-dt-x' }, ' thickness')), wall),
-    h('div', { class: 'endo-chip endo-red', title: 'In the model, red wale marks and cherry spots show once the wall stress passes 70 % of its tear point.' }, h('dt', {}, 'Stigmata'), red));
+    h('div', { class: 'endo-chip endo-red', title: 'In the model, red wale marks and cherry spots show once the wall stress passes 70% of its tear point.' }, h('dt', {}, 'Stigmata'), red));
   const side = h('div', { class: 'chart-side' }, stats, bandBtn);
   el.append(stage, side);
   const set = (node, v) => { if (node.textContent !== v) node.textContent = v; };
@@ -338,7 +338,7 @@ export function createVarixWall() {
     const v = f.metrics.varix;
     const wr = wallRead(v);   // (the index is worked out from the shown ΔP, r and w, so the tiles multiply out)
     set(ptm.v, wr.ptm); set(rad.v, wr.r); set(wal.v, wr.w); set(idx.v, wr.index);
-    set(stressTxt, v.ratioShown > 1 ? 'above the tear point' : `${Math.round(v.ratioShown * 100)} % of the tear point`);
+    set(stressTxt, v.ratioShown > 1 ? 'above the tear point' : `${Math.round(v.ratioShown * 100)}% of the tear point`);
     const sev = v.ratioShown > 1 ? 'critical' : v.ratioShown > 0.7 ? 'danger' : v.ratioShown > 0.4 ? 'caution' : 'ok';
     if (stressBar.dataset.sev !== sev) stressBar.dataset.sev = sev;
     // (The stress swings with each beat and each breath: the number is its mean over the last several breaths, a plain

@@ -2049,7 +2049,7 @@ button.finding { cursor: pointer; }
 @media (max-width: 520px) { .pz-table th, .pz-table td { padding: .5em .35em; } .pz-table tbody th { padding-left: .7em; } .pz-table thead th { letter-spacing: .02em; } .pz-table tbody th .pz-kick { letter-spacing: .02em; } }
 @media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .pz-table th, .pz-table td { padding: .5em .5em; }
-  /* A phone (and an upright tablet) fits the table to its width, one compact line per row: the name (its site as a thin coloured stroke), the value columns,
+  /* A phone (and an upright tablet) fits the table to its width, one compact line per row: the name (under its heading, in the site's colour, where the row starts one), the value columns,
      then ascites as a narrow last column; a note goes on a small line under. The column heads stay in view.
      --nc: the number of value columns; --asc-w: the ascites column (0 when there is none). */
   .pz-table { overflow: clip; border-radius: 12px; }   /* (clip, not hidden: the heads still stick to the card) */
@@ -2067,8 +2067,8 @@ button.finding { cursor: pointer; }
   .pz-table thead th:first-child { text-align: left; padding-left: 10px; }
   .pz-table thead th:not(.num):not(:first-child):not(.ah) { display: none; }
   .pz-table th, .pz-table td { padding: .5em .1em; }
-  .pz-table tbody th[scope="row"] { display: flex; align-items: center; gap: 6px; padding: .55em 4px .55em 10px; min-width: 0; }
-  .pz .pz-table tbody th .pz-kick { font-size: 0; gap: 0; flex: none; align-self: stretch; width: 3px; border-radius: 2px; background: var(--site, transparent); }   /* (the site as a thin stroke in its colour beside the name) */
+  .pz-table tbody th[scope="row"] { display: block; padding: .55em 4px .55em 10px; min-width: 0; }
+  .pz .pz-table tbody th .pz-kick { display: block; width: auto; background: none; font-size: var(--s-cap); overflow-wrap: normal; }   /* (the heading in words and its site's colour over the name, as on the wide table and the tablet's note columns: a coloured stroke said nothing on its own, and the same stroke on every row of a treatment table said even less) */
   .pz-table .tn { min-width: 0; margin: 0; font-size: var(--s-lab); line-height: 1.15; overflow-wrap: normal; -webkit-hyphens: manual; hyphens: manual; }
   .pz-table .tw { display: block; min-width: 0; }
   .pz-table .vs { font-size: var(--s-cap); }
@@ -2078,7 +2078,7 @@ button.finding { cursor: pointer; }
   .pz-table td.asc .ap { display: block; white-space: nowrap; }
   .pz-table td.asc small { font-size: .85em; text-transform: uppercase; letter-spacing: .03em; color: var(--text-3); }
   .pz-table td.asc .sep { display: none; }   /* (no separator between the two stacked lines) */
-  .pz-table td.note { grid-column: 1 / -1; padding: 0 10px .6em 23px; font-size: var(--s-cap); text-align: left; }
+  .pz-table td.note { grid-column: 1 / -1; padding: 0 10px .6em 10px; font-size: var(--s-cap); text-align: left; }   /* (under the name) */
 }
 .pz-table tbody tr.static { cursor: default; }
 @media (hover: hover) { .pz-table tbody tr.static:hover { background: none; } }
@@ -2086,8 +2086,8 @@ button.finding { cursor: pointer; }
 .pz-table td.pend { color: var(--text-3); text-align: center; }
 .pz-table tr[data-arrived] td { animation: crossfade var(--d-surface) var(--ease) both; }
 /* A continued row (class pz-cont): one under a row with the same heading in the same site's colour (presenter.js sameHead) draws the heading once, over the first of them.
-   The heading stays in the row for a screen reader and takes no room: font-size 0, as the phone's site stroke does (no box, no text to measure, no height), so the
-   wide table, the tablet's note columns and the short inline rows all close up, and the phone's compact rows keep their stroke (its width and colour are untouched).
+   The heading stays in the row for a screen reader and takes no room: font-size 0 (no box, no text to measure, no height), so the
+   wide table, the tablet's note columns, the short inline rows and the phone's compact rows all close up.
    The rows follow under a lighter rule, and the name takes the heading's place. (tests/table-continued-rows.test.js) */
 .pz-table tbody tr.pz-cont { border-top-color: color-mix(in srgb, var(--border) 42%, transparent); }
 .pz-table tbody tr.pz-cont th .pz-kick { font-size: 0; }
@@ -2326,12 +2326,12 @@ button.finding { cursor: pointer; }
   .pz-table tr { grid-template-columns: minmax(10rem, 1.8fr) repeat(var(--nc, 7), minmax(0, 1fr)) var(--asc-w, 0px); }
   .pz-table thead th, .pz-table thead th.num { font-size: var(--s-cap); letter-spacing: .02em; }
   .pz-table thead th:first-child { padding-left: 14px; }
-  .pz-table tbody th[scope="row"] { gap: 8px; padding-left: 14px; }
+  .pz-table tbody th[scope="row"] { padding-left: 14px; }
   .pz-table .tn { font-size: var(--s-body); }
   .pz-table .vs { font-size: var(--s-cap); }
   .pz-table td.num { font-size: var(--s-val); }
   .pz-table td.asc { font-size: var(--s-lab); }
-  .pz-table td.note { padding-left: 31px; font-size: var(--s-lab); }
+  .pz-table td.note { padding-left: 14px; font-size: var(--s-lab); }
   .pz-table .pz-foot { position: static; }}
 /* An upright tablet's table with few columns and a text note or two (Doppler, TIPS Doppler, Endoscopy, Shunts) keeps the sideways
    layout: each note in its own column under its heading, and each row's kicker in its site's colour over the name (Mohammad, 17 Oct:

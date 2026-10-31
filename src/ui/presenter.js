@@ -26,12 +26,12 @@ import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?
 import { NODE_POS } from './anatomy.js?v=bd972c1896';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=1833de0a4f';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=16cbb77531';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
 import { createHvpgMonitor } from './hvpg-proc.js?v=4adad0cc7b';
-import { createTools } from './presenter-tools.js?v=5a9953dfd3';
-import { openHandout } from './handout.js?v=c85e5b3fc1';
+import { createTools } from './presenter-tools.js?v=60469ea9b3';
+import { openHandout } from './handout.js?v=4385072a2e';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js?v=c82b75e3d5';
@@ -39,12 +39,12 @@ import { frameFor, cancelFrame } from './frame.js?v=6a53e5fc6e';
 import { createFigureKey } from './figure-key.js?v=e41b9d0553';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=88bc8501e6';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=b813cd8b2f';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=b090e34f1e';
 import { clotWords } from './callout-math.js?v=20011c8729';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=27b4a3898e';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=53b9b4a1c9';
+import { anchorsOf, roomFor } from './cam-room.js?v=5bce3d1f62';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=9da13443fa';
@@ -843,7 +843,7 @@ function makeCalc() {
   const ready = (async () => {
     let w = null;
     try {
-      w = new Worker(new URL('../worker.js?v=45a886b944', import.meta.url), { type: 'module' });
+      w = new Worker(new URL('../worker.js?v=2d2907b8a5', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -857,7 +857,7 @@ function makeCalc() {
     } catch {
       if (w) { w.onmessage = w.onerror = null; w.terminate(); }   // (a worker that never said hello: not left running beside the page's own engine)
       try {
-        const { createCore } = await import('../worker-core.js?v=cb6829d893');
+        const { createCore } = await import('../worker-core.js?v=93592ee13c');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -2588,7 +2588,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const noteCols = notes.length && cols.length + (ascCols ? 2 : 0) + notes.length <= 4;
     // (A row under one with the same heading in the same site's colour is a continued row (pz-cont): the heading is printed once, over the first of
     // them, and the rest follow it under a lighter rule, so the learner reads "Non-selective beta-blocker" once, not twice. It stays in the
-    // row for a screen reader and for the phone's compact rows, whose site stroke is the heading there. table-continued-rows.test.js)
+    // row for a screen reader (the phone's compact rows show the heading over the name in words too, no stroke). table-continued-rows.test.js)
     return h('div', { class: 'pz-table' + (rows.length >= 7 ? ' long' : '') + (noteCols ? ' notecols' : '') + (focus ? ' pzv-focused' : '') }, h('table', { style: { '--nc': String(cols.length + (ascCols ? 2 : 0)), '--nn': String(notes.length), '--asc-w': '0px' } },
       h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => cutTh(k, COLS[k] || colExt(k)?.heading || k, CUT[k] ?? colExt(k)?.cut)),
         ascCols ? [cutTh('saag', h('abbr', { title: 'Serum−ascites albumin gradient' }, 'SAAG'), CUT.saag), cutTh('tp', h('abbr', { title: 'Ascites protein' }, 'Prot.'), CUT.tp)] : null,

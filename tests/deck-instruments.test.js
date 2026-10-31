@@ -63,7 +63,7 @@ test('V19: the open lumen is 1 minus the engine\'s occlusion, and the picture\'s
   // One reading: a single cause is not repeated beside the open share; both causes, or a stent's size, are.
   assert.equal(lumenFacts(lumenOf({ thrombus: { PV_TRUNK: 0.6 } }, 'PV_TRUNK')), '');
   assert.equal(lumenFacts(lumenOf({ stenosis: { TIPS: 0.6 } }, 'TIPS'), 9), '9 mm stent');
-  assert.equal(lumenFacts(lumenOf({ thrombus: { PV_TRUNK: 0.5 }, stenosis: { PV_TRUNK: 0.2 } }, 'PV_TRUNK')), 'Clot 50 % · narrowing 20 %');
+  assert.equal(lumenFacts(lumenOf({ thrombus: { PV_TRUNK: 0.5 }, stenosis: { PV_TRUNK: 0.2 } }, 'PV_TRUNK')), 'Clot 50% · narrowing 20%');
 });
 
 test('V27: made minus drained is the ascites made, from the fingerprint and from a live frame alike', async () => {

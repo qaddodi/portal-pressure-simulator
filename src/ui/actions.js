@@ -8,7 +8,7 @@ import { dopplerVel, flowReversed } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, hiddenNow } from './store.js?v=3611054974';
 import { fmt, fmtFlow, clamp } from './util.js?v=4c95f6eb28';
 import { PREGNANCY_INFO } from '../engine/scenario.js?v=bcedeba324';
-import { aboutVessel, aboutOrgan } from './about.js?v=fdb5291d30';
+import { aboutVessel, aboutOrgan } from './about.js?v=72d6ef636d';
 import { lobuleState } from './lobule-model.js?v=4ee92cd078';
 import { oxygenFor } from './blood.js?v=1eb39d1393';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=bd972c1896';
@@ -16,7 +16,7 @@ import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=bd972c1896';
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
-const pct = (v) => `${Math.round(v * 100)} %`;
+const pct = (v) => `${Math.round(v * 100)}%`;
 const mult = (v) => `×${v.toFixed(v < 10 ? 1 : 0)}`;
 const weeks = (v) => (v > 0 ? `${Math.round(v)} weeks` : 'Not pregnant');
 const HEP_VEIN = { RHV_IVC: 'R', POST_R_RHV: 'R', MHV_IVC: 'M', POST_R_MHV: 'M', POST_L_MHV: 'M', LHV_IVC: 'L', POST_L_LHV: 'L' };
@@ -82,7 +82,7 @@ export function cardFor(selIn, ctx) {
     verbs.push({ type: 'stat', label: 'Flow', value: (f) => `${fmtFlow(f.Q[k] * 0.06)} L/min` });
   } else if (isColl) {
     kicker = `Collateral · ${e.code || id}`; why = 'shunt';
-    verbs.push({ type: 'stat', label: 'Recruitment', value: (f) => `${Math.round(clamp(((f.slow.dEff?.[id] ?? f.slow.d[id]) - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1) * 100)} %` });
+    verbs.push({ type: 'stat', label: 'Recruitment', value: (f) => `${Math.round(clamp(((f.slow.dEff?.[id] ?? f.slow.d[id]) - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1) * 100)}%` });
     verbs.push({ type: 'toggle', id: 'occlude', key: 'occluded', label: id === 'C5' ? 'Occlude (BRTO)' : 'Occlude (plug)', icon: 'occlude',
       get: (p) => !!p.occluded[id], set: (p, v) => { if (v) p.occluded[id] = true; else delete p.occluded[id]; }, hist: `${e.label}: occlusion` });
     if (e.spontaneous || e.variant) verbs.push({ type: 'toggle', id: 'variant', key: 'spontaneous', label: 'Present in this patient', get: (p) => edgePresent(e, p), set: (p, v) => { p.spontaneous[id] = v; }, hist: `${e.label} present` });
@@ -164,7 +164,7 @@ export function edgeValue(e, f, lens, ref, range = false) {
   if (lens === 'flow') {
     const r = store.get().healthy?.Q?.[k];
     const d = r != null && Math.abs(r) > 0.3 ? ((Math.abs(q) - Math.abs(r * 0.06)) / Math.abs(r * 0.06)) * 100 : null;
-    return { v: fmtFlow(Math.abs(q)), u: 'L/min', d: d != null && Math.abs(d) >= 5 ? signed(d, `${Math.round(Math.abs(d))} %`) : null, up: d > 0 };
+    return { v: fmtFlow(Math.abs(q)), u: 'L/min', d: d != null && Math.abs(d) >= 5 ? signed(d, `${Math.round(Math.abs(d))}%`) : null, up: d > 0 };
   }
   if (lens === 'velocity' && e.kind === 'liver') return { v: '—', u: 'cm/s' };   // a lumped bed has no one velocity
   // Velocity reads as Doppler does (peak, see dopplerK), so it matches the figure callouts and the Doppler monitor.
@@ -213,7 +213,7 @@ function organCard(sel, ctx) {
       value: (f, lens, ref) => { const P = (f.Pf || f.P)[NI.SIN_R]; const r = ref?.[NI.SIN_R]; return { v: fmt(P, 1), u: 'mmHg sinusoids', d: r != null && Math.abs(P - r) >= 1 ? signed(P - r, fmt(Math.abs(P - r), 1)) : null, up: r != null && P > r }; },
       verbs: [
         { type: 'slider', id: 'cirrhosis', key: 'cirrhosis', label: 'Cirrhosis', icon: 'liver', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.cirrhosis, set: (p, v) => { p.cirrhosis = v; }, hist: 'Cirrhosis',
-          sub: '40 % compensated · 60 % CSPH · 85 % decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting. Jump months ahead on the timeline to watch collaterals open.' },
+          sub: '40% compensated · 60% CSPH · 85% decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting. Jump months ahead on the timeline to watch collaterals open.' },
         { type: 'button', id: 'lobule', label: 'Open the lobule view', icon: 'explore', run: () => ctx.zoomLobule(), note: () => 'Fibrosis of the portal tract, sinusoids or central vein is set there, on each part’s card.' },
         stat('HVPG', (f) => (hiddenNow()?.has('trueHVPG') ? 'Not measured' : `${fmt(f.metrics.hvpg, 1)} mmHg`)),
       ],
@@ -268,7 +268,7 @@ function organCard(sel, ctx) {
 
 // ── The lobule's parts (the lobule view selects them) ────────────────────
 const CIRRHOSIS = { type: 'slider', id: 'cirrhosis', key: 'cirrhosis', label: 'Cirrhosis', icon: 'liver', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.cirrhosis, set: (p, v) => { p.cirrhosis = v; }, hist: 'Cirrhosis',
-  sub: '40 % compensated · 60 % CSPH · 85 % decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting.' };
+  sub: '40% compensated · 60% CSPH · 85% decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting.' };
 const ZONE_NAME = { pre: 'portal tract', sin: 'sinusoids', post: 'central vein' };
 /** Fibrosis in one zone of every lobule (both lobes: one lobule stands for the liver). */
 const fibrosisVerb = (z) => ({ type: 'slider', id: 'fibrosis', key: 'fibrosis', label: `Fibrosis · ${ZONE_NAME[z]}`, icon: 'fibrosis', min: 1, max: 80, step: 0.5, def: 1, format: mult,
@@ -281,7 +281,7 @@ const portalBack = (m) => flowReversed(m.portalQ, m.portalRef);
 
 function lobuleCard(sel, ctx) {
   const L = (f) => lobuleState(f, store.get());
-  const mm = (v) => `${fmt(v, 1)} mmHg`, pc = (v) => `${Math.round(v * 100)} %`;
+  const mm = (v) => `${fmt(v, 1)} mmHg`, pc = (v) => `${Math.round(v * 100)}%`;
   const stat = (label, value) => ({ type: 'stat', label, value: (f) => value(L(f), f) });
   const pv = (v) => (f, lens, ref) => { const m = L(f); const x = v(m); const r = ref ? v({ P1: ref[NI.RPV], P2: ref[NI.SIN_R], P3: ref[NI.CV_R] }) : null; return { v: fmt(x, 1), u: 'mmHg', d: r != null && Math.abs(x - r) >= 1 ? signed(x - r, fmt(Math.abs(x - r), 1)) : null, up: r != null && x > r }; };
   const about = (fn) => ({ type: 'about', text: (f) => (f ? fn(L(f)) : []) });

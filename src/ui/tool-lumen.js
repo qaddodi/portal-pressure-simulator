@@ -88,7 +88,7 @@ export function lumenWords({ thrombus, stenosis, occlusion, stent }) {
 export function lumenFacts({ thrombus = 0, stenosis = 0 }, stentD = null) {
   const out = [];
   if (stentD != null) out.push(`${stentD} mm stent`);
-  if (thrombus >= 0.005 && stenosis >= 0.005) out.push(`Clot ${pct(thrombus)} %`, `narrowing ${pct(stenosis)} %`);
+  if (thrombus >= 0.005 && stenosis >= 0.005) out.push(`Clot ${pct(thrombus)}%`, `narrowing ${pct(stenosis)}%`);
   return out.join(' · ');
 }
 const pct = (x) => `${Math.round(clamp(x, 0, 1) * 100)}`;
@@ -142,7 +142,7 @@ export function createLumen() {
     // The ring eases in and out as the slide stents the vein or lets it go (a vessel drawn afresh shows it at once: configure).
     ring.style.opacity = stent ? '1' : '0';
     tissue.style.opacity = Math.min(1, x.stenosis / 0.06).toFixed(3);
-    set(inNum, `${pct(L.occlusion)} %`);
+    set(inNum, `${pct(L.occlusion)}%`);
     // With nothing filled there is no number and the name sits at the centre; as the clot comes the name eases up and the
     // number fades in under it once clear (and back as it leaves), following the easing picture, never popping.
     const b = lumenBlock(L.occlusion);

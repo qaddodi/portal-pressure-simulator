@@ -78,11 +78,11 @@ export function aboutVessel(e, f, st) {
   }
   if (e.kind === 'collateral') {
     const d = f.slow.dEff?.[e.id] ?? f.slow.d[e.id], r = clamp((d - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1);
-    if (r > 0.1) out.push(`Recruited to ${Math.round(r * 100)} % of its maximum width by the pressure behind it.`);
+    if (r > 0.1) out.push(`Recruited to ${Math.round(r * 100)}% of its maximum width by the pressure behind it.`);
     else out.push('Still closed: portal pressure is not high enough to open it.');
   }
-  if (p.thrombus?.[e.id] > 0.05) out.push(`A clot fills ${Math.round(p.thrombus[e.id] * 100)} % of the lumen.`);
-  if (p.stenosis?.[e.id] > 0.05) out.push(`Narrowed by ${Math.round(p.stenosis[e.id] * 100)} %: resistance rises with the fourth power of the radius.`);
+  if (p.thrombus?.[e.id] > 0.05) out.push(`A clot fills ${Math.round(p.thrombus[e.id] * 100)}% of the lumen.`);
+  if (p.stenosis?.[e.id] > 0.05) out.push(`Narrowed by ${Math.round(p.stenosis[e.id] * 100)}%: resistance rises with the fourth power of the radius.`);
   if (st.healthy?.P && !isArt && !st.imaging) {
     // The same breath-smoothed pressure, at the same station, as the card's chip (actions.js edgeValue),
     // and its rounded rise, so the sentence and the card's change (+n) always agree.

@@ -42,7 +42,7 @@ function defs(m, eng) {
     { id: 'HIGH_SHUNT', on: m.shuntFraction > 0.5, off: m.shuntFraction < 0.45, severity: 'caution', anchor: 'TIPS',
       title: 'High portosystemic shunt fraction', detail: 'Much of the gut blood bypasses the liver: encephalopathy risk.' },
     { id: 'LIVER_HYPOPERFUSION', on: m.liverPerfPct < 60, off: m.liverPerfPct > 65, severity: 'caution', anchor: 'SIN_R',
-      title: 'Liver hypoperfusion', detail: 'Total sinusoidal flow is <60 % of normal.' },
+      title: 'Liver hypoperfusion', detail: 'Total sinusoidal flow is <60% of normal.' },
     { id: 'CAUDATE', on: Qf('CAUD') > 3 * (eng.refQ ? eng.refQ[eng.ei.CAUD] : 0.8), off: Qf('CAUD') < 2.5 * (eng.refQ ? eng.refQ[eng.ei.CAUD] : 0.8), severity: 'info', anchor: 'CAUD',
       title: 'Caudate lobe carries the outflow', detail: 'Its own veins drain directly into the IVC: it is spared and hypertrophies.' },
     { id: 'RA_HIGH', on: m.ra > 10, off: m.ra < 9, severity: 'caution', anchor: 'RA',
@@ -55,7 +55,7 @@ function defs(m, eng) {
   for (const [id, [name, anchor]] of Object.entries(COLLATERAL_NAMES)) {
     const f = id === 'C2' ? Math.max(0, Qf('C2')) : Math.max(0, Qf(id));
     list.push({ id: 'COLL_' + id, on: f / splIn > 0.05, off: f / splIn < 0.03, severity: 'info', anchor,
-      title: `Collateral recruited: ${name}`, detail: `${((f / splIn) * 100).toFixed(0)} % of splanchnic inflow now takes this route.` });
+      title: `Collateral recruited: ${name}`, detail: `${((f / splIn) * 100).toFixed(0)}% of splanchnic inflow now takes this route.` });
   }
   return list;
 }

@@ -70,12 +70,12 @@ test('no stale "Measure" call to action on the bar\'s tile, which is not a butto
   assert.match(css, /\.vdock \.readouts \.metric \.status\.unmeas::after \{ content: 'Unmeasured'; font-size: var\(--fs-12\); \}/);
 });
 
-test('Settings keeps the model rows apart from the accessibility switch, and a Why? name wraps rather than ending in an ellipsis', () => {
+test('Settings gives the model rows their own heading under the accessibility switch, and a Why? name wraps rather than ending in an ellipsis', () => {
   const main = src('src/ui/main.js');
   const settings = main.slice(main.indexOf('function openSettings('), main.indexOf('function presenterSettings('));
   const blur = settings.indexOf("'Blur effect'"), hvpg = settings.indexOf("'Always show HVPG'");
   assert.ok(blur > 0 && hvpg > blur, 'the HVPG switch follows the blur switch');
-  assert.ok(settings.slice(blur, hvpg).includes("class: 'menu-sep'"), 'a divider between them: Always show HVPG is not an accessibility setting');
+  assert.ok(settings.slice(blur, hvpg).includes("class: 'menu-title' }, 'Model'"), 'a heading between them: Always show HVPG is not an accessibility setting, and a rule alone left it under that heading');
   assert.ok(settings.indexOf("'Advanced physiology'") > hvpg, 'the model rows keep together');
   const rule = css.match(/\n\.wf-row \.lab \{[^}]*\}/)[0];
   assert.doesNotMatch(rule, /ellipsis|nowrap|overflow: hidden/);
@@ -135,4 +135,26 @@ test('a coloring has one name: the Colored by menu and the pill say the same wor
   const b = Object.fromEntries([...modes.matchAll(/(\w+): '([^']+)'/g)].map((m) => [m[1], m[2]]));
   assert.ok(Object.keys(a).length >= 9);
   assert.deepEqual(a, b);
+});
+
+test('the Guide lists every key the figure answers: dye, zoom, color lens, undo, step, settle', () => {
+  const main = src('src/ui/main.js');
+  const guide = main.slice(main.indexOf('function openHelp('), main.indexOf('// Help and About open at a named section'));
+  for (const kbd of ["'J', 'Inject dye (hold for longer)'", "'Ctrl/⌘ + / − / 0', 'Zoom in / out / fit the figure'", "'L', 'Next vessel coloring", "'Z', 'Settle to equilibrium'", "'.', 'Step'"]) assert.ok(guide.includes(kbd), kbd);
+  // each is a key the handler really takes
+  const keys = main.slice(main.indexOf("addEventListener('keydown', (e) => {\n    const tag"), main.indexOf('// ── Projector look while presenting'));
+  assert.match(keys, /k === 'j'/);
+  assert.match(keys, /e\.key === '=' \|\| e\.key === '\+'/);
+  assert.match(keys, /e\.key === '0' \? 'fit'/);
+});
+
+test('a percentage is "75%" everywhere a person reads it: the cards, the Why bars, the toasts and the timeline match the figure and the slides', () => {
+  for (const f of ['src/ui/actions.js', 'src/ui/inspector.js', 'src/ui/about.js', 'src/ui/tool-lumen.js', 'src/ui/instruments.js', 'src/ui/chart.js', 'src/engine/explain.js', 'src/engine/events.js']) {
+    const code = src(f).split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+    assert.doesNotMatch(code, /(\d|\}|\)) %(?=['"`.,:;)\]]| (of|stays|compensated|CSPH|decompensated)\b)/, `${f}: a space before the percent sign`);
+  }
+  assert.match(src('src/ui/actions.js'), /const pct = \(v\) => `\$\{Math\.round\(v \* 100\)\}%`;/);
+  assert.match(src('src/ui/inspector.js'), /sub: '40% compensated · 60% CSPH · 85% decompensated'/);
+  // (a unit phrase keeps its space: "liver blood flow in % of normal")
+  assert.match(src('src/ui/presenter.js'), /liver blood flow in % of normal/);
 });

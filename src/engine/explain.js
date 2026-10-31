@@ -2,7 +2,7 @@
 // Each factor that differs from the healthy state is reverted in isolation on a scratch engine;
 // its contribution is (current − reverted). Contributions are approximate: they need not sum exactly.
 
-import { Engine } from './engine.js?v=10e30f720b';
+import { Engine } from './engine.js?v=de104d460f';
 import { computeMetrics } from './metrics.js?v=703f122bba';
 import { defaultParams, DRUGS } from './scenario.js?v=bcedeba324';
 import { EDGES, dMinOf } from './topology.js?v=4044766e96';
@@ -38,15 +38,15 @@ function factors(eng, metricId) {
   const out = [];
   const add = (label, say, revert, kind = 'param') => out.push({ label, say, revert, kind });
   const lc = (l) => l.charAt(0).toLowerCase() + l.slice(1);
-  if (p.cirrhosis > 0) add(`Cirrhosis ${Math.round(p.cirrhosis * 100)} %`, 'the cirrhosis', (e) => { e.params.cirrhosis = 0; });
+  if (p.cirrhosis > 0) add(`Cirrhosis ${Math.round(p.cirrhosis * 100)}%`, 'the cirrhosis', (e) => { e.params.cirrhosis = 0; });
   for (const lobe of ['R', 'L']) for (const z of ['pre', 'sin', 'post']) {
     if ((p.fibrosis[lobe][z] ?? 1) !== 1) {
       const zone = { pre: 'Presinusoidal', sin: 'Sinusoidal', post: 'Postsinusoidal' }[z], side = lobe === 'R' ? 'right' : 'left';
       add(`${zone} fibrosis, ${side} lobe ×${p.fibrosis[lobe][z].toFixed(0)}`, `${lc(zone)} fibrosis in the ${side} lobe`, (e) => { e.params.fibrosis[lobe][z] = 1; });
     }
   }
-  for (const [id, v] of Object.entries(p.stenosis)) if (v > 0) add(`Stenosis of ${edgeLabel(id)} ${Math.round(v * 100)} %`, `the narrowed ${lc(edgeLabel(id))}`, (e) => { delete e.params.stenosis[id]; });
-  for (const [id, v] of Object.entries(p.thrombus)) if (v > 0) add(`Clot in ${edgeLabel(id)} ${Math.round(v * 100)} %`, `the clot in the ${lc(edgeLabel(id))}`, (e) => { delete e.params.thrombus[id]; });
+  for (const [id, v] of Object.entries(p.stenosis)) if (v > 0) add(`Stenosis of ${edgeLabel(id)} ${Math.round(v * 100)}%`, `the narrowed ${lc(edgeLabel(id))}`, (e) => { delete e.params.stenosis[id]; });
+  for (const [id, v] of Object.entries(p.thrombus)) if (v > 0) add(`Clot in ${edgeLabel(id)} ${Math.round(v * 100)}%`, `the clot in the ${lc(edgeLabel(id))}`, (e) => { delete e.params.thrombus[id]; });
   if (p.splenicRx) add(p.splenicRx === 2 ? 'Splenectomy' : 'Partial splenic embolization', p.splenicRx === 2 ? 'the splenectomy' : 'the partial splenic embolization', (e) => { e.params.splenicRx = 0; });
   if (p.splanchnicTone !== 1) add(p.splanchnicTone < 1 ? 'Splanchnic vasodilation, set' : 'Splanchnic vasoconstriction, set', p.splanchnicTone < 1 ? 'the splanchnic vasodilation you set' : 'the splanchnic vasoconstriction you set', (e) => { e.params.splanchnicTone = 1; });
   if (p.meal > 0) add('Splanchnic vasodilation after a meal', 'the meal', (e) => { e.params.meal = 0; });

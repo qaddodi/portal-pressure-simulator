@@ -39,7 +39,7 @@ export const ENDOSCOPY = {
       kicker: 'Size and signs',
       title: 'Red wale marks are a separate finding, not another size',
       line: 'Red wale marks raise the risk of bleeding on a varix of any size, and switching them off leaves the size as it was.',
-      notes: 'Red wale marks are thin spots in the varix wall; cherry-red spots are another red sign. AASLD 2024 counts a varix of any size with red wale marks as high risk, and the risk of a first bleed rises with the size, the red signs and the Child–Pugh class. In the model the marks appear as the wall stress nears the tear point (70 % of it); the switch overrides that rule only to show that a red sign and a size are two findings.',
+      notes: 'Red wale marks are thin spots in the varix wall; cherry-red spots are another red sign. AASLD 2024 counts a varix of any size with red wale marks as high risk, and the risk of a first bleed rises with the size, the red signs and the Child–Pugh class. In the model the marks appear as the wall stress nears the tear point (70% of it); the switch overrides that rule only to show that a red sign and a size are two findings.',
       ask: ['A small varix has red wale marks. Does that make it large?', 'No. Size and red signs are separate findings, and a small varix with red signs is already high risk (AASLD 2024).'],
     },
     {

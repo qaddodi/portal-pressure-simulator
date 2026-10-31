@@ -8,8 +8,8 @@
 import { store, updateParams } from './store.js?v=3611054974';
 import { h, icon, svgIcon, toast, reconcile } from './util.js?v=4c95f6eb28';
 import { DRUGS } from '../engine/scenario.js?v=bcedeba324';
-import { activeInterventions } from './inspector.js?v=fe8c66d302';
-import { DRUG_NOTE } from './actions.js?v=2ab484a8da';
+import { activeInterventions } from './inspector.js?v=b81f6bd326';
+import { DRUG_NOTE } from './actions.js?v=1ac1815d07';
 import { factTarget } from './fact-target.js?v=50935889f6';
 
 
@@ -103,7 +103,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     // One line per order; what it does is in its tooltip, so the list stays short.
     const btn = (ic, label, run, sub) => { const b = h('button', { class: 'order-btn', title: sub ? `${label}: ${sub}` : label }, ic ? svgIcon(ic, 'ac-ic') : null, h('span', { class: 'ob-t' }, label)); b.addEventListener('click', run); return b; };
     const fluids = h('div', { class: 'order-grid three' },
-      btn(null, '1 L crystalloid', () => action({ kind: 'infuse', fluid: 'crystalloid' }), 'about 25 % stays in the vessels'),
+      btn(null, '1 L crystalloid', () => action({ kind: 'infuse', fluid: 'crystalloid' }), 'about 25% stays in the vessels'),
       btn(null, '1 unit PRBC', () => action({ kind: 'infuse', fluid: 'prbc' }), 'packed red cells'),
       btn(null, 'Albumin', () => action({ kind: 'infuse', fluid: 'albumin' }), 'raises oncotic pressure'));
     const proc = (ic, label, sub, run) => btn(ic, label, run, sub);

@@ -12,7 +12,7 @@ const nextFrame = frameFor('inspector');
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
-const pct = (v) => `${Math.round(v * 100)} %`;
+const pct = (v) => `${Math.round(v * 100)}%`;
 const mult = (v) => `×${v.toFixed(v < 10 ? 2 : 0)}`;
 const tone = (v) => (Math.abs(v - 1) < 0.01 ? 'normal' : v < 1 ? `×${v.toFixed(2)} · dilated` : `×${v.toFixed(2)} · constricted`);
 const occl = (id) => ({ get: (p) => p.thrombus[id] || 0, set: (p, v) => { if (v <= 0) delete p.thrombus[id]; else p.thrombus[id] = v; } });
@@ -24,7 +24,7 @@ const prop = (k) => ({ get: (p) => p[k], set: (p, v) => { p[k] = v; } });
 export const CONTROLS = {
   cirrhosis: { type: 'slider', key: 'cirrhosis', label: 'Cirrhosis severity', min: 0, max: 1, step: 0.01, ...prop('cirrhosis'), format: pct, def: 0,
     info: 'Macro control: sinusoidal fibrosis and capillarization, a stiffer liver, less buffer reserve and arterioportal shunting. Run the Months clock to watch collaterals and varices develop.',
-    sub: '40 % compensated · 60 % CSPH · 85 % decompensated' },
+    sub: '40% compensated · 60% CSPH · 85% decompensated' },
   fibPre: { type: 'slider', key: 'fibrosis', label: 'Presinusoidal', min: 1, max: 80, step: 0.5, ...fibAll('pre'), format: mult, def: 1, info: 'Resistance in the portal tracts and venules (e.g. schistosomiasis). Raises portal pressure without raising the wedged pressure.' },
   fibSin: { type: 'slider', key: 'fibrosis', label: 'Sinusoidal', min: 1, max: 40, step: 0.5, ...fibAll('sin'), format: mult, def: 1, info: 'Extra sinusoidal resistance on top of the cirrhosis macro.' },
   fibPost: { type: 'slider', key: 'fibrosis', label: 'Postsinusoidal', min: 1, max: 40, step: 0.5, ...fibAll('post'), format: mult, def: 1, info: 'Central vein / terminal hepatic venule (e.g. sinusoidal obstruction syndrome).' },
@@ -39,7 +39,7 @@ export const CONTROLS = {
   contractility: { type: 'slider', key: 'contractility', label: 'Right-heart contractility', min: 0.15, max: 1.6, step: 0.01, ...prop('contractility'), format: pct, def: 1, normal: [0.85, 1.2] },
   tr: { type: 'slider', key: 'tr', label: 'Tricuspid regurgitation', min: 0, max: 1, step: 0.01, ...prop('tr'), format: pct, def: 0, info: 'Systolic backflow into the right atrium: large v-waves reach the liver (turn on Pulsatile mode and use the Doppler).' },
   pericardial: { type: 'slider', key: 'pericardial', label: 'Pericardial constraint', min: 0, max: 1, step: 0.01, ...prop('pericardial'), format: pct, def: 0 },
-  grShunt: { type: 'toggle', key: 'spontaneous', label: 'Gastrorenal shunt present', get: (p) => p.spontaneous.C5 !== false, set: (p, v) => { p.spontaneous.C5 = v; }, def: false, info: 'Present in most patients with gastric varices (about 80–85 %) and required for them: fundal varices drain through it into the left renal vein. It stays small until the portal-to-caval gradient is high.' },
+  grShunt: { type: 'toggle', key: 'spontaneous', label: 'Gastrorenal shunt present', get: (p) => p.spontaneous.C5 !== false, set: (p, v) => { p.spontaneous.C5 = v; }, def: false, info: 'Present in most patients with gastric varices (about 80–85%) and required for them: fundal varices drain through it into the left renal vein. It stays small until the portal-to-caval gradient is high.' },
   srShunt: { type: 'toggle', key: 'spontaneous', label: 'Splenorenal shunt present', get: (p) => p.spontaneous.C6, set: (p, v) => { p.spontaneous.C6 = v; }, info: 'A large spontaneous shunt from the splenic to the left renal vein.' },
   tips: { type: 'toggle', key: 'tips', label: 'TIPS', get: (p) => p.tips.on, set: (p, v) => { p.tips.on = v; }, info: 'Transjugular intrahepatic portosystemic shunt, right portal → right hepatic vein. You can also drag one with the Stent tool.' },
   tipsD: { type: 'slider', key: 'tips', label: 'Stent diameter', min: 6, max: 12, step: 0.5, get: (p) => p.tips.d, set: (p, v) => { p.tips.d = v; }, format: (v) => `${v.toFixed(1)} mm`, def: 8, info: 'Resistance ∝ 1/d⁴ (Poiseuille): small changes in diameter matter a lot.', showIf: (p) => p.tips.on },
@@ -201,7 +201,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
             stat('Velocity', (f) => `${fmt(Math.abs(dopplerVel(f, k)), 1)} cm/s`),   // Doppler (peak), like the callouts
             stat('Diameter', (f) => `${fmt(f.D[k], 1)} mm`),
             stat('Resistance', R),
-            isColl ? stat('Recruitment', (f) => `${Math.round(clamp(((f.slow.dEff?.[id] ?? f.slow.d[id]) - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1) * 100)} %`) : stat('Healthy flow', () => { const q = store.get().healthy?.Q?.[k]; return q != null ? `${fmtFlow(q * 0.06)} L/min` : '—'; })),
+            isColl ? stat('Recruitment', (f) => `${Math.round(clamp(((f.slow.dEff?.[id] ?? f.slow.d[id]) - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1) * 100)}%`) : stat('Healthy flow', () => { const q = store.get().healthy?.Q?.[k]; return q != null ? `${fmtFlow(q * 0.06)} L/min` : '—'; })),
           h('div', { class: 'btn-row' },
             h('button', { class: 'btn sm', onclick: () => { onAction({ kind: 'probe', id }); onOpenTab('doppler'); } }, icon('doppler'), 'Doppler here'),
             whyBtn(['PV_TRUNK', 'SMV_CONF', 'SV_CONF', 'PVH_R', 'PVH_L'].includes(id) ? 'pvFlow' : isColl ? 'shunt' : 'pv'))),
@@ -232,10 +232,10 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   }
 
   const ORGAN_ABOUT = {
-    liver: ['Organ', 'Liver', 'Blood crosses three resistances in series: portal venules (presinusoidal), sinusoids and central veins (postsinusoidal). Cirrhosis raises sinusoidal resistance; schistosomiasis raises it in the portal tracts; sinusoidal obstruction syndrome, in the central veins. The hepatic artery buffers falls in portal flow.', [['Sinusoids (R)', (f) => fp((f.Pf || f.P)[NI.SIN_R]).join(' ')], ['HVPG', (f) => (hiddenNow()?.has('trueHVPG') ? 'Not measured' : `${fmt(f.metrics.hvpg, 1)} mmHg`)], ['Liver perfusion', (f) => `${Math.round(f.metrics.liverPerfPct)} %`], ['Hepatic artery flow', (f) => `${fmtFlow(f.metrics.arterialIn)} L/min`]], 'hvpg'],
+    liver: ['Organ', 'Liver', 'Blood crosses three resistances in series: portal venules (presinusoidal), sinusoids and central veins (postsinusoidal). Cirrhosis raises sinusoidal resistance; schistosomiasis raises it in the portal tracts; sinusoidal obstruction syndrome, in the central veins. The hepatic artery buffers falls in portal flow.', [['Sinusoids (R)', (f) => fp((f.Pf || f.P)[NI.SIN_R]).join(' ')], ['HVPG', (f) => (hiddenNow()?.has('trueHVPG') ? 'Not measured' : `${fmt(f.metrics.hvpg, 1)} mmHg`)], ['Liver perfusion', (f) => `${Math.round(f.metrics.liverPerfPct)}%`], ['Hepatic artery flow', (f) => `${fmtFlow(f.metrics.arterialIn)} L/min`]], 'hvpg'],
     heart: ['Organ', 'Right heart', 'The right atrium is where both cavae end. Its pressure is the floor of the whole venous system: a failing right ventricle or tricuspid regurgitation raises every pressure upstream, including the hepatic veins, so the HVPG stays normal.', [['Right atrium', (f) => fp((f.Pf || f.P)[NI.RA]).join(' ')], ['Cardiac output', (f) => `${fmtFlow(f.metrics.co)} L/min`], ['MAP', (f) => `${fmt(f.metrics.map, 0)} mmHg`], ['Heart rate', (f) => `${fmt(f.metrics.hr, 0)} /min`]], 'ra'],
-    varices: ['Collateral bed', 'Esophageal varices', 'Submucosal veins of the lower esophagus fed by the left gastric (coronary) vein and draining to the azygos. Wall stress follows Laplace: σ = ΔP · r / w, so large thin-walled varices rupture.', [['Pressure', (f) => fp((f.Pf || f.P)[NI.VAR]).join(' ')], ['Diameter', (f) => `${fmt(f.metrics.varix.d, 1)} mm`], ['Wall stress', (f) => `${Math.round(f.metrics.varix.ratioShown * 100)} % of rupture`], ['Grade', (f) => f.metrics.varix.grade.label]], 'varix'],
-    gastric: ['Collateral bed', 'Fundal varices', 'Fed by the short and posterior gastric veins, often draining through a gastrorenal shunt to the left renal vein. They bleed at lower pressures than esophageal varices; BRTO occludes the shunt.', [['Pressure', (f) => fp((f.Pf || f.P)[NI.GV]).join(' ')], ['Diameter', (f) => `${fmt(f.metrics.gastricVarix.d, 1)} mm`], ['Wall stress', (f) => `${Math.round(f.metrics.gastricVarix.ratioShown * 100)} % of rupture`]], 'varix'],
+    varices: ['Collateral bed', 'Esophageal varices', 'Submucosal veins of the lower esophagus fed by the left gastric (coronary) vein and draining to the azygos. Wall stress follows Laplace: σ = ΔP · r / w, so large thin-walled varices rupture.', [['Pressure', (f) => fp((f.Pf || f.P)[NI.VAR]).join(' ')], ['Diameter', (f) => `${fmt(f.metrics.varix.d, 1)} mm`], ['Wall stress', (f) => `${Math.round(f.metrics.varix.ratioShown * 100)}% of rupture`], ['Grade', (f) => f.metrics.varix.grade.label]], 'varix'],
+    gastric: ['Collateral bed', 'Fundal varices', 'Fed by the short and posterior gastric veins, often draining through a gastrorenal shunt to the left renal vein. They bleed at lower pressures than esophageal varices; BRTO occludes the shunt.', [['Pressure', (f) => fp((f.Pf || f.P)[NI.GV]).join(' ')], ['Diameter', (f) => `${fmt(f.metrics.gastricVarix.d, 1)} mm`], ['Wall stress', (f) => `${Math.round(f.metrics.gastricVarix.ratioShown * 100)}% of rupture`]], 'varix'],
     spleen: ['Organ', 'Spleen', 'Portal hypertension congests and enlarges the spleen, which sequesters platelets. Splenic vein thrombosis isolates it: sinistral portal hypertension with fundal varices.', [['Length', (f) => `${fmt(f.metrics.spleen.length, 1)} cm`], ['Platelets (illustrative)', (f) => `${(Math.round(f.metrics.spleen.platelets) * 1000).toLocaleString('en-US')}/µL`]], 'spleen'],
     abdomen: ['Peritoneum', 'Abdomen & ascites', 'Ascites forms when filtration from the sinusoids and gut capillaries outpaces lymph drainage (Starling). Sinusoidal pressure and albumin decide the balance; intra-abdominal pressure rises as it accumulates.', [['Ascites', (f) => `${fmt(f.metrics.ascites.volume / 1000, 2)} L`], ['Formation', (f) => `${fmt(liveBalance(f.metrics.ascites.ratePerDay), 0)} mL/day`], ['IAP', (f) => `${fmt(f.metrics.ascites.iap, 1)} mmHg`], ['Hepatic lymph', (f) => `${fmt(f.metrics.ascites.hepLymph, 1)} mL/min`]], 'ascites'],
   };
@@ -250,7 +250,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
 
   function aboutEdge(e) {
     const txt = {
-      PV_TRUNK: 'Carries about 75 % of liver blood flow (≈ 1.1 L/min). Normal Doppler velocity 15–40 cm/s, toward the liver (the mean across the lumen is about 0.57 of that). The portal system has no valves: flow goes wherever the gradient points.',
+      PV_TRUNK: 'Carries about 75% of liver blood flow (≈ 1.1 L/min). Normal Doppler velocity 15–40 cm/s, toward the liver (the mean across the lumen is about 0.57 of that). The portal system has no valves: flow goes wherever the gradient points.',
       C1a: 'The left gastric (coronary) vein feeds the esophageal submucosal plexus: the source of esophageal varices.',
       C1b: 'Esophageal varices drain to the azygos vein and SVC. Modeled wall stress follows ΔP · r / w (an educational index, not a measured stress).',
       C2: 'Short and posterior gastric veins connect the splenic vein to the fundus: the route of isolated gastric varices in splenic vein thrombosis.',
@@ -306,15 +306,15 @@ export function activeInterventions(p) {
   const out = [];
   const add = (key, label, remove) => out.push({ key, label, remove });
   const zn = { pre: 'Presinusoidal', sin: 'Sinusoidal', post: 'Postsinusoidal' };
-  if (p.cirrhosis > 0) add('cirrhosis', `Cirrhosis ${Math.round(p.cirrhosis * 100)} %`, (q) => { q.cirrhosis = 0; });
+  if (p.cirrhosis > 0) add('cirrhosis', `Cirrhosis ${Math.round(p.cirrhosis * 100)}%`, (q) => { q.cirrhosis = 0; });
   for (const z of ['pre', 'sin', 'post']) {
     const r = p.fibrosis.R[z], l = p.fibrosis.L[z];
     if (r !== 1 && Math.abs(r - l) < 1e-9) add('fib:' + z, `${zn[z]} fibrosis ×${r.toFixed(r < 10 ? 1 : 0)}`, (q) => { q.fibrosis.R[z] = 1; q.fibrosis.L[z] = 1; });
     else for (const lobe of ['R', 'L']) if (p.fibrosis[lobe][z] !== 1) add(`fib:${lobe}:${z}`, `${zn[z]} fibrosis, ${lobe === 'R' ? 'right' : 'left'} lobe ×${p.fibrosis[lobe][z].toFixed(1)}`, (q) => { q.fibrosis[lobe][z] = 1; });
   }
   const lab = (id) => EDGES[EI[id]]?.label || id;
-  for (const [id, v] of Object.entries(p.stenosis)) add('sten:' + id, `${lab(id)} narrowed ${Math.round(v * 100)} %`, (q) => { delete q.stenosis[id]; });
-  for (const [id, v] of Object.entries(p.thrombus)) add('thr:' + id, `${lab(id)} thrombus ${Math.round(v * 100)} %`, (q) => { delete q.thrombus[id]; });
+  for (const [id, v] of Object.entries(p.stenosis)) add('sten:' + id, `${lab(id)} narrowed ${Math.round(v * 100)}%`, (q) => { delete q.stenosis[id]; });
+  for (const [id, v] of Object.entries(p.thrombus)) add('thr:' + id, `${lab(id)} thrombus ${Math.round(v * 100)}%`, (q) => { delete q.thrombus[id]; });
   for (const [k, on] of Object.entries(p.drugs)) if (on) add('drug:' + k, DRUGS[k].label, (q) => { q.drugs[k] = false; });
   if (p.splenicRx) add('splenicRx', p.splenicRx === 2 ? 'Splenectomy' : 'Partial splenic embolization', (q) => { q.splenicRx = 0; });
   if (p.tips.on) add('tips', `TIPS ${p.tips.d} mm`, (q) => { q.tips.on = false; });
@@ -329,10 +329,10 @@ export function activeInterventions(p) {
   if (p.splanchnicTone !== 1) add('splTone', `Splanchnic tone ×${p.splanchnicTone.toFixed(2)}`, (q) => { q.splanchnicTone = 1; });
   if (p.meal > 0) add('meal', 'After a meal', (q) => { q.meal = 0; });
   if (p.systemicTone !== 1) add('sysTone', `Systemic tone ×${p.systemicTone.toFixed(2)}`, (q) => { q.systemicTone = 1; });
-  if (p.contractility !== 1) add('contractility', `RV contractility ${Math.round(p.contractility * 100)} %`, (q) => { q.contractility = 1; });
-  if (p.tr > 0) add('tr', `Tricuspid regurgitation ${Math.round(p.tr * 100)} %`, (q) => { q.tr = 0; });
-  if (p.pericardial > 0) add('pericardial', `Pericardial constraint ${Math.round(p.pericardial * 100)} %`, (q) => { q.pericardial = 0; });
-  if (p.apShunt > 0) add('apShunt', `Arterioportal shunting ${Math.round(p.apShunt * 100)} %`, (q) => { q.apShunt = 0; });
+  if (p.contractility !== 1) add('contractility', `RV contractility ${Math.round(p.contractility * 100)}%`, (q) => { q.contractility = 1; });
+  if (p.tr > 0) add('tr', `Tricuspid regurgitation ${Math.round(p.tr * 100)}%`, (q) => { q.tr = 0; });
+  if (p.pericardial > 0) add('pericardial', `Pericardial constraint ${Math.round(p.pericardial * 100)}%`, (q) => { q.pericardial = 0; });
+  if (p.apShunt > 0) add('apShunt', `Arterioportal shunting ${Math.round(p.apShunt * 100)}%`, (q) => { q.apShunt = 0; });
   if (p.habrStrength !== 1) add('habr', `Arterial buffer ×${p.habrStrength.toFixed(2)}`, (q) => { q.habrStrength = 1; });
   if (p.gestation > 0) add('gestation', `Pregnancy ${Math.round(p.gestation)} weeks`, (q) => { q.gestation = 0; });
   if (p.albumin !== 4) add('albumin', `Albumin ${p.albumin.toFixed(1)} g/dL`, (q) => { q.albumin = 4; });

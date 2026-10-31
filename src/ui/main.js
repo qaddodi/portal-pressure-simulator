@@ -1,25 +1,25 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=e9bd6a00e5';
+import { startHost, host } from './host.js?v=c2d5c54197';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3611054974';
 import { createStage } from './stage.js?v=2f204dfd4e';
 import { createCreditPlacer } from './credit.js?v=853fefa4ac';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=fe8c66d302';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=c2bf3bc667';
+import { createInspector } from './inspector.js?v=b81f6bd326';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=28af15d96b';
 import { setHvpgStage } from './hvpg-proc.js?v=4adad0cc7b';
-import { createWhy } from './why.js?v=c701aabe64';
-import { createTimeline, LAPSES } from './timeline.js?v=9633507fa1';
-import { createCompare } from './compare.js?v=0ca03910f2';
-import { createCard } from './card.js?v=fd64ba3d30';
-import { createChart } from './chart.js?v=9ad3e46e77';
+import { createWhy } from './why.js?v=8d45caef8b';
+import { createTimeline, LAPSES } from './timeline.js?v=fa5e35cdc0';
+import { createCompare } from './compare.js?v=74ea2acc2a';
+import { createCard } from './card.js?v=a5e538defb';
+import { createChart } from './chart.js?v=0e37eefede';
 import { createMenu } from './menu.js?v=9542e6a20d';
 import { caption } from './a11y.js?v=f52c10b09d';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=2ab484a8da';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=1ac1815d07';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=88bc8501e6';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
@@ -182,7 +182,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=635f6b676a'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=38298012de'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -525,7 +525,7 @@ function doAction(a) {
     paracentesis: `Paracentesis ${((a.mL || 0) / 1000).toFixed(1)} L${a.albumin ? ' + albumin' : ''}` }[a.kind];
   const tlLabel = typeof tl === 'object' ? tl[a.fluid] : tl;
   if (tlLabel) timeline.recordAction(tlLabel);
-  const msgs = { infuse: { crystalloid: '1 L crystalloid running (≈25 % stays intravascular).', prbc: '1 unit of packed red cells running.', albumin: 'Albumin given: plasma oncotic pressure rises.' },
+  const msgs = { infuse: { crystalloid: '1 L crystalloid running (≈25% stays intravascular).', prbc: '1 unit of packed red cells running.', albumin: 'Albumin given: plasma oncotic pressure rises.' },
     valsalva: 'Valsalva: intrathoracic and abdominal pressure up for 10 s.' };
   const m = typeof msgs[a.kind] === 'object' ? msgs[a.kind][a.fluid] : msgs[a.kind];
   if (a.kind === 'paracentesis') toast(`Paracentesis: up to ${(a.mL / 1000).toFixed(1)} L drained${a.albumin ? ' with albumin' : ' without albumin'}.`);
@@ -905,9 +905,10 @@ function openSettings(anchor, withSearch = false) {
       try { localStorage.setItem('pps.noGlass', on ? '0' : '1'); } catch { /* storage unavailable */ }
       document.documentElement.toggleAttribute('data-noglass', !on);
     }),
-    // (What the model shows and how far it goes sits below the accessibility switch, apart from it: "Always show HVPG" is not an accessibility setting.)
+    // (What the model shows and how far it goes has its own heading: "Always show HVPG" is not an accessibility setting, and a rule under Blur
+    // left it reading as one.)
     ...(talk ? [] : [
-      h('div', { class: 'menu-sep' }),
+      h('div', { class: 'menu-title' }, 'Model'),
       menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
         try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
         document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');
@@ -1880,8 +1881,8 @@ function openHelp(section) {
     ['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['A', 'Anatomy ⇄ circuit'],
     ['I', 'Open / close Tests'], ['T', 'Open / close Treat'], ['L', 'Next vessel coloring (Shift: previous)'],
     ['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'],
-    ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'], ['P', 'Compare from here / stop comparing'], ['Esc', 'Cancel · close the card · close'], ['?', 'This guide'],
-    ['Tab · Enter', 'Reach a vessel, open its actions'], ['← →', 'Walk vessels along the flow'], ['Ctrl/⌘ K or /', 'Search'],
+    ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'], ['P', 'Compare from here / stop comparing'], ['J', 'Inject dye (hold for longer)'], ['Esc', 'Cancel · close the card · close'], ['?', 'This guide'],
+    ['Tab · Enter', 'Reach a vessel, open its actions'], ['← →', 'Walk vessels along the flow'], ['Ctrl/⌘ + / − / 0', 'Zoom in / out / fit the figure'], ['Ctrl/⌘ K or /', 'Search'],
   ];
   openModal('Guide', h('div', {},
     h('p', {}, 'A living model of the portal circulation. Every pressure, flow, collateral and varix comes out of one lumped-parameter hemodynamic model. Nothing is scripted: change a resistance and watch the consequences propagate.'),

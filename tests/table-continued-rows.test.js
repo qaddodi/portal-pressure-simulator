@@ -22,7 +22,7 @@ test('the table marks a continued row and keeps its heading in the markup', () =
   assert.match(js, /h\('span', \{ class: 'pz-kick', 'data-site': r\.site \|\| 'none' \}, headOf\(r\)\)/, 'the heading is still in every row');
 });
 
-test('the heading of a continued row takes no room (font-size 0, as the phone stroke does), stays in the markup, and the phone keeps its stroke', () => {
+test('the heading of a continued row takes no room (font-size 0), stays in the markup, and the phone shows the heading in words, never a stroke', () => {
   assert.match(css, /\.pz-table tbody tr\.pz-cont th \.pz-kick \{ font-size: 0; \}/);
   assert.match(css, /\.pz-table tbody tr\.pz-cont \{ border-top-color: color-mix\(in srgb, var\(--border\) 42%, transparent\); \}/);
   // (no clipped box left to be measured: a text range of the clipped heading still ran out of its column in the smoke checks)
@@ -30,8 +30,11 @@ test('the heading of a continued row takes no room (font-size 0, as the phone st
   // the tablet's note columns set the heading's size with a higher specificity: the continued row puts it back to 0 after it
   const nc = css.indexOf('.pz .pz-table.notecols tbody th .pz-kick { display: block;');
   assert.ok(nc > 0 && css.indexOf('.pz .pz-table.notecols tbody tr.pz-cont th .pz-kick { font-size: 0; }') > nc);
-  // the phone's stroke rule sets width and background, never a display or size the continued row would undo
-  assert.match(css, /\.pz \.pz-table tbody th \.pz-kick \{ font-size: 0; gap: 0; flex: none; align-self: stretch; width: 3px;/);
+  // the phone's compact rows show the heading as a block of words over the name (the tablet's note columns do the same); the continued row's
+  // font-size 0 is more specific than the phone's size, so a continued row still closes up there
+  assert.match(css, /\.pz \.pz-table tbody th \.pz-kick \{ display: block; width: auto; background: none; font-size: var\(--s-cap\); overflow-wrap: normal; \}/);
+  assert.doesNotMatch(css, /align-self: stretch; width: 3px; border-radius: 2px; background: var\(--site, transparent\)/, 'no coloured stroke beside a name');
+  assert.match(css, /\.pz-table td\.note \{ grid-column: 1 \/ -1; padding: 0 10px \.6em 10px;/, 'the note sits under the name, which no stroke pushes in now');
 });
 
 test('no stylesheet rule styles a bare .pz-cont row outside the table, and the class is not the global .sub', () => {
