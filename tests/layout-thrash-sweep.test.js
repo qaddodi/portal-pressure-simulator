@@ -25,3 +25,8 @@ test('a card leaving lays the page out only to restart a leave already playing',
 test('focus, label level and selection redraw the figure only for a new value', () => {
   assert.match(mn, /for \(const k of \['focus', 'labelLevel', 'selection'\]\) \{ let was = store\.get\(\)\[k\]; store\.on\(k, \(v\) => \{ if \(v === was\) return; was = v; redraw\(\); \}\); \}/);
 });
+
+test("a cold menu asks for the talks' code only once its frame is on screen", () => {
+  const mu = readFileSync(new URL('../src/ui/menu.js', import.meta.url), 'utf8');
+  assert.match(mu, /if \(!lib\) nextFrame\(\(\) => setTimeout\(\(\) => library\(\)\.then\(\(\) => \{ if \(open\) render\(\); scrollTo\(\); \}\)\.catch\(\(\) => \{\}\), 0\)\);/);
+});

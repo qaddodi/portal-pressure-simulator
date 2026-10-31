@@ -358,7 +358,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         // Only a mouse or trackpad puts the caret in the search: on a touch screen (iPhone, iPad either way round)
         // focusing it pops the on-screen keyboard, so the close button takes focus and the keyboard waits for a tap there.
         el.querySelector(sheet || !fine.matches ? '.um-x' : '.um-q').focus({ preventScroll: true });
-        if (!lib) library().then(() => { if (open) render(); scrollTo(); }).catch(() => {});
+        // (The talks' code is asked for once the menu's frame is on screen, not in the tap: arriving at once from the cache, its
+        // evaluation, a large module, ran before that frame and held it (cold menu 1.9 s on CI's phone profile).)
+        if (!lib) nextFrame(() => setTimeout(() => library().then(() => { if (open) render(); scrollTo(); }).catch(() => {}), 0));
         dragToClose(el); swipeTabs(el);
       }
       const scrollTo = () => {
