@@ -458,7 +458,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // pane): a glass drawn into the figure's canvas would show those sharp through it, where the browser's blurs them. The callouts and
   // the pane go back to their own way as a whole when any of theirs crosses one; a card, alone.)
   const heldOut = new Map();
-  let heldWake = 0;
+  // (Why a glass shows the browser's blur instead of being drawn in the figure's canvas, for the ?perf blur gauge (why(), below):
+  // whyAll, for the glass as a whole; whyEl, for a card held out by itself. Written where the decision is made, read by nothing else.)
+  const whyEl = new Map();
+  let whyAll = '', heldWake = 0;
   let host = null, hk = null, hostOn = false, hf = null, hostTops = [], hostMo = null;
   const crosses = (panes, rs) => {
     if (!rs?.length || !panes.length) return false;
@@ -494,9 +497,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   }
   // The loop's turn while a host is set: true, 'same' or false as draw() returns, or undefined when the glass is drawn on its own canvas.
   function hostDraw(list) {
-    if (!host.active()) { dropHost(true); return undefined; }
+    if (!host.active()) { whyAll = host.why?.() || 'the figure\'s canvas is not taking glass'; dropHost(true); return undefined; }
     const cr = host.canvas.getBoundingClientRect();
-    if (!cr.width || !cr.height) { dropHost(true); return undefined; }
+    if (!cr.width || !cr.height) { whyAll = 'the figure\'s canvas has no size'; dropHost(true); return undefined; }
     // (A glass reaching past the figure's canvas could not be drawn there whole: the browser's, or its own canvas, takes it.)
     // (2 px of slack: the split sheet's glass panes reach 1 px past the card's box (their border) and the card moves by fractions of a pixel as the view follows it, so a pane
     // standing at the canvas's edge, as the readings' card does when fully out, was in and out of reach from frame to frame.)
@@ -531,14 +534,15 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         else if (nowT - s.since >= 400) { s.out = want; s.since = 0; }
         else waiting = true;
         if (want !== s.out && !edge.has(g)) waiting = true;
-        if (s.out) out.add(g);
+        if (s.out) { out.add(g); whyEl.set(g, edge.has(g) ? 'reaches past the figure\'s canvas' : cross.has(g) ? 'crosses a label, a leader or a callout' : 'waiting 400 ms to change back'); } else whyEl.delete(g);
       }
       // (A card not shown this time starts afresh when it comes back.)
-      for (const g of heldOut.keys()) if (!boxes.has(g) || !g.isConnected) heldOut.delete(g);
+      for (const g of heldOut.keys()) if (!boxes.has(g) || !g.isConnected) { heldOut.delete(g); whyEl.delete(g); }
       if (waiting && !heldWake) heldWake = setTimeout(() => { heldWake = 0; ask(); }, 120);
       panes = panes.filter((p) => !out.has(p.g));
-    } else if (!panes.every(inside) || crosses(panes, host.over?.())) { dropHost(true); return undefined; }
-    if (!hk && !(hk = hostKit())) { dropHost(true); host = null; return undefined; }
+    } else if (!panes.every(inside)) { whyAll = 'a glass reaches past the figure\'s canvas'; dropHost(true); return undefined; }
+    else if (crosses(panes, host.over?.())) { whyAll = 'a glass crosses a label, a leader or a card'; dropHost(true); return undefined; }
+    if (!hk && !(hk = hostKit())) { whyAll = 'the figure\'s context cannot take the glass\'s programs'; dropHost(true); host = null; return undefined; }
     const ws = getComputedStyle(wrap), bgs = ws.backgroundColor, bg = colour(bgs, 'transparent');
     const bgVar = bg[3] > 0 ? '' : ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim();
     const key = `${cr.left}|${cr.top}|${cr.width}|${cr.height}|${bgs}|${bgVar}` + panesKey(panes);
@@ -812,6 +816,14 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     drawInto,
     /** Whether the glass is drawn into the figure's canvas now. */
     get hosted() { return hostOn; },
+    /** The ?perf blur gauge (perf-readout.js): null when `el` is not one of this glass's; else why the browser's blur is the one showing
+     *  on it, or '' when its glass is drawn here (in the figure's canvas, or on this glass's own canvas from a copy). */
+    why(el) {
+      if (!el || !glassesOf().includes(el)) return null;
+      if (hostOn) return whyEl.get(el) || '';
+      if (!host) return copy ? '' : 'no figure canvas to draw into';
+      return whyAll || 'not drawn in the figure\'s canvas yet';
+    },
     get on() { return !lost && !dead; },
     /** Let go of it: its frames, timers, observers, listeners and GPU objects, and its canvas; the browser's glass shows again. */
     dispose() {

@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=8915961b06';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=a926bea9d4';
-import { createStage } from './stage.js?v=ebc7eed457';
+import { createStage } from './stage.js?v=208fec451c';
 import { createCreditPlacer } from './credit.js?v=f5431f9fc6';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
@@ -850,7 +850,7 @@ function renderBanner() {
 function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=190bedb58b').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=d02fe9e32f').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());

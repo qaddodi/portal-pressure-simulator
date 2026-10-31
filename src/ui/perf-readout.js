@@ -7,6 +7,7 @@
 import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=9832eccfbe';
 import { perf, watchFrames } from './frame.js?v=fe59494d22';
 import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js?v=9cd1d0c4e3';
+import { scanBlurs, blurText } from './blur-gauge.js?v=37056cf006';
 
 const WINDOW = 2000, KEEP = 5, GAP_LINES = 40, LONG_LINES = 15;
 // The display's own refresh, as the browser offers it, from the frame intervals the readout sees (30 Oct, review 6a: a list of gaps
@@ -250,7 +251,16 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   const rec = document.createElement('button');
   rec.textContent = 'Record 6 s';
   rec.onclick = () => { begin('recording', 6000); rec.textContent = 'Recording…'; setTimeout(() => { rec.textContent = 'Record 6 s'; }, 6000); };
-  for (const b of [title, rest, rec, hide, gpu, orgs, copy]) b.style.cssText = 'font:inherit;color:#fff;background:rgb(255 255 255 / .16);border:0;border-radius:6px;padding:4px 8px;min-height:28px';   // colour-exempt
+  // Blurs: the browser's backdrop blurs showing now and why each is not a glass drawn in the figure (blur-gauge.js; laptop-heat recs H2).
+  // Read on the tap (a scan of the page's styles, never while a window measures), shown until the next tap, and in Copy.
+  const blurs = document.createElement('button');
+  const blurEl = document.createElement('div');
+  blurEl.style.cssText = 'margin-top:8px';
+  const scan = () => blurText(scanBlurs(document, (el) => window.pps?.stage?.blurWhy?.(el) ?? null), document.querySelectorAll('[data-gl]').length);
+  blurs.textContent = 'Blurs';
+  blurs.onclick = () => { blurEl.textContent = scan(); };
+  if (window.pps) window.pps.blurs = scan;   // (for a headless run: pps.blurs())
+  for (const b of [title, rest, rec, hide, gpu, orgs, blurs, copy]) b.style.cssText = 'font:inherit;color:#fff;background:rgb(255 255 255 / .16);border:0;border-radius:6px;padding:4px 8px;min-height:28px';   // colour-exempt
   title.textContent = 'Lag after gestures (tap to fold)';
   copy.textContent = 'Copy';
   rest.textContent = 'At rest';
@@ -266,10 +276,10 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   const paintLog = () => { const t = logText(); if (t !== shownLog) { shownLog = t; logEl.textContent = t; } };
   setInterval(() => { if (!cur) paintLog(); }, 1000);
   paintLog();
-  bar.append(title, rest, rec, hide, gpu, orgs, copy); el.append(bar, body, logEl);
+  bar.append(title, rest, rec, hide, gpu, orgs, blurs, copy); el.append(bar, body, blurEl, logEl);
   let folded = false;
-  title.onclick = () => { folded = !folded; body.style.display = folded ? 'none' : ''; logEl.style.display = folded ? 'none' : ''; };
-  const text = () => [`${navigator.userAgent}`, `screen ${innerWidth}x${innerHeight} @${devicePixelRatio}x, refresh offered to the page ${refreshOf(recent) || '?'} Hz, ${location.pathname}${document.getElementById('preview-badge') ? ` ${document.getElementById('preview-badge').textContent.trim()}` : ''}`, ...reports.map(gestureText), logText()].join('\n\n');
+  title.onclick = () => { folded = !folded; body.style.display = folded ? 'none' : ''; blurEl.style.display = folded ? 'none' : ''; logEl.style.display = folded ? 'none' : ''; };
+  const text = () => [`${navigator.userAgent}`, `screen ${innerWidth}x${innerHeight} @${devicePixelRatio}x, refresh offered to the page ${refreshOf(recent) || '?'} Hz, ${location.pathname}${document.getElementById('preview-badge') ? ` ${document.getElementById('preview-badge').textContent.trim()}` : ''}`, ...reports.map(gestureText), ...(blurEl.textContent ? [blurEl.textContent] : []), logText()].join('\n\n');
   copy.onclick = async () => {
     const t = text();
     try { await navigator.clipboard.writeText(t); copy.textContent = 'Copied'; } catch {

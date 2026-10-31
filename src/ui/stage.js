@@ -44,7 +44,7 @@ import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './org
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { createLabelGL } from './label-gl.js?v=d1501a184a';
-import { createGlassGL } from './glass-gl.js?v=a3825bb97a';
+import { createGlassGL } from './glass-gl.js?v=479e7b435f';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=9713f657e2';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
@@ -2402,7 +2402,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=1d4542bd12').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=a59451817a').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -8233,14 +8233,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // canvas (a resolution's fade, a dive, the lobule), the callouts and the pane go back to their own way (?glasscopy=1: their own canvas,
   // from a copy, as before 31 Oct; by default the browser's glass) and a card to the browser's glass.
   let frostHold = false;
-  const frostOn = () => {
-    if (frostHold || !veins?.top || veins.lost || diveT > 0 || fading(vCanvas)) return false;
+  // (frostWhy: '' while the figure's canvas takes glass, else the first thing that stops it, in words for the ?perf blur gauge.)
+  const frostWhy = () => {
+    if (frostHold) return 'a change of canvas is under way';
+    if (!veins?.top) return 'the figure has no canvas to draw into';
+    if (veins.lost) return 'the GPU context is lost';
+    if (diveT > 0) return 'the dive is under way';
+    if (fading(vCanvas)) return 'the canvas is fading (a resolution change)';
     const wc = wrap.classList;
-    if (!wc.contains('gl-on') || wc.contains('in-lobule') || wc.contains('unframed')) return false;
+    if (!wc.contains('gl-on')) return 'the GPU figure is not showing';
+    if (wc.contains('in-lobule')) return 'the lobule is showing';
+    if (wc.contains('unframed')) return 'the figure is unframed';
     const vc = getComputedStyle(vCanvas);
-    return vc.display !== 'none' && vc.visibility === 'visible' && +vc.opacity >= 0.999;
+    return vc.display !== 'none' && vc.visibility === 'visible' && +vc.opacity >= 0.999 ? '' : 'the figure\'s canvas is hidden or faded';
   };
-  const frostHost = (o) => ({ gl: veins.top.gl, canvas: veins.top.canvas, add: veins.top.add, now: () => { if (veins && !veins.lost) veins.present(); }, active: frostOn, ...o });
+  const frostOn = () => !frostWhy();
+  const frostHost = (o) => ({ gl: veins.top.gl, canvas: veins.top.canvas, add: veins.top.add, now: () => { if (veins && !veins.lost) veins.present(); }, active: frostOn, why: frostWhy, ...o });
+  // The ?perf blur gauge's question: why the browser's blur, not a glass drawn in the figure's canvas, shows on `el` (null: no glass
+  // here is meant to own it, as the toast or the fold chip; '' : its glass is drawn, a mark is about to be set).
+  const blurWhy = (el) => { for (const g of [glassGL, paneGL, ...cardGLs]) { const w = g?.why?.(el); if (w != null) return w; } return null; };
   // (Each glass and what it was set with: set again on a new renderer, after a lost context is restored.)
   const frostHosts = new Map();
   function hostFrost(g, o) { if (!g || !veins?.top) return; frostHosts.set(g, o); g.setHost(frostHost(o)); }
@@ -11464,6 +11475,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   return {
     update,
     cardGlass,
+    blurWhy,
     setView(v) {
       const target = v === 'circuit' ? 1 : 0;
       if (target === morphTarget) return;
