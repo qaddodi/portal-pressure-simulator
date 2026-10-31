@@ -5,7 +5,7 @@
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
 import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=4c95f6eb28';
-import { FONT } from './charts.js?v=da719e37c3';
+import { FONT } from './charts.js?v=9a29194ca2';
 import { simTime, isPaused, fibroReading } from './clock.js?v=5f8b1a7998';
 import { store } from './store.js?v=7e587ef608';
 import { elastogramGL, prepareElastogramGL } from './fibroscan-gl.js?v=2c4804ca17';
