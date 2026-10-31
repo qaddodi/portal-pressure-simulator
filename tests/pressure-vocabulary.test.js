@@ -102,3 +102,11 @@ test('the stylesheet colours "mid" amber and "hi" red, everywhere', () => {
   }
   assert.deepEqual(bad, []);
 });
+
+// The timeline's events take the colour of the readings they name: HVPG at 10 or more is red on the tile, so its CSPH event (and the HVPG 12
+// one above it) is red too, never amber (Mohammad, 31 Oct).
+test('the HVPG events are red, as the readings they name', () => {
+  const ev = read('src/engine/events.js');
+  for (const id of ['CSPH', 'BLEED_RISK']) assert.match(ev, new RegExp(`id: '${id}', on: m\\.hvpg[^\\n]*severity: 'danger'`), id);
+  assert.equal(hvpgSev(HVPG_CUTS.red), 'danger');
+});
