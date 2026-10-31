@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=e9bd6a00e5';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3611054974';
-import { createStage } from './stage.js?v=8f436ae339';
+import { createStage } from './stage.js?v=f7bd848215';
 import { createCreditPlacer } from './credit.js?v=853fefa4ac';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
@@ -190,7 +190,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=2aca9f517f'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=eeeb37a1b2'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -1356,7 +1356,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   const half = () => stops().length - 2;
   // The room a thumb sheet may fill: the CSS cap (100% - top bar - tab row - 22 px, styles/app.css thumb block).
   const room = () => (thumb() ? app.clientHeight - (parseFloat(app.style.getPropertyValue('--top-safe')) || 0) - (parseFloat(app.style.getPropertyValue('--nb-occ')) || 0) - 22 : 0);
-  let size = 1;
+  let size = 1, lastN = stops().length;
   el.prepend(handle);
   const natural = () => {
     if (!fit || !isPhone() || el.hidden) return Infinity;
@@ -1367,7 +1367,9 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   };
   const apply = () => {
     const S = stops(), r = room();
-    size = Math.min(size, S.length - 1);   // (a phone turned upright or sideways changes the stops)
+    // (A phone turned upright or sideways changes the stops, three sideways and two over the thumb dock: Half stays Half and the top stays the top.)
+    if (S.length !== lastN) { size = size === lastN - 1 ? S.length - 1 : S.length - 2; lastN = S.length; }
+    size = Math.min(size, S.length - 1);
     const need = size === half() ? natural() : Infinity;
     el.classList.toggle('sheet-half', thumb() && size === half());   // (a phone's Tests card hides its longer words at Half)
     el.style.setProperty('--sheet-size', need < S[half()] * (r || app.clientHeight) ? `${Math.ceil(need)}px` : r ? `${Math.round(S[size] * r)}px` : `${Math.round(S[size] * 100)}%`);
@@ -1375,6 +1377,10 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   // A new tab refits the sheet to its content (the height eases).
   if (fit) el.addEventListener('click', (e) => { if (size === half() && e.target.closest('[role="tab"]')) nextFrame(apply); });
   apply();
+  // A turn of the device or a new window size changes the stops and the room (px over the thumb dock): a sheet takes its size
+  // again once the size has held for a moment, and its height eases there (a sheet in the hand is left to its release).
+  let retakeT = 0;
+  addEventListener('resize', () => { clearTimeout(retakeT); retakeT = setTimeout(() => { if (!start && isPhone()) apply(); }, 220); });
   handle.addEventListener('click', () => { if (!isPhone() || !active()) return; size = (size + 1) % stops().length; apply(); });
   let start = null, swallow = 0;
   // Controls keep their own gestures. With `anywhere` (a phone sheet), a vertical drag from any other spot on the

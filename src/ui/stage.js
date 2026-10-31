@@ -1498,6 +1498,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Only a scroll that can move the figure: the page's, or a box holding it. A card's own list scrolling (Treat, Tests, a menu) left the
   // box dropped, so the next model frame measured the whole figure again after writing it, on every frame of the scroll.)
   addEventListener('scroll', (e) => { const t = e.target; if (t === document || t === window || t?.contains?.(wrap)) { box = null; CTM = null; } }, true);
+  // The screen's left and right safe-area insets (a notched phone held sideways, 47 to 59 px), read once from a zero-size probe (an
+  // unregistered custom property hands env() back unresolved) and again after a resize or a turn. Zero everywhere else.
+  let saSnap = null;
+  addEventListener('resize', () => { saSnap = null; }); addEventListener('orientationchange', () => { saSnap = null; });
+  const saSides = () => {
+    if (!saSnap) {
+      const p = document.createElement('div');
+      p.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;pointer-events:none;padding:0 env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)';
+      document.body.append(p);
+      const cs = getComputedStyle(p);
+      saSnap = { l: parseFloat(cs.paddingLeft) || 0, r: parseFloat(cs.paddingRight) || 0 };
+      p.remove();
+    }
+    return saSnap;
+  };
   let ctmLast = null;
   function refreshCTM() {
     const b = stageBox(), vb = svg.viewBox.baseVal;
@@ -1616,11 +1631,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const x0 = q.left - wr.left, x1 = q.right - wr.left, y1 = q.bottom - wr.top;
       if (x1 <= 0 || y1 <= 0 || x0 >= W || y0 >= H) continue;
       let edge = el.dataset.safe;
-      if (edge === 'right' && !wide) edge = 'bottom';   // a phone's cards are sheets over the bottom
+      // A card is a side card when it is docked there (the Tests card's class `side`) and a sheet when it spans the screen (a phone's,
+      // sideways too, and an upright iPad's), whatever the window's size says: dock.js and the phone block of app.css decide that.
+      const side = el.classList.contains('side'), sheet = !side && !store.get().presenting && q.width > W * 0.65;
+      if (edge === 'right' && !side && (!wide || sheet)) edge = 'bottom';   // a phone's cards are sheets over the bottom
       else if (edge === 'bottom' && el.classList.contains('side')) edge = 'right';   // the instruments docked at the side
       if (edge === 'top') ins.t = Math.max(ins.t, y1);
       else if (edge === 'bottom') ins.b = Math.max(ins.b, H - y0);
-      else if (wide && edge === 'right') { ins.r = Math.max(ins.r, W - x0); cards.push([y0, y1]); }
+      else if (edge === 'right' && (wide || side)) { ins.r = Math.max(ins.r, W - x0); cards.push([y0, y1]); }
       else if (wide && edge === 'left') ins.l = Math.max(ins.l, x1);
     }
     // Where the side cards would leave under 60% of the width (a tablet held upright), a short card is cleared
@@ -1765,6 +1783,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // panned: a pinch, a drag, the wheel or a zoom step clears it. The tools' own camera trips (the HVPG catheter's route and
   // close-up, there and back) leave it as it was, so a card closed after a measurement still fits (see closeView).
   let fitted = false;
+  // Which framing the circuit was last given ('whole' map or 'focus' close-up: setView, Fit, a refit). The circuit has no home
+  // look of its own, so a turn of the device or a new window size takes the same kind of framing again, for the new shape (lookHome).
+  let circFit = null;
   // The Tests card opening leaves the camera where it is (Mohammad, 20 Oct): the pan and zoom stay as they were, under the card too.
   // keepView(true) is called as the card opens and notes the space the other pieces leave (the card itself not counted); the
   // refits that follow the card (the open's, the sheet settling, a tool's card changing height) and the home framing's own
@@ -1794,16 +1815,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const at = vtGliding ? vtTarget : vt;
     const to = circuit && !near(focus, whole) ? (near(at, whole) ? focus : whole) : focus;
     if (!circuit) homeAt = to;
+    else circFit = to === whole ? 'whole' : 'focus';
     fitted = true;
     // It glides there, as the zoom buttons do (reduced motion: a short glide).
     animateVT(to, 420);
   };
 
   // A card or sheet opened or closed: glide to the framing for the space that is now free (not in the lobule, which refits itself).
+  // (circAgain: lookHome has it take the circuit's last kind of framing again, for a new shape, instead of the close-up.)
+  let circAgain = false;
   function refit() {
     if (lobuleOn || keptNow()) return;
-    const to = defaultVT(morphTarget === 1);
-    if (morphTarget !== 1) homeAt = to;
+    const to = circAgain && morphTarget === 1 && circFit === 'whole' ? circWhole() : defaultVT(morphTarget === 1);
+    if (morphTarget !== 1) homeAt = to; else if (!circAgain) circFit = 'focus';
     fitted = true;
     // (Mid-measurement the catheter's camera keeps the view: its trip back ends on the new fit instead of the old one.)
     if (cath.saved) { cath.saved = to; return; }
@@ -2900,7 +2924,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // each only if the view is still at home: a sheet or a card takes its new shape a moment after the turn, and the first
   // look measured the space it left before it had. A slide is the presenter's to frame, on a resize too.)
   let homeResizeT = 0, homeLateT = [], homeOccT = 0;
-  const lookHome = () => { if (!store.get().presenting) { homeCheck = 0; watch.touch(); followHome(); } };
+  const lookHome = () => {
+    if (store.get().presenting) return;
+    homeCheck = 0; watch.touch(); followHome();
+    // (The circuit has no home look: a framing it was given is taken again for the new shape, as the anatomy's home is. A view the
+    // learner moved stays: a pinch, a drag, the wheel or a zoom step clears fitted. Not while a resize is still settling, a tool
+    // has the camera, or the Tests card alone changed the space.)
+    if (homeResizeT || morphTarget !== 1 || !fitted || !circFit || lobuleOn || cath.saved) return;
+    circAgain = true;
+    try { refit(); } finally { circAgain = false; }
+  };
   addEventListener('resize', () => {
     clearTimeout(homeResizeT); homeLateT.forEach(clearTimeout);
     homeResizeT = setTimeout(() => { homeResizeT = 0; lookHome(); homeLateT = [500, 1300].map((ms) => setTimeout(lookHome, ms)); }, 200);
@@ -9297,6 +9330,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const M = st.presenting && pillEdge ? pillEdge.m : 6;
     const view = { x0: M, y0: M, x1: W - M, y1: H - M }, plain = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 };   // plain: the whole stage, for the FibroScan callout, which keeps with its probe (see below)
     if (st.presenting && pillEdge) view.y1 = Math.max(H * 0.5, Math.min(view.y1, pillEdge.top - 8));
+    // (A label keeps out of the sensor housing and the rounded corners of a phone held sideways: the stage runs edge to edge under them.)
+    { const sa = saSides(); view.x0 = Math.max(view.x0, sa.l - wr.left); view.x1 = Math.min(view.x1, W - Math.max(0, sa.r - (innerWidth - wr.right))); }
     // A presenter slide's words hold the left (a phone: the top) under a fading shade; labels keep clear of it.
     if (st.presenting) { view.x0 = Math.max(view.x0, pzInset('--pz-l') + 30); view.y0 = Math.max(view.y0, pzInset('--pz-t') + 12); }
     // (A stent's point, and the slide's mark beside it, come as near the top card as they may come to any card (4 px past its box, and
@@ -11773,6 +11808,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const wasOut = target === 1 && (fromLobule || at.k <= 1.001 || (homeAt && sameView(at, homeAt)));   // the whole plate (or less) is showing
       const d = wasOut ? circWhole() : defaultVT(target === 1);
       if (target === 0) { homeAt = d; fitted = true; }   // back to the anatomy: always its home framing
+      else { circFit = wasOut ? 'whole' : 'focus'; fitted = true; }   // the circuit opens fitted: a turn of the device refits it
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
     },
     relayout() { refreshCTM(); if (F) updateLabels(F, true); },

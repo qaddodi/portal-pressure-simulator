@@ -3,7 +3,7 @@
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
 import { store, updateParams } from './store.js?v=3611054974';
-import { h, svgIcon, toast, afterExit } from './util.js?v=c38708181c';
+import { h, svgIcon, toast, afterExit, visibleBottom } from './util.js?v=c38708181c';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=bcedeba324';
 import { HIDDEN_EDGES } from './anatomy.js?v=bd972c1896';
@@ -127,13 +127,23 @@ export function createPalette({ ctx }) {
     back.hidden = false; input.value = ''; sel = 0; renderList();
     if (ctx.library && !ctx.libraryNow?.()) ctx.library().then(() => { if (!back.hidden) renderList(); }).catch(() => {});
     setTimeout(() => input.focus(), 0);
+    vv?.addEventListener('resize', fitList); vv?.addEventListener('scroll', fitList);
+  }
+  // The on-screen keyboard covers the foot of the page without shrinking it (iOS): the list is held to the room above the keyboard,
+  // so every result can be reached and tapped. (Event-driven: it follows the keyboard coming and going; nothing runs per frame.)
+  const vv = window.visualViewport;
+  function fitList() {
+    if (back.hidden) return;
+    const room = visibleBottom() - list.getBoundingClientRect().top - 12;
+    back.style.setProperty('--pal-room', `${Math.max(96, Math.floor(room))}px`);
   }
   // It fades out as it faded in (it vanished in one frame: P20), then hides; opened again meanwhile, it simply stays.
   let leaveT = 0;
   function close() {
     if (back.hidden || back.classList.contains('leaving')) return;
     back.classList.add('leaving'); clearTimeout(leaveT);
-    leaveT = afterExit(back, 'leaving', () => { back.hidden = true; back.classList.remove('leaving'); });
+    vv?.removeEventListener('resize', fitList); vv?.removeEventListener('scroll', fitList);
+    leaveT = afterExit(back, 'leaving', () => { back.hidden = true; back.classList.remove('leaving'); back.style.removeProperty('--pal-room'); });
     ret?.focus?.({ preventScroll: true });
   }
   input.addEventListener('input', () => { sel = 0; renderList(); });
