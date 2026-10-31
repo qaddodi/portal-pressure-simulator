@@ -258,8 +258,12 @@ test('Adapt learns the screen again: after a few moves at 60 a second, 60 is the
 test('Below Full the canvas is moved by the part of a canvas pixel the renderer rounds off; at Full nothing is set', () => {
   const stage = src('stage.js');
   const body = stage.slice(stage.indexOf('function subPixel('), stage.indexOf('function easeRes('));
-  const run = (vdpr, vBase, T) => { const vCanvas = { style: { translate: '' } }; new Function('vdpr', 'vBase', 'vCanvas', `${body}; subPixel(T);`.replace('subPixel(T);', 'subPixel(arguments[3]);'))(vdpr, vBase, vCanvas, T); return vCanvas.style.translate; };
+  const veins = { overlay: { snap: null } };
+  const run = (vdpr, vBase, T) => { const vCanvas = { style: { translate: '' } }; new Function('vdpr', 'vBase', 'vCanvas', 'veins', `${body}; subPixel(T);`.replace('subPixel(T);', 'subPixel(arguments[4]);'))(vdpr, vBase, vCanvas, veins, T); return vCanvas.style.translate; };
   assert.equal(run(2, 2, [1, 0, 0, 1, 10.4, 3.25]), '', 'Full: as on the live site');
+  assert.equal(veins.overlay.snap, false, 'Full: the overlays at the figure\'s own transform');
+  run(0.5, 2, [1, 0, 0, 1, 10.4, 3.25]);
+  assert.equal(veins.overlay.snap, true, 'below Full: the overlays at whole pixels, moved with the vessels');
   assert.equal(run(0.5, 2, [1, 0, 0, 1, 10.4, 3.25]), '0.800px 0.500px', 'the rest of a canvas pixel, in CSS px');
   assert.equal(run(0.5, 2, [1, 0, 0, 1, 10, 3]), '');
   assert.match(stage, /subPixel\(T\);\n/);

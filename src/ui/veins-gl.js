@@ -1681,7 +1681,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // is the canvas, as ever. Every size inside reads PW() and PH().
   let up = null, upLin = false;   // (upLin: the picture upscaled by a plain filtered copy, not Sharper upscaling's filter: setPicture)
   // (overM: the figure's transform as last given to draw or drawRows, before whole(): the overlays are drawn at it.)
-  let overM = null, overCss = 1;   // (overCss: device px per CSS px, set by the stage: overlay.cssPx)
+  let overM = null, overCss = 1, overSnap = false;   // (overCss: device px per CSS px, set by the stage: overlay.cssPx; overSnap: overlay.snap)
   const PW = () => (up ? up[0] : canvas.width), PH = () => (up ? up[1] : canvas.height);
   const pcx = gl.getExtension('KHR_parallel_shader_compile');
   let started;
@@ -2421,7 +2421,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // canvas's size under the view the vessels were last drawn in (the figure's own transform, before whole() rounds it), scaled to it.
   function overLay() {
     if (!over || !overShown || !overM) return;
-    const kx = canvas.width / PW(), ky = canvas.height / PH(), m = [overM[0] * kx, overM[1] * ky, overM[2] * kx, overM[3] * ky, overM[4] * kx, overM[5] * ky];
+    // (With the canvas moved by the vessels' sub-pixel rest (overlay.snap), the overlays are drawn where the vessels are, at whole
+    // pixels, and the move takes both to the figure's place: drawn at the figure's own transform, they were off by that rest.)
+    const om = overSnap ? whole(overM) : overM;
+    const kx = canvas.width / PW(), ky = canvas.height / PH(), m = [om[0] * kx, om[1] * ky, om[2] * kx, om[3] * ky, om[4] * kx, om[5] * ky];
     stack.painter.cssPx = overCss;
     if (over.stale(m, canvas.width, canvas.height)) over.render(m, canvas.width, canvas.height);
     if (layP === null) {
@@ -3012,11 +3015,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       },
       /** Device px per CSS px of the canvas (a non-scaling stroke's width: organ-paint cssPx). */
       set cssPx(v) { overCss = v; },
+      /** Whether the stage moves the canvas by the vessels' sub-pixel rest (stage.js subPixel, below Full): the overlays then go at whole pixels too. */
+      set snap(v) { overSnap = !!v; },
       get stale() {
         if (!overShown || !overM || !own?.w) return false;
         stack.painter.cssPx = overCss;
         const kx = canvas.width / PW(), ky = canvas.height / PH();
-        return over.stale([overM[0] * kx, overM[1] * ky, overM[2] * kx, overM[3] * ky, overM[4] * kx, overM[5] * ky], canvas.width, canvas.height);
+        const om = overSnap ? whole(overM) : overM;
+        return over.stale([om[0] * kx, om[1] * ky, om[2] * kx, om[3] * ky, om[4] * kx, om[5] * ky], canvas.width, canvas.height);
       },
       get shown() { return overShown; },
     } : null,
