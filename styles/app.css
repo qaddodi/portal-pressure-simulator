@@ -109,6 +109,7 @@ svg { flex: none; }
 /* An overlay group the GPU paints in the vessel canvas (stage-over.js, ?stageover=gpu): its SVG copy drawn nowhere, by an empty clip,
    which leaves every style the painter reads of it as it is. */
 .stage-view svg#stageOver .gpu-over { clip-path: inset(50%) !important; }
+.stage-view svg#stageOver.gpu-all { opacity: 0 !important; }   /* (all it shows painted on the GPU: stage-over.js OVER_ALL) */
 /* The plate (backdrop, organs, ascites) is drawn by the GPU from a raster; the SVG stays for picking and exports. */
 .stage-view.gl-plate :is(#backdrop, #organs, #ascites, #ghosts) { visibility: hidden; }
 /* The ascites is drawn by the GPU whenever it draws the vessels, plate or not (veins-gl.js fluidInk): its SVG copy, whose

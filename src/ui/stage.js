@@ -39,7 +39,7 @@ import { fadeOver, fadeStop } from './res-fade.js?v=0c2ee70982';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
 import { cropToGrid } from './organs-gl.js?v=588d36dd55';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=63466e2844';
-import { overUnits, overRun, needsReread, OVER_CLASS } from './stage-over.js?v=1c4dc481df';
+import { overUnits, overRun, needsReread, OVER_CLASS, OVER_ALL } from './stage-over.js?v=2ffa47615b';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
 import { createLabelGL } from './label-gl.js?v=225e7ad808';
 import { createGlassGL } from './glass-gl.js?v=e58605e60d';
@@ -2325,6 +2325,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Pixels as the SVG path draws them; the GPU picture returns with the context.)
   vCanvas.addEventListener('webglcontextlost', () => {
     wrap.classList.remove('gl-on');
+    if (OVER_GPU) overClear();   // (the overlays' SVG copies back with the vessels': their GPU picture is gone)
     if (wrap.classList.contains('gl-plate')) { wrap.classList.remove('gl-plate'); syncPlateLook(); }
     plateView = null; plateViewKey = ''; plateCopy = null; plateKey = ''; dropViewKeep();
     tubesHidden = false; if (tubesHeld.size) flushTubes();
@@ -10324,7 +10325,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return ms;
   };
   const overEasing = new Map();   // element → when its ease ends at the latest (performance.now), for a transition that never reports
-  const overKey = () => `${wrap.className}|${svgOver?.getAttribute('class') || ''}|${document.documentElement.dataset.theme || ''}|${reduceMotion.matches}`;
+  const overKey = () => `${appEl?.className || ''}|${document.documentElement.className}|${wrap.className}|${svgOver ? [...svgOver.classList].filter((c) => c !== OVER_ALL).join(' ') : ''}|${document.documentElement.dataset.theme || ''}|${reduceMotion.matches}`;
   if (OVER_ON) {
     const watch = new MutationObserver((rs) => {
       for (const r of rs) {
@@ -10343,8 +10344,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     svgOver.addEventListener('transitionend', ended);
     svgOver.addEventListener('transitioncancel', ended);
   }
+  // (Every SVG copy shown again: the GPU paints none of them now.)
+  function overClear() {
+    for (const u of overPainted) u.classList.remove(OVER_CLASS);
+    overPainted = [];
+    svgOver?.classList.remove(OVER_ALL);
+    overDirty = true;
+  }
   function syncOver() {
-    if (!OVER_ON || !veins?.overlay || veins.lost) return;
+    if (!OVER_ON) return;
+    // (No picture to paint them in: the context lost, or the GPU not drawing the figure.)
+    if (!veins?.overlay || veins.lost || !wrap.classList.contains('gl-on')) { if (overPainted.length || svgOver?.classList.contains(OVER_ALL)) overClear(); return; }
     if (overFor !== veins) { overFor = veins; overDirty = true; }   // (a renderer made again: its overlays are empty)
     const now = performance.now();
     for (const [el, t] of overEasing) if (t < now || !el.isConnected) { overEasing.delete(el); overDirty = true; }
@@ -10370,6 +10380,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const u of overPainted) if (!now2.has(u)) u.classList.remove(OVER_CLASS);
     for (const u of now2) u.classList.add(OVER_CLASS);
     overPainted = [...now2];
+    svgOver.classList.toggle(OVER_ALL, run.whole);
     if (gpuProbe.on) gpuProbe.gauge('overlays on the GPU', `${run.length} groups`);
   }
   // The figure's pass is one owned request (animRaf): however many paths ask for it (its own loop, a wake), it is drawn once a frame.

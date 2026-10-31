@@ -19,14 +19,15 @@ export function overUnits(worldOver, gOver) {
 /**
  * The run the GPU paints: `read(unit)` gives a group's reading (organ-paint readGroup, strict), 'hidden' for a group that shows
  * nothing (it does not stop the run), or null for one that cannot be read. The units before the first null, the hidden ones left
- * out: [[unit, reading]].
+ * out: [[unit, reading]], with `whole` true when no unit stopped it (everything the overlays show is painted).
  */
 export function overRun(units, read) {
   const out = [];
+  out.whole = true;
   for (const u of units) {
     const r = read(u);
     if (r === 'hidden') continue;
-    if (!r) break;
+    if (!r) { out.whole = false; break; }
     out.push([u, r]);
   }
   return out;
@@ -34,18 +35,23 @@ export function overRun(units, read) {
 
 /** The class that hides a unit's SVG copy while the GPU paints it (app.css: an empty clip, which no reading of its styles sees). */
 export const OVER_CLASS = 'gpu-over';
+/**
+ * The class on the overlays' SVG itself while the GPU paints all they show (a whole run): the SVG at no opacity, so the browser
+ * composites nothing for it (its groups still ease, are read and picked as before; an opacity on the root is read by none of them).
+ */
+export const OVER_ALL = 'gpu-all';
 
 /**
  * Whether a mutation record (of the overlays' SVG) can change what a unit paints in a way the painter does not read at each paint:
  * the painter reads an outline's `d`, a transform and the opacities from the page as it paints (organ-paint liveOf), so those alone
- * need no new reading; the hiding class's own coming and going is the overlays' own doing.
+ * need no new reading; the hiding classes' own coming and going is the overlays' own doing.
  */
 export function needsReread(rec) {
   if (rec.type !== 'attributes') return true;
   const a = rec.attributeName;
   if (a === 'd' || a === 'transform' || a === 'opacity' || a === 'fill-opacity' || a === 'stroke-opacity') return false;
   if (a === 'class') {
-    const strip = (v) => String(v || '').split(/\s+/).filter((c) => c && c !== OVER_CLASS).sort().join(' ');
+    const strip = (v) => String(v || '').split(/\s+/).filter((c) => c && c !== OVER_CLASS && c !== OVER_ALL).sort().join(' ');
     return strip(rec.oldValue) !== strip(rec.target.getAttribute('class'));
   }
   return true;

@@ -15,7 +15,7 @@ globalThis.document ??= { documentElement: { dataset: {}, style: { setProperty()
 globalThis.addEventListener ??= () => {};
 globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
-const { overUnits, overRun, needsReread, OVER_CLASS } = await import('../src/ui/stage-over.js');
+const { overUnits, overRun, needsReread, OVER_CLASS, OVER_ALL } = await import('../src/ui/stage-over.js');
 const { strictRefused, readGroup, cssLocal, elMat, liveOf } = await import('../src/ui/organ-paint.js');
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
@@ -27,9 +27,12 @@ test('the units: the overlays\' world group\'s children, the overlays\' own grou
 
 test('the run: from the bottom up to the first group that cannot be read; hidden groups do not stop it', () => {
   const R = { a: 'A', b: 'hidden', c: 'C', d: null, e: 'E' };
-  assert.deepEqual(overRun(['a', 'b', 'c', 'd', 'e'], (u) => R[u]), [['a', 'A'], ['c', 'C']]);
-  assert.deepEqual(overRun(['d', 'a'], (u) => R[u]), [], 'the lowest one unread: none on the GPU');
-  assert.deepEqual(overRun(['b', 'b'], (u) => R[u]), []);
+  assert.deepEqual([...overRun(['a', 'b', 'c', 'd', 'e'], (u) => R[u])], [['a', 'A'], ['c', 'C']]);
+  assert.equal(overRun(['a', 'b', 'c', 'd', 'e'], (u) => R[u]).whole, false, 'stopped: the SVG still shows some');
+  assert.equal(overRun(['a', 'b', 'c', 'e'], (u) => R[u]).whole, true, 'everything shown painted');
+  assert.equal(overRun(['b'], (u) => R[u]).whole, true, 'nothing shown');
+  assert.deepEqual([...overRun(['d', 'a'], (u) => R[u])], [], 'the lowest one unread: none on the GPU');
+  assert.deepEqual([...overRun(['b', 'b'], (u) => R[u])], []);
   assert.deepEqual(overRun(['a', 'c', 'e'], (u) => R[u]).map(([u]) => u), ['a', 'c', 'e']);
   // Every order of three readable, hidden and unreadable groups: a group is painted only if every shown group below it is.
   const kinds = ['A', 'hidden', null];
@@ -38,6 +41,7 @@ test('the run: from the bottom up to the first group that cannot be read; hidden
     const want = [];
     for (const [i, k] of [x, y, z].entries()) { if (k === null) break; if (k !== 'hidden') want.push(i); }
     assert.deepEqual(r, want);
+    assert.equal(overRun([0, 1, 2], (u) => [x, y, z][u]).whole, ![x, y, z].includes(null));
   }
 });
 
@@ -50,6 +54,7 @@ test('a new reading only for what the painter does not read at each paint, and n
   assert.equal(needsReread({ type: 'attributes', attributeName: 'class', oldValue: 'cath', target: el(`cath ${OVER_CLASS}`) }), false);
   assert.equal(needsReread({ type: 'attributes', attributeName: 'class', oldValue: `on ${OVER_CLASS}`, target: el('on') }), false);
   assert.equal(needsReread({ type: 'attributes', attributeName: 'class', oldValue: 'caud', target: el('caud on') }), true);
+  assert.equal(needsReread({ type: 'attributes', attributeName: 'class', oldValue: 'circuit', target: el(`circuit ${OVER_ALL}`) }), false);
 });
 
 // A stand-in element with the transform attribute's matrix (matOf reads transform.baseVal).
@@ -154,6 +159,14 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   assert.match(st, /const OVER_GPU = typeof location !== 'undefined' && \/\[\?&\]stageover=gpu\\b\/\.test\(location\.search\);/);
   assert.match(st, /const OVER_ON = OVER_GPU && !!veins\?\.overlay;/);
   assert.match(css, /\.stage-view svg#stageOver \.gpu-over \{ clip-path: inset\(50%\) !important; \}/);
+  // (All they show painted: the overlays' SVG composited at nothing; with no picture to paint in, every copy shown again.)
+  assert.match(css, /\.stage-view svg#stageOver\.gpu-all \{ opacity: 0 !important; \}/);
+  assert.match(st, /svgOver\.classList\.toggle\(OVER_ALL, run\.whole\);/);
+  // (Read again when a class outside the overlays changes how they show: the app's, the page's, the stage's.)
+  assert.match(st, /const overKey = \(\) => `\$\{appEl\?\.className \|\| ''\}\|\$\{document\.documentElement\.className\}\|\$\{wrap\.className\}\|/);
+  assert.match(st, /if \(!veins\?\.overlay \|\| veins\.lost \|\| !wrap\.classList\.contains\('gl-on'\)\) \{ if \(overPainted\.length \|\| svgOver\?\.classList\.contains\(OVER_ALL\)\) overClear\(\); return; \}/);
+  assert.match(st, /vCanvas\.addEventListener\('webglcontextlost', \(\) => \{\n\s+wrap\.classList\.remove\('gl-on'\);\n\s+if \(OVER_GPU\) overClear\(\);/);
+  assert.match(st, /function overClear\(\) \{\n\s+for \(const u of overPainted\) u\.classList\.remove\(OVER_CLASS\);\n\s+overPainted = \[\];\n\s+svgOver\?\.classList\.remove\(OVER_ALL\);/);
   assert.match(st, /const spec = readGroup\(u, \{ nest: true, strict: true \}\);/);
   assert.match(st, /if \(easing\.some\(\(el\) => u\.contains\(el\)\)\) return null;/);
   assert.match(st, /svgOver\.addEventListener\('transitionrun', ran\);\n\s+svgOver\.addEventListener\('transitionend', ended\);\n\s+svgOver\.addEventListener\('transitioncancel', ended\);/);
