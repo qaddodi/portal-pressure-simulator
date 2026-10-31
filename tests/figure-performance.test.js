@@ -169,3 +169,16 @@ test('Pinch frame reuse: off, the one-pass frame is as before; on, only while a 
   assert.match(v, /gl\.bindFramebuffer\(gl\.READ_FRAMEBUFFER, own \? own\.fbo : null\);\n\s+gl\.bindFramebuffer\(gl\.DRAW_FRAMEBUFFER, rz\.fbo\);/);
   assert.match(v, /if \(!every && rz\.w && !lost\) \{ rz\.w = rz\.h = 0;/);
 });
+
+// (31 Oct, laptop heat H7: the credit's lean look is the default. In Present the credit's look measures every card and label, and it ran every
+// second whatever had happened. A stored "false" is read back too, so a choice made before it stays; no screen offers the switch.)
+test('H7: the credit looks again in a talk only when the layout may have changed, by default', async () => {
+  const { f } = await freshFrame();
+  assert.equal(f.figLab('creditLean'), true);
+  assert.equal(f.FIG_LAB.creditLean[0], true);
+  f.setFigLab('creditLean', false);
+  assert.equal(f.figLab('creditLean'), false);
+  const again = await freshFrame(new Map([['pps.fig.creditLean', 'false']]));
+  assert.equal(again.f.figLab('creditLean'), false, 'a stored off is read back');
+  delete globalThis.localStorage;
+});

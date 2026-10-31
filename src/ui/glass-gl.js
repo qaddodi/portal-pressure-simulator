@@ -9,7 +9,7 @@
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
-import { finalFrameFor, cancelFrame, noteDraw } from './frame.js?v=fe59494d22';
+import { finalFrameFor, cancelFrame, noteDraw } from './frame.js?v=2a703d8095';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
