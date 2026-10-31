@@ -123,7 +123,7 @@ test('a new patient eases into the lobule: the tissue crossfades instead of snap
   assert.match(lz, /const ws = worldStateOf\(m, G, dark, cs\);[\s\S]*?const wk = sc\.toFixed\(3\) \+ '\|' \+ ws;/, 'only a new state fades, never a new drawing scale');
   // (Mixed (1 − u)·old + u·new at the bitmap's own size, then placed: see tests/fibrous-band-ends.test.js for why not one over the other.)
   assert.match(lz, /const u = xfU\(xfT0, now\)[^\n]*\n[^\n]*\n[^\n]*x\.globalAlpha = 1 - u; x\.drawImage\(worldOld, 0, 0, n, xfCv\.height\);\n[^\n]*x\.globalAlpha = u; x\.drawImage\(worldCv, 0, 0\);[^\n]*\n\s+c\.drawImage\(xfCv, sx \* dpr, sy \* dpr, side, side\);/, 'the old picture under the new one, both sharp');
-  assert.match(lz, /if \(xfT0\) \{ xfT0 = 0; free\(worldOld\); free\(xfCv\); \}/, 'the old picture is given back once faded');
+  assert.match(lz, /if \(xfT0\) \{ xfT0 = 0; free\(worldOld\); free\(xfCv\); tissueGL\?\.sweep\(\); \}/, 'the old picture is given back once faded, and any GPU copy of it');
   // The surround's tiles too, and the frame loop keeps drawing while either fades.
   assert.match(lz, /if \(surNow && t\.set !== surNow\.set && surNow\.q\.cv\?\.width && !unseen\(\)\) \{ surOld = surNow\.q; surT0 = now; \}/);
   assert.match(lz, /if \(rzMoving \|\| lensFrom \|\| tissueFading\(now\)\) drawVersion\+\+;/);

@@ -948,6 +948,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function snapState() {
     easeP = createEaser(); easeS = createEaser(); rz = null;
     xfT0 = 0; free(worldOld); free(xfCv); surOld = null; surT0 = 0; snapNext = true;
+    tissueGL?.sweep();   // (and the GPU's copy of the picture given back, now rather than at the next sweep)
   }
   // (snapNext: reopened without a picture drawn ahead, the first frame is already fading in, but shows nothing seen before either.)
   let snapNext = false;
@@ -1947,6 +1948,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     free(worldOld); free(xfCv); xfT0 = 0; surOld = null; surT0 = 0;
     const keys = [...tileSets.keys()];
     for (const key of keys.slice(0, -1)) { for (const q of tileSets.get(key)) { if (q.cv) free(q.cv); if (q.quiet) free(q.quiet.cv); if (q.liverQ) free(q.liverQ.cv); } tileSets.delete(key); }
+    tissueGL?.sweep(); fieldGL?.sweep();   // (the GPU's copies of what was just given back)
   }
   let wideFadeT = 0;
   function dropWide(ease = false) {
@@ -2819,7 +2821,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       rect: [sx * dpr, sy * dpr, 2 * B * V.k * dpr], ox, oy, rd, fade: [fIn, fOut], mid: FADE_MID, bg: tone, grey: grey.k > 0 ? surroundGrade(grey.k) : null,
     });
     if (!ok) return false;
-    if (!crossfading && xfT0) { xfT0 = 0; free(worldOld); free(xfCv); }   // (faded in: the old picture is given back)
+    if (!crossfading && xfT0) { xfT0 = 0; free(worldOld); free(xfCv); tg.sweep(); }   // (faded in: the old picture is given back, its GPU copy too)
     free(tissue); flatAt = null;   // (the 2D canvas is left empty under it: paint2D draws it again when the dive's copy needs it)
     return true;
   }
@@ -2843,7 +2845,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // as sharp, and painting the zoom's own once a pinch or a glide ends would only cost a frame.)
     if (gpu && kept && sc > worldSc && spare && spare.G === G && spare.ws === ws && ws === worldState && spare.sc >= sc && spareCv.width) {
       // (The zoom wants more than the bitmap has: the sharper one painted ahead takes over, already on the GPU.)
-      [worldCv, spareCv] = [spareCv, worldCv]; free(spareCv);
+      [worldCv, spareCv] = [spareCv, worldCv]; free(spareCv); tg.sweep();   // (the replaced bitmap's GPU copy goes with it)
       worldSc = spare.sc; worldKey = worldSc.toFixed(3) + '|' + ws; spare = null;
     }
     if (!held && gpu && kept && ws === worldState && sc <= worldSc && worldSc <= sc * 2.01) sc = worldSc;
@@ -2934,7 +2936,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       } else {
         c.drawImage(worldCv, sx * dpr, sy * dpr, side, side);
         worldAt = { cv: worldCv, x: sx * dpr, y: sy * dpr, side };
-        if (xfT0) { xfT0 = 0; free(worldOld); free(xfCv); }   // (faded in: the old picture is given back)
+        if (xfT0) { xfT0 = 0; free(worldOld); free(xfCv); tissueGL?.sweep(); }   // (faded in: the old picture is given back, and any GPU copy of it)
       }
     }
     // Focus: the surround fades into the page (as the dive's field does at its end).
