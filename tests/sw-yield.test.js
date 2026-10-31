@@ -48,7 +48,7 @@ test('a GPU makes no yield', () => {
 test('on a GPU the frame loop never enters the yield', () => {
   const js = readFileSync(new URL('stage.js', SRC), 'utf8');
   // (the yield exists only from the software test, and every use of it is guarded by its existence)
-  assert.match(js, /const swYield = softwareYield\(SOFTWARE, SOFTWARE && !FIGW \? vCanvas\.getContext\('webgl2'\) : null\);/);
+  assert.match(js, /const swYield = softwareYield\(SOFTWARE, SOFTWARE \? vCanvas\.getContext\('webgl2'\) : null\);/);
   assert.match(js, /const SOFTWARE = !!veins\?\.software;/);
   const uses = js.match(/swYield\b[^;]*/g).slice(1);
   assert.ok(uses.length >= 3, 'the yield is used in the frame loop');

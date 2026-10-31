@@ -49,8 +49,8 @@ test('the readout lists every frame that missed the refresh, keeps GPU timing ap
   assert.notEqual(COUNTED.paneDrawn, COUNTED.glassDrawn);
   assert.ok(TWICE.has(COUNTED.paneDrawn) && TWICE.has(COUNTED.glassDrawn));
   const g = src('glass-gl.js');
-  assert.match(g, /gpuProbe\.note\(cards \? COUNTED\.cardCopy : pane \? COUNTED\.paneCopy : COUNTED\.glassCopy\)/);
-  assert.match(g, /noteDraw\(cards \? 'glass-cards' : pane \? 'glass-pane' : 'glass'\);/);
+  assert.match(g, /gpuProbe\.note\(pane \? COUNTED\.paneCopy : COUNTED\.glassCopy\)/);
+  assert.match(g, /noteDraw\(pane \? 'glass-pane' : 'glass'\);/);
   const v = src('veins-gl.js');
   for (const k of ['present', 'fboAlloc']) assert.ok(v.includes(`COUNTED.${k}`), k);
   // (A pan copies nothing since 31 Oct: the layer wraps, so there is no pan blit to count.)

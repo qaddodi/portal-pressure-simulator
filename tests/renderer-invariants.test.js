@@ -99,7 +99,7 @@ test('the stage resizes its drawing buffer from the wrap size and ratio, never f
 test('a resize notice that leaves the backing size and ratio as they were neither clears the canvas nor draws in the same task', () => {
   const src = read('../src/ui/stage.js');
   const fn = src.slice(src.indexOf('function resizeCanvas()'), src.indexOf('new ResizeObserver(resizeCanvas)'));
-  const guard = fn.indexOf('bw === vcw() && bh === vch() && vdpr === was');
+  const guard = fn.indexOf('bw === vCanvas.width && bh === vCanvas.height && vdpr === was');
   assert.ok(guard > 0, 'the unchanged size is checked');
   assert.ok(guard < fn.indexOf('vCanvas.width = bw'), 'before the width is assigned');
   assert.ok(fn.indexOf('return;', guard) < fn.indexOf("drawVeins(false, 'resize')"), 'and returns before the same-task draw');
@@ -130,9 +130,9 @@ test('capture() hands exports the canvas with the whole current picture; the gla
   assert.equal(g.capture(), canvas);
   assert.equal(f.calls.slice(n).filter((c) => c[0] === 'blitFramebuffer').length, 1, 'the canvas keeps no picture of its own: the kept one is copied onto it');
   const glass = read('../src/ui/glass-gl.js');
-  assert.ok(glass.indexOf('capture?.()') > 0 && glass.indexOf('capture?.()') < glass.indexOf('p = (source.crop'));
+  assert.ok(glass.indexOf('capture?.()') > 0 && glass.indexOf('capture?.()') < glass.indexOf('p = createImageBitmap('));
   const stage = read('../src/ui/stage.js');
-  assert.equal((stage.match(/capture: \(\) => veins\?\.capture\(\)/g) || []).length, 3, 'the callouts\' glass, the liver pane and the Present cards (A2)');
+  assert.equal((stage.match(/capture: \(\) => veins\?\.capture\(\)/g) || []).length, 2, 'the callouts\' glass and the liver pane');
 });
 
 test('the vessel layer\'s second-lumen target is bounded: given back to a texel while the picture is not shown, and a pan makes no copy of it', async () => {
@@ -141,15 +141,12 @@ test('the vessel layer\'s second-lumen target is bounded: given back to a texel 
   // (At the layer's size: the canvas's, or less on an axis where the figure takes less, 31 Oct.)
   const [LW, LH] = g.layerLayout.size;
   assert.ok(LW <= 800 && LH <= 600);
-  const big = (fmt) => f.calls.filter((c) => c[0] === 'texImage2D' && c[2] === 0 && c[3] === fmt && c[4] === LW && c[5] === LH);
-  assert.ok(big(f.gl.RGBA16UI).length >= 1, 'the first lumen\'s layer allocated at the layer\'s size');
-  // (The second lumen packed in two channels: ROW2_BITS.)
-  assert.ok(big(f.gl.RG16UI).length >= 1, 'the second lumen\'s layer allocated at the layer\'s size, in two channels');
+  const big = f.calls.filter((c) => c[0] === 'texImage2D' && c[2] === 0 && c[3] === f.gl.RGBA16UI && c[4] === LW && c[5] === LH);
+  assert.ok(big.length >= 2, 'the integer layers were allocated at the layer\'s size');
   const n = f.calls.length;
   g.trim();
-  const small = (fmt) => f.calls.slice(n).filter((c) => c[0] === 'texImage2D' && c[3] === fmt && c[4] === 1 && c[5] === 1);
-  assert.equal(small(f.gl.RGBA16UI).length, 1, 'the first lumen\'s layer back to a texel');
-  assert.equal(small(f.gl.RG16UI).length, 1, 'the second lumen\'s layer back to a texel');
+  const small = f.calls.slice(n).filter((c) => c[0] === 'texImage2D' && c[3] === f.gl.RGBA16UI && c[4] === 1 && c[5] === 1);
+  assert.equal(small.length, 2, 'both integer layers (first and second lumen) back to a texel');
   // A pan sizes no second set of targets (the layer wraps instead: wrapPieces).
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
   const n2 = f.calls.length;

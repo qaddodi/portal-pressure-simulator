@@ -59,7 +59,7 @@ export function binVeins(tubes, joins, memo = null) {
   let fresh = 0, freshMoved = 0;
   // (The vessels whose points moved without changing which cells list which of their segments: a collateral coiling, tested
   // against its points when the coil began. When they are all that changed, the last result is patched in place: see below.)
-  const moved = [], changed = [];
+  const moved = [];
   const per = new Array(tubes.length);
   for (let ti = 0; ti < tubes.length; ti++) {
     const { id, pts: drawn, reach, core } = tubes[ti], pts = tubes[ti].bin || drawn;
@@ -95,7 +95,7 @@ export function binVeins(tubes, joins, memo = null) {
     }
     const n = nSeg, cs = cellOf.slice(0, n), ss = segOf.slice(0, n);
     // (Its lumen's cells must be the same too: a patch keeps the last result's blood cells.)
-    if (m && m.reach === reach && m.core === core && m.n === n && cs.every((c, k) => c === m.cs[k]) && ss.every((q, k) => q === m.ss[k]) && sameArr(bc, m.bc) && sameArr(bq, m.bq)) { moved.push(ti); freshMoved++; } else if (m) changed.push({ ti, old: m });
+    if (m && m.reach === reach && m.core === core && m.n === n && cs.every((c, k) => c === m.cs[k]) && ss.every((q, k) => q === m.ss[k]) && sameArr(bc, m.bc) && sameArr(bq, m.bq)) { moved.push(ti); freshMoved++; }
     per[ti] = { n, cs, ss, bc, bq };
     if (memo) memo.set(id, { reach, core, pts: Float64Array.from(pts.flat()), at: Float64Array.from(drawn.flat()), n, cs, ss, bc, bq });
   }
@@ -111,19 +111,15 @@ export function binVeins(tubes, joins, memo = null) {
   });
   // The layout (which entries go where) is the last result's when the vessels are the same, each lists the same segments
   // in the same cells, and each join has the same members and cells; then only values in entries can have changed.
-  const layoutSame = memo?.last && memo.place && memo.ids === tubes.map((t) => t.id).join(',') &&
+  const sameLayout = memo?.last && memo.place && !(fresh - freshMoved) && memo.ids === tubes.map((t) => t.id).join(',') &&
     memo.jm === joins.map((j) => j.members.join('.') + (j.trunk != null ? 't' + j.trunk + (j.fork ? 'f' : '') : '')).join(';') && memo.jCell.length === jCell.length && jCell.every((v, k) => v === memo.jCell[k]);
-  const sameLayout = layoutSame && !(fresh - freshMoved);
-  // (A vessel whose cells changed, in a binning that keeps room in its cells' lists (memo.relay): its entries written again in
-  // only the cells it left or entered, when all of them are cells that list something and have room. See relay below.)
-  const relayed = !sameLayout && layoutSame && memo.relay && memo.place.cap && changed.length === fresh - freshMoved ? relay(memo, tubes, changed, per, jCell) : null;
   const jv = memo && Float64Array.from(joins.flatMap((j) => [j.x, j.y, j.reach, j.k, j.fillet ?? 1, j.trunk ?? -1, j.fork ? 1 : 0]));
-  if (sameLayout || relayed) {
+  if (sameLayout) {
     // Nothing changed since the last call (same vessels, points, reaches and joins): the last result itself, so the caller
     // can skip the upload.
     const jMoved = [];
     for (let ji = 0; ji < joins.length; ji++) for (let f = 0; f < 7; f++) if (jv[ji * 7 + f] !== memo.jv[ji * 7 + f]) { jMoved.push(ji); break; }
-    if (!relayed && !moved.length && !jMoved.length) return memo.last;
+    if (!moved.length && !jMoved.length) return memo.last;
     // Only moved vessels or joins that keep their cells: the same entries in the same places, so the vessels' points are
     // written over the last result's and their heads and runs fitted again (as below), the joins written again, and only the
     // rows of entries that changed are uploaded again (`patch`: [first row, last row] spans). Entry for entry what a whole
@@ -131,7 +127,6 @@ export function binVeins(tubes, joins, memo = null) {
     // at every model frame of its coil, for 20–35 s after a patient change or a talk start (round 2 review, G1-3).
     const { ent } = memo.last, { es, hs, js } = memo.place, rowsOf = new Set();
     const mark = (e) => rowsOf.add((e * 2) / ENT_W | 0);
-    if (relayed) { for (const e of relayed.touched) mark(e); for (const { ti } of changed) moved.push(ti); }
     for (const ti of moved) {
       const t = tubes[ti], E = es[ti], segs = memo.get(t.id).ss;
       for (let k = 0; k < E.length; k++) {
@@ -152,7 +147,7 @@ export function binVeins(tubes, joins, memo = null) {
     // (patchRows: those vessels and the joins' members, the rows the figure names to its next draw so that one is made.)
     const patchTubes = moved.map((ti) => tubes[ti].id), patchRows = new Set(patchTubes);
     for (const ji of jMoved) { for (const r of joins[ji].members) patchRows.add(r); if (joins[ji].trunk != null) patchRows.add(joins[ji].trunk); }
-    const out = { ...memo.last, patch, patchTubes, patchJoins: jMoved.length, patchJoinEnts, patchRows: [...patchRows], patchCells: relayed ? relayed.cells : [], patchBlood: !!relayed?.blood, ...(relayed?.blood || {}) };
+    const out = { ...memo.last, patch, patchTubes, patchJoins: jMoved.length, patchJoinEnts, patchRows: [...patchRows] };
     memo.last = out; memo.jv = jv;
     return out;
   }
@@ -174,12 +169,8 @@ export function binVeins(tubes, joins, memo = null) {
   }
   for (let k = 0; k < jCell.length; k += 2) jCount[jCell[k]]++;
   const segStart = new Int32Array(NC), jStart = new Int32Array(NC);
-  // (With memo.relay each cell keeps room beyond its list, so a vessel that enters or leaves it later is written in place:
-  // `cap` entries are reserved, `segCount` are listed, and the joins' entries follow the reserve. Nothing reads past the count.)
-  const segCap = memo?.relay ? new Int32Array(NC) : segCount;
-  if (memo?.relay) for (let c = 0; c < NC; c++) if (segCount[c]) segCap[c] = segCount[c] + Math.max(2, segCount[c] >> 2);
   let o = 0, nCells = 0;
-  for (let c = 0; c < NC; c++) { segStart[c] = o; o += segCap[c]; if (segCount[c]) nCells++; }
+  for (let c = 0; c < NC; c++) { segStart[c] = o; o += segCount[c]; if (segCount[c]) nCells++; }
   for (let c = 0; c < NC; c++) { jStart[c] = o; o += segCount[c] ? jCount[c] : 0; }
   const nEnt = o;
   const rows = Math.max(1, Math.ceil((nEnt * 2) / ENT_W));
@@ -223,12 +214,17 @@ export function binVeins(tubes, joins, memo = null) {
   }
   // The cells a lumen can reach: within a vessel's core, or listing a join (its fillet and the lower tier's copy swell the
   // lumens there). Elsewhere a cell draws only casings, shadows and the plate, which the moving blood never changes.
-  const { wet, wetQ } = wetOf(tubes, per, jCell, NC);
-  const cells = new Float32Array(nCells * 6), wetAt = [], quarters = [], recOf = memo?.relay ? new Int32Array(NC).fill(-1) : null;
+  const wet = new Uint8Array(NC), wetQ = new Uint8Array(NC * 4);
+  for (let ti = 0; ti < tubes.length; ti++) {
+    const { n, cs, bc, bq } = per[ti];
+    if (tubes[ti].core == null) for (let k = 0; k < n; k++) { wet[cs[k]] = 1; wetQ.fill(1, cs[k] * 4, cs[k] * 4 + 4); }
+    else { for (const c of bc) wet[c] = 1; for (const q of bq) wetQ[q] = 1; }
+  }
+  for (let k = 0; k < jCell.length; k += 2) { wet[jCell[k]] = 1; wetQ.fill(1, jCell[k] * 4, jCell[k] * 4 + 4); }
+  const cells = new Float32Array(nCells * 6), wetAt = [], quarters = [];
   let ci = 0;
   for (let c = 0; c < NC; c++) {
     if (!segCount[c]) continue;
-    if (recOf) recOf[c] = ci / 6;
     cells[ci] = x0 + (c % nx) * CELL; cells[ci + 1] = y0 + Math.floor(c / nx) * CELL;
     cells[ci + 2] = segStart[c]; cells[ci + 3] = segCount[c]; cells[ci + 4] = jStart[c]; cells[ci + 5] = jCount[c];
     if (wet[c]) wetAt.push(ci);
@@ -242,7 +238,7 @@ export function binVeins(tubes, joins, memo = null) {
   const out = { ent, rows, cells, nCells, nEnt, blood, nBlood, bloodQ, nBloodQ };
   if (memo) {
     memo.last = out; memo.ids = tubes.map((t) => t.id).join(','); memo.jm = joins.map((j) => j.members.join('.') + (j.trunk != null ? 't' + j.trunk + (j.fork ? 'f' : '') : '')).join(';'); memo.jCell = jCell; memo.jv = jv;
-    memo.place = { es: tubes.map((_, ti) => entOf.slice(tFrom[ti], tFrom[ti + 1])), hs, js, cap: memo.relay ? segCap : null, rec: recOf, nx };
+    memo.place = { es: tubes.map((_, ti) => entOf.slice(tFrom[ti], tFrom[ti + 1])), hs, js };
   }
   return out;
 }
@@ -306,154 +302,6 @@ function writeJoin(ent, e, j) {
   // (A member that is the trunk the others end on has a quarter added to its row, three eighths at a fork, where it runs on into
   // the rest of its course: the shader reads the row as int(v + 0.5).)
   for (let m = 0; m < 4; m++) ent[q + 4 + m] = j.members[m] == null ? -1 : j.members[m] + (j.trunk === j.members[m] ? (j.fork ? 0.375 : 0.25) : 0);
-}
-
-/** The grid cells (and their quarters) a lumen can reach: a flag each. See `blood` in binVeins. */
-function wetOf(tubes, per, jCell, NC) {
-  const wet = new Uint8Array(NC), wetQ = new Uint8Array(NC * 4);
-  for (let ti = 0; ti < tubes.length; ti++) {
-    const { n, cs, bc, bq } = per[ti];
-    if (tubes[ti].core == null) for (let k = 0; k < n; k++) { wet[cs[k]] = 1; wetQ.fill(1, cs[k] * 4, cs[k] * 4 + 4); }
-    else { for (const c of bc) wet[c] = 1; for (const q of bq) wetQ[q] = 1; }
-  }
-  for (let k = 0; k < jCell.length; k += 2) { wet[jCell[k]] = 1; wetQ.fill(1, jCell[k] * 4, jCell[k] * 4 + 4); }
-  return { wet, wetQ };
-}
-
-/**
- * A binning kept with room in its cells' lists (memo.relay), updated in place for vessels whose cells changed: each such vessel's
- * entries are taken out of the cells it left and written in the cells it entered (and in the cells where its samples moved between
- * cells), keeping the list's order (by vessel, then sample) and the other vessels' stretches as they were, so the lists hold what a
- * binning of the same tubes gives, cell for cell. `changed`: [{ ti, old (the memo record before this call) }]; `per`: the new
- * (cell, sample) pairs. Returns { cells: the indices of the cell records whose count changed or list was written, touched: entries
- * whose rows must go up again }, or null (nothing written) when a cell it needs has no record, lists nothing after, or has no room, or
- * a vessel's lumen cells (blood) changed, which a full binning handles.
- */
-function relay(memo, tubes, changed, per, jCell) {
-  const { cap, rec, es, hs } = memo.place, { ent, cells } = memo.last;
-  let bloodMoved = false;
-  const KEY = 1 << 12;
-  const tiOf = new Map(tubes.map((t, ti) => [t.id, ti])), chIdx = new Set(changed.map((c) => c.ti));
-  const A = new Set(), fresh = new Map(), newEs = new Map();
-  for (const { ti, old } of changed) {
-    const p = per[ti];
-    if (!sameArr(p.bc, old.bc) || !sameArr(p.bq, old.bq)) bloodMoved = true;
-    // (The cells where its pairs differ: a pair (cell, sample) in only one of the two lists puts its cell in A.)
-    const was = new Map();
-    for (let k = 0; k < old.cs.length; k++) was.set(old.cs[k] * KEY + old.ss[k], k);
-    const now = new Set(), by = new Map();
-    for (let k = 0; k < p.cs.length; k++) {
-      const c = p.cs[k], key = c * KEY + p.ss[k];
-      now.add(key);
-      let a = by.get(c); if (!a) by.set(c, a = []); a.push(p.ss[k]);
-      if (!was.has(key)) A.add(c);
-    }
-    for (let k = 0; k < old.cs.length; k++) if (!now.has(old.cs[k] * KEY + old.ss[k])) A.add(old.cs[k]);
-    fresh.set(ti, by);
-    newEs.set(ti, { was, old: es[ti] });
-  }
-  if (!A.size) return null;
-  const inA = new Uint8Array(cap.length);
-  for (const c of A) inA[c] = 1;
-  // Every vessel's pair indices in the cells of A (ascending: the order of its entries in a cell).
-  const ks = new Map();
-  for (let ti = 0; ti < tubes.length; ti++) {
-    const cs = per[ti].cs;
-    for (let k = 0; k < cs.length; k++) {
-      const c = cs[k];
-      if (!inA[c]) continue;
-      let m = ks.get(c); if (!m) ks.set(c, m = new Map());
-      let a = m.get(ti); if (!a) m.set(ti, a = []);
-      a.push(k);
-    }
-  }
-  const plans = [];
-  for (const c of A) {
-    const r = rec[c];
-    if (r < 0 || !cap[c]) return null;
-    const start = cells[r * 6 + 2], count = cells[r * 6 + 3], keep = [], list = [];
-    for (let e = start; e < start + count;) {
-      let g = e + 1;
-      while (g < start + count && ent[g * 8 + 5] !== -1) g++;
-      const ti = tiOf.get(ent[e * 8 + 4]);
-      if (ti === undefined) return null;
-      keep.push({ ti, e0: e, n: g - e });
-      if (!chIdx.has(ti)) {
-        // (An unchanged vessel's stretch must match its pairs here, or the bookkeeping would not.)
-        if ((ks.get(c)?.get(ti)?.length ?? 0) !== g - e - 1) return null;
-        list.push({ ti, e0: e, n: g - e });
-      }
-      e = g;
-    }
-    for (const [ti, by] of fresh) { const a = by.get(c); if (a) list.push({ ti, samples: a, n: 1 + a.length }); }
-    list.sort((a, b) => a.ti - b.ti);
-    let total = 0;
-    for (const x of list) total += x.n;
-    if (!total || total > cap[c]) return null;
-    // The cell's new list, written to a copy.
-    const tmp = new Float32Array(cap[c] * 8);
-    let pos = 0;
-    for (const x of list) {
-      if (x.e0 != null) tmp.set(ent.subarray(x.e0 * 8, (x.e0 + x.n) * 8), pos * 8);
-      else {
-        const t = tubes[x.ti], h = pos;
-        tmp[h * 8 + 4] = t.id; tmp[h * 8 + 5] = -1; tmp[h * 8 + 7] = x.samples.length;
-        x.samples.forEach((i, j) => { const a = t.pts[i], b = t.pts[i + 1], q = (h + 1 + j) * 8; tmp[q] = a[0]; tmp[q + 1] = a[1]; tmp[q + 2] = b[0]; tmp[q + 3] = b[1]; tmp[q + 4] = t.id; tmp[q + 5] = i; });
-        fitStretch(tmp, h);
-      }
-      x.at = pos;
-      pos += x.n;
-    }
-    plans.push({ c, r, start, keep, list, total, tmp });
-  }
-  // Each changed vessel's entries outside A are where they were: found by their (cell, sample) in the old pairs.
-  for (const { ti } of changed) {
-    const p = per[ti], { was, old } = newEs.get(ti), out = new Int32Array(p.cs.length);
-    for (let k = 0; k < out.length; k++) {
-      if (inA[p.cs[k]]) continue;
-      const k0 = was.get(p.cs[k] * KEY + p.ss[k]);
-      if (k0 === undefined) return null;
-      out[k] = old[k0];
-    }
-    newEs.get(ti).out = out;
-  }
-  // Written: nothing below can fail.
-  const gone = new Set(), heads = new Map(), touched = [], recs = [];
-  for (const { c, r, start, keep, list, total, tmp } of plans) {
-    ent.set(tmp, start * 8);
-    cells[r * 6 + 3] = total;
-    recs.push(r);
-    touched.push(start, start + cap[c] - 1);
-    for (const x of keep) gone.add(x.e0);
-    for (const x of list) {
-      const h = start + x.at;
-      let a = heads.get(x.ti); if (!a) heads.set(x.ti, a = []);
-      a.push(h);
-      const kk = ks.get(c).get(x.ti), out = newEs.get(x.ti)?.out || es[x.ti];
-      for (let j = 0; j < kk.length; j++) out[kk[j]] = h + 1 + j;
-    }
-    for (const x of keep) if (!heads.has(x.ti)) heads.set(x.ti, []);
-  }
-  for (const [ti, news] of heads) hs[ti] = hs[ti].filter((h) => !gone.has(h)).concat(news);
-  for (const [ti, v] of newEs) es[ti] = v.out;
-  // The blood's squares, where a lumen's cells changed: made again from the flags, in the cells' order (the rows are copies of the
-  // cells' own).
-  let blood = null;
-  if (bloodMoved) {
-    const { wet, wetQ } = wetOf(tubes, per, jCell, cap.length), wetAt = [], quarters = [];
-    for (let c = 0, r = 0; c < cap.length; c++) {
-      if (rec[c] < 0) continue;
-      const ci = r++ * 6;
-      if (wet[c]) wetAt.push(ci);
-      for (let q = 0; q < 4; q++) if (wetQ[c * 4 + q]) quarters.push(cells[ci] + (q & 1) * (CELL / 2), cells[ci + 1] + (q >> 1) * (CELL / 2));
-    }
-    const nBlood = wetAt.length, rows = new Float32Array(nBlood * 6);
-    wetAt.forEach((at, b) => rows.set(cells.subarray(at, at + 6), b * 6));
-    const nBloodQ = quarters.length / 2, rowsQ = new Float32Array(nBloodQ * 6);
-    for (let k = 0; k < nBloodQ; k++) { rowsQ[k * 6] = quarters[k * 2]; rowsQ[k * 6 + 1] = quarters[k * 2 + 1]; }
-    blood = { blood: rows, nBlood, bloodQ: rowsQ, nBloodQ };
-  }
-  return { cells: recs, touched, blood };
 }
 
 // A radius that holds every point measured, nudged past float32 rounding (the shader reads it as float32).
