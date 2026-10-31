@@ -2045,13 +2045,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // spleen still ease, and they go on easing in view as it zooms out, drawn live, rather than finishing unseen first.)
     return plateOn() && !plateBusy && (liveOn() || (!lvMoving && !fluidEasing() && !spleenMoving())) && plateKey === plateStateKey();
   }
-  function setLobule(on) {
+  // (diveWait: a dive waiting for its tissue to be painted ahead, which goes on only if nothing else was asked for meanwhile.)
+  let diveWait = 0, diveGen = 0;
+  function setLobule(on, painted = false) {
     if (on && morphTarget !== 0) return;
     risePrep = false; clearTimeout(risePrepT);
+    if (diveWait) { diveWait = 0; diveGen++; }   // (any other ask calls a waiting dive off; a dive asked again waits afresh)
     const from0 = diveT;
     diveOut = !on;
     if (on) { riseBox = null; riseUsed = false; }
     if (lobuleOn === on && diveT === (on ? 1 : 0)) return;
+    // Into the lobule for a new patient: its tissue bitmap is painted in the worker first (lz.paintAhead), so the frame the zoom
+    // starts in does not paint it on the main thread (1.8 s on CI's laptop profile, HVPG 5 to 6). The anatomy stays as it is
+    // meanwhile (nothing is set: lobuleOn waits too), the slide's words still coming in; the dive then starts as before.
+    if (on && diveT === 0 && !painted) {
+      const ahead = lz?.paintAhead?.();
+      if (ahead) {
+        const gen = ++diveGen;
+        diveWait = gen;
+        ahead.then(() => { if (diveWait === gen && !lobuleOn && diveT === 0) { diveWait = 0; if (store.get().lobule) setLobule(true, true); } });
+        return;
+      }
+    }
     lobuleOn = on;
     logMove({ t: performance.now(), kind: on ? 'dive' : 'rise' });
     cancelFrame(lobAnim);
@@ -2427,7 +2442,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=67a724fe16').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=1a8478bde6').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2815,14 +2830,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const now = performance.now();
     if (prepBusy || !figureShown || now - prepAt < 1000) return;
     prepAt = now;
-    const calm = () => morphTarget === 0 && morph < 0.02 && !lobuleOn && diveT === 0 && !vtGliding;
+    const calm = () => morphTarget === 0 && morph < 0.02 && !lobuleOn && !diveWait && diveT === 0 && !vtGliding;
     if (!calm() || figureHidden()) return;
     const q = lz.preparePieces();
     if (!q.length) return;
     prepBusy = true;
     const run = () => {
-      if (!lobuleOn && diveT === 0 && morphTarget === 0 && (!calm() || figureHidden())) { prepIdle(run); return; }   // busy for now: later
-      if (lobuleOn || diveT > 0 || morphTarget !== 0 || !lz.prepareRun(q)) { prepBusy = false; return; }
+      if (!lobuleOn && !diveWait && diveT === 0 && morphTarget === 0 && (!calm() || figureHidden())) { prepIdle(run); return; }   // busy for now: later
+      if (lobuleOn || diveWait || diveT > 0 || morphTarget !== 0 || !lz.prepareRun(q)) { prepBusy = false; return; }   // (diveWait: a dive's own painting is under way)
       prepIdle(run);
     };
     prepIdle(run);
@@ -11981,7 +11996,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The way out of the lobule begins (true: its framing stays in the space the leaving slide's cards left) or is called off (false). */
     lobuleHold: (on) => lz?.holdFrame(on),
     /** The dive into the lobule (or back out) has finished: the view is wholly the lobule, or wholly the anatomy. */
-    lobuleSettled: () => !(lz?.sinBusy()) && (lobuleOn ? diveT >= 1 : diveT <= 0),
+    lobuleSettled: () => !diveWait && !(lz?.sinBusy()) && (lobuleOn ? diveT >= 1 : diveT <= 0),
     /** From the anatomy to the sinusoid view in two zooms: into the lobule's normal framing, then into the sinusoid. In the lobule already, just the sinusoid. */
     async diveToSinusoid() {
       if (!lobuleOn && diveT === 0 && morphTarget === 0 && !reduceMotion.matches) {
