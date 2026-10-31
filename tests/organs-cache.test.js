@@ -109,6 +109,6 @@ test("the lobule's bitmap scale is capped by the deepest zoom the screen can rea
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   assert.match(src, /const worldCap = \(G, dpr\) => Math\.min\(3600 \/ \(2\.6 \* G\.R\), Math\.max\(dpr \* kFit \* KMAX, dpr \* V\.k\) \* Math\.SQRT2\);/);
-  assert.equal((src.match(/worldCap\(/g) || []).length, 4, 'the four scale sites');
+  assert.equal((src.match(/worldCap\(/g) || []).length, 5, 'the five scale sites (paintAhead\'s too)');
   assert.doesNotMatch(src, /3600 \/ \(2\.6 \* (geo|G)\.R\)\)/, 'no scale site keeps the bare constant');
 });

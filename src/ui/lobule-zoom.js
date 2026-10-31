@@ -1851,6 +1851,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // drawn by the layers themselves at the tile's size, then the layers drawn for the screen as before; on landing the layers
   // simply show again, already drawn: the same picture at the same detail, with no redraw. A tile the browser refuses (its
   // canvas memory spent) drops the copy, and the dive shows the layers as before rather than a blank lobule.
+  let wideBuild = false;   // (buildWide is drawing the copy's tiles)
   let wide = null;   // { el, tiles, box, soft }: the copy, its tiles in one box placed at (−l, −t) in the stage
   const WIDE_HIDE = [tissue, tissueG, diveCv, glCv, fx];
   function padBox(W, H) {
@@ -1883,7 +1884,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const box0 = h('div', { class: 'lz-wide', 'aria-hidden': 'true', style: { position: 'absolute', left: `${-box.l}px`, top: `${-box.t}px`, width: `${box.w}px`, height: `${box.h}px`, visibility: 'hidden', pointerEvents: 'none' } });
     const tiles = [];
     let ok = true;
-    for (const t of parts) {
+    wideBuild = true;
+    try { for (const t of parts) {
       // (The view moved so this tile's corner is the layers' own corner: they draw the tile as they would the screen.)
       const ox = box.l - t.x, oy = box.t - t.y, or = t.x + t.w < box.w - 1e-6, ob = t.y + t.h < box.h - 1e-6, w = t.w + (or ? OV : 0), hh = t.h + (ob ? OV : 0);
       const cv = h('canvas', { 'aria-hidden': 'true', style: { position: 'absolute', display: 'block', left: `${t.x}px`, top: `${t.y}px`, width: `${w}px`, height: `${hh}px` } });
@@ -1906,7 +1908,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         if (ob) opaqueOnly(c, 0, cv.height - 2, cv.width, 2);
       } finally { V.x -= ox; V.y -= oy; }
       tiles.push(cv); box0.append(cv);
-    }
+    } } finally { wideBuild = false; }
     diveCopyKey = ''; diveRim = null;
     tissueKey = ''; drawKey = ''; glDirty = true; fxDrawn = ''; fxBoxes = null; lyKey = ''; idleDrawn = '';
     if (!ok) { for (const cv of tiles) free(cv); return null; }
@@ -2424,6 +2426,33 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     try { idleDrawn = ''; draw(0); diveDrawn = true; staged = api.viewKey(); relLater = true; wide = wideChecked(wd); } finally { keep2D = false; }
   }
   function warm() { const f = warmQ.shift(); if (f) f(); return warmQ.length > 0; }
+  // Before a dive (stage.js setLobule): a new patient's tissue bitmap, which stage() would otherwise paint here, on the main thread,
+  // in the frame the zoom starts (the 1.8 s frame of CI's laptop profile, HVPG 5 to 6: up to 3600 px square of plates), is painted in
+  // the worker first, for the view and the model stage() then sets the same way. Null when there is nothing to wait for (painted
+  // already, no worker, the lobule showing); else a promise that resolves once the bitmap is in, or after AHEAD_MS at most (stage()
+  // then paints it here, as before). Never rejects. Nothing is seen meanwhile: the lobule is not showing.
+  const AHEAD_MS = 1000;
+  function paintAhead() {
+    if (fade > 0 || !F || !geo || !offPage()) return null;
+    const [W, H] = hostSize();
+    ensureGeo(W, H);
+    resetView(); staging = true; snapState();
+    try { update(F); } finally { staging = false; }
+    const G = geo, m = model;
+    if (!G || !m) return null;
+    const dark = isDark(), cs = styles(), dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale();   // (draw's own)
+    const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), worldCap(G, dpr)), ws = worldStateOf(m, G, dark, cs), wk = sc.toFixed(3) + '|' + ws;
+    if (wk === worldKey) return null;
+    const t0 = performance.now();
+    return new Promise((done) => {
+      const look = () => {
+        if (worldKey === wk || fade > 0 || geo !== G || performance.now() - t0 > AHEAD_MS) { done(); return; }
+        if (!job && !laying) askPaint('world', sc, ws, wk, m, G, dark, cs);   // (one already on its way, for another state, is let in first)
+        setTimeout(look, 16);
+      };
+      look();
+    });
+  }
 
   // Lumen radius of a tube at sample i (world px), from the model.
   // The few model values the calibers follow, eased toward the model's every display frame (~0.3 s), so a
@@ -2965,6 +2994,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     if (!held && gpu && kept && ws === worldState && sc <= worldSc && worldSc <= sc * 2.01) sc = worldSc;
     if (held && kept && (!gpu || sc <= worldSc || bitmapUnseen())) { if (hand && sc !== worldSc) holdSoon(); sc = worldSc; }   // (bitmapUnseen: not repainted at each step of a gesture's zoom, as nothing of it is seen; drawn at the zoom's sharpness once the hand lets go, for the 2D canvas)
+    // (The dive's wide copy drawn at a lower pixel ratio than the screen's, its box past the budget (buildWide): it is drawn from the
+    // screen's sharper bitmap of the same state, not from a softer one painted here for it, with the screen's painted again after.)
+    if (wideBuild && !held && kept && ws === worldState && sc < worldSc && worldSc <= sc * 2.01) sc = worldSc;
     const wk = sc.toFixed(3) + '|' + ws;
     const now = performance.now(), fading = tissueFading(now), gk = greyNow(now);   // (gk: the surround's grey, easing with the lens)
     const lk = gpu ? liveStep(dpr, now) : 0;   // (the share of the lobule drawn live by the shader)
@@ -3711,7 +3743,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     sinBusy: () => sinTo === 1 ? sinU < 1 : sinU > 0,
     sinusoidOpen: () => sv.isOpen(),
     sinZoom: () => sinZ,
-    prewarm, warm, stage, stageRise, preparePieces, prepareRun,
+    prewarm, warm, stage, stageRise, paintAhead, preparePieces, prepareRun,
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
     covers: () => fade > 0.98 || fieldOp >= 0.999,
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
