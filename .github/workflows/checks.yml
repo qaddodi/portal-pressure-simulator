@@ -245,29 +245,3 @@ jobs:
           path: test-results/visual-stageover
           if-no-files-found: ignore
           retention-days: 1
-      # The same views with the figure drawn in a worker (?figworker=on, off by default), against the pictures the page took of itself.
-      # A warning while the worker is built out: where the worker cannot start (no OffscreenCanvas WebGL2) the page draws the figure
-      # and the views match trivially.
-      - name: Visual regression, figure in a worker
-        id: visual_fw
-        if: always()
-        continue-on-error: true
-        env:
-          VISUAL_DEVICE: ${{ matrix.device }}
-          VISUAL_QUERY: '&figworker=on'
-          VISUAL_AGAINST: test-results/visual-now
-          VISUAL_OUT: test-results/visual-figworker
-        shell: bash
-        run: npm run visual | tee visual-fw.log
-      - name: Report views that differ with the figure in a worker
-        if: always() && steps.visual_fw.outcome == 'failure'
-        run: |
-          views=$(grep -o '^FAIL [^:]*' visual-fw.log | cut -c6- | paste -sd' ' -)
-          echo "::warning title=Figure in a worker differs from the page's own drawing::$views (?figworker=on, off by default)."
-      - uses: actions/upload-artifact@v4
-        if: always() && steps.visual_fw.outcome == 'failure'
-        with:
-          name: visual-diff-figworker-${{ matrix.device }}
-          path: test-results/visual-figworker
-          if-no-files-found: ignore
-          retention-days: 1

@@ -181,7 +181,7 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   assert.match(css, /\.stage-view svg#stageOver\.gpu-all \{ opacity: 0 !important; \}/);
   assert.match(st, /svgOver\.classList\.toggle\(OVER_ALL, run\.whole\);/);
   // (A non-scaling stroke's px: the canvas's own over its box's, given to the painter before each change check and paint.)
-  assert.match(st, /veins\.overlay\.cssPx = boxW > 0 \? vcw\(\) \/ boxW : 1;/);
+  assert.match(st, /veins\.overlay\.cssPx = boxW > 0 \? vCanvas\.width \/ boxW : 1;/);
   const vg = read('../src/ui/veins-gl.js');
   assert.match(vg, /stack\.painter\.cssPx = overCss;\n\s+const kx = canvas\.width \/ PW\(\), ky = canvas\.height \/ PH\(\);\n\s+const om = overSnap \? whole\(overM\) : overM;\n\s+return over\.stale\(\[om\[0\] \* kx/);
   assert.match(vg, /stack\.painter\.cssPx = overCss;\n\s+if \(over\.stale\(m, canvas\.width, canvas\.height\)\) over\.render/);

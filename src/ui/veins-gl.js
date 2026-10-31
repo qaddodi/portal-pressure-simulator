@@ -33,14 +33,14 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=300b3b5267';
-import { figureRGB as cssRGB, figureSearch } from './figure-settings.js?v=68c0336f5f';
+import { cssRGB } from './util.js?v=b061aaaabb';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=dfcc262e2a';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=7eb5e277a6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
 import { changedRows } from './flow-rows.js?v=bea4089714';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
 import { PUBLISH_QUIET_MS } from './gl-compile.js?v=5c4cd6c14c';
-import { createOrganStack } from './organs-gl.js?v=7e9716eacd';
+import { createOrganStack } from './organs-gl.js?v=ac62b354a5';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=422223e3b9';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 
@@ -79,21 +79,21 @@ export function laneSum(R, pxW) {
 const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
 // ?veins=generic in the address: every cell drawn by the general vessel program (the one-vessel build left off), for an A/B
 // on a device. The picture is the same either way.
-const GENERIC = /[?&]veins=generic\b/.test(figureSearch());
+const GENERIC = typeof location !== 'undefined' && /[?&]veins=generic\b/.test(location.search);
 // The vessel canvas keeps no picture of its own (on by default since 31 Oct; ?vesselbuf=keep in the address goes back): it is made
 // without preserveDrawingBuffer, and the picture the frames repaint in part is kept in a texture of the renderer's own, copied whole
 // to the canvas each time it is drawn on (see present). The same pixels either way; the browser no longer keeps (and copies) a second
 // buffer for the canvas on every frame. Every reader of the canvas outside the frame that drew it calls capture() or present() first.
-const OWN_BUF = !/[?&]vesselbuf=keep\b/.test(figureSearch());
+const OWN_BUF = !(typeof location !== 'undefined' && /[?&]vesselbuf=keep\b/.test(location.search));
 // ?blood=classic in the address (an A/B, off by default): the composite built as it was before the blood's speed-ups of 26 Oct
 // (COMP_FS `fast`): every lumen pixel lays the layers under it, hashes its noise, works out the zoom's numbers itself and keeps the
 // bead look's code. The same picture either way; the switch is there to compare on a device.
-const CLASSIC = /[?&]blood=classic\b/.test(figureSearch());
+const CLASSIC = typeof location !== 'undefined' && /[?&]blood=classic\b/.test(location.search);
 // One-pass zoom frames (on by default since 26 Oct: the same look, a little smoother on Mohammad's Mac; ?zoompass=two in the
 // address goes back): a frame where the view zoomed or turned, which drew the vessel layer whole and then the picture whole, runs
 // the two as one shader over the vessel cells instead (veins-fuse.js), and the picture alone over the rest of the canvas (the
 // layer there is empty). The same arithmetic, so the same picture.
-const ONE_PASS = !/[?&]zoompass=two\b/.test(figureSearch());
+const ONE_PASS = !(typeof location !== 'undefined' && /[?&]zoompass=two\b/.test(location.search));
 // Settings › Figure performance › Pinch frame reuse (frame.js pinchReuse, off by default; stage.js passes it only while a hand zooms):
 // on some of the one-pass zoom frames, the last picture the one-pass shader drew is laid again, moved and scaled by the zoom since,
 // instead of shading the figure afresh. REUSE_FS maps each pixel of the canvas now to where the same world point was in that picture

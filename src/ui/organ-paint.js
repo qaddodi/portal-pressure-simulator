@@ -287,16 +287,6 @@ const ownSO = (el) => ownV(el, 'strokeOpacity', 'stroke-opacity') != null;
 const clamp01 = (v) => Math.min(1, Math.max(0, parseFloat(v) || 0));
 const liveO = (el, cs) => { const v = ownV(el, 'opacity', 'opacity'); return v != null ? clamp01(v) : cs.get(el) ?? 1; };
 const livePO = (el, prop, attr, cs) => { const v = ownV(el, prop, attr); return v != null ? clamp01(v) : cs.get(el) ?? 1; };
-/** What the painter holds about an element that is not in the element itself (the computed opacities read with the group, its CSS frame, the shape the app made for it), for organ-wire.js to send. */
-export const heldOf = (el) => ({ o: CS_O.get(el), fo: CS_FO.get(el), so: CS_SO.get(el), css: CSS_M.get(el) || null, src: SRC.get(el) || null });
-/** The same, set on a stand-in element a worker holds. */
-export function hold(el, h) {
-  if (h.o !== undefined) CS_O.set(el, h.o); else CS_O.delete(el);
-  if (h.fo !== undefined) CS_FO.set(el, h.fo); else CS_FO.delete(el);
-  if (h.so !== undefined) CS_SO.set(el, h.so); else CS_SO.delete(el);
-  if (h.css) { CSS_M.set(el, h.css); cssAny = true; } else CSS_M.delete(el);
-  if (h.src) SRC.set(el, h.src); else SRC.delete(el);
-}
 /** A group's own opacity now (its root's own setting, else as read). */
 export const specOpacity = (spec) => (spec.root ? liveO(spec.root, CS_O) : spec.opacity);
 /** The frame of an element chain (each element's transform, outermost first) now. */

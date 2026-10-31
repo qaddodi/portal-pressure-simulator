@@ -253,8 +253,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     let p;
     try {
       capture?.();   // (the figure's whole picture is on the canvas for this copy, whether or not the canvas keeps its own)
-      // (A figure drawn in a worker answers `crop` itself: the canvas is no longer the page's to read, figure-worker-start.js.)
-      p = (source.crop || ((...a) => createImageBitmap(source, ...a)))(Math.round((reg.x + cr.left - sr.left) * kx), Math.round((reg.y + cr.top - sr.top) * ky), Math.max(1, Math.round(reg.w * kx)), Math.max(1, Math.round(reg.h * ky)),
+      p = createImageBitmap(source, Math.round((reg.x + cr.left - sr.left) * kx), Math.round((reg.y + cr.top - sr.top) * ky), Math.max(1, Math.round(reg.w * kx)), Math.max(1, Math.round(reg.h * ky)),
         { resizeWidth: bw, resizeHeight: bh, resizeQuality: 'medium', premultiplyAlpha: 'premultiply' });
     } catch { p = Promise.reject(); }
     p.then((bm) => {
