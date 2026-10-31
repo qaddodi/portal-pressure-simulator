@@ -4,7 +4,7 @@
 import { frameFor, figLab } from './frame.js?v=fe59494d22';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
-import { layoutWatch, PLACED } from './idle-keys.js?v=dd9715597b';
+import { layoutWatch, PLACED } from './idle-keys.js?v=70e26bf4a1';
 const nextFrame = frameFor('credit');
 
 // Corners in order of preference. A bottom corner rises above whatever covers it (up to the middle of the figure);

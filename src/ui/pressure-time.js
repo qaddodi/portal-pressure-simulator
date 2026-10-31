@@ -6,8 +6,8 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js?v=a926bea9d4';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=89c771844c';
-import { FONT as FONT0, FONT } from './charts.js?v=979398c5b1';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=b02880ea05';
+import { FONT as FONT0, FONT } from './charts.js?v=f9296896fc';
 import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=fe59494d22';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
@@ -20,6 +20,7 @@ import { olderThan, inFront } from './backfill.js?v=455d888760';
 import { plotFill } from './plot-look.js?v=5037697da7';
 import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from './beat-card.js?v=1c985e2f61';
 import { VITALS } from './vital-read.js?v=cbba41a6b7';
+import { shownOr } from './shown.js?v=f59acbb802';
 const nextFrame = frameFor('pressure-time');
 
 // hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the
@@ -35,6 +36,10 @@ const TRACES = [
   { id: 'SMV', label: 'Superior mesenteric vein', abbr: 'SMV', short: 'SMV', c: '--tr-smv', hide: 'pv', on: false, day: null },
 ];
 const KEYS = [...TRACES.map((t) => t.id), 'hvpg'];
+// The live readings written at the lines' ends and in the header are the bottom bar's as shown (shown.js: its running mean on the shown
+// state, premium-feel R4), so they glide with it frame by frame and wedged − free at the ends is the header's HVPG and the bar's.
+const BAR_KEY = { CONF: 'pv', whvp: 'whvp', RHV: 'fhvp', IVCS: 'ivc' };
+const liveEnd = (t, m) => { const v = t.day?.(m); return BAR_KEY[t.id] ? shownOr(BAR_KEY[t.id], v) : v; };
 const SMOOTH_S = 6; // seconds averaged by the Smooth toggle
 const BEAT_CARD_S = 5;
 const RANGES = [['beats', '10 s', 10], ['minutes', '2 min', 120], ['days', 'Days', null]];
@@ -569,7 +574,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     const fixed = slide ? { pressure: [0, top0('pressure')], hvpg: [0, top0('hvpg')] } : null;
 
     const data = Object.fromEntries([...traces.map((t) => t.id), 'hvpg'].map((k) => [k, series(k, x0, x1)]));
-    const hv = Math.max(0, frame.metrics.hvpg);
+    const hv = Math.max(0, shownOr('hvpg', frame.metrics.hvpg));
     const sevCol = col(`--${sevOf(hv) === 'ok' ? 'ok' : sevOf(hv)}`);
     const ends = [];
     const crossRows = [];
@@ -687,7 +692,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
           if (s.lo) band(ctx, s, X, Y, c, 0.16);
           line(ctx, s, X, Y, c, t.id === 'CONF' ? 2 : 1.75, plotW);
           if (range === 'days' && s.x.length < 60) dots(ctx, s, X, Y, c, panel);
-          const e = range === 'days' ? recent(s) : (slide && Number.isFinite(endOf(t.id)) ? endOf(t.id) : t.day?.(frame.metrics)) ?? recent(s); ends.push({ y: Y(range !== 'days' && slide && Number.isFinite(recent(s)) ? recent(s) : e), v: e, label: t.abbr, c, lane });   // (on a slide, written at the line's end, its steady number; the live readings, so wedged − free is the header's HVPG)
+          const e = range === 'days' ? recent(s) : (slide && Number.isFinite(endOf(t.id)) ? endOf(t.id) : liveEnd(t, frame.metrics)) ?? recent(s); ends.push({ y: Y(range !== 'days' && slide && Number.isFinite(recent(s)) ? recent(s) : e), v: e, label: t.abbr, c, lane });   // (on a slide, written at the line's end, its steady number; the live readings, so wedged − free is the header's HVPG)
         }
       }
       ctx.restore();
@@ -900,7 +905,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       heroDelta.textContent = '';
       return;
     }
-    const v = onSlide() && Number.isFinite(endOf('whvp')) ? steadyHvpg() : frame.metrics.hvpg;
+    const v = onSlide() && Number.isFinite(endOf('whvp')) ? steadyHvpg() : shownOr('hvpg', frame.metrics.hvpg);
     const txt = fmt(v, 1);
     if (heroVal.textContent !== txt) heroVal.textContent = txt;
     const word = wordOf(v);

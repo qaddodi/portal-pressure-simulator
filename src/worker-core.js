@@ -141,7 +141,9 @@ export function createCore(post) {
     post({ type: 'history', reqId, samples: done ? h.s : null, probe: h.probe, t: h.T });
   }
   // The model was given another state (a patient, a restore, an action): the history under way is of the old one, and nothing posted is the new one's.
-  function stateChanged() { endHistory(false); postedT = NaN; }
+  // (jumpDirty: the next frame tells the page the model jumped, so nothing it shows is blended across the change: display-state.js noteJump.)
+  let jumpDirty = true, postedClock = null;
+  function stateChanged() { endHistory(false); postedT = NaN; jumpDirty = true; }
   function histSlice() {
     histTimer = 0;
     const j = hist;
@@ -192,6 +194,7 @@ export function createCore(post) {
     const f = {
       type: 'frame',
       changed: frameDirty,
+      jump: jumpDirty || clock !== postedClock,
       t: eng.t, day: eng.day, running, speed, clock, probe,
       parkSecs: parkSecs(),
       lapseDay: lapse?.bedside ? lapse.total - lapse.left : undefined,
@@ -218,6 +221,7 @@ export function createCore(post) {
     };
     paramsDirty = false;
     frameDirty = false;
+    jumpDirty = false; postedClock = clock;
     if (samples) { postedT = sampT; postedCyc = sampCyc; }
     samples = null;
     post(f, [f.P.buffer, f.Pf.buffer, f.Q.buffer, f.Qf.buffer, f.ext.buffer, f.D.buffer]);
@@ -340,7 +344,7 @@ export function createCore(post) {
   const handlers = {
     init({ params }) {
       if (params) { eng.setParams(sanitizeParams(params)); eng.settle(); }
-      paramsDirty = true;
+      paramsDirty = true; jumpDirty = true;
       start();
     },
     setParams({ params, settle, ease }) {
@@ -386,7 +390,7 @@ export function createCore(post) {
     // restartClock: the days are the patient's past (the patient aged before the story starts), so the clock and
     // event log start fresh at day 0 afterwards.
     *advance({ days, untilEvent, restartClock }) {
-      morph = null;
+      morph = null; jumpDirty = true;
       const n0 = eng.eventCount;   // (a count, not the log's length: the log is capped at 200)
       let done = 0;
       const max = untilEvent ? 730 : days;

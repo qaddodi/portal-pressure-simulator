@@ -2,14 +2,14 @@
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=4d7c66b4f8';
-import { pressureColor } from './colormap.js?v=80b4653c78';
+import { pressureColor } from './colormap.js?v=b3392f59a4';
 import { store, hiddenNow } from './store.js?v=a926bea9d4';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=89c771844c';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=b02880ea05';
 import { frameFor, cancelFrame, paceMs } from './frame.js?v=fe59494d22';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
-import { shownOr } from './shown.js?v=82ef5e29ec';
+import { shownOr } from './shown.js?v=f59acbb802';
 import { monotoneSegs, curveTester } from './curve-near.js?v=9ff15157e9';
-import { glideMoving } from './idle-keys.js?v=dd9715597b';
+import { glideMoving } from './idle-keys.js?v=70e26bf4a1';
 import { plotFill } from './plot-look.js?v=5037697da7';
 const nextFrame = frameFor('charts');
 
@@ -77,7 +77,10 @@ export function createProfile() {
   }) : null;
   io?.observe(cv);
   const shown = () => (seen == null ? !!cv.offsetParent : seen);
-  const easeP = createEaser(), easeAxis = createEaser();
+  // (The pressures as shown: the model's beat-filtered ones on the shown state's filter, so the line, its dots and its numbers glide
+  // between model frames as the bar and the vessels do; a drift under what the chart prints is taken at once, so a steady model
+  // draws nothing. Premium-feel R4.)
+  const easeP = createEaser(undefined, { small: 0.05, jumps: true }), easeAxis = createEaser();
   let easePill = createEaser(0.18);
   let pillMoving = false;
   function ease() {
@@ -93,11 +96,10 @@ export function createProfile() {
     }
     const { v: ax, moving: mA } = easeAxis.step([axisTop(top)]);
     axisMax = ax[0];
-    // (The chart draws the model's own beat-filtered pressures, F.Pf, where the frame carries them, as every frame after the
-    // first does: those are already smooth, and the eased copy is drawn only before them. Its easing never settled while the
-    // model ran, so it repainted the same picture on every display frame; only what the picture shows keeps the glide going.)
-    const moving = glideMoving(!!Fraw.Pf, mP, mA);
-    F = { ...Fraw, P: shownP };
+    // (The chart draws the eased copy of the model's beat-filtered pressures, F.Pf, where the frame carries them, as every frame after
+    // the first does, and of its pressures before them. It settles once the model does, so a steady model repaints nothing.)
+    const moving = glideMoving(mP, mA);
+    F = { ...Fraw, P: shownP, ...(Fraw.Pf ? { Pf: shownP } : {}) };
     draw();
     cancelFrame(easeRaf);
     // Model frames arrive about ten times a second; the glide runs between them on every frame the screen offers

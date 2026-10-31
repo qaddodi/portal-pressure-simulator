@@ -4,9 +4,10 @@
 // (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
 import { store, hiddenNow } from './store.js?v=a926bea9d4';
-import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=89c771844c';
+import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=b02880ea05';
 import { vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { SCALE, RATE } from './table-marks.js?v=e4c3c4f8c1';
+import { shownState } from './shown.js?v=f59acbb802';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
 
@@ -70,24 +71,44 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
     return d > thr ? 'up' : d < -thr ? 'down' : '';
   }
 
-  function update(f) {
+  // As the bar's tiles (dock.js updateStrip and paintStrip): a model frame sets each reading's target on the page's one shown state
+  // (shown.js, premium-feel R4), and every display frame while one is on its way paints from what is shown (follow), so the numbers,
+  // bars and words glide with the figure rather than step ten times a second. A step the running mean does not ease is taken at once.
+  const followOpts = (d, snap) => ({ snap, small: 0.5 * Math.pow(10, -d), eps: 0.05 * Math.pow(10, -d) });
+  // (A bar's length glides on the same filter, across a jump too, as dock.js fillTo; shown again after "Not measured", from its origin.)
+  const fillTo = (key, lo, hi, v, seen) => {
+    const r = Math.abs(hi - lo), o = { small: 0.002 * r, eps: 0.0005 * r, across: true };
+    if (v != null && Number.isFinite(v) && !seen && shownState.get(key) === undefined) shownState.set(key, clamp(0, Math.min(lo, hi), Math.max(lo, hi)), o);
+    return shownState.set(key, v, o);
+  };
+  // (Followed only while the pane is being drawn: the dock draws it from each model frame only while it is open and on screen.)
+  let lastF = null, lastAt = 0;
+  shownState.on(() => { if (lastF && el.isConnected && performance.now() - lastAt < 400) update(lastF, true); });
+  function update(f, follow = false) {
+    if (!follow) { lastF = f; lastAt = performance.now(); }
     const m = f.metrics, st0 = store.get(), hidden = hiddenNow(st0), A = st0.compareSnap?.metrics || null, now = performance.now();
     for (const x of Object.values(els)) {
       const { el: tileEl, t } = x;
-      const raw = readoutValue(t, m, hidden);
-      // A running mean (about a second) keeps the number steady through the beat; a real step or a paused model shows at once.
-      let v = raw, eased = false;
-      if (raw != null && x.sm != null && st0.running && Math.abs(raw - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0])) { v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200); eased = true; }
-      x.sm = v; x.smT = now;
+      if (!follow) {
+        const raw = readoutValue(t, m, hidden);
+        // A running mean (about a second) keeps the number steady through the beat; a real step or a paused model shows at once.
+        let v = raw, eased = false;
+        if (raw != null && x.sm != null && st0.running && Math.abs(raw - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0])) { v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200); eased = true; }
+        x.sm = v; x.smT = now;
+        x.eased = eased; x.target = v;
+        x.shown = v == null ? null : shownState.set('rp:' + t.id, v, followOpts(t.d, !eased));
+        fillTo('rpfill:' + t.id, t.scale[0], t.scale[1], v, x.fillSeen); x.fillSeen = v != null;
+      } else if (x.target != null) x.shown = shownState.or('rp:' + t.id, x.target);
+      const v = x.shown ?? null, eased = follow || x.eased;
       const measured = v != null && hidden?.has(t.hideKey);
       let sev, s;
-      if (v == null) { countTo(x.val, null); s = 'Not measured'; sev = 'none'; x.hist.length = 0; }
+      if (v == null) { if (!follow) countTo(x.val, null); s = 'Not measured'; sev = 'none'; x.hist.length = 0; }
       else {
         countTo(x.val, v, t.d, { eased });   // (a paused edit or a treatment rolls to the new number: P17)
         const vs = shownOf(v, t.d);   // (the word judges the number shown)
         s = measured ? 'Measured' : t.s(vs, m);
         sev = t.st(vs, m);
-        const w = pos(t, v), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
+        const w = pos(t, shownState.or('rpfill:' + t.id, v)), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
         const fl = Math.min(w, o) / 100, fw = Math.abs(w - o) / 100;
         if (x.fillL !== fl || x.fillW !== fw) { x.fillL = fl; x.fillW = fw; x.fill.style.setProperty('--fl', fl); x.fill.style.setProperty('--fw', fw); }
       }
@@ -118,11 +139,17 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
     }
     for (const x of vitEls) {
       const hid = hidden?.has(x.v.hideKey);
-      const r = vitalReading(x, m, st0.running, now);
+      if (!follow) {
+        x.r = vitalReading(x, m, st0.running, now); x.shown = shownState.set('rp:' + x.v.id, x.r.v, followOpts(x.v.d, !st0.running));
+        const fv = hid || !Number.isFinite(x.r.v) ? null : x.r.v;
+        fillTo('rpfill:' + x.v.id, x.S[0], x.S[1], fv, x.fillSeen); x.fillSeen = fv != null;
+      }
+      else x.shown = shownState.or('rp:' + x.v.id, x.shown);
+      const r = { v: x.shown, bad: x.r?.bad };
       countTo(x.val, hid ? null : r.v, x.v.d, { eased: st0.running });
       // (Its tile's word and colour, judging the number as shown; the tile's colour holds a moment before it changes, as the others do.)
       const none = hid || !Number.isFinite(r.v), [cls, word] = none ? [null, 'Not measured'] : RATE[x.v.id](shownOf(r.v, x.v.d), {}), sev = SEV[cls] ?? 'none';
-      const w = none ? 0 : clamp((r.v - x.S[0]) / (x.S[1] - x.S[0]), 0, 1);
+      const w = none ? 0 : clamp((shownState.or('rpfill:' + x.v.id, r.v) - x.S[0]) / (x.S[1] - x.S[0]), 0, 1);
       if (x.fillW !== w) { x.fillW = w; x.fill.style.setProperty('--fl', 0); x.fill.style.setProperty('--fw', w); }
       if (sev !== x.sev) {
         if (x.sevNext !== sev) { x.sevNext = sev; x.sevSince = now; }

@@ -348,7 +348,7 @@ svg { flex: none; }
 /* A tile's colours ease into a new band with its number rolling to the new value (dock.js countTo, P17). */
 .metric .val, .metric .status { transition: color .3s var(--ease); }
 .rb { position: relative; display: block; height: 4px; margin: 4px 0 5px; border-radius: 2px; background: var(--surface-3); }
-.rb-fill { position: absolute; top: 0; bottom: 0; left: 0; width: 100%; border-radius: 2px; background: var(--sev); transform-origin: 0 50%; translate: calc(var(--fl, 0) * 100%) 0; scale: var(--fw, 0) 1; transition: translate .5s var(--ease), scale .5s var(--ease), background-color .3s; }   /* dock.js sets --fl (start) and --fw (length) as 0..1 shares of the track: the bar moves by transform, not layout */
+.rb-fill { position: absolute; top: 0; bottom: 0; left: 0; width: 100%; border-radius: 2px; background: var(--sev); transform-origin: 0 50%; translate: calc(var(--fl, 0) * 100%) 0; scale: var(--fw, 0) 1; transition: background-color .3s; }   /* dock.js sets --fl (start) and --fw (length) as 0..1 shares of the track: the bar moves by transform, not layout. Its glide is the shown state's, frame by frame (display-state.js, premium-feel R4), not a transition trailing each model frame */
 .rb-tick { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--surface); }
 .metric.hidden-val .rb-fill { scale: 0 1; }
 .table-wrap { overflow-x: auto; margin: 4px 0 8px; }

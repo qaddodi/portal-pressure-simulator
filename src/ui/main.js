@@ -1,29 +1,29 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=94c9457ff6';
+import { startHost, host } from './host.js?v=8915961b06';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=a926bea9d4';
-import { createStage } from './stage.js?v=4d9698f4a5';
-import { createCreditPlacer } from './credit.js?v=b35c114816';
+import { createStage } from './stage.js?v=cbf0de4642';
+import { createCreditPlacer } from './credit.js?v=f5431f9fc6';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=9ae3a0af74';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=a704999e19';
-import { setHvpgStage } from './hvpg-proc.js?v=a14503953c';
-import { createWhy } from './why.js?v=7be3f477bb';
-import { createTimeline, LAPSES } from './timeline.js?v=b419118b58';
-import { createCompare } from './compare.js?v=b719d25d64';
-import { createCard } from './card.js?v=ba186323e5';
-import { createChart } from './chart.js?v=2ba4e0346d';
-import { createMenu } from './menu.js?v=e8469a787b';
-import { caption } from './a11y.js?v=e821e624c9';
+import { createInspector } from './inspector.js?v=1cc56eef97';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=6a9bf003cc';
+import { setHvpgStage } from './hvpg-proc.js?v=02e83e699e';
+import { createWhy } from './why.js?v=1ba9ba9576';
+import { createTimeline, LAPSES } from './timeline.js?v=10b0e1832a';
+import { createCompare } from './compare.js?v=9499b8298b';
+import { createCard } from './card.js?v=4dd9991efa';
+import { createChart } from './chart.js?v=fbb9dd7fcb';
+import { createMenu } from './menu.js?v=779e76bc94';
+import { caption } from './a11y.js?v=7e3b6421f3';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=1de080d8fc';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=80b4653c78';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=1effbba2bd';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=b3392f59a4';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=89c771844c';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=b02880ea05';
 import { releaseSpeed } from './ease.js?v=7c37eab2c6';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
@@ -37,13 +37,14 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=14e0028ba1';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=d3f03250ff';
 import { initTopbarMotion } from './topbar-motion.js?v=6eed2fd091';
 import { ORIGINS } from './blood.js?v=d65f995908';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=d7d3ea5b70';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
 import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=fe59494d22';
+import { noteJump } from './display-state.js?v=e88f6aec64';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=ea522a5215';
 const nextFrame = frameFor('main');
 
@@ -105,8 +106,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=e0a2299e44'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=6ccf99ace4'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=43b4269df2'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=4e93769570'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -179,7 +180,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=d5b751f05d'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=16965b9a05'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -187,7 +188,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=5f7744cd01'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=17c0d0f8f1'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -371,13 +372,18 @@ function syncScanProbe() {
 // Every snapshot is taken in at once (params, events, monitor samples); only the newest waiting one is painted, next frame (paint-gate.js).
 const frameGate = createPaintGate({ ingest: ingestFrame, paint: paintFrame, ask: (cb) => frameFor('frame')(cb), cancel: cancelFrame });
 function onFrame(f) { frameGate.push(f); }
+// (A snapshot that says the model jumped, a reset, a patient, an intervention or a clock change, is never blended into the one before
+// it: the shown numbers and traces take the next values at once, display-state.js noteJump. Taken even from a snapshot not painted.)
+let jumpSeen = false;
 function ingestFrame(f) {
+  if (f.jump) jumpSeen = true;
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id) && !(hid.has('COLL_*') && e.id.startsWith('COLL_'))) : f.events; if (ev.length) timeline.addEvents(ev); }
   dock?.ingest(f);   // every frame's samples, even one that is not painted
 }
 function paintFrame(f) {
   const now = performance.now();
+  if (jumpSeen) { jumpSeen = false; noteJump(); }
   // running and clock only when they change: their listeners (the endoscopy redraw among them) need not re-run every frame.
   const st0 = store.get();
   store.set({ frame: f, ...(st0.running !== f.running ? { running: f.running } : {}), ...(st0.clock !== f.clock ? { clock: f.clock } : {}), ...(f.clock === 'hemo' && st0.lapse ? { lapse: 0, speed: f.speed } : {}) });

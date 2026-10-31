@@ -5,16 +5,17 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=89c771844c';
-import { FONT, textW } from './charts.js?v=979398c5b1';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=b02880ea05';
+import { FONT, textW } from './charts.js?v=f9296896fc';
 import { logAction, shownVel, store } from './store.js?v=a926bea9d4';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=c94a62a1c4';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=3d0338a2da';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=fe59494d22';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=15fc499dcd';
 import { createDopplerGL } from './doppler-gl.js?v=85427ed298';
 import { olderThan } from './backfill.js?v=455d888760';
+import { createFollow } from './display-state.js?v=e88f6aec64';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -417,6 +418,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // The running mean behind a slide's reading: eases toward the 3 s mean over about six seconds (about a second and a half after a clear
   // change, a what-if or a new disease state), and starts again on a new vessel or after a gap.
   const steady = { probe: null, v: 0, t: 0, n: 0 };
+  const velShown = createFollow({ small: 0.05, eps: 0.02 });
+  let velProbe = null, velShownAt = 0;
   function steadyMean(x) {
     const now = performance.now(), dt = (now - steady.t) / 1000;
     if (steady.probe !== probe || dt > 1.5 || !Number.isFinite(steady.v)) { steady.probe = probe; steady.v = x; steady.n = 1; }
@@ -452,6 +455,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // (A stent reads at its gate: the segment holding a narrowing runs faster than the open stent around it.)
     const open = Math.abs(mean);
     gf = gateFactor(); mean *= gf;
+    // (The reading and its gauge glide on the shown state's filter, display-state.js, premium-feel R4, as the bar's numbers do; a new
+    // vessel, a paused model or a jump of the model shows the new reading at once.)
+    { const t = performance.now(), dt = velShownAt && velShown.moving ? Math.min(0.1, Math.max(0, (t - velShownAt) / 1000)) : 0; velShownAt = t; mean = velShown.step(mean, dt, velProbe !== probe || !frame?.running); velProbe = probe; }
     const drawn = ovOn ? mean * pol() : mean;
     set(velEl.firstChild, num(drawn, Math.abs(drawn) < 10 ? 1 : 0));
     // (No flow, as in an occluded stent or a clotted vein: the words say it, "No flow · No signal", with no "0.0 cm/s" beside them,
@@ -1172,10 +1178,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (live() && !labBusy && now - paintAt < paceMs()) { raf = nextFrame(loop); return; }
     paintAt = now;
     // (The words are set in the same frame as the picture, so the reading and the trace and its scale never disagree.)
-    if (reportDue) { reportDue = false; updateReport(); }
+    if (reportDue || velShown.moving) { reportDue = false; updateReport(); }
     draw(now);
     noteDraw('doppler');
-    if ((live() && now - askedAt < 400) || labBusy) raf = nextFrame(loop);
+    if ((live() && now - askedAt < 400) || labBusy || velShown.moving) raf = nextFrame(loop);
   }
   function redraw() {
     if (!frame) return;

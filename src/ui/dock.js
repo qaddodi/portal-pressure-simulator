@@ -3,21 +3,21 @@
 
 import { store, hiddenNow } from './store.js?v=a926bea9d4';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=89c771844c';
-import { lobuleFlows } from './lobule-model.js?v=43e2c19a0c';
-import { createProfile } from './charts.js?v=979398c5b1';
-import { createPressureTime } from './pressure-time.js?v=794ddde517';
-import { createHvpgProcedure } from './hvpg-proc.js?v=a14503953c';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=9480bd12dc';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=b02880ea05';
+import { lobuleFlows } from './lobule-model.js?v=2f078f4dd4';
+import { createProfile } from './charts.js?v=f9296896fc';
+import { createPressureTime } from './pressure-time.js?v=45b446459b';
+import { createHvpgProcedure } from './hvpg-proc.js?v=02e83e699e';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=4d46e4b356';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=50ed86b3e2';
-import { createReadoutsPane } from './readouts-pane.js?v=c1c5760212';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=25b769f76d';
+import { createReadoutsPane } from './readouts-pane.js?v=fe3ddb9f6b';
 import { frameFor } from './frame.js?v=fe59494d22';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
-import { setShown } from './shown.js?v=82ef5e29ec';
+import { setShown, shownState } from './shown.js?v=f59acbb802';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { compareRows } from './idle-keys.js?v=dd9715597b';
+import { compareRows } from './idle-keys.js?v=70e26bf4a1';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
@@ -138,6 +138,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const resizeSoon = () => { clearTimeout(rzT); rzT = setTimeout(() => dispatchEvent(new Event('resize')), 30); };
   // ── Readout strip ─────────────────────────────────
   const ends = { pv: {}, ivc: {}, whvp: {}, fhvp: {} };   // (the gradients' readings, each with the tiles' running mean)
+  const GAP_ENDS = { hvpg: ['whvp', 'fhvp'], ppg: ['pv', 'ivc'] };   // (the bar's two gradients, each the difference of its two readings as shown)
   const tileEls = {};
   // A phone's four tiles are narrow: short names and status words where the long ones would be cut off.
   const narrow = matchMedia('(max-width: 1279px)');   // phones, tablets and narrow windows: short readout names
@@ -203,42 +204,82 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     return d > thr ? 'up' : d < -thr ? 'down' : '';
   }
 
+  // The bar follows the model on the page's one shown state (shown.js shownState, premium-feel R4): each model frame sets the
+  // targets (updateStrip), and every display frame while one is on its way paints the tiles, their bars and their words from what is
+  // shown (paintStrip), so a bar never steps ten times a second beside a vessel that eases. A step the running mean does not ease (a
+  // paused edit, a treatment, a new patient) is taken at once: its number rolls (P17) and its bar glides by its own transition.
+  const followOpts = (d, snap) => ({ snap, small: 0.5 * Math.pow(10, -d), eps: 0.05 * Math.pow(10, -d) });
+  // (A bar's length glides on the same filter, across a jump too: it always glided, by a CSS transition that restarted with each model
+  // frame. Shown again after "Not measured", it grows from its origin.)
+  const fillTo = (key, t, v, seen) => {
+    const r = Math.abs(t.scale[1] - t.scale[0]), o = { small: 0.002 * r, eps: 0.0005 * r, across: true };
+    if (v != null && !seen && shownState.get(key) === undefined) shownState.set(key, clamp(0, t.scale[0], t.scale[1]), o);
+    return shownState.set(key, v, o);
+  };
   function updateStrip(f) {
     const m = f.metrics;
     const st0 = store.get();
     if (strip.classList.contains('lob') !== !!st0.lobule) syncLobule();
     const hidden = hiddenNow(st0);
-    const A = st0.compareSnap?.metrics || null;
     const now = performance.now();
     // The gradients' two readings each get the tiles' running mean, and the gradient is their difference as shown (one
     // decimal): the Pressure chart writes the same two readings at its brackets' ends, so its labels, the bar and the
     // readings add up (sweep 2 review item 13: PPG 17.8 beside 22.9 and 5.5).
-    const sm = {};
     for (const k of ['pv', 'ivc', 'whvp', 'fhvp']) {
       const raw = m?.[k], e = ends[k];
-      let v = raw;
-      if (Number.isFinite(raw) && Number.isFinite(e.sm) && st0.running && Math.abs(raw - e.sm) < 2) v = e.sm + (raw - e.sm) * Math.min(1, (now - e.smT) / 1200);
-      e.sm = v; e.smT = now; sm[k] = v; setShown(k, v);
+      let v = raw, eased = false;
+      if (Number.isFinite(raw) && Number.isFinite(e.sm) && st0.running && Math.abs(raw - e.sm) < 2) { v = e.sm + (raw - e.sm) * Math.min(1, (now - e.smT) / 1200); eased = true; }
+      e.sm = v; e.smT = now;
+      e.v = shownState.set('end:' + k, v, followOpts(1, !eased));
     }
-    const gap = { hvpg: tenthGap(sm.whvp, sm.fhvp, null), ppg: tenthGap(sm.pv, sm.ivc, null) };
     for (const x of Object.values(tileEls)) {
-      const { el, t } = x;
+      const { t } = x;
       const lz = t.group === 'lobule';
       if (lz && !st0.lobule) continue;
       const raw = lz ? (st0.imaging ? null : t.v(f, st0)) : readoutValue(t, m, hidden);
       // The beat swings every value a little: the tile shows a running mean (about a second), so the
       // number stays steady; a real step (beyond a tenth of the scale) or a paused model shows at once.
       let v = raw, eased = false;
-      const live = !lz && t.id in gap && raw != null && raw === t.v(m) && gap[t.id] != null;   // (a live gradient, not a measured one)
+      x.live = !lz && t.id in GAP_ENDS && raw != null && raw === t.v(m);   // (a live gradient, not a measured one: the difference of its two ends as shown)
       const near = (a) => a != null && x.sm != null && st0.running && t.scale && Math.abs(a - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0]);
-      if (live) { v = gap[t.id]; eased = near(v); }
-      else if (near(raw)) { v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200); eased = true; }
+      if (near(raw)) { v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200); eased = true; }
       x.sm = v; x.smT = now;
+      x.eased = eased;
+      x.target = v;
+      x.shown = v == null ? null : shownState.set('bar:' + t.id, v, followOpts(t.d, !eased));
+      const g = GAP_ENDS[t.id], gT = x.live && g ? tenthGap(ends[g[0]].sm, ends[g[1]].sm, null) : null;
+      fillTo('fill:' + t.id, t, gT ?? v, x.fillSeen); x.fillSeen = v != null;
+    }
+    for (const x of vitEls) {
+      const r = vitalReading(x, m, st0.running, now);
+      x.bad = r.bad;
+      x.shown = shownState.set('bar:' + x.v.id, r.v, followOpts(x.v.d, !st0.running));
+    }
+    paintStrip(f);
+  }
+  // Every display frame the shown state steps while something moves: the tiles follow (paintStrip reads only what is shown).
+  shownState.on(() => { if (frame) paintStrip(frame, true); });
+  function paintStrip(f, follow = false) {
+    const m = f.metrics;
+    const st0 = store.get();
+    const hidden = hiddenNow(st0);
+    const A = st0.compareSnap?.metrics || null;
+    const now = performance.now();
+    const sm = {};
+    for (const k of ['pv', 'ivc', 'whvp', 'fhvp']) { const e = ends[k]; sm[k] = follow ? shownState.or('end:' + k, e.v) : e.v; setShown(k, sm[k]); }
+    const gap = { hvpg: tenthGap(sm.whvp, sm.fhvp, null), ppg: tenthGap(sm.pv, sm.ivc, null) };
+    for (const x of Object.values(tileEls)) {
+      const { el, t } = x;
+      const lz = t.group === 'lobule';
+      if (lz && !st0.lobule) continue;
+      if (follow && x.target != null) x.shown = shownState.or('bar:' + t.id, x.target);
+      let v = x.shown ?? null, eased = follow || x.eased;
+      if (x.live && gap[t.id] != null) v = gap[t.id];
       if (!lz) setShown(t.id, v);
       const measured = !lz && v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) {
-        countTo(x.val, null);
+        if (!follow) countTo(x.val, null);
         s = 'Not measured';
         sev = 'none';
         x.hist.length = 0;
@@ -248,7 +289,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         const a = lz ? [f, st0] : [m], vs = shownOf(v, t.d);   // (the word judges the number shown: "5.0 L" is Grade 3)
         s = measured ? 'Measured' : (t.ss && narrow.matches ? t.ss : t.s)(vs, ...a);
         sev = t.st(vs, ...a);
-        const w = pos(t, v), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
+        const w = pos(t, shownState.or('fill:' + t.id, v)), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
         const fl = Math.min(w, o) / 100, fw = Math.abs(w - o) / 100;
         if (x.fillL !== fl || x.fillW !== fw) { x.fillL = fl; x.fillW = fw; x.fill.style.setProperty('--fl', fl); x.fill.style.setProperty('--fw', fw); }
       }
@@ -282,9 +323,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     }
     for (const x of vitEls) {
       const hid = hidden?.has(x.v.hideKey);
-      const r = vitalReading(x, m, st0.running, now);
-      countTo(x.val, hid ? null : r.v, x.v.d, { eased: st0.running });
-      x.el.classList.toggle('bad', !hid && r.bad);
+      if (follow) x.shown = shownState.or('bar:' + x.v.id, x.shown);
+      countTo(x.val, hid ? null : x.shown, x.v.d, { eased: st0.running });
+      x.el.classList.toggle('bad', !hid && x.bad);
     }
   }
 
