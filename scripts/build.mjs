@@ -44,6 +44,9 @@ const workerFile = basename(Object.keys(worker.metafile.outputs).find((f) => f.e
 // (and the lobule's tissue worker, which paints its bitmap off the page: tissue-worker.js starts it)
 const tissueWorker = await build({ ...common, entryPoints: [join(ROOT, 'src/ui/tissue-paint-worker.js')], outdir: ASSETS, entryNames: 'tissue-worker-[hash]', write: true, metafile: true });
 const tissueWorkerFile = basename(Object.keys(tissueWorker.metafile.outputs).find((f) => f.endsWith('.js')));
+// (and the figure's worker, which draws the vessels off the page behind ?figworker=on: figure-worker-start.js starts it)
+const figureWorker = await build({ ...common, entryPoints: [join(ROOT, 'src/ui/figure-worker.js')], outdir: ASSETS, entryNames: 'figure-worker-[hash]', write: true, metafile: true });
+const figureWorkerFile = basename(Object.keys(figureWorker.metafile.outputs).find((f) => f.endsWith('.js')));
 
 // 2. The app. host.js and presenter.js (each starts an engine worker) point the Worker at the bundled worker file, and
 //    tissue-worker.js at the bundled tissue worker.
@@ -57,6 +60,11 @@ const workerUrl = {
     b.onLoad({ filter: /[\\/]src[\\/]ui[\\/]tissue-worker\.js$/ }, (args) => {
       const src = readFileSync(args.path, 'utf8'), out = src.replace(/new URL\('\.\/tissue-paint-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/, `new URL('./${tissueWorkerFile}', import.meta.url)`);
       if (out === src) throw new Error('build: the tissue worker\'s URL was not found in tissue-worker.js');
+      return { contents: out, loader: 'js' };
+    });
+    b.onLoad({ filter: /[\\/]src[\\/]ui[\\/]figure-worker-start\.js$/ }, (args) => {
+      const src = readFileSync(args.path, 'utf8'), out = src.replace(/new URL\('\.\/figure-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/, `new URL('./${figureWorkerFile}', import.meta.url)`);
+      if (out === src) throw new Error('build: the figure worker\'s URL was not found in figure-worker-start.js');
       return { contents: out, loader: 'js' };
     });
   },

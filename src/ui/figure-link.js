@@ -9,7 +9,7 @@
 
 /** The calls that only send. */
 export const SENDS = ['setGeometry', 'patchGeometry', 'setRadii', 'setBend', 'setTubes', 'setOrgans', 'plateRows', 'setPlate', 'dropJob',
-  'setFluidSpans', 'setFluidLiver', 'setFluidCells', 'dropPlate', 'setFlow', 'setDye', 'draw', 'composite', 'setLines', 'setCath', 'clear', 'trim'];
+  'setFluidSpans', 'setFluidLiver', 'setFluidCells', 'dropPlate', 'setFlow', 'setDye', 'draw', 'composite', 'setLines', 'setCath', 'clear', 'trim', 'resize'];
 /** The organ stack's calls that only send. */
 export const ORGAN_SENDS = ['stage', 'dropKept', 'commit', 'dropStaged', 'setLive', 'setOrder', 'shift'];
 const JOB_ARGS = { plateRows: 0, setPlate: 1, dropJob: 0 };   // which argument of these calls is a job handle
@@ -80,7 +80,7 @@ export function createFigureProxy(post, caps = {}) {
 }
 
 /** The worker end: applies the queues to `api` (a veins-gl renderer), keeping the textures behind job ids, and answers with its state. */
-export function serveFigure(api, reply) {
+export function serveFigure(api, reply, canvas = null) {
   const jobs = new Map();
   const snapshot = () => ({
     lost: api.lost, software: api.software, canLines: api.canLines, canCath: api.canCath, rowsStatus: api.rowsStatus, drawSeq: api.drawSeq, nCells: api.nCells,
@@ -88,6 +88,7 @@ export function serveFigure(api, reply) {
     plates: [api.hasPlate(0), api.hasPlate(1)], stack: [!!api.organs?.has(0), !!api.organs?.has(1)],
   });
   function apply({ m, args }) {
+    if (m === 'resize') { if (canvas) { canvas.width = args[0]; canvas.height = args[1]; } return; }
     if (m === 'plateJob') { const [id, W, H] = args; jobs.set(id, api.plateJob(W, H)); return; }
     if (m === 'plateRows') { const [id, ...r] = args; return api.plateRows(jobs.get(id), ...r); }
     if (m === 'setPlate') { const [slot, id, rect] = args; const j = jobs.get(id); jobs.delete(id); return api.setPlate(slot, j, rect); }

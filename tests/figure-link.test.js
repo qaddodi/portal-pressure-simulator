@@ -76,3 +76,28 @@ test('only whole buffers are transferred, and each once', () => {
   const a = new Float32Array(4), b = new Float32Array(a.buffer, 0, 2);
   assert.deepEqual(transfers([a, { x: a }, b]), [a.buffer]);
 });
+
+test('startFigureWorker: ready gives a proxy that posts queues; a failed worker gives null', async () => {
+  globalThis.Worker ??= class {};
+  globalThis.OffscreenCanvas ??= class {};
+  globalThis.location ??= { search: '?figworker=on' };
+  const { startFigureWorker } = await import('../src/ui/figure-worker-start.js');
+  globalThis.document ??= { documentElement: {} };
+  globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '#112233' });
+  const canvas = { transferControlToOffscreen: () => ({ off: 1 }) };
+  const posted = [];
+  const mk = (answer) => () => {
+    const w = { postMessage: (m) => { posted.push(m); queueMicrotask(() => w.onmessage({ data: answer(m) })); }, terminate() { w.dead = true; } };
+    return w;
+  };
+  const state = { lost: false, software: true, canLines: true, canCath: true, hasOrgans: true, canLive: false, plates: [false, false], stack: [false, false] };
+  const proxy = await startFigureWorker(canvas, { tubes: 9, make: mk((m) => (m.type === 'init' ? { type: 'ready', state } : { type: 'state', state })) });
+  assert.equal(posted[0].type, 'init');
+  assert.equal(posted[0].tubes, 9);
+  assert.equal(posted[0].settings.search, globalThis.location.search);
+  assert.equal(proxy.software, true);
+  proxy.setFlow(new Float32Array(2)); proxy.flush();
+  assert.equal(posted[1].type, 'calls');
+  const none = await startFigureWorker(canvas, { tubes: 9, make: mk(() => ({ type: 'failed', why: 'x' })) });
+  assert.equal(none, null);
+});
