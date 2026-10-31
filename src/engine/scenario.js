@@ -33,8 +33,8 @@ export function defaultParams() {
     customShunts: {},
     dsrs: false,
     mesocaval: false,
-    balloonEso: false,
-    balloonGas: false,
+    balloonEso: false,            // the tamponade tube's esophageal balloon: the second step, filled only on a tube whose gastric balloon is up
+    balloonGas: false,            // its gastric balloon, filled in the stomach and drawn up against the cardia: the first step
     anticoag: false,
     diuretics: false,             // spironolactone + furosemide: renal sodium/water loss offsets ascites
     fenestrae: 0,                 // how far the sinusoid lining's pores are opened past what the disease leaves (0: as the disease has it, 1: all open); see starling()
@@ -45,6 +45,9 @@ export function defaultParams() {
     seed: 1,
   };
 }
+
+/** The tube's gastric balloon is up: filled on its own, or carried by the esophageal balloon, which goes on a tube already anchored in the stomach. */
+export const gastricUp = (p) => !!(p.balloonGas || p.balloonEso);
 
 export const DRUGS = {
   propranolol: { label: 'Propranolol', hr: 0.8, contr: 0.92, spl: 1.3, sys: 1.0, sin: 1.0, baroHr: 0.4,

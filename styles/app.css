@@ -618,7 +618,7 @@ div.vital { cursor: default; }
 .circuit .circuit-only { opacity: 1; }
 .circuit .node-dot.off { opacity: 0; pointer-events: none; }   /* (one class more than the line above: a station with no vessel drawn at it shows no dot in the circuit either, faded as the vessels are) */
 .band-ring { fill: none; stroke: var(--text); stroke-width: 2.4; }
-/* The tamponade balloons look like the HVPG wedge balloon (veins-gl.js mode 5): cream latex, clear in the middle, denser at the rim */
+/* The tamponade tube's balloons (the gastric one in the stomach, drawn up against the cardia; the esophageal one on it) look like the HVPG wedge balloon (veins-gl.js mode 5): cream latex, clear in the middle, denser at the rim */
 .balloon-latex { fill: var(--latex); fill-opacity: .34; stroke: none; }
 .balloon-latex-rim { fill: var(--latex); fill-opacity: .2; fill-rule: evenodd; stroke: none; }
 .balloon-edge { fill: none; stroke: var(--latex-edge); stroke-opacity: .85; stroke-width: .7; stroke-linejoin: round; }
@@ -626,6 +626,9 @@ div.vital { cursor: default; }
 .balloon-shaft-rim { fill: none; stroke: var(--cath-shadow); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .balloon-shaft { fill: none; stroke: var(--cath-body); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 .balloon-marker { fill: var(--cath-tip); }
+/* The traction: a thin arrow up the esophagus's side as the tube is drawn up, in the treatment colour the slides' marks use */
+.balloon-pull-line { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.balloon-pull-head { fill: var(--accent); stroke: var(--accent); stroke-width: 1; stroke-linejoin: round; }
 .ascites-fill { stroke: none; opacity: var(--fluid-fade, 1); }
 .ascites-line { fill: none; stroke: var(--ascites); stroke-opacity: calc(.3 * var(--fluid-fade, 1)); stroke-width: 4; stroke-linejoin: round; }   /* a soft meniscus band, not a hard rule */
 .stent-guide { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 6 4; stroke-linecap: round; }

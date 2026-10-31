@@ -110,7 +110,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     // A procedure that continues on the figure (a card, a shunt to draw) puts the Treat card away.
     const procs = h('div', { class: 'order-grid' },
       proc('band', 'Band ligation', 'on the esophageal varices', () => { select({ type: 'organ', id: 'varices' }); action({ kind: 'band' }); }),
-      proc('balloon', 'Balloon tamponade', 'esophageal or gastric', () => { select({ type: 'organ', id: 'varices' }); toast('Switch the balloon on in the varices card.'); }),
+      proc('balloon', 'Balloon tamponade', 'gastric balloon first, then esophageal', () => { select({ type: 'organ', id: 'varices' }); toast('Switch the gastric balloon on in the varices card; the esophageal balloon is the second step.'); }),
       // A TIPS is always right portal vein → right hepatic vein, so it is placed at once.
       proc('stent', 'TIPS', 'right portal vein → right hepatic vein', () => {
         const on = store.get().params.tips.on;

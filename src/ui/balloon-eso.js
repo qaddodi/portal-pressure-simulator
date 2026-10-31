@@ -1,6 +1,7 @@
-// The esophageal tamponade balloon as an IR-style catheter balloon (pure, no DOM). A thin shaft comes down the
-// esophagus and a translucent balloon with tapered shoulders and two marker bands inflates on it; the balloon follows
-// the esophagus's own centreline and walls, so it bends with the tube and stops just inside them.
+// The esophageal balloon of the tamponade tube, as an IR-style catheter balloon (pure, no DOM). The tube (its path and its
+// gastric balloon, the first step: balloon-gas.js) runs down the esophagus; this long balloon lies on it, collapsed to a sheath
+// until it is filled, the second step. It has tapered shoulders and two marker bands, follows the esophagus's own centreline
+// and walls, so it bends with the tube, and stops just inside them.
 
 // The esophagus's two walls as drawn in anatomy.js (ORGANS 'esophagus'): cubic Béziers, top to bottom.
 const LEFT = [[776, 0], [781, 90], [787, 190], [792, 251]];
@@ -21,10 +22,11 @@ export function esoAt(y) {
   return { c: (l + r) / 2, h: (r - l) / 2 };
 }
 
-export const BALLOON = { top: 170, bottom: 244, shaftR: 0.8, wall: 2.2, from: -40 };
-/** How long a tamponade balloon takes to go in (adv: the shaft slides down) and then fill (inflate), in ms, on screen (stage.js balloonStep).
- *  The engine presses a bleed shut only after both (engine.js BALLOON_SEAL_S). */
-export const BALLOON_MS = { adv: 900, inflate: 1500 };
+export const BALLOON = { top: 170, bottom: 244, shaftR: 0.8, sleeve: 1.6, wall: 2.2, from: -40 };
+/** How long the tube takes to go in (adv: it slides down to the stomach), its gastric balloon to fill and be drawn up against the cardia
+ *  (inflate), and then the esophageal balloon to fill on top of it (eso), in ms, on screen (stage.js balloonStep).
+ *  The engine presses a bleed shut after the first two (engine.js BALLOON_SEAL_S): the gastric balloon is the first step and holds on its own. */
+export const BALLOON_MS = { adv: 900, inflate: 1500, eso: 1200 };
 
 /** A smooth path through points (Catmull-Rom as cubic Béziers), so the outline has no facets at any zoom. */
 export function smoothPath(P, closed = false) {
@@ -40,15 +42,16 @@ export function smoothPath(P, closed = false) {
 }
 
 /**
- * The balloon's geometry at inflation k (0 deflated … 1 up) with the shaft in by adv (0 … 1): the outline as a closed
- * ring of points, the shaft's points, the two marker bands on the shaft (y) and half(y), the balloon's half width.
+ * The balloon's geometry at inflation k (0 collapsed on the tube … 1 up): the outline as a closed ring of points, the two marker
+ * bands on the tube (y) and half(y), the balloon's half width.
  * Shaped as the HVPG wedge balloon is (hvpg-balloon.js balloonOutline): a superellipse along its length that turns from
- * an ellipse (deflated) into a pillow with rounded ends (up), filling the esophagus to just inside its walls.
+ * an ellipse (deflated) into a pillow with rounded ends (up), filling the esophagus to just inside its walls. Collapsed, it is a
+ * sheath a little wider than the tube (BALLOON.sleeve).
  */
-export function balloonShape(k, adv = 1, n = 64) {
-  const { top, bottom, shaftR, wall } = BALLOON;
-  const tipY = BALLOON.from + (bottom + 7 - BALLOON.from) * adv, mid = (top + bottom) / 2, rx = (bottom - top) / 2;
-  const p = 2 + 2 * k, h0 = shaftR * 1.15;
+export function balloonShape(k, n = 64) {
+  const { top, bottom, shaftR, sleeve, wall } = BALLOON;
+  const mid = (top + bottom) / 2, rx = (bottom - top) / 2;
+  const p = 2 + 2 * k, h0 = sleeve;
   const half = (y) => {
     const s = Math.abs(y - mid) / rx;
     if (s >= 1) return shaftR;
@@ -59,8 +62,5 @@ export function balloonShape(k, adv = 1, n = 64) {
   const ys = [];
   for (let i = 0; i <= n; i++) ys.push(mid - rx * Math.cos((Math.PI * i) / n));
   const L = ys.map((y) => [esoAt(y).c - half(y), y]), R = ys.map((y) => [esoAt(y).c + half(y), y]).reverse();
-  const shaft = [];
-  for (let y = BALLOON.from; y < tipY; y += 8) shaft.push([esoAt(y).c, y]);
-  shaft.push([esoAt(tipY).c, tipY]);
-  return { outline: [...L, ...R], shaft, bands: [top + 3, bottom - 3], tipY, half };
+  return { outline: [...L, ...R], bands: [top + 3, bottom - 3], half };
 }

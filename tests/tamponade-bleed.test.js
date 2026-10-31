@@ -1,12 +1,15 @@
-// A tamponade balloon that is up over the tear stops the bleed: the model ends it a moment after the balloon is on (engine.js
-// BALLOON_SEAL_S), and the figure and the scope ease the spray out as the balloon on screen fills. The balloon slide of the bleed talk
-// (variceal-bleed/bridge) frames the balloon and the varix closely.
+// The tamponade tube's gastric balloon, up and drawn against the cardia, stops the bleed (the first step; the esophageal balloon, the second,
+// is filled only on top of it): the model ends it a moment after the balloon is on (engine.js BALLOON_SEAL_S), and the figure and the scope ease
+// the spray out as the balloon on screen fills. The balloon slide of the bleed talk (variceal-bleed/bridge) fills the gastric balloon first and
+// frames it, the esophageal balloon and the varix closely.
 import './dom-shim.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Engine, BALLOON_SEAL_S } from '../src/engine/engine.js';
 import { BALLOON, BALLOON_MS, esoAt } from '../src/ui/balloon-eso.js';
+import { gasShape, tubePath, pullArrow } from '../src/ui/balloon-gas.js';
+import { gastricUp, defaultParams } from '../src/engine/scenario.js';
 import { BLEED } from '../src/ui/decks/variceal-bleed.js';
 import { REGIONS } from '../src/ui/decks.js';
 import { slideTargets } from '../src/ui/presenter.js';
@@ -21,6 +24,31 @@ test('the seal outlasts the balloon going in and filling on screen, and not by m
   const fill = (BALLOON_MS.adv + BALLOON_MS.inflate) / 1000;
   assert.ok(BALLOON_SEAL_S > fill, `seal ${BALLOON_SEAL_S} s against ${fill} s on screen`);
   assert.ok(BALLOON_SEAL_S < fill + 1.5, 'the bleed does not go on long after the balloon is up');
+});
+
+test('the gastric balloon, the first step, stops an esophageal bleed on its own once it has had time to go in and fill, and the bleed does not flow meanwhile', () => {
+  const e = patient();
+  e.rupture('VAR', 0.6);
+  run(e, 10);
+  assert.ok(e.bleed.active && e.Qbleed > 0, 'bleeding before the balloon');
+  e.setParams({ ...e.params, balloonGas: true });
+  run(e, BALLOON_SEAL_S - 0.5);
+  assert.ok(e.bleed.active, 'still open while the tube goes in and the balloon fills');
+  assert.equal(e.Qbleed, 0, 'no blood flows once the balloon presses at the cardia');
+  run(e, 1);
+  assert.ok(!e.bleed.active, 'stopped once the gastric balloon is up');
+  const stopped = events(e);
+  assert.equal(stopped.length, 1);
+  assert.match(stopped[0].title, /balloon/);
+  assert.equal(stopped[0].anchor, 'VAR');
+});
+
+test('the esophageal balloon is filled only on a tube whose gastric balloon is up, so it carries the gastric one', () => {
+  assert.equal(gastricUp({ balloonGas: false, balloonEso: false }), false);
+  assert.equal(gastricUp({ balloonGas: true, balloonEso: false }), true);
+  assert.equal(gastricUp({ balloonGas: false, balloonEso: true }), true, 'an esophageal balloon on its own still has the gastric one up');
+  assert.equal(gastricUp({ balloonGas: true, balloonEso: true }), true);
+  assert.equal(gastricUp(defaultParams()), false);
 });
 
 test('an esophageal balloon stops an esophageal bleed once it has had time to go in and fill, and the bleed does not flow meanwhile', () => {
@@ -56,17 +84,21 @@ test('a balloon let down before it has sealed starts the count again', () => {
   assert.ok(!e.bleed.active);
 });
 
-test('the other balloon does not press on this tear', () => {
+test('the tube presses a tear at either site, since its gastric balloon is up whichever balloon is asked for', () => {
   const eso = patient();
   eso.rupture('VAR', 0.6);
   eso.setParams({ ...eso.params, balloonGas: true });
-  run(eso, BALLOON_SEAL_S + 2);
-  assert.ok(eso.bleed.active, 'a gastric balloon leaves an esophageal tear open');
+  run(eso, BALLOON_SEAL_S + 1);
+  assert.ok(!eso.bleed.active, 'a gastric balloon, drawn up, stops an esophageal tear');
   const gv = patient('gastric-varix');
   gv.rupture('GV', 0.6);
   gv.setParams({ ...gv.params, balloonEso: true });
-  run(gv, BALLOON_SEAL_S + 2);
-  assert.ok(gv.bleed.active, 'an esophageal balloon leaves a gastric tear open');
+  run(gv, BALLOON_SEAL_S + 1);
+  assert.ok(!gv.bleed.active, 'an esophageal balloon carries the gastric one, which stops a gastric tear');
+  const none = patient();
+  none.rupture('VAR', 0.6);
+  run(none, BALLOON_SEAL_S + 1);
+  assert.ok(none.bleed.active, 'with no balloon the tear stays open');
 });
 
 test('a gastric balloon stops a gastric bleed the same way, and the event points at the gastric varices', () => {
@@ -107,11 +139,12 @@ test('a snapshot from before the seal (a bleed with no count) carries on', () =>
 
 test('the figure eases the spray out as its balloon fills, and the scope as its own does', () => {
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(stage, /const BAL_ADV_MS = BALLOON_MS\.adv, BAL_INF_MS = BALLOON_MS\.inflate;/, 'the figure fills its balloon over the times the seal is held to');
-  assert.match(stage, /const pressedShut = \(\) => \{ const id = F\.bleed\.site === 'GV' \? 'gas' : 'eso'; return bal\.on\[id\] && bal\[id\]\.k >= 1; \};/);
+  assert.match(stage, /const BAL_ADV_MS = BALLOON_MS\.adv, BAL_INF_MS = BALLOON_MS\.inflate, BAL_ESO_MS = BALLOON_MS\.eso;/, 'the figure fills its balloons over the times the seal is held to');
+  assert.match(stage, /const pressedShut = \(\) => bal\.wantGas && bal\.gas >= 1;/, 'the gastric balloon, filled and drawn up, is what presses a tear shut');
   assert.match(stage, /const sprayOn = \(\) => !!F\?\.bleed\?\.active && morph < 0\.5 && !pressedShut\(\);/, 'full balloon, no spray; the fade out is stepBleedFade');
   const scope = readFileSync(new URL('../src/ui/instruments.js', import.meta.url), 'utf8');
-  assert.match(scope, /const bleeding = bleedNow && !\(balloon && balA >= 1\);/);
+  assert.match(scope, /const bleeding = bleedNow && !\(shut && shutA >= 1\);/, 'the jet eases out for the gastric balloon, the first step');
+  assert.match(scope, /balA = glide\(balA, \+balloon, du\)/, 'the esophageal balloon fills the view on its own ease');
   assert.match(scope, /jetA = glide\(jetA, \+bleeding, du\)/, 'the jet eases out');
 });
 
@@ -135,4 +168,37 @@ test('the balloon slide frames the balloon, the varix and the tear closely, with
 
 test('the slides around it keep the bleed region, so the stream into the stomach still shows', () => {
   for (const id of ['failure', 'rebleed', 'tear']) assert.equal(BLEED.slides.find((x) => x.id === id).cam, 'bleed', id);
+});
+
+test('the tube goes in in order: the tube, then the gastric balloon and its traction, then the esophageal balloon; and comes out the other way round', () => {
+  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(stage, /if \(wantEso\) \{ if \(bal\.gas >= 1\) bal\.eso = Math\.min\(1, bal\.eso \+ dt \/ BAL_ESO_MS\); \}/, 'the esophageal balloon fills only once the gastric one is full');
+  assert.match(stage, /else bal\.eso = Math\.max\(0, bal\.eso - out \/ BAL_ESO_MS \* 1\.5\);/, 'and lets down first');
+  assert.match(stage, /if \(wantGas\) \{ if \(bal\.adv >= 1\) bal\.gas = Math\.min\(1, bal\.gas \+ dt \/ BAL_INF_MS\); \}/, 'the gastric balloon fills only once the tube is in');
+  assert.match(stage, /else if \(bal\.eso <= 0\) bal\.gas = Math\.max\(0, bal\.gas - out \/ BAL_INF_MS \* 1\.5\);/, 'and is let down once the esophageal one is');
+  assert.match(stage, /else if \(bal\.gas <= 0\) bal\.adv = Math\.max\(0, bal\.adv - out \/ BAL_ADV_MS \* 1\.5\);/, 'the tube comes out last');
+  assert.match(stage, /const pull = balEase\(Math\.min\(1, Math\.max\(0, \(bal\.gas - 0\.45\) \/ 0\.55\)\)\);/, 'the traction is the second half of the gastric balloon filling: it is seated when the balloon is full');
+  assert.match(stage, /const gs = gasShape\(kG, pull\)/, 'drawn from the fitted shape');
+  assert.doesNotMatch(stage, /SITES\.fundus\b[^\n]*circ\(/, 'no more round balloon at a fixed spot in the fundus');
+});
+
+test('the balloon slide fills the gastric balloon, the first step, and the rescue lets both go', () => {
+  const bridge = BLEED.slides.find((x) => x.id === 'bridge'), rescue = BLEED.slides.find((x) => x.id === 'rescue');
+  assert.equal(bridge.params.balloonGas, true);
+  assert.ok(!bridge.params.balloonEso, 'the esophageal balloon is the second step, filled only if the first does not hold');
+  assert.equal(rescue.params.balloonGas, false);
+  assert.equal(rescue.params.balloonEso, false);
+  assert.match(bridge.line, /gastric balloon goes up first/);
+  assert.match(bridge.notes, /esophageal balloon is filled only if the bleeding goes on/);
+});
+
+test('the balloon slide frames the whole of the gastric balloon, the tube to its tip and the traction arrow', () => {
+  const s = BLEED.slides.find((x) => x.id === 'bridge'), [x0, y0, x1, y1] = s.cam, room = 8;
+  const inside = ([x, y]) => x >= x0 + room && x <= x1 - room && y >= y0 + room && y <= y1 - room;
+  for (const p of gasShape(1, 1).outline) assert.ok(inside(p), `the filled balloon at ${p.map((v) => v.toFixed(0))} is in the frame`);
+  for (const p of gasShape(0, 0).outline) assert.ok(inside(p), `the sheath, before the traction, at ${p.map((v) => v.toFixed(0))} is in the frame`);
+  const tip = tubePath().pts.at(-1);
+  assert.ok(inside(tip), `the tube's tip ${tip.map((v) => v.toFixed(0))}`);
+  const a = pullArrow();
+  for (const p of [...a.line, ...a.head]) assert.ok(inside(p), 'the traction arrow is in the frame');
 });

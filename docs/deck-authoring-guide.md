@@ -647,7 +647,7 @@ handle opens the view. Used on Varices 3.
 | `dips` | `{ on: bool, d: 6–12 }` | direct intrahepatic portosystemic shunt |
 | `portocaval`, `dsrs`, `mesocaval` | boolean | surgical shunts (portocaval, distal splenorenal, mesocaval) |
 | `customShunts` | `{ X_<portal>_<systemic>: 4–16 mm }` | custom shunt (not used by existing decks) |
-| `balloonEso`, `balloonGas` | boolean | tamponade balloons |
+| `balloonGas`, `balloonEso` | boolean | the tamponade tube's two balloons, gastric first: `balloonGas` fills the gastric balloon in the stomach and draws the tube up against the cardia (the first step, which presses a tear shut); `balloonEso` fills the esophageal balloon, only on a tube whose gastric balloon is up, so it brings the gastric one with it |
 | `anticoag` | boolean | anticoagulation |
 | `diuretics` | boolean | spironolactone + furosemide |
 | `drugs` | `{ propranolol, carvedilol, terlipressin, octreotide }` booleans | drugs. Switch the previous drug off in the same patch when moving to the next. Terlipressin raises the mean arterial pressure by about 5 to 10 mmHg and slows the heart in decompensated cirrhosis; carvedilol lowers it |

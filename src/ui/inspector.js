@@ -45,8 +45,10 @@ export const CONTROLS = {
   tipsD: { type: 'slider', key: 'tips', label: 'Stent diameter', min: 6, max: 12, step: 0.5, get: (p) => p.tips.d, set: (p, v) => { p.tips.d = v; }, format: (v) => `${v.toFixed(1)} mm`, def: 8, info: 'Resistance ∝ 1/d⁴ (Poiseuille): small changes in diameter matter a lot.', showIf: (p) => p.tips.on },
   dips: { type: 'toggle', key: 'dips', label: 'DIPS', get: (p) => p.dips.on, set: (p, v) => { p.dips.on = v; }, info: 'Direct intrahepatic portosystemic shunt, right portal vein → intrahepatic IVC through the caudate lobe, below the hepatic veins. For hepatic vein occlusion with an open cava (Budd–Chiari). You can also drag one with the Stent tool.' },
   dipsD: { type: 'slider', key: 'dips', label: 'Stent diameter', min: 6, max: 12, step: 0.5, get: (p) => p.dips.d, set: (p, v) => { p.dips.d = v; }, format: (v) => `${v.toFixed(1)} mm`, def: 8, info: 'The same stent as a TIPS, through a shorter tract: the diameter matters as much.', showIf: (p) => p.dips.on },
-  balloonEso: { type: 'toggle', key: 'balloonEso', label: 'Esophageal balloon tamponade', ...prop('balloonEso') },
-  balloonGas: { type: 'toggle', key: 'balloonGas', label: 'Gastric balloon tamponade', ...prop('balloonGas') },
+  // (The tamponade tube: the gastric balloon is the first step, drawn up against the cardia; the esophageal balloon is the second and goes on a tube
+  // whose gastric balloon is up, so it brings the gastric one with it and the gastric one lets it down first.)
+  balloonEso: { type: 'toggle', key: 'balloonEso', label: 'Esophageal balloon tamponade (second step)', get: (p) => p.balloonEso, set: (p, v) => { p.balloonEso = v; if (v) p.balloonGas = true; } },
+  balloonGas: { type: 'toggle', key: 'balloonGas', label: 'Gastric balloon tamponade (first step)', get: (p) => p.balloonGas, set: (p, v) => { p.balloonGas = v; if (!v) p.balloonEso = false; } },
   brto: { type: 'toggle', key: 'occluded', label: 'BRTO (occlude the gastrorenal shunt)', get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, info: 'Balloon-occluded retrograde transvenous obliteration. Watch what it does to portal pressure.' },
   splenicRx: { type: 'slider', key: 'splenicRx', label: 'Spleen: embolization / splenectomy', min: 0, max: 2, step: 1, get: (p) => p.splenicRx | 0, set: (p, v) => { p.splenicRx = v; }, format: (v) => ['none', 'partial embolization', 'splenectomy'][v], def: 0, info: 'Cuts splenic artery inflow: partial embolization removes part of the spleen\'s blood supply, splenectomy removes all of it. Less inflow means a lower portal pressure and less flow to the varices.' },
   portocaval: { type: 'toggle', key: 'portocaval', label: 'Portocaval shunt', ...prop('portocaval'), info: 'End-to-side: total diversion; the liver loses all portal perfusion.' },
@@ -321,8 +323,8 @@ export function activeInterventions(p) {
   if (p.dsrs) add('dsrs', 'Distal splenorenal shunt', (q) => { q.dsrs = false; });
   if (p.mesocaval) add('mesocaval', 'Mesocaval shunt', (q) => { q.mesocaval = false; });
   for (const [id, d] of Object.entries(p.customShunts || {})) add('cs:' + id, `${lab(id)} ${d} mm`, (q) => { const c = { ...(q.customShunts || {}) }; delete c[id]; q.customShunts = c; });
+  if (p.balloonGas) add('balloonGas', 'Gastric balloon', (q) => { q.balloonGas = false; q.balloonEso = false; });   // (the esophageal balloon goes on a tube whose gastric balloon is up: it comes off with it)
   if (p.balloonEso) add('balloonEso', 'Esophageal balloon', (q) => { q.balloonEso = false; });
-  if (p.balloonGas) add('balloonGas', 'Gastric balloon', (q) => { q.balloonGas = false; });
   for (const id of Object.keys(p.occluded)) add('occ:' + id, `${id === 'C5' ? 'BRTO (gastrorenal shunt occluded)' : lab(id) + ' occluded'}`, (q) => { delete q.occluded[id]; });
   if (p.splanchnicTone !== 1) add('splTone', `Splanchnic tone ×${p.splanchnicTone.toFixed(2)}`, (q) => { q.splanchnicTone = 1; });
   if (p.meal > 0) add('meal', 'After a meal', (q) => { q.meal = 0; });

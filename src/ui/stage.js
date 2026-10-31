@@ -1,6 +1,7 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
+import { gastricUp } from '../engine/scenario.js?v=bcedeba324';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=4d7c66b4f8';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=dc7e0de1bd';
@@ -58,7 +59,8 @@ import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=e4c3c4f8c1';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
-import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=e8b69b3217';
+import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=49e37b0228';
+import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=a53bffdc2b';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { layoutWatch } from './idle-keys.js?v=70e26bf4a1';
@@ -7998,63 +8000,97 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       hold('gd', m.gastricVarix.d, 0.5), hold('c3', recruitFrac('C3', f), 0.1), lastMorph]);
   }
   const setVar = (el, k, v) => { const c = el._v || (el._v = {}); if (c[k] === v) return; c[k] = v; el.style.setProperty(k, v); };
-  // The tamponade balloons go in deflated, then fill: the shaft slides in (adv), then the balloon inflates (k), both eased
-  // and run back when the balloon is switched off. Drawn again every frame while either is moving.
-  const bal = { eso: { adv: 0, k: 0 }, gas: { adv: 0, k: 0 }, last: 0, on: { eso: false, gas: false }, anat: true, dirty: true };
-  const BAL_ADV_MS = BALLOON_MS.adv, BAL_INF_MS = BALLOON_MS.inflate;
+  // The tamponade tube goes in and its balloons fill in order, each eased: the tube slides down the esophagus and into the stomach (adv),
+  // its gastric balloon fills there and the tube is drawn up so the balloon seats against the cardia (gas, the traction in its second
+  // half), and only then the esophageal balloon fills (eso). Let down, the reverse: the esophageal balloon first, then the gastric one,
+  // then the tube comes out. Drawn again every frame while any of them moves. (The esophageal balloon is only ever filled on a tube
+  // whose gastric balloon is up: gastricUp, scenario.js.)
+  const bal = { adv: 0, gas: 0, eso: 0, last: 0, wantGas: false, wantEso: false, anat: true, dirty: true };
+  const BAL_ADV_MS = BALLOON_MS.adv, BAL_INF_MS = BALLOON_MS.inflate, BAL_ESO_MS = BALLOON_MS.eso;
   const balEase = (x) => x * x * (3 - 2 * x);
+  // (The tube's fit to the stomach is worked out once, in a few milliseconds: ahead of its first use, while the page is idle.)
+  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => setTimeout(f, 3000))(() => { tubePath(); });
   function balloonStep(p, anat) {
     const now = performance.now(), dt = Math.min(100, bal.last ? now - bal.last : 0);
     bal.last = now;
-    for (const [id, want] of [['eso', !!p.balloonEso], ['gas', !!p.balloonGas]]) {
-      const b = bal[id], on = want && anat;
-      if (on !== bal.on[id]) { bal.on[id] = on; bal.dirty = true; }
-      const d = dt / (on ? 1 : 0.6);   // (out quicker than in)
-      const oadv = b.adv, ok = b.k;
-      if (on) { b.adv = Math.min(1, b.adv + d / BAL_ADV_MS); if (b.adv >= 1) b.k = Math.min(1, b.k + d / BAL_INF_MS); }
-      else { b.k = Math.max(0, b.k - d / BAL_INF_MS * 1.5); if (b.k <= 0) b.adv = Math.max(0, b.adv - d / BAL_ADV_MS * 1.5); }
-      if (b.adv !== oadv || b.k !== ok) bal.dirty = true;
-    }
+    const wantEso = !!p.balloonEso && anat, wantGas = gastricUp(p) && anat;
+    if (wantGas !== bal.wantGas || wantEso !== bal.wantEso) { bal.wantGas = wantGas; bal.wantEso = wantEso; bal.dirty = true; }
+    const was = [bal.adv, bal.gas, bal.eso], out = dt / 0.6;   // (out quicker than in)
+    if (wantEso) { if (bal.gas >= 1) bal.eso = Math.min(1, bal.eso + dt / BAL_ESO_MS); }
+    else bal.eso = Math.max(0, bal.eso - out / BAL_ESO_MS * 1.5);
+    if (wantGas) { if (bal.adv >= 1) bal.gas = Math.min(1, bal.gas + dt / BAL_INF_MS); }
+    else if (bal.eso <= 0) bal.gas = Math.max(0, bal.gas - out / BAL_INF_MS * 1.5);
+    if (wantGas) bal.adv = Math.min(1, bal.adv + dt / BAL_ADV_MS);
+    else if (bal.gas <= 0) bal.adv = Math.max(0, bal.adv - out / BAL_ADV_MS * 1.5);
+    if (bal.adv !== was[0] || bal.gas !== was[1] || bal.eso !== was[2]) bal.dirty = true;
     bal.anat = anat;
-    balloonSqueeze = 1 - 0.45 * balEase(bal.eso.k);
+    balloonSqueeze = 1 - 0.45 * balEase(bal.eso);
     if (bal.dirty) { bal.dirty = false; balloonDraw(anat); }
   }
   function balloonDraw(anat) {
     ov.balloons.innerHTML = '';
-    if (!anat) return;
+    if (!anat || bal.adv <= 0) return;
     // Drawn as the HVPG catheter's wedge balloon is (veins-gl.js mode 5): cream latex, clear in the middle and denser toward
-    // the rim, a thin warm edge, a soft round highlight up top; on the white shaft with its dark rim and two marker bands.
+    // the rim, a thin warm edge, a soft round highlight up top; on the white tube with its dark rim and the esophageal balloon's two marker bands.
     // Plain translucent fills stacked as rings (no SVG gradients: on the iPhone a gradient in the other SVG's defs left
     // only the outline once the balloon was up), so the latex reads the same at every step of the inflation.
     const RINGS = [[1, 'balloon-latex'], [0.86, 'balloon-latex-rim'], [0.7, 'balloon-latex-rim']];
-    const hi = (cx, cy, rx, ry, k) => {
+    const hi = (cx, cy, rx, ry, k, turn = 0) => {
       const g = s('g', { class: 'balloon-hi', opacity: Math.min(1, (k - 0.3) / 0.4).toFixed(3) });
+      if (turn) g.setAttribute('transform', `rotate(${turn.toFixed(1)} ${cx.toFixed(2)} ${cy.toFixed(2)})`);
       for (const f of [1, 0.66, 0.36]) g.append(s('ellipse', { cx, cy, rx: rx * f, ry: ry * f }));
       return g;
     };
-    const e = bal.eso;
-    if (e.adv > 0) {
-      const k = balEase(e.k), sh = balloonShape(k, balEase(e.adv)), up = e.k > 0.01 || e.adv >= 1;
-      const shaft = smoothPath(sh.shaft);
-      ov.balloons.append(s('path', { d: shaft, class: 'balloon-shaft-rim' }), s('path', { d: shaft, class: 'balloon-shaft' }));
-      if (up) {
-        for (const y of sh.bands) { const q = esoAt(y); ov.balloons.append(s('rect', { x: q.c - BALLOON.shaftR - 0.3, y: y - 0.5, width: 2 * BALLOON.shaftR + 0.6, height: 1, rx: 0.3, class: 'balloon-marker' })); }
-        // The whole balloon, then two rims (the outline less a narrower copy of it), denser toward the edge.
-        const ring = (f) => sh.outline.map(([x, y]) => { const c = esoAt(y).c; return [c + (x - c) * f, y]; });
-        ov.balloons.append(s('path', { d: smoothPath(sh.outline, true), class: RINGS[0][1] }));
-        for (const [f, cls] of RINGS.slice(1)) ov.balloons.append(s('path', { d: smoothPath(sh.outline, true) + ' ' + smoothPath(ring(f), true), class: cls }));
-        ov.balloons.append(s('path', { d: smoothPath(sh.outline, true), class: 'balloon-edge' }));
-        if (k > 0.3) { const y = BALLOON.top + 14, h = sh.half(y); ov.balloons.append(hi(esoAt(y).c - h * 0.22, y, h * 0.34, h * 0.5, k)); }
+    const adv = balEase(bal.adv), kG = balEase(bal.gas), kE = balEase(bal.eso);
+    // (The traction is the gastric balloon's second half: drawn up as it fills, seated when it is full.)
+    const pull = balEase(Math.min(1, Math.max(0, (bal.gas - 0.45) / 0.55)));
+    const path = tubePath(), tip = tubeTip(adv, pull, path), arcs = sheathArcs(tip, path);
+    const shaft = smoothPath(tubeTo(adv, pull, path));
+    ov.balloons.append(s('path', { d: shaft, class: 'balloon-shaft-rim' }), s('path', { d: shaft, class: 'balloon-shaft' }));
+    // A balloon, whole: the latex over all of it, then two rims (the outline less narrower copies of it), denser toward the edge, then its edge.
+    const latex = (ring, narrow) => {
+      const d = smoothPath(ring, true);
+      ov.balloons.append(s('path', { d, class: RINGS[0][1] }));
+      for (const [f, cls] of RINGS.slice(1)) ov.balloons.append(s('path', { d: d + ' ' + smoothPath(narrow(f), true), class: cls }));
+      ov.balloons.append(s('path', { d, class: 'balloon-edge' }));
+    };
+    // The gastric balloon, the first step: collapsed on the tube it rides in with it, then a pear on the tube's axis, its cone drawn up into the
+    // cardia, as wide as the stomach's outline leaves room for.
+    if (kG > 0.001) {
+      const gs = gasShape(kG, pull);
+      latex(gs.outline, gs.ring);
+      if (kG > 0.3) {
+        // (The highlight on the upper side of the shoulder, along the axis, as the esophageal balloon's is up its length.)
+        const [dx, dy] = gs.dir, u = 0.42, w = gs.half(u), cx = gs.p0[0] + dx * u * gs.L + dy * 0.4 * w, cy = gs.p0[1] + dy * u * gs.L - dx * 0.4 * w;
+        ov.balloons.append(hi(cx, cy, gs.b * 0.34, gs.b * 0.17, kG, (Math.atan2(dy, dx) * 180) / Math.PI));
       }
+    } else {
+      const sg = sheath(arcs.gas[0], arcs.gas[1], () => GAS.neck, path);
+      if (sg) latex(sg.ring, sg.narrow);
     }
-    const g = bal.gas;
-    if (g.k > 0.01 || g.adv > 0) {
-      const k = balEase(g.k), r = 4 + 20 * k, [cx, cy] = SITES.fundus;
-      const circ = (rr) => `M${(cx - rr).toFixed(2)} ${cy}a${rr.toFixed(2)} ${rr.toFixed(2)} 0 1 0 ${(2 * rr).toFixed(2)} 0a${rr.toFixed(2)} ${rr.toFixed(2)} 0 1 0 ${(-2 * rr).toFixed(2)} 0Z`;
-      ov.balloons.append(s('path', { d: circ(r), class: RINGS[0][1] }));
-      for (const [f, cls] of RINGS.slice(1)) ov.balloons.append(s('path', { d: circ(r) + ' ' + circ(r * f), class: cls }));
-      ov.balloons.append(s('path', { d: circ(r), class: 'balloon-edge' }));
-      if (k > 0.3) ov.balloons.append(hi(cx - r * 0.28, cy - r * 0.5, r * 0.26, r * 0.16, k));
+    // The esophageal balloon, the second step: collapsed on the tube until the gastric balloon is up, then filled.
+    const per = (arcs.eso[1] - arcs.eso[0]) / (BALLOON.bottom - BALLOON.top), bands = [3, BALLOON.bottom - BALLOON.top - 3].map((o) => arcs.eso[0] + o * per);
+    if (kE > 0.001) {
+      const sh = balloonShape(kE);
+      const ering = (f) => sh.outline.map(([x, y]) => { const c = esoAt(y).c; return [c + (x - c) * f, y]; });
+      latex(sh.outline, ering);
+      const y = BALLOON.top + 14, h = sh.half(y);
+      if (kE > 0.3) ov.balloons.append(hi(esoAt(y).c - h * 0.22, y, h * 0.34, h * 0.5, kE));
+    } else {
+      const se = sheath(arcs.eso[0], arcs.eso[1], (t) => Math.max(BALLOON.shaftR, BALLOON.sleeve * Math.sqrt(Math.max(0, 1 - (2 * t - 1) ** 2))), path);
+      if (se) latex(se.ring, se.narrow);
+    }
+    // The two marker bands, on the tube at the esophageal balloon's ends.
+    for (const sb of bands) {
+      if (sb < 0 || sb > path.total) continue;
+      const { p, t } = pathAt(sb, path), turn = (Math.atan2(t[1], t[0]) * 180) / Math.PI - 90;
+      ov.balloons.append(s('rect', { x: p[0] - BALLOON.shaftR - 0.3, y: p[1] - 0.5, width: 2 * BALLOON.shaftR + 0.6, height: 1, rx: 0.3, class: 'balloon-marker', transform: `rotate(${turn.toFixed(1)} ${p[0].toFixed(2)} ${p[1].toFixed(2)})` }));
+    }
+    // The traction, shown as the tube is drawn up: an arrow up the esophagus's side, easing in with it.
+    if (pull > 0.01) {
+      const ar = pullArrow(), g = s('g', { class: 'balloon-pull', opacity: pull.toFixed(3) });
+      g.append(s('path', { d: smoothPath(ar.line), class: 'balloon-pull-line' }), s('path', { d: `M${ar.head.map((q) => q.map((v) => v.toFixed(2)).join(' ')).join('L')}Z`, class: 'balloon-pull-head' }));
+      ov.balloons.append(g);
     }
   }
   let balloonSqueeze = 1;
@@ -10576,7 +10612,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A tamponade balloon that is up over the tear presses it shut: once it has filled, the spray and the pool ease out with it, and
   // they come back if it is let down while the model still bleeds. The model's own bleed ends BALLOON_SEAL_S after the balloon is on:
   // engine.js. Up here is the eased picture of it, tied to the balloon on screen, not to the model's clock.)
-  const pressedShut = () => { const id = F.bleed.site === 'GV' ? 'gas' : 'eso'; return bal.on[id] && bal[id].k >= 1; };
+  const pressedShut = () => bal.wantGas && bal.gas >= 1;   // (the tube's gastric balloon, filled and drawn up, presses either tear shut: engine.js)
   const sprayOn = () => !!F?.bleed?.active && morph < 0.5 && !pressedShut();
   const sprayFading = () => sprayA !== (sprayOn() ? 1 : 0);
   function stepSpray(dt) {

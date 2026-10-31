@@ -6,7 +6,7 @@ import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
-import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT } from './scenario.js?v=d7d3ea5b70';
+import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js?v=bcedeba324';
 import { detectEvents } from './events.js?v=f5dec0f002';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
@@ -14,8 +14,8 @@ const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
 const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
 export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3 };
-/** Seconds a tamponade balloon must press on the tear before the bleed counts as stopped: a little over the 2.4 s it takes the balloon to go
- *  in and fill on screen (balloon-eso.js BALLOON_MS; tests/tamponade-bleed.test.js holds the two together). */
+/** Seconds the tube's gastric balloon must press on the tear before the bleed counts as stopped: a little over the 2.4 s it takes the tube to go
+ *  in and the balloon to fill and be drawn up on screen (balloon-eso.js BALLOON_MS; tests/tamponade-bleed.test.js holds the two together). */
 export const BALLOON_SEAL_S = 3;
 /** Rupture hazard per day as a function of T/Tcrit (§7.5). */
 const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
@@ -369,8 +369,8 @@ export class Engine {
       const ext = NODES[i].ext;
       this.ext[i] = ext === 'abd' ? iapDev
         : ext === 'thor' ? pplDev
-        : ext === 'eso' ? pplDev + (p.balloonEso ? 40 : 0)
-        : ext === 'gas' ? iapDev + (p.balloonGas ? 45 : 0)
+        : ext === 'eso' ? pplDev + (gastricUp(p) ? 40 : 0)   // (the first step: the gastric balloon, drawn up against the cardia, presses on the veins there; the esophageal balloon, the second, presses on the varices themselves)
+        : ext === 'gas' ? iapDev + (gastricUp(p) ? 45 : 0)
         : 0;
     }
     this.ext[this.ni.RA] = raExt;
@@ -744,10 +744,11 @@ export class Engine {
       const ptm = this.P[i] - this.ext[i], slack = ptm < 9;
       if (slack) this.bleed.clot += dt; else this.bleed.clot = Math.max(0, this.bleed.clot - dt * 0.5);
       if (this.bleed.clot > 45) this.stopBleed('clot');
-      // A balloon up over the tear presses it shut. Its pressure outweighs the varix's at once (the bleed's flow is nil from the first step,
-      // see the sink in the solve), so the tear stays open only for the time the balloon needs to go in and fill; lifted or outweighed
-      // before that (the varix still taut past the clot's own limit), the count starts over.
-      else if ((this.bleed.site === 'VAR' ? p.balloonEso : p.balloonGas) && slack) {
+      // The tube's gastric balloon, up and drawn against the cardia, presses a tear shut (the esophageal balloon, filled only on top of it,
+      // does the same). Its pressure outweighs the varix's at once (the bleed's flow is nil from the first step, see the sink in the solve),
+      // so the tear stays open only for the time the tube needs to go in and the balloon to fill; lifted or outweighed before that (the
+      // varix still taut past the clot's own limit), the count starts over.
+      else if (gastricUp(p) && slack) {
         this.bleed.press = (this.bleed.press || 0) + dt;
         if (this.bleed.press >= BALLOON_SEAL_S) this.stopBleed('balloon');
       } else if (this.bleed.press) this.bleed.press = 0;

@@ -2,6 +2,7 @@
 // varix cross-section, abdomen.
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
+import { gastricUp } from '../engine/scenario.js?v=bcedeba324';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
 import { pressureColor } from './colormap.js?v=dc7e0de1bd';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=80c7abd296';
@@ -92,7 +93,7 @@ export function createEndoscopy({ onAction }) {
   // (endo-motion.js); the balloon's and the jet's strength (0..1) easing toward on or off. On the display clock, so a
   // paused model still finishes a fade.
   const fadeCv = document.createElement('canvas');
-  let fadeT0 = -1, shown = null, fadeA = 1, balA = 0, jetA = 0, uiT = 0;
+  let fadeT0 = -1, shown = null, fadeA = 1, balA = 0, shutA = 0, jetA = 0, uiT = 0;
   // Before the field's bitmap changes: keep what is on screen now (the old field, with any fade still under way).
   function keep(img, res) {
     const t = performance.now();
@@ -196,25 +197,26 @@ export function createEndoscopy({ onAction }) {
     // Nothing on the field changed since the last paint (the same bitmap, size, balloon and theme, no bleeding): it is left
     // as it is. It is asked for on every frame of the model, and a full repaint each time (a scaled bitmap and the rim) held
     // a phone's or a browser without a GPU's main thread for most of every frame.
-    const bleedNow = !!(f.bleed?.active && f.bleed.site === 'VAR'), balloon = !!f.params?.balloonEso, root = document.documentElement;
+    const bleedNow = !!(f.bleed?.active && f.bleed.site === 'VAR'), balloon = !!f.params?.balloonEso, shut = gastricUp(f.params || {}), root = document.documentElement;
     // (The last bleed seen: its jet and pool keep drawing from it while they fade out after the bleed stops.)
     if (bleedNow) bleedLast = { rate: f.metrics?.bleeding?.rate, total: f.bleed.total, hr: f.metrics?.vitals?.hr ?? f.metrics?.hr };
-    // The new field fades in over the old; the balloon and the jet ease in and out (endo-motion.js).
+    // The new field fades in over the old; the balloon and the jet ease in and out (endo-motion.js). (The esophageal balloon, the tube's second
+    // step, fills the view; the gastric one, the first, lies below it in the stomach and shows only as the jet easing out.)
     const tu = performance.now(), du = uiT ? Math.min(100, tu - uiT) : 0; uiT = tu;
     const poolT = bleedLast ? poolFill(bleedLast.total) : 0;
-    // (A balloon that is up presses the tear shut: the jet and pool ease out once it has filled, and come back if it is let down while
-    // the model still bleeds. The model's own bleed ends a moment after the balloon is on: engine.js BALLOON_SEAL_S.)
-    if (still.matches) { fadeT0 = -1; balA = +balloon; } else balA = glide(balA, +balloon, du);
-    const bleeding = bleedNow && !(balloon && balA >= 1);
+    // (The tube's gastric balloon, up and drawn against the cardia, presses the tear shut: the jet and pool ease out once it has filled, and come
+    // back if it is let down while the model still bleeds. The model's own bleed ends a moment after it is on: engine.js BALLOON_SEAL_S.)
+    if (still.matches) { fadeT0 = -1; balA = +balloon; shutA = +shut; } else { balA = glide(balA, +balloon, du); shutA = glide(shutA, +shut, du); }
+    const bleeding = bleedNow && !(shut && shutA >= 1);
     if (still.matches) { jetA = +bleeding; poolA = poolT; }
     else { jetA = glide(jetA, +bleeding, du); poolA = poolA ? glide(poolA, poolT, du, 600) : poolT; }
     fadeA = fadeT0 < 0 ? 1 : fadeIn(tu - fadeT0);
     if (fadeA >= 1) fadeT0 = -1;
     shown = img;
-    const moving = fadeT0 >= 0 || balA !== +balloon || jetA !== +bleeding;
+    const moving = fadeT0 >= 0 || balA !== +balloon || shutA !== +shut || jetA !== +bleeding;
     if (moving && !raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     if (!moving) uiT = 0;   // (the next ease starts from its first frame, not from the last one painted)
-    const sig = [cv.width, cv.height, w, hh, gl ? glKey : cache.key, balloon, root.getAttribute('data-theme'), root.className, dark.matches].join('|');
+    const sig = [cv.width, cv.height, w, hh, gl ? glKey : cache.key, balloon, shut, root.getAttribute('data-theme'), root.className, dark.matches].join('|');
     if (!bleeding && !moving && sig === painted) return;
     painted = bleeding || moving ? '' : sig;
     ctx.clearRect(0, 0, w, hh);

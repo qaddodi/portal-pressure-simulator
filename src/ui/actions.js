@@ -196,8 +196,11 @@ function varixVerbs(site, ctx) {
   const out = [];
   if (eso) out.push({ type: 'button', id: 'band', label: 'Band', icon: 'band', run: () => { ctx.action({ kind: 'band' }); }, note: (f) => (f.bands ? `${Math.round(f.bands)} band${f.bands >= 1.5 ? 's' : ''} placed` : null) });
   out.push({ type: 'button', id: 'endoscope', label: 'Endoscope', icon: 'endoscope', run: () => { ctx.paneApi('endoscopy')?.setView?.('eso'); ctx.showPane('endoscopy'); } });
-  const key = eso ? 'balloonEso' : 'balloonGas';
-  out.push({ type: 'toggle', id: 'balloon', key, label: eso ? 'Esophageal balloon' : 'Gastric balloon', icon: 'balloon', get: (p) => !!p[key], set: (p, v) => { p[key] = v; }, hist: eso ? 'Esophageal balloon' : 'Gastric balloon' });
+  // The tamponade tube. Its gastric balloon is the first step: filled in the stomach, the tube drawn up so it seats against the cardia.
+  // The esophageal balloon is the second, filled only if that does not hold, and only on a tube whose gastric balloon is up: switching it on
+  // brings the gastric one with it, and letting the gastric one down lets the esophageal one down first.
+  out.push({ type: 'toggle', id: 'balloon-gas', key: 'balloonGas', label: 'Gastric balloon', icon: 'balloon', get: (p) => !!p.balloonGas, set: (p, v) => { p.balloonGas = v; if (!v) p.balloonEso = false; }, hist: 'Gastric balloon' });
+  if (eso) out.push({ type: 'toggle', id: 'balloon', key: 'balloonEso', label: 'Esophageal balloon', icon: 'balloon', get: (p) => !!p.balloonEso, set: (p, v) => { p.balloonEso = v; if (v) p.balloonGas = true; }, hist: 'Esophageal balloon' });
   return out;
 }
 

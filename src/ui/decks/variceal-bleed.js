@@ -7,8 +7,9 @@ const K = 'The bleed';
 // (deltaLabel: the name of the dotted lines and grey band on the beat-by-beat card, where the patient stood before; beat-card.js)
 const BEATS = { kind: 'trace', range: 'beats', deltaLabel: 'before the bleed' }, REBEATS = { ...BEATS, deltaLabel: 'before the rebleed' };
 const SALINE = { kind: 'infuse', fluid: 'crystalloid' }, UNIT = { kind: 'infuse', fluid: 'prbc' }, BAND = { kind: 'band' };
-// The balloon slide's camera: the lower esophagus round the balloon (y 170 to 244, balloon-eso.js BALLOON) with the varix up the wall, the tear
-// at its foot (SITES.varix 797, 232) and the cardia below it, about twice the zoom of 'varices' (tests/tamponade-bleed.test.js holds the box to them).
+// The balloon slide's camera: the lower esophagus round the esophageal balloon (y 170 to 244, balloon-eso.js BALLOON) with the varix up the wall, the tear
+// at its foot (SITES.varix 797, 232), the cardia below it and the gastric balloon, the first step, drawn up under the cardia (balloon-gas.js), about twice the
+// zoom of 'varices' (tests/tamponade-bleed.test.js holds the box to them).
 const BALLOON_CAM = [695, 70, 905, 340];
 
 export const BLEED = {
@@ -106,14 +107,14 @@ export const BLEED = {
       ask: ['Name two ways an acute variceal bleed counts as treatment failure.', 'Bleeding that stays uncontrolled despite drugs and endoscopy, or a rebleed within 5 days.'],
     },
     {
-      id: 'bridge', params: { balloonEso: true }, action: [UNIT], cam: BALLOON_CAM, labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Tamponade', kind: 'treat' }, tool: REBEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'controlled',
+      id: 'bridge', params: { balloonGas: true }, action: [UNIT], cam: BALLOON_CAM, labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Tamponade', kind: 'treat' }, tool: REBEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'controlled',
       kicker: 'The bridge', site: 'sin', title: 'A stent or a balloon holds the bleed until a TIPS',
-      line: 'A covered esophageal stent is the preferred bridge, a balloon tube the fallback. Pressure on the varix stops the bleed and the blood pressure recovers to {map}.',
-      notes: 'In refractory esophageal variceal bleeding a dedicated covered self-expanding metal stent is preferred over balloon tamponade, as a bridge to a TIPS or a transplant. AASLD 2024 notes that a stent can stay in place for up to a week and a balloon for 24 hours at most, and that specialized esophageal stents were not FDA approved in the United States, so many US centers have only the balloon. Intubate before the tube or the stent goes in. The model draws the tamponade of a balloon; it has no stent. (Baveno VIII 5.35; AASLD 2024 34.)',
+      line: 'A stent is the preferred bridge, a balloon tube the fallback. The gastric balloon goes up first, drawn against the cardia, and the bleed stops. Blood pressure recovers to {map}.',
+      notes: 'In refractory esophageal variceal bleeding a dedicated covered self-expanding metal stent is preferred over balloon tamponade, as a bridge to a TIPS or a transplant. AASLD 2024 notes that a stent can stay in place for up to a week and a balloon for 24 hours at most, and that specialized esophageal stents were not FDA approved in the United States, so many US centers have only the balloon. Intubate before the tube or the stent goes in. A tube has two balloons. The gastric balloon is filled first, in the stomach, and the tube is pulled up so the balloon presses against the cardia; the esophageal balloon is filled only if the bleeding goes on. The model draws the tube, the gastric balloon first and the esophageal one a second step on the varices card; it has no stent. (Baveno VIII 5.35; AASLD 2024 34.)',
       ask: ['Why is a balloon tube or a stent a bridge and not a treatment?', 'It presses on the varix but leaves the portal pressure unchanged, so the bleeding returns when it comes out.'],
     },
     {
-      id: 'rescue', params: { balloonEso: false, tips: { on: true } }, action: [{ kind: 'stopBleed' }], cam: 'liver', tool: { kind: 'profile', from: 'bridge', fromLabel: 'Before TIPS' }, data: 'tiles', tiles: ['map', 'liver'], key: ['ppg'], delta: true,
+      id: 'rescue', params: { balloonGas: false, balloonEso: false, tips: { on: true } }, action: [{ kind: 'stopBleed' }], cam: 'liver', tool: { kind: 'profile', from: 'bridge', fromLabel: 'Before TIPS' }, data: 'tiles', tiles: ['map', 'liver'], key: ['ppg'], delta: true,
       kicker: 'The rescue', site: 'sin', title: 'A rescue TIPS takes the pressure off the varix',
       line: 'A covered TIPS lowers the PPG to {ppg}, which is {<12 mmHg}, and the bleeding stops. The price is the liver\'s blood supply: it keeps {liver} of its normal flow.',
       notes: 'Baveno VIII recommends a salvage TIPS when bleeding cannot be controlled despite drugs and endoscopy, and AASLD 2024 calls it a rescue TIPS when the bleed returns despite vasoactive therapy and banding. The covered stent opens a channel from the portal vein to a hepatic vein, so most portal blood bypasses the liver. The gradient across the liver falls below the level where varices bleed, and the balloon can come out. No age, Child–Pugh class or MELD score rules a rescue TIPS out by itself: it is considered case by case, and transplant candidacy is assessed at once, because death rates stay high at a high MELD. Hepatic encephalopathy is the main risk afterward, and many centers give lactulose or rifaximin from the start. (Baveno VIII 5.36, 5.37; AASLD 2024 35.)',
