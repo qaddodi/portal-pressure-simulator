@@ -103,3 +103,12 @@ test('no picture is made past the budget', () => {
     assert.deepEqual(small.paints.slice(-2), ['dia', 'liver'], 'still painted from its shapes');
   } finally { small.done(); }
 });
+
+// B3: the lobule's tissue bitmap is capped by what the screen can ask for (the zoom stops at KMAX × the fit), not only by 3600 px.
+test("the lobule's bitmap scale is capped by the deepest zoom the screen can reach", async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  assert.match(src, /const worldCap = \(G, dpr\) => Math\.min\(3600 \/ \(2\.6 \* G\.R\), Math\.max\(dpr \* kFit \* KMAX, dpr \* V\.k\) \* Math\.SQRT2\);/);
+  assert.equal((src.match(/worldCap\(/g) || []).length, 4, 'the four scale sites');
+  assert.doesNotMatch(src, /3600 \/ \(2\.6 \* (geo|G)\.R\)\)/, 'no scale site keeps the bare constant');
+});

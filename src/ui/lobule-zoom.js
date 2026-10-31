@@ -170,6 +170,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // its own card), free zoom up to 5× that, the pan held to this lobule. Zooming out stops at the framing.
   const V = { k: 1, x: 0, y: 0 };
   const KMAX = 5;
+  // The most px per world unit the bitmap can be shown at, by what the screen can ask for: the zoom stops at KMAX times the fit, so a
+  // bitmap sharper than dpr × that (stepped up a √2, as the scales are) is never shown larger than it was painted. At most 3600 px square,
+  // and never under what the view is at now. (Recs B3: the spare for twice the zoom no longer reaches past the deepest zoom.)
+  const worldCap = (G, dpr) => Math.min(3600 / (2.6 * G.R), Math.max(dpr * kFit * KMAX, dpr * V.k) * Math.SQRT2);
   let kFit = 1, atFit = true;
   // A presenter's glide to a station still under way: its part, zoom and target (which refit moves, so the glide still lands on the station).
   let camAim = null;
@@ -604,7 +608,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function trimCaches() {
     if (!geo) return;
     const dpr = Math.min(2, devicePixelRatio || 1), k = kFit || V.k;
-    const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * k)) * 2) / 2), 3600 / (2.6 * geo.R)), n = Math.ceil(2.6 * geo.R * sc);
+    const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * k)) * 2) / 2), worldCap(geo, dpr)), n = Math.ceil(2.6 * geo.R * sc);
     if (worldCv.width > n) { free(worldCv); worldKey = ''; prepKey = ''; }
     free(worldOld); free(xfCv); xfT0 = 0; surNow = null; surOld = null; surT0 = 0;
     // The field: the newest state's tiles only, and none above the largest the dive or the framed lobule draws.
@@ -2295,7 +2299,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // it painted. The pieces wait for it, a moment at a time.)
       const dpr = Math.min(2, devicePixelRatio || 1), G = geo, m = model;
       if (!G || !m || !offPage()) return;
-      const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), 3600 / (2.6 * G.R)), ws = worldStateOf(m, G, dark, cs), wk = sc.toFixed(3) + '|' + ws;
+      const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), worldCap(G, dpr)), ws = worldStateOf(m, G, dark, cs), wk = sc.toFixed(3) + '|' + ws;
       if (wk === worldKey || !askPaint('world', sc, ws, wk, m, G, dark, cs)) return;
       const wait = () => { if ((job || laying?.j)?.wk === wk) q.unshift(wait); };
       q.unshift(wait);
@@ -2662,7 +2666,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!g || !G || !m || fade < 0.98 || diveScaled || sinU > 0 || worldGeo !== G || !tissueOnGL) return;
     if (handOn() || gliding) { spareSoon(); return; }
     // (Twice the zoom's own sharpness, stepped as paintTissue steps it, within the bitmap's largest size.)
-    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), cap = 3600 / (2.6 * G.R);
+    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), cap = worldCap(G, dpr);
     const dark = isDark(), cs = styles(), ws = worldStateOf(m, G, dark, cs), sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2) * 2, cap);
     if (sc > worldSc * 1.01 && !(spare && spare.G === G && spare.ws === ws && spare.sc >= sc)) {
       // (In the worker where it can paint, so the page never waits for it; a job already under way is waited for.)
@@ -2838,7 +2842,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // Pressure colors enter only coarsely (they move every frame while the model glides).
     // (#27) Mid-glide (+, −, Fit, a presenter's camera) the bitmap keeps the scale it was drawn at and is only placed larger or smaller:
     // redrawing it at each √2 step (up to 3600 px square) stalled the glide. It is drawn sharp once the glide lands.
-    let sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), 3600 / (2.6 * G.R));
+    let sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), worldCap(G, dpr));
     const ws = worldStateOf(m, G, dark, cs);
     // (A hand's pinch, flick or trackpad scroll holds it the same way, and it is drawn sharp once the hand lets go: holdEnd.)
     // (On the GPU it is held only while it is at least as sharp as the zoom wants, and past that the one painted ahead takes over:
