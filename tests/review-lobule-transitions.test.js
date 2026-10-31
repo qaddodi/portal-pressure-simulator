@@ -118,7 +118,8 @@ test('G22: the blurred edge is smooth (no steps), even for a wide blur on a larg
 test('a new patient eases into the lobule: the tissue crossfades instead of snapping', () => {
   // The tissue bitmap is redrawn in one step when its state changes; the picture it replaces is kept and faded out under it.
   assert.match(lz, /const XF_MS = 900;/);
-  assert.match(lz, /if \(worldState && ws !== worldState && !unseen\(\) && worldGeo === G && worldCv\.width && !\(xfT0 && now - xfT0 < XF_MS\)\) \{ \[worldOld, worldCv\] = \[worldCv, worldOld\];/,
+  // (Not on the GPU while the shader has the whole picture, liveShare 1: the bitmap is then not seen. tests/lobule-live.test.js.)
+  assert.match(lz, /if \(worldState && ws !== worldState && !unseen\(\) && !\(gpu && liveShare >= 1\) && worldGeo === G && worldCv\.width && !\(xfT0 && now - xfT0 < XF_MS\)\) \{ \[worldOld, worldCv\] = \[worldCv, worldOld\];/,
     'swapped, not copied, and a change mid-fade does not restart it');
   assert.match(lz, /const worldStateOf = \(m, G, dark, cs\) => \[G\.W, G\.H, dark,/);
   assert.match(lz, /const ws = worldStateOf\(m, G, dark, cs\);[\s\S]*?const wk = sc\.toFixed\(3\) \+ '\|' \+ ws;/, 'only a new state fades, never a new drawing scale');

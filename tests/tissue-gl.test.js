@@ -40,7 +40,7 @@ test('the screen draws on the GPU; the dive, the rise and their copies keep the 
 test('never softer than the zoom wants: the bitmap is held only while at least as sharp, the sharper one is painted ahead', () => {
   const pt = fn('function paintTissue(W, H, dpr, dark, cs, flatVessels, tg = null) {');
   assert.match(pt, /if \(gpu && kept && sc > worldSc && spare && spare\.G === G && spare\.ws === ws && ws === worldState && spare\.sc >= sc && spareCv\.width\) \{/);
-  assert.match(pt, /if \(held && kept && \(!gpu \|\| sc <= worldSc\)\) \{/);
+  assert.match(pt, /if \(held && kept && \(!gpu \|\| sc <= worldSc \|\| bitmapUnseen\(\)\)\) \{/, 'or while the shader has the whole picture and nothing of the bitmap is seen');
   assert.match(pt, /if \(!held && gpu && kept && ws === worldState && sc <= worldSc && worldSc <= sc \* 2\.01\) sc = worldSc;/, 'no repaint once a gesture ends');
   const sm = fn('function spareMake() {');
   assert.match(sm, /if \(handOn\(\) \|\| gliding\) \{ spareSoon\(\); return; \}/, 'painted between gestures, never in one');
