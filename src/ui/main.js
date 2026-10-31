@@ -8,7 +8,7 @@ import { createCreditPlacer } from './credit.js?v=853fefa4ac';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=b81f6bd326';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=45b753fae3';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=d6098f78dd';
 import { setHvpgStage } from './hvpg-proc.js?v=557800833f';
 import { createWhy } from './why.js?v=8d45caef8b';
 import { createTimeline, LAPSES } from './timeline.js?v=fa5e35cdc0';
@@ -182,7 +182,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=562c05fffc'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=58dea126cb'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -1111,6 +1111,14 @@ function giveFocusBack(card, to) {
 }
 let panelOpener = null;
 /** Opens the patient chart; or the instruments when named. */
+// A finger's wide screen (an iPad held sideways) sets its right-hand cards side by side. Where Details, Tests and Treat or History
+// together would leave the figure less than a vessel card's strip (300 px and its margins), the one the learner did not just ask
+// for gives way, as on a phone. (withPanel: Details is about to open.)
+function rightShort(withPanel = false) {
+  if (isPhone() || !matchMedia('(pointer: coarse)').matches) return false;
+  const w = [withPanel || panelShown() ? $('#panel').offsetWidth || 380 : 0, app.classList.contains('dock-open') && $('#dock').classList.contains('side') ? $('#dock').offsetWidth : 0, 400].filter(Boolean);
+  return innerWidth - w.reduce((a, b) => a + b, 0) - (w.length + 1) * 12 < 316;
+}
 function openPanel(tab = 'chart') {
   // (What it puts away on a phone goes first, so the instruments come in once it has gone.)
   if (tab === 'instruments') { if (isPhone()) { closePanel(); closeTreat(); } setPanelTab('instruments'); return; }
@@ -1119,6 +1127,7 @@ function openPanel(tab = 'chart') {
   if (app.classList.contains('instrument-focus')) dock.setState('open');
   // A phone has room for one sheet at a time: the chart puts Treat and the instruments away.
   if (isPhone()) { closeTreat(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
+  else if ((treatOpen() || historyOpen()) && rightShort(true)) { closeTreat(); closeHistory(); }
   const a = document.activeElement;
   if (!panelShown() && a && a !== document.body && !$('#panel').contains(a)) panelOpener = a;
   arrive($('#panel'));
@@ -1659,6 +1668,7 @@ function openTreat() {
   closeHistory();
   const el = $('#treatCard');
   if (isPhone()) { closePanel(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
+  else if (panelShown() && rightShort()) closePanel();
   closePopover();
   const sync = [];
   const count = h('span', { class: 'card-meta' });
@@ -1704,6 +1714,7 @@ let historyOff = null, historyPaint = null;
 const historyOpen = () => !$('#historyCard').hidden;
 function openHistory() {
   closeTreat(); closePopover();
+  if (panelShown() && rightShort()) closePanel();
   const el = $('#historyCard');
   const body = h('div', { class: 'tc-body' });
   // (The list is updated in place: a new entry rises in at the top, the rest stay put, P18.)

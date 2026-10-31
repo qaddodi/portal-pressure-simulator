@@ -2063,7 +2063,7 @@ button.finding { cursor: pointer; }
   .pz-table tr { display: grid; grid-template-columns: minmax(7.5rem, 1.8fr) repeat(var(--nc, 7), minmax(0, 1fr)) var(--asc-w, 0px); align-items: center; }
   .pz-table td[colspan="2"] { grid-column: span 2; }
   .pz-table thead th.num { padding-inline: 2px; font-size: 12px; letter-spacing: -.01em; }   /* (12 px: where a column is too narrow for the word the row's heads stand upright, below, presenter.js fitHeads) */
-  .pz:not(.tab) .pz-table thead tr.th-up th.num { writing-mode: vertical-rl; rotate: 180deg; line-height: 1; padding: .4em 0; justify-self: center; text-align: start; }
+  .pz .pz-table thead tr.th-up th.num { writing-mode: vertical-rl; rotate: 180deg; line-height: 1; padding: .4em 0; justify-self: center; text-align: start; }
 
   .pz-table tbody th[scope="row"] { padding-right: 8px !important; }
   .pz-table thead { position: sticky; top: -16px; z-index: 2; }   /* (the card's padding: the heads stick to its top edge) */
@@ -3294,6 +3294,11 @@ button.finding { cursor: pointer; }
 .pt-chip[aria-pressed="true"] i { background: var(--chip); }
 .pt-chip:disabled { opacity: 0.4; cursor: default; }   /* (the EKG pill outside the last-beats range) */
 @media (hover: hover) { .pt-chip:hover { border-color: var(--border-strong); } }
+/* (Pills and small buttons: a finger's tap area reaches 4 px past their top and bottom and 2 px past their sides, over no neighbour: they are 28 to 36 px high.) */
+@media (pointer: coarse) {
+  .pt-chip, .ab-drain, .dop-tint, .ac-btn, .ac-toggle { position: relative; }
+  .pt-chip::after, .ab-drain::after, .dop-tint::after, .ac-btn::after, .ac-toggle::after { content: ''; position: absolute; inset: -4px -2px; }
+}
 @media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .pt-num { font-size: var(--fs-28); }
 }
@@ -4274,6 +4279,11 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .zoom-pill > *, .float-pill > .ib, .float-pill > .tb-act, .float-pill > .menu-btn, .float-pill > .pal-btn, .toolbar > .ib { border-radius: max(var(--r-control), calc(var(--r-sheet) - var(--inset, 4px))); }
 .topbar .float-pill > .menu-btn, .topbar .float-pill > .tb-act, .topbar .float-pill > .pal-btn, .topbar .float-pill > .ib, .topbar #viewSeg button { border-radius: max(var(--r-control), calc(var(--r-sheet) - var(--inset, 4px))); }
 .zoom-pill .ib, .zoom-pill .stage-fit, .zoom-pill .stage-rotate { border-radius: calc(var(--r-sheet) - 3px); }
+/* (A finger's 40 px on Fit, turn and zoom: the buttons stay 36 px as drawn, an invisible ring takes the tap 2 px further out on each side; the pill looks the same.) */
+@media (pointer: coarse) {
+  .zoom-pill .ib, .zoom-pill .stage-fit, .zoom-pill .stage-rotate { position: relative; }
+  .zoom-pill .ib::after, .zoom-pill .stage-fit::after, .zoom-pill .stage-rotate::after { content: ''; position: absolute; inset: -2px; }
+}
 /* The lobule group is hidden outside the lobule view; the group after it must not draw a divider above itself. */
 .readouts:not(.lob) .ro-group[data-group="lobule"] + .ro-group { border-top: 0 !important; }
 .topbar #viewSeg { --inset: 4px; }
@@ -5246,6 +5256,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .vdock :is(.tl-hist, .tl-pin) .tl-hl, .vdock .tl-pin span { display: none; }
 @media (hover: hover) { .vdock :is(.tl-ff, .tl-hist, .tl-pin):hover { background: var(--surface-3); color: var(--text); } }
 .vdock .tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); }
+@media (pointer: coarse) { .vdock :is(.tl-ff, .tl-pin)::after { content: ''; position: absolute; inset: -2px; } }   /* (Jump ahead and Compare: a 40 px tap area, 4 px stays clear between neighbours) */
 .vdock .tl-hc:not(:empty) { position: absolute; top: 0; right: -2px; min-width: 16px; height: 16px; padding: 0 4px; font-size: var(--fs-12); line-height: 16px; background: var(--text); color: var(--stage-bg); }
 .vdock .tl-hist { display: inline-grid; place-items: center; }
 .vdock .timeline { gap: 8px; }
@@ -6065,6 +6076,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   .app.thumb .vdock:not(.mini) { left: 15%; right: 15%; }
   .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)) { left: 15% !important; right: 15% !important; max-height: min(62%, calc(100% - var(--top-safe) - var(--nb-occ, var(--vdock-h)) - 22px)); }
   .app.thumb:not(.dock-open) .action-card.docked { left: 15% !important; right: 15%; }
+  .app.thumb.dock-open:not(.instrument-focus) .action-card.docked { left: 15% !important; right: 15%; }   /* (over the Tests card: the same 70 %, not the whole width) */
+  html.thumb-ui .umenu.sheet { left: 15% !important; right: 15%; height: 62dvh; }   /* (the library menu: the tablet's 70 % and its 62 % Full, as the other menus) */
   html.thumb-ui .menu.as-sheet { left: 15% !important; right: 15%; max-height: min(62dvh, calc(100dvh - var(--thumb-bot, var(--thumb-occ, 0px)) - max(72px, var(--thumb-top, 0px) + 8px))); }
   html.thumb-ui .menu.as-sheet .tl-pop.tl-history { max-height: calc(62dvh - 24px); }   /* (History's list scrolls under its head, as on the phone) */
 }

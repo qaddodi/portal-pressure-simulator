@@ -2920,8 +2920,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const fitSig = (el) => `${el.clientWidth}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : el.clientHeight}|${el.className}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (getComputedStyle(c).maxHeight !== 'none' ? ':' + c.offsetHeight : ''))).join()}|${(el.querySelector('.pzv') ? wordsOf(el) : el.textContent).replace(/\d/g, '0')}`;
   const fitDone = new WeakMap(), smOf = new WeakMap();
   // A narrow summary table's column heads are 12 px, never smaller: a row whose columns are too narrow for the words in one line
-  // sets them upright (tr.th-up, turned to read from the bottom), one way for the whole row. (Only the phone layout reads it.)
-  const headFits = (th) => { const b = th.getBoundingClientRect(), g = document.createRange(); g.selectNodeContents(th); return [...g.getClientRects()].every((q) => !q.width || (q.left >= b.left - 0.5 && q.right <= b.right + 0.5)); };
+  // sets them upright (tr.th-up, turned to read from the bottom), one way for the whole row. (The phone and upright-tablet layouts read it.)
+  // A head fits when its word keeps 3 px clear of its column's edges, so two neighbours are never closer than 6 px: an iPad mini's nine
+  // columns had WHVP and FHVP, SAAG and PROT., touching.
+  const headFits = (th) => { const b = th.getBoundingClientRect(), g = document.createRange(); g.selectNodeContents(th); return [...g.getClientRects()].every((q) => !q.width || (q.left >= b.left + 2.5 && q.right <= b.right - 2.5)); };
   function fitHeadRow(tr) {
     const ths = [...tr.querySelectorAll('th.num')];
     if (!ths.length || !tr.getBoundingClientRect().width) return;
