@@ -79,3 +79,11 @@ test('Settings keeps the model rows apart from the accessibility switch, and a W
   assert.doesNotMatch(rule, /ellipsis|nowrap|overflow: hidden/);
   assert.match(rule, /overflow-wrap: anywhere/);
 });
+
+test('Enter full screen is a row like the others in Settings, not a bordered button that the top bar\'s .menu-btn rule turned centred', () => {
+  const main = src('src/ui/main.js');
+  const fs = main.slice(main.indexOf('function fullscreenControl('), main.indexOf('let fsSync'));
+  assert.match(fs, /menuItem\('Enter full screen', \{ icon: 'fullscreen' \}\)/);
+  assert.doesNotMatch(fs, /btn block menu-btn/);
+  assert.doesNotMatch(css, /\.btn\.menu-btn/);
+});

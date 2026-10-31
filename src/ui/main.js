@@ -938,8 +938,10 @@ function fullscreenControl() {
     return /iPhone|iPod/.test(navigator.userAgent) && !matchMedia('(display-mode: standalone)').matches
       ? h('small', { class: 'mm-role-note fs-hint' }, 'For full screen on iPhone: Share › Add to Home Screen.') : null;
   }
-  // A plain button (it acts once, it is not a setting): the label says what the next press does.
-  const t = h('span', {}), b = h('button', { class: 'btn block menu-btn', title: 'Hide the browser bars (Esc leaves)' }, svgIcon('fullscreen', 'bo-ic'), t);
+  // A plain row like the others (it acts once, it is not a setting): the label says what the next press does.
+  // (It was a bordered button under the .menu-btn rules, the only centred, borderless-by-accident row in the sheet.)
+  const b = menuItem('Enter full screen', { icon: 'fullscreen' }), t = b.querySelector('span');
+  b.title = 'Hide the browser bars (Esc leaves)';
   const sync = () => { t.textContent = document.fullscreenElement ? 'Exit full screen' : 'Enter full screen'; };
   sync();
   b.addEventListener('click', () => {
