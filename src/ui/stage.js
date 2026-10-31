@@ -46,7 +46,7 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { createLabelGL } from './label-gl.js?v=90b29dbbb9';
 import { createGlassGL } from './glass-gl.js?v=61c2d51089';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=43a472aaf3';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=3c1e1ba266';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -2473,7 +2473,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=85bed39ce5').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=bbf7024574').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -3517,6 +3517,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // only for an exported SVG figure (or where WebGL2 is missing altogether).
   // Tiers, back to front: the retroperitoneal stacks and opaque layer (behind the organs), the
   // arteries, the translucent stacks, the opaque network, the portal tree in front, the focus.
+  const PORTAL_CASING = 1.3;   // the portal tree's casing width against the systemic side's (see the tube sync)
   const TIER_BACK0 = 0, TIER_BACK = 7, TIER_ART = 8, TIER_MID0 = 9, TIER_NET = 16, TIER_FRONT = 17, TIER_LIFT = 18, TIER_LIFT_FRONT = 19;
   const TIER_GROUP = Array.from({ length: MAX_TIERS }, (_, i) => (i <= TIER_BACK ? 0 : i < TIER_LIFT ? 1 : 2));
   const TIER_ALPHA = Array.from({ length: MAX_TIERS }, (_, i) => (i < TIER_BACK ? LEVELS[i] : i >= TIER_MID0 && i < TIER_NET ? LEVELS[i - TIER_MID0] : 1));
@@ -4040,7 +4041,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       shownCol.set(it.row, [c0, c1]);
       // The sinusoids' strands are drawn faint and fine (sin-perfusion.js).
       if (sinStrand) alpha *= SIN_PERFUSION.fade;
-      tubeData.set([...c0, x.isArt ? 0 : x.wallPx, ...c1, alpha, tier, z, flags, 0], o);
+      // (The portal tree carries a slightly heavier casing than the systemic side, PORTAL_CASING: how an atlas separates the system
+      // it is about from the rest without colour. Looks review, 31 Oct.)
+      tubeData.set([...c0, x.isArt ? 0 : x.wallPx * (x.front ? PORTAL_CASING : 1), ...c1, alpha, tier, z, flags, 0], o);
       // Fades, as the SVG masks: into an organ (TIP_FADE), out of the plate, into a deeper vein,
       // tributaries toward the bowel they drain.
       let fade = null;

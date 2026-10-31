@@ -1409,9 +1409,14 @@ void main() {
         e *= 1.0 - fluidLv.y * (1.0 - smoothstep(-pxW, pxW, lu.y - lb));
       }
       if (e > 0.0) {
-        float a = fluidInk.a * (0.5 + 0.5 * clamp(d / max(fluidS.y, 1.0), 0.0, 1.0)) + fluidInk.a * 0.5 * exp(-d * d / 14.0);
+        // Fluid, not a floor (looks review, 31 Oct): two stops of its own depth, more see-through at its upper edge than deeper down
+        // (0.55 of the ink at the surface, full by about 28 units under it), and a thin pale meniscus along the surface in place of
+        // the denser band that made the edge read as a rim.
+        float a = fluidInk.a * (0.55 + 0.45 * smoothstep(0.0, 28.0, d));
+        float men = exp(-d * d / 10.0);
         a = min(a, 1.0) * e;
-        fluidC = vec4(fluidInk.rgb * a, a);
+        vec3 fc = mix(fluidInk.rgb, mix(fluidInk.rgb, vec3(1.0), 0.45), men);
+        fluidC = vec4(fc * a, a);
       }
     }
   }
