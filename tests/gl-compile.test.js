@@ -15,7 +15,8 @@ function fakeGL({ ext = true, done = false, ok = true } = {}) {
     getShaderParameter: () => { log.push('shaderparam'); return gl.ok; },
     getShaderInfoLog: () => 'bad', getProgramInfoLog: () => 'worse',
     createFramebuffer: () => ({}), createTexture: () => ({}), bindTexture: () => {}, texImage2D: () => {}, bindFramebuffer: (t, f) => log.push(f ? 'fbo' : 'screen'),
-    framebufferTexture2D: () => {}, viewport: () => {}, deleteFramebuffer: () => {}, deleteTexture: () => {}, isContextLost: () => false, getParameter: () => null, activeTexture: () => {},
+    framebufferTexture2D: () => {}, viewport: () => {}, deleteFramebuffer: () => {}, deleteTexture: () => {}, isContextLost: () => false, getParameter: () => null, activeTexture: () => {}, texParameteri: () => {},
+    TEXTURE_MIN_FILTER: 10, NEAREST: 11,
   };
   return gl;
 }
@@ -52,6 +53,51 @@ test('the exercise draw runs in a throwaway framebuffer and gives the screen bac
   exerciseDraw(gl, () => { ran++; });
   assert.equal(ran, 1);
   assert.deepEqual(gl.log.filter((l) => l === 'fbo' || l === 'screen'), ['fbo', 'screen']);
+});
+
+// A GL stand-in that keeps what is bound on each unit and what the framebuffer draws to, to tell a feedback loop from a clean draw.
+function bindingGL() {
+  const gl = {
+    TEXTURE0: 0x84C0, ACTIVE_TEXTURE: 'active', TEXTURE_BINDING_2D: 'binding', TEXTURE_2D: 5, FRAMEBUFFER: 6, COLOR_ATTACHMENT0: 7, RGBA: 8, UNSIGNED_BYTE: 9, TEXTURE_MIN_FILTER: 10, NEAREST: 11,
+    unit: 0, bound: Array(16).fill(null), fb: null, attach: new Map(), deleted: [],
+    createFramebuffer: () => ({ fbo: true }), createTexture: () => ({ tex: gl.deleted.length + Math.random() }),
+    getParameter(k) { return k === 'active' ? gl.TEXTURE0 + gl.unit : gl.bound[gl.unit]; },
+    activeTexture(u) { gl.unit = u - gl.TEXTURE0; },
+    bindTexture(t, x) { gl.bound[gl.unit] = x; },
+    bindFramebuffer(t, f) { gl.fb = f; },
+    framebufferTexture2D(t, a, tt, x) { gl.attach.set(gl.fb, x); },
+    texImage2D() {}, texParameteri() {}, viewport() {}, deleteFramebuffer() {}, deleteTexture(x) { gl.deleted.push(x); },
+  };
+  return gl;
+}
+
+test('the exercise draw never reads the texture it draws to, and every unit\'s own binding comes back', () => {
+  const gl = bindingGL();
+  const mine = [{ own: 0 }, { own: 1 }, null, { own: 3 }];
+  mine.forEach((t, u) => { gl.bound[u] = t; });
+  gl.unit = 2;
+  let seen = null;
+  exerciseDraw(gl, () => {
+    const target = gl.attach.get(gl.fb);
+    seen = { target, sampled: gl.bound.filter((x) => x === target).length, units: gl.bound.filter((x) => x).length };
+  });
+  assert.ok(seen.target, 'it drew to a texture');
+  assert.equal(seen.sampled, 0, 'which no unit holds: a sampler could not read what the draw writes');
+  assert.equal(seen.units, 16, 'every unit has the blank texture, not nothing, so no sampler warns of an empty unit');
+  mine.forEach((t, u) => assert.equal(gl.bound[u], t, `unit ${u} is as it was`));
+  assert.equal(gl.bound.slice(4).every((x) => x === null), true, 'the rest are empty again');
+  assert.equal(gl.unit, 2, 'and so is the active unit');
+  assert.equal(gl.fb, null, 'the screen is the target again');
+  assert.equal(gl.deleted.length, 2, 'the target and the blank are deleted');
+});
+
+test('the exercise draw leaves things as they were when the draw throws', () => {
+  const gl = bindingGL();
+  gl.bound[0] = { own: 0 };
+  const before = gl.bound[0];
+  exerciseDraw(gl, () => { throw new Error('driver'); });
+  assert.equal(gl.bound[0], before);
+  assert.equal(gl.fb, null);
 });
 
 test('publishing waits for completion, polling later ticks, and happens once', async () => {

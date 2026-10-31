@@ -43,21 +43,35 @@ export function checkProgram(gl, { p, sh }) {
   return p;
 }
 
-/** One 1 × 1 draw into a throwaway framebuffer: draw() sets the program and issues the draw call; the canvas is untouched. */
+/** One 1 × 1 draw into a throwaway framebuffer: draw() sets the program and issues the draw call; the canvas is untouched.
+ *  The target texture is bound on no unit while it is drawn to (a program whose sampler read it would be reading what it writes, a
+ *  feedback loop: the driver refuses the draw and warns, and on another it is undefined); every unit holds a blank 1 × 1 meanwhile, and
+ *  every unit's own binding is put back. */
 export function exerciseDraw(gl, draw) {
-  const fbo = gl.createFramebuffer(), tex = gl.createTexture();
-  const unit = gl.getParameter(gl.ACTIVE_TEXTURE), bound = gl.getParameter(gl.TEXTURE_BINDING_2D);
+  const fbo = gl.createFramebuffer(), tex = gl.createTexture(), blank = gl.createTexture();
+  const unit = gl.getParameter(gl.ACTIVE_TEXTURE), saved = [];
+  const UNITS = 16, T0 = gl.TEXTURE0 ?? 0x84C0;
   try {
+    for (let u = 0; u < UNITS; u++) { gl.activeTexture(T0 + u); saved.push(gl.getParameter(gl.TEXTURE_BINDING_2D)); }
+    // (The target is made on the last unit and let go of at once: attached, it needs no unit.)
+    gl.activeTexture(T0 + UNITS - 1);
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    for (let u = 0; u < UNITS; u++) {
+      gl.activeTexture(T0 + u);
+      gl.bindTexture(gl.TEXTURE_2D, blank);
+      if (u === 0) { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); }   // (complete, so a sampler reading it draws black without a warning)
+    }
+    gl.activeTexture(T0);
     gl.viewport(0, 0, 1, 1);
     draw();
   } catch { /* only a head start */ } finally {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.activeTexture(unit); gl.bindTexture(gl.TEXTURE_2D, bound);
-    gl.deleteFramebuffer(fbo); gl.deleteTexture(tex);
+    for (let u = 0; u < saved.length; u++) { gl.activeTexture(T0 + u); gl.bindTexture(gl.TEXTURE_2D, saved[u]); }
+    gl.activeTexture(unit);
+    gl.deleteFramebuffer(fbo); gl.deleteTexture(tex); gl.deleteTexture(blank);
   }
 }
 

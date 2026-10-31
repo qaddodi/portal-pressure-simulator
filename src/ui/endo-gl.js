@@ -8,7 +8,7 @@
 
 import { cssRGB } from './util.js?v=d313f178b3';
 import { columnConsts } from './endo-columns.js?v=381d1443b7';
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=5c4cd6c14c';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=54cf3ac2c6';
 
 const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';
 // The colours are tokens (--endo-* in styles/tokens.css), written into the shader when it is built.
