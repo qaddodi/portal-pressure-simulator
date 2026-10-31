@@ -42,7 +42,7 @@ import { ORIGINS } from './blood.js?v=d65f995908';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=d7d3ea5b70';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
-import { frameFor, cancelFrame, perf as framePerf, RENDER_SCALES, renderSetting, setRenderScale, FIG_OPTS, figOpt, setFigOpt, FIG_LAB, figLab, setFigLab } from './frame.js?v=fe59494d22';
+import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=fe59494d22';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=ea522a5215';
 const nextFrame = frameFor('main');
 
@@ -853,7 +853,7 @@ function wireTopbar() {
 // use it, what it is, and who made it).
 function openSettings(anchor, withSearch = false) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
-  // While presenting, only what changes how the talk looks (appearance, full screen, text size, figure resolution, blur effect), and Send feedback.
+  // While presenting, only what changes how the talk looks (appearance, full screen, text size, blur effect), and Send feedback.
   const talk = presenter.active();
   popover(anchor, [
     // (Send feedback heads the sheet in every mode and on every device, above the dock's Search and Help, talks included, so a tester reaches it in one tap from any Settings button.)
@@ -867,22 +867,8 @@ function openSettings(anchor, withSearch = false) {
     ...(talk ? presenterSettings() : []),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
     textSizeControl(),
-    // (One setting for the app and the talks, like Blur effect. The figure's drawing only; words stay sharp. frame.js)
-    h('div', { class: 'menu-title' }, 'Figure resolution'),
-    figSeg(RENDER_SCALES, renderSetting, setRenderScale, (v) => (v === 'auto' ? 'Auto' : v === 1 ? 'Full' : `${v * 100}%`)),
-    // (The further experiments, each off until chosen: frame.js FIG_OPTS.)
-    h('div', { class: 'menu-title' }, 'Auto’s lowest resolution'),
-    figSeg(FIG_OPTS.floor, () => figOpt('floor'), (v) => setFigOpt('floor', v), (v) => `${v * 100}%`),
-    h('div', { class: 'menu-title' }, 'Resolution while moving'),
-    figSeg(FIG_OPTS.move, () => figOpt('move'), (v) => setFigOpt('move', v), (v) => (v === 1 ? 'Off' : `${v * 100}%`)),
-    h('div', { class: 'menu-title' }, 'Glow resolution'),
-    figSeg(FIG_OPTS.glow, () => figOpt('glow'), (v) => setFigOpt('glow', v), (v) => (v === 1 ? 'Full' : `${v * 100}%`)),
-    h('div', { class: 'menu-title' }, 'Figure size cap'),
-    figSeg(FIG_OPTS.cap, () => figOpt('cap'), (v) => setFigOpt('cap', v), (v) => (v === 0 ? 'Off' : `${v} MP`)),
-    menuToggle(figOpt('adapt'), 'activity', 'Adapt to frame rate', 'After a slow pan or zoom the figure drops one step, and goes back up once moves keep pace', (on) => setFigOpt('adapt', on)),
-    // (Round 3 of the review, 30 Oct: each one off until chosen, and off changes nothing. frame.js FIG_LAB.)
-    h('div', { class: 'menu-title' }, 'Figure performance'),
-    ...figLabRows(),
+    // (The figure's resolution choices and performance switches (frame.js) are not in Settings (premium-feel R14, 31 Oct): what a build stored for them is cleared at
+    // start (index.html), so they stay at their defaults: Full, and off. Their code stays.)
     // (Blur effect is one setting for the app and the talks: the same switch and the same stored value in both.)
     h('div', { class: 'menu-title' }, 'Accessibility'),
     menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass behind cards and labels. Off: solid cards and label pills, lighter on a hot device', (on) => {
@@ -903,25 +889,6 @@ function openSettings(anchor, withSearch = false) {
       h('div', { class: 'menu-sep' }),
       menuItem('Reset everything…', { icon: 'reset', onClick: () => resetEverything() })]),
   ], withSearch ? { place: 'above', align: 'end', cls: 'app-menu' } : { align: 'start', cls: 'app-menu' });
-}
-// A row of choices for one of the figure's resolution settings (frame.js), the current one pressed.
-// Settings › Figure performance: one switch per idea, each off by default (frame.js FIG_LAB).
-function figLabRows() {
-  const sw = (k, label, sub) => menuToggle(figLab(k), 'activity', label, sub, (on) => setFigLab(k, on));
-  return [
-    sw('motion60', 'Motion at 60', 'On a 120 Hz screen the blood, the lobule and the instruments move 60 times a second. Pans and zooms stay at the full rate'),
-    sw('glassCache', 'Callout glass kept', 'The callouts’ glass measures their boxes only when something moves them, not on every frame of the blood'),
-    sw('creditLean', 'Credit check in talks', 'In a talk, the corner credit looks for a new spot only when a card or the view has changed'),
-    sw('upscale', 'Sharper upscaling', 'Under Full, the figure is enlarged to the screen with a sharper filter than the browser’s, so 75% and 50% look crisper'),
-    sw('lymphBoxes', 'Lymph redrawn where it moves', 'In the lobule, the lymph’s layer is redrawn only around its moving drops, not over the whole screen'),
-    sw('lightArt', 'Lighter organ art', 'The colon and small bowel are drawn with about half as many points, a shift too small to see, so their pictures are made faster'),
-    sw('pinchLow', 'Vessels lower while pinching', 'While a pinch zooms, the vessels are drawn at half their pixels and come back sharp when it stops. Pinch frame reuse, when on, takes its place'),
-    h('div', { class: 'menu-title' }, 'Pinch frame reuse'),
-    figSeg(FIG_LAB.pinchReuse, () => figLab('pinchReuse'), (v) => setFigLab('pinchReuse', v), (v) => (v === 0 ? 'Off' : v === 2 ? 'Every other' : 'Two of three')),
-  ];
-}
-function figSeg(values, get, set, label) {
-  return h('div', { class: 'seg full menu-seg' }, values.map((v) => { const b = h('button', { 'aria-pressed': String(get() === v) }, label(v)); b.addEventListener('click', () => { set(v); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; }));
 }
 // While presenting: no extra settings for now (panel width and high contrast were taken out of slides).
 function presenterSettings() { return []; }

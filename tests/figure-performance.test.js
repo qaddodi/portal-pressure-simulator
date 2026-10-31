@@ -37,12 +37,13 @@ test('a stored value is read back; a stored value that is not a choice is ignore
   delete globalThis.localStorage;
 });
 
-test('one Figure performance heading with a switch for each, shown in the app and in a talk', () => {
-  assert.equal(settings.split("'Figure performance'").length - 1, 1);
-  assert.ok(settings.indexOf("'Figure performance'") < settings.indexOf('...(talk ? [] : ['), 'a talk shows it too');
-  const rows = main.slice(main.indexOf('function figLabRows('), main.indexOf('function figSeg('));
+// (31 Oct, premium-feel R14: the Figure performance heading and its switches are no longer in Settings; each stays, off, in the code.
+// tests/settings-product.test.js pins that they are gone and that what a build stored for them is cleared at start.)
+test('no Figure performance heading or switch in Settings', () => {
+  assert.equal(settings.split("'Figure performance'").length - 1, 0);
+  assert.doesNotMatch(main, /function figLabRows\(|setFigLab\(/);
   const { FIG_LAB } = { FIG_LAB: Object.fromEntries([...src('frame.js').match(/export const FIG_LAB = \{([^}]+)\}/)[1].matchAll(/(\w+): \[/g)].map((m) => [m[1], 1])) };
-  for (const k of Object.keys(FIG_LAB)) assert.match(rows, new RegExp(`'${k}'`), `${k} has its row`);
+  for (const k of Object.keys(FIG_LAB)) assert.doesNotMatch(settings, new RegExp(`'${k}'`), `${k} has no row`);
 });
 
 test('Motion at 60: off, paceMs is 0 as before; on, 10 ms (every other frame at 120 Hz, every frame at 60 or 90 Hz)', async () => {

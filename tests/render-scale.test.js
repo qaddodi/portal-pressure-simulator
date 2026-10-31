@@ -9,10 +9,11 @@ const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf
 const main = src('main.js');
 const settings = main.slice(main.indexOf('function openSettings('), main.indexOf('function presenterSettings('));
 
-test('one Figure resolution row, ahead of the block a talk leaves out', () => {
-  assert.equal(settings.split("'Figure resolution'").length - 1, 1);
-  assert.ok(settings.indexOf("'Figure resolution'") < settings.indexOf('...(talk ? [] : ['), 'a talk shows it too');
-  assert.match(settings, /figSeg\(RENDER_SCALES, renderSetting, setRenderScale/);
+// (31 Oct, premium-feel R14: the Figure resolution row and its four further rows are no longer in Settings; the machinery below stays, at its defaults.
+// tests/settings-product.test.js pins that they are gone and that what a build stored for them is cleared at start.)
+test('no Figure resolution row in Settings: the resolution stays at Full', () => {
+  assert.equal(settings.split("'Figure resolution'").length - 1, 0);
+  assert.doesNotMatch(settings, /figSeg|RENDER_SCALES|renderSetting|setRenderScale/);
 });
 
 test('the scales, the stored value and the listeners', async () => {
@@ -79,7 +80,6 @@ test('Auto: 1/zoom past the home framing, in steps down to 10%, changed only onc
   assert.match(fn, /if \(k === autoK && !moveLow && a === adaptK\) return;/, 'no reallocation unless the share changes');
   assert.match(fn, /autoK = k; moveLow = false; easeRes\(\);/, 'and that change eases');
   assert.match(stage, /settleRes\(\); {3}\/\/ \(the view moved/);
-  assert.match(main, /v === 'auto' \? 'Auto'/);
 });
 
 test('every resize for a share goes through easeRes; the copy is laid over first, then the canvas is resized', () => {
@@ -178,11 +178,8 @@ test('Glows: under Full the glow lines go to a smaller target and are stretched 
   assert.ok(!/TEXTURE_MIN_FILTER, gl\.LINEAR\); gl\.texParameteri\(gl\.TEXTURE_2D, gl\.TEXTURE_MAG_FILTER, gl\.LINEAR\); \}/.test(gl), 'no filter change on the layers');
 });
 
-test('Settings: the four further rows, in the menu a talk shows too', () => {
-  for (const t of ["'Auto’s lowest resolution'", "'Resolution while moving'", "'Glow resolution'", "'Figure size cap'", "'Adapt to frame rate'"]) {
-    assert.equal(settings.split(t).length - 1, 1, t);
-    assert.ok(settings.indexOf(t) < settings.indexOf('...(talk ? [] : ['), `${t}: a talk shows it too`);
-  }
+test('Settings: none of the four further rows, nor Adapt to frame rate', () => {
+  for (const t of ["'Auto’s lowest resolution'", "'Resolution while moving'", "'Glow resolution'", "'Figure size cap'", "'Adapt to frame rate'"]) assert.equal(settings.split(t).length - 1, 0, t);
 });
 
 test('Auto’s lowest: Auto never goes under the chosen floor (10% unless chosen)', () => {
