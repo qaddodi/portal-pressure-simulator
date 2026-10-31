@@ -2124,6 +2124,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // learner never loses the names, and only the leaders fade (lb-ride) and come back once it lands. Any change to what the labels
   // show hands the move back to the usual fade (carryAbort), so a label never appears part way through it.
   let carrying = false;
+  // A glide with the labels up (combined recs P2): its labels are solved once, as it starts, for where it lands (solveLanding), and carried
+  // from there all the way (updateLabels, landing): no solve while it runs, none as it lands, and no label changing sides part way.
+  // Each label eases from its old spot to its new one (labelGlide), so nothing jumps as the glide starts. Only where nothing the labels
+  // are placed against moves with the camera (a callout, a probe, a scan, a treatment's labels, the lobule) and what they show is the same
+  // at both ends; otherwise the glide solves as it always did. ?labelland=0: as before.
+  const LABEL_LAND = !/[?&]labelland=0\b/.test(location.search);
+  let landRide = false, landTo = null, landAt = -1e9;
+  const landing = () => landRide && vtGliding && vtTarget === landTo;
   const rideLeaders = (on) => wrap.classList.toggle('lb-ride', on);
   function driftEnd() { if (!drifting) return; drifting = false; carrying = false; rideLeaders(false); labelSettleSoon(); }
   function carryAbort() {
@@ -2206,10 +2214,34 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // declared further down.)
   const CAM_M2 = !/[?&]camease=0\b/.test(location.search);
   const camEase = (u) => (CAM_M2 ? easeMove(u) : easeInOut(u));
+  // Whether a glide from `from` to `to` can have its labels solved for where it lands (see landRide).
+  function landable(from, to) {
+    // (Not twice within 150 ms: a glide asked again and again, as refits can be, solves as it always did.)
+    if (!LABEL_LAND || !F || inUpdate || catchUp || !solvedFor || camMove || pinchHide || gestureOn() || sameView(from, to) || performance.now() - landAt < 150) return false;
+    if (cath.st || lobuleOn || lz?.isOpen() || morph !== morphTarget || diveT > 0 || sites.list || scan.on || dpr.on || dop.all || E.TIPS?.vis || E.DIPS?.vis) return false;
+    return solvedFor.sig === labelSig(F) && solvedFor.csig === calloutSig() && solvedFor.ins === labelIns();
+  }
+  // The labels' slots for the framing `to`, found now (a dry solve: nothing drawn), with the view put back as it was; then laid out at
+  // the view as it is, carried from those slots. False (and nothing changed) where what they show would differ there.
+  function solveLanding(to) {
+    const keep = vt;
+    let ok = false;
+    vt = { ...to }; CTM = null; refreshCTM();
+    try {
+      const sig = labelSig(F);
+      if (sig === solvedFor.sig && Math.abs(Math.atan2(CTM.b, CTM.a) - solvedFor.th) <= SOLVE_TURN) {
+        carryClear = false; carryReslot = false;
+        landAt = performance.now();
+        if (layoutLabels(F, true, true)) { solvedFor = { ...solvedFor, sig, sc: CTM.sc }; ok = true; }
+      }
+    } finally { vt = keep; CTM = null; refreshCTM(); }
+    return ok;
+  }
   // opt.steady: a refit to cards that moved (a data card tucked or untucked, a turn): timed by glideClock, so a slow frame at its start
   // (the layout and label passes the same change set off) holds it back a little instead of carrying it part of the way in one step.
   function animateVT(to, ms = 700, opt = {}) {
     if (aiming) { aimed = { k: to.k, x: to.x, y: to.y }; return; }   // (asked only where it would go: aimView)
+    landRide = false; landTo = null;
     following = false;   // (a glide or a framing set outright takes over from a card the view was following)
     cancelFrame(vtAnim);
     const prev = arcRun; arcRun = null;
@@ -2250,6 +2282,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (carry) { drifting = carrying = true; rideLeaders(true); }
     else if (carrying) { carrying = false; rideLeaders(false); }   // (a slow push or a plain glide after one: its leaders are back)
     if (cath.st?.keep && !sameView(from, to) || store.get().presenting && !drift && !carry && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, left + 80); } else camSettle();
+    // (A plain glide, or a presenter's small one that keeps its labels (carry): solved for its landing now, carried there; not a slow push
+    // or a move on an arc, whose labels the push's own rules and the fade keep.)
+    if (!drift && !arcRun && !opt.steady && !sameView(from, to) && landable(from, to) && solveLanding(to)) { landRide = true; landTo = to; labelKey = null; updateLabels(F); }
     dprLet();   // (a probe waiting for the slide's framing: a move hides it till it lands, a refit shows it now)
     const step = (now) => {
       // A newer glide (or a framing set outright) took over: this one stops. A glide started from inside this step's
@@ -2264,7 +2299,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (sites.list) { refreshCTM(); sitesPaint(); }
       if (scan.on) scanPaint();
       dprobePaint();
-      if (u < 1) vtAnim = nextFrame(step); else { vtGliding = false; arcRun = null; camSettle(); if (drift || carry) driftEnd(); }
+      if (u < 1) vtAnim = nextFrame(step); else { vtGliding = false; arcRun = null; landRide = false; landTo = null; camSettle(); if (drift || carry) driftEnd(); }
     };
     vtAnim = nextFrame(step);
   }
@@ -8931,6 +8966,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // fonts, theme and the presenter's insets. Otherwise the last layout stands, and only the live values
   // are refreshed in place (see refreshValues); a value whose text changes shape lays the labels out again.
   let labelKey = null, labelFonts = 0, labelShown = [], noChevBoxes = [], labelPainted = false;   // labelPainted: the last updateLabels painted the callouts and probes
+  // (What a stent's column of callouts is solved against besides the camera: the cards' insets and boxes. Empty without one.)
+  const labelIns = () => (dop.all ? [...['--pz-t', '--pz-l', '--pz-b', '--pz-r'].map((k) => Math.round(pzInset(k) / 8)), ...(blockerBoxes || []).flatMap((o) => [o.x0, o.y0, o.x1, o.y1].map((v) => Math.round(v / 8)))].join() : '');   // (and the cards' boxes, which can arrive a frame after the insets)
   const stats = { layouts: 0, skips: 0, values: 0, ms: 0 };
   function updateLabels(f, force = false) {
     labelPainted = false;
@@ -8956,13 +8993,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const csig = calloutSig();
       // (A stent called out at its three points is solved again when the presenter's cards move (the monitor folded or opened): carried,
       // its callouts and the slide's mark would hide under a card or keep spots chosen for another view: Review 16 Oct.)
-      const ins = dop.all ? [...['--pz-t', '--pz-l', '--pz-b', '--pz-r'].map((k) => Math.round(pzInset(k) / 8)), ...(blockerBoxes || []).flatMap((o) => [o.x0, o.y0, o.x1, o.y1].map((v) => Math.round(v / 8)))].join() : '';   // (and the cards' boxes, which can arrive a frame after the insets)
+      const ins = labelIns();
       // (A slow push (ride) carries them however far it zooms, while none comes onto another: a label changing sides mid-push would
-      // jump. They are solved again as it lands: driftEnd.)
-      const dz = solvedFor ? Math.abs(Math.log(sc / solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && gestureOn(), ride = drifting && !hand;
+      // jump. They are solved again as it lands: driftEnd. A glide whose labels were solved for where it lands (landing) carries them
+      // all the way, without that check: one may pass over another for a moment, the overlap pass below showing the more important.)
+      const dz = solvedFor ? Math.abs(Math.log(sc / solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && gestureOn(), land = landing() && !hand, ride = (drifting || land) && !hand;
       const solve = !solvedFor || solvedFor.sig !== sig || solvedFor.csig !== csig || solvedFor.ins !== ins || (!ride && dz > (hand ? SOLVE_ZOOM_HAND : SOLVE_ZOOM)) || Math.abs(th - solvedFor.th) > SOLVE_TURN;
       carryClear = hand; carryReslot = gestureOn();
-      if (ride && dz > SOLVE_ZOOM) carryClear = true;   // (carried, but never onto each other)
+      if (ride && !land && dz > SOLVE_ZOOM) carryClear = true;   // (carried, but never onto each other)
       const solved = solve || layoutLabels(f, false) === false;
       carryReslot = false;
       if (solved) { carryClear = false; layoutLabels(f, true); solvedFor = { sig, sc, th, csig, ins }; }
@@ -9097,7 +9135,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // `solve`: search (stickily) and record the slots; otherwise carry the recorded slots. Returns false
   // when a label turned up that has no slot or no longer fits its slot: the caller then solves.
-  function layoutLabels(f, solve) {
+  // (dry: a solve that only finds the slots (labelSol) and draws nothing: solveLanding, for a framing the camera has not reached yet.)
+  function layoutLabels(f, solve, dry = false) {
     frameNo++;
     const st = store.get();
     const t = easeInOut(morph);
@@ -10023,6 +10062,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (stale) return false;
     if (solve) labelSol = nextSol;
+    if (dry) return true;
     // (The stations' rings, and the readings given up for want of room with where their stations are, for the browser checks:
     // tests/e2e/smoke.mjs. Written at every layout, a carried one too: written only when solved, they lagged behind a pan since,
     // and a reading carried with its ring looked to stand on where the ring had been.)
