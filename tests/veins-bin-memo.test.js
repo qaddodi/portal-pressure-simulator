@@ -48,7 +48,7 @@ test('the geometry is not rebuilt while nothing about it changed', () => {
 test('the figure uploads the vessel geometry only when binning gave a new result', async () => {
   const { readFileSync } = await import('node:fs');
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(stage, /binVeins\([^;]*, binMemo\);\s*\n(?:\s*\/\/.*\n)*\s*let patched = null;\s*if \(bins !== binShown\) \{\s*if \(bins\.patch && binShown\?\.ent === bins\.ent\) \{ veins\.patchGeometry\(bins\); if \(bins\.patchRows\) patched = bins\.patchRows; \} else veins\.setGeometry\(bins\);\s*binShown = bins;\s*\}/);
+  assert.match(stage, /binVeins\([^;]*, binMemo\);\s*\n(?:\s*\/\/.*\n)*\s*let patched = null, whole = false;\s*if \(bins !== binShown\) \{\s*if \(bins\.patch && binShown\?\.ent === bins\.ent\) \{ veins\.patchGeometry\(bins\); if \(bins\.patchRows\) patched = bins\.patchRows; else whole = true; \} else \{ veins\.setGeometry\(bins\); whole = true; \}\s*binShown = bins;\s*\}/);
 });
 
 // A coiling collateral on the catheter slide: each coil step was a whole redraw of the vessel layer (his Mac readouts, 30 Oct). A patch
@@ -137,7 +137,9 @@ test('the renderer keeps its vessel layer for a geometry patch, and the figure n
   assert.doesNotMatch(gl, /radRows\.clear\(\)(?!; patchMark = null)/, 'every let-go of radRows lets go of the joins\' cells');
   assert.match(gl, /movedAll = true; patchMark = null; patchK = 0;/, 'a whole binning drops them');
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(stage, /if \(patched\) for \(const r of patched\) veinsRows\.add\(r\);\s*else tubesNew = true;/);
+  assert.match(stage, /if \(patched\) for \(const r of patched\) veinsRows\.add\(r\);\s*else if \(whole\) tubesNew = true;/);
+  // (A binning that gives back the bins already shown (nothing the GPU holds changed: a coil easing on a hidden vessel) draws nothing.)
+  assert.match(stage, /let patched = null, whole = false;\n\s+if \(bins !== binShown\) \{\n\s+if \(bins\.patch && binShown\?\.ent === bins\.ent\) \{ veins\.patchGeometry\(bins\); if \(bins\.patchRows\) patched = bins\.patchRows; else whole = true; \} else \{ veins\.setGeometry\(bins\); whole = true; \}/);
   // (Rows waiting keep the loop from sleeping, as a dirty layer does, and a hidden page draws them as it draws a dirty layer.)
   assert.match(stage, /const rowsWait = veinsRows\.size > 0 && !!veins && !veins\.lost && !!vLook && !!F;\s*if \(still && !veinsDirty && !rowsWait && /);
   assert.match(stage, /if \(plateRedraw \|\| \(document\.hidden && \(veinsDirty \|\| veinsRows\.size\)\)\) \{/);

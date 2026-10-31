@@ -2292,7 +2292,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=bddd603bac').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=b193963a73').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2857,6 +2857,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The varices' strands fan out less as their varix shrinks, eased the same way (a closed shunt keeps its full spread).
       if (x.strands && LOOK_SITE[x.e.id]) {
         const sprT = isOccluded(p, x.e.id) ? 1 : varixSpreadK(varixS[LOOK_SITE[x.e.id]]), spr = g.spr ?? 1;
+        g.sprT = sprT;   // (binTube: while the spread eases, the strands are binned against where they began, as a coil is)
         if (spr !== sprT) { const d = sprT - spr; g.spr = Math.abs(d) < 0.005 ? sprT : spr + d * kW; if (!coiling.includes(x)) coiling.push(x); if (g.spr !== sprT) widthEasing = coilEasing = true; }
       }
     }
@@ -3350,14 +3351,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const core = reach - 18 + BLOOD_PAD;
     // (A collateral that never coils, spontaneous or straight, has no target: wigT stays unset, and a reach of
     // NaN from it spoilt the whole binning's bounds, so no vessel drew at all: the outflow talk's caval collateral, 18 Oct.)
-    if (!g || g.wigT == null || g.wig === g.wigT) { binFrom.delete(it.row); return { id: it.row, pts, reach, core }; }
+    // (A varix's strands fanning in or out as it changes size move the same way, eased (g.spr toward g.sprT), and are binned the
+    // same way: each frame of the ease was a whole binning, a 2.8 MB upload and a whole draw, on the procedure slides. The margin
+    // is how far a strand can still move: its offset times the spread left to ease; the check below re-bins past it, so it is only a guess.)
+    const wigE = !!g && g.wigT != null && g.wig !== g.wigT, sprE = !!g && it.kind === 's' && g.sprT != null && (g.spr ?? 1) !== g.sprT;
+    if (!wigE && !sprE) { binFrom.delete(it.row); return { id: it.row, pts, reach, core }; }
     let a = binFrom.get(it.row);
     if (a && a.pts.length === pts.length) {
       let far = 0;
       for (let i = 0; i < pts.length && far <= a.m; i++) far = Math.max(far, Math.hypot(pts[i][0] - a.pts[i][0], pts[i][1] - a.pts[i][1]));
       if (far > a.m) a = null;
     } else a = null;
-    if (!a) binFrom.set(it.row, a = { pts: pts.map((q) => q.slice()), m: Math.ceil(Math.abs(g.wigT - g.wig) * 2 + 1) / 2 });
+    if (!a) binFrom.set(it.row, a = { pts: pts.map((q) => q.slice()), m: Math.ceil((wigE ? Math.abs(g.wigT - g.wig) * 2 : 0) + (sprE ? Math.abs(it.obj.off || 0) * Math.abs(g.sprT - (g.spr ?? 1)) * 2.4 : 0) + 1) / 2 });
     return { id: it.row, pts, bin: a.pts, reach: reach + a.m, core: core + a.m };
   }
   let vBinKey = '', vBinReach = new Map(), veinsDirty = true, veinsDrawKey = '', vLook = null, glOrgans = false;
@@ -3726,15 +3731,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (Patched in place, only the rows that changed go up again: the cells and every other entry are as uploaded.)
       // (A patch changes only the cells of the vessels and joins it wrote again (veins-gl patchGeometry): they are drawn again as vessels
       // whose radii changed are, veinsRows, instead of the whole layer. A whole binning draws the whole layer, as before.)
-      let patched = null;
+      // (The same bins as shown, a binning that found nothing the GPU holds changed, draw nothing: a coil easing on a hidden
+      // vessel moved the geometry's version at every model frame for 20–35 s after a patient change, and each was a whole draw.)
+      let patched = null, whole = false;
       if (bins !== binShown) {
-        if (bins.patch && binShown?.ent === bins.ent) { veins.patchGeometry(bins); if (bins.patchRows) patched = bins.patchRows; } else veins.setGeometry(bins);
+        if (bins.patch && binShown?.ent === bins.ent) { veins.patchGeometry(bins); if (bins.patchRows) patched = bins.patchRows; else whole = true; } else { veins.setGeometry(bins); whole = true; }
         binShown = bins;
       }
       // (Each axis's curvature with it, so the flow arrowheads keep their shape on a bend: veins-gl chevAt.)
       if (bins !== bendShown) { bendShown = bins; for (const it of items) veins.setBend(it.row, smooth.get(it.row) || it.pts); }
       if (patched) for (const r of patched) veinsRows.add(r);
-      else tubesNew = true;
+      else if (whole) tubesNew = true;
     });
     // Attributes, every frame.
     const T0 = easeInOut(morph), now = performance.now();

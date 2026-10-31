@@ -176,3 +176,15 @@ test('holding only the ductules, the lobule\'s effects layer clears only where t
   assert.match(lz, /e = \(r \+ c\.lineWidth\) \* V\.k \* dpr \+ 3/);
   assert.match(lz, /return \{ lumen, cells, nuc, disc: \[x, y, rout\] \};/);
 });
+
+// (31 Oct, his iPhone readout on e52a280e: every frame of a pan in the lobule painted its tissue again, "state changed", 10.9 MB
+// each. The state carried the portal venule's ink, which the tissue bitmap never draws: the vessels are the GPU's, or the flat
+// strokes on the tissue canvas, keyed apart. A pressure gliding with the model moved it at each step.)
+test("the lobule's tissue bitmap is keyed only on what it paints: no vessel ink", () => {
+  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const ws = lz.match(/const worldStateOf = [^\n]+/)[0];
+  assert.doesNotMatch(ws, /ink/i);
+  const i = lz.indexOf('  function paintLobule('), body = lz.slice(i, lz.indexOf('\n  }\n', i));
+  assert.doesNotMatch(body, /\binkOf\(|\bink\(|tubeInk\(|m\.mode/, 'the bitmap draws no vessel ink and no lens');
+  assert.doesNotMatch(lz, /const qi = /);
+});

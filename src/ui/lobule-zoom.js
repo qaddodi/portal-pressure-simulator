@@ -2739,8 +2739,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let congD = 0;
   const congKey = (m) => { if (!(m.congU > 0.04)) congD = 0; else if (!congD || Math.abs(m.cong - congD) > 0.25) congD = m.cong; return congD.toFixed(3); };
   // The tissue's state, as the lobule's bitmap shows it (what it is painted again for, besides its scale).
-  const qi = (s) => s.replace(/\d+/g, (n) => (n >> 4) << 4);
-  const worldStateOf = (m, G, dark, cs) => [G.W, G.H, dark, qi(inkOf(m.mode, 'pv')), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), congKey(m), m.hide, zonesOn, cs.getPropertyValue('--bg')].join('|');
+  const worldStateOf = (m, G, dark, cs) => [G.W, G.H, dark, m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), congKey(m), m.hide, zonesOn, cs.getPropertyValue('--bg')].join('|');
   // The lobule in world space, painted into cv at sc px per world unit (its box: 1.3 R about the centre each way).
   function paintWorld(cv, sc, m, G, dark, cs) {
     if (gpuProbe.on) gpuProbe.note(COUNTED.tissue);
