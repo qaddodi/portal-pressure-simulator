@@ -66,6 +66,8 @@ test('the iPhone full-screen hint and the text-size letters use the type scale',
 
 test('no stale "Measure" call to action on the bar\'s tile, which is not a button', () => {
   assert.doesNotMatch(css, /\.metric \.status\.unmeas::after \{ content: 'Measure'/);
+  // (and a narrow bar tile says the same fact in one word that fits its room, not "Not measured" cut by an ellipsis)
+  assert.match(css, /\.vdock \.readouts \.metric \.status\.unmeas::after \{ content: 'Unmeasured'; font-size: var\(--fs-12\); \}/);
 });
 
 test('Settings keeps the model rows apart from the accessibility switch, and a Why? name wraps rather than ending in an ellipsis', () => {
@@ -95,4 +97,9 @@ test('a heading is a repeat by the words the cell shows, and the two unmeasured-
   assert.ok(!sameHead({ kicker: 'Sinusoidal', site: 'sin' }, { kicker: 'Sinusoidal', site: 'pre' }), 'another site: both are drawn');
   assert.ok(!sameHead({ kicker: '' }, { kicker: '' }) && !sameHead(null, { kicker: 'A' }));
   assert.doesNotMatch(css, /\.rp-tiles \.metric \.status\.unmeas/);
+});
+
+test('no tile rule carries an accent-stripe slot: --key-w was never set, and a key tile has no styling (cards-critique, 17 Oct)', () => {
+  assert.doesNotMatch(css, /--key-w/);
+  assert.match(css, /\.pz-data \.pz-tile, \.pz-data \.pz-tool \.endo-read > div \{ background: color-mix\(in srgb, var\(--white\) 78%, transparent\); box-shadow: inset 0 0 0 1px color-mix\(in srgb, var\(--text\) 8%, transparent\); \}/);
 });
