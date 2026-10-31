@@ -16,9 +16,9 @@
 import { store, replaceParams } from './store.js?v=3611054974';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=62afd4956f';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=c38708181c';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=36b144feb3';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=2a2b945e90';
+import { liveText, wordsOf } from './live-text.js?v=5e31ef3e3e';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
@@ -29,8 +29,8 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=1833de0a4f';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { createHvpgMonitor } from './hvpg-proc.js?v=0194714254';
-import { createTools } from './presenter-tools.js?v=4dc7fd5faf';
+import { createHvpgMonitor } from './hvpg-proc.js?v=a2f8886140';
+import { createTools } from './presenter-tools.js?v=3dc9d1a88c';
 import { openHandout } from './handout.js?v=c85e5b3fc1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -38,13 +38,13 @@ import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS
 import { frameFor, cancelFrame } from './frame.js?v=6a53e5fc6e';
 import { createFigureKey } from './figure-key.js?v=e41b9d0553';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=dc0ceaf0a4';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=62875b6d9c';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=d41117aa22';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=c071d2d79a';
 import { clotWords } from './callout-math.js?v=20011c8729';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=0950595667';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=b446cd61da';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=64dca5f617';
+import { anchorsOf, roomFor } from './cam-room.js?v=82cc75184e';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=9da13443fa';
@@ -52,7 +52,7 @@ import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=b2bbcb6fb2';
 import { sheetPanes } from './sheet-glass.js?v=9a3f1c1ff1';
-import { createScopeTile } from './scope-tile.js?v=93dd59ffc4';
+import { createScopeTile } from './scope-tile.js?v=d7fd6d1e43';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
 const nextFrame = frameFor('presenter');
@@ -2919,13 +2919,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // height is left out (the window's stands in): refitting mid-ease cut the easing short and jolted the words' size.)
   const fitSig = (el) => `${el.clientWidth}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : el.clientHeight}|${el.className}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (getComputedStyle(c).maxHeight !== 'none' ? ':' + c.offsetHeight : ''))).join()}|${(el.querySelector('.pzv') ? wordsOf(el) : el.textContent).replace(/\d/g, '0')}`;
   const fitDone = new WeakMap(), smOf = new WeakMap();
-  // A narrow summary table's column heads: 11 px, or as large as each column fits (down to 8), one size for the row.
-  // (Only the phone and upright tablet layout reads --th-fs.)
+  // A narrow summary table's column heads are 12 px, never smaller: a row whose columns are too narrow for the words in one line
+  // sets them upright (tr.th-up, turned to read from the bottom), one way for the whole row. (Only the phone layout reads it.)
   const headFits = (th) => { const b = th.getBoundingClientRect(), g = document.createRange(); g.selectNodeContents(th); return [...g.getClientRects()].every((q) => !q.width || (q.left >= b.left - 0.5 && q.right <= b.right + 0.5)); };
   function fitHeadRow(tr) {
     const ths = [...tr.querySelectorAll('th.num')];
     if (!ths.length || !tr.getBoundingClientRect().width) return;
-    for (let fs = 11; fs >= 8; fs -= 0.5) { tr.style.setProperty('--th-fs', `${fs}px`); if (ths.every(headFits)) break; }
+    tr.classList.remove('th-up');
+    if (!ths.every(headFits)) tr.classList.add('th-up');
   }
   // (Fitted again when the row's width settles or the web fonts arrive: a fit made mid-layout or in a fallback font would stay too small.)
   let headRO = null;

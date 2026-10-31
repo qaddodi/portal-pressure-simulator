@@ -41,7 +41,7 @@ test('every phone block in the stylesheet takes in the upright tablet, and every
 });
 
 test('an upright tablet\'s Tests card keeps the phone\'s one column, its picture the card\'s width', () => {
-  const m = css.match(/@media \(min-width: 768px\) and \(max-width: 1100px\) and \(orientation: portrait\) \{\n {2}\.app\.thumb \.instrument-workspace\.float-ui:not\(\.side\) \{ --one-col: 1; \}[\s\S]*?\n\}/)?.[0] ?? '';
+  const m = css.match(/@media \(min-width: 700px\) and \(max-width: 1100px\) and \(orientation: portrait\) \{\n {2}\.app\.thumb \.instrument-workspace\.float-ui:not\(\.side\) \{ --one-col: 1; \}[\s\S]*?\n\}/)?.[0] ?? '';
   assert.ok(m, 'the block');
   assert.match(m, /:is\(\.instrument-view, \.dop-main, \.ab-main\) \{ grid-template-columns: minmax\(0, 1fr\); \}/, 'Doppler\'s monitor no longer shares its row with a column of readings');
   assert.match(m, /\.ab-ctl \{ margin-top: var\(--ab-g\);[^}]*border-left: 0;/, 'Ascites stacks its controls under the belly');
@@ -118,9 +118,9 @@ test('a pull down on the closed card brings out the instrument card, and carried
 // (Mohammad, 17 Oct: the iPhone's bottom bar on an upright iPad, "scaled down proportionally, similar to how much we scalled down
 // the teaching cards on ipad", "but also height wise too", "and not fill the whole screen ever, the ipad is too tall for that".)
 test('an upright tablet\'s bottom bar and cards take the deck cards\' 70 % of the width, and never the whole height', () => {
-  assert.match(util, /export const TABLET_UP_MQ = '\(min-width: 768px\) and \(max-width: 1100px\) and \(orientation: portrait\)';/);
+  assert.match(util, /export const TABLET_UP_MQ = '\(min-width: 700px\) and \(max-width: 1100px\) and \(orientation: portrait\)';/);
   assert.match(css, /\.pz\.stack\.tab \.pz-data \{ left: 15%; right: 15%; \}/, 'the deck cards\' share');
-  const m = css.match(/@media \(min-width: 768px\) and \(max-width: 1100px\) and \(orientation: portrait\) \{\n {2}\.app\.thumb \.vdock:not\(\.mini\) \{ left: 15%; right: 15%; \}[\s\S]*?\n\}/)?.[0] ?? '';
+  const m = css.match(/@media \(min-width: 700px\) and \(max-width: 1100px\) and \(orientation: portrait\) \{\n {2}\.app\.thumb \.vdock:not\(\.mini\) \{ left: 15%; right: 15%; \}[\s\S]*?\n\}/)?.[0] ?? '';
   assert.ok(m, 'the block');
   assert.match(m, /\.app\.thumb :is\(\.panel, \.treat-card, \.instrument-workspace\.float-ui:not\(\.side\)\) \{ left: 15% !important; right: 15% !important; max-height: min\(62%, /, 'Details, Treat and Tests');
   assert.match(m, /\.app\.thumb:not\(\.dock-open\) \.action-card\.docked \{ left: 15% !important; right: 15%; \}/, 'the vessel card');

@@ -2056,7 +2056,8 @@ button.finding { cursor: pointer; }
   .pz-table table { font-size: var(--s-body); }
   .pz-table tr { display: grid; grid-template-columns: minmax(7.5rem, 1.8fr) repeat(var(--nc, 7), minmax(0, 1fr)) var(--asc-w, 0px); align-items: center; }
   .pz-table td[colspan="2"] { grid-column: span 2; }
-  .pz-table thead th.num { padding-inline: 2px; font-size: var(--th-fs, 11px); letter-spacing: -.01em; }   /* (--th-fs: 11 px, or as large as a narrow column fits, presenter.js fitHeads) */
+  .pz-table thead th.num { padding-inline: 2px; font-size: 12px; letter-spacing: -.01em; }   /* (12 px: where a column is too narrow for the word the row's heads stand upright, below, presenter.js fitHeads) */
+  .pz:not(.tab) .pz-table thead tr.th-up th.num { writing-mode: vertical-rl; rotate: 180deg; line-height: 1; padding: .4em 0; justify-self: center; text-align: start; }
 
   .pz-table tbody th[scope="row"] { padding-right: 8px !important; }
   .pz-table thead { position: sticky; top: -16px; z-index: 2; }   /* (the card's padding: the heads stick to its top edge) */
@@ -2319,7 +2320,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-bar button.pzb-n { min-width: 5em; min-height: 44px; margin-block: -4px; padding: 0 4px; font-size: calc(var(--s-body) * .9); font-variant-numeric: tabular-nums; }   /* (room for "10 / 13": the pill keeps one width on every slide) */
 .pz.stack .pz-quadwrap { grid-template-columns: minmax(0, 1fr); }
 .pz.stack .pz-quad { max-height: none; }/* An upright tablet uses the phone's compact table (one line per row, no sideways scroll), drawn larger. */
-@media (min-width: 768px) and (max-width: 1100px) and (orientation: portrait) {
+@media (min-width: 700px) and (max-width: 1100px) and (orientation: portrait) {
   .pz-table table { font-size: var(--s-body); }
   .pz-table tr { grid-template-columns: minmax(10rem, 1.8fr) repeat(var(--nc, 7), minmax(0, 1fr)) var(--asc-w, 0px); }
   .pz-table thead th, .pz-table thead th.num { font-size: var(--s-cap); letter-spacing: .02em; }
@@ -4956,7 +4957,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* An upright tablet's Tests card is the phone's sheet, so it keeps the phone's one column at its greater width (Mohammad, 17 Oct:
    "replicate the phone cards"): each picture runs the card's width with its readings under it, as on an iPhone, never a small
    picture beside a column of readings. (The iPhone's sheet is under 620 px, so it is one column already.) */
-@media (min-width: 768px) and (max-width: 1100px) and (orientation: portrait) {
+@media (min-width: 700px) and (max-width: 1100px) and (orientation: portrait) {
   .app.thumb .instrument-workspace.float-ui:not(.side) { --one-col: 1; }
   .app.thumb .instrument-workspace.float-ui:not(.side) :is(.instrument-view, .dop-main, .ab-main) { grid-template-columns: minmax(0, 1fr); }
   .app.thumb .instrument-workspace.float-ui:not(.side) .instrument-view > .chart-side { grid-column: auto; }
@@ -6054,7 +6055,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    scaled down the teaching cards on ipad": the bar, the cards over it and the menu sheets take the deck cards' 70 % of the width,
    centred. Heights: "proportional to the ipad proportions vertically ... and not fill the whole screen ever": a card's Full
    stops at 62 % of the screen (main.js sheetBehaviour: Half 45 %, an iPhone's share), the figure in view above it. */
-@media (min-width: 768px) and (max-width: 1100px) and (orientation: portrait) {
+@media (min-width: 700px) and (max-width: 1100px) and (orientation: portrait) {
   .app.thumb .vdock:not(.mini) { left: 15%; right: 15%; }
   .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)) { left: 15% !important; right: 15% !important; max-height: min(62%, calc(100% - var(--top-safe) - var(--nb-occ, var(--vdock-h)) - 22px)); }
   .app.thumb:not(.dock-open) .action-card.docked { left: 15% !important; right: 15%; }

@@ -17,7 +17,7 @@ test('every breakpoint constant, written once', () => {
   assert.equal(SHORT_SIDE_MQ, '(orientation: landscape) and (max-height: 500px)');
   assert.equal(PHONE_MQ, `(max-width: 767px), ${SIDEWAYS_MQ}, ${UPRIGHT_MQ}`);
   assert.equal(STACK_MQ, `(max-width: 767px), ${UPRIGHT_MQ}`);
-  assert.equal(TABLET_UP_MQ, '(min-width: 768px) and (max-width: 1100px) and (orientation: portrait)');
+  assert.equal(TABLET_UP_MQ, '(min-width: 700px) and (max-width: 1100px) and (orientation: portrait)');
 });
 
 test("the style sheet's phone blocks use exactly those queries", () => {
