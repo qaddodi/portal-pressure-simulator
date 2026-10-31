@@ -61,9 +61,9 @@ test('the Doppler range marker is an upright tick, a deck level is a word, and a
 });
 
 test('the readings carry their state in their own colour instead', () => {
-  assert.match(css, /\.endo-grade\[data-sev="danger"\] \{ --sev-ink: var\(--danger\); \}/);
-  assert.match(css, /\.endo-chip\.endo-red\[data-on="true"\] \.endo-chip-v \{ color: var\(--danger\); \}/);
+  assert.match(css, /\.endo-grade\[data-sev="danger"\] \{ --sev-ink: var\(--danger-ink\); \}/);
+  assert.match(css, /\.endo-chip\.endo-red\[data-on="true"\] \.endo-chip-v \{ color: var\(--danger-ink\); \}/);
   assert.match(css, /\.dop-dir\[data-sev="caution"\] \{ color:/);
-  assert.match(css, /\.cut-h\[data-sev="danger"\] \{ color: var\(--danger\); \}/);
+  assert.match(css, /\.cut-h\[data-sev="danger"\] \{ color: var\(--danger-ink\); \}/);
   assert.match(css, /\.measure-launch\.ping \{ color: var\(--accent-ink\); \}/);
 });

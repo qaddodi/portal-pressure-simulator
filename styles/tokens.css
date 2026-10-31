@@ -187,6 +187,8 @@
   --on-accent: #FFFFFF; --on-status: #FFFFFF; --on-caution: #1B1300;
   /* Amber as text: --caution itself is 2.95:1 on white (a fill and a stroke, not ink); mixed 30 % toward the text colour it is 4.5:1 or more on every surface, in all three themes (tests/token-contrast.test.js). */
   --caution-ink: color-mix(in srgb, var(--caution) 70%, var(--text));
+  /* Green and red as text, the same way: --ok is 4.0:1 on the paper-grey surface and --danger 4.2:1 (fills and strokes stay as they are); 12 % toward the text colour is 4.5:1 or more on every surface. */
+  --ok-ink: color-mix(in srgb, var(--ok) 88%, var(--text)); --danger-ink: color-mix(in srgb, var(--danger) 88%, var(--text));
   /* light and shade in the anatomy (sheens, glints, occlusion) */
   --light-ink: #FFFFFF; --shade-ink: #000000; --tube-shade-ink: #0A0612; --lit-lo-ink: #1A0D14;
   /* pathology and devices on the plate */

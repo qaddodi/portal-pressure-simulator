@@ -96,3 +96,40 @@ test('the amber pill\'s text is at least 4.5:1 on its own amber tint, on every s
   }
   assert.deepEqual(fails, []);
 });
+
+// Green and red as text (production pass, second round): --ok is 3.97:1 and --danger 4.16:1 on the paper-grey surface of the light theme. Where they are
+// the text, the stylesheet uses --ok-ink and --danger-ink (12 % toward the text colour); the raw colours stay the fills and strokes.
+test('green and red used as text (--ok-ink, --danger-ink) are at least 4.5:1 on the surfaces text sits on, in every theme', () => {
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(tokens, /--ok-ink: color-mix\(in srgb, var\(--ok\) 88%, var\(--text\)\); --danger-ink: color-mix\(in srgb, var\(--danger\) 88%, var\(--text\)\);/);
+  const fails = [];
+  for (const [theme, t] of Object.entries(THEMES)) {
+    for (const k of ['--ok', '--danger']) {
+      const ink = mixRGB(hex(t[k]), hex(t['--text']), 0.88);
+      for (const bg of ['--bg', '--surface', '--surface-2']) {
+        const r = ratio(ink, hex(t[bg]));
+        if (r < 4.5) fails.push(`${theme}: ${k} ink on ${bg} ${t[bg]} is ${r.toFixed(2)}:1`);
+      }
+    }
+  }
+  assert.deepEqual(fails, []);
+  // (No text rule paints the raw colours: a colour: declaration names the ink, or mixes further toward the text colour.)
+  assert.deepEqual(css.match(/(?<![-\w])color: var\(--(?:ok|danger)\)/g) || [], []);
+});
+
+test('the green and red pills\' text clears 4.5:1 on their own tint, on every surface, in every theme', () => {
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.pill\.ok \{ background: color-mix\(in srgb, var\(--ok\) 12%, transparent\); color: color-mix\(in srgb, var\(--ok\) 80%, var\(--text\)\); \}/);
+  assert.match(css, /\.pill\.bad \{ background: color-mix\(in srgb, var\(--danger\) 12%, transparent\); color: color-mix\(in srgb, var\(--danger\) 80%, var\(--text\)\); \}/);
+  const fails = [];
+  for (const [theme, t] of Object.entries(THEMES)) {
+    for (const k of ['--ok', '--danger']) {
+      const ink = mixRGB(hex(t[k]), hex(t['--text']), 0.8);
+      for (const bg of ['--bg', '--surface', '--surface-2']) {
+        const r = ratio(ink, mixRGB(hex(t[k]), hex(t[bg]), 0.12));
+        if (r < 4.5) fails.push(`${theme}: ${k} pill on its tint over ${bg} is ${r.toFixed(2)}:1`);
+      }
+    }
+  }
+  assert.deepEqual(fails, []);
+});
