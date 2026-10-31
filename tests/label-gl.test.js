@@ -154,7 +154,7 @@ test('with the overlays on the GPU the labels go into the vessel canvas, only wh
   assert.match(VG, /function present\(top = true\) \{/);
   assert.match(VG, /if \(top && onTop\) \{\n\s+try \{ onTop\(\); \}/);
   assert.match(VG, /snapshot\(\) \{ present\(false\); const url = canvas\.toDataURL\('image\/png'\); if \(onTop\) present\(\); return url; \}/);
-  assert.match(STAGE, /const labelHost = OVER_ON && veins\?\.top && !\/\[\?&\]labelhost=0\\b\/\.test\(location\.search\) \? \{/);
+  assert.match(STAGE, /const labelHost = OVER_ON && veins\?\.top && \/\[\?&\]labelhost=1\\b\/\.test\(location\.search\) \? \{/);
   assert.match(STAGE, /if \(labelHold \|\| !veins \|\| veins\.lost \|\| !svgOver\?\.classList\.contains\(OVER_ALL\) \|\| !glass\.hidden \|\| fading\(vCanvas\)\) return false;/);
   assert.match(STAGE, /wc\.contains\('cam-move'\) \|\| wc\.contains\('pinch-hide'\) \|\| wc\.contains\('unframed'\) \|\| wc\.contains\('in-lobule'\) \|\| wc\.contains\('cath-on'\)\) return false;/);
   assert.match(STAGE, /if \(vdpr < vBase - 1e-9 \|\| vCanvas\.style\.translate \|\| !\(boxW > 0\) \|\| Math\.abs\(vcw\(\) \/ boxW - \(devicePixelRatio \|\| 1\)\) > 0\.02\) return false;/);

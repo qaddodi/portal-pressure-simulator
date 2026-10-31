@@ -8084,11 +8084,11 @@ export function createStage({ figure = null, wrap, onSelect, onAction, onOpenTab
   // Where the vessels and the overlays are drawn on the GPU, the labels are drawn into the same canvas, over them, at the end of each
   // picture laid (veins-gl top), instead of on a canvas of their own: one screen-sized layer fewer for the page to composite on every
   // frame. Only while nothing the page draws lies between the two (labelsOver); otherwise, and for a moment around each change, the
-  // SVG draws every label. ?labelhost=0 keeps their own canvas.
+  // SVG draws every label. Opt-in with ?labelhost=1 (31 Oct: labels went missing on the iPhone in this mode); by default their own canvas.
   let labelHold = false, labelAsk = 0;
   const labelLate = finalFrameFor('labels');
   const labelNow = () => { if (veins && !veins.lost) veins.present(); };
-  const labelHost = OVER_ON && veins?.top && !/[?&]labelhost=0\b/.test(location.search) ? {
+  const labelHost = OVER_ON && veins?.top && /[?&]labelhost=1\b/.test(location.search) ? {
     gl: veins.top.gl, canvas: veins.top.canvas, now: labelNow,
     // (In the frame's last phase the picture is laid at once: one asked for then would wait for the next frame.)
     ask() { if (framePhase() === 'final') labelNow(); else if (!labelAsk) labelAsk = labelLate(() => { labelAsk = 0; if (labelGL?.owed) labelNow(); }); },
