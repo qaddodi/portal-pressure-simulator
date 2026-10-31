@@ -2772,11 +2772,23 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (Math.abs((slip.d ?? -1) - (h1 - h0)) > 0.05 || !d.style.getPropertyValue('--pz-d')) { slip.d = h1 - h0; d.style.setProperty('--pz-d', `${slip.d.toFixed(2)}px`); }
     if (parts[1] && parts[1].style.getPropertyValue('--pz-o') !== `${o.toFixed(2)}px`) parts[1].style.setProperty('--pz-o', `${o.toFixed(2)}px`);
   }
+  // The screen's right safe-area inset, read once from a zero-size probe (an unregistered custom property hands env() back unresolved) and again after a resize.
+  let insetRight = null;
+  addEventListener('resize', () => { insetRight = null; });
+  const insetR = () => {
+    if (insetRight == null) {
+      const p = document.createElement('div');
+      p.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;pointer-events:none;padding-right:env(safe-area-inset-right,0px)';
+      document.body.append(p); insetRight = parseFloat(getComputedStyle(p).paddingRight) || 0; p.remove();
+    }
+    return insetRight;
+  };
   const dockVec = () => {
     const d = ui.data;
     if (phone()) return [0, GRIP - (lipOn(d) ? LIP : 0) - (d.offsetTop + d.offsetHeight)];   // (closed: the sheet's edge and 10 px of the card show)
     if (d.classList.contains('under') || d.classList.contains('col')) return [GRIP - (d.offsetLeft + d.offsetWidth), 0];
-    return [wrap.clientWidth - GRIP - d.offsetLeft, 0];
+    // (A phone on its side: the strip that stays on show, and its handle, sit inside the island's or notch's inset, not under it.)
+    return [wrap.clientWidth - GRIP - (ui.root.classList.contains('low') ? insetR() : 0) - d.offsetLeft, 0];
   };
   const dockPaint = () => {
     if (!ui) return;

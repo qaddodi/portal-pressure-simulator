@@ -524,6 +524,7 @@ div.vital { cursor: default; }
 .select { height: 32px; border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface); padding: 0 28px 0 12px; font-size: var(--fs-14); appearance: none; -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2385878F' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 8px center; background-size: 14px; max-width: 100%; cursor: pointer; }
+@media (pointer: coarse) { .select { font-size: 16px; } }   /* (iPhone Safari zooms the page when a control under 16 px takes focus: the Doppler vessel list did; an iPad is not zoomed, and 16 px reads well there too) */
 @media (hover: hover) { .select:hover { border-color: var(--border-strong); } }
 
 /* SVG anatomy: organs are quiet solid forms (fill, a soft shade inside the edge, a crisp
@@ -728,6 +729,12 @@ div.vital { cursor: default; }
 .reset-btn { width: 18px; height: 18px; border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--accent); display: none; place-items: center; border-radius: 4px; }
 .reset-btn svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .ctl.changed .reset-btn { display: grid; }
+/* (The info button's invisible ring reaches 14 px, over the left 10 px of Reset, so a tap on Reset's left half opened the explanation: Reset starts clear of the ring and has a ring of its own.) */
+@media (pointer: coarse) {
+  .ctl-label { gap: 14px; }
+  .reset-btn { position: relative; z-index: 1; }
+  .reset-btn::before { content: ''; position: absolute; inset: -13px -10px; }
+}
 /* Every slider is the data tiles' scale bar made draggable (Mohammad's pick B, 17 Oct): the same 6 px track, a solid dot for
    now and, on a slide's what-if, a ring where the slide started. The wrapper draws the track and the fill from --p (0 to 1, set
    with the value) and the input on top keeps a clear track, so the drawing and the thumb line up: the thumb's centre runs
@@ -998,6 +1005,11 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
   .range-wrap { --tw: 22px; }   /* (a bigger dot to grab on a phone; the drawing follows --tw) */
   .range-wrap, input[type=range] { height: 28px; }
   .section > summary { padding: 16px 0; min-height: 48px; }
+}
+/* The same bigger dot and bar wherever a finger is the pointer: a phone or an iPad held sideways (844 px and wider) had the 20 px mouse size. (The docked action card keeps its own 24 px.) */
+@media (pointer: coarse) {
+  .range-wrap { --tw: 22px; }
+  .range-wrap, input[type=range] { height: 28px; }
 }
 /* Phone in landscape: the figure fills the screen; the side panel slides over it */
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
@@ -1794,6 +1806,7 @@ button.finding { cursor: pointer; }
 /* The data card: the pressure ladder and its tiles. */
 .pz-data { position: absolute; right: var(--pz-cm); top: var(--pz-cm); width: min(calc(clamp(300px, 29vw, 600px) * var(--pz-wk, 1)), 42vw); max-height: calc(100% - 2 * var(--pz-cm)); --pz-gap: clamp(8px, calc(1.6 * var(--pzh)), 20px); display: flex; flex-direction: column; gap: var(--pz-gap); padding: clamp(14px, calc(2.1 * var(--pzh)), 28px); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--border); border-radius: clamp(16px, calc(2.2 * var(--pzh)), 28px); box-shadow: var(--shadow-3); transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
 .pz-data.pz-hide { opacity: 0; transform: translateX(18px); }
+.pz.low .pz-data { right: max(var(--pz-cm), env(safe-area-inset-right, 0px)); }   /* (a phone on its side: the numbers card keeps clear of the island or notch, as the teaching card does at the left; 0 on an SE, an iPad and a Mac) */
 .pz.pz-card:not(.stack) .pz-data { padding: var(--pz-cp); }   /* (the same padding as the teaching card, so the two cards' text edges line up) */
 .pz-dh { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; text-align: center; gap: 4px 12px; font: var(--caps-w) var(--s-cap)/1.25 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); }
 .pz-unit { text-transform: none; letter-spacing: normal; }   /* (a unit in a title: "mL/day", never "ML/DAY"; title-units.js) */
@@ -2130,6 +2143,9 @@ button.finding { cursor: pointer; }
 @keyframes pzw-pulse { 0%, 100% { opacity: .45; } 50% { opacity: .95; } }
 @keyframes pzw-rise { 0% { transform: translateY(40px); opacity: 0; } 25%, 75% { opacity: 1; } 100% { transform: translateY(-44px); opacity: 0; } }
 .pz-prog { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--hairline); }
+/* (An iPhone opened from the Home Screen, or held sideways, draws the page to the screen's rounded corners (55 px): the line's first and last 34-48 px were cut off, so slide 1 of a deck showed nothing. It starts 28 px in, 2 px up, where the corner's arc has cleared, and on its side inside the notch's inset.) */
+:root.iphone-app .pz-prog { left: max(28px, env(safe-area-inset-left, 0px)); right: max(28px, env(safe-area-inset-right, 0px)); bottom: 2px; border-radius: 2px; overflow: hidden; }
+.pz.low .pz-prog { left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px); }
 .pz-prog i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: color-mix(in srgb, var(--text) 42%, transparent); transition: width var(--d-surface) var(--ease); }   /* (quiet ink: the accent is kept for what the learner touches, DG3) */
 .pz-bar { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); position: absolute; left: 50%; bottom: 22px; translate: -50% 0; display: flex; align-items: center; gap: 4px; padding: 5px; max-width: calc(100% - 24px); overflow-x: auto; --gl-glass: 1; --gl-tint: color-mix(in srgb, var(--surface) 58%, transparent); background: var(--gl-tint); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-card); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: auto; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease), background-color var(--d-small) var(--ease), border-color var(--d-small) var(--ease); }
 /* The presenter bar is the same frosted glass as the data card: quiet controls, a soft accent on Next, no solid blocks. */
@@ -2166,6 +2182,7 @@ button.finding { cursor: pointer; }
 .pz-scales > button { position: relative; z-index: 1; border: 0; background: none; padding: 0 14px; border-radius: calc(var(--r-sheet) - 4px); font: 500 14px/1 var(--font-ui); color: var(--text-2); white-space: nowrap; cursor: pointer; transition: color var(--d-small) var(--ease); -webkit-tap-highlight-color: transparent; }
 @media (hover: hover) { .pz-scales > button:hover { color: var(--text); } }
 .pz-scales > button[aria-pressed="true"] { color: var(--text); }
+.pz-scales > button::before { content: ''; position: absolute; inset: -5px 0; }   /* (the words are 34 px tall inside the pill's 44: the pill's padding and border take touches too) */
 .pz-scales > .pzs-thumb { position: absolute; top: 4px; bottom: 4px; left: 0; width: var(--pzs-w, 0px); translate: var(--pzs-x, 0px) 0; border-radius: calc(var(--r-sheet) - 4px); background: var(--surface); box-shadow: var(--shadow-1); transition: translate var(--d-surface) var(--ease), width var(--d-surface) var(--ease); pointer-events: none; }
 .pz-scales.pzs-new > .pzs-thumb { transition: none; }
 .pz.stack .pz-scales { right: auto; left: var(--pzs-cx, 50%); bottom: var(--pzs-b, 50%); translate: -50% 0; }
@@ -2654,7 +2671,11 @@ button.finding { cursor: pointer; }
 @media (hover: hover) { .pzj-list button:hover { background: var(--surface-2); outline: none; } }
 .pzj-list button[aria-current] { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
 .pzj-list .n { min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-3); }
-.pz.stack .pz-jump { left: 8px; right: 8px; width: auto; translate: none; bottom: calc(72px + var(--pz-sb)); max-height: calc(100% - 96px); }
+@media (pointer: coarse) {
+  .pzj-list button { padding-block: 11.2px; }   /* (21.6 + 22.4: a 44 px row for a finger; 37.6 px before) */
+  .pzj-h .ib { width: 44px; height: 44px; margin-block: -2px; }   /* (the header keeps its height) */
+}
+.pz.stack .pz-jump { left: 8px; right: 8px; width: auto; translate: none; bottom: calc(72px + var(--pz-sb)); max-height: calc(100% - 96px - max(0px, var(--pz-sb) - 20px)); }   /* (the height gives back what --pz-sb lifts the bottom by above 20 px: in Safari on a home-indicator iPhone a long list's top and its close button were 30 px off the screen) */
 /* The words, the data card and the full-width panel never scroll, on any screen: what does not fit is made to fit
    (presenter.js fitCards sets --pz-fit, the zoom of the card's contents), never clipped or hidden. */
 .app.presenting .stage-view { touch-action: pan-x pan-y; }
@@ -4379,6 +4400,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 @media (hover: hover) { .ps-btn:hover { color: var(--text); } }
 .ps-btn[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(var(--night-rgb) / .12), 0 0 0 .5px var(--hairline); }
 .ps-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (pointer: coarse) { .ps-btn { position: relative; } .ps-btn::after { content: ''; position: absolute; inset: -6px -1px; } }   /* (26 px tall: the invisible ring makes 38, inside the pane's 16 px padding) */
 .instrument-workspace .dock-pane.active:is([data-pane="profile"], [data-pane="scope"]) { animation: crossfade var(--d-small) var(--ease); }
 
 /* Treat's Drugs / Fluids / Procedures tabs reuse the Tests card's tab row (.instr-tabs); the pane under it needs no extra top gap. */
