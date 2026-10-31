@@ -53,7 +53,7 @@ import { alongCurve } from './pressure-along.js?v=74c64e4286';
 import { follow2, createColourFollow } from './display-state.js?v=8d062d39dc';
 import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=acc95c9bbc';
 import { retireRows, flowClose } from './flow-rows.js?v=59053c0155';
-import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=eeb3c92d37';
+import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=a2ea93e89f';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
 import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=31d41c47b6';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
@@ -10671,8 +10671,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // colour and opacity follow the blood table with each model frame (dashFlow). Hidden behind the organs and the vessels in front for a
   // vessel drawn behind them (x.back: the canvas's back tiers), as the canvas hides its blood there.
   const dashSt = EDGES.map((e, k) => ({ seed: k + 1 }));
-  let dashBuilt = null, dashTracks = [], dashVV = -1, dashVAt = 0, dashWake = 0;
-  const DASH_MAX = 420;   // elements at most: past it the dashes thin out (the heads keep their spacing)
+  let dashBuilt = null, dashTracks = [], dashVV = -1, dashVAt = 0, dashWake = 0, dashLook = 0, dashMask = null;
+  // Elements at most: past it the dashes thin out (the heads keep their spacing). Each is a layer of its own for the compositor, and
+  // Mohammad's Mac lagged with about 420 (31 Oct), so the dashes stay sparse.
+  const DASH_MAX = 160;
+  const DASH_LOOK_MS = 2000;   // (the courses and the readings looked at again at most this often, once the view rests)
   const dashSee = (it) => !it.x.isArt && !it.x.g.classList.contains('coll-ghost') && !it.x.reveal;
   function dashVisible() {
     return dashMode() && !!F && !!vLook && !!veins && !veins.lost && wrap.classList.contains('gl-on') && morph === morphTarget && rotU === rotTarget &&
@@ -10685,8 +10688,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const sd of x.strands || []) v += (sd.live ?? 1) > 0.02 ? 's' : '';
       for (const fd of x.feeders || []) v += (fd.live ?? 1) > 0.02 && fd.w ? 'f' : '';
     }
-    return `${geometryVersion}|${morphTarget}|${chevOn() ? 1 : 0}|${keyOnly() ? 1 : 0}|${[...glow.lit.keys()].join(',')}|${vdpr}|${v}`;
+    // (Not the geometry's version: a coiling varix bumps it on every frame, which rebuilt every dash a frame: the lag of 31 Oct.
+    // The courses themselves are compared, rounded, every DASH_LOOK_MS: dashGeoKey.)
+    return `${morphTarget}|${chevOn() ? 1 : 0}|${keyOnly() ? 1 : 0}|${[...glow.lit.keys()].join(',')}|${v}`;
   }
+  // (Each drawn course to 2 world units: its length and both ends. A vessel that moved by less keeps its dashes' keyframes.)
+  const dashGeoKey = () => dashTracks.map((t) => { const P = geo[EDGES[t.k].id]?.cur || t.pts, a = P[0], b = P[P.length - 1]; return `${Math.round(a[0] / 2)},${Math.round(a[1] / 2)},${Math.round(b[0] / 2)},${Math.round(b[1] / 2)}`; }).join(';');
   // (Where the readings keep the heads off, to 2 world units: rebuilt only once the view has settled, as for a zoom.)
   const dashHoleKey = () => [...noChevBoxes, ...chevHoles].map((b) => b.map((q) => Math.round(q / 2)).join(',')).join(';');
   // Where a vessel drawn behind is covered: the organs and every vessel drawn in front, rasterized at half a pixel a world unit.
@@ -10715,10 +10722,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     };
   }
   function dashBuild(fade) {
+    dashLook = performance.now();
     if (!CTM) refreshCTM();
     const sc = CTM.sc, anat = morphTarget === 0;
     const items = glItems().filter((it) => it.kind !== 'c' || !anat);
-    const cover = anat ? dashCover(items) : null;
+    // (The cover is drawn and read once for what is drawn, not again for a course's small change or a reading.)
+    const mk = `${dashKey()}|${anat}`;
+    if (anat && dashMask?.key !== mk) dashMask = { key: mk, at: dashCover(items) };
+    const cover = anat ? dashMask.at : null;
     const key = keyOnly(), list = [];
     let n = 0;
     for (const it of items) {
@@ -10745,8 +10756,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (n > DASH_MAX) { const f = n / DASH_MAX; for (const t of list) t.dashSp *= f; }
     flowDash.build(list, sc, { fade });
     dashTracks = list;
-    dashBuilt = { key: dashKey(), hk: dashHoleKey(), sc };
-    dashFlow(store.get().clock === 'hemo' ? clamp(Math.sqrt(store.get().speed), 0.5, 2) : 0.8, store.get().running);
+    dashBuilt = { key: dashKey(), hk: dashHoleKey(), gk: dashGeoKey(), sc };
+    dashFlow(store.get().clock === 'hemo' ? clamp(Math.sqrt(store.get().speed), 0.5, 2) : 0.8, store.get().running, true);
   }
   function dashSync(now) {
     const on = dashVisible();
@@ -10756,11 +10767,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const settled = now - dashVAt > 300;
     // (What is drawn changed: at once. The readings moved or the zoom changed by more than a third: once the view has settled, so a
     // pinch or a glide never rebuilds a frame at a time; the loop is woken to look again then.)
+    // (A rebuild keeps every track that kept its shape, changing only its keyframes; a zoom's new sizes crossfade the whole set.)
     if (!dashBuilt) dashBuild(false);
-    else if (dashKey() !== dashBuilt.key) dashBuild(true);
-    else if ((CTM && Math.abs(Math.log(CTM.sc / dashBuilt.sc)) > Math.log(1.35)) || dashHoleKey() !== dashBuilt.hk) {
-      if (settled) dashBuild(true);
-      else dashLater();
+    else if (dashKey() !== dashBuilt.key) dashBuild(false);
+    else if (CTM && Math.abs(Math.log(CTM.sc / dashBuilt.sc)) > Math.log(1.35)) { if (settled) dashBuild('zoom'); else dashLater(); }
+    else if (now - dashLook > DASH_LOOK_MS) {
+      dashLook = now;
+      if (settled && (dashHoleKey() !== dashBuilt.hk || dashGeoKey() !== dashBuilt.gk)) dashBuild(false);
     }
     if (glM) flowDash.view(glM);
   }
@@ -10773,8 +10786,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Each track's speed (the canvas's streams would move by vd × speed a second), opacity and colours, as the canvas would draw them:
   // the streak's own core colour for a dash (light on a dark lumen, deep on a pale one, warming orange where the flow is reversed),
   // the head's dark ink with its light rim (cream on an orange vessel).
-  function dashFlow(speed, running) {
+  let dashFlowF = null, dashFlowAt = 0, dashFlowRun = null;
+  function dashFlow(speed, running, force = false) {
     if (!flowDash || !dashTracks.length) return;
+    // (With the model's frames: a pan or a glide keeps the loop awake at the screen's rate, and the dashes need nothing new then.)
+    const now = performance.now();
+    if (!force && F === dashFlowF && running === dashFlowRun && now - dashFlowAt < 250) return;
+    dashFlowF = F; dashFlowAt = now; dashFlowRun = running;
     const bc = bloodColors(), sOn = bloodOn() ? 1 : 0, cOn = chevOn() && !cath.st ? 1 : 0;
     for (const t of dashTracks) {
       const o = t.row * FLOW_TEXELS * 4, ot = t.row * TUBE_TEXELS * 4;
@@ -10791,7 +10809,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const alpha = strength * (tubeData ? tubeData[ot + 7] : 1) * (TIER_GROUP[Math.round(tier)] === 1 ? netA : 1);
       const fadeV = smoothF(0.5, 3, Math.abs(vd));
       flowDash.flow(t.key, {
-        v, alpha, rev,
+        v, dir: vd, alpha, rev,
         dash: sOn * fadeV * 0.6, chev: cOn * chevK * fadeV,
         dashCol: cssC(core), inkCol: cssC(mixC(mixC(ink, bc.revCol, rev), bc.chevLight, warm)), rimCol: cssC(mixC(bc.inkLight, vc.map((q) => q * 0.45), warm)),
       });
@@ -11006,7 +11024,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function sleep() {
     sleeping = true; clearTimeout(sleepTimer); sleepTimer = setTimeout(wake, 1000);
     // (The dashes look again once the figure rests: readings that moved or a zoom since they were built, with no frame left to draw.)
-    if (flowDash && dashBuilt && dashVisible() && (dashHoleKey() !== dashBuilt.hk || dashKey() !== dashBuilt.key || (CTM && Math.abs(Math.log(CTM.sc / dashBuilt.sc)) > Math.log(1.35)))) dashLater();
+    if (flowDash && dashBuilt && dashVisible() && (dashKey() !== dashBuilt.key || (CTM && Math.abs(Math.log(CTM.sc / dashBuilt.sc)) > Math.log(1.35)))) dashLater();
   }
   function wake() { if (!sleeping) return; sleeping = false; clearTimeout(sleepTimer); askAnimate(); }
   stageWake = wake;

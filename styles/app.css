@@ -148,6 +148,7 @@ svg { flex: none; }
 .flow-dash .fd-set { position: absolute; left: 0; top: 0; transition: opacity var(--d-small) var(--ease); }
 .flow-dash :is(.fd-track, .fd-dashes, .fd-chevs) { position: absolute; left: 0; top: 0; }
 .flow-dash :is(.fd-dashes, .fd-chevs) { transition: opacity var(--d-flip) var(--ease); }
+.flow-dash .fd-track { transition: opacity var(--d-small) var(--ease); }
 .flow-dash .fd-m { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform, opacity; }
 .flow-dash .fd-m > div { position: absolute; transition: transform var(--d-small) var(--ease); }
 .flow-dash .fd-track.back .fd-m > div { transform: rotate(180deg); }

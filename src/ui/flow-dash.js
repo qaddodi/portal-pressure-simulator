@@ -12,6 +12,7 @@
 // vessel runs behind an organ or another vessel in front of it, or where a reading sits on the vessel.
 // One speed per element, and no flow through a junction: each runs on its own vessel.
 
+import { frameFor } from './frame.js?v=31d41c47b6';
 import { D_SMALL } from './ease.js?v=615d96d663';
 
 // ── Geometry (pure: tested in tests/flow-dash.test.js) ───────────────────────
@@ -104,9 +105,11 @@ export function inHole(x, y, boxes = [], holes = []) {
 
 /** The animation's rate for a speed of v world units a second (each loop lasts `loop` seconds at rate 1). */
 export const rateOf = (v) => (Math.abs(v) < 1e-3 ? 0 : v);
-/** Whether a rate moved far enough to be sent to the animation again (2 %, or a stop, start or turn). */
-export const rateMoved = (was, v) => was == null || Math.sign(was) !== Math.sign(v) || Math.abs(v - was) > 0.02 * Math.max(Math.abs(was), 0.5);
+/** Whether a rate moved far enough to be sent to the animation again (5 %, or a stop, start or turn): each change is sent to the
+ * compositor again, so the model's own wobble is not. */
+export const rateMoved = (was, v) => was == null || Math.sign(was) !== Math.sign(v) || Math.abs(v - was) > 0.05 * Math.max(Math.abs(was), 0.5);
 
+const nextFrame = frameFor('flow-dash');
 // The loops start this many times round, so one played backwards (reversed flow) has days of loops to run before it reaches 0.
 const LOOPS = 1e6;
 
@@ -136,6 +139,10 @@ export function createFlowDash(host) {
     s.el.style.opacity = '0';
     setTimeout(done, D_SMALL + 80);
   }
+  function dropTrack(t) {
+    t.el.style.opacity = '0';
+    setTimeout(() => { anims(t.dashes); anims(t.chevs); t.el.remove(); }, D_SMALL + 80);
+  }
   function marker(parent, cls, frames, loop, at) {
     const el = doc.createElement('div');
     el.className = 'fd-m';
@@ -164,45 +171,70 @@ export function createFlowDash(host) {
     },
     /** Whether a track (by key) is built. */
     has: (key) => tracks.has(key),
-    build(list, cssPerUnit, { fade = true } = {}) {
+    /**
+     * Makes the elements for `list`. `fade` ('zoom'): a new set fades in over the old one (new sizes). Otherwise the set is kept and
+     * updated track by track: a track whose elements keep their count, spacing and sizes has only its keyframes replaced in place
+     * (no element made or dropped, each carrying on from where it is), a new track fades in, a track gone fades out.
+     */
+    build(list, cssPerUnit, { fade = false } = {}) {
       built++;
-      // Where a track's elements are now along their loop, so a rebuild of the same vessel carries on from there.
+      const k = 1 / Math.max(1e-6, cssPerUnit);   // world units per element pixel
+      const whole = fade === 'zoom' || !set;
+      // Where a track's elements are now along their loop, so a new build of the same vessel carries on from there.
       const phase = new Map();
       for (const [key, t] of tracks) {
         const a = t.dashes[0]?.anim || t.chevs[0]?.anim;
         if (a && t.loop) phase.set(key, ((a.currentTime / 1000) % t.loop + t.loop) % t.loop);
       }
-      const old = set;
-      set = { el: doc.createElement('div'), tracks: new Map() };
-      set.el.className = 'fd-set';
-      const k = 1 / Math.max(1e-6, cssPerUnit);   // world units per element pixel
+      const old = whole ? set : null;
+      if (whole) { set = { el: doc.createElement('div'), tracks: new Map() }; set.el.className = 'fd-set'; }
+      const keep = new Set();
       for (const tr of list) {
         const cum = arcTable(tr.pts), len = cum[cum.length - 1];
         if (!(len > 1)) continue;
-        const el = doc.createElement('div');
-        el.className = 'fd-track';
         const dashSp = tr.dashSp, chevSp = tr.chevSp || 0;
         // One loop: the vessel and a stretch past its end where nothing shows, a whole number of spacings, so every element keeps
         // its distance from the next all round.
         const unit = chevSp > 0 ? chevSp : dashSp;
         const loop = Math.ceil((len + 1) / unit) * unit;
-        const step = Math.min(8, Math.max(len / 90, 2 * k, 2));   // (world units between keyframes: the courses are smooth)
-        const ph = phase.get(tr.key) ?? (tr.seed || 0) % unit;
-        const t = { el, dashes: [], chevs: [], loop, st: {} };
-        // Dashes: thin streaks of light, as the canvas's (a soft core in the streak's own colour, longer than wide), on lanes.
-        const dashG = doc.createElement('div'); dashG.className = 'fd-dashes'; el.append(dashG);
-        const chevG = doc.createElement('div'); chevG.className = 'fd-chevs'; el.append(chevG);
+        const step = Math.min(8, Math.max(len / 60, 2 * k, 3));   // (world units between keyframes: the courses are smooth)
         const Rpx = tr.R * cssPerUnit;
         const W = Math.min(0.5 * Rpx, 2.2), Lw = Math.min(Math.max(7 * W, 10), 22);
         const ramp = Math.max(2.5 * Lw * k, Math.min(0.2 * len, 0.3 * unit));
-        if (dashSp > 0 && W >= 0.6) {
+        const hw = chevHalfWidth(tr.R, cssPerUnit), hwPx = hw * cssPerUnit, L = 1.6 * hwPx;
+        const dashOn = dashSp > 0 && W >= 0.6;
+        const shape = `${loop.toFixed(1)}|${dashSp.toFixed(1)}|${chevSp}|${tr.lanes}|${dashOn ? W.toFixed(2) : ''}|${Lw.toFixed(1)}|${chevSp ? hwPx.toFixed(2) : ''}`;
+        const laneF = (y) => laneFrames(tr.pts, cum, { len, loop, step, lane: y, radius: tr.radius, size: tr.R, ramp, k, seen: tr.seenDash });
+        const chevF = () => laneFrames(tr.pts, cum, {
+          len, loop, step, lane: 0, radius: () => tr.R, size: tr.R, k,
+          ramp: Math.max(2 * L * k, 0.3 * chevSp),
+          seen: (sv, x, y) => smooth(0.85 * hw, 1.15 * hw, tr.radius(sv)) * (tr.seen ? tr.seen(sv, x, y) : 1),
+        });
+        const was = whole ? null : set.tracks.get(tr.key);
+        keep.add(tr.key);
+        if (was && was.shape === shape) {
+          // (The same elements: only where they go and where they hide changes. The timing is untouched, so each carries on.)
+          const byLane = new Map();
+          for (const mk of was.dashes) { if (!byLane.has(mk.y)) byLane.set(mk.y, laneF(mk.y)); mk.anim?.effect?.setKeyframes(byLane.get(mk.y)); }
+          if (was.chevs.length) { const f = chevF(); for (const mk of was.chevs) mk.anim?.effect?.setKeyframes(f); }
+          continue;
+        }
+        if (was) dropTrack(was);
+        const el = doc.createElement('div');
+        el.className = 'fd-track';
+        const ph = phase.get(tr.key) ?? (tr.seed || 0) % unit;
+        const t = { el, dashes: [], chevs: [], loop, shape, st: {} };
+        // Dashes: thin streaks of light, as the canvas's (a soft core in the streak's own colour, longer than wide), on lanes.
+        const dashG = doc.createElement('div'); dashG.className = 'fd-dashes'; el.append(dashG);
+        const chevG = doc.createElement('div'); chevG.className = 'fd-chevs'; el.append(chevG);
+        if (dashOn) {
           tr.lanes.forEach((y, j) => {
-            const frames = laneFrames(tr.pts, cum, { len, loop, step, lane: y, radius: tr.radius, size: tr.R, ramp, k, seen: tr.seenDash });
+            const frames = laneF(y);
             const off = (dashSp * (j + 0.5)) / tr.lanes.length;
             for (let d = 0; d * dashSp < loop; d++) {
               const mk = marker(dashG, 'fd-dash', frames, loop, (ph + off + d * dashSp) % loop);
               mk.inner.style.cssText = `width:${Lw.toFixed(1)}px;height:${W.toFixed(2)}px;left:${(-Lw / 2).toFixed(1)}px;top:${(-W / 2).toFixed(2)}px`;
-              mk.lane = laneSpeed(y);
+              mk.lane = laneSpeed(y); mk.y = y;
               t.dashes.push(mk);
             }
           });
@@ -210,12 +242,7 @@ export function createFlowDash(host) {
         // Heads: one shape per vessel, the canvas's (chevron-glsl.js), on the axis at the mean speed; none where the lumen is
         // narrower than the head.
         if (chevSp > 0) {
-          const hw = chevHalfWidth(tr.R, cssPerUnit), hwPx = hw * cssPerUnit, L = 1.6 * hwPx;
-          const frames = laneFrames(tr.pts, cum, {
-            len, loop, step, lane: 0, radius: () => tr.R, size: tr.R, k,
-            ramp: Math.max(2 * L * k, 0.3 * chevSp),
-            seen: (s, x, y) => smooth(0.85 * hw, 1.15 * hw, tr.radius(s)) * (tr.seen ? tr.seen(s, x, y) : 1),
-          });
+          const frames = chevF();
           const svg = `<svg viewBox="${(-0.5 * L - 2).toFixed(2)} ${(-hwPx - 2).toFixed(2)} ${(L + 4).toFixed(2)} ${(2 * hwPx + 4).toFixed(2)}" width="${(L + 4).toFixed(1)}" height="${(2 * hwPx + 4).toFixed(1)}"><path d="M${(0.55 * L).toFixed(2)} 0L${(-0.45 * L).toFixed(2)} ${hwPx.toFixed(2)}L${(-0.13 * L).toFixed(2)} 0L${(-0.45 * L).toFixed(2)} ${(-hwPx).toFixed(2)}Z"/></svg>`;
           for (let c = 0; c * chevSp < loop; c++) {
             const mk = marker(chevG, 'fd-chev', frames, loop, (ph + c * chevSp) % loop);
@@ -225,13 +252,20 @@ export function createFlowDash(host) {
             t.chevs.push(mk);
           }
         }
+        // (A track added to a kept set fades in on its own.)
+        if (!whole) el.style.opacity = '0';
         set.el.append(el);
         set.tracks.set(tr.key, t);
+        if (!whole) nextFrame(() => { el.style.opacity = ''; });
       }
-      // The new set fades in as the old one fades out (a zoom's new sizes, a vessel's new course), never in one frame.
-      if (fade && old) { set.el.style.opacity = '0'; cam.append(set.el); set.el.getBoundingClientRect(); set.el.style.opacity = ''; }
-      else cam.append(set.el);
-      dropSet(old, fade);
+      if (!whole) {
+        for (const [key, t] of [...set.tracks]) if (!keep.has(key)) { dropTrack(t); set.tracks.delete(key); }
+      } else {
+        // The new set fades in as the old one fades out (a zoom's new sizes), never in one frame.
+        if (old) { set.el.style.opacity = '0'; cam.append(set.el); nextFrame(() => { set.el.style.opacity = ''; }); }
+        else cam.append(set.el);
+        dropSet(old, true);
+      }
       tracks.clear();
       for (const [key, t] of set.tracks) tracks.set(key, t);
     },
@@ -242,7 +276,7 @@ export function createFlowDash(host) {
       const st = t.st;
       for (const mk of t.dashes) setRate(mk, f.v * mk.lane);
       for (const mk of t.chevs) setRate(mk, f.v);
-      const fwd = f.v >= 0 ? 1 : 0;
+      const fwd = (f.dir ?? f.v) >= 0 ? 1 : 0;   // (the way the flow runs, held while paused)
       if (st.fwd !== fwd) { st.fwd = fwd; t.el.classList.toggle('back', !fwd); }
       const q = (v) => Math.round(v * 50) / 50;
       const da = q(f.dash * f.alpha), ca = q(f.chev * f.alpha);

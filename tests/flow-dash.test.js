@@ -53,10 +53,10 @@ test('no head under a reading box or a point callout', () => {
   assert.equal(inHole(0, 20, [], [[0, 0, 0, 0, 17]]), false);
 });
 
-test('a rate is sent again only when it moves by 2 % or turns', () => {
+test('a rate is sent again only when it moves by 5 % or turns (each change goes to the compositor again)', () => {
   assert.equal(rateMoved(null, 1), true);
-  assert.equal(rateMoved(10, 10.1), false);
-  assert.equal(rateMoved(10, 10.5), true);
+  assert.equal(rateMoved(10, 10.4), false);
+  assert.equal(rateMoved(10, 10.6), true);
   assert.equal(rateMoved(1, -1), true);
 });
 
@@ -86,4 +86,13 @@ test('stage: today\'s moving blood stays the default; ?flow=dashes stills the ca
   assert.match(src, /veins\.composite\(vLook, bloodLook\(\), fluidMoved\) !== false\) \{ noteDraw\('stage'\)/);
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   assert.match(gl, /if \(still && !fused && !part && !dirt && !pool && !\(fl\?\.ripple && nFluid\) && !cath && figVer === figAt && !moved\.includes\(1\)\) \{/);
+});
+
+test('stage: dashes are not rebuilt on every geometry bump, and stay few', () => {
+  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const key = /function dashKey\(\) \{[\s\S]*?\n {2}\}/.exec(src)[0];
+  assert.ok(!key.includes('geometryVersion'), 'a coiling varix bumps geometryVersion every frame: it rebuilt every dash a frame');
+  assert.ok(!key.includes('vdpr'), 'the canvas share changes while the view moves');
+  assert.match(src, /const DASH_MAX = 160;/);
+  assert.match(src, /if \(!force && F === dashFlowF && running === dashFlowRun && now - dashFlowAt < 250\) return;/);
 });
