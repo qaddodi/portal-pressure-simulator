@@ -2,6 +2,8 @@
 
 ## October 2026
 
+- **Vessel colours ease when the model changes, as the widths do.** (Combined plan M1, 31 Oct.)
+  A slider's step or a model frame now recolours the lumens through the same critically damped filter the widths use (`display-state.js` `follow2`, 0.2 s), so a colour never steps. A big jump still goes through the lens crossfade, and Reduce Motion shows colours at once. A running model's own small steps (3/255 or less) are drawn at once, so a steady figure costs no extra frames. `?colfollow=0` shows the colours as the model has them, as before. Code only; nobody has looked on screen.
 - **Streaks only, at every zoom; a busy vessel reads busier.** (Combined plan B2, 31 Oct; Mohammad: "Dots suck. Keep streaks", "Without pop in and pop out tho".)
   The bead look of the earlier push is gone from every build (no setting keeps it, the classic build included), and the arrowheads no longer fade on a wide lumen (C2 dropped). Past a packed lane more flow draws denser, brighter streaks, up to 35 % (about log2 of the overflow), so a TIPS carrying more than the portal vein looks it; the gain follows the flow continuously, so nothing pops in or out. `?bloodsat=0` draws every packed lane alike, as before. Code only; nobody has looked on screen.
 - **In a talk, the names stay up through a small camera move; only the leaders fade.** (Combined plan step 10, 31 Oct; Mohammad approved the plan.)

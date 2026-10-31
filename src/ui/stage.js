@@ -48,6 +48,7 @@ import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
+import { follow2, createColourFollow } from './display-state.js?v=e059116e25';
 import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=ac26170d49';
 import { retireRows } from './flow-rows.js?v=bea4089714';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
@@ -3075,9 +3076,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (x.w1 == null) x.w1 = x.width;
     if (x.wT == null || x.width == null) return false;   // (no target yet: the caller sets the first one after this)
     if (x.width === x.wT && x.w1 === x.wT) return false;
-    const u = Math.max(0, dt) / W_TAU, a = Math.exp(-u), e1 = x.w1 - x.wT, e2 = x.width - x.wT;
-    x.w1 = x.wT + e1 * a; x.width = x.wT + (e2 + e1 * u) * a;
-    if (Math.abs(x.wT - x.w1) < 0.005 && Math.abs(x.w1 - x.width) < 0.005) x.w1 = x.width = x.wT;
+    // (display-state.js follow2: the one filter the lumens' colours follow too, colFollow.)
+    const r = follow2(x.width, x.w1, x.wT, dt, W_TAU, 0.005);
+    x.width = r.v; x.w1 = r.w;
     return true;
   }
   function widthMoving(x) { return x.width !== x.wT || x.w1 !== x.wT; }
@@ -3440,6 +3441,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let plateDim = null, plateSat = 1, netA = 1;
   // A lens switch crossfades every vessel from the colors it showed to the new lens's (no one-frame recolor).
   let shownCol = new Map(), lensFrom = null, lensT0 = 0, lensMode = null;
+  // The lumens' colours follow the model's through the widths' filter (display-state.js; combined plan M1), so a slider's step or
+  // a model frame's is an ease, not a step. A crossfade (a lens change, a jump) carries its own change: the filter then shows the
+  // target at once, as does Reduce Motion. ?colfollow=0: the colours as the model has them, as before.
+  const COL_FOLLOW = !/[?&]colfollow=0\b/.test(location.search);
+  const colFollow = createColourFollow({ tau: W_TAU }), colT = new Array(6), colRows = new Set();
+  let colAt = 0, colEasing = false;
   let sinceP = null;   // (a "change since" slide's reference: see changeRef)
   const JUMP_MMHG = 2;
   let jumpP = null, jumpF = null;
@@ -3649,7 +3656,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function glowOnlyOk(t) {
     const m = glowMemo;
-    if (!m || !veins || veins.lost || !vLook || tubesNew || lensFrom || !tubesShown || tubesShown.length !== tubeData.length) return false;
+    if (!m || !veins || veins.lost || !vLook || tubesNew || lensFrom || colEasing || !tubesShown || tubesShown.length !== tubeData.length) return false;
     if (m.t !== t || m.F !== F || m.geo !== geometryVersion || m.netA !== netA || m.cs !== wrapCS() || m.mode !== layerMode() || m.origin !== originOn()) return false;
     if (m.selK !== selAKey() || m.cath !== cathTint || m.plate !== veins.hasPlate(0) || m.cls !== gestureFree(wrap.className) || m.reach !== (glow.lit.size ? 20 : 11)) return false;
     const b = glowBits(m.items);
@@ -3758,7 +3765,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function syncVeins(t) { return gpuProbe.time(null, 'vessel sync (script)', () => syncVeinsNow(t)); }
   function syncVeinsNow(t) {
-    if (!veins || veins.lost) return;
+    if (!veins || veins.lost) { colEasing = false; return; }
     glowSync = false;
     const on = glWanted(t);
     wrap.classList.toggle('gl-on', on);
@@ -3767,7 +3774,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const plateWas = plateOn();
     wrap.classList.toggle('gl-plate', on && veins.hasPlate(0));
     syncOrganDim();
-    if (!on) { if (vLook) { veins.clear(); vLook = null; vBinKey = ''; binShown = null; bendShown = null; } return; }
+    if (!on) { colEasing = false; if (vLook) { veins.clear(); vLook = null; vBinKey = ''; binShown = null; bendShown = null; } return; }
     if (!glOrgans) {
       // The organ covers, rasterized once in world space (1.5 px per unit): tiers behind them fade.
       const k = 1.5, c = document.createElement('canvas');
@@ -3836,6 +3843,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Hovering or selecting any part of the IVC shows it whole: no veil, and no fades on it or on the tributaries joining it.
     let ivcOn = false;
     for (const id of IVC_EDGES) { const g = E[id]?.g; if (g && (g.classList.contains('is-sel') || g.classList.contains('hl') || vh.selA.get(id) > 0)) ivcOn = true; }
+    // (The colours' filter steps by the time since the last sync: every display frame while it moves, colEasing. From rest the
+    // first step is at most one 60 Hz frame, whatever time has passed since the figure last synced, so an ease starts gently.)
+    const colDt = Math.min(colEasing ? 0.1 : 1 / 60, (now - (colAt || now)) / 1000);
+    colAt = now; colFollow.begin(); colRows.clear();
     gpuProbe.time(null, 'vessel sync: colours', () => { for (const it of items) {
       const { x, kind, obj } = it, id = x.e.id, o = it.row * TUBE_TEXELS * 4;
       const ghost = x.g.classList.contains('coll-ghost');
@@ -3867,6 +3878,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= 3.4;
       const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0) | (veil ? F_VEIL : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
+      if (COL_FOLLOW) {
+        colT[0] = c0[0]; colT[1] = c0[1]; colT[2] = c0[2]; colT[3] = c1[0]; colT[4] = c1[1]; colT[5] = c1[2];
+        const k = colFollow.step(it.row, colT, colDt, !!lensFrom || reduceMotion.matches);
+        c0 = [k[0], k[1], k[2]]; c1 = [k[3], k[4], k[5]];
+        colRows.add(it.row);
+      }
       if (lensFrom) {
         const was = lensFrom.get(it.row), u = easeInOut(clamp((now - lensT0) / LENS_FADE, 0, 1));
         if (was) { c0 = mix3(was[0], c0, u); c1 = mix3(was[1], c1, u); }
@@ -3915,6 +3932,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const sa = tier < TIER_LIFT && !x.back && !SIN_EDGES.has(id) ? vh.selA.get(id) || 0 : 0;
       if (sa > 0) tubeData.set(kind === 'v' ? [easeInOut(sa), selEnd(id, x.e.from), selEnd(id, x.e.to), 0] : [easeInOut(sa), 0, 0, 0], o + 48);
     } });
+    colEasing = COL_FOLLOW && colFollow.moving;
+    if (COL_FOLLOW) colFollow.prune(colRows);
     // (Uploaded only when some vessel's attributes changed: most model frames in a steady state change none.)
     let tubesChanged = !tubesShown || tubesShown.length !== tubeData.length;
     if (!tubesChanged) for (let i = 0; i < tubeData.length; i++) if (tubeData[i] !== tubesShown[i]) { tubesChanged = true; break; }
@@ -4997,7 +5016,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const PLATE_FADE = LENS_FADE;
   let plateFrom = null, plateTo = null, plateT0 = 0;
   function stepPlateEase() {
-    if (lensFrom) { veinsDirty = true; glowSync = true; }   // (each frame of the crossfade syncs the vessels, paused too, so it runs to its end)
+    if (lensFrom || colEasing) { veinsDirty = true; glowSync = true; }   // (each frame of the crossfade, or of the colours' follow, syncs the vessels, paused too, so it runs to its end)
     if (!spot.on && !plateEasing()) spot.live = false;   // (the spotlight's dim has eased away: the ascites goes back to its own)
     if (!plateEasing()) { plateFrom = null; return; }
     const to = plateTargets(), now = performance.now();
@@ -10640,7 +10659,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (The overlays changed with the figure still: the picture laid again with them, nothing else drawn.)
     if (OVER_ON && veins?.overlay?.stale && !veins.lost) veins.present();
     const rowsWait = veinsRows.size > 0 && !!veins && !veins.lost && !!vLook && !!F;
-    if (still && !veinsDirty && !rowsWait && !glowSync && !(glLines && olDirty) && (!glLines || marksKey() === mk.key) && !(glLines && olList.some((o) => o.a !== (o.on ? 1 : 0))) && !clampFading() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !veins?.organs?.fading && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
+    if (still && !veinsDirty && !rowsWait && !glowSync && !(glLines && olDirty) && (!glLines || marksKey() === mk.key) && !(glLines && olList.some((o) => o.a !== (o.on ? 1 : 0))) && !clampFading() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !veins?.organs?.fading && !lensFrom && !colEasing && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
     stepPlateEase();
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
