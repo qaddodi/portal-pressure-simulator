@@ -35,3 +35,10 @@ test("a lens switch moves the key in the press's own frame and updates the figur
   assert.match(mn, /store\.on\('colorMode', \(\) => \{ renderLegend\(\); renderBanner\(\); if \(!lensRedraw\) lensRedraw = nextFrame\(\(\) => \{ lensRedraw = nextFrame\(\(\) => \{ lensRedraw = 0; redraw\(\); \}\); \}\); \}\);/);
   assert.doesNotMatch(mn, /\['compareSnap', 'compareView', 'colorMode'/);
 });
+
+test("a hover over an organ runs the ring of vessel hit tests at most every 50 ms, near the last spot, with the view unchanged", () => {
+  const hov = st.match(/function hoverAt\(ev\) \{[\s\S]*?\n {2}\}\n/)[0];
+  assert.match(hov, /nh && now - nh\.t < 50 && nh\.v === viewVersion && Math\.abs\(nh\.x - ev\.clientX\) \+ Math\.abs\(nh\.y - ev\.clientY\) < 24 \? nh\.id/);
+  assert.match(hov, /\(nearHover = \{ t: now, v: viewVersion, x: ev\.clientX, y: ev\.clientY, id: nearbyEdge\(ev\) \}\)\.id/);
+  assert.match(st, /function pick\(id, ev\) \{\n\s+if \(!\(id && EI\[id\] != null\)\) id = nearbyEdge\(ev\);/, 'a click always tests afresh');
+});

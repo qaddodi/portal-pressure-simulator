@@ -11290,6 +11290,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     hoverEv = ev;
     if (!hoverRaf) hoverRaf = nextFrame(() => { hoverRaf = 0; const e = hoverEv; hoverEv = null; if (e) hoverAt(e); });
   });
+  let nearHover = null;   // (hoverAt's last ring of hit tests: when, the view, where, and what it found)
   function hoverAt(ev) {
     const id = edgeFromEvent(ev);
     if (id && EI[id] != null && F && !shunt) {
@@ -11303,7 +11304,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!shunt && !drag && !lobuleOn && store.get().tool === 'select') {
       const [wx, wy] = clientToWorldFast(ev.clientX, ev.clientY), o = organAt(wx, wy);   // (the kept transform, as a pan's: no layout)
       const sel = store.get().selection;
-      const near = o ? nearbyEdge(ev) : null;   // a click here would pick this vessel, so the organ must not light
+      // A click here would pick this vessel, so the organ must not light. (Up to 36 hit tests, each a layout and a hit test of the
+      // figure: at most one ring every 50 ms while the mouse moves, near where it was and with the view unchanged; between, the last answer.)
+      const now = performance.now(), nh = nearHover;
+      const near = !o ? null : nh && now - nh.t < 50 && nh.v === viewVersion && Math.abs(nh.x - ev.clientX) + Math.abs(nh.y - ev.clientY) < 24 ? nh.id
+        : (nearHover = { t: now, v: viewVersion, x: ev.clientX, y: ev.clientY, id: nearbyEdge(ev) }).id;
       if (near && EI[near] != null && F) { setHover(near); setOrganHover(null); return; }
       if (o && !(sel?.type === 'organ' && sel.id === o)) setOrganHover(o, o === 'liver' ? (wx < LIVER_SPLIT_X ? 'R' : 'L') : '');
       else setOrganHover(null);
