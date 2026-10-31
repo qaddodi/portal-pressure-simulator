@@ -633,13 +633,17 @@ export function svgIcon(id, cls = '') {
 let modalReturn = null;
 // (The on-screen keyboard covers the page's foot without shrinking it: the dialog is held to the room above it, and eases there.)
 const modalVV = window.visualViewport;
+let modalKbT = 0;
 const fitModal = () => {
   // (A page pinched in is not a keyboard: only a visual viewport at the page's own scale counts. iOS also pans the page up to the field with the keyboard
   // up, so the dialog is held to the visible band, from its top down to the keyboard, and not to the band from the page's top.)
   const back = document.getElementById('modalBack'), kb = modalVV && modalVV.scale <= 1.05 ? Math.round(innerHeight - modalVV.offsetTop - modalVV.height) : 0;
-  back.classList.toggle('kb', kb > 80);
-  if (kb > 80) { back.style.setProperty('--modal-kb', `${kb}px`); back.style.setProperty('--modal-top', `${Math.max(0, Math.round(modalVV.offsetTop))}px`); }
-  else if (!back.classList.contains('leaving')) { back.style.removeProperty('--modal-kb'); back.style.removeProperty('--modal-top'); }
+  clearTimeout(modalKbT);
+  if (kb > 80) { back.classList.add('kb'); back.style.setProperty('--modal-kb', `${kb}px`); back.style.setProperty('--modal-top', `${Math.max(0, Math.round(modalVV.offsetTop))}px`); }
+  else if (back.classList.contains('kb')) {   // (the keyboard went: the dialog eases back down and out to the top, then the class that eases it goes)
+    back.style.setProperty('--modal-kb', '0px'); back.style.setProperty('--modal-top', '0px');
+    modalKbT = setTimeout(() => { if (!back.classList.contains('leaving')) { back.classList.remove('kb'); back.style.removeProperty('--modal-kb'); back.style.removeProperty('--modal-top'); } }, 320);
+  }
 };
 export function openModal(title, body, { wide = false, sub = null, bare = false } = {}) {
   const back = document.getElementById('modalBack');
