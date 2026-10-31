@@ -10,7 +10,7 @@ test('Reduce Motion takes the movement out but keeps the fades (P3)', () => {
   assert.doesNotMatch(css, /transition-duration: \.001s !important/, 'no blanket rule that turns every transition into a pop');
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\*, \*::before, \*::after \{ transition-property: opacity, visibility, color/);
   const tail = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce) {'));
-  for (const k of ['cardInRight', 'cardOutRight', 'sheetUp', 'sheetDown', 'popOut', 'acSheetOut', 'thumbOut', 'toastUp']) {
+  for (const k of ['fade-rise', 'fade-rise-out', 'slide-from-edge', 'slide-to-edge', 'scale-settle', 'scale-settle-out', 'thumbOut']) {
     assert.match(tail, new RegExp(`@keyframes ${k} \\{ (from|to) \\{ opacity: 0; \\} \\}`), `${k} becomes a fade`);
   }
   // The exits that skipped their animation with Reduce Motion now play it (the keyframes above make it a fade).
@@ -43,8 +43,8 @@ test('lists update in place, toasts leave through their own exit (P18, P19)', ()
 });
 
 test('popovers and figure pieces fade out instead of vanishing (P20, P21, P23)', () => {
-  assert.match(css, /\.pal-back\.leaving \{[^}]*animation: fadeOut/);
-  assert.match(css, /\.why-pop\.leaving \{ display: block;[^}]*animation: popOut/);
+  assert.match(css, /\.pal-back\.leaving \{[^}]*animation: crossfade-out/);
+  assert.match(css, /\.why-pop\.leaving \{ display: block;[^}]*animation: scale-settle-out/);
   assert.match(css, /\.node-dot\.off \{ opacity: 0;/);
   assert.match(read('src/ui/stage.js'), /cath\.at = null; cathFadeOut\(\); return;/);
   assert.match(css, /\.mon\.bad \.mv \{ animation: monAlarm 1\.2s var\(--ease-move\) infinite; \}/);

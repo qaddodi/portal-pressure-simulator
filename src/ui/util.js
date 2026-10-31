@@ -1,6 +1,6 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame } from './frame.js?v=31d41c47b6';
-import { releaseSpeed, settleSlope, settleAt, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN } from './ease.js?v=387660d4ad';
+import { releaseSpeed, settleSlope, settleAt, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=615d96d663';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
@@ -226,6 +226,12 @@ export function enterAfterGone(el) { el.style.setProperty('--enter-delay', Math.
 // popover; pass false for a menu that lays itself out.
 /** The bottom of what is visible: above the on-screen keyboard on iOS, where innerHeight does not shrink. */
 export const visibleBottom = () => { const v = window.visualViewport; return v ? Math.min(innerHeight, v.offsetTop + v.height) : innerHeight; };
+// A popover or card settles from, and leaves toward, the thing that opened it (premium-feel R11: scale-settle's origin is its
+// anchor): the scale's origin is the anchor's centre, in the piece's own frame, set where the piece is placed.
+export function settleFrom(el, anchor, left, top) {
+  el.style.transformOrigin = `${(anchor.left + anchor.width / 2 - left).toFixed(0)}px ${(anchor.top + anchor.height / 2 - top).toFixed(0)}px`;
+}
+
 export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true } = {}) {
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
   const asSheet = sheet && (innerWidth < 768 || matchMedia(UPRIGHT_MQ).matches);
@@ -262,8 +268,10 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
     let y = at === 'above' || bar ? top - mr.height - 8 : r.bottom + 8;
     const vb = visibleBottom();
     if (y + mr.height > vb - 8) y = Math.max(8, top - mr.height - 8);
-    el.style.left = clamp(x, 8, innerWidth - mr.width - 8) + 'px';
-    el.style.top = clamp(y, 8, vb - mr.height - 8) + 'px';
+    const left = clamp(x, 8, innerWidth - mr.width - 8), topPx = clamp(y, 8, vb - mr.height - 8);
+    el.style.left = left + 'px';
+    el.style.top = topPx + 'px';
+    settleFrom(el, r, left, topPx);
     barAt = barTop;
     clipBar();
   };
@@ -403,7 +411,7 @@ export function reconcile(list, rows) {
     a.finished.then(() => g.remove(), () => g.remove());
   }
   if (shown) {
-    for (const r of fresh) if (r.dataset.row) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE, delay: going.length ? 80 : 0, fill: 'backwards' });
+    for (const r of fresh) if (r.dataset.row) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${RISE_PX}px)` }, { opacity: 1, transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE, delay: going.length ? 80 : 0, fill: 'backwards' });
   }
 }
 /** Text that crossfades when it changes (a status word, an arrow): swapFade, and a fade in from empty, so a word

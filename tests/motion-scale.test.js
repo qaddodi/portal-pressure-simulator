@@ -133,6 +133,70 @@ test('the lint catches what it is for: an off-scale duration, a hand-written cur
   assert.deepEqual(t('a { animation: var(--card-in) var(--card-t) var(--ease-in) forwards !important; }'), []);
 });
 
+// Premium-feel R11: everything that enters or leaves is one of four primitives, each with its exit. A new @keyframes is either
+// one of them or named here with its reason (a loop, an attention cue, a scene that teaches, a registered variable that other code
+// also reads). A piece that enters or leaves takes a primitive; it does not get a keyframe set of its own.
+const PRIMITIVES = ['fade-rise', 'fade-rise-out', 'slide-from-edge', 'slide-to-edge', 'scale-settle', 'scale-settle-out', 'crossfade', 'crossfade-out'];
+const OTHER_KEYFRAMES = {
+  spin: 'a loop', 'pz-spin': 'a loop', shimmer: 'a loop', monAlarm: 'an alarm that pulses', dmPulse: 'an attention cue', roFlash: 'an attention cue',
+  haloRing: 'an attention cue', haloText: 'an attention cue', 'sp-tap': 'a tap wiggle',
+  'pzw-drift': 'a scene that teaches', 'pzw-pulse': 'a scene that teaches', 'pzw-rise': 'a scene that teaches',
+  'sv-fade-in': 'a registered variable (--sv-in) other code reads', 'lz-in': 'a registered variable (--off-o) other code reads',
+  'pill-in': 'a registered variable (--pill-o) other code reads', thumbIn: 'a registered variable (--sink) the stacked card\'s tuck also drives',
+  thumbOut: 'a registered variable (--sink) the stacked card\'s tuck also drives',
+};
+const noComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
+const keyframeNames = (css) => [...noComments(css).matchAll(/@keyframes ([\w-]+)\s*\{/g)].map((m) => m[1]);
+const keyframeProblems = (css) => {
+  const out = [], defined = new Set(keyframeNames(css));
+  for (const n of defined) if (!PRIMITIVES.includes(n) && !(n in OTHER_KEYFRAMES) && !n.startsWith('pz-breathe')) out.push(`@keyframes ${n}: a primitive (${PRIMITIVES.join(', ')}) or a named reason in OTHER_KEYFRAMES`);
+  for (const m of noComments(css).matchAll(/animation(?:-name)?\s*:\s*([^;}]+)/g)) {
+    for (const part of splitTop(m[1], ',')) {
+      const name = words(part).find((w) => /^[a-zA-Z][\w-]*$/.test(w) && !/^(ease|infinite|both|forwards|backwards|none|reverse|linear|normal|alternate|alternate-reverse|paused|running)$/.test(w));
+      if (name && !defined.has(name)) out.push(`animation names @keyframes ${name}, which is not defined`);
+    }
+  }
+  // (The card system names its keyframes in variables: --card-in and --card-out.)
+  for (const m of noComments(css).matchAll(/--card-(?:in|out)\s*:\s*([\w-]+)/g)) if (!defined.has(m[1])) out.push(`--card-in/--card-out names @keyframes ${m[1]}, which is not defined`);
+  return out;
+};
+test('R11: every @keyframes in app.css is one of the four motion primitives (with its exit) or has its named reason; every animation names a defined one', () => {
+  assert.deepEqual(keyframeProblems(read('styles/app.css')), []);
+  const css = read('styles/app.css');
+  for (const n of PRIMITIVES) assert.ok(new RegExp(`^@keyframes ${n} \\{`, 'm').test(css), `${n} is defined`);
+  // Each primitive's movement is kept for the movement only; Reduce Motion keeps the fade (the keyframes in the media query replace them).
+  const tail = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce) {'));
+  for (const n of ['fade-rise', 'fade-rise-out', 'slide-from-edge', 'slide-to-edge', 'scale-settle', 'scale-settle-out']) assert.ok(new RegExp(`@keyframes ${n} \\{ (from|to) \\{ opacity: 0; \\} \\}`).test(tail), `${n} fades without moving under Reduce Motion`);
+  // A keyframe set that moves a registered variable moves nothing else (it is the primitive's twin, not a new look).
+  for (const n of Object.keys(OTHER_KEYFRAMES).filter((k) => /variable/.test(OTHER_KEYFRAMES[k]))) {
+    const body = new RegExp(`@keyframes ${n} \\{([^\\n]*)\\}`).exec(css)[1];
+    assert.match(body, /--[\w-]+:/, `${n} moves a variable`);
+    assert.doesNotMatch(body, /opacity:|transform:/, `${n} moves nothing but its variable`);
+  }
+});
+
+test('R11: the lint for keyframes catches a keyframe set of a piece\'s own and a name that is not defined', () => {
+  assert.equal(keyframeProblems('@keyframes cardSlide { from { opacity: 0; } } a { animation: cardSlide var(--d-small) var(--ease); }').length, 1);
+  assert.equal(keyframeProblems('@keyframes crossfade { from { opacity: 0; } } a { animation: crossfade var(--d-small) var(--ease), gone 1s linear; }').length, 1);
+  assert.equal(keyframeProblems('@keyframes crossfade { from { opacity: 0; } } a { --card-in: cardInRight; animation: var(--card-in) var(--d-small) var(--ease); }').length, 1);
+  assert.deepEqual(keyframeProblems('@keyframes crossfade { from { opacity: 0; } } @keyframes spin { to { transform: rotate(360deg); } } a { animation: crossfade var(--d-small) var(--ease), spin 1s linear infinite; }'), []);
+});
+
+test('R11: fade-rise rises the one distance, in the sheet of keyframes and in the scripts that rise rows by hand (RISE_PX)', () => {
+  const css = read('styles/app.css'), ease = read('src/ui/ease.js');
+  assert.match(css, /@property --rise-y \{ syntax: '<length-percentage>'; inherits: false; initial-value: (\d+)px; \}/);
+  assert.equal(Number(/@property --rise-y \{[^}]*initial-value: (\d+)px/.exec(css)[1]), Number(/export const RISE_PX = (\d+);/.exec(ease)[1]));
+  assert.match(css, /@keyframes scale-settle \{ from \{ opacity: 0; transform: scale\(\.98\); \} \}/);
+  for (const f of ['util.js']) assert.doesNotMatch(read(`src/ui/${f}`), /translateY\(\d+px\)/, `${f} rises by RISE_PX`);
+});
+
+test('R11: a popover settles from, and leaves toward, the thing that opened it (settleFrom)', () => {
+  const util = read('src/ui/util.js'), why = read('src/ui/why.js');
+  assert.match(util, /export function settleFrom\(el, anchor, left, top\) \{\s*el\.style\.transformOrigin = /);
+  assert.match(util, /settleFrom\(el, r, left, topPx\);/);
+  assert.match(why, /settleFrom\(pop, r, x, top\);/);
+});
+
 // The sources: no curve is written by hand outside ease.js, and no animation is given a number of milliseconds.
 const walk = (dir) => readdirSync(dir).flatMap((f) => { const p = join(dir, f); return statSync(p).isDirectory() ? walk(p) : p.endsWith('.js') ? [p] : []; });
 test('the sources: curves and durations of an animation come from ease.js (D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN)', () => {

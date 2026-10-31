@@ -10,7 +10,7 @@ const stage = read('src/ui/stage.js'), css = read('styles/app.css'), lz = read('
 test('a label no longer wanted fades out before it leaves, and fades back if wanted again', () => {
   assert.match(stage, /b\.g\.classList\.add\('lb-off'\);\s*const tok = b\.gone = \{\};\s*setTimeout\(\(\) => \{ if \(b\.gone === tok\) \{ b\.gone = null; b\.g\.style\.display = 'none'; \} \}, 360\);/);
   assert.match(stage, /b\.gone = null;\s*b\.g\.style\.display = '';/);
-  assert.match(css, /#labels \.lb \{ transition: opacity var\(--d-small\) var\(--ease\); animation: pz-fade var\(--d-small\) var\(--ease\) both; \}/);
+  assert.match(css, /#labels \.lb \{ transition: opacity var\(--d-small\) var\(--ease\); animation: crossfade var\(--d-small\) var\(--ease\) both; \}/);
   // (Never the old instant drop.)
   assert.ok(!/b\.seen !== frameNo && !\(k === 'scan' && \(scan\.leaving \|\| scan\.on\)\)\) b\.g\.style\.display = 'none'/.test(stage));
 });
@@ -31,7 +31,7 @@ test('leaders and dots are kept by their label: new ones fade in, old ones fade 
   assert.match(stage, /paintLeaders\(leaders\);/);
   assert.ok(!/gLeaders\.innerHTML = leaders/.test(stage));
   assert.match(stage, /el\.classList\.add\('ld-gone'\);/);
-  assert.match(css, /\.lb-leaders > \* \{ transition: opacity var\(--d-small\) var\(--ease\); animation: pz-fade var\(--d-small\) var\(--ease\) both; \}/);
+  assert.match(css, /\.lb-leaders > \* \{ transition: opacity var\(--d-small\) var\(--ease\); animation: crossfade var\(--d-small\) var\(--ease\) both; \}/);
   assert.match(css, /\.lb-leaders > \.ld-gone \{ opacity: 0; \}/);
 });
 

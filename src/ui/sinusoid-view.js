@@ -19,8 +19,8 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=ead012d9c8';
-import { pressureColor } from './colormap.js?v=92717320a3';
+import { h, fmt, clamp, lerp } from './util.js?v=8d5111b670';
+import { pressureColor } from './colormap.js?v=a4340d76d2';
 import { isPaused } from './clock.js?v=678bfe1fb0';
 import { store } from './store.js?v=3611054974';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
@@ -30,7 +30,7 @@ import { placeFenDisse } from './fen-place.js?v=c8d4c26ddb';
 import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=31d41c47b6';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
-import { FADE_MS, fadeAlpha, mixInto } from './res-fade.js?v=2dd4fa0cbc';
+import { FADE_MS, fadeAlpha, mixInto } from './res-fade.js?v=7357152508';
 const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };

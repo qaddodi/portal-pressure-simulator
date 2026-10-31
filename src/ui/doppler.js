@@ -5,10 +5,10 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=ead012d9c8';
-import { FONT, textW } from './charts.js?v=58e3a0f223';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=8d5111b670';
+import { FONT, textW } from './charts.js?v=2a5bb99e62';
 import { logAction, shownVel, store } from './store.js?v=3611054974';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=1b26d9649f';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=9592b1c312';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=31d41c47b6';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';
@@ -16,7 +16,7 @@ import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairS
 import { createDopplerGL } from './doppler-gl.js?v=85427ed298';
 import { olderThan } from './backfill.js?v=455d888760';
 import { createFollow } from './display-state.js?v=8d062d39dc';
-import { D_SMALL, EASE_ARRIVE } from './ease.js?v=387660d4ad';
+import { D_SMALL, EASE_ARRIVE } from './ease.js?v=615d96d663';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

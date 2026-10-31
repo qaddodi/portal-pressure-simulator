@@ -3,22 +3,22 @@
 
 import { store, hiddenNow } from './store.js?v=3611054974';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=ead012d9c8';
-import { lobuleFlows } from './lobule-model.js?v=39888d7719';
-import { createProfile } from './charts.js?v=58e3a0f223';
-import { createPressureTime } from './pressure-time.js?v=2094b3e3b7';
-import { createHvpgProcedure } from './hvpg-proc.js?v=06a6378525';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=4837a86796';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=8d5111b670';
+import { lobuleFlows } from './lobule-model.js?v=3d54fe5473';
+import { createProfile } from './charts.js?v=2a5bb99e62';
+import { createPressureTime } from './pressure-time.js?v=fa3b639a59';
+import { createHvpgProcedure } from './hvpg-proc.js?v=9046075b40';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=12662e375c';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=b54d5b240d';
-import { createReadoutsPane } from './readouts-pane.js?v=d5bdbe0e4f';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=f7173b829f';
+import { createReadoutsPane } from './readouts-pane.js?v=d75f62a101';
 import { frameFor } from './frame.js?v=31d41c47b6';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=16d2848e7c';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
 import { compareRows } from './idle-keys.js?v=70e26bf4a1';
-import { D_FLIP, D_SMALL, EASE_IN } from './ease.js?v=387660d4ad';
+import { D_FLIP, D_SMALL, EASE_IN } from './ease.js?v=615d96d663';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).

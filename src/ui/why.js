@@ -1,8 +1,8 @@
 // "Why?" popover (blueprint §9.3): one causal sentence, a contribution waterfall and the formula.
 
 import { host } from './host.js?v=e9bd6a00e5';
-import { h, fmt, svgIcon, visibleBottom } from './util.js?v=ead012d9c8';
-import { D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=387660d4ad';
+import { h, fmt, svgIcon, visibleBottom, settleFrom } from './util.js?v=8d5111b670';
+import { D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=615d96d663';
 
 export function createWhy(pop) {
   let openFor = null, anchorEl = null;
@@ -14,7 +14,9 @@ export function createWhy(pop) {
     pop.style.left = x + 'px';
     const ph = pop.offsetHeight || 260;
     const below = r.bottom + 10;
-    pop.style.top = (below + ph > visibleBottom() - 8 ? Math.max(8, r.top - ph - 10) : below) + 'px';
+    const top = below + ph > visibleBottom() - 8 ? Math.max(8, r.top - ph - 10) : below;
+    pop.style.top = top + 'px';
+    settleFrom(pop, r, x, top);
   }
   const head = (title) => h('header', {}, h('h3', {}, svgIcon('bulb'), title), h('button', { class: 'ib', 'aria-label': 'Close', onclick: close }, svgIcon('close')));
   async function open(metric, anchor) {

@@ -222,9 +222,9 @@ svg { flex: none; }
 /* SVG label layer (screen space) */
 /* Labels fade in where they come, fade out where they go (stage.js renderBlock, layoutLabels), and glide when moved (labelGlide);
    their leader lines and dots fade with them (paintLeaders). */
-#labels .lb { transition: opacity var(--d-small) var(--ease); animation: pz-fade var(--d-small) var(--ease) both; }
+#labels .lb { transition: opacity var(--d-small) var(--ease); animation: crossfade var(--d-small) var(--ease) both; }
 #labels .lb.lb-off { opacity: 0; pointer-events: none; }
-.lb-leaders > * { transition: opacity var(--d-small) var(--ease); animation: pz-fade var(--d-small) var(--ease) both; }
+.lb-leaders > * { transition: opacity var(--d-small) var(--ease); animation: crossfade var(--d-small) var(--ease) both; }
 .lb-leaders > .ld-gone { opacity: 0; }
 .lb-leaders > .dpr-hid { opacity: 0; transition-duration: var(--d-surface); }   /* (the station dot under the Doppler's gate fades with the probe, stage.js dprDots) */
 @media (prefers-reduced-motion: reduce) { #labels .lb, .lb-leaders > * { transition: none; animation: none; } }
@@ -258,7 +258,7 @@ svg { flex: none; }
 .leader-dot-halo { fill: var(--stage-bg); }
 /* The FibroScan probe's callout: a pill in the waves' orange (--fibroscan, the colour of the card's readout) with a leader to the waves. It eases in
    and out with the probe; its own layer (.lb-scan) carries the leader, so neither ever pops. */
-#labels .lb.scan { transition: opacity var(--d-surface) var(--ease); animation: pz-fade var(--d-surface) var(--ease) both; }
+#labels .lb.scan { transition: opacity var(--d-surface) var(--ease); animation: crossfade var(--d-surface) var(--ease) both; }
 #labels .lb.scan text { stroke: none; }
 #labels .lb.scan .lb-bg { fill: var(--fibroscan); stroke: none; filter: drop-shadow(0 1px 2px color-mix(in srgb, black 25%, transparent)); }
 #labels .lb-scan-val { fill: color-mix(in srgb, var(--fibroscan) 12%, black); } #labels .lb-scan-unit { fill: color-mix(in srgb, var(--fibroscan) 30%, black); }
@@ -287,8 +287,8 @@ svg { flex: none; }
 .cmp-label { font-size: var(--fs-12); font-weight: 600; color: var(--text-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cmp-seg button { min-width: 44px; font-variant-numeric: tabular-nums; }
 .cmp-seg button b { font-weight: 600; }
-.cmp-badge.leaving { animation: fadeOut var(--d-flip) var(--ease-in) forwards; }
-.cmp-badge { animation: fadeIn var(--d-small) var(--ease); position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: var(--z-hud); padding: 4px 12px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 600; background: var(--text); color: var(--stage-bg); pointer-events: none; box-shadow: var(--shadow-2); }
+.cmp-badge.leaving { animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }
+.cmp-badge { animation: crossfade var(--d-small) var(--ease); position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: var(--z-hud); padding: 4px 12px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 600; background: var(--text); color: var(--stage-bg); pointer-events: none; box-shadow: var(--shadow-2); }
 /* On a desktop the top bar floats over the figure: the badge stands under it and under the Compare switch, not hidden behind
    the bar's centre pill (round 2 review, NP9). */
 @media (min-width: 1024px) { .cmp-badge { top: calc(var(--top-safe, 0px) + 6px + var(--cmp-h, 0px)); } }
@@ -312,9 +312,9 @@ svg { flex: none; }
 .tool-card {
   position: absolute; left: 12px; bottom: 12px; z-index: var(--z-hud); width: min(300px, calc(100% - 24px)); padding: 12px 12px 12px 16px;
   background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline);
-  font-size: var(--fs-14); color: var(--text-2); line-height: 1.5; animation: lift var(--d-small) var(--ease);
+  font-size: var(--fs-14); color: var(--text-2); line-height: 1.5; animation: fade-rise var(--d-small) var(--ease);
 }
-.tool-card.leaving { pointer-events: none; animation: fadeOut var(--d-flip) var(--ease-in) forwards; }
+.tool-card.leaving { pointer-events: none; animation: fade-rise-out var(--d-flip) var(--ease-in) forwards; }
 .tool-card .tc-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: var(--fs-14); color: var(--text); margin-bottom: 2px; }
 .tool-card .tc-title svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .tool-card .tc-title .tc-sp { flex: 1; }
@@ -322,9 +322,27 @@ svg { flex: none; }
 .tool-card .tc-title .ib svg { width: var(--ic-s); height: var(--ic-s); }
 .tool-card kbd { font: 500 var(--fs-12) var(--font-mono); color: var(--text-3); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; background: var(--surface); }
 .tool-card .seg { margin-top: 8px; }
-@keyframes rise { from { opacity: 0; transform: translate(-50%, 4px); } }
-@keyframes lift { from { opacity: 0; transform: translateY(4px); } }
-@keyframes fadeDown { from { opacity: 0; transform: translateY(-6px); } }
+
+/* ── Motion primitives (premium-feel R11): everything that enters or leaves is one of four, each with its exit. An exit is
+   the entrance reversed, played at the step below (ease.js, tokens.css) and toward where the piece came from.
+   fade-rise: words, rows, chips and panes rise 6 px into place.   slide-from-edge: a sheet, a side card, the docked toast
+   come from their edge (--edge-x / --edge-y: how far, --edge-o: the opacity it starts at; a sheet keeps 1).
+   scale-settle: a card or popover settles from .98 about its anchor (transform-origin, set where it is placed).
+   crossfade: a swap of text, a lens, the figure's dim. Every other @keyframes below is a loop, an attention cue or a
+   scene that teaches, or it moves a registered variable some other code also reads (motion-scale.test.js keeps the list). ── */
+@property --rise-x { syntax: '<length-percentage>'; inherits: false; initial-value: 0px; }
+@property --rise-y { syntax: '<length-percentage>'; inherits: false; initial-value: 6px; }
+@property --edge-x { syntax: '<length-percentage>'; inherits: false; initial-value: 0px; }
+@property --edge-y { syntax: '<length-percentage>'; inherits: false; initial-value: 0px; }
+@property --edge-o { syntax: '<number>'; inherits: false; initial-value: 1; }
+@keyframes fade-rise { from { opacity: 0; transform: translate(var(--rise-x, 0px), var(--rise-y, 6px)); } }
+@keyframes fade-rise-out { to { opacity: 0; transform: translate(var(--rise-x, 0px), var(--rise-y, 6px)); } }
+@keyframes slide-from-edge { from { opacity: var(--edge-o, 1); transform: translate(var(--edge-x, 0px), var(--edge-y, 0px)); } }
+@keyframes slide-to-edge { to { opacity: var(--edge-o, 1); transform: translate(var(--edge-x, 0px), var(--edge-y, 0px)); } }
+@keyframes scale-settle { from { opacity: 0; transform: scale(.98); } }
+@keyframes scale-settle-out { to { opacity: 0; transform: scale(.98); } }
+@keyframes crossfade { from { opacity: 0; } }
+@keyframes crossfade-out { to { opacity: 0; } }
 .hover-tip { position: absolute; left: 0; top: 0; pointer-events: none; padding: 10px 12px 9px; font-size: var(--fs-12); min-width: 188px; max-width: min(280px, calc(100% - 16px)); z-index: var(--z-hud); border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow-menu, var(--shadow-2)), 0 0 0 1px var(--hairline); opacity: 0; visibility: hidden; transform: translateY(4px) scale(.98); transform-origin: top left; transition: opacity var(--d-flip) var(--ease), transform var(--d-flip) var(--ease), visibility 0s linear var(--d-flip); }
 .hover-tip.on { opacity: 1; visibility: visible; transform: none; transition: opacity var(--d-flip) var(--ease), transform var(--d-flip) var(--ease), visibility 0s; }
 .hover-tip .t { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: var(--fs-13, 13px); line-height: 1.3; color: var(--text); padding-bottom: 7px; margin-bottom: 6px; border-bottom: 1px solid var(--hairline); }
@@ -387,7 +405,6 @@ svg { flex: none; }
 .metric.hidden-val .v { color: var(--text-3); }
 .metric .cmp { font-size: var(--fs-12); font-weight: 600; font-variant-numeric: tabular-nums; }
 .metric .cmp.up { color: color-mix(in srgb, var(--danger) 85%, var(--text)); } .metric .cmp.down { color: var(--accent-ink); } .metric .cmp.same { color: var(--text-3); font-weight: 500; }
-@keyframes fadeIn { from { opacity: 0; } }
 .ro-systemic { flex: 0 0 auto; padding-right: 4px; }
 .vb-grid { display: grid; grid-template-columns: repeat(2, auto); gap: 1px 16px; padding: 3px 8px 0; align-content: start; }
 .vital { display: flex; align-items: baseline; gap: 4px; border: 0; background: none; padding: 1px 0; font-size: var(--fs-12); color: var(--text-3); cursor: pointer; text-align: left; white-space: nowrap; }
@@ -791,7 +808,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .tooltip kbd { font: 500 var(--fs-12) var(--font-mono); opacity: .7; margin-left: 8px; }
 .menu {
   position: fixed; z-index: var(--z-popover); min-width: 180px; max-width: calc(100vw - 16px); padding: 8px; border-radius: var(--r-sheet); background: var(--surface); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline);
-  display: flex; flex-direction: column; gap: 1px; animation: pop var(--d-flip) var(--ease);
+  display: flex; flex-direction: column; gap: 1px; animation: scale-settle var(--d-flip) var(--ease);
 }
 .menu-title { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); padding: 8px 12px 4px; }
 .menu-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: calc(var(--r-sheet) - 8px); border: 0; background: transparent; cursor: pointer; font-size: var(--fs-14); text-align: left; color: var(--text); transition: background-color var(--d-flip) var(--ease); }
@@ -822,22 +839,20 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .menu-item .kb { margin-left: auto; font-size: var(--fs-12); color: var(--text-3); }
 .menu-sep { height: 1px; background: var(--hairline); margin: 4px 4px; }
 .menu label.menu-item input { accent-color: var(--accent); margin: 0; }
-@keyframes pop { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
-.menu.leaving { pointer-events: none; animation: popOut var(--d-flip) var(--ease-in) forwards; }
+.menu.leaving { pointer-events: none; animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
 /* A phone's menus are bottom sheets: full width, descriptions wrap, the same rise and fall as the cards. */
 /* A menu taller than the room scrolls, and fades into its own surface at the bottom while there is more
    below it (util.js fadeWhileMore), so its last row is never just cut at the edge (sweep 01 #05). A sticky
    veil rather than a mask, so the menu's own background and edge stay whole. */
 .menu.more::after { content: ''; position: sticky; bottom: calc(-1 * var(--fade-pb, 8px)); flex: none; height: 28px; margin: -29px -8px 0; background: linear-gradient(to bottom, transparent, var(--surface)); pointer-events: none; }
 .menu.as-sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto !important; min-width: 0; max-width: none; max-height: 75dvh; overflow: hidden auto; overscroll-behavior: contain; touch-action: pan-y;
-  padding: 10px 8px calc(10px + env(safe-area-inset-bottom)); border-radius: var(--r-sheet) var(--r-sheet) 0 0; animation: sheetUp var(--d-small) var(--ease); }
-.menu.as-sheet.leaving { animation: sheetDown var(--d-flip) var(--ease-in) forwards; }
+  padding: 10px 8px calc(10px + env(safe-area-inset-bottom)); border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: slide-from-edge var(--d-small) var(--ease); }
+.menu.as-sheet.leaving { animation: slide-to-edge var(--d-flip) var(--ease-in) forwards; }
 .menu.as-sheet .lens-d { white-space: normal; }
-@keyframes popOut { to { opacity: 0; transform: translateY(-4px) scale(.98); } }
 
 .why-pop { position: fixed; z-index: var(--z-popover); width: min(440px, calc(100vw - 24px)); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); padding: 16px 16px 16px; display: none; }
-.why-pop.show { display: block; animation: pop var(--d-flip) var(--ease); }
-.why-pop.leaving { display: block; pointer-events: none; animation: popOut var(--d-flip) var(--ease-in) forwards; }
+.why-pop.show { display: block; animation: scale-settle var(--d-flip) var(--ease); }
+.why-pop.leaving { display: block; pointer-events: none; animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
 .why-pop header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
 .why-pop h3 { margin: 0; font-size: var(--fs-14); font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .why-pop h3 svg { width: var(--ic-s); height: var(--ic-s); stroke: var(--accent); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -855,16 +870,14 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 @keyframes shimmer { to { background-position: -200% 0; } }
 
 .modal-back { position: fixed; inset: 0; background: var(--scrim); z-index: var(--z-dialog); display: none; place-items: center; padding: calc(16px + var(--safe-top)) 16px 16px; }
-.modal-back.show { display: grid; animation: fade var(--d-small) var(--ease); }
+.modal-back.show { display: grid; animation: crossfade var(--d-small) var(--ease); }
 /* Closing: the scrim fades and the dialog sinks back the way it came, then it is hidden (util.js closeModal). */
 /* (Own exit keyframes: the same name played in reverse would not restart, and would land on its last frame at once.) */
-.modal-back.leaving { display: grid; pointer-events: none; animation: fadeOut var(--d-flip) var(--ease-in) forwards; }
-.modal-back.leaving .modal { animation: popOut var(--d-flip) var(--ease-in) forwards; }
-@keyframes fadeOut { to { opacity: 0; } }
+.modal-back.leaving { display: grid; pointer-events: none; animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }
+.modal-back.leaving .modal { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
 /* A theme chosen in the app (main.js switchTheme): the old page, held as a still, fades over the new one. */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--d-surface); animation-timing-function: var(--ease); }
-@keyframes fade { from { opacity: 0; } }
-.modal { background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); width: min(720px, 100%); max-height: min(88dvh, 900px); overflow: auto; animation: pop var(--d-small) var(--ease); }
+.modal { background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); width: min(720px, 100%); max-height: min(88dvh, 900px); overflow: auto; animation: scale-settle var(--d-small) var(--ease); }
 .modal > header { padding: 20px 24px 16px; display: flex; align-items: flex-start; gap: 12px; position: sticky; top: 0; background: var(--surface); z-index: var(--z-figure); }
 .modal > header h2 { margin: 0; font-size: var(--fs-20); font-weight: 600; letter-spacing: -.015em; flex: 1; }
 .modal > header .sub { margin-top: 4px; }
@@ -883,9 +896,9 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .keys div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--hairline); font-size: var(--fs-14); color: var(--text-2); }
 .keys kbd { font: 500 var(--fs-12) var(--font-mono); color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-control); padding: 1px 8px; white-space: nowrap; }
 .toast-wrap { position: fixed; left: calc(50% - 180px); bottom: 28px; transform: translateX(-50%); z-index: var(--z-toast); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
-.toast { background: var(--text); color: var(--stage-bg); padding: 8px 16px; border-radius: var(--r-card); box-shadow: var(--shadow-3); font-size: var(--fs-14); line-height: 1.45; max-width: min(520px, 92vw); animation: fadeDown var(--d-small) var(--ease); pointer-events: none; }
+.toast { background: var(--text); color: var(--stage-bg); padding: 8px 16px; border-radius: var(--r-card); box-shadow: var(--shadow-3); font-size: var(--fs-14); line-height: 1.45; max-width: min(520px, 92vw); --rise-y: -6px; animation: fade-rise var(--d-small) var(--ease); pointer-events: none; }
 .toast.bad { background: var(--danger); color: var(--on-status); }
-.toast.leaving { animation: fadeOut var(--d-flip) var(--ease-in) forwards; }
+.toast.leaving { animation: fade-rise-out var(--d-flip) var(--ease-in) forwards; }
 
 /* ── Explore start card, compare panel ─ */
 
@@ -1003,7 +1016,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .app.projector .topbar, .app.projector .panel, .app.projector .dock, .app.projector .vdock, .app.projector .treat-card, .app.projector .toolbar { display: none; }
 .projector-exit { position: absolute; top: 14px; right: 14px; z-index: var(--z-hud); gap: 8px; background: var(--surface); box-shadow: var(--shadow-2); }
 .projector-exit svg { width: var(--ic-s); height: var(--ic-s); }
-.big-overlay, .projector-exit { animation: fadeIn var(--d-small) var(--ease); }
+.big-overlay, .projector-exit { animation: crossfade var(--d-small) var(--ease); }
 .big-overlay { position: absolute; left: 24px; top: 16px; font-weight: 600; font-size: var(--fs-48); letter-spacing: -.03em; color: var(--text); pointer-events: none; line-height: 1; z-index: var(--z-hud); }
 .big-overlay small { display: block; font-size: var(--fs-14); font-weight: 600; color: var(--text-3); margin-bottom: 8px; }
 .big-overlay .unit { font-size: var(--fs-20); }
@@ -1018,7 +1031,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .action-card {
   position: absolute; z-index: var(--z-hud); width: 300px; max-height: calc(100% - 16px); display: flex; flex-direction: column; overflow: hidden;
   background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
-  padding: 0; animation: acIn var(--d-small) var(--ease); font-size: var(--fs-14); transition: left var(--d-flip) var(--ease), top var(--d-flip) var(--ease);
+  padding: 0; animation: scale-settle var(--d-small) var(--ease); font-size: var(--fs-14); transition: left var(--d-flip) var(--ease), top var(--d-flip) var(--ease);
 }
 /* One fixed size per kind of card, whatever text it holds: the header and foot keep their place, the controls scroll inside. */
 .action-card { height: min(600px, calc(100vh - 150px)); max-height: none; }
@@ -1031,9 +1044,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 /* The same three parts on a desktop and on a phone: the top (title, reading) and the foot stay put, the controls scroll. */
 .ac-top { flex: none; padding: 12px 16px 0; }
 .ac-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px; }
-@keyframes acIn { from { opacity: 0; transform: translateY(4px); } }
-@keyframes acOut { to { opacity: 0; transform: translateY(4px); } }
-.action-card.ac-leaving:not(.docked) { pointer-events: none; animation: acOut var(--d-flip) var(--ease-in) forwards; }
+.action-card.ac-leaving:not(.docked) { pointer-events: none; animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
 .ac-head { display: flex; align-items: flex-start; gap: 8px; }
 .ac-titles { flex: 1; min-width: 0; }
 .ac-kicker { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
@@ -1257,7 +1268,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 @media (max-width: 1100px) { .pal-l, .pal-btn kbd { display: none; } .pal-btn { width: 34px; padding: 0; justify-content: center; } }
 
 /* Home */
-.home { position: fixed; inset: 0; z-index: var(--z-popover); background: var(--bg); overflow: auto; animation: homeIn var(--d-small) var(--ease) both; transition: opacity var(--d-small) var(--ease); padding: var(--safe-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+.home { position: fixed; inset: 0; z-index: var(--z-popover); background: var(--bg); overflow: auto; animation: fade-rise var(--d-small) var(--ease) both; transition: opacity var(--d-small) var(--ease); padding: var(--safe-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 .menu-seg { margin: 2px 8px 8px; }
 .btn.menu-btn { width: auto; margin: 2px 8px 8px; gap: 8px; justify-content: center; }
 .btn.menu-btn .bo-ic { stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
@@ -1272,10 +1283,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 /* Command palette */
 .pal-back { position: fixed; inset: 0; z-index: var(--z-dialog); background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding: calc(12vh + var(--safe-top)) 16px 16px; }
 .pal-back[hidden] { display: none; }
-.pal-back { animation: fadeIn var(--d-flip) var(--ease); }
-.pal-back.leaving { pointer-events: none; animation: fadeOut var(--d-flip) var(--ease-in) forwards; }
-.pal-back.leaving .pal { animation: popOut var(--d-flip) var(--ease-in) forwards; }
-.pal { width: min(620px, 100%); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); overflow: hidden; animation: pop var(--d-flip) var(--ease); }
+.pal-back { animation: crossfade var(--d-flip) var(--ease); }
+.pal-back.leaving { pointer-events: none; animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }
+.pal-back.leaving .pal { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
+.pal { width: min(620px, 100%); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); overflow: hidden; animation: scale-settle var(--d-flip) var(--ease); }
 .pal-top { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--hairline); }
 .pal-ic { width: var(--ic-m); height: var(--ic-m); stroke: var(--text-3); fill: none; stroke-width: 1.7; }
 .pal-input { flex: 1; border: 0; outline: none; background: transparent; font-size: var(--fs-16); color: var(--text); }
@@ -1468,7 +1479,6 @@ button.finding { cursor: pointer; }
 #bridges path { fill: none; stroke-linecap: butt; pointer-events: none; }
 #bridges .bridge-gap { stroke: var(--stage-bg, var(--bg)); }
 
-@keyframes fbPop { 0% { transform: scale(.97); opacity: .4; } 100% { transform: none; opacity: 1; } }
 
 /* Bedside monitor */
 .monitor { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--mon-grid); border-radius: var(--r-card); overflow: hidden; border: 1px solid var(--mon-line); box-shadow: inset 0 0 0 1px rgb(var(--white-rgb) / .03); }
@@ -1506,12 +1516,10 @@ button.finding { cursor: pointer; }
 #labels .lb .lb-name, #labels .lb .lb-val, #labels .lb .lb-delta { transition: fill var(--d-surface) var(--ease); }
 #labels .lb.term .lb-name, #labels .lb.term .lb-val, #labels .lb.term .lb-unit, #labels .lb.term .lb-delta { fill: var(--term); }
 #labels .lb.term .lb-name { font-weight: 700; }
-.app.presenting #labels .lb { animation: pz-fade var(--d-surface) var(--ease) both; }
+.app.presenting #labels .lb { animation: crossfade var(--d-surface) var(--ease) both; }
 .app.presenting #stageView { touch-action: none; }   /* no browser pan or pinch on the figure; the slide swipe reads touch events */
 .app.presenting .stage-credit { z-index: calc(var(--z-hud) + 1); }   /* over the slide's veil (outline slides); src/ui/credit.js keeps it clear of the cards */
 .app.presenting.pz-blacked .stage-credit { opacity: 0; }   /* (set with the black screen's own .on, presenter.js toggleBlack) */
-@keyframes pz-fade { from { opacity: 0; } }
-@keyframes pz-in { from { opacity: 0; transform: translateY(14px); } }
 .pz { position: absolute; inset: 0; z-index: var(--z-hud); pointer-events: none; color: var(--text); }
 /* A pane of frosted glass: a crisp edge with a hairline highlight and a soft shadow onto the figure. */
 .pz-shade { --pz-glass-edge: color-mix(in srgb, var(--white) 34%, transparent); --pz-glass-line: color-mix(in srgb, var(--text) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .16); position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: var(--z-figure); pointer-events: none; --gl-glass: 1; --gl-tint: color-mix(in srgb, var(--stage-bg) var(--pz-glass-tint, 56%), transparent); background: var(--gl-tint); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); box-shadow: inset -1px 0 0 var(--pz-glass-edge), 1px 0 0 var(--pz-glass-line), 10px 0 28px -6px var(--pz-glass-drop), 2px 0 6px -1px var(--pz-glass-drop); transition: width var(--d-surface) var(--ease), height var(--d-surface) var(--ease), top var(--d-surface) var(--ease), opacity var(--d-small) var(--ease), filter var(--d-small) var(--ease); }
@@ -1569,11 +1577,10 @@ button.finding { cursor: pointer; }
 .pz-panel.pz-leave { opacity: 0; transform: translateY(-6px); }
 /* The teaching card leaves and arrives like the data card: a fade with a short slide toward its own edge, same timing. */
 .pz-text.pz-leave { opacity: 0; transform: translateX(-18px); }
-@keyframes pz-in-x { from { opacity: 0; transform: translateX(-18px); } }
 /* New cards built and fitted unseen; their entrance plays once they are at their final size. */
 .pz.pz-prep .pz-text > * { animation-play-state: paused !important; }
 /* The teaching card comes in as one piece, like the data card: same pace, same start, no line-by-line stagger. */
-.pz-text.pz-enter > * { animation: pz-in-x var(--d-surface) var(--ease) both; animation-delay: .12s; }
+.pz-text.pz-enter > * { --edge-x: -18px; --edge-o: 0; animation: slide-from-edge var(--d-surface) var(--ease) both; animation-delay: .12s; }
 /* The data card comes in with the words (same pace, same start), never ahead of them. */
 .pz-data:not(.pz-hide) { transition-duration: var(--d-surface); transition-delay: .12s; }
 .pz-text > .pz-leave { opacity: 0; transform: translateX(-18px); transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
@@ -1745,7 +1752,7 @@ button.finding { cursor: pointer; }
 .pz-rail li > i { position: relative; width: 100%; height: .62em; border-radius: .31em; background: var(--site); opacity: .28; transition: opacity var(--d-surface) var(--ease); }
 .pz-rail.all li > i, .pz-rail li.on > i { opacity: 1; }
 /* (the block: the phone ladder's block wrapped round the blocked level's whole bar, a little taller than it, clear of the label) */
-.pz-rail li > i .pz-rail-blk { position: absolute; left: -.12em; top: 50%; width: calc(100% + .24em); height: 1.25em; translate: 0 -50%; overflow: visible; animation: pz-in var(--d-surface) var(--ease) .35s both; }
+.pz-rail li > i .pz-rail-blk { position: absolute; left: -.12em; top: 50%; width: calc(100% + .24em); height: 1.25em; translate: 0 -50%; overflow: visible; animation: fade-rise var(--d-surface) var(--ease) .35s both; }
 .pz-rail { container-type: inline-size; }
 /* (one line each, centred under its bar, all on one baseline; the size follows the column width so the longest name, Postsinusoidal, always fits) */
 .pz-rail .n { display: block; max-width: none; font-size: min(1em, calc((100cqw - 25px) / 6 / 7.9)); font-weight: 600; line-height: 1.15; white-space: nowrap; color: var(--text-3); }
@@ -1891,13 +1898,13 @@ button.finding { cursor: pointer; }
 .pz-case-p { align-self: stretch; margin: 0; text-align: center; font: 500 calc(var(--s-body) * var(--case-k, var(--case-max)))/1.25 var(--font-display); letter-spacing: -.01em; color: var(--text); text-wrap: pretty; }
 .pz-veil { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 92%, transparent); opacity: 0; transition: opacity var(--d-surface) var(--ease); }
 .pz-veil.on { opacity: 1; }
-.pz-panel { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(1560px, calc(100% - 2 * clamp(16px, 3vw, 64px))); max-height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh)), 56px)); overflow: clip; display: flex; flex-direction: column; gap: clamp(12px, calc(2.4 * var(--pzh)), 32px); padding: clamp(18px, calc(3.4 * var(--pzh)), 44px) clamp(20px, 3vw, 52px); background: var(--surface); border: 1px solid var(--border); border-radius: clamp(18px, calc(2.6 * var(--pzh)), 32px); box-shadow: var(--shadow-3); pointer-events: auto; animation: pz-in var(--d-surface) var(--ease) both; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
+.pz-panel { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(1560px, calc(100% - 2 * clamp(16px, 3vw, 64px))); max-height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh)), 56px)); overflow: clip; display: flex; flex-direction: column; gap: clamp(12px, calc(2.4 * var(--pzh)), 32px); padding: clamp(18px, calc(3.4 * var(--pzh)), 44px) clamp(20px, 3vw, 52px); background: var(--surface); border: 1px solid var(--border); border-radius: clamp(18px, calc(2.6 * var(--pzh)), 32px); box-shadow: var(--shadow-3); pointer-events: auto; animation: fade-rise var(--d-surface) var(--ease) both; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
 .pz-panel .pz-ph { display: flex; flex-direction: column; gap: clamp(6px, calc(1.2 * var(--pzh)), 14px); }
 .pz-panel .pz-h { font-size: var(--s-big); }
 .pz-panel .pz-line { max-width: 70ch; }
 /* The opening slide: the deck's own title, centred and large, a short hairline under it; the slide's running head and heading are quieter below. It fades in with the slide. */
 .pz-panel[data-visual="outline"] .pz-ph { align-items: center; text-align: center; gap: clamp(8px, calc(1.4 * var(--pzh)), 16px); padding-top: clamp(4px, calc(1.6 * var(--pzh)), 22px); }
-.pz-panel .pz-dtitle { margin: 0; max-width: 20ch; font: 540 var(--s-title)/1.05 var(--font-display); letter-spacing: -.022em; text-wrap: balance; color: var(--text); animation: pz-in var(--d-surface) var(--ease) both; }
+.pz-panel .pz-dtitle { margin: 0; max-width: 20ch; font: 540 var(--s-title)/1.05 var(--font-display); letter-spacing: -.022em; text-wrap: balance; color: var(--text); animation: fade-rise var(--d-surface) var(--ease) both; }
 .pz-panel .pz-dtitle::after { content: ""; display: block; width: 3rem; height: 2px; margin: .42em auto 0; border-radius: 1px; background: var(--accent); opacity: .55; }
 .pz-panel[data-visual="outline"] .pz-kick { justify-content: center; margin-top: clamp(6px, calc(1.6 * var(--pzh)), 22px); }
 .pz-panel[data-visual="outline"] .pz-ph .pz-h { padding-bottom: 0; font-size: var(--s-body); font-weight: 500; color: var(--text-2); }
@@ -2049,7 +2056,7 @@ button.finding { cursor: pointer; }
 @media (hover: hover) { .pz-table tbody tr.static:hover { background: none; } }
 /* A row still computing shows "…" in its cells; when its patient arrives the numbers fade in. */
 .pz-table td.pend { color: var(--text-3); text-align: center; }
-.pz-table tr[data-arrived] td { animation: pz-fade var(--d-surface) var(--ease) both; }
+.pz-table tr[data-arrived] td { animation: crossfade var(--d-surface) var(--ease) both; }
 /* The visuals: a scale with thresholds, SAAG × protein, the two capillary walls. */
 .pz-visual { min-height: 0; display: flex; justify-content: center; }
 .pz-quadwrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: clamp(16px, 3vw, 52px); align-items: center; }
@@ -2066,7 +2073,7 @@ button.finding { cursor: pointer; }
 .pzq-t { font: 500 25px var(--font-ui); fill: var(--text-3); }
 .pzq-t.on { font-weight: 700; fill: var(--text); }
 .pzq-ax { font: 600 25px var(--font-ui); fill: var(--text-2); }
-.pzq-pt { animation: pz-in var(--d-surface) var(--ease) both; animation-delay: calc(var(--i, 0) * 180ms + 300ms); }
+.pzq-pt { animation: fade-rise var(--d-surface) var(--ease) both; animation-delay: calc(var(--i, 0) * 180ms + 300ms); }
 .pzq-pt circle { fill: var(--site); stroke: var(--surface); stroke-width: 5; }
 .pzq-pt text { font: 700 29px var(--font-ui); fill: var(--text); }
 .pz-quads { display: flex; flex-direction: column; gap: clamp(8px, calc(1.6 * var(--pzh)), 20px); margin: 0; padding: 0; list-style: none; }
@@ -2163,8 +2170,7 @@ button.finding { cursor: pointer; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade.stack { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz-shade.stack { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 .pz.stack .pz-text.pz-leave, .pz.stack .pz-text > .pz-leave { transform: translateY(18px); }
-@keyframes pz-in-y { from { opacity: 0; transform: translateY(18px); } }
-.pz.stack .pz-text.pz-enter > * { animation-name: pz-in-y; }
+.pz.stack .pz-text.pz-enter > * { animation-name: fade-rise; }
 .pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh)), 20px)); left: 21px; right: 21px; top: auto; bottom: calc(max(26px, 65px - var(--pz-lh)) + var(--pz-sb)); margin-block: 0; width: auto; max-height: 62%; gap: 6px; }/* (With a data card under the words, the pair keeps to the top so the card has room.) */
 .pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: var(--s-lab); }
@@ -2615,7 +2621,6 @@ button.finding { cursor: pointer; }
 .pz-bar button.pzb-n[aria-expanded="true"] { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
 @media (hover: hover) { .pz-bar button.pzb-n:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); } }
 .pz-bar .pzb-next.skipping:not(:disabled) { background: var(--accent-soft); }
-@keyframes pz-fade { from { opacity: 0; } }
 .pz-jump { position: absolute; left: 50%; bottom: 88px; translate: -50% 0; width: min(560px, calc(100% - 24px)); max-height: min(70vh, calc(100% - 120px)); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); pointer-events: auto; overflow: hidden; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
 .pz-jump.pz-leave { opacity: 0; transform: translateY(8px); }
 .pzj-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 8px 18px; border-bottom: 1px solid var(--border); font: 600 var(--fs-14) var(--font-ui); color: var(--text-2); }
@@ -2741,7 +2746,7 @@ button.finding { cursor: pointer; }
 }
 
 /* Motion: things arrive, they do not pop. (Reduced motion turns all of it off, above.) */
-.dock-pane.active { animation: lift var(--d-small) var(--ease); }
+.dock-pane.active { animation: fade-rise var(--d-small) var(--ease); }
 .hp-line { transition: stroke var(--d-small) var(--ease); }
 
 /* ── Anatomy plate (2.1): tissue tones, volume, rim light, surface anatomy ─────────
@@ -3112,9 +3117,8 @@ button.finding { cursor: pointer; }
 .cath-sum.cath-travel .cath-brace, .cath-sum.cath-travel .cath-leads { opacity: 0; transition: none; }
 .cath-sum.cath-travel .cath-label.in-sum.calc { --lo: 0; transition: none; } .cath-sum.cath-travel .cath-label.in-sum.calc > * { transition: none; }
 .cath-sum.cath-travel .cath-label.in-sum.calc { translate: 0 6px; }
-@keyframes hvpg-in { from { opacity: 0; translate: 0 5px; } }
-.hvpg-kv dd.in { animation: hvpg-in var(--d-surface) var(--ease); }
-@media (prefers-reduced-motion: reduce) { .hvpg-kv dd.in { animation-name: fadeIn; } }
+.hvpg-kv dd.in { animation: fade-rise var(--d-surface) var(--ease); }
+@media (prefers-reduced-motion: reduce) { .hvpg-kv dd.in { animation-name: crossfade; } }
 /* A small rise from just below, never a scale: scale composes with the positioning transform and would slide the box in from the corner. */
 .cath-label.cath-pre:not(.in-sum), .cath-sum.cath-pre .cath-sum-box { top: 6px; }
 @media (prefers-reduced-motion: reduce) { .cath-label, .cath-label.site, .cath-sum-box { transition-property: opacity; } .cath-label.cath-pre:not(.in-sum), .cath-sum.cath-pre .cath-sum-box { top: 0; } }
@@ -3408,7 +3412,7 @@ button.finding { cursor: pointer; }
   position: absolute; z-index: var(--z-panel); top: calc(var(--top-safe) + 4px); right: calc(env(safe-area-inset-right) + var(--gap));
   width: min(400px, calc(100vw - 2 * var(--gap))); max-height: calc(100% - var(--top-safe) - var(--vdock-h) - 2 * var(--gap) - 12px);
   display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
-  animation: acIn var(--d-flip) var(--ease);
+  animation: scale-settle var(--d-flip) var(--ease);
 }
 .tc-head { flex: none; display: flex; align-items: center; gap: 8px; padding: 10px 8px 6px 16px; }
 .tc-head h2 { margin: 0; font-size: var(--fs-16); font-weight: 600; flex: 1; display: flex; align-items: center; gap: 8px; }
@@ -3473,7 +3477,7 @@ button.finding { cursor: pointer; }
     left: 0; right: 0; bottom: 0; top: auto; height: var(--sheet-size, 56%); border-radius: var(--r-sheet) var(--r-sheet) 0 0;
     padding-bottom: env(safe-area-inset-bottom); z-index: calc(var(--z-panel) + 2); transition: height var(--d-small) var(--ease);
   }
-  .instrument-workspace.float-ui:not(.side).entering { animation: sheetUp var(--d-small) var(--ease); }
+  .instrument-workspace.float-ui:not(.side).entering { --edge-y: 100%; animation: slide-from-edge var(--d-small) var(--ease); }
   .instrument-workspace.float-ui:not(.side).dragging { transition: none; }
   /* FibroScan on the sheet: the map takes the height left under the header and the note (not a fixed height), so its x labels stay inside the sheet. */
   .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="fibroscan"] { padding-top: 10px; padding-bottom: 12px; }
@@ -3494,10 +3498,6 @@ button.finding { cursor: pointer; }
    One system for every floating piece: pills 12 px round, cards 16 px, the same shadow, controls
    40 px high (36 on a phone), and the same short slide when a card opens. */
 .app { --pill-h: 46px; --ctl-h: 40px; }
-@keyframes cardInRight { from { opacity: 0; transform: translateX(16px); } }
-@keyframes cardInUp { from { opacity: 0; transform: translateY(16px); } }
-@keyframes sheetUp { from { transform: translateY(100%); } }
-@keyframes paneIn { from { opacity: 0; transform: translateY(4px); } }
 
 /* The main menu: the first thing in the top bar, named after the current mode. */
 .menu-btn { display: inline-flex; align-items: center; gap: 8px; height: var(--ctl-h); padding: 0 8px 0 4px; border: 0; border-radius: var(--r-card); background: transparent; color: var(--text); cursor: pointer; font: inherit; flex: none; }
@@ -3514,11 +3514,10 @@ button.finding { cursor: pointer; }
 .umenu {
   position: fixed; z-index: var(--z-popover); display: flex; flex-direction: column; width: min(460px, calc(100vw - 24px));
   height: min(640px, calc(100dvh - 76px)); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline);
-  overflow: hidden; animation: pop var(--d-flip) var(--ease); transform-origin: top left;
+  overflow: hidden; animation: scale-settle var(--d-flip) var(--ease); transform-origin: top left;
 }
 .umenu.still { animation: none; }
-.umenu.out { animation: umFade var(--d-flip) var(--ease-in) forwards; pointer-events: none; }
-@keyframes umFade { to { opacity: 0; } }
+.umenu.out { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; pointer-events: none; }
 .um-grab { display: none; }
 .um-top { display: flex; align-items: center; gap: 8px; padding: 10px 10px 8px; border-bottom: 1px solid var(--hairline); }
 .um-search { flex: 1; display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px 0 10px; border-radius: var(--r-control); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--hairline); color: var(--text-3); cursor: text; }
@@ -3540,12 +3539,11 @@ button.finding { cursor: pointer; }
 .um-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .umenu[data-tab="present"] .um-col[data-col="patients"], .umenu[data-tab="patients"] .um-col[data-col="present"] { display: none; }
 .um-col { flex: 1 1 auto; }
-.um-col.um-in { animation: umTabIn var(--d-flip) var(--ease); }
+.um-col.um-in { animation: fade-rise var(--d-flip) var(--ease); }
 /* A sideways swipe pages between the two lists (menu.js swipeTabs): the other list shows beside the open one, over the part in
    view, and the lists slide inside the panel without making it scroll sideways. */
 .um-cols { position: relative; overflow-x: clip; }
 .umenu[data-tab] .um-col[data-col].um-peer { display: block; position: absolute; left: 0; right: 0; overflow: hidden; animation: none; }
-@keyframes umTabIn { from { opacity: 0; transform: translateY(4px); } }
 .um-empty .um-other { display: inline-flex; margin-top: 6px; color: var(--accent-ink); }
 .um-empty .um-other[hidden] { display: none; }
 .umenu:has(.um-empty:not([hidden])) .um-cols { flex: 0 0 auto; }
@@ -3581,7 +3579,7 @@ button.finding { cursor: pointer; }
 @media (hover: hover) { .um-link:hover { background: var(--surface-2); color: var(--text); } }
 .um-link svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .um-note { margin: 4px 8px; font-size: var(--fs-12); color: var(--text-3); line-height: 1.45; }
-.um-note.um-wait { animation: fadeIn var(--d-small) var(--ease) .4s backwards; }   /* (the menu's wait note comes up only if the presentations are slow to arrive: premium-feel R15) */
+.um-note.um-wait { animation: crossfade var(--d-small) var(--ease) .4s backwards; }   /* (the menu's wait note comes up only if the presentations are slow to arrive: premium-feel R15) */
 .um-empty[hidden] { display: none; }
 .um-empty { display: flex; flex-direction: column; align-items: center; margin: 0; padding: 24px 16px; text-align: center; font-size: var(--fs-14); color: var(--text-3); }
 .um-foot { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-top: 1px solid var(--hairline); }
@@ -3590,8 +3588,8 @@ button.finding { cursor: pointer; }
 /* The preview beside the panel (mouse) and under a row (touch). */
 .um-pv { position: fixed; z-index: var(--z-popover); width: 360px; max-width: calc(100vw - 16px); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline); overflow: hidden; opacity: 0; transition: opacity var(--d-flip) var(--ease), height var(--d-flip) var(--ease), top var(--d-flip) var(--ease); }
 .um-pv.on { opacity: 1; }
-.um-pv-in { padding: 0 0 12px; animation: fadeIn var(--d-flip) var(--ease); }
-.um-pv-old { position: absolute; left: 0; right: 0; top: 0; animation: umFade var(--d-flip) var(--ease-in) forwards; }
+.um-pv-in { padding: 0 0 12px; animation: crossfade var(--d-flip) var(--ease); }
+.um-pv-old { position: absolute; left: 0; right: 0; top: 0; animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }
 .um-pv-in.pt { padding-top: 12px; }
 .um-pv-meta { display: flex; align-items: center; gap: 6px; padding: 0 14px; font-size: var(--fs-12); color: var(--text-3); }
 .um-pv-in h3 { margin: 4px 14px 6px; font-size: var(--fs-16); font-weight: 600; line-height: 1.3; }
@@ -3620,11 +3618,11 @@ button.finding { cursor: pointer; }
   .um-kb { display: none; }
 }
 /* Phone: the same content as a bottom sheet, one column, the column headings sticking. */
-.um-scrim { position: fixed; inset: 0; z-index: var(--z-popover); background: var(--scrim-menu); animation: fadeIn var(--d-small) var(--ease); }
-.um-scrim.out { animation: umFade var(--d-small) var(--ease-in) forwards; }
-.umenu.sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto; height: 88dvh; max-height: none; border-radius: var(--r-sheet) var(--r-sheet) 0 0; animation: sheetUp var(--d-small) var(--ease); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.um-scrim { position: fixed; inset: 0; z-index: var(--z-popover); background: var(--scrim-menu); animation: crossfade var(--d-small) var(--ease); }
+.um-scrim.out { animation: crossfade-out var(--d-small) var(--ease-in) forwards; }
+.umenu.sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto; height: 88dvh; max-height: none; border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: slide-from-edge var(--d-small) var(--ease); padding-bottom: env(safe-area-inset-bottom, 0px); }
 .umenu.sheet.still { animation: none; }
-.umenu.sheet.out { animation: sheetDown var(--d-small) var(--ease-in) forwards; }
+.umenu.sheet.out { animation: slide-to-edge var(--d-small) var(--ease-in) forwards; }
 /* Upright (over the thumb dock) the shared sheet swipe moves it by --sink (util.js swipeSheet): it follows the finger down. */
 html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
 .umenu.sheet .um-grab { display: block; flex: none; height: 16px; position: relative; touch-action: none; }
@@ -3694,13 +3692,10 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
 .action-card:not(.docked) { max-height: calc(100% - var(--top-safe) - var(--bot-occ, 120px) - 16px); }
 
 /* Cards on the right stack side by side instead of covering each other. */
-.treat-card { right: calc(env(safe-area-inset-right) + var(--gap) + var(--panel-occ, 0px) + var(--instr-occ, 0px)); animation: cardInRight var(--d-small) var(--ease); }
-.app.panel-open .panel { animation: cardInRight var(--d-small) var(--ease); }
+.treat-card { right: calc(env(safe-area-inset-right) + var(--gap) + var(--panel-occ, 0px) + var(--instr-occ, 0px)); }
 
 /* ── Instruments ───────────────────────────────────── */
 .instrument-workspace.float-ui { container-name: ws; container-type: inline-size; border-top: 0; }
-.instrument-workspace.float-ui.entering { animation: cardInUp var(--d-small) var(--ease); }
-.instrument-workspace.float-ui.side.entering { animation: cardInRight var(--d-small) var(--ease); }
 .instrument-workspace.side {
   left: auto !important; right: calc(env(safe-area-inset-right) + var(--gap) + var(--panel-occ, 0px)) !important;
   top: calc(var(--top-safe) + 4px); bottom: calc(var(--vdock-h) + var(--gap) + 8px); width: var(--instrument-w, 480px); height: auto;
@@ -3725,7 +3720,7 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
 .instrument-workspace .dock-body { border-top: 1px solid var(--hairline); }
 .instrument-workspace .dock-body.stack { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); }
 .instrument-workspace .dock-body.stack .dock-pane + .dock-pane { border-left: 0; border-top: 1px solid var(--hairline); }
-.instrument-workspace .dock-pane.active { animation: paneIn var(--d-flip) var(--ease); }
+.instrument-workspace .dock-pane.active { animation: fade-rise var(--d-flip) var(--ease); }
 .instrument-workspace .dock-pane.active.landed { animation: none; }   /* (swiped in: already in place, dock.js endSwipe) */
 /* The pane a tapped tab leaves fades out where it stood, over the new pane fading in (dock.js paneOut). */
 .instrument-workspace .dock-pane.pane-out:not(.active) { display: flex; flex-direction: column; gap: 12px; position: absolute; inset: 0; z-index: 1; pointer-events: none; }
@@ -3957,9 +3952,8 @@ input[type="range"] { touch-action: none; }
   background: var(--surface); color: var(--text); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap;
 }
 @media (hover: hover) { .tl-hist:hover { border-color: var(--border-strong); background: var(--surface-2); } }
-@keyframes badgeIn { from { opacity: 0; transform: scale(.6); } }
 .tl-hc:empty { display: none; }   /* an empty badge would still take a grid row and push the clock icon up */
-.tl-hc:not(:empty) { animation: badgeIn var(--d-small) var(--ease); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
+.tl-hc:not(:empty) { animation: scale-settle var(--d-small) var(--ease); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
 /* Events: a colored flag standing on the rail, so they read apart from the learner's changes. */
 .tl-pop-empty { margin: 0; padding: 8px; font-size: var(--fs-14); color: var(--text-2); }
 .tl-pop-row.future { opacity: .5; }
@@ -4045,16 +4039,14 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .card-head .card-close.card-close { display: inline-grid; place-items: center; flex: none; width: 36px; height: 36px; margin: 0; }
 .panel .panel-head { border-radius: var(--r-sheet) var(--r-sheet) 0 0; }
 
-.panel, .treat-card, .instrument-workspace.float-ui { --card-in: cardInRight; --card-out: cardOutRight; --card-t: var(--d-small); }
-@keyframes cardOutRight { to { opacity: 0; transform: translateX(16px); } }
-@keyframes sheetDown { to { transform: translateY(100%); } }
+.panel, .treat-card, .instrument-workspace.float-ui { --card-in: slide-from-edge; --card-out: slide-to-edge; --edge-x: 16px; --edge-o: 0; --card-t: var(--d-small); }
 .panel { transform: none; transition: opacity var(--d-surface, .42s) var(--ease); }   /* (it had no transition at all, so it snapped to its dim) */
 .app.panel-open .panel { visibility: visible; animation: var(--card-in) var(--card-t) var(--ease); }
 .treat-card { animation: var(--card-in) var(--card-t) var(--ease); }
 .instrument-workspace.float-ui.entering, .instrument-workspace.float-ui.side.entering { animation: var(--card-in) var(--card-t) var(--ease); }
 #panel.card-leaving, #treatCard.card-leaving, #historyCard.card-leaving, #dock.card-leaving { display: flex !important; visibility: visible !important; pointer-events: none; animation: var(--card-out) var(--d-flip) var(--ease-in) forwards !important; }
 @media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
-  .panel, .treat-card, .instrument-workspace.float-ui:not(.side) { --card-in: sheetUp; --card-out: sheetDown; --card-t: var(--d-small); }
+  .panel, .treat-card, .instrument-workspace.float-ui:not(.side) { --card-in: slide-from-edge; --card-out: slide-to-edge; --edge-x: 0px; --edge-y: 100%; --edge-o: 1; --card-t: var(--d-small); }
   .panel, .treat-card { transform: none; transition: height var(--d-small) var(--ease), opacity var(--d-surface, .42s) var(--ease); }
   .panel .panel-head { touch-action: none; border-radius: 0; }
 }
@@ -4162,10 +4154,8 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .action-card.docked .ac-seg { display: flex; flex-wrap: wrap; }
 .action-card.docked .ac-seg button { min-height: 32px; }
 
-@keyframes acSheetIn { from { opacity: 0; transform: translateY(calc(100% + 12px)); } to { opacity: 1; transform: translateY(0); } }
-@keyframes acSheetOut { to { opacity: 0; transform: translateY(calc(100% + 12px)); } }
-.action-card.docked { animation: acSheetIn var(--d-small) var(--ease); }
-.action-card.docked.ac-leaving { pointer-events: none; animation: acSheetOut var(--d-flip) var(--ease-in) forwards; }   /* (its .18s: the play bar's return waits for it, timeline-return.test.js) */
+.action-card.docked { --edge-y: calc(100% + 12px); --edge-o: 0; animation: slide-from-edge var(--d-small) var(--ease); }
+.action-card.docked.ac-leaving { pointer-events: none; animation: slide-to-edge var(--d-flip) var(--ease-in) forwards; }   /* (its .18s: the play bar's return waits for it, timeline-return.test.js) */
 
 /* Lobule station labels share a centred anchor; leaders terminate behind the text. */
 .lz-lab { text-align: center; border-left: 0; padding: 2px 5px 4px; }
@@ -4254,8 +4244,8 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
    and settles just below them, then slides back up. The clipping wrap hides the part still "behind" the bars.
    It stays below menus, so a menu is never covered. */
 .toast-wrap.docked { transform: none; z-index: calc(var(--z-popover) - 1); display: block; padding: 0; overflow: hidden; height: 130px; pointer-events: none; }
-.toast-wrap.docked .toast { position: absolute; left: 20px; right: 20px; top: 6px; height: 52px; box-shadow: 0 2px 10px rgb(var(--black-rgb) / .14), inset 0 0 0 1px var(--hairline); max-width: none; padding: 4px 40px; justify-content: center; align-items: center; text-align: center; font-weight: 600; line-height: 1.2; border-radius: var(--r-sheet); background: var(--surface); pointer-events: auto; animation: toastDown var(--d-surface) var(--ease) both; }
-.toast-wrap.docked .toast.leaving { animation: toastUp var(--d-small) var(--ease-in) forwards; }
+.toast-wrap.docked .toast { position: absolute; left: 20px; right: 20px; top: 6px; height: 52px; box-shadow: 0 2px 10px rgb(var(--black-rgb) / .14), inset 0 0 0 1px var(--hairline); max-width: none; padding: 4px 40px; justify-content: center; align-items: center; text-align: center; font-weight: 600; line-height: 1.2; border-radius: var(--r-sheet); background: var(--surface); pointer-events: auto; --edge-y: calc(-100% - 12px); animation: slide-from-edge var(--d-surface) var(--ease) both; }
+.toast-wrap.docked .toast.leaving { animation: slide-to-edge var(--d-small) var(--ease-in) forwards; }
 .toast-wrap.docked .toast-msg { flex: 0 1 auto; max-width: 100%; text-align: center; white-space: normal; overflow-wrap: anywhere; overflow: hidden; }
 .toast-wrap.docked .toast-x { position: absolute; top: 50%; right: 8px; margin: -11px 0 0; }
 /* A card with buttons (the engine stopped): the words on one line, the buttons centred under them. */
@@ -4263,11 +4253,9 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .toast-acts { display: inline-flex; flex: none; gap: 8px; }
 .toast-wrap.docked .toast.has-acts { align-content: center; row-gap: 6px; }
 .toast-wrap.docked .toast.has-acts .toast-msg { flex-basis: 100%; }
-@keyframes toastDown { from { transform: translateY(calc(-100% - 12px)); } to { transform: none; } }
-@keyframes toastUp { from { transform: none; } to { transform: translateY(calc(-100% - 12px)); } }
 @media (prefers-reduced-motion: reduce) {
-  .toast-wrap.docked .toast { animation: fade var(--d-small) var(--ease) both; }
-  .toast-wrap.docked .toast.leaving { animation: fade var(--d-flip) var(--ease-in) reverse forwards; }
+  .toast-wrap.docked .toast { animation: crossfade var(--d-small) var(--ease) both; }
+  .toast-wrap.docked .toast.leaving { animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }
 }
 
 .vdock .stage-bar.bottom { height: auto; min-height: 60px; }
@@ -4343,9 +4331,8 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .app.figure-focus .topbar.two-rows .stage-bar.top { opacity: 0; visibility: hidden; transform: translateY(-8px); pointer-events: none; }
 
 /* Turning "Always show HVPG" on or off: its readouts fade to the new state (opacity only). */
-@keyframes hvpgSwap { from { opacity: .1; } }
 body.hvpg-swap .metric[data-id="hvpg"] > :not(.k), body.hvpg-swap .pt canvas, body.hvpg-swap .pt-hero .pt-v, body.hvpg-swap .pt-hero .pt-sev,
-body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap var(--d-surface) var(--ease) both; }
+body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var(--d-surface) var(--ease) both; }
 @media (prefers-reduced-motion: reduce) { body.hvpg-swap .metric[data-id="hvpg"] > :not(.k), body.hvpg-swap .pt canvas, body.hvpg-swap .pt-hero .pt-v, body.hvpg-swap .pt-hero .pt-sev, body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: none; } }
 /* Phone: a slimmer card header. The title is centred on the row; the close button sits in the
    right corner with a 44px tap area inside the header row, clear of the tabs under it;
@@ -4371,8 +4358,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap var(
 @media (hover: hover) { .ps-btn:hover { color: var(--text); } }
 .ps-btn[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(var(--night-rgb) / .12), 0 0 0 .5px var(--hairline); }
 .ps-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-@keyframes pane-fade { from { opacity: 0; } to { opacity: 1; } }
-.instrument-workspace .dock-pane.active:is([data-pane="profile"], [data-pane="scope"]) { animation: pane-fade var(--d-small) var(--ease); }
+.instrument-workspace .dock-pane.active:is([data-pane="profile"], [data-pane="scope"]) { animation: crossfade var(--d-small) var(--ease); }
 
 /* Treat's Drugs / Fluids / Procedures tabs reuse the Tests card's tab row (.instr-tabs); the pane under it needs no extra top gap. */
 .treat-card .instr-tab { flex: 1 1 0; }
@@ -4389,7 +4375,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap var(
 @container treatpane (min-width: 760px) { .treat-pane > .order-grid:not(.three) { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
 /* A plain bordered card */
-.sp { padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); display: flex; flex-direction: column; gap: 12px; animation: lift var(--d-surface) var(--ease) both; }
+.sp { padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); display: flex; flex-direction: column; gap: 12px; animation: fade-rise var(--d-surface) var(--ease) both; }
 .sp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 
 /* ── The final assessment (exam.js) ── */
@@ -4428,9 +4414,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap var(
 /* The presenter's start: a calm cover while the projector layout, the first patient and the first slide are set up. */
 .pz-cover { position: fixed; inset: 0; z-index: 2147483000; display: grid; place-items: center; background: var(--stage-bg); opacity: 0; pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
 .pz-cover.on { opacity: 1; pointer-events: auto; transition-duration: var(--d-small); }
-.pz-cover i { width: 30px; height: 30px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text) 12%, transparent); border-top-color: color-mix(in srgb, var(--text) 52%, transparent); opacity: 0; animation: pz-spin 1.1s linear infinite, pz-cover-i var(--d-surface) var(--ease) .9s forwards; }
-@keyframes pz-cover-i { to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .pz-cover, .pz-cover.on { transition: none; } .pz-cover i { animation: pz-cover-i .01s 1.2s forwards; } }
+.pz-cover i { width: 30px; height: 30px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text) 12%, transparent); border-top-color: color-mix(in srgb, var(--text) 52%, transparent); animation: pz-spin 1.1s linear infinite, crossfade var(--d-surface) var(--ease) .9s backwards; }
+@media (prefers-reduced-motion: reduce) { .pz-cover, .pz-cover.on { transition: none; } .pz-cover i { animation: crossfade .01s 1.2s backwards; } }
 .pz-load { position: absolute; left: var(--pz-l, 0px); right: var(--pz-r, 0px); top: var(--pz-t, 0px); bottom: var(--pz-b, 0px); display: grid; place-items: center; pointer-events: none; opacity: 0; transition: opacity var(--d-surface) var(--ease); }
 .pz-load.on { opacity: 1; transition-delay: .12s; }
 .pz-load i { width: 30px; height: 30px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text) 12%, transparent); border-top-color: color-mix(in srgb, var(--text) 52%, transparent); animation: pz-spin 1.1s linear infinite; }
@@ -4439,7 +4424,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap var(
 .pz-load.idle i { animation: none; }   /* faded out: the spinner rests (presenter.js), so nothing turns unseen through the talk */
 
 /* Home: the sheet eases in and out, and a page change inside it fades and rises (never a pop). */
-@keyframes homeIn { from { opacity: 0; transform: translateY(10px); } }
 .home.leaving { opacity: 0; pointer-events: none; }
 
 /* The Presenter's reflowing scale (scaleKey): zone names over a band, cut-offs under it, numbered dots, a key. */
@@ -4790,7 +4774,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap var(
 /* Scope and its Wall mechanics tab share one layout that fills the card: the picture takes all the height the
    readings leave, with its caption under it (never over it). Wider than tall: picture beside the readings;
    taller: picture above them. */
-.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view { flex: 1 1 auto; min-height: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, min(360px, 50%)); grid-template-rows: minmax(auto, 1fr) auto auto; gap: 10px 18px; animation: endo-in var(--d-small) var(--ease); }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view { flex: 1 1 auto; min-height: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, min(360px, 50%)); grid-template-rows: minmax(auto, 1fr) auto auto; gap: 10px 18px; animation: crossfade var(--d-small) var(--ease); }
 .instrument-workspace .dock-pane[data-pane="endoscopy"][data-sub="wall"] > .instrument-view:not(.wall-view),
 .instrument-workspace .dock-pane[data-pane="endoscopy"]:not([data-sub="wall"]) > .wall-view { display: none; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] .chart-side { display: contents; }
@@ -4869,7 +4853,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap var(
 .endo-num small { font-size: var(--fs-12); font-weight: 500; color: var(--text-2); }
 .wall-law { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .wall-formula { font: 650 var(--fs-16) var(--font-ui); letter-spacing: .02em; color: var(--text); }
-@keyframes endo-in { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view { animation: none; } }
 /* A short phone sheet (Safari's toolbar showing): the traces give up some height. */
 @container (max-height: 300px) and (max-width: 649px) {
@@ -6387,33 +6370,14 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* Reduce Motion (P3): the same keyframes without the movement, so every entrance and exit still fades. (A @keyframes in a
    matching media query replaces the one of the same name above.) Loops that only move stop; spinners breathe instead. */
 @media (prefers-reduced-motion: reduce) {
-  @keyframes rise { from { opacity: 0; } }
-  @keyframes lift { from { opacity: 0; } }
-  @keyframes fadeDown { from { opacity: 0; } }
-  @keyframes pop { from { opacity: 0; } }
-  @keyframes popOut { to { opacity: 0; } }
-  @keyframes acIn { from { opacity: 0; } }
-  @keyframes acOut { to { opacity: 0; } }
-  @keyframes fbPop { from { opacity: .4; } }
-  @keyframes pz-in { from { opacity: 0; } }
-  @keyframes pz-in-x { from { opacity: 0; } }
-  @keyframes pz-in-y { from { opacity: 0; } }
-  @keyframes hvpg-in { from { opacity: 0; } }
-  @keyframes cardInRight { from { opacity: 0; } }
-  @keyframes cardInUp { from { opacity: 0; } }
-  @keyframes cardOutRight { to { opacity: 0; } }
-  @keyframes sheetUp { from { opacity: 0; } }
-  @keyframes sheetDown { to { opacity: 0; } }
-  @keyframes paneIn { from { opacity: 0; } }
-  @keyframes umTabIn { from { opacity: 0; } }
-  @keyframes acSheetIn { from { opacity: 0; } }
-  @keyframes acSheetOut { to { opacity: 0; } }
-  @keyframes toastDown { from { opacity: 0; } }
-  @keyframes toastUp { to { opacity: 0; } }
-  @keyframes homeIn { from { opacity: 0; } }
+  @keyframes fade-rise { from { opacity: 0; } }
+  @keyframes fade-rise-out { to { opacity: 0; } }
+  @keyframes slide-from-edge { from { opacity: 0; } }
+  @keyframes slide-to-edge { to { opacity: 0; } }
+  @keyframes scale-settle { from { opacity: 0; } }
+  @keyframes scale-settle-out { to { opacity: 0; } }
   @keyframes thumbIn { from { opacity: 0; } }
   @keyframes thumbOut { to { opacity: 0; } }
-  @keyframes badgeIn { from { opacity: 0; } }
   @keyframes spin { 50% { opacity: .35; } }
   @keyframes pz-spin { 50% { opacity: .35; } }
   @keyframes pzw-drift { }
@@ -6694,7 +6658,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-t { fill: var(--text-2); font-weight: 600; font-variant-numeric: tabular-nums; }
 .pze-t.on { fill: var(--text); font-weight: 700; }
 .pze-ax { fill: var(--text-2); font-weight: 500; }
-.pze-pt { animation: pz-in var(--d-surface) var(--ease) both; animation-delay: calc(var(--i, 0) * 140ms + 200ms); }
+.pze-pt { animation: fade-rise var(--d-surface) var(--ease) both; animation-delay: calc(var(--i, 0) * 140ms + 200ms); }
 .pze-pt circle { fill: var(--site, var(--text-2)); stroke: var(--surface); stroke-width: 3; }
 .pze-pt text { fill: var(--text); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .pze-lead { stroke: var(--text-2); stroke-width: 1; opacity: .7; }
@@ -6733,7 +6697,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-table.pz-table td.pze-wcell { padding-inline: max(.5em, 6px); }
 .pz-table.pz-table td.pze-wcell { padding-right: max(.75em, 10px); }   /* (the trace ends clear of the table's edge, as far in as the row names start on the left, on every size) */
 .pze-wbox { display: block; width: 6.5em; max-width: 100%; min-width: min(4em, 100%); height: 2.2em; margin-inline: auto; }
-.pze-wbox.pze-in { animation: pz-fade var(--d-surface) var(--ease) both; }
+.pze-wbox.pze-in { animation: crossfade var(--d-surface) var(--ease) both; }
 .pze-wave { display: block; width: 100%; height: 100%; overflow: visible; }
 .pze-wb { stroke: var(--text-3); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .pze-wt, .pze-wa { fill: none; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }

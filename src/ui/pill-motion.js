@@ -11,7 +11,7 @@
 // and one fold taking over from another starts from wherever the buttons and the face are drawn at that moment.
 
 // (The glide rides the camera's curve, the quintic of ease.js, and its CSS copy is --ease-move: one curve for a move, premium-feel R3.)
-import { easeMove, D_SURFACE, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=387660d4ad';
+import { easeMove, D_SURFACE, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=615d96d663';
 export const easeIO3 = easeMove;
 export const EASE_IO3 = EASE_MOVE;
 // The fold is quicker than the zoom it plays in (17 Oct, Mohammad: "should be faster and eased"), on the app's own ease

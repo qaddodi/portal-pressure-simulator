@@ -8,7 +8,7 @@
 // a glide is still playing is the true layout and an interrupted glide continues from where it was.
 // Nothing moves on a window resize or with reduced motion: the bar just takes its new layout.
 import { frameFor } from './frame.js?v=31d41c47b6';
-import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=387660d4ad';
+import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
 const nextFrame = frameFor('topbar-motion');
 
 const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > button, .sb-right > *, .top-right, .top-right > *';
