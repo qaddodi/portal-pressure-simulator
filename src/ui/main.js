@@ -2,24 +2,24 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { startHost, host } from './host.js?v=9ec2108104';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=2911ac678c';
-import { createStage } from './stage.js?v=316402a99f';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=a926bea9d4';
+import { createStage } from './stage.js?v=aa31711377';
 import { createCreditPlacer } from './credit.js?v=17df482689';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=e17d1e3ac0';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=50896c4b22';
-import { setHvpgStage } from './hvpg-proc.js?v=0ea73d80cf';
+import { createInspector } from './inspector.js?v=36412f5305';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=40df93f21c';
+import { setHvpgStage } from './hvpg-proc.js?v=45e4fb2cf1';
 import { createWhy } from './why.js?v=0ea1d3b5e8';
-import { createTimeline, LAPSES } from './timeline.js?v=46ffeb4b41';
-import { createCompare } from './compare.js?v=dfe188af6a';
-import { createCard } from './card.js?v=f903d5a170';
-import { createChart } from './chart.js?v=51e4b4a76b';
-import { createMenu } from './menu.js?v=ba1b67c609';
-import { caption } from './a11y.js?v=c004282b29';
+import { createTimeline, LAPSES } from './timeline.js?v=aa40ea4b2f';
+import { createCompare } from './compare.js?v=edf3f0bad0';
+import { createCard } from './card.js?v=6213ae0103';
+import { createChart } from './chart.js?v=a9413e8d47';
+import { createMenu } from './menu.js?v=8aa4a861fb';
+import { caption } from './a11y.js?v=6919bc9692';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=d356c69a8d';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=4674d50d8d';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=197dfb008b';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
@@ -104,8 +104,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=a6b1eb90fe'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=1da4581e17'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=ebb8a8a684'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=4c073b1e5e'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -178,7 +178,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=5a49307404'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=7370799811'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -186,7 +186,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=c4d6c023a0'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=e7a66df381'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -546,13 +546,11 @@ function buildHud() {
   let saved = null;
   // (pps.blood2: chevrons became the default, so a choice saved under the old default starts over.)
   try { saved = JSON.parse(localStorage.getItem('pps.blood2') || 'null'); } catch { /* storage unavailable */ }
-  const blood = { look: 'auto', phasic: false, chevrons: true, ...(saved && typeof saved === 'object' ? saved : {}) };
+  const blood = { look: 'shimmer', phasic: false, chevrons: true, ...(saved && typeof saved === 'object' ? saved : {}) };
   delete blood.origin;   // now the Blood origin lens
   const asked = (new URLSearchParams(location.search).get('blood') || '').split(',');
   if (asked.includes('chevrons')) blood.chevrons = true;
-  // The Blood menu offers streaks and chevrons only; the streaks are beads close up and the shimmer far out ('auto': veins-gl.js
-  // lookOf, ?bloodzoom=0 for the shimmer alone).
-  blood.look = 'auto'; blood.phasic = false;
+  blood.look = 'shimmer'; blood.phasic = false;   // the Blood menu offers streaks and chevrons only
   store.set({ blood });
   store.on('blood', (v) => {
     try { localStorage.setItem('pps.blood2', JSON.stringify(v)); } catch { /* storage unavailable */ }

@@ -20,7 +20,7 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { runFlick, FLICK } from './flick.js?v=faef51b93d';
-import { store } from './store.js?v=2911ac678c';
+import { store } from './store.js?v=a926bea9d4';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
@@ -35,9 +35,9 @@ import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, use
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=b061aaaabb';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=197dfb008b';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=d493f3ae1e';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=668f0a93ce';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=ac26170d49';
-import { createSinusoidView } from './sinusoid-view.js?v=a2fa458ab2';
+import { createSinusoidView } from './sinusoid-view.js?v=a8b7a2c9d9';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab } from './frame.js?v=d389474997';
 import { createGlassGL } from './glass-gl.js?v=671f15ea7b';
 import { pillOf, pillLabels } from './lz-pills.js?v=670139934d';
@@ -2658,7 +2658,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // only with a class, the theme or a system setting, not on every frame.)
     if (cs !== lookCs) { lookCs = cs; lookNow = lookOf(cs); lookSig = JSON.stringify(lookNow); }
     const look = lookNow, lsig = lookSig;
-    const blood = { alpha: flowA, on: bloodOn && flowA > 0.002, chev: chev && flowA > 0.002, look: b.look || 'auto', chevZoom: !(st.presenting || b.keyChevrons), origin, clock, dye: false, bleed: [], vdpr: k, ...bloodColors() };   // (vdpr: canvas px per CSS px, which the chevrons' size is set in)
+    const blood = { alpha: flowA, on: bloodOn && flowA > 0.002, chev: chev && flowA > 0.002, look: b.look || 'shimmer', origin, clock, dye: false, bleed: [], vdpr: k, ...bloodColors() };   // (vdpr: canvas px per CSS px, which the chevrons' size is set in)
     // A whole redraw of the vessel layer is by far the heaviest thing the lobule draws (about 150 plain fills of the
     // canvas); when only some vessels' attributes changed, only their cells are drawn again, to the same picture.
     if (glDirty || dk !== drawKey || lsig !== glLook) {

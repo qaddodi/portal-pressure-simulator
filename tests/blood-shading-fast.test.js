@@ -57,30 +57,21 @@ test('every build of the composite has balanced brackets once its #if blocks are
   }
 });
 
-test('the classic build is the composite as it was: the bead look, every layer under a lumen, every cut-out tested', () => {
-  for (const k of ['classic', 'classicPlain']) {
-    assert.match(R[k], /uniform int look;/);
-    assert.match(R[k], /float bw = look == 0 \? 1\.0 : /);
-    assert.match(R[k], /const bool under = true;/);
-  }
+test('the classic build is the composite as it was: every layer under a lumen, every cut-out tested', () => {
+  for (const k of ['classic', 'classicPlain']) assert.match(R[k], /const bool under = true;/);
 });
 
-test('every build draws the beads close up and the shimmer far out (look 2), or the one asked for; ?bloodzoom=0 the shimmer alone', () => {
-  // (Combined plan B3, 31 Oct, approved by Mohammad: the fast build drew the shimmer alone before.)
+test('every build draws the streaks alone, at every zoom: no bead look anywhere, not even as a setting (Mohammad, 31 Oct)', () => {
   for (const k of ['fast', 'fastPlain', 'classic', 'classicPlain']) {
-    assert.match(R[k], /uniform int look;/);
-    assert.doesNotMatch(R[k], /const int look = 1;/);
-    assert.match(R[k], /float bw = look == 0 \? 1\.0 : look == 1 \? 0\.0 : smoothstep\(4\.0, 7\.0, R \/ \(pxW \* cssPx\)\);/);
-    assert.match(R[k], /if \(bw <= 0\.0\) return sh;/);
+    assert.doesNotMatch(R[k], /\blook\b/);
+    assert.doesNotMatch(R[k], /beadField|\bbw\b|chevZoom/);
+    // (the bead's stagnant-blood noise went with it)
+    assert.doesNotMatch(R[k], /1 << 20/);
   }
-  const { lookOf } = mod;
-  assert.equal(lookOf({ look: 'auto' }, true), 2);
-  assert.equal(lookOf({ look: 'auto' }, false), 1, 'with ?bloodzoom=0 the app\'s look is the shimmer, as before');
-  assert.equal(lookOf({ look: 'shimmer' }, true), 1);
-  assert.equal(lookOf({ look: 'parcels' }, true), 0);
-  // The app asks for the look by size (main.js; the lobule defaults to it).
-  assert.match(readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), /blood\.look = 'auto';/);
-  assert.match(readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), /look: b\.look \|\| 'auto'/);
+  assert.equal(mod.lookOf, undefined);
+  // The app asks for the streaks (main.js forces them; the lobule defaults to them).
+  assert.match(readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), /blood\.look = 'shimmer';/);
+  assert.match(readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), /look: b\.look \|\| 'shimmer'/);
 });
 
 test('the fast build skips the layers under an opaque vessel pixel, and only those', () => {
@@ -305,10 +296,10 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
   for (const x of ['m, PW(), PH()', 'pm', 'plate?.alpha', 'plate?.sat', 'plates[0]?.rect', 'plates[1]?.rect', 'fluidRect', 'fl?.s', 'fl.ink', 'fl?.lv',
     'blood.on', 'blood.chev', 'blood.still', 'blood.alpha', 'blood.streakA', 'blood.chevA', 'blood.originA', 'blood.chevInk', 'blood.chevLight', 'blood.vdpr',
     'blood.origin', 'dyeAny', 'originColOf', 'blood.dyeCol', 'blood.revCol', 'blood.inkLight', 'blood.inkDark', 'ncv', 'nc.length', 'hb', 'hr', 'ho.length',
-    'lookOf(blood)', 'blood.chevZoom', 'layer', 'glow', 'warm', 'useStack', 'bare', 'texVer']) assert.ok(sig.includes(x), x);
+    'BLOOD_SAT', 'layer', 'glow', 'warm', 'useStack', 'bare', 'texVer']) assert.ok(sig.includes(x), x);
   const uniforms = [...comp.matchAll(/gl\.uniform\w+\(U\.(\w+)/g)].map((m) => m[1]);
   for (const u of uniforms) assert.ok(['world', 'size', 'cell', 'inv', 'H', 'pxW', 'plates', 'plateAlpha', 'plateSat', 'plateRect0', 'plateRect1', 'fluidRect', 'fluidS', 'fluidInk', 'fluidLv',
-    'blood', 'chev', 'still', 'flowA', 'blendA', 'chevInk', 'chevLight', 'cssPx', 'look', 'sat', 'chevZoom', 'origin', 'dyeOn', 'clock', 'rows', 'originCol', 'dyeCol', 'revCol', 'inkLight', 'inkDark',
+    'blood', 'chev', 'still', 'flowA', 'blendA', 'chevInk', 'chevLight', 'cssPx', 'sat', 'origin', 'dyeOn', 'clock', 'rows', 'originCol', 'dyeCol', 'revCol', 'inkLight', 'inkDark',
     'bleedE', 'bleedB', 'bleedN', 'noChev', 'noChevN', 'chevHole', 'chevHoleR', 'chevHoleN', 'bloodOnly', 'stillOn'].includes(u), `uniform ${u} is accounted for`);
   // The rows and this picture's uniforms are taken as the last picture's only once it is drawn.
   assert.ok(comp.indexOf('moved.fill(0); movedAll = false;') > comp.indexOf('gl.uniform1i(U.bloodOnly, 1);'));
