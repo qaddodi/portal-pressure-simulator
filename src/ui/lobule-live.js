@@ -301,6 +301,11 @@ float lvStrand(vec2 p, vec2 x0, vec2 u, vec2 nn, float len, float w0, float bow,
   return best;
 }
 float lvCov(float d, float px) { return clamp(0.5 - d / px, 0.0, 1.0); }
+// A filled shape thinner than a pixel (wpx: its width in device px): lvCov spreads it over about a pixel each way, so the thinner it is
+// the more its weight overshoots its real area. Scaled by this, which is 1 from a pixel wide and 4w/(1+w)² below (the weight a line of
+// that width has once it is spread), detail smaller than a pixel fades out as it shrinks instead of shimmering. (Lines have their own:
+// lvLine.)
+float lvThin(float wpx) { float q = min(wpx, 1.0); return 4.0 * q / ((1.0 + q) * (1.0 + q)); }
 float lvLine(float d, float hw, float px) { float h = max(hw, 0.5 * px); return clamp(0.5 - (abs(d) - h) / px, 0.0, 1.0) * min(1.0, hw / h); }
 float lvHex(vec2 p, float k) { float m = -1e9; for (int i = 0; i < 6; i++) m = max(m, dot(uLEdge[i].xy, p - uLCtr) - k * uLEdge[i].z); return m; }
 vec4 lvOver(vec4 s, vec4 d) { return s + d * (1.0 - s.a); }
@@ -379,7 +384,7 @@ vec4 lvItem(vec2 wp, float px, int o, vec4 acc) {
     vec2 d = wp - n0.xy;
     float ca = cos(n1.x), sa = sin(n1.x);
     vec2 lp = vec2(ca * d.x + sa * d.y, -sa * d.x + ca * d.y);
-    acc = lvOver(lvTint(uLShade.rgb, 0.32 * a) * (lvCov(lvEll(lp, n0.zw), px) * cl), acc);
+    acc = lvOver(lvTint(uLShade.rgb, 0.32 * a) * (lvCov(lvEll(lp, n0.zw), px) * lvThin(2.0 * min(n0.z, n0.w) / px) * cl), acc);
   }
   return acc;
 }
@@ -483,8 +488,8 @@ vec4 liveTissue(vec2 w) {
           sd = min(sd, lvStrand(wp, x0, u * sg, nn, L * (2.0 + 0.6 * ac), Wb * 0.55, 0.45, rs0));
           sd = min(sd, lvStrand(wp, x0, u * sg, nn, L * (1.1 + 0.4 * ac), Wb * 0.35, -0.25, rs0));
         }
-        acc = lvOver(lvTint(uLHB.rgb, uLHB.a) * (lvCov(sd, px) * clipC), acc);
-        acc = lvOver(lvTint(uLHN.rgb, uLHN.a) * (lvCov(lvEll(lp, vec2(L * 0.26, Wb * 0.5)), px) * clipC), acc);
+        acc = lvOver(lvTint(uLHB.rgb, uLHB.a) * (lvCov(sd, px) * lvThin(2.0 * Wb / px) * clipC), acc);
+        acc = lvOver(lvTint(uLHN.rgb, uLHN.a) * (lvCov(lvEll(lp, vec2(L * 0.26, Wb * 0.5)), px) * lvThin(Wb / px) * clipC), acc);
       }
     }
   }

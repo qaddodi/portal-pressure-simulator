@@ -28,8 +28,8 @@ import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-mode
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL } from './field-gl.js?v=779561d5dd';
-import { createTissueGL } from './tissue-gl.js?v=c33503f98e';
-import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=3fbdead9c7';
+import { createTissueGL } from './tissue-gl.js?v=45afd09f37';
+import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=3f6a2cdc45';
 import { createTissueWorker } from './tissue-worker.js?v=eb65cc8d78';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=90ca733567';
@@ -2738,7 +2738,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // software, and set aside if its context is lost (the 2D canvas carries on).
   let tissueGL, tissueOnGL = false, keep2D = false;
   function tissueGLOn() {
-    if (tissueGL === undefined) { tissueGL = createTissueGL(tissueG); if (!tissueGL) tissueG.remove(); }
+    if (tissueGL === undefined) { tissueGL = createTissueGL(tissueG, { onLive: liveCompiled }); if (!tissueGL) tissueG.remove(); }
     return tissueGL && !tissueGL.lost ? tissueGL : null;
   }
   // The lobule's tissue drawn live by the shader (lobule-live.js, A5b): in the share of the picture the state allows (liveEligible:
@@ -2750,9 +2750,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // to 0 and the shader is given nothing (liveArgs), so the lobule is the bitmap alone, as before the shader drew any of it. Flipped
   // while the lobule shows, the share eases over LIVE_MS (lobule-live.js) either way, and the loop wakes at once to draw it; flipped while it is not
   // on show, the next frame starts at the new goal, so opening the lobule shows no leftover easing.
+  // The shader that draws the lobule live is a program of its own (tissue-gl.js), compiled the first time it is asked for with the
+  // switch on, so with the switch off nothing of it is built and the tissue is drawn by the program it always was. Until it is ready
+  // (liveOK) the goal stays 0, so the easing starts when it can show something; if it fails, the goal stays 0 for good.
   let liveE = -1, liveAt = 0, liveShare = 0;
-  const liveGoal = () => (model && liveEligible(model) && figLab('tissueLive') ? 1 : 0);
-  onFigLab((k) => { if (k !== 'tissueLive') return; if (unseen()) liveE = -1; else { liveAt = performance.now(); wake(); } });   // (liveAt: the first step of the easing is a frame's, not the time since the last draw)
+  const liveOK = () => !!tissueGL && tissueGL.liveReady();
+  const liveGoal = () => (model && liveEligible(model) && figLab('tissueLive') && liveOK() ? 1 : 0);
+  // (The goal changed under the lobule, or the lobule is not on show: liveAt, so the first step of the easing is a frame's, not the
+  // time since the last draw.)
+  function liveChanged() { if (unseen()) liveE = -1; else { liveAt = performance.now(); wake(); } }
+  function liveCompiled() { liveChanged(); }
+  onFigLab((k, v) => { if (k !== 'tissueLive') return; if (v && tissueGL) tissueGL.liveReady(); liveChanged(); });
   const liveMoving = () => liveE >= 0 && tissueOnGL && !unseen() && liveE !== liveGoal();
   function liveStep(dpr, now) {
     const goal = liveGoal();

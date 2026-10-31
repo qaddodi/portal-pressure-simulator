@@ -2,7 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildLive, liveEligible, liveZoomShare, parseRGBA, liveColours, cellReach, BIN, CELLS_PER_ROW, IDX_ROW } from '../src/ui/lobule-live.js';
+import { buildLive, buildDyn, liveEligible, liveZoomShare, liveFibre, parseRGBA, liveColours, cellReach, LIVE_FS, BIN, CELLS_PER_ROW, IDX_ROW } from '../src/ui/lobule-live.js';
+import { createTissueGL, tissueFS } from '../src/ui/tissue-gl.js';
 
 const gl = readFileSync(new URL('../src/ui/tissue-gl.js', import.meta.url), 'utf8');
 
@@ -72,8 +73,8 @@ test('the shader follows paintLobule\'s order and numbers, and the bitmap path i
   // fill 1.015, gap fill 0.55/0.5, cells (fill 0.92/0.8, dead 0.6; membrane max 0.6; nucleus max 0.9), nutmeg 0.05–0.55 R, zones 0.2/0.17, hairline
   for (const s of ['lvHex(wp, 1.015)', 'dark ? 0.55 : 0.5', 'dark ? 0.8 : 0.92', 'max(0.6, 0.6 * px)', 'max(0.9, ww * 0.16)', 'min(lw, ww) * 0.38', '0.05 * R) / (0.5 * R)', 'dark ? 0.2 : 0.17', 'lvHex(wp, 0.66)', 'lvHex(wp, 0.36)', 'if (sj < 0.05)']) assert.ok(live.includes(s), s);
   assert.match(gl, /if \(uLive > 0\.0\) \{ vec4 ls = liveTissue\(w\) \* e; c = mix\(c, ls\.rgb \+ c0 \* \(1\.0 - ls\.a\), uLive\); \}/, 'mixing the two pictures laid over the surround = laying their mix');
-  assert.match(gl, /vec3 c0 = c;\n\s+if \(w\.x >= 0\.0/, 'the surround before the bitmap');
-  assert.match(gl, /\} else gl\.uniform1f\(U\.uLive, 0\);/, 'no share, no live lookups: the picture as before');
+  assert.match(tissueFS(true), /vec3 c0 = c;\n\s+if \(w\.x >= 0\.0/, 'the surround before the bitmap');
+  assert.doesNotMatch(tissueFS(false), /uL[A-Z]|uLive|liveTissue|\bc0\b|\blv[A-Z]/, 'the program without the live lobule has none of it in it: the picture as before');
   assert.doesNotMatch(live, /\btexture\(/, 'only texelFetch: no implicit derivatives in the live lookups');
 });
 
@@ -141,19 +142,21 @@ test('Lobule drawn live: off by default; off, the goal is 0 and the shader is gi
   assert.ok(!store.has('pps.fig.tissueLive'), 'off stores nothing');
   delete globalThis.localStorage;
   const lz = uiSrc('lobule-zoom.js');
-  assert.match(lz, /const liveGoal = \(\) => \(model && liveEligible\(model\) && figLab\('tissueLive'\) \? 1 : 0\);/, 'the one place the switch is read');
+  assert.match(lz, /const liveGoal = \(\) => \(model && liveEligible\(model\) && figLab\('tissueLive'\) && liveOK\(\) \? 1 : 0\);/, 'the one place the switch is read');
   assert.equal(lz.split("figLab('tissueLive')").length - 1, 1, 'and only there: nothing else in the lobule branches on it');
   assert.match(lz, /function liveArgs\(dark, cs\) \{\n\s+if \(!\(liveShare > 0\)\) return null;/, 'no share: no shapes built, nothing sent');
   assert.match(lz, /live: liveArgs\(dark, cs\),/);
-  // The two pictures are never mixed unless the share is above 0 (tissue-gl.js): the bitmap path is the one it was.
-  assert.match(gl, /if \(live && live\.share > 0\) \{/);
-  assert.match(gl, /\} else gl\.uniform1f\(U\.uLive, 0\);/);
+  // The two pictures are never mixed unless the share is above 0 and the live program is there (tissue-gl.js): the bitmap path is the one it was.
+  assert.match(gl, /const isLive = !!\(live && live\.share > 0 && liveP\), U = isLive \? liveP\.U : U0;/);
+  assert.match(gl, /gl\.useProgram\(isLive \? liveP\.prog : prog\);/);
   assert.match(gl, /if \(uLive > 0\.0\) \{ vec4 ls = liveTissue\(w\) \* e;/);
 });
 
 test('Lobule drawn live: flipped while the lobule shows it eases over 400 ms and wakes the loop; flipped while it does not, it starts at the new goal', () => {
   const lz = uiSrc('lobule-zoom.js');
-  assert.match(lz, /onFigLab\(\(k\) => \{ if \(k !== 'tissueLive'\) return; if \(unseen\(\)\) liveE = -1; else \{ liveAt = performance\.now\(\); wake\(\); \} \}\);/);
+  assert.match(lz, /function liveChanged\(\) \{ if \(unseen\(\)\) liveE = -1; else \{ liveAt = performance\.now\(\); wake\(\); \} \}/);
+  assert.match(lz, /onFigLab\(\(k, v\) => \{ if \(k !== 'tissueLive'\) return; if \(v && tissueGL\) tissueGL\.liveReady\(\); liveChanged\(\); \}\);/);
+  assert.match(lz, /createTissueGL\(tissueG, \{ onLive: liveCompiled \}\)/, 'and the live program tells the lobule when it is ready or has failed');
   assert.match(lz, /if \(liveE < 0 \|\| unseen\(\)\) liveE = goal;\n\s+else liveE = liveEase\(liveE, goal, now - liveAt\);/);
   assert.match(lz, /if \(liveMoving\(\)\) drawVersion\+\+;/, 'each frame of the easing is drawn');
   assert.match(lz, /const key = \[[^\n]*lk > 0 \? lk\.toFixed\(3\)/, 'and the tissue\'s key moves with the share, so it is not skipped as unchanged');
@@ -180,4 +183,146 @@ test('the Settings row for it sits under Figure performance, with a plain label 
   const main = uiSrc('main.js');
   const rows = main.slice(main.indexOf('function figLabRows('), main.indexOf('function figSeg('));
   assert.match(rows, /sw\('tissueLive', 'Lobule drawn live', '[^']*Off: the lobule shows its painted picture'\),/);
+});
+
+// ── The live shader is a program of its own, compiled only when it is asked for ──
+test('the program without the live lobule is the one with it, less its additions', () => {
+  const on = tissueFS(true), off = tissueFS(false);
+  assert.ok(on.includes(LIVE_FS), 'the live functions are in the live program');
+  assert.ok(!off.includes('liveTissue') && !off.includes('uLive'));
+  const stripped = on.replace('\n' + LIVE_FS, '').replace('\n  vec3 c0 = c;', '').replace(/\n {4}\/\/ The lobule drawn live[^\n]*\n[^\n]*\n {4}if \(uLive > 0\.0\)[^\n]*/, '');
+  assert.equal(stripped, off, 'nothing else differs: the same samplers, the same lookups, the same fade into the page');
+});
+
+// A stand-in for the GL context that records what it is asked: the programs made (with their shaders' sources), the one in use and
+// every uniform set on it. No GPU runs.
+function stubGL({ failLive = false } = {}) {
+  const programs = [], calls = [];
+  let current = null;
+  const own = {
+    createShader: (type) => ({ type, src: '' }), shaderSource: (s, src) => { s.src = src; },
+    createProgram: () => { const p = { id: programs.length, shaders: [] }; programs.push(p); return p; },
+    attachShader: (p, s) => p.shaders.push(s),
+    getShaderParameter: () => true,
+    getProgramParameter: (p, what) => (what === 'LINK_STATUS' ? !(failLive && p.shaders.some((s) => s.src.includes('liveTissue'))) : true),
+    getShaderInfoLog: () => 'shader log', getProgramInfoLog: () => 'program log',
+    getExtension: () => null, isContextLost: () => false, getParameter: () => null,
+    getUniformLocation: (p, name) => ({ p: p.id, name }),
+    useProgram: (p) => { current = p; calls.push(['useProgram', p.id]); },
+    createTexture: () => ({}), createBuffer: () => ({}), createFramebuffer: () => ({}),
+  };
+  const gl = new Proxy(own, {
+    get(t, k) {
+      if (k in t) return t[k];
+      if (typeof k === 'symbol') return undefined;
+      if (/^[A-Z0-9_]+$/.test(k)) return k;
+      if (/^uniform/.test(k)) return (loc, ...a) => { calls.push(['set', current?.id, loc?.name, ...a]); };
+      return () => {};
+    },
+  });
+  const canvas = { width: 0, height: 0, getContext: () => gl, addEventListener() {} };
+  return { gl, canvas, programs, calls, set: (name) => calls.filter((c) => c[0] === 'set' && c[2] === name), used: () => calls.filter((c) => c[0] === 'useProgram').map((c) => c[1]) };
+}
+const tick = (ms = 150) => new Promise((r) => setTimeout(r, ms));
+function liveArgs(share) {
+  const sh = { ...shape, rs0: 3 };
+  return { shape: sh, data: buildLive(sh), dyn: buildDyn(sh, []), fib: liveFibre({ fibSin: 0, act: 0 }), rs0: 3, share, cu: 0, sj: 0, zones: false, dark: false, cen: [cx, cy, R],
+    col: liveColours({ bg: [1, 1, 1], gap: [0.5, 0.5, 0.5], cell: [0.9, 0.8, 0.7] }, false, () => '#fff') };
+}
+const tile = { width: 8, height: 8 };
+const frame = (live) => ({ W: 100, H: 80, qa: tile, qb: null, mix: 0, w: tile, wVer: 1, rect: [0, 0, 100], ox: 50, oy: 40, rd: 30, fade: [33, 96], mid: 0.5, bg: [1, 1, 1], live });
+
+test('with the switch off the tissue is one program, with nothing of the live lobule in it, and it is never asked for another', async () => {
+  const g = stubGL();
+  const warn = console.warn; console.warn = () => {};
+  const tg = createTissueGL(g.canvas, { onLive: () => assert.fail('nobody asked for it') });
+  await tick();
+  assert.equal(g.programs.length, 1, 'one program made');
+  assert.ok(g.programs[0].shaders.every((s) => !s.src.includes('liveTissue') && !s.src.includes('uLive')));
+  assert.equal(tg.draw(frame(null)), true);
+  assert.equal(tg.draw(frame(null)), true);
+  assert.equal(g.programs.length, 1, 'still one: drawing the bitmap compiles nothing more');
+  assert.deepEqual([...new Set(g.used())], [0]);
+  assert.equal(g.set('uLive').length, 0, 'no live uniform is ever set');
+  console.warn = warn;
+});
+
+test('the live program starts when it is first asked for, is ready once published, and is told to the caller once', async () => {
+  const g = stubGL();
+  let told = 0;
+  const tg = createTissueGL(g.canvas, { onLive: () => told++ });
+  await tick();
+  assert.equal(tg.liveReady(), false, 'asked: its compile starts, it is not published yet');
+  assert.equal(g.programs.length, 2);
+  assert.ok(g.programs[1].shaders.some((s) => s.src.includes('liveTissue')), 'the second program is the one with the live lobule');
+  assert.equal(tg.liveReady(), false); assert.equal(g.programs.length, 2, 'asking again starts nothing');
+  await tick();
+  assert.equal(told, 1); assert.equal(tg.liveReady(), true); assert.equal(g.programs.length, 2);
+  await tick();
+  assert.equal(told, 1, 'told once');
+});
+
+test('a draw uses the live program only with a share and the program ready; with none, or before it is ready, the bitmap program', async () => {
+  const g = stubGL();
+  const tg = createTissueGL(g.canvas, { onLive: () => {} });
+  await tick();
+  tg.liveReady();
+  assert.equal(tg.draw(frame(liveArgs(0.5))), true, 'a share asked for before the program is ready: the bitmap, not a missing picture');
+  assert.deepEqual(g.used().slice(-1), [0]); assert.equal(g.set('uLive').length, 0);
+  await tick();
+  assert.equal(tg.draw(frame(liveArgs(0.5))), true);
+  assert.deepEqual(g.used().slice(-1), [1], 'the live program');
+  assert.deepEqual(g.set('uLive').map((c) => [c[1], c[3]]), [[1, 0.5]], 'its share set on it');
+  assert.ok(g.set('uQA').every((c) => c[1] === 1 || c[1] === 0) && g.set('uLC').every((c) => c[1] === 1), 'the shapes\' samplers belong to the live program alone');
+  assert.equal(tg.draw(frame(liveArgs(0))), true);
+  assert.deepEqual(g.used().slice(-1), [0], 'no share: the bitmap program');
+  assert.equal(tg.draw(frame(null)), true);
+  assert.deepEqual(g.used().slice(-1), [0]);
+  assert.equal(g.set('uLive').length, 1, 'and no live uniform was set for those');
+});
+
+test('a live program that fails to build costs only the live drawing: the bitmap goes on, the caller is told, and it is not tried again', async () => {
+  const g = stubGL({ failLive: true });
+  const warn = console.warn, warned = []; console.warn = (...a) => warned.push(a[0]);
+  let told = 0;
+  const tg = createTissueGL(g.canvas, { onLive: () => told++ });
+  await tick();
+  tg.liveReady();
+  await tick();
+  assert.equal(told, 1);
+  assert.equal(tg.liveReady(), false, 'never ready');
+  assert.equal(g.programs.length, 2, 'not tried again');
+  assert.ok(warned.some((m) => /cannot be drawn live/.test(m)));
+  assert.equal(tg.lost, false, 'the tissue is not lost: the 2D canvas does not take over');
+  assert.equal(tg.draw(frame(liveArgs(1))), true);
+  assert.deepEqual(g.used().slice(-1), [0]);
+  console.warn = warn;
+});
+
+// ── Detail smaller than a pixel, zoomed out ──
+test('a filled shape thinner than a pixel is weighted by its width: untouched from a pixel, smoothly less below, never more than its area', () => {
+  const live = readFileSync(new URL('../src/ui/lobule-live.js', import.meta.url), 'utf8');
+  assert.match(live, /float lvThin\(float wpx\) \{ float q = min\(wpx, 1\.0\); return 4\.0 \* q \/ \(\(1\.0 \+ q\) \* \(1\.0 \+ q\)\); \}/);
+  // The same function in JS: 1 from a pixel wide; continuous and flat at 1; rising with the width; and the weight lvCov gives a line
+  // of that width (a triangle of unit height spread a pixel each way: (½ + w/2)² for w under 1) times it is its own area, w.
+  const thin = (w) => { const q = Math.min(w, 1); return 4 * q / ((1 + q) * (1 + q)); };
+  assert.equal(thin(1), 1); assert.equal(thin(3), 1); assert.equal(thin(0), 0);
+  assert.ok(Math.abs(thin(0.999) - 1) < 1e-6 && Math.abs(thin(1.001) - 1) < 1e-12, 'no step at a pixel');
+  for (let w = 0.02; w < 1; w += 0.02) {
+    assert.ok(thin(w) < thin(w + 0.02) + 1e-12, 'rising');
+    const spread = (0.5 + w / 2) ** 2;
+    assert.ok(Math.abs(thin(w) * spread - w) < 1e-9, `a line ${w.toFixed(2)} px wide keeps its own weight`);
+  }
+  // Used on the shapes that can be thinner than a pixel in the sizes the shader draws at: a band's nuclei, a stellate cell and its nucleus.
+  assert.match(live, /lvCov\(lvEll\(lp, n0\.zw\), px\) \* lvThin\(2\.0 \* min\(n0\.z, n0\.w\) \/ px\) \* cl/);
+  assert.match(live, /lvCov\(sd, px\) \* lvThin\(2\.0 \* Wb \/ px\) \* clipC/);
+  assert.match(live, /lvCov\(lvEll\(lp, vec2\(L \* 0\.26, Wb \* 0\.5\)\), px\) \* lvThin\(Wb \/ px\) \* clipC/);
+  // The sizes it matters at: the shader's own share starts at a cell of 3.5 px, where a stellate cell's body (half width 0.42 to 0.62 rs0,
+  // rs0 1.7 to 3 world units, a cell 0.044 R long) is under a pixel across at the smallest, and a pixel and over from 6 px.
+  for (const R of [160, 300]) {
+    const rs0 = Math.min(3, Math.max(1.7, R * 0.0085));
+    const s = (cellPx) => cellPx / (R * 0.052);
+    assert.ok(thin(2 * rs0 * 0.42 * s(3.5)) < 1, `R ${R}: faded at 3.5 px a cell`);
+    assert.equal(thin(2 * rs0 * 0.62 * s(60)), 1, `R ${R}: untouched when zoomed in`);
+  }
 });

@@ -12,7 +12,7 @@
 // tissue is drawn on the 2D canvas as before.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=5c4cd6c14c';
-import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN } from './lobule-live.js?v=3fbdead9c7';
+import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN } from './lobule-live.js?v=3f6a2cdc45';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -21,7 +21,7 @@ void main() { gl_Position = vec4(p, 0.0, 1.0); }`;
 // Mirrors paintTissue's 2D passes: the quiet surround (its pattern puts one repeat, two lobules wide and two high, per 6 rd by
 // 2√3 rd device px, the lobule's centre at uO), the lobule's bitmap over it (premultiplied, mixed with the last state's while a
 // new one fades in), then the fade into the page from r0 (clear) through FADE_MID halfway to whole at r1 and past it.
-const FS = `#version 300 es
+export const tissueFS = (live) => `#version 300 es
 precision highp float;
 uniform sampler2D uQA, uQB, uQO, uW, uWO;   // the quiet tiles at the two sizes blended, the last state's tile; the bitmap, the last state's
 uniform float uMix, uQOld;                   // how much of the larger tile; how much of the last state's tile is left
@@ -33,8 +33,7 @@ uniform vec2 uFade;                          // r0, r1
 uniform float uMid;                          // FADE_MID
 uniform vec3 uBg;                            // the page's colour
 uniform vec2 uGrey;                          // the surround's grade in a lens other than Pressure: saturation, opacity (1, 1: as drawn)
-out vec4 o;
-${LIVE_FS}
+out vec4 o;${live ? '\n' + LIVE_FS : ''}
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uH - gl_FragCoord.y);
   vec2 uv = (p - uO) / (uRd * vec2(6.0, 3.4641016151377544));
@@ -43,8 +42,7 @@ void main() {
   // Grey as the anatomy's liver is in this lens (lobule-look.js surroundGrade): toward its luma, then toward the page. Only the surround:
   // the lobule's bitmap, laid over it next, keeps the lens's colours.
   if (uGrey.x < 1.0 || uGrey.y < 1.0) c = mix(uBg, mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uGrey.x), uGrey.y);
-  vec2 w = (p - uRect.xy) / uRect.z;
-  vec3 c0 = c;
+  vec2 w = (p - uRect.xy) / uRect.z;${live ? '\n  vec3 c0 = c;' : ''}
   if (w.x >= 0.0 && w.y >= 0.0 && w.x <= 1.0 && w.y <= 1.0) {
     // The bitmap's lookups sit in a branch only the pixels inside its box take, where the implicit derivatives that pick a mipmap level
     // are undefined: along the box's edge the first pixel of each pair read the coarsest level (the bitmap's average colour) and drew a
@@ -55,23 +53,29 @@ void main() {
     vec4 l = textureGrad(uW, w, gx, gy) * uWMix.x;
     if (uWMix.y > 0.0) l += textureGrad(uWO, w, gx, gy) * uWMix.y;
     l *= e;
-    c = l.rgb + c * (1.0 - l.a);
+    c = l.rgb + c * (1.0 - l.a);${live ? `
     // The lobule drawn live (lobule-live.js) in the share uLive: (1 − u)·(bitmap over the surround) + u·(live over it), the same as
     // mixing the two pictures before laying them, as over is linear in the top picture.
-    if (uLive > 0.0) { vec4 ls = liveTissue(w) * e; c = mix(c, ls.rgb + c0 * (1.0 - ls.a), uLive); }
+    if (uLive > 0.0) { vec4 ls = liveTissue(w) * e; c = mix(c, ls.rgb + c0 * (1.0 - ls.a), uLive); }` : ''}
   }
   float s = clamp((length(p - uO) - uFade.x) / max(uFade.y - uFade.x, 1e-6), 0.0, 1.0);
   float a = s < 0.5 ? uMid * s * 2.0 : uMid + (1.0 - uMid) * (s - 0.5) * 2.0;
   o = vec4(mix(c, uBg, a), 1.0);
 }`;
 
-export function createTissueGL(canvas) {
+/** opts.onLive(): called once the program that draws the lobule live has been published (liveReady() is true) or has failed (it never
+ *  will be); the caller then asks again. */
+export function createTissueGL(canvas, opts = {}) {
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: false, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl) return null;
   // The program is started here and published once the driver has finished it (gl-compile.js); a draw that comes first publishes it.
+  // This one is the tissue as it was before the shader drew any of the lobule: the bitmap over the surround, nothing of lobule-live.js
+  // in it. The program that also draws the lobule live is a second one (tissueFS(true)), started only when it is first wanted
+  // (liveReady), so the picture with the switch off is made by the same program as ever, and a live program that fails to compile
+  // leaves this one working.
   let started;
-  try { started = startProgram(gl, VS, FS, [['p', 0]]); } catch (err) { console.warn('The lobule tissue falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
+  try { started = startProgram(gl, VS, tissueFS(false), [['p', 0]]); } catch (err) { console.warn('The lobule tissue falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);   // one triangle over the whole canvas
@@ -87,21 +91,43 @@ export function createTissueGL(canvas) {
 
   let lost = false;
   canvas.addEventListener('webglcontextlost', (e) => { lost = true; texs.clear(); liveTex = null; e.preventDefault?.(); });
-  let prog = null, U = null, failed = false, liveTex = null;   // (liveTex: the lobule's shapes on the GPU, for the shape liveTex.for)
+  let prog = null, U0 = null, failed = false, liveTex = null;   // (liveTex: the lobule's shapes on the GPU, for the shape liveTex.for)
+  const COMMON_U = ['uQA', 'uQB', 'uQO', 'uW', 'uWO', 'uMix', 'uQOld', 'uO', 'uRd', 'uH', 'uRect', 'uWMix', 'uFade', 'uMid', 'uBg', 'uGrey'];
+  const LIVE_U = ['uLC', 'uLB', 'uLI', 'uLBox', 'uLN', 'uLEdge', 'uLCtr', 'uLCen', 'uLSt', 'uLGap', 'uLGap55', 'uLBase', 'uLNut', 'uLZ1', 'uLZ2', 'uLZ3', 'uLPlate', 'uLInk', 'uLZl', 'uLive', 'uLS', 'uLK', 'uLSin', 'uLFib', 'uLKB', 'uLShd', 'uLShade', 'uLHs', 'uLHB', 'uLHN'];   // (the lobule drawn live, lobule-live.js)
+  const locate = (p, names) => Object.fromEntries(names.map((n) => [n, gl.getUniformLocation(p, n)]));
   // Reads the finished program, sets its samplers and runs one small offscreen draw, so the first real draw has no driver work left.
   function publish() {
     if (prog || failed || lost) return;
     try {
       prog = checkProgram(gl, started);
-      U = Object.fromEntries(['uQA', 'uQB', 'uQO', 'uW', 'uWO', 'uMix', 'uQOld', 'uO', 'uRd', 'uH', 'uRect', 'uWMix', 'uFade', 'uMid', 'uBg', 'uGrey'].map((n) => [n, gl.getUniformLocation(prog, n)]));
-      for (const n of ['uLC', 'uLB', 'uLI', 'uLBox', 'uLN', 'uLEdge', 'uLCtr', 'uLCen', 'uLSt', 'uLGap', 'uLGap55', 'uLBase', 'uLNut', 'uLZ1', 'uLZ2', 'uLZ3', 'uLPlate', 'uLInk', 'uLZl', 'uLive', 'uLS', 'uLK', 'uLSin', 'uLFib', 'uLKB', 'uLShd', 'uLShade', 'uLHs', 'uLHB', 'uLHN']) U[n] = gl.getUniformLocation(prog, n);   // (the lobule drawn live, lobule-live.js)
+      U0 = locate(prog, COMMON_U);
       gl.useProgram(prog);
-      gl.uniform1i(U.uQA, 0); gl.uniform1i(U.uQB, 1); gl.uniform1i(U.uQO, 2); gl.uniform1i(U.uW, 3); gl.uniform1i(U.uWO, 4);
-      gl.uniform1i(U.uLC, LIVE_UNIT); gl.uniform1i(U.uLB, LIVE_UNIT + 1); gl.uniform1i(U.uLI, LIVE_UNIT + 2); gl.uniform1i(U.uLS, LIVE_UNIT + 3); gl.uniform1i(U.uLK, LIVE_UNIT + 4);   // (the lobule's shapes, lobule-live.js)
+      gl.uniform1i(U0.uQA, 0); gl.uniform1i(U0.uQB, 1); gl.uniform1i(U0.uQO, 2); gl.uniform1i(U0.uW, 3); gl.uniform1i(U0.uWO, 4);
       exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));
     } catch (err) { failed = true; console.warn('The lobule tissue falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); }
   }
   publishWhenDone(gl, [started], publish);
+  // The program that also draws the lobule live: started the first time liveReady() is asked (the switch is on and the lobule shows),
+  // published like the first, and used only by draws that carry a live share. If it fails, only the live drawing is lost: liveReady()
+  // stays false, the first program keeps drawing the bitmap, and the caller is told (opts.onLive) so it stops waiting.
+  let liveStarted = null, liveP = null, liveFailed = false;
+  function startLive() {
+    if (liveStarted || liveFailed || failed || lost) return;
+    try { liveStarted = startProgram(gl, VS, tissueFS(true), [['p', 0]]); } catch (err) { liveFailed = true; console.warn('The lobule cannot be drawn live; it keeps its painted picture.', err); return; }
+    publishWhenDone(gl, [liveStarted], publishLive);
+  }
+  function publishLive() {
+    if (liveP || liveFailed || failed || lost) return;
+    try {
+      const p = checkProgram(gl, liveStarted), L = locate(p, [...COMMON_U, ...LIVE_U]);
+      gl.useProgram(p);
+      gl.uniform1i(L.uQA, 0); gl.uniform1i(L.uQB, 1); gl.uniform1i(L.uQO, 2); gl.uniform1i(L.uW, 3); gl.uniform1i(L.uWO, 4);
+      gl.uniform1i(L.uLC, LIVE_UNIT); gl.uniform1i(L.uLB, LIVE_UNIT + 1); gl.uniform1i(L.uLI, LIVE_UNIT + 2); gl.uniform1i(L.uLS, LIVE_UNIT + 3); gl.uniform1i(L.uLK, LIVE_UNIT + 4);   // (the lobule's shapes, lobule-live.js)
+      exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));
+      liveP = { prog: p, U: L };
+    } catch (err) { liveFailed = true; console.warn('The lobule cannot be drawn live; it keeps its painted picture.', err); }
+    try { opts.onLive?.(); } catch (err) { console.warn(err); }
+  }
   // A canvas's texture, sent again only when the canvas was painted again (ver, the caller's count of its paints) or resized.
   // Tiles repeat; the lobule's bitmap is premultiplied (as the 2D canvas lays it) and stops at its edges.
   const texs = new Map(), SCRATCH = 7, LIVE_UNIT = 8;
@@ -152,6 +178,9 @@ export function createTissueGL(canvas) {
   }
   return {
     get lost() { return lost || failed || gl.isContextLost(); },
+    /** Whether the lobule can be drawn live now: the program for it is published. The first ask starts its compile; opts.onLive is
+     *  called when it is done, either way. False for good if it failed. */
+    liveReady() { startLive(); return !!liveP && !this.lost; },
     /** Sends a canvas to the GPU now (painted ahead, so no frame of a gesture waits for it). */
     upload(cv, ver = 0, tile = false) { if (!this.lost && cv?.width) texFor(cv, ver, tile); },
     /** A bitmap painted off the page (the tissue worker, tissue-worker.js) and sent in tiles, a few a frame: begin(cv) makes the
@@ -201,7 +230,10 @@ export function createTissueGL(canvas) {
       if (!qa?.width || (qb && !qb.width)) return false;
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
       gl.viewport(0, 0, W, H);
-      gl.useProgram(prog);
+      // (With a share and the live program ready, the program that has the lobule's shapes in it; otherwise the first, which is the
+      // bitmap over the surround and nothing else.)
+      const isLive = !!(live && live.share > 0 && liveP), U = isLive ? liveP.U : U0;
+      gl.useProgram(isLive ? liveP.prog : prog);
       const bind = (unit, tex) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); };
       bind(0, texFor(qa, 0, true)); bind(1, qb ? texFor(qb, 0, true) : texFor(qa, 0, true));
       bind(2, qo && qOld > 0 ? texFor(qo, 0, true) : none);
@@ -215,7 +247,7 @@ export function createTissueGL(canvas) {
       gl.uniform2f(U.uFade, fade[0], fade[1]); gl.uniform1f(U.uMid, mid);
       gl.uniform3f(U.uBg, bg[0], bg[1], bg[2]);
       gl.uniform2f(U.uGrey, grey ? grey[0] : 1, grey ? grey[1] : 1);
-      if (live && live.share > 0) {
+      if (isLive) {
         const T = liveFor(live.shape, live.data), D = live.data, C = live.col;
         T.t.forEach((t, i) => { gl.activeTexture(gl.TEXTURE0 + LIVE_UNIT + i); gl.bindTexture(gl.TEXTURE_2D, t); });
         gl.uniform3f(U.uLBox, D.box[0], D.box[1], D.box[2]); gl.uniform2f(U.uLN, D.nb, BIN);
@@ -234,7 +266,7 @@ export function createTissueGL(canvas) {
         gl.uniform4f(U.uLHB, C.body[0], C.body[1], C.body[2], (0.22 + 0.3 * ac.act) * F.act);
         gl.uniform4f(U.uLHN, C.nuc[0], C.nuc[1], C.nuc[2], (0.3 + 0.3 * ac.act) * F.act);
         gl.uniform1f(U.uLive, live.share);
-      } else gl.uniform1f(U.uLive, 0);
+      }
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       return true;
     },
