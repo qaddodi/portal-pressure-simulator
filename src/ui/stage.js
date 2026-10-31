@@ -41,7 +41,7 @@ import { cropToGrid } from './organs-gl.js?v=7e9716eacd';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=c89e7a24ec';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
-import { createLabelGL } from './label-gl.js?v=7bd05d02a7';
+import { createLabelGL } from './label-gl.js?v=71f3cadf6e';
 import { createGlassGL } from './glass-gl.js?v=dbbd9da19e';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=4b339fceed';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
@@ -8101,7 +8101,10 @@ export function createStage({ figure = null, wrap, onSelect, onAction, onOpenTab
     const lc = getComputedStyle(labelSvg), vc = getComputedStyle(vCanvas);
     return lc.display !== 'none' && lc.visibility === 'visible' && +lc.opacity >= 0.999 && vc.visibility === 'visible' && +vc.opacity >= 0.999;
   }
-  const labelGL = createLabelGL(labelSvg, gLabels, { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), marks: [gLeaders, gScan], host: labelHost, force: !!labelHost });
+  // (?figlabels=worker, with the figure in the worker: the labels' pictures laid by the worker; if that cannot start, the page lays them as before.)
+  const labelGL = (FIGW && !labelHost && /[?&]figlabels=worker\b/.test(location.search)
+    && createLabelGL(labelSvg, gLabels, { off: /[?&]gpulabels=0\b/.test(location.search), remote: figure.labels, force: true }))
+    || createLabelGL(labelSvg, gLabels, { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), marks: [gLeaders, gScan], host: labelHost, force: !!labelHost });
   if (labelGL && labelHost) {
     veins.top.set(() => labelGL.drawInto());
     // (What decides it changed: the labels given back at once when they may no longer be drawn there, label-gl check.)

@@ -5,7 +5,7 @@
 import { setFigureSettings } from './figure-settings.js?v=68c0336f5f';
 import { serveFigure } from './figure-link.js?v=0f7b4f24f0';
 
-let host = null, figCanvas = null;
+let host = null, figCanvas = null, labels = null;
 
 async function handle(d) {
   if (d?.type === 'probe') {
@@ -34,6 +34,18 @@ async function handle(d) {
     } catch (e) { self.postMessage({ type: 'failed', why: String(e?.message || e) }); }
     return;
   }
+  // The labels' pictures (label-gl.js `remote`): their own canvas and context, beside the figure's.
+  if (d?.type === 'lbl-init') {
+    try {
+      const { createLabelRenderer } = await import('./label-worker-core.js?v=8b29bf3798');
+      labels = createLabelRenderer(d.canvas);
+      if (!labels) throw new Error('no WebGL2 for the labels');
+    } catch (e) { self.postMessage({ type: 'lbl-failed', why: String(e?.message || e) }); }
+    return;
+  }
+  if (d?.type === 'lbl-sprite') { try { labels?.sprite(d.page, d.x, d.y, d.bitmap); } catch { d.bitmap?.close?.(); } return; }
+  if (d?.type === 'lbl-frame') { try { labels?.frame(d.items, d.W, d.H); } catch (e) { self.postMessage({ type: 'lbl-failed', why: String(e?.message || e) }); } return; }
+  if (d?.type === 'lbl-resize') { labels?.resize(d.w, d.h); return; }
   if (d?.type === 'crop') {
     // A piece of the figure as it shows now, for the page's glass (glass-gl): the picture is laid on the canvas first, as the page's capture() does.
     let bm;

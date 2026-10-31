@@ -20,11 +20,25 @@ export function figureSettings() {
 
 export const figWorkerWanted = () => /[?&]figworker=on\b/.test(location.search);
 
-export function startFigureWorker({ make = () => new Worker(new URL('./figure-worker.js?v=13749c0ba8', import.meta.url), { type: 'module' }), canvas = document.createElement('canvas') } = {}) {
+export function startFigureWorker({ make = () => new Worker(new URL('./figure-worker.js?v=8e7e866e00', import.meta.url), { type: 'module' }), canvas = document.createElement('canvas') } = {}) {
   if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || typeof canvas.transferControlToOffscreen !== 'function') return Promise.resolve(null);
   return new Promise((res) => {
     let w = null, proxy = null, done = false, begun = false, cropId = 0;
     const crops = new Map();
+    // The labels' canvas, moved to the worker when label-gl asks (`remote`); if anything goes wrong there it reads as a lost context, which
+    // hands every label back to the SVG (label-gl.js).
+    let labelCanvas = null;
+    const labelsLost = () => { try { labelCanvas?.dispatchEvent(new Event('webglcontextlost', { cancelable: true })); } catch { /* none */ } };
+    const labels = {
+      attach(cv) { labelCanvas = cv; const off = cv.transferControlToOffscreen(); w.postMessage({ type: 'lbl-init', canvas: off }, [off]); },
+      sprite(page, x, y, bitmap) { try { w.postMessage({ type: 'lbl-sprite', page, x, y, bitmap }, [bitmap]); } catch { labelsLost(); } },
+      frame(items, W, H) {
+        const a = new Float32Array(items.length * 8);
+        items.forEach((it, i) => a.set([it.page, it.x, it.y, it.w, it.h, it.ax, it.ay, it.a], i * 8));
+        try { w.postMessage({ type: 'lbl-frame', items: a, W, H }, [a.buffer]); } catch { labelsLost(); }
+      },
+      resize(wd, ht) { try { w.postMessage({ type: 'lbl-resize', w: wd, h: ht }); } catch { labelsLost(); } },
+    };
     const lose = () => {
       if (proxy) { proxy.take({ lost: true }); try { canvas.dispatchEvent(new Event('webglcontextlost')); } catch { /* none */ } }
       try { w?.terminate(); } catch { /* gone */ }
@@ -44,7 +58,7 @@ export function startFigureWorker({ make = () => new Worker(new URL('./figure-wo
           proxy = createFigureProxy(post, { ...caps, plates, stack, hasOrgans: false, canLive: false }, { auto: true });
           proxy.stop = () => { try { w.terminate(); } catch { /* gone */ } };
           finish({
-            canvas, proxy,
+            canvas, proxy, labels,
             begin(tubes) {
               if (begun) return;
               begun = true;
@@ -61,6 +75,7 @@ export function startFigureWorker({ make = () => new Worker(new URL('./figure-wo
           });
           return;
         }
+        if (data?.type === 'lbl-failed') { console.warn('Figure worker: the labels failed there; they go back to the page.', data.why); labelsLost(); return; }
         if (data?.type === 'cropped') { const r = crops.get(data.id); crops.delete(data.id); if (r) (data.bm ? r.res(data.bm) : r.rej(new Error('no picture'))); return; }
         if (data?.type === 'state' && proxy) proxy.take(data.state);
       };

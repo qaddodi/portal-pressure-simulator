@@ -150,3 +150,15 @@ test('the stage uses the worker only when main.js hands it a figure; otherwise t
   assert.match(st, /if \(FIGW\) \{ vW = bw; vH = bh; veins\.resize\(bw, bh\); \} else \{ vCanvas\.width = bw; vCanvas\.height = bh; \}/);
   assert.match(main, /const figure = figWorkerWanted\(\) \? await startFigureWorker\(\) : null;/);
 });
+
+test('labels in the worker (?figlabels=worker): the page sends pictures and boxes; the default path is label-gl as before', async () => {
+  const lg = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8');
+  assert.match(lg, /if \(remote\) remote\.sprite\(st\.slot\.page, st\.slot\.x, st\.slot\.y, scratch\.transferToImageBitmap\(\)\);/);
+  assert.match(lg, /if \(remote\) remote\.frame\(items, W, H\);/);
+  assert.match(lg, /const marks = remote \? \[\] : marksIn;/);
+  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(st, /FIGW && !labelHost && \/\[\?&\]figlabels=worker\\b\/\.test\(location\.search\)/);
+  // The worker end lays the instances from the flat list the page sends.
+  const { createLabelRenderer } = await import('../src/ui/label-worker-core.js');
+  assert.equal(typeof createLabelRenderer, 'function');
+});
