@@ -975,6 +975,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // pressures and flows travel, the days run on); a newer slide mid-way eases on from wherever the model has got to.
   // Resolves once the slide's exact state is in, or early (the model left part way) when cut() says a newer slide was asked for.
   const MORPH_MS = 2000;
+  // A slide change is one move (premium-feel R1; ?onemove=0: the chain as before). Over the plate the cards come in during the
+  // camera's last 40 percent (CARDS_AT), so it lands on a finished slide, and a change of patient eases under the glide itself, over
+  // MORPH_ONE_MS (the glide's camMs, 480 to 900 ms, and a tail), not 2 s after it lands. A large change keeps easing under the cards:
+  // the widths and colours follow it (display-state.js). Kept serial, as before: the lobule's way in and out, a catheter, a case card
+  // over a loading patient, a slide with an instrument (it records the slide's own state), and a figure that cannot move smoothly
+  // while its organs change (stage.canDrift: no live GPU organs, so a glide over the changing organs would paint them all each frame;
+  // there the change still waits for the landing, over MORPH_ONE_MS).
+  const ONE_MOVE = !/[?&]onemove=0\b/.test(location.search);
+  const CARDS_AT = 0.4, MORPH_ONE_MS = 1200;
   const CATH_SETTLE_MS = 4000;   // (at most: a model still drifting never holds the catheter longer)
   // (.app.pz-morph while a change of patient eases: the checks hold the data card to it.)
   async function morphTo(st, cut, ms = MORPH_MS, mark = true) {
@@ -1030,7 +1039,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     await until(() => stage.lobuleSettled(), 6000); await wait(80);
   }
   // Glide the camera to a slide's framing; resolves when it has landed (cut(): a newer slide was asked for).
-  async function camera(cam, s, cut) {
+  // (early: a share of the glide over the plate; camera() resolves once only that much of it is left, the glide running on: see ONE_MOVE.)
+  async function camera(cam, s, cut, early = 0) {
     const ms = reduce.matches || booting ? 0 : 1500;
     if (LOBULE_CAM.test(cam)) {
       stage.lobuleHold?.(false);   // (a way out called off: the lobule follows this slide's cards again)
@@ -1079,6 +1089,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // cover it is set outright, so the reveal never catches it on its way.)
     const gl = booting ? 0 : ms || 300;
     frameTo(v === 'circuit' ? 'fit' : cam, s, gl);
+    // (Timed by the glide itself, camMs or an arc's stretch, never the 1.5 s asked: the camera had landed long before that wait ended.)
+    if (early && gl) { await until(() => { if (cut()) return true; const g = stage.glideLeft?.(); return !g || g.left <= g.ms * early; }, gl + 1500); return; }
     await wait(gl);
   }
   const cardsEntering = () => [ui?.text, ui?.panel, ui?.data].some((el) => el && !el.hidden && el.getAnimations({ subtree: true }).some((a) => a.playState === 'running' && Number.isFinite(a.effect?.getComputedTiming().endTime)));
@@ -1906,18 +1918,31 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (ct && swap && glide) { await until(() => cut() || stage.organsSettled(), CATH_SETTLE_MS); if (cut()) return; }
     // Behind a case card the camera holds the whole patient until the tap; then it zooms to the slide as the card fades.
     if (caseCard) { await caseLifted(cut); if (cut()) return; }
+    // One move (ONE_MOVE): over the plate, outside the liver, the cards come in as the glide ends (plate), and a change of patient eases
+    // under the glide (under) where the figure can move smoothly while its organs change. (Not behind a question's card: the change
+    // would play out unseen before the lift; there it waits for the landing, as before.)
+    const plate = ONE_MOVE && bare && !ct && !!cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !store.get().sinusoid;
+    const under = plate && later && !caseCard && !s.tool && !!stage.canDrift?.() && (fv.view || 'anatomic') === store.get().view;
+    let morphP = null;
+    if (under) {
+      if (keepNow.data && keepNow.swap) followData(s, to, st, cut);
+      // (.app.pz-morph-under while it runs: the cards may come in over it, so the checks do not hold the data card to it as to pz-morph.)
+      app.classList.add('pz-morph-under');
+      morphP = morphTo(st, cut, MORPH_ONE_MS, false).finally(() => app.classList.remove('pz-morph-under'));
+    }
     if (ct) await cathTo(ct, st.fp, cut);
     else if (lead) await lead;
-    else if (cam) await camera(cam, fv, cut);
+    else if (cam) await camera(cam, fv, cut, plate ? CARDS_AT : 0);
     if (cut()) return;
     if (bare) {
-      // (A glide's last frame can land just after the wait that timed it: the cards wait for the camera to be still.)
-      await until(() => cut() || !stage.gliding(), 1500);
+      // (A glide's last frame can land just after the wait that timed it: the cards wait for the camera to be still. In one move they
+      // come in over its last part instead, unless the patient changes after the landing: that change must not start mid-glide.)
+      if (!plate || (later && !under)) await until(() => cut() || !stage.gliding(), 1500);
       if (cut()) return;
       // The camera is still: the patient changes now, unhurried, and the cards come in only once it has.
       // (A kept data card stays up through it, its readings riding the model as it eases: followData.)
-      if (later && keepNow.data && keepNow.swap) followData(s, to, st, cut);
-      if (later) { if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; ui?.tools.hold(false); }
+      if (later && !under && keepNow.data && keepNow.swap) followData(s, to, st, cut);
+      if (later && !under) { if (!await morphTo(st, cut, ONE_MOVE ? MORPH_ONE_MS : MORPH_MS)) return; shownState = own ? -1 : si; ui?.tools.hold(false); }
       // The cards fade in once the figure is quiet: after a new patient, once the organs' picture is redrawn (its long frame
       // had eaten the fade), and in any case only when frames come smoothly (see smooth).
       if (swap) { await until(() => cut() || stage.organsSettled(), 1500); if (cut()) return; }
@@ -1928,6 +1953,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Once they are in, so the size they settle at is the one the camera already framed: no second move.)
       await wait(60); await until(() => cut() || !cardsEntering(), 1200);
       if (cut()) return;
+      // (One move: the glide the cards came in over has landed, and the change of patient under it has eased in.)
+      if (plate) { await until(() => cut() || !stage.gliding(), 1500); if (cut()) return; }
+      if (morphP) { if (!await morphP) return; shownState = own ? -1 : si; ui?.tools.hold(false); }
     }
     // The slide's state has landed (the recording instruments were let go at the landing, never with the leaving state's flow).
     ui?.tools.hold(false);

@@ -2111,6 +2111,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.classList.toggle('in-lobule', u > 0.98);
   }
   let vtAnim = 0, vtGliding = false;
+  let vtUntil = 0, vtMs = 0;   // (the glide under way: when it lands and how long it runs in all, for the presenter's cards: glideLeft)
   const camMoves = [], logMove = (m) => { camMoves.push(m); if (camMoves.length > 60) camMoves.shift(); };   // every glide of the camera (and dive), kept for the tests: a way into or out of the lobule is a single move
   let vtTarget = null;   // where the last animated move was headed
   // A presenter's camera move: the labels ease out as it starts, are not laid out while it runs, and ease
@@ -2245,7 +2246,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const left = Math.max(0, t0 + ms - performance.now());
     // (Not for a drift or a move on an arc: those keep their end time, which a refit that bends them reads from the wall clock.)
     const clock = opt.steady && !drift && !arcRun ? glideClock() : null;
-    vtGliding = true;
+    vtGliding = true; vtUntil = t0 + ms; vtMs = ms;
     if (carry) { drifting = carrying = true; rideLeaders(true); }
     else if (carrying) { carrying = false; rideLeaders(false); }   // (a slow push or a plain glide after one: its leaders are back)
     if (cath.st?.keep && !sameView(from, to) || store.get().presenting && !drift && !carry && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, left + 80); } else camSettle();
@@ -11623,6 +11624,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     organsSettled: () => plateOn() || !glWanted(),
     /** The camera is still gliding (a slide's cards wait for it to land). */
     gliding: () => vtGliding,
+    /** What is left of the glide under way, and its whole length, ms ({ left: 0, ms: 0 } at rest): a slide's cards come in over its last part. */
+    glideLeft: () => (vtGliding ? { left: Math.max(0, vtUntil - performance.now()), ms: vtMs } : { left: 0, ms: 0 }),
     /** A slow push is under way (frameBox or fitSlow with { drift: true }): the labels ride with it. */
     drifting: () => drifting,
     /** A slow push can run smoothly here: the organs are drawn live on the GPU while a time-lapse changes them (otherwise every frame of
