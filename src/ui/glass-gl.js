@@ -143,7 +143,7 @@ void main() {
  */
 export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null } = {}) {
   const look = pane ? PANE : GLASS;
-  // (cards: { find, watch, before }: the Present cards' glass (recs A2, 31 Oct): find() lists the elements, each its own rounded box, its
+  // (cards: { find, watch, before, read? }: the Present cards' glass (recs A2, 31 Oct): find() lists the elements, each its own rounded box, its
   // corners its border radii and its tint the colour its CSS declares in --gl-tint (app.css: the same colour its background was), drawn
   // while its --gl-glass is 1 and no CSS filter lies on it; watch: the roots whose writes may move them; before: where the canvas goes.
   // Their DOM shadows and borders stay the page's. A card whose tint cannot be read, or whose glass its CSS has turned off (the phone's
@@ -288,6 +288,13 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       const el = cards ? g : g.parentElement, cs = getComputedStyle(g);
       if (!el || cs.display === 'none' || cs.visibility !== 'visible') continue;
       const a = NUM(cs.opacity) * heldBy(g);
+      if (cards?.read) {
+        // (A glass whose box the page reads itself (cards.read(g): { r, rad, a, tint } or null, the lobule's pills: a pseudo-element's).)
+        const q = cards.read(g);
+        if (!q || !(a * q.a > 0.001) || !q.r.width || !q.r.height) continue;
+        panes.push({ g, el, a: a * q.a, r: q.r, d: null, rad: q.rad, lw: q.r.width, lh: q.r.height, er: q.r, shadow: null, tint: q.tint, k: 1 });
+        continue;
+      }
       if (cards) {
         // (Its CSS says whether this element's glass is its own (--gl-glass 1) and what its tint is; a filter on it (a brightness) would
         // not reach a glass drawn here, so such a card keeps the browser's.)
