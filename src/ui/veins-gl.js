@@ -35,7 +35,7 @@ import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=300b3b5267';
 import { figureRGB as cssRGB, figureSearch } from './figure-settings.js?v=68c0336f5f';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=dfcc262e2a';
-import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=d8d72f1157';
+import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=7eb5e277a6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=b5449b0040';
 import { changedRows } from './flow-rows.js?v=bea4089714';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
@@ -1907,6 +1907,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 24, 0); gl.vertexAttribDivisor(1, 1);
   gl.bindVertexArray(null);
   let nBlood = 0, bloodCell = CELL;   // (bloodCell: the size of those squares, world units)
+  // (The blood's own pass draws the quarters of its cells a lumen can reach (binVeins bloodQ), or with ?blood=classic the cells.)
+  function uploadBlood(bins) {
+    const q = !CLASSIC && bins.bloodQ;
+    bloodCell = q ? CELL / 2 : CELL;
+    const bl = q ? bins.bloodQ : bins.blood || bins.cells;
+    gl.bindBuffer(gl.ARRAY_BUFFER, bloodBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, bl, gl.STATIC_DRAW);
+    nBlood = q ? bins.nBloodQ : bins.blood ? bins.nBlood : bins.nCells;
+    bloodCPU = bl;
+  }
   // Some of those cells, for a redraw of only the vessels that changed (see drawRows).
   const partVAO = gl.createVertexArray(), partBuf = gl.createBuffer();
   gl.bindVertexArray(partVAO);
@@ -2669,14 +2679,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       cellsCPU = bins.cells; entCPU = bins.ent; nCells = bins.nCells;
       cellBox = boxOfCells(bins.cells, bins.nCells, CELL);
       uploadCells();
-      // (The blood's own pass draws the quarters of its cells a lumen can reach (binVeins bloodQ), or with ?blood=classic the cells.)
-      const q = !CLASSIC && bins.bloodQ;
-      bloodCell = q ? CELL / 2 : CELL;
-      const bl = q ? bins.bloodQ : bins.blood || bins.cells;
-      gl.bindBuffer(gl.ARRAY_BUFFER, bloodBuf);
-      gl.bufferData(gl.ARRAY_BUFFER, bl, gl.STATIC_DRAW);
-      nBlood = q ? bins.nBloodQ : bins.blood ? bins.nBlood : bins.nCells;
-      bloodCPU = bl;
+      uploadBlood(bins);
       cellsCPU = bins.cells; entCPU = bins.ent; rowCells = null; fboOK = false; movedAll = true; patchMark = null; patchK = 0;
     },
     /**
@@ -2695,6 +2698,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // with the widths (his Mac readouts on the catheter slide, 30 Oct: every frame "no kept layer").
       if (bins.patchTubes && bins.cells === cellsCPU && bins.ent === entCPU) {
         for (const r of bins.patchTubes) { radRows.add(r); moved[r] = 1; }
+        // (Cells whose lists were written in place, a vessel having left or entered them (binVeins relay): drawn again whole, their
+        // lists split again between the two programs, and the rows' cells found again from the new lists.)
+        if (bins.patchCells?.length) {
+          patchMark ||= new Uint8Array(nCells);
+          for (const c of bins.patchCells) if (!patchMark[c]) { patchMark[c] = 1; patchK++; }
+          rowCells = null;
+          uploadCells();
+        }
+        if (bins.patchBlood) uploadBlood(bins);
         if (bins.patchJoinEnts?.length) {
           patchK += cellsOfJoinEntries(cellsCPU, nCells, bins.patchJoinEnts, patchMark ||= new Uint8Array(nCells)).k;
           for (const r of bins.patchRows || []) if (r >= 0 && r < nTubes) moved[r] = 1;
