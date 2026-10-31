@@ -130,6 +130,7 @@ export function createPalette({ ctx }) {
     if (ctx.library && !ctx.libraryNow?.()) ctx.library().then(() => { if (!back.hidden) renderList(); }).catch(() => {});
     setTimeout(() => input.focus(), 0);
     vv?.addEventListener('resize', fitList); vv?.addEventListener('scroll', fitList);
+    fitList();   // (a keyboard already up, from another field, shows no resize: the list is held to its room at once)
   }
   // The on-screen keyboard covers the foot of the page without shrinking it (iOS): the list is held to the room above the keyboard,
   // so every result can be reached and tapped. (Event-driven: it follows the keyboard coming and going; nothing runs per frame.)

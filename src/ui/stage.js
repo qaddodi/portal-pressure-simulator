@@ -1786,7 +1786,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let fitted = false;
   // Which framing the circuit was last given ('whole' map or 'focus' close-up: setView, Fit, a refit). The circuit has no home
   // look of its own, so a turn of the device or a new window size takes the same kind of framing again, for the new shape (lookHome).
-  let circFit = null;
+  // circAt: that framing as given, so a turn or a resize takes it again only while the view is still exactly there (a card's pan to
+  // reveal a vessel, a pinch or a tool's camera moved it: it stays where it was put).
+  let circFit = null, circAt = null;
+  const markCirc = (kind, v) => { circFit = kind; circAt = { ...v }; };
   // The Tests card opening leaves the camera where it is (Mohammad, 20 Oct): the pan and zoom stay as they were, under the card too.
   // keepView(true) is called as the card opens and notes the space the other pieces leave (the card itself not counted); the
   // refits that follow the card (the open's, the sheet settling, a tool's card changing height) and the home framing's own
@@ -1816,7 +1819,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const at = vtGliding ? vtTarget : vt;
     const to = circuit && !near(focus, whole) ? (near(at, whole) ? focus : whole) : focus;
     if (!circuit) homeAt = to;
-    else circFit = to === whole ? 'whole' : 'focus';
+    else markCirc(to === whole ? 'whole' : 'focus', to);
     fitted = true;
     // It glides there, as the zoom buttons do (reduced motion: a short glide).
     animateVT(to, 420);
@@ -1828,7 +1831,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function refit() {
     if (lobuleOn || keptNow()) return;
     const to = circAgain && morphTarget === 1 && circFit === 'whole' ? circWhole() : defaultVT(morphTarget === 1);
-    if (morphTarget !== 1) homeAt = to; else if (!circAgain) circFit = 'focus';
+    if (morphTarget !== 1) homeAt = to; else markCirc(circAgain ? circFit : 'focus', to);
     fitted = true;
     // (Mid-measurement the catheter's camera keeps the view: its trip back ends on the new fit instead of the old one.)
     if (cath.saved) { cath.saved = to; return; }
@@ -2935,7 +2938,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (The circuit has no home look: a framing it was given is taken again for the new shape, as the anatomy's home is. A view the
     // learner moved stays: a pinch, a drag, the wheel or a zoom step clears fitted. Not while a resize is still settling, a tool
     // has the camera, or the Tests card alone changed the space.)
-    if (homeResizeT || morphTarget !== 1 || !fitted || !circFit || lobuleOn || cath.saved) return;
+    if (homeResizeT || morphTarget !== 1 || !fitted || !circFit || lobuleOn || cath.saved || !sameView(vtGliding ? vtTarget : vt, circAt)) return;
     circAgain = true;
     try { refit(); } finally { circAgain = false; }
   };
@@ -11423,7 +11426,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let to = { ...vt };
     const k = clamp(vt.k, K_MIN, K_MAX);
     // At or past the fit zoom (zoomed out, or panned about at the fit), the view springs back to the fit framing, as in the lobule view.
-    { const d = defaultVT(morphTarget === 1); if (vt.k <= d.k * 1.001) { fitted = true; if (!sameView(d, vt)) animateVT(d, 420); return; } }
+    { const d = defaultVT(morphTarget === 1); if (vt.k <= d.k * 1.001) { if (morphTarget === 1) markCirc('focus', d); fitted = true; if (!sameView(d, vt)) animateVT(d, 420); return; } }
     if (k !== vt.k) {
       const [cx, cy] = freeCentre(), [vx, vy] = clientToVB(cx, cy);
       to = { k, x: vx - ((vx - vt.x) / vt.k) * k, y: vy - ((vy - vt.y) / vt.k) * k };
@@ -11821,7 +11824,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const wasOut = target === 1 && (fromLobule || at.k <= 1.001 || (homeAt && sameView(at, homeAt)));   // the whole plate (or less) is showing
       const d = wasOut ? circWhole() : defaultVT(target === 1);
       if (target === 0) { homeAt = d; fitted = true; }   // back to the anatomy: always its home framing
-      else { circFit = wasOut ? 'whole' : 'focus'; fitted = true; }   // the circuit opens fitted: a turn of the device refits it
+      else { markCirc(wasOut ? 'whole' : 'focus', d); fitted = true; }   // the circuit opens fitted: a turn of the device refits it
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
     },
     relayout() { refreshCTM(); if (F) updateLabels(F, true); },
@@ -11945,7 +11948,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (It used to shrink past it to 0.6× about the middle and stay there: a small figure off to one side that nothing put back.)
       const circuit = morphTarget === 1, d = defaultVT(circuit), whole = circuit ? circWhole() : d, lo = whole.k < d.k ? whole : d;
       const base = vtGliding && vtTarget ? vtTarget : vt;
-      if (base.k / 1.4 <= lo.k * 1.001) { if (!circuit) homeAt = lo; fitted = true; if (!sameView(lo, base)) animateVT(lo, 260); return; }
+      if (base.k / 1.4 <= lo.k * 1.001) { if (!circuit) homeAt = lo; else markCirc(lo === whole ? 'whole' : 'focus', lo); fitted = true; if (!sameView(lo, base)) animateVT(lo, 260); return; }
       const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4);
     },
     fit, refit, closeView,
@@ -12028,9 +12031,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     carryProbe() { dpr.refitUntil = performance.now() + 300; },
     /** The presenter's card followed frame by frame: aimView(fn) (where fn's framing would go), viewNow(), follow(v0, v1), followAt(u), followEnd(), following(). */
     aimView, viewNow, follow: followStart, followAt, followEnd, following: () => following,
-    fitSlow(ms = 1300, opt = {}) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, opt.steady ? { steady: true } : { scale: true }); },
+    fitSlow(ms = 1300, opt = {}) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, opt.steady ? { steady: true } : { scale: true }); },
     /** The same fit as a slow push (a time-lapse's lapse.cam 'fit'): see drifting. */
-    fitDrift(ms) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, { drift: true }); },
+    fitDrift(ms) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, { drift: true }); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */
     cameraState: () => ({ ...(vtGliding && vtTarget ? vtTarget : vt) }),
     /** The organs are drawn from the GPU copy again after a patient change (or never will be: no WebGL), so a camera move costs only the GPU's draw. */

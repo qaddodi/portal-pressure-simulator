@@ -44,6 +44,7 @@ function noiseField(w, hh, cell, seed) {
 
 const NB = 104; // the noise fields are laid out on this grid; the map is sampled at any resolution from it
 const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TOUCH = typeof matchMedia === 'function' ? matchMedia('(pointer: coarse)') : { matches: false };   // (read live: a finger's screen keeps the 12 px floor on the canvas words)
 const FIELDS = { built: false };
 function fields() {
   if (FIELDS.built) return FIELDS;
@@ -140,11 +141,12 @@ export function createFibroScan() {
     // edge and the reading inside its top right corner (the clearest part: the wave front starts at the top left).
     // A short, wide panel (a phone's presenter card on its side) differs only in its smaller words.
     const side = !cv.closest('.pz-tool') && hh < 200 && w > hh * 2.2;
+    const FLOOR = TOUCH.matches ? 12 : 10;   // (a finger's screen keeps the 12 px floor; a mouse's panel keeps its small words)
     // The panel's words are the size of the card's small words (the canvas's own font size, which a slide sets to the tiles'
     // small size), so the labels never look tiny beside the card: one size for the axes and the units.
     // (The box's ratio to its layout width is read with the size, when it changes: read every frame, it laid the page out mid-frame.)
-    if (w !== sized.w || hh !== sized.h) { sized.w = w; sized.h = hh; const fs = parseFloat(getComputedStyle(cv).fontSize) || 11; sized.cap = clamp(fs * (w / (cv.offsetWidth || w)), 10, 20); sized.r = w / cv.clientWidth || 1; }
-    const CAP = side ? 10 : sized.cap, m = Math.round(CAP * 0.7);
+    if (w !== sized.w || hh !== sized.h) { sized.w = w; sized.h = hh; const fs = parseFloat(getComputedStyle(cv).fontSize) || 11; sized.cap = clamp(fs * (w / (cv.offsetWidth || w)), FLOOR, 20); sized.r = w / cv.clientWidth || 1; }
+    const CAP = side ? FLOOR : Math.max(FLOOR, sized.cap), m = Math.round(CAP * 0.7);
     const ex = 0, top = 0, ew = w, ph = hh, bot = hh;
     if (ph < 50 || ew < 60) return;
     // Sample the map at about half the screen pixels (smooth, never blocky), always (it never shrinks itself when frames
@@ -164,7 +166,7 @@ export function createFibroScan() {
     ctx.restore();
     rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
     // Axes: the units ride on one tick each ("60 mm", "0 ms"), so they need no room of their own.
-    const TK = side ? 10 : CAP;
+    const TK = side ? FLOOR : CAP;
     ctx.fillStyle = th.tick; ctx.font = FONT(500, TK);
     // Depth labels sit inside the map's left edge in white with a dark halo, so they read on any colour of the elastogram. They stand at
     // 40, 60 and 80 mm (a sixth, a half and five sixths of the way down): even gaps, clear of the corners and of the time row.

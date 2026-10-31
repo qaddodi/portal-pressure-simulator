@@ -503,6 +503,8 @@ div.vital { cursor: default; }
 .btn svg { width: var(--ic-s); height: var(--ic-s); }
 .btn.sm { height: 28px; padding: 0 12px; font-size: var(--fs-14); }
 .btn.block { width: 100%; }
+/* (Where a finger is the pointer a button's tap area reaches 4 px past its top and bottom and 2 px past its sides, never over a neighbour: the buttons are 28 and 32 px high.) */
+@media (pointer: coarse) { .btn { position: relative; } .btn::after { content: ''; position: absolute; inset: -4px -2px; } }
 .btn.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; box-shadow: var(--shadow-btn-primary); }
 @media (hover: hover) { .btn.primary:hover { background: var(--accent-ink); } }
 .btn.ghost { border-color: transparent; background: transparent; color: var(--text-2); }
@@ -731,9 +733,8 @@ div.vital { cursor: default; }
 .ctl.changed .reset-btn { display: grid; }
 /* (The info button's invisible ring reaches 14 px, over the left 10 px of Reset, so a tap on Reset's left half opened the explanation: Reset starts clear of the ring and has a ring of its own.) */
 @media (pointer: coarse) {
-  .ctl-label { gap: 14px; }
-  .reset-btn { position: relative; z-index: 1; }
-  .reset-btn::before { content: ''; position: absolute; inset: -13px -10px; }
+  .reset-btn { position: relative; z-index: 1; margin-left: 10px; }
+  .reset-btn::before { content: ''; position: absolute; inset: -13px -10px -13px -4px; }
 }
 /* Every slider is the data tiles' scale bar made draggable (Mohammad's pick B, 17 Oct): the same 6 px track, a solid dot for
    now and, on a slide's what-if, a ring where the slide started. The wrapper draws the track and the fill from --p (0 to 1, set
@@ -3578,6 +3579,11 @@ button.finding { cursor: pointer; }
 .um-tab[aria-selected="true"] { color: var(--text); font-weight: 600; }
 .um-tab[aria-selected="true"]::after { opacity: 1; transform: none; }
 .um-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+@media (pointer: coarse) {
+  .um-tab { height: 44px; }   /* (36 px was the mouse size) */
+  .um-link { position: relative; }
+  .um-link::after { content: ''; position: absolute; inset: -4px -2px; }
+}
 .umenu[data-tab="present"] .um-col[data-col="patients"], .umenu[data-tab="patients"] .um-col[data-col="present"] { display: none; }
 .um-col { flex: 1 1 auto; }
 .um-col.um-in { animation: fade-rise var(--d-flip) var(--ease); }
@@ -4269,6 +4275,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
    (container radius - padding - border), not a fill clipped to the edge. */
 .tl-split { --split-r: var(--r-card); --inset: 3px; height: 40px; padding: var(--inset); gap: 2px; border-radius: var(--split-r); overflow: visible; box-sizing: border-box; }
 .timeline .tl-split .ib.play, .vdock .tl-split .ib.play { height: 100%; border-radius: calc(var(--split-r) - var(--inset) - 1px); }
+@media (pointer: coarse) { .tl-split .ib.play { position: relative; } .tl-split .ib.play::after { content: ''; position: absolute; inset: -3px -1px; } }   /* (the play button is 34 px high inside the split's 3 px padding: its tap area is the split's 40) */
 .tl-left .tl-split .tl-speed, .vdock .tl-left .tl-split .tl-speed { border-radius: calc(var(--split-r) - var(--inset) - 1px); }
 
 /* Cards keep their size as live numbers and notes change: tabular figures, reserved widths and heights. */
@@ -4413,6 +4420,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 
 /* Treat's Drugs / Fluids / Procedures tabs reuse the Tests card's tab row (.instr-tabs); the pane under it needs no extra top gap. */
 .treat-card .instr-tab { flex: 1 1 0; }
+@media (pointer: coarse) { .treat-tabs .instr-tab, .treat-tabs .instr-tab[aria-selected="true"] { height: 40px; } }   /* (Drugs / Fluids / Procedures were 28 px high, the only way to change them) */
 .treat-pane { padding-top: 4px; display: grid; }
 .treat-pane > * { grid-area: 1 / 1; align-self: start; }
 .treat-pane > .tp-off { visibility: hidden; }
@@ -4491,8 +4499,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pzk-bar i[data-rate="hi"] { background: color-mix(in srgb, var(--danger) 24%, transparent); }
 .pzk-bar i[data-rate="top"] { background: color-mix(in srgb, var(--danger) 40%, transparent); }
 .pzk-bar b { position: absolute; top: -.15em; bottom: -.15em; width: 2px; margin-left: -1px; background: var(--text-2); }
-.pzk-dot { position: absolute; top: 50%; left: 0; width: 2.1em; height: 2.1em; margin: -1.05em 0 0 -1.05em; border-radius: 50%; display: grid; place-items: center;
-  background: var(--surface); border: .17em solid currentColor; font: 700 .72em/1 var(--font-ui); color: var(--text-2); box-sizing: border-box;
+.pzk-dot { --d: calc(var(--sk, 14px) * .72); position: absolute; top: 50%; left: 0; width: calc(var(--d) * 2.1); height: calc(var(--d) * 2.1); margin: calc(var(--d) * -1.05) 0 0 calc(var(--d) * -1.05); border-radius: 50%; display: grid; place-items: center;
+  background: var(--surface); border: calc(var(--d) * .17) solid currentColor; font: 700 max(var(--d), 12px)/1 var(--font-ui); color: var(--text-2); box-sizing: border-box;   /* (the dot is the size it was, .72 of the scale's text; its digit is never under 12 px) */
   opacity: 0; transition: left 1.4s var(--ease) /*own pace*/ calc(var(--i, 0) * 160ms + 250ms), opacity var(--d-surface) var(--ease) calc(var(--i, 0) * 160ms + 100ms); }
 .pz-sk.in .pzk-dot { left: var(--x); opacity: 1; }
 .pzk-dot[data-rate="ok"], .pzk-key [data-rate="ok"] .pzk-n, .pzk-key [data-rate="ok"] .pzk-v { color: var(--ok); }
@@ -4865,11 +4873,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade b { display: inline; color: var(--text); }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade b:empty { display: none; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade span { position: absolute; left: 4px; right: 4px; bottom: 8px; display: block; font-size: 0; line-height: 1.2; color: var(--text-2); }
-.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade span::after { content: attr(data-short); font: 500 min(11px, 15cqi)/1.2 var(--font-ui); letter-spacing: 0; white-space: nowrap; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade span::after { content: attr(data-short); font: 500 min(12px, 15cqi)/1.2 var(--font-ui); letter-spacing: 0; white-space: nowrap; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade b:empty + span { position: static; font-size: min(16px, 22cqi); color: var(--text); }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade b:empty + span::after { content: none; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-more { position: absolute; left: 4px; right: 4px; bottom: 8px; font-size: 0; }
-.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-more:not(:empty)::after { content: 'Cherry spots'; font: 500 min(11px, 15cqi)/1.2 var(--font-ui); color: var(--text-2); white-space: nowrap; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-more:not(:empty)::after { content: 'Cherry spots'; font: 500 min(12px, 15cqi)/1.2 var(--font-ui); color: var(--text-2); white-space: nowrap; }
 /* One column (the Tests card on a laptop, a portrait card): the tiles span the card, five in a row when it is wide
    enough, otherwise three and two (the last two each take half the row, never a lone narrow tile). */
 @container ((max-aspect-ratio: 4 / 5) or style(--one-col: 1)) {
@@ -5879,6 +5887,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    room, the open tab is an icon like the rest (dock.js fitTabs, "bare"). The coordinator's 667 x 375 check: "Pressur".) */
 .instrument-workspace .dock-head .ws-tabs.tight .instr-tab[aria-selected="true"] { flex: 0 0 auto; }
 .instrument-workspace .dock-head .ws-tabs.tight .instr-tab:not([aria-selected="true"]) { flex: 1 1 0; min-width: 26px; padding: 0 3px; }
+/* (A finger: 40 px high, the size of an icon button here, not the mouse's 34. The width is the row's: seven tabs share it. The row grows by 6 px.) */
+@media (pointer: coarse) {
+  .instrument-workspace .dock-head .ws-tabs.tight .instr-tab, .instrument-workspace .dock-head .ws-tabs.tight .instr-tab[aria-selected="true"] { height: 40px; }
+}
 .instrument-workspace .dock-head .ws-tabs.tight.bare .instr-tab[aria-selected="true"] .it-t { max-width: 0; margin-left: 0; opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .instrument-workspace .dock-head .ws-tabs.tight .it-t { transition: none; } }
 @media (min-width: 1024px) and (pointer: fine) {
