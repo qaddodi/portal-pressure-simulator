@@ -153,3 +153,20 @@ test("the view's sharp picture keeps its sides within the painter's room beside 
   assert.match(src, /const \[roomW, roomH\] = picNow \|\| \[vCanvas\.width, vCanvas\.height\];[^\n]*\n\s+const room = targetRoom\(roomW, roomH\);/);
   assert.match(src, /room \/ \(Math\.max\(1, roomH\) \* \(x1 - x0\)\), room \/ \(Math\.max\(1, roomW\) \* \(y1 - y0\)\)\);/);
 });
+
+test('a non-scaling stroke is painted at its width in the page\'s px, whatever its frame; any other stroke at its own', () => {
+  const { gl } = fakeGL(), log = [];
+  const shape = { ...fakeShape(), stroke: (mesh, m, sz, mask, w) => log.push(w) };
+  const p = createOrganPaint(gl, shape);
+  const line = (nss) => ({ geom: { poly: [{ pts: new Float32Array([0, 0, 10, 0]), closed: false }] }, m: ID, kind: 'stroke', paint: { solid: [0, 0, 0, 1] }, alpha: 1, w: 1.6, cap: 1, clip: null, ...(nss ? { nss: true } : {}) });
+  const spec = { ops: [line(true), line(false)], opacity: 1, mask: null, root: null };
+  // The world at 4 device px a unit, on a 3x screen: 1.6 page px = 4.8 device px = 1.2 units; the plain stroke stays 1.6 units.
+  p.cssPx = 3;
+  p.paintGroup(spec, [4, 0, 0, 4, 0, 0], 200, 200, null);
+  assert.deepEqual(log, [1.2000000000000002, 1.6]);
+  log.length = 0;
+  p.cssPx = 0;   // (none given: 1)
+  assert.equal(p.cssPx, 1);
+  p.paintGroup(spec, [2, 0, 0, 2, 0, 0], 200, 200, null);
+  assert.deepEqual(log, [0.8, 1.6]);
+});

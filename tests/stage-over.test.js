@@ -72,7 +72,8 @@ test('a strict reading refuses what the painter would paint otherwise than the b
   assert.equal(strictRefused(elWith([1, 0, 0, 1, 10, 20]), { ...cs0, transform: 'matrix(1, 0, 0, 1, 10, 21)' }), 'transform');
   assert.equal(strictRefused(elWith([1, 0, 0, 1, 10, 20]), { ...cs0, transform: 'matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 10, 20, 0, 1)' }), 'transform');
   assert.equal(strictRefused(elWith([1, 0, 0, 1, 10, 20]), cs0), 'transform', 'an attribute the page does not report: not trusted');
-  assert.equal(strictRefused(elWith(null), { ...cs0, vectorEffect: 'non-scaling-stroke' }), 'vector-effect');
+  assert.equal(strictRefused(elWith(null), { ...cs0, vectorEffect: 'non-scaling-stroke' }), '', 'painted at its page px (organ-paint cssPx)');
+  assert.equal(strictRefused(elWith(null), { ...cs0, vectorEffect: 'non-scaling-size' }), 'vector-effect');
   for (const k of ['markerStart', 'markerMid', 'markerEnd']) assert.equal(strictRefused(elWith(null), { ...cs0, [k]: 'url("#arrow")' }), 'marker');
   assert.equal(strictRefused(elWith(null), { ...cs0, paintOrder: 'stroke' }), 'paint-order');
   assert.equal(strictRefused(elWith(null), { ...cs0, shapeRendering: 'crispEdges' }), 'shape-rendering');
@@ -84,7 +85,7 @@ test('a CSS transform: not refused when asked, the other refusals still made; th
   assert.equal(strictRefused(elWith(null), scaled), 'transform');
   assert.equal(strictRefused(elWith(null), scaled, { cssTransforms: true }), '');
   assert.equal(strictRefused(elWith(null), { ...cs0, scale: '1.2' }, { cssTransforms: true }), '');
-  assert.equal(strictRefused(elWith(null), { ...scaled, vectorEffect: 'non-scaling-stroke' }, { cssTransforms: true }), 'vector-effect');
+  assert.equal(strictRefused(elWith(null), { ...scaled, markerEnd: 'url(#a)' }, { cssTransforms: true }), 'marker');
   assert.equal(strictRefused(elWith(null), { ...scaled, animationName: 'x' }, { cssTransforms: true }), 'animation');
   const ctm = (m) => () => ({ a: m[0], b: m[1], c: m[2], d: m[3], e: m[4], f: m[5] });
   // The parent at 2x, moved; the element's own: a scale of 1.5 about (10, 20) = [1.5, 0, 0, 1.5, -5, -10].
@@ -148,6 +149,11 @@ test('a strict reading takes visibility as the page computes it, and refuses a m
     sc.cs(g1).transform = 'none';
     readGroup(sc.root, { strict: true });
     assert.deepEqual(elMat(g1), [1, 0, 0, 1, 0, 0], 'the CSS transform gone: its frame forgotten at the next reading');
+    // A non-scaling stroke (a slide's calipers): marked so, strictly only.
+    const n = tree((mk) => mk('g', {}, {}, [mk('path', { d: 'M0 0 C 1 1 2 2 3 3' }, { stroke: 'rgb(0, 0, 0)', fill: 'none', vectorEffect: 'non-scaling-stroke' })]));
+    globalThis.getComputedStyle = n.cs;
+    assert.equal(readGroup(n.root, { strict: true }).ops[0].nss, true);
+    assert.equal(readGroup(n.root).ops[0].nss, undefined);
     const a = tree((mk) => mk('g', {}, {}, [mk('circle', { r: '3' }, { animationName: 'haloRing' })]));
     globalThis.getComputedStyle = a.cs;
     assert.equal(readGroup(a.root, { strict: true }), null);
@@ -162,6 +168,11 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   // (All they show painted: the overlays' SVG composited at nothing; with no picture to paint in, every copy shown again.)
   assert.match(css, /\.stage-view svg#stageOver\.gpu-all \{ opacity: 0 !important; \}/);
   assert.match(st, /svgOver\.classList\.toggle\(OVER_ALL, run\.whole\);/);
+  // (A non-scaling stroke's px: the canvas's own over its box's, given to the painter before each change check and paint.)
+  assert.match(st, /veins\.overlay\.cssPx = boxW > 0 \? vCanvas\.width \/ boxW : 1;/);
+  const vg = read('../src/ui/veins-gl.js');
+  assert.match(vg, /stack\.painter\.cssPx = overCss;\n\s+const kx = canvas\.width \/ PW\(\), ky = canvas\.height \/ PH\(\);\n\s+return over\.stale/);
+  assert.match(vg, /stack\.painter\.cssPx = overCss;\n\s+if \(over\.stale\(m, canvas\.width, canvas\.height\)\) over\.render/);
   // (Read again when a class outside the overlays changes how they show: the app's, the page's, the stage's.)
   assert.match(st, /const overKey = \(\) => `\$\{appEl\?\.className \|\| ''\}\|\$\{document\.documentElement\.className\}\|\$\{wrap\.className\}\|/);
   assert.match(st, /if \(!veins\?\.overlay \|\| veins\.lost \|\| !wrap\.classList\.contains\('gl-on'\)\) \{ if \(overPainted\.length \|\| svgOver\?\.classList\.contains\(OVER_ALL\)\) overClear\(\); return; \}/);

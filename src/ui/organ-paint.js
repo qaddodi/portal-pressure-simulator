@@ -145,8 +145,8 @@ function readClip(doc, id, m) {
  * gut's see-through shades, the stomach's and duodenum's fades, each a group of overlapping shapes.)
  */
 // `strict` (the figure's overlays, stage.js syncOver): visibility as the page computes it, and refused as well, so that such a group
-// stays in the SVG rather than painted otherwise than the browser paints it: a CSS animation, a marker, a non-scaling stroke, a
-// paint order, crisp edges, or a stroke whose joins are not round on an outline with corners (the painter joins every stroke
+// stays in the SVG rather than painted otherwise than the browser paints it: a CSS animation, a marker, a vector effect other than a
+// non-scaling stroke (painted at its width in the page's px: the painter's cssPx), a paint order, crisp edges, or a stroke whose joins are not round on an outline with corners (the painter joins every stroke
 // round). A CSS transform (the caudate's growth, about its origin) is taken as the browser lays it (cssLocal).
 export function readGroup(root, { withMask = true, nest = false, strict = false } = {}) {
   const doc = root.ownerDocument, ops = [];
@@ -229,7 +229,10 @@ export function readGroup(root, { withMask = true, nest = false, strict = false 
       const so = parseFloat(cs.strokeOpacity) || 0, w = parseFloat(cs.strokeWidth) || 0;
       CS_SO.set(el, so);
       if ((a * so > 0 || ownSO(el) || ch.some(ownO)) && w > 0) {
-        out.push({ geom, m: me, kind: 'stroke', paint: stroke, alpha: a * so, w, cap: { butt: 0, round: 1, square: 2 }[cs.strokeLinecap] ?? 0, clip: cl, el, chain: ch, a0 });
+        const op = { geom, m: me, kind: 'stroke', paint: stroke, alpha: a * so, w, cap: { butt: 0, round: 1, square: 2 }[cs.strokeLinecap] ?? 0, clip: cl, el, chain: ch, a0 };
+        // (A non-scaling stroke (a slide's calipers): its width in the page's px, read only strictly.)
+        if (strict && cs.vectorEffect === 'non-scaling-stroke') op.nss = true;
+        out.push(op);
       }
     }
   };
@@ -257,7 +260,7 @@ export function strictRefused(el, cs, { cssTransforms = false } = {}) {
   if (cs.animationName && cs.animationName !== 'none') return 'animation';
   const t = cssTransformed(el, cs);
   if (t && !cssTransforms) return t;
-  if (cs.vectorEffect && cs.vectorEffect !== 'none') return 'vector-effect';
+  if (cs.vectorEffect && !/^(none|non-scaling-stroke)$/.test(cs.vectorEffect)) return 'vector-effect';
   for (const k of ['markerStart', 'markerMid', 'markerEnd']) if (cs[k] && cs[k] !== 'none') return 'marker';
   if (cs.paintOrder && cs.paintOrder !== 'normal') return 'paint-order';
   if (cs.shapeRendering && !/^(auto|geometricPrecision)$/.test(cs.shapeRendering)) return 'shape-rendering';
@@ -476,6 +479,10 @@ export function createOrganPaint(gl, shape) {
     return r;
   }
   const scaleOf = (m) => Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) || 1;
+  // Device px per CSS px of what is painted now (the overlays' canvas: veins-gl overLay), for a non-scaling stroke, whose width is
+  // in the page's px whatever its frame: in its own units, that width over the frame's scale (sc, device px per unit).
+  let cssPx = 1;
+  const wOf = (op, sc) => (op.nss ? (op.w * cssPx) / sc : op.w);
   // A device box [x0, y0, x1, y1] (y down) of polylines under m, grown by `g` px, cut to the canvas; null if empty.
   function devBox(box, m, g) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -506,7 +513,7 @@ export function createOrganPaint(gl, shape) {
     // (The tolerance in powers of two, a fifth of a pixel or finer: a pinch reuses the meshes until the zoom doubles.)
     const om = mul(m, lv.m), sc = scaleOf(om), tol = detailTol(sc);
     const sh = meshOf(op.geom, op.kind === 'stroke' ? op.cap : 0, tol);
-    const grow = op.kind === 'stroke' ? (op.w / 2) * sc + 2 : 2;
+    const grow = op.kind === 'stroke' ? (wOf(op, sc) / 2) * sc + 2 : 2;
     // (At no opacity it paints nothing: no box, so a change check sees it come and go.)
     let b = lv.alpha > 0 ? devBox(sh.box, om, grow) : null, cm = null, csh = null;
     if (op.clip) {
@@ -572,7 +579,7 @@ export function createOrganPaint(gl, shape) {
     gl.colorMask(true, true, true, true);
     gl.disable(gl.SCISSOR_TEST);
     if (op.kind === 'fill') shape.fill(sh.mesh, om, sz, [true, false, false, false]);
-    else shape.stroke(sh.mesh, om, sz, [true, false, false, false], op.w);
+    else shape.stroke(sh.mesh, om, sz, [true, false, false, false], wOf(op, scaleOf(om)));
     if (newClip) { shape.fill(csh.mesh, cm, sz, [false, true, false, false]); job.ck = ck; }
     // Painted over the target within the op's box.
     gl.bindFramebuffer(gl.FRAMEBUFFER, into);
@@ -618,7 +625,7 @@ export function createOrganPaint(gl, shape) {
   // What an op paints, as a string: what it is painted with (fixed while the spec lives: kept on the op) and where (its outline's
   // `d` and its frame, read now). Two frames with the same string paint the same pixels in the same box.
   const paintKey = (op) => op.pk || (op.pk = JSON.stringify([op.kind, op.w, op.cap, op.paint]));
-  const opSig = (op, m) => { const lv = liveAt(op); return `${paintKey(op)}|${lv.alpha}|${lv.m.join(',')}|${lv.cm ? lv.cm.join(',') : ''}|${m.join(',')}|${op.geom.d ? pathKey(op.geom.el) : ''}|${op.clip ? (op.clip.geom.d ? pathKey(op.clip.geom.el) : '') : ''}`; };
+  const opSig = (op, m) => { const lv = liveAt(op); return `${paintKey(op)}|${lv.alpha}|${lv.m.join(',')}|${lv.cm ? lv.cm.join(',') : ''}|${m.join(',')}|${op.geom.d ? pathKey(op.geom.el) : ''}|${op.clip ? (op.clip.geom.d ? pathKey(op.clip.geom.el) : '') : ''}${op.nss ? `|${cssPx}` : ''}`; };
   /**
    * The group under m described for a change check: its own string (opacity, whether masked) and, per op (the mask's after its
    * own), [string, device box]. The meshes it will paint are touched (kept for the frame).
@@ -661,6 +668,9 @@ export function createOrganPaint(gl, shape) {
     gl.bindVertexArray(null);
   }
   return {
+    /** Device px per CSS px of the target painted next (1 unless set): a non-scaling stroke's width. */
+    set cssPx(v) { cssPx = v > 0 ? v : 1; },
+    get cssPx() { return cssPx; },
     /** Lays the group `spec` (readGroup) under m over framebuffer `fbo` of size w × h, with its opacity and mask. */
     paintGroup(spec, m, w, h, fbo, within = null) {
       size(w, h, true);

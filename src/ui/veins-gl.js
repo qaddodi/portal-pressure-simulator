@@ -40,7 +40,7 @@ import { gpuProbe, COUNTED } from './gpu-probe.js?v=b5449b0040';
 import { changedRows } from './flow-rows.js?v=bea4089714';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
 import { PUBLISH_QUIET_MS } from './gl-compile.js?v=5c4cd6c14c';
-import { createOrganStack } from './organs-gl.js?v=588d36dd55';
+import { createOrganStack } from './organs-gl.js?v=d4a4fa34a2';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=422223e3b9';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 
@@ -1681,7 +1681,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // is the canvas, as ever. Every size inside reads PW() and PH().
   let up = null, upLin = false;   // (upLin: the picture upscaled by a plain filtered copy, not Sharper upscaling's filter: setPicture)
   // (overM: the figure's transform as last given to draw or drawRows, before whole(): the overlays are drawn at it.)
-  let overM = null;
+  let overM = null, overCss = 1;   // (overCss: device px per CSS px, set by the stage: overlay.cssPx)
   const PW = () => (up ? up[0] : canvas.width), PH = () => (up ? up[1] : canvas.height);
   const pcx = gl.getExtension('KHR_parallel_shader_compile');
   let started;
@@ -2422,6 +2422,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function overLay() {
     if (!over || !overShown || !overM) return;
     const kx = canvas.width / PW(), ky = canvas.height / PH(), m = [overM[0] * kx, overM[1] * ky, overM[2] * kx, overM[3] * ky, overM[4] * kx, overM[5] * ky];
+    stack.painter.cssPx = overCss;
     if (over.stale(m, canvas.width, canvas.height)) over.render(m, canvas.width, canvas.height);
     if (layP === null) {
       try { layP = finishProgram(gl, startProgram(gl, REUSE_VS, LAY_FS)); } catch (e) { console.warn('Veins renderer: the overlays\' shader could not be made.', e); layP = false; }
@@ -3009,8 +3010,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         if (!over) return;
         over.setOrder(names); over.setLive(groups && groups.size ? groups : null, null); overShown = !!groups?.size;
       },
+      /** Device px per CSS px of the canvas (a non-scaling stroke's width: organ-paint cssPx). */
+      set cssPx(v) { overCss = v; },
       get stale() {
         if (!overShown || !overM || !own?.w) return false;
+        stack.painter.cssPx = overCss;
         const kx = canvas.width / PW(), ky = canvas.height / PH();
         return over.stale([overM[0] * kx, overM[1] * ky, overM[2] * kx, overM[3] * ky, overM[4] * kx, overM[5] * ky], canvas.width, canvas.height);
       },
