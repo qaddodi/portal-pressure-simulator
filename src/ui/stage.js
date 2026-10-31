@@ -622,7 +622,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   } else {
     // No WebGL2 at all (very old browsers): a short notice; the SVG tubes still show the figure.
     console.warn('WebGL2 is not available: the figure is drawn without moving blood.');
-    toast('This device cannot draw moving blood (it needs WebGL2). The vessels still show their colours and readings.');
+    toast('This device cannot draw moving blood (it needs WebGL2). The vessels still show their colors and readings.');
   }
   wrap.dataset.veins = veins ? 'webgl2' : 'none';
   gBack.append(gBackS, gBackC, gBackL, gBackH);

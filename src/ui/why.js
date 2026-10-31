@@ -52,7 +52,7 @@ export function createWhy(pop) {
       head(r.label),
       h('div', { class: 'sentence' }, r.sentence),
       rows.length ? h('div', { class: 'waterfall' }, h('div', { class: 'overline', style: { marginBottom: '2px' } }, `Contribution of each change · ${r.unit}`), ...rows,
-        h('div', { class: 'ctl-sub', style: { marginTop: '2px' } }, 'Estimated by reverting each change on its own. Red raises the value, blue lowers it, grey is what they add together.')) : null,
+        h('div', { class: 'ctl-sub', style: { marginTop: '2px' } }, 'Estimated by reverting each change on its own. Red raises the value, blue lowers it, gray is what they add together.')) : null,
       r.formula ? h('div', { class: 'formula' }, r.formula) : null,
     );
     place(anchor);

@@ -10,7 +10,7 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=c3bef71e25';
 import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=0cc4e65bab';
 import { setHvpgStage } from './hvpg-proc.js?v=0194714254';
-import { createWhy } from './why.js?v=589214159d';
+import { createWhy } from './why.js?v=d3214369f8';
 import { createTimeline, LAPSES } from './timeline.js?v=69d01251b0';
 import { createCompare } from './compare.js?v=6adc725490';
 import { createCard } from './card.js?v=1cab1aef11';
@@ -651,12 +651,12 @@ function renderLegend() {
   } else if (m === 'velocity') {
     put(h('div', { class: 'lg-title' }, 'Velocity', h('small', {}, 'vs normal')), cap('Velocity', 'vs normal'),
       scale(velocityCss('to right'), [[0, 'Slow'], [100, 'Fast']], [33.3, 66.7]));
-    el.setAttribute('aria-label', 'Legend: each vessel\'s mean velocity against its normal range: a continuous scale from sand (slower than normal) through teal (normal) to violet (faster), stronger the further from normal; collaterals stay grey');
+    el.setAttribute('aria-label', 'Legend: each vessel\'s mean velocity against its normal range: a continuous scale from sand (slower than normal) through teal (normal) to violet (faster), stronger the further from normal; collaterals stay gray');
   } else if (m === 'heat') {
     const at = (v) => (v / HEAT_MAX) * 100;
     put(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)), cap('Congestion', 'mmHg'),
       scale(heatCss('to right'), [[at(0), '0'], [at(5), '5'], [at(10), '10', 1], [at(15), '≥15']], []));
-    el.setAttribute('aria-label', `Legend: pressure above ${ref}, 0 to 15 millimeters of mercury, grey to yellow to deep red, with a glow where congestion is highest`);
+    el.setAttribute('aria-label', `Legend: pressure above ${ref}, 0 to 15 millimeters of mercury, gray to yellow to deep red, with a glow where congestion is highest`);
   } else if (m === 'oxygen') {
     const at = (p) => ((p / 100 - OXY_MIN) / (1 - OXY_MIN)) * 100;
     put(h('div', { class: 'lg-title' }, 'Oxygen saturation', h('small', {}, '%')), cap('Oxygen', '%'),
