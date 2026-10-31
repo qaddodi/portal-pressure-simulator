@@ -234,6 +234,7 @@ export function tooltipFor(el, text, side = 'right') {
 
 /** Floating menu/popover anchored to an element. Closes on outside click, Escape or re-open. */
 let openMenu = null;
+let lastMenu = { anchor: null, t: 0 };   // (the menu that just closed: on iOS a tapped button takes no focus, so a dialog it opens returns here)
 const reduceMotionMQ = matchMedia('(prefers-reduced-motion: reduce)');
 /** How a scroll the app makes on its own moves: smooth, or at once with Reduce Motion (as the menu's already did). */
 export const scrollBehavior = () => (reduceMotionMQ.matches ? 'auto' : 'smooth');
@@ -516,6 +517,7 @@ export function closePopover() {
   // (Over the thumb dock it sinks behind the tab row, as the cards do, in the same step: a leave is one flip, app.css thumbOut.)
   else { const ms = D_FLIP; el.classList.add('leaving'); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => el.remove(), el.dataset.swiped ? D_SMALL : ms + 10); }
   openMenu.anchor.setAttribute('aria-expanded', 'false'); openMenu.cleanup();
+  lastMenu = { anchor: openMenu.anchor, t: performance.now() };
   openMenu = null;
 }
 /** Over the thumb dock a card slides down behind the tab row by --sink (styles/app.css: it moves the card and cuts it at
@@ -629,12 +631,19 @@ export function svgIcon(id, cls = '') {
 }
 
 let modalReturn = null;
+// (The on-screen keyboard covers the page's foot without shrinking it: the dialog is held to the room above it, and eases there.)
+const modalVV = window.visualViewport;
+const fitModal = () => {
+  const back = document.getElementById('modalBack'), kb = modalVV ? Math.round(innerHeight - modalVV.offsetTop - modalVV.height) : 0;
+  back.classList.toggle('kb', kb > 80);
+  if (kb > 80) back.style.setProperty('--modal-kb', `${kb}px`); else if (!back.classList.contains('leaving')) back.style.removeProperty('--modal-kb');
+};
 export function openModal(title, body, { wide = false, sub = null, bare = false } = {}) {
   const back = document.getElementById('modalBack');
   const modal = document.getElementById('modal');
   // (The button to come back to is the first opener's: a dialog opened from a dialog, or from a menu row that is about to leave,
   // returns to where the first one began, or to the menu's own button.)
-  if (!back.classList.contains('show')) modalReturn = openMenu && openMenu.el.contains(document.activeElement) ? openMenu.anchor : document.activeElement;
+  if (!back.classList.contains('show')) modalReturn = openMenu && openMenu.el.contains(document.activeElement) ? openMenu.anchor : (document.activeElement === document.body && performance.now() - lastMenu.t < 400 ? lastMenu.anchor : document.activeElement);
   // The page behind a dialog cannot be reached by Tab or a screen reader; the dialog's own copy of the page is the only one left.
   const appEl = document.getElementById('app'); if (appEl) appEl.inert = true;
   modal.innerHTML = '';
@@ -644,6 +653,7 @@ export function openModal(title, body, { wide = false, sub = null, bare = false 
   modal.append(h('header', {}, h('div', { style: { flex: 1, minWidth: 0 } }, bare ? null : h('h2', {}, title), sub ? h('div', { class: 'sub' }, sub) : null), close), h('div', { class: 'body' }, body));
   clearTimeout(modalLeaveT); back.classList.remove('leaving');
   back.classList.add('show');
+  fitModal(); modalVV?.addEventListener('resize', fitModal); modalVV?.addEventListener('scroll', fitModal);
   back.onclick = (e) => { if (e.target === back) closeModal(); };
   (modal.querySelector('.body button, .body [tabindex]') || close).focus({ preventScroll: true });
 }
@@ -653,7 +663,9 @@ export function closeModal() {
   if (!back.classList.contains('show')) return;
   // (It fades out as it faded in, then is hidden: closed in one frame, Help, About and every dialog blinked out.)
   back.classList.remove('show'); back.classList.add('leaving');
+  modalVV?.removeEventListener('resize', fitModal); modalVV?.removeEventListener('scroll', fitModal);
   clearTimeout(modalLeaveT); modalLeaveT = setTimeout(() => back.classList.remove('leaving'), 220);
+  setTimeout(() => { if (!back.classList.contains('show')) { back.classList.remove('kb'); back.style.removeProperty('--modal-kb'); } }, 240);   // (the dialog holds its place while it fades)
   const appEl = document.getElementById('app'); if (appEl) appEl.inert = false;
   const back0 = modalReturn?.isConnected ? modalReturn : document.getElementById('btnMenu');
   // (Shown, by its own boxes: offsetParent is missing on an SVG element and null on a fixed one, so a vessel or a fixed bar never got its focus back.)

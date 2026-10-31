@@ -5,10 +5,10 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=c2a9c76ba5';
-import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=4c95f6eb28';
+import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=d313f178b3';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { pressureColor } from './colormap.js?v=88bc8501e6';
+import { pressureColor } from './colormap.js?v=4a2f66f91b';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
 import { frameFor } from './frame.js?v=6a53e5fc6e';
 import { D_FLIP, D_SMALL } from './ease.js?v=615d96d663';
@@ -322,8 +322,10 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   function fitSheet() {
     if (!el || !el.classList.contains('sheet') || !vv) return;
     const kb = Math.round(innerHeight - vv.offsetTop - vv.height);
-    if (kb > 80) { el.style.setProperty('--menu-kb', `${kb}px`); el.style.setProperty('--menu-h', `${Math.max(240, Math.round(vv.height - 16))}px`); }
-    else { el.style.removeProperty('--menu-kb'); el.style.removeProperty('--menu-h'); }
+    // (No floor under the room: a floor above it put a phone held sideways' search row above the screen. With under 300 px the handle and
+    // the footer give way, `kb-tight`, so the search row and some results stay in view.)
+    if (kb > 80) { const room = Math.round(vv.height - 16); el.style.setProperty('--menu-kb', `${kb}px`); el.style.setProperty('--menu-h', `${room}px`); el.classList.toggle('kb-tight', room < 300); }
+    else { el.style.removeProperty('--menu-kb'); el.style.removeProperty('--menu-h'); el.classList.remove('kb-tight'); }
   }
   function place() {
     if (!el || el.classList.contains('sheet')) return;
@@ -341,6 +343,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (coldOpen && lib) { coldOpen = false; if (!reduce.matches) next.querySelector('.um-col[data-col="present"]')?.classList.add('um-in'); }
     else if (!lib) coldOpen = true;
     for (const v of ['--menu-kb', '--menu-h']) { const x = el.style.getPropertyValue(v); if (x) next.style.setProperty(v, x); }   // (the keyboard is still up)
+    next.classList.toggle('kb-tight', el.classList.contains('kb-tight'));
     el.replaceWith(next); el = next;
     filter(); place(); dragToClose(el); swipeTabs(el);
     if (keep) el.querySelector('.um-cols').scrollTop = keep;

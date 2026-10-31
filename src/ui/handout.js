@@ -58,6 +58,7 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; line-height: 1.25; }
 .ask .a b { color: var(--ink); }
 .q { margin: 0 0 6px; }
 .q p { margin: 0; }
+@media screen and (pointer: coarse) { .cap { font-size: 12px; } button { min-height: 44px; } }
 @media (max-width: 680px) {
   body { padding-top: 20px; }
   article { flex-direction: column; gap: 12px; }

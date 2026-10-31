@@ -836,6 +836,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 @media (hover: hover) { .menu-item:hover { background: var(--surface-2); } }
 .menu-item:focus-visible, .lens-opt:focus-visible { outline-offset: -2px; }   /* (the ring sits inside its row, as the main menu's do, not over the rows beside it) */
 .menu-item[aria-checked="true"] { font-weight: 600; }
+@media (pointer: coarse) { .menu-item, .lens-opt { min-height: 40px; } }   /* (a finger's 40 px: these rows were 36.3 px) */
 .menu-item svg { width: var(--ic-s); height: var(--ic-s); flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); }
 .menu-item .mi-check { width: var(--ic-s); height: var(--ic-s); stroke: var(--accent); stroke-width: 2.4; fill: none; opacity: 0; }
 .menu-item .mi-trail { margin-left: auto; }
@@ -896,20 +897,28 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .skeleton { height: 10px; border-radius: 4px; background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; margin: 8px 0; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 
-.modal-back { position: fixed; inset: 0; background: var(--scrim); z-index: var(--z-dialog); display: none; place-items: center; padding: calc(16px + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
+.modal-back { position: fixed; inset: 0 0 var(--modal-kb, 0px) 0; background: var(--scrim); z-index: var(--z-dialog); display: none; place-items: center; padding: calc(16px + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
 .modal-back.show { display: grid; animation: crossfade var(--d-small) var(--ease); }
+/* (The on-screen keyboard covers the page's foot without shrinking it: the dialog is held to what is left above it, util.js fitModal, and eases there.) */
+.modal-back.kb { transition: bottom var(--d-small) var(--ease); }
+.modal-back.kb .modal { transition: max-height var(--d-small) var(--ease); }
 /* Closing: the scrim fades and the dialog sinks back the way it came, then it is hidden (util.js closeModal). */
 /* (Own exit keyframes: the same name played in reverse would not restart, and would land on its last frame at once.) */
 .modal-back.leaving { display: grid; pointer-events: none; animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }
 .modal-back.leaving .modal { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
 /* A theme chosen in the app (main.js switchTheme): the old page, held as a still, fades over the new one. */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--d-surface); animation-timing-function: var(--ease); }
-.modal { background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); width: min(720px, 100%); max-height: min(88dvh, 900px); overflow: auto; animation: scale-settle var(--d-small) var(--ease); }
+.modal { background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); width: min(720px, 100%); max-height: min(88dvh, 900px, calc(100dvh - var(--modal-kb, 0px) - 32px - var(--safe-top) - env(safe-area-inset-bottom, 0px))); overflow: auto; animation: scale-settle var(--d-small) var(--ease); }
 .modal > header { padding: 20px 24px 16px; display: flex; align-items: flex-start; gap: 12px; position: sticky; top: 0; background: var(--surface); z-index: var(--z-figure); }
 .modal > header h2 { margin: 0; font-size: var(--fs-20); font-weight: 600; letter-spacing: -.015em; flex: 1; }
 .modal > header .sub { margin-top: 4px; }
 .modal > .body { padding: 4px 24px 24px; }
 .modal h3 { font-size: var(--fs-14); font-weight: 600; margin: 24px 0 12px; }
+.modal [data-sec] { scroll-margin-top: 96px; }   /* (a jump to Keyboard shortcuts or References lands clear of the sticky header) */
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  .cut-table th, .cut-table td:first-child { white-space: normal; }   /* (About, Status colors: its first column was wider than a phone's dialog) */
+  .cut-table td:first-child { min-width: 7.5em; }
+}
 .modal p { line-height: 1.6; color: var(--text-2); margin: 0 0 12px; }
 .modal ul { padding-left: 20px; color: var(--text-2); line-height: 1.6; }
 .entry-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
@@ -1271,6 +1280,13 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .menu.as-sheet .tl-pop { width: auto; max-height: none; overflow: visible; }
 @media (hover: hover) { .tl-pop-ic:hover { background: var(--surface-3); color: var(--text); } }
 .tl-pop-ic:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* (Touch: Go back here and Compare with now sit 2 px apart and do opposite things; a finger gets 40 px each, 16 px between, the title a little narrower.) */
+@media (pointer: coarse) {
+  .tl-pop-head { grid-template-columns: auto minmax(0, 1fr) auto 64px; }
+  .tl-pop-acts { gap: 16px; }
+  .tl-pop-ic { position: relative; }
+  .tl-pop-ic::after { content: ''; position: absolute; inset: -8px; }
+}
 .stage-fit { position: absolute; right: 10px; bottom: 10px; z-index: var(--z-hud); width: 32px; height: 32px; background: var(--glass); box-shadow: var(--shadow-1), inset 0 0 0 1px var(--hairline); }
 /* Turns the circuit upright; it only means something in the circuit view, and sits above Fit. */
 .stage-rotate { display: none; position: absolute; right: 10px; bottom: 50px; z-index: var(--z-hud); width: 32px; height: 32px; background: var(--glass); box-shadow: var(--shadow-1), inset 0 0 0 1px var(--hairline); }
@@ -1323,6 +1339,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .pal-list { max-height: min(56vh, 440px, var(--pal-room, 100vh)); overflow: auto; padding: 8px; }   /* (--pal-room: the room above the on-screen keyboard, set by palette.js while it is up) */
 .pal-item { display: grid; grid-template-columns: 72px 1fr; gap: 2px 12px; width: 100%; padding: 8px 12px; border: 0; border-radius: var(--r-card); background: transparent; text-align: left; cursor: pointer; color: var(--text); }
 .pal-item.on { background: var(--accent-soft); }
+@media (pointer: coarse) { .pal-item { min-height: 40px; align-content: center; } .pal-top kbd { display: none; } }   /* (a finger's 40 px; no Esc key on a touch screen) */
 .pal-g { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); padding-top: 2px; }
 .pal-t { font-size: var(--fs-14); font-weight: 500; }
 .pal-t b { color: var(--accent-ink); font-weight: 600; }
@@ -3697,6 +3714,14 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
 .umenu.sheet .um-cols { display: block; overflow-y: auto; overscroll-behavior: contain; }
 .umenu.sheet .um-col { overflow: visible; padding: 0 8px 8px; }
 .umenu.sheet .um-esc { display: none; }
+/* (Keyboard up and under 300 px of room, a phone held sideways: the handle and the footer give way so the search row and some results stay in view.) */
+.umenu.sheet.kb-tight :is(.um-grab, .um-foot) { display: none; }
+.umenu.sheet.kb-tight { padding-bottom: 0; }
+/* (A phone held sideways has 320 to 390 px of height: no handle, and the sheet one margin from the top, a row more of the list.) */
+@media (orientation: landscape) and (max-height: 500px) {
+  .umenu.sheet { height: var(--menu-h, calc(100dvh - 8px)); }
+  .umenu.sheet .um-grab { display: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   .um-inline, .menu-btn .chev { transition: none; }
 }
@@ -4916,7 +4941,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* The picture's square must never collapse in a short card (it did: 0 wide on a phone held sideways). */
 .instrument-workspace .endo-stage > .chart-box.square { max-width: none !important; max-height: none !important; }
 /* A short card (a phone held sideways): picture on the left, the five tiles two across on the right, the button under them. */
-@container tpane (max-height: 300px) and (min-width: 340px) {
+@container tpane (max-height: 300px) and (min-width: 300px) {
   .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) { grid-template-columns: minmax(0, 1fr) minmax(0, 56%); grid-template-rows: minmax(auto, 1fr) auto; gap: 8px 14px; }
   .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { grid-column: 2; grid-row: 1; gap: 6px; }
   .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { min-height: 38px; padding: 4px 6px; gap: 1px; }
@@ -5039,8 +5064,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 
 /* Touch: small controls keep their look but get an invisible 44px hit area (centred on them). */
 @media (pointer: coarse) {
-  .chg-clear, .order-chip { position: relative; }   /* .lz-lab is already positioned */
-  :is(.chg-clear, .order-chip, .lz-lab)::after {
+  .chg-clear, .order-chip, .order-btn { position: relative; }   /* .lz-lab is already positioned */
+  :is(.chg-clear, .order-chip, .order-btn, .lz-lab)::after {
     content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%);
   }
 }
@@ -6152,6 +6177,12 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div::after { height: 10px; }
   #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-grade span, .endo-more) { bottom: 5px; }
   #app.thumb .endo-stage { --stage-min: 110px; justify-content: flex-end; }
+  /* (A phone's five readings: three and two where the pane is under 450 px, the card's own grid, so each is wide enough for its 12 px words and a number a person can read; five in a row left the values 8 to 12 px and the captions 6 to 9.) */
+  @container tpane (max-width: 449px) {
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { grid-column: span 2; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > :nth-child(n + 4) { grid-column: span 3; }
+  }
   /* Wall mechanics: the cross-section the card's width (its height the room left), the stress tile and the four tiles in one row
      under it; the note under them only at Full. */
   #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(110px, 1fr) auto auto; gap: 10px; }

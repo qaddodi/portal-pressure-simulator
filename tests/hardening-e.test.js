@@ -111,8 +111,9 @@ test('a slider or switch left focused keeps only its own keys; text fields keep 
 test('the phone menu sheet is lifted above the on-screen keyboard and put back when it goes; unset, it is as it was', () => {
   const mn = read('src/ui/menu.js');
   assert.match(mn, /const kb = Math\.round\(innerHeight - vv\.offsetTop - vv\.height\);/);
-  assert.match(mn, /if \(kb > 80\) \{ el\.style\.setProperty\('--menu-kb', `\$\{kb\}px`\); el\.style\.setProperty\('--menu-h', `\$\{Math\.max\(240, Math\.round\(vv\.height - 16\)\)\}px`\); \}/);
-  assert.match(mn, /else \{ el\.style\.removeProperty\('--menu-kb'\); el\.style\.removeProperty\('--menu-h'\); \}/);
+  assert.match(mn, /if \(kb > 80\) \{ const room = Math\.round\(vv\.height - 16\); el\.style\.setProperty\('--menu-kb', `\$\{kb\}px`\); el\.style\.setProperty\('--menu-h', `\$\{room\}px`\);/);
+  assert.match(mn, /const room = Math\.round\(vv\.height - 16\);/, 'no floor under the room: a floor above it put a sideways phone\'s search row off the screen');
+  assert.match(mn, /else \{ el\.style\.removeProperty\('--menu-kb'\); el\.style\.removeProperty\('--menu-h'\); el\.classList\.remove\('kb-tight'\); \}/);
   assert.match(mn, /vv\?\.addEventListener\('resize', fitSheet\); vv\?\.addEventListener\('scroll', fitSheet\);/);
   assert.match(mn, /vv\?\.removeEventListener\('resize', fitSheet\); vv\?\.removeEventListener\('scroll', fitSheet\);/);
   assert.match(mn, /for \(const v of \['--menu-kb', '--menu-h'\]\)/, 'a rebuilt sheet keeps them');
