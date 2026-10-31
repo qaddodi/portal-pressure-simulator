@@ -56,3 +56,20 @@ export function needsReread(rec) {
   }
   return true;
 }
+
+/**
+ * A batch of mutation records with what came to nothing left out: per element and attribute, the first record (it holds the value
+ * before the batch), kept only when the value now differs from it (an attribute written again with its value, or taken off and put
+ * back, as the vessel marks' rebuild does with data-gl, changes nothing). Records of any other type are all kept.
+ */
+export function netChanges(records) {
+  const out = [], first = new Map();
+  for (const r of records) {
+    if (r.type !== 'attributes') { out.push(r); continue; }
+    let m = first.get(r.target);
+    if (!m) first.set(r.target, (m = new Map()));
+    if (!m.has(r.attributeName)) m.set(r.attributeName, r);
+  }
+  for (const m of first.values()) for (const [a, r] of m) if (r.target.getAttribute(a) !== r.oldValue) out.push(r);
+  return out;
+}

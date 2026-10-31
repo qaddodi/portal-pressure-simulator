@@ -305,7 +305,7 @@ jobs:
     name: visual (${{ matrix.device }})
     runs-on: ubuntu-24.04
     needs: quick
-    timeout-minutes: 15
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -314,12 +314,26 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser
       - name: Visual regression
+        id: visual
         env:
           VISUAL_DEVICE: ${{ matrix.device }}
+          VISUAL_KEEP: test-results/visual-now
+        run: npm run visual
+      # The figure's overlays painted on the GPU (stage-over.js; the software renderer here only when asked, ?stageover=gpu),
+      # against the pictures the step above just took: they must look as the SVG draws them.
+      - name: Visual regression, overlays on the GPU
+        if: always() && steps.visual.outcome != 'skipped'
+        env:
+          VISUAL_DEVICE: ${{ matrix.device }}
+          VISUAL_QUERY: '&stageover=gpu'
+          VISUAL_AGAINST: test-results/visual-now
+          VISUAL_OUT: test-results/visual-stageover
         run: npm run visual
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: visual-diff-${{ matrix.device }}
-          path: test-results/visual
+          path: |
+            test-results/visual
+            test-results/visual-stageover
           retention-days: 1

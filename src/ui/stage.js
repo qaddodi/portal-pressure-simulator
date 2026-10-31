@@ -39,7 +39,7 @@ import { fadeOver, fadeStop } from './res-fade.js?v=0c2ee70982';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
 import { cropToGrid } from './organs-gl.js?v=d4a4fa34a2';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=9acc72d4a2';
-import { overUnits, overRun, needsReread, OVER_CLASS, OVER_ALL } from './stage-over.js?v=2ffa47615b';
+import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
 import { createLabelGL } from './label-gl.js?v=225e7ad808';
 import { createGlassGL } from './glass-gl.js?v=e58605e60d';
@@ -89,9 +89,11 @@ const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const REVERSAL_WATCH = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'LGV_CONF', 'PVH_R', 'PVH_L', 'PRE_R', 'PRE_L', 'V_SPL', 'SV_MID', 'V_IMV', 'V_INT', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'V_STO', 'IVC_IS']);
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
-// The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): off unless asked for. Asked for, it
-// runs on a software renderer too, so CI's visual check (SwiftShader) can compare it with the references.
-const OVER_GPU = typeof location !== 'undefined' && /[?&]stageover=gpu\b/.test(location.search);
+// The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): on wherever the GPU draws the
+// vessels, ?stageover=svg goes back. Not on a software renderer (the CPU would paint them) unless asked for (?stageover=gpu), as
+// CI's visual check asks, to compare it with the page's own drawing.
+const OVER_ASK = typeof location !== 'undefined' && /[?&]stageover=gpu\b/.test(location.search);
+const OVER_GPU = !(typeof location !== 'undefined' && /[?&]stageover=svg\b/.test(location.search));
 // Relative luminance of an 'rgb(r,g,b)' string (non-rgb strings count as dark).
 function luminance(c) {
   const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c || '');
@@ -2453,7 +2455,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const pw = bw, ph = bh;
     // (With the overlays on the GPU (?stageover=gpu) the canvas is at the screen's own density, as the SVG they replace is drawn, and
     // the figure, at its own, upscaled onto it by a plain filtered copy, as the page's compositor upscales a smaller canvas.)
-    const full = OVER_GPU && veins?.overlay ? devicePixelRatio || 1 : 0;
+    const full = OVER_GPU && veins?.overlay && (!SOFTWARE || OVER_ASK) ? devicePixelRatio || 1 : 0;
     let lin = false;
     if (full && vdpr < full - 1e-9) { bw = Math.max(1, Math.round(r.width * full)); bh = Math.max(1, Math.round(r.height * full)); lin = !figLab('upscale'); }
     else if (figLab('upscale') && veins?.setPicture && !SOFTWARE && vdpr < base - 1e-9) { bw = Math.max(1, Math.round(r.width * base)); bh = Math.max(1, Math.round(r.height * base)); }
@@ -10311,7 +10313,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // read is painted in the vessel canvas, and its SVG copy hidden (OVER_CLASS). Read again when anything in the overlays changes that
   // the painter does not read at each paint (needsReread), when the page's state around them changes (overKey), and while a CSS
   // transition runs in a group (overEasing: the browser eases it, so that group and those above stay in the SVG until it ends).
-  const OVER_ON = OVER_GPU && !!veins?.overlay;
+  const OVER_ON = OVER_GPU && !!veins?.overlay && (!SOFTWARE || OVER_ASK);
   let overDirty = true, overKeyWas = '', overPainted = [], overFor = null;
   // (How long an element's CSS transitions run, ms, read once a reading: a value the painter reads at each paint, eased by them.)
   let overTrans = new WeakMap();
@@ -10328,7 +10330,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const overKey = () => `${appEl?.className || ''}|${document.documentElement.className}|${wrap.className}|${svgOver ? [...svgOver.classList].filter((c) => c !== OVER_ALL).join(' ') : ''}|${document.documentElement.dataset.theme || ''}|${reduceMotion.matches}`;
   if (OVER_ON) {
     const watch = new MutationObserver((rs) => {
-      for (const r of rs) {
+      for (const r of netChanges(rs)) {
         if (needsReread(r)) { overDirty = true; break; }
         // (A value the painter reads at each paint, eased by the page's CSS: the browser shows the ease, so the group waits in the SVG.
         // An outline's d is not eased by any of the overlays' styles.)

@@ -15,7 +15,7 @@ globalThis.document ??= { documentElement: { dataset: {}, style: { setProperty()
 globalThis.addEventListener ??= () => {};
 globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
-const { overUnits, overRun, needsReread, OVER_CLASS, OVER_ALL } = await import('../src/ui/stage-over.js');
+const { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } = await import('../src/ui/stage-over.js');
 const { strictRefused, readGroup, cssLocal, elMat, liveOf } = await import('../src/ui/organ-paint.js');
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
@@ -55,6 +55,17 @@ test('a new reading only for what the painter does not read at each paint, and n
   assert.equal(needsReread({ type: 'attributes', attributeName: 'class', oldValue: `on ${OVER_CLASS}`, target: el('on') }), false);
   assert.equal(needsReread({ type: 'attributes', attributeName: 'class', oldValue: 'caud', target: el('caud on') }), true);
   assert.equal(needsReread({ type: 'attributes', attributeName: 'class', oldValue: 'circuit', target: el(`circuit ${OVER_ALL}`) }), false);
+});
+
+test('a batch of changes that came to nothing (the marks\' data-gl taken off and put back) asks for no new reading', () => {
+  const el = (attrs) => ({ getAttribute: (a) => (a in attrs ? attrs[a] : null) });
+  const a = el({ 'data-gl': '', fill: 'red' }), b = el({ fill: 'blue' });
+  const rec = (target, attributeName, oldValue) => ({ type: 'attributes', target, attributeName, oldValue });
+  const kids = { type: 'childList' };
+  const out = netChanges([rec(a, 'data-gl', ''), rec(a, 'data-gl', null), rec(a, 'fill', 'red'), rec(b, 'fill', 'red'), rec(b, 'fill', 'green'), kids]);
+  assert.deepEqual(out.map((r) => [r.target === a ? 'a' : r.target === b ? 'b' : '-', r.attributeName, r.oldValue ?? null]), [['-', undefined, null], ['b', 'fill', 'red']]);
+  const st = read('../src/ui/stage.js');
+  assert.match(st, /const watch = new MutationObserver\(\(rs\) => \{\n\s+for \(const r of netChanges\(rs\)\) \{/);
 });
 
 // A stand-in element with the transform attribute's matrix (matOf reads transform.baseVal).
@@ -162,8 +173,9 @@ test('a strict reading takes visibility as the page computes it, and refuses a m
 
 test('the stage: off unless asked for; the painted groups\' SVG hidden by an empty clip; read again on a change, and while a CSS ease runs', () => {
   const st = read('../src/ui/stage.js'), css = read('../styles/app.css');
-  assert.match(st, /const OVER_GPU = typeof location !== 'undefined' && \/\[\?&\]stageover=gpu\\b\/\.test\(location\.search\);/);
-  assert.match(st, /const OVER_ON = OVER_GPU && !!veins\?\.overlay;/);
+  assert.match(st, /const OVER_ASK = typeof location !== 'undefined' && \/\[\?&\]stageover=gpu\\b\/\.test\(location\.search\);/);
+  assert.match(st, /const OVER_GPU = !\(typeof location !== 'undefined' && \/\[\?&\]stageover=svg\\b\/\.test\(location\.search\)\);/);
+  assert.match(st, /const OVER_ON = OVER_GPU && !!veins\?\.overlay && \(!SOFTWARE \|\| OVER_ASK\);/);
   assert.match(css, /\.stage-view svg#stageOver \.gpu-over \{ clip-path: inset\(50%\) !important; \}/);
   // (All they show painted: the overlays' SVG composited at nothing; with no picture to paint in, every copy shown again.)
   assert.match(css, /\.stage-view svg#stageOver\.gpu-all \{ opacity: 0 !important; \}/);
