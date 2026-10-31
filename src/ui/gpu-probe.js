@@ -71,9 +71,10 @@ export const gpuProbe = {
   onOrgans: null,
   parts: {},
   stack: [],
+  part: null,   // (frame.js: each step is also a named piece of its frame while frames are watched, framePart)
   /** Runs f as the step `name` and returns its result; a step inside another counts only toward its own name. */
   time(gl, name, f) {
-    if (!this.on) return f();
+    if (!this.on) return this.part ? this.part(name, f) : f();
     // Work queued before the step by untimed calls (uploads made on the way) is waited for first, as its own share.
     const ts = performance.now();
     if (this.cpuOnly) gl = null;

@@ -18,3 +18,13 @@ test('pieces outside the scheduler are listed with the next frame, never in its 
   assert.match(st, /if \(phase in ph\) ph\[phase\] \+= ms;/, "an 'in' or 'outside' piece is not added to a phase's time twice");
   assert.match(readFileSync(new URL('../scripts/frame-gate.mjs', import.meta.url), 'utf8'), /worst\.top\.slice\(0, 4\)/);
 });
+
+test("gpuProbe's named steps are pieces of their frame too, and cost one call while nothing is measured", async () => {
+  const { gpuProbe } = await import('../src/ui/gpu-probe.js');
+  assert.equal(gpuProbe.time(null, 'x', () => 7), 7);
+  gpuProbe.part = (name, f) => f() * 2;
+  try { assert.equal(gpuProbe.time(null, 'x', () => 7), 14); } finally { gpuProbe.part = null; }
+  assert.match(readFileSync(new URL('../src/ui/frame.js', import.meta.url), 'utf8'), /\ngpuProbe\.part = framePart;\n/);
+  const gp = readFileSync(new URL('../src/ui/gpu-probe.js', import.meta.url), 'utf8');
+  assert.match(gp, /if \(!this\.on\) return this\.part \? this\.part\(name, f\) : f\(\);/);
+});

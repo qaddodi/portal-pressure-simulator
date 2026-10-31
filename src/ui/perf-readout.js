@@ -4,8 +4,8 @@
 // (gpu-probe.js cpuOnly: no waiting for the GPU), every frame that missed the screen's refresh in the window is listed with the
 // steps that ran in it (and every interval counted in a histogram at that refresh, with p50/p95/p99), and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
-import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=c16e5847d4';
-import { perf, watchFrames } from './frame.js?v=f5d9ff95ad';
+import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=625c2c9315';
+import { perf, watchFrames } from './frame.js?v=6a53e5fc6e';
 import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js?v=9cd1d0c4e3';
 import { scanBlurs, blurText } from './blur-gauge.js?v=0e65b1da16';
 

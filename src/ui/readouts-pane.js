@@ -4,10 +4,10 @@
 // (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
 import { store, hiddenNow } from './store.js?v=3611054974';
-import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=87659daeff';
+import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=c38708181c';
 import { vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { SCALE, RATE } from './table-marks.js?v=3b9e0d5a35';
-import { shownState, FILL_SMALL, fillQ } from './shown.js?v=d973f9cfc6';
+import { shownState, FILL_SMALL, fillQ } from './shown.js?v=9f263ec53f';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
 
