@@ -12,6 +12,7 @@
 // tissue is drawn on the 2D canvas as before.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=5c4cd6c14c';
+import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, BIN } from './lobule-live.js?v=c6179f5e7d';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -33,6 +34,7 @@ uniform float uMid;                          // FADE_MID
 uniform vec3 uBg;                            // the page's colour
 uniform vec2 uGrey;                          // the surround's grade in a lens other than Pressure: saturation, opacity (1, 1: as drawn)
 out vec4 o;
+${LIVE_FS}
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uH - gl_FragCoord.y);
   vec2 uv = (p - uO) / (uRd * vec2(6.0, 3.4641016151377544));
@@ -42,6 +44,7 @@ void main() {
   // the lobule's bitmap, laid over it next, keeps the lens's colours.
   if (uGrey.x < 1.0 || uGrey.y < 1.0) c = mix(uBg, mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uGrey.x), uGrey.y);
   vec2 w = (p - uRect.xy) / uRect.z;
+  vec3 c0 = c;
   if (w.x >= 0.0 && w.y >= 0.0 && w.x <= 1.0 && w.y <= 1.0) {
     // The bitmap's lookups sit in a branch only the pixels inside its box take, where the implicit derivatives that pick a mipmap level
     // are undefined: along the box's edge the first pixel of each pair read the coarsest level (the bitmap's average colour) and drew a
@@ -53,6 +56,9 @@ void main() {
     if (uWMix.y > 0.0) l += textureGrad(uWO, w, gx, gy) * uWMix.y;
     l *= e;
     c = l.rgb + c * (1.0 - l.a);
+    // The lobule drawn live (lobule-live.js) in the share uLive: (1 − u)·(bitmap over the surround) + u·(live over it), the same as
+    // mixing the two pictures before laying them, as over is linear in the top picture.
+    if (uLive > 0.0) { vec4 ls = liveTissue(w) * e; c = mix(c, ls.rgb + c0 * (1.0 - ls.a), uLive); }
   }
   float s = clamp((length(p - uO) - uFade.x) / max(uFade.y - uFade.x, 1e-6), 0.0, 1.0);
   float a = s < 0.5 ? uMid * s * 2.0 : uMid + (1.0 - uMid) * (s - 0.5) * 2.0;
@@ -80,23 +86,25 @@ export function createTissueGL(canvas) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   let lost = false;
-  canvas.addEventListener('webglcontextlost', (e) => { lost = true; texs.clear(); e.preventDefault?.(); });
-  let prog = null, U = null, failed = false;
+  canvas.addEventListener('webglcontextlost', (e) => { lost = true; texs.clear(); liveTex = null; e.preventDefault?.(); });
+  let prog = null, U = null, failed = false, liveTex = null;   // (liveTex: the lobule's shapes on the GPU, for the shape liveTex.for)
   // Reads the finished program, sets its samplers and runs one small offscreen draw, so the first real draw has no driver work left.
   function publish() {
     if (prog || failed || lost) return;
     try {
       prog = checkProgram(gl, started);
       U = Object.fromEntries(['uQA', 'uQB', 'uQO', 'uW', 'uWO', 'uMix', 'uQOld', 'uO', 'uRd', 'uH', 'uRect', 'uWMix', 'uFade', 'uMid', 'uBg', 'uGrey'].map((n) => [n, gl.getUniformLocation(prog, n)]));
+      for (const n of ['uLC', 'uLB', 'uLI', 'uLBox', 'uLN', 'uLEdge', 'uLCtr', 'uLCen', 'uLSt', 'uLGap', 'uLGap55', 'uLBase', 'uLNut', 'uLZ1', 'uLZ2', 'uLZ3', 'uLPlate', 'uLInk', 'uLZl', 'uLive']) U[n] = gl.getUniformLocation(prog, n);   // (the lobule drawn live, lobule-live.js)
       gl.useProgram(prog);
       gl.uniform1i(U.uQA, 0); gl.uniform1i(U.uQB, 1); gl.uniform1i(U.uQO, 2); gl.uniform1i(U.uW, 3); gl.uniform1i(U.uWO, 4);
+      gl.uniform1i(U.uLC, LIVE_UNIT); gl.uniform1i(U.uLB, LIVE_UNIT + 1); gl.uniform1i(U.uLI, LIVE_UNIT + 2);   // (the lobule's shapes, lobule-live.js)
       exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));
     } catch (err) { failed = true; console.warn('The lobule tissue falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); }
   }
   publishWhenDone(gl, [started], publish);
   // A canvas's texture, sent again only when the canvas was painted again (ver, the caller's count of its paints) or resized.
   // Tiles repeat; the lobule's bitmap is premultiplied (as the 2D canvas lays it) and stops at its edges.
-  const texs = new Map(), SCRATCH = 7;
+  const texs = new Map(), SCRATCH = 7, LIVE_UNIT = 8;
   function texFor(cv, ver, tile) {
     let t = texs.get(cv);
     if (t && t.w === cv.width && t.h === cv.height && t.ver === ver) return t.tex;
@@ -111,6 +119,26 @@ export function createTissueGL(canvas) {
     gl.generateMipmap(gl.TEXTURE_2D);
     Object.assign(t, { w: cv.width, h: cv.height, ver });
     return t.tex;
+  }
+  // The lobule's shapes (lobule-live.js buildLive) as float textures, sent once per shape. NEAREST and texelFetch: no filtering.
+  function liveFor(shape, data) {
+    if (liveTex && liveTex.for === shape) return liveTex;
+    if (liveTex) for (const t of liveTex.t) gl.deleteTexture(t);
+    const make = (unit, fmt, base, w, h, arr) => {
+      const t = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, fmt, w, h, 0, base, gl.FLOAT, arr);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      return t;
+    };
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    liveTex = { for: shape, data, t: [
+      make(LIVE_UNIT, gl.RGBA32F, gl.RGBA, CELLS_PER_ROW * 3, data.cellRows, data.cellData),
+      make(LIVE_UNIT + 1, gl.RG32F, gl.RG, data.nb, data.nb, data.bins),
+      make(LIVE_UNIT + 2, gl.R32F, gl.RED, IDX_ROW, data.idxRows, data.idx),
+    ] };
+    return liveTex;
   }
   return {
     get lost() { return lost || failed || gl.isContextLost(); },
@@ -154,8 +182,9 @@ export function createTissueGL(canvas) {
     /** One frame of the tissue. W, H: the canvas's size (device px); qa, qb, mix: the quiet tiles' canvases and the blend; qo, qOld:
      *  the last state's tile and how much of it is left; w, wVer, wo, woVer, wMix: the bitmap, the last state's, the new one's share;
      *  rect: [x, y, side] of the bitmap; ox, oy, rd: the lobule's centre and radius; fade: [r0, r1]; mid: FADE_MID; bg: [r, g, b];
-     *  grey: the surround's grade [saturation, opacity] (surroundGrade), null as drawn. */
-    draw({ W, H, qa, qb, mix, qo = null, qOld = 0, w, wVer, wo = null, woVer = 0, wMix = 1, rect, ox, oy, rd, fade, mid, bg, grey = null }) {
+     *  grey: the surround's grade [saturation, opacity] (surroundGrade), null as drawn; live: the lobule drawn by the shader in a share
+     *  of the picture, null for none (lobule-live.js): { shape, data (buildLive), share, cu, sj, zones, dark, cen: [x, y, R], col (liveColours) }. */
+    draw({ W, H, qa, qb, mix, qo = null, qOld = 0, w, wVer, wo = null, woVer = 0, wMix = 1, rect, ox, oy, rd, fade, mid, bg, live = null, grey = null }) {
       publish();
       if (this.lost) return false;
       // (A tile given back, or a zero-sized canvas, would be sampled as black: the 2D canvas draws this frame instead.)
@@ -176,6 +205,18 @@ export function createTissueGL(canvas) {
       gl.uniform2f(U.uFade, fade[0], fade[1]); gl.uniform1f(U.uMid, mid);
       gl.uniform3f(U.uBg, bg[0], bg[1], bg[2]);
       gl.uniform2f(U.uGrey, grey ? grey[0] : 1, grey ? grey[1] : 1);
+      if (live && live.share > 0) {
+        const T = liveFor(live.shape, live.data), D = live.data, C = live.col;
+        T.t.forEach((t, i) => { gl.activeTexture(gl.TEXTURE0 + LIVE_UNIT + i); gl.bindTexture(gl.TEXTURE_2D, t); });
+        gl.uniform3f(U.uLBox, D.box[0], D.box[1], D.box[2]); gl.uniform2f(U.uLN, D.nb, BIN);
+        gl.uniform3fv(U.uLEdge, D.edges); gl.uniform2f(U.uLCtr, D.ctr[0], D.ctr[1]);
+        gl.uniform4f(U.uLCen, live.cen[0], live.cen[1], live.cen[2], live.dark ? 1 : 0);
+        gl.uniform4f(U.uLSt, live.cu, live.sj, live.zones ? 1 : 0, 0);
+        gl.uniform3fv(U.uLGap, C.gap); gl.uniform3fv(U.uLGap55, C.gap55); gl.uniform3fv(U.uLBase, C.base);
+        gl.uniform3fv(U.uLNut, C.nut); gl.uniform3fv(U.uLZ1, C.z1); gl.uniform3fv(U.uLZ2, C.z2); gl.uniform3fv(U.uLZ3, C.z3);
+        gl.uniform4fv(U.uLPlate, C.plate); gl.uniform4fv(U.uLInk, C.ink); gl.uniform4fv(U.uLZl, C.zl);
+        gl.uniform1f(U.uLive, live.share);
+      } else gl.uniform1f(U.uLive, 0);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       return true;
     },
