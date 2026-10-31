@@ -920,7 +920,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const d = r != null ? v - r : 0, on = m.cmp ? 1 : 5, off = m.cmp ? 0.7 : 4;
       const shown = Math.abs(d) >= on || (badges[key] === m.cmp && Math.abs(d) >= off);
       badges[key] = shown ? m.cmp : null;
-      return [fmt(v, 1), 'mmHg', shown ? `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), 0)}` : '', m.mode === 'delta' || m.mode === 'since' ? deltaColor(qP(d)) : pc(v)];
+      // (The unit is said once, in the pressure legend, as the anatomy's labels have it; looks review L2, 31 Oct.)
+      return [fmt(v, 1), '', shown ? `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), 0)}` : '', m.mode === 'delta' || m.mode === 'since' ? deltaColor(qP(d)) : pc(v)];
     };
     setLab('triad', 'Portal venule', 'Portal venule', ...mv('triad', m.P1, m.R[0]));
     setLab('sin', 'Sinusoids', 'Sinusoids', ...mv('sin', m.P2, m.R[1]));
