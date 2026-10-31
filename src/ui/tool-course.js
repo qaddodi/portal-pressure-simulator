@@ -21,8 +21,8 @@
 // treatments from its last state) and kept; until they are there the zones, numbers and axes show and the lines then fade in.
 // These are the model's own speeds, not a patient's: a deck line that quotes them needs a source, or none.
 
-import { TILE, RATE } from './table-marks.js?v=bca5ebb624';
-import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js?v=8fbee09520';
+import { TILE, RATE } from './table-marks.js?v=e4c3c4f8c1';
+import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js?v=95baea6111';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { frameFor } from './frame.js?v=d389474997';
 const nextFrame = frameFor('tool-course');

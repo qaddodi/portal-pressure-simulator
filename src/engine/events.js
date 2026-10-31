@@ -2,6 +2,7 @@
 
 import { computeMetrics } from './metrics.js?v=703f122bba';
 import { FLOW_CUTS } from './flow-cuts.js?v=1c97536e9e';
+import { HVPG_CUTS } from './pressure-cuts.js?v=8cc52435da';
 
 const COLLATERAL_NAMES = {
   C1b: ['Esophageal varices', 'VAR'], C3: ['Paraumbilical vein (caput medusae)', 'C3'], C4: ['Anorectal varices', 'C4'],
@@ -24,9 +25,9 @@ function defs(m, eng) {
       severity: 'info', anchor: 'LPV', title: 'Intrahepatic portal branches reversed', detail: 'Arterial blood entering the sinusoids escapes backward through portal branches (typical after TIPS).' },
     { id: 'PV_STASIS', on: Math.abs(m.pvVel) < FLOW_CUTS.stasis && !occ('PV_TRUNK'), off: Math.abs(m.pvVel) > FLOW_CUTS.stasisOff, severity: 'caution', anchor: 'PV_TRUNK',
       title: 'Portal vein stasis', detail: 'Doppler velocity < 9 cm/s: stagnant flow raises the risk of portal vein thrombosis.' },
-    { id: 'CSPH', on: m.hvpg >= 10, off: m.hvpg < 9.5, severity: 'caution', anchor: 'SIN_R',
+    { id: 'CSPH', on: m.hvpg >= HVPG_CUTS.red, off: m.hvpg < HVPG_CUTS.red - 0.5, severity: 'caution', anchor: 'SIN_R',
       title: 'Clinically significant portal hypertension', detail: 'HVPG ≥ 10 mmHg (in cirrhosis): collaterals and varices can develop.' },
-    { id: 'BLEED_RISK', on: m.hvpg >= 12, off: m.hvpg < 11.5, severity: 'caution', anchor: 'VAR',
+    { id: 'BLEED_RISK', on: m.hvpg >= HVPG_CUTS.bleed, off: m.hvpg < HVPG_CUTS.bleed - 0.5, severity: 'caution', anchor: 'VAR',
       title: 'HVPG ≥ 12 mmHg', detail: 'Bleeding becomes more likely at higher gradients, but 12 is not a threshold: varices can bleed below it.' },
     { id: 'VARIX_LARGE', on: m.varix.d >= 5, off: m.varix.d < 4.5, severity: 'caution', anchor: 'VAR',
       title: 'Large esophageal varices', detail: 'Diameter ≥ 5 mm: high-risk varices.' },

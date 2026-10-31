@@ -7,9 +7,10 @@
 
 import { store, hiddenNow } from './store.js?v=a926bea9d4';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=b061aaaabb';
-import { FONT as FONT0, FONT } from './charts.js?v=3491e13ed3';
+import { FONT as FONT0, FONT } from './charts.js?v=686d490a31';
 import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=d389474997';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
+import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
 import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
 import { limitLabelX as labelX } from './limit-label.js?v=52dcc41a1e';
 import { wrapLabel } from './wrap-label.js?v=1af9654a99';
@@ -40,9 +41,9 @@ const RANGES = [['beats', '10 s', 10], ['minutes', '2 min', 120], ['days', 'Days
 const LAG_S = 0.12; // wall seconds the trace runs behind the newest sample, so it can glide between frames
 const FINE_S = 22, COARSE_S = 140, BIN = 0.25;
 // HVPG cut-offs: above normal, clinically significant (Baveno), and 12, below which varices rarely bleed.
-const LIMITS = [[5, ''], [10, 'CSPH 10'], [12, 'Can bleed 12']];
-const sevOf = (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : 'danger');
-const wordOf = (v) => (v < 5 ? 'Normal' : v < 10 ? 'Mild' : v < 12 ? 'CSPH' : 'CSPH · can bleed');
+const LIMITS = [[HVPG_CUTS.amber, ''], [HVPG_CUTS.red, `CSPH ${HVPG_CUTS.red}`], [HVPG_CUTS.bleed, `Can bleed ${HVPG_CUTS.bleed}`]];
+const sevOf = hvpgSev;
+const wordOf = (v) => (v < HVPG_CUTS.amber ? 'Normal' : v < HVPG_CUTS.red ? 'Mild' : v < HVPG_CUTS.bleed ? 'CSPH' : 'CSPH · can bleed');
 const nice = (span, n = 4) => { const raw = Math.max(1e-6, span / n); const p = Math.pow(10, Math.floor(Math.log10(raw))); const r = raw / p; return (r < 1.5 ? 1 : r < 3.5 ? 2 : r < 7.5 ? 5 : 10) * p; };
 
 export function createPressureTime({ marks = () => [] } = {}) {
@@ -641,12 +642,12 @@ export function createPressureTime({ marks = () => [] } = {}) {
         // (Every dashed line first, then the labels on their plates, so no later line crosses an earlier label.)
         const labs = [];
         for (const [v, label] of LIMITS) {
-          if (v > hi || (v === 5 && !roomy && !slide)) continue;   // (a slide keeps all three faint lines, 5, 10 and 12, as the talk trace's lane does)
+          if (v > hi || (v === HVPG_CUTS.amber && !roomy && !slide)) continue;   // (a slide keeps all three faint lines, 5, 10 and 12, as the talk trace's lane does)
           const yy = Math.round(Y(v)) + 0.5;
-          ctx.strokeStyle = col(v >= 10 ? '--danger' : '--caution'); ctx.globalAlpha = v >= 10 ? 0.5 : 0.35;
+          ctx.strokeStyle = col(v >= HVPG_CUTS.red ? '--danger' : '--caution'); ctx.globalAlpha = v >= HVPG_CUTS.red ? 0.5 : 0.35;
           ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(L + plotW, yy); ctx.stroke(); ctx.setLineDash([]);
           ctx.globalAlpha = 1;
-          if (label && !narrow && (slide ? roomy || v === 12 : roomy || v === 10)) labs.push([label, yy]);   // (a slide's short lane names the cut-offs once, at 12)
+          if (label && !narrow && (slide ? roomy || v === HVPG_CUTS.bleed : roomy || v === HVPG_CUTS.red)) labs.push([label, yy]);   // (a slide's short lane names the cut-offs once, at 12)
         }
         let prevLab = null;   // (the label drawn last: one that would sit on it moves along its own line, past its right end)
         for (const [label, yy] of labs) {

@@ -22,27 +22,28 @@ import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wh
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
 import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=3c321f5f7f';
-import { NODE_POS } from './anatomy.js?v=9f55a095a6';
+import { NODE_POS } from './anatomy.js?v=4d7c66b4f8';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=4d1102863b';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
-import { createHvpgMonitor } from './hvpg-proc.js?v=45e4fb2cf1';
-import { createTools } from './presenter-tools.js?v=7895f15d36';
-import { openHandout } from './handout.js?v=816fdbd099';
+import { hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
+import { createHvpgMonitor } from './hvpg-proc.js?v=3652bea631';
+import { createTools } from './presenter-tools.js?v=e1ea0e466a';
+import { openHandout } from './handout.js?v=9e65e4c4f6';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=bca5ebb624';
+import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=e4c3c4f8c1';
 import { frameFor, cancelFrame } from './frame.js?v=d389474997';
 import { createFigureKey } from './figure-key.js?v=f4d6eada86';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=197dfb008b';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=252ce9940f';
-import { clotWords } from './callout-math.js?v=560dae8ba1';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=4a33e36913';
+import { clotWords } from './callout-math.js?v=53aaae65b6';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=9c0038abb4';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=f4890d7e3d';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=0b61d6145a';
+import { anchorsOf, roomFor } from './cam-room.js?v=2b3067e26e';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=06085d7796';
@@ -835,7 +836,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=1fc3648058', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=a45f6ab84c', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -848,7 +849,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=868577f1b2');
+        const { createCore } = await import('../worker-core.js?v=c69d6181df');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -1142,7 +1143,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function cathLabels() {
     const f = cath.fp, v = cath.v;
     if (!f) return [];
-    const sev = f.hvpg >= 10 ? 'danger' : f.hvpg >= 5 ? 'caution' : 'ok';
+    const sev = hvpgSev(f.hvpg);
     const free = { key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(f.fhvp, 1), unit: 'mmHg', cls: 'free' };
     const wedge = { key: 'w', at: 'ahead', kicker: 'WHVP', text: fmt(f.fhvp + (f.whvp - f.fhvp) * v.column, 1), unit: 'mmHg', cls: 'wedge' };
     const L = { f: free, w: wedge,

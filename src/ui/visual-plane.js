@@ -24,7 +24,8 @@
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
 import { h, fmt, clamp } from './util.js?v=b061aaaabb';
-import { TILE, tileShown } from './table-marks.js?v=bca5ebb624';
+import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js?v=8cc52435da';
+import { TILE, tileShown } from './table-marks.js?v=e4c3c4f8c1';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 
 // ── Conditions: [key, op, value], all of which must hold ──
@@ -74,20 +75,20 @@ export const PLANES = {
     // (Illustrative, Mohammad 29 Oct: "we shouldn't have the labels of the x and y axis ... don't stretch the x axis all the way to like 40".
     // No axis names, only the four cut-offs' numbers. PPG runs past the highest point on any slide (26.8); HVPG to 24 (the farthest is 16.5),
     // so that on a narrow phone plot the Sinusoidal obstruction point leaves room right of it for 'Bleed risk ≥12' on its level line.)
-    x: { key: 'hvpg', min: 0, max: 24, ticks: [5, 10], name: 'HVPG, mmHg', short: 'HVPG' },
-    y: { key: 'ppg', min: 0, max: 28, ticks: [6, 12], name: 'PPG, mmHg', short: 'PPG' },
+    x: { key: 'hvpg', min: 0, max: 24, ticks: [HVPG_CUTS.amber, HVPG_CUTS.red], name: 'HVPG, mmHg', short: 'HVPG' },
+    y: { key: 'ppg', min: 0, max: 28, ticks: [PPG_CUTS.amber, PPG_CUTS.red], name: 'PPG, mmHg', short: 'PPG' },
     axisNames: false,
     zones: [
-      { when: [['hvpg', '<', 5], ['ppg', '<', 6]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: 'HVPG <5, PPG <6 mmHg' },
-      { when: [['hvpg', '<', 5]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'ppg', note: 'The wedge misses the resistance' },
-      { when: [['ppg', '<', 6]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'hvpg', at: [14, 3], note: 'HVPG ≥5, PPG <6 mmHg' },
-      { t: 'Both raised', short: 'Both raised', tone: 'both', at: [14, 24], note: 'HVPG ≥5, PPG ≥6 mmHg' },
+      { when: [['hvpg', '<', HVPG_CUTS.amber], ['ppg', '<', PPG_CUTS.amber]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: `HVPG <${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
+      { when: [['hvpg', '<', HVPG_CUTS.amber]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'ppg', note: 'The wedge misses the resistance' },
+      { when: [['ppg', '<', PPG_CUTS.amber]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'hvpg', at: [14, 3], note: `HVPG ≥${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
+      { t: 'Both raised', short: 'Both raised', tone: 'both', at: [14, 24], note: `HVPG ≥${HVPG_CUTS.amber}, PPG ≥${PPG_CUTS.amber} mmHg` },
     ],
-    cuts: { x: [5, 10], y: [6, 12] },
+    cuts: { x: [HVPG_CUTS.amber, HVPG_CUTS.red], y: [PPG_CUTS.amber, PPG_CUTS.red] },
     // (HVPG 5 and PPG 6 keep their numbers but draw no line: the zone colours already mark them, Mohammad 29 Oct.)
-    noLine: { x: [5], y: [6] },
+    noLine: { x: [HVPG_CUTS.amber], y: [PPG_CUTS.amber] },
     // (The two lines that carry a meaning of their own, named on the plot beside the line: { x|y: { value: words } }.)
-    lineNames: { x: { 10: 'CSPH ≥10' }, y: { 12: 'Bleed risk ≥12' } },
+    lineNames: { x: { [HVPG_CUTS.red]: `CSPH ≥${HVPG_CUTS.red}` }, y: { [PPG_CUTS.red]: `Bleed risk ≥${PPG_CUTS.red}` } },
     source: '',
     key: false,
   },

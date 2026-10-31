@@ -1,8 +1,8 @@
 // Deck visuals, package F (figure callouts): the sums behind the slide fields, kept apart from the stage and the presenter so
 // unit tests can load them (review/deck-visuals-recs.md §9). Nothing here touches the page.
-import { TILE, rateShown, tileShown, tipsGoal } from './table-marks.js?v=bca5ebb624';
+import { TILE, rateShown, tileShown, tipsGoal } from './table-marks.js?v=e4c3c4f8c1';
 import { plateletText } from './glue.js?v=5a0f63226b';
-import { ORGANS, NODE_POS, SPLEEN_CENTER, CIRCUIT_ZONES } from './anatomy.js?v=9f55a095a6';
+import { ORGANS, NODE_POS, SPLEEN_CENTER, CIRCUIT_ZONES } from './anatomy.js?v=4d7c66b4f8';
 
 // (util.js fmt, which needs the page to load: a value to d decimals, with a true minus and never "−0".)
 const fmt = (v, d = 1) => { if (v == null || !Number.isFinite(v)) return '—'; const t = v.toFixed(d); return /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−'); };

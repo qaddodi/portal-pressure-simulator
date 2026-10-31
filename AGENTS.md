@@ -52,6 +52,18 @@ Loop for every change (fast previews first, full tests before merge):
 
 Pages serves each copy as its production build (`npm run build` → `dist/`: bundled, minified, hashed), built in the deploy job of `pages.yml`; the repository root still runs as is for `npm start`. The preview's browser checks (`checks.yml`) test that build, as shipped; `ci.yml` tests both the source and the build. Workflows pin `ubuntu-24.04`, so a new runner image (and new visual references) is a deliberate change.
 
+## Per-frame work (the GPU is the only per-frame painter)
+
+- No per-frame work on the main thread outside the scheduler: ask for a frame with `frameFor(tag)` from `src/ui/frame.js`,
+  and never call `requestAnimationFrame` anywhere else. `tests/no-raw-raf.test.js` greps for it; the few older calls it lists
+  may not grow, and a call you move onto the scheduler lowers its allowance there.
+- No per-frame DOM writes outside `transform`, `opacity` and `clip-path`. A number, a trace or a label that changes every frame
+  is drawn by the GPU or the canvas, not by layout.
+- No `backdrop-filter` on anything that moves over the figure: the figure's own GPU glass (`glass-gl.js`) exists for that.
+- Pressure colours and cut-offs live once: HVPG amber 5, red 10; PPG amber 6, red 12, in `src/engine/pressure-cuts.js`.
+  Read them from there and the colour tokens (`--ok`, `--caution`, `--danger`); `tests/pressure-vocabulary.test.js` fails on a
+  second copy.
+
 ## Pages setup and troubleshooting
 
 One-time settings the owner made on GitHub (repo Settings), needed for deploys to work:

@@ -15,7 +15,7 @@
 // and a dye bolus that travels the network, conserved along each vessel and mixed (flow-weighted)
 // only at junctions.
 
-import { lumenSurface, lumenAt } from './stomach-lumen.js?v=dfcc262e2a';
+import { lumenSurface, lumenAt } from './stomach-lumen.js?v=473ad9bff1';
 
 // Display speed, world units per second, for a mean velocity in cm/s.
 export const SPEED_K = 9.5;

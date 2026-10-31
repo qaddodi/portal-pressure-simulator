@@ -7,6 +7,7 @@
 import { store } from './store.js?v=a926bea9d4';
 import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=b061aaaabb';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
+import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=8cc52435da';
 import { pressureColor } from './colormap.js?v=197dfb008b';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
 import { frameFor } from './frame.js?v=d389474997';
@@ -37,7 +38,7 @@ function profile(snap) {
   return svg;
 }
 // The standing cut-offs: HVPG amber from 5, red from 10; PPG amber from 6, red from 12.
-const sev = (v, amber, red) => (v >= red ? 'high' : v >= amber ? 'low' : 'ok');
+const sev = (cuts, v) => ({ ok: 'ok', caution: 'low', danger: 'high' })[sevOfCuts(cuts, v)];
 const one = (v) => v.toFixed(v < 10 ? 1 : 0);
 function patientPreview(p) {
   const s = SNAPSHOTS[p.id], fp = s?.fp;
@@ -46,8 +47,8 @@ function patientPreview(p) {
     h('h3', {}, p.label),
     s ? profile(s) : null,
     s ? h('span', { class: 'hp-facts' },
-      h('span', { class: 'hp-chip ' + sev(s.hvpg, 5, 10), title: 'Hepatic venous pressure gradient' }, 'HVPG ', h('b', {}, one(s.hvpg))),
-      fp?.ppg != null ? h('span', { class: 'hp-chip ' + sev(fp.ppg, 6, 12), title: 'Portal pressure gradient (portal vein − IVC)' }, 'PPG ', h('b', {}, one(fp.ppg))) : null,
+      h('span', { class: 'hp-chip ' + sev(HVPG_CUTS, s.hvpg), title: 'Hepatic venous pressure gradient' }, 'HVPG ', h('b', {}, one(s.hvpg))),
+      fp?.ppg != null ? h('span', { class: 'hp-chip ' + sev(PPG_CUTS, fp.ppg), title: 'Portal pressure gradient (portal vein − IVC)' }, 'PPG ', h('b', {}, one(fp.ppg))) : null,
       h('span', { class: 'hp-chip', title: 'Portal vein pressure' }, 'PV ', h('b', {}, Math.round(s.pv))),
       s.pvFlow < -0.05 ? h('span', { class: 'hp-chip rev', title: 'Portal flow runs away from the liver' }, 'Hepatofugal') : null) : null,
     h('p', {}, p.summary || ''));

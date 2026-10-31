@@ -8,6 +8,7 @@
 
 import { COLON_D, COLON_RING, BOWEL_RING, DUO_D } from './organ-art.js?v=a6a766d521';
 import { gutPath, gutY } from './gut-proportions.js?v=1ecbf3debd';
+import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js?v=8cc52435da';
 
 export const VIEW = { w: 1400, h: 1000 };
 // Where the rectum's end fades away (y: clear above the first, gone at the second): the colon's mask (stage.js rectFade) and the
@@ -600,8 +601,8 @@ export const PROFILE_PATHS = [
     liver: ['RPV', 'CV_R'],
     // Gradients drawn as spans under the line, with the same values and cut-offs as the readout
     // tiles: HVPG = WHVP − FHVP (wedged − free hepatic vein) and PPG = portal vein − IVC.
-    dims: [{ k: 'HVPG', hi: 'SIN_R', lo: 'RHV', hiM: 'whvp', loM: 'fhvp', m: 'hvpg', warn: 5, bad: 10, hide: 'trueHVPG' },
-      { k: 'PPG', hi: 'CONF', lo: 'IVCS', m: 'ppg', warn: 6, bad: 12 }] },
+    dims: [{ k: 'HVPG', hi: 'SIN_R', lo: 'RHV', hiM: 'whvp', loM: 'fhvp', m: 'hvpg', warn: HVPG_CUTS.amber, bad: HVPG_CUTS.red, hide: 'trueHVPG' },
+      { k: 'PPG', hi: 'CONF', lo: 'IVCS', m: 'ppg', warn: PPG_CUTS.amber, bad: PPG_CUTS.red }] },
 ];
 
 // Figure callouts name each station in full, without abbreviations that end in a full stop (17 Oct design review: "Varices", not

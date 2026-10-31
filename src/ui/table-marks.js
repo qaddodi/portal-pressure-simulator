@@ -3,13 +3,14 @@
 // normal (dirAbs) or against a reference patient (dirRel), and the colour that goes with it.
 
 import { FLOW_CUTS } from '../engine/flow-cuts.js?v=1c97536e9e';
+import { PPG_CUTS, hvpgRate, ppgRate } from '../engine/pressure-cuts.js?v=8cc52435da';
 
 export const NO_ASC = 150;   // mL: below it there is no ascites to tap (ultrasound grade 1 starts here)
 export const vSize = (v) => (v < 2.5 ? ['ok', 'None'] : v < 5 ? ['mid', 'Small'] : ['hi', 'Large']);
 
 export const RATE = {
-  hvpg: (v) => (v >= 10 ? ['hi', 'CSPH'] : v >= 5 ? ['mid', 'Mild'] : ['ok', 'Normal']),
-  ppg: (v) => (v >= 12 ? ['hi', 'Bleed risk'] : v >= 6 ? ['mid', 'High'] : ['ok', 'Normal']),
+  hvpg: (v) => { const r = hvpgRate(v); return [r, { hi: 'CSPH', mid: 'Mild', ok: 'Normal' }[r]]; },
+  ppg: (v) => { const r = ppgRate(v); return [r, { hi: 'Bleed risk', mid: 'High', ok: 'Normal' }[r]]; },
   pv: (v) => (v >= 15 ? ['hi', 'Severe'] : v > 10 ? ['mid', 'High'] : ['ok', 'Normal']),
   // The wedged and free pressures have no cut-offs of their own in the guidelines, so each reads as the pressure it stands for: the wedged
   // (sinusoidal, in a healthy liver about the portal) pressure as the portal vein's, the free one as the IVC's, which AASLD 2024 (Box 2) says it
@@ -95,7 +96,7 @@ export const DERIVED_TILE = { scope: { t: 'Endoscopic view', s: '', u: '' }, hvp
 export const tileOf = (k) => TILE[k] ?? DERIVED_TILE[k];
 // After TIPS the PPG is read against its target (below 12 mmHg): its tile, and the pill that prints it, never say "High" under a
 // line that says the target is reached.
-export const tipsGoal = (v) => (v < 12 ? ['ok', 'Target met'] : ['hi', 'Above target']);
+export const tipsGoal = (v) => (v < PPG_CUTS.red ? ['ok', 'Target met'] : ['hi', 'Above target']);
 export const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : [null, '']);
 // A value as its tile prints it (the tile's scale and decimals), back in the model's units: a tile's word judges the number it
 // shows, so "5.0 L" is Grade 3 and "2.5 mm" Small, never the unrounded 4.98 L or 2.49 mm behind them.

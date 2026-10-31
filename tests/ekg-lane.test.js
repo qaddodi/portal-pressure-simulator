@@ -110,8 +110,8 @@ test('a slide\'s card keeps the HVPG lane and shows the portal pressure alone; P
   assert.ok(css.includes('.pz-tool .pt-chips,'), 'the pills are hidden on a slide');
   assert.match(pt, /cfg = \{ ekg: t\?\.ekg !== false, lane: t\?\.hvpgLane !== false \}/);
   // The lane draws faint lines at 5, 10 and 12 on a slide as the talk trace does, named once when the lane is short.
-  assert.match(pt, /\(v === 5 && !roomy && !slide\)\) continue;/);
-  assert.match(pt, /slide \? roomy \|\| v === 12 : roomy \|\| v === 10/);
+  assert.match(pt, /\(v === HVPG_CUTS\.amber && !roomy && !slide\)\) continue;/);
+  assert.match(pt, /slide \? roomy \|\| v === HVPG_CUTS\.bleed : roomy \|\| v === HVPG_CUTS\.red/);
   // The strip is drawn in the text colour with no glow, one reading at its end (the heart rate, a whole number).
   const strip = pt.slice(pt.indexOf('// The EKG strip'), pt.indexOf("ctx.fillText('mmHg'"));
   assert.match(strip, /ctx\.strokeStyle = text;/);

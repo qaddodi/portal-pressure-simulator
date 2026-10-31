@@ -9,14 +9,15 @@
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
 import { h, fmt, fitCanvas, clamp, icon, cssVar, toast } from './util.js?v=b061aaaabb';
-import { FONT } from './charts.js?v=3491e13ed3';
+import { hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
+import { FONT } from './charts.js?v=686d490a31';
 import { pressureColor } from './colormap.js?v=197dfb008b';
 import { store, logAction, hiddenNow, updateParams } from './store.js?v=a926bea9d4';
 import { shownOr } from './shown.js?v=82ef5e29ec';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=553551a92a';
 import { frameFor, cancelFrame } from './frame.js?v=d389474997';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
-import { rateOf } from './table-marks.js?v=bca5ebb624';
+import { rateOf } from './table-marks.js?v=e4c3c4f8c1';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=a6559fedac';
 const nextFrame = frameFor('hvpg-proc');
 
@@ -37,11 +38,11 @@ const STEPS = [
 // The tracing is a monitor, dark in both themes (the Over time chart's dark trace colours).
 const C = Object.defineProperties({}, Object.fromEntries(Object.entries({ bg: '--mon-bg', grid: '--mon-grid', line: '--mon-line', text: '--mon-text', bright: '--mon-bright',
   free: '--mon-free', wedge: '--mon-wedge', ok: '--mon-ok', caution: '--mon-caution', danger: '--mon-alarm' }).map(([k, n]) => [k, { get: () => cssVar(n) }])));
-const sevOf = (v) => (v >= 10 ? 'danger' : v >= 5 ? 'caution' : 'ok');
+const sevOf = hvpgSev;
 // The two readings carry the colour their tiles give them (the wedged as the portal pressure, the free as the IVC's).
 const SEV = { ok: 'ok', mid: 'caution', hi: 'danger' };
 const sevOfRead = (k, v) => SEV[rateOf(k, { [k]: v })[0]] || '';
-const sevWord = (v) => (v >= 10 ? 'Clinically significant portal hypertension (CSPH)' : v >= 5 ? 'Mild portal hypertension' : 'Normal');
+const sevWord = (v) => ({ danger: 'Clinically significant portal hypertension (CSPH)', caution: 'Mild portal hypertension', ok: 'Normal' })[hvpgSev(v)];
 
 export function createHvpgProcedure() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'HVPG measurement: catheter pressure tracing' });

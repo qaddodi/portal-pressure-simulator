@@ -3,6 +3,7 @@
 // presenter-tools.js, so the deck visuals' chart package can extend it without touching the instruments' file.)
 
 import { h, fmt, clamp } from './util.js?v=b061aaaabb';
+import { hvpgRate } from '../engine/pressure-cuts.js?v=8cc52435da';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { frameFor } from './frame.js?v=d389474997';
 import { plotPanel } from './plot-look.js?v=5037697da7';
@@ -18,7 +19,7 @@ const sv = (tag, attrs = {}, ...kids) => {
   return el;
 };
 const LINES = [['pv', 'PV', '--tr-pv'], ['whvp', 'WHVP', '--tr-wedge'], ['fhvp', 'FHVP', '--tr-hv']];
-const sev = (v) => (v >= 10 ? 'hi' : v >= 5 ? 'mid' : 'ok');
+const sev = hvpgRate;
 let mctx = null;
 const textW = (t, f, wt = 600) => {
   if (mctx === null) mctx = (typeof document !== 'undefined' && document.createElement?.('canvas')?.getContext?.('2d')) || false;
