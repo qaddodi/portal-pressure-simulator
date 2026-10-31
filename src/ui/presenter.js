@@ -1834,16 +1834,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (cut()) return;
     // (A flip of the scale still moving stops at its next step, cut by this slide: its camera is let finish before the slide's own.)
     if (flipping) { await until(() => !flipping, 9000); if (cut()) return; }
-    slideLayers(s);
-    // The catheter leaves with its slides (with a new patient, the figure's fade takes it).
-    if (cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0); if (cut()) return; }
     // Out of the lobule while the old patient is still there, so the rise reads as leaving the liver. (With the same patient it waits
     // for the new slide's words, which set the space the camera frames into, so the rise is one zoom straight to the slide's framing:
     // see camera.)
     const inAnatomy = !ct && cam && !LOBULE_CAM.test(cam) && (s.view || 'anatomic') === 'anatomic';
-    if ((ct || (cam && !LOBULE_CAM.test(cam))) && (store.get().lobule || store.get().sinusoid)) {
-      if (!inAnatomy || si !== shownState || liveOff) { await toAnatomy(inAnatomy ? riseFor(cam, fv) : null); if (cut()) return; }
-    }
+    const outNow = (ct || (cam && !LOBULE_CAM.test(cam))) && (store.get().lobule || store.get().sinusoid) && (!inAnatomy || si !== shownState || liveOff);
+    // (The lobule's layers change as this slide asks once the lobule is left, when it is left here: the zone bands the leaving
+    // slide showed stay on the lobule through its way out, never switched off and repainted on it just before.)
+    if (!outNow) slideLayers(s);
+    // The catheter leaves with its slides. (Only a new patient on the first slide or with reduced motion fades the figure, which takes
+    // it; otherwise the patient eases in after (morphTo) and the figure never dims, so the catheter retracts and fades on its own.)
+    if (cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0 && (booting || reduce.matches)); if (cut()) return; }
+    if (outNow) { await toAnatomy(inAnatomy ? riseFor(cam, fv) : null); slideLayers(s); if (cut()) return; }
     // (A patient still being computed off screen: after a short wait the arc shows.)
     const lateT = states[si] && (!lap || states[stateOf[to]]) ? 0 : setTimeout(() => loading(true), 260);
     // (A time-lapse with its own params plays from them set and settled: the chain's start state, not the slide before's.)
