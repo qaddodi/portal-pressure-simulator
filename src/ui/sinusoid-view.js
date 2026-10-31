@@ -495,7 +495,7 @@ export function createSinusoidView({ host, before = null }) {
     if (g.tall) { layoutTall(); return; }
     for (const k in lead) if (k !== 'lymph' && k !== 'fen') lead[k].style.opacity = '0';   // (across the screen only the lymph and the fenestrae have leaders)
     const xc = away(pick(0.5), g.xk, 30);
-    region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true });
+    region('sin', 'Sinusoid', num(m.P2, 1, ''), xc, 0, { along: true });
     kupName();
     // In the plates: the stellate cell named just beyond its body; the fenestrae beside it in the same plate, with a
     // thin callout down to an open fenestra in the lining, clear of the stellate cell's name, of the Space of Disse's and of
@@ -558,7 +558,7 @@ export function createSinusoidView({ host, before = null }) {
     const num = (v, d, u) => (m.hide ? '?' : `${fmt(v, d)}~${u}`);
     const mid = (x) => hepIn(x) + Math.min(hep * 0.5, (geo.W / 2 / k - hepIn(x)) * 0.5);   // the middle of the plate's part on screen
     const dis = (x) => wallIn(x) + disseW(x) * 0.5;
-    region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), pick(0.42), 0);
+    region('sin', 'Sinusoid', num(m.P2, 1, ''), pick(0.42), 0);
     // Right (y < 0): fenestrae, stellate cell, a hepatocyte.
     let x = pick(0.08);
     const xp = fenAt(x);
@@ -708,7 +708,8 @@ export function createSinusoidView({ host, before = null }) {
     legend.style.maxWidth = `${Math.max(90, lr - lx)}px`;
     legend.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px)`;
     LEG.x = lx; LEG.y = ly; LEG.w = legend.offsetWidth; LEG.h = legend.offsetHeight;
-    const m = model, val = (P) => (m.hide ? '?' : `${fmt(P, 1)}~mmHg`);
+    // (The unit is said once, in the pressure legend, as the anatomy's and the lobule's labels have it; looks review L2.)
+    const m = model, val = (P) => (m.hide ? '?' : fmt(P, 1));
     for (const [key, name, value, u] of [['in', 'Portal venule', val(m.P1), 0], ['out', 'Central vein', val(m.P3), 1]]) {
       // (The Sinusoid's own caption, class and all: same capitals, size, ink, halo and reading.)
       const T = caption(key, 'sv-region sv-region-sin sv-end', name, value);

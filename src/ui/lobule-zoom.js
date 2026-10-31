@@ -37,7 +37,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=ebc9fb480f';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=1eb39d1393';
-import { createSinusoidView } from './sinusoid-view.js?v=0686cb1e06';
+import { createSinusoidView } from './sinusoid-view.js?v=b369b525b8';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, framePart } from './frame.js?v=6a53e5fc6e';
 import { createGlassGL } from './glass-gl.js?v=61c2d51089';
 import { pillOf, pillLabels, pillHold } from './lz-pills.js?v=9c2fefe6b4';
