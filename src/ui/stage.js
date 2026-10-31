@@ -8267,7 +8267,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const kids = [];
       b.spans = [];
       b.textLines = [];
-      if (it.bg) kids.push(s('rect', { class: 'lb-bg', x: -it.padX, y: -it.padY, width: it.w + 2 * it.padX, height: it.h + 2 * it.padY, rx: it.pill ? (it.h + 2 * it.padY) / 2 : 6 }));
+      // (A label's pill has 6 px corners, the cards' tile family; only a numbered marker, a round chip, takes its full height: it.chip.)
+      if (it.bg) kids.push(s('rect', { class: 'lb-bg', x: -it.padX, y: -it.padY, width: it.w + 2 * it.padX, height: it.h + 2 * it.padY, rx: it.chip ? (it.h + 2 * it.padY) / 2 : 6 }));
       // A clickable caption is a larger target than its small letters.
       if (it.hit) kids.push(s('rect', { class: 'lb-hit', x: -10, y: -8, width: it.w + 20, height: it.h + 16, rx: 8 }));
       let y = 0;
@@ -8612,7 +8613,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const k = scan.k ?? F?.metrics?.lsm ?? 0, txt = k >= 100 ? String(Math.round(k)) : k.toFixed(1);
     const val = { size: 14, weight: 700, cls: 'lb-scan-val' }, unit = { size: 10, weight: 600, cls: 'lb-scan-unit', gap: 3, t: 'kPa' };
     const lines = [[{ ...val, t: txt }, unit]];
-    return { key: 'scan', src: ['scan'], cls: 'scan', lines, w: lineW([{ ...val, t: '88.8' }, unit]), h: LINE_H(lines[0]), align: 'middle', bg: true, pill: true, padX: 8, padY: 3,
+    return { key: 'scan', src: ['scan'], cls: 'scan', lines, w: lineW([{ ...val, t: '88.8' }, unit]), h: LINE_H(lines[0]), align: 'middle', bg: true, padX: 8, padY: 3,
       label: `FibroScan stiffness ${txt} kPa`, pri: 20 };
   }
   const LADDER_TAG = { SIN_R: 'WHVP', RHV: 'FHVP' };
@@ -9875,7 +9876,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           if (g.group && mids.length > 1) { fans = mids; ax = mids.reduce((a, p) => a + p[0], 0) / mids.length; ay = mids.reduce((a, p) => a + p[1], 0) / mids.length; near = 4; }
           else { [ax, ay] = mids[0]; near = 4 + ((E[ids[0]].width || 4) * k) / 2; }
         }
-        const it = { key: 'fxs:' + g.n, cls: 'fx-step', lines: [[{ t: String(g.n), size: 11.5, weight: 750, cls: 'lb-step' }]], align: 'middle', bg: true, pill: true, padX: 5, padY: 2, ax, ay, pri: 20, delay: g.at, free: true, label: `Step ${g.n}` };   // (free: no dot on the vessel, only a leader when it stands off)
+        const it = { key: 'fxs:' + g.n, cls: 'fx-step', lines: [[{ t: String(g.n), size: 11.5, weight: 750, cls: 'lb-step' }]], align: 'middle', bg: true, chip: true, padX: 5, padY: 2, ax, ay, pri: 20, delay: g.at, free: true, label: `Step ${g.n}` };   // (free: no dot on the vessel, only a leader when it stands off)
         it.h = LINE_H(it.lines[0]); it.w = Math.max(lineW(it.lines[0]), it.h - 4);
         buildLines();
         // (A group's spots keep its leaders clear first; where none does, it takes the usual ones, so the number never vanishes.)

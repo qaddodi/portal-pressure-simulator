@@ -208,7 +208,8 @@ svg { flex: none; }
 /* The halo grows with the text (--lbk: the labels' size, set by the stage), so large text still reads over the art. */
 #labels text { font-family: var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--label-halo); stroke-width: max(2px, calc(3px * var(--lbk, 1))); stroke-linejoin: round; }
 #labels .lb.inline text, #labels .lb.focus text { stroke: none; }
-#labels .lb-bg { fill: var(--glass); stroke: var(--hairline); stroke-width: 1; }
+/* A label's pill is its fill alone, no hairline round it (Mohammad, 31 Oct); the ones that want an outline (a note mark, a selected or focused name, the liver card) say so themselves below. */
+#labels .lb-bg { fill: var(--glass); stroke: none; }
 .lb.inline .lb-bg { filter: drop-shadow(0 1px 1.5px rgb(var(--night-rgb) / .1)); }
 .lb-name { fill: var(--text-2); }
 .lb-val { fill: var(--text); }
