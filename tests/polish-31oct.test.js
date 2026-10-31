@@ -260,3 +260,18 @@ test('the Readouts tab on a phone (two columns) gives the last tile of an odd gr
   // tiles stay in the grid when their value is hidden (they blank, never leave), so the odd-child rule counts what is drawn
   assert.doesNotMatch(src('src/ui/readouts-pane.js'), /\.remove\(\)|display = 'none'|style\.display/);
 });
+
+test('the Why headline never says "-0" and never repeats a zero baseline ("69%, 69 above healthy")', async () => {
+  const { Engine } = await import('../src/engine/engine.js');
+  const { explain, METRICS } = await import('../src/engine/explain.js');
+  const e = new Engine(); e.loadPreset('cirr-decomp'); for (let i = 0; i < 4; i++) e.settleQuick();
+  for (const id of Object.keys(METRICS)) {
+    const { sentence } = explain(e, id);
+    assert.doesNotMatch(sentence, /\bis -/, sentence);
+    assert.doesNotMatch(sentence, /is −0(\.0+)? /, sentence);
+  }
+  // the shunt fraction's healthy value is zero: the headline is the value alone
+  assert.match(explain(e, 'shunt').sentence, /^Shunt fraction is \d+%\. Most of that is/);
+  // a nonzero baseline keeps its clause
+  assert.match(explain(e, 'hvpg').sentence, /^HVPG is [\d.]+ mmHg, [\d.]+ above healthy\./);
+});

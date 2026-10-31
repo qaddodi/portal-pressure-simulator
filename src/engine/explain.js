@@ -135,8 +135,11 @@ function buildSentence(def, cur, base, cs) {
   const d = def.digits;
   const diff = cur - base;
   // (A percent hugs its number, as everywhere else: "Shunt fraction is 69%", "Varix wall stress is 41% of rupture".)
-  let s = `${def.label} is ${cur.toFixed(d)}${def.unit.startsWith('%') ? '' : ' '}${def.unit}`;
-  if (Math.abs(diff) >= Math.pow(10, -d)) s += `, ${num(diff, d)} ${diff > 0 ? 'above' : 'below'} healthy`;
+  // (A reading below zero takes the real minus, as the tiles do (reversed portal flow); one that rounds to zero is a plain 0, never "-0".)
+  const here = cur < 0 && Number(num(cur, d)) !== 0 ? `−${num(cur, d)}` : num(cur, d);
+  let s = `${def.label} is ${here}${def.unit.startsWith('%') ? '' : ' '}${def.unit}`;
+  // (Where healthy is zero, "69%, 69 above healthy" says the same thing twice: the clause is left out.)
+  if (Math.abs(diff) >= Math.pow(10, -d) && Math.abs(base) >= Math.pow(10, -d)) s += `, ${num(diff, d)} ${diff > 0 ? 'above' : 'below'} healthy`;
   const sig = cs.filter((c) => Math.abs(c.delta) >= Math.max(Math.pow(10, -d), Math.abs(diff) * 0.05));
   if (!sig.length) return s + '. Nothing meaningful is pushing it away from normal.';
   const dir = Math.sign(diff || 1);
