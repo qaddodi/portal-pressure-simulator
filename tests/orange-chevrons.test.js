@@ -24,7 +24,7 @@ test('every theme’s reversed orange, and the heat ramp’s orange, count as or
 });
 
 test('teal, wine, red, yellow, blue and grey vessels keep their chevrons', () => {
-  for (const c of [...tok('--flow-normal'), '#661030', '#9B2B6A', '#D7263D', '#C8414D', '#F4D35E', '#718EDF', '#96989F', '#3FA092'])
+  for (const c of [...tok('--flow-normal'), '#661030', '#9B2B6A', '#680C2F', '#A4216E', '#925CDD', '#6787E8', '#D7263D', '#C8414D', '#F4D35E', '#718EDF', '#96989F', '#3FA092'])
     assert.ok(chevOrange(hex(c)) < 0.05, `${c}: ${chevOrange(hex(c))}`);
 });
 
