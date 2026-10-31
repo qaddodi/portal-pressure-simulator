@@ -10,6 +10,9 @@
 //   VISUAL_DEVICE=phone                 one device only (CI checks each device on its own runner)
 //   VISUAL_QUERY='&stageover=gpu'       added to every view's address: the same references, drawn another way
 //                                       (compare only: a variant never writes a reference)
+//   VISUAL_KEEP=dir                     every view's current picture written there (as <device>-<view>.png)
+//   VISUAL_AGAINST=dir                  compared with the pictures in dir instead of the references: a variant
+//                                       against the default drawing on the same machine, minutes apart
 //
 // The model is paused and motion reduced, so a view is still. Pictures are kept at half size and
 // compared there: a live number that differs in its last digit, or anti-aliasing that differs
@@ -28,7 +31,9 @@ const update = process.argv.includes('--update');
 const refresh = process.argv.includes('--refresh');
 let refreshed = 0;
 const QUERY = process.env.VISUAL_QUERY || '';
-if (QUERY && (update || refresh)) { console.error('VISUAL_QUERY compares only: the references come from the page as it is by default.'); process.exit(2); }
+const KEEP = process.env.VISUAL_KEEP ? resolve(process.env.VISUAL_KEEP) : '';
+const AGAINST = process.env.VISUAL_AGAINST ? resolve(process.env.VISUAL_AGAINST) : '';
+if ((QUERY || AGAINST) && (update || refresh)) { console.error('VISUAL_QUERY and VISUAL_AGAINST compare only: the references come from the page as it is by default.'); process.exit(2); }
 // A pixel differs when a channel moves by more than TOL (of 255); a view fails when more than
 // LIMIT of its pixels differ.
 const TOL = 40, LIMIT = 0.01;
@@ -101,8 +106,8 @@ for (const [device, opts] of Object.entries(DEVICES).filter(([d]) => !process.en
       // A software GPU can show a frame late: a view counts as settled when two pictures taken a
       // moment apart agree (for a reference), or when one of a few tries matches the reference.
       const shoot = async () => halfPixels(page, (await page.screenshot()).toString('base64'));
-      const refPath = join(REF, `${id}.png`);
-      if (!QUERY && (update || !existsSync(refPath))) {
+      const refPath = join(AGAINST || REF, `${id}.png`);
+      if (!QUERY && !AGAINST && (update || !existsSync(refPath))) {
         let cur = await shoot();
         for (let i = 0; i < 4; i++) {
           await page.waitForTimeout(2500);
@@ -125,6 +130,7 @@ for (const [device, opts] of Object.entries(DEVICES).filter(([d]) => !process.en
         if (res.share <= LIMIT) break;
       }
       const { share, mask, w, h } = res;
+      if (KEEP) { mkdirSync(KEEP, { recursive: true }); writeFileSync(join(KEEP, `${id}.png`), Buffer.from(cur.png, 'base64')); }
       if (share > LIMIT && refresh) {
         writeFileSync(refPath, Buffer.from(cur.png, 'base64'));
         refreshed++;
