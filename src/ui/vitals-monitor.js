@@ -9,7 +9,7 @@
 // number climbs, then hands over to the live beat where the model's phase resumes, so the strip neither stalls nor jumps (ekg.js walkBeats).
 
 import { h, fmt, fitCanvas, clamp, cssVar } from './util.js?v=ca062f41e6';
-import { FONT } from './charts.js?v=e544b30bae';
+import { FONT } from './charts.js?v=20766fd9cd';
 import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=9d6b717149';
 import { VITALS, vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js?v=f27505b539';

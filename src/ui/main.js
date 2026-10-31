@@ -3,23 +3,23 @@
 
 import { startHost, host } from './host.js?v=06b55f7a94';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3611054974';
-import { createStage } from './stage.js?v=f2299ac4dc';
+import { createStage } from './stage.js?v=0774d5ea24';
 import { createCreditPlacer } from './credit.js?v=8727044660';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=4e914e132e';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=964eaa62d6';
-import { setHvpgStage } from './hvpg-proc.js?v=96a1e37f8c';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=916c841b20';
+import { setHvpgStage } from './hvpg-proc.js?v=64219f38b9';
 import { createWhy } from './why.js?v=1276fa7411';
 import { createTimeline, LAPSES } from './timeline.js?v=bdb8ffafc9';
 import { createCompare } from './compare.js?v=e854a23db6';
-import { createCard } from './card.js?v=1cd5f7e945';
-import { createChart } from './chart.js?v=f4e2725306';
+import { createCard } from './card.js?v=902c3d7769';
+import { createChart } from './chart.js?v=ee94e5868f';
 import { createMenu } from './menu.js?v=27ca3925a4';
 import { caption } from './a11y.js?v=07d0e272bb';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=63e174fd94';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=f3ce1ec0d2';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=ddb18485b7';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
@@ -39,7 +39,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=80e2e74ba2';
 import { initTopbarMotion } from './topbar-motion.js?v=25cadef132';
-import { ORIGINS } from './blood.js?v=a4bf4f2a03';
+import { ORIGINS } from './blood.js?v=acc95c9bbc';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=bcedeba324';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
@@ -106,8 +106,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=e83c88c056'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=8b878db16b'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=6cb9adc216'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=f3214eb129'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -180,7 +180,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=794446a85f'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=1833c263a5'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -188,7 +188,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=c7f1a2dbd1'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=f41b4611f7'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),

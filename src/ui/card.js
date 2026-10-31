@@ -6,7 +6,7 @@
 import { store, updateParams } from './store.js?v=3611054974';
 import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=ca062f41e6';
 import { releaseSpeed, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=387660d4ad';
-import { cardFor, normalizeSel } from './actions.js?v=63e174fd94';
+import { cardFor, normalizeSel } from './actions.js?v=f3ce1ec0d2';
 import { frameFor, cancelFrame } from './frame.js?v=9d6b717149';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');

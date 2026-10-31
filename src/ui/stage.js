@@ -3,7 +3,7 @@
 
 import { gastricUp } from '../engine/scenario.js?v=bcedeba324';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
-import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=15d6102c13';
+import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=e20e751129';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=ddb18485b7';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
@@ -19,7 +19,7 @@ import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
 import { runFlick, FLICK } from './flick.js?v=2cf6e355ce';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
-import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js?v=af75719b52';
+import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js?v=9bca7bbc89';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns, boxOutside, paintBox, maskRegionIn, maskSlot, fillMaskHead, pruneDefs } from './plate-copy.js?v=0b5acb0928';
@@ -29,7 +29,7 @@ import { flipFrom, flipAt } from './cath-flip.js?v=6b016952c4';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
 import { diaphragmLine, diaphragmD } from './diaphragm.js?v=8012ab6b28';
-import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline, fix1 } from './liver-morph.js?v=214809d49b';
+import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline, fix1 } from './liver-morph.js?v=e8b73c44ea';
 import { LIVER_GEO } from './liver-geo-data.js?v=41a20a25ac';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=a6a766d521';
 import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
@@ -46,12 +46,12 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { createLabelGL } from './label-gl.js?v=54f9e72ea5';
 import { createGlassGL } from './glass-gl.js?v=19e2ddf79b';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=c523324e3c';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=da60303024';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
 import { follow2, createColourFollow } from './display-state.js?v=8d062d39dc';
-import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=a4bf4f2a03';
+import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=acc95c9bbc';
 import { retireRows } from './flow-rows.js?v=bea4089714';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
 import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=9d6b717149';
@@ -60,7 +60,7 @@ import { portalSplit } from './table-marks.js?v=e4c3c4f8c1';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=49e37b0228';
-import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=aa3b0939fc';
+import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=a8b2100832';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { layoutWatch } from './idle-keys.js?v=70e26bf4a1';
@@ -73,7 +73,7 @@ import { organDimMatrix } from './organ-dim.js?v=9e19f2fc30';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=02072c578d';
 import { encodePNG } from './png-encode.js?v=514301c9f4';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
-import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=3df8dbee05';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6a4cd6d476';
 const nextFrame = frameFor('stage');
 // The figure's render pass (animate) runs after every other callback of its frame: a glide's step, the catheter's state and its
 // camera, the labels are all set first, and the vessel layer is drawn once, as they left it.
@@ -248,7 +248,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const FADE_DOWN_Y = { C4: [892, 928], EPI_ILI: [870, 925], ILI_IVC: [800, 870], V_UP: [38, 4] };
   // The azygos trunk fades out toward its lower end: [y where the fade starts, y where it is gone].
-  // The ascending lumbar collateral (C9) comes round the liver's flank and over the dome, and joins it from the lower left at
+  // The ascending lumbar collateral (C9) climbs behind the liver and comes out above the dome, and joins it from the lower left at
   // y 108, just under where this fade starts, so the trunk fades out below the join on its own, behind the liver's dome. (A feeder listed in
   // FEEDER_CONNECTOR is drawn solid to its end while that collateral is open.)
   const FEEDER_FADE_Y = { AZY_SVC: [110, 176] };
@@ -276,7 +276,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (x.reveal) { const u = clamp((performance.now() - x.reveal.t0) / x.reveal.dur, 0, 1); k = x.reveal.out ? 1 - easeInOut(u) : easeInOut(u); }
     return k * (v.width * 2.2 + 2 * (v.wallPx || 1));
   }
-  // The ascending lumbar–azygos channel runs a smooth course of its own, round the liver's flank, so it is not coiled.
+  // The ascending lumbar–azygos channel runs a smooth course of its own, up behind the liver, so it is not coiled.
   const STRAIGHT_COLL = new Set(['C9']);
   // Veins that fade into the vessel they sink into: a linear mask [x1, y1, x2, y2, offset], from
   // solid at the offset to 30 % at the end (the caudate vein into the IVC, C5 into the renal vein).
@@ -289,6 +289,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const e = ALL_EDGES.find((q) => q.id === id), a = NODE_POS[e.from][0], b = NODE_POS[e.to][0];
     SIN_FADE[id] = [a[0], a[1], b[0], b[1], 0.5, 0.8, 0.36, 3];
   }
+  // The ascending lumbar collateral (C9) runs up behind the liver, so it is a faint ghost there and solid again where it comes out
+  // above the dome (Mohammad, 31 Oct: "I like behind the liver fade"): the same dip, along y, from solid under the liver's lower
+  // edge to its faintest where the lane crosses the hepatic veins, back to solid at the diaphragm (liver top y 189, diaphragm
+  // y 170). The organ's own veil (veins-gl, BACK_EDGES) comes on top of it, so behind the liver it is about a third of full.
+  SIN_FADE.C9 = [0, 520, 0, 172, 0.65, 1, 0.55, 3];
   for (const [id, fd] of Object.entries(FEEDERS)) {
     // A generated fan is a tortuous network (drawn like the variceal plexus); listed paths meander.
     const list = [...(fd.fan ? fanFeeders(fd.fan).map((x) => ({ ...x, fan: true, when: fd.fan.when, out: !!fd.fan.out })) : []), ...(fd.paths || []).map((d, i) => ({ d, k: 1, when: fd.when, src: fd.from?.[i] }))];
@@ -2404,7 +2409,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=e7390a2691').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=5b2be0f748').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
