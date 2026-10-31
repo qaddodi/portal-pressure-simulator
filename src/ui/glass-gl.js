@@ -497,7 +497,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     let panes = readPanes(list);
     if (cards) {
       let lo = null, hi = null;
-      panes = panes.filter((p) => inside(p) && !crosses([p], host.low?.(p.g) ? (lo ||= host.over?.('low') || []) : (hi ||= host.over?.('high') || [])));
+      // (A card is drawn here whole or not at all: marked, a card with one of its panes kept out (the split sheet's two, one reaching past the
+      // canvas or crossing a label as it slides) would lose the browser's blur for that pane and show none, flickering as it moves.)
+      const out = new Set(panes.filter((p) => !(inside(p) && !crosses([p], host.low?.(p.g) ? (lo ||= host.over?.('low') || []) : (hi ||= host.over?.('high') || [])))).map((p) => p.g));
+      panes = panes.filter((p) => !out.has(p.g));
     } else if (!panes.every(inside) || crosses(panes, host.over?.())) { dropHost(true); return undefined; }
     if (!hk && !(hk = hostKit())) { dropHost(true); host = null; return undefined; }
     const ws = getComputedStyle(wrap), bgs = ws.backgroundColor, bg = colour(bgs, 'transparent');

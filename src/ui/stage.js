@@ -44,7 +44,7 @@ import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './org
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { createLabelGL } from './label-gl.js?v=218ff170e8';
-import { createGlassGL } from './glass-gl.js?v=671f15ea7b';
+import { createGlassGL } from './glass-gl.js?v=ff776819fb';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=668f0a93ce';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
@@ -104,6 +104,8 @@ const BLOOD_CHAIN = !(typeof location !== 'undefined' && /[?&]bloodchain=0\b/.te
 // The glasses' own canvases, each blurring a copy of the figure (createImageBitmap), as before 31 Oct: only with ?glasscopy=1. By default
 // they are drawn inside the figure's canvas (frostHost) and are otherwise the browser's (round 2, 2.1).
 const GLASS_COPY = typeof location !== 'undefined' && /[?&]glasscopy=1\b/.test(location.search);
+// ?hostcards=0: the Present cards keep the browser's glass (isolates the cards' GPU frost).
+const CARD_FROST_OFF = typeof location !== 'undefined' && /[?&]hostcards=0\b/.test(location.search);
 // Relative luminance of an 'rgb(r,g,b)' string (non-rgb strings count as dark).
 function luminance(c) {
   const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c || '');
@@ -2350,7 +2352,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=e7effa4f33').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=7e54d36b8c').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -6468,7 +6470,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // and with ?glasscopy=1, that card keeps the browser's glass, as before.)
   const cardGLs = new Set();
   const cardGlass = (cards) => {
-    if (!veins?.top || GLASS_COPY) return null;
+    if (!veins?.top || GLASS_COPY || CARD_FROST_OFF) return null;
     const shade = cards.low;
     const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), cards, live: () => wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0), version: () => veins.drawSeq, onFigure: (f) => veins.onPicture(f), copy: false });
     if (!g) return null;
