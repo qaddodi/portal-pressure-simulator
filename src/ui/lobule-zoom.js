@@ -32,12 +32,12 @@ import { createTissueGL } from './tissue-gl.js?v=8b86e77a93';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=543287bde4';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=4791a8e2f6';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=7d0a0c360c';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=b8b5ed485f';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=300b3b5267';
-import { createSinusoidView } from './sinusoid-view.js?v=e044600f51';
+import { createSinusoidView } from './sinusoid-view.js?v=fbc623743d';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab } from './frame.js?v=28a4369504';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=d7af4bd517';
-import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=578e28eb1c';
+import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=ebb8a4eebd';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
 

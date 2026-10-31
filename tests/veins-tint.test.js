@@ -94,8 +94,8 @@ function fakeGL() {
   return { gl, calls };
 }
 
-async function scene() {
-  const { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, MAX_TIERS } = await import('../src/ui/veins-gl.js');
+async function scene(url = '../src/ui/veins-gl.js') {
+  const { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, MAX_TIERS } = await import(url);
   const { gl, calls } = fakeGL();
   const canvas = { width: 960, height: 640, getContext: () => gl, addEventListener() {}, removeEventListener() {} };
   const ROWS = 6;
@@ -195,7 +195,11 @@ test('any other change, or new radii, still draws the cells again whole', async 
 });
 
 test('a pan while colours change moves the layer and recolours, and the mark moves with it', async () => {
-  const { g, gl, calls, data, put, look } = await scene();
+  // (Counted on a canvas that keeps its own picture, ?vesselbuf=keep: by default one more copy, the picture onto the canvas, follows.)
+  globalThis.location = { search: '?vesselbuf=keep' };
+  let sc;
+  try { sc = await scene('../src/ui/veins-gl.js?keep'); } finally { delete globalThis.location; }
+  const { g, gl, calls, data, put, look } = sc;
   put(0, [0.9, 0.9, 0.2]);
   g.setTubes(data);
   const t0 = g.tintCells, n0 = calls.length;

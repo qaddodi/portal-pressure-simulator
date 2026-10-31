@@ -25,9 +25,9 @@ async function same(what, lobule = false) {
   let r = null;
   for (let t0 = Date.now(); Date.now() - t0 < 30000;) {
     await page.waitForTimeout(1500);
-    const a = await page.evaluate((lb) => document.querySelector(lb ? 'canvas.lz-gl' : 'canvas#veins')?.toDataURL(), lobule);
+    const a = await page.evaluate((lb) => (lb ? document.querySelector('canvas.lz-gl')?.toDataURL() : window.pps.stage.veinsShot()), lobule);
     await page.waitForTimeout(700);
-    const b = await page.evaluate((lb) => document.querySelector(lb ? 'canvas.lz-gl' : 'canvas#veins')?.toDataURL(), lobule);
+    const b = await page.evaluate((lb) => (lb ? document.querySelector('canvas.lz-gl')?.toDataURL() : window.pps.stage.veinsShot()), lobule);
     if (a === b) { r = await look(); if (r) break; }
   }
   if (!r) { fail(`${what}: the picture never held still (or there is no GPU layer)`); return; }

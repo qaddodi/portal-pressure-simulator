@@ -89,7 +89,7 @@ try {
     for (let t0 = Date.now(); Date.now() - t0 < 60000;) {
       await page.waitForTimeout(1500);
       const ok = await page.evaluate(ready, arg);
-      const b = ok && (await page.evaluate(() => document.querySelector('canvas#veins').toDataURL()));
+      const b = ok && (await page.evaluate(() => window.pps.stage.veinsShot()));
       if (b && b === a) return b;
       a = b;
     }

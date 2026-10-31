@@ -85,7 +85,8 @@ test('Auto: 1/zoom past the home framing, in steps down to 10%, changed only onc
 test('every resize for a share goes through easeRes; the copy is laid over first, then the canvas is resized', () => {
   const stage = src('stage.js');
   const fn = stage.slice(stage.indexOf('function easeRes('), stage.indexOf('// (The canvas\'s share of its pixels:'));
-  assert.ok(fn.indexOf('fadeOver(vCanvas, resFollow)') < fn.indexOf('resizeCanvas()'), 'copied before the resize clears it');
+  const at = fn.indexOf('fadeOver(vCanvas, resFollow, () => veins?.present?.())');
+  assert.ok(at >= 0 && at < fn.indexOf('resizeCanvas()'), 'copied before the resize clears it, the kept picture put on the canvas for each read');
   assert.ok(!/moveLow = true; resizeCanvas\(\)/.test(stage) && !/autoK = k; moveLow = false; resizeCanvas\(\)/.test(stage), 'no share change resizes without the fade');
   assert.match(src('../../styles/app.css'), /\.stage-view\.in-lobule \.res-fade/);
 });

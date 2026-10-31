@@ -9,7 +9,9 @@
 // .25 s): eased, it went on showing under the mix as the fade began, and at the end, with the mix gone, it came back up from 0,
 // so the figure blinked out and in at every change (Mohammad, 30 Oct: "it flashes whenever it switches resolution"). The mix is
 // moved by the canvas's own sub-pixel translate (stage.js subPixel), so neither picture shifts as the mix comes and goes, and it
-// is drawn in the frame's final phase, after the figure's own pass, so the new picture in it is this frame's.
+// is drawn in the frame's final phase, after the figure's own pass, so the new picture in it is this frame's. A canvas that keeps no
+// picture of its own between frames (the vessel canvas: veins-gl OWN_BUF) passes capture, which puts its whole current picture back
+// on it just before each read, so a frame the figure did not draw in still mixes the picture, not an empty buffer.
 import { finalFrameFor, noteDraw } from './frame.js?v=28a4369504';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=d7af4bd517';
 
@@ -18,7 +20,7 @@ export const FADE_MS = 350;
 export const fadeAlpha = (u) => { const t = Math.min(1, Math.max(0, u)); return 1 - t * t * (3 - 2 * t); };
 
 const late = finalFrameFor('res-fade');
-const fades = new Map();   // canvas → { cv (shown: the mix), old (the picture before), t0, follow, at (the translate it showed at), tr (the canvas's own inline transition) }
+const fades = new Map();   // canvas → { cv (shown: the mix), old (the picture before), t0, follow, at (the translate it showed at), tr (the canvas's own inline transition), capture }
 
 /** A CSS `translate` value as [x, y] px ('' is none). */
 export const translateOf = (v) => { const [x = 0, y = 0] = String(v || '').trim().split(/\s+/).filter(Boolean).map((t) => parseFloat(t) || 0); return [x, y]; };
@@ -75,15 +77,16 @@ function step() {
     if (canvas.width > f.cv.width || canvas.height > f.cv.height) { f.cv.width = Math.max(f.cv.width, canvas.width); f.cv.height = Math.max(f.cv.height, canvas.height); }
     const tr = canvas.style.translate || '';
     if (f.cv.style.translate !== tr) f.cv.style.translate = tr;
-    try { mixInto(f.c, f.cv, f.old, canvas, fadeAlpha(u), oldPlace(f.follow?.(), f.at, translateOf(tr))); } catch { end(canvas, f); continue; }
+    try { f.capture?.(); mixInto(f.c, f.cv, f.old, canvas, fadeAlpha(u), oldPlace(f.follow?.(), f.at, translateOf(tr))); } catch { end(canvas, f); continue; }
     noteDraw('res-fade');
     if (gpuProbe.on) gpuProbe.note(COUNTED.fadeCopy, f.cv.width * f.cv.height * 4 / 1024);
   }
   if (fades.size) { asked = true; late(step); }
 }
 
-/** Keeps canvas's picture and shows it mixed into what the canvas is drawn next; call it just before the canvas is resized. */
-export function fadeOver(canvas, follow = null) {
+/** Keeps canvas's picture and shows it mixed into what the canvas is drawn next; call it just before the canvas is resized.
+ *  capture (optional): puts the canvas's whole current picture on it, called just before each read of the canvas. */
+export function fadeOver(canvas, follow = null, capture = null) {
   if (!canvas?.isConnected || canvas.width < 2 || canvas.height < 2 || !canvas.offsetWidth) return;
   const was = fades.get(canvas);
   // (The picture before: the mix on screen while a fade still runs, else the canvas.)
@@ -91,6 +94,7 @@ export function fadeOver(canvas, follow = null) {
   const at = translateOf(src.style.translate);   // (where the picture before shows: the canvas's, or the mix's, sub-pixel translate)
   const old = document.createElement('canvas');
   old.width = src.width; old.height = src.height;
+  if (!was) try { capture?.(); } catch { /* (a lost context: the canvas is read as it is) */ }
   try { old.getContext('2d').drawImage(src, 0, 0); } catch { return; }   // (a canvas that cannot be read: it changes as it is)
   if (gpuProbe.on) gpuProbe.note(COUNTED.fadeCopy, old.width * old.height * 4 / 1024);
   let f = was;
@@ -99,11 +103,11 @@ export function fadeOver(canvas, follow = null) {
     cv.className = 'res-fade'; cv.setAttribute('aria-hidden', 'true');
     Object.assign(cv.style, { position: 'absolute', left: `${canvas.offsetLeft}px`, top: `${canvas.offsetTop}px`, width: `${canvas.offsetWidth}px`,
       height: `${canvas.offsetHeight}px`, pointerEvents: 'none', zIndex: getComputedStyle(canvas).zIndex });
-    f = { cv, c: cv.getContext('2d'), old: null, t0: 0, follow, at, tr: canvas.style.transition };
+    f = { cv, c: cv.getContext('2d'), old: null, t0: 0, follow, at, tr: canvas.style.transition, capture };
     canvas.after(cv);
   } else f.old.width = f.old.height = 1;
   f.cv.width = old.width; f.cv.height = old.height;
-  f.old = old; f.t0 = performance.now(); f.follow = follow; f.at = at;
+  f.old = old; f.t0 = performance.now(); f.follow = follow; f.at = at; f.capture = capture;
   f.cv.style.translate = src.style.translate || '';
   mixInto(f.c, f.cv, old, canvas, 1, null);   // (the old picture alone, until the first frame of the fade)
   // (Hidden under the mix at once, never eased; its buffer is still drawn and read.)

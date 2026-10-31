@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-// ?vesselbuf=own (120 fps addendum §7, an A/B off by default): the vessel canvas is made without preserveDrawingBuffer, and
-// the picture the frames repaint in part is kept in a texture of the renderer's own, copied whole onto the canvas whenever it
-// is drawn on. Without the switch nothing changes: the canvas keeps its own picture, nothing is copied.
+// The stage's vessel canvas keeps no picture of its own (120 fps addendum §7; on by default since 31 Oct, recs A3): it is made
+// without preserveDrawingBuffer, and the picture the frames repaint in part is kept in a texture of the renderer's own, copied whole
+// onto the canvas whenever it is drawn on. ?vesselbuf=keep goes back (the canvas keeps its own picture, nothing is copied), and the
+// lobule's vessel renderer keeps its canvas's picture as before.
 
 globalThis.ResizeObserver ??= class { observe() {} };
 globalThis.MutationObserver ??= class { observe() {} };
@@ -34,12 +35,12 @@ function fakeGL() {
   });
   return { gl, calls };
 }
-async function renderer(url) {
+async function renderer(url, who) {
   const mod = await import(url);
   const f = fakeGL();
   let attrs = null;
   const canvas = { width: 800, height: 600, getContext: (_, a) => { attrs = a; return f.gl; }, addEventListener() {}, removeEventListener() {}, toDataURL: () => 'data:' };
-  const g = mod.createVeinsGL(canvas, { tubes: 4, force: true });
+  const g = mod.createVeinsGL(canvas, { tubes: 4, force: true, ...(who ? { who } : {}) });
   const line = (y) => Array.from({ length: mod.N_SAMPLES }, (_, i) => [40 + i * 10, y]);
   g.setGeometry(mod.binVeins([{ id: 0, pts: line(100), reach: 30 }, { id: 1, pts: line(300), reach: 30 }], []));
   const look = { shOff: [0, 0], light: [0, -1], reach: 11, organs: 0, casing: [0, 0, 0, 1], shadow: [0, 0, 0, 0], sheen: [1, 1, 1, 0], shade: [0, 0, 0, 0], ring: [0, 0, 0, 0], netAlpha: 1, fx: true, tierAlpha: Array(mod.MAX_TIERS).fill(1), tierGroup: Array(mod.MAX_TIERS).fill(1) };
@@ -47,8 +48,7 @@ async function renderer(url) {
 }
 const blits = (f, from) => f.calls.slice(from).filter((c) => c[0] === 'blitFramebuffer');
 
-test('without the switch the canvas keeps its picture and nothing is copied', async () => {
-  const { g, f, attrs, look } = await renderer('../src/ui/veins-gl.js');
+function keepsItsOwn({ g, f, attrs, look }) {
   assert.equal(attrs.preserveDrawingBuffer, true);
   const n0 = f.calls.length;
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
@@ -57,12 +57,20 @@ test('without the switch the canvas keeps its picture and nothing is copied', as
   // The composite draws onto the canvas itself (framebuffer null).
   const binds = f.calls.slice(n0).filter((c) => c[0] === 'bindFramebuffer');
   assert.deepEqual(binds.at(-1), ['bindFramebuffer', f.gl.FRAMEBUFFER, null]);
+}
+
+test('with ?vesselbuf=keep the canvas keeps its picture and nothing is copied', async () => {
+  globalThis.location = { search: '?vesselbuf=keep' };
+  try { keepsItsOwn(await renderer('../src/ui/veins-gl.js?keep')); } finally { delete globalThis.location; }
 });
 
-test('with ?vesselbuf=own every picture is drawn into the kept texture and copied whole onto the canvas', async () => {
-  globalThis.location = { search: '?vesselbuf=own' };
-  try {
-    const { g, f, attrs, canvas, look } = await renderer('../src/ui/veins-gl.js?own');
+test('the lobule\'s vessel canvas keeps its own picture, as before', async () => {
+  keepsItsOwn(await renderer('../src/ui/veins-gl.js', 'lobule'));
+});
+
+test('by default every picture is drawn into the kept texture and copied whole onto the canvas', async () => {
+  {
+    const { g, f, attrs, canvas, look } = await renderer('../src/ui/veins-gl.js');
     assert.equal(attrs.preserveDrawingBuffer, false);
     const n0 = f.calls.length;
     g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
@@ -97,16 +105,59 @@ test('with ?vesselbuf=own every picture is drawn into the kept texture and copie
     const cl = f.calls.slice(n4);
     assert.ok(cl.findIndex((c) => c[0] === 'bindFramebuffer' && c[2] === read[2]) < cl.findIndex((c) => c[0] === 'clear'));
     assert.equal(cl.filter((c) => c[0] === 'clear').length, 2);
-  } finally { delete globalThis.location; }
+  }
 });
 
-test('with ?vesselbuf=own capture() copies the kept picture onto the canvas before an export reads it', async () => {
-  globalThis.location = { search: '?vesselbuf=own' };
-  try {
-    const { g, f, canvas, look } = await renderer('../src/ui/veins-gl.js?own-capture');
-    g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
-    const n = f.calls.length;
-    assert.equal(g.capture(), canvas);
-    assert.equal(blits(f, n).length, 1);
-  } finally { delete globalThis.location; }
+test('by default capture() copies the kept picture onto the canvas before an export reads it', async () => {
+  const { g, f, canvas, look } = await renderer('../src/ui/veins-gl.js');
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+  const n = f.calls.length;
+  assert.equal(g.capture(), canvas);
+  assert.equal(blits(f, n).length, 1);
+});
+
+test('a canvas resized and not yet drawn again is not given the old picture (it would land in a corner)', async () => {
+  const { g, f, canvas, look } = await renderer('../src/ui/veins-gl.js');
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+  canvas.width = 1024; canvas.height = 700;
+  const n = f.calls.length;
+  g.present(); g.capture();
+  assert.equal(blits(f, n).length, 0, 'nothing copied onto the resized canvas');
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+  const b = blits(f, n);
+  assert.equal(b.length, 1, 'the next picture, drawn whole at the new size, is copied');
+  assert.deepEqual(b[0].slice(3, 5), [1024, 700]);
+});
+
+// (Which framebuffer each copy wrote to: null is the canvas.)
+function blitTargets(f, from) {
+  let draw = null;
+  const out = [];
+  for (const c of f.calls.slice(from)) {
+    if (c[0] === 'bindFramebuffer' && (c[1] === f.gl.FRAMEBUFFER || c[1] === f.gl.DRAW_FRAMEBUFFER)) draw = c[2];
+    if (c[0] === 'blitFramebuffer') out.push(draw);
+  }
+  return out;
+}
+
+test('by default a pan moves the layer\'s targets, then copies the kept picture onto the canvas once, last', async () => {
+  const { g, f, look } = await renderer('../src/ui/veins-gl.js');
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+  const n = f.calls.length;
+  g.draw([1, 0, 0, 1, 12, -7], look, { on: false });
+  const t = blitTargets(f, n);
+  assert.ok(t.length >= 2, `the layer moved and the picture copied (${t.length} copies)`);
+  assert.equal(t.at(-1), null, 'the last copy is the picture onto the canvas');
+  assert.ok(t.slice(0, -1).every((x) => x !== null), 'every other copy stays among the renderer\'s own targets');
+});
+
+test('by default a zoom frame draws in one pass even where the context has no stencil: the kept picture brings its own', async () => {
+  const { g, f, look } = await renderer('../src/ui/veins-gl.js');
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
+  const n = f.calls.length;
+  g.draw([1.5, 0, 0, 1.5, 0, 0], look, { on: true });
+  const c = f.calls.slice(n);
+  assert.ok(c.some((x) => x[0] === 'enable' && x[1] === f.gl.STENCIL_TEST), 'the vessel cells marked in the stencil');
+  assert.ok(f.calls.some((x) => x[0] === 'renderbufferStorage' && x[2] === f.gl.STENCIL_INDEX8), 'a stencil of the kept picture\'s own');
+  assert.equal(blitTargets(f, n).at(-1), null, 'then copied onto the canvas');
 });

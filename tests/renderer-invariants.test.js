@@ -128,7 +128,7 @@ test('capture() hands exports the canvas with the whole current picture; the gla
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
   const n = f.calls.length;
   assert.equal(g.capture(), canvas);
-  assert.equal(f.calls.slice(n).filter((c) => c[0] === 'blitFramebuffer').length, 0, 'the canvas keeps its own picture: nothing to copy');
+  assert.equal(f.calls.slice(n).filter((c) => c[0] === 'blitFramebuffer').length, 1, 'the canvas keeps no picture of its own: the kept one is copied onto it');
   const glass = read('../src/ui/glass-gl.js');
   assert.ok(glass.indexOf('capture?.()') > 0 && glass.indexOf('capture?.()') < glass.indexOf('p = createImageBitmap('));
   const stage = read('../src/ui/stage.js');

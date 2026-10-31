@@ -35,7 +35,10 @@ function fakeGL() {
   });
   return { gl, calls };
 }
+// (Written for the canvas that keeps its own picture: pinned to ?vesselbuf=keep. The kept-picture default is covered by veins-own-buffer.test.js.)
+globalThis.location = { search: '?vesselbuf=keep' };
 const mod = await import('../src/ui/veins-gl.js');
+delete globalThis.location;
 function renderer() {
   const f = fakeGL();
   const canvas = { width: 800, height: 600, getContext: () => f.gl, addEventListener() {}, removeEventListener() {}, toDataURL: () => 'data:' };

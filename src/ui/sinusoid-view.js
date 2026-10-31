@@ -30,7 +30,7 @@ import { placeFenDisse } from './fen-place.js?v=20401deb9e';
 import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=28a4369504';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
-import { FADE_MS, fadeAlpha, mixInto } from './res-fade.js?v=578e28eb1c';
+import { FADE_MS, fadeAlpha, mixInto } from './res-fade.js?v=ebb8a4eebd';
 const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };

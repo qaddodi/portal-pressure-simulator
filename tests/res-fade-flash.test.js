@@ -97,6 +97,33 @@ test('a second change while one fades starts from the mix; the canvas stays hidd
   assert.deepEqual(eased, []);
 });
 
+test('a canvas that keeps no picture between frames is read only after capture puts its picture back, at the start and every frame', () => {
+  eased = [];
+  const glow = pm(0.9, 0.3, 0.2, 0.6), bg = pm(0.1, 0.1, 0.12, 1);
+  // (The vessel canvas without preserveDrawingBuffer: after the frame that drew it, its buffer reads empty until present() copies the
+  // kept picture onto it again.)
+  let kept = false, captures = 0;
+  const canvas = element('veins3', { width: 2, height: 2 });
+  Object.defineProperty(canvas, 'px', { get: () => (kept ? glow : [0, 0, 0, 0]) });
+  const capture = () => { captures++; kept = true; };
+  fadeOver(canvas, null, capture);
+  assert.equal(captures, 1, 'the picture before is read after one capture');
+  kept = false; endTask();
+  const want = over(glow, bg);
+  let n = 0;
+  while (frames.length && n < 100) {
+    clock += 16.7; n++;
+    const run = frames; frames = [];
+    for (const f of run) f(clock);
+    kept = false;   // (the frame shown: the buffer dropped again)
+    endTask();
+    if (fading(canvas)) screen(canvas, bg).forEach((v, i) => assert.ok(Math.abs(v - want[i]) < 1e-9, `frame ${n}: channel ${i} ${v} vs ${want[i]}`));
+  }
+  assert.ok(!fading(canvas));
+  assert.equal(captures, n, 'one capture for the copy and one before each frame of the mix but the last, which ends the fade');
+  assert.deepEqual(eased, []);
+});
+
 test('snapOpacity: the change is taken with no transition, and putting it back starts none', () => {
   eased = [];
   const el = element('snap');

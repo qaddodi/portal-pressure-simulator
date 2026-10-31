@@ -75,11 +75,11 @@ const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
 // ?veins=generic in the address: every cell drawn by the general vessel program (the one-vessel build left off), for an A/B
 // on a device. The picture is the same either way.
 const GENERIC = typeof location !== 'undefined' && /[?&]veins=generic\b/.test(location.search);
-// ?vesselbuf=own in the address (an A/B, off by default): the canvas is made without preserveDrawingBuffer, and the picture the
-// frames repaint in part is kept in a texture of the renderer's own, copied whole to the canvas each time it is drawn on (see
-// present). The same pixels either way; which costs less (the browser keeping the canvas, or one copy a drawn frame) is for
-// the devices to say.
-const OWN_BUF = typeof location !== 'undefined' && /[?&]vesselbuf=own\b/.test(location.search);
+// The vessel canvas keeps no picture of its own (on by default since 31 Oct; ?vesselbuf=keep in the address goes back): it is made
+// without preserveDrawingBuffer, and the picture the frames repaint in part is kept in a texture of the renderer's own, copied whole
+// to the canvas each time it is drawn on (see present). The same pixels either way; the browser no longer keeps (and copies) a second
+// buffer for the canvas on every frame. Every reader of the canvas outside the frame that drew it calls capture() or present() first.
+const OWN_BUF = !(typeof location !== 'undefined' && /[?&]vesselbuf=keep\b/.test(location.search));
 // ?blood=classic in the address (an A/B, off by default): the composite built as it was before the blood's speed-ups of 26 Oct
 // (COMP_FS `fast`): every lumen pixel lays the layers under it, hashes its noise, works out the zoom's numbers itself and keeps the
 // bead look's code. The same picture either way; the switch is there to compare on a device.
@@ -1623,8 +1623,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // (For the ?perf readout: who asked for a whole draw or a target sized again, gpu-probe.js BY.)
   const askedBy = () => (who === 'lobule' ? 'lobule' : gpuProbe.by || 'stage, outside a draw call');
   const noteAlloc = (kb) => { gpuProbe.note(COUNTED.fboAlloc, kb); gpuProbe.note(COUNTED.fboAllocBy + askedBy()); };
+  // (The kept picture is the stage's: the lobule's vessel canvas is read by the lobule's resolution fade at times it may not have drawn,
+  // so it keeps its own picture, as before.)
+  const ownBuf = OWN_BUF && who === 'stage';
   let gl = null;
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: ONE_PASS, preserveDrawingBuffer: !OWN_BUF, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
+  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: ONE_PASS, preserveDrawingBuffer: !ownBuf, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (!gl) return null;
   // Settings › Figure performance › Sharper upscaling (frame.js upscale, off by default): the picture's own size, [w, h], when the stage
   // draws the figure under Full into a buffer of its own and the canvas stays at Full (setPicture); null otherwise, and then the picture
@@ -2291,12 +2294,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     compBind(P.u, layer, glow, warm, useStack);
     for (const [unit, tex, name] of [[0, entTex, 'ent'], [1, organTex, 'organ'], [8, rmaxTex, 'rmax']]) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(P.u[name], unit); }
   }
-  // The picture's own copy (?vesselbuf=own): what the canvas would keep with preserveDrawingBuffer. Every composite draws
+  // The picture's own copy (on unless ?vesselbuf=keep): what the canvas would keep with preserveDrawingBuffer. Every composite draws
   // into it and present() copies it whole onto the canvas, so the canvas always holds a whole, current picture, whatever the
   // browser did with the last one. Null without the switch (the canvas keeps its picture itself).
   const makeOwn = () => { const o = { tex: dataTex(gl), fbo: gl.createFramebuffer(), w: 0, h: 0 }; gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); return o; };
   // (Sharper upscaling makes one too, while it is on, and gives it back after: the picture is drawn there and upscaled onto the canvas.)
-  let own = OWN_BUF ? makeOwn() : null;
+  let own = ownBuf ? makeOwn() : null;
   // (Sized to the canvas, cleared; true when it was just made, so the next picture is drawn whole.)
   function ownSize() {
     if (own.w === PW() && own.h === PH()) return false;
@@ -2320,6 +2323,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // The kept picture onto the canvas, every pixel, as it is (no scaling, no filtering).
   function present() {
     if (!own?.w || lost) return;
+    // (A canvas resized since the last picture holds nothing current: it is drawn whole by the next composite, which sizes the kept
+    // picture first. Copied before that, the old picture would land in a corner of the new canvas.)
+    if (own.w !== PW() || own.h !== PH()) return;
     if (gpuProbe.on) gpuProbe.note(COUNTED.present, own.w * own.h * 4 / 1024);
     gl.disable(gl.SCISSOR_TEST);
     if (up && upDraw()) return;
@@ -2863,7 +2869,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     },
     /**
      * Sharper upscaling: `size` [w, h], the picture's own size under the canvas's, or null (the picture is the canvas). On, the picture
-     * is drawn into a buffer of its own (made here when ?vesselbuf=own has not made one) and upscaled onto the canvas; off, that buffer
+     * is drawn into a buffer of its own (made here when ?vesselbuf=keep left the renderer without one) and upscaled onto the canvas; off, that buffer
      * goes and the canvas is drawn on directly again. Either change draws the next picture whole.
      */
     setPicture(size) {
@@ -2871,7 +2877,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (`${next}` === `${up}` || lost) return;
       up = next;
       if (up && !own) own = makeOwn();
-      if (!up && own && !OWN_BUF) { gl.deleteTexture(own.tex); gl.deleteFramebuffer(own.fbo); if (own.rb) gl.deleteRenderbuffer(own.rb); own = null; }
+      if (!up && own && !ownBuf) { gl.deleteTexture(own.tex); gl.deleteFramebuffer(own.fbo); if (own.rb) gl.deleteRenderbuffer(own.rb); own = null; }
       fboOK = false; rz.m = null;
     },
     /** The picture's size: the canvas's, unless Sharper upscaling draws it smaller ([w, h]). */
@@ -3200,13 +3206,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     snapshot() { present(); return canvas.toDataURL('image/png'); },
     /**
      * The canvas holding the whole current picture, for a reader that takes it in this same task (a download, a handout, the glass'
-     * copy, drawImage, createImageBitmap, toDataURL): with ?vesselbuf=own the kept picture is copied onto it first, so the reader
+     * copy, drawImage, createImageBitmap, toDataURL): the kept picture is copied onto it first, so the reader
      * never depends on the canvas having kept its own picture. Every export of the figure goes through here.
      */
     capture() { present(); return canvas; },
     /**
-     * With ?vesselbuf=own: copies the kept picture onto the canvas again, so a reader of the canvas outside the frame that drew it
-     * (a copy for the glass, a picture taken later) reads the whole current picture. Does nothing without the switch.
+     * Copies the kept picture onto the canvas again, so a reader of the canvas outside the frame that drew it (a copy for the glass,
+     * a resolution fade, a picture taken later) reads the whole current picture. Does nothing with ?vesselbuf=keep (the canvas keeps
+     * its own) or when the canvas was resized and not yet drawn again (it holds nothing current).
      */
     present,
     /**

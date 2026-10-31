@@ -16,7 +16,9 @@ What changed:
   only when the vessels change (a model frame, a pan or zoom), also writes a small per-pixel lumen
   buffer (which vessel, how far along, where across). Each animation frame then runs one cheap
   pass over just the vessel tiles that reads that buffer and draws the parcels, the dye and any
-  bleed; the canvas keeps everything else (`preserveDrawingBuffer`). The per-frame CPU work is a
+  bleed; the renderer keeps everything else in a picture of its own and copies it whole onto the
+  canvas, which keeps none (no `preserveDrawingBuffer`; `?vesselbuf=keep` goes back). Anything that
+  reads the canvas outside the frame that drew it calls `capture()` first. The per-frame CPU work is a
   few floats per vessel.
 - **Only the vessels that changed are redrawn.** When a model frame changes only some vessels'
   attributes (the pulse moving a few colours), `drawRows` in `veins-gl.js` redraws only those
