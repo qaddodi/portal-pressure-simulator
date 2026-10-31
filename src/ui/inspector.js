@@ -2,8 +2,8 @@
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
-import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=10a51806f7';
-import { store, updateParams, hiddenNow } from './store.js?v=c2a9c76ba5';
+import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=e71da00102';
+import { store, updateParams, hiddenNow } from './store.js?v=99200f9d94';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js?v=d313f178b3';
 import { liveBalance } from './balance-hold.js?v=1792704e7a';
 import { frameFor, cancelFrame } from './frame.js?v=6a53e5fc6e';

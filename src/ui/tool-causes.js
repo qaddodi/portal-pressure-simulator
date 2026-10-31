@@ -16,7 +16,7 @@
 
 import { TILE, RATE, tileShown } from './table-marks.js?v=c82b75e3d5';
 import { cutsOf } from './tool-curve.js?v=05a99342ab';
-import { DRUGS } from '../engine/scenario.js?v=10a51806f7';
+import { DRUGS } from '../engine/scenario.js?v=e71da00102';
 import { frameFor } from './frame.js?v=6a53e5fc6e';
 const nextFrame = frameFor('tool-causes');
 

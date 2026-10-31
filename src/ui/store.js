@@ -1,6 +1,6 @@
 // Tiny observable store + parameter history (undo/redo, blueprint §3).
 
-import { defaultParams, deepMerge } from '../engine/scenario.js?v=10a51806f7';
+import { defaultParams, deepMerge } from '../engine/scenario.js?v=e71da00102';
 
 const listeners = new Map();
 const state = {

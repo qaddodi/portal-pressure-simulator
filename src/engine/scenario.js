@@ -91,7 +91,7 @@ export const PRESETS = [
   { id: 'svt', group: 'Pre-hepatic', label: 'Splenic vein thrombosis (sinistral PH)', apply: P({ thrombus: { SV_CONF: 1 }, spontaneous: { C5: true } }), days: 180,
     summary: 'Left-sided portal hypertension: isolated fundal varices via short gastric veins with a normal portal pressure.' },
   { id: 'schisto', group: 'Presinusoidal', label: 'Schistosomiasis / NCPH', apply: P({ fibrosis: { R: { pre: 70, sin: 2.5 }, L: { pre: 70, sin: 2.5 } } }), days: 365,
-    summary: 'Presinusoidal block: high portal pressure but a near-normal wedged pressure, so HVPG is normal or mildly raised. Varices yes, ascites rare.' },
+    summary: 'Presinusoidal resistance: high portal pressure but a near-normal wedged pressure, so HVPG is normal or mildly raised. Varices yes, ascites rare.' },
   { id: 'cirr-comp', group: 'Sinusoidal', label: 'Compensated cirrhosis', apply: P({ cirrhosis: 0.4 }), days: 365,
     summary: 'Mild sinusoidal portal hypertension (HVPG 6–9). No varices yet.' },
   { id: 'csph', group: 'Sinusoidal', label: 'Clinically significant PH', apply: P({ cirrhosis: 0.6 }), days: 365,

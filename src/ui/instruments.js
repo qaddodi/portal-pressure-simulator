@@ -2,19 +2,19 @@
 // varix cross-section, abdomen.
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { gastricUp } from '../engine/scenario.js?v=10a51806f7';
+import { gastricUp } from '../engine/scenario.js?v=e71da00102';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
 import { pressureColor } from './colormap.js?v=4a2f66f91b';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=d313f178b3';
-import { simTime, isPaused } from './clock.js?v=e89e2ea29a';
+import { simTime, isPaused } from './clock.js?v=7e05d69e85';
 import { createEndoGL } from './endo-gl.js?v=16884caf9e';
 import { renderEndo } from './endo-render.js?v=94224a6d55';
 import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=5793d9c209';
 import { drawScopeBleed } from './endo-bleed.js?v=e2cedc85fa';
 import { poolFill } from './blood.js?v=d85ddf7c2c';
-import { FONT } from './charts.js?v=52b3cbd5cb';
-import { store, updateParams, varicesPresent } from './store.js?v=c2a9c76ba5';
+import { FONT } from './charts.js?v=b5d09052c5';
+import { store, updateParams, varicesPresent } from './store.js?v=99200f9d94';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
 import { lateFrameFor, cancelFrame, framePhase } from './frame.js?v=6a53e5fc6e';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)

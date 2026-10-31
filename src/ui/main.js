@@ -1,25 +1,25 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=c68cdde321';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=c2a9c76ba5';
-import { createStage } from './stage.js?v=db29ddc5c7';
+import { startHost, host } from './host.js?v=8d2d967d5c';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=99200f9d94';
+import { createStage } from './stage.js?v=de1059b895';
 import { createCreditPlacer } from './credit.js?v=853fefa4ac';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=6817b89c45';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=53c655e106';
-import { setHvpgStage } from './hvpg-proc.js?v=5b484754bd';
-import { createWhy } from './why.js?v=281c2daebe';
-import { createTimeline, LAPSES } from './timeline.js?v=27924f65ce';
-import { createCompare } from './compare.js?v=b6d8863d2c';
-import { createCard } from './card.js?v=ad40039cc3';
-import { createChart } from './chart.js?v=e85e83077c';
-import { createMenu } from './menu.js?v=945d2cefbb';
-import { caption } from './a11y.js?v=633d6bfa8f';
+import { createInspector } from './inspector.js?v=161d8d77f7';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=931427629d';
+import { setHvpgStage } from './hvpg-proc.js?v=516e6d88ea';
+import { createWhy } from './why.js?v=edd8341f76';
+import { createTimeline, LAPSES } from './timeline.js?v=82f8661ea7';
+import { createCompare } from './compare.js?v=96ce87da04';
+import { createCard } from './card.js?v=7542ccd81f';
+import { createChart } from './chart.js?v=8d39e72990';
+import { createMenu } from './menu.js?v=8eddeef14b';
+import { caption } from './a11y.js?v=6128a8018f';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=aa8cedc1df';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=172c7f5304';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=4a2f66f91b';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
@@ -43,7 +43,7 @@ import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=5384770
 import { initTopbarMotion } from './topbar-motion.js?v=3e2875ae90';
 import { ORIGINS } from './blood.js?v=d85ddf7c2c';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
-import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=10a51806f7';
+import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=e71da00102';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
 import { frameFor, cancelFrame, perf as framePerf, framePart } from './frame.js?v=6a53e5fc6e';
 import { feedbackDiagnostics } from './feedback-diag.js?v=680203e900';
@@ -59,10 +59,10 @@ const LENSES = {
   delta: ['Change', 'Higher or lower than healthy', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))'],
   heat: ['Congestion', 'Where pressure has backed up', () => heatCss('to right')],
   drop: ['Pressure drop', 'Where the resistance lives', () => dropCss('to right')],
-  flow: ['Flow volume', 'How much blood; width = flow', () => flowCss('to right')],
-  velocity: ['Velocity', 'Against each vessel\'s normal: sand slower, teal normal, violet faster, graded', () => velocityCss('to right')],
+  flow: ['Flow volume', 'Width shows how much blood flows', () => flowCss('to right')],
+  velocity: ['Velocity', 'Against each vessel\u2019s own normal', () => velocityCss('to right')],
   direction: ['Flow direction', 'Toward the liver or away', () => 'linear-gradient(to right, var(--flow-normal) 50%, var(--flow-reversed) 50%)'],
-  oxygen: ['Oxygen', 'How much oxygen the blood carries: blue low, red high', () => oxygenCss('to right')],
+  oxygen: ['Oxygen', 'How much oxygen the blood carries', () => oxygenCss('to right')],
   origin: ['Blood origin', 'Where each vessel\u2019s blood comes from', () => `linear-gradient(to right, ${ORIGIN_CSS.map((c, i) => `${c} ${i * 20}% ${(i + 1) * 20}%`).join(', ')})`],
 };
 const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction', oxygen: 'Oxygen', origin: 'Blood origin' };
@@ -109,8 +109,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=39287cd740'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=15c6f1bd4d'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=ed9c61d197'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=bb337adaef'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -183,7 +183,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=faa34d0630'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=40288be2c0'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -191,7 +191,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=d4dc8a2e0d'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=dbf33c7ba4'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),

@@ -188,6 +188,8 @@ test('every Settings switch keeps its description to two lines in the narrow des
 test('where pressure is lost is "resistance", never a "block" (cards, About and the Why text)', () => {
   assert.doesNotMatch(src('src/ui/actions.js'), /local block|makes the block post-sinusoidal/);
   assert.doesNotMatch(src('src/ui/inspector.js'), /Blocked in schistosomiasis/);
+  assert.doesNotMatch(src('src/engine/scenario.js'), /Presinusoidal block/);
+  assert.match(src('src/engine/scenario.js'), /summary: 'Presinusoidal resistance: high portal pressure/);
   assert.match(src('src/ui/actions.js'), /makes the resistance post-sinusoidal/);
   assert.doesNotMatch(src('src/ui/about.js'), /when the IVC is blocked|hepatic veins are blocked/);
 });
@@ -240,4 +242,15 @@ test('the Treat chips say what a drug is once, and the Blood and Lobule menu row
     const d = [...l.matchAll(/'((?:[^'\\]|\\.)*)'/g)].map((q) => q[1].replace(/\\u2019/g, '’')).sort((a, b) => b.length - a.length)[0];
     assert.ok(d.length <= 38, `${d.length}: ${d}`);
   }
+});
+
+test('the Colored by cards are two lines at most in the 142 px column of a two-card row, so a row never has one card tall and one short', () => {
+  const m = src('src/ui/main.js');
+  const block = m.slice(m.indexOf('const LENSES = {'), m.indexOf('const COLOR_MODES'));
+  const descs = [...block.matchAll(/^\s+\w+: \['[^']+', '((?:[^'\\]|\\.)*)'/gm)].map((q) => q[1].replace(/\\u2019/g, '’'));
+  assert.equal(descs.length, 9);
+  // 142 px at 12 px Inter is about 22 characters a line: two lines hold 44 with the slack of a word
+  for (const d of descs) assert.ok(d.length <= 40, `${d.length}: ${d}`);
+  assert.match(css, /\.lens-d \{[^}]*text-wrap: balance/);
+  assert.doesNotMatch(src('src/ui/main.js'), /width = flow/);
 });
