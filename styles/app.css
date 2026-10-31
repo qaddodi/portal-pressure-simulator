@@ -382,7 +382,7 @@ svg { flex: none; }
 @media (hover: hover) { .metric.inert:hover { background: transparent; } }
 .metric .k { font-size: var(--fs-12); font-weight: 500; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
 .metric .v { font-size: var(--fs-20); font-weight: 600; letter-spacing: -.015em; white-space: nowrap; display: flex; align-items: baseline; line-height: 1.25; min-width: 0; overflow: hidden; }
-.metric .v .unit { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); margin-left: 3px; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; }
+.metric .v .unit { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); margin-left: 3px; letter-spacing: 0; }
 .metric .tr { font-size: var(--fs-12); margin-left: 4px; color: var(--text-3); flex: none; }
 /* A tile's colours ease into a new band with its number rolling to the new value (dock.js countTo, P17). */
 .metric .val, .metric .status { transition: color var(--d-small) var(--ease); }
@@ -817,6 +817,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .menu-title { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); padding: 8px 12px 4px; }
 .menu-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: calc(var(--r-sheet) - 8px); border: 0; background: transparent; cursor: pointer; font-size: var(--fs-14); text-align: left; color: var(--text); transition: background-color var(--d-flip) var(--ease); }
 @media (hover: hover) { .menu-item:hover { background: var(--surface-2); } }
+.menu-item:focus-visible, .lens-opt:focus-visible { outline-offset: -2px; }   /* (the ring sits inside its row, as the main menu's do, not over the rows beside it) */
 .menu-item[aria-checked="true"] { font-weight: 600; }
 .menu-item svg { width: var(--ic-s); height: var(--ic-s); flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); }
 .menu-item .mi-check { width: var(--ic-s); height: var(--ic-s); stroke: var(--accent); stroke-width: 2.4; fill: none; opacity: 0; }
@@ -1281,6 +1282,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .menu-seg { margin: 2px 8px 8px; }
 .btn.menu-btn { width: auto; margin: 2px 8px 8px; gap: 8px; justify-content: center; }
 .btn.menu-btn .bo-ic { stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.fs-hint { display: block; padding: 4px 12px 8px; font-size: var(--fs-12); line-height: 1.4; color: var(--text-3); }   /* (the iPhone's full-screen hint: a <small> inside 14 px text came out at 11.7 px, flush with the menu's edge) */
 .menu-credit .mc-link { display: inline-flex; align-items: center; gap: 2px; color: var(--accent-ink); font-weight: 600; text-decoration: none; }
 .menu-credit svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 2; }
 .menu-credit { display: flex; flex-direction: column; gap: 4px; padding: 8px 12px; border-radius: calc(var(--r-sheet) - 8px); font-size: var(--fs-12); color: var(--text-2); text-decoration: none; }
@@ -1630,7 +1632,7 @@ button.finding { cursor: pointer; }
   --s-body: calc(clamp(17px, calc(2.311 * var(--pzh)), 28px) * var(--ts, 1)); --s-val: calc(clamp(20px, calc(3.178 * var(--pzh)), 38.5px) * var(--ts, 1)); } }
 .pz-kick { display: flex; align-items: center; gap: .55em; font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--site, var(--text-3)); }
 /* The site tag above a slide's title: which level the block sits at, a quiet pill in the level's colour, smaller than any text on the card. */
-.pz-site { align-self: flex-start; display: inline-flex; align-items: center; gap: .45em; margin-bottom: -.15em; padding: .2em .6em; border-radius: var(--r-pill); font: 600 max(9px, calc(var(--s-cap) * .75))/1.1 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; color: color-mix(in srgb, var(--site) 80%, var(--text)); background: color-mix(in srgb, var(--site) 13%, transparent); }
+.pz-site { align-self: flex-start; display: inline-flex; align-items: center; gap: .45em; margin-bottom: -.15em; padding: .2em .6em; border-radius: var(--r-pill); font: 600 max(12px, calc(var(--s-cap) * .75))/1.1 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; color: color-mix(in srgb, var(--site) 80%, var(--text)); background: color-mix(in srgb, var(--site) 13%, transparent); }
 .pz:not(.stack) .pz-site { font-size: var(--s-cap); }   /* (a wide screen: the caption's size, the smallest on the card, never under 12 px) */
 /* The deck's short name (presenter.js deckTab): a tab in the top right corner of the teaching card's glass and of a visual
    slide's card, a darker patch of the card itself, flush with its top and right edges (the card's corner rounds its top right),
@@ -2067,16 +2069,13 @@ button.finding { cursor: pointer; }
 /* A row still computing shows "…" in its cells; when its patient arrives the numbers fade in. */
 .pz-table td.pend { color: var(--text-3); text-align: center; }
 .pz-table tr[data-arrived] td { animation: crossfade var(--d-surface) var(--ease) both; }
-/* A continued row (class pz-cont): one under a row with the same heading in the same site's colour (presenter.js sameHead) draws the heading once, over the first of them:
-   it stays in the row for a screen reader, the rows follow under a lighter rule, and the name takes the heading's place. A phone's compact
-   rows keep the site stroke on every row (it is the name's own mark there), so they are put back below; the tablet's note columns hide it too.
-   (tests/table-continued-rows.test.js) */
+/* A continued row (class pz-cont): one under a row with the same heading in the same site's colour (presenter.js sameHead) draws the heading once, over the first of them.
+   The heading stays in the row for a screen reader and takes no room: font-size 0, as the phone's site stroke does (no box, no text to measure, no height), so the
+   wide table, the tablet's note columns and the short inline rows all close up, and the phone's compact rows keep their stroke (its width and colour are untouched).
+   The rows follow under a lighter rule, and the name takes the heading's place. (tests/table-continued-rows.test.js) */
 .pz-table tbody tr.pz-cont { border-top-color: color-mix(in srgb, var(--border) 42%, transparent); }
-.pz-table tbody tr.pz-cont th .pz-kick { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pz-table tbody tr.pz-cont th .pz-kick { font-size: 0; }
 .pz-table tbody tr.pz-cont .tn { margin-top: 0; }
-@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
-  .pz .pz-table:not(.notecols) tbody tr.pz-cont th .pz-kick { position: static; width: 3px; height: auto; overflow: visible; clip-path: none; white-space: normal; }
-}
 /* The visuals: a scale with thresholds, SAAG × protein, the two capillary walls. */
 .pz-visual { min-height: 0; display: flex; justify-content: center; }
 .pz-quadwrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: clamp(16px, 3vw, 52px); align-items: center; }
@@ -2323,6 +2322,7 @@ button.finding { cursor: pointer; }
   .pz-table.notecols thead th.nh:not(.num) { display: block; text-align: left; padding-inline: .75em; }
   .pz-table.notecols tbody th[scope="row"] { display: block; }
   .pz .pz-table.notecols tbody th .pz-kick { display: block; width: auto; background: none; font-size: var(--s-cap); letter-spacing: var(--caps-ls); overflow-wrap: normal; }
+  .pz .pz-table.notecols tbody tr.pz-cont th .pz-kick { font-size: 0; }
   .pz-table.notecols .tn { margin-top: .15em; }
   .pz-table.notecols td.note { grid-column: auto; padding: .55em .75em; font-size: var(--s-lab); text-align: left; }
 }
@@ -3546,7 +3546,7 @@ button.finding { cursor: pointer; }
 .um-q { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: var(--fs-14); }
 .um-q::-webkit-search-cancel-button { display: none; }
 .um-q::placeholder { color: var(--text-3); }
-.um-kb { font: 500 var(--fs-12) var(--font-mono); padding: 0 6px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--border); color: var(--text-3); }
+.um-kb { font: 500 var(--fs-12) var(--font-mono); padding: 0 6px; border-radius: var(--r-control); box-shadow: inset 0 0 0 1px var(--border); color: var(--text-3); }
 .um-x { display: none; }
 .um-cols { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
 /* Two tabs, Present and Patients: one list at a time, eased in on a switch; the panel keeps its size. */
@@ -3895,7 +3895,7 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
 /* Text size: smaller A, the size (tap to reset), larger A. */
 .text-size button { font-variant-numeric: tabular-nums; }
 .text-size .ts-a { font-family: var(--font-ui); font-weight: 600; flex: 0 0 52px; }
-.text-size .ts-sm { font-size: 12px; } .text-size .ts-lg { font-size: 18px; }
+.text-size .ts-sm { font-size: var(--fs-12); } .text-size .ts-lg { font-size: var(--fs-20); }
 .text-size .ts-reset { flex: 1; font-size: var(--fs-12); background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }   /* (the size in use, raised at every size: at 200 % it had turned grey, sweep batch 04) */
 .text-size button:disabled { opacity: 1; color: var(--text-3); cursor: default; }
 
@@ -3924,9 +3924,7 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
   .metric .k .k-l { display: none; }
   .metric .k .k-s { display: inline; }
   .readouts:not(.all) .metric .tr { display: none; }
-  /* "Not measured" does not fit a narrow tile: it says what to do instead. */
-  .metric .status.unmeas { font-size: 0; }
-  .metric .status.unmeas::after { content: 'Measure'; font-size: var(--fs-12); }
+  /* (An unmeasured HVPG says "Not measured" at every width: the bar's tile is not a button, so it never asks the reader to tap "Measure".) */
 }
 
 /* A phone: the clock is in the play bar (short form), not floating over the figure. */
@@ -4198,13 +4196,15 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .topbar .float-pill > .menu-btn, .topbar .float-pill > .tb-act, .topbar .float-pill > .pal-btn, .topbar .float-pill > .ib, .topbar #viewSeg button { border-radius: calc(var(--r-sheet) - 3px); }
 
 /* Display-option rows: the same selectable card as the lenses, one per row, icon at the left. */
-.lens-opt { grid-template-columns: 22px 1fr; column-gap: 10px; align-items: center; margin: 0 8px; }
+.lens-opt { grid-template-columns: var(--ic-s) 1fr; column-gap: 12px; align-items: center; margin: 0; padding: 8px 12px; border: 0; background: transparent; }   /* (a plain row, its icon and name where a .menu-item row's are: the switch alone says on, with no card, ring and tint on top of it) */
+.lens-opt.on { box-shadow: none; background: transparent; }
+@media (hover: hover) { .lens-opt:hover, .lens-opt.on:hover { background: var(--surface-2); } }
 .lens-opt .bo-ic { grid-row: 1 / 3; width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); }
 .lens-opt:not(:has(.lens-d)) .bo-ic { grid-row: 1; }
 .lens-opt .lens-d { grid-column: 2; }
 .lens-opt.on .bo-ic { color: var(--accent-ink); }
 /* The on state is a small switch at the row's end, not only the faint outline. */
-.lens-opt:has(.mt-sw) { grid-template-columns: 22px 1fr auto; }
+.lens-opt:has(.mt-sw) { grid-template-columns: var(--ic-s) 1fr auto; }
 .lens-opt .mt-sw { grid-column: 3; grid-row: 1 / 3; position: relative; width: 28px; height: 16px; border-radius: 8px; background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--hairline); transition: background var(--d-small) var(--ease), box-shadow var(--d-small) var(--ease); }
 .lens-opt:not(:has(.lens-d)) .mt-sw { grid-row: 1; }
 /* The knob is white on and off, as on the app's other switches (.switch, .ac-toggle, .ab-tg), so off stays plain in dark
@@ -4213,7 +4213,6 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .lens-opt.on .mt-sw { background: var(--accent); box-shadow: none; }
 .lens-opt.on .mt-sw::after { transform: translateX(12px); }
 @media (prefers-reduced-motion: reduce) { .lens-opt .mt-sw, .lens-opt .mt-sw::after { transition: none; } }
-.blood-pop .menu-title { text-align: center; }
 
 /* Change messages: a light, translucent pill above the play bar; click, swipe or x to dismiss. */
 .toast-wrap { transform: translateX(-50%); }
@@ -5715,6 +5714,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report > .dop-pattern { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* (Beside an instrument a tile's number and unit sit closer, so "−0.6 L/min" keeps clear of the tile's edge.) */
 .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tiles .pzt-vu { gap: 0 .12em; }
+/* A percent follows its number as US type sets it, "75%", not "75 %": the unit's gap is a sliver, in every context (the fit reads the same column gap). */
+.pz .pz-data .pz-tiles .pz-tile .pzt-vu.pct.pct { column-gap: .06em; }
 /* (The beat-by-beat lanes never get too flat to tell the lines apart.) */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-box { min-height: 170px; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red > dt { display: inline; }   /* (named, "Stigmata ● None", so it never reads as a second grade) */
@@ -5782,7 +5783,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz .pz-data .pz-tiles .pz-tile.scaled[data-rate="mid"] .pzt-v { color: color-mix(in srgb, var(--caution) 85%, var(--text)); }
 .pz .pz-data .pz-tiles .pz-tile.scaled[data-rate="hi"] .pzt-v { color: var(--danger); }
 .app:not(.pz-hi) .pz .pz-data .pz-tiles .pz-tile[data-rate="mid"] .pzt-r { color: color-mix(in srgb, var(--caution) 85%, var(--text)); }
-.app:not(.pz-hi) .pz .pz-data .pz-tiles .pz-tile[data-rate="hi"] .pzt-r { color: var(--danger); }
+.app:not(.pz-hi) .pz .pz-data .pz-tiles .pz-tile[data-rate="hi"] .pzt-r { color: color-mix(in srgb, var(--danger) 85%, var(--text)); }   /* (the same mix as the amber word beside it: pure red at 12 to 15 px was about 4.5:1 on white and less on the frosted card) */
 .pz .pz-data .pz-tiles .pzt-d, .pz .pz-data .pz-tiles .pzt-d[data-way] { color: var(--text-3); }
 /* (Where the bar's ring marks where the value started, the "from" words fold away: the bar takes the place of the change
    line, so a tile is no taller than it was before the bar and the data card never grows for it.) */

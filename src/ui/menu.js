@@ -5,7 +5,7 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=3611054974';
-import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=3e36aa0200';
+import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=3e36aa0200';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=8cc52435da';
 import { pressureColor } from './colormap.js?v=770fcfd88a';
@@ -40,7 +40,7 @@ function profile(snap) {
 }
 // The standing cut-offs: HVPG amber from 5, red from 10; PPG amber from 6, red from 12.
 const sev = (cuts, v) => ({ ok: 'ok', caution: 'low', danger: 'high' })[sevOfCuts(cuts, v)];
-const one = (v) => v.toFixed(v < 10 ? 1 : 0);
+const one = (v) => fmt(v, 1);   // (one decimal, as the tiles and the bar print the same gradients: "17.2", never "17")
 function patientPreview(p) {
   const s = SNAPSHOTS[p.id], fp = s?.fp;
   return h('div', { class: 'um-pv-in pt' },
@@ -48,9 +48,9 @@ function patientPreview(p) {
     h('h3', {}, p.label),
     s ? profile(s) : null,
     s ? h('span', { class: 'hp-facts' },
-      h('span', { class: 'hp-chip ' + sev(HVPG_CUTS, s.hvpg), title: 'Hepatic venous pressure gradient' }, 'HVPG ', h('b', {}, one(s.hvpg))),
-      fp?.ppg != null ? h('span', { class: 'hp-chip ' + sev(PPG_CUTS, fp.ppg), title: 'Portal pressure gradient (portal vein − IVC)' }, 'PPG ', h('b', {}, one(fp.ppg))) : null,
-      h('span', { class: 'hp-chip', title: 'Portal vein pressure' }, 'PV ', h('b', {}, Math.round(s.pv))),
+      h('span', { class: 'hp-chip ' + sev(HVPG_CUTS, shownOf(s.hvpg)), title: 'Hepatic venous pressure gradient' }, 'HVPG ', h('b', {}, one(s.hvpg))),
+      fp?.ppg != null ? h('span', { class: 'hp-chip ' + sev(PPG_CUTS, shownOf(fp.ppg)), title: 'Portal pressure gradient (portal vein − IVC)' }, 'PPG ', h('b', {}, one(fp.ppg))) : null,
+      h('span', { class: 'hp-chip', title: 'Portal vein pressure' }, 'PV ', h('b', {}, fmt(s.pv, 1))),
       s.pvFlow < -0.05 ? h('span', { class: 'hp-chip rev', title: 'Portal flow runs away from the liver' }, 'Hepatofugal') : null) : null,
     h('p', {}, p.summary || ''));
 }

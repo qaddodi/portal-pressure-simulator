@@ -7,11 +7,11 @@ import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_
 import { lobuleFlows } from './lobule-model.js?v=1463bc3572';
 import { createProfile } from './charts.js?v=449aab4341';
 import { createPressureTime } from './pressure-time.js?v=32b8c0adae';
-import { createHvpgProcedure } from './hvpg-proc.js?v=56f95c08f1';
+import { createHvpgProcedure } from './hvpg-proc.js?v=97a10989d6';
 import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=d8846e0ae8';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=f54fd5768b';
-import { createReadoutsPane } from './readouts-pane.js?v=c73a6c68c8';
+import { createReadoutsPane } from './readouts-pane.js?v=a990e0ded5';
 import { frameFor } from './frame.js?v=70a3411d2a';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=ef26894683';
@@ -91,15 +91,17 @@ export const LOBULE_PRIMARY = new Set(['lz-sin', 'lz-pv']);
 export const GROUPS = [['pressure', 'Pressure'], ['flow', 'Flow'], ['effects', 'Consequences']];
 // The cut-offs behind each status, as About the model lists them: [readout, normal, amber, red, dark red].
 export const CUTOFFS = [
-  ['HVPG (wedged − free)', '< 5 mmHg', '5–9 (subclinical)', '≥ 10 (CSPH in cirrhosis)', '—'],
-  ['PPG: portosystemic gradient (portal vein − IVC)', '< 6 mmHg', '6–11', '≥ 12', '—'],
-  ['Portal vein pressure', '≤ 10 mmHg', '11–14', '≥ 15', '—'],
-  ['Portal flow', '≥ 0.9 L/min and ≥ 15 cm/s', '< 0.9 L/min or < 15 cm/s', '< 9 cm/s (stasis)', 'Reversed (hepatofugal)'],
-  ['Sinusoidal flow', '> 75 % of normal', '56–75 %', '≤ 55 %', '—'],
-  ['Shunted blood', '< 10 %', '10–29 %', '30–59 %', '≥ 60 %'],
-  ['Varix wall stress (model)', '< 40 % of rupture', '40–69 %, or diameter ≥ 5 mm', '70–89 %', '≥ 90 %'],
-  ['Ascites', 'None', 'Grade 1', 'Grade 2–3', '—'],
-  ['Spleen length', '≤ 13 cm', '13–16 cm', '> 16 cm', '—'],
+  // (Written as the decks and the tiles write them: a symbol hard against its number, "to" in a range, no space before a percent. Each range runs on
+  // from the cut-off before it by one step of the last digit the tile prints, so no value falls between two bands.)
+  ['HVPG (wedged − free)', '<5 mmHg', '5 to 9.9 (subclinical)', '≥10 (CSPH in cirrhosis)', '—'],
+  ['PPG: portosystemic gradient (portal vein − IVC)', '<6 mmHg', '6 to 11.9', '≥12', '—'],
+  ['Portal vein pressure', '≤10 mmHg', '10.1 to 14.9', '≥15', '—'],
+  ['Portal flow', '≥0.9 L/min and ≥15 cm/s', '<0.9 L/min or <15 cm/s', '<9 cm/s (stasis)', 'Reversed (hepatofugal)'],
+  ['Sinusoidal flow', '>75% of normal', '56 to 75%', '≤55%', '—'],
+  ['Shunted blood', '<10%', '10 to 29%', '30 to 59%', '≥60%'],
+  ['Varix wall stress (model)', '<40% of rupture', '40 to 69%, or diameter ≥5 mm', '70 to 89%', '≥90%'],
+  ['Ascites', 'None', 'Grade 1', 'Grade 2 or 3', '—'],
+  ['Spleen length', '≤13 cm', '13.1 to 16 cm', '>16 cm', '—'],
 ];
 
 // Systemic circulation: a compact obstruction at the end of the strip. (The list is in vital-read.js, where the vitals monitor on a slide reads it too.)
@@ -371,10 +373,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     profile: ['activity', (f) => `${fmt(f.metrics.pv, 1)} mmHg`],
     scope: ['chart', (f) => (hiddenNow()?.has('trueHVPG') ? `PV ${fmt(f.metrics.pv, 1)}` : `HVPG ${fmt(f.metrics.hvpg, 1)}`)],
     hvpg: ['catheter', (f) => { const st = store.get(), meas = st.lastHVPG; return !hiddenNow(st)?.has('trueHVPG') ? `${fmt(f.metrics.hvpg, 1)} mmHg` : meas ? `${fmt(meas.hvpg, 1)} mmHg` : 'Not measured'; }],
-    doppler: ['doppler', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s`],
+    doppler: ['doppler', (f) => `${fmt(Math.abs(f.metrics.pvVelMean ?? f.metrics.pvVel), 0)} cm/s`],
     endoscopy: ['endoscope', (f) => { const vx = f.metrics.varix; return !vx.present ? 'No varices' : vx.grade.label === 'None' ? 'Banded varices' : `${vx.grade.label} varices`; }],
     abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
-    fibroscan: ['gauge', (f) => `${fmt(f.metrics.lsm, 0)} kPa`],
+    fibroscan: ['gauge', (f) => `${fmt(f.metrics.lsm, 1)} kPa`],
     readouts: ['grid', (f) => readouts.summary(f)],
   };
   const SHORT = { profile: 'Pressure', scope: 'Over time', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan', readouts: 'Readouts' };

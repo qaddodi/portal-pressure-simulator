@@ -3,19 +3,19 @@
 
 import { startHost, host } from './host.js?v=e9bd6a00e5';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3611054974';
-import { createStage } from './stage.js?v=f7c563b9a6';
+import { createStage } from './stage.js?v=b6052cde58';
 import { createCreditPlacer } from './credit.js?v=e62593497d';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=7d0d2422b4';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=01b10dccb2';
-import { setHvpgStage } from './hvpg-proc.js?v=56f95c08f1';
+import { createInspector } from './inspector.js?v=8d024dfd62';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=2ed5d9b20e';
+import { setHvpgStage } from './hvpg-proc.js?v=97a10989d6';
 import { createWhy } from './why.js?v=ac8bbdc877';
-import { createTimeline, LAPSES } from './timeline.js?v=d6f0cd3d04';
-import { createCompare } from './compare.js?v=5f77a60a66';
+import { createTimeline, LAPSES } from './timeline.js?v=46299c1db6';
+import { createCompare } from './compare.js?v=7ef92dbc07';
 import { createCard } from './card.js?v=f2b06e36cc';
-import { createChart } from './chart.js?v=5b417dee38';
-import { createMenu } from './menu.js?v=0fa6593d0a';
+import { createChart } from './chart.js?v=aeab96feba';
+import { createMenu } from './menu.js?v=eb413a05a6';
 import { caption } from './a11y.js?v=d5073156cc';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
@@ -182,7 +182,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=96d6c2e04b'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=368d5653b6'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

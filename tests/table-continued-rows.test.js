@@ -22,12 +22,16 @@ test('the table marks a continued row and keeps its heading in the markup', () =
   assert.match(js, /h\('span', \{ class: 'pz-kick', 'data-site': r\.site \|\| 'none' \}, r\.kicker\.replace\('Intrahepatic · ', ''\)\)/, 'the heading is still in every row');
 });
 
-test('the heading of a continued row is hidden by clipping, not removed, and the phone keeps its site stroke', () => {
-  assert.match(css, /\.pz-table tbody tr\.pz-cont th \.pz-kick \{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset\(50%\);/);
+test('the heading of a continued row takes no room (font-size 0, as the phone stroke does), stays in the markup, and the phone keeps its stroke', () => {
+  assert.match(css, /\.pz-table tbody tr\.pz-cont th \.pz-kick \{ font-size: 0; \}/);
   assert.match(css, /\.pz-table tbody tr\.pz-cont \{ border-top-color: color-mix\(in srgb, var\(--border\) 42%, transparent\); \}/);
-  const at = css.indexOf('@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {\n  .pz .pz-table:not(.notecols) tbody tr.pz-cont');
-  assert.ok(at > css.indexOf('.pz .pz-table tbody th .pz-kick { font-size: 0;'), 'put back after the phone rows set the stroke');
-  assert.match(css.slice(at, css.indexOf('\n}\n', at)), /position: static; width: 3px; height: auto; overflow: visible; clip-path: none;/);
+  // (no clipped box left to be measured: a text range of the clipped heading still ran out of its column in the smoke checks)
+  assert.doesNotMatch(css, /tr\.pz-cont th \.pz-kick \{[^}]*(position: absolute|clip-path)/);
+  // the tablet's note columns set the heading's size with a higher specificity: the continued row puts it back to 0 after it
+  const nc = css.indexOf('.pz .pz-table.notecols tbody th .pz-kick { display: block;');
+  assert.ok(nc > 0 && css.indexOf('.pz .pz-table.notecols tbody tr.pz-cont th .pz-kick { font-size: 0; }') > nc);
+  // the phone's stroke rule sets width and background, never a display or size the continued row would undo
+  assert.match(css, /\.pz \.pz-table tbody th \.pz-kick \{ font-size: 0; gap: 0; flex: none; align-self: stretch; width: 3px;/);
 });
 
 test('no stylesheet rule styles a bare .pz-cont row outside the table, and the class is not the global .sub', () => {

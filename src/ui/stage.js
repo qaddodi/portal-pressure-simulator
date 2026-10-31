@@ -57,7 +57,7 @@ import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=1058c26e6d
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
 import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=70a3411d2a';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { portalSplit } from './table-marks.js?v=80bc7c00f6';
+import { portalSplit } from './table-marks.js?v=3b9e0d5a35';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=49e37b0228';
@@ -74,7 +74,7 @@ import { organDimMatrix } from './organ-dim.js?v=9e19f2fc30';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=02072c578d';
 import { encodePNG } from './png-encode.js?v=514301c9f4';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
-import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=8089ceffb4';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=dd738b9711';
 const nextFrame = frameFor('stage');
 // The figure's render pass (animate) runs after every other callback of its frame: a glide's step, the catheter's state and its
 // camera, the labels are all set first, and the vessel layer is drawn once, as they left it.

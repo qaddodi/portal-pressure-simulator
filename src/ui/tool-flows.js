@@ -19,7 +19,7 @@
 
 import { frame, cancelFrame } from './frame.js?v=70a3411d2a';
 import { EDGES, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from '../engine/topology.js?v=4044766e96';
-import { portalSplit } from './table-marks.js?v=80bc7c00f6';
+import { portalSplit } from './table-marks.js?v=3b9e0d5a35';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const STENTS = new Set(['TIPS', 'DIPS']);
