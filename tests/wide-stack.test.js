@@ -88,7 +88,7 @@ test('the handle only brings the readings out or tucks them away, eased; it neve
 
 test('the wide stack draws the phone\'s two pieces of glass upside down, the readings\' card behind the instrument card\'s top', () => {
   const W = '.pz.pz-wide.pz-wide .pz-data.pz-sheet';
-  assert.ok(css.includes(`${W}.pz-sheet { --pz-u: 0; --pz-sr: clamp(16px, calc(2.2 * var(--pzh)), 28px); --pz-in: 8px; padding-top: 10px; background: none;`), 'its corners are the wide card\'s');
+  assert.ok(css.includes(`${W}.pz-sheet { --gl-glass: 0; --pz-u: 0; --pz-sr: clamp(16px, calc(2.2 * var(--pzh)), 28px); --pz-in: 8px; padding-top: 10px; background: none;`), 'its corners are the wide card\'s');
   assert.ok(css.includes(`${W}.pz-sheet.tool-open { --pz-u: 1; }`));
   assert.ok(css.includes(`${W}::before { top: calc(var(--pz-u) * var(--pz-d, 0px) - 1px); bottom: -1px; }`), 'the instrument\'s card, below what is out');
   assert.ok(css.includes(`${W}::after { z-index: -2; left: calc(var(--pz-in) - 1px); right: calc(var(--pz-in) - 1px); top: calc(-1px - 24px * (1 - var(--pz-u)));`), 'the readings\' card, above it, behind it and narrower');

@@ -19,28 +19,30 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=3163ab7e8a';
+import { runFlick, FLICK } from './flick.js?v=faef51b93d';
 import { store } from './store.js?v=a926bea9d4';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=55c3da7964';
+import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=38ea780114';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL } from './field-gl.js?v=779561d5dd';
 import { createTissueGL } from './tissue-gl.js?v=0b2e2e7256';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours } from './lobule-live.js?v=9512cbf33d';
-import { createTissueWorker } from './tissue-worker.js?v=b0644b7a50';
+import { createTissueWorker } from './tissue-worker.js?v=bb4774c00d';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=725ab01f3a';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=3ca7b0831b';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=abece7b00c';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=b0ef310589';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=9a025534d0';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=4b339fceed';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=300b3b5267';
-import { createSinusoidView } from './sinusoid-view.js?v=b6a59dccf4';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab } from './frame.js?v=9e0c25a14c';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=b5449b0040';
-import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=0c2ee70982';
+import { createSinusoidView } from './sinusoid-view.js?v=695c062589';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab } from './frame.js?v=d389474997';
+import { createGlassGL } from './glass-gl.js?v=40c8e78a1c';
+import { pillOf, pillLabels } from './lz-pills.js?v=670139934d';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
+import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=5e901158f4';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
 
@@ -1732,8 +1734,56 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // nothing to draw: drawing it there (sizing three full-screen canvases, the tissue, the vessels) snagged the zoom's last stretch.
   // staged: the view it was drawn for; relLater: its canvases are given back when the dive ends, not mid-zoom.
   let staging = false, staged = '', relLater = false;
+  // The lit labels' pills (app.css :is(.lz-lab, .lz-zone)::before): their frost drawn on the GPU (glass-gl.js, read through lz-pills.js)
+  // from a small copy of the lobule as it stacks (pillSrc: the tissue, the vessels, the ductules, at half the CSS px), so the browser
+  // blurs none of them on every frame of a pan (recs B4). Their ring stays the page's. The copy is made only in frames the lobule draws,
+  // while a slide lights a lobule term; the tissue's GPU canvas keeps no picture between frames, so its part is copied (pillTis) only
+  // in a frame it drew. Through a dive, a rise, the sinusoid's zoom, a resolution change or the dive's wide copy, and before the
+  // tissue's part is in, each pill keeps the browser's blur.
+  const pillSrc = document.createElement('canvas'), pillTis = document.createElement('canvas');
+  pillSrc.getBoundingClientRect = () => el.getBoundingClientRect();   // (it lies on the lobule's layers, inset 0 in it, as they do)
+  let pillGL, pillSeq = 0, pillTisOK = false, pillUntil = 0, tissueDrew = false;
+  const pillFig = new Set();
+  const pillLit = () => { litOf(); return /(^| )(lobule|sinusoid):/.test(litRaw || ''); };
+  const pillLive = () => fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !resCover && !keep2D && pillTisOK && pillSeq > 0;
+  function pillsOn() {
+    if (pillGL !== undefined) return pillGL;
+    const g = ensureGL();
+    pillGL = g && !g.software && !g.lost ? createGlassGL(el, pillSrc, [], {
+      off: /[?&](gpulabels|lzpills)=0\b/.test(location.search), live: pillLive, version: () => pillSeq,
+      onFigure: (f) => { pillFig.add(f); return () => pillFig.delete(f); },
+      cards: { find: () => pillLabels(labels), watch: [labels], before: labels, read: (e) => pillOf(e) || null },
+    }) : null;
+    if (pillGL) pillGL.canvas.id = 'pillGl';
+    return pillGL;
+  }
+  // (A slide lighting a lobule term: the lobule is drawn again, its tissue's part copied in that frame.)
+  new MutationObserver(() => { if (pillLit()) { pillTisOK = false; wake(); } }).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['data-lit'] });
+  function pillCopy(W, H) {
+    if (!pillLit()) { if (performance.now() > pillUntil) return; } else pillUntil = performance.now() + 700;   // (and through the pills' fade out)
+    if (!pillsOn()) return;
+    const w = Math.max(1, Math.ceil(W / 2)), h = Math.max(1, Math.ceil(H / 2));
+    if (pillSrc.width !== w || pillSrc.height !== h) { pillSrc.width = pillTis.width = w; pillSrc.height = pillTis.height = h; pillTisOK = false; }
+    const src = tissueOnGL ? tissueG : tissue;
+    try {
+      if (!tissueOnGL || tissueDrew) {
+        const t = pillTis.getContext('2d');
+        t.clearRect(0, 0, w, h);
+        if (src.width && src.height) t.drawImage(src, 0, 0, w, h);
+        pillTisOK = true;
+      }
+      if (!pillTisOK) { wake(); return; }
+      const c = pillSrc.getContext('2d');
+      c.globalCompositeOperation = 'copy'; c.drawImage(pillTis, 0, 0); c.globalCompositeOperation = 'source-over';
+      if (gl && !gl.lost && glCv.width) { gl.capture?.(); c.drawImage(glCv, 0, 0, w, h); }
+      if (fx.width && fx.height) c.drawImage(fx, 0, 0, w, h);
+    } catch { pillTisOK = false; return; }
+    pillSeq++;
+    for (const f of pillFig) f();
+  }
   function draw(dt) {
     stepFlowA();
+    tissueDrew = false;
     const scaled = diveScaled || sinU > 0;   // the dive, or the zoom on into a sinusoid
     if (scaled && diveDrawn && flowA <= 0) return false;   // magnified by the compositor: nothing is redrawn once the marks have faded
     if (scaled && wide) return false;   // (the wide copy shows; the layers under it wait, already drawn)
@@ -1754,6 +1804,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     layoutLabels();
     if (g && !g.lost) drawGL(W, H, dpr, dark, cs, dt);
     paintFx(W, H, dpr, dark, dt, !g || g.lost);
+    pillCopy(W, H);
     return true;
   }
   // A dive aimed at a station (a presenter slide's portal tract or central vein) lands zoomed in, where the lobule reaches past the
@@ -2829,6 +2880,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       rect: [sx * dpr, sy * dpr, 2 * B * V.k * dpr], ox, oy, rd, fade: [fIn, fOut], mid: FADE_MID, bg: tone, grey: grey.k > 0 ? surroundGrade(grey.k) : null, live: liveArgs(dark, cs),
     });
     if (!ok) return false;
+    tissueDrew = true;   // (its canvas holds this frame's picture: pillCopy may read it now)
     if (!crossfading && xfT0) { xfT0 = 0; free(worldOld); free(xfCv); tg.sweep(); }   // (faded in: the old picture is given back, its GPU copy too)
     free(tissue); flatAt = null;   // (the 2D canvas is left empty under it: paint2D draws it again when the dive's copy needs it)
     return true;

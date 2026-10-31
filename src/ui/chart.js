@@ -6,10 +6,10 @@
 //   Advanced physiology                  side panel, from Settings
 
 import { store, updateParams } from './store.js?v=a926bea9d4';
-import { h, icon, svgIcon, toast, reconcile } from './util.js?v=725ab01f3a';
+import { h, icon, svgIcon, toast, reconcile } from './util.js?v=abece7b00c';
 import { DRUGS } from '../engine/scenario.js?v=d7d3ea5b70';
-import { activeInterventions } from './inspector.js?v=9490d17b65';
-import { DRUG_NOTE } from './actions.js?v=5a0626fe36';
+import { activeInterventions } from './inspector.js?v=a79b5550be';
+import { DRUG_NOTE } from './actions.js?v=398d1a3570';
 import { factTarget } from './fact-target.js?v=50935889f6';
 
 

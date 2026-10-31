@@ -1,8 +1,8 @@
 // The corner credit finds a free spot on the figure: never on or touching a card, a sheet, a bar or a menu.
 // It keeps its corner while that corner stays free and is never animated (no glide, no fade): any move hides it at once,
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
-import { frameFor, figLab } from './frame.js?v=9e0c25a14c';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=b5449b0040';
+import { frameFor, figLab } from './frame.js?v=d389474997';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
 import { layoutWatch, PLACED } from './idle-keys.js?v=235443a2a3';
 const nextFrame = frameFor('credit');

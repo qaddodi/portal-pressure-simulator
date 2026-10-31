@@ -12,7 +12,7 @@
 // know, a keyboard focus ring) stays drawn by the SVG, label by label. Without WebGL2, on a software renderer, with ?gpulabels=0, or
 // once the context is lost, the SVG draws them all, as it always has.
 
-import { frameFor, cancelFrame } from './frame.js?v=9e0c25a14c';
+import { frameFor, cancelFrame } from './frame.js?v=d389474997';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=235443a2a3';
 import { startProgram, checkProgram } from './gl-compile.js?v=5c4cd6c14c';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
@@ -41,7 +41,7 @@ void main() {
 
 // The labels' pictures sit in atlas pages and are drawn as one instanced batch: each instance is a box on the canvas (device px) and
 // the texel its picture starts at in the page. Instances blend in their order, which is the labels' painter order.
-const AVS = `#version 300 es
+export const AVS = `#version 300 es
 in vec4 aR;           // the picture's box: left, top, width, height (device px, from the top left)
 in vec4 aT;           // its first texel in the page (x, y), its opacity, unused
 uniform vec2 uView;
@@ -53,7 +53,7 @@ void main() {
   vR = aR; vT = aT.xyz;
   gl_Position = vec4(p.x / uView.x * 2.0 - 1.0, 1.0 - p.y / uView.y * 2.0, 0.0, 1.0);
 }`;
-const AFS = `#version 300 es
+export const AFS = `#version 300 es
 precision highp float;
 uniform sampler2D uT;
 uniform vec2 uView;
@@ -337,12 +337,24 @@ export function drawBlock(cv, d, dpr, rot = false) {
  * figure's overlays not all on the GPU, the labels' layer fading or hidden), it draws nothing and the SVG shows every label.
  * `force`: on a software renderer too (CI's visual check, ?stageover=gpu).
  */
-export function createLabelGL(svg, blocks, { software = false, off = false, marks = [], host = null, force = false } = {}) {
-  if (off || (software && !force) || typeof WebGL2RenderingContext === 'undefined') return null;
+// A stand-in for the context while the pictures are laid by the figure's worker (`remote`): the setup below runs against it and
+// finds everything made; nothing is drawn through it (the pictures and the frame go to the worker instead).
+const noopGL = () => new Proxy({}, { get: (_, k) => (typeof k !== 'string' ? undefined : /^[A-Z0-9_]+$/.test(k) ? 1 : k === 'isContextLost' ? () => false : k === 'getParameter' ? () => 2048 : () => true) });
+
+/**
+ * `remote`: { attach(canvas), sprite(page, x, y, bitmap), frame(items, W, H), resize(w, h) } (figure-worker-start.js): the labels'
+ * canvas is moved to the worker, which keeps the atlas pages and lays the pictures. The page reads each label's look and draws its
+ * picture as before, only when the look changes, and sends the picture; each frame it sends the boxes. The leaders, the Doppler
+ * probe and the FibroScan callout stay the SVG's in that case (marks: none).
+ */
+export function createLabelGL(svg, blocks, { software = false, off = false, marks: marksIn = [], host = null, force = false, remote = null } = {}) {
+  if (off || (software && !force) || (remote && typeof OffscreenCanvas !== 'function') || (!remote && typeof WebGL2RenderingContext === 'undefined')) return null;
+  const marks = remote ? [] : marksIn;
   const canvas = host ? host.canvas : document.createElement('canvas');
   if (!host) { canvas.id = 'labelGl'; canvas.setAttribute('aria-hidden', 'true'); }
   let gl = host ? host.gl : null;
-  if (!host) { try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; } }
+  if (remote) gl = noopGL();
+  else if (!host) { try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; } }
   if (!gl) return null;
   // A picture turned on the GPU, sampled smoothly: only for what is soft anyway (the FibroScan's blurred beam), never for words.
   const RVS = `#version 300 es
@@ -391,13 +403,17 @@ void main() { o = texture(uT, vUV) * uA; }`;
     return (pageTex[n] = t);
   };
   if (!host) svg.after(canvas);
+  remote?.attach(canvas);
   let lost = false, dpr = 1, W = 1, H = 1, last = [], raf = 0;
   // (Host mode: whether a picture with the labels is owed to the host's canvas; whether the SVG was given every label back.)
   let owed = false, released = true;   // (at first the SVG shows every label: none is marked yet)
+  // (Host mode: the labels and marks the SVG still draws, as of the last picture: what lies between the figure's canvas and the callouts'
+  // glass, which is drawn into that canvas only where it crosses none of them; svgLeft.)
+  const svgLeft = new Set();
   const sprites = new WeakMap();   // group → { key, tex, ox, oy, w, h }
   const live = new Map();          // group → until (ms): a fade, an ease or a hover is running, its look read each frame
   const dirty = new Set();
-  const scratch = document.createElement('canvas');
+  const scratch = remote ? new OffscreenCanvas(1, 1) : document.createElement('canvas');
   // The label layer's inline style (the dive's zoom and fade, its visibility) is the canvas's too; its classes' rules are in app.css.
   const copyStyle = () => { const w = canvas.style.width, h = canvas.style.height; canvas.style.cssText = svg.style.cssText; canvas.style.width = w; canvas.style.height = h; };
   if (!host) new MutationObserver(copyStyle).observe(svg, { attributes: true, attributeFilter: ['style'] });
@@ -454,7 +470,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const r = svg.parentElement.getBoundingClientRect(), k = devicePixelRatio || 1;   // (the stage's box: the dive zooms the layer itself)
     const w = Math.max(1, Math.round(r.width * k)), h = Math.max(1, Math.round(r.height * k));
     if (w === W && h === H && k === dpr) return false;
-    W = w; H = h; dpr = k; canvas.width = w; canvas.height = h;
+    W = w; H = h; dpr = k;
+    if (remote) remote.resize(w, h); else { canvas.width = w; canvas.height = h; }
     // (Exactly one canvas pixel per device pixel: a canvas scaled even a little would be filtered, and the words soften.)
     canvas.style.width = `${w / k}px`; canvas.style.height = `${h / k}px`;
     for (const s of last) dirty.add(s.g);
@@ -500,9 +517,12 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (st.slot && (st.slot.w !== scratch.width || st.slot.h !== scratch.height)) { packer.free(st.slot); st.slot = null; }
       if (!st.slot) st.slot = packer.alloc(scratch.width, scratch.height);
       if (!st.slot) { needRepack = true; st.mode = 'svg'; st.key = ''; return st; }   // (the pages are full: the SVG draws it till they are packed again)
-      gl.bindTexture(gl.TEXTURE_2D, pageOf(st.slot.page));
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, st.slot.x, st.slot.y, gl.RGBA, gl.UNSIGNED_BYTE, scratch);
+      if (remote) remote.sprite(st.slot.page, st.slot.x, st.slot.y, scratch.transferToImageBitmap());   // (moved, not copied)
+      else {
+        gl.bindTexture(gl.TEXTURE_2D, pageOf(st.slot.page));
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, st.slot.x, st.slot.y, gl.RGBA, gl.UNSIGNED_BYTE, scratch);
+      }
       Object.assign(st, at, { key });
     }
     st.opacity = d.opacity;
@@ -522,6 +542,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       size();
       if (!host.active()) { if (!released) release(); return; }
       if (released) { released = false; for (const s of last) dirty.add(s.g); allMarks(); pDirty = true; sDirty = true; }
+      svgLeft.clear();
     }
     const now = performance.now();
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -542,7 +563,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       let st = sprites.get(g);
       if (!st || dirty.has(g) || live.has(g) || st.rot !== !!s.rot) { st = refresh(g, !!s.rot); st.rot = !!s.rot; }
       // (Marked in the same frame as the picture is drawn, so neither the SVG's copy and the picture both show, nor neither.)
-      if (st.mode !== 'gl') { if (g.hasAttribute('data-gl')) g.removeAttribute('data-gl'); continue; }
+      if (st.mode !== 'gl') { if (g.hasAttribute('data-gl')) g.removeAttribute('data-gl'); if (host && st.mode === 'svg') svgLeft.add(g); continue; }
       if (!g.hasAttribute('data-gl')) g.setAttribute('data-gl', '');
       if (!(st.opacity > 0.001)) continue;
       // (The label's origin on a whole device pixel, the picture at its offset from it.)
@@ -550,7 +571,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (x > W || y > H || x + st.w < 0 || y + st.h < 0) continue;
       items.push({ page: st.slot.page, x, y, w: st.w, h: st.h, ax: st.slot.x, ay: st.slot.y, a: Math.min(1, st.opacity) });
     }
-    if (items.length) {
+    if (remote) remote.frame(items, W, H);   // (every frame, even with none: the worker clears the canvas)
+    else if (items.length) {
       if (inst.length < items.length * 8) inst = new Float32Array(Math.max(items.length * 8, inst.length * 2));
       items.forEach((it, i) => inst.set([it.x, it.y, it.w, it.h, it.ax, it.ay, it.a, 0], i * 8));
       gl.useProgram(aprog); gl.bindVertexArray(avao);
@@ -600,7 +622,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
           else geo = [NUM(el.getAttribute('cx')) * dpr, NUM(el.getAttribute('cy')) * dpr, NUM(el.getAttribute('r')) * dpr, 0];
         }
         // (A mark this drawing cannot give stays the SVG's; one it draws is hidden there, in the same frame.)
-        if (st === false || (st && !geo)) { if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); continue; }
+        if (st === false || (st && !geo)) { if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); if (host) svgLeft.add(el); continue; }
         if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', '');
         const a = (st?.op ?? 0) * (ro?.op ?? 1);
         if (!st || !(a > 0.001) || (!st.stroke && !st.fill)) continue;
@@ -632,6 +654,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const headCv = document.createElement('canvas');
   let headSp = null;
   function setProbe(el) {
+    if (remote) return;   // (stays the SVG's with the labels laid by the worker)
     if (probe === el) return;
     probe = el; pDirty = true;
     pmo.disconnect();
@@ -744,6 +767,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const holdScan = () => { sDirty = true; sLive = performance.now() + 900; ask(); };
   const beamCv = document.createElement('canvas'), sHeadCv = document.createElement('canvas');
   function setScan(el) {
+    if (remote) return;   // (likewise)
     if (scanEl === el) return;
     scanEl?.removeAttribute('data-gl');
     scanEl = el; sDirty = true; beamSp = null; sHeadSp = null;
@@ -910,6 +934,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     check() { check(); },
     /** Host mode: whether the host's canvas owes a picture with the labels. */
     get owed() { return owed; },
+    /** Host mode: the label groups and marks the SVG drew itself at the last picture (none while it draws them all). */
+    svgLeft: () => [...svgLeft],
     get lost() { return lost; },
     /** This frame's labels: drawn now, in the same frame as the SVG's layout. */
     sync(list) {

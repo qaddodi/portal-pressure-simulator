@@ -43,12 +43,12 @@ test('the SVG copy is see-through only while the GPU draws that label, marked in
   assert.match(CSS, /\.stage-view\.cam-move > #labelGl/);
   assert.match(CSS, /\.stage-view\.in-lobule #labelGl/);
   assert.match(CSS, /\.cath-on :is\(#labels, #labelGl\)/);
-  assert.match(LGL, /if \(st\.mode !== 'gl'\) \{ if \(g\.hasAttribute\('data-gl'\)\) g\.removeAttribute\('data-gl'\); continue; \}\n\s+if \(!g\.hasAttribute\('data-gl'\)\) g\.setAttribute\('data-gl', ''\);/);
+  assert.match(LGL, /if \(st\.mode !== 'gl'\) \{ if \(g\.hasAttribute\('data-gl'\)\) g\.removeAttribute\('data-gl'\); if \(host && st\.mode === 'svg'\) svgLeft\.add\(g\); continue; \}\n\s+if \(!g\.hasAttribute\('data-gl'\)\) g\.setAttribute\('data-gl', ''\);/);
   assert.match(LGL, /webglcontextlost[\s\S]{0,200}for \(const s of last\) s\.g\.removeAttribute\('data-gl'\);/);
 });
 
 test('stage.js hands the GPU every label it laid out, in the same frame, and the script fades', () => {
-  assert.match(STAGE, /const labelGL = createLabelGL\(labelSvg, gLabels, \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\), marks: \[gLeaders, gScan\], host: labelHost, force: !!labelHost \}\);/);
+  assert.match(STAGE, /\|\| createLabelGL\(labelSvg, gLabels, \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\), marks: \[gLeaders, gScan\], host: labelHost, force: !!labelHost \}\);/);
   assert.match(STAGE, /b\.pos = \{ g: b\.g, x: \+it\.x\.toFixed\(1\), y: \+\(it\.rot \? it\.y \+ it\.w : it\.y\)\.toFixed\(1\), rot: !!it\.rot \};/);
   assert.match(STAGE, /dprobePaint\(\);\n\s+labelPainted = true;\n\s+labelGlSync\(\);/, 'last, after the probe is placed');
   for (const m of STAGE.matchAll(/b\.g\.animate\?\.\(/g)) assert.match(STAGE.slice(m.index, m.index + 260), /labelGL\?\.hold\(b\.g, /, 'a scripted fade is held');
@@ -157,9 +157,9 @@ test('with the overlays on the GPU the labels go into the vessel canvas, only wh
   assert.match(STAGE, /const labelHost = OVER_ON && veins\?\.top && !\/\[\?&\]labelhost=0\\b\/\.test\(location\.search\) \? \{/);
   assert.match(STAGE, /if \(labelHold \|\| !veins \|\| veins\.lost \|\| !svgOver\?\.classList\.contains\(OVER_ALL\) \|\| !glass\.hidden \|\| fading\(vCanvas\)\) return false;/);
   assert.match(STAGE, /wc\.contains\('cam-move'\) \|\| wc\.contains\('pinch-hide'\) \|\| wc\.contains\('unframed'\) \|\| wc\.contains\('in-lobule'\) \|\| wc\.contains\('cath-on'\)\) return false;/);
-  assert.match(STAGE, /if \(vdpr < vBase - 1e-9 \|\| vCanvas\.style\.translate \|\| !\(boxW > 0\) \|\| Math\.abs\(vCanvas\.width \/ boxW - \(devicePixelRatio \|\| 1\)\) > 0\.02\) return false;/);
+  assert.match(STAGE, /if \(vdpr < vBase - 1e-9 \|\| vCanvas\.style\.translate \|\| !\(boxW > 0\) \|\| Math\.abs\(vcw\(\) \/ boxW - \(devicePixelRatio \|\| 1\)\) > 0\.02\) return false;/);
   assert.match(STAGE, /\+lc\.opacity >= 0\.999 && vc\.visibility === 'visible' && \+vc\.opacity >= 0\.999;/);
-  assert.match(STAGE, /veins\.top\.set\(\(\) => labelGL\.drawInto\(\)\);/);
+  assert.match(STAGE, /veins\.top\.set\(\(\) => \{ labelGL\.drawInto\(\); glassGL\?\.drawInto\(\); \}\);/);
   for (const t of ['wrap, { attributes: true, attributeFilter: \\[\'class\'\\] }', 'glass, { attributes: true, attributeFilter: \\[\'hidden\'\\] }', 'vCanvas, { attributes: true, attributeFilter: \\[\'style\', \'width\', \'height\'\\] }']) assert.match(STAGE, new RegExp(`labelMo\\.observe\\(${t}\\);`));
   // (Given back to the SVG in the same task as the picture is laid without them; none laid again while they stay there.)
   assert.match(LGL, /if \(!released\) \{ if \(!host\.active\(\)\) \{ host\.now\(\); if \(!released\) release\(\); \} return; \}/);
