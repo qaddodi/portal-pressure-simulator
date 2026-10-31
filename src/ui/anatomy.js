@@ -573,7 +573,7 @@ export const SITES = {
 // Organ captions: [text, x, y, anchor]
 export const ORGAN_LABELS = [
   ['Liver', 455, 432], ['Stomach', 918, 432], ['Spleen', 1066, 250], ['Colon', 960, gutY(846)], ['Kidney', 978, 716],
-  ['Small bowel', 820, gutY(800)], ['Esophagus', 860, 40], ['Right atrium', 486, 118],
+  ['Small bowel', 820, gutY(800)], ['Esophagus', 860, 40], ['Right atrium', 685, 80],
 ];
 
 // Atlas labels: node → caption and which margin column it hangs from.

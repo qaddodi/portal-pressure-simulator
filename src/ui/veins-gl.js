@@ -34,9 +34,9 @@
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
-import { SLOT, DYE_BINS } from './blood.js?v=266f230bf3';
+import { SLOT, DYE_BINS } from './blood.js?v=d85ddf7c2c';
 import { cssRGB } from './util.js?v=4c95f6eb28';
-import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=1935361261';
+import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=b08d4270b1';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=7eb5e277a6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { changedRows } from './flow-rows.js?v=59053c0155';
