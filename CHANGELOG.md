@@ -2,6 +2,8 @@
 
 ## October 2026
 
+- **Camera glides on a smoother curve, timed by how far they go.** (Combined plan M2, 31 Oct.)
+  The camera's glides (the stage and the lobule) use the quintic smoothstep instead of the quadratic in-out, so a long glide no longer catches half way. A slide's framing, a fit or a set camera now takes 480 ms for up to half a screen, then longer in proportion, up to 900 ms, and never longer than it was asked to take. Slow pushes, refits to moving cards and Reduce Motion keep their own timing. The same curves are CSS tokens (`--ease-move`, `--ease-arrive`, with `--ease` unchanged) and JS functions (`ease.js`). `?camease=0` restores the old curve and times. Code only; nobody has looked on screen.
 - **Vessel colours ease when the model changes, as the widths do.** (Combined plan M1, 31 Oct.)
   A slider's step or a model frame now recolours the lumens through the same critically damped filter the widths use (`display-state.js` `follow2`, 0.2 s), so a colour never steps. A big jump still goes through the lens crossfade, and Reduce Motion shows colours at once. A running model's own small steps (3/255 or less) are drawn at once, so a steady figure costs no extra frames. `?colfollow=0` shows the colours as the model has them, as before. Code only; nobody has looked on screen.
 - **Streaks only, at every zoom; a busy vessel reads busier.** (Combined plan B2, 31 Oct; Mohammad: "Dots suck. Keep streaks", "Without pop in and pop out tho".)

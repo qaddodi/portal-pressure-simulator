@@ -45,6 +45,8 @@ import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
 import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=5e901158f4';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 import { LIGHT } from './light.js?v=f0c4eefb81';
+import { easeMove } from './ease.js?v=daa4280c17';
+const CAM_M2 = !(typeof location !== 'undefined' && /[?&]camease=0\b/.test(location.search));
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -288,6 +290,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (ease 'in': from rest and still at speed where it lands, for a glide another move carries on from: the way out to the rise.)
   // (steady: a refit to cards that moved: timed by glideClock, so a slow frame at its start (the layout the same change set off) holds
   // the glide back a little instead of carrying it part of the way at once.)
+  // (The in-out glide on the stage camera's curve, the quintic: ease.js, combined plan M2; ?camease=0 the quadratic, as before.)
   function glideTo(to, ms = 260, cam = false, aim = null, ease = 'inOut', steady = false) {
     stopInertia();
     cancelFrame(glide); gliding = false;
@@ -298,7 +301,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (cam && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) { camMove = true; camUntil = t0 + ms + 50; el.classList.remove('lz-cam-in'); el.classList.add('lz-cam'); setTimeout(() => { if (camMove && performance.now() >= camUntil) camSettle(); }, ms + 80); } else camSettle();
     const clock = steady ? glideClock() : null;
     const step = (now) => {
-      const u = clamp((clock ? clock(now) : now - t0) / ms, 0, 1), e = ease === 'in' ? u * u : u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
+      const u = clamp((clock ? clock(now) : now - t0) / ms, 0, 1), e = ease === 'in' ? u * u : CAM_M2 ? easeMove(u) : u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
       const k = from.k * Math.pow(to.k / from.k, e), a = (k - from.k) / ((to.k - from.k) || 1);
       V.k = k; V.x = from.x + (to.x - from.x) * (to.k === from.k ? e : a); V.y = from.y + (to.y - from.y) * (to.k === from.k ? e : a);
       viewChanged();

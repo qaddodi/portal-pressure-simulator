@@ -12,6 +12,7 @@ import { fibroReading } from './clock.js?v=73bb847dde';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=b061aaaabb';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
+import { easeMove, camMs } from './ease.js?v=daa4280c17';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
@@ -2196,6 +2197,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const side = (k) => `${k > 1.35}${k > (homeAt?.k || 1) * 1.3}`;
     return side(from.k) === side(to.k) && solvedFor.sig === labelSig(F);
   }
+  // The camera's curve and its time (ease.js; combined plan M2): the quintic, with no catch half way, and a glide asked to be scaled
+  // (opt.scale: a slide's framing, a fit, a camera set) takes the time its reach on screen needs, 480 to 900 ms, never longer than
+  // asked. ?camease=0: the quadratic in-out and the times as asked, as before. (A function, read when called: easeInOut is
+  // declared further down.)
+  const CAM_M2 = !/[?&]camease=0\b/.test(location.search);
+  const camEase = (u) => (CAM_M2 ? easeMove(u) : easeInOut(u));
   // opt.steady: a refit to cards that moved (a data card tucked or untucked, a turn): timed by glideClock, so a slow frame at its start
   // (the layout and label passes the same change set off) holds it back a little instead of carrying it part of the way in one step.
   function animateVT(to, ms = 700, opt = {}) {
@@ -2210,6 +2217,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const from = { ...vt };
     let t0 = performance.now();
     if (reduceMotion.matches) ms = Math.min(ms, 300);   // (reduced motion: a short glide, never a jump)
+    else if (CAM_M2 && opt.scale && !drift && ms > 0) ms = Math.min(ms, camMs(from, to, VIEW.w));
     // Lite mode: a jump, and a move that changes the view (not a small refit) fades the figure in at its new framing.
     if (ms <= 0) {
       drifting = false;
@@ -2221,7 +2229,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (room && prev && vtGliding && performance.now() < prev.t0 + prev.ms && viewsOverlap(prev.to, to, room.vb)) {
       // A refit while an arc runs (the cards settled, the screen turned): the same arc from where it began, now to the new framing,
       // taken over gradually from here on, keeping its pace and its end time. Nothing jumps and it does not start over from rest.
-      const u = easeInOut(clamp((performance.now() - prev.t0) / prev.ms, 0, 1));
+      const u = camEase(clamp((performance.now() - prev.t0) / prev.ms, 0, 1));
       const path = camPath(prev.from, to, room.vb, room.wMax);
       at = blendPaths(prev.at, path.at, u, room.vb);
       t0 = prev.t0; ms = prev.ms;
@@ -2244,7 +2252,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // A newer glide (or a framing set outright) took over: this one stops. A glide started from inside this step's
       // frame (a refit a view change set off) left two running, and the older could land last, where nobody wanted it.
       if (vtTarget !== to) return;
-      const u = (drift ? driftEase : easeInOut)(clamp((clock ? clock(now) : now - t0) / ms, 0, 1));
+      const u = (drift ? driftEase : camEase)(clamp((clock ? clock(now) : now - t0) / ms, 0, 1));
       vt = at(u);
       applyVT(); CTM = null;
       // With the catheter in, the vessels, the catheter and its labels follow the camera in this very frame (the labels and the
@@ -2292,7 +2300,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (morphTarget !== 0) return;
     const to = boxVT(box, kMax, clear);
     if (!to || sameView(to, vtGliding ? vtTarget : vt)) return;
-    if (opt.drift) animateVT(to, ms, { drift: true }); else animateVT(to, ms, { arc: true, steady: !!opt.steady });   // (a drift never arcs)
+    if (opt.drift) animateVT(to, ms, { drift: true }); else animateVT(to, ms, { arc: true, steady: !!opt.steady, scale: !opt.steady });   // (a drift never arcs)
   }
   // Where the way out of the lobule lands when the next slide frames somewhere other than the fit: the rise itself
   // zooms straight to that framing, so there is no stop at the fit on the way. The box is asked for when the rise
@@ -2342,7 +2350,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=feb955635b').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=e7effa4f33').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -11604,7 +11612,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     carryProbe() { dpr.refitUntil = performance.now() + 300; },
     /** The presenter's card followed frame by frame: aimView(fn) (where fn's framing would go), viewNow(), follow(v0, v1), followAt(u), followEnd(), following(). */
     aimView, viewNow, follow: followStart, followAt, followEnd, following: () => following,
-    fitSlow(ms = 1300, opt = {}) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, opt.steady ? { steady: true } : undefined); },
+    fitSlow(ms = 1300, opt = {}) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, opt.steady ? { steady: true } : { scale: true }); },
     /** The same fit as a slow push (a time-lapse's lapse.cam 'fit'): see drifting. */
     fitDrift(ms) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, { drift: true }); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */
@@ -11618,7 +11626,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** A slow push can run smoothly here: the organs are drawn live on the GPU while a time-lapse changes them (otherwise every frame of
      *  a move over the live SVG drawing paints the organs again whole, as the catheter's route once did at about 1 fps). */
     canDrift: () => liveOn(),
-    setCamera(to, ms = 900) { if (lobuleOn || !to || sameView(to, vtGliding ? vtTarget : vt)) return; fitted = false; animateVT({ ...to }, ms); },
+    setCamera(to, ms = 900) { if (lobuleOn || !to || sameView(to, vtGliding ? vtTarget : vt)) return; fitted = false; animateVT({ ...to }, ms, { scale: true }); },
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),
     labelClearance: () => clearanceReport(),   // (the browser check's: see clearanceReport)

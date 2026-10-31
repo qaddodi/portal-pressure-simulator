@@ -61,8 +61,8 @@ test('the refits to cards that moved are steady: the presenter\'s, the catheter\
   assert.match(fn(presenter, 'function fitAround('), /stage\.cathFocus\(cath\.cam, ms, \{ both: true, steady: true \}\)/);
   assert.match(fn(presenter, 'function fitAround('), /\{ drift: true \} : \{ steady: true \}/);
   assert.match(fn(presenter, 'function frameTo('), /stage\.fitSlow\(ms, opt\)/, 'a whole-figure refit takes it');
-  assert.match(fn(stage, 'function frameBox('), /\{ arc: true, steady: !!opt\.steady \}/, 'and a region\'s');
-  assert.match(stage, /fitSlow\(ms = 1300, opt = \{\}\) \{[^\n]*animateVT\(to, ms, opt\.steady \? \{ steady: true \} : undefined\)/);
+  assert.match(fn(stage, 'function frameBox('), /\{ arc: true, steady: !!opt\.steady, scale: !opt\.steady \}/, 'and a region\'s');
+  assert.match(stage, /fitSlow\(ms = 1300, opt = \{\}\) \{[^\n]*animateVT\(to, ms, opt\.steady \? \{ steady: true \} : \{ scale: true \}\)/);
   assert.match(fn(stage, 'function cathFocus('), /\{ both = false, near = false, arc = false, steady = false \}/);
   assert.equal((fn(stage, 'function cathFocus(').match(/steady/g) || []).length, 3, 'a treatment\'s shots and the route\'s framing pass it on');
   assert.match(proc, /refit\(ms = 700\) \{[^\n]*stage\.cathFocus\(shot, ms, \{ steady: true \}\)/);

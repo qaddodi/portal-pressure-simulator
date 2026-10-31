@@ -67,7 +67,7 @@ test('animateVT decides the carry after the arc, and a carry rides as a slow pus
   assert.match(fn, /if \(carry\) \{ drifting = carrying = true; rideLeaders\(true\); \}\n\s+else if \(carrying\) \{ carrying = false; rideLeaders\(false\); \}/);
   assert.match(fn, /store\.get\(\)\.presenting && !drift && !carry && !sameView\(from, to\)\) \{ camMove = true;/, 'a carried move never fades the labels');
   assert.match(fn, /camSettle\(\); if \(drift \|\| carry\) driftEnd\(\); \}/, 'the landing hands the labels to the usual settle');
-  assert.match(fn, /\(drift \? driftEase : easeInOut\)/, 'its pace is the presenter\'s, not a push\'s');
+  assert.match(fn, /\(drift \? driftEase : camEase\)/, 'its pace is the presenter\'s, not a push\'s');
   assert.match(fn, /carry, zoom:/, 'the move log says which glides carried');
 });
 

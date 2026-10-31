@@ -237,7 +237,10 @@
   /* One capital-letter style (17 Oct) for tile names, the data card header, the deck tab, table heads, kickers and figure labels. */
   --caps-w: 600; --caps-ls: .06em;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
-  --ease: cubic-bezier(.2, .8, .2, 1);
+  /* One easing family (ease.js, combined plan M2): --ease-arrive for what comes in (quick off the mark, settling gently; --ease is
+     it), --ease-move for symmetric moves, the camera's quintic as a bezier (within 0.9 % of it). */
+  --ease-arrive: cubic-bezier(.2, .8, .2, 1); --ease-move: cubic-bezier(.5, 0, .5, 1);
+  --ease: var(--ease-arrive);
   /* One clock for a lens switch or a selection: the organs and vessels ease together (stage.js LENS_FADE = PLATE_FADE, an ease in and out). */
   --view-fade: .3s; --ease-io: cubic-bezier(.455, .03, .515, .955);
   --t-fast: .16s; --t: .24s;
