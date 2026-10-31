@@ -131,7 +131,7 @@ test('a coloring has one name: the Colored by menu and the pill say the same wor
   const main = src('src/ui/main.js');
   const lenses = main.slice(main.indexOf('const LENSES = {'), main.indexOf('const COLOR_MODES'));
   const modes = main.slice(main.indexOf('const COLOR_MODES = {'), main.indexOf('let stage, inspector'));
-  const a = Object.fromEntries([...lenses.matchAll(/\n  (\w+): \['([^']+)'/g)].map((m) => [m[1], m[2]]));
+  const a = Object.fromEntries([...lenses.matchAll(/\n {2}(\w+): \['([^']+)'/g)].map((m) => [m[1], m[2]]));
   const b = Object.fromEntries([...modes.matchAll(/(\w+): '([^']+)'/g)].map((m) => [m[1], m[2]]));
   assert.ok(Object.keys(a).length >= 9);
   assert.deepEqual(a, b);
