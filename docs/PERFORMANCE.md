@@ -20,6 +20,11 @@ What changed:
   canvas, which keeps none (no `preserveDrawingBuffer`; `?vesselbuf=keep` goes back). Anything that
   reads the canvas outside the frame that drew it calls `capture()` first. The per-frame CPU work is a
   few floats per vessel.
+- **A pan copies nothing, and the vessel layer is only as large as the figure.** The layer wraps round
+  at its edges: a pan moves the wrap and draws only the strips it uncovers. On an axis where the
+  figure takes less than the picture, the layer is the figure's extent and a quarter more (rounded up to
+  64 px), and it follows the figure, so a pan along that axis draws nothing at all. Pixels outside it
+  read as empty, as the layer's own cleared pixels. Checked texel by texel in `tests/veins-wrap.test.js`.
 - **Only the vessels that changed are redrawn.** When a model frame changes only some vessels'
   attributes (the pulse moving a few colours), `drawRows` in `veins-gl.js` redraws only those
   vessels' cells, to the same picture pixel for pixel; anything else the vessel pass reads (view,

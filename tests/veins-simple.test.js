@@ -201,9 +201,17 @@ test('a whole draw draws each simple cell with the one-vessel build and every ot
   assert.equal(seq.filter((c) => c[0] === 'drawBuffers' && c[1][2] === f.gl.NONE).length, 1, 'only around that draw');
   assert.equal(d.find((x) => x.simple).count, want);
   assert.equal(d.find((x) => !x.simple).count, bins.nCells - want);
-  // A pan by whole pixels: the uncovered strips are drawn by both programs, over the same split.
-  const n1 = f.calls.length;
-  g.draw([1, 0, 0, 1, 9, -4], look, { on: false });
+  // A pan by whole pixels along an axis where the figure is smaller than the picture: the layer's window follows it, and nothing
+  // is drawn.
+  const fol = g.layerLayout.follows;
+  assert.ok(fol[0] || fol[1], 'the figure smaller than the picture on an axis');
+  let n1 = f.calls.length;
+  g.draw(fol[0] ? [1, 0, 0, 1, 9, 0] : [1, 0, 0, 1, 0, -4], look, { on: false });
+  assert.equal(vesselDraws(f, n1).length, 0, 'the figure fits: no strip');
+  // Zoomed in until it is larger than the picture: the uncovered strips are drawn by both programs, over the same split.
+  g.draw([6, 0, 0, 6, 0, 0], look, { on: false });
+  n1 = f.calls.length;
+  g.draw([6, 0, 0, 6, 9, -4], look, { on: false });
   const strips = vesselDraws(f, n1);
   assert.ok(strips.length >= 2 && strips.every((x) => x.count === (x.simple ? want : bins.nCells - want)));
 });

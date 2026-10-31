@@ -74,7 +74,7 @@ test('the vessel shader marks the pixels a lumen colour reaches, and a colour-on
 function fakeGL() {
   const calls = [], enums = new Map();
   let nextObj = 1;
-  const UNIFORMS = ['tint', 'redraw', 'depL', 'world'];
+  const UNIFORMS = ['tint', 'redraw', 'depL', 'world', 'lWrap'];
   const gl = new Proxy({}, {
     get(_, k) {
       if (typeof k !== 'string') return undefined;
@@ -206,9 +206,11 @@ test('a pan while colours change moves the layer and recolours, and the mark mov
   g.draw([1, 0, 0, 1, 12, -7], look, { on: false }, [0]);
   const c = calls.slice(n0);
   // (The layer wraps, 31 Oct: colour, flow, joined flow and the mark stay in their texels, and the wrap moves by the pan, 12 px right
-  // and 7 up on a 960 × 640 layer: a screen pixel s is held at s + (948, 7), y down; GL's rows run up, so 640 − 7 there.)
+  // and 7 up on a 960 × 640 layer (the figure takes the whole picture, so the layer is the picture's): a screen pixel s is held at
+  // s + (948, 7), y down.)
+  assert.deepEqual(g.layerLayout, { size: [960, 640], at: [0, 0], wrap: [948, 7], follows: [false, false] });
   assert.equal(c.filter((x) => x[0] === 'blitFramebuffer').length, 0, 'nothing copied');
-  assert.ok(c.some((x) => x[0] === 'uniform2i' && x[2] === 948 && x[3] === 633), 'the composite reads through the moved wrap');
+  assert.ok(c.some((x) => x[0] === 'uniform2i' && x[1]?.uniform === 'lWrap' && x[2] === 948 && x[3] === 7), 'the composite reads through the moved wrap');
   assert.ok(g.tintCells - t0 > 0, 'the moved layer is recoloured');
   assert.ok(passes(calls, gl, n0).some((p) => p.tint === 1));
 });

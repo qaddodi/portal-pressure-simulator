@@ -111,7 +111,7 @@ test('a frame where only the blood moved leaves the pixels with no lumen as draw
   // (Mohammad's Mac at rest, zoom 4.24, 21 Oct: the blood squares' other pixels were most of each frame's GPU work.)
   const main = gl.slice(gl.indexOf('void main() {\n  ivec2 ip = ivec2(gl_FragCoord.xy);\n  // (The vessel layer\'s texel'));
   // The lumen test comes first, before the plate, glows and fluid are read, and is the same lumen the blood, dye and origin need.
-  assert.match(main, /^void main\(\) \{\n {2}ivec2 ip = ivec2\(gl_FragCoord\.xy\);\n {2}\/\/ \(The vessel layer's texel[^\n]*\n {2}ivec2 lp = ip \+ lWrap;\n {2}if \(lWrap\.x > 0 && lp\.x >= lSize\.x\) lp\.x -= lSize\.x;\n {2}if \(lWrap\.y > 0 && lp\.y >= lSize\.y\) lp\.y -= lSize\.y;\n {2}uvec4 g = texelFetch\(gbuf, lp, 0\);\n(?: {2}\/\/.*\n)+ {2}if \(bloodOnly == 1 && g\.x == 0u\) discard;\n/);
+  assert.match(main, /^void main\(\) \{\n {2}ivec2 ip = ivec2\(gl_FragCoord\.xy\);\n(?: {2}\/\/.*\n)+ {2}ivec2 rel = ivec2\(ip\.x, lH - 1 - ip\.y\) - lA;\n {2}bool inL = rel\.x >= 0 && rel\.y >= 0 && rel\.x < lSize\.x && rel\.y < lSize\.y;\n {2}ivec2 lt = rel \+ lWrap;\n {2}if \(lt\.x >= lSize\.x\) lt\.x -= lSize\.x;\n {2}if \(lt\.y >= lSize\.y\) lt\.y -= lSize\.y;\n {2}ivec2 lp = ivec2\(lt\.x, lSize\.y - 1 - lt\.y\);\n {2}uvec4 g = \(inL \? texelFetch\(gbuf, lp, 0\) : uvec4\(0u\)\);\n(?: {2}\/\/.*\n)+ {2}if \(bloodOnly == 1 && g\.x == 0u\) discard;\n/);
   assert.match(main, /float vis = g\.x > 0u \?/);
   assert.match(main, /\(vis > 0\.005 \|\| \(dyeOn == 1 && g\.x > 0u\)\)/);
   assert.equal((main.match(/uvec4 g = /g) || []).length, 1);

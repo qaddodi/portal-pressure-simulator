@@ -50,6 +50,9 @@ function renderer() {
 }
 const binds = (f, n0) => f.calls.slice(n0).filter((c) => c[0] === 'bindFramebuffer');
 const viewports = (f, n0) => f.calls.slice(n0).filter((c) => c[0] === 'viewport').map((c) => c.slice(1));
+// (A pass at the picture's size, or into the vessel layer at its own: since 31 Oct the layer is as large as the figure where that is
+// less than the picture, here 64 px steps across the two vessels' cells.)
+const at = (g, [x, y, w, h], W, H) => x === 0 && y === 0 && ((w === W && h === H) || (w === g.layerLayout.size[0] && h === g.layerLayout.size[1]));
 
 test('off: no buffer of its own, the picture drawn on the canvas at its size, nothing copied or upscaled', () => {
   const { g, f, look } = renderer();
@@ -57,7 +60,9 @@ test('off: no buffer of its own, the picture drawn on the canvas at its size, no
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
   assert.equal(f.calls.slice(n0).filter((c) => c[0] === 'blitFramebuffer').length, 0);
   assert.deepEqual(binds(f, n0).at(-1), ['bindFramebuffer', f.gl.FRAMEBUFFER, null]);
-  assert.ok(viewports(f, n0).every(([x, y, w, h]) => x === 0 && y === 0 && w === 800 && h === 600), 'every pass at the canvas size');
+  assert.ok(g.layerLayout.size[1] < 600 && g.layerLayout.size[1] % 64 === 0, 'the layer as tall as the figure');
+  assert.ok(viewports(f, n0).every((v) => at(g, v, 800, 600)), 'every pass at the canvas size, or the layer\'s');
+  assert.ok(viewports(f, n0).some(([, , w, h]) => w === 800 && h === 600));
   assert.deepEqual(g.picSize(), [800, 600]);
   g.setPicture(null); g.setPicture([800, 600]);   // (the canvas's own size: the same as off)
   assert.deepEqual(g.picSize(), [800, 600]);
@@ -71,7 +76,8 @@ test('on: every pass at the picture\'s size into its own buffer, then one pass o
   g.draw([0.5, 0, 0, 0.5, 0, 0], look, { on: false });
   const vp = viewports(f, n0);
   assert.deepEqual(vp.at(-1), [0, 0, 800, 600], 'the last pass covers the canvas');
-  assert.ok(vp.slice(0, -1).every(([, , w, h]) => w === 400 && h === 300), 'the rest at the picture\'s size');
+  assert.ok(vp.slice(0, -1).every((v) => at(g, v, 400, 300)), 'the rest at the picture\'s size, or the layer\'s');
+  assert.ok(vp.slice(0, -1).some(([, , w, h]) => w === 400 && h === 300));
   // (The own buffer made at the picture's size; the upscale reads it, filtered, and draws onto the canvas.)
   assert.ok(f.calls.slice(n0).some((c) => c[0] === 'texImage2D' && c[4] === 400 && c[5] === 300 && c[3] === f.gl.RGBA8));
   const last = f.calls.slice(n0).map((c) => c[0]);
@@ -97,7 +103,7 @@ test('off again: the buffer is given back and the picture goes on the canvas dir
   assert.ok(del.includes('deleteTexture') && del.includes('deleteFramebuffer'));
   const n1 = f.calls.length;
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
-  assert.ok(viewports(f, n1).every(([, , w, h]) => w === 800 && h === 600));
+  assert.ok(viewports(f, n1).every((v) => at(g, v, 800, 600)));
   assert.deepEqual(binds(f, n1).at(-1), ['bindFramebuffer', f.gl.FRAMEBUFFER, null]);
 });
 

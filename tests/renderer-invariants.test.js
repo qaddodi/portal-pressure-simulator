@@ -138,8 +138,11 @@ test('capture() hands exports the canvas with the whole current picture; the gla
 test('the vessel layer\'s second-lumen target is bounded: given back to a texel while the picture is not shown, and a pan makes no copy of it', async () => {
   const { g, f, look } = await renderer();
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
-  const big = f.calls.filter((c) => c[0] === 'texImage2D' && c[2] === 0 && c[3] === f.gl.RGBA16UI && c[4] === 800 && c[5] === 600);
-  assert.ok(big.length >= 2, 'the integer layers were allocated at the canvas size');
+  // (At the layer's size: the canvas's, or less on an axis where the figure takes less, 31 Oct.)
+  const [LW, LH] = g.layerLayout.size;
+  assert.ok(LW <= 800 && LH <= 600);
+  const big = f.calls.filter((c) => c[0] === 'texImage2D' && c[2] === 0 && c[3] === f.gl.RGBA16UI && c[4] === LW && c[5] === LH);
+  assert.ok(big.length >= 2, 'the integer layers were allocated at the layer\'s size');
   const n = f.calls.length;
   g.trim();
   const small = f.calls.slice(n).filter((c) => c[0] === 'texImage2D' && c[3] === f.gl.RGBA16UI && c[4] === 1 && c[5] === 1);
@@ -148,6 +151,6 @@ test('the vessel layer\'s second-lumen target is bounded: given back to a texel 
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
   const n2 = f.calls.length;
   g.draw([1, 0, 0, 1, 9, 4], look, { on: false });
-  assert.equal(f.calls.slice(n2).filter((c) => c[0] === 'texImage2D' && c[4] === 800 && c[5] === 600).length, 0, 'nothing allocated for a pan');
+  assert.equal(f.calls.slice(n2).filter((c) => c[0] === 'texImage2D' && c[4] > 1 && c[5] > 1).length, 0, 'nothing allocated for a pan');
   assert.doesNotMatch(read('../src/ui/veins-gl.js'), /\bspare\b/);
 });
