@@ -28,7 +28,7 @@ function defs(m, eng) {
     { id: 'CSPH', on: m.hvpg >= HVPG_CUTS.red, off: m.hvpg < HVPG_CUTS.red - 0.5, severity: 'danger', anchor: 'SIN_R',
       title: 'Clinically significant portal hypertension', detail: 'HVPG ≥ 10 mmHg (in cirrhosis): collaterals and varices can develop.' },
     { id: 'BLEED_RISK', on: m.hvpg >= HVPG_CUTS.bleed, off: m.hvpg < HVPG_CUTS.bleed - 0.5, severity: 'danger', anchor: 'VAR',
-      title: 'HVPG ≥ 12 mmHg', detail: 'Bleeding becomes more likely at higher gradients, but 12 is not a threshold: varices can bleed below it.' },
+      title: 'Bleeding more likely', detail: 'HVPG ≥ 12 mmHg. The risk rises with the gradient, but 12 is not a threshold: varices can bleed below it.' },
     { id: 'VARIX_LARGE', on: m.varix.d >= 5, off: m.varix.d < 4.5, severity: 'caution', anchor: 'VAR',
       title: 'Large esophageal varices', detail: 'Diameter ≥ 5 mm: high-risk varices.' },
     { id: 'RED_WALE', on: m.varix.ratioMean > 0.7, off: m.varix.ratioMean < 0.65, severity: 'danger', anchor: 'VAR',
@@ -49,8 +49,8 @@ function defs(m, eng) {
       title: 'Elevated right atrial pressure', detail: 'Venous congestion is transmitted backward into the liver.' },
     { id: 'SPLENOMEGALY', on: m.spleen.length > 13, off: m.spleen.length < 12.7, severity: 'info', anchor: 'SPL',
       title: 'Splenomegaly', detail: 'Congested spleen sequesters platelets (hypersplenism).' },
-    { id: 'SHOCK_2', on: m.blood.shock >= 2, off: m.blood.shock < 2, severity: 'danger', anchor: 'RA', title: 'Hemorrhagic shock class II', detail: '15–30 % blood volume lost.' },
-    { id: 'SHOCK_3', on: m.blood.shock >= 3, off: m.blood.shock < 3, severity: 'critical', anchor: 'RA', title: 'Hemorrhagic shock class III', detail: '30–40 % blood volume lost.' },
+    { id: 'SHOCK_2', on: m.blood.shock >= 2, off: m.blood.shock < 2, severity: 'danger', anchor: 'RA', title: 'Hemorrhagic shock class II', detail: '15–30% blood volume lost.' },
+    { id: 'SHOCK_3', on: m.blood.shock >= 3, off: m.blood.shock < 3, severity: 'critical', anchor: 'RA', title: 'Hemorrhagic shock class III', detail: '30–40% blood volume lost.' },
   ];
   for (const [id, [name, anchor]] of Object.entries(COLLATERAL_NAMES)) {
     const f = id === 'C2' ? Math.max(0, Qf('C2')) : Math.max(0, Qf(id));

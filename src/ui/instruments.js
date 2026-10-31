@@ -2,11 +2,11 @@
 // varix cross-section, abdomen.
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { gastricUp } from '../engine/scenario.js?v=0b6dfcc7c5';
+import { gastricUp } from '../engine/scenario.js?v=10a51806f7';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
 import { pressureColor } from './colormap.js?v=88bc8501e6';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=4c95f6eb28';
-import { simTime, isPaused } from './clock.js?v=5f8b1a7998';
+import { simTime, isPaused } from './clock.js?v=e89e2ea29a';
 import { createEndoGL } from './endo-gl.js?v=8197e983fe';
 import { renderEndo } from './endo-render.js?v=7105cc3a19';
 import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';

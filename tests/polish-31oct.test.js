@@ -150,7 +150,7 @@ test('the Guide lists every key the figure answers: dye, zoom, color lens, undo,
 test('a percentage is "75%" everywhere a person reads it: the cards, the Why bars, the toasts and the timeline match the figure and the slides', () => {
   for (const f of ['src/ui/actions.js', 'src/ui/inspector.js', 'src/ui/about.js', 'src/ui/tool-lumen.js', 'src/ui/instruments.js', 'src/ui/chart.js', 'src/engine/explain.js', 'src/engine/events.js']) {
     const code = src(f).split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
-    assert.doesNotMatch(code, /(\d|\}|\)) %(?=['"`.,:;)\]]| (of|stays|compensated|CSPH|decompensated)\b)/, `${f}: a space before the percent sign`);
+    assert.doesNotMatch(code, /(\d|\}|\)) %(?=['"`.,:;)\]]| (of|stays|compensated|CSPH|decompensated|blood)\b)/, `${f}: a space before the percent sign`);
   }
   assert.match(src('src/ui/actions.js'), /const pct = \(v\) => `\$\{Math\.round\(v \* 100\)\}%`;/);
   assert.match(src('src/ui/inspector.js'), /sub: '40% compensated · 60% CSPH · 85% decompensated'/);
@@ -190,4 +190,20 @@ test('where pressure is lost is "resistance", never a "block" (cards, About and 
   assert.doesNotMatch(src('src/ui/inspector.js'), /Blocked in schistosomiasis/);
   assert.match(src('src/ui/actions.js'), /makes the resistance post-sinusoidal/);
   assert.doesNotMatch(src('src/ui/about.js'), /when the IVC is blocked|hepatic veins are blocked/);
+});
+
+test('the bleed-risk event is named for what it means, not as a threshold (12 is not a cut-off; the number sits in its line)', () => {
+  const ev = src('src/engine/events.js');
+  assert.match(ev, /title: 'Bleeding more likely', detail: 'HVPG ≥ 12 mmHg\. The risk rises with the gradient, but 12 is not a threshold/);
+  assert.doesNotMatch(ev, /title: 'HVPG ≥ 12 mmHg'/);
+  assert.match(ev, /15–30% blood volume lost/);
+});
+
+test('the Patients menu groups say Pre-hepatic and Post-hepatic as the slides do, and every group has its "where" line', () => {
+  const sc = src('src/engine/scenario.js'), menu = src('src/ui/menu.js');
+  const groups = [...new Set([...sc.matchAll(/group: '([^']+)'/g)].map((m) => m[1]))];
+  assert.ok(groups.includes('Pre-hepatic') && groups.includes('Post-hepatic'));
+  assert.ok(!groups.includes('Prehepatic') && !groups.includes('Posthepatic'));
+  const where = menu.match(/const GROUP_WHERE = \{[^\n]*\};/)[0];
+  for (const g of groups) assert.ok(where.includes(/^\w+$/.test(g) ? `${g}:` : `'${g}':`), `${g} has a line in GROUP_WHERE`);
 });

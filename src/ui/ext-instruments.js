@@ -15,8 +15,8 @@
 //   tool: { kind: 'doppler', pair: true }            V29: the right hepatic vein's trace under the portal vein's (or the main
 //                                                    portal vein's under a hepatic vein's), beat for beat
 
-import { createLumen, lumenName } from './tool-lumen.js?v=6b6b7f5b51';
-import { createFluid } from './tool-fluid.js?v=81aaa0b0c2';
+import { createLumen, lumenName } from './tool-lumen.js?v=cf9be1a71c';
+import { createFluid } from './tool-fluid.js?v=6497bd3177';
 
 export default {
   tools: {

@@ -2,7 +2,7 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js?v=7e587ef608';
+import { store, updateParams } from './store.js?v=c2a9c76ba5';
 import { h, svgIcon, toast, afterExit, visibleBottom } from './util.js?v=4c95f6eb28';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=0b6dfcc7c5';
@@ -24,7 +24,7 @@ export function createPalette({ ctx }) {
     const cmds = [];
     const add = (group, title, run, { kw = '', num = null, hint = '' } = {}) => cmds.push({ group, title, run, kw: norm(title + ' ' + kw), num, hint });
     // Parameters with a number
-    add('Change', 'Cirrhosis', (n) => updateParams((p) => { p.cirrhosis = Math.min(1, Math.max(0, (n ?? 60) / 100)); return p; }, { label: 'Cirrhosis' }), { num: '%', kw: 'liver fibrosis', hint: 'cirrhosis 60 → 60 %' });
+    add('Change', 'Cirrhosis', (n) => updateParams((p) => { p.cirrhosis = Math.min(1, Math.max(0, (n ?? 60) / 100)); return p; }, { label: 'Cirrhosis' }), { num: '%', kw: 'liver fibrosis', hint: 'cirrhosis 60 → 60%' });
     add('Treat', 'TIPS', (n) => updateParams({ tips: { on: true, d: Math.min(12, Math.max(6, n ?? 8)) } }, { label: 'TIPS' }), { num: 'mm', kw: 'stent shunt transjugular', hint: 'tips 8 → an 8 mm stent' });
     add('Treat', 'Remove TIPS', () => updateParams({ tips: { on: false } }, { label: 'Remove TIPS' }), { kw: 'take down' });
     add('Treat', 'DIPS', (n) => updateParams({ dips: { on: true, d: Math.min(12, Math.max(6, n ?? 8)) } }, { label: 'DIPS' }), { num: 'mm', kw: 'stent shunt direct intrahepatic caudate budd chiari', hint: 'dips 8 → an 8 mm stent' });

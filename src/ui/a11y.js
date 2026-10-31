@@ -2,7 +2,7 @@
 //
 // The figure's accessible description is kept current with a one-line reading of the patient.
 
-import { store, hiddenNow } from './store.js?v=7e587ef608';
+import { store, hiddenNow } from './store.js?v=c2a9c76ba5';
 import { fmt } from './util.js?v=4c95f6eb28';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { judgeFlow } from './velNormal.js?v=97920ddf3f';
