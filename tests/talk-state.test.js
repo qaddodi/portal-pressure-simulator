@@ -60,7 +60,7 @@ test('a card drag or fold cut short by a second finger goes on to where it was h
   assert.match(pres, /if \(e\.touches\.length > 1\) \{ abort\(\); return; \}/);
   assert.match(pres, /if \(g\?\.on\) \{ const gg = g; g = null; settle\(gg, gg\.shown\); return; \}/);
   assert.match(main, /if \(e\.pointerType === 'mouse' && !\(e\.buttons & 1\)\) \{ end\(e\); return; \}/);
-  assert.match(main, /addEventListener\('lostpointercapture', end\)/);
+  assert.match(main, /addEventListener\('lostpointercapture', \(e\) => \{ if \(e\.target === el\) end\(e\); \}\)/, 'only the sheet\'s own lost capture ends the drag, not a child\'s');
 });
 
 test('a ?script=test- link waits once for the test deck, then says it was not found; a talk\'s link is dropped when it ends', () => {

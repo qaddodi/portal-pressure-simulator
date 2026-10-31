@@ -4,9 +4,9 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=3611054974';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=36b144feb3';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=4c95f6eb28';
 import { releaseSpeed, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
-import { cardFor, normalizeSel } from './actions.js?v=99aaa2713c';
+import { cardFor, normalizeSel } from './actions.js?v=2ab484a8da';
 import { frameFor, cancelFrame } from './frame.js?v=6a53e5fc6e';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
@@ -325,7 +325,8 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       let pressed = false;
       const up = () => { if (pressed) { pressed = false; v.release(); } };
       b.addEventListener('pointerdown', (e) => { if (e.button > 0) return; pressed = true; b.setPointerCapture?.(e.pointerId); v.run({ hold: true }); });
-      for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(t, up);
+      for (const t of ['pointerup', 'pointercancel']) b.addEventListener(t, up);
+      b.addEventListener('lostpointercapture', (e) => { if (e.target === b) up(); });   // (a child's lost capture, a touch handing it to the button, is not the end of the press)
       b.addEventListener('click', (e) => { if (e.detail === 0) v.run({}); });   // keyboard
       b.addEventListener('contextmenu', (e) => e.preventDefault());
       live.push(() => {

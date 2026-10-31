@@ -656,7 +656,8 @@ export function closeModal() {
   clearTimeout(modalLeaveT); modalLeaveT = setTimeout(() => back.classList.remove('leaving'), 220);
   const appEl = document.getElementById('app'); if (appEl) appEl.inert = false;
   const back0 = modalReturn?.isConnected ? modalReturn : document.getElementById('btnMenu');
-  if (back0?.offsetParent) back0.focus?.({ preventScroll: true });
+  // (Shown, by its own boxes: offsetParent is missing on an SVG element and null on a fixed one, so a vessel or a fixed bar never got its focus back.)
+  if (back0 && (back0.checkVisibility ? back0.checkVisibility({ checkVisibilityCSS: true }) : back0.getClientRects().length > 0)) back0.focus?.({ preventScroll: true });
 }
 export const isModalOpen = () => document.getElementById('modalBack').classList.contains('show');
 

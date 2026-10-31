@@ -54,3 +54,34 @@ test('the figure is measured again when the window moves to a screen of another 
   assert.match(s, /const watchDensity = \(\) => matchMedia\(`\(resolution: \$\{devicePixelRatio\}dppx\)`\)\.addEventListener\?\.\('change', \(\) => \{ resizeCanvas\(\); watchDensity\(\); \}, \{ once: true \}\);/);
   assert.ok(s.indexOf('watchDensity();') > s.indexOf('resizeCanvas(); resizeReady = true;'), 'after the first measure');
 });
+
+// ── Second review pass (31 Oct) ──
+import { controlOwnsKey, setKeyboardNav, KEY_OWNERS } from '../src/ui/key-owner.js';
+
+test('after a click the talk keeps Space even if the browser now reports the control as :focus-visible; a Tab gives it back', () => {
+  const btn = { matches: (q) => q === ':focus-visible' || q === KEY_OWNERS };
+  setKeyboardNav(true);
+  assert.equal(controlOwnsKey(btn, ' '), true);
+  setKeyboardNav(false);   // (what a pointerdown does)
+  assert.equal(controlOwnsKey(btn, ' '), false, 'clicked: Space is the clicker\'s next slide');
+  assert.equal(controlOwnsKey(btn, 'Enter'), false);
+  setKeyboardNav(true);    // (what a Tab does)
+  assert.equal(controlOwnsKey(btn, 'Enter'), true);
+  const k = read('src/ui/key-owner.js');
+  assert.match(k, /addEventListener\('pointerdown', \(\) => \{ keyboardNav = false; \}, true\)/);
+  assert.match(k, /if \(e\.key === 'Tab'\) keyboardNav = true;/);
+});
+
+test('review fixes: a child\'s lost capture does not end a sheet drag or a dye press; hidden hit paths get no tab stop; focus returns to SVG and fixed elements; the Why card keeps focus when its answer lands and leaves Search\'s Esc to Search', () => {
+  const card = read('src/ui/card.js');
+  assert.match(card, /b\.addEventListener\('lostpointercapture', \(e\) => \{ if \(e\.target === b\) up\(\); \}\)/);
+  const util = read('src/ui/util.js');
+  const close = util.slice(util.indexOf('export function closeModal()'), util.indexOf('export const isModalOpen'));
+  assert.ok(!/back0\?\.offsetParent/.test(close), 'offsetParent is absent on SVG elements and null on fixed ones');
+  assert.match(close, /back0\.checkVisibility \? back0\.checkVisibility\(\{ checkVisibilityCSS: true \}\) : back0\.getClientRects\(\)\.length > 0/);
+  const why = read('src/ui/why.js');
+  assert.match(why, /function swap\(\.\.\.kids\) \{\s*const had = pop\.contains\(document\.activeElement\);\s*pop\.replaceChildren\(\.\.\.kids\);\s*if \(had\) pop\.querySelector\('button'\)\?\.focus\(\{ preventScroll: true \}\);/);
+  const open = why.slice(why.indexOf('async function open('), why.indexOf('// It fades out as it came in'));
+  assert.equal((open.match(/replaceChildren/g) || []).length, 1, 'only the waiting state is set directly; the answer and the error go through swap');
+  assert.match(why, /e\.key === 'Escape' && pop\.classList\.contains\('show'\) && !e\.target\.closest\?\.\('\.pal-back'\)/);
+});

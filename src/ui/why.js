@@ -1,7 +1,7 @@
 // "Why?" popover (blueprint §9.3): one causal sentence, a contribution waterfall and the formula.
 
 import { host } from './host.js?v=e9bd6a00e5';
-import { h, fmt, svgIcon, visibleBottom, settleFrom, announce } from './util.js?v=36b144feb3';
+import { h, fmt, svgIcon, visibleBottom, settleFrom, announce } from './util.js?v=4c95f6eb28';
 import { D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=615d96d663';
 
 export function createWhy(pop) {
@@ -19,6 +19,12 @@ export function createWhy(pop) {
     settleFrom(pop, r, x, top);
   }
   const head = (title) => h('header', {}, h('h3', {}, svgIcon('bulb'), title), h('button', { class: 'ib', 'aria-label': 'Close', onclick: close }, svgIcon('close')));
+  // (The card's content replaced: focus that was on its Close button, the keyboard's way in, goes to the new one, not to the page.)
+  function swap(...kids) {
+    const had = pop.contains(document.activeElement);
+    pop.replaceChildren(...kids);
+    if (had) pop.querySelector('button')?.focus({ preventScroll: true });
+  }
   async function open(metric, anchor) {
     if (openFor === metric && pop.classList.contains('show')) { close(); return; }
     openFor = metric; anchorEl = anchor;
@@ -30,7 +36,7 @@ export function createWhy(pop) {
     if (anchor.matches?.(':focus-visible')) pop.querySelector('button')?.focus({ preventScroll: true });
     let r = null;
     try { ({ result: r } = await host.request('explain', { metric })); }
-    catch { if (openFor === metric) pop.replaceChildren(head('Why?'), h('div', { class: 'sub' }, 'The model could not work this out right now.')); return; }
+    catch { if (openFor === metric) swap(head('Why?'), h('div', { class: 'sub' }, 'The model could not work this out right now.')); return; }
     if (openFor !== metric || !r) return;
     announce(`${r.label}. ${r.sentence}`);
     const maxAbs = Math.max(1e-6, ...r.contributions.map((c) => Math.abs(c.delta)), Math.abs(r.total));
@@ -48,7 +54,7 @@ export function createWhy(pop) {
       const bar = h('div', { class: 'wf-bar' }, h('i', { style: { left: c.delta >= 0 ? '50%' : `${50 - wpct}%`, width: `${Math.max(1, wpct)}%`, background: c.other ? 'var(--text-3)' : c.delta >= 0 ? 'var(--danger)' : 'var(--accent)' } }));
       return h('div', { class: 'wf-row' }, h('span', { class: 'lab', title: c.label }, short(c.label)), bar, h('span', { class: 'val' }, (c.delta >= 0 ? '+' : '−') + fmt(Math.abs(c.delta), r.digits)));
     });
-    pop.replaceChildren(
+    swap(
       head(r.label),
       h('div', { class: 'sentence' }, r.sentence),
       rows.length ? h('div', { class: 'waterfall' }, h('div', { class: 'overline', style: { marginBottom: '2px' } }, `Contribution of each change · ${r.unit}`), ...rows,
@@ -73,8 +79,8 @@ export function createWhy(pop) {
     }
     openFor = null; anchorEl?.focus?.({ preventScroll: true }); anchorEl = null;
   }
-  // (Capture: one Esc closes this card and only this card; the page's own Esc, which clears the selection it was opened from, does not also run.)
-  addEventListener('keydown', (e) => { if (e.key === 'Escape' && pop.classList.contains('show')) { e.preventDefault(); e.stopPropagation(); close(); } }, true);
+  // (Capture: one Esc closes this card and only this card; the page's own Esc, which clears the selection it was opened from, does not also run. Not while Search has the key: its Esc is the one that counts.)
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && pop.classList.contains('show') && !e.target.closest?.('.pal-back')) { e.preventDefault(); e.stopPropagation(); close(); } }, true);
   addEventListener('pointerdown', (e) => { if (pop.classList.contains('show') && !pop.contains(e.target) && !e.target.closest('.metric, .finding, .vital, .btn, .link')) close(); });
   return { open, close };
 }

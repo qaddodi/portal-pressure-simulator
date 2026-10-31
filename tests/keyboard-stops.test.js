@@ -14,7 +14,7 @@ test('the figure\'s vessels, organ keys and labels are Tab stops only while keyS
   assert.match(s, /class: 'org-key'[^\n]*tabindex: keyStops \? 0 : -1/);
   assert.match(s, /g\.setAttribute\('tabindex', keyStops \? '0' : '-1'\)/);
   const set = s.slice(s.indexOf('setKeyStops: (on) =>'), s.indexOf('/** Where a station\'s callout attaches'));
-  assert.match(set, /querySelectorAll\('\.v-hit, \.org-key'\)/, 'every vessel and organ key already drawn is switched');
+  assert.match(set, /querySelectorAll\('\.v-hit\[tabindex\], \.org-key\[tabindex\]'\)/, 'every vessel and organ key already drawn that is a stop is switched, and the hidden extra hit paths are left alone');
   assert.match(set, /pool\.values\(\)/, 'and every label already drawn');
   assert.match(set, /keyStops && !b\.hid \? '0' : '-1'/, 'a hidden label stays out when the talk ends');
 });
