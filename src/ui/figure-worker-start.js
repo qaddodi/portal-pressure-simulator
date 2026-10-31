@@ -17,7 +17,7 @@ export function figureSettings() {
 
 export const figWorkerWanted = () => /[?&]figworker=on\b/.test(location.search);
 
-export function startFigureWorker(canvas, { tubes, make = () => new Worker(new URL('./figure-worker.js?v=4e2d17e309', import.meta.url), { type: 'module' }) }) {
+export function startFigureWorker(canvas, { tubes, make = () => new Worker(new URL('./figure-worker.js?v=88f0cc5e38', import.meta.url), { type: 'module' }) }) {
   if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || typeof canvas.transferControlToOffscreen !== 'function') return Promise.resolve(null);
   return new Promise((res) => {
     let w = null, proxy = null, done = false;
