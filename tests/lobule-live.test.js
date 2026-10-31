@@ -18,9 +18,9 @@ const shape = { R, cx, cy, lobules: [{ x: cx, y: cy, corners }], cells };
 test('only a state the shader draws whole is drawn live', () => {
   const m = { congU: 0.6, septU: 0, fibSin: 0, act: 0, fibPre: 0, fibPost: 0 };
   assert.equal(liveEligible(m), true, 'congestion and zones are in');
-  for (const k of ['septU', 'fibSin', 'act', 'fibPre', 'fibPost']) assert.equal(liveEligible({ ...m, [k]: 0.5 }), false, k);
-  assert.equal(liveEligible({ ...m, fibSin: 0.05 }), true, 'the bitmap\'s own thresholds: 0.05, 0.08, 0.03, 0.05');
-  assert.equal(liveEligible({ ...m, act: 0.08, fibPre: 0.03, fibPost: 0.05 }), true);
+  for (const k of ['septU', 'fibPre', 'fibPost']) assert.equal(liveEligible({ ...m, [k]: 0.5 }), false, k);
+  for (const k of ['fibSin', 'act']) assert.equal(liveEligible({ ...m, [k]: 0.9 }), true, `${k}: drawn by the shader now`);
+  assert.equal(liveEligible({ ...m, fibPre: 0.03, fibPost: 0.05 }), true, 'the bitmap\'s own thresholds: 0.03, 0.05');
 });
 
 test('the shader\'s share grows with the cell\'s size on screen: none under 3.5 px, whole from 6', () => {
@@ -34,7 +34,7 @@ test('every bin lists the cells that can reach it, in drawing order, in any stat
   const D = buildLive(shape);
   const [bx, by] = D.box;
   assert.equal(D.nb, Math.ceil(2.6 * R / BIN));
-  const listOf = (i, j) => { const o = D.bins[(j * D.nb + i) * 2], n = D.bins[(j * D.nb + i) * 2 + 1]; return Array.from(D.idx.slice(o, o + n)); };
+  const listOf = (i, j) => { const o = D.bins[(j * D.nb + i) * 4], n = D.bins[(j * D.nb + i) * 4 + 1]; return Array.from(D.idx.slice(o, o + n)); };
   for (let i = 0; i < D.nb; i++) for (let j = 0; j < D.nb; j++) {
     const l = listOf(i, j);
     assert.deepEqual(l, [...l].sort((p, q) => p - q), 'drawing order');
@@ -79,4 +79,21 @@ test('the shader follows paintLobule\'s order and numbers, and the bitmap path i
   assert.match(gl, /vec3 c0 = c;\n\s+if \(w\.x >= 0\.0/, 'the surround before the bitmap');
   assert.match(gl, /\} else gl\.uniform1f\(U\.uLive, 0\);/, 'no share, no live lookups: the picture as before');
   assert.doesNotMatch(live, /\btexture\(/, 'only texelFetch: no implicit derivatives in the live lookups');
+});
+
+test('the sinusoids\' segments are binned tube by tube, and the per-state texels hold their radii then the stellate cells', async () => {
+  const { buildDyn, liveFibre, SEG_ROW } = await import('../src/ui/lobule-live.js');
+  const sin = [0, 1, 2].map((t) => ({ pts: [0, 1, 2, 3].map((i) => [cx - 60 + i * 30, cy + t * 20]) }));
+  const D = buildLive({ ...shape, rs0: 3, sin });
+  assert.equal(D.segData.length, SEG_ROW * 2 * D.segRows * 4);
+  assert.deepEqual(Array.from(D.segData.slice(0, 8)), [cx - 60, cy, cx - 30, cy, 0, 0, 0, 0].map(Math.fround));
+  const o = D.bins[(Math.floor((cy - D.box[1]) / BIN) * D.nb + Math.floor((cx - D.box[0]) / BIN)) * 4 + 2], n = D.bins[(Math.floor((cy - D.box[1]) / BIN) * D.nb + Math.floor((cx - D.box[0]) / BIN)) * 4 + 3];
+  const segs = Array.from(D.idx.slice(o, o + n));
+  assert.ok(n >= 2 && segs.every((v, i) => !i || v > segs[i - 1]), 'in drawing order');
+  const dyn = buildDyn({ hsc: [{ x: 1, y: 2, a: 3, nx: 4, ny: 5 }] }, [1.5, 2.5, 3.5, 4.5, 5.5]);
+  assert.deepEqual(Array.from(dyn.k.slice(0, 8)), [1.5, 2.5, 3.5, 4.5, 5.5, 0, 0, 0]);
+  assert.equal(dyn.hOff, 2);
+  assert.deepEqual(Array.from(dyn.k.slice(8, 16)), [1, 2, 3, 4, 5, 0, 0, 0]);
+  const f0 = liveFibre({ fibSin: 0.04, act: 0.05 }), f1 = liveFibre({ fibSin: 0.5, act: 0.5 });
+  assert.ok(f0.sin === 0 && f0.act === 0 && f1.sin === 1 && f1.act === 1, 'no pop at the thresholds');
 });

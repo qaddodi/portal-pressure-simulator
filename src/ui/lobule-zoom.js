@@ -28,8 +28,8 @@ import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-mode
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL } from './field-gl.js?v=779561d5dd';
-import { createTissueGL } from './tissue-gl.js?v=d30e3436e3';
-import { buildLive, liveEligible, liveZoomShare, liveColours } from './lobule-live.js?v=c6179f5e7d';
+import { createTissueGL } from './tissue-gl.js?v=35aa677d97';
+import { buildLive, buildDyn, liveFibre, liveEligible, liveZoomShare, liveColours } from './lobule-live.js?v=5c3090d0c8';
 import { createTissueWorker } from './tissue-worker.js?v=5f3199f515';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=8b9cefdd27';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=731ee3a0c7';
@@ -2704,12 +2704,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return liveShare;
   }
   const liveData = new WeakMap();
+  let dynKey = '', dynVal = null;
   function liveArgs(dark, cs) {
     if (!(liveShare > 0)) return null;
     const S = worldShape(geo), m = model;
     let data = liveData.get(S);
-    if (!data) { data = buildLive(S); liveData.set(S, data); }
-    return { shape: S, data, share: liveShare, cu: m.congU, sj: m.septU, zones: zonesOn, dark, cen: [geo.cx, geo.cy, geo.R], col: liveColours(worldRgb(cs), dark, cssVar) };
+    const sinT = geo.tubes.filter((t) => t.kind[0] === 's');
+    if (!data) { data = buildLive({ ...S, sin: sinT.map((t) => ({ pts: t.pts })) }); liveData.set(S, data); }
+    const radii = sinT.map((t) => radiusAt(t, N >> 1)), key = radii.join();
+    if (!dynVal || dynVal.S !== S || dynKey !== key) { dynVal = buildDyn(S, radii); dynVal.S = S; dynKey = key; }
+    return { shape: S, data, dyn: dynVal, fib: liveFibre(m), rs0: geo.rs0, share: liveShare, cu: m.congU, sj: m.septU, zones: zonesOn, dark, cen: [geo.cx, geo.cy, geo.R], col: liveColours(worldRgb(cs), dark, cssVar) };
   }
   // The bitmap painted off the page (performance review A5a, 31 Oct): painting it here held the page for as long as it took, up to
   // 3600 px square (the 2.8 s step into the lobule after a new patient, the 60 to 80 ms pinch repaints). Where the tissue is on the

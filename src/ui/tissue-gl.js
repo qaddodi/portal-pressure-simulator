@@ -12,7 +12,7 @@
 // tissue is drawn on the 2D canvas as before.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=5c4cd6c14c';
-import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, BIN } from './lobule-live.js?v=c6179f5e7d';
+import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN } from './lobule-live.js?v=5c3090d0c8';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -94,10 +94,10 @@ export function createTissueGL(canvas) {
     try {
       prog = checkProgram(gl, started);
       U = Object.fromEntries(['uQA', 'uQB', 'uQO', 'uW', 'uWO', 'uMix', 'uQOld', 'uO', 'uRd', 'uH', 'uRect', 'uWMix', 'uFade', 'uMid', 'uBg', 'uGrey'].map((n) => [n, gl.getUniformLocation(prog, n)]));
-      for (const n of ['uLC', 'uLB', 'uLI', 'uLBox', 'uLN', 'uLEdge', 'uLCtr', 'uLCen', 'uLSt', 'uLGap', 'uLGap55', 'uLBase', 'uLNut', 'uLZ1', 'uLZ2', 'uLZ3', 'uLPlate', 'uLInk', 'uLZl', 'uLive']) U[n] = gl.getUniformLocation(prog, n);   // (the lobule drawn live, lobule-live.js)
+      for (const n of ['uLC', 'uLB', 'uLI', 'uLBox', 'uLN', 'uLEdge', 'uLCtr', 'uLCen', 'uLSt', 'uLGap', 'uLGap55', 'uLBase', 'uLNut', 'uLZ1', 'uLZ2', 'uLZ3', 'uLPlate', 'uLInk', 'uLZl', 'uLive', 'uLS', 'uLK', 'uLSin', 'uLFib', 'uLHs', 'uLHB', 'uLHN']) U[n] = gl.getUniformLocation(prog, n);   // (the lobule drawn live, lobule-live.js)
       gl.useProgram(prog);
       gl.uniform1i(U.uQA, 0); gl.uniform1i(U.uQB, 1); gl.uniform1i(U.uQO, 2); gl.uniform1i(U.uW, 3); gl.uniform1i(U.uWO, 4);
-      gl.uniform1i(U.uLC, LIVE_UNIT); gl.uniform1i(U.uLB, LIVE_UNIT + 1); gl.uniform1i(U.uLI, LIVE_UNIT + 2);   // (the lobule's shapes, lobule-live.js)
+      gl.uniform1i(U.uLC, LIVE_UNIT); gl.uniform1i(U.uLB, LIVE_UNIT + 1); gl.uniform1i(U.uLI, LIVE_UNIT + 2); gl.uniform1i(U.uLS, LIVE_UNIT + 3); gl.uniform1i(U.uLK, LIVE_UNIT + 4);   // (the lobule's shapes, lobule-live.js)
       exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));
     } catch (err) { failed = true; console.warn('The lobule tissue falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); }
   }
@@ -135,10 +135,20 @@ export function createTissueGL(canvas) {
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     liveTex = { for: shape, data, t: [
       make(LIVE_UNIT, gl.RGBA32F, gl.RGBA, CELLS_PER_ROW * 3, data.cellRows, data.cellData),
-      make(LIVE_UNIT + 1, gl.RG32F, gl.RG, data.nb, data.nb, data.bins),
+      make(LIVE_UNIT + 1, gl.RGBA32F, gl.RGBA, data.nb, data.nb, data.bins),
       make(LIVE_UNIT + 2, gl.R32F, gl.RED, IDX_ROW, data.idxRows, data.idx),
-    ] };
+      make(LIVE_UNIT + 3, gl.RGBA32F, gl.RGBA, SEG_ROW * 2, data.segRows, data.segData),
+      make(LIVE_UNIT + 4, gl.RGBA32F, gl.RGBA, K_ROW, 1, new Float32Array(K_ROW * 4)),   // (the per-state texels: sent by liveDyn)
+    ], dyn: null };
     return liveTex;
+  }
+  // The per-state texels (lobule-live.js buildDyn), sent again only when they changed.
+  function liveDyn(T, dyn) {
+    if (T.dyn === dyn) return;
+    gl.activeTexture(gl.TEXTURE0 + LIVE_UNIT + 4); gl.bindTexture(gl.TEXTURE_2D, T.t[4]);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, K_ROW, dyn.rows, 0, gl.RGBA, gl.FLOAT, dyn.k);
+    T.dyn = dyn;
   }
   return {
     get lost() { return lost || failed || gl.isContextLost(); },
@@ -215,6 +225,12 @@ export function createTissueGL(canvas) {
         gl.uniform3fv(U.uLGap, C.gap); gl.uniform3fv(U.uLGap55, C.gap55); gl.uniform3fv(U.uLBase, C.base);
         gl.uniform3fv(U.uLNut, C.nut); gl.uniform3fv(U.uLZ1, C.z1); gl.uniform3fv(U.uLZ2, C.z2); gl.uniform3fv(U.uLZ3, C.z3);
         gl.uniform4fv(U.uLPlate, C.plate); gl.uniform4fv(U.uLInk, C.ink); gl.uniform4fv(U.uLZl, C.zl);
+        liveDyn(T, live.dyn);
+        const F = live.fib, ac = { fibSin: F.fibSin, act: F.actV };   // (liveFibre: the sinusoid collagen's and the stellate cells' strengths)
+        gl.uniform4f(U.uLSin, C.dis[0], C.dis[1], C.dis[2], 0.75 * ac.fibSin * F.sin); gl.uniform4f(U.uLFib, ac.fibSin, 0, 0, 0);
+        gl.uniform4f(U.uLHs, F.act > 0 ? live.dyn.nH : 0, ac.act, live.rs0, live.dyn.hOff);
+        gl.uniform4f(U.uLHB, C.body[0], C.body[1], C.body[2], (0.22 + 0.3 * ac.act) * F.act);
+        gl.uniform4f(U.uLHN, C.nuc[0], C.nuc[1], C.nuc[2], (0.3 + 0.3 * ac.act) * F.act);
         gl.uniform1f(U.uLive, live.share);
       } else gl.uniform1f(U.uLive, 0);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
