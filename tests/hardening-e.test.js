@@ -153,3 +153,14 @@ test('a bedside time-lapse does not run on while the page is hidden: it carries 
   assert.notEqual(after.lapseDay, undefined, 'the lapse is still playing, not jumped to its end');
   assert.ok(after.lapseDay > before.lapseDay && after.lapseDay < 4.5, `it went on from ${before.lapseDay.toFixed(2)} to ${after.lapseDay.toFixed(2)}, not to the end`);
 });
+
+test('a change of the device\'s light or dark setting repaints the instruments too, and the FibroScan reads Reduce Motion live', () => {
+  const m = read('src/ui/main.js');
+  const at = m.indexOf("matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {");
+  assert.ok(at > 0);
+  assert.match(m.slice(at, at + 400), /if \(f\) \{ stage\?\.update\(viewFrame\(f\)\); dock\?\.update\(f\); \}/);
+  const f = read('src/ui/fibroscan.js');
+  assert.match(f, /const REDUCED_MQ = typeof matchMedia === 'function' \? matchMedia\('\(prefers-reduced-motion: reduce\)'\) : \{ matches: false \};/);
+  assert.ok(!/\bREDUCED\b/.test(f), 'no constant read once at load is left');
+  assert.equal((f.match(/REDUCED_MQ\.matches/g) || []).length, 3);
+});

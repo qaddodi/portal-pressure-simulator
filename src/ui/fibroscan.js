@@ -43,7 +43,7 @@ function noiseField(w, hh, cell, seed) {
 }
 
 const NB = 104; // the noise fields are laid out on this grid; the map is sampled at any resolution from it
-const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const REDUCED_MQ = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };   // (read live: Reduce Motion turned on or off while the app is open applies to the next frame)
 const TOUCH = typeof matchMedia === 'function' ? matchMedia('(pointer: coarse)') : { matches: false };   // (read live: a finger's screen keeps the 12 px floor on the canvas words)
 const FIELDS = { built: false };
 function fields() {
@@ -125,13 +125,13 @@ export function createFibroScan() {
   function paint(now) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 80 || hh < 80) return;
-    const st = simTime(now), t = REDUCED ? 3 : st, dt = clamp(st - last, 0, 0.2); last = st;
+    const st = simTime(now), t = REDUCED_MQ.matches ? 3 : st, dt = clamp(st - last, 0, 0.2); last = st;
     // The wave front drifts gently around the model's median; the readout is the median itself (eased when it changes),
     // so it reads the same number as the slide's tile and words.
     const kNow = model * (1 + 0.05 * Math.sin(t * 0.8) + 0.03 * Math.sin(t * 1.9 + 1));
     // (On the shown state's filter, display-state.js, premium-feel R4: the bar's and the figure's clock; a jump of the model, a pause or
     // Reduce Motion shows the new median at once.)
-    shown = kShown.step(model, dt, REDUCED || isPaused());
+    shown = kShown.step(model, dt, REDUCED_MQ.matches || isPaused());
     const c = shearSpeed(kNow);
     const th = colors(now);
     const reading = shown.toFixed(1); if (cv.dataset.reading !== reading) cv.dataset.reading = reading;
@@ -209,7 +209,7 @@ export function createFibroScan() {
   function loop(now) {
     raf = 0;
     if (gone || !onScreen() || document.hidden) { running = false; return; }
-    const hold = REDUCED || isPaused();
+    const hold = REDUCED_MQ.matches || isPaused();
     if (hold || now - lastPaint >= paceMs()) { paint(now); lastPaint = now; noteDraw('fibroscan'); }   // (paused: always drawn, so a change shows)
     if (hold) { running = false; return; }   // paused: hold this frame; resume restarts the loop
     raf = nextFrame(loop);

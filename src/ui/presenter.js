@@ -30,7 +30,7 @@ import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
 import { createHvpgMonitor } from './hvpg-proc.js?v=263b1d0623';
-import { createTools } from './presenter-tools.js?v=a554ea3b53';
+import { createTools } from './presenter-tools.js?v=09d6e5f3fd';
 import { openHandout } from './handout.js?v=673090c001';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';

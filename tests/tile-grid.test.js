@@ -28,7 +28,7 @@ test('the FibroScan reads the model median, the number in the tile and words', (
   const src = readFileSync(new URL('../src/ui/fibroscan.js', import.meta.url), 'utf8');
   // (The median, on the shown state's filter, premium-feel R4: a change under 0.05 kPa at rest, a pause or a jump shows at once.)
   assert.match(src, /const kShown = createFollow\(\{ small: 0\.05, eps: 0\.01 \}\)/);
-  assert.match(src, /shown = kShown\.step\(model, dt, REDUCED \|\| isPaused\(\)\)/);
+  assert.match(src, /shown = kShown\.step\(model, dt, REDUCED_MQ\.matches \|\| isPaused\(\)\)/);
   assert.match(src, /const reading = shown\.toFixed\(1\)/);
 });
 

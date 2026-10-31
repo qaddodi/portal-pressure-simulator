@@ -142,7 +142,7 @@ test('the Guide lists every key the figure answers: dye, zoom, color lens, undo,
   const guide = main.slice(main.indexOf('function openHelp('), main.indexOf('// Help and About open at a named section'));
   for (const kbd of ["'J', 'Inject dye (hold for longer)'", "'Ctrl/⌘ + / − / 0', 'Zoom in / out / fit the figure'", "'L', 'Next vessel coloring", "'Z', 'Settle to equilibrium'", "'.', 'Step'"]) assert.ok(guide.includes(kbd), kbd);
   // each is a key the handler really takes
-  const keys = main.slice(main.indexOf("addEventListener('keydown', (e) => {\n    const tag"), main.indexOf('// ── Projector look while presenting'));
+  const keys = main.slice(main.indexOf("addEventListener('keydown', (e) => {\n    if (e.isComposing"), main.indexOf('// ── Projector look while presenting'));
   assert.match(keys, /k === 'j'/);
   assert.match(keys, /e\.key === '=' \|\| e\.key === '\+'/);
   assert.match(keys, /e\.key === '0' \? 'fit'/);

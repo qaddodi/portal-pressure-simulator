@@ -110,7 +110,7 @@ async function main() {
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
   dopplerL = lazy(() => import('./doppler.js?v=3d4768c262'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=2c97057331'), ({ createFibroScan }) => createFibroScan());
+  fibroL = lazy(() => import('./fibroscan.js?v=cea8068b84'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -183,7 +183,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=2706fc43a9'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=5442f24703'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -1065,7 +1065,7 @@ function syncStatusBar() {
 // hidden or not: an iPhone or iPad turns the page light and back while it takes the app switcher's pictures, often with the
 // page in the background and the model paused, so no frame came to redraw the organs and vessels in the colours now.
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-  const f = store.get().frame; if (f) stage?.update(viewFrame(f));
+  const f = store.get().frame; if (f) { stage?.update(viewFrame(f)); dock?.update(f); }   // (the instruments too: with the model paused no frame comes to repaint their canvases)
   syncStatusBar();
 });
 // (again once the figure's background has finished its .5 s fade)
