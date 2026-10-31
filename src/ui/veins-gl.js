@@ -32,6 +32,7 @@
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
+import { LIGHT } from './light.js?v=f0c4eefb81';
 import { SLOT, DYE_BINS } from './blood.js?v=300b3b5267';
 import { cssRGB } from './util.js?v=90ca733567';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=dfcc262e2a';
@@ -2142,7 +2143,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.useProgram(cathP.p);
     gl.uniformMatrix3fv(U.world, false, new Float32Array([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
     gl.uniform2f(U.size, PW(), PH());
-    gl.uniform2f(U.light, ...(cath.light || [-0.42, -0.91]));
+    gl.uniform2f(U.light, ...(cath.light || LIGHT));
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(cathVAO);

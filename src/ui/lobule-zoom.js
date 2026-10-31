@@ -35,7 +35,7 @@ import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, use
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=90ca733567';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=f5244ff113';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=232cddbbcb';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=0524035dea';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=300b3b5267';
 import { createSinusoidView } from './sinusoid-view.js?v=8010a479dd';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, onFigLab } from './frame.js?v=b11d87fd1b';
@@ -44,13 +44,13 @@ import { pillOf, pillLabels } from './lz-pills.js?v=670139934d';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
 import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=18f6ec0368';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
+import { LIGHT } from './light.js?v=f0c4eefb81';
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
 const N = N_SAMPLES;
 const MAXT = 320;                       // GPU rows: the lobule has ~170 vessels, ~285 with the lymphatics
-const LIGHT = (() => { const n = Math.hypot(-0.42, -0.91); return [-0.42 / n, -0.91 / n]; })();
 const tk = (n, a) => (a === undefined ? cssVar(n) : cssAlpha(n, a));   // a colour token, optionally with an alpha
 useTokens(tk);   // (the tissue's painting, lobule-paint.js, reads the same live tokens on the page)
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
