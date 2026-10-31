@@ -100,6 +100,12 @@ const OWN_BUF = !(typeof location !== 'undefined' && /[?&]vesselbuf=keep\b/.test
 // (COMP_FS `fast`): every lumen pixel lays the layers under it, hashes its noise, works out the zoom's numbers itself and keeps the
 // bead look's code. The same picture either way; the switch is there to compare on a device.
 const CLASSIC = typeof location !== 'undefined' && /[?&]blood=classic\b/.test(location.search);
+// Beads close up and the shimmer far out, fatter beads past a packed lane, arrowheads fading on a lumen wide on screen (combined
+// plan B2, B3, C2). ?bloodzoom=0: the shimmer alone and the arrowheads at every size, as before.
+const BLOOD_ZOOM = !(typeof location !== 'undefined' && /[?&]bloodzoom=0\b/.test(location.search));
+// The look the composite draws: 0 the beads, 1 the shimmer, 2 by the lumen's size on screen ('auto', the app's). Without
+// BLOOD_ZOOM 'auto' is the shimmer.
+export const lookOf = (blood, zoom = BLOOD_ZOOM) => (blood.look === 'parcels' ? 0 : blood.look === 'auto' && zoom ? 2 : 1);
 // One-pass zoom frames (on by default since 26 Oct: the same look, a little smoother on Mohammad's Mac; ?zoompass=two in the
 // address goes back): a frame where the view zoomed or turned, which drew the vessel layer whole and then the picture whole, runs
 // the two as one shader over the vessel cells instead (veins-fuse.js), and the picture alone over the rest of the canvas (the
@@ -989,11 +995,9 @@ uniform vec3 chevLight;                // a reversed chevron's head on an orange
 uniform float cssPx;                   // canvas px per CSS px (stage.js vdpr, at most 2)
 uniform float flowA;                   // 0..1: how visible the moving blood and chevrons are (they fade in once the view is still)
 uniform vec3 blendA;                   // 0..1 each: the streaks, the chevrons and the origin colours fading in or out (switched on or off)
-#if FAST == 0
-uniform int look;                      // 0 parcels, 1 shimmer
-#else
-const int look = 1;                    // (the shimmer: main.js and the lobule never ask for the beads)
-#endif
+uniform int look;                      // 0 parcels, 1 shimmer, 2 by the lumen's size on screen (beads close up, the shimmer far out)
+uniform int sat;                       // 1: past a packed lane, more flow draws fatter beads and denser streaks (combined plan B2)
+uniform int chevZoom;                  // 1: the arrowheads fade out on a lumen wide on screen, where the beads carry the flow (C2)
 #if PLAIN == 0
 uniform int origin;                    // 1: color parcels by where their blood came from
 uniform int dyeOn;
@@ -1115,6 +1119,53 @@ float radAt(int id, float s, float len) {
 // the parcels' color and coverage, to be laid over the lumen color col. Read once in main for it and the arrowheads alike
 // (they were read by each): the vessel's flow texels f0 and f1 (f1.z > 0: main draws neither where it is not), its length,
 // the caliber R at s (radAt) and its own colour vc at s.
+// The beads of one lumen near y, drawn from a stream's slots: se its arc along that stream (s for the vessel's own), Dm the stream's
+// distance, sid whose seeds (the vessel's own, or the root it is carried on from: createStreamChain), Bm how the stream's arc runs
+// along this lumen (1 for its own). Returns the bead coverage (x) and its glow (y).
+vec2 beadField(int sid, float se, float y, float Dm, float Bm, float dir, float s0, float R, int n, float laneW, float p, float stasis, float rd, float TL, float aa) {
+  int l0 = n == 1 ? 0 : int(floor((y / 0.8 + 1.0) * 0.5 * float(n) - 0.5));
+  float period = 256.0 * s0;
+  float cov = 0.0, glow = 0.0;
+  for (int dl = 0; dl <= 1; dl++) {
+    int li = l0 + dl;
+    if (li < 0 || li >= n) continue;
+    float yl = n == 1 ? 0.0 : ((float(li) + 0.5) / float(n) * 2.0 - 1.0) * 0.8;
+    float k = n == 1 ? 8.0 : max(2.0, floor(16.0 * (1.0 - yl * yl) + 0.5));
+    uint lseed = uint(sid) * 7919u + uint(li) * 131u;
+    float laneD = mod(Dm * k / 8.0 + h01(lseed) * period, period);
+    float q = (se - laneD) / s0;
+    // This slot and the nearer neighbour (a bead's jitter and tail reach at most one slot over).
+    for (int j = 0; j < 2; j++) {
+      float slot = floor(q) + (j == 0 ? 0.0 : fract(q) < 0.5 ? -1.0 : 1.0);
+      uint seed = lseed ^ (uint(int(slot) & 255) * 2654435761u);
+      float hv = h01(seed);
+      float pp = p;
+      if (stasis > 0.0) pp *= mix(1.0, 0.25 + 1.5 * vnoise(vec2((slot * s0 + laneD) / 40.0 + clock * 0.04, float(li)), uint(sid) * 977u, 1 << 20), stasis);
+      float on = clamp((pp - hv) / 0.06, 0.0, 1.0);
+      if (on <= 0.0) continue;
+      float ja = (h01(seed + 1u) - 0.5) * 0.7 * s0 + stasis * 0.32 * s0 * sin(clock * 0.55 + hv * 40.0);
+      float jy = (h01(seed + 2u) - 0.5) * 0.8 * laneW + stasis * 0.3 * laneW * cos(clock * 0.4 + hv * 23.0);
+      // (Along this lumen: the stream's arc over Bm, so a bead keeps its round shape however the stream is stretched here.)
+      float ax = ((q - slot - 0.5) * s0 - ja) * dir / Bm, dy = (y - yl) * R - jy;
+      float d, fade = 1.0;
+      if (ax >= 0.0 || TL <= 0.0) d = length(vec2(ax, dy)) - rd;
+      else {
+        float t = -ax / TL;
+        d = t > 1.0 ? 1e3 : abs(dy) - rd * (1.0 - 0.75 * t);
+        fade = (1.0 - t) * (1.0 - t);
+      }
+      float w = on * (0.8 + 0.2 * h01(seed + 4u));
+      float c = (1.0 - smoothstep(-aa, aa, d)) * fade * w;
+      // A soft glow just around the bead (none on its tail), so it stands off the lumen.
+      float gl = (1.0 - smoothstep(0.0, 1.3 * rd + pxW, max(d, 0.0))) * (ax >= 0.0 ? 1.0 : fade) * w;
+      if (c > cov || gl > glow) {
+        if (c > cov) cov = c;
+        if (gl > glow) glow = gl;
+      }
+    }
+  }
+  return vec2(cov, glow);
+}
 vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, float R, vec3 vc) {
   float D = f0.x, vd = f0.y, flux = f0.z, stasis = f0.w;
   float dir = vd < 0.0 ? -1.0 : 1.0;
@@ -1129,8 +1180,14 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
   float lc = clamp(1.7 * R / Lg, 1.0, 7.0) - 1.0;   // (the continuous lane count, less one: LANE_K, laneSum)
   int lk = min(int(lc), 5);
   float sumK = mix(LANE_K[lk], LANE_K[lk + 1], lc - float(lk));
-  float p = min(1.0, flux * s0 / (max(abs(vd), 2.0) * sumK));
+  float pRaw = flux * s0 / (max(abs(vd), 2.0) * sumK);
+  float p = min(1.0, pRaw);
   p = max(p, 0.45 * stasis);
+  // Past a packed lane (B2): beads up to 35 % fatter, streaks denser, by the overflow (about log2 of it, at most one doubling:
+  // 2.885 (x − 1) / (x + 1), the series of log2 near 1, within 4 % of it up to 2, with no transcendental a pixel), so a TIPS
+  // carrying twice a packed lane's flow reads as more blood than a portal vein just packed. 1 at or under a packed lane.
+  float ov = max(pRaw, 1.0);
+  float grow = sat == 1 ? 1.0 + 0.35 * clamp(2.885 * (ov - 1.0) / (ov + 1.0), 0.0, 1.0) : 1.0;
   float ends = min(f1.x > 0.5 ? smoothstep(0.0, 1.5 * s0, s) : 1.0, f1.y > 0.5 ? smoothstep(0.0, 1.5 * s0, len - s) : 1.0);
   // Light or dark ink from the vessel's own color (not the shaded pixel, whose highlights would flip a streak
   // between white and dark as it passes), eased across a range so a vessel near the cut-off never switches.
@@ -1143,63 +1200,36 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
   float rev = origin == 1 ? 0.0 : f1.w;
   if (rev > 0.0) { core = mix(core, mix(revCol, inkLight, 0.18), rev); halo = mix(halo, mix(col, revCol, 0.7), rev); }
   float laneW = 1.6 * R / float(n);
-#if FAST == 0
-  if (look == 0) {
+  // Beads close up, the shimmer far out (look 2: by the lumen's radius on screen, CSS px; beads above 7, the shimmer below 4,
+  // both cross-faded between), or the one the setting asks for. bw: the beads' share.
+  float bw = look == 0 ? 1.0 : look == 1 ? 0.0 : smoothstep(4.0, 7.0, R / (pxW * cssPx));
+  vec4 beads = vec4(0.0);
+  if (bw > 0.0) {
     // Beads with a short tail behind them (longer where faster), scattered within their lane so
     // the stream reads as a suspension, not a string of beads.
     // The two lanes either side of this point: a bead reaches under one lane spacing from its own
     // lane (radius, jitter and drift), so no other lane can touch it.
-    int l0 = n == 1 ? 0 : int(floor((y / 0.8 + 1.0) * 0.5 * float(n) - 0.5));
-    float rd = max(0.26 * laneW, 1.35 * pxW) * (1.0 + 0.6 * stasis);
+    float rd = max(0.26 * laneW, 1.35 * pxW) * (1.0 + 0.6 * stasis) * grow;
     rd = min(rd, 0.45 * R);
     float TL = rd * (1.6 + 4.0 * clamp(abs(vd) / 60.0, 0.0, 1.0)) * (1.0 - stasis);
     float aa = 0.75 * pxW + stasis * 0.8 * rd;
-    float period = 256.0 * s0;
-    float cov = 0.0, glow = 0.0;
-    for (int dl = 0; dl <= 1; dl++) {
-      int li = l0 + dl;
-      if (li < 0 || li >= n) continue;
-      float yl = n == 1 ? 0.0 : ((float(li) + 0.5) / float(n) * 2.0 - 1.0) * 0.8;
-      float k = n == 1 ? 8.0 : max(2.0, floor(16.0 * (1.0 - yl * yl) + 0.5));
-      uint lseed = uint(id) * 7919u + uint(li) * 131u;
-      float laneD = mod(D * k / 8.0 + h01(lseed) * period, period);
-      float q = (s - laneD) / s0;
-      // This slot and the nearer neighbour (a bead's jitter and tail reach at most one slot over).
-      for (int j = 0; j < 2; j++) {
-        float slot = floor(q) + (j == 0 ? 0.0 : fract(q) < 0.5 ? -1.0 : 1.0);
-        uint seed = lseed ^ (uint(int(slot) & 255) * 2654435761u);
-        float hv = h01(seed);
-        float pp = p;
-        if (stasis > 0.0) pp *= mix(1.0, 0.25 + 1.5 * vnoise(vec2((slot * s0 + laneD) / 40.0 + clock * 0.04, float(li)), uint(id) * 977u, 1 << 20), stasis);
-        float on = clamp((pp - hv) / 0.06, 0.0, 1.0);
-        if (on <= 0.0) continue;
-        float ja = (h01(seed + 1u) - 0.5) * 0.7 * s0 + stasis * 0.32 * s0 * sin(clock * 0.55 + hv * 40.0);
-        float jy = (h01(seed + 2u) - 0.5) * 0.8 * laneW + stasis * 0.3 * laneW * cos(clock * 0.4 + hv * 23.0);
-        float ax = ((q - slot - 0.5) * s0 - ja) * dir, dy = (y - yl) * R - jy;
-        float d, fade = 1.0;
-        if (ax >= 0.0 || TL <= 0.0) d = length(vec2(ax, dy)) - rd;
-        else {
-          float t = -ax / TL;
-          d = t > 1.0 ? 1e3 : abs(dy) - rd * (1.0 - 0.75 * t);
-          fade = (1.0 - t) * (1.0 - t);
-        }
-        float w = on * (0.8 + 0.2 * h01(seed + 4u));
-        float c = (1.0 - smoothstep(-aa, aa, d)) * fade * w;
-        // A soft glow just around the bead (none on its tail), so it stands off the lumen.
-        float gl = (1.0 - smoothstep(0.0, 1.3 * rd + pxW, max(d, 0.0))) * (ax >= 0.0 ? 1.0 : fade) * w;
-        if (c > cov || gl > glow) {
-          if (c > cov) cov = c;
-          if (gl > glow) glow = gl;
-        }
-      }
+    // (Carried on from another vessel: that stream's slots, as the streaks below; mixed with its own by the link's weight.)
+    vec4 bc4 = texelFetch(flow, ivec2(4, id), 0);
+    vec2 bf = vec2(0.0);
+    if (bc4.w < 1.0) bf = beadField(id, s, y, D, 1.0, dir, s0, R, n, laneW, p, stasis, rd, TL, aa);
+    if (bc4.w > 0.0) {
+      vec4 bc5 = texelFetch(flow, ivec2(5, id), 0);
+      vec2 bfc = beadField(int(bc4.x + 0.5) - 1, bc4.y + bc4.z * s, y, bc5.x, bc4.z, dir, s0, R, n, laneW, p, stasis, rd, TL, aa);
+      bf = bc4.w >= 1.0 ? bfc : mix(bf, bfc, bc4.w);
     }
+    float cov = bf.x, glow = bf.y;
     float strength = ends * f1.z * mix(1.0, 0.5, stasis);
     float ga = glow * 0.38 * strength, ca = cov * (origin == 1 ? 0.85 : 0.94) * strength;
     // The bead over its glow.
     vec3 rgb = mix(halo, core, ca / max(ca + ga * (1.0 - ca), 1e-4));
-    return vec4(rgb, ca + ga * (1.0 - ca));
+    beads = vec4(rgb, ca + ga * (1.0 - ca));
+    if (bw >= 1.0) return beads;
   }
-#endif
   // Shimmer: long, soft streaks of light, like light on a flowing liquid, each carried at its own
   // lane's laminar speed (fastest on the axis, so the sheen visibly shears), over a faint glow
   // along the core. Brighter and denser where more blood passes; stagnant blood barely stirs.
@@ -1252,14 +1282,21 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
 #endif
   p = max(min(1.0, flux * sx / (max(abs(vd), 2.0) * sumK)), 0.45 * stasis);
   ends = min(f1.x > 0.5 ? smoothstep(0.0, 1.5 * sx, s) : 1.0, f1.y > 0.5 ? smoothstep(0.0, 1.5 * sx, len - s) : 1.0);
-  float dens = sqrt(clamp(p, 0.0, 1.0));
+  // (Past a packed lane, denser by its own overflow at this scale: grow above, for the streaks' slot.)
+  float ovS = max(flux * sx / (max(abs(vd), 2.0) * sumK), 1.0);
+  float gS = sat == 1 ? 1.0 + 0.35 * clamp(2.885 * (ovS - 1.0) / (ovS + 1.0), 0.0, 1.0) : 1.0;
+  float dens = sqrt(clamp(p, 0.0, 1.0)) * gS;
   // Soft-edged and subdued, so up close the sheen reads as moving light, not as stripes painted on the tube;
   // a steady glow along the axis carries most of the brightness.
   float streak = smoothstep(0.46 - 0.08 * dens, 0.9, nz);
   float wall = 1.0 - smoothstep(0.7, 1.0, ay);
   float glowCore = 0.22 * (1.0 - ay * ay) * (1.0 - ay * ay);
   float a = clamp(streak * (0.32 + 0.26 * dens) + glowCore, 0.0, 0.75) * wall * ends * f1.z * mix(1.0, 0.6, stasis);
-  return vec4(mix(halo, core, smoothstep(0.0, 0.7, streak)), a);
+  vec4 sh = vec4(mix(halo, core, smoothstep(0.0, 0.7, streak)), a);
+  if (bw <= 0.0) return sh;
+  // (Between the two: each by its share, colour weighted by coverage.)
+  float am = mix(sh.a, beads.a, bw);
+  return vec4((sh.rgb * sh.a * (1.0 - bw) + beads.rgb * beads.a * bw) / max(am, 1e-4), am);
 }
 // Where a lumen's blood comes from, as streams side by side (laminar flow keeps them apart): SMV,
 // IMV, splenic vein, hepatic artery, then the rest of the body, each as wide as its share of the flow.
@@ -1340,6 +1377,10 @@ vec2 chevAt(int id, float s, float y, vec4 f0, vec4 f1, float len, float Rs) {
   // same shape and they keep an even distance; they move at the vessel's own speed, whatever the zoom.
   float R = max(texelFetch(rad, ivec2(N_LAST / 2, id), 0).r, 0.3);
   if (R < 1.3 * pxW) return vec2(0.0);
+  // On a lumen wide on screen the beads carry the flow, so the heads fade out (C2): shown below a radius of 5 CSS px, gone above 9.
+  // (chevZoom 0: Key chevrons, presenting, ?bloodzoom=0.)
+  float zf = chevZoom == 1 ? 1.0 - smoothstep(5.0, 9.0, R / (pxW * cssPx)) : 1.0;
+  if (zf <= 0.0) return vec2(0.0);
   // A stream carried on from another vessel (createStreamChain): its heads are the root's, spaced by the root's caliber, so they
   // run from one vessel into the next; mixed with the vessel's own by the link's weight while it forms or lets go. (Reduced
   // motion: the still heads are spaced by each vessel's own flow, so each keeps its own.)
@@ -1353,7 +1394,7 @@ vec2 chevAt(int id, float s, float y, vec4 f0, vec4 f1, float len, float Rs) {
     vec2 cc = chevOne(id, s, y, f0, f1, len, Rs, R, ch4.y + ch4.z * s, ch4.z, ch5.x, Rr, ch5.zw);
     c = cw >= 1.0 ? cc : mix(c, cc, cw);
   }
-  return c;
+  return zf < 1.0 ? c * zf : c;
 }
 // Dye concentration in one lumen: the column's front is bullet-shaped, the axis ahead of the wall
 // (laminar flow).
@@ -3363,7 +3404,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         gl.uniform3f(U.chevInk, ...(blood.chevInk || [0.08, 0.08, 0.1]));
         gl.uniform3f(U.chevLight, ...(blood.chevLight || [1, 0.93, 0.86]));
         gl.uniform1f(U.cssPx, blood.vdpr || 1);
-        gl.uniform1i(U.look, blood.look === 'shimmer' ? 1 : 0);
+        gl.uniform1i(U.look, lookOf(blood));
+        gl.uniform1i(U.sat, BLOOD_ZOOM ? 1 : 0);
+        gl.uniform1i(U.chevZoom, BLOOD_ZOOM && blood.chevZoom !== false ? 1 : 0);
         gl.uniform1i(U.origin, blood.origin ? 1 : 0);
         gl.uniform1i(U.dyeOn, dyeAny && blood.dye !== false ? 1 : 0);
         gl.uniform1f(U.clock, blood.clock || 0);
@@ -3388,6 +3431,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         fluidRect || [0, 0, 1, 1], fl?.s || [0, 0, 0, 0], fl ? fl.ink : [0, 0, 0, 0], fl?.lv || [1, 0],
         blood.on, blood.chev, blood.still, blood.alpha ?? 1, blood.streakA ?? 1, blood.chevA ?? 1, blood.originA ?? 1,
         blood.chevInk || [0.08, 0.08, 0.1], blood.chevLight || [1, 0.93, 0.86], blood.vdpr || 1, blood.origin, dyeAny && blood.dye !== false,
+        lookOf(blood), BLOOD_ZOOM && blood.chevZoom !== false,
         originColOf(blood.originCol || ORIGIN_WHITE), blood.dyeCol || [0.8, 0.95, 0.2], blood.revCol || [1, 0.55, 0.16],
         blood.inkLight || [1, 1, 1], blood.inkDark || [0.1, 0.1, 0.16], ncv, nc.length, hb, hr, ho.length, layer, glow, warm, useStack, bare, texVer);
       let same = !!stillSig && sn === stillN && sn < sigNow.length;
