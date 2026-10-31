@@ -60,7 +60,7 @@ const LENSES = {
   drop: ['Pressure drop', 'Where the resistance lives', () => dropCss('to right')],
   flow: ['Flow volume', 'How much blood; width = flow', () => flowCss('to right')],
   velocity: ['Velocity', 'Against each vessel\'s normal: sand slower, teal normal, violet faster, graded', () => velocityCss('to right')],
-  direction: ['Direction', 'Toward the liver or away', () => 'linear-gradient(to right, var(--flow-normal) 50%, var(--flow-reversed) 50%)'],
+  direction: ['Flow direction', 'Toward the liver or away', () => 'linear-gradient(to right, var(--flow-normal) 50%, var(--flow-reversed) 50%)'],
   oxygen: ['Oxygen', 'How much oxygen the blood carries: blue low, red high', () => oxygenCss('to right')],
   origin: ['Blood origin', 'Where each vessel\u2019s blood comes from', () => `linear-gradient(to right, ${ORIGIN_CSS.map((c, i) => `${c} ${i * 20}% ${(i + 1) * 20}%`).join(', ')})`],
 };
@@ -724,7 +724,7 @@ function bloodItems() {
     h('div', { class: 'menu-title' }, 'Show on the figure'),
     layer('chips', 'tag', 'Pressure values', 'The number beside each vessel\u2019s name'),
     layer('collaterals', 'route', 'Potential collaterals', 'Dotted routes that open as pressure rises'),
-    layer('labels', 'liver', 'Organ names'),
+    layer('labels', 'liver', 'Organ names', 'The caption on each organ'),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Labels'),
     labelLevelSeg(),

@@ -119,3 +119,20 @@ test('About the model describes the readouts as they are: a bar and a status wor
   assert.match(main, /Amber is borderline; red means a threshold has been crossed\./);
   assert.doesNotMatch(main, /readout’s dot, bar/);
 });
+
+test('every row of the Blood menu has a line under its name, so the rows keep one rhythm', () => {
+  const main = src('src/ui/main.js');
+  const blood = main.slice(main.indexOf('function bloodItems('), main.indexOf('function labelLevelSeg('));
+  for (const row of blood.match(/(toggle|layer)\([^\n]*\n?/g).filter((r) => /'[^']+', '[^']+', '[^']+'/.test(r) || /layer\('/.test(r))) assert.match(row, /,\s*'[^']{8,}'/, row.slice(0, 60));
+  assert.match(blood, /layer\('labels', 'liver', 'Organ names', 'The caption on each organ'\)/);
+});
+
+test('a coloring has one name: the Colored by menu and the pill say the same words', () => {
+  const main = src('src/ui/main.js');
+  const lenses = main.slice(main.indexOf('const LENSES = {'), main.indexOf('const COLOR_MODES'));
+  const modes = main.slice(main.indexOf('const COLOR_MODES = {'), main.indexOf('let stage, inspector'));
+  const a = Object.fromEntries([...lenses.matchAll(/\n  (\w+): \['([^']+)'/g)].map((m) => [m[1], m[2]]));
+  const b = Object.fromEntries([...modes.matchAll(/(\w+): '([^']+)'/g)].map((m) => [m[1], m[2]]));
+  assert.ok(Object.keys(a).length >= 9);
+  assert.deepEqual(a, b);
+});
