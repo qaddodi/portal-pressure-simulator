@@ -89,7 +89,8 @@ const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const REVERSAL_WATCH = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'LGV_CONF', 'PVH_R', 'PVH_L', 'PRE_R', 'PRE_L', 'V_SPL', 'SV_MID', 'V_IMV', 'V_INT', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'V_STO', 'IVC_IS']);
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
-// The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): off unless asked for.
+// The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): off unless asked for. Asked for, it
+// runs on a software renderer too, so CI's visual check (SwiftShader) can compare it with the references.
 const OVER_GPU = typeof location !== 'undefined' && /[?&]stageover=gpu\b/.test(location.search);
 // Relative luminance of an 'rgb(r,g,b)' string (non-rgb strings count as dark).
 function luminance(c) {
@@ -2451,7 +2452,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const pw = bw, ph = bh;
     // (With the overlays on the GPU (?stageover=gpu) the canvas is at the screen's own density, as the SVG they replace is drawn, and
     // the figure, at its own, upscaled onto it by a plain filtered copy, as the page's compositor upscales a smaller canvas.)
-    const full = OVER_GPU && veins?.overlay && !SOFTWARE ? devicePixelRatio || 1 : 0;
+    const full = OVER_GPU && veins?.overlay ? devicePixelRatio || 1 : 0;
     let lin = false;
     if (full && vdpr < full - 1e-9) { bw = Math.max(1, Math.round(r.width * full)); bh = Math.max(1, Math.round(r.height * full)); lin = !figLab('upscale'); }
     else if (figLab('upscale') && veins?.setPicture && !SOFTWARE && vdpr < base - 1e-9) { bw = Math.max(1, Math.round(r.width * base)); bh = Math.max(1, Math.round(r.height * base)); }
@@ -10309,7 +10310,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // read is painted in the vessel canvas, and its SVG copy hidden (OVER_CLASS). Read again when anything in the overlays changes that
   // the painter does not read at each paint (needsReread), when the page's state around them changes (overKey), and while a CSS
   // transition runs in a group (overEasing: the browser eases it, so that group and those above stay in the SVG until it ends).
-  const OVER_ON = OVER_GPU && !!veins?.overlay && !SOFTWARE;
+  const OVER_ON = OVER_GPU && !!veins?.overlay;
   let overDirty = true, overKeyWas = '', overPainted = [], overFor = null;
   // (How long an element's CSS transitions run, ms, read once a reading: a value the painter reads at each paint, eased by them.)
   let overTrans = new WeakMap();

@@ -8,6 +8,8 @@
 //   VISUAL_OUT=dir                      where the current pictures and diffs of a failure go
 //                                       (default test-results/visual)
 //   VISUAL_DEVICE=phone                 one device only (CI checks each device on its own runner)
+//   VISUAL_QUERY='&stageover=gpu'       added to every view's address: the same references, drawn another way
+//                                       (compare only: a variant never writes a reference)
 //
 // The model is paused and motion reduced, so a view is still. Pictures are kept at half size and
 // compared there: a live number that differs in its last digit, or anti-aliasing that differs
@@ -25,6 +27,8 @@ const OUT = resolve(process.env.VISUAL_OUT || join(ROOT, 'test-results/visual'))
 const update = process.argv.includes('--update');
 const refresh = process.argv.includes('--refresh');
 let refreshed = 0;
+const QUERY = process.env.VISUAL_QUERY || '';
+if (QUERY && (update || refresh)) { console.error('VISUAL_QUERY compares only: the references come from the page as it is by default.'); process.exit(2); }
 // A pixel differs when a channel moves by more than TOL (of 255); a view fails when more than
 // LIMIT of its pixels differ.
 const TOL = 40, LIMIT = 0.01;
@@ -83,7 +87,7 @@ for (const [device, opts] of Object.entries(DEVICES).filter(([d]) => !process.en
     const ctx = await browser.newContext({ ...opts, colorScheme: scheme, reducedMotion: 'reduce', serviceWorkers: 'block' });
     const page = await ctx.newPage();
     try {
-      await page.goto(server.url + '?preset=cirr-decomp');
+      await page.goto(server.url + '?preset=cirr-decomp' + QUERY);
       await page.waitForFunction(() => window.pps?.store?.get().frame, null, { timeout: 45000 });
       await page.waitForTimeout(1500);
       await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
@@ -98,7 +102,7 @@ for (const [device, opts] of Object.entries(DEVICES).filter(([d]) => !process.en
       // moment apart agree (for a reference), or when one of a few tries matches the reference.
       const shoot = async () => halfPixels(page, (await page.screenshot()).toString('base64'));
       const refPath = join(REF, `${id}.png`);
-      if (update || !existsSync(refPath)) {
+      if (!QUERY && (update || !existsSync(refPath))) {
         let cur = await shoot();
         for (let i = 0; i < 4; i++) {
           await page.waitForTimeout(2500);

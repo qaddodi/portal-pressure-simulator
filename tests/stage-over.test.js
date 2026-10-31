@@ -122,7 +122,7 @@ test('a strict reading takes visibility as the page computes it, and refuses a m
 test('the stage: off unless asked for; the painted groups\' SVG hidden by an empty clip; read again on a change, and while a CSS ease runs', () => {
   const st = read('../src/ui/stage.js'), css = read('../styles/app.css');
   assert.match(st, /const OVER_GPU = typeof location !== 'undefined' && \/\[\?&\]stageover=gpu\\b\/\.test\(location\.search\);/);
-  assert.match(st, /const OVER_ON = OVER_GPU && !!veins\?\.overlay && !SOFTWARE;/);
+  assert.match(st, /const OVER_ON = OVER_GPU && !!veins\?\.overlay;/);
   assert.match(css, /\.stage-view svg#stageOver \.gpu-over \{ clip-path: inset\(50%\) !important; \}/);
   assert.match(st, /const spec = readGroup\(u, \{ nest: true, strict: true \}\);/);
   assert.match(st, /if \(easing\.some\(\(el\) => u\.contains\(el\)\)\) return null;/);

@@ -192,7 +192,7 @@ jobs:
   visual:
     name: visual (${{ matrix.device }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -217,5 +217,28 @@ jobs:
         with:
           name: visual-diff-${{ matrix.device }}
           path: test-results/visual
+          if-no-files-found: ignore
+          retention-days: 1
+      # The same views with the figure's overlays painted on the GPU (?stageover=gpu, off by default; recs A1), against the
+      # same references: each group moved onto the GPU must look as the SVG drew it. A warning only, like the drift above.
+      - name: Visual regression, overlays on the GPU
+        id: visual_over
+        continue-on-error: true
+        env:
+          VISUAL_DEVICE: ${{ matrix.device }}
+          VISUAL_QUERY: '&stageover=gpu'
+          VISUAL_OUT: test-results/visual-stageover
+        shell: bash
+        run: npm run visual | tee visual-over.log
+      - name: Report views that differ with the overlays on the GPU
+        if: steps.visual_over.outcome == 'failure'
+        run: |
+          views=$(grep -o '^FAIL [^:]*' visual-over.log | cut -c6- | paste -sd' ' -)
+          echo "::warning title=Overlays on the GPU differ from the references::$views (?stageover=gpu, off by default)."
+      - uses: actions/upload-artifact@v4
+        if: steps.visual_over.outcome == 'failure'
+        with:
+          name: visual-diff-stageover-${{ matrix.device }}
+          path: test-results/visual-stageover
           if-no-files-found: ignore
           retention-days: 1
