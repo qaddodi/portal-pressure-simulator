@@ -31,7 +31,7 @@ export function colPlan(h, deltas) {
 export function beatLayout(w, h, withEkg = true) {
   const wide = w >= 440 && h >= 170;
   const colW = wide ? Math.round(Math.min(176, Math.max(140, w * 0.3))) : 0;
-  const L = 36, R = wide ? w - colW - 30 : w - 96;   // (wide: the caliper's room between the plot and the column; narrow: the end values)
+  const L = 36, R = wide ? w - colW - 30 : w - 116;   // (wide: the caliper's room between the plot and the column; narrow: the end values, "17.1 WHVP" 8 px in from the edge (it was cut at the edge on a phone, 31 Oct))
   const head = wide ? 0 : 30, B = 24;
   const avail = h - head - B - 14;
   const ekgH = withEkg && avail >= 100 ? Math.round(Math.min(46, Math.max(26, avail * 0.15))) : 0;   // (a strip, not a chart: Mohammad 29 Oct, "not that long")

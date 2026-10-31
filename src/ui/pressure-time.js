@@ -407,7 +407,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     const SB = { w, hh, W: cv.width, H: cv.height, dpr: ctx.getTransform?.().a || 1, panel, faint, muted, text, hair: cssAlpha('--text', 0.12), danger: col('--danger'), ok: col('--ok'), fonts: fontEpoch,
       cap: typeof ctx.lineCap === 'string' ? ctx.lineCap : 'butt', join: typeof ctx.lineJoin === 'string' ? ctx.lineJoin : 'miter',
       L, wide: lay.wide, hrT, hvT, word: wordOf(hv), sevC, hrC,
-      yl: Array.from({ length: Math.floor(hi / 5) + 1 }, (_, i) => [String(i * 5), Y(i * 5)]),
+      yl: Array.from({ length: Math.floor(hi / 5) + 1 }, (_, i) => [String(i * 5), Y(i * 5)]).filter(([, y]) => !(top - 10 > (lay.ekg ? lay.ekg.bot : 0) && y < top + 9)),   // (the top number gives way to the unit written over it, which it touched)
       col: lay.wide ? { x: lay.colX, plan: colPlan(hh, !!(sinceText(hr, was?.hr, 0) || sinceText(hv, hvWas, 1))), hrSince: sinceText(hr, was?.hr, 0), hvSince: sinceText(hv, hvWas, 1),
         rows: keyRows.map(([c, name, v, dashed]) => [c, name, Number.isFinite(v) ? fmt(v, 1) : '—', dashed]) } : null };
     still.lay(ctx, JSON.stringify(SB), (c) => drawBeatStill(c, SB));

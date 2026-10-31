@@ -62,3 +62,11 @@ test('flow-time start values are placed as a pair so two lines starting close ne
   assert.match(src, /const clear = \(a, b\) => Math\.abs\(a - b\) >= 1\.15 \* f/);
   assert.match(src, /y: ys\[pick\[i\]\]/);
 });
+
+test('the beat card on a phone keeps "17.1 WHVP" inside its edge, and its top number gives way to the unit over it', async () => {
+  const { beatLayout } = await import('../src/ui/beat-card.js');
+  const l = beatLayout(340, 300);
+  assert.ok(340 - l.R >= 116, 'room for a value and WHVP at the line ends');
+  const pt = readFileSync(new URL('../src/ui/pressure-time.js', import.meta.url), 'utf8');
+  assert.match(pt, /\.filter\(\(\[, y\]\) => !\(top - 10 > \(lay\.ekg \? lay\.ekg\.bot : 0\) && y < top \+ 9\)\)/);
+});
