@@ -67,3 +67,15 @@ test('the iPhone full-screen hint and the text-size letters use the type scale',
 test('no stale "Measure" call to action on the bar\'s tile, which is not a button', () => {
   assert.doesNotMatch(css, /\.metric \.status\.unmeas::after \{ content: 'Measure'/);
 });
+
+test('Settings keeps the model rows apart from the accessibility switch, and a Why? name wraps rather than ending in an ellipsis', () => {
+  const main = src('src/ui/main.js');
+  const settings = main.slice(main.indexOf('function openSettings('), main.indexOf('function presenterSettings('));
+  const blur = settings.indexOf("'Blur effect'"), hvpg = settings.indexOf("'Always show HVPG'");
+  assert.ok(blur > 0 && hvpg > blur, 'the HVPG switch follows the blur switch');
+  assert.ok(settings.slice(blur, hvpg).includes("class: 'menu-sep'"), 'a divider between them: Always show HVPG is not an accessibility setting');
+  assert.ok(settings.indexOf("'Advanced physiology'") > hvpg, 'the model rows keep together');
+  const rule = css.match(/\n\.wf-row \.lab \{[^}]*\}/)[0];
+  assert.doesNotMatch(rule, /ellipsis|nowrap|overflow: hidden/);
+  assert.match(rule, /overflow-wrap: anywhere/);
+});

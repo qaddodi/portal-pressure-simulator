@@ -875,11 +875,11 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .why-pop .ib { width: 28px; height: 28px; margin: -4px -4px 0 0; }
 .waterfall { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .wf-row { display: grid; grid-template-columns: minmax(0, 1fr) 132px 52px; gap: 12px; align-items: center; font-size: var(--fs-12); }
-.wf-row .lab { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
-/* A phone's Why? is 334 px of room inside its padding, 126 px of it for the name at the full 132 px bar: a real name ("Chronic splanchnic vasodilation") was cut with an ellipsis, its words only in a tooltip a finger cannot show. The bar and the number take less, and a long name takes a second line. */
+/* A name is never cut with an ellipsis (its words would live only in a tooltip a finger cannot show, and a larger text size cut the desktop's too): a long one ("Chronic splanchnic vasodilation") takes a second line. */
+.wf-row .lab { color: var(--text-2); overflow-wrap: anywhere; line-height: 1.25; }
+/* A phone's Why? is 334 px of room inside its padding, 126 px of it for the name at the full 132 px bar: the bar and the number take less. */
 @media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .wf-row { grid-template-columns: minmax(0, 1fr) 64px 48px; gap: 2px 10px; }
-  .wf-row .lab { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.25; }
 }
 .wf-bar { position: relative; height: 8px; }
 .wf-bar::before { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--axis); }

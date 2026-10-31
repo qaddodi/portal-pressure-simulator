@@ -892,17 +892,18 @@ function openSettings(anchor, withSearch = false) {
       try { localStorage.setItem('pps.noGlass', on ? '0' : '1'); } catch { /* storage unavailable */ }
       document.documentElement.toggleAttribute('data-noglass', !on);
     }),
+    // (What the model shows and how far it goes sits below the accessibility switch, apart from it: "Always show HVPG" is not an accessibility setting.)
     ...(talk ? [] : [
+      h('div', { class: 'menu-sep' }),
       menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
         try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
         document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');
         setTimeout(() => document.body.classList.remove('hvpg-swap'), 600);
         store.set({ showHvpg: on });
       }),
+      menuItem('Advanced physiology', { icon: 'sliders', onClick: () => { closePopover(); closeTreat(); store.set({ selection: null, details: { type: 'advanced' } }); openPanel(); } }),
       // Debug toggles stay out of the sheet; ?debug in the address brings them back.
       ...(new URLSearchParams(location.search).has('debug') ? [h('div', { class: 'menu-title' }, 'Debug'), ...debugOptions().map(([k, l]) => menuToggle(debugOn(k), 'activity', l, null, (on) => setDebug(k, on)))] : []),
-      h('div', { class: 'menu-sep' }),
-      menuItem('Advanced physiology', { icon: 'sliders', onClick: () => { closePopover(); closeTreat(); store.set({ selection: null, details: { type: 'advanced' } }); openPanel(); } }),
       h('div', { class: 'menu-sep' }),
       menuItem('Reset everything…', { icon: 'reset', onClick: () => resetEverything() })]),
   ], withSearch ? { place: 'above', align: 'end', cls: 'app-menu' } : { align: 'start', cls: 'app-menu' });
