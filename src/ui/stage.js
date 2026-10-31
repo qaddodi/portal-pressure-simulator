@@ -8298,7 +8298,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return vc.display !== 'none' && vc.visibility === 'visible' && +vc.opacity >= 0.999 ? '' : 'the figure\'s canvas is hidden or faded';
   };
   const frostOn = () => !frostWhy();
-  const frostHost = (o) => ({ gl: veins.top.gl, canvas: veins.top.canvas, add: veins.top.add, now: () => { if (veins && !veins.lost) veins.present(); }, active: frostOn, why: frostWhy, ...o });
+  const frostHost = (o) => ({ gl: veins.top.gl, canvas: veins.top.canvas, add: veins.top.add, now: () => { if (veins && !veins.lost) veins.present(); }, active: frostOn, why: frostWhy, view: () => veins?.viewKey ?? null, ...o });
   // The ?perf blur gauge's question: why the browser's blur, not a glass drawn in the figure's canvas, shows on `el` (null: no glass
   // here is meant to own it, as the toast or the fold chip; '' : its glass is drawn, a mark is about to be set).
   const blurWhy = (el) => { for (const g of [glassGL, paneGL, ...cardGLs]) { const w = g?.why?.(el); if (w != null) return w; } return null; };

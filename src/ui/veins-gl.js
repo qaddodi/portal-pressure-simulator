@@ -3466,6 +3466,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     get drawSeq() { return pictureSeq; },
     /** The frames of the moving blood alone, which drawSeq leaves out. */
     get bloodSeq() { return bloodSeq; },
+    /** The view the picture was last drawn for (the world matrix), as a string that changes whenever a pan, a zoom or a glide moves it (the glass blurs again at once then). */
+    get viewKey() { return baseM ? baseM.join(',') : ''; },
     /** Calls f each time drawSeq changes; returns the call that stops it. */
     onPicture(f) { onPicture.add(f); return () => onPicture.delete(f); },
     clear() { pictured(); if (own?.w) { gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo); gl.viewport(0, 0, own.w, own.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; },

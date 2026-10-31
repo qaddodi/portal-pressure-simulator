@@ -142,6 +142,14 @@ What is measured, and where (`src/ui/frame.js`, `frame-stats.js`, `input-latency
   colour and word those parts are drawn from, plus the canvas size, the pixel ratio, the context's line ends and the fonts epoch. The
   traces, ends, markers, axis and crosshair are drawn over it as before. `tests/still-layer.test.js` compares what reaches the canvas
   (every drawing call with the state it reads) with and without the picture, frame by frame, for the dock and the slide cards.
+- **Frost that is not blurred again for nothing (Q5, Q4).** The glass drawn in the figure's canvas never re-blurs on a plain blood frame
+  (`veins-gl.js` `pictured(true)` leaves `drawSeq` alone), so what it blurred again every frame were the frames that are not plain blood
+  (the ascites ripple, a catheter, dye, an eased colour). When only the figure under it has been drawn again, with the view
+  (`veins.viewKey`) and the region taken unchanged, it now blurs at most every `REBLUR_MS` (50 ms) and draws from the blur it has in
+  between; a pan, a zoom, a glide or a card moving to another region blurs at once, and the last change is blurred when the time is up
+  (`tests/glass-reblur.test.js`). The lobule pills' frost (`?lzpills=1` only; by default they stay on the browser's blur) keeps its copy of
+  the lobule while only the blood moves (`lz-pills.js` `pillHold`), so it cannot shimmer with the streaks, and takes a new one for the
+  model's frames, a pan, a zoom, an ease or a fade.
 
 ## Verification
 

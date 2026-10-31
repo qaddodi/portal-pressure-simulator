@@ -57,3 +57,13 @@ export function readPills(root, origin, gcs = getComputedStyle) {
   }
   return out;
 }
+
+/**
+ * Whether the copy of the lobule that the pills' frost is blurred from may stay as it is (laptop-heat Q4, 31 Oct): it was taken for
+ * this very state (`key`: the lobule's size, its drawVersion, its view and the fade of its marks), the tissue's canvas was not painted
+ * since, and so the only thing that has moved under the pills is the blood. A frost is a 16 px blur, so the streaks sliding under it
+ * changed it a little on every frame, and each new copy sampled them a different way (the shimmer he saw, 31 Oct); held, it cannot shimmer,
+ * and the glass takes no new copy, blurs none and draws nothing new. The model's own frames (about ten a second) and any pan, zoom,
+ * ease or fade change the key and take a copy as before.
+ */
+export const pillHold = (held, key, ready, tissueDrew) => !!ready && !tissueDrew && held === key;

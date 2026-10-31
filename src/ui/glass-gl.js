@@ -26,6 +26,8 @@ const SCALE = 4;    // CSS px for each texel of the blurred copy
 // from four ninths of the pixels. The masks are drawn at the same density.
 export const glassDpr = () => Math.min(2, window.devicePixelRatio || 1);
 const MARGIN = 48;  // CSS px of the figure taken around the callouts: three of the blur's sigmas (blur(16px): sigma 16 px)
+/** The longest a glass drawn in the figure's canvas goes between two blurs when only the figure under it has been drawn again (a host that gives view()). */
+export const REBLUR_MS = 50;
 
 const NUM = (v) => parseFloat(v) || 0;
 /** The first shadow of a computed box-shadow: { c: [r, g, b, a] (0–1), x, y, blur, spread } or null. */
@@ -479,6 +481,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function hostFree() {
     const K = hk;
     hk = null;
+    if (K?.trail) { clearTimeout(K.trail); K.trail = 0; }
     if (!K || K.G.isContextLost()) return;
     const G = K.G;
     for (const t of [K.copy, K.pass, K.blurred, ...K.steps.map((st) => st.t), ...K.maskTex]) G.deleteTexture(t);
@@ -644,14 +647,30 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (!grid) return;
     const reg = { x: grid.x, y: grid.y, w: grid.w, h: grid.h };
     G.disable(G.SCISSOR_TEST); G.disable(G.STENCIL_TEST);
-    const key = `${version ? version() : performance.now()}|${grid.X0}|${grid.Y0}|${grid.X1}|${grid.Y1}|${W2}x${H2}`;
+    const rest = `${grid.X0}|${grid.Y0}|${grid.X1}|${grid.Y1}|${W2}x${H2}`, key = `${version ? version() : performance.now()}|${rest}`;
     if (key !== hk.key) {
+      // (Only the figure under the glass drawn again, its view and the region taken the same as the last blur's: blurred again at most
+      // every REBLUR_MS, the glass drawn meanwhile from the blur it has. Those are the frames that are not plain blood (the ascites
+      // ripple, a catheter, dye, an eased colour): a plain blood frame never gets here. A pan, a zoom or a glide moves the view, and
+      // a card sliding or growing moves the region: both blur at once, as before. The last change is blurred when the time is up.)
+      const view = version && host.view ? host.view() : null, t = performance.now();
+      if (view !== null && hk.rest === rest && hk.view === view && hk.reg && t - hk.at < REBLUR_MS) {
+        if (!hk.trail) {
+          const K = hk;
+          K.trail = setTimeout(() => { K.trail = 0; if (hk === K && hostOn) { K.key = ''; host.now(); } }, REBLUR_MS - (t - K.at) + 1);
+        }
+        hk.k = k;
+        blurOK = true;
+        if (gpuProbe.on) gpuProbe.note(COUNTED.glassSkip);
+        return;
+      }
       const ok = hostBlur(grid);
       // (The figure's context left as its other passes expect to find it.)
       G.bindFramebuffer(G.FRAMEBUFFER, null); G.viewport(0, 0, W2, H2);
       G.bindTexture(G.TEXTURE_2D, null); G.useProgram(null); G.bindVertexArray(null);
       if (!ok) { hk.key = ''; return; }
-      hk.key = key; hk.reg = reg;
+      hk.key = key; hk.reg = reg; hk.rest = rest; hk.view = view; hk.at = t;
+      if (hk.trail) { clearTimeout(hk.trail); hk.trail = 0; }
     } else if (gpuProbe.on) gpuProbe.note(COUNTED.glassSkip);
     hk.k = k;
     blurOK = true;
