@@ -141,9 +141,13 @@
 
   /* elevation, shape, type, motion */
   /* elevation: two shadows (menus and floating cards; dialogs and sheets). Cards on the paper
-     ground use a hairline, not a shadow (--shadow-1). */
-  --shadow-menu: 0 6px 20px rgb(var(--night-rgb) / .1), 0 1px 3px rgb(var(--night-rgb) / .06);
-  --shadow-dialog: 0 18px 48px rgb(var(--night-rgb) / .16), 0 4px 12px rgb(var(--night-rgb) / .08);
+     ground use a hairline, not a shadow (--shadow-1).
+     One depth model (premium-feel R8): the chrome is lit by the figure's light (src/ui/light.js: from the top, slightly left), so
+     its shadows fall down and a little to the right, --light-slant across for every unit down (0.42 / 0.91, pinned by a test), in
+     the ink the vessels cast in (--shadow-rgb). The dark theme takes its strength from the figure's --shadow-a. */
+  --light-slant: .46;
+  --shadow-menu: calc(6px * var(--light-slant)) 6px 20px rgb(var(--shadow-rgb) / .1), calc(1px * var(--light-slant)) 1px 3px rgb(var(--shadow-rgb) / .06);
+  --shadow-dialog: calc(18px * var(--light-slant)) 18px 48px rgb(var(--shadow-rgb) / .16), calc(4px * var(--light-slant)) 4px 12px rgb(var(--shadow-rgb) / .08);
   --shadow-1: 0 0 0 1px var(--hairline);
   --shadow-2: var(--shadow-menu);
   --shadow-3: var(--shadow-dialog);
@@ -255,7 +259,7 @@
   :root:not([data-theme="light"]):not([data-theme="soft"]) {
     --bg: #0E1422; --stage-bg: #0E1422; --surface: #161E30; --surface-2: #1B2438; --surface-3: #232D44;
     --on-accent: #0B1120; --skin: #7A5E55;
-    --shadow-menu: 0 6px 20px rgba(0, 0, 0, .45); --shadow-dialog: 0 24px 60px rgba(0, 0, 0, .6);
+    --shadow-menu: calc(6px * var(--light-slant)) 6px 20px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.2)); --shadow-dialog: calc(24px * var(--light-slant)) 24px 60px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.6));
     --glass: rgba(16, 23, 42, .95); --frost: rgba(16, 23, 42, .42); --scrim: rgba(2, 4, 10, .6);
     --hairline: rgba(200, 215, 255, .08); --border: #222C46; --border-strong: #33405F;
     --text: #E9EDF6; --text-2: #A9B2C7; --text-3: #8F99B3; --text-inverse: #0B1120;
@@ -304,7 +308,7 @@
 :root[data-theme="dark"] {
   --bg: #0E1422; --stage-bg: #0E1422; --surface: #161E30; --surface-2: #1B2438; --surface-3: #232D44;
   --on-accent: #0B1120; --skin: #7A5E55;
-  --shadow-menu: 0 6px 20px rgba(0, 0, 0, .45); --shadow-dialog: 0 24px 60px rgba(0, 0, 0, .6);
+  --shadow-menu: calc(6px * var(--light-slant)) 6px 20px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.2)); --shadow-dialog: calc(24px * var(--light-slant)) 24px 60px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.6));
   --glass: rgba(16, 23, 42, .95); --frost: rgba(16, 23, 42, .42); --scrim: rgba(2, 4, 10, .6);
   --hairline: rgba(200, 215, 255, .08); --border: #222C46; --border-strong: #33405F;
   --text: #E9EDF6; --text-2: #A9B2C7; --text-3: #8F99B3; --text-inverse: #0B1120;
