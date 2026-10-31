@@ -85,3 +85,71 @@ test('review fixes: a child\'s lost capture does not end a sheet drag or a dye p
   assert.equal((open.match(/replaceChildren/g) || []).length, 1, 'only the waiting state is set directly; the answer and the error go through swap');
   assert.match(why, /e\.key === 'Escape' && pop\.classList\.contains\('show'\) && !e\.target\.closest\?\.\('\.pal-back'\)/);
 });
+
+// ── Third pass: lifecycle and input audits (31 Oct) ──
+test('a slider or switch left focused keeps only its own keys; text fields keep all of theirs; composing text is left alone; held keys act once', () => {
+  const m = read('src/ui/main.js');
+  assert.match(m, /const NON_TEXT_INPUT = new Set\(\['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'image', 'color', 'file'\]\);/);
+  assert.match(m, /if \(e\.isComposing \|\| e\.keyCode === 229\) return;/);
+  assert.match(m, /tag === 'select' \|\| tag === 'textarea' \|\| e\.target\.isContentEditable \|\| \(tag === 'input' && !NON_TEXT_INPUT\.has\(inputType\)\)/);
+  assert.match(m, /inputType === 'range' \? \/\^\(Arrow\(Left\|Right\|Up\|Down\)\|Home\|End\|Page\(Up\|Down\)\)\$\/ : \/\^\(Arrow\(Left\|Right\|Up\|Down\)\| \|Enter\)\$\//);
+  assert.match(m, /if \(e\.repeat && !\(e\.ctrlKey \|\| e\.metaKey\) && letterOf\(e\) !== 'j'\) return;/);
+  assert.match(m, /\(e\.altKey && e\.key !== '\[' && e\.key !== '\]'\)\) return;/);
+  // The letter rule, run: Latin letters by character, other layouts by the key's place.
+  const letterOf = new Function('return ' + m.slice(m.indexOf('const letterOf = ') + 'const letterOf = '.length, m.indexOf(';', m.indexOf('const letterOf = ')))) ();
+  assert.equal(letterOf({ key: 'A', code: 'KeyA' }), 'a');
+  assert.equal(letterOf({ key: 'ф', code: 'KeyA' }), 'a', 'a Russian layout\'s key in the A place');
+  assert.equal(letterOf({ key: 'ش', code: 'KeyA' }), 'a', 'an Arabic layout\'s');
+  assert.equal(letterOf({ key: '[', code: 'BracketLeft' }), '[');
+  assert.equal(letterOf({ key: 'Enter', code: 'Enter' }), 'enter');
+  // The same imported module as the talk's, or the two would each keep their own "keyboard or mouse" state.
+  const stamp = (f) => f.match(/key-owner\.js\?v=\w+/)[0];
+  assert.equal(stamp(m), stamp(read('src/ui/presenter.js')));
+  for (const f of ['src/ui/palette.js', 'src/ui/menu.js']) assert.match(read(f), /if \(e\.isComposing \|\| e\.keyCode === 229\) return;/, f);
+});
+
+test('the phone menu sheet is lifted above the on-screen keyboard and put back when it goes; unset, it is as it was', () => {
+  const mn = read('src/ui/menu.js');
+  assert.match(mn, /const kb = Math\.round\(innerHeight - vv\.offsetTop - vv\.height\);/);
+  assert.match(mn, /if \(kb > 80\) \{ el\.style\.setProperty\('--menu-kb', `\$\{kb\}px`\); el\.style\.setProperty\('--menu-h', `\$\{Math\.max\(240, Math\.round\(vv\.height - 16\)\)\}px`\); \}/);
+  assert.match(mn, /else \{ el\.style\.removeProperty\('--menu-kb'\); el\.style\.removeProperty\('--menu-h'\); \}/);
+  assert.match(mn, /vv\?\.addEventListener\('resize', fitSheet\); vv\?\.addEventListener\('scroll', fitSheet\);/);
+  assert.match(mn, /vv\?\.removeEventListener\('resize', fitSheet\); vv\?\.removeEventListener\('scroll', fitSheet\);/);
+  assert.match(mn, /for \(const v of \['--menu-kb', '--menu-h'\]\)/, 'a rebuilt sheet keeps them');
+  const css = read('styles/app.css');
+  assert.match(css, /\.umenu\.sheet \{[^}]*bottom: var\(--menu-kb, 0px\); width: auto; height: var\(--menu-h, 88dvh\);/);
+});
+
+test('a bedside time-lapse waits while the model is stopped, and a new update offers one reload', () => {
+  const w = read('src/worker-core.js');
+  assert.match(w, /if \(stoppedAt != null && lapse\?\.bedside\) lapse\.bedside\.t0 \+= performance\.now\(\) - stoppedAt;/);
+  assert.match(w, /if \(timer\) \{ clearInterval\(timer\); if \(lapse\?\.bedside && stoppedAt == null\) stoppedAt = performance\.now\(\); \}/);
+  assert.match(w, /morph = null; stoppedAt = null;/, 'a new lapse starts clean');
+  const m = read('src/ui/main.js');
+  assert.match(m, /if \(navigator\.serviceWorker\.controller\) \{\s*let offered = false;\s*navigator\.serviceWorker\.addEventListener\('controllerchange'/);
+  assert.match(m, /if \(presenter\.active\(\)\) \{ setTimeout\(offer, 30000\); return; \}/, 'never in a talk');
+});
+
+import { createCore } from '../src/worker-core.js';
+test('a bedside time-lapse does not run on while the page is hidden: it carries on from where it was', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  let now = 0;
+  t.mock.method(performance, 'now', () => now);
+  const msgs = [];
+  const core = createCore((m) => msgs.push(m));
+  t.after(() => core.dispose());
+  const advance = (ms) => { for (let k = 0; k < ms; k += 33) { now += 33; t.mock.timers.tick(33); } };
+  core.handle({ type: 'init', params: { respiration: false } });
+  advance(1000);
+  core.handle({ type: 'lapse', days: 8, speed: 8 / 6, ramp: { meal: [0, 1] }, bedside: true });   // six seconds
+  advance(2000);
+  const before = msgs.filter((m) => m.type === 'frame' && m.lapseDay != null).at(-1);
+  assert.ok(before.lapseDay > 2 && before.lapseDay < 3.5, `a third through (${before.lapseDay} of 8 days)`);
+  core.handle({ type: 'visibility', visible: false });
+  now += 30000;                                    // the page is away for half a minute
+  core.handle({ type: 'visibility', visible: true });
+  advance(500);
+  const after = msgs.filter((m) => m.type === 'frame').at(-1);
+  assert.notEqual(after.lapseDay, undefined, 'the lapse is still playing, not jumped to its end');
+  assert.ok(after.lapseDay > before.lapseDay && after.lapseDay < 4.5, `it went on from ${before.lapseDay.toFixed(2)} to ${after.lapseDay.toFixed(2)}, not to the end`);
+});

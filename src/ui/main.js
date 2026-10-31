@@ -1,7 +1,7 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=cd26034a2e';
+import { startHost, host } from './host.js?v=a2b4ac3177';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7e587ef608';
 import { createStage } from './stage.js?v=7cf7dcf861';
 import { createCreditPlacer } from './credit.js?v=853fefa4ac';
@@ -10,12 +10,12 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=78c263643b';
 import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=f783efa02a';
 import { setHvpgStage } from './hvpg-proc.js?v=263b1d0623';
-import { createWhy } from './why.js?v=0a5fd98073';
-import { createTimeline, LAPSES } from './timeline.js?v=8b33c91466';
+import { createWhy } from './why.js?v=3602087adf';
+import { createTimeline, LAPSES } from './timeline.js?v=98c6f5a2c4';
 import { createCompare } from './compare.js?v=6bb46ab6a4';
 import { createCard } from './card.js?v=864153e887';
 import { createChart } from './chart.js?v=bd582c5110';
-import { createMenu } from './menu.js?v=c1fbc0b53e';
+import { createMenu } from './menu.js?v=6ada7e11c3';
 import { caption } from './a11y.js?v=ca051e9d1c';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
@@ -23,6 +23,7 @@ import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=9f1
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=88bc8501e6';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
+import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
 import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=4c95f6eb28';
 import { releaseSpeed, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
 import { morphKey, crossfadeText } from './legend-morph.js?v=51bba536d7';
@@ -182,7 +183,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=681b72e020'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=65d8f5076e'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -190,7 +191,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=0e2a088b08'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=23144e2e94'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -321,6 +322,18 @@ async function main() {
   // fetched at once) does not compete with the modules still loading, nor with the first touches. The fonts' other subsets come later
   // still (the worker is asked once it is active, build.mjs 'pps:fill').
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    // A new version takes over this tab's files while it is open (the worker claims its pages). The page keeps running the files it began with, and
+    // an older tab can no longer fetch the part it has not opened yet (the first talk), so, once, it is offered a reload: not in a talk, and never
+    // by itself. (The first install, with no worker before it, is not an update.)
+    if (navigator.serviceWorker.controller) {
+      let offered = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (offered) return;
+        offered = true;
+        const offer = () => { if (presenter.active()) { setTimeout(offer, 30000); return; } toast('A new version of the simulator is ready.', '', { actions: [['Reload', () => location.reload()]] }); };
+        offer();
+      });
+    }
     const reg = () => whenQuiet(() => (window.requestIdleCallback || ((fn) => setTimeout(fn, 1500)))(() => navigator.serviceWorker.register('sw.js')
       .then(() => navigator.serviceWorker.ready).then((r) => whenQuiet(() => r.active?.postMessage('pps:fill'), 2000, 1000))
       .catch(() => { /* offline support is optional */ })));
@@ -1760,18 +1773,27 @@ function onMode(mode) {
 }
 
 // ── Keyboard (§8.5) ─────────────────────────────────
+// The letter a key stands for: its character where that is a Latin letter, else its place on the board (an Arabic or Russian layout has no A, L or Z
+// to name, but the key in that place is the same one).
+const letterOf = (e) => /^[a-z]$/i.test(e.key) ? e.key.toLowerCase() : /^Key[A-Z]$/.test(e.code || '') ? e.code[3].toLowerCase() : (e.key || '').toLowerCase();
+// Inputs that are controls, not text: a slider, a switch, a button. They keep their own keys (the arrows, Space) and leave the rest to the page.
+const NON_TEXT_INPUT = new Set(['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'image', 'color', 'file']);
 function wireKeyboard() {
   // J injects dye for as long as it is held (at least a few seconds).
-  addEventListener('keyup', (e) => { if (e.key.toLowerCase() === 'j') stage.releaseDye(); });
+  addEventListener('keyup', (e) => { if (letterOf(e) === 'j') stage.releaseDye(); });
   addEventListener('blur', () => stage.releaseDye());
   addEventListener('keydown', (e) => {
+    if (e.isComposing || e.keyCode === 229) return;   // (an input method is composing: its Enter and Esc are its own)
     const tag = (e.target.tagName || '').toLowerCase();
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palette.isOpen() ? palette.close() : palette.open(); return; }
-    if ((e.ctrlKey || e.metaKey) && !e.altKey && tag !== 'input' && tag !== 'textarea' && tag !== 'select' && !presenter.active()) {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && tag !== 'input' && tag !== 'textarea' && tag !== 'select' && !presenter.active() && !isModalOpen() && !mainMenu.isOpen()) {   // (in a dialog the browser's own zoom is the text's)
       const z = e.key === '=' || e.key === '+' ? 'in' : e.key === '-' || e.key === '_' ? 'out' : e.key === '0' ? 'fit' : null;
       if (z) { e.preventDefault(); if (z === 'in') stage.zoomIn(); else if (z === 'out') stage.zoomOut(); else stage.fit(); return; }
     }
-    if (tag === 'input' || tag === 'select' || tag === 'textarea') { if (e.key === 'Escape') e.target.blur(); return; }
+    const inputType = tag === 'input' ? (e.target.type || 'text') : '';
+    if (tag === 'select' || tag === 'textarea' || e.target.isContentEditable || (tag === 'input' && !NON_TEXT_INPUT.has(inputType))) { if (e.key === 'Escape') e.target.blur(); return; }
+    // A slider or a switch left with focus (Chrome keeps it after a click or a drag) keeps the keys it uses; the rest, Cmd Z, Space, the letters, are the page's.
+    if (tag === 'input' && (inputType === 'range' ? /^(Arrow(Left|Right|Up|Down)|Home|End|Page(Up|Down))$/ : /^(Arrow(Left|Right|Up|Down)| |Enter)$/).test(e.key)) return;
     // Search open with focus on one of its results: Esc closes it, and no letter reaches the figure behind it.
     if (palette.isOpen()) { if (e.key === 'Escape') { e.preventDefault(); palette.close(); } return; }
     if (e.key === 'Escape') {
@@ -1797,8 +1819,12 @@ function wireKeyboard() {
     if (presenter.active() && e.key !== '/' && e.key !== '?') return;
     if (e.key === '/') { e.preventDefault(); palette.open(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? doRedo : doUndo)(); return; }
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.key === ' ' && !e.target.closest?.('.v-hit, .org-key, button, [role="button"], .lb')) { e.preventDefault(); host.send({ type: 'run', running: !store.get().running }); return; }
+    // (A held key is one press: Space does not flicker play and pause, a number does not run its verb twenty times. J has its own rule below.)
+    if (e.repeat && !(e.ctrlKey || e.metaKey) && letterOf(e) !== 'j') return;
+    // (The speed keys [ and ] need Option on a German, French or Spanish layout: the character they make is the key, so Option alone is no reason to drop them.)
+    if (e.ctrlKey || e.metaKey || (e.altKey && e.key !== '[' && e.key !== ']')) return;
+    // (The figure's own stops act on Space themselves; a button the keyboard reached does too, one that was clicked does not.)
+    if (e.key === ' ' && !controlOwnsKey(e.target, ' ') && !e.target.closest?.('.v-hit, .org-key, .lb')) { e.preventDefault(); host.send({ type: 'run', running: !store.get().running }); return; }
     // With a card open, the number keys run its verbs in order.
     if (/^[1-9]$/.test(e.key) && card.isOpen()) { if (card.trigger(+e.key)) e.preventDefault(); return; }
     if (e.key === '.') { host.send({ type: 'run', running: true }); setTimeout(() => host.send({ type: 'run', running: false }), 60); return; }
@@ -1811,7 +1837,7 @@ function wireKeyboard() {
       toast(lap ? `Time-lapse ${LAPSES.find((l) => l[0] === v)[2]}` : `Speed ${v}×`);
       return;
     }
-    const k = e.key.toLowerCase();
+    const k = letterOf(e);
     if (k === 'a' && !e.shiftKey) { if (store.get().sinusoid) return; store.set({ lobule: false, view: store.get().view === 'circuit' ? 'anatomic' : 'circuit' }); return; }
     if ((k === 'l' || (e.key === 'C' && e.shiftKey)) && !store.get().imaging && !(store.get().lobule && store.get().sinusoid)) {
       const ks = lensKeys(), i = ks.indexOf(store.get().colorMode);

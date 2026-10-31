@@ -843,7 +843,7 @@ function makeCalc() {
   const ready = (async () => {
     let w = null;
     try {
-      w = new Worker(new URL('../worker.js?v=566449852f', import.meta.url), { type: 'module' });
+      w = new Worker(new URL('../worker.js?v=1eff4cda11', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -857,7 +857,7 @@ function makeCalc() {
     } catch {
       if (w) { w.onmessage = w.onerror = null; w.terminate(); }   // (a worker that never said hello: not left running beside the page's own engine)
       try {
-        const { createCore } = await import('../worker-core.js?v=8eafc88d6d');
+        const { createCore } = await import('../worker-core.js?v=ac3ae7f485');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

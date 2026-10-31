@@ -72,6 +72,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     document.removeEventListener('pointerdown', outside, true);
     removeEventListener('keydown', typed, true);
     removeEventListener('resize', place);
+    vv?.removeEventListener('resize', fitSheet); vv?.removeEventListener('scroll', fitSheet);
     const panel = el, scrim = back, done = () => { leaveT = 0; panel.remove(); scrim?.remove(); };
     el = back = null;
     onToggle?.(false);
@@ -291,6 +292,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   // Up and Down move within a column, Left and Right switch columns, typing goes to search, Enter in
   // search opens the first match, Esc clears the search and then closes.
   function keys(e) {
+    if (e.isComposing || e.keyCode === 229) return;   // (an input method is composing in the search: its Enter and Esc are its own)
     const q = el.querySelector('.um-q');
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (e.target === q && q.value) { q.value = ''; query = ''; filter(); } else close(); return; }
     const act = () => visible(el.querySelector(`.um-col[data-col="${tab}"]`));
@@ -313,6 +315,16 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   }
   const visible = (col = el) => [...col.querySelectorAll('li:not([hidden]) > .um-row')].filter((r) => !r.closest('.um-g[hidden]'));
 
+  // On an iPhone or an iPad held upright the on-screen keyboard covers the foot of the page without shrinking it, and the sheet sits at the page's
+  // foot: its last rows could not be scrolled above the keyboard. The sheet is lifted to sit on the keyboard and held to the room above it (the
+  // search card does the same, palette.js fitList). Off, it is as it was: no variable is set.
+  const vv = window.visualViewport;
+  function fitSheet() {
+    if (!el || !el.classList.contains('sheet') || !vv) return;
+    const kb = Math.round(innerHeight - vv.offsetTop - vv.height);
+    if (kb > 80) { el.style.setProperty('--menu-kb', `${kb}px`); el.style.setProperty('--menu-h', `${Math.max(240, Math.round(vv.height - 16))}px`); }
+    else { el.style.removeProperty('--menu-kb'); el.style.removeProperty('--menu-h'); }
+  }
   function place() {
     if (!el || el.classList.contains('sheet')) return;
     const r = anchor.getBoundingClientRect();
@@ -328,6 +340,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     // A first open before the presentations had arrived: the frame and the Patients list were already up; the presentations now rise into place (the tab change's own 4 px fade-rise) instead of replacing the note at once.
     if (coldOpen && lib) { coldOpen = false; if (!reduce.matches) next.querySelector('.um-col[data-col="present"]')?.classList.add('um-in'); }
     else if (!lib) coldOpen = true;
+    for (const v of ['--menu-kb', '--menu-h']) { const x = el.style.getPropertyValue(v); if (x) next.style.setProperty(v, x); }   // (the keyboard is still up)
     el.replaceWith(next); el = next;
     filter(); place(); dragToClose(el); swipeTabs(el);
     if (keep) el.querySelector('.um-cols').scrollTop = keep;
@@ -353,6 +366,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         anchor.setAttribute('aria-expanded', 'true');
         setTimeout(() => document.addEventListener('pointerdown', outside, true), 0);
         addEventListener('resize', place);
+        vv?.addEventListener('resize', fitSheet); vv?.addEventListener('scroll', fitSheet);
         addEventListener('keydown', typed, true);
         onToggle?.(true, sheet);
         // Only a mouse or trackpad puts the caret in the search: on a touch screen (iPhone, iPad either way round)

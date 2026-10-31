@@ -317,14 +317,19 @@ export function createCore(post) {
     if (k >= 1) lapse = null;
   }
 
+  // (A bedside time-lapse is timed on the wall clock: the time the model stood still (the page hidden, the model paused) is added to its start,
+  // so it carries on from where it was, as the disease clock's lapse does, instead of jumping to its end.)
+  let stoppedAt = null;
   function start() {
     if (timer || crashed || !running || !visible) return;
+    if (stoppedAt != null && lapse?.bedside) lapse.bedside.t0 += performance.now() - stoppedAt;
+    stoppedAt = null;
     last = null;
     timer = setInterval(tick, 33);
   }
 
   function stop() {
-    if (timer) clearInterval(timer);
+    if (timer) { clearInterval(timer); if (lapse?.bedside && stoppedAt == null) stoppedAt = performance.now(); }
     timer = null;
     last = null;
   }
@@ -373,7 +378,7 @@ export function createCore(post) {
     // bedside: the ramp plays over the slide's seconds on the seconds clock instead (see bedsideStep).
     lapse({ days, speed: s, ramp, bedside }) {
       endHistory(false);   // (a history under way is of the state the days leave)
-      morph = null;
+      morph = null; stoppedAt = null;
       lapse = days > 0 ? { left: days, total: days, ramp: ramp ? Object.entries(ramp) : null, bedside: bedside ? { t0: performance.now(), ms: (days / s) * 1000 } : null } : null;
       running = true; clock = lapse && !bedside ? 'disease' : 'hemo'; speed = lapse && !bedside ? s : 1; diseaseAcc = 0;
     },

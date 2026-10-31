@@ -151,6 +151,7 @@ export function createPalette({ ctx }) {
   }
   input.addEventListener('input', () => { sel = 0; renderList(); });
   input.addEventListener('keydown', (e) => {
+    if (e.isComposing || e.keyCode === 229) return;   // (an input method is composing: its Enter picks its candidate, not a command)
     if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(items.length - 1, sel + 1); renderList(); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(0, sel - 1); renderList(); }
     else if (e.key === 'Enter') { e.preventDefault(); run(sel); }
