@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createFigureProxy, serveFigure, transfers } from '../src/ui/figure-link.js';
 
 function fake() {
@@ -77,28 +78,41 @@ test('only whole buffers are transferred, and each once', () => {
   assert.deepEqual(transfers([a, { x: a }, b]), [a.buffer]);
 });
 
-test('startFigureWorker: ready gives a proxy that posts queues; a failed worker gives null', async () => {
+test('startFigureWorker: probe, then begin moves the canvas; a failed worker gives null; a lost one reads as a lost context', async () => {
   globalThis.Worker ??= class {};
   globalThis.OffscreenCanvas ??= class {};
   globalThis.location ??= { search: '?figworker=on' };
-  const { startFigureWorker } = await import('../src/ui/figure-worker-start.js');
+  globalThis.Event ??= class { constructor(t) { this.type = t; } };
   globalThis.document ??= { documentElement: {} };
   globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '#112233' });
-  const canvas = { transferControlToOffscreen: () => ({ off: 1 }) };
+  const { startFigureWorker } = await import('../src/ui/figure-worker-start.js');
+  const fired = [];
+  const canvas = { transferControlToOffscreen: () => ({ off: 1 }), dispatchEvent: (e) => fired.push(e.type) };
   const posted = [];
+  let wk;
   const mk = (answer) => () => {
-    const w = { postMessage: (m) => { posted.push(m); queueMicrotask(() => w.onmessage({ data: answer(m) })); }, terminate() { w.dead = true; } };
-    return w;
+    wk = { postMessage: (m) => { posted.push(m); const r = answer(m); if (r) queueMicrotask(() => wk.onmessage({ data: r })); }, terminate() { wk.dead = true; } };
+    return wk;
   };
-  const state = { lost: false, software: true, canLines: true, canCath: true, hasOrgans: true, canLive: false, plates: [false, false], stack: [false, false] };
-  const proxy = await startFigureWorker(canvas, { tubes: 9, make: mk((m) => (m.type === 'init' ? { type: 'ready', state } : { type: 'state', state })) });
-  assert.equal(posted[0].type, 'init');
-  assert.equal(posted[0].tubes, 9);
+  const state = { lost: false, software: true, canLines: true, canCath: true, hasOrgans: true, canLive: true, plates: [false, false], stack: [false, false], soft: false, reused: false, pic: [1, 1] };
+  const fig = await startFigureWorker({ canvas, make: mk((m) => (m.type === 'probe' ? { type: 'probed', state } : null)) });
+  assert.equal(posted[0].type, 'probe');
   assert.equal(posted[0].settings.search, globalThis.location.search);
-  assert.equal(proxy.software, true);
-  proxy.setFlow(new Float32Array(2)); proxy.flush();
-  assert.equal(posted[1].type, 'calls');
-  const none = await startFigureWorker(canvas, { tubes: 9, make: mk(() => ({ type: 'failed', why: 'x' })) });
+  assert.equal(fig.proxy.software, true);
+  assert.equal(fig.proxy.organs, null);   // (no organ layers across the worker yet)
+  fig.begin(9);
+  assert.equal(posted[1].type, 'init');
+  assert.equal(posted[1].tubes, 9);
+  fig.proxy.setFlow(new Float32Array(2));
+  await Promise.resolve();
+  assert.equal(posted[2].type, 'calls');
+  // A call the worker cannot be sent: the proxy reads as lost and the canvas says so.
+  wk.postMessage = () => { throw new Error('DataCloneError'); };
+  fig.proxy.setDye(new Float32Array(1));
+  await Promise.resolve();
+  assert.equal(fig.proxy.lost, true);
+  assert.deepEqual(fired, ['webglcontextlost']);
+  const none = await startFigureWorker({ canvas, make: mk((m) => (m.type === 'probe' ? { type: 'failed', why: 'x' } : null)) });
   assert.equal(none, null);
 });
 
@@ -111,4 +125,14 @@ test('the picture settings go across, and what the renderer answers is read from
   assert.deepEqual(proxy.picSize(), [640, 480]);
   assert.equal(proxy.overlay, null);
   assert.equal(proxy.top, null);
+});
+
+test('the stage uses the worker only when main.js hands it a figure; otherwise the renderer and the canvas are the page\'s as before', () => {
+  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
+  assert.match(st, /const FIGW = !!figure;/);
+  assert.match(st, /veins = FIGW \? figure\.proxy : createVeinsGL\(vCanvas, \{ tubes: GL_ROWS, force: true \}\);/);
+  assert.match(st, /const vCanvas = figure \? figure\.canvas : document\.createElement\('canvas'\);/);
+  assert.match(st, /if \(FIGW\) \{ vW = bw; vH = bh; veins\.resize\(bw, bh\); \} else \{ vCanvas\.width = bw; vCanvas\.height = bh; \}/);
+  assert.match(main, /const figure = figWorkerWanted\(\) \? await startFigureWorker\(\) : null;/);
 });

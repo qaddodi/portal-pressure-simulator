@@ -99,7 +99,7 @@ test('the stage resizes its drawing buffer from the wrap size and ratio, never f
 test('a resize notice that leaves the backing size and ratio as they were neither clears the canvas nor draws in the same task', () => {
   const src = read('../src/ui/stage.js');
   const fn = src.slice(src.indexOf('function resizeCanvas()'), src.indexOf('new ResizeObserver(resizeCanvas)'));
-  const guard = fn.indexOf('bw === vCanvas.width && bh === vCanvas.height && vdpr === was');
+  const guard = fn.indexOf('bw === vcw() && bh === vch() && vdpr === was');
   assert.ok(guard > 0, 'the unchanged size is checked');
   assert.ok(guard < fn.indexOf('vCanvas.width = bw'), 'before the width is assigned');
   assert.ok(fn.indexOf('return;', guard) < fn.indexOf("drawVeins(false, 'resize')"), 'and returns before the same-task draw');
