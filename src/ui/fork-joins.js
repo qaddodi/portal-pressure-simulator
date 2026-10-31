@@ -40,6 +40,31 @@ export function forkJoins(dirs) {
   };
 }
 
+// The joins at one node when some of its ends belong to a collateral's strands. A varix (the coronary vein's, the short gastric
+// veins', the rectal veins') is drawn as its channel and a braid of strands that run along it and leave and rejoin it at its
+// ends, so at the node where the collateral meets the vein it runs on into, each strand stands as one more end there: the
+// coronary vein and the esophageal varices met as two vessels and five strands, seven ends at one point, a "crowded join"
+// above, with every pair filleted, no vessel running on into another and no caliber eased: the wide coronary vein ended in a
+// round cap on the narrow varix beside it. The strands are the collateral's own, not other vessels meeting it, so they are left
+// out of what decides the run-on and the forks (the vessels alone: the same answer the node gives with no strands drawn, which
+// is how the portal tree's own junctions (the splenic vein where the short gastric veins leave it, the IMV where the rectal
+// veins do) read the same whether those collaterals are open or not). Each strand is still joined, whole, to every vessel and
+// strand there, as it was, so its round end never shows through a lumen as a stub; the vessels' groups come first (a cell of
+// the shader reads only the first six joins it meets).
+//
+// ends: for each end at the node, { dir (as forkJoins', or null), strand }. Returns forkJoins' answer, the indexes those of `ends`.
+export function nodeJoins(ends) {
+  const lead = [], strands = [];
+  ends.forEach((e, i) => (e.strand ? strands : lead).push(i));
+  // Nothing to set apart (no strands, or fewer than two vessels): as forkJoins gives it.
+  if (!strands.length || lead.length < 2) return forkJoins(ends.map((e) => e.dir));
+  const fj = forkJoins(lead.map((i) => ends[i].dir));
+  const groups = fj.groups.map((g) => ({ ...g, members: g.members.map((m) => lead[m]), ...(g.trunk != null ? { trunk: lead[g.trunk] } : {}) }));
+  const order = lead.concat(strands);
+  for (let a = 0; a < order.length; a++) for (let b = Math.max(a + 1, lead.length); b < order.length; b++) groups.push({ members: [order[a], order[b]], fillet: 1, strand: true });
+  return { groups, runOn: fj.runOn && fj.runOn.map((m) => lead[m]) };
+}
+
 // A shunt drawn onto the side of a vein (stage.js SIDE_HOSTS: the splenorenal shunt on the splenic and renal veins) ends
 // inside the vein, a little short of its centreline. Over its last stretch there its lumen narrows (to SIDE_END_MIN), so
 // its round end sits well inside the vein's walls and never shows past the far wall as a bump: the scale of its radius at

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { forkJoins, sideEndScale, SIDE_END_MIN } from '../src/ui/fork-joins.js';
+import { readFileSync } from 'node:fs';
+import { forkJoins, nodeJoins, sideEndScale, SIDE_END_MIN } from '../src/ui/fork-joins.js';
 
 const unit = (x, y) => { const L = Math.hypot(x, y); return [x / L, y / L]; };
 // A pair of members, order-free.
@@ -103,4 +104,86 @@ test('a fork names the end that runs on as the trunk of each group that fillets 
   assert.ok(forkJoins([unit(1, 0), unit(-0.5, 0.87), unit(-0.5, -0.87)]).groups.every((g) => g.trunk == null));
   assert.ok(forkJoins([unit(1, 0), unit(-1, 0.01)]).groups.every((g) => g.trunk == null));
   assert.ok(forkJoins([unit(0, 1), null]).groups.every((g) => g.trunk == null));
+});
+
+// ── A collateral's strands at its node (nodeJoins): the coronary vein into the esophageal varices (owner, 31 Oct: "not a smooth
+// transition ... in caliber"). The varix is its channel and a braid of strands that end where it does, so its node counted seven
+// ends, a crowded join: no run-on, no caliber eased, the wide coronary vein ending in a round cap on the narrow varix.
+const strand = (d) => ({ dir: d, strand: true });
+const vessel = (d) => ({ dir: d, strand: false });
+
+test('strands at a node leave the run-on to the vessels, and are each joined whole to every other end, the vessels first', () => {
+  const up = unit(0, -1), down = unit(0, 1);
+  const r = nodeJoins([vessel(down), vessel(up), ...Array.from({ length: 5 }, () => strand(up))]);
+  assert.deepEqual(r.runOn, [0, 1]);
+  assert.deepEqual(r.groups[0], { members: [0, 1], fillet: forkJoins([down, up]).groups[0].fillet });
+  assert.ok(r.groups[0].fillet < 0.1, 'the run-on pair has no fillet');
+  // Every other pair that holds a strand is there once, whole, after the vessels' own, none of more than two ends.
+  const pairs = r.groups.slice(1);
+  assert.equal(pairs.length, 7 * 6 / 2 - 1);
+  assert.ok(pairs.every((g) => g.fillet === 1 && g.strand === true && g.members.length === 2 && g.members.some((m) => m >= 2)));
+  assert.equal(new Set(pairs.map((g) => g.members.join())).size, pairs.length);
+  // The first six joins (all a cell of the shader reads) hold the vessels' pair and the first vessel's strands.
+  assert.deepEqual(r.groups.slice(0, 6).map((g) => g.members.join('-')), ['0-1', '0-2', '0-3', '0-4', '0-5', '0-6']);
+});
+
+test('a node with no strands, or only one vessel, is as forkJoins gives it', () => {
+  const dirs = [unit(0, -1), unit(0, 1), unit(1, 0.2)];
+  assert.deepEqual(nodeJoins(dirs.map(vessel)), forkJoins(dirs));
+  const crowd = Array.from({ length: 5 }, (_, i) => unit(Math.cos(i * 1.2566), Math.sin(i * 1.2566)));
+  assert.deepEqual(nodeJoins(crowd.map(vessel)), forkJoins(crowd));
+  const one = [vessel(unit(1, 0)), strand(unit(1, 0)), strand(unit(1, 0.02))];
+  assert.deepEqual(nodeJoins(one), forkJoins(one.map((e) => e.dir)));
+});
+
+test('a fork keeps its trunk through the strands: indexes, trunks and the vessels\' groups are those of the vessels alone', () => {
+  // A trunk running on (ends 0, 1) with a tributary (2) and a varix's strands (3, 4, 5) beside the tributary.
+  const dirs = [unit(1, -1), unit(-1, 1), unit(0, 1)];
+  const r = nodeJoins([...dirs.map(vessel), strand(dirs[2]), strand(dirs[2]), strand(dirs[2])]);
+  const plain = forkJoins(dirs);
+  assert.deepEqual(r.runOn, plain.runOn);
+  assert.deepEqual(r.groups.slice(0, plain.groups.length), plain.groups);
+  assert.ok(r.groups.slice(plain.groups.length).every((g) => g.strand && g.trunk == null && g.fillet === 1));
+});
+
+// The real anatomy: where the strand-bearing collaterals meet the vein they run on into, the vessels run on, strands or not.
+// (Sampled as the stage does, 64 samples even by arc length, an end's direction taken three samples in.)
+test('the coronary vein runs on into the varices, the varices into the azygos route, and the portal tree keeps its own run-ons beside the collaterals', async () => {
+  const { EDGE_PATH, STRANDS } = await import('../src/ui/anatomy.js');
+  const { EDGES } = await import('../src/engine/topology.js');
+  const even = (id, N = 64) => {
+    const P = sample(EDGE_PATH[id]), cum = [0];
+    for (let i = 1; i < P.length; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+    return Array.from({ length: N }, (_, i) => { const d = (cum[cum.length - 1] * i) / (N - 1); let j = 1; while (j < P.length - 1 && cum[j] < d) j++; const t = cum[j] > cum[j - 1] ? (d - cum[j - 1]) / (cum[j] - cum[j - 1]) : 0; return [P[j - 1][0] + (P[j][0] - P[j - 1][0]) * t, P[j - 1][1] + (P[j][1] - P[j - 1][1]) * t]; });
+  };
+  const dirAt = (id, end) => { const P = even(id), a = end ? P[63] : P[0], b = end ? P[60] : P[3], L = Math.hypot(b[0] - a[0], b[1] - a[1]); return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
+  const kind = Object.fromEntries(EDGES.map((e) => [e.id, e]));
+  // node → the vessels that end there ([id, end]); a collateral's strands are counted from STRANDS.
+  const at = (node, ids) => ids.map((id) => [id, kind[id].from === node ? 0 : 1]);
+  const cases = [
+    ['LGV', ['LGV_CONF', 'C1a'], 'LGV_CONF', 'C1a'],
+    ['VAR', ['C1a', 'C1b'], 'C1a', 'C1b'],
+    ['IMV', ['V_COL', 'V_IMV', 'C4'], 'V_COL', 'V_IMV'],
+    ['SV', ['V_IMV', 'SV_MID', 'SV_CONF', 'C2'], 'SV_MID', 'SV_CONF'],
+  ];
+  for (const [node, ids, a, b] of cases) {
+    const ends = at(node, ids), strands = ids.reduce((n, id) => n + (STRANDS[id]?.length || 0), 0);
+    assert.ok(strands >= 4, `${node} carries strands`);
+    const list = [...ends.map(([id, e]) => vessel(dirAt(id, e))), ...Array.from({ length: strands }, () => strand(null))];
+    const withStrands = nodeJoins(list), without = forkJoins(ends.map(([id, e]) => dirAt(id, e)));
+    assert.deepEqual(withStrands.runOn?.map((i) => ends[i][0]).sort(), [a, b].sort(), `${node}: ${a} runs on into ${b}`);
+    assert.deepEqual(withStrands.runOn, without.runOn, `${node}: the same pair as with no strands`);
+    assert.deepEqual(withStrands.groups.slice(0, without.groups.length), without.groups, `${node}: the vessels' groups are the strand-free ones`);
+    // (As it was: the node's every end, strands too, read as a crowd and nothing ran on.)
+    const crowd = forkJoins(list.map((e) => e.dir));
+    assert.equal(crowd.runOn, null, `${node}: with the strands counted nothing ran on`);
+    assert.ok(withStrands.groups.every((g) => g.members.length <= 4));
+  }
+});
+
+test('the figure counts a vessel\'s strands apart at a node (stage.js veinJoins)', () => {
+  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(src, /import \{ nodeJoins, sideEndScale \} from '\.\/fork-joins\.js/);
+  assert.match(src, /nodeJoins\(uniq\.map\(\(e\) => \(\{ dir: dir\(e\), strand: isStrand\(e\) \}\)\)\)/);
+  assert.match(src, /const isStrand = \(\[it\]\) => it\.kind === 's'/);
 });

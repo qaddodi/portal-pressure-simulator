@@ -4,7 +4,7 @@
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=4d7c66b4f8';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=8ef52a2ef0';
-import { forkJoins, sideEndScale } from './fork-joins.js?v=20a032142f';
+import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=a926bea9d4';
@@ -3642,21 +3642,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const add = (ends, c, trunk) => {
       const uniq = [...new Map(ends.map((e) => [e[0].row, e])).values()];
       if (uniq.length < 2) return;
-      let spread = 0, rMin = Infinity, rMax = 0;
-      for (const [it, i] of uniq) {
-        const q = i == null ? c : endOf(it, i), r = i == null ? it.obj.glMaxR : rEnd(it, i);
-        spread = Math.max(spread, Math.hypot(q[0] - c[0], q[1] - c[1]));
-        rMin = Math.min(rMin, r); rMax = Math.max(rMax, r);
-      }
-      const k = clamp(1.2 * rMin + 1.2, 1.5, 11);
+      const reachOf = (list) => {
+        let spread = 0, rMin = Infinity, rMax = 0;
+        for (const [it, i] of list) {
+          const q = i == null ? c : endOf(it, i), r = i == null ? it.obj.glMaxR : rEnd(it, i);
+          spread = Math.max(spread, Math.hypot(q[0] - c[0], q[1] - c[1]));
+          rMin = Math.min(rMin, r); rMax = Math.max(rMax, r);
+        }
+        return { spread, rMin, rMax };
+      };
+      const isStrand = ([it]) => it.kind === 's';
+      const all = reachOf(uniq), own = uniq.some(isStrand) ? reachOf(uniq.filter((e) => !isStrand(e))) : all;
+      const kOf = (m) => clamp(1.2 * m.rMin + 1.2, 1.5, 11);
       // Which ends blend into which (fork-joins.js): a vessel running on into the next is not filleted to it, in a fork too.
+      // (A collateral's strands, which end where it does, are left out of that: nodeJoins.)
       const dir = ([it, i]) => { if (i == null) return null; const P = it.pts, n = P.length, a = i ? P[n - 1] : P[0], b = i ? P[Math.max(0, n - 4)] : P[Math.min(n - 1, 3)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
-      const { groups, runOn } = forkJoins(uniq.map(dir));
-      if (runOn) glStraight.push({ a: uniq[runOn[0]][0].row, ia: uniq[runOn[0]][1], b: uniq[runOn[1]][0].row, ib: uniq[runOn[1]][1], fork: uniq.length > 2 });
-      const reach = spread + 2 * rMax + k + 6;
+      const { groups, runOn } = nodeJoins(uniq.map((e) => ({ dir: dir(e), strand: isStrand(e) })));
+      if (runOn) glStraight.push({ a: uniq[runOn[0]][0].row, ia: uniq[runOn[0]][1], b: uniq[runOn[1]][0].row, ib: uniq[runOn[1]][1], fork: uniq.filter((e) => !isStrand(e)).length > 2 });
       const rows = uniq.map(([it]) => it);
       for (let a = 0; a < rows.length; a++) for (let b = a + 1; b < rows.length; b++) pairs.add(pairKey(rows[a], rows[b]));
-      for (const g of groups) joins.push({ x: c[0], y: c[1], reach, k, fillet: g.fillet, members: g.members.map((i) => rows[i].row), trunk: g.trunk != null ? rows[g.trunk].row : trunk, fork: g.trunk != null });
+      for (const g of groups) {
+        // (The vessels' own groups take the blend width their own radii give, the strands' pairs the one all the ends give, as before.)
+        const k = kOf(g.strand ? all : own), reach = all.spread + 2 * all.rMax + k + 6;
+        joins.push({ x: c[0], y: c[1], reach, k, fillet: g.fillet, members: g.members.map((i) => rows[i].row), trunk: g.trunk != null ? rows[g.trunk].row : trunk, fork: g.trunk != null });
+      }
     };
     const byNode = new Map();
     for (const it of items) {
