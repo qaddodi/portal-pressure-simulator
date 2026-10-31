@@ -156,6 +156,11 @@ What is measured, and where (`src/ui/frame.js`, `frame-stats.js`, `input-latency
   value each uniform location holds and sends a call only when it differs (the view, plates, colours and flags; the clock still goes
   every frame). These names are set through it and nowhere else (`tests/uniform-cache.test.js` pins that in `veins-gl.js`).
 
+- **Vitals monitor still layers (Q6).** `vitals-monitor.js` drew the panel, the baseline, the strip's name and the three vitals' names, numbers
+  and units (with a `measureText` fit loop each) on every frame the strip scrolled. They are now two pictures (`still-layer.js`): the panel
+  with its baseline and name, and the readings, each drawn again only when its key changes (size, colours, fonts epoch, and for the readings
+  the printed strings). The strip is drawn over the first every frame, as before. `tests/vitals-still.test.js` compares every drawing call
+  with and without the pictures, frame by frame, for six card sizes and moving numbers.
 - **A label canvas that draws nothing is hidden.** The label canvas (`label-gl.js`) covers the whole stage, so the compositor blended it with
   the figure on every frame the blood moved even when no label, mark or probe was on it. Every picture it draws has a box (`boxes`), so
   with none it takes `data-blank` (`visibility: hidden` in `app.css`) in the same draw, and loses it in the task that draws the first thing back.
