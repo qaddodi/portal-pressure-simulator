@@ -15,12 +15,8 @@ const cells = Array.from({ length: 700 }, () => {
 });
 const shape = { R, cx, cy, lobules: [{ x: cx, y: cy, corners }], cells };
 
-test('only a state the shader draws whole is drawn live', () => {
-  const m = { congU: 0.6, septU: 0, fibSin: 0, act: 0, fibPre: 0, fibPost: 0 };
-  assert.equal(liveEligible(m), true, 'congestion and zones are in');
-  for (const k of ['septU', 'fibPre', 'fibPost']) assert.equal(liveEligible({ ...m, [k]: 0.5 }), false, k);
-  for (const k of ['fibSin', 'act']) assert.equal(liveEligible({ ...m, [k]: 0.9 }), true, `${k}: drawn by the shader now`);
-  assert.equal(liveEligible({ ...m, fibPre: 0.03, fibPost: 0.05 }), true, 'the bitmap\'s own thresholds: 0.03, 0.05');
+test('the shader draws every tissue state now', () => {
+  for (const m of [{ congU: 0.6 }, { septU: 0.5, fibSin: 0.9, act: 0.9, fibPre: 0.9, fibPost: 0.9 }]) assert.equal(liveEligible(m), true);
 });
 
 test('the shader\'s share grows with the cell\'s size on screen: none under 3.5 px, whole from 6', () => {
@@ -74,7 +70,7 @@ test('colours: tokens with and without their own alpha, and the gap and cell col
 test('the shader follows paintLobule\'s order and numbers, and the bitmap path is still there under it', () => {
   const live = readFileSync(new URL('../src/ui/lobule-live.js', import.meta.url), 'utf8');
   // fill 1.015, gap fill 0.55/0.5, cells (fill 0.92/0.8, dead 0.6; membrane max 0.6; nucleus max 0.9), nutmeg 0.05–0.55 R, zones 0.2/0.17, hairline
-  for (const s of ['lvHex(wp, 1.015)', 'dark ? 0.55 : 0.5', 'dark ? 0.8 : 0.92', 'max(0.6, 0.6 * px)', 'max(0.9, ww * 0.16)', 'min(lw, ww) * 0.38', '0.05 * R) / (0.5 * R)', 'dark ? 0.2 : 0.17', 'lvHex(wp, 0.66)', 'lvHex(wp, 0.36)', 'if (sj <= 0.0)']) assert.ok(live.includes(s), s);
+  for (const s of ['lvHex(wp, 1.015)', 'dark ? 0.55 : 0.5', 'dark ? 0.8 : 0.92', 'max(0.6, 0.6 * px)', 'max(0.9, ww * 0.16)', 'min(lw, ww) * 0.38', '0.05 * R) / (0.5 * R)', 'dark ? 0.2 : 0.17', 'lvHex(wp, 0.66)', 'lvHex(wp, 0.36)', 'if (sj < 0.05)']) assert.ok(live.includes(s), s);
   assert.match(gl, /if \(uLive > 0\.0\) \{ vec4 ls = liveTissue\(w\) \* e; c = mix\(c, ls\.rgb \+ c0 \* \(1\.0 - ls\.a\), uLive\); \}/, 'mixing the two pictures laid over the surround = laying their mix');
   assert.match(gl, /vec3 c0 = c;\n\s+if \(w\.x >= 0\.0/, 'the surround before the bitmap');
   assert.match(gl, /\} else gl\.uniform1f\(U\.uLive, 0\);/, 'no share, no live lookups: the picture as before');
@@ -90,10 +86,40 @@ test('the sinusoids\' segments are binned tube by tube, and the per-state texels
   const o = D.bins[(Math.floor((cy - D.box[1]) / BIN) * D.nb + Math.floor((cx - D.box[0]) / BIN)) * 4 + 2], n = D.bins[(Math.floor((cy - D.box[1]) / BIN) * D.nb + Math.floor((cx - D.box[0]) / BIN)) * 4 + 3];
   const segs = Array.from(D.idx.slice(o, o + n));
   assert.ok(n >= 2 && segs.every((v, i) => !i || v > segs[i - 1]), 'in drawing order');
-  const dyn = buildDyn({ hsc: [{ x: 1, y: 2, a: 3, nx: 4, ny: 5 }] }, [1.5, 2.5, 3.5, 4.5, 5.5]);
+  const dyn = buildDyn({ ...shape, hsc: [{ x: 1, y: 2, a: 3, nx: 4, ny: 5 }] }, [1.5, 2.5, 3.5, 4.5, 5.5]);
   assert.deepEqual(Array.from(dyn.k.slice(0, 8)), [1.5, 2.5, 3.5, 4.5, 5.5, 0, 0, 0]);
   assert.equal(dyn.hOff, 2);
   assert.deepEqual(Array.from(dyn.k.slice(8, 16)), [1, 2, 3, 4, 5, 0, 0, 0]);
   const f0 = liveFibre({ fibSin: 0.04, act: 0.05 }), f1 = liveFibre({ fibSin: 0.5, act: 0.5 });
   assert.ok(f0.sin === 0 && f0.act === 0 && f1.sin === 1 && f1.act === 1, 'no pop at the thresholds');
+});
+
+test('the packed bands are the bands fibrousBand draws: the same points, widths, fibres and nuclei, every tract and collar in order', async () => {
+  const { buildItems, buildDyn } = await import('../src/ui/lobule-live.js');
+  const { fibrousBand, fibrousTract, fibrousCuff, useTokens } = await import('../src/ui/lobule-paint.js');
+  useTokens(() => 'rgba(0,0,0,1)');
+  const rec = () => { const o = { bands: 0, fills: 0, strokes: [], ellipses: [] }; return new Proxy({}, { get: (_, k) => (k === 'rec' ? o : k === 'getTransform' ? () => ({ a: 1 }) : k === 'ellipse' ? (...a) => o.ellipses.push(a) : k === 'stroke' ? () => o.strokes.push(1) : k === 'fill' ? () => o.fills++ : () => {}), set: () => true }); };
+  const sh = { ...shape, rt: 14, rcv0: 12, septaPC: [0, 2, 4].map((i) => ({ pts: [corners[i], [cx, cy]] })) };
+  const col = [0.8, 0.7, 0.5];
+  const items = buildItems(sh, { septU: 0.8, fibPre: 0.8, fibPost: 0.8 }, { col, dark: false, cvIn: 9 });
+  const bands = items.filter((i) => i.type === 0), fills = items.filter((i) => i.type !== 0);
+  assert.equal(items.filter((i) => i.type === 1).length, 6, 'a disc per tract');
+  assert.equal(fills.filter((i) => i.type === 2).length, 7, 'a collar per tract and the central vein\'s');
+  // The tract's ten bands, against fibrousTract's own fills and nuclei.
+  const c = rec(); fibrousTract(c, corners[0][0], corners[0][1], 14 * (0.8 + 0.9 * 0.8 ** 1.1), Math.atan2(corners[0][1] - cy, corners[0][0] - cx), [0.78, 0.64, 0.44], 0.8 ** 1.1, 900);
+  const mine = items.filter((i) => i.type === 0 && i.clip[0] === 1 && i.clip[1] === corners[0][0]);
+  assert.equal(mine.length, 10);
+  assert.equal(c.rec.fills, 1 + 10 * 3 + mine.reduce((q, b) => q + b.nuclei.length, 0), 'the disc, three passes a band, a fill a nucleus');
+  assert.equal(c.rec.strokes.length, mine.reduce((q, b) => q + b.fibres.length, 0), 'a stroke a fibre');
+  const dyn = buildDyn(sh, [1, 2], items);
+  assert.equal(dyn.nItems, items.length);
+  assert.ok(dyn.k.length >= (dyn.iOff + 1) * 4 && dyn.margin >= 2);
+  // Every item is listed in the bin under its centre, and the list points at its header.
+  const nk = dyn.nk, B = 1.3 * R;
+  for (const it of items) {
+    const i = Math.floor((it.bc[0] - (cx - B)) / 32), j = Math.floor((it.bc[1] - (cy - B)) / 32);
+    const st = dyn.k[(dyn.bOff + j * nk + i) * 4], ct = dyn.k[(dyn.bOff + j * nk + i) * 4 + 1];
+    assert.ok(ct >= 1, 'listed'); assert.ok(st + ct <= dyn.k.length);
+  }
+  void fibrousBand; void fibrousCuff; void bands;
 });

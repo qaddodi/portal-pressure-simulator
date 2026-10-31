@@ -3,7 +3,7 @@
 // performance review, 31 Oct, A5a). Here the same code (lobule-paint.js) paints it from the same values onto an OffscreenCanvas,
 // which is then cut into tiles sent back as ImageBitmaps (moved, not copied), for the page to lay a few a frame (lobule-zoom.js).
 
-import { paintWorldInto, useTokens, tokenReader } from './lobule-paint.js?v=8b9cefdd27';
+import { paintWorldInto, useTokens, tokenReader } from './lobule-paint.js?v=f6e22a327b';
 
 const TILE = 512;
 let shape = null, shapeId = 0;

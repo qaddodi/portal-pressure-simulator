@@ -4,12 +4,12 @@
 // that fails to start or errs, a canvas call the page has and the worker lacks, a job it could not paint, or one with no reply within
 // WAIT_MS. Then, and until then, the lobule paints its bitmap on the page as before.
 
-import { TOKENS } from './lobule-paint.js?v=8b9cefdd27';
+import { TOKENS } from './lobule-paint.js?v=f6e22a327b';
 import { cssVar, cssRGB } from './util.js?v=731ee3a0c7';
 
 const WAIT_MS = 15000;
 
-export function createTissueWorker({ make = () => new Worker(new URL('./tissue-paint-worker.js?v=26c49c9e8f', import.meta.url), { type: 'module' }) } = {}) {
+export function createTissueWorker({ make = () => new Worker(new URL('./tissue-paint-worker.js?v=5194b4778d', import.meta.url), { type: 'module' }) } = {}) {
   let w = null, state = 'off', nextId = 0, sent = null, shapeSeq = 0;
   const waiting = new Map();
   const closeAll = (tiles) => { for (const t of tiles || []) { try { t.bmp.close(); } catch { /* gone */ } } };

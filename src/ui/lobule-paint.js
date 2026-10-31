@@ -34,7 +34,8 @@ export const tokenReader = (T) => (n, a) => {
 // stops in the parenchyma); seed: a fixed number so the same septum always looks the same;
 // detail: 0 … 1, fewer fibres and no nuclei when small on screen.
 export const fibHash = (i) => { let q = (i * 374761393 + 668265263) >>> 0; q = ((q ^ (q >>> 13)) * 1274126177) >>> 0; return (q >>> 8) / 16777216; };
-export function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1.5, amp = 0, detail = 1, path = null }) {
+/** A band's centre line and widths: 27 samples (n = 26), each with its point P, unit normal N and width Wd; L0, the chord's length. */
+export function bandGeom(A, B, { w, seed = 0, e0 = 1.5, e1 = 1.5, amp = 0, path = null }) {
   const n = 26, P = [], N = [], Wd = [];
   const ph = fibHash(seed) * TAU, ph2 = fibHash(seed + 9) * TAU;
   const dx = B[0] - A[0], dy = B[1] - A[1], L0 = Math.hypot(dx, dy) || 1;
@@ -50,6 +51,25 @@ export function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1
     const end = 1 + (e0 - 1) * Math.max(0, 1 - u * 3) ** 2 + (e1 - 1) * Math.max(0, u * 3 - 2) ** 2;
     Wd.push(Math.max(0, w * lump * end));
   }
+  return { n, P, N, Wd, L0 };
+}
+/** Fibre f of a band: its offset across the band (in widths), phase, waviness, where along it (samples iA … iB) and how thick (world units). */
+export function bandFibre(seed, f, w, n = 26) {
+  const off = (fibHash(seed * 31 + f) - 0.5) * 0.9, fp = fibHash(seed * 17 + f) * TAU, wav = 0.05 + 0.08 * fibHash(seed * 7 + f);
+  const u0 = fibHash(seed * 13 + f) * 0.25, u1 = 1 - fibHash(seed * 19 + f) * 0.25;
+  return { off, fp, wav, iA: Math.floor(u0 * n), iB: Math.ceil(u1 * n), lw: Math.max(0.45, w * (0.035 + 0.03 * fibHash(seed * 5 + f))), deep: f % 3 === 0 };
+}
+/** How many fibres a band has, and how many nuclei (0 when it is too small on screen or too narrow to show them). */
+export const bandFibreCount = (w, detail = 1) => (detail <= 0 || w < 1.2 ? 0 : Math.round((3 + Math.min(7, w / 1.6)) * detail));
+export const bandNucleiCount = (g, w, detail = 1) => (detail <= 0 || w < 1.2 || detail < 0.6 || w < 3 ? 0 : Math.round((g.L0 / (w * 2.6)) * detail));
+/** Nucleus k of a band: its centre, half axes and angle. */
+export function bandNucleus(g, seed, k, w) {
+  const { n, P, N, Wd } = g;
+  const i = Math.min(n - 1, Math.max(1, Math.round(fibHash(seed * 41 + k) * n))), h = Wd[i] * (fibHash(seed * 43 + k) - 0.5) * 0.7;
+  return { x: P[i][0] + N[i][0] * h, y: P[i][1] + N[i][1] * h, rx: Math.max(0.8, w * 0.16), ry: Math.max(0.35, w * 0.045), ang: Math.atan2(N[i][0], -N[i][1]) };
+}
+export function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1.5, amp = 0, detail = 1, path = null }) {
+  const g = bandGeom(A, B, { w, seed, e0, e1, amp, path }), { n, P, N, Wd } = g;
   // (Round ends, so bands meeting at a tract blend; the widest, faintest pass narrows to the middle one's width at the
   // ends, so it leaves no outer halo round the tract.)
   const outline = (k) => bandOutline(c, P, N, Wd, k, Math.min(k, 1.45));
@@ -60,28 +80,26 @@ export function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1
   if (detail <= 0 || w < 1.2) return;
   // Fibres: thin wavy strands along the band, some brighter, some deeper.
   const lite = rgb.map((x) => x + (1 - x) * 0.45), deep = rgb.map((x, j) => x * [0.78, 0.74, 0.7][j]);
-  const nf = Math.round((3 + Math.min(7, w / 1.6)) * detail);
+  const nf = bandFibreCount(w, detail);
   c.lineCap = 'round'; c.shadowBlur = 0;
   for (let f = 0; f < nf; f++) {
-    const off = (fibHash(seed * 31 + f) - 0.5) * 0.9, fp = fibHash(seed * 17 + f) * TAU, wav = 0.05 + 0.08 * fibHash(seed * 7 + f);
-    const u0 = fibHash(seed * 13 + f) * 0.25, u1 = 1 - fibHash(seed * 19 + f) * 0.25;
-    c.strokeStyle = css(f % 3 === 0 ? deep : lite, (f % 3 === 0 ? 0.32 : 0.55) * a);
-    c.lineWidth = Math.max(0.45, w * (0.035 + 0.03 * fibHash(seed * 5 + f)));
+    const { off, fp, wav, iA, iB, lw, deep: isDeep } = bandFibre(seed, f, w, n);
+    c.strokeStyle = css(isDeep ? deep : lite, (isDeep ? 0.32 : 0.55) * a);
+    c.lineWidth = lw;
     c.beginPath();
-    for (let i = Math.floor(u0 * n); i <= Math.ceil(u1 * n); i++) {
+    for (let i = iA; i <= iB; i++) {
       const u = i / n, h = Wd[i] * (off + wav * Math.sin(TAU * 4 * u + fp));
-      c[i === Math.floor(u0 * n) ? 'moveTo' : 'lineTo'](P[i][0] + N[i][0] * h, P[i][1] + N[i][1] * h);
+      c[i === iA ? 'moveTo' : 'lineTo'](P[i][0] + N[i][0] * h, P[i][1] + N[i][1] * h);
     }
     c.stroke();
   }
   if (detail < 0.6 || w < 3) { c.shadowBlur = sb; return; }
   // Fibroblast nuclei: small dark spindles lying along the fibres.
-  const nn = Math.round((L0 / (w * 2.6)) * detail);
+  const nn = bandNucleiCount(g, w, detail);
   c.fillStyle = tk('--lz-shade', 0.32 * a);
   for (let k = 0; k < nn; k++) {
-    const i = Math.min(n - 1, Math.max(1, Math.round(fibHash(seed * 41 + k) * n))), h = Wd[i] * (fibHash(seed * 43 + k) - 0.5) * 0.7;
-    const x = P[i][0] + N[i][0] * h, y = P[i][1] + N[i][1] * h;
-    c.beginPath(); c.ellipse(x, y, Math.max(0.8, w * 0.16), Math.max(0.35, w * 0.045), Math.atan2(N[i][0], -N[i][1]), 0, TAU); c.fill();
+    const { x, y, rx, ry, ang } = bandNucleus(g, seed, k, w);
+    c.beginPath(); c.ellipse(x, y, rx, ry, ang, 0, TAU); c.fill();
   }
   c.shadowBlur = sb;
 }
