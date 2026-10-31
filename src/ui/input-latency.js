@@ -92,7 +92,8 @@ export function createInputLatency({ now = () => performance.now(), listen, watc
 export function describeTarget(t) {
   const el = t?.nodeType === 1 ? t : t?.parentElement;
   if (!el) return '';
-  const hit = el.closest?.('button, a, input, select, textarea, [role="button"], [role="tab"], canvas, svg') || el;
+  // (The control first, then the picture: a tap on a button's icon is the button, not the svg inside it.)
+  const hit = el.closest?.('button, a, input, select, textarea, [role="button"], [role="tab"]') || el.closest?.('canvas, svg') || el;
   const cls = hit.classList?.[0];
   return `${hit.localName}${hit.id ? `#${hit.id}` : cls ? `.${cls}` : ''}`;
 }

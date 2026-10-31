@@ -6,8 +6,8 @@
 // (engine.js starling), read from the slide's fingerprint at rest and from the live model while a time-lapse, a what-if or a
 // compare button moves it.
 
-import { frame } from './frame.js?v=31d41c47b6';
-import { h, fmt, clamp } from './util.js?v=8d5111b670';
+import { frame } from './frame.js?v=d228750e83';
+import { h, fmt, clamp } from './util.js?v=adf3d7db44';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { store } from './store.js?v=3611054974';
 

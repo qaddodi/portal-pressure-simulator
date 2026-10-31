@@ -6,7 +6,7 @@
 // liver's flow).
 
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { clamp } from './util.js?v=8d5111b670';
+import { clamp } from './util.js?v=adf3d7db44';
 import { oxygenFor } from './blood.js?v=acc95c9bbc';
 import { sinceNow } from './since-ref.js?v=ef1a818c75';
 

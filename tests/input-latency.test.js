@@ -151,6 +151,26 @@ test('describeTarget names the control an event hit', () => {
   assert.equal(describeTarget(null), '');
 });
 
+test('describeTarget names the control around an icon, not the svg inside it, and the picture when there is no control', () => {
+  // (a tree with a real `closest`: the nearest ancestor, or the element itself, that any of the selectors names)
+  const chain = (...tags) => {
+    let parent = null;
+    return tags.map(([localName, id, role]) => {
+      const n = { nodeType: 1, localName, id: id || '', classList: [], parentElement: parent, getAttribute: (a) => (a === 'role' ? role : null),
+        closest(sel) { const want = sel.split(',').map((x) => x.trim()); for (let m = n; m; m = m.parentElement) if (want.some((w) => (w.startsWith('[role=') ? w.includes(`"${m.getAttribute('role')}"`) : w === m.localName))) return m; return null; } };
+      parent = n; return n;
+    });
+  };
+  const [, , use] = chain(['button', 'btnTreat'], ['svg'], ['use']);
+  assert.equal(describeTarget(use), 'button#btnTreat', 'the icon of a button');
+  const [, svg] = chain(['div'], ['svg', 'logo']);
+  assert.equal(describeTarget(svg), 'svg#logo', 'a picture that is no control');
+  const [, tab] = chain(['div'], ['div', 'tabX', 'tab']);
+  assert.equal(describeTarget(tab), 'div#tabX', 'a role=tab');
+  const [, canvas] = chain(['section'], ['canvas', 'veins']);
+  assert.equal(describeTarget(canvas), 'canvas#veins', 'the figure');
+});
+
 test('frame.js hands the page this tracker, and the tracker asks for frames only through the scheduler', () => {
   const frameJs = readFileSync(new URL('../src/ui/frame.js', import.meta.url), 'utf8');
   assert.match(frameJs, /inputToPaint: inputMeasure\(\)/, 'perf().inputToPaint');

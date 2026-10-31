@@ -18,7 +18,7 @@
 
 import { gpuProbe } from './gpu-probe.js?v=c16e5847d4';
 import { createFrameRecorder } from './frame-stats.js?v=9cd1d0c4e3';
-import { createInputLatency, describeTarget } from './input-latency.js?v=b2d077f9bd';
+import { createInputLatency, describeTarget } from './input-latency.js?v=3c0129b426';
 let queue = new Map();   // id -> [tag, cb], in request order
 let current = null;      // the batch running now
 // Asked for with lateFrame: run after every other callback of the frame (one asked for while that frame's callbacks run still
