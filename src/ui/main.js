@@ -3,27 +3,28 @@
 
 import { startHost, host } from './host.js?v=94c9457ff6';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=a926bea9d4';
-import { createStage } from './stage.js?v=1fb1907891';
+import { createStage } from './stage.js?v=fa84b721fe';
 import { createCreditPlacer } from './credit.js?v=b35c114816';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=f02c33fe58';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=de152e5395';
-import { setHvpgStage } from './hvpg-proc.js?v=2dbba5f285';
-import { createWhy } from './why.js?v=b9f58d396e';
-import { createTimeline, LAPSES } from './timeline.js?v=ddfbd71c80';
-import { createCompare } from './compare.js?v=2c216e4342';
-import { createCard } from './card.js?v=dc5673380c';
-import { createChart } from './chart.js?v=e57906bb7b';
-import { createMenu } from './menu.js?v=ec7ae684c0';
-import { caption } from './a11y.js?v=7e19f0a21e';
+import { createInspector } from './inspector.js?v=9ae3a0af74';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=a704999e19';
+import { setHvpgStage } from './hvpg-proc.js?v=a14503953c';
+import { createWhy } from './why.js?v=7be3f477bb';
+import { createTimeline, LAPSES } from './timeline.js?v=b419118b58';
+import { createCompare } from './compare.js?v=b719d25d64';
+import { createCard } from './card.js?v=ba186323e5';
+import { createChart } from './chart.js?v=2ba4e0346d';
+import { createMenu } from './menu.js?v=e8469a787b';
+import { caption } from './a11y.js?v=e821e624c9';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=577fa94363';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=7e4c45fe08';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=1de080d8fc';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=80b4653c78';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=f771ade056';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=89c771844c';
+import { releaseSpeed } from './ease.js?v=7c37eab2c6';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -36,7 +37,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=2ef1821efd';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=14e0028ba1';
 import { initTopbarMotion } from './topbar-motion.js?v=6eed2fd091';
 import { ORIGINS } from './blood.js?v=d65f995908';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
@@ -104,8 +105,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=f5366e5697'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=9c87a208c6'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=e0a2299e44'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=6ccf99ace4'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -178,7 +179,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=bdb1be0ed5'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=d5b751f05d'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -186,7 +187,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=bb22594e2a'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=5f7744cd01'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -303,11 +304,16 @@ async function main() {
   if (back) { const u = new URL(location.href); for (const k of ['back', 'script', 'slide']) u.searchParams.delete(k); u.hash = ''; history.replaceState(null, '', u.pathname + u.search); }   // (a later plain reload starts fresh)
   // Startup has decided who the patient is (a deep link, a shared link, or the default one): the figure may frame itself.
   store.set({ booted: true });
-  // Offline support registers once the figure is up, so its install does not compete with the modules still loading.
+  // Offline support registers once the figure is up and the page has been left alone a moment, so its install (every file of the app,
+  // fetched at once) does not compete with the modules still loading, nor with the first touches. The fonts' other subsets come later
+  // still (the worker is asked once it is active, build.mjs 'pps:fill').
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    const reg = () => navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
+    const reg = () => whenQuiet(() => (window.requestIdleCallback || ((fn) => setTimeout(fn, 1500)))(() => navigator.serviceWorker.register('sw.js')
+      .then(() => navigator.serviceWorker.ready).then((r) => whenQuiet(() => r.active?.postMessage('pps:fill'), 2000, 1000))
+      .catch(() => { /* offline support is optional */ })));
     if (window.ppsFigureReady) reg(); else addEventListener('pps:figure-ready', reg, { once: true });
   }
+  performance.mark?.('pps:booted');   // (P3: the first figure frame and the first input accepted are read from these marks and the browser's own first-input entry)
   // The surfaces most sessions never open are fetched and read in once the page is idle, one at a time, each only after the page has been
   // left alone for a moment (quiet.js): a module's read-in is tens of ms of script on a phone, and a timer alone put it in a pan or pinch.
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
@@ -1385,6 +1391,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     }
     el.classList.add('dragging');
     start.dy = dy + start.base;
+    (start.trail ||= []).push([performance.now(), e.clientY]); if (start.trail.length > 8) start.trail.shift();
     // Over the thumb dock a pull down slides the card down behind the tab row (--sink: moved and cut at its resting
     // bottom edge in one value, styles/app.css).
     // From Full a pull down shrinks the card the way a pull up grew it (15 Oct, Mohammad): its foot stays on the tab row and
@@ -1425,9 +1432,10 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
         return;
       }
       const gone = flick || s0.dy > Math.min(90, s0.h * 0.3);
-      if (!gone) { sinkTo(el, 0); return; }
+      const speed = releaseSpeed(s0.trail, performance.now());   // (the finger's, px per ms down: the settle carries it on)
+      if (!gone) { sinkTo(el, 0, 220, undefined, speed); return; }
       // Sinks out of sight behind the tab row, then closes (already gone, so the close plays nothing of its own).
-      sinkTo(el, el.offsetHeight, 220, () => { el.dataset.swiped = '1'; onClose(); delete el.dataset.swiped; el.style.removeProperty('--sink'); });
+      sinkTo(el, el.offsetHeight, 220, () => { el.dataset.swiped = '1'; onClose(); delete el.dataset.swiped; el.style.removeProperty('--sink'); }, speed);
       return;
     }
     const frac = el.getBoundingClientRect().height / s0.H, S = stops();

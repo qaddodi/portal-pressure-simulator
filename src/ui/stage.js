@@ -3,16 +3,16 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=4d7c66b4f8';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=7e4c45fe08';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=80b4653c78';
 import { forkJoins, sideEndScale } from './fork-joins.js?v=20a032142f';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=a926bea9d4';
 import { fibroReading } from './clock.js?v=73bb847dde';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=f771ade056';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=89c771844c';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
-import { easeMove, camMs } from './ease.js?v=daa4280c17';
+import { easeMove, camMs, carryRate, carried } from './ease.js?v=7c37eab2c6';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
@@ -45,7 +45,7 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { createLabelGL } from './label-gl.js?v=c02420f522';
 import { createGlassGL } from './glass-gl.js?v=69971ba17f';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=982e9978c1';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=87d6b3e434';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -2112,6 +2112,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   let vtAnim = 0, vtGliding = false;
   let vtUntil = 0, vtMs = 0;   // (the glide under way: when it lands and how long it runs in all, for the presenter's cards: glideLeft)
+  let vtVel = null, vtLast = null;   // (the last frames of a plain glide: its speed per ms, so another begun on it carries that on; ?carry=0 starts every glide from rest, as before)
+  const CARRY = !/[?&]carry=0\b/.test(location.search);
   const camMoves = [], logMove = (m) => { camMoves.push(m); if (camMoves.length > 60) camMoves.shift(); };   // every glide of the camera (and dive), kept for the tests: a way into or out of the lobule is a single move
   let vtTarget = null;   // where the last animated move was headed
   // A presenter's camera move: the labels ease out as it starts, are not laid out while it runs, and ease
@@ -2260,6 +2262,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       vtGliding = false; vt = to; applyVT(); CTM = null; camSettle(); dprLet(); return;
     }
     let at = (u) => (u >= 1 ? { ...to } : lerpVT(from, to, u));
+    // (Another plain glide still moving: this one carries its speed on, instead of starting over from rest. The arcs blend their own.)
+    const v0 = CARRY && !drift && vtVel && vtGliding && performance.now() - vtVel.t < 80 ? vtVel : null;
+    vtLast = null;
     const room = opt.arc && !reduceMotion.matches ? arcRoom() : null;   // (reduced motion: no pull-back, the plain short glide)
     if (room && prev && vtGliding && performance.now() < prev.t0 + prev.ms && viewsOverlap(prev.to, to, room.vb)) {
       // A refit while an arc runs (the cards settled, the screen turned): the same arc from where it began, now to the new framing,
@@ -2272,6 +2277,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     } else if (room) {
       const path = camPath(from, to, room.vb, room.wMax);
       if (path.arc) { ms = Math.round(ms * path.stretch); at = path.at; arcRun = { from, to, t0, ms, at }; }
+    }
+    let c0 = 0;
+    if (v0 && !arcRun && !sameView(from, to)) {
+      c0 = carryRate(v0, from, to, VIEW.w) * ms;
+      if (c0 > 0) at = (u, raw) => (u >= 1 ? { ...to } : lerpVT(from, to, carried(u, raw, c0)));
     }
     const carry = !drift && !arcRun && !sameView(from, to) && carryable(from, to);   // (a presenter's small move: the labels ride, see carrying)
     if (!sameView(from, to)) logMove({ t: t0, ms, restart: vtGliding, kind: drift ? 'drift' : 'glide', arc: !!arcRun, carry, zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
@@ -2290,8 +2300,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // A newer glide (or a framing set outright) took over: this one stops. A glide started from inside this step's
       // frame (a refit a view change set off) left two running, and the older could land last, where nobody wanted it.
       if (vtTarget !== to) return;
-      const u = (drift ? driftEase : camEase)(clamp((clock ? clock(now) : now - t0) / ms, 0, 1));
-      vt = at(u);
+      const raw = clamp((clock ? clock(now) : now - t0) / ms, 0, 1), u = (drift ? driftEase : camEase)(raw);
+      vt = at(u, raw);
+      if (CARRY && !drift) {   // (the speed a glide begun now would carry on: per ms, the zoom as its logarithm)
+        if (vtLast && now > vtLast.t && now - vtLast.t < 100) { const dt = now - vtLast.t; vtVel = { t: now, dlogk: Math.log(vt.k / vtLast.k) / dt, x: (vt.x - vtLast.x) / dt, y: (vt.y - vtLast.y) / dt }; }
+        vtLast = { t: now, k: vt.k, x: vt.x, y: vt.y };
+      }
       applyVT(); CTM = null;
       // With the catheter in, the vessels, the catheter and its labels follow the camera in this very frame (the labels and the
       // vessel layer after the frame's other steps: cathLabelsSoon, then animate's one render pass).
@@ -2388,7 +2402,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=d57424ea35').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=b091bbd599').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2737,7 +2751,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.classList.remove('unframed');
     if (figureShown) return;
     figureShown = true;
-    nextFrame(() => nextFrame(() => setTimeout(() => { window.ppsFigureReady = true; dispatchEvent(new Event('pps:figure-ready')); }, 260)));
+    nextFrame(() => nextFrame(() => setTimeout(() => { window.ppsFigureReady = true; performance.mark?.('pps:figure-ready'); dispatchEvent(new Event('pps:figure-ready')); }, 260)));
   };
   setTimeout(showFigure, 4000);   // never left hidden
   function firstFrame() {

@@ -24,20 +24,20 @@ import { store } from './store.js?v=a926bea9d4';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=6f0bff7de3';
+import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=43e2c19a0c';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL } from './field-gl.js?v=779561d5dd';
 import { createTissueGL } from './tissue-gl.js?v=d63f76a31f';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=624ae21d7d';
-import { createTissueWorker } from './tissue-worker.js?v=90d6502192';
+import { createTissueWorker } from './tissue-worker.js?v=219c1f923a';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=f771ade056';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=7e4c45fe08';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=89c771844c';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=80b4653c78';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=982e9978c1';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=87d6b3e434';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=d65f995908';
-import { createSinusoidView } from './sinusoid-view.js?v=bb1df97e57';
+import { createSinusoidView } from './sinusoid-view.js?v=333894416f';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab } from './frame.js?v=fe59494d22';
 import { createGlassGL } from './glass-gl.js?v=69971ba17f';
 import { pillOf, pillLabels } from './lz-pills.js?v=670139934d';
@@ -45,8 +45,9 @@ import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
 import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=cc2d73842c';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 import { LIGHT } from './light.js?v=f0c4eefb81';
-import { easeMove } from './ease.js?v=daa4280c17';
+import { easeMove, carryRate, carried } from './ease.js?v=7c37eab2c6';
 const CAM_M2 = !(typeof location !== 'undefined' && /[?&]camease=0\b/.test(location.search));
+const CARRY = !(typeof location !== 'undefined' && /[?&]carry=0\b/.test(location.search));   // (?carry=0: every glide starts from rest, as before)
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -291,8 +292,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (steady: a refit to cards that moved: timed by glideClock, so a slow frame at its start (the layout the same change set off) holds
   // the glide back a little instead of carrying it part of the way at once.)
   // (The in-out glide on the stage camera's curve, the quintic: ease.js, combined plan M2; ?camease=0 the quadratic, as before.)
+  let glideVel = null, glideLast = null;   // (a glide's last frames: its speed per ms, so another begun on it carries that on, ease.js carryRate)
   function glideTo(to, ms = 260, cam = false, aim = null, ease = 'inOut', steady = false) {
     stopInertia();
+    const v0 = CARRY && gliding && glideVel && ease !== 'in' && performance.now() - glideVel.t < 80 ? glideVel : null;
+    glideLast = null;
     cancelFrame(glide); gliding = false;
     camAim = aim;   // (any other glide, or a hand on the lobule, replaces the presenter's)
     const from = { ...V }, t0 = performance.now();
@@ -300,10 +304,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (reduce.matches || !fade) { camAim = null; Object.assign(V, to); viewChanged(); camSettle(); return; }
     if (cam && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) { camMove = true; camUntil = t0 + ms + 50; el.classList.remove('lz-cam-in'); el.classList.add('lz-cam'); setTimeout(() => { if (camMove && performance.now() >= camUntil) camSettle(); }, ms + 80); } else camSettle();
     const clock = steady ? glideClock() : null;
+    const c0 = v0 && CAM_M2 ? carryRate(v0, from, to, Math.max(1, el.clientWidth)) * ms : 0;
     const step = (now) => {
       const u = clamp((clock ? clock(now) : now - t0) / ms, 0, 1), e = ease === 'in' ? u * u : CAM_M2 ? easeMove(u) : u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
-      const k = from.k * Math.pow(to.k / from.k, e), a = (k - from.k) / ((to.k - from.k) || 1);
-      V.k = k; V.x = from.x + (to.x - from.x) * (to.k === from.k ? e : a); V.y = from.y + (to.y - from.y) * (to.k === from.k ? e : a);
+      const ec = u < 1 ? carried(e, u, c0) : e;   // (with the speed of a glide this one took over from, if any: ease.js carried)
+      const k = from.k * Math.pow(to.k / from.k, ec), a = (k - from.k) / ((to.k - from.k) || 1);
+      V.k = k; V.x = from.x + (to.x - from.x) * (to.k === from.k ? ec : a); V.y = from.y + (to.y - from.y) * (to.k === from.k ? ec : a);
+      if (CARRY) {
+        if (glideLast && now > glideLast.t && now - glideLast.t < 100) { const dt = now - glideLast.t; glideVel = { t: now, dlogk: Math.log(V.k / glideLast.k) / dt, x: (V.x - glideLast.x) / dt, y: (V.y - glideLast.y) / dt }; }
+        glideLast = { t: now, k: V.k, x: V.x, y: V.y };
+      }
       viewChanged();
       if (u < 1) glide = nextFrame(step); else { gliding = false; camAim = null; camSettle(); viewChanged(); }   // (landed: drawn once more at the sharpness the new zoom wants)
     };

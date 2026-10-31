@@ -1,5 +1,6 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame } from './frame.js?v=fe59494d22';
+import { releaseSpeed, settleSlope, settleAt } from './ease.js?v=7c37eab2c6';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 for (const m of ['replaceChildren', 'append', 'prepend']) {
@@ -475,9 +476,12 @@ export function closePopover() {
  *  iOS too, then calls done. A new drag stops it (stopSink). */
 const sinking = new WeakMap();
 export function stopSink(el) { const a = sinking.get(el); if (a) { cancelFrame(a.raf); clearTimeout(a.timer); } sinking.delete(el); }
-export function sinkTo(el, px, ms = 220, done) {
+export function sinkTo(el, px, ms = 220, done, speed = null) {
   stopSink(el);
   const from = parseFloat(el.style.getPropertyValue('--sink')) || 0, t0 = performance.now(), a = {};
+  // (speed: the finger's, px per ms down, when it let go: the card carries it on and slows to rest, instead of leaving at the ease's own
+  // speed, which a slow pull let go of felt as a lurch. Without it, the cubic ease out as before.)
+  const m0 = speed == null ? null : settleSlope(speed, px - from, ms);
   const finish = () => {
     if (sinking.get(el) !== a) return;
     stopSink(el);
@@ -487,7 +491,7 @@ export function sinkTo(el, px, ms = 220, done) {
   const step = (now) => {
     const k = Math.min(1, (now - t0) / ms);
     if (k >= 1) { finish(); return; }
-    el.style.setProperty('--sink', `${from + (px - from) * (1 - (1 - k) ** 3)}px`);
+    el.style.setProperty('--sink', `${from + (px - from) * (m0 == null ? 1 - (1 - k) ** 3 : settleAt(k, m0))}px`);
     a.raf = frame(step, 'numbers');
   };
   // (A page whose frames stall, in the background or a busy browser, still lands and closes on time.)
@@ -499,6 +503,13 @@ export function sinkTo(el, px, ms = 220, done) {
  *  flick) down; a short one eases back. Content scrolled away from its top scrolls back first, a sideways drag
  *  and a slider keep their own gestures, and taps work as normal. onClose closes it; the sheet is already
  *  sliding out of sight (data-swiped is set) so the close needs no animation of its own. */
+/** How far a panel is drawn from where it sits along y right now (px), mid-transition or mid-animation included. */
+function liveShift(panel) {
+  try {
+    const m = getComputedStyle(panel).transform;
+    return !m || m === 'none' ? 0 : Math.max(0, new DOMMatrixReadOnly(m).m42 || 0);
+  } catch { return 0; }
+}
 export function swipeSheet(panel, onClose) {
   let s = null;
   // Over the thumb dock the sheet slides down behind the tab row: what passes below its resting bottom edge is clipped.
@@ -511,7 +522,7 @@ export function swipeSheet(panel, onClose) {
     s = null;
     if (e.touches.length !== 1 || e.target.closest('input[type="range"], textarea, [contenteditable]')) return;
     const t = e.touches[0], sc = scroller(e.target);
-    s = { x: t.clientX, y: t.clientY, top: !sc || sc.scrollTop <= 0, on: false, dy: 0, t: 0 };
+    s = { x: t.clientX, y: t.clientY, top: !sc || sc.scrollTop <= 0, on: false, dy: 0, t: 0, trail: [] };
   }, { passive: true });
   panel.addEventListener('touchmove', (e) => {
     if (!s) return;
@@ -524,11 +535,14 @@ export function swipeSheet(panel, onClose) {
       if (Math.hypot(dx, dy) < 8) return;
       if (!down) { s = null; return; }
       // (Caught while it is still easing back: the pull carries on from where the sheet is, without a jump.)
-      s.on = true; s.y = t.clientY - (parseFloat(panel.style.getPropertyValue('--sink')) || 0); s.t = performance.now();
+      // (Not over the thumb dock too: the sheet's own transform is still easing back, read where it is drawn now, so the pull takes it
+      // over from there and it does not jump to the finger.)
+      s.on = true; s.y = t.clientY - (thumbUi() ? parseFloat(panel.style.getPropertyValue('--sink')) || 0 : liveShift(panel)); s.t = performance.now();
       panel.style.transition = 'none'; panel.style.animation = 'none'; stopSink(panel);
     }
     if (e.cancelable) e.preventDefault();
     s.dy = Math.max(0, t.clientY - s.y);
+    s.trail.push([performance.now(), t.clientY]); if (s.trail.length > 8) s.trail.shift();
     if (thumbUi()) panel.style.setProperty('--sink', `${s.dy}px`);
     else panel.style.transform = `translateY(${s.dy}px)`;
   }, { passive: false });
@@ -537,13 +551,16 @@ export function swipeSheet(panel, onClose) {
     if (!s0?.on) return;
     const flick = s0.dy > 30 && s0.dy / Math.max(1, performance.now() - s0.t) > 0.6;
     const gone = flick || s0.dy > Math.min(90, panel.offsetHeight * 0.3);
+    const speed = releaseSpeed(s0.trail, performance.now());   // (px per ms down, as the finger lifted: the settle starts at that speed)
     // (Over the thumb dock it sinks behind the tab row: the move and the cut in one value, never one ahead of the other.)
     if (thumbUi()) {
       panel.style.transition = '';
-      if (gone) { sinkTo(panel, panel.offsetHeight); panel.dataset.swiped = '1'; onClose(); } else sinkTo(panel, 0);
+      if (gone) { sinkTo(panel, panel.offsetHeight, 220, undefined, speed); panel.dataset.swiped = '1'; onClose(); } else sinkTo(panel, 0, 220, undefined, speed);
       return;
     }
-    panel.style.transition = 'transform .22s var(--ease)';
+    // (The same, as a CSS curve: its opening slope is the finger's speed over the distance left, up to the .2/.8 curve's own, 4.)
+    const left = gone ? panel.offsetHeight - s0.dy : -s0.dy;
+    panel.style.transition = `transform .22s cubic-bezier(.2, ${(0.2 * settleSlope(speed, left, 220, 4)).toFixed(3)}, .2, 1)`;
     if (gone) { panel.style.transform = 'translateY(100%)'; panel.dataset.swiped = '1'; onClose(); }
     else { panel.style.transform = ''; setTimeout(() => { if (!s) panel.style.transition = ''; }, 240); }
   };

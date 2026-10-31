@@ -46,3 +46,53 @@ export function camMs(a, b, w) {
   const d = Math.hypot(pan, zoom);
   return Math.round(Math.min(CAM_MS_MAX, CAM_MS_MIN * Math.max(1, d / 0.5)));
 }
+
+// A glide begun while another is still moving (the zoom pill pressed twice, a Fit or a refit mid-glide) starts from where the view is and
+// at the speed it has, instead of from rest (R13: nothing snaps, and nothing stops dead and starts over). The new glide's progress p(t)
+// runs from 0 to 1 along the same path, p = ease(t) + c·t(1−t)², t the glide's own 0..1 clock: the extra term has slope c at the start
+// and nothing at the end (value, slope), and the eased progress has no slope at its start, so p'(0) = c per glide: the old speed
+// carried onto the new path. Capped, so the progress never passes 1 on the way.
+export const CARRY_MAX = 0.8;
+const LN2_2 = 2 * Math.LN2;   // (a doubling of the zoom counts as half a screen, as camMs counts it)
+
+/**
+ * The speed, in the new glide's own progress per ms, at which a view moving at `v` ({ dlogk, x, y } per ms) is already going along the
+ * even glide (lerpVT) from `from` to `to`; 0 when it is still, or going away. w: the screen's width in the views' x, y units.
+ */
+export function carryRate(v, from, to, w) {
+  if (!v || !(w > 0) || !(from.k > 0) || !(to.k > 0)) return 0;
+  const r = to.k / from.k, lr = Math.log(r), s = Math.abs(lr) < 1e-9 ? 1 : lr / (r - 1);   // (the pan moves with the zoom, as lerpVT ties them)
+  const T = [lr / LN2_2, ((to.x - from.x) * s) / w, ((to.y - from.y) * s) / w];
+  const tt = T[0] * T[0] + T[1] * T[1] + T[2] * T[2];
+  if (tt < 1e-12) return 0;
+  const dot = (v.dlogk / LN2_2) * T[0] + (v.x / w) * T[1] + (v.y / w) * T[2];
+  return Number.isFinite(dot) ? Math.max(0, dot / tt) : 0;
+}
+/** The glide's progress at its clock `raw` (0..1), its eased value `eased`, with the old speed (carryRate × ms) as `c`. */
+export const carried = (eased, raw, c) => (c > 0 ? Math.min(1, eased + Math.min(c, CARRY_MAX) * raw * (1 - raw) * (1 - raw)) : eased);
+
+/**
+ * How fast a finger was moving down the screen when it lifted, in px per ms (negative: up): over the last 100 ms of its trail
+ * [[time, y], …], and 0 if it had paused for 80 ms or more before lifting (a held finger lets go at rest).
+ */
+export function releaseSpeed(trail, now) {
+  if (!trail?.length) return 0;
+  const last = trail[trail.length - 1];
+  if (now - last[0] > 80) return 0;
+  let i = trail.length - 1;
+  while (i > 0 && last[0] - trail[i - 1][0] <= 100) i--;
+  const dt = last[0] - trail[i][0];
+  return dt > 0 ? (last[1] - trail[i][1]) / dt : 0;
+}
+
+/**
+ * The slope a settle should start with so it carries the finger's speed on: the speed toward the target (`v` px per ms along +y,
+ * the target `dist` px away, + or − along y) as a fraction of the distance per `ms`, between 0 and `max`.
+ */
+export function settleSlope(v, dist, ms, max = 3) {
+  if (!dist || !Number.isFinite(v)) return 0;
+  const toward = (dist > 0 ? v : -v) * ms / Math.abs(dist);
+  return Math.min(max, Math.max(0, toward));
+}
+/** The Hermite settle from 0 to 1 over its clock `k` (0..1), starting with slope `m0` and ending at rest: m0 = 0 is the smoothstep. */
+export const settleAt = (k, m0 = 0) => (k <= 0 ? 0 : k >= 1 ? 1 : (k * k * k - 2 * k * k + k) * m0 + (3 * k * k - 2 * k * k * k));

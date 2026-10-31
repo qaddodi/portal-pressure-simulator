@@ -4,8 +4,9 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=a926bea9d4';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=f771ade056';
-import { cardFor, normalizeSel } from './actions.js?v=577fa94363';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=89c771844c';
+import { releaseSpeed } from './ease.js?v=7c37eab2c6';
+import { cardFor, normalizeSel } from './actions.js?v=1de080d8fc';
 import { frameFor, cancelFrame } from './frame.js?v=fe59494d22';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
@@ -197,7 +198,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   // Over the thumb dock (an upright phone) the card follows the finger down behind the tab row (--sink, as the other
   // cards there) and, let go past a short pull or flicked, sinks out of sight and closes; a short pull eases back.
   function wireSheet(top) {
-    let y0 = null, t0 = 0, dy = 0;
+    let y0 = null, t0 = 0, dy = 0, trail = [];
     const thumb = () => document.documentElement.classList.contains('thumb-ui');
     const stop = () => {
       y0 = null;
@@ -207,12 +208,14 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     };
     const move = (e) => {
       dy = Math.max(0, e.clientY - y0);
+      trail.push([performance.now(), e.clientY]); if (trail.length > 8) trail.shift();
       if (thumb()) el.style.setProperty('--sink', `${dy}px`);
     };
     const settle = (gone) => {
       if (!thumb()) { if (gone) store.set({ selection: null }); return; }
-      if (!gone) { sinkTo(el, 0); return; }
-      sinkTo(el, el.offsetHeight, 220, () => { if (el.hidden) return; el.dataset.swiped = '1'; store.set({ selection: null }); if (!el.hidden) { delete el.dataset.swiped; el.style.removeProperty('--sink'); } });
+      const speed = releaseSpeed(trail, performance.now());   // (the finger's, px per ms down: the settle carries it on)
+      if (!gone) { sinkTo(el, 0, 220, undefined, speed); return; }
+      sinkTo(el, el.offsetHeight, 220, () => { if (el.hidden) return; el.dataset.swiped = '1'; store.set({ selection: null }); if (!el.hidden) { delete el.dataset.swiped; el.style.removeProperty('--sink'); } }, speed);
     };
     const up = (e) => {
       dy = Math.max(0, e.clientY - y0);
@@ -224,7 +227,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     stopSheetGesture = () => { if (y0 != null) stop(); stopSink(el); el.style.removeProperty('--sink'); };
     top.addEventListener('pointerdown', (e) => {
       if (!isDocked() || !e.isPrimary || e.button !== 0 || e.target.closest('.ac-close, .ac-foot')) return;
-      y0 = e.clientY - (parseFloat(el.style.getPropertyValue('--sink')) || 0); t0 = performance.now(); dy = 0;
+      y0 = e.clientY - (parseFloat(el.style.getPropertyValue('--sink')) || 0); t0 = performance.now(); dy = 0; trail = [];
       stopSink(el);
       addEventListener('pointermove', move);
       addEventListener('pointerup', up);

@@ -511,6 +511,7 @@ void main() {
 }`;
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=5c4cd6c14c';
+import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 
 export function createSinusoidGL(canvas) {
   let gl = null;
@@ -549,7 +550,8 @@ export function createSinusoidGL(canvas) {
   let ok = null;
   const ready = () => (ok === null ? (ok = init()) : ok);
   const startLater = () => { if (ok === null) publishWhenDone(gl, begin(), ready); };
-  if (window.requestIdleCallback) requestIdleCallback(startLater, { timeout: 8000 }); else setTimeout(startLater, 3000);
+  // (And only once the page has been left alone: a program started in a pan or a first touch had its compile in that frame, P3.)
+  whenQuiet(() => { if (window.requestIdleCallback) requestIdleCallback(startLater, { timeout: 8000 }); else setTimeout(startLater, 3000); });
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); ok = false; pend = null; });
   canvas.addEventListener('webglcontextrestored', () => { sent.clear(); ok = init(); });
   // A uniform keeps its value in its program, so one is sent only when it changes (most colours never do).

@@ -3,15 +3,15 @@
 
 import { store, hiddenNow } from './store.js?v=a926bea9d4';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=f771ade056';
-import { lobuleFlows } from './lobule-model.js?v=6f0bff7de3';
-import { createProfile } from './charts.js?v=81e53c8ab6';
-import { createPressureTime } from './pressure-time.js?v=190f8f5847';
-import { createHvpgProcedure } from './hvpg-proc.js?v=2dbba5f285';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=9ffd7ed154';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=89c771844c';
+import { lobuleFlows } from './lobule-model.js?v=43e2c19a0c';
+import { createProfile } from './charts.js?v=979398c5b1';
+import { createPressureTime } from './pressure-time.js?v=794ddde517';
+import { createHvpgProcedure } from './hvpg-proc.js?v=a14503953c';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=9480bd12dc';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=37981d52fc';
-import { createReadoutsPane } from './readouts-pane.js?v=e227eece7a';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=50ed86b3e2';
+import { createReadoutsPane } from './readouts-pane.js?v=c1c5760212';
 import { frameFor } from './frame.js?v=fe59494d22';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown } from './shown.js?v=82ef5e29ec';
@@ -402,12 +402,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // A phone's Tests card (over the thumb dock): a sideways drag on the card pages between the tabs. The open pane follows
   // the finger with the next (or previous) tab's pane beside it; on release it eases to whichever is nearer, or on to the
   // next one after a quick flick. A vertical pull stays the sheet's (it closes or resizes the card).
-  let sw = null, settle = null;   // settle: the last swipe's switch, while its panes are still easing
+  let sw = null, settle = null, resting = null;   // settle: the last swipe's switch, while its panes are still easing; resting: the pane that lands (still drawn off its place)
+  const shiftX = (el) => { try { const m = getComputedStyle(el).transform; return !m || m === 'none' ? 0 : new DOMMatrixReadOnly(m).m41 || 0; } catch { return 0; } };
   const paneFor = (id) => (panes.find((p) => p.id === id) || panes.find((p) => tabOf(p.id) === id))?.el;
   const clearSwipe = (els) => { for (const e of els) if (e) { e.style.transform = ''; e.style.transition = ''; e.classList.remove('swipe-peer'); } };
   body.addEventListener('touchstart', (e) => {
-    // A second swipe before the first has settled finishes the first at once, so it starts from the new tab (review #21).
-    settle?.();
+    // A second swipe before the first has settled finishes the first once it moves (review #21), not on the touch: a tap leaves the panes easing.
     sw = e.touches.length === 1 && app.classList.contains('thumb') && open.length === 1 && !ownsSideways(e.target, { stop: body })
       ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), on: false, dx: 0 } : null;
   }, { passive: true });
@@ -417,13 +417,17 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (!sw.on) {
       if (Math.hypot(dx, dy) < 8) return;
       if (Math.abs(dx) < Math.abs(dy) * 1.2) { sw = null; return; }   // (vertical: the sheet's, or the pane's scroll)
+      // (Caught while the last swipe is still easing: it is finished at once and the pull takes the pane over from where it is drawn, so
+      // nothing jumps by what was left to go.)
+      sw.carry = resting && settle ? shiftX(resting) : 0;
+      settle?.();
       sw.on = true; sw.cur = body.querySelector('.dock-pane.active'); sw.i = TABS.indexOf(tabOf(open[0])); sw.w = body.clientWidth;
     }
     if (e.cancelable) e.preventDefault();
-    const d = dx < 0 ? 1 : -1, j = sw.i + d;
+    const tdx = dx + sw.carry, d = tdx < 0 ? 1 : -1, j = sw.i + d;
     const nb = j >= 0 && j < TABS.length && !byId[TABS[j]].need?.() ? paneFor(TABS[j]) : null;   // (an instrument still on its way is not slid in empty)
     if (nb !== sw.nb) { clearSwipe([sw.nb]); sw.nb = nb; sw.j = j; if (nb) nb.classList.add('swipe-peer'); }
-    sw.dx = nb ? dx : dx / 3;   // (past the first or last tab it gives a little and springs back)
+    sw.dx = nb ? tdx : tdx / 3;   // (past the first or last tab it gives a little and springs back)
     sw.cur.style.transform = `translateX(${sw.dx}px)`;
     if (nb) nb.style.transform = `translateX(${sw.dx + d * sw.w}px)`;
   }, { passive: false });
@@ -443,7 +447,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       if (go) { pick(TABS[s.j]); tabEls[TABS[s.j]].b.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: scrollBehavior() }); }
     };
     const timer = setTimeout(done, 250);
-    settle = done;
+    settle = done; resting = go ? s.nb : s.cur;
   };
   body.addEventListener('touchend', endSwipe, { passive: true });
   body.addEventListener('touchcancel', endSwipe, { passive: true });

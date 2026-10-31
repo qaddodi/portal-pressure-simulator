@@ -19,14 +19,14 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=f771ade056';
-import { pressureColor } from './colormap.js?v=7e4c45fe08';
+import { h, fmt, clamp, lerp } from './util.js?v=89c771844c';
+import { pressureColor } from './colormap.js?v=80b4653c78';
 import { isPaused } from './clock.js?v=73bb847dde';
 import { store } from './store.js?v=a926bea9d4';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=8399d8205e';
-import { placeFenDisse } from './fen-place.js?v=20401deb9e';
+import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=416ef3a5f7';
+import { placeFenDisse } from './fen-place.js?v=c8d4c26ddb';
 import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=fe59494d22';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';

@@ -5,10 +5,10 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=a926bea9d4';
-import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=f771ade056';
+import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=89c771844c';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { pressureColor } from './colormap.js?v=7e4c45fe08';
+import { pressureColor } from './colormap.js?v=80b4653c78';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
 import { frameFor } from './frame.js?v=fe59494d22';
 const nextFrame = frameFor('menu');
@@ -386,10 +386,10 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const cols = panel.querySelector('.um-cols'), TABS = ['present', 'patients'];
     const colOf = (k) => cols.querySelector(`.um-col[data-col="${k}"]`);
     const clear = (els) => { for (const e of els) if (e) { e.style.transform = ''; e.style.transition = ''; e.style.top = ''; e.style.height = ''; e.classList.remove('um-peer'); } };
-    let sw = null, settle = null;   // settle: the last swipe's switch, while its lists are still easing
+    let sw = null, settle = null, resting = null;   // settle: the last swipe's switch, while its lists are still easing; resting: the list that lands (it is still drawn off its place)
+    const shiftX = (el) => { try { const m = getComputedStyle(el).transform; return !m || m === 'none' ? 0 : new DOMMatrixReadOnly(m).m41 || 0; } catch { return 0; } };
     panel.addEventListener('touchstart', (e) => {
-      // (A second swipe before the first has settled finishes the first at once, so it starts from the new tab.)
-      settle?.();
+      // (A second swipe before the first has settled finishes the first once it moves, not on the touch: a tap leaves the lists easing.)
       sw = e.touches.length === 1 && !ownsSideways(e.target, { stop: panel }) ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), on: false, dx: 0 } : null;
     }, { passive: true });
     panel.addEventListener('touchmove', (e) => {
@@ -399,17 +399,21 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       if (!sw.on) {
         if (Math.hypot(dx, dy) < 8) return;
         if (Math.abs(dx) < Math.abs(dy) * 1.2) { sw = null; return; }   // (vertical: the list's scroll, or the pull down)
+        // (Caught while the last swipe is still easing: it is finished at once, and the pull takes the list over from where it is drawn,
+        // so nothing jumps by what was left to go.)
+        sw.carry = resting && settle ? shiftX(resting) : 0;
+        settle?.();
         sw.on = true; sw.i = TABS.indexOf(tab); sw.cur = colOf(tab); sw.w = cols.clientWidth;
         if (!sw.cur) { sw = null; return; }
       }
       if (e.cancelable) e.preventDefault();
-      const d = dx < 0 ? 1 : -1, j = sw.i + d, nb = j >= 0 && j < TABS.length ? colOf(TABS[j]) : null;
+      const tdx = dx + sw.carry, d = tdx < 0 ? 1 : -1, j = sw.i + d, nb = j >= 0 && j < TABS.length ? colOf(TABS[j]) : null;
       if (nb !== sw.nb) {
         clear([sw.nb]); sw.nb = nb; sw.j = j;
         // (The other list shows from its own top, over the part of the list in view: it lands there.)
         if (nb) { nb.style.top = cols.scrollTop + 'px'; nb.style.height = cols.clientHeight + 'px'; nb.classList.add('um-peer'); }
       }
-      sw.dx = nb ? dx : dx / 3;
+      sw.dx = nb ? tdx : tdx / 3;
       sw.cur.style.transform = `translateX(${sw.dx}px)`;
       if (nb) nb.style.transform = `translateX(${sw.dx + d * sw.w}px)`;
     }, { passive: false });
@@ -427,7 +431,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         if (go) { setTab(TABS[s.j], false, true); cols.scrollTop = 0; }
       };
       const timer = setTimeout(done, 250);
-      settle = done;
+      settle = done; resting = go ? s.nb : s.cur;
     };
     panel.addEventListener('touchend', endSwipe, { passive: true });
     panel.addEventListener('touchcancel', endSwipe, { passive: true });

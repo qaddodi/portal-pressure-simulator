@@ -15,9 +15,9 @@
 
 import { store, replaceParams } from './store.js?v=a926bea9d4';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=f771ade056';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=89c771844c';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=e167c0c735';
+import { liveText, wordsOf } from './live-text.js?v=f95a1a2c4e';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
@@ -28,8 +28,8 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=4d1102863b';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { createHvpgMonitor } from './hvpg-proc.js?v=2dbba5f285';
-import { createTools } from './presenter-tools.js?v=a3104b2daf';
+import { createHvpgMonitor } from './hvpg-proc.js?v=a14503953c';
+import { createTools } from './presenter-tools.js?v=428cc52d76';
 import { openHandout } from './handout.js?v=9e65e4c4f6';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -37,13 +37,13 @@ import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS
 import { frameFor, cancelFrame } from './frame.js?v=fe59494d22';
 import { createFigureKey } from './figure-key.js?v=32f8c41cd3';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=7e4c45fe08';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=8dbee5e300';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=80b4653c78';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=1d14039309';
 import { clotWords } from './callout-math.js?v=53aaae65b6';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=4511186269';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=0aa3d9c45b';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=3108c53489';
+import { anchorsOf, roomFor } from './cam-room.js?v=8695def2ca';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=8eb7c3f14c';
@@ -51,7 +51,7 @@ import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=f589271cc7';
 import { sheetPanes } from './sheet-glass.js?v=3e559e624e';
-import { createScopeTile } from './scope-tile.js?v=7a5bd4ff18';
+import { createScopeTile } from './scope-tile.js?v=28436e8c1c';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 const nextFrame = frameFor('presenter');
 

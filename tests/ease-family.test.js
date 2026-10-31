@@ -57,7 +57,7 @@ test('stage and lobule glides run on the quintic; scaled glides take their reach
   assert.match(stage, /const camEase = \(u\) => \(CAM_M2 \? easeMove\(u\) : easeInOut\(u\)\);/);
   // (camEase reads easeInOut when called, never at the line it is declared on: easeInOut is declared further down.)
   assert.ok(stage.indexOf('const camEase = ') < stage.indexOf('const easeInOut = '));
-  assert.match(stage, /const u = \(drift \? driftEase : camEase\)\(clamp\(/);
+  assert.match(stage, /const raw = clamp\(\(clock \? clock\(now\) : now - t0\) \/ ms, 0, 1\), u = \(drift \? driftEase : camEase\)\(raw\);/);
   assert.match(stage, /const u = camEase\(clamp\(\(performance\.now\(\) - prev\.t0\) \/ prev\.ms, 0, 1\)\);/);
   assert.match(stage, /else if \(CAM_M2 && opt\.scale && !drift && ms > 0\) ms = Math\.min\(ms, camMs\(from, to, VIEW\.w\)\);/);
   assert.match(stage, /animateVT\(to, ms, \{ arc: true, steady: !!opt\.steady, scale: !opt\.steady \}\)/);
