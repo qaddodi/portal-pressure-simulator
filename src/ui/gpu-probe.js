@@ -16,6 +16,8 @@ export const COUNTED = {
   glassDrawn: 'glass: drawn', glassCopy: 'glass: figure copied', glassSkip: 'glass: copy skipped (figure unchanged)',
   // (The liver label's pane is a second glass of its own, counted apart: two glasses drawn in one frame are not one drawn twice.)
   paneDrawn: 'pane glass: drawn', paneCopy: 'pane glass: figure copied', paneSkip: 'pane glass: copy skipped (figure unchanged)',
+  // (The Present cards' glass (recs A2, 31 Oct): a third glass, counted apart.)
+  cardDrawn: 'card glass: drawn', cardCopy: 'card glass: figure copied', cardSkip: 'card glass: copy skipped (figure unchanged)',
   // (Every other copy of a picture and every target made again at a new size, 30 Oct (review 6a): the kept picture laid onto the
   // canvas, a resolution fade's canvas copies, and the layer's and the kept picture's targets sized again. A pan copies nothing
   // since 31 Oct: the layer wraps, veins-gl wrapPieces.)
@@ -39,7 +41,7 @@ export const COUNTED = {
   creditRead: 'credit art: shapes read', creditGrid: 'credit art: grid drawn', creditKept: 'credit art: grid kept (camera only)',
 };
 /** The counted names whose count above 1 in one frame means a surface drawn twice in it. */
-export const TWICE = new Set([COUNTED.picture, COUNTED.glassDrawn, COUNTED.paneDrawn, COUNTED.lobulePicture]);
+export const TWICE = new Set([COUNTED.picture, COUNTED.glassDrawn, COUNTED.paneDrawn, COUNTED.cardDrawn, COUNTED.lobulePicture]);
 /** Why a whole draw happened, as counted: the reasons are this fixed list. */
 export const WHY = ['no kept layer', 'radii changed', 'look changed', 'same place', 'moved too far', 'zoom or turn', 'tubes changed'];
 /**

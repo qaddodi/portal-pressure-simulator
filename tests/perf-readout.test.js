@@ -99,7 +99,7 @@ test('the readout totals the counted notes over a window: whole draws and why, p
     counts: { [COUNTED.pan]: [110, 0, 0], [COUNTED.whole]: [10, 0, 0], [COUNTED.wholeWhy + 'zoom or turn']: [10, 0, 0], [COUNTED.picture]: [130, 0, 10], 'uploaded: setFlow': [120, 4500.4, 0] } });
   assert.match(t, /counted: vessels: pan shift ×110; vessels: whole draw ×10; vessels: whole draw because zoom or turn ×10; picture: drawn ×130, 10 frames with two; uploaded: setFlow ×120 \(4500 KB\)/);
   // Only a surface's own final draw can be "drawn twice in a frame"; the reasons are a closed list, so the totals stay a few dozen numbers.
-  assert.deepEqual([...TWICE].sort(), [COUNTED.glassDrawn, COUNTED.paneDrawn, COUNTED.lobulePicture, COUNTED.picture].sort());
+  assert.deepEqual([...TWICE].sort(), [COUNTED.glassDrawn, COUNTED.paneDrawn, COUNTED.cardDrawn, COUNTED.lobulePicture, COUNTED.picture].sort());
   assert.equal(new Set(WHY).size, WHY.length);
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   for (const why of WHY) assert.ok(gl.includes(`'${why}'`), `veins-gl.js counts a whole draw "${why}"`);

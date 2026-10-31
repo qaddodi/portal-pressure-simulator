@@ -8,8 +8,8 @@
 // Off (the browser's glass, as before): no WebGL2, a software renderer, ?gpulabels=0, Settings' blur effect off, reduced
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=b5449b0040';
-import { finalFrameFor, cancelFrame, noteDraw } from './frame.js?v=9e0c25a14c';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
+import { finalFrameFor, cancelFrame, noteDraw } from './frame.js?v=d389474997';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
@@ -93,12 +93,24 @@ uniform vec4 uBB;           // the card's border box (device px: left, top, righ
 uniform vec4 uShC;          // its shadow's colour (straight) and strength
 uniform vec4 uShB;          // the shadow's box (device px, offset)
 uniform float uShS;         // its sigma (device px)
+uniform vec4 uRad;          // a card's corner radii (device px: top left, top right, bottom right, bottom left); its box is its shape (uMode 1)
+uniform int uMode;          // 0: the shape is the mask texture (a callout, the pane); 1: a rounded box, from uBox and uRad
 out vec4 o;
+// A rounded box's coverage at p (device px from its top left; wh its size): 1 inside, 0 outside, across one pixel at its edge, each
+// corner with its own radius (the signed distance to the box with that corner's radius; the CSS clips a backdrop to the border box).
+float boxCover(vec2 p, vec2 wh, vec4 rad) {
+  vec2 c = p - wh * 0.5;
+  float r = c.x < 0.0 ? (c.y < 0.0 ? rad.x : rad.w) : (c.y < 0.0 ? rad.y : rad.z);
+  r = min(r, min(wh.x, wh.y) * 0.5);
+  vec2 q = abs(c) - wh * 0.5 + r;
+  float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+  return clamp(0.5 - d, 0.0, 1.0);
+}
 float erfa(float x) { float a = 0.147, x2 = x * x; return sign(x) * sqrt(1.0 - exp(-x2 * (1.2732395 + a * x2) / (1.0 + a * x2))); }
 float cover(float x, float a, float b, float s) { return 0.5 * (erfa((x - a) / (s * 1.4142136)) - erfa((x - b) / (s * 1.4142136))); }
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uView.y - gl_FragCoord.y);
-  float m = texture(uMask, (p - uBox.xy) / uBox.zw * uMS).a;
+  float m = uMode == 1 ? boxCover(p - uBox.xy, uBox.zw, uRad) : texture(uMask, (p - uBox.xy) / uBox.zw * uMS).a;
   if (m <= 0.0) discard;
   vec4 s = texture(uScene, clamp((p - uReg.xy) / uReg.zw, 0.0, 1.0));
   vec3 c = s.rgb + uBg * (1.0 - s.a);
@@ -129,11 +141,16 @@ void main() {
  * (keptStale), so a frame where only the figure under them was drawn again reads no style and forces no layout. `due()`: the page's
  * layout watch (idle-keys.js), true while a card, bar or the stage may have moved.
  */
-export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, version = null, capture = null, onFigure = null, keep = null, due = null } = {}) {
+export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null } = {}) {
   const look = pane ? PANE : GLASS;
+  // (cards: { find, watch, before }: the Present cards' glass (recs A2, 31 Oct): find() lists the elements, each its own rounded box, its
+  // corners its border radii and its tint the colour its CSS declares in --gl-tint (app.css: the same colour its background was), drawn
+  // while its --gl-glass is 1 and no CSS filter lies on it; watch: the roots whose writes may move them; before: where the canvas goes.
+  // Their DOM shadows and borders stay the page's. A card whose tint cannot be read, or whose glass its CSS has turned off (the phone's
+  // sheet, drawn by its pseudo-elements), keeps the browser's glass.)
   if (off || software || !source || typeof WebGL2RenderingContext === 'undefined' || typeof createImageBitmap !== 'function') return null;
   const canvas = document.createElement('canvas');
-  canvas.id = pane ? 'paneGl' : 'glassGl'; canvas.setAttribute('aria-hidden', 'true');
+  canvas.id = cards ? 'cardGl' : pane ? 'paneGl' : 'glassGl'; canvas.setAttribute('aria-hidden', 'true');
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl) return null;
@@ -143,7 +160,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   if (!bprog || !pprog) return null;
   const uni = (p, ks) => Object.fromEntries(ks.map((k) => [k, gl.getUniformLocation(p, k)]));
   const BU = uni(bprog, ['uBox', 'uView', 'uT', 'uDir', 'uW']);
-  const PU = uni(pprog, ['uBox', 'uView', 'uMS', 'uReg', 'uScene', 'uMask', 'uBg', 'uTint', 'uSat', 'uA', 'uBB', 'uShC', 'uShB', 'uShS']);
+  const PU = uni(pprog, ['uBox', 'uView', 'uMS', 'uReg', 'uScene', 'uMask', 'uBg', 'uTint', 'uSat', 'uA', 'uBB', 'uShC', 'uShB', 'uShS', 'uRad', 'uMode']);
   const vao = gl.createVertexArray();
   const tex = (filter) => {
     const t = gl.createTexture();
@@ -154,7 +171,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   };
   const copy = tex(gl.LINEAR), pass = tex(gl.LINEAR), blurred = tex(gl.LINEAR);
   const fbPass = gl.createFramebuffer(), fbOut = gl.createFramebuffer();
-  (pane || layers[0]).before(canvas);
+  (cards ? cards.before : pane || layers[0]).before(canvas);
 
   let lost = false, dead = false, raf = 0, W = 0, H = 0, dpr = 1, pending = false, fails = 0, ready = null, drawn = false, fbSize = '', takenKey = '';
   // (shown: the glass drew the last time it looked; drawnKey: everything that picture was drawn from, so a frame that would draw it the
@@ -174,7 +191,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   };
   const unmark = () => { for (const g of marked) g.removeAttribute('data-gl'); marked.clear(); };
   const wanted = glassCheck(document, window);
-  const glassesOf = () => (pane ? (pane.isConnected ? [pane] : []) : layers.flatMap((l) => [...l.getElementsByClassName('cl-glass')]));
+  const glassesOf = () => (cards ? cards.find().filter((g) => g?.isConnected) : pane ? (pane.isConnected ? [pane] : []) : layers.flatMap((l) => [...l.getElementsByClassName('cl-glass')]));
+  // A card's corner radii (CSS px, top left round to bottom left): the first length of each computed radius (an elliptical corner's across).
+  const radiiOf = (cs) => [cs.borderTopLeftRadius, cs.borderTopRightRadius, cs.borderBottomRightRadius, cs.borderBottomLeftRadius].map(NUM);
 
   // What fades a glass from above: the opacity of whatever holds it, up to where the canvas takes over (the callout, its layer). The DOM
   // applies such a fade to the callout's words and outline as one, so the glass beside them takes it too: a layer faded as a whole once
@@ -210,11 +229,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (!sr.width || !sr.height || !source.width) return;
     // (The key of the figure as it is copied now, read before the copy is asked for: the browser takes its snapshot in that call.)
     const key = version ? `${version()}|${reg.x}|${reg.y}|${reg.w}|${reg.h}|${cr.left}|${cr.top}|${sr.left}|${sr.top}|${sr.width}|${sr.height}|${source.width}x${source.height}` : '';
-    if (key && key === takenKey && ready) { if (gpuProbe.on) gpuProbe.note(pane ? COUNTED.paneSkip : COUNTED.glassSkip); return; }
+    if (key && key === takenKey && ready) { if (gpuProbe.on) gpuProbe.note(cards ? COUNTED.cardSkip : pane ? COUNTED.paneSkip : COUNTED.glassSkip); return; }
     const kx = source.width / sr.width, ky = source.height / sr.height;
     const bw = Math.max(1, Math.ceil(reg.w / SCALE)), bh = Math.max(1, Math.ceil(reg.h / SCALE));
     pending = true;
-    if (gpuProbe.on) gpuProbe.note(pane ? COUNTED.paneCopy : COUNTED.glassCopy);
+    if (gpuProbe.on) gpuProbe.note(cards ? COUNTED.cardCopy : pane ? COUNTED.paneCopy : COUNTED.glassCopy);
     const job = gen;
     let p;
     try {
@@ -266,9 +285,18 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function readPanes(list) {
     const panes = [];
     for (const g of list) {
-      const el = g.parentElement, cs = getComputedStyle(g);
+      const el = cards ? g : g.parentElement, cs = getComputedStyle(g);
       if (!el || cs.display === 'none' || cs.visibility !== 'visible') continue;
       const a = NUM(cs.opacity) * heldBy(g);
+      if (cards) {
+        // (Its CSS says whether this element's glass is its own (--gl-glass 1) and what its tint is; a filter on it (a brightness) would
+        // not reach a glass drawn here, so such a card keeps the browser's.)
+        if (cs.getPropertyValue('--gl-glass').trim() !== '1' || (cs.filter && cs.filter !== 'none')) continue;
+        const r = g.getBoundingClientRect();
+        if (!r.width || !r.height || !(a > 0.001)) continue;
+        panes.push({ g, el, a, r, d: null, rad: radiiOf(cs), lw: r.width, lh: r.height, er: r, shadow: null, tint: cs.getPropertyValue('--gl-tint'), k: 1 });
+        continue;
+      }
       const r = g.getBoundingClientRect(), lw = NUM(g.style.width), lh = NUM(g.style.height);
       if (!r.width || !r.height || !lw || !lh || !(a > 0.001)) continue;
       // (The liver's pane: its own rounded box, tinted with --frost as it stands; its soft shadow, outside it, stays the DOM's.)
@@ -298,8 +326,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       x1 = Math.min(cr.width, x1 - cr.left + MARGIN); y1 = Math.min(cr.height, y1 - cr.top + MARGIN);
       if (x1 > x0 && y1 > y0 && !pending) take({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, cr);
     }
-    // No glass shows (all hidden, faded out or empty): the canvas is cleared once and nothing more is done.
-    if (!panes.length) { clear(); return false; }
+    // No glass shows (all hidden, faded out or empty): the canvas is cleared once and nothing more is done. (A card still marked from an
+    // earlier frame goes back to the browser's glass: its CSS may have turned its own off while it was the only one.)
+    if (!panes.length) { if (cards) unmark(); clear(); return false; }
     // (Until the first copy is in, the browser's own glass stays.)
     if (!ready) return true;
     const ws = getComputedStyle(wrap), bgs = ws.backgroundColor, bg = colour(bgs, 'transparent');
@@ -313,12 +342,12 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     let key = `${W}x${H}|${dpr}|${readySeq}|${cr.left}|${cr.top}|${bgs}|${bgVar}`;
     for (const p of panes) {
       const s = p.shadow, e = p.er;
-      key += `|${p.r.left},${p.r.top},${p.r.width},${p.r.height},${p.a},${p.lw},${p.lh},${p.d},${p.tint}`
+      key += `|${p.r.left},${p.r.top},${p.r.width},${p.r.height},${p.a},${p.lw},${p.lh},${p.d},${p.rad || ''},${p.tint}`
         + (pane ? '' : `,${e.left},${e.top},${e.right},${e.bottom},${s ? `${s.c},${s.x},${s.y},${s.blur},${s.spread}` : '-'}`);
     }
     if (drawn && key === drawnKey) return 'same';
-    noteDraw(pane ? 'glass-pane' : 'glass');
-    if (gpuProbe.on) gpuProbe.note(pane ? COUNTED.paneDrawn : COUNTED.glassDrawn);
+    noteDraw(cards ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
+    if (gpuProbe.on) gpuProbe.note(cards ? COUNTED.cardDrawn : pane ? COUNTED.paneDrawn : COUNTED.glassDrawn);
     gl.viewport(0, 0, W, H); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(pprog); gl.bindVertexArray(vao);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -329,11 +358,22 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, blurred);
     const now = new Set();
     for (const p of panes) {
-      const m = maskOf(p.g, p.d, p.lw, p.lh), t = colour(p.tint.trim(), 'transparent'), ta = t[3] * p.k;
+      const t = colour(p.tint.trim(), 'transparent'), ta = t[3] * p.k;
+      // (A card whose tint did not read as a colour (a browser that does not register custom properties): not drawn, and left to the
+      // browser's glass, which still shows its declared background.)
+      if (cards && !(ta > 0)) continue;
       const bx = (p.r.left - cr.left) * dpr, by = (p.r.top - cr.top) * dpr;
-      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, m.tex); gl.activeTexture(gl.TEXTURE0);
+      if (p.rad) {
+        gl.uniform1i(PU.uMode, 1);
+        gl.uniform4f(PU.uRad, p.rad[0] * dpr, p.rad[1] * dpr, p.rad[2] * dpr, p.rad[3] * dpr);
+        gl.uniform2f(PU.uMS, 1, 1);
+      } else {
+        const m = maskOf(p.g, p.d, p.lw, p.lh);
+        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, m.tex); gl.activeTexture(gl.TEXTURE0);
+        gl.uniform1i(PU.uMode, 0);
+        gl.uniform2f(PU.uMS, m.ms[0], m.ms[1]);
+      }
       gl.uniform4f(PU.uBox, bx, by, p.r.width * dpr, p.r.height * dpr);
-      gl.uniform2f(PU.uMS, m.ms[0], m.ms[1]);
       gl.uniform4f(PU.uTint, t[0] * ta, t[1] * ta, t[2] * ta, ta);
       gl.uniform1f(PU.uA, Math.min(1, p.a));
       const e = p.er, L = (e.left - cr.left) * dpr, T = (e.top - cr.top) * dpr, R = (e.right - cr.left) * dpr, B = (e.bottom - cr.top) * dpr;
@@ -347,7 +387,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       if (!p.g.hasAttribute('data-gl')) p.g.setAttribute('data-gl', '');
       now.add(p.g);
     }
-    for (const g of marked) if (!now.has(g) && !g.isConnected) marked.delete(g);
+    // (A card not drawn this time, whatever the reason (hidden, faded out, its glass turned off by its CSS, its tint unread), goes back to the
+    // browser's glass now: marked, it would show no glass at all.)
+    for (const g of marked) if (!now.has(g) && (cards || !g.isConnected)) { if (cards && g.isConnected) g.removeAttribute('data-gl'); marked.delete(g); }
     for (const g of now) marked.add(g);
     drawn = true; drawnKey = key;
     return true;
@@ -383,7 +425,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       x1 = Math.min(cr.width, x1 - cr.left + MARGIN); y1 = Math.min(cr.height, y1 - cr.top + MARGIN);
       if (x1 > x0 && y1 > y0 && !pending) take({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, cr, sr);
     }
-    if (!panes.length) { clear(); return false; }
+    if (!panes.length) { if (cards) unmark(); clear(); return false; }
     if (!ready) return true;
     return paint(panes, cr, bgs, bg, bgVar);
   }
@@ -394,7 +436,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // A callout written outside a frame is drawn in the next frame's final phase, before that frame is shown, so the glass never trails its outline.
   // (On the shared scheduler's final phase: after every other surface's frame, the figure's own pass and the callouts' writes
   // included, so it blurs the figure of this frame, not the last, and is drawn once in a frame whoever asked.)
-  const later = finalFrameFor(pane ? 'glass-pane' : 'glass');
+  const later = finalFrameFor(cards ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
   const loop = () => { raf = 0; if (mo.takeRecords().length) keptStale = true; settle(draw()); };   // (the writes made before it in this frame are drawn here, not again after it)
   function ask() { if (!raf && !lost && !dead) raf = later(loop); }
   /** Something the glass shows may have changed: it looks again (for two frames at least). */
@@ -416,7 +458,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // is taken by its loop (takeRecords). The microtask draw it was had drawn a second time in a frame while callouts moved; 30 Oct,
   // review H4b.)
   const mo = new MutationObserver(() => { keptStale = true; quiet = 0; ask(); });
-  const watched = pane ? [pane] : layers;
+  const watched = cards ? cards.watch : pane ? [pane] : layers;
   for (const l of watched) mo.observe(l, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class', 'data-at', 'hidden'] });
   // Whether a callout layer still holds an animation that will end: a transition (its delay included), a keyframe animation or a
   // script's fade. Transitions and keyframes announce themselves (held, below); a script's (the Web Animations API) does not.
