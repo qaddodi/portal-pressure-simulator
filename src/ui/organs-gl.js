@@ -50,7 +50,7 @@ void main() {
 
 import { createShapeGL } from './shape-gl.js?v=74fff72fb9';
 import { createOrganPaint, mul } from './organ-paint.js?v=e08cf3a692';
-import { netChanged } from './idle-keys.js?v=235443a2a3';
+import { netChanged } from './idle-keys.js?v=dd9715597b';
 
 /** The pixels (bytes) of live groups' pictures kept at a time on a canvas cw × ch: most of a screen, never more than 12 MB (an iPhone's budget is a few MB). */
 export const cacheBudget = (cw, ch) => Math.min(cw * ch * 4 * 0.75, 12e6);

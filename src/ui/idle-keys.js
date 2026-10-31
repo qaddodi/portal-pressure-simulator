@@ -18,10 +18,11 @@ export function compareRows(a, b, hvpg, model, fmt) {
 
 // The classes a pan, a pinch or a slide's camera glide puts on and takes off. GESTURE_LOOK: what they change is no label's own look
 // (the stage view's: the cursor, panning; the label layer's and the liver pane's opacity as a whole, pinch-hide and cam-move; the
-// app's: the floating buttons' fade, stage-busy, and the phone's bars and zoom pill, figure-focus). GESTURE_MOVE_FREE: those of them
-// that also move, size, hide or fade no placed piece (PLACED), so no box a layout watch's readers measure changes with them.
-export const GESTURE_LOOK = new Set(['panning', 'stage-busy', 'figure-focus', 'pinch-hide', 'cam-move']);
-export const GESTURE_MOVE_FREE = new Set(['panning', 'pinch-hide', 'cam-move']);
+// leaders' layer's opacity as a whole while a small move carries the labels, lb-ride; the app's: the floating buttons' fade,
+// stage-busy, and the phone's bars and zoom pill, figure-focus). GESTURE_MOVE_FREE: those of them that also move, size, hide or fade
+// no placed piece (PLACED), so no box a layout watch's readers measure changes with them.
+export const GESTURE_LOOK = new Set(['panning', 'stage-busy', 'figure-focus', 'pinch-hide', 'cam-move', 'lb-ride']);
+export const GESTURE_MOVE_FREE = new Set(['panning', 'pinch-hide', 'cam-move', 'lb-ride']);
 /** Whether two class attribute values differ only by classes in `set` (the same, too). */
 export function onlyClasses(a, b, set) {
   const A = new Set((a || '').split(/\s+/).filter(Boolean)), B = new Set((b || '').split(/\s+/).filter(Boolean));

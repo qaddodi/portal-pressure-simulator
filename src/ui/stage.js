@@ -38,13 +38,13 @@ import { refine } from './refine.js?v=010dc120b4';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=5e901158f4';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
-import { cropToGrid } from './organs-gl.js?v=0b8918fd4a';
+import { cropToGrid } from './organs-gl.js?v=e616318a48';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=e08cf3a692';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
-import { createLabelGL } from './label-gl.js?v=4350a6b437';
+import { createLabelGL } from './label-gl.js?v=218ff170e8';
 import { createGlassGL } from './glass-gl.js?v=671f15ea7b';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=3a30f157c1';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=8a965ad852';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -59,7 +59,7 @@ import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end
 import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=e8b69b3217';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
-import { layoutWatch } from './idle-keys.js?v=235443a2a3';
+import { layoutWatch } from './idle-keys.js?v=dd9715597b';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
@@ -118,7 +118,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A settings change reaches its listeners only at the next frame: a read between, from a timer or an idle moment, checks them itself.)
   let csSnap = null, csMq = null;
   // A class list less the classes a pan or pinch puts on and takes off, which change no colour or look the stage draws.
-  const gestureFree = (c) => (c || '').replace(/(?:^|\s)(?:panning|stage-busy|figure-focus)(?=\s|$)/g, '');
+  const gestureFree = (c) => (c || '').replace(/(?:^|\s)(?:panning|stage-busy|figure-focus|lb-ride)(?=\s|$)/g, '');
   const MQ = ['(prefers-color-scheme: dark)', '(prefers-reduced-motion: reduce)', '(prefers-reduced-transparency: reduce)', '(hover: hover)', '(pointer: coarse)', 'print'].map((q) => matchMedia(q));
   function wrapCS() {
     if (csSnap && MQ.some((q, i) => q.matches !== csMq[i])) csSnap = null;
@@ -2115,7 +2115,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A slow push (opt.drift: a time-lapse's lapse.cam) is not a move of that kind: the labels stay up and ride with the figure, each kept
   // on its side as a hand's zoom keeps them (updateLabels), and are solved again for where it stopped once it lands, gliding there.
   let drifting = false;
-  function driftEnd() { if (!drifting) return; drifting = false; labelSettleSoon(); }
+  // A presenter's small move that keeps the labels it has (carry, see animateVT): they ride with the figure as a slow push's do, so the
+  // learner never loses the names, and only the leaders fade (lb-ride) and come back once it lands. Any change to what the labels
+  // show hands the move back to the usual fade (carryAbort), so a label never appears part way through it.
+  let carrying = false;
+  const rideLeaders = (on) => wrap.classList.toggle('lb-ride', on);
+  function driftEnd() { if (!drifting) return; drifting = false; carrying = false; rideLeaders(false); labelSettleSoon(); }
+  function carryAbort() {
+    carrying = false; drifting = false; rideLeaders(false);
+    if (!vtGliding) return;   // (it landed already: the usual settle)
+    camMove = true; dpr.carry = false; wrap.classList.add('cam-move');   // (and camSettle lays them out at their new places as the glide lands)
+  }
   function camSettle() {
     if (!camMove) return;
     camMove = false; dpr.carry = false;
@@ -2171,6 +2181,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     following = false; follow0 = follow1 = null;
     driftEnd();
   }
+  // (A change of scale up to the 35 % a hand's zoom carries labels through, and a pan of up to 30 % of the width on view. Anything bigger
+  // brings the labels onto each other and is the usual fade. Only where the labels already lie as solved for what they show, and no
+  // callout, probe, scan or treatment has a layer of its own to move: those keep the fade.)
+  const CARRY_ZOOM = 0.35, CARRY_PAN = 0.3;
+  function carryable(from, to) {
+    if (!store.get().presenting || reduceMotion.matches || !F || !solvedFor || camMove || pinchHide) return false;
+    if (cath.st || lobuleOn || lz?.isOpen() || morph !== morphTarget || diveT > 0 || sites.list || scan.on || dpr.on || E.TIPS?.vis || E.DIPS?.vis) return false;
+    const room = arcRoom();
+    if (!room || Math.abs(Math.log(to.k / from.k)) > CARRY_ZOOM || Math.hypot(to.x - from.x, to.y - from.y) > room.vb.w * CARRY_PAN) return false;
+    // (The zoom levels the labels' signature turns on, 1.35x and 1.3x home, are on one side of it at both ends: a label never changes
+    // what it says part way through.)
+    const side = (k) => `${k > 1.35}${k > (homeAt?.k || 1) * 1.3}`;
+    return side(from.k) === side(to.k) && solvedFor.sig === labelSig(F);
+  }
   // opt.steady: a refit to cards that moved (a data card tucked or untucked, a turn): timed by glideClock, so a slow frame at its start
   // (the layout and label passes the same change set off) holds it back a little instead of carrying it part of the way in one step.
   function animateVT(to, ms = 700, opt = {}) {
@@ -2205,12 +2229,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const path = camPath(from, to, room.vb, room.wMax);
       if (path.arc) { ms = Math.round(ms * path.stretch); at = path.at; arcRun = { from, to, t0, ms, at }; }
     }
-    if (!sameView(from, to)) logMove({ t: t0, ms, restart: vtGliding, kind: drift ? 'drift' : 'glide', arc: !!arcRun, zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
+    const carry = !drift && !arcRun && !sameView(from, to) && carryable(from, to);   // (a presenter's small move: the labels ride, see carrying)
+    if (!sameView(from, to)) logMove({ t: t0, ms, restart: vtGliding, kind: drift ? 'drift' : 'glide', arc: !!arcRun, carry, zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
     const left = Math.max(0, t0 + ms - performance.now());
     // (Not for a drift or a move on an arc: those keep their end time, which a refit that bends them reads from the wall clock.)
     const clock = opt.steady && !drift && !arcRun ? glideClock() : null;
     vtGliding = true;
-    if (cath.st?.keep && !sameView(from, to) || store.get().presenting && !drift && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, left + 80); } else camSettle();
+    if (carry) { drifting = carrying = true; rideLeaders(true); }
+    else if (carrying) { carrying = false; rideLeaders(false); }   // (a slow push or a plain glide after one: its leaders are back)
+    if (cath.st?.keep && !sameView(from, to) || store.get().presenting && !drift && !carry && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, left + 80); } else camSettle();
     dprLet();   // (a probe waiting for the slide's framing: a move hides it till it lands, a refit shows it now)
     const step = (now) => {
       // A newer glide (or a framing set outright) took over: this one stops. A glide started from inside this step's
@@ -2225,7 +2252,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (sites.list) { refreshCTM(); sitesPaint(); }
       if (scan.on) scanPaint();
       dprobePaint();
-      if (u < 1) vtAnim = nextFrame(step); else { vtGliding = false; arcRun = null; camSettle(); if (drift) driftEnd(); }
+      if (u < 1) vtAnim = nextFrame(step); else { vtGliding = false; arcRun = null; camSettle(); if (drift || carry) driftEnd(); }
     };
     vtAnim = nextFrame(step);
   }
@@ -2314,7 +2341,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=677601dd35').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=93f7e9af07').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -8889,6 +8916,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     }
     const st = store.get(), sig = labelSig(f), b = stageBox();
+    if (carrying && solvedFor?.sig !== sig) { carryAbort(); return; }   // (what the labels show changed mid-move: the usual fade, then laid out as it lands)
     const key = [[CTM.a, CTM.b, CTM.e, CTM.f].map((v) => v.toFixed(2)).join(), b.width, b.height, morph, rotU, labelFonts, document.documentElement.dataset.theme,
       pzInset('--pz-l'), pzInset('--pz-t'), st.mode, !!st.compareSnap, st.compareView, paramJSON(blockerBoxes), sig,
       calloutBoxes().map((b) => [b.x0, b.y0].map((v) => Math.round(v / 8)).join()).join(';')].join('|');

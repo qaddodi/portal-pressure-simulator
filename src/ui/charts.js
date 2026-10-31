@@ -9,7 +9,7 @@ import { frameFor, cancelFrame, paceMs } from './frame.js?v=d389474997';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { shownOr } from './shown.js?v=82ef5e29ec';
 import { monotoneSegs, curveTester } from './curve-near.js?v=9ff15157e9';
-import { glideMoving } from './idle-keys.js?v=235443a2a3';
+import { glideMoving } from './idle-keys.js?v=dd9715597b';
 import { plotFill } from './plot-look.js?v=5037697da7';
 const nextFrame = frameFor('charts');
 

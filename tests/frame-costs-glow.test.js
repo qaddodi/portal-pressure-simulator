@@ -116,7 +116,7 @@ test("a pan or pinch's own classes never count as a change of the stage's look",
   // (panning, stage-busy and figure-focus come on as a gesture starts and off as it ends, and stage-busy 0.6 s later, as the menus
   // fade back in. Each dropped the stage's style snapshot and the glow-only, marks and gut-look memos: a style pass and a whole
   // vessel sync, the marks read again from the SVG, at every one (Mohammad, 21 Oct: "still lag after i pan or zoom").)
-  assert.match(stage, /const gestureFree = \(c\) => \(c \|\| ''\)\.replace\(\/\(\?:\^\|\\s\)\(\?:panning\|stage-busy\|figure-focus\)\(\?=\\s\|\$\)\/g, ''\);/);
+  assert.match(stage, /const gestureFree = \(c\) => \(c \|\| ''\)\.replace\(\/\(\?:\^\|\\s\)\(\?:panning\|stage-busy\|figure-focus\|lb-ride\)\(\?=\\s\|\$\)\/g, ''\);/);
   const obs = stage.slice(stage.indexOf('const drop = () => { csSnap = null; };'), stage.indexOf("addEventListener('resize', drop)"));
   assert.match(obs, /if \(r\.attributeName === 'class'\) \{ const c = gestureFree\(r\.target\.getAttribute\('class'\)\); if \(seen\.get\(r\.target\) === c\) continue; seen\.set\(r\.target, c\); \}\n\s+drop\(\); return;/);
   assert.match(stage, /const marksKey = \(\) => `\$\{mk\.ver\}\|\$\{gestureFree\(wrap\.className\)\}\|/);
@@ -124,7 +124,7 @@ test("a pan or pinch's own classes never count as a change of the stage's look",
   assert.match(stage, /at = `\$\{gestureFree\(wrap\.className\)\.replace\(\/\\bgl-plate\\b\/, ''\)\}\|/);
   // Safe only while those classes set no custom property and nothing the figure draws: the cursor, and the floating pieces.
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  for (const m of css.matchAll(/([^{}]*\.(?:panning|stage-busy|figure-focus)\b[^{}]*)\{([^{}]*)\}/g)) {
+  for (const m of css.matchAll(/([^{}]*\.(?:panning|stage-busy|figure-focus|lb-ride)\b[^{}]*)\{([^{}]*)\}/g)) {
     assert.doesNotMatch(m[2], /--[\w-]+\s*:/, `${m[1].trim()} sets no custom property`);
     assert.doesNotMatch(m[1], /#organs|#veins|#stage\s+\S|\.organ|\.v-/, `${m[1].trim()} styles nothing in the figure`);
   }

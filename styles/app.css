@@ -143,6 +143,11 @@ svg { flex: none; }
 .stage-view.cam-move > #labels, .stage-view.cam-move > #labelGl, .stage-view.cam-move .lb-glass { opacity: 0; }
 /* A hand's zoom in the Circuit: the same, until it is let go (stage.js pinchHide). */
 .stage-view.pinch-hide > #labels, .stage-view.pinch-hide > #labelGl, .stage-view.pinch-hide .lb-glass { opacity: 0; }
+/* A presenter's small camera move that keeps its labels (stage.js animateVT, carry): the names ride with the figure and only the leaders
+   and their dots ease out, back in once it lands. (The layer is a mark of the GPU label painter: it reads this opacity and the
+   transition's events, as it does a leader's own fade.) */
+.lb-leaders { transition: opacity .25s var(--ease); }
+.stage-view.lb-ride .lb-leaders { opacity: 0; }
 /* The labels the GPU draws (label-gl.js): their SVG copy stays, for its layout, clicks, focus and screen readers, but paints nothing;
    the canvas over it takes the label layer's rules (cam-move, unframed, the lobule, the catheter) and never takes a pointer. */
 #labels .lb[data-gl] > * { opacity: 0; }
