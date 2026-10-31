@@ -40,7 +40,7 @@ import { gpuProbe, COUNTED } from './gpu-probe.js?v=b5449b0040';
 import { changedRows } from './flow-rows.js?v=bea4089714';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
 import { PUBLISH_QUIET_MS } from './gl-compile.js?v=5c4cd6c14c';
-import { createOrganStack } from './organs-gl.js?v=ac62b354a5';
+import { createOrganStack } from './organs-gl.js?v=7e9716eacd';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=422223e3b9';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 

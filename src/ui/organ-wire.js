@@ -6,7 +6,7 @@
 //   const wire = createWireOut();  const plain = wire.encode(spec);  const delta = wire.delta();   // page
 //   const wire = createWireIn();   const spec = wire.decode(plain);  wire.apply(delta);           // worker
 
-import { heldOf, hold } from './organ-paint.js?v=010d7c2e2a';
+import { heldOf, hold } from './organ-paint.js?v=c89e7a24ec';
 
 const NAMES = ['opacity', 'fill-opacity', 'stroke-opacity', 'd'];
 const STYLE = { opacity: 'opacity', 'fill-opacity': 'fillOpacity', 'stroke-opacity': 'strokeOpacity' };
