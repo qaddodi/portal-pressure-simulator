@@ -26,3 +26,25 @@ test('a pill shows a set gap outside its label, at its fades\' opacity; hidden o
   assert.equal(p.tint, 'rgba(1, 2, 3, 0.4)');
   assert.deepEqual(p.ring, { w: 2, colour: 'rgb(9, 9, 9)' });
 });
+
+test('a colour serialised as color(srgb …) is given to the glass as rgba()', async () => {
+  const { rgbaOf } = await import('../src/ui/lz-pills.js');
+  assert.equal(rgbaOf('color(srgb 1 0.5 0 / 0.47)'), 'rgba(255, 128, 0, 0.47)');
+  assert.equal(rgbaOf('color(srgb 0 0 1)'), 'rgba(0, 0, 255, 1)');
+  assert.equal(rgbaOf('rgba(1, 2, 3, 0.4)'), 'rgba(1, 2, 3, 0.4)');
+});
+
+test('the lobule draws the lit pills\' frost on the GPU from its own stacked copy, only in frames it drew', async () => {
+  const { readFileSync } = await import('node:fs');
+  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const gg = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(gg, /if \(cards\?\.read\) \{\n[^\n]*\n\s+const q = cards\.read\(g\);/);
+  assert.match(lz, /cards: \{ find: \(\) => pillLabels\(labels\), watch: \[labels\], before: labels, read: \(e\) => pillOf\(e\) \},/);
+  assert.match(lz, /const pillLive = \(\) => fade > 0\.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !resCover && !keep2D && pillTisOK && pillSeq > 0;/);
+  // (The tissue's GPU canvas read only in a frame it drew.)
+  assert.match(lz, /if \(!tissueOnGL \|\| tissueDrew\) \{/);
+  assert.match(lz, /if \(!ok\) return false;\n\s+tissueDrew = true;/);
+  assert.match(lz, /paintFx\(W, H, dpr, dark, dt, !g \|\| g\.lost\);\n\s+pillCopy\(W, H\);\n\s+return true;/);
+  assert.match(css, /\.lz \.lz-labels :is\(\.lz-lab, \.lz-zone\)\[data-gl\]\[data-gl\]\[data-gl\]::before \{ background: none; -webkit-backdrop-filter: none; backdrop-filter: none; \}/);
+});
