@@ -29,8 +29,9 @@ test('each cell draws the Gut to heart chart and its one-line strip, with no leg
 });
 
 test('the first row names the site and the cause, the cause stepping down to fit, never under 12 px, never wrapped; the pills after it', () => {
-  assert.match(grid, /const k = h\('div', \{ class: 'pz-cell-k' \}, h\('div', \{ class: 'pz-kick', 'data-site': r\.site \|\| 'none' \}, r\.kicker\.replace\('Intrahepatic · ', ''\)\),\n\s*h\('div', \{ class: 'pz-cell-t' \}, r\.name\),/);
+  assert.match(grid, /const k = h\('div', \{ class: 'pz-cell-k' \}, h\('div', \{ class: 'pz-kick', 'data-site': r\.site \|\| 'none' \}, headOf\(r\)\),\n\s*h\('div', \{ class: 'pz-cell-t' \}, r\.name\),/);
   assert.match(grid, /rowRO\?\.observe\(k\);/);
+  assert.match(readFileSync(new URL('../src/ui/table-marks.js', import.meta.url), 'utf8'), /export const headOf = \(r\) => \(r\.kicker \|\| ''\)\.replace\('Intrahepatic · ', ''\);/, 'the heading as the cell shows it');
   // (The size and the move under the site come from the measured row: the room the site and the gap leave, the cause's own width, the floor 12 px on the screen.)
   // (The room is the row less the site, the pills where they show (a wide screen hides them: no width) and a gap beside each.)
   assert.match(js, /const gap = parseFloat\(getComputedStyle\(k\)\.columnGap\) \|\| 0, room = k\.clientWidth - tag\.offsetWidth - gap - \(pills\?\.offsetWidth \? pills\.offsetWidth \+ gap : 0\) - 1;/);
