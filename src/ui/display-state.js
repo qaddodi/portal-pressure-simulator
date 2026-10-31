@@ -62,7 +62,18 @@ export function createColourFollow({ tau, eps = 0.002, small = 3 / 255, n = 6 } 
 //  - a small step at rest (under what the number prints) is shown at once, so a steady model costs no frames;
 //  - a change the model calls discontinuous (a reset, a patient, an intervention, a clock change: main.js noteJump) is never
 //    blended into the state before it: every follower takes its next target at once. Charts keep the model's own time axis.
+//  - a running model never rests (its means drift and its beat and breath wobble past `small` now and then), so "at rest" alone left a
+//    follower on its way almost every frame, and every surface that repaints from it drew at the screen's rate for nothing. A value
+//    whose two stages are both within `small` of its target is therefore shown at the target whether it was at rest or on its way
+//    (the same step that was always shown at once), and a follower lands there, not only within `eps` of it: what is left to ease is
+//    under half of the last digit printed, or under a quarter of a pixel of a bar, and cannot be seen.
 export const SHOWN_TAU = 0.2;
+/** A bar's `small` as a share of its scale: half a pixel or a little more on the widest bars (a tile's bar is 100 to 170 px). A move of
+ *  a bar under that cannot be seen to glide, so it lands at once (see the rules above). */
+export const FILL_SMALL = 0.005;
+/** A bar's start and length as written to the page: in steps of 1/2048 of its track (a twentieth to a tenth of a device pixel on a tile's bar),
+ *  so a drift the screen cannot show writes nothing, and no style or paint is asked for it. */
+export const fillQ = (n) => Math.round(n * 2048) / 2048;
 let jumps = 0;
 /** The model just jumped (main.js, from the frame's jump flag or a clock change): every follower takes its next target at once. */
 export function noteJump() { jumps++; }
@@ -81,13 +92,14 @@ export function createFollow({ tau = SHOWN_TAU, eps = 0.005, small = 0 } = {}) {
     get value() { return s.v; },
     step(T, dt, snap = false) {
       if (!Number.isFinite(T)) { s.v = s.w = s.T = T; s.moving = false; return T; }
-      const rest = s.v === s.w && s.w === s.T;
-      if (snap || !Number.isFinite(s.v) || !Number.isFinite(s.w) || s.epoch !== jumps || (rest && Math.abs(T - s.v) <= small)) {
+      // (Both stages within `small` of the target, at rest or on the way: it is shown as it is, see the shown state's rules above.)
+      if (snap || !Number.isFinite(s.v) || !Number.isFinite(s.w) || s.epoch !== jumps || (Math.abs(T - s.v) <= small && Math.abs(T - s.w) <= small)) {
         s.v = s.w = s.T = T; s.epoch = jumps; s.moving = false; return T;
       }
       const r = follow2(s.v, s.w, T, dt, tau, eps);
       s.v = r.v; s.w = r.w; s.T = T;
-      s.moving = r.v !== T || r.w !== T;
+      if (Math.abs(T - s.v) <= small && Math.abs(T - s.w) <= small) s.v = s.w = T;   // (landed: what is left cannot be seen)
+      s.moving = s.v !== T || s.w !== T;
       return s.v;
     },
     snap(T) { s.v = s.w = s.T = T; s.epoch = jumps; s.moving = false; },
@@ -114,7 +126,8 @@ export function createShownState({ tau = SHOWN_TAU, ask, cancel = () => {}, now 
       if (s.epoch !== jumps && !s.across) { s.v = s.w = s.T; s.moving = false; continue; }
       const r = follow2(s.v, s.w, s.T, dt, tau, s.eps);
       s.v = r.v; s.w = r.w;
-      s.moving = r.v !== s.T || r.w !== s.T;
+      if (Math.abs(s.T - s.v) <= s.small && Math.abs(s.T - s.w) <= s.small) s.v = s.w = s.T;   // (landed: what is left cannot be seen)
+      s.moving = s.v !== s.T || s.w !== s.T;
       if (s.moving) any = true;
     }
     api.moving = any;
@@ -126,11 +139,10 @@ export function createShownState({ tau = SHOWN_TAU, ask, cancel = () => {}, now 
     set(key, T, { snap = false, small = 0, eps = 0.005, across = false } = {}) {
       if (!Number.isFinite(T)) { S.delete(key); return T; }
       let s = S.get(key);
-      if (!s) { s = { v: T, w: T, T, eps, epoch: jumps, moving: false, across }; S.set(key, s); return T; }
-      s.eps = eps; s.across = across;
+      if (!s) { s = { v: T, w: T, T, eps, small, epoch: jumps, moving: false, across }; S.set(key, s); return T; }
+      s.eps = eps; s.small = small; s.across = across;
       if (across) s.epoch = jumps;
-      const rest = !s.moving;
-      if (snap || s.epoch !== jumps || (rest && Math.abs(T - s.v) <= small)) { s.v = s.w = s.T = T; s.epoch = jumps; s.moving = false; return T; }
+      if (snap || s.epoch !== jumps || (Math.abs(T - s.v) <= small && Math.abs(T - s.w) <= small)) { s.v = s.w = s.T = T; s.epoch = jumps; s.moving = false; return T; }
       s.T = T;
       if (s.v !== T || s.w !== T) {
         s.moving = true; api.moving = true;

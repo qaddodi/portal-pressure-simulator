@@ -2,12 +2,12 @@
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=4d7c66b4f8';
-import { pressureColor } from './colormap.js?v=b3392f59a4';
+import { pressureColor } from './colormap.js?v=8bffd036c0';
 import { store, hiddenNow } from './store.js?v=a926bea9d4';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=b02880ea05';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=b40e438a83';
 import { frameFor, cancelFrame, paceMs } from './frame.js?v=fe59494d22';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
-import { shownOr } from './shown.js?v=f59acbb802';
+import { shownOr } from './shown.js?v=0ad670cb4e';
 import { monotoneSegs, curveTester } from './curve-near.js?v=9ff15157e9';
 import { glideMoving } from './idle-keys.js?v=70e26bf4a1';
 import { plotFill } from './plot-look.js?v=5037697da7';
@@ -80,13 +80,22 @@ export function createProfile() {
   // (The pressures as shown: the model's beat-filtered ones on the shown state's filter, so the line, its dots and its numbers glide
   // between model frames as the bar and the vessels do; a drift under what the chart prints is taken at once, so a steady model
   // draws nothing. Premium-feel R4.)
-  const easeP = createEaser(undefined, { small: 0.05, jumps: true }), easeAxis = createEaser();
+  // (small: one step of the last digit the chart prints, 0.1 mmHg, half a pixel of the plot: a move that small shows the same whether it glides or lands.)
+  const easeP = createEaser(undefined, { small: 0.1, jumps: true }), easeAxis = createEaser();
   let easePill = createEaser(0.18);
   let pillMoving = false;
+  // (Only the stations the chart draws keep its glide going: the arterial pressures, which it never draws, swing past what it prints with
+  // every beat and breath, and with them in the glide a steady model redrew the chart on nearly every frame.)
+  const drawnAt = new Map();
+  const drawnMask = (path) => {
+    let m = drawnAt.get(path.id);
+    if (!m) { m = new Uint8Array(NODES.length); for (const n of [...path.nodes, ...STRIP]) if (!ARTERIAL.has(n) && NI[n] != null) m[NI[n]] = 1; drawnAt.set(path.id, m); }
+    return m;
+  };
   function ease() {
     if (!Fraw) return;
     const src = Fraw.Pf || Fraw.P;
-    const { v: shownP, moving: mP } = easeP.step(src);
+    const { v: shownP, moving: mP } = easeP.step(src, drawnMask(curPath()));
     const path = curPath();
     const st = store.get();
     let top = 0;

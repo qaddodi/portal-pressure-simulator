@@ -2,7 +2,8 @@
 // it): other views that print the same quantity read it from here, so one number never shows as 0.5 in one place and 0.6
 // in another (sweep batch 03, shot 21: the Pressure chart's HVPG and PPG brackets beside the bar's).
 // The bar writes what it shows in each display frame (the shown state below), so a view that draws in the same frame reads it too.
-import { createShownState } from './display-state.js?v=e88f6aec64';
+import { createShownState, FILL_SMALL, fillQ } from './display-state.js?v=8d062d39dc';
+export { FILL_SMALL, fillQ };
 import { frameFor, cancelFrame } from './frame.js?v=fe59494d22';
 const shown = new Map();
 export const setShown = (id, v) => { shown.set(id, v); };

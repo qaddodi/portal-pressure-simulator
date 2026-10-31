@@ -17,7 +17,7 @@ test('the chart glides only while what it draws is moving', () => {
   const charts = src('charts.js');
   assert.match(charts, /const moving = glideMoving\(mP, mA\)/);
   assert.match(charts, /F = \{ \.\.\.Fraw, P: shownP, \.\.\.\(Fraw\.Pf \? \{ Pf: shownP \} : \{\}\) \}/);
-  assert.match(charts, /createEaser\(undefined, \{ small: 0\.05, jumps: true \}\)/);
+  assert.match(charts, /createEaser\(undefined, \{ small: 0\.1, jumps: true \}\)/);
   assert.match(charts, /reading\(n, F\.Pf \|\| F\.P\)/);
 });
 

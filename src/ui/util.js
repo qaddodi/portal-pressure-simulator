@@ -1,7 +1,7 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame } from './frame.js?v=fe59494d22';
 import { releaseSpeed, settleSlope, settleAt } from './ease.js?v=7c37eab2c6';
-import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=e88f6aec64';
+import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 for (const m of ['replaceChildren', 'append', 'prepend']) {
@@ -743,21 +743,26 @@ export function enhanceRanges(root = document) {
  * constant tau): a value at rest takes a step of at most `small` at once (a steady model costs no frames). jumps: a jump of the model
  * (noteJump: a reset, a patient, an intervention, a clock change) is taken at once, never blended into the state before it (the
  * Pressure chart, which drew each model frame as it came before; the lobule, which always glided, still glides).
+ * A value whose two stages are both within `small` of its target is shown at the target, at rest or on its way (the shown state's rule,
+ * display-state.js: what is left cannot be seen), so a glide ends once it has come that near. step(target, watch): `watch` (a Uint8Array
+ * the length of the target, 1 where the value is drawn) names the values that count: one it leaves out is taken at once and never keeps
+ * the glide going (the Pressure chart draws eight stations of forty, and the arterial pressures' beat wobble kept it redrawing every frame).
  */
 export function createEaser(tau = SHOWN_TAU, { small = 0, eps = 0.02, jumps = false } = {}) {
   let v = null, w = null, last = 0, moved = false, epoch = jumpCount();
   return {
-    step(target) {
+    step(target, watch = null) {
       const now = performance.now(), dt = last && moved ? Math.min(0.25, Math.max(0, (now - last) / 1000)) : 0;   // (from rest: no time has passed under the new target yet)
       last = now;
       if (!v || v.length !== target.length || (jumps && epoch !== jumpCount())) { v = Float64Array.from(target); w = Float64Array.from(target); epoch = jumpCount(); moved = false; return { v, moving: false }; }
       let moving = false;
       for (let i = 0; i < target.length; i++) {
         const T = target[i];
-        if (v[i] === w[i] && Math.abs(T - v[i]) <= small) { v[i] = w[i] = T; continue; }
+        if ((watch && !watch[i]) || (Math.abs(T - v[i]) <= small && Math.abs(T - w[i]) <= small)) { v[i] = w[i] = T; continue; }
         const r = follow2(v[i], w[i], T, dt, tau, eps);
         v[i] = r.v; w[i] = r.w;
-        if (r.v !== T || r.w !== T) moving = true;
+        if (Math.abs(T - v[i]) <= small && Math.abs(T - w[i]) <= small) v[i] = w[i] = T;   // (landed)
+        if (v[i] !== T || w[i] !== T) moving = true;
       }
       moved = moving;
       return { v, moving };

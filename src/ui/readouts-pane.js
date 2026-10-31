@@ -4,10 +4,10 @@
 // (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
 import { store, hiddenNow } from './store.js?v=a926bea9d4';
-import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=b02880ea05';
+import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=b40e438a83';
 import { vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { SCALE, RATE } from './table-marks.js?v=e4c3c4f8c1';
-import { shownState } from './shown.js?v=f59acbb802';
+import { shownState, FILL_SMALL, fillQ } from './shown.js?v=0ad670cb4e';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
 
@@ -74,10 +74,12 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
   // As the bar's tiles (dock.js updateStrip and paintStrip): a model frame sets each reading's target on the page's one shown state
   // (shown.js, premium-feel R4), and every display frame while one is on its way paints from what is shown (follow), so the numbers,
   // bars and words glide with the figure rather than step ten times a second. A step the running mean does not ease is taken at once.
-  const followOpts = (d, snap) => ({ snap, small: 0.5 * Math.pow(10, -d), eps: 0.05 * Math.pow(10, -d) });
+  // (small: one step of the last digit printed. A number prints only whole steps of its last digit, so a move of one step or less shows
+    // the same whether it glides or lands at once, and a running model's wobble, which is about that size, costs no display frames.)
+    const followOpts = (d, snap) => ({ snap, small: Math.pow(10, -d), eps: 0.05 * Math.pow(10, -d) });
   // (A bar's length glides on the same filter, across a jump too, as dock.js fillTo; shown again after "Not measured", from its origin.)
   const fillTo = (key, lo, hi, v, seen) => {
-    const r = Math.abs(hi - lo), o = { small: 0.002 * r, eps: 0.0005 * r, across: true };
+    const r = Math.abs(hi - lo), o = { small: FILL_SMALL * r, eps: 0.0005 * r, across: true };
     if (v != null && Number.isFinite(v) && !seen && shownState.get(key) === undefined) shownState.set(key, clamp(0, Math.min(lo, hi), Math.max(lo, hi)), o);
     return shownState.set(key, v, o);
   };
@@ -100,6 +102,8 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
         fillTo('rpfill:' + t.id, t.scale[0], t.scale[1], v, x.fillSeen); x.fillSeen = v != null;
       } else if (x.target != null) x.shown = shownState.or('rp:' + t.id, x.target);
       const v = x.shown ?? null, eased = follow || x.eased;
+      // (A display frame between model frames repaints only the tiles whose shown number or bar moved since they were last painted.)
+      if (follow) { const fk = `${v}|${shownState.or('rpfill:' + t.id, '')}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;
       const measured = v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) { if (!follow) countTo(x.val, null); s = 'Not measured'; sev = 'none'; x.hist.length = 0; }
@@ -109,7 +113,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
         s = measured ? 'Measured' : t.s(vs, m);
         sev = t.st(vs, m);
         const w = pos(t, shownState.or('rpfill:' + t.id, v)), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
-        const fl = Math.min(w, o) / 100, fw = Math.abs(w - o) / 100;
+        const fl = fillQ(Math.min(w, o) / 100), fw = fillQ(Math.abs(w - o) / 100);
         if (x.fillL !== fl || x.fillW !== fw) { x.fillL = fl; x.fillW = fw; x.fill.style.setProperty('--fl', fl); x.fill.style.setProperty('--fw', fw); }
       }
       tileEl.classList.toggle('hidden-val', v == null);
@@ -146,10 +150,11 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       }
       else x.shown = shownState.or('rp:' + x.v.id, x.shown);
       const r = { v: x.shown, bad: x.r?.bad };
+      if (follow) { const fk = `${x.shown}|${hid}|${shownState.or('rpfill:' + x.v.id, '')}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;
       countTo(x.val, hid ? null : r.v, x.v.d, { eased: st0.running });
       // (Its tile's word and colour, judging the number as shown; the tile's colour holds a moment before it changes, as the others do.)
       const none = hid || !Number.isFinite(r.v), [cls, word] = none ? [null, 'Not measured'] : RATE[x.v.id](shownOf(r.v, x.v.d), {}), sev = SEV[cls] ?? 'none';
-      const w = none ? 0 : clamp((shownState.or('rpfill:' + x.v.id, r.v) - x.S[0]) / (x.S[1] - x.S[0]), 0, 1);
+      const w = none ? 0 : fillQ(clamp((shownState.or('rpfill:' + x.v.id, r.v) - x.S[0]) / (x.S[1] - x.S[0]), 0, 1));
       if (x.fillW !== w) { x.fillW = w; x.fill.style.setProperty('--fl', 0); x.fill.style.setProperty('--fw', w); }
       if (sev !== x.sev) {
         if (x.sevNext !== sev) { x.sevNext = sev; x.sevSince = now; }

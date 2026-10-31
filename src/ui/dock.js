@@ -3,18 +3,18 @@
 
 import { store, hiddenNow } from './store.js?v=a926bea9d4';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=b02880ea05';
-import { lobuleFlows } from './lobule-model.js?v=2f078f4dd4';
-import { createProfile } from './charts.js?v=f9296896fc';
-import { createPressureTime } from './pressure-time.js?v=45b446459b';
-import { createHvpgProcedure } from './hvpg-proc.js?v=02e83e699e';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=4d46e4b356';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=b40e438a83';
+import { lobuleFlows } from './lobule-model.js?v=4efe7f3b39';
+import { createProfile } from './charts.js?v=5060c7c3da';
+import { createPressureTime } from './pressure-time.js?v=eed91230ed';
+import { createHvpgProcedure } from './hvpg-proc.js?v=78c5d71840';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=b6fece5ab0';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=25b769f76d';
-import { createReadoutsPane } from './readouts-pane.js?v=fe3ddb9f6b';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=07a698599e';
+import { createReadoutsPane } from './readouts-pane.js?v=5be1d47ab9';
 import { frameFor } from './frame.js?v=fe59494d22';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
-import { setShown, shownState } from './shown.js?v=f59acbb802';
+import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=0ad670cb4e';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
 import { compareRows } from './idle-keys.js?v=70e26bf4a1';
@@ -208,11 +208,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // targets (updateStrip), and every display frame while one is on its way paints the tiles, their bars and their words from what is
   // shown (paintStrip), so a bar never steps ten times a second beside a vessel that eases. A step the running mean does not ease (a
   // paused edit, a treatment, a new patient) is taken at once: its number rolls (P17) and its bar glides by its own transition.
-  const followOpts = (d, snap) => ({ snap, small: 0.5 * Math.pow(10, -d), eps: 0.05 * Math.pow(10, -d) });
+  // (small: one step of the last digit printed. A number prints only whole steps of its last digit, so a move of one step or less shows
+    // the same whether it glides or lands at once, and a running model's wobble, which is about that size, costs no display frames.)
+    const followOpts = (d, snap) => ({ snap, small: Math.pow(10, -d), eps: 0.05 * Math.pow(10, -d) });
   // (A bar's length glides on the same filter, across a jump too: it always glided, by a CSS transition that restarted with each model
   // frame. Shown again after "Not measured", it grows from its origin.)
   const fillTo = (key, t, v, seen) => {
-    const r = Math.abs(t.scale[1] - t.scale[0]), o = { small: 0.002 * r, eps: 0.0005 * r, across: true };
+    const r = Math.abs(t.scale[1] - t.scale[0]), o = { small: FILL_SMALL * r, eps: 0.0005 * r, across: true };
     if (v != null && !seen && shownState.get(key) === undefined) shownState.set(key, clamp(0, t.scale[0], t.scale[1]), o);
     return shownState.set(key, v, o);
   };
@@ -275,6 +277,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       if (follow && x.target != null) x.shown = shownState.or('bar:' + t.id, x.target);
       let v = x.shown ?? null, eased = follow || x.eased;
       if (x.live && gap[t.id] != null) v = gap[t.id];
+      // (A display frame between model frames repaints only the tiles whose shown number or bar moved since they were last painted: with
+      // a running model a tile or two always wobbles, and the rest need not be worked out again on every frame. A model frame paints all.)
+      if (follow) { const fk = `${v}|${shownState.or('fill:' + t.id, '')}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;
       if (!lz) setShown(t.id, v);
       const measured = !lz && v != null && hidden?.has(t.hideKey);
       let sev, s;
@@ -290,7 +295,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         s = measured ? 'Measured' : (t.ss && narrow.matches ? t.ss : t.s)(vs, ...a);
         sev = t.st(vs, ...a);
         const w = pos(t, shownState.or('fill:' + t.id, v)), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
-        const fl = Math.min(w, o) / 100, fw = Math.abs(w - o) / 100;
+        const fl = fillQ(Math.min(w, o) / 100), fw = fillQ(Math.abs(w - o) / 100);
         if (x.fillL !== fl || x.fillW !== fw) { x.fillL = fl; x.fillW = fw; x.fill.style.setProperty('--fl', fl); x.fill.style.setProperty('--fw', fw); }
       }
       el.classList.toggle('hidden-val', v == null);
@@ -324,6 +329,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     for (const x of vitEls) {
       const hid = hidden?.has(x.v.hideKey);
       if (follow) x.shown = shownState.or('bar:' + x.v.id, x.shown);
+      if (follow) { const fk = `${x.shown}|${hid}|${x.bad}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;
       countTo(x.val, hid ? null : x.shown, x.v.d, { eased: st0.running });
       x.el.classList.toggle('bad', !hid && x.bad);
     }
