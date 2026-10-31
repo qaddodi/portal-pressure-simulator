@@ -177,7 +177,7 @@ export function formula(eng, id, m = null) {
     const f = eng.flows;
     return `Ascites = filtration (liver ${f.hep.toFixed(1)} + gut ${f.spl.toFixed(1)} mL/min) − lymph capacity ${eng.slow.lymphCap.toFixed(1)} − reabsorption ${f.reabs.toFixed(2)} mL/min`;
   }
-  if (id === 'map') return `MAP = CO × SVR + RA = ${(eng.COf * 0.06).toFixed(2)} L/min × ${((eng.MAPf - P[ni.RA]) / (eng.COf * 0.06)).toFixed(1)} WU + ${P[ni.RA].toFixed(1)}`;
+  if (id === 'map') return `MAP = CO × SVR + RA = ${(eng.COf * 0.06).toFixed(2)} L/min × ${((eng.MAPf - P[ni.RA]) / (eng.COf * 0.06)).toFixed(1)} WU + ${P[ni.RA].toFixed(1)} mmHg = ${eng.MAPf.toFixed(0)} mmHg`;
   if (id === 'shunt' || id === 'pvFlow' || id === 'liverPerf' || id === 'sinFlow' || id === 'portalIn') return 'Parallel paths: flow divides in inverse proportion to resistance (liver vs. collaterals/shunts).';
   return '';
 }

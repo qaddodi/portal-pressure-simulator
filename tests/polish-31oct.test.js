@@ -275,3 +275,10 @@ test('the Why headline never says "-0" and never repeats a zero baseline ("69%, 
   // a nonzero baseline keeps its clause
   assert.match(explain(e, 'hvpg').sentence, /^HVPG is [\d.]+ mmHg, [\d.]+ above healthy\./);
 });
+
+test('the MAP formula ends in its result and carries its units, as the HVPG and PPG lines do', async () => {
+  const { Engine } = await import('../src/engine/engine.js');
+  const { explain } = await import('../src/engine/explain.js');
+  const e = new Engine(); e.loadPreset('cirr-decomp'); for (let i = 0; i < 4; i++) e.settleQuick();
+  assert.match(explain(e, 'map').formula, /^MAP = CO × SVR \+ RA = [\d.]+ L\/min × [\d.]+ WU \+ [\d.]+ mmHg = \d+ mmHg$/);
+});
