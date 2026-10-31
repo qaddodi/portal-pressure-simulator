@@ -305,7 +305,7 @@ async function main() {
   else {
     timeline.reset();
     // (A #s= link the app cannot read, cut short or altered in a message: it opens on the default patient and says so, not in silence.)
-    if (/#s=/.test(location.hash) && !back) toast('This shared link could not be read (it may have been cut short when it was copied), so the app opened on the healthy patient.', 'bad');
+    if (/#s=/.test(location.hash) && !back) toast('This shared link could not be read, so the healthy patient opened.', 'bad');
   }
   inspector.render();
   const deep = await openDeepLink();
