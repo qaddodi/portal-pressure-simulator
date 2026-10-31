@@ -71,7 +71,7 @@ test('a live organ that changed is drawn again within its box, and only its cell
   assert.match(gl, /const keyOf = \(m, cw, ch\) => \{ pull\(\); return `\$\{ver\}\|\$\{liveVer\}\|\$\{watch \? pageVer : ''\}\|/);
   assert.match(gl, /const at = `\$\{ver\}\|\$\{m\.join\(','\)\}\|\$\{cw\}x\$\{ch\}`, same = at === drawnAt && !!painter;/, 'the same view and layers: only what changed');
   assert.match(gl, /if \(a\[i\]\.ops\[k\]\[0\] !== b\[i\]\.ops\[k\]\[0\]\) \{ add\(a\[i\]\.ops\[k\]\[1\]\); add\(b\[i\]\.ops\[k\]\[1\]\); \}/, "an op's old and new boxes");
-  assert.match(gl, /if \(!whole && !dirty\) \{ painter\?\.endFrame\(\); return null; \}/, 'nothing changed: nothing drawn');
+  assert.match(gl, /if \(!whole && !dirty\) \{ endFade\(\); painter\?\.endFrame\(\); return null; \}/, 'nothing changed: nothing drawn');
   assert.match(gl, /return whole \? true : dirty;/);
   assert.match(gl, /painter\.paintGroup\(o\.spec, mul\(m, o\.m\), w, h, fbo, within\)/);
   assert.match(gl, /cut\.opacity \?\? 1, within\);/);

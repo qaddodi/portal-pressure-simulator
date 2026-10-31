@@ -42,7 +42,7 @@ import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
 import { changedRows } from './flow-rows.js?v=bea4089714';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
 import { PUBLISH_QUIET_MS } from './gl-compile.js?v=5c4cd6c14c';
-import { createOrganStack } from './organs-gl.js?v=e616318a48';
+import { createOrganStack } from './organs-gl.js?v=9944a94952';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 
@@ -2987,6 +2987,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       },
       dropStaged: (slot) => stack.dropStaged(slot),
       has: (slot) => stack.has(slot),
+      /** Whether the view's sharper picture is still fading in (organs-gl): the stage draws on until it is whole. */
+      get fading() { return stack.fading; },
       /** Organs painted live in the stack, and layers' live masks (organs-gl setLive); the names it lays, in order. */
       get canLive() { return stack.canLive; },
       setLive: (organs, masks) => { texVer++; return stack.setLive(organs, masks); },

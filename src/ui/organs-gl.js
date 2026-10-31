@@ -37,15 +37,25 @@ void main() {
 const LAYER_FS = `#version 300 es
 precision highp float;
 in vec2 vW;
-uniform sampler2D t0, t1;   // the layer's whole picture and its sharper one of the view (premultiplied)
-uniform vec4 r0, r1;
-uniform int has1;
-uniform ivec2 flip;         // a picture painted on the GPU (bake) has its first row at the bottom
+uniform sampler2D t0, t1, t2;   // the layer's whole picture, its sharper one of the view and, while that fades in, the view before (premultiplied)
+uniform vec4 r0, r1, r2;
+uniform int has1, has2;
+uniform float k1;           // how far the view's picture has faded in (1: all of it, as before)
+uniform ivec3 flip;         // a picture painted on the GPU (bake) has its first row at the bottom
 out vec4 o;
+vec4 at(sampler2D t, vec4 r, int f) { vec2 u = (vW - r.xy) / r.zw; return texture(t, f == 1 ? vec2(u.x, 1.0 - u.y) : u); }
+bool inside(vec4 r) { vec2 u = (vW - r.xy) / r.zw; return all(greaterThanEqual(u, vec2(0.0))) && all(lessThanEqual(u, vec2(1.0))); }
 void main() {
   vec2 u1 = (vW - r1.xy) / r1.zw;
-  if (has1 == 1 && all(greaterThanEqual(u1, vec2(0.0))) && all(lessThanEqual(u1, vec2(1.0)))) o = texture(t1, flip.y == 1 ? vec2(u1.x, 1.0 - u1.y) : u1);
-  else { vec2 u0 = (vW - r0.xy) / r0.zw; o = texture(t0, flip.x == 1 ? vec2(u0.x, 1.0 - u0.y) : u0); }
+  bool in1 = has1 == 1 && all(greaterThanEqual(u1, vec2(0.0))) && all(lessThanEqual(u1, vec2(1.0)));
+  if (in1 && k1 >= 1.0) o = texture(t1, flip.y == 1 ? vec2(u1.x, 1.0 - u1.y) : u1);
+  else {
+    vec2 u0 = (vW - r0.xy) / r0.zw; o = texture(t0, flip.x == 1 ? vec2(u0.x, 1.0 - u0.y) : u0);
+    // (Fading in: from what showed there before, the view before where it lay, else the whole picture; out of the new view, back to the whole.)
+    vec4 was = has2 == 1 && inside(r2) ? at(t2, r2, flip.z) : o;
+    if (in1) o = mix(was, at(t1, r1, flip.y), k1);
+    else if (has2 == 1) o = mix(was, o, k1);
+  }
 }`;
 
 import { createShapeGL } from './shape-gl.js?v=74fff72fb9';
@@ -54,6 +64,15 @@ import { netChanged } from './idle-keys.js?v=dd9715597b';
 
 /** The pixels (bytes) of live groups' pictures kept at a time on a canvas cw × ch: most of a screen, never more than 12 MB (an iPhone's budget is a few MB). */
 export const cacheBudget = (cw, ch) => Math.min(cw * ch * 4 * 0.75, 12e6);
+
+// Settle and sharpen (combined plan step 12, 31 Oct): the view's sharper picture, made once a pan or a zoom has settled, fades in over
+// the same 350 ms smoothstep as a resolution change (res-fade FADE_MS) inside the organ stack alone, from what showed there before
+// (the view before where it lay, else the whole picture), so the blood over it is never mixed with a still picture of itself.
+// A view that lies inside the one before (the same pan, drawn again) takes its place at once, as before. ?viewfade=0 turns it off.
+export const VIEW_FADE_MS = 350;
+const VIEW_FADE = !(typeof location !== 'undefined' && /[?&]viewfade=0\b/.test(location.search || ''));
+const smooth = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
+const within4 = (a, b) => b[0] >= a[0] && b[1] >= a[1] && b[0] + b[2] <= a[0] + a[2] && b[1] + b[3] <= a[1] + a[3];
 
 function program(gl, vs, fs) {
   const p = gl.createProgram();
@@ -152,8 +171,13 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
   const descKey = (d) => `${d.sig}#${d.ops.map((o) => o[0]).join('\n')}`;
   const sameDesc = (a, b) => !!a && !!b && a.sig === b.sig && a.ops.length === b.ops.length && a.ops.every((o, k) => o[0] === b.ops[k][0]);
   const liveNow = () => !!(painter && (liveOrgans.size || cuts.size));
-  const keyOf = (m, cw, ch) => { pull(); return `${ver}|${liveVer}|${watch ? pageVer : ''}|${m.join(',')}|${cw}x${ch}`; };
-  const free = (map) => { for (const L of map.values()) gl.deleteTexture(L.tex); map.clear(); };
+  const keyOf = (m, cw, ch) => { pull(); return `${ver}|${liveVer}|${watch ? pageVer : ''}|${m.join(',')}|${cw}x${ch}${pending() ? `|f${performance.now()}` : ''}`; };
+  const dropPrev = (L) => { if (L.prev) { gl.deleteTexture(L.prev.tex); L.prev = null; } };
+  const free = (map) => { for (const L of map.values()) { gl.deleteTexture(L.tex); dropPrev(L); } map.clear(); };
+  // (A view's picture fading in: its key moves with the clock until it is whole, so each frame draws it a step further.)
+  // (`fading()`: one is still to be drawn whole; the stage's frames are kept going for it, for no longer than three fades whatever is drawn.)
+  const pending = () => { for (const L of live[1].values()) if (L.from != null) return true; return false; };
+  const fading = () => { const t = performance.now(); for (const L of live[1].values()) if (L.from != null && t - L.from < 3 * VIEW_FADE_MS) return true; return false; };
   const mat = new Float32Array(9);
   return {
     /**
@@ -227,6 +251,17 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
     stats: () => (painter ? { ...painter.stats(), cached: cache.size, cacheBytes } : null),
     /** Shows the staged set for `slot` in place of the one shown, drawn in the order of `names` (back to front). */
     commit(slot, names) {
+      if (slot === 1 && VIEW_FADE && live[0].size) {
+        const t = performance.now();
+        for (const n of names) {
+          const L = staged[1].get(n), was = live[1].get(n);
+          if (!L) continue;
+          if (was && was.from == null && within4(was.rect, L.rect) && was.at === L.at) continue;   // (inside the view before: at once, as before)
+          L.from = t; L.k = 0;
+          // (The view before kept under it until it is whole; one still fading gives its own place up.)
+          if (was) { dropPrev(was); L.prev = was; live[1].delete(n); }
+        }
+      }
       free(live[slot]);
       for (const n of names) { const L = staged[slot].get(n); if (L) { live[slot].set(n, L); staged[slot].delete(n); } }
       free(staged[slot]);
@@ -249,6 +284,8 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
     setOrder(names) { order = names.slice(); ver++; },
     drop(slot) { if (live[slot].size) { free(live[slot]); ver++; } free(staged[slot]); },
     has: (slot) => live[slot].size > 0,
+    /** Whether the view's picture is still fading in (the stage keeps drawing frames until it is whole). */
+    get fading() { return fading(); },
     /** Whether a render at transform m and this size would draw something new (a pan, a zoom, a new set, a live group written). */
     // (Without the page watch, a render is always asked while groups are live: what they draw is read from the page there, and
     // nothing is drawn when it is as it was.)
@@ -295,7 +332,23 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
         }
       }
       drawnDesc = desc;
-      if (!whole && !dirty) { painter?.endFrame(); return null; }
+      // The view's pictures fading in: each a step further (smoothstep), drawn over their boxes and the boxes of the views before.
+      const now = performance.now(), ended = [];
+      for (const L of live[1].values()) {
+        if (L.from == null) continue;
+        L.k = smooth((now - L.from) / VIEW_FADE_MS);
+        if (L.k >= 1) ended.push(L);
+        if (whole) continue;
+        for (const r of L.prev ? [L.rect, L.prev.rect] : [L.rect]) {
+          const xs = [r[0], r[0] + r[2]].map((x) => m[0] * x + m[4]), ys = [r[1], r[1] + r[3]].map((y) => m[3] * y + m[5]);
+          const b = [Math.max(0, Math.floor(Math.min(...xs))), Math.max(0, Math.floor(Math.min(...ys))), Math.min(cw, Math.ceil(Math.max(...xs))), Math.min(ch, Math.ceil(Math.max(...ys)))];
+          if (!(b[2] > b[0] && b[3] > b[1])) continue;
+          dirty = dirty ? [Math.min(dirty[0], b[0]), Math.min(dirty[1], b[1]), Math.max(dirty[2], b[2]), Math.max(dirty[3], b[3])] : b;
+        }
+      }
+      // (Whole now: the last step drawn at 1, the view before given up after it.)
+      const endFade = () => { for (const L of ended) { L.from = null; L.k = undefined; dropPrev(L); } };
+      if (!whole && !dirty) { endFade(); painter?.endFrame(); return null; }
       const within = whole ? null : dirty;
       const clip = () => { if (within) { gl.enable(gl.SCISSOR_TEST); gl.scissor(within[0], ch - within[3], within[2] - within[0], within[3] - within[1]); } else gl.disable(gl.SCISSOR_TEST); };
       if (w !== cw || h !== ch) {
@@ -323,7 +376,13 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
         gl.bindVertexArray(vao);
         gl.uniform4f(U.rect, ...L0.rect); gl.uniform4f(U.r0, ...L0.rect);
         gl.uniform4f(U.r1, ...(L1 ? L1.rect : [0, 0, 1, 1])); gl.uniform1i(U.has1, L1 ? 1 : 0);
-        gl.uniform2i(U.flip, L0.flip ? 1 : 0, L1?.flip ? 1 : 0);
+        // (Fading in: how far, and the view before where it was drawn as this one is.)
+        const k = L1 && L1.from != null ? L1.k : 1, P = k < 1 && L1.prev && L1.prev.at === L1.at ? L1.prev : null;
+        gl.uniform1f(U.k1, k);
+        gl.uniform1i(U.t2, 2); gl.uniform4f(U.r2, ...(P ? P.rect : [0, 0, 1, 1])); gl.uniform1i(U.has2, P ? 1 : 0);
+        gl.uniform3i(U.flip, L0.flip ? 1 : 0, L1?.flip ? 1 : 0, P?.flip ? 1 : 0);
+        // (Unit 2 first, so the unit left active is the one it was before: 1.)
+        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, P ? P.tex : L0.tex);
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, L0.tex);
         gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, L1 ? L1.tex : L0.tex);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -395,8 +454,10 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
         else { gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, w, h); drawLayer(L0, L1); }
       }
       painter?.endFrame();
+      endFade();
       gl.bindVertexArray(null);
       gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST);
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, null);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       return whole ? true : dirty;
