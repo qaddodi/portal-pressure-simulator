@@ -71,14 +71,14 @@ export function scanBlurs(root = document, why = () => null, win = window) {
   return rows.sort((a, b) => b.area - a.area);
 }
 
-/** The scan as the lines of the report. `hosted`: how many elements wear the mark of a glass drawn in the canvas (data-gl). */
-export function blurText(rows, hosted = 0) {
+/** The scan as the lines of the report. `hosted`: how many elements wear the mark of a glass drawn in the canvas (data-gl). `limit`: lines listed. */
+export function blurText(rows, hosted = 0, limit = 20) {
   const sum = rows.reduce((a, r) => a + r.share, 0);
   const head = `Backdrop blurs the browser draws now (CSS backdrop-filter, shown, ${rows.length ? `${rows.length}, together ${(sum * 100).toFixed(1)} % of the window` : 'none'}); glasses drawn in the figure's canvas instead: ${hosted}`;
-  const lines = rows.slice(0, 20).map((r) => {
+  const lines = rows.slice(0, limit).map((r) => {
     const reason = r.why == null ? r.kept || 'no glass of the figure owns it' : r.why === '' ? 'its glass is drawn; the mark is about to be set' : r.why;
     return `  ${r.name} ${(r.share * 100).toFixed(1)} %: ${reason}`;
   });
-  if (rows.length > 20) lines.push(`  and ${rows.length - 20} smaller`);
+  if (rows.length > limit) lines.push(`  and ${rows.length - limit} smaller`);
   return [head, ...lines].join('\n');
 }

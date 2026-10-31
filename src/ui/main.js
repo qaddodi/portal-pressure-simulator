@@ -44,6 +44,7 @@ import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=bcedeba324';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
 import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=31d41c47b6';
+import { feedbackDiagnostics } from './feedback-diag.js?v=680203e900';
 import { noteJump } from './display-state.js?v=8d062d39dc';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=722f0b2092';
 const nextFrame = frameFor('main');
@@ -968,7 +969,8 @@ function sendFeedback() {
   const theme = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   const body = ['What happened, and what did you expect to happen?', '', '', '',
     'Please keep these details:', `Build: ${build}`, `Device: ${navigator.userAgent}`,
-    `Screen: ${innerWidth} × ${innerHeight} at ${devicePixelRatio}×, ${theme} theme`, `View: ${resumeUrl()}`].join('\n');
+    `Screen: ${innerWidth} × ${innerHeight} at ${devicePixelRatio}×, ${theme} theme`, `View: ${resumeUrl()}`,
+    ...feedbackDiagnostics({ perf: framePerf, blurWhy: (el) => stage.blurWhy?.(el) ?? null })].join('\n');
   location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent('Portal Pressure Simulator feedback')}&body=${encodeURIComponent(body)}`;
 }
 function doUndo() { timeline.undo(); }
@@ -1907,7 +1909,7 @@ function openPrivacy() {
   openModal('Privacy', h('div', {},
     h('p', {}, 'The simulator runs entirely in your browser. It makes no requests to any other site: no analytics, no trackers, no advertising, no third-party fonts or scripts. There is no account and no server that stores anything about you.'),
     h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme) and presenter scripts you create. It leaves the device only when you share it (a link or a script file).'),
-    FEEDBACK_EMAIL ? h('p', {}, 'Send feedback (in Settings) opens a draft in your own email app with your device, screen size and a link to the view you were on. Nothing is sent unless you send that email yourself.') : null,
+    FEEDBACK_EMAIL ? h('p', {}, 'Send feedback (in Settings) opens a draft in your own email app with your device, screen size, how fast the page is running, which blurs the browser is drawing and a link to the view you were on. Nothing is sent unless you send that email yourself.') : null,
     h('p', {}, 'For institutions: no personal data is processed by the publisher, which supports FERPA and GDPR compliance.'),
     h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
     h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: () => { if (!confirm('Delete everything this simulator has stored on this device?')) return; for (const k of keys) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Clear my data on this device'))));

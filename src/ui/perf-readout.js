@@ -7,7 +7,7 @@
 import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=c16e5847d4';
 import { perf, watchFrames } from './frame.js?v=31d41c47b6';
 import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js?v=9cd1d0c4e3';
-import { scanBlurs, blurText } from './blur-gauge.js?v=37056cf006';
+import { scanBlurs, blurText } from './blur-gauge.js?v=0e65b1da16';
 
 const WINDOW = 2000, KEEP = 5, GAP_LINES = 40, LONG_LINES = 15;
 // The display's own refresh, as the browser offers it, from the frame intervals the readout sees (30 Oct, review 6a: a list of gaps
