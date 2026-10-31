@@ -81,3 +81,18 @@ test('the text on a danger fill (--on-status) is at least 4.5:1 on --danger, in 
   }
   assert.deepEqual(fails, []);
 });
+
+test('the amber pill\'s text is at least 4.5:1 on its own amber tint, on every surface, in every theme', () => {
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.pill\.warn \{ background: color-mix\(in srgb, var\(--caution\) 14%, transparent\); color: color-mix\(in srgb, var\(--caution\) 62%, var\(--text\)\); \}/);
+  const fails = [];
+  for (const [theme, t] of Object.entries(THEMES)) {
+    const ink = mixRGB(hex(t['--caution']), hex(t['--text']), 0.62);
+    for (const bg of ['--bg', '--surface', '--surface-2']) {
+      const tint = mixRGB(hex(t['--caution']), hex(t[bg]), 0.14);
+      const r = ratio(ink, tint);
+      if (r < 4.5) fails.push(`${theme}: pill text on its tint over ${bg} is ${r.toFixed(2)}:1`);
+    }
+  }
+  assert.deepEqual(fails, []);
+});

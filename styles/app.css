@@ -785,7 +785,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 600; background: var(--surface-2); color: var(--text-2); }
 .pill.rev { background: color-mix(in srgb, var(--flow-reversed) 14%, transparent); color: color-mix(in srgb, var(--flow-reversed) 85%, var(--text)); }
 .pill.ok { background: color-mix(in srgb, var(--ok) 12%, transparent); color: var(--ok); }
-.pill.warn { background: color-mix(in srgb, var(--caution) 14%, transparent); color: var(--caution-ink); }
+.pill.warn { background: color-mix(in srgb, var(--caution) 14%, transparent); color: color-mix(in srgb, var(--caution) 62%, var(--text)); }   /* (a little darker than the ink on the page: it sits on its own amber tint) */
 .pill.bad { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
 
 /* ── Panel cards ───────────────────────────────── */
