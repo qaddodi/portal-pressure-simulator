@@ -1472,6 +1472,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       dprobePaint();
     }
     gpuProbe.time(null, 'cards follow (script)', () => onViewChange?.());
+    // (The zoom pill reads it: at full ink while the view is away from its fit, quiet at home on a pointer device; app.css .off-home.)
+    wrap.classList.toggle('off-home', !!homeAt && !sameView(vt, homeAt));
   }
   applyVT();
   // The figure's screen transform, computed from the viewBox, the zoom state and the stage box.

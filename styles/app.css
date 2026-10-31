@@ -3366,7 +3366,7 @@ button.finding { cursor: pointer; }
    --glass, which is 94-95 % opaque, so a backdrop blur behind them is invisible and costs a re-blur of the
    animated figure every frame. Only the translucent frosted surfaces (presenter pane and cards, callouts, label
    pills) keep their blur. */
-.float-pill { display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); min-width: 0; }
+.float-pill { display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-pill); min-width: 0; }
 .tb-id { flex: 0 1 auto; gap: 2px; }
 .tb-id .brand { margin-left: 0; padding: 2px 6px 2px 2px; }
 .top-right.float-pill { margin-left: auto; gap: 2px; flex: none; }
@@ -3378,7 +3378,7 @@ button.finding { cursor: pointer; }
 .topbar .stage-bar.top > * { pointer-events: auto; }
 .topbar .stage-bar.top .sb-center { pointer-events: none; }
 .topbar .stage-bar.top .sb-center > * { pointer-events: auto; }
-.topbar #viewSeg, .topbar .sb-right > .chip-btn, .topbar .lens-btn { box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); background: var(--glass); }
+.topbar #viewSeg, .topbar .sb-right > .chip-btn, .topbar .lens-btn { box-shadow: var(--shadow-pill); background: var(--glass); }
 .topbar #viewSeg { padding: 3px; border-radius: var(--r-sheet); }
 .topbar #viewSeg button { padding: 6px 12px; }
 .topbar .sb-right > .chip-btn { border-color: transparent; height: 40px; border-radius: var(--r-sheet); }
@@ -3406,7 +3406,7 @@ button.finding { cursor: pointer; }
   position: absolute; z-index: var(--z-hud); left: 50%; transform: translateX(-50%);
   bottom: calc(env(safe-area-inset-bottom) + var(--gap)); width: min(calc(100% - 2 * var(--gap)), 1280px);
   display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "tl ro"; align-items: center;
-  background: var(--glass); border-radius: var(--r-sheet); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline);
+  background: var(--glass); border-radius: var(--r-sheet); box-shadow: var(--shadow-pill);
 }
 .vdock .stage-bar.bottom { grid-area: tl; height: 60px; background: transparent; padding: 0 8px 0 12px; display: flex; min-width: 0; z-index: auto; }
 .vdock .timeline { flex: 1; }
@@ -3690,13 +3690,13 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
 /* The patient pill's glass is its own face (as the view pill's .vp-face), so a shorter name glides the pill narrower
    instead of snapping (topbar-motion.js); a longer one is revealed from the old width. */
 .topbar .tb-id { position: relative; isolation: isolate; background: transparent; box-shadow: none; }
-.tb-id > .tb-face { position: absolute; z-index: -1; left: 0; top: 0; bottom: 0; width: 100%; border-radius: inherit; background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); pointer-events: none; }
+.tb-id > .tb-face { position: absolute; z-index: -1; left: 0; top: 0; bottom: 0; width: 100%; border-radius: inherit; background: var(--glass); box-shadow: var(--shadow-pill); pointer-events: none; }
 /* The patient's name is never cut off a phone: the bar compacts (data-fit, below) and wraps it instead. */
 .menu-btn .scenario-v { max-width: none; overflow: visible; text-overflow: clip; }
 .topbar .stage-bar.top { justify-content: space-between; }
 .topbar #viewSeg { align-items: center; padding: 4px; }
 .topbar #viewSeg button { height: 36px; }
-.topbar .sb-right { gap: 0; padding: 0 3px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); height: var(--pill-h); }
+.topbar .sb-right { gap: 0; padding: 0 3px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-pill); height: var(--pill-h); }
 .topbar .sb-right > .chip-btn, .topbar .sb-right .lens-btn { box-shadow: none; background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; height: var(--ctl-h); }
 .topbar .sb-right > .chip-btn { border-right: 1px solid var(--hairline); border-radius: var(--r-card) 0 0 var(--r-card); }
 .top-right.float-pill { padding: 3px; }
@@ -3715,17 +3715,24 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
 .sb-center.float-ui { position: absolute; z-index: var(--z-hud); top: calc(var(--top-safe) + 6px); left: 50%; transform: translateX(-50%); display: flex; pointer-events: none; }
 .sb-center.float-ui > * { pointer-events: auto; }
 .sb-center.float-ui:has(.sb-banner:empty) { display: none; }
-.sb-center .sb-banner { padding: 4px 4px 4px 12px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); }
+.sb-center .sb-banner { padding: 4px 4px 4px 12px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-pill); }
 
 .vdock { grid-template-areas: "st st" "tl ro"; }
 .vdock:has(.readouts.all) { grid-template-areas: "st" "ro" "tl"; }
 @media (max-width: 1099px) { .vdock { grid-template-areas: "st" "ro" "tl"; } }
 
 /* Zoom: one small pill on the right, clear of the dock and of any card on the right. */
-.zoom-pill { position: absolute; z-index: var(--z-hud); display: flex; flex-direction: column; gap: 2px; padding: 3px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline);
+.zoom-pill { position: absolute; z-index: var(--z-hud); display: flex; flex-direction: column; gap: 2px; padding: 3px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-pill);
   right: calc(env(safe-area-inset-right) + var(--gap)); bottom: calc(var(--bot-occ, 120px) + 8px); transform: translateX(calc(-1 * var(--right-occ, 0px))); transition: opacity var(--d-surface, .42s) var(--ease), translate var(--d-small) var(--ease), transform var(--d-small) var(--ease); translate: 0 calc(-1 * var(--sheet-h, 0px)); }   /* (transform: it glides aside with a side card, as the figure does, instead of jumping by the card's width; a transform, not right, so the glide runs off the main thread and lays nothing out: round 2 review, RF2) */
 .zoom-pill .ib, .zoom-pill .stage-fit, .zoom-pill .stage-rotate { position: static; translate: none; width: 36px; height: 36px; min-width: 0; min-height: 0; box-shadow: none; background: transparent; right: auto; bottom: auto; }
 @media (hover: hover) { .zoom-pill .ib:hover { background: var(--surface-3); } }
+/* On a pointer device (a trackpad or wheel zooms) the pill rests at low ink and comes to full ink under the pointer, with focus, or while
+   the view is away from its fit, where Fit is the button that matters (looks review L6). Touch keeps it at full: it is a real control there.
+   The busy dim of the floating pieces (more specific) still applies while the figure moves. */
+@media (hover: hover) and (pointer: fine) {
+  .zoom-pill { opacity: .5; }
+  .zoom-pill:hover, .zoom-pill:focus-within, .stage-wrap.off-home .zoom-pill { opacity: 1; }
+}
 .zoom-pill .stage-rotate { display: inline-grid; }
 .zoom-pill.no-room { visibility: hidden; }
 
@@ -5985,7 +5992,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    lives on its own layer (::before) and fades, with the play bar and readouts, while a card or menu is up, so the card
    shows in their place; the tab row has its own opaque face and stays on top throughout. */
 .app.thumb .vdock:not(.mini) { z-index: calc(var(--z-panel) + 20); background: transparent; box-shadow: none; }
-.app.thumb .vdock:not(.mini)::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); pointer-events: none; transition: opacity var(--d-small) var(--ease) .1s; }
+.app.thumb .vdock:not(.mini)::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--glass); box-shadow: var(--shadow-pill); pointer-events: none; transition: opacity var(--d-small) var(--ease) .1s; }
 .app.thumb .vdock:not(.mini) .thumb-bar { position: relative; border-radius: 0 0 var(--r-sheet) var(--r-sheet); background: linear-gradient(var(--glass), var(--glass)), var(--stage-bg); box-shadow: inset 1px 0 0 var(--hairline), inset -1px 0 0 var(--hairline), inset 0 -1px 0 var(--hairline); transition: box-shadow var(--d-small) var(--ease) .1s, border-radius var(--d-small) var(--ease) .1s, border-top-width var(--d-small) var(--ease) .1s, padding-top var(--d-small) var(--ease) .1s; }
 .app.thumb .vdock:not(.mini) > :not(.thumb-bar) { transition: opacity var(--d-small) var(--ease) .1s, translate var(--d-small) var(--ease) .1s; }
 /* (17 Oct, Mohammad: the timeline appearing as a card slides down should be smoother.) The play bar, the views pill and the

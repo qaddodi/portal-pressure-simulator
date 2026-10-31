@@ -156,6 +156,9 @@
   --shadow-1: 0 0 0 1px var(--hairline);
   --shadow-2: var(--shadow-menu);
   --shadow-3: var(--shadow-dialog);
+  /* A pill that sits at the screen's edge (the top bar's islands, the transport, the view pill, the zoom pill) sits on the paper:
+     its hairline and a 1 px contact, no soft drop; only what floats over the figure (cards, menus, callouts) hovers (looks review L9). */
+  --shadow-pill: calc(1px * var(--light-slant)) 1px 2px rgb(var(--shadow-rgb) / .08), inset 0 0 0 1px var(--hairline);
   /* shape: three radii by hierarchy, and a pill for chips */
   --r-control: 6px; --r-card: 10px; --r-sheet: 16px; --r-pill: 999px;
   /* type: five sizes for the interface (12 small labels · 14 body and buttons · 16 titles · 20 key
