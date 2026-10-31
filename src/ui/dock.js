@@ -3,21 +3,22 @@
 
 import { store, hiddenNow } from './store.js?v=3611054974';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=80c7abd296';
-import { lobuleFlows } from './lobule-model.js?v=5f84f67069';
-import { createProfile } from './charts.js?v=2b85b98b17';
-import { createPressureTime } from './pressure-time.js?v=aceac72eee';
-import { createHvpgProcedure } from './hvpg-proc.js?v=d09ca7cc4f';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=97c969d52c';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=ca062f41e6';
+import { lobuleFlows } from './lobule-model.js?v=f83594995f';
+import { createProfile } from './charts.js?v=e544b30bae';
+import { createPressureTime } from './pressure-time.js?v=f789e4138b';
+import { createHvpgProcedure } from './hvpg-proc.js?v=96a1e37f8c';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=8e6dca05db';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=117d759761';
-import { createReadoutsPane } from './readouts-pane.js?v=cf54ad344c';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=7e8a31e859';
+import { createReadoutsPane } from './readouts-pane.js?v=1db4253e3e';
 import { frameFor } from './frame.js?v=9d6b717149';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=ce56653c84';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
 import { compareRows } from './idle-keys.js?v=70e26bf4a1';
+import { D_FLIP, D_SMALL, EASE_IN } from './ease.js?v=387660d4ad';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
@@ -482,7 +483,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const s = sw; sw = null;
     if (!s?.on) return;
     const ms = performance.now() - s.t, go = !!s.nb && pageGo(s.dx, ms, s.w);
-    const d = s.dx < 0 ? 1 : -1, ease = 'transform .24s var(--ease)';
+    const d = s.dx < 0 ? 1 : -1, ease = `transform ${D_SMALL}ms var(--ease)`;
     s.cur.style.transition = ease; if (s.nb) s.nb.style.transition = ease;
     s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';
     if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;
@@ -677,7 +678,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   function paneOut(el, top) {
     for (const a of el.getAnimations()) if (a.id === 'pane-out') a.cancel();
     el.classList.add('pane-out'); el.scrollTop = top;
-    const a = el.animate([{ opacity: 1 }, { opacity: 0 }], { id: 'pane-out', duration: 150, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+    const a = el.animate([{ opacity: 1 }, { opacity: 0 }], { id: 'pane-out', duration: D_FLIP, easing: EASE_IN, fill: 'forwards' });
     const done = () => { if (el.getAnimations().includes(a)) a.cancel(); el.classList.remove('pane-out'); };
     a.finished.then(done, () => el.classList.remove('pane-out'));
   }

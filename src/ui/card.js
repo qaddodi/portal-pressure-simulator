@@ -4,9 +4,9 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=3611054974';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=80c7abd296';
-import { releaseSpeed } from './ease.js?v=7c37eab2c6';
-import { cardFor, normalizeSel } from './actions.js?v=3329e45d97';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=ca062f41e6';
+import { releaseSpeed, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=387660d4ad';
+import { cardFor, normalizeSel } from './actions.js?v=63e174fd94';
 import { frameFor, cancelFrame } from './frame.js?v=9d6b717149';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
@@ -172,11 +172,11 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     // Another vessel picked while the card is open: its contents fade in, rather than the words changing in one frame, and
     // the old ones fade out over them from a layer on top that takes no taps, instead of vanishing first (round 2 review, RF7).
     if (swap) {
-      for (const c of el.children) c.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+      for (const c of el.children) c.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
       if (was.length) {
         const ghost = h('div', { class: 'ac-ghost', 'aria-hidden': 'true', inert: '' }, ...was);
         el.append(ghost);
-        const a = ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+        const a = ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' });
         a.finished.then(() => ghost.remove(), () => ghost.remove());
       }
     }

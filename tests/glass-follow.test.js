@@ -139,11 +139,10 @@ test('the catheter\'s readings leave through their own fade, not a fade of the w
   assert.match(fn, /for \(const el of cath\.made\?\.values\(\) \|\| \[\]\) el\.classList\.add\('cath-pre', 'cath-out'\);/);
   assert.doesNotMatch(fn, /cath\.labels, cath\.g/, 'the layer is not animated as a whole');
   assert.doesNotMatch(fn, /cath\.labels\.animate/);
-  // The readings are removed only once faded: the CSS fade (.35 s, app.css .cath-out) is shorter than the time they are kept.
-  const keep = Number(stage.match(/const CATH_OUT_MS = \d+, READING_OUT_MS = (\d+);/)?.[1]);
-  assert.ok(keep >= 400, `READING_OUT_MS ${keep}`);
+  // The readings are removed only once faded: the CSS fade (one small step, 240 ms, app.css .cath-out) is shorter than the time they are kept.
+  assert.match(stage, /const CATH_OUT_MS = D_SMALL, READING_OUT_MS = D_SMALL \+ 100;/);
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(css, /\.cath-label\.cath-out > \*[^{]*\{ transition-duration: \.35s !important/);
+  assert.match(css, /\.cath-label\.cath-out > \*[^{]*\{ transition-duration: var\(--d-small\) !important/);
   assert.match(css, /\.cath-label\.cath-pre \{ --lo: 0; \}/);
 });
 
@@ -190,6 +189,6 @@ test('the travel is written each frame on the main thread, not left to a CSS tra
   assert.match(stage, /const q = flipAt\(f, performance\.now\(\)\);\s*r\.style\.transform = q\.done \? '' : `translate\(/);
   // It asks for the next frame until every reading has landed, as a glide does.
   assert.match(stage, /if \(travelling && !cath\.glideRaf\) cath\.glideRaf = nextFrame\(\(\) => \{ cath\.glideRaf = 0; cath\.lblKey = ''; cathLabelsSoon\(\); \}\);/);
-  assert.doesNotMatch(stage, /transform \.6s var\(--ease\)/, 'no transform transition on a reading');
+  assert.doesNotMatch(stage, /transform var\(--d-surface\) var\(--ease\)/, 'no transform transition on a reading');
   assert.doesNotMatch(css, /\.cath-label[^{]*\{[^}]*transition:[^;}]*\btransform\b/, 'none in the stylesheet either');
 });

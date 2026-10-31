@@ -22,21 +22,21 @@
   <link rel="stylesheet" href="fonts/fonts.css" />
   <script>document.documentElement.setAttribute('data-boot','hold');try{var t=localStorage.getItem('pps.theme');if(t==='dark'||t==='light'||t==='soft')document.documentElement.setAttribute('data-theme',t);var d=t==='dark'||(t!=='light'&&t!=='soft'&&matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.style.background='#0E1422';document.documentElement.style.colorScheme='dark'}if(localStorage.getItem('pps.noGlass')==='1')document.documentElement.setAttribute('data-noglass','');localStorage.removeItem('pps.uiZoom');(function(){for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);if(k==='pps.renderScale'||(k&&k.indexOf('pps.fig.')===0))localStorage.removeItem(k)}})()}catch(e){}</script>
   <script>/* Can this browser run the app? ES5 on purpose so even Internet Explorer gets the message. Hard needs stop it with a plain note; soft ones only warn. */(function(){var w=window,why=[];try{if(!('noModule' in document.createElement('script')))why.push('modules');new Function('var a={};a.b??=1;return a?.b');if(typeof w.ResizeObserver!=='function')why.push('ResizeObserver');if(typeof w.structuredClone!=='function')why.push('structuredClone');if(!Array.prototype.at)why.push('Array.at')}catch(e){why.push('syntax')}w.ppsUnsupported=why.length?why:null;var soft=[];try{if(!CSS.supports('selector(:has(a))'))soft.push(':has');if(!CSS.supports('container-type','inline-size'))soft.push('container queries');if(!CSS.supports('color','color-mix(in srgb, red, blue)'))soft.push('color-mix')}catch(e){}w.ppsOldBrowser=soft.length?soft:null;w.ppsBootErrors=[];function note(m){if(w.ppsFigureReady)return;w.ppsBootErrors.push(String(m||'Unknown error').slice(0,300));if(w.ppsBootFail&&/SyntaxError/.test(m))w.ppsBootFail()}w.addEventListener('error',function(e){if(e&&e.message&&!/ResizeObserver loop/.test(e.message))note((e.error&&e.error.name?e.error.name+': ':'')+e.message+(e.filename?' ('+String(e.filename).split('/').pop().split('?')[0]+':'+e.lineno+')':''))});w.addEventListener('unhandledrejection',function(e){var r=e&&e.reason;note('Unhandled: '+(r&&r.message?r.message:r))})})();</script>
-  <link rel="stylesheet" href="styles/tokens.css?v=8cf217d8e9" />
-  <link rel="stylesheet" href="styles/app.css?v=cfaa4e3894" />
+  <link rel="stylesheet" href="styles/tokens.css?v=12ecac42a1" />
+  <link rel="stylesheet" href="styles/app.css?v=c54ebe444a" />
   <style>
-    #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; background: var(--bg, #FBFAF7); transition: opacity .45s var(--ease-arrive, cubic-bezier(.2, .8, .2, 1)), visibility .45s; }
+    #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; background: var(--bg, #FBFAF7); transition: opacity var(--d-surface) var(--ease), visibility var(--d-surface); }
     #boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
     #boot .boot-in { display: flex; flex-direction: column; align-items: center; gap: 18px; }
     #boot svg { width: 64px; height: 64px; animation: boot-pulse 1.6s ease-in-out infinite; }
     #boot .boot-name { font: 600 var(--fs-14, 14px) var(--font-ui, system-ui, sans-serif); letter-spacing: .02em; color: var(--text-2, #555); }
     /* The wait bar shows only when loading runs past 1.2 s, in a plain ink (the mark carries the brand's gradient; the bar has none). */
-    #boot .boot-bar { width: 140px; height: 3px; border-radius: 3px; overflow: hidden; background: var(--hairline, rgba(0,0,0,.08)); opacity: 0; animation: boot-bar-in .3s ease 1.2s forwards; }
+    #boot .boot-bar { width: 140px; height: 3px; border-radius: 3px; overflow: hidden; background: var(--hairline, rgba(0,0,0,.08)); opacity: 0; animation: boot-bar-in var(--d-small) var(--ease) 1.2s forwards; }
     #boot .boot-bar i { display: block; width: 40%; height: 100%; border-radius: 3px; background: var(--text-3, #8a8a8a); animation: boot-slide 1.2s ease-in-out infinite; }
     /* The figure is held clear of the page until the cover lifts, then rises into it on the cover's own clock. (Opacity only: a scale would
        skew every getBoundingClientRect the figure's code reads while it runs.) */
     html[data-boot="hold"] #stageView { opacity: 0; }
-    html[data-boot="rise"] #stageView { transition: opacity .45s var(--ease-arrive, cubic-bezier(.2, .8, .2, 1)); }
+    html[data-boot="rise"] #stageView { transition: opacity var(--d-surface) var(--ease); }
     #boot .boot-msg { max-width: min(520px, calc(100vw - 32px)); margin: 0 16px; padding: 22px 24px; border-radius: 14px; background: var(--surface, #fff); color: var(--text-1, #1a1a1a); box-shadow: 0 6px 30px rgba(0,0,0,.12); font: 400 15px/1.5 var(--font-ui, system-ui, -apple-system, "Segoe UI", Arial, sans-serif); text-align: left; }
     #boot .boot-msg h1 { margin: 0 0 8px; font-size: 18px; font-weight: 600; }
     #boot .boot-msg p { margin: 0 0 10px; }
@@ -228,17 +228,17 @@ function wait(){if(ready()){if(w.ppsUnsupported)return;failed=false;setTimeout(h
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=c2428cb42f" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=f2299ac4dc" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=15d6102c13" />
-  <link rel="modulepreload" href="src/ui/util.js?v=80c7abd296" />
+  <link rel="modulepreload" href="src/ui/util.js?v=ca062f41e6" />
   <link rel="modulepreload" href="src/ui/store.js?v=3611054974" />
-  <link rel="modulepreload" href="src/ui/colormap.js?v=dc7e0de1bd" />
-  <link rel="modulepreload" href="src/ui/inspector.js?v=376cd9ddef" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=79001ea050" />
-  <link rel="modulepreload" href="src/ui/charts.js?v=2b85b98b17" />
-  <link rel="modulepreload" href="src/ui/instruments.js?v=117d759761" />
-  <link rel="modulepreload" href="src/ui/timeline.js?v=79a5558d37" />
+  <link rel="modulepreload" href="src/ui/colormap.js?v=ddb18485b7" />
+  <link rel="modulepreload" href="src/ui/inspector.js?v=4e914e132e" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=964eaa62d6" />
+  <link rel="modulepreload" href="src/ui/charts.js?v=e544b30bae" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=7e8a31e859" />
+  <link rel="modulepreload" href="src/ui/timeline.js?v=bdb8ffafc9" />
   <link rel="modulepreload" href="src/engine/topology.js?v=4044766e96" />
-  <script type="module" src="src/ui/main.js?v=0d3cadf408"></script>
+  <script type="module" src="src/ui/main.js?v=4085fe2254"></script>
 </body>
 </html>

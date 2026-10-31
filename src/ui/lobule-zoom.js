@@ -24,28 +24,28 @@ import { store } from './store.js?v=3611054974';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=5f84f67069';
+import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=f83594995f';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL } from './field-gl.js?v=779561d5dd';
 import { createTissueGL } from './tissue-gl.js?v=d63f76a31f';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=624ae21d7d';
-import { createTissueWorker } from './tissue-worker.js?v=35f04c6e6b';
+import { createTissueWorker } from './tissue-worker.js?v=8437fead86';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=80c7abd296';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=dc7e0de1bd';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=ca062f41e6';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=ddb18485b7';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=9c9ee0fa65';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=c523324e3c';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=a4bf4f2a03';
-import { createSinusoidView } from './sinusoid-view.js?v=2c2f615e89';
+import { createSinusoidView } from './sinusoid-view.js?v=7077b95dd0';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab } from './frame.js?v=9d6b717149';
 import { createGlassGL } from './glass-gl.js?v=19e2ddf79b';
 import { pillOf, pillLabels } from './lz-pills.js?v=670139934d';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
-import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=5097f31848';
+import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=2d63c83115';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 import { LIGHT } from './light.js?v=f0c4eefb81';
-import { easeMove, carryRate, carried } from './ease.js?v=7c37eab2c6';
+import { easeMove, carryRate, carried, D_SMALL, D_SURFACE } from './ease.js?v=387660d4ad';
 const CAM_M2 = !(typeof location !== 'undefined' && /[?&]camease=0\b/.test(location.search));
 const CARRY = !(typeof location !== 'undefined' && /[?&]carry=0\b/.test(location.search));   // (?carry=0: every glide starts from rest, as before)
 const nextFrame = frameFor('lobule-zoom');
@@ -1157,7 +1157,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // A label or zone name that goes fades out where it stands (app.css .lz-off, as the anatomy's labels do) and is hidden, taking no
   // room and no taps, only once the fade is over; one that comes back fades in (app.css lz-in) or, caught mid-fade, turns back from
   // where it is. Its leader and dot fade with it (.ld-gone). They used to cut out and pop in (P15).
-  const OFF_MS = 300;
+  const OFF_MS = D_SMALL;
   function fadeOut(el, done) {
     if (el.hidden) { done?.(); return; }
     if (el.classList.contains('lz-off')) return;
@@ -1935,7 +1935,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const gone = () => { for (const cv of w.tiles) free(cv); w.el.remove(); };
     clearTimeout(wideFadeT);
     // (A copy drawn softer than the screen, past the budget, fades into the sharp layers below it rather than switching to them.)
-    if (ease && w.soft && !reduce.matches) { w.el.style.transform = ''; w.el.style.transition = 'opacity 320ms var(--ease)'; w.el.style.opacity = '0'; wideFadeT = setTimeout(gone, 360); }
+    if (ease && w.soft && !reduce.matches) { w.el.style.transform = ''; w.el.style.transition = `opacity ${D_SMALL}ms var(--ease)`; w.el.style.opacity = '0'; wideFadeT = setTimeout(gone, D_SMALL + 40); }
     else gone();
   }
   // Out of a lobule framed zoomed in (a slide's station, or a hand's zoom) on a way that does not glide to the whole lobule first:
@@ -2536,9 +2536,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const sinFib = () => clamp(Math.log(rzOf().sin) / 3.2, 0, 1);
   const sinDull = (rgb) => { const f = sinFib(); return f > 0 ? dullSinusoid(rgb, cssRGB01('--lz-shade'), f) : rgb; };
   const tubeRGB = (t, end, k) => { const c = inkRGB(segOf(t), tubeW(t, end), k); return segOf(t) === 'sin' ? sinDull(c) : c; };
-  // A "Colored by" switch crossfades the lobule's vessels over 300 ms, as the anatomy's do (stage.js LENS_FADE).
+  // A "Colored by" switch crossfades the lobule's vessels over a surface step (420 ms), on the quintic, as the anatomy's do (stage.js LENS_FADE).
   // lensFrom: the lens they are leaving, null when no switch is under way.
-  const LENS_FADE = 300, ORIGIN_RGB = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];
+  const LENS_FADE = D_SURFACE, ORIGIN_RGB = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];
   let lensFrom = null, lensT0 = 0, lensMode = null;
   function noteLens(M) {
     if (lensMode !== null && M !== lensMode && fade > 0.98 && !reduce.matches) {
@@ -2552,7 +2552,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!lensFrom) return 1;
     const u = (performance.now() - lensT0) / LENS_FADE;
     if (u >= 1 || lensFrom === model.mode) { lensFrom = null; return 1; }
-    return u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
+    return easeMove(u);
   }
 
   function drawGL(W, H, dpr, dark, cs, dt) {
@@ -3506,7 +3506,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const sv = createSinusoidView({ host, before });
   let sinU = 0, sinTo = 0, sinRaf = 0, sinDive = null, sinPick = null, quietSin = false, sinPending = false;
   let sinZ = 0;   // (sinZ: the sinusoid zoom's log scale so far, for the tests)
-  const easeIO = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
+  const easeIO = easeMove;   // (the sinusoid zoom is a move of the view: the camera's quintic, ease.js, which the pill and the bars that ride it share)
   // Which sinusoid, and where on it: the one whose card is open, else the one carrying the label.
   function sinusoidPick() {
     const sl = store.get().selection, G = geo;

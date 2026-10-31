@@ -4,16 +4,16 @@
 import { gastricUp } from '../engine/scenario.js?v=bcedeba324';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=15d6102c13';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=dc7e0de1bd';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=ddb18485b7';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3611054974';
 import { fibroReading } from './clock.js?v=678bfe1fb0';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=80c7abd296';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=ca062f41e6';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
-import { easeMove, camMs, carryRate, carried } from './ease.js?v=7c37eab2c6';
+import { easeMove, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=387660d4ad';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
@@ -37,16 +37,16 @@ import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels, noteStripRead, stripPx } from './plate-upload.js?v=ea6a71d855';
 import { refine } from './refine.js?v=010dc120b4';
-import { fadeOver, fadeStop, fading } from './res-fade.js?v=5097f31848';
+import { fadeOver, fadeStop, fading } from './res-fade.js?v=2d63c83115';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
-import { cropToGrid } from './organs-gl.js?v=9010623a59';
+import { cropToGrid } from './organs-gl.js?v=ab917f2876';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=e08cf3a692';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { createLabelGL } from './label-gl.js?v=54f9e72ea5';
 import { createGlassGL } from './glass-gl.js?v=19e2ddf79b';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=9c9ee0fa65';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=c523324e3c';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -2404,7 +2404,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=5b74ab8b66').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=e7390a2691').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -3523,7 +3523,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     jumpP.set(P);
     return big && shownCol.size > 0;
   }
-  const LENS_FADE = 300;
+  const LENS_FADE = D_SURFACE;   // (a lens crossfade is a surface step of the motion scale, ease.js; the organs' and the lobule's clocks are the same)
   const lensFading = () => !!lensFrom && performance.now() - lensT0 < LENS_FADE + 20;
   const colorCtx = veins ? document.createElement('canvas').getContext('2d') : null;
   const rgbCache = new Map();
@@ -3956,7 +3956,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         colRows.add(it.row);
       }
       if (lensFrom) {
-        const was = lensFrom.get(it.row), u = easeInOut(clamp((now - lensT0) / LENS_FADE, 0, 1));
+        const was = lensFrom.get(it.row), u = easeMove(clamp((now - lensT0) / LENS_FADE, 0, 1));
         if (was) { c0 = mix3(was[0], c0, u); c1 = mix3(was[1], c1, u); }
       }
       shownCol.set(it.row, [c0, c1]);
@@ -5083,7 +5083,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const plateEasing = () => { if (plateDim == null) return false; const [d, s, n] = plateTargets(); return d !== plateDim || s !== plateSat || n !== netA; };
   // Timed on the clock with an ease in and out (PLATE_FADE), so the organs fade to grey and back smoothly at any frame rate.
   // One clock for organs and vessels (G18): the plate eases over the vessels' own lens crossfade, from the same moment, on the
-  // same curve, as the SVG organs' filter does when the GPU plate is off (app.css: --view-fade, --ease-io).
+  // same curve (easeMove, the quintic), as the SVG organs' filter does when the GPU plate is off (app.css: --d-surface, --ease-move).
   const PLATE_FADE = LENS_FADE;
   let plateFrom = null, plateTo = null, plateT0 = 0;
   function stepPlateEase() {
@@ -5092,7 +5092,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!plateEasing()) { plateFrom = null; return; }
     const to = plateTargets(), now = performance.now();
     if (!plateFrom || to.some((v, i) => v !== plateTo[i])) { plateFrom = [plateDim, plateSat, netA]; plateTo = to; plateT0 = lensFrom && now - lensT0 < 60 ? lensT0 : now; }
-    const u = easeInOut(clamp((now - plateT0) / PLATE_FADE, 0, 1));
+    const u = easeMove(clamp((now - plateT0) / PLATE_FADE, 0, 1));
     [plateDim, plateSat, netA] = u >= 1 ? to : plateFrom.map((v, i) => v + (to[i] - v) * u);
     if (u >= 1) plateFrom = null;
     syncPlateLook(); veinsDirty = true;
@@ -7545,15 +7545,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // When the procedure ends or is cancelled the catheter, its balloon and its labels fade out instead of vanishing in one frame
   // (MOTION_HEAT_REVIEW P21). A new catheter meanwhile ends the fade at once.
-  // The catheter fades over .22 s. The readings leave as every reading does (cathLabels: cath-pre, cath-out): each label's own children
+  // The catheter fades over a small step (240 ms). The readings leave as every reading does (cathLabels: cath-pre, cath-out): each label's own children
   // fade, so its glass, drawn on the GPU from the glass element's own opacity (glass-gl.js), fades with its words. A fade of the whole
   // layer was one that glass could not follow: the pills stayed solid after their words had gone.
-  const CATH_OUT_MS = 220, READING_OUT_MS = 450;
+  const CATH_OUT_MS = D_SMALL, READING_OUT_MS = D_SMALL + 100;
   let cathFade = null;
   function cathFadeOut() {
     const gs = veins?.canCath ? cathLast : null, anims = [];
     for (const el of cath.made?.values() || []) el.classList.add('cath-pre', 'cath-out');
-    if (cath.g.style.display !== 'none' && cath.g.animate) anims.push(cath.g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: CATH_OUT_MS, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' }));
+    if (cath.g.style.display !== 'none' && cath.g.animate) anims.push(cath.g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: CATH_OUT_MS, easing: EASE_IN, fill: 'forwards' }));
     const me = { raf: 0, done: null, cleared: false }, t0 = performance.now();
     // The catheter itself: gone once its fade has run.
     const catheterGone = () => {
@@ -7950,7 +7950,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (same(m.cur, want)) return;
     const els = () => [...ov.clamps.querySelectorAll(`.clamp-label[data-id="${id}"]`)];
     m.busy = true;
-    const dur = reduceMotion.matches ? 0 : 260;
+    const dur = reduceMotion.matches ? 0 : D_SMALL;
     for (const el of els()) el.animate?.([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration: dur, fill: 'forwards' });
     setTimeout(() => {
       m.cur = m.want; m.busy = false;
@@ -8509,7 +8509,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (A slide's mark that stays but takes new words fades the new words in, never swaps them in at once.)
       // (A live callout's words keep their shape as its numbers tick: it.fxw, so only a new slide's words fade in.)
       const words = it.fxw ?? (/^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')).join('\n') : null);
-      if (words != null && b.words != null && words !== b.words && b.g.style.display !== 'none' && !reduceMotion.matches) { b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: 'ease-out' }); labelGL?.hold(b.g, 400); }
+      if (words != null && b.words != null && words !== b.words && b.g.style.display !== 'none' && !reduceMotion.matches) { b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SURFACE, easing: EASE_ARRIVE }); labelGL?.hold(b.g, D_SURFACE); }
       b.words = words;
       b.sw = it.swatch ? b.g.querySelector('.lb-sw') : null;
       b.bg = b.g.querySelector('.lb-bg');
@@ -10339,7 +10339,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const b = pool.get(it.key), wait = it.delay - (performance.now() - glowSetAt);
       if (!b || b.fxIn) continue;
       b.fxIn = true;
-      if (wait > 0 && !reduceMotion.matches) { b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 350, delay: wait, easing: 'ease-out', fill: 'backwards' }); labelGL?.hold(b.g, wait + 350); }
+      if (wait > 0 && !reduceMotion.matches) { b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SURFACE, delay: wait, easing: EASE_ARRIVE, fill: 'backwards' }); labelGL?.hold(b.g, wait + D_SURFACE); }
     }
     const sit = out.find((o) => o.key === 'scan'), sblk = pool.get('scan');
     if (sit && !sit.hide) {
@@ -10367,7 +10367,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const el = w.fanOf && leadEls.get(w.k), wait = el && w.fanOf.delay - (performance.now() - glowSetAt);
       if (!el || el.fxIn) continue;
       el.fxIn = true;
-      if (wait > 0 && !reduceMotion.matches) { el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 350, delay: wait, easing: 'ease-out', fill: 'backwards' }); labelGL?.hold(el, wait + 350); }
+      if (wait > 0 && !reduceMotion.matches) { el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SURFACE, delay: wait, easing: EASE_ARRIVE, fill: 'backwards' }); labelGL?.hold(el, wait + D_SURFACE); }
     }
     return true;
   }

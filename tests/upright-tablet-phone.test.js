@@ -80,7 +80,7 @@ test('an upright phone\'s or tablet\'s deck instrument card opens its readings o
   assert.match(css, /\.pz\.stack \.pz-data\.pz-sheet\.pz-sliding \+ \.pz-lip \{ margin-top: calc\(-24px \* var\(--pz-u, 0\)\);/);
   assert.match(js, /l\.style\.top = px\(wideSheet\(d\) \? d\.offsetTop - LIP \* \(1 - ut\) : d\.offsetTop \+ \(sliding && slip\.h0 != null \? slip\.h0 \+ u \* slip\.d : d\.offsetHeight\)\);/);
   // A glass piece inside a fading card loses its blur: the card stays opaque and its parts fade.
-  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide \{ opacity: 1; visibility: hidden; transition: transform \.32s var\(--ease\), visibility 0s linear \.32s; \}/);
+  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide \{ opacity: 1; visibility: hidden; transition: transform var\(--d-small\) var\(--ease\), visibility 0s linear var\(--d-small\); \}/);
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide::before, \.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide::after, \.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide > :is\(\.pz-dh, \.pz-tool, \.pz-tiles\) \{ opacity: 0; \}/);
   assert.doesNotMatch(css, /pz-strip/, 'no phone ladder strip left to fade');
 });

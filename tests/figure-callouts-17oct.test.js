@@ -95,5 +95,5 @@ test('a phone key on the pill\'s row is the pill\'s twin, and comes in with the 
   assert.match(presenter, /\['--origin-spleen', 'Spleen', 'SV'\], \['--origin-artery', 'Artery', 'HA'\], \['--origin-systemic', 'Systemic', 'Sys'\]/);
   assert.match(css, /\.pz\.stack\.fk-two\.fk-flow \.pz-fk:not\(\.grad\) \.pz-lens-items \{ display: contents; \}/);
   assert.match(presenter, /createFigureKey\(\{ el: fk, app, watch: \[text, root\], ready: \(\) => !text\.hidden && !text\.classList\.contains\('pz-leave'\) && !root\.classList\.contains\('pz-prep'\) \}\)/);
-  assert.match(css, /\.pz-fk\.on \{ opacity: 1; transition: opacity \.5s var\(--ease\) \.12s; \}/);
+  assert.match(css, /\.pz-fk\.on \{ opacity: 1; transition: opacity var\(--d-surface\) var\(--ease\) \.12s; \}/);
 });

@@ -21,7 +21,7 @@ test('hidden labels are skipped only under the HVPG catheter, once their fade is
   assert.equal(cathHid(env({ wrap: { classList: { contains: () => false } } })), false);
   assert.equal(cathHid(env({ CATH_HID: false })), false, '?cathlabels=1');
   // (The fade the 300 ms waits for.)
-  assert.match(css, /\.cath-on :is\(#labels, #labelGl\) \{ opacity: 0; visibility: hidden; transition: opacity \.25s var\(--ease-in\), visibility 0s linear \.25s; \}/);
+  assert.match(css, /\.cath-on :is\(#labels, #labelGl\) \{ opacity: 0; visibility: hidden; transition: opacity var\(--d-small\) var\(--ease-in\), visibility 0s linear var\(--d-small\); \}/);
 });
 
 test('updateLabels returns early, the layout key cleared, right after the camera check', () => {

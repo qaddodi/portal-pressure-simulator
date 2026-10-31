@@ -26,7 +26,7 @@ test('R7 the floating pieces dim only after 120 ms of motion, to .55', () => {
   // (Dimmed once, as a whole: the pill's buttons must not dim again inside it.)
   assert.doesNotMatch(css, /\.stage-busy[^{]*(?:\.stage-fit|\.stage-rotate|\.zoom-pill)[^{]*\{/);
   // Every piece the dim reaches eases its opacity: none of them may have a transition list without it.
-  for (const sel of ['.panel { transform: none; transition: opacity', '.instrument-workspace.float-ui.fit { height: var(--fit-h); transition: height .3s var(--ease), opacity', '.panel, .treat-card { transform: none; transition: height .22s var(--ease), opacity']) assert.ok(css.includes(sel), sel);
+  for (const sel of ['.panel { transform: none; transition: opacity', '.instrument-workspace.float-ui.fit { height: var(--fit-h); transition: height var(--d-small) var(--ease), opacity', '.panel, .treat-card { transform: none; transition: height var(--d-small) var(--ease), opacity']) assert.ok(css.includes(sel), sel);
 });
 
 // The menus' fade while the figure moves (stage-busy) changes only their opacity: its coming and going must not make the page

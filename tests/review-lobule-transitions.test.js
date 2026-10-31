@@ -13,15 +13,17 @@ const app = read('../styles/app.css');
 const tokens = read('../styles/tokens.css');
 
 test('G18: organs and vessels ease on one clock and one curve', () => {
-  const lens = Number(stage.match(/const LENS_FADE = (\d+);/)[1]);
+  // (One surface step of the motion scale, ease.js D_SURFACE, 420 ms.)
+  assert.match(stage, /const LENS_FADE = D_SURFACE;/);
   assert.match(stage, /const PLATE_FADE = LENS_FADE;/, 'the GPU plate eases over the vessels\' own lens crossfade');
   assert.match(stage, /plateT0 = lensFrom && now - lensT0 < 60 \? lensT0 : now;/, 'from the moment the lens switch started');
-  assert.equal(Number(lz.match(/const LENS_FADE = (\d+),/)[1]), lens, 'the lobule\'s lens crossfade takes the same time');
-  const fade = tokens.match(/--view-fade: \.(\d+)s;/);
-  assert.ok(fade && Number('0.' + fade[1]) * 1000 === lens, 'the SVG organs\' CSS fade takes the same time');
-  // easeInOut (quadratic) as a CSS curve.
-  assert.match(tokens, /--ease-io: cubic-bezier\(\.455, \.03, \.515, \.955\);/);
-  for (const rule of ['#net { transition: opacity var(--view-fade) var(--ease-io); }', '#backEdges .vg { transition: filter var(--view-fade) var(--ease-io); }']) assert.ok(app.includes(rule), rule);
+  assert.match(lz, /const LENS_FADE = D_SURFACE,/, 'the lobule\'s lens crossfade takes the same time');
+  assert.match(tokens, /--d-surface: 420ms;/, 'the SVG organs\' CSS fade takes the same time');
+  // The quintic (easeMove) on every clock, and as a CSS curve.
+  assert.match(stage, /u = easeMove\(clamp\(\(now - lensT0\) \/ LENS_FADE, 0, 1\)\)/);
+  assert.match(stage, /const u = easeMove\(clamp\(\(now - plateT0\) \/ PLATE_FADE, 0, 1\)\);/);
+  assert.match(read('../src/ui/organs-gl.js'), /L\.k = easeMove\(\(now - L\.from\) \/ VIEW_FADE_MS\);/);
+  for (const rule of ['#net { transition: opacity var(--d-surface) var(--ease-move); }', '#backEdges .vg { transition: filter var(--d-surface) var(--ease-move); }']) assert.ok(app.includes(rule), rule);
   // The live SVG organs take the plate's own eased values (stepPlateEase → syncPlateLook → syncOrganDim), so they share its clock.
   assert.match(stage, /function syncPlateLook\(\) \{\n {4}syncOrganDim\(\);/);
   assert.doesNotMatch(app, /#heatGlow[^}]*\.28s|#backEdges \.vg \{ transition: filter \.28s/, 'no lens or selection fade left on the old .28 s clock');

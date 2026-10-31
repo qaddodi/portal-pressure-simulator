@@ -2,15 +2,16 @@
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=15d6102c13';
-import { pressureColor } from './colormap.js?v=dc7e0de1bd';
+import { pressureColor } from './colormap.js?v=ddb18485b7';
 import { store, hiddenNow } from './store.js?v=3611054974';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=80c7abd296';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=ca062f41e6';
 import { frameFor, cancelFrame, paceMs } from './frame.js?v=9d6b717149';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { shownOr } from './shown.js?v=ce56653c84';
 import { monotoneSegs, curveTester } from './curve-near.js?v=9ff15157e9';
 import { glideMoving } from './idle-keys.js?v=70e26bf4a1';
 import { plotFill } from './plot-look.js?v=5037697da7';
+import { D_SMALL, EASE_ARRIVE } from './ease.js?v=387660d4ad';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -181,7 +182,7 @@ export function createProfile() {
   // (Which form shows: a fade when it changes; the strip's own key. A full chart whose labels cannot all stand clear switches
   // to the strip for that size and stays there, so a beat's wobble never flips it back and forth.)
   const setForm = (strip) => {
-    if (wasStrip !== null && strip !== wasStrip) cv.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' });   // (a short fade as it changes form)
+    if (wasStrip !== null && strip !== wasStrip) cv.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });   // (a short fade as it changes form)
     wasStrip = strip;
     setDisplay(legend, strip ? 'none' : '');   // (the strip draws no lines to key)
   };
@@ -241,7 +242,7 @@ export function createProfile() {
   }
 
   // (The brackets move between the plot and the band by a fade in place, never a glide across the line and the numbers.)
-  function bandFade() { easePill = createEaser(0.18); cv.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' }); }
+  function bandFade() { easePill = createEaser(0.18); cv.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
   function draw() {
     if (!F) return;
     const c = theme();

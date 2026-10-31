@@ -8,12 +8,12 @@ const css = read('styles/app.css'), tokens = read('styles/tokens.css'), util = r
 const card = read('src/ui/card.js'), dock = read('src/ui/dock.js'), stageSrc = read('src/ui/stage.js');
 
 test('there is one exit curve, gentle at its start', () => {
-  assert.match(tokens, /--ease-in: cubic-bezier\(\.4, 0, 1, 1\); --t-out: \.2s;/);
+  assert.match(tokens, /--ease-in: cubic-bezier\(\.4, 0, 1, 1\);/);
 });
 
 test('a dialog fades out as it faded in, with exit keyframes of its own', () => {
-  assert.match(css, /\.modal-back\.leaving \{ display: grid; pointer-events: none; animation: fadeOut var\(--t-out\) var\(--ease-in\) forwards; \}/);
-  assert.match(css, /\.modal-back\.leaving \.modal \{ animation: popOut var\(--t-out\) var\(--ease-in\) forwards; \}/);
+  assert.match(css, /\.modal-back\.leaving \{ display: grid; pointer-events: none; animation: fadeOut var\(--d-flip\) var\(--ease-in\) forwards; \}/);
+  assert.match(css, /\.modal-back\.leaving \.modal \{ animation: popOut var\(--d-flip\) var\(--ease-in\) forwards; \}/);
   assert.match(css, /@keyframes fadeOut \{ to \{ opacity: 0; \} \}/);
   const close = util.slice(util.indexOf('export function closeModal'), util.indexOf('export const isModalOpen'));
   assert.match(close, /classList\.remove\('show'\); back\.classList\.add\('leaving'\);/);
@@ -27,23 +27,23 @@ test('the History card plays its way out like Treat', () => {
 });
 
 test('the desktop vessel card fades in and out, and a new vessel fades its contents in', () => {
-  assert.match(css, /animation: acIn \.24s var\(--ease\)/);
-  assert.match(css, /\.action-card\.ac-leaving:not\(\.docked\) \{ pointer-events: none; animation: acOut var\(--t-out\) var\(--ease-in\) forwards; \}/);
+  assert.match(css, /animation: acIn var\(--d-small\) var\(--ease\)/);
+  assert.match(css, /\.action-card\.ac-leaving:not\(\.docked\) \{ pointer-events: none; animation: acOut var\(--d-flip\) var\(--ease-in\) forwards; \}/);
   assert.doesNotMatch(card, /if \(isDocked\(\) && !matchMedia/);   // (an undocked card leaves too, not only the phone's sheet)
   assert.match(card, /const swap = !el\.hidden && !same && !!el\.animate;/);
   assert.match(card, /for \(const c of el\.children\) c\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/);
   // RF7: the old contents fade out over the new from a layer that takes no taps, and the card glides to its new place.
   assert.match(card, /const ghost = h\('div', \{ class: 'ac-ghost', 'aria-hidden': 'true', inert: '' \}, \.\.\.was\);/);
   assert.match(css, /\.action-card > \.ac-ghost \{ position: absolute; inset: 0; display: flex; flex-direction: column; pointer-events: none; \}/);
-  assert.match(css, /\.action-card:not\(\.docked\) \{ transition: opacity \.25s var\(--ease\), left \.18s var\(--ease\), top \.18s var\(--ease\); \}/);
+  assert.match(css, /\.action-card:not\(\.docked\) \{ transition: opacity var\(--d-small\) var\(--ease\), left var\(--d-flip\) var\(--ease\), top var\(--d-flip\) var\(--ease\); \}/);
 });
 
 test('the zoom pill glides aside with a side card, by a transform (round 2 review, RF2)', () => {
   const at = css.indexOf('.zoom-pill { position: absolute;'), rule = css.slice(at, css.indexOf('}', at));
   assert.match(rule, /transform: translateX\(calc\(-1 \* var\(--right-occ, 0px\)\)\)/);
-  assert.match(rule, /transition: [^;]*transform \.3s var\(--ease\)/);
+  assert.match(rule, /transition: [^;]*transform var\(--d-small\) var\(--ease\)/);
   assert.doesNotMatch(rule, /right \.3s|var\(--right-occ, 0px\)\); bottom/);
-  assert.match(css, /\.app\.figure-focus \.zoom-pill \{ transition: [^;]*transform \.3s var\(--ease\)/);
+  assert.match(css, /\.app\.figure-focus \.zoom-pill \{ transition: [^;]*transform var\(--d-small\) var\(--ease\)/);
   // (The phone's pill never stood aside for a card.)
   assert.match(css, /\.zoom-pill \{ flex-direction: row; right: calc\(env\(safe-area-inset-right\) \+ 8px\); transform: none; \}/);
   // Fits read where the pill is going, not where it is mid-glide.
@@ -64,7 +64,7 @@ test('swapFade fades the old content out, fills, and fades the new in; a hidden 
   assert.match(f, /if \(instant \|\| !el\.animate \|\| !el\.isConnected \|\| !el\.firstChild \|\| !hasBox\(el\)\) \{ fill\(\); return; \}/);
   // A hidden one: no box (display: none on it or an ancestor), read without laying the page out where the browser can.
   assert.match(util, /export const hasBox = \(el\) => \(el\.checkVisibility \? el\.checkVisibility\(\) : el\.getClientRects\(\)\.length > 0\);/);
-  assert.match(f, /easing: 'cubic-bezier\(\.4, 0, 1, 1\)', fill: 'forwards'/);
+  assert.match(f, /easing: EASE_IN, fill: 'forwards'/);
   assert.match(f, /a\.finished\.then\(done, done\);/);
 });
 
@@ -101,7 +101,7 @@ test('ending a talk fades its cards out, then the app\'s bars in; a new talk end
   // (Reduce Motion keeps these fades: they move nothing.)
   const chromeIn = presenter.slice(presenter.indexOf('  function chromeIn() {'), presenter.indexOf('  function stopNow('));
   assert.doesNotMatch(stop + chromeIn, /reduce\.matches/);
-  assert.match(stop, /el\.animate\(\[\{ opacity: 0 \}\], \{ duration: 200, easing: 'cubic-bezier\(\.4, 0, 1, 1\)', fill: 'forwards' \}\)/);
+  assert.match(stop, /el\.animate\(\[\{ opacity: 0 \}\], \{ duration: D_SMALL, easing: EASE_IN, fill: 'forwards' \}\)/);
   assert.match(stop, /if \(leaving !== me\) return; stopNow\(restore\); chromeIn\(\);/);
   assert.match(presenter, /if \(deck\) stopNow\(false\);/);
   assert.match(presenter, /function stopNow\(restore = true\) \{\n\s*leaving = null;/);
@@ -127,7 +127,7 @@ test('a theme chosen in the app crossfades the page; loading applies it at once'
   assert.match(main, /const vt = pageFade = document\.startViewTransition\(fn\);/);
   assert.match(main, /switchTheme\(v === 'system' \? null : v, v === 'system'\)/);
   assert.match(main, /applyTheme\(\['dark', 'light', 'soft'\]\.includes\(savedTheme\)/);
-  assert.match(css, /::view-transition-old\(root\), ::view-transition-new\(root\) \{ animation-duration: \.45s;/);
+  assert.match(css, /::view-transition-old\(root\), ::view-transition-new\(root\) \{ animation-duration: var\(--d-surface\);/);
 });
 
 test('a tap during the page crossfade ends it and reaches what is under it, never closing Settings', () => {

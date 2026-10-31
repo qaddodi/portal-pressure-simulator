@@ -1,9 +1,10 @@
 // The endoscopic view as a tile of the readings card (slide field `scopeTile: true`): a small round picture of the distal esophagus
 // at the varix's size now, so a time-lapse shows the varices swelling from small to large behind the chart. The picture is the
 // instrument's own (endo-render.js, endo-size.js), drawn once for each step of 1/14 of its engorgement and eased from the one before.
-import { h } from './util.js?v=80c7abd296';
-import { renderEndo } from './endo-render.js?v=aad4273d6a';
+import { h } from './util.js?v=ca062f41e6';
+import { renderEndo } from './endo-render.js?v=a067198185';
 import { endoGrow, LARGE_MM } from './endo-size.js?v=e0a58bf20e';
+import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=387660d4ad';
 
 const RES = 168, STEPS = 14, NONE_MM = 2.5;   // (2.5 mm: below it the metrics call it no varix)
 export const scopeKey = (d) => (Number.isFinite(d) && d >= NONE_MM ? Math.round(endoGrow(d) * STEPS) : -1);
@@ -21,7 +22,7 @@ export function createScopeTile() {
     under.getContext('2d').drawImage(top, 0, 0);
     const c = top.getContext('2d');
     c.clearRect(0, 0, RES, RES); c.drawImage(img, 0, 0);
-    if (!reduce.matches && key !== null) top.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 380, easing: 'ease-out' });
+    if (!reduce.matches && key !== null) top.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SURFACE, easing: EASE_ARRIVE });
     key = k;
   }
   return {

@@ -14,8 +14,9 @@
 // on it just before each read, so a frame the figure did not draw in still mixes the picture, not an empty buffer.
 import { finalFrameFor, noteDraw } from './frame.js?v=9d6b717149';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
+import { D_SURFACE } from './ease.js?v=387660d4ad';
 
-export const FADE_MS = 350;
+export const FADE_MS = D_SURFACE;
 /** The old picture's weight u of the way through the fade: 1 to 0, smoothstep (no step at either end). */
 export const fadeAlpha = (u) => { const t = Math.min(1, Math.max(0, u)); return 1 - t * t * (3 - 2 * t); };
 

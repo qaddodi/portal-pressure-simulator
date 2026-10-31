@@ -12,9 +12,10 @@
 
 import { store, replaceParams, onParamChange } from './store.js?v=3611054974';
 import { host } from './host.js?v=06b55f7a94';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText } from './util.js?v=80c7abd296';
-import { activeInterventions } from './inspector.js?v=376cd9ddef';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText } from './util.js?v=ca062f41e6';
+import { activeInterventions } from './inspector.js?v=4e914e132e';
 import { frameFor } from './frame.js?v=9d6b717149';
+import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=387660d4ad';
 const nextFrame = frameFor('timeline');
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
@@ -296,10 +297,10 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
           for (const o of old) {
             if (o.dataset.going) continue;
             o.dataset.going = '1';
-            const a = o.animate(still ? [{ opacity: 0 }] : [{ opacity: 0, transform: 'scale(.6)' }], { duration: 120, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+            const a = o.animate(still ? [{ opacity: 0 }] : [{ opacity: 0, transform: 'scale(.6)' }], { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' });
             a.finished.then(() => o.remove(), () => o.remove());
           }
-          nu.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }], { duration: 180, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+          nu.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE });
         }
       }
       playBtn.title = lp ? 'Play / pause (Space): time-lapse' : 'Play / pause (Space)';

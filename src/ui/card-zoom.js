@@ -7,11 +7,12 @@
 // the camera keep to them) and puts the card back before a slide changes. Nor does it measure the card: what the card answers while it is up
 // is where it rests, so a measure of how far the readings travel would read none.
 
+import { EASE_ARRIVE } from './ease.js?v=387660d4ad';
 export const ZOOM_MAX = 2.2;    // the most the card grows
 export const ZOOM_MIN = 1.2;    // under this the card is large enough; no zoom is offered
 export const ZOOM_MS = 520;     // in
 export const SHUT_MS = 440;     // and back
-const EASE = 'cubic-bezier(.2, .8, .2, 1)';   // (tokens.css --ease)
+const EASE = EASE_ARRIVE;   // (tokens.css --ease)
 
 // The box round some rects: { left, top, width, height }.
 export function unionBox(rects) {

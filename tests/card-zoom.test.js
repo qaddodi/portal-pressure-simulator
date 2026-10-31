@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { zoomPlan, zoomMargin, unionBox, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_MS, SHUT_MS } from '../src/ui/card-zoom.js';
+import { EASE_ARRIVE } from '../src/ui/ease.js';
 
 // The data card zoomed to the middle of the screen (Mohammad, 28 Oct): "can we add a feature on large screens and ipad landscape for data card
 // instrument card to display it bigger when clicking on it directly; however it shouldn't like make the text smaller. the camera should like zoom
@@ -420,8 +421,8 @@ const wordsWorld = ({ base = 0, d = 126 } = {}) => {
   };
   const ui = { data: card(), lip: card(), text: card(), shade: card() };
   const gcs = (el) => ({ translate: el.shown() });
-  const api = new Function('ui', 'slip', 'LIP', 'zoomFollow', 'slideTell', 'getComputedStyle', 'dispatchEvent', 'Event', `${src}; return { liftTo, words, wordsGlide, wordsAt };`)(
-    ui, slip, LIP, () => {}, () => ticks.push('slide'), gcs, (e) => events.push(e.type), class { constructor(t) { this.type = t; } });
+  const api = new Function('ui', 'slip', 'LIP', 'zoomFollow', 'slideTell', 'getComputedStyle', 'dispatchEvent', 'Event', 'EASE_ARRIVE', `${src}; return { liftTo, words, wordsGlide, wordsAt };`)(
+    ui, slip, LIP, () => {}, () => ticks.push('slide'), gcs, (e) => events.push(e.type), class { constructor(t) { this.type = t; } }, EASE_ARRIVE);
   return { ...api, ui, slip, events, ticks, rise: () => parseFloat(ui.text.props.get('--pz-rise')) || 0, lift: () => parseFloat(ui.data.props.get('--pz-lift')) || 0, LIP };
 };
 
@@ -597,10 +598,10 @@ test('a tap on one of the six ladders zooms it, a tap on it, outside it, Esc, a 
   // (The cell is scaled as it sits in the panel's fit zoom, which the card is not.)
   assert.match(js, /scale: \(el\) => \(el && el !== data && el\.offsetWidth \? el\.getBoundingClientRect\(\)\.width \/ el\.offsetWidth : wrap\.getBoundingClientRect\(\)\.width \/ \(wrap\.clientWidth \|\| 1\)\) \|\| 1,/);
   // (The app's own scrim, never snapping: both veils fade, the shadow eases, the cell shows the pointer that says what a tap does.)
-  assert.match(rule('.pz-pscrim, .pz-gscrim {'), /background: var\(--scrim\)/); assert.match(rule('.pz-pscrim, .pz-gscrim {'), /transition: opacity \.45s var\(--ease\)/);
+  assert.match(rule('.pz-pscrim, .pz-gscrim {'), /background: var\(--scrim\)/); assert.match(rule('.pz-pscrim, .pz-gscrim {'), /transition: opacity var\(--d-surface\) var\(--ease\)/);
   assert.match(rule('.pz-pscrim.on'), /pointer-events: auto/);
   assert.match(rule('.pz-gscrim {'), /z-index: 1/);
-  assert.match(css, /^\.pz:not\(\.stack\):not\(\.low\) \.pz-cell \{ cursor: zoom-in; transition: box-shadow \.45s var\(--ease\); \}$/m);
+  assert.match(css, /^\.pz:not\(\.stack\):not\(\.low\) \.pz-cell \{ cursor: zoom-in; transition: box-shadow var\(--d-surface\) var\(--ease\); \}$/m);
   assert.match(rule('.pz:not(.stack):not(.low) .pz-cell[data-zoomed] {'), /z-index: 2/, 'over its veil');
   assert.match(rule('.pz:not(.stack):not(.low) .pz-cell[data-zoomed=""]'), /box-shadow: var\(--shadow-3\)/);
   for (const sel of ['.pz-pscrim, .pz-gscrim {', '.pz:not(.stack):not(.low) .pz-cell[data-zoomed=""]']) assert.doesNotMatch(rule(sel), /gradient|glow/);

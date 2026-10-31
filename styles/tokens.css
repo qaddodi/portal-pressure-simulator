@@ -241,16 +241,22 @@
   /* One capital-letter style (17 Oct) for tile names, the data card header, the deck tab, table heads, kickers and figure labels. */
   --caps-w: 600; --caps-ls: .06em;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
-  /* One easing family (ease.js, combined plan M2): --ease-arrive for what comes in (quick off the mark, settling gently; --ease is
-     it), --ease-move for symmetric moves, the camera's quintic as a bezier (within 0.9 % of it). */
-  --ease-arrive: cubic-bezier(.2, .8, .2, 1); --ease-move: cubic-bezier(.5, 0, .5, 1);
+  /* One motion scale (premium-feel R3; ease.js is its JS copy and tests/motion-scale.test.js keeps the two equal): three durations
+     and the camera's own, three curves, and nothing else is tuned by hand.
+       --d-flip     a state changes: pressed, lit, on, a colour swap, a hover, a close
+       --d-small    a word, a chip, a row, a tooltip, a text swap, a popover
+       --d-surface  a card, a sheet, a menu, the figure's dim, a lens crossfade
+       --d-camera   the shortest camera glide (ease.js camMs: 480 ms up to half a screen, then in proportion, 900 ms at most);
+                    a piece that rides a glide sets its own time (--vp-ms)
+     A leave takes the step below its entrance (a surface comes in over 420 ms and goes out over 240). A scene that teaches (a column
+     filling, a halo) has its own pace and carries an own-pace marker comment; a loop (a spinner, a pulse) is not motion on a scale. */
+  --d-flip: 120ms; --d-small: 240ms; --d-surface: 420ms; --d-camera: 480ms;
+  /* Curves (ease.js, combined plan M2): --ease-arrive for what comes in (quick off the mark, settling gently; --ease is it),
+     --ease-move for what travels (symmetric: the camera's quintic as a bezier, within 0.9 % of it; also a lens switch or a selection,
+     where the organs and vessels ease together, stage.js LENS_FADE), --ease-in for what leaves (it starts gently and gets out of
+     the way; the entering curve is fastest in its first frame, so a close that used it felt abrupt). */
+  --ease-arrive: cubic-bezier(.2, .8, .2, 1); --ease-move: cubic-bezier(.5, 0, .5, 1); --ease-in: cubic-bezier(.4, 0, 1, 1);
   --ease: var(--ease-arrive);
-  /* One clock for a lens switch or a selection: the organs and vessels ease together (stage.js LENS_FADE = PLATE_FADE, an ease in and out). */
-  --view-fade: .3s; --ease-io: cubic-bezier(.455, .03, .515, .955);
-  --t-fast: .16s; --t: .24s;
-  /* Leaving: starts gently and gets out of the way (the entering curve, --ease, is fastest in its first frame, so a close that
-     used it felt abrupt). Exits run a little quicker than entrances. */
-  --ease-in: cubic-bezier(.4, 0, 1, 1); --t-out: .2s;
 
   color-scheme: light;
 }

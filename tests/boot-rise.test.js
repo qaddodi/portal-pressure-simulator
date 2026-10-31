@@ -13,8 +13,8 @@ test('R10 the figure is held clear until the cover lifts, then rises on the cove
   assert.match(bootCss, /html\[data-boot="hold"\] #stageView \{ opacity: 0; \}/);
   const cover = bootCss.match(/#boot \{[^}]*transition: ([^;]*);/)[1];
   const rise = bootCss.match(/html\[data-boot="rise"\] #stageView \{ transition: ([^;]*); \}/)[1];
-  assert.match(cover, /^opacity \.45s var\(--ease-arrive, cubic-bezier\(\.2, \.8, \.2, 1\)\), visibility \.45s$/);
-  assert.equal(rise, 'opacity .45s var(--ease-arrive, cubic-bezier(.2, .8, .2, 1))', 'the same duration and curve as the cover');
+  assert.equal(cover, 'opacity var(--d-surface) var(--ease), visibility var(--d-surface)');
+  assert.equal(rise, 'opacity var(--d-surface) var(--ease)', 'the same duration and curve as the cover');
   assert.doesNotMatch(bootCss, /#stageView \{[^}]*transform/, 'opacity only: a scale would skew the figure\'s getBoundingClientRect reads');
 });
 
@@ -25,7 +25,7 @@ test('R10 the hold is released on every way out: the cover lifting, and "Try any
 });
 
 test('R10 the wait bar waits 1.2 s and has no gradient', () => {
-  assert.match(bootCss, /#boot \.boot-bar \{[^}]*opacity: 0; animation: boot-bar-in \.3s ease 1\.2s forwards;/);
+  assert.match(bootCss, /#boot \.boot-bar \{[^}]*opacity: 0; animation: boot-bar-in var\(--d-small\) var\(--ease\) 1\.2s forwards;/);
   assert.doesNotMatch(bootCss, /(?:linear|radial|conic)-gradient\(/, 'the boot cover carries no gradient but the brand mark\'s own');
   assert.match(bootCss, /@keyframes boot-bar-in \{ to \{ opacity: 1; \} \}/);
 });

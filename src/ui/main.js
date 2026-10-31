@@ -3,28 +3,28 @@
 
 import { startHost, host } from './host.js?v=06b55f7a94';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3611054974';
-import { createStage } from './stage.js?v=c2428cb42f';
+import { createStage } from './stage.js?v=f2299ac4dc';
 import { createCreditPlacer } from './credit.js?v=8727044660';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=376cd9ddef';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=79001ea050';
-import { setHvpgStage } from './hvpg-proc.js?v=d09ca7cc4f';
-import { createWhy } from './why.js?v=b3843d0908';
-import { createTimeline, LAPSES } from './timeline.js?v=79a5558d37';
-import { createCompare } from './compare.js?v=6cc9329c8c';
-import { createCard } from './card.js?v=542b5e2aa3';
-import { createChart } from './chart.js?v=78c2f066f8';
-import { createMenu } from './menu.js?v=09c4b01d28';
-import { caption } from './a11y.js?v=3f386f434e';
+import { createInspector } from './inspector.js?v=4e914e132e';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=964eaa62d6';
+import { setHvpgStage } from './hvpg-proc.js?v=96a1e37f8c';
+import { createWhy } from './why.js?v=1276fa7411';
+import { createTimeline, LAPSES } from './timeline.js?v=bdb8ffafc9';
+import { createCompare } from './compare.js?v=e854a23db6';
+import { createCard } from './card.js?v=1cd5f7e945';
+import { createChart } from './chart.js?v=f4e2725306';
+import { createMenu } from './menu.js?v=27ca3925a4';
+import { caption } from './a11y.js?v=07d0e272bb';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=3329e45d97';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=dc7e0de1bd';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=63e174fd94';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=ddb18485b7';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=80c7abd296';
-import { releaseSpeed } from './ease.js?v=7c37eab2c6';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=ca062f41e6';
+import { releaseSpeed, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=387660d4ad';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -37,15 +37,15 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=61789563c2';
-import { initTopbarMotion } from './topbar-motion.js?v=b1e8cd363a';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=80e2e74ba2';
+import { initTopbarMotion } from './topbar-motion.js?v=25cadef132';
 import { ORIGINS } from './blood.js?v=a4bf4f2a03';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=bcedeba324';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
 import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=9d6b717149';
 import { noteJump } from './display-state.js?v=8d062d39dc';
-import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=ea522a5215';
+import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=722f0b2092';
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -106,8 +106,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=5080bccce6'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=8797aad589'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=e83c88c056'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=8b878db16b'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -180,7 +180,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=2a0cd09d83'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=794446a85f'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -188,7 +188,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=d9b2875a11'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=c7f1a2dbd1'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -833,7 +833,7 @@ function renderBanner() {
   // The switch fades in when a moment is pinned and out when it is let go (it popped: P20).
   const had = !!el.firstChild;
   if (had && !kids.length) swapFade(el, () => el.replaceChildren());
-  else { swapFade(el, () => el.replaceChildren(...kids), { instant: true }); if (!had && kids.length) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'cubic-bezier(.2, .8, .2, 1)' }); }
+  else { swapFade(el, () => el.replaceChildren(...kids), { instant: true }); if (!had && kids.length) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
   app.classList.toggle('cmp-on', !!s0.compareSnap);
   // The switch's height, for views that place their own controls under it (the lobule's).
   app.style.setProperty('--cmp-h', s0.compareSnap ? `${$('#stageCenter').offsetHeight + 8}px` : '0px');
@@ -1296,12 +1296,12 @@ function wireFloating() {
     foldAnims = [];
     if (reduced || !h0) { vdockEl.classList.toggle('mini', on); foldDone(tok); return; }
     if (vdockEl.classList.contains('mini') === on) {   // changed its mind before the old content was gone: fade it back
-      foldAnims = kids.map((k, i) => k.animate([{ opacity: from[i] }, { opacity: 1 }], { duration: 140, easing: 'ease-out' }));
+      foldAnims = kids.map((k, i) => k.animate([{ opacity: from[i] }, { opacity: 1 }], { duration: D_FLIP, easing: EASE_ARRIVE }));
       Promise.all(foldAnims.map((a) => a.finished.catch(() => {}))).then(() => foldDone(tok));
       return;
     }
     vdockEl.style.overflow = 'hidden'; vdockEl.dataset.folding = '1';
-    const out = kids.map((k, i) => k.animate([{ opacity: from[i] }, { opacity: 0 }], { duration: Math.round(110 * from[i]) || 1, easing: 'ease-in', fill: 'forwards' }));
+    const out = kids.map((k, i) => k.animate([{ opacity: from[i] }, { opacity: 0 }], { duration: Math.round(D_FLIP * from[i]) || 1, easing: EASE_IN, fill: 'forwards' }));
     foldAnims = out;
     await Promise.all(out.map((a) => a.finished.catch(() => {})));
     if (tok !== foldTok) return;
@@ -1309,10 +1309,10 @@ function wireFloating() {
     vdockEl.classList.toggle('mini', on);
     const r1 = vdockEl.getBoundingClientRect(), h1 = r1.height, w1 = r1.width;
     delete vdockEl.dataset.folding; publish(); vdockEl.dataset.folding = '1';
-    const ease = 'cubic-bezier(.2, .8, .2, 1)';
+    const ease = EASE_ARRIVE;
     foldAnims = [
-      vdockEl.animate([{ height: `${h0}px`, width: `${w0}px` }, { height: `${h1}px`, width: `${w1}px` }], { duration: 340, easing: ease }),
-      ...kids.map((k) => k.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240, delay: 80, easing: 'ease-out', fill: 'backwards' })),
+      vdockEl.animate([{ height: `${h0}px`, width: `${w0}px` }, { height: `${h1}px`, width: `${w1}px` }], { duration: D_SURFACE, easing: ease }),
+      ...kids.map((k) => k.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, delay: 80, easing: EASE_ARRIVE, fill: 'backwards' })),
     ];
     Promise.all(foldAnims.map((a) => a.finished.catch(() => {}))).then(() => foldDone(tok));
   };
@@ -1432,8 +1432,8 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
       if (fromFull) {
         // (the card eases from where the finger left it: back to Full after a short pull, to Half otherwise)
         if (s0.dy > 40) size = half();
-        el.style.transition = 'height .22s var(--ease)'; apply(); el.style.height = '';
-        setTimeout(() => { el.style.transition = ''; }, 240);
+        el.style.transition = `height ${D_SMALL}ms var(--ease)`; apply(); el.style.height = '';
+        setTimeout(() => { el.style.transition = ''; }, D_SMALL);
         stopSink(el); el.style.removeProperty('--sink');
         return;
       }

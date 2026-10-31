@@ -1,6 +1,6 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame } from './frame.js?v=9d6b717149';
-import { releaseSpeed, settleSlope, settleAt } from './ease.js?v=7c37eab2c6';
+import { releaseSpeed, settleSlope, settleAt, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN } from './ease.js?v=387660d4ad';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
@@ -101,7 +101,7 @@ function dropToast(t) {
   if (wrap.classList.contains('docked') || reduceMotionMQ.matches) return;
   others.forEach((c, i) => {
     const dy = tops[i] - c.getBoundingClientRect().top;
-    if (Math.abs(dy) > 0.5) c.animate?.([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: 240, easing: 'cubic-bezier(.65, 0, .35, 1)' });
+    if (Math.abs(dy) > 0.5) c.animate?.([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_MOVE });
   });
 }
 export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false } = {}) {
@@ -311,18 +311,18 @@ const swaps = new WeakMap();
 /** Changes what an element shows without a one-frame jump: the old content fades out (exit curve), fill() puts the new
  *  in, and it fades in. instant: fill now (the content reads the same), unless a swap is still under way, which then
  *  takes this fill instead. A hidden or empty element simply fills. */
-export function swapFade(el, fill, { instant = false, out = 120, inn = 180 } = {}) {
+export function swapFade(el, fill, { instant = false, out = D_FLIP, inn = D_SMALL } = {}) {
   const job = swaps.get(el);
   if (job) { job.fill = fill; return; }
   if (instant || !el.animate || !el.isConnected || !el.firstChild || !hasBox(el)) { fill(); return; }
   const me = { fill };
   swaps.set(el, me);
   // (From wherever the element is now: a fade-in still under way included, so a quick second swap never jumps to full.)
-  const a = el.animate([{ opacity: 0 }], { duration: out, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+  const a = el.animate([{ opacity: 0 }], { duration: out, easing: EASE_IN, fill: 'forwards' });
   const done = () => {
     if (swaps.get(el) !== me) return;
     swaps.delete(el);
-    try { me.fill(); } finally { fadeIns.get(el)?.cancel(); a.cancel(); fadeIns.set(el, el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: inn, easing: 'cubic-bezier(.2, .8, .2, 1)' })); }
+    try { me.fill(); } finally { fadeIns.get(el)?.cancel(); a.cancel(); fadeIns.set(el, el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: inn, easing: EASE_ARRIVE })); }
   };
   a.finished.then(done, done);
 }
@@ -332,7 +332,7 @@ export function swapFade(el, fill, { instant = false, out = 120, inn = 180 } = {
  * moment later), so every step is caught, each glide carrying on from where the last one had got to. Reduce Motion: no
  * glide (the bar's readings still fade). (The play bar jumped 15-20 px sideways entering the lobule; round 2 review, RF4.)
  */
-export function glideOnResize(root, sel, { ms = 520, dur = 220, also = [] } = {}) {
+export function glideOnResize(root, sel, { ms = 520, dur = D_SMALL, also = [] } = {}) {
   if (!root?.animate || reduceMotionMQ.matches || typeof ResizeObserver !== 'function') return;
   const pos = (el) => { let x = 0, y = 0; for (let n = el; n && n !== document.body; n = n.offsetParent) { x += n.offsetLeft; y += n.offsetTop; } return [x, y]; };
   const measure = () => new Map([...root.querySelectorAll(sel)].filter((el) => el.offsetParent).map((el) => [el, pos(el)]));
@@ -346,7 +346,7 @@ export function glideOnResize(root, sel, { ms = 520, dur = 220, also = [] } = {}
       for (const a of el.getAnimations()) if (a.id === 'glide') { const m = new DOMMatrixReadOnly(getComputedStyle(el).transform); cx = m.m41; cy = m.m42; a.cancel(); break; }
       const dx = p[0] + cx - x, dy = p[1] + cy - y;
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
-      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: dur, easing: 'cubic-bezier(.2, .8, .2, 1)' }).id = 'glide';
+      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: dur, easing: EASE_ARRIVE }).id = 'glide';
     }
     prev = now;
   });
@@ -399,11 +399,11 @@ export function reconcile(list, rows) {
     g.style.overflow = 'hidden';
     const a = g.animate([{ opacity: 1, height: `${h0}px`, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, marginTop: cs.marginTop, marginBottom: cs.marginBottom },
       { opacity: 0, height: '0px', paddingTop: '0px', paddingBottom: '0px', marginTop: '0px', marginBottom: '0px' }],
-    { duration: still ? 160 : 200, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+    { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' });
     a.finished.then(() => g.remove(), () => g.remove());
   }
   if (shown) {
-    for (const r of fresh) if (r.dataset.row) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'cubic-bezier(.2, .8, .2, 1)', delay: going.length ? 80 : 0, fill: 'backwards' });
+    for (const r of fresh) if (r.dataset.row) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE, delay: going.length ? 80 : 0, fill: 'backwards' });
   }
 }
 /** Text that crossfades when it changes (a status word, an arrow): swapFade, and a fade in from empty, so a word
@@ -413,7 +413,7 @@ export function swapText(el, txt, then) {
   if (job ? job.txt === txt : el.textContent === txt) return;
   const fill = () => { el.textContent = txt; then?.(); };
   if (!job && !el.firstChild && txt && el.animate && el.isConnected && hasBox(el)) {
-    fill(); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'cubic-bezier(.2, .8, .2, 1)' }); return;
+    fill(); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); return;
   }
   swapFade(el, fill);
   const j = swaps.get(el); if (j) j.txt = txt;
@@ -424,7 +424,7 @@ export function swapText(el, txt, then) {
  *  second (ease out) and always ends on fmt(v, d). null shows "?" at once. Reduce Motion lands at once. */
 const counts = new WeakMap(), rolling = new Set();
 let rollRaf = 0;
-const COUNT_MS = 320;
+const COUNT_MS = D_SMALL;   // (a roll takes a small step of the motion scale, ease.js)
 // Text that changes rewrites its text node in place: setting textContent replaces the node, which re-checks styles for the
 // element and, through :has() in the phone and iPad layouts, ~85 others a model frame (round 2 review, P7).
 export const putText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
@@ -467,8 +467,8 @@ export function closePopover() {
   const el = openMenu.el;
   if (!el.isConnected) el.remove();   // (with Reduce Motion it still fades: app.css turns popOut into a fade)
   // A sheet swiped away is already sliding down; it leaves when it is out of sight.
-  // (Over the thumb dock it sinks behind the tab row, as the cards do: .2 s.)
-  else { const ms = document.documentElement.classList.contains('thumb-ui') && el.classList.contains('from-dock') ? 200 : 120; el.classList.add('leaving'); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => el.remove(), el.dataset.swiped ? 240 : ms + 10); }
+  // (Over the thumb dock it sinks behind the tab row, as the cards do, in the same step: a leave is one flip, app.css thumbOut.)
+  else { const ms = D_FLIP; el.classList.add('leaving'); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => el.remove(), el.dataset.swiped ? D_SMALL : ms + 10); }
   openMenu.anchor.setAttribute('aria-expanded', 'false'); openMenu.cleanup();
   openMenu = null;
 }
@@ -561,9 +561,9 @@ export function swipeSheet(panel, onClose) {
     }
     // (The same, as a CSS curve: its opening slope is the finger's speed over the distance left, up to the .2/.8 curve's own, 4.)
     const left = gone ? panel.offsetHeight - s0.dy : -s0.dy;
-    panel.style.transition = `transform .22s cubic-bezier(.2, ${(0.2 * settleSlope(speed, left, 220, 4)).toFixed(3)}, .2, 1)`;
+    panel.style.transition = `transform ${D_SMALL}ms cubic-bezier(.2, ${(0.2 * settleSlope(speed, left, D_SMALL, 4)).toFixed(3)}, .2, 1)`;   // motion-scale: own pace (a let-go carries the finger's own speed, so the curve opens at its slope)
     if (gone) { panel.style.transform = 'translateY(100%)'; panel.dataset.swiped = '1'; onClose(); }
-    else { panel.style.transform = ''; setTimeout(() => { if (!s) panel.style.transition = ''; }, 240); }
+    else { panel.style.transform = ''; setTimeout(() => { if (!s) panel.style.transition = ''; }, D_SMALL); }
   };
   panel.addEventListener('touchend', end);
   panel.addEventListener('touchcancel', end);

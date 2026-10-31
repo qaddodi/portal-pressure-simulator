@@ -98,8 +98,8 @@ test('the shader: whole as before at k1 = 1; mixed from what showed before while
   const G = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   assert.match(G, /if \(in1 && k1 >= 1\.0\) o = texture\(t1, flip\.y == 1 \? vec2\(u1\.x, 1\.0 - u1\.y\) : u1\);/);
   assert.match(G, /if \(in1\) o = mix\(was, at\(t1, r1, flip\.y\), k1\);\n\s+else if \(has2 == 1\) o = mix\(was, o, k1\);/);
-  assert.match(G, /export const VIEW_FADE_MS = 350;/);
-  const { FADE_MS } = await import('../src/ui/res-fade.js').catch(() => ({ FADE_MS: 350 }));
+  assert.match(G, /export const VIEW_FADE_MS = D_SURFACE;/);
+  const { FADE_MS } = await import('../src/ui/res-fade.js').catch(() => ({ FADE_MS: 420 }));
   assert.equal(VIEW_FADE_MS, FADE_MS, 'the same as a resolution change');
   const ST = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   assert.match(ST, /!sprayFading\(\) && !veins\?\.organs\?\.fading && !lensFrom/);

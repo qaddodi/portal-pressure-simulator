@@ -21,11 +21,11 @@ test('R15 a tap builds and shows the menu in its own frame, without waiting for 
 test('R15 a cold fill rises into place with the tab change\'s own fade-rise, and not under Reduce Motion', () => {
   assert.match(menu, /el = build\(lib\); coldOpen = !lib;/);
   assert.match(menu, /if \(coldOpen && lib\) \{ coldOpen = false; if \(!reduce\.matches\) next\.querySelector\('\.um-col\[data-col="present"\]'\)\?\.classList\.add\('um-in'\); \}\s+else if \(!lib\) coldOpen = true;/);
-  assert.match(css, /\.um-col\.um-in \{ animation: umTabIn \.18s var\(--ease\); \}/, 'the existing treatment, not a new one');
+  assert.match(css, /\.um-col\.um-in \{ animation: umTabIn var\(--d-flip\) var\(--ease\); \}/, 'the existing treatment, not a new one');
 });
 
 test('R15 the wait note comes up only if the wait runs past 0.4 s', () => {
   assert.match(menu, /h\('p', \{ class: 'um-note um-wait' \}, 'Loading…'\)/);
-  assert.match(css, /\.um-note\.um-wait \{ animation: fadeIn \.2s var\(--ease\) \.4s backwards; \}/);
+  assert.match(css, /\.um-note\.um-wait \{ animation: fadeIn var\(--d-small\) var\(--ease\) \.4s backwards; \}/);
   assert.match(css, /@keyframes fadeIn \{ from \{ opacity: 0; \} \}/);
 });

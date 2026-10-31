@@ -9,7 +9,10 @@ const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const css = read('../styles/app.css');
 const js = read('../src/ui/presenter.js');
 
-const secs = (s) => (s.endsWith('ms') ? parseFloat(s) / 1000 : parseFloat(s));
+// (A time in seconds: a number, or a step of the motion scale, tokens.css --d-flip, --d-small, --d-surface.)
+const STEPS = { 'var(--d-flip)': 0.12, 'var(--d-small)': 0.24, 'var(--d-surface)': 0.42 };
+const secs = (s) => (s in STEPS ? STEPS[s] : s.endsWith('ms') ? parseFloat(s) / 1000 : parseFloat(s));
+const T = String.raw`(?:[\d.]+m?s|var\(--d-(?:flip|small|surface)\))`;
 // The body of the rule that opens with `sel` (which ends in its brace).
 const rule = (sel, from = css) => {
   const at = from.indexOf(sel);
@@ -19,12 +22,12 @@ const rule = (sel, from = css) => {
 // A rule's opacity transition: [duration, delay] in seconds.
 const fade = (body) => {
   const list = body.match(/transition: ([^;]*?)(?: !important)?;/)?.[1] ?? '';
-  const m = list.match(/opacity ([\d.]+m?s)(?: var\(--ease\))?(?: ([\d.]+m?s))?/);
+  const m = list.match(new RegExp(`opacity (${T})(?: var\\(--ease\\))?(?: (${T}))?`));
   assert.ok(m, `an opacity transition in "${list}"`);
   return [secs(m[1]), m[2] ? secs(m[2]) : 0];
 };
 const glassIn = (root) => {
-  const m = css.match(new RegExp(`\\.pz\\.${root}\\.${root} \\.pz-data\\.pz-sheet:not\\(\\.pz-hide\\)::before[^{]*\\{ transition-duration: ([\\d.]+m?s); transition-delay: ([\\d.]+m?s); \\}`));
+  const m = css.match(new RegExp(`\\.pz\\.${root}\\.${root} \\.pz-data\\.pz-sheet:not\\(\\.pz-hide\\)::before[^{]*\\{ transition-duration: (${T}); transition-delay: (${T}); \\}`));
   assert.ok(m, `the ${root} card's glass enters with its own duration and delay`);
   return [secs(m[1]), secs(m[2])];
 };
@@ -56,7 +59,7 @@ test('in motion, the handle fades in after the card\'s glass has begun and is ou
 test('with Reduce Motion the handle still fades with the cards, in after the glass and out before it, never popping', () => {
   const block = css.match(/@media \(prefers-reduced-motion: reduce\) \{\n {2}\.pz \*, \.pz,[\s\S]*?\n\}/)?.[0] ?? '';
   assert.ok(block.includes('transition: none !important'), 'the block turns every transition off, the handle\'s included');
-  // (The cards' glass fades in .3 s from the start there: .pz > :is(.pz-data ...) { transition: opacity .3s }.)
+  // (The cards' glass fades in .3 s from the start there: .pz > :is(.pz-data ...) { transition: opacity var(--d-small) }.)
   const [inDur, inDelay] = fade(rule('.pz > .pz-lip {', block));
   const [outDur, outDelay] = fade(rule('.pz > .pz-data.pz-hide + .pz-lip {', block));
   assert.ok(inDur > 0 && inDelay >= 0.3, 'in once the glass has faded in');

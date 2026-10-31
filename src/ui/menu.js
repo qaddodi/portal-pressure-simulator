@@ -5,12 +5,13 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=3611054974';
-import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=80c7abd296';
+import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=ca062f41e6';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { pressureColor } from './colormap.js?v=dc7e0de1bd';
+import { pressureColor } from './colormap.js?v=ddb18485b7';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
 import { frameFor } from './frame.js?v=9d6b717149';
+import { D_FLIP, D_SMALL } from './ease.js?v=387660d4ad';
 const nextFrame = frameFor('menu');
 
 // Where each group's resistance sits along the pathway from the gut to the heart.
@@ -82,12 +83,12 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const sheet = panel.classList.contains('sheet');
     if (o.dragged && !reduce.matches) {
       if (!document.documentElement.classList.contains('thumb-ui') || !sheet) {
-        panel.style.transition = sheet ? 'transform .22s var(--ease)' : 'transform .22s var(--ease), opacity .22s var(--ease)';
+        panel.style.transition = sheet ? `transform ${D_SMALL}ms var(--ease)` : `transform ${D_SMALL}ms var(--ease), opacity ${D_SMALL}ms var(--ease)`;
         panel.style.transform = 'translateY(100%)';
         if (!sheet) panel.style.opacity = '0';
       }
     } else panel.classList.add('out');
-    leaveT = setTimeout(done, sheet || o.dragged ? 280 : 120);
+    leaveT = setTimeout(done, sheet || o.dragged ? D_SMALL : D_FLIP);
   };
   // Typing while the menu is open (and focus is elsewhere) goes to its search.
   const typed = (e) => {
@@ -421,7 +422,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       const s = sw; sw = null;
       if (!s?.on) return;
       const go = !!s.nb && pageGo(s.dx, performance.now() - s.t, s.w);
-      const d = s.dx < 0 ? 1 : -1, ease = 'transform .24s var(--ease)';
+      const d = s.dx < 0 ? 1 : -1, ease = `transform ${D_SMALL}ms var(--ease)`;
       s.cur.style.transition = ease; if (s.nb) s.nb.style.transition = ease;
       s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';
       if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;
