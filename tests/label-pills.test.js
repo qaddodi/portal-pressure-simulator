@@ -12,7 +12,7 @@ const rule = (sel) => css.split('\n').find((l) => l.startsWith(sel));
 test('the base rule of a label pill has a fill and no stroke', () => {
   const r = rule('#labels .lb-bg {');
   assert.ok(r, 'the base rule is there');
-  assert.match(r, /fill: var\(--glass\); stroke: none;/);
+  assert.match(r, /fill: var\(--label-panel\); stroke: none;/);
   assert.doesNotMatch(r, /hairline|stroke-width/);
 });
 

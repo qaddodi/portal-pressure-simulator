@@ -39,7 +39,8 @@ test('atlas picks (18 Oct): smaller chevrons with a tinted dark core and softer 
   assert.match(gl, /vec3 core = mix\(mix\(col, inkLight, 0\.62\), mix\(col, inkDark, 0\.45\), pale\);/);
   // Not taken: the lit cylinder (flat vessels) and the offset organ shadow (the organ art stays).
   assert.doesNotMatch(gl, /vec3 n3 = vec3\(g \* rho/);
-  assert.match(gl, /float aDark = \(1\.0 - smoothstep\(0\.1, 0\.1 \+ soft, abs\(side \+ 0\.62\)\)\) \* thin;/);
+  // (The flat dark line, eased off on the darkest lumens by their own lightness; looks review, 31 Oct.)
+  assert.match(gl, /float aDark = \(1\.0 - smoothstep\(0\.1, 0\.1 \+ soft, abs\(side \+ 0\.62\)\)\) \* thin \* \(0\.45 \+ 0\.55 \* smoothstep\(0\.1, 0\.32, lumY\)\);/);
   assert.doesNotMatch(stage, /class: 'org-ao', transform/);
   assert.doesNotMatch(stage, /band-ao', transform/);
 });

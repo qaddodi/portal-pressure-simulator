@@ -46,7 +46,7 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { createLabelGL } from './label-gl.js?v=509b4edfff';
 import { createGlassGL } from './glass-gl.js?v=099f72c9dd';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=20a9d97239';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=dc5bad477d';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -293,7 +293,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The ascending lumbar collateral (C9) runs up behind the liver, so it is a faint ghost there and solid again where it comes out
   // above the dome (Mohammad, 31 Oct: "I like behind the liver fade"): the same dip, along y, from solid under the liver's lower
   // edge to its faintest where the lane crosses the hepatic veins, back to solid at the diaphragm (liver top y 189, diaphragm
-  // y 170). The organ's own veil (veins-gl, BACK_EDGES) comes on top of it, so behind the liver it is about a third of full.
+  // y 170). The organ's own veil (veins-gl, BACK_EDGES, VEIL_K) comes on top of it, so behind the liver it is about a fifth of full.
   SIN_FADE.C9 = [0, 520, 0, 172, 0.65, 1, 0.55, 3];
   for (const [id, fd] of Object.entries(FEEDERS)) {
     // A generated fan is a tortuous network (drawn like the variceal plexus); listed paths meander.
@@ -2423,7 +2423,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=f22e5db37c').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=67a724fe16').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });

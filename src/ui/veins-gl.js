@@ -186,6 +186,9 @@ const put = (dst, src) => { dst.set(src); return dst; };
 // Stream flags (tube texel 5, w): the stream runs on at the upstream / downstream end; reversed flow.
 export const F_UP = 1, F_DN = 2, F_REV = 4;
 export const F_SEL = 1, F_DIFFUSE = 2, F_SHADOW = 4, F_DOTTED = 8, F_NOCASE = 16, F_SPEC = 32, F_EDGE = 64, F_VEIL = 128;   // F_EDGE: the casing takes its own color (texel 6) and is opaque; F_VEIL: faded along its whole course as if behind an organ
+// How much an organ fades a vessel behind it (and a veiled vessel along its course): to 1 − VEIL_K of full. 0.5 read as a
+// translucent organ with vessels inside it; 0.6 leaves the lumen's ghost and says "behind" (looks review, vessels behind organs, 31 Oct).
+export const VEIL_K = 0.6;
 
 const VS = `#version 300 es
 layout(location=0) in vec2 corner;
@@ -452,7 +455,9 @@ void main() {
   // ── Per-vessel attributes ──
   float stier[MAXS], sz[MAXS], sflag[MAXS], sa[MAXS], swall[MAXS], shov[MAXS], ssel[MAXS];
   vec3 scol[MAXS], sedge[MAXS];
-  float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * 0.5 * organK : 0.0;
+  // (A vessel behind an organ fades to about 0.4 of full where the organ covers it, an atlas's structure seen through another;
+  // the hepatic veins and sinusoids lie inside the liver, in their own tiers, and are not faded by it.)
+  float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * ${VEIL_K} * organK : 0.0;
   for (int s = 0; s < MAXS; s++) {
     if (s >= n) break;
     vec4 t0 = T(sid[s], 0), t1 = T(sid[s], 1), t2 = T(sid[s], 2), t3 = T(sid[s], 3), t4 = T(sid[s], 4);
@@ -493,7 +498,7 @@ void main() {
     // A veiled vessel is faded all along its course, as much as an organ covering it would (behind
     // an organ, by no more than that). In its alpha, so the fade blends across its joins.
     if ((int(t2.z + 0.5) & ${F_VEIL}) != 0 && useOrgan == 1) {
-      float v = 1.0 - 0.5 * organK;
+      float v = 1.0 - ${VEIL_K} * organK;
       a *= tierGroup[int(t2.x + 0.5)] == 0 ? min(1.0, v / max(1.0 - occl, 1e-3)) : v;
     }
     sa[s] = a;
@@ -698,6 +703,8 @@ void main() {
       c = vec4(shadow.rgb * as, as);
     }
     if (sel) { float ar = ring.a * clamp(0.5 - (D - wall - 4.0) / aa, 0.0, 1.0); c = over(vec4(ring.rgb * ar, ar), c); }
+    // (A veiled vessel keeps half its casing: behind an organ the wall's line is the first thing to go.)
+    if ((flags & ${F_VEIL}) != 0) cA *= 0.5;
     c = (flags & ${F_EDGE}) != 0 ? over(vec4(sedge[ow], 1.0) * (0.92 * aC), c) : over(vec4(casing.rgb, 1.0) * (casing.a * cA * aC), c);
     vec3 lum = col;
     float rho = clamp((R + D) / max(R, 1e-3), 0.0, 1.0);
@@ -711,10 +718,14 @@ void main() {
       float side = rho * sign(k);
       float soft = 0.06 + aa / max(R, 1e-3);
       float thin = smoothstep(1.2, 2.6, R / aa) * smoothstep(0.25, 0.7, abs(k));
-      float aDark = (1.0 - smoothstep(0.1, 0.1 + soft, abs(side + 0.62))) * thin;
+      // Both lines by the lumen's own lightness (looks review, the lumen's light lines): on the palest lumens (2 mmHg, nearly white) the light line
+      // has no room and read as a white wire, so it falls to half; on the darkest (wine, the dark theme) the dark line went
+      // below the ground, so it eases off there too. A mid lumen keeps both at full.
+      float lumY = dot(col, vec3(0.299, 0.587, 0.114));
+      float aDark = (1.0 - smoothstep(0.1, 0.1 + soft, abs(side + 0.62))) * thin * (0.45 + 0.55 * smoothstep(0.1, 0.32, lumY));
       lum = mix(lum, shadeInk.rgb, clamp(shadeInk.a * 1.3 * aDark, 0.0, 0.5));
       if ((flags & ${F_SPEC}) != 0) {
-        float aLight = (1.0 - smoothstep(0.07, 0.07 + soft, abs(side - 0.5))) * thin;
+        float aLight = (1.0 - smoothstep(0.07, 0.07 + soft, abs(side - 0.5))) * thin * (1.0 - 0.5 * smoothstep(0.72, 0.9, lumY));
         lum = mix(lum, sheenInk.rgb, clamp(sheenInk.a * 0.75 * aLight, 0.0, 0.5));
       }
     }
