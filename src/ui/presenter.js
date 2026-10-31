@@ -30,7 +30,7 @@ import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
 import { createHvpgMonitor } from './hvpg-proc.js?v=263b1d0623';
-import { createTools } from './presenter-tools.js?v=09d6e5f3fd';
+import { createTools } from './presenter-tools.js?v=36a7d2e65c';
 import { openHandout } from './handout.js?v=673090c001';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -47,7 +47,7 @@ import { causeFit } from './cause-fit.js?v=830a6835a5';
 import { anchorsOf, roomFor } from './cam-room.js?v=ef5e466418';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
-import { flowTimeHeight, trailKeys } from './flow-time.js?v=9da13443fa';
+import { flowTimeHeight, trailKeys } from './flow-time.js?v=665223a4a5';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=f70220794d';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=b2bbcb6fb2';
