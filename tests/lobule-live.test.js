@@ -575,3 +575,35 @@ test('no kept picture where it cannot be exact: ?tissuekeep=0, a drawing buffer 
     assert.deepEqual(tg.kept, { full: 0, shifted: 0, still: 0 });
   }
 });
+
+// ── The bitmaps the shader covers (31 Oct, his proxy: "drop the painted bitmaps wherever the live path covers them") ──
+test('the bitmap is out of the GPU\'s picture exactly when the share is 1: the share is 1 only with the shader fully eased in and the zoom whole, and the shader then mixes the bitmap out', async () => {
+  const { liveShareOf, liveZoomShare } = await import('../src/ui/lobule-live.js');
+  for (const e of [0, 0.2, 0.5, 0.999, 1]) for (const z of [0, 0.3, 0.999, 1]) {
+    const s = liveShareOf(e, z);
+    assert.equal(s >= 1, e >= 1 && z >= 1, `eased ${e}, zoom ${z}: share ${s}`);
+  }
+  assert.equal(liveZoomShare(6 / (R * 0.052), R), 1, 'whole from a cell of 6 px');
+  assert.match(gl, /c = mix\(c, ls\.rgb \+ c0 \* \(1\.0 - ls\.a\), uLive\);/, 'at 1 the bitmap\'s part of the picture is multiplied by 0');
+});
+
+test('with the shader covering the picture the bitmap is not painted ahead, not repainted at each step of a gesture, and does not crossfade; everything else about it is as it was', () => {
+  const lz = uiSrc('lobule-zoom.js');
+  assert.match(lz, /const bitmapUnseen = \(\) => liveShare >= 1 && tissueOnGL && offPage\(\);/, 'the share is 1, the last frame was the GPU\'s, and the worker can paint');
+  // The painted-ahead copy: none, and one made earlier is given back; a job for one that lands later is dropped.
+  const sm = lz.slice(lz.indexOf('function spareMake() {'), lz.indexOf('\n  }\n', lz.indexOf('function spareMake() {')));
+  assert.match(sm, /if \(bitmapUnseen\(\)\) \{\n[^\n]*\n\s+if \(spare \|\| spareCv\.width\) \{ free\(spareCv\); spare = null; \}\n\s+\} else if \(sc > worldSc \* 1\.01 && /);
+  assert.match(sm, /const tone = shadeOf\(stageBg\(cs, dark\), dark\), \{ a, b \} = fieldBlend\(/, 'the surround\'s tiles for that zoom are still prepared: they are seen');
+  assert.match(lz, /const jobLive = \(j\) => j\.gen === jobGen && j\.G === geo && \(j\.kind === 'spare' \? !bitmapUnseen\(\) : j\.seq === worldSeq\);/);
+  // A gesture's zoom holds the bitmap at the sharpness it has; the GPU's frame needs no sharper. Once the hand lets go it is painted at the zoom's own.
+  assert.match(lz, /if \(held && kept && \(!gpu \|\| sc <= worldSc \|\| bitmapUnseen\(\)\)\) \{ if \(hand && sc !== worldSc\) holdSoon\(\); sc = worldSc; \}/);
+  // No crossfade into a bitmap nobody sees, in the page's paint and in the worker's landing; the 2D canvas (gpu false) keeps its crossfade.
+  assert.match(lz, /!unseen\(\) && !\(gpu && liveShare >= 1\) && worldGeo === G && worldCv\.width && !\(xfT0 && now - xfT0 < XF_MS\)\) \{ \[worldOld, worldCv\]/);
+  assert.match(lz, /!unseen\(\) && !\(tissueOnGL && liveShare >= 1\) && worldGeo === j\.G && worldCv\.width && !\(xfT0 && now - xfT0 < XF_MS\)\) \{ free\(worldOld\);/);
+  // What stays, and why: the 2D canvas path asks for the bitmap at the zoom's own sharpness whatever the shader does, because the dive's and the rise's
+  // copies (paint2D, and buildWide's tiles) are made from it, and a bitmap that is not there is painted on the page, which is what the worker took off it.
+  const pt = lz.slice(lz.indexOf('function paintTissue('), lz.indexOf('\n  }\n', lz.indexOf('function paintTissue(')));
+  assert.match(pt, /let sc = Math\.min\(2 \*\* \(Math\.ceil\(Math\.log2\(Math\.max\(0\.05, dpr \* V\.k\)\) \* 2\) \/ 2\), worldCap\(G, dpr\)\);/, 'the scale is the zoom\'s own, shader or not');
+  assert.match(lz, /paintTissue\(W, H, Math\.min\(saver\(\) \? 1 : 2, devicePixelRatio \|\| 1\) \* lzScale\(\), isDark\(\), styles\(\), !g, null\);/, 'paint2D: gpu false');
+  assert.match(lz, /tissueKey = ''; paintTissue\(w, hh, dpr, dark, cs, flat\);/, 'buildWide: tiles painted through the 2D path');
+});

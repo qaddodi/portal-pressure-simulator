@@ -2719,7 +2719,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (Twice the zoom's own sharpness, stepped as paintTissue steps it, within the bitmap's largest size.)
     const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), cap = worldCap(G, dpr);
     const dark = isDark(), cs = styles(), ws = worldStateOf(m, G, dark, cs), sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2) * 2, cap);
-    if (sc > worldSc * 1.01 && !(spare && spare.G === G && spare.ws === ws && spare.sc >= sc)) {
+    if (bitmapUnseen()) {
+      // (The shader has the whole picture, so no bitmap is seen at the zooms this one is for: none is painted, and one made earlier is given back.)
+      if (spare || spareCv.width) { free(spareCv); spare = null; }
+    } else if (sc > worldSc * 1.01 && !(spare && spare.G === G && spare.ws === ws && spare.sc >= sc)) {
       // (In the worker where it can paint, so the page never waits for it; a job already under way is waited for.)
       // (Not while the bitmap shown is still waiting for the one the lobule wants: that one goes first.)
       if (offPage()) { if (worldKey !== wantWk || !askPaint('spare', sc, ws, '', m, G, dark, cs)) spareSoon(); }
@@ -2791,6 +2794,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Without the GPU (and so in the headless checks) and until the worker is ready, the bitmap is painted here, as before.
   const painter = createTissueWorker();
   const offPage = () => !!tissueGLOn() && painter.ready;
+  // The GPU's frame does not show the bitmap when the shader has the whole picture: its share is 1 (a cell 6 px or more across, and the
+  // shader eased fully in, so the bitmap is mixed out entirely: tissue-gl.js uLive). Then the bitmap exists for the 2D canvas, which the
+  // dive's and the rise's copies are made from (paint2D, buildWide), and for the zooms where the share falls below 1 again, and
+  // nothing else: it is not painted ahead (spareMake), not held at the sharpness of a gesture's every step (paintTissue), and a new
+  // state does not crossfade into it. Needs the worker (offPage), so the bitmap is never painted on the page to make up for it.
+  const bitmapUnseen = () => liveShare >= 1 && tissueOnGL && offPage();
   const TILE_BYTES = 4 * 1024 * 1024;   // laid per frame (four 512 px tiles, about a millisecond)
   const layNext = frameFor('lobule-tiles');
   let job = null, laying = null, worldSeq = 0, jobGen = 0, wantWk = '';   // (wantWk: the bitmap the screen last wanted)
@@ -2803,7 +2812,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     painter.paint({ shape, n, sc, bx: G.cx - B, by: G.cy - B, P }).then((tiles) => landed(j, tiles));
     return true;
   }
-  const jobLive = (j) => j.gen === jobGen && j.G === geo && (j.kind === 'spare' || j.seq === worldSeq);
+  const jobLive = (j) => j.gen === jobGen && j.G === geo && (j.kind === 'spare' ? !bitmapUnseen() : j.seq === worldSeq);
   const closeTiles = (tiles, from = 0) => { for (let i = from; i < (tiles?.length || 0); i++) { try { tiles[i].bmp.close(); } catch { /* gone */ } } };
   function landed(j, tiles) {
     if (job === j) job = null;
@@ -2841,10 +2850,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (j.kind === 'spare') {
       free(spareCv); spareCv = cv; spare = { sc: j.sc, ws: j.ws, G: j.G };
     } else {
+      // (Not while the shader has the whole picture (bitmapUnseen's share): the bitmap is not seen, so there is nothing to fade and no old one kept.)
       // (The old picture stays under the new one as it fades in; a change while one is fading in replaces the incoming picture and
       // lets the fade run on.)
       const now = performance.now();
-      if (worldState && j.ws !== worldState && !unseen() && worldGeo === j.G && worldCv.width && !(xfT0 && now - xfT0 < XF_MS)) { free(worldOld); worldOld = worldCv; worldOldSc = worldSc; xfT0 = now; }
+      if (worldState && j.ws !== worldState && !unseen() && !(tissueOnGL && liveShare >= 1) && worldGeo === j.G && worldCv.width && !(xfT0 && now - xfT0 < XF_MS)) { free(worldOld); worldOld = worldCv; worldOldSc = worldSc; xfT0 = now; }
       else free(worldCv);
       worldCv = cv;
       worldKey = j.wk; worldState = j.ws; worldSc = j.sc; worldGeo = j.G; worldDraws++; worldSeq++;
@@ -2919,7 +2929,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       worldSc = spare.sc; worldKey = worldSc.toFixed(3) + '|' + ws; spare = null; worldSeq++;
     }
     if (!held && gpu && kept && ws === worldState && sc <= worldSc && worldSc <= sc * 2.01) sc = worldSc;
-    if (held && kept && (!gpu || sc <= worldSc)) { if (hand && sc !== worldSc) holdSoon(); sc = worldSc; }
+    if (held && kept && (!gpu || sc <= worldSc || bitmapUnseen())) { if (hand && sc !== worldSc) holdSoon(); sc = worldSc; }   // (bitmapUnseen: not repainted at each step of a gesture's zoom, as nothing of it is seen; drawn at the zoom's sharpness once the hand lets go, for the 2D canvas)
     const wk = sc.toFixed(3) + '|' + ws;
     const now = performance.now(), fading = tissueFading(now), gk = greyNow(now);   // (gk: the surround's grey, easing with the lens)
     const lk = gpu ? liveStep(dpr, now) : 0;   // (the share of the lobule drawn live by the shader)
@@ -2938,9 +2948,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (askPaint('world', sc, ws, wk, m, G, dark, cs) && gpuProbe.on && job?.wk === wk && !job.noted) { job.noted = true; gpuProbe.note(COUNTED.tissueWhy + (ws !== worldState ? 'state changed' : sc > worldSc ? 'zoomed in' : 'zoomed out'), Math.ceil(2.6 * R * sc) ** 2 * 4 / 1024); }
     } else if (wk !== worldKey) {
       // The tissue's state changed (not just the scale it is drawn at): the old picture stays under the new one as it fades in.
+      // (Not while the shader has the whole picture, as in adopt: the bitmap is painted again in place.)
       // (A change while one is fading in redraws the incoming picture in place and lets the fade run on, so a state that keeps
       // moving, as the pressures glide after a new patient, never restarts it.)
-      if (worldState && ws !== worldState && !unseen() && worldGeo === G && worldCv.width && !(xfT0 && now - xfT0 < XF_MS)) { [worldOld, worldCv] = [worldCv, worldOld]; worldOldSc = worldSc; xfT0 = now; }
+      if (worldState && ws !== worldState && !unseen() && !(gpu && liveShare >= 1) && worldGeo === G && worldCv.width && !(xfT0 && now - xfT0 < XF_MS)) { [worldOld, worldCv] = [worldCv, worldOld]; worldOldSc = worldSc; xfT0 = now; }
       // (For the ?perf readout: why, and how large, gpu-probe.js TISSUE_WHY.)
       if (gpuProbe.on) gpuProbe.note(COUNTED.tissueWhy + (!worldState || worldGeo !== G ? 'first' : ws !== worldState ? 'state changed' : sc > worldSc ? 'zoomed in' : 'zoomed out'), Math.ceil(2.6 * R * sc) ** 2 * 4 / 1024);
       worldKey = wk; worldState = ws;
