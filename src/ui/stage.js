@@ -44,10 +44,10 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
 import { createLabelGL } from './label-gl.js?v=9590f4546d';
 import { createGlassGL } from './glass-gl.js?v=6e154f54c3';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=0524035dea';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=93c47fc66b';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
-import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=300b3b5267';
+import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=ac26170d49';
 import { retireRows } from './flow-rows.js?v=bea4089714';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
 import { frameFor, lateFrameFor, cancelFrame, finalFrameFor, framePhase, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=b11d87fd1b';
@@ -95,6 +95,9 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 // CI's visual check asks, to compare it with the page's own drawing.
 const OVER_ASK = typeof location !== 'undefined' && /[?&]stageover=gpu\b/.test(location.search);
 const OVER_GPU = !(typeof location !== 'undefined' && /[?&]stageover=svg\b/.test(location.search));
+// Parcels and arrowheads carried through junctions (blood.js createStreamChain; combined plan B1 + C1). ?bloodchain=0: each
+// vessel's blood its own pattern, dimmed at every join, as before.
+const BLOOD_CHAIN = !(typeof location !== 'undefined' && /[?&]bloodchain=0\b/.test(location.search));
 // Relative luminance of an 'rgb(r,g,b)' string (non-rgb strings count as dark).
 function luminance(c) {
   const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c || '');
@@ -2298,7 +2301,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=8ffe4c0791').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=84050bd855').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -10224,6 +10227,46 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let bloodEasing = false;
   const blendA = { s: null, c: null, o: null };   // shown share of the streaks, the chevrons and the origin colours (stepBlood)
   const eased = (v, to, k) => { if (Math.abs(to - v) <= 0.002) return to; bloodEasing = true; return v + (to - v) * k; };
+  // Parcels through junctions (blood.js createStreamChain): each drawn vessel's main row, by its shown direction, with the model's
+  // mean display speed (not the shown one, which eases to a stop on pause and swings with the beat: the link holds through both).
+  // The cava is one tube of two edges (drawItems), so it keeps its own pattern. Written into the rows put() just filled: flow texel
+  // 3 w the parent's row + 1; texel 4 the root's row + 1, A, B, w; texel 5 the root's distance and drift, and the ends' weights.
+  const chain = createStreamChain(), chainIt = [], chainK = new Map();   // (chainK: row → edge, kept: a root fading out may no longer be drawn)
+  const NO_CHAIN = new Set(['IVC_IS', 'IVCS_RA']);
+  function chainRows(kW, kB) {
+    let n = 0;
+    for (const x of EV) {
+      if (!x.vis || x.isArt || x.g.classList.contains('coll-ghost') || NO_CHAIN.has(x.e.id) || !flowNow[x.row]) continue;
+      const g = geo[x.e.id], P = g?.cur, len = g?.len;
+      if (!P || P.length < 2 || !(len > 0)) continue;
+      const k = EI[x.e.id], sm = streams[k], sg = sm.sgn || 1, fwd = sg > 0;
+      const it = chainIt[n] || (chainIt[n] = {});
+      it.key = x.row; it.k = k;
+      it.up = fwd ? x.e.from : x.e.to; it.down = fwd ? x.e.to : x.e.from;
+      it.upPt = fwd ? P[0] : P[P.length - 1]; it.downPt = fwd ? P[P.length - 1] : P[0];
+      it.s0 = fwd ? 0 : len; it.sj = fwd ? len : 0;
+      it.q = Math.abs((F.Qf || F.Q)[k]);
+      it.m = displaySpeed(sg * Math.max(0, sg * velQf[k]));
+      n++;
+    }
+    chainIt.length = n;
+    const c = chain.step(chainIt, kW, kB);
+    if (c.easing) bloodEasing = true;
+    for (let i = 0; i < n; i++) chainK.set(chainIt[i].key, chainIt[i].k);
+    for (let i = 0; i < n; i++) {
+      const o = chainIt[i].key * FLOW_TEXELS * 4, w = c.w[i], ef = c.ef[i], et = c.et[i];
+      if (!(w > 0) && !ef && !et) continue;
+      if (w > 0) {
+        const rk = chainK.get(c.root[i]), rs = rk != null ? streams[rk] : null;
+        if (rs) {
+          flowData[o + 15] = c.par[i] + 1;
+          flowData[o + 16] = c.root[i] + 1; flowData[o + 17] = c.A[i]; flowData[o + 18] = c.B[i]; flowData[o + 19] = w;
+          flowData[o + 20] = rs.D; flowData[o + 21] = rs.drift || 0;
+        }
+      }
+      flowData[o + 22] = ef; flowData[o + 23] = et;
+    }
+  }
   function stepBlood(dt) {
     const st = store.get(), b = st.blood || {};
     const moving = st.running && !reduceMotion.matches;
@@ -10301,6 +10344,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The liver's branches in the circuit: a share of the vessel's flow by caliber.
       if (morph >= 0.5) for (const cb of x.cbr || []) if (cb.w) put(cb.row, k, q * 0.5 * (cb.w / Math.max(1, x.width)) ** 2, true, true, rs);
     }
+    if (on && BLOOD_CHAIN) chainRows(reduceMotion.matches ? 1 : -Math.expm1(-dt / 0.25), reduceMotion.matches ? 1 : -Math.expm1(-dt / 1));
     const retired = retireRows(flowData, flowWas, flowNow, FLOW_TEXELS * 4);
     if (retired && gpuProbe.on) for (let i = 0; i < retired; i++) gpuProbe.note(COUNTED.flowRetired);
     veins.setFlow(flowData);

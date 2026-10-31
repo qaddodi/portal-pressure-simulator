@@ -33,7 +33,7 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
-import { SLOT, DYE_BINS } from './blood.js?v=300b3b5267';
+import { SLOT, DYE_BINS } from './blood.js?v=ac26170d49';
 import { cssRGB } from './util.js?v=90ca733567';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=dfcc262e2a';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=7eb5e277a6';
@@ -48,7 +48,7 @@ import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSiz
 export { binVeins };
 
 export const N_SAMPLES = 64;
-export const FLOW_TEXELS = 4;          // per-vessel blood: see stage.js (syncBlood)
+export const FLOW_TEXELS = 6;          // per-vessel blood: see stage.js (stepBlood, chainRows)
 const SLOT_W = SLOT;
 export const TUBE_TEXELS = 13;         // texels of per-vessel attributes (see the layout below)
 export const MAX_TIERS = 20;
@@ -1070,7 +1070,9 @@ float vnoiseT(vec2 q, uint seed, int period, ivec2 o, int yo, int ny) {
 
 // The shimmer's noise at one parcel scale sx (its slot): two lane speeds blended by t, the fine octave
 // faded out where it would fall under a pixel and a half (replaced by its mean, so the level holds).
-float shimN(int id, float s, float qy, float D, float k0, float t, float sx, float drift, float fw) {
+// (bs: how many times shorter the cells are along this lumen than along the stream they are drawn from: 1 for a vessel's own,
+// |B| for a stream carried on into it (createStreamChain), so the fine octave fades where its cells fall under a pixel here.)
+float shimN(int id, float s, float qy, float D, float k0, float t, float sx, float drift, float fw, float bs) {
   float period = 256.0 * sx, cellA = 5.12 * sx;   // 50 cells a period: the noise wraps with the stream
   int per = 50;
   vec2 qa = vec2((s - mod(D * k0 / 8.0, period)) / cellA + drift, qy);
@@ -1078,6 +1080,7 @@ float shimN(int id, float s, float qy, float D, float k0, float t, float sx, flo
   uint sd0 = uint(id) * 31u, sd1 = uint(id) * 57u + 11u;
 #if FAST == 0
   fw = smoothstep(1.2 * pxW, 2.0 * pxW, cellA * 0.5);
+  if (bs != 1.0) fw = smoothstep(1.2 * pxW, 2.0 * pxW, cellA * 0.5 / bs);
 #endif
   bool fine = fw > 0.0;
 #if FAST
@@ -1195,18 +1198,44 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
   // cell size cross-fading between the parcel scales (1, 2, 4 slots) over a band of zoom, where the beads switch at once.
   float qy = y * R / max(0.55 * 1.6 * R / clamp(1.7 * R / Lg, 1.0, 7.0), 3.2 * pxW);
   float drift = texelFetch(flow, ivec2(3, id), 0).z;   // (added up per stream on the CPU: blood.js drift)
+  // A stream carried on from another vessel (flow texel 4: the root's row + 1, A, B, its weight cw; texel 5: the root's distance
+  // and drift): the root's pattern at s_e = A + B s, mixed with the vessel's own by cw while a link forms or lets go.
+  vec4 ch4 = texelFetch(flow, ivec2(4, id), 0);
+  float cw = ch4.w;
 #if FAST
   float sA = zoomA.y, sB = zoomA.z, lf = zoomA.w;
-  float nz = shimN(id, s, qy, D, k0, t, sA, drift, zoomB.x);
-  if (lf > 0.0) nz = mix(nz, shimN(id, s, qy, D, k0, t, sB, drift, zoomB.y), lf);
+  float nz = 0.0;
+  if (cw < 1.0) {
+    nz = shimN(id, s, qy, D, k0, t, sA, drift, zoomB.x, 1.0);
+    if (lf > 0.0) nz = mix(nz, shimN(id, s, qy, D, k0, t, sB, drift, zoomB.y, 1.0), lf);
+  }
+  if (cw > 0.0) {
+    vec4 ch5 = texelFetch(flow, ivec2(5, id), 0);
+    int rid = int(ch4.x + 0.5) - 1;
+    float se = ch4.y + ch4.z * s, bs = max(abs(ch4.z), 1e-3);
+    float nc = shimN(rid, se, qy, ch5.x, k0, t, sA, ch5.y, smoothstep(1.2 * pxW, 2.0 * pxW, 2.56 * sA / bs), bs);
+    if (lf > 0.0) nc = mix(nc, shimN(rid, se, qy, ch5.x, k0, t, sB, ch5.y, smoothstep(1.2 * pxW, 2.0 * pxW, 2.56 * sB / bs), bs), lf);
+    nz = cw >= 1.0 ? nc : mix(nz, nc, cw);
+  }
   float sx = zoomB.z;
 #else
   float lx = clamp(log2(max(pxW, 1e-4) * 8.0 / SLOT), -1.0, 3.0);
   float li = smoothstep(-0.2, 0.2, lx) + smoothstep(0.8, 1.2, lx);   // 0 … 2
   float lb = min(floor(li), 1.0), lf = li - lb;
   float sA = SLOT * exp2(lb), sB = SLOT * exp2(lb + 1.0);
-  float nz = shimN(id, s, qy, D, k0, t, sA, drift, 0.0);
-  if (lf > 0.0) nz = mix(nz, shimN(id, s, qy, D, k0, t, sB, drift, 0.0), lf);
+  float nz = 0.0;
+  if (cw < 1.0) {
+    nz = shimN(id, s, qy, D, k0, t, sA, drift, 0.0, 1.0);
+    if (lf > 0.0) nz = mix(nz, shimN(id, s, qy, D, k0, t, sB, drift, 0.0, 1.0), lf);
+  }
+  if (cw > 0.0) {
+    vec4 ch5 = texelFetch(flow, ivec2(5, id), 0);
+    int rid = int(ch4.x + 0.5) - 1;
+    float se = ch4.y + ch4.z * s, bs = max(abs(ch4.z), 1e-3);
+    float nc = shimN(rid, se, qy, ch5.x, k0, t, sA, ch5.y, 0.0, bs);
+    if (lf > 0.0) nc = mix(nc, shimN(rid, se, qy, ch5.x, k0, t, sB, ch5.y, 0.0, bs), lf);
+    nz = cw >= 1.0 ? nc : mix(nz, nc, cw);
+  }
   float sx = mix(sA, sB, lf);
 #endif
   p = max(min(1.0, flux * sx / (max(abs(vd), 2.0) * sumK)), 0.45 * stasis);
@@ -1248,24 +1277,25 @@ float bendAt(int id, float s, float len) {
   return mix(texelFetch(bend, ivec2(i0, id), 0).r, texelFetch(bend, ivec2(i0 + 1, id), 0).r, ui - float(i0));
 }
 // (f0, f1, len and Rs, the caliber at s: read once in main, as for bloodAt.)
-vec2 chevAt(int id, float s, float y, vec4 f0, vec4 f1, float len, float Rs) {
-  // One size and one spacing for the whole vessel (from its caliber midway), so every head is the
-  // same shape and they keep an even distance; they move at the vessel's own speed, whatever the zoom.
-  float R = max(texelFetch(rad, ivec2(N_LAST / 2, id), 0).r, 0.3);
-  if (R < 1.3 * pxW) return vec2(0.0);
+// One vessel's heads, placed by a stream's pattern: se = A + B s its arc along that stream (B = 1, se = s for the vessel's own),
+// Dm the stream's distance, Rsp the caliber its spacing is set by (the stream's own, so a chain of vessels shares one spacing).
+// ends: the weights of a link at the from and to end (flow texel 5, z and w; above 0: a chained end, through which the heads
+// run instead of fading out).
+vec2 chevOne(int id, float s, float y, vec4 f0, vec4 f1, float len, float Rs, float R, float se, float Bm, float Dm, float Rsp, vec2 ends) {
   float vd = f0.y, dir = vd < 0.0 ? -1.0 : 1.0;
   // Spacing: a power-of-two multiple of 28 world units (it divides the stream's period: no jump on
   // wrap), at least ~60 px on screen. Zooming out, every other head fades away before the spacing
   // doubles (the coarser heads are a subset of the finer ones), so nothing jumps or pops.
-  float lv = max(0.0, log2(max(3.6 * R, 60.0 * pxW) / 28.0));
+  float lv = max(0.0, log2(max(3.6 * Rsp, 60.0 * pxW) / 28.0));
   // Reduced motion: the heads stand still, so their spacing carries the flow instead: closer where more blood passes
   // (flow texel 3, y: a coarser level for less flow). Never closer than the zoom allows.
   if (still == 1) lv = max(lv, texelFetch(flow, ivec2(3, id), 0).y);
   float n = floor(lv), fr = lv - n;
   float P = 28.0 * exp2(n), Pc = 28.0 * exp2(lv);
-  float x = mod(s - f0.x + 0.5 * P, P) - 0.5 * P, u = x * dir;
+  float xe = mod(se - Dm + 0.5 * P, P) - 0.5 * P;
+  float x = xe / Bm, u = x * dir;
   float sc = s - x;
-  float odd = mod(floor((sc - f0.x) / P + 0.5), 2.0);
+  float odd = mod(floor((se - xe - Dm) / P + 0.5), 2.0);
   float keep = odd > 0.5 ? 1.0 - smoothstep(0.15, 0.85, fr) : 1.0;
   float hw = min(0.8 * R, clamp(0.5 * R, 4.0 * cssPx * pxW, 8.0 * cssPx * pxW)), L = 1.6 * hw;            // half width, length: one fixed shape per vessel, never stretched
   // Past the head and its soft rim along the course (|u| > 0.55 L + 0.19 hw + 3.4 px reaches nothing): no more reads.
@@ -1277,13 +1307,41 @@ vec2 chevAt(int id, float s, float y, vec4 f0, vec4 f1, float len, float Rs) {
   // the outside: measured in s alone a head squashes and bends with the vessel. Its true distance along, at yd across,
   // is the span of s times (1 − κ yd), so the head keeps its one straight shape wherever it sits.
   u *= clamp(1.0 - bendAt(id, sc, len) * yd, 0.25, 2.5);
-  // Toward either end a head fades out (and the next vessel's fade in), never cut by a join.
-  float e = min(sc, len - sc);
-  if (e < 0.6 * L) return vec2(0.0);
-  float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z * texelFetch(flow, ivec2(3, id), 0).x * keep * smoothstep(0.6 * L, 0.6 * L + max(2.0 * L, 0.3 * Pc), e) * smoothstep(1.3 * pxW, 2.4 * pxW, R);
+  // Toward either end a head fades out (and the next vessel's fade in), never cut by a join; through a chained end it runs on.
+  float lo = 0.6 * L, ramp = max(2.0 * L, 0.3 * Pc), endF;
+  if (ends.x <= 0.0 && ends.y <= 0.0) {
+    float e = min(sc, len - sc);
+    if (e < lo) return vec2(0.0);
+    endF = smoothstep(lo, lo + ramp, e);
+  } else {
+    float a0 = sc < lo ? 0.0 : smoothstep(lo, lo + ramp, sc), a1 = len - sc < lo ? 0.0 : smoothstep(lo, lo + ramp, len - sc);
+    endF = min(mix(a0, 1.0, clamp(ends.x, 0.0, 1.0)), mix(a1, 1.0, clamp(ends.y, 0.0, 1.0)));
+    if (endF <= 0.0) return vec2(0.0);
+  }
+  float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z * texelFetch(flow, ivec2(3, id), 0).x * keep * endF * smoothstep(1.3 * pxW, 2.4 * pxW, R);
   // Where the lumen is narrower than the head, the head fades out instead of squeezing to fit.
   fade *= smoothstep(0.85 * hw, 1.15 * hw, Rl);
   return chevHead(u, ay, hw, pxW) * fade;
+}
+vec2 chevAt(int id, float s, float y, vec4 f0, vec4 f1, float len, float Rs) {
+  // One size and one spacing for the whole vessel (from its caliber midway), so every head is the
+  // same shape and they keep an even distance; they move at the vessel's own speed, whatever the zoom.
+  float R = max(texelFetch(rad, ivec2(N_LAST / 2, id), 0).r, 0.3);
+  if (R < 1.3 * pxW) return vec2(0.0);
+  // A stream carried on from another vessel (createStreamChain): its heads are the root's, spaced by the root's caliber, so they
+  // run from one vessel into the next; mixed with the vessel's own by the link's weight while it forms or lets go. (Reduced
+  // motion: the still heads are spaced by each vessel's own flow, so each keeps its own.)
+  vec4 ch4 = texelFetch(flow, ivec2(4, id), 0), ch5 = texelFetch(flow, ivec2(5, id), 0);
+  float cw = still == 1 ? 0.0 : ch4.w;
+  vec2 c = vec2(0.0);
+  if (cw < 1.0) c = chevOne(id, s, y, f0, f1, len, Rs, R, s, 1.0, f0.x, R, ch5.zw);
+  if (cw > 0.0) {
+    int rid = int(ch4.x + 0.5) - 1;
+    float Rr = max(texelFetch(rad, ivec2(N_LAST / 2, rid), 0).r, 0.3);
+    vec2 cc = chevOne(id, s, y, f0, f1, len, Rs, R, ch4.y + ch4.z * s, ch4.z, ch5.x, Rr, ch5.zw);
+    c = cw >= 1.0 ? cc : mix(c, cc, cw);
+  }
+  return c;
 }
 // Dye concentration in one lumen: the column's front is bullet-shaped, the axis ahead of the wall
 // (laminar flow).
@@ -1426,10 +1484,42 @@ void main() {
         vc1 = mix(texelFetch(tube, ivec2(0, id1), 0).rgb, texelFetch(tube, ivec2(1, id1), 0).rgb, clamp(s1 / len1, 0.0, 1.0));
       }
     }
+    // Near a join: whether the two lumens draw one pattern there (rel, 0..1: one is carried on from the other, or both from the
+    // same parent; createStreamChain), and whether either is the minor inflow where a chained vessel takes the other's blood (mn).
+    // Both 0 where nothing is chained (?bloodchain=0, the lobule).
+    float rel = 0.0, mn = 0.0;
+    vec4 f0b = vec4(0.0), f1b = vec4(0.0);
+    float len2 = 1.0, R2 = 0.3;
+    if (b > 0.004 && (blood == 1 || chev == 1)) {
+      float p1 = texelFetch(flow, ivec2(3, id1), 0).w - 1.0, p2 = texelFetch(flow, ivec2(3, id2), 0).w - 1.0;
+      float w1 = texelFetch(flow, ivec2(4, id1), 0).w, w2 = texelFetch(flow, ivec2(4, id2), 0).w;
+      if (p1 > -0.5 && abs(p1 - float(id2)) < 0.5) rel = w1;
+      else if (p2 > -0.5 && abs(p2 - float(id1)) < 0.5) rel = w2;
+      else if (p1 > -0.5 && abs(p1 - p2) < 0.5) rel = min(w1, w2);
+      // (Each lumen's weight at the end nearer this pixel: a vessel is the minor inflow at one end only.)
+      vec2 e1 = texelFetch(flow, ivec2(5, id1), 0).zw, e2 = texelFetch(flow, ivec2(5, id2), 0).zw;
+      len2 = max(texelFetch(tube, ivec2(5, id2), 0).z, 1.0);
+      float lenA = max(texelFetch(tube, ivec2(5, id1), 0).z, 1.0);
+      mn = max(-min(s1 < 0.5 * lenA ? e1.x : e1.y, 0.0), -min(s2 < 0.5 * len2 ? e2.x : e2.y, 0.0));
+      if (rel > 0.0) {
+        f0b = texelFetch(flow, ivec2(0, id2), 0); f1b = texelFetch(flow, ivec2(1, id2), 0);
+        if (f1b.z > 0.0) R2 = radAt(id2, s2, len2);
+        else rel = 0.0;
+      }
+    }
     if (blood == 1 && f1.z > 0.0) {
-      // One streak field (the dominant lumen's), eased down toward the join, so two patterns never ghost over each other.
+      // One streak field (the dominant lumen's), eased down toward the join, so two patterns never ghost over each other. Where
+      // both lumens draw one pattern, the two are mixed by share instead (the same mix from either side of the seam) and nothing
+      // dims; the minor inflow into a chained vessel dims half as much.
       vec4 A = bloodAt(id1, s1, y1, col, f0, f1, len1, R1, vc1);
-      float a = A.a * (1.0 - 0.6 * smoothstep(0.02, 0.5, b));
+      if (rel > 0.0) {
+        vec3 vc2 = mix(texelFetch(tube, ivec2(0, id2), 0).rgb, texelFetch(tube, ivec2(1, id2), 0).rgb, clamp(s2 / len2, 0.0, 1.0));
+        vec4 A2 = bloodAt(id2, s2, y2, col, f0b, f1b, len2, R2, vc2);
+        float bb = b * rel, aa = mix(A.a, A2.a, bb);
+        A = vec4((A.rgb * A.a * (1.0 - bb) + A2.rgb * A2.a * bb) / max(aa, 1e-4), aa);
+      }
+      float dimK = mix(mix(0.6, 0.3, mn), 0.0, rel);
+      float a = A.a * (1.0 - dimK * smoothstep(0.02, 0.5, b));
       if (a > 0.0) col = mix(col, A.rgb, clamp(a * vis * flowA * blendA.x, 0.0, 1.0));
     }
     if (dyeOn == 1) {
@@ -1442,7 +1532,10 @@ void main() {
     }
     if (chev == 1 && f1.z > 0.0) {
       vec2 c = chevAt(id1, s1, y1, f0, f1, len1, R1);
-      c *= 1.0 - smoothstep(0.02, 0.25, b);   // none where another vessel joins
+      // None where another vessel joins, except where the two draw one pattern: there the heads run on from one into the other,
+      // mixed by share as the streaks are.
+      if (rel > 0.0) c = mix(c, chevAt(id2, s2, y2, f0b, f1b, len2, R2), b * rel);
+      c *= 1.0 - smoothstep(0.02, 0.25, b) * (1.0 - rel);
 #if FAST
       // (The cut-outs below only ever scale a head down: where there is none, c stays zero whatever they say, so they are not
       // tested at all. Most lumen pixels have no head.)
@@ -2033,13 +2126,22 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     return false;
   };
   const streams = (data, stride, r) => data[r * stride + 6] > 0;   // (flow texel 1, z: the streaks' strength)
+  // (A row some streaming row draws its pattern from (flow texel 4, x: that root's row + 1; createStreamChain) needs its block too,
+  // drawn itself or not.)
+  const rootOf = new Uint8Array(nTubes);
   const fillNoise = (data, stride) => {
+    rootOf.fill(0);
+    for (let r = 0; r < nTubes; r++) {
+      const q = Math.round(data[r * stride + 16]) - 1;
+      if (q >= 0 && q < nTubes && data[r * stride + 19] > 0 && streams(data, stride, r)) rootOf[q] = 1;
+    }
+    const needs = (r) => streams(data, stride, r) || rootOf[r] === 1;
     // (Made larger once for the last row that needs it, if any: every streaming row then filled again.)
     let top = -1;
-    for (let r = nTubes - 1; r >= noiseRows && top < 0; r--) if (streams(data, stride, r)) top = r;
+    for (let r = nTubes - 1; r >= noiseRows && top < 0; r--) if (needs(r)) top = r;
     if (top >= 0 && !growNoise(top + 1)) return;
     for (let r = 0; r < noiseRows; r++) {
-      if (noiseDone[r] || !streams(data, stride, r)) continue;
+      if (noiseDone[r] || !needs(r)) continue;
       noiseBuf = noiseBlock(r, noiseBuf || undefined);
       gl.bindTexture(gl.TEXTURE_2D, noiseTex);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, ...blockAt(r), NOISE_W, NOISE_H, gl.RGBA, gl.FLOAT, noiseBuf);
