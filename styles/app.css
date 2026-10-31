@@ -103,6 +103,8 @@ svg { flex: none; }
 .sb-banner { display: flex; min-width: 0; justify-content: center; align-items: center; gap: 8px; }
 .sb-banner:empty { display: none; }
 .stage-view { position: relative; flex: 1; min-height: 0; touch-action: none; overflow: hidden; }
+/* (iOS Safari ignores user-scalable=no: a quick double tap on a bar button or a menu zoomed the fixed page, which has no scroll to come back. The figure, sliders and sheets' handles keep their own touch-action, which wins inside.) */
+.app, .menu, .umenu, .modal-back, .pal-back, .toast-wrap { touch-action: manipulation; }
 .stage-view svg#stage, .stage-view svg#stageOver, .stage-view canvas, .stage-view svg#labels { position: absolute; inset: 0; width: 100%; height: 100%; }
 /* Vessels on the GPU (veins-gl.js): in the anatomy the WebGL2 layer draws the tubes; their SVG hit strokes stay. */
 .stage-view svg#stageOver { pointer-events: none; }
@@ -889,7 +891,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .skeleton { height: 10px; border-radius: 4px; background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; margin: 8px 0; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 
-.modal-back { position: fixed; inset: 0; background: var(--scrim); z-index: var(--z-dialog); display: none; place-items: center; padding: calc(16px + var(--safe-top)) 16px 16px; }
+.modal-back { position: fixed; inset: 0; background: var(--scrim); z-index: var(--z-dialog); display: none; place-items: center; padding: calc(16px + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
 .modal-back.show { display: grid; animation: crossfade var(--d-small) var(--ease); }
 /* Closing: the scrim fades and the dialog sinks back the way it came, then it is hidden (util.js closeModal). */
 /* (Own exit keyframes: the same name played in reverse would not restart, and would land on its last frame at once.) */
@@ -971,7 +973,6 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
   .stage-bar.top { height: 46px; padding: 0 8px; gap: 8px; }
   .stage-bar.bottom { height: 56px; padding: 0 8px; grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
   .sb-center { display: none; }
-  .app.bleeding .sb-center, .app[data-mode="compare"] .sb-center { display: flex; position: absolute; left: 8px; right: 8px; top: 46px; justify-content: flex-start; z-index: var(--z-hud); pointer-events: none; }
   .sb-center > * { pointer-events: auto; }
   .seg button { padding: 8px 12px; }
   /* Three views (Anatomy · Circuit · Lobule) share the row with the Blood and lens buttons. */
@@ -1305,7 +1306,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .app.home-open { visibility: hidden; }
 
 /* Command palette */
-.pal-back { position: fixed; inset: 0; z-index: var(--z-dialog); background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding: calc(12vh + var(--safe-top)) 16px 16px; }
+.pal-back { position: fixed; inset: 0; z-index: var(--z-dialog); background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding: calc(12vh + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
 .pal-back[hidden] { display: none; }
 .pal-back { animation: crossfade var(--d-flip) var(--ease); }
 .pal-back.leaving { pointer-events: none; animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }
@@ -1907,7 +1908,7 @@ button.finding { cursor: pointer; }
 }
 /* The case card: a new patient's case, centred on the slide in the cards' glass, just big enough for its words (the figure shows above and below).
    It enters and leaves whole (a fade and a short rise), never changing size. */
-.pz-case { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); position: absolute; inset: 0; margin: auto; width: min(calc(100% - 32px), 920px); height: fit-content; max-height: calc(100% - 2 * max(84px, 11vh)); box-sizing: border-box; display: flex; flex-direction: column; align-items: flex-start; gap: clamp(10px, calc(1.6 * var(--pzh)), 20px); padding: clamp(20px, 4vw, 44px); overflow: hidden; --gl-glass: 1; --gl-tint: color-mix(in srgb, var(--surface) 58%, transparent); background: var(--gl-tint); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: clamp(16px, calc(2.2 * var(--pzh)), 28px); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: auto; cursor: pointer; opacity: 0; transform: translateY(14px); transition: opacity var(--d-surface) var(--ease), transform var(--d-surface) var(--ease); }
+.pz-case { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); position: absolute; inset: 0; margin: auto; width: min(calc(100% - 32px - 2 * max(env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px))), 920px); height: fit-content; max-height: calc(100% - 2 * max(84px, 11vh)); box-sizing: border-box; display: flex; flex-direction: column; align-items: flex-start; gap: clamp(10px, calc(1.6 * var(--pzh)), 20px); padding: clamp(20px, 4vw, 44px); overflow: hidden; --gl-glass: 1; --gl-tint: color-mix(in srgb, var(--surface) 58%, transparent); background: var(--gl-tint); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: clamp(16px, calc(2.2 * var(--pzh)), 28px); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: auto; cursor: pointer; opacity: 0; transform: translateY(14px); transition: opacity var(--d-surface) var(--ease), transform var(--d-surface) var(--ease); }
 .pz-case.on { opacity: 1; transform: none; }
 .pz-case:not(.on) { pointer-events: none; }   /* (lifted and fading while the patient still loads behind it: touches and clicks pass through) */
 .pz.stack .pz-case { border-radius: 18px; }
@@ -1924,7 +1925,7 @@ button.finding { cursor: pointer; }
 .pz-case-p { align-self: stretch; margin: 0; text-align: center; font: 500 calc(var(--s-body) * var(--case-k, var(--case-max)))/1.25 var(--font-display); letter-spacing: -.01em; color: var(--text); text-wrap: pretty; }
 .pz-veil { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 92%, transparent); opacity: 0; transition: opacity var(--d-surface) var(--ease); }
 .pz-veil.on { opacity: 1; }
-.pz-panel { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(1560px, calc(100% - 2 * clamp(16px, 3vw, 64px))); max-height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh)), 56px)); overflow: clip; display: flex; flex-direction: column; gap: clamp(12px, calc(2.4 * var(--pzh)), 32px); padding: clamp(18px, calc(3.4 * var(--pzh)), 44px) clamp(20px, 3vw, 52px); background: var(--surface); border: 1px solid var(--border); border-radius: clamp(18px, calc(2.6 * var(--pzh)), 32px); box-shadow: var(--shadow-3); pointer-events: auto; animation: fade-rise var(--d-surface) var(--ease) both; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
+.pz-panel { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(1560px, calc(100% - 2 * max(clamp(16px, 3vw, 64px), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px)))); max-height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh)), 56px)); overflow: clip; display: flex; flex-direction: column; gap: clamp(12px, calc(2.4 * var(--pzh)), 32px); padding: clamp(18px, calc(3.4 * var(--pzh)), 44px) clamp(20px, 3vw, 52px); background: var(--surface); border: 1px solid var(--border); border-radius: clamp(18px, calc(2.6 * var(--pzh)), 32px); box-shadow: var(--shadow-3); pointer-events: auto; animation: fade-rise var(--d-surface) var(--ease) both; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
 .pz-panel .pz-ph { display: flex; flex-direction: column; gap: clamp(6px, calc(1.2 * var(--pzh)), 14px); }
 .pz-panel .pz-h { font-size: var(--s-big); }
 .pz-panel .pz-line { max-width: 70ch; }
@@ -2660,7 +2661,7 @@ button.finding { cursor: pointer; }
 .pz-bar button.pzb-n[aria-expanded="true"] { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
 @media (hover: hover) { .pz-bar button.pzb-n:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); } }
 .pz-bar .pzb-next.skipping:not(:disabled) { background: var(--accent-soft); }
-.pz-jump { position: absolute; left: 50%; bottom: 88px; translate: -50% 0; width: min(560px, calc(100% - 24px)); max-height: min(70vh, calc(100% - 120px)); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); pointer-events: auto; overflow: hidden; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
+.pz-jump { position: absolute; left: 50%; bottom: max(88px, calc(max(var(--pz-cm, 0px), calc(env(safe-area-inset-bottom, 0px) + 8px)) + 52px)); translate: -50% 0; width: min(560px, calc(100% - 24px)); max-height: min(70vh, calc(100% - 120px)); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); pointer-events: auto; overflow: hidden; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
 .pz-jump.pz-leave { opacity: 0; transform: translateY(8px); }
 .pzj-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 8px 18px; border-bottom: 1px solid var(--border); font: 600 var(--fs-14) var(--font-ui); color: var(--text-2); }
 .pzj-list { overflow-y: auto; overscroll-behavior: contain; padding: 6px 8px 12px; }
