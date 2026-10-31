@@ -288,7 +288,10 @@ export function drawBlock(cv, d, dpr, rot = false) {
   // Device px, the label's origin on a whole pixel (where the GPU puts it).
   const L = Math.floor(x0 * dpr), T = Math.floor(y0 * dpr), R = Math.ceil(x1 * dpr), B = Math.ceil(y1 * dpr);
   const W = rot ? B - T : R - L, H = rot ? R - L : B - T;
-  cv.width = Math.max(1, W); cv.height = Math.max(1, H);
+  // (A canvas already of this size is only cleared below: a value that ticks to another digit keeps its width, and setting the size again
+  // frees the bitmap and allocates it afresh. Everything this draws sets what it reads, so nothing carries over from the last picture.)
+  const cw = Math.max(1, W), ch = Math.max(1, H);
+  if (cv.width !== cw || cv.height !== ch) { cv.width = cw; cv.height = ch; }
   const ctx = cv.getContext('2d');
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, cv.width, cv.height);

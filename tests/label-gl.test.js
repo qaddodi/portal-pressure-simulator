@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { svgOnly, lookKey } from '../src/ui/label-gl.js';
+import { svgOnly, lookKey, drawBlock } from '../src/ui/label-gl.js';
 
 const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
@@ -166,4 +166,26 @@ test('the labels stay on their own canvas; what they drew is told to the glass d
   assert.match(LGL, /boxAt\(\(px - 170\) \* dpr, \(py - 170\) \* dpr, \(px \+ 170\) \* dpr, \(py \+ 170\) \* dpr\);/);
   assert.match(LGL, /if \(key !== boxKey\) \{ boxKey = key; try \{ onBoxes\?\.\(\); \}/);
   assert.match(STAGE, /marks: \[gLeaders, gScan\], onBoxes: frostWake \}\);/);
+});
+
+// Laptop-heat recs H6: a value that ticks to another digit keeps its width, so its scratch canvas is cleared and drawn into again, not given a new size
+// (setting a canvas's size frees its bitmap and allocates another). The picture is the same: the canvas is cleared whole before anything is drawn.
+test('a picture drawn into a canvas of its size does not set the size again, and one of another size does', () => {
+  const calls = [];
+  const ctx = new Proxy({}, {
+    get: (t, k) => (k === 'measureText' ? (str) => ({ width: String(str).length * 7 }) : k in t ? t[k] : (...a) => { calls.push([k, ...a]); }),
+    set: (t, k, v) => { t[k] = v; return true; },
+  });
+  const sets = [];
+  const cv = { w: 0, h: 0, get width() { return this.w; }, set width(v) { sets.push(['width', v]); this.w = v; }, get height() { return this.h; }, set height(v) { sets.push(['height', v]); this.h = v; }, getContext: () => ctx };
+  const first = drawBlock(cv, desc(), 2);
+  assert.deepEqual(sets.map((e) => e[0]), ['width', 'height'], 'a new canvas is given its size');
+  sets.length = 0; calls.length = 0;
+  const again = drawBlock(cv, desc({ parts: [{ k: 'text', x: 0, y: 11, anchor: 'start', runs: [run({ t: '12.1' })] }] }), 2);
+  assert.deepEqual(sets, [], 'the same size is not set again');
+  assert.deepEqual(again, first, 'and the picture lies where the last did');
+  assert.ok(calls.some((c) => c[0] === 'clearRect' && c[3] === cv.width && c[4] === cv.height), 'it is cleared whole');
+  assert.ok(calls.findIndex((c) => c[0] === 'clearRect') < calls.findIndex((c) => c[0] === 'fillText'), 'before anything is drawn');
+  drawBlock(cv, desc({ parts: [{ k: 'text', x: 0, y: 11, anchor: 'start', runs: [run({ t: '12.10' })] }] }), 2);
+  assert.deepEqual(sets.map((e) => e[0]), ['width', 'height'], 'a wider text gets a bigger canvas');
 });
