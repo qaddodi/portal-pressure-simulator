@@ -155,7 +155,7 @@ export const EDGE_PATH = {
   IVCS_RA: 'M620 166 L 620 112',
   V_UP: 'M620 -40 L 620 40',
   SVC_RA: 'M620 40 L 620 112',
-  // The azygos ascends lateral to the cava (drawn clear of the heart; see C9) and arches
+  // The azygos ascends lateral to the cava (drawn clear of the heart; see C9, which joins it) and arches
   // medially into the SVC above the right atrium. The node sits on the arch, where the
   // esophageal veins join it.
   AZY_SVC: 'M574 30 C 592 22 612 28 620 40',
@@ -193,12 +193,18 @@ export const EDGE_PATH = {
   // and runs across to the cava lower down (see STRANDS for its small veins).
   C7: 'M738 755 C 706 756 664 748 620 745',
   C8: 'M700 556 C 706 506 668 462 602 442',
-  // Ascending lumbar veins → the ascending azygos. It climbs its own lane, about 20 units left of the azygos trunk's (x 543,
-  // behind the liver, then clear above it), and joins the trunk from the side at (562.9 100), the midpoint of the trunk's first
-  // curve, where the trunk is drawn solid (its fade starts at y 110, stage.js FEEDER_FADE_Y). Only the azygos runs on from
-  // there to the arch, so the esophageal varices (C1b), which drain into the arch at its node, end on the azygos, never on
-  // this collateral. It also stays clear below the epigastric vein (EPI_SVC) crossing the trunk at y 79.
-  C9: 'M620 650 C 584 604 546 500 543 400 C 541 320 542 250 543 190 C 543 150 551 120 562.9 100',
+  // Ascending lumbar veins → the ascending azygos. It never crosses another vessel (Mohammad, 31 Oct, Budd–Chiari: "intersecting
+  // with hepatic vein"; every lane through the liver crosses the hepatic veins, which span it from the cava to its lateral
+  // margin, so it goes round the liver instead). It leaves the cava's left wall below the liver at y 566 (above the paraumbilical
+  // vein's crossing of the cava, y 600), runs left behind the right colon, turns up the right flank in a lane of its own between
+  // the diaphragm's foot and the epigastric vein (EPI_SVC), about 15 units clear of each at x 343 (the liver, swollen as far as
+  // congestion takes it, stays 25 units inside), arches over the dome, and joins the azygos trunk from the lower left at
+  // (562.9 108), where the trunk is drawn solid (its fade starts at y 110, stage.js FEEDER_FADE_Y). It arrives in a gentle S:
+  // about 20 units out it is still 17 from the trunk's centreline, and it closes the rest at about 42° to the trunk's course
+  // (the way a tributary meets a vein, not a long sliver beside it). Only the azygos runs on from there to the arch, so the
+  // esophageal varices (C1b), which drain into the arch at its node, end on the azygos, never on this collateral. It stays
+  // clear below the epigastric vein where that crosses the trunk at y 79. tests/ascending-lumbar-route.test.js holds these.
+  C9: 'M620 566 C 598.3 566.3 551.7 569.5 520 568 C 488.3 566.5 454.3 565 430 557 C 405.7 549 387.7 537.8 374 520 C 360.3 502.2 353.2 476.3 348 450 C 342.8 423.7 343.5 388.3 343 362 C 342.5 335.7 342.7 312.3 345 292 C 347.3 271.7 349.8 255.8 357 240 C 364.2 224.2 374.8 210.3 388 197 C 401.2 183.7 419.7 169.8 436 160 C 478.9 134.3 542.8 130.3 562.9 108',
 
   AP_R: 'M655 478 C 612 470 552 432 505 398',
   AP_L: 'M655 478 C 668 440 680 405 688 378',
@@ -268,7 +274,7 @@ export const FEEDERS = {
   // neither.
   // Azygos: its ascending trunk (the intercostal and ascending lumbar veins' channel) climbs
   // beside the cava into the arch.
-  // `exact`: drawn on its curve, not meandered. The ascending lumbar collateral (C9) joins it from the left at (562.9 100), well below the arch,
+  // `exact`: drawn on its curve, not meandered. The ascending lumbar collateral (C9) joins it from the lower left at (562.9 108), well below the arch,
   // so the stretch above, into the arch where the esophageal varices (C1b) drain, is the azygos alone.
   AZY_SVC: { k: 1, exact: true, paths: ['M564 172 C 563 120 562 72 564 52 C 566 41 569 35 574 30'] },
   // Caput medusae: the recanalized paraumbilical vein (C3) empties at the umbilicus into the
