@@ -153,7 +153,11 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
     const room = t.clientHeight - 8 - (actions?.length ? t.querySelector('.toast-acts').offsetHeight + 6 : 0);
     for (; px > 12; px--) { m.style.fontSize = `${px}px`; if (m.scrollHeight <= room && m.scrollWidth <= m.clientWidth) break; }
   }
-  if (!sticky) timer = setTimeout(close, 4200);
+  // A toast with buttons stays longer, and stays while the pointer or the keyboard is on it, so its button can be reached.
+  const life = actions?.length ? 9000 : 4200, arm = () => { clearTimeout(timer); if (!sticky && !gone) timer = setTimeout(close, life); };
+  t.addEventListener('pointerenter', () => clearTimeout(timer)); t.addEventListener('focusin', () => clearTimeout(timer));
+  t.addEventListener('pointerleave', arm); t.addEventListener('focusout', arm);
+  arm();
   return close;
 }
 
@@ -238,7 +242,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   // (from-dock: over the thumb dock a sheet, or a menu from the dock, rises from behind the tab row; one from the top bar,
   // the Colored-by key on an upright iPad, pops in where it rests, as everywhere else, never sliding up from below it.)
   const fromDock = asSheet || !!anchor.closest?.('.vdock');
-  const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : '') + (fromDock ? ' from-dock' : ''), role: 'dialog' }, content);
+  const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : '') + (fromDock ? ' from-dock' : ''), role: 'dialog', 'aria-label': anchor.getAttribute?.('aria-label') || anchor.title || anchor.textContent?.trim().slice(0, 40) || 'Menu' }, content);
   enterAfterGone(el);
   document.body.append(el);
   const put = () => {
@@ -296,6 +300,9 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   vv?.addEventListener('resize', onVV);
   openMenu = { el, anchor, put, cleanup: () => { clearTimeout(arm); removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); vv?.removeEventListener('resize', onVV); onClose?.(); } };
   anchor.setAttribute('aria-expanded', 'true');
+  // Opened from the keyboard (the button shows its focus ring): focus goes in, so Tab does not have to cross the whole page to reach
+  // the menu. A mouse or a touch leaves focus where it was.
+  if (anchor.matches?.(':focus-visible')) setTimeout(() => { if (openMenu?.el === el) el.querySelector('button, input, [tabindex="0"]')?.focus({ preventScroll: true }); }, 0);
   return el;
 }
 /** A list that scrolls fades at its bottom edge while there is more below it (class .more), as the docked
@@ -473,6 +480,8 @@ export function closePopover() {
   if (!openMenu) return;
   // The menu fades out (it is inert at once, so nothing under it waits), then leaves the page.
   const el = openMenu.el;
+  // (Focus inside the menu goes back to its button before the menu is made inert; otherwise it would fall to the page.)
+  if (el.contains(document.activeElement) && openMenu.anchor.isConnected) openMenu.anchor.focus?.({ preventScroll: true });
   if (!el.isConnected) el.remove();   // (with Reduce Motion it still fades: app.css turns popOut into a fade)
   // A sheet swiped away is already sliding down; it leaves when it is out of sight.
   // (Over the thumb dock it sinks behind the tab row, as the cards do, in the same step: a leave is one flip, app.css thumbOut.)
@@ -594,7 +603,11 @@ let modalReturn = null;
 export function openModal(title, body, { wide = false, sub = null, bare = false } = {}) {
   const back = document.getElementById('modalBack');
   const modal = document.getElementById('modal');
-  modalReturn = document.activeElement;
+  // (The button to come back to is the first opener's: a dialog opened from a dialog, or from a menu row that is about to leave,
+  // returns to where the first one began, or to the menu's own button.)
+  if (!back.classList.contains('show')) modalReturn = openMenu && openMenu.el.contains(document.activeElement) ? openMenu.anchor : document.activeElement;
+  // The page behind a dialog cannot be reached by Tab or a screen reader; the dialog's own copy of the page is the only one left.
+  const appEl = document.getElementById('app'); if (appEl) appEl.inert = true;
   modal.innerHTML = '';
   modal.style.width = wide ? 'min(960px, 100%)' : '';
   modal.setAttribute('aria-label', title || 'Dialog');
@@ -612,7 +625,9 @@ export function closeModal() {
   // (It fades out as it faded in, then is hidden: closed in one frame, Help, About and every dialog blinked out.)
   back.classList.remove('show'); back.classList.add('leaving');
   clearTimeout(modalLeaveT); modalLeaveT = setTimeout(() => back.classList.remove('leaving'), 220);
-  modalReturn?.focus?.({ preventScroll: true });
+  const appEl = document.getElementById('app'); if (appEl) appEl.inert = false;
+  const back0 = modalReturn?.isConnected ? modalReturn : document.getElementById('btnMenu');
+  if (back0?.offsetParent) back0.focus?.({ preventScroll: true });
 }
 export const isModalOpen = () => document.getElementById('modalBack').classList.contains('show');
 

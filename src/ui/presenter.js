@@ -15,9 +15,10 @@
 
 import { store, replaceParams } from './store.js?v=3611054974';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=adf3d7db44';
+import { controlOwnsKey } from './key-owner.js?v=62afd4956f';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=30638c30ee';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=e3d84e6939';
+import { liveText, wordsOf } from './live-text.js?v=2af18edba0';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
@@ -28,8 +29,8 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=68e76b2227';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { createHvpgMonitor } from './hvpg-proc.js?v=320f90cf79';
-import { createTools } from './presenter-tools.js?v=10bd34e7e4';
+import { createHvpgMonitor } from './hvpg-proc.js?v=d0fe70f965';
+import { createTools } from './presenter-tools.js?v=622b7da47e';
 import { openHandout } from './handout.js?v=3a027582b1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -37,13 +38,13 @@ import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS
 import { frameFor, cancelFrame } from './frame.js?v=d228750e83';
 import { createFigureKey } from './figure-key.js?v=a4bbb84a68';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=6b82df24df';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=8ef680b5a1';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=6564a2e1c0';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=85615c8fb1';
 import { clotWords } from './callout-math.js?v=6a4cd6d476';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=637d9d84bd';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=dea75830ab';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=63f281d1c5';
+import { anchorsOf, roomFor } from './cam-room.js?v=db1ba3a7dd';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=2a864ef117';
@@ -51,7 +52,7 @@ import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=b2bbcb6fb2';
 import { sheetPanes } from './sheet-glass.js?v=9a3f1c1ff1';
-import { createScopeTile } from './scope-tile.js?v=99e6c39635';
+import { createScopeTile } from './scope-tile.js?v=e855470ec4';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
 const nextFrame = frameFor('presenter');
@@ -4459,6 +4460,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const tag = e.target?.tagName?.toLowerCase?.();
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
     const k = e.key, lk = k.length === 1 ? k.toLowerCase() : k;
+    // A control the keyboard reached with Tab keeps its Enter and Space (the pill's buttons, the Settings rows, a table row);
+    // after a mouse click :focus-visible is off, so a clicker's Space still moves on. An open Settings sheet closes with its own Esc.
+    if (controlOwnsKey(e.target, k, digits)) return;
+    if (k === 'Escape' && popoverOpen()) return;
     let used = true;
     if (/^[0-9]$/.test(k)) { digits = (digits + k).slice(-3); clearTimeout(digitT); digitT = setTimeout(() => { digits = ''; }, 2500); toast(`Slide ${digits}: press Enter`, '', { present: true }); }
     else if (k === 'Enter' && digits) { const n = +digits; digits = ''; if (n >= 1) go(n - 1); }

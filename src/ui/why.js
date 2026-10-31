@@ -1,7 +1,7 @@
 // "Why?" popover (blueprint §9.3): one causal sentence, a contribution waterfall and the formula.
 
 import { host } from './host.js?v=e9bd6a00e5';
-import { h, fmt, svgIcon, visibleBottom, settleFrom } from './util.js?v=adf3d7db44';
+import { h, fmt, svgIcon, visibleBottom, settleFrom, announce } from './util.js?v=30638c30ee';
 import { D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=615d96d663';
 
 export function createWhy(pop) {
@@ -26,10 +26,13 @@ export function createWhy(pop) {
     pop.replaceChildren(head('Why?'), h('div', { class: 'sub' }, 'Working out what drives it…'), h('div', { class: 'skeleton', style: { width: '90%' } }), h('div', { class: 'skeleton', style: { width: '70%' } }), h('div', { class: 'skeleton', style: { width: '80%' } }));
     pop.classList.add('show');
     place(anchor);
+    // Opened from the keyboard: focus goes into the card (its close button), and Esc or that button brings it back to the anchor.
+    if (anchor.matches?.(':focus-visible')) pop.querySelector('button')?.focus({ preventScroll: true });
     let r = null;
     try { ({ result: r } = await host.request('explain', { metric })); }
     catch { if (openFor === metric) pop.replaceChildren(head('Why?'), h('div', { class: 'sub' }, 'The model could not work this out right now.')); return; }
     if (openFor !== metric || !r) return;
+    announce(`${r.label}. ${r.sentence}`);
     const maxAbs = Math.max(1e-6, ...r.contributions.map((c) => Math.abs(c.delta)), Math.abs(r.total));
     const tiny = Math.pow(10, -r.digits) * 0.5;
     const shown = r.contributions.filter((c) => Math.abs(c.delta) >= tiny).slice(0, 8);
@@ -70,7 +73,8 @@ export function createWhy(pop) {
     }
     openFor = null; anchorEl?.focus?.({ preventScroll: true }); anchorEl = null;
   }
-  addEventListener('keydown', (e) => { if (e.key === 'Escape' && pop.classList.contains('show')) close(); });
+  // (Capture: one Esc closes this card and only this card; the page's own Esc, which clears the selection it was opened from, does not also run.)
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && pop.classList.contains('show')) { e.preventDefault(); e.stopPropagation(); close(); } }, true);
   addEventListener('pointerdown', (e) => { if (pop.classList.contains('show') && !pop.contains(e.target) && !e.target.closest('.metric, .finding, .vital, .btn, .link')) close(); });
   return { open, close };
 }

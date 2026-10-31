@@ -2633,7 +2633,7 @@ button.finding { cursor: pointer; }
 .pzj-list h3 { margin: 12px 10px 4px; font: 600 var(--fs-12)/1.3 var(--font-ui); letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); }
 .pzj-list ol { list-style: none; margin: 0; padding: 0; }
 .pzj-list button { display: flex; gap: 12px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px; background: none; font: 500 var(--fs-16)/1.35 var(--font-ui); color: var(--text); text-align: left; cursor: pointer; }
-.pzj-list button:focus-visible { background: var(--surface-2); outline: none; }
+.pzj-list button:focus-visible { background: var(--surface-2); outline: 2px solid var(--focus); outline-offset: -2px; }
 @media (hover: hover) { .pzj-list button:hover { background: var(--surface-2); outline: none; } }
 .pzj-list button[aria-current] { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
 .pzj-list .n { min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-3); }

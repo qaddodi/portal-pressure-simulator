@@ -12,8 +12,8 @@
 
 import { store, replaceParams, onParamChange } from './store.js?v=3611054974';
 import { host } from './host.js?v=e9bd6a00e5';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText } from './util.js?v=adf3d7db44';
-import { activeInterventions } from './inspector.js?v=84457279a8';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText } from './util.js?v=30638c30ee';
+import { activeInterventions } from './inspector.js?v=216a03505c';
 import { frameFor } from './frame.js?v=d228750e83';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
 const nextFrame = frameFor('timeline');
@@ -282,6 +282,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
       lastSpeed = sp; lastRunMode = f.running;
       const lap = LAPSES.find((l) => l[0] === lp);
       speedBtn.textContent = lp ? (lap ? lap[1] : `${lp} d/s`) : `${st.speed}×`;
+      speedBtn.setAttribute('aria-label', `Playback speed, ${speedBtn.textContent}`);
       for (const el of [playBtn, speedBtn, playBtn.parentElement]) el?.classList.toggle('lapse', !!lp);
       // A new icon grows in from the old one's place (.18 s) rather than swapping in one frame (motion review P14); with
       // Reduce Motion it only fades. The old icon stays in the same grid cell and fades out under it, so the button is never
