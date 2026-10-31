@@ -103,3 +103,19 @@ test('no tile rule carries an accent-stripe slot: --key-w was never set, and a k
   assert.doesNotMatch(css, /--key-w/);
   assert.match(css, /\.pz-data \.pz-tile, \.pz-data \.pz-tool \.endo-read > div \{ background: color-mix\(in srgb, var\(--white\) 78%, transparent\); box-shadow: inset 0 0 0 1px color-mix\(in srgb, var\(--text\) 8%, transparent\); \}/);
 });
+
+test('the Guide says what a figure label shows now: the value, the unit once in the legend, the change only where it is asked for', () => {
+  const main = src('src/ui/main.js');
+  assert.doesNotMatch(main, /Labels give the value in mmHg; ▲ \/ ▼ is the change from healthy/);
+  assert.match(main, /the legend names the unit once\. A label gives a station’s value\. Select the station, color by Change or compare with an earlier moment to see ▲ \/ ▼/);
+  // US spelling in what a reader sees
+  assert.doesNotMatch(src('src/ui/stage.js'), /still show their colours and readings/);
+  assert.doesNotMatch(src('src/ui/why.js'), /grey is what they add together/);
+});
+
+test('About the model describes the readouts as they are: a bar and a status word, amber borderline, red past a threshold (no dot)', () => {
+  const main = src('src/ui/main.js');
+  assert.match(main, /Every readout’s bar and status word follow a clinical cut-off;/);
+  assert.match(main, /Amber is borderline; red means a threshold has been crossed\./);
+  assert.doesNotMatch(main, /readout’s dot, bar/);
+});

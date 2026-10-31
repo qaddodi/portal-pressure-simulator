@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=e9bd6a00e5';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3611054974';
-import { createStage } from './stage.js?v=f0da99afd0';
+import { createStage } from './stage.js?v=4bd5d5bb70';
 import { createCreditPlacer } from './credit.js?v=853fefa4ac';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
@@ -1896,7 +1896,7 @@ function openHelp(section) {
     h('div', { class: 'keys' }, PRESENT_KEYS.map(([k, v]) => h('div', {}, h('span', {}, v), h('kbd', {}, k)))),
     h('h3', {}, 'Reading the figure'),
     h('ul', {},
-      h('li', {}, 'Veins are colored by mean pressure on a perceptually uniform scale (0–30 mmHg). Labels give the value in mmHg; ▲ / ▼ is the change from healthy, shown from 5 mmHg. Arteries are thinner, in a fixed red.'),
+      h('li', {}, 'Veins are colored by mean pressure on a perceptually uniform scale (0–30 mmHg), and the legend names the unit once. A label gives a station’s value. Select the station, color by Change or compare with an earlier moment to see ▲ / ▼, the change from healthy, shown from 5 mmHg. Arteries are thinner, in a fixed red.'),
       h('li', {}, 'Streaks of blood move downstream, brighter where flow is greater, faster where velocity is higher, fastest along the axis (laminar flow); chevrons (Blood menu) point the way. Smoke marks stagnant blood in a large vein. Coloring the vessels by blood origin shows where blood comes from. Tap a vessel and use Inject dye on its card (or press J; hold for longer) to watch dye travel and split. Dotted vessel outlines are closed potential collaterals.'),
       h('li', {}, 'Line width follows vessel diameter (compressed, so the cavae don’t drown the portal tree). Watch collaterals and varices swell.'),
       h('li', {}, 'The circuit view is a transit map: pressure falls from left to right; collaterals and shunts run in their own lanes as bypasses.')),
@@ -1918,7 +1918,7 @@ function openAbout(section) {
     h('p', { class: 'sub' }, 'Each is an automated test that must pass before a release:'),
     h('ol', { class: 'refs' }, VALIDATION.map((v) => h('li', {}, v))),
     h('h3', {}, 'Status colors'),
-    h('p', { class: 'sub' }, 'Every readout’s dot, bar and status word follow a clinical cut-off; the ticks on its bar mark the cut-offs below. A change (▲ / ▼) is drawn in neutral ink and appears only when a value keeps moving for several seconds, never for the heartbeat or breathing. Red means a threshold has been crossed.'),
+    h('p', { class: 'sub' }, 'Every readout’s bar and status word follow a clinical cut-off; the ticks on its bar mark the cut-offs below. A change (▲ / ▼) is drawn in neutral ink and appears only when a value keeps moving for several seconds, never for the heartbeat or breathing. Amber is borderline; red means a threshold has been crossed.'),
     h('div', { class: 'table-wrap' }, h('table', { class: 'cut-table' },
       h('thead', {}, h('tr', {}, ['Readout', 'Normal', 'Borderline', 'Past a threshold', 'High risk'].map((x, i) => h('th', {}, i ? h('span', { class: 'cut-h', 'data-sev': ['', 'ok', 'caution', 'danger', 'critical'][i] }, x) : x)))),
       h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c) => h('td', {}, c))))))),
