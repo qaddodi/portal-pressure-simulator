@@ -2067,6 +2067,16 @@ button.finding { cursor: pointer; }
 /* A row still computing shows "…" in its cells; when its patient arrives the numbers fade in. */
 .pz-table td.pend { color: var(--text-3); text-align: center; }
 .pz-table tr[data-arrived] td { animation: crossfade var(--d-surface) var(--ease) both; }
+/* A continued row (class pz-cont): one under a row with the same heading in the same site's colour (presenter.js sameHead) draws the heading once, over the first of them:
+   it stays in the row for a screen reader, the rows follow under a lighter rule, and the name takes the heading's place. A phone's compact
+   rows keep the site stroke on every row (it is the name's own mark there), so they are put back below; the tablet's note columns hide it too.
+   (tests/table-continued-rows.test.js) */
+.pz-table tbody tr.pz-cont { border-top-color: color-mix(in srgb, var(--border) 42%, transparent); }
+.pz-table tbody tr.pz-cont th .pz-kick { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pz-table tbody tr.pz-cont .tn { margin-top: 0; }
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  .pz .pz-table:not(.notecols) tbody tr.pz-cont th .pz-kick { position: static; width: 3px; height: auto; overflow: visible; clip-path: none; white-space: normal; }
+}
 /* The visuals: a scale with thresholds, SAAG × protein, the two capillary walls. */
 .pz-visual { min-height: 0; display: flex; justify-content: center; }
 .pz-quadwrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: clamp(16px, 3vw, 52px); align-items: center; }
