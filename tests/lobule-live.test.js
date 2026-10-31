@@ -125,25 +125,17 @@ test('the packed bands are the bands fibrousBand draws: the same points, widths,
   void fibrousBand; void fibrousCuff; void bands;
 });
 
-// ── Settings › Figure performance › Lobule drawn live (frame.js tissueLive) ──
+// ── The lobule is drawn live wherever it can be: no setting (Mohammad, 31 Oct: "Lobule always live no switch needed") ──
 const uiSrc = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 
-test('Lobule drawn live: off by default; off, the goal is 0 and the shader is given nothing, so the bitmap is the whole picture', async () => {
-  const store = new Map();
-  globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+test('the lobule is drawn live with no setting: nothing reads a switch for it, the goal is live whenever the state allows it and the shader is ready', async () => {
   const f = await import(`../src/ui/frame.js?t=live${Math.random()}`);
-  assert.deepEqual(f.FIG_LAB.tissueLive, [false, true]);
-  assert.equal(f.figLab('tissueLive'), false, 'off until chosen');
-  let heard = 0;
-  f.onFigLab((k, v) => { if (k === 'tissueLive' && v === true) heard++; });
-  f.setFigLab('tissueLive', true);
-  assert.equal(heard, 1); assert.equal(store.get('pps.fig.tissueLive'), 'true');
-  f.setFigLab('tissueLive', false);
-  assert.ok(!store.has('pps.fig.tissueLive'), 'off stores nothing');
-  delete globalThis.localStorage;
+  assert.ok(!('tissueLive' in f.FIG_LAB), 'no Figure performance setting');
+  for (const file of ['frame.js', 'main.js', 'lobule-zoom.js', 'tissue-gl.js', 'stage.js']) assert.ok(!/tissueLive/.test(uiSrc(file)), `${file}: no switch`);
+  assert.ok(!uiSrc('main.js').includes('Lobule drawn live'), 'and no Settings row');
   const lz = uiSrc('lobule-zoom.js');
-  assert.match(lz, /const liveGoal = \(\) => \(model && liveEligible\(model\) && figLab\('tissueLive'\) && liveOK\(\) \? 1 : 0\);/, 'the one place the switch is read');
-  assert.equal(lz.split("figLab('tissueLive')").length - 1, 1, 'and only there: nothing else in the lobule branches on it');
+  assert.match(lz, /const liveGoal = \(\) => \(model && liveEligible\(model\) && liveOK\(\) \? 1 : 0\);/, 'the one place the goal is set');
+  assert.ok(!/onFigLab/.test(lz), 'and nothing listens for a setting');
   assert.match(lz, /function liveArgs\(dark, cs\) \{\n\s+if \(!\(liveShare > 0\)\) return null;/, 'no share: no shapes built, nothing sent');
   assert.match(lz, /live: liveArgs\(dark, cs\),/);
   // The two pictures are never mixed unless the share is above 0 and the live program is there (tissue-gl.js): the bitmap path is the one it was.
@@ -152,11 +144,11 @@ test('Lobule drawn live: off by default; off, the goal is 0 and the shader is gi
   assert.match(gl, /if \(uLive > 0\.0\) \{ vec4 ls = liveTissue\(w\) \* e;/);
 });
 
-test('Lobule drawn live: flipped while the lobule shows it eases over 400 ms and wakes the loop; flipped while it does not, it starts at the new goal', () => {
+test('the live program starts compiling as soon as the tissue\'s GPU drawing is made; when it arrives, or fails, while the lobule shows, the share eases over 400 ms and the loop wakes; unseen, it starts at the goal', () => {
   const lz = uiSrc('lobule-zoom.js');
+  assert.match(lz, /tissueGL = createTissueGL\(tissueG, \{ onLive: liveCompiled \}\); if \(!tissueGL\) tissueG\.remove\(\); else tissueGL\.liveReady\(\);/, 'asked at once, ahead of the first look');
   assert.match(lz, /function liveChanged\(\) \{ if \(unseen\(\)\) liveE = -1; else \{ liveAt = performance\.now\(\); wake\(\); \} \}/);
-  assert.match(lz, /onFigLab\(\(k, v\) => \{ if \(k !== 'tissueLive'\) return; if \(v && tissueGL\) tissueGL\.liveReady\(\); liveChanged\(\); \}\);/);
-  assert.match(lz, /createTissueGL\(tissueG, \{ onLive: liveCompiled \}\)/, 'and the live program tells the lobule when it is ready or has failed');
+  assert.match(lz, /function liveCompiled\(\) \{ liveChanged\(\); \}/);
   assert.match(lz, /if \(liveE < 0 \|\| unseen\(\)\) liveE = goal;\n\s+else liveE = liveEase\(liveE, goal, now - liveAt\);/);
   assert.match(lz, /if \(liveMoving\(\)\) drawVersion\+\+;/, 'each frame of the easing is drawn');
   assert.match(lz, /const key = \[[^\n]*lk > 0 \? lk\.toFixed\(3\)/, 'and the tissue\'s key moves with the share, so it is not skipped as unchanged');
@@ -179,13 +171,7 @@ test('the share eases in a 400 ms smoothstep either way, never in a step; a paus
   assert.equal(liveShareOf(0.5, 0.2), 0.2, 'the smaller of the two');
 });
 
-test('the Settings row for it sits under Figure performance, with a plain label and what off means', () => {
-  const main = uiSrc('main.js');
-  const rows = main.slice(main.indexOf('function figLabRows('), main.indexOf('function figSeg('));
-  assert.match(rows, /sw\('tissueLive', 'Lobule drawn live', '[^']*Off: the lobule shows its painted picture'\),/);
-});
-
-// ── The live shader is a program of its own, compiled only when it is asked for ──
+// ── The live shader is a program of its own, started by liveReady() ──
 test('the program without the live lobule is the one with it, less its additions', () => {
   const on = tissueFS(true), off = tissueFS(false);
   assert.ok(on.includes(LIVE_FS), 'the live functions are in the live program');
@@ -247,7 +233,7 @@ function liveArgs(share) {
 const tile = { width: 8, height: 8 };
 const frame = (live) => ({ W: 100, H: 80, qa: tile, qb: null, mix: 0, w: tile, wVer: 1, rect: [0, 0, 100], ox: 50, oy: 40, rd: 30, fade: [33, 96], mid: 0.5, bg: [1, 1, 1], live });
 
-test('with the switch off the tissue is one program, with nothing of the live lobule in it, and it is never asked for another', async () => {
+test('until the live program is asked for the tissue is one program with nothing of the live lobule in it, and drawing the bitmap asks for no other', async () => {
   const g = stubGL();
   const warn = console.warn; console.warn = () => {};
   const tg = createTissueGL(g.canvas, { onLive: () => assert.fail('nobody asked for it') });
@@ -258,7 +244,7 @@ test('with the switch off the tissue is one program, with nothing of the live lo
   assert.equal(tg.draw(frame(null)), true);
   assert.equal(g.programs.length, 1, 'still one: drawing the bitmap compiles nothing more');
   assert.deepEqual([...new Set(g.used())], [0]);
-  assert.equal(g.set('uLive').length, 0, 'no live uniform is ever set');
+  assert.equal(g.set('uLive').length, 0, 'no live uniform is set');
   console.warn = warn;
 });
 

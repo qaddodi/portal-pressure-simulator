@@ -3,27 +3,27 @@
 
 import { startHost, host } from './host.js?v=9ec2108104';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=a926bea9d4';
-import { createStage } from './stage.js?v=3f368dc507';
-import { createCreditPlacer } from './credit.js?v=7b403dfa98';
+import { createStage } from './stage.js?v=104a37a5ff';
+import { createCreditPlacer } from './credit.js?v=02ec5a517d';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=4ee38102d5';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=06de45d000';
-import { setHvpgStage } from './hvpg-proc.js?v=277b9ad151';
-import { createWhy } from './why.js?v=c7cc90c848';
-import { createTimeline, LAPSES } from './timeline.js?v=6b9a99401b';
-import { createCompare } from './compare.js?v=e0c43c695b';
-import { createCard } from './card.js?v=d8ca1662aa';
-import { createChart } from './chart.js?v=0bd8736add';
-import { createMenu } from './menu.js?v=8fbe616d1a';
-import { caption } from './a11y.js?v=d25f783ce4';
+import { createInspector } from './inspector.js?v=36412f5305';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=a59dc3208e';
+import { setHvpgStage } from './hvpg-proc.js?v=1a7d26e9a4';
+import { createWhy } from './why.js?v=0ea1d3b5e8';
+import { createTimeline, LAPSES } from './timeline.js?v=aa40ea4b2f';
+import { createCompare } from './compare.js?v=edf3f0bad0';
+import { createCard } from './card.js?v=6213ae0103';
+import { createChart } from './chart.js?v=a9413e8d47';
+import { createMenu } from './menu.js?v=8aa4a861fb';
+import { caption } from './a11y.js?v=6919bc9692';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=ff6695610c';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=f5244ff113';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=4674d50d8d';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=197dfb008b';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=90ca733567';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=b061aaaabb';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -36,13 +36,13 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=ce0e6d9cac';
-import { initTopbarMotion } from './topbar-motion.js?v=7940de7fa3';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=dd668eff0b';
+import { initTopbarMotion } from './topbar-motion.js?v=99af4e1103';
 import { ORIGINS } from './blood.js?v=ac26170d49';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=d7d3ea5b70';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
-import { frameFor, cancelFrame, perf as framePerf, RENDER_SCALES, renderSetting, setRenderScale, FIG_OPTS, figOpt, setFigOpt, FIG_LAB, figLab, setFigLab } from './frame.js?v=b11d87fd1b';
+import { frameFor, cancelFrame, perf as framePerf, RENDER_SCALES, renderSetting, setRenderScale, FIG_OPTS, figOpt, setFigOpt, FIG_LAB, figLab, setFigLab } from './frame.js?v=d389474997';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=ea522a5215';
 const nextFrame = frameFor('main');
 
@@ -104,8 +104,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=b02fa7c204'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=eba8c6cfe3'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=09174fdcf3'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=f33dfc0b8f'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -178,7 +178,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=dc0f3d24f1'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=83fa76996a'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -186,7 +186,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=26600755f6'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=e7a66df381'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -838,7 +838,7 @@ function renderBanner() {
 function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=b6116cf14f').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=102bfa6897').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
@@ -909,7 +909,6 @@ function openSettings(anchor, withSearch = false) {
 function figLabRows() {
   const sw = (k, label, sub) => menuToggle(figLab(k), 'activity', label, sub, (on) => setFigLab(k, on));
   return [
-    sw('tissueLive', 'Lobule drawn live', 'The lobule’s cells, collagen and septa are drawn fresh on every frame, so they stay sharp at the deepest zoom and their colours glide. Off: the lobule shows its painted picture'),
     sw('motion60', 'Motion at 60', 'On a 120 Hz screen the blood, the lobule and the instruments move 60 times a second. Pans and zooms stay at the full rate'),
     sw('glassCache', 'Callout glass kept', 'The callouts’ glass measures their boxes only when something moves them, not on every frame of the blood'),
     sw('creditLean', 'Credit check in talks', 'In a talk, the corner credit looks for a new spot only when a card or the view has changed'),

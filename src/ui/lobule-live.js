@@ -26,7 +26,7 @@ export const liveEligible = () => true;
  *  from 6 px. (The lobule's cells are 0.052 R long.) */
 export const liveZoomShare = (s, R) => smooth(3.5, 6, s * R * 0.052);
 
-/** How long the shader's share takes to ease between 0 and 1 when the switch (Settings › Lobule drawn live) or the state flips it, ms. */
+/** How long the shader's share takes to ease between 0 and 1 when the shader arrives (or is lost) or the state changes it, ms. */
 export const LIVE_MS = 400;
 /** One step of that easing from e toward goal (0 or 1) after dtMs: a gap longer than 100 ms (a pause, a hidden tab) counts as 100,
  *  so nothing jumps when drawing starts again. */

@@ -12,7 +12,7 @@
 // tissue is drawn on the 2D canvas as before.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=5c4cd6c14c';
-import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=a47e034a32';
+import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=624ae21d7d';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -71,9 +71,9 @@ export function createTissueGL(canvas, opts = {}) {
   if (!gl) return null;
   // The program is started here and published once the driver has finished it (gl-compile.js); a draw that comes first publishes it.
   // This one is the tissue as it was before the shader drew any of the lobule: the bitmap over the surround, nothing of lobule-live.js
-  // in it. The program that also draws the lobule live is a second one (tissueFS(true)), started only when it is first wanted
-  // (liveReady), so the picture with the switch off is made by the same program as ever, and a live program that fails to compile
-  // leaves this one working.
+  // in it. The program that also draws the lobule live is a second one (tissueFS(true)), started by the first liveReady() (the caller
+  // asks as soon as this exists), so a live program that fails to compile leaves this one working: the lobule keeps its painted
+  // picture, and the bitmap alone is drawn by this program wherever the zoom gives the shader no share.
   let started;
   try { started = startProgram(gl, VS, tissueFS(false), [['p', 0]]); } catch (err) { console.warn('The lobule tissue falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
   const buf = gl.createBuffer();
@@ -107,7 +107,7 @@ export function createTissueGL(canvas, opts = {}) {
     } catch (err) { failed = true; console.warn('The lobule tissue falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); }
   }
   publishWhenDone(gl, [started], publish);
-  // The program that also draws the lobule live: started the first time liveReady() is asked (the switch is on and the lobule shows),
+  // The program that also draws the lobule live: started the first time liveReady() is asked,
   // published like the first, and used only by draws that carry a live share. If it fails, only the live drawing is lost: liveReady()
   // stays false, the first program keeps drawing the bitmap, and the caller is told (opts.onLive) so it stops waiting.
   let liveStarted = null, liveP = null, liveFailed = false;
