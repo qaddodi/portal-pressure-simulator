@@ -3,7 +3,7 @@
 // The tile markup, classes and status logic follow the bar's tiles in dock.js; the data comes from there
 // (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
-import { store, hiddenNow } from './store.js?v=3611054974';
+import { store, hiddenNow } from './store.js?v=7e587ef608';
 import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=4c95f6eb28';
 import { vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { SCALE, RATE } from './table-marks.js?v=c82b75e3d5';

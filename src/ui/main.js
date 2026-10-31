@@ -1,25 +1,25 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=c2d5c54197';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3611054974';
-import { createStage } from './stage.js?v=cc0425b8ee';
+import { startHost, host } from './host.js?v=cd26034a2e';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7e587ef608';
+import { createStage } from './stage.js?v=7cf7dcf861';
 import { createCreditPlacer } from './credit.js?v=853fefa4ac';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=b81f6bd326';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=d6098f78dd';
-import { setHvpgStage } from './hvpg-proc.js?v=557800833f';
-import { createWhy } from './why.js?v=8d45caef8b';
-import { createTimeline, LAPSES } from './timeline.js?v=fa5e35cdc0';
-import { createCompare } from './compare.js?v=74ea2acc2a';
-import { createCard } from './card.js?v=736564c917';
-import { createChart } from './chart.js?v=a68971676a';
-import { createMenu } from './menu.js?v=9542e6a20d';
-import { caption } from './a11y.js?v=f52c10b09d';
+import { createInspector } from './inspector.js?v=78c263643b';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=f783efa02a';
+import { setHvpgStage } from './hvpg-proc.js?v=263b1d0623';
+import { createWhy } from './why.js?v=0a5fd98073';
+import { createTimeline, LAPSES } from './timeline.js?v=8b33c91466';
+import { createCompare } from './compare.js?v=6bb46ab6a4';
+import { createCard } from './card.js?v=864153e887';
+import { createChart } from './chart.js?v=bd582c5110';
+import { createMenu } from './menu.js?v=c1fbc0b53e';
+import { caption } from './a11y.js?v=ca051e9d1c';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=7df07183ab';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=9f1ab73851';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=88bc8501e6';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
@@ -42,7 +42,7 @@ import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=cf199c9
 import { initTopbarMotion } from './topbar-motion.js?v=3e2875ae90';
 import { ORIGINS } from './blood.js?v=aa66de2366';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
-import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=bcedeba324';
+import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0b6dfcc7c5';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
 import { frameFor, cancelFrame, perf as framePerf, framePart } from './frame.js?v=6a53e5fc6e';
 import { feedbackDiagnostics } from './feedback-diag.js?v=680203e900';
@@ -108,8 +108,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=a6f9c63d46'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=54050f3566'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=3d4768c262'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=2c97057331'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -182,7 +182,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=58dea126cb'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=681b72e020'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -190,7 +190,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=5111428ccb'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=0e2a088b08'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -978,7 +978,7 @@ function openHelpMenu(anchor, at = { align: 'start', cls: 'app-menu' }) {
     menuItem('Privacy', { icon: 'lock', onClick: () => { closePopover(); openPrivacy(); } }),
     h('div', { class: 'menu-sep' }),
     h('a', { class: 'menu-credit', href: AUTHOR_URL, target: '_blank', rel: 'noopener', onclick: () => closePopover() },
-      h('span', {}, 'Created by ', h('b', {}, AUTHOR)), h('span', { class: 'mc-link' }, 'All my tools ', icon('chev-right'))),
+      h('span', {}, 'Created by ', h('b', {}, AUTHOR)), h('span', { class: 'mc-link' }, 'More teaching tools ', icon('chev-right'))),
   ], at);
 }
 // Send feedback: a draft in the viewer's own email app, addressed to the author, with what a bug report needs underneath

@@ -51,7 +51,7 @@ export const gastricUp = (p) => !!(p.balloonGas || p.balloonEso);
 
 export const DRUGS = {
   propranolol: { label: 'Propranolol', hr: 0.8, contr: 0.92, spl: 1.3, sys: 1.0, sin: 1.0, baroHr: 0.4,
-    info: 'Non-selective β-blocker. β1 lowers cardiac output; β2 blockade leaves α-constriction unopposed in splanchnic arterioles, so portal inflow falls.' },
+    info: 'Non-selective beta-blocker. β1 lowers cardiac output; β2 blockade leaves α-constriction unopposed in splanchnic arterioles, so portal inflow falls.' },
   carvedilol: { label: 'Carvedilol', hr: 0.82, contr: 0.92, spl: 1.25, sys: 0.9, sin: 0.8, baroHr: 0.4,
     info: 'NSBB with α1 blockade: also lowers intrahepatic (sinusoidal) tone, so HVPG falls more than with propranolol, at the cost of lower MAP.' },
   // (The baroreflex gives back most of a systemic vasoconstrictor's rise, so `sys` is well above the rise it yields: 5 to 10 mmHg

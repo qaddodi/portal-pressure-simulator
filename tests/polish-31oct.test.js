@@ -158,3 +158,22 @@ test('a percentage is "75%" everywhere a person reads it: the cards, the Why bar
   // (a unit phrase keeps its space: "liver blood flow in % of normal")
   assert.match(src('src/ui/presenter.js'), /liver blood flow in % of normal/);
 });
+
+test('the drug class is "beta-blocker" on the Treat card, the Why card and the slides alike', () => {
+  for (const f of ['src/ui/actions.js', 'src/ui/inspector.js', 'src/engine/scenario.js']) assert.doesNotMatch(src(f), /'(Non-selective )?[βΒ]-blocker/, f);
+  assert.match(src('src/ui/actions.js'), /propranolol: 'Non-selective beta-blocker', carvedilol: 'Beta-blocker \+ α1 blockade'/);
+  assert.match(src('src/ui/decks/treatment.js'), /kicker: 'Non-selective beta-blocker'/);
+});
+
+test('US spelling in what a reader sees: liters, center, favors, color', () => {
+  assert.doesNotMatch(src('src/ui/instruments.js'), /'Litres to drain|per litre drained/);
+  assert.doesNotMatch(src('src/ui/decks/choose-treatment.js'), /experienced centre/);
+  assert.doesNotMatch(src('src/ui/decks/next-bleed.js'), /AASLD favours/);
+  assert.doesNotMatch(src('src/ui/decks/sites.js'), /in one colour/);
+});
+
+test('the credit in the Help menu keeps one voice: "Created by <name>" over "More teaching tools", the About link\'s own words', () => {
+  const main = src('src/ui/main.js');
+  assert.match(main, /'More teaching tools ', icon\('chev-right'\)/);
+  assert.doesNotMatch(main, /All my tools/);
+});

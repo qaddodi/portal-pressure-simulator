@@ -2,8 +2,8 @@
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
-import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=bcedeba324';
-import { store, updateParams, hiddenNow } from './store.js?v=3611054974';
+import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=0b6dfcc7c5';
+import { store, updateParams, hiddenNow } from './store.js?v=7e587ef608';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js?v=4c95f6eb28';
 import { liveBalance } from './balance-hold.js?v=1792704e7a';
 import { frameFor, cancelFrame } from './frame.js?v=6a53e5fc6e';
@@ -69,7 +69,7 @@ export const CONTROLS = {
 };
 for (const k of Object.keys(DRUGS)) CONTROLS['drug:' + k] = { type: 'drug', key: 'drugs', drug: k };
 
-const DRUG_SHORT = { propranolol: 'Non-selective β-blocker', carvedilol: 'β-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };
+const DRUG_SHORT = { propranolol: 'Non-selective beta-blocker', carvedilol: 'Beta-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };
 
 export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios, onMode, pinned, chart, onBack }) {
   let live = [];        // [el, fn(frame)]

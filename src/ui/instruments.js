@@ -2,19 +2,19 @@
 // varix cross-section, abdomen.
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { gastricUp } from '../engine/scenario.js?v=bcedeba324';
+import { gastricUp } from '../engine/scenario.js?v=0b6dfcc7c5';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
 import { pressureColor } from './colormap.js?v=88bc8501e6';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=4c95f6eb28';
-import { simTime, isPaused } from './clock.js?v=678bfe1fb0';
+import { simTime, isPaused } from './clock.js?v=5f8b1a7998';
 import { createEndoGL } from './endo-gl.js?v=8197e983fe';
 import { renderEndo } from './endo-render.js?v=7105cc3a19';
 import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=353f53f661';
 import { drawScopeBleed } from './endo-bleed.js?v=662202b9d7';
 import { poolFill } from './blood.js?v=aa66de2366';
-import { FONT } from './charts.js?v=3bc1bf0151';
-import { store, updateParams, varicesPresent } from './store.js?v=3611054974';
+import { FONT } from './charts.js?v=da719e37c3';
+import { store, updateParams, varicesPresent } from './store.js?v=7e587ef608';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
 import { lateFrameFor, cancelFrame, framePhase } from './frame.js?v=6a53e5fc6e';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
@@ -589,8 +589,8 @@ export function createAbdomen({ onAction }) {
   let L = 5;
   const volOut = h('output', { class: 'ab-dp-l', 'aria-live': 'polite' });
   const setL = (x) => { L = +clamp(x, 1, 10).toFixed(1); paintVol(); };
-  const volMinus = h('button', { class: 'ab-dp-sb', 'aria-label': 'Litres to drain: less', onclick: () => setL(L - 0.5) }, '−');
-  const volPlus = h('button', { class: 'ab-dp-sb', 'aria-label': 'Litres to drain: more', onclick: () => setL(L + 0.5) }, '+');
+  const volMinus = h('button', { class: 'ab-dp-sb', 'aria-label': 'Liters to drain: less', onclick: () => setL(L - 0.5) }, '−');
+  const volPlus = h('button', { class: 'ab-dp-sb', 'aria-label': 'Liters to drain: more', onclick: () => setL(L + 0.5) }, '+');
   const drain = h('button', { class: 'ab-drain', onclick: () => onAction({ kind: 'paracentesis', mL: L * 1000, albumin: albOn() }) });
   function paintVol() {
     const warn = L > 5 && !albOn();
@@ -600,7 +600,7 @@ export function createAbdomen({ onAction }) {
     albS.textContent = albOn() ? `${Math.round(L * 8)} g` : warn ? 'Advised' : 'Optional';
     albS.classList.toggle('ab-warn', warn);
     alb.classList.toggle('ab-warn', warn);
-    alb.title = warn ? `For >5 L, give albumin (${Math.round(L * 8)} g, 8 g per litre drained) to protect the kidneys.` : 'Albumin 8 g per litre drained: advised for >5 L, optional for ≤5 L.';
+    alb.title = warn ? `For >5 L, give albumin (${Math.round(L * 8)} g, 8 g per liter drained) to protect the kidneys.` : 'Albumin 8 g per liter drained: advised for >5 L, optional for ≤5 L.';
     drain.textContent = hasFluid ? 'Drain' : 'No fluid';
     drain.disabled = !hasFluid;
   }
@@ -633,7 +633,7 @@ export function createAbdomen({ onAction }) {
   gauge.append(dial.el);
   const dp = h('div', { class: 'ab-dp', role: 'group', 'aria-label': 'Paracentesis' },
     h('div', { class: 'ab-dp-k' }, 'Drain'),
-    h('div', { class: 'ab-dp-vol', role: 'group', 'aria-label': 'Litres to drain' }, volMinus, volOut, volPlus),
+    h('div', { class: 'ab-dp-vol', role: 'group', 'aria-label': 'Liters to drain' }, volMinus, volOut, volPlus),
     alb, drain);
   // Abdominal pressure as one slim bar, 0–30 mmHg, ticked at 12 (IAH) and 20 (ACS).
   const iapFill = h('i', { class: 'ab-iap-fill' }), iapNum = h('b'), iapWord = h('span', { class: 'ab-w' });

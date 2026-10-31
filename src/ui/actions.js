@@ -5,9 +5,9 @@
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel, flowReversed } from './velNormal.js?v=97920ddf3f';
-import { store, updateParams, hiddenNow } from './store.js?v=3611054974';
+import { store, updateParams, hiddenNow } from './store.js?v=7e587ef608';
 import { fmt, fmtFlow, clamp } from './util.js?v=4c95f6eb28';
-import { PREGNANCY_INFO } from '../engine/scenario.js?v=bcedeba324';
+import { PREGNANCY_INFO } from '../engine/scenario.js?v=0b6dfcc7c5';
 import { aboutVessel, aboutOrgan } from './about.js?v=b3e5881166';
 import { lobuleState } from './lobule-model.js?v=fa466ef96e';
 import { oxygenFor } from './blood.js?v=aa66de2366';
@@ -336,4 +336,4 @@ export function shuntable(id) {
 }
 
 // ── Clinical orders (the Treat section and the command palette) ────────────
-export const DRUG_NOTE = { propranolol: 'Non-selective β-blocker', carvedilol: 'β-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };
+export const DRUG_NOTE = { propranolol: 'Non-selective beta-blocker', carvedilol: 'Beta-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };

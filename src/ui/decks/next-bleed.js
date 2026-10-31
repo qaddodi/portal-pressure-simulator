@@ -39,7 +39,7 @@ export const NEXT_BLEED = {
       id: 'bands', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: BANDED, tool: SCOPE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
       kicker: 'Banding alone', site: 'sin', title: 'Banding shrinks the varices, not the pressure',
       line: 'Banding every 2 to 4 weeks shrinks the varices to {varix}. The pressure behind them does not fall: with the collateral closed, the HVPG creeps up to {hvpg}.',
-      notes: 'Each band strangles a column of the varix, which scars and sloughs over the next days. Sessions are repeated every 2 to 4 weeks (AASLD favours 4, to let the banding ulcers heal) until the varices are gone. Closing the collateral takes away an escape route for portal blood, so the portal pressure, if anything, rises a little. (AASLD 2024 statement 20.)',
+      notes: 'Each band strangles a column of the varix, which scars and sloughs over the next days. Sessions are repeated every 2 to 4 weeks (AASLD favors 4, to let the banding ulcers heal) until the varices are gone. Closing the collateral takes away an escape route for portal blood, so the portal pressure, if anything, rises a little. (AASLD 2024 statement 20.)',
       ask: ['How often is banding repeated after a variceal bleed, and until when?', 'Every 2 to 4 weeks until the varices are gone.'],
     },
     {
