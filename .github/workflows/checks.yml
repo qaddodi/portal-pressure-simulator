@@ -153,6 +153,9 @@ jobs:
       - name: The organs painted on the GPU match the browser's drawing of their SVG
         if: success() || failure()   # (each check runs even when the one before it failed, so one red run tells them all)
         run: npm run smoke:paint
+      - name: The figure draws, sleeps when paused, and with ?flow=dashes stays still at rest while the dashes move
+        if: success() || failure()   # (each check runs even when the one before it failed, so one red run tells them all)
+        run: npm run smoke:draws -- dist
       - name: The figure's browser checks, organs on the GPU
         if: success() || failure()   # (each check runs even when the one before it failed, so one red run tells them all)
         env:

@@ -9,14 +9,14 @@
 // Its numbers are the slide's own (its fingerprint, as the tiles read it: the same on every screen), easing to each new
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
 
-import { frame, cancelFrame } from './frame.js?v=9d6b717149';
+import { frame, cancelFrame } from './frame.js?v=31d41c47b6';
 import { PROFILE_PATHS } from './anatomy.js?v=e20e751129';
 import { follow2, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { RATE } from './table-marks.js?v=e4c3c4f8c1';
 import { monotoneSegs } from './curve-near.js?v=9ff15157e9';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { pressureColor } from './colormap.js?v=ddb18485b7';
+import { pressureColor } from './colormap.js?v=92717320a3';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;

@@ -4,20 +4,20 @@
 import { gastricUp } from '../engine/scenario.js?v=bcedeba324';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=e20e751129';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=ddb18485b7';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=92717320a3';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3611054974';
 import { fibroReading } from './clock.js?v=678bfe1fb0';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=ca062f41e6';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=ead012d9c8';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { easeMove, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=387660d4ad';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
-import { runFlick, FLICK } from './flick.js?v=2cf6e355ce';
+import { runFlick, FLICK } from './flick.js?v=422bca9521';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js?v=9bca7bbc89';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
@@ -34,27 +34,28 @@ import { LIVER_GEO } from './liver-geo-data.js?v=41a20a25ac';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=a6a766d521';
 import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=c16e5847d4';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels, noteStripRead, stripPx } from './plate-upload.js?v=ea6a71d855';
-import { refine } from './refine.js?v=010dc120b4';
-import { fadeOver, fadeStop, fading } from './res-fade.js?v=2d63c83115';
+import { refine } from './refine.js?v=4918fdf124';
+import { fadeOver, fadeStop, fading } from './res-fade.js?v=2dd4fa0cbc';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
 import { cropToGrid } from './organs-gl.js?v=ab917f2876';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=e08cf3a692';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
-import { createLabelGL } from './label-gl.js?v=54f9e72ea5';
-import { createGlassGL } from './glass-gl.js?v=61efde9bcb';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=e3a50dd38a';
+import { createLabelGL } from './label-gl.js?v=2757b0730e';
+import { createGlassGL } from './glass-gl.js?v=ff607b7d30';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=de102b3185';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
 import { follow2, createColourFollow } from './display-state.js?v=8d062d39dc';
 import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=acc95c9bbc';
-import { retireRows } from './flow-rows.js?v=bea4089714';
+import { retireRows, flowClose } from './flow-rows.js?v=59053c0155';
+import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=c5ca823ec0';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=9d6b717149';
+import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=31d41c47b6';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=e4c3c4f8c1';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -592,6 +593,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // halos, guides), which moves to a second SVG above the GPU layer, with the same view box.
   const GL_ROWS = ALL_EDGES.length + ALL_EDGES.reduce((n, e) => n + (STRANDS[e.id]?.length || 0) + (feedGeo[e.id]?.length || 0) + (treeGeo[e.id]?.length || 0), 0);
   let veins = null, svgOver = null, worldOver = null;
+  // The blood's motion as small compositor layers instead of canvas frames (flow-dash.js): only with ?flow=dashes in the address for
+  // now, so today's look stays the default until Mohammad has compared the two. Reduce Motion keeps the still flow either way.
+  const FLOW_DASH = typeof location !== 'undefined' && /[?&]flow=dashes\b/.test(location.search);
+  let flowDash = null;
+  const dashMode = () => !!flowDash && !reduceMotion.matches;
   let olList = [], olCol = [0.2, 0.45, 0.9], olDirty = false, olLast = 0, olVerts = null;   // the organ outlines on the GPU (see olStep)
   const vCanvas = document.createElement('canvas');
   vCanvas.id = 'veins'; vCanvas.setAttribute('aria-hidden', 'true');
@@ -605,6 +611,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     vCanvas.after(svgOver);
     worldOver.append(gFocus, gOver, gNodes, gGuides);
     wrap.classList.add('veins-gl');
+    // ?flow=dashes (31 Oct, to compare with today's look): the streaks stand still in the canvas and the motion is carried by small
+    // layers over it (flow-dash.js), between the canvas and the overlays above it.
+    if (FLOW_DASH) {
+      const dashHost = document.createElement('div');
+      dashHost.className = 'flow-dash'; dashHost.setAttribute('aria-hidden', 'true');
+      vCanvas.after(dashHost);
+      flowDash = createFlowDash(dashHost);
+    }
   } else {
     // No WebGL2 at all (very old browsers): a short notice; the SVG tubes still show the figure.
     console.warn('WebGL2 is not available: the figure is drawn without moving blood.');
@@ -2409,7 +2423,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=1bcd7af12f').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=4e139c7729').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -10395,6 +10409,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const flowData = new Float32Array(GL_ROWS * FLOW_TEXELS * 4);
   // (The rows written this frame and last: stepBlood clears a row once when its vessel stops drawing.)
   const flowNow = new Uint8Array(GL_ROWS), flowWas = new Uint8Array(GL_ROWS);
+  let flowKept = null, flowKeptFor = null;   // (the table as last sent while the blood stood still: stepBlood)
   const dyeData = new Float32Array(GL_ROWS * DYE_BINS), dyeRow = new Float32Array(DYE_BINS);
   const streams = EDGES.map((e, k) => ({ seed: k + 1 }));
   const LARGE = EDGES.map((e) => (e.kind === 'vein' || e.kind === 'diode') && (e.d || 0) >= STASIS_MIN_D);
@@ -10499,13 +10514,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function stepBlood(dt) {
     const st = store.get(), b = st.blood || {};
-    const moving = st.running && !reduceMotion.matches;
+    // (?flow=dashes: the canvas's streams stand still, as with Reduce Motion; the dashes' own streams carry the motion, dashFlow.)
+    const dashes = dashMode();
+    const moving = st.running && !reduceMotion.matches && !dashes;
     const speed = st.clock === 'hemo' ? clamp(Math.sqrt(st.speed), 0.5, 2) : 0.8;
     const Qf = F.Qf || F.Q;
     if (moving) bloodClock = (bloodClock + dt) % 10000;
     // Reversed flow (against the healthy direction, as the Direction lens has it) eases in and out.
     // (Reduced motion: the streams stand still but follow the flow's direction at once, and nothing eases.)
-    const still = st.running && reduceMotion.matches;
+    const still = st.running && (reduceMotion.matches || dashes);
     const ease = reduceMotion.matches ? 1 : -Math.expm1(-dt / 0.5);
     // (One options object and one key-chevrons answer for the whole loop, not one per vessel per frame: advanceStream reads
     // the options at once and keeps none of them.)
@@ -10525,6 +10542,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const rt = revHold[k];
       so.large = LARGE[k]; so.rev = !!rt;
       const sm = advanceStream(streams[k], velQf[k], velQ[k], moving ? dt : 0, so);
+      // (The dashes' stream: as the canvas's would run, eased and held through a turn, its distance unused.)
+      if (dashes) { so.still = false; advanceStream(dashSt[k], velQf[k], velQ[k], st.running ? dt : 0, so); so.still = still; }
       sm.rev = sm.rev == null ? rt : eased(sm.rev, rt, ease);
       const ct = !key || KEY_K[k] === 1 || (KEY_K[k] === 2 && keyChevron(EDGES[k], laneOpen)) || (glow.lit.get(EDGES[k].id)?.to || 0) > 0 ? 1 : 0;
       sm.chevK = sm.chevK == null ? ct : eased(sm.chevK, ct, ease);
@@ -10532,7 +10551,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The streaks, the chevrons and the origin colours fade in and out (0.15 s) when switched, by their toggles, the catheter
     // (which hides the chevrons while it is in) or the lens, instead of in one frame; Reduce Motion keeps fades (round 2
     // review, B4).
-    const kF = -Math.expm1(-dt / 0.15), tS = bloodOn() ? 1 : 0, tC = chevOn() && !cath.st ? 1 : 0, tO = originOn() ? 1 : 0;
+    const kF = -Math.expm1(-dt / 0.15), tS = bloodOn() ? 1 : 0, tC = chevOn() && !cath.st && !dashes ? 1 : 0, tO = originOn() ? 1 : 0;
     blendA.s = blendA.s == null ? tS : eased(blendA.s, tS, kF);
     blendA.c = blendA.c == null ? tC : eased(blendA.c, tC, kF);
     blendA.o = blendA.o == null ? tO : eased(blendA.o, tO, kF);
@@ -10577,7 +10596,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (on && BLOOD_CHAIN) chainRows(reduceMotion.matches ? 1 : -Math.expm1(-dt / 0.25), reduceMotion.matches ? 1 : -Math.expm1(-dt / 1));
     const retired = retireRows(flowData, flowWas, flowNow, FLOW_TEXELS * 4);
     if (retired && gpuProbe.on) for (let i = 0; i < retired; i++) gpuProbe.note(COUNTED.flowRetired);
-    veins.setFlow(flowData);
+    // (While the blood stands still, a table within a hundredth of what the GPU holds is not sent: the same picture, so the
+    // figure sleeps through the model's own wobble instead of drawing again on each of its frames. flow-rows.js flowClose.)
+    if (moving || flowKeptFor !== veins || !flowClose(flowData, flowKept, FLOW_TEXELS * 4, GL_ROWS)) {
+      flowKeptFor = veins;
+      veins.setFlow(flowData);
+      if (moving) flowKept = null; else (flowKept ||= new Float32Array(flowData.length)).set(flowData);
+    }
     // The dye bolus, through every vessel (hidden ones take a second each).
     if (bolus.active) {
       for (let k = 0; k < EDGES.length; k++) {
@@ -10596,6 +10621,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       veins.setDye(dyeData); dyeShown = true;
     } else if (dyeShown) { veins.setDye(null); dyeShown = false; }
+    if (dashes) dashFlow(speed, st.running);
   }
   /**
    * Starts a dye injection: into vessel `id` (default: the gut's veins, as in mesenteric
@@ -10638,6 +10664,140 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { on: sA > 0, still: reduceMotion.matches, chev: cA > 0, look: b.look, origin: oA > 0, streakA: sA, chevA: cA, originA: oA, clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(), noChev: noChevBoxes, holes: chevHoles, vdpr, ...bloodColors() };
   }
 
+  // ── ?flow=dashes: the motion as small layers (flow-dash.js) ──────────
+  // Each drawn vessel (and strand, tributary, liver branch) is a track: thin streak-like dashes on one to three lanes and, where the
+  // canvas would draw them, the flow arrowheads, moved by the browser along its centre line. Built from the vessels as drawn (glItems),
+  // again when what is drawn, the slide's readings or the zoom (by more than a third, once the view has settled) change; their speed,
+  // colour and opacity follow the blood table with each model frame (dashFlow). Hidden behind the organs and the vessels in front for a
+  // vessel drawn behind them (x.back: the canvas's back tiers), as the canvas hides its blood there.
+  const dashSt = EDGES.map((e, k) => ({ seed: k + 1 }));
+  let dashBuilt = null, dashTracks = [], dashVV = -1, dashVAt = 0, dashWake = 0;
+  const DASH_MAX = 420;   // elements at most: past it the dashes thin out (the heads keep their spacing)
+  const dashSee = (it) => !it.x.isArt && !it.x.g.classList.contains('coll-ghost') && !it.x.reveal;
+  function dashVisible() {
+    return dashMode() && !!F && !!vLook && !!veins && !veins.lost && wrap.classList.contains('gl-on') && morph === morphTarget && rotU === rotTarget &&
+      !(diveT > 0) && !lz?.isOpen() && !lz?.covers() && (bloodOn() || chevOn());
+  }
+  function dashKey() {
+    let v = '';
+    for (const x of EV) {
+      v += x.vis ? (x.g.classList.contains('coll-ghost') ? 'g' : x.reveal ? 'r' : '1') : '0';
+      for (const sd of x.strands || []) v += (sd.live ?? 1) > 0.02 ? 's' : '';
+      for (const fd of x.feeders || []) v += (fd.live ?? 1) > 0.02 && fd.w ? 'f' : '';
+    }
+    return `${geometryVersion}|${morphTarget}|${chevOn() ? 1 : 0}|${keyOnly() ? 1 : 0}|${[...glow.lit.keys()].join(',')}|${vdpr}|${v}`;
+  }
+  // (Where the readings keep the heads off, to 2 world units: rebuilt only once the view has settled, as for a zoom.)
+  const dashHoleKey = () => [...noChevBoxes, ...chevHoles].map((b) => b.map((q) => Math.round(q / 2)).join(',')).join(';');
+  // Where a vessel drawn behind is covered: the organs and every vessel drawn in front, rasterized at half a pixel a world unit.
+  function dashCover(items) {
+    const k = 0.5, X0 = -200, Y0 = -400, Wd = Math.ceil((VIEW.w + 400) * k), Hd = Math.ceil((VIEW.h + 800) * k);
+    const c = document.createElement('canvas');
+    c.width = Wd; c.height = Hd;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.setTransform(k, 0, 0, k, -X0 * k, -Y0 * k);
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    g.fillStyle = g.strokeStyle = '#000';   // colour-exempt: a mask
+    const solid = new Path2D();
+    for (const { p, w } of getOrganCovers()) { if (w) { g.lineWidth = w; g.stroke(p); } else solid.addPath(p); }
+    g.fill(solid);
+    for (const it of items) {
+      if (it.x.back || it.pts.length < 2) continue;
+      g.lineWidth = Math.max(1, it.kind === 'v' ? it.x.width || 2 : it.kind === 's' ? (it.x.width || 2) * (it.obj.k || 0.3) : it.obj.w || 2);
+      g.beginPath(); g.moveTo(it.pts[0][0], it.pts[0][1]);
+      for (const q of it.pts) g.lineTo(q[0], q[1]);
+      g.stroke();
+    }
+    const a = g.getImageData(0, 0, Wd, Hd).data;
+    return (x, y) => {
+      const i = Math.round((x - X0) * k), j = Math.round((y - Y0) * k);
+      return i < 0 || j < 0 || i >= Wd || j >= Hd ? 0 : a[(j * Wd + i) * 4 + 3] / 255;
+    };
+  }
+  function dashBuild(fade) {
+    if (!CTM) refreshCTM();
+    const sc = CTM.sc, anat = morphTarget === 0;
+    const items = glItems().filter((it) => it.kind !== 'c' || !anat);
+    const cover = anat ? dashCover(items) : null;
+    const key = keyOnly(), list = [];
+    let n = 0;
+    for (const it of items) {
+      if (!dashSee(it) || it.pts.length < 2) continue;
+      const [, rAt] = itemRadii(it), N = it.pts.length;
+      let len = 0;
+      for (let i = 1; i < N; i++) len += Math.hypot(it.pts[i][0] - it.pts[i - 1][0], it.pts[i][1] - it.pts[i - 1][1]);
+      const radius = (sv) => Math.max(0.3, rAt(Math.round(clamp(sv / (len || 1), 0, 1) * (N_SAMPLES - 1))));
+      const R = radius(len / 2), Rdev = R * sc * vdpr;
+      if (Rdev < 1.3) continue;
+      const id = it.x.e.id, k = EI[id];
+      const lo = it.kind === 'v' && LIGATED.some((l) => l[1] === id) ? divideLen(id) : 0;
+      const behind = cover && it.x.back && !(IVC_EDGES.has(id) && it.x.g.classList.contains('is-sel'));
+      const seenDash = (sv, x, y) => (sv < lo ? 0 : 1) * (behind ? 1 - cover(x, y) : 1);
+      const heads = chevOn() && (!key || KEY_K[k] === 1 || (KEY_K[k] === 2 && keyChevron(EDGES[k], laneOpen)) || glow.lit.has(id));
+      const chevSp = chevSpacing(R, sc, vdpr);
+      const Rpx = R * sc;
+      const lanes = Rpx < 4 ? [0] : Rpx < 9 ? [-0.35, 0.35] : [-0.5, 0, 0.5];
+      list.push({ key: it.row, row: it.row, k, pts: it.pts, R, radius, lanes, dashSp: 2 * chevSp, chevSp: heads ? chevSp : 0, seed: (k * 37) % 97,
+        seenDash, seen: (sv, x, y) => seenDash(sv, x, y) * (inHole(x, y, noChevBoxes, chevHoles) ? 0 : 1) });
+      n += lanes.length * Math.ceil(len / (2 * chevSp)) + (heads ? Math.ceil(len / chevSp) : 0);
+    }
+    // (Many vessels on screen: the dashes thin out evenly until the elements fit.)
+    if (n > DASH_MAX) { const f = n / DASH_MAX; for (const t of list) t.dashSp *= f; }
+    flowDash.build(list, sc, { fade });
+    dashTracks = list;
+    dashBuilt = { key: dashKey(), hk: dashHoleKey(), sc };
+    dashFlow(store.get().clock === 'hemo' ? clamp(Math.sqrt(store.get().speed), 0.5, 2) : 0.8, store.get().running);
+  }
+  function dashSync(now) {
+    const on = dashVisible();
+    flowDash.show(on);
+    if (!on) return;
+    if (viewVersion !== dashVV) { dashVV = viewVersion; dashVAt = now; }
+    const settled = now - dashVAt > 300;
+    // (What is drawn changed: at once. The readings moved or the zoom changed by more than a third: once the view has settled, so a
+    // pinch or a glide never rebuilds a frame at a time; the loop is woken to look again then.)
+    if (!dashBuilt) dashBuild(false);
+    else if (dashKey() !== dashBuilt.key) dashBuild(true);
+    else if ((CTM && Math.abs(Math.log(CTM.sc / dashBuilt.sc)) > Math.log(1.35)) || dashHoleKey() !== dashBuilt.hk) {
+      if (settled) dashBuild(true);
+      else dashLater();
+    }
+    if (glM) flowDash.view(glM);
+  }
+  // (A look again in a moment, from outside the frame loop, which may sleep through it: the figure has nothing new to draw.)
+  function dashLater() { if (!dashWake) dashWake = setTimeout(() => { dashWake = 0; if (flowDash) dashSync(performance.now()); }, 320); }
+  const mixC = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  const cssC = (c) => `rgb(${c.map((v) => Math.round(clamp(v, 0, 1) * 255)).join(',')})`;
+  const smoothF = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  const orangeOf = (c) => smoothF(0.35, 0.55, c[0] - c[2]) * smoothF(0.65, 0.8, c[0]) * smoothF(0.25, 0.35, c[1]) * (1 - smoothF(0.62, 0.78, c[1]));
+  // Each track's speed (the canvas's streams would move by vd × speed a second), opacity and colours, as the canvas would draw them:
+  // the streak's own core colour for a dash (light on a dark lumen, deep on a pale one, warming orange where the flow is reversed),
+  // the head's dark ink with its light rim (cream on an orange vessel).
+  function dashFlow(speed, running) {
+    if (!flowDash || !dashTracks.length) return;
+    const bc = bloodColors(), sOn = bloodOn() ? 1 : 0, cOn = chevOn() && !cath.st ? 1 : 0;
+    for (const t of dashTracks) {
+      const o = t.row * FLOW_TEXELS * 4, ot = t.row * TUBE_TEXELS * 4;
+      const vd = dashSt[t.k].vd || 0, v = running ? vd * speed : 0;
+      const sc = shownCol.get(t.row);
+      const vc = sc ? mixC(sc[0], sc[1], 0.5) : [0.5, 0.5, 0.5];
+      const rev = flowData[o + 7] || 0, strength = flowData[o + 6] || 0, chevK = flowData[o + 12] ?? 1;
+      const pale = smoothF(0.58, 0.66, vc[0] * 0.299 + vc[1] * 0.587 + vc[2] * 0.114);
+      let core = mixC(mixC(vc, bc.inkLight, 0.62), mixC(vc, bc.inkDark, 0.45), pale);
+      if (rev > 0) core = mixC(core, mixC(bc.revCol, bc.inkLight, 0.18), rev);
+      const warm = rev * orangeOf(vc);
+      const ink = mixC(bc.chevInk, vc.map((q) => q * 0.3), 0.2);
+      const tier = tubeData ? tubeData[ot + 8] : TIER_NET;
+      const alpha = strength * (tubeData ? tubeData[ot + 7] : 1) * (TIER_GROUP[Math.round(tier)] === 1 ? netA : 1);
+      const fadeV = smoothF(0.5, 3, Math.abs(vd));
+      flowDash.flow(t.key, {
+        v, alpha, rev,
+        dash: sOn * fadeV * 0.6, chev: cOn * chevK * fadeV,
+        dashCol: cssC(core), inkCol: cssC(mixC(mixC(ink, bc.revCol, rev), bc.chevLight, warm)), rimCol: cssC(mixC(bc.inkLight, vc.map((q) => q * 0.45), warm)),
+      });
+    }
+  }
+
   let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null, lastAnim = true;
   // The anatomy shows through a dive or a rise (not yet covered, not faded out under the landing) and something on it moves: the
   // fluid, a vessel's width or coil, an organ, a vessel drawing on or off, a fade, or a vessel layer to draw again.
@@ -10646,7 +10806,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Whether the figure moves by itself while the model runs (see animate).
   function figureMoves(st) {
     if (!st.running || reduceMotion.matches) return false;
-    return bloodOn() || (chevOn() && !cath.st) || fluidLook.ripple || sprayOn() || sprayA > 0;
+    // (?flow=dashes: the blood's motion is the dashes' and heads' own, played by the browser: the canvas has nothing moving to draw.)
+    return (!dashMode() && (bloodOn() || (chevOn() && !cath.st))) || fluidLook.ripple || sprayOn() || sprayA > 0;
   }
   let drawnView = -1;
   let flowGate = lastT;
@@ -10742,6 +10903,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // anatomy still shows and something on it eases (anatEasing), the frame goes on below and draws it, as anywhere else: the
     // patient's changes never pause for the zoom. (The box is measured without the dive's scale: measureBox.)
     if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw && !anatEasing()) {
+      if (flowDash) dashSync(now);   // (the dashes fade out under a dive: they are not magnified with the figure)
       // (The plate holds still through the dive, measured before its zoom, but while the anatomy still shows, its blood keeps
       // moving: never frozen physiology. No update or refreshCTM here: the box measured under the zoom would be wrong.
       // Round 2 review, B9.)
@@ -10822,8 +10984,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (glowSync && !syncGlowOnly(easeInOut(morph))) syncVeins(easeInOut(morph));
     olStep(now);
     if (drawVeins(fluidMoved)) { noteDraw('stage'); swYield?.drew(now); }
-    else if (veins && !veins.lost && vLook && F) { veins.composite(vLook, bloodLook(), fluidMoved); noteDraw('stage'); swYield?.drew(now); }
+    else if (veins && !veins.lost && vLook && F && veins.composite(vLook, bloodLook(), fluidMoved) !== false) { noteDraw('stage'); swYield?.drew(now); }
     drawnView = viewVersion;
+    if (flowDash) dashSync(now);
     lastDrawKey = key; lastDrawF = F; lastDrawCTM = CTM; lastAnim = anim || bolus.active || dyeShown;
     askAnimate();
   }
@@ -10840,7 +11003,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (veinsTrimmed || !veins || veins.lost || glowSync) return;
     veins.trim(); veinsTrimmed = true; veinsDirty = true;
   }
-  function sleep() { sleeping = true; clearTimeout(sleepTimer); sleepTimer = setTimeout(wake, 1000); }
+  function sleep() {
+    sleeping = true; clearTimeout(sleepTimer); sleepTimer = setTimeout(wake, 1000);
+    // (The dashes look again once the figure rests: readings that moved or a zoom since they were built, with no frame left to draw.)
+    if (flowDash && dashBuilt && dashVisible() && (dashHoleKey() !== dashBuilt.hk || dashKey() !== dashBuilt.key || (CTM && Math.abs(Math.log(CTM.sc / dashBuilt.sc)) > Math.log(1.35)))) dashLater();
+  }
   function wake() { if (!sleeping) return; sleeping = false; clearTimeout(sleepTimer); askAnimate(); }
   stageWake = wake;
   store.on('*', wake);

@@ -35,11 +35,11 @@ import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS } from './blood.js?v=acc95c9bbc';
-import { cssRGB } from './util.js?v=ca062f41e6';
+import { cssRGB } from './util.js?v=ead012d9c8';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=c90f146780';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=7eb5e277a6';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
-import { changedRows } from './flow-rows.js?v=bea4089714';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=c16e5847d4';
+import { changedRows } from './flow-rows.js?v=59053c0155';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
 import { PUBLISH_QUIET_MS } from './gl-compile.js?v=5c4cd6c14c';
 import { createOrganStack } from './organs-gl.js?v=ab917f2876';
@@ -3340,6 +3340,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       let same = !!stillSig && sn === stillN && sn < sigNow.length;
       for (let i = 0; same && i < sn; i++) if (sigNow[i] !== stillSig[i]) same = false;
       const still = !CLASSIC && !full && !movedAll && !bl.length && same;
+      // Nothing to show that the canvas does not already: every uniform the last picture's, no row, texture or layer changed since,
+      // nothing that moves by itself (a ripple, a pool, a bleed, the catheter, a one-pass frame) and no cells drawn again. The frame
+      // is not drawn at all, so the canvas is not presented again and the compositor has nothing new to lay (the canvas keeps its
+      // last picture). This is what lets a figure whose blood stands still sleep through the model's own frames (31 Oct: a running
+      // model redrew the whole canvas about ten times a second though nothing on it changed).
+      if (still && !fused && !part && !dirt && !pool && !(fl?.ripple && nFluid) && !cath && figVer === figAt && !moved.includes(1)) {
+        if (own) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        if (gpuProbe.on) gpuProbe.note(COUNTED.pictureSkipped);
+        return false;
+      }
       // (Drawn on: counted for the glass unless it is the blood's own frame alone, the lumens repainted with every uniform as last time.)
       const figNew = figVer !== figAt;
       figAt = figVer;

@@ -139,6 +139,23 @@ svg { flex: none; }
 .stage-view #stage:focus, .stage-view #stage:focus-visible { outline: none; }
 .stage-view > :is(#stage, #stageOver, #labels, canvas) { transition: opacity var(--d-small) var(--ease); }
 .stage-view.unframed > :is(#stage, #stageOver, #labels, canvas) { opacity: 0; }
+/* ?flow=dashes (stage.js, flow-dash.js): the blood's motion as small layers over the vessel canvas, each moved by the browser along
+   its vessel. The host fades in and out as a whole; each set of elements fades in as the one it replaces fades out. */
+.stage-view > .flow-dash { position: absolute; inset: 0; pointer-events: none; overflow: hidden; contain: strict; opacity: 0; transition: opacity var(--d-small) var(--ease); }
+.stage-view > .flow-dash.on { opacity: 1; }
+.stage-view.unframed > .flow-dash, .stage-view.in-lobule > .flow-dash { visibility: hidden; }
+.flow-dash .fd-cam { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; }
+.flow-dash .fd-set { position: absolute; left: 0; top: 0; transition: opacity var(--d-small) var(--ease); }
+.flow-dash :is(.fd-track, .fd-dashes, .fd-chevs) { position: absolute; left: 0; top: 0; }
+.flow-dash :is(.fd-dashes, .fd-chevs) { transition: opacity var(--d-flip) var(--ease); }
+.flow-dash .fd-m { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform, opacity; }
+.flow-dash .fd-m > div { position: absolute; transition: transform var(--d-small) var(--ease); }
+.flow-dash .fd-track.back .fd-m > div { transform: rotate(180deg); }
+/* A dash: a streak of light in the streak's own colour, soft at both ends and brightest toward its head. */
+.flow-dash .fd-dash { border-radius: 999px; background: linear-gradient(to right, transparent, var(--fd-dash) 62%, var(--fd-dash) 78%, transparent); }
+/* A head: the canvas's shape (chevron-glsl.js), dark ink with a faint light rim. */
+.flow-dash .fd-chev svg { display: block; overflow: visible; }
+.flow-dash .fd-chev path { fill: var(--fd-ink); stroke: var(--fd-rim); stroke-opacity: 0.75; stroke-width: 1.2px; stroke-linejoin: round; paint-order: stroke; }
 /* A presenter's camera move: the labels ease out as it starts and back in once it settles (stage.js camSettle). */
 .stage-view.cam-move > #labels, .stage-view.cam-move > #labelGl, .stage-view.cam-move .lb-glass { opacity: 0; }
 /* A hand's zoom in the Circuit: the same, until it is let go (stage.js pinchHide). */

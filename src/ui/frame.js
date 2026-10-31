@@ -16,7 +16,7 @@
 // while nobody watches. perf().inputToPaint is the input-to-first-change measure (input-latency.js, premium-feel recs R2), made on
 // its first read, so a page nobody measures has no listener for it.
 
-import { gpuProbe } from './gpu-probe.js?v=9832eccfbe';
+import { gpuProbe } from './gpu-probe.js?v=c16e5847d4';
 import { createFrameRecorder } from './frame-stats.js?v=9cd1d0c4e3';
 import { createInputLatency, describeTarget } from './input-latency.js?v=b2d077f9bd';
 let queue = new Map();   // id -> [tag, cb], in request order
