@@ -795,6 +795,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (keyStops: whether the figure's vessels, organ keys and labels are keyboard stops. A talk turns them off: its figure is read-only and focus never
   // shows on it, so Tab would have walked dozens of stops it could not show; setKeyStops.)
   let keyStops = true;
+  let sinMoveGen = 0;   // (the newest dive into or out of the sinusoid view: an older one, still waiting on its zoom, stops there rather than finishing over it)
   const gOrgKeys = s('g', { id: 'organKeys' });
   for (const [id, label] of ORGAN_KEYS) gOrgKeys.append(s('path', { class: 'org-key', d: ORGANS.find((o) => o.id === id).d, tabindex: keyStops ? 0 : -1, role: 'button', 'aria-label': `${label}. Press Enter for its card.`, 'data-organ': id }));
   gOrgans.after(gOrgKeys);
@@ -2669,6 +2670,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Auto's step is taken at once for the view as it stands, so a change goes in one eased step, not by Full and back.)
   onRenderScale(() => { autoK = autoNow(); moveLow = false; adaptK = 1; moveGaps = []; easeRes(); veinsDirty = true; forceDraw = true; stageWake(); settleRes(); });
   resizeCanvas(); resizeReady = true;
+  // A window dragged to a screen of another density keeps its CSS size, so no resize notice follows and the figure would stay at the old screen's
+  // sharpness: the canvas is measured again when the density changes. (The query names the density now in force and fires once it stops matching, so it is made anew each time.)
+  const watchDensity = () => matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener?.('change', () => { resizeCanvas(); watchDensity(); }, { once: true });
+  watchDensity();
 
   // ── Frame state ───────────────────────────────────
   let F = null;            // latest frame
@@ -12074,22 +12079,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lobuleSettled: () => !diveWait && !(lz?.sinBusy()) && (lobuleOn ? diveT >= 1 : diveT <= 0),
     /** From the anatomy to the sinusoid view in two zooms: into the lobule's normal framing, then into the sinusoid. In the lobule already, just the sinusoid. */
     async diveToSinusoid() {
+      const me = ++sinMoveGen;
       if (!lobuleOn && diveT === 0 && morphTarget === 0 && !reduceMotion.matches) {
         store.set({ lobule: true });
         const t0 = performance.now();
         while (!(lobuleOn && diveT >= 1 && lz?.isOpen()) && performance.now() - t0 < 12000) await new Promise((r) => setTimeout(r, 60));
         await new Promise((r) => setTimeout(r, 120));
-        if (!lobuleOn) return;
+        if (!lobuleOn || me !== sinMoveGen) return;
       }
       store.set({ lobule: true, sinusoid: true });
     },
     /** From the sinusoid view out to the anatomy in three steps: out of the sinusoid, back to the lobule's normal framing, then out of the lobule. */
     async exitSinusoid() {
+      const me = ++sinMoveGen;
       if (!store.get().sinusoid || !lz?.sinusoidOpen()) { store.set({ sinusoid: false, lobule: false }); return; }
       store.set({ sinusoid: false });
       const t0 = performance.now(), wait = (ms) => new Promise((r) => setTimeout(r, ms));
       while ((lz.sinBusy() || lz.sinusoidOpen()) && performance.now() - t0 < 4000) await wait(60);
+      if (me !== sinMoveGen || store.get().sinusoid) return;   // (a dive began meanwhile, or the sinusoid was asked for again: leave the lobule where it is)
       if (lz.focusOn('fit', { ms: 900 })) await wait(900);
+      if (me !== sinMoveGen || store.get().sinusoid) return;
       if (store.get().lobule) store.set({ lobule: false });
     },
     /** True once the sinusoid view is wholly in. */

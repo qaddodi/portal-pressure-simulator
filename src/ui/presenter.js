@@ -4900,7 +4900,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!deck) return;
     if (cover) coverDown(true);
     stopLapse(); procStop(); cathStop(); abSlow(); liveOff = false; handOn = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
-    deck = null; shown = null; entering = null; want = 0;
+    deck = null; shown = null; entering = null; want = 0; gen++;   // (gen: a slide move still in flight is cut where it is, even if another talk starts before it notices)
     for (const w of waiters) w.res(null);
     waiters = [];
     removeEventListener('resize', onResize);

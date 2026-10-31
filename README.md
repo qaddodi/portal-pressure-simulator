@@ -71,8 +71,8 @@ conservation, determinism, stability). They are listed in the app under *Menu â€
 
 ## Using it
 
-The **menu** (top left, named after the current patient) has two tabs: *Present* (the 24
-presentation decks, by topic, and your own scripts and imported decks) and *Patients* (16 patients
+The **menu** (top left, named after the current patient) has two tabs: *Present* (the$
+presentation decks, by topic, and your own scripts and imported decks) and *Patients* (17 patients
 from healthy to constrictive pericarditis, grouped by where the resistance sits: prehepatic,
 presinusoidal, sinusoidal, postsinusoidal, posthepatic and cardiac).
 
@@ -144,7 +144,7 @@ more). See [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 | `fonts/`, `brand/` | Self-hosted fonts (SIL OFL); brand mark, lockup and app icons |
 | `scripts/` | Cache stamping, the production build, SCORM packaging, the preview badge, performance measurements |
 | `tests/` | Unit and physiological acceptance tests; `tests/e2e/` browser checks; `tests/visual/` visual references |
-| `src/ui/decks/` | The 24 presentation decks, one file each |
+| `src/ui/decks/` | The presentation decks, one file each |
 | `docs/` | All documentation (see below) |
 
 For preparing a class, `window.pps` in the browser console exposes `loadPreset`,

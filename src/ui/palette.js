@@ -12,9 +12,9 @@ const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').rep
 
 export function createPalette({ ctx }) {
   const back = h('div', { class: 'pal-back', hidden: true });
-  const input = h('input', { class: 'pal-input', type: 'text', placeholder: innerWidth < 600 ? 'Search vessels, patients, treatments' : 'Search a vessel, patient or treatment: “tips 10”, “+6 months”…', 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false' });
-  const list = h('div', { class: 'pal-list', role: 'listbox' });
-  const box = h('div', { class: 'pal', role: 'dialog', 'aria-label': 'Command palette' }, h('div', { class: 'pal-top' }, svgIcon('explore', 'pal-ic'), input, h('kbd', {}, 'Esc')), list);
+  const input = h('input', { class: 'pal-input', type: 'text', placeholder: innerWidth < 600 ? 'Search vessels, patients, treatments' : 'Search a vessel, patient or treatment: “tips 10”, “+6 months”…', 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false', role: 'combobox', 'aria-autocomplete': 'list', 'aria-controls': 'pal-list', 'aria-expanded': 'true' });
+  const list = h('div', { class: 'pal-list', id: 'pal-list', role: 'listbox', 'aria-label': 'Results' });
+  const box = h('div', { class: 'pal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Command palette' }, h('div', { class: 'pal-top' }, svgIcon('explore', 'pal-ic'), input, h('kbd', {}, 'Esc')), list);
   back.append(box);
   document.body.append(back);
   let items = [], sel = 0, ret = null;
@@ -106,13 +106,15 @@ export function createPalette({ ctx }) {
     items = search(input.value);
     sel = Math.min(sel, Math.max(0, items.length - 1));
     list.replaceChildren(...(items.length ? items.map(({ c, num }, i) => {
-      const b = h('button', { class: 'pal-item' + (i === sel ? ' on' : ''), role: 'option', 'aria-selected': String(i === sel) },
+      const b = h('button', { class: 'pal-item' + (i === sel ? ' on' : ''), id: `pal-opt-${i}`, tabindex: '-1', role: 'option', 'aria-selected': String(i === sel) },
         h('span', { class: 'pal-g' }, c.group), h('span', { class: 'pal-t' }, c.title, num != null ? h('b', {}, ` → ${num} ${c.num}`) : null), c.hint && num == null ? h('span', { class: 'pal-h' }, c.hint) : null);
       b.addEventListener('click', () => run(i));
       b.addEventListener('pointermove', () => { if (sel !== i) { sel = i; renderList(); } });
       return b;
     }) : [h('div', { class: 'pal-empty' }, 'No matching command.')]));
     list.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
+    // (The options are reached through the field, by arrow keys: it names the one that is current, and a screen reader reads it as the field's choice.)
+    if (items.length) input.setAttribute('aria-activedescendant', `pal-opt-${sel}`); else input.removeAttribute('aria-activedescendant');
   }
   function run(i) {
     const it = items[i];
@@ -152,6 +154,7 @@ export function createPalette({ ctx }) {
     else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(0, sel - 1); renderList(); }
     else if (e.key === 'Enter') { e.preventDefault(); run(sel); }
     else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+    else if (e.key === 'Tab') e.preventDefault();   // (the field is the card's one stop: Tab does not carry focus out to the page behind it)
   });
   back.addEventListener('pointerdown', (e) => { if (e.target === back) close(); });
   return { open, close, isOpen: () => !back.hidden && !back.classList.contains('leaving') };
