@@ -6,7 +6,7 @@ import { store, updateParams } from './store.js?v=3611054974';
 import { h, svgIcon, toast, afterExit, visibleBottom } from './util.js?v=4c95f6eb28';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=bcedeba324';
-import { HIDDEN_EDGES } from './anatomy.js?v=bd972c1896';
+import { HIDDEN_EDGES } from './anatomy.js?v=c30df860af';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 

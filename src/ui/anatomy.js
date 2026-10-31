@@ -105,7 +105,7 @@ export const NODE_POS = {
   UPPV: [[620, -40], [1250, 100]],
   LOWV: [[620, 980], [1120, 690]],
   ILI: [[620, 880], [1120, 640]],
-  EPI: [[500, 800], [960, 640]],
+  EPI: [[712, 840], [960, 640]],
   KID_L: [[1005, 622], [880, 540]],
   KID_R: [[500, 622], [880, 562]],
   LRV: [[862, 618], [1000, 540]],
@@ -167,19 +167,22 @@ export const EDGE_PATH = {
   // The right renal vein enters lower still, so the iliac and renal-level stretches meet head on at the node, with no fork beside it.
   RRV_IVC: 'M560 625 C 585 632 601 664 615 673',
   ILI_IVC: 'M620 880 L 620 650',
-  EPI_ILI: 'M500 800 C 512 850 530 896 546 950',
+  EPI_ILI: 'M712 840 C 682 872 600 908 546 950',
   // Up the chest wall and in across the azygos (in front of it, at a right angle) to the SVC's
   // side, below the arch, so the two never run together.
-  EPI_SVC: 'M500 800 C 420 780 340 680 334 520 C 318 410 318 260 360 170 C 396 106 476 84 540 80 C 576 78 598 76 612 72',
+  EPI_SVC: 'M712 840 C 600 846 410 796 356 664 C 340 616 334 564 334 520 C 318 410 318 260 360 170 C 396 106 476 84 540 80 C 576 78 598 76 612 72',
 
   // The coronary vein reaches the gastroesophageal junction; from there the varices climb the
   // esophageal wall as a braid of submucosal columns (see STRANDS) up to the varices node.
   C1a: 'M821 318 C 814 296 804 272 802 250 C 800 220 798 180 795 140 C 793 110 790 86 789 66',
-  // Above them the varices drain over the heart into the azygos arch (crossing behind the SVC),
+  // Above them the varices drain over the heart into the azygos arch (in the body behind the SVC; drawn in the front tier, as
+  // a collateral in the back tier is filled as a solid shape, tried 31 Oct),
   // passing over the top of the arch rather than alongside it.
   C1b: 'M789 66 C 784 38 760 12 726 2 C 690 -8 640 -12 606 -8 C 584 -5 573 8 574 30',
   C2: 'M880 505 C 890 462 912 420 922 380 C 928 344 912 312 876 302',
-  C3: 'M688 378 C 668 440 646 520 620 600 C 590 690 540 760 500 800',
+  // (Down the falciform ligament's free edge to the umbilicus on the midline (x 712), passing in front of the portal vein and the
+  // cava, beside the SMV and clear of it; it ran across the cava to the right lower quadrant, where the umbilicus was drawn.)
+  C3: 'M688 378 C 664 430 656 520 658 600 C 660 700 686 800 712 840',
   // Superior rectal veins: down beside the sigmoid to the anorectum, where they break up into
   // submucosal anorectal varices (see STRANDS) and fade out toward the pelvis.
   C4: 'M932 690 C 944 770 922 828 874 856 C 840 872 806 886 786 928',
@@ -287,7 +290,7 @@ export const FEEDERS = {
   // network that thins and fades into the skin (blood leaves the umbilicus, so its marks run
   // outward). Arms leave in every direction but straight down, where the inferior epigastric vein
   // already runs.
-  C3: { k: 0.5, when: 'caput', tone: 'end', fan: { at: [500, 800], dir: -95, spread: 280, len: 42, n: 5, seed: 4, levels: 2, wig: 0.35, out: true, when: 'caput', fade: [1, 0.85] } },
+  C3: { k: 0.5, when: 'caput', tone: 'end', fan: { at: [712, 840], dir: -95, spread: 280, len: 42, n: 5, seed: 4, levels: 2, wig: 0.35, out: true, when: 'caput', fade: [1, 0.85] } },
   CAUD: { k: 0.55, fan: { at: [566, 326], dir: 172, spread: 84, len: 46, n: 4, seed: 5, wig: 0.7 },
     when: 'caudate', from: ['RPV', 'LPV'], paths: ['M505 398 C 522 370 540 336 566 326', 'M688 378 C 630 404 546 384 566 326'] },
 };
@@ -481,7 +484,7 @@ export const ORGANS = [
   // Cantlie's line (gallbladder fossa to the IVC) and the falciform ligament: the lobes as a
   // surgeon reads them.
   { id: 'falciform', cls: 'org-lobe-line', deco: true, d: 'M654 430 C 650 375 654 305.3 648 207.6' },
-  { id: 'umbilicus', cls: 'org-umbilicus', circle: [500, 800, 5] },
+  { id: 'umbilicus', cls: 'org-umbilicus', circle: [712, 840, 5] },   // (on the midline, x 712: flankPath)
 ];
 // The esophagus and stomach drawn as one shape (organ mock-ups, 20 Oct: "the esophagus connection to the stomach should be
 // seamless"): the esophagus's edges run into the cardia and the angle of His with no seam across. The organs keep their own
@@ -566,7 +569,7 @@ export const SPLEEN_CENTER = [1040, 362];
 export const SITES = {
   varix: [797, 232],        // lower esophagus
   fundus: [876, 304],       // gastric fundus
-  umbilicus: [500, 800],
+  umbilicus: [712, 840],
 };
 
 // Organ captions: [text, x, y, anchor]
