@@ -13,8 +13,8 @@ import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=5793d9c209';
 import { drawScopeBleed } from './endo-bleed.js?v=a290094bb0';
 import { poolFill } from './blood.js?v=d85ddf7c2c';
-import { FONT } from './charts.js?v=0bcec2d68c';
-import { store, updateParams, varicesPresent } from './store.js?v=7e587ef608';
+import { FONT } from './charts.js?v=636745c9a5';
+import { store, updateParams, varicesPresent } from './store.js?v=c2a9c76ba5';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
 import { lateFrameFor, cancelFrame, framePhase } from './frame.js?v=6a53e5fc6e';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)

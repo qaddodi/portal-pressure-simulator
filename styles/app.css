@@ -5269,6 +5269,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* Readouts: wide enough that a unit never clips. */
 @media (min-width: 1100px) { .vdock .readouts:not(.all) { width: clamp(440px, 38vw, 580px); } }
 .metric .v .unit { flex: none; overflow: visible; }
+/* A percent hugs its number, as in the figure and the cards ("75%"), whatever width the tile is in (three .pct: it must outrank the phone's .readouts:not(.all) rule). */
+.metric .v .unit.pct.pct.pct { margin-left: 1px; }
 .metric .v { overflow: hidden; }
 /* Event flags: a slightly smaller dot. */
 /* A slide's Doppler readings beside the speed: two across, each label and value on its own line, never overlapping

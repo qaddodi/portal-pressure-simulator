@@ -7,9 +7,9 @@
 
 import { store, updateParams } from './store.js?v=c2a9c76ba5';
 import { h, icon, svgIcon, toast, reconcile } from './util.js?v=4c95f6eb28';
-import { DRUGS } from '../engine/scenario.js?v=0b6dfcc7c5';
-import { activeInterventions } from './inspector.js?v=da1bdb6194';
-import { DRUG_NOTE } from './actions.js?v=fd366a5c70';
+import { DRUGS } from '../engine/scenario.js?v=10a51806f7';
+import { activeInterventions } from './inspector.js?v=d3f2c7afbb';
+import { DRUG_NOTE } from './actions.js?v=596c0ad097';
 import { factTarget } from './fact-target.js?v=50935889f6';
 
 
@@ -97,7 +97,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       return b;
     };
     const drugs = h('div', { class: 'order-chips' },
-      Object.keys(DRUGS).map((k) => drugChip(k, DRUGS[k].label, `${DRUG_NOTE[k] || ''}. ${DRUGS[k].info || ''}`, (p) => p.drugs[k], (p, v) => { p.drugs[k] = v; })),
+      Object.keys(DRUGS).map((k) => drugChip(k, DRUGS[k].label, DRUGS[k].info || DRUG_NOTE[k] || '', (p) => p.drugs[k], (p, v) => { p.drugs[k] = v; })),
       drugChip('anticoag', 'Anticoagulation', 'Thrombi slowly recanalize on the disease clock.', (p) => p.anticoag, (p, v) => { p.anticoag = v; }),
       drugChip('diuretics', 'Diuretics', 'Spironolactone + furosemide: renal sodium and water loss mobilizes ascites.', (p) => p.diuretics, (p, v) => { p.diuretics = v; }));
     // One line per order; what it does is in its tooltip, so the list stays short.

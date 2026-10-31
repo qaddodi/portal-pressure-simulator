@@ -5,7 +5,7 @@ import { Engine } from './engine/engine.js?v=d436fa9654';
 import { computeMetrics } from './engine/metrics.js?v=703f122bba';
 import { fingerprintOf } from './engine/fingerprint.js?v=ca81723393';
 import { detectEvents } from './engine/events.js?v=7283e382f0';
-import { explain } from './engine/explain.js?v=ba6b031b96';
+import { explain } from './engine/explain.js?v=33949de39c';
 import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=10a51806f7';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];

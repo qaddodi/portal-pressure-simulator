@@ -207,3 +207,27 @@ test('the Patients menu groups say Pre-hepatic and Post-hepatic as the slides do
   const where = menu.match(/const GROUP_WHERE = \{[^\n]*\};/)[0];
   for (const g of groups) assert.ok(where.includes(/^\w+$/.test(g) ? `${g}:` : `'${g}':`), `${g} has a line in GROUP_WHERE`);
 });
+
+test('a percent hugs its number in the Why headline and on the readout tiles ("69%", "41% of rupture")', async () => {
+  const { Engine } = await import('../src/engine/engine.js');
+  const { explain, METRICS } = await import('../src/engine/explain.js');
+  const e = new Engine(); e.loadPreset('csph'); for (let i = 0; i < 4; i++) e.settleQuick();
+  for (const id of Object.keys(METRICS).filter((k) => METRICS[k].unit.startsWith('%'))) {
+    const { sentence } = explain(e, id);
+    assert.match(sentence, /is -?[\d.]+%( of (normal|rupture))?[,.]/, sentence);
+    assert.doesNotMatch(sentence, /\d %/, sentence);
+  }
+  // an ordinary unit keeps its space
+  assert.match(explain(e, 'hvpg').sentence, /^HVPG is [\d.]+ mmHg/);
+  // the tile's unit span carries the class that closes the gap, in the bar and in the Readouts tab, and the CSS beats the phone's rule
+  for (const f of ['src/ui/dock.js', 'src/ui/readouts-pane.js']) assert.match(src(f), /class: t\.u === '%' \? 'unit pct' : 'unit'/, f);
+  assert.match(css, /\.metric \.v \.unit\.pct\.pct\.pct \{ margin-left: 1px; \}/);
+});
+
+test('the Treat chips say what a drug is once, and the Blood menu rows fit two lines', () => {
+  const chart = src('src/ui/chart.js');
+  assert.match(chart, /DRUGS\[k\]\.info \|\| DRUG_NOTE\[k\] \|\| ''/);
+  assert.doesNotMatch(chart, /\$\{DRUG_NOTE\[k\] \|\| ''\}\. \$\{DRUGS\[k\]\.info/);
+  const m = src('src/ui/main.js');
+  for (const [, d] of m.matchAll(/toggle\(!!b\.(?:chevrons|keyChevrons)[^\n]*?'chevrons', '[^']+', '([^']+)'/g)) assert.ok(d.length <= 50, `${d.length}: ${d}`);
+});

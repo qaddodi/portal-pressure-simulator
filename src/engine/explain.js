@@ -134,7 +134,8 @@ const list = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', '
 function buildSentence(def, cur, base, cs) {
   const d = def.digits;
   const diff = cur - base;
-  let s = `${def.label} is ${cur.toFixed(d)} ${def.unit}`;
+  // (A percent hugs its number, as everywhere else: "Shunt fraction is 69%", "Varix wall stress is 41% of rupture".)
+  let s = `${def.label} is ${cur.toFixed(d)}${def.unit.startsWith('%') ? '' : ' '}${def.unit}`;
   if (Math.abs(diff) >= Math.pow(10, -d)) s += `, ${num(diff, d)} ${diff > 0 ? 'above' : 'below'} healthy`;
   const sig = cs.filter((c) => Math.abs(c.delta) >= Math.max(Math.pow(10, -d), Math.abs(diff) * 0.05));
   if (!sig.length) return s + '. Nothing meaningful is pushing it away from normal.';

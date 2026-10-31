@@ -7,7 +7,7 @@ import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isSten
 import { dopplerVel, flowReversed } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, hiddenNow } from './store.js?v=c2a9c76ba5';
 import { fmt, fmtFlow, clamp } from './util.js?v=4c95f6eb28';
-import { PREGNANCY_INFO } from '../engine/scenario.js?v=0b6dfcc7c5';
+import { PREGNANCY_INFO } from '../engine/scenario.js?v=10a51806f7';
 import { aboutVessel, aboutOrgan } from './about.js?v=19ed49054e';
 import { lobuleState } from './lobule-model.js?v=07f8f776f1';
 import { oxygenFor } from './blood.js?v=d85ddf7c2c';

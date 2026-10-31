@@ -20,10 +20,10 @@
 
 import highlights from './ext-highlights.js?v=cda3c3a881';
 import charts from './ext-charts.js?v=ee337a7a09';
-import model from './ext-model.js?v=3b1222b192';
+import model from './ext-model.js?v=024c443494';
 import panels from './ext-panels.js?v=52fd5b0b7f';
 import callouts from './ext-callouts.js?v=a05bca9b2a';
-import instruments from './ext-instruments.js?v=b26db9eacc';
+import instruments from './ext-instruments.js?v=7e15fece55';
 import teaching from './ext-teaching.js?v=a2ece4c535';
 
 export const PACKAGES = { A: highlights, B: charts, C: model, E: panels, F: callouts, G: instruments, H: teaching };

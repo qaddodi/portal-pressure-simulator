@@ -5,13 +5,13 @@ import { store, hiddenNow } from './store.js?v=c2a9c76ba5';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=4c95f6eb28';
 import { lobuleFlows } from './lobule-model.js?v=07f8f776f1';
-import { createProfile } from './charts.js?v=0bcec2d68c';
-import { createPressureTime } from './pressure-time.js?v=4298e64823';
-import { createHvpgProcedure } from './hvpg-proc.js?v=f73416a204';
+import { createProfile } from './charts.js?v=636745c9a5';
+import { createPressureTime } from './pressure-time.js?v=eba890c301';
+import { createHvpgProcedure } from './hvpg-proc.js?v=98a5eb4ca2';
 import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=7043636646';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=a3f38ff9d0';
-import { createReadoutsPane } from './readouts-pane.js?v=02f0d63613';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=c5b6d44086';
+import { createReadoutsPane } from './readouts-pane.js?v=078ff06e11';
 import { frameFor } from './frame.js?v=6a53e5fc6e';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=9f263ec53f';
@@ -158,7 +158,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     // The bar's HVPG and PPG are plain readouts for now: no tap action, button or focus stop (the Readouts tab's tiles still open "why").
     const inert = BAR_INERT.has(t.id);
     const el = h(inert ? 'div' : 'button', { class: 'metric' + (inert ? ' inert' : '') + (PRIMARY.has(t.id) || LOBULE_PRIMARY.has(t.id) ? ' primary' : ''), 'data-id': t.id, ...(inert ? { role: 'group' } : {}) },
-      h('span', { class: 'k' }, t.ks ? [h('span', { class: 'k-l' }, t.k), h('span', { class: 'k-s' }, t.ks)] : t.k), h('span', { class: 'v' }, val, shared ? null : h('span', { class: 'unit' }, t.u, t.ux ? h('span', { class: 'u-x' }, t.ux) : null), tr), bar, h('span', { class: 's' }, st, cmp));
+      h('span', { class: 'k' }, t.ks ? [h('span', { class: 'k-l' }, t.k), h('span', { class: 'k-s' }, t.ks)] : t.k), h('span', { class: 'v' }, val, shared ? null : h('span', { class: t.u === '%' ? 'unit pct' : 'unit' }, t.u, t.ux ? h('span', { class: 'u-x' }, t.ux) : null), tr), bar, h('span', { class: 's' }, st, cmp));
     el.title = `${t.title || t.k}${inert ? '' : t.pane ? '\nClick to open the Ascites view.' : t.why ? '\nClick for what is driving it.' : ''}`;
     // Ascites opens its own instrument (amount, cause, tap, treatment) rather than a second popover.
     if (inert) { /* readout only */ }
