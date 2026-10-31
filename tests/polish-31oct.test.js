@@ -252,6 +252,8 @@ test('the Colored by cards are two lines at most in the 142 px column of a two-c
   // 142 px at 12 px Inter is about 22 characters a line: two lines hold 44 with the slack of a word
   for (const d of descs) assert.ok(d.length <= 40, `${d.length}: ${d}`);
   assert.match(css, /\.lens-d \{[^}]*text-wrap: balance/);
+  // a short card beside a tall one keeps its swatch, title and line at the top (the grid's rows no longer stretch into the spare height)
+  assert.match(css, /\.lens:not\(\.lens-opt\) \{ align-content: start; \}/);
   assert.doesNotMatch(src('src/ui/main.js'), /width = flow/);
 });
 

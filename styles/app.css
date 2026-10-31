@@ -850,6 +850,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .lens-sw { height: 6px; border-radius: 3px; margin-bottom: 4px; }
 .lens-t { font-size: var(--fs-14); font-weight: 600; }
 .lens-d { font-size: var(--fs-12); line-height: 1.35; color: var(--text-2); text-wrap: balance; }   /* (two even lines, never a lone word: "Where the resistance / lives") */
+.lens:not(.lens-opt) { align-content: start; }   /* (a Colored by card beside a taller one keeps its swatch, title and line at the top; a menu row keeps centring in its 40 px touch height) */
 /* A phone lists the lenses in one column, one compact row each: the color bar, the name, and the
    description on one line under it. */
 @media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
