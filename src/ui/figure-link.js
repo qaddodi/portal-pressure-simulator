@@ -54,6 +54,7 @@ export function createFigureProxy(post, caps = {}, { auto = false } = {}) {
     top: null,
     hasPlate: (slot) => (auto ? !!local[slot] : !!st.plates[slot] || !!st.stack[slot]),
     present() {},
+    capture() { return null; },
     dispose() { p.stop?.(); },
     onPicture(f) { picture.add(f); return () => picture.delete(f); },
     plateJob(W, H) { const id = ++jobs; send('plateJob', [id, W, H]); return { id, W }; },
@@ -126,6 +127,7 @@ export function serveFigure(api, reply, canvas = null) {
     return api[m](...args);
   }
   return {
+    api,
     handle(msg) {
       if (msg.type !== 'calls') return;
       for (const c of msg.calls) apply(c);

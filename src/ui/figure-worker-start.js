@@ -6,7 +6,7 @@
 // webglcontextlost, which brings the SVG figure back (stage.js).
 // Used only with ?figworker=on.
 
-import { createFigureProxy } from './figure-link.js?v=362fc16e0a';
+import { createFigureProxy } from './figure-link.js?v=0f7b4f24f0';
 import { FIGURE_TOKENS, figureRGB } from './figure-settings.js?v=68c0336f5f';
 
 const WAIT_MS = 10000;
@@ -20,10 +20,11 @@ export function figureSettings() {
 
 export const figWorkerWanted = () => /[?&]figworker=on\b/.test(location.search);
 
-export function startFigureWorker({ make = () => new Worker(new URL('./figure-worker.js?v=7f6f3c0088', import.meta.url), { type: 'module' }), canvas = document.createElement('canvas') } = {}) {
+export function startFigureWorker({ make = () => new Worker(new URL('./figure-worker.js?v=13749c0ba8', import.meta.url), { type: 'module' }), canvas = document.createElement('canvas') } = {}) {
   if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || typeof canvas.transferControlToOffscreen !== 'function') return Promise.resolve(null);
   return new Promise((res) => {
-    let w = null, proxy = null, done = false, begun = false;
+    let w = null, proxy = null, done = false, begun = false, cropId = 0;
+    const crops = new Map();
     const lose = () => {
       if (proxy) { proxy.take({ lost: true }); try { canvas.dispatchEvent(new Event('webglcontextlost')); } catch { /* none */ } }
       try { w?.terminate(); } catch { /* gone */ }
@@ -49,10 +50,18 @@ export function startFigureWorker({ make = () => new Worker(new URL('./figure-wo
               begun = true;
               const off = canvas.transferControlToOffscreen();
               w.postMessage({ type: 'init', canvas: off, tubes, settings: figureSettings() }, [off]);
+              // The canvas the page keeps is a placeholder now: it answers for the picture's size, and for pieces of the figure (the glass's copies) by asking the worker.
+              let size = [300, 150];
+              const resize = proxy.resize;
+              proxy.resize = (a, b) => { size = [a, b]; resize(a, b); };
+              Object.defineProperty(canvas, 'width', { get: () => size[0], configurable: true });
+              Object.defineProperty(canvas, 'height', { get: () => size[1], configurable: true });
+              canvas.crop = (...args) => new Promise((res, rej) => { const id = ++cropId; crops.set(id, { res, rej }); try { w.postMessage({ type: 'crop', id, args }); } catch (e) { crops.delete(id); rej(e); } });
             },
           });
           return;
         }
+        if (data?.type === 'cropped') { const r = crops.get(data.id); crops.delete(data.id); if (r) (data.bm ? r.res(data.bm) : r.rej(new Error('no picture'))); return; }
         if (data?.type === 'state' && proxy) proxy.take(data.state);
       };
       w.postMessage({ type: 'probe', settings: figureSettings() });

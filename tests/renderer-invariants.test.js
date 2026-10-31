@@ -130,7 +130,7 @@ test('capture() hands exports the canvas with the whole current picture; the gla
   assert.equal(g.capture(), canvas);
   assert.equal(f.calls.slice(n).filter((c) => c[0] === 'blitFramebuffer').length, 1, 'the canvas keeps no picture of its own: the kept one is copied onto it');
   const glass = read('../src/ui/glass-gl.js');
-  assert.ok(glass.indexOf('capture?.()') > 0 && glass.indexOf('capture?.()') < glass.indexOf('p = createImageBitmap('));
+  assert.ok(glass.indexOf('capture?.()') > 0 && glass.indexOf('capture?.()') < glass.indexOf('p = (source.crop'));
   const stage = read('../src/ui/stage.js');
   assert.equal((stage.match(/capture: \(\) => veins\?\.capture\(\)/g) || []).length, 3, 'the callouts\' glass, the liver pane and the Present cards (A2)');
 });

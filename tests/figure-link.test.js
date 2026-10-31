@@ -106,6 +106,15 @@ test('startFigureWorker: probe, then begin moves the canvas; a failed worker giv
   fig.proxy.setFlow(new Float32Array(2));
   await Promise.resolve();
   assert.equal(posted[2].type, 'calls');
+  // The placeholder canvas answers for the figure's size and for pieces of it, which the worker cuts (the glass's copies).
+  assert.deepEqual([canvas.width, canvas.height], [300, 150]);
+  fig.proxy.resize(640, 480);
+  assert.deepEqual([canvas.width, canvas.height], [640, 480]);
+  const piece = canvas.crop(1, 2, 3, 4, { resizeWidth: 3 });
+  const asked = posted.find((m) => m.type === 'crop');
+  assert.deepEqual(asked.args.slice(0, 4), [1, 2, 3, 4]);
+  wk.onmessage({ data: { type: 'cropped', id: asked.id, bm: { close() {} } } });
+  assert.ok(await piece);
   // A call the worker cannot be sent: the proxy reads as lost and the canvas says so.
   wk.postMessage = () => { throw new Error('DataCloneError'); };
   fig.proxy.setDye(new Float32Array(1));
@@ -114,6 +123,11 @@ test('startFigureWorker: probe, then begin moves the canvas; a failed worker giv
   assert.deepEqual(fired, ['webglcontextlost']);
   const none = await startFigureWorker({ canvas, make: mk((m) => (m.type === 'probe' ? { type: 'failed', why: 'x' } : null)) });
   assert.equal(none, null);
+});
+
+test('the glass cuts its copies from source.crop when the source has one', () => {
+  const g = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
+  assert.match(g, /p = \(source\.crop \|\| \(\(\.\.\.a\) => createImageBitmap\(source, \.\.\.a\)\)\)\(/);
 });
 
 test('the picture settings go across, and what the renderer answers is read from its last state', () => {

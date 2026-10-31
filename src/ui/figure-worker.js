@@ -3,9 +3,9 @@
 // then queues of calls. This end applies them in order and answers with the renderer's state.
 
 import { setFigureSettings } from './figure-settings.js?v=68c0336f5f';
-import { serveFigure } from './figure-link.js?v=362fc16e0a';
+import { serveFigure } from './figure-link.js?v=0f7b4f24f0';
 
-let host = null;
+let host = null, figCanvas = null;
 
 async function handle(d) {
   if (d?.type === 'probe') {
@@ -29,8 +29,16 @@ async function handle(d) {
       const { createVeinsGL } = await import('./veins-gl.js?v=4b339fceed');
       const api = createVeinsGL(d.canvas, { tubes: d.tubes, force: d.force !== false });
       if (!api) throw new Error('no WebGL2 here');
+      figCanvas = d.canvas;
       host = serveFigure(api, (m) => self.postMessage(m), d.canvas);
     } catch (e) { self.postMessage({ type: 'failed', why: String(e?.message || e) }); }
+    return;
+  }
+  if (d?.type === 'crop') {
+    // A piece of the figure as it shows now, for the page's glass (glass-gl): the picture is laid on the canvas first, as the page's capture() does.
+    let bm;
+    try { host.api.present(); bm = await createImageBitmap(figCanvas, ...d.args); } catch { bm = null; }
+    self.postMessage({ type: 'cropped', id: d.id, bm }, bm ? [bm] : []);
     return;
   }
   if (d?.type === 'settings') { setFigureSettings(d.settings); return; }
