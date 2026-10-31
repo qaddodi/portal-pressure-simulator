@@ -524,6 +524,7 @@ function bigTiles() {
   // number shown and the one it counts to, so the count never runs past the edge; again when the row changes size.
   function fit() {
     for (const p of parts) {
+      if (p.pic) continue;   // (the endoscopic view's tile: a picture, its number and unit never placed, so nothing to fit; reading them threw)
       const vu = p.v.parentNode;
       p.v.style.fontSize = p.u.style.fontSize = p.v.style.lineHeight = '';
       const cs = getComputedStyle(p.tile), room = p.tile.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth);
