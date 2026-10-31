@@ -102,6 +102,19 @@ test('the blood moving under it: the blur taken again from each new picture; a p
   assert.equal(n.blur - b, 2, 'kept'); assert.equal(n.draw - d, 4);
 });
 
+test('a card growing by part of a texel keeps the blur already taken: the region stands on a fixed grid of the canvas\'s pixels', async () => {
+  const r0 = data.r, b = n.blur;
+  data.r = rect(500, 100, 249.5, 300);
+  [...observers][0].cb([]);
+  await frames(1);
+  assert.equal(n.blur, b, 'no new blur: the same texels over the same pixels of the figure (a region fitted to the card sampled it anew each frame, and the frost shimmered as the card slid)');
+  data.r = r0;
+  [...observers][0].cb([]);
+  await frames(1);
+  assert.equal(n.blur, b);
+  clock += 500;   // (at rest again)
+});
+
 test('a card crossing what lies between goes back to the browser\'s glass alone, once it has crossed it for 400 ms at rest', async () => {
   high = [rect(600, 200, 20, 20)];
   [...observers][0].cb([]);

@@ -575,13 +575,21 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     return st;
   }
   // The region (CSS px from the canvas's corner) of the picture just laid, made small and blurred, as take() does from a copy.
-  function hostBlur(reg, k, W2, H2) {
-    const G = hk.G;
-    let x0 = Math.max(0, Math.round(reg.x * k)), x1 = Math.min(W2, Math.round((reg.x + reg.w) * k));
-    let y0 = Math.max(0, H2 - Math.round((reg.y + reg.h) * k)), y1 = Math.min(H2, H2 - Math.round(reg.y * k));
-    let w = x1 - x0, h = y1 - y0;
-    if (w < 1 || h < 1) return false;
-    const bw = Math.max(1, Math.ceil(reg.w / SCALE)), bh = Math.max(1, Math.ceil(reg.h / SCALE));
+  // (The region is laid on a fixed grid of the canvas's own pixels, T device px to a texel (a power of two, at least SCALE CSS px), so
+  // every halving is an exact 2 × 2 average and a texel always covers the same pixels of the figure. Fitted to the glasses' boxes as
+  // they were, the region's size and start changed with every frame of a card sliding (the readings' card tucking or coming out), so
+  // the halvings sampled the figure a different way each frame and the whole of every card's frost flickered (Mohammad, 31 Oct).)
+  function hostGrid(reg, k, W2, H2) {
+    const T = 2 ** Math.max(0, Math.ceil(Math.log2(SCALE * k) - 1e-9));
+    const X0 = Math.max(0, Math.floor(reg.x * k / T) * T), X1 = Math.min(Math.floor(W2 / T) * T, Math.ceil((reg.x + reg.w) * k / T) * T);
+    const Y0 = Math.max(0, Math.floor((H2 - (reg.y + reg.h) * k) / T) * T), Y1 = Math.min(Math.floor(H2 / T) * T, Math.ceil((H2 - reg.y * k) / T) * T);
+    if (!(X1 > X0 && Y1 > Y0)) return null;
+    return { T, k, X0, X1, Y0, Y1, x: X0 / k, y: (H2 - Y1) / k, w: (X1 - X0) / k, h: (Y1 - Y0) / k };
+  }
+  function hostBlur(g) {
+    const G = hk.G, { T, k } = g;
+    let x0 = g.X0, y0 = g.Y0, w = g.X1 - g.X0, h = g.Y1 - g.Y0;
+    const bw = w / T, bh = h / T;
     if (hk.size !== `${bw}x${bh}`) {
       hk.size = `${bw}x${bh}`;
       for (const [t, fb] of [[hk.copy, hk.fbCopy], [hk.pass, hk.fbPass], [hk.blurred, hk.fbOut]]) {
@@ -594,7 +602,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (gpuProbe.on) gpuProbe.note(COUNTED.glassCopy);
     let src = null;
     for (let i = 0; w > bw * 2 || h > bh * 2; i++) {
-      const nw = Math.max(bw, Math.ceil(w / 2)), nh = Math.max(bh, Math.ceil(h / 2)), st = step(i, nw, nh);
+      const nw = w / 2, nh = h / 2, st = step(i, nw, nh);
       G.bindFramebuffer(G.READ_FRAMEBUFFER, src); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, st.fb);
       G.blitFramebuffer(x0, y0, x0 + w, y0 + h, 0, 0, nw, nh, G.COLOR_BUFFER_BIT, G.LINEAR);
       src = st.fb; x0 = 0; y0 = 0; w = nw; h = nh;
@@ -606,7 +614,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     G.useProgram(hk.bprog); G.bindVertexArray(hk.vao); G.disable(G.BLEND);
     G.viewport(0, 0, bw, bh);
     G.uniform4f(hk.BU.uBox, 0, 0, bw, bh); G.uniform2f(hk.BU.uView, bw, bh); G.uniform1i(hk.BU.uT, 0);
-    G.uniform1fv(hk.BU.uW, gaussTaps(look.blur / SCALE));
+    G.uniform1fv(hk.BU.uW, gaussTaps(look.blur * k / T));
     G.activeTexture(G.TEXTURE0);
     G.bindFramebuffer(G.FRAMEBUFFER, hk.fbPass); G.bindTexture(G.TEXTURE_2D, hk.copy); G.uniform2f(hk.BU.uDir, 1, 0); G.drawArrays(G.TRIANGLE_STRIP, 0, 4);
     G.bindFramebuffer(G.FRAMEBUFFER, hk.fbOut); G.bindTexture(G.TEXTURE_2D, hk.pass); G.uniform2f(hk.BU.uDir, 0, 1); G.drawArrays(G.TRIANGLE_STRIP, 0, 4);
@@ -632,11 +640,13 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     x0 = Math.max(0, x0 - cr.left - MARGIN); y0 = Math.max(0, y0 - cr.top - MARGIN);
     x1 = Math.min(cr.width, x1 - cr.left + MARGIN); y1 = Math.min(cr.height, y1 - cr.top + MARGIN);
     if (!(x1 > x0 && y1 > y0)) return;
-    const reg = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    const grid = hostGrid({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, k, W2, H2);
+    if (!grid) return;
+    const reg = { x: grid.x, y: grid.y, w: grid.w, h: grid.h };
     G.disable(G.SCISSOR_TEST); G.disable(G.STENCIL_TEST);
-    const key = `${version ? version() : performance.now()}|${reg.x}|${reg.y}|${reg.w}|${reg.h}|${W2}x${H2}`;
+    const key = `${version ? version() : performance.now()}|${grid.X0}|${grid.Y0}|${grid.X1}|${grid.Y1}|${W2}x${H2}`;
     if (key !== hk.key) {
-      const ok = hostBlur(reg, k, W2, H2);
+      const ok = hostBlur(grid);
       // (The figure's context left as its other passes expect to find it.)
       G.bindFramebuffer(G.FRAMEBUFFER, null); G.viewport(0, 0, W2, H2);
       G.bindTexture(G.TEXTURE_2D, null); G.useProgram(null); G.bindVertexArray(null);
