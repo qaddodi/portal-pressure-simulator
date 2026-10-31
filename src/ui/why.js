@@ -1,6 +1,6 @@
 // "Why?" popover (blueprint §9.3): one causal sentence, a contribution waterfall and the formula.
 
-import { host } from './host.js?v=7b73d5b671';
+import { host } from './host.js?v=8968f54f32';
 import { h, fmt, svgIcon, visibleBottom, settleFrom, announce } from './util.js?v=d313f178b3';
 import { D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=615d96d663';
 
@@ -46,7 +46,7 @@ export function createWhy(pop) {
     // of its own, so the bars always sum to the change shown above them.
     const rest = r.total - shown.reduce((a, c) => a + c.delta, 0);
     if (shown.length && Math.abs(rest) >= Math.max(tiny, 0.05 * Math.abs(r.total))) shown.push({ label: 'Interaction and other', delta: rest, other: true });
-    // A short name on the row ("Cirrhosis"), the full one with its amount in the tooltip ("Cirrhosis 85 %").
+    // A short name on the row ("Cirrhosis"), the full one with its amount in the tooltip ("Cirrhosis 85%").
     const short = (l) => l.replace(/\s[+×]?[\d.]+(\s?(%|mm|mL|L|g\/dL))?$/, '');
     const h0 = pop.offsetHeight, t0 = pop.style.top;
     const rows = shown.map((c) => {

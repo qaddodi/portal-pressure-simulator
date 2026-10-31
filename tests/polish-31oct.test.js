@@ -197,6 +197,10 @@ test('the bleed-risk event is named for what it means, not as a threshold (12 is
   assert.match(ev, /title: 'Bleeding more likely', detail: 'HVPG ≥ 12 mmHg\. The risk rises with the gradient, but 12 is not a threshold/);
   assert.doesNotMatch(ev, /title: 'HVPG ≥ 12 mmHg'/);
   assert.match(ev, /15–30% blood volume lost/);
+  // event sentences read aloud: 'below', not a '<' sign, and a percent hugs its number
+  assert.match(ev, /Doppler velocity below 9 cm\/s:/);
+  assert.match(ev, /Total sinusoidal flow is below 60% of normal\./);
+  assert.doesNotMatch(ev, /detail: '[^']*[a-z] <\s?\d/);
 });
 
 test('the Patients menu groups say Pre-hepatic and Post-hepatic as the slides do, and every group has its "where" line', () => {
@@ -224,10 +228,16 @@ test('a percent hugs its number in the Why headline and on the readout tiles ("6
   assert.match(css, /\.metric \.v \.unit\.pct\.pct\.pct \{ margin-left: 1px; \}/);
 });
 
-test('the Treat chips say what a drug is once, and the Blood menu rows fit two lines', () => {
+test('the Treat chips say what a drug is once, and the Blood and Lobule menu rows fit one line', () => {
   const chart = src('src/ui/chart.js');
   assert.match(chart, /DRUGS\[k\]\.info \|\| DRUG_NOTE\[k\] \|\| ''/);
   assert.doesNotMatch(chart, /\$\{DRUG_NOTE\[k\] \|\| ''\}\. \$\{DRUGS\[k\]\.info/);
   const m = src('src/ui/main.js');
-  for (const [, d] of m.matchAll(/toggle\(!!b\.(?:chevrons|keyChevrons)[^\n]*?'chevrons', '[^']+', '([^']+)'/g)) assert.ok(d.length <= 50, `${d.length}: ${d}`);
+  // every row of the Blood and Lobule layer menus: its description (the longest quoted string on the row) fits one line of the menu's text column (about 230 px at 12 px: 38 characters)
+  const rows = m.slice(m.indexOf('function bloodItems'), m.indexOf('function lensKeys')).split('\n').filter((l) => /^\s*(?:toggle|layer|menuToggle)\(/.test(l));
+  assert.ok(rows.length >= 8, `found ${rows.length} rows`);
+  for (const l of rows) {
+    const d = [...l.matchAll(/'((?:[^'\\]|\\.)*)'/g)].map((q) => q[1].replace(/\\u2019/g, '’')).sort((a, b) => b.length - a.length)[0];
+    assert.ok(d.length <= 38, `${d.length}: ${d}`);
+  }
 });

@@ -1,7 +1,7 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=7b73d5b671';
+import { startHost, host } from './host.js?v=8968f54f32';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=c2a9c76ba5';
 import { createStage } from './stage.js?v=db29ddc5c7';
 import { createCreditPlacer } from './credit.js?v=853fefa4ac';
@@ -10,8 +10,8 @@ import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=6817b89c45';
 import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=53c655e106';
 import { setHvpgStage } from './hvpg-proc.js?v=5b484754bd';
-import { createWhy } from './why.js?v=5343f541c6';
-import { createTimeline, LAPSES } from './timeline.js?v=42fb97a550';
+import { createWhy } from './why.js?v=9138229feb';
+import { createTimeline, LAPSES } from './timeline.js?v=3d81daa6d8';
 import { createCompare } from './compare.js?v=b6d8863d2c';
 import { createCard } from './card.js?v=ad40039cc3';
 import { createChart } from './chart.js?v=e85e83077c';
@@ -183,7 +183,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=0668decf7f'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=d37e622804'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -731,12 +731,12 @@ function bloodItems() {
   return [
     h('div', { class: 'menu-title' }, 'Moving blood'),
     toggle(flowOn, 'streaks', 'Streaks', 'Silky streaks carried by the flow', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); }),
-    toggle(!!b.chevrons, 'chevrons', 'Chevrons', 'Arrowheads with the flow; orange where reversed', (on) => setBlood({ chevrons: on })),
-    toggle(!!b.keyChevrons, 'chevrons', 'Key chevrons only', 'The main routes through and around the liver', (on) => setBlood({ keyChevrons: on })),
+    toggle(!!b.chevrons, 'chevrons', 'Chevrons', 'Flow arrows, orange where reversed', (on) => setBlood({ chevrons: on })),
+    toggle(!!b.keyChevrons, 'chevrons', 'Key chevrons only', 'Just the main routes, not every vessel', (on) => setBlood({ keyChevrons: on })),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Show on the figure'),
     layer('chips', 'tag', 'Pressure values', 'The number beside each vessel\u2019s name'),
-    layer('collaterals', 'route', 'Potential collaterals', 'Dotted routes that open as pressure rises'),
+    layer('collaterals', 'route', 'Potential collaterals', 'Dotted routes that open with pressure'),
     layer('labels', 'liver', 'Organ names', 'The caption on each organ'),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Labels'),
@@ -764,8 +764,8 @@ function lobuleLayerItems() {
   const set = (patch) => store.set({ lobuleLayers: { ...store.get().lobuleLayers, ...patch } });
   return [
     h('div', { class: 'menu-title' }, 'Show on the lobule'),
-    menuToggle(!!l.zones, 'zones', 'Zones', 'Rappaport zones: 1 periportal (oxygen-rich) to 3 centrilobular', (on) => set({ zones: on })),
-    menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Lymph forming in the space of Disse and draining to the portal tract', (on) => set({ lymph: on })),
+    menuToggle(!!l.zones, 'zones', 'Zones', 'Zones 1 to 3, portal to central vein', (on) => set({ zones: on })),
+    menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Where lymph forms and drains', (on) => set({ lymph: on })),
   ];
 }
 function lensKeys() { return Object.keys(LENSES); }
