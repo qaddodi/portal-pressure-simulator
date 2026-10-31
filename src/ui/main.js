@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=e9bd6a00e5';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3611054974';
-import { createStage } from './stage.js?v=21744a326f';
+import { createStage } from './stage.js?v=57079d8c18';
 import { createCreditPlacer } from './credit.js?v=853fefa4ac';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
@@ -44,7 +44,7 @@ import { ORIGINS } from './blood.js?v=1eb39d1393';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=bcedeba324';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
-import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=6a53e5fc6e';
+import { frameFor, cancelFrame, perf as framePerf, framePart } from './frame.js?v=6a53e5fc6e';
 import { feedbackDiagnostics } from './feedback-diag.js?v=680203e900';
 import { noteJump } from './display-state.js?v=8d062d39dc';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=2ccfd56d45';
@@ -287,9 +287,9 @@ async function main() {
   store.on('mode', syncScenarioName);
   for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging', 'found', 'sinusoid', 'lobule']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
   store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
-  store.on('focus', redraw);
-  store.on('labelLevel', redraw);
-  store.on('selection', redraw);
+  // (Only on a new value: a slide change sets focus and selection to null each time, and a full figure update for a value that
+  // stayed the same cost a frame's worth of script in the tap.)
+  for (const k of ['focus', 'labelLevel', 'selection']) { let was = store.get()[k]; store.on(k, (v) => { if (v === was) return; was = v; redraw(); }); }
 
   // Console handle for educators preparing a class (and for automated screenshots).
   window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, get credit() { return creditPlacer; } };
@@ -388,14 +388,15 @@ function paintFrame(f) {
   if (jumpSeen) { jumpSeen = false; noteJump(); }
   // running and clock only when they change: their listeners (the endoscopy redraw among them) need not re-run every frame.
   const st0 = store.get();
-  store.set({ frame: f, ...(st0.running !== f.running ? { running: f.running } : {}), ...(st0.clock !== f.clock ? { clock: f.clock } : {}), ...(f.clock === 'hemo' && st0.lapse ? { lapse: 0, speed: f.speed } : {}) });
-  stage.update(viewFrame(f));
-  card.update(f);
-  dock.update(f);
+  // (Each a named piece of the frame while frames are watched, framePart: the gate's long frames say which one took the time.)
+  framePart('store listeners', () => store.set({ frame: f, ...(st0.running !== f.running ? { running: f.running } : {}), ...(st0.clock !== f.clock ? { clock: f.clock } : {}), ...(f.clock === 'hemo' && st0.lapse ? { lapse: 0, speed: f.speed } : {}) }));
+  framePart('figure update', () => stage.update(viewFrame(f)));
+  framePart('card update', () => card.update(f));
+  framePart('dock update', () => dock.update(f));
   syncDoppler(f);
-  inspector.update(f);
+  framePart('inspector update', () => inspector.update(f));
   compare.update(f);
-  timeline.update(f);
+  framePart('timeline update', () => timeline.update(f));
   const txt = f.day > 0 ? `Day ${f.day}` : `${fmt(f.t, 0)} s`;
   if (txt !== lastClockTxt) { lastClockTxt = txt; stageClock.textContent = txt; }
   if (tipInfo) hoverInfo(tipInfo);   // the readings popup stays live with the sim
@@ -1053,7 +1054,8 @@ function readLS(k) { try { return localStorage.getItem(k); } catch { return null
 function leave(el) {
   if (el.dataset.swiped) { delete el.dataset.swiped; return; }   // (swiped away: already slid out of sight behind the tab row)
   // (With Reduce Motion it fades where it stands: app.css turns the leaving keyframes into fades.)
-  el.classList.remove('card-leaving'); void el.offsetWidth;
+  // (The reflow only restarts a leave already playing; laid out on every call, a presenter's start, closing several cards, paid one each.)
+  if (el.classList.contains('card-leaving')) { el.classList.remove('card-leaving'); void el.offsetWidth; }
   el.classList.add('card-leaving');
   markGone(180);
   const done = (e) => { if (e && e.target !== el) return; el.classList.remove('card-leaving'); el.removeEventListener('animationend', done); };

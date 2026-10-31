@@ -1490,7 +1490,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const stageBox = () => { if (!box) measureBox(); return box; };
   new ResizeObserver(() => { box = null; CTM = null; }).observe(wrap);
   addEventListener('resize', () => { box = null; CTM = null; });
-  addEventListener('scroll', () => { box = null; CTM = null; }, true);
+  // (Only a scroll that can move the figure: the page's, or a box holding it. A card's own list scrolling (Treat, Tests, a menu) left the
+  // box dropped, so the next model frame measured the whole figure again after writing it, on every frame of the scroll.)
+  addEventListener('scroll', (e) => { const t = e.target; if (t === document || t === window || t?.contains?.(wrap)) { box = null; CTM = null; } }, true);
   let ctmLast = null;
   function refreshCTM() {
     const b = stageBox(), vb = svg.viewBox.baseVal;
@@ -11239,7 +11241,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function hoverAt(ev) {
     const id = edgeFromEvent(ev);
     if (id && EI[id] != null && F && !shunt) {
-      const r = wrap.getBoundingClientRect();
+      const r = stageBox();   // (the kept box: a hover each frame no longer lays out the figure just written)
       onHoverInfo({ id, x: ev.clientX - r.left, y: ev.clientY - r.top });
       setHover(id); setOrganHover(null);
       return;
@@ -11247,7 +11249,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (hoverId) setHover(null);   // the pointer is over no vessel any more (also after a captured drag)
     if (!drag) onHoverInfo(null);
     if (!shunt && !drag && !lobuleOn && store.get().tool === 'select') {
-      const [wx, wy] = clientToWorld(ev.clientX, ev.clientY), o = organAt(wx, wy);
+      const [wx, wy] = clientToWorldFast(ev.clientX, ev.clientY), o = organAt(wx, wy);   // (the kept transform, as a pan's: no layout)
       const sel = store.get().selection;
       const near = o ? nearbyEdge(ev) : null;   // a click here would pick this vessel, so the organ must not light
       if (near && EI[near] != null && F) { setHover(near); setOrganHover(null); return; }
