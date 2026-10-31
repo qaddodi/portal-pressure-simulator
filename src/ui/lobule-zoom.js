@@ -3701,6 +3701,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   store.on('lobule', (on) => { if (!on) sinPending = false; if (!on && store.get().sinusoid) { quietSin = true; store.set({ sinusoid: false }); quietSin = false; } });
 
+  // Named pieces for the frame-time gate (framePart, frame.js): the dive's staging ran 4 to 17 s outside the scheduler on CI's profiles
+  // with nothing inside it named. Each call is unchanged; only while frames are watched is it timed.
+  const timed = (tag, f) => (...a) => framePart(tag, () => f(...a));
+  /* eslint-disable no-func-assign */
+  drawGL = timed('lz.drawGL', drawGL); paintFx = timed('lz.paintFx', paintFx); paintTissue = timed('lz.paintTissue', paintTissue);
+  diveCopy = timed('lz.diveCopy', diveCopy); probe = timed('lz.probe', probe); opaqueOnly = timed('lz.opaqueOnly', opaqueOnly);
+  update = timed('lz.update', update); ensureGeo = timed('lz.ensureGeo', ensureGeo); fieldTile = timed('lz.fieldTile', fieldTile);
+  /* eslint-enable no-func-assign */
   const api = {
     el,
     update,
