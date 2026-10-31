@@ -127,7 +127,11 @@ test('a draw that comes before its program is published publishes it first', () 
   assert.match(src('src/ui/tissue-gl.js'), /draw\(\{[^\n]*\}\) \{\n\s+publish\(\);\n\s+if \(this\.lost\) return false;/);
   assert.match(src('src/ui/field-gl.js'), /draw\(\{[^\n]*\}\) \{\n\s+publish\(\);\n\s+if \(this\.lost\) return false;/);
   assert.match(src('src/ui/doppler-gl.js'), /render\(\{[^\n]*\}\) \{\n\s+publish\(\);\n\s+if \(lost \|\| failed/);
-  assert.match(src('src/ui/endo-gl.js'), /render\(res, st\) \{\n\s+publish\(\);/);
+  assert.match(src('src/ui/endo-gl.js'), /render\(res, st\) \{\n\s+if \(lost\) return cv;\n\s+publish\(\);/);
+  // (Recs B8: a lost context is not ready, so the scope draws on the CPU, as with no WebGL.)
+  assert.match(src('src/ui/endo-gl.js'), /cv\.addEventListener\('webglcontextlost', \(e\) => \{ e\.preventDefault\(\); lost = true; \}\);/);
+  assert.match(src('src/ui/endo-gl.js'), /ready\(\) \{ if \(lost\) return false; publish\(\); return !!u; \},/);
+  assert.match(src('src/ui/instruments.js'), /if \(gl && !gl\.ready\(\)\) \{ gl\.dispose\(\); gl = null; glKey = ''; \}/);
   assert.match(src('src/ui/fibroscan-gl.js'), /st\.publish\(\);\n\s+if \(st\.lost\) return null;/);
 });
 

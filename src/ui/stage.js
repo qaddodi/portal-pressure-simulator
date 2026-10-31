@@ -811,7 +811,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   liverPaths.push(diaCut.liver);
   liverPaths.push(gutCut.liver, gutPatch.liver, frontCut, ghostCut, ascLvCut);   // (the masks' copies: the gut's cut and its patch, the stomach's see-through, the ghost line's, the ascites')
   // (Cirrhosis's reshaping of the liver, CIRR and liverField: liver-morph.js.)
-  let baseLiver = null, liverKey = '', islSrc = null;
+  let baseLiver = null, liverKey = '', islSrc = null, nodKey = null, islOn = null;   // (nodKey, islOn: what the nodules and the islands were last written for)
   const liverCmds = pathCmds(liverD);   // (the healthy outline as numbers, for the GPU painter: read once)
   // The diseased liver's outline without its nodular bulges and notches, for the diaphragm: one smooth dome the nodules
   // never dent (Mohammad, 20 Oct: it was "morphing to the nodules of the liver"). null while the liver is healthy.
@@ -940,13 +940,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // septa (the liver shows through the gaps, lightened). Flat, no shading; the septa widen and
     // the contrast firms with severity.
     const cn = smooth01(c / 0.5) * (0.55 + 0.45 * c);
-    const nodCmds = [];
-    const nod = gpuProbe.time(null, 'liver: nodules (maths)', () => (cn > 0.01 ? baseLiver.cells.map((cl) => cellPath(cl, c, (0.3 + 0.45 * c) * CIRR.sep, nodCmds)).join('') : ''));
-    gpuProbe.time(null, 'liver: writes', () => { lv.nod.setAttribute('d', nod); bindShape(lv.nod, shapeSource(nod, nodCmds)); });
+    // (They follow the cirrhosis alone: while only the congestion eases, they are neither worked out nor written again; recs B6.)
+    const nk = cn > 0.01 ? c : -1;
+    if (nk !== nodKey) {
+      nodKey = nk;
+      const nodCmds = [];
+      const nod = gpuProbe.time(null, 'liver: nodules (maths)', () => (cn > 0.01 ? baseLiver.cells.map((cl) => cellPath(cl, c, (0.3 + 0.45 * c) * CIRR.sep, nodCmds)).join('') : ''));
+      gpuProbe.time(null, 'liver: writes', () => { lv.nod.setAttribute('d', nod); bindShape(lv.nod, shapeSource(nod, nodCmds)); });
+    }
     lvFade(lv.sep, cn); lvFade(lv.nod, cn);
     // Nutmeg: the even dusky tone and its pale islands, fading in as congestion deepens.
-    lv.isl.setAttribute('d', g > 0.01 ? baseLiver.isl : '');
-    if (g > 0.01) bindShape(lv.isl, (islSrc ||= shapeSource(baseLiver.isl, pathCmds(baseLiver.isl))));   // (the same islands throughout: read once)
+    // (Written only when they come or go: the same islands throughout.)
+    if ((g > 0.01) !== islOn) {
+      islOn = g > 0.01;
+      lv.isl.setAttribute('d', islOn ? baseLiver.isl : '');
+      if (islOn) bindShape(lv.isl, (islSrc ||= shapeSource(baseLiver.isl, pathCmds(baseLiver.isl))));   // (read once)
+    }
     const gn = smooth01(g / 0.5); lvFade(lv.cong, gn); lvFade(lv.isl, gn);
     // The ascites is kept off the liver as its congestion shows (over the dusky liver its straw turned the lower lobe into a
     // brown blotch; organ picks, round 26).

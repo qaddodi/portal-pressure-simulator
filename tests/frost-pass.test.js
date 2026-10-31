@@ -156,3 +156,13 @@ test('one edge softness for the vessels and the organ painter (V3 b): one device
   assert.match(VG, /float aa = px \* \$\{EDGE_GLSL\};/);
   assert.match(SG, /float cover\(float d0, vec2 n\) \{\n\s+float d = d0 \/ \$\{EDGE_GLSL\};/);
 });
+
+test('recs B6: the liver\'s nodules are worked out and written only when the cirrhosis changes, the islands only as they come or go', async () => {
+  const { readFileSync } = await import('node:fs');
+  const ST = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(ST, /const nk = cn > 0\.01 \? c : -1;\n\s+if \(nk !== nodKey\) \{\n\s+nodKey = nk;/);
+  assert.match(ST, /if \(\(g > 0\.01\) !== islOn\) \{\n\s+islOn = g > 0\.01;\n\s+lv\.isl\.setAttribute\('d', islOn \? baseLiver\.isl : ''\);/);
+  // (The nodules' shapes follow the cirrhosis alone: liverField takes no congestion.)
+  const LM = readFileSync(new URL('../src/ui/liver-morph.js', import.meta.url), 'utf8');
+  assert.match(LM, /export function liverField\(x, y, c\) \{/);
+});

@@ -199,6 +199,10 @@ export function createEndoGL() {
   const cv = document.createElement('canvas');
   const gl = cv.getContext('webgl', { antialias: false, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: false });
   if (!gl) return null;
+  // A context the browser takes back (iOS Safari in the background or under memory pressure; recs B8): not ready from then on, so the
+  // scope draws its field on the CPU (instruments.js), as with no WebGL, instead of copying an empty canvas.
+  let lost = false;
+  cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
   // Started now, published when the driver has finished it (gl-compile.js; this shader is the longest in the app); ready() publishes it
   // at once if a render comes first, and says false if it failed (the CPU renderer then draws the field, as with no WebGL).
   let started;
@@ -223,13 +227,14 @@ export function createEndoGL() {
   return {
     canvas: cv,
     /** True once the shader is published (waiting for it if it is not yet); false if it failed. */
-    ready() { publish(); return !!u; },
+    ready() { if (lost) return false; publish(); return !!u; },
     /** Free the GL context now (a presenter copy that is done), rather than whenever the browser gets to it. */
     dispose() { gl.getExtension('WEBGL_lose_context')?.loseContext(); cv.width = cv.height = 0; },
     // Raw RGBA of the last frame (for tests).
     pixels() { const n = cv.width, a = new Uint8Array(n * n * 4); gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, a); return a; },
     // st: { grow, vis, red (0..1 red-sign strength), def: [4], kn: [16] }; draws into the shared canvas at res x res.
     render(res, st) {
+      if (lost) return cv;
       publish();
       if (cv.width !== res) { cv.width = cv.height = res; }
       gl.viewport(0, 0, res, res);
