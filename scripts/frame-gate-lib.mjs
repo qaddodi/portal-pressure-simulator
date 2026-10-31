@@ -63,7 +63,7 @@ const ms = (v) => v.toFixed(1);
 export function frameLines(r, { gpu = false } = {}) {
   const s = r.sum;
   const head = `  ${r.name.padEnd(20)} ${String(s.frames).padStart(4)} frames   script p50 ${ms(s.script.p50)} p95 ${ms(s.script.p95)} max ${ms(s.script.max)}   interval p50 ${ms(s.gap.p50)} p95 ${ms(s.gap.p95)} max ${ms(s.gap.max)}${gpu ? '' : ' (not judged: software renderer)'}`;
-  const top = topSurfaces(s.surfaces).map(([k, v]) => `${k} p95 ${ms(v.p95)} max ${ms(v.max)}`).join(' · ');
+  const top = topSurfaces(s.surfaces, 6).map(([k, v]) => `${k} p95 ${ms(v.p95)} max ${ms(v.max)}`).join(' · ');
   const lines = [head];
   if (top) lines.push(`${' '.repeat(23)}by surface: ${top}`);
   if (s.frames < MIN_FRAMES) lines.push(`${' '.repeat(23)}too few frames to judge (${s.frames})`);

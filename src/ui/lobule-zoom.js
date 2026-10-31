@@ -2425,6 +2425,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const [W, H] = hostSize(), box = reduce.matches ? null : padBox(W, H), wd = box ? buildWide(W, H, box) : null;
     keep2D = true;
     try { idleDrawn = ''; draw(0); diveDrawn = true; staged = api.viewKey(); relLater = true; wide = wideChecked(wd); } finally { keep2D = false; }
+    // (The bitmap just drawn is the one the landing shows on the GPU: sent now, while nothing of the lobule is seen, rather than in the
+    // landing's frame, where a 3600 px texture and its mipmaps held the frame after the zoom.)
+    if (worldCv.width && worldGeo === geo) framePart('lz.stageUpload', () => { if (tissueGL && !tissueGL.lost && ensureGL()) tissueGL.upload(worldCv, worldCv.ver || 0); });
   }
   function warm() { const f = warmQ.shift(); if (f) f(); return warmQ.length > 0; }
   // Before a dive (stage.js setLobule): a new patient's tissue bitmap, which stage() would otherwise paint here, on the main thread,
@@ -2960,11 +2963,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (su >= 1) { surT0 = 0; surOld = null; }
     const crossfading = !!(xfT0 && now - xfT0 < XF_MS && worldOld.width && worldOldSc);
     const [sx, sy] = toScreen([cx - B, cy - B]);
-    const ok = tg.draw({
+    // (The lobule's bitmap sent first, as its own piece for the frame-time gate: draw would send it the same way, a no-op after.)
+    framePart('lz.texUpload', () => tg.upload(worldCv, worldCv.ver || 0));
+    const ok = framePart('lz.tissueGL', () => tg.draw({
       W: tw, H: th, qa: qa.cv, qb: qb?.cv, mix: tb ? mix : 0, qo: surOld?.cv?.width ? surOld.cv : null, qOld: surOld ? 1 - su : 0,
       w: worldCv, wVer: worldCv.ver || 0, wo: crossfading ? worldOld : null, woVer: worldOld.ver || 0, wMix: crossfading ? xfU(xfT0, now) : 1,
       rect: [sx * dpr, sy * dpr, 2 * B * V.k * dpr], ox, oy, rd, fade: [fIn, fOut], mid: FADE_MID, bg: tone, grey: grey.k > 0 ? surroundGrade(grey.k) : null, live: liveArgs(dark, cs),
-    });
+    }));
     if (!ok) return false;
     tissueDrew = true;   // (its canvas holds this frame's picture: pillCopy may read it now)
     if (!crossfading && xfT0) { xfT0 = 0; free(worldOld); free(xfCv); tg.sweep(); }   // (faded in: the old picture is given back, its GPU copy too)
