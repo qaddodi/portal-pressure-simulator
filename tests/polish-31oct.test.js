@@ -141,11 +141,10 @@ test('the Guide lists every key the figure answers: dye, zoom, color lens, undo,
   const main = src('src/ui/main.js');
   const guide = main.slice(main.indexOf('function openHelp('), main.indexOf('// Help and About open at a named section'));
   for (const kbd of ["'J', 'Inject dye (hold for longer)'", "'Ctrl/⌘ + / − / 0', 'Zoom in / out / fit the figure'", "'L', 'Next vessel coloring", "'Z', 'Settle to equilibrium'", "'.', 'Step'"]) assert.ok(guide.includes(kbd), kbd);
-  // each is a key the handler really takes
-  const keys = main.slice(main.indexOf("addEventListener('keydown', (e) => {\n    if (e.isComposing"), main.indexOf('// ── Projector look while presenting'));
-  assert.match(keys, /k === 'j'/);
-  assert.match(keys, /e\.key === '=' \|\| e\.key === '\+'/);
-  assert.match(keys, /e\.key === '0' \? 'fit'/);
+  // each is a key the handler really takes (the handler's start moves with its hardening, so the keys are read from the whole file)
+  assert.match(main, /k === 'j' && !store\.get\(\)\.imaging/);
+  assert.match(main, /e\.key === '=' \|\| e\.key === '\+' \? 'in'/);
+  assert.match(main, /e\.key === '0' \? 'fit'/);
 });
 
 test('a percentage is "75%" everywhere a person reads it: the cards, the Why bars, the toasts and the timeline match the figure and the slides', () => {
@@ -176,4 +175,19 @@ test('the credit in the Help menu keeps one voice: "Created by <name>" over "Mor
   const main = src('src/ui/main.js');
   assert.match(main, /'More teaching tools ', icon\('chev-right'\)/);
   assert.doesNotMatch(main, /All my tools/);
+});
+
+test('every Settings switch keeps its description to two lines in the narrow desktop menu (about 56 characters, and Blur is the shortest)', () => {
+  const main = src('src/ui/main.js');
+  const settings = main.slice(main.indexOf('function openSettings('), main.indexOf('function presenterSettings('));
+  const descs = [...settings.matchAll(/menuToggle\([^,]+, '[^']+', '[^']+', '([^']+)'/g)].map((m) => m[1]);
+  assert.ok(descs.length >= 2, 'the switches were found');
+  for (const d of descs) assert.ok(d.length <= 58, `${d.length}: ${d}`);
+});
+
+test('where pressure is lost is "resistance", never a "block" (cards, About and the Why text)', () => {
+  assert.doesNotMatch(src('src/ui/actions.js'), /local block|makes the block post-sinusoidal/);
+  assert.doesNotMatch(src('src/ui/inspector.js'), /Blocked in schistosomiasis/);
+  assert.match(src('src/ui/actions.js'), /makes the resistance post-sinusoidal/);
+  assert.doesNotMatch(src('src/ui/about.js'), /when the IVC is blocked|hepatic veins are blocked/);
 });

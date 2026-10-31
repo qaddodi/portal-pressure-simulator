@@ -8,7 +8,7 @@ import { dopplerVel, flowReversed } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, hiddenNow } from './store.js?v=7e587ef608';
 import { fmt, fmtFlow, clamp } from './util.js?v=4c95f6eb28';
 import { PREGNANCY_INFO } from '../engine/scenario.js?v=0b6dfcc7c5';
-import { aboutVessel, aboutOrgan } from './about.js?v=b3e5881166';
+import { aboutVessel, aboutOrgan } from './about.js?v=72e9bb3420';
 import { lobuleState } from './lobule-model.js?v=fa466ef96e';
 import { oxygenFor } from './blood.js?v=aa66de2366';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=c30df860af';
@@ -297,7 +297,7 @@ function lobuleCard(sel, ctx) {
       verbs: [about((m) => ['A branch of the portal venule running along the lobule’s border, feeding the sinusoids it passes.', portalBack(m) ? 'Flow here runs backwards (orange): arterial blood that entered the sinusoids drains out through the portal venules.' : ''].filter(Boolean)),
         fibrosisVerb('pre'), stat('Portal inflow', (m) => (portalBack(m) ? 'reversed' : pc(Math.max(0, m.portal))))] };
     case 'sin': case 'an': return { ...base, title: sel.part === 'an' ? 'Sinusoidal anastomosis' : 'Sinusoid', value: pv((m) => m.P2),
-      verbs: [about((m) => [sel.part === 'an' ? 'A cross-link between sinusoids: blood can go around a local block, so one blocked sinusoid does not starve the cells beyond it.'
+      verbs: [about((m) => [sel.part === 'an' ? 'A cross-link between sinusoids: blood can go around a local resistance, so one narrowed sinusoid does not starve the cells beyond it.'
         : 'A leaky capillary lined by fenestrated endothelium, between plates of hepatocytes one cell thick. Sinusoids merge toward the central vein, so blood speeds up as it goes; the highlighted path runs to the central vein.',
       m.fibSin > 0.1 ? 'Capillarization: the fenestrae close and collagen fills the space of Disse (pale sleeve), raising sinusoidal resistance: this is what raises HVPG in cirrhosis.' : '',
       m.congU > 0.1 ? 'Zone 3 sinusoids are dilated and packed with blood: the outflow is backing up.' : ''].filter(Boolean)),
@@ -306,7 +306,7 @@ function lobuleCard(sel, ctx) {
     case 'cv': return { ...base, title: 'Central vein', value: pv((m) => m.P3),
       status: (f) => (L(f).congU > 0.1 ? ['warn', 'Congested'] : null),
       verbs: [about((m) => ['Collects the sinusoids and drains into the hepatic veins. Zone 3 around it gets the least oxygen.',
-        m.fibPost > 0.1 ? `Fibrosis around the central vein (×${fmt(m.zone.post, 1)}) makes the block post-sinusoidal.` : '',
+        m.fibPost > 0.1 ? `Fibrosis around the central vein (×${fmt(m.zone.post, 1)}) makes the resistance post-sinusoidal.` : '',
         m.congU > 0.1 ? 'Raised outflow pressure congests zone 3 first: dilated sinusoids and dying cells give the “nutmeg” liver.' : ''].filter(Boolean)),
       fibrosisVerb('post'), stat('Hepatic vein', (m) => mm(m.P4)), stat('Above normal', (m) => (m.congU > 0.05 ? `+${fmt(m.cong, 1)} mmHg` : 'none'))] };
     case 'ha': return { ...base, title: 'Hepatic arteriole', value: (f) => ({ v: pc(L(f).art), u: 'of normal flow' }),

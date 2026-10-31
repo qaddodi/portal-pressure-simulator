@@ -7,19 +7,19 @@ import { createStage } from './stage.js?v=7cf7dcf861';
 import { createCreditPlacer } from './credit.js?v=853fefa4ac';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=78c263643b';
+import { createInspector } from './inspector.js?v=da1bdb6194';
 import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=f783efa02a';
 import { setHvpgStage } from './hvpg-proc.js?v=263b1d0623';
 import { createWhy } from './why.js?v=3602087adf';
-import { createTimeline, LAPSES } from './timeline.js?v=98c6f5a2c4';
-import { createCompare } from './compare.js?v=6bb46ab6a4';
-import { createCard } from './card.js?v=864153e887';
-import { createChart } from './chart.js?v=bd582c5110';
+import { createTimeline, LAPSES } from './timeline.js?v=d8845208c6';
+import { createCompare } from './compare.js?v=5cc95af209';
+import { createCard } from './card.js?v=d30033b0bb';
+import { createChart } from './chart.js?v=d885365f3b';
 import { createMenu } from './menu.js?v=6ada7e11c3';
 import { caption } from './a11y.js?v=ca051e9d1c';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=9f1ab73851';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=1caeb33bf9';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=88bc8501e6';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
@@ -914,7 +914,7 @@ function openSettings(anchor, withSearch = false) {
     // start (index.html), so they stay at their defaults: Full, and off. Their code stays.)
     // (Blur effect is one setting for the app and the talks: the same switch and the same stored value in both.)
     h('div', { class: 'menu-title' }, 'Accessibility'),
-    menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass behind cards and labels. Off: solid cards and label pills, lighter on a hot device', (on) => {
+    menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass on cards and labels. Off runs cooler', (on) => {
       try { localStorage.setItem('pps.noGlass', on ? '0' : '1'); } catch { /* storage unavailable */ }
       document.documentElement.toggleAttribute('data-noglass', !on);
     }),
