@@ -30,3 +30,8 @@ test("a cold menu asks for the talks' code only once its frame is on screen", ()
   const mu = readFileSync(new URL('../src/ui/menu.js', import.meta.url), 'utf8');
   assert.match(mu, /if \(!lib\) nextFrame\(\(\) => setTimeout\(\(\) => library\(\)\.then\(\(\) => \{ if \(open\) render\(\); scrollTo\(\); \}\)\.catch\(\(\) => \{\}\), 0\)\);/);
 });
+
+test("a lens switch moves the key in the press's own frame and updates the figure one frame later, once", () => {
+  assert.match(mn, /store\.on\('colorMode', \(\) => \{ renderLegend\(\); renderBanner\(\); if \(!lensRedraw\) lensRedraw = nextFrame\(\(\) => \{ lensRedraw = nextFrame\(\(\) => \{ lensRedraw = 0; redraw\(\); \}\); \}\); \}\);/);
+  assert.doesNotMatch(mn, /\['compareSnap', 'compareView', 'colorMode'/);
+});

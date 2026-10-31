@@ -285,7 +285,12 @@ async function main() {
   };
   store.on('presetId', syncScenarioName);
   store.on('mode', syncScenarioName);
-  for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging', 'found', 'sinusoid', 'lobule']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
+  for (const k of ['compareSnap', 'compareView', 'imaging', 'found', 'sinusoid', 'lobule']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
+  // A lens switch: the key and the lens name move in the key press's own frame, and the figure's full update follows one frame later
+  // (it set off with them on the same clock, D_SURFACE, so they still finish together within a frame) rather than holding that first
+  // frame (lens key 250 to 270 ms to the first change on CI's profiles). A model frame in between draws it anyway.
+  let lensRedraw = 0;
+  store.on('colorMode', () => { renderLegend(); renderBanner(); if (!lensRedraw) lensRedraw = nextFrame(() => { lensRedraw = nextFrame(() => { lensRedraw = 0; redraw(); }); }); });
   store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
   // (Only on a new value: a slide change sets focus and selection to null each time, and a full figure update for a value that
   // stayed the same cost a frame's worth of script in the tap.)
