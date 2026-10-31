@@ -8980,6 +8980,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // fonts, theme and the presenter's insets. Otherwise the last layout stands, and only the live values
   // are refreshed in place (see refreshValues); a value whose text changes shape lays the labels out again.
   let labelKey = null, labelFonts = 0, labelShown = [], noChevBoxes = [], labelPainted = false;   // labelPainted: the last updateLabels painted the callouts and probes
+  const CATH_HID = !/[?&]cathlabels=1\b/.test(location.search);
+  let cathHidAt = 0;
+  const cathHid = () => CATH_HID && !!cath.st && !cath.st.keep && wrap.classList.contains('cath-on') && performance.now() - cathHidAt > 300;
   // (What a stent's column of callouts is solved against besides the camera: the cards' insets and boxes. Empty without one.)
   const labelIns = () => (dop.all ? [...['--pz-t', '--pz-l', '--pz-b', '--pz-r'].map((k) => Math.round(pzInset(k) / 8)), ...(blockerBoxes || []).flatMap((o) => [o.x0, o.y0, o.x1, o.y1].map((v) => Math.round(v / 8)))].join() : '');   // (and the cards' boxes, which can arrive a frame after the insets)
   const stats = { layouts: 0, skips: 0, values: 0, ms: 0 };
@@ -8987,6 +8990,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelPainted = false;
     // Laid out once the presenter's camera settles (see camSettle), or at once if its glide was cut short.
     if (camMove) { if (!vtGliding) camSettle(); return; }
+    // (Not while the HVPG catheter hides them (cath-on, after its .25 s fade): its view follows the tip every frame, and every frame
+    // of it had laid out, drawn and sent to the GPU labels nobody could see. setCatheter lays them out as it goes. ?cathlabels=1: as before.)
+    if (cathHid()) { labelKey = null; return; }
     const t0 = performance.now();
     refreshCTM();
     if (pinchHide || (easeInOut(morph) >= 0.5 && solvedFor && gestureOn() && Math.abs(Math.log(CTM.sc / solvedFor.sc)) > PINCH_ZOOM)) {
@@ -11493,7 +11499,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (cathFade || !cath.st) { cath.st = null; return; }
       // (keep: a treatment leaves the figure's names and the slide's callout on, its step named by a mark: proc-anim.js. The
       // HVPG catheter's readings stand alone, so it hides them.)
-      cath.st = st; wrap.classList.toggle('cath-on', !!st && !st.keep);
+      cath.st = st;
+      // (Hidden under the HVPG catheter, the figure's labels are not laid out once their fade is over (updateLabels, cathHid); as it
+      // goes they are laid out at once, for the view as it is now, before they fade back in.)
+      const hide = !!st && !st.keep;
+      if (hide !== wrap.classList.contains('cath-on')) {
+        wrap.classList.toggle('cath-on', hide);
+        if (hide) cathHidAt = performance.now(); else if (F && CATH_HID) { labelKey = null; updateLabels(F); }
+      }
       if (st && (st.route || 'hvpg') !== cath.kind) { cath.kind = st.route || 'hvpg'; cath.route = null; cath.rc = 0; }
       if (!st) { cath.rc = 0; cath.route = null; cath.blk = null; cath.shaft = null; cath.room = null; cath.ins = null; cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
       cathPaint();
