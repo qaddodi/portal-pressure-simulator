@@ -53,7 +53,7 @@ import { alongCurve } from './pressure-along.js?v=74c64e4286';
 import { follow2, createColourFollow } from './display-state.js?v=8d062d39dc';
 import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=acc95c9bbc';
 import { retireRows, flowClose } from './flow-rows.js?v=59053c0155';
-import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=da1b9f80ab';
+import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=4e68244d22';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
 import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=d228750e83';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
@@ -10674,7 +10674,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let dashBuilt = null, dashTracks = [], dashVV = -1, dashVAt = 0, dashWake = 0, dashLook = 0, dashMask = null;
   // Elements at most: past it the dashes thin out (the heads keep their spacing). Each is a layer of its own for the compositor, and
   // Mohammad's Mac lagged with about 420 (31 Oct), so the dashes stay sparse.
-  const DASH_MAX = 160;
+  const DASH_MAX = 90;
   const DASH_LOOK_MS = 2000;   // (the courses and the readings looked at again at most this often, once the view rests)
   const dashSee = (it) => !it.x.isArt && !it.x.g.classList.contains('coll-ghost') && !it.x.reveal;
   function dashVisible() {
@@ -10747,7 +10747,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const heads = chevOn() && (!key || KEY_K[k] === 1 || (KEY_K[k] === 2 && keyChevron(EDGES[k], laneOpen)) || glow.lit.has(id));
       const chevSp = chevSpacing(R, sc, vdpr);
       const Rpx = R * sc;
-      const lanes = Rpx < 4 ? [0] : Rpx < 9 ? [-0.35, 0.35] : [-0.5, 0, 0.5];
+      const lanes = Rpx < 6 ? [0] : [-0.35, 0.35];   // (two lanes at most: fewer layers)
       list.push({ key: it.row, row: it.row, k, pts: it.pts, R, radius, lanes, dashSp: 2 * chevSp, chevSp: heads ? chevSp : 0, seed: (k * 37) % 97,
         seenDash, seen: (sv, x, y) => seenDash(sv, x, y) * (inHole(x, y, noChevBoxes, chevHoles) ? 0 : 1) });
       n += lanes.length * Math.ceil(len / (2 * chevSp)) + (heads ? Math.ceil(len / chevSp) : 0);

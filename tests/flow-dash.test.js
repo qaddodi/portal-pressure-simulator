@@ -93,6 +93,17 @@ test('stage: dashes are not rebuilt on every geometry bump, and stay few', () =>
   const key = /function dashKey\(\) \{[\s\S]*?\n {2}\}/.exec(src)[0];
   assert.ok(!key.includes('geometryVersion'), 'a coiling varix bumps geometryVersion every frame: it rebuilt every dash a frame');
   assert.ok(!key.includes('vdpr'), 'the canvas share changes while the view moves');
-  assert.match(src, /const DASH_MAX = 160;/);
+  assert.match(src, /const DASH_MAX = 90;/);
   assert.match(src, /if \(!force && F === dashFlowF && running === dashFlowRun && now - dashFlowAt < 250\) return;/);
+});
+
+test('reversed flow runs the keyframes backwards at a positive rate, from a small time (no huge offsets, no negative rate)', async () => {
+  const { revFrames } = await import('../src/ui/flow-dash.js');
+  const f = [{ offset: 0, transform: 'a', opacity: 0 }, { offset: 0.25, transform: 'b', opacity: 1 }, { offset: 1, transform: 'c', opacity: 0 }];
+  const r = revFrames(f);
+  assert.deepEqual(r.map((x) => [x.offset, x.transform]), [[0, 'c'], [0.75, 'b'], [1, 'a']]);
+  assert.equal(revFrames(f), r);   // (kept: one copy per course)
+  const src = readFileSync(new URL('../src/ui/flow-dash.js', import.meta.url), 'utf8');
+  assert.ok(!/LOOPS/.test(src));
+  assert.match(src, /setRate\(mk, Math\.abs\(f\.v\) \* mk\.lane\)/);
 });

@@ -110,8 +110,18 @@ export const rateOf = (v) => (Math.abs(v) < 1e-3 ? 0 : v);
 export const rateMoved = (was, v) => was == null || Math.sign(was) !== Math.sign(v) || Math.abs(v - was) > 0.05 * Math.max(Math.abs(was), 0.5);
 
 const nextFrame = frameFor('flow-dash');
-// The loops start this many times round, so one played backwards (reversed flow) has days of loops to run before it reaches 0.
-const LOOPS = 1e6;
+// Every animation plays forward from a small time, at a rate of zero or more. Reversed flow swaps in the same keyframes run
+// backwards (revFrames) instead of a negative rate. (31 Oct, "not even half as smooth": the first build started each loop a million
+// times round so a reversed one could play backwards for days. That put the animations' times near 10^8 s, where the system
+// compositor's timing may not hold a frame's step exactly, and an element could stutter along instead of gliding. A negative rate
+// is also the less travelled path for an accelerated animation.)
+const revCache = new WeakMap();
+/** The same keyframes for the course run from its other end: position s at time loop − s. */
+export function revFrames(frames) {
+  let r = revCache.get(frames);
+  if (!r) { r = frames.map((f) => ({ ...f, offset: +(1 - f.offset).toFixed(6) })).reverse(); revCache.set(frames, r); }
+  return r;
+}
 
 // ── The layer ───────────────────────────────────────────────────────────────
 
@@ -143,16 +153,16 @@ export function createFlowDash(host) {
     t.el.style.opacity = '0';
     setTimeout(() => { anims(t.dashes); anims(t.chevs); t.el.remove(); }, D_SMALL + 80);
   }
-  function marker(parent, cls, frames, loop, at) {
+  function marker(parent, cls, frames, loop, at, dir = 1) {
     const el = doc.createElement('div');
     el.className = 'fd-m';
     const inner = doc.createElement('div');
     inner.className = cls;
     el.append(inner);
     parent.append(el);
-    const anim = el.animate ? el.animate(frames, { duration: loop * 1000, iterations: Infinity, easing: 'linear' }) : null;   // motion-scale: own pace (the flow's, constant)
-    if (anim) { anim.currentTime = (LOOPS * loop + at) * 1000; anim.updatePlaybackRate ? anim.updatePlaybackRate(0) : (anim.playbackRate = 0); }
-    return { el, inner, anim, rate: 0 };
+    const anim = el.animate ? el.animate(dir < 0 ? revFrames(frames) : frames, { duration: loop * 1000, iterations: Infinity, easing: 'linear' }) : null;   // motion-scale: own pace (the flow's, constant)
+    if (anim) { anim.currentTime = (dir < 0 ? loop - at : at) * 1000; anim.playbackRate = 0; }
+    return { el, inner, anim, rate: 0, frames, loop };
   }
 
   return {
@@ -184,7 +194,7 @@ export function createFlowDash(host) {
       const phase = new Map();
       for (const [key, t] of tracks) {
         const a = t.dashes[0]?.anim || t.chevs[0]?.anim;
-        if (a && t.loop) phase.set(key, ((a.currentTime / 1000) % t.loop + t.loop) % t.loop);
+        if (a && t.loop) { const p = ((a.currentTime / 1000) % t.loop + t.loop) % t.loop; phase.set(key, t.dir < 0 ? t.loop - p : p); }
       }
       const old = whole ? set : null;
       if (whole) { set = { el: doc.createElement('div'), tracks: new Map() }; set.el.className = 'fd-set'; }
@@ -215,15 +225,17 @@ export function createFlowDash(host) {
         if (was && was.shape === shape) {
           // (The same elements: only where they go and where they hide changes. The timing is untouched, so each carries on.)
           const byLane = new Map();
-          for (const mk of was.dashes) { if (!byLane.has(mk.y)) byLane.set(mk.y, laneF(mk.y)); mk.anim?.effect?.setKeyframes(byLane.get(mk.y)); }
-          if (was.chevs.length) { const f = chevF(); for (const mk of was.chevs) mk.anim?.effect?.setKeyframes(f); }
+          const put = (mk, f) => { mk.frames = f; mk.anim?.effect?.setKeyframes(was.dir < 0 ? revFrames(f) : f); };
+          for (const mk of was.dashes) { if (!byLane.has(mk.y)) byLane.set(mk.y, laneF(mk.y)); put(mk, byLane.get(mk.y)); }
+          if (was.chevs.length) { const f = chevF(); for (const mk of was.chevs) put(mk, f); }
           continue;
         }
+        const dir = (was || tracks.get(tr.key))?.dir || 1;
         if (was) dropTrack(was);
         const el = doc.createElement('div');
         el.className = 'fd-track';
         const ph = phase.get(tr.key) ?? (tr.seed || 0) % unit;
-        const t = { el, dashes: [], chevs: [], loop, shape, st: {} };
+        const t = { el, dashes: [], chevs: [], loop, shape, dir, st: {} };
         // Dashes: thin streaks of light, as the canvas's (a soft core in the streak's own colour, longer than wide), on lanes.
         const dashG = doc.createElement('div'); dashG.className = 'fd-dashes'; el.append(dashG);
         const chevG = doc.createElement('div'); chevG.className = 'fd-chevs'; el.append(chevG);
@@ -232,7 +244,7 @@ export function createFlowDash(host) {
             const frames = laneF(y);
             const off = (dashSp * (j + 0.5)) / tr.lanes.length;
             for (let d = 0; d * dashSp < loop; d++) {
-              const mk = marker(dashG, 'fd-dash', frames, loop, (ph + off + d * dashSp) % loop);
+              const mk = marker(dashG, 'fd-dash', frames, loop, (ph + off + d * dashSp) % loop, dir);
               mk.inner.style.cssText = `width:${Lw.toFixed(1)}px;height:${W.toFixed(2)}px;left:${(-Lw / 2).toFixed(1)}px;top:${(-W / 2).toFixed(2)}px`;
               mk.lane = laneSpeed(y); mk.y = y;
               t.dashes.push(mk);
@@ -245,7 +257,7 @@ export function createFlowDash(host) {
           const frames = chevF();
           const svg = `<svg viewBox="${(-0.5 * L - 2).toFixed(2)} ${(-hwPx - 2).toFixed(2)} ${(L + 4).toFixed(2)} ${(2 * hwPx + 4).toFixed(2)}" width="${(L + 4).toFixed(1)}" height="${(2 * hwPx + 4).toFixed(1)}"><path d="M${(0.55 * L).toFixed(2)} 0L${(-0.45 * L).toFixed(2)} ${hwPx.toFixed(2)}L${(-0.13 * L).toFixed(2)} 0L${(-0.45 * L).toFixed(2)} ${(-hwPx).toFixed(2)}Z"/></svg>`;
           for (let c = 0; c * chevSp < loop; c++) {
-            const mk = marker(chevG, 'fd-chev', frames, loop, (ph + c * chevSp) % loop);
+            const mk = marker(chevG, 'fd-chev', frames, loop, (ph + c * chevSp) % loop, dir);
             mk.inner.innerHTML = svg;
             mk.inner.style.cssText = `left:${(-0.5 * L - 2).toFixed(2)}px;top:${(-hwPx - 2).toFixed(2)}px`;
             mk.lane = 1;
@@ -274,9 +286,21 @@ export function createFlowDash(host) {
       const t = tracks.get(key);
       if (!t) return;
       const st = t.st;
-      for (const mk of t.dashes) setRate(mk, f.v * mk.lane);
-      for (const mk of t.chevs) setRate(mk, f.v);
-      const fwd = (f.dir ?? f.v) >= 0 ? 1 : 0;   // (the way the flow runs, held while paused)
+      // (The way the flow runs, held while paused or standing. A turn comes as the speed passes through zero, so the swap to the
+      // keyframes run backwards lands where nothing is moving: each element keeps its place, now heading the other way.)
+      const d = Math.sign(f.dir ?? f.v);
+      if (d && d !== t.dir) {
+        t.dir = d;
+        for (const mk of [...t.dashes, ...t.chevs]) {
+          if (!mk.anim) continue;
+          const p = ((mk.anim.currentTime / 1000) % mk.loop + mk.loop) % mk.loop;
+          mk.anim.effect?.setKeyframes(d < 0 ? revFrames(mk.frames) : mk.frames);
+          mk.anim.currentTime = (mk.loop - p) * 1000;
+        }
+      }
+      for (const mk of t.dashes) setRate(mk, Math.abs(f.v) * mk.lane);
+      for (const mk of t.chevs) setRate(mk, Math.abs(f.v));
+      const fwd = t.dir >= 0 ? 1 : 0;
       if (st.fwd !== fwd) { st.fwd = fwd; t.el.classList.toggle('back', !fwd); }
       const q = (v) => Math.round(v * 50) / 50;
       const da = q(f.dash * f.alpha), ca = q(f.chev * f.alpha);
