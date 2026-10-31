@@ -72,7 +72,7 @@ test('no organ picture is dropped or swapped mid-zoom: it is made once the dive 
 test('Figure resolution never changes the canvas mid-zoom: no fade copy that stands still, no soft rise from While moving', () => {
   assert.match(fn('  function settleRes() {'), /if \(!leftAlone\(280\) \|\| vtGliding \|\| \(diveT > 0 && diveT < 1\)\) \{ autoT = setTimeout\(settled, 120\); return; \}/);
   assert.match(st, /if \(resizeReady && !moveLow && figOpt\('move'\) < 1 && !\(diveT > 0\)\) \{ moveLow = true;/);
-  assert.match(fn('  function easeRes() {'), /!\(lz\?\.isOpen\(\) \|\| lz\?\.covers\(\)\) && !diveOrig\) \{\n[^\n]*\n\s+labelHold = true;\n\s+try \{ labelGL\?\.check\(\); fadeOver\(vCanvas, resFollow, \(\) => veins\?\.present\?\.\(\)\); \} finally \{ labelHold = false; \}/);
+  assert.match(fn('  function easeRes() {'), /!\(lz\?\.isOpen\(\) \|\| lz\?\.covers\(\)\) && !diveOrig\) \{\n[^\n]*\n[^\n]*\n\s+frostHold = true;\n\s+try \{ glassGL\?\.release\(\); paneGL\?\.release\(\); for \(const g of cardGLs\) g\.release\(\); fadeOver\(vCanvas, resFollow, \(\) => veins\?\.present\?\.\(\)\); \} finally \{ frostHold = false; \}/);
   // A redraw through the zoom keeps the camera it started with, so it never counts as a move (settleRes, Adapt's frame gaps).
   const draw = fn('  function drawVeinsNow(fullComposite) {');
   assert.ok(draw.indexOf('if (key !== veinsDrawKey) {') < draw.indexOf('settleRes();'));

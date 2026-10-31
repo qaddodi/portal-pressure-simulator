@@ -81,9 +81,11 @@ const frame = () => { clock += 16; const q = rafs.splice(0); for (const cb of q)
 const frames = async (k) => { for (let i = 0; i < k; i++) { frame(); await flush(); } };
 
 const G = createGlassGL(wrap, source, [layer], { version: () => seq, capture() {}, onFigure: (f) => { figure.add(f); return () => figure.delete(f); } });
-// (The figure's picture laid: its top hook draws the glass; the host's now() lays one at once.)
+// (The figure's picture laid: its top hooks (veins-gl top.add) blur, then draw the glass; the host's now() lays one at once.)
 let presents = 0, may = true, between = [];
-const present = () => { presents++; G.drawInto(); };
+const tops = [];
+const add = (t) => { tops.push(t); tops.sort((a, b) => a.order - b.order); return () => { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); }; };
+const present = () => { presents++; for (const t of tops) t.prep?.(); for (const t of tops) t.draw(); };
 const blood = async (k) => { for (let i = 0; i < k; i++) { seq++; for (const f of figure) f(); present(); frame(); await flush(); } };
 
 test('without a host, the glass copies the figure and draws on its own canvas', async () => {
@@ -93,7 +95,8 @@ test('without a host, the glass copies the figure and draws on its own canvas', 
 });
 
 test('with one, the next frame draws it into the figure\'s picture, from that picture: no copy, its own canvas aside', async () => {
-  G.setHost({ gl: fig.gl, canvas: source, now: present, active: () => may, over: () => between });
+  G.setHost({ gl: fig.gl, canvas: source, add, order: 2, now: present, active: () => may, over: () => between });
+  assert.equal(tops.length, 1, 'one turn in the figure\'s picture');
   const c = copies, p = presents;
   await frames(2);
   assert.equal(G.hosted, true);
@@ -152,11 +155,11 @@ test('back again, and a glass crossing what lies between keeps its own canvas', 
   may = true;
   await frames(3);
   assert.equal(G.hosted, true);
-  between = [{ getBoundingClientRect: () => rect(300, 120, 40, 40) }];
+  between = [rect(300, 120, 40, 40)];
   [...observers][0].cb([]);
   await frames(2);
   assert.equal(G.hosted, false, 'crossed');
-  between = [{ getBoundingClientRect: () => rect(500, 400, 40, 40) }];
+  between = [rect(500, 400, 40, 40)];
   [...observers][0].cb([]);
   await frames(2);
   assert.equal(G.hosted, true, 'apart');
@@ -167,6 +170,7 @@ test('let go: its objects in the figure\'s context are deleted, and the picture 
   G.dispose();
   assert.ok(fig.n.deleted > del);
   assert.equal(presents, p + 1);
+  assert.equal(tops.length, 0, 'its turn taken out');
   const d = fig.n.draw;
   present();
   assert.equal(fig.n.draw, d);

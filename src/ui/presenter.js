@@ -4719,7 +4719,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
     // The cards' frosted glass drawn on the GPU under them while it can be (stage.cardGlass, glass-gl.js); else the browser's.
     // (The split readings sheet's glass is its two pseudo-elements', read by sheetPanes; every other card's is its own box.)
-    const glass = stage.cardGlass?.({ find: () => [shade, data, vcase, bar, scl, fk], watch: [root, shade], before: shade, read: (g) => (g === data ? sheetPanes(g) : undefined) }) || null;
+    const glass = stage.cardGlass?.({ find: () => [shade, data, vcase, bar, scl, fk], watch: [root, shade], before: shade, low: shade, read: (g) => (g === data ? sheetPanes(g) : undefined) }) || null;
     return { root, shade, safe, load, text, data, lip, lipRO, lipMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.

@@ -6,8 +6,8 @@ import { readFileSync } from 'node:fs';
 
 const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 
-test('OVER_ON is set before the labels\' host reads it while the stage is made', () => {
-  const set = STAGE.indexOf('  const OVER_ON = '), read = STAGE.indexOf('  const labelHost = OVER_ON');
+test('OVER_ON is set before the overlays\' watch reads it while the stage is made', () => {
+  const set = STAGE.indexOf('  const OVER_ON = '), read = STAGE.indexOf('  if (OVER_ON) {');
   assert.ok(set > 0 && read > 0, 'both are there');
   assert.ok(set < read, 'set first');
   assert.ok(STAGE.indexOf('  const SOFTWARE = ') < set, 'after what it reads');

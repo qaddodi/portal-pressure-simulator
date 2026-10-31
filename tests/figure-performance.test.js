@@ -112,7 +112,7 @@ test('Callout glass kept: off, draw() reads the page as before; on, it reads it 
   assert.ok(g.indexOf('keepWatch();') > g.indexOf('function drawKept('), 'made from drawKept only');
   assert.match(g, /if \(keptMo\) \{ keptMo\.disconnect\(\); keptRo\?\.disconnect\(\); document\.removeEventListener\('scroll', stale, true\); \}/, 'and let go with the glass');
   const stage = src('stage.js');
-  assert.equal(stage.split("keep: () => figLab('glassCache'), due: () => watch.due()").length - 1, 3, 'the callouts, the liver pane and the Present cards (A2) all');
+  assert.equal(stage.split("keep: () => figLab('glassCache'), due: () => watch.due(), copy: GLASS_COPY").length - 1, 2, 'the callouts and the liver pane (the Present cards take no copy: they are drawn in the figure\'s canvas or are the browser\'s)');
 });
 
 test('Callout glass kept: the kept path draws from the same reads, through the same paint', () => {

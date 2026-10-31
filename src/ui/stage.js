@@ -42,15 +42,15 @@ import { cropToGrid } from './organs-gl.js?v=ac62b354a5';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=ec1b2afbc1';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
-import { createLabelGL } from './label-gl.js?v=9590f4546d';
-import { createGlassGL } from './glass-gl.js?v=6e154f54c3';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=93c47fc66b';
+import { createLabelGL } from './label-gl.js?v=d87ecf3a23';
+import { createGlassGL } from './glass-gl.js?v=fcbbb31a84';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=05df34587f';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=ac26170d49';
 import { retireRows } from './flow-rows.js?v=bea4089714';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
-import { frameFor, lateFrameFor, cancelFrame, finalFrameFor, framePhase, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=b11d87fd1b';
+import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=b11d87fd1b';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=bca5ebb624';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -98,6 +98,9 @@ const OVER_GPU = !(typeof location !== 'undefined' && /[?&]stageover=svg\b/.test
 // Parcels and arrowheads carried through junctions (blood.js createStreamChain; combined plan B1 + C1). ?bloodchain=0: each
 // vessel's blood its own pattern, dimmed at every join, as before.
 const BLOOD_CHAIN = !(typeof location !== 'undefined' && /[?&]bloodchain=0\b/.test(location.search));
+// The glasses' own canvases, each blurring a copy of the figure (createImageBitmap), as before 31 Oct: only with ?glasscopy=1. By default
+// they are drawn inside the figure's canvas (frostHost) and are otherwise the browser's (round 2, 2.1).
+const GLASS_COPY = typeof location !== 'undefined' && /[?&]glasscopy=1\b/.test(location.search);
 // Relative luminance of an 'rgb(r,g,b)' string (non-rgb strings count as dark).
 function luminance(c) {
   const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c || '');
@@ -2301,7 +2304,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=a4b9f32553').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=a15c0420ff').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2323,7 +2326,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const paceOf = (q) => (QUALITY[q].fps ? 1000 / QUALITY[q].fps : 0);   // (ms between drawn frames of the blood; 0: every frame)
   const SOFTWARE = !!veins?.software;
   // The overlays on the GPU (stage-over.js, veins-gl overlay; ?stageover=gpu): see syncOver. Set here, before anything made with the
-  // stage reads it (the labels' host, labelHost): read before this line, it threw while the stage was made (31 Oct, d213d755).
+  // stage reads it: read before this line, it threw while the stage was made (31 Oct, d213d755).
   const OVER_ON = OVER_GPU && !!veins?.overlay && (!SOFTWARE || OVER_ASK);
   try { localStorage.removeItem('pps.quality'); localStorage.removeItem('pps.q'); } catch { /* storage unavailable */ }
   let quality = SOFTWARE ? Q_SOFTWARE : 0;
@@ -2351,6 +2354,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     vBinKey = ''; binShown = null; bendShown = null; glOrgans = false; plateKey = ''; tubesShown = null;   // (a new context holds no vessels yet)
     liverKey = '';   // (nor the liver's lower edge the ascites stops at: morphLiver sends it again)
     for (const x of EV) for (const o of [x, ...(x.strands || []), ...(x.feeders || [])]) { o.glRadKey = null; o.glRSent = null; }
+    for (const [g, o] of frostHosts) hostFrost(g, o);   // (the glasses drawn in the new context's canvas)
     if (F) update(F);
   });
   wrap.dataset.quality = String(quality);
@@ -2438,9 +2442,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function easeRes() {
     // (The kept picture is copied onto the canvas before each read of it: the canvas keeps none of its own between frames.)
     if (glM && !(lz?.isOpen() || lz?.covers()) && !diveOrig) {
-      // (The picture kept for the fade is the figure without the labels: they go back to the SVG first, labelsOver.)
-      labelHold = true;
-      try { labelGL?.check(); fadeOver(vCanvas, resFollow, () => veins?.present?.()); } finally { labelHold = false; }
+      // (The picture kept for the fade is the figure without the glasses drawn in its canvas: they go back to their own way first, and
+      // come back once the fade has ended, frostOn.)
+      frostHold = true;
+      try { glassGL?.release(); paneGL?.release(); for (const g of cardGLs) g.release(); fadeOver(vCanvas, resFollow, () => veins?.present?.()); } finally { frostHold = false; }
       fadeM0 = [...glM];
     }
     resizeCanvas();
@@ -6374,21 +6379,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { el, list: null, fp: null, made: new Map(), dy: null, dyG: null };
   })();
   // The callouts' frosted glass, drawn on the GPU under both callout layers while it can be (glass-gl.js); else the browser's.
-  const glassGL = veins ? createGlassGL(wrap, vCanvas, [cath.labels, sites.el], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due() }) : null;
+  const glassGL = veins ? createGlassGL(wrap, vCanvas, [cath.labels, sites.el], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), copy: GLASS_COPY }) : null;
   wrap.dataset.glass = glassGL ? 'gpu' : 'css';
   // The Present cards' glass (recs A2, 31 Oct): the same renderer, one per presenter run (cardGlass, below), drawing each card's blur
   // and tint from the figure's canvas while the anatomy shows (not the lobule, nor a dive), so the browser re-blurs none of them as the
   // blood moves. Off with the callouts' (?gpulabels=0, software, no GPU figure): the cards keep the browser's glass.
+  // (Drawn into the figure's own canvas (frostHost, below), never from a copy of it: the copy (31 Oct, A2) read the canvas back on Safari
+  // on every figure frame and made the decks laggier than the browser's own blur. Where the figure's canvas cannot take a card's glass,
+  // and with ?glasscopy=1, that card keeps the browser's glass, as before.)
   const cardGLs = new Set();
   const cardGlass = (cards) => {
-    // (Opt-in with ?cardglass=1, 31 Oct: each figure frame copies the region under the cards, which on Safari reads the canvas back and
-    // made the decks laggier than the browser's own blur; by default the cards keep the browser's glass, as before.)
-    if (!veins || !/[?&]cardglass=1\b/.test(location.search)) return null;
-    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), cards, live: () => wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0), version: () => veins.drawSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due() });
+    if (!veins?.top || GLASS_COPY) return null;
+    const shade = cards.low;
+    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), cards, live: () => wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0), version: () => veins.drawSeq, onFigure: (f) => veins.onPicture(f), copy: false });
     if (!g) return null;
+    hostFrost(g, { order: { low: 1, high: 3 }, over: (level) => frostOver(level === 'low' ? 'low' : 'cards'), low: (el) => el === shade });
     cardGLs.add(g);
     const dispose = g.dispose;
-    g.dispose = () => { cardGLs.delete(g); dispose(); };
+    g.dispose = () => { cardGLs.delete(g); frostHosts.delete(g); dispose(); };
     return g;
   };
   // A slide's numbers (its fingerprint, or a what-if's or time-lapse's since): the tiles show them, and a callout or figure
@@ -8036,7 +8044,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const glass = h('div', { class: 'lb-glass', 'aria-hidden': 'true', hidden: true });
   labelSvg.before(glass);
   // (Drawn on the GPU under the labels while it can be, as the callouts' glass is: glass-gl.js.)
-  const paneGL = veins ? createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), pane: glass, version: () => veins.drawSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due() }) : null;
+  const paneGL = veins ? createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), pane: glass, version: () => veins.drawSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), copy: GLASS_COPY }) : null;
   onFigLab((k) => { if (k === 'glassCache') { glassGL?.redraw(); paneGL?.redraw(); for (const g of cardGLs) g.redraw(); } });
   // (Sharper upscaling on or off: the canvas takes its new size and picture under the eased change every resolution change takes.)
   onFigLab((k) => { if (k === 'upscale') { easeRes(); veinsDirty = true; forceDraw = true; stageWake(); } });
@@ -8080,51 +8088,69 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // app.css. Never an SVG filter: the grown-glyph filter drew dark boxes on iPhone and was redrawn on every frame: 16 Oct.)
   labelSvg.append(gLeaders, gScan, gLabels);
   // The labels' words and pills, their leaders and dots drawn on the GPU (label-gl.js), the SVG kept as their model; the SVG draws them itself on a software
-  // renderer, without WebGL2, with ?gpulabels=0, or once the GPU's context is lost.
-  // Where the vessels and the overlays are drawn on the GPU, the labels are drawn into the same canvas, over them, at the end of each
-  // picture laid (veins-gl top), instead of on a canvas of their own: one screen-sized layer fewer for the page to composite on every
-  // frame. Only while nothing the page draws lies between the two (labelsOver); otherwise, and for a moment around each change, the
-  // SVG draws every label. Opt-in with ?labelhost=1 (31 Oct: labels went missing on the iPhone in this mode); by default their own canvas.
-  let labelHold = false, labelAsk = 0;
-  const labelLate = finalFrameFor('labels');
-  const labelNow = () => { if (veins && !veins.lost) veins.present(); };
-  const labelHost = OVER_ON && veins?.top && /[?&]labelhost=1\b/.test(location.search) ? {
-    gl: veins.top.gl, canvas: veins.top.canvas, now: labelNow,
-    // (In the frame's last phase the picture is laid at once: one asked for then would wait for the next frame.)
-    ask() { if (framePhase() === 'final') labelNow(); else if (!labelAsk) labelAsk = labelLate(() => { labelAsk = 0; if (labelGL?.owed) labelNow(); }); },
-    active: () => labelsOver(),
-  } : null;
-  // (The overlays all on the GPU (their SVG composited at nothing), the liver card's pane hidden, no resolution fade, the canvas at the
-  // screen's density and not moved by a sub-pixel rest, neither it nor the labels' layer faded, hidden or about to fade.)
-  function labelsOver() {
-    if (labelHold || !veins || veins.lost || !svgOver?.classList.contains(OVER_ALL) || !glass.hidden || fading(vCanvas)) return false;
+  // renderer, without WebGL2, with ?gpulabels=0, or once the GPU's context is lost. Always on a canvas of their own (round 2, 2.2: the
+  // labels change at other moments and at another density than the figure; drawn into the vessel canvas, 31 Oct, they went missing on
+  // the iPhone).
+  const frostWake = () => { glassGL?.redraw(); paneGL?.redraw(); for (const g of cardGLs) g.redraw(); };
+  const labelGL = createLabelGL(labelSvg, gLabels, { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), marks: [gLeaders, gScan], onBoxes: frostWake });
+  wrap.dataset.labels = labelGL ? 'gpu' : 'svg';
+  // The frosted glasses drawn inside the figure's canvas (round 2, 2.1, 31 Oct): each glass's blur is taken from the picture the vessel
+  // renderer has just laid in its own context (veins-gl top), so nothing is copied off the GPU, and the glass's own canvas (the
+  // callouts', the liver pane's) or the browser's blur (the Present cards') is not needed. Drawn in the page's order: the pane (under the
+  // labels), the teaching card's shade, the callouts, the other cards. A glass is drawn there only while nothing the page lays between
+  // the figure's canvas and it crosses it (frostOver): those would show sharp through it. Otherwise, and around each change of the
+  // canvas (a resolution's fade, a dive, the lobule), the callouts and the pane go back to their own way (?glasscopy=1: their own canvas,
+  // from a copy, as before 31 Oct; by default the browser's glass) and a card to the browser's glass.
+  let frostHold = false;
+  const frostOn = () => {
+    if (frostHold || !veins?.top || veins.lost || diveT > 0 || fading(vCanvas)) return false;
     const wc = wrap.classList;
-    if (!wc.contains('gl-on') || wc.contains('cam-move') || wc.contains('pinch-hide') || wc.contains('unframed') || wc.contains('in-lobule') || wc.contains('cath-on')) return false;
-    if (vdpr < vBase - 1e-9 || vCanvas.style.translate || !(boxW > 0) || Math.abs(vCanvas.width / boxW - (devicePixelRatio || 1)) > 0.02) return false;
-    const lc = getComputedStyle(labelSvg), vc = getComputedStyle(vCanvas);
-    return lc.display !== 'none' && lc.visibility === 'visible' && +lc.opacity >= 0.999 && vc.visibility === 'visible' && +vc.opacity >= 0.999;
+    if (!wc.contains('gl-on') || wc.contains('in-lobule') || wc.contains('unframed')) return false;
+    const vc = getComputedStyle(vCanvas);
+    return vc.display !== 'none' && vc.visibility === 'visible' && +vc.opacity >= 0.999;
+  };
+  const frostHost = (o) => ({ gl: veins.top.gl, canvas: veins.top.canvas, add: veins.top.add, now: () => { if (veins && !veins.lost) veins.present(); }, active: frostOn, ...o });
+  // (Each glass and what it was set with: set again on a new renderer, after a lost context is restored.)
+  const frostHosts = new Map();
+  function hostFrost(g, o) { if (!g || !veins?.top) return; frostHosts.set(g, o); g.setHost(frostHost(o)); }
+  // (What the page lays between the figure's canvas and a glass, as client boxes. 'pane': the overlays the GPU does not paint (#stageOver's
+  // SVG). 'low' (the teaching card's shade, z-index 1, over the whole stage view): those, the liver pane when the browser blurs it, the
+  // labels and marks (their GPU canvas's boxes, or the SVG's own). 'callouts' (z-index 4): those, the shade (its tabs and words), and the
+  // credit when it lies under them (outside Present). 'cards' (the Present cards, over everything in the stage view): 'low', and the
+  // callouts.)
+  const visible = (el) => {
+    if (!el?.isConnected || el.hidden) return false;
+    const c = getComputedStyle(el);
+    return c.display !== 'none' && c.visibility === 'visible' && +c.opacity > 0.001;
+  };
+  function frostOver(level) {
+    const out = [];
+    if (svgOver && !svgOver.classList.contains(OVER_ALL) && visible(svgOver)) {
+      for (const u of overUnits(worldOver, gOver)) if (!u.classList.contains(OVER_CLASS) && visible(u)) out.push(u.getBoundingClientRect());
+    }
+    if (level === 'pane') return out;
+    if (!glass.hidden && !paneGL?.hosted) out.push(glass.getBoundingClientRect());
+    const lc = labelGL && !labelGL.lost ? labelGL.canvas : labelSvg;
+    if (visible(lc) && visible(labelSvg)) {
+      if (labelGL && !labelGL.lost) {
+        const r = lc.getBoundingClientRect();
+        for (const b of labelGL.boxes) out.push({ left: r.left + b[0] - 1, top: r.top + b[1] - 1, right: r.left + b[2] + 1, bottom: r.top + b[3] + 1 });
+        for (const el of labelGL.svgLeft()) out.push(el.getBoundingClientRect());
+      } else for (const el of labelSvg.querySelectorAll('.lb, .leader, .leader-dot')) out.push(el.getBoundingClientRect());
+    }
+    if (level === 'low') return out;
+    if (level === 'callouts') {
+      for (const el of document.querySelectorAll('.pz-shade')) if (visible(el)) out.push(el.getBoundingClientRect());
+      const cr = document.querySelector('.stage-credit');
+      if (cr && !appEl?.classList.contains('presenting') && visible(cr)) out.push(cr.getBoundingClientRect());
+      return out;
+    }
+    for (const l of [cath.labels, sites.el]) for (const el of l.children) if (visible(el)) out.push(el.getBoundingClientRect());
+    return out;
   }
-  const labelGL = createLabelGL(labelSvg, gLabels, { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), marks: [gLeaders, gScan], host: labelHost, force: !!labelHost });
-  if (labelGL && labelHost) {
-    veins.top.set(() => { labelGL.drawInto(); glassGL?.drawInto(); });
-    // (What decides it changed: the labels given back at once when they may no longer be drawn there, label-gl check.)
-    const labelMo = new MutationObserver(() => labelGL.check());
-    labelMo.observe(wrap, { attributes: true, attributeFilter: ['class'] });
-    labelMo.observe(glass, { attributes: true, attributeFilter: ['hidden'] });
-    labelMo.observe(vCanvas, { attributes: true, attributeFilter: ['style', 'width', 'height'] });
-    if (svgOver) labelMo.observe(svgOver, { attributes: true, attributeFilter: ['class'] });
-  }
-  wrap.dataset.labels = labelGL ? (labelHost ? 'gpu-host' : 'gpu') : 'svg';
-  // The callouts' glass drawn into the same canvas, over the labels (recs A1, glass): from the picture itself, so the figure is never
-  // copied for it and its own canvas leaves the page's layers. Only while the labels are (labelsOver), outside a dive, and where no
-  // glass crosses what the page lays between the two: a label or mark the SVG still draws, the teaching card's shade, a Present card's
-  // GPU glass, the credit. Otherwise its own canvas, as before. ?glasshost=0 keeps that canvas always.
-  if (glassGL && labelGL && labelHost && !/[?&]glasshost=0\b/.test(location.search)) {
-    glassGL.setHost({
-      gl: veins.top.gl, canvas: veins.top.canvas, now: labelNow,
-      active: () => !(diveT > 0) && labelsOver(),
-      over: () => [...document.querySelectorAll('.pz-shade, .stage-credit, .pz [data-gl]'), ...labelGL.svgLeft()],
-    });
+  if (!GLASS_COPY) {
+    hostFrost(paneGL, { order: 0, over: () => frostOver('pane') });
+    hostFrost(glassGL, { order: 2, over: () => frostOver('callouts') });
   }
   const labelGlSync = () => { if (labelGL) labelGL.sync([...pool.values()].filter((b) => b.pos).map((b) => b.pos)); };
   const FONT = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';

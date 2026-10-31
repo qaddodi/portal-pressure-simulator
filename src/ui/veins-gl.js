@@ -1787,7 +1787,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // is the canvas, as ever. Every size inside reads PW() and PH().
   let up = null, upLin = false;   // (upLin: the picture upscaled by a plain filtered copy, not Sharper upscaling's filter: setPicture)
   // (overM: the figure's transform as last given to draw or drawRows, before whole(): the overlays are drawn at it.)
-  let overM = null, overCss = 1, overSnap = false, onTop = null;   // (overCss: device px per CSS px, set by the stage: overlay.cssPx; overSnap: overlay.snap)
+  let overM = null, overCss = 1, overSnap = false;   // (overCss: device px per CSS px, set by the stage: overlay.cssPx; overSnap: overlay.snap)
+  // What is drawn over the figure in this canvas at each present (the frosted glasses, glass-gl.js host: round 2, 2.1), in their order:
+  // each { order, prep?, draw }. Every prep runs first (each glass takes its blur from the picture just laid, before any glass is drawn
+  // on it), then every draw, lowest order first.
+  const tops = [];
   const PW = () => (up ? up[0] : canvas.width), PH = () => (up ? up[1] : canvas.height);
   const pcx = gl.getExtension('KHR_parallel_shader_compile');
   let started;
@@ -2544,9 +2548,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
     overLay();
-    // (What is drawn over the figure in this canvas, the labels (label-gl's host): on every picture laid, as the overlays are.)
-    if (top && onTop) {
-      try { onTop(); } catch (e) { console.warn('Veins renderer: what is drawn over the figure failed.', e); onTop = null; }
+    // (What is drawn over the figure in this canvas, the glasses: on every picture laid, as the overlays are.)
+    if (top && tops.length) {
+      for (const t of tops.slice()) { try { t.prep?.(); } catch (e) { console.warn('Veins renderer: what is drawn over the figure failed.', e); tops.splice(tops.indexOf(t), 1); } }
+      for (const t of tops.slice()) { try { t.draw(); } catch (e) { console.warn('Veins renderer: what is drawn over the figure failed.', e); tops.splice(tops.indexOf(t), 1); } }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
   }
@@ -3142,8 +3147,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * every present, at the canvas's own size; with none, nothing is laid. `stale`: something they paint changed since they were
      * last drawn (a present then draws them again).
      */
-    /** The canvas's own context for what is drawn over the figure in it (label-gl's host): set(fn), called at the end of each present. */
-    top: ownBuf ? { gl, canvas, set(fn) { onTop = fn || null; } } : null,
+    /** The canvas's own context for what is drawn over the figure in it (the glasses): add({ order, prep, draw }) puts one in at the end of
+     *  each present (see tops) and returns the call that takes it out. */
+    top: ownBuf ? {
+      gl, canvas,
+      add(t) { tops.push(t); tops.sort((a, b) => (a.order || 0) - (b.order || 0)); return () => { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); }; },
+    } : null,
     overlay: overOK ? {
       set(groups, names) {
         if (!over && groups?.size && !lost) over = createOrganStack(gl, { painter: stack.painter });
@@ -3488,7 +3497,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     onPicture(f) { onPicture.add(f); return () => onPicture.delete(f); },
     clear() { pictured(); if (own?.w) { gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo); gl.viewport(0, 0, own.w, own.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
-    snapshot() { present(false); const url = canvas.toDataURL('image/png'); if (onTop) present(); return url; },   // (the figure alone; then laid again whole, as it shows)
+    snapshot() { present(false); const url = canvas.toDataURL('image/png'); if (tops.length) present(); return url; },   // (the figure alone; then laid again whole, as it shows)
     /**
      * The canvas holding the whole current picture, for a reader that takes it in this same task (a download, a handout, the glass'
      * copy, drawImage, createImageBitmap, toDataURL): the kept picture is copied onto it first, so the reader

@@ -164,27 +164,35 @@ function texOf(gl, filter) {
  * drawn into the figure's canvas, at the end of each picture it lays (drawInto), from that picture itself: no copy of the canvas, no
  * canvas of its own. Otherwise, and for the frame of each change, it is drawn here as before.
  */
-export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null } = {}) {
+export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, copy = true } = {}) {
   const look = pane ? PANE : GLASS;
   // (cards: { find, watch, before, read? }: the Present cards' glass (recs A2, 31 Oct): find() lists the elements, each its own rounded box, its
   // corners its border radii and its tint the colour its CSS declares in --gl-tint (app.css: the same colour its background was), drawn
   // while its --gl-glass is 1 and no CSS filter lies on it; watch: the roots whose writes may move them; before: where the canvas goes.
   // Their DOM shadows and borders stay the page's. A card whose tint cannot be read, or whose glass its CSS has turned off (the phone's
   // sheet, drawn by its pseudo-elements), keeps the browser's glass.)
-  if (off || software || !source || typeof WebGL2RenderingContext === 'undefined' || typeof createImageBitmap !== 'function') return null;
-  const canvas = document.createElement('canvas');
-  canvas.id = cards ? 'cardGl' : pane ? 'paneGl' : 'glassGl'; canvas.setAttribute('aria-hidden', 'true');
-  let gl = null;
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
-  if (!gl) return null;
-  const progs = programsOf(gl);
-  if (!progs) return null;
-  const { bprog, pprog, BU, PU } = progs;
-  const vao = gl.createVertexArray();
+  // (copy: the glass may also be drawn on a canvas of its own, from a copy of the figure (createImageBitmap), whenever it cannot be drawn
+  // into the figure's canvas (setHost). Without it (the default since 31 Oct, round 2, 2.1: on Safari that copy is a read of the GPU's
+  // picture back to the page on every frame the figure changes, laggier than the browser's own blur) there is no canvas or context
+  // here at all: the glass is drawn into the figure's canvas while it can be, and is otherwise the browser's.)
+  if (off || software || !source || typeof WebGL2RenderingContext === 'undefined' || (copy && typeof createImageBitmap !== 'function')) return null;
+  let canvas = null, gl = null, progs = null;
+  if (copy) {
+    canvas = document.createElement('canvas');
+    canvas.id = cards ? 'cardGl' : pane ? 'paneGl' : 'glassGl'; canvas.setAttribute('aria-hidden', 'true');
+    try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
+    if (!gl) return null;
+    progs = programsOf(gl);
+    if (!progs) return null;
+  }
+  const { bprog, pprog, BU, PU } = progs || {};
+  const vao = gl?.createVertexArray();
   const tex = (filter) => texOf(gl, filter);
-  const copy = tex(gl.LINEAR), pass = tex(gl.LINEAR), blurred = tex(gl.LINEAR);
-  const fbPass = gl.createFramebuffer(), fbOut = gl.createFramebuffer();
-  (cards ? cards.before : pane || layers[0]).before(canvas);
+  const copyTex = gl ? tex(gl.LINEAR) : null, pass = gl ? tex(gl.LINEAR) : null, blurred = gl ? tex(gl.LINEAR) : null;
+  const fbPass = gl?.createFramebuffer(), fbOut = gl?.createFramebuffer();
+  // (Where a fade from above stops being the glass's own: where its canvas lies, or would.)
+  const stop = (cards ? cards.before : pane || layers[0]).parentNode;
+  if (canvas) (cards ? cards.before : pane || layers[0]).before(canvas);
 
   let lost = false, dead = false, raf = 0, W = 0, H = 0, dpr = 1, pending = false, fails = 0, ready = null, drawn = false, fbSize = '', takenKey = '';
   // (shown: the glass drew the last time it looked; drawnKey: everything that picture was drawn from, so a frame that would draw it the
@@ -213,7 +221,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // left every pill solid until its words were removed. (A pane's canvas lies beside the pane: nothing holds it.)
   const heldBy = (g) => {
     let a = 1;
-    for (let e = g.parentElement; e && e !== canvas.parentNode && a > 0.001; e = e.parentElement) {
+    for (let e = g.parentElement; e && e !== stop && a > 0.001; e = e.parentElement) {
       const v = parseFloat(getComputedStyle(e).opacity);
       if (v < 1) a *= v;   // (a missing or odd value is no fade)
     }
@@ -260,7 +268,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       pending = false;
       if (lost || dead || job !== gen) { bm.close?.(); return; }
       fails = 0;
-      gl.bindTexture(gl.TEXTURE_2D, copy);
+      gl.bindTexture(gl.TEXTURE_2D, copyTex);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bm);
       bm.close?.();
@@ -278,7 +286,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       gl.uniform4f(BU.uBox, 0, 0, bw, bh); gl.uniform2f(BU.uView, bw, bh); gl.uniform1i(BU.uT, 0);
       gl.uniform1fv(BU.uW, gaussTaps(look.blur / SCALE));
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fbPass); gl.bindTexture(gl.TEXTURE_2D, copy); gl.uniform2f(BU.uDir, 1, 0); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbPass); gl.bindTexture(gl.TEXTURE_2D, copyTex); gl.uniform2f(BU.uDir, 1, 0); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbOut); gl.bindTexture(gl.TEXTURE_2D, pass); gl.uniform2f(BU.uDir, 0, 1); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       ready = { ...reg };
@@ -293,7 +301,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     });
   }
   function clear() {
-    if (!drawn || lost) return;
+    if (!drawn || lost || !gl) return;
     gl.viewport(0, 0, W, H); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); drawn = false;
   }
   // Each callout's glass as the page lays it out this frame (its fades, glides and the card's shadow included).
@@ -333,11 +341,13 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     return panes;
   }
   function draw() {
-    if (lost || dead || gl.isContextLost()) return false;
+    if (lost || dead || gl?.isContextLost()) return false;
     const list = glassesOf();
     if (hostOn && (!list.length || !wanted() || !live())) dropHost(true);
     if (!list.length || !wanted() || !live()) { unmark(); clear(); kept = null; return false; }
     if (host) { const r = hostDraw(list); if (r !== undefined) return r; }
+    // (No copy of its own: the browser's glass, until the figure's canvas can take it again.)
+    if (!copy) { unmark(); kept = null; return false; }
     if (keep?.()) return drawKept(list);
     kept = null;
     const cr = canvas.getBoundingClientRect(), k = glassDpr();
@@ -394,8 +404,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   }
   // Each glass over the blurred copy (bound on unit 0, the glass's program in use and its view set), in context G at k device px per
   // CSS px, marked as it is drawn; a mark no longer drawn is given back.
-  function drawPanes(G, U, panes, cr, k, maskFor) {
-    const now = new Set();
+  function drawPanes(G, U, panes, cr, k, maskFor, now = new Set(), final = true) {
     for (const p of panes) {
       const t = colour(p.tint.trim(), 'transparent'), ta = t[3] * p.k;
       // (A card whose tint did not read as a colour (a browser that does not register custom properties): not drawn, and left to the
@@ -426,9 +435,13 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       if (!p.g.hasAttribute('data-gl')) p.g.setAttribute('data-gl', '');
       now.add(p.g);
     }
-    // (A card not drawn this time, whatever the reason (hidden, faded out, its glass turned off by its CSS, its tint unread), goes back to the
-    // browser's glass now: marked, it would show no glass at all.)
-    for (const g of marked) if (!now.has(g) && (cards || !g.isConnected)) { if (cards && g.isConnected) g.removeAttribute('data-gl'); marked.delete(g); }
+    if (final) settleMarks(now);
+  }
+  // (A card not drawn this time, whatever the reason (hidden, faded out, its glass turned off by its CSS, its tint unread, something
+  // between it and the figure's canvas), goes back to the browser's glass now: marked, it would show no glass at all. In the figure's
+  // canvas a glass not drawn there goes back to the browser's whatever it is.)
+  function settleMarks(now) {
+    for (const g of marked) if (!now.has(g) && (cards || hostOn || !g.isConnected)) { if (g.isConnected) g.removeAttribute('data-gl'); marked.delete(g); }
     for (const g of now) marked.add(g);
   }
   // Drawn into the figure's canvas (setHost; recs A1, glass). The loop reads the glasses as before; when they, the canvas's place or the
@@ -437,12 +450,14 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // (halved until it is at most twice the blur's size, then down to it: each step an average, as the copy's resize was), blurred in two
   // passes and cut to each glass's shape. A picture laid while the figure under the glasses has not been drawn again (the same version)
   // keeps the blur already made. The figure drawn again needs no frame of the glass's own: the picture is laid with it.
-  let host = null, hk = null, hostOn = false, hf = null;
-  const crosses = (panes) => {
-    const els = host.over?.() || [];
-    if (!els.length || !panes.length) return false;
-    const rs = els.map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
-    return panes.some((p) => rs.some((r) => p.r.left < r.right && r.left < p.r.right && p.r.top < r.bottom && r.top < p.r.bottom));
+  // (host.over(level): the boxes (client px: left, top, right, bottom) of what the page lays between the figure's canvas and this glass's
+  // level ('low' for a card host.low(g) names, the teaching card's shade; 'high' for the other cards; undefined for the callouts and the
+  // pane): a glass drawn into the figure's canvas would show those sharp through it, where the browser's blurs them. The callouts and
+  // the pane go back to their own way as a whole when any of theirs crosses one; a card, alone.)
+  let host = null, hk = null, hostOn = false, hf = null, hostTops = [], hostMo = null;
+  const crosses = (panes, rs) => {
+    if (!rs?.length || !panes.length) return false;
+    return panes.some((p) => rs.some((r) => r.right > r.left && r.bottom > r.top && p.r.left < r.right && r.left < p.r.right && p.r.top < r.bottom && r.top < p.r.bottom));
   };
   function hostKit() {
     const G = host.gl, P = programsOf(G);
@@ -469,26 +484,33 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     hostOn = false; hf = null;
     if (hk) hk.key = '';
     unmark();
-    canvas.style.visibility = '';
+    if (canvas) canvas.style.visibility = '';
     if (again) host?.now(); else ask();
   }
   // The loop's turn while a host is set: true, 'same' or false as draw() returns, or undefined when the glass is drawn on its own canvas.
   function hostDraw(list) {
     if (!host.active()) { dropHost(true); return undefined; }
-    const panes = readPanes(list);
-    if (crosses(panes)) { dropHost(true); return undefined; }
-    if (!hk && !(hk = hostKit())) { host = null; return undefined; }
     const cr = host.canvas.getBoundingClientRect();
     if (!cr.width || !cr.height) { dropHost(true); return undefined; }
+    // (A glass reaching past the figure's canvas could not be drawn there whole: the browser's, or its own canvas, takes it.)
+    const inside = (p) => p.r.left >= cr.left - 0.5 && p.r.top >= cr.top - 0.5 && p.r.right <= cr.right + 0.5 && p.r.bottom <= cr.bottom + 0.5;
+    let panes = readPanes(list);
+    if (cards) {
+      let lo = null, hi = null;
+      panes = panes.filter((p) => inside(p) && !crosses([p], host.low?.(p.g) ? (lo ||= host.over?.('low') || []) : (hi ||= host.over?.('high') || [])));
+    } else if (!panes.every(inside) || crosses(panes, host.over?.())) { dropHost(true); return undefined; }
+    if (!hk && !(hk = hostKit())) { dropHost(true); host = null; return undefined; }
     const ws = getComputedStyle(wrap), bgs = ws.backgroundColor, bg = colour(bgs, 'transparent');
     const bgVar = bg[3] > 0 ? '' : ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim();
     const key = `${cr.left}|${cr.top}|${cr.width}|${cr.height}|${bgs}|${bgVar}` + panesKey(panes);
     if (!hostOn) {
       // (This canvas cleared and out of the page's layers; a copy on its way is not put in, and the next one here is taken afresh.)
       hostOn = true; hf = null; gen++; pending = false; ready = null; takenKey = ''; kept = null;
-      clear();
-      canvas.style.visibility = 'hidden';
-      W = H = 1; canvas.width = 1; canvas.height = 1;   // (its memory given back while it stands aside; sized again when it draws)
+      if (canvas) {
+        clear();
+        canvas.style.visibility = 'hidden';
+        W = H = 1; canvas.width = 1; canvas.height = 1;   // (its memory given back while it stands aside; sized again when it draws)
+      }
     }
     if (hf && hf.key === key) return panes.length ? 'same' : false;
     hf = { panes, cr, base: bg[3] > 0 ? bg : colour(bgVar, 'transparent'), key };
@@ -548,13 +570,16 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     G.bindFramebuffer(G.FRAMEBUFFER, null);
     return true;
   }
-  // The glass over the picture the figure has just laid (veins-gl top, after the labels), into its canvas.
-  function drawInto() {
+  // The glass over the picture the figure has just laid (veins-gl top), into its canvas: first (prepInto, before any glass is drawn on
+  // that picture) the region behind the glasses blurred from it, then each glass (drawInto) in its turn among the page's layers: the
+  // pane under the labels, the teaching card's shade ('low'), the callouts, the other cards ('high'). The cards' two turns share one
+  // blur and one set of marks, given back after the last turn (settleMarks).
+  let frameMarks = new Set(), blurOK = false;
+  function prepInto() {
+    frameMarks = new Set(); blurOK = false;
     if (!hostOn || !hf || !hk || lost || dead) return;
     const G = hk.G;
-    if (G.isContextLost()) return;
-    // (No longer to be drawn there: this picture was laid without it, and the browser's glass shows in the same frame.)
-    if (!host.active()) { dropHost(false); return; }
+    if (G.isContextLost() || !host.active()) return;
     const { panes, cr } = hf;
     if (!panes.length) return;
     const W2 = host.canvas.width, H2 = host.canvas.height, k = W2 / cr.width;
@@ -568,28 +593,47 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     G.disable(G.SCISSOR_TEST); G.disable(G.STENCIL_TEST);
     const key = `${version ? version() : performance.now()}|${reg.x}|${reg.y}|${reg.w}|${reg.h}|${W2}x${H2}`;
     if (key !== hk.key) {
-      if (!hostBlur(reg, k, W2, H2)) { G.bindFramebuffer(G.FRAMEBUFFER, null); return; }
+      const ok = hostBlur(reg, k, W2, H2);
+      // (The figure's context left as its other passes expect to find it.)
+      G.bindFramebuffer(G.FRAMEBUFFER, null); G.viewport(0, 0, W2, H2);
+      G.bindTexture(G.TEXTURE_2D, null); G.useProgram(null); G.bindVertexArray(null);
+      if (!ok) { hk.key = ''; return; }
       hk.key = key; hk.reg = reg;
     } else if (gpuProbe.on) gpuProbe.note(COUNTED.glassSkip);
-    noteDraw('glass');
-    if (gpuProbe.on) gpuProbe.note(COUNTED.glassDrawn);
     hk.k = k;
+    blurOK = true;
+  }
+  // (pass: 'low', 'high' or 'all'; the last turn of the frame ('high', 'all') gives back the marks of the glasses not drawn.)
+  function drawInto(pass = 'all') {
+    if (!hostOn || !hf || !hk || lost || dead) return;
+    const G = hk.G;
+    if (G.isContextLost()) return;
+    // (No longer to be drawn there: this picture was laid without it, and the browser's glass shows in the same frame.)
+    if (!host.active()) { dropHost(false); return; }
+    const final = pass !== 'low';
+    const { cr } = hf;
+    const panes = !blurOK ? [] : pass === 'all' ? hf.panes : hf.panes.filter((p) => !!host.low?.(p.g) === (pass === 'low'));
+    if (!panes.length) { if (final) settleMarks(frameMarks); return; }
+    const W2 = host.canvas.width, H2 = host.canvas.height, k = hk.k;
+    noteDraw(cards ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
+    if (gpuProbe.on) gpuProbe.note(cards ? COUNTED.cardDrawn : pane ? COUNTED.paneDrawn : COUNTED.glassDrawn);
     const U = hk.PU, R = hk.reg;
     G.bindFramebuffer(G.FRAMEBUFFER, null);
     G.viewport(0, 0, W2, H2);
+    G.disable(G.SCISSOR_TEST); G.disable(G.STENCIL_TEST);
     G.useProgram(hk.pprog); G.bindVertexArray(hk.vao);
-    G.enable(G.BLEND); G.blendFunc(G.ONE, G.ONE_MINUS_SRC_ALPHA);
+    G.enable(G.BLEND); G.blendEquation(G.FUNC_ADD); G.blendFunc(G.ONE, G.ONE_MINUS_SRC_ALPHA);
     G.uniform2f(U.uView, W2, H2); G.uniform1i(U.uScene, 0); G.uniform1i(U.uMask, 1); G.uniform1f(U.uSat, look.sat);
     G.uniform4f(U.uReg, R.x * k, R.y * k, R.w * k, R.h * k);
     G.uniform3f(U.uBg, hf.base[0], hf.base[1], hf.base[2]);
     G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, hk.blurred);
-    drawPanes(G, U, panes, cr, k, (p) => maskOf(p.g, p.d, p.lw, p.lh, hk));
+    drawPanes(G, U, panes, cr, k, (p) => maskOf(p.g, p.d, p.lw, p.lh, hk), frameMarks, final);
     // (The figure's context left as its other passes expect to find it.)
     G.disable(G.BLEND); G.bindVertexArray(null); G.useProgram(null);
     G.activeTexture(G.TEXTURE1); G.bindTexture(G.TEXTURE_2D, null); G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, null);
     G.pixelStorei(G.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
   }
-  const onHostLost = () => { hk = null; if (hostOn) { hostOn = false; hf = null; unmark(); canvas.style.visibility = ''; ask(); } };
+  const onHostLost = () => { hk = null; if (hostOn) { hostOn = false; hf = null; unmark(); if (canvas) canvas.style.visibility = ''; ask(); } };
   // Callout glass kept (keep()): what draw() reads from the page each frame, read only when keptStale says it may have changed. The
   // reads and the picture are draw()'s own; only when they are taken differs. (A list of glasses that is not the one measured, a new
   // screen density, a callout's transition or event in the last 0.8 s, an animation in the layers when last measured (a CSS transition
@@ -693,18 +737,38 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // (The figure drawn again: the blur under a glass that shows is taken again. With none showing, the figure is not its business.)
   const offFigure = onFigure?.(() => { if (shown && !hostOn) wake(); });   // (drawn into the figure's canvas: laid with each picture)
   const onLost = (e) => { e.preventDefault(); lost = true; unmark(); };
-  canvas.addEventListener('webglcontextlost', onLost);
+  canvas?.addEventListener('webglcontextlost', onLost);
   ask();
   return {
     canvas,
     redraw() { wake(); },
     /** The figure's canvas to draw into while it may (see above); callouts only. */
+    // (h: { gl, canvas, add, now, active, over, low, order }: the figure's canvas and its context (veins-gl top), add({ order, prep,
+    // draw }) to be drawn at the end of each picture it lays, now() to lay one at once, active() whether the glass may be drawn there,
+    // over(level) and low(g) as above, order the turn (a card's: { low, high }).)
     setHost(h) {
-      if (cards || pane || host || !h?.gl) return;
+      if (!h?.gl || !h.add || dead) return;
+      // (A host set again (the figure's context made anew after a loss): the old one's turns, watch and kit let go first.)
+      if (host) {
+        dropHost(false);
+        for (const off of hostTops) off();
+        hostTops = []; hostMo?.disconnect(); hostMo = null;
+        host.canvas.removeEventListener('webglcontextlost', onHostLost);
+        hostFree();
+      }
       host = h;
       host.canvas.addEventListener('webglcontextlost', onHostLost);
+      hostTops = cards
+        ? [host.add({ order: h.order?.low ?? 1, prep: prepInto, draw: () => drawInto('low') }), host.add({ order: h.order?.high ?? 3, draw: () => drawInto('high') })]
+        : [host.add({ order: h.order ?? 2, prep: prepInto, draw: () => drawInto('all') })];
+      // (The figure's canvas faded, hidden or moved by a style of its own (a resolution's fade, a sub-pixel rest): looked at again.)
+      hostMo = new MutationObserver(() => { if (host) wake(); });
+      hostMo.observe(host.canvas, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
       wake();
     },
+    /** Gives the figure's canvas back at once (the stage is about to copy its picture: a resolution's fade): the browser's glass, or the
+     *  glass's own canvas, shows in the same frame. Drawn there again when active() says so. */
+    release() { dropHost(false); },
     /** Into the figure's canvas, over the picture it has just laid (its top hook). */
     drawInto,
     /** Whether the glass is drawn into the figure's canvas now. */
@@ -720,19 +784,22 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       for (const l of watched) for (const t of EVENTS) l.removeEventListener(t, held, true);
       removeEventListener('resize', again);
       offFigure?.();
-      canvas.removeEventListener('webglcontextlost', onLost);
+      canvas?.removeEventListener('webglcontextlost', onLost);
       host?.canvas.removeEventListener('webglcontextlost', onHostLost);
+      hostMo?.disconnect();
+      for (const off of hostTops) off();
+      hostTops = [];
+      unmark();
       if (hostOn) { hostOn = false; hf = null; host?.now(); }
       hostFree();
-      unmark();
-      if (!lost) {
-        for (const t of [copy, pass, blurred, ...maskTex]) gl.deleteTexture(t);
+      if (gl && !lost) {
+        for (const t of [copyTex, pass, blurred, ...maskTex]) gl.deleteTexture(t);
         gl.deleteFramebuffer(fbPass); gl.deleteFramebuffer(fbOut);
         gl.deleteProgram(bprog); gl.deleteProgram(pprog); gl.deleteVertexArray(vao);
         gl.getExtension('WEBGL_lose_context')?.loseContext();
       }
       maskTex.clear();
-      canvas.remove();
+      canvas?.remove();
     },
   };
 }

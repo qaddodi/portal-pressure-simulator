@@ -35,11 +35,11 @@ import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, use
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=90ca733567';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=f5244ff113';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=93c47fc66b';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=05df34587f';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=ac26170d49';
 import { createSinusoidView } from './sinusoid-view.js?v=8010a479dd';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, onFigLab } from './frame.js?v=b11d87fd1b';
-import { createGlassGL } from './glass-gl.js?v=6e154f54c3';
+import { createGlassGL } from './glass-gl.js?v=fcbbb31a84';
 import { pillOf, pillLabels } from './lz-pills.js?v=670139934d';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
 import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=18f6ec0368';

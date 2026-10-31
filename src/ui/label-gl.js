@@ -337,7 +337,7 @@ export function drawBlock(cv, d, dpr, rot = false) {
  * figure's overlays not all on the GPU, the labels' layer fading or hidden), it draws nothing and the SVG shows every label.
  * `force`: on a software renderer too (CI's visual check, ?stageover=gpu).
  */
-export function createLabelGL(svg, blocks, { software = false, off = false, marks = [], host = null, force = false } = {}) {
+export function createLabelGL(svg, blocks, { software = false, off = false, marks = [], host = null, force = false, onBoxes = null } = {}) {
   if (off || (software && !force) || typeof WebGL2RenderingContext === 'undefined') return null;
   const canvas = host ? host.canvas : document.createElement('canvas');
   if (!host) { canvas.id = 'labelGl'; canvas.setAttribute('aria-hidden', 'true'); }
@@ -397,6 +397,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (Host mode: the labels and marks the SVG still draws, as of the last picture: what lies between the figure's canvas and the callouts'
   // glass, which is drawn into that canvas only where it crosses none of them; svgLeft.)
   const svgLeft = new Set();
+  // (What the last picture drew, as boxes [left, top, right, bottom] in CSS px from the canvas's corner: each label's picture, each mark's,
+  // the probes'. The figure's frosted glass is drawn under this canvas, so it is drawn only where it crosses none of them (stage.js
+  // frostOver); onBoxes() is told when they change.)
+  let boxes = [], boxKey = '';
+  const boxAt = (x0, y0, x1, y1) => boxes.push([x0 / dpr, y0 / dpr, x1 / dpr, y1 / dpr]);
   const sprites = new WeakMap();   // group → { key, tex, ox, oy, w, h }
   const live = new Map();          // group → until (ms): a fade, an ease or a hover is running, its look read each frame
   const dirty = new Set();
@@ -525,8 +530,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
       size();
       if (!host.active()) { if (!released) release(); return; }
       if (released) { released = false; for (const s of last) dirty.add(s.g); allMarks(); pDirty = true; sDirty = true; }
-      svgLeft.clear();
     }
+    svgLeft.clear();
+    boxes = [];
     const now = performance.now();
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, W, H);
@@ -546,13 +552,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
       let st = sprites.get(g);
       if (!st || dirty.has(g) || live.has(g) || st.rot !== !!s.rot) { st = refresh(g, !!s.rot); st.rot = !!s.rot; }
       // (Marked in the same frame as the picture is drawn, so neither the SVG's copy and the picture both show, nor neither.)
-      if (st.mode !== 'gl') { if (g.hasAttribute('data-gl')) g.removeAttribute('data-gl'); if (host && st.mode === 'svg') svgLeft.add(g); continue; }
+      if (st.mode !== 'gl') { if (g.hasAttribute('data-gl')) g.removeAttribute('data-gl'); if (st.mode === 'svg') svgLeft.add(g); continue; }
       if (!g.hasAttribute('data-gl')) g.setAttribute('data-gl', '');
       if (!(st.opacity > 0.001)) continue;
       // (The label's origin on a whole device pixel, the picture at its offset from it.)
       const x = Math.round(s.x * dpr) + st.ox, y = Math.round(s.y * dpr) + st.oy;
       if (x > W || y > H || x + st.w < 0 || y + st.h < 0) continue;
       items.push({ page: st.slot.page, x, y, w: st.w, h: st.h, ax: st.slot.x, ay: st.slot.y, a: Math.min(1, st.opacity) });
+      boxAt(x, y, x + st.w, y + st.h);
     }
     if (items.length) {
       if (inst.length < items.length * 8) inst = new Float32Array(Math.max(items.length * 8, inst.length * 2));
@@ -577,6 +584,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     }
     if (needRepack) repack();
+    let key = '';
+    for (const b of boxes) key += `${Math.floor(b[0])},${Math.floor(b[1])},${Math.ceil(b[2])},${Math.ceil(b[3])};`;
+    if (key !== boxKey) { boxKey = key; try { onBoxes?.(); } catch { /* (a listener's failure is not the labels') */ } }
     if (moving) ask();
   }
   // A mark's look, read again while it may be changing.
@@ -604,7 +614,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
           else geo = [NUM(el.getAttribute('cx')) * dpr, NUM(el.getAttribute('cy')) * dpr, NUM(el.getAttribute('r')) * dpr, 0];
         }
         // (A mark this drawing cannot give stays the SVG's; one it draws is hidden there, in the same frame.)
-        if (st === false || (st && !geo)) { if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); if (host) svgLeft.add(el); continue; }
+        if (st === false || (st && !geo)) { if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); svgLeft.add(el); continue; }
         if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', '');
         const a = (st?.op ?? 0) * (ro?.op ?? 1);
         if (!st || !(a > 0.001) || (!st.stroke && !st.fill)) continue;
@@ -612,6 +622,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         const box = el.tagName === 'path' ? [Math.min(geo[0], geo[2]) - m, Math.min(geo[1], geo[3]) - m, Math.max(geo[0], geo[2]) + m, Math.max(geo[1], geo[3]) + m]
           : [geo[0] - geo[2] - m, geo[1] - geo[2] - m, geo[0] + geo[2] + m, geo[1] + geo[2] + m];
         if (box[0] > W || box[1] > H || box[2] < 0 || box[3] < 0) continue;
+        boxAt(...box);
         gl.uniform4f(MU.uBox, ...box);
         gl.uniform1i(MU.uKind, el.tagName === 'path' ? 0 : 1);
         gl.uniform4f(MU.uGeo, ...geo);
@@ -671,7 +682,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const tm = /translate\(\s*(-?[\d.]+)px,\s*(-?[\d.]+)px\)/.exec(probe.style.transform || ''), rm = /rotate\((-?[\d.]+)\)/.exec(probe.querySelector('.dpr-rot')?.getAttribute('transform') || '');
     if (!tm) return live;
     const gx = +tm[1], gy = +tm[2], ang = rm ? +rm[1] : 0, ca = Math.cos(ang * Math.PI / 180), sa = Math.sin(ang * Math.PI / 180);
-    const at = (x, y) => [(gx + x * ca - y * sa) * dpr, (gy + x * sa + y * ca) * dpr];
+    // (Its box, for the glass: every point it is drawn through, grown by the head's reach.)
+    let ex0 = gx * dpr, ey0 = gy * dpr, ex1 = ex0, ey1 = ey0;
+    const at = (x, y) => { const p = [(gx + x * ca - y * sa) * dpr, (gy + x * sa + y * ca) * dpr]; ex0 = Math.min(ex0, p[0]); ey0 = Math.min(ey0, p[1]); ex1 = Math.max(ex1, p[0]); ey1 = Math.max(ey1, p[1]); return p; };
+    const probeBox = (m) => boxAt(ex0 - m, ey0 - m, ex1 + m, ey1 + m);
     const seg = (q, st) => {
       if (!st.col || !(st.w > 0)) return;
       const [x0, y0] = at(q[0], q[1]), [x1, y1] = at(q[2], q[3]), w = st.w * dpr, m = w / 2 + 2;
@@ -735,7 +749,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
       gl.bindTexture(gl.TEXTURE_2D, headSp.tex);
       gl.uniform4f(U.uR, Math.round(hx) + headSp.ox, Math.round(hy) + headSp.oy, headSp.w, headSp.h); gl.uniform1f(U.uA, Math.min(1, L.op * L.headOp));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      ex0 = Math.min(ex0, Math.round(hx) + headSp.ox); ey0 = Math.min(ey0, Math.round(hy) + headSp.oy);
+      ex1 = Math.max(ex1, Math.round(hx) + headSp.ox + headSp.w); ey1 = Math.max(ey1, Math.round(hy) + headSp.oy + headSp.h);
     }
+    probeBox(4 * dpr);
     return live;
   }
   // ── The FibroScan probe (stage.js scanPaint and scanTick write its SVGs, the model, as before) ──
@@ -793,6 +810,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     // (Its box stands at the written place, raised by half its height (app.css translate: 0 −50%); its SVGs turn about the tip.)
     const px = +tm[1] + PIV[0], py = +tm[2], ca = Math.cos(L.ang), sa = Math.sin(L.ang);
     const at = (u, v) => [(px + (u - PIV[0]) * ca - (v - PIV[1]) * sa) * dpr, (py + (u - PIV[0]) * sa + (v - PIV[1]) * ca) * dpr];
+    // (Its box, for the glass: everything it draws lies within 170 px of the tip: the beam's 150 px arc and its blur, the body.)
+    boxAt((px - 170) * dpr, (py - 170) * dpr, (px + 170) * dpr, (py + 170) * dpr);
     // The beam: drawn once, unturned, through its own filter, then turned here (it is soft through and through).
     const bkey = JSON.stringify([L.beam, dpr]);
     if (!beamSp || beamSp.key !== bkey) {
@@ -914,8 +933,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
     check() { check(); },
     /** Host mode: whether the host's canvas owes a picture with the labels. */
     get owed() { return owed; },
-    /** Host mode: the label groups and marks the SVG drew itself at the last picture (none while it draws them all). */
+    /** The label groups and marks the SVG drew itself at the last picture (in host mode, none while it draws them all). */
     svgLeft: () => [...svgLeft],
+    /** What the last picture drew, as boxes [left, top, right, bottom] (CSS px from the canvas's corner). */
+    get boxes() { return boxes; },
     get lost() { return lost; },
     /** This frame's labels: drawn now, in the same frame as the SVG's layout. */
     sync(list) {
