@@ -6,8 +6,8 @@
 // the dark centre, its far end fading into the dark, its edges uneven and thin and see-through, widening as it fills, with the
 // scope's light as a soft patch on its surface and ripples running out from where the rivulet joins it. A red haze thickens with the
 // blood lost. Few gradients and fills a frame: the spot and the stain are two small reused sprites.
-import { bleedPulse } from './blood.js?v=d65f995908';
-import { scopeDrops, scopePool, inScopePool } from './endo-motion.js?v=53ec9f72c4';
+import { bleedPulse } from './blood.js?v=a4bf4f2a03';
+import { scopeDrops, scopePool, inScopePool } from './endo-motion.js?v=56d7d6b9a5';
 import { cssVar, cssAlpha } from './util.js?v=80c7abd296';
 
 const frac = (x) => ((x % 1) + 1) % 1;

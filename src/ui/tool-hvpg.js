@@ -10,7 +10,7 @@
 // every frame), and the slide's readings are the ones the catheter's callouts print. The same card stays up from one such slide to the
 // next (card-keep.js), and the trace carries on from where the last slide left it.
 
-import { createHvpgMonitor } from './hvpg-proc.js?v=d2c876d8b9';
+import { createHvpgMonitor } from './hvpg-proc.js?v=d09ca7cc4f';
 import { T, ease, k01 } from './hvpg-clock.js?v=553551a92a';
 import { frameFor, cancelFrame } from './frame.js?v=9d6b717149';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';

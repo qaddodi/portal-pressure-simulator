@@ -32,7 +32,7 @@ test('the esophageal varices end on the azygos arch; the ascending lumbar collat
   assert.equal(edge('C1b').to, 'AZY');
   assert.equal(edge('C9').to, 'AZY');
   const node = NODE_POS.AZY[0], c1b = sample(EDGE_PATH.C1b), c9 = sample(EDGE_PATH.C9);
-  const trunk = sample(FEEDERS.AZY_SVC.paths[0]), arch = sample(EDGE_PATH.AZY_SVC);
+  const trunk = sample(FEEDERS.AZY_SVC.paths[0], 400), arch = sample(EDGE_PATH.AZY_SVC);
   assert.deepEqual(last(c1b), node, 'C1b ends at the arch node');
   assert.deepEqual(arch[0], node, 'the arch starts at that node');
   const end = last(c9);
@@ -41,7 +41,8 @@ test('the esophageal varices end on the azygos arch; the ascending lumbar collat
   assert.ok(end[1] <= 110, 'C9 joins where the trunk is drawn solid (its fade starts at y 110)');
   assert.ok(dist(c9, node) > 60, 'no part of C9 comes near the node where the varices drain');
   assert.ok(Math.min(...c9.map((q) => dist(c1b, q))) > 60, 'C9 never touches the varices\' route');
-  // C9 meets the trunk side-on over its last stretch only: it never runs in the trunk's lane.
+  // C9 meets the trunk side-on over its last stretch only: it never runs in the trunk's lane (see
+  // ascending-lumbar-route.test.js, which also holds the angle it arrives at).
   const L = c9.length;
   for (let i = 0; i < L - 12; i++) assert.ok(dist(trunk, c9[i]) > 4, `C9 sample ${i} runs on the trunk`);
   // and keeps clear of the epigastric vein that crosses the trunk above the join.

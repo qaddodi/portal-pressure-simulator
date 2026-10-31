@@ -10,7 +10,7 @@
 
 import { h, fmt, fitCanvas, clamp, icon, cssVar, toast } from './util.js?v=80c7abd296';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { FONT } from './charts.js?v=7a08debfa8';
+import { FONT } from './charts.js?v=2b85b98b17';
 import { pressureColor } from './colormap.js?v=dc7e0de1bd';
 import { store, logAction, hiddenNow, updateParams } from './store.js?v=3611054974';
 import { shownOr } from './shown.js?v=ce56653c84';
