@@ -39,8 +39,8 @@ test('the lobule draws the lit pills\' frost on the GPU from its own stacked cop
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   const gg = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(gg, /if \(cards\?\.read\) \{\n[^\n]*\n\s+const q = cards\.read\(g\);/);
-  assert.match(lz, /cards: \{ find: \(\) => pillLabels\(labels\), watch: \[labels\], before: labels, read: \(e\) => pillOf\(e\) \},/);
+  assert.match(gg, /const q = cards\?\.read \? cards\.read\(g\) : undefined;\n\s+if \(q !== undefined\) \{/);
+  assert.match(lz, /cards: \{ find: \(\) => pillLabels\(labels\), watch: \[labels\], before: labels, read: \(e\) => pillOf\(e\) \|\| null \},/);
   assert.match(lz, /const pillLive = \(\) => fade > 0\.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !resCover && !keep2D && pillTisOK && pillSeq > 0;/);
   // (The tissue's GPU canvas read only in a frame it drew.)
   assert.match(lz, /if \(!tissueOnGL \|\| tissueDrew\) \{/);
