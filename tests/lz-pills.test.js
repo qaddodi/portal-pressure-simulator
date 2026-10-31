@@ -80,3 +80,17 @@ test('the pills keep their own backdrop blur unless ?lzpills=1 asks for the fros
   // (Off, no glass is made, so pillCopy stops at once: no copy of the lobule is taken in any frame.)
   assert.match(lz, /if \(!pillsOn\(\)\) return;/);
 });
+
+// (Laptop-heat Q4, 31 Oct: with the frost drawn on the GPU (?lzpills=1), a new copy of the lobule every frame sampled the moving streaks a
+// different way each time and the frost shimmered. The copy is kept while only the blood moves; the pills stay on the browser's blur by default.)
+test('the pills\' copy is kept while only the blood moves, and taken again for anything else', async () => {
+  const { pillHold } = await import('../src/ui/lz-pills.js');
+  assert.equal(pillHold('a', 'a', true, false), true, 'the same state, the tissue not painted since: kept');
+  assert.equal(pillHold('a', 'b', true, false), false, 'the model, the view, an ease or a fade changed it');
+  assert.equal(pillHold('a', 'a', true, true), false, 'the tissue was painted in this frame');
+  assert.equal(pillHold('a', 'a', false, false), false, 'no copy yet, or the tissue\'s part is not in');
+  assert.equal(pillHold('', '', false, false), false);
+  const lz = readSrc(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  assert.match(lz, /const held = `\$\{w\}x\$\{h\}\|\$\{drawVersion\}\|\$\{V\.k\}\|\$\{V\.x\}\|\$\{V\.y\}\|\$\{flowA\.toFixed\(2\)\}`;\n\s+if \(pillHold\(pillHeld, held, pillTisOK && pillSeq > 0, tissueDrew\)\) return;/);
+  assert.match(lz, /pillHeld = held;\n\s+pillSeq\+\+;/);
+});

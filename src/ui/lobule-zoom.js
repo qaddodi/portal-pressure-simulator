@@ -39,8 +39,8 @@ import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, 
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=acc95c9bbc';
 import { createSinusoidView } from './sinusoid-view.js?v=7077b95dd0';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab } from './frame.js?v=9d6b717149';
-import { createGlassGL } from './glass-gl.js?v=19e2ddf79b';
-import { pillOf, pillLabels } from './lz-pills.js?v=670139934d';
+import { createGlassGL } from './glass-gl.js?v=61efde9bcb';
+import { pillOf, pillLabels, pillHold } from './lz-pills.js?v=9c2fefe6b4';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
 import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=2d63c83115';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
@@ -1773,7 +1773,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     c.drawImage(cur, 0, 0, cw, ch, 0, 0, w, h);
   }
   pillSrc.getBoundingClientRect = () => el.getBoundingClientRect();   // (it lies on the lobule's layers, inset 0 in it, as they do)
-  let pillGL, pillSeq = 0, pillTisOK = false, pillUntil = 0, tissueDrew = false;
+  let pillGL, pillSeq = 0, pillTisOK = false, pillUntil = 0, tissueDrew = false, pillHeld = '';
   const pillFig = new Set();
   const pillLit = () => { litOf(); return /(^| )(lobule|sinusoid):/.test(litRaw || ''); };
   const pillLive = () => fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !resCover && !keep2D && pillTisOK && pillSeq > 0;
@@ -1795,6 +1795,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!pillsOn()) return;
     const w = Math.max(1, Math.ceil(W / 2)), h = Math.max(1, Math.ceil(H / 2));
     if (pillSrc.width !== w || pillSrc.height !== h) { pillSrc.width = pillTis.width = w; pillSrc.height = pillTis.height = h; pillTisOK = false; }
+    // (Only the blood moved since the last copy: the frost stays as it is, see pillHold.)
+    const held = `${w}x${h}|${drawVersion}|${V.k}|${V.x}|${V.y}|${flowA.toFixed(2)}`;
+    if (pillHold(pillHeld, held, pillTisOK && pillSeq > 0, tissueDrew)) return;
     const src = tissueOnGL ? tissueG : tissue;
     try {
       if (!tissueOnGL || tissueDrew) {
@@ -1809,6 +1812,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (gl && !gl.lost && glCv.width) { gl.capture?.(); pillDown(c, glCv, w, h); }
       if (fx.width && fx.height) pillDown(c, fx, w, h);
     } catch { pillTisOK = false; return; }
+    pillHeld = held;
     pillSeq++;
     for (const f of pillFig) f();
   }
