@@ -3,7 +3,7 @@
 // then queues of calls. This end applies them in order and answers with the renderer's state.
 
 import { setFigureSettings } from './figure-settings.js?v=68c0336f5f';
-import { serveFigure } from './figure-link.js?v=4e0c6f04bb';
+import { serveFigure } from './figure-link.js?v=6d7cdf964d';
 
 let host = null;
 

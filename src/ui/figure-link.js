@@ -9,7 +9,7 @@
 
 /** The calls that only send. */
 export const SENDS = ['setGeometry', 'patchGeometry', 'setRadii', 'setBend', 'setTubes', 'setOrgans', 'plateRows', 'setPlate', 'dropJob',
-  'setFluidSpans', 'setFluidLiver', 'setFluidCells', 'dropPlate', 'setFlow', 'setDye', 'draw', 'composite', 'setLines', 'setCath', 'clear', 'trim', 'resize'];
+  'setFluidSpans', 'setFluidLiver', 'setFluidCells', 'dropPlate', 'setFlow', 'setDye', 'draw', 'composite', 'setLines', 'setCath', 'clear', 'trim', 'resize', 'setPicture', 'setLayerScale', 'setReuse', 'setLow'];
 /** The organ stack's calls that only send. */
 export const ORGAN_SENDS = ['stage', 'dropKept', 'commit', 'dropStaged', 'setLive', 'setOrder', 'shift'];
 const JOB_ARGS = { plateRows: 0, setPlate: 1, dropJob: 0 };   // which argument of these calls is a job handle
@@ -30,7 +30,7 @@ export function transfers(args) {
 /** `caps`: what the worker's renderer reported when it was probed (software, canLines, canCath, canLive, hasOrgans): the page decides its drawing mode from these at once, before any frame. */
 export function createFigureProxy(post, caps = {}) {
   let queue = [], jobs = 0;
-  let st = { lost: false, software: false, canLines: false, canCath: false, canLive: false, hasOrgans: true, rowsStatus: '', drawSeq: 0, plates: [false, false], stack: [false, false], nCells: 0, ...caps };
+  let st = { lost: false, software: false, canLines: false, canCath: false, canLive: false, hasOrgans: true, rowsStatus: '', soft: false, reused: false, pic: [0, 0], drawSeq: 0, plates: [false, false], stack: [false, false], nCells: 0, ...caps };
   const picture = new Set();
   const send = (m, args) => { queue.push({ m, args }); };
   const p = {
@@ -41,6 +41,12 @@ export function createFigureProxy(post, caps = {}) {
     get rowsStatus() { return st.rowsStatus; },
     get drawSeq() { return st.drawSeq; },
     get nCells() { return st.nCells; },
+    get soft() { return st.soft; },
+    get reused() { return st.reused; },
+    picSize: () => st.pic,
+    // (Not across the worker: the overlays and the labels drawn into the renderer's own context stay with the page's, ?figworker=on forces the older split.)
+    overlay: null,
+    top: null,
     hasPlate: (slot) => !!st.plates[slot] || !!st.stack[slot],
     onPicture(f) { picture.add(f); return () => picture.delete(f); },
     plateJob(W, H) { const id = ++jobs; send('plateJob', [id, W, H]); return { id, W }; },
@@ -83,7 +89,7 @@ export function createFigureProxy(post, caps = {}) {
 export function serveFigure(api, reply, canvas = null) {
   const jobs = new Map();
   const snapshot = () => ({
-    lost: api.lost, software: api.software, canLines: api.canLines, canCath: api.canCath, rowsStatus: api.rowsStatus, drawSeq: api.drawSeq, nCells: api.nCells,
+    lost: api.lost, software: api.software, canLines: api.canLines, canCath: api.canCath, rowsStatus: api.rowsStatus, drawSeq: api.drawSeq, nCells: api.nCells, soft: api.soft, reused: api.reused, pic: api.picSize(),
     hasOrgans: !!api.organs, canLive: !!api.organs?.canLive, hasFluid: true,
     plates: [api.hasPlate(0), api.hasPlate(1)], stack: [!!api.organs?.has(0), !!api.organs?.has(1)],
   });

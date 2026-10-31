@@ -9,14 +9,14 @@ function fake() {
   const api = {
     lost: false, software: false, canLines: true, canCath: true, rowsStatus: '', nCells: 7,
     get drawSeq() { return seq; },
-    hasPlate: () => false,
+    hasPlate: () => false, soft: true, reused: false, picSize: () => [640, 480],
     plateJob: (W, H) => { log.push(['plateJob', W, H]); return { tex: 't', W }; },
     draw(...a) { log.push(['draw', ...a]); seq++; },
     composite(...a) { log.push(['composite', ...a]); seq++; },
     drawRows(...a) { log.push(['drawRows', ...a]); return !refuse; },
     organs: { commit: (...a) => log.push(['commit', ...a]), canLive: true, has: () => false, stage: (...a) => log.push(['stage', ...a]), bake: (...a) => { log.push(['bake', ...a]); return { baked: 1 }; } },
   };
-  for (const m of ['setTubes', 'setFlow', 'plateRows', 'setPlate', 'clear']) api[m] = rec(m);
+  for (const m of ['setPicture', 'setLayerScale', 'setReuse', 'setLow', 'resize', 'setTubes', 'setFlow', 'plateRows', 'setPlate', 'clear']) api[m] = rec(m);
   return { api, log, refuse: (v) => { refuse = v; } };
 }
 function link(f) {
@@ -100,4 +100,15 @@ test('startFigureWorker: ready gives a proxy that posts queues; a failed worker 
   assert.equal(posted[1].type, 'calls');
   const none = await startFigureWorker(canvas, { tubes: 9, make: mk(() => ({ type: 'failed', why: 'x' })) });
   assert.equal(none, null);
+});
+
+test('the picture settings go across, and what the renderer answers is read from its last state', () => {
+  const f = fake(), { proxy } = link(f);
+  proxy.setPicture([320, 240], true); proxy.setLayerScale(0.5); proxy.setReuse(3, 10); proxy.setLow(0.5, true); proxy.resize(800, 600);
+  proxy.flush();
+  assert.deepEqual(f.log.map((c) => c[0]), ['setPicture', 'setLayerScale', 'setReuse', 'setLow']);
+  assert.equal(proxy.soft, true);
+  assert.deepEqual(proxy.picSize(), [640, 480]);
+  assert.equal(proxy.overlay, null);
+  assert.equal(proxy.top, null);
 });
