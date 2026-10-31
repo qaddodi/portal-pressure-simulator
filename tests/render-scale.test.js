@@ -170,8 +170,8 @@ test('Adapt: one step a move, down when frames ran half again as long as the fas
 test('Glows: under Full the glow lines go to a smaller target and are stretched into the layer; the composite shader is untouched', () => {
   const gl = src('veins-gl.js');
   assert.ok(!/glowOn == 2|warmOn == 2|texture\(glowL|texture\(warmL/.test(gl), 'the shader reads the glow layers as it always has');
-  assert.match(gl, /gl\.uniform1i\(U\.glowOn, glow \? 1 : 0\);/);
-  assert.match(gl, /gl\.uniform1i\(U\.warmOn, warm \? 1 : 0\);/);
+  assert.match(gl, /UC\.i1\(U\.glowOn, glow \? 1 : 0\);/);
+  assert.match(gl, /UC\.i1\(U\.warmOn, warm \? 1 : 0\);/);
   assert.match(gl, /if \(layerK < 1 && L !== lineLayer\) \{ renderLayerLow\(L, m, soft, warm\); return; \}/, 'at Full the layer is drawn as before');
   assert.match(gl, /gl\.blitFramebuffer\(0, 0, w, h, 0, 0, L\.w, L\.h, gl\.COLOR_BUFFER_BIT, gl\.LINEAR\);/);
   assert.match(gl, /setLayerScale\(k\) \{[\s\S]*?glowKey = warmKey = '';/);

@@ -50,7 +50,7 @@ test('P8: stepBlood keeps per-frame facts per model frame, syncEnds compares in 
   assert.match(stage, /advanceStream\(streams\[k\], velQf\[k\], velQ\[k\],/);
   assert.match(stage, /KEY_K\[k\] === 1 \|\| \(KEY_K\[k\] === 2 && keyChevron\(EDGES\[k\], laneOpen\)\)/);
   assert.doesNotMatch(stage, /list\.map\(\(x\) => x\.e\.id\)\.join/);
-  assert.match(gl, /gl\.uniform3fv\(U\.originCol, originColOf\(/);
+  assert.match(gl, /UC\.fv3\(U\.originCol, originColOf\(/);
 });
 
 test('P10: the composite fragment shader is compiled once per context, and every program starts before any is waited on', () => {

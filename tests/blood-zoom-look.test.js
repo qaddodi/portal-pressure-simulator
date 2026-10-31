@@ -26,7 +26,7 @@ test('B2: nothing changes up to a packed lane; past it the streaks grow denser a
   assert.match(gl, /float dens = sqrt\(clamp\(p, 0\.0, 1\.0\)\) \* gS;/);
   assert.match(gl, /float streak = smoothstep\(0\.46 - 0\.08 \* dens, 0\.9, nz\);/);
   assert.match(gl, /streak \* \(0\.32 \+ 0\.26 \* dens\)/);
-  assert.match(gl, /gl\.uniform1i\(U\.sat, BLOOD_SAT \? 1 : 0\);/);
+  assert.match(gl, /UC\.i1\(U\.sat, BLOOD_SAT \? 1 : 0\);/);
   assert.match(gl, /const BLOOD_SAT = !\(typeof location !== 'undefined' && \/\[\?&\]bloodsat=0\\b\/\.test\(location\.search\)\);/);
 });
 

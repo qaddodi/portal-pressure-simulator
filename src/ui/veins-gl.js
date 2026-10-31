@@ -41,6 +41,7 @@ import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinE
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=c16e5847d4';
 import { changedRows } from './flow-rows.js?v=59053c0155';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
+import { uniformCache } from './uniform-cache.js?v=2a2500a2e8';
 import { PUBLISH_QUIET_MS } from './gl-compile.js?v=5c4cd6c14c';
 import { createOrganStack } from './organs-gl.js?v=ab917f2876';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
@@ -1740,6 +1741,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: ONE_PASS, preserveDrawingBuffer: !ownBuf, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (!gl) return null;
+  // The composite's per-frame uniforms are sent only when they changed (uniform-cache.js; laptop-heat Q2). They are set nowhere else.
+  const UC = uniformCache(gl);
   // Settings › Figure performance › Sharper upscaling (frame.js upscale, off by default): the picture's own size, [w, h], when the stage
   // draws the figure under Full into a buffer of its own and the canvas stays at Full (setPicture); null otherwise, and then the picture
   // is the canvas, as ever. Every size inside reads PW() and PH().
@@ -2654,16 +2657,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // The composite's textures, each on its unit (U: the program's uniforms; the flags: which of the layers it lays this frame).
   function compBind(U, layer, glow, warm, useStack) {
     const bind = (unit, tex, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(U[name], unit); };
-    gl.uniform2i(U.lA, la[0], la[1]); gl.uniform2i(U.lWrap, wo[0], wo[1]); gl.uniform2i(U.lSize, fboW, fboH); gl.uniform1i(U.lH, PH());
+    UC.i2(U.lA, la[0], la[1]); UC.i2(U.lWrap, wo[0], wo[1]); UC.i2(U.lSize, fboW, fboH); UC.i1(U.lH, PH());
     bind(0, baseTex, 'base'); bind(1, gTex, 'gbuf'); bind(2, flowTex, 'flow'); bind(3, radTex, 'rad'); bind(4, tubeTex, 'tube');
     bind(5, dyeTex, 'dye'); bind(6, plates[0]?.tex || baseTex, 'plate0'); bind(7, plates[1]?.tex || baseTex, 'plate1'); bind(8, gTex2, 'gbuf2'); bind(9, fluidTex, 'fluidMask');
-    bind(10, lineLayer.tex, 'lineL'); gl.uniform1i(U.lineOn, layer ? 1 : 0);
-    bind(11, glowLayer.tex, 'glowL'); gl.uniform1i(U.glowOn, glow ? 1 : 0);
-    bind(13, warmLayer.tex, 'warmL'); gl.uniform1i(U.warmOn, warm ? 1 : 0);
+    bind(10, lineLayer.tex, 'lineL'); UC.i1(U.lineOn, layer ? 1 : 0);
+    bind(11, glowLayer.tex, 'glowL'); UC.i1(U.glowOn, glow ? 1 : 0);
+    bind(13, warmLayer.tex, 'warmL'); UC.i1(U.warmOn, warm ? 1 : 0);
     bind(12, bendTex, 'bend');
-    bind(14, useStack ? stack.texture : baseTex, 'stackL'); gl.uniform1i(U.stackOn, useStack ? 1 : 0);
+    bind(14, useStack ? stack.texture : baseTex, 'stackL'); UC.i1(U.stackOn, useStack ? 1 : 0);
     if (noiseTex && noiseRows) bind(15, noiseTex, 'noiseT');
-    gl.uniform1i(U.noiseOn, noiseTex && noiseRows ? 1 : 0);
+    UC.i1(U.noiseOn, noiseTex && noiseRows ? 1 : 0);
   }
 
   // ── The optional builds published when the driver has them ready (addendum §10.1) ──
@@ -3287,44 +3290,44 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
           gl.uniform2f(U.size, PW(), PH());
           gl.uniform1f(U.cell, CELL);
         }
-        gl.uniformMatrix3fv(U.inv, false, put(SCR.inv, [ia, ib, 0, ic, id, 0, ie, iff, 1]));
-        gl.uniform1f(U.H, PH());
-        gl.uniform1f(U.pxW, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
-        gl.uniform1i(U.plates, pm);
-        gl.uniform1f(U.plateAlpha, plate?.alpha ?? 0);
-        gl.uniform1f(U.plateSat, plate?.sat ?? 1);
-        gl.uniform4f(U.plateRect0, ...(plates[0]?.rect || [0, 0, 1, 1]));
-        gl.uniform4f(U.plateRect1, ...(plates[1]?.rect || [0, 0, 1, 1]));
-        gl.uniform4f(U.fluidRect, ...(fluidRect || [0, 0, 1, 1]));
-        gl.uniform4f(U.fluidS, ...(fl?.s || [0, 0, 0, 0]));
+        UC.m3(U.inv, put(SCR.inv, [ia, ib, 0, ic, id, 0, ie, iff, 1]));
+        UC.f1(U.H, PH());
+        UC.f1(U.pxW, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
+        UC.i1(U.plates, pm);
+        UC.f1(U.plateAlpha, plate?.alpha ?? 0);
+        UC.f1(U.plateSat, plate?.sat ?? 1);
+        UC.f4a(U.plateRect0, plates[0]?.rect || [0, 0, 1, 1]);
+        UC.f4a(U.plateRect1, plates[1]?.rect || [0, 0, 1, 1]);
+        UC.f4a(U.fluidRect, fluidRect || [0, 0, 1, 1]);
+        UC.f4a(U.fluidS, fl?.s || [0, 0, 0, 0]);
         // (The fluid is drawn here with the plate off too, the live organs showing under the canvas: one look while the plate is
         // down for a slow fill and after it lands, where the page's SVG copy had a brighter surface line; Ascites slide 5, 17 Oct.)
-        gl.uniform4f(U.fluidInk, ...(fl ? fl.ink : [0, 0, 0, 0]));
-        gl.uniform2f(U.fluidLv, ...(fl?.lv || [1, 0]));
-        gl.uniform1i(U.blood, blood.on ? 1 : 0);
-        gl.uniform1i(U.chev, blood.chev ? 1 : 0);
-        gl.uniform1i(U.still, blood.still ? 1 : 0);
-        gl.uniform1f(U.flowA, blood.alpha ?? 1);
-        gl.uniform3f(U.blendA, blood.streakA ?? 1, blood.chevA ?? 1, blood.originA ?? 1);
-        gl.uniform3f(U.chevInk, ...(blood.chevInk || [0.08, 0.08, 0.1]));
-        gl.uniform3f(U.chevLight, ...(blood.chevLight || [1, 0.93, 0.86]));
-        gl.uniform1f(U.cssPx, blood.vdpr || 1);
-        gl.uniform1i(U.sat, BLOOD_SAT ? 1 : 0);
-        gl.uniform1i(U.origin, blood.origin ? 1 : 0);
-        gl.uniform1i(U.dyeOn, dyeAny && blood.dye !== false ? 1 : 0);
-        gl.uniform1f(U.clock, blood.clock || 0);
-        gl.uniform1f(U.rows, nTubes);
-        gl.uniform3fv(U.originCol, originColOf(blood.originCol || ORIGIN_WHITE));
-        gl.uniform3f(U.dyeCol, ...(blood.dyeCol || [0.8, 0.95, 0.2]));
-        gl.uniform3f(U.revCol, ...(blood.revCol || [1, 0.55, 0.16]));
-        gl.uniform3f(U.inkLight, ...(blood.inkLight || [1, 1, 1]));
-        gl.uniform3f(U.inkDark, ...(blood.inkDark || [0.1, 0.1, 0.16]));
-        gl.uniform4fv(U.bleedE, be);
-        gl.uniform4fv(U.bleedB, bb);
-        gl.uniform1i(U.bleedN, Math.min(24, bl.length));
-        gl.uniform4fv(U.noChev, ncv);
-        gl.uniform1i(U.noChevN, nc.length);
-        gl.uniform4fv(U.chevHole, hb); gl.uniform1fv(U.chevHoleR, hr); gl.uniform1i(U.chevHoleN, ho.length);
+        UC.f4a(U.fluidInk, fl ? fl.ink : [0, 0, 0, 0]);
+        UC.f2a(U.fluidLv, fl?.lv || [1, 0]);
+        UC.i1(U.blood, blood.on ? 1 : 0);
+        UC.i1(U.chev, blood.chev ? 1 : 0);
+        UC.i1(U.still, blood.still ? 1 : 0);
+        UC.f1(U.flowA, blood.alpha ?? 1);
+        UC.f3(U.blendA, blood.streakA ?? 1, blood.chevA ?? 1, blood.originA ?? 1);
+        UC.f3a(U.chevInk, blood.chevInk || [0.08, 0.08, 0.1]);
+        UC.f3a(U.chevLight, blood.chevLight || [1, 0.93, 0.86]);
+        UC.f1(U.cssPx, blood.vdpr || 1);
+        UC.i1(U.sat, BLOOD_SAT ? 1 : 0);
+        UC.i1(U.origin, blood.origin ? 1 : 0);
+        UC.i1(U.dyeOn, dyeAny && blood.dye !== false ? 1 : 0);
+        UC.f1(U.clock, blood.clock || 0);
+        UC.f1(U.rows, nTubes);
+        UC.fv3(U.originCol, originColOf(blood.originCol || ORIGIN_WHITE));
+        UC.f3a(U.dyeCol, blood.dyeCol || [0.8, 0.95, 0.2]);
+        UC.f3a(U.revCol, blood.revCol || [1, 0.55, 0.16]);
+        UC.f3a(U.inkLight, blood.inkLight || [1, 1, 1]);
+        UC.f3a(U.inkDark, blood.inkDark || [0.1, 0.1, 0.16]);
+        UC.fv4(U.bleedE, be);
+        UC.fv4(U.bleedB, bb);
+        UC.i1(U.bleedN, Math.min(24, bl.length));
+        UC.fv4(U.noChev, ncv);
+        UC.i1(U.noChevN, nc.length);
+        UC.fv4(U.chevHole, hb); UC.fv1(U.chevHoleR, hr); UC.i1(U.chevHoleN, ho.length);
       }
       const U = prg.u;
       // The still lumens (see moved): only in the blood's own pass of the fast build, with no bleed (whose spray and pool move with

@@ -32,7 +32,7 @@ test('the cream head and deep rim are by the eased reversed flag and the vessel 
   assert.match(GL, /float warm = rv \* chevOrange\(vc\);/);
   assert.match(GL, /col = mix\(col, mix\(inkLight, vc \* 0\.45, warm\), c\.y/);
   assert.match(GL, /col = mix\(col, mix\(mix\(ink, revCol, rv\), chevLight, warm\), c\.x/);
-  assert.match(GL, /gl\.uniform3f\(U\.chevLight, /);
+  assert.match(GL, /UC\.f3a\(U\.chevLight, /);
   assert.match(UTIL, /chevLight: cssRGB01\('--blood-chevron-light'\)/);
   const cream = hex(tok('--blood-chevron-light')[0]);
   assert.ok(0.299 * cream.r + 0.587 * cream.g + 0.114 * cream.b > 0.9, 'near white');

@@ -55,7 +55,7 @@ test('B4: the streaks, chevrons and origin colours fade when switched, and a ves
   assert.match(gl, /col = mix\(col, oc, vis \* blendA\.z\);/);
   assert.match(gl, /clamp\(a \* vis \* flowA \* blendA\.x, 0\.0, 1\.0\)/);
   assert.equal((gl.match(/vis \* flowA \* blendA\.y\)/g) || []).length, 2, 'the chevron head and its rim');
-  assert.match(gl, /gl\.uniform3f\(U\.blendA, blood\.streakA \?\? 1, blood\.chevA \?\? 1, blood\.originA \?\? 1\);/);
+  assert.match(gl, /UC\.f3\(U\.blendA, blood\.streakA \?\? 1, blood\.chevA \?\? 1, blood\.originA \?\? 1\);/);
   const blood = fn(stage, '  function stepBlood(dt) {');
   // Eased from their switches (the catheter hides the chevrons), kept awake while on the way (bloodEasing); Reduce Motion fades too.
   assert.match(blood, /const kF = -Math\.expm1\(-dt \/ 0\.15\), tS = bloodOn\(\) \? 1 : 0, tC = chevOn\(\) && !cath\.st && !dashes \? 1 : 0, tO = originOn\(\) \? 1 : 0;/);

@@ -151,6 +151,11 @@ What is measured, and where (`src/ui/frame.js`, `frame-stats.js`, `input-latency
   the lobule while only the blood moves (`lz-pills.js` `pillHold`), so it cannot shimmer with the streaks, and takes a new one for the
   model's frames, a pan, a zoom, an ease or a fade.
 
+- **Uniforms sent only when they changed (Q2).** The figure's composite set about fifty uniforms on every frame the blood moved, nearly
+  all the same numbers as the frame before; in Safari each `gl.*` call is a message to the GPU process. `uniform-cache.js` keeps the
+  value each uniform location holds and sends a call only when it differs (the view, plates, colours and flags; the clock still goes
+  every frame). These names are set through it and nowhere else (`tests/uniform-cache.test.js` pins that in `veins-gl.js`).
+
 ## Verification
 
 Run `npm test`. In addition to the physiological acceptance suite, lifecycle tests check pause/visibility behavior, immediate action frames, worker timeout cleanup, event-loop yielding and command ordering. The yielded calculations are compared with synchronous calculations, including complete snapshots after preset loading, advancing and prerolling.
