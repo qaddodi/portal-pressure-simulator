@@ -8324,11 +8324,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const words = it.fxw ?? (/^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')).join('\n') : null);
       if (words != null && b.words != null && words !== b.words && b.g.style.display !== 'none' && !reduceMotion.matches) { b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: 'ease-out' }); labelGL?.hold(b.g, 400); }
       b.words = words;
-      // (A station's reading arriving on a label that stood as its name alone (a tap on it, a zoom past the home framing) comes up from part
-      // of its opacity, never pops in; the first drawing of a label is the usual fade-in.)
-      const vals = !!it.node && it.lines.some((line) => line.some((r) => r.cls === 'lb-val'));
-      if (b.vals === false && vals && b.g.style.display !== 'none' && !reduceMotion.matches) { b.g.animate?.([{ opacity: 0.35 }, { opacity: 1 }], { duration: 300, easing: 'ease-out' }); labelGL?.hold(b.g, 300); }
-      b.vals = vals;
       b.sw = it.swatch ? b.g.querySelector('.lb-sw') : null;
       b.bg = b.g.querySelector('.lb-bg');
     }
@@ -8558,9 +8553,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (it.lines.length !== 2) return;
     it.lines = [[...it.lines[0], ...it.lines[1].map((r, i) => (i ? r : { ...r, gap: 4 }))]]; it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]); it.one = true;
   }
-  // namesOnly (the phone's home framing, labelNamesOnly): the station shows its name alone, whatever it reads; a selected station
-  // keeps its reading, and a reversed flow keeps its ⟲.
-  function nodeItem(id, f, mode, compact, namesOnly = false) {
+  function nodeItem(id, f, mode, compact) {
     const st = store.get();
     const meta = ATLAS_LABELS[id];
     let P = (f.Pf || f.P)[NI[id]];
@@ -8584,18 +8577,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const sel = st.selection?.type === 'node' && st.selection.id === id;
     const lr = isImaging() ? null : layerRuns(f, id, compact);
     const pr = lr ? lr.runs : pressureRuns(P, id, compact);
-    const names = namesOnly && !sel && one;
     // A station whose own vessel's flow has reversed carries ⟲ after its value, in the reversed-flow orange (blueprint §6.2).
     const rev = !!pr && revShown.has(STATION_VESSEL[id]);
-    if (names) { if (rev) lines[0].push({ t: '⟲', size: 12, weight: 650, cls: 'lb-rev', gap: 5 }); }
-    else {
-      if (rev) pr.push({ t: '⟲', size: 12, weight: 650, cls: 'lb-rev', gap: 5 });
-      if (pr && one) lines[0].push(...pr.map((r, i) => (i ? r : { ...r, gap: 4 })));
-      else if (pr) lines.push(pr);
-    }
+    if (rev) pr.push({ t: '⟲', size: 12, weight: 650, cls: 'lb-rev', gap: 5 });
+    if (pr && one) lines[0].push(...pr.map((r, i) => (i ? r : { ...r, gap: 4 })));
+    else if (pr) lines.push(pr);
     const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
-    return { key: 'n:' + id, src: ['node', id, mode, compact, namesOnly], node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, canShort: (names || !!pr) && mode !== 'atlas', label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.filter((r) => r.cls !== 'lb-rev').map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}${rev ? ', flow reversed' : ''}`,
+    return { key: 'n:' + id, src: ['node', id, mode, compact], node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, canShort: !!pr && mode !== 'atlas', label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.filter((r) => r.cls !== 'lb-rev').map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}${rev ? ', flow reversed' : ''}`,
       swatch: mode === 'atlas' && pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: mode === 'inline' && !one, padX: mode === 'inline' && !one ? 6 : 3, padY: mode === 'inline' && !one ? 3 : 2 };
   }
 
@@ -8775,9 +8764,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // station in view. All: every station at every zoom. None: only a selected station.
   const KEY_NODES = ['CONF', 'SIN_R', 'RHV'];
   const zoomedIn = () => vt.k > (homeAt?.k || 1) * 1.3;
-  // On a phone at the home framing, Key labels name their stations and no more (the readings come with a tap on a name, or a zoom
-  // past 1.3×, as the other stations do); a slide's labels, and the All level, always carry their readings.
-  const labelNamesOnly = () => { const st = store.get(); return !st.presenting && stageBox().width < 700 && (st.labelLevel || 'key') === 'key' && !zoomedIn(); };
   function flagged(f) {
     const st = store.get(), out = [];
     if (hasVarices('VAR', f)) out.push('VAR');
@@ -8856,7 +8842,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get(), t = easeInOut(morph);
     const edges = EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
     return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), fxSig, fx?.steps && slideGlow.map((g) => g.id + g.at).join(), (fx?.organs.some((o) => o.organ === 'spleen') || fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), vt.k > 1.35, labelNamesOnly(), st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, scan.on, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges, ['TIPS', 'DIPS'].map((id) => +stentReady(id, f)).join(''), dop.key].join('|');
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), fxSig, fx?.steps && slideGlow.map((g) => g.id + g.at).join(), (fx?.organs.some((o) => o.organ === 'spleen') || fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, scan.on, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges, ['TIPS', 'DIPS'].map((id) => +stentReady(id, f)).join(''), dop.key].join('|');
   }
   // Layout runs only when one of its inputs changed: the camera and stage box (the CTM), the label
   // signature (geometry, widths, selection, layers, levels...), the morph and turn, the floating panels,
@@ -8913,8 +8899,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function refreshValues(f) {
     const next = [];
     for (const it of labelShown) {
-      const [kind, id, mode, compact, names] = it.src;
-      const n = kind === 'fx' ? fxBuild.get(id)?.() : kind === 'vel' ? velItem(id, f, mode) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact, names);
+      const [kind, id, mode, compact] = it.src;
+      const n = kind === 'fx' ? fxBuild.get(id)?.() : kind === 'vel' ? velItem(id, f, mode) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
       if (!n) return false;   // (a slide's callout gone: lay out again)
       if (it.short || it.abbr) shortenTo(n, it.short || 0, it.abbr);
       if (n.lines.length !== it.lines.length || Math.abs(n.w - it.w) > 0.5 || Math.abs(n.h - it.h) > 0.5) return false;
@@ -9429,7 +9415,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The FibroScan probe is screen furniture on the liver: no label sits on it or on the reading shown on its body.
       const tip = scanTipLocal();
       if (tip) placed.push({ x0: tip.tx - 74, y0: tip.y - 74, x1: tip.tx + 12, y1: tip.y + 12 });   // the probe and the reading on its body
-      const lvl = st.labelLevel || 'key', zoomed = zoomedIn(), namesOnly = labelNamesOnly();
+      const lvl = st.labelLevel || 'key', zoomed = zoomedIn();
       // A presenter slide names exactly the stations it talks about (store.presentLabels).
       const pres = st.presenting && Array.isArray(st.presentLabels) ? st.presentLabels : null;
       const show = new Set(pres || (lvl === 'none' ? [] : lvl === 'key' && !zoomed ? [...KEY_NODES, ...flagged(f)] : CHIP_NODES));
@@ -9451,7 +9437,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const id of show) {
         if (!NODE_POS[id] || labelHidden(id)) continue;
         const { ax, ay, mid, w: vw } = labelAnchor(id, t);
-        const it = nodeItem(id, f, atlas ? 'atlas' : 'inline', compact, namesOnly);
+        const it = nodeItem(id, f, atlas ? 'atlas' : 'inline', compact);
         it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = it.sel ? 100 : minor.has(id) ? 1 : ANAT_PRI[id] || 5;
         it.minor = minor.has(id);
         if (it.minor) it.canShort = false;   // an optional label shows whole or not at all
@@ -9493,7 +9479,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           if (show.has(id) || !NODE_POS[id] || !(NI[id] >= 0) || labelHidden(id)) continue;
           const { ax, ay, mid, w: vw } = labelAnchor(id, t);
           if (items.some((o) => Math.hypot(o.ax - ax, o.ay - ay) < room)) continue;
-          const it = nodeItem(id, f, 'inline', compact, namesOnly);
+          const it = nodeItem(id, f, 'inline', compact);
           it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = ANAT_PRI[id] || 4;
           it.side = ATLAS_LABELS[id]?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
           items.push(it);
