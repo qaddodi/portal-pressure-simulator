@@ -49,7 +49,7 @@ void main() {
 }`;
 
 import { createShapeGL } from './shape-gl.js?v=a5ba46162b';
-import { createOrganPaint, mul } from './organ-paint.js?v=f67ce51385';
+import { createOrganPaint, mul } from './organ-paint.js?v=d89b46bc7d';
 import { netChanged } from './idle-keys.js?v=235443a2a3';
 
 function program(gl, vs, fs) {
@@ -81,7 +81,9 @@ export function cropToGrid(want, box, scale) {
   return [want[0] + gx0 / scale, want[1] + gy0 / scale, (gx1 - gx0) / scale, (gy1 - gy0) / scale];
 }
 
-export function createOrganStack(gl) {
+// `shared`: another stack's painter to paint with (the figure's overlays share the organs': organ-paint keeps its targets grown to the
+// largest size asked, so the two never make them again), which this one then neither makes nor gives back.
+export function createOrganStack(gl, { painter: shared = null } = {}) {
   let layerP;
   try { layerP = program(gl, LAYER_VS, LAYER_FS); } catch (e) { console.warn('Organ stack: shader failed; the organs stay one picture.', e); return null; }
   const quad = gl.createBuffer(), vao = gl.createVertexArray();
@@ -104,7 +106,8 @@ export function createOrganStack(gl) {
   let liveVer = 0, drawnAt = '', drawnDesc = new Map();
   // The live organs (name → [{ spec (organ-paint readGroup), m (its frame → world) }]) and the layers' live masks (name → { spec, m }).
   let liveOrgans = new Map(), cuts = new Map(), painter = null;
-  try { painter = createOrganPaint(gl, createShapeGL(gl)); } catch (e) { console.warn('Organ stack: the live painter failed; the organs stay pictures.', e); }
+  if (shared) painter = shared;
+  else try { painter = createOrganPaint(gl, createShapeGL(gl)); } catch (e) { console.warn('Organ stack: the live painter failed; the organs stay pictures.', e); }
   // What the painter reads from the page at each paint (organ-paint liveOf, describe) is the live groups' elements' own attributes
   // and inline styles (an outline's d, a transform, an opacity), and each entry's own frame (its `el`, the m getter's element). A
   // watch on exactly those elements moves `pageVer` on any write that leaves one different, so a render with nothing written since
@@ -341,17 +344,19 @@ export function createOrganStack(gl) {
       return whole ? true : dirty;
     },
     get texture() { return stackTex; },
+    /** The painter it paints with (or null), for a stack that shares it. */
+    get painter() { return painter; },
     /** Gives back the stack's canvas-sized texture while nothing is shown (the next render makes it again). */
     trim() {
       if (!w) return;
       w = h = 0; drawnKey = ''; drawnAt = ''; drawnDesc = new Map();
-      painter?.trim();
+      if (!shared) painter?.trim();
       gl.bindTexture(gl.TEXTURE_2D, stackTex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     },
     dispose() {
       for (const s of [0, 1]) { free(live[s]); free(staged[s]); }
-      painter?.dispose();
+      if (!shared) painter?.dispose();
       watch?.disconnect();
       gl.deleteTexture(stackTex); gl.deleteFramebuffer(fbo); gl.deleteBuffer(quad); gl.deleteVertexArray(vao); gl.deleteProgram(layerP.p);
     },

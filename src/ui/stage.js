@@ -37,12 +37,13 @@ import { plateStrips, premultiply, gutStep, viewReuse, copyPixels, noteStripRead
 import { refine } from './refine.js?v=26ff46e269';
 import { fadeOver, fadeStop } from './res-fade.js?v=0c2ee70982';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
-import { cropToGrid } from './organs-gl.js?v=bf1e9cc689';
-import { readGroup, shapeSource, bindShape, targetRoom } from './organ-paint.js?v=f67ce51385';
+import { cropToGrid } from './organs-gl.js?v=d5eacdd04a';
+import { readGroup, shapeSource, bindShape, targetRoom, mul } from './organ-paint.js?v=d89b46bc7d';
+import { overUnits, overRun, needsReread, OVER_CLASS } from './stage-over.js?v=1c4dc481df';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
 import { createLabelGL } from './label-gl.js?v=225e7ad808';
 import { createGlassGL } from './glass-gl.js?v=e58605e60d';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=1f35036886';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=b080706850';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=300b3b5267';
@@ -88,6 +89,8 @@ const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const REVERSAL_WATCH = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'LGV_CONF', 'PVH_R', 'PVH_L', 'PRE_R', 'PRE_L', 'V_SPL', 'SV_MID', 'V_IMV', 'V_INT', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'V_STO', 'IVC_IS']);
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+// The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): off unless asked for.
+const OVER_GPU = typeof location !== 'undefined' && /[?&]stageover=gpu\b/.test(location.search);
 // Relative luminance of an 'rgb(r,g,b)' string (non-rgb strings count as dark).
 function luminance(c) {
   const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c || '');
@@ -2292,7 +2295,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=fd9766dfa3').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=ce38f82ec6').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2333,7 +2336,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     veins?.dispose();   // the lost instance's listener goes with it (one per restore otherwise)
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
     veins?.setLayerScale?.(figOpt('glow'));
-    if (picNow) veins?.setPicture?.(picNow);   // (Sharper upscaling: the new context draws the picture at the same share)
+    if (picNow) veins?.setPicture?.(picNow, picLin);   // (Sharper upscaling, or the overlays' plain upscale: the new context draws the picture at the same share)
     if (!veins) { wrap.classList.remove('gl-on', 'gl-plate'); syncPlateLook(); return; }   // (no context this time: the SVG stays)
     vBinKey = ''; binShown = null; bendShown = null; glOrgans = false; plateKey = ''; tubesShown = null;   // (a new context holds no vessels yet)
     liverKey = '';   // (nor the liver's lower edge the ascites stops at: morphLiver sends it again)
@@ -2437,7 +2440,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Settings › Figure performance › Sharper upscaling (frame.js): under Full the canvas stays at Full and the figure is drawn at its
   // share into the renderer's own buffer, then upscaled onto it (veins-gl setPicture). picNow: that share's size, or null (off, at Full,
   // or no GPU renderer): the canvas is then the picture, as before.
-  let picNow = null;
+  let picNow = null, picLin = false;
   function resizeCanvas() {
     const r = wrap.getBoundingClientRect(), was = vdpr;
     const base = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res;
@@ -2446,20 +2449,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.dataset.res = vdpr.toFixed(2);   // (the vessel canvas's pixels per CSS pixel, for diagnosis)
     let bw = Math.max(1, Math.round(r.width * vdpr)), bh = Math.max(1, Math.round(r.height * vdpr));
     const pw = bw, ph = bh;
-    if (figLab('upscale') && veins?.setPicture && !SOFTWARE && vdpr < base - 1e-9) { bw = Math.max(1, Math.round(r.width * base)); bh = Math.max(1, Math.round(r.height * base)); }
+    // (With the overlays on the GPU (?stageover=gpu) the canvas is at the screen's own density, as the SVG they replace is drawn, and
+    // the figure, at its own, upscaled onto it by a plain filtered copy, as the page's compositor upscales a smaller canvas.)
+    const full = OVER_GPU && veins?.overlay && !SOFTWARE ? devicePixelRatio || 1 : 0;
+    let lin = false;
+    if (full && vdpr < full - 1e-9) { bw = Math.max(1, Math.round(r.width * full)); bh = Math.max(1, Math.round(r.height * full)); lin = !figLab('upscale'); }
+    else if (figLab('upscale') && veins?.setPicture && !SOFTWARE && vdpr < base - 1e-9) { bw = Math.max(1, Math.round(r.width * base)); bh = Math.max(1, Math.round(r.height * base)); }
     const pic = bw !== pw || bh !== ph ? [pw, ph] : null;
     wrap.classList.toggle('compact', r.height < 600);
     // A notice that changed nothing the buffer holds (same backing size and ratio) leaves the canvas as it is: assigning a
     // width, even the same one, clears every surface drawn on it, and the figure was drawn again in the same task. A box
     // that moved by less than a backing pixel is drawn again on the next frame, as any change is, without the clear.
-    if (resizeReady && bw === vCanvas.width && bh === vCanvas.height && vdpr === was && `${pic}` === `${picNow}`) {
+    if (resizeReady && bw === vCanvas.width && bh === vCanvas.height && vdpr === was && `${pic}` === `${picNow}` && lin === picLin) {
       CTM = null;
       if (r.width !== boxW || r.height !== boxH) { boxW = r.width; boxH = r.height; forceDraw = true; stageWake(); }
       return;
     }
     boxW = r.width; boxH = r.height;
     vCanvas.width = bw; vCanvas.height = bh;
-    if (pic || picNow) { picNow = pic; veins?.setPicture?.(pic); }
+    if (pic || picNow) { picNow = pic; picLin = lin; veins?.setPicture?.(pic, lin); }
     CTM = null; forceDraw = true; stageWake();
     // Resizing clears the canvas, and the organs (the plate) and vessels drawn on it with it: draw
     // them again in the same task. A pinch or a layout change can land after this frame's draw
@@ -10297,6 +10305,72 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // On a software renderer only (WebGL drawn on the CPU), a vessel frame waits for the last to finish on the GPU and gives the
   // page as long again (see sw-yield.js); on a GPU there is no yield (null) and the loop below is unchanged.
   const swYield = softwareYield(SOFTWARE, SOFTWARE ? vCanvas.getContext('webgl2') : null);
+  // The overlays on the GPU (stage-over.js, veins-gl overlay; ?stageover=gpu): the lowest run of #stageOver's groups the painter can
+  // read is painted in the vessel canvas, and its SVG copy hidden (OVER_CLASS). Read again when anything in the overlays changes that
+  // the painter does not read at each paint (needsReread), when the page's state around them changes (overKey), and while a CSS
+  // transition runs in a group (overEasing: the browser eases it, so that group and those above stay in the SVG until it ends).
+  const OVER_ON = OVER_GPU && !!veins?.overlay && !SOFTWARE;
+  let overDirty = true, overKeyWas = '', overPainted = [], overFor = null;
+  // (How long an element's CSS transitions run, ms, read once a reading: a value the painter reads at each paint, eased by them.)
+  let overTrans = new WeakMap();
+  const transMs = (el) => {
+    let ms = overTrans.get(el);
+    if (ms === undefined) {
+      const cs = getComputedStyle(el), d = cs.transitionDuration.split(','), w = cs.transitionDelay.split(',');
+      ms = Math.max(0, ...d.map((v, i) => ((parseFloat(v) || 0) + (parseFloat(w[i] ?? w[0]) || 0)) * 1000));
+      overTrans.set(el, ms);
+    }
+    return ms;
+  };
+  const overEasing = new Map();   // element → when its ease ends at the latest (performance.now), for a transition that never reports
+  const overKey = () => `${wrap.className}|${svgOver?.getAttribute('class') || ''}|${document.documentElement.dataset.theme || ''}|${reduceMotion.matches}`;
+  if (OVER_ON) {
+    const watch = new MutationObserver((rs) => {
+      for (const r of rs) {
+        if (needsReread(r)) { overDirty = true; break; }
+        // (A value the painter reads at each paint, eased by the page's CSS: the browser shows the ease, so the group waits in the SVG.
+        // An outline's d is not eased by any of the overlays' styles.)
+        const ms = r.attributeName !== 'd' && r.target.nodeType === 1 ? transMs(r.target) : 0;
+        if (ms > 0) { overEasing.set(r.target, performance.now() + ms + 50); overDirty = true; }
+      }
+      askAnimate();
+    });
+    watch.observe(svgOver, { subtree: true, childList: true, attributes: true, attributeOldValue: true, characterData: true });
+    const ran = (e) => { overEasing.set(e.target, performance.now() + 60000); overDirty = true; askAnimate(); };
+    const ended = (e) => { overEasing.delete(e.target); overDirty = true; askAnimate(); };
+    svgOver.addEventListener('transitionrun', ran);
+    svgOver.addEventListener('transitionend', ended);
+    svgOver.addEventListener('transitioncancel', ended);
+  }
+  function syncOver() {
+    if (!OVER_ON || !veins?.overlay || veins.lost) return;
+    if (overFor !== veins) { overFor = veins; overDirty = true; }   // (a renderer made again: its overlays are empty)
+    const now = performance.now();
+    for (const [el, t] of overEasing) if (t < now || !el.isConnected) { overEasing.delete(el); overDirty = true; }
+    const key = overKey();
+    if (!overDirty && key === overKeyWas) return;
+    overDirty = false; overKeyWas = key; overTrans = new WeakMap();
+    const easing = [...overEasing.keys()];
+    const read = (u) => {
+      if (easing.some((el) => u.contains(el))) return null;
+      const spec = readGroup(u, { nest: true, strict: true });
+      if (!spec) return null;
+      return spec.ops.length ? spec : 'hidden';
+    };
+    const run = overRun(overUnits(worldOver, gOver), read);
+    const groups = new Map(), names = [];
+    run.forEach(([u, spec], i) => {
+      const n = `o${i}`, up = u.parentNode === gOver ? gOver : null;
+      groups.set(n, [{ spec, get m() { const own = matOfEl(u); return up ? mul(matOfEl(up), own) : own; } }]);
+      names.push(n);
+    });
+    veins.overlay.set(groups, names);
+    const now2 = new Set(run.map(([u]) => u));
+    for (const u of overPainted) if (!now2.has(u)) u.classList.remove(OVER_CLASS);
+    for (const u of now2) u.classList.add(OVER_CLASS);
+    overPainted = [...now2];
+    if (gpuProbe.on) gpuProbe.gauge('overlays on the GPU', `${run.length} groups`);
+  }
   // The figure's pass is one owned request (animRaf): however many paths ask for it (its own loop, a wake), it is drawn once a frame.
   let animRaf = 0;
   const askAnimate = () => { if (!animRaf) animRaf = drawFrame(animate); };
@@ -10354,6 +10428,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${bloodKey}|${vCanvas.width}x${vCanvas.height}|${holesKey}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
     // (So do vessel rows waiting to be drawn again, veinsRows: a coil's last step is drawn as its cells alone, no longer as a dirty layer.)
+    syncOver();
+    // (The overlays changed with the figure still: the picture laid again with them, nothing else drawn.)
+    if (OVER_ON && veins?.overlay?.stale && !veins.lost) veins.present();
     const rowsWait = veinsRows.size > 0 && !!veins && !veins.lost && !!vLook && !!F;
     if (still && !veinsDirty && !rowsWait && !glowSync && !(glLines && olDirty) && (!glLines || marksKey() === mk.key) && !(glLines && olList.some((o) => o.a !== (o.on ? 1 : 0))) && !clampFading() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
     stepPlateEase();

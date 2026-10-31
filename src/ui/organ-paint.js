@@ -129,7 +129,11 @@ function readClip(doc, id, m) {
  * a group's opacity is carried to its shapes, and a mask inside is not read). (The organs drawn as pictures, organs-gl bake: the
  * gut's see-through shades, the stomach's and duodenum's fades, each a group of overlapping shapes.)
  */
-export function readGroup(root, { withMask = true, nest = false } = {}) {
+// `strict` (the figure's overlays, stage.js syncOver): visibility as the page computes it, and refused as well, so that such a group
+// stays in the SVG rather than painted otherwise than the browser paints it: a CSS animation, a CSS transform or a transform the
+// painter would not read (any but the transform attribute's own), a marker, a non-scaling stroke, a paint order, crisp edges, or
+// a stroke whose joins are not round on an outline with corners (the painter joins every stroke round).
+export function readGroup(root, { withMask = true, nest = false, strict = false } = {}) {
   const doc = root.ownerDocument, ops = [];
   let ok = true;
   // (Visibility as the picture's copy takes it, svg-inline.js inlineStyles: the element's own setting, else its parent's. The
@@ -146,8 +150,13 @@ export function readGroup(root, { withMask = true, nest = false } = {}) {
     if (el !== root && /^(defs|clipPath|mask|pattern|linearGradient|radialGradient|symbol|marker|style|title|desc|metadata)$/.test(el.localName)) return;
     const cs = getComputedStyle(el);
     if (cs.display === 'none') return;
-    const own = el.style?.visibility || el.getAttribute('visibility');
-    if (own && own !== 'inherit') vis = own;
+    if (strict) {
+      vis = cs.visibility === 'collapse' ? 'hidden' : cs.visibility || 'visible';
+      if (strictRefused(el, cs)) { ok = false; return; }
+    } else {
+      const own = el.style?.visibility || el.getAttribute('visibility');
+      if (own && own !== 'inherit') vis = own;
+    }
     const o = parseFloat(cs.opacity);
     if (!(o > 0) && !ownO(el)) return;   // (at nothing by the page's styles: never shown; by its own setting: shown as it eases)
     if ((cs.filter && cs.filter !== 'none') || (cs.mixBlendMode && cs.mixBlendMode !== 'normal')) { ok = false; return; }
@@ -186,6 +195,7 @@ export function readGroup(root, { withMask = true, nest = false } = {}) {
     if (!geom) { ok = false; return; }
     if (geom.d && !el.getAttribute('d')) return;
     if (cs.strokeDasharray && cs.strokeDasharray !== 'none') { ok = false; return; }
+    if (strict && geom.d && cs.stroke && cs.stroke !== 'none' && (cs.strokeLinejoin || 'miter') !== 'round' && /[LlHhVvZz]/.test(el.getAttribute('d'))) { ok = false; return; }
     if ((cs.fillRule || 'nonzero') !== 'nonzero') { ok = false; return; }
     const fill = readPaintValue(doc, cs.fill), stroke = readPaintValue(doc, cs.stroke);
     if (fill === false || stroke === false) { ok = false; return; }
@@ -217,6 +227,24 @@ export function readGroup(root, { withMask = true, nest = false } = {}) {
   const clipId = urlId(rcs.clipPath && rcs.clipPath !== 'none' ? rcs.clipPath : null);
   if (clipId) return null;
   return { ops, opacity: parseFloat(rcs.opacity) || 0, mask, root };
+}
+
+// What a strict reading refuses in an element's computed style (readGroup `strict`).
+const MATRIX = /^matrix\(\s*([-\d.e]+)[\s,]+([-\d.e]+)[\s,]+([-\d.e]+)[\s,]+([-\d.e]+)[\s,]+([-\d.e]+)[\s,]+([-\d.e]+)\s*\)$/;
+export function strictRefused(el, cs) {
+  if (cs.animationName && cs.animationName !== 'none') return 'animation';
+  for (const k of ['translate', 'rotate', 'scale']) if (cs[k] && cs[k] !== 'none') return k;
+  const t = cs.transform;
+  if (t && t !== 'none') {
+    // (The page's computed transform of an SVG element holds its transform attribute: the same matrix is the attribute's alone.)
+    const k = t.match(MATRIX), a = matOf(el);
+    if (!k || k.slice(1).some((v, i) => Math.abs(+v - a[i]) > 1e-6 * Math.max(1, Math.abs(a[i])))) return 'transform';
+  } else if (matOf(el) !== ID) return 'transform';
+  if (cs.vectorEffect && cs.vectorEffect !== 'none') return 'vector-effect';
+  for (const k of ['markerStart', 'markerMid', 'markerEnd']) if (cs[k] && cs[k] !== 'none') return 'marker';
+  if (cs.paintOrder && cs.paintOrder !== 'normal') return 'paint-order';
+  if (cs.shapeRendering && !/^(auto|geometricPrecision)$/.test(cs.shapeRendering)) return 'shape-rendering';
+  return '';
 }
 
 // The computed opacities read with a group (by element), for the chain elements whose own setting is not inline.

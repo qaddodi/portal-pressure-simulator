@@ -40,7 +40,7 @@ import { gpuProbe, COUNTED } from './gpu-probe.js?v=b5449b0040';
 import { changedRows } from './flow-rows.js?v=bea4089714';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
 import { PUBLISH_QUIET_MS } from './gl-compile.js?v=5c4cd6c14c';
-import { createOrganStack } from './organs-gl.js?v=bf1e9cc689';
+import { createOrganStack } from './organs-gl.js?v=d5eacdd04a';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=422223e3b9';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 
@@ -107,6 +107,13 @@ void main() {
   vec2 q = (uMap * vec3(p, 1.0)).xy;
   o = texture(uT, vec2(q.x / uSize.x, 1.0 - q.y / uSize.y));
 }`;
+// The figure's overlays (organ-paint's ops, organs-gl's stack over the canvas: see `overlay`) laid over the canvas, pixel for pixel,
+// premultiplied (the stack's texture is the canvas's size, its rows as the canvas's).
+const LAY_FS = `#version 300 es
+precision highp float;
+uniform sampler2D uT;
+out vec4 o;
+void main() { o = texelFetch(uT, ivec2(gl_FragCoord.xy), 0); }`;
 // Sharper upscaling: the picture (uSrc px) onto the canvas (uDst px), each pixel a Catmull-Rom of the picture's 4 × 4 around it, in five
 // filtered reads (the corner taps left out, their weights folded away), then held within the four picture pixels nearest it so an
 // edge never rings. Premultiplied in and out. (Both framebuffers run y up, so no flip.)
@@ -1672,7 +1679,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // Settings › Figure performance › Sharper upscaling (frame.js upscale, off by default): the picture's own size, [w, h], when the stage
   // draws the figure under Full into a buffer of its own and the canvas stays at Full (setPicture); null otherwise, and then the picture
   // is the canvas, as ever. Every size inside reads PW() and PH().
-  let up = null;
+  let up = null, upLin = false;   // (upLin: the picture upscaled by a plain filtered copy, not Sharper upscaling's filter: setPicture)
+  // (overM: the figure's transform as last given to draw or drawRows, before whole(): the overlays are drawn at it.)
+  let overM = null;
   const PW = () => (up ? up[0] : canvas.width), PH = () => (up ? up[1] : canvas.height);
   const pcx = gl.getExtension('KHR_parallel_shader_compile');
   let started;
@@ -1735,6 +1744,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const plates = [null, null];   // [whole plate, sharp view] : { tex, rect }
   // The organs as layers instead of one picture (the ?perf switch "GPU organs", stage.js): null where it cannot be made.
   const stack = createOrganStack(gl);
+  // The figure's overlays (stage.js: the lowest groups of #stageOver it can read), painted by the organs' painter at the canvas's
+  // own size into a stack of their own, laid over the picture as it goes onto the canvas (present). Only with a kept picture of
+  // its own (the canvas is then drawn whole at each present, the overlays with it). Made when first asked for (overlay.set).
+  const overOK = !!stack?.painter && ownBuf;
+  let over = null, layP = null, overShown = false;
   let cathP = null;
   try { cathP = finishProgram(gl, started.cath); } catch (e) { console.warn('Veins renderer: catheter shader failed.', e); }
   const cathBuf = gl.createBuffer(), cathVAO = gl.createVertexArray();
@@ -2394,11 +2408,36 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (own.w !== PW() || own.h !== PH()) return;
     if (gpuProbe.on) gpuProbe.note(COUNTED.present, own.w * own.h * 4 / 1024);
     gl.disable(gl.SCISSOR_TEST);
-    if (up && upDraw()) return;
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own.fbo);
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-    gl.blitFramebuffer(0, 0, own.w, own.h, 0, 0, own.w, own.h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    if (!(up && !upLin && upDraw())) {
+      // (A picture under the canvas's size with the plain upscale: filtered, as the page's compositor scales a smaller canvas up.)
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own.fbo);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.blitFramebuffer(0, 0, own.w, own.h, 0, 0, up ? canvas.width : own.w, up ? canvas.height : own.h, gl.COLOR_BUFFER_BIT, up ? gl.LINEAR : gl.NEAREST);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+    overLay();
+  }
+  // The overlays over what present just laid: their stack drawn again first if anything in it changed (organs-gl render), at the
+  // canvas's size under the view the vessels were last drawn in (the figure's own transform, before whole() rounds it), scaled to it.
+  function overLay() {
+    if (!over || !overShown || !overM) return;
+    const kx = canvas.width / PW(), ky = canvas.height / PH(), m = [overM[0] * kx, overM[1] * ky, overM[2] * kx, overM[3] * ky, overM[4] * kx, overM[5] * ky];
+    if (over.stale(m, canvas.width, canvas.height)) over.render(m, canvas.width, canvas.height);
+    if (layP === null) {
+      try { layP = finishProgram(gl, startProgram(gl, REUSE_VS, LAY_FS)); } catch (e) { console.warn('Veins renderer: the overlays\' shader could not be made.', e); layP = false; }
+    }
+    if (!layP) return;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
+    gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.useProgram(layP.p);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, over.texture);
+    gl.uniform1i(layP.u.uT, 0);
+    gl.bindVertexArray(compVAO);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.bindVertexArray(null);
+    gl.disable(gl.BLEND);
   }
   // Sharper upscaling: the kept picture onto the whole canvas by UP_FS (Catmull-Rom, held within its four nearest pixels). False when
   // its program cannot be made (the picture then goes on as a plain copy, a corner of the canvas: setPicture turns the switch off).
@@ -2821,6 +2860,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * transform [a, b, c, d, e, f]; `look`: the theme's inks and the per-tier opacity and group.
      */
     draw(m, look, blood, rows = null) {
+      overM = m.slice();
       m = whole(m);
       reused = false; soft = false;
       lastLook = look;
@@ -2906,6 +2946,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * (nothing they hold is dropped by a refusal). `rowsStatus` says which: 'drawn', or why it was refused (ROWS_REFUSED).
      */
     drawRows(m, look, blood, rows, full = false) {
+      overM = m.slice();
       m = whole(m);
       const refuse = (why) => { rowsStatus = why; if (gpuProbe.on) gpuProbe.note(COUNTED.rowsRefused + why); return false; };
       if (!fboOK || !baseM) return refuse('no kept layer');
@@ -2948,14 +2989,33 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * is drawn into a buffer of its own (made here when ?vesselbuf=keep left the renderer without one) and upscaled onto the canvas; off, that buffer
      * goes and the canvas is drawn on directly again. Either change draws the next picture whole.
      */
-    setPicture(size) {
+    setPicture(size, linear = false) {
       const next = size && size[0] > 0 && size[1] > 0 && (size[0] !== canvas.width || size[1] !== canvas.height) ? [size[0], size[1]] : null;
-      if (`${next}` === `${up}` || lost) return;
-      up = next;
+      if ((`${next}` === `${up}` && !!linear === upLin) || lost) return;
+      up = next; upLin = !!linear;
       if (up && !own) own = makeOwn();
       if (!up && own && !ownBuf) { gl.deleteTexture(own.tex); gl.deleteFramebuffer(own.fbo); if (own.rb) gl.deleteRenderbuffer(own.rb); own = null; }
       fboOK = false; rz.m = null;
     },
+    /**
+     * The figure's overlays on the GPU (stage.js syncOver), or null where they cannot be: `set(groups, names)` paints the groups
+     * (name → [{ spec (organ-paint readGroup), m (its frame → world) }]) back to front in the order of `names` over the picture at
+     * every present, at the canvas's own size; with none, nothing is laid. `stale`: something they paint changed since they were
+     * last drawn (a present then draws them again).
+     */
+    overlay: overOK ? {
+      set(groups, names) {
+        if (!over && groups?.size && !lost) over = createOrganStack(gl, { painter: stack.painter });
+        if (!over) return;
+        over.setOrder(names); over.setLive(groups && groups.size ? groups : null, null); overShown = !!groups?.size;
+      },
+      get stale() {
+        if (!overShown || !overM || !own?.w) return false;
+        const kx = canvas.width / PW(), ky = canvas.height / PH();
+        return over.stale([overM[0] * kx, overM[1] * ky, overM[2] * kx, overM[3] * ky, overM[4] * kx, overM[5] * ky], canvas.width, canvas.height);
+      },
+      get shown() { return overShown; },
+    } : null,
     /** The picture's size: the canvas's, unless Sharper upscaling draws it smaller ([w, h]). */
     picSize() { return [PW(), PH()]; },
     /** Whether the last draw laid the kept picture again (Pinch frame reuse): the next one at that view has to be shaded whole. */
@@ -3308,7 +3368,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       }
       fboW = fboH = 0; baseM = null; fboOK = false; wrapNone();
       freeLayer(lineLayer); freeLayer(glowLayer); freeLayer(warmLayer); lineKey = glowKey = warmKey = '';
-      stack?.trim();
+      stack?.trim(); over?.trim();
       if (own?.w) { own.w = own.h = 0; gl.bindTexture(gl.TEXTURE_2D, own.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); }
     },
     /**
@@ -3324,7 +3384,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         for (const b of [quad, cellBuf, simpleBuf, bloodBuf, partBuf, partSBuf, fluidBuf, poolBuf, dirtBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
         for (const v of [vao, oneVAO, bloodVAO, partVAO, partSVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
         for (const x of [prog, simpleP, comp, compCell, plain, plainCell, fuseGen, fuseOne, cathP, lineP]) if (x) gl.deleteProgram(x.p);
-        stack?.dispose();
+        over?.dispose(); stack?.dispose();
         gl.deleteFramebuffer(fbo); gl.deleteFramebuffer(tintFbo); gl.deleteFramebuffer(lineLayer.fbo); gl.deleteFramebuffer(glowLayer.fbo); gl.deleteFramebuffer(warmLayer.fbo);
         if (own) { gl.deleteTexture(own.tex); gl.deleteFramebuffer(own.fbo); if (own.rb) gl.deleteRenderbuffer(own.rb); }
         if (rz.tex) { gl.deleteTexture(rz.tex); gl.deleteFramebuffer(rz.fbo); }
