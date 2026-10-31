@@ -49,7 +49,8 @@ export function compPart(C) {
   let s = C.replace(/^#version 300 es\n/, '').replace(/^precision highp float;\n/m, '').replace(/^precision highp int;\n/m, '');
   for (const re of [/^uniform sampler2D base;.*\n/m, /^uniform usampler2D gbuf;.*\n/m, /^uniform usampler2D gbuf2;.*\n/m,
     /^uniform highp sampler2D rad;.*\n/m, /^uniform highp sampler2D tube;.*\n/m, /^const float S_OFF = .*\n/m,
-    /^vec4 over\(vec4 top, vec4 under\) \{ return top \+ under \* \(1\.0 - top\.a\); \}\n/m]) s = one(s, re, '', String(re));
+    /^vec4 over\(vec4 top, vec4 under\) \{ return top \+ under \* \(1\.0 - top\.a\); \}\n/m,
+    /^float alongAt\(int id, float u\) \{\n[\s\S]*?\n\}\n/m]) s = one(s, re, '', String(re));
   s = one(s, /^uniform int bloodOnly;.*$/m, 'const int bloodOnly = 0;', 'bloodOnly');
   // (The layer's texel for the pixel, if the layer holds it: in a one-pass frame, the vessel pass's results for the pixel itself.)
   s = s.replace(/\(inL \? texelFetch\(gbuf, lp, 0\) : uvec4\(0u\)\)/g, 'fG').replace(/\(inL \? texelFetch\(gbuf2, lp, 0\) : uvec4\(0u\)\)/g, 'fG2')

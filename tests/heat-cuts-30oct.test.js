@@ -116,7 +116,7 @@ test('H4: a frame of the moving blood alone takes no new copy for the glass and 
   assert.match(v, /pictured\(!full && !part && !dirt && !pool && !\(fl\?\.ripple && nFluid\) && !cath && bare && same && !figNew\);/);
   // Every upload a blood frame could show, other than the blood's own rows, counts the figure as drawn again.
   const api = v.slice(v.indexOf('  const api = {'));
-  for (const k of ['setGeometry(bins)', 'patchGeometry(bins)', 'setRadii(row, r)', 'setTubes(data)', 'setDye(data)', 'setFluidCells(cells)']) {
+  for (const k of ['setGeometry(bins)', 'patchGeometry(bins)', 'setRadii(row, r, along = null)', 'setTubes(data)', 'setDye(data)', 'setFluidCells(cells)']) {
     assert.match(api, new RegExp(`    ${k.replace(/[()]/g, '\\$&')} \\{\\n      figVer\\+\\+;`), k);
   }
   assert.doesNotMatch(api.slice(api.indexOf('    setFlow(data) {'), api.indexOf('    setDye(data) {')), /figVer/, 'the blood\'s own rows are the blood');

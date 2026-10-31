@@ -43,13 +43,22 @@ import { changedRows } from './flow-rows.js?v=bea4089714';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
 import { PUBLISH_QUIET_MS } from './gl-compile.js?v=5c4cd6c14c';
 import { createOrganStack } from './organs-gl.js?v=0b8918fd4a';
-import { fusedVS, fusedFS } from './veins-fuse.js?v=422223e3b9';
+import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 
 export { binVeins };
 
 export const N_SAMPLES = 64;
 export const FLOW_TEXELS = 6;          // per-vessel blood: see stage.js (stepBlood, chainRows)
+// Where along a vessel its colour stands at arc fraction u (pressure-along.js): the plain u for a row with no waist (its rad
+// texels' b is −1), else the along curve between its samples. In both the vessel shader and the composite.
+const ALONG_GLSL = `
+float alongAt(int id, float u) {
+  float ui = u * ${N_SAMPLES - 1}.0;
+  int i0 = min(int(ui), ${N_SAMPLES - 2});
+  vec2 a = texelFetch(rad, ivec2(i0, id), 0).ba;
+  return a.x < 0.0 ? u : mix(a.x, a.y, ui - float(i0));
+}`;
 const SLOT_W = SLOT;
 export const TUBE_TEXELS = 13;         // texels of per-vessel attributes (see the layout below)
 export const MAX_TIERS = 20;
@@ -265,6 +274,7 @@ const float S_OFF = ${S_OFF}.0;
 
 vec4 E(int e, int k) { int t = e * 2 + k; return texelFetch(ent, ivec2(t % ENT_W, t / ENT_W), 0); }
 vec4 T(int id, int k) { return texelFetch(tube, ivec2(k, id), 0); }
+${ALONG_GLSL}
 float smin(float a, float b, float k) {
   if (k <= 0.0) return min(a, b);
   float h = max(k - abs(a - b), 0.0) / k;
@@ -444,7 +454,7 @@ void main() {
     if (s >= n) break;
     vec4 t0 = T(sid[s], 0), t1 = T(sid[s], 1), t2 = T(sid[s], 2), t3 = T(sid[s], 3), t4 = T(sid[s], 4);
     stier[s] = t2.x; sz[s] = t2.y; sflag[s] = t2.z; swall[s] = t0.w;
-    scol[s] = mix(t0.rgb, t1.rgb, clamp(su[s], 0.0, 1.0));
+    scol[s] = mix(t0.rgb, t1.rgb, alongAt(sid[s], clamp(su[s], 0.0, 1.0)));
     vec4 tc = T(sid[s], 8);
     shov[s] = T(sid[s], 9).w;
     // The selected vessel stands out of the dimmed network, easing back into it along its course toward each end that
@@ -1095,6 +1105,7 @@ float shimN(int id, float s, float qy, float D, float k0, float t, float sx, flo
   return mix(na, nb, t);
 }
 // The caliber at arc length s, interpolated between its samples (not the nearest one), so nothing scaled by it steps along the vessel.
+${ALONG_GLSL}
 float radAt(int id, float s, float len) {
   float ui = clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0;
   int i0 = min(int(ui), ${N_SAMPLES - 2});
@@ -1482,7 +1493,7 @@ void main() {
       if (f1.z > 0.0) {
         len1 = max(texelFetch(tube, ivec2(5, id1), 0).z, 1.0);
         R1 = radAt(id1, s1, len1);
-        vc1 = mix(texelFetch(tube, ivec2(0, id1), 0).rgb, texelFetch(tube, ivec2(1, id1), 0).rgb, clamp(s1 / len1, 0.0, 1.0));
+        vc1 = mix(texelFetch(tube, ivec2(0, id1), 0).rgb, texelFetch(tube, ivec2(1, id1), 0).rgb, alongAt(id1, clamp(s1 / len1, 0.0, 1.0)));
       }
     }
     // Near a join: whether the two lumens draw one pattern there (rel, 0..1: one is carried on from the other, or both from the
@@ -1514,7 +1525,7 @@ void main() {
       // dims; the minor inflow into a chained vessel dims half as much.
       vec4 A = bloodAt(id1, s1, y1, col, f0, f1, len1, R1, vc1);
       if (rel > 0.0) {
-        vec3 vc2 = mix(texelFetch(tube, ivec2(0, id2), 0).rgb, texelFetch(tube, ivec2(1, id2), 0).rgb, clamp(s2 / len2, 0.0, 1.0));
+        vec3 vc2 = mix(texelFetch(tube, ivec2(0, id2), 0).rgb, texelFetch(tube, ivec2(1, id2), 0).rgb, alongAt(id2, clamp(s2 / len2, 0.0, 1.0)));
         vec4 A2 = bloodAt(id2, s2, y2, col, f0b, f1b, len2, R2, vc2);
         float bb = b * rel, aa = mix(A.a, A2.a, bb);
         A = vec4((A.rgb * A.a * (1.0 - bb) + A2.rgb * A2.a * bb) / max(aa, 1e-4), aa);
@@ -2089,7 +2100,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
 
   const entTex = dataTex(gl), radTex = dataTex(gl), rmaxTex = dataTex(gl), tubeTex = dataTex(gl), organTex = dataTex(gl, gl.LINEAR);
   gl.bindTexture(gl.TEXTURE_2D, radTex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, N_SAMPLES, nTubes, 0, gl.RG, gl.FLOAT, null);
+  // (Per sample: the radius there and at the next sample, and the along curve there and at the next (pressure-along.js; −1
+  // throughout a row with no waist: the colour mixes by arc).)
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, N_SAMPLES, nTubes, 0, gl.RGBA, gl.FLOAT, null);
   gl.bindTexture(gl.TEXTURE_2D, rmaxTex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, 1, nTubes, 0, gl.RED, gl.FLOAT, new Float32Array(nTubes));
   gl.bindTexture(gl.TEXTURE_2D, tubeTex);
@@ -2099,7 +2112,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const bendTex = dataTex(gl);
   gl.bindTexture(gl.TEXTURE_2D, bendTex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, N_SAMPLES, nTubes, 0, gl.RED, gl.FLOAT, new Float32Array(N_SAMPLES * nTubes));
-  const radRow = new Float32Array(N_SAMPLES * 2), rmaxOne = new Float32Array(1), bendRow = new Float32Array(N_SAMPLES);
+  const radRow = new Float32Array(N_SAMPLES * 4), rmaxOne = new Float32Array(1), bendRow = new Float32Array(N_SAMPLES);
   // (What the curvature texture holds, as bits: all zero, as made above; see setBend.)
   const bendRowBits = new Uint32Array(bendRow.buffer), bendBits = new Uint32Array(N_SAMPLES * nTubes);
   // Per-vessel blood (FLOW_TEXELS texels a row) and dye (DYE_BINS along the course).
@@ -2836,13 +2849,23 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         }
       } else { fboOK = false; movedAll = true; }
     },
-    /** A vessel's lumen radius at each of its N_SAMPLES samples. */
-    setRadii(row, r) {
+    /**
+     * A vessel's lumen radius at each of its N_SAMPLES samples. `along`: where its colour stands at each (pressure-along.js
+     * alongCurve), or null to mix it by arc.
+     */
+    setRadii(row, r, along = null) {
       figVer++;
-      for (let i = 0; i < N_SAMPLES; i++) { radRow[i * 2] = r[i]; radRow[i * 2 + 1] = r[Math.min(N_SAMPLES - 1, i + 1)]; }
+      const A = along;
+      let mx = -Infinity;
+      for (let i = 0; i < N_SAMPLES; i++) {
+        const j = Math.min(N_SAMPLES - 1, i + 1);
+        radRow[i * 4] = r[i]; radRow[i * 4 + 1] = r[j];
+        radRow[i * 4 + 2] = A ? A[i] : -1; radRow[i * 4 + 3] = A ? A[j] : -1;
+        if (r[i] > mx) mx = r[i];
+      }
       gl.bindTexture(gl.TEXTURE_2D, radTex);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, N_SAMPLES, 1, gl.RG, gl.FLOAT, radRow);
-      rmaxOne[0] = Math.max(...radRow);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, N_SAMPLES, 1, gl.RGBA, gl.FLOAT, radRow);
+      rmaxOne[0] = mx;
       gl.bindTexture(gl.TEXTURE_2D, rmaxTex);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, 1, 1, gl.RED, gl.FLOAT, rmaxOne);
       // (A vessel's radii change only the pixels of the cells that list it, as its attributes do: drawRows may stand in

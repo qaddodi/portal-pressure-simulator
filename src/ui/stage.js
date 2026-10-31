@@ -44,9 +44,10 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { createLabelGL } from './label-gl.js?v=d87ecf3a23';
 import { createGlassGL } from './glass-gl.js?v=fcbbb31a84';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=840eb86317';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=88e75c63d5';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
+import { alongCurve } from './pressure-along.js?v=74c64e4286';
 import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=ac26170d49';
 import { retireRows } from './flow-rows.js?v=bea4089714';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
@@ -2313,7 +2314,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=88c3dc7189').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=3aad9391fa').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -3202,6 +3203,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (key === x.shadeKey) return;
     x.shadeKey = key;
     const f = sten ? waist(id, v, g.len, w, p) : null;
+    x.stenF = f;   // (its caliber factor along it: the GPU's colour follows the resistance it adds, sendRadii alongOf)
     const h0 = x.kh0, h1 = x.kh1, L = g.len || 1;
     x.rOf = (u) => {
       const r = u < 0.3 ? lerp(a, w, smooth(u / 0.3)) : u > 0.7 ? lerp(w, b, smooth((u - 0.7) / 0.3)) : w;
@@ -3645,6 +3647,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Timed, binning included, for the debug overlay's GPU readout: gpu-probe.js.)
   // Radii: re-sent only when a tube changed.
   let easedMemo = null;
+  // Where a stenosed vessel's colour stands along it (pressure-along.js; combined plan V1): by the resistance its narrowing adds,
+  // so the colour falls at the waist. Null for any other (the plain mix by arc, as before): a strand, a tributary drawn into a trunk,
+  // a liver branch, a vessel with no stenosis. The cava drawn as one takes each stretch's own.
+  const alongK = new Float64Array(N_SAMPLES), alongBuf = new Float32Array(N_SAMPLES);
+  function alongOf(it) {
+    if (it.kind !== 'v') return null;
+    const fa = it.x.stenF, fb = it.ra?.stenF, f = it.f;
+    if (!fa && !fb) return null;
+    for (let i = 0; i < N_SAMPLES; i++) {
+      const u = i / (N_SAMPLES - 1);
+      alongK[i] = !it.ra ? fa(u) : u < f ? (fa ? fa(u / f) : 1) : fb ? fb((u - f) / (1 - f)) : 1;
+    }
+    return alongCurve(alongK, alongBuf);
+  }
   function sendRadii(items) {
     for (const it of items) {
       const [key, rOf] = itemRadii(it), o = it.obj;
@@ -3709,7 +3725,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (sent && sent.length === R.length) sent.set(R); else o.glRSent = Float64Array.from(R);
       o.glR = R; o.glMaxR = mx;
       // (A vessel's new radii change only its own cells: drawn again as a colour change is, see drawVeins.)
-      veins.setRadii(it.row, R); veinsRows.add(it.row);
+      veins.setRadii(it.row, R, alongOf(it)); veinsRows.add(it.row);
     }
     glRadDirty = false;
   }

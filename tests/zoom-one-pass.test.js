@@ -103,12 +103,15 @@ test('the composite half is the plain composite: the same text once the layer re
     .replace(/\bfV\b/g, '(inL ? texelFetch(base, lp, 0) : vec4(0.0))')
     .replace('void compMain()', 'void main()').replace('const int bloodOnly = 0;', '');
   const orig = C.replace(/^#version.*\n/, '').replace(/^precision highp (float|int);\n/gm, '').replace(/^uniform int bloodOnly;.*$/m, '')
-    .replace(/^(uniform sampler2D base;|uniform usampler2D gbuf;|uniform usampler2D gbuf2;|uniform highp sampler2D rad;|uniform highp sampler2D tube;|const float S_OFF = |vec4 over\(vec4 top).*\n/gm, '');
+    .replace(/^(uniform sampler2D base;|uniform usampler2D gbuf;|uniform usampler2D gbuf2;|uniform highp sampler2D rad;|uniform highp sampler2D tube;|const float S_OFF = |vec4 over\(vec4 top).*\n/gm, '')
+    .replace(/^float alongAt\(int id, float u\) \{\n[\s\S]*?\n\}\n/m, '');
   assert.equal(back, orig);
   // (What was left out is declared the same in the vessel half.)
   const V = vesselFS(false);
   for (const d of ['uniform highp sampler2D rad;', 'uniform highp sampler2D tube;', 'vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }']) assert.ok(V.includes(d), d);
   assert.equal(V.match(/const float S_OFF = (.*);/)[1], C.match(/const float S_OFF = (.*);/)[1]);
+  const al = (t) => t.match(/^float alongAt\(int id, float u\) \{\n[\s\S]*?\n\}\n/m)[0];
+  assert.equal(al(V), al(C));
 });
 
 test('the 8-bit colour target as the shader holds it: ties to even, then level / 255 exactly as a texel read returns it', () => {
