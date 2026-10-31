@@ -64,3 +64,9 @@ test('the umbilicus, its node and the paraumbilical vein end on the midline (x 7
 test('the ghost copies of the back veins are hidden while the GPU draws the vessels (they filled as dark wedges)', () => {
   assert.match(css, /\.stage-view\.gl-on #ghosts \{ visibility: hidden; \}/);
 });
+
+test('flow-time start values are placed as a pair so two lines starting close never overlap', () => {
+  const src = readFileSync(new URL('../src/ui/flow-time.js', import.meta.url), 'utf8');
+  assert.match(src, /const clear = \(a, b\) => Math\.abs\(a - b\) >= 1\.15 \* f/);
+  assert.match(src, /y: ys\[pick\[i\]\]/);
+});

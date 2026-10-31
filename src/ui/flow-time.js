@@ -143,10 +143,17 @@ export function createFlowTime() {
       val: sv('text', { class: 'pft-v', style: `fill: var(${c})` }) }));
     // The first values at the start, each under its line (a line that rises runs away from it, never through it). Where the
     // value under the start would run onto the axis or onto its own line (a line that falls, or starts on the axis), it sits over it.
-    const start = lines.map((l) => { const v = ser[l.k][0], y = l.Y(v), x0 = X(ax().from) + 4, x1 = x0 + cw(withUnit(v, l.d, l.unit), f);
+    const at0 = lines.map((l) => { const v = ser[l.k][0], y = l.Y(v), x0 = X(ax().from) + 4, x1 = x0 + cw(withUnit(v, l.d, l.unit), f);
       const hits = (by) => by + 0.25 * f > B || ser.min.some((m, j) => X(m) > x0 - 2 && X(m) < x1 + 2 && l.Y(ser[l.k][j]) > by - 1.1 * f && l.Y(ser[l.k][j]) < by + 0.55 * f);
-      return [sv('circle', { class: 'pft-start', cx: X(ax().from), cy: y, r: Math.max(3, f * 0.3), style: `stroke: var(${l.c})` }),
-        sv('text', { class: 'pft-v0', x: x0, y: hits(y + 1.35 * f) ? y - 0.7 * f : y + 1.35 * f, style: `fill: var(${l.c})` }, withUnit(v, l.d, l.unit))]; });
+      const under = y + 1.35 * f, over = y - 0.7 * f;
+      return { l, v, y, x0, ys: hits(under) ? [over, under] : [under, over] }; });
+    // (Two lines that start close together: their first values are placed as a pair, each under or over its own start, so they
+    // never land on each other (the varices' 3.8 mm was drawn over the HVPG's 11.6 mmHg on a phone, Varices 3). Each keeps its
+    // own choice when that is clear of the other's.)
+    const clear = (a, b) => Math.abs(a - b) >= 1.15 * f;
+    const pick = at0.length === 2 ? [[0, 0], [0, 1], [1, 0], [1, 1]].find(([i, j]) => clear(at0[0].ys[i], at0[1].ys[j]) && at0[0].ys[i] - 0.8 * f > T - 1.5 * f && at0[1].ys[j] - 0.8 * f > T - 1.5 * f) || [0, 0] : at0.map(() => 0);
+    const start = at0.map(({ l, v, y, x0, ys }, i) => [sv('circle', { class: 'pft-start', cx: X(ax().from), cy: y, r: Math.max(3, f * 0.3), style: `stroke: var(${l.c})` }),
+      sv('text', { class: 'pft-v0', x: x0, y: ys[pick[i]], style: `fill: var(${l.c})` }, withUnit(v, l.d, l.unit))]);
     const [lp, lf] = lines;
     // Each band's gridlines, numbered on its own side in its line's colour: every line when they are 1.3 lines of type
     // apart or more, else the ends only (else the top alone).
