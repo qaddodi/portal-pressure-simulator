@@ -156,6 +156,12 @@ What is measured, and where (`src/ui/frame.js`, `frame-stats.js`, `input-latency
   value each uniform location holds and sends a call only when it differs (the view, plates, colours and flags; the clock still goes
   every frame). These names are set through it and nowhere else (`tests/uniform-cache.test.js` pins that in `veins-gl.js`).
 
+- **A label canvas that draws nothing is hidden.** The label canvas (`label-gl.js`) covers the whole stage, so the compositor blended it with
+  the figure on every frame the blood moved even when no label, mark or probe was on it. Every picture it draws has a box (`boxes`), so
+  with none it takes `data-blank` (`visibility: hidden` in `app.css`) in the same draw, and loses it in the task that draws the first thing back.
+  Sizing the canvas to the union of the labels was not built: the labels spread over most of the stage, the dive's transform is set on the
+  layer's own box, and a label must land on a whole device pixel.
+
 ## Verification
 
 Run `npm test`. In addition to the physiological acceptance suite, lifecycle tests check pause/visibility behavior, immediate action frames, worker timeout cleanup, event-loop yielding and command ordering. The yielded calculations are compared with synchronous calculations, including complete snapshots after preset loading, advancing and prerolling.
