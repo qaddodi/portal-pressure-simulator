@@ -15,7 +15,7 @@ import { NODES } from '../engine/topology.js?v=4044766e96';
 import { RATE } from './table-marks.js?v=bca5ebb624';
 import { monotoneSegs } from './curve-near.js?v=9ff15157e9';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { pressureColor } from './colormap.js?v=07743058d2';
+import { pressureColor } from './colormap.js?v=3ca7b0831b';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;

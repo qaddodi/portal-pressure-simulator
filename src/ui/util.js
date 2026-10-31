@@ -1,5 +1,6 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame } from './frame.js?v=9e0c25a14c';
+import { parseRGB } from './figure-settings.js?v=68c0336f5f';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 for (const m of ['replaceChildren', 'append', 'prepend']) {
@@ -607,13 +608,7 @@ export function cssVar(name) {
   if (v === undefined) { v = getComputedStyle(document.documentElement).getPropertyValue(name).trim(); varCache.set(name, v); }
   return v;
 }
-// A colour token as [r, g, b] in 0–255 (tokens are #rgb, #rrggbb, rgb() or rgba(); the alpha is dropped).
-export function parseRGB(c) {
-  c = (c || '').trim();
-  if (c[0] === '#') { const x = c.length < 6 ? [...c.slice(1, 4)].map((d) => d + d).join('') : c.slice(1, 7); return [0, 2, 4].map((k) => parseInt(x.slice(k, k + 2), 16)); }
-  const n = c.match(/[\d.]+/g) || [];
-  return [+n[0] || 0, +n[1] || 0, +n[2] || 0];
-}
+export { parseRGB };
 export const cssRGB = (name) => parseRGB(cssVar(name));
 export const cssRGB01 = (name) => cssRGB(name).map((v) => v / 255);
 /** A colour token with an alpha, for a canvas: cssAlpha('--white', .5) → 'rgba(255,255,255,0.5)' (colour-exempt). */

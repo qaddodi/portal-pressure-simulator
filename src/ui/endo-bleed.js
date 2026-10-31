@@ -8,7 +8,7 @@
 // blood lost. Few gradients and fills a frame: the spot and the stain are two small reused sprites.
 import { bleedPulse } from './blood.js?v=300b3b5267';
 import { scopeDrops, scopePool, inScopePool } from './endo-motion.js?v=9e325d9a13';
-import { cssVar, cssAlpha } from './util.js?v=731ee3a0c7';
+import { cssVar, cssAlpha } from './util.js?v=725ab01f3a';
 
 const frac = (x) => ((x % 1) + 1) % 1;
 const smooth = (e0, e1, x) => { const u = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return u * u * (3 - 2 * u); };
