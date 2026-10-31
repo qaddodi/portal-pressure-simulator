@@ -1,17 +1,17 @@
 // "Why?" popover (blueprint §9.3): one causal sentence, a contribution waterfall and the formula.
 
 import { host } from './host.js?v=e9bd6a00e5';
-import { h, fmt, svgIcon, visibleBottom, settleFrom, announce } from './util.js?v=3b0814f664';
+import { h, fmt, svgIcon, visibleBottom, settleFrom, announce } from './util.js?v=3e36aa0200';
 import { D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=615d96d663';
 
 export function createWhy(pop) {
   let openFor = null, anchorEl = null;
   function place(anchor) {
     const r = anchor.getBoundingClientRect();
-    const pw = Math.min(440, innerWidth - 24);
-    let x = r.left + r.width / 2 - pw / 2;
-    x = Math.max(12, Math.min(innerWidth - pw - 12, x));
-    pop.style.left = x + 'px';
+    const pw = pop.offsetWidth || Math.min(440, innerWidth - 24);
+    // (Clear of the notch and the home indicator when the phone is held sideways; env() is 0 elsewhere.)
+    pop.style.left = `clamp(calc(12px + env(safe-area-inset-left, 0px)), ${r.left + r.width / 2 - pw / 2}px, calc(100% - ${pw}px - 12px - env(safe-area-inset-right, 0px)))`;
+    const x = pop.offsetLeft;
     const ph = pop.offsetHeight || 260;
     const below = r.bottom + 10;
     const top = below + ph > visibleBottom() - 8 ? Math.max(8, r.top - ph - 10) : below;

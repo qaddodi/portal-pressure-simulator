@@ -8,10 +8,10 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, fitCanvas, clamp, icon, cssVar, toast } from './util.js?v=3b0814f664';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, toast } from './util.js?v=3e36aa0200';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { FONT } from './charts.js?v=45f9b7d726';
-import { pressureColor } from './colormap.js?v=d0a37a64a1';
+import { FONT } from './charts.js?v=449aab4341';
+import { pressureColor } from './colormap.js?v=770fcfd88a';
 import { store, logAction, hiddenNow, updateParams } from './store.js?v=3611054974';
 import { shownOr } from './shown.js?v=ef26894683';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=553551a92a';

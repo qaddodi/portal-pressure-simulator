@@ -104,6 +104,20 @@ function dropToast(t) {
     if (Math.abs(dy) > 0.5) c.animate?.([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_MOVE });
   });
 }
+// Where the toasts sit: slid down from behind the top bars, or (no bars to sit under: the sinusoid view's) at the foot of the screen
+// by the stylesheet. A card kept on screen (a sticky one) is placed again when the screen turns or resizes, and the geometry the
+// docked placement wrote is cleared when a toast is not docked, so it never leaks into the foot placement.
+function placeToasts(wrap) {
+  const bars = document.getElementById('topbar');
+  const r = document.querySelector('.vdock')?.offsetParent && bars?.getBoundingClientRect();
+  const docked = !!(r && r.height);
+  wrap.classList.toggle('docked', docked);
+  if (docked) {
+    const W = innerWidth, w = Math.min(W - 24, 560);
+    Object.assign(wrap.style, { left: `${(W - w) / 2 - 20}px`, width: `${w + 40}px`, top: `${r.bottom}px`, bottom: 'auto', height: '', maxWidth: 'none' });
+  } else if (wrap.getAttribute('style')) wrap.removeAttribute('style');
+}
+addEventListener('resize', () => { const wrap = document.getElementById('toasts'); if (wrap?.children.length) placeToasts(wrap); });
 export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false } = {}) {
   if (!msg) return () => {};
   // While presenting, the projected figure stays clear: only errors, cards with buttons and what the presenter asked for
@@ -115,13 +129,7 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   const stay = [...wrap.children].filter((c) => !c.classList.contains('leaving'));
   while (stay.length >= 2) { const o = stay.shift(); if (o._close) o._close('pushed'); else o.remove(); }
   // A card slides down from behind the top bars and settles just below them (below every row on a phone).
-  const bars = document.getElementById('topbar');
-  const r = document.querySelector('.vdock')?.offsetParent && bars?.getBoundingClientRect();
-  wrap.classList.toggle('docked', !!(r && r.height));
-  if (r && r.height) {
-    const W = innerWidth, w = Math.min(W - 24, 560);
-    Object.assign(wrap.style, { left: `${(W - w) / 2 - 20}px`, width: `${w + 40}px`, top: `${r.bottom}px`, bottom: 'auto', height: '', maxWidth: 'none' });
-  }
+  placeToasts(wrap);
   const t = h('div', { class: 'toast ' + kind, role: 'status' }, h('span', { class: 'toast-msg' }, msg));
   let timer = 0, gone = false;
   const close = (why = 'user') => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(why); t.classList.add('leaving'); setTimeout(() => dropToast(t), 340); };
@@ -276,14 +284,25 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
     // the whole dock, it had risen out of thin air over the faded play bar, its cut-off shadow left as a ghost there.)
     const bar = anchor.closest('.thumb-bar'), tabTop = bar ? bar.getBoundingClientRect().top : null;
     if (bar && /auto|scroll/.test(getComputedStyle(el).overflowY)) el.style.maxHeight = Math.max(160, tabTop - 16) + 'px';
+    const vb = visibleBottom();
+    // A menu with no height rule of its own (Blood and Colored-by on a phone held sideways: 511-560 px of rows in 284-332 px of
+    // room) takes the larger side of its button and scrolls inside it, never off the screen. One that fits is left as it was.
+    if (!bar && !el.classList.contains('app-menu')) {
+      el.style.maxHeight = ''; el.style.overflowY = '';
+      const natural = el.offsetHeight, roomBelow = vb - r.bottom - 16, roomAbove = r.top - 16;
+      const above = place === 'above' ? natural <= roomAbove || roomAbove >= roomBelow : natural > roomBelow && roomAbove > roomBelow;
+      at = above ? 'above' : 'below';
+      const room = Math.max(160, above ? roomAbove : roomBelow);
+      if (natural > room) { el.style.maxHeight = room + 'px'; el.style.overflowY = 'auto'; el.style.overscrollBehavior = 'contain'; }
+    }
     // Layout size, not the rectangle: the opening animation scales the menu for a moment.
     const mr = { width: el.offsetWidth, height: el.offsetHeight };
     const top = bar ? tabTop : r.top;
     let y = at === 'above' || bar ? top - mr.height - 8 : r.bottom + 8;
-    const vb = visibleBottom();
     if (y + mr.height > vb - 8) y = Math.max(8, top - mr.height - 8);
-    const left = clamp(x, 8, innerWidth - mr.width - 8), topPx = clamp(y, 8, vb - mr.height - 8);
-    el.style.left = left + 'px';
+    // Clear of the notch and the home indicator: a phone held sideways has 47-59 px of unsafe screen at each side (env() is 0 elsewhere).
+    el.style.left = `clamp(calc(8px + env(safe-area-inset-left, 0px)), ${x}px, calc(100% - ${mr.width}px - 8px - env(safe-area-inset-right, 0px)))`;
+    const left = el.offsetLeft, topPx = clamp(y, 8, vb - mr.height - 8);
     el.style.top = topPx + 'px';
     settleFrom(el, r, left, topPx);
     barAt = barTop;
