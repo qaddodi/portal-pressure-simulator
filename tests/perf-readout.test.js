@@ -114,7 +114,7 @@ test('a whole draw and a target sized again name who asked, from a fixed list th
   const pr = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   assert.equal(new Set(BY).size, BY.length);
   assert.match(gl, /gpuProbe\.note\(COUNTED\.whole\);\n\s+gpuProbe\.note\(COUNTED\.wholeBy \+ askedBy\(\)\);/);
-  assert.equal((gl.match(/if \(gpuProbe\.on\) noteAlloc\(/g) || []).length, 3, 'every target sized again names its caller');
+  assert.equal((gl.match(/if \(gpuProbe\.on\) noteAlloc\(/g) || []).length, 2, 'every target sized again names its caller (the layer and the kept picture: a pan has no spare set since 31 Oct)');
   assert.doesNotMatch(gl, /note\(COUNTED\.fboAlloc, [^k]/, 'no sizing counted without its caller');
   assert.match(pr, /BY\.flatMap\(\(b\) => \[COUNTED\.wholeBy \+ b, COUNTED\.fboAllocBy \+ b\]\)/);
   // Every caller stage.js names is on the list, and the stage resets it after each draw.

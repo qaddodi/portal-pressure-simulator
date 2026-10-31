@@ -51,7 +51,8 @@ export function compPart(C) {
     /^uniform highp sampler2D rad;.*\n/m, /^uniform highp sampler2D tube;.*\n/m, /^const float S_OFF = .*\n/m,
     /^vec4 over\(vec4 top, vec4 under\) \{ return top \+ under \* \(1\.0 - top\.a\); \}\n/m]) s = one(s, re, '', String(re));
   s = one(s, /^uniform int bloodOnly;.*$/m, 'const int bloodOnly = 0;', 'bloodOnly');
-  s = s.replace(/texelFetch\(gbuf, ip, 0\)/g, 'fG').replace(/texelFetch\(gbuf2, ip, 0\)/g, 'fG2').replace(/texelFetch\(base, ip, 0\)/g, 'fV');
+  // (The layer's texel for the pixel, lp: the pixel itself in a one-pass frame, whose layer is never wrapped.)
+  s = s.replace(/texelFetch\(gbuf, lp, 0\)/g, 'fG').replace(/texelFetch\(gbuf2, lp, 0\)/g, 'fG2').replace(/texelFetch\(base, lp, 0\)/g, 'fV');
   s = one(s, /\bvoid main\(\)/, 'void compMain()', 'main');
   return s;
 }

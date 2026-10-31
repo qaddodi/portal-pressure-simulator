@@ -195,7 +195,7 @@ test('any other change, or new radii, still draws the cells again whole', async 
 });
 
 test('a pan while colours change moves the layer and recolours, and the mark moves with it', async () => {
-  // (Counted on a canvas that keeps its own picture, ?vesselbuf=keep: by default one more copy, the picture onto the canvas, follows.)
+  // (Counted on a canvas that keeps its own picture, ?vesselbuf=keep: by default one copy, the picture onto the canvas, follows.)
   globalThis.location = { search: '?vesselbuf=keep' };
   let sc;
   try { sc = await scene('../src/ui/veins-gl.js?keep'); } finally { delete globalThis.location; }
@@ -205,15 +205,18 @@ test('a pan while colours change moves the layer and recolours, and the mark mov
   const t0 = g.tintCells, n0 = calls.length;
   g.draw([1, 0, 0, 1, 12, -7], look, { on: false }, [0]);
   const c = calls.slice(n0);
-  assert.equal(c.filter((x) => x[0] === 'blitFramebuffer').length, 4, 'colour, flow, joined flow and the mark are moved');
+  // (The layer wraps, 31 Oct: colour, flow, joined flow and the mark stay in their texels, and the wrap moves by the pan, 12 px right
+  // and 7 up on a 960 × 640 layer: a screen pixel s is held at s + (948, 7), y down; GL's rows run up, so 640 − 7 there.)
+  assert.equal(c.filter((x) => x[0] === 'blitFramebuffer').length, 0, 'nothing copied');
+  assert.ok(c.some((x) => x[0] === 'uniform2i' && x[2] === 948 && x[3] === 633), 'the composite reads through the moved wrap');
   assert.ok(g.tintCells - t0 > 0, 'the moved layer is recoloured');
   assert.ok(passes(calls, gl, n0).some((p) => p.tint === 1));
 });
 
 test('the renderer allocates, moves, trims and frees the mark with the layer', () => {
   assert.match(vg, /gl\.framebufferTexture2D\(gl\.FRAMEBUFFER, gl\.COLOR_ATTACHMENT3, gl\.TEXTURE_2D, depTex, 0\);/);
-  assert.match(vg, /gl\.framebufferTexture2D\(gl\.FRAMEBUFFER, gl\.COLOR_ATTACHMENT3, gl\.TEXTURE_2D, spare\.dep, 0\);/);
-  assert.match(vg, /\[depTex, spare\.dep\] = \[spare\.dep, depTex\];/);
+  // (A pan moves no target, the mark among them: they all stay in their texels and the wrap moves, so they stay in step.)
+  assert.doesNotMatch(vg, /\bspare\b/);
   assert.match(vg, /for \(const t of \[baseTex, gTex, gTex2, depTex\]\)/);
   assert.match(vg, /gl\.deleteFramebuffer\(tintFbo\)/);
   // The full passes read a texel no framebuffer holds, never the mark they write (a feedback loop).

@@ -109,9 +109,9 @@ test('the figure bins each vessel with a core and repaints the redrawn cells who
 test('a frame where only the blood moved leaves the pixels with no lumen as drawn, and every other pass draws them all', () => {
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   // (Mohammad's Mac at rest, zoom 4.24, 21 Oct: the blood squares' other pixels were most of each frame's GPU work.)
-  const main = gl.slice(gl.indexOf('void main() {\n  ivec2 ip = ivec2(gl_FragCoord.xy);\n  uvec4 g'));
+  const main = gl.slice(gl.indexOf('void main() {\n  ivec2 ip = ivec2(gl_FragCoord.xy);\n  // (The vessel layer\'s texel'));
   // The lumen test comes first, before the plate, glows and fluid are read, and is the same lumen the blood, dye and origin need.
-  assert.match(main, /^void main\(\) \{\n {2}ivec2 ip = ivec2\(gl_FragCoord\.xy\);\n {2}uvec4 g = texelFetch\(gbuf, ip, 0\);\n(?: {2}\/\/.*\n)+ {2}if \(bloodOnly == 1 && g\.x == 0u\) discard;\n/);
+  assert.match(main, /^void main\(\) \{\n {2}ivec2 ip = ivec2\(gl_FragCoord\.xy\);\n {2}\/\/ \(The vessel layer's texel[^\n]*\n {2}ivec2 lp = ip \+ lWrap;\n {2}if \(lWrap\.x > 0 && lp\.x >= lSize\.x\) lp\.x -= lSize\.x;\n {2}if \(lWrap\.y > 0 && lp\.y >= lSize\.y\) lp\.y -= lSize\.y;\n {2}uvec4 g = texelFetch\(gbuf, lp, 0\);\n(?: {2}\/\/.*\n)+ {2}if \(bloodOnly == 1 && g\.x == 0u\) discard;\n/);
   assert.match(main, /float vis = g\.x > 0u \?/);
   assert.match(main, /\(vis > 0\.005 \|\| \(dyeOn == 1 && g\.x > 0u\)\)/);
   assert.equal((main.match(/uvec4 g = /g) || []).length, 1);

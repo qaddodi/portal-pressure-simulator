@@ -16,10 +16,10 @@ export const COUNTED = {
   glassDrawn: 'glass: drawn', glassCopy: 'glass: figure copied', glassSkip: 'glass: copy skipped (figure unchanged)',
   // (The liver label's pane is a second glass of its own, counted apart: two glasses drawn in one frame are not one drawn twice.)
   paneDrawn: 'pane glass: drawn', paneCopy: 'pane glass: figure copied', paneSkip: 'pane glass: copy skipped (figure unchanged)',
-  // (Every other copy of a picture and every target made again at a new size, 30 Oct (review 6a): the vessel layer's pan blit (one per
-  // target), the kept picture laid onto the canvas, a resolution fade's canvas copies, and the layer's, the spare's and the kept
-  // picture's targets sized again.)
-  panBlit: 'copies: pan blit (per target)', present: 'copies: kept picture onto the canvas', fadeCopy: 'copies: resolution fade',
+  // (Every other copy of a picture and every target made again at a new size, 30 Oct (review 6a): the kept picture laid onto the
+  // canvas, a resolution fade's canvas copies, and the layer's and the kept picture's targets sized again. A pan copies nothing
+  // since 31 Oct: the layer wraps, veins-gl wrapPieces.)
+  present: 'copies: kept picture onto the canvas', fadeCopy: 'copies: resolution fade',
   fboAlloc: 'targets: sized again',
   // (Who asked for each whole draw and each target sized again, 30 Oct: the step from the catheter slide into the lobule held a frame
   // for 2.8 s over 8 whole draws and two sizings, and the caller is not in the readout otherwise. One of the fixed list BY.)

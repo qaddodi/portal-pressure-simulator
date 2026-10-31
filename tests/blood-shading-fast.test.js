@@ -82,7 +82,7 @@ test('the fast build skips the layers under an opaque vessel pixel, and only tho
     const main = body(R[k], 'void main()');
     assert.match(main, /bool under = v\.a < 1\.0;/);
     // The vessel layer is read before anything under it is.
-    assert.ok(main.indexOf('texelFetch(base, ip, 0)') < main.indexOf('texelFetch(stackL'));
+    assert.ok(main.indexOf('texelFetch(base, lp, 0)') > 0 && main.indexOf('texelFetch(base, lp, 0)') < main.indexOf('texelFetch(stackL'));
     const blk = body(main, 'if (under) {');
     for (const x of ['texelFetch(stackL', 'texture(plate1', 'texture(plate0', 'plateSat', 'texelFetch(glowL', 'texelFetch(warmL']) assert.ok(blk.includes(x), `${x} is skipped under an opaque pixel`);
     // The pool and stream (under the vessels) stop too; the jets (over them), the fluid and the outlines never do.
@@ -279,14 +279,14 @@ test('the lumen buffer flags a second lumen in its row\'s top bit, and the fast 
     assert.ok(at > 0 && at < main.indexOf('int id1 = int(g.x) - 1') && at < main.indexOf('float vis = g.x > 0u'));
     assert.match(main, /bool two = \(g\.x & 32768u\) != 0u;/);
   }
-  assert.match(body(R.fast, 'void main()'), /uvec4 g2 = two \? texelFetch\(gbuf2, ip, 0\) : uvec4\(0u\);/);
-  assert.match(body(R.classic, 'void main()'), /uvec4 g2 = texelFetch\(gbuf2, ip, 0\);/);
+  assert.match(body(R.fast, 'void main()'), /uvec4 g2 = two \? texelFetch\(gbuf2, lp, 0\) : uvec4\(0u\);/);
+  assert.match(body(R.classic, 'void main()'), /uvec4 g2 = texelFetch\(gbuf2, lp, 0\);/);
 });
 
 // ── Item 7: lumens whose vessels did not change are left as drawn in the blood's own pass ──
 test('the blood pass leaves a lumen alone only when neither of its vessels\' rows nor any uniform changed', () => {
   const main = body(R.fast, 'void main()');
-  assert.match(main, /if \(bloodOnly == 1 && stillOn == 1 && texelFetch\(flow, ivec2\(4, int\(g\.x\) - 1\), 0\)\.x == 0\.0\n\s*&& \(!two \|\| texelFetch\(flow, ivec2\(4, int\(texelFetch\(gbuf2, ip, 0\)\.x\) - 1\), 0\)\.x == 0\.0\)\) discard;/);
+  assert.match(main, /if \(bloodOnly == 1 && stillOn == 1 && texelFetch\(flow, ivec2\(4, int\(g\.x\) - 1\), 0\)\.x == 0\.0\n\s*&& \(!two \|\| texelFetch\(flow, ivec2\(4, int\(texelFetch\(gbuf2, lp, 0\)\.x\) - 1\), 0\)\.x == 0\.0\)\) discard;/);
   assert.doesNotMatch(R.classic, /stillOn/);
   const comp = glSrc.slice(glSrc.indexOf('    composite(look, blood = {}, full = false, part = 0) {'), glSrc.indexOf('    /** Whether organ outlines can be drawn here'));
   // Never in a whole picture, a bleed (the one uniform left out of the comparison, the clock, moves it), the classic build, or

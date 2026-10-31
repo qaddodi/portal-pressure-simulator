@@ -99,7 +99,7 @@ test('the vessel half is the vessel shader: the same text once its outputs and t
 });
 
 test('the composite half is the plain composite: the same text once the layer reads are put back', () => {
-  const back = compPart(C).replace(/\bfG2\b/g, 'texelFetch(gbuf2, ip, 0)').replace(/\bfG\b/g, 'texelFetch(gbuf, ip, 0)').replace(/\bfV\b/g, 'texelFetch(base, ip, 0)')
+  const back = compPart(C).replace(/\bfG2\b/g, 'texelFetch(gbuf2, lp, 0)').replace(/\bfG\b/g, 'texelFetch(gbuf, lp, 0)').replace(/\bfV\b/g, 'texelFetch(base, lp, 0)')
     .replace('void compMain()', 'void main()').replace('const int bloodOnly = 0;', '');
   const orig = C.replace(/^#version.*\n/, '').replace(/^precision highp (float|int);\n/gm, '').replace(/^uniform int bloodOnly;.*$/m, '')
     .replace(/^(uniform sampler2D base;|uniform usampler2D gbuf;|uniform usampler2D gbuf2;|uniform highp sampler2D rad;|uniform highp sampler2D tube;|const float S_OFF = |vec4 over\(vec4 top).*\n/gm, '');

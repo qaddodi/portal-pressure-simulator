@@ -140,15 +140,12 @@ function blitTargets(f, from) {
   return out;
 }
 
-test('by default a pan moves the layer\'s targets, then copies the kept picture onto the canvas once, last', async () => {
+test('by default a pan copies only the kept picture onto the canvas, once (the layer wraps and is not copied)', async () => {
   const { g, f, look } = await renderer('../src/ui/veins-gl.js');
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
   const n = f.calls.length;
   g.draw([1, 0, 0, 1, 12, -7], look, { on: false });
-  const t = blitTargets(f, n);
-  assert.ok(t.length >= 2, `the layer moved and the picture copied (${t.length} copies)`);
-  assert.equal(t.at(-1), null, 'the last copy is the picture onto the canvas');
-  assert.ok(t.slice(0, -1).every((x) => x !== null), 'every other copy stays among the renderer\'s own targets');
+  assert.deepEqual(blitTargets(f, n), [null]);
 });
 
 test('by default a zoom frame draws in one pass even where the context has no stencil: the kept picture brings its own', async () => {

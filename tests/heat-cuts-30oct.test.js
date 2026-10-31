@@ -52,7 +52,11 @@ test('the readout lists every frame that missed the refresh, keeps GPU timing ap
   assert.match(g, /gpuProbe\.note\(pane \? COUNTED\.paneCopy : COUNTED\.glassCopy\)/);
   assert.match(g, /noteDraw\(pane \? 'glass-pane' : 'glass'\);/);
   const v = src('veins-gl.js');
-  for (const k of ['panBlit', 'present', 'fboAlloc']) assert.ok(v.includes(`COUNTED.${k}`), k);
+  for (const k of ['present', 'fboAlloc']) assert.ok(v.includes(`COUNTED.${k}`), k);
+  // (A pan copies nothing since 31 Oct: the layer wraps, so there is no pan blit to count.)
+  assert.ok(!v.includes('COUNTED.panBlit') && !('panBlit' in COUNTED));
+  const shift = v.slice(v.indexOf('  function shiftLayer('), v.indexOf('  // The binned cells on the CPU'));
+  assert.ok(shift.length > 100 && !shift.includes('blitFramebuffer'), 'a pan copies no target');
   assert.ok(v.includes("gpuProbe.note('uploaded: noise'"));
   assert.match(v, /patchGeometry: 'uploads', setRadii: 'uploads', setBend: 'uploads'/);
   const f = src('res-fade.js');
