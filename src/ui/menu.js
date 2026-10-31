@@ -5,12 +5,12 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=3611054974';
-import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=30638c30ee';
+import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=3b0814f664';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { pressureColor } from './colormap.js?v=6564a2e1c0';
+import { pressureColor } from './colormap.js?v=d0a37a64a1';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { frameFor } from './frame.js?v=d228750e83';
+import { frameFor } from './frame.js?v=70a3411d2a';
 import { D_FLIP, D_SMALL } from './ease.js?v=615d96d663';
 const nextFrame = frameFor('menu');
 
@@ -333,7 +333,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (keep) el.querySelector('.um-cols').scrollTop = keep;
     if (focus === 'q') el.querySelector('.um-q').focus({ preventScroll: true });
     else if (focus) el.querySelector(`[data-k="${CSS.escape(focus)}"]`)?.focus({ preventScroll: true });
-    if (!lib) library().then(() => { if (open && !libraryNow()) return; render(); });
+    if (!lib) library().then(() => { if (open && !libraryNow()) return; render(); }).catch(() => {});   // (a part that cannot load has said so: util.js loadFailed)
   }
 
   return {
@@ -358,7 +358,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         // Only a mouse or trackpad puts the caret in the search: on a touch screen (iPhone, iPad either way round)
         // focusing it pops the on-screen keyboard, so the close button takes focus and the keyboard waits for a tap there.
         el.querySelector(sheet || !fine.matches ? '.um-x' : '.um-q').focus({ preventScroll: true });
-        if (!lib) library().then(() => { if (open) render(); scrollTo(); });
+        if (!lib) library().then(() => { if (open) render(); scrollTo(); }).catch(() => {});
         dragToClose(el); swipeTabs(el);
       }
       const scrollTo = () => {

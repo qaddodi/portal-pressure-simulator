@@ -553,7 +553,9 @@ export function createSinusoidGL(canvas) {
   // (And only once the page has been left alone: a program started in a pan or a first touch had its compile in that frame, P3.)
   whenQuiet(() => { if (window.requestIdleCallback) requestIdleCallback(startLater, { timeout: 8000 }); else setTimeout(startLater, 3000); });
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); ok = false; pend = null; });
-  canvas.addEventListener('webglcontextrestored', () => { sent.clear(); ok = init(); });
+  // (epoch: counts the restores, so a paused view whose picture is "the same as last frame" knows the context is new and draws it again.)
+  let epoch = 0;
+  canvas.addEventListener('webglcontextrestored', () => { epoch++; sent.clear(); ok = init(); });
   // A uniform keeps its value in its program, so one is sent only when it changes (most colours never do).
   const sent = new Map();
   const same = (a, b) => (typeof a === 'number' ? a === b : b != null && typeof b !== 'number' && a.length === b.length && Array.prototype.every.call(a, (x, i) => x === b[i]));
@@ -580,6 +582,7 @@ export function createSinusoidGL(canvas) {
   };
   return {
     get ok() { return ready(); },
+    get epoch() { return epoch; },
     /** u: uniforms by name; pts: Float32Array of (x, y, r, alpha, kind) × n. The tissue, the particles, then the cells over them. */
     draw(u, pts, n) {
       if (!ready()) return;

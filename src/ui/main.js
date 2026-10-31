@@ -3,29 +3,29 @@
 
 import { startHost, host } from './host.js?v=e9bd6a00e5';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3611054974';
-import { createStage } from './stage.js?v=68b153aa44';
-import { createCreditPlacer } from './credit.js?v=631e5db535';
+import { createStage } from './stage.js?v=4b1bb074d5';
+import { createCreditPlacer } from './credit.js?v=e62593497d';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=216a03505c';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=5d86087035';
-import { setHvpgStage } from './hvpg-proc.js?v=d0fe70f965';
-import { createWhy } from './why.js?v=ce64d40ff0';
-import { createTimeline, LAPSES } from './timeline.js?v=40616fe550';
-import { createCompare } from './compare.js?v=811239fea8';
-import { createCard } from './card.js?v=32bca431ff';
-import { createChart } from './chart.js?v=4e865851a7';
-import { createMenu } from './menu.js?v=3218ec7a47';
-import { caption } from './a11y.js?v=2ebc18c31d';
+import { createInspector } from './inspector.js?v=f24a50a46b';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=12dcddab5d';
+import { setHvpgStage } from './hvpg-proc.js?v=a6ac7f29e5';
+import { createWhy } from './why.js?v=6fd045df42';
+import { createTimeline, LAPSES } from './timeline.js?v=85a20aeffa';
+import { createCompare } from './compare.js?v=4d8c5969f0';
+import { createCard } from './card.js?v=cd25be282b';
+import { createChart } from './chart.js?v=b48ec17a9c';
+import { createMenu } from './menu.js?v=f66bea60fb';
+import { caption } from './a11y.js?v=f4012cecbe';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=3475f3e984';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=6564a2e1c0';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=a641caf196';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=d0a37a64a1';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=30638c30ee';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=3b0814f664';
 import { releaseSpeed, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
-import { morphKey, crossfadeText } from './legend-morph.js?v=106137025e';
+import { morphKey, crossfadeText } from './legend-morph.js?v=1fedd312ef';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -38,13 +38,13 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=96e6e1c96e';
-import { initTopbarMotion } from './topbar-motion.js?v=358e3e341e';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=1c526eadd2';
+import { initTopbarMotion } from './topbar-motion.js?v=3bf1f15d6b';
 import { ORIGINS } from './blood.js?v=acc95c9bbc';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=bcedeba324';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
-import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=d228750e83';
+import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=70a3411d2a';
 import { feedbackDiagnostics } from './feedback-diag.js?v=680203e900';
 import { noteJump } from './display-state.js?v=8d062d39dc';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=2ccfd56d45';
@@ -72,14 +72,14 @@ let stage, inspector, dock, why, timeline, compare, card, chart, mainMenu;
 // on first use, so the first paint only waits for the model, the figure and the chart.
 function lazy(load, make) {
   let inst = null, pending = null;
-  const get = () => (pending ||= load().then((m) => (inst = make(m))).catch((err) => { pending = null; throw err; }));   // (a failed load is tried again on the next ask)
+  const get = () => (pending ||= load().then((m) => (inst = make(m))).catch((err) => { pending = null; loadFailed(err); throw err; }));   // (a failed load is tried again on the next ask)
   // Fetching the module (without creating the surface) once the app is idle keeps it cached for
   // offline use and makes the first open instant.
   return { get, now: () => inst, warm: () => load().catch(() => {}) };
 }
 let paletteL, presenterL, dopplerL, fibroL;
 const palette = {
-  open: () => paletteL.get().then((p) => p.open()),
+  open: () => paletteL.get().then((p) => p.open()).catch(() => {}),   // (a part that cannot load has said so: loadFailed)
   close: () => paletteL.now()?.close(),
   isOpen: () => !!paletteL.now()?.isOpen(),
 };
@@ -108,8 +108,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=1f051e5e5d'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=f0a679cc8d'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=bcde9787a1'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=f652afeb10'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -182,7 +182,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=d5dbf797f8'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=cc91d4448e'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -190,7 +190,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=a7ae27bd42'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=6ca583934c'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -329,7 +329,7 @@ async function main() {
 async function openDeepLink() {
   const q = new URLSearchParams(location.search);
   // (data-pz-opening: the deck is on its way; the corner credit waits for it rather than settle on the plain figure first.)
-  if (q.get('script')) { const de = document.documentElement; de.dataset.pzOpening = ''; presenter.start(q.get('script'), Math.max(0, (parseInt(q.get('slide'), 10) || 1) - 1)).finally(() => delete de.dataset.pzOpening); return true; }
+  if (q.get('script')) { const de = document.documentElement; de.dataset.pzOpening = ''; presenter.start(q.get('script'), Math.max(0, (parseInt(q.get('slide'), 10) || 1) - 1)).catch(() => {}).finally(() => delete de.dataset.pzOpening); return true; }
   if (q.get('preset')) {
     const id = q.get('preset'), list = store.get().presetList || [];
     if (list.some((p) => p.id === id)) { await loadPreset(id); return true; }
@@ -853,7 +853,7 @@ function renderBanner() {
 function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=a7e5e4841b').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=e051f7cd00').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
@@ -1977,4 +1977,7 @@ function armFeedbackAsk() {
   };
   timer = setInterval(tick, TICK);
 }
-main().catch((err) => { console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: 'var(--white)', color: 'var(--critical)', padding: '8px', zIndex: 999 } }, String(err.stack || err))); });
+main().catch((err) => {
+  // (Told to the page's own boot card too, so a failed start shows "couldn't start / Reload" at once, not a pulsing logo for 15 s and then an empty shell.)
+  (window.ppsBootErrors ||= []).push(String(err?.message || err).slice(0, 300)); window.ppsBootFail?.();
+  console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: 'var(--white)', color: 'var(--critical)', padding: '8px', zIndex: 999 } }, String(err.stack || err))); });

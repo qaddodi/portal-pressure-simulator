@@ -173,7 +173,7 @@ test('describeTarget names the control around an icon, not the svg inside it, an
 
 test('frame.js hands the page this tracker, and the tracker asks for frames only through the scheduler', () => {
   const frameJs = readFileSync(new URL('../src/ui/frame.js', import.meta.url), 'utf8');
-  assert.match(frameJs, /inputToPaint: inputMeasure\(\)/, 'perf().inputToPaint');
+  assert.match(frameJs, /get inputToPaint\(\) \{ return inputMeasure\(\); \}/, 'perf().inputToPaint');
   assert.ok(!/^(const|let) inputLatency = .*addEventListener/m.test(frameJs) && /let inputLatency = null;/.test(frameJs), 'made on the first read, not at load: the glass test counts window listeners');
   assert.match(frameJs, /ask: \(fn\) => finalFrame\(fn, 'input'\)/, 'its frames come from the scheduler');
   const js = readFileSync(new URL('../src/ui/input-latency.js', import.meta.url), 'utf8');

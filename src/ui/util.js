@@ -1,5 +1,5 @@
 // DOM & formatting helpers.
-import { saver, frame, cancelFrame } from './frame.js?v=d228750e83';
+import { saver, frame, cancelFrame } from './frame.js?v=70a3411d2a';
 import { releaseSpeed, settleSlope, settleAt, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=615d96d663';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 
@@ -159,6 +159,16 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   t.addEventListener('pointerleave', arm); t.addEventListener('focusout', arm);
   arm();
   return close;
+}
+
+/** A part of the app that could not be fetched (a new version went up while this tab stayed open, or the connection dropped): said
+ *  once in a while, with the way out, so a button that does nothing is never silent. */
+let loadFailAt = -1e9;
+export function loadFailed(err) {
+  console.error(err);
+  if (performance.now() - loadFailAt < 20000) return;
+  loadFailAt = performance.now();
+  toast('Part of the app could not load. Reload the page to get the latest version.', 'bad', { actions: [['Reload', () => location.reload()]] });
 }
 
 // (Announcements close together are coalesced, never dropped: live.js.)
@@ -659,7 +669,7 @@ export const cssRGB = (name) => parseRGB(cssVar(name));
 export const cssRGB01 = (name) => cssRGB(name).map((v) => v / 255);
 /** A colour token with an alpha, for a canvas: cssAlpha('--white', .5) → 'rgba(255,255,255,0.5)' (colour-exempt). */
 const alphaCache = new Map();   // (cleared with varCache: the instruments ask for the same few colours on every frame)
-export const cssAlpha = (name, a) => { const k = `${name}|${a}`; let v = alphaCache.get(k); if (v === undefined || !varCache.has(name)) { v = `rgba(${cssRGB(name).join(',')},${a})`; alphaCache.set(k, v); } return v; };
+export const cssAlpha = (name, a) => { const k = `${name}|${a}`; let v = alphaCache.get(k); if (v === undefined || !varCache.has(name)) { v = `rgba(${cssRGB(name).join(',')},${a})`; if (alphaCache.size > 2000) alphaCache.clear(); alphaCache.set(k, v); } return v; };   // (a fade asks for a new alpha every frame: the cache is cut at 2000)
 /** A colour ramp token ('#hex position, #hex position, …') as [[position, '#hex'], …]. */
 export const cssRamp = (name) => [...cssVar(name).matchAll(/(#[0-9a-f]{6})\s+(-?[\d.]+)/gi)].map((m) => [+m[2], m[1]]);
 // The blood's colours on the GPU (theme independent: they sit on the lumen, not on the page), in 0–1.

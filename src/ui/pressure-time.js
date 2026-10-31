@@ -6,9 +6,9 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js?v=3611054974';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=30638c30ee';
-import { FONT as FONT0, FONT } from './charts.js?v=ac93ad9c5e';
-import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=d228750e83';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=3b0814f664';
+import { FONT as FONT0, FONT } from './charts.js?v=dec6bde8cb';
+import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=70a3411d2a';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
 import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
@@ -18,10 +18,10 @@ import { createBeatClock, ekgSeries, leadIISeries } from './ekg.js?v=f27505b539'
 import { laneRoom } from './trace-lanes.js?v=3d3cb1915e';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
 import { plotFill } from './plot-look.js?v=5037697da7';
-import { createStill } from './still-layer.js?v=4cd8ba024b';
+import { createStill } from './still-layer.js?v=7bc9566c55';
 import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from './beat-card.js?v=1c985e2f61';
 import { VITALS } from './vital-read.js?v=cbba41a6b7';
-import { shownOr } from './shown.js?v=b3b95a448a';
+import { shownOr } from './shown.js?v=ef26894683';
 const nextFrame = frameFor('pressure-time');
 
 // hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the

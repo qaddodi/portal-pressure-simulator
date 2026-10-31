@@ -19,30 +19,30 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=7dc3f728fa';
+import { runFlick, FLICK } from './flick.js?v=e4fd991b94';
 import { store } from './store.js?v=3611054974';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=7ee2fdf618';
+import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=c3e8d3085c';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL } from './field-gl.js?v=779561d5dd';
 import { createTissueGL } from './tissue-gl.js?v=d63f76a31f';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=624ae21d7d';
-import { createTissueWorker } from './tissue-worker.js?v=91e7d88921';
+import { createTissueWorker } from './tissue-worker.js?v=53a53c7d0b';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=30638c30ee';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=6564a2e1c0';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=3b0814f664';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=d0a37a64a1';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=b99011b92e';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=a3511c73c9';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=acc95c9bbc';
-import { createSinusoidView } from './sinusoid-view.js?v=cd0ef29312';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab } from './frame.js?v=d228750e83';
-import { createGlassGL } from './glass-gl.js?v=099f72c9dd';
+import { createSinusoidView } from './sinusoid-view.js?v=e351918b9c';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab } from './frame.js?v=70a3411d2a';
+import { createGlassGL } from './glass-gl.js?v=80de2598b7';
 import { pillOf, pillLabels, pillHold } from './lz-pills.js?v=9c2fefe6b4';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=c16e5847d4';
-import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=3947588baf';
+import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=335613482d';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { easeMove, carryRate, carried, D_SMALL, D_SURFACE } from './ease.js?v=615d96d663';
@@ -601,7 +601,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return gl;
   }
   // (Registered once: one per ensureGL would add another handler on every restore.)
-  glCv.addEventListener('webglcontextrestored', () => { glTried = false; gl = null; binKey = ''; radKey = []; radAll = ''; radCal = ''; attrKey = ''; ensureGL(); if (F) update(F); });
+  glCv.addEventListener('webglcontextrestored', () => { glTried = false; gl?.dispose?.(); gl = null; binKey = ''; radKey = []; radAll = ''; radCal = ''; attrKey = ''; ensureGL(); if (F) update(F); });
   // Closed: the full-screen canvases and the vessels' GPU buffers are given back (they are sized again on the way in).
   // The world bitmap, the field's tiles and the uploaded network stay, so the next dive has nothing heavy to build.
   const free = (cv) => { if (cv.width || cv.height) { cv.width = 0; cv.height = 0; } };

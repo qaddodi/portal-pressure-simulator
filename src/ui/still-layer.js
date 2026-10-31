@@ -43,6 +43,6 @@ export function createStill(host, { make = () => document.createElement('canvas'
     /** How many times the picture was drawn (for the tests and the ?perf readout). */
     get builds() { return builds; },
     /** Lets the picture go (its memory), as the chart is let go. */
-    drop() { pic = null; key = ''; },
+    drop() { if (pic && 'width' in pic) pic.width = pic.height = 0; pic = null; key = ''; },
   };
 }

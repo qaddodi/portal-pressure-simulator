@@ -46,13 +46,13 @@ export function createDopplerGL() {
   if (!gl) return null;
   try {
     const ri = gl.getExtension('WEBGL_debug_renderer_info');
-    if (/SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)))) return null;
+    if (/SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)))) { gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
   } catch { /* the renderer's name withheld: taken as a GPU */ }
   let lost = false;
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
   // The program is started now and published once the driver has finished it (gl-compile.js); render() publishes it if it comes first.
   let started;
-  try { started = startProgram(gl, VS, FS, [['p', 0]]); } catch (e) { console.warn('Doppler on the GPU: shader failed; the 2D monitor stays.', e); return null; }
+  try { started = startProgram(gl, VS, FS, [['p', 0]]); } catch (e) { console.warn('Doppler on the GPU: shader failed; the 2D monitor stays.', e); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);

@@ -137,7 +137,7 @@ export function noteDraw(tag) { draws.set(tag, (draws.get(tag) || 0) + 1); total
 export function perf() {
   roll(performance.now());
   return { fps, surfaces: Object.fromEntries(rates), drawn: Object.fromEntries(drawRates), totals: { asks: { ...totals.asks }, drawn: { ...totals.drawn }, ms: { ...totals.ms }, frames: allFrames }, waiting: [...new Set([...queue.values(), ...late.values(), ...fin.values()].map(([t]) => t))],
-    inputToPaint: inputMeasure(), frames: frameRecording };
+    get inputToPaint() { return inputMeasure(); }, frames: frameRecording };
 }
 
 // Input to first change (input-latency.js; recs R2): the time from a tap, a press or a key to the frame in which the page first

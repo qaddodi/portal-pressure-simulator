@@ -4,20 +4,20 @@
 import { gastricUp } from '../engine/scenario.js?v=bcedeba324';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=e20e751129';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=6564a2e1c0';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=d0a37a64a1';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3611054974';
 import { fibroReading } from './clock.js?v=678bfe1fb0';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=30638c30ee';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=3b0814f664';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { easeMove, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
-import { runFlick, FLICK } from './flick.js?v=7dc3f728fa';
+import { runFlick, FLICK } from './flick.js?v=e4fd991b94';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js?v=9bca7bbc89';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
@@ -37,25 +37,25 @@ import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=c16e5847d4';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels, noteStripRead, stripPx } from './plate-upload.js?v=ea6a71d855';
 import { refine } from './refine.js?v=4918fdf124';
-import { fadeOver, fadeStop, fading } from './res-fade.js?v=3947588baf';
+import { fadeOver, fadeStop, fading } from './res-fade.js?v=335613482d';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
 import { cropToGrid } from './organs-gl.js?v=40c0c2260e';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=e08cf3a692';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
-import { createLabelGL } from './label-gl.js?v=509b4edfff';
-import { createGlassGL } from './glass-gl.js?v=099f72c9dd';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=b99011b92e';
+import { createLabelGL } from './label-gl.js?v=46f3cc23f2';
+import { createGlassGL } from './glass-gl.js?v=80de2598b7';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=a3511c73c9';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
 import { follow2, createColourFollow } from './display-state.js?v=8d062d39dc';
 import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=acc95c9bbc';
 import { retireRows, flowClose } from './flow-rows.js?v=59053c0155';
-import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=4e68244d22';
+import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=1058c26e6d';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=d228750e83';
+import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=70a3411d2a';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=e4c3c4f8c1';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -2421,7 +2421,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!lz) {
       if (!lzWaiting) {
         lzWaiting = true;
-        lobuleReady().then(() => { lzWaiting = false; if (store.get().lobule) openLobule(); }, (err) => { lzWaiting = false; console.error(err); store.set({ lobule: false, sinusoid: false }); });
+        lobuleReady().then(() => { lzWaiting = false; if (store.get().lobule) openLobule(); }, (err) => { lzWaiting = false; loadFailed(err); store.set({ lobule: false, sinusoid: false }); });
       }
       return;
     }
@@ -2442,7 +2442,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=e53767abee').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=78d5c6499c').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -8390,7 +8390,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // value is measured once, not once for every value it passes through.)
     const z = t.replace(/\d/g, '0'), k = `${weight}|${size}|${track}|${z}`;
     let w = widths.get(k);
-    if (w == null) { measure.font = `${weight} ${size}px ${FONT}`; w = measure.measureText(z).width + track * size * z.length; widths.set(k, w); }
+    if (w == null) { measure.font = `${weight} ${size}px ${FONT}`; w = measure.measureText(z).width + track * size * z.length; if (widths.size > 1500) widths.clear(); widths.set(k, w); }   // (a resize or a fluid size makes a new key each time: cut at 1500)
     return w;
   }
   document.fonts?.ready?.then(() => { widths.clear(); labelFonts++; if (F) updateLabels(F); });

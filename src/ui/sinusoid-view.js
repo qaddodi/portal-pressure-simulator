@@ -19,18 +19,18 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=30638c30ee';
-import { pressureColor } from './colormap.js?v=6564a2e1c0';
+import { h, fmt, clamp, lerp } from './util.js?v=3b0814f664';
+import { pressureColor } from './colormap.js?v=d0a37a64a1';
 import { isPaused } from './clock.js?v=678bfe1fb0';
 import { store } from './store.js?v=3611054974';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=416ef3a5f7';
-import { placeFenDisse } from './fen-place.js?v=c8d4c26ddb';
-import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=d228750e83';
+import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=80e689a9fe';
+import { placeFenDisse } from './fen-place.js?v=d2b6c56fd6';
+import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=70a3411d2a';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
-import { FADE_MS, fadeAlpha, mixInto } from './res-fade.js?v=3947588baf';
+import { FADE_MS, fadeAlpha, mixInto } from './res-fade.js?v=335613482d';
 const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -795,7 +795,7 @@ export function createSinusoidView({ host, before = null }) {
       spriteDt = Math.max(0, dt) * go;
       const n = sprites();
       // Paused and settled (nothing eases, no zoom): the same picture as last frame, so the two full-screen passes are skipped.
-      const gk = go === 0 && !dive && !svFade ? canvas.width + 'x' + canvas.height + '|' + n + '|' + JSON.stringify(u) : '';
+      const gk = go === 0 && !dive && !svFade ? canvas.width + 'x' + canvas.height + '|' + gpu.epoch + '|' + n + '|' + JSON.stringify(u) : '';
       if (!gk || gk !== gpuKey) { gpu.draw(u, pts, n); noteDraw('sinusoid-view'); svYield?.drew(performance.now()); } else settled = true;
       gpuKey = gk;
       if (svFade) svFadeStep();

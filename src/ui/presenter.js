@@ -16,9 +16,9 @@
 import { store, replaceParams } from './store.js?v=3611054974';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=62afd4956f';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=30638c30ee';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=3b0814f664';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=2af18edba0';
+import { liveText, wordsOf } from './live-text.js?v=00cd88a8a7';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
@@ -29,30 +29,30 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=68e76b2227';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { createHvpgMonitor } from './hvpg-proc.js?v=d0fe70f965';
-import { createTools } from './presenter-tools.js?v=622b7da47e';
+import { createHvpgMonitor } from './hvpg-proc.js?v=a6ac7f29e5';
+import { createTools } from './presenter-tools.js?v=0e2cc84417';
 import { openHandout } from './handout.js?v=3a027582b1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=e4c3c4f8c1';
-import { frameFor, cancelFrame } from './frame.js?v=d228750e83';
-import { createFigureKey } from './figure-key.js?v=a4bbb84a68';
+import { frameFor, cancelFrame } from './frame.js?v=70a3411d2a';
+import { createFigureKey } from './figure-key.js?v=5bbdf430f0';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=6564a2e1c0';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=85615c8fb1';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=d0a37a64a1';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=5ed2e731d0';
 import { clotWords } from './callout-math.js?v=6a4cd6d476';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=dea75830ab';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=c6661d1574';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=db1ba3a7dd';
+import { anchorsOf, roomFor } from './cam-room.js?v=2ce1b6e071';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
-import { flowTimeHeight, trailKeys } from './flow-time.js?v=2a864ef117';
-import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=ebb3b3767d';
+import { flowTimeHeight, trailKeys } from './flow-time.js?v=57d77b569c';
+import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=05670af9a0';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=b2bbcb6fb2';
 import { sheetPanes } from './sheet-glass.js?v=9a3f1c1ff1';
-import { createScopeTile } from './scope-tile.js?v=e855470ec4';
+import { createScopeTile } from './scope-tile.js?v=c6b5280130';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
 const nextFrame = frameFor('presenter');
@@ -837,8 +837,9 @@ function makeCalc() {
     pending.delete(m.reqId); p.done(m);
   };
   const ready = (async () => {
+    let w = null;
     try {
-      const w = new Worker(new URL('../worker.js?v=45a886b944', import.meta.url), { type: 'module' });
+      w = new Worker(new URL('../worker.js?v=45a886b944', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -850,6 +851,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = (e) => { e.preventDefault?.(); fail('the engine stopped'); };
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
+      if (w) { w.onmessage = w.onerror = null; w.terminate(); }   // (a worker that never said hello: not left running beside the page's own engine)
       try {
         const { createCore } = await import('../worker-core.js?v=cb6829d893');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));

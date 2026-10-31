@@ -165,7 +165,7 @@ test('the gate drives the page through the scheduler and the input tracker, and 
   assert.deepEqual(Object.keys(PROFILES).filter((p) => p !== 'desktop'), ['laptop', 'phone']);
   assert.match(js, /\['laptop', 'phone'\]\.includes\(p\)/);
   const frameJs = read('src/ui/frame.js');
-  assert.match(frameJs, /inputToPaint: inputMeasure\(\), frames: frameRecording/, 'the page offers what the gate calls');
+  assert.match(frameJs, /get inputToPaint\(\) \{ return inputMeasure\(\); \}, frames: frameRecording/, 'the page offers what the gate calls');
   assert.match(read('package.json'), /"perf:gate": "node scripts\/frame-gate\.mjs"/);
 });
 
