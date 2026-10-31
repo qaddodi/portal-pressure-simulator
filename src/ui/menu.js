@@ -62,7 +62,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const sheetMQ = matchMedia(PHONE_MQ);
   const fine = matchMedia('(hover: hover) and (pointer: fine)');
-  let el = null, back = null, pv = null, open = false, leaveT = 0, hoverT = 0, hideT = 0, pvKey = null, mark = null, query = '', tab = 'present';
+  let el = null, back = null, pv = null, coldOpen = false, open = false, leaveT = 0, hoverT = 0, hideT = 0, pvKey = null, mark = null, query = '', tab = 'present';
 
   const close = (o = {}) => {
     if (!open) return;
@@ -206,7 +206,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         h('div', { class: 'um-gl', id: 'umg-' + g }, h('b', {}, g), h('span', {}, GROUP_WHERE[g] || '')),
         h('ul', { 'aria-labelledby': 'umg-' + g }, ps.map((p) => patientRow(p, cur))))));
     let present;
-    if (!lib) present = h('section', { class: 'um-col', 'data-col': 'present' }, h('p', { class: 'um-note' }, 'Loading…'));
+    if (!lib) present = h('section', { class: 'um-col', 'data-col': 'present' }, h('p', { class: 'um-note um-wait' }, 'Loading…'));   // (the note shows only if the wait runs past 0.4 s: a quick fill shows no flash of it)
     else {
       const mine = lib.mine;
       present = h('section', { class: 'um-col', 'data-col': 'present' },
@@ -324,6 +324,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const next = build(lib);
     if (sheet) next.classList.add('sheet');
     next.classList.add('still');
+    // A first open before the presentations had arrived: the frame and the Patients list were already up; the presentations now rise into place (the tab change's own 4 px fade-rise) instead of replacing the note at once.
+    if (coldOpen && lib) { coldOpen = false; if (!reduce.matches) next.querySelector('.um-col[data-col="present"]')?.classList.add('um-in'); }
+    else if (!lib) coldOpen = true;
     el.replaceWith(next); el = next;
     filter(); place(); dragToClose(el); swipeTabs(el);
     if (keep) el.querySelector('.um-cols').scrollTop = keep;
@@ -342,7 +345,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       if (!open) {
         open = true; query = opts.query || '';
         const sheet = sheetMQ.matches, lib = libraryNow();
-        el = build(lib);
+        el = build(lib); coldOpen = !lib;
         if (sheet) { el.classList.add('sheet'); back = h('div', { class: 'um-scrim', onclick: () => close() }); document.body.append(back); }
         document.body.append(el);
         place(); filter();

@@ -3560,6 +3560,7 @@ button.finding { cursor: pointer; }
 @media (hover: hover) { .um-link:hover { background: var(--surface-2); color: var(--text); } }
 .um-link svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .um-note { margin: 4px 8px; font-size: var(--fs-12); color: var(--text-3); line-height: 1.45; }
+.um-note.um-wait { animation: fadeIn .2s var(--ease) .4s backwards; }   /* (the menu's wait note comes up only if the presentations are slow to arrive: premium-feel R15) */
 .um-empty[hidden] { display: none; }
 .um-empty { display: flex; flex-direction: column; align-items: center; margin: 0; padding: 24px 16px; text-align: center; font-size: var(--fs-14); color: var(--text-3); }
 .um-foot { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-top: 1px solid var(--hairline); }
