@@ -122,6 +122,20 @@ What is measured, and where (`src/ui/frame.js`, `frame-stats.js`, `input-latency
   margin. A scenario over a ceiling is run once more and the better run kept. `checks.yml` warns, `ci.yml` blocks; both run it in their
   `visual` job so no runner is added. `npm run perf:gate -- dist` runs it by hand (`--profile=phone`, `--mode=block`).
 
+## Compositor and canvas heat (31 Oct 2026; laptop-heat recs H2, H3)
+
+- **Backdrop blurs (H2).** A CSS `backdrop-filter` is a CABackdropLayer that macOS's WindowServer redraws on every frame the content under
+  it changes, which over the moving figure is every frame. The figure draws the glass of the callouts, the liver pane and the Present
+  cards itself (`glass-gl.js`); what is left on the browser's blur is listed by `?perf` -> **Blurs** (`blur-gauge.js`), each with the
+  reason its glass gave the blur back (`stage.js` `blurWhy`). The lobule pills are on the browser's blur on purpose (the GPU frost
+  flickered); `.pz-fold` and `.toast` have no glass of the figure.
+- **Still layer (H3).** The Pressure chart's parts that do not move (the panel, each lane's grid and numbers, the HVPG lane's cut-off
+  lines and names, and on a slide's beat card the scale's numbers and the column or line of readings) are drawn once into a picture of
+  the chart's size (`still-layer.js`) and laid down with one `drawImage` while their key holds. The key is the JSON of every number,
+  colour and word those parts are drawn from, plus the canvas size, the pixel ratio, the context's line ends and the fonts epoch. The
+  traces, ends, markers, axis and crosshair are drawn over it as before. `tests/still-layer.test.js` compares what reaches the canvas
+  (every drawing call with the state it reads) with and without the picture, frame by frame, for the dock and the slide cards.
+
 ## Verification
 
 Run `npm test`. In addition to the physiological acceptance suite, lifecycle tests check pause/visibility behavior, immediate action frames, worker timeout cleanup, event-loop yielding and command ordering. The yielded calculations are compared with synchronous calculations, including complete snapshots after preset loading, advancing and prerolling.

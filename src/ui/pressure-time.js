@@ -18,6 +18,7 @@ import { createBeatClock, ekgSeries, leadIISeries } from './ekg.js?v=f27505b539'
 import { laneRoom } from './trace-lanes.js?v=3d3cb1915e';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
 import { plotFill } from './plot-look.js?v=5037697da7';
+import { createStill } from './still-layer.js?v=4cd8ba024b';
 import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from './beat-card.js?v=1c985e2f61';
 import { VITALS } from './vital-read.js?v=cbba41a6b7';
 import { shownOr } from './shown.js?v=97076ba848';
@@ -51,7 +52,11 @@ const sevOf = hvpgSev;
 const wordOf = (v) => (v < HVPG_CUTS.amber ? 'Normal' : v < HVPG_CUTS.red ? 'Mild' : v < HVPG_CUTS.bleed ? 'CSPH' : 'CSPH · can bleed');
 const nice = (span, n = 4) => { const raw = Math.max(1e-6, span / n); const p = Math.pow(10, Math.floor(Math.log10(raw))); const r = raw / p; return (r < 1.5 ? 1 : r < 3.5 ? 2 : r < 7.5 ? 5 : 10) * p; };
 
-export function createPressureTime({ marks = () => [] } = {}) {
+// (The web fonts finishing changes how every word on the chart is set: the still picture is drawn again then.)
+let fontEpoch = 0;
+globalThis.document?.fonts?.addEventListener?.('loadingdone', () => { fontEpoch++; });
+
+export function createPressureTime({ marks = () => [], stillLayer = true } = {}) {
   // ── DOM ───────────────────────────────────────────
   const heroVal = h('b', { class: 'pt-num' }, '—');
   const heroSev = h('span', { class: 'pt-sev' });
@@ -62,6 +67,9 @@ export function createPressureTime({ marks = () => [] } = {}) {
   const rangeSeg = h('div', { class: 'seg pt-range', role: 'group', 'aria-label': 'Time range' }, RANGES.map(([id, label]) =>
     h('button', { 'data-range': id, 'aria-pressed': String(id === range), onclick: () => { userRange = id; setRange(id); } }, label)));
   const cv = h('canvas', { role: 'img', 'aria-label': 'Pressure over time' });
+  // The chart's still parts (laptop-heat recs H3): its panel, grid, thresholds and, on a slide's card, the column of readings, drawn once
+  // while their key holds (still-layer.js), laid down whole each frame; the traces, ends, markers, axis and crosshair are drawn over it.
+  const still = createStill(cv, { on: stillLayer });
   const box = h('div', { class: 'chart-box pt-box' }, cv);
   const chosen = new Set(TRACES.filter((t) => t.on).map((t) => t.id));
   const chips = h('div', { class: 'pt-chips', role: 'group', 'aria-label': 'Traces' }, TRACES.map((t) => {
@@ -320,6 +328,59 @@ export function createPressureTime({ marks = () => [] } = {}) {
   // the lines' ends. Every number is the slide's own (pinned), as the tiles show it.
   const MMHG = 'mmHg';
   const HR_CUT = VITALS.find((v) => v.id === 'hr')?.cut ?? 110;
+  // The slide card's still parts, drawn on `g` from `S` alone (their key is S's JSON): the panel, the scale's numbers, and the readings, in
+  // the column beside the plot or, on a narrow card, as the line on top. What moves is drawn over them.
+  function drawBeatStill(g, S) {
+    const { w, hh, panel, faint, muted, text, L, hrT, hvT, hrC, sevC } = S;
+    const FONT = (wt, px) => FONT0(wt, px * 13 / 12);   // (a slide's card: the larger lettering)
+    g.globalAlpha = 1; g.setLineDash([]);
+    plotFill(g, 0, 0, w, hh, panel);
+    g.font = FONT(500, 12); g.fillStyle = faint; g.textAlign = 'right'; g.textBaseline = 'middle';
+    for (const [t, y] of S.yl) g.fillText(t, L - 6, y);
+    g.textBaseline = 'alphabetic'; g.textAlign = 'left';
+    if (S.col) {
+      // the column: heart rate, the HVPG and its status, then the three lines named, the quick check's way (hairlines between, no fills)
+      const { x, plan, hrSince, hvSince, rows } = S.col, k = plan.k, cw = w - x - 14;
+      g.lineCap = S.cap; g.lineJoin = S.join;   // (the first two hairlines take the ends the context had; the ones among the rows follow the swatch's last, butt)
+      const rule = (y) => { g.strokeStyle = S.hair; g.lineWidth = 1; g.beginPath(); g.moveTo(x, Math.round(y) + 0.5); g.lineTo(x + cw, Math.round(y) + 0.5); g.stroke(); };
+      const big = (y, v, unit, px, colour) => {
+        g.font = FONT(650, px); g.fillStyle = colour; g.fillText(v, x, y);
+        const vw = g.measureText(v).width; g.font = FONT(500, 12); g.fillStyle = faint; g.fillText(unit, x + vw + 6, y);
+      };
+      // (a change upward is the bad way for both: red; downward green)
+      const since = (y, t) => { if (!t) return; g.font = FONT(600, 12); g.fillStyle = t.startsWith('▲') ? S.danger : S.ok; g.fillText(t, x, y); };
+      let y = 26;
+      g.font = FONT(600, 12); g.fillStyle = muted; g.fillText('HEART RATE', x, y);
+      y += 32 * k; big(y, hrT, '/min', Math.max(20, 28 * k), hrC);
+      if (plan.deltas) { y += 20 * k; since(y, hrSince); }
+      y += 14 * k; rule(y);
+      y += 24 * k; g.font = FONT(600, 12); g.fillStyle = muted; g.fillText('HVPG', x, y);
+      y += 36 * k; big(y, hvT, 'mmHg', Math.max(22, 32 * k), text);
+      y += 21 * k; g.font = FONT(600, 12); g.fillStyle = sevC; g.fillText(S.word, x, y);
+      if (plan.deltas) { y += 18 * k; since(y, hvSince); }
+      if (plan.rows) {
+        y += 14 * k; rule(y);
+        for (const [colour, name, vT, dashed] of rows) {
+          y += 26 * k;
+          g.strokeStyle = colour; g.lineWidth = 3; g.lineCap = 'round'; g.setLineDash(dashed ? [4, 3] : []);
+          g.beginPath(); g.moveTo(x + 1, y - 4); g.lineTo(x + 12, y - 4); g.stroke(); g.setLineDash([]); g.lineCap = 'butt';
+          g.font = FONT(500, 12); g.fillStyle = muted; g.fillText(name, x + 18, y);
+          g.font = FONT(650, 12.5); g.fillStyle = text; g.textAlign = 'right'; g.fillText(vT, x + cw, y); g.textAlign = 'left';
+          y += 10 * k; rule(y);
+        }
+      }
+    } else {
+      // a narrow card: the HVPG and its status on one line on top, the heart rate at its right
+      const y = 24;
+      g.font = FONT(600, 12); g.fillStyle = muted; g.fillText('HVPG', 8, y);
+      let x = 8 + g.measureText('HVPG').width + 6;
+      g.font = FONT(650, 17); g.fillStyle = text; g.fillText(hvT, x, y); x += g.measureText(hvT).width + 4;
+      g.font = FONT(500, 12); g.fillStyle = faint; g.fillText(MMHG, x, y); x += g.measureText(MMHG).width + 8;
+      g.font = FONT(600, 12); g.fillStyle = sevC; g.fillText(S.word, x, y);
+      g.textAlign = 'right'; g.font = FONT(650, 13); g.fillStyle = hrC; g.fillText(hrT, w - 8, y);
+      const hw = g.measureText(hrT).width; g.font = FONT(600, 12); g.fillStyle = muted; g.fillText('HR', w - 12 - hw, y); g.textAlign = 'left';
+    }
+  }
   function drawBeatCard(ctx, w, hh, x0, x1, xNow, FONT, noPv, { text, muted, faint, panel }) {
     const col = (v) => cssVar(v);
     const lay = beatLayout(w, hh, cfg.ekg), { L, R, top, bot } = lay, plotW = R - L;
@@ -335,6 +396,22 @@ export function createPressureTime({ marks = () => [] } = {}) {
     const sq = (bot - top) / hi, Y = (v) => bot - v * sq;
     const wc = col('--tr-wedge'), fc = col('--tr-hv'), pc = col('--tr-pv');
 
+    // The still parts of the card (laptop-heat recs H3): the panel, the scale's numbers, and the readings (the column beside the plot, or
+    // the line on top of a narrow card), drawn into a picture of their own while the words and colours they are drawn from hold, and laid
+    // down whole. They stand clear of everything that moves (the plot's box, the strip, the caliper at R + 12 and the time axis all end
+    // at R; the column starts at R + 30; the narrow card's line is above its strip), so drawn first they set the pixels they set before.
+    const sevC = col(`--${sevOf(hv)}`), hrC = hr >= HR_CUT ? col('--danger') : text;
+    const hvWas = showWas ? tenthGap(wWas, fWas, was.hvpg) : was?.hvpg;
+    const keyRows = [[pc, 'Portal vein', pvNow, true], [wc, 'Wedged', wNow, false], [fc, 'Free', fNow, false]].filter((r) => !(noPv && r[1] === 'Portal vein'));
+    const hrT = Number.isFinite(hr) ? fmt(hr, 0) : '—', hvT = Number.isFinite(hv) ? fmt(hv, 1) : '—';
+    const SB = { w, hh, W: cv.width, H: cv.height, dpr: ctx.getTransform?.().a || 1, panel, faint, muted, text, hair: cssAlpha('--text', 0.12), danger: col('--danger'), ok: col('--ok'), fonts: fontEpoch,
+      cap: typeof ctx.lineCap === 'string' ? ctx.lineCap : 'butt', join: typeof ctx.lineJoin === 'string' ? ctx.lineJoin : 'miter',
+      L, wide: lay.wide, hrT, hvT, word: wordOf(hv), sevC, hrC,
+      yl: Array.from({ length: Math.floor(hi / 5) + 1 }, (_, i) => [String(i * 5), Y(i * 5)]),
+      col: lay.wide ? { x: lay.colX, plan: colPlan(hh, !!(sinceText(hr, was?.hr, 0) || sinceText(hv, hvWas, 1))), hrSince: sinceText(hr, was?.hr, 0), hvSince: sinceText(hv, hvWas, 1),
+        rows: keyRows.map(([c, name, v, dashed]) => [c, name, Number.isFinite(v) ? fmt(v, 1) : '—', dashed]) } : null };
+    still.lay(ctx, JSON.stringify(SB), (c) => drawBeatStill(c, SB));
+
     // the paper, from the plot's bottom left corner up through the strip: a heavy line every 5 squares
     const paperTop = lay.ekg ? lay.ekg.top : top;
     ctx.save(); ctx.beginPath(); ctx.rect(L, paperTop - 2, plotW, bot - paperTop + 2); ctx.clip();
@@ -349,9 +426,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
       ctx.stroke();
     }
     ctx.restore();
-    ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    for (let v = 0; v <= hi; v += 5) ctx.fillText(String(v), L - 6, Y(v));
-    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+    // (The scale's numbers are in the still picture, left of the plot's box; its unit stays here, over the paper.)
+    ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     if (top - 10 > (lay.ekg ? lay.ekg.bot : 0)) ctx.fillText(MMHG, 8, top - 10);
 
     // the EKG strip, in the text colour, over the model's own beats
@@ -432,51 +508,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
     ctx.textAlign = nowX > R - 14 ? 'right' : 'center'; ctx.fillStyle = muted; ctx.fillText('now', Math.min(nowX, R), hh - 8);
     ctx.textAlign = 'left';
 
-    const sevC = col(`--${sevOf(hv)}`), hrC = hr >= HR_CUT ? col('--danger') : text;
-    const hvWas = showWas ? tenthGap(wWas, fWas, was.hvpg) : was?.hvpg;
-    const keyRows = [[pc, 'Portal vein', pvNow, true], [wc, 'Wedged', wNow, false], [fc, 'Free', fNow, false]].filter((r) => !(noPv && r[1] === 'Portal vein'));
-    if (lay.wide) {
-      // the column: heart rate, the HVPG and its status, then the three lines named, the quick check's way (hairlines between, no fills)
-      const hrSince = sinceText(hr, was?.hr, 0), hvSince = sinceText(hv, hvWas, 1);
-      const plan = colPlan(hh, !!(hrSince || hvSince)), k = plan.k, x = lay.colX, cw = w - x - 14, hair = cssAlpha('--text', 0.12);
-      const rule = (y) => { ctx.strokeStyle = hair; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, Math.round(y) + 0.5); ctx.lineTo(x + cw, Math.round(y) + 0.5); ctx.stroke(); };
-      const big = (y, v, unit, px, c) => {
-        ctx.font = FONT(650, px); ctx.fillStyle = c; ctx.fillText(v, x, y);
-        const vw = ctx.measureText(v).width; ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.fillText(unit, x + vw + 6, y);
-      };
-      // (a change upward is the bad way for both: red; downward green)
-      const since = (y, t) => { if (!t) return; ctx.font = FONT(600, 12); ctx.fillStyle = col(t.startsWith('▲') ? '--danger' : '--ok'); ctx.fillText(t, x, y); };
-      let y = 26;
-      ctx.font = FONT(600, 12); ctx.fillStyle = muted; ctx.fillText('HEART RATE', x, y);
-      y += 32 * k; big(y, Number.isFinite(hr) ? fmt(hr, 0) : '—', '/min', Math.max(20, 28 * k), hrC);
-      if (plan.deltas) { y += 20 * k; since(y, hrSince); }
-      y += 14 * k; rule(y);
-      y += 24 * k; ctx.font = FONT(600, 12); ctx.fillStyle = muted; ctx.fillText('HVPG', x, y);
-      y += 36 * k; big(y, Number.isFinite(hv) ? fmt(hv, 1) : '—', 'mmHg', Math.max(22, 32 * k), text);
-      y += 21 * k; ctx.font = FONT(600, 12); ctx.fillStyle = sevC; ctx.fillText(wordOf(hv), x, y);
-      if (plan.deltas) { y += 18 * k; since(y, hvSince); }
-      if (plan.rows) {
-        y += 14 * k; rule(y);
-        for (const [c, name, v, dashed] of keyRows) {
-          y += 26 * k;
-          ctx.strokeStyle = c; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.setLineDash(dashed ? [4, 3] : []);
-          ctx.beginPath(); ctx.moveTo(x + 1, y - 4); ctx.lineTo(x + 12, y - 4); ctx.stroke(); ctx.setLineDash([]); ctx.lineCap = 'butt';
-          ctx.font = FONT(500, 12); ctx.fillStyle = muted; ctx.fillText(name, x + 18, y);
-          ctx.font = FONT(650, 12.5); ctx.fillStyle = text; ctx.textAlign = 'right'; ctx.fillText(Number.isFinite(v) ? fmt(v, 1) : '—', x + cw, y); ctx.textAlign = 'left';
-          y += 10 * k; rule(y);
-        }
-      }
-    } else {
-      // a narrow card: the HVPG and its status on one line on top, the heart rate at its right; each line's value at its end
-      const y = 24;
-      ctx.font = FONT(600, 12); ctx.fillStyle = muted; ctx.fillText('HVPG', 8, y);
-      let x = 8 + ctx.measureText('HVPG').width + 6;
-      ctx.font = FONT(650, 17); ctx.fillStyle = text; const hvT = Number.isFinite(hv) ? fmt(hv, 1) : '—'; ctx.fillText(hvT, x, y); x += ctx.measureText(hvT).width + 4;
-      ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.fillText(MMHG, x, y); x += ctx.measureText(MMHG).width + 8;
-      ctx.font = FONT(600, 12); ctx.fillStyle = sevC; ctx.fillText(wordOf(hv), x, y);
-      const hrT = Number.isFinite(hr) ? fmt(hr, 0) : '—';
-      ctx.textAlign = 'right'; ctx.font = FONT(650, 13); ctx.fillStyle = hrC; ctx.fillText(hrT, w - 8, y);
-      const hw = ctx.measureText(hrT).width; ctx.font = FONT(600, 12); ctx.fillStyle = muted; ctx.fillText('HR', w - 12 - hw, y); ctx.textAlign = 'left';
+    if (!lay.wide) {
+      // a narrow card: each line's value at its end (the line of readings on top, the HVPG and the heart rate, is in the still picture)
       const es = keyRows.map(([c, name, v]) => ({ c, v, y: Y(v), label: name === 'Portal vein' ? 'PV' : name === 'Wedged' ? 'WHVP' : 'FHVP' })).filter((e) => Number.isFinite(e.v)).sort((a, b) => a.y - b.y);
       for (let i = 1; i < es.length; i++) es[i].y = Math.max(es[i].y, es[i - 1].y + 16);
       const over = es.length ? es[es.length - 1].y - bot : 0;
@@ -489,6 +522,54 @@ export function createPressureTime({ marks = () => [] } = {}) {
       }
       ctx.textBaseline = 'alphabetic';
     }
+    // (The column's swatches used to leave the context's line ends butt, which the next frame's first drawing finds: the same ends are left now.)
+    if (SB.col?.plan.rows) ctx.lineCap = 'butt';
+  }
+
+  // The chart's still parts, drawn on `c` from `S` alone (their key is S's JSON): the panel, each lane's grid and, in the HVPG lane, its
+  // threshold lines and their names. Drawn before anything that moves. Each lane's are clear of what moves in the lane above (the lanes
+  // stand 16 px or more apart, and what moves is clipped to its own lane's box, 2 px out), so drawing the lanes' still parts together,
+  // first, sets every pixel as drawing them lane by lane among the moving parts did.
+  function drawChartStill(c, S) {
+    const { w, hh, panel, faint, gridOn, slide, narrow, L, plotW } = S;
+    const FONT = (wt, px) => FONT0(wt, slide ? px * 13 / 12 : px);
+    c.globalAlpha = 1; c.setLineDash([]); c.lineCap = S.cap; c.lineJoin = S.join;
+    plotFill(c, 0, 0, w, hh, panel);
+    for (const [key, top, bot, lo, hi, tick] of S.lanes) {
+      const Y = (v) => bot - ((v - lo) / Math.max(1e-6, hi - lo)) * (bot - top);
+      // grid
+      c.lineWidth = 1; c.font = FONT(500, 12); c.textAlign = 'right'; c.textBaseline = 'middle';
+      for (let v = Math.ceil(lo / tick) * tick; v <= hi + 1e-9; v += tick) {
+        const yy = Math.round(Y(v)) + 0.5;
+        c.strokeStyle = gridOn; c.globalAlpha = 0.7; c.beginPath(); c.moveTo(L, yy); c.lineTo(L + plotW, yy); c.stroke(); c.globalAlpha = 1;
+        c.fillStyle = faint; c.fillText(fmt(v, tick < 1 ? 1 : 0), L - 6, yy);
+      }
+      c.textBaseline = 'alphabetic';
+      if (key !== 'hvpg') continue;
+      c.save(); c.beginPath(); c.rect(L, top - 2, plotW, bot - top + 4); c.clip();
+      // clinical thresholds
+      const roomy = bot - top > 90;
+      // (Every dashed line first, then the labels on their plates, so no later line crosses an earlier label.)
+      const labs = [];
+      for (const [v, label] of LIMITS) {
+        if (v > hi || (v === HVPG_CUTS.amber && !roomy && !slide)) continue;   // (a slide keeps all three faint lines, 5, 10 and 12, as the talk trace's lane does)
+        const yy = Math.round(Y(v)) + 0.5;
+        c.strokeStyle = (v >= HVPG_CUTS.red ? S.danger : S.caution); c.globalAlpha = v >= HVPG_CUTS.red ? 0.5 : 0.35;
+        c.setLineDash([3, 4]); c.beginPath(); c.moveTo(L, yy); c.lineTo(L + plotW, yy); c.stroke(); c.setLineDash([]);
+        c.globalAlpha = 1;
+        if (label && !narrow && (slide ? roomy || v === HVPG_CUTS.bleed : roomy || v === HVPG_CUTS.red)) labs.push([label, yy]);   // (a slide's short lane names the cut-offs once, at 12)
+      }
+      let prevLab = null;   // (the label drawn last: one that would sit on it moves along its own line, past its right end)
+      for (const [label, yy] of labs) {
+        c.font = FONT(600, 12); const tw = c.measureText(label).width;
+        const lx = labelX(prevLab, yy, L + 6);
+        c.fillStyle = panel; c.fillRect(lx, yy - 6, tw + 8, 12);
+        c.fillStyle = S.danger; c.textAlign = 'left'; c.textBaseline = 'middle';
+        c.fillText(label, lx + 4, yy); c.textBaseline = 'alphabetic';
+        prevLab = { x1: lx + tw + 8, y: yy };
+      }
+      c.restore();
+    }
   }
 
   function drawNow() {
@@ -499,7 +580,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
     // (The plot is one rounded panel the chart's full width, his G2 look, plot-look.js, in the app's tile tone: what must hide a line or ring a dot
     // there, a label's plate, a dot's ring, a marker's halo, takes the panel's tone so no patch shows; the readout card keeps the surface tone.)
     const text = col('--text'), muted = col('--text-2'), faint = col('--text-3'), grid = col('--grid'), surface = col('--surface'), panel = col('--surface-2'), gridOn = col('--border-strong');
-    plotFill(ctx, 0, 0, w, hh, panel);
+    // (The panel is the first thing in the still picture, drawn once there; a card that draws no picture lays it down itself.)
+    const panelNow = () => plotFill(ctx, 0, 0, w, hh, panel);
     const hidden = hiddenSet();
     const showHvpg = !hidden.has('trueHVPG');
     const slide = onSlide();   // (a slide's card: its own window, one scale, steady readings and larger lettering, below)
@@ -516,6 +598,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     let x0, x1, xNow;
     if (range === 'days') {
       if (days.length < 2) {
+        panelNow();
         ctx.fillStyle = faint; ctx.font = FONT(500, 13); ctx.textAlign = 'center';
         ctx.fillText('Advance the disease clock (+1 wk, +1 mo, +6 mo)', w / 2, hh / 2 - 8);
         ctx.fillText('to follow pressure over days and months.', w / 2, hh / 2 + 12);
@@ -545,6 +628,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     if (slide && range === 'beats' && showHvpg) { drawBeatCard(ctx, w, hh, x0, x1, xNow, FONT, hidden.has('pv'), { text, muted, faint, panel }); return; }
 
     if (!traces.length && !showHvpg) {
+      panelNow();
       ctx.fillStyle = faint; ctx.font = FONT(500, 13); ctx.textAlign = 'center';
       ctx.fillText(store.get().imaging ? 'Pressures are not measured in this case.' : 'Choose a trace below.', w / 2, hh / 2);
       return;
@@ -629,40 +713,21 @@ export function createPressureTime({ marks = () => [] } = {}) {
       [lo, hi] = fixed ? fixed[lane.key] : ease(lane.key, lo, hi);
       const tick = fixed ? [5, 10, 20, 25, 50].find((t) => hi % t === 0 && (bot - top) * t / hi >= 15) ?? hi : nice(hi - lo, (bot - top) > 120 ? 4 : 2);   // (a slide's ticks end on its top line, never closer than 15 px)
       const Y = (v) => bot - ((v - lo) / Math.max(1e-6, hi - lo)) * (bot - top);
-      lane.Y = Y;
+      lane.Y = Y; lane.lo = lo; lane.hi = hi; lane.tick = tick; lane.keys = keys;
+    }
 
-      // grid
-      ctx.lineWidth = 1; ctx.font = FONT(500, 12); ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-      for (let v = Math.ceil(lo / tick) * tick; v <= hi + 1e-9; v += tick) {
-        const yy = Math.round(Y(v)) + 0.5;
-        ctx.strokeStyle = gridOn; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(L + plotW, yy); ctx.stroke(); ctx.globalAlpha = 1;
-        ctx.fillStyle = faint; ctx.fillText(fmt(v, tick < 1 ? 1 : 0), L - 6, yy);
-      }
-      ctx.textBaseline = 'alphabetic';
+    // The still parts (laptop-heat recs H3): drawn into a picture of their own when their key changes, and laid down whole.
+    const S = { w, hh, W: cv.width, H: cv.height, dpr: ctx.getTransform?.().a || 1, panel, faint, gridOn, danger: col('--danger'), caution: col('--caution'), slide, narrow, L, plotW,
+      cap: typeof ctx.lineCap === 'string' ? ctx.lineCap : 'butt', join: typeof ctx.lineJoin === 'string' ? ctx.lineJoin : 'miter', fonts: fontEpoch,
+      lanes: lanes.map((l) => [l.key, l.top, l.bot, l.lo, l.hi, l.tick]) };
+    still.lay(ctx, JSON.stringify(S), (c) => drawChartStill(c, S));
+    // (What the grid used to leave on the context, which the parts drawn after it read without setting: the baseline, the weight, the colours.)
+    if (lanes.length) { ctx.globalAlpha = 1; ctx.lineWidth = 1; ctx.font = FONT(500, 12); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.strokeStyle = gridOn; ctx.fillStyle = faint; }
 
+    for (const lane of lanes) {
+      const { top, bot, Y, keys } = lane;
       ctx.save(); ctx.beginPath(); ctx.rect(L, top - 2, plotW, bot - top + 4); ctx.clip();
       if (lane.key === 'hvpg') {
-        // clinical thresholds
-        const roomy = bot - top > 90;
-        // (Every dashed line first, then the labels on their plates, so no later line crosses an earlier label.)
-        const labs = [];
-        for (const [v, label] of LIMITS) {
-          if (v > hi || (v === HVPG_CUTS.amber && !roomy && !slide)) continue;   // (a slide keeps all three faint lines, 5, 10 and 12, as the talk trace's lane does)
-          const yy = Math.round(Y(v)) + 0.5;
-          ctx.strokeStyle = col(v >= HVPG_CUTS.red ? '--danger' : '--caution'); ctx.globalAlpha = v >= HVPG_CUTS.red ? 0.5 : 0.35;
-          ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(L + plotW, yy); ctx.stroke(); ctx.setLineDash([]);
-          ctx.globalAlpha = 1;
-          if (label && !narrow && (slide ? roomy || v === HVPG_CUTS.bleed : roomy || v === HVPG_CUTS.red)) labs.push([label, yy]);   // (a slide's short lane names the cut-offs once, at 12)
-        }
-        let prevLab = null;   // (the label drawn last: one that would sit on it moves along its own line, past its right end)
-        for (const [label, yy] of labs) {
-          ctx.font = FONT(600, 12); const tw = ctx.measureText(label).width;
-          const lx = labelX(prevLab, yy, L + 6);
-          ctx.fillStyle = panel; ctx.fillRect(lx, yy - 6, tw + 8, 12);
-          ctx.fillStyle = col('--danger'); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-          ctx.fillText(label, lx + 4, yy); ctx.textBaseline = 'alphabetic';
-          prevLab = { x1: lx + tw + 8, y: yy };
-        }
         const s = data.hvpg;
         if (s.x.length > 1) {
           // area under the gradient, in the color of its current status
@@ -957,7 +1022,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     before = ctx?.ref ? { fp: ctx.ref, label: t?.deltaLabel || 'before' } : null;
     if (frame) redraw();
   }
-  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, backfill, historySecs: () => RANGES[0][2], dispose() { offs.forEach((off) => off()); io?.disconnect(); cancelFrame(tickRaf); tickRaf = 0; ticking = false; frame = null; } };
+  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, backfill, historySecs: () => RANGES[0][2], dispose() { offs.forEach((off) => off()); io?.disconnect(); cancelFrame(tickRaf); tickRaf = 0; ticking = false; frame = null; still.drop(); } };
 }
 
 // Thin a series to about two points per pixel column (a pulsatile trace has thousands of samples).

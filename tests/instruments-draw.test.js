@@ -17,7 +17,7 @@ globalThis.getComputedStyle = () => ({
 });
 
 // A context that accepts every call and property and writes down the words and the colours it was given.
-function fakeCtx(log) {
+function fakeCtx(log, node = null) {
   const state = {};
   // (A turn of the page is followed, so a name written turned is placed where it lands: translate, then rotate, inside save and restore.)
   let tr = { x: 0, y: 0, rot: 0 }; const trs = [];
@@ -33,6 +33,10 @@ function fakeCtx(log) {
     strokeText: () => {},
     measureText: (s) => ({ width: String(s).length * 7 }),
     createLinearGradient: () => { log.gradients++; return { addColorStop() {} }; },
+    // (A chart's still picture, still-layer.js: a canvas of its own with no parent. Clearing it starts it again; laying it down on the chart writes what
+    // it holds among the chart's own words and shapes, where a person would see them.)
+    clearRect: () => { if (node && !node.parent) for (const k of ['texts', 'fonts', 'rounds', 'bad']) log[k].length = 0; },
+    drawImage: (img) => { if (img?.log) for (const k of ['texts', 'fonts', 'rounds', 'bad']) log[k].push(...img.log[k]); },
   };
   const num = (a) => a.every((v) => typeof v !== 'number' || Number.isFinite(v));
   return new Proxy(state, {
@@ -63,7 +67,7 @@ class Node {
   querySelector() { return null; }
   closest(sel) { for (let n = this; n; n = n.parent) if (n.slide && sel.includes('.pz-tool')) return n; return null; }
   getBoundingClientRect() { return { width: this.bw ?? 400, height: this.bh ?? 220, left: 0, top: 0 }; }
-  getContext() { return (this.ctx ??= fakeCtx(this.log)); }
+  getContext() { return (this.ctx ??= fakeCtx(this.log, this)); }
   remove() {}
 }
 globalThis.document.createElement = (tag) => new Node(tag);

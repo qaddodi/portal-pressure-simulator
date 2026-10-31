@@ -182,12 +182,12 @@ test('the Explore dock\'s canvas charts lay the same rounded panel: plotFill is 
   assert.match(pt, /panel = col\('--surface-2'\)/, 'the tile tone, --surface-2, as the SVG charts\' pz-plotbg');
   assert.doesNotMatch(charts, /c\.axis; ctx\.beginPath\(\); ctx\.moveTo\(L, Math\.round\(y\(0\)\)/, 'no axis line under the profile: the panel\'s edge is the axis');
   // (Where a label must hide a line, or a dot is ringed, the panel's tone is used, not the card's, so no patch shows on the panel.)
-  assert.match(pt, /ctx\.fillStyle = panel; ctx\.fillRect\(lx, yy - 6, tw \+ 8, 12\)/, 'the cut-off names\' plates');
+  assert.match(pt, /c\.fillStyle = panel; c\.fillRect\(lx, yy - 6, tw \+ 8, 12\)/, 'the cut-off names\' plates (drawn in the still picture, H3)');
   assert.match(pt, /dots\(ctx, s, X, Y, c, panel\)/, 'the day dots\' rings');
   assert.match(pt, /halo = cssVar\('--surface-2'\)/, 'the markers\' halos');
   assert.match(charts, /ctx\.fillStyle = c\.surface2; ctx\.beginPath\(\); ctx\.arc\(d\.cx, d\.cy, 6\.5/, 'the station dots\' rings');
   // (The numbers: 8 px in from the edge, 6 px clear of the lines, in both.)
   assert.match(charts, /ctx\.fillText\(String\(p\), L - 6, y\(p\) \+ 4\)/);
-  assert.match(pt, /ctx\.fillText\(fmt\(v, tick < 1 \? 1 : 0\), L - 6, yy\)/);
+  assert.match(pt, /c\.fillText\(fmt\(v, tick < 1 \? 1 : 0\), L - 6, yy\)/);
   assert.match(pt, /const L = 36, R = tiny \? 62 : narrow \? \(slide \? 100 : 94\) : 104, B = 24/);
 });
