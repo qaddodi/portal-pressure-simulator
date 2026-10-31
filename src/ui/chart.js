@@ -8,7 +8,7 @@
 import { store, updateParams } from './store.js?v=99200f9d94';
 import { h, icon, svgIcon, toast, reconcile } from './util.js?v=d313f178b3';
 import { DRUGS } from '../engine/scenario.js?v=e71da00102';
-import { activeInterventions } from './inspector.js?v=161d8d77f7';
+import { activeInterventions } from './inspector.js?v=f634f3aa0e';
 import { DRUG_NOTE } from './actions.js?v=172c7f5304';
 import { factTarget } from './fact-target.js?v=50935889f6';
 
@@ -98,7 +98,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     };
     const drugs = h('div', { class: 'order-chips' },
       Object.keys(DRUGS).map((k) => drugChip(k, DRUGS[k].label, DRUGS[k].info || DRUG_NOTE[k] || '', (p) => p.drugs[k], (p, v) => { p.drugs[k] = v; })),
-      drugChip('anticoag', 'Anticoagulation', 'Thrombi slowly recanalize on the disease clock.', (p) => p.anticoag, (p, v) => { p.anticoag = v; }),
+      drugChip('anticoag', 'Anticoagulation', 'Thrombi slowly recanalize as time passes.', (p) => p.anticoag, (p, v) => { p.anticoag = v; }),
       drugChip('diuretics', 'Diuretics', 'Spironolactone + furosemide: renal sodium and water loss mobilizes ascites.', (p) => p.diuretics, (p, v) => { p.diuretics = v; }));
     // One line per order; what it does is in its tooltip, so the list stays short.
     const btn = (ic, label, run, sub) => { const b = h('button', { class: 'order-btn', title: sub ? `${label}: ${sub}` : label }, ic ? svgIcon(ic, 'ac-ic') : null, h('span', { class: 'ob-t' }, label)); b.addEventListener('click', run); return b; };

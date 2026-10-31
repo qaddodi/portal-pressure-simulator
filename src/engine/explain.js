@@ -32,7 +32,7 @@ export const METRICS = {
 const edgeLabel = (id) => EDGES.find((e) => e.id === id)?.label || id;
 
 /** Enumerate factors that differ from the healthy default, each with a revert function. Each has a short `label` for its
- * bar ("Cirrhosis 85 %") and a `say` for the sentence, which reads aloud without nested brackets ("the cirrhosis"). */
+ * bar ("Cirrhosis 85%") and a `say` for the sentence, which reads aloud without nested brackets ("the cirrhosis"). */
 function factors(eng, metricId) {
   const p = eng.params, d = defaultParams(), s = eng.slow;
   const out = [];

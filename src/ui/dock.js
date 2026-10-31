@@ -47,7 +47,7 @@ export const TILES = [
     scale: [-0.6, 2], ticks: [0, 0.9],
     st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(vel(m)) < 9 ? 'danger' : v < 0.9 || Math.abs(vel(m)) < 15 ? 'caution' : 'ok'),
     s: (v, m) => (v < -0.02 ? 'Reversed' : Math.abs(vel(m)) < 9 ? 'Stasis' : v < 0.9 ? 'Reduced' : Math.abs(vel(m)) < 15 ? 'Slow' : 'Normal') },
-  { id: 'liver', group: 'flow', hideKey: 'model', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Total blood flow through the liver sinusoids (portal + hepatic artery), % of this model\'s healthy baseline. A model quantity, not liver function.', why: 'sinFlow', v: (m) => m.liverPerfPct, d: 0, u: '%',
+  { id: 'liver', group: 'flow', hideKey: 'model', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Total blood flow through the liver sinusoids (portal + hepatic artery), % of this model\u2019s healthy baseline. A model quantity, not liver function.', why: 'sinFlow', v: (m) => m.liverPerfPct, d: 0, u: '%',
     scale: [0, 150], ticks: [55, 75],
     st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Low' : 'Severe') },
   { id: 'shunt', group: 'flow', k: 'Shunted', why: 'shunt', hideKey: 'model', v: (m) => m.shuntFraction * 100, d: 0, u: '%', title: 'Share of gut and spleen blood that bypasses the liver through collaterals and shunts.',

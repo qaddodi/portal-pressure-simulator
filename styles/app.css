@@ -6356,6 +6356,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .rp-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @container (max-width: 519px) { .rp-tiles .metric .k .k-l { display: none; } .rp-tiles .metric .k .k-s { display: inline; } }
 @container (max-width: 399px) { .rp-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rp-tiles .metric .k .k-l { display: inline; } .rp-tiles .metric .k .k-s { display: none; } }
+/* Two columns and an odd group (three pressures, three flows, the fifth vital): the last tile takes the whole row instead of leaving a hole beside it. */
+@container (max-width: 399px) { .rp-tiles .metric:last-child:nth-child(odd) { grid-column: 1 / -1; } }
 
 /* Ascites: serum albumin's stepper is the drain's (− value +), a little wider for its unit. */
 .ab-dp-vol.ab-sa { width: 132px; flex: none; }

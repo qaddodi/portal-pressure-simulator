@@ -254,3 +254,9 @@ test('the Colored by cards are two lines at most in the 142 px column of a two-c
   assert.match(css, /\.lens-d \{[^}]*text-wrap: balance/);
   assert.doesNotMatch(src('src/ui/main.js'), /width = flow/);
 });
+
+test('the Readouts tab on a phone (two columns) gives the last tile of an odd group the whole row, so no group ends with a hole', () => {
+  assert.match(css, /@container \(max-width: 399px\) \{ \.rp-tiles \.metric:last-child:nth-child\(odd\) \{ grid-column: 1 \/ -1; \} \}/);
+  // tiles stay in the grid when their value is hidden (they blank, never leave), so the odd-child rule counts what is drawn
+  assert.doesNotMatch(src('src/ui/readouts-pane.js'), /\.remove\(\)|display = 'none'|style\.display/);
+});

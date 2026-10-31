@@ -1,20 +1,20 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=8d2d967d5c';
+import { startHost, host } from './host.js?v=5fa1d37f45';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=99200f9d94';
 import { createStage } from './stage.js?v=2dd10d5c49';
 import { createCreditPlacer } from './credit.js?v=853fefa4ac';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=161d8d77f7';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=931427629d';
+import { createInspector } from './inspector.js?v=f634f3aa0e';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=3afcf2e21f';
 import { setHvpgStage } from './hvpg-proc.js?v=516e6d88ea';
-import { createWhy } from './why.js?v=edd8341f76';
-import { createTimeline, LAPSES } from './timeline.js?v=82f8661ea7';
-import { createCompare } from './compare.js?v=96ce87da04';
+import { createWhy } from './why.js?v=a03d0cc2f1';
+import { createTimeline, LAPSES } from './timeline.js?v=80f8876654';
+import { createCompare } from './compare.js?v=a40ed84eda';
 import { createCard } from './card.js?v=7542ccd81f';
-import { createChart } from './chart.js?v=8d39e72990';
+import { createChart } from './chart.js?v=51b06c2eeb';
 import { createMenu } from './menu.js?v=8eddeef14b';
 import { caption } from './a11y.js?v=6128a8018f';
 import { startLMS } from './lms.js?v=284ef81e94';
@@ -183,7 +183,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=40288be2c0'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=2c4c7b70d9'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
