@@ -1243,8 +1243,13 @@ vec2 chevOne(int id, float s, float y, vec4 f0, vec4 f1, float len, float Rs, fl
   // Reduced motion: the heads stand still, so their spacing carries the flow instead: closer where more blood passes
   // (flow texel 3, y: a coarser level for less flow). Never closer than the zoom allows.
   if (still == 1) lv = max(lv, texelFetch(flow, ivec2(3, id), 0).y);
+  // The heads stand 2.5 times as far apart as the zoom and the flow alone set them (Mohammad, 31 Oct: "too many chevrons"), on every vessel,
+  // zoom and device: a constant added to the level (log2 2.5), so the doubling and its fade of every other head ease exactly as before, only
+  // 2.5 times wider. The ends' fade-in below keeps the spacing it had (Pc), so a short vessel's heads do not dim for want of room.
+  float Pc = 28.0 * exp2(lv);
+  lv += 1.3219281;
   float n = floor(lv), fr = lv - n;
-  float P = 28.0 * exp2(n), Pc = 28.0 * exp2(lv);
+  float P = 28.0 * exp2(n);
   float xe = mod(se - Dm + 0.5 * P, P) - 0.5 * P;
   float x = xe / Bm, u = x * dir;
   float sc = s - x;

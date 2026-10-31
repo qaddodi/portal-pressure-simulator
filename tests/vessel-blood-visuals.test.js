@@ -164,6 +164,22 @@ test('G17: with reduced motion the chevrons stand still, spaced by flow', () => 
   assert.match(GL, /if \(still == 1\) lv = max\(lv, texelFetch\(flow, ivec2\(3, id\), 0\)\.y\);/);
 });
 
+test('the flow arrowheads stand 2.5 times as far apart, by one constant on the level, so every zoom still eases between its doublings', () => {
+  // (Mohammad, 31 Oct: "too many chevrons btw, can we make them less".) Added after the reduced-motion level, so that keeps its flow steps.
+  const m = GL.match(/lv = max\(lv, texelFetch\(flow, ivec2\(3, id\), 0\)\.y\);[\s\S]*?float Pc = 28\.0 \* exp2\(lv\);\s*lv \+= ([\d.]+);\s*float n = floor\(lv\), fr = lv - n;/);
+  assert.ok(m, 'the spread sits after the still level and after the end ramp takes its spacing');
+  assert.ok(Math.abs(2 ** +m[1] - 2.5) < 1e-5, `2 ** ${m[1]} is the spacing factor`);
+  // The heads shown per length (every head of the finer level, the odd ones fading as the level climbs) fall to a third to a half at any zoom.
+  const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const dens = (lv) => { const n = Math.floor(lv), fr = lv - n; return (1 + (1 - ss(0.15, 0.85, fr))) / (2 * 28 * 2 ** n); };
+  for (let lv = 0; lv < 6; lv += 0.05) {
+    const r = dens(lv + +m[1]) / dens(lv);
+    assert.ok(r > 0.3 && r < 0.52, `at level ${lv.toFixed(2)} the heads fall to ${r.toFixed(3)} of what they were`);
+  }
+  // The head's end ramp still follows the old spacing, so a short vessel's heads are no dimmer for it.
+  assert.match(GL, /ramp = max\(2\.0 \* L, 0\.3 \* Pc\)/);
+});
+
 test('A7: the pressure ramp gets darker at every stop, so 12 and 20 mmHg differ in lightness, not only in hue', () => {
   // (Mohammad, 18 Oct: round 2 review A7.)
   const m = src('styles/tokens.css').match(/--ramp-pressure: ([^;]+);/)[1];
