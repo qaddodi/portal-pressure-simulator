@@ -3,7 +3,8 @@
 
 import { startHost, host } from './host.js?v=9ec2108104';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=a926bea9d4';
-import { createStage } from './stage.js?v=af0a617419';
+import { figWorkerWanted, startFigureWorker } from './figure-worker-start.js?v=5b2c7bc8cb';
+import { createStage } from './stage.js?v=9eb9d410fe';
 import { createCreditPlacer } from './credit.js?v=02ec5a517d';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
@@ -124,7 +125,10 @@ async function main() {
   store.set({ presetList: presets });
 
   why = createWhy($('#whyPop'));
+  // (?figworker=on: the figure's renderer in a worker; null where it cannot be, and the page draws it as before.)
+  const figure = figWorkerWanted() ? await startFigureWorker() : null;
   stage = createStage({
+    figure,
     wrap: view,
     onSelect: (sel, opts) => { select(sel); if (opts?.keyboard) setTimeout(() => card?.focusFirst(), 30); },
     onAction: doAction,

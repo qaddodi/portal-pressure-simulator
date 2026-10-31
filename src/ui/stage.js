@@ -102,7 +102,7 @@ function luminance(c) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
+export function createStage({ figure = null, wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // (#30) The stage's styles, as the model's frames read them (colours, the plate's theme, whether the figure shows): read live, each
   // read made the browser bring its styles up to date in the middle of the frame. They are read once and kept until something that
   // can change them happens: a class, style or theme attribute on the stage or any element above it, the system's light or dark
@@ -575,11 +575,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const GL_ROWS = ALL_EDGES.length + ALL_EDGES.reduce((n, e) => n + (STRANDS[e.id]?.length || 0) + (feedGeo[e.id]?.length || 0) + (treeGeo[e.id]?.length || 0), 0);
   let veins = null, svgOver = null, worldOver = null;
   let olList = [], olCol = [0.2, 0.45, 0.9], olDirty = false, olLast = 0, olVerts = null;   // the organ outlines on the GPU (see olStep)
-  const vCanvas = document.createElement('canvas');
+  // (?figworker=on: the figure's canvas and renderer come from main.js, the renderer running in a worker (figure-worker-start.js); the canvas can then be neither sized nor read here.)
+  const FIGW = !!figure;
+  let vW = 0, vH = 0;   // (its size, kept here in that case)
+  const vcw = () => (FIGW ? vW : vCanvas.width), vch = () => (FIGW ? vH : vCanvas.height);
+  const vCanvas = figure ? figure.canvas : document.createElement('canvas');
   vCanvas.id = 'veins'; vCanvas.setAttribute('aria-hidden', 'true');
   svg.after(vCanvas);
   // Lite graphics (main.js) keeps the SVG tubes: a software renderer copied every WebGL frame back to the CPU.
-  veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
+  if (FIGW) figure.begin(GL_ROWS);
+  veins = FIGW ? figure.proxy : createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
   if (veins) {
     svgOver = s('svg', { id: 'stageOver', 'aria-hidden': 'true', viewBox: `0 0 ${VIEW.w} ${VIEW.h}`, preserveAspectRatio: 'xMidYMid meet' });
     worldOver = s('g');
@@ -2434,7 +2439,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (glM && !(lz?.isOpen() || lz?.covers()) && !diveOrig) {
       // (The picture kept for the fade is the figure without the labels: they go back to the SVG first, labelsOver.)
       labelHold = true;
-      try { labelGL?.check(); fadeOver(vCanvas, resFollow, () => veins?.present?.()); } finally { labelHold = false; }
+      try { labelGL?.check(); if (!FIGW) fadeOver(vCanvas, resFollow, () => veins?.present?.()); } finally { labelHold = false; }
       fadeM0 = [...glM];
     }
     resizeCanvas();
@@ -2470,13 +2475,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // A notice that changed nothing the buffer holds (same backing size and ratio) leaves the canvas as it is: assigning a
     // width, even the same one, clears every surface drawn on it, and the figure was drawn again in the same task. A box
     // that moved by less than a backing pixel is drawn again on the next frame, as any change is, without the clear.
-    if (resizeReady && bw === vCanvas.width && bh === vCanvas.height && vdpr === was && `${pic}` === `${picNow}` && lin === picLin) {
+    if (resizeReady && bw === vcw() && bh === vch() && vdpr === was && `${pic}` === `${picNow}` && lin === picLin) {
       CTM = null;
       if (r.width !== boxW || r.height !== boxH) { boxW = r.width; boxH = r.height; forceDraw = true; stageWake(); }
       return;
     }
     boxW = r.width; boxH = r.height;
-    vCanvas.width = bw; vCanvas.height = bh;
+    if (FIGW) { vW = bw; vH = bh; veins.resize(bw, bh); } else { vCanvas.width = bw; vCanvas.height = bh; }
     if (pic || picNow) { picNow = pic; picLin = lin; veins?.setPicture?.(pic, lin); }
     CTM = null; forceDraw = true; stageWake();
     // Resizing clears the canvas, and the organs (the plate) and vessels drawn on it with it: draw
@@ -3904,7 +3909,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const m = CTM;
     const T = [vdpr * m.a, vdpr * m.b, vdpr * m.c, vdpr * m.d, vdpr * (m.e - wrapRect.left), vdpr * (m.f - wrapRect.top)];
     subPixel(T);
-    const key = T.map((v) => v.toFixed(3)).join(',') + `|${vCanvas.width}x${vCanvas.height}`;
+    const key = T.map((v) => v.toFixed(3)).join(',') + `|${vcw()}x${vch()}`;
     // The rows changed since the layer was drawn, taken once and kept until a draw has shown them: a refused partial draw
     // passes them on to the whole draw that stands in for it, and they are let go only once one of the two has drawn.
     const pending = veinsRows.size ? [...veinsRows] : null;
@@ -4615,7 +4620,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // picture is painted through the painter's targets, which hold its width and the canvas's height, or the other way round:
       // its sides are kept so those stay within the room the canvas gives them (organ-paint targetRoom). A view taller than the
       // screen and one wider made them 4096 square on an iPad at 2×, and Safari ended the page (Mohammad, 25 Oct).
-      const [roomW, roomH] = picNow || [vCanvas.width, vCanvas.height];   // (the picture's pixels: under Sharper upscaling the canvas is larger)
+      const [roomW, roomH] = picNow || [vcw(), vch()];   // (the picture's pixels: under Sharper upscaling the canvas is larger)
       const room = targetRoom(roomW, roomH);
       const scale = Math.min(need, 4094 / (x1 - x0), 4094 / (y1 - y0), Math.sqrt(4.2e6 / ((x1 - x0) * (y1 - y0))),
         room / (Math.max(1, roomH) * (x1 - x0)), room / (Math.max(1, roomW) * (y1 - y0)));
@@ -6368,7 +6373,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { el, list: null, fp: null, made: new Map(), dy: null, dyG: null };
   })();
   // The callouts' frosted glass, drawn on the GPU under both callout layers while it can be (glass-gl.js); else the browser's.
-  const glassGL = veins ? createGlassGL(wrap, vCanvas, [cath.labels, sites.el], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due() }) : null;
+  const glassGL = veins ? createGlassGL(wrap, vCanvas, [cath.labels, sites.el], { software: SOFTWARE, off: FIGW || /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due() }) : null;
   wrap.dataset.glass = glassGL ? 'gpu' : 'css';
   // The Present cards' glass (recs A2, 31 Oct): the same renderer, one per presenter run (cardGlass, below), drawing each card's blur
   // and tint from the figure's canvas while the anatomy shows (not the lobule, nor a dive), so the browser re-blurs none of them as the
@@ -8028,7 +8033,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const glass = h('div', { class: 'lb-glass', 'aria-hidden': 'true', hidden: true });
   labelSvg.before(glass);
   // (Drawn on the GPU under the labels while it can be, as the callouts' glass is: glass-gl.js.)
-  const paneGL = veins ? createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), pane: glass, version: () => veins.drawSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due() }) : null;
+  const paneGL = veins ? createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: FIGW || /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), pane: glass, version: () => veins.drawSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due() }) : null;
   onFigLab((k) => { if (k === 'glassCache') { glassGL?.redraw(); paneGL?.redraw(); for (const g of cardGLs) g.redraw(); } });
   // (Sharper upscaling on or off: the canvas takes its new size and picture under the eased change every resolution change takes.)
   onFigLab((k) => { if (k === 'upscale') { easeRes(); veinsDirty = true; forceDraw = true; stageWake(); } });
@@ -8092,7 +8097,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (labelHold || !veins || veins.lost || !svgOver?.classList.contains(OVER_ALL) || !glass.hidden || fading(vCanvas)) return false;
     const wc = wrap.classList;
     if (!wc.contains('gl-on') || wc.contains('cam-move') || wc.contains('pinch-hide') || wc.contains('unframed') || wc.contains('in-lobule') || wc.contains('cath-on')) return false;
-    if (vdpr < vBase - 1e-9 || vCanvas.style.translate || !(boxW > 0) || Math.abs(vCanvas.width / boxW - (devicePixelRatio || 1)) > 0.02) return false;
+    if (vdpr < vBase - 1e-9 || vCanvas.style.translate || !(boxW > 0) || Math.abs(vcw() / boxW - (devicePixelRatio || 1)) > 0.02) return false;
     const lc = getComputedStyle(labelSvg), vc = getComputedStyle(vCanvas);
     return lc.display !== 'none' && lc.visibility === 'visible' && +lc.opacity >= 0.999 && vc.visibility === 'visible' && +vc.opacity >= 0.999;
   }
@@ -10361,7 +10366,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let flowGate = lastT;
   // On a software renderer only (WebGL drawn on the CPU), a vessel frame waits for the last to finish on the GPU and gives the
   // page as long again (see sw-yield.js); on a GPU there is no yield (null) and the loop below is unchanged.
-  const swYield = softwareYield(SOFTWARE, SOFTWARE ? vCanvas.getContext('webgl2') : null);
+  const swYield = softwareYield(SOFTWARE, SOFTWARE && !FIGW ? vCanvas.getContext('webgl2') : null);
   // The overlays on the GPU (stage-over.js, veins-gl overlay; ?stageover=gpu): the lowest run of #stageOver's groups the painter can
   // read is painted in the vessel canvas, and its SVG copy hidden (OVER_CLASS). Read again when anything in the overlays changes that
   // the painter does not read at each paint (needsReread), when the page's state around them changes (overKey), and while a CSS
@@ -10411,7 +10416,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (No picture to paint them in: the context lost, or the GPU not drawing the figure.)
     if (!veins?.overlay || veins.lost || !wrap.classList.contains('gl-on')) { if (overPainted.length || svgOver?.classList.contains(OVER_ALL)) overClear(); return; }
     if (overFor !== veins) { overFor = veins; overDirty = true; }   // (a renderer made again: its overlays are empty)
-    veins.overlay.cssPx = boxW > 0 ? vCanvas.width / boxW : 1;   // (a non-scaling stroke's px: the canvas's own over its box's)
+    veins.overlay.cssPx = boxW > 0 ? vcw() / boxW : 1;   // (a non-scaling stroke's px: the canvas's own over its box's)
     const now = performance.now();
     for (const [el, t] of overEasing) if (t < now || !el.isConnected) { overEasing.delete(el); overDirty = true; }
     const key = overKey();
@@ -10493,7 +10498,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // own data (flow, origin streams) and a bleed, while those are shown.
     const fSame = F === lastDrawF || (!lastAnim && !bloodOn() && !chevOn() && !originOn() && !F?.bleed?.active && sprayA <= 0);
     if (still && bloodKeyVer !== storeVer) { bloodKey = JSON.stringify(st.blood); bloodKeyVer = storeVer; }   // (the store sets blood whole: its text changes only with a store write)
-    const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${bloodKey}|${vCanvas.width}x${vCanvas.height}|${holesKey}` : null;
+    const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${bloodKey}|${vcw()}x${vch()}|${holesKey}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
     // (So do vessel rows waiting to be drawn again, veinsRows: a coil's last step is drawn as its cells alone, no longer as a dirty layer.)
     syncOver();
@@ -11429,7 +11434,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return { W, H, plate, layers };
     },
     /** The vessel canvas as a PNG data URL, its kept picture copied onto it first (the canvas keeps none of its own: veins-gl OWN_BUF). */
-    veinsShot: () => (veins && !veins.lost ? veins.snapshot() : vCanvas.toDataURL()),
+    veinsShot: () => (FIGW ? '' : veins && !veins.lost ? veins.snapshot() : vCanvas.toDataURL()),
     veinsCheck(compositeOnly = false) {
       if (!veins || veins.lost || !vLook || !F) return null;
       const now = veins.snapshot();
