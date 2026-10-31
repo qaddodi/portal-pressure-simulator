@@ -3,28 +3,29 @@
 
 import { startHost, host } from './host.js?v=e9bd6a00e5';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3611054974';
-import { createStage } from './stage.js?v=8dbd6de976';
+import { createStage } from './stage.js?v=1f64f5f72b';
 import { createCreditPlacer } from './credit.js?v=631e5db535';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=84457279a8';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=fca97da65c';
-import { setHvpgStage } from './hvpg-proc.js?v=2e97f0e4af';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=df90c76587';
+import { setHvpgStage } from './hvpg-proc.js?v=320f90cf79';
 import { createWhy } from './why.js?v=6bd448c4fa';
 import { createTimeline, LAPSES } from './timeline.js?v=8cba514457';
 import { createCompare } from './compare.js?v=252a290249';
 import { createCard } from './card.js?v=d4011f20ec';
 import { createChart } from './chart.js?v=15c48fed91';
-import { createMenu } from './menu.js?v=20239c7d19';
+import { createMenu } from './menu.js?v=8598576439';
 import { caption } from './a11y.js?v=8228192407';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
 import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=e66b364328';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=6dded646df';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=6b82df24df';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=adf3d7db44';
 import { releaseSpeed, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
+import { morphKey, crossfadeText } from './legend-morph.js?v=c3f607b24e';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -107,8 +108,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=31bad68e70'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=634336eebf'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=4c0b12f3ee'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=e900ccb41d'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -181,7 +182,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=30a66da49c'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=ab70f1a18c'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -603,8 +604,9 @@ function legendModel() {
   const ref = cmp ? st.compareSnap.when : 'healthy';
   return { m, ref, imaging };
 }
-// A new lens or reference crossfades the key and the lens name (swapFade) with the vessels' own .3 s crossfade, rather than
-// swapping them in one frame (motion review P11); the same key built again simply replaces itself.
+// A new lens or reference moves the key and the lens name on the figure's own 420 ms clock rather than swapping them in one frame
+// (motion review P11, premium-feel R12): the name crossfades, a bar mixes its colours in OKLab and slides its numbers, legend-morph.js.
+// The same key built again simply replaces itself.
 let legendKey = null;
 function renderLegend() {
   const { m, ref } = legendModel();
@@ -612,10 +614,10 @@ function renderLegend() {
   // Compare on or off no longer fades an unchanged key out and in; round 2 review, NP8.)
   const el = $('#legend'), key = m === 'heat' || m === 'delta' ? `${m}|${ref}` : m, same = key === legendKey;
   legendKey = key;
-  const put = (...kids) => swapFade(el, () => el.replaceChildren(...kids), { instant: same });
+  const put = (...kids) => morphKey(el, kids, { instant: same });
   // (Every number is centred on its tick; the scale stands in from its neighbours by half its end numbers' width (ch: a digit,
   // the scale's own font being the numbers'), so the first and last are never pulled in off their ticks: "30" had sat 7.5 px left of its tick.)
-  const scale = (grad, nums, ticks = []) => h('div', { class: 'lg-scale', style: { marginLeft: `${String(nums[0]?.[1] ?? '').length / 2}ch`, marginRight: `${String(nums.at(-1)?.[1] ?? '').length / 2}ch` } }, h('div', { class: 'lg-bar', style: { background: grad } }),
+  const scale = (grad, nums, ticks = []) => h('div', { class: 'lg-scale', style: { marginLeft: `${String(nums[0]?.[1] ?? '').length / 2}ch`, marginRight: `${String(nums.at(-1)?.[1] ?? '').length / 2}ch` } }, Object.assign(h('div', { class: 'lg-bar', style: { background: grad } }), { _ramp: grad }),
     ticks.map((p) => h('span', { class: 'lg-tick', style: { left: p + '%' } })),
     nums.map(([p, t, opt]) => h('span', { class: 'lg-num' + (p >= 95 ? ' end' : p <= 1 ? ' start' : '') + (opt ? ' opt' : ''), style: { left: p + '%' } }, t)));
   // Where the full title is hidden (narrow screens), a two-word caption keeps the lens and its unit.
@@ -662,7 +664,7 @@ function renderLegend() {
     el.setAttribute('aria-label', `Legend: change in pressure from ${ref}, blue lower, red higher, up to 12 millimeters of mercury`);
   }
   const lab = $('#colorModeLabel'), name = m === 'neutral' ? 'Anatomy' : m === 'delta' && st().compareSnap ? 'Change since then' : COLOR_MODES[m];
-  swapFade(lab, () => { lab.textContent = name; }, { instant: lab.textContent === name });
+  crossfadeText(lab, name, { instant: lab.textContent === name });
 }
 const st = () => store.get();
 // ── Moving blood ─────────────────────────────────────

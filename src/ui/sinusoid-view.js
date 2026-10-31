@@ -20,7 +20,7 @@
 // around it.
 
 import { h, fmt, clamp, lerp } from './util.js?v=adf3d7db44';
-import { pressureColor } from './colormap.js?v=6dded646df';
+import { pressureColor } from './colormap.js?v=6b82df24df';
 import { isPaused } from './clock.js?v=678bfe1fb0';
 import { store } from './store.js?v=3611054974';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';

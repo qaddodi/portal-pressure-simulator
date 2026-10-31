@@ -2,7 +2,7 @@
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=e20e751129';
-import { pressureColor } from './colormap.js?v=6dded646df';
+import { pressureColor } from './colormap.js?v=6b82df24df';
 import { store, hiddenNow } from './store.js?v=3611054974';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=adf3d7db44';
 import { frameFor, cancelFrame, paceMs } from './frame.js?v=d228750e83';

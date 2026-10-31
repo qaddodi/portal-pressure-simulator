@@ -187,7 +187,7 @@ svg { flex: none; }
 .chip-btn[aria-pressed="true"] svg { color: currentColor; }
 
 /* Legend: a horizontal scale that sits in the figure header, never on the anatomy */
-.lens-btn { display: flex; align-items: center; gap: 4px; height: 42px; padding: 0 8px 0 8px; border-radius: var(--r-card); border: 1px solid transparent; cursor: pointer; transition: background var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease); }
+.lens-btn { position: relative; display: flex; align-items: center; gap: 4px; height: 42px; padding: 0 8px 0 8px; border-radius: var(--r-card); border: 1px solid transparent; cursor: pointer; transition: background var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease); }
 @media (hover: hover) { .lens-btn:hover { background: var(--surface); border-color: var(--border); } }
 .lens-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .lens-btn .chev { width: var(--ic-s); height: var(--ic-s); flex: none; stroke: var(--text-3); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -202,6 +202,8 @@ svg { flex: none; }
 @media (max-width: 1599px) { .legend .lg-cap { display: flex; } }
 .lg-scale { position: relative; width: 168px; height: 30px; }
 .lg-bar { position: absolute; left: 0; right: 0; top: 4px; height: 8px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgb(var(--black-rgb) / .06); }
+.lg-bar.morphing { transition: --lg-k var(--d-surface) var(--ease-move); }   /* (a new lens mixes the old key's colours into the new in OKLab, legend-morph.js: --lg-k runs 0 to 100 with the figure's own clock) */
+@property --lg-k { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
 .lg-tick { position: absolute; top: 2px; width: 1px; height: 12px; background: var(--text-2); opacity: .55; }
 .lg-num { position: absolute; top: 15px; transform: translateX(-50%); font-size: var(--fs-12); font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .lg-cats { display: flex; gap: 12px; font-size: var(--fs-12); color: var(--text-2); }

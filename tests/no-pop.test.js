@@ -69,10 +69,10 @@ test('swapFade fades the old content out, fills, and fades the new in; a hidden 
 });
 
 test('a new lens crossfades the key and the lens name; nothing else writes the name', () => {
-  assert.match(main, /const put = \(\.\.\.kids\) => swapFade\(el, \(\) => el\.replaceChildren\(\.\.\.kids\), \{ instant: same \}\);/);
+  assert.match(main, /const put = \(\.\.\.kids\) => morphKey\(el, kids, \{ instant: same \}\);/);
   const legend = main.slice(main.indexOf('function renderLegend()'), main.indexOf('const st = () => store.get();'));
   assert.doesNotMatch(legend, /^\s+el\.replaceChildren\(/m);
-  assert.match(legend, /swapFade\(lab, \(\) => \{ lab\.textContent = name; \}, \{ instant: lab\.textContent === name \}\);/);
+  assert.match(legend, /crossfadeText\(lab, name, \{ instant: lab\.textContent === name \}\);/);
   assert.equal(main.match(/#colorModeLabel'\)\.textContent =/g), null);
 });
 
