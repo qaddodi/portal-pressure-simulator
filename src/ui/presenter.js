@@ -4858,6 +4858,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     closeHome?.();
     const st0 = store.get();
     if (!layersBefore) layersBefore = { ...st0.lobuleLayers };
+    stage.setKeyStops?.(false);   // (the figure is read-only here: no Tab stops on it)
     store.set({ presenting: true, selection: null, details: null, compareSnap: null, colorMode: 'pressure', presentLabels: [], focus: null, stented: [], ...(st0.mode !== 'explore' ? { mode: 'explore' } : {}) });
     if (st0.view !== 'anatomic' && !st0.lobule) store.set({ view: 'anatomic' });
     projectorOn();
@@ -4921,6 +4922,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     dispatchEvent(new Event('pps:labelscale'));
     if (document.fullscreenElement) document.exitFullscreen?.();
     app.classList.remove('presenting', 'pz-hi');
+    stage.setKeyStops?.(true);
     app.style.removeProperty('--pz-wk');
     projectorOff();
     dispatchEvent(new Event('pps:occ'));

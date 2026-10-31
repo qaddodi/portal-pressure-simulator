@@ -792,8 +792,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // focus): invisible outlines after the organs, reached by Tab only. They take no pointer, so a click or tap never
   // focuses one, and their focus shows as the organ's hover outline (focusin below), never as a ring on the figure.
   const ORGAN_KEYS = [['heart', 'Right heart'], ['liver', 'Liver'], ['spleen', 'Spleen']];   // (the names the palette uses)
+  // (keyStops: whether the figure's vessels, organ keys and labels are keyboard stops. A talk turns them off: its figure is read-only and focus never
+  // shows on it, so Tab would have walked dozens of stops it could not show; setKeyStops.)
+  let keyStops = true;
   const gOrgKeys = s('g', { id: 'organKeys' });
-  for (const [id, label] of ORGAN_KEYS) gOrgKeys.append(s('path', { class: 'org-key', d: ORGANS.find((o) => o.id === id).d, tabindex: 0, role: 'button', 'aria-label': `${label}. Press Enter for its card.`, 'data-organ': id }));
+  for (const [id, label] of ORGAN_KEYS) gOrgKeys.append(s('path', { class: 'org-key', d: ORGANS.find((o) => o.id === id).d, tabindex: keyStops ? 0 : -1, role: 'button', 'aria-label': `${label}. Press Enter for its card.`, 'data-organ': id }));
   gOrgans.after(gOrgKeys);
   // The liver shows its disease in its form and surface, never as a pressure hue (hue is kept for
   // data). Healthy: a smooth, glossy capsule and a thin, sharp inferior edge. Congested: a
@@ -1038,7 +1041,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // A stenosed vessel is drawn as a filled outline whose width narrows at the lesion.
     const wallP = isArt ? null : s('path', { class: 'v-wallP' });
     const lumenP = isArt ? null : s('path', { class: 'v-lumenP', fill: `url(#gr-${e.id})` });
-    const hit = s('path', { class: 'v-hit', tabindex: 0, role: 'button', 'aria-label': e.label || e.id, 'data-id': e.id });
+    const hit = s('path', { class: 'v-hit', tabindex: keyStops ? 0 : -1, role: 'button', 'aria-label': e.label || e.id, 'data-id': e.id });
     // Extra channels of a braided collateral (cavernoma): plain strokes under the main tube.
     const strands = !isArt && STRANDS[e.id] ? STRANDS[e.id].map(([off, ph, k, ua, ub]) => ({ off, ph, k, span: ua != null ? [ua, ub] : null, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
     const feeders = !isArt && feedGeo[e.id] ? feedGeo[e.id].map(({ pts: cur, k: fk, fan, when, src, out }, i) => ({ cur, fk, fan, when, src, out, len: arcLen(cur), ph: i * 0.37, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
@@ -8438,13 +8441,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, fontPx(r.size), r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0), 0);
 
   const pool = new Map(); // key → { g, sig, … }
+  // A label that is hidden (off the screen, behind a card, colliding, fading out) is neither a keyboard stop nor read aloud: it keeps only its look
+  // until it is wanted again. (One with focus on it keeps its place until focus moves.)
+  function labelStop(b, hid) {
+    if (b.hid === hid || (hid && document.activeElement === b.g)) return;
+    b.hid = hid;
+    if (hid) b.g.setAttribute('aria-hidden', 'true'); else b.g.removeAttribute('aria-hidden');
+    if (b.g.hasAttribute('tabindex')) b.g.setAttribute('tabindex', hid || !keyStops ? '-1' : '0');
+  }
   function blockEl(key, cls, interactiveNode, onClick) {
     let b = pool.get(key);
     if (b) return b;
     const g = s('g', { class: 'lb ' + cls, 'data-key': key });
     const act = onClick || (interactiveNode ? () => onSelect({ type: 'node', id: interactiveNode }) : null);
     if (act) {
-      g.setAttribute('tabindex', '0'); g.setAttribute('role', 'button');
+      g.setAttribute('tabindex', keyStops ? '0' : '-1'); g.setAttribute('role', 'button');
       g.addEventListener('click', act);
       g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } });
     }
@@ -8572,6 +8583,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (b.sw) { setA(b.sw, 'fill', it.swatch); setA(b.sw, 'x', it.align === 'end' ? it.w - 3 : 0); }
     b.g.classList.toggle('sel', !!it.sel);
     b.g.classList.toggle('lb-off', !!it.hide);
+    labelStop(b, !!it.hide);
     if (it.key === 'liver') {
       glass.style.transform = `translate(${(it.x - it.padX).toFixed(1)}px, ${(it.y - it.padY).toFixed(1)}px)`;
       glass.style.width = `${(it.w + 2 * it.padX).toFixed(1)}px`; glass.style.height = `${(it.h + 2 * it.padY).toFixed(1)}px`;
@@ -10411,7 +10423,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       b.at = null; b.gl = null;
       if (b.gone || b.g.style.display === 'none') continue;
       if (reduceMotion.matches || camMove) { b.g.style.display = 'none'; continue; }
-      b.g.classList.add('lb-off');
+      b.g.classList.add('lb-off'); labelStop(b, true);
       const tok = b.gone = {};
       setTimeout(() => { if (b.gone === tok) { b.gone = null; b.g.style.display = 'none'; } }, 360);
     }
@@ -12000,6 +12012,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The vessels lit by a glow that stays (a selection, a slide's or step's vessels, the Doppler's), as [id, band width ×]: the corner
      *  credit keeps off their glow too. (A hover's or a change's glow comes and goes; the credit does not move for it.) */
     steadyGlows: () => ['sel', 'dop', 'slide', 'focus'].flatMap((k) => [...(glow.src.get(k) || new Map()).values()].map((g) => [g.id, g.wide || 1])),
+    /** A talk takes the figure out of the Tab order (its vessels, organ keys and labels); the end of the talk puts it back. */
+    setKeyStops: (on) => {
+      keyStops = !!on;
+      for (const el of wrap.querySelectorAll('.v-hit, .org-key')) el.setAttribute('tabindex', keyStops ? '0' : '-1');
+      for (const b of pool.values()) if (b.g.hasAttribute('tabindex')) b.g.setAttribute('tabindex', keyStops && !b.hid ? '0' : '-1');
+    },
     /** Where a station's callout attaches, in client px (for the checks). */
     labelAnchorOf: (id) => { const a = labelAnchor(id, easeInOut(morph)), r = wrap.getBoundingClientRect(); return { x: a.ax + r.left, y: a.ay + r.top, mid: a.mid }; },
     /** The presenter's camera in the lobule: the whole lobule ('fit'), a portal tract ('triad'), the sinusoids ('sinusoid') or the central vein ('central'). */

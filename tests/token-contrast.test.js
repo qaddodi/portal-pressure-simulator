@@ -52,3 +52,32 @@ test('the system dark theme uses the same text and surface colours as the chosen
   const sys = vars(block(':root:not([data-theme="light"]):not([data-theme="soft"])', tokens.indexOf('@media (prefers-color-scheme: dark)')));
   for (const k of [...TEXT, ...SURFACES]) assert.equal(sys[k], dark[k], `system dark ${k}`);
 });
+
+// Amber and the status text colours (production pass, 31 Oct): --caution is a fill and a stroke (2.95:1 on white); where amber is the
+// text itself the stylesheet uses --caution-ink, the colour 30 % toward the text colour. --on-status is the text on a danger fill.
+const mixRGB = (a, b, t) => a.map((v, i) => Math.round(v * t + b[i] * (1 - t)));
+test('amber used as text (--caution-ink) is at least 4.5:1 on the surfaces text sits on, in every theme', () => {
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(tokens, /--caution-ink: color-mix\(in srgb, var\(--caution\) 70%, var\(--text\)\);/);
+  const fails = [];
+  for (const [theme, t] of Object.entries(THEMES)) {
+    const ink = mixRGB(hex(t['--caution']), hex(t['--text']), 0.7);
+    for (const bg of ['--bg', '--surface', '--surface-2']) {
+      const r = ratio(ink, hex(t[bg]));
+      if (r < 4.5) fails.push(`${theme}: amber ink on ${bg} ${t[bg]} is ${r.toFixed(2)}:1`);
+    }
+  }
+  assert.deepEqual(fails, []);
+  // (No text rule paints the raw amber: a colour: declaration names --caution-ink, or mixes further toward the text colour.)
+  assert.deepEqual(css.match(/(?<![-\w])color: var\(--caution\)/g) || [], []);
+  assert.deepEqual(css.match(/(?<![-\w])color: color-mix\(in srgb, var\(--caution\) (?:70|75|80|85)%, var\(--text\)\)/g) || [], []);
+});
+
+test('the text on a danger fill (--on-status) is at least 4.5:1 on --danger, in every theme', () => {
+  const fails = [];
+  for (const [theme, t] of Object.entries(THEMES)) {
+    const r = ratio(hex(t['--on-status']), hex(t['--danger']));
+    if (r < 4.5) fails.push(`${theme}: ${t['--on-status']} on ${t['--danger']} is ${r.toFixed(2)}:1`);
+  }
+  assert.deepEqual(fails, []);
+});

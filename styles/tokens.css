@@ -185,6 +185,8 @@
   --z-figure: 1; --z-hud: 5; --z-panel: 10; --z-popover: 60; --z-dialog: 80; --z-toast: 100;
   /* ink on filled controls and badges */
   --on-accent: #FFFFFF; --on-status: #FFFFFF; --on-caution: #1B1300;
+  /* Amber as text: --caution itself is 2.95:1 on white (a fill and a stroke, not ink); mixed 30 % toward the text colour it is 4.5:1 or more on every surface, in all three themes (tests/token-contrast.test.js). */
+  --caution-ink: color-mix(in srgb, var(--caution) 70%, var(--text));
   /* light and shade in the anatomy (sheens, glints, occlusion) */
   --light-ink: #FFFFFF; --shade-ink: #000000; --tube-shade-ink: #0A0612; --lit-lo-ink: #1A0D14;
   /* pathology and devices on the plate */
@@ -272,7 +274,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="soft"]) {
     --bg: #1A1917; --stage-bg: #1A1917; --surface: #242321; --surface-2: #2B2A27; --surface-3: #333130;
-    --on-accent: #15140F; --skin: #7A5E55;
+    --on-accent: #15140F; --on-status: #15140F; --skin: #7A5E55;
     --shadow-menu: calc(6px * var(--light-slant)) 6px 20px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.2)); --shadow-dialog: calc(24px * var(--light-slant)) 24px 60px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.6));
     --glass: rgba(30, 29, 27, .95); --frost: rgba(30, 29, 27, .42); --scrim: rgba(6, 5, 4, .6);
     --hairline: rgba(255, 244, 228, .09); --border: #35332F; --border-strong: #4B4843;
@@ -322,7 +324,7 @@
 }
 :root[data-theme="dark"] {
   --bg: #1A1917; --stage-bg: #1A1917; --surface: #242321; --surface-2: #2B2A27; --surface-3: #333130;
-  --on-accent: #15140F; --skin: #7A5E55;
+  --on-accent: #15140F; --on-status: #15140F; --skin: #7A5E55;
   --shadow-menu: calc(6px * var(--light-slant)) 6px 20px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.2)); --shadow-dialog: calc(24px * var(--light-slant)) 24px 60px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.6));
   --glass: rgba(30, 29, 27, .95); --frost: rgba(30, 29, 27, .42); --scrim: rgba(6, 5, 4, .6);
   --hairline: rgba(255, 244, 228, .09); --border: #35332F; --border-strong: #4B4843;

@@ -4,7 +4,10 @@ import { gpuProbe } from './gpu-probe.js?v=625c2c9315';
 const KEY = 'pps.debug';
 const OPTS = [['fps', 'FPS and frame time'], ['zoom', 'Zoom level and scale'], ['res', 'Render resolution scale'], ['graph', 'Frame graph'], ['gpu', 'GPU time per step']];
 let st = {};
-try { st = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch { st = {}; }
+// (A stored choice counts only where ?debug is in the address: the toggles live behind it, so one made on an earlier visit must not leave an
+// overlay on every plain load with no way to turn it off but Reset everything.)
+const asked = typeof location !== 'undefined' && /[?&]debug(?=[=&#]|$)/.test(location.search || '');
+try { st = asked ? JSON.parse(localStorage.getItem(KEY) || '{}') || {} : {}; } catch { st = {}; }
 let stamps = [], cv = null, hist = [], el = null, raf = 0, last = 0, fps = 0, ms = 0, getZoom = null;
 // GPU time per step (gpu-probe.js): each frame's interval with the steps' times in it; the slowest in the last 10 s stays shown.
 let frames = [], prevT = 0;

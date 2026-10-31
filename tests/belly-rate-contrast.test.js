@@ -77,6 +77,6 @@ test('the belly daily balance is readable against its outline in every theme', (
 test('the balance keeps its meaning colours: amber rising, teal falling', () => {
   assert.match(decl(`${RATE}[data-dir="up"]`, 'color'), /--caution/);
   assert.match(decl(`${RATE}[data-dir="down"]`, 'color'), /--vel-normal/);
-  assert.match(css, /\.ab-rate\[data-dir="up"\] \.ab-rate-a \{ color: var\(--caution\); \}/);
+  assert.match(css, /\.ab-rate\[data-dir="up"\] \.ab-rate-a \{ color: var\(--caution-ink\); \}/);
   assert.match(css, /\.ab-rate\[data-dir="down"\] \.ab-rate-a \{ color: var\(--vel-normal\); \}/);
 });

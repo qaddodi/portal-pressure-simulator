@@ -398,14 +398,14 @@ svg { flex: none; }
 .cut-table th { font-weight: 600; color: var(--text-2); white-space: nowrap; }
 .cut-table td:first-child { font-weight: 600; color: var(--text); white-space: nowrap; }
 .cut-h { display: inline-flex; align-items: center; gap: 8px; }
-.cut-h[data-sev="ok"] { color: var(--ok); } .cut-h[data-sev="caution"] { color: color-mix(in srgb, var(--caution) 80%, var(--text)); } .cut-h[data-sev="danger"] { color: var(--danger); } .cut-h[data-sev="critical"] { color: var(--critical); }
+.cut-h[data-sev="ok"] { color: var(--ok); } .cut-h[data-sev="caution"] { color: var(--caution-ink); } .cut-h[data-sev="danger"] { color: var(--danger); } .cut-h[data-sev="critical"] { color: var(--critical); }
 .metric .s { display: flex; align-items: center; gap: 4px; font-size: var(--fs-12); color: var(--text-3); white-space: nowrap; overflow: hidden; line-height: 1.35; }
 .metric .status { overflow: hidden; text-overflow: ellipsis; }
 .status { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; }
 .metric[data-sev="ok"] { --sev: var(--ok); } .metric[data-sev="caution"] { --sev: var(--caution); }
 .metric[data-sev="danger"] { --sev: var(--danger); } .metric[data-sev="critical"] { --sev: var(--critical); } .metric[data-sev="none"] { --sev: var(--border-strong); }
 .metric[data-sev="danger"] .status, .metric[data-sev="critical"] .status { color: color-mix(in srgb, var(--sev) 80%, var(--text)); font-weight: 600; }
-.metric[data-sev="caution"] .status { color: color-mix(in srgb, var(--caution) 70%, var(--text)); }
+.metric[data-sev="caution"] .status { color: var(--caution-ink); }
 .metric[data-sev="ok"] .rb-fill { opacity: .55; }
 .metric.hidden-val .v { color: var(--text-3); }
 .metric .cmp { font-size: var(--fs-12); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -785,7 +785,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 600; background: var(--surface-2); color: var(--text-2); }
 .pill.rev { background: color-mix(in srgb, var(--flow-reversed) 14%, transparent); color: color-mix(in srgb, var(--flow-reversed) 85%, var(--text)); }
 .pill.ok { background: color-mix(in srgb, var(--ok) 12%, transparent); color: var(--ok); }
-.pill.warn { background: color-mix(in srgb, var(--caution) 14%, transparent); color: color-mix(in srgb, var(--caution) 80%, var(--text)); }
+.pill.warn { background: color-mix(in srgb, var(--caution) 14%, transparent); color: var(--caution-ink); }
 .pill.bad { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
 
 /* ── Panel cards ───────────────────────────────── */
@@ -1084,7 +1084,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
    Details' under the name. */
 .st-word { font-size: var(--fs-14); font-weight: 600; color: var(--text-2); }
 .st-word.ok { color: var(--ok); }
-.st-word.warn { color: color-mix(in srgb, var(--caution) 85%, var(--text)); }
+.st-word.warn { color: var(--caution-ink); }
 .st-word.rev { color: color-mix(in srgb, var(--flow-reversed) 85%, var(--text)); }
 .st-word.bad { color: var(--danger); }
 .ac-value b { font-size: var(--fs-20); font-weight: 600; letter-spacing: -.02em; }
@@ -1824,8 +1824,8 @@ button.finding { cursor: pointer; }
 .pzt-vu small { font: 500 var(--s-cap) var(--font-ui); color: var(--text-3); white-space: nowrap; }
 .pzt-r { display: inline-flex; align-items: center; justify-content: center; gap: .45em; font: 600 var(--s-cap)/1.2 var(--font-ui); color: var(--text-2); }
 .pz-tile[data-rate="hi"] .pzt-v, .pz-tile[data-rate="hi"] .pzt-r { color: var(--danger); }
-.pz-tile[data-rate="mid"] .pzt-v { color: var(--caution); }
-.pz-tile[data-rate="mid"] .pzt-r { color: color-mix(in srgb, var(--caution) 85%, var(--text)); }
+.pz-tile[data-rate="mid"] .pzt-v { color: var(--caution-ink); }
+.pz-tile[data-rate="mid"] .pzt-r { color: var(--caution-ink); }
 .pz-tile[data-rate="none"] .pzt-v { color: var(--text-3); }
 /* Tiles alone (no ladder), bigger; a tile's change from an earlier slide; the time-lapse counter. */
 .pz-data.tiles-only .pz-tiles { grid-template-columns: minmax(0, 1fr); }
@@ -2007,7 +2007,7 @@ button.finding { cursor: pointer; }
 .pz-table tbody th .pz-kick { font-size: var(--s-cap); }
 .pz-table .tn { display: block; margin-top: .15em; font: 600 1em/1.2 var(--font-display); color: var(--text); }
 .pz-table td[data-rate="hi"] { color: var(--danger); font-weight: 600; }
-.pz-table td[data-rate="mid"] { color: var(--caution); font-weight: 600; }
+.pz-table td[data-rate="mid"] { color: var(--caution-ink); font-weight: 600; }
 .pz-table .asc { white-space: nowrap; color: var(--text-3); }
 .pz-table .asc b { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 .pz-table .asc b[data-rate="hi"] { color: var(--danger); }
@@ -2733,7 +2733,7 @@ button.finding { cursor: pointer; }
 .app.pz-hi .pz-tile[data-rate="hi"] .pzt-r { background: var(--danger); color: var(--stage-bg); }
 .app.pz-hi .pz-tile[data-rate="mid"] .pzt-r { background: var(--caution); color: var(--on-caution); }
 .app.pz-hi .pz-tile:is([data-rate="ok"], [data-rate="lo"]) .pzt-r { background: var(--ok); color: var(--stage-bg); }
-.app.pz-hi .pz-tile[data-rate="mid"] .pzt-v { color: color-mix(in srgb, var(--caution) 70%, var(--text)); }
+.app.pz-hi .pz-tile[data-rate="mid"] .pzt-v { color: var(--caution-ink); }
 .app.pz-hi .pz-shade { filter: brightness(.9); }
 /* The pressure route runs from portal (magenta) to systemic (blue), as the vessels do on the figure. Each level of
    portal hypertension has its own shade between them (presenter). */
@@ -2774,7 +2774,7 @@ button.finding { cursor: pointer; }
 .hp-chip { display: inline-flex; align-items: baseline; gap: 4px; padding: 1px 8px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 500; color: var(--text-2); background: var(--surface-2); font-variant-numeric: tabular-nums; }
 .hp-chip b { font-weight: 600; color: var(--text); }
 .hp-chip.ok b { color: var(--ok); }
-.hp-chip.low b { color: var(--caution); }
+.hp-chip.low b { color: var(--caution-ink); }
 .hp-chip.mid b, .hp-chip.high b { color: var(--danger); }
 .hp-chip.high { background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
 .hp-chip.rev { color: color-mix(in srgb, var(--flow-reversed) 80%, var(--text)); background: color-mix(in srgb, var(--flow-reversed) 12%, var(--surface)); font-weight: 600; }
@@ -3176,7 +3176,7 @@ button.finding { cursor: pointer; }
 .hvpg-kv dt::after { content: '\00a0· mmHg'; font-weight: 500; letter-spacing: 0; }
 .hvpg-box { border-radius: var(--r-card); background: var(--mon-bg); }
 .hvpg-kv dd[data-sev="ok"] { color: color-mix(in srgb, var(--ok) 75%, var(--text)); }
-.hvpg-kv dd[data-sev="caution"] { color: color-mix(in srgb, var(--caution) 75%, var(--text)); }
+.hvpg-kv dd[data-sev="caution"] { color: var(--caution-ink); }
 .hvpg-kv dd[data-sev="danger"] { color: color-mix(in srgb, var(--danger) 75%, var(--text)); }
 /* The four steps, in one row: a numbered dot and a word each. */
 .hvpg-steps { margin: 0; padding: 0; list-style: none; counter-reset: hs; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-3); }
@@ -3268,7 +3268,7 @@ button.finding { cursor: pointer; }
 .pt-num { font-size: var(--fs-28); font-weight: 600; letter-spacing: -.02em; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
 .pt-v small { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; }
 .pt-sev { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); }
-.pt-sev[data-sev="caution"] { color: color-mix(in srgb, var(--caution) 80%, var(--text)); }
+.pt-sev[data-sev="caution"] { color: var(--caution-ink); }
 .pt-sev[data-sev="danger"] { color: var(--danger); }
 .pt-delta { font-size: var(--fs-12); line-height: 1.2; color: var(--text-3); font-variant-numeric: tabular-nums; min-width: min-content; min-height: 1.2em; }   /* (never cut with an ellipsis; its line is kept while it is empty, so the header never jumps) */
 .pt-delta[data-dir="up"] { color: var(--danger); }
@@ -3317,7 +3317,7 @@ button.finding { cursor: pointer; }
 .dop-report > * { transition: opacity var(--d-small) var(--ease); }
 .dop-report { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .dop-dir { font-size: var(--fs-20); font-weight: 600; letter-spacing: -.01em; line-height: 1.2; color: var(--text); display: inline-flex; align-items: center; gap: 8px; }
-.dop-dir[data-sev="caution"] { color: color-mix(in srgb, var(--caution) 80%, var(--text)); }
+.dop-dir[data-sev="caution"] { color: var(--caution-ink); }
 .dop-dir[data-sev="danger"], .dop-dir[data-sev="critical"] { color: var(--danger); }
 .dop-velrow { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; }
 .dop-vel { display: inline-flex; align-items: baseline; gap: 6px; }
@@ -3422,7 +3422,7 @@ button.finding { cursor: pointer; }
 .readouts:not(.all) .u-x { display: none; }
 .readouts:not(.all) .metric .v { font-size: var(--fs-20); }
 @container (max-width: 720px) { .readouts:not(.all) .metric .v { font-size: var(--fs-16); } }
-.metric[data-sev="caution"] .val { color: color-mix(in srgb, var(--caution) 70%, var(--text)); }
+.metric[data-sev="caution"] .val { color: var(--caution-ink); }
 .metric[data-sev="danger"] .val, .metric[data-sev="critical"] .val { color: color-mix(in srgb, var(--critical) 80%, var(--text)); }
 .metric.flash { animation: roFlash 1.4s var(--ease) /*own pace*/; }
 @keyframes roFlash { 0%, 60% { background: color-mix(in srgb, var(--sev) 22%, transparent); } }
@@ -4479,7 +4479,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pzk-names, .pzk-bar, .pzk-axis { position: relative; margin: 0 1.2em; }
 .pzk-names { display: grid; align-items: end; min-height: 1.6em; padding-bottom: .3em; box-sizing: border-box; }
 .pzk-names span { padding: 0 .2em; text-align: center; font-weight: var(--caps-w); font-size: var(--s-cap); line-height: 1.15; letter-spacing: var(--caps-ls); text-transform: uppercase; }
-.pzk-names [data-rate="ok"] { color: var(--ok); } .pzk-names [data-rate="mid"] { color: var(--caution); } .pzk-names [data-rate="hi"], .pzk-names [data-rate="top"] { color: var(--danger); }
+.pzk-names [data-rate="ok"] { color: var(--ok); } .pzk-names [data-rate="mid"] { color: var(--caution-ink); } .pzk-names [data-rate="hi"], .pzk-names [data-rate="top"] { color: var(--danger); }
 .pzk-bar { height: 1.5em; }
 .pzk-bar i { position: absolute; top: .25em; bottom: .25em; }
 .pzk-bar i:first-child { border-radius: 99px 0 0 99px; } .pzk-bar i:nth-last-of-type(1) { border-radius: 0 99px 99px 0; }
@@ -4493,7 +4493,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
   opacity: 0; transition: left 1.4s var(--ease) /*own pace*/ calc(var(--i, 0) * 160ms + 250ms), opacity var(--d-surface) var(--ease) calc(var(--i, 0) * 160ms + 100ms); }
 .pz-sk.in .pzk-dot { left: var(--x); opacity: 1; }
 .pzk-dot[data-rate="ok"], .pzk-key [data-rate="ok"] .pzk-n, .pzk-key [data-rate="ok"] .pzk-v { color: var(--ok); }
-.pzk-dot[data-rate="mid"], .pzk-key [data-rate="mid"] .pzk-n, .pzk-key [data-rate="mid"] .pzk-v { color: var(--caution); }
+.pzk-dot[data-rate="mid"], .pzk-key [data-rate="mid"] .pzk-n, .pzk-key [data-rate="mid"] .pzk-v { color: var(--caution-ink); }
 .pzk-dot[data-rate="hi"], .pzk-key [data-rate="hi"] .pzk-n, .pzk-key [data-rate="hi"] .pzk-v { color: var(--danger); }
 .pzk-axis { height: 1.7em; margin-top: .2em; font-weight: 700; font-variant-numeric: tabular-nums; }
 .pzk-axis span { position: absolute; top: 0; transform: translateX(-50%); }
@@ -4589,7 +4589,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .ab-big > b { font-size: var(--ab-big); font-weight: 600; letter-spacing: -.02em; line-height: 1.05; font-variant-numeric: tabular-nums; }
 .ab-big > b small { margin-left: 3px; font-size: var(--fs-14); font-weight: 500; letter-spacing: 0; color: var(--text-3); }
 .ab-grade { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2); white-space: nowrap; }
-.ab-grade[data-sev="caution"] { color: color-mix(in srgb, var(--caution) 80%, var(--text)); }
+.ab-grade[data-sev="caution"] { color: var(--caution-ink); }
 .ab-grade[data-sev="danger"] { color: var(--danger); }
 .ab-trend { font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .ab-gauge { display: grid; place-items: center; min-height: 0; }
@@ -4620,7 +4620,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .ab-v { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 2px 6px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .ab-v b { font-weight: 650; color: var(--text); }
 .ab-w { color: var(--text-3); transition: color var(--d-small) var(--ease); }
-.ab-w[data-sev="caution"] { color: var(--caution); font-weight: 600; }
+.ab-w[data-sev="caution"] { color: var(--caution-ink); font-weight: 600; }
 .ab-w[data-sev="danger"] { color: var(--danger); font-weight: 600; }
 .ab-iap-bar { position: relative; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
 .ab-iap-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--ok); transition: width var(--d-surface) var(--ease), background var(--d-small) var(--ease); }
@@ -4641,7 +4641,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .ab-txt { display: grid; min-width: 0; line-height: 1.3; }
 .ab-txt b { font-size: var(--fs-14); font-weight: 500; color: var(--text); }
 .ab-txt small { font-size: var(--fs-12); color: var(--text-3); transition: color var(--d-small) var(--ease); }
-.ab-txt small.ab-warn { color: var(--caution); }
+.ab-txt small.ab-warn { color: var(--caution-ink); }
 .ab-end { display: flex; align-items: center; gap: 8px; }
 .ab-tg { width: 100%; border: 0; border-radius: var(--r-control); background: none; text-align: left; cursor: pointer; touch-action: manipulation; }
 .ab-tg:disabled { opacity: .5; cursor: not-allowed; }
@@ -4701,7 +4701,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .ab-dp-at { display: grid; min-width: 0; line-height: 1.15; }
 .ab-dp-at b { white-space: nowrap; font: 500 12px/1.15 var(--font-ui); color: var(--text); }
 .ab-dp-at small { white-space: nowrap; font: 500 12px/1.15 var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; transition: color var(--d-small) var(--ease); }
-.ab-dp-at small.ab-warn { color: var(--caution); font-weight: 600; }
+.ab-dp-at small.ab-warn { color: var(--caution-ink); font-weight: 600; }
 .ab-dp-alb .switch-vis { position: relative; flex: none; width: 30px; height: 18px; border-radius: var(--r-pill); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong); transition: background var(--d-small) var(--ease), box-shadow var(--d-small) var(--ease); }
 .ab-dp-alb .switch-vis i { position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 3px rgb(var(--black-rgb) / .3); transition: transform var(--d-small) var(--ease); }
 .ab-dp-alb[aria-checked="true"] .switch-vis { background: var(--accent); box-shadow: inset 0 0 0 1px transparent; }
@@ -5128,9 +5128,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .dop-mark { position: absolute; top: 50%; width: 4px; height: 18px; margin: -9px 0 0 -2px; border-radius: 2px; background: var(--text); box-shadow: 0 0 0 2px var(--surface, var(--bg)); box-sizing: border-box; transition: left var(--d-surface) var(--ease), background-color var(--d-small) var(--ease); }
 .dop-range[data-out="true"] .dop-mark { background: var(--caution); }
 .dop-vel b { transition: color var(--d-small) var(--ease); }
-.dop-vel[data-out="true"] b { color: var(--caution); }
+.dop-vel[data-out="true"] b { color: var(--caution-ink); }
 /* A stent's three segments: one outside 90–190 cm/s reads in the caution colour; the gated one is underlined in the Doppler's green. */
-.dop-stats > div[data-out="true"] dd { color: var(--caution); }
+.dop-stats > div[data-out="true"] dd { color: var(--caution-ink); }
 .dop-stats > div.on dt { color: var(--text); box-shadow: inset 0 -2px 0 var(--doppler); width: fit-content; }
 .instrument-workspace .dop-stats > div.on { border-color: var(--doppler); }
 .instrument-workspace .dop-stats > div.on dt { box-shadow: none; }
@@ -5700,7 +5700,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 }
 @container (max-width: 300px) { .pz:not(.stack):not(.low) .pz-data.pz-data.pz-data .pz-tool[data-kind="beats"] .pt-head { grid-template-columns: auto minmax(0, 1fr); } .pz:not(.stack):not(.low) .pz-data.pz-data.pz-data .pz-tool[data-kind="beats"] .pt-sev { grid-column: 1 / -1; justify-self: start; } }   /* (a narrow tracing: its status under the HVPG, not over its unit) */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report { container-type: normal; }   /* (laid out as contents it has no box: as a container it hid the instrument's own width from its queries) */
-.pz-tool .ab-big > b[data-sev="caution"] { color: var(--caution); } .pz-tool .ab-big > b[data-sev="danger"] { color: var(--danger); }   /* (the reading in its tile's colour) */
+.pz-tool .ab-big > b[data-sev="caution"] { color: var(--caution-ink); } .pz-tool .ab-big > b[data-sev="danger"] { color: var(--danger); }   /* (the reading in its tile's colour) */
 /* (Inside the beaker the litres read white on a dark outline, centred, as every instrument writes over its picture; the beaker and
    its grade sit together in the middle of the card, the beaker sized by the card's room so it never collapses on a phone.) */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big { justify-content: center; }
@@ -5728,7 +5728,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .ab .ab-belly > .ab-big > .ab-rate[data-dir="steady"] { color: var(--text-2) !important; }
 .ab .ab-belly > .ab-big > .ab-rate[data-dir="up"] { color: color-mix(in srgb, var(--caution) 55%, var(--text)) !important; }
 .ab .ab-belly > .ab-big > .ab-rate[data-dir="down"] { color: color-mix(in srgb, var(--vel-normal) 60%, var(--text)) !important; }
-.ab-rate[data-dir="up"] .ab-rate-a { color: var(--caution); }
+.ab-rate[data-dir="up"] .ab-rate-a { color: var(--caution-ink); }
 .ab-rate[data-dir="down"] .ab-rate-a { color: var(--vel-normal); }
 /* A small belly (320 px phone, phone on its side): the balance may take two lines ("▲ 200" over "mL/day") so its every
    word sits inside the ring, 4 px or more from it, with the litres and grade centred over it (sweep 2, item 3: one line
@@ -5809,9 +5809,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz .pz-data .pz-tiles .pz-tile[data-rate="none"] .pzt-v { color: var(--text-3); }
 /* A tile with a scale bar colours its number by the band the value is in, as the bar's marker is (the status word beside it says the same). */
 .pz .pz-data .pz-tiles .pz-tile.scaled:is([data-rate="ok"], [data-rate="lo"]) .pzt-v { color: var(--ok); }
-.pz .pz-data .pz-tiles .pz-tile.scaled[data-rate="mid"] .pzt-v { color: color-mix(in srgb, var(--caution) 85%, var(--text)); }
+.pz .pz-data .pz-tiles .pz-tile.scaled[data-rate="mid"] .pzt-v { color: var(--caution-ink); }
 .pz .pz-data .pz-tiles .pz-tile.scaled[data-rate="hi"] .pzt-v { color: var(--danger); }
-.app:not(.pz-hi) .pz .pz-data .pz-tiles .pz-tile[data-rate="mid"] .pzt-r { color: color-mix(in srgb, var(--caution) 85%, var(--text)); }
+.app:not(.pz-hi) .pz .pz-data .pz-tiles .pz-tile[data-rate="mid"] .pzt-r { color: var(--caution-ink); }
 .app:not(.pz-hi) .pz .pz-data .pz-tiles .pz-tile[data-rate="hi"] .pzt-r { color: color-mix(in srgb, var(--danger) 85%, var(--text)); }   /* (the same mix as the amber word beside it: pure red at 12 to 15 px was about 4.5:1 on white and less on the frosted card) */
 .pz .pz-data .pz-tiles .pzt-d, .pz .pz-data .pz-tiles .pzt-d[data-way] { color: var(--text-3); }
 /* (Where the bar's ring marks where the value started, the "from" words fold away: the bar takes the place of the change
@@ -6828,7 +6828,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .gs-hero, .gs-cap, .gs-fcap { display: flex; justify-content: space-between; align-items: baseline; gap: .6em; white-space: nowrap; }
 .gs-hero { padding-bottom: .3em; border-bottom: 1px solid var(--border); }
 .gs-hero > b { font-size: 1.5em; line-height: 1; transition: color var(--d-surface) var(--ease); }
-.gs-hero > b[data-dir="up"] { color: var(--caution); } .gs-hero > b[data-dir="down"] { color: var(--ok); }
+.gs-hero > b[data-dir="up"] { color: var(--caution-ink); } .gs-hero > b[data-dir="down"] { color: var(--ok); }
 .gs-word, .gs-dim { color: var(--text-3); }
 .gs-cap { margin-bottom: .28em; }
 /* (the bracket's line sits under the Leaked words; its length and place are set from the strip's parts) */
@@ -6983,3 +6983,17 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 :is(.p-title h2, .ac-head h3, .modal h2) { text-wrap: balance; }
 :is(.pz-h, .pz-panel .pz-dtitle, .modal h2, .p-title h2, .ac-head h3) { hanging-punctuation: first; }
 :is(.pz-check, .pz-outline :is(ol, ul), .pzc-row, .ac-about, .ac-note) { text-wrap: pretty; }
+
+/* Windows high contrast (forced colours) removes backgrounds and shadows, so a control that shows "on" or "selected" by a fill alone, or a focus ring that is a
+   box-shadow, shows nothing. The on and selected states are given system colours and the switches an edge. Nothing here applies in any other mode. */
+@media (forced-colors: active) {
+  :is(.ib[aria-pressed="true"], .seg button[aria-pressed="true"], .seg button[aria-selected="true"], .instr-tab[aria-selected="true"]) { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  :is(.ib[aria-pressed="true"], .instr-tab[aria-selected="true"]) :is(svg, svg *) { stroke: HighlightText; }
+  :is(.modes button[aria-selected="true"], .um-tab[aria-selected="true"])::after { background: Highlight; }
+  :is(.switch span, .ac-toggle .switch-vis, .lens-opt .mt-sw, .ab-tg .switch-vis) { border: 1px solid ButtonText; box-shadow: none; }
+  :is(.switch input:checked + span, .ac-toggle[aria-checked="true"] .switch-vis, .lens-opt.on .mt-sw, .ab-tg[aria-checked="true"] .switch-vis) { forced-color-adjust: none; background: Highlight; }
+  .switch span::after, .lens-opt .mt-sw::after, .ac-toggle .switch-vis i, .ab-tg .switch-vis i { forced-color-adjust: none; background: ButtonText; box-shadow: none; }
+  .switch input:checked + span::after, .lens-opt.on .mt-sw::after, .ac-toggle[aria-checked="true"] .switch-vis i, .ab-tg[aria-checked="true"] .switch-vis i { background: HighlightText; }
+  .switch input:focus-visible + span { outline: 2px solid Highlight; outline-offset: 2px; }
+  :focus-visible { outline: 2px solid Highlight; }
+}

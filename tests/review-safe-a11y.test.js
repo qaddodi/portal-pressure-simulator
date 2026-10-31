@@ -75,7 +75,7 @@ test('a share link naming an unknown patient opens healthy and says so', () => {
 test('the organs a tap opens are keyboard stops that never take the pointer or show a ring', () => {
   const stage = read('src/ui/stage.js');
   assert.match(stage, /const ORGAN_KEYS = \[\['heart', 'Right heart'\], \['liver', 'Liver'\], \['spleen', 'Spleen'\]\];/);
-  assert.match(stage, /s\('path', \{ class: 'org-key', d: [^}]*tabindex: 0, role: 'button', 'aria-label': `\$\{label\}\. Press Enter for its card\.`, 'data-organ': id \}\)/);
+  assert.match(stage, /s\('path', \{ class: 'org-key', d: [^}]*tabindex: keyStops \? 0 : -1, role: 'button', 'aria-label': `\$\{label\}\. Press Enter for its card\.`, 'data-organ': id \}\)/);
   assert.match(stage, /gOrgans\.after\(gOrgKeys\);/, 'outside #organs, which is hidden (and so unfocusable) under the GPU plate');
   assert.match(stage, /if \(org && \(ev\.key === 'Enter' \|\| ev\.key === ' '\)\) \{[^\n]*onSelect\(\{ type: 'organ', id: org \}, \{ keyboard: true \}\)/);
   assert.match(stage, /if \(org\) \{ const sel = store\.get\(\)\.selection; setOrganHover\(/, 'focus shows as the hover outline');
