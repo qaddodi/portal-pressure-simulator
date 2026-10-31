@@ -32,3 +32,21 @@ test('leaving the lobule here, its layers change only once it is left', () => {
   assert.match(pres, /if \(!outNow\) slideLayers\(s\);/);
   assert.match(pres, /if \(outNow\) \{ await toAnatomy\(inAnatomy \? riseFor\(cam, fv\) : null\); slideLayers\(s\);/);
 });
+
+// Sweep 2: anatomy.
+import { EDGE_PATH } from '../src/ui/anatomy.js';
+const end = (d) => d.trim().split(/[\s,]+/).slice(-2).map(Number);
+
+test('the hepatic veins meet the cava at three heights, never two within 20 units (they were joined as one bar)', () => {
+  const e = ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'].map((id) => end(EDGE_PATH[id]));
+  for (let a = 0; a < 3; a++) for (let b = a + 1; b < 3; b++) assert.ok(Math.hypot(e[a][0] - e[b][0], e[a][1] - e[b][1]) >= 20, `${a}-${b}`);
+});
+
+test('the portocaval shunt meets the cava above the left renal vein', () => {
+  const [, y] = end(EDGE_PATH.S_PC), [, yr] = end(EDGE_PATH.LRV_IVC);
+  assert.ok(y < yr - 20);
+});
+
+test('the veins above the SVC take its 0.72 scale, so it never narrows going down', () => {
+  assert.match(stage, /e\.id === 'SVC_RA' \|\| e\.id === 'V_UP' \? 0\.72 : 1/);
+});

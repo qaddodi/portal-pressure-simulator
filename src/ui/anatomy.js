@@ -150,7 +150,9 @@ export const EDGE_PATH = {
   // halves meet, so that join is a clean run-on, not a knot of five ends.
   RHV_IVC: 'M500 246 C 545 240 590 232 616 206',
   MHV_IVC: 'M548 282 C 575 272 600 256 615 230',
-  LHV_IVC: 'M690 232 C 664 232 646 226 625 213',
+  // (It meets the cava higher than the right hepatic vein, 21 units from its end. At 11 apart the two were joined as one vein
+  // and their round ends met across the cava in a bar.)
+  LHV_IVC: 'M690 232 C 668 232 650 219 630 191',
   IVC_IS: 'M620 650 L 620 166',
   IVCS_RA: 'M620 166 L 620 112',
   V_UP: 'M620 -40 L 620 40',
@@ -214,7 +216,9 @@ export const EDGE_PATH = {
   // bend sharper than about 15° per stretch), meeting the IVC from the side just below the hepatic vein
   // confluence. It stops at the IVC's left wall (x 609) and does not run along the cava or enter its lumen.
   DIPS: 'M602 442 C 582 392 595 318 620 302',
-  S_PC: 'M700 556 C 682 590 652 625 620 650',
+  // (An end-to-side portocaval shunt meets the cava above the renal veins: it ended at the iliac confluence's node, below the left
+  // renal vein, crossing it. It ends on the cava's wall, as the renal vein does, a side join on the IVC.)
+  S_PC: 'M700 556 C 682 568 652 582 625 590',
   S_DSR: 'M962 448 C 958 490 948 536 954 576 C 958 600 960 612 953 618',
   S_MC: 'M690 660 C 672 650 645 648 620 650',
 };

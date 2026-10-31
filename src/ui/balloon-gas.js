@@ -9,7 +9,7 @@
 // the middle of the stomach's upper part from the cardia, and the balloon is as large as the outline leaves room for, a margin inside
 // the wall, at every inflation and every stage of the traction, up to the size it is drawn at. A redrawn stomach moves and resizes it
 // (tests/balloon-gas.test.js holds it inside, and fits it to a smaller outline too).
-import { ORGANS } from './anatomy.js?v=e20e751129';
+import { ORGANS } from './anatomy.js?v=bd972c1896';
 import { pathCmds, flattenCmds } from './shape-gl.js?v=74fff72fb9';
 import { esoAt, BALLOON } from './balloon-eso.js?v=49e37b0228';
 

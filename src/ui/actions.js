@@ -8,10 +8,10 @@ import { dopplerVel, flowReversed } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, hiddenNow } from './store.js?v=3611054974';
 import { fmt, fmtFlow, clamp } from './util.js?v=3b0814f664';
 import { PREGNANCY_INFO } from '../engine/scenario.js?v=bcedeba324';
-import { aboutVessel, aboutOrgan } from './about.js?v=7cb4047573';
-import { lobuleState } from './lobule-model.js?v=c3e8d3085c';
-import { oxygenFor } from './blood.js?v=acc95c9bbc';
-import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=e20e751129';
+import { aboutVessel, aboutOrgan } from './about.js?v=4bfeb15bb1';
+import { lobuleState } from './lobule-model.js?v=28041ee93b';
+import { oxygenFor } from './blood.js?v=1eb39d1393';
+import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=bd972c1896';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
