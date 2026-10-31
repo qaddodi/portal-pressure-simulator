@@ -142,7 +142,7 @@ export const REGIONS = {
   feeder: [620, 110, 930, 600],     // the varices down the coronary vein to the portal confluence
   spleen: [840, 240, 1120, 580],
   rectum: [560, 600, 1020, 960],    // inferior mesenteric to the rectal and iliac veins
-  wall: [470, 330, 850, 920],       // paraumbilical vein and the abdominal wall (the umbilicus on the midline, x 712)
+  wall: [380, 330, 760, 880],       // paraumbilical vein and the abdominal wall
   fundus: [740, 220, 1110, 690],    // fundal varices, the gastrorenal shunt, the left renal vein
   splenic: [660, 230, 1110, 640],   // splenic vein to the confluence, the spleen, the fundus
 };

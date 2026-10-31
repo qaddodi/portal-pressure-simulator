@@ -1009,8 +1009,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const spleenMoving = () => spleenMv.moving(performance.now());
   let spleenTimer = 0;
   // Abdominal wall (anterior): a soft skin tint that appears only with caput medusae, under its veins.
-  // (Round the umbilicus on the midline, as wide as the caput's veins reach and no wider, so the gut's veins under it still read.)
-  const abdWall = s('ellipse', { cx: SITES.umbilicus[0], cy: SITES.umbilicus[1], rx: 92, ry: 74, fill: 'url(#skin)', class: 'abd-wall', opacity: 0 });
+  const abdWall = s('ellipse', { cx: SITES.umbilicus[0], cy: SITES.umbilicus[1], rx: 120, ry: 96, fill: 'url(#skin)', class: 'abd-wall', opacity: 0 });
   // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates.
   const flank = s('path', { class: 'flank', d: '' });
   gOver.before(abdWall);

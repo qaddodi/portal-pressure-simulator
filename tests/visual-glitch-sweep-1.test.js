@@ -51,15 +51,7 @@ test('the veins above the SVC take its 0.72 scale, so it never narrows going dow
   assert.match(stage, /e\.id === 'SVC_RA' \|\| e\.id === 'V_UP' \? 0\.72 : 1/);
 });
 
-// Sweep 3: the umbilicus on the midline; no ghost copies while the GPU draws the vessels.
-import { NODE_POS, SITES } from '../src/ui/anatomy.js';
-
-test('the umbilicus, its node and the paraumbilical vein end on the midline (x 712)', () => {
-  assert.deepEqual(SITES.umbilicus, [712, 840]);
-  assert.deepEqual(NODE_POS.EPI[0], [712, 840]);
-  assert.deepEqual(end(EDGE_PATH.C3), [712, 840]);
-  for (const id of ['EPI_ILI', 'EPI_SVC']) assert.match(EDGE_PATH[id], /^M712 840 /);
-});
+// Sweep 3: no ghost copies while the GPU draws the vessels. (The umbilicus stays where it was drawn, at (500, 800): Mohammad, 31 Oct.)
 
 test('the ghost copies of the back veins are hidden while the GPU draws the vessels (they filled as dark wedges)', () => {
   assert.match(css, /\.stage-view\.gl-on #ghosts \{ visibility: hidden; \}/);
