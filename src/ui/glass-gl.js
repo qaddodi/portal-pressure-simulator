@@ -258,11 +258,14 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     pending = true;
     if (gpuProbe.on) gpuProbe.note(cards ? COUNTED.cardCopy : pane ? COUNTED.paneCopy : COUNTED.glassCopy);
     const job = gen;
-    let p;
+    let p, got = reg;
     try {
       capture?.();   // (the figure's whole picture is on the canvas for this copy, whether or not the canvas keeps its own)
-      p = createImageBitmap(source, Math.round((reg.x + cr.left - sr.left) * kx), Math.round((reg.y + cr.top - sr.top) * ky), Math.max(1, Math.round(reg.w * kx)), Math.max(1, Math.round(reg.h * ky)),
-        { resizeWidth: bw, resizeHeight: bh, resizeQuality: 'medium', premultiplyAlpha: 'premultiply' });
+      const sx = Math.round((reg.x + cr.left - sr.left) * kx), sy = Math.round((reg.y + cr.top - sr.top) * ky), sw = Math.max(1, Math.round(reg.w * kx)), sh = Math.max(1, Math.round(reg.h * ky));
+      // (The region as copied, on the source's own pixels: the glass is laid from where the copy really starts. Laid from the region
+      // asked for, a copy from a coarse source (the lobule's pills: half a CSS px) sat up to a pixel off, a different way each copy.)
+      got = { x: sx / kx - cr.left + sr.left, y: sy / ky - cr.top + sr.top, w: sw / kx, h: sh / ky };
+      p = createImageBitmap(source, sx, sy, sw, sh, { resizeWidth: bw, resizeHeight: bh, resizeQuality: 'medium', premultiplyAlpha: 'premultiply' });
     } catch { p = Promise.reject(); }
     p.then((bm) => {
       pending = false;
@@ -289,7 +292,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbPass); gl.bindTexture(gl.TEXTURE_2D, copyTex); gl.uniform2f(BU.uDir, 1, 0); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbOut); gl.bindTexture(gl.TEXTURE_2D, pass); gl.uniform2f(BU.uDir, 0, 1); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      ready = { ...reg };
+      ready = { ...got };
       takenKey = key;
       readySeq++;
       ask();

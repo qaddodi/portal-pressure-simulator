@@ -76,7 +76,7 @@ test('the glass takes a new copy of the figure only when the figure, the region 
   assert.match(SRC, /const key = version \? `\$\{version\(\)\}\|\$\{reg\.x\}\|\$\{reg\.y\}\|\$\{reg\.w\}\|\$\{reg\.h\}\|\$\{cr\.left\}\|\$\{cr\.top\}\|\$\{sr\.left\}\|\$\{sr\.top\}\|\$\{sr\.width\}\|\$\{sr\.height\}\|\$\{source\.width\}x\$\{source\.height\}` : '';/);
   // A copy still current is not asked for again; the key is read before the copy is asked for and kept only once it has arrived.
   assert.match(SRC, /if \(key && key === takenKey && ready\) \{ if \(gpuProbe\.on\) gpuProbe\.note\(cards \? COUNTED\.cardSkip : pane \? COUNTED\.paneSkip : COUNTED\.glassSkip\); return; \}/);
-  assert.match(SRC, /ready = \{ \.\.\.reg \};\n\s+takenKey = key;/);
+  assert.match(SRC, /ready = \{ \.\.\.got \};\n\s+takenKey = key;/);
   assert.ok(SRC.indexOf('const key = version') < SRC.indexOf('createImageBitmap(source'), 'the key is read before the snapshot');
   // Without a version the old rule stands: a copy whenever the last has arrived.
   assert.match(SRC, /version = null, capture = null, onFigure = null, keep = null, due = null, copy = true \} = \{\}\) \{/);

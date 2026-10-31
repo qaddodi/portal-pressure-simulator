@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readPills, ringOf } from '../src/ui/lz-pills.js';
+import { readFileSync as readSrc } from 'node:fs';
 
 test('an inset ring is read in either order the browsers serialise it', () => {
   assert.deepEqual(ringOf('rgb(10, 20, 30) 0px 0px 0px 2px inset'), { w: 2, colour: 'rgb(10, 20, 30)' });
@@ -47,4 +48,27 @@ test('the lobule draws the lit pills\' frost on the GPU from its own stacked cop
   assert.match(lz, /if \(!ok\) return false;\n\s+tissueDrew = true;/);
   assert.match(lz, /paintFx\(W, H, dpr, dark, dt, !g \|\| g\.lost\);\n\s+pillCopy\(W, H\);\n\s+return true;/);
   assert.match(css, /\.lz \.lz-labels :is\(\.lz-lab, \.lz-zone\)\[data-gl\]\[data-gl\]\[data-gl\]::before \{ background: none; -webkit-backdrop-filter: none; backdrop-filter: none; \}/);
+});
+
+// (31 Oct: the frost flickered under the pills. The copy it is blurred from was drawn from the screen's density straight to half a
+// CSS px, one draw catching one pixel in four of the moving blood streaks; it is now made small by halves, each a 2 × 2 average.)
+test('the pills\' copy is made small by halves, never in one draw from the screen\'s density', () => {
+  const lz = readSrc(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const gg = readSrc(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
+  assert.match(lz, /for \(let i = 0; cw > w \* 2 \|\| ch > h \* 2; i\+\+\) \{/);
+  assert.match(lz, /if \(src\.width && src\.height\) pillDown\(t, src, w, h\);/);
+  assert.match(lz, /gl\.capture\?\.\(\); pillDown\(c, glCv, w, h\);/);
+  assert.match(lz, /if \(fx\.width && fx\.height\) pillDown\(c, fx, w, h\);/);
+  assert.doesNotMatch(lz, /\.drawImage\((glCv|fx), 0, 0, w, h\)/);
+  // (The glass laid from the region the copy really took, on the source's own pixels.)
+  assert.match(gg, /got = \{ x: sx \/ kx - cr\.left \+ sr\.left, y: sy \/ ky - cr\.top \+ sr\.top, w: sw \/ kx, h: sh \/ ky \};/);
+  assert.match(gg, /ready = \{ \.\.\.got \};/);
+});
+
+test('halving: each step at most halves, and the last lands on the size asked for', () => {
+  // (pillDown's loop, as numbers: a 2× screen's 3000 px wide canvas to the copy's 750 px.)
+  const steps = (cw, ch, w, h) => { const out = []; while (cw > w * 2 || ch > h * 2) { cw = Math.max(w, Math.ceil(cw / 2)); ch = Math.max(h, Math.ceil(ch / 2)); out.push([cw, ch]); } out.push([w, h]); return out; };
+  assert.deepEqual(steps(3000, 1800, 750, 450), [[1500, 900], [750, 450]]);
+  assert.deepEqual(steps(1500, 900, 750, 450), [[750, 450]], 'a 1× screen: one draw at exactly half');
+  assert.deepEqual(steps(4500, 2700, 750, 450), [[2250, 1350], [1125, 675], [750, 450]]);
 });

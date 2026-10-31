@@ -39,7 +39,7 @@ import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, 
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=d65f995908';
 import { createSinusoidView } from './sinusoid-view.js?v=83ded1ef89';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab } from './frame.js?v=fe59494d22';
-import { createGlassGL } from './glass-gl.js?v=ac76802e31';
+import { createGlassGL } from './glass-gl.js?v=a3825bb97a';
 import { pillOf, pillLabels } from './lz-pills.js?v=670139934d';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
 import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=cc2d73842c';
@@ -1754,6 +1754,21 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // in a frame it drew. Through a dive, a rise, the sinusoid's zoom, a resolution change or the dive's wide copy, and before the
   // tissue's part is in, each pill keeps the browser's blur.
   const pillSrc = document.createElement('canvas'), pillTis = document.createElement('canvas');
+  // (The copy made small by halves, each step a 2 × 2 average (a draw at exactly half size samples between four pixels), never in
+  // one draw from the screen's density to half a CSS px: that drew one pixel in four of the moving blood streaks, a different few
+  // each frame, and the frost under the pills flickered with them (31 Oct). pillHalf: the steps' canvases, kept between frames.)
+  const pillHalf = [document.createElement('canvas'), document.createElement('canvas')];
+  function pillDown(c, src, w, h) {
+    let cur = src, cw = src.width, ch = src.height;
+    for (let i = 0; cw > w * 2 || ch > h * 2; i++) {
+      const nw = Math.max(w, Math.ceil(cw / 2)), nh = Math.max(h, Math.ceil(ch / 2)), t = pillHalf[i % 2];
+      if (t.width !== nw || t.height !== nh) { t.width = nw; t.height = nh; }
+      const tc = t.getContext('2d');
+      tc.globalCompositeOperation = 'copy'; tc.drawImage(cur, 0, 0, cw, ch, 0, 0, nw, nh); tc.globalCompositeOperation = 'source-over';
+      cur = t; cw = nw; ch = nh;
+    }
+    c.drawImage(cur, 0, 0, cw, ch, 0, 0, w, h);
+  }
   pillSrc.getBoundingClientRect = () => el.getBoundingClientRect();   // (it lies on the lobule's layers, inset 0 in it, as they do)
   let pillGL, pillSeq = 0, pillTisOK = false, pillUntil = 0, tissueDrew = false;
   const pillFig = new Set();
@@ -1782,14 +1797,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (!tissueOnGL || tissueDrew) {
         const t = pillTis.getContext('2d');
         t.clearRect(0, 0, w, h);
-        if (src.width && src.height) t.drawImage(src, 0, 0, w, h);
+        if (src.width && src.height) pillDown(t, src, w, h);
         pillTisOK = true;
       }
       if (!pillTisOK) { wake(); return; }
       const c = pillSrc.getContext('2d');
       c.globalCompositeOperation = 'copy'; c.drawImage(pillTis, 0, 0); c.globalCompositeOperation = 'source-over';
-      if (gl && !gl.lost && glCv.width) { gl.capture?.(); c.drawImage(glCv, 0, 0, w, h); }
-      if (fx.width && fx.height) c.drawImage(fx, 0, 0, w, h);
+      if (gl && !gl.lost && glCv.width) { gl.capture?.(); pillDown(c, glCv, w, h); }
+      if (fx.width && fx.height) pillDown(c, fx, w, h);
     } catch { pillTisOK = false; return; }
     pillSeq++;
     for (const f of pillFig) f();
