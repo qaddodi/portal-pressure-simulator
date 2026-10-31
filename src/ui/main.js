@@ -1276,10 +1276,17 @@ function wireFloating() {
   treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', anywhere: true, onClose: closeTreat, fit: '.tc-body' });
   dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Tests card' }), drag: '.dock-head', anywhere: true, onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
-  let busyT = 0, down = null, moved = false;
+  let busyT = 0, armT = 0, down = null, moved = false;
   // (Adding a class it already has still counts as a change to the page's observers: every pointer move of a drag or
   // pinch woke four of them and laid the page out again, review #31. So the class is added only when it is missing.)
-  const busy = (ms) => { if (!app.classList.contains('stage-busy')) app.classList.add('stage-busy'); clearTimeout(busyT); busyT = setTimeout(() => app.classList.remove('stage-busy'), ms); };
+  // The pieces dim only once the figure has moved for BUSY_DELAY (premium-feel R7): a tap, or a drag that is over inside it, dims nothing.
+  const BUSY_DELAY = 120;
+  const busy = (ms) => {
+    clearTimeout(busyT); busyT = setTimeout(() => { clearTimeout(armT); armT = 0; app.classList.remove('stage-busy'); }, ms);
+    if (!armT && !app.classList.contains('stage-busy')) armT = setTimeout(() => { armT = 0; if (!app.classList.contains('stage-busy')) app.classList.add('stage-busy'); }, BUSY_DELAY);
+  };
+  // A gesture over: the pieces already dimmed stay so for ms more; ones still waiting to dim never do.
+  const busyEnd = (ms) => { if (app.classList.contains('stage-busy')) busy(ms); else { clearTimeout(armT); armT = 0; clearTimeout(busyT); } };
   // On a phone the same gestures also give the figure more room: the vitals dock folds to a small pill in the
   // lower-left corner (play and clock; the zoom buttons take the lower right) and the top bar's second row (view, colour legend) slides away, while the figure moves and
   // for three seconds after. A tap anywhere, or an event on the timeline, brings them back at once.
@@ -1333,8 +1340,8 @@ function wireFloating() {
   // Only the figure itself: a swipe on a card (or one from the phone's edge) leaves the rest alone.
   view.addEventListener('pointerdown', (e) => { down = systemEdge(e) || e.target.closest?.('.stage-blocker, .zoom-pill, button, input, select') ? null : [e.clientX, e.clientY]; moved = false; });
   view.addEventListener('pointermove', (e) => { if (down && e.buttons && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) { busy(5000); moved = true; figureFocus(0); } });
-  addEventListener('pointerup', () => { if (down) { down = null; if (app.classList.contains('stage-busy')) busy(600); if (moved) figureFocus(3000); else unfocus(); } });
-  addEventListener('pointercancel', () => { if (down) { down = null; busy(300); if (moved) figureFocus(3000); } });
+  addEventListener('pointerup', () => { if (down) { down = null; busyEnd(600); if (moved) figureFocus(3000); else unfocus(); } });
+  addEventListener('pointercancel', () => { if (down) { down = null; busyEnd(300); if (moved) figureFocus(3000); } });
   view.addEventListener('wheel', () => { busy(800); figureFocus(3000); }, { passive: true });
   $('#vdock').addEventListener('pointerdown', (e) => { if (!(vdockEl.classList.contains('mini') && e.target.closest('.play'))) unfocus(); });   // (play and pause work from the folded pill without opening it)
   $('#topbar').addEventListener('pointerdown', unfocus);

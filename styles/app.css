@@ -3396,10 +3396,12 @@ button.finding { cursor: pointer; }
 .tc-body > .section { margin-top: 12px; border-top: 1px solid var(--hairline); }
 
 /* Focus: while the figure is dragged, pinched or scrolled, the floating pieces step back. */
-.float-ui, .stage-fit, .stage-rotate { transition: opacity .25s var(--ease); }
+.float-ui, .stage-fit, .stage-rotate { transition: opacity var(--d-surface, .42s) var(--ease); }
 /* (The desktop card keeps its left/top glide with the fade: a new vessel moved it 23 px in one frame; round 2 review, RF7.) */
 .action-card:not(.docked) { transition: opacity .25s var(--ease), left .18s var(--ease), top .18s var(--ease); }
-.app.stage-busy .float-ui:not(:hover):not(:focus-within), .app.stage-busy .stage-fit, .app.stage-busy .stage-rotate { opacity: .28; }
+/* R7: the pieces step back to .55 (not .28), over 240 ms, once the figure has moved for 120 ms (main.js), and return over 420 ms. The zoom pill's buttons
+   no longer dim again inside the pill (that made them .08). Only opacity and its duration: the guard test pins that nothing else changes. */
+.app.stage-busy .float-ui:not(:hover):not(:focus-within) { opacity: .55; transition-duration: var(--d-small, .24s); }
 @media (prefers-reduced-motion: reduce) { .app.stage-busy .float-ui { opacity: 1; } }
 
 /* The instrument workspace floats over the bottom of the figure, above the vitals dock. */
@@ -3660,11 +3662,10 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
 
 /* Zoom: one small pill on the right, clear of the dock and of any card on the right. */
 .zoom-pill { position: absolute; z-index: var(--z-hud); display: flex; flex-direction: column; gap: 2px; padding: 3px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline);
-  right: calc(env(safe-area-inset-right) + var(--gap)); bottom: calc(var(--bot-occ, 120px) + 8px); transform: translateX(calc(-1 * var(--right-occ, 0px))); transition: opacity .25s var(--ease), translate .2s var(--ease), transform .3s var(--ease); translate: 0 calc(-1 * var(--sheet-h, 0px)); }   /* (transform: it glides aside with a side card, as the figure does, instead of jumping by the card's width; a transform, not right, so the glide runs off the main thread and lays nothing out: round 2 review, RF2) */
+  right: calc(env(safe-area-inset-right) + var(--gap)); bottom: calc(var(--bot-occ, 120px) + 8px); transform: translateX(calc(-1 * var(--right-occ, 0px))); transition: opacity var(--d-surface, .42s) var(--ease), translate .2s var(--ease), transform .3s var(--ease); translate: 0 calc(-1 * var(--sheet-h, 0px)); }   /* (transform: it glides aside with a side card, as the figure does, instead of jumping by the card's width; a transform, not right, so the glide runs off the main thread and lays nothing out: round 2 review, RF2) */
 .zoom-pill .ib, .zoom-pill .stage-fit, .zoom-pill .stage-rotate { position: static; translate: none; width: 36px; height: 36px; min-width: 0; min-height: 0; box-shadow: none; background: transparent; right: auto; bottom: auto; }
 @media (hover: hover) { .zoom-pill .ib:hover { background: var(--surface-3); } }
 .zoom-pill .stage-rotate { display: inline-grid; }
-.app.stage-busy .zoom-pill { opacity: .28; }
 .zoom-pill.no-room { visibility: hidden; }
 
 /* A vessel's card stays between the top bar and the dock. */
@@ -3685,7 +3686,7 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
 .instrument-workspace.side[data-state="peek"] { bottom: auto; height: auto; }
 .instrument-workspace.float-ui:not(.side)[data-state="peek"] { height: auto; }
 /* A card sized to its content (Ascites, set by the dock): its height eases to the value, and eases back. */
-.instrument-workspace.float-ui.fit { height: var(--fit-h); transition: height .3s var(--ease); }
+.instrument-workspace.float-ui.fit { height: var(--fit-h); transition: height .3s var(--ease), opacity var(--d-surface, .42s) var(--ease); }
 .instrument-workspace.float-ui.fit.dragging, .instrument-workspace.float-ui.fit.resizing { transition: none; }
 @media (prefers-reduced-motion: reduce) { .instrument-workspace.float-ui.fit { transition: none; } }
 .instrument-workspace.resizing { transition: none; user-select: none; -webkit-user-select: none; }
@@ -3829,7 +3830,6 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
   transition: width .2s var(--ease), height .2s var(--ease), margin .2s var(--ease), opacity .2s var(--ease), visibility 0s linear .2s; }
 .cmap .zoom-pill .stage-rotate.ib { width: 36px; height: 36px; margin: 0; opacity: 1; visibility: visible; pointer-events: auto;
   transition: width .2s var(--ease), height .2s var(--ease), margin .2s var(--ease), opacity .2s var(--ease), visibility 0s; }
-.app.stage-busy .cmap .zoom-pill .stage-rotate.ib { opacity: .28; }
 #app.sin-focus .zoom-pill .stage-rotate.ib { width: 0; height: 0; margin: -1px; opacity: 0; visibility: hidden; pointer-events: none;
   transition: width .2s var(--ease), height .2s var(--ease), margin .2s var(--ease), opacity .2s var(--ease), visibility 0s linear .2s; }
 /* In the tall Instruments card the trace chips wrap instead of scrolling sideways. */
@@ -4026,14 +4026,14 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .panel, .treat-card, .instrument-workspace.float-ui { --card-in: cardInRight; --card-out: cardOutRight; --card-t: .22s; }
 @keyframes cardOutRight { to { opacity: 0; transform: translateX(16px); } }
 @keyframes sheetDown { to { transform: translateY(100%); } }
-.panel { transform: none; transition: none; }
+.panel { transform: none; transition: opacity var(--d-surface, .42s) var(--ease); }   /* (it had no transition at all, so it snapped to its dim) */
 .app.panel-open .panel { visibility: visible; animation: var(--card-in) var(--card-t) var(--ease); }
 .treat-card { animation: var(--card-in) var(--card-t) var(--ease); }
 .instrument-workspace.float-ui.entering, .instrument-workspace.float-ui.side.entering { animation: var(--card-in) var(--card-t) var(--ease); }
 #panel.card-leaving, #treatCard.card-leaving, #historyCard.card-leaving, #dock.card-leaving { display: flex !important; visibility: visible !important; pointer-events: none; animation: var(--card-out) .18s var(--ease) forwards !important; }
 @media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
   .panel, .treat-card, .instrument-workspace.float-ui:not(.side) { --card-in: sheetUp; --card-out: sheetDown; --card-t: .28s; }
-  .panel, .treat-card { transform: none; transition: height .22s var(--ease); }
+  .panel, .treat-card { transform: none; transition: height .22s var(--ease), opacity var(--d-surface, .42s) var(--ease); }
   .panel .panel-head { touch-action: none; border-radius: 0; }
 }
 
@@ -4302,7 +4302,7 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .vdock.mini { grid-template-columns: auto; grid-template-areas: "tl"; right: auto; width: max-content; }   /* a small pill in the lower-left corner: the lower-right is the zoom controls' */
 .vdock.mini .readouts { display: none; }
 .vdock.mini .stage-bar.bottom { height: 54px; min-height: 54px; padding: 0 12px 0 4px; }
-.app.figure-focus .zoom-pill { transition: opacity .25s var(--ease), translate .2s var(--ease), bottom .2s var(--ease), transform .3s var(--ease), font-size .3s var(--ease); }
+.app.figure-focus .zoom-pill { transition: opacity var(--d-surface, .42s) var(--ease), translate .2s var(--ease), bottom .2s var(--ease), transform .3s var(--ease), font-size .3s var(--ease); }
 /* The credit is never animated: no glide, no fade, no scale ease. When it must move it vanishes at once, stays hidden until the
    cards and camera settle, and appears at once at its new spot (src/ui/credit.js). */
 .stage-credit { transition: none; }
