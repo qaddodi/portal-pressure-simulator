@@ -101,6 +101,27 @@ The physiological equations are unchanged by the performance work. The timestep 
 - Preset preparation, time jumps, prerolls and counterfactuals yield between batches. Commands remain serialized and timer ticks do not run inside partially completed jobs. A batch targets 8 ms, but an individual solver/day operation can exceed that budget. This is cooperative scheduling, not a hard latency guarantee.
 - A timed-out worker is terminated before fallback. The app element exposes `data-engine="worker"` or `data-engine="main"` for diagnosis.
 
+## Frame-time and input-latency gates (31 Oct 2026; premium-feel recs R2, R5, P4)
+
+What is measured, and where (`src/ui/frame.js`, `frame-stats.js`, `input-latency.js`; `scripts/frame-gate.mjs`):
+
+- **Frames.** `watchFrames(fn)` hands a watcher every frame the scheduler runs: its interval from the last frame (only while the
+  scheduler ran frame after frame), the script time, and each callback's surface, phase (early, late, final) and ms. Nothing is timed
+  while nobody watches. `window.pps.perf.frames.start()` / `.stop()` record a window and return the raw numbers.
+- **Inputs.** `window.pps.perf.inputToPaint` stamps a click, a press on the figure or a key at the event's own time and closes it at the
+  scheduler frame in which the page first changed (a DOM mutation). `.summary()`, `.entries(since)`, `.slowest()`. It is made on the
+  first read of it (`?perf`, the gate), so a page nobody measures has no listener for it, and a MutationObserver watches only while an
+  input waits for its answer. On a page whose readings change by themselves an unrelated change can answer an
+  input early, so a time is at most the true one; the gate pauses the model first.
+- **`?perf`.** The readout also lists every frame over 50 ms (when, the interval, the script, which surface ran in which phase, and what
+  the scheduler's callbacks do not account for: style, layout, paint, the GPU) and the slowest inputs, and Copy carries both.
+- **The gate.** Laptop (CPU 4×, 2× pixels) and phone (CPU 6×, 3× pixels), as `npm run perf`. The script time per frame is judged always;
+  the interval between frames only on a GPU (the runners draw in software, which sets their pace). Bars (`target`): p95 under 16.7 ms
+  laptop and 33 ms phone, no frame over 100 ms, an input answered within 100 ms and 150 ms. Ceilings (`fail`) start at twice the bars
+  (250 ms for the longest frame) because the gate was written without a browser run; tighten each to the runners' measured number plus a
+  margin. A scenario over a ceiling is run once more and the better run kept. `checks.yml` warns, `ci.yml` blocks; both run it in their
+  `visual` job so no runner is added. `npm run perf:gate -- dist` runs it by hand (`--profile=phone`, `--mode=block`).
+
 ## Verification
 
 Run `npm test`. In addition to the physiological acceptance suite, lifecycle tests check pause/visibility behavior, immediate action frames, worker timeout cleanup, event-loop yielding and command ordering. The yielded calculations are compared with synchronous calculations, including complete snapshots after preset loading, advancing and prerolling.

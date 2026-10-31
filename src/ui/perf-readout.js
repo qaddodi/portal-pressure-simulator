@@ -5,9 +5,10 @@
 // steps that ran in it (and every interval counted in a histogram at that refresh, with p50/p95/p99), and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
 import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=9832eccfbe';
-import { perf } from './frame.js?v=d389474997';
+import { perf, watchFrames } from './frame.js?v=fe59494d22';
+import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js?v=9cd1d0c4e3';
 
-const WINDOW = 2000, KEEP = 5, GAP_LINES = 40;
+const WINDOW = 2000, KEEP = 5, GAP_LINES = 40, LONG_LINES = 15;
 // The display's own refresh, as the browser offers it, from the frame intervals the readout sees (30 Oct, review 6a: a list of gaps
 // over 20 ms could never show a missed frame at 120 Hz, whose frames are 8.3 ms apart, a missed one 16.7 ms). The rates screens run
 // at; the measured one is the nearest to the lower quartile of the last 600 intervals (about 10 s, calm frames among them). Not the
@@ -39,6 +40,21 @@ export function intervalLine(s) {
 export function surfaceLine(a, b) {
   const rows = Object.keys(b.asks).map((k) => [k, b.asks[k] - (a.asks[k] || 0), k in b.drawn ? b.drawn[k] - (a.drawn[k] || 0) : null]).filter(([, n]) => n > 0).sort((x, y) => y[1] - x[1]);
   return rows.length ? `  surfaces (callbacks / draws): ${rows.map(([k, n, d]) => `${k} ${n}${d == null ? '' : ` / ${d}`}`).join(', ')}` : '';
+}
+/** The long-frame log as text (premium-feel recs P4): every frame whose interval or script time passed LONG_FRAME_MS, the newest
+ *  `n` of them, each with the surfaces that ran in it (surface, phase, ms) and what the scheduler does not account for. Times are
+ *  seconds since the page opened. One line to paste instead of an afternoon of guessing. */
+export function longFramesText(long, n = LONG_LINES) {
+  if (!long.length) return `Long frames (over ${LONG_FRAME_MS} ms): none`;
+  const shown = long.slice(-n);
+  return [`Long frames (over ${LONG_FRAME_MS} ms; the newest ${shown.length} of ${long.length}, seconds since the page opened):`, ...shown.map((f) => longFrameLine(f))].join('\n');
+}
+/** The input-to-first-change measure (frame.js perf().inputToPaint, input-latency.js) as text: counts, p50, p95, the slowest. */
+export function inputsText(api) {
+  const s = api?.summary();
+  if (!s || !s.n) return `Inputs (a tap, press or key to the frame the page first changed): none answered yet${s?.ignored ? `, ${s.ignored} with no change` : ''}`;
+  const slow = api.slowest(4).map((d) => `${d.kind} ${d.target} ${d.ms.toFixed(0)} ms`).join(', ');
+  return [`Inputs (a tap, press or key to the frame the page first changed; the last ${Math.min(s.n, 200)} of ${s.n}${s.ignored ? `, ${s.ignored} with no change` : ''}): p50 ${s.p50.toFixed(0)}, p95 ${s.p95.toFixed(0)}, worst ${s.worst.toFixed(0)} ms`, `  slowest: ${slow}`].join('\n');
 }
 const HIDES = ['', 'no live organs', 'no figure SVG', 'no labels', 'no GPU picture'];
 // (What each leaves out, by CSS: the page then neither lays out nor paints it.)
@@ -98,6 +114,10 @@ export function gestureText(r) {
 
 export function startPerfReadout({ zoom = () => '?' } = {}) {
   gpuProbe.cpuOnly = true; gpuProbe.on = true; gpuProbe.take();
+  // The long-frame log: every frame over LONG_FRAME_MS from now on, gesture or not (the gesture windows below list the frames that
+  // missed the screen's refresh in the 2 s after a pan or pinch; a stall that comes by itself, as on a slide change, shows here).
+  const frameLog = createFrameRecorder({ keepLong: 60 });
+  watchFrames(frameLog.add);
   const reports = [];
   let n = 0, cur = null, prevT = 0, prevTs = 0, wheelT = 0;
   const recent = [];   // (the last 600 frame intervals, for the refresh)
@@ -237,10 +257,19 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   rest.onclick = () => { rest.textContent = 'Wait 3 s'; setTimeout(() => { begin('at rest'); setTimeout(() => { rest.textContent = 'At rest'; }, 2000); }, 1000); };
   const body = document.createElement('div');
   body.textContent = 'Pan, pinch or scroll-zoom the figure, then let go and wait 2 s.';
-  bar.append(title, rest, rec, hide, gpu, orgs, copy); el.append(bar, body);
+  // Under the gestures: the long frames and the slowest inputs, written once a second and never while a gesture's window is open
+  // (a write during it would be part of what it measures).
+  const logEl = document.createElement('div');
+  logEl.style.cssText = 'margin-top:8px';
+  const logText = () => [longFramesText(frameLog.long), inputsText(perf().inputToPaint)].join('\n\n');
+  let shownLog = '';
+  const paintLog = () => { const t = logText(); if (t !== shownLog) { shownLog = t; logEl.textContent = t; } };
+  setInterval(() => { if (!cur) paintLog(); }, 1000);
+  paintLog();
+  bar.append(title, rest, rec, hide, gpu, orgs, copy); el.append(bar, body, logEl);
   let folded = false;
-  title.onclick = () => { folded = !folded; body.style.display = folded ? 'none' : ''; };
-  const text = () => [`${navigator.userAgent}`, `screen ${innerWidth}x${innerHeight} @${devicePixelRatio}x, refresh offered to the page ${refreshOf(recent) || '?'} Hz, ${location.pathname}${document.getElementById('preview-badge') ? ` ${document.getElementById('preview-badge').textContent.trim()}` : ''}`, ...reports.map(gestureText)].join('\n\n');
+  title.onclick = () => { folded = !folded; body.style.display = folded ? 'none' : ''; logEl.style.display = folded ? 'none' : ''; };
+  const text = () => [`${navigator.userAgent}`, `screen ${innerWidth}x${innerHeight} @${devicePixelRatio}x, refresh offered to the page ${refreshOf(recent) || '?'} Hz, ${location.pathname}${document.getElementById('preview-badge') ? ` ${document.getElementById('preview-badge').textContent.trim()}` : ''}`, ...reports.map(gestureText), logText()].join('\n\n');
   copy.onclick = async () => {
     const t = text();
     try { await navigator.clipboard.writeText(t); copy.textContent = 'Copied'; } catch {

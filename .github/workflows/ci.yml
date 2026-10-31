@@ -305,7 +305,7 @@ jobs:
     name: visual (${{ matrix.device }})
     runs-on: ubuntu-24.04
     needs: quick
-    timeout-minutes: 25
+    timeout-minutes: 45   # (25 until 31 Oct, plus the frame-time and input-latency step below, which has its own 15)
     strategy:
       fail-fast: false
       matrix:
@@ -337,3 +337,30 @@ jobs:
             test-results/visual
             test-results/visual-stageover
           retention-days: 1
+      # Frame time and input latency (premium-feel recs R2, R5; scripts/frame-gate.mjs), on the production build made in quick: the laptop
+      # profile in this job's desktop run, the phone profile in its phone run. A measure past its ceiling in scripts/perf-limits.json blocks
+      # the merge (checks.yml, on every preview push, only warns, and reports the same numbers first). The runners have no graphics card, so
+      # what is judged is the app's own script time per frame and the time to the first change after an input, never the interval between
+      # frames; the ceilings are twice the recs' bars until the runners' own numbers set them, and a scenario over one is run again, the
+      # better run kept. (The "Performance report" and "Frame cost report" above stay report-only.)
+      - name: Production build (made once, in quick)
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Frame time and input latency
+        if: always()
+        timeout-minutes: 15
+        env:
+          PERF_PROFILE: ${{ matrix.device == 'phone' && 'phone' || 'laptop' }}
+          PERF_GATE: block
+          PERF_OUT: test-results/perf-gate
+        run: npm run perf:gate -- dist
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perf-gate-${{ matrix.device }}
+          path: test-results/perf-gate
+          if-no-files-found: ignore
+          retention-days: 3

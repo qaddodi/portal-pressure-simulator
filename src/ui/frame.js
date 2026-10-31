@@ -11,8 +11,14 @@
 //   cancelFrame(id)
 //
 // window.pps.perf (see perf()) reports callbacks per second for each surface over the last second.
+// watchFrames(fn) hands fn every frame's timing (its interval, the script time, and each callback's surface, phase and ms): the
+// ?perf readout's long-frame log and the frame-time gate (scripts/frame-gate.mjs) read frames there. Nothing is timed for it
+// while nobody watches. perf().inputToPaint is the input-to-first-change measure (input-latency.js, premium-feel recs R2), made on
+// its first read, so a page nobody measures has no listener for it.
 
 import { gpuProbe } from './gpu-probe.js?v=9832eccfbe';
+import { createFrameRecorder } from './frame-stats.js?v=9cd1d0c4e3';
+import { createInputLatency, describeTarget } from './input-latency.js?v=b2d077f9bd';
 let queue = new Map();   // id -> [tag, cb], in request order
 let current = null;      // the batch running now
 // Asked for with lateFrame: run after every other callback of the frame (one asked for while that frame's callbacks run still
@@ -24,35 +30,53 @@ let fin = new Map(), finalNow = null;
 let next = 1, pending = 0;
 const counts = new Map(), rates = new Map(), draws = new Map(), drawRates = new Map(), totals = { asks: {}, drawn: {}, ms: {} };
 let windowAt = 0, frames = 0, fps = 0, allFrames = 0;
+// Frame watchers (watchFrames). `parts` is the running frame's callbacks (surface, phase, ms), kept only while someone watches.
+// `chained`: the last frame asked for another, so the interval to this one is a frame time; `lastNow`: that frame's timestamp.
+const watchers = new Set();
+let parts = null, chained = false, lastNow = 0;
 
 function flush(now) {
   pending = 0;
   current = queue;
   queue = new Map();   // asked for while running: the next frame, as with requestAnimationFrame
   frames++; allFrames++;
+  const watching = watchers.size > 0, t0 = watching ? performance.now() : 0;
+  parts = watching ? [] : null;
   try {
-    run(current, now);
+    run(current, now, 'early');
     lateNow = late;
     late = new Map();   // asked for while the late ones run: the next frame
-    run(lateNow, now);
+    run(lateNow, now, 'late');
     finalNow = fin;
     fin = new Map();    // (likewise)
-    run(finalNow, now);
+    run(finalNow, now, 'final');
   } finally { current = null; lateNow = null; finalNow = null; }
+  const script = watching ? performance.now() - t0 : 0;
   globalThis.__frameProbe?.(now);   // (the tests read the camera here, once every frame has been drawn)
   roll(now);
+  if (watching) {
+    const f = { now, gap: chained ? now - lastNow : 0, script, parts };
+    for (const w of watchers) try { w(f); } catch (e) { setTimeout(() => { throw e; }); }
+  }
+  parts = null; lastNow = now;
   if ((queue.size || late.size || fin.size) && !pending) pending = requestAnimationFrame(flush);
+  chained = !!pending;
 }
 
-function run(batch, now) {
+function run(batch, now, phase) {
   for (const [id, [tag, cb]] of batch) {
     batch.delete(id);
     counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;
     const t0 = performance.now();
     try { if (gpuProbe.on) gpuProbe.time(null, `${tag} (script)`, () => cb(now)); else cb(now); } catch (e) { setTimeout(() => { throw e; }); }   // one surface's error never stops the others
-    totals.ms[tag] = (totals.ms[tag] || 0) + performance.now() - t0;
+    const ms = performance.now() - t0;
+    totals.ms[tag] = (totals.ms[tag] || 0) + ms;
+    parts?.push([tag, phase, ms]);
   }
 }
+
+/** Calls fn({ now, gap, script, parts }) after every frame the scheduler runs (frame-stats.js has the shape). Returns the stop. */
+export function watchFrames(fn) { watchers.add(fn); return () => watchers.delete(fn); }
 
 // Closes the per-second window once a second has passed (also when perf() is read, so a page whose surfaces all stopped
 // asking reports zero rather than its last busy second).
@@ -112,8 +136,42 @@ export function noteDraw(tag) { draws.set(tag, (draws.get(tag) || 0) + 1); total
 // totals.ms: the main-thread time each surface's callbacks took, in ms: CPU time issuing work, not the GPU's own time).
 export function perf() {
   roll(performance.now());
-  return { fps, surfaces: Object.fromEntries(rates), drawn: Object.fromEntries(drawRates), totals: { asks: { ...totals.asks }, drawn: { ...totals.drawn }, ms: { ...totals.ms }, frames: allFrames }, waiting: [...new Set([...queue.values(), ...late.values(), ...fin.values()].map(([t]) => t))] };
+  return { fps, surfaces: Object.fromEntries(rates), drawn: Object.fromEntries(drawRates), totals: { asks: { ...totals.asks }, drawn: { ...totals.drawn }, ms: { ...totals.ms }, frames: allFrames }, waiting: [...new Set([...queue.values(), ...late.values(), ...fin.values()].map(([t]) => t))],
+    inputToPaint: inputMeasure(), frames: frameRecording };
 }
+
+// Input to first change (input-latency.js; recs R2): the time from a tap, a press or a key to the frame in which the page first
+// changed, kept for the last 200 inputs. perf().inputToPaint.summary() / .entries(since) / .slowest(). Browser only, and made on the
+// first read of it (the ?perf readout, the frame-time gate): a page nobody measures has no listener for it.
+let inputLatency = null;
+function inputMeasure() {
+  if (!inputLatency && typeof addEventListener === 'function' && typeof MutationObserver === 'function' && typeof document !== 'undefined') {
+    inputLatency = createInputLatency({
+      listen: (type, fn) => addEventListener(type, fn, { capture: true, passive: true }),
+      watch: (onChange) => {
+        let mo = null;
+        return {
+          start() { if (!mo) { mo = new MutationObserver(onChange); mo.observe(document, { subtree: true, attributes: true, childList: true, characterData: true }); } },
+          stop() { mo?.disconnect(); mo = null; },
+        };
+      },
+      ask: (fn) => finalFrame(fn, 'input'),
+      ignore: (n) => !!(n?.nodeType === 1 ? n : n?.parentElement)?.closest?.('#perfReadout, [data-perf-ignore]'),
+      describe: describeTarget,
+    }).api;
+  }
+  return inputLatency;
+}
+
+// Frame recording (recs R5): perf().frames.start() records every frame the scheduler runs; .stop() returns the recording's raw
+// numbers (frame-stats.js: intervals, script times, each surface's ms in each frame it ran in, each phase's) and the long frames.
+// The frame-time gate (scripts/frame-gate.mjs) judges these. Nothing is timed while it is not recording.
+const recorder = createFrameRecorder();
+let stopRecording = null;
+const frameRecording = {
+  start() { recorder.reset(); stopRecording ||= watchFrames(recorder.add); },
+  stop() { stopRecording?.(); stopRecording = null; return { ...recorder.raw(), long: recorder.long.slice() }; },
+};
 
 // Battery saver (no longer in Settings, 20 Oct; kept for tests): the anatomy's blood, the lobule, the sinusoid and the FibroScan
 // move at 15 frames a second at a lower resolution. Each surface reads it every frame; stage.setSaver() sets it.

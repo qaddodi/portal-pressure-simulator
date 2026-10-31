@@ -47,6 +47,13 @@ Loop for every change (fast previews first, full tests before merge):
    redraws only the drifted views on CI's machines and commits them as "Visual references redrawn
    on CI: <views>"; pull before your next push. Never run it to silence a drift you did not intend.
    To redraw them all by hand (rarely needed), run `npm run visual -- --update`.
+   Frame time and input latency (`scripts/frame-gate.mjs`, limits in `scripts/perf-limits.json`): the production build is driven as a
+   person does on the laptop and phone profiles (a pan, a pinch, a camera glide, Next through a deck, a verb, a lens switch, the
+   menu) and judged by the scheduler's script time per frame and the time from an input to the first change on the page. It runs
+   inside the `visual` job of `checks.yml` (a warning with the numbers in the job summary and the long frames in the `perf-gate-*`
+   artifact) and of `ci.yml` (blocks past a ceiling). A measure past its ceiling is a regression to fix, never a limit to raise;
+   tighten a ceiling to the measured number when the runners have reported. In the app, `?perf` lists every frame over 50 ms with
+   its surfaces and phase and the slowest inputs, and Copy puts them in the paste.
 5. Merge to `main` only when the owner says so. That also resets `/preview/` to match `main`.
    If the branch is already merged, restart it from the latest `main` before more work.
 

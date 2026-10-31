@@ -192,7 +192,7 @@ jobs:
   visual:
     name: visual (${{ matrix.device }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 45   # (25 until 31 Oct, plus the frame-time and input-latency step below, which has its own 15)
     strategy:
       fail-fast: false
       matrix:
@@ -245,3 +245,29 @@ jobs:
           path: test-results/visual-stageover
           if-no-files-found: ignore
           retention-days: 1
+      # Frame time and input latency (premium-feel recs R2, R5; scripts/frame-gate.mjs): the production build, as Pages serves it, driven as a
+      # person does on the laptop profile (this job's desktop run) and the phone profile (its phone run), one runner each and one thing at a
+      # time, so the timings are not shared with a browser check. A pan, a pinch, a camera glide and a slide change are judged by the
+      # scheduler's script time per frame; Next, a verb, a lens switch and the menu by the time to the first change on the page. Here
+      # it only warns (an annotation on any measure past its ceiling in scripts/perf-limits.json, the numbers in the job summary, every
+      # frame's numbers and the long frames with their surfaces in the artifact); ci.yml blocks. In this job and not a job of its own: two more
+      # runners would leave pages.yml fewer of the account's ~20 to deploy with.
+      - name: Production build
+        if: always()
+        run: npm run build
+      - name: Frame time and input latency
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          PERF_PROFILE: ${{ matrix.device == 'phone' && 'phone' || 'laptop' }}
+          PERF_GATE: warn
+          PERF_OUT: test-results/perf-gate
+        run: npm run perf:gate -- dist
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perf-gate-${{ matrix.device }}
+          path: test-results/perf-gate
+          if-no-files-found: ignore
+          retention-days: 3
