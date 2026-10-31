@@ -7,6 +7,8 @@ import { summarize, topSurfaces } from '../src/ui/frame-stats.js';
 export const MIN_FRAMES = 8;
 const LEVELS = ['fail', 'target'];
 const KEYS = ['p95', 'max', 'input'];
+/** The idle scenario's name (frame-gate.mjs). */
+export const IDLE = 'idle (Play)';
 
 /** The limits file: { laptop: { target: { p95, max, input }, fail: { ... }, scenarios?: { name: { p95?, max?, input? } } }, phone: ... }. Throws on a malformed one. */
 export function loadLimits(file = new URL('./perf-limits.json', import.meta.url)) {
@@ -69,6 +71,23 @@ export function frameLines(r, { gpu = false } = {}) {
   for (const b of r.breaches) lines.push(`${' '.repeat(23)}${breachLine(b)}`);
   return lines;
 }
+/**
+ * What a model left running and a view left alone costs, surface by surface (the idle scenario; laptop heat, 31 Oct): for each surface the
+ * scheduler ran, how many frames of the recording it ran in, its script time in those (mean and p95), and what it adds up to in
+ * a second of wall time, most expensive first. `raw` is the recording (frame-stats.js raw()); `top` how many surfaces to list.
+ */
+export function idleLines(raw, top = 12) {
+  const gaps = raw.gaps || [], frames = raw.frames || 0;
+  const mean = gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 0, wall = (frames * mean) / 1000;
+  const rows = Object.entries(raw.byTag || {}).map(([tag, v]) => ({ tag, ...summarize(v), total: v.reduce((a, b) => a + b, 0) }));
+  rows.sort((a, b) => b.total - a.total);
+  const lines = [`${' '.repeat(23)}per surface over ${wall.toFixed(1)} s (${frames} frames): frames it ran in · mean ms · p95 ms · ms of script per second`];
+  if (!wall || !rows.length) { lines.push(`${' '.repeat(23)}no surface ran`); return lines; }
+  for (const r of rows.slice(0, top)) lines.push(`${' '.repeat(25)}${r.tag.padEnd(18)} ${String(r.n).padStart(5)}  ${r.mean.toFixed(2).padStart(6)}  ${r.p95.toFixed(2).padStart(6)}  ${(r.total / wall).toFixed(1).padStart(7)}`);
+  const all = rows.reduce((a, r) => a + r.total, 0);
+  lines.push(`${' '.repeat(25)}${'all surfaces'.padEnd(18)} ${' '.repeat(5)}  ${' '.repeat(6)}  ${' '.repeat(6)}  ${(all / wall).toFixed(1).padStart(7)}`);
+  return lines;
+}
 /** An input action's report lines. */
 export function inputLines(r) {
   const v = r.samples.map((s) => s.ms), sum = summarize(v);
@@ -108,6 +127,8 @@ export function summaryMarkdown(profiles) {
   for (const p of profiles) {
     out.push(`### ${p.name} (CPU ${p.cpu}×, ${p.renderer} renderer)`, '', '| Scenario | Frames | Script p95 | Script max | Interval p95 | Verdict |', '|---|---|---|---|---|---|');
     for (const r of p.frames) out.push(`| ${r.name} | ${r.sum.frames} | ${ms(r.sum.script.p95)} | ${ms(r.sum.script.max)} | ${ms(r.sum.gap.p95)} | ${verdict(r.breaches)} |`);
+    // (The idle scenario also lists what each surface cost: the model running and nobody touching the view.)
+    for (const r of p.frames) if (r.name === IDLE && r.raw) out.push('', `${r.name}, by surface:`, '', '```', ...idleLines(r.raw).map((l) => l.trim()), '```');
     out.push('', '| Input | Samples | p50 | Worst | Verdict |', '|---|---|---|---|---|');
     for (const r of p.inputs) { const s = summarize(r.samples.map((x) => x.ms)); out.push(`| ${r.name} | ${s.n} | ${s.p50.toFixed(0)} | ${s.max.toFixed(0)} | ${r.gated ? verdict(r.breaches) : 'reported'} |`); }
     if (p.skipped.length) out.push('', `Not measured: ${p.skipped.map((s) => `${s.name} (${s.why})`).join('; ')}`);

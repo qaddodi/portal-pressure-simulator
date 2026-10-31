@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { loadLimits, limitsFor, judgeFrames, judgeInput, frameLines, inputLines, breachLine, allBreaches, annotation, exitCode, summaryMarkdown, verdictOf, MIN_FRAMES } from '../scripts/frame-gate-lib.mjs';
+import { loadLimits, limitsFor, judgeFrames, judgeInput, frameLines, inputLines, breachLine, allBreaches, annotation, exitCode, summaryMarkdown, verdictOf, idleLines, IDLE, MIN_FRAMES } from '../scripts/frame-gate-lib.mjs';
 import { createFrameRecorder, summarizeRaw } from '../src/ui/frame-stats.js';
 import { PROFILES } from '../scripts/perf-profiles.mjs';
 
@@ -205,4 +205,25 @@ test('the gate loads each page with ?inputs, opens the Treat card where the phon
   assert.match(js, /!document\.getElementById\('boot'\)/, 'nobody taps through the cover, and Playwright would wait for it for 30 s');
   assert.match(js, /left unanswered after 800 ms/, 'a Next nobody answered says how many inputs the page left unanswered');
   assert.match(js, /inputScenario\('menu \(cold\)', false,/, 'the cold open is reported, not judged, until a ceiling can be set from more than one sample');
+});
+
+test('the idle scenario lists what each surface cost in a second of the model left running, most expensive first, and the job summary carries it', () => {
+  const r = createFrameRecorder();
+  // 120 frames 8 ms apart (0.96 s): the stage ran in all of them at 1.5 ms, the dock in every fifth at 0.4 ms.
+  for (let i = 0; i < 120; i++) r.add({ now: i * 8, gap: 8, script: i % 5 ? 1.5 : 1.9, parts: [['stage', 'early', 1.5], ...(i % 5 ? [] : [['dock', 'late', 0.4]])] });
+  const raw = r.raw(), lines = idleLines(raw);
+  assert.match(lines[0], /per surface over 1\.0 s \(120 frames\)/);
+  assert.match(lines[1], /^\s+stage\s+120\s+1\.50\s+1\.50\s+187\.\d$/, 'the stage: 120 frames at 1.5 ms is about 187 ms of script a second');
+  assert.match(lines[2], /^\s+dock\s+24\s+0\.40/);
+  assert.match(lines.at(-1), /all surfaces\s+19\d\.\d$/);
+  assert.match(idleLines({ frames: 0, gaps: [], byTag: {} }).at(-1), /no surface ran/);
+  assert.equal(IDLE, 'idle (Play)');
+  const res = [{ name: 'laptop', cpu: 4, renderer: 'gpu', frames: [{ name: IDLE, raw, sum: summarizeRaw(raw), breaches: [] }], inputs: [], skipped: [] }];
+  const md = summaryMarkdown(res);
+  assert.match(md, /idle \(Play\), by surface:/);
+  assert.match(md, /```[\s\S]*stage\s+120/);
+  // (A recording without its raw numbers, as the older tests build them, adds nothing.)
+  assert.doesNotMatch(summaryMarkdown([{ ...res[0], frames: [{ ...res[0].frames[0], raw: undefined }] }]), /by surface/);
+  const gate = read('scripts/frame-gate.mjs');
+  assert.match(gate, /await frameScenario\(IDLE, async \(\) => \{\s+await home\(\);\s+return recorded\(A, async \(\) => \{ await sleep\(6000\); \}, 0\);\s+\}, 20000\);/);
 });
