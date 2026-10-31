@@ -37,13 +37,13 @@ import { plateStrips, premultiply, gutStep, viewReuse, copyPixels, noteStripRead
 import { refine } from './refine.js?v=26ff46e269';
 import { fadeOver, fadeStop } from './res-fade.js?v=0c2ee70982';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
-import { cropToGrid } from './organs-gl.js?v=d5eacdd04a';
-import { readGroup, shapeSource, bindShape, targetRoom, mul } from './organ-paint.js?v=d89b46bc7d';
+import { cropToGrid } from './organs-gl.js?v=588d36dd55';
+import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=63466e2844';
 import { overUnits, overRun, needsReread, OVER_CLASS } from './stage-over.js?v=1c4dc481df';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
 import { createLabelGL } from './label-gl.js?v=225e7ad808';
 import { createGlassGL } from './glass-gl.js?v=e58605e60d';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=b080706850';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=0b6604b645';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { advanceStream, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=300b3b5267';
@@ -2296,7 +2296,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=ce38f82ec6').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=13c048cac5').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -10362,7 +10362,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const groups = new Map(), names = [];
     run.forEach(([u, spec], i) => {
       const n = `o${i}`, up = u.parentNode === gOver ? gOver : null;
-      groups.set(n, [{ spec, get m() { const own = matOfEl(u); return up ? mul(matOfEl(up), own) : own; } }]);
+      groups.set(n, [{ spec, get m() { const own = elMat(u); return up ? mul(elMat(up), own) : own; } }]);
       names.push(n);
     });
     veins.overlay.set(groups, names);

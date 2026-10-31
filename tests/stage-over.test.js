@@ -16,7 +16,7 @@ globalThis.addEventListener ??= () => {};
 globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
 const { overUnits, overRun, needsReread, OVER_CLASS } = await import('../src/ui/stage-over.js');
-const { strictRefused, readGroup } = await import('../src/ui/organ-paint.js');
+const { strictRefused, readGroup, cssLocal, elMat, liveOf } = await import('../src/ui/organ-paint.js');
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
 test('the units: the overlays\' world group\'s children, the overlays\' own group taken as its children, in order', () => {
@@ -74,6 +74,22 @@ test('a strict reading refuses what the painter would paint otherwise than the b
   assert.equal(strictRefused(elWith(null), { ...cs0, shapeRendering: 'geometricPrecision' }), '');
 });
 
+test('a CSS transform: not refused when asked, the other refusals still made; the browser\'s own frame undone by its parent\'s', () => {
+  const scaled = { ...cs0, transform: 'matrix(1.2, 0, 0, 1.1, -4, -2)' };
+  assert.equal(strictRefused(elWith(null), scaled), 'transform');
+  assert.equal(strictRefused(elWith(null), scaled, { cssTransforms: true }), '');
+  assert.equal(strictRefused(elWith(null), { ...cs0, scale: '1.2' }, { cssTransforms: true }), '');
+  assert.equal(strictRefused(elWith(null), { ...scaled, vectorEffect: 'non-scaling-stroke' }, { cssTransforms: true }), 'vector-effect');
+  assert.equal(strictRefused(elWith(null), { ...scaled, animationName: 'x' }, { cssTransforms: true }), 'animation');
+  const ctm = (m) => () => ({ a: m[0], b: m[1], c: m[2], d: m[3], e: m[4], f: m[5] });
+  // The parent at 2x, moved; the element's own: a scale of 1.5 about (10, 20) = [1.5, 0, 0, 1.5, -5, -10].
+  const P = [2, 0, 0, 2, 30, 40], own = [1.5, 0, 0, 1.5, -5, -10];
+  const el = { getCTM: ctm([P[0] * own[0], 0, 0, P[3] * own[3], P[0] * own[4] + P[4], P[3] * own[5] + P[5]]), parentNode: { getCTM: ctm(P) } };
+  cssLocal(el).forEach((v, i) => assert.ok(Math.abs(v - own[i]) < 1e-9, `${i}: ${v}`));
+  assert.equal(cssLocal({ getCTM: () => null, parentNode: { getCTM: ctm(P) } }), null);
+  assert.equal(cssLocal({ getCTM: ctm(P), parentNode: {} }), null);
+});
+
 // A stand-in SVG tree for readGroup: elements with their computed styles.
 function tree(spec) {
   const styles = new Map();
@@ -113,6 +129,20 @@ test('a strict reading takes visibility as the page computes it, and refuses a m
     const c = tree((mk) => mk('g', {}, {}, [mk('path', { d: 'M0 0 C 1 1 2 2 3 3' }, { stroke: 'rgb(0, 0, 0)', fill: 'none' })]));
     globalThis.getComputedStyle = c.cs;
     assert.equal(readGroup(c.root, { strict: true }).ops.length, 1, 'a curve with no corner: its joins never show');
+    // A CSS scale (the caudate's growth): painted in the frame the browser lays, read with the group and kept; none known: refused.
+    const sc = tree((mk) => mk('g', {}, {}, [mk('g', {}, { transform: 'matrix(1.5, 0, 0, 1.5, -5, -10)' }, [mk('circle', { r: '3' }, {})])]));
+    const g1 = sc.root.children[0];
+    globalThis.getComputedStyle = sc.cs;
+    assert.equal(readGroup(sc.root, { strict: true }), null, 'no frames from the browser: stays in the SVG');
+    g1.getCTM = () => ({ a: 1.5, b: 0, c: 0, d: 1.5, e: -5, f: -10 });
+    g1.parentNode = { getCTM: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }) };
+    const rs = readGroup(sc.root, { strict: true });
+    assert.deepEqual(rs.ops[0].m, [1.5, 0, 0, 1.5, -5, -10]);
+    assert.deepEqual(liveOf(rs.ops[0]).m, [1.5, 0, 0, 1.5, -5, -10], 'and at each paint');
+    assert.deepEqual(elMat(g1), [1.5, 0, 0, 1.5, -5, -10]);
+    sc.cs(g1).transform = 'none';
+    readGroup(sc.root, { strict: true });
+    assert.deepEqual(elMat(g1), [1, 0, 0, 1, 0, 0], 'the CSS transform gone: its frame forgotten at the next reading');
     const a = tree((mk) => mk('g', {}, {}, [mk('circle', { r: '3' }, { animationName: 'haloRing' })]));
     globalThis.getComputedStyle = a.cs;
     assert.equal(readGroup(a.root, { strict: true }), null);
@@ -129,7 +159,7 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   assert.match(st, /svgOver\.addEventListener\('transitionrun', ran\);\n\s+svgOver\.addEventListener\('transitionend', ended\);\n\s+svgOver\.addEventListener\('transitioncancel', ended\);/);
   assert.match(st, /watch\.observe\(svgOver, \{ subtree: true, childList: true, attributes: true, attributeOldValue: true, characterData: true \}\);/);
   // (Each painted group's frame as it is at each paint, under the overlays' own group where it is one of its children.)
-  assert.match(st, /groups\.set\(n, \[\{ spec, get m\(\) \{ const own = matOfEl\(u\); return up \? mul\(matOfEl\(up\), own\) : own; \} \}\]\);/);
+  assert.match(st, /groups\.set\(n, \[\{ spec, get m\(\) \{ const own = elMat\(u\); return up \? mul\(elMat\(up\), own\) : own; \} \}\]\);/);
   assert.match(st, /for \(const u of overPainted\) if \(!now2\.has\(u\)\) u\.classList\.remove\(OVER_CLASS\);\n\s+for \(const u of now2\) u\.classList\.add\(OVER_CLASS\);/);
   // (Read each frame before the figure decides to sleep, and laid again alone when only they changed.)
   assert.match(st, /syncOver\(\);\n\s+\/\/ [^\n]*\n\s+if \(OVER_ON && veins\?\.overlay\?\.stale && !veins\.lost\) veins\.present\(\);\n\s+const rowsWait/);

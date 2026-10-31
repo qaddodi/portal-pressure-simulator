@@ -50,7 +50,22 @@ export function parseColor(s) {
   return null;
 }
 
-const matOf = (el) => { const t = el.transform?.baseVal; if (!t || !t.numberOfItems) return ID; const k = t.consolidate().matrix; return [k.a, k.b, k.c, k.d, k.e, k.f]; };
+const matAttr = (el) => { const t = el.transform?.baseVal; if (!t || !t.numberOfItems) return ID; const k = t.consolidate().matrix; return [k.a, k.b, k.c, k.d, k.e, k.f]; };
+// An element's own transform as the page lays it, where a strict reading found a CSS one (its transform, translate, rotate or scale,
+// about its transform-origin): read from the browser's own frames (cssLocal), kept until the element is read again. The page's
+// styles that set one also ease it, and while they do the group is not read (stage.js syncOver), so it stands between two readings.
+const CSS_M = new WeakMap();
+let cssAny = false;   // (none taken yet: the organs' paints never look)
+const matOf = (el) => (cssAny && CSS_M.get(el)) || matAttr(el);
+/** An element's own frame, its CSS transform included where a strict reading took one. */
+export const elMat = (el) => matOf(el);
+/** An element's own transform as the browser lays it: its frame (getCTM) undone by its parent's, or null where either is not known. */
+export function cssLocal(el) {
+  const a = el.getCTM?.(), b = el.parentNode?.getCTM?.();
+  if (!a || !b) return null;
+  const m = mul(inv([b.a, b.b, b.c, b.d, b.e, b.f]), [a.a, a.b, a.c, a.d, a.e, a.f]);
+  return m.every(Number.isFinite) ? m : null;
+}
 const urlId = (v) => String(v || '').match(/url\(\s*["']?#([^)"']+)["']?\s*\)/)?.[1] || null;
 const num = (el, a, dflt) => { const v = el.getAttribute(a); if (v == null || v === '') return dflt; const n = parseFloat(v); return v.trim().endsWith('%') ? n / 100 : n; };
 
@@ -130,9 +145,9 @@ function readClip(doc, id, m) {
  * gut's see-through shades, the stomach's and duodenum's fades, each a group of overlapping shapes.)
  */
 // `strict` (the figure's overlays, stage.js syncOver): visibility as the page computes it, and refused as well, so that such a group
-// stays in the SVG rather than painted otherwise than the browser paints it: a CSS animation, a CSS transform or a transform the
-// painter would not read (any but the transform attribute's own), a marker, a non-scaling stroke, a paint order, crisp edges, or
-// a stroke whose joins are not round on an outline with corners (the painter joins every stroke round).
+// stays in the SVG rather than painted otherwise than the browser paints it: a CSS animation, a marker, a non-scaling stroke, a
+// paint order, crisp edges, or a stroke whose joins are not round on an outline with corners (the painter joins every stroke
+// round). A CSS transform (the caudate's growth, about its origin) is taken as the browser lays it (cssLocal).
 export function readGroup(root, { withMask = true, nest = false, strict = false } = {}) {
   const doc = root.ownerDocument, ops = [];
   let ok = true;
@@ -152,7 +167,13 @@ export function readGroup(root, { withMask = true, nest = false, strict = false 
     if (cs.display === 'none') return;
     if (strict) {
       vis = cs.visibility === 'collapse' ? 'hidden' : cs.visibility || 'visible';
-      if (strictRefused(el, cs)) { ok = false; return; }
+      if (strictRefused(el, cs, { cssTransforms: true })) { ok = false; return; }
+      CSS_M.delete(el);
+      if (cssTransformed(el, cs)) {
+        const lm = cssLocal(el);
+        if (!lm) { ok = false; return; }
+        CSS_M.set(el, lm); cssAny = true;
+      }
     } else {
       const own = el.style?.visibility || el.getAttribute('visibility');
       if (own && own !== 'inherit') vis = own;
@@ -231,19 +252,26 @@ export function readGroup(root, { withMask = true, nest = false, strict = false 
 
 // What a strict reading refuses in an element's computed style (readGroup `strict`).
 const MATRIX = /^matrix\(\s*([-\d.e]+)[\s,]+([-\d.e]+)[\s,]+([-\d.e]+)[\s,]+([-\d.e]+)[\s,]+([-\d.e]+)[\s,]+([-\d.e]+)\s*\)$/;
-export function strictRefused(el, cs) {
+// (`cssTransforms`: a CSS transform is not refused, readGroup takes it as the browser lays it, cssLocal.)
+export function strictRefused(el, cs, { cssTransforms = false } = {}) {
   if (cs.animationName && cs.animationName !== 'none') return 'animation';
-  for (const k of ['translate', 'rotate', 'scale']) if (cs[k] && cs[k] !== 'none') return k;
-  const t = cs.transform;
-  if (t && t !== 'none') {
-    // (The page's computed transform of an SVG element holds its transform attribute: the same matrix is the attribute's alone.)
-    const k = t.match(MATRIX), a = matOf(el);
-    if (!k || k.slice(1).some((v, i) => Math.abs(+v - a[i]) > 1e-6 * Math.max(1, Math.abs(a[i])))) return 'transform';
-  } else if (matOf(el) !== ID) return 'transform';
+  const t = cssTransformed(el, cs);
+  if (t && !cssTransforms) return t;
   if (cs.vectorEffect && cs.vectorEffect !== 'none') return 'vector-effect';
   for (const k of ['markerStart', 'markerMid', 'markerEnd']) if (cs[k] && cs[k] !== 'none') return 'marker';
   if (cs.paintOrder && cs.paintOrder !== 'normal') return 'paint-order';
   if (cs.shapeRendering && !/^(auto|geometricPrecision)$/.test(cs.shapeRendering)) return 'shape-rendering';
+  return '';
+}
+/** Which CSS transform the page gives an element beyond its transform attribute ('transform', 'translate', 'rotate', 'scale'), or ''. */
+export function cssTransformed(el, cs) {
+  for (const k of ['translate', 'rotate', 'scale']) if (cs[k] && cs[k] !== 'none') return k;
+  const t = cs.transform;
+  if (t && t !== 'none') {
+    // (The page's computed transform of an SVG element holds its transform attribute: the same matrix is the attribute's alone.)
+    const k = t.match(MATRIX), a = matAttr(el);
+    if (!k || k.slice(1).some((v, i) => Math.abs(+v - a[i]) > 1e-6 * Math.max(1, Math.abs(a[i])))) return 'transform';
+  } else if (matAttr(el) !== ID) return 'transform';
   return '';
 }
 
