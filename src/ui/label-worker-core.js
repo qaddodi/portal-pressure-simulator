@@ -1,7 +1,7 @@
 // The labels' pictures laid by a worker (label-gl.js `remote`): the atlas pages, and the one instanced draw per frame, on the labels'
 // own canvas. The page draws each label's picture when its look changes and sends it with its place in the atlas; each frame it sends
 // the boxes in painter order. The same shaders and blending as label-gl.js draws with on the page.
-import { AVS, AFS } from './label-gl.js?v=71f3cadf6e';
+import { AVS, AFS } from './label-gl.js?v=d9c295feeb';
 import { startProgram, checkProgram } from './gl-compile.js?v=5c4cd6c14c';
 import { batchRuns } from './atlas-pack.js?v=43b8bc019d';
 

@@ -41,8 +41,8 @@ import { cropToGrid } from './organs-gl.js?v=7e9716eacd';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=c89e7a24ec';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
-import { createLabelGL } from './label-gl.js?v=71f3cadf6e';
-import { createGlassGL } from './glass-gl.js?v=dbbd9da19e';
+import { createLabelGL } from './label-gl.js?v=d9c295feeb';
+import { createGlassGL } from './glass-gl.js?v=40c8e78a1c';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=4b339fceed';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
@@ -2303,7 +2303,7 @@ export function createStage({ figure = null, wrap, onSelect, onAction, onOpenTab
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=c467c1f8df').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=b5d876901c').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -8106,7 +8106,7 @@ export function createStage({ figure = null, wrap, onSelect, onAction, onOpenTab
     && createLabelGL(labelSvg, gLabels, { off: /[?&]gpulabels=0\b/.test(location.search), remote: figure.labels, force: true }))
     || createLabelGL(labelSvg, gLabels, { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), marks: [gLeaders, gScan], host: labelHost, force: !!labelHost });
   if (labelGL && labelHost) {
-    veins.top.set(() => labelGL.drawInto());
+    veins.top.set(() => { labelGL.drawInto(); glassGL?.drawInto(); });
     // (What decides it changed: the labels given back at once when they may no longer be drawn there, label-gl check.)
     const labelMo = new MutationObserver(() => labelGL.check());
     labelMo.observe(wrap, { attributes: true, attributeFilter: ['class'] });
@@ -8115,6 +8115,17 @@ export function createStage({ figure = null, wrap, onSelect, onAction, onOpenTab
     if (svgOver) labelMo.observe(svgOver, { attributes: true, attributeFilter: ['class'] });
   }
   wrap.dataset.labels = labelGL ? (labelHost ? 'gpu-host' : 'gpu') : 'svg';
+  // The callouts' glass drawn into the same canvas, over the labels (recs A1, glass): from the picture itself, so the figure is never
+  // copied for it and its own canvas leaves the page's layers. Only while the labels are (labelsOver), outside a dive, and where no
+  // glass crosses what the page lays between the two: a label or mark the SVG still draws, the teaching card's shade, a Present card's
+  // GPU glass, the credit. Otherwise its own canvas, as before. ?glasshost=0 keeps that canvas always.
+  if (glassGL && labelGL && labelHost && !/[?&]glasshost=0\b/.test(location.search)) {
+    glassGL.setHost({
+      gl: veins.top.gl, canvas: veins.top.canvas, now: labelNow,
+      active: () => !(diveT > 0) && labelsOver(),
+      over: () => [...document.querySelectorAll('.pz-shade, .stage-credit, .pz [data-gl]'), ...labelGL.svgLeft()],
+    });
+  }
   const labelGlSync = () => { if (labelGL) labelGL.sync([...pool.values()].filter((b) => b.pos).map((b) => b.pos)); };
   const FONT = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
   const measure = document.createElement('canvas').getContext('2d');

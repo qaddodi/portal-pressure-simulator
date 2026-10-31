@@ -37,7 +37,7 @@ async function handle(d) {
   // The labels' pictures (label-gl.js `remote`): their own canvas and context, beside the figure's.
   if (d?.type === 'lbl-init') {
     try {
-      const { createLabelRenderer } = await import('./label-worker-core.js?v=8b29bf3798');
+      const { createLabelRenderer } = await import('./label-worker-core.js?v=4d12aac14a');
       labels = createLabelRenderer(d.canvas);
       if (!labels) throw new Error('no WebGL2 for the labels');
     } catch (e) { self.postMessage({ type: 'lbl-failed', why: String(e?.message || e) }); }

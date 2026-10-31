@@ -3,8 +3,8 @@
 
 import { startHost, host } from './host.js?v=9ec2108104';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=a926bea9d4';
-import { figWorkerWanted, startFigureWorker } from './figure-worker-start.js?v=74b206351c';
-import { createStage } from './stage.js?v=84aaf020b4';
+import { figWorkerWanted, startFigureWorker } from './figure-worker-start.js?v=d58b79428d';
+import { createStage } from './stage.js?v=ab07076159';
 import { createCreditPlacer } from './credit.js?v=02ec5a517d';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';

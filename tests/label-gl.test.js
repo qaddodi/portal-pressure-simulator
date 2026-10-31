@@ -43,7 +43,7 @@ test('the SVG copy is see-through only while the GPU draws that label, marked in
   assert.match(CSS, /\.stage-view\.cam-move > #labelGl/);
   assert.match(CSS, /\.stage-view\.in-lobule #labelGl/);
   assert.match(CSS, /\.cath-on :is\(#labels, #labelGl\)/);
-  assert.match(LGL, /if \(st\.mode !== 'gl'\) \{ if \(g\.hasAttribute\('data-gl'\)\) g\.removeAttribute\('data-gl'\); continue; \}\n\s+if \(!g\.hasAttribute\('data-gl'\)\) g\.setAttribute\('data-gl', ''\);/);
+  assert.match(LGL, /if \(st\.mode !== 'gl'\) \{ if \(g\.hasAttribute\('data-gl'\)\) g\.removeAttribute\('data-gl'\); if \(host && st\.mode === 'svg'\) svgLeft\.add\(g\); continue; \}\n\s+if \(!g\.hasAttribute\('data-gl'\)\) g\.setAttribute\('data-gl', ''\);/);
   assert.match(LGL, /webglcontextlost[\s\S]{0,200}for \(const s of last\) s\.g\.removeAttribute\('data-gl'\);/);
 });
 
@@ -159,7 +159,7 @@ test('with the overlays on the GPU the labels go into the vessel canvas, only wh
   assert.match(STAGE, /wc\.contains\('cam-move'\) \|\| wc\.contains\('pinch-hide'\) \|\| wc\.contains\('unframed'\) \|\| wc\.contains\('in-lobule'\) \|\| wc\.contains\('cath-on'\)\) return false;/);
   assert.match(STAGE, /if \(vdpr < vBase - 1e-9 \|\| vCanvas\.style\.translate \|\| !\(boxW > 0\) \|\| Math\.abs\(vcw\(\) \/ boxW - \(devicePixelRatio \|\| 1\)\) > 0\.02\) return false;/);
   assert.match(STAGE, /\+lc\.opacity >= 0\.999 && vc\.visibility === 'visible' && \+vc\.opacity >= 0\.999;/);
-  assert.match(STAGE, /veins\.top\.set\(\(\) => labelGL\.drawInto\(\)\);/);
+  assert.match(STAGE, /veins\.top\.set\(\(\) => \{ labelGL\.drawInto\(\); glassGL\?\.drawInto\(\); \}\);/);
   for (const t of ['wrap, { attributes: true, attributeFilter: \\[\'class\'\\] }', 'glass, { attributes: true, attributeFilter: \\[\'hidden\'\\] }', 'vCanvas, { attributes: true, attributeFilter: \\[\'style\', \'width\', \'height\'\\] }']) assert.match(STAGE, new RegExp(`labelMo\\.observe\\(${t}\\);`));
   // (Given back to the SVG in the same task as the picture is laid without them; none laid again while they stay there.)
   assert.match(LGL, /if \(!released\) \{ if \(!host\.active\(\)\) \{ host\.now\(\); if \(!released\) release\(\); \} return; \}/);

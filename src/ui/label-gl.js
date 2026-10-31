@@ -407,6 +407,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
   let lost = false, dpr = 1, W = 1, H = 1, last = [], raf = 0;
   // (Host mode: whether a picture with the labels is owed to the host's canvas; whether the SVG was given every label back.)
   let owed = false, released = true;   // (at first the SVG shows every label: none is marked yet)
+  // (Host mode: the labels and marks the SVG still draws, as of the last picture: what lies between the figure's canvas and the callouts'
+  // glass, which is drawn into that canvas only where it crosses none of them; svgLeft.)
+  const svgLeft = new Set();
   const sprites = new WeakMap();   // group → { key, tex, ox, oy, w, h }
   const live = new Map();          // group → until (ms): a fade, an ease or a hover is running, its look read each frame
   const dirty = new Set();
@@ -539,6 +542,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       size();
       if (!host.active()) { if (!released) release(); return; }
       if (released) { released = false; for (const s of last) dirty.add(s.g); allMarks(); pDirty = true; sDirty = true; }
+      svgLeft.clear();
     }
     const now = performance.now();
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -559,7 +563,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       let st = sprites.get(g);
       if (!st || dirty.has(g) || live.has(g) || st.rot !== !!s.rot) { st = refresh(g, !!s.rot); st.rot = !!s.rot; }
       // (Marked in the same frame as the picture is drawn, so neither the SVG's copy and the picture both show, nor neither.)
-      if (st.mode !== 'gl') { if (g.hasAttribute('data-gl')) g.removeAttribute('data-gl'); continue; }
+      if (st.mode !== 'gl') { if (g.hasAttribute('data-gl')) g.removeAttribute('data-gl'); if (host && st.mode === 'svg') svgLeft.add(g); continue; }
       if (!g.hasAttribute('data-gl')) g.setAttribute('data-gl', '');
       if (!(st.opacity > 0.001)) continue;
       // (The label's origin on a whole device pixel, the picture at its offset from it.)
@@ -618,7 +622,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
           else geo = [NUM(el.getAttribute('cx')) * dpr, NUM(el.getAttribute('cy')) * dpr, NUM(el.getAttribute('r')) * dpr, 0];
         }
         // (A mark this drawing cannot give stays the SVG's; one it draws is hidden there, in the same frame.)
-        if (st === false || (st && !geo)) { if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); continue; }
+        if (st === false || (st && !geo)) { if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); if (host) svgLeft.add(el); continue; }
         if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', '');
         const a = (st?.op ?? 0) * (ro?.op ?? 1);
         if (!st || !(a > 0.001) || (!st.stroke && !st.fill)) continue;
@@ -930,6 +934,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     check() { check(); },
     /** Host mode: whether the host's canvas owes a picture with the labels. */
     get owed() { return owed; },
+    /** Host mode: the label groups and marks the SVG drew itself at the last picture (none while it draws them all). */
+    svgLeft: () => [...svgLeft],
     get lost() { return lost; },
     /** This frame's labels: drawn now, in the same frame as the SVG's layout. */
     sync(list) {

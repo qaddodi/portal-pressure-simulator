@@ -20,7 +20,7 @@ export function figureSettings() {
 
 export const figWorkerWanted = () => /[?&]figworker=on\b/.test(location.search);
 
-export function startFigureWorker({ make = () => new Worker(new URL('./figure-worker.js?v=8e7e866e00', import.meta.url), { type: 'module' }), canvas = document.createElement('canvas') } = {}) {
+export function startFigureWorker({ make = () => new Worker(new URL('./figure-worker.js?v=bce29c11dd', import.meta.url), { type: 'module' }), canvas = document.createElement('canvas') } = {}) {
   if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || typeof canvas.transferControlToOffscreen !== 'function') return Promise.resolve(null);
   return new Promise((res) => {
     let w = null, proxy = null, done = false, begun = false, cropId = 0;

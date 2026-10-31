@@ -128,6 +128,25 @@ void main() {
   o = vec4(c, 1.0) * m * uA;
 }`;
 
+// The blur's and the glass's programs, linked in a context (the glass's own, or the figure's when it draws there: host).
+function programsOf(gl) {
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+  const link = (fs) => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, QVS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); return gl.getProgramParameter(p, gl.LINK_STATUS) ? p : null; };
+  const bprog = link(BFS), pprog = link(PFS);
+  if (!bprog || !pprog) { if (bprog) gl.deleteProgram(bprog); if (pprog) gl.deleteProgram(pprog); return null; }
+  const uni = (p, ks) => Object.fromEntries(ks.map((k) => [k, gl.getUniformLocation(p, k)]));
+  const BU = uni(bprog, ['uBox', 'uView', 'uT', 'uDir', 'uW']);
+  const PU = uni(pprog, ['uBox', 'uView', 'uMS', 'uReg', 'uScene', 'uMask', 'uBg', 'uTint', 'uSat', 'uA', 'uBB', 'uShC', 'uShB', 'uShS', 'uRad', 'uMode']);
+  return { bprog, pprog, BU, PU };
+}
+function texOf(gl, filter) {
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return t;
+}
+
 /**
  * The GPU glass for the callouts under `layers` (the .cath-labels layers), over the figure drawn on `source` (veins-gl's canvas,
  * which keeps its drawing buffer). The canvas is laid just before `layers[0]`. With `pane` (an .lb-glass element), it draws that one
@@ -140,6 +159,10 @@ void main() {
  * the canvas's and the figure's boxes and the stage's colour are read once and kept until something says they may have changed
  * (keptStale), so a frame where only the figure under them was drawn again reads no style and forces no layout. `due()`: the page's
  * layout watch (idle-keys.js), true while a card, bar or the stage may have moved.
+ * setHost(h) (the callouts' glass only; recs A1, glass): h = { gl, canvas, now, active, over }, the figure's own canvas (veins-gl top).
+ * While h.active() and no glass crosses an element of h.over() (what the page lays between that canvas and this one), the glass is
+ * drawn into the figure's canvas, at the end of each picture it lays (drawInto), from that picture itself: no copy of the canvas, no
+ * canvas of its own. Otherwise, and for the frame of each change, it is drawn here as before.
  */
 export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null } = {}) {
   const look = pane ? PANE : GLASS;
@@ -154,21 +177,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl) return null;
-  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
-  const link = (fs) => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, QVS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); return gl.getProgramParameter(p, gl.LINK_STATUS) ? p : null; };
-  const bprog = link(BFS), pprog = link(PFS);
-  if (!bprog || !pprog) return null;
-  const uni = (p, ks) => Object.fromEntries(ks.map((k) => [k, gl.getUniformLocation(p, k)]));
-  const BU = uni(bprog, ['uBox', 'uView', 'uT', 'uDir', 'uW']);
-  const PU = uni(pprog, ['uBox', 'uView', 'uMS', 'uReg', 'uScene', 'uMask', 'uBg', 'uTint', 'uSat', 'uA', 'uBB', 'uShC', 'uShB', 'uShS', 'uRad', 'uMode']);
+  const progs = programsOf(gl);
+  if (!progs) return null;
+  const { bprog, pprog, BU, PU } = progs;
   const vao = gl.createVertexArray();
-  const tex = (filter) => {
-    const t = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    return t;
-  };
+  const tex = (filter) => texOf(gl, filter);
   const copy = tex(gl.LINEAR), pass = tex(gl.LINEAR), blurred = tex(gl.LINEAR);
   const fbPass = gl.createFramebuffer(), fbOut = gl.createFramebuffer();
   (cards ? cards.before : pane || layers[0]).before(canvas);
@@ -207,20 +220,22 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     return a;
   };
   // A callout's shape as a mask, drawn from its own outline path (callout.js), again only when that or its size changes.
-  function maskOf(g, d, w, h) {
-    const key = `${d}|${w}|${h}|${dpr}`;
-    let m = masks.get(g);
+  // (K: the figure's context's kit when the glass is drawn there (host), with its own masks, at that canvas's density.)
+  function maskOf(g, d, w, h, K = null) {
+    const G = K ? K.G : gl, k = K ? K.k : dpr, store = K ? K.masks : masks;
+    const key = `${d}|${w}|${h}|${k}`;
+    let m = store.get(g);
     if (m?.key === key) return m;
-    const cv = document.createElement('canvas'), mw = Math.max(1, Math.ceil(w * dpr)), mh = Math.max(1, Math.ceil(h * dpr));
+    const cv = document.createElement('canvas'), mw = Math.max(1, Math.ceil(w * k)), mh = Math.max(1, Math.ceil(h * k));
     cv.width = mw; cv.height = mh;
     const c = cv.getContext('2d');
-    c.setTransform(dpr, 0, 0, dpr, 0, 0); c.fillStyle = 'black'; c.fill(new Path2D(d));
-    if (!m) { m = { tex: tex(gl.LINEAR) }; maskTex.add(m.tex); }
-    gl.bindTexture(gl.TEXTURE_2D, m.tex);
-    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv);
-    Object.assign(m, { key, ms: [w * dpr / mw, h * dpr / mh] });
-    masks.set(g, m);
+    c.setTransform(k, 0, 0, k, 0, 0); c.fillStyle = 'black'; c.fill(new Path2D(d));
+    if (!m) { m = { tex: texOf(G, G.LINEAR) }; (K ? K.maskTex : maskTex).add(m.tex); }
+    G.bindTexture(G.TEXTURE_2D, m.tex);
+    G.pixelStorei(G.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    G.texImage2D(G.TEXTURE_2D, 0, G.RGBA, G.RGBA, G.UNSIGNED_BYTE, cv);
+    Object.assign(m, { key, ms: [w * k / mw, h * k / mh] });
+    store.set(g, m);
     return m;
   }
   // A new small copy of the figure behind the callouts, blurred once in two passes when it arrives.
@@ -321,7 +336,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function draw() {
     if (lost || dead || gl.isContextLost()) return false;
     const list = glassesOf();
+    if (hostOn && (!list.length || !wanted() || !live())) dropHost(true);
     if (!list.length || !wanted() || !live()) { unmark(); clear(); kept = null; return false; }
+    if (host) { const r = hostDraw(list); if (r !== undefined) return r; }
     if (keep?.()) return drawKept(list);
     kept = null;
     const cr = canvas.getBoundingClientRect(), k = glassDpr();
@@ -350,12 +367,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function paint(panes, cr, bgs, bg, bgVar) {
     // Everything this picture is drawn from: the blurred copy, the canvas, the stage's colour and each glass as laid out now (its place,
     // fade, shape, tint and the card's shadow). The same as the picture on the canvas: it is left as it is ('same').
-    let key = `${W}x${H}|${dpr}|${readySeq}|${cr.left}|${cr.top}|${bgs}|${bgVar}`;
-    for (const p of panes) {
-      const s = p.shadow, e = p.er;
-      key += `|${p.r.left},${p.r.top},${p.r.width},${p.r.height},${p.a},${p.lw},${p.lh},${p.d},${p.rad || ''},${p.tint}`
-        + (pane ? '' : `,${e.left},${e.top},${e.right},${e.bottom},${s ? `${s.c},${s.x},${s.y},${s.blur},${s.spread}` : '-'}`);
-    }
+    const key = `${W}x${H}|${dpr}|${readySeq}|${cr.left}|${cr.top}|${bgs}|${bgVar}` + panesKey(panes);
     if (drawn && key === drawnKey) return 'same';
     noteDraw(cards ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
     if (gpuProbe.on) gpuProbe.note(cards ? COUNTED.cardDrawn : pane ? COUNTED.paneDrawn : COUNTED.glassDrawn);
@@ -367,33 +379,50 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const base = bg[3] > 0 ? bg : colour(bgVar, 'transparent');
     gl.uniform3f(PU.uBg, base[0], base[1], base[2]);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, blurred);
+    drawPanes(gl, PU, panes, cr, dpr, (p) => maskOf(p.g, p.d, p.lw, p.lh));
+    drawn = true; drawnKey = key;
+    return true;
+  }
+  // (Each glass as laid out: its place, fade, shape, tint and the card's shadow.)
+  function panesKey(panes) {
+    let key = '';
+    for (const p of panes) {
+      const s = p.shadow, e = p.er;
+      key += `|${p.r.left},${p.r.top},${p.r.width},${p.r.height},${p.a},${p.lw},${p.lh},${p.d},${p.rad || ''},${p.tint}`
+        + (pane ? '' : `,${e.left},${e.top},${e.right},${e.bottom},${s ? `${s.c},${s.x},${s.y},${s.blur},${s.spread}` : '-'}`);
+    }
+    return key;
+  }
+  // Each glass over the blurred copy (bound on unit 0, the glass's program in use and its view set), in context G at k device px per
+  // CSS px, marked as it is drawn; a mark no longer drawn is given back.
+  function drawPanes(G, U, panes, cr, k, maskFor) {
     const now = new Set();
     for (const p of panes) {
       const t = colour(p.tint.trim(), 'transparent'), ta = t[3] * p.k;
       // (A card whose tint did not read as a colour (a browser that does not register custom properties): not drawn, and left to the
       // browser's glass, which still shows its declared background.)
       if (cards && !(ta > 0)) continue;
-      const bx = (p.r.left - cr.left) * dpr, by = (p.r.top - cr.top) * dpr;
+      const bx = (p.r.left - cr.left) * k, by = (p.r.top - cr.top) * k;
       if (p.rad) {
-        gl.uniform1i(PU.uMode, 1);
-        gl.uniform4f(PU.uRad, p.rad[0] * dpr, p.rad[1] * dpr, p.rad[2] * dpr, p.rad[3] * dpr);
-        gl.uniform2f(PU.uMS, 1, 1);
+        G.uniform1i(U.uMode, 1);
+        G.uniform4f(U.uRad, p.rad[0] * k, p.rad[1] * k, p.rad[2] * k, p.rad[3] * k);
+        G.uniform2f(U.uMS, 1, 1);
       } else {
-        const m = maskOf(p.g, p.d, p.lw, p.lh);
-        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, m.tex); gl.activeTexture(gl.TEXTURE0);
-        gl.uniform1i(PU.uMode, 0);
-        gl.uniform2f(PU.uMS, m.ms[0], m.ms[1]);
+        const m = maskFor(p);
+        G.activeTexture(G.TEXTURE1); G.bindTexture(G.TEXTURE_2D, m.tex); G.activeTexture(G.TEXTURE0);
+        G.uniform1i(U.uMode, 0);
+        G.uniform2f(U.uMS, m.ms[0], m.ms[1]);
       }
-      gl.uniform4f(PU.uBox, bx, by, p.r.width * dpr, p.r.height * dpr);
-      gl.uniform4f(PU.uTint, t[0] * ta, t[1] * ta, t[2] * ta, ta);
-      gl.uniform1f(PU.uA, Math.min(1, p.a));
-      const e = p.er, L = (e.left - cr.left) * dpr, T = (e.top - cr.top) * dpr, R = (e.right - cr.left) * dpr, B = (e.bottom - cr.top) * dpr;
-      gl.uniform4f(PU.uBB, L, T, R, B);
-      const s = p.shadow, sp = (s?.spread || 0) * dpr;
-      gl.uniform4f(PU.uShC, ...(s ? s.c : [0, 0, 0, 0]));
-      gl.uniform4f(PU.uShB, L + (s?.x || 0) * dpr - sp, T + (s?.y || 0) * dpr - sp, R + (s?.x || 0) * dpr + sp, B + (s?.y || 0) * dpr + sp);
-      gl.uniform1f(PU.uShS, (s?.blur || 0) / 2 * dpr);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      G.uniform4f(U.uBox, bx, by, p.r.width * k, p.r.height * k);
+      G.uniform4f(U.uTint, t[0] * ta, t[1] * ta, t[2] * ta, ta);
+      G.uniform1f(U.uA, Math.min(1, p.a));
+      const e = p.er, L = (e.left - cr.left) * k, T = (e.top - cr.top) * k, R = (e.right - cr.left) * k, B = (e.bottom - cr.top) * k;
+      G.uniform4f(U.uBB, L, T, R, B);
+      const s = p.shadow, sp = (s?.spread || 0) * k;
+      G.uniform4f(U.uShC, ...(s ? s.c : [0, 0, 0, 0]));
+      G.uniform4f(U.uShB, L + (s?.x || 0) * k - sp, T + (s?.y || 0) * k - sp, R + (s?.x || 0) * k + sp, B + (s?.y || 0) * k + sp);
+      G.uniform1f(U.uShS, (s?.blur || 0) / 2 * k);
+      G.drawArrays(G.TRIANGLE_STRIP, 0, 4);
       // (Marked in the frame its glass is first drawn here: the browser's blur and this one never both show, nor neither.)
       if (!p.g.hasAttribute('data-gl')) p.g.setAttribute('data-gl', '');
       now.add(p.g);
@@ -402,9 +431,166 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     // browser's glass now: marked, it would show no glass at all.)
     for (const g of marked) if (!now.has(g) && (cards || !g.isConnected)) { if (cards && g.isConnected) g.removeAttribute('data-gl'); marked.delete(g); }
     for (const g of now) marked.add(g);
-    drawn = true; drawnKey = key;
+  }
+  // Drawn into the figure's canvas (setHost; recs A1, glass). The loop reads the glasses as before; when they, the canvas's place or the
+  // stage's colour changed it asks the figure to lay its picture again at once (host.now: in the frame's final phase, so in the same
+  // frame as the change). Each picture laid draws the glass over it (drawInto): the region behind the glasses taken from that picture
+  // (halved until it is at most twice the blur's size, then down to it: each step an average, as the copy's resize was), blurred in two
+  // passes and cut to each glass's shape. A picture laid while the figure under the glasses has not been drawn again (the same version)
+  // keeps the blur already made. The figure drawn again needs no frame of the glass's own: the picture is laid with it.
+  let host = null, hk = null, hostOn = false, hf = null;
+  const crosses = (panes) => {
+    const els = host.over?.() || [];
+    if (!els.length || !panes.length) return false;
+    const rs = els.map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
+    return panes.some((p) => rs.some((r) => p.r.left < r.right && r.left < p.r.right && p.r.top < r.bottom && r.top < p.r.bottom));
+  };
+  function hostKit() {
+    const G = host.gl, P = programsOf(G);
+    if (!P) return null;
+    const K = { G, ...P, vao: G.createVertexArray(), copy: texOf(G, G.LINEAR), pass: texOf(G, G.LINEAR), blurred: texOf(G, G.LINEAR),
+      fbCopy: G.createFramebuffer(), fbPass: G.createFramebuffer(), fbOut: G.createFramebuffer(), steps: [], size: '', key: '', reg: null, k: 1,
+      masks: new WeakMap(), maskTex: new Set() };
+    G.bindTexture(G.TEXTURE_2D, null);
+    return K;
+  }
+  function hostFree() {
+    const K = hk;
+    hk = null;
+    if (!K || K.G.isContextLost()) return;
+    const G = K.G;
+    for (const t of [K.copy, K.pass, K.blurred, ...K.steps.map((st) => st.t), ...K.maskTex]) G.deleteTexture(t);
+    for (const fb of [K.fbCopy, K.fbPass, K.fbOut, ...K.steps.map((st) => st.fb)]) G.deleteFramebuffer(fb);
+    G.deleteProgram(K.bprog); G.deleteProgram(K.pprog); G.deleteVertexArray(K.vao);
+  }
+  // Back to this canvas: the browser's glass shows until its first copy is in (marks given back), and the figure's picture is laid again
+  // without the glass now (again), or by the figure's next picture (from inside one, which has just been laid without it).
+  function dropHost(again) {
+    if (!hostOn) return;
+    hostOn = false; hf = null;
+    if (hk) hk.key = '';
+    unmark();
+    canvas.style.visibility = '';
+    if (again) host?.now(); else ask();
+  }
+  // The loop's turn while a host is set: true, 'same' or false as draw() returns, or undefined when the glass is drawn on its own canvas.
+  function hostDraw(list) {
+    if (!host.active()) { dropHost(true); return undefined; }
+    const panes = readPanes(list);
+    if (crosses(panes)) { dropHost(true); return undefined; }
+    if (!hk && !(hk = hostKit())) { host = null; return undefined; }
+    const cr = host.canvas.getBoundingClientRect();
+    if (!cr.width || !cr.height) { dropHost(true); return undefined; }
+    const ws = getComputedStyle(wrap), bgs = ws.backgroundColor, bg = colour(bgs, 'transparent');
+    const bgVar = bg[3] > 0 ? '' : ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim();
+    const key = `${cr.left}|${cr.top}|${cr.width}|${cr.height}|${bgs}|${bgVar}` + panesKey(panes);
+    if (!hostOn) {
+      // (This canvas cleared and out of the page's layers; a copy on its way is not put in, and the next one here is taken afresh.)
+      hostOn = true; hf = null; gen++; pending = false; ready = null; takenKey = ''; kept = null;
+      clear();
+      canvas.style.visibility = 'hidden';
+      W = H = 1; canvas.width = 1; canvas.height = 1;   // (its memory given back while it stands aside; sized again when it draws)
+    }
+    if (hf && hf.key === key) return panes.length ? 'same' : false;
+    hf = { panes, cr, base: bg[3] > 0 ? bg : colour(bgVar, 'transparent'), key };
+    host.now();
+    return panes.length ? true : false;
+  }
+  // A texture and framebuffer for one halving step, grown (never shrunk) to hold w × h.
+  function step(i, w, h) {
+    const G = hk.G;
+    let st = hk.steps[i];
+    if (!st) { st = { t: texOf(G, G.LINEAR), fb: G.createFramebuffer(), w: 0, h: 0 }; hk.steps[i] = st; }
+    if (w > st.w || h > st.h) {
+      st.w = Math.max(w, st.w); st.h = Math.max(h, st.h);
+      G.bindTexture(G.TEXTURE_2D, st.t);
+      G.texImage2D(G.TEXTURE_2D, 0, G.RGBA, st.w, st.h, 0, G.RGBA, G.UNSIGNED_BYTE, null);
+      G.bindFramebuffer(G.FRAMEBUFFER, st.fb);
+      G.framebufferTexture2D(G.FRAMEBUFFER, G.COLOR_ATTACHMENT0, G.TEXTURE_2D, st.t, 0);
+    }
+    return st;
+  }
+  // The region (CSS px from the canvas's corner) of the picture just laid, made small and blurred, as take() does from a copy.
+  function hostBlur(reg, k, W2, H2) {
+    const G = hk.G;
+    let x0 = Math.max(0, Math.round(reg.x * k)), x1 = Math.min(W2, Math.round((reg.x + reg.w) * k));
+    let y0 = Math.max(0, H2 - Math.round((reg.y + reg.h) * k)), y1 = Math.min(H2, H2 - Math.round(reg.y * k));
+    let w = x1 - x0, h = y1 - y0;
+    if (w < 1 || h < 1) return false;
+    const bw = Math.max(1, Math.ceil(reg.w / SCALE)), bh = Math.max(1, Math.ceil(reg.h / SCALE));
+    if (hk.size !== `${bw}x${bh}`) {
+      hk.size = `${bw}x${bh}`;
+      for (const [t, fb] of [[hk.copy, hk.fbCopy], [hk.pass, hk.fbPass], [hk.blurred, hk.fbOut]]) {
+        G.bindTexture(G.TEXTURE_2D, t);
+        G.texImage2D(G.TEXTURE_2D, 0, G.RGBA, bw, bh, 0, G.RGBA, G.UNSIGNED_BYTE, null);
+        G.bindFramebuffer(G.FRAMEBUFFER, fb);
+        G.framebufferTexture2D(G.FRAMEBUFFER, G.COLOR_ATTACHMENT0, G.TEXTURE_2D, t, 0);
+      }
+    }
+    if (gpuProbe.on) gpuProbe.note(COUNTED.glassCopy);
+    let src = null;
+    for (let i = 0; w > bw * 2 || h > bh * 2; i++) {
+      const nw = Math.max(bw, Math.ceil(w / 2)), nh = Math.max(bh, Math.ceil(h / 2)), st = step(i, nw, nh);
+      G.bindFramebuffer(G.READ_FRAMEBUFFER, src); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, st.fb);
+      G.blitFramebuffer(x0, y0, x0 + w, y0 + h, 0, 0, nw, nh, G.COLOR_BUFFER_BIT, G.LINEAR);
+      src = st.fb; x0 = 0; y0 = 0; w = nw; h = nh;
+    }
+    // (Turned over on the way: the copy's first row is the region's top, as a copy of the page's canvas is.)
+    G.bindFramebuffer(G.READ_FRAMEBUFFER, src); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, hk.fbCopy);
+    G.blitFramebuffer(x0, y0, x0 + w, y0 + h, 0, bh, bw, 0, G.COLOR_BUFFER_BIT, G.LINEAR);
+    G.bindFramebuffer(G.READ_FRAMEBUFFER, null); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, null);
+    G.useProgram(hk.bprog); G.bindVertexArray(hk.vao); G.disable(G.BLEND);
+    G.viewport(0, 0, bw, bh);
+    G.uniform4f(hk.BU.uBox, 0, 0, bw, bh); G.uniform2f(hk.BU.uView, bw, bh); G.uniform1i(hk.BU.uT, 0);
+    G.uniform1fv(hk.BU.uW, gaussTaps(look.blur / SCALE));
+    G.activeTexture(G.TEXTURE0);
+    G.bindFramebuffer(G.FRAMEBUFFER, hk.fbPass); G.bindTexture(G.TEXTURE_2D, hk.copy); G.uniform2f(hk.BU.uDir, 1, 0); G.drawArrays(G.TRIANGLE_STRIP, 0, 4);
+    G.bindFramebuffer(G.FRAMEBUFFER, hk.fbOut); G.bindTexture(G.TEXTURE_2D, hk.pass); G.uniform2f(hk.BU.uDir, 0, 1); G.drawArrays(G.TRIANGLE_STRIP, 0, 4);
+    G.bindFramebuffer(G.FRAMEBUFFER, null);
     return true;
   }
+  // The glass over the picture the figure has just laid (veins-gl top, after the labels), into its canvas.
+  function drawInto() {
+    if (!hostOn || !hf || !hk || lost || dead) return;
+    const G = hk.G;
+    if (G.isContextLost()) return;
+    // (No longer to be drawn there: this picture was laid without it, and the browser's glass shows in the same frame.)
+    if (!host.active()) { dropHost(false); return; }
+    const { panes, cr } = hf;
+    if (!panes.length) return;
+    const W2 = host.canvas.width, H2 = host.canvas.height, k = W2 / cr.width;
+    if (!(k > 0) || !H2) return;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const p of panes) { x0 = Math.min(x0, p.r.left); y0 = Math.min(y0, p.r.top); x1 = Math.max(x1, p.r.right); y1 = Math.max(y1, p.r.bottom); }
+    x0 = Math.max(0, x0 - cr.left - MARGIN); y0 = Math.max(0, y0 - cr.top - MARGIN);
+    x1 = Math.min(cr.width, x1 - cr.left + MARGIN); y1 = Math.min(cr.height, y1 - cr.top + MARGIN);
+    if (!(x1 > x0 && y1 > y0)) return;
+    const reg = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    G.disable(G.SCISSOR_TEST); G.disable(G.STENCIL_TEST);
+    const key = `${version ? version() : performance.now()}|${reg.x}|${reg.y}|${reg.w}|${reg.h}|${W2}x${H2}`;
+    if (key !== hk.key) {
+      if (!hostBlur(reg, k, W2, H2)) { G.bindFramebuffer(G.FRAMEBUFFER, null); return; }
+      hk.key = key; hk.reg = reg;
+    } else if (gpuProbe.on) gpuProbe.note(COUNTED.glassSkip);
+    noteDraw('glass');
+    if (gpuProbe.on) gpuProbe.note(COUNTED.glassDrawn);
+    hk.k = k;
+    const U = hk.PU, R = hk.reg;
+    G.bindFramebuffer(G.FRAMEBUFFER, null);
+    G.viewport(0, 0, W2, H2);
+    G.useProgram(hk.pprog); G.bindVertexArray(hk.vao);
+    G.enable(G.BLEND); G.blendFunc(G.ONE, G.ONE_MINUS_SRC_ALPHA);
+    G.uniform2f(U.uView, W2, H2); G.uniform1i(U.uScene, 0); G.uniform1i(U.uMask, 1); G.uniform1f(U.uSat, look.sat);
+    G.uniform4f(U.uReg, R.x * k, R.y * k, R.w * k, R.h * k);
+    G.uniform3f(U.uBg, hf.base[0], hf.base[1], hf.base[2]);
+    G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, hk.blurred);
+    drawPanes(G, U, panes, cr, k, (p) => maskOf(p.g, p.d, p.lw, p.lh, hk));
+    // (The figure's context left as its other passes expect to find it.)
+    G.disable(G.BLEND); G.bindVertexArray(null); G.useProgram(null);
+    G.activeTexture(G.TEXTURE1); G.bindTexture(G.TEXTURE_2D, null); G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, null);
+    G.pixelStorei(G.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  }
+  const onHostLost = () => { hk = null; if (hostOn) { hostOn = false; hf = null; unmark(); canvas.style.visibility = ''; ask(); } };
   // Callout glass kept (keep()): what draw() reads from the page each frame, read only when keptStale says it may have changed. The
   // reads and the picture are draw()'s own; only when they are taken differs. (A list of glasses that is not the one measured, a new
   // screen density, a callout's transition or event in the last 0.8 s, an animation in the layers when last measured (a CSS transition
@@ -506,13 +692,24 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   for (const l of watched) for (const t of EVENTS) l.addEventListener(t, held, true);
   addEventListener('resize', again);
   // (The figure drawn again: the blur under a glass that shows is taken again. With none showing, the figure is not its business.)
-  const offFigure = onFigure?.(() => { if (shown) wake(); });
+  const offFigure = onFigure?.(() => { if (shown && !hostOn) wake(); });   // (drawn into the figure's canvas: laid with each picture)
   const onLost = (e) => { e.preventDefault(); lost = true; unmark(); };
   canvas.addEventListener('webglcontextlost', onLost);
   ask();
   return {
     canvas,
     redraw() { wake(); },
+    /** The figure's canvas to draw into while it may (see above); callouts only. */
+    setHost(h) {
+      if (cards || pane || host || !h?.gl) return;
+      host = h;
+      host.canvas.addEventListener('webglcontextlost', onHostLost);
+      wake();
+    },
+    /** Into the figure's canvas, over the picture it has just laid (its top hook). */
+    drawInto,
+    /** Whether the glass is drawn into the figure's canvas now. */
+    get hosted() { return hostOn; },
     get on() { return !lost && !dead; },
     /** Let go of it: its frames, timers, observers, listeners and GPU objects, and its canvas; the browser's glass shows again. */
     dispose() {
@@ -525,6 +722,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       removeEventListener('resize', again);
       offFigure?.();
       canvas.removeEventListener('webglcontextlost', onLost);
+      host?.canvas.removeEventListener('webglcontextlost', onHostLost);
+      if (hostOn) { hostOn = false; hf = null; host?.now(); }
+      hostFree();
       unmark();
       if (!lost) {
         for (const t of [copy, pass, blurred, ...maskTex]) gl.deleteTexture(t);
