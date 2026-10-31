@@ -230,7 +230,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       let v = raw, eased = false;
       if (Number.isFinite(raw) && Number.isFinite(e.sm) && st0.running && Math.abs(raw - e.sm) < 2) { v = e.sm + (raw - e.sm) * Math.min(1, (now - e.smT) / 1200); eased = true; }
       e.sm = v; e.smT = now;
-      e.v = shownState.set('bar:' + k, v, followOpts(1, !eased));
+      e.v = shownState.set('end:' + k, v, followOpts(1, !eased));
     }
     for (const x of Object.values(tileEls)) {
       const { t } = x;
@@ -266,7 +266,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const A = st0.compareSnap?.metrics || null;
     const now = performance.now();
     const sm = {};
-    for (const k of ['pv', 'ivc', 'whvp', 'fhvp']) { const e = ends[k]; sm[k] = follow ? shownState.or('bar:' + k, e.v) : e.v; setShown(k, sm[k]); }
+    for (const k of ['pv', 'ivc', 'whvp', 'fhvp']) { const e = ends[k]; sm[k] = follow ? shownState.or('end:' + k, e.v) : e.v; setShown(k, sm[k]); }
     const gap = { hvpg: tenthGap(sm.whvp, sm.fhvp, null), ppg: tenthGap(sm.pv, sm.ivc, null) };
     for (const x of Object.values(tileEls)) {
       const { el, t } = x;

@@ -28,7 +28,7 @@ test('a larger step follows over frames, the same curve at 60 or 120 Hz, and lan
     S.set('k', 0); S.set('k', 10, { small: 0.05, eps: 0.005 });
     assert.equal(S.get('k'), 0, 'nothing jumps on the model frame');
     const at = {};
-    for (let i = 1, t = 0; s.asked; i++) { t = (i * 1000) / hz; s.run(t); if (Math.abs(t - 200) < 1e-6) at[200] = S.get('k'); }
+    for (let i = 1; s.asked; i++) { const t = (i * 1000) / hz; s.run(t); if (Math.abs(t - 200) < 1e-6) at[200] = S.get('k'); }
     return { at, end: S.get('k') };
   };
   const a = run(60), b = run(120);
