@@ -13,7 +13,7 @@ async function handle(d) {
     try {
       if (typeof OffscreenCanvas !== 'function') throw new Error('no OffscreenCanvas');
       setFigureSettings(d.settings);   // (before the renderer loads: it reads its switches then, and the later init gets the same module)
-      const { createVeinsGL } = await import('./veins-gl.js?v=4ae3ff397a');
+      const { createVeinsGL } = await import('./veins-gl.js?v=4b339fceed');
       const api = createVeinsGL(new OffscreenCanvas(1, 1), { tubes: 1, force: true });
       if (!api) throw new Error('no WebGL2 here');
       const state = serveFigure(api, () => {}).snapshot();

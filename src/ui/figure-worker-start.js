@@ -3,7 +3,7 @@
 // stay on the page: no Worker, OffscreenCanvas or transferControlToOffscreen, a worker that errs or never answers, or no WebGL2 there.
 // Not used unless ?figworker=on.
 
-import { createFigureProxy } from './figure-link.js?v=6d7cdf964d';
+import { createFigureProxy } from './figure-link.js?v=362fc16e0a';
 import { FIGURE_TOKENS, figureRGB } from './figure-settings.js?v=68c0336f5f';
 
 const WAIT_MS = 10000;
@@ -17,7 +17,7 @@ export function figureSettings() {
 
 export const figWorkerWanted = () => /[?&]figworker=on\b/.test(location.search);
 
-export function startFigureWorker(canvas, { tubes, make = () => new Worker(new URL('./figure-worker.js?v=912d4c89e4', import.meta.url), { type: 'module' }) }) {
+export function startFigureWorker(canvas, { tubes, make = () => new Worker(new URL('./figure-worker.js?v=7f6f3c0088', import.meta.url), { type: 'module' }) }) {
   if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || typeof canvas.transferControlToOffscreen !== 'function') return Promise.resolve(null);
   return new Promise((res) => {
     let w = null, proxy = null, done = false;
