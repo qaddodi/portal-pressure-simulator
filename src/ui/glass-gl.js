@@ -454,6 +454,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // level ('low' for a card host.low(g) names, the teaching card's shade; 'high' for the other cards; undefined for the callouts and the
   // pane): a glass drawn into the figure's canvas would show those sharp through it, where the browser's blurs them. The callouts and
   // the pane go back to their own way as a whole when any of theirs crosses one; a card, alone.)
+  const heldOut = new Map();
+  let heldWake = 0;
   let host = null, hk = null, hostOn = false, hf = null, hostTops = [], hostMo = null;
   const crosses = (panes, rs) => {
     if (!rs?.length || !panes.length) return false;
@@ -500,6 +502,12 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       // (A card is drawn here whole or not at all: marked, a card with one of its panes kept out (the split sheet's two, one reaching past the
       // canvas or crossing a label as it slides) would lose the browser's blur for that pane and show none, flickering as it moves.)
       const out = new Set(panes.filter((p) => !(inside(p) && !crosses([p], host.low?.(p.g) ? (lo ||= host.over?.('low') || []) : (hi ||= host.over?.('high') || [])))).map((p) => p.g));
+      // (And a card kept out stays out for 400 ms after it could be drawn again: one sliding to its end, or a pull settling, can fall in and out
+      // of reach from frame to frame, and each change swaps one blur for the other.)
+      const nowT = performance.now();
+      for (const g of out) heldOut.set(g, nowT);
+      if (out.size && !heldWake) heldWake = setTimeout(() => { heldWake = 0; ask(); }, 420);
+      for (const [g, t] of heldOut) { if (!g.isConnected || nowT - t > 400) heldOut.delete(g); else out.add(g); }
       panes = panes.filter((p) => !out.has(p.g));
     } else if (!panes.every(inside) || crosses(panes, host.over?.())) { dropHost(true); return undefined; }
     if (!hk && !(hk = hostKit())) { dropHost(true); host = null; return undefined; }

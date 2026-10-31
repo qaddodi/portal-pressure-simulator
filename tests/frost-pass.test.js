@@ -114,7 +114,11 @@ test('a card crossing what lies between goes back to the browser\'s glass alone,
   high = [];
   [...observers][0].cb([]);
   await frames(1);
-  assert.equal(data.attrs.has('data-gl'), true, 'clear again: drawn in the figure\'s canvas');
+  assert.equal(data.attrs.has('data-gl'), false, 'clear again, but held out 400 ms so a card sliding in and out of reach does not swap blurs each frame');
+  clock += 500;
+  [...observers][0].cb([]);
+  await frames(1);
+  assert.equal(data.attrs.has('data-gl'), true, 'then drawn in the figure\'s canvas again');
 });
 
 test('the figure\'s canvas cannot take them (a fade, a dive): every card back to the browser\'s glass in that picture', async () => {
