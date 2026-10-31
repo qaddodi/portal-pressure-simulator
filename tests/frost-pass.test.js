@@ -146,3 +146,13 @@ test('let go: both turns taken out of the figure\'s picture', () => {
   G.dispose();
   assert.deepEqual(tops.map((t) => t.order), [2]);
 });
+
+test('one edge softness for the vessels and the organ painter (V3 b): one device pixel, the same pixels as before', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { EDGE_PX, EDGE_GLSL } = await import('../src/ui/edge.js');
+  assert.equal(EDGE_PX, 1);
+  assert.equal(EDGE_GLSL, '1.0000');
+  const VG = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8'), SG = readFileSync(new URL('../src/ui/shape-gl.js', import.meta.url), 'utf8');
+  assert.match(VG, /float aa = px \* \$\{EDGE_GLSL\};/);
+  assert.match(SG, /float cover\(float d0, vec2 n\) \{\n\s+float d = d0 \/ \$\{EDGE_GLSL\};/);
+});

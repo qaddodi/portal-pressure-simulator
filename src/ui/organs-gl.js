@@ -48,8 +48,8 @@ void main() {
   else { vec2 u0 = (vW - r0.xy) / r0.zw; o = texture(t0, flip.x == 1 ? vec2(u0.x, 1.0 - u0.y) : u0); }
 }`;
 
-import { createShapeGL } from './shape-gl.js?v=a5ba46162b';
-import { createOrganPaint, mul } from './organ-paint.js?v=ec1b2afbc1';
+import { createShapeGL } from './shape-gl.js?v=74fff72fb9';
+import { createOrganPaint, mul } from './organ-paint.js?v=e08cf3a692';
 import { netChanged } from './idle-keys.js?v=235443a2a3';
 
 /** The pixels (bytes) of live groups' pictures kept at a time on a canvas cw × ch: most of a screen, never more than 12 MB (an iPhone's budget is a few MB). */

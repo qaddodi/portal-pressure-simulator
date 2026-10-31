@@ -9,6 +9,8 @@
 // ones 0.5 less theirs, the share of a pixel a straight edge leaves, as the browser's own edges are drawn. A shape is sharp at
 // any zoom: it is drawn again from its outline at the screen's resolution.
 
+import { EDGE_GLSL } from './edge.js?v=8321a8017f';
+
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const NUM = /[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g;
 
@@ -262,7 +264,8 @@ void main() {
 // at signed distance d from that centre (d > 0: the centre is inside), with unit normal n. Exact for a straight edge at any
 // angle: half at d = 0, a linear ramp while the line crosses two opposite sides, a quadratic one near a corner.
 const COVER_GLSL = `
-float cover(float d, vec2 n) {
+float cover(float d0, vec2 n) {
+  float d = d0 / ${EDGE_GLSL};   // (the figure's one edge softness, device px: edge.js, shared with the vessels)
   vec2 q = abs(n);
   float a = max(q.x, q.y), b = min(q.x, q.y), s1 = 0.5 * (a - b), s2 = 0.5 * (a + b);
   if (d >= s2) return 1.0;

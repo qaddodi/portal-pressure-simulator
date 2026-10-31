@@ -38,13 +38,13 @@ import { refine } from './refine.js?v=010dc120b4';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=18f6ec0368';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
-import { cropToGrid } from './organs-gl.js?v=ac62b354a5';
-import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=ec1b2afbc1';
+import { cropToGrid } from './organs-gl.js?v=0b8918fd4a';
+import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=e08cf3a692';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
-import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=a5ba46162b';
+import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { createLabelGL } from './label-gl.js?v=d87ecf3a23';
 import { createGlassGL } from './glass-gl.js?v=fcbbb31a84';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=05df34587f';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=840eb86317';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
 import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=ac26170d49';
@@ -2304,7 +2304,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=a15c0420ff').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=88c3dc7189').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });

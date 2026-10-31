@@ -33,6 +33,7 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
+import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS } from './blood.js?v=ac26170d49';
 import { cssRGB } from './util.js?v=90ca733567';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=dfcc262e2a';
@@ -41,7 +42,7 @@ import { gpuProbe, COUNTED } from './gpu-probe.js?v=9832eccfbe';
 import { changedRows } from './flow-rows.js?v=bea4089714';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
 import { PUBLISH_QUIET_MS } from './gl-compile.js?v=5c4cd6c14c';
-import { createOrganStack } from './organs-gl.js?v=ac62b354a5';
+import { createOrganStack } from './organs-gl.js?v=0b8918fd4a';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=422223e3b9';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 
@@ -672,7 +673,7 @@ void main() {
     bool sel = (flags & ${F_SEL}) != 0;
     float cA = (flags & ${F_NOCASE}) != 0 ? 0.0 : (flags & ${F_DOTTED}) != 0 ? 0.35 : 1.0;
 
-    float aa = px;
+    float aa = px * ${EDGE_GLSL};   // (the figure's one edge softness, device px: edge.js, shared with the organ painter)
     float aL = clamp(0.5 - D / aa, 0.0, 1.0);
     if (aL > 0.0) dep = true;
     float aC = clamp(0.5 - (D - wall) / aa, 0.0, 1.0);
