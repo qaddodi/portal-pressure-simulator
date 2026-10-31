@@ -622,7 +622,15 @@ void main() { o = texture(uT, vUV) * uA; }`;
         const box = el.tagName === 'path' ? [Math.min(geo[0], geo[2]) - m, Math.min(geo[1], geo[3]) - m, Math.max(geo[0], geo[2]) + m, Math.max(geo[1], geo[3]) + m]
           : [geo[0] - geo[2] - m, geo[1] - geo[2] - m, geo[0] + geo[2] + m, geo[1] + geo[2] + m];
         if (box[0] > W || box[1] > H || box[2] < 0 || box[3] < 0) continue;
-        boxAt(...box);
+        // (A leader's boxes follow its line in short pieces: one box round a long slanted leader covered a card it never touched, and the
+        // card's glass left the figure's canvas while the leader faded with the view, stage.js frostOver.)
+        if (el.tagName === 'path') {
+          const k = Math.max(1, Math.min(32, Math.ceil(Math.max(Math.abs(geo[2] - geo[0]), Math.abs(geo[3] - geo[1])) / (24 * dpr))));
+          for (let i = 0; i < k; i++) {
+            const ax = geo[0] + (geo[2] - geo[0]) * i / k, ay = geo[1] + (geo[3] - geo[1]) * i / k, bx = geo[0] + (geo[2] - geo[0]) * (i + 1) / k, by = geo[1] + (geo[3] - geo[1]) * (i + 1) / k;
+            boxAt(Math.min(ax, bx) - m, Math.min(ay, by) - m, Math.max(ax, bx) + m, Math.max(ay, by) + m);
+          }
+        } else boxAt(...box);
         gl.uniform4f(MU.uBox, ...box);
         gl.uniform1i(MU.uKind, el.tagName === 'path' ? 0 : 1);
         gl.uniform4f(MU.uGeo, ...geo);

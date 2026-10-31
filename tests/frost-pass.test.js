@@ -102,8 +102,12 @@ test('the blood moving under it: the blur taken again from each new picture; a p
   assert.equal(n.blur - b, 2, 'kept'); assert.equal(n.draw - d, 4);
 });
 
-test('a card crossing what lies between goes back to the browser\'s glass alone, in the same picture', async () => {
+test('a card crossing what lies between goes back to the browser\'s glass alone, once it has crossed it for 400 ms at rest', async () => {
   high = [rect(600, 200, 20, 20)];
+  [...observers][0].cb([]);
+  await frames(1);
+  assert.equal(data.attrs.has('data-gl'), true, 'a crossing of a few frames (a label gliding clear) swaps nothing: each swap blinks the card');
+  clock += 450;
   [...observers][0].cb([]);
   const p = presents;
   await frames(1);
@@ -119,6 +123,24 @@ test('a card crossing what lies between goes back to the browser\'s glass alone,
   [...observers][0].cb([]);
   await frames(1);
   assert.equal(data.attrs.has('data-gl'), true, 'then drawn in the figure\'s canvas again');
+});
+
+test('a moving card keeps the glass it is on, whatever crosses it, until it has rested', async () => {
+  const r0 = data.r;
+  high = [rect(600, 200, 20, 20)];
+  for (let i = 0; i < 40; i++) { data.r = rect(500, 100 - i, 250, 300 + i); [...observers][0].cb([]); await frames(1); }
+  assert.equal(data.attrs.has('data-gl'), true, 'sliding for 640 ms with a label under it: still the figure\'s glass');
+  clock += 500;
+  [...observers][0].cb([]);
+  await frames(1);
+  assert.equal(data.attrs.has('data-gl'), true, 'come to rest: the 400 ms start counting only now');
+  clock += 450;
+  [...observers][0].cb([]);
+  await frames(1);
+  assert.equal(data.attrs.has('data-gl'), false, 'crossed at rest for 400 ms: the browser\'s');
+  high = []; data.r = r0;
+  for (let i = 0; i < 3; i++) { clock += 500; [...observers][0].cb([]); await frames(1); }
+  assert.equal(data.attrs.has('data-gl'), true, 'back on the figure\'s glass once clear and at rest');
 });
 
 test('the figure\'s canvas cannot take them (a fade, a dive): every card back to the browser\'s glass in that picture', async () => {

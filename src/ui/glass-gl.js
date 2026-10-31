@@ -503,13 +503,36 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       let lo = null, hi = null;
       // (A card is drawn here whole or not at all: marked, a card with one of its panes kept out (the split sheet's two, one reaching past the
       // canvas or crossing a label as it slides) would lose the browser's blur for that pane and show none, flickering as it moves.)
-      const out = new Set(panes.filter((p) => !(inside(p) && !crosses([p], host.low?.(p.g) ? (lo ||= host.over?.('low') || []) : (hi ||= host.over?.('high') || [])))).map((p) => p.g));
-      // (And a card kept out stays out for 400 ms after it could be drawn again: one sliding to its end, or a pull settling, can fall in and out
-      // of reach from frame to frame, and each change swaps one blur for the other.)
-      const nowT = performance.now();
-      for (const g of out) heldOut.set(g, nowT);
-      if (out.size && !heldWake) heldWake = setTimeout(() => { heldWake = 0; ask(); }, 420);
-      for (const [g, t] of heldOut) { if (!g.isConnected || nowT - t > 400) heldOut.delete(g); else out.add(g); }
+      // (Each swap from one blur to the other shows as the whole card blinking (Mohammad, 31 Oct: "while tucking and untucking those cards the
+      // whole cards flicker"), so a card changes way only once it has wanted the other one for 400 ms without a break, and never while it
+      // moves: a label gliding clear of the readings' card as it rises, or a leader fading in or out as the view follows it, crossed it for a
+      // few frames and swapped it out and back again. Only a pane past the canvas's edge, which the figure's canvas cannot draw whole, goes
+      // to the browser's glass at once.)
+      const nowT = performance.now(), edge = new Set(), cross = new Set(), boxes = new Map();
+      for (const p of panes) {
+        if (!inside(p)) edge.add(p.g);
+        else if (crosses([p], host.low?.(p.g) ? (lo ||= host.over?.('low') || []) : (hi ||= host.over?.('high') || []))) cross.add(p.g);
+        boxes.set(p.g, (boxes.get(p.g) || '') + `${p.r.left},${p.r.top},${p.r.width},${p.r.height};`);
+      }
+      const out = new Set();
+      let waiting = false;
+      for (const [g, box] of boxes) {
+        const want = edge.has(g) || cross.has(g);
+        let s = heldOut.get(g);
+        if (!s) { s = { out: want, since: 0, box, moved: -1e9 }; heldOut.set(g, s); }
+        if (s.box !== box) { s.box = box; s.moved = nowT; }
+        if (edge.has(g)) { s.out = true; s.since = 0; }
+        else if (want === s.out) s.since = 0;
+        else if (nowT - s.moved < 250) s.since = 0;   // (moving, or just come to rest: it keeps the way it is on)
+        else if (!s.since) { s.since = nowT; waiting = true; }
+        else if (nowT - s.since >= 400) { s.out = want; s.since = 0; }
+        else waiting = true;
+        if (want !== s.out && !edge.has(g)) waiting = true;
+        if (s.out) out.add(g);
+      }
+      // (A card not shown this time starts afresh when it comes back.)
+      for (const g of heldOut.keys()) if (!boxes.has(g) || !g.isConnected) heldOut.delete(g);
+      if (waiting && !heldWake) heldWake = setTimeout(() => { heldWake = 0; ask(); }, 120);
       panes = panes.filter((p) => !out.has(p.g));
     } else if (!panes.every(inside) || crosses(panes, host.over?.())) { dropHost(true); return undefined; }
     if (!hk && !(hk = hostKit())) { dropHost(true); host = null; return undefined; }
