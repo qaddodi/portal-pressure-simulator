@@ -403,7 +403,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (What the last picture drew, as boxes [left, top, right, bottom] in CSS px from the canvas's corner: each label's picture, each mark's,
   // the probes'. The figure's frosted glass is drawn under this canvas, so it is drawn only where it crosses none of them (stage.js
   // frostOver); onBoxes() is told when they change.)
-  let boxes = [], boxKey = '';
+  let boxes = [], boxKey = '', blank = false;
   const boxAt = (x0, y0, x1, y1) => boxes.push([x0 / dpr, y0 / dpr, x1 / dpr, y1 / dpr]);
   const sprites = new WeakMap();   // group → { key, tex, ox, oy, w, h }
   const live = new Map();          // group → until (ms): a fade, an ease or a hover is running, its look read each frame
@@ -590,6 +590,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
     let key = '';
     for (const b of boxes) key += `${Math.floor(b[0])},${Math.floor(b[1])},${Math.ceil(b[2])},${Math.ceil(b[3])};`;
     if (key !== boxKey) { boxKey = key; try { onBoxes?.(); } catch { /* (a listener's failure is not the labels') */ } }
+    // (Nothing drawn at all (every label, mark and probe has a box): the canvas is hidden, so the compositor does not blend a full-stage layer of
+    // nothing over the figure on every frame the blood moves. It shows again in the task that draws the first thing back. app.css [data-blank].)
+    if (!host) { const empty = boxes.length === 0; if (empty !== blank) { blank = empty; canvas.toggleAttribute('data-blank', empty); } }
     if (moving) ask();
   }
   // A mark's look, read again while it may be changing.

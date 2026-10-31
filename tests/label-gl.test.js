@@ -189,3 +189,16 @@ test('a picture drawn into a canvas of its size does not set the size again, and
   drawBlock(cv, desc({ parts: [{ k: 'text', x: 0, y: 11, anchor: 'start', runs: [run({ t: '12.10' })] }] }), 2);
   assert.deepEqual(sets.map((e) => e[0]), ['width', 'height'], 'a wider text gets a bigger canvas');
 });
+
+// (Laptop-heat, 31 Oct: the label canvas covers the whole stage and was put together with the figure on every frame the blood moved, even
+// when it held nothing. With no label, mark or probe drawn it is hidden; the first thing drawn back shows it in the same task.)
+test('a label canvas that drew nothing is hidden, and shows again in the task that draws something', () => {
+  assert.match(LGL, /if \(!host\) \{ const empty = boxes\.length === 0; if \(empty !== blank\) \{ blank = empty; canvas\.toggleAttribute\('data-blank', empty\); \} \}/);
+  assert.match(LGL, /let boxes = \[\], boxKey = '', blank = false;/);
+  assert.match(CSS, /\.stage-view > canvas#labelGl\[data-blank\] \{ visibility: hidden; \}/);
+  // (Everything the canvas draws has a box: labels, marks, the probes.)
+  assert.equal((LGL.match(/boxAt\(/g) || []).length >= 5, true);
+  // (The toggle comes after the last draw call and the boxes' key, in the same draw.)
+  const at = LGL.indexOf('canvas.toggleAttribute(\'data-blank\'');
+  assert.ok(at > LGL.indexOf('drawScan(now)') && at > LGL.indexOf('boxKey = key'));
+});
