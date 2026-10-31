@@ -495,7 +495,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const cr = host.canvas.getBoundingClientRect();
     if (!cr.width || !cr.height) { dropHost(true); return undefined; }
     // (A glass reaching past the figure's canvas could not be drawn there whole: the browser's, or its own canvas, takes it.)
-    const inside = (p) => p.r.left >= cr.left - 0.5 && p.r.top >= cr.top - 0.5 && p.r.right <= cr.right + 0.5 && p.r.bottom <= cr.bottom + 0.5;
+    // (2 px of slack: the split sheet's glass panes reach 1 px past the card's box (their border) and the card moves by fractions of a pixel as the view follows it, so a pane
+    // standing at the canvas's edge, as the readings' card does when fully out, was in and out of reach from frame to frame.)
+    const inside = (p) => p.r.left >= cr.left - 2 && p.r.top >= cr.top - 2 && p.r.right <= cr.right + 2 && p.r.bottom <= cr.bottom + 2;
     let panes = readPanes(list);
     if (cards) {
       let lo = null, hi = null;
