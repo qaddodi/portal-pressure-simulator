@@ -46,11 +46,11 @@ import { createFibroScan } from './fibroscan.js?v=c29c34fb77';
 import { createPressureTime } from './pressure-time.js?v=6568196758';
 import { createVitalsMonitor } from './vitals-monitor.js?v=e972c73388';
 import { createHvpgCard } from './tool-hvpg.js?v=829073d1b9';
-import { createFlowTime } from './flow-time.js?v=2f9c56ecb2';
+import { createFlowTime } from './flow-time.js?v=0e88a9ae8d';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=b171e97a21';
 import { frameFor, cancelFrame } from './frame.js?v=6692e20c1b';
 import { talkTrace } from './talk-trace.js?v=7c9bf6f9bf';
-import { EXT, guard, safe } from './slide-ext.js?v=435d22afe5';
+import { EXT, guard, safe } from './slide-ext.js?v=c08c67f08d';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
@@ -162,6 +162,8 @@ export function createTools({ host, stage }) {
     /** The numbers the slide's tiles and words show (a fingerprint): a reading instrument shows the same, not the beat-to-beat live value. */
     pin(fp) { for (const inst of Object.values(made)) inst?.pin?.(fp); },
     progress(k, trail) { if (kind === 'flowtime') cur.set(trail, k); },
+    /** The card has been fitted (its zoom may have changed with the chart's box the same size): a chart redraws at the type its zoom now asks for. */
+    refit() { cur?.refit?.(); },
     /** The earlier reading, faint beside the live one ({ label, value }), or null. Eases in and out. */
     ghost(g) {
       ghostEl.classList.toggle('on', !!g);

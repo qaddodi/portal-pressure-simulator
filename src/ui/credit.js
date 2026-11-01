@@ -626,7 +626,9 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     const wr = wrap.getBoundingClientRect();
     let { w, h } = measure(false);
     const fig = { l: size.sl, t: 0, r: wr.width - size.sr, b: wr.height - Math.max(0, size.sb - Math.max(0, innerHeight - wr.bottom)) };   // (the home indicator's strip, where the figure reaches the screen's bottom)
-    const els = [...document.querySelectorAll(OBSTACLES)], obs = [...els.map((el) => rectOf(el, wr)), ...gpuProbe.time(null, 'credit: labels', () => labelRects(wr, wrap, keptStyle))].filter((o) => o && hit(o, fig));
+    // (The catheter's shaft too: on the GPU it is not in the page, so the art test cannot see it, and the credit had stood on it, HVPG 2 on a phone held sideways.)
+    const cathBars = (window.pps?.stage?.cathBoxes?.() || []).map((q) => ({ l: Math.floor(q.l / GRID) * GRID, t: Math.floor(q.t / GRID) * GRID, r: Math.ceil(q.r / GRID) * GRID, b: Math.ceil(q.b / GRID) * GRID, chrome: true }));
+    const els = [...document.querySelectorAll(OBSTACLES)], obs = [...els.map((el) => rectOf(el, wr)), ...gpuProbe.time(null, 'credit: labels', () => labelRects(wr, wrap, keptStyle)), ...cathBars].filter((o) => o && hit(o, fig));
     const busy = obs.some((o) => !o.chrome);
     credit.classList.toggle('busy', busy);
     if (busy) ({ w, h } = measure(true));

@@ -237,14 +237,17 @@ export function createFlowTime() {
     const f = Math.max(parseFloat(getComputedStyle(el).fontSize) || 12, z > 0.2 && z < 1 ? FT_MIN / z : 0);
     return [Math.max(160, w || 420), Math.max(8 * f, el.clientHeight || 260), f];
   };
-  const make = () => { const [w, hh, f] = size(); G = geo(w, hh, f); return build(); };
-  // Redrawn at once when the box changes size (a new card width, the card fitting itself): the same lines, the new geometry.
   let lastSz = '';
-  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => {
+  const make = () => { const [w, hh, f] = size(); lastSz = [w, hh, f].map((x) => Math.round(x)).join('x'); G = geo(w, hh, f); return build(); };
+  // Redrawn at once when the box changes size (a new card width, the card fitting itself): the same lines, the new geometry.
+  // (And when the card's zoom changes with the box the same size: the observer does not see a zoom, so the card tells the chart when it
+  // has fitted, refit. A chart first drawn while the fit tried the card at half size kept its type at 24 px for good, Varices 3 on an iPad.)
+  const remake = () => {
     if (!ser || !parts || !el.isConnected) return;
-    const sz = size().map((x) => Math.round(x)).join('x'); if (sz === lastSz) return; lastSz = sz;
+    const sz = size().map((x) => Math.round(x)).join('x'); if (sz === lastSz) return;
     const prev = parts.svg; parts = make(); prev.replaceWith(parts.svg); paint(shown);
-  }) : null;
+  };
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(remake) : null;
   ro?.observe(el);
   // k: how far along the time-lapse (0 to 1): its minutes on the rise; once it has ended, the held state to the end.
   const minuteOf = (k) => (k >= 1 ? ax().end : ax().rise * clamp(k, 0, 1));
@@ -281,5 +284,7 @@ export function createFlowTime() {
       el.style.setProperty('--band-room', `${rx.length ? 1.4 + 0.32 * rx.length : 0}em`);
     },
     update() {}, clear() {},
+    /** The card has fitted: drawn again if its zoom, and so the chart's type, is not what it was drawn at. */
+    refit: remake,
   };
 }
