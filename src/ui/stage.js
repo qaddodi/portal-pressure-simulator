@@ -109,6 +109,9 @@ const BLOOD_CHAIN = !(typeof location !== 'undefined' && /[?&]bloodchain=0\b/.te
 const GLASS_COPY = typeof location !== 'undefined' && /[?&]glasscopy=1\b/.test(location.search);
 // ?hostcards=0: the Present cards keep the browser's glass (isolates the cards' GPU frost).
 const CARD_FROST_OFF = typeof location !== 'undefined' && /[?&]hostcards=0\b/.test(location.search);
+// ?boot=quick: the loading screen lifts as soon as the framed figure has painted twice, without the flat 260 ms settle after it
+// (about a quarter second sooner to the first figure on every device). Off, the wait is unchanged.
+const BOOT_QUICK = typeof location !== 'undefined' && /[?&]boot=quick\b/.test(location.search);
 // Relative luminance of an 'rgb(r,g,b)' string (non-rgb strings count as dark).
 function luminance(c) {
   const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c || '');
@@ -2833,7 +2836,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.classList.remove('unframed');
     if (figureShown) return;
     figureShown = true;
-    nextFrame(() => nextFrame(() => setTimeout(() => { window.ppsFigureReady = true; performance.mark?.('pps:figure-ready'); dispatchEvent(new Event('pps:figure-ready')); }, 260)));
+    nextFrame(() => nextFrame(() => setTimeout(() => { window.ppsFigureReady = true; performance.mark?.('pps:figure-ready'); dispatchEvent(new Event('pps:figure-ready')); }, BOOT_QUICK ? 0 : 260)));
   };
   setTimeout(showFigure, 4000);   // never left hidden
   function firstFrame() {

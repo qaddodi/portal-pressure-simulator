@@ -21,7 +21,15 @@ function crashed(message) {
 
 export const WORKER_WAIT = 15000;
 
-export async function startHost() {
+// ?boot=quick: the engine's worker is started as soon as this module runs, so it loads and answers its first questions while the
+// rest of the app's code is still being read, instead of after it (main() asks for it once every module is in). Off, it starts
+// in main() as before. Either way it starts once.
+const BOOT_QUICK = typeof location !== 'undefined' && /[?&]boot=quick\b/.test(location.search);
+let hostStart = null;
+export function startHost() { return (hostStart ??= startHostNow()); }
+if (BOOT_QUICK && typeof Worker === 'function') startHost().catch(() => {});
+
+async function startHostNow() {
   let w;
   try {
     w = new Worker(new URL('../worker.js?v=96b4000a29', import.meta.url), { type: 'module' });

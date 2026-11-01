@@ -1,17 +1,17 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=66efaebf2c';
+import { startHost, host } from './host.js?v=136eaa602e';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=80d4358be8';
-import { createStage } from './stage.js?v=c11e4c77d8';
+import { createStage } from './stage.js?v=ae80414785';
 import { createCreditPlacer } from './credit.js?v=6fcd93faed';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=ecc0b4b2ad';
 import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=e472a743b9';
 import { setHvpgStage } from './hvpg-proc.js?v=355b739422';
-import { createWhy } from './why.js?v=b05a598cef';
-import { createTimeline, LAPSES } from './timeline.js?v=3841c563b6';
+import { createWhy } from './why.js?v=73d363855d';
+import { createTimeline, LAPSES } from './timeline.js?v=49ef63d0b8';
 import { createCompare } from './compare.js?v=0595070815';
 import { createCard } from './card.js?v=9797ac8aab';
 import { createChart } from './chart.js?v=2424e0448e';
