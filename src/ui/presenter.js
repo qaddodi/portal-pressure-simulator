@@ -4701,6 +4701,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     ui.text.style.removeProperty('transition'); ui.text.style.removeProperty('opacity'); ui.text.style.removeProperty('transform');
     const out = gone && ui.text.classList.contains('pz-leave');
+    // (Dragged further than the leave's own way: the words carry on out from there, never back toward the card while they fade.)
+    if (out && Math.abs(x) > (parseFloat(ui.text.style.getPropertyValue('--pz-turn-d')) || 20)) ui.text.style.setProperty('--pz-turn-d', `${Math.abs(x).toFixed(1)}px`);
     if (!out && Math.abs(x) > 0.5) ui.text.animate?.([{ transform: `translateX(${x}px)` }, { transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE });
   }
   wrap.addEventListener('touchmove', (e) => {

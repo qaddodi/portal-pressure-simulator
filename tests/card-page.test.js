@@ -107,3 +107,9 @@ test('during motion the page changes only transform and opacity: no clip, no lay
   assert.match(body('wordsOut'), /ui\.shade\.dataset\.out = turnNow;/, 'the glass is told the way with the words');
   assert.match(presenter, /if \(pageForce\) \{ pageForce = false; if \(keepNow\.text\) keepNow = \{ \.\.\.keepNow, text: false \}; \}/, 'a card followed out never stays');
 });
+
+test('let go after a swipe, the card carries on out from where the finger left it, never back toward where it was (both paths)', () => {
+  const let_ = body('pullLet'), page = let_.slice(0, let_.indexOf('return;\n    }')), old = let_.slice(let_.indexOf('return;\n    }'));
+  assert.match(page, /if \(Math\.abs\(x\) > d\) for \(const el of els\) el\.style\.setProperty\('--pz-turn-d'/, 'as one page: the glass and the words both');
+  assert.match(old, /if \(out && Math\.abs\(x\) > [^\n]*setProperty\('--pz-turn-d'/, '?cardpage=0: the words');
+});
