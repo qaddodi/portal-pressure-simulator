@@ -8,6 +8,9 @@ import { h, fmt, svgIcon } from './util.js?v=5300d2ce2f';
 import { liveBalance } from './balance-hold.js?v=1792704e7a';
 import { activeInterventions } from './inspector.js?v=b9ba6cbfdf';
 
+// The rows in the readouts' teaching order, each group named as the readouts name it (pressure, flow, what they lead to, the
+// systemic circulation), so a long table reads as four short ones.
+const GROUPS = [['Pressure', 3], ['Flow', 3], ['Consequences', 2], ['Systemic', 3]];
 const ROWS = [
   ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['PPG (portal vein − IVC)', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 1, 'L/min'],
   ['Liver perfusion', (m) => m.liverPerfPct, 0, '%'], ['Shunt fraction', (m) => m.shuntFraction * 100, 0, '%'], ['Varix wall stress (model)', (m) => m.varix.ratioShown * 100, 0, '%'],
@@ -46,18 +49,22 @@ export function createCompare() {
     const rows = ROWS.map(([lab, g, d, u]) => {
       const a = g(A), b = g(B, true), dd = b - a;
       const same = Math.abs(dd) < Math.pow(10, -d) * 0.5;
-      return [lab, u, fmt(a, d), fmt(b, d), 'd ' + (same ? 'same' : dd > 0 ? 'up' : 'down'), same ? '—' : `${dd > 0 ? '▲ +' : '▼ −'}${fmt(Math.abs(dd), d)}`];
+      return [lab, u, fmt(a, d), fmt(b, d), 'd ' + (same ? 'same' : dd > 0 ? 'up' : 'down'), same ? '' : dd > 0 ? '▲' : '▼', same ? '—' : `${dd > 0 ? '+' : '−'}${fmt(Math.abs(dd), d)}`];
     });
     const names = [st.compareSnap.names?.[0] || 'Then', st.compareSnap.names?.[1] || 'Now'];
     // Frames arrive ten times a second; the table is rebuilt only when a shown number or mark changes.
     const sig = names.join('|') + '|' + rows.map((r) => r.join('|')).join(';');
     if (tableEl._sig === sig) return;
     tableEl._sig = sig;
+    // (The unit sits under the name, so every row is two even lines and no name breaks around its unit.)
+    let at = 0;
     tableEl.replaceChildren(h('table', { class: 'cmp-table' },
-      h('thead', {}, h('tr', {}, h('th', {}, 'Metric'), h('th', {}, names[0]), h('th', {}, names[1]), h('th', {}, 'Δ'))),
-      h('tbody', {}, rows.map(([lab, u, a, b, dc, dt]) => h('tr', {},
-        h('td', {}, lab, h('span', { class: 'unit' }, u)), h('td', { class: 'a' }, a), h('td', { class: 'b' }, b),
-        h('td', { class: dc }, dt))))));
+      h('thead', {}, h('tr', {}, h('th', {}, 'Metric'), h('th', {}, names[0]), h('th', {}, names[1]), h('th', {}, 'Change'))),
+      GROUPS.map(([g, n]) => h('tbody', {},
+        h('tr', { class: 'cmp-g' }, h('th', { colspan: 4, scope: 'colgroup' }, g)),
+        rows.slice(at, (at += n)).map(([lab, u, a, b, dc, tri, dt]) => h('tr', {},
+          h('td', {}, h('span', { class: 'cmp-n' }, lab), h('span', { class: 'unit' }, u)), h('td', { class: 'a' }, a), h('td', { class: 'b' }, b),
+          h('td', { class: dc }, tri ? h('span', { class: 'tri', 'aria-hidden': 'true' }, tri) : null, dt)))))));
   }
 
   store.on('params', () => {

@@ -794,10 +794,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const a = st.compareSnap.metrics, b = frame.metrics;
       const rows = compareRows(a, b, !hiddenNow(st)?.has('trueHVPG'), !st.hiddenReadouts?.has('model'), fmt);
       // (Frames arrive ten times a second: the line is rebuilt only when a shown number changes, as the comparison table is.)
-      const sig = rows.map((r) => r.join(' ')).join('|');
+      const sig = st.compareSnap.when + '|' + rows.map((r) => r.join(' ')).join('|');
       if (comparison._sig !== sig) {
         comparison._sig = sig;
-        comparison.replaceChildren(h('span', { class: 'comparison-label' }, 'Change since baseline'),
+        comparison.replaceChildren(h('span', { class: 'comparison-label' }, `Since ${st.compareSnap.when}`),   // (the moment by its time, as the figure header names it: "baseline" was a third word for "then")
           ...rows.map(([label, txt]) => h('span', {}, label, h('b', {}, txt))));
       }
     }

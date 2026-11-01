@@ -1003,6 +1003,19 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .cmp-table td.b { font-weight: 600; }
 .cmp-table td.d { font-weight: 600; }
 .cmp-table td.d.up { color: color-mix(in srgb, var(--danger) 88%, var(--text)); } .cmp-table td.d.down { color: var(--accent-ink); } .cmp-table td.d.same { color: var(--text-3); font-weight: 500; }
+.cmp-table thead th { vertical-align: bottom; white-space: nowrap; border-bottom: 1px solid var(--border); }
+/* A group's name opens its rows, as in the readouts: the table reads as four short ones. */
+.cmp-table tr.cmp-g th { text-align: left; padding: 14px 0 4px; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); }
+.cmp-table tbody:first-of-type tr.cmp-g th { padding-top: 10px; }
+.cmp-table tr.cmp-g + tr td { border-top: 0; }
+/* Weight follows importance: names and then in regular ink, now heavier, the change in its color. */
+.cmp-table.cmp-table td:first-child, .cmp-table.cmp-table td.a { font-weight: 500; }
+/* The name above its unit: two even lines a row, no name broken around its unit. */
+.cmp-table td .cmp-n { display: block; line-height: 1.3; text-wrap: balance; }
+.cmp-table td .unit { display: block; margin: 1px 0 0; font-size: var(--fs-12); font-weight: 400; color: var(--text-3); line-height: 1.3; }
+.cmp-table td { vertical-align: middle; }
+/* The change: a small triangle ahead of the signed number, so the number reads first. */
+.cmp-table td.d .tri { display: inline-block; margin-right: 4px; font-size: var(--fs-12); vertical-align: 1px; }
 
 /* ── Tablet (768–1279) ──────────────────────────── */
 @media (max-width: 1279px) {
