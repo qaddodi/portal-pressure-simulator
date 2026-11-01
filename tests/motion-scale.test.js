@@ -146,6 +146,7 @@ const OTHER_KEYFRAMES = {
   thumbOut: 'a registered variable (--sink) the stacked card\'s tuck also drives',
   'sheet-rise': 'a phone sheet\'s content rising by translate under its still clip (sheet-move.js)', 'sheet-sink': 'a phone sheet\'s content sinking by translate under its still clip (sheet-move.js)',
   'sheet-hold': 'holds a sinking sheet\'s box until its content has gone, so its leave ends on it',
+  'odo-up': 'a value that follows the model (a number rolling its digits)', 'odo-down': 'a value that follows the model (a number rolling its digits)',
 };
 const noComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 const keyframeNames = (css) => [...noComments(css).matchAll(/@keyframes ([\w-]+)\s*\{/g)].map((m) => m[1]);

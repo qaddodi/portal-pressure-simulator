@@ -6252,6 +6252,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* (The dot, 12 px with its 2 px ring, overhangs the 6 px track by 5 px above and below: the track sits 4 px into the bar and the
    cut-off numbers start under the ring, so the dot never touches the rating over the bar or a number under it. iPad, 16 Oct.) */
 .pzb-track { position: absolute; left: 0; right: 0; top: 4px; height: 6px; }
+/* (A change of slide eases the marks' translate and the link's scale on the compositor over the count's own --tile-ms: presenter.js
+   tileGlide. ?tileroll=0 drops .tglide: the marks are written each frame of the count.) */
+.tglide { --tile-ms: 950ms; }
+.tglide :is(.pzb-now, .pzb-was) { transition: translate var(--tile-ms) var(--ease-move) /*own pace*/; }
+.tglide .pzb-link { transition: translate var(--tile-ms) var(--ease-move) /*own pace*/, scale var(--tile-ms) var(--ease-move) /*own pace*/; }
 .pzb-zs { position: absolute; inset: 0; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--text) 8%, transparent); }
 .pzb-z { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--text-3) 30%, transparent); transition: background-color var(--d-surface) var(--ease); }
 .pzb-z[data-rate="ok"] { background: color-mix(in srgb, var(--ok) 60%, transparent); }
@@ -7565,3 +7570,13 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    veil's own opacity eases over the same --d-small on --ease-move. */
 :root.se-gpu .menu.se { transition: none; }
 :root.se-gpu .menu.se::before, :root.se-gpu .menu.se::after { transition: opacity var(--d-small) var(--ease-move); }
+
+/* A number rolling to its next value (util.js countTo, ?odo=0 off): each digit that changes is a column whose own glyph is kept for
+   its width and hidden, and over it a strip of the digits between the old one and the new one (its data-s, one a line) is moved by a
+   transform the compositor eases, clipped to the column's one line. Nothing is laid out or written while it rolls. */
+.odo { position: relative; display: inline-block; line-height: 1.2em; clip-path: inset(0 -0.2em); -webkit-text-fill-color: transparent; }   /* (its own line height: the column sits on the number's baseline whatever the line's) */
+.odo::after { content: attr(data-s); position: absolute; left: 0; right: 0; top: 0; white-space: pre; text-align: center; -webkit-text-fill-color: currentColor; pointer-events: none;
+  animation: odo-up var(--odo-ms, var(--d-small)) var(--odo-ease, var(--ease)) both /*own pace*/; }
+.odo.down::after { animation-name: odo-down; }
+@keyframes odo-up { from { transform: translateY(0); } to { transform: translateY(calc(var(--odo-n) * -1.2em)); } }
+@keyframes odo-down { from { transform: translateY(calc(var(--odo-n) * -1.2em)); } to { transform: translateY(0); } }

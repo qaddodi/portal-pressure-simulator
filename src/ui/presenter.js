@@ -16,9 +16,9 @@
 import { store, replaceParams } from './store.js?v=4ef2a6ffd8';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=e710e031d9';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=73d39176eb';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=ef8f89fbd4';
+import { liveText, wordsOf } from './live-text.js?v=71f0a7b58d';
 import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=9ed936bf04';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
@@ -29,8 +29,8 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=ac6205e21a';
-import { createTools } from './presenter-tools.js?v=fe50692300';
+import { createHvpgMonitor } from './hvpg-proc.js?v=3e120a999d';
+import { createTools } from './presenter-tools.js?v=a587ea9f76';
 import { openHandout } from './handout.js?v=be99975ab1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -40,13 +40,13 @@ import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=517a8ac2ae';
 import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
 import { createFigureKey } from './figure-key.js?v=110104d795';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=6362ea8bbe';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=ed3dbaa16e';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=1e3a1162cc';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=e8fc3761cd';
 import { clotWords } from './callout-math.js?v=6ef2901a08';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=513ac5de9d';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=31ce5c86ff';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=e55964c672';
+import { anchorsOf, roomFor } from './cam-room.js?v=32206dd47b';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=621af7a953';
@@ -54,9 +54,9 @@ import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=8413714371';
 import { sheetPanes } from './sheet-glass.js?v=fc8b724c05';
-import { createScopeTile } from './scope-tile.js?v=424a9f24c2';
+import { createScopeTile } from './scope-tile.js?v=eab9eac269';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
-import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, RISE_PX } from './ease.js?v=fc509dabe4';
+import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX } from './ease.js?v=fc509dabe4';
 import { pageOn, followOf, pageIn } from './card-page.js?v=ebb4448222';
 const nextFrame = frameFor('presenter');
 
@@ -451,6 +451,8 @@ const tileVal = (k, v) => (v == null ? '—' : fmt(v * (tileOf(k)?.x ?? 1), tile
 const liveFp = (fr) => fingerprintOf(fr.metrics, { P: fr.Pf || fr.P, Q: fr.Qf || fr.Q, D: fr.D, params: store.get().params });
 
 // A value counts from where it was to where it goes (eased, about a second); reduced motion jumps.
+// (Tiles glide on the compositor: see tileGlide, on the travelling curve.)
+const TILE_GLIDE = !(typeof location !== 'undefined' && /[?&]tileroll=0\b/.test(location.search || ''));
 function tweener(draw) {
   let cur = null, raf = 0;
   const run = (to, ms = 950) => {
@@ -466,6 +468,8 @@ function tweener(draw) {
     raf = nextFrame(step);
   };
   run.again = () => { if (cur) draw(cur); };   // (the same frame again, after the geometry moved)
+  run.has = () => !!cur;
+  run.jump = (to) => { cancelFrame(raf); cur = { ...to }; draw(cur); };   // (straight to the end, its glide left to the compositor: tileGlide)
   return run;
 }
 
@@ -555,10 +559,11 @@ function bigTiles() {
       const cs = getComputedStyle(p.tile), room = p.tile.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth);
       if (!(room > 0)) continue;
       const cur = p.v.textContent, wide = (p.fin || '').length > cur.length ? p.fin : cur;
-      p.v.textContent = wide;
+      // (Written only when the number it counts to is longer: the same text measured as it stands keeps a roll's digit columns.)
+      if (wide !== cur) p.v.textContent = wide;
       const vw = p.v.getBoundingClientRect().width, uw = p.u.hidden ? 0 : p.u.getBoundingClientRect().width;
       const gap = p.u.hidden ? 0 : parseFloat(getComputedStyle(vu).columnGap) || 0;
-      p.v.textContent = cur;
+      if (wide !== cur) p.v.textContent = cur;
       const need = vw + gap + uw;
       if (need <= room) continue;
       const vs = getComputedStyle(p.v), vf = parseFloat(vs.fontSize), uf = parseFloat(getComputedStyle(p.u).fontSize);
@@ -572,6 +577,7 @@ function bigTiles() {
   let fitRaf = 0, fitShape = '';
   const fitSoon = () => { cancelRest(fitRaf); fitRaf = restPass(fit); };   // (measured between frames, never in one: rest-pass.js)
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fitSoon).observe(el);
+  el.classList.toggle('tglide', TILE_GLIDE && odoOn());   // (the bar's marks glide on the compositor: tileGlide)
   document.fonts?.ready?.then(fitSoon);
   function buildTiles(ks, withRef) {
     const bars = ks.some((k) => SCALE[k]);
@@ -628,6 +634,21 @@ function bigTiles() {
       if (p.d.textContent !== t) p.d.textContent = t;
     }));
   }
+  // (Since 1 Nov 2026 (Mohammad: "Move everything to GPU"; a 120 Hz frame budget) a change of slide no longer redraws the tiles on every
+  // frame of their 950 ms count, which wrote each number's text, its rating and the bar's marks' places (a layout of the card a frame)
+  // through the camera's glide. They are written once, at their end, and the way there is the compositor's: each changed digit rolls in
+  // its own column (util.js odoSwap) and each mark slides from where it stood by a transform, on the count's own curve. The rating's
+  // word and colour take their new value as it starts. A number whose shape changes (9.9 to 10.1) shows its new value at once. Not
+  // with the endoscopic view (it draws each step), Reduce Motion, or ?tileroll=0 (counted frame by frame, as before).)
+  function tileGlide(to, ms = 950) {
+    if (!TILE_GLIDE || !odoOn() || !draw?.has() || reduce.matches || ms === 0 || parts.some((p) => p.pic)) return false;
+    const before = parts.map((p) => p.v.textContent);
+    // (The marks' translate and the link's scale are set once (app.css .tglide): the compositor eases them there over --tile-ms.)
+    el.style.setProperty('--tile-ms', `${ms}ms`);
+    draw.jump(to);
+    parts.forEach((p, i) => { const b = before[i], t = p.v.textContent; if (b !== t) odoSwap(p.v, b, t, parseFloat(t) > parseFloat(b), ms, EASE_MOVE); });
+    return true;
+  }
   // A band's colour is the rating of its middle (after TIPS the PPG's bands follow its target, as its word does).
   function paintBands(f) {
     for (const p of parts) {
@@ -652,7 +673,7 @@ function bigTiles() {
       if (ref) for (const k of ks) to['ref_' + k] = ref[k];
       if (ks.includes('hvpgFall')) Object.assign(to, { respFrom: f.respFrom, respAt: f.respAt });
       for (const p of parts) p.fin = tileVal(p.k, to[p.k]);
-      draw(to, ms);
+      if (!tileGlide(to, ms)) draw(to, ms);
       // (Fitted again only when a number's shape changed, its final text or the length of the one shown: measuring the tiles forced a
       // layout on every model frame, with the same answer. A tile's own size change still refits through the observer below.)
       const shape = parts.map((p) => `${p.fin}|${p.v.textContent.length}`).join();

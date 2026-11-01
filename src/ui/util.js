@@ -559,10 +559,69 @@ function rollStep(now) {
 /** An element that has just been shown comes up from nothing over a small step (Reduce Motion: at once). */
 export function fadeIn(el) { if (!reduceMotionMQ.matches && el.animate && el.isConnected && hasBox(el)) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
 const fadeNum = fadeIn;
+// (Since 1 Nov 2026 (Mohammad: "Move everything to GPU"; a 120 Hz frame budget) a roll no longer rewrites the number's text on every
+// frame, which laid its tile out again each frame of a slide change. Each digit that changes rolls in its own column, a strip of the
+// digits between the old one and the new one moved by a transform the compositor eases on the GPU (app.css .odo), and the text is
+// written twice: once as the roll starts (the element's text already reads the new number throughout: the strips are CSS content)
+// and once as it ends (the plain number again). A number whose shape changes (9.9 to 10.1, a sign) lands at once and fades in.
+// ?odo=0: counted frame by frame, as before.)
+const ODO = !(typeof location !== 'undefined' && /[?&]odo=0\b/.test(location.search || ''));
+const odos = new WeakMap();   // el → { txt, timer } while its digits roll
+/** Ends a roll on el at once: its plain final text (unless something else has written over it meanwhile). */
+export function odoEnd(el) {
+  const o = odos.get(el);
+  if (!o) return;
+  odos.delete(el); clearTimeout(o.timer);
+  if (el.querySelector(':scope > .odo')) el.textContent = o.txt;   // (not putText: the text already reads the same)
+}
+/** el's text a → b, each changed digit rolling in its own column (app.css .odo) over ms on easing; up: the value rose. False (nothing
+ *  done) when the two are not the same shape: the same length, digits where digits are and every other character the same. */
+export function odoSwap(el, a, b, up, ms = COUNT_MS, easing = null) {
+  odoEnd(el);
+  a = String(a); b = String(b);
+  const dig = (ch) => ch >= '0' && ch <= '9';
+  if (a === b || a.length !== b.length || ![...a].every((ch, i) => dig(ch) === dig(b[i]) && (dig(ch) || ch === b[i]))) return false;
+  const frag = document.createDocumentFragment();
+  let run = '';
+  for (let i = 0; i < b.length; i++) {
+    if (a[i] === b[i]) { run += b[i]; continue; }
+    if (run) { frag.append(run); run = ''; }
+    const p = +a[i], q = +b[i], n = Math.abs(q - p), seq = [];
+    for (let k = 0; k <= n; k++) seq.push(p + (q > p ? k : -k));
+    // (The strip reads old to new top down and climbs when the value rose, new to old and drops when it fell: an odometer either way.)
+    const sp = document.createElement('span');
+    sp.className = up ? 'odo' : 'odo down';
+    sp.dataset.s = (up ? seq : seq.slice().reverse()).join('\n');
+    sp.style.setProperty('--odo-n', String(n));
+    if (ms !== COUNT_MS) sp.style.setProperty('--odo-ms', `${ms}ms`);
+    if (easing) sp.style.setProperty('--odo-ease', easing);
+    sp.textContent = b[i];
+    frag.append(sp);
+  }
+  if (run) frag.append(run);
+  el.replaceChildren(frag);
+  const o = { txt: b, timer: 0 };
+  o.timer = setTimeout(() => { if (odos.get(el) === o) odoEnd(el); }, ms + 40);
+  odos.set(el, o);
+  return true;
+}
+export const odoOn = () => ODO;
+function odoRoll(el, c, from, to) {
+  c.shown = to;
+  if (!odoSwap(el, fmt(from, c.d), fmt(to, c.d), to > from)) { putNum(el, fmt(to, c.d)); fadeNum(el); }
+}
 export function countTo(el, v, d = 1, { eased = false } = {}) {
   let c = counts.get(el);
   if (!c) counts.set(el, c = { shown: null, from: 0, to: 0, t0: null, d });
   c.d = d;
+  const odo = odos.has(el);
+  if (odo && (eased || v == null || !Number.isFinite(v) || reduceMotionMQ.matches)) odoEnd(el);
+  if (ODO && !eased && v != null && Number.isFinite(v) && c.t0 == null) {
+    // (A roll under way that is asked for the value it rolls to keeps going; any other value rolls on from the one it lands on.)
+    if (odo) { if (Math.abs(v - c.shown) < Math.pow(10, -d) * 0.5) return; odoEnd(el); }
+    const same = c.shown != null && fmt(c.shown, d) === fmt(v, d);
+    if (!same && c.shown != null && !reduceMotionMQ.matches && el.isConnected && hasBox(el)) { odoRoll(el, c, c.shown, v); return; }
+  }
   if (v == null || !Number.isFinite(v)) { rolling.delete(el); c.t0 = null; const was = c.shown != null; c.shown = null; putNum(el, '?'); if (was) fadeNum(el); return; }
   if (c.t0 != null) {   // (a roll under way)
     if (eased || reduceMotionMQ.matches) { if (reduceMotionMQ.matches) { rolling.delete(el); c.t0 = null; c.shown = v; putNum(el, fmt(v, d)); } else c.to = v; return; }

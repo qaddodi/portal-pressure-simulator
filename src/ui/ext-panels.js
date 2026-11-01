@@ -5,8 +5,8 @@
 //   tool kind 'plane'    the same in the data card, read from the slide's case
 //   table column 'wave' (col-wave.js)
 
-import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js?v=1e47cd28cc';
-import { waveColumn } from './col-wave.js?v=a77082a5d5';
+import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js?v=4cd41574bd';
+import { waveColumn } from './col-wave.js?v=2290c0c345';
 
 // A plane's rows: the slide's `of`, as a table's (a slide id, { id, name }, or { preset, params?, days?, name } for a patient no
 // slide shows). A slide's row reads its state's numbers (redrawn as they come); a patient row is worked out once in the
