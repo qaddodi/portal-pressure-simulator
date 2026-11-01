@@ -8765,7 +8765,40 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const c = getComputedStyle(el);
     return c.display !== 'none' && c.visibility === 'visible' && +c.opacity > 0.001;
   };
+  // (What lies between, kept (1 Nov 2026, "Move everything to GPU"): read again only when something there may have moved: a write in the
+  // overlays, the labels, the liver pane, the catheter's or the sites' labels or the stage's own class or style, a teaching card's shade
+  // written or animating, a new labels picture (labelGL.boxes), the camera (viewKey), a resize, or any CSS transition or animation on the
+  // page and for 0.6 s after it. A frame that only moves the blood reads no box. ?glassreads=0 reads it on every call, as before.)
+  const FROST_KEEP = !/[?&]glassreads=0\b/.test(location.search);
+  let frostDirty = 0, frostUntil = 0, frostMo = null;
+  const frostSeen = new WeakSet(), frostKept = new Map();
+  const frostTouch = () => { frostDirty++; frostUntil = performance.now() + 600; };
+  function frostWatch() {
+    if (!frostMo) {
+      frostMo = new MutationObserver(frostTouch);
+      const all = { attributes: true, childList: true, subtree: true, characterData: true };
+      for (const el of [svgOver, labelSvg, glass, cath.labels, sites.el]) if (el) frostMo.observe(el, all);
+      frostMo.observe(wrap, { attributes: true });
+      frostMo.observe(document.documentElement, { attributes: true });
+      addEventListener('resize', frostTouch);
+      for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel']) document.addEventListener(t, frostTouch, true);
+    }
+    const lc = labelGL && !labelGL.lost ? labelGL.canvas : null;
+    for (const el of [lc, ...document.querySelectorAll('.pz-shade'), document.querySelector('.stage-credit')]) if (el && !frostSeen.has(el)) { frostSeen.add(el); frostMo.observe(el, { attributes: true }); frostTouch(); }
+  }
   function frostOver(level) {
+    if (!FROST_KEEP) return frostOverRead(level);
+    frostWatch();
+    const shades = [...document.querySelectorAll('.pz-shade')];
+    const moving = performance.now() < frostUntil || shades.some((el) => el.getAnimations?.().some((an) => an.playState === 'running'));
+    const key = `${frostDirty}|${veins?.viewKey ?? ''}|${labelGL?.lost ? 'lost' : ''}|${appEl?.classList.contains('presenting') ? 1 : 0}`;
+    const k = frostKept.get(level);
+    if (!moving && k && k.key === key && k.boxes === (labelGL?.boxes ?? null)) return k.out;
+    const out = frostOverRead(level);
+    frostKept.set(level, { key, boxes: labelGL?.boxes ?? null, out });
+    return out;
+  }
+  function frostOverRead(level) {
     const out = [];
     if (svgOver && !svgOver.classList.contains(OVER_ALL) && visible(svgOver)) {
       for (const u of overUnits(worldOver, gOver)) if (!u.classList.contains(OVER_CLASS) && visible(u)) out.push(u.getBoundingClientRect());

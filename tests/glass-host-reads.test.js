@@ -135,3 +135,14 @@ test('let go: its page-wide listeners go with it', () => {
   G.dispose();
   for (const [t, s] of docListeners) assert.equal(s.size, 0, t);
 });
+
+test('what lies between the figure and a glass (stage.js frostOver) is kept until something there may have moved', async () => {
+  const { readFileSync } = await import('node:fs');
+  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const f = st.slice(st.indexOf('  function frostOver(level) {'), st.indexOf('  function frostOverRead(level) {'));
+  assert.match(st, /const FROST_KEEP = !\/\[\?&\]glassreads=0\\b\/\.test\(location\.search\);/);
+  assert.match(f, /if \(!FROST_KEEP\) return frostOverRead\(level\);/);
+  assert.match(f, /if \(!moving && k && k\.key === key && k\.boxes === \(labelGL\?\.boxes \?\? null\)\) return k\.out;/);
+  assert.match(f, /veins\?\.viewKey/);
+  assert.match(st, /for \(const el of \[svgOver, labelSvg, glass, cath\.labels, sites\.el\]\) if \(el\) frostMo\.observe\(el, all\);/);
+});
