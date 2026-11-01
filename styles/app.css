@@ -898,10 +898,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .skeleton { height: 10px; border-radius: 4px; background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; margin: 8px 0; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 
-.modal-back { position: fixed; inset: 0 0 var(--modal-kb, 0px) 0; background: var(--scrim); z-index: var(--z-dialog); display: none; place-items: center; padding: calc(16px + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
+.modal-back { position: fixed; inset: var(--modal-top, 0px) 0 var(--modal-kb, 0px) 0; background: var(--scrim); z-index: var(--z-dialog); display: none; place-items: center; padding: calc(16px + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
 .modal-back.show { display: grid; animation: crossfade var(--d-small) var(--ease); }
 /* (The on-screen keyboard covers the page's foot without shrinking it: the dialog is held to what is left above it, util.js fitModal, and eases there.) */
-.modal-back.kb { transition: bottom var(--d-small) var(--ease); }
+.modal-back.kb { transition: top var(--d-small) var(--ease), bottom var(--d-small) var(--ease); }
 .modal-back.kb .modal { transition: max-height var(--d-small) var(--ease); }
 /* Closing: the scrim fades and the dialog sinks back the way it came, then it is hidden (util.js closeModal). */
 /* (Own exit keyframes: the same name played in reverse would not restart, and would land on its last frame at once.) */
@@ -909,7 +909,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .modal-back.leaving .modal { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
 /* A theme chosen in the app (main.js switchTheme): the old page, held as a still, fades over the new one. */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--d-surface); animation-timing-function: var(--ease); }
-.modal { background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); width: min(720px, 100%); max-height: min(88dvh, 900px, calc(100dvh - var(--modal-kb, 0px) - 32px - var(--safe-top) - env(safe-area-inset-bottom, 0px))); overflow: auto; animation: scale-settle var(--d-small) var(--ease); }
+.modal { background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); width: min(720px, 100%); max-height: min(88dvh, 900px, calc(100dvh - var(--modal-kb, 0px) - var(--modal-top, 0px) - 32px - var(--safe-top) - env(safe-area-inset-bottom, 0px))); overflow: auto; animation: scale-settle var(--d-small) var(--ease); }
 .modal > header { padding: 20px 24px 16px; display: flex; align-items: flex-start; gap: 12px; position: sticky; top: 0; background: var(--surface); z-index: var(--z-figure); }
 .modal > header h2 { margin: 0; font-size: var(--fs-20); font-weight: 600; letter-spacing: -.015em; flex: 1; }
 .modal > header .sub { margin-top: 4px; }

@@ -135,6 +135,6 @@ test('a tap during the page crossfade ends it and reaches what is under it, neve
   assert.match(main, /^addEventListener\('pointerdown', \(e\) => \{\n {2}const vt = pageFade;/m);
   const h = main.slice(main.indexOf("addEventListener('pointerdown', (e) => {\n  const vt = pageFade;"));
   assert.match(h, /e\.stopImmediatePropagation\(\); e\.preventDefault\(\);/);
-  assert.match(h, /vt\.skipTransition\(\);\n {2}vt\.finished\.finally\(\(\) => document\.elementFromPoint\(x, y\)\?\.dispatchEvent\(new MouseEvent\('click'/);
+  assert.match(h, /vt\.skipTransition\(\);\n {2}vt\.finished\.catch\(\(\) => \{\}\)\.finally\(\(\) => document\.elementFromPoint\(x, y\)\?\.dispatchEvent\(new MouseEvent\('click'/);
   assert.equal((main.match(/document\.startViewTransition\(/g) || []).length, 1, 'theme and projector both go through crossfade()');
 });

@@ -3,30 +3,30 @@
 
 import { startHost, host } from './host.js?v=66efaebf2c';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=99200f9d94';
-import { createStage } from './stage.js?v=52058fabcf';
+import { createStage } from './stage.js?v=4bef83a2c8';
 import { createCreditPlacer } from './credit.js?v=853fefa4ac';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=f634f3aa0e';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=00914a442b';
-import { setHvpgStage } from './hvpg-proc.js?v=751857cca9';
-import { createWhy } from './why.js?v=db8b79ad36';
-import { createTimeline, LAPSES } from './timeline.js?v=6aa862a364';
-import { createCompare } from './compare.js?v=a40ed84eda';
-import { createCard } from './card.js?v=7542ccd81f';
-import { createChart } from './chart.js?v=51b06c2eeb';
-import { createMenu } from './menu.js?v=8eddeef14b';
-import { caption } from './a11y.js?v=6128a8018f';
+import { createInspector } from './inspector.js?v=358604081c';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=ed9fa50039';
+import { setHvpgStage } from './hvpg-proc.js?v=4f8dfcadec';
+import { createWhy } from './why.js?v=c0a65ef99e';
+import { createTimeline, LAPSES } from './timeline.js?v=af5c691281';
+import { createCompare } from './compare.js?v=d44edc390d';
+import { createCard } from './card.js?v=1eb3839a29';
+import { createChart } from './chart.js?v=98afdf80dc';
+import { createMenu } from './menu.js?v=06b19129a1';
+import { caption } from './a11y.js?v=5e8f857b8d';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=172c7f5304';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=4a2f66f91b';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=98c03c5902';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=af179467bf';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=d313f178b3';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=6951477fa8';
 import { releaseSpeed, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
-import { morphKey, crossfadeText } from './legend-morph.js?v=fce273ab20';
+import { morphKey, crossfadeText } from './legend-morph.js?v=49e967a0a8';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -39,7 +39,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=5384770817';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=8d93daba30';
 import { initTopbarMotion } from './topbar-motion.js?v=3e2875ae90';
 import { ORIGINS } from './blood.js?v=d85ddf7c2c';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
@@ -109,8 +109,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=191e7fef37'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=0cc6341314'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=58361e2dae'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=8c03354e3f'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -183,7 +183,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=fdcaa2889c'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=2514c1edce'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -191,7 +191,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=dbf33c7ba4'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=968afec1f5'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -1042,7 +1042,9 @@ function switchTheme(t, clear) {
 let pageFade = null;
 function crossfade(fn) {
   const vt = pageFade = document.startViewTransition(fn);
-  vt.finished.finally(() => { if (pageFade === vt) pageFade = null; });
+  // (A crossfade the next one skips rejects its ready promise, an AbortError nobody awaits, and one whose update threw rejects the others: none of them is news here.)
+  vt.ready.catch(() => {}); vt.updateCallbackDone.catch(() => {});
+  vt.finished.catch(() => {}).finally(() => { if (pageFade === vt) pageFade = null; });
 }
 addEventListener('pointerdown', (e) => {
   const vt = pageFade;
@@ -1051,7 +1053,7 @@ addEventListener('pointerdown', (e) => {
   e.stopImmediatePropagation(); e.preventDefault();
   const { clientX: x, clientY: y } = e;
   vt.skipTransition();
-  vt.finished.finally(() => document.elementFromPoint(x, y)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, view: window })));
+  vt.finished.catch(() => {}).finally(() => document.elementFromPoint(x, y)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, view: window })));
 }, true);
 function applyTheme(t, clear) {
   if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
@@ -1140,7 +1142,8 @@ let panelOpener = null;
 // opening would leave less, the others give way one at a time, Treat or History first, then Tests, then Details, each easing out, until it
 // fits: on a 1024 iPad that is one card at a time. (opening: 'treat', 'dock' or 'panel'.)
 function rightShort(opening) {
-  if (isPhone() || !matchMedia('(pointer: coarse)').matches) return false;
+  // (A maximised Tests card fills the screen and the figure is hidden: there is no vessel card to leave a strip for, and the stretched card is not 380 px wide.)
+  if (isPhone() || !matchMedia('(pointer: coarse)').matches || app.classList.contains('instrument-focus')) return false;
   const dock = $('#dock'), on = { panel: opening === 'panel' || panelShown(), dock: opening === 'dock' || (app.classList.contains('dock-open') && dock.classList.contains('side')), treat: opening === 'treat' || treatOpen() || historyOpen() };
   const w = [on.panel && ($('#panel').offsetWidth || 380), on.dock && (dock.offsetWidth || (innerWidth < 1200 ? 380 : Math.max(440, innerWidth * 0.38))), on.treat && 400].filter(Boolean);
   return w.length > 1 && innerWidth - w.reduce((a, b) => a + b, 0) - (w.length + 1) * 12 < 316;
@@ -1149,9 +1152,13 @@ function giveWay(opening) {
   for (const k of ['treat', 'dock', 'panel']) {
     if (!rightShort(opening)) return;
     if (k === opening) continue;
+    // (A card put away with focus inside it, a control of its own that opened the other one: focus goes to the opening card's button, never to the page.)
+    const a = document.activeElement, held = !!a && a !== document.body && !!a.closest(k === 'treat' ? '#treatCard, #historyCard' : k === 'dock' ? '#dock' : '#panel');
     if (k === 'treat') { closeTreat(); closeHistory(); }
     else if (k === 'dock') { if (app.classList.contains('dock-open')) setPanelTab('chart'); }
     else closePanel();
+    const to = held && (opening === 'treat' ? $('#btnTreat') : opening === 'dock' ? $('#tabInstruments') : panelOpener);
+    if (to?.isConnected && to.getClientRects().length) to.focus({ preventScroll: true });
   }
 }
 function openPanel(tab = 'chart') {

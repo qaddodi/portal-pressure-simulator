@@ -634,9 +634,12 @@ let modalReturn = null;
 // (The on-screen keyboard covers the page's foot without shrinking it: the dialog is held to the room above it, and eases there.)
 const modalVV = window.visualViewport;
 const fitModal = () => {
-  const back = document.getElementById('modalBack'), kb = modalVV ? Math.round(innerHeight - modalVV.offsetTop - modalVV.height) : 0;
+  // (A page pinched in is not a keyboard: only a visual viewport at the page's own scale counts. iOS also pans the page up to the field with the keyboard
+  // up, so the dialog is held to the visible band, from its top down to the keyboard, and not to the band from the page's top.)
+  const back = document.getElementById('modalBack'), kb = modalVV && modalVV.scale <= 1.05 ? Math.round(innerHeight - modalVV.offsetTop - modalVV.height) : 0;
   back.classList.toggle('kb', kb > 80);
-  if (kb > 80) back.style.setProperty('--modal-kb', `${kb}px`); else if (!back.classList.contains('leaving')) back.style.removeProperty('--modal-kb');
+  if (kb > 80) { back.style.setProperty('--modal-kb', `${kb}px`); back.style.setProperty('--modal-top', `${Math.max(0, Math.round(modalVV.offsetTop))}px`); }
+  else if (!back.classList.contains('leaving')) { back.style.removeProperty('--modal-kb'); back.style.removeProperty('--modal-top'); }
 };
 export function openModal(title, body, { wide = false, sub = null, bare = false } = {}) {
   const back = document.getElementById('modalBack');
@@ -665,7 +668,7 @@ export function closeModal() {
   back.classList.remove('show'); back.classList.add('leaving');
   modalVV?.removeEventListener('resize', fitModal); modalVV?.removeEventListener('scroll', fitModal);
   clearTimeout(modalLeaveT); modalLeaveT = setTimeout(() => back.classList.remove('leaving'), 220);
-  setTimeout(() => { if (!back.classList.contains('show')) { back.classList.remove('kb'); back.style.removeProperty('--modal-kb'); } }, 240);   // (the dialog holds its place while it fades)
+  setTimeout(() => { if (!back.classList.contains('show')) { back.classList.remove('kb'); back.style.removeProperty('--modal-kb'); back.style.removeProperty('--modal-top'); } }, 240);   // (the dialog holds its place while it fades)
   const appEl = document.getElementById('app'); if (appEl) appEl.inert = false;
   const back0 = modalReturn?.isConnected ? modalReturn : document.getElementById('btnMenu');
   // (Shown, by its own boxes: offsetParent is missing on an SVG element and null on a fixed one, so a vessel or a fixed bar never got its focus back.)
