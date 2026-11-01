@@ -2210,7 +2210,7 @@ button.finding { cursor: pointer; }
 }
 .pz-table tbody tr.static { cursor: default; }
 @media (hover: hover) { .pz-table tbody tr.static:hover { background: none; } }
-/* A row still computing shows "…" in its cells; when its patient arrives the numbers fade in. */
+/* A row still computing has empty cells (never "…"); when its patient arrives the numbers fade in. */
 .pz-table td.pend { color: var(--text-3); text-align: center; }
 .pz-table tr[data-arrived] td { animation: crossfade var(--d-surface) var(--ease) both; }
 /* A continued row (class pz-cont): one under a row with the same heading in the same site's colour (presenter.js sameHead) draws the heading once, over the first of them.
@@ -6972,10 +6972,10 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz.stack .pze-key li { padding: .35em .7em; }
 
 /* V16, the table column (col-wave.js). */
-.pz-table td.pze-wcell { padding-block: .2em; vertical-align: middle; }
+.pz-table td.pze-wcell { padding-block: .45em; vertical-align: middle; }   /* (room above and below the trace: a flat line at the scale's edge, a pulse's peak, never sits on a row's rule) */
 .pz-table.pz-table td.pze-wcell { padding-inline: max(.5em, 6px); }
 .pz-table.pz-table td.pze-wcell { padding-right: max(.75em, 10px); }   /* (the trace ends clear of the table's edge, as far in as the row names start on the left, on every size) */
-.pze-wbox { display: block; width: 6.5em; max-width: 100%; min-width: min(4em, 100%); height: 2.2em; margin-inline: auto; }
+.pze-wbox { display: block; width: 6.5em; max-width: 100%; min-width: min(4em, 100%); height: 1.8em; margin-inline: auto; }
 .pze-wbox.pze-in { animation: crossfade var(--d-surface) var(--ease) both; }
 .pze-wave { display: block; width: 100%; height: 100%; overflow: visible; }
 .pze-wb { stroke: var(--text-3); stroke-width: 1; vector-effect: non-scaling-stroke; }

@@ -30,7 +30,7 @@ import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { createHvpgMonitor } from './hvpg-proc.js?v=6de83d47fb';
-import { createTools } from './presenter-tools.js?v=6af775249a';
+import { createTools } from './presenter-tools.js?v=a5f50d6db3';
 import { openHandout } from './handout.js?v=492f217fcb';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -39,12 +39,12 @@ import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=15d5254a2
 import { createFigureKey } from './figure-key.js?v=5c3b74621a';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=e335f225fc';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=224be1439c';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=aabbaa7351';
 import { clotWords } from './callout-math.js?v=97fde9fc5b';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=d4445134df';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=e0effd9d12';
+import { anchorsOf, roomFor } from './cam-room.js?v=e9f4d1b2d0';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=447c3f6bb9';
@@ -1909,8 +1909,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     clearTimeout(lateT);
     if (!st || cut()) return;
     // A visual waits for every patient it compares (some are computed after the slides).
-    // (A table shows at once, its rows' cells "…" until each patient is in.)
-    if (s.visual && s.visual !== 'table') { await Promise.all(rowIdx(s).map(stateReady)); if (cut()) return; }
+    // (A table waits too, but only so long: a patient still being computed after TABLE_WAIT_MS leaves its row's cells blank, and the
+    // table fills them in the moment it arrives, wherever the table was built: watchRows.)
+    if (s.visual === 'table') { await Promise.race([Promise.all(rowIdx(s).map(stateReady)), wait(TABLE_WAIT_MS)]); if (cut()) return; }
+    else if (s.visual) { await Promise.all(rowIdx(s).map(stateReady)); if (cut()) return; }
     // A new patient's case (s.vignette), going forward: a centred glass card covers the figure while the patient loads behind it
     // (it stays up while the camera glides, once, to the slide's own framing; Next lifts it, and the slide's cards then come in with no further move).
     const skipCase = noCase; noCase = false;
@@ -1964,7 +1966,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (cut()) return;
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
     if (!s.visual) app.dataset.lit = slideTargets(fv).lit.join(' ');
-    if (s.visual === 'table') fillTable(s, cut);
     const lead = swap && !glide && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches && !booting ? camera(cam, fv, cut) : null;
     if (lead) await wait(150);
     if (swap || view.classList.contains('pz-out')) figureIn(); else loading(false);
@@ -2461,14 +2462,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       }
     })();
   }
-  // Each row of a table still computing fills in (its cells fade in) as its patient arrives.
-  function fillTable(s, cut) {
+  // Each row of a table still computing fills in (its cells fade in) as its patient arrives. It is asked for by the table itself, as it is built, so
+  // every way a table gets drawn (a slide landing, the card drawn again for a new text size, a kept panel) fills in, and a slide that is slow to
+  // land (the model paused, a heavy figure) never leaves its cells blank for good. A table that has left the page is let go.
+  const TABLE_WAIT_MS = 1500;
+  function watchRows(el, s) {
     for (const k of new Set(rowIdx(s).filter((x) => !states[x]))) {
       stateReady(k).then((st) => {
-        const old = ui?.panel.querySelector('.pz-table');
-        if (!st || cut() || !old) return;
-        const t = summaryTable(s, k), sc = old.scrollTop;
-        old.replaceWith(t); t.scrollTop = sc;
+        if (!st || !ui || !el.isConnected) return;
+        const t = summaryTable(s, k), sc = el.scrollTop;
+        el.replaceWith(t); t.scrollTop = sc;
+        // (The new table is fitted as the one it replaces was: its head row set upright where the columns are narrow, the card zoomed to hold it.)
+        fitDone.delete(ui.panel);
+        if (!cardMoving()) layout();
       });
     }
   }
@@ -2592,6 +2598,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // A cell that cannot be measured: a hollow ring, never the dash that means normal.
   const noneEl = () => h('span', { class: 'pz-nm', 'aria-hidden': 'true' });
+  // A cell whose patient is still being computed: empty (never "…": no ellipsis anywhere), said so to a screen reader; its numbers fade in
+  // when the patient arrives (watchRows).
+  const pendEl = () => h('td', { class: 'num pend', 'aria-busy': 'true' }, h('span', { class: 'sr-only' }, 'calculating'));
   // A legend line with its symbols drawn as the table's own: arrows, the dash (•) and the ring (○).
   const withArrows = (t) => t.split(/(↑↑|↓↓|↑|↓|•|○)/).map((x) => (x === '↑↑' ? arrowEl(2) : x === '↓↓' ? arrowEl(-2) : x === '↑' ? arrowEl(1) : x === '↓' ? arrowEl(-1) : x === '•' ? arrowEl(0) : x === '○' ? noneEl() : x));
   const WORD = { 2: 'well above normal', 1: 'above normal', 0: 'normal', '-1': 'below normal', '-2': 'well below normal' };
@@ -2619,7 +2628,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const focus = focusOf(s);
     const cell = (k, r, n) => {
       if (r.blank.includes(k)) return h('td', { class: 'num blank', title: 'Not measurable' }, noneEl(), h('span', { class: 'sr-only' }, 'not measurable'));
-      if (!r.f || (rel && !isRef(r, n) && !refOfRow(r))) return h('td', { class: 'num pend' }, '…');
+      if (!r.f || (rel && !isRef(r, n) && !refOfRow(r))) return pendEl();
       if (k === 'spleen' && !(fpv(k, r.f) > 0)) return h('td', { class: 'num none' }, 'Removed');
       if (isRef(r, n)) return h('td', { class: 'num ref', 'data-rate': rel ? null : rateAbs(k, dirAbs(k, r.f)) }, val(k, r.f));
       const ref = refOfRow(r), d = rel ? (ref ? dirRel(k, r.f, ref) : 0) : dirAbs(k, r.f), v = val(k, r.f) + unitOf(k);
@@ -2633,13 +2642,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // unit words and cells are its own; a row not yet computed waits, and a row's blank columns show the ring, as the others do.
     const extCell = (k, r, n) => {
       if (r.blank.includes(k)) return h('td', { class: 'num blank', title: 'Not measurable' }, noneEl(), h('span', { class: 'sr-only' }, 'not measurable'));
-      if (!r.f) return h('td', { class: 'num pend' }, '…');
+      if (!r.f) return colExt(k).pend?.() ?? pendEl();
       const c = safe(() => colExt(k).cell({ ...r, state: states[r.k] ?? null, ref: refOfRow(r) ?? null, isRef: isRef(r, n) }, ctxOf(s, slides.indexOf(s))), null, `columns.${k}`);
       return c?.tagName === 'TD' ? c : h('td', { class: 'num' }, c ?? '—');
     };
     // Ascites as two columns, SAAG and protein, one arrow each; "None" spans both when there is no fluid.
     const ascCells = (r, n) => {
-      if (!r.f) return [h('td', { class: 'num pend' }, '…'), h('td', { class: 'num pend' }, '…')];
+      if (!r.f) return [pendEl(), pendEl()];
       if (r.f.asc < NO_ASC) return [h('td', { class: 'num none', colspan: '2' }, 'None')];
       const hiS = r.f.saag >= 1.1, hiP = r.f.tp >= 2.5;
       if (isRef(r, n)) return [h('td', { class: 'num ref', 'data-rate': hiS ? 'hi' : null }, fmt(r.f.saag, 1)), h('td', { class: 'num ref' }, fmt(r.f.tp, 1))];
@@ -2667,7 +2676,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A row under one with the same heading in the same site's colour is a continued row (pz-cont): the heading is printed once, over the first of
     // them, and the rest follow it under a lighter rule, so the learner reads "Non-selective beta-blocker" once, not twice. It stays in the
     // row for a screen reader (the phone's compact rows show the heading over the name in words too, no stroke). table-continued-rows.test.js)
-    return h('div', { class: 'pz-table' + (rows.length >= 7 ? ' long' : '') + (noteCols ? ' notecols' : '') + (focus ? ' pzv-focused' : '') }, h('table', { style: { '--nc': String(cols.length + (ascCols ? 2 : 0)), '--nn': String(notes.length), '--asc-w': '0px' } },
+    const el = h('div', { class: 'pz-table' + (rows.length >= 7 ? ' long' : '') + (noteCols ? ' notecols' : '') + (focus ? ' pzv-focused' : '') }, h('table', { style: { '--nc': String(cols.length + (ascCols ? 2 : 0)), '--nn': String(notes.length), '--asc-w': '0px' } },
       h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => cutTh(k, COLS[k] || colExt(k)?.heading || k, CUT[k] ?? colExt(k)?.cut)),
         ascCols ? [cutTh('saag', h('abbr', { title: 'Serum−ascites albumin gradient' }, 'SAAG'), CUT.saag), cutTh('tp', h('abbr', { title: 'Ascites protein' }, 'Prot.'), CUT.tp)] : null,
         notes.map((x) => h('th', { class: 'nh' }, x)))),
@@ -2680,6 +2689,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         ascCols ? ascCells(r, n) : null,
         notes.map((_, j) => h('td', { class: 'note' }, [r.note].flat()[j] || '')))))),
     h('p', { class: 'pz-foot' }, withArrows(legend), cutLine));
+    watchRows(el, s);
+    return el;
   }
   // (A visual a deck visuals package registers (slide-ext.js visuals) is called with the slide and its context; the app's own win.)
   const visualOf = (s, i) => (VISUALS[s.visual] ? VISUALS[s.visual](s) : safe(() => EXT.visuals[s.visual](s, ctxOf(s, i)), null, `visuals.${s.visual}`));

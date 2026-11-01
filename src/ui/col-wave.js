@@ -70,6 +70,8 @@ function draw(box, w, vessel, max) {
 
 export const waveColumn = {
   heading: 'Doppler',
+  // A row whose patient is not computed yet: the cell as tall as the trace will be, so the table does not grow when it is drawn.
+  pend: () => h('td', { class: 'num pend pze-wcell', 'aria-busy': 'true' }, h('span', { class: 'pze-wbox' }), h('span', { class: 'sr-only' }, 'calculating')),
   cut: 'About two beats of each row\'s own trace: flow toward the probe above the line, away below it; every row on one scale, 50 cm/s from the line to the edge unless the slide says otherwise',
   cell(r, ctx) {
     const s = ctx?.slide, vessel = waveVessel(entryOf(r, s, ctx), s), box = h('span', { class: 'pze-wbox' }), max = s?.waveMax > 0 ? s.waveMax : WAVE_MAX;
@@ -77,7 +79,7 @@ export const waveColumn = {
     if (own) { draw(box, own, vessel, max); return h('td', { class: 'pze-wcell' }, box); }
     const snap = r.state?.snap;
     if (!snap || !ctx?.run) return h('td', { class: 'num' }, '—');
-    box.append(h('span', { class: 'pze-wn' }, '…'));
+    box.append(h('span', { class: 'sr-only' }, 'drawing the trace'));   // (empty until it is drawn, never "…": the trace fades in)
     // (A run that failed is tried again a few times; the cell may still be waiting to go up, so it is drawn either way.)
     let n = 0;
     const get = () => traceOf(snap, vessel, ctx).then((w) => {

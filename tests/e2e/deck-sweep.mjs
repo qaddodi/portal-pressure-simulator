@@ -68,6 +68,8 @@ const snap = (page) => page.evaluate(() => {
   if (c && +getComputedStyle(c).opacity >= 0.5) { const r = c.getBoundingClientRect(); for (const el of document.querySelectorAll('.pz-text, .pz-data, .pz-panel, .pz-bar')) { const q = vis(el); if (q && q.left < r.right + 4 && q.right > r.left - 4 && q.top < r.bottom + 4 && q.bottom > r.top - 4) issues.push(`credit touches ${el.className.split(' ')[0]}`); } }
   // A summary table: each cell's visible contents sit inside its column heading, and no two cells overlap.
   const tb = document.querySelector('.pz-table');
+  // (A cell still blank when the slide has settled: its patient never arrived, or the table never filled it in. No cell is ever "…".)
+  if (tb && tb.querySelector('td.pend')) issues.push(`TABLE CELLS BLANK: ${tb.querySelectorAll('td.pend').length} of ${tb.querySelectorAll('tbody td').length} still waiting for their patient`);
   if (tb && !tb.querySelector('td.pend')) {
     const box = (el) => { const rs = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); for (let n; (n = w.nextNode());) if (n.textContent.trim() && !n.parentElement.closest('.sr-only')) { const g = document.createRange(); g.selectNodeContents(n); rs.push(...g.getClientRects()); } for (const e of el.querySelectorAll('svg, i')) if (!e.closest('.sr-only')) rs.push(e.getBoundingClientRect()); const v = rs.filter((q) => q.width && q.height); return v.length ? { l: Math.min(...v.map((q) => q.left)), r: Math.max(...v.map((q) => q.right)), t: Math.min(...v.map((q) => q.top)), b: Math.max(...v.map((q) => q.bottom)) } : null; };
     const heads = [...tb.querySelectorAll('thead th')].map((th) => th.getBoundingClientRect());
