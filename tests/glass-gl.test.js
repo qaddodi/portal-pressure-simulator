@@ -10,11 +10,12 @@ const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const SRC = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
 
 test('the GPU glass draws the CSS glass\'s own blur, saturation and tint', () => {
-  const m = /\.cl-glass \{[^}]*background: color-mix\(in srgb, var\(--surface\) (\d+)%, transparent\);[^}]*backdrop-filter: blur\((\d+)px\) saturate\(([\d.]+)\);/.exec(CSS);
+  // (Since 1 Nov 2026 the CSS declares no blur at all: the GPU's is the only one, the browser's look it was matched to kept here.)
+  const m = /\.cl-glass \{[^}]*background: color-mix\(in srgb, var\(--surface\) (\d+)%, transparent\);/.exec(CSS);
   assert.ok(m, 'the CSS glass');
   assert.equal(+m[1] / 100, GLASS.tint);
-  assert.equal(+m[2], GLASS.blur);
-  assert.equal(+m[3], GLASS.sat);
+  assert.equal(GLASS.blur, 16);
+  assert.equal(GLASS.sat, 1.15);
 });
 
 test('its blur weights are a Gaussian summing to one', () => {
@@ -61,14 +62,13 @@ test('the stage lays the GPU glass under both callout layers, off with the other
 });
 
 test('the liver label\'s frosted pane is drawn the same way, under the labels, with its own blur and tint', () => {
-  const m = /\.lb-glass \{[^}]*background: var\(--frost\);[^}]*backdrop-filter: blur\((\d+)px\) saturate\(([\d.]+)\);/.exec(CSS);
-  assert.ok(m, 'the CSS pane');
-  assert.equal(+m[1], PANE.blur);
-  assert.equal(+m[2], PANE.sat);
+  assert.match(CSS, /\.lb-glass \{[^}]*background: var\(--frost\);/, 'the CSS pane');
+  assert.equal(PANE.blur, 9);
+  assert.equal(PANE.sat, 1.2);
   assert.match(STAGE, /labelSvg\.before\(glass\);\n.*\n\s+const paneGL = veins \? createGlassGL\(wrap, vCanvas, \[\], \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\), live: \(\) => wrap\.classList\.contains\('gl-on'\), pane: glass, version: \(\) => veins\.drawSeq, fresh: \(\) => veins\.bloodSeq, capture: \(\) => veins\?\.capture\(\), onFigure: \(f\) => veins\.onPicture\(f\), keep: \(\) => figLab\('glassCache'\), due: \(\) => watch\.due\(\), copy: GLASS_COPY \}\) : null;/);
   assert.match(SRC, /if \(canvas\) \(cards \? cards\.before : pane \|\| layers\[0\]\)\.before\(canvas\);/, 'its canvas just before the pane, so under the labels');
   assert.match(STAGE, /hostFrost\(paneGL, \{ order: 0, over: \(\) => frostOver\('pane'\) \}\);/, 'in the figure\'s canvas: the first turn, under the labels');
-  assert.match(CSS, /\.cl-glass\[data-gl\], \.lb-glass\[data-gl\] \{ background: none; -webkit-backdrop-filter: none; backdrop-filter: none; \}/);
+  assert.match(CSS, /\.cl-glass\[data-gl\], \.lb-glass\[data-gl\] \{ background: none; \}/);
   assert.equal(roundPath(100, 40, 8), 'M8 0H92A8 8 0 0 1 100 8V32A8 8 0 0 1 92 40H8A8 8 0 0 1 0 32V8A8 8 0 0 1 8 0Z');
   assert.match(roundPath(10, 6, 20), /^M3 0H7A3 3/, 'the radius kept inside the box');
 });

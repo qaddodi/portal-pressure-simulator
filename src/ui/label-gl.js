@@ -1145,7 +1145,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const cc = cs(cable), wave = (k) => { const e = q(k); if (!e) return null; const c = cs(e); return { col: rgba(c.stroke), so: NUM(c.strokeOpacity), w: NUM(c.strokeWidth) }; };
     return {
       op: NUM(cs(el).opacity), ang: angOf(cs(svgs[1]).transform), headOp: NUM(cs(q('.sp-head')).opacity), cableOp: NUM(cc.opacity),
-      beam: { d: beam.getAttribute('d'), filter: bc.filter === 'none' ? '' : bc.filter, stops, grad: ['cx', 'cy', 'r'].map((k) => NUM(el.querySelector('#sp-beam').getAttribute(k))) },
+      beam: { d: beam.getAttribute('d'), filter: bc.filter && bc.filter !== 'none' ? bc.filter : NUM(bc.getPropertyValue?.('--sp-soft')) > 0 ? `blur(${NUM(bc.getPropertyValue('--sp-soft'))}px)` : '',   // (its softness: app.css --sp-soft, drawn once here, never a CSS blur)
+      stops, grad: ['cx', 'cy', 'r'].map((k) => NUM(el.querySelector('#sp-beam').getAttribute(k))) },
       body: rect(body), screen: rect(screen), tip: rect(tip), tipX: (() => { const m = /matrix\(([^)]+)\)/.exec(cs(tip).transform); return m ? Number(m[1].split(',')[4]) : 0; })(),
       read: { x: NUM(read.getAttribute('x')), y: NUM(read.getAttribute('y')), anchor: read.getAttribute('text-anchor') || 'start', runs },
       cable: { d: cable.getAttribute('d'), col: none(cc.stroke) ? null : rgba(cc.stroke), w: NUM(cc.strokeWidth), cap: cc.strokeLinecap },

@@ -47,7 +47,7 @@ test('the lobule draws the lit pills\' frost on the GPU from its own stacked cop
   assert.match(lz, /if \(!tissueOnGL \|\| tissueDrew\) \{/);
   assert.match(lz, /if \(!ok\) return false;\n\s+tissueDrew = true;/);
   assert.match(lz, /paintFx\(W, H, dpr, dark, dt, !g \|\| g\.lost\);\n\s+pillCopy\(W, H\);\n\s+return true;/);
-  assert.match(css, /\.lz \.lz-labels :is\(\.lz-lab, \.lz-zone\)\[data-gl\]\[data-gl\]\[data-gl\]::before \{ background: none; -webkit-backdrop-filter: none; backdrop-filter: none; \}/);
+  assert.match(css, /\.lz \.lz-labels :is\(\.lz-lab, \.lz-zone\)\[data-gl\]\[data-gl\]\[data-gl\]::before \{ background: none; \}/);
 });
 
 // (31 Oct: the frost flickered under the pills. The copy it is blurred from was drawn from the screen's density straight to half a

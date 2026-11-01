@@ -9,7 +9,7 @@ import { perf, watchFrames, finalFrameFor } from './frame.js?v=15d5254a2c';
 // (The readout's own loop: through the app's one frame scheduler, last in each frame, not a requestAnimationFrame of its own.)
 const nextFrame = finalFrameFor('perf readout');
 import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js?v=9cd1d0c4e3';
-import { scanBlurs, blurText } from './blur-gauge.js?v=3e4c02d9c9';
+import { scanBlurs, blurText } from './blur-gauge.js?v=215cf3d483';
 import { surfaceRows, surfacesText } from './gpu-surfaces.js?v=2af17044e7';
 
 const WINDOW = 2000, KEEP = 5, GAP_LINES = 40, LONG_LINES = 15;

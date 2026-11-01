@@ -40,5 +40,5 @@ test('the presenter hands the sheet to the card glass, and the glass takes a lis
   assert.match(pr, /read: \(g\) => \(g === data \? sheetPanes\(g\) : undefined\) \}\) \|\| null;/);
   assert.match(gg, /for \(const one of \[\]\.concat\(q \|\| \[\]\)\) \{/);
   assert.match(gg, /d: one\.d \|\| null, rad: one\.d \? null : one\.rad,/);
-  assert.match(css, /\.pz\.pz\.pz \.pz-data\.pz-data\.pz-sheet\.pz-sheet\[data-gl\]::before, \.pz\.pz\.pz \.pz-data\.pz-data\.pz-sheet\.pz-sheet\[data-gl\]::after \{ background: none; -webkit-backdrop-filter: none; backdrop-filter: none; \}/);
+  assert.match(css, /\.pz\.pz\.pz \.pz-data\.pz-data\.pz-sheet\.pz-sheet\[data-gl\]::before, \.pz\.pz\.pz \.pz-data\.pz-data\.pz-sheet\.pz-sheet\[data-gl\]::after \{ background: none; \}/);
 });

@@ -3,8 +3,8 @@
 // draws the glass of the callouts, the liver's pane and the Present cards itself (glass-gl.js), and a glass it draws takes the mark
 // data-gl, whose CSS turns the browser's blur off. What this lists is what is left: every element (and ::before / ::after) that
 // shows now with a computed backdrop-filter, and, where a glass owns it, the reason that glass gave the browser's blur back.
-// Loaded only with ?perf (perf-readout.js); nothing here runs otherwise. Since 1 Nov 2026 (html[data-glsolid]) no element shows a browser
-// blur at all, so the list is empty unless ?glasssolid=0 (or ?glasshost=0) brings the browser's blur back.
+// Loaded only with ?perf (perf-readout.js); nothing here runs otherwise. Since 1 Nov 2026 no backdrop-filter is declared anywhere (app.css),
+// so the list stays empty.
 
 const PSEUDO = ['', '::before', '::after'];
 
@@ -16,7 +16,7 @@ const KEPT = [
   ['.sv-legend', 'the sinusoid legend, in the lobule view only'],
   ['.pz-fold', 'the Show / Hide chip in a folded card\'s header, 92 % opaque; no glass of the figure draws it'],
   ['.toast', 'a toast, there for a few seconds'],
-  ['.pz-shade', 'the teaching card, on the browser\'s blur only with ?shadegl=0 or ?glasssolid=0 (else the GPU glass, or solid)'],
+  ['.pz-shade', 'the teaching card (the GPU glass, or solid; never the browser\'s blur since 1 Nov)'],
 ];
 /** Why a blur no glass owns stays the browser's, or '' for one with no entry here. */
 export function keptReason(el) {

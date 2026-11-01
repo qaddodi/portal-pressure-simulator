@@ -69,7 +69,7 @@ test('behind the case card the camera eases out to the whole patient, then the p
 
 test('the case card is cards glass, enters and leaves whole, never resizing', () => {
   const rule = css.match(/\.pz-case \{[^}]*\}/)[0];
-  assert.match(rule, /backdrop-filter: blur\(16px\) saturate\(1\.15\)/);
+  assert.match(rule, /--gl-glass: 1;/);   // (its frost the cards' GPU glass; no CSS blur since 1 Nov 2026)
   assert.match(rule, /height: fit-content/);
   assert.match(rule, /transition: opacity var\(--d-surface\) var\(--ease\), transform var\(--d-surface\) var\(--ease\);/);
   assert.doesNotMatch(rule, /scale/);
