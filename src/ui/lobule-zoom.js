@@ -2812,7 +2812,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // software, and set aside if its context is lost (the 2D canvas carries on).
   let tissueGL, tissueOnGL = false, keep2D = false;
   function tissueGLOn() {
-    if (tissueGL === undefined) { tissueGL = createTissueGL(tissueG, { onLive: liveCompiled }); if (!tissueGL) tissueG.remove(); else tissueGL.liveReady(); }   // (liveReady: the shader that draws the lobule starts compiling now, ahead of the first look)
+    if (tissueGL === undefined) { tissueGL = createTissueGL(tissueG, { onLive: liveCompiled }); if (!tissueGL) tissueG.remove(); else tissueGL.liveReady(); }
+    // (A context the browser takes back (Safari does, under GPU memory pressure or past its count of live contexts) leaves the canvas
+    // black: it is opaque. It was left showing until something drew the lobule again, a pan (Mohammad, 1 Nov: the cells went black
+    // while zooming in, and came back when he panned; black on Lobule 5 in a talk, where nothing pans). It is put aside at once and the
+    // lobule drawn again on the 2D canvas in the next frame.)
+    if (tissueGL && !tissueG._lostWatch) { tissueG._lostWatch = true; tissueG.addEventListener('webglcontextlost', tissueLost); }   // (liveReady: the shader that draws the lobule starts compiling now, ahead of the first look)
     return tissueGL && !tissueGL.lost ? tissueGL : null;
   }
   // The lobule's tissue drawn live by the shader (lobule-live.js, A5b): in the share of the picture the state allows (liveEligible:
@@ -2934,6 +2939,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     tissueGL?.sweep();
     wake();
   }
+  function tissueLost() { showTissueGL(false); wake(); }
   // The lobule draws again (its tissue first): a bitmap came in, or the next one can be asked for.
   function wake() { tissueKey = ''; idleDrawn = ''; if (!raf && fade > 0) raf = nextFrame(loop); }
   // Which of the two shows (in the frame it was drawn in, so the picture never goes missing between them).

@@ -53,3 +53,10 @@ test('stage() sends the staged bitmap to the GPU before the zoom only with ?stag
   assert.match(onGPU, /wVer: worldCv\.ver \|\| 0/, 'the same version as draw sends, so draw finds it there');
   assert.match(onGPU, /framePart\('lz\.tissueGL', \(\) => tg\.draw\(\{/);
 });
+
+// (1 Nov 2026: the lobule's tissue went black while zooming in, and on Lobule 5 in a talk, until a pan drew it again. A lost context
+// leaves the opaque GPU canvas black; it is put aside at once and the lobule drawn on the 2D canvas in the next frame.)
+test('a lost tissue context is put aside at once and the lobule drawn again', () => {
+  assert.match(lz, /tissueG\.addEventListener\('webglcontextlost', tissueLost\)/);
+  assert.match(lz, /function tissueLost\(\) \{ showTissueGL\(false\); wake\(\); \}/);
+});
