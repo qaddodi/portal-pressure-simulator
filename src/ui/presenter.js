@@ -371,58 +371,71 @@ function rich(t, s = {}, fp = null, tips = false) {
   }
   return out;
 }
-// The still column inside the lobule (D5), for a wedge slide with column: true: the balloon stops the hepatic vein,
-// and the column behind it (in the wedge colour) fills back through the central vein and the sinusoids to the
-// first moving blood. Here it stops at the resistance in the portal tract (schistosomiasis), so the wedge never sees it.
+// The still column (D5), for a wedge slide with column: true: one vessel drawn along its path (portal vein, the portal tract's narrowing,
+// the sinusoids as fine channels, central vein, hepatic vein, the balloon on its catheter, free blood beyond it). The balloon stops the
+// hepatic vein, and the column behind it (in the wedge colour) fills back through the central vein and the sinusoids to the first moving
+// blood. Here it stops at the resistance in the portal tract (schistosomiasis), so the wedge never sees it.
 function wedgeColumn() {
-  const S = 'http://www.w3.org/2000/svg', el = (t, a = {}, txt) => { const e = document.createElementNS(S, t); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); if (txt) e.textContent = txt; return e; };
-  const svg = el('svg', { class: 'pz-col', viewBox: '0 0 360 98', role: 'img', 'aria-label': 'The still column fills from the balloon back through the central vein and the sinusoids, and stops at the resistance in the portal tract.' });
-  const shapes = [
-    el('rect', { class: 'c-pv', x: 4, width: 76, height: 18, rx: 9 }), el('rect', { class: 'c-sin', x: 92, width: 146, height: 14 }),
-    el('rect', { class: 'c-hv', x: 238, width: 104, height: 20, rx: 10 }), el('rect', { class: 'c-fill', x: 92, width: 238, height: 20, rx: 6 }),
-    el('ellipse', { class: 'c-bal', cx: 330, rx: 13, ry: 13 }), el('path', { class: 'c-blk' })];
-  const topT = el('text', { class: 'c-top', 'text-anchor': 'middle' });
-  const names = [[40, 'Portal vein'], [165, 'Sinusoids'], [262, 'Central vein'], [330, 'Balloon']].map(([x, t]) => ({ x, t, e: el('text', { 'text-anchor': 'middle' }, t) }));
-  const blk = el('text', { class: 'c-blkt', 'text-anchor': 'middle' }, 'Resistance in the portal tract');
-  svg.append(...shapes, topT, ...names.map((n) => n.e), blk);
-  // The rows follow the lettering (the slide's caption size as drawn): a heading too wide for one line takes two, the
-  // names take two rows when neighbours would touch, and each stays inside the box.
-  const W = 360, inside = (x, w) => clamp(x, w / 2 + 1, W - w / 2 - 1);
-  // (Widths are measured: the column only lays out while it shows.)
-  const lines = (e, t, x, c) => {
-    fsOf(e, c); e.textContent = t;
-    if (e.getComputedTextLength() <= W - 6) { e.setAttribute('x', inside(x, e.getComputedTextLength()).toFixed(1)); return 1; }
-    const sp = [...t.matchAll(/ /g)].map((m) => m.index).sort((p, q) => Math.abs(p - t.length / 2) - Math.abs(q - t.length / 2))[0];
-    e.replaceChildren(...[t.slice(0, sp), t.slice(sp + 1)].map((l, i) => el('tspan', { x: W / 2, dy: i ? (1.2 * c).toFixed(1) : 0 }, l)));
-    return 2;
+  const W = 360, L = 5, R = W - 5, xPV1 = 72, xN = 84, xS0 = 96, xS1 = 207, xC1 = 265, bx0 = 286, bx1 = 333, id = `pzwc${++uid}`;
+  // The lumen's half-height along the path, smoothed between its stations; the portal vein's end is round.
+  const pts = [[L, 9.7], [xPV1 - 4, 9.7], [xN, 2.5], [xN + 6, 2.5], [xS0 + 6, 1.8], [xS1 - 6, 1.8], [xS1 + 6, 6.2], [xC1 - 6, 6.2], [xC1 + 10, 11.4], [R - 1, 11.4]];
+  const half = (x) => {
+    let hw = pts.at(-1)[1];
+    for (let i = 1; i < pts.length; i++) if (x <= pts[i][0]) { const [x0, h0] = pts[i - 1], [x1, h1] = pts[i], t = Math.max(0, (x - x0) / (x1 - x0)); hw = h0 + (h1 - h0) * t * t * (3 - 2 * t); break; }
+    return x < L + 9.7 ? Math.min(hw, Math.sqrt(Math.max(0, 9.7 ** 2 - (L + 9.7 - x) ** 2))) : hw;
   };
-  // (At a large text size the four names would stand in four rows, a staircase taller than the card: the lettering then steps down,
-  // never under half its role nor 12 px on the screen, until they fit two rows. Lobule slide 8 at 200 % on a 375 px phone ran its
-  // last names under the controls.)
+  const up = [], dn = [];
+  for (let x = L; x <= R - 1 + 0.01; x += 1.5) { up.push(`${x.toFixed(1)} ${(-half(x)).toFixed(1)}`); dn.push(`${x.toFixed(1)} ${half(x).toFixed(1)}`); }
+  const sil = `M${up.join(' L')} L${dn.reverse().join(' L')} Z`;
+  // The sinusoids: three lanes (drawn from the central vein back, so the column fills along them) and two links between them.
+  const xs0 = xS0 + 6, xs1 = xS1 - 6, mid = (xs0 + xs1) / 2, ys = [-8.8, 0, 8.8];
+  const lane = (dy) => `M${xs1} 0 C${xs1 - 16} ${dy * 0.15} ${xs1 - 22} ${dy} ${xs1 - 46} ${dy} H${xs0 + 46} C${xs0 + 22} ${dy} ${xs0 + 16} ${dy * 0.15} ${xs0} 0`;
+  const links = `M${mid - 14} ${ys[0]} V${ys[1]} M${mid + 14} ${ys[1]} V${ys[2]}`;
+  const lanes = (cls) => ys.map((dy) => sv('path', { class: cls, d: lane(dy), pathLength: 1 }));
+  const art = sv('g', { class: 'c-art' },
+    sv('clipPath', { id }, sv('path', { d: sil })),
+    sv('g', { 'clip-path': `url(#${id})` }, sv('rect', { class: 'c-pv', x: L - 1, y: -16, width: xN - L + 2, height: 32 }), sv('rect', { class: 'c-flow', x: xN + 1, y: -16, width: R - xN, height: 32 })),
+    ...lanes('c-lane'), sv('path', { class: 'c-lane c-link-b', d: links }),
+    sv('g', { 'clip-path': `url(#${id})` }, sv('rect', { class: 'c-fill', x: xN + 1, y: -16, width: bx0 + 8 - xN - 1, height: 32 })),
+    ...lanes('c-lane-f'), sv('path', { class: 'c-lane-f c-link', d: links }),
+    sv('path', { class: 'c-edge', d: sil }),
+    sv('path', { class: 'c-blk', d: `M${xN - 5} -11.4 Q${xN} -3.5 ${xN - 5} -1.3 M${xN + 6} -11.4 Q${xN + 1} -3.5 ${xN + 6} -1.3 M${xN - 5} 11.4 Q${xN} 3.5 ${xN - 5} 1.3 M${xN + 6} 11.4 Q${xN + 1} 3.5 ${xN + 6} 1.3` }),
+    sv('rect', { class: 'c-bal', x: bx0, y: -14, width: bx1 - bx0, height: 28, rx: 9.7 }),
+    sv('path', { class: 'c-cath', d: `M${bx0 + 7} 0 H${W - 1}` }), sv('circle', { class: 'c-tip', cx: bx0 + 7, cy: 0, r: 2.3 }));
+  const lead = sv('path', { class: 'c-lead' }), brk = sv('path', { class: 'c-brk' });
+  const top = ['Still column:', 'reads the sinusoids'].map((t) => sv('text', { class: 'c-top', 'text-anchor': 'middle' }, t));
+  const red = ['Resistance in', 'the portal tract'].map((t) => sv('text', { class: 'c-blkt' }, t));
+  const names = [['Portal vein', 'start'], ['Sinusoids', 'middle'], ['Central vein', 'middle'], ['Balloon', 'end']].map(([t, a]) => sv('text', { 'text-anchor': a }, t));
+  const svg = sv('svg', { class: 'pz-col', viewBox: `0 0 ${W} 100`, role: 'img', 'aria-label': 'The still column fills from the balloon back through the central vein and the sinusoids, and stops at the resistance in the portal tract.' },
+    art, lead, brk, ...red, ...top, ...names);
+  // The words follow the lettering (the slide's caption size as drawn): two lines over the picture, the names in one row under it.
+  // (Widths are measured: the column only lays out while it shows.) The lettering never steps off its role: when the four names do not
+  // stand in one row clear of each other they take two rows, and when the two headings do not stand side by side the column's heading
+  // goes under the red one (clear of the red leader line); the card's own fit takes the extra height.
+  const bL = xN + 10, bR = bx0 + 7;
   fitChart(svg, ({ cap: c0 }, box) => {
-    const ppu = box.width / W || 1, cMin = Math.max(c0 / 2, 12 / ppu);
-    let c = c0;
-    for (; c > cMin; c = Math.max(cMin, c * 0.9)) {
-      names.forEach((n) => fsOf(n.e, c));
-      const ws = names.map((n) => n.e.getComputedTextLength()), xs = names.map((n, i) => inside(n.x, ws[i]));
-      const hit = (i, j) => Math.abs(xs[j] - xs[i]) < (ws[i] + ws[j]) / 2 + 6;
-      if (!(hit(0, 2) || hit(1, 3))) break;
-    }
-    const lh = 1.2 * c, nTop = lines(topT, 'Still column: reads the sinusoids', 211, c);
-    topT.setAttribute('y', (0.8 * c + 2).toFixed(1));
-    const cy = 0.8 * c + 2 + (nTop - 1) * lh + 0.3 * c + 16, base = cy + 16 + 0.8 * c;
-    names.forEach((n) => fsOf(n.e, c));
-    const ws = names.map((n) => n.e.getComputedTextLength()), xs = names.map((n, i) => inside(n.x, ws[i]));
-    const hit = (i, j) => Math.abs(xs[j] - xs[i]) < (ws[i] + ws[j]) / 2 + 6;
-    const rows2 = names.some((_, i) => i && hit(i - 1, i));
-    const rows3 = rows2 && (hit(0, 2) || hit(1, 3));
-    const row = (i) => (rows3 ? i : rows2 ? i % 2 : 0);
-    names.forEach((n, i) => { n.e.setAttribute('x', xs[i].toFixed(1)); n.e.setAttribute('y', (base + row(i) * lh).toFixed(1)); });
-    const by = base + Math.max(...names.map((_, i) => row(i))) * lh + lh;
-    const nBlk = lines(blk, 'Resistance in the portal tract', 86, c); blk.setAttribute('y', by.toFixed(1));
-    [[0, cy - 9], [1, cy - 7], [2, cy - 10], [3, cy - 10]].forEach(([i, y]) => shapes[i].setAttribute('y', y.toFixed(1)));
-    shapes[4].setAttribute('cy', cy.toFixed(1)); shapes[5].setAttribute('d', `M78 ${cy - 12} L94 ${cy + 12} M94 ${cy - 12} L78 ${cy + 12}`);
-    svg.setAttribute('viewBox', `0 0 ${W} ${(by + (nBlk - 1) * lh + 0.3 * c + 2).toFixed(1)}`);
+    // (A card that zooms its contents down, --pz-fit, takes the lettering down with it, never under 12 px on the screen nor under half its role.)
+    const role = c0 * box.width / W, z = parseFloat(svg.closest('.pz-text')?.style.getPropertyValue('--pz-fit')) || 1;
+    const wOf = (e) => e.getComputedTextLength(), c = c0 * Math.min(1, Math.max(z, Math.max(12, role * 0.55) / role));
+    const place = () => {
+      [...red, ...top, ...names].forEach((e) => fsOf(e, c));
+      const rW = Math.max(...red.map(wOf)), tW = Math.max(...top.map(wOf)), nW = names.map(wOf), tx = (bL + bR) / 2 + 14;
+      const xs = [[L, L + nW[0]], [(xs0 + xs1) / 2 - 8 - nW[1] / 2, (xs0 + xs1) / 2 - 8 + nW[1] / 2], [(xS1 + xC1) / 2 - nW[2] / 2, (xS1 + xC1) / 2 + nW[2] / 2], [W - 5 - nW[3], W - 5]];
+      const apart = xs.every((b, i) => !i || b[0] - xs[i - 1][1] >= 6), band = L + rW + 8 <= tx - tW / 2 && tx + tW / 2 <= W - 2;
+      return { rW, tW, nW, tx, xs, apart, band };
+    };
+    const p = place(), lh = 1.2 * c, stack = !p.band, rows2 = !p.apart;
+    // (Stacked, the heading stays right of the red leader line at the narrowing and inside the picture.)
+    const sx = Math.min(Math.max((bL + bR) / 2, xN + 8 + p.tW / 2), W - 2 - p.tW / 2);
+    const y1 = 0.8 * c + 2, yRed2 = y1 + lh, bandEnd = (stack ? yRed2 + 2 * lh : yRed2) + 0.3 * c;
+    const brY = bandEnd + 0.4 * c, cy = brY + 8 + 14, base = cy + 14 + 4 + 0.8 * c;
+    red.forEach((e, i) => { setA(e, 'x', L); setA(e, 'y', (y1 + i * lh).toFixed(1)); });
+    top.forEach((e, i) => { setA(e, 'x', (stack ? sx : p.tx).toFixed(1)); setA(e, 'y', ((stack ? yRed2 + lh : y1) + i * lh).toFixed(1)); });
+    names.forEach((e, i) => { setA(e, 'x', i === 0 ? L : i === 3 ? W - 5 : ((p.xs[i][0] + p.xs[i][1]) / 2).toFixed(1)); setA(e, 'y', (base + (rows2 && i % 2 ? lh : 0)).toFixed(1)); });
+    setA(art, 'transform', `translate(0 ${cy.toFixed(1)})`);
+    setA(lead, 'd', `M${xN + 0.5} ${(yRed2 + 4).toFixed(1)} V${(cy - 14).toFixed(1)}`);
+    setA(brk, 'd', `M${bL} ${(brY + 5).toFixed(1)} V${brY.toFixed(1)} H${bR} V${(brY + 5).toFixed(1)}`);
+    setA(svg, 'viewBox', `0 0 ${W} ${(base + (rows2 ? lh : 0) + 0.3 * c + 2).toFixed(1)}`);
   });
   nextFrame(() => nextFrame(() => svg.classList.add('in')));
   return svg;
