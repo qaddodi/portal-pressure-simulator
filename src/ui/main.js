@@ -1113,6 +1113,8 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
 // of it, right after the classes changed, was a style pass of the whole page as every pan, pinch and slide's zoom began and ended.
 // ?glidekeys=0: on every class change, as before.)
 const STATUS_GESTURE_FREE = !/[?&]glidekeys=0\b/.test(location.search);
+// (The slide progress line grows by a GPU scale (app.css .pz-prog i); ?progfx=0 grows it by its width, as before.)
+if (/[?&]progfx=0\b/.test(location.search)) document.documentElement.setAttribute('data-progcpu', '');
 new MutationObserver((rs) => { if (STATUS_GESTURE_FREE && rs.every((r) => classOnly(r, GESTURE_LOOK))) return; syncStatusBar(); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
 // ── Patient chart, Treat card and instrument workspace ─

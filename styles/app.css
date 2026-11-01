@@ -2416,7 +2416,11 @@ button.finding { cursor: pointer; }
 /* (An iPhone opened from the Home Screen, or held sideways, draws the page to the screen's rounded corners (55 px): the line's first and last 34-48 px were cut off, so slide 1 of a deck showed nothing. It starts 28 px in, 2 px up, where the corner's arc has cleared, and on its side inside the notch's inset.) */
 :root.iphone-app .pz-prog { left: max(28px, env(safe-area-inset-left, 0px)); right: max(28px, env(safe-area-inset-right, 0px)); bottom: 2px; border-radius: 2px; overflow: hidden; }
 .pz.low .pz-prog { left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px); }
-.pz-prog i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: color-mix(in srgb, var(--text) 42%, transparent); transition: width var(--d-surface) var(--ease); }   /* (quiet ink: the accent is kept for what the learner touches, DG3) */
+.pz-prog i { display: block; height: 100%; width: 100%; transform: scaleX(var(--p, 0)); transform-origin: 0 0; background: color-mix(in srgb, var(--text) 42%, transparent); transition: transform var(--d-surface) var(--ease); }   /* (quiet ink: the accent is kept for what the learner touches, DG3) */
+/* (Since 1 Nov 2026 (Mohammad: "Move everything to GPU") the line grows by a scale the compositor eases on the GPU, alongside the slide change's
+   camera glide; it grew by its width, laid out and painted again on the main thread every frame of the change. ?progfx=0 (main.js
+   data-progcpu): by its width, as before.) */
+:root[data-progcpu] .pz-prog i { width: calc(var(--p, 0) * 100%); transform: none; transition: width var(--d-surface) var(--ease); }
 /* Dark: the slide progress line was a 4 px bar of mid grey, the brightest line on a talk in a dark room; quieter ink keeps it readable without pulling the eye (dark sweep, 1 Nov). */
 :root[data-theme="dark"] .pz-prog i { background: color-mix(in srgb, var(--text) 30%, transparent); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-prog i { background: color-mix(in srgb, var(--text) 30%, transparent); } }
