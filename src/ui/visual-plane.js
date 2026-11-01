@@ -28,6 +28,8 @@ import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { TILE, tileShown } from './table-marks.js?v=ff3ed0cc47';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { frameFor } from './frame.js?v=7710f677e2';
+import { easeArrive, D_SURFACE } from './ease.js?v=fc509dabe4';
+const reduceDot = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
 
 const nextFrame = frameFor('plane');
 /** The switch for the patient's trail on the card (a tool's trail: Mohammad, 1 Nov, mock B): ?trail=0 gives the card as it was. */
@@ -714,6 +716,12 @@ export function planePlot(pl, { card = false } = {}) {
   const svg = sv('svg', { class: 'pze-plane', 'aria-hidden': 'true' });
   // (The drawing redraws in base; the card's zone words and its dot stay the same elements, so they ease from where they were.)
   const halo = sv('circle', { class: 'pze-halo' }), dot = sv('circle', { class: 'pze-dot' });
+  let dotGo = null;   // (the dot's glide: from fx, fy to tx, ty, started at t0)
+  const dotEased = (t = performance.now()) => {
+    if (!dotGo) return null;
+    const k = reduceDot.matches ? 1 : easeArrive(Math.min(1, Math.max(0, (t - dotGo.t0) / D_SURFACE)));
+    return { x: dotGo.fx + (dotGo.tx - dotGo.fx) * k, y: dotGo.fy + (dotGo.ty - dotGo.fy) * k };
+  };
   const base = sv('g'), wordsG = sv('g', { class: 'pze-cwords' }), ringG = sv('g', { class: 'pze-ring' }, halo, dot);
   svg.append(base, wordsG, ringG);
   el.append(svg);
@@ -803,7 +811,9 @@ export function planePlot(pl, { card = false } = {}) {
     const now = has ? { x: X(rg[pl.x.key]), y: Y(rg[pl.y.key]) } : null;
     halo.setAttribute('r', (r + g).toFixed(1)); dot.setAttribute('r', r.toFixed(1));
     if (now) {
-      ringG.style.transform = `translate(${now.x.toFixed(1)}px, ${now.y.toFixed(1)}px)`;
+      const sx = now.x.toFixed(1), sy = now.y.toFixed(1), to = { x: +sx, y: +sy };
+      if (!dotGo || dotGo.tx !== to.x || dotGo.ty !== to.y) { const at = dotEased() || to; dotGo = { fx: at.x, fy: at.y, tx: to.x, ty: to.y, t0: performance.now() }; }
+      ringG.style.transform = `translate(${sx}px, ${sy}px)`;
       ringG.style.opacity = '1';
     } else ringG.style.opacity = '0';
     // The card's zones name themselves, clear of the dot where it stands and all along its way there.
@@ -867,14 +877,9 @@ export function planePlot(pl, { card = false } = {}) {
     paintWalk();
     return [...boxes, ...names.filter(Boolean).map((n) => n.box)];
   }
-  // Where the dot is on screen now, mid-glide included (its group's eased transform), px, or null while it is hidden.
-  const dotNow = () => {
-    if (ringG.style.opacity === '0') return null;
-    const m = /matrix\(([^)]+)\)/.exec(getComputedStyle(ringG).transform || '');
-    if (m) { const v = m[1].split(',').map(Number); if (Number.isFinite(v[4]) && Number.isFinite(v[5])) return { x: v[4], y: v[5] }; }
-    const t = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(ringG.style.transform || '');
-    return t ? { x: +t[1], y: +t[2] } : null;
-  };
+  // Where the dot is on screen now, mid-glide included, px, or null while it is hidden: its glide worked out here on the curve its CSS
+  // transition runs (.pze-ring: --d-surface, --ease), not read back from the page, so a glide's frame reads no style.
+  const dotNow = () => (ringG.style.opacity === '0' ? null : dotEased());
   // The line: through the stops, then the way the dot went since the slide came up, to the dot where it stands now.
   function paintWalk() {
     if (!walkPath || !inv) return;

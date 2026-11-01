@@ -3,6 +3,7 @@
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
 import { frameFor, figLab } from './frame.js?v=7710f677e2';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
+import { restPass } from './rest-pass.js?v=bf0c42ead5';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
 import { CellGrid, geomOf } from './cell-grid.js?v=d92c0d94ae';
 import { layoutWatch, PLACED } from './idle-keys.js?v=81fbedda6b';
@@ -700,7 +701,9 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     clearTimeout(moveT);
     moveT = setTimeout(() => { moving = false; if (app?.classList.contains('pz-moving')) return soon(); place(c, p, tight); soon(); }, 80);
   }
-  function soon() { if (!raf) raf = nextFrame(check); }
+  // (A look reads the page's layout (the cards, labels and the figure's box): it runs as a rest pass between frames, never inside one
+  // (rest-pass.js; the owner's rule, 1 Nov: no layout reads in a frame).)
+  function soon() { if (!raf) raf = restPass(check); }
   addEventListener('resize', () => { resizedAt = performance.now(); artDirty = true; soon(); });   // (a media query can change a stroke's width: the shapes are read again)
   addEventListener('pps:occ', soon);
   // Readout bars ease on every value and never cover the figure: their transitions are not a reason to look again. Nor is a

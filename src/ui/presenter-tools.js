@@ -48,9 +48,10 @@ import { createVitalsMonitor } from './vitals-monitor.js?v=2efa0c3ff9';
 import { createHvpgCard } from './tool-hvpg.js?v=e0c0b848db';
 import { createFlowTime } from './flow-time.js?v=621af7a953';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=9affa8f372';
-import { frameFor, cancelFrame } from './frame.js?v=7710f677e2';
+import { frameFor } from './frame.js?v=7710f677e2';
+import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
 import { talkTrace } from './talk-trace.js?v=81cdde397f';
-import { EXT, guard, safe } from './slide-ext.js?v=e8fc3761cd';
+import { EXT, guard, safe } from './slide-ext.js?v=490e203e03';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
@@ -77,9 +78,9 @@ export function createTools({ host, stage }) {
   // 12 px or more on the screen, the chart's letters all grown by the same factor (--svk), up to twice.
   const svk = () => { for (const sv of box.querySelectorAll('svg[viewBox]')) { const w = +sv.getAttribute('viewBox').split(/[\s,]+/)[2], r = sv.getBoundingClientRect().width;
     if (!w || !r) continue; const k = Math.min(2, Math.max(1, 12 / (13 * r / w))); if (Math.abs(k - (+sv.style.getPropertyValue('--svk') || 1)) > 0.02) sv.style.setProperty('--svk', k.toFixed(2)); } };
-  // (One frame asked for at a time, however many sizes the card goes through in it; the observer is let go with the tools.)
+  // (One rest pass asked for at a time, between frames, however many sizes the card goes through; the observer is let go with the tools.)
   let svkRaf = 0;
-  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (!svkRaf) svkRaf = nextFrame(() => { svkRaf = 0; svk(); }); }) : null;
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (!svkRaf) svkRaf = restPass(() => { svkRaf = 0; svk(); }); }) : null;
   ro?.observe(box);
   const made = {};
   let cur = null, kind = null, probe0, gate0, lastSt = null, lastSlide = null, held = false, lastTool = null, lastCtx = null;
@@ -192,7 +193,7 @@ export function createTools({ host, stage }) {
     dispose() {
       if (probe0 !== undefined) { host.send({ type: 'probe', id: probe0 }); store.set({ dopGate: gate0 || 'mid' }); } probe0 = undefined; lastSt = null; lastSlide = null; this.hide();
       // Each presentation builds its own tools: let go of this one's instruments (and the endoscopy's GL context).
-      offFrame(); ro?.disconnect(); cancelFrame(svkRaf); svkRaf = 0;
+      offFrame(); ro?.disconnect(); cancelRest(svkRaf); svkRaf = 0;
       for (const k of Object.keys(made)) { made[k]?.dispose?.(); delete made[k]; }
       box.replaceChildren();
     },

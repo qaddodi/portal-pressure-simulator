@@ -5,6 +5,8 @@
 import { store, updateParams } from './store.js?v=4ef2a6ffd8';
 import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=73d39176eb';
 import { D_FLIP, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
+import { restPass } from './rest-pass.js?v=bf0c42ead5';
+import { frame } from './frame.js?v=7710f677e2';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
 import { HIDDEN_EDGES } from './anatomy.js?v=fe0f3d1f0e';
@@ -118,19 +120,31 @@ export function createPalette({ ctx }) {
   }
   // The highlight goes to the active row: its top and height together on --d-flip (the CSS decides how). A new query, the first
   // placement and a resize put it there with no glide ('still' holds the transition for that one write).
+  // (The rows' boxes are read once, in a rest pass after the list is drawn or the screen changes size (rest-pass.js), never in a
+  // pointer move or a frame: a move only writes the highlight's place from them. The owner's rule, 1 Nov: no layout reads in motion.)
+  let geom = [], geomFor = null, measuring = 0;
+  function measureRows() {
+    measuring = 0;
+    if (back.hidden) return;
+    geom = rows.map((r) => [r.offsetLeft, r.offsetTop, r.offsetWidth, r.offsetHeight]); geomFor = rows;
+    place(false);
+  }
+  const remeasure = () => { if (!measuring) measuring = restPass(measureRows); };
   function place(glide) {
     if (!hl || back.hidden) return;
-    const r = items.length ? rows[sel] : null;
+    if (geomFor !== rows) { remeasure(); return; }
+    const g = items.length ? geom[sel] : null;
     const snap = !glide || hl.style.opacity !== '1';
     if (snap) hl.classList.add('still');
-    if (r) {
+    if (g) {
       // (Its size is laid out once, at a placement with no glide; a glide to a row of another size stretches it on the compositor.)
-      const w = r.offsetWidth, hh = r.offsetHeight;
+      const [x, y, w, hh] = g;
       if (snap || !hl._w) { hl._w = w; hl._h = hh; hl.style.width = `${w}px`; hl.style.height = `${hh}px`; }
-      hl.style.translate = `${r.offsetLeft}px ${r.offsetTop}px`; hl.style.scale = `${(w / hl._w).toFixed(4)} ${(hh / hl._h).toFixed(4)}`; hl.style.opacity = '1';
+      hl.style.translate = `${x}px ${y}px`; hl.style.scale = `${(w / hl._w).toFixed(4)} ${(hh / hl._h).toFixed(4)}`; hl.style.opacity = '1';
     }
     else hl.style.opacity = '0';
-    if (snap) { void hl.offsetWidth; hl.classList.remove('still'); }
+    // ('still' holds the transition through the frame that shows the new place, and is let go after it, with no style read.)
+    if (snap) frame(() => restPass(() => hl.classList.remove('still')), 'palette');
   }
   function mark() {
     rows.forEach((b, i) => { const on = i === sel; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); });
@@ -187,14 +201,17 @@ export function createPalette({ ctx }) {
     back.hidden = false; input.value = ''; sel = 0; shownKey = ''; renderList({ fadeIn: false });
     if (ctx.library && !ctx.libraryNow?.()) ctx.library().then(() => { if (!back.hidden) renderList(); }).catch(() => {});
     setTimeout(() => input.focus(), 0);
-    vv?.addEventListener('resize', fitList); vv?.addEventListener('scroll', fitList);
+    vv?.addEventListener('resize', fitSoon); vv?.addEventListener('scroll', fitSoon);
     fitList();   // (a keyboard already up, from another field, shows no resize: the list is held to its room at once)
   }
   // The on-screen keyboard covers the foot of the page without shrinking it (iOS): the list is held to the room above the keyboard,
   // so every result can be reached and tapped. (Event-driven: it follows the keyboard coming and going; nothing runs per frame.)
   const vv = window.visualViewport;
+  // (A keyboard's resize or scroll is followed in a rest pass: the list's top is read between frames, never in the event.)
+  const fitSoon = () => restPass(fitList);
   function fitList() {
     if (back.hidden) return;
+    geomFor = null; remeasure();
     const room = visibleBottom() - list.getBoundingClientRect().top - 12;
     back.style.setProperty('--pal-room', `${Math.max(96, Math.floor(room))}px`);
   }
@@ -203,7 +220,7 @@ export function createPalette({ ctx }) {
   function close() {
     if (back.hidden || back.classList.contains('leaving')) return;
     back.classList.add('leaving'); clearTimeout(leaveT);
-    vv?.removeEventListener('resize', fitList); vv?.removeEventListener('scroll', fitList);
+    vv?.removeEventListener('resize', fitSoon); vv?.removeEventListener('scroll', fitSoon);
     leaveT = afterExit(back, 'leaving', () => { back.hidden = true; back.classList.remove('leaving'); back.style.removeProperty('--pal-room'); });
     ret?.focus?.({ preventScroll: true });
   }

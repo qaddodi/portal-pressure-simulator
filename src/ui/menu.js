@@ -9,7 +9,7 @@ import { h, icon, svgIcon, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhi
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { pressureColor } from './colormap.js?v=1e3a1162cc';
-import { ownsSideways, pageGo } from './swipe.js?v=9ed936bf04';
+import { ownsSideways, pageGo } from './swipe.js?v=c1f19a57dd';
 import { frameFor } from './frame.js?v=7710f677e2';
 import { leaveFromHere, menuLeaveOff } from './menu-leave.js?v=e885166f40';
 import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=fc509dabe4';

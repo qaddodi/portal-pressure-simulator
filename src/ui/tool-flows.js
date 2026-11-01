@@ -18,6 +18,7 @@
 // so it counts as liver.
 
 import { frame, cancelFrame } from './frame.js?v=7710f677e2';
+import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
 import { EDGES, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from '../engine/topology.js?v=4044766e96';
 import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
 import { measure } from './glyph-measure.js?v=857a31abc9';
@@ -268,11 +269,14 @@ export function createFlowsTool() {
   const clip = `pfl-clip-${++uid}`;
   let of = 'portal', params = null, goal = null, hGoal = null, ctx0 = null, shown = null, raf = 0, size = '', memo = null, wait = 0;
   let tiers = {};   // (each part's words: the wording they are drawn in now, and their opacity while they swap for another)
-  const sizeNow = () => {
+  // The card's size, zoom and lettering, read between frames (a new slide, a new size: rest-pass.js), never in a glide's frame.
+  let box = null, measuring = 0;
+  const measureBox = () => {
     const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
     const f = Math.max(parseFloat(getComputedStyle(el).fontSize) || 12, z > 0.2 && z < 1 ? 12 / z : 0);
-    return [Math.max(160, w || 420), Math.max(6 * f, el.clientHeight || 160), f];
+    box = [Math.max(160, w || 420), Math.max(6 * f, el.clientHeight || 160), f];
   };
+  const sizeNow = () => box || [420, 160, 12];
   const order = () => (of === 'inflow' ? INFLOW : ALL).map(([id]) => id);
   const info = (id) => ALL.concat(INFLOW).find(([k]) => k === id);
   // The segments, each as wide as its share of the blood, a hairline of card between them (the bar's clip rounds its ends).
@@ -427,6 +431,7 @@ export function createFlowsTool() {
     if (!p) return;
     goal = p;
     healthyNow();
+    if (!box) { if (!measuring) measuring = restPass(() => { measuring = 0; measureBox(); if (goal && !raf) raf = frame(tick, 'tool-flows'); }); return; }
     if (!raf) raf = frame(tick, 'tool-flows');
   }
   // The healthy model's parts (the presenter's healthy fingerprint, the one the profile's dashed line uses): it can arrive
@@ -441,17 +446,19 @@ export function createFlowsTool() {
     wait = setTimeout(again, 250);
   }
   // (A new size lays the names out afresh and shows them there at once: the places are in pixels.)
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { if (raf) cancelFrame(raf); shown = null; tiers = {}; tick(); } }).observe(el);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (el.isConnected) measureBox(); if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { if (raf) cancelFrame(raf); shown = null; tiers = {}; tick(); } }).observe(el);
   return {
     el,
     configure(t, ctx) {
       const of2 = t?.of === 'inflow' ? 'inflow' : 'portal';
       if (of2 !== of) { shown = null; memo = null; tiers = {}; }   // (the other split: drawn afresh)
       of = of2; params = ctx?.params || null; ctx0 = ctx || null; el.dataset.of = of;
+      // (A new slide's card, as the slide is set up: read now the first time, else again between frames, the last read kept until then.)
+      if (!box) measureBox(); else if (!measuring) measuring = restPass(() => { measuring = 0; measureBox(); });
       if (ctx?.fp) aim(ctx.fp);
     },
     pin(fp) { if (el.isConnected && fp) aim(fp); },
     clear() {},
-    dispose() { if (raf) cancelFrame(raf); raf = 0; clearTimeout(wait); wait = 0; },
+    dispose() { if (raf) cancelFrame(raf); raf = 0; cancelRest(measuring); measuring = 0; clearTimeout(wait); wait = 0; },
   };
 }

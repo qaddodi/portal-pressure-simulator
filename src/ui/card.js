@@ -8,6 +8,7 @@ import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPh
 import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
 import { cardFor, normalizeSel } from './actions.js?v=a1af558faa';
 import { frameFor, cancelFrame } from './frame.js?v=7710f677e2';
+import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number.
@@ -41,6 +42,9 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   const dockHost = view.closest('.stage-wrap') || view;
   const appStyle = document.getElementById('app').style;
   // A card with more controls than fit scrolls, and fades at the bottom while there is more to see.
+  let moreAsk = 0;
+  const moreRest = () => { moreAsk = 0; syncMore(); };
+  const moreSoon = () => { if (!moreAsk) moreAsk = restPass(moreRest); };
   function syncMore() {
     const sc = el.querySelector('.ac-scroll');
     if (sc) sc.classList.toggle('more', sc.scrollHeight - sc.clientHeight - sc.scrollTop > 4);
@@ -62,8 +66,9 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     }
   }
   function reveal() {
-    cancelFrame(revealRaf);
-    revealRaf = nextFrame(() => {
+    // (A rest pass: the boxes are read between two frames, never inside one.)
+    cancelRest(revealRaf);
+    revealRaf = restPass(() => {
       const open = model && !el.hidden && isDocked();
       // How much of the figure the sheet covers (it also covers the row below the figure).
       const covered = open ? Math.max(0, view.getBoundingClientRect().bottom - (dockHost.getBoundingClientRect().top + el.offsetTop)) : 0;
@@ -165,7 +170,8 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       h('div', { class: 'ac-readout' }, valEl));
     wireSheet(top);
     const scroller = h('div', { class: 'ac-scroll' }, body);
-    scroller.addEventListener('scroll', syncMore, { passive: true });
+    // (Its scroll is measured between frames, a rest pass, never in the scroll's own event.)
+    scroller.addEventListener('scroll', moreSoon, { passive: true });
     const swap = !el.hidden && !same && !!el.animate;
     const was = swap ? [...el.children].filter((c) => !c.classList.contains('ac-ghost')) : [];
     el.querySelector(':scope > .ac-ghost')?.remove();
@@ -192,7 +198,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (focusedIdx >= 0) actionable[focusedIdx]?.focus();
     relayoutSoon();
     reveal();
-    nextFrame(syncMore);
+    restPass(syncMore);
   }
 
   // Track swipes outside the header too; release all listeners on close or selection change.

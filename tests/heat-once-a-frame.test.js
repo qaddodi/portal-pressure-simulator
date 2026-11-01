@@ -146,5 +146,5 @@ test('a presentation\'s instruments let go of their frames and observers', () =>
   assert.match(read('../src/ui/flow-time.js'), /dispose\(\) \{ cancelFrame\(raf\); raf = 0; ro\?\.disconnect\(\); \},/);
   assert.match(read('../src/ui/talk-trace.js'), /dispose\(\) \{ ro\?\.disconnect\(\); \}/);
   const tools = read('../src/ui/presenter-tools.js');
-  assert.match(tools, /offFrame\(\); ro\?\.disconnect\(\); cancelFrame\(svkRaf\); svkRaf = 0;\n\s+for \(const k of Object\.keys\(made\)\) \{ made\[k\]\?\.dispose\?\.\(\); delete made\[k\]; \}/);
+  assert.match(tools, /offFrame\(\); ro\?\.disconnect\(\); cancelRest\(svkRaf\); svkRaf = 0;\n\s+for \(const k of Object\.keys\(made\)\) \{ made\[k\]\?\.dispose\?\.\(\); delete made\[k\]; \}/);
 });

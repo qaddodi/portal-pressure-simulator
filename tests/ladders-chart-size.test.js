@@ -57,7 +57,7 @@ test('a cell\'s chart is the instrument at its own size: its width, type and hei
   assert.match(presenter, /const \{ k, s \} = chartScale\(W, w0, f0\)/);
   assert.match(presenter, /cc\.style\.setProperty\('--lad-s', ss\); P\.redraw\(\);/);
   assert.match(presenter, /chartOf\.set\(cc, \{ cc, P \}\); chartOf\.set\(P\.el, \{ cc, P \}\);/);
-  assert.match(profSrc, /redraw\(\) \{ if \(shown && el\.isConnected\) \{ plan = null; draw\(\); \} \},/);
+  assert.match(profSrc, /redraw\(\) \{ if \(shown && el\.isConnected\) \{ measure0\(\); plan = null; draw\(\); \} \},/);
 });
 
 test('chartScale: the instrument scaled down whole, never up, its words 12 px at least on the screen', () => {

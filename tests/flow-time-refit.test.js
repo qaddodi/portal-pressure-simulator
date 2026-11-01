@@ -55,5 +55,5 @@ test('the card tells every chart it has fitted: after a fit pass of the data car
   assert.match(pres, /if \(refit\) ui\.tools\?\.refit\(\);/);
   assert.match(tools, /refit\(\) \{ cur\?\.refit\?\.\(\); \}/);
   for (const f of ['flow-time', 'tool-curve']) assert.match(readFileSync(new URL(`../src/ui/${f}.js`, import.meta.url), 'utf8'), /refit: remake/, `${f} redraws on refit`);
-  assert.match(readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8'), /refit\(\) \{ const sz = shown && el\.isConnected \? size0\(\) : null;/);
+  assert.match(readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8'), /refit\(\) \{ const sz = shown && el\.isConnected \? measure0\(\) : null;/);
 });

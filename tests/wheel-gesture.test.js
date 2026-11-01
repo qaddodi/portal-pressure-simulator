@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { wheelFinger, wheelGesture, ownsWheel, WHEEL_X, WHEEL_Y, WHEEL_QUIET } from '../src/ui/swipe.js';
+import { wheelFinger, wheelGesture, ownsWheel, wheelScrollers, WHEEL_X, WHEEL_Y, WHEEL_QUIET } from '../src/ui/swipe.js';
 
 const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 
@@ -103,12 +103,32 @@ test('a box that scrolls itself keeps its wheel; the slide list, fields and plai
   const win = { getComputedStyle: (n) => n.style };
   const box = (extra = {}, parent = null) => ({ nodeType: 1, parentElement: parent, ownerDocument: { defaultView: win }, scrollHeight: 100, clientHeight: 100, scrollWidth: 100, clientWidth: 100, style: { overflowX: 'visible', overflowY: 'visible' }, matches: () => false, ...extra });
   const wrap = box();
-  assert.equal(ownsWheel(box({}, wrap), 'y', { stop: wrap }), false);
-  assert.equal(ownsWheel(box({ scrollHeight: 300, style: { overflowY: 'auto', overflowX: 'visible' } }, wrap), 'y', { stop: wrap }), true);
-  assert.equal(ownsWheel(box({ scrollHeight: 300, style: { overflowY: 'auto', overflowX: 'visible' } }, wrap), 'x', { stop: wrap }), false, 'only the axis it scrolls on');
-  assert.equal(ownsWheel(box({ scrollWidth: 300, style: { overflowX: 'scroll', overflowY: 'visible' } }, wrap), 'x', { stop: wrap }), true);
-  assert.equal(ownsWheel(box({ scrollHeight: 300, style: { overflowY: 'hidden', overflowX: 'visible' } }, wrap), 'y', { stop: wrap }), false, 'overflow hidden is not a scroller');
-  assert.equal(ownsWheel(box({ matches: (sel) => sel.includes('.pz-jump') }, wrap), 'y', { stop: wrap }), true);
+  const owns = (el, axis) => wheelScrollers(el, { stop: wrap })[axis];
+  assert.equal(owns(box({}, wrap), 'y'), false);
+  assert.equal(owns(box({ scrollHeight: 300, style: { overflowY: 'auto', overflowX: 'visible' } }, wrap), 'y'), true);
+  assert.equal(owns(box({ scrollHeight: 300, style: { overflowY: 'auto', overflowX: 'visible' } }, wrap), 'x'), false, 'only the axis it scrolls on');
+  assert.equal(owns(box({ scrollWidth: 300, style: { overflowX: 'scroll', overflowY: 'visible' } }, wrap), 'x'), true);
+  assert.equal(owns(box({ scrollHeight: 300, style: { overflowY: 'hidden', overflowX: 'visible' } }, wrap), 'y'), false, 'overflow hidden is not a scroller');
+  assert.equal(owns(box({ matches: (sel) => sel.includes('.pz-jump') }, wrap), 'y'), true);
+});
+
+test('the wheel reads no layout: ownsWheel answers from the read made between frames', async () => {
+  let reads = 0;
+  const win = { getComputedStyle: (n) => { reads++; return n.style; } };
+  const box = (extra = {}, parent = null) => ({ nodeType: 1, parentElement: parent, ownerDocument: { defaultView: win }, scrollHeight: 100, clientHeight: 100, scrollWidth: 100, clientWidth: 100, style: { overflowX: 'visible', overflowY: 'visible' }, matches: () => false, ...extra });
+  const wrap = box(), list = box({ scrollHeight: 300, style: { overflowY: 'auto', overflowX: 'visible' } }, wrap), field = box({ matches: (sel) => sel.includes('textarea') }, wrap);
+  assert.equal(ownsWheel(list, 'y', { stop: wrap }), false, 'not read yet: answered by what it is');
+  assert.equal(reads, 0, 'nothing read in the event');
+  assert.equal(ownsWheel(field, 'y', { stop: wrap }), true, 'a field keeps its wheel before any read');
+  await new Promise((r) => setTimeout(r, 5));
+  reads = 0;
+  ownsWheel(list, 'y', { stop: wrap });
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(ownsWheel(list, 'y', { stop: wrap }), true, 'read between frames: the list keeps its wheel');
+  assert.equal(ownsWheel(list, 'x', { stop: wrap }), false);
+  const before = reads;
+  for (let i = 0; i < 20; i++) ownsWheel(list, 'y', { stop: wrap });
+  assert.equal(reads, before, 'a glide\'s events read nothing');
 });
 
 test('presenter: the wheel works the slide, the stack and the case card; a wide screen\'s stack takes the swipe anywhere too', () => {

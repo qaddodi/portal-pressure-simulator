@@ -229,7 +229,7 @@ export function createFluid() {
   const set = (n, t) => { if (n.textContent === t) return false; n.textContent = t; return true; };
   const px = (v) => `${v.toFixed(2)}px`;
   const place = (n, p) => { n.style.left = px(p.x); n.style.width = px(p.w); };
-  let W = 0, goal = null, shown = null, fGoal = null, fShown = null, raf = 0, last = 0, day = null, labSig = '';
+  let W = 0, TW = 0, FW = 0, goal = null, shown = null, fGoal = null, fShown = null, raf = 0, last = 0, day = null, labSig = '';
   // (everything eases: the drawn values follow the goal over about half a second; the numbers swap in place)
   const KEYS = ['hep', 'spl', 'made', 'cap', 'carried', 'spare', 'back', 'net', 'perDay'];
   const dayOf = (f) => ({ carried: f.dCar, over: f.dOver, back: f.dBack, room: f.dRoom });
@@ -260,7 +260,7 @@ export function createFluid() {
   }
   function draw() {
     if (opts.window) {
-      const tw = trk.clientWidth;
+      const tw = TW;   // (the widths as the observer last read them: a glide's frame reads no layout)
       if (shown && tw > 0 && 'dCar' in shown) {
         const P = stripParts(dayOf(shown), tw);
         place(segCar, P.car); place(segBlue, P.blue); place(segShrink, P.shrink); place(segBuild, P.build); place(segRoom, P.room);
@@ -279,7 +279,7 @@ export function createFluid() {
         if (n.id === 'carried') { roomEl.style.display = n.room > 0.5 ? '' : 'none'; Object.entries({ x: L.xR + 0.75, y: n.y + n.lh, width: L.NW - 1.5, height: Math.max(0, n.room - 0.75) }).forEach(([a, v]) => roomEl.setAttribute(a, v)); }
       }
     }
-    const fw = tug.clientWidth;
+    const fw = FW;
     if (fShown && fw > 0) {
       const T = tugParts(fShown.out, fShown.pull, fw);
       place(segPush, T.push); place(segPull, T.pull); wall.style.left = px(T.wall);
@@ -303,7 +303,8 @@ export function createFluid() {
   }
   const kick = () => { if (!raf && typeof requestAnimationFrame === 'function') raf = frame(tick, 'tool-fluid'); };
   if (typeof ResizeObserver === 'function') {
-    new ResizeObserver(() => { W = flow.getBoundingClientRect().width; labSig = ''; draw(); labels(); }).observe(el);
+    const ro = new ResizeObserver(() => { W = flow.getBoundingClientRect().width; TW = trk.clientWidth; FW = tug.clientWidth; labSig = ''; draw(); labels(); });
+    ro.observe(el); ro.observe(trk); ro.observe(tug);
   }
   document.fonts?.ready.then(() => { labSig = ''; labels(); });
   let opts = {}, pinned = null;

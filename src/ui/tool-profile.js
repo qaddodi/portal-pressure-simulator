@@ -10,6 +10,7 @@
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
 
 import { frame, cancelFrame } from './frame.js?v=7710f677e2';
+import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
 import { PROFILE_PATHS } from './anatomy.js?v=fe0f3d1f0e';
 import { follow2, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 import { NODES } from '../engine/topology.js?v=4044766e96';
@@ -637,14 +638,20 @@ export function createProfileTool() {
   }
   // (Drawn at its box's own size, never a size of its own: drawn taller than its box, the picture was scaled down to fit it, its
   // words under 12 px and its values crowded, Sites 4 and 5. Not drawn until the box has a size.)
-  const size0 = () => {
+  // (Read between frames, never in a glide's frame: as the box is observed at a new size, as the card fits, for a new slide's card (a
+  // rest pass, rest-pass.js); the frames draw at the size last read. fs: the box's own type size.)
+  let sz0 = null, fs0 = 12, measuring = 0;
+  const measure0 = () => {
     const w = el.clientWidth, hh = el.clientHeight, z = w ? el.getBoundingClientRect().width / w : 1;
-    if (!w || !hh) return null;
+    fs0 = parseFloat(getComputedStyle(el).fontSize) || 12;
+    if (!w || !hh) { sz0 = null; return null; }
     // (Zoomed by the page or an ancestor (the card's own fit leaves the chart unzoomed: styles/app.css): the type is set larger by as
     // much, never under 12 px on the screen.)
-    const f = Math.max(parseFloat(getComputedStyle(el).fontSize) || 12, z > 0.2 && z < 1 ? 12 / z : 0);
-    return [w, hh, f];
+    const f = Math.max(fs0, z > 0.2 && z < 1 ? 12 / z : 0);
+    sz0 = [w, hh, f];
+    return sz0;
   };
+  const size0 = () => sz0;
   function draw() {
     if (!shown) { el.replaceChildren(); return; }
     const sz = size0();
@@ -702,7 +709,7 @@ export function createProfileTool() {
     // (A box shorter than the chart at its smallest with the band (a bracket's name over its value takes a taller row) asks for that
     // much: judged from that layout alone, so the box never flips between two heights.)
     const need = profileGeo(w, hh, f, tw).need;
-    const cssMin = 11 * (parseFloat(getComputedStyle(el).fontSize) || 12), want = need > cssMin + 0.5 ? `${Math.ceil(need)}px` : '';
+    const cssMin = 11 * fs0, want = need > cssMin + 0.5 ? `${Math.ceil(need)}px` : '';
     if (el.style.minHeight !== want) el.style.minHeight = want;
     const top = shown.top, y = (v) => G.Z - (G.Z - G.T) * Math.max(0, Math.min(v, top)) / top;
     const pts = (p) => p.v.map((v, i) => [G.x(i), y(v)]);
@@ -829,15 +836,18 @@ export function createProfileTool() {
       if (!b || b.a !== a) blk.set(i, { a, from: reduceMQ.matches ? a : b ? blkOp(b, t) : 0, t0: t });
     }
     stale = true;
+    if (!sz0) { if (!measuring) measuring = restPass(() => { measuring = 0; if (el.isConnected) measure0(); if (goal && !raf) raf = frame(tick, 'tool-profile'); }); return; }
     if (!raf) raf = frame(tick, 'tool-profile');
   }
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { plan = null; draw(); } }).observe(el);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (el.isConnected) measure0(); if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { plan = null; draw(); } }).observe(el);
   return {
     el,
     /** The card has fitted: drawn again if its zoom, and so the chart's type, is not what it was drawn at (the observer does not see a zoom). */
-    refit() { const sz = shown && el.isConnected ? size0() : null; if (sz && Math.round(sz[2] * 100) !== fSeen) { plan = null; draw(); } },
+    refit() { const sz = shown && el.isConnected ? measure0() : null; if (sz && Math.round(sz[2] * 100) !== fSeen) { plan = null; draw(); } },
     /** The slide's options and context (presenter-tools.js show), before its numbers. */
-    configure(t, ctx) { cfg = { from: t?.from ?? null, fromLabel: typeof t?.fromLabel === 'string' && t.fromLabel.trim() ? t.fromLabel.trim() : 'Before' }; ctx0 = ctx || null; if (ctx?.fp) aim(ctx.fp); },
+    // (A new slide's card, as the slide is set up: read now the first time, else again between frames.)
+    configure(t, ctx) { if (!sz0) measure0(); else if (!measuring) measuring = restPass(() => { measuring = 0; if (el.isConnected) measure0(); });
+      cfg = { from: t?.from ?? null, fromLabel: typeof t?.fromLabel === 'string' && t.fromLabel.trim() ? t.fromLabel.trim() : 'Before' }; ctx0 = ctx || null; if (ctx?.fp) aim(ctx.fp); },
     /** The numbers the slide's tiles show: the slide's state, or a what-if slider's or a compare button's. */
     pin(fp) { if (el.isConnected && fp) aim(fp); },
     /** The answer held back (a question slide): no red blocks and no HVPG or PPG brackets, the line and its numbers as they are. On release
@@ -852,9 +862,9 @@ export function createProfileTool() {
       if (!raf) raf = frame(tick, 'tool-profile');
     },
     /** Drawn again at once for a type size that changed in a box that did not (the six ladders' scaled copies, presenter.js fitChart). */
-    redraw() { if (shown && el.isConnected) { plan = null; draw(); } },
+    redraw() { if (shown && el.isConnected) { measure0(); plan = null; draw(); } },
     clear() {},
-    dispose() { if (raf) cancelFrame(raf); raf = 0; },
+    dispose() { if (raf) cancelFrame(raf); raf = 0; cancelRest(measuring); measuring = 0; },
   };
 }
 
@@ -868,7 +878,7 @@ export function createProfileStrip(namesOnly = false) {
   el.className = namesOnly ? 'pz-pstrip names' : 'pz-pstrip';
   let fp = null, hlOf = null, size = '';
   const xOf = (w) => { const slot = (w - 10) / STATIONS.length; return { slot, x: (i) => slot * (i + 0.5) }; };
-  function draw() {
+  function drawStrip() {
     const w = el.clientWidth;
     if (!w) return;
     const f = Math.max(12, parseFloat(getComputedStyle(el).fontSize) || 12), tw = (t, wt) => textW(t, f, wt), { slot, x } = xOf(w);
@@ -907,10 +917,10 @@ export function createProfileStrip(namesOnly = false) {
       sv('path', { class: 'pps-line', style: `stroke: url(#${gid})`, d: p.v.slice(0, n).map((_, i) => `M${(x(i) + hw[i] + pad).toFixed(1)} ${cy}H${(x(i + 1) - hw[i + 1] - pad).toFixed(1)}`).join('') }),
       labels.map((t, i) => sv('text', { class: 'pps-v', x: x(i), y: cy + 0.36 * f, 'text-anchor': 'middle' }, t))));
   }
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (el.isConnected && size !== String(Math.round(el.clientWidth))) draw(); }).observe(el);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (el.isConnected && size !== String(Math.round(el.clientWidth))) drawStrip(); }).observe(el);
   return {
     el,
-    set(f0, healthy) { fp = f0; hlOf = healthy; draw(); },
-    draw,
+    set(f0, healthy) { fp = f0; hlOf = healthy; drawStrip(); },
+    draw: drawStrip,
   };
 }

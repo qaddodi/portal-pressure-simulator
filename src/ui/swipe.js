@@ -1,6 +1,8 @@
 // Presenter swipe: a quick, mostly sideways one-finger move anywhere on the slide goes on (left) or back (right).
 // Pure helpers, so the rule is unit-tested without a browser.
 
+import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
+
 export const SWIPE_MIN = 50;      // px of sideways travel
 export const SWIPE_RATIO = 1.5;   // sideways must beat vertical by this much, so vertical scrolls and diagonals do not count
 export const SWIPE_MAX_MS = 800;  // slower than this is a drag, not a swipe
@@ -139,13 +141,38 @@ export function wheelGesture(g, fx, fy, now) {
   return { g: s, act: null };
 }
 
-/** True when a wheel over `el` belongs to a box that scrolls that way itself: the slide list, a field, or an overflowing box. */
-export function ownsWheel(el, axis, { stop = null } = {}) {
+/** Which ways the boxes under `el` scroll themselves (up to `stop`): { x, y }, true for an axis a box there keeps its wheel on (the slide
+ *  list, a field, or a box overflowing that way). It reads the layout, so it runs as a rest pass, never in a wheel event (ownsWheel). */
+export function wheelScrollers(el, { stop = null } = {}) {
+  const r = { x: false, y: false };
   for (let n = el; n && n !== stop && n.nodeType === 1; n = n.parentElement) {
-    if (n.matches?.('.pz-jump, textarea, select')) return true;
+    if (n.matches?.('.pz-jump, textarea, select')) { r.x = r.y = true; return r; }
     const cs = n.ownerDocument?.defaultView?.getComputedStyle(n);
     if (!cs) continue;
-    if (axis === 'y' ? n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(cs.overflowY) : n.scrollWidth > n.clientWidth + 1 && /auto|scroll/.test(cs.overflowX)) return true;
+    if (!r.y && n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(cs.overflowY)) r.y = true;
+    if (!r.x && n.scrollWidth > n.clientWidth + 1 && /auto|scroll/.test(cs.overflowX)) r.x = true;
+    if (r.x && r.y) return r;
   }
+  return r;
+}
+// What is under the pointer, read between frames: as the pointer comes over a box (pointerover), again as a glide goes on (at most every
+// WHEEL_FRESH ms) and when the wheel finds a box not yet read. The wheel's events, dozens a second, read only this.
+const WHEEL_FRESH = 250;
+let owned = null, ownAsk = 0, ownWatch = null;
+function readOwners(el, stop) {
+  if (ownAsk) return;
+  ownAsk = restPass(() => { ownAsk = 0; owned = { el, stop, at: performance.now(), ...wheelScrollers(el, { stop }) }; });
+}
+/** True when a wheel over `el` belongs to a box that scrolls that way itself (wheelScrollers, as last read between frames). A box not yet
+ *  read answers by what it is (the slide list or a field) until its read comes in, right after this event. */
+export function ownsWheel(el, axis, { stop = null } = {}) {
+  const doc = el?.ownerDocument;
+  if (doc?.addEventListener && ownWatch !== doc) { ownWatch = doc; doc.addEventListener('pointerover', (e) => { if (e.target?.nodeType === 1) { cancelRest(ownAsk); ownAsk = 0; readOwners(e.target, owned?.stop ?? stop); } }, { passive: true, capture: true }); }
+  if (owned?.el === el && owned.stop === stop) {
+    if (performance.now() - owned.at > WHEEL_FRESH) readOwners(el, stop);
+    return owned[axis === 'y' ? 'y' : 'x'];
+  }
+  readOwners(el, stop);
+  for (let n = el; n && n !== stop && n.nodeType === 1; n = n.parentElement) if (n.matches?.('.pz-jump, textarea, select')) return true;
   return false;
 }
