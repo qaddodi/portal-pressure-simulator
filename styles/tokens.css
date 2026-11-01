@@ -179,6 +179,7 @@
   /* icons: three sizes (16 in lists and chips, 20 on buttons and the top bar, 24 on tiles and tabs),
      and 12 for a check mark inside a dot or badge. */
   --ic-s: 16px; --ic-m: 20px; --ic-l: 24px; --ic-mark: 12px;
+  --ic-w-m: 1.7; --ic-w-s: 2.1;   /* (bar icon line weight in 24-unit art: 20 px and 16 px icons both draw a 1.4 px line) */
   /* spacing (4-pt grid) */
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-6: 24px; --sp-8: 32px; --sp-12: 48px;
   /* layers: six named z-indices */

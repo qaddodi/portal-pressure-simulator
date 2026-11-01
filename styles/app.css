@@ -7111,3 +7111,10 @@ body { font-optical-sizing: auto; font-kerning: normal; }
   .switch input:focus-visible + span { outline: 2px solid Highlight; outline-offset: 2px; }
   :focus-visible { outline: 2px solid Highlight; }
 }
+
+/* Bar icons share one line weight: every outline icon in the top bar, the bottom bar, the zoom pill and the phone's tab bar
+   draws a 1.4 px line whatever its size (before: 1.07 to 1.5 px), and Search matches the Settings gear beside it
+   (20 px with round ends, not a 16 px glyph with square ends). Filled glyphs (pause, fast forward) carry no stroke. */
+#topbar svg:not(.brand-mark), #timeline svg, #zoomPill .ib svg, #thumbBar svg { stroke-width: var(--ic-w-m); stroke-linecap: round; stroke-linejoin: round; }
+#topbar #btnMenu .chev, #topbar #btnBlood svg, #topbar #btnLobuleLayers svg, #topbar #btnLayers .chev { stroke-width: var(--ic-w-s); }
+.top-right .pal-btn svg { width: var(--ic-m); height: var(--ic-m); }
