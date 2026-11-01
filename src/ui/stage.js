@@ -1559,7 +1559,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let boxAsk = 0;
   // (The read itself is its own function, handed to the read phase and called from nowhere else.)
   function boxRead() { boxAsk = 0; if (!box) { measureBox(); CTM = null; } }
-  const boxAgain = () => { box = null; CTM = null; boxAsk ||= readFrame(boxRead); };
+  // (One read already asked for: a second call (stageBox while the box is still out) must not drop the transform refreshCTM has just
+  // built from the kept box: the lobule's close threw on CTM.a in updateLabels.)
+  const boxAgain = () => { if (boxAsk) return; box = null; CTM = null; boxAsk = readFrame(boxRead); };
   const stageBox = () => { if (!box) boxAgain(); return box || boxKept; };
   measureBox();
   new ResizeObserver(() => { measureBox(); CTM = null; }).observe(wrap);
