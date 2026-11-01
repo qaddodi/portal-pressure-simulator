@@ -4,7 +4,7 @@
     { "cats": ["ctx2d", "draw2d", "cpuBlur", "svgRaster", "svgDom", "backdrop", "layoutAnim", "layoutWrite", "layoutRead", "rawRaf", "syncStatus"], "files": ["src/ui/label-gl.js"], "fns": ["drawProbe", "probeLookRead", "drawScan", "scanLookRead", "createLabelGL › stroke"], "thread": "Move figure overlays to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJ93Ab3d8XiycSay8k2YJckM)" },
     { "cats": ["ctx2d", "draw2d", "cpuBlur", "svgRaster", "svgDom", "backdrop", "layoutAnim", "layoutWrite", "layoutRead", "rawRaf", "syncStatus"], "files": ["src/ui/label-gl.js", "src/ui/focus-ring.js"], "thread": "Labels and focus rings on the GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJX1BFH7UG5FYfRiLdBq5VJY)" },
     { "cats": ["syncStatus"], "thread": "Precompile every shader before motion (cmsg_018GZjFhtvTeoUFdeosmA9rJ5CcQx8mx7dTBhUbxJVYjHk)" },
-    { "cats": ["layoutAnim", "layoutWrite"], "thread": "Move layout animations to transforms (cmsg_018GZjFhtvTeoUFdeosmA9rJA7edjasMFamw7EUAk3YuF6)" },
+    { "cats": ["layoutAnim", "layoutWrite", "paintAnim"], "thread": "Move layout animations to transforms (cmsg_018GZjFhtvTeoUFdeosmA9rJA7edjasMFamw7EUAk3YuF6)" },
     { "cats": ["layoutRead"], "thread": "Remove per-frame layout reads in figure (cmsg_018GZjFhtvTeoUFdeosmA9rJG8ZFnc3fuF7dug36kuKaqc)" },
     { "cats": ["rawRaf"], "thread": "Add GPU fallback guards and debug readout (cmsg_018GZjFhtvTeoUFdeosmA9rJ3kXqLZCtR51b7MPMF4exzZ)" }
   ],
