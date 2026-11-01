@@ -4,9 +4,9 @@
 // tabulates every difference. There is no Compare mode: unpinning ends it.
 
 import { store } from './store.js?v=4ef2a6ffd8';
-import { h, fmt, svgIcon } from './util.js?v=e8e300385d';
+import { h, fmt, svgIcon } from './util.js?v=a5645eadf0';
 import { liveBalance } from './balance-hold.js?v=1792704e7a';
-import { activeInterventions } from './inspector.js?v=4d4f8406fb';
+import { activeInterventions } from './inspector.js?v=3fc756106e';
 
 // The rows in the readouts' teaching order, each group named as the readouts name it (pressure, flow, what they lead to, the
 // systemic circulation), so a long table reads as four short ones.
@@ -57,14 +57,34 @@ export function createCompare() {
     if (tableEl._sig === sig) return;
     tableEl._sig = sig;
     // (The unit sits under the name, so every row is two even lines and no name breaks around its unit.)
-    let at = 0;
-    tableEl.replaceChildren(h('table', { class: 'cmp-table' },
-      h('thead', {}, h('tr', {}, h('th', {}, 'Metric'), h('th', {}, names[0]), h('th', {}, names[1]), h('th', {}, 'Change'))),
-      GROUPS.map(([g, n]) => h('tbody', {},
-        h('tr', { class: 'cmp-g' }, h('th', { colspan: 4, scope: 'colgroup' }, g)),
-        rows.slice(at, (at += n)).map(([lab, u, a, b, dc, tri, dt]) => h('tr', {},
-          h('td', {}, h('span', { class: 'cmp-n' }, lab), h('span', { class: 'unit' }, u)), h('td', { class: 'a' }, a), h('td', { class: 'b' }, b),
-          h('td', { class: dc }, tri ? h('span', { class: 'tri', 'aria-hidden': 'true' }, tri) : null, dt)))))));
+    // The table is built once per pair of names; after that a changing number is written into its own cell, so a figure that moves
+    // changes in place (and the change column's colour eases) instead of the whole table being swapped for a new one.
+    const key = names.join('|');
+    if (tableEl._key !== key) {
+      tableEl._key = key;
+      const cells = [];
+      let at = 0;
+      tableEl.replaceChildren(h('table', { class: 'cmp-table' },
+        h('thead', {}, h('tr', {}, h('th', {}, 'Metric'), h('th', {}, names[0]), h('th', {}, names[1]), h('th', {}, 'Change'))),
+        GROUPS.map(([g, n]) => h('tbody', {},
+          h('tr', { class: 'cmp-g' }, h('th', { colspan: 4, scope: 'colgroup' }, g)),
+          rows.slice(at, (at += n)).map(([lab, u]) => {
+            const a = h('td', { class: 'a' }), b = h('td', { class: 'b' }), d = h('td', { class: 'd same' }), tri = h('span', { class: 'tri', 'aria-hidden': 'true' }), txt = document.createTextNode('');
+            cells.push({ a, b, d, tri, txt });
+            return h('tr', {}, h('td', {}, h('span', { class: 'cmp-n' }, lab), h('span', { class: 'unit' }, u)), a, b, d);
+          })))));
+      tableEl._cells = cells;
+    }
+    rows.forEach(([, , a, b, dc, tri, dt], i) => {
+      const c = tableEl._cells[i];
+      if (c.a.textContent !== a) c.a.textContent = a;
+      if (c.b.textContent !== b) c.b.textContent = b;
+      if (c.d.className !== dc) c.d.className = dc;
+      if (c.tri.textContent !== tri) c.tri.textContent = tri;
+      if (c.txt.data !== dt) c.txt.data = dt;
+      const want = tri ? [c.tri, c.txt] : [c.txt];
+      if (c.d.childNodes.length !== want.length || want.some((n, j) => c.d.childNodes[j] !== n)) c.d.replaceChildren(...want);
+    });
   }
 
   store.on('params', () => {

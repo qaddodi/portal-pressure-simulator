@@ -427,6 +427,23 @@ export function afterExit(el, cls, fn, backstop = 450) {
   else Promise.all(as.map((a) => a.finished.catch(() => {}))).then(go);
   return t;
 }
+/** Brings a shown row up to date from a freshly built one without swapping it out: attributes and text are written where they differ,
+ *  elements of the same kind are matched in turn, and a button (it carries its own click for this build) is replaced by the new one.
+ *  What is new to the row (a button that has just appeared) fades in through `fade`. */
+function morphRow(o, r, fade) {
+  for (const a of [...o.attributes]) if (!r.hasAttribute(a.name)) o.removeAttribute(a.name);
+  for (const a of r.attributes) if (o.getAttribute(a.name) !== a.value) o.setAttribute(a.name, a.value);
+  const oc = [...o.childNodes], rc = [...r.childNodes];
+  rc.forEach((n, i) => {
+    const m = oc[i];
+    if (!m) { o.append(n); if (n.nodeType === 1) fade?.(n); return; }
+    if (n.nodeType === 3 && m.nodeType === 3) { if (m.data !== n.data) m.data = n.data; return; }
+    if (n.nodeType === 1 && m.nodeType === 1 && n.tagName === m.tagName && n.tagName !== 'BUTTON') { morphRow(m, n, fade); return; }
+    m.replaceWith(n);
+    if (n.nodeType === 1 && (m.nodeType !== 1 || n.tagName !== m.tagName)) fade?.(n);
+  });
+  for (const m of oc.slice(rc.length)) m.remove();
+}
 /** Updates a list in place from freshly built rows (MOTION_HEAT_REVIEW P18): a row whose data-row is already shown stays
  *  (replaced where it stands if its data-sig changed), a new row rises in over .22 s, and a row no longer wanted fades and
  *  folds away before it leaves. Rows without a key are simply replaced. The list was rebuilt whole, every row popping. */
@@ -438,7 +455,8 @@ export function reconcile(list, rows) {
   for (const r of rows) {
     const o = r.dataset.row ? old.get(r.dataset.row) : null;
     if (o && o.dataset.sig === r.dataset.sig) { want.push(o); old.delete(r.dataset.row); }
-    else { want.push(r); if (o) { o.replaceWith(r); old.delete(r.dataset.row); } else fresh.add(r); }
+    else if (o) { morphRow(o, r, shown ? (n) => n.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }) : null); want.push(o); old.delete(r.dataset.row); }   // (same row, new details: it stays where it stands, so a row still rising in is not cut short, and a fading row eases)
+    else { want.push(r); fresh.add(r); }
   }
   const keep = new Set(want);
   const going = [...list.children].filter((c) => !keep.has(c) && !c.classList.contains('rc-out'));

@@ -5,10 +5,10 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=4ef2a6ffd8';
-import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=e8e300385d';
+import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=a5645eadf0';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=86535c797a';
+import { pressureColor } from './colormap.js?v=748aea243f';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
 import { frameFor } from './frame.js?v=15d5254a2c';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=615d96d663';
@@ -35,7 +35,9 @@ function profile(snap) {
   for (let i = 1; i < snap.P.length; i++) {
     svg.append(sv('line', { x1: x(i - 1), y1: y(snap.P[i - 1]), x2: x(i), y2: y(snap.P[i]), stroke: pressureColor((snap.P[i - 1] + snap.P[i]) / 2), class: 'hp-line' + (i === at && drop > 5 ? ' fall' : '') }));
   }
-  snap.P.forEach((p, i) => svg.append(sv('circle', { cx: x(i), cy: y(p), r: 2.1, fill: pressureColor(p), class: 'hp-dot' })));
+  // (The curve is stretched to the card's width, so a <circle> came out an oval. A round-capped stroke of no length, drawn at a fixed
+  // pixel width, stays a true round dot at any width; the surface-coloured ring under it keeps it clear of the line.)
+  snap.P.forEach((p, i) => { const d = `M${x(i).toFixed(1)} ${y(p).toFixed(1)}h.01`; svg.append(sv('path', { d, class: 'hp-ring' }), sv('path', { d, stroke: pressureColor(p), class: 'hp-dot' })); });
   return svg;
 }
 // The standing cut-offs: HVPG amber from 5, red from 10; PPG amber from 6, red from 12.

@@ -1040,6 +1040,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .cmp-table td { vertical-align: middle; }
 /* The change: a small triangle ahead of the signed number, so the number reads first. */
 .cmp-table td.d .tri { display: inline-block; margin-right: 4px; font-size: var(--fs-12); vertical-align: 1px; }
+.cmp-table td.d { transition: color var(--d-small) var(--ease); }   /* (the change column's colour eases from red to quiet to green as a number moves; the cells are written in place, compare.js) */
 
 /* ── Tablet (768–1279) ──────────────────────────── */
 @media (max-width: 1279px) {
@@ -2936,7 +2937,9 @@ button.finding { cursor: pointer; }
 .hp-drop { fill: var(--danger); fill-opacity: .08; }
 .hp-line { stroke-width: 2.4; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .hp-line.fall { stroke-width: 3.2; }
-.hp-dot { stroke: var(--surface); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.hp-ring, .hp-dot { fill: none; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.hp-ring { stroke: var(--surface); stroke-width: 6.2px; }
+.hp-dot { stroke-width: 4.2px; }
 .hp-facts { display: flex; flex-wrap: wrap; gap: 4px; }
 .hp-chip { display: inline-flex; align-items: baseline; gap: 4px; padding: 1px 8px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 500; color: var(--text-2); background: var(--surface-2); font-variant-numeric: tabular-nums; }
 .hp-chip b { font-weight: 600; color: var(--text); }
@@ -4215,7 +4218,8 @@ input[type="range"] { touch-action: none; }
 .tl-hc:not(:empty) { animation: scale-settle var(--d-small) var(--ease); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
 /* Events: a colored flag standing on the rail, so they read apart from the learner's changes. */
 .tl-pop-empty { margin: 0; padding: 8px; font-size: var(--fs-14); line-height: 1.45; color: var(--text-3); }
-.tl-pop-row.future { opacity: .5; }
+.tl-pop-row { transition: opacity var(--d-small) var(--ease); }
+.tl-pop-row.future { opacity: .5; }   /* (going back fades the later rows down, and a new step forward brings them up again, instead of changing at once) */
 .tl-history { max-height: min(320px, 45vh); }
 .menu.as-sheet .tl-history { max-height: none; }
 /* History reads as a vertical timeline: a rail joins the markers, each marker sits on the first line
