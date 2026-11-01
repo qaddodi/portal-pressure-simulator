@@ -15,7 +15,7 @@ import { createTimeline, LAPSES } from './timeline.js?v=ae523e76c8';
 import { createCompare } from './compare.js?v=08845dcc66';
 import { createCard } from './card.js?v=f7fba220b9';
 import { createChart } from './chart.js?v=d531321c1b';
-import { createMenu } from './menu.js?v=34cfdf05d3';
+import { createMenu } from './menu.js?v=5410bcc64c';
 import { caption } from './a11y.js?v=322cb94bf3';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
@@ -26,7 +26,7 @@ import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
 import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=f7055730cc';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
-import { morphKey, crossfadeText } from './legend-morph.js?v=772819cdd9';
+import { morphKey, crossfadeText } from './legend-morph.js?v=b0be10184d';
 import './seg-glide.js?v=93c0a2ce93';
 import './focus-ring.js?v=c1d725174c';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
@@ -44,7 +44,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=f244ce674c';
-import { initTopbarMotion } from './topbar-motion.js?v=84268f029e';
+import { initTopbarMotion } from './topbar-motion.js?v=30b8f8cb99';
 import { ORIGINS } from './blood.js?v=f6c91d8676';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0762d1b820';

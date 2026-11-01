@@ -118,9 +118,14 @@ test('a bar that meets a bar: the old key stands as a ghost, the numbers slide, 
   // The new bar
   const bar = el.querySelector('.lg-bar');
   assert.notEqual(bar, bar0);
-  assert.match(bar.style.background, /^linear-gradient\(to right, color-mix\(in oklab, /);
-  assert.equal(bar.style['--lg-k'], '100%', 'sent from 0 to 100 (the stylesheet transitions it)');
-  assert.ok(bar.className.includes('morphing'));
+  // (its colour: two ramps painted once, the old fading out over the new by opacity, nothing repainted per frame; ?keymix=0 mixes --lg-k)
+  assert.equal(bar.style.background, undefined, 'the new bar wears its own ramp, as built');
+  assert.ok(!String(bar.className).includes('morphing'));
+  const was = bar.children.find((c) => String(c.className).includes('lg-bar-was'));
+  assert.ok(was, 'the old ramp lies over the new bar');
+  assert.match(was.style.background, /^linear-gradient\(to right, rgb\(/);
+  assert.deepEqual(was.animations[0].frames.map((f) => f.opacity), [1, 0]);
+  assert.equal(was.animations[0].o.duration, D_SURFACE);
   const move = bar.animations[0];
   assert.deepEqual(move.o.duration, D_SURFACE);
   assert.equal(move.o.easing, EASE_MOVE);
@@ -145,11 +150,13 @@ test('a switch before the last has landed: the bar carries its colour on from wh
   const { btn, el } = legend(BLUE_RED, [[0, '0'], [168, '30']]);
   M.morphKey(el, build(GREY_GREEN, [[0, '0'], [168, '5']], [], 100, 120));
   const mid = el.querySelector('.lg-bar');
-  mid.style['--lg-k'] = '40%';   // (what getComputedStyle would read part way)
+  mid.children.find((c) => String(c.className).includes('lg-bar-was')).style.opacity = '0.6';   // (what getComputedStyle would read part way)
   M.morphKey(el, build(BLUE_RED, [[0, '0'], [168, '30']], [], 100, 120));
   assert.equal(btn.children.filter((c) => c !== el).length, 1, 'one ghost, the first finished');
   const bar = el.querySelector('.lg-bar');
-  assert.match(bar.style.background, /color-mix/);
+  const was = bar.children.find((c) => String(c.className).includes('lg-bar-was'));
+  assert.ok(was, 'the new switch fades out from the colour the last had reached');
+  assert.match(was.style.background, /^linear-gradient\(to right, rgb\(/);
   M.morphKey(el, build(BLUE_RED, [], [], 100, 120), { instant: true });
   assert.equal(btn.children.length, 1);
 });

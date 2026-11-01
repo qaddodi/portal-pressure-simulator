@@ -14,6 +14,11 @@ import { frameFor } from './frame.js?v=15d5254a2c';
 import { leaveFromHere, menuLeaveOff } from './menu-leave.js?v=e885166f40';
 import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=fc509dabe4';
 const nextFrame = frameFor('menu');
+// The hover preview's change of size and place runs without layout per frame: the card is laid out once at the taller of its old
+// and new heights, a clip (with the card's own round foot) eases from the old height to the new, and a move to a new row eases
+// by transform from where it stood; the card takes its new height once it has landed. ?pvglide=0 eases its height and top, as before.
+const PVGLIDE = !/[?&]pvglide=0\b/.test(location.search);
+if (!PVGLIDE) document.documentElement.setAttribute('data-pvcpu', '');
 
 // Where each group's resistance sits along the pathway from the gut to the heart.
 const GROUP_WHERE = { Normal: 'No added resistance', 'Pre-hepatic': 'Before the liver', Presinusoidal: 'In the portal tracts', Sinusoidal: 'In the sinusoids', Postsinusoidal: 'At the central veins', 'Post-hepatic': 'Hepatic veins and IVC', Cardiac: 'The right heart' };
@@ -171,20 +176,71 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (pvKey !== key) {
       // Crossfade: the old content fades out over the new, and the card eases to the new height.
       pvKey = key;
-      const old = pv.firstElementChild, h0 = pv.offsetHeight;
+      const old = [...pv.children].find((c) => !c.classList.contains('um-pv-plate')), h0 = pv._h1 || pv.offsetHeight;
       const next = make();
       if (old && pv.classList.contains('on')) { old.classList.add('um-pv-old'); setTimeout(() => old.remove(), 130); } else old?.remove();
       pv.append(next);
-      if (old && h0 && !reduce.matches) { const h1 = next.offsetHeight; pv.style.height = h0 + 'px'; void pv.offsetHeight; pv.style.height = h1 + 'px'; setTimeout(() => { pv && (pv.style.height = ''); }, 140); }
+      if (old && h0 && !reduce.matches && PVGLIDE) pvResize(pv, h0, next.offsetHeight);
+      else if (old && h0 && !reduce.matches) { const h1 = next.offsetHeight; pv.style.height = h0 + 'px'; void pv.offsetHeight; pv.style.height = h1 + 'px'; setTimeout(() => { pv && (pv.style.height = ''); }, 140); }
       $$rows().forEach((r) => r.classList.toggle('pv-on', r === row));
     }
     // Beside the panel, level with the row; over the other column when there is no room beside it.
-    const pr = el.getBoundingClientRect(), rr = row.getBoundingClientRect(), w = 360, ph = pv.offsetHeight;
+    const pr = el.getBoundingClientRect(), rr = row.getBoundingClientRect(), w = 360, ph = pv._h1 || pv.offsetHeight;
     let x = pr.right + 8;
     if (x + w > innerWidth - 8) x = Math.max(8, innerWidth - w - 8);   // (no room beside the panel: over its right edge)
     const y = clamp(rr.top - 40, 8, visibleBottom() - ph - 8);
+    if (PVGLIDE) {
+      // (A card already on show glides by transform from where it is drawn now to its new place; its top is written once.)
+      const was = pv.classList.contains('on') ? pv._y : null;
+      if (was != null && Math.abs(was - y) >= 1 && !reduce.matches && pv.animate) {
+        const cur = pv._move?.effect ? (new DOMMatrixReadOnly(getComputedStyle(pv).transform).m42 || 0) : 0;
+        pv._move?.cancel();
+        pv._move = pv.animate([{ transform: `translateY(${was + cur - y}px)` }, { transform: 'none' }], { duration: D_FLIP, easing: EASE_ARRIVE });
+      }
+      pv._y = y;
+    }
     pv.style.left = x + 'px'; pv.style.top = y + 'px';
     pv.classList.add('on');
+  }
+  // (PVGLIDE) The card is laid out once at the taller height H for the change. Its glass moves onto three plates that ride
+  // transform only: the top (still, the shorter height p), a flat middle that scales down from it, and the round foot that slides
+  // from the old height to the new; the words are cut at the foot by a clip. At the landing the card takes its new height and its
+  // own glass back, the same size it is drawn, so nothing moves.
+  function pvResize(card, h0, h1) {
+    card._size?.();
+    const H = Math.max(h0, h1), p = Math.min(h0, h1);
+    const R = parseFloat(getComputedStyle(card).borderBottomLeftRadius) || 0, capH = Math.ceil(2 * R + 2);
+    if (H - p < 1 || p < 3 * R + 4) { card.style.height = ''; return; }
+    card.style.height = H + 'px'; card._h1 = h1;
+    card.classList.add('pv-resizing');
+    const plate = (top, height, clip, origin) => {
+      const d = h('i', { class: 'um-pv-plate', 'aria-hidden': 'true' });
+      Object.assign(d.style, { top: `${top}px`, height: `${height}px`, clipPath: clip, transformOrigin: origin || '50% 0' });
+      card.prepend(d); return d;
+    };
+    const foot = plate(0, capH, 'inset(0px -64px -64px -64px)');
+    const mid = plate(p - R, H - p, 'inset(0px -64px 0px -64px)');
+    mid.style.borderRadius = '0'; foot.style.borderTopLeftRadius = foot.style.borderTopRightRadius = '0';
+    const top = plate(0, p, 'none');
+    card.prepend(top, mid, foot);   // (top under the middle, the foot over both)
+    const t = { duration: D_FLIP, easing: EASE_ARRIVE, fill: 'forwards' };
+    const anims = [
+      foot.animate([{ translate: `0px ${h0 - capH}px` }, { translate: `0px ${h1 - capH}px` }], t),
+      mid.animate([{ scale: `1 ${(h0 - p) / (H - p)}` }, { scale: `1 ${(h1 - p) / (H - p)}` }], t),
+    ];
+    // (the words, old and new, cut at the foot: they never show past the card's glass)
+    for (const c of card.children) if (!c.classList.contains('um-pv-plate')) anims.push(c.animate([{ clipPath: `inset(0px -2px ${H - h0}px -2px)` }, { clipPath: `inset(0px -2px ${H - h1}px -2px)` }], t));
+    let over = false;
+    const done = () => {
+      if (over) return; over = true;
+      for (const x of anims) x.cancel();
+      top.remove(); mid.remove(); foot.remove();
+      card.classList.remove('pv-resizing'); card._h1 = 0; card.style.height = '';
+      if (card._size === done) card._size = null;
+    };
+    card._size = done;
+    anims[0].onfinish = done;
+    setTimeout(done, D_FLIP + 120);   // (a page whose frames stall still lands)
   }
   function hidePreview(now) {
     clearTimeout(hideT); if (!pv) return;

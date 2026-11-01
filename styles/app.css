@@ -218,6 +218,8 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 .lg-scale { position: relative; width: 168px; height: 30px; }
 .lg-bar { position: absolute; left: 0; right: 0; top: 4px; height: 8px; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--key-edge); }
 .lg-bar.morphing { transition: --lg-k var(--d-surface) var(--ease-move); }   /* (a new lens mixes the old key's colours into the new in OKLab, legend-morph.js: --lg-k runs 0 to 100 with the figure's own clock) */
+/* (the old ramp, painted once, fading out over the new by opacity as a new lens lands: legend-morph.js, ?keymix=0 mixes --lg-k instead) */
+.lg-bar-was { position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px var(--key-edge); pointer-events: none; will-change: opacity; }
 @property --lg-k { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
 .lg-tick { position: absolute; top: 12px; width: 1px; height: 3px; margin-left: -.5px; background: var(--text-2); opacity: .7; }   /* (a notch under the bar at each number between its ends, never across the colours) */
 .lg-num { position: absolute; top: 15px; transform: translateX(-50%); font-size: var(--fs-12); font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
@@ -3985,6 +3987,10 @@ button.finding { cursor: pointer; }
 /* The preview beside the panel (mouse) and under a row (touch). */
 .um-pv { position: fixed; z-index: var(--z-popover); width: 360px; max-width: calc(100vw - 16px); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline); overflow: hidden; opacity: 0; transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease), height var(--d-flip) var(--ease), top var(--d-flip) var(--ease); }
 .um-pv.on { opacity: 1; translate: none; }
+/* (The preview's change of size and place runs on transforms, menu.js pvResize: no height or top transition; ?pvglide=0 keeps them.) */
+html:not([data-pvcpu]) .um-pv { transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease); }
+.um-pv.pv-resizing { background: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
+.um-pv-plate { position: absolute; left: 0; right: 0; z-index: -1; background: var(--surface); border-radius: inherit; box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline); pointer-events: none; will-change: transform; }
 .um-pv:not(.on) { translate: calc(-1 * var(--rise-y)) 0; }   /* (the preview settles in from the panel's side by the rise distance, and leaves back toward it) */
 @media (prefers-reduced-motion: reduce) { .um-pv { translate: none !important; } }
 .um-pv-in { padding: 0 0 12px; animation: crossfade var(--d-flip) var(--ease); }

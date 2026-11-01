@@ -19,6 +19,12 @@ const MOVE_MS = D_SMALL, IN_MS = D_SMALL, OUT_MS = D_FLIP, EASE = EASE_ARRIVE;
 // takes D_SURFACE on EASE_MOVE, legend-morph.js), anchored at its right edge so the chevron and the key stay put as it grows or
 // shrinks. ?keyglide=0 keeps the pill snapping to its new width, as before.
 const KEYGLIDE = !/[?&]keyglide=0\b/.test(location.search);
+// A plate that changes width glides by transform only: two fixed-size copies of the plate (the narrower of the old and new
+// widths, laid out once before the glide) slide apart or together, their union the pill from its old span to its new, and the
+// real face, already at its new width, shows again as they land. No width animates, so no layout runs per frame and the bar's
+// ResizeObserver never sees a moving size. A change of more than twice the narrower width crossfades the old plate out over the
+// new one instead (the two copies could not cover it). ?plateglide=0 animates the face's width, as before.
+const PLATEGLIDE = !/[?&]plateglide=0\b/.test(location.search);
 
 export function initTopbarMotion() {
   const bar = document.getElementById('topbar'), app = document.getElementById('app');
@@ -100,13 +106,15 @@ export function initTopbarMotion() {
         if (frames.length) { const a = el.animate(frames, inRow(el) ? { duration: D_SURFACE, easing: EASE_MOVE } : { duration: MOVE_MS, easing: EASE }); a.id = 'tbm'; }
         if (el === row && Math.abs(t.dw) > 2) {
           const face = row.querySelector(':scope > .tb-face');
-          if (face) face.animate([{ translate: `${hang ? t.dw : 0}px 0px`, width: `${s.w}px` }, { translate: '0px 0px', width: `${n.w}px` }], { duration: D_SURFACE, easing: EASE_MOVE }).id = 'tbm';
+          if (face && PLATEGLIDE) plateGlide(face, hang ? t.dw : 0, s.w, n.w, { duration: D_SURFACE, easing: EASE_MOVE });
+          else if (face) face.animate([{ translate: `${hang ? t.dw : 0}px 0px`, width: `${s.w}px` }, { translate: '0px 0px', width: `${n.w}px` }], { duration: D_SURFACE, easing: EASE_MOVE }).id = 'tbm';
         }
         if (t.dw < -2 && el.matches(GROW)) {
           // A pill with its own face (the patient pill) glides its face from the old width to the new; others leave the old,
           // wider plate fading behind them.
           const face = el.querySelector(':scope > .tb-face');
-          if (face) face.animate([{ width: `${s.w}px` }, { width: `${n.w}px` }], { duration: MOVE_MS, easing: EASE }).id = 'tbm';
+          if (face && PLATEGLIDE) plateGlide(face, 0, s.w, n.w, { duration: MOVE_MS, easing: EASE });
+          else if (face) face.animate([{ width: `${s.w}px` }, { width: `${n.w}px` }], { duration: MOVE_MS, easing: EASE }).id = 'tbm';
           else ghost(el, s, { own, tot, next }, true);
         }
         if (t.dw > 2 && el.matches(GROW)) {
@@ -117,6 +125,52 @@ export function initTopbarMotion() {
     }
         next.set(bar, barNext);
     snap = next;
+  }
+
+  // The plate's glide (PLATEGLIDE): the face spans [x0, x0 + w0] at the start and [0, w1] at the end, in its pill's new box.
+  // Three copies of the face, each p wide (p = the narrower width, laid out once here, before the glide), each cut by a clip that
+  // never changes: the left cap, the right cap and the flat middle. The caps ride translate; the middle rides translate and a
+  // horizontal scale (its top and bottom hairlines stay 1 px, its rounded ends are cut off), all on the same curve, so together
+  // they are always one pill with both ends round. The face itself sits at its new width under them, hidden by an opacity hold
+  // until they land. A glide caught by the next takes over from the snapshot, as the width did.
+  function plateGlide(face, x0, w0, w1, timing) {
+    for (const g of face.parentElement.querySelectorAll(':scope > .tb-face[data-ghost]')) g.remove();
+    for (const a of face.getAnimations()) if (a.id === 'tbm') a.cancel();
+    const p = Math.min(w0, w1), h = face.offsetHeight;
+    const R = Math.min(h / 2, p / 2, parseFloat(getComputedStyle(face).borderTopLeftRadius) || 0);
+    const mid = p - 2 * R;
+    const mk = (clip) => {
+      const g = face.cloneNode(false);
+      g.dataset.ghost = ''; g.setAttribute('aria-hidden', 'true');
+      Object.assign(g.style, { width: `${p}px`, clipPath: clip, willChange: 'transform' });
+      face.after(g);
+      return g;
+    };
+    const tag = (anim) => { anim.id = 'tbm'; return anim; };
+    const at = (k) => (k ? { x: 0, w: w1 } : { x: x0, w: w0 });
+    if (mid < 4) {
+      // (A plate too short to have a flat middle: the old plate fades out over the new, each at its own fixed size.)
+      const old = mk('none'); old.style.width = `${w0}px`;
+      const a = tag(old.animate([{ translate: `${x0}px 0px`, opacity: 1 }, { translate: `${x0}px 0px`, opacity: 0 }], { ...timing, fill: 'forwards' }));
+      a.onfinish = a.oncancel = () => old.remove();
+      tag(face.animate([{ opacity: 0 }, { opacity: 1 }], timing));
+      return;
+    }
+    const hold = tag(face.animate([{ opacity: 0 }, { opacity: 0 }], timing));
+    const o = 40;   // (room left for the shadow outside the plate)
+    const left = mk(`inset(-${o}px ${p - R}px -${o}px -${o}px)`);
+    const right = mk(`inset(-${o}px -${o}px -${o}px ${p - R}px)`);
+    const middle = mk(`inset(-${o}px ${R - 1}px -${o}px ${R - 1}px)`);   // (1 px under each cap, so no seam shows between them)
+    middle.style.transformOrigin = `${R}px 50%`;
+    const sx = (k) => Math.max(0, at(k).w - 2 * R) / mid;
+    const parts = [
+      [left, (k) => ({ translate: `${at(k).x}px 0px` })],
+      [right, (k) => ({ translate: `${at(k).x + at(k).w - p}px 0px` })],
+      [middle, (k) => ({ translate: `${at(k).x}px 0px`, scale: `${sx(k)} 1` })],
+    ];
+    for (const [el, f] of parts) tag(el.animate([f(0), f(1)], { ...timing, fill: 'forwards' }));
+    // (The copies go with the hold: at the landing, or when the next glide cancels it, so the face is never hidden without them.)
+    hold.onfinish = hold.oncancel = () => { for (const [g] of parts) g.remove(); };
   }
 
   // A clone of the removed button stays where it was and fades out, so it does not vanish in one frame.
