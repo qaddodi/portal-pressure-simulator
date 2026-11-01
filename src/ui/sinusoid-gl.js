@@ -634,6 +634,8 @@ export function createSinusoidGL(canvas) {
     },
     /** Lets the kept picture go. */
     drop() { if (mTex && !gl.isContextLost()) gl.deleteTexture(mTex); mTex = null; },
+    /** The context lost, or its shaders failed (never compiles: for the ?perf surfaces list). */
+    get lost() { return ok === false || gl.isContextLost(); },
     get epoch() { return epoch; },
     /** u: uniforms by name; pts: Float32Array of (x, y, r, alpha, kind) × n. The tissue, the particles, then the cells over them. */
     draw(u, pts, n) {

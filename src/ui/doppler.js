@@ -14,6 +14,7 @@ import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=15fc499dcd';
 import { createDopplerGL } from './doppler-gl.js?v=86bb1f8ef1';
+import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { olderThan } from './backfill.js?v=455d888760';
 import { createFollow } from './display-state.js?v=8d062d39dc';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
@@ -126,6 +127,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // GPU"). Without WebGL2, on a software renderer or after a lost context the 2D path below draws the trace as before.
   const gpu = createDopplerGL();
   if (gpu) { gpu.canvas.setAttribute('aria-hidden', 'true'); cv.before(gpu.canvas); }
+  // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only. The trace on the GPU; the margins, words and calipers stay 2D.)
+  const offSurface = surface('Doppler trace', () => (!cv.isConnected ? null : gpu && !gpu.lost ? { on: 'mixed', via: 'trace WebGL2, words and calipers 2D canvas' } : { on: 'fallback', via: '2D canvas', why: gpu ? 'context lost' : 'no WebGL2 or a software renderer' }));
 
   // The report
   const dirEl = h('b', { class: 'dop-dir' }, '—');
@@ -1224,7 +1227,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function dispose() {
     if (raf) { cancelFrame(raf); raf = 0; }
     io?.disconnect(); ro?.disconnect(); frame = null;
-    gpu?.dispose(); gpu?.canvas.remove();
+    gpu?.dispose(); gpu?.canvas.remove(); offSurface();
   }
   return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, restart, backfill, historySecs: () => sweepSeconds, setInvert, setWaves, autoWindow, pin, configure, dispose };
 }

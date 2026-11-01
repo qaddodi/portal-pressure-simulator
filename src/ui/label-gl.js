@@ -1094,6 +1094,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     get owed() { return owed; },
     /** The label groups and marks the SVG drew itself at the last picture (in host mode, none while it draws them all). */
     svgLeft: () => [...svgLeft],
+    /** The ?perf surfaces list (gpu-surfaces.js): the labels laid out at the last picture, and how many of them the SVG drew itself. */
+    counts: () => ({ labels: last.length, svg: last.filter((s) => svgLeft.has(s.g)).length, marks: [...svgLeft].filter((el) => !last.some((s) => s.g === el)).length }),
     /** What the last picture drew, as boxes [left, top, right, bottom] (CSS px from the canvas's corner). */
     get boxes() { return boxes; },
     get lost() { return lost; },

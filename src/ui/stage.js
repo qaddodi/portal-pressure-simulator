@@ -49,8 +49,8 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=dd283e159c';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=542bb8db66';
-import { createLabelGL } from './label-gl.js?v=24d747917c';
-import { createGlassGL } from './glass-gl.js?v=732ccf097f';
+import { createLabelGL } from './label-gl.js?v=0b2746c5e7';
+import { createGlassGL } from './glass-gl.js?v=dd287b10a7';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=65c955076a';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
@@ -79,6 +79,9 @@ import { pathPieces, piecesLength, pointsAlong } from './path-pieces.js?v=e48667
 import { organDimMatrix } from './organ-dim.js?v=9e19f2fc30';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=02072c578d';
 import { encodePNG } from './png-encode.js?v=514301c9f4';
+import { surface } from './gpu-surfaces.js?v=2af17044e7';
+import { guardBlur } from './blur-guard.js?v=5228284718';
+import { capDensity } from './pixel-budget.js?v=279a2b54f6';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
 const nextFrame = frameFor('stage');
@@ -2562,7 +2565,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=f9ce22fa91').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=0489ba98f4').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2601,6 +2604,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     SOFTWARE = soft;
     quality = SOFTWARE ? Q_SOFTWARE : saverOn ? Q_SAVER : 0;
     wrap.dataset.renderer = SOFTWARE ? 'software' : 'gpu'; wrap.dataset.quality = String(quality);
+    blurGuard();
     swYield = softwareYield(SOFTWARE, SOFTWARE ? vCanvas.getContext('webgl2') : null);
     resizeCanvas();
   }
@@ -2634,6 +2638,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   });
   wrap.dataset.quality = String(quality);
   wrap.dataset.renderer = SOFTWARE ? 'software' : 'gpu';
+  // A software renderer or Battery saver never turns the browser's blur on by itself (blur-guard.js): the cards go solid, as with
+  // Settings › Blur effect off, unless that switch was turned on.
+  const blurGuard = () => { let asked = null; try { asked = localStorage.getItem('pps.noGlass'); } catch { /* storage unavailable */ } guardBlur(document.documentElement, { low: SOFTWARE || saverOn, asked }); };
+  blurGuard();
   let vdpr = 1, vBase = 1, boxW = -1, boxH = -1;   // (vBase: the canvas's pixels per CSS pixel at Full)
   // Figure resolution › Auto: zoomed in past the home framing the canvas is drawn at 1/zoom of its pixels (each part of the figure
   // keeps about the pixels it had at home), in steps down to 10%. It is changed only once the view has settled and been let go,
@@ -2747,7 +2755,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const pw = bw, ph = bh;
     // (With the overlays on the GPU (?stageover=gpu) the canvas is at the screen's own density, as the SVG they replace is drawn, and
     // the figure, at its own, upscaled onto it by a plain filtered copy, as the page's compositor upscales a smaller canvas.)
-    const full = OVER_GPU && veins?.overlay && (!SOFTWARE || OVER_ASK) ? devicePixelRatio || 1 : 0;
+    let full = OVER_GPU && veins?.overlay && (!SOFTWARE || OVER_ASK) ? devicePixelRatio || 1 : 0;
+    // (The pixel budget holds for that canvas too (figOpt('cap'), 8 MP): on a big external screen at the screen's own density it had been
+    // 14.7 MP, the figure upscaled onto it past the budget. Every laptop, iPad and phone is under it, so none of them changes.)
+    full = capDensity(full, r.width, r.height, figOpt('cap'));
     let lin = false;
     if (full && vdpr < full - 1e-9) { bw = Math.max(1, Math.round(r.width * full)); bh = Math.max(1, Math.round(r.height * full)); lin = !figLab('upscale'); }
     else if (figLab('upscale') && veins?.setPicture && !SOFTWARE && vdpr < base - 1e-9) { bw = Math.max(1, Math.round(r.width * base)); bh = Math.max(1, Math.round(r.height * base)); }
@@ -8692,6 +8703,52 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // paint, a callout under a card) changes it only after it has rested 400 ms, never while anything moves (glass-gl.js hostDraw).)
   const FROST_HOST = !/[?&]glasshost=0\b/.test(location.search);
   function hostFrost(g, o) { if (!FROST_HOST || !g || !veins?.top) return; frostHosts.set(g, o); g.setHost(frostHost(o)); }
+  // The ?perf surfaces list (gpu-surfaces.js): the anatomy's own surfaces, each from state this file already keeps. Read by the readout
+  // only (twice a second while it is open); without ?perf no getter here is ever called.
+  {
+    const notGPU = () => (SOFTWARE ? 'software renderer (WebGL drawn on the CPU)' : !veins ? 'no WebGL2' : veins.lost ? 'context lost' : 'the GPU is not drawing the figure now');
+    const anatOn = () => !anatCovered();
+    surface('figure canvas', () => {
+      if (!anatOn()) return null;
+      const mp = (vCanvas.width * vCanvas.height) / 1e6, cap = figOpt('cap');
+      const via = `${vCanvas.width}x${vCanvas.height}, ${mp.toFixed(1)} MP${cap ? ` of the ${cap} MP budget` : ', no budget'}, quality step ${quality}${saverOn ? ', Battery saver' : ''}`;
+      return SOFTWARE || !veins ? { on: 'fallback', via, why: notGPU() } : { on: 'gpu', via };
+    });
+    surface('vessels and blood', () => {
+      if (!anatOn()) return null;
+      return wrap.classList.contains('gl-on') && veins && !veins.lost && !SOFTWARE ? { on: 'gpu', via: 'WebGL2' } : { on: 'fallback', via: wrap.classList.contains('gl-on') ? 'WebGL2 on the CPU' : 'SVG', why: notGPU() };
+    });
+    surface('organs', () => {
+      if (!anatOn()) return null;
+      if (!veins || veins.lost || !wrap.classList.contains('gl-on')) return { on: 'fallback', via: 'SVG', why: notGPU() };
+      if (wrap.classList.contains('gl-plate')) return { on: SOFTWARE ? 'fallback' : 'gpu', via: glOrgans ? 'GPU picture and live layers' : 'GPU picture', why: SOFTWARE ? notGPU() : '' };
+      return { on: 'fallback', via: 'SVG', why: 'the organs\' picture is down (a theme change, or stale after the lobule)' };
+    });
+    surface('overlays (stents, balloons, catheter, guides)', () => {
+      if (!anatOn() || !overNow.units) return null;
+      if (!OVER_ON) return { on: 'fallback', via: 'SVG', why: OVER_GPU ? notGPU() : '?stageover=svg' };
+      if (!overNow.painted) return { on: 'fallback', via: 'SVG', why: !wrap.classList.contains('gl-on') ? notGPU() : 'the first overlay group the painter cannot read is the lowest' };
+      return overNow.whole ? { on: 'gpu', via: `WebGL2, ${overNow.painted} groups` } : { on: 'mixed', via: `${overNow.painted} groups on the GPU`, why: 'the first group the painter cannot read, and every group above it, stay SVG' };
+    });
+    surface('labels', () => {
+      if (!anatOn() || !visible(labelSvg)) return null;
+      if (!labelGL || labelGL.lost) return { on: 'fallback', via: 'SVG', why: !labelGL ? (SOFTWARE ? 'software renderer' : /[?&]gpulabels=0\b/.test(location.search) ? '?gpulabels=0' : 'no WebGL2') : 'context lost' };
+      const c = labelGL.counts();
+      if (!c.labels) return null;
+      const svgN = c.svg + c.marks;
+      return svgN ? { on: c.svg === c.labels ? 'fallback' : 'mixed', via: `${c.labels - c.svg} of ${c.labels} labels on the GPU${c.marks ? `, ${c.marks} marks on SVG` : ''}`, why: 'a filter, letter spacing, a focus ring or a part the atlas cannot draw' } : { on: 'gpu', via: `WebGL2, ${c.labels} labels` };
+    });
+    const glassRow = (g, none) => () => {
+      if (!anatOn()) return null;
+      if (document.documentElement.hasAttribute('data-noglass')) return { on: 'fallback', via: 'solid, no blur', why: document.documentElement.hasAttribute('data-noglass-auto') ? 'blur off by itself on a software renderer or Battery saver' : 'Settings › Blur effect off' };
+      const gl = g();
+      return gl ? gl.state() : none();
+    };
+    const blurAsk = () => ({ on: 'fallback', via: 'browser blur', why: SOFTWARE ? 'software renderer' : /[?&]gpulabels=0\b/.test(location.search) ? '?gpulabels=0' : !veins ? 'no WebGL2' : 'no GPU glass made' });
+    surface('callout glass', glassRow(() => glassGL, () => (document.getElementsByClassName('cl-glass').length ? blurAsk() : null)));
+    surface('liver label pane glass', glassRow(() => paneGL, () => (glass.hidden ? null : blurAsk())));
+    surface('card glass', glassRow(() => { for (const g of cardGLs) if (g.state()) return g; return null; }, () => (document.querySelector('.pz-shade') ? { ...blurAsk(), why: CARD_FROST_OFF ? 'card glass off by its switch' : GLASS_COPY ? '?glasscopy=1' : blurAsk().why } : null)));
+  }
   // (What the page lays between the figure's canvas and a glass, as client boxes. 'pane': the overlays the GPU does not paint (#stageOver's
   // SVG). 'low' (the teaching card's shade, z-index 1, over the whole stage view): those, the liver pane when the browser blurs it, the
   // labels and marks (their GPU canvas's boxes, or the SVG's own). 'callouts' (z-index 4): those, the shade (its tabs and words), and the
@@ -11274,6 +11331,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // transition runs in a group (overEasing: the browser eases it, so that group and those above stay in the SVG until it ends).
   // (OVER_ON is set just after SOFTWARE, near the top: the labels' host below the vessel canvas reads it while the stage is made.)
   let overDirty = true, overKeyWas = '', overPainted = [], overFor = null;
+  let overNow = { units: 0, painted: 0, whole: false };   // (the last sync's overlay groups, for the ?perf surfaces list)
   // (How long an element's CSS transitions run, ms, read once a reading: a value the painter reads at each paint, eased by them.)
   let overTrans = new WeakMap();
   const transMs = (el) => {
@@ -11315,6 +11373,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const u of overPainted) u.classList.remove(OVER_CLASS);
     overPainted = [];
     svgOver?.classList.remove(OVER_ALL);
+    overNow = { units: worldOver ? overUnits(worldOver, gOver).length : 0, painted: 0, whole: false };
     overDirty = true;
   }
   function syncOver() {
@@ -11348,6 +11407,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const u of now2) u.classList.add(OVER_CLASS);
     overPainted = [...now2];
     svgOver.classList.toggle(OVER_ALL, run.whole);
+    overNow = { units: worldOver ? overUnits(worldOver, gOver).length : 0, painted: run.length, whole: run.whole };   // (for the ?perf surfaces list)
     if (gpuProbe.on) gpuProbe.gauge('overlays on the GPU', `${run.length} groups`);
   }
   // The figure's pass is one owned request (animRaf): however many paths ask for it (its own loop, a wake), it is drawn once a frame.
@@ -12227,6 +12287,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setSaver(on) {
       setFrameSaver(on);   // (the lobule, the sinusoid and the FibroScan read it each frame)
       saverOn = !!on;
+      blurGuard();
       if (!SOFTWARE) { quality = on ? Q_SAVER : 0; wrap.dataset.quality = String(quality); resizeCanvas(); }
     },
     labelScale: () => labelScale,

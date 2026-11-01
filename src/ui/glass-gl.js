@@ -1078,6 +1078,16 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       return whyAll || 'not drawn in the figure\'s canvas yet';
     },
     get on() { return !lost && !dead; },
+    /** The ?perf surfaces list (gpu-surfaces.js): null with none of its glasses on the page, else how they are drawn now. Read only by
+     *  the readout (twice a second while it is open), never in a frame. */
+    state() {
+      const n = glassesOf().length;
+      if (!n) return null;
+      if (lost || dead) return { on: 'fallback', via: `browser blur, ${n}`, why: dead ? 'its GPU drawing could not be made again' : 'context lost' };
+      if (hostOn) return { on: 'gpu', via: `in the figure's canvas, ${n}` };
+      if (!host && copy) return { on: 'gpu', via: `own canvas from a copy, ${n}` };
+      return { on: 'fallback', via: `browser blur, ${n}`, why: !host ? 'no figure canvas to draw into' : whyAll || 'not drawn in the figure\'s canvas yet' };
+    },
     /** Let go of it: its frames, timers, observers, listeners and GPU objects, and its canvas; the browser's glass shows again. */
     dispose() {
       if (gen < 0) return;

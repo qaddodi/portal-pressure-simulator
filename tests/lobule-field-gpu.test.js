@@ -51,8 +51,9 @@ test('the GPU field takes its numbers from the same places as the 2D field', () 
   assert.match(gpu, /fadeOuter\(r0,/, 'the neighbours still reach every edge');
   assert.match(gpu, /mid: FADE_MID, bg: tone,/);
   // Drawn on the GPU when it can be, the 2D canvas left empty; otherwise the 2D passes as before.
-  assert.match(lz, /if \(g && paintFieldGL\(g, d, W, H, dpr, cs, dark, bg\)\) \{\n\s+fieldHide\(field\);/);
-  assert.match(lz, /fieldHide\(fieldG\);\n\s+if \(field\.width !== Math\.round\(W \* dpr\)/);
+  // (Since 1 Nov 2026 the 2D field, if it had a picture, stays under the GPU's first FIELD_HOLD frames: gpu-fallback-guards.test.js.)
+  assert.match(lz, /if \(g && paintFieldGL\(g, d, W, H, dpr, cs, dark, bg\)\) \{\n[\s\S]*?\n\s+if \(!fieldHold\) fieldHide\(field\);/);
+  assert.match(lz, /fieldHold = 0;\n\s+fieldHide\(fieldG\);\n\s+if \(field\.width !== Math\.round\(W \* dpr\)/);
 });
 
 test('nothing is sent to the GPU or compiled during the zoom', () => {

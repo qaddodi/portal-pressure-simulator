@@ -31,6 +31,9 @@ const update = process.argv.includes('--update');
 const refresh = process.argv.includes('--refresh');
 let refreshed = 0;
 const QUERY = process.env.VISUAL_QUERY || '';
+// (The references are the look on a GPU: SwiftShader is a software renderer, where the page drops the browser's blur by itself since
+// 1 Nov 2026 (blur-guard.js); ?swblur=1 keeps it, so the frosted cards stay in the references.)
+const KEEP_BLUR = '&swblur=1';
 const KEEP = process.env.VISUAL_KEEP ? resolve(process.env.VISUAL_KEEP) : '';
 const AGAINST = process.env.VISUAL_AGAINST ? resolve(process.env.VISUAL_AGAINST) : '';
 if ((QUERY || AGAINST) && (update || refresh)) { console.error('VISUAL_QUERY and VISUAL_AGAINST compare only: the references come from the page as it is by default.'); process.exit(2); }
@@ -92,7 +95,7 @@ for (const [device, opts] of Object.entries(DEVICES).filter(([d]) => !process.en
     const ctx = await browser.newContext({ ...opts, colorScheme: scheme, reducedMotion: 'reduce', serviceWorkers: 'block' });
     const page = await ctx.newPage();
     try {
-      await page.goto(server.url + '?preset=cirr-decomp' + QUERY);
+      await page.goto(server.url + '?preset=cirr-decomp' + KEEP_BLUR + QUERY);
       await page.waitForFunction(() => window.pps?.store?.get().frame, null, { timeout: 45000 });
       await page.waitForTimeout(1500);
       await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));

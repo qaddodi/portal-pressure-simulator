@@ -9,6 +9,7 @@ import { FONT } from './charts.js?v=911b2fa9c0';
 import { simTime, isPaused, fibroReading } from './clock.js?v=16aba0e2eb';
 import { store } from './store.js?v=4ef2a6ffd8';
 import { elastogramGL, prepareElastogramGL } from './fibroscan-gl.js?v=814a548b1f';
+import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=15d5254a2c';
 import { createFollow } from './display-state.js?v=8d062d39dc';
 const nextFrame = frameFor('fibroscan');
@@ -106,6 +107,7 @@ export function createFibroScan() {
   // (The map's shader is started at the next idle moment and compiles beside the page, not at the first map; a map that comes sooner starts it itself.)
   (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 1000 }) : (f) => setTimeout(f, 50))(() => prepareElastogramGL(fields()));
   const cv = h('canvas', { role: 'img', 'aria-label': 'Simulated FibroScan elastography panel, live' });
+  let mapGpu = null;   // (whether the last map came from the GPU: the ?perf surfaces list)
   const box = h('div', { class: 'chart-box fibroscan-box' }, cv);
   const note = h('p', { class: 'ctl-sub' }, 'A simulated FibroScan, live: the slope of the shear wave front gives its speed and so the stiffness. It is an estimate from the model, not a measurement. Normal is about 5 kPa; >25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
   const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, note);
@@ -159,6 +161,7 @@ export function createFibroScan() {
     if (want !== N) { N = want; off.width = off.height = N; img = octx.createImageData(N, N); }
     // The map: on the GPU (the same formula and noise, a fraction of a millisecond), else pixel by pixel here.
     const mapCv = elastogramGL(fields(), NB, WAVE_T0, N, c, t) || (drawElastogram(octx, img, N, c, t), off);
+    mapGpu = mapCv !== off;
     ctx.save(); rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.clip();
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(mapCv, 0, 0, N, N, ex, top, ew, ph);
     ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
@@ -224,6 +227,8 @@ export function createFibroScan() {
   }
   const offRun = store.on('running', (on) => { if (on && onScreen()) start(); });
   /** The panel is done with (a presentation's own instruments go with it): its frame, observer and store watch are let go. */
+  // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
+  const offSurface = surface('FibroScan map', () => (!cv.isConnected || mapGpu === null ? null : mapGpu ? { on: 'mixed', via: 'map WebGL2, copied into the 2D panel' } : { on: 'fallback', via: 'CPU, pixel by pixel, 2D canvas', why: 'no WebGL2, a software renderer or a lost context' }));
   function dispose() { gone = true; running = false; cancelFrame(raf); raf = 0; io?.disconnect(); offRun(); }
-  return { id: 'fibroscan', label: 'FibroScan', el, update, pin(fp) { pinned = fp?.lsm ?? null; if (pinned != null) model = pinned; }, dispose };
+  return { id: 'fibroscan', label: 'FibroScan', el, update, pin(fp) { pinned = fp?.lsm ?? null; if (pinned != null) model = pinned; }, dispose() { dispose(); offSurface(); } };
 }

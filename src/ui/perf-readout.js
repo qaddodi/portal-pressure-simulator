@@ -8,6 +8,7 @@ import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './g
 import { perf, watchFrames } from './frame.js?v=15d5254a2c';
 import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js?v=9cd1d0c4e3';
 import { scanBlurs, blurText } from './blur-gauge.js?v=3e4c02d9c9';
+import { surfaceRows, surfacesText } from './gpu-surfaces.js?v=2af17044e7';
 
 const WINDOW = 2000, KEEP = 5, GAP_LINES = 40, LONG_LINES = 15;
 // The display's own refresh, as the browser offers it, from the frame intervals the readout sees (30 Oct, review 6a: a list of gaps
@@ -99,6 +100,8 @@ export function gestureText(r) {
   // (The frame intervals as a histogram at the screen's own refresh, and each surface's callbacks against its real draws.)
   if (r.stats !== undefined) gauges.unshift(intervalLine(r.stats));
   if (r.surfaces) gauges.push(r.surfaces);
+  // (Which surfaces were on a fallback when the gesture let go (gpu-surfaces.js), read once at the window's start.)
+  if (r.paths) { const off = r.paths.filter((p) => p.on !== 'gpu'); gauges.push(`  on a fallback or partly when it let go: ${off.length ? off.map((p) => `${p.name} (${p.via})`).join(', ') : 'none'}`); }
   // (Frames counted by what they drew, over the whole window: the whole picture redrawn, the organ picture down.)
   const tally = Object.entries(r.tally || {}).map(([k, n]) => `${k} in ${n} of ${r.frames} frames`);
   if (tally.length) gauges.push(`  ${tally.join(', ')}`);
@@ -143,6 +146,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
     const was = !!cur;
     cur = { n: ++n, kind, win, tally: {}, counts: {}, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly, hide: HIDES[hideAt], orgs: gpuProbe.gpuOrgans, dts: [], totals: perf().totals };
     gpuProbe.take(); gpuProbe.takeNotes(); gpuProbe.takeGauges();
+    cur.paths = surfaceRows();
     if (!was && !beatT) { beatAt = performance.now(); busy = 0; beatT = setTimeout(beat, 0); }
   };
   addEventListener('pointerdown', (e) => { if (!onStage(e)) return; down.set(e.pointerId, [e.clientX, e.clientY]); maxDown = Math.max(maxDown, down.size); if (down.size === 1) moved = false; }, { capture: true, passive: true });
@@ -256,6 +260,15 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   const blurs = document.createElement('button');
   const blurEl = document.createElement('div');
   blurEl.style.cssText = 'margin-top:8px';
+  // Surfaces: which of the page's surfaces draw on the GPU now and which on a fallback (gpu-surfaces.js; reviewer, 1 Nov, section 9),
+  // written twice a second from each surface's own state while no gesture's window is open (a write during one would be measured).
+  const surfEl = document.createElement('div');
+  surfEl.style.cssText = 'margin-top:8px';
+  const surfText = () => surfacesText(surfaceRows());
+  let shownSurf = '';
+  const paintSurf = () => { const t = surfText(); if (t !== shownSurf) { shownSurf = t; surfEl.textContent = t; } };
+  setInterval(() => { if (!cur && !folded) paintSurf(); }, 500);
+  if (window.pps) window.pps.surfaces = () => surfaceRows();   // (for a headless run: pps.surfaces())
   const scan = () => blurText(scanBlurs(document, (el) => window.pps?.stage?.blurWhy?.(el) ?? null), document.querySelectorAll('[data-gl]').length);
   blurs.textContent = 'Blurs';
   blurs.onclick = () => { blurEl.textContent = scan(); };
@@ -276,10 +289,10 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   const paintLog = () => { const t = logText(); if (t !== shownLog) { shownLog = t; logEl.textContent = t; } };
   setInterval(() => { if (!cur) paintLog(); }, 1000);
   paintLog();
-  bar.append(title, rest, rec, hide, gpu, orgs, blurs, copy); el.append(bar, body, blurEl, logEl);
+  bar.append(title, rest, rec, hide, gpu, orgs, blurs, copy); el.append(bar, body, surfEl, blurEl, logEl);
   let folded = false;
-  title.onclick = () => { folded = !folded; body.style.display = folded ? 'none' : ''; blurEl.style.display = folded ? 'none' : ''; logEl.style.display = folded ? 'none' : ''; };
-  const text = () => [`${navigator.userAgent}`, `screen ${innerWidth}x${innerHeight} @${devicePixelRatio}x, refresh offered to the page ${refreshOf(recent) || '?'} Hz, ${location.pathname}${document.getElementById('preview-badge') ? ` ${document.getElementById('preview-badge').textContent.trim()}` : ''}`, ...reports.map(gestureText), ...(blurEl.textContent ? [blurEl.textContent] : []), logText()].join('\n\n');
+  title.onclick = () => { folded = !folded; for (const e of [body, surfEl, blurEl, logEl]) e.style.display = folded ? 'none' : ''; };
+  const text = () => [`${navigator.userAgent}`, `screen ${innerWidth}x${innerHeight} @${devicePixelRatio}x, refresh offered to the page ${refreshOf(recent) || '?'} Hz, ${location.pathname}${document.getElementById('preview-badge') ? ` ${document.getElementById('preview-badge').textContent.trim()}` : ''}`, ...reports.map(gestureText), surfText(), ...(blurEl.textContent ? [blurEl.textContent] : []), logText()].join('\n\n');
   copy.onclick = async () => {
     const t = text();
     try { await navigator.clipboard.writeText(t); copy.textContent = 'Copied'; } catch {

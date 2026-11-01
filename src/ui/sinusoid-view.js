@@ -25,12 +25,13 @@ import { isPaused } from './clock.js?v=16aba0e2eb';
 import { store } from './store.js?v=4ef2a6ffd8';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=a7d2e852df';
-import { placeFenDisse } from './fen-place.js?v=242da5e9e1';
+import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=81624e1a6f';
+import { placeFenDisse } from './fen-place.js?v=d8f646adb0';
 import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=15d5254a2c';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
 import { FADE_MS, fadeAlpha, mixInto } from './res-fade.js?v=4d4c051a59';
+import { surface } from './gpu-surfaces.js?v=2af17044e7';
 const nextFrame = frameFor('sinusoid-view');
 // The resolution change mixed on the GPU (gpuSwap); ?svmix=0: the 2D canvas mix, as before.
 const SV_MIX = typeof location === 'undefined' || !/[?&]svmix=0\b/.test(location.search);
@@ -111,10 +112,13 @@ export function createSinusoidView({ host, before = null }) {
   const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, leaders, labels, legend);
   host.insertBefore(el, before);
   const gpu = createSinusoidGL(canvas);
-  noteSinusoidSupport(!!gpu);   // (answered by this view's own context: sinusoidSupported need not make a throwaway one)
+  noteSinusoidSupport(!!gpu);
   // (A software renderer only: a frame of the view waits for the last to finish on the GPU and gives the page as long again,
   // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
   const swGL = gpu ? canvas.getContext('webgl2') : null, svYield = swGL && softwareGL(swGL) ? softwareYield(true, swGL) : null;
+  const svSoft = !!(swGL && softwareGL(swGL));   // (for the ?perf surfaces list below)
+  // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
+  surface('sinusoid', () => (!open ? null : gpu && !gpu.lost ? { on: svSoft ? 'fallback' : 'gpu', via: svSoft ? 'WebGL2 on the CPU' : 'WebGL2', why: svSoft ? 'software renderer' : '' } : { on: 'fallback', via: 'nothing drawn', why: gpu ? 'context lost (drawn again when it is given back)' : 'no WebGL2' }));   // (answered by this view's own context: sinusoidSupported need not make a throwaway one)
 
   // The view is left only by the view switch (Lobule): the wheel and a pinch do nothing here.
   el.addEventListener('wheel', (ev) => ev.preventDefault(), { passive: false });

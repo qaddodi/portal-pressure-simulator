@@ -39,15 +39,16 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=65c955076a';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
-import { createSinusoidView } from './sinusoid-view.js?v=b03d5e370d';
+import { createSinusoidView } from './sinusoid-view.js?v=3fdc255265';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, framePart, easeNow, inMotion, PACED } from './frame.js?v=15d5254a2c';
-import { createGlassGL } from './glass-gl.js?v=732ccf097f';
+import { createGlassGL } from './glass-gl.js?v=dd287b10a7';
 import { pillOf, pillLabels, pillHold } from './lz-pills.js?v=bafcf3977d';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=4d4c051a59';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { easeMove, carryRate, carried, D_SMALL, D_SURFACE } from './ease.js?v=fc509dabe4';
+import { surface } from './gpu-surfaces.js?v=2af17044e7';
 const CAM_M2 = !(typeof location !== 'undefined' && /[?&]camease=0\b/.test(location.search));
 const CARRY = !(typeof location !== 'undefined' && /[?&]carry=0\b/.test(location.search));   // (?carry=0: every glide starts from rest, as before)
 const nextFrame = frameFor('lobule-zoom');
@@ -2304,9 +2305,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let diveCtx = null;
   const styleSnap = (cs) => { const m = new Map(); return { getPropertyValue: (n) => { let v = m.get(n); if (v === undefined) m.set(n, (v = cs.getPropertyValue(n))); return v; } }; };
   const fieldHide = (cv) => { if (cv.width) { cv.width = 0; cv.height = 0; } cv.style.opacity = '0'; };
+  const FIELD_HANDOFF = !/[?&]handoff=0\b/.test(location.search), FIELD_HOLD = 3;
+  let fieldHold = 0;   // (GPU frames of the field left before the 2D one under it is hidden: see paintField)
   function paintField(d) {
     if (!d) diveCtx = null;
-    if (!d || d.a <= 0.002) { fieldHide(field); fieldHide(fieldG); fieldOp = 0; return; }
+    if (!d || d.a <= 0.002) { fieldHide(field); fieldHide(fieldG); fieldOp = 0; fieldHold = 0; return; }
     if (!diveCtx) {
       const rect = host.getBoundingClientRect(), cs = getComputedStyle(host), dark = isDark();
       diveCtx = { W: Math.max(1, Math.round(rect.width)), H: Math.max(1, Math.round(rect.height)), cs: styleSnap(cs), dark, bg: stageBg(cs, dark) };
@@ -2316,11 +2319,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // On the GPU where it can be (the same picture, its tile sizes blended); otherwise the 2D canvas, as below.
     const g = fieldGLOn();
     if (g && paintFieldGL(g, d, W, H, dpr, cs, dark, bg)) {
-      fieldHide(field);
+      // (The GPU's canvas taking over from the 2D one mid-dive (a tile's send that failed and came through on its retry): the 2D field
+      // stays showing, as it last was, under the GPU's first FIELD_HOLD frames, as the tissue's does (showTissueGL). Safari can show a
+      // just-resized WebGL canvas's first frame a frame or more late, and the 2D field hidden in the same frame left the page's dark
+      // colour where the neighbouring lobules were. ?handoff=0: both switched in the one frame, as before.)
+      fieldHold = FIELD_HANDOFF && field.width ? (fieldHold ? fieldHold - 1 : FIELD_HOLD) : 0;
+      if (!fieldHold) fieldHide(field);
       fieldOp = Math.min(1, d.a * 1.25);
       fieldG.style.opacity = fieldOp.toFixed(3);
       return;
     }
+    fieldHold = 0;
     fieldHide(fieldG);
     if (field.width !== Math.round(W * dpr) || field.height !== Math.round(H * dpr)) { field.width = Math.round(W * dpr); field.height = Math.round(H * dpr); }
     // Half the tile's resolution, as at rest: the field is in motion and behind the lobule.
@@ -3947,6 +3956,27 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   diveCopy = timed('lz.diveCopy', diveCopy); probe = timed('lz.probe', probe); opaqueOnly = timed('lz.opaqueOnly', opaqueOnly);
   update = timed('lz.update', update); ensureGeo = timed('lz.ensureGeo', ensureGeo); fieldTile = timed('lz.fieldTile', fieldTile);
   /* eslint-enable no-func-assign */
+  // The ?perf surfaces list (gpu-surfaces.js): the lobule's own canvases, from the state kept here. Read by the readout only.
+  const lzShown = () => fade > 0 || fieldOp > 0;
+  surface('lobule tissue', () => {
+    if (!(fade > 0)) return null;
+    if (tissueOnGL) return { on: 'gpu', via: 'WebGL2' };
+    return { on: 'fallback', via: '2D canvas', why: tissueGL === null ? 'no WebGL2 for the tissue' : tissueGL?.lost ? 'context lost' : keep2D ? 'drawn on the 2D canvas for the dive\'s copy' : 'the GPU has not drawn it yet' };
+  });
+  surface('lobule field (neighbouring lobules)', () => {
+    if (!(fieldOp > 0)) return null;
+    if (fieldG.width && fieldG.style.opacity !== '0') return { on: field.width ? 'mixed' : 'gpu', via: field.width ? 'WebGL2, the 2D one under it for the handoff' : 'WebGL2' };
+    return { on: 'fallback', via: '2D canvas', why: fieldGL === null ? 'no WebGL2 for the field' : fieldGL?.lost ? 'context lost' : 'a tile the GPU could not take' };
+  });
+  surface('lobule vessels', () => {
+    if (!lzShown()) return null;
+    if (gl && !gl.lost && !gl.software) return { on: 'gpu', via: 'WebGL2' };
+    return { on: 'fallback', via: gl ? 'WebGL2 on the CPU' : '2D canvas', why: !gl ? 'no WebGL2' : gl.lost ? 'context lost' : 'software renderer' };
+  });
+  surface('lobule label pills', () => {
+    if (!(fade > 0) || !pillGL) return null;
+    return pillGL.state();
+  });
   const api = {
     el,
     update,

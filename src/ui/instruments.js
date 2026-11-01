@@ -8,6 +8,7 @@ import { pressureColor } from './colormap.js?v=fa0379104f';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=7a4bd2b204';
 import { simTime, isPaused } from './clock.js?v=16aba0e2eb';
 import { createEndoGL } from './endo-gl.js?v=b09929248a';
+import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { renderEndo } from './endo-render.js?v=854f439701';
 import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=1dc4743d1e';
@@ -83,6 +84,8 @@ export function createEndoscopy({ onAction }) {
   // bleeding and the scope mask are drawn on top.
   let gl = createEndoGL({ onBack: () => { if (!raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); }); } }), wasGl = !!gl;   // (wasGl: which renderer drew the field last, so a change between them fades)
   const glOut = document.createElement('canvas');
+  // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only. The field is shaded on the GPU once per state and kept as a bitmap.)
+  const offSurface = surface('endoscopy field', () => (!cv.isConnected ? null : gl && !gl.lost ? { on: 'mixed', via: 'shaded WebGL2 once per state, drawn from a 2D bitmap' } : { on: 'fallback', via: 'CPU shading, 2D canvas', why: gl ? 'context lost' : 'no WebGL2, or its shader failed' }));
   let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedLast = null, poolA = 0, cache = { key: '', img: null }, glKey = '', painted = '', mv = null, held = null, pinned = null;
   // A slide's options for this scope (configure, below): air, the air's pressure in the lumen in mmHg (the varix is drawn and measured as it is seen
   // at that pressure; the grade, the pressure inside it and the model are not touched); red, true or false (the red wale marks shown or hidden whatever
@@ -264,7 +267,7 @@ export function createEndoscopy({ onAction }) {
     pinned = fp && Number.isFinite(fp.varix) ? { d: fp.varix, ptm: P ? P[NI.VAR] : NaN } : null;
     if (last) update(last.f);
   }
-  return { id: 'endoscopy', label: 'Endoscopy', el, update, configure, pin, setView() {}, dispose() { offRun(); cancelFrame(raf); raf = 0; gl?.dispose(); last = null; } };
+  return { id: 'endoscopy', label: 'Endoscopy', el, update, configure, pin, setView() {}, dispose() { offRun(); cancelFrame(raf); raf = 0; gl?.dispose(); last = null; offSurface(); } };
 }
 
 // ── Varix wall cross-section (L3) ───────────────────
