@@ -6,8 +6,8 @@
 //   so a number that changes, a reading that turns to the alarm colour or a new size needs no new picture.
 // Its three programs are started when the monitor is made (gl-compile.js) and published once the driver says they are done; a frame
 // before that draws nothing new. A lost context draws nothing until it is restored, when everything is made again.
-import { GLYPHS, KERN, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H } from './glyphs-inter.js?v=3d311882ab';
-import { ATLAS_PNG } from './glyphs-inter-png.js?v=9ce07768be';
+import { sdfAtlas } from './text-gl.js?v=b384a10c15';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
+const { GLYPHS, KERN, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
 import { startProgram, compileDone, checkProgram } from './gl-compile.js?v=e48e05cdb3';
 
 /** '#rgb', '#rrggbb', 'rgb()' or 'rgba()' as premultiplied [r, g, b, a] in 0–1. */
