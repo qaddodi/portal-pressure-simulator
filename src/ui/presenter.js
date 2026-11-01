@@ -4620,7 +4620,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // nothing is moving (no slide change, no case card) and the words are in.
   const PULL_K = 0.25, PULL_FADE = 160, PULL_END_K = 0.1;
   let pull = null;
-  const pullCan = () => CARD_TURN && !!ui && !busy && !caseCard && !zoomOn() && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
+  // (Only a swipe that will change the slide moves the words: one that plays a procedure's next step, a beat of the figure, the rest of a
+  // time-lapse or lifts a case card leaves them where they are, never following the finger and then springing back: Mohammad, 1 Nov, BRTO steps.)
+  const turnsSlide = (dx) => dx < 0
+    ? !caseLift && !lapseOn && !procRun && !procWait && !slides[want]?.procedure && beat >= lastBeat(want) && want < slides.length - 1
+    : !procRun && !procWait && beat === 0 && want > 0;
+  const pullCan = (dx) => turnsSlide(dx) && CARD_TURN && !!ui && !busy && !caseCard && !zoomOn() && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
   function pullTo(dx) {
     // (The words follow the finger the whole way, never stopping: their move eases toward the room they have inside the glass (never past
     // its edge) while they fade on with the finger's own travel.)
@@ -4646,7 +4651,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!g || !t || !deck) { if (pull) pullLet(false); return; }
     const dx = t.clientX - g.x, dy = t.clientY - g.y, now = performance.now();
     if (!pull) {
-      if (Math.abs(dx) < 8 || Math.abs(dx) <= SWIPE_RATIO * Math.abs(dy) || !pullCan()) return;
+      if (Math.abs(dx) < 8 || Math.abs(dx) <= SWIPE_RATIO * Math.abs(dy) || !pullCan(dx)) return;
       pull = { on: true, x: 0, pts: [] };
     }
     pull.pts.push([t.clientX, now]);

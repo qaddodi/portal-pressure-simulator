@@ -33,3 +33,10 @@ test('the glass fades in place on the words’ own curve on a turn', () => {
   assert.match(css, /\.pz-turnfade:is\(\.pz-card, \.stack\)\.pz-leave \{ transition-timing-function: var\(--ease-in\)/);
   assert.match(css, /\.pz-turnfade:is\(\.pz-card, \.stack\):not\(\.pz-leave\) \{ transition-timing-function: var\(--ease-arrive\)/);
 });
+
+test('the words follow the finger only on a swipe that changes the slide (never a procedure step, beat, time-lapse or case lift)', () => {
+  const i = src.indexOf('const turnsSlide = (dx) =>'), t = src.slice(i, src.indexOf(';', i));
+  for (const k of ['!caseLift', '!lapseOn', '!procRun', '!procWait', '!slides[want]?.procedure', 'beat >= lastBeat(want)', 'beat === 0']) assert.ok(t.includes(k), k);
+  assert.match(src, /const pullCan = \(dx\) => turnsSlide\(dx\) && CARD_TURN/);
+  assert.match(src, /!pullCan\(dx\)\) return;/);
+});
