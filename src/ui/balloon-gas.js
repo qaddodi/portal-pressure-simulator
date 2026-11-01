@@ -132,12 +132,12 @@ function pearOutline(p0, dir, L, b, h0, n) {
 /**
  * The balloon fitted to a stomach outline: where the tube meets the cardia (the middle of the esophagus's foot), the axis down the
  * stomach's upper part that leaves the balloon the most room, and the largest half width b (up to GAS.bMax) at which the filled balloon,
- * at every stage of the traction, stays GAS.margin inside the wall. `poly` and `mouth` default to the painted stomach (paintedOutline) and the cardia.
+ * at every stage of the traction, stays its standoff (GAS.margin, less at the junction) inside the wall. `poly` and `mouth` default to the painted stomach (paintedOutline) and the cardia.
  * The axis is the middle of the run of angles that give the full size (not the sharpest of them), so a small change to the outline moves
  * the balloon a little, never a lot. → { mouth, dir, deg, p0 (the balloon's upper end, drawn up), b, L }
  */
 export function fitGas(poly = paintedOutline(), mouth = [esoAt(251).c, 251]) {
-  const { margin, slack, pole, ratio, bMax, neck } = GAS;
+  const { slack, pole, ratio, bMax, neck } = GAS;
   const at = (deg) => { const t = (deg * Math.PI) / 180, dir = [Math.cos(t), Math.sin(t)]; return { dir, p0: [mouth[0] + dir[0] * pole, mouth[1] + dir[1] * pole] }; };
   // The widest half width that fits with the axis at deg (bisected; n points round the outline, a coarse look first, a fine one at the end).
   const widest = (deg, steps, n) => {
