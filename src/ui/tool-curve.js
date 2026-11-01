@@ -342,7 +342,7 @@ export function boxScore(b, { lines = [], segs = [], boxes = [], bounds = null }
     if (l.side != null && ((b[1] + b[3]) / 2 - l.y) * (l.side - l.y) < 0) n += 20;
   }
   for (const sg of segs) if (segHits(sg, b)) n += sg.w ?? 2;
-  for (const o of boxes) if (hitBox(b, o)) n += 3;
+  for (const o of boxes) if (hitBox(b, o)) n += 8;   // (a word on a word reads worse than a word over a line: it loses to a spot that crosses a gridline or a data line)
   return n;
 }
 /** A word's place: of the candidates ({ x, y, anchor }, in order of liking), the first that lands on the fewest things.
@@ -701,7 +701,8 @@ export function createCurve() {
       // (A named cut-off reads "Grade 2 ≥1.5 L", or just "Grade 2" where its number already stands on the axis; an unnamed one "Ascites 1.5".)
       const y = YL(c.v), txt = nm ? (isHeld ? nm : `${nm} ≥${vtxt} ${ls[0].unit}`.trim()) : `${G.ag ? readingName(t) : ls[0].name} ${vtxt}`;
       const el = sv('text', { class: 'pcv-cut' }, txt);
-      cutLabs.push({ el, tw: 1.12 * cw(txt, f, true), lines: cutVs.filter((o) => o !== c && !held(o)).map((o) => ({ y: YL(o.v), x0: L, x1: R })),
+      // (short: where the whole name has no clear spot, just its number, in the rating's colour, beside its line: two cut-offs a line's width apart, "Liver flow 55" over "Liver flow 75".)
+      cutLabs.push({ el, txt, short: nm ? null : vtxt, twS: 1.12 * cw(vtxt, f, true), tw: 1.12 * cw(txt, f, true), lines: cutVs.filter((o) => o !== c && !held(o)).map((o) => ({ y: YL(o.v), x0: L, x1: R })),
         // (Over the line; else on it, the dashes stopping round the words (a short chart's cut-offs stand close); else under.)
         cands: [{ x: R - 3, y: y - 0.35 * f, anchor: 'end' }, { x: L + 3, y: y - 0.35 * f, anchor: 'start' },
           { x: R - 3, y: y + 0.35 * f, anchor: 'end', on: true }, { x: L + 3, y: y + 0.35 * f, anchor: 'start', on: true },
@@ -939,7 +940,10 @@ export function createCurve() {
     for (const c of ob.cutLabs) {
       // (If both ends are taken, beside the dashed line: just left of it, or just right.)
       const near = ok ? c.cands.filter((q) => q.anchor === 'end').flatMap((q) => [{ ...q, x: cx - 0.5 * f, anchor: 'end' }, { ...q, x: cx + 0.5 * f, anchor: 'start' }]) : [];
-      const p = placeWord([...c.cands, ...near], c.tw, f, { segs: [...ob.segs, ...leads], boxes, bounds: ob.cutBounds, lines: c.lines, inside: ob.inside });
+      const obs = { segs: [...ob.segs, ...leads], boxes, bounds: ob.cutBounds, lines: c.lines, inside: ob.inside };
+      let p = placeWord([...c.cands, ...near], c.tw, f, obs), short = false;
+      if (p.n > 0 && c.short) { const q = placeWord([...c.cands, ...near], c.twS, f, obs); if (q.n < p.n) { p = q; short = true; } }
+      if (c.el.textContent !== (short ? c.short : c.txt)) c.el.textContent = short ? c.short : c.txt;
       boxes.push(p.box);
       c.el.setAttribute('x', p.x.toFixed(1)); c.el.setAttribute('y', p.y.toFixed(1)); c.el.setAttribute('text-anchor', p.anchor);
       c.el.classList.toggle('on', !!p.on);

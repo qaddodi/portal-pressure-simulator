@@ -191,3 +191,21 @@ test('a key of three lines starts on the reading\'s own row, so the plot keeps t
   const y0 = r.texts.find((t) => t.txt === '0' && t.x < 40).y, y40 = r.texts.find((t) => t.txt === '40').y;
   assert.ok(y0 - y40 >= 50, `the plot's 0 to 40 is ${(y0 - y40).toFixed(0)} px, not a strip`);
 });
+
+// (A phone's relation charts whose cut-offs stand a line or two apart: "Liver flow 55" over "Liver flow 75" on Two inflows, "HVPG 5" on "HVPG 10" on
+// Stiffness, "HVPG 10" on "Cirrhosis" on Outflow were printed over each other. A word on a word now loses to a spot that crosses a line, and a
+// cut-off with no clear spot for its name stands as its number.)
+test('phone relation charts: no word is printed over another, cut-off names included', async () => {
+  for (const deck of ['two-inflows', 'stiffness', 'outflow', 'treatment', 'circuit', 'gastric-varices']) {
+    for (const [W, H, f] of [[346, 170, 13.5], [346, 190, 12], [330, 150, 12]]) {
+      const r = await draw(deck, W, H, f), words = r.texts.map((t) => ({ t, b: boxOf(t, f) })), bad = [];
+      for (let i = 0; i < words.length; i++) for (let j = i + 1; j < words.length; j++) if (hit(words[i].b, words[j].b)) bad.push(`"${words[i].t.txt}" on "${words[j].t.txt}"`);
+      assert.deepEqual(bad, [], `${deck} ${W} × ${H}`);
+    }
+  }
+});
+
+test('a cut-off whose name has no clear spot stands as its number (Two inflows, 55 and 75 a line\'s width apart)', async () => {
+  const r = await draw('two-inflows', 346, 170, 13.5), cuts = r.texts.filter((t) => /pcv-cut/.test(t.cls));
+  assert.deepEqual(cuts.map((t) => t.txt).sort(), ['55', '75'], 'the two cut-offs, as numbers');
+});
