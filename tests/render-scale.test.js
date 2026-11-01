@@ -112,20 +112,22 @@ test('res-fade: the opacity eases 1 → 0 with no step at either end', async () 
   assert.match(rf, /canvas\.style\.opacity = '0';/, 'the canvas hides under the mix, not under a copy laid over it');
 });
 
-test('the further options: all off by default, stored, and each one heard', async () => {
+test('the further options: all off by default but the 8-megapixel budget, stored, and each one heard', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const f = await import(`../src/ui/frame.js?t=opts${Date.now()}`);
-  assert.deepEqual(f.FIG_OPTS, { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [0, 8, 4, 2], adapt: [false, true], floor: [0.1, 0.25, 0.5] });
-  for (const [k, v] of Object.entries({ move: 1, glow: 1, cap: 0, adapt: false, floor: 0.1 })) assert.equal(f.figOpt(k), v, `${k} off by default`);
+  assert.deepEqual(f.FIG_OPTS, { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 4, 2], adapt: [false, true], floor: [0.1, 0.25, 0.5] });
+  for (const [k, v] of Object.entries({ move: 1, glow: 1, cap: 8, adapt: false, floor: 0.1 })) assert.equal(f.figOpt(k), v, `${k} at its default`);
   let heard = 0;
   f.onRenderScale(() => heard++);
   f.setFigOpt('move', 0.5); f.setFigOpt('glow', 0.25); f.setFigOpt('cap', 4); f.setFigOpt('adapt', true);
   f.setFigOpt('move', 0.3); f.setFigOpt('nope', 1); f.setFigOpt('cap', 4);   // (not choices, or no change: not heard)
   assert.equal(heard, 4);
   assert.deepEqual(['move', 'glow', 'cap', 'adapt'].map((k) => store.get(`pps.fig.${k}`)), ['0.5', '0.25', '4', 'true']);
-  f.setFigOpt('adapt', false); f.setFigOpt('cap', 0);
-  assert.ok(!store.has('pps.fig.adapt') && !store.has('pps.fig.cap'), 'off stores nothing');
+  f.setFigOpt('adapt', false); f.setFigOpt('cap', 8);
+  assert.ok(!store.has('pps.fig.adapt') && !store.has('pps.fig.cap'), 'the default stores nothing');
+  f.setFigOpt('cap', 0);
+  assert.equal(store.get('pps.fig.cap'), '0', 'no budget at all is a choice, stored');
   delete globalThis.localStorage;
 });
 
@@ -142,6 +144,10 @@ test('figShare: the setting, While moving, Adapt and Size cap together', () => {
   const capped = make({ opts: { cap: 2 } })(1728, 1117, 2);
   assert.ok(Math.abs(1728 * 1117 * (2 * capped) ** 2 - 2e6) < 1, 'a big screen held to the cap');
   assert.equal(make({ opts: { cap: 8 } })(390, 844, 2), 1, 'a phone is under it');
+  // (The 8-megapixel budget, the default since 1 Nov 2026: the owner's devices are all under it, a 5K screen is held to it.)
+  for (const [w, h] of [[1512, 982], [1728, 1117], [1180, 820], [1366, 1024], [390, 844], [430, 932]]) assert.equal(make({ opts: { cap: 8 } })(w, h, 2), 1, `${w}x${h} under the budget`);
+  const big = make({ opts: { cap: 8 } })(2560, 1440, 2);
+  assert.ok(Math.abs(2560 * 1440 * (2 * big) ** 2 - 8e6) < 1 && big > 0.7, 'a 5K screen held to 8 megapixels');
   assert.equal(make({ set: 0.25, adaptK: 0.25, moving: true, opts: { move: 0.25 } })(1000, 800, 2), 0.1, 'never under a tenth');
 });
 
@@ -292,17 +298,19 @@ test('Auto keeps its step near an edge: no flip between 75% and 50% when the zoo
 });
 
 // (Mohammad, 30 Oct: "no resolution drop unless I choose to".)
-test('Full with every option off: the canvas at the screen’s own density (up to 2×), as on the live site', async () => {
+test('Full with every option off: the canvas at the screen’s own density (up to 2×) up to the 8-megapixel budget', async () => {
   const stage = src('stage.js');
   const body = stage.slice(stage.indexOf('function figShare('), stage.indexOf('function resizeCanvas('));
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const f = await import(`../src/ui/frame.js?t=full${Date.now()}`);
   const share = new Function('renderSetting', 'renderScale', 'autoK', 'moveLow', 'figOpt', 'adaptK', `${body}; return figShare;`)(f.renderSetting, f.renderScale, 1, false, f.figOpt, 1);
-  for (const [w, h, dpr] of [[1728, 1117, 2], [2560, 1440, 2], [1194, 802, 2], [390, 844, 3], [1920, 1080, 1]]) {
+  for (const [w, h, dpr] of [[1728, 1117, 2], [1512, 982, 2], [1194, 802, 2], [390, 844, 3], [1920, 1080, 1]]) {
     const base = Math.min(2, dpr);
     assert.equal(base * share(w, h, base), Math.min(2, dpr), `${w}×${h} @${dpr}×`);
   }
+  // (Past the 8-megapixel budget, only a large external screen: held to it, 1 Nov 2026.)
+  assert.ok(Math.abs(2560 * 1440 * (2 * share(2560, 1440, 2)) ** 2 - 8e6) < 1, '2560×1440 @2× held to 8 megapixels');
   assert.equal(f.renderScale(), 1, 'the lobule and the sinusoid at Full');
   delete globalThis.localStorage;
   // (Every stage path that lowers the canvas is gated on a choice: While moving, Auto, Adapt, the cap.)

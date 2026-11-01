@@ -6,9 +6,9 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js?v=80d4358be8';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=5300d2ce2f';
-import { FONT as FONT0, FONT } from './charts.js?v=9798de2b77';
-import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=6a53e5fc6e';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=9c16986fdb';
+import { FONT as FONT0, FONT } from './charts.js?v=1286947c70';
+import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=6692e20c1b';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
@@ -21,7 +21,7 @@ import { plotFill } from './plot-look.js?v=5037697da7';
 import { createStill } from './still-layer.js?v=7bc9566c55';
 import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from './beat-card.js?v=89d9fda241';
 import { VITALS } from './vital-read.js?v=cbba41a6b7';
-import { shownOr } from './shown.js?v=9f263ec53f';
+import { shownOr } from './shown.js?v=a54f9abf30';
 const nextFrame = frameFor('pressure-time');
 
 // hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the

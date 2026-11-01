@@ -230,11 +230,13 @@ export function onRenderScale(f) { renderSubs.add(f); return () => renderSubs.de
 // The figure's further resolution options (30 Oct, experiments, all off until chosen; the anatomy's canvas only, stage.js):
 // move: the share while the view moves (a pinch, a pan, a glide), Full again once it has settled; 1 = off.
 // glow: the share the glow layers (an organ's soft glow, a lit organ's warm edge) are drawn at, the vessels and organs at Full.
-// cap: the most megapixels the canvas holds (a big screen draws fewer, a phone is under it); 0 = off.
+// cap: the most megapixels the canvas holds (a big screen draws fewer, a phone is under it); 0 = off. 8 by default since 1 Nov 2026 (the
+//   GPU move, step 4: a pixel budget): every laptop, iPad and phone is under it, a 16-inch MacBook's whole screen too (7.7), so none of
+//   them changes; only a large external screen (a 5K one, 14.7) draws fewer pixels than its full density, and its heat with them.
 // floor: the lowest share Auto goes to (10%, 25% or 50%).
 // adapt: after each move, one step lower if the frames came slowly, one step back up when they came at the screen's pace.
-export const FIG_OPTS = { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [0, 8, 4, 2], adapt: [false, true], floor: [0.1, 0.25, 0.5] };
-const figOpts = { move: 1, glow: 1, cap: 0, adapt: false, floor: 0.1 };
+export const FIG_OPTS = { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 4, 2], adapt: [false, true], floor: [0.1, 0.25, 0.5] };
+const figOpts = { move: 1, glow: 1, cap: 8, adapt: false, floor: 0.1 };
 for (const k of Object.keys(figOpts)) {
   try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : +t; if (t != null && FIG_OPTS[k].includes(v)) figOpts[k] = v; } catch { /* storage unavailable */ }
 }
