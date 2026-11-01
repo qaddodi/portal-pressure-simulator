@@ -24,7 +24,7 @@ test('the chart glides only while what it draws is moving', () => {
 test('the comparison line shows the same deltas and is rebuilt only when one changes', () => {
   const fmt = (v, d) => v.toFixed(d);
   const a = { hvpg: 10, liverPerfPct: 80, shuntFraction: 0.1 }, b = { hvpg: 12.34, liverPerfPct: 70.2, shuntFraction: 0.25 };
-  assert.deepEqual(compareRows(a, b, true, true, fmt), [['HVPG', '+2.3 mmHg'], ['Liver flow', '-10 pp'], ['Shunting', '+15 pp']]);
+  assert.deepEqual(compareRows(a, b, true, true, fmt), [['HVPG', '+2.3 mmHg'], ['Liver flow', '-10 pts'], ['Shunting', '+15 pts']]);
   assert.deepEqual(compareRows(a, b, false, true, fmt).map((r) => r[0]), ['Liver flow', 'Shunting']);
   assert.deepEqual(compareRows(a, b, true, false, fmt).map((r) => r[0]), ['HVPG']);
   assert.match(src('dock.js'), /if \(comparison\._sig !== sig\)/);

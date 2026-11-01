@@ -11,8 +11,8 @@ export function compareRows(a, b, hvpg, model, fmt) {
   const delta = (label, v, digits, unit) => [label, `${v > 0 ? '+' : ''}${fmt(v, digits)} ${unit}`];
   return [
     hvpg ? delta('HVPG', b.hvpg - a.hvpg, 1, 'mmHg') : null,
-    model ? delta('Liver flow', b.liverPerfPct - a.liverPerfPct, 0, 'pp') : null,
-    model ? delta('Shunting', (b.shuntFraction - a.shuntFraction) * 100, 0, 'pp') : null,
+    model ? delta('Liver flow', b.liverPerfPct - a.liverPerfPct, 0, 'pts') : null,
+    model ? delta('Shunting', (b.shuntFraction - a.shuntFraction) * 100, 0, 'pts') : null,
   ].filter(Boolean);
 }
 

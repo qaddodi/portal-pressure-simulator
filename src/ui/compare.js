@@ -43,12 +43,10 @@ export function createCompare() {
     const st = store.get();
     if (!tableEl || (!building && !tableEl.isConnected) || !st.compareSnap) return;
     const A = st.compareSnap.metrics, B = f.metrics;
-    const maxRel = Math.max(...ROWS.map(([, g]) => { const a = g(A), b = g(B, true); return Math.abs(b - a) / Math.max(Math.abs(a), 1); }), 1e-6);
     const rows = ROWS.map(([lab, g, d, u]) => {
       const a = g(A), b = g(B, true), dd = b - a;
       const same = Math.abs(dd) < Math.pow(10, -d) * 0.5;
-      const rel = Math.abs(dd) / Math.max(Math.abs(a), 1);
-      return [lab, u, !same && rel / maxRel > 0.5 ? 'big' : '', fmt(a, d), fmt(b, d), 'd ' + (same ? 'same' : dd > 0 ? 'up' : 'down'), same ? '—' : `${dd > 0 ? '▲ +' : '▼ −'}${fmt(Math.abs(dd), d)}`];
+      return [lab, u, fmt(a, d), fmt(b, d), 'd ' + (same ? 'same' : dd > 0 ? 'up' : 'down'), same ? '—' : `${dd > 0 ? '▲ +' : '▼ −'}${fmt(Math.abs(dd), d)}`];
     });
     const names = [st.compareSnap.names?.[0] || 'Then', st.compareSnap.names?.[1] || 'Now'];
     // Frames arrive ten times a second; the table is rebuilt only when a shown number or mark changes.
@@ -57,7 +55,7 @@ export function createCompare() {
     tableEl._sig = sig;
     tableEl.replaceChildren(h('table', { class: 'cmp-table' },
       h('thead', {}, h('tr', {}, h('th', {}, 'Metric'), h('th', {}, names[0]), h('th', {}, names[1]), h('th', {}, 'Δ'))),
-      h('tbody', {}, rows.map(([lab, u, big, a, b, dc, dt]) => h('tr', { class: big },
+      h('tbody', {}, rows.map(([lab, u, a, b, dc, dt]) => h('tr', {},
         h('td', {}, lab, h('span', { class: 'unit' }, u)), h('td', { class: 'a' }, a), h('td', { class: 'b' }, b),
         h('td', { class: dc }, dt))))));
   }

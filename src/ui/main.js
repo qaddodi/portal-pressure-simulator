@@ -3,19 +3,19 @@
 
 import { startHost, host } from './host.js?v=66efaebf2c';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=80d4358be8';
-import { createStage } from './stage.js?v=2daa64328f';
-import { createCreditPlacer } from './credit.js?v=853fefa4ac';
+import { createStage } from './stage.js?v=403ccbec72';
+import { createCreditPlacer } from './credit.js?v=6fcd93faed';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=14507cdbf7';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=0be99fdd6e';
-import { setHvpgStage } from './hvpg-proc.js?v=7cfabd69a3';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=a4a32b5c3d';
+import { setHvpgStage } from './hvpg-proc.js?v=3f2febb36e';
 import { createWhy } from './why.js?v=9ed9ae662b';
 import { createTimeline, LAPSES } from './timeline.js?v=4e500c0be5';
-import { createCompare } from './compare.js?v=561612c04d';
+import { createCompare } from './compare.js?v=acd4037748';
 import { createCard } from './card.js?v=d9f7fea759';
 import { createChart } from './chart.js?v=f1cf00efe1';
-import { createMenu } from './menu.js?v=c0d479ad75';
+import { createMenu } from './menu.js?v=187001ddc0';
 import { caption } from './a11y.js?v=6d0ec8b2ea';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
@@ -109,8 +109,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=86defad33d'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=7bb596de3f'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=170ff1be5d'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=c6549cf597'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -183,7 +183,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=14e9f8453e'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=66de59a0d1'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -916,9 +916,10 @@ function openSettings(anchor, withSearch = false) {
     // (From the thumb dock's Settings tab, Search and Help follow it: the dock has no More menu, and a touch keyboard has no ?.)
     ...(withSearch ? [menuItem('Search', { icon: 'search', onClick: () => { closePopover(); palette.open(); } }),
       menuItem('Help', { icon: 'help', onClick: () => { closePopover(); openHelpMenu(anchor, { place: 'above', align: 'end', cls: 'app-menu' }); } })] : []),
+    // (Enter full screen is a one-shot row like Send feedback, Search and Help, so it sits with them, not between Appearance and Text size.)
+    fullscreenControl(),
     h('div', { class: 'menu-title' }, 'Appearance'),
     h('div', { class: 'seg full menu-seg' }, [['light', 'Light'], ['dark', 'Dark'], ['soft', 'Soft'], ['system', 'System']].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { switchTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
-    fullscreenControl(),
     ...(talk ? presenterSettings() : []),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
     textSizeControl(),
@@ -934,7 +935,7 @@ function openSettings(anchor, withSearch = false) {
     // left it reading as one.)
     ...(talk ? [] : [
       h('div', { class: 'menu-title' }, 'Model'),
-      menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
+      menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show HVPG without measuring it first', (on) => {
         try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
         document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');
         setTimeout(() => document.body.classList.remove('hvpg-swap'), 600);

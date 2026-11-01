@@ -284,3 +284,32 @@ test('the MAP formula ends in its result and carries its units, as the HVPG and 
   const e = new Engine(); e.loadPreset('cirr-decomp'); for (let i = 0; i < 4; i++) e.settleQuick();
   assert.match(explain(e, 'map').formula, /^MAP = CO × SVR \+ RA = [\d.]+ L\/min × [\d.]+ WU \+ [\d.]+ mmHg = \d+ mmHg$/);
 });
+
+test('Settings: Enter full screen sits with the one-shot rows above Appearance, and every switch line is two lines or fewer in the narrow menu', () => {
+  const m = src('src/ui/main.js');
+  const menuSrc = m.slice(m.indexOf('function openSettings('), m.indexOf('function textSizeControl'));
+  assert.ok(menuSrc.indexOf('fullscreenControl()') > 0 && menuSrc.indexOf('fullscreenControl()') < menuSrc.indexOf("'Appearance')"), 'full screen comes before the Appearance heading');
+  assert.equal(menuSrc.split('fullscreenControl()').length - 1, 1);
+  const descs = [...menuSrc.matchAll(/menuToggle\([^\n]*?'[a-z]+', '[^']+', '([^']+)'/g)].map((q) => q[1]);
+  assert.ok(descs.length >= 2, `found ${descs.length}`);
+  for (const d of descs) assert.ok(d.length <= 50, `${d.length}: ${d}`);
+});
+
+test('a Treat chip that is on reads heavier as well as ticked; the Compare table has no unexplained row shading and columns with room', () => {
+  assert.match(css, /\.order-chip\[aria-pressed="true"\] \{ color: var\(--text\); font-weight: 600; \}/);
+  assert.match(css, /\.order-chip \{[^}]*font-weight var\(--d-small\) var\(--ease\)/);
+  assert.doesNotMatch(css, /\.cmp-table tr\.big/);
+  assert.doesNotMatch(src('src/ui/compare.js'), /'big'/);
+  assert.match(css, /\.cmp-table td \{ padding: 8px 0 8px 14px;/);
+});
+
+test('the Patients and Present previews opened by the (i) on touch scroll their row into view once they have eased open', () => {
+  const m = src('src/ui/menu.js');
+  const fn = m.slice(m.indexOf('function toggleInline('), m.indexOf('const $$rows'));
+  assert.match(fn, /li\.scrollIntoView\(\{ block: 'nearest', behavior: reduce\.matches \? 'auto' : 'smooth' \}\)/);
+});
+
+test('the Patients preview names what its curve plots and its scale', () => {
+  assert.match(src('src/ui/menu.js'), /class: 'hp-cap' \}, 'Pressure, gut to right atrium \(0 to 30 mmHg\)'/);
+  assert.match(css, /\.um-pv-in \.hp-cap \{ display: block;[^}]*font-size: var\(--fs-12\)/);
+});

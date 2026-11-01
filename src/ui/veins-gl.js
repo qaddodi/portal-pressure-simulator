@@ -43,7 +43,7 @@ import { changedRows } from './flow-rows.js?v=59053c0155';
 import { leftAlone } from './quiet.js?v=82fc0f97e3';
 import { uniformCache } from './uniform-cache.js?v=2a2500a2e8';
 import { PUBLISH_QUIET_MS } from './gl-compile.js?v=54cf3ac2c6';
-import { createOrganStack } from './organs-gl.js?v=40c0c2260e';
+import { createOrganStack } from './organs-gl.js?v=e536a90598';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 

@@ -46,6 +46,7 @@ function patientPreview(p) {
   return h('div', { class: 'um-pv-in pt' },
     h('span', { class: 'um-pv-meta' }, `${p.group} · ${GROUP_WHERE[p.group] || ''}`),
     h('h3', {}, p.label),
+    s ? h('span', { class: 'hp-cap' }, 'Pressure, gut to right atrium (0 to 30 mmHg)') : null,   // (the curve had no words: what it plots, and its scale)
     s ? profile(s) : null,
     s ? h('span', { class: 'hp-facts' },
       h('span', { class: 'hp-chip ' + sev(HVPG_CUTS, shownOf(s.hvpg)), title: 'Hepatic venous pressure gradient' }, 'HVPG ', h('b', {}, one(s.hvpg))),
@@ -195,6 +196,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const box = h('div', { class: 'um-inline' }, h('div', {}, make()));
     li.append(box); btn.setAttribute('aria-expanded', 'true');
     nextFrame(() => nextFrame(() => box.classList.add('on')));
+    // (A row near the foot of the list opened its preview below the fold: once it has eased open, the row and its preview are scrolled into view.)
+    setTimeout(() => { if (box.isConnected && box.classList.contains('on')) li.scrollIntoView({ block: 'nearest', behavior: reduce.matches ? 'auto' : 'smooth' }); }, reduce.matches ? 0 : 260);
   }
   const $$rows = () => (el ? [...el.querySelectorAll('.um-row')] : []);
 
