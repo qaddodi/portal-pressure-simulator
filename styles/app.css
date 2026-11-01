@@ -4377,10 +4377,12 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 
 /* The card's leader line to its structure, when the card sits away from it. */
 .ac-leader { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: calc(var(--z-hud) - 1); opacity: 0; transition: opacity var(--d-small) var(--ease); }
+/* (The leader as two boxes placed by transforms, card.js drawLeader: a 1.2 px dashed line from its left end, 3 px dashes and gaps, and a
+   ring of 2 px accent round the surface, 8 px across, centred on the anchor.) */
+.ac-leader .ac-lline { position: absolute; left: 0; top: -.6px; height: 1.2px; transform-origin: 0 50%; opacity: .8; background: repeating-linear-gradient(90deg, var(--text-2) 0 3px, transparent 3px 6px); }
+.ac-leader .ac-ldot { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; box-sizing: border-box; border-radius: 50%; background: var(--surface); border: 2px solid var(--accent); }
 .ac-leader.on { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .ac-leader { transition: none; } }
-.ac-leader path { stroke: var(--text-2); stroke-width: 1.2; stroke-dasharray: 3 3; fill: none; opacity: .8; }
-.ac-leader circle { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
 .stage-view.in-lobule .ac-leader { display: none; }
 
 /* The phone card sheet's third height: nearly the whole screen. */

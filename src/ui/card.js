@@ -19,7 +19,8 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   const el = h('section', { class: 'action-card stage-blocker', role: 'dialog', 'aria-label': 'Actions', hidden: true });
   view.append(el);
   // A thin line from the card's nearest edge to the structure, with a dot on it, when they are apart.
-  const leader = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  // (Plain boxes, no SVG: the line a dashed box turned to the anchor, the dot a ringed box, each placed by a transform: app.css .ac-lline, .ac-ldot.)
+  const leader = document.createElement('div');
   leader.setAttribute('class', 'ac-leader'); leader.setAttribute('aria-hidden', 'true');
   view.append(leader);
   const tabletTouch = matchMedia('(pointer: coarse) and (min-width: 768px) and (max-width: 1366px)');
@@ -441,8 +442,8 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     fitAbovePill();
     drawLeader(best.x, best.y, w, hh, a);
   }
-  const ns = 'http://www.w3.org/2000/svg', lLine = document.createElementNS(ns, 'path'), lDot = document.createElementNS(ns, 'circle');
-  lDot.setAttribute('r', '4');
+  const lLine = document.createElement('i'), lDot = document.createElement('i');
+  lLine.className = 'ac-lline'; lDot.className = 'ac-ldot';
   function drawLeader(x, y, w, hh, a) {
     // From an organ's outline: the outline point nearest the card; otherwise from the anchor itself.
     let ax = a.x, ay = a.y;
@@ -456,8 +457,10 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     const ex = clamp(ax, x, x + w), ey = clamp(ay, y, y + hh);
     const d = Math.hypot(ex - ax, ey - ay);
     if (d < (a.outline ? 12 : 30) || isDocked()) { leader.replaceChildren(); leader.classList.remove('on'); return; }
-    lLine.setAttribute('d', `M${ex.toFixed(1)} ${ey.toFixed(1)} L${ax.toFixed(1)} ${ay.toFixed(1)}`);
-    lDot.setAttribute('cx', ax.toFixed(1)); lDot.setAttribute('cy', ay.toFixed(1));
+    // (The line: a box d long from the card's edge, turned toward the anchor; set once each time the card is placed, never in a frame.)
+    lLine.style.width = `${d.toFixed(1)}px`;
+    lLine.style.transform = `translate(${ex.toFixed(1)}px, ${ey.toFixed(1)}px) rotate(${Math.atan2(ay - ey, ax - ex).toFixed(4)}rad)`;
+    lDot.style.transform = `translate(${ax.toFixed(1)}px, ${ay.toFixed(1)}px)`;
     if (!lLine.isConnected) { leader.classList.remove('on'); leader.replaceChildren(lLine, lDot); nextFrame(() => leader.classList.add('on')); }
   }
 
