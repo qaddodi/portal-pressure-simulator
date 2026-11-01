@@ -82,6 +82,7 @@ export function createFieldGL(canvas) {
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl) return null;
   // (lost: the GPU does not draw the field, from the loss until the rebuilt program is published.)
+  let pictured = false;   // (the canvas holds a frame at its present size)
   let lost = false, dead = false, started = null, stopPoll = null;
   let prog = null, U = null, failed = false;
   // Reads the finished program, sets its samplers and runs one small offscreen draw, so the first real draw has no driver work left.
@@ -113,7 +114,7 @@ export function createFieldGL(canvas) {
     stopPoll?.(); stopPoll = publishWhenDone(gl, [started], publish);
   }
   try { build(); } catch (err) { console.warn('The lobule field falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
-  canvas.addEventListener('webglcontextlost', (e) => { lost = true; texs.clear(); e.preventDefault?.(); });
+  canvas.addEventListener('webglcontextlost', (e) => { lost = true; pictured = false; texs.clear(); e.preventDefault?.(); });
   // A context the browser gives back is built afresh; the field stays on the 2D canvas (lost) until the program is published, at an idle
   // moment, and the tiles go up again as they are drawn.
   canvas.addEventListener('webglcontextrestored', () => {
@@ -150,17 +151,18 @@ export function createFieldGL(canvas) {
     /** One frame of the field. W, H: the canvas's size (device px); a, b, qa, qb: the tiles' canvases (liver-toned and
      *  quieted, at the smaller and larger size); dof: the softness (fieldDof); grey: the grade [saturation, opacity] (surroundGrade),
      *  null as drawn; the rest as paintField's (see FS). */
-    draw({ W, H, a, b, qa, qb, mix, quiet, ox, oy, rd, fade, mid, bg, mask, dof = null, grey = null }) {
+    draw({ W, H, a, b, qa, qb, mix, quiet, ox, oy, rd, fade, mid, bg, mask, dof = null, grey = null, hold = false }) {
       publish();
       if (this.lost) return false;
       // (A tile given back, or a zero-sized canvas, would be sampled as black: the 2D canvas draws this frame instead.)
       if (!a?.width || (b && !b.width) || (quiet > 0 && (!qa?.width || (qb && !qb.width)))) return false;
-      if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+      // (Every texture first, before the canvas is touched: one the GPU could not take is never sampled (it read opaque black). Showing
+      // (hold) at this size with a picture, the field keeps its last frame for this one; otherwise the 2D canvas draws it.)
+      const tx = [a, b || a, ...(quiet > 0 ? [qa, qb || qa] : [])].map((cv) => texFor(cv));
+      if (tx.some((t) => !t)) return hold && TEX_SAFE && pictured && canvas.width === W && canvas.height === H ? 'held' : false;
+      if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; pictured = false; }
       gl.viewport(0, 0, W, H);
       gl.useProgram(prog);
-      // (Every texture first: one the GPU could not take, and the 2D canvas draws this frame, never a black field.)
-      const tx = [a, b || a, ...(quiet > 0 ? [qa, qb || qa] : [])].map((cv) => texFor(cv));
-      if (tx.some((t) => !t)) return false;
       tx.forEach((t, unit) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); });
       gl.uniform1f(U.uMix, b ? mix : 0); gl.uniform1f(U.uQuiet, quiet);
       gl.uniform2f(U.uO, ox, oy); gl.uniform1f(U.uRd, rd); gl.uniform1f(U.uH, H);
@@ -170,6 +172,7 @@ export function createFieldGL(canvas) {
       gl.uniform4f(U.uDof, dof ? dof[0] : 0, dof ? dof[1] : 0, dof ? dof[2] : 1, dof ? dof[3] : 0);
       gl.uniform2f(U.uGrey, grey ? grey[0] : 1, grey ? grey[1] : 1);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+      pictured = true;
       return true;
     },
   };

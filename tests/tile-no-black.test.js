@@ -57,11 +57,45 @@ test('a texture the GPU could not take is never drawn: the draw returns false, a
   const frame = (wVer) => ({ W: 100, H: 100, qa: q, qb: null, mix: 0, w, wVer, rect: [0, 0, 100], ox: 50, oy: 50, rd: 40, fade: [44, 128], mid: 0.5, bg: [1, 1, 1] });
   assert.equal(g.draw(frame(1)), true);
   fail = true;
-  assert.equal(g.draw(frame(2)), false, 'the new bitmap did not go: no black frame, the 2D canvas draws');
+  assert.equal(g.draw(frame(2)), false, 'the new bitmap did not go, and the canvas is not showing: the 2D canvas draws');
   fail = false;
   const n = calls.length;
   assert.equal(g.draw(frame(2)), false, 'not sent again at once');
   assert.equal(calls.slice(n).filter((c) => c[0] === 'texSubImage2D').length, 0);
   await new Promise((r) => setTimeout(r, 300));
   assert.equal(g.draw(frame(2)), true, 'sent again after a while, and drawn');
+});
+
+test('showing, a frame whose texture did not go keeps the last picture: no black, and no step down to the 2D canvas', async () => {
+  const { createTissueGL } = await import('../src/ui/tissue-gl.js');
+  let fail = false;
+  const calls = [];
+  const gl = new Proxy({}, { get(_, p) {
+    if (typeof p !== 'string') return undefined;
+    if (/^[A-Z0-9_]+$/.test(p)) return p;
+    if (p === 'getShaderParameter' || p === 'getProgramParameter') return () => true;
+    if (p === 'isContextLost') return () => false;
+    if (p === 'getExtension' || p === 'getParameter') return () => null;
+    if (p === 'getError') return () => (fail ? 'OUT_OF_MEMORY' : 'NO_ERROR');
+    return (...a) => { calls.push([p, ...a]); return {}; };
+  } });
+  const canvas = { width: 0, height: 0, getContext: () => gl, addEventListener() {} };
+  const g = createTissueGL(canvas);
+  const q = { width: 4, height: 4 }, w = { width: 64, height: 64 };
+  const frame = (wVer, W = 100) => ({ W, H: 100, qa: q, qb: null, mix: 0, w, wVer, rect: [0, 0, 100], ox: 50, oy: 50, rd: 40, fade: [44, 128], mid: 0.5, bg: [1, 1, 1], hold: true });
+  assert.equal(g.draw(frame(1)), true);
+  fail = true;
+  const n = calls.length;
+  assert.equal(g.draw(frame(2)), 'held');
+  assert.equal(calls.slice(n).filter((c) => c[0] === 'drawArrays' || c[0] === 'viewport').length, 0, 'the canvas untouched: its last frame stays');
+  assert.equal(canvas.width, 100);
+  assert.equal(g.draw(frame(3, 120)), false, 'at another size there is no picture to keep: the 2D canvas');
+});
+
+test('the GPU canvas taking over leaves the 2D canvas whole under it for a moment (?handoff=0: one frame, as before)', () => {
+  const lz = src('src/ui/lobule-zoom.js');
+  assert.match(lz, /const HANDOFF = !\/\[\?&\]handoff=0\\b\/\.test\(location\.search\), HANDOFF_MS = 160;/);
+  assert.match(lz, /handoffT = setTimeout\(\(\) => \{ handoffT = 0; if \(tissueOnGL\) \{ tissue\.style\.opacity = '0'; free\(tissue\); \} \}, HANDOFF_MS\);/);
+  assert.match(lz, /if \(!\(HANDOFF && \(!tissueOnGL \|\| handoffT\) && !rimDrawn\)\) free\(tissue\);/);
+  assert.match(lz, /hold: tissueOnGL,/);
 });

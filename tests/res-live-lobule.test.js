@@ -109,7 +109,10 @@ test('lobule-zoom.js: the change waits for a still, whole lobule, and its cover 
   assert.match(lz, /function release\(\) \{\n\s*dropWide\(\);\n\s*resCoverEnd\(\);/);
   assert.match(lz, /if \(fade === 0\) \{ resCoverEnd\(\);/);
   // (The layers' own opacity and visibility are set only where they were before.)
-  assert.equal(lz.split('tissue.style.opacity').length - 1, 1);
+  // (both in showTissueGL: the switch between the 2D and the GPU canvas, and the 2D one hidden once the GPU's has taken over, HANDOFF_MS)
+  const show = lz.slice(lz.indexOf('function showTissueGL(on) {'), lz.indexOf('function paint2D() {'));
+  assert.equal(lz.split('tissue.style.opacity').length - 1, 2);
+  assert.equal(show.split('tissue.style.opacity').length - 1, 2);
   assert.equal(lz.split('glCv.style').length - 1, 0);
   assert.equal(lz.split('fx.style').length - 1, 0);
 });

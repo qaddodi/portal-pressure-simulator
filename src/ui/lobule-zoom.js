@@ -27,8 +27,8 @@ import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=50bb9afc3b';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
-import { createFieldGL, TILE_OVER } from './field-gl.js?v=5e76368a8d';
-import { createTissueGL, DIVE_GPU } from './tissue-gl.js?v=427a95415e';
+import { createFieldGL, TILE_OVER } from './field-gl.js?v=56465be481';
+import { createTissueGL, DIVE_GPU } from './tissue-gl.js?v=a3bec707b0';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=624ae21d7d';
 import { createTissueWorker } from './tissue-worker.js?v=d9b45fb202';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
@@ -2365,7 +2365,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       W: fw, H: fh, a: liverTile(ta, cs, dark, bg).cv, b: tb ? liverTile(tb, cs, dark, bg).cv : null,
       qa: q > 0 ? quietTile(ta, tone).cv : null, qb: q > 0 && tb ? quietTile(tb, tone).cv : null, mix: tb ? mix : 0, quiet: q,
       ox: fx0, oy: fy0, rd, fade: f > 0 ? [r0, r1, fq] : null, mid: FADE_MID, bg: tone, mask: d.a < 1 ? [d.ox * dpr, d.oy * dpr, rho] : null,
-      dof: fieldDof(d, rd, Math.hypot(fw, fh)), grey: gk > 0 ? surroundGrade(gk) : null,
+      dof: fieldDof(d, rd, Math.hypot(fw, fh)), grey: gk > 0 ? surroundGrade(gk) : null, hold: fieldG.style.opacity !== '0',
     });
   }
   function liverTile(t, cs, dark, bg) {
@@ -2985,8 +2985,22 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The lobule draws again (its tissue first): a bitmap came in, or the next one can be asked for.
   function wake() { tissueKey = ''; idleDrawn = ''; if (!raf && fade > 0) raf = nextFrame(loop); }
   // Which of the two shows (in the frame it was drawn in, so the picture never goes missing between them).
+  // The GPU's canvas taking over from the 2D one: the 2D canvas, which lies under it, stays whole and showing for HANDOFF_MS before it is
+  // hidden and given back. Safari can show a WebGL canvas's new frame a frame or more after the page's (more so for a canvas just
+  // resized, as when the lobule settles at a new sharpness), and the 2D canvas hidden in that same frame left nothing there: the
+  // hepatocytes and the neighbouring lobules flashed the page's dark colour, black in a dark look (Mohammad, 1 Nov, iPhone). The GPU's
+  // picture is opaque, so the 2D one under it is never seen once it shows. (Not while the dive's rim clears the surround on the GPU:
+  // the 2D picture would show through there.) ?handoff=0: both switched in the one frame, as before.
+  const HANDOFF = !/[?&]handoff=0\b/.test(location.search), HANDOFF_MS = 160;
+  let handoffT = 0;
   function showTissueGL(on) {
     if (on === tissueOnGL) return;
+    clearTimeout(handoffT); handoffT = 0;
+    if (on && HANDOFF && !rimDrawn) {
+      tissueOnGL = true; tissueG.style.opacity = '';
+      handoffT = setTimeout(() => { handoffT = 0; if (tissueOnGL) { tissue.style.opacity = '0'; free(tissue); } }, HANDOFF_MS);
+      return;
+    }
     tissueOnGL = on; tissue.style.opacity = on ? '0' : ''; tissueG.style.opacity = on ? '' : '0';
   }
   // The tissue drawn on the 2D canvas now, for the dive's or the rise's copy (diveCopy), which is made from it.
@@ -3020,13 +3034,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       W: tw, H: th, qa: qa.cv, qb: qb?.cv, mix: tb ? mix : 0, qo: surOld?.cv?.width ? surOld.cv : null, qOld: surOld ? 1 - su : 0,
       w: worldCv, wVer: worldCv.ver || 0, wo: crossfading ? worldOld : null, woVer: worldOld.ver || 0, wMix: crossfading ? xfU(xfT0, xfNow(now)) : 1,
       rect: [sx * dpr, sy * dpr, 2 * B * V.k * dpr], ox, oy, rd, fade: [fIn, fOut], mid: FADE_MID, bg: tone, grey: grey.k > 0 ? surroundGrade(grey.k) : null, live: liveArgs(dark, cs),
-      rim: rimArg(tw, th),
+      rim: rimArg(tw, th), hold: tissueOnGL,
     }));
     if (!ok) return false;
     tissueDrew = true;   // (its canvas holds this frame's picture: pillCopy may read it now)
     rimDrawn = !!rimArg(tw, th); rimKeyGL = rimKey();   // (its canvas holds the dive's rimmed picture: drawn again without it once the zoom lands)
     if (!crossfading && xfT0) { xfT0 = 0; free(worldOld); free(xfCv); tg.sweep(); }   // (faded in: the old picture is given back, its GPU copy too)
-    free(tissue); flatAt = null;   // (the 2D canvas is left empty under it: paint2D draws it again when the dive's copy needs it)
+    // (The 2D canvas is left empty under it: paint2D draws it again when the dive's copy needs it. In the frame the GPU's canvas takes over
+    // from it, though, it stays whole under it for a moment (showTissueGL, HANDOFF_MS).)
+    if (!(HANDOFF && (!tissueOnGL || handoffT) && !rimDrawn)) free(tissue);
+    flatAt = null;
     return true;
   }
   // tg: the GPU drawing to draw with (null: the 2D canvas). True when it drew on the GPU.

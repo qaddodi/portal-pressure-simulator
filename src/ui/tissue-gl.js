@@ -12,7 +12,7 @@
 // tissue is drawn on the 2D canvas as before.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
-import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=5e76368a8d';
+import { TILE_OVER, TEX_SAFE, sendCanvas, SEND_RETRY } from './field-gl.js?v=56465be481';
 import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=624ae21d7d';
 
 const VS = `#version 300 es
@@ -106,8 +106,8 @@ export function createTissueGL(canvas, opts = {}) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-  let lost = false;
-  canvas.addEventListener('webglcontextlost', (e) => { lost = true; texs.clear(); liveTex = null; pic = null; e.preventDefault?.(); });
+  let lost = false, pictured = false;   // (pictured: the canvas holds a frame at its present size, drawn by draw)
+  canvas.addEventListener('webglcontextlost', (e) => { lost = true; pictured = false; texs.clear(); liveTex = null; pic = null; e.preventDefault?.(); });
   let prog = null, U0 = null, failed = false, liveTex = null;   // (liveTex: the lobule's shapes on the GPU, for the shape liveTex.for)
   const COMMON_U = ['uQA', 'uQB', 'uQO', 'uW', 'uWO', 'uMix', 'uQOld', 'uO', 'uRd', 'uH', 'uRect', 'uWMix', 'uFade', 'uMid', 'uBg', 'uGrey', ...(DIVE_GPU ? ['uRim'] : [])];
   const LIVE_U = ['uLC', 'uLB', 'uLI', 'uLBox', 'uLN', 'uLEdge', 'uLCtr', 'uLCen', 'uLSt', 'uLGap', 'uLGap55', 'uLBase', 'uLNut', 'uLZ1', 'uLZ2', 'uLZ3', 'uLPlate', 'uLInk', 'uLZl', 'uLive', 'uLS', 'uLK', 'uLSin', 'uLFib', 'uLKB', 'uLShd', 'uLShade', 'uLHs', 'uLHB', 'uLHN'];   // (the lobule drawn live, lobule-live.js)
@@ -326,22 +326,24 @@ export function createTissueGL(canvas, opts = {}) {
      *  grey: the surround's grade [saturation, opacity] (surroundGrade), null as drawn; live: the lobule drawn by the shader in a share
      *  of the picture, null for none (lobule-live.js): { shape, data (buildLive), share, cu, sj, zones, dark, cen: [x, y, R], col (liveColours) };
      *  rim: the dive's rim [x, y, r solid, r clear] (device px), past which only the lobule's own layer is kept (DIVE_GPU), null for none. */
-    draw({ W, H, qa, qb, mix, qo = null, qOld = 0, w, wVer, wo = null, woVer = 0, wMix = 1, rect, ox, oy, rd, fade, mid, bg, live = null, grey = null, rim = null }) {
+    draw({ W, H, qa, qb, mix, qo = null, qOld = 0, w, wVer, wo = null, woVer = 0, wMix = 1, rect, ox, oy, rd, fade, mid, bg, live = null, grey = null, rim = null, hold = false }) {
       publish();
       if (this.lost) return false;
       // (A tile given back, or a zero-sized canvas, would be sampled as black: the 2D canvas draws this frame instead.)
       if (!qa?.width || (qb && !qb.width)) return false;
-      if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+      // (Every texture first, before the canvas is touched: one the GPU could not take (null) is never sampled, which read opaque black.
+      // With hold (the canvas showing) and the canvas already at this size with a picture, it keeps that picture for the frame: the
+      // last frame stays on screen, untouched, and the send is tried again shortly (field-gl.js SEND_RETRY). Otherwise false: the 2D canvas.)
+      const old = wo?.width && wMix < 1;
+      const tx = [texFor(qa, 0, true), qb ? texFor(qb, 0, true) : texFor(qa, 0, true), qo && qOld > 0 ? texFor(qo, 0, true) : none, w?.width ? texFor(w, wVer, false) : none, old ? texFor(wo, woVer, false) : none];
+      if (tx.some((t) => !t)) return hold && TEX_SAFE && pictured && canvas.width === W && canvas.height === H ? 'held' : false;
+      if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; pictured = false; }
       gl.viewport(0, 0, W, H);
       // (With a share and the live program ready, the program that has the lobule's shapes in it; otherwise the first, which is the
       // bitmap over the surround and nothing else.)
       const isLive = !!(live && live.share > 0 && liveP), U = isLive ? liveP.U : U0;
       gl.useProgram(isLive ? liveP.prog : prog);
       const bind = (unit, tex) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); };
-      // (Every texture first: one the GPU could not take (null), and the 2D canvas draws this frame, never black hepatocytes.)
-      const old = wo?.width && wMix < 1;
-      const tx = [texFor(qa, 0, true), qb ? texFor(qb, 0, true) : texFor(qa, 0, true), qo && qOld > 0 ? texFor(qo, 0, true) : none, w?.width ? texFor(w, wVer, false) : none, old ? texFor(wo, woVer, false) : none];
-      if (tx.some((t) => !t)) return false;
       tx.forEach((t, unit) => bind(unit, t));
       gl.uniform1f(U.uMix, qb ? mix : 0); gl.uniform1f(U.uQOld, qo ? qOld : 0);
       gl.uniform2f(U.uO, ox, oy); gl.uniform1f(U.uRd, rd); gl.uniform1f(U.uH, H);
@@ -373,6 +375,7 @@ export function createTissueGL(canvas, opts = {}) {
       }
       if (isLive) drawLive(W, H, liveSig(W, H, { rim: DIVE_GPU && rim ? rim : null, qa, qb: qb || null, mix: qb ? mix : 0, qo: qo && qOld > 0 ? qo : null, qOld: qo ? qOld : 0, w: w?.width ? w : null, wVer, wo: old ? wo : null, woVer: old ? woVer : 0, wMix: old ? wMix : 1, rect, rd, fade, mid, bg, grey }, live), [ox, oy, rect[0], rect[1]]);
       else { dropKept(); gl.drawArrays(gl.TRIANGLES, 0, 3); }
+      pictured = true;
       return true;
     },
   };

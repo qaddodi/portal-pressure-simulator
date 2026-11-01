@@ -58,7 +58,7 @@ test('both shaders grade the surround before the lobule\'s bitmap and the fade i
   for (const [src, looked] of [[fgl, /'uGrey'\]\.map/], [tgl, /const COMMON_U = \[[^\]]*'uGrey', \.\.\.\(DIVE_GPU \? \['uRim'\] : \[\]\)\];/]]) {
     assert.match(src, looked, 'the uniform is looked up');
     assert.match(src, /gl\.uniform2f\(U\.uGrey, grey \? grey\[0\] : 1, grey \? grey\[1\] : 1\);/, 'and set each frame (1, 1 when nothing greys)');
-    assert.match(src, /grey = null(, rim = null)? \}\) \{/);
+    assert.match(src, /grey = null(, rim = null)?(, hold = false)? \}\) \{/);
   }
 });
 
