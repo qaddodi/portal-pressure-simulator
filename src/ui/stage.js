@@ -44,6 +44,7 @@ import { cropToGrid } from './organs-gl.js?v=e536a90598';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=e08cf3a692';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
+import { nameSpots } from './organ-names.js?v=83dcd84fe3';
 import { createLabelGL } from './label-gl.js?v=020bc162b7';
 import { createGlassGL } from './glass-gl.js?v=8a4c8e11ef';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=95816cb9fb';
@@ -10013,14 +10014,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
         }
       }
-      // Organ names: fixed inside their organ, dropped where a label needs the room.
+      // Organ names: fixed in their organ, dropped where a label needs the room. Where a drawn vessel runs under the spot (STOMACH under the
+      // splenic vein, the K of KIDNEY on the colon's vein, iPad portrait Ascites 5), the name takes the nearest other spot of its own organ
+      // that no vessel touches (organ-names.js), and only with none left stays where it was; the vessels never move.
       if (st.layers.labels && t < 0.3) {
         for (const [txt, x, y] of ORGAN_LABELS) {
           const [ax, ay] = worldToLocal(x, y);
           const up = txt.toUpperCase();
           const it = { key: 'o:' + txt, cls: 'organ', lines: [[{ t: up, size: 9.5, weight: 600, cls: 'lb-organ', track: 0.06 }]], align: 'middle', padX: 2, padY: 1, ax, ay };
           it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
-          place(it, ['C'], 0, false);
+          const spot = { gap: 0, leader: false, clear: true };
+          placeMulti(it, ['C'], [spot, ...nameSpots(txt).map(([sx, sy]) => { const [bx, by] = worldToLocal(sx, sy); return { ...spot, at: [bx - ax, by - ay] }; }), { gap: 0, leader: false }]);
         }
       }
     } else {

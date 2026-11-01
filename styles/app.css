@@ -6292,6 +6292,10 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    takes its own row above (presenter.js fitKey). */
 .pz.stack:not(.fk-up) .pz-fk { bottom: calc(21px + var(--pz-sb)); min-height: 38px; padding-block: 0; align-content: center; justify-content: center; line-height: 1.2; border-radius: var(--r-sheet); }
 .pz.stack.tab .pz-fk { left: calc(15% + 13px); }
+/* (An upright tablet's pill stands 29 px up, 13 px inside the card's foot, so its key, the pill's twin, stands level with it: at the phone's 21 px it
+   sat 8 px below the pill and 5 px from the card's edge, against it (iPad portrait, Varices 4, 1 Nov). Kept on its own row above the pill, it rises with it.) */
+.pz.stack.tab:not(.fk-up) .pz-fk { bottom: calc(29px + var(--pz-sb)); }
+.pz.stack.tab.fk-up .pz-fk { bottom: calc(73px + var(--pz-sb)); }
 /* Too wide for the room beside the nav pill: its own row just above the pill's row, never under it (presenter.js fitKey), one line where
    it fits, else wrapped to the card's width (never shrunk: shrunk, its words had gone under 12 px). */
 .pz.stack.fk-up .pz-fk { bottom: calc(65px + var(--pz-sb)); }
