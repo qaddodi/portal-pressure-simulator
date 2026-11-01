@@ -126,6 +126,16 @@ export function createFieldGL(canvas) {
   // A tile's texture, made once per tile canvas (a new canvas for each tissue state and tone) and kept until that canvas is
   // given back (width 0: forget, sweep).
   const texs = new Map(), copier = createTileCopier(gl);
+  // (A 1 px clear texture, made when first wanted and again after a lost context: complete (no mipmap filter), so it reads clear.)
+  let clear = null;
+  function clearTex() {
+    if (clear && gl.isTexture(clear)) return clear;
+    clear = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, clear);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    return clear;
+  }
   function texFor(cv) {
     let t = texs.get(cv);
     if (t && t.w === cv.width && t.h === cv.height && !t.bad) return t.tex;
@@ -168,10 +178,14 @@ export function createFieldGL(canvas) {
       // (A tile given back, or a zero-sized canvas, would be sampled as black: the 2D canvas draws this frame instead.)
       if (!a?.width || (b && !b.width) || (quiet > 0 && (!qa?.width || (qb && !qb.width)))) return false;
       // (Every texture first, before the canvas is touched: one the GPU could not take is never sampled (it read opaque black). Showing
-      // (hold) at this size with a picture, the field keeps its last frame for this one; otherwise the 2D canvas draws it.)
+      // (hold) at this size with a picture, the field keeps its last frame for this one.)
       const tx = [a, b || a, ...(quiet > 0 ? [qa, qb || qa] : [])].map((cv) => texFor(cv));
       copier.drop();   // (a tile kept on the GPU for its copies, tile-gl.js: both are made, so it goes)
-      if (tx.some((t) => !t)) return hold && TEX_SAFE && pictured && canvas.width === W && canvas.height === H ? 'held' : false;
+      if (tx.some((t) => !t)) {
+        if (hold && pictured && canvas.width === W && canvas.height === H) return 'held';
+        // (No picture to keep: still drawn on the GPU, with the 1 px clear texture for what did not go: laid over the page's colour, never black.)
+        for (let i = 0; i < tx.length; i++) if (!tx[i]) tx[i] = clearTex();
+      }
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; pictured = false; }
       gl.viewport(0, 0, W, H);
       gl.useProgram(prog);

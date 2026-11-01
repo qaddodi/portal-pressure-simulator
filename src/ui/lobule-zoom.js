@@ -27,8 +27,8 @@ import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=50bb9afc3b';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
-import { createFieldGL, TILE_OVER } from './field-gl.js?v=d8037bed4a';
-import { createTissueGL, DIVE_GPU } from './tissue-gl.js?v=4948854ed3';
+import { createFieldGL, TILE_OVER } from './field-gl.js?v=e9914773cd';
+import { createTissueGL, DIVE_GPU } from './tissue-gl.js?v=9c2ff16bf9';
 import { TILE_GPU, tileCopy, isTileCopy } from './tile-gl.js?v=88c03cf91f';
 import { FX_GPU, createFxGL } from './fx-gl.js?v=f6896ed5e0';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=624ae21d7d';
@@ -1843,12 +1843,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const cs = styles();   // (the stage's kept copy of its styles, read again when a class, theme or system setting changes)
     const g = ensureGL();
     // (On the GPU for the screen; on the 2D canvas while the dive or the rise is staged (keep2D) or scaled, whose copies read it.
-    // With DIVE_GPU the dive and the rise stay on the GPU too, their rim drawn by the shader: only the sinusoid's zoom keeps the 2D canvas.)
-    showTissueGL(paintTissue(W, H, dpr, dark, cs, !g, !keep2D && (!scaled || (DIVE_GPU && sinU === 0)) && g ? tissueGLOn() : null));
+    // With DIVE_GPU the dive and the rise stay on the GPU too, their rim drawn by the shader. With SIN_GPU the zoom into and out of a
+    // sinusoid does as well: the GPU canvas, drawn once, is turned and grown with the lobule by the compositor as the dive's is, so
+    // the tissue never steps from the GPU to the 2D canvas and back at either end of it, the moment it showed empty (black in a dark
+    // look) on the iPhone (Mohammad, 1 Nov, Sites and causes 7). ?singpu=0: the 2D canvas through that zoom, as before.)
+    const onGPU = !keep2D && (!scaled || (DIVE_GPU && (sinU === 0 || SIN_GPU)));
+    showTissueGL(paintTissue(W, H, dpr, dark, cs, !g, onGPU && g ? tissueGLOn() : null));
     snapNext = false;
     framePart('lz.layoutLabels', layoutLabels);
     if (g && !g.lost) drawGL(W, H, dpr, dark, cs, dt);
-    if (!fxOnGPU(W, H, dpr, dark, dt, g && !g.lost && !keep2D && (!scaled || (DIVE_GPU && sinU === 0)))) paintFx(W, H, dpr, dark, dt, !g || g.lost);
+    if (!fxOnGPU(W, H, dpr, dark, dt, g && !g.lost && onGPU)) paintFx(W, H, dpr, dark, dt, !g || g.lost);
     pillCopy(W, H);
     return true;
   }
@@ -3029,6 +3033,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // picture is opaque, so the 2D one under it is never seen once it shows. (Not while the dive's rim clears the surround on the GPU:
   // the 2D picture would show through there.) ?handoff=0: both switched in the one frame, as before.
   const HANDOFF = !/[?&]handoff=0\b/.test(location.search), HANDOFF_MS = 160;
+  const SIN_GPU = !/[?&]singpu=0\b/.test(location.search);
   let handoffT = 0;
   function showTissueGL(on) {
     if (on === tissueOnGL) return;

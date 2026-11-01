@@ -99,7 +99,7 @@ test('every sampler has a texture unit of its own, none the scratch unit, none p
     for (const u of vals) assert.ok(Number.isInteger(u) && u >= 0 && u < 16 && u !== scratch, `${fn}: unit ${u}`);
   }
   // The units the live program reads are bound by the draw: 0 to 4 by bind(…), the lobule's five by liveFor (make(LIVE_UNIT + n)).
-  const tx = gl.match(/const tx = \[([^\n]*)\];\n\s+if \(tx\.some\(\(t\) => !t\)\) return [^\n]*;\n[\s\S]*?tx\.forEach\(\(t, unit\) => bind\(unit, t\)\);/);
+  const tx = gl.match(/const tx = \[([^\n]*)\];\n\s+if \(tx\.some\(\(t\) => !t\)\) [^\n]*\n[\s\S]*?tx\.forEach\(\(t, unit\) => bind\(unit, t\)\);/);
   assert.ok(tx, 'the draw binds its list of textures to units 0 on');
   assert.equal(tx[1].split(/, (?=texFor|qb|qo|w\?|old)/).length, 5, 'units 0 to 4 are bound each draw');
   for (const n of ['', ' + 1', ' + 2', ' + 3', ' + 4']) assert.ok(gl.includes(`make(LIVE_UNIT${n},`), `LIVE_UNIT${n} is made`);

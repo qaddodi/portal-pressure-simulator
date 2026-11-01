@@ -12,7 +12,7 @@
 // tissue is drawn on the 2D canvas as before.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=d90ea8acf6';
-import { TILE_OVER, TEX_SAFE, sendCanvas, SEND_RETRY } from './field-gl.js?v=d8037bed4a';
+import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=e9914773cd';
 import { isTileCopy, createTileCopier } from './tile-gl.js?v=88c03cf91f';
 import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=624ae21d7d';
 
@@ -345,10 +345,15 @@ export function createTissueGL(canvas, opts = {}) {
       if (!qa?.width || (qb && !qb.width)) return false;
       // (Every texture first, before the canvas is touched: one the GPU could not take (null) is never sampled, which read opaque black.
       // With hold (the canvas showing) and the canvas already at this size with a picture, it keeps that picture for the frame: the
-      // last frame stays on screen, untouched, and the send is tried again shortly (field-gl.js SEND_RETRY). Otherwise false: the 2D canvas.)
+      // last frame stays on screen, untouched, and the send is tried again shortly (field-gl.js SEND_RETRY). Otherwise drawn on the GPU without it, below.)
       const old = wo?.width && wMix < 1;
       const tx = [texFor(qa, 0, true), qb ? texFor(qb, 0, true) : texFor(qa, 0, true), qo && qOld > 0 ? texFor(qo, 0, true) : none, w?.width ? texFor(w, wVer, false) : none, old ? texFor(wo, woVer, false) : none];
-      if (tx.some((t) => !t)) return hold && TEX_SAFE && pictured && canvas.width === W && canvas.height === H ? 'held' : false;
+      if (tx.some((t) => !t)) {
+        if (hold && pictured && canvas.width === W && canvas.height === H) return 'held';
+        // (No picture to keep: still drawn on the GPU, never stepped down to the 2D canvas. What did not go is the 1 px clear texture: a tile
+        // laid over the page's colour by its alpha (TILE_OVER) shows the page's colour, a bitmap shows the surround under it, never black.)
+        for (let i = 0; i < tx.length; i++) if (!tx[i]) tx[i] = none;
+      }
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; pictured = false; }
       gl.viewport(0, 0, W, H);
       // (With a share and the live program ready, the program that has the lobule's shapes in it; otherwise the first, which is the

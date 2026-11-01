@@ -29,7 +29,8 @@ test('a sweep only deletes the textures of canvases given back (width 0) or not 
   // (Every draw looks a texture up by a canvas with pixels, so one swept is never sampled: an empty canvas binds the 1 px clear one.)
   assert.match(gl, /w\?\.width \? texFor\(w, wVer, false\) : none,/);
   // (and a texture the GPU could not take (null) is never bound: the 2D canvas draws that frame)
-  assert.match(gl, /if \(tx\.some\(\(t\) => !t\)\) return hold && TEX_SAFE && pictured && canvas\.width === W && canvas\.height === H \? 'held' : false;/);
+  assert.match(gl, /if \(tx\.some\(\(t\) => !t\)\) \{\n\s+if \(hold && pictured && canvas\.width === W && canvas\.height === H\) return 'held';/);
+  assert.match(gl, /for \(let i = 0; i < tx\.length; i\+\+\) if \(!tx\[i\]\) tx\[i\] = none;/, 'never sampled without a texture: the clear one in its place');
   assert.match(gl, /tx\.forEach\(\(t, unit\) => bind\(unit, t\)\);/);
   assert.match(gl, /const old = wo\?\.width && wMix < 1;/);
 });

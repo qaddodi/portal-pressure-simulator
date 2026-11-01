@@ -57,10 +57,10 @@ test('a texture the GPU could not take is never drawn: the draw returns false, a
   const frame = (wVer) => ({ W: 100, H: 100, qa: q, qb: null, mix: 0, w, wVer, rect: [0, 0, 100], ox: 50, oy: 50, rd: 40, fade: [44, 128], mid: 0.5, bg: [1, 1, 1] });
   assert.equal(g.draw(frame(1)), true);
   fail = true;
-  assert.equal(g.draw(frame(2)), false, 'the new bitmap did not go, and the canvas is not showing: the 2D canvas draws');
+  assert.equal(g.draw(frame(2)), true, 'the new bitmap did not go, the canvas not showing: still drawn on the GPU (the clear texture in its place), never the 2D canvas');
   fail = false;
   const n = calls.length;
-  assert.equal(g.draw(frame(2)), false, 'not sent again at once');
+  assert.equal(g.draw(frame(2)), true, 'drawn on the GPU without it, not sent again at once');
   assert.equal(calls.slice(n).filter((c) => c[0] === 'texSubImage2D').length, 0);
   await new Promise((r) => setTimeout(r, 300));
   assert.equal(g.draw(frame(2)), true, 'sent again after a while, and drawn');
@@ -89,7 +89,7 @@ test('showing, a frame whose texture did not go keeps the last picture: no black
   assert.equal(g.draw(frame(2)), 'held');
   assert.equal(calls.slice(n).filter((c) => c[0] === 'drawArrays' || c[0] === 'viewport').length, 0, 'the canvas untouched: its last frame stays');
   assert.equal(canvas.width, 100);
-  assert.equal(g.draw(frame(3, 120)), false, 'at another size there is no picture to keep: the 2D canvas');
+  assert.equal(g.draw(frame(3, 120)), true, 'at another size there is no picture to keep: drawn on the GPU without the texture, not on the 2D canvas');
 });
 
 test('the GPU canvas taking over leaves the 2D canvas whole under it for a moment (?handoff=0: one frame, as before)', () => {
@@ -98,4 +98,11 @@ test('the GPU canvas taking over leaves the 2D canvas whole under it for a momen
   assert.match(lz, /handoffT = setTimeout\(\(\) => \{ handoffT = 0; if \(tissueOnGL\) \{ tissue\.style\.opacity = '0'; free\(tissue\); \} \}, HANDOFF_MS\);/);
   assert.match(lz, /if \(!\(HANDOFF && \(!tissueOnGL \|\| handoffT\) && !rimDrawn\)\) free\(tissue\);/);
   assert.match(lz, /hold: tissueOnGL,/);
+});
+
+test('the zoom into and out of a sinusoid keeps the tissue on the GPU (?singpu=0: the 2D canvas, as before)', () => {
+  const lz = src('src/ui/lobule-zoom.js');
+  assert.match(lz, /const SIN_GPU = !\/\[\?&\]singpu=0\\b\/\.test\(location\.search\);/);
+  assert.match(lz, /const onGPU = !keep2D && \(!scaled \|\| \(DIVE_GPU && \(sinU === 0 \|\| SIN_GPU\)\)\);\n\s+showTissueGL\(paintTissue\(W, H, dpr, dark, cs, !g, onGPU && g \? tissueGLOn\(\) : null\)\);/);
+  assert.match(lz, /fxOnGPU\(W, H, dpr, dark, dt, g && !g\.lost && onGPU\)/);
 });

@@ -56,7 +56,8 @@ test('?tilegpu=0 and ?fxgpu=0 put the old paths back whole', () => {
 });
 
 test('the overlay is the GPU\'s for the screen and through a GPU dive; a 2D-staged dive keeps the 2D overlay', () => {
-  assert.match(lz, /if \(!fxOnGPU\(W, H, dpr, dark, dt, g && !g\.lost && !keep2D && \(!scaled \|\| \(DIVE_GPU && sinU === 0\)\)\)\) paintFx\(W, H, dpr, dark, dt, !g \|\| g\.lost\);/, 'scaled with the tissue\'s GPU canvas through the dive (DIVE_GPU), as it is');
+  assert.match(lz, /const onGPU = !keep2D && \(!scaled \|\| \(DIVE_GPU && \(sinU === 0 \|\| SIN_GPU\)\)\);/);
+  assert.match(lz, /if \(!fxOnGPU\(W, H, dpr, dark, dt, g && !g\.lost && onGPU\)\) paintFx\(W, H, dpr, dark, dt, !g \|\| g\.lost\);/, 'scaled with the tissue\'s GPU canvas through the dive (DIVE_GPU) and the sinusoid\'s zoom (SIN_GPU), as it is');
   assert.match(lz, /\(fxGLShown \? true : probe\(fx\)\)/, 'a wide copy is kept when the overlay is the GPU\'s');
   assert.match(lz, /const fxG = h\('canvas', \{ class: 'lz-canvas lz-fx lz-fx-gl', 'aria-hidden': 'true', style: \{ opacity: '0', pointerEvents: 'none' \} \}\);/);
   assert.match(fgl, /failIfMajorPerformanceCaveat: true/, 'a software renderer keeps the 2D overlay');

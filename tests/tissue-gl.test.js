@@ -32,7 +32,7 @@ test("the shader's fade is fieldFade's gradient (fadeAt)", () => {
 });
 
 test('the screen draws on the GPU; the dive, the rise and their copies keep the 2D canvas', () => {
-  assert.match(fn('function draw(dt) {'), /showTissueGL\(paintTissue\(W, H, dpr, dark, cs, !g, !keep2D && \(!scaled \|\| \(DIVE_GPU && sinU === 0\)\) && g \? tissueGLOn\(\) : null\)\);/);
+  assert.match(fn('function draw(dt) {'), /const onGPU = !keep2D && \(!scaled \|\| \(DIVE_GPU && \(sinU === 0 \|\| SIN_GPU\)\)\);\n\s+showTissueGL\(paintTissue\(W, H, dpr, dark, cs, !g, onGPU && g \? tissueGLOn\(\) : null\)\);/);
   assert.match(lz, /if \(gpu && tissueOnGPU\(tg, tw, th, dpr, dark, cs, bg, now\)\) \{ keyGPU = true; if \(!held\) spareSoon\(\); return true; \}/);
   assert.match(lz, /tissue\.style\.visibility = tissueG\.style\.visibility = show === tissue \? '' : 'hidden';/);
   assert.match(lz, /for \(const e of \[tissue, tissueG, diveCv, glCv, fx, fxG, leaders, labels\]\) \{/, 'zoomed with the others through the dive');
