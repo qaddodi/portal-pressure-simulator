@@ -22,11 +22,11 @@ test('the shaders lay the neighbour tiles over the page, so a blank tile is neve
 
 test('a blank tile is not kept: it is drawn again, at most every TILE_RETRY ms', () => {
   const lz = src('src/ui/lobule-zoom.js');
-  assert.match(lz, /function tileBlank\(cv, c\) \{\n\s+if \(!TILE_OVER\) return false;/);
-  assert.match(lz, /const blank = tileBlank\(cv, c\);\n\s+Object\.assign\(t, \{ tw, th, TW, TH, cv, pats: new WeakMap\(\), blank,/);
+  // (Since 1 Nov a tile is a picture recorded for the GPU, never a canvas the browser can leave blank; the retry stays for any marked so.)
+  assert.match(lz, /const TILE_RETRY = 250;\n\s+const tileDue = \(q\) => !!q && !!q\.blank && performance\.now\(\) >= q\.blankAt \+ TILE_RETRY;/);
+  assert.match(lz, /cv: gpuPicture\(rec, \+\+texVer\), blank: false, blankAt: 0 \}\);/);
   assert.match(lz, /if \(t\.cv && tileDue\(t\)\) \{ free\(t\.cv\); t\.cv = null;/);
-  assert.match(lz, /if \(t\.quiet\?\.k === k && !tileDue\(t\.quiet\)\) return t\.quiet;/);
-  assert.match(lz, /\|\| tileDue\(t\.liverQ\)\) \{/);
+  assert.match(lz, /const blank = !t\.cv \|\| !t\.cv\.width \|\| \(TILE_OVER && t\.blank\);/, 'a copy of a missing tile is clear, never black');
 });
 
 // Mohammad, 1 Nov (iPhone): once the lobule settled, the hepatocytes and the neighbours went black for a moment. A texture the GPU

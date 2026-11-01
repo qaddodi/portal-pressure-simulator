@@ -79,14 +79,12 @@ test('G22: the neighbouring lobules are blurred once per tile, seamlessly, with 
   assert.equal(NEIGHBOUR_FLAT, 0.3);
   assert.equal(neighbourBlur(12), 0);
   assert.ok(neighbourBlur(192) > 3 && neighbourBlur(192) < 5);
-  // Built into the cached quiet tile (the lobule view's surround and the dive's quieting), never per frame.
-  assert.match(lz, /const src = !c \|\| \(TILE_OVER && t\.blank\) \? null : t\.cv;/);
-  assert.match(lz, /blurTile\(c, src, t\.tw, t\.th, neighbourBlur\(t\.R\)\);\n\s+fieldQuiet\(c, bg, 1, t\.tw, t\.th\);\n\s+c\.fillStyle = css\(bg, NEIGHBOUR_FLAT\);/);
-  assert.match(lz, /img\.data\.set\(blurWrapped\(img\.data, w, h, r\)\);/, 'the same smooth blur on every browser');
-  assert.doesNotMatch(lz, /c\.filter = `blur/, 'no canvas filter (some Safaris lack it)');
-  assert.doesNotMatch(lz, /\.filter = `blur[^\n]*\n[^\n]*requestAnimationFrame/);
-  // The quieting's saturation fill runs (it had slipped into a comment).
-  assert.match(lz, /c\.globalCompositeOperation = 'saturation'; c\.fillStyle = `rgba\(128,128,128,\$\{\(0\.45 \* q\)\.toFixed\(3\)\}\)`; c\.fillRect\(0, 0, w, h\);/);
+  // Built into the cached quiet copy (the lobule view's surround and the dive's quieting), never per frame: made once on the GPU
+  // (tile-gl.js, a wrapped Gaussian, the same on every browser) since 1 Nov, with no blur in script and no canvas filter.
+  assert.match(lz, /const quietCopy = \(t, bg\) => gpuCopy\(t, 'quietG', bg\.join\(','\), \{ blur: neighbourBlur\(t\.R\), sat: 0\.45, tone: bg, toneA: 0\.42, flat: NEIGHBOUR_FLAT \}\);/);
+  assert.match(lz, /if \(q && q\.k === k && q\.cv\.src === t\.cv && q\.cv\.width\) return q;/, 'kept while the tile and the tone are the same');
+  assert.doesNotMatch(lz, /blurWrapped|getImageData/, 'no blur in script');
+  assert.doesNotMatch(lz, /\.filter = `blur/, 'no canvas filter (some Safaris lack it)');
 });
 
 // A w × h RGBA tile from a function of (x, y) giving a grey level.

@@ -9,17 +9,15 @@
 // page's colour at 0.42; NEIGHBOUR_FLAT), wrapping at the repeat, so the copy is the same picture, seamless where the pattern tiles.
 // The copy never exists as a canvas: lobule-zoom.js hands the GPU contexts a small description of it (tileCopy) in place of a canvas,
 // and each context makes its texture from that the first time it is drawn, keeping it until the description is given back (width 0),
-// as for a canvas. The 2D canvas, which draws only where the GPU cannot, still makes its own canvases as before, and only when it does.
-//
-// ?tilegpu=0: the copies are made on the main thread and sent from their canvases, as before.
+// as for a canvas. The tile itself is a picture recorded for the GPU (lobule-zoom.js drawTile, paint-gl.js), painted into the copier's
+// texture: no 2D canvas anywhere (1 Nov 2026). (No 2D copies since then.)
 
 import { prestart, linkProgram } from './gl-compile.js?v=e48e05cdb3';
-
-export const TILE_GPU = !(typeof location !== 'undefined' && /[?&]tilegpu=0\b/.test(location.search || ''));
+import { isGpuPicture, paintGL } from './paint-gl.js?v=3fb6599f48';
 
 /** A copy of tile canvas src made on the GPU. look: { blur (Gaussian sigma, tile px; 0 for none), sat (the grey blend's share),
  *  tone ([r, g, b] 0–1, the colour laid over it), toneA (its opacity), flat (a second layer of the same colour, 0 for none) }.
- *  w, h: the tile's size. blank: the tile had no picture (lobule-zoom.js tileBlank), so the copy is clear, as the canvas copy was. It has the tile's size, so
+ *  w, h: the tile's size. blank: the tile had no picture, so the copy is clear. It has the tile's size, so
  *  it stands where a canvas did; free() (width 0) gives its textures back. */
 export function tileCopy(src, w, h, look, blank = false) {
   return { width: w, height: h, src, look, blank, tileCopy: true };
@@ -100,22 +98,19 @@ export function createTileCopier(gl) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
     return t;
   };
-  // The tile on the GPU (as drawn: not premultiplied, as the contexts send their tiles), kept for the next copy of it.
+  // The tile on the GPU, kept for the next copy of it: a picture recorded for the GPU (paint-gl.js), painted straight into its texture.
   function rawFor(src) {
     if (raw && raw.src === src && raw.w === src.width && raw.h === src.height) return raw.tex;
     if (raw) { gl.deleteTexture(raw.tex); raw = null; }
-    const tex = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-    // (Made clear first and the canvas laid into it, and the GPU asked whether it went, as field-gl.js sendCanvas does: never black.)
-    for (let i = 0; i < 8 && gl.getError() !== gl.NO_ERROR; i++);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, src.width, src.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, src);
-    const sent = gl.getError() === gl.NO_ERROR;
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    if (!sent) { gl.deleteTexture(tex); return null; }
-    raw = { src, w: src.width, h: src.height, tex };
-    return tex;
+    if (isGpuPicture(src)) {
+      const tex = paintGL(gl).paint(src.rec, { mip: false });
+      if (!tex) return null;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      raw = { src, w: src.width, h: src.height, tex };
+      return tex;
+    }
+    return null;   // (every tile is a recorded picture: no canvas is sent)
   }
   // One pass from texture `from` into texture `to` (w × h).
   function pass(fbo, from, to, w, h, dir, sigma, n, look) {

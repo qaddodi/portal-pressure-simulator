@@ -128,7 +128,10 @@ test('lobule handoff: the 2D tissue stays under the GPU picture as it takes over
   assert.match(lz, /if \(on && HANDOFF && !rimDrawn\) \{\n\s*tissueOnGL = true; tissueG\.style\.opacity = '';\n\s*handoffT = setTimeout\(\(\) => \{ handoffT = 0; if \(tissueOnGL\) \{ tissue\.style\.opacity = '0'; free\(tissue\); \} \}, HANDOFF_MS\);/);
   assert.match(lz, /if \(!\(HANDOFF && \(!tissueOnGL \|\| handoffT\) && !rimDrawn\)\) free\(tissue\);/);
   // (Field: with the GPU there no 2D field is ever drawn; a frame the GPU cannot draw keeps its last GPU frame, or waits for the first.)
-  assert.match(lz, /if \(g && !FIELD_2D\) \{\n\s*fieldHide\(field\);\n\s*fieldOp = Math\.min\(1, d\.a \* 1\.25\);\n\s*if \(fieldG\.width\) fieldG\.style\.opacity = fieldOp\.toFixed\(3\);\n\s*return;\n\s*\}/);
+  // (Since 1 Nov there is no 2D field at all: the GPU's frame, its last one, or none.)
+  assert.match(lz, /const drew = g \? paintFieldGL\(g, d, W, H, dpr, cs, dark, bg\) : false;\n\s*fieldHide\(field\);\n\s*fieldOp = Math\.min\(1, d\.a \* 1\.25\);/);
+  assert.match(lz, /if \(drew \|\| fieldG\.width\) fieldG\.style\.opacity = fieldOp\.toFixed\(3\);\n\s*\}/);
+  assert.doesNotMatch(lz, /FIELD_2D|field2d/);
   // (A texture the GPU could not take keeps the last frame where one is showing: tissue and field.)
   // (And with no frame to keep, still drawn on the GPU with the clear texture in its place, never the 2D canvas.)
   assert.match(src('src/ui/field-gl.js'), /if \(hold && pictured && canvas\.width === W && canvas\.height === H\) return 'held';/);

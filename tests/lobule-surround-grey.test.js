@@ -62,11 +62,11 @@ test('both shaders grade the surround before the lobule\'s bitmap and the fade i
   }
 });
 
-test('every place the surround is drawn takes the grade: the field on the GPU and on the 2D canvas, the tissue on the GPU', () => {
+test('every place the surround is drawn takes the grade: the field and the tissue, both on the GPU', () => {
   assert.match(fn('function paintFieldGL('), /gk = greyNow\(\);[\s\S]*grey: gk > 0 \? surroundGrade\(gk\) : null,/);
-  const pf = fn('function paintField(d) {');
-  assert.match(pf, /const gk = greyNow\(\);\n\s+if \(gk > 0\) fieldGrey\(c, shadeOf\(bg, dark\), surroundGrade\(gk\), field\.width, field\.height\);\n\s+if \(fadeWhole\) c\.restore\(\);/, '2D field: inside its clip, before the fade');
-  assert.ok(pf.indexOf('fieldGrey(') < pf.indexOf('fieldFade(c,'), 'the fade into the page comes after the grey, as in the shader');
+  // (No 2D field since 1 Nov: paintField hands every frame to the GPU.)
+  assert.match(fn('function paintField(d) {'), /const drew = g \? paintFieldGL\(g, d, W, H, dpr, cs, dark, bg\) : false;/);
+  assert.doesNotMatch(lz, /function fieldGrey\(|fieldGrey\(c,/);
   assert.match(fn('function tissueOnGPU('), /bg: tone, grey: grey\.k > 0 \? surroundGrade\(grey\.k\) : null,/);
   const pt = fn('function paintTissue(W, H, dpr, dark, cs, flatVessels, tg = null) {');
   assert.match(pt, /gk = greyNow\(now\)/);
@@ -76,10 +76,10 @@ test('every place the surround is drawn takes the grade: the field on the GPU an
   assert.doesNotMatch(lz, /function paint2D\(|diveCopy\(/);
 });
 
-test('the grey is drawn as the 2D passes can: a saturation blend, then the page\'s colour over it', () => {
-  const fg = fn('function fieldGrey(c, bg, [sat, dim], w, h) {');
-  assert.match(fg, /c\.globalCompositeOperation = 'saturation'; c\.fillStyle = `rgba\(128,128,128,\$\{\(1 - sat\)\.toFixed\(3\)\}\)`; c\.fillRect\(0, 0, w, h\); \} {3}\/\/ colour-exempt/);
-  assert.match(fg, /c\.globalCompositeOperation = 'source-over';\n\s+if \(dim < 1\) \{ c\.fillStyle = css\(bg, 1 - dim\); c\.fillRect\(0, 0, w, h\); \}/);
+test('the grey is the shaders\' alone: toward the luma, then toward the page (the 2D passes are gone, 1 Nov)', () => {
+  const fgl = read('../src/ui/field-gl.js');
+  assert.match(fgl, /c = mix\(uBg, mix\(vec3\(dot\(c, vec3\(0\.299, 0\.587, 0\.114\)\)\), c, uGrey\.x\), uGrey\.y\);/);
+  assert.doesNotMatch(lz, /globalCompositeOperation = 'saturation'/);
 });
 
 test('it eases over the lens crossfade, there at once where nothing of the surround is seen, and keeps the loop going while it moves', () => {

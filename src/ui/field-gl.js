@@ -12,7 +12,7 @@
 // field is drawn on the 2D canvas as before.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=e48e05cdb3';
-import { isTileCopy, createTileCopier } from './tile-gl.js?v=65ea6bb117';
+import { isTileCopy, createTileCopier } from './tile-gl.js?v=f3af2b699f';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -23,7 +23,7 @@ void main() { gl_Position = vec4(p, 0.0, 1.0); }`;
 // (A tile is opaque everywhere it is drawn, so laying it over the page's colour by its own alpha changes nothing. But a tile canvas the
 // browser could not give memory to (iPhone Safari, at the peak of the way out of a zoomed-in lobule, with the wide copy still held) is
 // transparent, and its rgb, read alone, is 0: the neighbouring lobules flashed solid black (Mohammad, 1 Nov). Laid over the page, such a
-// tile shows the page's colour for the frame or two until it is drawn again (lobule-zoom.js tileBlank). ?tileover=0: the rgb alone, as before.)
+// tile shows the page's colour for the frame or two until it is drawn again (lobule-zoom.js tileDue). ?tileover=0: the rgb alone, as before.)
 export const TILE_OVER = !(typeof location !== 'undefined' && /[?&]tileover=0\b/.test(location.search || ''));
 const R = (over, s) => (over ? `over(texture(${s}, uv, bias))` : `texture(${s}, uv, bias).rgb`);
 // A canvas sent to the bound texture, level 0. A canvas the browser had no memory for, or a send the GPU had no memory for, left the
@@ -80,7 +80,7 @@ void main() {
 
 export function createFieldGL(canvas) {
   let gl = null;
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
+  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: false }); } catch { gl = null; }
   if (!gl) return null;
   // (lost: the GPU does not draw the field, from the loss until the rebuilt program is published.)
   let pictured = false;   // (the canvas holds a frame at its present size)

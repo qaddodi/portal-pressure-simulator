@@ -25,12 +25,12 @@ import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=b9ae791d1a';
-import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
+import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
-import { createFieldGL, TILE_OVER } from './field-gl.js?v=d1fb535a12';
-import { createTissueGL } from './tissue-gl.js?v=e31e6cf708';
-import { TILE_GPU, tileCopy } from './tile-gl.js?v=65ea6bb117';
-import { FX_GPU, createFxGL } from './fx-gl.js?v=63f5590264';
+import { createFieldGL, TILE_OVER } from './field-gl.js?v=f9e73234b6';
+import { createTissueGL } from './tissue-gl.js?v=41e78c110d';
+import { tileCopy } from './tile-gl.js?v=f3af2b699f';
+import { FX_GPU, createFxGL } from './fx-gl.js?v=6cd87e644d';
 import { WIDE_GL, createWideGL } from './wide-gl.js?v=b0622c784c';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=f100c25e77';
 import { recordPaint, gpuPicture } from './paint-gl.js?v=3fb6599f48';
@@ -2086,12 +2086,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const surroundSeen = () => !unseen() || fieldOp > 0.002;
   const greyNow = (now = performance.now()) => greyStep(grey, isGreyLens(lensModeOf(store.get())) ? 1 : 0, PACED ? easeNow() : now, LENS_FADE, !surroundSeen() || reduce.matches);
   const greyMoving = () => { greyNow(); return grey.k !== grey.to; };
-  // (colour-exempt: a grey for the saturation blend drains colour, it is not a colour. The organs' grey, then the page's colour over it.)
-  function fieldGrey(c, bg, [sat, dim], w, h) {
-    if (sat < 1) { c.globalCompositeOperation = 'saturation'; c.fillStyle = `rgba(128,128,128,${(1 - sat).toFixed(3)})`; c.fillRect(0, 0, w, h); }   // colour-exempt
-    c.globalCompositeOperation = 'source-over';
-    if (dim < 1) { c.fillStyle = css(bg, 1 - dim); c.fillRect(0, 0, w, h); }
-  }
   // later: the open lobule asks (#27). A tissue state that changes mid-animation (a time-lapse, a slide's morph) needs new tiles, each
   // tens of ms to draw: the open lobule keeps showing the last state's tile (its quiet surround changes slowly) while the new one is
   // drawn between frames, then redraws with it.
@@ -2101,27 +2095,19 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     tileLater = null;
     if (fade <= 0) return;
     const t = fieldTile(getComputedStyle(host), isDark(), tileLaterRd);
-    quietTile(t, stageBg(getComputedStyle(host), isDark()));
+    quietCopy(t, stageBg(getComputedStyle(host), isDark()));
     tissueKey = ''; drawVersion++; if (!raf) raf = nextFrame(loop);
   }
-  // A tile canvas the browser could not give memory to (iPhone Safari, at the peak of the way out of a zoomed-in lobule) is left
-  // transparent, with no picture (or no context at all): it was kept as drawn, and the GPU read its rgb, 0, as solid black neighbours
-  // (Mohammad, 1 Nov). One pixel is read back after each tile is drawn (tiles are opaque everywhere); a blank one is not kept, and is
-  // drawn again the next time it is asked for, at most every TILE_RETRY ms, while the shaders lay it over the page's colour meanwhile
-  // (field-gl.js TILE_OVER). ?tileover=0: neither, as before.
+  // (A tile is a picture recorded for the GPU (paint-gl.js), painted into a texture by each context that draws it: there is no canvas the
+  // browser can leave blank. A copy the GPU could not make is retried after TILE_RETRY ms, as before.)
   const TILE_RETRY = 250;
-  function tileBlank(cv, c) {
-    if (!TILE_OVER) return false;
-    try { return !c || !cv.width || c.getImageData(0, 0, 1, 1).data[3] === 0; } catch { return true; }
-  }
   const tileDue = (q) => !!q && !!q.blank && performance.now() >= q.blankAt + TILE_RETRY;
-  // A tile's toned copies given back: the 2D canvas's (quiet, liverQ) and the GPU's (quietG, liverG: tile-gl.js descriptions, whose
-  // textures each GPU context gives back at its next sweep).
-  const freeCopies = (q) => { for (const k of ['quiet', 'liverQ', 'quietG', 'liverG']) if (q[k]) { free(q[k].cv); q[k] = null; } };
-  // The copies the GPU draws from, made on the GPU itself (tile-gl.js): the same steps as quietTile and liverTile below (the blur, the
-  // grey blend, the tones), but as a description each GPU context draws into its own texture from the tile, once, with no blur in
-  // script and no canvas held for them. Remade when the tile was drawn again (a blank one, retried) or the tone changed.
-  // ?tilegpu=0: quietTile and liverTile's canvases, as before.
+  // A tile's toned copies given back (quietG, liverG: tile-gl.js descriptions, whose textures each GPU context gives back at its next sweep).
+  const freeCopies = (q) => { for (const k of ['quietG', 'liverG']) if (q[k]) { free(q[k].cv); q[k] = null; } };
+  // The copies the GPU draws from, made on the GPU itself (tile-gl.js): the neighbours' quiet copy (blurred, wrapping round the repeat,
+  // drained and flattened toward the page) and the dive's liver-toned one, each a description each GPU context draws into its own
+  // texture from the tile, once, with no blur in script and no canvas held for them. Remade when the tile was drawn again or the tone
+  // changed. (The 2D copies and ?tilegpu=0 are gone, 1 Nov: nothing off the GPU.)
   function gpuCopy(t, slot, k, look) {
     const q = t[slot];
     if (q && q.k === k && q.cv.src === t.cv && q.cv.width) return q;
@@ -2129,9 +2115,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const blank = !t.cv || !t.cv.width || (TILE_OVER && t.blank);
     return (t[slot] = { k, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv: tileCopy(t.cv, t.tw, t.th, look, blank), blank, blankAt: 0 });
   }
-  const quietCopy = (t, bg) => (TILE_GPU ? gpuCopy(t, 'quietG', bg.join(','), { blur: neighbourBlur(t.R), sat: 0.45, tone: bg, toneA: 0.42, flat: NEIGHBOUR_FLAT }) : quietTile(t, bg));
+  const quietCopy = (t, bg) => gpuCopy(t, 'quietG', bg.join(','), { blur: neighbourBlur(t.R), sat: 0.45, tone: bg, toneA: 0.42, flat: NEIGHBOUR_FLAT });
   const liverCopy = (t, cs, dark, bg) => {
-    if (!TILE_GPU) return liverTile(t, cs, dark, bg);
     const tone = liverTone(cs, bg);
     return gpuCopy(t, 'liverG', tone.map((x) => x.toFixed(2)).join(','), { blur: 0, sat: 0.45, tone, toneA: 0.42, flat: 0 });
   };
@@ -2171,9 +2156,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const hash = (i, j) => { let q = (i * 374761393 + j * 668265263) >>> 0; q = ((q ^ (q >>> 13)) * 1274126177) >>> 0; return (q >>> 8) / 16777216; };
     const COLa = cssRGB01('--lz-septum'), edges = new Set();
     const TW = 6 * R, TH = 2 * S3 * R, tw = Math.round(TW), th = Math.round(TH);
-    const cv = document.createElement('canvas'); cv.width = tw; cv.height = th;
-    const c = cv.getContext('2d');
-    if (!c && TILE_OVER) { Object.assign(t, { tw, th, TW, TH, cv, pats: new WeakMap(), blank: true, blankAt: performance.now() }); return; }
+    // (Recorded as shapes and painted by the GPU, paint-gl.js: no 2D canvas.)
+    const rec = recordPaint(tw, th, (c) => {
     c.scale(tw / TW, th / TH);
     c.fillStyle = gap; c.fillRect(0, 0, TW, TH);
     // The corners of the lobule at the pattern's origin (where the lobule view draws its own lobule) stay
@@ -2277,65 +2261,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       }
       c.globalAlpha = 1;
     }
-    const blank = tileBlank(cv, c);
-    Object.assign(t, { tw, th, TW, TH, cv, pats: new WeakMap(), blank, blankAt: blank ? performance.now() : 0 });
-  }
-  // The field's pattern on context c, with the lobule at the origin centred on x, y (device px), radius rd.
-  function fieldFill(c, t, x, y, rd, w, h) {
-    let pat = t.pats.get(c);
-    if (!pat) { pat = c.createPattern(t.cv, 'repeat'); t.pats.set(c, pat); }
-    pat.setTransform(new DOMMatrix([(t.TW / t.R) * rd / t.tw, 0, 0, (t.TH / t.R) * rd / t.th, x, y]));
-    c.fillStyle = pat; c.fillRect(0, 0, w, h);
-  }
-  // Behind the lobule the field steps back: most of its colour drained and its contrast lowered (q: 0..1).
-  function fieldQuiet(c, bg, q, w, h) {
-    // (colour-exempt: a grey for the saturation blend drains colour, it is not a colour. Its fill had slipped into this comment on 12 Oct.)
-    c.globalCompositeOperation = 'saturation'; c.fillStyle = `rgba(128,128,128,${(0.45 * q).toFixed(3)})`; c.fillRect(0, 0, w, h);   // colour-exempt
-    c.globalCompositeOperation = 'source-over'; c.fillStyle = css(bg, 0.42 * q); c.fillRect(0, 0, w, h);
-  }
-  // A tile with fieldQuiet already applied (the lobule view's resting state), so panning and zooming
-  // there fill one pattern instead of blending the whole screen each frame.
-  // (G22) The neighbouring lobules are also softened here, once per tile: blurred (wrapping round the repeat, so no seam
-  // shows where the pattern tiles) and their contrast cut by NEIGHBOUR_FLAT, so the lobule in focus stands clear of them on a
-  // phone. The one exception to the no-blur rule (Mohammad, 16 Oct), and only for these neighbours.
-  function quietTile(t, bg) {
-    const k = bg.join(',');
-    if (t.quiet?.k === k && !tileDue(t.quiet)) return t.quiet;
-    // (the cache holds one tone at a time; the dive's liver tone is kept apart, see paintField)
-    if (t.quiet) { free(t.quiet.cv); fieldGL?.sweep(); tissueGL?.sweep(); }
-    const cv = document.createElement('canvas'); cv.width = t.tw; cv.height = t.th;
-    const c = cv.getContext('2d');
-    // (No context, or a blank tile under it: nothing to lay, so the canvas is kept blank and asked for again; tileBlank.)
-    const src = !c || (TILE_OVER && t.blank) ? null : t.cv;
-    if (src) {
-      blurTile(c, src, t.tw, t.th, neighbourBlur(t.R));
-      fieldQuiet(c, bg, 1, t.tw, t.th);
-      c.fillStyle = css(bg, NEIGHBOUR_FLAT); c.fillRect(0, 0, t.tw, t.th);
-    }
-    const blank = !src || tileBlank(cv, c);
-    return (t.quiet = { k, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap(), blank, blankAt: blank ? performance.now() : 0 });
-  }
-  // Draws the repeating tile src (w × h) onto c blurred by r px, seamless where the pattern repeats and smooth at full
-  // resolution on every browser (blurWrapped, lobule-look.js; no canvas filter, which some Safaris lack, and no unfiltered canvas rescale).
-  function blurTile(c, src, w, h, r) {
-    c.drawImage(src, 0, 0);
-    if (!(r > 0.5)) return;
-    const img = c.getImageData(0, 0, w, h);
-    img.data.set(blurWrapped(img.data, w, h, r));
-    c.putImageData(img, 0, 0);
+    });
+    Object.assign(t, { tw, th, TW, TH, cv: gpuPicture(rec, ++texVer), blank: false, blankAt: 0 });
   }
   // The surround fading into the page with distance from the lobule (q: 0..1, how far it has faded).
   // The surround fades into the page (light in light mode, dark in dark mode).
   const shadeOf = (bg) => bg;
-  // ring: [inner, outer] radii, to fill only that annulus (where the fade changes anything; see paintTissue).
-  // r1: the outer edge, from fadeOuter (lobule-look.js): never short of the screen's farthest corner, so the neighbours reach every edge.
-  function fieldFade(c, bg, x, y, rd, q, w, h, r0, r1, ring = null) {
-    const vg = c.createRadialGradient(x, y, r0, x, y, r1);
-    vg.addColorStop(0, css(bg, 0)); vg.addColorStop(0.5, css(bg, FADE_MID * q)); vg.addColorStop(1, css(bg, q));
-    c.fillStyle = vg;
-    if (!ring) { c.fillRect(0, 0, w, h); return; }
-    c.beginPath(); c.arc(x, y, ring[1], 0, TAU); if (ring[0] > 0) { c.moveTo(x + ring[0], y); c.arc(x, y, ring[0], 0, TAU); } c.fill('evenodd');
-  }
   // d: { a: opacity 0..1, x, y: where the settling lobule's centre is (stage px), r: its radius on
   // screen, ox, oy: the point it emerges from, quiet: 0..1, the surround drained as the lobule view's is,
   // focus: 0..1, the lobules away from it faded into the page }. null hides it.
@@ -2346,7 +2277,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let diveCtx = null;
   const styleSnap = (cs) => { const m = new Map(); return { getPropertyValue: (n) => { let v = m.get(n); if (v === undefined) m.set(n, (v = cs.getPropertyValue(n))); return v; } }; };
   const fieldHide = (cv) => { if (cv.width) { cv.width = 0; cv.height = 0; } cv.style.opacity = '0'; };
-  const FIELD_2D = /[?&]field2d=1\b/.test(location.search);   // (a frame the GPU could not draw drawn on the 2D canvas, as before: paintField)
   function paintField(d) {
     if (!d) diveCtx = null;
     if (!d || d.a <= 0.002) { fieldHide(field); fieldHide(fieldG); fieldOp = 0; return; }
@@ -2356,87 +2286,35 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     const { W, H, cs, dark, bg } = diveCtx;
     const dpr = Math.min(1, devicePixelRatio || 1) * 0.8;   // in motion and behind the lobule: a modest resolution is plenty
-    // On the GPU where it can be (the same picture, its tile sizes blended); otherwise the 2D canvas, as below.
+    // On the GPU (the same picture, its tile sizes blended). (No 2D field since 1 Nov: nothing off the GPU.)
     const g = fieldGLOn();
     const drew = g ? paintFieldGL(g, d, W, H, dpr, cs, dark, bg) : false;
-    if (drew) {
-      fieldHide(field);
-      fieldOp = Math.min(1, d.a * 1.25);
-      fieldG.style.opacity = fieldOp.toFixed(3);
-      return;
-    }
-    // (The GPU is there but could not draw this frame (a tile's texture not taken yet; field-gl.js keeps the last frame where one shows,
-    // 'held', and tries the send again shortly): no 2D field is drawn. The GPU's canvas keeps its last frame, at this frame's opacity, or,
-    // with none yet, the field waits for its first GPU frame: the tiles go to the GPU ahead of the dive (fieldUp), so this is a frame or
-    // two at most. The 2D field below is drawn only with no GPU for it at all (no WebGL2, or the context lost). ?field2d=1: the 2D field
-    // draws such a frame instead, as before.)
-    if (g && !FIELD_2D) {
-      fieldHide(field);
-      fieldOp = Math.min(1, d.a * 1.25);
-      if (fieldG.width) fieldG.style.opacity = fieldOp.toFixed(3);
-      return;
-    }
-    fieldHide(fieldG);
-    if (field.width !== Math.round(W * dpr) || field.height !== Math.round(H * dpr)) { field.width = Math.round(W * dpr); field.height = Math.round(H * dpr); }
-    // Half the tile's resolution, as at rest: the field is in motion and behind the lobule.
-    const rd = d.r * dpr, t = fieldTile(cs, dark, rd * 0.55);
-    const c = field.getContext('2d');
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.globalCompositeOperation = 'source-over';
-    // Focus: as the zoom goes on, the lobules away from the one being landed on fade into the page, the clear circle
-    // closing in on it (from most of the screen to the lobule view's own surround, which it matches at focus 1).
-    // (Each pixel gets only the passes that change it, as in paintTissue: the same picture. The fade adds nothing inside its
-    // clear circle; at full strength it lays the page's colour whole past its outer edge, so the tiles stop there; and an opaque
-    // quieted tile at full strength covers the liver-toned one.)
-    const f = clamp(d.focus ?? d.quiet, 0, 1), fq = Math.max(f, d.quiet), fx0 = d.x * dpr, fy0 = d.y * dpr;
-    const r0 = f > 0 ? Math.exp(lerp(Math.log(Math.hypot(W, H) * dpr * 0.45), Math.log(Math.min(Math.hypot(W, H) * dpr * 0.45, rd * 1.1)), f)) : 0;
-    const fadeWhole = f > 0 && fq >= 1, far = Math.hypot(field.width, field.height) + Math.hypot(fx0, fy0) + 4;
-    // (The fade's outer edge never closes in past the screen's farthest corner: the neighbours cover the whole screen throughout.)
-    const r1 = fadeOuter(r0, Math.max(...[[0, 0], [field.width, 0], [0, field.height], [field.width, field.height]].map(([x, y]) => Math.hypot(x - fx0, y - fy0))));
-    if (fadeWhole) { c.save(); c.beginPath(); c.arc(fx0, fy0, r1 + 2, 0, TAU); c.clip(); }
-    // The surrounding lobules start drained and tinted like the liver being zoomed into (its fill, in
-    // whichever theme), so the dive reads as one tissue; the lobule's own colours come in over it.
-    if (!(d.quiet >= 1)) fieldFill(c, liverTile(t, cs, dark, bg), fx0, fy0, rd, field.width, field.height);
-    // Quieting: the pre-quieted tile laid over the plain one (two pattern fills, not a blend of the whole screen).
-    if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, shadeOf(bg, dark)), fx0, fy0, rd, field.width, field.height); c.globalAlpha = 1; }
-    // (Grey as the anatomy's liver is in a lens other than Pressure, before the fade into the page, as the shader does.)
-    const gk = greyNow();
-    if (gk > 0) fieldGrey(c, shadeOf(bg, dark), surroundGrade(gk), field.width, field.height);
-    if (fadeWhole) c.restore();
-    if (f > 0) fieldFade(c, shadeOf(bg, dark), fx0, fy0, rd, fq, field.width, field.height, r0, r1, [r0 - 1, far]);
-    // Emerging: the field spreads out from the dive point as it fades in.
-    if (d.a < 1) {
-      const diag = Math.hypot(W, H) * dpr, rho = diag * (0.2 + 1.1 * d.a + 2 * smooth(0.7, 1, d.a));   // (the last stretch spreads it past every corner, so dropping the mask at a = 1 changes nothing seen)
-      const mg = c.createRadialGradient(d.ox * dpr, d.oy * dpr, rho * 0.35, d.ox * dpr, d.oy * dpr, rho);
-      mg.addColorStop(0, 'rgba(0,0,0,1)'); mg.addColorStop(1, 'rgba(0,0,0,0)');   // colour-exempt: a mask
-      // (Only past the circle where the mask is still whole: inside it the mask keeps every pixel as it is.)
-      c.save(); c.beginPath(); c.rect(0, 0, field.width, field.height); c.moveTo(d.ox * dpr + rho * 0.35 - 1, d.oy * dpr); c.arc(d.ox * dpr, d.oy * dpr, Math.max(0, rho * 0.35 - 1), 0, TAU); c.clip('evenodd');
-      c.globalCompositeOperation = 'destination-in';
-      c.fillStyle = mg; c.fillRect(0, 0, field.width, field.height);
-      c.globalCompositeOperation = 'source-over';
-      c.restore();
-    }
+    fieldHide(field);
     fieldOp = Math.min(1, d.a * 1.25);
-    field.style.opacity = fieldOp.toFixed(3);
+    // (The GPU could not draw this frame (a tile's texture not taken yet; field-gl.js keeps the last frame where one shows, 'held', and
+    // tries the send again shortly): its canvas keeps its last frame, at this frame's opacity, or, with none yet, the field waits for its
+    // first GPU frame: the tiles go to the GPU ahead of the dive (fieldUp), so this is a frame or two at most. With no GPU for it at all
+    // (no WebGL2, or the context lost), no field is drawn.)
+    if (drew || fieldG.width) fieldG.style.opacity = fieldOp.toFixed(3);
   }
   let fieldOp = 0;
   // The field's GPU drawing (field-gl.js): made the first time it is asked for (ahead of the first dive, by the idle preparation);
-  // null where WebGL2 is missing or would run in software, and set aside if its context is lost (the 2D canvas carries on).
+  // null where WebGL2 is missing, and set aside if its context is lost (no field is drawn until it is made again).
   function fieldGLOn() {
     if (fieldGL === undefined) { fieldGL = createFieldGL(fieldG); if (!fieldGL) fieldG.remove(); }
     return fieldGL && !fieldGL.lost ? fieldGL : null;
   }
   // A tile's liver-toned and quieted copies sent to the GPU ahead of the dive (no frame of it uploads a texture).
   // (Made on the GPU from the tile, tile-gl.js: the tile kept there for them is let go of once both are made.)
-  const fieldUp = (t) => { const g = fieldGLOn(); if (!g) return; if (TILE_GPU) { g.upload(t.liverG?.cv); g.upload(t.quietG?.cv); g.dropRaw(); } else { g.upload(t.liverQ?.cv); g.upload(t.quiet?.cv); } };
-  // A tile's two copies for the dive, ahead of it: made on the GPU where the field is drawn there, on the main thread otherwise.
-  const fieldCopies = (t, cs, dark, bg) => { if (TILE_GPU && fieldGLOn()) { liverCopy(t, cs, dark, bg); quietCopy(t, shadeOf(bg, dark)); } else { liverTile(t, cs, dark, bg); quietTile(t, shadeOf(bg, dark)); } fieldUp(t); };
-  // One frame of the field on the GPU, the same picture paintField's 2D passes make (the same tiles, quieting, fade and emerging
-  // mask, with the same numbers), except that the two tile sizes nearest the lobules' size on screen are blended (fieldBlend), so
-  // the detail of the larger one comes in gradually as the lobules grow instead of in a step where the 2D canvas switched.
+  const fieldUp = (t) => { const g = fieldGLOn(); if (!g) return; g.upload(t.liverG?.cv); g.upload(t.quietG?.cv); g.dropRaw(); };
+  // A tile's two copies for the dive, ahead of it, made on the GPU.
+  const fieldCopies = (t, cs, dark, bg) => { if (!fieldGLOn()) return; liverCopy(t, cs, dark, bg); quietCopy(t, shadeOf(bg, dark)); fieldUp(t); };
+  // One frame of the field on the GPU, the same picture the 2D passes made (the same tiles, quieting, fade and emerging mask, with the
+  // same numbers), except that the two tile sizes nearest the lobules' size on screen are blended (fieldBlend), so the detail of the
+  // larger one comes in gradually as the lobules grow instead of in a step.
   function paintFieldGL(g, d, W, H, dpr, cs, dark, bg) {
     const fw = Math.round(W * dpr), fh = Math.round(H * dpr), rd = d.r * dpr;
-    const { a, b, mix } = fieldBlend(rd * 0.55);   // (half the tile's resolution, as at rest and on the 2D canvas)
+    const { a, b, mix } = fieldBlend(rd * 0.55);   // (half the tile's resolution, as at rest)
     const ta = fieldTile(cs, dark, FIELD_RS[a]), tb = b !== a && mix > 0 ? fieldTile(cs, dark, FIELD_RS[b]) : null;
     const f = clamp(d.focus ?? d.quiet, 0, 1), fq = Math.max(f, d.quiet), fx0 = d.x * dpr, fy0 = d.y * dpr;
     const r0 = f > 0 ? Math.exp(lerp(Math.log(Math.hypot(W, H) * dpr * 0.45), Math.log(Math.min(Math.hypot(W, H) * dpr * 0.45, rd * 1.1)), f)) : 0;
@@ -2452,19 +2330,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   // The liver's tone the dive starts from: the page's colour 60% of the way to the liver's.
   function liverTone(cs, bg) { const lv = rgb01(cs.getPropertyValue('--og-liver-2').trim()); return bg.map((x, i) => lerp(x, lv[i], 0.6)); }
-  function liverTile(t, cs, dark, bg) {
-    const tone = liverTone(cs, bg);
-    const tk = tone.map((x) => x.toFixed(2)).join(',');
-    if (!t.liverQ || t.liverQ.k !== tk || tileDue(t.liverQ)) {
-      if (t.liverQ) { free(t.liverQ.cv); fieldGL?.sweep(); }
-      const cv = document.createElement('canvas'); cv.width = t.tw; cv.height = t.th;
-      const cc = cv.getContext('2d'), src = !cc || (TILE_OVER && t.blank) ? null : t.cv;
-      if (src) { cc.drawImage(src, 0, 0); fieldQuiet(cc, tone, 1, t.tw, t.th); }
-      const blank = !src || tileBlank(cv, cc);
-      t.liverQ = { k: tk, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap(), blank, blankAt: blank ? performance.now() : 0 };
-    }
-    return t.liverQ;
-  }
   const stageBg = (cs, dark) => rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim());
   // Ahead of any dive, while the anatomy sits idle: everything the dive and the lobule's first frame would
   // otherwise build mid-zoom (geometry, the vessels' WebGL, the field's tiles and their toned copies, the
@@ -2502,7 +2367,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const cv = (n, d) => cs.getPropertyValue(n).trim() || d;
       model.inks = { normal: cv('--flow-normal'), reversed: cv('--flow-reversed'), portal: cv('--vein-portal'), systemic: cv('--vein-systemic') };
       const dpr = Math.min(2, devicePixelRatio || 1);
-      quietTile(fieldTile(cs, dark, geo.R * V.k * dpr * 0.55), bg);
+      quietCopy(fieldTile(cs, dark, geo.R * V.k * dpr * 0.55), bg);
     }, () => {
       const dpr = Math.min(2, devicePixelRatio || 1), tg = gl && !gl.lost ? tissueGLOn() : null;
       if (tg) paintTissue(W, H, dpr, dark, cs, false, tg);

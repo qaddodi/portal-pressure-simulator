@@ -1,6 +1,5 @@
-// The lobule's field tile copies and its overlay (the ductules, the lymph) drawn on the GPU (tile-gl.js, fx-gl.js), with the 2D canvas
-// kept for where the GPU cannot draw, and ?tilegpu=0 / ?fxgpu=0 putting back the old path whole (Mohammad, 1 Nov: "Move everything to
-// GPU"). The shaders are checked without a GPU (tests/glsl-lint.js); the rest pins what keeps the picture the same.
+// The lobule's field tile copies and its overlay (the ductules, the lymph) drawn on the GPU (tile-gl.js, fx-gl.js), with no 2D canvas
+// for either since 1 Nov (Mohammad, 1 Nov: "Move everything to GPU"). The shaders are checked without a GPU (tests/glsl-lint.js); the rest pins what keeps the picture the same.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -26,12 +25,10 @@ test('every uniform the shaders declare is located by the JavaScript', () => {
   assert.equal(MAX_DUCTS >= 6, true, 'the six portal tracts\' ductules');
 });
 
-test('a quiet copy is the 2D quiet tile\'s steps: the wrapped blur, the grey blend 0.45, the page at 0.42, then NEIGHBOUR_FLAT', () => {
-  assert.match(lz, /gpuCopy\(t, 'quietG', bg\.join\(','\), \{ blur: neighbourBlur\(t\.R\), sat: 0\.45, tone: bg, toneA: 0\.42, flat: NEIGHBOUR_FLAT \}\)/);
-  assert.match(lz, /blurTile\(c, src, t\.tw, t\.th, neighbourBlur\(t\.R\)\);\n\s+fieldQuiet\(c, bg, 1, t\.tw, t\.th\);\n\s+c\.fillStyle = css\(bg, NEIGHBOUR_FLAT\);/, 'the 2D one, unchanged');
-  assert.match(lz, /\{ blur: 0, sat: 0\.45, tone, toneA: 0\.42, flat: 0 \}/, 'the liver copy: fieldQuiet with the liver tone, no blur');
-  assert.match(lz, /c\.globalCompositeOperation = 'saturation'; c\.fillStyle = `rgba\(128,128,128,\$\{\(0\.45 \* q\)\.toFixed\(3\)\}\)`/, 'fieldQuiet\'s grey share');
-  assert.match(lz, /c\.fillStyle = css\(bg, 0\.42 \* q\)/);
+test('a quiet copy is the old quiet tile\'s steps, on the GPU: the wrapped blur, the grey blend 0.45, the page at 0.42, then NEIGHBOUR_FLAT', () => {
+  assert.match(lz, /const quietCopy = \(t, bg\) => gpuCopy\(t, 'quietG', bg\.join\(','\), \{ blur: neighbourBlur\(t\.R\), sat: 0\.45, tone: bg, toneA: 0\.42, flat: NEIGHBOUR_FLAT \}\);/);
+  assert.match(lz, /\{ blur: 0, sat: 0\.45, tone, toneA: 0\.42, flat: 0 \}/, 'the liver copy: the same quieting with the liver tone, no blur');
+  assert.doesNotMatch(lz, /function (quietTile|blurTile|liverTile|fieldQuiet|fieldFill|fieldFade|fieldGrey|tileBlank)\(/, 'no 2D copy left (1 Nov)');
   // The canvas's saturation blend with a grey source is the backdrop's luminosity (W3C weights), mixed in by the source's alpha.
   assert.match(copyFS, /float l = dot\(c\.rgb, vec3\(0\.3, 0\.59, 0\.11\)\);\n\s+vec3 t = mix\(c\.rgb, vec3\(l\), uK\.x\);/);
   assert.match(copyFS, /ivec2 a = \(q \+ uDir \* i\) % size, b = \(q - uDir \* i \+ size \* 64\) % size;/, 'wrapping at the repeat: no seam');
@@ -43,15 +40,21 @@ test('a copy stands where a canvas did: its size, given back by free(), told apa
   assert.equal(c.width, 60); assert.equal(c.height, 35);
   assert.match(read('../src/ui/field-gl.js'), /if \(isTileCopy\(cv\)\) \{\n\s+const tex = copier\.make\(cv\);/);
   assert.match(read('../src/ui/tissue-gl.js'), /if \(isTileCopy\(cv\)\) \{/);
-  assert.match(lz, /const freeCopies = \(q\) => \{ for \(const k of \['quiet', 'liverQ', 'quietG', 'liverG'\]\) if \(q\[k\]\) \{ free\(q\[k\]\.cv\); q\[k\] = null; \} \};/);
+  assert.match(lz, /const freeCopies = \(q\) => \{ for \(const k of \['quietG', 'liverG'\]\) if \(q\[k\]\) \{ free\(q\[k\]\.cv\); q\[k\] = null; \} \};/);
   assert.doesNotMatch(lz, /drawImage\(surOld|surOld\.cv\.getContext/, 'no 2D canvas lays a tile (1 Nov: the tissue is the GPU\'s alone)');
 });
 
-test('?tilegpu=0 and ?fxgpu=0 put the old paths back whole', () => {
-  assert.match(tgl, /export const TILE_GPU = !\(typeof location !== 'undefined' && \/\[\?&\]tilegpu=0\\b\/\.test/);
+test('the tile is a picture recorded for the GPU, painted into the copier\'s texture: no canvas, no ?tilegpu=0', () => {
+  assert.doesNotMatch(tgl, /TILE_GPU|tilegpu/);
+  assert.doesNotMatch(lz, /TILE_GPU/);
+  assert.match(lz, /const rec = recordPaint\(tw, th, \(c\) => \{/);
+  assert.match(lz, /Object\.assign\(t, \{ tw, th, TW, TH, cv: gpuPicture\(rec, \+\+texVer\), blank: false, blankAt: 0 \}\);/);
+  const dt = lz.slice(lz.indexOf('function drawTile('), lz.indexOf('function paintField('));
+  assert.doesNotMatch(dt, /getContext|document\.createElement|OffscreenCanvas|getImageData|createPattern/, 'drawn into nothing on the CPU');
+  assert.match(tgl, /if \(isGpuPicture\(src\)\) \{\n\s+const tex = paintGL\(gl\)\.paint\(src\.rec, \{ mip: false \}\);/);
+  assert.match(tgl, /return null; {3}\/\/ \(every tile is a recorded picture: no canvas is sent\)/);
+  assert.doesNotMatch(tgl, /texSubImage2D/, 'no canvas sent to the copier');
   assert.match(fgl, /export const FX_GPU = !\(typeof location !== 'undefined' && \/\[\?&\]fxgpu=0\\b\/\.test/);
-  assert.match(lz, /const quietCopy = \(t, bg\) => \(TILE_GPU \? gpuCopy\(/);
-  assert.match(lz, /if \(!TILE_GPU\) return liverTile\(t, cs, dark, bg\);/);
   assert.match(lz, /const g = can && FX_GPU \? fxGLOn\(\) : null;\n\s+if \(!g\) \{ fxGLShow\(false\); return false; \}/);
 });
 
@@ -59,7 +62,7 @@ test('the overlay is the GPU\'s for the screen, through the dive and the sinusoi
   assert.match(lz, /const fxOn = fxOnGPU\(W, H, dpr, dark, dt, g && !g\.lost\);\n\s+const laid = g\?\.top\?\.presents;\n\s+if \(g && !g\.lost\) drawGL\(W, H, dpr, dark, cs, dt\);/, 'scaled with the tissue\'s GPU canvas through the dive and the sinusoid\'s zoom, as it is');
   assert.doesNotMatch(lz, /paintFx|probe\(fx\)/);
   assert.match(lz, /const fxG = h\('canvas', \{ class: 'lz-canvas lz-fx lz-fx-gl', 'aria-hidden': 'true', style: \{ opacity: '0', pointerEvents: 'none' \} \}\);/);
-  assert.match(fgl, /failIfMajorPerformanceCaveat: true/, 'a software renderer keeps the 2D overlay');
+  assert.match(fgl, /failIfMajorPerformanceCaveat: false/, 'a software renderer draws it too: there is no 2D overlay');
   // The same layers in paintFx's order: ductules, drops, rings, beads, the eraser cutting all of them, the lining over.
   assert.match(fxShaders.compFS, /c = over\(c, uCLy, k\.r\);\n\s+c = over\(c, uCRing, k\.g\);\n\s+c = over\(c, uCBead, k\.b\);\n\s+c \*= 1\.0 - k\.a;\n\s+\}\n\s+if \(uLine > 0\) c = over\(c, uCLine/);
   assert.match(fgl, /gl\.blendEquation\(gl\.MAX\)/, 'each layer one union, as one path\'s fill: overlaps never darken');

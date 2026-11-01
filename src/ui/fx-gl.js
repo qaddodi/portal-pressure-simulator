@@ -120,7 +120,7 @@ export const fxShaders = { capVS, capFS, quadVS, compFS };   // (for the shader 
 export function createFxGL(canvas, { host = null } = {}) {
   let gl = null;
   if (host) gl = host.gl;
-  else try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
+  else try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: false }); } catch { gl = null; }
   if (!gl) return null;
   if (host) canvas = host.canvas;
   let lost = false, failed = false, P = null;

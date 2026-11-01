@@ -58,7 +58,7 @@ test('the anatomy stays whole under the field until the field covers it, so the 
   assert.doesNotMatch(stage, /setDiveFade\([^\n]*1 - smoothT/);
   assert.match(stage, /el\.style\.transition = q === null \? '' : 'none'; el\.style\.opacity = q === null \? '' : String\(q\)/, 'driven per frame with the CSS transition held off');
   // The field's emerging mask spreads past every corner by the time it is dropped (a = 1), so nothing vanishes in the far corners.
-  assert.match(lz, /rho = diag \* \(0\.2 \+ 1\.1 \* d\.a \+ 2 \* smooth\(0\.7, 1, d\.a\)\)/);
+  assert.match(lz, /rho = Math\.hypot\(W, H\) \* dpr \* \(0\.2 \+ 1\.1 \* d\.a \+ 2 \* smooth\(0\.7, 1, d\.a\)\)/);
 });
 
 test('in dark mode the field lobules\' capillarized sinusoids are dark (they recede), pale in light and Soft', () => {
@@ -88,7 +88,7 @@ test('every zoom into the lobule draws it first, for where it lands, then zooms;
 
 test('nothing is built during the zoom: the field\'s tiles and their quieted copies are ready before it starts', () => {
   assert.equal((lz.match(/fieldCopies\(fieldTile\(cs, dark, r\), cs, dark, bg\);/g) || []).length, 2, 'idle preparation and prewarm both build the quieted copy');
-  assert.match(lz, /\{ liverCopy\(t, cs, dark, bg\); quietCopy\(t, shadeOf\(bg, dark\)\); \} else \{ liverTile\(t, cs, dark, bg\); quietTile\(t, shadeOf\(bg, dark\)\); \}/, 'on the GPU where the field is drawn there, on the main thread otherwise');
+  assert.match(lz, /if \(!fieldGLOn\(\)\) return; liverCopy\(t, cs, dark, bg\); quietCopy\(t, shadeOf\(bg, dark\)\); fieldUp\(t\);/, 'on the GPU, which draws the field');
   assert.match(lz, /function stage\(\) \{\n\s+while \(warm\(\)\);/, 'whatever prewarm queued is done before the zoom starts');
 });
 
@@ -102,16 +102,14 @@ test('the lobule\'s fibrous bands are a deeper tan in light and Soft, the collag
   assert.match(lp, /const DIS = rgb\.dis, col = \(a\) => css\(DIS, a\);/, 'the space of Disse lining is unchanged');
 });
 
-test('the dive\'s field fills each pixel only with the passes that change it (the same picture)', () => {
-  // The fade adds nothing inside its clear circle, and at full strength lays the page's colour whole past its outer edge.
-  assert.match(lz, /fieldFade\(c, shadeOf\(bg, dark\), fx0, fy0, rd, fq, field\.width, field\.height, r0, r1, \[r0 - 1, far\]\);/);
-  assert.match(lz, /const fadeWhole = f > 0 && fq >= 1,/);
-  assert.match(lz, /if \(fadeWhole\) \{ c\.save\(\); c\.beginPath\(\); c\.arc\(fx0, fy0, r1 \+ 2, 0, TAU\); c\.clip\(\); \}/);
-  // An opaque quieted tile at full strength covers the liver-toned one.
-  assert.match(lz, /if \(!\(d\.quiet >= 1\)\) fieldFill\(c, liverTile\(/);
-  // The emerging mask is whole inside rho × 0.35: it is applied only past that circle.
-  assert.match(lz, /c\.arc\(d\.ox \* dpr, d\.oy \* dpr, Math\.max\(0, rho \* 0\.35 - 1\), 0, TAU\); c\.clip\('evenodd'\);\n\s+c\.globalCompositeOperation = 'destination-in';/);
-  assert.match(lz, /mg\.addColorStop\(0, 'rgba\(0,0,0,1\)'\); mg\.addColorStop\(1, 'rgba\(0,0,0,0\)'\);/);
+test('the dive\'s field asks the GPU only for the passes that change the picture', () => {
+  // (Since 1 Nov the field is drawn on the GPU alone, in one pass: a pass that changes nothing is left out of it.)
+  // No fade with no focus, no quieted tiles while nothing is quiet, no mask once the field is whole.
+  assert.match(lz, /fade: f > 0 \? \[r0, r1, fq\] : null,/);
+  assert.match(lz, /qa: q > 0 \? quietCopy\(ta, tone\)\.cv : null, qb: q > 0 && tb \? quietCopy\(tb, tone\)\.cv : null,/);
+  assert.match(lz, /mask: d\.a < 1 \? \[d\.ox \* dpr, d\.oy \* dpr, rho\] : null,/);
+  // The emerging mask is whole inside rho × 0.35, gone at rho.
+  assert.match(read('../src/ui/field-gl.js'), /m = 1\.0 - clamp\(\(length\(p - uMask\.xy\) - uMask\.z \* 0\.35\) \/ max\(uMask\.z \* 0\.65, 1e-6\), 0\.0, 1\.0\);/);
 });
 
 // Zooming in, the neighbouring lobules were cut off at the top and bottom: the fade into the page closed in to 3.2 R, inside
@@ -142,8 +140,8 @@ test('the neighbouring lobules cover the whole screen at every moment of the div
   // Both the dive's field and the resting view take their outer edge from it, measured to the farthest corner.
   assert.match(lz, /const r1 = fadeOuter\(r0, Math\.max\(/);
   assert.match(lz, /const fOut = fadeOuter\(fIn, reach\)/);
-  assert.match(lz, /const vg = c\.createRadialGradient\(x, y, r0, x, y, r1\)/);
-  assert.match(lz, /addColorStop\(0\.5, css\(bg, FADE_MID \* q\)\)/, 'the gradient is the one fadeAt measures');
+  // (Both drawn on the GPU since 1 Nov, by the shader's fade, the one fadeAt measures: lobule-field-gpu.test.js.)
+  assert.match(read('../src/ui/tissue-gl.js'), /float a = s < 0\.5 \? uMid \* s \* 2\.0 : uMid \+ \(1\.0 - uMid\) \* \(s - 0\.5\) \* 2\.0;/);
   assert.doesNotMatch(lz, /3\.2 \/ 1\.1|rdv \* 3\.2/, 'no fixed outer edge left');
 });
 
