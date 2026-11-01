@@ -85,6 +85,7 @@ import { guardBlur } from './blur-guard.js?v=5228284718';
 import { capDensity } from './pixel-budget.js?v=279a2b54f6';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
+import { CellGrid, geomOf } from './cell-grid.js?v=d92c0d94ae';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
 // key pill, the readings' own sizes, the home look's room) are read first in a frame, before anything is written (frame.js readFrame),
