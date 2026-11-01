@@ -1317,6 +1317,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // light takes the colour of the last in GLOW_RANK. Each eases in and out on its own, so a change cross-fades.
   const GLOW_RANK = ['spot', 'sel', 'hover', 'flash', 'delta', 'dop', 'slide', 'focus', 'shunt'];
   const glow = { src: new Map(), lit: new Map(), raf: 0, t: 0 };
+  const SLIDE_HALO_OUT = !/[?&]onemove=0\b/.test(location.search);   // (the presenter's one-move flag: its switch for the old chain also keeps the old halo fade)
   // The glow and hover eases step at the display's rate, but the vessels are redrawn at the paced rate (animate): an
   // ease only marks the tubes stale, and the paced frame rebuilds and uploads them once.
   let glowSync = false;
@@ -1351,7 +1352,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       l.spanT = g.span ? [...g.span] : [0, 1];
       if (!l.span || l.v <= 0) l.span = [...l.spanT];
     }
-    for (const [id, l] of glow.lit) if (!want.has(id)) l.to = 0;
+    // (A slide's halos leave in one small step with its cards and labels, not at the 500 ms they come in over: a leave takes the step below its
+    // entrance, and the camera sets off as the cards are gone, so no old halo is still fading as it moves. ?onemove=0: as before.)
+    for (const [id, l] of glow.lit) if (!want.has(id)) { l.to = 0; if (src === 'slide' && SLIDE_HALO_OUT) l.dur = Math.min(l.dur, D_SMALL / 1000); }
     if (!glow.raf) { glow.t = now; glow.raf = nextFrame(glowStep); }
   }
   function glowStep(now) {
