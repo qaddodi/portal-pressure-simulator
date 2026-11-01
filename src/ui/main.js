@@ -52,6 +52,7 @@ import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0762d1b820';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
 import { frameFor, cancelFrame, perf as framePerf, framePart } from './frame.js?v=7710f677e2';
+import { restPass } from './rest-pass.js?v=bf0c42ead5';
 import { sizeOf, watchSize, rectsSoon, restTask, flushTask } from './geom.js?v=254133713c';
 import { feedbackDiagnostics } from './feedback-diag.js?v=a6fd7380e0';
 import { noteJump } from './display-state.js?v=8d062d39dc';
@@ -1538,7 +1539,8 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   };
   const drawnHeight = () => (lay || el.offsetHeight) - sheetOffset(el);
   // A new tab refits the sheet to its content (the height eases).
-  if (fit) el.addEventListener('click', (e) => { if (size === half() && e.target.closest('[role="tab"]')) nextFrame(() => apply(true, drawnHeight())); });
+  if (fit) el.addEventListener('click', (e) => { if (size === half() && e.target.closest('[role="tab"]')) restPass(refitTab); });   // (measured between frames, rest-pass.js)
+  const refitTab = () => apply(true, drawnHeight());
   apply();
   // A turn of the device or a new window size changes the stops and the room (px over the thumb dock): a sheet takes its size
   // again once the size has held for a moment (a sheet in the hand is left to its release).
@@ -1580,7 +1582,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   });
   el.addEventListener('pointermove', (e) => {
     if (!start || e.pointerId !== start.id) return;
-    if (e.pointerType === 'mouse' && !(e.buttons & 1)) { end(e); return; }   // (the button was let go outside the card before it was captured: the drag is over, not waiting to resume)
+    if (e.pointerType === 'mouse' && !(e.buttons & 1)) { const s1 = start; restPass(() => { if (start === s1) end(e); }); return; }   // (ended between frames, never inside a move)   // (the button was let go outside the card before it was captured: the drag is over, not waiting to resume)
     const dx = e.clientX - start.x, dy = e.clientY - start.y;
     if (!start.moved) {
       if (Math.hypot(dx, dy) < 6) return;
