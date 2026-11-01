@@ -91,7 +91,7 @@ test('a sheet card waiting unseen for its entry still counts where it rests; a c
     assert.equal(unseenCard(piece('hidden', { safe: 'top', safeRest: '', safeWaits: '' }, cv)), false, 'the slide data card waiting: counted');
     assert.equal(unseenCard(piece('visible', { safe: 'top' }, cv)), false);
   }
-  assert.equal((stage.match(/if \(unseenCard\(el\)\) continue;/g) || []).length, 2, 'both the camera (safeInsets) and the card space (cardSpace)');
+  assert.equal((stage.match(/if \(unseenCard\(el\)\) continue;/g) || []).length, 1, 'once, in the cards\' snapshot both the camera (safeInsets) and the card space (cardSpace) are worked out from');
   assert.doesNotMatch(stage, /^\s*if \(el\.checkVisibility \? !el\.checkVisibility\(\{ visibilityProperty: true \}\)/m);
 });
 

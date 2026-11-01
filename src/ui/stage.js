@@ -1557,7 +1557,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // browser's own layout) and first in the frame after a resize or a scroll that may have moved it (readFrame); never inside a frame's
   // writes. Until then the last box serves.)
   let boxAsk = 0;
-  const boxAgain = () => { box = null; CTM = null; boxAsk ||= readFrame(() => { boxAsk = 0; if (!box) { measureBox(); CTM = null; } }); };
+  // (The read itself is its own function, handed to the read phase and called from nowhere else.)
+  function boxRead() { boxAsk = 0; if (!box) { measureBox(); CTM = null; } }
+  const boxAgain = () => { box = null; CTM = null; boxAsk ||= readFrame(boxRead); };
   const stageBox = () => { if (!box) boxAgain(); return box || boxKept; };
   measureBox();
   new ResizeObserver(() => { measureBox(); CTM = null; }).observe(wrap);
@@ -1661,26 +1663,63 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const unseenCard = (el) => !('safeWaits' in el.dataset) && (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden');
   // (Kept while nothing they measure may have moved (layoutWatch), and taken against the kept stage box: each call read every card's box
   // and the stage's, many times in a slide's frames.)
+  // (1 Nov 2026, "zero layout inside the frame": the cards' boxes and the zoom and nav pills' are read together (snapRead) as the stage
+  // is made, first in the frame after anything placed changes (layoutWatch's touch, readFrame), after a resize, and once more as the
+  // watch settles; every framing in between (safeInsets, cardSpace, clearPill, centreDrawn) is worked out from that snapshot, with no
+  // read. A read-phase caller about to frame (a refit, the home look, the first fit) takes a fresh one first if a change is waiting
+  // (snapFresh). ?boxread=0: the framings are not kept between calls, worked out from the snapshot each time.)
   const insMemo = new Map();
   function insKept(key, fn) {
     if (!BOX_READ) return fn();
     const m = insMemo.get(key);
-    if (m && !watch.due()) return m;
+    if (m) return m;
     const v = fn();
     insMemo.set(key, v);
     return v;
   }
-  const insWrap = () => (BOX_READ ? stageBox() : wrap.getBoundingClientRect());
-  function cardSpace() { return { ...insKept('space', cardSpaceRead) }; }
-  function cardSpaceRead() {
-    if (gpuProbe.on) gpuProbe.note(COUNTED.safe);
-    const wr = insWrap(), W = wr.width, H = wr.height, sp = { t: 0, b: 0 };
+  let cardsSnap = [], pillsSnap = { zoom: null, nav: null }, snapDirty = true, snapAsk = 0, snapSettle = 0;
+  function cardsRead() {
+    const out = [];
     for (const el of document.querySelectorAll('[data-safe]')) {
       // (A card playing its way out no longer counts: the camera frames for what stays.)
       if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out')) continue;
       if (unseenCard(el)) continue;
       const q = slideRest(el, el.getBoundingClientRect());
       if (!q.width || !q.height) continue;
+      // (data-safe-rest: a card whose own transform only eases it in or out counts where it rests, so the camera frames once.)
+      out.push({ el, q, rest: 'safeRest' in el.dataset ? translateRest(el, restBox(el, q)) : q });
+    }
+    return out;
+  }
+  function pillRead(el, settle) {
+    if (!el) return null;
+    const box = settle ? settledBox(el) : el.getBoundingClientRect();
+    return { el, box, shown: !!box.width && getComputedStyle(el).visibility !== 'hidden' };
+  }
+  function snapRead() {
+    snapAsk = 0; snapDirty = false;
+    cardsSnap = cardsRead();
+    pillsSnap = { zoom: pillRead(document.getElementById('zoomPill'), true), nav: pillRead(document.querySelector('.pz-bar.pzb-pill'), false) };
+    insMemo.clear();
+  }
+  function snapFresh() { if (snapDirty) snapRead(); }
+  function snapAgain() {
+    snapDirty = true; snapAsk ||= readFrame(snapRead);
+    clearTimeout(snapSettle); snapSettle = setTimeout(snapAgainLater, 2600);   // (and once the watch has settled: a card's last eased box)
+  }
+  function snapAgainLater() { snapDirty = true; snapAsk ||= readFrame(snapRead); }
+  watch.onTouch(snapAgain);
+  snapAgain();
+  addEventListener('resize', snapAgain);
+  addEventListener('orientationchange', snapAgain);
+  const insWrap = () => stageBox();
+  function cardSpace() { return { ...insKept('space', () => cardSpaceFrom(cardsSnap)) }; }
+  // (Live, for a caller already in the read phase: the catheter's room.)
+  const cardSpaceRead = () => cardSpaceFrom(cardsRead());
+  function cardSpaceFrom(list) {
+    if (gpuProbe.on) gpuProbe.note(COUNTED.safe);
+    const wr = insWrap(), W = wr.width, H = wr.height, sp = { t: 0, b: 0 };
+    for (const { el, q } of list) {
       const y0 = ((el.classList.contains('mini') || el.dataset.folding) && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top - (+el.dataset.safePad || 0), y1 = q.bottom - wr.top;
       if (y1 <= 0 || y0 >= H) continue;
       const edge = el.dataset.safe;
@@ -1691,24 +1730,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (exact: the cards' real edges, with no softening: a slide that must keep its vessels clear of them, even where they leave a thin band.)
   function safeInsets(exact = false, skip = null) {
-    return { ...insKept(`ins|${+exact}|${skip ? skip.map((el) => el?.id || '?').join() : ''}`, () => safeInsetsRead(exact, skip)) };
+    return { ...insKept(`ins|${+exact}|${skip ? skip.map((el) => el?.id || '?').join() : ''}`, () => safeInsetsFrom(cardsSnap, exact, skip)) };
   }
-  function safeInsetsRead(exact = false, skip = null) {
+  function safeInsetsFrom(list, exact = false, skip = null) {
     if (gpuProbe.on) gpuProbe.note(COUNTED.safe);
     const wr = insWrap(), W = wr.width, H = wr.height;
     const ins = { t: 0, b: 0, l: 0, r: 0, W, H }, cards = [];
     if (!W || !H) return ins;
     // A phone held sideways docks its cards at the side like a tablet (dock.js), so they count as side cards.
     const wide = W >= 768 || (W > H && H <= 500 && W >= 640);
-    for (const el of document.querySelectorAll('[data-safe]')) {
-      // (A card playing its way out no longer counts: the camera frames for what stays.)
-      if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out')) continue;
+    for (const { el, rest: q } of list) {
       if (skip && skip.includes(el)) continue;
-      if (unseenCard(el)) continue;
-      let q = slideRest(el, el.getBoundingClientRect());
-      if (!q.width || !q.height) continue;
-      // (data-safe-rest: a card whose own transform only eases it in or out counts where it rests, so the camera frames once.)
-      if ('safeRest' in el.dataset) q = translateRest(el, restBox(el, q));
       // The vitals dock folded to one line on a phone (main.js) still counts at its full height, so the
       // framing does not jump each time it folds and opens.
       // (data-safe-pad: room kept clear above a piece too, as the 8 px between the figure's readings and the view switch's pill.)
@@ -1758,10 +1790,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // framing never moves as collaterals open.)
   const ART_CIRC = [70, 30, 1330, 730];
   function clearPill(v, vbArr) {
-    const pill = document.getElementById('zoomPill');
+    const zp = pillsSnap.zoom, pill = zp?.el;
     if (!pill) return v;
-    const p = settledBox(pill), wr = wrap.getBoundingClientRect();
-    if (!p.width || !p.height || !wr.width || !wr.height || pill.classList.contains('no-room') || getComputedStyle(pill).visibility === 'hidden') return v;
+    const p = zp.box, wr = stageBox();   // (both kept: snapRead and the stage box)
+    if (!p.width || !p.height || !wr.width || !wr.height || pill.classList.contains('no-room') || !zp.shown) return v;
     const [vx, vy, vw, vh] = vbArr, s0 = Math.min(wr.width / vw, wr.height / vh);
     const ox = (wr.width - vw * s0) / 2 - vx * s0, oy = (wr.height - vh * s0) / 2 - vy * s0;
     let [x0, y0, x1, y1] = ART_CIRC;
@@ -1781,7 +1813,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // design review, iPad on its side). Read from the vessels' circuit courses, which never morph, so it frames once.
   function centreDrawn(v) {
     if (!store.get().presenting) return v;
-    const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height;
+    const wr = stageBox(), W = wr.width, H = wr.height;
     if (!W || !H) return v;
     let bot = -Infinity;
     for (const x of EV) {
@@ -1793,9 +1825,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const sy = (Y) => oy + s0 * (v.y + v.k * Y);
     const ins = safeInsets(), top = sy(vy), end = Math.min(sy(vy + vh), sy(bot) + 30);
     let floor = H - ins.b;
-    for (const el of [document.querySelector('.pz-bar.pzb-pill'), document.getElementById('zoomPill')]) {
-      const r = el?.getBoundingClientRect();
-      if (r?.width && getComputedStyle(el).visibility !== 'hidden') floor = Math.min(floor, r.top - wr.top - 8);
+    for (const pl of [pillsSnap.nav, pillsSnap.zoom]) {
+      const r = pl?.box;
+      if (r?.width && pl.shown) floor = Math.min(floor, r.top - wr.top - 8);
     }
     const hi = floor - end, dy = Math.min(hi, Math.max(ins.t + 4 - top, (ins.t + floor) / 2 - (top + end) / 2));   // (never past the pill, nor its top under a card)
     return hi > 0 && dy > 0 ? { k: v.k, x: v.x, y: v.y + dy / s0 } : v;
@@ -1821,13 +1853,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return out;
   }
+  let fitKept = 0;
   function defaultVT(circuit) {
     if (!circuit) {
       // Fit frames everything the plate draws: the heart and the veins above it, the organs, the
       // flanks, and with ascites the fluid pooled in the pelvic floor below the default frame. The
       // box is measured, so it follows an enlarged spleen or a growing ascites.
       // (The layout size: the svg's drawn rectangle is scaled while the lobule zoom plays, and a fit read from it lands somewhere else.)
-      const r = { width: svg.clientWidth, height: svg.clientHeight };
+      const sb = stageBox(), r = { width: sb.sw, height: sb.sh };   // (the svg's box as kept, measured without the dive's zoom)
       if (!r.width || !r.height) return { k: 1, x: 0, y: 0 };
       let x0 = VB_ANAT[0], y0 = VB_ANAT[1], x1 = VB_ANAT[0] + VB_ANAT[2], y1 = VB_ANAT[1] + VB_ANAT[3];
       // Only what holds still is measured: the abdomen, the organs and the ascites. The vessels morph (to and from
@@ -1847,6 +1880,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const fw = Math.max(40, r.width - ins.l - ins.r), fh = Math.max(40, r.height - ins.t - ins.b);
       const k = Math.min(1.15, fw / s0 / (x1 - x0), fh / s0 / (y1 - y0));
       const cx = VB_ANAT[0] + VB_ANAT[2] / 2 + (ins.l - ins.r) / 2 / s0, cy = VB_ANAT[1] + VB_ANAT[3] / 2 + (ins.t - ins.b) / 2 / s0;
+      fitKept = k;   // (kept for an arc's widest pull back, arcRoom)
       return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
     }
     // Turned upright, the map is tall and fills the height of the stage as it is.
@@ -1912,7 +1946,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A card or sheet opened or closed: glide to the framing for the space that is now free (not in the lobule, which refits itself).
   // (circAgain: lookHome has it take the circuit's last kind of framing again, for a new shape, instead of the close-up.)
   let circAgain = false;
-  function refit() {
+  // (Measured first in the next frame, while the layout is still the last frame's (readFrame), and glided after: a refit asked for in a
+  // frame (main.js, a card's fold) no longer lays the page out among that frame's writes.)
+  let refitAsk = 0;
+  function refit() { refitAsk ||= readFrame(refitRead); }
+  function refitRead() {
+    snapFresh();   // (the cards' boxes as they stand now, if anything placed changed since the last snapshot)
+    refitAsk = 0;
     if (lobuleOn || keptNow()) return;
     const to = circAgain && morphTarget === 1 && circFit === 'whole' ? circWhole() : defaultVT(morphTarget === 1);
     if (morphTarget !== 1) homeAt = to; else markCirc(circAgain ? circFit : 'focus', to);
@@ -1945,6 +1985,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     vt = { k, x: (hd.sx - ox) / s0 - k * rx, y: (hd.sy - oy) / s0 - k * ry };
     applyVT(); CTM = null;
   }
+  let rotWhole = null;
   function setCircuitRotated(on) {
     on = on ? 1 : 0;
     try { localStorage.setItem('pps.circuitRot', String(on)); } catch { /* storage unavailable */ }
@@ -1962,6 +2003,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     rotTarget = on;
     cancelFrame(vtAnim); driftEnd();
     if (whole) vt = morphTarget === 1 ? circWhole() : { k: 1, x: 0, y: 0 };
+    // (The framing the turn lands on, taken now, at the press: the turn's last frame sets it again without measuring the cards.)
+    rotWhole = whole && morphTarget === 1 ? { ...vt } : null;
     if (morphTarget !== 1 || reduceMotion.matches) { rotU = on; setViewBox(easeInOut(morph)); if (rotHold) { holdView(rotHold); rotHold = null; } }
   }
 
@@ -2028,6 +2071,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // second at the dive's fastest instead of a sixth: the lobules came in, and the anatomy's vessels went, all at once (Mohammad, 25 Oct).
   const FIELD_IN = LC - 1.2, FIELD_WHOLE = LC + 0.35;
   const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), vCanvas].filter(Boolean);
+  // Each zoomed layer's offset in the stage, for its zoom's origin. From the boxes, not offsetLeft/Top: an SVG has none, and its origin
+  // would fall back to its own centre, so the overlays (stents, the Doppler's glow) drifted from the anatomy as it zoomed. Read when a
+  // dive or rise is asked for (setLobule, an input or a slide's change), never in the zoom's frames.
+  const diveOffs = new Map();
+  function diveOffsRead() {
+    const w0 = wrap.getBoundingClientRect();
+    diveOffs.clear();
+    for (const el of diveEls()) { const r = el.getBoundingClientRect(); diveOffs.set(el, [r.left - w0.left, r.top - w0.top]); }
+  }
   function diveTarget() {
     const lb = liverBox();
     if (!lb) return null;
@@ -2076,10 +2128,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (!diveOrig) {
       const [ox, oy] = diveAt;
-      // From the boxes, not offsetLeft/Top: an SVG has none, and its origin would fall back to its own
-      // centre, so the overlays (stents, the Doppler's glow) drifted from the anatomy as it zoomed.
-      const w0 = wrap.getBoundingClientRect();
-      diveOrig = diveEls().map((el) => { const r = el.getBoundingClientRect(); return [el, `${(ox - (r.left - w0.left)).toFixed(1)}px ${(oy - (r.top - w0.top)).toFixed(1)}px`]; });
+      // (The layers' offsets in the stage were read as the dive was asked for (diveOffsRead), outside any frame; a layer not
+      // read then stands at the stage's corner, as all of them do.)
+      diveOrig = diveEls().map((el) => { const [dx, dy] = diveOffs.get(el) || [0, 0]; return [el, `${(ox - dx).toFixed(1)}px ${(oy - dy).toFixed(1)}px`]; });
       for (const [el, o] of diveOrig) { el.style.willChange = 'transform'; el.style.transformOrigin = o; }
       fadeStop(vCanvas);   // (likewise: the copy laid over the canvas would stand still while the dive zooms it)
     }
@@ -2197,11 +2248,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const [x, y] = worldToLocal(w[0], w[1]);
         diveAt = [clamp(x, 0, wrap.clientWidth), clamp(y, 0, wrap.clientHeight)];
       } else diveAt = [wrap.clientWidth / 2, wrap.clientHeight / 2];
+      diveOffsRead();
       diveLand = lz.landing();
       lz.prewarm(diveLand.r);
       lz.stage();   // the lobule is drawn now, for where it lands, and only then does the zoom start (its clock starts below)
     } else if (!on && diveT >= 1) {
       riseLine = true;   // (kept through a reversal, so the lobule stays on the line it was on)
+      diveOffsRead();
       riseFast = true;
       lz.stageRise();   // (out of a zoomed-in lobule: its whole copy is drawn now, before the rise's clock starts)
       diveLand = lz.current();
@@ -2222,7 +2275,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (riseUsed) { vt = { ...rv }; applyVT(); CTM = null; refreshCTM(); if (F && !inUpdate) { catchUp = true; try { update(F); } finally { catchUp = false; } } }
         zShift = zOld - Math.log(CTM.sc);
         const w = diveTarget(); if (w) { const [x, y] = worldToLocal(w[0], w[1]); diveAt = [clamp(x, 0, wrap.clientWidth), clamp(y, 0, wrap.clientHeight)]; }
-        diveOrig = null; drawOnce = forceDraw = true;   // the vessel canvas is frozen for the zoom: redraw it now at the fit, not the old camera
+        diveOffsRead(); diveOrig = null; drawOnce = forceDraw = true;   // the vessel canvas is frozen for the zoom: redraw it now at the fit, not the old camera
         if (F) updateLabels(F);   // the labels are laid out for the final framing now, so they come in where they will stay
       }
     }
@@ -2354,7 +2407,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const b = stageBox(), cw = b.sw, ch = b.sh;   // (the svg's box, kept: no layout read)
     if (!cw || !ch) return null;
     const s0 = Math.min(cw / VIEW.w, ch / VIEW.h), vb = { w: cw / s0, h: ch / s0, cx: VIEW.w / 2, cy: VIEW.h / 2 };
-    return { vb, wMax: vb.w / defaultVT(false).k };
+    // (The anatomy's fit zoom as last framed, kept by defaultVT: an arc's frames no longer measure the cards and the figure.)
+    return { vb, wMax: vb.w / (fitKept || 1) };
   }
   // opt.arc: a presenter's framing. A long move (the two views share nothing) pulls back and comes in rather than panning across at full zoom.
   // The view following a presenter's card frame by frame (Mohammad, 30 Oct, iPhone: "The view still snaps/jumps when I untuck a stacked
@@ -2994,6 +3048,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     readFrame(firstFitRead);   // (the fit's boxes read first in the next frame, before any write; set in that frame's own phase)
   }
   function firstFitRead() {
+    snapFresh();   // (the cards' boxes as they stand now, if anything placed changed since the last snapshot)
     const d = morphTarget === 0 && !userMoved && !store.get().presenting ? defaultVT(false) : null;
     nextFrame(() => {
       // (Set outright, so a glide still under way (a refit as the bars came in) stops here: left running it never landed,
@@ -3069,6 +3124,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let wasHome = false, riseFitAsk = 0;
   // (Back from the lobule: the anatomy's full fit, read first in a frame (its boxes and the cards'), and glided to in the frame's own phase.)
   function riseFitRead() {
+    snapFresh();   // (the cards' boxes as they stand now, if anything placed changed since the last snapshot)
     riseFitAsk = 0;
     if (morphTarget !== 0 || lobuleOn) return;
     const d = defaultVT(false);
@@ -3093,6 +3149,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const homeGo = (d) => { if (!sameView(d, homeAt)) { homeAt = d; fitted = true; animateVT(d, 400, { steady: true }); } };
   let homeAsk = 0;
   function homeLookRead() {
+    snapFresh();   // (the cards' boxes as they stand now, if anything placed changed since the last snapshot)
     homeAsk = 0;
     if (keptNow()) return;   // (the Tests card alone has changed the space: see keepView)
     const d = defaultVT(false), at = homeAt;
@@ -4654,6 +4711,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (The organs' own colours: a lens's grey on the live SVG (only while the plate is off) would be read as theirs.)
     if (greyList) return;
     liveKeyWas = key;
+    // (The specs are read first in the next frame, while the layout is still the last frame's (readFrame), and handed to the stack in
+    // that frame's own phase after: never read among a frame's writes.)
+    liveAsk ||= readFrame(liveRead);
+  }
+  let liveAsk = 0;
+  function liveRead() {
+    liveAsk = 0;
+    const v = veins;
+    if (!v || v.lost || !v.organs || !liveOn() || greyList) { liveKeyWas = ''; return; }
     const organs = new Map(), masks = new Map();
     let ok = true;
     liveFailWhy = '';
@@ -4674,9 +4740,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // element whose frame m reads, watched by the stack for writes with the mask's own elements: organs-gl watchLive.)
       masks.set(L, L === 'gut' ? { spec, el: g, get m() { return matOfEl(g); }, opacity: parseFloat(getComputedStyle(gGut).opacity), under: [{ name: 'bowel', dy: bowelDy() }] } : { spec, el: g, get m() { return matOfEl(g); } });
     }
+    nextFrame(() => liveApply(ok, organs, masks));
+  }
+  function liveApply(ok, organs, masks) {
+    const v = veins;
+    if (!v || v.lost || !v.organs || !liveOn()) return;
     if (!ok) { liveFailed = true; v.organs.setLive(null, null); liveSet = false; hidePlate(); platePoke(); return; }
     // (The next composite renders the stack again for it (its version moved): the vessels themselves need no redraw.)
     v.organs.setLive(organs, masks); liveSet = true;
+    veinsDirty = true; stageWake();   // (composited again with the new specs in the next frame, as it was in the frame they were read)
   }
   // What the plate shows, in coarse steps: re-rasterize when it changes. A selected organ is not part of it: its outline is drawn
   // outside the organs (gSelO, or on the GPU) and its dim on the GPU, and its .org-sel class styles nothing, so the picture was
@@ -4938,14 +5010,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   new MutationObserver(greyStale).observe(wrap, { attributes: true, attributeFilter: ['class'] });
   new MutationObserver(greyStale).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'class'] });   // (not its style: label sizes change there on every frame of a glide)
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', greyStale);
+  // (The colours are read first in the next frame, while the layout is still the last frame's (readFrame), and greyed in that frame's
+  // own phase after: the grey starts a frame later, from no grey, as its ease does anyway.)
+  let greyAsk = 0, greyWant = false, greySat = 1, greyNew = null;
   function greyOn(sat) {
-    if (!greyFilter && !greyList) {
-      greyList = greyRead(); greyAt = greyDeps();
-      if (!greyList) { greyFilter = true; for (const g of [gOrgans, gBackdrop]) g.setAttribute('filter', 'url(#organDim)'); }
-    }
+    greyWant = true; greySat = sat;
+    if (!greyFilter && !greyList) { greyAsk ||= readFrame(greyPrep); return; }
     greySet(sat);
   }
+  function greyPrep() {
+    greyAsk = 0;
+    if (!greyWant || greyFilter || greyList) return;
+    greyNew = { list: greyRead(), at: greyDeps() };
+    nextFrame(greyStart);
+  }
+  function greyStart() {
+    const n = greyNew; greyNew = null;
+    if (!n || !greyWant || greyFilter || greyList) return;
+    greyList = n.list; greyAt = n.at;
+    if (!greyList) { greyFilter = true; for (const g of [gOrgans, gBackdrop]) g.setAttribute('filter', 'url(#organDim)'); }
+    greySet(greySat);
+  }
   function greyOff() {
+    greyWant = false; if (greyAsk) { cancelFrame(greyAsk); greyAsk = 0; } greyNew = null;
     greyClear();
     if (greyFilter) { greyFilter = false; for (const g of [gOrgans, gBackdrop]) g.removeAttribute('filter'); }
   }
@@ -5153,14 +5240,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const orgToneCache = new Map();
   function orgTone(id) {
     const k = `${id}|${themeKey()}|${darkMQ.matches}`;
-    let c = orgToneCache.get(k);
-    if (!c) {
-      const g = organG[id], v = g && getComputedStyle(g).getPropertyValue('--o3').trim();
-      c = v ? [...toRGB(v, null)].slice(0, 3) : olCol;
-      if (v) orgToneCache.set(k, c);
-    }
-    return c;
+    return orgToneCache.get(k) || olCol;
   }
+  // (Every organ's tone, read as the stage is made and in the theme's observer (never in a frame): a frame takes the one kept.)
+  function orgToneRead() {
+    const t = `${themeKey()}|${matchMedia('(prefers-color-scheme: dark)').matches}`;   // (darkMQ, by its own query: declared further down)
+    for (const id of Object.keys(organG)) {
+      const k = `${id}|${t}`;
+      if (orgToneCache.has(k)) continue;
+      const g = organG[id], v = g && getComputedStyle(g).getPropertyValue('--o3').trim();
+      if (v) orgToneCache.set(k, [...toRGB(v, null)].slice(0, 3));
+    }
+  }
+  orgToneRead();
+  new MutationObserver(orgToneRead).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'class'] });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', orgToneRead);
   const OL_FADE = 160;   // ms
   // A narrowing's clamp and its "60 %" fade in and out with the narrowing (they had popped): each narrowing's shown amount
   // (0 … 1), stepped in olStep. A narrowing that goes keeps its marks, moved to ov.clampsOut, until they have faded.
@@ -5197,11 +5291,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // An organ with a drawn outline of its own (ORGANS ring: the colon as it shows, the transverse colon over the limbs behind)
   // is outlined along it; the small bowel's path is already its outline, the whole pile as one.
   const RING_OF = Object.fromEntries(ORGANS.filter((o) => typeof o.ring === 'string').map((o) => [o.id, o.ring]));
+  const bandEdgeW = new Map();
+  function bandEdgeRead() {
+    for (const id of BAND_IDS) { const edge = organG[id]?.querySelector('.band-edge'); if (edge) bandEdgeW.set(id, parseFloat(getComputedStyle(edge).strokeWidth) || 0); }
+  }
+  bandEdgeRead(); readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the styles surely apply)
   function olRings(id, bare = false) {
     const rings = olRingsRaw(id, bare);
     if (BAND_IDS.has(id) && !RING_OF[id]) {
       const o = ORGANS.find((q) => q.id === id), edge = organG[id].querySelector('.band-edge');
-      const w = o.ringW || (edge ? parseFloat(getComputedStyle(edge).strokeWidth) : 0);
+      const w = o.ringW || (edge ? bandEdgeW.get(id) || 0 : 0);   // (read as the stage is made: bandEdgeRead)
       return w > 0 ? rings.map((r) => bandRing(r, w / 2)).filter((r) => r.length) : rings;
     }
     return rings;
@@ -6730,12 +6829,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function siteSize(el, d, wk) {
     siteWant.set(el, [d, wk]);
-    siteAsk ||= readFrame(() => {
-      siteAsk = 0;
-      for (const [e, [dd, k]] of siteWant) if (e.isConnected) siteMeasure(e, dd, k);
-      siteWant.clear();
-      sitesAgain();
-    });
+    siteAsk ||= readFrame(siteRead);
+  }
+  function siteRead() {
+    siteAsk = 0;
+    for (const [e, [dd, k]] of siteWant) if (e.isConnected) siteMeasure(e, dd, k);
+    siteWant.clear();
+    sitesAgain();
   }
   let kpAt = -1e9, kpBox = null, kpAsk = 0;
   function keyPillBox() {
@@ -6781,10 +6881,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     head: ['.pz-text.stage-blocker, .pz-data.stage-blocker, .pz-panel.stage-blocker', (el) => !(el.hidden || 'gone' in el.dataset || el.classList.contains('pz-hide') || getComputedStyle(el).opacity < 0.5), () => 0],
     cards: ['.pz-shade, .pz-data.stage-blocker, .pz-panel.stage-blocker', (el) => !(el.hidden || 'gone' in el.dataset || el.classList.contains('pz-hide') || el.classList.contains('pz-leave') || +getComputedStyle(el).opacity < 0.5), () => (pillEdge ? pillEdge.m : 8)],
   };
+  const SCAN_READS = { head: () => { scanLookRead('head'); scanAgain(); }, cards: () => { scanLookRead('cards'); scanAgain(); } };
   function scanLook(key) {
     const now = performance.now(), o = scanLooks.get(key);
     if (o && (o.ask || now - o.at < 250 || viewMoving() || !watch.due())) return o.list;
-    scanLooks.set(key, { at: o?.at ?? 0, list: o?.list || [], ask: readFrame(() => { scanLookRead(key); scanAgain(); }) });
+    scanLooks.set(key, { at: o?.at ?? 0, list: o?.list || [], ask: readFrame(SCAN_READS[key]) });
     return o?.list || [];
   }
   function scanLookRead(key) {
@@ -11227,7 +11328,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       rotU = clamp(rotU + Math.sign(rotTarget - rotU) * dt / 0.5, 0, 1);
       setViewBox(easeInOut(morph));
       if (rotHold) { holdView(rotHold); if (rotU === rotTarget) rotHold = null; }
-      else if (rotU === rotTarget && morphTarget === 1) { vt = circWhole(); applyVT(); CTM = null; }
+      else if (rotU === rotTarget && morphTarget === 1 && rotWhole) { vt = { ...rotWhole }; rotWhole = null; applyVT(); CTM = null; }
     }
     stepReveals(now);
     stepRest(dt);
@@ -11277,11 +11378,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   new MutationObserver(wake).observe(wrap, { attributes: true, attributeFilter: ['class'] });
   if (appEl) new MutationObserver(wake).observe(appEl, { attributes: true, attributeFilter: ['class'] });
 
-  // Opaque organ shapes (anatomy), as canvas paths; built once, band widths read from the CSS.
+  // Opaque organ shapes (anatomy), as canvas paths; built once, band widths read from the CSS (as the stage is made, coverWRead).
   let organCovers = null;
   // (The same covers as outlines, for the cell grid: dashCover.)
   let organCoverG = null;
   const organCoverGeoms = () => (organCoverG ||= getOrganCovers().map(({ src, w }) => ({ geom: src.circle ? geomOf('circle', (q) => ({ cx: src.circle[0], cy: src.circle[1], r: src.circle[2] })[q]) : geomOf('path', () => src.d), w })));
+  const coverW = new Map();
+  function coverWRead() {
+    let moved = false;
+    for (const o of ORGANS) {
+      if (!o.band || !organEls[o.id]) continue;
+      const w = parseFloat(getComputedStyle(organEls[o.id]).strokeWidth) || 0;
+      if (coverW.get(o.id) !== w) { coverW.set(o.id, w); moved = true; }
+    }
+    if (moved) { organCovers = null; organCoverG = null; }   // (built again with the widths read)
+  }
+  coverWRead(); readFrame(coverWRead);
   function getOrganCovers() {
     if (organCovers) return organCovers;
     organCovers = [];
@@ -11290,7 +11402,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (o.circle) { const p = new Path2D(); p.arc(o.circle[0], o.circle[1], o.circle[2], 0, Math.PI * 2); organCovers.push({ p, w: 0, src: { circle: o.circle } }); continue; }
       // (The gut's tubes cover the vessels behind them along their earlier centre lines and widths: ORGANS cover.)
       if (o.cover) { organCovers.push({ p: new Path2D(o.cover.d), w: o.cover.w, src: { d: o.cover.d } }); continue; }
-      const w = o.band ? parseFloat(getComputedStyle(organEls[o.id]).strokeWidth) || 0 : 0;
+      const w = o.band ? coverW.get(o.id) || 0 : 0;
       if (o.band && w < 4) continue; // the diaphragm is a hairline, not a cover
       organCovers.push({ p: new Path2D(o.d), w, src: { d: o.d } });
     }
@@ -11446,16 +11558,38 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // being dragged (the view moves under the pointer and nothing is lit then).
   let hoverEv = null, hoverRaf = 0;
   svg.addEventListener('pointermove', (ev) => {
-    if (shunt) shuntMove(ev);
+    if (shunt) { shuntEv = ev; shuntAsk ||= readFrame(shuntRead); }
     if (ev.pointerType === 'touch') return;   // a finger has no hover (a long press peeks instead)
     if (drag?.type === 'pan' && drag.moved && !drag.peeked) { if (hoverId) setHover(null); hoverEv = null; return; }
     hoverEv = ev;
-    if (!hoverRaf) hoverRaf = nextFrame(() => { hoverRaf = 0; const e = hoverEv; hoverEv = null; if (e) hoverAt(e); });
+    // (Hit-tested first in the next frame, while the layout is still the last frame's (readFrame), and lit after (nextFrame).)
+    hoverRaf ||= readFrame(hoverRead);
   });
   let nearHover = null;   // (hoverAt's last ring of hit tests: when, the view, where, and what it found)
-  function hoverAt(ev) {
-    if (linkHeld()) return;   // (the pointer is on a reading label: that vessel stays lit, whatever frame this move was kept for)
+  function hoverRead() {
+    hoverRaf = 0;
+    const e = hoverEv; hoverEv = null;
+    if (!e || linkHeld()) return;
+    const look = hoverLook(e);
+    nextFrame(() => hoverAt(e, look));
+  }
+  // The hit tests alone: the vessel under the pointer, and the one near it (at most one ring every 50 ms, see below).
+  function hoverLook(ev) {
     const id = edgeFromEvent(ev);
+    let near = null;
+    if (!(id && EI[id] != null && F && !shunt) && !shunt && !drag && !lobuleOn && store.get().tool === 'select') {
+      const [wx, wy] = clientToWorldFast(ev.clientX, ev.clientY);
+      if (organAt(wx, wy)) {
+        const now = performance.now(), nh = nearHover;
+        near = nh && now - nh.t < 50 && nh.v === viewVersion && Math.abs(nh.x - ev.clientX) + Math.abs(nh.y - ev.clientY) < 24 ? nh.id
+          : (nearHover = { t: now, v: viewVersion, x: ev.clientX, y: ev.clientY, id: nearbyEdge(ev) }).id;
+      }
+    }
+    return { id, near };
+  }
+  function hoverAt(ev, look) {
+    if (linkHeld()) return;   // (the pointer is on a reading label: that vessel stays lit, whatever frame this move was kept for)
+    const id = look.id;
     if (id && EI[id] != null && F && !shunt) {
       const r = stageBox();   // (the kept box: a hover each frame no longer lays out the figure just written)
       onHoverInfo({ id, x: ev.clientX - r.left, y: ev.clientY - r.top });
@@ -11469,9 +11603,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const sel = store.get().selection;
       // A click here would pick this vessel, so the organ must not light. (Up to 36 hit tests, each a layout and a hit test of the
       // figure: at most one ring every 50 ms while the mouse moves, near where it was and with the view unchanged; between, the last answer.)
-      const now = performance.now(), nh = nearHover;
-      const near = !o ? null : nh && now - nh.t < 50 && nh.v === viewVersion && Math.abs(nh.x - ev.clientX) + Math.abs(nh.y - ev.clientY) < 24 ? nh.id
-        : (nearHover = { t: now, v: viewVersion, x: ev.clientX, y: ev.clientY, id: nearbyEdge(ev) }).id;
+      const near = o ? look.near : null;
       if (near && EI[near] != null && F) { setHover(near); setOrganHover(null); return; }
       if (o && !(sel?.type === 'organ' && sel.id === o)) setOrganHover(o, o === 'liver' ? (wx < LIVER_SPLIT_X ? 'R' : 'L') : '');
       else setOrganHover(null);
@@ -11615,7 +11747,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { k: v.k, x: h.x + f(v.x - h.x, Lx), y: h.y + f(v.y - h.y, Ly) };
   }
   const softPan = (v) => bandPan(v, false), unsoftPan = (v) => bandPan(v, true);
-  function springBack() {
+  // (Measured first in the next frame (readFrame), while the layout is still the last frame's: a flick's last frame or a lifted finger
+  // no longer measures the cards among the frame's writes.)
+  let springAsk = 0;
+  function springBack() { springAsk ||= readFrame(springRead); }
+  function springRead() {
+    snapFresh();   // (the cards' boxes as they stand now, if anything placed changed since the last snapshot)
+    springAsk = 0;
     if (lobuleOn || vtGliding || drag || glide) return;
     let to = { ...vt };
     const k = clamp(vt.k, K_MIN, K_MAX);
@@ -11710,6 +11848,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }, 480);
     }
   }
+  let peekEv = null, peekAsk = 0;
+  function peekRead() {
+    peekAsk = 0;
+    const ev = peekEv; peekEv = null;
+    if (!ev || !drag?.peeked) return;
+    const r = stageBox();
+    const id = edgeFromEvent(ev) || nearbyEdge(ev);
+    if (id && EI[id] != null) onHoverInfo({ id, x: ev.clientX - r.left, y: ev.clientY - r.top, peek: true });
+    else onHoverInfo(null);
+  }
   svg.addEventListener('pointermove', (ev) => {
     if (!pointers.has(ev.pointerId)) return;
     pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
@@ -11730,10 +11878,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Once it counts as a pan the figure follows the finger from where it is then, rather than catching up the slop in one frame.
       if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > (ev.pointerType === 'touch' ? 8 : 4)) { if (!drag.moved) { drag.moved = true; drag.x = ev.clientX; drag.y = ev.clientY; } clearPress(); }
       if (drag.peeked) {   // a long press then drag: the popup follows whichever vessel is under the finger
-        const r = wrap.getBoundingClientRect();
-        const id = edgeFromEvent(ev) || nearbyEdge(ev);
-        if (id && EI[id] != null) onHoverInfo({ id, x: ev.clientX - r.left, y: ev.clientY - r.top, peek: true });
-        else onHoverInfo(null);
+        // (Looked up first in the next frame, while the layout is the last frame's, for the newest point: never in the move's handler.)
+        peekEv = ev; peekAsk ||= readFrame(peekRead);
         return;
       }
       if (drag.moved) {
@@ -11922,9 +12068,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!shunt) return;
     setGlowSrc('shunt', [...shunt.targets.keys()].map((id) => ({ id, col: 'var(--accent)', amt: id === on ? 1.4 : 0.9, wide: id === on ? 0.9 : 0.6, dur: 300 })));
   }
-  function shuntMove(ev) {
-    const [wx, wy] = clientToWorld(ev.clientX, ev.clientY);
+  // (A drag's target is hit-tested first in the next frame, while the layout is the last frame's, and its guide drawn after.)
+  let shuntEv = null, shuntAsk = 0;
+  function shuntRead() {
+    shuntAsk = 0;
+    const ev = shuntEv; shuntEv = null;
+    if (!ev || !shunt) return;
     const tgt = edgeFromEvent(ev);
+    nextFrame(() => { if (shunt) shuntMove(ev, tgt); });
+  }
+  function shuntMove(ev, tgt) {
+    const [wx, wy] = clientToWorldFast(ev.clientX, ev.clientY);   // (the kept transform: no layout read among the guide's writes)
     const ok = tgt && shunt.targets.has(tgt);
     if ((ok ? tgt : null) !== shunt.hover) shuntGlow(ok ? tgt : null);
     shunt.hover = ok ? tgt : null;

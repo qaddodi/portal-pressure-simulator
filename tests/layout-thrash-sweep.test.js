@@ -12,8 +12,10 @@ test("a card's own list scrolling keeps the figure's box; the page's scroll, or 
 });
 
 test('a hover reads the kept box and transform, never a fresh layout', () => {
-  const hov = st.match(/function hoverAt\(ev\) \{[\s\S]*?\n {2}\}\n/)[0];
-  assert.doesNotMatch(hov, /getBoundingClientRect|clientToWorld\(/);
+  const hov = st.match(/function hoverAt\(ev, look\) \{[\s\S]*?\n {2}\}\n/)[0];
+  assert.doesNotMatch(hov, /getBoundingClientRect|clientToWorld\(|edgeFromEvent|nearbyEdge/, 'its hit tests are hoverLook\'s, in the read phase');
+  assert.match(st, /hoverRaf \|\|= readFrame\(hoverRead\);/);
+  assert.match(st, /const look = hoverLook\(e\);\n\s+nextFrame\(\(\) => hoverAt\(e, look\)\);/);
   assert.match(hov, /const r = stageBox\(\);/);
   assert.match(hov, /clientToWorldFast\(ev\.clientX, ev\.clientY\)/);
 });
@@ -42,7 +44,7 @@ test("a lens switch moves the key in the press's own frame and updates the figur
 });
 
 test("a hover over an organ runs the ring of vessel hit tests at most every 50 ms, near the last spot, with the view unchanged", () => {
-  const hov = st.match(/function hoverAt\(ev\) \{[\s\S]*?\n {2}\}\n/)[0];
+  const hov = st.match(/function hoverLook\(ev\) \{[\s\S]*?\n {2}\}\n/)[0];
   assert.match(hov, /nh && now - nh\.t < 50 && nh\.v === viewVersion && Math\.abs\(nh\.x - ev\.clientX\) \+ Math\.abs\(nh\.y - ev\.clientY\) < 24 \? nh\.id/);
   assert.match(hov, /\(nearHover = \{ t: now, v: viewVersion, x: ev\.clientX, y: ev\.clientY, id: nearbyEdge\(ev\) \}\)\.id/);
   assert.match(st, /function pick\(id, ev\) \{\n\s+if \(!\(id && EI\[id\] != null\)\) id = nearbyEdge\(ev\);/, 'a click always tests afresh');

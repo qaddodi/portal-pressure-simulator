@@ -52,7 +52,7 @@ test('the end shift is scaled with the card, and a card at rest or unmarked is l
 });
 
 test('the camera\'s room uses the card\'s and its sheet edge\'s resting place, on every device that docks the card', () => {
-  assert.match(stage, /if \('safeRest' in el\.dataset\) q = translateRest\(el, restBox\(el, q\)\);/);
+  assert.match(stage, /rest: 'safeRest' in el\.dataset \? translateRest\(el, restBox\(el, q\)\) : q/);
   // (Set on every paint of the dock, from where it is going, dock.to; the sheet's edge follows the card.)
   assert.match(presenter, /ui\.data\.dataset\.restTranslate = `\$\{\(x \* dock\.to\)\.toFixed\(1\)\} \$\{\(y \* dock\.to\)\.toFixed\(1\)\}`;/);
   assert.match(presenter, /l\.style\.translate = d\.style\.translate; l\.dataset\.restTranslate = d\.dataset\.restTranslate \?\? '0 0';/);

@@ -97,8 +97,8 @@ test('the framing reads the dock and the pill where they rest while they slide',
   assert.match(css, /#app\.sin-focus #vdock:not\(\.vd-out\) \{ display: none !important; \}/);
   assert.match(css, /#app\.sin-focus \.vdock > \.nb-views \{ display: none; \}/, 'its empty views pill does not slide away with it');
   assert.match(stage, /const slideRest = \(el, q\) => \{ const y = \+el\.dataset\.slideY \|\| 0; return y \? new DOMRect\(q\.x, q\.y - y, q\.width, q\.height\) : q; \};/);
-  assert.equal(stage.match(/el\.classList\.contains\('card-leaving'\) \|\| el\.classList\.contains\('vd-out'\)\) continue;/g).length, 2);
-  assert.equal(stage.match(/slideRest\(el, el\.getBoundingClientRect\(\)\)/g).length, 2, 'both the framing and the cards\' space');
+  assert.equal(stage.match(/el\.classList\.contains\('card-leaving'\) \|\| el\.classList\.contains\('vd-out'\)\) continue;/g).length, 1, 'the cards\' snapshot, which the framing and the cards\' space both use');
+  assert.equal(stage.match(/slideRest\(el, el\.getBoundingClientRect\(\)\)/g).length, 1, 'one snapshot for both the framing and the cards\' space');
   // The published space: none in the sinusoid view, and at rest while the dock slides back.
   assert.match(main, /const vdH = app\.classList\.contains\('sin-focus'\) \? 0 : vd\.offsetHeight, vdSlide = \+vd\.dataset\.slideY \|\| 0;/);
   assert.match(main, /\(vd\.getBoundingClientRect\(\)\.top - vdSlide\)/);

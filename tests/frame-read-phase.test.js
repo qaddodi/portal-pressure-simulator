@@ -30,7 +30,13 @@ test('stage: the figure\'s boxes are read in the read phase at a change, never b
   assert.match(st, /kpAsk \|\|= readFrame\(keyPillRead\);/, 'the key pill');
   assert.match(st, /dprCardsAsk \|\|= readFrame\(dprCardsRead\);/, 'the Doppler probe\'s cards');
   assert.match(st, /if \(!dprQuiet\(\)\) dprMonAsk \|\|= readFrame\(dprMonRead\);/, 'the Doppler monitor check');
-  assert.match(st, /ask: readFrame\(\(\) => \{ scanLookRead\(key\); scanAgain\(\); \}\)/, 'the FibroScan probe\'s cards');
+  assert.match(st, /ask: readFrame\(SCAN_READS\[key\]\)/, 'the FibroScan probe\'s cards');
+  assert.match(st, /hoverRaf \|\|= readFrame\(hoverRead\);/, 'a hover\'s hit tests');
+  assert.match(st, /shuntAsk \|\|= readFrame\(shuntRead\);/, 'a shunt drag\'s target');
+  assert.match(st, /function refit\(\) \{ refitAsk \|\|= readFrame\(refitRead\); \}/, 'a refit');
+  assert.match(st, /function springBack\(\) \{ springAsk \|\|= readFrame\(springRead\); \}/, 'the spring back');
+  assert.match(st, /watch\.onTouch\(snapAgain\);/, 'the cards\' and pills\' snapshot, at a change');
+  assert.match(st, /function snapFresh\(\) \{ if \(snapDirty\) snapRead\(\); \}/);
   assert.match(st, /nextFrame\(\(\) => \{ el\.classList\.remove\('cath-pre'\); sitesAgain\(\); \}\);/, 'no forced layout to start a reading\'s fade');
   assert.match(st, /function safeInsets\(exact = false, skip = null\) \{\n\s+return \{ \.\.\.insKept\(/, 'the cards\' room kept while nothing laid out moved');
 });

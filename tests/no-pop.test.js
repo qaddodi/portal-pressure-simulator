@@ -47,7 +47,9 @@ test('the zoom pill glides aside with a side card, by a transform (round 2 revie
   // (The phone's pill never stood aside for a card.)
   assert.match(css, /\.zoom-pill \{ flex-direction: row; right: calc\(env\(safe-area-inset-right\) \+ 8px\); transform: none; \}/);
   // Fits read where the pill is going, not where it is mid-glide.
-  assert.match(stageSrc, /const p = settledBox\(pill\), wr = wrap\.getBoundingClientRect\(\);/);
+  assert.match(stageSrc, /zoom: pillRead\(document\.getElementById\('zoomPill'\), true\)/);
+  assert.match(stageSrc, /const box = settle \? settledBox\(el\) : el\.getBoundingClientRect\(\);/, 'where it will rest, in the cards\' snapshot');
+  assert.match(stageSrc, /const p = zp\.box, wr = stageBox\(\);/);
 });
 
 test('a Tests pane swiped into place does not play its entrance again', () => {

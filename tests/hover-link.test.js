@@ -78,7 +78,7 @@ test('a finger, a talk and a drag light nothing', () => {
   // (The press on a label hands the pointer to the figure by capture, which ends the label's hover: clearHover also clears the link.)
   assert.match(stage, /function clearHover\(\) \{[^}]*if \(linkPtr\) \{ linkPtr = null; linkApply\(\); \} \}/);
   // (A move kept for the next frame no longer overrides the vessel the label lit.)
-  assert.match(stage, /function hoverAt\(ev\) \{\s*if \(linkHeld\(\)\) return;/);
+  assert.match(stage, /function hoverAt\(ev, look\) \{\s*if \(linkHeld\(\)\) return;/);
   // (A label that fades out under a still pointer sends no leave: the hold checks :hover, so the vessels never stay deaf to the pointer.)
   assert.match(stage, /function linkHeld\(\) \{[\s\S]*?g\.matches\(':hover'\)[\s\S]*?linkPtr = null; linkApply\(\);/);
 });
