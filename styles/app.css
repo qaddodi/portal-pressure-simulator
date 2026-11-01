@@ -3867,8 +3867,10 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
 @media (max-width: 1239px) { #btnBlood > span, #btnBlood .chev, #btnLobuleLayers > span, #btnLobuleLayers .chev { display: none; } }
 
 /* The compare switch floats under the top bar, centered. */
-.sb-center.float-ui { position: absolute; z-index: var(--z-hud); top: calc(var(--top-safe) + 6px); left: 50%; transform: translateX(-50%); display: flex; pointer-events: none; }
-.sb-center.float-ui > * { pointer-events: auto; }
+/* (It centres in the room the cards on the right leave, --right-occ, and eases as they come and go: centred on the whole window, "Differences" ran under an
+   open Details card on an iPad held sideways. The auto margins centre it when there is room; when there is not, it starts at the left edge.) */
+.sb-center.float-ui { position: absolute; z-index: var(--z-hud); top: calc(var(--top-safe) + 6px); left: calc(env(safe-area-inset-left) + var(--gap)); right: calc(env(safe-area-inset-right) + var(--gap) + var(--right-occ, 0px)); display: flex; justify-content: flex-start; pointer-events: none; transition: right var(--d-small) var(--ease); }
+.sb-center.float-ui > * { pointer-events: auto; margin-inline: auto; }
 .sb-center.float-ui:has(.sb-banner:empty) { display: none; }
 .sb-center .sb-banner { padding: 4px 4px 4px 12px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-pill); }
 
