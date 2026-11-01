@@ -30,10 +30,13 @@ test('item 36: the data-card plane skips a redraw whose size, font, points, read
 test("item 39: a lit lobule label's pill is read once per layout, not on every frame of its leaders' glide", () => {
   const src = read('../src/ui/lobule-zoom.js');
   const lo = src.slice(src.indexOf('const lettersOf = '), src.indexOf('function leadTo('));
-  assert.match(lo, /let q = pills\.get\(L\);\s*if \(!q\) \{/);
-  assert.equal(lo.match(/getComputedStyle/g).length, 1);
-  const lay = src.slice(src.indexOf('function layoutLabels()'), src.indexOf('function layoutLabels()') + 900);
-  assert.match(lay, /if \(key === layoutKey\) return;\s*pills\.clear\(\);/);
+  // (Since 1 Nov, evening: never read in a frame at all. The pill's insets are measured with the label's size, in a timer task of
+  // their own (measureRun), and the leaders use them from there.)
+  assert.match(lo, /const q = L\.pillQ \|\| \[/);
+  assert.doesNotMatch(lo, /getComputedStyle/);
+  const run = src.slice(src.indexOf('function measureRun()'), src.indexOf('const labWH = '));
+  assert.match(run, /getComputedStyle\(L\.el, '::before'\)/);
+  assert.match(run, /L\.pillQ = \[px\(p\.left\), px\(p\.top\), px\(p\.right\), px\(p\.bottom\), px\(p\.borderTopLeftRadius\)\];/);
 });
 
 test('item 33: the sinusoid view keeps its size, colours and dark-mode query instead of reading them every frame', () => {

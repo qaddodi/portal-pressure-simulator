@@ -33,6 +33,6 @@ test('the lobule\'s frame keeps its size, theme query and styles', () => {
   const draw = js.slice(js.indexOf('  function draw(dt) {'), js.indexOf('\n  }\n', js.indexOf('  function draw(dt) {')));
   assert.ok(draw.length > 100);
   assert.doesNotMatch(draw, /getBoundingClientRect|matchMedia|getComputedStyle/);
-  assert.match(js, /new ResizeObserver\(\(\) => \{\s*const was = hostWH; hostWH = null;/, 'the size is read again when the host resizes');
+  assert.match(js, /new ResizeObserver\(\(\) => \{\s*const was = snap\.hostWH;\s*if \(readAll\(\) && fade > 0\) relayout\(\);/, 'the size is read again when the host resizes');
   assert.match(js, /if \(said !== tissueSaid\)/, 'the tissue label is written only when its words change');
 });

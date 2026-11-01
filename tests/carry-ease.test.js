@@ -91,7 +91,7 @@ test('the camera, the lobule, the sheets and the paging take it', () => {
   assert.match(stage, /c0 = carryRate\(v0, from, to, VIEW\.w\) \* ms;/);
   assert.match(stage, /const CARRY = !\/\[\?&\]carry=0\\b\/\.test\(location\.search\);/);
   assert.match(stage, /!drift && vtVel && vtGliding/, 'a plain glide still under way, not a drift or a dead one');
-  assert.match(lz, /carryRate\(v0, from, to, Math\.max\(1, el\.clientWidth\)\) \* ms/);
+  assert.match(lz, /carryRate\(v0, from, to, Math\.max\(1, snap\.w\)\) \* ms/);   // (the lobule's width as kept: never read in a frame)
   assert.match(lz, /ease !== 'in'/, 'the lobule\'s lead-in glide keeps its own curve');
   assert.match(util, /liveShift\(panel\)/, 'a sheet caught mid-ease is taken over where it is drawn');
   assert.match(util, /export function sinkTo\(el, px, ms = 220, done, speed = null\)/);
