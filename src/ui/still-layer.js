@@ -22,7 +22,7 @@ export function createStill(host, { make = () => document.createElement('canvas'
      * on the context it is given, which has the chart's transform and size and is clear. Called only when `k` or the size changed.
      */
     lay(ctx, k, build) {
-      if (!on) { ctx.save(); build(ctx); ctx.restore(); return; }
+      if (!on || ctx.onGPU === true) { ctx.save(); build(ctx); ctx.restore(); return; }   // (drawn by the GPU: its parts drawn again each frame cost the GPU, not a copy)
       const W = host.width, H = host.height;
       pic ||= make();
       const resized = pic.width !== W || pic.height !== H;

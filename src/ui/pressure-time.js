@@ -6,8 +6,8 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=7a4bd2b204';
-import { FONT as FONT0, FONT } from './charts.js?v=911b2fa9c0';
+import { h, fmt, cssVar, cssAlpha, clamp } from './util.js?v=f7055730cc';
+import { FONT as FONT0, FONT } from './charts.js?v=6acfc16ef7';
 import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=15d5254a2c';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
@@ -18,7 +18,8 @@ import { createBeatClock, ekgSeries, leadIISeries } from './ekg.js?v=f27505b539'
 import { laneRoom } from './trace-lanes.js?v=3d3cb1915e';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
 import { plotFill } from './plot-look.js?v=5037697da7';
-import { createStill } from './still-layer.js?v=7bc9566c55';
+import { createTraceGL, fitPen } from './trace-gl.js?v=a1151dd5f9';
+import { createStill } from './still-layer.js?v=8d8a2727b4';
 import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from './beat-card.js?v=89d9fda241';
 import { VITALS } from './vital-read.js?v=cbba41a6b7';
 import { shownOr } from './shown.js?v=8a7bc6961d';
@@ -71,6 +72,11 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   // while their key holds (still-layer.js), laid down whole each frame; the traces, ends, markers, axis and crosshair are drawn over it.
   const still = createStill(cv, { on: stillLayer });
   const box = h('div', { class: 'chart-box pt-box' }, cv);
+  // The chart drawn by the GPU (trace-gl.js; Mohammad, 1 Nov: "Move everything to GPU"): every part of it, the panel, grid and words as
+  // well as the traces, the markers and the crosshair's card, through the GPU drawer's 2D context, with this canvas left blank under it.
+  // No WebGL2, a software renderer, a lost context or ?tracegl=0: drawn on this canvas, as before.
+  const gpu = createTraceGL(cv);
+  let pen = null;   // (the context the frame being drawn uses, for the markers' measuring and drawing)
   const chosen = new Set(TRACES.filter((t) => t.on).map((t) => t.id));
   const chips = h('div', { class: 'pt-chips', role: 'group', 'aria-label': 'Traces' }, TRACES.map((t) => {
     // Short names, so every chip fits; the full name is the tooltip and what a screen reader says.
@@ -583,7 +589,11 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   }
 
   function drawNow() {
-    const { ctx, w, h: hh } = fitCanvas(cv);
+    const p = fitPen(cv, gpu);
+    pen = p.ctx;
+    try { drawWith(p); } finally { p.ctx.end?.(); pen = null; }
+  }
+  function drawWith({ ctx, w, h: hh }) {
     ctx.clearRect(0, 0, w, hh);
     if (w < 10 || hh < 10 || !frame) return;
     const col = (v) => cssVar(v);
@@ -876,6 +886,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   // card's fractional place, so a blur may land a fraction of a pixel off its old rendering; the card itself is unchanged.
   const SH_PAD = 40, shadows = new Map();
   function drawShadow(ctx, bx, by, cw, ch) {
+    if (ctx.onGPU === true) { ctx.shadowBox(bx, by, cw, ch, 10, cssAlpha('--black', 0.14), 16, 4); return; }   // (the GPU draws the soft edge itself)
     const m = ctx.getTransform(), dpr = m.a || 1, key = `${cw}|${ch}|${dpr}`;
     let pic = shadows.get(key);
     if (!pic) {
@@ -907,7 +918,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   }
   function layoutMarkers(ms, X, right) {
     if (!ms.length) return { groups: [], rows: 0 };   // (no markers in the window, the common case and every slide's: the font below cost each frame a font lookup for nothing)
-    const ctx = cv.getContext('2d');
+    const ctx = pen || cv.getContext('2d');
     ctx.font = FONT(600, 12);
     const groups = [];
     for (const mk of ms) {
@@ -935,7 +946,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     return { groups, rows };
   }
   function drawMarkers({ groups }, lanes) {
-    const ctx = cv.getContext('2d');
+    const ctx = pen || cv.getContext('2d');
     const top = lanes[0].top, allBot = lanes[lanes.length - 1].bot;
     const muted = cssVar('--text-2'), halo = cssVar('--surface-2');
     const colOf = (g) => cssVar(g.sev ? `--${g.sev}` : '--accent');
@@ -1037,7 +1048,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     before = ctx?.ref ? { fp: ctx.ref, label: t?.deltaLabel || 'before' } : null;
     if (frame) redraw();
   }
-  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, backfill, historySecs: () => RANGES[0][2], dispose() { offs.forEach((off) => off()); io?.disconnect(); cancelFrame(tickRaf); tickRaf = 0; ticking = false; frame = null; still.drop(); } };
+  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, backfill, historySecs: () => RANGES[0][2], dispose() { gpu?.dispose(); offs.forEach((off) => off()); io?.disconnect(); cancelFrame(tickRaf); tickRaf = 0; ticking = false; frame = null; still.drop(); } };
 }
 
 // Thin a series to about two points per pixel column (a pulsatile trace has thousands of samples).

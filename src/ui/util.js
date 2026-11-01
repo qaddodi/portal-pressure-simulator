@@ -850,7 +850,8 @@ const boxes = new WeakMap();
 let canvasBoost = 1;
 export const setCanvasBoost = (k) => { canvasBoost = Math.max(1, +k || 1); };
 const boxObserver = new ResizeObserver((entries) => { for (const e of entries) boxes.set(e.target, { width: e.contentRect.width, height: e.contentRect.height }); });
-export function fitCanvas(canvas) {
+/** A canvas's size as fitCanvas sizes it, without touching it: w × h CSS px, W × H device px at dpr (the GPU charts, trace-gl.js, draw at it). */
+export function canvasSize(canvas) {
   let r = boxes.get(canvas);
   if (!r || r.width < 1 || r.height < 1) {
     const b = canvas.getBoundingClientRect(); r = { width: b.width, height: b.height };
@@ -859,7 +860,11 @@ export function fitCanvas(canvas) {
   // The instruments (Doppler, FibroScan, the HVPG tracing, scope, wall, charts) at the screen's own density, up to 3x: a 3x iPhone drew
   // their words at 2x, slightly soft (#34). Battery saver keeps 2x.
   const dpr = Math.min(saver() ? 2 : 3, (window.devicePixelRatio || 1) * canvasBoost);
-  const w = Math.max(1, Math.round(r.width * dpr)), hh = Math.max(1, Math.round(r.height * dpr));
+  return { w: r.width, h: r.height, W: Math.max(1, Math.round(r.width * dpr)), H: Math.max(1, Math.round(r.height * dpr)), dpr };
+}
+export function fitCanvas(canvas) {
+  const { w: cw, h: ch, W: w, H: hh, dpr } = canvasSize(canvas);
+  const r = { width: cw, height: ch };
   if (canvas.width !== w || canvas.height !== hh) { canvas.width = w; canvas.height = hh; }
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
