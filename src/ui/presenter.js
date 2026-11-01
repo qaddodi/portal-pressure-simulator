@@ -2353,6 +2353,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
       text.dataset.turn = turnNow;   // (the way the new words come in: app.css; '' comes in from the card's edge with the glass, as before)
+      text.classList.toggle('pz-slide', turnNow === 'next' || turnNow === 'back');   // (sideways, the lines may pass the box's edge into the card's padding until they land: app.css)
       text.classList.remove('pz-enter'); void text.offsetWidth; text.classList.add('pz-enter');
     }
     textOn = textPlan(s);
@@ -5027,6 +5028,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
     // (Except while the words turn over on it (pz-turn, glassTurn): then the glass stays and only the words go.)
+    text.addEventListener('animationend', (e) => { if (e.target.parentNode === text) text.classList.remove('pz-slide'); });
     new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave') && !shade.classList.contains('pz-turn'))).observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)

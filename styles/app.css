@@ -2442,6 +2442,9 @@ button.finding { cursor: pointer; }
 .pz .pz-text.pz-text.pz-enter[data-turn="next"] > * { --edge-x: var(--pz-turn-d); --edge-o: 0; animation-name: slide-from-edge; }
 .pz .pz-text.pz-text.pz-enter[data-turn="back"] > * { --edge-x: calc(-1 * var(--pz-turn-d)); --edge-o: 0; animation-name: slide-from-edge; }
 .pz .pz-text.pz-text.pz-enter[data-turn="jump"] > * { animation-name: fade-rise; }
+/* (While the lines move sideways they may cross the words' box into the card's padding: the box clips only up and down then, so no letter is
+   cut off with a hard edge as it passes. presenter.js drops pz-slide once the lines have landed.) */
+.pz .pz-text.pz-text:is(.pz-leave[data-out="next"], .pz-leave[data-out="back"], .pz-slide) { overflow-x: visible; overflow-y: clip; }
 .pz-shade.pz-shade.pz-shade:is(.pz-card, .stack) { transition-property: opacity, transform, filter, top, height, width; transition-timing-function: var(--ease), var(--ease), var(--ease), var(--ease-move), var(--ease-move), var(--ease-move); }
 .pz-shade.pz-shade.pz-shade:is(.pz-card, .stack).pz-leave { transition-duration: var(--d-small), var(--d-small), var(--d-small), 0s, 0s, 0s; transition-delay: 0s; }
 .pz-shade.pz-shade.pz-shade:is(.pz-card, .stack):not(.pz-leave) { transition-duration: var(--d-surface), var(--d-surface), var(--d-surface), 0s, 0s, 0s; transition-delay: .12s, .12s, 0s, 0s, 0s, 0s; }
