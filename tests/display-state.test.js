@@ -73,7 +73,7 @@ test('colours: snap (a crossfade, Reduce Motion) shows the target at once; a key
 });
 
 test('stage.js: widths and colours share the filter; the crossfade and Reduce Motion bypass it; the loop stays awake while it moves', () => {
-  assert.match(stage, /const r = follow2\(x\.width, x\.w1, x\.wT, dt, W_TAU, 0\.005\);/);
+  assert.match(stage, /const r = follow2\(x\.width, x\.w1, x\.wT, dt, W_TAU, Math\.max\(0\.005, edgeQ\(\)\)\);/);
   assert.match(stage, /const COL_FOLLOW = !\/\[\?&\]colfollow=0\\b\/\.test\(location\.search\);/);
   assert.match(stage, /colFollow\.step\(it\.row, colT, colDt, !!lensFrom \|\| reduceMotion\.matches\)/);
   // The filter runs before the crossfade, so what it shows is what the next crossfade starts from (shownCol).

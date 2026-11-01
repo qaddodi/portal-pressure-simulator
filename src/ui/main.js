@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=136eaa602e';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=80d4358be8';
-import { createStage } from './stage.js?v=5091c7c938';
+import { createStage } from './stage.js?v=1056186e7e';
 import { createCreditPlacer } from './credit.js?v=6fcd93faed';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
@@ -48,6 +48,7 @@ import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
 import { frameFor, cancelFrame, perf as framePerf, framePart } from './frame.js?v=6a53e5fc6e';
 import { feedbackDiagnostics } from './feedback-diag.js?v=680203e900';
 import { noteJump } from './display-state.js?v=8d062d39dc';
+import { createIdleRest } from './idle-rest.js?v=4d23822371';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=2ccfd56d45';
 const nextFrame = frameFor('main');
 
@@ -138,6 +139,14 @@ async function main() {
     onViewChange: () => card?.position(),
   });
   setHvpgStage(stage);
+  // Idle rest (idle heat, 1 Nov): left alone 30 s in Explore, the blood eases to a stop, the model holds its numbers (its worker
+  // stops stepping, as for a hidden page) and the figure stops drawing; the first input brings it all back from that frame.
+  // Never while a talk is open, a time-lapse plays or the patient is still changing.
+  createIdleRest({
+    canRest: () => { const st = store.get(), f = st.frame; return st.mode === 'explore' && !presenter.active() && !st.lapse && !!f && !f.lapseDay && !f.morphing && !f.settling && !f.jump; },
+    onRest: () => { stage.rest(true); host.send({ type: 'visibility', visible: false }); },
+    onWake: () => { host.send({ type: 'visibility', visible: !document.hidden }); stage.rest(false); },
+  });
   compare = createCompare();
   timeline = createTimeline({
     root: $('#timeline'),

@@ -3134,7 +3134,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // starts), and the drawn width follows it on every display frame (followWidth).
       if (x.reveal?.out && x.width != null) x.wT = x.w1 = x.width;
       else if (x.width == null || (t > 0 && t < 1)) x.wT = x.w1 = x.width = w;
-      else { followWidth(x, dtW); x.wT = w; }   // (up to now under the target it had, then the new one: the same curve at any frame rate)
+      else {
+        followWidth(x, dtW); x.wT = w;   // (up to now under the target it had, then the new one: the same curve at any frame rate)
+        // A new target the screen cannot tell from the width shown (the breath's own sway, mostly a twentieth of a canvas pixel)
+        // is taken at once, not eased toward for 0.2 s: otherwise every model frame started an ease and the whole figure was
+        // drawn again on every display frame, blood moving or not (idle heat, 1 Nov). A change that shows eases as before.
+        const q = edgeQ();
+        if (Math.abs(w - x.width) < q && Math.abs(w - x.w1) < q) x.width = x.w1 = w;
+      }
       if (widthMoving(x)) widthEasing = true;
       w = x.width;
       x.wMode = mode;
@@ -3235,7 +3242,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (x.wT == null || x.width == null) return false;   // (no target yet: the caller sets the first one after this)
     if (x.width === x.wT && x.w1 === x.wT) return false;
     // (display-state.js follow2: the one filter the lumens' colours follow too, colFollow.)
-    const r = follow2(x.width, x.w1, x.wT, dt, W_TAU, 0.005);
+    // (It lands once both stages are within a tenth of a canvas pixel of the target (edgeQ): nothing a screen can show, and the
+    // vessel layer's radii are kept in those steps anyway. A tighter landing kept the figure easing, and drawn on every display
+    // frame, for as long as the breath moved the targets: idle heat, 1 Nov.)
+    const r = follow2(x.width, x.w1, x.wT, dt, W_TAU, Math.max(0.005, edgeQ()));
     x.width = r.v; x.w1 = r.w;
     return true;
   }
@@ -10581,6 +10591,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let perF = null, perH = null;
   const KEY_K = EDGES.map((e) => (keyChevron(e) ? 1 : KEY_CHEV_LANES[e.id] ? 2 : 0));
   let bloodEasing = false;
+  // Idle rest (idle-rest.js, main.js): left alone 30 s, the blood eases to a stop over REST_IN_S and the figure is drawn no more until
+  // an input, which brings the motion back over REST_OUT_S from that frame. restK scales the blood's own clock: 1 moving, 0 at rest.
+  const REST_IN_S = 1.5, REST_OUT_S = 0.4;
+  let restOn = false, restU = 1, restK = 1;
+  const restStill = () => restOn && restU === 0;
+  function stepRest(dt) {
+    if (restOn ? restU === 0 : restU === 1) return;
+    restU = clamp(restU + (restOn ? -dt / REST_IN_S : dt / REST_OUT_S), 0, 1);
+    restK = easeInOut(restU);
+  }
   const blendA = { s: null, c: null, o: null };   // shown share of the streaks, the chevrons and the origin colours (stepBlood)
   const eased = (v, to, k) => { if (Math.abs(to - v) <= 0.002) return to; bloodEasing = true; return v + (to - v) * k; };
   // Parcels through junctions (blood.js createStreamChain): each drawn vessel's main row, by its shown direction, with the model's
@@ -10630,7 +10650,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const moving = st.running && !reduceMotion.matches && !dashes;
     const speed = st.clock === 'hemo' ? clamp(Math.sqrt(st.speed), 0.5, 2) : 0.8;
     const Qf = F.Qf || F.Q;
-    if (moving) bloodClock = (bloodClock + dt) % 10000;
+    if (moving) bloodClock = (bloodClock + dt * restK) % 10000;
     // Reversed flow (against the healthy direction, as the Direction lens has it) eases in and out.
     // (Reduced motion: the streams stand still but follow the flow's direction at once, and nothing eases.)
     const still = st.running && (reduceMotion.matches || dashes);
@@ -10652,7 +10672,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // One signal turns both: the reversed colour and the way the blood and its chevrons run (isReversed, held: B3).
       const rt = revHold[k];
       so.large = LARGE[k]; so.rev = !!rt;
-      const sm = advanceStream(streams[k], velQf[k], velQ[k], moving ? dt : 0, so);
+      const sm = advanceStream(streams[k], velQf[k], velQ[k], moving ? dt * restK : 0, so);
       // (The dashes' stream: as the canvas's would run, eased and held through a turn, its distance unused.)
       if (dashes) { so.still = false; advanceStream(dashSt[k], velQf[k], velQ[k], st.running ? dt : 0, so); so.still = still; }
       sm.rev = sm.rev == null ? rt : eased(sm.rev, rt, ease);
@@ -10704,15 +10724,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The liver's branches in the circuit: a share of the vessel's flow by caliber.
       if (morph >= 0.5) for (const cb of x.cbr || []) if (cb.w) put(cb.row, k, q * 0.5 * (cb.w / Math.max(1, x.width)) ** 2, true, true, rs);
     }
-    if (on && BLOOD_CHAIN) chainRows(reduceMotion.matches ? 1 : -Math.expm1(-dt / 0.25), reduceMotion.matches ? 1 : -Math.expm1(-dt / 1));
+    if (on && BLOOD_CHAIN) {
+      // (At idle rest the junctions' blends hold where the blood stopped: rewritten as they stand, no step taken, and a blend that was
+      // still on its way does not keep the figure awake. It goes on from there when the motion comes back.)
+      if (restStill()) { const was = bloodEasing; chainRows(0, 0); bloodEasing = was; }
+      else chainRows(reduceMotion.matches ? 1 : -Math.expm1(-dt / 0.25), reduceMotion.matches ? 1 : -Math.expm1(-dt / 1));
+    }
     const retired = retireRows(flowData, flowWas, flowNow, FLOW_TEXELS * 4);
     if (retired && gpuProbe.on) for (let i = 0; i < retired; i++) gpuProbe.note(COUNTED.flowRetired);
     // (While the blood stands still, a table within a hundredth of what the GPU holds is not sent: the same picture, so the
     // figure sleeps through the model's own wobble instead of drawing again on each of its frames. flow-rows.js flowClose.)
-    if (moving || flowKeptFor !== veins || !flowClose(flowData, flowKept, FLOW_TEXELS * 4, GL_ROWS)) {
+    const flowing = moving && !restStill();   // (at rest the streams stand where they stopped: the same table, not sent again)
+    if (flowing || flowKeptFor !== veins || !flowClose(flowData, flowKept, FLOW_TEXELS * 4, GL_ROWS)) {
       flowKeptFor = veins;
       veins.setFlow(flowData);
-      if (moving) flowKept = null; else (flowKept ||= new Float32Array(flowData.length)).set(flowData);
+      if (flowing) flowKept = null; else (flowKept ||= new Float32Array(flowData.length)).set(flowData);
     }
     // The dye bolus, through every vessel (hidden ones take a second each).
     if (bolus.active) {
@@ -10934,7 +10960,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     (widthEasing || ascShown !== ascTarget || veinsDirty || lvMoving || spleenMoving() || plateEasing() || clampFading() || EV.some((x) => x.reveal));
   // Whether the figure moves by itself while the model runs (see animate).
   function figureMoves(st) {
-    if (!st.running || reduceMotion.matches) return false;
+    if (!st.running || reduceMotion.matches || restStill()) return false;
     // (?flow=dashes: the blood's motion is the dashes' and heads' own, played by the browser: the canvas has nothing moving to draw.)
     return (!dashMode() && (bloodOn() || (chevOn() && !cath.st))) || fluidLook.ripple || sprayOn() || sprayA > 0;
   }
@@ -11095,6 +11121,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (rotU === rotTarget && morphTarget === 1) { vt = circWhole(); applyVT(); CTM = null; }
     }
     stepReveals(now);
+    stepRest(dt);
     if (F) stepBlood(dt);
     stepSpray(dt);
     const fluidMoved = stepFluid(dt, st, easeDt);
@@ -11827,6 +11854,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // ── Public API ────────────────────────────────────
   return {
     update,
+    /** Idle rest: true eases the blood to a stop and lets the figure sleep; false brings the motion back from this frame. */
+    rest(on) { on = !!on; if (on === restOn) return; restOn = on; wake(); askAnimate(); },
     cardGlass,
     blurWhy,
     setView(v) {

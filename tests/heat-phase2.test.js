@@ -107,7 +107,7 @@ test('stepBlood: no whole-table clear and no filtered or reduced copies of the s
   assert.doesNotMatch(blood, /\.filter\(|\.reduce\(/);
   assert.match(blood, /flowData\.fill\(0, o, o \+ FLOW_TEXELS \* 4\); flowNow\[row\] = 1;/);
   assert.match(blood, /retireRows\(flowData, flowWas, flowNow, FLOW_TEXELS \* 4\)/);
-  assert.match(blood, /advanceStream\(streams\[k\], velQf\[k\], velQ\[k\], moving \? dt : 0, so\)/);
+  assert.match(blood, /advanceStream\(streams\[k\], velQf\[k\], velQ\[k\], moving \? dt \* restK : 0, so\)/);
   const set = fn(gl, '    setFlow(data) {');
   assert.match(set, /changedRows\(data, flowSent, stride, nTubes\)/);
   assert.match(set, /gl\.texSubImage2D\(gl\.TEXTURE_2D, 0, 0, lo, FLOW_TEXELS, hi - lo \+ 1, gl\.RGBA, gl\.FLOAT, sub\)/);
