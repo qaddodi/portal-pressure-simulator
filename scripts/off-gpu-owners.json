@@ -1,0 +1,15 @@
+{
+  "unassigned": "unassigned (coordinator to map)",
+  "byCategory": [
+    { "cats": ["syncStatus"], "thread": "Precompile every shader before motion (cmsg_018GZjFhtvTeoUFdeosmA9rJ5CcQx8mx7dTBhUbxJVYjHk)" },
+    { "cats": ["layoutAnim", "layoutWrite"], "thread": "Move layout animations to transforms (cmsg_018GZjFhtvTeoUFdeosmA9rJA7edjasMFamw7EUAk3YuF6)" },
+    { "cats": ["layoutRead"], "thread": "Remove per-frame layout reads in figure (cmsg_018GZjFhtvTeoUFdeosmA9rJG8ZFnc3fuF7dug36kuKaqc)" },
+    { "cats": ["rawRaf"], "thread": "Add GPU fallback guards and debug readout (cmsg_018GZjFhtvTeoUFdeosmA9rJ3kXqLZCtR51b7MPMF4exzZ)" }
+  ],
+  "byFile": [
+    { "files": ["lobule", "tissue", "sinusoid", "field-gl", "fx-gl", "tile-gl", "sin-perfusion"], "thread": "Move lobule zoom tissue to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJ66MaRikCT6cx4AqTWUtYK1)" },
+    { "files": ["chart", "pressure-time", "doppler", "dop-probe", "fibroscan", "endo-", "scope-tile", "trace-", "tool-", "ext-instruments", "instruments", "vitals-monitor", "ekg", "talk-trace", "plot-look", "scan-waves", "hvpg-"], "thread": "Move instruments and charts to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJF1Ck2FttksYb2L7BZiXnZa)" },
+    { "files": ["callout", "label-gl", "organ-names", "wrap-label", "leader-end", "limit-label", "figure-key", "credit", "res-fade", "stage-over", "mark-fade", "flow-dash", "highlight", "removed-label", "trace-labels"], "thread": "Move figure overlays to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJ93Ab3d8XiycSay8k2YJckM)" },
+    { "files": ["card", "glass-gl", "sheet-glass", "lz-pills", "beat-card"], "thread": "Make slide-change motion seamless (cmsg_018GZjFhtvTeoUFdeosmA9rJ5gr79YrKNNx4bqKsJWzr8k)" }
+  ]
+}

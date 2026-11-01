@@ -57,6 +57,14 @@ Loop for every change (fast previews first, full tests before merge):
 5. Merge to `main` only when the owner says so. That also resets `/preview/` to match `main`.
    If the branch is already merged, restart it from the latest `main` before more work.
 
+**Nothing off the GPU (owner, 1 Nov 2026: "block everything until everything is on GPU").** `npm run lint` and the unit tests run
+`scripts/off-gpu-scan.mjs`, which lists every canvas 2D, CPU pixel copy, SVG drawing or raster, backdrop or CSS blur, layout-property
+animation, layout read or write in a frame or motion callback, raw `requestAnimationFrame` and synchronous shader status read, and fails
+while there is even one; the Pages gate ("Nothing off the GPU") runs it too, so nothing deploys until the list is empty. The full list,
+with file, function, frame path and owning thread, is `docs/off-gpu-inventory.md` (`npm run offgpu` rewrites it; owners in
+`scripts/off-gpu-owners.json`). `npx eslint .` alone checks code style while the list is not yet empty. Never weaken the scanner or
+loosen its test to get green. `?offgpu=1` shows the same kinds of work live, per frame, and flashes red when any happens during motion.
+
 Pages serves each copy as its production build (`npm run build` → `dist/`: bundled, minified, hashed), built in the deploy job of `pages.yml`; the repository root still runs as is for `npm start`. The preview's browser checks (`checks.yml`) test that build, as shipped; `ci.yml` tests both the source and the build. Workflows pin `ubuntu-24.04`, so a new runner image (and new visual references) is a deliberate change.
 
 ## Per-frame work (the GPU is the only per-frame painter)
