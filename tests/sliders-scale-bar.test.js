@@ -32,7 +32,8 @@ test('a normal range is the tiles\' green band on the track, and that slider dra
 });
 
 test('every slider paints its fill through paintRange, on its wrapper', () => {
-  assert.match(util, /export function paintRange\(input, f\) \{\s*input\.parentElement\?\.style\.setProperty\('--p', String\(Math\.min\(1, Math\.max\(0, f\)\)\)\);/);
+  assert.match(util, /export function paintRange\(input, f\) \{\s*const wrap = input\.parentElement;\s*if \(!wrap\) return;\s*f = Math\.min\(1, Math\.max\(0, f\)\);/);
+  assert.match(util, /else wrap\.style\.setProperty\('--p', String\(f\)\);/);
   for (const f of ['src/ui/card.js', 'src/ui/inspector.js', 'src/ui/presenter.js']) {
     const src = read(f);
     const made = (src.match(/type: 'range'/g) || []).length, painted = (src.match(/paintRange\(/g) || []).length;

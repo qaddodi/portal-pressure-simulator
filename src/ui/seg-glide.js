@@ -1,5 +1,6 @@
 // One gliding selection for every segmented control and tab strip (sprint 1 Nov, brief 1). A segmented control (.seg), the
-// Tests / Treat tab row (.instr-tabs) and the menu's Present / Patients tabs (.um-tabs) each used to paint the chosen button's
+// Tests / Treat tab row (.instr-tabs), the menu's Present / Patients tabs (.um-tabs) and the Pressure / Scope tab's two-way switch
+// (.pressure-switch) each used to paint the chosen button's
 // own background, so a change faded one pill out and another in, in place: the selection blinked across. Now each control has
 // ONE moving piece, the control's own ::before (nothing is added to the page), that travels from the old choice to the new one,
 // its left edge, top, width and height together, over --d-small on --ease-move (styles/app.css, next to each control's rules).
@@ -16,7 +17,7 @@
 //   - ?glide=0: this file does nothing, so the page is today's, class for class.
 import { D_FLIP, D_SMALL } from './ease.js?v=fc509dabe4';
 
-const SEL = '.seg, .instr-tabs, .um-tabs';
+const SEL = '.seg, .instr-tabs, .um-tabs, .pressure-switch';
 /** ?glide=0 in a page's search string: this file does nothing and the page is today's. */
 export const glideOff = (search) => /[?&]glide=0\b/.test(String(search ?? ''));
 const PICKED = '[aria-pressed="true"], [aria-selected="true"]';

@@ -1,6 +1,6 @@
 // DOM & formatting helpers.
-import { saver, frame, cancelFrame } from './frame.js?v=15d5254a2c';
-import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=fc509dabe4';
+import { saver, frame, cancelFrame, easeNow } from './frame.js?v=15d5254a2c';
+import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=fc509dabe4';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
@@ -865,9 +865,51 @@ export function fitCanvas(canvas) {
   return { ctx, w: r.width, h: r.height };
 }
 
-/** A slider's fill follows its value: the wrapper (.range-wrap, styles/app.css) draws them from --p, 0 to 1. */
+/** ?sliderglide=0 in a page's search string: a slider's dot and fill always jump to a new value, as before. */
+export const sliderGlideOff = (search) => /[?&]sliderglide=0\b/.test(String(search ?? ''));
+/** The least a slider's value must jump, as a share of its range, before the dot travels there instead of taking it in one frame. */
+export const GLIDE_MIN = 0.04;
+const glides = new WeakMap();
+/** A value that was set from outside (Reset, a double click, a patient or a preset, an undo) used to put the dot and the fill at
+ *  the new place in one frame. They now travel there over --d-surface on the quintic ease, the dot (the input's own value) and the
+ *  fill (--p) together, so they never part. Only a jump of GLIDE_MIN of the range or more travels: a drag, a key step, the model
+ *  following a time-lapse each frame, all smaller, are taken at once as before, and so is anything under a finger or a mouse button
+ *  (the dot stays under the pointer). Reduce Motion, a hidden slider and ?sliderglide=0 take it at once too. */
+function glideFill(input, wrap, f, prev) {
+  const min = +input.min || 0, max = +(input.max || 100), step = input.step === 'any' ? 0 : +input.step || 1, to = +input.value;
+  const from = min + prev * (max - min);
+  const held = input.classList.contains('held') || input.matches(':active');
+  const g = glides.get(input);
+  // (Asked again for the place it is already going to, as a model sync does each frame: the dot is put back where the glide has it and the glide goes on.)
+  if (g && Math.abs(g.f - f) < 1e-9) { input.value = g.cur; return; }
+  if (g) { cancelFrame(g.raf); glides.delete(input); }
+  const far = Math.abs(f - prev) >= GLIDE_MIN;
+  if (!far || held || reduceMotionMQ.matches || sliderGlideOff(typeof location !== 'undefined' ? location.search : '') || !input.isConnected || !hasBox(input)) { wrap.style.setProperty('--p', String(f)); return; }
+  const t0 = easeNow(), run = { raf: 0, f, cur: String(+(+input.value).toFixed(6)) };
+  glides.set(input, run);
+  const at = (k) => {
+    let v = from + (to - from) * k;
+    if (step && k < 1) v = Math.round((v - min) / step) * step + min;   // (the dot sits on a step; the fill follows the dot)
+    return Math.min(max, Math.max(min, v));
+  };
+  const tick = () => {
+    const u = Math.min(1, (easeNow() - t0) / D_SURFACE), v = u >= 1 ? to : at(easeMove(u));
+    input.value = run.cur = String(+v.toFixed(6));
+    wrap.style.setProperty('--p', String(max > min ? Math.min(1, Math.max(0, (v - min) / (max - min))) : 0));
+    if (u < 1 && glides.get(input) === run) run.raf = frame(tick, 'numbers'); else if (glides.get(input) === run) glides.delete(input);
+  };
+  input.value = run.cur = String(+at(0).toFixed(6)); wrap.style.setProperty('--p', String(Math.min(1, Math.max(0, prev))));
+  run.raf = frame(tick, 'numbers');
+}
+/** A slider's fill follows its value: the wrapper (.range-wrap, styles/app.css) draws them from --p, 0 to 1. The caller has set
+ *  input.value to the new value; a big jump of it from a place outside the pointer's hand glides (glideFill). */
 export function paintRange(input, f) {
-  input.parentElement?.style.setProperty('--p', String(Math.min(1, Math.max(0, f))));
+  const wrap = input.parentElement;
+  if (!wrap) return;
+  f = Math.min(1, Math.max(0, f));
+  const prev = parseFloat(wrap.style.getPropertyValue('--p'));
+  if (Number.isFinite(prev)) glideFill(input, wrap, f, prev);
+  else wrap.style.setProperty('--p', String(f));
 }
 
 /** Every range slider in the app, at once (call once):

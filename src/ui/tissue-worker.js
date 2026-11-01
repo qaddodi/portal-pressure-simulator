@@ -5,7 +5,7 @@
 // WAIT_MS. Then, and until then, the lobule paints its bitmap on the page as before.
 
 import { TOKENS } from './lobule-paint.js?v=f6e22a327b';
-import { cssVar, cssRGB } from './util.js?v=520d0b008c';
+import { cssVar, cssRGB } from './util.js?v=aeddd69bfe';
 
 const WAIT_MS = 15000;
 

@@ -4779,6 +4779,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 @media (hover: hover) { .ps-btn:hover { color: var(--text); } }
 .ps-btn[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(var(--night-rgb) / .12), 0 0 0 .5px var(--hairline); }
 .ps-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* The switch's chosen button is the one gliding piece (seg-glide.js, ?glide=0 off), drawn as the button was: surface, a hairline, a soft drop. */
+.pressure-switch.seg-glide::before { border-radius: 7px; box-shadow: 0 1px 2px rgb(var(--night-rgb) / .12), 0 0 0 .5px var(--hairline); }
+@media (forced-colors: none) { .pressure-switch.seg-glide .ps-btn[aria-pressed="true"] { background: transparent; box-shadow: none; } }
 @media (pointer: coarse) { .ps-btn { position: relative; } .ps-btn::after { content: ''; position: absolute; inset: -6px -1px; } }   /* (26 px tall: the invisible ring makes 38, inside the pane's 16 px padding) */
 .instrument-workspace .dock-pane.active:is([data-pane="profile"], [data-pane="scope"]) { animation: crossfade var(--d-small) var(--ease); }
 
