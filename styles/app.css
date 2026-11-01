@@ -4148,8 +4148,9 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 }
 .instrument-workspace.side[data-state="peek"] { bottom: auto; height: auto; }
 .instrument-workspace.float-ui:not(.side)[data-state="peek"] { height: auto; }
-/* A card sized to its content (Ascites, set by the dock): its height eases to the value, and eases back. */
-.instrument-workspace.float-ui.fit { height: var(--fit-h); transition: height var(--d-small) var(--ease), opacity var(--d-surface, .42s) var(--ease); }
+/* A card sized to its content (Ascites, set by the dock): it takes the new height at once and its edge glides there on the compositor
+   (dock.js glideFit: the card scaled from its anchored edge, its contents scaled back), and back. */
+.instrument-workspace.float-ui.fit { height: var(--fit-h); transition: opacity var(--d-surface, .42s) var(--ease); }
 .instrument-workspace.float-ui.fit.dragging, .instrument-workspace.float-ui.fit.resizing { transition: none; }
 @media (prefers-reduced-motion: reduce) { .instrument-workspace.float-ui.fit { transition: none; } }
 .instrument-workspace.resizing { transition: none; user-select: none; -webkit-user-select: none; }

@@ -18,7 +18,7 @@ import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=d456014820
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { compareRows } from './idle-keys.js?v=81fbedda6b';
-import { releaseSpeed, carryCurve, cubicBezier, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
+import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
 const nextFrame = frameFor('dock');
 const DRAG_GUIDE = !/[?&]dockdrag=0\b/.test(typeof location === 'object' ? location.search : '');
 
@@ -643,14 +643,38 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // too tall for the card (a short window): leave it to scale as it always did
       if (need > full + 1 && id !== 'abdomen') { view.classList.remove('nat'); fits = false; }
     }
-    if (!on) { workspace.style.setProperty('--fit-h', `${workspace.offsetHeight}px`); workspace.classList.add('fit'); void workspace.offsetHeight; }
+    const h0 = workspace.offsetHeight;
+    if (!on) { workspace.style.setProperty('--fit-h', `${h0}px`); workspace.classList.add('fit'); }
     if (!fits) {
-      workspace.style.setProperty('--fit-h', `${Math.round(full)}px`);
+      setFit(h0, Math.round(full));
       fitTimer = setTimeout(() => workspace.classList.remove('fit'), 400);
       return;
     }
-    workspace.style.setProperty('--fit-h', `${Math.round(Math.min(full, Math.max(140, need)))}px`);
+    setFit(h0, Math.round(Math.min(full, Math.max(140, need))));
   }
+  // The card takes its new height at once, and its free edge glides there from where it stood, on the compositor: the card scaled from
+  // its anchored edge (the foot over the figure, the top on the side), each part inside scaled back by as much about that edge, so the
+  // words and charts keep their size and place. The scales are worked out on the arrival curve frame by frame, so the inverse is exact.
+  // (Was a CSS height transition: the card and everything in it laid out again in every frame of the ease.)
+  let fitAnims = [];
+  function setFit(h0, h1) {
+    if (workspace.style.getPropertyValue('--fit-h') === `${h1}px`) return;
+    for (const a of fitAnims) a.cancel();
+    fitAnims = [];
+    workspace.style.setProperty('--fit-h', `${h1}px`);
+    if (!(h0 > 0) || Math.abs(h1 - h0) < 1 || reduceFit.matches || typeof workspace.animate !== 'function') return;
+    const top = isSide(), N = 16, card = [], back = [];
+    for (let i = 0; i <= N; i++) { const k = (h0 + (h1 - h0) * easeArrive(i / N)) / h1; card.push({ transform: `scaleY(${k.toFixed(5)})` }); back.push({ transform: `scaleY(${(1 / k).toFixed(5)})` }); }
+    const opt = { duration: D_SMALL };   // (linear between the frames: the curve is in them)
+    workspace.style.transformOrigin = top ? '50% 0' : '50% 100%';
+    fitAnims.push(workspace.animate(card, opt));
+    for (const c of workspace.children) {
+      if (c.classList.contains('sheet-plate') || c.hidden) continue;
+      c.style.transformOrigin = `50% ${top ? -c.offsetTop : h1 - c.offsetTop}px`;
+      fitAnims.push(c.animate(back, opt));
+    }
+  }
+  const reduceFit = matchMedia('(prefers-reduced-motion: reduce)');
   const fitWatch = new ResizeObserver(() => fitHeight());
   for (const id of FIT) fitWatch.observe(fitView(id));
   function setState(next) {
