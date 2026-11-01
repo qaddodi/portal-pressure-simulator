@@ -4,6 +4,7 @@
 import { frameFor, figLab } from './frame.js?v=7710f677e2';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
+import { CellGrid, geomOf } from './cell-grid.js?v=d92c0d94ae';
 import { layoutWatch, PLACED } from './idle-keys.js?v=81fbedda6b';
 const nextFrame = frameFor('credit');
 const CREDIT_POLL = typeof location !== 'undefined' && /[?&]creditpoll=1\b/.test(location.search || '');
@@ -156,7 +157,7 @@ export function labelRects(wr, wrap, kept = null) {
 }
 
 // A test for spots over the figure's art (wrap px): the credit sits on bare background, never on an organ or a vessel nor
-// touching an outline (Mohammad, 14 Oct). The art (each shape's fill and stroke) is drawn once onto a small canvas, one pixel per
+// touching an outline (Mohammad, 14 Oct). The art (each shape's fill and stroke) is worked out once onto a small grid (cell-grid.js), one entry per
 // cell, and any cell it touches counts; a box is tested against every cell it covers, grown by `pad` px all round. (Testing each
 // cell's centre against the shapes, thousands of isPointInStroke calls along the vessels, took a few hundred ms per look and made
 // panning and zooming lag.)
@@ -171,29 +172,21 @@ const VESSELS = '#edges :is(.v-lumen, .v-lumenP, .v-strand), #world .v-hit';
 // they have one. A small phone in Patients had put the credit on the fluid.)
 // (The diaphragm's line across the back wall counts too: the credit had sat on it with the menu open; sweep 02 #11.)
 const FLUID = '#ascites .ascites-fill, #ascites .ascites-line, path.flank, path.org-diaphragm';
-const num = (el, a) => parseFloat(el.getAttribute(a)) || 0;
-// (A path's Path2D is kept while its outline is the same: read again from its text on every look, the organs' thousands of
+// (A path's outline is kept while it is the same: read again from its text on every look, the organs' thousands of
 // paths, about 1 MB, were most of the 73 to 95 ms each look took on a Mac once a pan or pinch had stopped: Mohammad's ?perf
 // readout, 21 Oct. The same outline, so the same cells.)
 const pathMemo = new WeakMap();
+// (Each shape's outline as polylines, cell-grid.js geomOf: the grid is worked out from the geometry, no 2D canvas, no pixel read.)
 function shapePath(el) {
-  const p = new Path2D(), tag = el.tagName.toLowerCase();
+  const tag = el.tagName.toLowerCase();
   if (tag === 'path') {
     const d = el.getAttribute('d') || '', m = pathMemo.get(el);
     if (m && m.d === d) return m.p;
-    const q = new Path2D(d);
+    const q = geomOf('path', () => d);
     pathMemo.set(el, { d, p: q });
     return q;
   }
-  if (tag === 'circle') p.arc(num(el, 'cx'), num(el, 'cy'), num(el, 'r'), 0, 2 * Math.PI);
-  else if (tag === 'ellipse') p.ellipse(num(el, 'cx'), num(el, 'cy'), num(el, 'rx'), num(el, 'ry'), 0, 0, 2 * Math.PI);
-  else if (tag === 'rect') p.rect(num(el, 'x'), num(el, 'y'), num(el, 'width'), num(el, 'height'));
-  else if (tag === 'polygon') {
-    const v = (el.getAttribute('points') || '').trim().split(/[\s,]+/).map(Number);
-    for (let k = 0; k + 1 < v.length; k += 2) k ? p.lineTo(v[k], v[k + 1]) : p.moveTo(v[k], v[k + 1]);
-    p.closePath();
-  }
-  return p;
+  return geomOf(tag, (k) => el.getAttribute(k));
 }
 let organMemo = { key: '', test: null };
 // test(box, { pad, org, ves }): true when the box, grown by pad, touches the organs and/or the vessels.
@@ -206,10 +199,9 @@ function screenTest(wr, ring = null) {
   const world = document.getElementById('world')?.getScreenCTM(), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2)), ring && ring.flat().map((v) => v.toFixed(1)), glows.flat().join()].join('|');
   if (organMemo.key === key) return organMemo.test;
   const cols = Math.ceil(wr.width / CELL) + 1, rows = Math.ceil(wr.height / CELL) + 1, grids = { org: new Uint8Array(cols * rows), ves: new Uint8Array(cols * rows) };
-  const cv = document.createElement('canvas');
-  cv.width = cols; cv.height = rows;
-  const ctx = cv.getContext('2d', { willReadFrequently: true });
-  if (ctx) {
+  const ctx = new CellGrid();
+  ctx.clearRect(0, 0, cols, rows);
+  {
     const paint = (sel, grid, vessel, asDrawn = false) => {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       if (!asDrawn) ctx.clearRect(0, 0, cols, rows);   // (as drawn: added to the organs just painted)
@@ -224,14 +216,13 @@ function screenTest(wr, ring = null) {
         // the fill's: grown by the most its stroke reaches, a miter at the default limit, twice the stroke width, and a cell.)
         const g = 2 * w * Math.max(Math.hypot(m.a, m.b), Math.hypot(m.c, m.d)) + CELL;
         if (r.right + g < wr.left || r.left - g > wr.left + cols * CELL || r.bottom + g < wr.top || r.top - g > wr.top + rows * CELL) continue;
-        // One canvas pixel per cell: cell (i, j) covers wrap px [i * CELL, (i + 1) * CELL).
+        // One grid entry per cell: cell (i, j) covers wrap px [i * CELL, (i + 1) * CELL).
         ctx.setTransform(m.a / CELL, m.b / CELL, m.c / CELL, m.d / CELL, (m.e - wr.left) / CELL, (m.f - wr.top) / CELL);
         const path = shapePath(el);
         if (asDrawn ? cs.fill !== 'none' : !vessel || (cs.fill !== 'none' && !el.classList.contains('v-hit'))) ctx.fill(path);
         if (w > 0 && (asDrawn ? cs.stroke !== 'none' : !vessel || cs.stroke !== 'none' || el.classList.contains('v-hit'))) { ctx.lineWidth = el.classList.contains('v-hit') ? w * 0.7 : w; ctx.lineCap = cs.strokeLinecap || 'butt'; ctx.lineJoin = cs.strokeLinejoin || 'miter'; ctx.stroke(path); }
       }
-      const px = ctx.getImageData(0, 0, cols, rows).data;
-      for (let k = 0; k < grid.length; k++) grid[k] = px[k * 4 + 3] > 0 ? 1 : 0;
+      ctx.readInto(grid);
     };
     if (ring) {
       // The lobule: its outline filled, and every portal tract and neighbouring central vein round it (a phone had put the credit on a
@@ -240,8 +231,7 @@ function screenTest(wr, ring = null) {
       ring.forEach(([x, y], i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, (x - wr.left) / CELL, (y - wr.top) / CELL));
       ctx.closePath(); ctx.fill();
       for (const [x, y, rr] of ring.discs || []) { ctx.beginPath(); ctx.arc((x - wr.left) / CELL, (y - wr.top) / CELL, rr / CELL, 0, Math.PI * 2); ctx.fill(); }
-      const px = ctx.getImageData(0, 0, cols, rows).data;
-      for (let k = 0; k < grids.org.length; k++) grids.org[k] = px[k * 4 + 3] > 0 ? 1 : 0;
+      ctx.readInto(grids.org);
     } else {
       paint(ORGANS, grids.org, false);
       paint(FLUID, grids.org, false, true);
@@ -256,8 +246,7 @@ function screenTest(wr, ring = null) {
           ctx.lineWidth = (lumen ? parseFloat(getComputedStyle(lumen).strokeWidth) || 0 : parseFloat(getComputedStyle(el).strokeWidth) || 0) + 2 * 12 * Math.min(1.3, Math.max(0.5, wide));
           ctx.lineCap = ctx.lineJoin = 'round'; ctx.stroke(shapePath(el));
         }
-        const px = ctx.getImageData(0, 0, cols, rows).data;
-        for (let k = 0; k < grids.ves.length; k++) grids.ves[k] = px[k * 4 + 3] > 0 ? 1 : 0;
+        ctx.readInto(grids.ves);
       }
     }
   }
@@ -285,7 +274,7 @@ function screenTest(wr, ring = null) {
 //    Read from the page once, then again only after a shape changed (a mutation on the art's own groups: the organs' outlines and
 //    transforms, the fluid, a vessel's hit width, a shape added or removed), after 15 s, or once the GPU figure has been off.
 //    A camera move changes none of them: the world's own transform is not one of the watched.
-//  - the GRID (worldLevel): the facts drawn onto a canvas over the world rectangle the view and a margin round it cover, one pixel
+//  - the GRID (worldLevel): the facts drawn onto a cell grid over the world rectangle the view and a margin round it cover, one pixel
 //    per cell, and read back once. It is reused while the view stays inside that rectangle at a zoom no more than CELL px a cell (a
 //    pan of up to half a screen, a zoom in or out by up to twice); past that it is drawn again from the facts, with no page read.
 // So a camera move reads no shape and no pixel; the credit maps each box it asks about into the world (credit-art.js artTest).
@@ -343,15 +332,13 @@ function worldFacts(world, inv) {
   artDirty = !facts.org.length;   // (a figure with no organ in it is not built yet, or hidden: read again at the next look)
   return (artFacts = facts);
 }
-// The facts drawn over `reg` (credit-art.js regionFor), one canvas pixel per cell: cell (i, j) covers the world square at
+// The facts drawn over `reg` (credit-art.js regionFor), one grid entry per cell: cell (i, j) covers the world square at
 // (x0 + i c, y0 + j c), c wide. Organs and the fluid in one grid, the vessels (and the lit ones' glow) in the other.
 function worldLevel(facts, reg, glows, gk, inv) {
   gpuProbe.note(COUNTED.creditGrid);
   const { cols, rows } = reg, n = cols * rows, org = new Uint8Array(n), ves = new Uint8Array(n);
-  artCanvas ||= document.createElement('canvas');
-  if (artCanvas.width !== cols || artCanvas.height !== rows) { artCanvas.width = cols; artCanvas.height = rows; }
-  const ctx = artCanvas.getContext('2d', { willReadFrequently: true });
-  if (ctx) {
+  const ctx = (artCanvas ||= new CellGrid());
+  {
     const paint = (list, grid, glow) => {
       gridBegin(ctx, reg);
       gridShapes(ctx, reg, list, 0, Infinity);
@@ -365,7 +352,7 @@ function worldLevel(facts, reg, glows, gk, inv) {
 }
 // (A grid's drawing, in its parts: cleared, its shapes from `from` until `until` (performance.now()) has passed, at least one of
 // them, returning where it stopped; its lit vessels' glow; and read back into `grid`. worldLevel draws them in one go, a spread job
-// (artStep) a frame's share at a time, the same calls in the same order on the same canvas.)
+// (artStep) a frame's share at a time, the same calls in the same order on the same grid.)
 function gridBegin(ctx, reg) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, reg.cols, reg.rows); }
 const gridAt = (ctx, { c, x0, y0 }, m) => ctx.setTransform(m.a / c, m.b / c, m.c / c, m.d / c, (m.e - x0) / c, (m.f - y0) / c);
 function gridShapes(ctx, reg, list, from, until) {
@@ -389,10 +376,7 @@ function gridGlows(ctx, reg, facts, glows, inv) {
     ctx.lineCap = ctx.lineJoin = 'round'; ctx.stroke(h.path);
   }
 }
-function gridRead(ctx, reg, grid) {
-  const px = ctx.getImageData(0, 0, reg.cols, reg.rows).data;
-  for (let k = 0; k < grid.length; k++) grid[k] = px[k * 4 + 3] > 0 ? 1 : 0;
-}
+function gridRead(ctx, reg, grid) { ctx.readInto(grid); }
 // The art test of the GPU figure in the world's coordinates, or null where it does not apply (the Lite graphics' SVG figure, a
 // view whose grid would pass the cap): organTest then draws the screen grid.
 function worldTest(wr, spread = null) {
@@ -415,7 +399,7 @@ function worldTest(wr, spread = null) {
 // ── A look spread over frames (the placer's) ──
 // The art read again (every shape's facts) and its grid drawn again took one frame of 105 to 150 ms on his Mac, after each pinch and
 // on slides whose art moves (his ?perf readouts, 30 Oct). Spread, the same work is done ART_SLICE ms a frame: the same reads, the same
-// drawing in the same order on a canvas of its own, so the grid is the one a single frame would have drawn from the page as it then
+// drawing in the same order on a grid of its own, so the grid is the one a single frame would have drawn from the page as it then
 // stood. It waits while the camera moves (a slice in a pan or pinch would add to it). Meanwhile the look answers PENDING: the placer
 // leaves the credit as it is and waits, and the job calls it back (`done`) once its grid is in. A grid a job made is taken by the
 // looks that follow for ART_TAKE ms even if the art changed since: art that changes on every frame (a breath eases a vessel's width
@@ -493,15 +477,12 @@ function artSlice(j, inv, until) {
     }
     j.list = null; j.ri++;
   }
-  jobCanvas ||= document.createElement('canvas');
   const { cols, rows } = j.reg;
   if (j.stage === 1) {
     gpuProbe.note(COUNTED.creditGrid);
-    if (jobCanvas.width !== cols || jobCanvas.height !== rows) { jobCanvas.width = cols; jobCanvas.height = rows; }
     j.org = new Uint8Array(cols * rows); j.ves = new Uint8Array(cols * rows);
     j.stage = 2; j.i = 0; j.list = null;
-    j.ctx = jobCanvas.getContext('2d', { willReadFrequently: true });
-    if (!j.ctx) { j.stage = 4; return; }   // (no canvas: empty grids, as worldLevel leaves them)
+    j.ctx = (jobCanvas ||= new CellGrid());
     gridBegin(j.ctx, j.reg);
   }
   // (Each grid is read back a frame after its last shape is drawn: Safari records a canvas's drawing and paints it when it is read,

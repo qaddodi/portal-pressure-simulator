@@ -63,11 +63,10 @@ test('how much art a box covers is on the old grid scale whatever the cell size'
 });
 
 // ---- the placer's use of it, on a fake page ----
-// Shapes are world rectangles; the fake canvas fills the pixels a rectangle's transformed box covers.
+// Shapes are world rectangles, as path outlines; the grid (cell-grid.js) is worked out from them, no canvas.
 const counts = { shape: 0, readback: 0, style: 0 };
 let cam = { a: 1, b: 0, c: 0, d: 1, e: 50, f: 30 };
-const rectD = (r) => `R ${r.join(' ')}`;
-globalThis.Path2D = class { constructor(d = '') { const m = /^R (\S+) (\S+) (\S+) (\S+)$/.exec(d); this.rect = m ? m.slice(1).map(Number) : null; } };
+const rectD = (r) => `M${r[0]} ${r[1]}H${r[0] + r[2]}V${r[1] + r[3]}H${r[0]}Z`;
 globalThis.CSS = { escape: String };
 globalThis.getComputedStyle = (el) => { counts.style++; return el.cs; };
 const shape = (cls, rect, { w = 0, fill = 'rgb(1, 1, 1)', stroke = 'none', tf = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }, id = null, parent = null } = {}) => ({
@@ -84,18 +83,11 @@ const fluid = shape('ascites-fill', [500, 100, 100, 100], { fill: 'rgb(1, 1, 1)'
 const vessel = shape('v-hit', [400, 300, 10, 300], { w: 12, fill: 'none', stroke: 'rgba(0,0,0,0)', id: 'V1', parent: { querySelector: () => lumen } });
 const scene = { organs: [organA], fluid: [fluid], hits: [vessel] };
 const bySelector = (sel) => (sel.startsWith('#world .v-hit[data-id=') ? scene.hits.filter((h) => sel.includes(`"${h.getAttribute('data-id')}"`)) : sel.includes('g.organ') ? scene.organs : sel.includes('#ascites') ? scene.fluid : sel.includes('.v-lumen') ? scene.hits : []);
-class FakeCtx {
-  constructor() { this.t = [1, 0, 0, 1, 0, 0]; this.px = new Uint8ClampedArray(4); this.lineWidth = 1; }
-  setTransform(...t) { this.t = t; }
-  clearRect(x, y, w, h) { this.w = w; this.h = h; this.px = new Uint8ClampedArray(w * h * 4); }
-  mark(r) {
-    const [a, b, c, d, e, f] = this.t, m = { a, b, c, d, e, f }, q = boxThrough(m, r[0], r[1], r[0] + r[2], r[1] + r[3]);
-    for (let j = Math.max(0, Math.floor(q.t)); j <= Math.min(this.h - 1, Math.ceil(q.b) - 1); j++) for (let i = Math.max(0, Math.floor(q.l)); i <= Math.min(this.w - 1, Math.ceil(q.r) - 1); i++) this.px[(j * this.w + i) * 4 + 3] = 255;
-  }
-  fill(p) { if (p.rect) this.mark(p.rect); }
-  stroke(p) { if (p.rect) { const k = this.lineWidth / 2; this.mark([p.rect[0] - k, p.rect[1] - k, p.rect[2] + 2 * k, p.rect[3] + 2 * k]); } }
-  getImageData() { counts.readback++; return { data: this.px }; }
-}
+// (The grid class credit.js imports, at its stamped URL: the same module, so counting its reads counts the credit's.)
+const gridUrl = /from '\.\/(cell-grid\.js[^']*)'/.exec(readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8'))[1];
+const { CellGrid } = await import(`../src/ui/${gridUrl}`);
+const gridRead0 = CellGrid.prototype.readInto;
+CellGrid.prototype.readInto = function (g) { counts.readback++; return gridRead0.call(this, g); };
 const canvases = [];
 const observers = [];
 globalThis.MutationObserver = class { constructor(cb) { this.cb = cb; this.targets = []; observers.push(this); } observe(t) { this.targets.push(t); } disconnect() { this.targets = []; } };
@@ -106,7 +98,7 @@ globalThis.document = {
   documentElement: { dataset: {}, style: { setProperty() {} } }, addEventListener() {},
   getElementById: (id) => (id === 'world' ? world : null),
   querySelectorAll: bySelector,
-  createElement: () => { const cv = { width: 1, height: 1, getContext: () => (cv.ctx ||= new FakeCtx()) }; canvases.push(cv); return cv; },
+  createElement: () => { const cv = { width: 1, height: 1, getContext: () => { throw new Error('the credit draws on no canvas'); } }; canvases.push(cv); return cv; },
 };
 let glows = [];
 window.pps = { stage: { steadyGlows: () => glows } };
@@ -241,10 +233,10 @@ test('spread over frames, the look answers PENDING, draws a slice a frame, and l
     let frames = 0;
     // (Each grid is read back in a frame of its own, after the one that drew its last shape: Safari paints a canvas's recorded drawing
     // when it is read, 116 ms in one frame on his Mac, ee881888.)
-    const drew = FakeCtx.prototype.fill, read = FakeCtx.prototype.getImageData;
+    const drew = CellGrid.prototype.fill, read = CellGrid.prototype.readInto;
     let drawnNow = false, readAfterDraw = 0, reads = 0, shapesInFrame = 0, shapesAfter = 0;
-    FakeCtx.prototype.fill = function (p) { drawnNow = true; return drew.call(this, p); };
-    FakeCtx.prototype.getImageData = function () { reads++; if (drawnNow) readAfterDraw++; return read.call(this); };
+    CellGrid.prototype.fill = function (p) { drawnNow = true; return drew.call(this, p); };
+    CellGrid.prototype.readInto = function (g) { reads++; if (drawnNow) readAfterDraw++; return read.call(this, g); };
     try {
       while (!called && frames < 50) {
         drawnNow = false;
@@ -255,7 +247,7 @@ test('spread over frames, the look answers PENDING, draws a slice a frame, and l
         shapesAfter += counts.shape - n;
         frames++;
       }
-    } finally { FakeCtx.prototype.fill = drew; FakeCtx.prototype.getImageData = read; }
+    } finally { CellGrid.prototype.fill = drew; CellGrid.prototype.readInto = read; }
     assert.equal(reads, 2, 'both grids read back');
     assert.equal(readAfterDraw, 0, 'never in the frame that drew');
     // (The shapes' boxes and matrices are read just after a frame, where the layout is the one it drew, never inside one: read there,
