@@ -12,6 +12,12 @@ export const HVPG_CUTS = Object.freeze({ amber: 5, red: 10, bleed: 12 });
 export const PPG_CUTS = Object.freeze({ amber: 6, red: 12 });
 export const PRESSURE_CUTS = Object.freeze({ hvpg: HVPG_CUTS, ppg: PPG_CUTS });
 
+// A right hepatic vein clotted this far (Budd–Chiari) takes no catheter, so the HVPG cannot be measured: the HVPG procedure aborts
+// (hvpg-proc.js), and the readout tile and the procedure's idle row show "Not measurable" with no number, never a model difference
+// that would read as a normal HVPG.
+export const HV_BLOCKED = 0.8;
+export const hvBlocked = (params) => (params?.thrombus?.RHV_IVC || 0) >= HV_BLOCKED;
+
 /** A gradient's status as the colour tokens name it: 'ok' (green), 'caution' (amber), 'danger' (red). */
 export const sevOfCuts = (cuts, v) => (v >= cuts.red ? 'danger' : v >= cuts.amber ? 'caution' : 'ok');
 export const hvpgSev = (v) => sevOfCuts(HVPG_CUTS, v);

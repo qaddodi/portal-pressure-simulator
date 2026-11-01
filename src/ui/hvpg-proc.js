@@ -9,15 +9,15 @@
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
 import { h, fmt, fitCanvas, clamp, icon, cssVar, toast } from './util.js?v=5300d2ce2f';
-import { hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { FONT } from './charts.js?v=2b312d6727';
+import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=42f1f09042';
+import { FONT } from './charts.js?v=a3aeb86cd1';
 import { pressureColor } from './colormap.js?v=d4df33b95e';
 import { store, logAction, hiddenNow, updateParams } from './store.js?v=80d4358be8';
 import { shownOr } from './shown.js?v=9f263ec53f';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=95f13823ce';
 import { frameFor, cancelFrame } from './frame.js?v=6a53e5fc6e';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
-import { rateOf } from './table-marks.js?v=c82b75e3d5';
+import { rateOf } from './table-marks.js?v=08dc4ede67';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=192c4357ea';
 const nextFrame = frameFor('hvpg-proc');
 
@@ -84,7 +84,7 @@ export function createHvpgProcedure() {
     const st = store.get();
     if (st.lobule) store.set({ lobule: false });
     if (st.view !== 'anatomic') store.set({ view: 'anatomic' });
-    result = null; t0 = performance.now(); t = 0; cam = ''; blocked = (st.params?.thrombus?.RHV_IVC || 0) >= 0.8; snap = now()?.metrics ? live() : null;
+    result = null; t0 = performance.now(); t = 0; cam = ''; blocked = hvBlocked(st.params); snap = now()?.metrics ? live() : null;
     loop();
   }
   function stopFigure() { stageRef?.setCatheter(null); if (cam && cam !== 'home') stageRef?.cathFocus('home'); cam = ''; }
@@ -190,7 +190,7 @@ export function createHvpgProcedure() {
     // Before any measurement, with the readouts on show (Settings, or measured once for this patient), the three read live,
     // the free and wedged pressures as the bar reads them and the HVPG as their difference, so the row and the bar agree (sweep
     // batch 03, shots 05 and 30: dashes here beside HVPG 0.9 on the bar).
-    const open = ph === 'idle' && !!st.frame?.metrics && !hiddenNow(st)?.has('trueHVPG');
+    const open = ph === 'idle' && !!st.frame?.metrics && !hiddenNow(st)?.has('trueHVPG') && !hvBlocked(st.params);   // (a blocked vein: dashes, as after the abort)
     let v = values();
     if (open) { const f1 = Math.round(shownOr('fhvp', v.fhvp) * 10) / 10, w1 = Math.round(shownOr('whvp', v.whvp) * 10) / 10; v = { fhvp: f1, whvp: w1, hvpg: Math.round((w1 - f1) * 10) / 10 }; }
     const shown = open ? { fhvp: true, whvp: true, hvpg: true }

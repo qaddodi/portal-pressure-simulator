@@ -4,9 +4,10 @@
 // (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
 import { store, hiddenNow } from './store.js?v=80d4358be8';
+import { hvBlocked } from '../engine/pressure-cuts.js?v=42f1f09042';
 import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=5300d2ce2f';
 import { vitalReading } from './vital-read.js?v=cbba41a6b7';
-import { SCALE, RATE } from './table-marks.js?v=c82b75e3d5';
+import { SCALE, RATE } from './table-marks.js?v=08dc4ede67';
 import { shownState, FILL_SMALL, fillQ } from './shown.js?v=9f263ec53f';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
@@ -106,7 +107,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       if (follow) { const fk = `${v}|${shownState.or('rpfill:' + t.id, '')}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;
       const measured = v != null && hidden?.has(t.hideKey);
       let sev, s;
-      if (v == null) { if (!follow) countTo(x.val, null); s = 'Not measured'; sev = 'none'; x.hist.length = 0; }
+      if (v == null) { if (!follow) countTo(x.val, null); s = t.id === 'hvpg' && hvBlocked(store.get().params) ? 'Not measurable' : 'Not measured'; sev = 'none'; x.hist.length = 0; }
       else {
         countTo(x.val, v, t.d, { eased });   // (a paused edit or a treatment rolls to the new number: P17)
         const vs = shownOf(v, t.d);   // (the word judges the number shown)
@@ -138,7 +139,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
         }
       } else x.sevNext = null;
       if (sev === x.sev) { const un = v == null; swapText(x.st, s, () => x.st.classList.toggle('unmeas', un)); }
-      const aria = `${t.title || t.k}: ${v == null ? 'not measured' : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
+      const aria = `${t.title || t.k}: ${v == null ? s.toLowerCase() : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; tileEl.setAttribute('aria-label', aria); }
     }
     for (const x of vitEls) {

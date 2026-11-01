@@ -4,19 +4,19 @@
 import { store, hiddenNow } from './store.js?v=80d4358be8';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=5300d2ce2f';
-import { lobuleFlows } from './lobule-model.js?v=97a317fb70';
-import { createProfile } from './charts.js?v=2b312d6727';
-import { createPressureTime } from './pressure-time.js?v=5a826ab1d0';
-import { createHvpgProcedure } from './hvpg-proc.js?v=678576ac3b';
+import { lobuleFlows } from './lobule-model.js?v=558327122b';
+import { createProfile } from './charts.js?v=a3aeb86cd1';
+import { createPressureTime } from './pressure-time.js?v=f0cbd5c535';
+import { createHvpgProcedure } from './hvpg-proc.js?v=7426b21977';
 import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=35a2b162ee';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=74f4d3c9ca';
-import { createReadoutsPane } from './readouts-pane.js?v=368c88a697';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=11001c0a3d';
+import { createReadoutsPane } from './readouts-pane.js?v=b6627a9323';
 import { frameFor } from './frame.js?v=6a53e5fc6e';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=9f263ec53f';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
-import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
+import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=42f1f09042';
 import { compareRows } from './idle-keys.js?v=c5c00c9da1';
 import { D_FLIP, D_SMALL, EASE_IN } from './ease.js?v=615d96d663';
 const nextFrame = frameFor('dock');
@@ -119,6 +119,7 @@ const TREND_S = 5, TREND_FRAC = 0.03;
 
 /** The value a readout shows, or null when it is hidden and has not been measured. */
 export function readoutValue(t, m, hidden) {
+  if (t.id === 'hvpg' && hvBlocked(store.get().params)) return null;   // (Budd–Chiari: the vein takes no catheter, pressure-cuts.js)
   if (!hidden?.has(t.hideKey)) return t.v(m);
   const meas = t.id === 'hvpg' ? t.measured?.() : null;
   return meas ? meas.hvpg : null;
@@ -288,7 +289,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       let sev, s;
       if (v == null) {
         if (!follow) countTo(x.val, null);
-        s = 'Not measured';
+        s = t.id === 'hvpg' && hvBlocked(st0.params) ? 'Not measurable' : 'Not measured';
         sev = 'none';
         x.hist.length = 0;
       } else {
@@ -326,7 +327,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         }
       } else x.sevNext = null;
       if (sev === x.sev) { const un = v == null; swapText(x.st, s, () => x.st.classList.toggle('unmeas', un)); }
-      const aria = `${t.title || t.k}: ${v == null ? 'not measured' : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
+      const aria = `${t.title || t.k}: ${v == null ? s.toLowerCase() : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; el.setAttribute('aria-label', aria); }
     }
     for (const x of vitEls) {

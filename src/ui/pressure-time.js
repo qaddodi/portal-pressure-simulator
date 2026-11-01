@@ -7,10 +7,10 @@
 
 import { store, hiddenNow } from './store.js?v=80d4358be8';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=5300d2ce2f';
-import { FONT as FONT0, FONT } from './charts.js?v=2b312d6727';
+import { FONT as FONT0, FONT } from './charts.js?v=a3aeb86cd1';
 import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=6a53e5fc6e';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
-import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
+import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js?v=42f1f09042';
 import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
 import { limitLabelX as labelX } from './limit-label.js?v=52dcc41a1e';
 import { wrapLabel } from './wrap-label.js?v=1af9654a99';
