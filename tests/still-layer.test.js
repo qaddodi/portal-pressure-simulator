@@ -22,35 +22,15 @@ function hostCtx(m = { a: 2, b: 0, c: 0, d: 2, e: 0, f: 0 }) {
   return { log, getTransform: () => m, save: () => log.push(['save']), restore: () => log.push(['restore']), setTransform: (...a) => log.push(['setTransform', ...a]), drawImage: (...a) => log.push(['drawImage', ...a]) };
 }
 
-test('the picture is drawn once while its key holds, and again when the key or the size changes', () => {
-  const host = { width: 800, height: 400 }, pics = [];
-  const still = createStill(host, { make: () => { const c = fakeCanvas(); pics.push(c); return c; } });
+test('the still parts are drawn straight onto the chart\'s own context, kept apart by a save and a restore: no 2D picture (1 Nov)', () => {
   let drawn = 0;
+  const still = createStill({ width: 800, height: 400 });
   const ctx = hostCtx();
-  for (let i = 0; i < 5; i++) still.lay(ctx, 'a', () => { drawn++; });
-  assert.equal(drawn, 1);
-  assert.equal(still.builds, 1);
-  assert.equal(pics.length, 1);
-  still.lay(ctx, 'b', () => { drawn++; });
-  assert.equal(drawn, 2);
-  host.width = 900;
-  still.lay(ctx, 'b', () => { drawn++; });
-  assert.equal(drawn, 3, 'a new size is a new picture');
-  assert.equal(pics[0].width, 900);
-  still.drop();
-  still.lay(ctx, 'b', () => { drawn++; });
-  assert.equal(drawn, 4, 'once let go it is drawn again');
-  assert.equal(pics.length, 2);
-});
-
-test('the picture is made in the chart\'s transform over nothing, and laid down one pixel to a pixel with the transform off', () => {
-  const host = { width: 800, height: 400 }, pic = fakeCanvas();
-  const still = createStill(host, { make: () => pic });
-  const ctx = hostCtx();
-  still.lay(ctx, 'k', () => {});
-  const sets = pic.log.filter((e) => e[0] === 'setTransform' || e[0] === 'clearRect');
-  assert.deepEqual(sets, [['setTransform', 1, 0, 0, 1, 0, 0], ['clearRect', 0, 0, 800, 400], ['setTransform', 2, 0, 0, 2, 0, 0]]);
-  assert.deepEqual(ctx.log, [['save'], ['setTransform', 1, 0, 0, 1, 0, 0], ['drawImage', pic, 0, 0], ['restore']]);
+  for (let i = 0; i < 3; i++) still.lay(ctx, 'k', (c) => { assert.equal(c, ctx); drawn++; });
+  assert.equal(drawn, 3, 'drawn every frame, by the GPU\'s pen');
+  assert.deepEqual(ctx.log, [['save'], ['restore'], ['save'], ['restore'], ['save'], ['restore']]);
+  const src = read('../src/ui/still-layer.js');
+  assert.doesNotMatch(src, /getContext|drawImage|createElement/, 'no canvas of its own');
 });
 
 test('switched off, the parts are drawn straight onto the chart every time and no picture is made', () => {
@@ -244,17 +224,6 @@ for (const sc of SCENARIOS) {
     });
   }
 }
-
-test('the picture is made again only when something it shows changes: a steady card makes it a few times, not every frame', () => {
-  const last = healthy[healthy.length - 1], frames = [...healthy, ...healthy, ...Array(12).fill(last)];
-  const slideCard = drive(true, { bw: 640, bh: 300, slide: true, ref: was, pin: { hr: 74 } }, frames);
-  assert.ok(slideCard.builds >= 1 && slideCard.builds < frames.length / 4, `the slide's beat card made its picture ${slideCard.builds} times in ${frames.length} frames`);
-  const slideLane = drive(true, { bw: 420, bh: 260, slide: true, range: 'minutes' }, frames);
-  assert.ok(slideLane.builds >= 1 && slideLane.builds < frames.length / 4, `a slide's chart made its picture ${slideLane.builds} times in ${frames.length} frames`);
-  // The dock's scale glides to a new range for about a second after the record reaches a new extreme: the picture follows it. Once it settles (a few frames), no more.
-  const dock = drive(true, { bw: 420, bh: 320 }, frames);
-  assert.equal(dock.buildsAt[frames.length - 1], dock.buildsAt[frames.length - 5], `the dock's picture stands once its scale has settled (${dock.buildsAt.slice(-8)})`);
-});
 
 test('the chart lets the picture go with itself, and a chart can be made without one', () => {
   const src = read('../src/ui/pressure-time.js');

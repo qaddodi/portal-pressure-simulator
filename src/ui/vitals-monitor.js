@@ -15,7 +15,7 @@ import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=7710f677e2
 import { VITALS, vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js?v=f27505b539';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
-import { createStill } from './still-layer.js?v=8d8a2727b4';
+import { createStill } from './still-layer.js?v=d5a9373a74';
 const nextFrame = frameFor('vitals-monitor');
 
 export const VITALS_DEFAULT = ['hr', 'map', 'hb'];

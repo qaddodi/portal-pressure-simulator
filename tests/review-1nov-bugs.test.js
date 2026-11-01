@@ -12,21 +12,17 @@ const STAGE = read('src/ui/stage.js'), PZ = read('src/ui/presenter.js'), MAIN = 
 const body = (src, head) => { const i = src.indexOf(head); assert.ok(i >= 0, head); let d = 0, k = src.indexOf('{', i); for (let j = k; j < src.length; j++) { if (src[j] === '{') d++; else if (src[j] === '}' && --d === 0) return src.slice(i, j + 1); } return src.slice(i); };
 
 // ── A1: no WebGL2 ──
-test('A1: the colour parser is a canvas of its own, not one the GPU figure makes', () => {
-  assert.doesNotMatch(STAGE, /const colorCtx = veins \?/, 'it was null with no GPU, and toRGB wrote to it');
-  assert.match(STAGE, /const colorParser = \(\) => \{\s*if \(colorCtx === undefined\) \{ try \{ colorCtx = document\.createElement\('canvas'\)\.getContext\('2d'\); \} catch \{ colorCtx = null; \} \}/);
+test('A1: the colour parser needs no canvas at all, so a device without WebGL2 (or a 2D context) still reads every colour', () => {
+  assert.doesNotMatch(STAGE, /colorParser|colorCtx/, 'no 2D canvas parser (1 Nov: nothing off the GPU)');
   const to = body(STAGE, 'function toRGB(c, cs)');
-  assert.match(to, /const ctx = colorParser\(\);/);
-  assert.match(to, /if \(!ctx\) return /, 'and a browser with no 2D context still answers (black for what it cannot read)');
-  assert.doesNotMatch(to, /colorCtx\./, 'every write goes through the checked context');
+  assert.match(to, /out = cssColor8\(v \|\| 'black'\)\.slice\(0, 3\);/);
 });
 
-test('A1: the colour a canvas gives back is read the same as before (#rrggbb, or the first three numbers of rgba())', () => {
-  const read2 = body(STAGE, 'function readRGB(f)');
-  const readRGB = new Function(`${read2}; return readRGB;`)();
-  assert.deepEqual(readRGB('#ff8000').map((v) => Math.round(v * 255)), [255, 128, 0]);
-  assert.deepEqual(readRGB('rgba(10, 20, 30, 0.5)').map((v) => Math.round(v * 255)), [10, 20, 30]);
-  assert.equal(readRGB('nonsense'), null);
+test('A1: a colour is read the same as the canvas gave it back (8-bit steps; black for what it cannot read)', async () => {
+  const { cssColor8 } = await import('../src/ui/css-color.js');
+  assert.deepEqual(cssColor8('#ff8000').slice(0, 3).map((v) => Math.round(v * 255)), [255, 128, 0]);
+  assert.deepEqual(cssColor8('rgba(10, 20, 30, 0.5)').slice(0, 3).map((v) => Math.round(v * 255)), [10, 20, 30]);
+  assert.deepEqual(cssColor8('nonsense').slice(0, 3), [0, 0, 0]);
 });
 
 test('A1: a slide\'s glows and outlines are the figure\'s decoration: one that cannot be drawn leaves the slide, never half-changed', () => {

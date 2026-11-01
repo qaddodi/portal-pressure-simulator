@@ -22,9 +22,9 @@ test('a view change paints the callouts and probes once: again only when updateL
   assert.match(sv, /if \(!labelPainted && !\(GLIDE_PAINT && vtGliding\)\) \{\n\s+if \(sites\.list\) sitesPaint\(\);\n\s+if \(scan\.on\) scanPaint\(\);\n\s+dprobePaint\(\);\n\s+\}/);
 });
 
-test('the FibroScan beam is its own picture on its own layer, under the waves', () => {
-  const at = STAGE.indexOf('<svg class="sp-beam-svg" viewBox="0 0 220 96">'), beam = STAGE.indexOf('<path class="sp-beam" '), waves = STAGE.indexOf('</svg><svg viewBox="0 0 220 96"><g class="sp-waves">');
-  assert.ok(at > 0 && beam > at && waves > beam, 'the beam in its own picture, the waves after it in another');
+test('the FibroScan beam is its own layer of the probe\'s model, under the waves', () => {
+  const at = STAGE.indexOf('<div class="sp-svg sp-beam-svg">'), beam = STAGE.indexOf('<i class="sp-beam" '), waves = STAGE.indexOf('</div><div class="sp-svg"><i class="sp-waves">');
+  assert.ok(at > 0 && beam > at && waves > beam, 'the beam in its own layer, the waves after it in another');
   assert.match(CSS, /\.scan-probe \.sp-beam-svg \{ will-change: transform; \}/);
-  assert.match(CSS, /\.scan-probe svg \{ position: absolute; left: 0; top: 0; width: 220px; height: 96px;/);
+  assert.match(CSS, /\.scan-probe \.sp-svg \{ position: absolute; left: 0; top: 0; width: 220px; height: 96px;/);
 });

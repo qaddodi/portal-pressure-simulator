@@ -66,7 +66,7 @@ test('the FibroScan packets write an opacity or a path only when its text change
   const writes = [];
   const el = (n) => ({ n, style: { set opacity(v) { writes.push([n, 'op', v]); } }, setAttribute: (k, v) => writes.push([n, k, v]) });
   const groups = [0, 1].map((i) => ({ ...el('g' + i), children: [el(`p${i}0`), el(`p${i}1`), el(`p${i}2`)] }));
-  const packs = wavePacks({ querySelectorAll: (q) => (assert.equal(q, '.sp-waves > g'), groups) });
+  const packs = wavePacks({ querySelectorAll: (q) => (assert.equal(q, '.sp-waves > .sp-pk'), groups) });
   assert.equal(packs.length, 2);
   paintWave(packs[0], '0'); paintWave(packs[0], '0');
   assert.deepEqual(writes, [['g0', 'op', '0']]);

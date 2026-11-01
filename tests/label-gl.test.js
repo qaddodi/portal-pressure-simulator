@@ -133,11 +133,13 @@ test('the Doppler probe is drawn on the GPU under the leaders, its SVG kept as t
   assert.ok(order.every((v, i) => v > 0 && (!i || v > order[i - 1])), order.join());
 });
 
-test('the FibroScan probe is drawn on the GPU over the labels, its SVGs kept as the model and hidden while drawn', () => {
+test('the FibroScan probe is drawn on the GPU over the labels, from a model of plain elements the page never paints', () => {
   assert.match(STAGE, /scan\.el = el; scan\.deg = 45;\n\s+labelGL\?\.setScan\(el\);/);
   assert.match(STAGE, /labelGL\?\.redraw\(\); {3}\/\/ \(the waves moved/, 'each frame of its waves drawn in that frame');
   assert.match(STAGE, /el\.remove\(\); if \(!scan\.el\) labelGL\?\.setScan\(null\);/, 'gone from the GPU layer when its element goes');
-  assert.match(CSS, /\.scan-probe\[data-gl\] > svg \{ visibility: hidden; \}/);
+  // (Its model has no SVG since 1 Nov: plain elements carrying the shapes' numbers, never painted by the page.)
+  assert.match(CSS, /\.scan-probe > \.sp-svg \{ visibility: hidden; \}/);
+  assert.doesNotMatch(STAGE.slice(STAGE.indexOf('function scanPaint('), STAGE.indexOf('function setScanProbe(')), /<svg|<path|<rect|<text|<g[ >]/);
   assert.match(LGL, /dirty\.clear\(\);\n\s+moving = drawScan\(now\) \|\| moving;/, 'over the labels, as its layer lay');
   assert.match(LGL, /if \(!L \|\| !\(BEAM_GL && L\.beam\.stops\.length === 2 && beamSector\(L\.beam\)\)\) \{ if \(scanEl\.hasAttribute\('data-gl'\)\) scanEl\.removeAttribute\('data-gl'\)/, 'a beam the shader cannot draw: the SVG keeps the probe');
   // (No 2D canvas for the probes: their heads are painted on the GPU (picture), the reading from the font's outlines (text-gl.js), and

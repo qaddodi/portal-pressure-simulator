@@ -1360,7 +1360,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const now = performance.now(), q = (k) => scanEl.querySelector(k);
     sLook = scanLookRead(scanEl);
     const L = sLook;
-    if (L) sTracks = easeCapture([[scanEl, 'opacity', parseFloat, (v) => { L.op = v; }], [scanEl.querySelectorAll(':scope > svg')[1], 'transform', (t) => (t === 'none' ? 0 : /matrix/.test(t) ? angOf(t) : NaN), (v) => { L.ang = v; }],
+    if (L) sTracks = easeCapture([[scanEl, 'opacity', parseFloat, (v) => { L.op = v; }], [scanEl.querySelectorAll(':scope > .sp-svg')[1], 'transform', (t) => (t === 'none' ? 0 : /matrix/.test(t) ? angOf(t) : NaN), (v) => { L.ang = v; }],
       [q('.sp-head'), 'opacity', parseFloat, (v) => { L.headOp = v; }], [q('.sp-cable'), 'opacity', parseFloat, (v) => { L.cableOp = v; }], [q('.sp-tip'), 'transform', tipXOf, (v) => { L.tipX = v; }]], now);
     ask();
   };
@@ -1382,9 +1382,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const angOf = (t) => { const m = /matrix\(([^)]+)\)/.exec(t || ''); if (!m) return 0; const v = m[1].split(',').map(Number); return Math.atan2(v[1], v[0]); };
   function scanLookRead(el) {
     const q = (k) => el.querySelector(k), scs = (e) => getComputedStyle(e);
-    const svgs = el.querySelectorAll(':scope > svg'), beam = q('.sp-beam'), body = q('.sp-body'), tip = q('.sp-tip'), screen = q('.sp-screen'), cable = q('.sp-cable'), read = q('.sp-read');
+    const svgs = el.querySelectorAll(':scope > .sp-svg'), beam = q('.sp-beam'), body = q('.sp-body'), tip = q('.sp-tip'), screen = q('.sp-screen'), cable = q('.sp-cable'), read = q('.sp-read');
     if (svgs.length !== 2 || !beam || !body || !tip || !screen || !read) return null;
-    const bc = scs(beam), stops = [...el.querySelectorAll('#sp-beam stop')].map((st) => { const c = scs(st); return [NUM(st.getAttribute('offset')), c.stopColor, NUM(c.stopOpacity)]; });
+    const bc = scs(beam), stops = [...el.querySelectorAll('#sp-beam .sp-stop')].map((st) => { const c = scs(st); return [NUM(st.getAttribute('offset')), c.stopColor, NUM(c.stopOpacity)]; });
     const rect = (e) => { const c = scs(e); return { x: NUM(e.getAttribute('x')), y: NUM(e.getAttribute('y')), w: NUM(e.getAttribute('width')), h: NUM(e.getAttribute('height')), rx: NUM(e.getAttribute('rx')), fill: none(c.fill) ? '' : c.fill, stroke: none(c.stroke) ? '' : c.stroke, sw: NUM(c.strokeWidth) }; };
     const runs = [...read.children].map((sp) => { const r = scs(sp); return { t: sp.textContent, dx: NUM(sp.getAttribute('dx')), font: `${r.fontWeight} ${r.fontSize} ${r.fontFamily}`, weight: r.fontWeight, size: NUM(r.fontSize), ls: 0, tnum: /tabular-nums/.test(r.fontVariantNumeric), fill: none(r.fill) ? '' : r.fill }; });
     const cc = scs(cable), wave = (k) => { const e = q(k); if (!e) return null; const c = scs(e); return { col: rgba(c.stroke), so: NUM(c.strokeOpacity), w: NUM(c.strokeWidth) }; };
@@ -1431,10 +1431,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
       gl.uniform1f(MU.uA, Math.min(1, L.op));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
-    // The waves: each packet's arcs (read off the SVG every frame, where scanTick writes them), at the packet's opacity.
+    // The waves: each packet's arcs (read off the probe's model every frame, where scanTick writes them), at the packet's opacity.
     gl.useProgram(mprog);
     gl.uniform2f(MU.uView, W, H);
-    for (const pk of scanEl.querySelectorAll('.sp-waves > g')) {
+    for (const pk of scanEl.querySelectorAll('.sp-waves > .sp-pk')) {
       const po = NUM(pk.style.opacity === '' ? '1' : pk.style.opacity);
       if (!(po > 0.001)) continue;
       for (const path of pk.children) {

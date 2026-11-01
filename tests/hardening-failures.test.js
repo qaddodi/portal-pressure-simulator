@@ -63,7 +63,10 @@ test('GL: a restored sinusoid context draws a paused picture again; the lobule g
 });
 
 test('a still layer gives its bitmap back; a presenter worker that never said hello is terminated before the fallback', () => {
-  assert.match(read('src/ui/still-layer.js'), /drop\(\) \{ if \(pic && 'width' in pic\) pic\.width = pic\.height = 0; pic = null; key = ''; \}/);
+  // (Since 1 Nov the still layer holds no bitmap at all: the parts are drawn by the GPU's pen each frame.)
+  const sl = read('src/ui/still-layer.js');
+  assert.match(sl, /drop\(\) \{\}/);
+  assert.doesNotMatch(sl, /getContext|createElement/);
   const p = read('src/ui/presenter.js');
   assert.match(p, /let w = null;\n\s+try \{\n\s+w = new Worker\(/);
   assert.match(p, /if \(w\) \{ w\.onmessage = w\.onerror = null; w\.terminate\(\); \}/);

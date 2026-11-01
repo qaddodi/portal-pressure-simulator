@@ -43,12 +43,14 @@ import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
 import { cropToGrid } from './organs-gl.js?v=ecf7b49c24';
 import { textPolys, loadGlyphs, glyphsReady } from './text-gl.js?v=163ff46abf';
+import { cssColor8 } from './css-color.js?v=e56f0c77ae';
+import { measure as measureWords } from './glyph-measure.js?v=9f91f3677d';
 import { readGroup, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=1c406a11a6';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=f7d920b7d0';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=56b1c0c4cf';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=df3c3152ad';
-import { createLabelGL } from './label-gl.js?v=5d4f1f0bc0';
+import { createLabelGL } from './label-gl.js?v=4e7d6deeff';
 import { createGlassGL } from './glass-gl.js?v=6a77550d27';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=764621f5d4';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
@@ -72,7 +74,7 @@ import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { layoutWatch } from './idle-keys.js?v=81fbedda6b';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
-import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
+import { wavePacks, paintWave } from './scan-waves.js?v=8aac338ee0';
 import { fitPose, probeShapes, beamBoxes, gateBoxes, wedgeBoxes, awayFromProbe, createProbeMind, NONE_MS, SLACK, PROBE, PROBE_SVG } from './dop-probe.js?v=25dc819909';
 import { pathPieces, piecesLength, pointsAlong } from './path-pieces.js?v=e486672c9b';
 import { organDimMatrix } from './organ-dim.js?v=9e19f2fc30';
@@ -3900,32 +3902,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the vessels recoloured and the organs' picture redrawn, holds them back instead of eating their first half. ?paced=0: the wall clock.)
   const lensNow = () => (PACED ? easeNow() : performance.now());
   const lensFading = () => !!lensFrom && lensNow() - lensT0 < LENS_FADE + 20;
-  // The CSS colour parser: a 2D canvas of its own, made when first needed and whether or not the GPU draws the vessels. (It was made
-  // only with the GPU's veins, so a device without WebGL2 threw "Cannot set properties of null" at the first toned organ a slide
-  // pinned, HVPG 8: the slide stopped mid-change and its cards never came.) A browser with no 2D context at all reads a colour written
-  // as #rrggbb or rgb()/rgba() itself, and takes anything else for black.
-  let colorCtx;
-  const colorParser = () => {
-    if (colorCtx === undefined) { try { colorCtx = document.createElement('canvas').getContext('2d'); } catch { colorCtx = null; } }
-    return colorCtx;
-  };
   const rgbCache = new Map();
-  // (The canvas hands the colour back as #rrggbb, or rgba(r, g, b, a) where it is not opaque.)
-  function readRGB(f) {
-    if (f[0] === '#') return [1, 3, 5].map((i) => parseInt(f.slice(i, i + 2), 16) / 255);
-    const k = f.match(/[\d.]+/g)?.map(Number);
-    return k && k.length >= 3 ? [k[0] / 255, k[1] / 255, k[2] / 255] : null;
-  }
   // Any CSS color (rgb(), #hex, a named var) as [r, g, b] in 0–1.
   function toRGB(c, cs) {
     const m = /^var\((--[\w-]+)\)$/.exec(c || '');
     const v = m ? cs.getPropertyValue(m[1]).trim() : c;
     let out = rgbCache.get(v);
     if (out) return out;
-    const ctx = colorParser();
-    if (!ctx) return /^(#[0-9a-f]{6}|rgba?\(.*)$/i.test(v || '') ? readRGB(v) || [0, 0, 0] : [0, 0, 0];   // (not kept: the parser may come back)
-    ctx.fillStyle = '#000'; ctx.fillStyle = v || '#000';   // colour-exempt: the parser's reset
-    out = readRGB(ctx.fillStyle) || [0, 0, 0];
+    // (Parsed in script, css-color.js, in 8-bit steps as a canvas's fillStyle gave it: no 2D canvas. Anything unreadable is black.)
+    out = cssColor8(v || 'black').slice(0, 3);
+    if (rgbCache.size > 512) rgbCache.clear();
     rgbCache.set(v, out);
     return out;
   }
@@ -7020,15 +7006,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!scan.el) {
       const el = document.createElement('div');
       el.className = 'scan-probe cath-pre'; el.setAttribute('aria-hidden', 'true');
-      // (The soft beam is its own picture under the rest, on its own layer (.sp-beam-svg): in one picture with the waves, which change
-      // every frame, its blur was drawn again every frame too.)
-      el.innerHTML = '<svg class="sp-beam-svg" viewBox="0 0 220 96"><defs><radialGradient id="sp-beam" cx="66" cy="48" r="150" gradientUnits="userSpaceOnUse">'
-        + '<stop offset="0" stop-color="var(--scan)" stop-opacity=".22"/><stop offset="1" stop-color="var(--scan)" stop-opacity="0"/></radialGradient></defs>'
-        + '<path class="sp-beam" d="M66 48 L197.6 -23.9 A150 150 0 0 1 197.6 119.9 Z"/></svg><svg viewBox="0 0 220 96"><g class="sp-waves">'
-        + '<g><path class="sp-rip"/><path class="sp-front"/><path class="sp-rip"/></g>'.repeat(SCAN_N) + '</g>'
-        + '<path class="sp-cable" d="M-26 48 C-18 48 -14 48 -8 48"/><g class="sp-head"><rect class="sp-body" x="-10" y="35" width="68" height="26" rx="11"/>'
-        + '<rect class="sp-tip" x="54" y="39" width="10" height="18" rx="3"/><rect class="sp-screen" x="-3" y="39.5" width="54" height="17" rx="4"/>'
-        + '<text class="sp-read" x="24" y="52.3" text-anchor="middle"><tspan class="sp-val">5.0</tspan><tspan class="sp-unit" dx="2">kPa</tspan></text></g></svg>';   // (constant markup; the screen on the body shows the live stiffness)
+      // The probe's model: plain elements carrying its shapes' numbers (x, y, width, height, rx, d; the beam's gradient and stops), styled
+      // by app.css, from which label-gl.js reads its look and draws it on the GPU over the labels. Nothing of it is drawn by the page: no
+      // SVG (1 Nov 2026: nothing off the GPU). The rects and the reading take their boxes too, for what keeps clear of the probe's body.
+      const box = (cls, x, y, w, hh, rx) => `<i class="${cls}" x="${x}" y="${y}" width="${w}" height="${hh}" rx="${rx}" style="left:${x}px;top:${y}px;width:${w}px;height:${hh}px"></i>`;
+      el.innerHTML = '<div class="sp-svg sp-beam-svg"><i id="sp-beam" cx="66" cy="48" r="150">'
+        + '<i class="sp-stop" offset="0" style="stop-color:var(--scan);stop-opacity:.22"></i><i class="sp-stop" offset="1" style="stop-color:var(--scan);stop-opacity:0"></i></i>'
+        + '<i class="sp-beam" d="M66 48 L197.6 -23.9 A150 150 0 0 1 197.6 119.9 Z"></i></div><div class="sp-svg"><i class="sp-waves">'
+        + '<i class="sp-pk"><i class="sp-rip"></i><i class="sp-front"></i><i class="sp-rip"></i></i>'.repeat(SCAN_N) + '</i>'
+        + '<i class="sp-cable" d="M-26 48 C-18 48 -14 48 -8 48"></i><i class="sp-head">' + box('sp-body', -10, 35, 68, 26, 11)
+        + box('sp-tip', 54, 39, 10, 18, 3) + box('sp-screen', -3, 39.5, 54, 17, 4)
+        + '<i class="sp-read" x="24" y="52.3" text-anchor="middle"><i class="sp-val">5.0</i><i class="sp-unit" dx="2">kPa</i></i></i></div>';   // (constant markup; the screen on the body shows the live stiffness)
       sites.el.append(el); scan.el = el; scan.deg = 45;
       labelGL?.setScan(el);   // (drawn over the labels on their GPU layer while it can be; label-gl.js)
       const t0 = scanTipLocal(); if (t0) scanTurn(t0.tx, t0.y);   // (turned before it first shows, so it fades in at its angle rather than swinging to it)
@@ -8635,7 +8623,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const labelGlSync = () => { if (labelGL) labelGL.sync([...pool.values()].filter((b) => b.pos).map((b) => b.pos)); };
   const FONT = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-  const measure = document.createElement('canvas').getContext('2d');
+  // (Words measured from the GPU atlas's own Inter metrics, glyph-measure.js, as label-gl.js sets them: no 2D canvas.)
   const widths = new Map();
   function textW(t, size, weight = 500, track = 0) {
     // Labels draw tabular digits (every digit as wide as a zero), so measure them that way too:
@@ -8643,7 +8631,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // value is measured once, not once for every value it passes through.)
     const z = t.replace(/\d/g, '0'), k = `${weight}|${size}|${track}|${z}`;
     let w = widths.get(k);
-    if (w == null) { measure.font = `${weight} ${size}px ${FONT}`; w = measure.measureText(z).width + track * size * z.length; if (widths.size > 1500) widths.clear(); widths.set(k, w); }   // (a resize or a fluid size makes a new key each time: cut at 1500)
+    if (w == null) { w = measureWords(z, `${weight} ${size}px ${FONT}`) + track * size * z.length; if (widths.size > 1500) widths.clear(); widths.set(k, w); }   // (a resize or a fluid size makes a new key each time: cut at 1500)
     return w;
   }
   document.fonts?.ready?.then(() => { widths.clear(); labelFonts++; if (F) updateLabels(F); });

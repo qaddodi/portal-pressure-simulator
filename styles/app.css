@@ -3376,8 +3376,11 @@ button.finding { cursor: pointer; }
 /* The FibroScan probe on the skin over the liver; its shear wave eases out into the right lobe and fades. */
 .scan-probe { --scan: var(--fibroscan); /* the orange of the FibroScan card's readout (ORANGE in fibroscan.js) */ position: absolute; left: 0; top: 0; width: 220px; height: 96px; translate: 0 -50%; transition: opacity var(--d-surface) var(--ease); pointer-events: none; }
 .scan-probe.cath-pre, .scan-probe.off { opacity: 0; }
-.scan-probe svg { position: absolute; left: 0; top: 0; width: 220px; height: 96px; overflow: visible; transform: rotate(var(--sp-turn, 45deg)); transform-origin: 66px 48px; transition: transform var(--d-surface) var(--ease); }
-.scan-probe[data-gl] > svg { visibility: hidden; }   /* (drawn on the labels' GPU layer instead: label-gl.js) */
+.scan-probe .sp-svg { position: absolute; left: 0; top: 0; width: 220px; height: 96px; overflow: visible; transform: rotate(var(--sp-turn, 45deg)); transform-origin: 66px 48px; transition: transform var(--d-surface) var(--ease); }
+.scan-probe > .sp-svg { visibility: hidden; }   /* (a model only: drawn on the labels' GPU layer, label-gl.js; nothing of it is painted by the page) */
+.scan-probe .sp-svg i { display: block; position: absolute; left: 0; top: 0; font-style: normal; }
+.scan-probe .sp-svg .sp-read { left: 24px; top: 52.3px; translate: -50% -80%; white-space: nowrap; line-height: 1; }   /* (its box, for what keeps clear of it: the baseline at y, centred on x) */
+.scan-probe .sp-svg .sp-read i { display: inline; position: static; }
 .scan-probe .sp-beam-svg { will-change: transform; }   /* (the beam's blur kept as drawn: the waves over it change every frame, it does not) */   /* probe and beam turned 45° about the tip, pointing down-right (steeper beside the screen's left edge: stage.js scanPaint) */
 .scan-probe .sp-body { fill: var(--surface); stroke: var(--text-2); stroke-width: 1.6; }
 .scan-probe .sp-tip { fill: var(--text-2); }
@@ -3388,8 +3391,8 @@ button.finding { cursor: pointer; }
 .scan-probe.head-off :is(.sp-head, .sp-cable) { opacity: 0; }   /* (a card over the probe's body: its waves stay, no stub pokes out from under the card) */
 .scan-probe .sp-cable { fill: none; stroke: var(--text-3); stroke-width: 3; stroke-linecap: round; }
 .scan-probe .sp-beam { fill: url(#sp-beam); --sp-soft: 5px; }   /* (its softness drawn once into the labels' GPU atlas, label-gl.js; no CSS blur) */
-.scan-probe .sp-waves > g { opacity: 0; }
-.scan-probe .sp-waves path { fill: none; stroke: var(--scan); stroke-linecap: round; }
+.scan-probe .sp-waves > .sp-pk { opacity: 0; }
+.scan-probe .sp-waves .sp-pk > i { fill: none; stroke: var(--scan); stroke-linecap: round; }
 .scan-probe .sp-rip { stroke-width: 1.4; stroke-opacity: .35; }
 .scan-probe .sp-front { stroke-width: 2.2; stroke-opacity: .95; }
 .scan-probe.tap .sp-tip { animation: sp-tap var(--d-surface) var(--ease-move); }
