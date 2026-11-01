@@ -1238,8 +1238,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (el._held) delete el._held[k];
     setA(el, k, v);
   };
+  // (1 Nov 2026, "Move everything to GPU": the lumens' widths and the strands' and feeders' display and fade are held the same way while the
+  // GPU draws the vessels. Written every frame of a width's ease, they restyled the hidden SVG on each one. The corner credit, the one
+  // reader of a hidden lumen's width, takes the held values first (flushHeld, credit.js screenTest). ?tubeall=0: written always, as before.)
+  const TUBE_ALL = !/[?&]tubeall=0\b/.test(location.search);
+  const setL = (el, k, v) => (TUBE_ALL ? setT(el, k, v) : setA(el, k, v));
+  const setS = (el, k, v) => {
+    if (TUBE_ALL && tubesHidden) { (el._held ||= {})['style:' + k] = v; tubesHeld.add(el); return; }
+    if (el._held) delete el._held['style:' + k];
+    if (el.style[k] !== v) el.style[k] = v;
+  };
   function flushTubes() {
-    for (const el of tubesHeld) { for (const k in el._held) setA(el, k, el._held[k]); el._held = null; }
+    for (const el of tubesHeld) {
+      for (const k in el._held) { const v = el._held[k]; if (k.startsWith('style:')) { const p = k.slice(6); if (el.style[p] !== v) el.style[p] = v; } else setA(el, k, v); }
+      el._held = null;
+    }
     tubesHeld.clear();
   }
   // Colors follow the beat-filtered mean pressure (the scale shows mean venous pressure) in
@@ -3077,14 +3090,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (x.isArt) { setT(x.wall, 'stroke-width', w.toFixed(1)); return; }
     const wallPx = x.wallPx;
     setT(x.wall, 'stroke-width', (w + 2 * wallPx).toFixed(1));
-    setA(x.lumen, 'stroke-width', w.toFixed(1));
+    setL(x.lumen, 'stroke-width', w.toFixed(1));
     if (x.cbr) for (const cb of x.cbr) cb.w = Math.max(1.2, w * cb.k);
     if (x.strands) x.strands.forEach((sd, i) => {
       setT(sd.lumen, 'stroke-width', Math.max(1.6, w * sd.k).toFixed(1)); setT(sd.wall, 'stroke-width', (Math.max(1.6, w * sd.k) + 2 * wallPx).toFixed(1));
       sd.bead = e.id === 'C1a' ? Math.round(varixBead(f.metrics?.varix?.d) * (1 - t) * 100) / 100 : 0;   // (in hundredths: the radii are sent again only when it moves a step)
       sd.live = e.code === 'C1' ? clamp(i + 1 - (bandsShown ?? (f.bands || 0)), 0, 1) : e.id === 'C8' ? clamp(1 + 4 * clamp((recruitFrac('C8', f) - 0.15) / 0.7, 0, 1) - i, 0, 1) : 1;   // cavernoma: one strand beside the main channel when acute, the rest grow in with the remodeling
       const vis = sd.live > 0.02 ? '' : 'none', sop = sd.live * (SIN_EDGES.has(e.id) ? SIN_PERFUSION.fade : 1), op = sop < 1 ? sop.toFixed(2) : '';
-      for (const el of [sd.lumen, sd.wall]) { if (el.style.display !== vis) el.style.display = vis; if (el.style.opacity !== op) el.style.opacity = op; }
+      for (const el of [sd.lumen, sd.wall]) { setS(el, 'display', vis); setS(el, 'opacity', op); }
     });
     if (x.feeders) {
       const cfg = FEEDERS[e.id];
@@ -3107,7 +3120,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         fd.live = lv; fd.w = fw;
         setT(fd.lumen, 'stroke-width', fw.toFixed(1)); setT(fd.wall, 'stroke-width', (fw + 2 * wallPx).toFixed(1));
         const vis = lv > 0.02 ? '' : 'none', op = lv < 1 ? lv.toFixed(2) : '';
-        for (const el of [fd.lumen, fd.wall]) { if (el.style.display !== vis) el.style.display = vis; if (el.style.opacity !== op) el.style.opacity = op; }
+        for (const el of [fd.lumen, fd.wall]) { setS(el, 'display', vis); setS(el, 'opacity', op); }
       }
     }
   }
@@ -12460,6 +12473,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lobuleRing: () => (lobuleOn && diveT >= 1 ? lz?.ring() ?? null : null),
     /** The vessels lit by a glow that stays (a selection, a slide's or step's vessels, the Doppler's), as [id, band width ×]: the corner
      *  credit keeps off their glow too. (A hover's or a change's glow comes and goes; the credit does not move for it.) */
+    flushHeld: () => { if (tubesHeld.size) flushTubes(); },   // (the corner credit reads the hidden lumens' widths: setL)
     steadyGlows: () => ['sel', 'dop', 'slide', 'focus'].flatMap((k) => [...(glow.src.get(k) || new Map()).values()].map((g) => [g.id, g.wide || 1])),
     /** A talk takes the figure out of the Tab order (its vessels, organ keys and labels); the end of the talk puts it back. */
     setKeyStops: (on) => {

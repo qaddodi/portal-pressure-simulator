@@ -3,8 +3,8 @@
 
 import { startHost, host } from './host.js?v=dd95596be7';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { createStage } from './stage.js?v=ee49bb4e72';
-import { createCreditPlacer } from './credit.js?v=2266f94cc5';
+import { createStage } from './stage.js?v=6da589ece1';
+import { createCreditPlacer } from './credit.js?v=7f5c55aa0e';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=dbce7cdd96';

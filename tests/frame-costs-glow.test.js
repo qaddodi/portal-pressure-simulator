@@ -78,10 +78,14 @@ test('the FibroScan packets write an opacity or a path only when its text change
   assert.match(stage, /scan\.el = null; scan\.packs = null;/, 'a new probe looks its packets up again');
 });
 
-test('under the GPU the hidden SVG tubes are written when they show again; lumens always', () => {
+test('under the GPU the hidden SVG tubes are written when they show again; the lumens too, flushed for the credit', () => {
   assert.match(stage, /if \(!on\) \{ tubesHidden = false; if \(tubesHeld\.size\) flushTubes\(\); \}/);
-  assert.doesNotMatch(stage, /setT\(x\.lumen/, 'credit.js reads a lit lumen\'s width');
-  assert.match(stage, /setA\(x\.lumen, 'stroke-width', w\.toFixed\(1\)\)/);
+  assert.match(stage, /setL\(x\.lumen, 'stroke-width', w\.toFixed\(1\)\)/);
+  assert.match(stage, /const setL = \(el, k, v\) => \(TUBE_ALL \? setT\(el, k, v\) : setA\(el, k, v\)\);/, '?tubeall=0 writes them always');
+  assert.match(stage, /for \(const el of \[sd\.lumen, sd\.wall\]\) \{ setS\(el, 'display', vis\); setS\(el, 'opacity', op\); \}/);
+  assert.match(stage, /flushHeld: \(\) => \{ if \(tubesHeld\.size\) flushTubes\(\); \}/);
+  const credit = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
+  assert.match(credit, /function screenTest\(wr, ring = null\) \{\n {2}window\.pps\?\.stage\?\.flushHeld\?\.\(\);/, 'credit.js reads a lit lumen\'s width: held values are written first');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   const hidden = css.match(/\.stage-view\.gl-on #world :is\(([^)]*)\) \{ display: none; \}/)[1];
   for (const c of ['.v-wall', '.v-artery', '.v-strand', '.v-strand-wall', '.v-select']) assert.ok(hidden.includes(c), `${c} is hidden under gl-on`);

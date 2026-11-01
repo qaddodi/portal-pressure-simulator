@@ -200,6 +200,7 @@ let organMemo = { key: '', test: null };
 // (the credit had landed on the hepatocytes).
 // The screen's own grid: the art drawn again, from the page, whenever the camera or the lobule's ring moved.
 function screenTest(wr, ring = null) {
+  window.pps?.stage?.flushHeld?.();   // (the lumens' widths the stage holds while the GPU draws them, written before they are read)
   const glows = ring ? [] : window.pps?.stage?.steadyGlows?.() || [];
   const world = document.getElementById('world')?.getScreenCTM(), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2)), ring && ring.flat().map((v) => v.toFixed(1)), glows.flat().join()].join('|');
   if (organMemo.key === key) return organMemo.test;
