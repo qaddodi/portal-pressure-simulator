@@ -114,10 +114,15 @@ void main() {
 const startOf = (gl, vs, fs, attrs = []) => startProgram(gl, vs, fs, attrs.map((n, i) => [n, i]));
 export const fxShaders = { capVS, capFS, quadVS, compFS };   // (for the shader checks in the unit tests)
 
-export function createFxGL(canvas) {
+/** host ({ gl, canvas }: the lobule's vessel renderer's top, veins-gl.js): no canvas or context of its own; each draw lays the overlay
+ *  over what is in the host's canvas (it is called at the end of each picture the host lays), and leaves the context as the host's
+ *  own passes expect to find it. */
+export function createFxGL(canvas, { host = null } = {}) {
   let gl = null;
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
+  if (host) gl = host.gl;
+  else try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl) return null;
+  if (host) canvas = host.canvas;
   let lost = false, failed = false, P = null;
   // (A buffer per kind of instance: the eraser and the lining are kept while their key holds; the drops and beads change each frame.)
   const bufs = {};
@@ -142,8 +147,9 @@ export function createFxGL(canvas) {
     gl.bindVertexArray(null);
   }
   try { build(); } catch (err) { console.warn('The lobule overlay falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
-  canvas.addEventListener('webglcontextlost', (e) => { lost = true; cov = null; lin = null; P = null; e.preventDefault?.(); });
-  canvas.addEventListener('webglcontextrestored', () => { try { build(); lost = false; for (const k in bufs) bufs[k].data = null; } catch { failed = true; } });
+  // (Hosted, the host's owner makes the layer again with the renderer it makes after a loss.)
+  if (!host) canvas.addEventListener('webglcontextlost', (e) => { lost = true; cov = null; lin = null; P = null; e.preventDefault?.(); });
+  if (!host) canvas.addEventListener('webglcontextrestored', () => { try { build(); lost = false; for (const k in bufs) bufs[k].data = null; } catch { failed = true; } });
   function target(t, w, h) {
     if (t && t.w === w && t.h === h) return t;
     if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); }
@@ -185,7 +191,10 @@ export function createFxGL(canvas) {
      *  none). False when it could not draw (the 2D canvas draws that frame). */
     draw({ W, H, view, ducts, duct, lymph }) {
       if (this.lost) return false;
-      if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+      // (Hosted: over the whole of the host's canvas, as its owner sized it. The view places the overlay from the canvas's top left,
+      // so a canvas larger than asked for (the wide copy's tiles, cropped from it) shows the same overlay there, and more of it.)
+      if (host) { W = canvas.width; H = canvas.height; if (!W || !H) return false; }
+      else if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
       gl.disable(gl.DEPTH_TEST); gl.disable(gl.SCISSOR_TEST);
       if (lymph) {
         cov = target(cov, W, H);
@@ -230,8 +239,15 @@ export function createFxGL(canvas) {
         gl.uniform4fv(U.uCLum, duct.lum); gl.uniform4fv(U.uCCell, duct.cell); gl.uniform4fv(U.uCEdge, duct.edge); gl.uniform4fv(U.uCNuc, duct.nuc);
         gl.uniform1f(U.uEdge, duct.width); gl.uniform1f(U.uAlpha, duct.alpha);
       }
-      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      // (Hosted: laid over the host's picture, premultiplied. On its own canvas: the canvas is the overlay alone.)
+      if (host) { gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); }
+      else { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      if (host) {
+        // (The context as the host's own passes expect to find it.)
+        gl.disable(gl.BLEND); gl.useProgram(null); gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null);
+      }
       return true;
     },
   };

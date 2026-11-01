@@ -64,8 +64,19 @@ test('with ?vesselbuf=keep the canvas keeps its picture and nothing is copied', 
   try { keepsItsOwn(await renderer('../src/ui/veins-gl.js?keep')); } finally { delete globalThis.location; }
 });
 
-test('the lobule\'s vessel canvas keeps its own picture, as before', async () => {
-  keepsItsOwn(await renderer('../src/ui/veins-gl.js', 'lobule'));
+test('the lobule\'s vessel canvas keeps its own picture with ?lzone=0, as before', async () => {
+  globalThis.location = { search: '?lzone=0' };
+  try { keepsItsOwn(await renderer('../src/ui/veins-gl.js?lzone', 'lobule')); } finally { delete globalThis.location; }
+});
+
+test('by default the lobule\'s vessel canvas draws into its kept picture too, so its overlay can be laid over each present (LZ_ONE)', async () => {
+  const { g, f, attrs, canvas, look } = await renderer('../src/ui/veins-gl.js', 'lobule');
+  assert.equal(attrs.preserveDrawingBuffer, false);
+  assert.ok(g.top, 'a top for the overlay');
+  const n0 = f.calls.length;
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+  assert.equal(blits(f, n0).length, 1, 'one copy for the drawn picture');
+  assert.ok(canvas.width > 0);
 });
 
 test('by default every picture is drawn into the kept texture and copied whole onto the canvas', async () => {

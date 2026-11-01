@@ -30,7 +30,7 @@ import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL, TILE_OVER } from './field-gl.js?v=d1fb535a12';
 import { createTissueGL, DIVE_GPU } from './tissue-gl.js?v=1a2a534e0e';
 import { TILE_GPU, tileCopy, isTileCopy } from './tile-gl.js?v=65ea6bb117';
-import { FX_GPU, createFxGL } from './fx-gl.js?v=054bc9db17';
+import { FX_GPU, createFxGL } from './fx-gl.js?v=63f5590264';
 import { WIDE_GL, createWideGL } from './wide-gl.js?v=b0622c784c';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=624ae21d7d';
 import { createTissueWorker } from './tissue-worker.js?v=d3c5b9aaf6';
@@ -38,7 +38,7 @@ import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, use
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=f7055730cc';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=9bdfe02add';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=0f00ad86eb';
+import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=743789695b';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
 import { createSinusoidView } from './sinusoid-view.js?v=aae7cc659c';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, framePart, easeNow, inMotion, PACED } from './frame.js?v=15d5254a2c';
@@ -1852,8 +1852,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     showTissueGL(paintTissue(W, H, dpr, dark, cs, !g, onGPU && g ? tissueGLOn() : null));
     snapNext = false;
     framePart('lz.layoutLabels', layoutLabels);
+    // (The overlay first: in the vessels' own context (LZ_ONE) it is laid over them at their present, in drawGL.)
+    const fxOn = fxOnGPU(W, H, dpr, dark, dt, g && !g.lost && onGPU);
     if (g && !g.lost) drawGL(W, H, dpr, dark, cs, dt);
-    if (!fxOnGPU(W, H, dpr, dark, dt, g && !g.lost && onGPU)) paintFx(W, H, dpr, dark, dt, !g || g.lost);
+    if (!fxOn) paintFx(W, H, dpr, dark, dt, !g || g.lost);
     pillCopy(W, H);
     return true;
   }
@@ -1900,7 +1902,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const box0 = h('div', { class: 'lz-wide', 'aria-hidden': 'true', style: { position: 'absolute', left: `${-box.l}px`, top: `${-box.t}px`, width: `${box.w}px`, height: `${box.h}px`, visibility: 'hidden', pointerEvents: 'none' } });
     const tiles = [];
     let ok = true;
-    wideBuild = true;
+    wideBuild = true; fxArgs = null;   // (the overlay is drawn on the 2D canvas for each tile, not laid in the vessels' canvas)
     try { for (const t of parts) {
       // (The view moved so this tile's corner is the layers' own corner: they draw the tile as they would the screen.)
       const ox = box.l - t.x, oy = box.t - t.y, or = t.x + t.w < box.w - 1e-6, ob = t.y + t.h < box.h - 1e-6, w = t.w + (or ? OV : 0), hh = t.h + (ob ? OV : 0);
@@ -1975,15 +1977,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const tg = DIVE_GPU ? tissueGLOn() : null;
         diveRim = rimOf(cx + ox, cy + oy, r); tissueKey = '';
         const onG = paintTissue(w, hh, dpr, dark, cs, false, tg);   // (on the 2D canvas, it makes its rimmed copy itself: diveCv)
+        // (The overlay first: in the vessels' own context (LZ_ONE) it is laid over them as they are drawn, one canvas for both.)
+        fxDrawn = ''; fxBoxes = null; lyKey = ''; fxGLKey = ''; fxArgs = null;
+        const fxOn = fxOnGPU(w, hh, dpr, dark, 0, true), fxIn = fxOn && !!fxArgs;
         drawKey = ''; drawGL(TW, TH, dpr, dark, cs, 0);
-        fxDrawn = ''; fxBoxes = null; lyKey = ''; fxGLKey = '';
-        const fxOn = fxOnGPU(w, hh, dpr, dark, 0, true);
         if (!fxOn) paintFx(w, hh, dpr, dark, 0, false);
-        ok = wg.tile(t, canvasPx(w, dpr), canvasPx(hh, dpr), dpr, [onG ? tissueG : diveCv, glCv, fxOn ? fxG : fx]);
+        ok = wg.tile(t, canvasPx(w, dpr), canvasPx(hh, dpr), dpr, fxIn ? [onG ? tissueG : diveCv, glCv] : [onG ? tissueG : diveCv, glCv, fxOn ? fxG : fx]);
         free(rimCv); free(tissue); free(diveCv); if (!fxOn) free(fx);
       } finally { V.x -= ox; V.y -= oy; }
       if (!ok) break;
-    } } finally { wideBuild = false; }
+    } } finally { wideBuild = false; fxArgs = null; }
     diveCopyKey = ''; diveRim = null;
     tissueKey = ''; drawKey = ''; glDirty = true; fxDrawn = ''; fxBoxes = null; lyKey = ''; fxGLKey = ''; idleDrawn = '';
     if (!ok) { wg.release(); return null; }
@@ -3547,14 +3550,33 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // the GPU in the 2D overlay's place, scaled with the others through the dive and the rise as the tissue's GPU canvas is (DIVE_GPU);
   // not while they are staged on the 2D canvas (keep2D: their copies read the 2D overlay), nor without the vessels' WebGL. The 2D overlay is given back while the GPU's shows. ?fxgpu=0: paintFx always, as before.
   let fxGL, fxGLKey = '', fxGLShown = false;
+  // One context for the lobule (LZ_ONE, veins-gl.js): the overlay is drawn in the vessels' own canvas, over them, at the end of each
+  // picture they lay (their top), from the frame's arguments fxOnGPU leaves here (fxArgs; null: nothing laid, the 2D overlay draws),
+  // with no canvas or context of its own. Made again with the vessels' renderer (a new one after a lost context). A draw the GPU
+  // refused there puts the overlay back on the 2D canvas for a moment. ?lzone=0: its own canvas, as before.
+  let fxHostGL = null, fxHostFor = null, fxHostOff = null, fxArgs = null, fxHostBad = 0;
+  const fxHosted = () => LZ_ONE && !!gl && !gl.lost && !!gl.top;
+  function fxHostDraw() {
+    if (!fxArgs || !fxHostGL) return;   // (a wide copy's tile lays it too: buildWideGL; the 2D tiles leave fxArgs empty)
+    if (!framePart('lz.fxGL', () => fxHostGL.draw(fxArgs))) { fxHostBad = performance.now() + 250; fxArgs = null; idleDrawn = ''; if (!raf && fade > 0) raf = nextFrame(loop); }
+  }
   function fxGLOn() {
-    if (fxGL === undefined) { fxGL = FX_GPU ? createFxGL(fxG) : null; if (!fxGL) fxG.remove(); }
-    return fxGL && !fxGL.lost ? fxGL : null;
+    if (fxHosted()) {
+      if (fxHostFor !== gl) {
+        fxHostOff?.(); fxHostFor = gl; fxHostGL = createFxGL(fxG, { host: gl.top });
+        fxHostOff = fxHostGL ? gl.top.add({ order: 1, draw: fxHostDraw }) : null;
+        fxG.remove();
+      }
+      return fxHostGL && !fxHostGL.lost && performance.now() >= fxHostBad ? fxHostGL : null;
+    }
+    if (fxGL === undefined) { fxGL = FX_GPU && fxG.isConnected ? createFxGL(fxG) : null; if (!fxGL) fxG.remove(); }
+    return fxGL && !fxGL.lost && fxG.isConnected ? fxGL : null;   // (its canvas taken out once the overlay was hosted: the 2D overlay)
   }
   function fxGLShow(on) {
+    if (!on) fxArgs = null;
     if (on === fxGLShown) return;
     fxGLShown = on; fxG.style.opacity = on ? '' : '0';
-    if (!on) { fxGLKey = ''; fxGL?.release(); if (fxG.width) { fxG.width = 0; fxG.height = 0; } }
+    if (!on) { fxGLKey = ''; fxGL?.release(); fxHostGL?.release(); if (fxG.width) { fxG.width = 0; fxG.height = 0; } }
   }
   function fxGLOff() { fxGLShow(false); }
   // A colour token as [r, g, b, a] (0–1), whatever form it is written in: read back from a 1 px canvas, once per string.
@@ -3615,13 +3637,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function fxOnGPU(W, H, dpr, dark, dt, can) {
     const g = can && FX_GPU ? fxGLOn() : null;
     if (!g) { fxGLShow(false); return false; }
-    const fw = canvasPx(W, dpr), fh = canvasPx(H, dpr), G = geo, m = model;
+    // (Hosted: at the vessels' canvas's density, as drawGL sizes it.)
+    const hosted = g === fxHostGL, vk = hosted ? dpr * (gl.software ? 0.5 : 1) : dpr;
+    const fw = hosted ? Math.max(1, Math.round(W * vk)) : canvasPx(W, dpr), fh = hosted ? Math.max(1, Math.round(H * vk)) : canvasPx(H, dpr), G = geo, m = model;
     const moving = fxMoves({ lymph: lymphOn, flat: false, hide: m.hide, flow: store.get().layers?.flow });
     const dc = [tk('--lz-duct-lumen'), tk('--lz-duct-cell'), tk('--lz-duct-edge'), tk('--lz-duct-nucleus')];
     const key = moving ? '' : [fw, fh, dpr, dark, m.hide, m.hide ? '' : fxDuct().key, V.k, V.x, V.y, ...dc].join('|');
     // (The 2D overlay is not shown meanwhile: given back, and drawn whole again by paintFx when it is wanted.)
     const fx2D = () => { if (fx.width) { free(fx); fxDrawn = ''; fxBoxes = null; lyKey = ''; } };
-    if (key && key === fxGLKey && fxGLShown) { fx2D(); return true; }
+    if (key && key === fxGLKey && fxGLShown && !hosted) { fx2D(); return true; }
     let lymph = null;
     if (lymphOn && !m.hide) {
       const { lw, seal, beads, minR, drops } = lyDrops(G, m, dt, W, H, dpr);
@@ -3641,12 +3665,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         colours: { ly: rgbaOf(tk('--lz-lymph')), ring: rgbaOf(tk('--lz-albumin-ring')), bead: rgbaOf(tk('--lz-albumin')), line: lineOn ? rgbaOf(tk('--lz-collagen', ((dark ? 0.6 : 0.5) * seal).toFixed(3))) : [0, 0, 0, 0] },
       };
     }
-    const ok = framePart('lz.fxGL', () => g.draw({
-      W: fw, H: fh, view: [V.k, V.x, V.y, dpr], lymph,
+    const args = {
+      W: fw, H: fh, view: [V.k, V.x, V.y, vk], lymph,
       ducts: m.hide ? null : fxDuct().nums,
       duct: { lum: rgbaOf(dc[0]), cell: rgbaOf(dc[1]), edge: rgbaOf(dc[2]), nuc: rgbaOf(dc[3]), width: Math.max(0.3, G.R * 0.0013), alpha: 0.72 },
-    }));
+    };
+    // (Hosted: laid by the vessels' present, which follows in this frame's drawGL.)
+    const ok = hosted ? true : framePart('lz.fxGL', () => g.draw(args));
     if (!ok) { fxGLShow(false); return false; }
+    if (hosted) fxArgs = args;
     fxGLKey = key;
     fxGLShow(true);
     fx2D();

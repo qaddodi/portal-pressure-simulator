@@ -20,7 +20,7 @@ test('the copy is tried on the GPU first; the 2D tiles only where it cannot', ()
   assert.match(fn('function buildWide(W, H, box) {'), /if \(WIDE_GL\) \{ const wg = buildWideGL\(W, H, box\); if \(wg\) return wg; \}/);
   const b = fn('function buildWideGL(W, H, box) {');
   assert.match(b, /if \(!g \|\| g\.lost\) return null;/, 'the vessels drawn flat: the 2D tiles');
-  assert.match(b, /ok = wg\.tile\(t, canvasPx\(w, dpr\), canvasPx\(hh, dpr\), dpr, \[onG \? tissueG : diveCv, glCv, fxOn \? fxG : fx\]\);/, 'the tissue, the vessels and the overlay, bottom first');
+  assert.match(b, /ok = wg\.tile\(t, canvasPx\(w, dpr\), canvasPx\(hh, dpr\), dpr, fxIn \? \[onG \? tissueG : diveCv, glCv\] : \[onG \? tissueG : diveCv, glCv, fxOn \? fxG : fx\]\);/, 'the tissue, the vessels and the overlay, bottom first (the overlay in the vessels\' canvas when it is hosted there: LZ_ONE)');
   assert.match(b, /if \(!ok\) \{ wg\.release\(\); return null; \}/);
   assert.doesNotMatch(b, /drawImage|getContext\('2d'\)/, 'nothing laid on the CPU');
 });

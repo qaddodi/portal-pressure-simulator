@@ -98,6 +98,9 @@ const GENERIC = typeof location !== 'undefined' && /[?&]veins=generic\b/.test(lo
 // to the canvas each time it is drawn on (see present). The same pixels either way; the browser no longer keeps (and copies) a second
 // buffer for the canvas on every frame. Every reader of the canvas outside the frame that drew it calls capture() or present() first.
 const OWN_BUF = !(typeof location !== 'undefined' && /[?&]vesselbuf=keep\b/.test(location.search));
+// One GPU context for the lobule (1 Nov, docs/gpu-practices.md, "one WebGL context for the whole figure"): its overlay (the ductules and
+// the lymph, fx-gl.js) drawn in its vessel canvas over the vessels instead of in a canvas and context of its own. ?lzone=0: apart, as before.
+export const LZ_ONE = !(typeof location !== 'undefined' && /[?&]lzone=0\b/.test(location.search));
 // ?blood=classic in the address (an A/B, off by default): the composite built as it was before the blood's speed-ups of 26 Oct
 // (COMP_FS `fast`): every lumen pixel lays the layers under it, hashes its noise, works out the zoom's numbers itself and keeps the
 // slower path's code. The same picture either way; the switch is there to compare on a device.
@@ -1803,9 +1806,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // (For the ?perf readout: who asked for a whole draw or a target sized again, gpu-probe.js BY.)
   const askedBy = () => (who === 'lobule' ? 'lobule' : gpuProbe.by || 'stage, outside a draw call');
   const noteAlloc = (kb) => { gpuProbe.note(COUNTED.fboAlloc, kb); gpuProbe.note(COUNTED.fboAllocBy + askedBy()); };
-  // (The kept picture is the stage's: the lobule's vessel canvas is read by the lobule's resolution fade at times it may not have drawn,
-  // so it keeps its own picture, as before.)
-  const ownBuf = OWN_BUF && who === 'stage';
+  // (The kept picture is the stage's, and the lobule's where the lobule's other GPU layers are drawn in its vessel canvas (LZ_ONE: its
+  // overlay over the vessels, at each present, as the figure's glass and labels are over the figure's); every reader of that canvas
+  // outside the task that drew it calls capture() first. ?lzone=0: the lobule's canvas keeps its own picture, as before.)
+  const ownBuf = OWN_BUF && (who === 'stage' || (who === 'lobule' && LZ_ONE));
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: ONE_PASS && !(ownBuf && CTX_STENCIL_FREE), preserveDrawingBuffer: !ownBuf, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (!gl) return null;
