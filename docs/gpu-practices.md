@@ -25,8 +25,8 @@ Written 1 Nov 2026 against preview `claude/settings-topbar-icon-flvft1`.
 | Practice | Here | Status |
 |---|---|---|
 | Compile all shaders, then link all programs, and read the status later; `KHR_parallel_shader_compile` lets the driver do it on other threads and say when it is done without waiting [1]. | `gl-compile.js` startProgram / publishWhenDone (veins, labels, lobule). | Done |
-| Never read `COMPILE_STATUS` unless the link failed: the read is synchronous [1]. | `checkProgram` reads it first. Harmless at idle, but reading `LINK_STATUS` first is cheaper. | Gap (small) |
-| Warm a program with one tiny draw before its first real frame: Safari's WebGL runs on Metal (via ANGLE), which builds a pipeline at the first draw with a given state [1][3]. | `exerciseDraw` for veins. The glass warms its compile and link from the moment it is handed the figure's context (`?glasswarm=0`, this doc's first push); no warm draw yet. | Part |
+| Never read `COMPILE_STATUS` unless the link failed: the read is synchronous [1]. | `checkProgram` reads `LINK_STATUS` first (8808b771, `?linkfirst=0`). | Done |
+| Warm a program with one tiny draw before its first real frame: Safari's WebGL runs on Metal (via ANGLE), which builds a pipeline at the first draw with a given state [1][3]. | `exerciseDraw` for veins. The glass compiles and links from the moment it is handed the figure's context (ae5f781a, `?glasswarm=0`); no warm draw yet. | Part |
 | Keep the number of shader variants small: every `#define` combination is another compile and another pipeline. | veins-gl builds several variants (`later` list in ?perf). New looks should be uniforms, not new programs, when cheap. | Note |
 | Organs, shapes and organ painting still compile synchronously at first use (`organs-gl.js`, `shape-gl.js`, `organ-paint.js`). | Owned by the organs thread. | Gap |
 
@@ -48,7 +48,7 @@ Written 1 Nov 2026 against preview `claude/settings-topbar-icon-flvft1`.
 | Upload from `ImageBitmap` made off the main thread (`createImageBitmap`), so decode and premultiply happen before the upload. | Glass and organ picture use bitmaps. | Done |
 | Atlas small images (labels, icons, glyphs) into one texture, so one bind serves many draws [2][7]. | `atlas-pack.js` for labels (2 pages of 2048). | Done |
 | Mipmaps only for textures shown smaller than drawn; they cost a third more memory. | | Note |
-| iOS caps the memory of all canvases on a page (the "Total canvas memory use exceeds the maximum limit" error; a few hundred MB, lower on older phones) and kills the tab when GPU memory runs out [4]. Count every DPR-sized canvas: width x height x 4 bytes, and twice for a drawing buffer. A 1320x2868 iPhone canvas is ~15 MB per buffer. | Six full-figure WebGL canvases can exist (veins, labels, field, tissue, sinusoid, glass copy). Lobule "wide copy" reached up to 30 MP. Keep one context where possible. | Gap |
+| iOS caps the memory of all canvases on a page (the "Total canvas memory use exceeds the maximum limit" error; a few hundred MB, lower on older phones) and kills the tab when GPU memory runs out [4]. Count every DPR-sized canvas: width x height x 4 bytes, and twice for a drawing buffer. A 1320x2868 iPhone canvas is ~15 MB per buffer. | Labels and glass already draw in the figure's context. The lobule can hold four more full-screen contexts (field, tissue, fx, sinusoid); the tiles thread is merging them into one, then into the figure's. | Part |
 | Free what is not shown: shrink a texture to 1x1, delete, or let the context go on leaving a view. | `trim()` paths in veins-gl, organ-paint. | Done |
 
 ## 5. Draw calls, batching and instancing
@@ -67,7 +67,7 @@ Mobile GPUs, Apple's included, are tile-based: the cost that heats the phone is 
 
 | Practice | Here | Status |
 |---|---|---|
-| Tell the GPU when a buffer's contents are no longer needed (`invalidateFramebuffer`): on Metal this becomes a "don't care" store, so the tile is never written back to memory [1][3]. | The one-pass zoom frames' stencil is let go once used (`?invalidate=0`, this doc's second push). Other offscreen passes (glass blur steps, glow layers) are a candidate. | Part |
+| Tell the GPU when a buffer's contents are no longer needed (`invalidateFramebuffer`): on Metal this becomes a "don't care" store, so the tile is never written back to memory [1][3]. | The one-pass zoom frames' stencil is let go once used (ae5f781a, `?invalidate=0`); the figure canvas no longer keeps an unused stencil (316ce520, `?stencilfree=0`). Glass blur steps keep their texels on purpose (partial reblur), so they are not invalidated. | Part |
 | Clear a target at the start of a pass rather than load it, when its old contents are not needed (load action "clear" or "don't care") [3]. | | Gap |
 | Avoid full-screen passes; each one at DPR 3 on a Pro Max is ~3.8 MP read and written. Merge passes into one shader where possible [10]. | One-pass zoom frames (26 Oct); outlines drawn straight in while moving. | Part |
 | Limit overdraw: draw opaque things front to back or mask them (stencil, scissor); skip transparent pixels with no lumen [10]. | Blood frame skips pixels with no lumen. | Done |
