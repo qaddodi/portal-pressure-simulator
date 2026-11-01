@@ -21,6 +21,7 @@
   --text: #1A1917;
   --text-2: #4E4B46;
   --text-3: #67635D;   /* ≥ 4.5:1 on every light surface */
+  --key-edge: color-mix(in srgb, var(--text) 16%, transparent);   /* a colour key's hairline edge (ramps and swatches): pale ends stay visible on a white pill, deep ends on a dark one; it follows --text in every theme */
   --text-inverse: #FFFFFF;
 
   /* accent */

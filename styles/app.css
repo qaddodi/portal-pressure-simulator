@@ -208,17 +208,17 @@ svg { flex: none; }
 @container figbar (max-width: 1000px) { .legend .lg-cap { display: flex; } }
 @media (max-width: 1599px) { .legend .lg-cap { display: flex; } }
 .lg-scale { position: relative; width: 168px; height: 30px; }
-.lg-bar { position: absolute; left: 0; right: 0; top: 4px; height: 8px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgb(var(--black-rgb) / .06); }
+.lg-bar { position: absolute; left: 0; right: 0; top: 4px; height: 8px; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--key-edge); }
 .lg-bar.morphing { transition: --lg-k var(--d-surface) var(--ease-move); }   /* (a new lens mixes the old key's colours into the new in OKLab, legend-morph.js: --lg-k runs 0 to 100 with the figure's own clock) */
 @property --lg-k { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
-.lg-tick { position: absolute; top: 2px; width: 1px; height: 12px; background: var(--text-2); opacity: .55; }
+.lg-tick { position: absolute; top: 12px; width: 1px; height: 3px; margin-left: -.5px; background: var(--text-2); opacity: .7; }   /* (a notch under the bar at each number between its ends, never across the colours) */
 .lg-num { position: absolute; top: 15px; transform: translateX(-50%); font-size: var(--fs-12); font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .lg-cats { display: flex; gap: 12px; font-size: var(--fs-12); color: var(--text-2); }
 .lg-cats span { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
-.lg-cats i { width: 18px; height: 4px; border-radius: 2px; }
+.lg-cats i { flex: none; width: 18px; height: 4px; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--key-edge); }
 .lg-dots { gap: 10px; }
 .lg-dots span { gap: 5px; }
-.lg-dots i { flex: none; width: 12px; height: 4px; border-radius: 2px; box-shadow: 0 0 0 1px rgb(var(--black-rgb) / .12); }
+.lg-dots i { width: 12px; }
 .lg-dots b { font-weight: 500; }
 @media (max-width: 760px) {
   /* Shorter swatches on a narrow screen. */
@@ -1804,8 +1804,8 @@ button.finding { cursor: pointer; }
 .pz-fk[hidden] { display: none; }
 .pz-fk b { font-weight: 600; color: var(--text); margin-right: .1em; }
 .pz-fk.col { flex-direction: column; align-items: flex-start; gap: .12em; padding: .35em 14px .4em; }
-.pz-lens-bar { width: 4.4em; height: .55em; border-radius: var(--r-pill); flex: none; }
-.pz-lens-sw { width: 1.1em; height: .4em; border-radius: .2em; flex: none; }
+.pz-lens-bar { width: 4.4em; height: .55em; border-radius: var(--r-pill); flex: none; box-shadow: inset 0 0 0 1px var(--key-edge); }
+.pz-lens-sw { width: 1.1em; height: .4em; border-radius: .2em; flex: none; box-shadow: inset 0 0 0 1px var(--key-edge); }
 .pz-lens-k { display: inline-flex; align-items: center; gap: .35em; white-space: nowrap; }
 .pz-lens-items { display: inline-flex; align-items: center; gap: .55em; min-width: 0; }   /* (a key's named swatches, kept together: presenter.js keyNodes) */
 /* A key that wraps beside a phone's nav pill: its name on one line, its swatches together on the next (wrapped, evenly, only when
@@ -4086,7 +4086,7 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
 @container (max-width: 79px) { .lg-num:not(.start):not(.end) { display: none; } }
 @container (max-width: 47px) { .lg-num { display: none; } }
 /* A label marked opt (Congestion's 10) also goes where the bar is too short to keep it clear of the end label. */
-@container (max-width: 100px) { .lg-num.opt { display: none; } }
+@container (max-width: 100px) { :is(.lg-num, .lg-tick).opt { display: none; } }
 
 /* Readouts: short names where the tiles are narrow. */
 .metric .k .k-s { display: none; }
