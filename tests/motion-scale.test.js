@@ -139,7 +139,7 @@ test('the lint catches what it is for: an off-scale duration, a hand-written cur
 const PRIMITIVES = ['fade-rise', 'fade-rise-out', 'slide-from-edge', 'slide-to-edge', 'scale-settle', 'scale-settle-out', 'crossfade', 'crossfade-out'];
 const OTHER_KEYFRAMES = {
   spin: 'a loop', 'pz-spin': 'a loop', shimmer: 'a loop', monAlarm: 'an alarm that pulses', dmPulse: 'an attention cue', roFlash: 'an attention cue', roFlash2: 'the same attention cue under a second name (restarts with no reflow)',
-  haloRing: 'an attention cue', haloText: 'an attention cue', 'sp-tap': 'a tap wiggle',
+  haloRing: 'an attention cue', haloText: 'an attention cue', 'sp-tap': 'a tap wiggle', 'sp-tap2': 'a tap wiggle (its twin, so the tap restarts with no style read)',
   'pzw-drift': 'a scene that teaches', 'pzw-pulse': 'a scene that teaches', 'pzw-rise': 'a scene that teaches',
   'sv-fade-in': 'a registered variable (--sv-in) other code reads', 'lz-in': 'a registered variable (--off-o) other code reads',
   'pill-in': 'a registered variable (--pill-o) other code reads', thumbIn: 'a registered variable (--sink) the stacked card\'s tuck also drives',

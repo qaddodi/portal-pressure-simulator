@@ -3395,9 +3395,11 @@ button.finding { cursor: pointer; }
 .scan-probe .sp-waves path { fill: none; stroke: var(--scan); stroke-linecap: round; }
 .scan-probe .sp-rip { stroke-width: 1.4; stroke-opacity: .35; }
 .scan-probe .sp-front { stroke-width: 2.2; stroke-opacity: .95; }
-.scan-probe.tap .sp-tip { animation: sp-tap var(--d-surface) var(--ease-move); }   /* only the tip vibrates, a little, along the probe's own 45° axis, once a second */
+.scan-probe.tap .sp-tip { animation: sp-tap var(--d-surface) var(--ease-move); }
+.scan-probe.tap2 .sp-tip { animation: sp-tap2 var(--d-surface) var(--ease-move); }   /* (the same tap: turning between the two restarts it without a style read) */   /* only the tip vibrates, a little, along the probe's own 45° axis, once a second */
 @keyframes sp-tap { 0% { transform: none; } 20% { transform: translateX(2px); } 45% { transform: translateX(-1.2px); } 70% { transform: translateX(.6px); } 100% { transform: none; } }
-@media (prefers-reduced-motion: reduce) { .scan-probe.tap .sp-tip { animation: none; } }
+@keyframes sp-tap2 { 0% { transform: none; } 20% { transform: translateX(2px); } 45% { transform: translateX(-1.2px); } 70% { transform: translateX(.6px); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .scan-probe.tap .sp-tip, .scan-probe.tap2 .sp-tip { animation: none; } }
 /* The Doppler probe (dop-probe.js, stage.js dprobePaint), drawn as a scanner marks it: placed at the sample volume, turned toward the probe; the line of sight, the flow axis, the sample volume's bars and the probe are white-lined on a black rim, so they read on every vessel colour and theme. */
 .dop-probe { position: absolute; left: 0; top: 0; width: 0; height: 0; transition: opacity var(--d-surface) var(--ease); pointer-events: none; }
 .dop-probe.off { opacity: 0; }
@@ -6940,6 +6942,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   @keyframes pzw-drift { }
   @keyframes pzw-rise { 0%, 100% { opacity: 0; } 25%, 75% { opacity: 1; } }
   @keyframes sp-tap { }
+  @keyframes sp-tap2 { }
   @keyframes shimmer { }
 }
 

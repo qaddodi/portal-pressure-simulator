@@ -2271,6 +2271,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A presenter's camera move: the labels ease out as it starts, are not laid out while it runs, and ease
   // back in at their new places once it settles (they never slide across the figure).
   let camMove = false;
+  // (Whether the view is moving now: a glide, a pan or a pinch. Boxes kept for the frame's reads are not read again while it is.)
+  const viewMoving = () => vtGliding || camMove || wrap.classList.contains('pinch-hide') || wrap.classList.contains('panning');
   // A slow push (opt.drift: a time-lapse's lapse.cam) is not a move of that kind: the labels stay up and ride with the figure, each kept
   // on its side as a hand's zoom keeps them (updateLabels), and are solved again for where it stopped once it lands, gliding there.
   let drifting = false;
@@ -7153,14 +7155,39 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const p = (t) => `${(cx + r * Math.cos(t)).toFixed(1)} ${(cy + r * Math.sin(t)).toFixed(1)}`;
     return `M${p(-h)} A${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${p(h)}`;
   }
+  // (1 Nov 2026, "Move everything to GPU": the cards the probe's head and body keep clear of are read only when the page's layout may have
+  // changed (layoutWatch), at most four times a second, never while the view moves, and against the kept stage box: each look read every
+  // card's box and computed style, and the stage's own box, in the middle of the probe's frames. The tip's tap restarts by turning
+  // between two copies of its animation (tap, tap2), not by reading the computed style to start the one again. ?scanread=0: as before.)
+  const SCAN_READ = !/[?&]scanread=0\b/.test(location.search);
+  const scanLooks = new Map();
+  function scanLook(key, sel, keep, m) {
+    const now = performance.now(), o = scanLooks.get(key);
+    if (o && (now - o.at < 250 || viewMoving() || !watch.due())) return o.list;
+    const wr = stageBox();
+    const list = [...document.querySelectorAll(sel)].map((el) => {
+      if (!keep(el)) return null;
+      const q = el.getBoundingClientRect();
+      return q.width ? { x0: q.left - wr.left - m, y0: q.top - wr.top - m, x1: q.right - wr.left + m, y1: q.bottom - wr.top + m } : null;
+    }).filter(Boolean);
+    scanLooks.set(key, { at: now, list });
+    return list;
+  }
+  const scanBlockers = () => scanLook('head', '.pz-text.stage-blocker, .pz-data.stage-blocker, .pz-panel.stage-blocker', (el) => !(el.hidden || 'gone' in el.dataset || el.classList.contains('pz-hide') || getComputedStyle(el).opacity < 0.5), 0);
   // The probe's body and cable lie up and to the left of its tip, turned 45°: where a card covers any of that, the head fades out and the
   // waves stay, so no stub pokes out from under the card. (The box is the head's four corners, 90 px back along the axis, 13 px to either side.)
   function scanHead() {
     const tip = scan.el && scanTipLocal();
     if (!tip) return;
-    const wr = wrap.getBoundingClientRect(), a = scan.deg * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a), ax = tip.tx, ay = tip.y;
+    const a = scan.deg * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a), ax = tip.tx, ay = tip.y;
     const xs = [], ys = [];
     for (const [u, v] of [[-92, -13], [-92, 13], [-2, -13], [-2, 13]]) { xs.push(ax + u * c - v * sn); ys.push(ay + u * sn + v * c); }
+    if (SCAN_READ) {
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+      scan.el.classList.toggle('head-off', scanBlockers().some((r) => r.x0 < x1 && r.x1 > x0 && r.y0 < y1 && r.y1 > y0));
+      return;
+    }
+    const wr = wrap.getBoundingClientRect();
     const x0 = Math.min(...xs) + wr.left, x1 = Math.max(...xs) + wr.left, y0 = Math.min(...ys) + wr.top, y1 = Math.max(...ys) + wr.top;
     let hit = false;
     for (const el of document.querySelectorAll('.pz-text.stage-blocker, .pz-data.stage-blocker, .pz-panel.stage-blocker')) {
@@ -7190,7 +7217,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     scanShow();
     if (!(now < scan.headAt)) { scan.headAt = now + 250; scanHead(); }
     if (now >= scan.next) { scan.fronts.push(0); scan.next = now + SCAN_EVERY * 1000; }
-    if (!(now < scan.nextTap)) { scan.nextTap = scan.nextTap && now - scan.nextTap < 250 ? scan.nextTap + 1000 : now + 1000; scan.el.classList.remove('tap'); void getComputedStyle(scan.el.querySelector('.sp-tip') || scan.el).animationName; scan.el.classList.add('tap'); }   // the probe itself shakes once a second; the waves keep their own rhythm
+    if (!(now < scan.nextTap)) { scan.nextTap = scan.nextTap && now - scan.nextTap < 250 ? scan.nextTap + 1000 : now + 1000; if (SCAN_READ) { scan.tapB = !scan.tapB; scan.el.classList.toggle('tap', !scan.tapB); scan.el.classList.toggle('tap2', scan.tapB); } else { scan.el.classList.remove('tap'); void getComputedStyle(scan.el.querySelector('.sp-tip') || scan.el).animationName; scan.el.classList.add('tap'); } }   // the probe itself shakes once a second; the waves keep their own rhythm
     const span = clamp(scan.v * 2.5, 70, SCAN_SPAN);   // slow fronts fade sooner, so a healthy liver shows a few calm arcs, not a crowd
     scan.fronts = scan.fronts.map((r) => r + scan.v * dt).filter((r) => r < span);
     const gap = clamp(scan.v * SCAN_EVERY * 0.4, 2, SCAN_GAP);   // the ripples tighten when fronts are close, so neighbours never merge
@@ -7255,6 +7282,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (now - scCardsAt < 250) return scCards;
     scCardsAt = now;
     if (!store.get().presenting) return (scCards = []);
+    if (SCAN_READ) return (scCards = scanLook('cards', '.pz-shade, .pz-data.stage-blocker, .pz-panel.stage-blocker', (el) => !(el.hidden || 'gone' in el.dataset || el.classList.contains('pz-hide') || el.classList.contains('pz-leave') || +getComputedStyle(el).opacity < 0.5), pillEdge ? pillEdge.m : 8));
     const wr = wrap.getBoundingClientRect(), m = pillEdge ? pillEdge.m : 8;
     scCards = [...document.querySelectorAll('.pz-shade, .pz-data.stage-blocker, .pz-panel.stage-blocker')].map((el) => {
       if (el.hidden || 'gone' in el.dataset || el.classList.contains('pz-hide') || el.classList.contains('pz-leave') || +getComputedStyle(el).opacity < 0.5) return null;
