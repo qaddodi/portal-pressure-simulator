@@ -108,6 +108,10 @@ const BLOOD_SAT = !(typeof location !== 'undefined' && /[?&]bloodsat=0\b/.test(l
 // the two as one shader over the vessel cells instead (veins-fuse.js), and the picture alone over the rest of the canvas (the
 // layer there is empty). The same arithmetic, so the same picture.
 const ONE_PASS = !(typeof location !== 'undefined' && /[?&]zoompass=two\b/.test(location.search));
+// Tube depth (vessel depth pass, 31 Oct): a lumen darkens a little toward its wall, more on the side away from the light, and
+// a pale band of wall sits between the lumen and the casing; a vessel passing over another casts a slightly fuller contact
+// shadow. The centre of every lumen keeps its pressure or flow colour exactly. ALU only, no texture reads. ?depth=0: as before.
+const DEPTH = !(typeof location !== 'undefined' && /[?&]depth=0\b/.test(location.search));
 // Settings › Figure performance › Pinch frame reuse (frame.js pinchReuse, off by default; stage.js passes it only while a hand zooms):
 // on some of the one-pass zoom frames, the last picture the one-pass shader drew is laid again, moved and scaled by the zoom since,
 // instead of shading the figure afresh. REUSE_FS maps each pixel of the canvas now to where the same world point was in that picture
@@ -699,7 +703,7 @@ void main() {
     if (fx == 1 && (flags & ${F_SHADOW}) != 0) {
       float blur = sel ? 2.4 : 1.3;
       // A faint contact shadow only, so a vessel passing over another still reads as on top.
-      float as = 0.4 * shadow.a * (1.0 - smoothstep(-blur, blur + aa, Ds - wall));
+      float as = ${DEPTH ? '0.55' : '0.4'} * shadow.a * (1.0 - smoothstep(-blur${DEPTH ? ' * 1.4' : ''}, blur${DEPTH ? ' * 1.4' : ''} + aa, Ds - wall));
       c = vec4(shadow.rgb * as, as);
     }
     if (sel) { float ar = ring.a * clamp(0.5 - (D - wall - 4.0) / aa, 0.0, 1.0); c = over(vec4(ring.rgb * ar, ar), c); }
@@ -728,7 +732,15 @@ void main() {
         float aLight = (1.0 - smoothstep(0.07, 0.07 + soft, abs(side - 0.5))) * thin * (1.0 - 0.5 * smoothstep(0.72, 0.9, lumY));
         lum = mix(lum, sheenInk.rgb, clamp(sheenInk.a * 0.75 * aLight, 0.0, 0.5));
       }
-    }
+${DEPTH ? `      // Depth: the tube rounds off toward its wall (cubed, so the middle is untouched), deeper on the side away from the
+      // light; then a pale band of wall about a device pixel and a half wide just inside the casing. Both left out on hairlines.
+      float body = smoothstep(1.5, 3.5, R / aa);
+      float rim = rho * rho * rho;
+      lum = lum * (1.0 - body * rim * (0.09 - 0.05 * clamp(k, -1.0, 1.0)));
+      float wallW = clamp(0.1 * R, 1.2 * aa, 2.4 * aa);
+      float band = smoothstep(-wallW - aa, -wallW, D) * body;
+      lum = mix(lum, mix(lum, sheenInk.rgb, 0.45), 0.32 * band * (1.0 - 0.6 * smoothstep(0.72, 0.9, lumY)));
+` : ''}    }
     if (sel && grp == 2) lum = min(lum * 1.12, vec3(1.0));
     if (shov[ow] > 0.0) {
       // The hovered vessel, a little brighter in its own hue, easing out toward each end that meets a vessel not lit with it
