@@ -724,6 +724,7 @@ const fitModal = () => {
 export function openModal(title, body, { wide = false, sub = null, bare = false, compact = false, onClose = null } = {}) {
   const back = document.getElementById('modalBack');
   const modal = document.getElementById('modal');
+  const replacing = back.classList.contains('show');   // (a dialog opened over one that is showing: its words change in place)
   // (The button to come back to is the first opener's: a dialog opened from a dialog, or from a menu row that is about to leave,
   // returns to where the first one began, or to the menu's own button.)
   if (!back.classList.contains('show')) modalReturn = openMenu && openMenu.el.contains(document.activeElement) ? openMenu.anchor : (document.activeElement === document.body && performance.now() - lastMenu.t < 400 ? lastMenu.anchor : document.activeElement);
@@ -743,6 +744,8 @@ export function openModal(title, body, { wide = false, sub = null, bare = false,
   modal.append(head, h('div', { class: 'body' }, body));
   clearTimeout(modalLeaveT); back.classList.remove('leaving');
   back.classList.add('show');
+  // (Its page fades in over the old one's place, as every other change of words does, not in one frame.)
+  if (replacing && !reduceMotionMQ.matches) modal.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
   fitModal(); modalVV?.addEventListener('resize', fitModal); modalVV?.addEventListener('scroll', fitModal);
   back.onclick = (e) => { if (e.target === back) closeModal(); };
   (modal.querySelector('.body button, .body [tabindex]') || close).focus({ preventScroll: true });

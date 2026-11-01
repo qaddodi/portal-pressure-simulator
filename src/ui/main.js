@@ -3,30 +3,30 @@
 
 import { startHost, host } from './host.js?v=dd95596be7';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { createStage } from './stage.js?v=cbaa03678b';
+import { createStage } from './stage.js?v=8c91572248';
 import { createCreditPlacer } from './credit.js?v=21f50433fe';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=b7290446b6';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=4a37882f89';
-import { setHvpgStage } from './hvpg-proc.js?v=ab9938eb8c';
-import { createWhy } from './why.js?v=1f7825d0e1';
-import { createTimeline, LAPSES } from './timeline.js?v=504ce3ffb3';
-import { createCompare } from './compare.js?v=e6dd25075a';
-import { createCard } from './card.js?v=df3810b93d';
-import { createChart } from './chart.js?v=268cf239b3';
-import { createMenu } from './menu.js?v=d5e35a0103';
-import { caption } from './a11y.js?v=4efe35a24c';
+import { createInspector } from './inspector.js?v=7502d1b63b';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=2dfeb2f843';
+import { setHvpgStage } from './hvpg-proc.js?v=48a765c131';
+import { createWhy } from './why.js?v=a2c43c8207';
+import { createTimeline, LAPSES } from './timeline.js?v=b179f1288e';
+import { createCompare } from './compare.js?v=fb325566a7';
+import { createCard } from './card.js?v=a15dc646c9';
+import { createChart } from './chart.js?v=095f4a9c4f';
+import { createMenu } from './menu.js?v=c8d59b36db';
+import { caption } from './a11y.js?v=7f2e417877';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=aea69c1467';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=50a6907274';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=b99be06cde';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=1c1ba5d2ac';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=9cc632ebbb';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=126338cd30';
 import { releaseSpeed, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
-import { morphKey, crossfadeText } from './legend-morph.js?v=b655122bbf';
+import { morphKey, crossfadeText } from './legend-morph.js?v=77c799ee57';
 import './seg-glide.js?v=a3d244ed7b';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
@@ -40,7 +40,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=5eb228c7b3';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=51990488fe';
 import { initTopbarMotion } from './topbar-motion.js?v=845b8a6663';
 import { ORIGINS } from './blood.js?v=82a8bfadac';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
@@ -111,8 +111,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=e586bc8cf6'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=6f080e35a0'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=30b600b091'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=c6de70dcf0'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -193,7 +193,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=ce1e69424e'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=2be86bb8fe'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -201,7 +201,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=6c07d13842'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=5a5011ad6a'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -2017,6 +2017,7 @@ function openHelp(section) {
 // Help and About open at a named section (Keyboard shortcuts, References).
 function scrollToSection(section) { if (section) nextFrame(() => $(`#modal [data-sec="${section}"]`)?.scrollIntoView({ block: 'start' })); }
 const pmid = (id) => h('a', { href: `https://pubmed.ncbi.nlm.nih.gov/${id}/`, target: '_blank', rel: 'noopener' }, `PMID ${id}`);
+const CUT_HEADS = ['Readout', 'Normal', 'Borderline', 'Past a threshold', 'High risk'], CUT_SEV = ['', 'ok', 'caution', 'danger', 'critical'];
 function openAbout(section) {
   openModal('About the model', h('div', {},
     h('p', {}, 'Created by ', h('b', {}, AUTHOR), '. ', h('a', { href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'See all of the author’s teaching\u00a0tools'), '.'),
@@ -2029,8 +2030,9 @@ function openAbout(section) {
     h('h3', {}, 'Status colors'),
     h('p', { class: 'sub' }, 'Every readout’s bar and status word follow a clinical cut-off; the ticks on its bar mark the cut-offs below. A change (▲ / ▼) is drawn in neutral ink and appears only when a value keeps moving for several seconds, never for the heartbeat or breathing. Amber is borderline; red means a threshold has been crossed.'),
     h('div', { class: 'table-wrap' }, h('table', { class: 'cut-table' },
-      h('thead', {}, h('tr', {}, ['Readout', 'Normal', 'Borderline', 'Past a threshold', 'High risk'].map((x, i) => h('th', {}, i ? h('span', { class: 'cut-h', 'data-sev': ['', 'ok', 'caution', 'danger', 'critical'][i] }, x) : x)))),
-      h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c) => h('td', {}, c))))))),
+      h('thead', {}, h('tr', {}, CUT_HEADS.map((x, i) => h('th', {}, i ? h('span', { class: 'cut-h', 'data-sev': CUT_SEV[i] }, x) : x)))),
+      // (On a phone each row stacks, its readout over four labelled lines, and an empty band is left out: five columns did not fit and the table scrolled sideways, cut off at the edge.)
+      h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c, i) => h('td', i ? { 'data-label': CUT_HEADS[i], 'data-sev': CUT_SEV[i], class: c === '—' ? 'none' : '' } : {}, c))))))),
     h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥ 10 mmHg is clinically significant portal hypertension in cirrhosis. HVPG ≥ 20 mmHg matters as a prognostic finding when measured during an acute variceal bleed. 12 mmHg is not a bleeding threshold: varices can bleed below it, and it is only a usual post-TIPS target for the direct gradient.'),
     h('h3', {}, 'Reference review'),
     h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (>6 months, Child–Pugh A), the gray zone for stiffness (ANTICIPATE probability ≥75%, or spleen stiffness >55 kPa on the 100 Hz probe), the window for pre-emptive TIPS and anticoagulation for portal vein thrombosis. Baveno VIII statements were taken from published summaries; a line-by-line check against the full text is still pending.'),

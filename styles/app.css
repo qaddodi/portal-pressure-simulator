@@ -410,6 +410,19 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 .cut-table th { font-weight: 600; color: var(--text-2); white-space: nowrap; }
 .cut-table td:first-child { font-weight: 600; color: var(--text); white-space: nowrap; }
 .cut-h { display: inline-flex; align-items: center; gap: 8px; }
+/* On a phone the status table stacks: the readout on its own line, then one labelled line for each band that has a value (the five columns were wider than the dialog and it scrolled sideways, cut off at the edge). */
+@media (max-width: 560px) {
+  .cut-table thead { display: none; }
+  .cut-table, .cut-table tbody, .cut-table tr, .cut-table td { display: block; width: 100%; }
+  .cut-table tr { padding: 12px 0; border-bottom: 1px solid var(--hairline); }
+  .cut-table td { padding: 2px 0; border: 0; }
+  .cut-table td:first-child { min-width: 0; padding-bottom: 4px; }
+  .cut-table td[data-label] { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); column-gap: 12px; }
+  .cut-table td[data-label]::before { content: attr(data-label); font-size: var(--fs-12); font-weight: 600; line-height: 1.7; }
+  .cut-table td.none { display: none; }
+  .cut-table td[data-sev="ok"]::before { color: var(--ok-ink); } .cut-table td[data-sev="caution"]::before { color: var(--caution-ink); }
+  .cut-table td[data-sev="danger"]::before { color: var(--danger-ink); } .cut-table td[data-sev="critical"]::before { color: var(--critical); }
+}
 .cut-h[data-sev="ok"] { color: var(--ok-ink); } .cut-h[data-sev="caution"] { color: var(--caution-ink); } .cut-h[data-sev="danger"] { color: var(--danger-ink); } .cut-h[data-sev="critical"] { color: var(--critical); }
 .metric .s { display: flex; align-items: center; gap: 4px; font-size: var(--fs-12); color: var(--text-3); white-space: nowrap; overflow: hidden; line-height: 1.35; }
 .metric .status { overflow: hidden; text-overflow: ellipsis; }
@@ -1010,6 +1023,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
   .cut-table td:first-child { min-width: 7.5em; }
 }
 .modal p { line-height: 1.6; color: var(--text-2); margin: 0 0 12px; }
+/* A link in a dialog (the author's tools, PubMed) in the accent ink, underlined clear of the letters, not the browser's own blue and purple; the line eases on hover. */
+.modal a:not(.btn) { color: var(--accent-ink); text-decoration: underline; text-decoration-color: var(--accent-line); text-underline-offset: .18em; text-decoration-thickness: 1px; transition: text-decoration-color var(--d-flip) var(--ease); }
+@media (hover: hover) { .modal a:not(.btn):hover { text-decoration-color: currentColor; } }
+.modal a:not(.btn):visited { color: var(--accent-ink); }
 .modal ul { padding-left: 20px; color: var(--text-2); line-height: 1.6; }
 /* The Guide's three notes: they say something and do nothing, so they have no border, no pointer and no lift on hover (they were drawn as buttons). */
 .entry-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
