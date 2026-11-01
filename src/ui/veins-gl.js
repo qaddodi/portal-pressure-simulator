@@ -43,6 +43,7 @@ import { changedRows } from './flow-rows.js?v=59053c0155';
 import { leftAlone } from './quiet.js?v=388052eba8';
 import { uniformCache } from './uniform-cache.js?v=2a2500a2e8';
 import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=e48e05cdb3';
+import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=f7d920b7d0';
 import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=ecf7b49c24';
 import { warmFade } from './res-fade-gl.js?v=37c4818df3';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
@@ -3011,13 +3012,44 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.bindTexture(gl.TEXTURE_2D, tubeTex);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, TUBE_TEXELS, nTubes, gl.RGBA, gl.FLOAT, data);
     },
-    /** The organ covers as a world-space bitmap (alpha) and the world rectangle it spans. */
-    setOrgans(bitmap, rect) {
-      texVer++;
-      gl.bindTexture(gl.TEXTURE_2D, organTex);
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
-      organRect = rect; fboOK = false;
+    /**
+     * The organ covers painted on the GPU straight into their texture (alpha), at `k` texels per world unit over the world rectangle
+     * `rect`: `shapes` [{ d (an SVG path) | circle [cx, cy, r], w (a stroke that wide, round-capped and joined; 0: filled) }], their
+     * union, as the 2D canvas drew them (the shape drawer's coverage, joined by the larger). Nothing is drawn on the CPU or uploaded.
+     */
+    paintOrgans(shapes, rect, k) {
+      const W = Math.max(1, Math.round(rect[2] * k)), H = Math.max(1, Math.round(rect[3] * k));
+      const fb0 = gl.getParameter(gl.FRAMEBUFFER_BINDING), vp0 = gl.getParameter(gl.VIEWPORT);
+      const shape = createShapeGL(gl), fbo = gl.createFramebuffer(), st = gl.createRenderbuffer(), meshes = [];
+      try {
+        texVer++;
+        gl.bindTexture(gl.TEXTURE_2D, organTex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, st);
+        gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, W, H);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, organTex, 0);
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, st);
+        gl.viewport(0, 0, W, H);
+        gl.disable(gl.SCISSOR_TEST); gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+        gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+        gl.clearBufferfi(gl.DEPTH_STENCIL, 0, 1, 0);
+        // (World → the texture's rows as the sampler reads them: the rect's top at row 0, as a canvas uploaded unflipped put it.)
+        const m = [k, 0, 0, -k, -rect[0] * k, H + rect[1] * k], tol = Math.min(0.5, 0.2 / k), all = [true, true, true, true];
+        for (const { d, circle, w } of shapes) {
+          const polys = circle ? ellipsePoly(circle[0], circle[1], circle[2], circle[2]) : flattenPath(d, tol);
+          const mesh = polyMesh(polys, w ? 1 : 0);
+          meshes.push(mesh);
+          if (w) shape.stroke(mesh, m, [W, H], all, w); else shape.fill(mesh, m, [W, H], all);
+        }
+        organRect = rect; fboOK = false;
+      } finally {
+        for (const mesh of meshes) shape.release(mesh);
+        shape.dispose();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb0);
+        gl.viewport(vp0[0], vp0[1], vp0[2], vp0[3]);
+        gl.deleteFramebuffer(fbo); gl.deleteRenderbuffer(st);
+      }
     },
     /**
      * A plate raster on its way in (plate-upload.js): a W × H texture of its own, filled by plateRows and shown by setPlate.
@@ -3728,13 +3760,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   };
   // (Timed for the debug overlay's GPU readout: gpu-probe.js. Off, each call costs one check.)
   const steps = { draw: 'vessels', drawRows: 'vessels', composite: 'picture', setGeometry: 'uploads', patchGeometry: 'uploads', setRadii: 'uploads', setBend: 'uploads', setTubes: 'uploads',
-    setOrgans: 'uploads', plateJob: 'uploads', plateRows: 'uploads', setPlate: 'uploads', setFluidSpans: 'uploads', setFluidCells: 'uploads', setFlow: 'uploads', setDye: 'uploads' };
+    paintOrgans: 'picture', plateJob: 'uploads', plateRows: 'uploads', setPlate: 'uploads', setFluidSpans: 'uploads', setFluidCells: 'uploads', setFlow: 'uploads', setDye: 'uploads' };
   // (And, for the ?perf readout, how much each upload sent, in KB: a camera-only frame should send none of the model's.)
   const kbOf = {
     setGeometry: (b) => (b.ent.byteLength + b.cells.byteLength + (b.blood?.byteLength || 0)) / 1024, setRadii: () => N_SAMPLES * 8 / 1024,
     patchGeometry: (b) => b.patch.reduce((n, [r0, r1]) => n + (r1 - r0 + 1) * ENT_W * 16, 0) / 1024,   // (setBend notes its own: only a row it sends)
     setTubes: (d) => d.byteLength / 1024, setDye: (d) => (d ? d.byteLength / 1024 : 0), setFluidCells: (c) => c.byteLength / 1024,
-    setOrgans: (bm) => (bm.width * bm.height * 4) / 1024, plateRows: (job, y, rows, px) => px.byteLength / 1024,
+    plateRows: (job, y, rows, px) => px.byteLength / 1024,
   };
   for (const [k, name] of Object.entries(steps)) {
     const f = api[k];

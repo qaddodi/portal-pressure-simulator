@@ -126,7 +126,6 @@ test("a pan or pinch's own classes never count as a change of the stage's look",
   assert.match(obs, /if \(r\.attributeName === 'class'\) \{ const c = gestureFree\(r\.target\.getAttribute\('class'\)\); if \(seen\.get\(r\.target\) === c\) continue; seen\.set\(r\.target, c\); \}\n\s+drop\(\); return;/);
   assert.match(stage, /const marksKey = \(\) => `\$\{mk\.ver\}\|\$\{gestureFree\(wrap\.className\)\}\|/);
   assert.match(stage, /const greyDeps = \(\) => \{ const r = document\.documentElement; return `\$\{gestureFree\(wrap\.className\)\}\|/);
-  assert.match(stage, /at = `\$\{gestureFree\(wrap\.className\)\.replace\(\/\\bgl-plate\\b\/, ''\)\}\|/);
   // Safe only while those classes set no custom property and nothing the figure draws: the cursor, and the floating pieces.
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   for (const m of css.matchAll(/([^{}]*\.(?:panning|stage-busy|figure-focus|lb-ride)\b[^{}]*)\{([^{}]*)\}/g)) {

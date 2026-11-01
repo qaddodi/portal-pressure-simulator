@@ -311,7 +311,7 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
   assert.match(api, /markRows\(data, flowSent, stride\);\n\s*const span = changedRows/);
   assert.match(api, /if \(dyeSent\) markRows\(data, dyeSent, DYE_BINS\);/);
   assert.equal((api.match(/fboOK = false; movedAll = true;/g) || []).length, 2);
-  for (const f of ['setOrgans(bitmap, rect) {', 'setFluidSpans(halfWidths, rect) {', 'setFluidLiver(bottoms) {', 'dropPlate(slot) {', 'commit(slot, names) {']) assert.ok(body(api, f).includes('texVer++'), f);
+  for (const f of ['paintOrgans(shapes, rect, k) {', 'setFluidSpans(halfWidths, rect) {', 'setFluidLiver(bottoms) {', 'dropPlate(slot) {', 'commit(slot, names) {']) assert.ok(body(api, f).includes('texVer++'), f);
   assert.ok(body(api, 'setPlate(slot, job, rect) {').includes('texVer++'));
 });
 

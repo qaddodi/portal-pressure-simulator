@@ -98,7 +98,7 @@ test('the allowance is 1 ms, or what ?refinems= says within a quarter ms and 16'
   assert.equal(refineMsFrom('?refinems=abc'), 1);
 });
 
-test('the stage gives every refinement a turn: the layer bake, the strip pictures and the gut picture, none a fixed 6 ms of its own', () => {
+test('the stage gives every refinement a turn: the layer bake and the shapes read, none a fixed 6 ms of its own', () => {
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   assert.match(stage, /const refineHeld = \(\) => gestureOn\(\) \|\| !leftAlone\(120\);/, 'a gesture, or an input in the last 120 ms or a finger down');
   assert.match(stage, /const refineTurn = \(gone\) => refine\.turn\(\(\) => new Promise\(\(res\) => nextFrame\(res\)\), refineHeld, gone\);/);
@@ -109,6 +109,4 @@ test('the stage gives every refinement a turn: the layer bake, the strip picture
   const layers = stage.slice(stage.indexOf('async function rasterLayers'), stage.indexOf('function bakeAll'));
   assert.match(layers, /if \(await refineTurn\(\(\) => seq0 !== plateSeq \|\| drops0 !== plateDrops \|\| v !== veins \|\| !v \|\| v\.lost\) === null\) return false;/, 'reading every organ\'s shapes waits its turn too');
   assert.match(layers, /refineStep\('organ layers: shapes read', bakeAll\)/);
-  const gut = stage.slice(stage.indexOf('async function makeGutPic'), stage.indexOf('function clientToWorldFast'));
-  assert.match(gut, /await refineTurn\(\(\) => seq !== gutPicSeq\)/);
 });

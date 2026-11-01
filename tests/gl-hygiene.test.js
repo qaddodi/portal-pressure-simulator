@@ -24,10 +24,9 @@ test('the vessel framebuffer and layers are given back while the figure is hidde
   assert.match(src('src/ui/veins-gl.js'), /trim\(\) \{\n\s+if \(lost\) return;/);
 });
 
-test('no gut picture is made while the organs are drawn live (the plate stays up, so none is ever shown)', () => {
+test('no gut picture is ever made: the gut is painted on the GPU with the other organs, never rasterized from an SVG copy', () => {
   const s = src('src/ui/stage.js');
-  assert.equal((s.match(/gutPicSoon\(\);/g) || []).length, 3, 'three callers: two after a landing or a settle, one with the plate already down');
-  assert.equal((s.match(/if \(!liveOn\(\)\) gutPicSoon\(\);/g) || []).length, 2, 'the two that run with the plate up are guarded');
+  assert.doesNotMatch(s, /gutPicSoon|makeGutPic|gGutPics|encodePNG/);
 });
 
 test('a presentation\'s Doppler monitor disposes its frames, observers and WebGL context', () => {

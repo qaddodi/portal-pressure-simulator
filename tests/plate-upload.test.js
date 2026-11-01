@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { plateStrips, premultiply, PLATE_STRIP } from '../src/ui/plate-upload.js';
-import { readFileSync } from 'node:fs';
 
 // The plate rasters reach the GPU as pixel strips (plate-upload.js): every row exactly once, each strip about 2 MB.
 test('the strips cover every row once, in order, each within the strip size', () => {
@@ -104,8 +103,3 @@ test('organ strips shrink while their reads are slow, never below a quarter, and
   }
 });
 
-test('the organ pictures are read in strips sized by stripPx, each read timed for it', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(stage, /for \(const \[y, rows\] of plateStrips\(W, H, stripPx\(\)\)\) \{\s*if \(await refineTurn\(gone\) === null\) return false;\s*if \(banded\) \{/);
-  assert.match(stage, /finally \{ noteStripRead\(performance\.now\(\) - t0, p\.w \* p\.h\); p\.pc\.width = p\.pc\.height = 0;/);
-});

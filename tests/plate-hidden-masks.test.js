@@ -19,22 +19,12 @@ test('the hidden plate groups draw no masks', () => {
   assert.ok(off[1].split(',').map((x) => x.trim()).includes('#backdrop'), 'the diaphragm mask (on #backdrop itself) is off');
 });
 
-test("the plate copy keeps the diaphragm's mask", () => {
-  assert.match(stage, /s\('g', \{ id: 'backdrop', mask: 'url\(#diaMask\)' \}\)/, 'the mask is an attribute (cloned into the copy)');
-  assert.match(stage, /const c = g\.cloneNode\(true\);/, 'the copy is a clone of the live group');
-  assert.ok(!/removeAttribute\('mask'\)[^\n]*gBackdrop|gBackdrop[^\n]*removeAttribute\('mask'\)/.test(stage), 'the live mask attribute is never removed');
-});
 
 test('the page\'s own ascites, hidden while the GPU draws the fluid, builds no clip or mask either', () => {
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(css, /\.stage-view\.gl-on :is\(#ascites, #ascites \[mask\]\) \{ mask: none; clip-path: none; \}/);
 });
 
-test('the gut organs, hidden while the gut\'s picture shows, build no mask or clip, and the picture keeps them', () => {
-  assert.match(css, /#organs > \.organ-gut\.gut-pic-on > \.organ, #organs > \.organ-gut\.gut-pic-on > \.organ :is\(\[mask\], \[clip-path\]\) \{ mask: none; clip-path: none; \}/);
-  assert.match(stage, /c = copies\.find\(\(el\) => el\.getAttribute\('data-gut'\) === i\)\?\.cloneNode\(true\)/, 'the picture is drawn from the plate copy');
-  assert.ok(!/'mask'/.test(readFileSync(new URL('../src/ui/svg-inline.js', import.meta.url), 'utf8')), 'the copy never takes the computed mask');
-});
 
 test('the caudate\'s veins build no mask once the lobe has faded out and hidden, and get it back as it fades in', () => {
   assert.match(css, /\.caud \{ opacity: 0; visibility: hidden;[^\n]*visibility 0s var\(--d-surface\); \}/);
