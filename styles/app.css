@@ -262,6 +262,17 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 .lb.node { pointer-events: auto; cursor: pointer; outline: none; }
 .lb.node.sel .lb-name { fill: var(--accent-ink); }
 @media (hover: hover) { .lb.node:hover .lb-name { fill: var(--accent-ink); } }
+/* The hover link (hover-link.js, stage.js linkSync; ?hoverlink=0 leaves it all out of play): a reading and its vessel light together. The reading whose vessel is
+   hovered, or that is itself hovered or focused, lifts one step on --d-small: its name to full ink, its unit to the name's ink, its leader a step darker. No panel,
+   no border, no glow on the label, and never in a talk (its slides set the lights). A label under the pointer keeps its accent name (above); a selected one its own. */
+@media (hover: hover) {
+  .app:not(.presenting) #labels.hovlink .lb :is(.lb-name, .lb-unit) { transition: fill var(--d-small) var(--ease); }
+  .app:not(.presenting) #labels.hovlink .lb-leaders > .leader { transition: opacity var(--d-small) var(--ease), stroke var(--d-small) var(--ease); }
+  #labels.hovlink .lb.hov-link:not(.sel):not(:hover) .lb-name { fill: var(--text); }
+  #labels.hovlink .lb.hov-link .lb-unit { fill: var(--text-2); }
+  #labels.hovlink .lb-leaders > .leader.hov-link:not(.hl, .focus) { stroke: color-mix(in srgb, var(--text) 62%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .app:not(.presenting) #labels.hovlink .lb :is(.lb-name, .lb-unit), .app:not(.presenting) #labels.hovlink .lb-leaders > .leader { transition: none; } }
 /* A stent called out at its three points: the point the Doppler samples is named in the Doppler's green, as its third glows. */
 .lb.node:focus-visible .lb-bg, .lb.node.sel.inline .lb-bg { stroke: var(--accent); stroke-width: 1.5; }
 .lb.node.atlas:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }

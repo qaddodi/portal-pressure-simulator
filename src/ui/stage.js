@@ -44,6 +44,7 @@ import { cropToGrid } from './organs-gl.js?v=e536a90598';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=e08cf3a692';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=d154b7cb4d';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=542bb8db66';
 import { createLabelGL } from './label-gl.js?v=020bc162b7';
 import { createGlassGL } from './glass-gl.js?v=8a4c8e11ef';
@@ -1415,7 +1416,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Each vessel's brightening eases in and out on its own, so moving from one vessel to the next cross-fades.
   // The selected vessel (sel: it and, on the cava, the rest of the cava) takes the same brightening, and selA eases its
   // standing out of the dimmed network in and out (syncVeins), so selecting and deselecting never snap.
-  const vh = { id: null, amt: new Map(), sel: new Set(), selKey: '', selA: new Map(), raf: 0, t: 0 };
+  const vh = { id: null, also: null, amt: new Map(), sel: new Set(), selKey: '', selA: new Map(), raf: 0, t: 0 };
   // A slide's spotlight (deck visuals V2, ext-highlights.js: spot): the network and the organs step back as for a selection,
   // the named vessels stand out of it as a selected one does (selA, vhStep) and the named organs are outlined. Never in the
   // liver's own views. live: from the spotlight set until the plate has eased back after it (the ascites follows it there).
@@ -2719,6 +2720,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // ── Frame state ───────────────────────────────────
   let F = null;            // latest frame
   let hoverId = null;
+  // The hover link (below): the reading label under the pointer or with keyboard focus, what it lit, and the labels lifted.
+  let linkPtr = null, linkKbd = null, linkEdge = null, linkOrgan = null, linkLit = new Set();
 
   // A view may keep each finding (varices, collaterals, clots, flow) off the figure until a test shows it.
   const findingHidden = (k) => { const fd = store.get().found; return !!fd && !fd.has(k); };
@@ -8459,6 +8462,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // stage uses atlas columns in the margins with leader lines; everything else is placed
   // around its anchor. The same layer is serialized into exported figures.
   const labelSvg = wrap.querySelector('#labels');
+  if (HOVER_LINK) labelSvg.classList.add('hovlink');   // (the hover link's look in app.css hangs on it: hover-link.js; ?hoverlink=0 leaves the layer as it was)
   // Frosted pane behind the liver card: a backdrop blur needs an HTML element, and the labels are SVG.
   const glass = h('div', { class: 'lb-glass', 'aria-hidden': 'true', hidden: true });
   labelSvg.before(glass);
@@ -8665,6 +8669,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       g.setAttribute('tabindex', keyStops ? '0' : '-1'); g.setAttribute('role', 'button');
       g.addEventListener('click', act);
       g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } });
+    }
+    // A reading that names a vessel lights it while the pointer is over it, or keyboard focus is on it (hover link, below).
+    if (HOVER_LINK && labelTarget(key)) {
+      g.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch') linkHover(key); });
+      g.addEventListener('pointerleave', () => linkHover(null, key));
+      g.addEventListener('focus', () => { try { if (g.matches(':focus-visible')) linkFocus(key); } catch { /* an engine without :focus-visible: no link from focus */ } });
+      g.addEventListener('blur', () => linkFocus(null, key));
     }
     gLabels.append(g);
     b = { g, sig: '', seen: 0 };
@@ -10647,6 +10658,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     glass.hidden = !out.some((it) => it.key === 'liver' && !it.hide);
     paintLeaders(leaders);
+    if (HOVER_LINK && (linkLit.size || vh.id || linkPtr || linkKbd)) { linkHeld(); linkSync(); }   // (a label or leader just built, or one whose class was written again, takes its lift)
     // (A group's leaders come in with its number, as its vessels light.)
     for (const w of leaders) {
       const el = w.fanOf && leadEls.get(w.k), wait = el && w.fanOf.delay - (performance.now() - glowSetAt);
@@ -11397,15 +11409,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   defs.append(abdomenEl);
 
   // The IVC is one vessel to the eye: hovering any stretch of it lights all of it.
-  const vhEdges = (id) => (IVC_EDGES.has(id) ? [...IVC_EDGES] : [id]).filter((e) => E[e]?.vis);
-  function setHover(id) {
-    if (id === hoverId) return;
+  // (vh.also: a reading label that names more than one run of a vessel lights them together, linkApply; a vessel hovered itself never has it.)
+  const vhEdges = (id) => (IVC_EDGES.has(id) ? [...IVC_EDGES] : [id, ...(id === vh.id && vh.also || [])]).filter((e) => E[e]?.vis);
+  function setHover(id, also = null) {
+    if (id === hoverId && also === vh.also) return;
     hoverId = id;
     const on = id && store.get().tool === 'select' && !shunt ? id : null;
-    if (on === vh.id) return;
-    vh.id = on;
+    if (on === vh.id && also === vh.also) return;
+    vh.id = on; vh.also = also;
     setGlowSrc('hover', on ? vhEdges(on).map((id) => ({ id, col: null, amt: 1.0, wide: 0.5, dur: 280 })) : []);
     if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
+    if (HOVER_LINK) linkSync();   // (its reading lifts as it lights, lets go as it dims)
   }
   function vhStep(now) {
     const dt = Math.min(0.1, (now - vh.t) / 1000); vh.t = now;
@@ -11464,7 +11478,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     
   }
   // Nothing stays lit once the pointer is gone, cancelled or lifted (a finger has no hover).
-  function clearHover() { hoverEv = null; setHover(null); setOrganHover(null); onHoverInfo(null); }
+  function clearHover() { hoverEv = null; setHover(null); setOrganHover(null); onHoverInfo(null); if (linkPtr) { linkPtr = null; linkApply(); } }
   svg.addEventListener('pointerover', (ev) => {
     if (ev.pointerType === 'touch') return;
     const id = edgeFromEvent(ev);
@@ -11494,6 +11508,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   });
   let nearHover = null;   // (hoverAt's last ring of hit tests: when, the view, where, and what it found)
   function hoverAt(ev) {
+    if (linkHeld()) return;   // (the pointer is on a reading label: that vessel stays lit, whatever frame this move was kept for)
     const id = edgeFromEvent(ev);
     if (id && EI[id] != null && F && !shunt) {
       const r = stageBox();   // (the kept box: a hover each frame no longer lays out the figure just written)
@@ -11516,6 +11531,45 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else setOrganHover(null);
     } else setOrganHover(null);
   }
+
+  // ── A reading and its vessel light together (hover-link.js; ?hoverlink=0 turns it off) ──
+  // The reading label under the pointer (or with keyboard focus) lights what it names through setHover, so the glow is the very one the vessel
+  // gets when it is hovered itself, and a hovered vessel lifts its reading: .hov-link on the label and its leader (app.css) takes the name to
+  // full ink and the leader a step darker. Only for a pointer that hovers and never in a talk, whose slides set the lights. Nothing is lit
+  // while the figure is dragged: the press on a label hands the pointer to the figure (capture), which ends the label's hover (clearHover).
+  const linkOK = () => HOVER_LINK && MQ[3].matches && !store.get().presenting && store.get().tool === 'select' && !shunt;
+  // Whether the pointer is still on the label it entered (a label that fades out or is laid out away from a still pointer may send no leave).
+  function linkHeld() {
+    if (!linkPtr) return false;
+    const g = pool.get(linkPtr)?.g;
+    if (g && g.style.display !== 'none' && !g.classList.contains('lb-off') && g.matches(':hover')) return true;
+    linkPtr = null; linkApply();
+    return false;
+  }
+  function linkHover(key, leaving) { if (key == null && linkPtr !== leaving) return; linkPtr = key; if (key) hoverEv = null; linkApply(); }
+  function linkFocus(key, leaving) { if (key == null && linkKbd !== leaving) return; linkKbd = key; linkApply(); }
+  function linkApply() {
+    const key = linkOK() ? linkPtr || linkKbd : null, t = key ? labelTarget(key) : null;
+    const edge = t?.edge && E[t.edge] ? t.edge : null, also = edge && t.also.length ? t.also : null, organ = t?.organ && morph <= 0.5 && !lobuleOn ? t.organ : null;
+    if (edge !== linkEdge) { if (edge) setHover(edge, also); else if (linkEdge && hoverId === linkEdge) setHover(null); linkEdge = edge; }
+    if (organ !== linkOrgan) { if (organ) setOrganHover(organ); else if (linkOrgan && hovO === linkOrgan) setOrganHover(null); linkOrgan = organ; }
+    linkSync();
+  }
+  // The labels (and their leaders) that name the vessels lit by the pointer, and the label the pointer is on: lifted; the rest let go.
+  function linkSync() {
+    const key = linkOK() ? linkPtr || linkKbd : null, want = new Set(vh.id && linkOK() ? labelsOf(pool.keys(), new Set(vhEdges(vh.id))) : []);
+    if (key) want.add(key);
+    const lift = (k, on) => {
+      const g = pool.get(k)?.g;
+      if (g && g.classList.contains('hov-link') !== on) g.classList.toggle('hov-link', on);
+      if (g || !on) for (const el of gLeaders.querySelectorAll(`[data-k="${k}"]`)) if (el.classList.contains('hov-link') !== on) el.classList.toggle('hov-link', on);
+    };
+    for (const k of linkLit) if (!want.has(k)) lift(k, false);
+    for (const k of want) lift(k, true);
+    linkLit = want;
+  }
+  // (A talk that opens, a tool that is picked and a shunt that starts take the link back; setHover brings the vessel's own lift and let-go.)
+  if (HOVER_LINK) { store.on('presenting', linkApply); store.on('tool', linkApply); MQ[3].addEventListener?.('change', linkApply); }
 
   // ── Gestures: wheel, trackpad, mouse and touch ──
   // A mouse wheel zooms about the pointer. A trackpad's two-finger scroll pans and its pinch (a
