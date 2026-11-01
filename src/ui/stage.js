@@ -43,15 +43,15 @@ import { refine } from './refine.js?v=e6e17cc013';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=5ef122c173';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
-import { cropToGrid } from './organs-gl.js?v=0d81bf8a52';
+import { cropToGrid } from './organs-gl.js?v=1d301b120d';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=e08cf3a692';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=dd283e159c';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=542bb8db66';
-import { createLabelGL } from './label-gl.js?v=95553643ec';
+import { createLabelGL } from './label-gl.js?v=e802a15814';
 import { createGlassGL } from './glass-gl.js?v=773d159c52';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=788bf381cd';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=8e0c281489';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -70,7 +70,7 @@ import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-
 import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=7c1f42eb92';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
-import { layoutWatch } from './idle-keys.js?v=c5c00c9da1';
+import { layoutWatch } from './idle-keys.js?v=bb8f7eca29';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
@@ -146,7 +146,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A settings change reaches its listeners only at the next frame: a read between, from a timer or an idle moment, checks them itself.)
   let csSnap = null, csMq = null;
   // A class list less the classes a pan or pinch puts on and takes off, which change no colour or look the stage draws.
-  const gestureFree = (c) => (c || '').replace(/(?:^|\s)(?:panning|stage-busy|figure-focus|lb-ride)(?=\s|$)/g, '');
+  // (And a slide's camera glide's own classes: cam-move and pinch-hide fade only the label layer, off-home only the zoom pill, and none
+  // of the readers keyed on this (the stage's colours, the organs' grey, the vessel marks, the glow) reads either. Counted, each glide
+  // began and ended with the marks rebuilt shape by shape, every organ's colours read again and the stage's colours dropped: about
+  // 300 style passes on a phone's slide change. ?glidekeys=0: counted, as before.)
+  const GLIDE_KEYS = !/[?&]glidekeys=0\b/.test(location.search);
+  const gestureFree = (c) => (c || '').replace(GLIDE_KEYS ? /(?:^|\s)(?:panning|stage-busy|figure-focus|lb-ride|cam-move|pinch-hide|off-home)(?=\s|$)/g : /(?:^|\s)(?:panning|stage-busy|figure-focus|lb-ride)(?=\s|$)/g, '');
   const MQ = ['(prefers-color-scheme: dark)', '(prefers-reduced-motion: reduce)', '(prefers-reduced-transparency: reduce)', '(hover: hover)', '(pointer: coarse)', 'print'].map((q) => matchMedia(q));
   function wrapCS() {
     if (csSnap && MQ.some((q, i) => q.matches !== csMq[i])) csSnap = null;
@@ -1474,6 +1479,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function placeClampLabels() {
     for (const t of ov.clamps.querySelectorAll('.clamp-label')) clampLabelAt(t);
   }
+  const GLIDE_PAINT = !/[?&]glidepaint=0\b/.test(location.search);
   const applyVT = () => {
     const deg = rotDeg();
     world.setAttribute('transform', `translate(${vt.x} ${vt.y}) scale(${vt.k})${deg ? ` rotate(${deg.toFixed(3)} ${CIRC_C[0]} ${CIRC_C[1]})` : ''}`);
@@ -1494,7 +1500,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (cath.st) cathLabelsSoon();
     // (updateLabels ends by painting the callouts and both probes, unless a camera glide held the labels back: they are painted here
     // only then, not a second time, whose reads came after the first paint's writes.)
-    if (!labelPainted) {
+    // (Nor while a glide runs: its own step paints them in this frame, after it has moved the view; painted here too, each was laid
+    // out twice a frame, first at the view before the step. ?glidepaint=0: twice, as before.)
+    if (!labelPainted && !(GLIDE_PAINT && vtGliding)) {
       if (sites.list) sitesPaint();
       if (scan.on) scanPaint();
       dprobePaint();
@@ -2507,7 +2515,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=d37bceb843').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=d35967532e').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -6062,6 +6070,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // overlays (below), in the same task: a rebuilt mark is an SVG shape without data-gl, shown until it is read, and the frame loop does not
   // come round in every frame (a paced or yielding frame, a step in between), so a pan or pinch painted the new marks as SVG a frame apart
   // from the vessels (the stent and the band rings, on a slow screen up to a quarter of a second after the model changed them).
+  const MARKS_BATCH = !/[?&]marksbatch=0\b/.test(location.search);
   function marksSync() {
     if (glLines && marksKey() !== mk.key) gpuProbe.time(null, 'vessel marks (script)', marksBuild);
   }
@@ -6096,9 +6105,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return c;
     };
     const disc = (p, r) => { const ring = ellipseRing(p[0], p[1], r, r).pts; let c = 0; for (let k = 0; k < ring.length; k++) { const a = ring[k], b = ring[(k + 1) % ring.length]; V.push(p[0], p[1], 1, 0, 0, 1e4, a[0], a[1], 1, 0, 0, 1e4, b[0], b[1], 1, 0, 0, 1e4); c += 3; } return c; };
+    // (Every style is read before any data-gl is written: an attribute the style sheet matches, taken off and put back on one shape
+    // after another, made each shape's read a style pass of its own, about 36 of them in a slide change on a phone. data-gl changes
+    // only the marks' visibility, which nothing here reads, so the reads are the same; the attributes end as before. ?marksbatch=0:
+    // taken off and put back shape by shape, as before.)
+    const drawn = MARKS_BATCH ? new Set() : null;
     for (const g of Object.values(ov)) {
       for (const el of g.querySelectorAll('path, circle, ellipse, rect')) {
-        el.removeAttribute('data-gl');
+        if (!drawn) el.removeAttribute('data-gl');
         let cs = getComputedStyle(el), op = 1, M = null, ok = cs.display !== 'none' && cs.strokeDasharray === 'none';
         for (let e = el; ok && e && e !== gOver; e = e.parentNode) {
           const c = e === el ? cs : getComputedStyle(e);
@@ -6138,9 +6152,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             if (cap === 'round' && !r.closed && r.pts.length > 1) { push(sk, disc(r.pts[0], h), true); push(sk, disc(r.pts[r.pts.length - 1], h), true); }
           }
         }
-        el.setAttribute('data-gl', '');
+        if (drawn) drawn.add(el); else el.setAttribute('data-gl', '');
       }
     }
+    if (drawn) for (const g of Object.values(ov)) for (const el of g.querySelectorAll('path, circle, ellipse, rect')) { if (drawn.has(el)) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); } else if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); }
     mk.verts = new Float32Array(V); mk.draws = draws; mk.dirty = true;
   }
 
