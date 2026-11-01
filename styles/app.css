@@ -190,6 +190,11 @@ svg { flex: none; }
 @media (hover: hover) { .chip-btn:hover { border-color: var(--border-strong); background: var(--surface-2); } }
 .chip-btn svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); }
 .chip-btn .chev { width: var(--ic-s); height: var(--ic-s); color: var(--text-3); }
+/* A chip whose menu is open answers it: the chevron turns over (as the patient pill's does) and the chip holds the pressed tint, both easing back as the menu goes (?chipopen=0 leaves them off). */
+html.chip-open .chip-btn .chev, html.chip-open .lens-btn .chev { transition: rotate var(--d-small) var(--ease-move); }
+html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] .chev { rotate: 180deg; }
+html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var(--surface-2); }
+@media (prefers-reduced-motion: reduce) { html.chip-open :is(.chip-btn, .lens-btn) .chev { transition: none; rotate: none; } }
 .chip-btn[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; }
 .chip-btn[aria-pressed="true"] svg { color: currentColor; }
 
@@ -831,9 +836,27 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .switch input { opacity: 0; width: 100%; height: 100%; margin: 0; position: absolute; cursor: pointer; z-index: var(--z-figure); }
 .switch input:disabled { cursor: not-allowed; }
 .switch span { position: absolute; inset: 0; background: var(--surface-3); border-radius: var(--r-pill); transition: background var(--d-small) var(--ease); box-shadow: inset 0 0 0 1px var(--hairline); }
-.switch span::after { content: ''; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 3px rgb(var(--black-rgb) / .25); transition: transform var(--d-small) var(--ease); }
+.switch span::after { content: ''; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 3px rgb(var(--black-rgb) / .25); transition: transform var(--d-small) var(--ease), width var(--d-flip) var(--ease); }
 .switch input:checked + span { background: var(--accent); }
 .switch input:checked + span::after { transform: translateX(14px); }
+/* A finger down widens the thumb 4 px toward where it travels (iOS's press cue); a checked one widens to the left so it stays inside the track. */
+/* (The same cue on the app's other switches, Settings' and the menus' (.mt-sw) first among them; each track is as wide as its thumb plus 4 px of travel.) */
+@media (prefers-reduced-motion: no-preference) {
+  html.chip-open .switch input:active:not(:disabled) + span::after { width: 20px; }
+  html.chip-open .switch input:checked:active:not(:disabled) + span::after { transform: translateX(10px); }
+  html.chip-open .lens-opt:active .mt-sw::after { width: 16px; }
+  html.chip-open .lens-opt.on:active .mt-sw::after { transform: translateX(8px); }
+  html.chip-open .ac-toggle:active:not(:disabled) .switch-vis i { width: 18px; }
+  html.chip-open .ac-toggle[aria-checked="true"]:active:not(:disabled) .switch-vis i { transform: translateX(8px); }
+  html.chip-open .ab-tg:active:not(:disabled) .switch-vis i { width: 22px; }
+  html.chip-open .ab-tg[aria-checked="true"]:active:not(:disabled) .switch-vis i { transform: translateX(12px); }
+  html.chip-open .ab-dp-alb:active:not(:disabled) .switch-vis i { width: 18px; }
+  html.chip-open .ab-dp-alb[aria-checked="true"]:active:not(:disabled) .switch-vis i { transform: translateX(8px); }
+  @container (max-width: 300px) {
+    html.chip-open .ab-dp-alb:active:not(:disabled) .switch-vis i { width: 16px; }
+    html.chip-open .ab-dp-alb[aria-checked="true"]:active:not(:disabled) .switch-vis i { transform: translateX(6px); }
+  }
+}
 .switch input:disabled + span { opacity: .45; }
 .switch input:focus-visible + span { box-shadow: 0 0 0 2px var(--focus); }
 .drug {
@@ -1219,7 +1242,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 [data-key]::after { content: attr(data-key); font: 500 var(--fs-12) var(--font-mono); color: var(--text-3); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; line-height: 15px; }
 .ac-slider[data-key]::after { position: absolute; right: 0; top: -1px; display: none; }
 .ac-toggle .switch-vis { position: relative; width: 30px; height: 18px; border-radius: var(--r-pill); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--hairline); flex: none; transition: background var(--d-small) var(--ease); }
-.ac-toggle .switch-vis i { position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 2px rgb(var(--black-rgb) / .25); transition: transform var(--d-small) var(--ease); }
+.ac-toggle .switch-vis i { position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 2px rgb(var(--black-rgb) / .25); transition: transform var(--d-small) var(--ease), width var(--d-flip) var(--ease); }
 .ac-toggle[aria-checked="true"] .switch-vis { background: var(--accent); }
 .ac-toggle[aria-checked="true"] .switch-vis i { transform: translateX(12px); }
 .ac-toggle[data-key]::after { order: 3; }
@@ -3908,6 +3931,7 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
 .topbar .sb-right { gap: 0; padding: 0 3px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-pill); height: var(--pill-h); }
 .topbar .sb-right > .chip-btn, .topbar .sb-right .lens-btn { box-shadow: none; background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; height: var(--ctl-h); }
 .topbar .sb-right > .chip-btn { border-right: 1px solid var(--hairline); border-radius: var(--r-card) 0 0 var(--r-card); }
+html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-open .topbar .sb-right .lens-btn[aria-expanded="true"] { background: var(--surface-2); }   /* (the open chip's tint beats the bar's transparent chips) */
 .top-right.float-pill { padding: 3px; }
 /* One row when it fits (main.js measures it), else the view and the legend take a second row. */
 .topbar .stage-bar.top { order: 0; flex: 1 1 0; }
@@ -4455,7 +4479,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .lens-opt:not(:has(.lens-d)) .mt-sw { grid-row: 1; }
 /* The knob is white on and off, as on the app's other switches (.switch, .ac-toggle, .ab-tg), so off stays plain in dark
    too (sweep 01 #05); the track keeps the hairline edge of .switch and .ac-toggle. */
-.lens-opt .mt-sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 2px rgb(var(--black-rgb) / .25); transition: transform var(--d-small) var(--ease); }
+.lens-opt .mt-sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 2px rgb(var(--black-rgb) / .25); transition: transform var(--d-small) var(--ease), width var(--d-flip) var(--ease); }
 .lens-opt.on .mt-sw { background: var(--accent); box-shadow: none; }
 .lens-opt.on .mt-sw::after { transform: translateX(12px); }
 @media (prefers-reduced-motion: reduce) { .lens-opt .mt-sw, .lens-opt .mt-sw::after { transition: none; } }
@@ -4886,7 +4910,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .ab-tg { width: 100%; border: 0; border-radius: var(--r-control); background: none; text-align: left; cursor: pointer; touch-action: manipulation; }
 .ab-tg:disabled { opacity: .5; cursor: not-allowed; }
 .ab-tg .switch-vis { position: relative; flex: none; width: 38px; height: 22px; border-radius: var(--r-pill); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong); transition: background var(--d-small) var(--ease), box-shadow var(--d-small) var(--ease); }
-.ab-tg .switch-vis i { position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 3px rgb(var(--black-rgb) / .3); transition: transform var(--d-small) var(--ease); }
+.ab-tg .switch-vis i { position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 3px rgb(var(--black-rgb) / .3); transition: transform var(--d-small) var(--ease), width var(--d-flip) var(--ease); }
 .ab-tg[aria-checked="true"] .switch-vis { background: var(--accent); box-shadow: inset 0 0 0 1px transparent; }
 .ab-tg[aria-checked="true"] .switch-vis i { transform: translateX(16px); }
 .ab-drain { min-width: 84px; height: var(--ab-sb-h); padding: 0 14px; border: 0; border-radius: var(--r-control); background: var(--accent); color: var(--on-accent); font: 600 var(--fs-14)/1 var(--font-ui); cursor: pointer; touch-action: manipulation; transition: opacity var(--d-small) var(--ease), filter var(--d-flip) var(--ease); }
@@ -4943,7 +4967,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .ab-dp-at small { white-space: nowrap; font: 500 12px/1.15 var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; transition: color var(--d-small) var(--ease); }
 .ab-dp-at small.ab-warn { color: var(--caution-ink); font-weight: 600; }
 .ab-dp-alb .switch-vis { position: relative; flex: none; width: 30px; height: 18px; border-radius: var(--r-pill); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong); transition: background var(--d-small) var(--ease), box-shadow var(--d-small) var(--ease); }
-.ab-dp-alb .switch-vis i { position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 3px rgb(var(--black-rgb) / .3); transition: transform var(--d-small) var(--ease); }
+.ab-dp-alb .switch-vis i { position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 3px rgb(var(--black-rgb) / .3); transition: transform var(--d-small) var(--ease), width var(--d-flip) var(--ease); }
 .ab-dp-alb[aria-checked="true"] .switch-vis { background: var(--accent); box-shadow: inset 0 0 0 1px transparent; }
 .ab-dp-alb[aria-checked="true"] .switch-vis i { transform: translateX(12px); }
 .ab-dp .ab-drain { width: 100%; min-width: 0; height: 34px; padding: 0 8px; }
