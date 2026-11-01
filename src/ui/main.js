@@ -1822,6 +1822,8 @@ const letterOf = (e) => /^[a-z]$/i.test(e.key) ? e.key.toLowerCase() : /^\p{L}$/
 // Inputs that are controls, not text: a slider, a switch, a button. They keep their own keys (the arrows, Space) and leave the rest to the page.
 const NON_TEXT_INPUT = new Set(['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'image', 'color', 'file']);
 function wireKeyboard() {
+  // (iOS Safari draws a control's :active press only once the page listens for touches: an empty passive listener, nothing else.)
+  addEventListener('touchstart', () => {}, { passive: true });
   // J injects dye for as long as it is held (at least a few seconds).
   addEventListener('keyup', (e) => { if (letterOf(e) === 'j') stage.releaseDye(); });
   addEventListener('blur', () => stage.releaseDye());
