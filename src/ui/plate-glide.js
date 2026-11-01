@@ -5,7 +5,7 @@
 // a fixed size laid out once, keeps only its outer edge's hairline and shadow (a still clip cuts the rest), and rides one eased
 // translate and scale, all on the same curve, so together they are always one rounded plate from the old box to the new. Nothing
 // is laid out or painted again per frame: the compositor carries every piece. The box takes its own glass back as they land.
-import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
+import { D_FLIP, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
 
 const O = 64;   // (room each piece keeps for its shadow on its outer sides)
 const PIECES = [
@@ -61,4 +61,40 @@ export function glidePlate(host, from, to, { R = 16, duration = D_SURFACE, easin
   anims[0].onfinish = end;
   setTimeout(end, duration + 160);   // (a page whose frames stall still lands)
   return end;
+}
+
+/** Keeps a plated box (a glass pill whose size follows its content: a button that comes and goes) easing to each new size by
+ *  transform: when its laid-out size changes, its glass glides from the old box to the new (glidePlate) and the pieces in it slide
+ *  from where they stood (FLIP). Sizes and places are read once per change, in the ResizeObserver, after layout and before paint;
+ *  nothing is laid out per frame. Reduce Motion: the box takes its new size at once. Returns a function that stops watching. */
+export function glideOnResize(host, { R = 16, duration = D_SURFACE, easing = EASE_ARRIVE } = {}) {
+  const still = matchMedia('(prefers-reduced-motion: reduce)');
+  let last = null, end = null;
+  const read = () => ({ x: host.offsetLeft, y: host.offsetTop, w: host.offsetWidth, h: host.offsetHeight,
+    kids: new Map([...host.children].filter((c) => !c.classList.contains('pg-piece') && !c.dataset.ghost).map((c) => [c, [c.offsetLeft, c.offsetTop, c.offsetWidth, c.offsetHeight]])) });
+  const ro = new ResizeObserver(() => {
+    const now = read(), was = last;
+    last = now;
+    if (!was || !now.w || !now.h || !was.w || !was.h || (Math.abs(now.w - was.w) < 0.5 && Math.abs(now.h - was.h) < 0.5)) return;
+    if (still.matches || !host.getClientRects().length) return;
+    end?.();
+    end = glidePlate(host, { x: was.x - now.x, y: was.y - now.y, w: was.w, h: was.h }, { x: 0, y: 0, w: now.w, h: now.h }, { R, duration, easing, done: () => { end = null; } });
+    for (const [c, [x1, y1, w1, h1]] of now.kids) {
+      const p = was.kids.get(c);
+      if (!p) continue;
+      if (p[2] && p[3] && (!w1 || !h1)) {
+        // (a piece folded away at once leaves a copy where it stood, fading as the glass closes over it)
+        const g = c.cloneNode(true);
+        g.dataset.ghost = '1'; g.removeAttribute('id'); g.setAttribute('aria-hidden', 'true'); g.inert = true;
+        Object.assign(g.style, { position: 'absolute', left: `${was.x + p[0] - now.x}px`, top: `${was.y + p[1] - now.y}px`, width: `${p[2]}px`, height: `${p[3]}px`, margin: '0', visibility: 'visible', opacity: '1', pointerEvents: 'none', transition: 'none' });
+        host.append(g);
+        g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: Math.min(duration, D_FLIP), easing: EASE_IN, fill: 'forwards' }).finished.then(() => g.remove(), () => g.remove());
+        continue;
+      }
+      const dx = was.x + p[0] - (now.x + x1), dy = was.y + p[1] - (now.y + y1);
+      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) c.animate([{ translate: `${dx}px ${dy}px` }, { translate: '0 0' }], { duration, easing, composite: 'add' });
+    }
+  });
+  ro.observe(host);
+  return () => { ro.disconnect(); end?.(); };
 }

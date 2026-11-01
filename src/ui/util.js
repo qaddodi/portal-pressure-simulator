@@ -461,6 +461,10 @@ export function reconcile(list, rows) {
   }
   const keep = new Set(want);
   const going = [...list.children].filter((c) => !keep.has(c) && !c.classList.contains('rc-out'));
+  // A row that goes leaves the flow at once and fades where it stood; the rows under it slide up into its room (FLIP, by
+  // transform). Nothing's height is eased: no layout per frame.
+  const fly = shown && !still && going.some((g) => g.dataset.row);
+  const was = fly ? new Map(want.filter((e) => e.parentNode === list).map((e) => [e, e.offsetTop])) : null;
   let cur = list.firstChild;
   for (const e of want) {
     while (cur && cur !== e && (going.includes(cur) || cur.classList?.contains('rc-out'))) cur = cur.nextSibling;
@@ -470,12 +474,15 @@ export function reconcile(list, rows) {
   for (const g of going) {
     if (!shown || !g.dataset.row) { g.remove(); continue; }
     g.classList.add('rc-out'); g.inert = true;
-    const cs = getComputedStyle(g), h0 = g.offsetHeight;
-    g.style.overflow = 'hidden';
-    const a = g.animate([{ opacity: 1, height: `${h0}px`, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, marginTop: cs.marginTop, marginBottom: cs.marginBottom },
-      { opacity: 0, height: '0px', paddingTop: '0px', paddingBottom: '0px', marginTop: '0px', marginBottom: '0px' }],
-    { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' });
+    // (pinned where it stands, out of the flow, as wide as it was: its box laid out once)
+    const at = { top: g.offsetTop, left: g.offsetLeft, width: g.offsetWidth };
+    Object.assign(g.style, { position: 'absolute', top: `${at.top}px`, left: `${at.left}px`, width: `${at.width}px`, margin: '0', pointerEvents: 'none', boxSizing: 'border-box' });
+    const a = g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' });
     a.finished.then(() => g.remove(), () => g.remove());
+  }
+  if (was) for (const [e, y0] of was) {
+    const dy = y0 - e.offsetTop;
+    if (Math.abs(dy) > 0.5) e.animate([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_FLIP, easing: EASE_MOVE });
   }
   if (shown) {
     for (const r of fresh) if (r.dataset.row) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${RISE_PX}px)` }, { opacity: 1, transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE, delay: going.length ? 80 : 0, fill: 'backwards' });
@@ -768,15 +775,23 @@ let modalReturn = null;
 const behindDialog = (on) => { for (const m of document.querySelectorAll('.umenu, .um-pv')) m.inert = on; };
 // (The on-screen keyboard covers the page's foot without shrinking it: the dialog is held to the room above it, and eases there.)
 const modalVV = window.visualViewport;
-let modalKbT = 0;
+let modalKbT = 0, modalBand = [0, 0];   // ([top, keyboard] the dialog is centred between now, px)
+// (The dialog is centred in that band: a new band moves it by half the change of each edge. It takes its place at once and glides
+// there from where it stood by translate; nothing's top, bottom or height is eased.)
+const bandTo = (back, top, kb) => {
+  const dy = ((top - modalBand[0]) - (kb - modalBand[1])) / 2;
+  modalBand = [top, kb];
+  const m = back.querySelector('.modal');
+  if (m?.animate && Math.abs(dy) > 0.5 && back.classList.contains('show')) m.animate([{ translate: `0 ${-dy}px` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_ARRIVE, composite: 'add' });
+};
 const fitModal = () => {
   // (A page pinched in is not a keyboard: only a visual viewport at the page's own scale counts. iOS also pans the page up to the field with the keyboard
   // up, so the dialog is held to the visible band, from its top down to the keyboard, and not to the band from the page's top.)
   const back = document.getElementById('modalBack'), kb = modalVV && modalVV.scale <= 1.05 ? Math.round(innerHeight - modalVV.offsetTop - modalVV.height) : 0;
   clearTimeout(modalKbT);
-  if (kb > 80) { back.classList.add('kb'); back.style.setProperty('--modal-kb', `${kb}px`); back.style.setProperty('--modal-top', `${Math.max(0, Math.round(modalVV.offsetTop))}px`); }
-  else if (back.classList.contains('kb')) {   // (the keyboard went: the dialog eases back down and out to the top, then the class that eases it goes)
-    back.style.setProperty('--modal-kb', '0px'); back.style.setProperty('--modal-top', '0px');
+  if (kb > 80) { back.classList.add('kb'); bandTo(back, Math.max(0, Math.round(modalVV.offsetTop)), kb); back.style.setProperty('--modal-kb', `${kb}px`); back.style.setProperty('--modal-top', `${Math.max(0, Math.round(modalVV.offsetTop))}px`); }
+  else if (back.classList.contains('kb')) {   // (the keyboard went: the dialog eases back down and out to the top, then the class goes)
+    bandTo(back, 0, 0); back.style.setProperty('--modal-kb', '0px'); back.style.setProperty('--modal-top', '0px');
     modalKbT = setTimeout(() => { if (!back.classList.contains('leaving')) { back.classList.remove('kb'); back.style.removeProperty('--modal-kb'); back.style.removeProperty('--modal-top'); } }, 320);
   }
 };
@@ -821,7 +836,7 @@ export function closeModal() {
   back.classList.remove('show'); back.classList.add('leaving');
   modalVV?.removeEventListener('resize', fitModal); modalVV?.removeEventListener('scroll', fitModal);
   clearTimeout(modalLeaveT); modalLeaveT = setTimeout(() => back.classList.remove('leaving'), 220);
-  setTimeout(() => { if (!back.classList.contains('show')) { back.classList.remove('kb'); back.style.removeProperty('--modal-kb'); back.style.removeProperty('--modal-top'); } }, 240);   // (the dialog holds its place while it fades)
+  setTimeout(() => { if (!back.classList.contains('show')) { back.classList.remove('kb'); back.style.removeProperty('--modal-kb'); back.style.removeProperty('--modal-top'); modalBand = [0, 0]; } }, 240);   // (the dialog holds its place while it fades)
   const appEl = document.getElementById('app'); if (appEl) appEl.inert = false;
   behindDialog(false);
   const back0 = modalReturn?.isConnected ? modalReturn : document.getElementById('btnMenu');

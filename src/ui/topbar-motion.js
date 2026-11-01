@@ -105,15 +105,14 @@ export function initTopbarMotion() {
         if (el === row && Math.abs(t.dw) > 2) {
           const face = row.querySelector(':scope > .tb-face');
           if (face && PLATEGLIDE) plateGlide(face, hang ? t.dw : 0, s.w, n.w, { duration: D_SURFACE, easing: EASE_MOVE });
-          else if (face) face.animate([{ translate: `${hang ? t.dw : 0}px 0px`, width: `${s.w}px` }, { translate: '0px 0px', width: `${n.w}px` }], { duration: D_SURFACE, easing: EASE_MOVE }).id = 'tbm';
+          // (?plateglide=0: the face takes its new width at once, the row's glide carries it; nothing is laid out per frame)
         }
         if (t.dw < -2 && el.matches(GROW)) {
           // A pill with its own face (the patient pill) glides its face from the old width to the new; others leave the old,
           // wider plate fading behind them.
           const face = el.querySelector(':scope > .tb-face');
           if (face && PLATEGLIDE) plateGlide(face, 0, s.w, n.w, { duration: MOVE_MS, easing: EASE });
-          else if (face) face.animate([{ width: `${s.w}px` }, { width: `${n.w}px` }], { duration: MOVE_MS, easing: EASE }).id = 'tbm';
-          else ghost(el, s, { own, tot, next }, true);
+          else if (!face) ghost(el, s, { own, tot, next }, true);
         }
         if (t.dw > 2 && el.matches(GROW)) growPill(el, s, n, next);
       }

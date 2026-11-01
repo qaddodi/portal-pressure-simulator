@@ -4,9 +4,9 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=4ef2a6ffd8';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone } from './util.js?v=73d39176eb';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone } from './util.js?v=79b7c7454f';
 import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
-import { cardFor, normalizeSel } from './actions.js?v=a1af558faa';
+import { cardFor, normalizeSel } from './actions.js?v=6c13169f9f';
 import { frameFor, cancelFrame } from './frame.js?v=7710f677e2';
 import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
@@ -189,6 +189,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       }
     }
     el.setAttribute('aria-label', `${m.title}: actions`);
+    if (el.hidden) at = null;   // (opened afresh: it appears where it is placed, no glide from where it last stood)
     el.hidden = false;
     // Number keys trigger the verbs in order; show the number beside each.
     actionable.forEach((a, i) => { if (i < 9) a.el.dataset.key = String(i + 1); });
@@ -387,18 +388,26 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
 
   // The zoom pill is a column above the dock on the right: a card that reaches it ends above it. The dock's
   // height settles after a card is placed, so this runs again whenever the occupancy changes (pps:occ).
+  // The card stands where `translate` puts it (laid out once at the view's corner); a move while it is open glides there on the
+  // compositor from where it stood (a new vessel moved it 23 px in one frame: round 2 review, RF7). Nothing is laid out per frame.
+  let at = null;
+  function moveTo(x, y) {
+    const t = `${x}px ${y}px`;
+    if (at && (Math.abs(at[0] - x) > 0.5 || Math.abs(at[1] - y) > 0.5) && !matchMedia('(prefers-reduced-motion: reduce)').matches) el.animate([{ translate: `${at[0]}px ${at[1]}px` }, { translate: t }], { duration: D_FLIP, easing: EASE_ARRIVE });
+    el.style.translate = t; at = [x, y];
+  }
   function fitAbovePill() {
     el.style.maxHeight = '';
     const pill = view.querySelector('.zoom-pill'), box = el.offsetParent;
     if (el.hidden || el.classList.contains('docked') || !box || !pill || pill.offsetParent !== box || !pill.offsetHeight) return;
-    const pt = pill.offsetTop, pl = pill.offsetLeft + transformEndX(pill), top = el.offsetTop;   // (its glide aside is a transform: RF2)
-    if (el.offsetLeft < pl + pill.offsetWidth && el.offsetLeft + el.offsetWidth > pl && top + el.offsetHeight > pt - 8) el.style.maxHeight = Math.max(200, pt - 8 - top) + 'px';
+    const pt = pill.offsetTop, pl = pill.offsetLeft + transformEndX(pill), top = at ? at[1] : el.offsetTop, left = at ? at[0] : el.offsetLeft;   // (its glide aside is a transform: RF2; the card's own place is its translate)
+    if (left < pl + pill.offsetWidth && left + el.offsetWidth > pl && top + el.offsetHeight > pt - 8) el.style.maxHeight = Math.max(200, pt - 8 - top) + 'px';
   }
   function position() {
     if (!model || el.hidden) return;
     if (isPhoneLayout()) {
       if (el.parentNode !== dockHost) dockHost.append(el);
-      el.style.left = ''; el.style.top = ''; el.classList.add('docked'); leader.replaceChildren(); return;
+      el.style.translate = ''; at = null; el.classList.add('docked'); leader.replaceChildren(); return;
     }
     if (el.parentNode !== view) view.append(el);
     el.classList.remove('docked');
@@ -421,7 +430,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (!a) {
       leader.replaceChildren();
       const x = pinned ? Math.min(pinned.x, Math.max(8, right - w)) : Math.max(8, right - w), y = pinned ? clamp(pinned.y, top, Math.max(top, bottom - hh)) : top;
-      if (!pinned || x !== pinned.x || y !== pinned.y) { pinned = { x, y }; placedFor = ''; el.style.left = x + 'px'; el.style.top = y + 'px'; fitAbovePill(); }
+      if (!pinned || x !== pinned.x || y !== pinned.y) { pinned = { x, y }; placedFor = ''; moveTo(x, y); fitAbovePill(); }
       return;
     }
     // ...unless it no longer fits there (placed before the dock published its height, the card grew, or
@@ -438,7 +447,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     const key = `${Math.round(best.x)},${Math.round(best.y)}|${Math.round(a.x)},${Math.round(a.y)}`;
     if (key === placedFor) return;
     placedFor = key; pinned = { x: best.x, y: best.y };
-    el.style.left = best.x + 'px'; el.style.top = best.y + 'px';
+    moveTo(best.x, best.y);
     fitAbovePill();
     drawLeader(best.x, best.y, w, hh, a);
   }

@@ -35,7 +35,9 @@ test('the desktop vessel card fades in and out, and a new vessel fades its conte
   // RF7: the old contents fade out over the new from a layer that takes no taps, and the card glides to its new place.
   assert.match(card, /const ghost = h\('div', \{ class: 'ac-ghost', 'aria-hidden': 'true', inert: '' \}, \.\.\.was\);/);
   assert.match(css, /\.action-card > \.ac-ghost \{ position: absolute; inset: 0; display: flex; flex-direction: column; pointer-events: none; \}/);
-  assert.match(css, /\.action-card:not\(\.docked\) \{ transition: opacity var\(--d-small\) var\(--ease\), left var\(--d-flip\) var\(--ease\), top var\(--d-flip\) var\(--ease\); \}/);
+  // (the glide is by translate since the off-GPU gate: card.js moveTo animates from where it stood, D_FLIP)
+  assert.match(css, /\.action-card:not\(\.docked\) \{ transition: opacity var\(--d-small\) var\(--ease\); \}/);
+  assert.match(card, /el\.animate\(\[\{ translate: `\$\{at\[0\]\}px \$\{at\[1\]\}px` \}, \{ translate: t \}\], \{ duration: D_FLIP, easing: EASE_ARRIVE \}\)/);
 });
 
 test('the zoom pill glides aside with a side card, by a transform (round 2 review, RF2)', () => {

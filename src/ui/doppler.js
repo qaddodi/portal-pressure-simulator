@@ -5,10 +5,10 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=73d39176eb';
-import { FONT, textW } from './charts.js?v=6a7a378639';
+import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=79b7c7454f';
+import { FONT, textW } from './charts.js?v=8b33aa4333';
 import { logAction, shownVel, store } from './store.js?v=4ef2a6ffd8';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=714910469c';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=c50fe7f83c';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=7710f677e2';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';
@@ -18,7 +18,7 @@ import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { olderThan } from './backfill.js?v=455d888760';
 import { createFollow } from './display-state.js?v=8d062d39dc';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
-import { createTraceGL, fitPen } from './trace-gl.js?v=f0965e42db';
+import { createTraceGL, fitPen } from './trace-gl.js?v=207ab84738';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -402,9 +402,12 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const pos = (v) => Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
     rangeEl.hidden = false;
     rangeEl.dataset.out = velEl.dataset.out = !expected && (mean < n0 || mean > n1) ? 'true' : 'false';
-    bandEl.style.left = `${pos(n0)}%`; bandEl.style.width = `${pos(n1) - pos(n0)}%`;
-    markEl.style.left = `${pos(mean)}%`;
-    gZero.style.left = `${pos(0)}%`; gLo.style.left = `${pos(n0)}%`; gHi.style.left = `${pos(n1)}%`;
+    // (by transform: the track and ticks are containers, so 1cqw is a hundredth of their width; the band is one full-width piece
+    // stretched, its corners drawn back to 4 px for the stretch; the browser eases them on the compositor)
+    const sw = Math.max(0.001, (pos(n1) - pos(n0)) / 100);
+    bandEl.style.translate = `${pos(n0)}cqw 0`; bandEl.style.scale = `${sw.toFixed(4)} 1`; bandEl.style.borderRadius = `${(4 / sw).toFixed(2)}px / 4px`;
+    markEl.style.translate = `${pos(mean)}cqw 0`;
+    gZero.style.translate = `${pos(0)}cqw 0`; gLo.style.translate = `${pos(n0)}cqw 0`; gHi.style.translate = `${pos(n1)}cqw 0`;
     gHi.hidden = open;
     // (Each tick's number is centred on its point and the unit hangs after it: "40 cm/s" pulled left to fit put its 40 about
     // 5 cm/s short of the band's end.)

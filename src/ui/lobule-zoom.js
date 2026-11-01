@@ -24,7 +24,7 @@ import { store } from './store.js?v=4ef2a6ffd8';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=b9ae791d1a';
+import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=d9d402a9a6';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL, TILE_OVER } from './field-gl.js?v=f9e73234b6';
@@ -36,12 +36,12 @@ import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare
 import { recordPaint, gpuPicture } from './paint-gl.js?v=3fb6599f48';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=ccb5ac5fe2';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=73d39176eb';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=1e3a1162cc';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=79b7c7454f';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=3e75c1fc60';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=195c2c9b0e';
+import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=584196e324';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
-import { createSinusoidView } from './sinusoid-view.js?v=55c136b89e';
+import { createSinusoidView } from './sinusoid-view.js?v=2a915d4af9';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=7710f677e2';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=4ffac3ef7f';
@@ -1058,7 +1058,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const posOf = (g, now) => { const e = EASE_LAB(clamp((now - g.t0) / D_SURFACE, 0, 1)); return [g.x0 + (g.x1 - g.x0) * e, g.y0 + (g.y1 - g.y0) * e]; };
   const labGliding = (L, now) => !!L.gl && (L.gl.x0 !== L.gl.x1 || L.gl.y0 !== L.gl.y1) && now - L.gl.t0 < D_SURFACE;
   function noteAt(L) {
-    const x = parseFloat(L.el.style.left) || 0, y = parseFloat(L.el.style.top) || 0, g = L.gl;
+    const [x, y] = spot.get(L.el) || [0, 0], g = L.gl;
     if (g && g.x1 === x && g.y1 === y) return;
     const now = tlNow(), p = g ? posOf(g, now) : [x, y];
     // (Only a label already shown glides: one coming out of hidden starts where it is written, as the page shows it.)
@@ -1066,7 +1066,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     L.gl = eased ? { x0: p[0], y0: p[1], x1: x, y1: y, t0: now } : { x0: x, y0: y, x1: x, y1: y, t0: now };
   }
   function seenAt(L, now) {
-    const x = parseFloat(L.el.style.left) || 0, y = parseFloat(L.el.style.top) || 0;
+    const [x, y] = spot.get(L.el) || [0, 0];
     if (!L.gl || L.gl.x1 !== x || L.gl.y1 !== y) L.gl = { x0: x, y0: y, x1: x, y1: y, t0: now };   // (written with no glide noted: there)
     return posOf(L.gl, now);
   }
@@ -1272,7 +1272,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (!best || cost < best.cost) best = { x, y, box, cost };
     }
     placed.push(best.box); callPrev = { at: call.at, dx: best.x - a[0], dy: best.y - a[1] }; callCost = best.cost;
-    callEl.style.left = `${best.x - w / 2}px`; callEl.style.top = `${best.y - hh / 2}px`;
+    put(callEl, best.x - w / 2, best.y - hh / 2);
     // The leader starts on the ring's edge (not at its centre) and runs to the pill.
     const dl = Math.hypot(best.x - a[0], best.y - a[1]) || 1, e0 = rr / dl;
     callLine.setAttribute('x1', a[0] + (best.x - a[0]) * e0); callLine.setAttribute('y1', a[1] + (best.y - a[1]) * e0); callLine.setAttribute('x2', best.x); callLine.setAttribute('y2', best.y);
@@ -1319,7 +1319,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const spots = ring.map(toScreen), first = spots[0];
       const tries = [...(inV(first) ? [first] : []), ...spots.slice(1).filter(inV).sort((u, v) => Math.hypot(u[0] - mid[0], u[1] - mid[1]) - Math.hypot(v[0] - mid[0], v[1] - mid[1]))];
       if (!tries.length) tries.push([clamp(first[0], fr0.l + 40, fr0.r - 40), clamp(first[1], fr0.t + 20, fr0.b - 20)]);
-      z.style.left = `${tries[0][0]}px`; z.style.top = `${tries[0][1]}px`;
+      put(z, tries[0][0], tries[0][1]);
       const [w, hh] = sizeOf(z, 92, 36);
       const boxAt = ([x, y]) => ({ l: x - w / 2 - hx, r: x + w / 2 + hx, t: y - hh / 2 - hy, b: y + hh / 2 + hy });
       // A zone's name never sits on the slide's lesion ring (the ring is what the slide points at): it takes another
@@ -1327,7 +1327,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const at = tries.find((p) => !ringDepth(lesion, boxAt(p)));
       if (!at) { fadeOut(z); return; }
       fadeIn(z);
-      z.style.left = `${at[0]}px`; z.style.top = `${at[1]}px`;
+      put(z, at[0], at[1]);
       // (A zone the slide's words leave unlit fades out: its spot is free for the labels.)
       if (!faded(`lobule:zone${i + 1}`)) boxes.push(boxAt(at));
     });
@@ -1370,19 +1370,26 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return true;
   }
   // The glide's ride: each piece moved by its own spot's move since the last layout (a CSS translate, written into its place by bakeFollow).
+  // Every label, zone name and pill stands where `translate` puts it (laid out once at the box's corner, so a move or glide is the
+  // compositor's, never a layout per frame); its spot is kept here, and a pan's ride adds its shift on top.
+  const spot = new WeakMap();
+  const tr = (e, x, y) => { e.style.translate = `${x.toFixed(2)}px ${y.toFixed(2)}px`; };
+  function put(e, x, y) { spot.set(e, [x, y]); tr(e, x, y); }
   let rides = null;
   function ride() {
     const f = follow, at = (a) => [(a[0] - f.x) / f.k * V.k + V.x - a[0], (a[1] - f.y) / f.k * V.k + V.y - a[1]];
     if (!rides) {
+      // (the pan carries them by the same translate a layout glides: no glide may run under it, or they would trail the hand)
+      labels.classList.remove('lz-ease');
       rides = [];
       for (const L of Object.values(labs)) if (L.a && !L.el.hidden && !L.el.classList.contains('edge')) rides.push({ a: [...L.a], els: [L.el, L.line, L.dotEl] });
-      for (const z of zoneEls) if (z.isConnected && z.style.left) rides.push({ a: [parseFloat(z.style.left), parseFloat(z.style.top)], els: [z] });
+      for (const z of zoneEls) if (z.isConnected && spot.has(z)) rides.push({ a: [...spot.get(z)], els: [z] });
       if (callRing.classList.contains('on')) rides.push({ a: [+callRing.getAttribute('cx'), +callRing.getAttribute('cy')], els: [callEl, callLine, callRing] });
     }
     for (const r of rides) {
       r.d = at(r.a);
       const t = `${r.d[0].toFixed(2)}px ${r.d[1].toFixed(2)}px`;
-      for (const e of r.els) e.style.translate = t;
+      for (const e of r.els) { const p = spot.get(e); if (p) tr(e, p[0] + r.d[0], p[1] + r.d[1]); else e.style.translate = t; }
     }
   }
   function bakeRides() {
@@ -1395,8 +1402,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const [dx, dy] = d;
       if (dx || dy) moved = true;
       for (const e of els) {
-        e.style.translate = '';
-        if (e.style.left) { e.style.left = `${parseFloat(e.style.left) + dx}px`; e.style.top = `${parseFloat(e.style.top) + dy}px`; }
+        const p = spot.get(e);
+        if (p) put(e, p[0] + dx, p[1] + dy); else e.style.translate = '';
         for (const [a, v] of [['x1', dx], ['x2', dx], ['cx', dx], ['y1', dy], ['y2', dy], ['cy', dy]]) { const o = e.getAttribute?.(a); if (o != null) e.setAttribute(a, +o + v); }
       }
     }
@@ -1414,7 +1421,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!m) return false;
     const dx = +m[1], dy = +m[2];
     if (!dx && !dy) return false;
-    for (const e of labels.children) if (e.style.left) { e.style.left = `${parseFloat(e.style.left) + dx}px`; e.style.top = `${parseFloat(e.style.top) + dy}px`; }
+    for (const e of labels.children) { const p = spot.get(e); if (p) put(e, p[0] + dx, p[1] + dy); }
     for (const L of Object.values(labs)) L.gl = null;
     for (const e of leaders.children) for (const [a, d] of [['x1', dx], ['x2', dx], ['cx', dx], ['y1', dy], ['y2', dy], ['cy', dy]]) { const v = e.getAttribute(a); if (v != null) e.setAttribute(a, +v + d); }
     return true;
@@ -1670,7 +1677,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const isCore = (k) => CORE.includes(k) || named(k), outs = (s) => s.res.filter((r) => r.out && isCore(r.k)).length;
     const better = (p, q) => outs(p) < outs(q) || (outs(p) === outs(q) && p.total < q.total);
     if (sol.total >= 1e5 && !rough) {
-      const shown = { lead: callLead, prev: callPrev, cost: callCost, left: callEl.style.left, top: callEl.style.top, line: ['x1', 'y1', 'x2', 'y2'].map((k) => callLine.getAttribute(k)) };
+      const shown = { lead: callLead, prev: callPrev, cost: callCost, at: spot.get(callEl), line: ['x1', 'y1', 'x2', 'y2'].map((k) => callLine.getAttribute(k)) };
       let won = null;
       const core = items.filter((it) => isCore(it.k)), rest = items.filter((it) => !isCore(it.k));
       const coreFirst = () => {
@@ -1680,7 +1687,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const lead2 = placeCall(fr, pl2, cards, s1.ld, crosses, ring, hex, keep, into);
         if (callLead && callCost >= 1e6) return null;
         const s3 = solve(rest, pl2, lead2 ? [...s1.ld, lead2] : s1.ld);
-        return { res: [...s1.res, ...s3.res], total: s1.total + s3.total, lead: lead2, call: { prev: callPrev, cost: callCost, left: callEl.style.left, top: callEl.style.top, line: ['x1', 'y1', 'x2', 'y2'].map((k) => callLine.getAttribute(k)) } };
+        return { res: [...s1.res, ...s3.res], total: s1.total + s3.total, lead: lead2, call: { prev: callPrev, cost: callCost, at: spot.get(callEl), line: ['x1', 'y1', 'x2', 'y2'].map((k) => callLine.getAttribute(k)) } };
       };
       const pillFirst = () => {
         let s2 = solve(items, base, shown.lead ? [shown.lead] : []);
@@ -1703,7 +1710,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       }
       const c = won ? won.call : shown;
       if (won) callLead = won.lead;
-      callPrev = c.prev; callCost = c.cost; callEl.style.left = c.left; callEl.style.top = c.top;
+      callPrev = c.prev; callCost = c.cost; if (c.at) put(callEl, c.at[0], c.at[1]); else { spot.delete(callEl); callEl.style.translate = ''; }
       // (A line never drawn has no ends to put back: setting "null" logged an error per end on a small phone.)
       ['x1', 'y1', 'x2', 'y2'].forEach((k, i) => (c.line[i] == null ? callLine.removeAttribute(k) : callLine.setAttribute(k, c.line[i])));
     }
@@ -1728,7 +1735,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       L.el.dataset.at = `${r1(a[0])},${r1(a[1])}`;
       if (out) { if (L.peek) { L.el.hidden = true; L.el.classList.remove('edge'); } else fadeOut(L.el); leadOff(L); continue; }
       fadeIn(L.el);
-      L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
+      put(L.el, x - w / 2, y - hh / 2);
       noteAt(L);
       L.el.classList.remove('left');
       if (edge) { leadOff(L); continue; }
@@ -1776,7 +1783,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     let moving = false;
     // (Where each label is seen is worked out from its glide, seenAt: never read back from the page.)
     const now = tlNow();
-    const on = fade > 0 ? Object.values(labs).filter((L) => !gone(L.el) && L.el.style.left) : [];
+    const on = fade > 0 ? Object.values(labs).filter((L) => !gone(L.el) && spot.has(L.el)) : [];
     const inks = on.map((L) => { const [x, y] = seenAt(L, now), [w, hh] = labWH(L); return lettersOf(L, x, y, w, hh); });
     on.forEach((L, i) => {
       if (!L.a || L.el.classList.contains('edge') || L.dotEl.classList.contains('ld-gone')) return;
