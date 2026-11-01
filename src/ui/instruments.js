@@ -4,19 +4,19 @@
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
-import { pressureColor } from './colormap.js?v=6b3d7fc707';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=c7662eb248';
+import { pressureColor } from './colormap.js?v=e335f225fc';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=65ea7f9f65';
 import { simTime, isPaused } from './clock.js?v=16aba0e2eb';
-import { createEndoGL } from './endo-gl.js?v=2db5994c33';
-import { renderEndo } from './endo-render.js?v=9e2ef0c0e5';
+import { createEndoGL } from './endo-gl.js?v=35cb2ba66b';
+import { renderEndo } from './endo-render.js?v=6d5e276908';
 import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=3ef9727a43';
-import { drawScopeBleed } from './endo-bleed.js?v=2bb0197531';
+import { drawScopeBleed } from './endo-bleed.js?v=a98ece3574';
 import { poolFill } from './blood.js?v=82a8bfadac';
-import { FONT } from './charts.js?v=54894ac50a';
+import { FONT } from './charts.js?v=e8145ddcb3';
 import { store, updateParams, varicesPresent } from './store.js?v=4ef2a6ffd8';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
-import { lateFrameFor, cancelFrame, framePhase } from './frame.js?v=6692e20c1b';
+import { lateFrameFor, cancelFrame, framePhase } from './frame.js?v=15d5254a2c';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
 const drawFrame = lateFrameFor('instruments');
 

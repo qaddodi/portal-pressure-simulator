@@ -69,7 +69,7 @@
 
 import { TILE, SCALE, RATE } from './table-marks.js?v=ff3ed0cc47';
 import { HVPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { frameFor } from './frame.js?v=6692e20c1b';
+import { frameFor } from './frame.js?v=15d5254a2c';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { airRatio } from './endo-size.js?v=e0a58bf20e';
 import { NODES } from '../engine/topology.js?v=4044766e96';

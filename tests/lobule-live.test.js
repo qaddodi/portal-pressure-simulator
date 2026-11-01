@@ -598,8 +598,8 @@ test('with the shader covering the picture the bitmap is not painted ahead, not 
   // A gesture's zoom holds the bitmap at the sharpness it has; the GPU's frame needs no sharper. Once the hand lets go it is painted at the zoom's own.
   assert.match(lz, /if \(held && kept && \(!gpu \|\| sc <= worldSc \|\| bitmapUnseen\(\)\)\) \{ if \(hand && sc !== worldSc\) holdSoon\(\); sc = worldSc; \}/);
   // No crossfade into a bitmap nobody sees, in the page's paint and in the worker's landing; the 2D canvas (gpu false) keeps its crossfade.
-  assert.match(lz, /!unseen\(\) && !\(gpu && liveShare >= 1\) && worldGeo === G && worldCv\.width && !\(xfT0 && now - xfT0 < XF_MS\)\) \{ \[worldOld, worldCv\]/);
-  assert.match(lz, /!unseen\(\) && !\(tissueOnGL && liveShare >= 1\) && worldGeo === j\.G && worldCv\.width && !\(xfT0 && now - xfT0 < XF_MS\)\) \{ free\(worldOld\);/);
+  assert.match(lz, /!unseen\(\) && !\(gpu && liveShare >= 1\) && worldGeo === G && worldCv\.width && !\(xfT0 && xfNow\(now\) - xfT0 < XF_MS\)\) \{ \[worldOld, worldCv\]/);
+  assert.match(lz, /!unseen\(\) && !\(tissueOnGL && liveShare >= 1\) && worldGeo === j\.G && worldCv\.width && !\(xfT0 && xfNow\(now\) - xfT0 < XF_MS\)\) \{ free\(worldOld\);/);
   // What stays, and why: the 2D canvas path asks for the bitmap at the zoom's own sharpness whatever the shader does, because the dive's and the rise's
   // copies (paint2D, and buildWide's tiles) are made from it, and a bitmap that is not there is painted on the page, which is what the worker took off it.
   const pt = lz.slice(lz.indexOf('function paintTissue('), lz.indexOf('\n  }\n', lz.indexOf('function paintTissue(')));

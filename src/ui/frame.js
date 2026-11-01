@@ -53,6 +53,7 @@ gpuProbe.part = framePart;
 
 function flush(now) {
   pending = 0;
+  paceStep();
   current = queue;
   queue = new Map();   // asked for while running: the next frame, as with requestAnimationFrame
   frames++; allFrames++;
@@ -137,6 +138,55 @@ export function cancelFrame(id) {
 
 /** Where the scheduler is now: 'early' (the frame's first callbacks), 'late', 'final', or null (outside a frame). A surface asked to
  *  draw while the early ones run can leave it to its own late callback, which still runs in this frame, and so draw once in it. */
+// ── The eases' clock (1 Nov 2026, Mohammad: "the cards start popping in instead of smoothing in eased") ──
+// An ease timed by the wall clock jumps over a long frame: a 900 ms crossfade begun just before a 400 ms frame shows its first half
+// in one step, and a zoom leaps ahead by the frame's length. easeNow() runs with the wall clock while frames come promptly, and
+// moves on by at most PACE_CAP ms (or twice the usual interval, see paceStep) from one frame to the next, so after a long frame an ease timed by it carries on from where the
+// screen last showed it instead of landing past it. The total time runs a little longer by what the long frames held back. Monotonic,
+// in performance.now()'s timebase while nothing has been held back. ?paced=0: the wall clock itself, as before.
+export const PACE_CAP = 50;
+export const PACED = !(typeof location !== 'undefined' && /[?&]paced=0\b/.test(location.search || ''));
+// (Only a frame long against the ones before it is held back: the cap is twice the usual interval of the last frames that ran one
+// after another, PACE_CAP at least and PACE_MAX at most, so a device that draws a slow scene at 10 frames a second keeps its eases at
+// their own speed, and only its sudden long frames are smoothed over.)
+export const PACE_MAX = 1000;   // (a software renderer's frames, a second apart, run at their own speed)
+let paceReal = 0, paceBase = 0, paceCap = PACE_CAP;
+const paceGaps = [];
+const wall = () => performance.now();
+function paceStep() {
+  const t = wall();
+  if (!paceReal) { paceReal = paceBase = t; return; }
+  const gap = Math.max(0, t - paceReal);
+  paceBase += Math.min(gap, paceCap); paceReal = t;
+  if (chained) {
+    paceGaps.push(gap); if (paceGaps.length > 9) paceGaps.shift();
+    const m = [...paceGaps].sort((a, b) => a - b)[paceGaps.length >> 1];
+    paceCap = Math.min(PACE_MAX, Math.max(PACE_CAP, 2 * m));
+  }
+}
+/** The eases' clock (ms): performance.now() while frames come promptly, held to PACE_CAP ms of progress from frame to frame. */
+export function easeNow() {
+  if (!PACED) return wall();
+  const t = wall();
+  if (!paceReal) { paceReal = paceBase = t; return t; }
+  if (current || lateNow || finalNow) return paceBase;   // (one time for every surface in a frame, as the frame's timestamp is)
+  return paceBase + Math.min(Math.max(0, t - paceReal), paceCap);
+}
+// A move on screen that a long frame would spoil (the slide's cards fading in, a dive landing): work that can wait (a sharper
+// picture painted ahead, the anatomy's raster under the lobule, the lobule's preparation pieces) waits until it is over.
+let holdUntil = 0;
+/** Keeps deferrable work out of the next `ms` (the longest of the holds asked for wins). */
+export function holdMotion(ms) { if (PACED) holdUntil = Math.max(holdUntil, wall() + ms); }
+/** True while a move asked to be left alone (holdMotion). */
+export const inMotion = () => wall() < holdUntil;
+/** Calls fn once no move holds the page (polled with timers, never a frame loop); returns a cancel. */
+export function afterMotion(fn, poll = 60) {
+  let t = 0, dead = false;
+  const go = () => { t = 0; if (dead) return; if (inMotion()) t = setTimeout(go, Math.max(poll, holdUntil - wall())); else fn(); };
+  go();
+  return () => { dead = true; clearTimeout(t); };
+}
+
 export const framePhase = () => (finalNow ? 'final' : lateNow ? 'late' : current ? 'early' : null);
 
 export const frameFor = (tag) => (cb) => frame(cb, tag);

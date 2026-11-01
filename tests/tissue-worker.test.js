@@ -199,7 +199,7 @@ test('in the view: the worker paints only on the GPU with a bitmap to show meanw
 
 test('in the view: a bitmap from the worker takes over as one painted on the page does', () => {
   const ad = fn('function adopt(j, cv) {');
-  assert.match(ad, /if \(worldState && j\.ws !== worldState && !unseen\(\) && !\(tissueOnGL && liveShare >= 1\) && worldGeo === j\.G && worldCv\.width && !\(xfT0 && now - xfT0 < XF_MS\)\) \{ free\(worldOld\); worldOld = worldCv; worldOldSc = worldSc; xfT0 = now; \}\n\s+else free\(worldCv\);\n\s+worldCv = cv;/, 'the same crossfade, from the picture shown (unless the shader has the whole picture)');
+  assert.match(ad, /if \(worldState && j\.ws !== worldState && !unseen\(\) && !\(tissueOnGL && liveShare >= 1\) && worldGeo === j\.G && worldCv\.width && !\(xfT0 && xfNow\(now\) - xfT0 < XF_MS\)\) \{ free\(worldOld\); worldOld = worldCv; worldOldSc = worldSc; xfT0 = xfNow\(now\); \}\n\s+else free\(worldCv\);\n\s+worldCv = cv;/, 'the same crossfade, from the picture shown (unless the shader has the whole picture)');
   assert.match(ad, /worldKey = j\.wk; worldState = j\.ws; worldSc = j\.sc; worldGeo = j\.G; worldDraws\+\+; worldSeq\+\+;/);
   assert.match(ad, /free\(spareCv\); spareCv = cv; spare = \{ sc: j\.sc, ws: j\.ws, G: j\.G \};/);
   assert.match(ad, /tissueGL\?\.sweep\(\);\n\s+wake\(\);/, 'the replaced picture\'s texture goes, and the lobule draws again');

@@ -19,30 +19,30 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=592e3b5cd9';
+import { runFlick, FLICK } from './flick.js?v=b4fb13bd3d';
 import { store } from './store.js?v=4ef2a6ffd8';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=29b6c0ba84';
+import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=582106de44';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL } from './field-gl.js?v=943ee36ec4';
 import { createTissueGL } from './tissue-gl.js?v=9f896f17a8';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=624ae21d7d';
-import { createTissueWorker } from './tissue-worker.js?v=8430b3330d';
+import { createTissueWorker } from './tissue-worker.js?v=9c1671fe4c';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=c7662eb248';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=6b3d7fc707';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=65ea7f9f65';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=e335f225fc';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=bb5d4afd68';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=95816cb9fb';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=82a8bfadac';
-import { createSinusoidView } from './sinusoid-view.js?v=bb414a9c63';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, framePart } from './frame.js?v=6692e20c1b';
-import { createGlassGL } from './glass-gl.js?v=b76d0cb615';
+import { createSinusoidView } from './sinusoid-view.js?v=1328ce485d';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, framePart, easeNow, inMotion, PACED } from './frame.js?v=15d5254a2c';
+import { createGlassGL } from './glass-gl.js?v=8a4c8e11ef';
 import { pillOf, pillLabels, pillHold } from './lz-pills.js?v=bafcf3977d';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=5a45bcbf9a';
+import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=53caf25b27';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { easeMove, carryRate, carried, D_SMALL, D_SURFACE } from './ease.js?v=615d96d663';
@@ -580,7 +580,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const XF_MS = 900;   // as long as the vessels' calibers take to settle (easeRadii, τ 0.3 s)
   let worldOld = document.createElement('canvas'), xfCv = document.createElement('canvas'), worldOldSc = 0, worldState = '', xfT0 = 0, surNow = null, surOld = null, surT0 = 0;
   const xfU = (t0, now) => { const u = Math.min(1, Math.max(0, (now - t0) / XF_MS)); return u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2; };
-  const tissueFading = (now = performance.now()) => (xfT0 > 0 && now - xfT0 < XF_MS) || (surT0 > 0 && now - surT0 < XF_MS);
+  // (The crossfades run on the eases' clock, frame.js easeNow: a long frame as a new picture comes in, its texture going up, holds the fade
+  // back rather than eating its first half. ?paced=0: the wall clock, as before.)
+  const xfNow = (now) => (PACED ? easeNow() : now);
+  const tissueFading = (now = performance.now()) => { const n = xfNow(now); return (xfT0 > 0 && n - xfT0 < XF_MS) || (surT0 > 0 && n - surT0 < XF_MS); };
   const tubeData = new Float32Array(MAXT * TUBE_TEXELS * 4), flowData = new Float32Array(MAXT * FLOW_TEXELS * 4);
   // The vessel attributes as last sent (tubeShown), the rows changed since the vessel layer was drawn (glRows), and the
   // look it was drawn with (glLook): a redraw of only those rows' cells stands in for a whole one (veins-gl drawRows).
@@ -2024,7 +2027,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (surroundGrade, in the shaders and the 2D passes), so a lens switch needs no new tiles.
   const grey = { k: 0, from: 0, to: 0, t0: 0 };
   const surroundSeen = () => !unseen() || fieldOp > 0.002;
-  const greyNow = (now = performance.now()) => greyStep(grey, isGreyLens(lensModeOf(store.get())) ? 1 : 0, now, LENS_FADE, !surroundSeen() || reduce.matches);
+  const greyNow = (now = performance.now()) => greyStep(grey, isGreyLens(lensModeOf(store.get())) ? 1 : 0, PACED ? easeNow() : now, LENS_FADE, !surroundSeen() || reduce.matches);
   const greyMoving = () => { greyNow(); return grey.k !== grey.to; };
   // (colour-exempt: a grey for the saturation blend drains colour, it is not a colour. The organs' grey, then the page's colour over it.)
   function fieldGrey(c, bg, [sat, dim], w, h) {
@@ -2584,13 +2587,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (lensMode !== null && M !== lensMode && fade > 0.98 && !reduce.matches) {
       // (A switch mid-fade starts from the colour now shown: near the end it is the new lens, otherwise the one it left.)
       if (!lensFrom || lensK() >= 0.5) lensFrom = lensMode;
-      lensT0 = performance.now();
+      lensT0 = PACED ? easeNow() : performance.now();   // (the eases' clock, frame.js easeNow, as the tissue's crossfades)
     } else if (fade <= 0.98) lensFrom = null;
     lensMode = M;
   }
   function lensK() {
     if (!lensFrom) return 1;
-    const u = (performance.now() - lensT0) / LENS_FADE;
+    const u = ((PACED ? easeNow() : performance.now()) - lensT0) / LENS_FADE;
     if (u >= 1 || lensFrom === model.mode) { lensFrom = null; return 1; }
     return easeMove(u);
   }
@@ -2786,7 +2789,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     spareT = 0;
     const g = tissueGLOn(), G = geo, m = model;
     if (!g || !G || !m || fade < 0.98 || diveScaled || sinU > 0 || worldGeo !== G || !tissueOnGL) return;
-    if (handOn() || gliding) { spareSoon(); return; }
+    if (handOn() || gliding || inMotion()) { spareSoon(); return; }   // (inMotion: not while a slide's cards come in, frame.js holdMotion)
     // (Twice the zoom's own sharpness, stepped as paintTissue steps it, within the bitmap's largest size.)
     const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), cap = worldCap(G, dpr);
     const dark = isDark(), cs = styles(), ws = worldStateOf(m, G, dark, cs), sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2) * 2, cap);
@@ -2932,7 +2935,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (The old picture stays under the new one as it fades in; a change while one is fading in replaces the incoming picture and
       // lets the fade run on.)
       const now = performance.now();
-      if (worldState && j.ws !== worldState && !unseen() && !(tissueOnGL && liveShare >= 1) && worldGeo === j.G && worldCv.width && !(xfT0 && now - xfT0 < XF_MS)) { free(worldOld); worldOld = worldCv; worldOldSc = worldSc; xfT0 = now; }
+      if (worldState && j.ws !== worldState && !unseen() && !(tissueOnGL && liveShare >= 1) && worldGeo === j.G && worldCv.width && !(xfT0 && xfNow(now) - xfT0 < XF_MS)) { free(worldOld); worldOld = worldCv; worldOldSc = worldSc; xfT0 = xfNow(now); }
       else free(worldCv);
       worldCv = cv;
       worldKey = j.wk; worldState = j.ws; worldSc = j.sc; worldGeo = j.G; worldDraws++; worldSeq++;
@@ -2970,17 +2973,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const ta = fieldTile(cs, dark, FIELD_RS[a], !unseen()), tb = b !== a && mix > 0 ? fieldTile(cs, dark, FIELD_RS[b], !unseen()) : null;
     const qa = quietTile(ta, tone), qb = tb ? quietTile(tb, tone) : null;
     // (A new state's tiles fade in over the last state's, as on the 2D canvas.)
-    if (surNow && ta.set !== surNow.set && surNow.q.cv?.width && !unseen()) { surOld = surNow.q; surT0 = now; }
+    if (surNow && ta.set !== surNow.set && surNow.q.cv?.width && !unseen()) { surOld = surNow.q; surT0 = xfNow(now); }
     surNow = { set: ta.set, q: qa };
-    const su = surT0 ? xfU(surT0, now) : 1;
+    const su = surT0 ? xfU(surT0, xfNow(now)) : 1;
     if (su >= 1) { surT0 = 0; surOld = null; }
-    const crossfading = !!(xfT0 && now - xfT0 < XF_MS && worldOld.width && worldOldSc);
+    const crossfading = !!(xfT0 && xfNow(now) - xfT0 < XF_MS && worldOld.width && worldOldSc);
     const [sx, sy] = toScreen([cx - B, cy - B]);
     // (The lobule's bitmap sent first, as its own piece for the frame-time gate: draw would send it the same way, a no-op after.)
     framePart('lz.texUpload', () => tg.upload(worldCv, worldCv.ver || 0));
     const ok = framePart('lz.tissueGL', () => tg.draw({
       W: tw, H: th, qa: qa.cv, qb: qb?.cv, mix: tb ? mix : 0, qo: surOld?.cv?.width ? surOld.cv : null, qOld: surOld ? 1 - su : 0,
-      w: worldCv, wVer: worldCv.ver || 0, wo: crossfading ? worldOld : null, woVer: worldOld.ver || 0, wMix: crossfading ? xfU(xfT0, now) : 1,
+      w: worldCv, wVer: worldCv.ver || 0, wo: crossfading ? worldOld : null, woVer: worldOld.ver || 0, wMix: crossfading ? xfU(xfT0, xfNow(now)) : 1,
       rect: [sx * dpr, sy * dpr, 2 * B * V.k * dpr], ox, oy, rd, fade: [fIn, fOut], mid: FADE_MID, bg: tone, grey: grey.k > 0 ? surroundGrade(grey.k) : null, live: liveArgs(dark, cs),
     }));
     if (!ok) return false;
@@ -3024,7 +3027,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const wk = sc.toFixed(3) + '|' + ws;
     const now = performance.now(), fading = tissueFading(now), gk = greyNow(now);   // (gk: the surround's grey, easing with the lens)
     const lk = gpu ? liveStep(dpr, now) : 0;   // (the share of the lobule drawn live by the shader)
-    const key = [W, H, dpr, wk, gpu, fading ? `${xfU(xfT0, now).toFixed(3)},${xfU(surT0, now).toFixed(3)}` : '', flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', lk > 0 ? lk.toFixed(3) + ',' + m.congU.toFixed(3) : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1), gk.toFixed(3)].join('|');
+    const key = [W, H, dpr, wk, gpu, fading ? `${xfU(xfT0, xfNow(now)).toFixed(3)},${xfU(surT0, xfNow(now)).toFixed(3)}` : '', flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', lk > 0 ? lk.toFixed(3) + ',' + m.congU.toFixed(3) : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1), gk.toFixed(3)].join('|');
     if (key === tissueKey) return gpu;
     tissueKey = key; tissueVer++; tissueCss = [W, H];
     const tw = canvasPx(W, dpr), th = canvasPx(H, dpr);
@@ -3042,7 +3045,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (Not while the shader has the whole picture, as in adopt: the bitmap is painted again in place.)
       // (A change while one is fading in redraws the incoming picture in place and lets the fade run on, so a state that keeps
       // moving, as the pressures glide after a new patient, never restarts it.)
-      if (worldState && ws !== worldState && !unseen() && !(gpu && liveShare >= 1) && worldGeo === G && worldCv.width && !(xfT0 && now - xfT0 < XF_MS)) { [worldOld, worldCv] = [worldCv, worldOld]; worldOldSc = worldSc; xfT0 = now; }
+      if (worldState && ws !== worldState && !unseen() && !(gpu && liveShare >= 1) && worldGeo === G && worldCv.width && !(xfT0 && xfNow(now) - xfT0 < XF_MS)) { [worldOld, worldCv] = [worldCv, worldOld]; worldOldSc = worldSc; xfT0 = xfNow(now); }
       // (For the ?perf readout: why, and how large, gpu-probe.js TISSUE_WHY.)
       if (gpuProbe.on) gpuProbe.note(COUNTED.tissueWhy + (!worldState || worldGeo !== G ? 'first' : ws !== worldState ? 'state changed' : sc > worldSc ? 'zoomed in' : 'zoomed out'), Math.ceil(2.6 * R * sc) ** 2 * 4 / 1024);
       worldKey = wk; worldState = ws;
@@ -3065,7 +3068,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.fillStyle = bg;
     if (reach > fOut + 1) { c.beginPath(); c.rect(0, 0, tw, th); c.moveTo(ox + fOut + 1, oy); c.arc(ox, oy, fOut + 1, 0, TAU); c.fill('evenodd'); }
-    const crossfading = !!(xfT0 && now - xfT0 < XF_MS && worldOld.width && worldOldSc);
+    const crossfading = !!(xfT0 && xfNow(now) - xfT0 < XF_MS && worldOld.width && worldOldSc);
     // The neighbours are the dive's field, carried on: the same tissue, in the same state, fading into
     // the page with distance from this lobule, never wholly before the screen's edge (fadeOuter, lobule-look.js).
     {
@@ -3088,9 +3091,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (!held) surRd = rd * 0.55;
       const t = fieldTile(cs, dark, want, !unseen()), q = quietTile(t, shadeOf(rgb01(bg), dark));
       // (A new state's tiles fade in over the last state's; a new size of the same state just takes over: the same picture.)
-      if (surNow && t.set !== surNow.set && surNow.q.cv?.width && !unseen()) { surOld = surNow.q; surT0 = now; }
+      if (surNow && t.set !== surNow.set && surNow.q.cv?.width && !unseen()) { surOld = surNow.q; surT0 = xfNow(now); }
       surNow = { set: t.set, q };
-      const su = surT0 ? xfU(surT0, now) : 1;
+      const su = surT0 ? xfU(surT0, xfNow(now)) : 1;
       if (su >= 1) { surT0 = 0; surOld = null; }
       fieldFill(c, q, sx * dpr, sy * dpr, rd, W * dpr, H * dpr);   // half resolution is plenty for the quiet surround
       if (surOld?.cv?.width) { c.globalAlpha = 1 - su; fieldFill(c, surOld, sx * dpr, sy * dpr, rd, W * dpr, H * dpr); c.globalAlpha = 1; }
@@ -3102,10 +3105,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     c.setTransform(1, 0, 0, 1, 0, 0);
     {
       const [sx, sy] = toScreen([bx, by]), side = 2 * B * V.k * dpr;
-      if (xfT0 && now - xfT0 < XF_MS && worldOld.width && worldOldSc) {
+      if (xfT0 && xfNow(now) - xfT0 < XF_MS && worldOld.width && worldOldSc) {
         // Mixed (1 − u)·old + u·new before it is laid on the field: drawn one over the other, the see-through rim (the soft
         // outer collagen past the lobule's edge) grew denser mid-fade and dropped back after, so it pulsed at every redraw.
-        const u = xfU(xfT0, now), x = xfCv.getContext('2d'), n = worldCv.width;
+        const u = xfU(xfT0, xfNow(now)), x = xfCv.getContext('2d'), n = worldCv.width;
         if (xfCv.width !== n || xfCv.height !== worldCv.height) { xfCv.width = n; xfCv.height = worldCv.height; }
         x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'copy'; x.globalAlpha = 1 - u; x.drawImage(worldOld, 0, 0, n, xfCv.height);
         x.globalCompositeOperation = 'lighter'; x.globalAlpha = u; x.drawImage(worldCv, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
@@ -3701,10 +3704,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!raf && fade > 0) raf = nextFrame(loop);
     // (Lite mode: no zoom into or out of the sinusoid; it fades in.)
     const from = sinU, ms = (reduce.matches ? 280 : on ? 1150 : 950) * Math.abs(to - from);
-    const t0 = performance.now();
+    // (On the eases' clock, frame.js easeNow: a long frame holds the zoom back rather than letting it leap.)
+    const t0 = PACED ? easeNow() : performance.now();
     cancelFrame(sinRaf);
     const step = (now) => {
-      const t = ms > 0 ? clamp((now - t0) / ms, 0, 1) : 1;
+      const t = ms > 0 ? clamp(((PACED ? easeNow() : now) - t0) / ms, 0, 1) : 1;
       sinU = lerp(from, to, t); placeSinusoid();
       if (t < 1) sinRaf = nextFrame(step);
       else if (!on) { sinDive = null; drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); if (refitLater) refit(); }
@@ -3860,7 +3864,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     /** For the checks: the spot at the middle of the free space (lobule radii from its centre) and the zoom against the framing. */
     spot: () => (geo ? viewSpot() : null),
     /** For the checks: a "Colored by" crossfade is under way (0 … 1 through it), or null. */
-    lensFade: () => (lensFrom ? Math.min(1, (performance.now() - lensT0) / LENS_FADE) : null),
+    lensFade: () => (lensFrom ? Math.min(1, ((PACED ? easeNow() : performance.now()) - lensT0) / LENS_FADE) : null),
     /** For the checks: bytes held in the lobule's bitmaps (its canvases, world bitmap and field tiles). */
     memBytes(detail = false) {
       const b = (cv) => (cv ? cv.width * cv.height * 4 : 0);

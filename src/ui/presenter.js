@@ -16,9 +16,9 @@
 import { store, replaceParams } from './store.js?v=4ef2a6ffd8';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=c7662eb248';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=65ea7f9f65';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=572d5252be';
+import { liveText, wordsOf } from './live-text.js?v=d51b844004';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
@@ -29,30 +29,30 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=b5f5cad028';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=6426d547c7';
-import { createTools } from './presenter-tools.js?v=5a12afdb70';
+import { createHvpgMonitor } from './hvpg-proc.js?v=6de83d47fb';
+import { createTools } from './presenter-tools.js?v=6af775249a';
 import { openHandout } from './handout.js?v=492f217fcb';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js?v=ff3ed0cc47';
-import { frameFor, cancelFrame } from './frame.js?v=6692e20c1b';
-import { createFigureKey } from './figure-key.js?v=a52319283f';
+import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=15d5254a2c';
+import { createFigureKey } from './figure-key.js?v=5c3b74621a';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=6b3d7fc707';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=c08c67f08d';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=e335f225fc';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=224be1439c';
 import { clotWords } from './callout-math.js?v=97fde9fc5b';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=110bfc574f';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=d4445134df';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=2370f85c72';
+import { anchorsOf, roomFor } from './cam-room.js?v=e0effd9d12';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
-import { flowTimeHeight, trailKeys } from './flow-time.js?v=0e88a9ae8d';
-import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=ade11d5acb';
+import { flowTimeHeight, trailKeys } from './flow-time.js?v=447c3f6bb9';
+import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=424928e1b2';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=b2bbcb6fb2';
 import { sheetPanes } from './sheet-glass.js?v=770c926c2c';
-import { createScopeTile } from './scope-tile.js?v=fb8bd097dc';
+import { createScopeTile } from './scope-tile.js?v=5f2fb9fd0f';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
 const nextFrame = frameFor('presenter');
@@ -85,8 +85,10 @@ const painted = () => new Promise((r) => { const t = setTimeout(r, 100); nextFra
  *  one begun just before a long frame (a new organ picture, a lens repainting the figure) is over when that frame lands, and the
  *  card seems to pop. Begun once the frames come smoothly, it is seen whole. */
 async function smooth(cut, ms = 700) {
-  const t0 = performance.now(); await painted(); let last = performance.now();
-  while (!cut() && performance.now() - t0 < ms) { await painted(); const t = performance.now(); if (t - last < 40) return; last = t; }
+  // (Two prompt frames in a row since 1 Nov 2026: one alone was often the gap between two long ones. ?paced=0: one, as before.)
+  const need = PACED ? 2 : 1;
+  const t0 = performance.now(); await painted(); let last = performance.now(), run = 0;
+  while (!cut() && performance.now() - t0 < ms) { await painted(); const t = performance.now(); run = t - last < 40 ? run + 1 : 0; if (run >= need) return; last = t; }
 }
 const LOBULE_CAM = /^(lobule|sinusoid)/;
 
@@ -2092,7 +2094,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (at: the slide coming in. Its last layout, here while it is still unseen, keys the words' lock, so the size the cards come in
   // at is the size they keep: keyed only once the slide was shown, the passes while the cards eased in measured afresh, and on a
   // tight iPad a reading settling or a chart lettered stepped the title or folded the ladder, so the card came in and then snapped.)
-  function cardsIn(at) { if (ui) { if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
+  // (While they fade in, the work that can wait does: frame.js holdMotion, the delay and the fade, app.css .pz-text.pz-enter.)
+  function cardsIn(at) { if (ui) { if (!reduce.matches) holdMotion(D_SURFACE + 220); if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
   // The last refits that used to run as the cards came in (a ladder's strip given back its plot, the charts lettered again, the
   // layout their new sizes call for, a frame later) run while the cards are still unseen, so they come in at their final size and
   // never snap to it in view (an upright iPad's teaching card did). cardsIn's own reFit then finds nothing left to change.
