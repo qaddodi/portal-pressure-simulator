@@ -34,7 +34,7 @@ test('the surfaces list is read only by the ?perf readout, never by a frame', ()
     assert.doesNotMatch(src(`src/ui/${f}`), /surfaceRows\(/, `${f} reads the surfaces list`);
   }
   const pr = src('src/ui/perf-readout.js');
-  assert.match(pr, /setInterval\(\(\) => \{ if \(!cur && !folded\) paintSurf\(\); \}, 500\);/);
+  assert.match(pr, /setInterval\(\(\) => \{ if \(!cur && !folded && !document\.hidden\) paintSurf\(\); \}, 500\);/);
   assert.match(pr, /cur\.paths = surfaceRows\(\);/);
   // (Every GPU surface of the figure, the lobule and the instruments says where it draws.)
   const names = [['stage.js', ['figure canvas', 'vessels and blood', 'organs', 'overlays (stents, balloons, catheter, guides)', 'labels', 'callout glass', 'liver label pane glass', 'card glass']],
