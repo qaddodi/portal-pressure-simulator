@@ -17,6 +17,14 @@ import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=bb8f7eca29';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=d90ea8acf6';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=fc509dabe4';
+import { trackOf, trackAt, mixColour } from './label-track.js?v=56dc51edb3';
+
+// (1 Nov 2026, the GPU motion review.) ?labeltrack=0: a label's or a leader's fade or colour ease is read from the page on every frame of it,
+// as before (label-track.js). ?holecache=0: the glasses' holes read the canvas's place on the page at every picture and draw a callout's
+// mask as its shape changes, in the frame, as before. ?atlasidle=0: a full atlas is packed again at once, mid-move, and its second page
+// made only when a picture first needs it, as before.
+const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
+const TRACK = !/[?&]labeltrack=0\b/.test(SEARCH), HOLE_CACHE = !/[?&]holecache=0\b/.test(SEARCH), ATLAS_IDLE = !/[?&]atlasidle=0\b/.test(SEARCH);
 
 const nextFrame = frameFor('labels-gl');
 const VS = `#version 300 es
@@ -437,10 +445,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (A Map that only ever lengthens a label's time: a short event's 700 ms never cuts a held fade's longer one, e.g. a step's number waiting for its turn.)
   class Until extends Map { set(k, t) { return super.set(k, Math.max(t, this.get(k) || 0)); } }
   const live = new Until();          // group → until (ms): a fade, an ease or a hover is running, its look read each frame
+  // (Of those, the ones read from the page each frame even with TRACK: a hover, a focus, the theme or a mode changing, whose look can change
+  // through what no animation of the label's own shows. The rest, its own CSS fades and colour eases and script fades, are followed: label-track.js.)
+  const exact = new Until();
   const dirty = new Set();
   const scratch = document.createElement('canvas');
   // The label layer's inline style (the dive's zoom and fade, its visibility) is the canvas's too; its classes' rules are in app.css.
-  const copyStyle = () => { const w = canvas.style.width, h = canvas.style.height; canvas.style.cssText = svg.style.cssText; canvas.style.width = w; canvas.style.height = h; };
+  const copyStyle = () => { const w = canvas.style.width, h = canvas.style.height; canvas.style.cssText = svg.style.cssText; canvas.style.width = w; canvas.style.height = h; holeCr = null; };
   if (!host) new MutationObserver(copyStyle).observe(svg, { attributes: true, attributeFilter: ['style'] });
   // (Host mode: the layer's own fade or visibility changed (the dive's, a camera move's): whether the labels may be drawn over the
   // figure is asked again, at the next picture, and when its fade ends, so they come back onto the GPU once it has settled.)
@@ -458,7 +469,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const mo = new MutationObserver((rs) => { take(rs); if (dirty.size) ask(); });
   mo.observe(blocks, { subtree: true, childList: true, characterData: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'x', 'y', 'dx', 'width', 'height', 'rx', 'fill', 'font-size', 'font-weight', 'letter-spacing', 'text-anchor'] });
   // Anything outside them that can change how they look (the theme, the glass setting, the text size, a mode's class): every label.
-  const all = () => { for (const s of last) { dirty.add(s.g); live.set(s.g, performance.now() + 700); } allMarks(); ask(); };
+  const all = () => { const t = performance.now() + 700; for (const s of last) { dirty.add(s.g); live.set(s.g, t); exact.set(s.g, t); } allMarks(); ask(); };
   // (Not for a gesture's own classes, which change no label's look (idle-keys.js GESTURE_LOOK): each one made every label and mark read
   // again on every frame for 0.7 s as a pan or pinch began and as it ended. 30 Oct, review G3.)
   const outer = new MutationObserver((rs) => { if (rs.some((r) => changed(r) && !classOnly(r, GESTURE_LOOK))) all(); });
@@ -466,17 +477,18 @@ void main() { o = texture(uT, vUV) * uA; }`;
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', all);
   addEventListener('pps:labelscale', all);   // (the text size: --label-k on the page)
   // A CSS fade or colour ease, a hover (its colour comes with no class), a focus: that label is read each frame till it ends.
-  const hold = (ev, ms = 700) => { const g = labelOf(ev.target); if (g) { dirty.add(g); live.set(g, performance.now() + ms); ask(); } };
+  const EXACT = new Set(['pointerover', 'pointerout', 'focusin', 'focusout']);
+  const hold = (ev, ms = 700) => { const g = labelOf(ev.target); if (g) { dirty.add(g); const t = performance.now() + ms; live.set(g, t); if (!TRACK || EXACT.has(ev.type)) exact.set(g, t); ask(); } };
   for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel', 'pointerover', 'pointerout', 'focusin', 'focusout']) blocks.addEventListener(t, (ev) => hold(ev), true);
   // The leaders and their dots (marks: their layers, the leaders' and the FibroScan callout's): read as the labels are.
-  const looks = new WeakMap(), markLive = new Until(), markDirty = new Set();
+  const looks = new WeakMap(), markLive = new Until(), markDirty = new Set(), markExact = new Until();
   const markOf = (n) => { const el = n.nodeType === 1 ? n : n.parentElement; return marks.includes(el) ? el : marks.includes(el?.parentElement) ? el : null; };
   const mmo = new MutationObserver((rs) => { for (const r of rs) { if (!changed(r)) continue; const el = markOf(r.target); if (el) markDirty.add(el); } ask(); });
   for (const root of marks) {
     mmo.observe(root, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style'] });
     for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel']) root.addEventListener(t, (ev) => { const el = markOf(ev.target); if (el) { markDirty.add(el); markLive.set(el, performance.now() + 800); ask(); } }, true);
   }
-  const allMarks = () => { const t = performance.now() + 700; for (const root of marks) { markDirty.add(root); markLive.set(root, t); for (const el of root.children) { markDirty.add(el); markLive.set(el, t); } } };
+  const allMarks = () => { const t = performance.now() + 700; for (const root of marks) { markDirty.add(root); markLive.set(root, t); markExact.set(root, t); for (const el of root.children) { markDirty.add(el); markLive.set(el, t); markExact.set(el, t); } } };
   canvas.addEventListener('webglcontextlost', (e) => {
     e.preventDefault(); lost = true;
     for (const s of last) s.g.removeAttribute('data-gl');
@@ -519,7 +531,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     for (const s of last) dirty.add(s.g);
     return true;
   }
-  new ResizeObserver(() => { if (size()) ask(); }).observe(svg.parentElement);
+  // (Its callback runs once the page is laid out: the canvas's place read there costs no extra layout.)
+  new ResizeObserver(() => { if (!host && HOLE_CACHE && holes.length) holeCr = canvas.getBoundingClientRect(); else holeCr = null; if (size()) ask(); }).observe(svg.parentElement);
   matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener?.('change', () => { size(); ask(); });
   size();
   function ask() {
@@ -545,10 +558,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
   }
   // A label's state, read again when its look may have changed: 'gl' (its picture, drawn again only when its look changed), 'svg'
   // (the SVG draws it) or 'none' (it shows nothing).
-  function refresh(g, rot) {
+  function refresh(g, rot, given = null) {
     let st = sprites.get(g);
     if (!st) { st = { mode: 'none', key: '', slot: null }; sprites.set(g, st); }
-    const d = describeBlock(g);
+    const d = given || describeBlock(g);
     st.mode = !d ? 'none' : svgOnly(d) ? 'svg' : 'gl';
     if (st.mode !== 'gl') return st;
     const key = lookKey(d, rot, dpr);
@@ -567,12 +580,56 @@ void main() { o = texture(uT, vUV) * uA; }`;
     st.opacity = d.opacity;
     return st;
   }
+  // A label whose animations are followed (TRACK): they are read once here (getAnimations: keyframes, timing, easing), with its look, and
+  // each frame after works out its opacity and its colours from them, reading nothing (label-track.js). Its look is described with each
+  // eased colour as a token, filled in per frame (fillLook). One that cannot be followed exactly is read each frame, as before (trk false).
+  const TOK = '\u0001';
+  const paintOk = (g) => (el) => (el.tagName === 'rect' && el.parentElement === g) || (el.tagName === 'tspan' && el.parentElement?.tagName === 'text' && el.parentElement.parentElement === g);
+  function capture(g, rot, now) {
+    let m;
+    try { m = trackOf(g.getAnimations({ subtree: true }), g, paintOk(g), now); } catch { m = null; }
+    let st;
+    if (m?.paint) {
+      const pairs = m.paint.pairs;
+      const cs = (el) => {
+        const c = getComputedStyle(el), mine = [];
+        pairs.forEach((q, i) => { if (q.el === el) mine.push([q.prop, TOK + i]); });
+        return mine.length ? new Proxy(c, { get: (o, k) => { const hit = mine.find((x) => x[0] === k); return hit ? hit[1] : o[k]; } }) : c;
+      };
+      const base = describeBlock(g, cs);
+      if (base && !base.svg && base.parts) {
+        m.base = base; m.w = trackAt(m, now).w;
+        st = refresh(g, rot, fillLook(m, m.w));
+      } else m = null;
+    }
+    if (!st) st = refresh(g, rot);
+    if (!m || st.mode !== 'gl') { st.trk = false; return st; }
+    if (m.end <= now) m.ended = true;
+    st.trk = m;
+    return st;
+  }
+  function fillLook(m, w) {
+    const { pairs } = m.paint;
+    const sub = (v) => { if (typeof v !== 'string' || v[0] !== TOK) return v; const q = pairs[+v.slice(1)], c = mixColour(q.from, q.to, w); return none(c) ? '' : c; };
+    return { ...m.base, parts: m.base.parts.map((p) => (p.k === 'rect' ? { ...p, fill: sub(p.fill), stroke: sub(p.stroke) } : { ...p, runs: p.runs.map((r) => ({ ...r, fill: sub(r.fill), stroke: sub(r.stroke) })) })) };
+  }
   // The pages were full: every picture is given back and drawn again, packed afresh (at most one such frame in a while).
   function repack() {
     needRepack = false;
     packer.reset(); outgoing = [];
     for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
     ask();
+  }
+  let reserveT = 0;
+  function reserve() {
+    if (reserveT) return;
+    reserveT = setTimeout(() => {
+      reserveT = 0;
+      if (lost || gl.isContextLost() || pageTex[1]) return;
+      const was = gl.getParameter(gl.TEXTURE_BINDING_2D);
+      pageOf(1);
+      gl.bindTexture(gl.TEXTURE_2D, was);
+    }, 120);
   }
   function draw() {
     if (lost || gl.isContextLost()) return;
@@ -609,12 +666,28 @@ void main() { o = texture(uT, vUV) * uA; }`;
       outgoing = keep;
     }
     for (const s of last) {
-      const { g } = s;
+      const { g } = s, rot = !!s.rot;
       const until = live.get(g);
       if (until != null && until < now) { live.delete(g); dirty.add(g); }   // (read once more as it ends)
-      if (live.has(g)) moving = true;
+      const ex = exact.get(g);
+      if (ex != null && ex < now) exact.delete(g);
       let st = sprites.get(g);
-      if (!st || dirty.has(g) || live.has(g) || st.rot !== !!s.rot) { st = refresh(g, !!s.rot); st.rot = !!s.rot; }
+      if (st?.trk && !st.trk.ended && now >= st.trk.end) { st.trk.ended = true; dirty.add(g); }   // (its animations over: read once more)
+      const isLive = live.has(g);
+      if (!st || dirty.has(g) || st.rot !== rot || (isLive && (exact.has(g) || !st.trk))) {
+        const tracked = TRACK && isLive && !exact.has(g) && (!st || st.trk !== false || dirty.has(g) || st.rot !== rot);
+        st = tracked ? capture(g, rot, now) : refresh(g, rot);
+        if (!tracked) st.trk = isLive && st.trk === false ? false : null;
+        st.rot = rot;
+      }
+      if (st.trk) {
+        // (Followed: this frame's colours and opacity from the track, nothing read; a colour ease's picture drawn again only as it changes.)
+        const v = trackAt(st.trk, now);
+        if (st.trk.base && v.w !== st.trk.w) { st.trk.w = v.w; refresh(g, rot, fillLook(st.trk, v.w)); }
+        if (v.op != null) st.opacity = v.op;
+        if (st.trk.ended && !exact.has(g)) live.delete(g);
+      }
+      if (live.has(g)) moving = true;
       // (Marked in the same frame as the picture is drawn, so neither the SVG's copy and the picture both show, nor neither.)
       if (st.mode !== 'gl') { if (g.hasAttribute('data-gl')) g.removeAttribute('data-gl'); if (st.mode === 'svg') svgLeft.add(g); continue; }
       if (!g.hasAttribute('data-gl')) g.setAttribute('data-gl', '');
@@ -661,7 +734,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
       gl.disable(gl.BLEND); gl.bindVertexArray(null); gl.useProgram(null); gl.bindBuffer(gl.ARRAY_BUFFER, null);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     }
-    if (needRepack) repack();
+    // (ATLAS_IDLE: a full atlas is packed again once nothing moves, not mid-move, where every picture drawn again at once is a burst of
+    // work in one frame; the labels that did not fit stay the SVG's till then. And the second page is made at rest, ahead of the first
+    // picture that needs it, once the first is more than half full.)
+    if (needRepack && (!ATLAS_IDLE || !moving)) repack();
+    if (ATLAS_IDLE && !moving && !pageTex[1] && packer.maxPages > 1 && packer.used > packer.size * packer.size * 0.5) reserve();
     let key = '';
     for (const b of boxes) key += `${Math.floor(b[0])},${Math.floor(b[1])},${Math.ceil(b[2])},${Math.ceil(b[3])};`;
     if (key !== boxKey) { boxKey = key; try { onBoxes?.(); } catch { /* (a listener's failure is not the labels') */ } }
@@ -697,8 +774,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
     holeMasks.set(h.el, m);
     return m;
   }
+  // (HOLE_CACHE: the canvas's place on the page, read when the stage is laid out again (its resize, the window's, a scroll, its own style
+  // changing), not at every picture: a read in the frame, after the stage has written that frame's places, made the browser lay the page
+  // out again mid-frame.)
+  let holeCr = null;
+  const holeOrigin = () => (HOLE_CACHE && holeCr) || (holeCr = canvas.getBoundingClientRect());
+  if (!host && HOLE_CACHE) { addEventListener('resize', () => { holeCr = null; }); addEventListener('scroll', () => { holeCr = null; }, { capture: true, passive: true }); }
   function cutHoles() {
-    const cr = canvas.getBoundingClientRect();
+    const cr = holeOrigin();
     // (Each hole takes away what lies under it: the destination kept by one less the hole's cover.)
     gl.enable(gl.BLEND); gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
     for (const h of holes) {
@@ -738,12 +821,31 @@ void main() { o = texture(uT, vUV) * uA; }`;
     draw();
   }
   // A mark's look, read again while it may be changing.
+  // (TRACK: a fade or colour ease of its own is read once as it starts and followed (label-track.js); a theme or mode change, each frame.)
   const lookOf = (el, now) => {
     let lk = looks.get(el);
     const until = markLive.get(el);
     if (until != null && until < now) { markLive.delete(el); markDirty.add(el); }
-    if (!lk || markDirty.has(el) || markLive.has(el)) { lk = { st: el.tagName === 'g' ? { op: NUM(getComputedStyle(el).opacity) } : describeMark(el) }; looks.set(el, lk); }
-    return lk.st;
+    const ex = markExact.get(el);
+    if (ex != null && ex < now) markExact.delete(el);
+    if (lk?.trk && !lk.trk.ended && now >= lk.trk.end) { lk.trk.ended = true; markDirty.add(el); }
+    const isLive = markLive.has(el), exactly = markExact.has(el);
+    if (!lk || markDirty.has(el) || (isLive && (exactly || !lk.trk))) {
+      const tracked = TRACK && isLive && !exactly && (!lk || lk.trk !== false || markDirty.has(el));
+      lk = { st: el.tagName === 'g' ? { op: NUM(getComputedStyle(el).opacity) } : describeMark(el), trk: tracked ? false : null };
+      if (tracked && lk.st) {
+        let m;
+        try { m = trackOf(el.getAnimations(), el, (t) => t === el && el.tagName !== 'g', now); } catch { m = null; }
+        if (m) { if (m.end <= now) m.ended = true; lk.trk = m; }
+      }
+      looks.set(el, lk);
+    }
+    if (!lk.trk || !lk.st) return lk.st;
+    if (lk.trk.ended && !exactly) markLive.delete(el);
+    const v = trackAt(lk.trk, now), out = lk.cur ||= { ...lk.st };
+    if (v.op != null) out.op = v.op;
+    if (lk.trk.paint) for (const q of lk.trk.paint.pairs) { const c = mixColour(q.from, q.to, v.w); out[q.prop] = none(c) ? null : rgba(c); }
+    return out;
   };
   function drawMarks(now) {
     let moving = false;

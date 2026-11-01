@@ -1,0 +1,159 @@
+// A label's fade or colour ease, read once and run by the GPU's frame (1 Nov 2026; label-gl.js, ?labeltrack=0 off).
+//
+// Before, a label whose CSS fade, colour transition or script fade was running had its whole look read again from the page on every
+// frame (getComputedStyle on the group, every line and run), which on a slide change made the browser work out the page's style again
+// mid-frame for every label, and a colour ease drew its picture again each frame. Here the running animations are read once as they
+// start (Element.getAnimations: their keyframes, timing and easing), and each frame's opacity and colours are worked out from them
+// with no read of the page at all: the opacity goes to the GPU as the picture's alpha, the colours as the look's values.
+//
+// Only what is understood exactly is taken: the group's own opacity (CSS animations, transitions and script fades, in their
+// composite order), and fill or stroke transitions on a line's runs or a pill, all on one clock. Anything else (a filter, a size, a
+// custom property, a paused or repeating animation, an easing written as steps) leaves the label to be read each frame, as before.
+// No DOM is touched here beyond the animation objects handed in, so tests can run it.
+
+import { cubicBezier } from './ease.js?v=fc509dabe4';
+
+const KW = { ease: [0.25, 0.1, 0.25, 1], 'ease-in': [0.42, 0, 1, 1], 'ease-out': [0, 0, 0.58, 1], 'ease-in-out': [0.42, 0, 0.58, 1] };
+const memo = new Map();
+/** A CSS easing as a function of 0..1, or null when it is not one this follows exactly (steps, linear() with stops). */
+export function easingOf(s) {
+  s = String(s ?? 'linear').trim() || 'linear';
+  if (memo.has(s)) return memo.get(s);
+  let f = null;
+  if (s === 'linear') f = (u) => u;
+  else if (KW[s]) f = cubicBezier(...KW[s]);
+  else {
+    const m = /^cubic-bezier\(([^)]+)\)$/.exec(s);
+    if (m) { const v = m[1].split(',').map(Number); if (v.length === 4 && v.every(Number.isFinite)) f = cubicBezier(...v); }
+  }
+  memo.set(s, f);
+  return f;
+}
+
+/** An animation's timing on the page's clock: { t0, delay, dur, ease, fill, es }, or null when it is not followed. */
+export function timingOf(a, now) {
+  const e = a?.effect, tm = e?.getTiming?.();
+  if (!tm || (a.playbackRate ?? 1) !== 1 || a.playState === 'paused' || a.playState === 'idle') return null;
+  if ((tm.iterations ?? 1) !== 1 || (tm.direction || 'normal') !== 'normal' || tm.iterationStart || (e.composite && e.composite !== 'replace')) return null;
+  const dur = tm.duration, delay = tm.delay || 0, ct = a.currentTime;
+  if (typeof dur !== 'number' || !(dur >= 0) || !Number.isFinite(delay) || (ct != null && typeof ct !== 'number')) return null;
+  const ease = easingOf(tm.easing);
+  if (!ease) return null;
+  return { t0: now - (ct ?? 0), delay, dur, ease, fill: String(tm.fill || 'none'), es: String(tm.easing || 'linear') };
+}
+/** Where a timing stands at `now`, after its easing (0..1), or null where it has no effect (outside it, with no fill there). */
+export function progressAt(t, now) {
+  const l = now - t.t0;
+  if (l < t.delay) return /backwards|both/.test(t.fill) ? 0 : null;
+  if (l >= t.delay + t.dur) return /forwards|both/.test(t.fill) ? 1 : null;
+  return t.ease((l - t.delay) / t.dur);
+}
+const META = new Set(['offset', 'computedOffset', 'easing', 'composite']);
+// (What a label's look does not read, so an animation of it changes nothing drawn here: a move, a turn, a visibility.)
+const HARMLESS = new Set(['transform', 'translate', 'scale', 'rotate', 'visibility', 'pointerEvents', 'cursor']);
+/** A keyframe list for `prop`: [{ o, v, ease }] from offset 0 to 1, or null. */
+export function keysOf(kf, prop) {
+  if (!kf?.length) return null;
+  const out = [];
+  for (const k of kf) {
+    if (k.composite && k.composite !== 'auto' && k.composite !== 'replace') return null;
+    const v = k[prop];
+    if (v == null || v === '') return null;
+    const o = k.computedOffset ?? k.offset, ease = easingOf(k.easing);
+    if (!Number.isFinite(o) || !ease) return null;
+    out.push({ o, v, ease });
+  }
+  if (out.length < 2 || out[0].o !== 0 || out[out.length - 1].o !== 1) return null;
+  return out;
+}
+/** The keyframes' value pair and share at progress p: [a, b, u]. */
+function along(keys, p) {
+  let i = 0;
+  while (i < keys.length - 2 && p >= keys[i + 1].o) i++;
+  const a = keys[i], b = keys[i + 1], span = b.o - a.o;
+  return [a.v, b.v, span > 0 ? a.ease(Math.min(1, Math.max(0, (p - a.o) / span))) : 1];
+}
+const isTransition = (a) => a && 'transitionProperty' in a;
+
+/**
+ * The running animations of a label (or a mark) as a track, or null when one of them is not followed exactly.
+ *   anims: Element.getAnimations() of it (composite order); opEl: the element whose opacity is followed; paintOk(el): whether a
+ *   fill or stroke ease on el is followed (a run or a pill: the parts whose own colour is read); now: performance.now().
+ * Returns { ops: [{ t, keys }] (opacity layers, lowest first), under, paint: { t, ease, pairs: [{ el, prop, from, to }] } | null, end }.
+ */
+export function trackOf(anims, opEl, paintOk, now) {
+  const ops = [], pairs = [];
+  let paintT = null, paintEase = null, paintES = '', end = -Infinity, opTrans = false, opAnim = false;
+  for (const a of anims || []) {
+    const e = a?.effect, el = e?.target;
+    if (!e || !el || e.pseudoElement) return null;
+    let kf;
+    try { kf = e.getKeyframes(); } catch { return null; }
+    const props = new Set();
+    for (const k of kf) for (const p in k) if (!META.has(p)) props.add(p);
+    let t = null;
+    for (const p of props) {
+      if (HARMLESS.has(p) || (p === 'opacity' && el !== opEl)) continue;
+      t ||= timingOf(a, now);
+      if (!t) return null;
+      if (p === 'opacity') {
+        const keys = keysOf(kf, p);
+        if (!keys) return null;
+        for (const k of keys) { k.v = parseFloat(k.v); if (!Number.isFinite(k.v)) return null; }
+        if (isTransition(a)) opTrans = true; else opAnim = true;
+        ops.push({ t, keys });
+      } else if ((p === 'fill' || p === 'stroke') && paintOk(el) && isTransition(a)) {
+        const keys = keysOf(kf, p);
+        if (!keys || keys.length !== 2 || !rgbOf(keys[0].v) || !rgbOf(keys[1].v)) return null;
+        if (pairs.some((q) => q.el === el && q.prop === p)) return null;
+        // (Every colour ease on one clock: a pill and its words, or a whole line, ease together.)
+        if (!paintT) { paintT = t; paintEase = keys[0].ease; paintES = String(kf[0].easing || 'linear'); }
+        else if (Math.abs(paintT.t0 - t.t0) > 2 || paintT.delay !== t.delay || paintT.dur !== t.dur || paintT.es !== t.es || paintT.fill !== t.fill || paintES !== String(kf[0].easing || 'linear')) return null;
+        pairs.push({ el, prop: p, from: keys[0].v, to: keys[1].v });
+      } else return null;
+    }
+    if (t) end = Math.max(end, t.t0 + t.delay + t.dur);
+  }
+  // (A transition and an animation of the opacity at once: which wins is the cascade's, not followed here.)
+  if (opTrans && opAnim) return null;
+  return { ops, under: ops.length ? ops[ops.length - 1].keys[ops[ops.length - 1].keys.length - 1].v : null, paint: pairs.length ? { t: paintT, ease: paintEase, pairs } : null, end };
+}
+/** A track at `now`: { op: the opacity (null: not animated), w: the colours' share from `from` to `to` (null: none) }. */
+export function trackAt(m, now) {
+  let op = null, w = null;
+  if (m.ops.length) {
+    op = m.under;
+    for (let i = m.ops.length - 1; i >= 0; i--) {
+      const L = m.ops[i], p = progressAt(L.t, now);
+      if (p == null) continue;
+      const [a, b, u] = along(L.keys, p);
+      op = a + (b - a) * u;
+      break;
+    }
+  }
+  if (m.paint) {
+    const p = progressAt(m.paint.t, now);
+    w = p == null ? (now - m.paint.t.t0 < m.paint.t.delay ? 0 : 1) : m.paint.ease(Math.min(1, Math.max(0, p)));
+  }
+  return { op, w };
+}
+
+/** A computed colour as straight RGBA (0..255, 0..1 alpha), or null when it is not written as rgb()/rgba(). */
+export function rgbOf(c) {
+  const m = /^rgba?\(([^)]+)\)$/.exec(String(c || '').trim());
+  if (!m) return null;
+  const v = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+  if (v.length < 3 || v.some((x) => !Number.isFinite(x))) return null;
+  return [v[0], v[1], v[2], v.length > 3 ? v[3] : 1];
+}
+/** Two colours mixed as CSS mixes a transition's (premultiplied sRGB), share w of the second, as an rgba() the page and the GPU read alike. */
+export function mixColour(a, b, w) {
+  if (w <= 0) return a;
+  if (w >= 1) return b;
+  const A = rgbOf(a), B = rgbOf(b);
+  if (!A || !B) return w < 0.5 ? a : b;
+  const al = A[3] + (B[3] - A[3]) * w;
+  if (!(al > 0)) return 'transparent';
+  const ch = (i) => Math.round((A[i] * A[3] + (B[i] * B[3] - A[i] * A[3]) * w) / al);
+  return `rgba(${ch(0)}, ${ch(1)}, ${ch(2)}, ${+al.toFixed(4)})`;
+}
