@@ -3994,6 +3994,10 @@ button.finding { cursor: pointer; }
 html:not([data-pvcpu]) .um-pv { transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease); }
 .um-pv.pv-resizing { background: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
 .sheet-plate { display: none; }
+/* A plate gliding to a new size by transform (plate-glide.js): the box's own glass steps aside for the nine pieces, which carry it. */
+.pg-on { background: transparent !important; box-shadow: none !important; overflow: visible !important; isolation: isolate; }
+.pg-piece { position: absolute; left: 0; top: 0; z-index: -1; box-sizing: border-box; transform-origin: 0 0; pointer-events: none; will-change: transform;
+  background: var(--glass); border: 1px solid var(--hairline); box-shadow: calc(1px * var(--light-slant)) 1px 2px rgb(var(--shadow-rgb) / .08); }
 .um-pv-plate { position: absolute; left: 0; right: 0; z-index: -1; background: var(--surface); border-radius: inherit; box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline); pointer-events: none; will-change: transform; }
 .um-pv:not(.on) { translate: calc(-1 * var(--rise-y)) 0; }   /* (the preview settles in from the panel's side by the rise distance, and leaves back toward it) */
 @media (prefers-reduced-motion: reduce) { .um-pv { translate: none !important; } }

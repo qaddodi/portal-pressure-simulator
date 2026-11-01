@@ -25,8 +25,9 @@ import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
 import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js?v=c8ef361fbc';
+import { glidePlate } from './plate-glide.js?v=c704dd8d59';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=367c3b0561';
-import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
+import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
 import { morphKey, crossfadeText } from './legend-morph.js?v=805989b53d';
 import './seg-glide.js?v=f292ee90e4';
 import './focus-ring.js?v=ab12c60bd7';
@@ -1281,7 +1282,6 @@ function wireFloating() {
   const px = (v) => `${Math.max(0, Math.round(v))}px`;
   const publish = () => {
     syncThumb();
-    if ($('#vdock').dataset.folding === '1') return;   // the dock is gliding to a height already published
     const gap = isPhone() ? 8 : 12;
     // The dock's height, plus on an iPhone the home indicator's strip under it (the rules that use it add
     // the gap themselves), so nothing above it is placed behind it.
@@ -1416,47 +1416,55 @@ function wireFloating() {
     foldDock(true);
     if (ms) focusT = setTimeout(unfocus, ms);
   };
-  // The dock folds to one line and opens again as an ease, never a jump: its old content fades out, the box
-  // glides to the new height (bottom edge fixed) while the new content fades in. The framing and the cards read
-  // the settled height straight away (published before the glide, which then skips its own per-frame updates).
+  // The dock folds to one line and opens again as an ease, never a jump: its old content fades out, the box takes its new size at
+  // once (laid out once, so the framing and the cards read the settled size straight away) and its glass glides there from the
+  // old size by transform (plate-glide.js: nine pieces of one plate slide and stretch, bottom left corner still) while the new
+  // content fades in. Nothing is measured by the fold itself: the sizes come from the bar's ResizeObserver (geom.js).
   const vdockEl = $('#vdock');
-  let foldTok = 0, foldAnims = [], foldGoal = false;
-  const foldDone = (tok) => { if (tok !== foldTok) return; foldAnims = []; vdockEl.style.overflow = ''; delete vdockEl.dataset.folding; soon(); };
+  let foldTok = 0, foldAnims = [], foldGoal = false, foldEnd = null;
+  watchSize(vdockEl, () => {});   // (keeps sizeOf(vdockEl) current)
+  const foldDone = (tok) => { if (tok !== foldTok) return; foldAnims = []; soon(); };
+  // The bar's size once the browser has laid out a change (the observer reports it before that frame is painted).
+  const sizeAfter = () => new Promise((ok) => {
+    const ro = new ResizeObserver((es) => { ro.disconnect(); const bb = es[0]?.borderBoxSize?.[0]; ok(bb ? { w: bb.inlineSize, h: bb.blockSize } : null); });
+    ro.observe(vdockEl);
+  });
+  let shown = 1;   // (how much of the dock's content shows: 1 at rest, 0 once faded for a fold)
   const foldDock = async (on) => {
     if (on === foldGoal) return;
     foldGoal = on;
-    const kids = [...vdockEl.children], tok = ++foldTok;
+    const kids = [...vdockEl.children].filter((k) => !k.classList.contains('pg-piece')), tok = ++foldTok;
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches || !vdockEl.animate;
-    const r0 = vdockEl.getBoundingClientRect(), h0 = r0.height, w0 = r0.width;
-    const from = kids.map((k) => +getComputedStyle(k).opacity);
+    const s0 = sizeOf(vdockEl);
     foldAnims.forEach((a) => a.cancel());
     foldAnims = [];
-    if (reduced || !h0) { vdockEl.classList.toggle('mini', on); foldDone(tok); return; }
-    // (The box as it is drawn now: a glide of its size cut short by this change, cancelled, would leave it standing at the size that glide was
-    // heading for, a snap, and the box would then start again from where it had been.)
-    const drawn = { height: `${h0}px`, width: `${w0}px` };
+    if (reduced || !s0?.h) { foldEnd?.(); vdockEl.classList.toggle('mini', on); shown = 1; foldDone(tok); return; }
     if (vdockEl.classList.contains('mini') === on) {   // changed its mind before the old content was gone: fade it back
-      const rest = vdockEl.getBoundingClientRect();
-      foldAnims = kids.map((k, i) => k.animate([{ opacity: from[i] }, { opacity: 1 }], { duration: D_FLIP, easing: EASE_ARRIVE }));
-      if (Math.abs(rest.height - h0) > 0.5 || Math.abs(rest.width - w0) > 0.5) foldAnims.push(vdockEl.animate([drawn, { height: `${rest.height}px`, width: `${rest.width}px` }], { duration: D_FLIP, easing: EASE_ARRIVE }));
+      foldAnims = kids.map((k) => k.animate([{ opacity: shown }, { opacity: 1 }], { duration: D_FLIP, easing: EASE_ARRIVE }));
+      shown = 1;
       Promise.all(foldAnims.map((a) => a.finished.catch(() => {}))).then(() => foldDone(tok));
       return;
     }
-    vdockEl.style.overflow = 'hidden'; vdockEl.dataset.folding = '1';
-    const out = kids.map((k, i) => k.animate([{ opacity: from[i] }, { opacity: 0 }], { duration: Math.round(D_FLIP * from[i]) || 1, easing: EASE_IN, fill: 'forwards' }));
-    const hold = vdockEl.animate([drawn, drawn], { duration: D_FLIP });   // (the box stands at the size it is drawn at while its content fades)
-    foldAnims = [...out, hold];
+    const out = kids.map((k) => k.animate([{ opacity: shown }, { opacity: 0 }], { duration: Math.round(D_FLIP * shown) || 1, easing: EASE_IN, fill: 'forwards' }));
+    foldAnims = [...out];
     await Promise.all(out.map((a) => a.finished.catch(() => {})));
     if (tok !== foldTok) return;
-    foldAnims.forEach((a) => a.cancel());
+    shown = 0;
+    // (The glass as it is drawn now: the last glide's pieces, if one is still under way, end where the box stands.)
+    foldEnd?.();
+    const from = sizeOf(vdockEl) || s0;
+    const next = sizeAfter();
     vdockEl.classList.toggle('mini', on);
-    const r1 = vdockEl.getBoundingClientRect(), h1 = r1.height, w1 = r1.width;
-    delete vdockEl.dataset.folding; publish(); vdockEl.dataset.folding = '1';
-    const ease = EASE_ARRIVE;
-    foldAnims = [
-      vdockEl.animate([drawn, { height: `${h1}px`, width: `${w1}px` }], { duration: D_SURFACE, easing: ease }),
-      ...kids.map((k) => k.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, delay: 80, easing: EASE_ARRIVE, fill: 'backwards' })),
-    ];
+    const s1 = await next;
+    if (tok !== foldTok) { foldAnims.forEach((a) => a.cancel()); return; }
+    foldAnims.forEach((a) => a.cancel());
+    // (Bottom left corner still: in the new box the old one stood from its left edge, its foot on the new one's.)
+    if (s1 && (Math.abs(s1.w - from.w) > 0.5 || Math.abs(s1.h - from.h) > 0.5)) {
+      foldEnd = glidePlate(vdockEl, { x: 0, y: s1.h - from.h, w: from.w, h: from.h }, { x: 0, y: 0, w: s1.w, h: s1.h }, { R: 16, done: () => { foldEnd = null; } });
+    }
+    // (The new words come in as the glass is nearly there, so they never show past it.)
+    foldAnims = kids.map((k) => k.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, delay: D_FLIP, easing: EASE_ARRIVE, fill: 'backwards' }));
+    shown = 1;
     Promise.all(foldAnims.map((a) => a.finished.catch(() => {}))).then(() => foldDone(tok));
   };
   // Only the figure itself: a swipe on a card (or one from the phone's edge) leaves the rest alone.
