@@ -74,8 +74,8 @@ test('a tap frames the new state and follows from the view as it stood; a finger
   assert.match(split, /if \(!stage\.following\?\.\(\) && !\(vNow && camFollow\(vNow, open\)\)\) foldReframe\(\);/, 'the glide only where nothing follows; a finger let go follows on');
   const follow = fnBody(presenter, 'function camFollow(');
   assert.match(follow, /stage\.follow\?\.\(open \? vNow : vTo, open \? vTo : vNow\)/, 'v0 the readings tucked, v1 out');
-  const grab = fnBody(presenter, 'function camGrab(');
-  assert.match(grab, /finally \{ d\.classList\.toggle\('tool-open', open\); placeLip\(\); ui\.lipMO\?\.takeRecords\(\); \}/, 'the card is put back before anything is drawn');
+  const grab = fnBody(presenter, 'function camGrabNow(');
+  assert.match(grab, /finally \{ d\.classList\.toggle\('tool-open', open\); if \(sliding\) d\.classList\.add\('pz-sliding'\); placeLip\(\); ui\.lipMO\?\.takeRecords\(\); \}/, 'the card is put back before anything is drawn');
   assert.match(grab, /stage\.follow\?\.\(open \? vOther : vNow, open \? vNow : vOther\)/);
   assert.match(presenter, /if \(gg\.split && \(gg\.u0 === 0 \|\| gg\.u0 === 1\)\) camGrab\(\); hold\(true\);/, 'only from rest, before the card is held');
   const ok = between(presenter, 'const camFollowOk = () =>', 'const camAim');

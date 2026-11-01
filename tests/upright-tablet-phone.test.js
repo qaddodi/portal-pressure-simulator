@@ -106,7 +106,7 @@ test('a pull down on the closed card brings out the instrument card, and carried
   assert.match(dt, /if \(g\.lvl0 > 0 && vert && sheetPull && \(g\.pull \|\| \(past > 0 && splitSheet\(el\) && !el\.classList\.contains\('tool-open'\)\)\)\) \{\n\s*g\.pull \|\|= sheetPull\.begin\(\);\n\s*sheetPull\.follow\(g\.pull, Math\.max\(0, past\)\);/, 'they follow the finger, and tuck back under it above that point');
   // (A short pull stops at the instrument card: the readings open only past half way or on a flick down, and only with the card open.)
   assert.match(dt, /if \(gg\.pull\) \{ const show = !to && \(flick < 0 \|\| gg\.pull\.u > 0\.5\); dockTo\(to, 300\); sheetPull\.settle\(gg\.pull, show\); \}/);
-  assert.match(dt, /if \(g\?\.pull\) sheetPull\.settle\(g\.pull, false\);/, 'a cancelled touch tucks them away');
+  assert.match(dt, /if \(gg\?\.pull\) sheetPull\.settle\(gg\.pull, false\);/, 'a cancelled touch tucks them away');
   // (The same follow and settle as the readings' own pull: margins, fade and the eased rest, setFold.)
   assert.match(js, /sheetPull = \{ begin: \(\) => \{ const gg = grab\(0, 0, false\); take\(gg\); return gg; \}, follow: foldFollow, settle \};/);
   assert.match(js, /const u = clamp\(gg\.u0 \* gg\.full \+ dy, 0, gg\.full\) \/ \(gg\.full \|\| 1\);/, 'from wherever the readings stand');

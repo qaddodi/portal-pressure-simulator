@@ -54,10 +54,11 @@ test('the explore shortcuts do not reach a talk, except Search and the guide; th
 });
 
 test('a card drag or fold cut short by a second finger goes on to where it was heading', () => {
-  assert.match(pres, /const abort = \(\) => \{ if \(g\?\.on\) dockTo\(dock\.to, 300\); if \(g\?\.pull\) sheetPull\.settle\(g\.pull, false\); reset\(\); \};/);
+  assert.match(pres, /const landCut = \(gg\) => \{ if \(gg\?\.on\) dockTo\(dock\.to, 300\); if \(gg\?\.pull\) sheetPull\.settle\(gg\.pull, false\); \};/);
+  assert.match(pres, /const abort = \(\) => \{ landCut\(g\); reset\(\); \};/);
   assert.match(pres, /on\('touchcancel', abort, \{ passive: true \}\);/);
   assert.match(pres, /if \(e\.touches\.length > 1\) abort\(\);/);
-  assert.match(pres, /if \(e\.touches\.length > 1\) \{ abort\(\); return; \}/);
+  assert.match(pres, /if \(e\.touches\.length > 1\) \{ const gg = g; reset\(\); restPass\(\(\) => landCut\(gg\)\); return; \}/);   // (landed between frames, rest-pass.js)
   assert.match(pres, /if \(g\?\.on\) \{ const gg = g; g = null; settle\(gg, gg\.shown\); return; \}/);
   assert.match(main, /if \(e\.pointerType === 'mouse' && !\(e\.buttons & 1\)\) \{ end\(e\); return; \}/);
   assert.match(main, /addEventListener\('lostpointercapture', \(e\) => \{ if \(e\.target === el\) end\(e\); \}\)/, 'only the sheet\'s own lost capture ends the drag, not a child\'s');

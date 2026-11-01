@@ -64,9 +64,13 @@ test('presenter: a finger\'s moves read nothing; the room and the card\'s width 
   assert.match(pz, /const c = cd\.card\.c, w = cd\.w;/);
 });
 
-test('presenter: a folding card follows a finger by transform and opacity; its height is set once at each end (?foldxf=0: as before)', () => {
+test('presenter: a folding card follows a finger by transform and opacity; its height is set once at each end (?foldxf=0: no follow, never a height per move)', () => {
   assert.match(pz, /const FOLD_XF = !\/\[\?&\]foldxf=0\\b\/\.test\(location\.search\)/);
-  assert.match(pz, /if \(gg\.xf\) \{ gg\.p\.style\.translate = `0 \$\{\(-\(1 - u\) \* FOLD_SLIDE\)\.toFixed\(1\)\}px`; if \(gg\.fade\) gg\.p\.style\.opacity = u\.toFixed\(3\); return; \}/);
+  assert.match(pz, /if \(gg\.xf\) \{ gg\.p\.style\.translate = `0 \$\{\(-\(1 - u\) \* FOLD_SLIDE\)\.toFixed\(1\)\}px`; if \(gg\.fade\) gg\.p\.style\.opacity = u\.toFixed\(3\); \}/);
+  const ff = pz.slice(pz.indexOf('const foldFollow = (gg, dy) => {'), pz.indexOf('const settle = (gg, show) => {'));
+  assert.doesNotMatch(ff, /maxHeight|style\.height/, 'no height written as the finger moves');
+  assert.match(pz, /if \(e\.touches\.length > 1\) \{ const gg = g; reset\(\); restPass\(\(\) => landCut\(gg\)\); return; \}/);
+  assert.match(pz, /cancelRest\(camGrabT\); camGrabT = restPass\(camGrabNow\);/);
   assert.match(pz, /if \(gg\.xf\) \{ gg\.xf = false; gg\.p\.classList\.remove\('pz-follow'\); gg\.p\.style\.translate = ''; \}/);
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(css, /\.pz-data\.pz-folds > \.pz-tool\.pz-follow \{ max-height: none; margin-bottom: 0; \}/);
