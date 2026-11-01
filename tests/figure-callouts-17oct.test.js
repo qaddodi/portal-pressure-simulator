@@ -68,7 +68,7 @@ test('the FibroScan probe turns clear of the slide\'s cards', () => {
   const turn = stage.slice(stage.indexOf('  function scanTurn('), stage.indexOf('  function scanPaint('));
   assert.match(turn, /const cards = scanCards\(\), clear = /);
   assert.match(turn, /if \(alt\.length\) deg = alt\.sort/);
-  assert.match(stage, /document\.querySelectorAll\('\.pz-shade, \.pz-data\.stage-blocker, \.pz-panel\.stage-blocker'\)/);
+  assert.match(stage, /cards: \['\.pz-shade, \.pz-data\.stage-blocker, \.pz-panel\.stage-blocker', /, 'read first in a frame, at a change (scanLookRead)');
 });
 
 test('colour keys: a wrapped key is balanced, upright iPad gives it its own row, and the pressure-drop key names its ends', () => {

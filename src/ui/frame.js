@@ -27,6 +27,11 @@ let late = new Map(), lateNow = null;
 // Asked for with finalFrame: run after the late ones (the glass over the figure: every writer of the frame, the figure's own pass
 // included, has run by then, so it is drawn once, over their final state).
 let fin = new Map(), finalNow = null;
+// Asked for with readFrame: run first in the next frame, before every other callback (1 Nov 2026, "Move everything to GPU": zero layout
+// inside the frame). The page's layout is still the one the browser computed for the last frame, so a box read there costs nothing,
+// where the same read after the frame's first writes forced a layout of the page. Read only: a callback asked for from one runs in the
+// same frame (its early phase), after every read.
+let reads = new Map(), readsNow = null;
 let next = 1, pending = 0;
 const counts = new Map(), rates = new Map(), draws = new Map(), drawRates = new Map(), totals = { asks: {}, drawn: {}, ms: {} };
 let windowAt = 0, frames = 0, fps = 0, allFrames = 0;
@@ -54,11 +59,16 @@ gpuProbe.part = framePart;
 function flush(now) {
   pending = 0;
   paceStep();
-  current = queue;
-  queue = new Map();   // asked for while running: the next frame, as with requestAnimationFrame
   frames++; allFrames++;
   const watching = watchers.size > 0, t0 = watching ? performance.now() : 0;
   parts = watching ? outsideParts.splice(0) : null;
+  if (reads.size) {
+    readsNow = reads;
+    reads = new Map();   // (asked for while they run: the next frame)
+    try { run(readsNow, now, 'read'); } finally { readsNow = null; }
+  }
+  current = queue;
+  queue = new Map();   // asked for while running: the next frame, as with requestAnimationFrame
   try {
     run(current, now, 'early');
     lateNow = late;
@@ -76,7 +86,7 @@ function flush(now) {
     for (const w of watchers) try { w(f); } catch (e) { setTimeout(() => { throw e; }); }
   }
   parts = null; lastNow = now;
-  if ((queue.size || late.size || fin.size) && !pending) pending = requestAnimationFrame(flush);
+  if ((queue.size || late.size || fin.size || reads.size) && !pending) pending = requestAnimationFrame(flush);
   chained = !!pending;
 }
 
@@ -111,7 +121,15 @@ function roll(now) {
 export function frame(cb, tag = 'other') {
   const id = next++;
   queue.set(id, [tag, cb]);
-  if (!pending && !current) pending = requestAnimationFrame(flush);
+  if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush);
+  return id;
+}
+
+/** As frame(), but run before every other callback of the next frame, while the layout is still the last frame's (see `reads`). */
+export function readFrame(cb, tag = 'other') {
+  const id = next++;
+  reads.set(id, [tag, cb]);
+  if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush);
   return id;
 }
 
@@ -119,7 +137,7 @@ export function frame(cb, tag = 'other') {
 export function lateFrame(cb, tag = 'other') {
   const id = next++;
   late.set(id, [tag, cb]);
-  if (!pending && !current) pending = requestAnimationFrame(flush);
+  if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush);
   return id;
 }
 
@@ -127,13 +145,13 @@ export function lateFrame(cb, tag = 'other') {
 export function finalFrame(cb, tag = 'other') {
   const id = next++;
   fin.set(id, [tag, cb]);
-  if (!pending && !current) pending = requestAnimationFrame(flush);
+  if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush);
   return id;
 }
 
 // Like cancelAnimationFrame: also stops a callback of the running frame that has not run yet.
 export function cancelFrame(id) {
-  if (id && !queue.delete(id) && !late.delete(id) && !fin.delete(id) && !current?.delete(id) && !lateNow?.delete(id)) finalNow?.delete(id);
+  if (id && !queue.delete(id) && !late.delete(id) && !fin.delete(id) && !reads.delete(id) && !readsNow?.delete(id) && !current?.delete(id) && !lateNow?.delete(id)) finalNow?.delete(id);
 }
 
 /** Where the scheduler is now: 'early' (the frame's first callbacks), 'late', 'final', or null (outside a frame). A surface asked to
@@ -169,7 +187,7 @@ export function easeNow() {
   if (!PACED) return wall();
   const t = wall();
   if (!paceReal) { paceReal = paceBase = t; return t; }
-  if (current || lateNow || finalNow) return paceBase;   // (one time for every surface in a frame, as the frame's timestamp is)
+  if (current || lateNow || finalNow || readsNow) return paceBase;   // (one time for every surface in a frame, as the frame's timestamp is)
   return paceBase + Math.min(Math.max(0, t - paceReal), paceCap);
 }
 // A move on screen that a long frame would spoil (the slide's cards fading in, a dive landing): work that can wait (a sharper
@@ -187,9 +205,10 @@ export function afterMotion(fn, poll = 60) {
   return () => { dead = true; clearTimeout(t); };
 }
 
-export const framePhase = () => (finalNow ? 'final' : lateNow ? 'late' : current ? 'early' : null);
+export const framePhase = () => (finalNow ? 'final' : lateNow ? 'late' : current ? 'early' : readsNow ? 'read' : null);
 
 export const frameFor = (tag) => (cb) => frame(cb, tag);
+export const readFrameFor = (tag) => (cb) => readFrame(cb, tag);
 export const lateFrameFor = (tag) => (cb) => lateFrame(cb, tag);
 export const finalFrameFor = (tag) => (cb) => finalFrame(cb, tag);
 

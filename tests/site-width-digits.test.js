@@ -6,8 +6,11 @@ import { readFileSync } from 'node:fs';
 
 test('a site reading\'s width is keyed on its text with every digit as a zero', () => {
   const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(src, /const wk = `\$\{el\.className\}\|\$\{el\.textContent\.replace\(\/\\d\/g, '0'\)\}\|\$\{W\}\|\$\{labelBase\(\)\}\|\$\{labelFonts\}`;/);
-  assert.match(src, /if \(el\._wk !== wk \|\| !el\._half\) \{ el\._wk = wk; el\._half = el\.offsetWidth \/ 2;/);
+  assert.match(src, /const wk = `\$\{el\.className\.replace\(\/\(\?:\^\|\\s\)off\(\?=\\s\|\$\)\/, ''\)\}\|\$\{el\.textContent\.replace\(\/\\d\/g, '0'\)\}\|\$\{W\}\|\$\{labelBase\(\)\}\|\$\{labelFonts\}`;/);
+  assert.match(src, /if \(el\._wk !== wk \|\| !el\._half\) siteSize\(el, d, wk\);/);
+  // (Read first in the next frame, never between the frame's writes: 1 Nov 2026.)
+  assert.match(src, /function siteMeasure\(el, d, wk\) \{\n\s+el\._wk = wk; el\._half = el\.offsetWidth \/ 2;/);
+  assert.match(src, /siteAsk \|\|= readFrame\(/);
   // (The digits it keys away are drawn tabular, so the width it kept is the width.)
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(css, /\.cath-label b \{[^}]*font-variant-numeric: tabular-nums;/);

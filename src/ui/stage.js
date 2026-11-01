@@ -20,7 +20,7 @@ import { bandsStep } from './band-ease.js?v=ef2d4ce809';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
-import { runFlick, FLICK } from './flick.js?v=b4fb13bd3d';
+import { runFlick, FLICK } from './flick.js?v=78d76c2001';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js?v=6cc362ad60';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
@@ -58,10 +58,10 @@ import { alongCurve } from './pressure-along.js?v=74c64e4286';
 import { follow2, createColourFollow, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=f6c91d8676';
 import { retireRows, flowClose } from './flow-rows.js?v=59053c0155';
-import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=b44d047253';
+import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=0999a0cef3';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
 import { planTaper, taperAt } from './vessel-taper.js?v=38c471f360';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=15d5254a2c';
+import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=7710f677e2';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -85,6 +85,12 @@ import { capDensity } from './pixel-budget.js?v=279a2b54f6';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
 const nextFrame = frameFor('stage');
+// (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
+// key pill, the readings' own sizes, the home look's room) are read first in a frame, before anything is written (frame.js readFrame),
+// never between the frame's writes, and only when something they measure may have changed. ?boxread=0: the cards' room (safeInsets,
+// cardSpace) is read on every call, as before.)
+const readFrame = readFrameFor('stage-read');
+const BOX_READ = !/[?&]boxread=0\b/.test(location.search);
 // The page's look as one string for the caches below that are drawn in its colours: data-theme, and data-palette too (Navy and Black keep
 // data-theme="dark" and differ from Dark only by the palette: looks.js).
 const themeKey = () => { const d = document.documentElement.dataset; return d.palette ? `${d.theme || ''}/${d.palette}` : (d.theme || ''); };
@@ -1662,9 +1668,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the Details panel (data-safe-rest too) are hidden by visibility when closed, and counted then, the app opened framed small at
   // the top of a phone, 19 Oct.)
   const unseenCard = (el) => !('safeWaits' in el.dataset) && (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden');
-  function cardSpace() {
+  // (Kept while nothing they measure may have moved (layoutWatch), and taken against the kept stage box: each call read every card's box
+  // and the stage's, many times in a slide's frames.)
+  const insMemo = new Map();
+  function insKept(key, fn) {
+    if (!BOX_READ) return fn();
+    const m = insMemo.get(key);
+    if (m && !watch.due()) return m;
+    const v = fn();
+    insMemo.set(key, v);
+    return v;
+  }
+  const insWrap = () => (BOX_READ ? stageBox() : wrap.getBoundingClientRect());
+  function cardSpace() { return { ...insKept('space', cardSpaceRead) }; }
+  function cardSpaceRead() {
     if (gpuProbe.on) gpuProbe.note(COUNTED.safe);
-    const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, sp = { t: 0, b: 0 };
+    const wr = insWrap(), W = wr.width, H = wr.height, sp = { t: 0, b: 0 };
     for (const el of document.querySelectorAll('[data-safe]')) {
       // (A card playing its way out no longer counts: the camera frames for what stays.)
       if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out')) continue;
@@ -1681,8 +1700,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (exact: the cards' real edges, with no softening: a slide that must keep its vessels clear of them, even where they leave a thin band.)
   function safeInsets(exact = false, skip = null) {
+    return { ...insKept(`ins|${+exact}|${skip ? skip.map((el) => el?.id || '?').join() : ''}`, () => safeInsetsRead(exact, skip)) };
+  }
+  function safeInsetsRead(exact = false, skip = null) {
     if (gpuProbe.on) gpuProbe.note(COUNTED.safe);
-    const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height;
+    const wr = insWrap(), W = wr.width, H = wr.height;
     const ins = { t: 0, b: 0, l: 0, r: 0, W, H }, cards = [];
     if (!W || !H) return ins;
     // A phone held sideways docks its cards at the side like a tablet (dock.js), so they count as side cards.
@@ -3062,10 +3084,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // its layout announces the new room, pps:occ.)
       if (store.get().presenting && document.querySelector('.pz-data[data-folding], .pz-data.pz-sliding')) return;
       homeCheck = now;
-      if (keptNow()) return;   // (the Tests card alone has changed the space: see keepView)
-      const d = defaultVT(false);
-      if (!sameView(d, homeAt)) { homeAt = d; fitted = true; animateVT(d, 400, { steady: true }); }
+      // (1 Nov 2026: the look's boxes are read first in the next frame (readFrame), never between a frame's writes.)
+      homeAsk ||= readFrame(homeLookRead);
     }
+  }
+  const homeGo = (d) => { if (!sameView(d, homeAt)) { homeAt = d; fitted = true; animateVT(d, 400, { steady: true }); } };
+  let homeAsk = 0;
+  function homeLookRead() {
+    homeAsk = 0;
+    if (keptNow()) return;   // (the Tests card alone has changed the space: see keepView)
+    const d = defaultVT(false), at = homeAt;
+    // (Moved there in the frame's own phase, after every read: and only if the view is still at the home it was looked from.)
+    nextFrame(() => { if (homeAt === at && !homeHeld && (sameView(vt, homeAt) || (vtGliding && sameView(vtTarget, homeAt)))) homeGo(d); });
   }
   // (The first look when the size has held for 200 ms: a turn fires several resizes, and a glide after each moved the camera
   // two or three times. Then a look 0.5 s and 1.3 s after, and whenever a card or sheet announces a new place (pps:occ),
@@ -7074,7 +7104,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           u.textContent = '';
         }
         sites.el.append(el); made.set(k, el);
-        void el.offsetWidth; el.classList.remove('cath-pre');
+        // (Its first look at cath-pre is the frame's own style pass: it comes in from there next frame, with no layout forced for it.)
+        nextFrame(() => { el.classList.remove('cath-pre'); sitesAgain(); });
       }
       // Live readings, like the data card: the slide's numbers (fp) only while the model still agrees with them, so a
       // what-if slider moves the callouts as it moves the tiles.
@@ -7091,27 +7122,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (A reading wider than the free space, as the portal blood's share is between two wide cards on a phone held sideways, waits
       // hidden too: it would stand half under a card, its words cut off.)
       el.classList.toggle('off', x < x0 || x > x1 || y < y0 || y > y1 || (!!d.res && (ratio == null || t < 0.5)) || (!d.res && !!el._half && 2 * el._half > x1 - x0 + 1));
-      if (el._below == null && el.offsetHeight) { el._below = d.below ? y + 18 + el.offsetHeight < y1 : y - 18 - el.offsetHeight < y0; el.dataset.at = el._below ? 'ahead' : ''; }
+      if (el._below == null && el._h) { el._below = d.below ? y + 18 + el._h < y1 : y - 18 - el._h < y0; el.dataset.at = el._below ? 'ahead' : ''; }
       // (Its width read again only when its words or classes change: a read after each frame's new number forced a layout.)
       // (Its digits are tabular, every one as wide as a zero (app.css .cath-label b), so a number counting to its next value keeps the
       // width and is not read again: with each counted step it was, a layout of the whole page forced in the middle of the labels'
       // update, after the figure's writes, 20 to 53 ms on his Mac (30 Oct). The labels' own widths are taken the same way: textW.)
-      const wk = `${el.className}|${el.textContent.replace(/\d/g, '0')}|${W}|${labelBase()}|${labelFonts}`;
-      if (el._wk !== wk || !el._half) { el._wk = wk; el._half = el.offsetWidth / 2; el._h = el.offsetHeight; el._kwid = d.res ? el.querySelector('.res-k')?.offsetWidth || 0 : 0; }
+      // (1 Nov 2026: its size is read first in the next frame, before any write (siteSize), never between the frame's writes; 'off' only fades
+      // it, so it is not part of the key.)
+      const wk = `${el.className.replace(/(?:^|\s)off(?=\s|$)/, '')}|${el.textContent.replace(/\d/g, '0')}|${W}|${labelBase()}|${labelFonts}`;
+      if (el._wk !== wk || !el._half) siteSize(el, d, wk);
       const half = el._half, cx = clamp(x, Math.min(x0 + half, (x0 + x1) / 2), Math.max(x1 - half, (x0 + x1) / 2));
       el._box = el.classList.contains('off') ? null : calloutBox(el, d, cx, y, half, el._h || 0);
       el.style.setProperty('--ax', `${(x - cx).toFixed(1)}px`);
       el._glass?.(x - cx);
-      el.style.transform = `translate(${cx.toFixed(1)}px, ${y.toFixed(1)}px)`;
+      el.style.transform = `translate(${cx.toFixed(1)}px, ${y.toFixed(1)}px)`; el._y = y;
       // Over the key or the nav pill: the callout steps left, its pointer still on its point; with no room there, a callout above
       // its point rises just clear of them. (Its height and its top's offset from its point are read with its width.)
       // (A reading's own offset is known from its side of the point, app.css data-at: read off the screen, it was read part way through
       // the .45 s glide to that side, and a callout below its point counted as above it, its foot on the key: Shunts 2 sideways.)
-      if (el._kt == null || el._kw !== wk + el.dataset.at) {
-        el._kw = wk + el.dataset.at;
-        if (d.res) { const q = el.getBoundingClientRect(), wb = stageBox(); el._kt = q.top - wb.top - y; el._kh = q.height; }
-        else { el._kh = el.offsetHeight; el._kt = el.dataset.at === 'ahead' && !el.classList.contains('above') ? 18 : -18 - el._kh; }
-      }
+      if (!d.res) { el._kh = el._h || 0; el._kt = el.dataset.at === 'ahead' && !el.classList.contains('above') ? 18 : -18 - el._kh; }
+      else if (el._kw !== wk + el.dataset.at) { el._kw = wk + el.dataset.at; siteSize(el, d, wk); }
       if (ko && !el.classList.contains('off')) {
         const r = { l: cx - half, r: cx + half, t: y + el._kt, b: y + el._kt + el._kh };
         if (r.r > ko.l - 8 && r.l < ko.r + 8 && r.b > ko.t - 8 && r.t < ko.b + 8) {
@@ -7128,19 +7158,45 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     }
   }
-  let kpAt = -1e9, kpBox = null;
+  // A reading's size (and a resistor's top, from where it was last placed), read first in the next frame (readFrame), when its words or
+  // classes changed; the reading is placed again then. (Its digits are tabular: a counting number keeps its key and is never read again for it.)
+  const siteWant = new Map();
+  let siteAsk = 0;
+  function siteMeasure(el, d, wk) {
+    el._wk = wk; el._half = el.offsetWidth / 2; el._h = el.offsetHeight; el._kwid = d.res ? el.querySelector('.res-k')?.offsetWidth || 0 : 0;
+    if (d.res && el._y != null) { const q = el.getBoundingClientRect(), wb = stageBox(); el._kt = q.top - wb.top - el._y; el._kh = q.height; }
+    else { el._kh = el._h; el._kt = el.dataset.at === 'ahead' && !el.classList.contains('above') ? 18 : -18 - el._kh; }
+  }
+  function siteSize(el, d, wk) {
+    siteWant.set(el, [d, wk]);
+    siteAsk ||= readFrame(() => {
+      siteAsk = 0;
+      for (const [e, [dd, k]] of siteWant) if (e.isConnected) siteMeasure(e, dd, k);
+      siteWant.clear();
+      sitesAgain();
+    });
+  }
+  let kpAt = -1e9, kpBox = null, kpAsk = 0;
   function keyPillBox() {
     const now = performance.now();
     if (now - kpAt < 500) return kpBox;
-    kpAt = now; kpBox = null;
+    // (Kept while nothing laid out may have moved and while the view moves; due, read first in the next frame, never between its writes.)
+    if (kpAt > -1e9 && (viewMoving() || !watch.due())) return kpBox;
+    kpAsk ||= readFrame(keyPillRead);
+    return kpBox;
+  }
+  function keyPillRead() {
+    kpAsk = 0; kpAt = performance.now();
+    let box = null;
     const wb = stageBox();
     for (const q of document.querySelectorAll('.pz:not(.stack) .pz-fk:not([hidden]):not([data-empty]), .pz-bar.pzb-pill, .pz:not(.stack) .pz-scales:not([hidden])')) {
       const r = q.getBoundingClientRect();
       if (!r.width) continue;
       const o = { l: r.left - wb.left, t: r.top - wb.top, r: r.right - wb.left, b: r.bottom - wb.top };
-      kpBox = kpBox ? { l: Math.min(kpBox.l, o.l), t: Math.min(kpBox.t, o.t), r: Math.max(kpBox.r, o.r), b: Math.max(kpBox.b, o.b) } : o;
+      box = box ? { l: Math.min(box.l, o.l), t: Math.min(box.t, o.t), r: Math.max(box.r, o.r), b: Math.max(box.b, o.b) } : o;
     }
-    return kpBox;
+    kpBox = box;
+    sitesAgain();
   }
   // The FibroScan probe (the Presenter's stiffness slides): a transducer on the skin at the top left of the right
   // lobe, angled 45° down toward the portal vein, with a shear wave easing out from its tip into the liver along that
@@ -7155,25 +7211,33 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const p = (t) => `${(cx + r * Math.cos(t)).toFixed(1)} ${(cy + r * Math.sin(t)).toFixed(1)}`;
     return `M${p(-h)} A${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${p(h)}`;
   }
-  // (1 Nov 2026, "Move everything to GPU": the cards the probe's head and body keep clear of are read only when the page's layout may have
-  // changed (layoutWatch), at most four times a second, never while the view moves, and against the kept stage box: each look read every
-  // card's box and computed style, and the stage's own box, in the middle of the probe's frames. The tip's tap restarts by turning
-  // between two copies of its animation (tap, tap2), not by reading the computed style to start the one again. ?scanread=0: as before.)
-  const SCAN_READ = !/[?&]scanread=0\b/.test(location.search);
+  // (1 Nov 2026, "Move everything to GPU": no layout read on the probe's frames. The cards its head and body keep clear of are read first in a
+  // frame (readFrame), and only when the page's layout may have changed (layoutWatch), at most four times a second, never while the view
+  // moves; the frames in between use the boxes last read. The tip's tap restarts by turning between two copies of its animation (tap, tap2),
+  // not by reading the computed style to start the one again.)
   const scanLooks = new Map();
-  function scanLook(key, sel, keep, m) {
+  const SCAN_LOOKS = {
+    head: ['.pz-text.stage-blocker, .pz-data.stage-blocker, .pz-panel.stage-blocker', (el) => !(el.hidden || 'gone' in el.dataset || el.classList.contains('pz-hide') || getComputedStyle(el).opacity < 0.5), () => 0],
+    cards: ['.pz-shade, .pz-data.stage-blocker, .pz-panel.stage-blocker', (el) => !(el.hidden || 'gone' in el.dataset || el.classList.contains('pz-hide') || el.classList.contains('pz-leave') || +getComputedStyle(el).opacity < 0.5), () => (pillEdge ? pillEdge.m : 8)],
+  };
+  function scanLook(key) {
     const now = performance.now(), o = scanLooks.get(key);
-    if (o && (now - o.at < 250 || viewMoving() || !watch.due())) return o.list;
-    const wr = stageBox();
+    if (o && (o.ask || now - o.at < 250 || viewMoving() || !watch.due())) return o.list;
+    scanLooks.set(key, { at: o?.at ?? 0, list: o?.list || [], ask: readFrame(() => { scanLookRead(key); scanAgain(); }) });
+    return o?.list || [];
+  }
+  function scanLookRead(key) {
+    const [sel, keep, mOf] = SCAN_LOOKS[key], wr = stageBox(), m = mOf();
     const list = [...document.querySelectorAll(sel)].map((el) => {
       if (!keep(el)) return null;
       const q = el.getBoundingClientRect();
       return q.width ? { x0: q.left - wr.left - m, y0: q.top - wr.top - m, x1: q.right - wr.left + m, y1: q.bottom - wr.top + m } : null;
     }).filter(Boolean);
-    scanLooks.set(key, { at: now, list });
+    scanLooks.set(key, { at: performance.now(), list, ask: 0 });
     return list;
   }
-  const scanBlockers = () => scanLook('head', '.pz-text.stage-blocker, .pz-data.stage-blocker, .pz-panel.stage-blocker', (el) => !(el.hidden || 'gone' in el.dataset || el.classList.contains('pz-hide') || getComputedStyle(el).opacity < 0.5), 0);
+  // (Read: the probe is turned and its head shown or faded again against them, in the frame's own phase.)
+  const scanAgain = () => nextFrame(() => { if (!scan.el) return; scan.headAt = 0; const t = scanTipLocal(); if (t) scanTurn(t.tx, t.y); });
   // The probe's body and cable lie up and to the left of its tip, turned 45°: where a card covers any of that, the head fades out and the
   // waves stay, so no stub pokes out from under the card. (The box is the head's four corners, 90 px back along the axis, 13 px to either side.)
   function scanHead() {
@@ -7182,20 +7246,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const a = scan.deg * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a), ax = tip.tx, ay = tip.y;
     const xs = [], ys = [];
     for (const [u, v] of [[-92, -13], [-92, 13], [-2, -13], [-2, 13]]) { xs.push(ax + u * c - v * sn); ys.push(ay + u * sn + v * c); }
-    if (SCAN_READ) {
-      const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-      scan.el.classList.toggle('head-off', scanBlockers().some((r) => r.x0 < x1 && r.x1 > x0 && r.y0 < y1 && r.y1 > y0));
-      return;
-    }
-    const wr = wrap.getBoundingClientRect();
-    const x0 = Math.min(...xs) + wr.left, x1 = Math.max(...xs) + wr.left, y0 = Math.min(...ys) + wr.top, y1 = Math.max(...ys) + wr.top;
-    let hit = false;
-    for (const el of document.querySelectorAll('.pz-text.stage-blocker, .pz-data.stage-blocker, .pz-panel.stage-blocker')) {
-      if (el.hidden || 'gone' in el.dataset || el.classList.contains('pz-hide') || getComputedStyle(el).opacity < 0.5) continue;
-      const r = el.getBoundingClientRect();
-      if (r.width && r.left < x1 && r.right > x0 && r.top < y1 && r.bottom > y0) { hit = true; break; }
-    }
-    scan.el.classList.toggle('head-off', hit);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    scan.el.classList.toggle('head-off', scanLook('head').some((r) => r.x0 < x1 && r.x1 > x0 && r.y0 < y1 && r.y1 > y0));
   }
   function scanTick(now) {
     scan.raf = 0;
@@ -7217,7 +7269,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     scanShow();
     if (!(now < scan.headAt)) { scan.headAt = now + 250; scanHead(); }
     if (now >= scan.next) { scan.fronts.push(0); scan.next = now + SCAN_EVERY * 1000; }
-    if (!(now < scan.nextTap)) { scan.nextTap = scan.nextTap && now - scan.nextTap < 250 ? scan.nextTap + 1000 : now + 1000; if (SCAN_READ) { scan.tapB = !scan.tapB; scan.el.classList.toggle('tap', !scan.tapB); scan.el.classList.toggle('tap2', scan.tapB); } else { scan.el.classList.remove('tap'); void getComputedStyle(scan.el.querySelector('.sp-tip') || scan.el).animationName; scan.el.classList.add('tap'); } }   // the probe itself shakes once a second; the waves keep their own rhythm
+    if (!(now < scan.nextTap)) { scan.nextTap = scan.nextTap && now - scan.nextTap < 250 ? scan.nextTap + 1000 : now + 1000; scan.tapB = !scan.tapB; scan.el.classList.toggle('tap', !scan.tapB); scan.el.classList.toggle('tap2', scan.tapB); }   // the probe itself shakes once a second; the waves keep their own rhythm
     const span = clamp(scan.v * 2.5, 70, SCAN_SPAN);   // slow fronts fade sooner, so a healthy liver shows a few calm arcs, not a crowd
     scan.fronts = scan.fronts.map((r) => r + scan.v * dt).filter((r) => r < span);
     const gap = clamp(scan.v * SCAN_EVERY * 0.4, 2, SCAN_GAP);   // the ripples tighten when fronts are close, so neighbours never merge
@@ -7260,7 +7312,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function scanShow(cardTxt) {
     if (!scan.el) return;
     // (Whether a card is on screen is asked only when its number is not given: the card's own frame gives it, and asking laid the page out.)
-    const card = fibroReading.cv, live = () => card?.isConnected && card.offsetParent !== null && fibroReading.txt != null;
+    const card = fibroReading.cv, live = () => card?.isConnected && !card.closest('[hidden]') && fibroReading.txt != null;   // (no layout asked: the card's own frame gives the number)
     const k = scan.k, txt = cardTxt ?? (live() ? fibroReading.txt : k == null ? '--' : k.toFixed(1));
     const sv = scan.el.querySelector('.sp-val');
     putText(sv, txt);
@@ -7276,21 +7328,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
   }
   // The slide's cards the probe keeps clear of, one margin out (read at most four times a second).
-  let scCards = [], scCardsAt = -1e9;
-  function scanCards() {
-    const now = performance.now();
-    if (now - scCardsAt < 250) return scCards;
-    scCardsAt = now;
-    if (!store.get().presenting) return (scCards = []);
-    if (SCAN_READ) return (scCards = scanLook('cards', '.pz-shade, .pz-data.stage-blocker, .pz-panel.stage-blocker', (el) => !(el.hidden || 'gone' in el.dataset || el.classList.contains('pz-hide') || el.classList.contains('pz-leave') || +getComputedStyle(el).opacity < 0.5), pillEdge ? pillEdge.m : 8));
-    const wr = wrap.getBoundingClientRect(), m = pillEdge ? pillEdge.m : 8;
-    scCards = [...document.querySelectorAll('.pz-shade, .pz-data.stage-blocker, .pz-panel.stage-blocker')].map((el) => {
-      if (el.hidden || 'gone' in el.dataset || el.classList.contains('pz-hide') || el.classList.contains('pz-leave') || +getComputedStyle(el).opacity < 0.5) return null;
-      const q = el.getBoundingClientRect();
-      return q.width ? { x0: q.left - wr.left - m, y0: q.top - wr.top - m, x1: q.right - wr.left + m, y1: q.bottom - wr.top + m } : null;
-    }).filter(Boolean);
-    return scCards;
-  }
+
+  const scanCards = () => (store.get().presenting ? scanLook('cards') : []);
+  // (The same, read now: the Doppler probe's own read of the cards, in the frame's read phase.)
+  const scanCardsRead = () => (store.get().presenting ? scanLookRead('cards') : []);
   function scanTurn(tx, y = Infinity) {
     const r = (d) => d * Math.PI / 180, left = (d) => tx - 92 * Math.cos(r(d)) - 13 * Math.sin(r(d)) >= SCAN_EDGE, top = (d) => y - 76 * Math.sin(r(d)) - 13.8 * Math.cos(r(d)) >= 4;
     const bodyLeft = (d) => tx - 76 * Math.cos(r(d)) - 13.8 * Math.sin(r(d)) >= 4;   // (only the body must stay on screen; the cable is a short stub)
@@ -7326,7 +7367,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       sites.el.append(el); scan.el = el; scan.deg = 45;
       labelGL?.setScan(el);   // (drawn over the labels on their GPU layer while it can be; label-gl.js)
       const t0 = scanTipLocal(); if (t0) scanTurn(t0.tx, t0.y);   // (turned before it first shows, so it fades in at its angle rather than swinging to it)
-      void el.offsetWidth; el.classList.remove('cath-pre');
+      nextFrame(() => el.classList.remove('cath-pre'));   // (its first look at cath-pre is this frame's own style pass: no layout forced for the fade)
       if (reduceMotion.matches) { scan.fronts = [40, 90]; scan.v = 0; scan.next = scan.nextTap = Infinity; }
       if (!scan.raf) { scan.last = 0; scan.raf = nextFrame(scanTick); }
     }
@@ -7362,43 +7403,50 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const dprStale = () => { dprCardsAt = -1e9; };
   addEventListener('pps:occ', dprStale);
   addEventListener('resize', dprStale);
-  // While the readings' card slides (a pull, a tap, the ease after either; presenter.js tells with pps:slide), the cards it moves are read on
-  // every frame and the probe is placed against them as they go: it stays where it is while it has room, swings out of a card's way as
-  // the card comes, and fades only where no place is clear (Mohammad, 22 Oct: "it should only hide once there is no space available;
-  // not hide and show during the tuck untuck"). A few frames after the slide ends the cards' last place is read once more.
+  // While the readings' card slides (a pull, a tap, the ease after either; presenter.js tells with pps:slide), the probe is placed against
+  // the cards on every frame: it stays where it is while it has room, swings out of a card's way, and fades only where no place is clear
+  // (Mohammad, 22 Oct: "it should only hide once there is no space available; not hide and show during the tuck untuck").
   let dprTrackRaf = 0, dprTrackQuiet = 0;
+  // (With BOX_READ the cards are read first in each frame, before any write, and the probe placed against them after: dprCards.)
+  // (1 Nov 2026, "Move everything to GPU": no layout read on the frames of a slide. The cards are read once as the readings' card starts to
+  // move (pps:slide), with the room the sliding card may still take on its way out (its own --pz-u and --pz-d, written by the presenter),
+  // so the probe moves out of its way as it starts rather than following it frame by frame; and read once more when it rests. The reads are
+  // made first in a frame (readFrame), at those two moments only; the probe is placed against them on every frame in between.)
   function dprTrack() {
     dprTrackRaf = 0;
     dprTrackQuiet = document.querySelector('.pz-data.pz-sliding') ? 0 : dprTrackQuiet + 1;
+    const was = dpr.track;
     dpr.track = dprTrackQuiet <= 6;
-    if (dop.id) { dprStale(); dprobePaint(); labelGL?.redraw(); }
+    if (was && !dpr.track) dprStale();   // (it rests: the cards' last place is read once)
+    if (dop.id) { dprobePaint(); labelGL?.redraw(); }
     if (dpr.track) dprTrackRaf = nextFrame(dprTrack);
   }
-  addEventListener('pps:slide', () => { dprTrackQuiet = 0; dprPrev = new WeakMap(); if (!dprTrackRaf && dpr.ready) dprTrackRaf = nextFrame(dprTrack); });
-  // (Where each card stood on the frame before, while they slide: a card's leading edge is read DPR_AHEAD ms ahead of where it is, at the
-  // speed it has just moved at (at most DPR_REACH px, and not from a read more than 120 ms old), so the probe starts to move as the card
-  // comes and is out of its way as it arrives, not after it has covered it.)
-  let dprPrev = new WeakMap();
-  const DPR_AHEAD = 90, DPR_REACH = 80;
+  addEventListener('pps:slide', () => { dprTrackQuiet = 0; dprStale(); if (!dprTrackRaf && dpr.ready) dprTrackRaf = nextFrame(dprTrack); });
+  let dprCardsAsk = 0;
+  // The cards as last read; due (a card may have moved, at most four times a second while the page's layout settles, never while the view
+  // moves), they are read first in the next frame and the probe is placed again then.
   function dprCards() {
     const now = performance.now();
-    if (dprCardsAt > 0 && !(now - dprCardsAt > 250 && watch.due())) return dprCardsList;
-    dprCardsAt = now;
-    const wr = wrap.getBoundingClientRect();
-    dprCardsList = [...scanCards(), ...[...document.querySelectorAll('[data-safe], .stage-blocker:not([hidden])')].map((el) => {
+    if (dprCardsAt > 0 && !(now - dprCardsAt > 250 && watch.due() && !viewMoving())) return dprCardsList;
+    dprCardsAsk ||= readFrame(dprCardsRead);
+    return dprCardsList;
+  }
+  function dprCardsRead() {
+    dprCardsAsk = 0;
+    dprCardsAt = performance.now();
+    const wr = stageBox();
+    dprCardsList = [...scanCardsRead(), ...[...document.querySelectorAll('[data-safe], .stage-blocker:not([hidden])')].map((el) => {
       // (A card hidden by visibility is not there, as the framing reads it (unseenCard): the closed Details sheet stays in place on
       // a phone, invisible, as tall as it was last opened, and kept the probe off the whole figure in Tests › Doppler, 20 Oct.)
       if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out') || unseenCard(el)) return null;
       const q = el.getBoundingClientRect();
       if (!q.width || !q.height) return null;
       const box = { x0: q.left - wr.left - 6, y0: q.top - wr.top - 6, x1: q.right - wr.left + 6, y1: q.bottom - wr.top + 6 };
-      if (!dpr.track) return box;
-      const was = dprPrev.get(el); dprPrev.set(el, { ...box, at: now });
-      if (!was || now - was.at > 120) return box;
-      const out = (d) => Math.min(DPR_REACH, (Math.max(0, d) / Math.max(8, now - was.at)) * DPR_AHEAD);
-      return { x0: box.x0 - out(was.x0 - box.x0), y0: box.y0 - out(was.y0 - box.y0), x1: box.x1 + out(box.x1 - was.x1), y1: box.y1 + out(box.y1 - was.y1) };
+      // (The readings' card sliding: it counts as far as it may still reach on its way out, the rest of its travel above its top.)
+      if (el.classList.contains('pz-sliding')) { const u = parseFloat(el.style.getPropertyValue('--pz-u')) || 0, d = parseFloat(el.style.getPropertyValue('--pz-d')) || 0; box.y0 -= Math.max(0, (1 - u) * d); }
+      return box;
     }).filter(Boolean)];
-    return dprCardsList;
+    nextFrame(dprobePaint);
   }
   // The labels and callouts showing (stage px), which the probe and its line of sight keep off where a side allows.
   function dprAvoid() {
@@ -7468,15 +7516,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // vessel is chosen, since those changes come from the cards, not the figure.
   // (Only while a card or bar may have moved, shown, hidden or covered another (layoutWatch, as dprCards): otherwise the last
   // look's answer still holds and no layout is read. Review item 28.)
-  let dprMonLast = false;
+  let dprMonLast = false, dprMonAsk = 0;
   const dprQuiet = () => dpr.monAt > 0 && !watch.due();
   function dprMonitorOn() {
     const now = performance.now();
     if (now - dpr.monAt < 200) return dpr.mon;   // (asked on every model frame: the answer of the last 200 ms, the pace it is watched at anyway)
-    if (dprQuiet()) return dprMonLast;
-    dpr.monAt = now;
-    dprMonLast = dprMonitorLook();
+    if (!dprQuiet()) dprMonAsk ||= readFrame(dprMonRead);   // (looked at first in the next frame, never between the frame's writes)
     return dprMonLast;
+  }
+  function dprMonRead() {
+    dprMonAsk = 0;
+    dpr.monAt = performance.now();
+    dprMonLast = dprMonitorLook();
+    if (dprMonLast !== dpr.mon || (dprMonLast && !dpr.on && !dpr.swap)) { dpr.mon = dprMonLast; nextFrame(dprobePaint); }
   }
   function dprMonitorLook() {
     const W = innerWidth, H = innerHeight;

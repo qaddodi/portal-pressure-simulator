@@ -1,0 +1,36 @@
+// The frame's read phase (frame.js readFrame; 1 Nov 2026, "Move everything to GPU": zero layout inside the frame): boxes are read first
+// in a frame, while the layout is the last frame's, and the writes that follow them run in the same frame.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+test('read callbacks run before every other callback of their frame, and what they ask for runs in that frame', async () => {
+  const cbs = [];
+  globalThis.requestAnimationFrame = (f) => { cbs.push(f); return cbs.length; };
+  const { frame, lateFrame, readFrame, framePhase, cancelFrame } = await import('../src/ui/frame.js');
+  const log = [];
+  frame(() => log.push('early'));
+  lateFrame(() => log.push('late'));
+  readFrame(() => { log.push(`read:${framePhase()}`); frame(() => log.push('asked from read')); readFrame(() => log.push('next read')); });
+  const gone = readFrame(() => log.push('cancelled'));
+  cancelFrame(gone);
+  assert.equal(cbs.length, 1, 'one browser frame asked for');
+  cbs.shift()(16);
+  assert.deepEqual(log, ['read:read', 'early', 'asked from read', 'late']);
+  assert.equal(cbs.length, 1, 'a read asked from a read waits for the next frame');
+  cbs.shift()(32);
+  assert.deepEqual(log.slice(4), ['next read']);
+  assert.equal(framePhase(), null);
+});
+
+test('stage: the figure\'s boxes are read in the read phase at a change, never between the frame\'s writes', () => {
+  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(st, /const BOX_READ = !\/\[\?&\]boxread=0\\b\/\.test\(location\.search\);/);
+  assert.match(st, /homeAsk \|\|= readFrame\(homeLookRead\);/, 'the home look');
+  assert.match(st, /kpAsk \|\|= readFrame\(keyPillRead\);/, 'the key pill');
+  assert.match(st, /dprCardsAsk \|\|= readFrame\(dprCardsRead\);/, 'the Doppler probe\'s cards');
+  assert.match(st, /if \(!dprQuiet\(\)\) dprMonAsk \|\|= readFrame\(dprMonRead\);/, 'the Doppler monitor check');
+  assert.match(st, /ask: readFrame\(\(\) => \{ scanLookRead\(key\); scanAgain\(\); \}\)/, 'the FibroScan probe\'s cards');
+  assert.match(st, /nextFrame\(\(\) => \{ el\.classList\.remove\('cath-pre'\); sitesAgain\(\); \}\);/, 'no forced layout to start a reading\'s fade');
+  assert.match(st, /function safeInsets\(exact = false, skip = null\) \{\n\s+return \{ \.\.\.insKept\(/, 'the cards\' room kept while nothing laid out moved');
+});

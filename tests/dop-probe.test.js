@@ -595,7 +595,8 @@ test('stage: the probe\'s memory is in the loop (layout signature, banned places
 test('stage: the Doppler monitor check keeps its last answer while nothing placed has moved', () => {
   const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   assert.match(src, /const dprQuiet = \(\) => dpr\.monAt > 0 && !watch\.due\(\);/);
-  assert.match(src, /if \(dprQuiet\(\)\) return dprMonLast;\n\s+dpr\.monAt = now;\n\s+dprMonLast = dprMonitorLook\(\);/);
+  assert.match(src, /if \(!dprQuiet\(\)\) dprMonAsk \|\|= readFrame\(dprMonRead\);/, 'looked at first in the next frame, never between its writes');
+  assert.match(src, /dpr\.monAt = performance\.now\(\);\n\s+dprMonLast = dprMonitorLook\(\);/);
   assert.match(src, /if \(dpr\.ready && dop\.id\) \{\n\s+let on = dprMonLast;\n\s+if \(!dprQuiet\(\)\) \{ dpr\.monAt = 0; on = dprMonitorOn\(\); \}/);
   // (Since 1 Nov 2026 no timer at rest: the look starts on the change that makes the watch due, and on a new vessel, and stops once quiet.)
   assert.match(src, /if \(DPR_POLL \|\| !dprQuiet\(\)\) dprMonT = setTimeout\(dprMonTick, 200\);/);
@@ -632,27 +633,26 @@ test('stage: a glide that only refits the figure to cards that changed does not 
   assert.match(stage, /camMove = false; dpr\.carry = false;/);
 });
 
-test('stage: while the readings slide, the cards are read on every frame and the probe is placed against them as they go', () => {
+test('stage: while the readings slide, the probe is placed on every frame against the cards read as the slide starts and as it rests', () => {
   const pres = read('src/ui/presenter.js');
   // The presenter tells the stage when a slide of the readings starts: a tap or a settle (slideUnder), a pull (take).
   assert.match(pres, /const slideTell = \(\) => dispatchEvent\(new Event\('pps:slide'\)\);/);
   assert.match(pres, /d\.classList\.add\('pz-sliding'\); d\.style\.setProperty\('--pz-u', from\.toFixed\(4\)\); liftTo\(from\); slideTell\(\);/);
   assert.match(pres, /const take = \(gg\) => \{ gg\.on = true; if \(gg\.split\) \{ cancelFrame\(slip\.raf\); slideTell\(\); \}/);
-  // The stage reads the cards afresh and paints the probe each frame while a card slides, and a few frames after.
+  // (1 Nov 2026, no layout read on the frames of a slide: the cards are read as it starts and once it rests, first in a frame.)
   const tr = stage.slice(stage.indexOf('function dprTrack() {'), stage.indexOf('function dprCards() {'));
   assert.match(tr, /document\.querySelector\('\.pz-data\.pz-sliding'\) \? 0 : dprTrackQuiet \+ 1/);
   assert.match(tr, /dpr\.track = dprTrackQuiet <= 6;/);
-  assert.match(tr, /if \(dop\.id\) \{ dprStale\(\); dprobePaint\(\); labelGL\?\.redraw\(\); \}/);   // (and drawn by the GPU's label layer in that frame)
+  assert.match(tr, /if \(was && !dpr\.track\) dprStale\(\);/);
+  assert.match(tr, /if \(dop\.id\) \{ dprobePaint\(\); labelGL\?\.redraw\(\); \}/);   // (and drawn by the GPU's label layer in that frame)
   assert.match(tr, /if \(dpr\.track\) dprTrackRaf = nextFrame\(dprTrack\);/);
-  // (While they slide a card's leading edge is read a moment ahead, so the probe is out of its way as it arrives; from the speed it has
-  // just moved at, in ms, never from a stale read, and by at most DPR_REACH px.)
-  const cards = stage.slice(stage.indexOf('function dprCards() {'), stage.indexOf('// The labels and callouts showing (stage px)'));
-  assert.match(cards, /if \(!dpr\.track\) return box;/);
-  assert.match(cards, /if \(!was \|\| now - was\.at > 120\) return box;/);
-  assert.match(cards, /Math\.min\(DPR_REACH, \(Math\.max\(0, d\) \/ Math\.max\(8, now - was\.at\)\) \* DPR_AHEAD\)/);
+  assert.doesNotMatch(tr, /getBoundingClientRect/);
+  // (The sliding card counts as far as it may still reach, so the probe is out of its way as it starts, never chasing it.)
+  const cards = stage.slice(stage.indexOf('function dprCardsRead() {'), stage.indexOf('// The labels and callouts showing (stage px)'));
+  assert.match(cards, /if \(el\.classList\.contains\('pz-sliding'\)\) \{ const u = parseFloat\(el\.style\.getPropertyValue\('--pz-u'\)\) \|\| 0, d = parseFloat\(el\.style\.getPropertyValue\('--pz-d'\)\) \|\| 0; box\.y0 -= Math\.max\(0, \(1 - u\) \* d\); \}/);
   // (And a far place is swung to round the gate while the cards move, never faded out and in at: the readings' slide and the camera's refit.)
   assert.match(stage, /swing: dpr\.track \|\| dpr\.carry \}\);/);
-  assert.match(stage, /addEventListener\('pps:slide', \(\) => \{ dprTrackQuiet = 0; dprPrev = new WeakMap\(\); if \(!dprTrackRaf && dpr\.ready\) dprTrackRaf = nextFrame\(dprTrack\); \}\);/);
+  assert.match(stage, /addEventListener\('pps:slide', \(\) => \{ dprTrackQuiet = 0; dprStale\(\); if \(!dprTrackRaf && dpr\.ready\) dprTrackRaf = nextFrame\(dprTrack\); \}\);/);
 });
 
 test('probeMind: while the cards move, a far place is swung to; otherwise it fades out and in at it', () => {
