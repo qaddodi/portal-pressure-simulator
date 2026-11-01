@@ -57,7 +57,7 @@ test('?tilegpu=0 and ?fxgpu=0 put the old paths back whole', () => {
 
 test('the overlay is the GPU\'s for the screen and through a GPU dive; a 2D-staged dive keeps the 2D overlay', () => {
   assert.match(lz, /const onGPU = !keep2D && \(!scaled \|\| \(DIVE_GPU && \(sinU === 0 \|\| SIN_GPU\)\)\);/);
-  assert.match(lz, /const fxOn = fxOnGPU\(W, H, dpr, dark, dt, g && !g\.lost && onGPU\);\n\s+if \(g && !g\.lost\) drawGL\(W, H, dpr, dark, cs, dt\);\n\s+if \(!fxOn\) paintFx\(W, H, dpr, dark, dt, !g \|\| g\.lost\);/, 'scaled with the tissue\'s GPU canvas through the dive (DIVE_GPU) and the sinusoid\'s zoom (SIN_GPU), as it is');
+  assert.match(lz, /const fxOn = fxOnGPU\(W, H, dpr, dark, dt, g && !g\.lost && onGPU\);\n\s+const laid = g\?\.top\?\.presents;\n\s+if \(g && !g\.lost\) drawGL\(W, H, dpr, dark, cs, dt\);[^]*?if \(!fxOn\) paintFx\(W, H, dpr, dark, dt, !g \|\| g\.lost\);/, 'scaled with the tissue\'s GPU canvas through the dive (DIVE_GPU) and the sinusoid\'s zoom (SIN_GPU), as it is');
   assert.match(lz, /\(fxGLShown \? true : probe\(fx\)\)/, 'a wide copy is kept when the overlay is the GPU\'s');
   assert.match(lz, /const fxG = h\('canvas', \{ class: 'lz-canvas lz-fx lz-fx-gl', 'aria-hidden': 'true', style: \{ opacity: '0', pointerEvents: 'none' \} \}\);/);
   assert.match(fgl, /failIfMajorPerformanceCaveat: true/, 'a software renderer keeps the 2D overlay');
@@ -73,10 +73,29 @@ test('one context for the lobule: the overlay is laid in the vessels\' canvas at
   assert.match(lz, /fxHostGL = createFxGL\(fxG, \{ host: gl\.top \}\);\n\s+fxHostOff = fxHostGL \? gl\.top\.add\(\{ order: 1, draw: fxHostDraw \}\) : null;/);
   assert.match(lz, /if \(!fxArgs \|\| !fxHostGL\) return;/);
   // A wide copy on the GPU lays the overlay in the vessels' canvas, set before they are drawn; the 2D tiles never have it there.
-  assert.match(lz, /const fxOn = fxOnGPU\(w, hh, dpr, dark, 0, true\), fxIn = fxOn && !!fxArgs;\n\s+drawKey = ''; drawGL\(TW, TH, dpr, dark, cs, 0\);/);
-  assert.match(lz, /\} \} finally \{ wideBuild = false; fxArgs = null; \}/, 'no tile\'s overlay left for the screen');
+  assert.match(lz, /const fxOn = fxOnGPU\(w, hh, dpr, dark, 0, true\), fxIn = fxOn && !!fxArgs, tisIn = onG && !!tisHostFor;\n\s+tisWide = tisIn;\n\s+drawKey = ''; drawGL\(TW, TH, dpr, dark, cs, 0\);/);
+  assert.match(lz, /\} \} finally \{ wideBuild = false; fxArgs = null; tisWide = false; \}/, 'no tile\'s overlay left for the screen');
   assert.match(lz, /wideBuild = true; fxArgs = null;/, 'the 2D tiles: the overlay on the 2D canvas, not in the vessels\'');
   assert.match(fgl, /if \(host\) \{ W = canvas\.width; H = canvas\.height; if \(!W \|\| !H\) return false; \}/, 'over the whole host canvas (a wide tile is cropped from a larger one)');
   assert.match(fgl, /if \(host\) \{ gl\.enable\(gl\.BLEND\); gl\.blendEquation\(gl\.FUNC_ADD\); gl\.blendFunc\(gl\.ONE, gl\.ONE_MINUS_SRC_ALPHA\); \}/, 'over the vessels, premultiplied');
   assert.match(fgl, /gl\.disable\(gl\.BLEND\); gl\.useProgram\(null\); gl\.bindVertexArray\(null\);/, 'the host\'s state put back');
+});
+
+test('one context for the lobule: the tissue is drawn in the vessels\' context and laid under them at each present (?lzone=0: its own canvas)', () => {
+  const vgl = read('../src/ui/veins-gl.js'), tgl = read('../src/ui/tissue-gl.js');
+  // The vessels' renderer: an under pass on the cleared canvas, the kept picture laid over it premultiplied, pixel for pixel.
+  assert.match(vgl, /if \(!up && under && under\.on\(\) && underLay\(\)\)/);
+  assert.match(vgl, /gl\.clearColor\(0, 0, 0, 0\); gl\.clear\(gl\.COLOR_BUFFER_BIT\);\n\s+try \{ under\.draw\(\); \}/);
+  assert.match(vgl, /under\(u\) \{ under = u; auxStart\('lay'\);/, 'its laying program compiled ahead');
+  // The tissue: no context of its own, a picture of its own in the host's, the host's state put back after every call.
+  assert.match(tgl, /if \(host\) \{ gl = host\.gl; canvas = host\.canvas; \}/);
+  assert.match(tgl, /if \(!host\) canvas\.addEventListener\('webglcontextlost'/);
+  assert.match(tgl, /hostT = makeTarget\(W, H\); tgt\.width = W; tgt\.height = H; pictured = false;/);
+  assert.match(tgl, /gl\.blitFramebuffer\(0, 0, tgt\.width, tgt\.height, 0, ch - dh, dw, ch, gl\.COLOR_BUFFER_BIT, k === 1 \? gl\.NEAREST : gl\.LINEAR\);/);
+  assert.match(tgl, /if \(!host\) gl\.getExtension\('WEBGL_lose_context'\)\?\.loseContext\(\); return null;/, 'a failed build never takes the host\'s context');
+  // The lobule: made with the vessels' renderer, laid while it shows (or for a wide tile drawn on the GPU), and a frame that drew it
+  // but not the vessels lays a picture.
+  assert.match(lz, /tissueGL = createTissueGL\(tissueG, \{ onLive: liveCompiled, host: gl\.top \}\) \|\| null;\n\s+tisHostOff = tissueGL \? gl\.top\.under\(\{ on: tisUnder, draw: \(\) => tissueGL\.under\(gl\?\.software \? 0\.5 : 1\) \}\) : null;/);
+  assert.match(lz, /const tisUnder = \(\) => !!tissueGL && tissueGL\.pictured && \(wideBuild \? tisWide : tissueG\.style\.opacity !== '0' && tissueG\.style\.visibility !== 'hidden'\);/);
+  assert.match(lz, /if \(g && !g\.lost && laid !== undefined && g\.top\.presents === laid && \(fxOn \|\| \(tisHostFor && tissueDrew\)\)\) g\.present\(\);/);
 });

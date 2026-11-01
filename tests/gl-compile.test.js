@@ -172,7 +172,7 @@ test('the lobule tissue, lobule field, sinusoid and the instruments start their 
 test('a draw that comes before its program is published publishes it first', () => {
   // (The lobule's tissue and field publish it in a draw only once the driver says it is compiled: never a wait in a frame; still compiling,
   // they hold their frame or the 2D canvas draws it. shader-warm.test.js.)
-  assert.match(src('src/ui/tissue-gl.js'), /if \(!ready\) return hold && pictured && canvas\.width === W && canvas\.height === H \? 'held' : false;\n\s+\}\n\s+publish\(\);\n\s+if \(this\.lost\) return false;/);
+  assert.match(src('src/ui/tissue-gl.js'), /if \(!ready\) return hold && pictured && tgt\.width === W && tgt\.height === H \? 'held' : false;\n\s+\}\n\s+publish\(\);\n\s+if \(this\.lost\) return false;/);
   assert.match(src('src/ui/field-gl.js'), /if \(ready\) publish\(\);\n\s+else return hold && pictured && canvas\.width === W && canvas\.height === H \? 'held' : false;\n\s+\}\n\s+if \(this\.lost \|\| !prog\) return false;/);
   assert.match(src('src/ui/doppler-gl.js'), /render\(\{[^\n]*\}\) \{\n\s+publish\(\);\n\s+if \(lost \|\| failed/);
   assert.match(src('src/ui/endo-gl.js'), /render\(res, st\) \{\n\s+if \(lost\) return cv;\n\s+publish\(\);/);

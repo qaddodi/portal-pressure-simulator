@@ -81,23 +81,38 @@ ${rim ? '  vec4 own = vec4(0.0);   // (the lobule\'s own layer, for the rim)\n' 
  *  will be); the caller then asks again. */
 export function createTissueGL(canvas, opts = {}) {
   let gl = null;
+  // Hosted (opts.host: { gl, canvas, under }, the lobule's vessel renderer's top, veins-gl.js; LZ_ONE): no context of its own. Each frame is
+  // drawn into a picture of its own (hostT) in the host's context, and laid on the host's canvas under the vessels at each of its presents
+  // (under). The owner makes it again with the renderer it makes after a lost context.
+  const host = opts.host || null;
+  if (host) { gl = host.gl; canvas = host.canvas; }
+  else
   // (See-through, not opaque: every pixel is drawn whole (alpha 1), so the picture is the same, but a frame in which the browser has no
   // picture for the canvas (its context taken back, or its buffer let go before a frame was drawn) shows the page through it, where an
   // opaque canvas showed solid black over the whole lobule and its surround, until the next draw (Mohammad, 31 Oct and 1 Nov: the
   // hepatocytes and the background all went black while zooming).)
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl) return null;
+  // (Hosted, the picture's own target, sized to each frame; tgt: the size it holds (the canvas itself, on a context of its own); scr():
+  // the framebuffer a frame ends in, null for the canvas.)
+  let hostT = null;
+  const tgt = host ? { width: 0, height: 0 } : canvas;
+  const scr = () => (hostT ? hostT.fbo : null);
   // The program is started here and published once the driver has finished it (gl-compile.js); a draw that comes first publishes it.
   // This one is the tissue as it was before the shader drew any of the lobule: the bitmap over the surround, nothing of lobule-live.js
   // in it. The program that also draws the lobule live is a second one (tissueFS(true)), started by the first liveReady() (the caller
   // asks as soon as this exists), so a live program that fails to compile leaves this one working: the lobule keeps its painted
   // picture, and the bitmap alone is drawn by this program wherever the zoom gives the shader no share.
   let started;
-  try { started = startProgram(gl, VS, tissueFS(false), [['p', 0]]); } catch (err) { console.warn('The lobule tissue falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
+  try { started = startProgram(gl, VS, tissueFS(false), [['p', 0]]); } catch (err) { console.warn('The lobule tissue falls back to the 2D canvas.', err); if (!host) gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);   // one triangle over the whole canvas
+  // (Hosted, in a context whose own passes bind vertex arrays of their own: one of its own, bound for each of its draws.)
+  const vao = host ? gl.createVertexArray() : null;
+  if (vao) gl.bindVertexArray(vao);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  if (vao) { gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null); }
   gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
   // (A 1 px clear texture for a bitmap or tile not given: every sampler is bound to something.)
   const none = gl.createTexture();
@@ -108,7 +123,16 @@ export function createTissueGL(canvas, opts = {}) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   let lost = false, pictured = false;   // (pictured: the canvas holds a frame at its present size, drawn by draw)
-  canvas.addEventListener('webglcontextlost', (e) => { lost = true; pictured = false; texs.clear(); liveTex = null; pic = null; e.preventDefault?.(); });
+  if (!host) canvas.addEventListener('webglcontextlost', (e) => { lost = true; pictured = false; texs.clear(); liveTex = null; pic = null; e.preventDefault?.(); });
+  // (Hosted: the context as the host's own passes expect to find it, after each of this one's calls.)
+  function hostDone() {
+    if (!host) return;
+    gl.useProgram(null); gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    for (let u = 0; u <= 12; u++) { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, null); }   // (the tiles and bitmaps, SCRATCH and the live shapes: units 0–12)
+    gl.activeTexture(gl.TEXTURE0);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND);
+  }
   let prog = null, U0 = null, failed = false, liveTex = null;   // (liveTex: the lobule's shapes on the GPU, for the shape liveTex.for)
   const COMMON_U = ['uQA', 'uQB', 'uQO', 'uW', 'uWO', 'uMix', 'uQOld', 'uO', 'uRd', 'uH', 'uRect', 'uWMix', 'uFade', 'uMid', 'uBg', 'uGrey', ...(DIVE_GPU ? ['uRim'] : [])];
   const LIVE_U = ['uLC', 'uLB', 'uLI', 'uLBox', 'uLN', 'uLEdge', 'uLCtr', 'uLCen', 'uLSt', 'uLGap', 'uLGap55', 'uLBase', 'uLNut', 'uLZ1', 'uLZ2', 'uLZ3', 'uLPlate', 'uLInk', 'uLZl', 'uLive', 'uLS', 'uLK', 'uLSin', 'uLFib', 'uLKB', 'uLShd', 'uLShade', 'uLHs', 'uLHB', 'uLHN'];   // (the lobule drawn live, lobule-live.js)
@@ -121,8 +145,10 @@ export function createTissueGL(canvas, opts = {}) {
       U0 = locate(prog, COMMON_U);
       gl.useProgram(prog);
       gl.uniform1i(U0.uQA, 0); gl.uniform1i(U0.uQB, 1); gl.uniform1i(U0.uQO, 2); gl.uniform1i(U0.uW, 3); gl.uniform1i(U0.uWO, 4);
+      if (vao) gl.bindVertexArray(vao);
       exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));
-    } catch (err) { failed = true; console.warn('The lobule tissue falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); }
+    } catch (err) { failed = true; console.warn('The lobule tissue falls back to the 2D canvas.', err); if (!host) gl.getExtension('WEBGL_lose_context')?.loseContext(); }
+    hostDone();
   }
   publishWhenDone(gl, [started], publish);
   // The program that also draws the lobule live: started the first time liveReady() is asked,
@@ -141,9 +167,11 @@ export function createTissueGL(canvas, opts = {}) {
       gl.useProgram(p);
       gl.uniform1i(L.uQA, 0); gl.uniform1i(L.uQB, 1); gl.uniform1i(L.uQO, 2); gl.uniform1i(L.uW, 3); gl.uniform1i(L.uWO, 4);
       gl.uniform1i(L.uLC, LIVE_UNIT); gl.uniform1i(L.uLB, LIVE_UNIT + 1); gl.uniform1i(L.uLI, LIVE_UNIT + 2); gl.uniform1i(L.uLS, LIVE_UNIT + 3); gl.uniform1i(L.uLK, LIVE_UNIT + 4);   // (the lobule's shapes, lobule-live.js)
+      if (vao) gl.bindVertexArray(vao);
       exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));
       liveP = { prog: p, U: L };
     } catch (err) { liveFailed = true; console.warn('The lobule cannot be drawn live; it keeps its painted picture.', err); }
+    hostDone();
     try { opts.onLive?.(); } catch (err) { console.warn(err); }
   }
   // A canvas's texture, sent again only when the canvas was painted again (ver, the caller's count of its paints) or resized.
@@ -245,13 +273,13 @@ export function createTissueGL(canvas, opts = {}) {
   // pos: the lobule's centre and the bitmap's corner, device px).
   function drawLive(W, H, sig, pos) {
     const tri = () => gl.drawArrays(gl.TRIANGLES, 0, 3);
-    if (keepOff || gl.drawingBufferWidth !== W || gl.drawingBufferHeight !== H) { dropKept(); tri(); return; }
+    if (keepOff || (host ? tgt.width !== W || tgt.height !== H : gl.drawingBufferWidth !== W || gl.drawingBufferHeight !== H)) { dropKept(); tri(); return; }
     if (pic && (pic.W !== W || pic.H !== H)) dropKept();
     const full = [0, 0, W, H];
     if (pic && same(pic.sig, sig)) {
       const d = panShift(pic.ref, pos), plan = d && panPlan(W, H, d[0], d[1]);
       if (plan && !d[0] && !d[1]) {   // (nothing moved: the kept picture as it is)
-        blit(pic.cur, null, full, full); gl.bindFramebuffer(gl.FRAMEBUFFER, null); keepStats.still++;
+        blit(pic.cur, hostT, full, full); gl.bindFramebuffer(gl.FRAMEBUFFER, scr()); keepStats.still++;
         return;
       }
       if (plan) {
@@ -262,8 +290,8 @@ export function createTissueGL(canvas, opts = {}) {
         gl.enable(gl.SCISSOR_TEST);
         for (const [x, y, w, h] of plan.strips) { gl.scissor(x, y, w, h); tri(); }
         gl.disable(gl.SCISSOR_TEST);
-        blit(B, null, full, full);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        blit(B, hostT, full, full);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, scr());
         pic.spare = pic.cur; pic.cur = B;
         pic.ref = [pic.ref[0] + d[0], pic.ref[1] + d[1], pic.ref[2] + d[0], pic.ref[3] + d[1]];   // (what its pixels are drawn for: whole steps from the last full frame, so no error builds up)
         keepStats.shifted++;
@@ -273,8 +301,8 @@ export function createTissueGL(canvas, opts = {}) {
     if (!pic) { const a = makeTarget(W, H); if (!a.ok) { keepOff = true; freeTarget(a); tri(); return; } pic = { cur: a, spare: null, W, H, sig: null, ref: null }; }
     gl.bindFramebuffer(gl.FRAMEBUFFER, pic.cur.fbo);
     tri();
-    blit(pic.cur, null, full, full);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    blit(pic.cur, hostT, full, full);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, scr());
     pic.sig = sig; pic.ref = pos.slice();
     keepStats.full++;
   }
@@ -285,6 +313,7 @@ export function createTissueGL(canvas, opts = {}) {
       a.bg[0], a.bg[1], a.bg[2], a.grey ? a.grey[0] : 1, a.grey ? a.grey[1] : 1, live.shape, live.data, live.dyn,
       JSON.stringify([live.share, live.cu, live.sj, live.zones, live.dark, live.cen, live.rs0, live.fib, live.col])];
   }
+  hostDone();
   return {
     get lost() { return lost || failed || gl.isContextLost(); },
     /** How many live frames were drawn in full, as a shifted copy of the last (with only the strips the move uncovered drawn), or as
@@ -294,7 +323,7 @@ export function createTissueGL(canvas, opts = {}) {
      *  called when it is done, either way. False for good if it failed. */
     liveReady() { startLive(); return !!liveP && !this.lost; },
     /** Sends a canvas to the GPU now (painted ahead, so no frame of a gesture waits for it). */
-    upload(cv, ver = 0, tile = false) { if (!this.lost && cv?.width) texFor(cv, ver, tile); },
+    upload(cv, ver = 0, tile = false) { if (!this.lost && cv?.width) { texFor(cv, ver, tile); hostDone(); } },
     /** A bitmap painted off the page (the tissue worker, tissue-worker.js) and sent in tiles, a few a frame: begin(cv) makes the
      *  canvas's texture at its size, put(cv, x, y, bmp) lays one tile (an ImageBitmap, premultiplied as the canvas's own upload is),
      *  done(cv, ver) builds its mipmaps. From then on it is the canvas's texture for that version, as if sent from the canvas (texFor);
@@ -309,6 +338,7 @@ export function createTissueGL(canvas, opts = {}) {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
       Object.assign(t, { w: cv.width, h: cv.height, ver: NaN });
+      hostDone();
     },
     put(cv, x, y, bmp) {
       const t = texs.get(cv);
@@ -317,6 +347,7 @@ export function createTissueGL(canvas, opts = {}) {
       gl.bindTexture(gl.TEXTURE_2D, t.tex);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, gl.RGBA, gl.UNSIGNED_BYTE, bmp);
+      hostDone();
     },
     done(cv, ver) {
       const t = texs.get(cv);
@@ -325,12 +356,14 @@ export function createTissueGL(canvas, opts = {}) {
       gl.bindTexture(gl.TEXTURE_2D, t.tex);
       gl.generateMipmap(gl.TEXTURE_2D);
       t.ver = ver;
+      hostDone();
     },
     /** Gives back every texture whose canvas was given back (width 0) or is no longer wanted (keep(cv) false). */
     sweep(keep = () => true) {
       for (const [cv, t] of texs) if (!cv.width || !keep(cv)) { if (!lost) gl.deleteTexture(t.tex); texs.delete(cv); }
       copier.sweep();
-      if (!canvas.width) dropKept();   // (the canvas itself given back: the picture kept for it goes too)
+      if (!canvas.width) { dropKept(); if (hostT && !lost) { freeTarget(hostT); hostT = null; tgt.width = tgt.height = 0; pictured = false; } }   // (the canvas itself given back: the picture kept for it goes too)
+      hostDone();
     },
     /** One frame of the tissue. W, H: the canvas's size (device px); qa, qb, mix: the quiet tiles' canvases and the blend; qo, qOld:
      *  the last state's tile and how much of it is left; w, wVer, wo, woVer, wMix: the bitmap, the last state's, the new one's share;
@@ -345,7 +378,7 @@ export function createTissueGL(canvas, opts = {}) {
       if (!prog && !failed && !lost && SHADER_WARM) {
         let ready;
         try { ready = compileDone(gl, [started]); } catch { ready = true; }
-        if (!ready) return hold && pictured && canvas.width === W && canvas.height === H ? 'held' : false;
+        if (!ready) return hold && pictured && tgt.width === W && tgt.height === H ? 'held' : false;
       }
       publish();
       if (this.lost) return false;
@@ -357,12 +390,20 @@ export function createTissueGL(canvas, opts = {}) {
       const old = wo?.width && wMix < 1;
       const tx = [texFor(qa, 0, true), qb ? texFor(qb, 0, true) : texFor(qa, 0, true), qo && qOld > 0 ? texFor(qo, 0, true) : none, w?.width ? texFor(w, wVer, false) : none, old ? texFor(wo, woVer, false) : none];
       if (tx.some((t) => !t)) {
-        if (hold && pictured && canvas.width === W && canvas.height === H) return 'held';
+        if (hold && pictured && tgt.width === W && tgt.height === H) { hostDone(); return 'held'; }
         // (No picture to keep: still drawn on the GPU, never stepped down to the 2D canvas. What did not go is the 1 px clear texture: a tile
         // laid over the page's colour by its alpha (TILE_OVER) shows the page's colour, a bitmap shows the surround under it, never black.)
         for (let i = 0; i < tx.length; i++) if (!tx[i]) tx[i] = none;
       }
-      if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; pictured = false; }
+      if (host) {
+        if (!hostT || tgt.width !== W || tgt.height !== H) {
+          if (hostT) freeTarget(hostT);
+          hostT = makeTarget(W, H); tgt.width = W; tgt.height = H; pictured = false;
+          if (!hostT.ok) { freeTarget(hostT); hostT = null; tgt.width = tgt.height = 0; hostDone(); return false; }
+        }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, hostT.fbo); gl.bindVertexArray(vao);
+        gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST);
+      } else if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; pictured = false; }
       gl.viewport(0, 0, W, H);
       // (With a share and the live program ready, the program that has the lobule's shapes in it; otherwise the first, which is the
       // bitmap over the surround and nothing else.)
@@ -401,7 +442,26 @@ export function createTissueGL(canvas, opts = {}) {
       if (isLive) drawLive(W, H, liveSig(W, H, { rim: DIVE_GPU && rim ? rim : null, qa, qb: qb || null, mix: qb ? mix : 0, qo: qo && qOld > 0 ? qo : null, qOld: qo ? qOld : 0, w: w?.width ? w : null, wVer, wo: old ? wo : null, woVer: old ? woVer : 0, wMix: old ? wMix : 1, rect, rd, fade, mid, bg, grey }, live), [ox, oy, rect[0], rect[1]]);
       else { dropKept(); gl.drawArrays(gl.TRIANGLES, 0, 3); }
       pictured = true;
+      hostDone();
       return true;
     },
+    /** Hosted: whether there is a picture to lay (the last frame drawn), and laying it on the host's canvas from its top left, pixel
+     *  for pixel (the host's present, under its own picture). */
+    get pictured() { return pictured && !!hostT; },
+    under(k = 1) {
+      if (!hostT || !pictured || lost || gl.isContextLost()) return;
+      // (k: the host canvas's pixels per this picture's, 0.5 where the vessels draw at half density on a software renderer: the picture
+      // then filtered down onto the same place. A host canvas larger than the picture (a wide copy's tile, cropped from it) gets it in its top left.)
+      const ch = canvas.height, dw = Math.round(tgt.width * k), dh = Math.round(tgt.height * k);
+      gl.disable(gl.SCISSOR_TEST);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, hostT.fbo);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.blitFramebuffer(0, 0, tgt.width, tgt.height, 0, ch - dh, dw, ch, gl.COLOR_BUFFER_BIT, k === 1 ? gl.NEAREST : gl.LINEAR);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    },
+    /** Gives back the picture's own target (hosted), as the canvas's memory would be. */
+    release() { dropKept(); if (hostT && !lost && !gl.isContextLost()) freeTarget(hostT); hostT = null; tgt.width = tgt.height = 0; pictured = false; },
+    /** The context it draws in (its own, or the host's). */
+    get gl() { return gl; },
   };
 }

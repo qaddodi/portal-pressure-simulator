@@ -1825,6 +1825,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // each { order, prep?, draw }. Every prep runs first (each glass takes its blur from the picture just laid, before any glass is drawn
   // on it), then every draw, lowest order first.
   const tops = [];
+  // What is drawn under the figure in this canvas (the lobule's tissue, tissue-gl.js host, LZ_ONE): { on(), draw() }. With one, each
+  // present lays it on the cleared canvas first and the kept picture over it (premultiplied, pixel for pixel), then the tops; null: the
+  // kept picture is copied as it is. presents counts the pictures laid, so an owner can tell whether a frame laid one.
+  let under = null, presents = 0;
   const PW = () => (up ? up[0] : canvas.width), PH = () => (up ? up[1] : canvas.height);
   const pcx = gl.getExtension('KHR_parallel_shader_compile');
   let started;
@@ -2590,7 +2594,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (own.w !== PW() || own.h !== PH()) return;
     if (gpuProbe.on) gpuProbe.note(COUNTED.present, own.w * own.h * 4 / 1024);
     gl.disable(gl.SCISSOR_TEST);
-    if (!(up && !upLin && upDraw())) {
+    presents++;
+    if (!up && under && under.on() && underLay()) { /* (laid: the under picture, the kept one over it) */ }
+    else if (!(up && !upLin && upDraw())) {
       // (A picture under the canvas's size with the plain upscale: filtered, as the page's compositor scales a smaller canvas up.)
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own.fbo);
       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
@@ -2604,6 +2610,31 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       for (const t of tops.slice()) { try { t.draw(); } catch (e) { console.warn('Veins renderer: what is drawn over the figure failed.', e); tops.splice(tops.indexOf(t), 1); } }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
+  }
+  // The under picture, then the kept picture over it by the overlays' program (each pixel its own, premultiplied over). False when that
+  // program cannot be made (the kept picture is then copied as it is).
+  function underLay() {
+    if (layP === null) {
+      try { layP = auxTake('lay', true) || finishProgram(gl, startProgram(gl, REUSE_VS, LAY_FS)); } catch (e) { console.warn('Veins renderer: the overlays\' shader could not be made.', e); layP = false; }
+    }
+    if (!layP) return false;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.disable(gl.STENCIL_TEST); gl.disable(gl.BLEND);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    try { under.draw(); } catch (e) { console.warn('Veins renderer: what is drawn under the figure failed.', e); under = null; }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
+    gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.useProgram(layP.p);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, own.tex);
+    gl.uniform1i(layP.u.uT, 0);
+    gl.bindVertexArray(compVAO);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.bindVertexArray(null);
+    gl.disable(gl.BLEND);
+    return true;
   }
   // The overlays over what present just laid: their stack drawn again first if anything in it changed (organs-gl render), at the
   // canvas's size under the view the vessels were last drawn in (the figure's own transform, before whole() rounds it), scaled to it.
@@ -3263,6 +3294,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     top: ownBuf ? {
       gl, canvas,
       add(t) { tops.push(t); tops.sort((a, b) => (a.order || 0) - (b.order || 0)); return () => { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); }; },
+      /** What is drawn under the figure in this canvas ({ on(), draw() }, one at a time): drawn first at each present while on() says so,
+       *  onto the cleared canvas, the kept picture laid over it. Returns the call that takes it out. */
+      under(u) { under = u; auxStart('lay'); return () => { if (under === u) under = null; }; },
+      /** How many pictures have been laid on the canvas (present): an owner that drew under the figure lays one if a frame laid none. */
+      get presents() { return presents; },
       /** A warm-up of something drawn over the figure here ({ done(), run() }): run once done() says its programs are compiled, at a free
        *  moment of the renderer (prepare: between pictures, not mid gesture), where its small draw may set any state. */
       warmIn(t) { if (t && !lost) freeTasks.push(t); },

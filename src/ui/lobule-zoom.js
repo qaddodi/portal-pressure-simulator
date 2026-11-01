@@ -28,7 +28,7 @@ import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-mode
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL, TILE_OVER } from './field-gl.js?v=d1fb535a12';
-import { createTissueGL, DIVE_GPU } from './tissue-gl.js?v=1a2a534e0e';
+import { createTissueGL, DIVE_GPU } from './tissue-gl.js?v=6b0adb8a3f';
 import { TILE_GPU, tileCopy, isTileCopy } from './tile-gl.js?v=65ea6bb117';
 import { FX_GPU, createFxGL } from './fx-gl.js?v=63f5590264';
 import { WIDE_GL, createWideGL } from './wide-gl.js?v=b0622c784c';
@@ -38,7 +38,7 @@ import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, use
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=c8ef361fbc';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=ee1715cd71';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=8362a21198';
+import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=e1721f52d0';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
 import { createSinusoidView } from './sinusoid-view.js?v=200648b9a5';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, framePart, easeNow, inMotion, PACED } from './frame.js?v=15d5254a2c';
@@ -620,6 +620,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     dropWide();
     resCoverEnd();
     free(tissue); free(tissueG); free(fx); free(glCv); free(diveCv); free(rimCv); diveCopyKey = ''; rimDrawn = false; fxGLOff();
+    if (tisHostFor) tissueGL?.release?.();   // (hosted: the tissue's own picture in the vessels' context)
     clearTimeout(spareT); spareT = 0; free(spareCv); spare = null;
     jobGen++; if (laying) { closeTiles(laying.tiles, laying.i); free(laying.cv); laying = null; }   // (a bitmap the worker is painting or sending is dropped)
     gl?.trim?.();   // (the vessels' framebuffer: the shaders and the uploaded network are kept)
@@ -1859,7 +1860,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     framePart('lz.layoutLabels', layoutLabels);
     // (The overlay first: in the vessels' own context (LZ_ONE) it is laid over them at their present, in drawGL.)
     const fxOn = fxOnGPU(W, H, dpr, dark, dt, g && !g.lost && onGPU);
+    const laid = g?.top?.presents;
     if (g && !g.lost) drawGL(W, H, dpr, dark, cs, dt);
+    // (What is drawn in the vessels' canvas besides them, the tissue under and the overlay over: a frame that drew the vessels again
+    // laid them all; one that did not lays them now.)
+    if (g && !g.lost && laid !== undefined && g.top.presents === laid && (fxOn || (tisHostFor && tissueDrew))) g.present();
     if (!fxOn) paintFx(W, H, dpr, dark, dt, !g || g.lost);
     pillCopy(W, H);
     return true;
@@ -1920,9 +1925,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         // GPU canvas still holds it: no 2D paint of the tissue and no rim copy on the CPU. If the GPU cannot, the 2D canvas, as before.)
         const tg = DIVE_GPU && !flat ? tissueGLOn() : null;
         let onG = false;
+        tisWide = false;
         if (tg) {
           diveRim = rimOf(cx + ox, cy + oy, r); tissueKey = ''; onG = paintTissue(w, hh, dpr, dark, cs, flat, tg);
-          if (onG) { if (cv.width !== tissueG.width || cv.height !== tissueG.height) { cv.width = tissueG.width; cv.height = tissueG.height; } cv.getContext('2d')?.drawImage(tissueG, 0, 0); ok = probe(cv); }
+          if (onG && tisHostFor) { tisWide = true; const pw = canvasPx(w, dpr), ph = canvasPx(hh, dpr); if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; } ok = probe(cv); }   // (hosted: laid under the vessels in their canvas, copied below)
+          else if (onG) { if (cv.width !== tissueG.width || cv.height !== tissueG.height) { cv.width = tissueG.width; cv.height = tissueG.height; } cv.getContext('2d')?.drawImage(tissueG, 0, 0); ok = probe(cv); }
           else { diveCopyKey = ''; diveCopy(cv); ok = probe(tissue) && (!worldAt?.cv.width || probe(rimCv)) && probe(cv); }
         } else {
           tissueKey = ''; paintTissue(w, hh, dpr, dark, cs, flat);
@@ -1941,7 +1948,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         if (ob) opaqueOnly(c, 0, cv.height - 2, cv.width, 2);
       } finally { V.x -= ox; V.y -= oy; }
       tiles.push(cv); box0.append(cv);
-    } } finally { wideBuild = false; }
+    } } finally { wideBuild = false; tisWide = false; }
     diveCopyKey = ''; diveRim = null;
     tissueKey = ''; drawKey = ''; glDirty = true; fxDrawn = ''; fxBoxes = null; lyKey = ''; idleDrawn = '';
     if (!ok) { for (const cv of tiles) free(cv); return null; }
@@ -1982,16 +1989,18 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const tg = DIVE_GPU ? tissueGLOn() : null;
         diveRim = rimOf(cx + ox, cy + oy, r); tissueKey = '';
         const onG = paintTissue(w, hh, dpr, dark, cs, false, tg);   // (on the 2D canvas, it makes its rimmed copy itself: diveCv)
-        // (The overlay first: in the vessels' own context (LZ_ONE) it is laid over them as they are drawn, one canvas for both.)
+        // (The overlay first: in the vessels' own context (LZ_ONE) it is laid over them as they are drawn, one canvas for both; and the
+        // tissue drawn on the GPU under them there too (tisWide), when it is hosted.)
         fxDrawn = ''; fxBoxes = null; lyKey = ''; fxGLKey = ''; fxArgs = null;
-        const fxOn = fxOnGPU(w, hh, dpr, dark, 0, true), fxIn = fxOn && !!fxArgs;
+        const fxOn = fxOnGPU(w, hh, dpr, dark, 0, true), fxIn = fxOn && !!fxArgs, tisIn = onG && !!tisHostFor;
+        tisWide = tisIn;
         drawKey = ''; drawGL(TW, TH, dpr, dark, cs, 0);
         if (!fxOn) paintFx(w, hh, dpr, dark, 0, false);
-        ok = wg.tile(t, canvasPx(w, dpr), canvasPx(hh, dpr), dpr, fxIn ? [onG ? tissueG : diveCv, glCv] : [onG ? tissueG : diveCv, glCv, fxOn ? fxG : fx]);
+        ok = wg.tile(t, canvasPx(w, dpr), canvasPx(hh, dpr), dpr, [...(tisIn ? [] : [onG ? tissueG : diveCv]), glCv, ...(fxIn ? [] : [fxOn ? fxG : fx])]);
         free(rimCv); free(tissue); free(diveCv); if (!fxOn) free(fx);
       } finally { V.x -= ox; V.y -= oy; }
       if (!ok) break;
-    } } finally { wideBuild = false; fxArgs = null; }
+    } } finally { wideBuild = false; fxArgs = null; tisWide = false; }
     diveCopyKey = ''; diveRim = null;
     tissueKey = ''; drawKey = ''; glDirty = true; fxDrawn = ''; fxBoxes = null; lyKey = ''; fxGLKey = ''; idleDrawn = '';
     if (!ok) { wg.release(); return null; }
@@ -2958,7 +2967,25 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The tissue's GPU drawing (tissue-gl.js): made the first time it is asked for; null where WebGL2 is missing or would run in
   // software, and set aside if its context is lost (the 2D canvas carries on).
   let tissueGL, tissueOnGL = false, keep2D = false;
+  // One context for the lobule (LZ_ONE, veins-gl.js): the tissue is drawn in the vessels' own context, into a picture of its own, and
+  // laid on their canvas under them at each picture they lay (their under), with no canvas or context of its own. Laid while it shows
+  // (tissueG, out of the page, keeps the showing state: showTissueGL, the dive's copies) and, for a wide copy's tile, while the tile
+  // is drawn on the GPU (tisWide). Made again with the vessels' renderer (a new one after a lost context). ?lzone=0: its own canvas, as before.
+  let tisHostFor = null, tisHostOff = null, tisWide = false;
+  const tisUnder = () => !!tissueGL && tissueGL.pictured && (wideBuild ? tisWide : tissueG.style.opacity !== '0' && tissueG.style.visibility !== 'hidden');
   function tissueGLOn() {
+    if (LZ_ONE && !glTried) ensureGL();
+    if (LZ_ONE && gl && !gl.lost && gl.top?.under) {
+      if (tisHostFor !== gl) {
+        tisHostOff?.(); if (tisHostFor) tissueGL?.release?.();
+        tisHostFor = gl; tissueGL = createTissueGL(tissueG, { onLive: liveCompiled, host: gl.top }) || null;
+        tisHostOff = tissueGL ? gl.top.under({ on: tisUnder, draw: () => tissueGL.under(gl?.software ? 0.5 : 1) }) : null;
+        tissueGL?.liveReady();
+        tissueG.remove();
+      }
+      return tissueGL && !tissueGL.lost ? tissueGL : null;
+    }
+    if (tisHostFor) return null;   // (hosted, and the vessels' context lost: the 2D canvas until it is made again)
     if (tissueGL === undefined) { tissueGL = createTissueGL(tissueG, { onLive: liveCompiled }); if (!tissueGL) tissueG.remove(); else tissueGL.liveReady(); }
     // (A context the browser takes back (Safari does, under GPU memory pressure or past its count of live contexts) leaves the canvas
     // with no picture. It was left showing until something drew the lobule again, a pan (Mohammad, 1 Nov: the cells went black

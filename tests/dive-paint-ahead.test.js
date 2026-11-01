@@ -33,7 +33,7 @@ test('paintAhead sets the view and model as stage() does, asks the worker, and n
 test("the wide copy at a lower pixel ratio draws from the screen's sharper bitmap rather than painting a softer one", () => {
   assert.match(lz, /if \(wideBuild && !held && kept && ws === worldState && sc < worldSc && worldSc <= sc \* 2\.01\) sc = worldSc;/);
   assert.match(lz, /wideBuild = true;\n\s+try \{ for \(const t of parts\) \{/);
-  assert.match(lz, /\} \} finally \{ wideBuild = false; \}/);
+  assert.match(lz, /\} \} finally \{ wideBuild = false; tisWide = false; \}/);
 });
 
 test("the rise's first frame on the 2D canvas shows the sharper bitmap of the same state smaller, filtered, rather than painting one", () => {
