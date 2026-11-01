@@ -1754,8 +1754,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     t.animate?.([{ transform: from, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: D_SURFACE, delay: 120, easing: EASE_ARRIVE, fill: 'backwards' });
   }
   // (Off until it is right on his devices (Mohammad, 1 Nov: on Next the words slid half way and stuck, then the card popped out and back):
-  // ?cardturn=1 turns the page-turn and the finger follow on; without it every card leaves and comes back whole, as before.)
-  const CARD_TURN = /[?&]cardturn=1\b/.test(location.search);
+  // The page-turn and the finger follow are on by default; ?cardturn=0 turns them off, and every card leaves and comes back whole, as before.)
+  const CARD_TURN = !/[?&]cardturn=0\b/.test(location.search);
   const lastBeat = (i) => beatCount(slides[i]) - 1;
   function go(i) {
     if (!deck || leaving) return;
