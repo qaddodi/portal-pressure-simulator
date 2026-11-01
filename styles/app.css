@@ -541,6 +541,25 @@ div.vital { cursor: default; }
 @media (hover: hover) { .seg button:hover { color: var(--text); } }
 .seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }
 .seg.full { display: flex; } .seg.full button { flex: 1; }
+/* The selection's one moving piece (seg-glide.js, ?glide=0 off): the control's own ::before, put at the chosen button's box
+   (--gx / --gy / --gw / --gh) and drawn as that button was (surface, --shadow-1, its radius). A change of choice glides it, its
+   edge and size together, over --d-small on --ease-move; a placement with no change (first, resize) is still (.glide-still); under
+   a tab that opens its name it follows on --d-flip (.glide-follow). The chosen button's own fill is off while the piece is on, so
+   a still view is the same pixels. Reduce Motion: no travel, the piece fades out and in (--go). High contrast keeps Highlight. */
+.seg-glide { position: relative; isolation: isolate; }
+.seg-glide::before { content: ''; position: absolute; z-index: -1; left: var(--gx); top: var(--gy); width: var(--gw); height: var(--gh); box-sizing: border-box; opacity: var(--go, 1); pointer-events: none;
+  background: var(--surface); box-shadow: var(--shadow-1); border-radius: calc(var(--r-sheet) - 8px);
+  transition: left var(--d-small) var(--ease-move), top var(--d-small) var(--ease-move), width var(--d-small) var(--ease-move), height var(--d-small) var(--ease-move); }
+.seg-glide.glide-follow::before { transition-duration: var(--d-flip); }
+.seg-glide.glide-still::before { transition: none; }
+@media (forced-colors: none) {
+  .seg.seg-glide button[aria-pressed="true"], .seg.seg-glide button[aria-selected="true"] { background: transparent; box-shadow: none; }
+}
+@media (forced-colors) { .seg-glide::before { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .seg-glide::before, .seg-glide.glide-follow::before { transition: opacity var(--d-flip) var(--ease); }
+  .seg-glide.glide-still::before { transition: none; }
+}
 /* A press sinks the control a touch and lets it go on the same step (--d-flip), on a mouse and under a finger alike. The scale
    property, not transform, so it composes with any positioning transform; nothing on the figure moves. */
 .btn:not(:disabled):active { scale: .97; }
@@ -3734,6 +3753,10 @@ button.finding { cursor: pointer; }
 .um-tab::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); opacity: 0; transform: scaleX(.6); transition: opacity var(--d-flip) var(--ease), transform var(--d-flip) var(--ease); }
 .um-tab[aria-selected="true"] { color: var(--text); font-weight: 600; }
 .um-tab[aria-selected="true"]::after { opacity: 1; transform: none; }
+/* The underline is one piece that glides between the tabs (seg-glide.js; the box is the tab's, the line sits 10 px in, 1 px under). */
+.um-tabs.seg-glide::before { left: calc(var(--gx) + 10px); width: calc(var(--gw) - 20px); top: calc(var(--gy) + var(--gh) - 1px); height: 2px; border-radius: 2px; background: var(--accent); box-shadow: none; }
+@media (forced-colors: none) { .um-tabs.seg-glide .um-tab::after { content: none; } }
+@media (forced-colors) { .um-tabs.seg-glide .um-tab[aria-selected="true"]::after { content: ''; } }
 .um-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 @media (pointer: coarse) {
   .um-tab { height: 44px; }   /* (36 px was the mouse size) */
@@ -4086,6 +4109,8 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
 .it-v { display: none; }
 .instr-tab[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(var(--night-rgb) / .12), 0 0 0 .5px var(--hairline); }
 .instr-tab[aria-selected="true"] > svg { stroke: var(--accent); }
+.instr-tabs.seg-glide::before { border-radius: 7px; box-shadow: 0 1px 2px rgb(var(--night-rgb) / .12), 0 0 0 .5px var(--hairline); }
+@media (forced-colors: none) { .instr-tabs.seg-glide .instr-tab[aria-selected="true"] { background: none; box-shadow: none; } }
 .instr-tab[data-slot="1"]::after, .instr-tab[data-slot="2"]::after { content: attr(data-slot); position: absolute; top: -4px; right: -2px; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font: 600 12px/16px var(--font-ui); text-align: center; }
 .picking .instr-tab:not([aria-selected="true"]) { box-shadow: inset 0 0 0 1px var(--accent); }
 /* Narrow: the name under a small icon, so all five fit in one row. */
@@ -4513,6 +4538,10 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
   @media (hover: hover) { .instr-tab:hover { color: var(--text); } }
   .instr-tab[aria-selected="true"] { color: var(--text); font-weight: 600; }
   .instr-tab[aria-selected="true"]::before { content: ''; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
+  /* (One underline that glides between the tabs, seg-glide.js: the tab's box, the line 8 px in and 1 px under, as above.) */
+  .instr-tabs.seg-glide::before { left: calc(var(--gx) + 8px); width: calc(var(--gw) - 16px); top: calc(var(--gy) + var(--gh) - 1px); height: 2px; border-radius: 2px; background: var(--accent); box-shadow: none; }
+  .ws-tabs.compact.seg-glide::before { left: calc(var(--gx) + 4px); width: calc(var(--gw) - 8px); }
+  @media (forced-colors: none) { .instr-tabs.seg-glide .instr-tab[aria-selected="true"]::before { content: none; } }
   /* The 1 / 2 slot number sits after the name, in the row, so it never covers a neighbour. */
   .instr-tab[data-slot="1"]::after, .instr-tab[data-slot="2"]::after { position: static; flex: none; margin-left: 1px; width: 16px; height: 16px; font: 600 12px/16px var(--font-ui); }
   .picking .instr-tab:not([aria-selected="true"]) { box-shadow: none; color: var(--accent-ink); }
@@ -6135,6 +6164,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* (The painted pill is 30 px; the touch reaches 6 px past it above and below, to the pill's edge, unseen.) */
 :is(.nb-views, .sin-views) #viewSeg button::after { content: ""; position: absolute; inset: -6px 0; }
 :is(.nb-views, .sin-views) #viewSeg button[aria-pressed="true"] { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: none; color: var(--text); }
+/* (The gliding piece, seg-glide.js, wears this look: a 30 px pill tinted with the text colour. Into or out of the sinusoid it travels on the zoom's clock.) */
+:is(.nb-views, .sin-views) #viewSeg.seg-glide::before { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: none; border-radius: 15px; }
+@media (forced-colors: none) { :is(.nb-views, .sin-views) #viewSeg.seg-glide button[aria-pressed="true"] { background: transparent; } }
+:is(.nb-views, .sin-views).vp-glide #viewSeg.seg-glide::before { transition-duration: var(--vp-ms, var(--d-camera)); transition-timing-function: var(--ease-move); }
 /* Into or out of the sinusoid (main.js glideViewPill): the pill glides to its new home and the selected button crossfades
    on the zoom's clock and curve. */
 :is(.nb-views, .sin-views).vp-glide #viewSeg button { transition-duration: var(--vp-ms, var(--d-camera)); transition-timing-function: var(--ease-move); }

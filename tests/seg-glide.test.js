@@ -1,0 +1,154 @@
+// The gliding selection (sprint 1 Nov, brief 1): src/ui/seg-glide.js measures the chosen button of every .seg, .instr-tabs and
+// .um-tabs and hands its box to the stylesheet, which draws ONE piece (the control's ::before) that travels between choices.
+// Here: the measuring (against a small stand-in for the page), the off switch (?glide=0 does nothing at all), that a button's
+// pressed / selected state is only ever read, and that the stylesheet keeps every piece rule behind .seg-glide, so without the class
+// the CSS in effect is today's.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+
+// --- a stand-in for the page: elements with children, attributes, a box, a class list and style properties ---------------------
+const made = [];
+function el(name, { cls = [], attrs = {}, box = { left: 0, top: 0, width: 0, height: 0 }, hidden = false } = {}) {
+  const e = {
+    localName: name, nodeType: 1, hidden, children: [], parentElement: null, isConnected: true, _attrs: { ...attrs }, _cls: new Set(cls), _style: new Map(), _box: box, writes: [],
+    classList: { add: (...c) => c.forEach((x) => e._cls.add(x)), remove: (...c) => c.forEach((x) => e._cls.delete(x)), contains: (c) => e._cls.has(c) },
+    style: { setProperty: (k, v) => e._style.set(k, v), removeProperty: (k) => e._style.delete(k) },
+    getAttribute: (k) => e._attrs[k] ?? null,
+    setAttribute: (k, v) => { e.writes.push(k); e._attrs[k] = String(v); },
+    matches: (s) => s.split(',').map((x) => x.trim()).some((x) => {
+      const m = /^\[(aria-[a-z]+)="true"\]$/.exec(x);
+      return m ? e._attrs[m[1]] === 'true' : x.startsWith('.') ? e._cls.has(x.slice(1)) : false;
+    }),
+    closest: (s) => { for (let n = e; n; n = n.parentElement) if (n.matches(s)) return n; return null; },
+    getBoundingClientRect: () => ({ ...e._box, right: e._box.left + e._box.width, bottom: e._box.top + e._box.height }),
+    querySelectorAll: () => [],
+    offsetWidth: box.width, clientLeft: 0, clientTop: 0,
+  };
+  made.push(e);
+  return e;
+}
+const control = (cls, picks, widths = [60, 60, 60]) => {
+  const ctl = el('div', { cls: [cls], box: { left: 100, top: 20, width: widths.reduce((a, b) => a + b, 0) + 4, height: 30 } });
+  let x = 102;
+  widths.forEach((w, i) => {
+    const b = el('button', { attrs: { 'aria-pressed': String(i === picks) }, box: { left: 100 + (x - 100), top: 22, width: w, height: 26 } });
+    b.parentElement = ctl; ctl.children.push(b); x += w;
+  });
+  return ctl;
+};
+
+let observer = null, reduced = false;
+globalThis.MutationObserver = class { constructor(cb) { this.cb = cb; observer = this; } observe() {} disconnect() {} };
+globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+globalThis.matchMedia = () => ({ get matches() { return reduced; } });
+globalThis.getComputedStyle = () => ({ left: '0px' });
+globalThis.performance ??= { now: () => Date.now() };
+const root = (kids) => ({ nodeType: 1, matches: () => false, querySelectorAll: () => kids });
+const G = await import('../src/ui/seg-glide.js');
+
+test('?glide=0 is read from the search string, anywhere in it, and nothing else turns the file off', () => {
+  assert.equal(G.glideOff('?glide=0'), true);
+  assert.equal(G.glideOff('?script=hvpg&glide=0&slide=3'), true);
+  assert.equal(G.glideOff('?glide=1'), false);
+  assert.equal(G.glideOff('?glide=00'), false);
+  assert.equal(G.glideOff(''), false);
+  assert.equal(G.glideOff(undefined), false);
+});
+
+test('off: with ?glide=0 no observer is made and no control gets the class or a variable (today\'s DOM and CSS)', () => {
+  const ctl = control('seg', 1);
+  observer = null;
+  assert.equal(G.startSegGlide(root([ctl]), '?glide=0'), null);
+  assert.equal(observer, null, 'no MutationObserver');
+  assert.equal(ctl._cls.has('seg-glide'), false, 'no .seg-glide');
+  assert.equal(ctl._style.size, 0, 'no variables');
+});
+
+test('on: the chosen button\'s box is put on the control, in the control\'s own pixels, and the class turns the piece on', () => {
+  const ctl = control('seg', 1, [50, 70, 60]);
+  const h = G.startSegGlide(root([ctl]), '');
+  assert.ok(h, 'started');
+  assert.ok(ctl._cls.has('seg-glide'));
+  assert.equal(ctl._style.get('--gx'), '52px', 'left of the second button, from the control\'s padding edge (2 px in)');
+  assert.equal(ctl._style.get('--gy'), '2px');
+  assert.equal(ctl._style.get('--gw'), '70px');
+  assert.equal(ctl._style.get('--gh'), '26px');
+  assert.ok(!ctl._cls.has('glide-still'), 'the still step is only held for a moment');
+  h.stop();
+  assert.ok(!ctl._cls.has('seg-glide'), 'stop() gives the control back');
+});
+
+test('a change of choice moves the piece to the new button, with the transition left on; a press on the chosen one does nothing', () => {
+  const ctl = control('seg', 0, [50, 70, 60]);
+  const h = G.startSegGlide(root([ctl]), '');
+  assert.equal(ctl._style.get('--gx'), '2px');
+  const [a, b] = ctl.children;
+  // a press on the chosen button: the app sets the same state again
+  a._attrs['aria-pressed'] = 'true';
+  observer.cb([{ type: 'attributes', target: a, attributeName: 'aria-pressed' }]);
+  assert.equal(ctl._style.get('--gx'), '2px', 'unchanged');
+  // the choice moves
+  a._attrs['aria-pressed'] = 'false'; b._attrs['aria-pressed'] = 'true';
+  const classes = [];
+  const add = ctl.classList.add; ctl.classList.add = (...c) => { classes.push(...c); add(...c); };
+  observer.cb([{ type: 'attributes', target: a, attributeName: 'aria-pressed' }, { type: 'attributes', target: b, attributeName: 'aria-pressed' }]);
+  assert.equal(ctl._style.get('--gx'), '52px');
+  assert.equal(ctl._style.get('--gw'), '70px');
+  assert.ok(!classes.includes('glide-still'), 'the move is not placed still, so the stylesheet\'s transition runs');
+  h.stop();
+});
+
+test('the selected button keeps its aria state: the file only reads it', () => {
+  const ctl = control('instr-tabs', 2);
+  const h = G.startSegGlide(root([ctl]), '');
+  const [a, b, c] = ctl.children;
+  a._attrs['aria-pressed'] = 'false'; c._attrs['aria-pressed'] = 'false'; b._attrs['aria-pressed'] = 'true';
+  observer.cb([{ type: 'attributes', target: b, attributeName: 'aria-pressed' }]);
+  for (const x of ctl.children) assert.deepEqual(x.writes, [], 'no attribute written on a button');
+  assert.equal(b.getAttribute('aria-pressed'), 'true');
+  h.stop();
+});
+
+test('a control with no choice, or two, keeps today\'s look (no class)', () => {
+  const none = control('seg', -1), two = control('seg', 0);
+  two.children[1]._attrs['aria-pressed'] = 'true';
+  const h = G.startSegGlide(root([none, two]), '');
+  assert.ok(!none._cls.has('seg-glide'));
+  assert.ok(!two._cls.has('seg-glide'));
+  h.stop();
+});
+
+test('Reduce Motion: the piece is faded out first (--go 0), not travelled', () => {
+  reduced = true;
+  try {
+    const ctl = control('seg', 0);
+    const h = G.startSegGlide(root([ctl]), '');
+    const [a, b] = ctl.children;
+    a._attrs['aria-pressed'] = 'false'; b._attrs['aria-pressed'] = 'true';
+    observer.cb([{ type: 'attributes', target: b, attributeName: 'aria-pressed' }]);
+    assert.equal(ctl._style.get('--go'), '0');
+    assert.equal(ctl._style.get('--gx'), '2px', 'still at the old place while it fades');
+    h.stop();
+  } finally { reduced = false; }
+});
+
+test('the stylesheet: every piece rule sits behind .seg-glide, the chosen button\'s own fill is only turned off under it, and high contrast keeps Highlight', () => {
+  const css = read('styles/app.css');
+  const pieces = css.match(/[^{}\n]*::before\s*\{[^}]*var\(--gx\)[^}]*\}/g) || [];
+  assert.ok(pieces.length >= 4, 'the piece is drawn for segments, tabs, the menu\'s underline and the desktop underline');
+  for (const p of pieces) assert.match(p, /\.seg-glide/, `a piece rule without the class: ${p.slice(0, 80)}`);
+  assert.match(css, /@media \(forced-colors: none\) \{\s*\.seg\.seg-glide button\[aria-pressed="true"\]/);
+  assert.match(css, /@media \(forced-colors\) \{ \.seg-glide::before \{ display: none; \} \}/);
+  assert.match(css, /\.seg-glide\.glide-still::before \{ transition: none; \}/);
+  // the originals are untouched: the plain selected rules still carry their fill
+  assert.match(css, /\.seg button\[aria-pressed="true"\], \.seg button\[aria-selected="true"\] \{ background: var\(--surface\); color: var\(--text\); box-shadow: var\(--shadow-1\); \}/);
+  assert.match(css, /\.instr-tab\[aria-selected="true"\] \{ background: var\(--surface\); color: var\(--text\); box-shadow: 0 1px 2px/);
+  assert.match(css, /\.um-tab\[aria-selected="true"\]::after \{ opacity: 1; transform: none; \}/);
+});
+
+test('main.js loads the file once', () => {
+  assert.equal((read('src/ui/main.js').match(/import '\.\/seg-glide\.js/g) || []).length, 1);
+});
