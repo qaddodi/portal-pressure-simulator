@@ -59,7 +59,7 @@ void main() {
 }`;
 
 import { createShapeGL } from './shape-gl.js?v=f7d920b7d0';
-import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=6ebf626f89';
+import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=1c406a11a6';
 import { prestart, linkProgram } from './gl-compile.js?v=e48e05cdb3';
 import { netChanged } from './idle-keys.js?v=81fbedda6b';
 import { easeMove, D_SURFACE } from './ease.js?v=fc509dabe4';
@@ -146,6 +146,7 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
       out.add(op.el); out.add(op.geom?.el);
       for (const e of op.chain || []) out.add(e);
       if (op.clip) { out.add(op.clip.geom?.el); for (const e of op.clip.chain || []) out.add(e); }
+      if (op.clip?.outer) { out.add(op.clip.outer.geom?.el); for (const e of op.clip.outer.chain || []) out.add(e); }
     }
     elsOf(spec.mask, out);
   };

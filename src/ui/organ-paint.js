@@ -20,6 +20,10 @@ import { strHash } from './liver-geo.js?v=977185f80a';
 const ID = [1, 0, 0, 1, 0, 0];
 // A dashed stroke (the stent guide, the stented veins' mesh) cut into its dashes on the CPU once per outline and tolerance, each dash a
 // stroke of its own with the stroke's caps, painted on the GPU like any other. ?gpudash=0 in the address refuses dashes, as before.
+// A clip inside a clip (the colon's shades and fold, each cut to its own bowel loop inside the colon's own clip): painted with both,
+// the inner one's coverage in the scratch's green and the outer one's in its blue, so the colon is painted on the GPU and not kept as
+// a picture rasterized from the SVG copy. ?nestclip=0: such a group is not read, as before (the layer stays a picture).
+const NEST_CLIP = typeof location === 'undefined' || !/[?&]nestclip=0\b/.test(location.search);
 const DASH = !(typeof location !== 'undefined' && /[?&]gpudash=0\b/.test(location.search));
 /** A computed dash pattern → { a: lengths (user units, even count), off }, or null (a percentage, or nothing to draw). */
 function readDash(cs) {
@@ -244,10 +248,12 @@ export function readGroup(root, { withMask = true, nest = false, strict = false 
     let cl = clip;
     const cid = el === root ? null : urlId(cs.clipPath && cs.clipPath !== 'none' ? cs.clipPath : el.getAttribute('clip-path'));
     if (cid) {
-      if (clip) { no('nested clip', el); return; }   // (two clips, one inside the other: not drawn here)
+      // (Two clips, one inside the other: both painted (NEST_CLIP), never three.)
+      if (clip && (!NEST_CLIP || clip.outer)) { no('nested clip', el); return; }
       cl = readClip(doc, cid, me);
       if (!cl) { no('clip', el); return; }
       cl.chain = ch;
+      if (clip) cl.outer = clip;
     }
     if (own2) {
       // A group of its own: its shapes at their own opacities (from below it in the chain), its mask in its own frame.
@@ -356,13 +362,14 @@ export const chainM = (chain) => { let m = ID; for (const el of chain) m = mul(m
  * opacity) and its clip's frame, read from the page's inline settings, else as read with the group.
  */
 export function liveOf(op) {
-  if (!op.chain) return { m: op.m, alpha: op.alpha, cm: op.clip ? op.clip.m : null };
+  if (!op.chain) return { m: op.m, alpha: op.alpha, cm: op.clip ? op.clip.m : null, cm2: op.clip?.outer ? op.clip.outer.m : null };
   let a = 1;
   for (let i = op.a0 || 0; i < op.chain.length; i++) a *= liveO(op.chain[i], CS_O);
   if (op.kind === 'group') return { m: chainM(op.chain), alpha: a, cm: null };
   a *= op.kind === 'fill' ? livePO(op.el, 'fillOpacity', 'fill-opacity', CS_FO) : livePO(op.el, 'strokeOpacity', 'stroke-opacity', CS_SO);
   const m = chainM(op.chain);
-  return { m, alpha: a, cm: op.clip ? mul(op.clip.chain ? chainM(op.clip.chain) : op.m, op.clip.km) : null };
+  const o = op.clip?.outer;
+  return { m, alpha: a, cm: op.clip ? mul(op.clip.chain ? chainM(op.clip.chain) : op.m, op.clip.km) : null, cm2: o ? (o.chain ? mul(chainM(o.chain), o.km) : o.m) : null };
 }
 
 /** The element's paint's box in its own units (an objectBoundingBox gradient's), from its flattened outline. */
@@ -405,7 +412,7 @@ vec4 grad(float t) {
 void main() {
   ivec2 ip = ivec2(gl_FragCoord.xy);
   vec4 cv = texelFetch(cov, ip, 0);
-  float c = cv.r * (useClip == 1 ? cv.g : 1.0);
+  float c = cv.r * (useClip >= 1 ? cv.g : 1.0) * (useClip == 2 ? cv.b : 1.0);
   if (c <= 0.0) discard;
   vec4 col = color;
   if (kind != 0) {
@@ -575,13 +582,18 @@ export function createOrganPaint(gl, shape) {
     const sh = meshOf(op.geom, op.kind === 'stroke' ? op.cap : 0, tol, op.kind === 'stroke' ? op.dash || null : null);
     const grow = op.kind === 'stroke' ? (wOf(op, sc) / 2) * sc + 2 : 2;
     // (At no opacity it paints nothing: no box, so a change check sees it come and go.)
-    let b = lv.alpha > 0 ? devBox(sh.box, om, grow) : null, cm = null, csh = null;
+    let b = lv.alpha > 0 ? devBox(sh.box, om, grow) : null, cm = null, csh = null, cm2 = null, csh2 = null;
     if (op.clip) {
       cm = mul(m, lv.cm);
       csh = meshOf(op.clip.geom, 0, detailTol(scaleOf(cm)));
       b = meet(b, devBox(csh.box, cm, 2));
+      if (op.clip.outer) {
+        cm2 = mul(m, lv.cm2);
+        csh2 = meshOf(op.clip.outer.geom, 0, detailTol(scaleOf(cm2)));
+        b = meet(b, devBox(csh2.box, cm2, 2));
+      }
     }
-    return { om, sh, cm, csh, b, alpha: lv.alpha };
+    return { om, sh, cm, csh, cm2, csh2, b, alpha: lv.alpha };
   }
   // Painting as a job: frames of ops (a group's, a nested group's into its own layer, its mask's into the mask layer, and the
   // layer laid over what it belongs to once both are in), painted in order and resumable between any two ops. A picture
@@ -592,10 +604,10 @@ export function createOrganPaint(gl, shape) {
   /** Runs a job's frames until they are all painted (true) or, after at least one op, `until` (performance.now) has passed (false). */
   function runJob(job, until = Infinity) {
     let n = 0;
-    job.ck = null;
+    job.ck = job.ck2 = null;
     while (job.frames.length) {
       const f = job.frames[job.frames.length - 1];
-      if (f.lay) { job.frames.pop(); layOver(...f.lay); job.ck = null; continue; }
+      if (f.lay) { job.frames.pop(); layOver(...f.lay); job.ck = job.ck2 = null; continue; }
       if (f.i >= f.ops.length) { job.frames.pop(); continue; }
       if (n > 0 && performance.now() > until) return false;
       const op = f.ops[f.i++];
@@ -610,7 +622,7 @@ export function createOrganPaint(gl, shape) {
         job.frames.push({ lay: [g, k, b, at.alpha, !!op.mask, f.into] });
         if (op.mask) job.frames.push(frameOf(op.mask.ops, at.mm, k.fbo, b, f.d + 1));
         job.frames.push(frameOf(op.ops, f.m, g.fbo, b, f.d + 1));
-        job.ck = null;
+        job.ck = job.ck2 = null;
         continue;
       }
       paintOp(op, f.m, f.into, f.within, job);
@@ -623,7 +635,7 @@ export function createOrganPaint(gl, shape) {
   /** One shape's op painted over `into` under m, within `within`. */
   function paintOp(op, m, into, within, job) {
     const sz = [W, H];
-    const at = opAt(op, m), { om, sh, cm, csh } = at;
+    const at = opAt(op, m), { om, sh, cm, csh, cm2, csh2 } = at;
     let b = within ? meet(at.b, within) : at.b;
     if (!b) return false;
     // The shape's coverage into the scratch's red, its clip's into green (kept while the next op has the same clip).
@@ -631,16 +643,22 @@ export function createOrganPaint(gl, shape) {
     gl.viewport(0, 0, W, H);
     const ck = op.clip ? `${op.clip.geom.d ? pathKey(op.clip.geom.el) : ''}|${cm.join(',')}` : null;
     const newClip = !!op.clip && ck !== job.ck;
+    // (The outer clip of a clip inside a clip, in the blue, kept the same way.)
+    const ck2 = csh2 ? `${op.clip.outer.geom.d ? pathKey(op.clip.outer.geom.el) : ''}|${cm2.join(',')}` : null;
+    const newClip2 = !!csh2 && ck2 !== job.ck2;
     // (A new clip's green is cleared over the clip's own box, with this op's: a later op with the same clip is cut to that box, so
     // it never reads the green outside it. It was the whole canvas, on every clipped group, every frame.)
-    gl.colorMask(true, newClip, false, false);
-    scissor(newClip ? join(b, devBox(csh.box, cm, 2)) : b);
+    gl.colorMask(true, newClip, newClip2, false);
+    let sb = newClip ? join(b, devBox(csh.box, cm, 2)) : b;
+    if (newClip2) sb = join(sb, devBox(csh2.box, cm2, 2));
+    scissor(sb);
     gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
     gl.colorMask(true, true, true, true);
     gl.disable(gl.SCISSOR_TEST);
     if (op.kind === 'fill') shape.fill(sh.mesh, om, sz, [true, false, false, false], false, !!op.eo);
     else shape.stroke(sh.mesh, om, sz, [true, false, false, false], wOf(op, scaleOf(om)));
     if (newClip) { shape.fill(csh.mesh, cm, sz, [false, true, false, false]); job.ck = ck; }
+    if (newClip2) { shape.fill(csh2.mesh, cm2, sz, [false, false, true, false]); job.ck2 = ck2; }
     // Painted over the target within the op's box.
     gl.bindFramebuffer(gl.FRAMEBUFFER, into);
     gl.viewport(0, 0, W, H);
@@ -649,7 +667,7 @@ export function createOrganPaint(gl, shape) {
     gl.useProgram(paintP.p);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, scratch.tex);
     gl.uniform1i(U.cov, 0);
-    gl.uniform1i(U.useClip, op.clip ? 1 : 0);
+    gl.uniform1i(U.useClip, csh2 ? 2 : op.clip ? 1 : 0);
     gl.uniform1f(U.alpha, at.alpha);
     gl.uniform1f(U.H, H);
     const p = op.paint;
@@ -685,7 +703,7 @@ export function createOrganPaint(gl, shape) {
   // What an op paints, as a string: what it is painted with (fixed while the spec lives: kept on the op) and where (its outline's
   // `d` and its frame, read now). Two frames with the same string paint the same pixels in the same box.
   const paintKey = (op) => op.pk || (op.pk = JSON.stringify([op.kind, op.w, op.cap, op.paint, op.eo ? 1 : 0, op.dash || 0]));
-  const opSig = (op, m) => { const lv = liveAt(op); return `${paintKey(op)}|${lv.alpha}|${lv.m.join(',')}|${lv.cm ? lv.cm.join(',') : ''}|${m.join(',')}|${op.geom.d ? pathKey(op.geom.el) : ''}|${op.clip ? (op.clip.geom.d ? pathKey(op.clip.geom.el) : '') : ''}${op.nss ? `|${cssPx}` : ''}`; };
+  const opSig = (op, m) => { const lv = liveAt(op); return `${paintKey(op)}|${lv.alpha}|${lv.m.join(',')}|${lv.cm ? lv.cm.join(',') : ''}${lv.cm2 ? `|${lv.cm2.join(',')}` : ''}|${m.join(',')}|${op.geom.d ? pathKey(op.geom.el) : ''}|${op.clip ? (op.clip.geom.d ? pathKey(op.clip.geom.el) : '') : ''}${op.clip?.outer?.geom.d ? `|${pathKey(op.clip.outer.geom.el)}` : ''}${op.nss ? `|${cssPx}` : ''}`; };
   /**
    * The group under m described for a change check: its own string (opacity, whether masked) and, per op (the mask's after its
    * own), [string, device box]. The meshes it will paint are touched (kept for the frame).

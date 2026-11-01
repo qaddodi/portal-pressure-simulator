@@ -43,15 +43,15 @@ import { refine } from './refine.js?v=e6e17cc013';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=27eed66b9b';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
-import { cropToGrid } from './organs-gl.js?v=a4fbc9947c';
-import { readGroup, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=6ebf626f89';
+import { cropToGrid } from './organs-gl.js?v=ecf7b49c24';
+import { readGroup, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=1c406a11a6';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=f7d920b7d0';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=163a178b8b';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=df3c3152ad';
 import { createLabelGL } from './label-gl.js?v=2f6c12eb31';
 import { createGlassGL } from './glass-gl.js?v=3b4d8a3b4a';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=2c5ef97cf9';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=8362a21198';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -2586,7 +2586,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=a9b9956b61').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=225da96733').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -4855,7 +4855,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const el of els) {
           if (!el || getComputedStyle(el).display === 'none') continue;
           const spec = el.localName === 'g' ? readGroup(el, { withMask: el !== organG.stomach, nest: true }) : null;
-          if (!spec) { console.warn('Organs on the GPU: not readable for painting, this layer stays a picture:', el); bakeWhy.set(L, `${elName(el)} not readable`); ok = false; break; }
+          if (!spec) { console.warn('Organs on the GPU: not readable for painting, this layer stays a picture:', el); bakeWhy.set(L, `${elName(el)} not readable${readFail() ? `: ${readFail()[0]} on ${elName(readFail()[1])}` : ''}`); ok = false; break; }
           groups.push({ spec, m: matOfEl(el) });
         }
         out.set(L, ok ? { groups, at: L === 'bowel' ? bowelDy() : 0, key } : null);

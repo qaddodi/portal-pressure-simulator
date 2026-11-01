@@ -77,7 +77,7 @@ test('a live organ that changed is drawn again within its box, and only its cell
   assert.match(gl, /cut\.opacity \?\? 1, within\);/);
   // The painter: every op's box is the one it paints within, so a signature's box covers its pixels.
   assert.match(paint, /function paintOps\(spec, m, into, within = null, d = 0\) \{ runJob\(\{ frames: \[frameOf\(spec\.ops, m, into, within, d\)\] \}\); \}/);
-  assert.match(paint, /const at = opAt\(op, m\), \{ om, sh, cm, csh \} = at;\n\s+let b = within \? meet\(at\.b, within\) : at\.b;/);
+  assert.match(paint, /const at = opAt\(op, m\), \{ om, sh, cm, csh, cm2, csh2 \} = at;\n\s+let b = within \? meet\(at\.b, within\) : at\.b;/);
   assert.match(paint, /for \(const op of spec\.ops\) ops\.push\(\[opSig\(op, m\), opAt\(op, m\)\.b\]\);/);
   assert.match(paint, /const b = meet\(groupBox\(spec, m\), within \|\| \[0, 0, w, h\]\);/);
   // The composite: the box's cells, not the whole picture, unless the whole stack was drawn.
@@ -105,7 +105,7 @@ test('a pinch reuses the live organs\' meshes: the tolerance moves in powers of 
 // with the same clip is cut to the clip's box, so clearing the clip's box (with the op's own) is the same. (Review item 5.)
 test("a clip's coverage is cleared over its own box, not the canvas", () => {
   const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
-  assert.match(paint, /scissor\(newClip \? join\(b, devBox\(csh\.box, cm, 2\)\) : b\);\n\s+gl\.clearBufferfv\(gl\.COLOR, 0, \[0, 0, 0, 0\]\);/);
+  assert.match(paint, /let sb = newClip \? join\(b, devBox\(csh\.box, cm, 2\)\) : b;\n\s+if \(newClip2\) sb = join\(sb, devBox\(csh2\.box, cm2, 2\)\);\n\s+scissor\(sb\);\n\s+gl\.clearBufferfv\(gl\.COLOR, 0, \[0, 0, 0, 0\]\);/);
   assert.doesNotMatch(paint, /if \(newClip\) gl\.disable\(gl\.SCISSOR_TEST\); else scissor\(b\);/);
 });
 
@@ -121,7 +121,7 @@ test('the live organs are read once per state; the painter reads the eased value
   // The painter: an op's frame, alpha and clip frame from its element chain's inline settings, else as read; at no opacity no box.
   assert.match(paint, /export function liveOf\(op\) \{/);
   assert.match(paint, /for \(let i = op\.a0 \|\| 0; i < op\.chain\.length; i\+\+\) a \*= liveO\(op\.chain\[i\], CS_O\);/);
-  assert.match(paint, /let b = lv\.alpha > 0 \? devBox\(sh\.box, om, grow\) : null, cm = null, csh = null;/);
+  assert.match(paint, /let b = lv\.alpha > 0 \? devBox\(sh\.box, om, grow\) : null, cm = null, csh = null, cm2 = null, csh2 = null;/);
   assert.match(paint, /gl\.uniform1f\(U\.alpha, at\.alpha\);/);
   assert.match(paint, /if \(!\(o > 0\) && !ownO\(el\)\) return;/, 'a part at nothing by its own setting is kept, to show as it eases');
   // The stack asks the painter only after a write to a live group's elements (or, with no MutationObserver, every frame while
@@ -203,3 +203,14 @@ test("a picture's painting stops at its time limit at any depth of nested groups
   assert.match(bake, /if \(r === 'lost'\) \{/);
   assert.match(bake, /const free = \(\) => \{ cur\?\.drop\(\); cur = null;/, 'a picture given up lets go of the nested layers');
 });
+
+test('a clip inside a clip is painted with both (the colon), the outer in the scratch blue; ?nestclip=0 refuses it as before', () => {
+  const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
+  assert.match(paint, /const NEST_CLIP = typeof location === 'undefined' \|\| !\/\[\?&\]nestclip=0\\b\/\.test\(location\.search\);/);
+  assert.match(paint, /if \(clip && \(!NEST_CLIP \|\| clip\.outer\)\) \{ no\('nested clip', el\); return; \}/);
+  assert.match(paint, /if \(clip\) cl\.outer = clip;/);
+  assert.match(paint, /float c = cv\.r \* \(useClip >= 1 \? cv\.g : 1\.0\) \* \(useClip == 2 \? cv\.b : 1\.0\);/);
+  assert.match(paint, /if \(newClip2\) \{ shape\.fill\(csh2\.mesh, cm2, sz, \[false, false, true, false\]\); job\.ck2 = ck2; \}/);
+  assert.match(paint, /job\.ck = job\.ck2 = null;/);
+});
+
