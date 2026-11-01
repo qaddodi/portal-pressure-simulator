@@ -64,7 +64,7 @@ test('the figure unrolls and rolls back a stented vein on its own clock, and the
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(stage, /function meshPaths\(id, p, d0, d1, k = 1\)/, 'one mesh for the TIPS and the veins');
-  assert.match(stage, /ov\.stents\.append\(\.\.\.meshPaths\(id, p, 2, geo\[id\]\.len - 2\)\)/, 'the TIPS mesh is the whole drawn shunt, as before');
+  assert.match(stage, /putMark\(ov\.stents, `stent:\$\{id\}`, id, meshPaths\(id, p, 2, geo\[id\]\.len - 2\)\)/, 'the TIPS mesh is the whole drawn shunt, as before (now faded in and out)');
   assert.match(stage, /venousSync\(p, t < 0\.5, key !== overlayKey\)/, 'followed on every overlay update');
   assert.match(stage, /easeInOut\(v\.k\)/, 'it eases, never snaps');
   assert.match(stage, /reduceMotion\.matches \? 1 : dt/, 'reduced motion takes it in one step');

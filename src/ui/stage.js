@@ -14,6 +14,8 @@ import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, blo
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { easeMove, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
+import { markFade } from './mark-fade.js?v=603220fe29';
+import { bandsStep } from './band-ease.js?v=ef2d4ce809';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
@@ -3008,6 +3010,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     ascTarget = asc;
     if (ascShown !== ascTarget) ({ shown: ascShown, vel: ascVel } = fluidSpringFor(ascShown, ascVel, ascTarget, dt));
   }
+  // The bands on the esophageal varices: the count drawn follows the model's whole count in a moment (band-ease.js), so the strand a
+  // band closes fades out instead of vanishing in one frame. Each display frame's full update steps it (the width step stands aside
+  // while it moves: stepWidths).
+  let bandsShown = null;
+  const bandsMoving = () => bandsShown !== null && !!F && bandsShown !== (F.bands || 0);
+  const stepBands = (f, dt) => { bandsShown = bandsStep(bandsShown, f.bands || 0, dt, reduceMotion.matches); return bandsShown !== (f.bands || 0); };
   // What follows from a vessel's drawn width (its hit stroke, casing, lumen, the liver branches, braided strands and drawn-in
   // tributaries): written by the model's update and by the width step between model frames (stepWidths) alike.
   function widthWrites(x, w, t, f, k) {
@@ -3022,7 +3030,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (x.strands) x.strands.forEach((sd, i) => {
       setT(sd.lumen, 'stroke-width', Math.max(1.6, w * sd.k).toFixed(1)); setT(sd.wall, 'stroke-width', (Math.max(1.6, w * sd.k) + 2 * wallPx).toFixed(1));
       sd.bead = e.id === 'C1a' ? Math.round(varixBead(f.metrics?.varix?.d) * (1 - t) * 100) / 100 : 0;   // (in hundredths: the radii are sent again only when it moves a step)
-      sd.live = e.code === 'C1' ? clamp(i + 1 - (f.bands || 0), 0, 1) : e.id === 'C8' ? clamp(1 + 4 * clamp((recruitFrac('C8', f) - 0.15) / 0.7, 0, 1) - i, 0, 1) : 1;   // cavernoma: one strand beside the main channel when acute, the rest grow in with the remodeling
+      sd.live = e.code === 'C1' ? clamp(i + 1 - (bandsShown ?? (f.bands || 0)), 0, 1) : e.id === 'C8' ? clamp(1 + 4 * clamp((recruitFrac('C8', f) - 0.15) / 0.7, 0, 1) - i, 0, 1) : 1;   // cavernoma: one strand beside the main channel when acute, the rest grow in with the remodeling
       const vis = sd.live > 0.02 ? '' : 'none', sop = sd.live * (SIN_EDGES.has(e.id) ? SIN_PERFUSION.fade : 1), op = sop < 1 ? sop.toFixed(2) : '';
       for (const el of [sd.lumen, sd.wall]) { if (el.style.display !== vis) el.style.display = vis; if (el.style.opacity !== op) el.style.opacity = op; }
     });
@@ -3102,6 +3110,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (hid.at) { followHidden(f); dtW = (nowW - Math.max(wAt, hid.pAt)) / 1000; fxAt = Math.max(hid.since, hid.pAt); plateStale = true; hid.at = 0; hid.p = null; hid.pAt = 0; }
     const kW = -Math.expm1(-dtW / 0.25);
     wAt = nowW; widthEasing = false; coilEasing = false; organsEasing = false;
+    if (stepBands(f, dtW)) widthEasing = true;
     tubesHidden = wrap.classList.contains('gl-on');
     const st = store.get();
     const p = f.viewParams || st.params;
@@ -3348,7 +3357,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // and takes the full update. (30 Oct, review G1: every frame of a pan while the breath eased had taken the whole update.)
   function stepWidths() {
     const f = F;
-    if (!f || f !== widthF || storeVer !== widthVer || !widthCTM || coilEasing || organsEasing || catchUp) return false;
+    if (!f || f !== widthF || storeVer !== widthVer || !widthCTM || coilEasing || organsEasing || catchUp || bandsMoving()) return false;
     if (anatCovered() || hid.at || plateStale || plateRedraw || blockersStale || (performance.now() - blockersAt > 100 && watch.due())) return false;
     if (ascShown !== ascTarget || morph !== morphTarget || tubesHidden !== wrap.classList.contains('gl-on') || EV.some((x) => x.reveal)) return false;
     if (!CTM) refreshCTM();   // (as the update itself does before it reads the view: a glide's step this frame let it go)
@@ -5465,6 +5474,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let clampLast = 0;
   const clampFading = () => { for (const c of clampA.values()) if (c.a !== (c.on ? 1 : 0)) return true; return false; };
   const clampEase = (id) => { const a = clampA.get(id)?.a ?? 1; return a * a * (3 - 2 * a); };
+  // The marks a treatment leaves (a stent's mesh, a shunt's sutures, the tie on a divided vein, the cross on a closed shunt, the splenic
+  // patches, the variceal bands) fade in and out the same way (mark-fade.js): each is a group with data-mk, its key; the GPU draws it
+  // at that key's amount (marksBuild tags its draws), the SVG copy takes the amount as the group's opacity. markLast: when it last stepped.
+  const markA = markFade();
+  let markLast = 0;
+  const fadeEase = (key) => (markA.has(key) ? markA.amount(key) : clampEase(key));
+  // (The group's opacity, for the SVG copy the browser draws; the GPU's copy takes the amount on the draw, never from the group, or a
+  // fade would be read as a new look at each step.)
+  const markShade = (el, a) => {
+    if (glLines) { if (el.hasAttribute('opacity')) el.removeAttribute('opacity'); return; }
+    if (a < 1) el.setAttribute('opacity', a.toFixed(3)); else if (el.hasAttribute('opacity')) el.removeAttribute('opacity');
+  };
   function clampShade(id) {
     const e = clampEase(id), op = e < 1 ? e.toFixed(3) : '';
     for (const g of [ov.clamps, ov.clampsOut]) for (const el of g.querySelectorAll(`[data-id="${id}"]`)) if (el.tagName === 'text' || !glLines) el.style.opacity = op;
@@ -5788,6 +5809,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (c.a !== t) { c.a = t > c.a ? Math.min(1, c.a + cdu) : Math.max(0, c.a - cdu); clampMoved = true; clampShade(id); }
       if (!c.on && c.a === 0) { for (const el of ov.clampsOut.querySelectorAll(`[data-id="${id}"]`)) el.remove(); clampA.delete(id); mk.ver++; }
     }
+    // The treatment marks, stepped on the frame's own time (a long frame moves them no further than a short one's worth).
+    if (markA.size) {
+      const dt = Math.min(64, Math.max(0, now - markLast));
+      const r = markA.step(dt, quietFx());
+      markA.each((key, el, a) => markShade(el, a));
+      if (r.gone.length) { for (const el of r.gone) el.remove(); mk.ver++; }
+      if (r.moving || r.gone.length) clampMoved = true;
+    }
+    markLast = now;
     marksSync();
     if (!glLines || (!olDirty && !olList.length && !mk.dirty && !clampMoved)) return false;
     const dt = now - olLast;
@@ -5915,7 +5945,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       mk.all = all; mk.dirty = false;
     }
     const off = mk.verts.length / 6;
-    const list = [...mk.draws.map((d) => (d.fade ? { ...d, alpha: d.alpha * clampEase(d.fade) } : d)), ...draws.map((d) => ({ ...d, first: d.first + off }))];
+    const list = [...mk.draws.map((d) => (d.fade ? { ...d, alpha: d.alpha * fadeEase(d.fade) } : d)), ...draws.map((d) => ({ ...d, first: d.first + off }))];
     veins.setLines(list.length ? { verts: mk.all, draws: list } : null);
     olDirty = false;
     return moving || !!V;
@@ -6063,7 +6093,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         }
         const rings = ok ? shapeRings(el) : null;
         if (!rings) continue;
-        fade = el.classList.contains('clamp') || el.classList.contains('clamp-out') ? el.dataset.id : undefined;
+        fade = el.classList.contains('clamp') || el.classList.contains('clamp-out') ? el.dataset.id : el.closest('[data-mk]')?.dataset.mk;
         if (M) for (const r of rings) r.pts = r.pts.map(([x, y]) => [M[0] * x + M[2] * y + M[4], M[1] * x + M[3] * y + M[5]]);
         for (const r of rings) r.pts = r.pts.filter((p, i, a) => !i || Math.hypot(p[0] - a[i - 1][0], p[1] - a[i - 1][1]) > 1e-3);
         const fill = paintOf(cs.fill, op * Number(cs.fillOpacity)), sk = paintOf(cs.stroke, op * Number(cs.strokeOpacity));
@@ -6569,7 +6599,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return [s('path', { class: 'stent-strut', d: struts }), s('path', { class: 'stent-rail', d: rails }), s('path', { class: 'stent-rail-glint', d: rails }), s('path', { class: 'stent-mark', d: marks })];
   }
   // TIPS, DIPS and the shunts drawn with the stent tool: the whole drawn shunt, in place at once (the vessel itself draws on).
-  function stentMesh(id, p) { ov.stents.append(...meshPaths(id, p, 2, geo[id].len - 2)); }
+  function stentMesh(id, p) { putMark(ov.stents, `stent:${id}`, id, meshPaths(id, p, 2, geo[id].len - 2)); }
+  // A treatment's mark, built into its overlay group as one group of its own (data-mk: its key) that fades in and out with it: the
+  // amount shown lives in markA across the overlays' rebuilds. vessel: the vessel it sits on (while that is drawn it may fade out
+  // where it stands); anatOnly: it belongs to the anatomy view alone (a switch to the circuit takes it at once).
+  let ovT = 0;   // (the morph the overlays are being built at)
+  function putMark(host, key, vessel, els, anatOnly = false) {
+    const g = s('g', { 'data-mk': key });
+    g.append(...els);
+    markShade(g, markA.want(key, { host, vessel, anatOnly, t: ovT }, quietFx()));
+    markA.hold(key, g);
+    host.append(g);
+  }
   // A vein a slide shows stented (store.stented: a hepatic vein or the IVC, which the model has no device for): the same mesh over
   // the stretch VST_SPAN of the vein, unrolled from its heart end (where a transjugular catheter comes from) while it fades in, and
   // rolled back the same way when the slide leaves it. It eases on its own clock, so the figure is never waiting on the model.
@@ -6620,11 +6661,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const q = frameAt(id, c + o);
       d += `M${(q.x + q.nx * R).toFixed(1)} ${(q.y + q.ny * R).toFixed(1)} L${(q.x - q.nx * R).toFixed(1)} ${(q.y - q.ny * R).toFixed(1)} `;
     }
-    ov.stents.append(s('path', { class: 'suture', d }));
+    putMark(ov.stents, `suture:${id}`, id, [s('path', { class: 'suture', d })]);
   }
   // A vessel divided at surgery (the splenic vein in a Warren shunt, the portal trunk in a portocaval
   // shunt): two suture ties across its tied-off stump, a little apart, just behind the stump's rounded end.
-  function ligature(id) {
+  function ligature(id, shunt) {
     const x = E[id], c = Math.min(divideLen(id) + 5, geo[id].len * 0.6);
     const R = x.width / 2 + (x.wallPx || 1) + 3;
     let d = '';
@@ -6632,7 +6673,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const q = frameAt(id, c + o);
       d += `M${(q.x + q.nx * R).toFixed(1)} ${(q.y + q.ny * R).toFixed(1)} L${(q.x - q.nx * R).toFixed(1)} ${(q.y - q.ny * R).toFixed(1)} `;
     }
-    ov.stents.append(s('path', { class: 'ligature', d }));
+    putMark(ov.stents, `tie:${id}`, shunt, [s('path', { class: 'ligature', d })]);
   }
 
   // ── The HVPG catheter (Measure › HVPG) ─────────────
@@ -8372,6 +8413,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (!c.on) { c.on = true; for (const el of ov.clampsOut.querySelectorAll(`[data-id="${id}"]`)) el.remove(); }
     }
     ov.clamps.innerHTML = ''; ov.stents.innerHTML = ''; ov.plugs.innerHTML = '';
+    if (!markA.moving()) markLast = performance.now();
+    markA.begin(); ovT = t;
     // Clots keep their own key: growing varices (the disease clock) rebuild the rest, not them.
     const tk = JSON.stringify([t.toFixed(3), hideDx, p.thrombus, Object.keys(p.thrombus).map((id) => (E[id] ? [E[id].vis, held[`w${id}`]] : 0))]);
     const clots = tk !== thrombiKey;
@@ -8418,12 +8461,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (id === 'TIPS' || id === 'DIPS' || id.startsWith('X_')) stentMesh(id, p); else anastomoses(id);
     }
     // The stump of the vessel each surgical shunt divides, a clear gap past where the shunt leaves it.
-    for (const [shunt, vein] of LIGATED) if (E[shunt].vis && !E[shunt].reveal && E[vein]?.vis) ligature(vein);
+    for (const [shunt, vein] of LIGATED) if (E[shunt].vis && !E[shunt].reveal && E[vein]?.vis) ligature(vein, shunt);
     for (const id of new Set([...Object.keys(p.occluded), ...(p.occluded.C5 ? ['C2'] : [])])) {
       if (!isOccluded(p, id) || !E[id] || !E[id].vis) continue;
       const [x, y] = pointAt(geo[id].cur, 0.5);
-      ov.plugs.append(s('circle', { cx: x, cy: y, r: 7, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2 }),
-        s('path', { d: `M${x - 4} ${y - 4} L ${x + 4} ${y + 4} M${x + 4} ${y - 4} L ${x - 4} ${y + 4}`, stroke: 'var(--danger)', 'stroke-width': 2 }));
+      putMark(ov.plugs, `plug:${id}`, id, [s('circle', { cx: x, cy: y, r: 7, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2 }),
+        s('path', { d: `M${x - 4} ${y - 4} L ${x + 4} ${y + 4} M${x + 4} ${y - 4} L ${x - 4} ${y + 4}`, stroke: 'var(--danger)', 'stroke-width': 2 })]);
     }
 
     // Spleen: embolization leaves pale infarcted patches in the organ; after a splenectomy the organ
@@ -8432,13 +8475,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (anat && rx) {
       const [cx, cy] = SPLEEN_CENTER, sc = f.slow.spleen / 11;
       if (rx === 1) {
-        for (const [dx, dy, rx_, ry_] of [[6, -38, 17, 22], [14, 4, 15, 20], [2, 44, 14, 17]]) {
-          ov.plugs.append(s('ellipse', { cx: cx + dx * sc, cy: cy + dy * sc, rx: rx_ * sc, ry: ry_ * sc, fill: 'var(--surface)', 'fill-opacity': 0.55, stroke: 'var(--danger)', 'stroke-width': 1.5, 'stroke-opacity': 0.7 }));
-        }
+        putMark(ov.plugs, 'spleen:patches', null, [[6, -38, 17, 22], [14, 4, 15, 20], [2, 44, 14, 17]].map(([dx, dy, rx_, ry_]) =>
+          s('ellipse', { cx: cx + dx * sc, cy: cy + dy * sc, rx: rx_ * sc, ry: ry_ * sc, fill: 'var(--surface)', 'fill-opacity': 0.55, stroke: 'var(--danger)', 'stroke-width': 1.5, 'stroke-opacity': 0.7 })), true);
       } else {
         const x = cx + 12, y = cy + 6;
-        ov.plugs.append(s('circle', { cx: x, cy: y, r: 18, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2.5 }),
-          s('path', { d: `M${x - 8} ${y - 8} L ${x + 8} ${y + 8} M${x + 8} ${y - 8} L ${x - 8} ${y + 8}`, stroke: 'var(--danger)', 'stroke-width': 3, 'stroke-linecap': 'round' }));
+        putMark(ov.plugs, 'spleen:cross', null, [s('circle', { cx: x, cy: y, r: 18, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2.5 }),
+          s('path', { d: `M${x - 8} ${y - 8} L ${x + 8} ${y + 8} M${x + 8} ${y - 8} L ${x - 8} ${y + 8}`, stroke: 'var(--danger)', 'stroke-width': 3, 'stroke-linecap': 'round' })], true);
       }
     }
     // The varices themselves are shown by the plexus of channels feeding and draining them (see
@@ -8448,8 +8490,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (anat) {
       const eso = (y) => 789 + (y - 24) * 0.066;
       const nb = Math.round(f.bands || 0);
-      for (let i = 0; i < nb; i++) { const y = 272 - i * 16; ov.bands.append(s('ellipse', { cx: eso(y), cy: y, rx: 11, ry: 3, class: 'band-ring' })); }
+      for (let i = 0; i < nb; i++) { const y = 272 - i * 16; putMark(ov.bands, `band:${i}`, null, [s('ellipse', { cx: eso(y), cy: y, rx: 11, ry: 3, class: 'band-ring' })], true); }
     }
+    // The marks that were not wanted this time fade out where they stood (their group drawn again in its host), unless what they sat on
+    // has gone, the view is on its way to the other one, or the figure moved under them. (One already fading finishes even when its
+    // vessel has finished retracting: the retraction runs on the wall clock, the fade on frame time.)
+    for (const [, el, m] of markA.end((key, m, fading) => m.t === t && (anat || !m.anatOnly) && (fading || !m.vessel || E[m.vessel]?.vis))) m.host.append(el);
     balloonDraw(anat);
     mk.ver++;
     marksSync();
@@ -11114,7 +11160,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The anatomy shows through a dive or a rise (not yet covered, not faded out under the landing) and something on it moves: the
   // fluid, a vessel's width or coil, an organ, a vessel drawing on or off, a fade, or a vessel layer to draw again.
   const anatEasing = () => !!F && liveOn() && !anatCovered() && !diveHid && diveFadeO !== 0 &&
-    (widthEasing || ascShown !== ascTarget || veinsDirty || lvMoving || spleenMoving() || plateEasing() || clampFading() || EV.some((x) => x.reveal));
+    (widthEasing || ascShown !== ascTarget || veinsDirty || lvMoving || spleenMoving() || plateEasing() || clampFading() || markA.moving() || EV.some((x) => x.reveal));
   // Whether the figure moves by itself while the model runs (see animate).
   function figureMoves(st) {
     if (!st.running || reduceMotion.matches || restStill()) return false;
@@ -11270,7 +11316,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (The overlays changed with the figure still: the picture laid again with them, nothing else drawn.)
     if (OVER_ON && veins?.overlay?.stale && !veins.lost) veins.present();
     const rowsWait = veinsRows.size > 0 && !!veins && !veins.lost && !!vLook && !!F;
-    if (still && !veinsDirty && !rowsWait && !glowSync && !(glLines && olDirty) && (!glLines || marksKey() === mk.key) && !(glLines && olList.some((o) => o.a !== (o.on ? 1 : 0))) && !clampFading() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !veins?.organs?.fading && !lensFrom && !colEasing && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
+    if (still && !veinsDirty && !rowsWait && !glowSync && !(glLines && olDirty) && (!glLines || marksKey() === mk.key) && !(glLines && olList.some((o) => o.a !== (o.on ? 1 : 0))) && !clampFading() && !markA.moving() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !veins?.organs?.fading && !lensFrom && !colEasing && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
     stepPlateEase();
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
@@ -12184,6 +12230,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     },
     setProjection(on) { projecting = typeof on === 'number' ? on : !!on; if (F) updateLabels(F); },
     labelLayer: () => labelSvg,
+    /** The treatment marks and how much of each shows now (for tests; mark-fade.js). */
+    markAmounts: () => markA.amounts(),
     /** The layer the GPU's picture lies under (lesions, stents, halos), when the GPU draws. */
     overLayer: () => (veins && wrap.classList.contains('gl-on') ? svgOver : null),
     /** A vessel's stream (for tests): flow, display speed, stream distance, stasis. */

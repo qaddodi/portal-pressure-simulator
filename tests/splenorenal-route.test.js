@@ -70,7 +70,7 @@ test('the figure ties off the same vessels the engine closes for each surgical s
   assert.match(stage, /\['S_PC', 'PV_TRUNK'\]/);
   // The divided vein is drawn apart: its stretch at the shunt is cut away on the GPU, and the ties sit on the stump past the gap.
   assert.match(stage, /LIGATED\.some\(\(l\) => l\[1\] === id\)\) lo = Math\.max\(lo, divideLen\(id\)/);
-  assert.match(stage, /function ligature\(id\) \{\s*const x = E\[id\], c = Math\.min\(divideLen\(id\) \+ 5/);
+  assert.match(stage, /function ligature\(id, shunt\) \{\s*const x = E\[id\], c = Math\.min\(divideLen\(id\) \+ 5/);
   assert.match(engine, /p\.dsrs && e\.id === 'SV_MID'/);
   assert.match(engine, /p\.portocaval && e\.id === 'PV_TRUNK'/);
 });

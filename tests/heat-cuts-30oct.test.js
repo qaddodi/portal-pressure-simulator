@@ -68,7 +68,7 @@ test('the readout lists every frame that missed the refresh, keeps GPU timing ap
 test('G1: a pan takes the width step instead of the whole update; a zoom or a turn still takes the update', () => {
   const s = src('stage.js');
   const fn = s.slice(s.indexOf('  function stepWidths() {'), s.indexOf('  // In the same way, while the organs ease'));
-  assert.match(fn, /if \(!f \|\| f !== widthF \|\| storeVer !== widthVer \|\| !widthCTM \|\| coilEasing \|\| organsEasing \|\| catchUp\) return false;/);
+  assert.match(fn, /if \(!f \|\| f !== widthF \|\| storeVer !== widthVer \|\| !widthCTM \|\| coilEasing \|\| organsEasing \|\| catchUp \|\| bandsMoving\(\)\) return false;/);
   assert.match(fn, /if \(!CTM\) refreshCTM\(\);/);
   assert.match(fn, /if \(CTM !== widthCTM && \(CTM\.sc !== widthCTM\.sc \|\| CTM\.a !== widthCTM\.a \|\| CTM\.b !== widthCTM\.b\)\) return false;/);
 });
