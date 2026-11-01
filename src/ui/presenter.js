@@ -54,7 +54,7 @@ import { createCardZoom, tapTracker } from './card-zoom.js?v=8413714371';
 import { sheetPanes } from './sheet-glass.js?v=770c926c2c';
 import { createScopeTile } from './scope-tile.js?v=914cd01a1f';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
-import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
+import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, RISE_PX } from './ease.js?v=fc509dabe4';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1742,7 +1742,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // left and the new ones in from the right, Back the other way, a jump further (the slide list, a typed number, Home, End) neither, they rise.
   // turn: the way of the slide move asked last; turnNow: the way the move under way
   // turns its words while the teaching card's glass stays up, '' when the card leaves and comes back whole (as every card did before).
-  let turn = 'jump', turnNow = '', glassT = 0;
+  let turn = 'jump', turnNow = '', glassT = 0, turnIn = false;
+  // The words' box comes in after a turn (app.css: its lines stay at rest, so the fit, done unseen, measures them where they will stand;
+  // a line offset sideways read as overflow and the words were fitted small, then grew in view): one composited move of the box,
+  // from the side the talk comes from, with its fade, held at its start through the entrance's short delay.
+  function wordsTurnIn() {
+    if (!turnIn || !ui) return;
+    turnIn = false;
+    const t = ui.text, k = t.dataset.turn, d = parseFloat(getComputedStyle(ui.root).getPropertyValue('--pz-turn-d')) || 20;
+    const from = k === 'next' ? `translateX(${d}px)` : k === 'back' ? `translateX(${-d}px)` : `translateY(${RISE_PX}px)`;
+    t.animate?.([{ transform: from, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: D_SURFACE, delay: 120, easing: EASE_ARRIVE, fill: 'backwards' });
+  }
   // (Off until it is right on his devices (Mohammad, 1 Nov: on Next the words slid half way and stuck, then the card popped out and back):
   // ?cardturn=1 turns the page-turn and the finger follow on; without it every card leaves and comes back whole, as before.)
   const CARD_TURN = /[?&]cardturn=1\b/.test(location.search);
@@ -2107,7 +2117,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // at is the size they keep: keyed only once the slide was shown, the passes while the cards eased in measured afresh, and on a
   // tight iPad a reading settling or a chart lettered stepped the title or folded the ladder, so the card came in and then snapped.)
   // (While they fade in, the work that can wait does: frame.js holdMotion, the delay and the fade, app.css .pz-text.pz-enter.)
-  function cardsIn(at) { if (ui) { if (!reduce.matches) holdMotion(D_SURFACE + 220); if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
+  function cardsIn(at) { if (ui) { if (!reduce.matches) holdMotion(D_SURFACE + 220); if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); wordsTurnIn(); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
   // The last refits that used to run as the cards came in (a ladder's strip given back its plot, the charts lettered again, the
   // layout their new sizes call for, a frame later) run while the cards are still unseen, so they come in at their final size and
   // never snap to it in view (an upright iPad's teaching card did). cardsIn's own reFit then finds nothing left to change.
@@ -2324,7 +2334,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (stab) { stab.hidden = !lvl?.site; stab.toggleAttribute('data-rail', !!lvl && lvl === railLvl); if (lvl?.site) { stab.dataset.site = lvl.site; stab.textContent = lvl.name; } }
     // (the panel's own is let go once its new content is in, so it never fades back in with the old; behind a case card the words
     // stay out, never shown for a moment while they are fitted, until the card is lifted: cardsIn)
-    if (!caseCard) text.classList.remove('pz-leave');
+    if (!caseCard && !bare) text.classList.remove('pz-leave');
     if (s.visual) {
       text.hidden = true; text.replaceChildren(); paintKey(null);
       // A panel that was not there fades in (never pops): unhidden while still faded, then let go.
@@ -2342,6 +2352,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       text.hidden = false;
       const head = h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title)));
       const line = s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null;
+      if (bare) for (const a of text.getAnimations()) a.finish();   // (the old words' leave is finished before the new words go in: the box never shows them mid-fade)
       text.replaceChildren(...[head, s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
           line, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s),
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : toolButtons(s) ? 'Change the instrument\'s view' : s.compare.some((o) => o.params && 'fenestrae' in o.params) ? 'Open or close the fenestrae on the live model' : 'Switch treatment on the live model' },
@@ -2356,7 +2367,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
       text.dataset.turn = turnNow;   // (the way the new words come in: app.css; '' comes in from the card's edge with the glass, as before)
-      text.classList.toggle('pz-slide', turnNow === 'next' || turnNow === 'back');   // (sideways, the lines may pass the box's edge into the card's padding until they land: app.css)
+      turnIn = !!turnNow;   // (its box comes in by wordsTurnIn once the cards come in)
       text.classList.remove('pz-enter'); void text.offsetWidth; text.classList.add('pz-enter');
     }
     textOn = textPlan(s);
@@ -4573,22 +4584,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }, { passive: false, capture: true });
   wrap.addEventListener('touchend', (e) => { if (cd && !e.touches.length) caseLet(true); }, { passive: true, capture: true });
   wrap.addEventListener('touchcancel', () => { if (cd) caseLet(false); }, { passive: true, capture: true });
-  // The words follow the finger while a sideways swipe is under way (Mohammad, 1 Nov, card motion spec 8): the lines of the teaching card
-  // move a quarter of the finger's travel, 32 px at most, fading toward 40 %, so the swipe shows what it will do and can be pulled back.
+  // The words follow the finger while a sideways swipe is under way (Mohammad, 1 Nov, card motion spec 8): the teaching card's words
+  // (their box, one composited layer) move a quarter of the finger's travel, 32 px at most, fading toward 40 %, so the swipe shows what it will do and can be pulled back.
   // The glass, the data card, the figure and its vessels stay where they are. Let go past the swipe's distance (or flicked): the words
-  // carry on from where the finger left them into their way out (app.css data-out, the same translate, eased from where it stands); short
+  // carry on from where the finger left them into their way out (app.css data-out, the same transform, eased from where it stands); short
   // of it, they ease back. At the first slide, where Back goes nowhere, they follow a tenth of the finger and do not fade. Only while
   // nothing is moving (no slide change, no case card) and the words are in.
   const PULL_K = 0.25, PULL_MAX = 32, PULL_END_K = 0.1;
   let pull = null;
-  const pullEls = () => (ui ? [...ui.text.children] : []);
   const pullCan = () => CARD_TURN && !!ui && !busy && !caseCard && !zoomOn() && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
   function pullTo(dx) {
     const end = dx > 0 && want === 0, k = end ? PULL_END_K : PULL_K, x = Math.max(-PULL_MAX, Math.min(PULL_MAX, dx * k));
     const o = end ? 1 : 1 - 0.6 * Math.min(1, Math.abs(x) / PULL_MAX);
     pull.x = x;
-    for (const c of pullEls()) { c.style.transition = 'none'; c.style.translate = `${x.toFixed(1)}px 0`; }
-    ui.text.style.transition = 'none'; ui.text.style.opacity = o.toFixed(3);
+    ui.text.style.transition = 'none'; ui.text.style.transform = `translateX(${x.toFixed(1)}px)`; ui.text.style.opacity = o.toFixed(3);
   }
   // (Let go: the inline styles go in one style change with the slide's own leave (gone: the words carry on out from where they stand),
   // or, staying, the lines ease back from where they are and the words' opacity eases back by the card's own transition.)
@@ -4596,12 +4605,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const g = pull; pull = null;
     if (!g?.on || !ui) return;
     const x = g.x;
-    ui.text.style.removeProperty('transition'); ui.text.style.removeProperty('opacity');
-    const out = gone && ui.text.classList.contains('pz-leave') && !!ui.text.dataset.out;
-    for (const c of pullEls()) {
-      c.style.removeProperty('transition'); c.style.removeProperty('translate');
-      if (!out && Math.abs(x) > 0.5) c.animate?.([{ translate: `${x}px 0` }, { translate: '0px 0' }], { duration: D_SMALL, easing: EASE_ARRIVE });
-    }
+    ui.text.style.removeProperty('transition'); ui.text.style.removeProperty('opacity'); ui.text.style.removeProperty('transform');
+    const out = gone && ui.text.classList.contains('pz-leave');
+    if (!out && Math.abs(x) > 0.5) ui.text.animate?.([{ transform: `translateX(${x}px)` }, { transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE });
   }
   wrap.addEventListener('touchmove', (e) => {
     if (e.touches.length > 1) { sw = null; if (pull) pullLet(false); return; }
@@ -5031,7 +5037,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
     // (Except while the words turn over on it (pz-turn, glassTurn): then the glass stays and only the words go.)
-    text.addEventListener('animationend', (e) => { if (e.target.parentNode === text) text.classList.remove('pz-slide'); });
     new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave') && !shade.classList.contains('pz-turn'))).observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)

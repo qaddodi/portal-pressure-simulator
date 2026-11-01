@@ -170,7 +170,7 @@ test('a flung case card glides off and fades over a visible time, and is hidden 
 test('no slide card shows while a case card is up, a catheter slide included; they come in once it is lifted', () => {
   // The words keep their leave state behind a case card (wordsIn never lets it go then), and every slide, bare or not
   // (HVPG slide 2 is a catheter slide, whose words used to come in at once under the case), sets it while a case is up.
-  assert.match(src, /if \(!caseCard\) text\.classList\.remove\('pz-leave'\);/);
+  assert.match(src, /if \(!caseCard && !bare\) text\.classList\.remove\('pz-leave'\);/);
   assert.doesNotMatch(src.slice(src.indexOf('function wordsIn('), src.indexOf('function wordsIn(') + 400), /^\s*text\.classList\.remove\('pz-leave'\);/m);
   assert.match(src, /if \(bare \|\| caseCard\) \{ ui\.text\.classList\.add\('pz-leave'\); ui\.root\.dataset\.bare = ''; \}/);
   // A non-bare slide brings its cards in only after caseEnd (the lift), and cardsIn is what lets the words go.
