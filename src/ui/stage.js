@@ -11048,7 +11048,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const it of items) {
       if (it.x.back || it.pts.length < 2) continue;
       const w = Math.max(1, it.kind === 'v' ? it.x.width || 2 : it.kind === 's' ? (it.x.width || 2) * (it.obj.k || 0.3) : it.obj.w || 2);
-      add([{ pts: Float64Array.from(it.pts.flat()), closed: false }], w / 2);
+      g.lineWidth = w; g.stroke({ polys: [{ pts: Float64Array.from(it.pts.flat()), closed: false }] });   // (its full width: stroke halves it)
     }
     const a = new Uint8Array(Wd * Hd);
     g.readInto(a);
@@ -11057,7 +11057,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return i < 0 || j < 0 || i >= Wd || j >= Hd ? 0 : a[j * Wd + i];
     };
   }
-  const circlePts = ([cx, cy, r]) => { const n = 48, p = new Float64Array(2 * n); for (let i = 0; i < n; i++) { p[2 * i] = cx + r * Math.cos((i / n) * 2 * Math.PI); p[2 * i + 1] = cy + r * Math.sin((i / n) * 2 * Math.PI); } return p; };
   function dashBuild(fade) {
     dashLook = performance.now();
     if (!CTM) refreshCTM();
