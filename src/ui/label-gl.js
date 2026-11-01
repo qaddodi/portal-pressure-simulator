@@ -206,8 +206,22 @@ const none = (c) => !c || c === 'none' || c === 'transparent' || /^rgba\([^)]*,\
 export function describeBlock(g, cs = getComputedStyle) {
   const gs = cs(g);
   if (g.style.display === 'none' || gs.display === 'none') return null;
-  try { if (g.matches(':focus-visible')) return { svg: 'focus' }; } catch { if (g === document.activeElement) return { svg: 'focus' }; }
+  let focused;
+  try { focused = g.matches(':focus-visible'); } catch { focused = g === document.activeElement; }
+  if (focused && !GPU_FOCUS) return { svg: 'focus' };
   const d = { opacity: NUM(gs.opacity), filter: gs.filter === 'none' ? '' : gs.filter, parts: [] };
+  // (Focused from the keyboard: its ring, as the page's styles give it (an outline round the label's box, eased in by focus-ring.js), is
+  // drawn into its picture; the label's own parts take their focus colours from the page's styles as any other state's. Read each frame
+  // while it eases: focusin holds it live.)
+  if (focused) {
+    const w = NUM(gs.outlineWidth);
+    if (gs.outlineStyle && gs.outlineStyle !== 'none' && w > 0 && !none(gs.outlineColor)) {
+      let b;
+      try { const bb = g.getBBox(); b = [bb.x, bb.y, bb.width, bb.height]; } catch { b = null; }
+      if (!b) return { svg: 'focus' };
+      d.ring = { w, color: gs.outlineColor, off: NUM(gs.outlineOffset), box: b.map((v) => +v.toFixed(2)) };
+    }
+  }
   for (const el of g.children) {
     const c = cs(el);
     if (c.display === 'none') continue;
@@ -236,7 +250,7 @@ export function describeBlock(g, cs = getComputedStyle) {
 }
 
 /** The look of a description, as a key: a picture is drawn again only when it changes (the opacity is the GPU's, not the picture's). */
-export const lookKey = (d, rot, dpr) => JSON.stringify([d.filter, d.parts, rot, dpr]);
+export const lookKey = (d, rot, dpr) => JSON.stringify([d.filter, d.parts, rot, dpr, d.ring || null]);
 
 // What Canvas 2D can do here (asked once): letter spacing and filters are newer than the rest.
 let caps = null;
@@ -249,9 +263,61 @@ function canvasCaps() {
 /** Why the SVG must draw this description itself ('' when the GPU can). */
 export function svgOnly(d, cap = canvasCaps()) {
   if (d.svg) return d.svg;
-  if (!cap.filter && (d.filter || d.parts.some((p) => p.filter))) return 'filter';
-  if (!cap.ls && d.parts.some((p) => p.runs?.some((r) => r.ls))) return 'letter-spacing';
+  // (Without the canvas's own filter, a filter made only of drop shadows is drawn with the canvas's shadows: shadowsOf.)
+  if (!cap.filter && [d.filter, ...d.parts.map((p) => p.filter)].some((f) => f && !(LABEL_FX && shadowsOf(f)))) return 'filter';
+  // (Without the canvas's own letter spacing, each letter is set by hand at the SVG's place for it: runPieces.)
+  if (!cap.ls && !LABEL_FX && d.parts.some((p) => p.runs?.some((r) => r.ls))) return 'letter-spacing';
   return '';
+}
+// ?labelfx=0: a label with a filter or letter spacing the canvas lacks, or a keyboard focus, is drawn by the SVG, as before.
+const LABEL_FX = !(typeof location !== 'undefined' && /[?&]labelfx=0\b/.test(location.search || ''));
+const GPU_FOCUS = LABEL_FX;
+// A filter's functions, split at the top level: 'drop-shadow(<colour> 0px 1px 1.5px) blur(2px)' → ['drop-shadow(...)', 'blur(2px)'].
+function filterFns(f) {
+  const out = [];
+  let depth = 0, cur = '';
+  for (const ch of f) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth--;
+    if (/\s/.test(ch) && depth === 0) { if (cur) out.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+/** A filter made only of drop shadows, as [{ x, y, blur, color }] (px; blur the CSS standard deviation), or null for any other. */
+export function shadowsOf(f) {
+  if (!f) return null;
+  const out = [];
+  for (const fn of filterFns(f.trim())) {
+    const m = /^drop-shadow\((.*)\)$/.exec(fn);
+    if (!m) return null;
+    // (Its colour and two or three lengths, in any order the browser writes them: lengths in px, the colour whatever is left.)
+    const toks = filterFns(m[1]), lens = [], col = [];
+    for (const t of toks) { const n = /^(-?[\d.]+)(px)?$/.exec(t); if (n && (n[2] || +n[1] === 0)) lens.push(+n[1]); else col.push(t); }
+    if (lens.length < 2 || lens.length > 3) return null;
+    out.push({ x: lens[0], y: lens[1], blur: lens[2] || 0, color: col.join(' ') || 'black' });
+  }
+  return out.length ? out : null;
+}
+// Draws `src` onto ctx through a list of drop shadows (the canvas's own shadows; each shadow in the list falls from the picture the ones
+// before it made, as CSS chains them). `m`: the label's px to the picture's device px, for the shadows' offsets (canvas shadows take no
+// transform). blur: the CSS standard deviation; the canvas's shadowBlur is twice it.
+function drawShadowed(ctx, src, list, m) {
+  let cur = src;
+  for (let i = 0; i < list.length; i++) {
+    const s = list[i], last = i === list.length - 1;
+    const dst = last ? ctx : Object.assign(document.createElement('canvas'), { width: src.width, height: src.height }).getContext('2d');
+    if (!dst) return false;
+    dst.save();
+    dst.setTransform(1, 0, 0, 1, 0, 0);
+    dst.shadowColor = s.color; dst.shadowBlur = 2 * s.blur * Math.hypot(m[0], m[1]);
+    dst.shadowOffsetX = m[0] * s.x + m[2] * s.y; dst.shadowOffsetY = m[1] * s.x + m[3] * s.y;
+    dst.drawImage(cur.canvas || cur, 0, 0);
+    dst.restore();
+    cur = dst;
+  }
+  return true;
 }
 
 // The widths of a run, digit by digit as the SVG sets them with tabular figures (every digit as wide as a zero, centred in it),
@@ -259,6 +325,7 @@ export function svgOnly(d, cap = canvasCaps()) {
 function runPieces(ctx, r) {
   ctx.font = r.font;
   if ('letterSpacing' in ctx) ctx.letterSpacing = `${r.ls}px`;
+  else if (r.ls && LABEL_FX) return spacedPieces(ctx, r);
   const out = [];
   if (!r.tnum) { out.push({ t: r.t, x: 0 }); return { pieces: out, w: ctx.measureText(r.t).width }; }
   const zero = ctx.measureText('0').width;
@@ -270,6 +337,20 @@ function runPieces(ctx, r) {
   return { pieces: out, w: x };
 }
 
+// Letter spacing set by hand (a canvas without its own): each letter where the SVG sets it, the run's width up to it (kerning kept) and
+// the spacing after each letter before it; tabular digits as wide as a zero, centred in it, as above.
+function spacedPieces(ctx, r) {
+  const out = [], zero = r.tnum ? ctx.measureText('0').width : 0;
+  let x = 0;
+  for (const m of (r.tnum ? r.t.match(/\d|\D+/g) : [r.t]) || []) {
+    if (r.tnum && /\d/.test(m)) { const w = ctx.measureText(m).width; out.push({ t: m, x: x + (zero - w) / 2 }); x += zero + r.ls; continue; }
+    const ch = Array.from(m);
+    let pre = '';
+    for (let i = 0; i < ch.length; i++) { out.push({ t: ch[i], x: x + ctx.measureText(pre).width + i * r.ls }); pre += ch[i]; }
+    x += ctx.measureText(m).width + ch.length * r.ls;
+  }
+  return { pieces: out, w: x };
+}
 const roundRect = (ctx, x, y, w, h, r) => {
   r = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath();
@@ -304,6 +385,9 @@ export function drawBlock(cv, d, dpr, rot = false) {
     lines.push({ p, runs });
   }
   if (!(x1 > x0)) return null;
+  // (A keyboard focus's ring: an outline round the label's box, outlineOffset off it.)
+  const ring = d.ring;
+  if (ring) { const e = ring.off + ring.w + 1, [bx, by, bw, bh] = ring.box; grow(bx - e, by - e, bx + bw + e, by + bh + e); }
   const f = filterReach(d.filter);
   x0 -= f; y0 -= f; x1 += f; y1 += f;
   // Device px, the label's origin on a whole pixel (where the GPU puts it).
@@ -320,18 +404,25 @@ export function drawBlock(cv, d, dpr, rot = false) {
   // scratch canvas first and laid down through the filter, its lengths in device px.)
   let c = ctx, tmp = null;
   if (d.filter) { tmp = document.createElement('canvas'); tmp.width = cv.width; tmp.height = cv.height; c = tmp.getContext('2d'); }
+  // (Without the canvas's own filter, drop shadows are drawn with its shadows (shadowsOf): m, the label's px to the picture's device px.)
+  const hand = (!!d.filter || d.parts.some((p) => p.filter)) && !canvasCaps().filter, m = rot ? [0, -dpr, dpr, 0] : [dpr, 0, 0, dpr];
   // (The label's own px to the picture's: scaled, then moved so its extent starts at 0; turned, the label's x runs up the picture.)
   if (rot) c.setTransform(0, -dpr, dpr, 0, -T, R);
   else c.setTransform(dpr, 0, 0, dpr, -L, -T);
   for (const p of d.parts) {
     if (p.k === 'rect') {
-      c.save();
-      if (p.filter) c.filter = p.filter.replace(/(-?[\d.]+)px/g, (_, v) => `${(+v * dpr).toFixed(3)}px`);
-      roundRect(c, p.x, p.y, p.w, p.h, p.rx);
-      const fill = () => { if (p.fill) { c.fillStyle = p.fill; c.fill(); } };
-      const stroke = () => { if (p.stroke && p.sw > 0) { c.strokeStyle = p.stroke; c.lineWidth = p.sw; c.stroke(); } };
+      const sh = p.filter && hand ? shadowsOf(p.filter) : null;
+      // (Its shadows by hand: the rect drawn whole on a canvas of its own, then laid down through them, so fill and stroke cast one shadow.)
+      let r = c, own = null;
+      if (sh) { own = Object.assign(document.createElement('canvas'), { width: cv.width, height: cv.height }).getContext('2d'); r = own || c; r.setTransform(c.getTransform()); }
+      r.save();
+      if (p.filter && !sh) r.filter = p.filter.replace(/(-?[\d.]+)px/g, (_, v) => `${(+v * dpr).toFixed(3)}px`);
+      roundRect(r, p.x, p.y, p.w, p.h, p.rx);
+      const fill = () => { if (p.fill) { r.fillStyle = p.fill; r.fill(); } };
+      const stroke = () => { if (p.stroke && p.sw > 0) { r.strokeStyle = p.stroke; r.lineWidth = p.sw; r.stroke(); } };
       if (p.strokeFirst) { stroke(); fill(); } else { fill(); stroke(); }
-      c.restore();
+      r.restore();
+      if (own) drawShadowed(c, own.canvas, sh, m);
       continue;
     }
     for (const q of lines.find((l) => l.p === p).runs) {
@@ -344,10 +435,21 @@ export function drawBlock(cv, d, dpr, rot = false) {
       if (r.strokeFirst) { stroke(); fill(); } else { fill(); stroke(); }
     }
   }
+  // (The ring last, over the label, as the browser draws an outline: a plain rectangle, its stroke centred outlineOffset + half its width out.)
+  if (ring) {
+    const e = ring.off + ring.w / 2, [bx, by, bw, bh] = ring.box;
+    c.save(); c.strokeStyle = ring.color; c.lineWidth = ring.w; c.lineJoin = 'miter';
+    c.strokeRect(bx - e, by - e, bw + 2 * e, bh + 2 * e);
+    c.restore();
+  }
   if (tmp) {
-    ctx.filter = d.filter.replace(/(-?[\d.]+)px/g, (_, v) => `${(+v * dpr).toFixed(3)}px`);
-    ctx.drawImage(tmp, 0, 0);
-    ctx.filter = 'none';
+    const sh = hand ? shadowsOf(d.filter) : null;
+    if (sh) drawShadowed(ctx, tmp, sh, m);
+    else {
+      ctx.filter = d.filter.replace(/(-?[\d.]+)px/g, (_, v) => `${(+v * dpr).toFixed(3)}px`);
+      ctx.drawImage(tmp, 0, 0);
+      ctx.filter = 'none';
+    }
   }
   return rot ? { ox: T, oy: -R, w: cv.width, h: cv.height } : { ox: L, oy: T, w: cv.width, h: cv.height };
 }
