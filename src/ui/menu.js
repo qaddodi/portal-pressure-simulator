@@ -5,12 +5,13 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=4ef2a6ffd8';
-import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=aeddd69bfe';
+import { h, icon, svgIcon, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=b280e98bc3';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=7e6fc3cc3d';
+import { pressureColor } from './colormap.js?v=cc36398c3e';
 import { ownsSideways, pageGo } from './swipe.js?v=9ed936bf04';
 import { frameFor } from './frame.js?v=15d5254a2c';
+import { leaveFromHere, menuLeaveOff } from './menu-leave.js?v=e885166f40';
 import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=fc509dabe4';
 const nextFrame = frameFor('menu');
 
@@ -81,7 +82,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     onToggle?.(false);
     if (panel.contains(document.activeElement) || !document.activeElement || document.activeElement === document.body) anchor.focus({ preventScroll: true });
     // (With Reduce Motion the same exit only fades: app.css turns the keyframes into fades.)
-    scrim?.classList.add('out');
+    if (scrim) leaveFromHere(scrim, () => scrim.classList.add('out'));
     // (Pulled down: it carries on down from where the finger let go. Upright, the shared sheet swipe is already sinking it; the
     // popover on a sideways iPad has no bottom edge to leave by, so it fades as it goes.)
     const sheet = panel.classList.contains('sheet');
@@ -91,7 +92,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         panel.style.transform = 'translateY(100%)';
         if (!sheet) panel.style.opacity = '0';
       }
-    } else panel.classList.add('out');
+    } else leaveFromHere(panel, () => panel.classList.add('out'));
+    // (Inert from the first frame of its exit, as the popovers are; a menu opened again before it has gone leaves it fading, below.)
+    if (!menuLeaveOff(location.search)) panel.inert = true;
     leaveT = setTimeout(done, sheet || o.dragged ? D_SMALL : D_FLIP);
   };
   // Typing while the menu is open (and focus is elsewhere) goes to its search.
@@ -341,8 +344,11 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   function place() {
     if (!el || el.classList.contains('sheet')) return;
     const r = anchor.getBoundingClientRect();
-    el.style.left = clamp(r.left, 12, Math.max(12, innerWidth - el.offsetWidth - 12)) + 'px';
-    el.style.top = (r.bottom + 8) + 'px';
+    const left = clamp(r.left, 12, Math.max(12, innerWidth - el.offsetWidth - 12)), top = r.bottom + 8;
+    el.style.left = left + 'px';
+    el.style.top = top + 'px';
+    // It settles from, and leaves toward, the button's centre, as every other popover does (it had grown from its own top-left corner).
+    if (!menuLeaveOff(location.search)) settleFrom(el, r, left, top);
   }
   // The panel opens with its groups rising into place one after another, 30 ms apart, over the panel's own entrance:
   // the eye reads it top down instead of seeing the whole list land at once. Only the first few in sight, so a long list
@@ -380,7 +386,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     // section: 'present' | 'patients' | 'scripts' (scrolled into view); opts.mark: a script id to highlight;
     // opts.query: words to start the search with (a mistyped ?preset= link).
     open(section, opts = {}) {
-      if (leaveT) { clearTimeout(leaveT); leaveT = 0; document.querySelectorAll('.umenu.out, .um-scrim.out').forEach((x) => x.remove()); }
+      // A menu opened again while the last is still fading leaves it to finish (it is inert, and its own timer removes it) under the new one,
+      // instead of snapping it away: that was a pop. ?menuleave=0: removed at once, as before.
+      if (leaveT && menuLeaveOff(location.search)) { clearTimeout(leaveT); leaveT = 0; document.querySelectorAll('.umenu.out, .um-scrim.out').forEach((x) => x.remove()); }
       mark = opts.mark || null;
       if (section) setTab(section === 'patients' ? 'patients' : 'present');
       if (!open) {

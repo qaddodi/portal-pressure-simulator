@@ -1,6 +1,7 @@
 // DOM & formatting helpers.
-import { saver, frame, cancelFrame, easeNow } from './frame.js?v=15d5254a2c';
-import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=fc509dabe4';
+import { saver, frame, cancelFrame } from './frame.js?v=15d5254a2c';
+import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=fc509dabe4';
+import { leaveFromHere } from './menu-leave.js?v=e885166f40';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
@@ -586,7 +587,7 @@ export function closePopover() {
   if (!el.isConnected) el.remove();   // (with Reduce Motion it still fades: app.css turns popOut into a fade)
   // A sheet swiped away is already sliding down; it leaves when it is out of sight.
   // (Over the thumb dock it sinks behind the tab row, as the cards do, in the same step: a leave is one flip, app.css thumbOut.)
-  else { const ms = D_FLIP; el.classList.add('leaving'); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => el.remove(), el.dataset.swiped ? D_SMALL : ms + 10); }
+  else { const ms = D_FLIP; const leave = () => el.classList.add('leaving'); if (el.dataset.swiped) leave(); else leaveFromHere(el, leave); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => el.remove(), el.dataset.swiped ? D_SMALL : ms + 10); }
   openMenu.anchor.setAttribute('aria-expanded', 'false'); openMenu.cleanup();
   lastMenu = { anchor: openMenu.anchor, t: performance.now() };
   openMenu = null;
