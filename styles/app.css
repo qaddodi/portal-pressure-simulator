@@ -6507,6 +6507,18 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    the blur, so the labels' spacing and the way it eases in and out (--pill-o) are unchanged. The resistance and problem pills and the figure's
    focus and term labels are solid fills or plain coloured words in both settings, so they need nothing here. */
 :root[data-noglass] :is(.lz-lab, .lz-zone, .sv-region)::before { background: color-mix(in srgb, var(--term-c, var(--accent)) 18%, var(--surface)) !important; }
+/* No browser blur anywhere (html[data-glsolid], set at boot unless ?glasssolid=0 or ?glasshost=0; Mohammad, 1 Nov 2026: "Move everything to
+   GPU"). A glass the figure's GPU draws ([data-gl]) keeps its frost; any other glass, and a GPU glass whenever the figure's canvas cannot take it
+   (the lobule, a dive, a fade, a label across it), shows the solid look of Settings › Blur effect off instead of the browser's backdrop blur, so
+   nothing over the moving figure is re-blurred by the browser on any frame. The teaching card's shade keeps a layer of its own the whole time,
+   never made and dropped as its glass changes hands (the iPhone lost its outline, tabs and credit on that swap, 1 Nov). */
+:root[data-glsolid] *, :root[data-glsolid] *::before, :root[data-glsolid] *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+:root[data-glsolid] :is(.lb-glass, .sv-legend, .pz-fk, .pz .pz-fk.pz-fk, .toast):not([data-gl]) { background: var(--surface); }
+:root[data-glsolid] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .cl-glass):not([data-gl]) { background: var(--surface); }
+:root[data-glsolid] .pz.stack.stack .pz-data.pz-sheet:not([data-gl])::before, :root[data-glsolid] .pz.stack.stack .pz-data.pz-sheet:not([data-gl])::after { background: var(--surface); }
+:root[data-glsolid] .pz.pz-wide.pz-wide .pz-data.pz-sheet:not([data-gl])::before, :root[data-glsolid] .pz.pz-wide.pz-wide .pz-data.pz-sheet:not([data-gl])::after { background: var(--surface); }
+:root[data-glsolid] :is(.lz-lab, .lz-zone, .sv-region):not([data-gl])::before { background: color-mix(in srgb, var(--term-c, var(--accent)) 18%, var(--surface)) !important; }
+:root[data-glsolid] .pz-shade { will-change: transform; }
 /* The figure key: a small pill, its name with the colour scale under it (no "None" or "Large" words; a key of named swatches keeps its names). */
 .pz-fk.grad, .pz-fk.grad.col { flex-direction: column; align-items: center; gap: .2em; padding: .28em 14px .34em; font-size: max(12px, calc(var(--s-cap) * .78)); }   /* (the 12 px floor: a key's words had read 11 px, and 10 here) */
 .pz-fk.grad .pz-lens-bar { width: 4em; height: .5em; }

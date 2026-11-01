@@ -1775,6 +1775,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The teaching card as one page (src/ui/card-page.js): the glass and the words move together, follow, leave and enter, and only
   // transform and opacity change while they move. On by default; ?cardpage=0 keeps the words turning inside a glass that fades in place.
   const CARD_PAGE = CARD_TURN && !/[?&]cardpage=0\b/.test(location.search);
+  // (The teaching card's shade drawn by the cards' GPU glass, as every other card: see createPresenter's cardGlass. ?shadegl=0 keeps it on the browser's blur.)
+  const SHADE_GL = !/[?&]shadegl=0\b/.test(location.search);
   let shadeAnim = null, pageForce = false;   // (the glass's entrance; pageForce: a swipe the card followed out, so its words leave even if the next slide's are the same)
   const lastBeat = (i) => beatCount(slides[i]) - 1;
   function go(i) {
@@ -5146,7 +5148,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Not the teaching card's shade: on an iPhone, moved between the browser's blur and the GPU's as the figure came and went (a fade, the
     // lobule), it lost its outline, tabs and credit and kept only the glass, Safari dropping its own layer's picture (Mohammad, 1 Nov
     // 2026, at 25a4f68f, and a layer of its own did not keep it). It keeps the browser's blur, as it had until that day.)
-    const glass = stage.cardGlass?.({ find: () => [data, vcase, bar, scl, fk], watch: [root, shade], before: shade, low: shade, read: (g) => (g === data ? sheetPanes(g) : undefined) }) || null;
+    // (1 Nov 2026, evening: the shade is on the GPU glass again, as every other card, now that no glass ever goes back to the browser's blur
+    // (html[data-glsolid]: where the figure's canvas cannot take it, the shade turns solid) and the shade keeps one layer of its own throughout,
+    // so the swap that lost its picture on an iPhone no longer happens. ?shadegl=0, or ?glasssolid=0, keeps it on the browser's blur as before.)
+    const shadeGL = SHADE_GL && document.documentElement.hasAttribute('data-glsolid');
+    const glass = stage.cardGlass?.({ find: () => (shadeGL ? [shade, data, vcase, bar, scl, fk] : [data, vcase, bar, scl, fk]), watch: [root, shade], before: shade, low: shade, read: (g) => (g === data ? sheetPanes(g) : undefined) }) || null;
     return { root, shade, safe, load, text, data, lip, lipRO, lipMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
