@@ -219,7 +219,7 @@ const SCENARIOS = [
   { name: 'slide, the beat card, wide, no earlier state', bw: 640, bh: 300, slide: true, has: /fillText HEART RATE,/ },
   { name: 'slide, the beat card, wide, a low card (the bare column)', bw: 520, bh: 172, slide: true, ref: was, has: /fillText HEART RATE,/ },
   { name: 'slide, the beat card, wide, no EKG strip', bw: 640, bh: 300, slide: true, tool: { ekg: false }, ref: was },
-  { name: 'slide, the beat card, wide, pinned numbers', bw: 640, bh: 300, slide: true, pin: { hr: 131, whvp: 30, fhvp: 9 }, has: /fillText 131,/ },
+  { name: 'slide, the beat card, wide, pinned numbers', bw: 640, bh: 300, slide: true, pin: { hr: 131, whvp: 30, fhvp: 9 }, has: /fillText 1,[^\n]*\nfillText 3,[^\n]*\nfillText 1,/ },   // (the heart rate in tabular digits, one at a time)
   { name: 'slide, the beat card, narrow (the line on top)', bw: 360, bh: 260, slide: true, ref: was, has: /fillText HR,/, not: /fillText HEART RATE,/ },
 ];
 const sorted = (a) => [...a].sort();
