@@ -652,6 +652,7 @@ export function createProfileTool() {
     return sz0;
   };
   const size0 = () => sz0;
+  const setMin = () => { el.style.minHeight = wantMin; };   // (a rest pass's, between frames)
   function draw() {
     if (!shown) { el.replaceChildren(); return; }
     const sz = size0();
@@ -711,7 +712,7 @@ export function createProfileTool() {
     const need = profileGeo(w, hh, f, tw).need;
     const cssMin = 11 * fs0, want = need > cssMin + 0.5 ? `${Math.ceil(need)}px` : '';
     // (laid out between frames, never in the frame that drew: the next frame draws in the taller box)
-    if (el.style.minHeight !== want && wantMin !== want) { wantMin = want; restPass(() => { el.style.minHeight = wantMin; }); }
+    if (el.style.minHeight !== want && wantMin !== want) { wantMin = want; restPass(setMin); }
     const top = shown.top, y = (v) => G.Z - (G.Z - G.T) * Math.max(0, Math.min(v, top)) / top;
     const pts = (p) => p.v.map((v, i) => [G.x(i), y(v)]);
     const now = pts(shown), labels = shown.v.map(whole);

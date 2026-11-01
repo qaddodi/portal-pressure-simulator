@@ -5,7 +5,7 @@
 import { store, updateParams } from './store.js?v=4ef2a6ffd8';
 import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=79b7c7454f';
 import { D_FLIP, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
-import { restPass } from './rest-pass.js?v=bf0c42ead5';
+import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
 import { frame } from './frame.js?v=7710f677e2';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
@@ -135,16 +135,25 @@ export function createPalette({ ctx }) {
     if (geomFor !== rows) { remeasure(); return; }
     const g = items.length ? geom[sel] : null;
     const snap = !glide || hl.style.opacity !== '1';
-    if (snap) hl.classList.add('still');
-    if (g) {
-      // (Its size is laid out once, at a placement with no glide; a glide to a row of another size stretches it on the compositor.)
-      const [x, y, w, hh] = g;
-      if (snap || !hl._w) { hl._w = w; hl._h = hh; hl.style.width = `${w}px`; hl.style.height = `${hh}px`; }
-      hl.style.translate = `${x}px ${y}px`; hl.style.scale = `${(w / hl._w).toFixed(4)} ${(hh / hl._h).toFixed(4)}`; hl.style.opacity = '1';
-    }
-    else hl.style.opacity = '0';
+    cancelRest(snapping); snapping = 0;
+    if (!g) { hl.style.opacity = '0'; return; }
+    // (Its size is laid out once, at a placement with no glide, in a rest pass between frames (snapNow), never in the key or pointer
+    // event that asked; a glide to a row of another size stretches it on the compositor.)
+    if (snap || !hl._w) { snapping = restPass(snapNow); return; }
+    const [x, y, w, hh] = g;
+    hl.style.translate = `${x}px ${y}px`; hl.style.scale = `${(w / hl._w).toFixed(4)} ${(hh / hl._h).toFixed(4)}`; hl.style.opacity = '1';
+  }
+  let snapping = 0;
+  function snapNow() {
+    snapping = 0;
+    const g = !back.hidden && geomFor === rows && items.length ? geom[sel] : null;
+    if (!g) return;
+    const [x, y, w, hh] = g;
+    hl.classList.add('still');
+    hl._w = w; hl._h = hh; hl.style.width = `${w}px`; hl.style.height = `${hh}px`;
+    hl.style.translate = `${x}px ${y}px`; hl.style.scale = ''; hl.style.opacity = '1';
     // ('still' holds the transition through the frame that shows the new place, and is let go after it, with no style read.)
-    if (snap) frame(() => restPass(() => hl.classList.remove('still')), 'palette');
+    frame(() => restPass(() => hl.classList.remove('still')), 'palette');
   }
   function mark() {
     rows.forEach((b, i) => { const on = i === sel; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); });
