@@ -88,6 +88,11 @@
   --vein-systemic: var(--tour-sys);
   --arrow-ink: rgba(24, 26, 34, .78);
   --label-halo: rgba(251, 250, 247, .92);
+  /* How the halo behind a label is built (Mohammad, 1 Nov: a printed atlas knocks a label out of the art, with no visible rim): a solid knockout this far from
+     the letters (--halo-in, at the labels' 1x size; --halo-in-bare for a reading that sits straight on the art), then a feather past it that falls from about
+     70 % to nothing, out to --halo-feather from the letters. The GPU labels draw the feather in src/ui/label-gl.js; the SVG labels' text and the lobule's
+     HTML names take it as a text-shadow of --halo-blur. ?halo=0 (data-halo="off", set by label-gl.js) gives the hard rim as it was: 1.5 px and 2 px, no feather. */
+  --halo-in: 1px; --halo-in-bare: 1.2px; --halo-feather: 3.5px; --halo-blur: 2.2px;
   --label-panel: rgba(251, 250, 247, .72);   /* a reading's panel on the figure: the paper itself at 72 %, the halo does the separating (looks review F8); dark: the ground */
   --doppler: #22C38E;
   --dop-mark: #FFFFFF; --dop-rim: #000000;   /* the Doppler probe and sample gate: white lines on a black rim, every theme */
@@ -277,6 +282,7 @@
 
   color-scheme: light;
 }
+:root[data-halo="off"] { --halo-in: 1.5px; --halo-in-bare: 2px; --halo-feather: 0px; }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="soft"]) {

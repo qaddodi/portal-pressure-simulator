@@ -8,6 +8,11 @@
 // pictures out at whole device pixels, never scaled: a pan or a zoom moves pictures, it draws no text. The SVG's own copy of a label
 // the GPU draws is made see-through (#labels .lb[data-gl] > *: opacity 0), so the page does not paint it.
 //
+// The halo behind a label's letters is two layers (Mohammad, 1 Nov: "a printed atlas knocks a label out of the art, with no visible edge"): the solid
+// stroke the CSS gives the text (styles/app.css, tokens.css --halo-in), and a feather beyond it that falls from FEATHER_TOP to nothing, out to the reach the
+// CSS gives as --halo-fe (a registered length, grown with the label size). The feather is a few strokes of falling width and low opacity under the solid one,
+// so nothing here is a CSS filter (a filter sends a label back to the SVG) and the look is the same in every browser. ?halo=0 draws the hard rim as it was.
+//
 // A label whose look this drawing cannot give exactly (a filter or letter spacing the browser's Canvas 2D lacks, a part it does not
 // know, a keyboard focus ring) stays drawn by the SVG, label by label. Without WebGL2, on a software renderer, with ?gpulabels=0, or
 // once the context is lost, the SVG draws them all, as it always has.
@@ -16,6 +21,9 @@ import { frameFor, cancelFrame } from './frame.js?v=15d5254a2c';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=c5c00c9da1';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
+
+// ?halo=0 puts the labels' hard rim back (the CSS reads data-halo on the page: tokens.css, app.css). Set here, at import, before the stage draws its first label.
+if (typeof document !== 'undefined' && /[?&]halo=0\b/.test(location.search)) document.documentElement.setAttribute('data-halo', 'off');
 
 const nextFrame = frameFor('labels-gl');
 const VS = `#version 300 es
@@ -214,7 +222,8 @@ export function describeBlock(g, cs = getComputedStyle) {
         if (r.display === 'none') continue;
         line.runs.push({ t: sp.textContent, dx: NUM(sp.getAttribute('dx')), font: `${r.fontStyle === 'normal' ? '' : r.fontStyle + ' '}${r.fontWeight} ${r.fontSize} ${r.fontFamily}`,
           size: NUM(r.fontSize), ls: r.letterSpacing === 'normal' ? 0 : NUM(r.letterSpacing), tnum: /tabular-nums/.test(r.fontVariantNumeric),
-          fill: none(r.fill) ? '' : r.fill, stroke: none(r.stroke) ? '' : r.stroke, sw: NUM(r.strokeWidth), join: r.strokeLinejoin, strokeFirst: /^stroke/.test(r.paintOrder) });
+          fill: none(r.fill) ? '' : r.fill, stroke: none(r.stroke) ? '' : r.stroke, sw: NUM(r.strokeWidth), join: r.strokeLinejoin, strokeFirst: /^stroke/.test(r.paintOrder),
+          fe: NUM(r.getPropertyValue?.('--halo-fe')) });   // (the halo's feather: how far past the letters it reaches, px)
       }
       // (Spaces as the SVG sets them: runs of white space as one, none at the line's ends.)
       let prev = true;
@@ -270,6 +279,22 @@ const roundRect = (ctx, x, y, w, h, r) => {
 // How far a filter's drop shadows and blurs reach (px): the picture is grown by that much.
 const filterReach = (f) => (f ? Math.ceil((f.match(/-?[\d.]+px/g) || []).reduce((s, v) => s + Math.abs(parseFloat(v)), 0) * 3) + 2 : 0);
 
+// How strong the feather is just outside the solid stroke (the share of the halo's ink there): 70 %, a little under the solid stroke's own. (Mohammad's brief said about
+// 45 % past a 1.25 px knockout; at 3x that step from the solid stroke to the feather still read as an edge, so the knockout is 1 px and the feather starts higher.)
+export const FEATHER_TOP = 0.7;
+
+/**
+ * The opacities (inner to outer, for `n` strokes widening by equal steps) that make the feather fall from `top` just outside the solid stroke to nothing at its
+ * reach, on a half cosine, when the strokes are laid down widest first: each stroke's opacity is what its ring adds to what the wider ones left there.
+ */
+export function featherAlphas(n, top = FEATHER_TOP) {
+  const want = (i) => top * 0.5 * (1 + Math.cos(Math.PI * (i + 0.5) / n));   // (the ring i: its middle, from the solid stroke outward)
+  const out = new Array(n);
+  let left = 1;                              // (what the wider strokes already leave clear)
+  for (let i = n - 1; i >= 0; i--) { const a = 1 - (1 - want(i)) / left; out[i] = Math.max(0, a); left *= 1 - out[i]; }
+  return out;
+}
+
 /**
  * Draws a description into `cv` (a canvas, resized here) at `dpr` device px per px, turned −90° when `rot` (a caption read bottom to
  * top: its origin then is the box's bottom left). Returns the picture's offset from the label's origin, { ox, oy } in device px.
@@ -289,7 +314,7 @@ export function drawBlock(cv, d, dpr, rot = false) {
     for (const [i, q] of runs.entries()) {
       if (i) x += q.r.dx;
       q.x = x; x += q.w;
-      const h = q.r.stroke ? q.r.sw / 2 : 0;
+      const h = q.r.stroke ? Math.max(q.r.sw / 2, (q.r.fe || 0) - 1) : 0;   // (the feather's reach, less the 2 px the extent always keeps)
       grow(q.x - h - 2, p.y - q.r.size * 1.1 - h - 2, q.x + q.w + h + 2, p.y + q.r.size * 0.35 + h + 2);
     }
     lines.push({ p, runs });
@@ -314,6 +339,24 @@ export function drawBlock(cv, d, dpr, rot = false) {
   // (The label's own px to the picture's: scaled, then moved so its extent starts at 0; turned, the label's x runs up the picture.)
   if (rot) c.setTransform(0, -dpr, dpr, 0, -T, R);
   else c.setTransform(dpr, 0, 0, dpr, -L, -T);
+  // The feather of every run's halo first, so it never lies over any letters (a run's solid stroke and its fill follow in the order the SVG paints them).
+  // Widest stroke first, each at the opacity that makes the whole fall away smoothly; only a halo that lies under its letters and reaches past its own solid part has one.
+  for (const { p, runs } of lines) {
+    for (const q of runs) {
+      const r = q.r, k = r.sw / 2, span = (r.fe || 0) - k;
+      if (!(r.stroke && r.strokeFirst && span > 0.2)) continue;
+      c.font = r.font;
+      if ('letterSpacing' in c) c.letterSpacing = `${r.ls}px`;
+      c.textBaseline = 'alphabetic'; c.textAlign = 'left';
+      c.strokeStyle = r.stroke; c.lineJoin = 'round';
+      const n = Math.max(3, Math.min(5, Math.round(span * dpr / 1.5))), al = featherAlphas(n);
+      for (let i = n - 1; i >= 0; i--) {
+        c.globalAlpha = al[i]; c.lineWidth = (k + span * (i + 1) / n) * 2;
+        for (const s of q.pieces) c.strokeText(s.t, q.x + s.x, p.y);
+      }
+      c.globalAlpha = 1;
+    }
+  }
   for (const p of d.parts) {
     if (p.k === 'rect') {
       c.save();
@@ -451,7 +494,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (Not for a gesture's own classes, which change no label's look (idle-keys.js GESTURE_LOOK): each one made every label and mark read
   // again on every frame for 0.7 s as a pan or pinch began and as it ended. 30 Oct, review G3.)
   const outer = new MutationObserver((rs) => { if (rs.some((r) => changed(r) && !classOnly(r, GESTURE_LOOK))) all(); });
-  for (let el = svg.parentElement; el; el = el.parentElement) outer.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class', 'data-theme', 'data-noglass', 'data-mode'] });
+  for (let el = svg.parentElement; el; el = el.parentElement) outer.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class', 'data-theme', 'data-noglass', 'data-mode', 'data-halo'] });
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', all);
   addEventListener('pps:labelscale', all);   // (the text size: --label-k on the page)
   // A CSS fade or colour ease, a hover (its colour comes with no class), a focus: that label is read each frame till it ends.
