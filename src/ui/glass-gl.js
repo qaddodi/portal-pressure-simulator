@@ -198,10 +198,40 @@ function programsOf(gl) {
   const link = (fs) => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, QVS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); return gl.getProgramParameter(p, gl.LINK_STATUS) ? p : null; };
   const bprog = link(BFS), pprog = link(PFS);
   if (!bprog || !pprog) { if (bprog) gl.deleteProgram(bprog); if (pprog) gl.deleteProgram(pprog); return null; }
+  return uniformsOf(gl, bprog, pprog);
+}
+function uniformsOf(gl, bprog, pprog) {
   const uni = (p, ks) => Object.fromEntries(ks.map((k) => [k, gl.getUniformLocation(p, k)]));
   const BU = uni(bprog, ['uBox', 'uView', 'uT', 'uDir', 'uW']);
   const PU = uni(pprog, ['uBox', 'uView', 'uMS', 'uReg', 'uScene', 'uMask', 'uBg', 'uTint', 'uSat', 'uA', 'uBB', 'uShC', 'uShB', 'uShS', 'uRad', 'uMode']);
   return { bprog, pprog, BU, PU };
+}
+// Shader warm-up for the glass drawn in the figure's canvas (GPU practice, MDN "WebGL best practices": compile and link early, read the
+// status later, KHR_parallel_shader_compile where there is one). The blur's and the glass's programs are started the moment the figure's
+// context is handed over (setHost), long before the first card shows, and only their link status is read, at the first glass, by when the
+// driver has long finished: that frame no longer compiles and links two programs and waits on them. One set
+// per context, shared by every glass drawn there (cards, panes, callouts compiled the same two programs each before). ?glasswarm=0 in the
+// address: each glass compiles its own at its first frame, as before.
+const GLASS_WARM = !(typeof location !== 'undefined' && /[?&]glasswarm=0\b/.test(location.search));
+const warmed = new WeakMap();
+function warmPrograms(gl, now) {
+  let e = warmed.get(gl);
+  if (!e) {
+    if (gl.isContextLost()) return null;
+    gl.getExtension('KHR_parallel_shader_compile');   // (asked for, the driver compiles and links on threads of its own)
+    const sh = (type, src) => { const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x); return x; };
+    const start = (fs) => { const p = gl.createProgram(), v = sh(gl.VERTEX_SHADER, QVS), f = sh(gl.FRAGMENT_SHADER, fs); gl.attachShader(p, v); gl.attachShader(p, f); gl.linkProgram(p); return { p, sh: [v, f] }; };
+    e = { hs: [start(BFS), start(PFS)], P: undefined };   // (nothing read back here)
+    warmed.set(gl, e);   // (forgotten when the context is lost: onHostLost)
+  }
+  if (now) readWarm(gl, e);
+  return e.P ?? null;
+}
+function readWarm(gl, e) {
+  if (e.P !== undefined || gl.isContextLost()) return;
+  // (Only the link's status is read, as MDN advises: the shaders' own status is never asked for.)
+  const [b, p] = e.hs.map((h) => gl.getProgramParameter(h.p, gl.LINK_STATUS));
+  e.P = b && p ? uniformsOf(gl, e.hs[0].p, e.hs[1].p) : null;
 }
 function texOf(gl, filter) {
   const t = gl.createTexture();
@@ -558,9 +588,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     return panes.some((p) => rs.some((r) => r.right > r.left && r.bottom > r.top && p.r.left < r.right && r.left < p.r.right && p.r.top < r.bottom && r.top < p.r.bottom));
   };
   function hostKit() {
-    const G = host.gl, P = programsOf(G);
+    const G = host.gl, P = GLASS_WARM ? warmPrograms(G, true) : programsOf(G);
     if (!P) return null;
-    const K = { G, ...P, vao: G.createVertexArray(), copy: texOf(G, G.LINEAR), pass: texOf(G, G.LINEAR), blurred: texOf(G, G.LINEAR),
+    const K = { G, ...P, shared: GLASS_WARM, vao: G.createVertexArray(), copy: texOf(G, G.LINEAR), pass: texOf(G, G.LINEAR), blurred: texOf(G, G.LINEAR),
       fbCopy: G.createFramebuffer(), fbPass: G.createFramebuffer(), fbOut: G.createFramebuffer(), steps: [], size: '', key: '', reg: null, k: 1,
       masks: new WeakMap(), maskTex: new Set() };
     G.bindTexture(G.TEXTURE_2D, null);
@@ -574,7 +604,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const G = K.G;
     for (const t of [K.copy, K.pass, K.blurred, ...K.steps.map((st) => st.t), ...K.maskTex]) G.deleteTexture(t);
     for (const fb of [K.fbCopy, K.fbPass, K.fbOut, ...K.steps.map((st) => st.fb)]) G.deleteFramebuffer(fb);
-    G.deleteProgram(K.bprog); G.deleteProgram(K.pprog); G.deleteVertexArray(K.vao);
+    if (!K.shared) { G.deleteProgram(K.bprog); G.deleteProgram(K.pprog); }   // (the warmed set stays with its context, for the others)
+    G.deleteVertexArray(K.vao);
   }
   // Back to this canvas: the browser's glass shows until its first copy is in (marks given back), and the figure's picture is laid again
   // without the glass now (again), or by the figure's next picture (from inside one, which has just been laid without it).
@@ -847,7 +878,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     G.activeTexture(G.TEXTURE1); G.bindTexture(G.TEXTURE_2D, null); G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, null);
     G.pixelStorei(G.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
   }
-  const onHostLost = () => { hk = null; if (hostOn) { hostOn = false; hf = null; unmark(); tellHoles([]); if (canvas) canvas.style.visibility = ''; ask(); } };
+  const onHostLost = () => { if (host) warmed.delete(host.gl); hk = null; if (hostOn) { hostOn = false; hf = null; unmark(); tellHoles([]); if (canvas) canvas.style.visibility = ''; ask(); } };
   // Callout glass kept (keep()): what draw() reads from the page each frame, read only when keptStale says it may have changed. The
   // reads and the picture are draw()'s own; only when they are taken differs. (A list of glasses that is not the one measured, a new
   // screen density, a callout's transition or event in the last 0.8 s, an animation in the layers when last measured (a CSS transition
@@ -985,6 +1016,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         hostFree();
       }
       host = h;
+      if (GLASS_WARM) warmPrograms(h.gl, false);   // (started now, read when done: see warmPrograms)
       host.canvas.addEventListener('webglcontextlost', onHostLost);
       hostTops = cards
         ? [host.add({ order: h.order?.low ?? 1, prep: prepInto, draw: () => drawInto('low') }), host.add({ order: h.order?.high ?? 3, draw: () => drawInto('high') })]

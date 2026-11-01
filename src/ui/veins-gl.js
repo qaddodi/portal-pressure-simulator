@@ -108,6 +108,10 @@ const BLOOD_SAT = !(typeof location !== 'undefined' && /[?&]bloodsat=0\b/.test(l
 // the two as one shader over the vessel cells instead (veins-fuse.js), and the picture alone over the rest of the canvas (the
 // layer there is empty). The same arithmetic, so the same picture.
 const ONE_PASS = !(typeof location !== 'undefined' && /[?&]zoompass=two\b/.test(location.search));
+// The one-pass frames' stencil let go once used (GPU practice: Apple's Metal guide, "Load and Store Actions", and MDN "WebGL best
+// practices", invalidateFramebuffer on tiled mobile GPUs): a canvas-sized buffer no longer written out to memory on every zoom or pan
+// frame, bandwidth and heat the picture never needed. ?invalidate=0 in the address: kept as before.
+const INVALIDATE = !(typeof location !== 'undefined' && /[?&]invalidate=0\b/.test(location.search));
 // Tube depth (vessel depth pass, 31 Oct): a lumen darkens a little toward its wall, more on the side away from the light, and
 // a pale band of wall sits between the lumen and the casing; a vessel passing over another casts a slightly fuller contact
 // shadow. The centre of every lumen keeps its pressure or flow colour exactly. ALU only, no texture reads. ?depth=0: as before.
@@ -3441,6 +3445,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         gl.bindVertexArray(compVAO);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         gl.disable(gl.STENCIL_TEST);
+        // (The marks are spent: told so, the tile GPU (Apple's, under Safari's Metal) never writes the stencil back to memory at the end of
+        // the pass; the next one-pass frame clears it before reading it. See INVALIDATE.)
+        if (INVALIDATE) gl.invalidateFramebuffer(gl.FRAMEBUFFER, [own ? gl.STENCIL_ATTACHMENT : gl.STENCIL]);
       } else if (full) {
         gl.uniform1i(U.bloodOnly, 0);
         if (gpuProbe.on) gpuProbe.gauge('blood squares on screen', 'whole picture');
