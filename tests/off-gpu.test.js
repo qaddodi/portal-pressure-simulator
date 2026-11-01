@@ -73,6 +73,37 @@ function place() { return document.body.getBoundingClientRect(); }
   assert.match(inventory(hits), /\*\*\d+\/\d+ on GPU/);
 });
 
+test('frame paths follow calls by scope, receiver and import, not by bare name', () => {
+  const root = mkdtempSync(join(tmpdir(), 'offgpu-'));
+  mkdirSync(join(root, 'src/ui'), { recursive: true }); mkdirSync(join(root, 'styles'));
+  writeFileSync(join(root, 'index.html'), '<html></html>');
+  writeFileSync(join(root, 'src/ui/frame.js'), 'export function lateFrame(cb) { return requestAnimationFrame(cb); }\nexport const lateFrameFor = (t) => (cb) => lateFrame(cb, t);\n');
+  writeFileSync(join(root, 'src/ui/z.js'), 'export function createZoom() { function follow() { return document.body.clientHeight; } return { follow }; }\nexport function idle() { return document.body.clientWidth; }\n');
+  writeFileSync(join(root, 'src/ui/p.js'), `
+import { lateFrameFor } from './frame.js';
+import { createZoom } from './z.js';
+const draw = lateFrameFor('p');
+const seen = new Map();
+const ui = { zoom: createZoom() };
+function tiles() { return { set() { return document.body.offsetWidth; } }; }
+const later = (fn) => draw(fn);                  // (a wrapper that hands its callback on to the scheduler)
+function pass(now) { seen.set(now, 1); ui.zoom.follow(); }
+later(pass);
+const step = (d) => document.body.getBoundingClientRect();   // (a click handler that happens to be called step)
+document.body.addEventListener('click', () => step(1));
+function outer() { function fit() { return document.body.scrollHeight; } return fit; }
+function other() { const fit = () => 0; draw(() => fit()); }
+export { tiles, outer, other };
+`);
+  const hits = scan({ root }).filter((h) => h.cat === 'layoutRead');
+  const at = (file, re) => hits.some((h) => h.file === file && re.test(h.detail));
+  assert.ok(at('src/ui/z.js', /clientHeight.*pass@\d+ → follow/), "a method of an imported factory's object, through a wrapper of lateFrameFor");
+  assert.ok(!at('src/ui/p.js', /offsetWidth/), "a Map's set is not the tiles' set()");
+  assert.ok(!at('src/ui/p.js', /getBoundingClientRect/), 'a function named step is not a frame callback by its name');
+  assert.ok(!at('src/ui/p.js', /scrollHeight/), "the fit in scope is the frame's, not another function's fit");
+  assert.ok(!at('src/ui/z.js', /clientWidth/), 'what no frame calls stays out');
+});
+
 test('nothing in the app is off the GPU (the limit is zero; see docs/off-gpu-inventory.md)', () => {
   const hits = scan();
   const byCat = {};

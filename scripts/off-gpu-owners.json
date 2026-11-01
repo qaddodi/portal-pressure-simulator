@@ -1,6 +1,8 @@
 {
   "unassigned": "unassigned (coordinator to map)",
   "byCategory": [
+    { "cats": ["layoutWrite"], "files": ["src/ui/presenter.js"], "fns": ["bigTiles", "zoomFollow"], "thread": "Clear layout reads in presenter (cmsg_018GZjFhtvTeoUFdeosmA9rJ3jVCfyZvFY8se4LGx6kF8g)" },
+    { "cats": ["svgDom", "ctx2d"], "files": ["src/ui/presenter.js"], "thread": "Clear layout reads in presenter (cmsg_018GZjFhtvTeoUFdeosmA9rJ3jVCfyZvFY8se4LGx6kF8g)" },
     { "cats": ["ctx2d", "draw2d", "cpuBlur", "svgRaster", "svgDom", "backdrop", "layoutAnim", "layoutWrite", "layoutRead", "rawRaf", "syncStatus"], "files": ["src/ui/label-gl.js"], "fns": ["drawProbe", "probeLookRead", "drawScan", "scanLookRead", "createLabelGL › stroke"], "thread": "Move figure overlays to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJ93Ab3d8XiycSay8k2YJckM)" },
     { "cats": ["ctx2d", "draw2d", "cpuBlur", "svgRaster", "svgDom", "backdrop", "layoutAnim", "layoutWrite", "layoutRead", "rawRaf", "syncStatus"], "files": ["src/ui/label-gl.js", "src/ui/focus-ring.js"], "thread": "Labels and focus rings on the GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJX1BFH7UG5FYfRiLdBq5VJY)" },
     { "cats": ["syncStatus"], "thread": "Precompile every shader before motion (cmsg_018GZjFhtvTeoUFdeosmA9rJ5CcQx8mx7dTBhUbxJVYjHk)" },

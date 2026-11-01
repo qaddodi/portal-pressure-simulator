@@ -62,7 +62,13 @@ const READ_PROPS = new Set(['offsetWidth', 'offsetHeight', 'offsetTop', 'offsetL
   'clientLeft', 'scrollWidth', 'scrollHeight', 'scrollTop', 'scrollLeft']);
 const READ_CALLS = new Set(['getBoundingClientRect', 'getClientRects', 'getComputedStyle', 'elementFromPoint', 'elementsFromPoint']);
 const MOTION_EVENTS = new Set(['pointermove', 'touchmove', 'mousemove', 'scroll', 'wheel', 'gesturechange', 'drag']);
-const FRAME_NAME = /^(tick|loop|animate|onFrame|step)$|Frame$|^frame$|Tick$|Loop$/;
+// Calls that keep a function to run later, not now (its own frame or event, if any, makes it a seed).
+const DEFERRED = /^(setTimeout|setInterval|requestIdleCallback|queueMicrotask|addEventListener|removeEventListener|then|catch|finally|Promise|ResizeObserver|IntersectionObserver|MutationObserver|PerformanceObserver|afterMotion|whenQuiet|idle|onRenderScale|onFigLab|watchFrames|observe|subscribe|on|once|frame|lateFrame|finalFrame|requestAnimationFrame|nextFrame|easeFrame|drawFrame)$/;
+// Receivers whose methods are the browser's own (a Map's set, a class list's add): a call on one never runs an app function.
+const BUILTIN_NEW = /^(Map|Set|WeakMap|WeakSet|Array|Float32Array|Float64Array|Int8Array|Int16Array|Int32Array|Uint8Array|Uint8ClampedArray|Uint16Array|Uint32Array|Image|URLSearchParams|FormData|Date|RegExp|Path2D|DOMMatrix|ResizeObserver|IntersectionObserver|MutationObserver|AbortController|Worker|BroadcastChannel|Blob|URL|TextEncoder|TextDecoder)$/;
+const BUILTIN_RECV = new Set(['classList', 'style', 'dataset', 'console', 'Math', 'JSON', 'Object', 'Array', 'Promise', 'Number', 'String', 'Reflect',
+  'performance', 'document', 'window', 'globalThis', 'location', 'localStorage', 'sessionStorage', 'navigator', 'history', 'URL', 'Atomics', 'crypto']);
+const ARRAY_OUT = /^(map|filter|slice|concat|flat|flatMap|from|keys|values|entries|split|querySelectorAll|getElementsByClassName|getElementsByTagName|sort|reverse|fill)$/;
 const SCHEDULER = 'src/ui/frame.js';
 
 function walk(dir, out = []) {
@@ -204,7 +210,7 @@ export function scan({ root = ROOT } = {}) {
     }
     if (!file.endsWith('.js')) continue;
     const ast = parseJs(file, text);
-    const mod = { file, fns: new Map(), calls: new Map(), imports: new Map(), exports: new Map(), seeds: new Set(), late: [] };
+    const mod = { file, fns: new Map(), origins: new Map(), calls: new Map(), imports: new Map(), exports: new Map(), seeds: new Set(), late: [] };
     mods.set(file, mod);
     const frameCallers = new Set(['requestAnimationFrame', 'frame', 'lateFrame', 'finalFrame']);
     // (raf = frameFor('x'), and imported scheduler names under any local alias)
@@ -212,15 +218,22 @@ export function scan({ root = ROOT } = {}) {
       if (n.type === 'ImportDeclaration') {
         const from = resolve(dirname(join(root, file)), n.source.value.split('?')[0]);
         const rel = relative(root, from).split('\\').join('/');
+        for (const s of n.specifiers) if (s.type === 'ImportNamespaceSpecifier') mod.origins.set(s.local.name, rel);
         for (const s of n.specifiers) if (s.type === 'ImportSpecifier') {
           mod.imports.set(s.local.name, [rel, s.imported.name]);
+          const made = /^(create|make)([A-Z]\w*)$/.exec(s.local.name);
+          if (made) mod.origins.set(made[2][0].toLowerCase() + made[2].slice(1), rel);
           if (rel === SCHEDULER && ['frame', 'lateFrame', 'finalFrame'].includes(s.imported.name)) frameCallers.add(s.local.name);
         }
       }
-      if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && n.init?.type === 'CallExpression' && calleeName(n.init) === 'frameFor') frameCallers.add(n.id.name);
+      if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && n.init?.type === 'CallExpression' && /^(frameFor|lateFrameFor|finalFrameFor)$/.test(calleeName(n.init) || '')) frameCallers.add(n.id.name);
       if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && /raf|Frame$/i.test(n.id.name) && n.init && /frameFor|frame\(|Frame\(/.test(text.slice(n.init.start, n.init.end))) frameCallers.add(n.id.name);
     });
-    const keyOf = (f) => f.__key || (f.__key = `${fnName(f) || 'anon'}@${f.loc.start.line}`);
+    let uid = 0;
+    const keyOf = (f) => f.__key || (f.__key = `${fnName(f) || 'anon'}@${f.loc.start.line}${++uid > 0 && mod.fns.has(`${fnName(f) || 'anon'}@${f.loc.start.line}`) ? `.${uid}` : ''}`);
+    mod.top = []; mod.containers = new Set(BUILTIN_RECV); mod.exposed = new Map(); mod.frameCallers = frameCallers;
+    const builtinValue = (v) => v && (v.type === 'NewExpression' && BUILTIN_NEW.test(v.callee.name || '') || v.type === 'ArrayExpression'
+      || v.type === 'Literal' || v.type === 'TemplateLiteral' || v.type === 'CallExpression' && ARRAY_OUT.test(calleeName(v) || ''));
     visit(ast, null, (n) => {
       if (isFn(n)) {
         const name = fnName(n);
@@ -228,7 +241,6 @@ export function scan({ root = ROOT } = {}) {
         const outer = enclosing(n);
         if (outer) { mod.kids ||= new Map(); if (!mod.kids.has(outer)) mod.kids.set(outer, []); mod.kids.get(outer).push(n); }
         if (name) { if (!mod.byName) mod.byName = new Map(); if (!mod.byName.has(name)) mod.byName.set(name, []); mod.byName.get(name).push(n); }
-        if (name && FRAME_NAME.test(name)) mod.seeds.add(n);
         const p = n.parent;
         if (p?.type === 'CallExpression' && p.arguments.includes(n)) {
           const cn = calleeName(p);
@@ -243,15 +255,25 @@ export function scan({ root = ROOT } = {}) {
         if (d?.type === 'VariableDeclaration') for (const v of d.declarations) if (v.id.type === 'Identifier') mod.exports.set(v.id.name, v.id.name);
         for (const s of n.specifiers || []) mod.exports.set(s.exported.name, s.local.name);
       }
+      // Containers (receivers whose methods are built in) and functions exposed under a property name ({ draw } or { draw: paint }).
+      if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && builtinValue(n.init)) mod.containers.add(n.id.name);
+      // Receivers made by an imported factory: R = createX(…), { R: createX(…) }, this.R = createX(…).
+      const madeBy = (v) => v?.type === 'CallExpression' && v.callee.type === 'Identifier' && mod.imports.get(v.callee.name)?.[0];
+      if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && madeBy(n.init)) mod.origins.set(n.id.name, madeBy(n.init));
+      if (n.type === 'AssignmentExpression' && madeBy(n.right)) { const l = n.left; const nm = l.type === 'Identifier' ? l.name : !l.computed ? l.property?.name : null; if (nm) mod.origins.set(nm, madeBy(n.right)); }
+      if (n.type === 'Property' && !n.computed && madeBy(n.value)) mod.origins.set(n.key.name ?? n.key.value, madeBy(n.value));
+      if (n.type === 'AssignmentExpression' && builtinValue(n.right)) { const l = n.left; const nm = l.type === 'Identifier' ? l.name : !l.computed ? l.property?.name : null; if (nm) mod.containers.add(nm); }
+      if (n.type === 'Property' && !n.computed && n.parent?.type === 'ObjectExpression') {
+        const k = n.key.name ?? n.key.value;
+        if (builtinValue(n.value)) mod.containers.add(k);
+        if (n.value.type === 'Identifier') { if (!mod.exposed.has(k)) mod.exposed.set(k, new Set()); mod.exposed.get(k).add(n.value.name); }
+      }
       if (n.type === 'CallExpression') {
         const cn = calleeName(n), f = enclosing(n);
-        const key = f ? keyOf(f) : '(top)';
-        if (!mod.calls.has(key)) mod.calls.set(key, new Set());
-        if (cn) mod.calls.get(key).add(cn);
-        // Callbacks handed by name to the scheduler or a motion listener.
-        if ((frameCallers.has(cn) || cn === 'setInterval') && n.arguments[0]?.type === 'Identifier') (mod.seedNames ||= new Set()).add(n.arguments[0].name);
-        if (cn === 'addEventListener' && MOTION_EVENTS.has(strOf(n.arguments[0])) && n.arguments[1]?.type === 'Identifier') (mod.seedNames ||= new Set()).add(n.arguments[1].name);
-        if (cn === 'addEventListener' && MOTION_EVENTS.has(strOf(n.arguments[0])) && n.arguments[1]?.type === 'MemberExpression') (mod.seedNames ||= new Set()).add(n.arguments[1].property.name);
+        const c = n.callee, member = c.type === 'MemberExpression';
+        const o = member ? c.object : null;
+        const recv = !o ? null : o.type === 'Identifier' ? o.name : o.type === 'ThisExpression' ? 'this' : o.type === 'MemberExpression' && !o.computed ? o.property.name : null;
+        if (cn) (f ? (f.__calls ||= []) : mod.top).push({ name: cn, member: member && !c.computed, recv, node: n, at: f });
 
         // Always-hits.
         const a0 = n.arguments[0];
@@ -310,7 +332,83 @@ export function scan({ root = ROOT } = {}) {
         if (/(backdrop-filter|transition|filter)\s*:/.test(s)) cssHits(s.replace(/\$\{\}/g, '0'), file, n.loc.start.line, label(f), push);
       }
     });
-    if (mod.seedNames) for (const nm of mod.seedNames) for (const f of mod.byName?.get(nm) || []) mod.seeds.add(f);
+  }
+
+  // ---- Call resolution: by scope and import for a bare call, by method or exposed property for a member call ----
+  const declKind = (g) => {
+    const p = g.parent;
+    if (g.type === 'FunctionDeclaration') return 'binding';
+    if (p?.type === 'VariableDeclarator' && p.init === g) return 'binding';
+    if (p?.type === 'AssignmentExpression' && p.right === g) return p.left.type === 'Identifier' ? 'binding' : 'method';
+    if (p?.type === 'Property' || p?.type === 'MethodDefinition' || p?.type === 'PropertyDefinition') return 'method';
+    return null;
+  };
+  const chainOf = (f) => { const c = []; for (let p = f; p; p = enclosing(p)) c.push(p); return c; };
+  // The function a bare name means at a call inside `at`: the innermost binding in scope, else the import of that name.
+  function resolveBare(mod, name, at) {
+    const binds = (mod.byName?.get(name) || []).filter((g) => declKind(g) === 'binding');
+    if (binds.length) {
+      const chain = chainOf(at);
+      let best = null, depth = Infinity;
+      for (const g of binds) {
+        const sc = enclosing(g);
+        const d = sc ? chain.indexOf(sc) : chain.length;   // (top level: visible everywhere, outermost)
+        if (d >= 0 && d < depth) { best = g; depth = d; }
+      }
+      if (best) return [[mod, best]];
+    }
+    const imp = mod.imports.get(name);
+    if (imp) {
+      const other = mods.get(imp[0]);
+      const local = other?.exports.get(imp[1]);
+      return local ? resolveBare(other, local, null) : [];
+    }
+    // (Not a binding in scope nor an import: a parameter or a variable holding some function. Every function of that name in the
+    // file is followed, so a callback handed in under its own name, opts.onClose as onClose, is never missed.)
+    return (mod.byName?.get(name) || []).map((g) => [mod, g]);
+  }
+  // A member call: the file's methods of that name and the functions it exposes under that name; none on a built-in receiver.
+  // (Conservative: an unknown receiver may be any of them, so every one is followed.)
+  function resolveCall(mod, call) {
+    if (!call.member) return resolveBare(mod, call.name, call.at);
+    if (call.recv && call.recv !== 'this' && mod.containers.has(call.recv)) return [];
+    const out = (mod.byName?.get(call.name) || []).filter((g) => declKind(g) === 'method').map((g) => [mod, g]);
+    for (const nm of mod.exposed.get(call.name) || []) for (const g of mod.byName?.get(nm) || []) if (declKind(g) === 'binding') out.push([mod, g]);
+    // (The receiver may be an object an imported module made: ui.zoom = createCardZoom(…), or named for the factory, stage for
+    // createStage. That module's methods of the name are followed too.)
+    const origin = call.recv && mod.origins.get(call.recv);
+    for (const m of origin ? [mods.get(origin)].filter(Boolean) : []) {
+      for (const g of m.byName?.get(call.name) || []) if (declKind(g) === 'method') out.push([m, g]);
+      for (const nm of m.exposed.get(call.name) || []) for (const g of m.byName?.get(nm) || []) if (declKind(g) === 'binding') out.push([m, g]);
+      const ex = m.exports.get(call.name);
+      if (ex) out.push(...resolveBare(m, ex, null));
+    }
+    return out;
+  }
+  // A function handed to the scheduler, setInterval or a motion listener is a frame callback; so is one handed to a function that
+  // passes that parameter on to one of them (a "taker"), followed until nothing changes.
+  const takers = new Map();   // fn -> Set of argument indexes it hands to a frame
+  const paramIndex = (fn, name) => fn ? fn.params.findIndex((p) => p.type === 'Identifier' && p.name === name) : -1;
+  const seedArg = (mod, arg, at) => {
+    if (!arg) return false;
+    if (isFn(arg)) { const had = mod.seeds.has(arg); mod.seeds.add(arg); return !had; }
+    let changed = false;
+    if (arg.type === 'Identifier') {
+      for (const [m, g] of resolveBare(mod, arg.name, at)) if (!m.seeds.has(g)) { m.seeds.add(g); changed = true; }
+      for (const e of chainOf(at)) { const i = paramIndex(e, arg.name); if (i >= 0) { if (!takers.has(e)) takers.set(e, new Set()); if (!takers.get(e).has(i)) { takers.get(e).add(i); changed = true; } break; } }
+    }
+    if (arg.type === 'MemberExpression' && !arg.computed) for (const [m, g] of resolveCall(mod, { member: true, name: arg.property.name, recv: arg.object.type === 'ThisExpression' ? 'this' : arg.object.name, at })) if (!m.seeds.has(g)) { m.seeds.add(g); changed = true; }
+    return changed;
+  };
+  const allCalls = (mod) => { const out = [...mod.top]; for (const g of mod.fns.values()) if (g.__calls) out.push(...g.__calls); return out; };
+  for (let changed = true, round = 0; changed && round < 12; round++) {
+    changed = false;
+    for (const mod of mods.values()) for (const call of allCalls(mod)) {
+      const a = call.node.arguments;
+      if (mod.frameCallers.has(call.name) || call.name === 'setInterval') changed = seedArg(mod, a[0], call.at) || changed;
+      if (call.name === 'addEventListener' && MOTION_EVENTS.has(strOf(a[0]))) changed = seedArg(mod, a[1], call.at) || changed;
+      if (takers.size) for (const [, g] of resolveCall(mod, call)) for (const i of takers.get(g) || []) changed = seedArg(mod, a[i], call.at) || changed;
+    }
   }
 
   // Frame reach: from the seeds, through calls by name in the same file and through imports into other files.
@@ -325,18 +423,11 @@ export function scan({ root = ROOT } = {}) {
     // defines run when called (by name, below) or when handed to the scheduler or a listener (seeds of their own).
     for (const g of mod.kids?.get(f) || []) {
       const p = g.parent;
-      const inline = p?.type === 'CallExpression' && (p.callee === g || p.arguments.includes(g) && /^(forEach|map|filter|some|every|reduce|find|findIndex|sort|flatMap|call|apply)$/.test(calleeName(p) || ''));
+      // (Handed to any call, it is taken to run then, as gpuProbe.time's or framePart's do, unless the call is one that runs it later.)
+      const inline = (p?.type === 'CallExpression' || p?.type === 'NewExpression') && (p.callee === g || p.arguments.includes(g) && !DEFERRED.test(calleeName(p) || p.callee?.name || ''));
       if (inline) add(mod, g);
     }
-    for (const nm of mod.calls.get(f.__key) || []) {
-      for (const g of mod.byName?.get(nm) || []) add(mod, g);
-      const imp = mod.imports.get(nm);
-      if (imp) {
-        const other = mods.get(imp[0]);
-        const local = other?.exports.get(imp[1]);
-        for (const g of (local && other.byName?.get(local)) || []) add(other, g);
-      }
-    }
+    for (const call of f.__calls || []) for (const [m, g] of resolveCall(mod, call)) add(m, g);
   }
   for (const mod of mods.values()) for (const [cat, n, f, detail] of mod.late) {
     look(cat, mod.file, n.loc.start.line);
