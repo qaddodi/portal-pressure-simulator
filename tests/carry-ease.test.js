@@ -110,6 +110,7 @@ test('the camera, the lobule, the sheets and the paging take it', () => {
   assert.match(main, /const hold = vdockEl\.animate\(\[drawn, drawn\], \{ duration: D_FLIP \}\);/);
   assert.match(main, /vdockEl\.animate\(\[drawn, \{ height: `\$\{h1\}px`, width: `\$\{w1\}px` \}\], \{ duration: D_SURFACE, easing: ease \}\)/);
   assert.match(main, /closed: \(\) => \{ stopSink\(el\); el\.style\.removeProperty\('--sink'\); el\.style\.translate = ''; heightAnim\?\.cancel\(\);/);
-  assert.match(menu, /sw\.carry = resting && settle \? shiftX\(resting\) : 0;/);
+  assert.match(menu, /sw\.carry0 = resting && settle \? shiftX\(resting\) : 0;/, 'read at the touch');
+  assert.match(menu, /sw\.carry = sw\.carry0;\s*settle\?\.\(\);/, 'taken over as the drag starts, with no read in the move');
   assert.match(dock, /sw\.carry = resting && settle \? shiftX\(resting\) : 0;/);
 });

@@ -109,11 +109,11 @@ export function morphKey(el, kids, { instant = false } = {}) {
   const fromLab = morph ? (run?.current() ?? labsOf(oldBar)) : null;
   run?.finish();
 
-  const frame = () => { const b = btn.getBoundingClientRect(); return { x: b.left + btn.clientLeft, y: b.top + btn.clientTop }; };
+  const originOf = () => { const b = btn.getBoundingClientRect(); return { x: b.left + btn.clientLeft, y: b.top + btn.clientTop }; };
   const local = (n, o) => { const r = n.getBoundingClientRect(); return { x: r.left - o.x, y: r.top - o.y, w: r.width, h: r.height, text: n.textContent }; };
   // (Only what is on show takes part: the numbers a narrow key hides are not slid, and a hidden one is not faded.)
   const items = (root, o) => Object.fromEntries(['num', 'tick'].map((kind) => [kind, [...root.querySelectorAll(`.lg-${kind}`)].map((n) => ({ n, r: o && shown(n) ? local(n, o) : null }))]));
-  const o0 = frame(), before = items(el, o0);
+  const o0 = originOf(), before = items(el, o0);
   const box0 = local(el, o0), bar0 = oldBar && shown(oldBar) ? local(oldBar, o0) : null;
   const ghost = el.cloneNode(true);
   const r0 = btn.getBoundingClientRect();
@@ -128,7 +128,7 @@ export function morphKey(el, kids, { instant = false } = {}) {
     for (const kind of ['num', 'tick']) for (const it of before[kind]) if (it.r) it.r.x += hung;
   }
 
-  const o1 = frame(), after = items(el, o1);
+  const o1 = originOf(), after = items(el, o1);
   const bar1 = newBar && shown(newBar) ? local(newBar, o1) : null;
 
   ghost.removeAttribute('id'); ghost.removeAttribute('role'); ghost.removeAttribute('aria-label'); ghost.setAttribute('aria-hidden', 'true'); ghost.inert = true;

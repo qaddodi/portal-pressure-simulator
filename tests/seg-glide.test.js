@@ -81,7 +81,7 @@ test('on: the chosen button\'s box is put on the control, in the control\'s own 
   assert.ok(!ctl._cls.has('seg-glide'), 'stop() gives the control back');
 });
 
-test('a change of choice moves the piece to the new button, with the transition left on; a press on the chosen one does nothing', () => {
+test('a change of choice moves the piece to the new button; a press on the chosen one does nothing', () => {
   const ctl = control('seg', 0, [50, 70, 60]);
   const h = G.startSegGlide(root([ctl]), '');
   assert.equal(ctl._style.get('--gx'), '2px');
@@ -97,7 +97,7 @@ test('a change of choice moves the piece to the new button, with the transition 
   observer.cb([{ type: 'attributes', target: a, attributeName: 'aria-pressed' }, { type: 'attributes', target: b, attributeName: 'aria-pressed' }]);
   assert.equal(ctl._style.get('--gx'), '52px');
   assert.equal(ctl._style.get('--gw'), '70px');
-  assert.ok(!classes.includes('glide-still'), 'the move is not placed still, so the stylesheet\'s transition runs');
+  assert.ok(ctl._cls.has('glide-gpu') && !ctl._cls.has('glide-still'), 'the move ends on the compositor rule with its transition on');
   h.stop();
 });
 
@@ -151,4 +151,30 @@ test('the stylesheet: every piece rule sits behind .seg-glide, the chosen button
 
 test('main.js loads the file once', () => {
   assert.equal((read('src/ui/main.js').match(/import '\.\/seg-glide\.js/g) || []).length, 1);
+});
+
+test('on the compositor (the default): a change of choice sets the new size at once, starts the piece where it was drawn by its translate and scale, then lets both glide to the new box', () => {
+  const ctl = control('seg', 0, [50, 70, 60]);
+  const saved = globalThis.getComputedStyle;
+  const h = G.startSegGlide(root([ctl]), '');
+  assert.ok(ctl._cls.has('glide-gpu'), 'the compositor rules are on');
+  // The piece as the stylesheet draws it: left/top 0, its size the variables', its translate and scale the variables' too.
+  const px = (k, d) => ctl._style.get(k) ?? d;
+  globalThis.getComputedStyle = () => ({ left: '0px', top: '0px', get width() { return px('--gw', '0px'); }, get height() { return px('--gh', '0px'); },
+    get translate() { return `${px('--gx', '0px')} ${px('--gy', '0px')}`; }, get scale() { return `${px('--gsx', '1')} ${px('--gsy', '1')}`; } });
+  const seen = [];
+  const set = ctl.style.setProperty; ctl.style.setProperty = (k, v) => { seen.push([k, v, ctl._cls.has('glide-still')]); set(k, v); };
+  try {
+    const [a, b] = ctl.children;
+    a._attrs['aria-pressed'] = 'false'; b._attrs['aria-pressed'] = 'true';
+    observer.cb([{ type: 'attributes', target: b, attributeName: 'aria-pressed' }]);
+    const still = seen.filter((x) => x[2]), moving = seen.filter((x) => !x[2]);
+    const lastStill = (k) => still.filter((x) => x[0] === k).at(-1)?.[1];
+    assert.equal(lastStill('--gw'), '70px', 'the new size, at once');
+    assert.equal(lastStill('--gx'), '2px', 'drawn where it was (its old left)');
+    assert.equal(Number(lastStill('--gsx')), 50 / 70, 'at its old width, by its scale');
+    assert.deepEqual(Object.fromEntries(moving.map((x) => [x[0], x[1]])), { '--gx': '52px', '--gy': '2px', '--gsx': '1', '--gsy': '1' }, 'then translate and scale glide to the new box');
+    assert.ok(!ctl._cls.has('glide-still'), 'the transition is on for the glide');
+  } finally { globalThis.getComputedStyle = saved; ctl.style.setProperty = set; h.stop(); }
+  assert.ok(!ctl._cls.has('glide-gpu'), 'stop() gives the control back');
 });

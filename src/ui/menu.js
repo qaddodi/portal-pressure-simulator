@@ -391,10 +391,11 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   const vv = window.visualViewport;
   function fitSheet() {
     if (!el || !el.classList.contains('sheet') || !vv) return;
-    const kb = Math.round(innerHeight - vv.offsetTop - vv.height);
+    // (The visual viewport's own offset and height: the keyboard's room, not a layout read of the page.)
+    const { offsetTop: vvTop, height: vvH } = vv, kb = Math.round(innerHeight - vvTop - vvH);
     // (No floor under the room: a floor above it put a phone held sideways' search row above the screen. With under 300 px the handle and
     // the footer give way, `kb-tight`, so the search row and some results stay in view.)
-    if (kb > 80) { const room = Math.round(vv.height - 16); el.style.setProperty('--menu-kb', `${kb}px`); el.style.setProperty('--menu-h', `${room}px`); el.classList.toggle('kb-tight', room < 300); }
+    if (kb > 80) { const room = Math.round(vvH - 16); el.style.setProperty('--menu-kb', `${kb}px`); el.style.setProperty('--menu-h', `${room}px`); if (room < 300) el.classList.add('kb-tight'); else el.classList.remove('kb-tight'); }
     else { el.style.removeProperty('--menu-kb'); el.style.removeProperty('--menu-h'); el.classList.remove('kb-tight'); }
   }
   function place() {
@@ -438,6 +439,10 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (!lib) library().then(() => { if (open && !libraryNow()) return; render(); }).catch(() => {});   // (a part that cannot load has said so: util.js loadFailed)
   }
 
+  // (The talks asked for a frame after the menu's frame is up, in a task of their own; drawn into the menu when they arrive.)
+  function libraryArrived() { if (open) render(); scrollOpen?.(); }
+  function askLibrary() { setTimeout(() => library().then(libraryArrived).catch(() => {}), 0); }
+  let scrollOpen = null;
   return {
     // section: 'present' | 'patients' | 'scripts' (scrolled into view); opts.mark: a script id to highlight;
     // opts.query: words to start the search with (a mistyped ?preset= link).
@@ -465,7 +470,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         el.querySelector(sheet || !fine.matches ? '.um-x' : '.um-q').focus({ preventScroll: true });
         // (The talks' code is asked for once the menu's frame is on screen, not in the tap: arriving at once from the cache, its
         // evaluation, a large module, ran before that frame and held it (cold menu 1.9 s on CI's phone profile).)
-        if (!lib) nextFrame(() => setTimeout(() => library().then(() => { if (open) render(); scrollTo(); }).catch(() => {}), 0));
+        if (!lib) nextFrame(askLibrary);
         dragToClose(el); swipeTabs(el);
       }
       const scrollTo = () => {
@@ -473,6 +478,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         if (section === 'scripts') el.querySelector('.um-g.scripts')?.scrollIntoView({ block: 'start', behavior: reduce.matches ? 'auto' : 'smooth' });
         else el.querySelector(`.um-col[data-col="${tab}"] .um-row[aria-current="true"]`)?.scrollIntoView({ block: 'nearest' });
       };
+      scrollOpen = scrollTo;
       nextFrame(scrollTo);
     },
     close,
@@ -493,12 +499,25 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   function swipeTabs(panel) {
     const cols = panel.querySelector('.um-cols'), TABS = ['present', 'patients'];
     const colOf = (k) => cols.querySelector(`.um-col[data-col="${k}"]`);
-    const clear = (els) => { for (const e of els) if (e) { e.style.transform = ''; e.style.transition = ''; e.style.top = ''; e.style.height = ''; e.classList.remove('um-peer'); } };
+    // (A list off its peer role: its transform and class only, in the move; its top and height, set at the touch, are cleared once it has landed.)
+    const unpeer = (els) => { for (const e of els) if (e) { e.style.transform = ''; e.style.transition = ''; e.classList.remove('um-peer'); } };
+    const clear = (els) => { unpeer(els); for (const e of els) if (e) { e.style.top = ''; e.style.height = ''; } };
     let sw = null, settle = null, resting = null;   // settle: the last swipe's switch, while its lists are still easing; resting: the list that lands (it is still drawn off its place)
+    // (The other list's place over the room in view, as read at the touch: written once, as it becomes the peer.)
+    function placePeer(nb, s) { nb.style.setProperty('top', `${s.top}px`); nb.style.setProperty('height', `${s.h}px`); }
     const shiftX = (el) => { try { const m = getComputedStyle(el).transform; return !m || m === 'none' ? 0 : new DOMMatrixReadOnly(m).m41 || 0; } catch { return 0; } };
     panel.addEventListener('touchstart', (e) => {
       // (A second swipe before the first has settled finishes the first once it moves, not on the touch: a tap leaves the lists easing.)
       sw = e.touches.length === 1 && !ownsSideways(e.target, { stop: panel }) ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), on: false, dx: 0 } : null;
+      // Everything the drag needs from the page is read here, at the touch, never as the finger moves: the lists' width, the room in
+      // view (where the other list shows from), and where an easing list is drawn now.
+      if (sw) {
+        sw.w = cols.clientWidth; sw.top = cols.scrollTop; sw.h = cols.clientHeight;
+        sw.carry0 = resting && settle ? shiftX(resting) : 0;
+        // (The list beside this one is put over the room in view now, while it is hidden: as the drag reaches for it, only its class changes.)
+        sw.peers = TABS.filter((k) => k !== tab).map(colOf).filter((c) => c && c !== resting);
+        for (const c of sw.peers) placePeer(c, sw);
+      }
     }, { passive: true });
     panel.addEventListener('touchmove', (e) => {
       if (!sw) return;
@@ -509,17 +528,17 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         if (Math.abs(dx) < Math.abs(dy) * 1.2) { sw = null; return; }   // (vertical: the list's scroll, or the pull down)
         // (Caught while the last swipe is still easing: it is finished at once, and the pull takes the list over from where it is drawn,
         // so nothing jumps by what was left to go.)
-        sw.carry = resting && settle ? shiftX(resting) : 0;
+        sw.carry = sw.carry0;
         settle?.();
-        sw.on = true; sw.i = TABS.indexOf(tab); sw.cur = colOf(tab); sw.w = cols.clientWidth;
+        sw.on = true; sw.i = TABS.indexOf(tab); sw.cur = colOf(tab);
         if (!sw.cur) { sw = null; return; }
       }
       if (e.cancelable) e.preventDefault();
       const tdx = dx + sw.carry, d = tdx < 0 ? 1 : -1, j = sw.i + d, nb = j >= 0 && j < TABS.length ? colOf(TABS[j]) : null;
       if (nb !== sw.nb) {
-        clear([sw.nb]); sw.nb = nb; sw.j = j;
-        // (The other list shows from its own top, over the part of the list in view: it lands there.)
-        if (nb) { nb.style.top = cols.scrollTop + 'px'; nb.style.height = cols.clientHeight + 'px'; nb.classList.add('um-peer'); }
+        unpeer([sw.nb]); sw.nb = nb; sw.j = j;
+        // (The other list shows from its own top, over the part of the list in view: it lands there. Its place was set at the touch.)
+        if (nb) nb.classList.add('um-peer');
       }
       sw.dx = nb ? tdx : tdx / 3;
       (sw.trail ||= []).push([performance.now(), t.clientX]); if (sw.trail.length > 8) sw.trail.shift();
@@ -543,7 +562,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       const timer = setTimeout(done, 250);
       settle = done; resting = go ? s.nb : s.cur;
     };
-    panel.addEventListener('touchend', endSwipe, { passive: true });
-    panel.addEventListener('touchcancel', endSwipe, { passive: true });
+    // (A touch that never became a drag, a tap: the places set at the touch go, as the finger lifts.)
+    const tapDone = () => { const s = sw; if (s && !s.on) for (const c of s.peers || []) if (!c.classList.contains('um-peer')) { c.style.top = ''; c.style.height = ''; } endSwipe(); };
+    panel.addEventListener('touchend', tapDone, { passive: true });
+    panel.addEventListener('touchcancel', tapDone, { passive: true });
   }
 }

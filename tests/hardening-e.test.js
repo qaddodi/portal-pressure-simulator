@@ -110,9 +110,9 @@ test('a slider or switch left focused keeps only its own keys; text fields keep 
 
 test('the phone menu sheet is lifted above the on-screen keyboard and put back when it goes; unset, it is as it was', () => {
   const mn = read('src/ui/menu.js');
-  assert.match(mn, /const kb = Math\.round\(innerHeight - vv\.offsetTop - vv\.height\);/);
-  assert.match(mn, /if \(kb > 80\) \{ const room = Math\.round\(vv\.height - 16\); el\.style\.setProperty\('--menu-kb', `\$\{kb\}px`\); el\.style\.setProperty\('--menu-h', `\$\{room\}px`\);/);
-  assert.match(mn, /const room = Math\.round\(vv\.height - 16\);/, 'no floor under the room: a floor above it put a sideways phone\'s search row off the screen');
+  assert.match(mn, /const \{ offsetTop: vvTop, height: vvH \} = vv, kb = Math\.round\(innerHeight - vvTop - vvH\);/);
+  assert.match(mn, /if \(kb > 80\) \{ const room = Math\.round\(vvH - 16\); el\.style\.setProperty\('--menu-kb', `\$\{kb\}px`\); el\.style\.setProperty\('--menu-h', `\$\{room\}px`\);/);
+  assert.match(mn, /const room = Math\.round\(vvH - 16\);/, 'no floor under the room: a floor above it put a sideways phone\'s search row off the screen');
   assert.match(mn, /else \{ el\.style\.removeProperty\('--menu-kb'\); el\.style\.removeProperty\('--menu-h'\); el\.classList\.remove\('kb-tight'\); \}/);
   assert.match(mn, /vv\?\.addEventListener\('resize', fitSheet\); vv\?\.addEventListener\('scroll', fitSheet\);/);
   assert.match(mn, /vv\?\.removeEventListener\('resize', fitSheet\); vv\?\.removeEventListener\('scroll', fitSheet\);/);
@@ -176,8 +176,8 @@ test('a held Space stays the figure\'s and does not scroll the page; AltGr brack
 
 test('the menu sheet has no height floor over the keyboard and the tablet\'s 62 % follows it', () => {
   const m = read('src/ui/menu.js');
-  assert.match(m, /const room = Math\.round\(vv\.height - 16\); el\.style\.setProperty\('--menu-kb', `\$\{kb\}px`\); el\.style\.setProperty\('--menu-h', `\$\{room\}px`\);/, 'the sheet is held to the room above the keyboard');
-  assert.ok(!/Math\.max\(240, Math\.round\(vv\.height/.test(m), 'a 240 px floor pushed the top off a phone held sideways');
+  assert.match(m, /const room = Math\.round\(vvH - 16\); el\.style\.setProperty\('--menu-kb', `\$\{kb\}px`\); el\.style\.setProperty\('--menu-h', `\$\{room\}px`\);/, 'the sheet is held to the room above the keyboard');
+  assert.ok(!/Math\.max\(240, Math\.round\(vv/.test(m), 'a 240 px floor pushed the top off a phone held sideways');
   const css = read('styles/app.css');
   assert.match(css, /html\.thumb-ui \.umenu\.sheet \{ left: 15% !important; right: 15%; height: min\(62dvh, var\(--menu-h, 62dvh\)\); \}/);
 });

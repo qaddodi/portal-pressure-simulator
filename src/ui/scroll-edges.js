@@ -9,8 +9,8 @@
 //
 // ?edges=0 switches it off: nothing is observed, no class is added, and the page is as it was before this file.
 //
-// Cost: one passive scroll listener per list, and a read of scrollTop / scrollHeight / clientHeight (no other layout read) in at most
-// one frame per list; a list is only watched while it is in the page.
+// Cost: no scroll listener and no read of the page as it scrolls or in a frame: the browser reports the ends (IntersectionObserver), and
+// the box's overflow and padding are read only as it is resized; a list is only watched while it is in the page.
 import { D_SMALL } from './ease.js?v=fc509dabe4';
 import { frameFor } from './frame.js?v=15d5254a2c';
 
@@ -27,37 +27,81 @@ export function edgeState(scrollTop, scrollHeight, clientHeight) {
   return [scrollTop > SLOP ? 1 : 0, scrollHeight - clientHeight - scrollTop > SLOP ? 1 : 0];
 }
 
+/** ?edgesgpu=0: a menu's veils ease by their registered variables (a style pass of the menu each frame), as before. Otherwise (the
+ *  default) the variables step and the veils' own opacity eases, on the compositor (app.css :root.se-gpu). */
+export const edgesGpuOff = (search = typeof location !== 'undefined' ? location.search : '') => /[?&]edgesgpu=0\b/.test(search);
+
 export function initScrollEdges(root = document.body) {
   if (!root || edgesOff()) return null;
-  const lists = new WeakMap();   // list -> { el, raf, drop }
-  const ro = new ResizeObserver((entries) => { for (const e of entries) { const l = lists.get(e.target) || owner.get(e.target); if (l) schedule(l); } });
+  if (!edgesGpuOff()) document.documentElement.classList.add('se-gpu');
+  const lists = new WeakMap();   // list -> { el, raf, drop, scrolls, pt, pb, kids, view, moreT, moreB }
   const owner = new WeakMap();   // (a child watched for the list it sits in -> that list's record)
+  // What the page lays out is read only here, as a box is resized or its children change (never in a frame, never as it scrolls):
+  // whether the box scrolls at all (a box whose overflow is visible or clipped, as the menu's column holder is on a desktop, does not,
+  // whatever its content does) and its padding, which the veil on a menu reaches through so it ends at the panel's own edge.
+  const look = (l) => { const cs = getComputedStyle(l.el); l.scrolls = cs.overflowY === 'auto' || cs.overflowY === 'scroll'; l.pt = cs.paddingTop; l.pb = cs.paddingBottom; };
+  const ro = new ResizeObserver((entries) => { for (const e of entries) { const l = lists.get(e.target) || owner.get(e.target); if (l) { if (l.el === e.target) look(l); apply(l); } } });
+  // Which ends have more beyond them comes from the browser's own intersection of the list's children with the list's view
+  // (IntersectionObserver: no read of the page): content above when the first child that has a box reaches above the view, below when
+  // the last reaches under it. Each child's last report is kept; fine steps, so a tall child reports as it moves.
+  const STEPS = Array.from({ length: 51 }, (_, i) => i / 50);
+  const io = typeof IntersectionObserver === 'function' ? new Map() : null;   // list -> its IntersectionObserver
+  // A child's first and last small piece (its first or last child down to four levels, a [hidden] one skipped): a child taller than the
+  // view (a column of the menu) moves in the view without its share in view changing, so its ends are reported by those pieces.
+  const leaf = (c, last) => { let n = c; for (let d = 0; d < 4; d++) { let k = last ? n.lastElementChild : n.firstElementChild; while (k && k.hidden) k = last ? k.previousElementSibling : k.nextElementSibling; if (!k) break; n = k; } return n; };
+  function ends(l) {
+    const { el } = l;
+    let o = io?.get(el);
+    if (!o && io) {
+      o = new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          const r = e.boundingClientRect;
+          if (e.rootBounds) l.view = e.rootBounds;
+          l.kids.set(e.target, r.width > 0 || r.height > 0 ? { top: r.top, bottom: r.bottom } : null);
+        }
+        sides(l); apply(l);
+      }, { root: el, threshold: STEPS });
+      io.set(el, o);
+    }
+    const want = new Set();
+    l.leaves = new Map();
+    for (const c of el.children) { const f = leaf(c, false), z = leaf(c, true); l.leaves.set(c, [f, z]); want.add(c).add(f).add(z); }
+    for (const c of [...l.kids.keys()]) if (!want.has(c)) { o?.unobserve(c); l.kids.delete(c); }
+    for (const c of want) if (!l.kids.has(c)) { l.kids.set(c, null); o?.observe(c); }
+    sides(l);
+  }
+  // (From the first and the last child that has a box: the content's own two ends, each by its small end piece where it has one.)
+  function sides(l) {
+    l.moreT = l.moreB = false;
+    if (!l.view || !l.leaves) return;
+    let first = null, last = null;
+    for (const [c, [f, z]] of l.leaves) { if (!l.kids.get(c)) continue; first ||= l.kids.get(f) || l.kids.get(c); last = l.kids.get(z) || l.kids.get(c); }
+    if (first && first.top < l.view.top - SLOP) l.moreT = true;
+    if (last && last.bottom > l.view.bottom + SLOP) l.moreB = true;
+  }
 
-  function schedule(l) { if (!l.raf) l.raf = nextFrame(() => { l.raf = 0; sync(l); }); }
+  function schedule(l) { if (!l.raf) l.raf = nextFrame(() => { l.raf = 0; apply(l); }); }
 
-  function sync(l) {
+  // Writes only: the list's class and its two variables, from what was read above.
+  function apply(l) {
     const { el } = l;
     if (!el.isConnected) return;
-    // (A box whose overflow is visible or clipped, as the menu's column holder is on a desktop, does not scroll, whatever its content does.)
-    const oy = getComputedStyle(el).overflowY;
-    const st = oy === 'auto' || oy === 'scroll' ? edgeState(el.scrollTop, el.scrollHeight, el.clientHeight) : null;
+    const st = l.scrolls && (l.moreT || l.moreB) ? [l.moreT ? 1 : 0, l.moreB ? 1 : 0] : null;
     if (!st) {
       // Nothing to scroll (any more): the fades ease out and then the class goes, so a list that just fit does not snap.
       if (el.classList.contains('se') && !l.drop) {
         el.style.setProperty('--sedge-t', '0'); el.style.setProperty('--sedge-b', '0');
-        l.drop = setTimeout(() => { l.drop = 0; el.classList.remove('se'); schedule(l); }, D_SMALL + 40);
+        l.drop = setTimeout(() => { l.drop = 0; el.classList.remove('se'); }, D_SMALL + 40);
       }
       return;
     }
     if (l.drop) { clearTimeout(l.drop); l.drop = 0; }
     if (!el.classList.contains('se')) {
-      // (the padding the veil on a menu reaches through, so it ends at the panel's own edge)
-      const cs = getComputedStyle(el);
-      el.style.setProperty('--fade-pt', cs.paddingTop); el.style.setProperty('--fade-pb', cs.paddingBottom);
+      el.style.setProperty('--fade-pt', l.pt || '0px'); el.style.setProperty('--fade-pb', l.pb || '0px');
       el.style.setProperty('--sedge-t', '0'); el.style.setProperty('--sedge-b', '0');
       el.classList.add('se');
       // The class and the first values land in separate frames, so the fade eases in from nothing rather than appearing.
-      l.raf = nextFrame(() => { l.raf = 0; sync(l); });
+      schedule(l);
       return;
     }
     const [t, b] = st;
@@ -66,14 +110,14 @@ export function initScrollEdges(root = document.body) {
   }
 
   function watch(el) {
-    if (lists.has(el)) return;
-    const l = { el, raf: 0, drop: 0 };
+    if (lists.has(el) || !io) return;
+    const l = { el, raf: 0, drop: 0, scrolls: false, pt: '', pb: '', kids: new Map(), view: null, moreT: false, moreB: false };
     lists.set(el, l);
-    el.addEventListener('scroll', () => schedule(l), { passive: true });
+    look(l);
     ro.observe(el);
     // Content that changes inside a list the size of the list (a filter hiding rows) changes how far it scrolls, not its box:
     // its children are watched too, and again when they are replaced.
-    const kids = () => { for (const c of el.children) if (!owner.has(c)) { owner.set(c, l); ro.observe(c); } schedule(l); };
+    const kids = () => { for (const c of el.children) if (!owner.has(c)) { owner.set(c, l); ro.observe(c); } ends(l); };
     new MutationObserver(kids).observe(el, { childList: true });
     kids();
   }

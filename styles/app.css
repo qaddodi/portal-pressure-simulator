@@ -587,7 +587,7 @@ div.vital { cursor: default; }
 .seg-glide { position: relative; isolation: isolate; }
 .seg-glide::before { content: ''; position: absolute; z-index: -1; left: var(--gx); top: var(--gy); width: var(--gw); height: var(--gh); box-sizing: border-box; opacity: var(--go, 1); pointer-events: none;
   background: var(--surface); box-shadow: var(--shadow-1); border-radius: calc(var(--r-sheet) - 8px);
-  transition: left var(--d-small) var(--ease-move), top var(--d-small) var(--ease-move), width var(--d-small) var(--ease-move), height var(--d-small) var(--ease-move); }
+  transition: translate var(--d-small) var(--ease-move), scale var(--d-small) var(--ease-move); }
 .seg-glide.glide-follow::before { transition-duration: var(--d-flip); }
 .seg-glide.glide-still::before { transition: none; }
 @media (forced-colors: none) {
@@ -7498,3 +7498,22 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 :is(.fd-empty, .tl-pop-empty, .um-empty) b { color: var(--text-2); font-weight: 600; }
 :is(.fd-empty, .tl-pop-empty, .um-empty, .pal-empty):not([hidden]) { text-wrap: pretty; animation: fade-rise var(--d-small) var(--ease) backwards; }
 .um-empty > span:first-child { color: var(--text-2); font-weight: 600; }
+
+/* The gliding selection on the compositor (seg-glide.js). Its place is a
+   translate and its size is set at once, with a scale from the old size to 1 played over it, so its edges travel as before and no
+   layout runs in the glide. The insets the tab rows' underlines keep are its left and top, the tab's box its translate. */
+.seg-glide.glide-gpu::before { left: 0; top: 0; translate: var(--gx) var(--gy); scale: var(--gsx, 1) var(--gsy, 1); transform-origin: 0 0;
+  transition: translate var(--d-small) var(--ease-move), scale var(--d-small) var(--ease-move); }
+.um-tabs.seg-glide.glide-gpu::before { left: 10px; top: calc(var(--gh) - 1px); }
+@media (min-width: 1024px) and (pointer: fine) {
+  .instr-tabs.seg-glide.glide-gpu::before { left: 8px; top: calc(var(--gh) - 1px); }
+  .ws-tabs.compact.seg-glide.glide-gpu::before { left: 4px; }
+}
+.seg-glide.glide-gpu.glide-follow::before { transition-duration: var(--d-flip); }
+.seg-glide.glide-gpu.glide-still::before { transition: none; }
+:is(.nb-views, .sin-views).vp-glide #viewSeg.seg-glide.glide-gpu::before { transition-duration: var(--vp-ms, var(--d-camera)); transition-timing-function: var(--ease-move); }
+
+/* A menu's scroll-edge veils on the compositor (scroll-edges.js, ?edgesgpu=0: the variables ease, as above): the variables step and the
+   veil's own opacity eases over the same --d-small on --ease-move. */
+:root.se-gpu .menu.se { transition: none; }
+:root.se-gpu .menu.se::before, :root.se-gpu .menu.se::after { transition: opacity var(--d-small) var(--ease-move); }

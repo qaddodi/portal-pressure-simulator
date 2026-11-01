@@ -12,6 +12,7 @@
 
 // (The glide rides the camera's curve, the quintic of ease.js, and its CSS copy is --ease-move: one curve for a move, premium-feel R3.)
 import { easeMove, D_SURFACE, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=fc509dabe4';
+import { splitFace } from './face-split.js?v=b907fdba84';
 export const easeIO3 = easeMove;
 export const EASE_IO3 = EASE_MOVE;
 // The fold is quicker than the zoom it plays in (17 Oct, Mohammad: "should be faster and eased"), on the app's own ease
@@ -95,7 +96,11 @@ export function foldPill(seg, box, before, ms = FOLD_MS) {
   const moves = Math.abs(before.w - after.w) > 0.5 || [...plan.values()].some((p) => p.kind !== 'stay' || Math.abs(p.dx0) > 0.5 || p.o0 < 0.99);
   if (!moves) return;
   const opt = { duration: ms, easing: FOLD_EASE }, keep = (a) => { running.add(a); a.onfinish = a.oncancel = () => running.delete(a); return a; };
-  keep(box.querySelector(':scope > .vp-face').animate([{ width: `${before.w.toFixed(2)}px` }, { width: `${after.w.toFixed(2)}px` }], opt));
+  // (The face's width eased on the compositor: two halves that only translate, face-split.js. The face is centred in the pill: its
+  // edges are the pill's centre ± half its width. A face narrower than its two corners takes the new width at once: the pill never is.)
+  const face = box.querySelector(':scope > .vp-face'), cx = box.clientWidth / 2;
+  const sp = splitFace(face, { a0: cx - before.w / 2, b0: cx + before.w / 2, a1: cx - after.w / 2, b1: cx + after.w / 2 }, opt);
+  if (sp) keep(sp);
   const real = (k) => seg.querySelector(`:scope > button[data-view="${k}"]`);
   for (const [k, p] of plan) {
     if (p.kind !== 'out') {

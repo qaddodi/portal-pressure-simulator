@@ -15,7 +15,7 @@ import { createTimeline, LAPSES } from './timeline.js?v=d45f42c157';
 import { createCompare } from './compare.js?v=6da7a9c5a2';
 import { createCard } from './card.js?v=1afc5b97c2';
 import { createChart } from './chart.js?v=f41e141220';
-import { createMenu } from './menu.js?v=35733f4574';
+import { createMenu } from './menu.js?v=60badec85c';
 import { caption } from './a11y.js?v=ffe26ee3ca';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
@@ -26,9 +26,9 @@ import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
 import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=c8ef361fbc';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
-import { morphKey, crossfadeText } from './legend-morph.js?v=bc3349c773';
-import './seg-glide.js?v=93c0a2ce93';
-import './focus-ring.js?v=5e78e53a13';
+import { morphKey, crossfadeText } from './legend-morph.js?v=805989b53d';
+import './seg-glide.js?v=f292ee90e4';
+import './focus-ring.js?v=ab12c60bd7';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
 import { lookChooser } from './look-chooser.js?v=6d70af4784';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
@@ -44,7 +44,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=c8d924ecf7';
-import { initTopbarMotion } from './topbar-motion.js?v=30b8f8cb99';
+import { initTopbarMotion } from './topbar-motion.js?v=19f1b81462';
 import { ORIGINS } from './blood.js?v=f6c91d8676';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0762d1b820';
@@ -53,9 +53,9 @@ import { frameFor, cancelFrame, perf as framePerf, framePart } from './frame.js?
 import { feedbackDiagnostics } from './feedback-diag.js?v=a6fd7380e0';
 import { noteJump } from './display-state.js?v=8d062d39dc';
 import { createIdleRest } from './idle-rest.js?v=4d23822371';
-import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=c4a5941276';
+import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=f24d02047b';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
-import './scroll-edges.js?v=0d5fe0d834';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
+import './scroll-edges.js?v=d9cc3b725a';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -306,7 +306,10 @@ async function main() {
   // (it set off with them on the same clock, D_SURFACE, so they still finish together within a frame) rather than holding that first
   // frame (lens key 250 to 270 ms to the first change on CI's profiles). A model frame in between draws it anyway.
   let lensRedraw = 0;
-  store.on('colorMode', () => { renderLegend(); renderBanner(); if (!lensRedraw) lensRedraw = nextFrame(() => { lensRedraw = nextFrame(() => { lensRedraw = 0; redraw(); }); }); });
+  // (Named steps, one per line: the off-GPU scan reads a callback by its line.)
+  const lensRedrawStep = () => { lensRedraw = 0; redraw(); };
+  const lensRedrawLater = () => { lensRedraw = nextFrame(lensRedrawStep); };
+  store.on('colorMode', () => { renderLegend(); renderBanner(); if (!lensRedraw) lensRedraw = nextFrame(lensRedrawLater); });
   store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
   // (Only on a new value: a slide change sets focus and selection to null each time, and a full figure update for a value that
   // stayed the same cost a frame's worth of script in the tap.)

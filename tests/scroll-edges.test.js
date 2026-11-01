@@ -25,10 +25,13 @@ test('?edges=0 turns it off: nothing is observed, no class is added', () => {
   assert.match(js, /if \(!root \|\| edgesOff\(\)\) return null;/);
 });
 
-test('the handler reads only scrollTop, scrollHeight and clientHeight, in a frame (frameFor), from a passive listener', () => {
-  assert.match(js, /addEventListener\('scroll', \(\) => schedule\(l\), \{ passive: true \}\)/);
-  assert.match(js, /nextFrame/);
-  assert.doesNotMatch(js, /getBoundingClientRect|offsetHeight|offsetTop/);
+test('nothing is read as a list scrolls or in a frame: the ends come from an IntersectionObserver on the list\'s children, the overflow and padding from a resize', () => {
+  assert.doesNotMatch(js, /addEventListener\('scroll'/, 'no scroll listener');
+  assert.match(js, /new IntersectionObserver\(/);
+  assert.match(js, /\{ root: el, threshold: STEPS \}/);
+  assert.doesNotMatch(js, /\.scrollTop|\.scrollHeight|\.clientHeight|getBoundingClientRect|offsetHeight|offsetTop/);
+  const apply = js.slice(js.indexOf('function apply(l)'), js.indexOf('function watch(el)'));
+  assert.doesNotMatch(apply, /getComputedStyle/, 'the writes read nothing');
 });
 
 test('main.js loads it, and the stylesheet eases the two depths on the motion scale and draws them on the scrolling element', () => {

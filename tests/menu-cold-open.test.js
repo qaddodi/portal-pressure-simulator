@@ -13,9 +13,9 @@ test('R15 a tap builds and shows the menu in its own frame, without waiting for 
   assert.match(main, /\$\('#btnMenu'\)\.addEventListener\('click', \(\) => mainMenu\.toggle\(\)\);/);
   const open = menu.slice(menu.indexOf('    open(section, opts = {}) {'), menu.indexOf('    close,\n'));
   // (The library is asked for after the menu is on the page, never before it.)
-  assert.ok(open.indexOf('document.body.append(el)') < open.indexOf('library().then('), 'the frame is up before the library is asked for');
+  assert.ok(open.indexOf('document.body.append(el)') < open.indexOf('nextFrame(askLibrary)'), 'the frame is up before the library is asked for');
   assert.match(open, /const sheet = sheetMQ\.matches, lib = libraryNow\(\);/, 'what is there now, not a wait');
-  assert.doesNotMatch(open.slice(0, open.indexOf('library().then(')), /await /);
+  assert.doesNotMatch(open.slice(0, open.indexOf('nextFrame(askLibrary)')), /await /);
 });
 
 test('R15 a cold fill rises into place with the tab change\'s own fade-rise, and not under Reduce Motion', () => {

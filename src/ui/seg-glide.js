@@ -21,6 +21,9 @@ const SEL = '.seg, .instr-tabs, .um-tabs, .pressure-switch';
 /** ?glide=0 in a page's search string: this file does nothing and the page is today's. */
 export const glideOff = (search) => /[?&]glide=0\b/.test(String(search ?? ''));
 const PICKED = '[aria-pressed="true"], [aria-selected="true"]';
+// The piece glides by its translate and scale only, on the compositor: its size is set at once and a scale from the old size to 1
+// plays over it (FLIP), so its edges travel as before. Reduce Motion keeps the fade. (No off switch: the glide by left, top, width
+// and height it replaces was a layout of the piece each frame, which the off-GPU gate does not allow.)
 
 /** The control's chosen button: the one, among its own buttons, that is pressed or selected; null when none or several. */
 export function chosen(ctl) {
@@ -48,6 +51,7 @@ export function startSegGlide(root = document.body, search = typeof location !==
   if (glideOff(search) || typeof MutationObserver === 'undefined') return null;
   const states = new Map();   // control -> { btn, box, until, timer }
   const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const GPU = true;
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver((entries) => {
     const seen = new Set();
     for (const e of entries) {
@@ -57,8 +61,32 @@ export function startSegGlide(root = document.body, search = typeof location !==
   }) : null;
 
   // The piece at a box. `still`: with no transition, and flushed, so the next style pass finds nothing to animate.
+  // The piece as drawn now (its own px in the control): where it is and how large, its transition included.
+  const drawnBox = (ps) => {
+    const [tx = 0, ty = 0] = String(ps.translate === 'none' ? '' : ps.translate).split(/\s+/).filter(Boolean).map((v) => parseFloat(v) || 0);
+    const [sx = 1, sy = sx] = String(ps.scale === 'none' ? '' : ps.scale).split(/\s+/).filter(Boolean).map((v) => parseFloat(v));
+    return { x: (parseFloat(ps.left) || 0) + tx, y: (parseFloat(ps.top) || 0) + ty, w: (parseFloat(ps.width) || 0) * (Number.isFinite(sx) ? sx : 1), h: (parseFloat(ps.height) || 0) * (Number.isFinite(sy) ? sy : 1) };
+  };
   function put(ctl, box, still) {
     const s = ctl.style;
+    if (GPU && !still && !reduce() && ctl.classList.contains('glide-gpu')) {
+      // FLIP: the piece's box as drawn now, then its new size set at once (no transition), the translate and scale that draw it where
+      // it was, and from the next style pass the translate to its new place and the scale to 1, both transitioned.
+      const ps = getComputedStyle(ctl, '::before'), was = drawnBox(ps);
+      ctl.classList.add('glide-still');
+      s.setProperty('--gw', `${box.w}px`); s.setProperty('--gh', `${box.h}px`); s.setProperty('--gsx', '1'); s.setProperty('--gsy', '1');
+      s.setProperty('--gx', '0px'); s.setProperty('--gy', '0px');
+      const L = parseFloat(ps.left) || 0, T = parseFloat(ps.top) || 0, W = parseFloat(ps.width) || 0, H = parseFloat(ps.height) || 0;
+      if (W > 0 && H > 0 && was.w > 0 && was.h > 0) {
+        s.setProperty('--gx', `${was.x - L}px`); s.setProperty('--gy', `${was.y - T}px`);
+        s.setProperty('--gsx', String(was.w / W)); s.setProperty('--gsy', String(was.h / H));
+        void ps.translate;
+      }
+      ctl.classList.remove('glide-still');
+      s.setProperty('--gx', `${box.x}px`); s.setProperty('--gy', `${box.y}px`); s.setProperty('--gsx', '1'); s.setProperty('--gsy', '1');
+      return;
+    }
+    if (GPU) { if (reduce()) ctl.classList.remove('glide-gpu'); else ctl.classList.add('glide-gpu'); }
     if (still) ctl.classList.add('glide-still');
     ctl.classList.add('seg-glide');
     s.setProperty('--gx', `${box.x}px`); s.setProperty('--gy', `${box.y}px`); s.setProperty('--gw', `${box.w}px`); s.setProperty('--gh', `${box.h}px`);
@@ -66,7 +94,8 @@ export function startSegGlide(root = document.body, search = typeof location !==
   }
   function drop(ctl) {
     ctl.classList.remove('seg-glide', 'glide-still', 'glide-follow');
-    for (const p of ['--gx', '--gy', '--gw', '--gh', '--go']) ctl.style.removeProperty(p);
+    ctl.classList.remove('glide-gpu');
+    for (const p of ['--gx', '--gy', '--gw', '--gh', '--go', '--gsx', '--gsy']) ctl.style.removeProperty(p);
   }
 
   /** Bring one control's piece to its choice. `moved`: the choice has just changed (glide); otherwise the choice is where it
