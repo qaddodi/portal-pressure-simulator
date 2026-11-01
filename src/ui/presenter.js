@@ -992,6 +992,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // there the change still waits for the landing, over MORPH_ONE_MS).
   const ONE_MOVE = !/[?&]onemove=0\b/.test(location.search);
   const CARDS_AT = 0.4, MORPH_ONE_MS = 1200;
+  // A chart or gauge that only reads the model as it eases (the pressure profile, a relation curve, the flows, the talk's trace, the criteria,
+  // the plane) comes in over the change, riding it: its numbers and curve travel with the vessels, as a kept card's do. An instrument that
+  // records the patient's flow (Doppler, beat by beat, vitals), plays on arrival, or is a deck package's own, still waits for the slide's state.
+  const RIDES_MODEL = new Set(['profile', 'curve', 'flows', 'plane', 'criteria', 'trace']);
+  const underTool = (t) => !t || (RIDES_MODEL.has(t.kind) && !(t.kind === 'trace' && t.range === 'beats'));
+  // The same patient over the plate: the slide's labels, glows and marks start once the cards are in sight (their last small step still
+  // running, at the arrival curve about 95 percent of the way), not after the title's last frame, which was most of half a second of
+  // an empty figure between the cards landing and the slide's own marks arriving.
+  const CARDS_SEEN = D_SMALL - 40;
   const CATH_SETTLE_MS = 4000;   // (at most: a model still drifting never holds the catheter longer)
   // (.app.pz-morph while a change of patient eases: the checks hold the data card to it.)
   async function morphTo(st, cut, ms = MORPH_MS, mark = true) {
@@ -1048,7 +1057,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // Glide the camera to a slide's framing; resolves when it has landed (cut(): a newer slide was asked for).
   // (early: a share of the glide over the plate; camera() resolves once only that much of it is left, the glide running on: see ONE_MOVE.)
-  async function camera(cam, s, cut, early = 0) {
+  async function camera(cam, s, cut, early = 0, begun = null) {
     const ms = reduce.matches || booting ? 0 : 1500;
     if (LOBULE_CAM.test(cam)) {
       stage.lobuleHold?.(false);   // (a way out called off: the lobule follows this slide's cards again)
@@ -1097,11 +1106,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // cover it is set outright, so the reveal never catches it on its way.)
     const gl = booting ? 0 : ms || 300;
     frameTo(v === 'circuit' ? 'fit' : cam, s, gl);
+    begun?.();   // (the glide has set off: the cards' last fitting runs under it, see transitionRun)
     // (Timed by the glide itself, camMs or an arc's stretch, never the 1.5 s asked: the camera had landed long before that wait ended.)
-    if (early && gl) { await until(() => { if (cut()) return true; const g = stage.glideLeft?.(); return !g || g.left <= g.ms * early; }, gl + 1500); return; }
+    if (early && gl) {
+      // (One timer to the point asked for, then a look: polled alone every 40 ms, a busy glide's late timers put the cards after its landing.)
+      const g0 = stage.glideLeft?.();
+      if (g0?.ms) await wait(Math.max(0, g0.left - g0.ms * early - 40));
+      await until(() => { if (cut()) return true; const g = stage.glideLeft?.(); return !g || g.left <= g.ms * early; }, gl + 1500); return;
+    }
     await wait(gl);
   }
-  const cardsEntering = () => [ui?.text, ui?.panel, ui?.data].some((el) => el && !el.hidden && el.getAnimations({ subtree: true }).some((a) => a.playState === 'running' && Number.isFinite(a.effect?.getComputedTiming().endTime)));
+  // (left: only the entrances with more than this many ms still to run count: 0 is all of them; CARDS_SEEN, the cards in sight.)
+  const cardsEntering = (left = 0) => [ui?.text, ui?.panel, ui?.data].some((el) => el && !el.hidden && el.getAnimations({ subtree: true }).some((a) => { if (a.playState !== 'running') return false; const t = a.effect?.getComputedTiming(); return Number.isFinite(t?.endTime) && t.endTime - (t.localTime || 0) > left; }));
   // Where the way out of the lobule should land for a slide: its framing, asked for when the rise begins (null: the fit).
   const riseFor = (cam, s) => (cam === 'fit' ? null : { box: () => camBox(cam, s), kMax: s.kMax || 3.2, clear: !!s.clear });
   // What the figure shows for the slide on screen (fig: { i, s }): the slide itself, framed where its time-lapse ends (lapse.cam) once
@@ -1777,7 +1793,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     creditHolds++; clearTimeout(creditT); app.classList.add('pz-moving');
     try { await transitionRun(to); } finally {
       keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
-      stage.holdHome(false); caseShut(); if (bare) { bare = false; layout(); cardsIn(); }
+      stage.holdHome(false); caseShut();
+      // (A move cut by a newer slide leaves its cards unseen: that move fades nothing out, and Next pressed in a row waits no step for cards
+      // that were brought in for a moment. A move that ends otherwise still brings its cards in.)
+      if (bare && want === to) { bare = false; layout(); cardsIn(); }
       creditHolds--; clearTimeout(creditT);
       creditT = setTimeout(() => { if (!creditHolds) app.classList.remove('pz-moving'); }, 120);   // (the cards come in after the one camera move; src/ui/credit.js then waits for any card still sliding)
     }
@@ -1932,7 +1951,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // under the glide (under) where the figure can move smoothly while its organs change. (Not behind a question's card: the change
     // would play out unseen before the lift; there it waits for the landing, as before.)
     const plate = ONE_MOVE && bare && !ct && !!cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !store.get().sinusoid;
-    const under = plate && later && !caseCard && !s.tool && !!stage.canDrift?.() && (fv.view || 'anatomic') === store.get().view;
+    const under = plate && later && !caseCard && underTool(s.tool) && !!stage.canDrift?.() && (fv.view || 'anatomic') === store.get().view;
     let morphP = null;
     if (under) {
       if (keepNow.data && keepNow.swap) followData(s, to, st, cut);
@@ -1940,9 +1959,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       app.classList.add('pz-morph-under');
       morphP = morphTo(st, cut, MORPH_ONE_MS, false).finally(() => app.classList.remove('pz-morph-under'));
     }
+    // (Same patient over the plate: the unseen cards' last fitting, two frames and a smooth one, runs under the glide's first frames, so
+    // the cards come in as its last 40 percent begins on any machine, not after it has landed. A new patient's waits for its change.)
+    let prep = null, bareSeen = false;
+    const prepWith = plate && !swap && !caseCard ? () => { prep ||= unseenFit(cut); } : null;
     if (ct) await cathTo(ct, st.fp, cut);
     else if (lead) await lead;
-    else if (cam) await camera(cam, fv, cut, plate ? CARDS_AT : 0);
+    else if (cam) await camera(cam, fv, cut, plate ? CARDS_AT : 0, prepWith);
     if (cut()) return;
     if (bare) {
       // (A glide's last frame can land just after the wait that timed it: the cards wait for the camera to be still. In one move they
@@ -1956,12 +1979,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // The cards fade in once the figure is quiet: after a new patient, once the organs' picture is redrawn (its long frame
       // had eaten the fade), and in any case only when frames come smoothly (see smooth).
       if (swap) { await until(() => cut() || stage.organsSettled(), 1500); if (cut()) return; }
-      await unseen(cut); if (cut()) return;
+      if (prep) { if (await prep) await smooth(cut); } else await unseen(cut);
+      if (cut()) return;
       await ui.tools.ready(900); if (cut()) return;   // (a recording instrument's window is filled before its card comes in: tools.prime)
       await caseEnd(cut); if (cut()) return;
       bare = false; cardsIn({ i: to, gen: g });
       // (Once they are in, so the size they settle at is the one the camera already framed: no second move.)
-      await wait(60); await until(() => cut() || !cardsEntering(), 1200);
+      bareSeen = plate && !swap && !caseCard;   // (no change of patient under them: the slide's marks need no model to wait for)
+      await wait(60); await until(() => cut() || !cardsEntering(bareSeen ? CARDS_SEEN : 0), 1200);
       if (cut()) return;
       // (One move: the glide the cards came in over has landed, and the change of patient under it has eased in.)
       if (plate) { await until(() => cut() || !stage.gliding(), 1500); if (cut()) return; }
@@ -1971,6 +1996,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui?.tools.hold(false);
     paintOverlays(fv, to, st);
     if (holdEase) { holdEase = false; holdAnswer(false); }   // (an answer slide: what its question slide held back eases in now)
+    // (The cards' last step: their size is read where they rest, after it, never mid-slide.)
+    if (bareSeen) { await until(() => cut() || !cardsEntering(), 1200); if (cut()) return; }
     lastCam = cam; framedSig = cardSig();
     await unhush(cut);
     if (cut()) return;
@@ -2041,6 +2068,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (ui) { reFit(); layout(); await painted(); await painted(); if (cut() || !ui) return; layout(); }
     await smooth(cut);
   }
+  // The same, in two parts for a move over the plate: the fitting (true once the cards are fitted, still unseen) runs under the glide's
+  // first frames, and the smooth-frames gate runs where it always did, right before the cards come in.
+  async function unseenFit(cut) {
+    if (ui) { reFit(); layout(); await painted(); await painted(); if (cut() || !ui) return false; layout(); }
+    return true;
+  }
   // A time-lapse whose data card is only numbers holds that card back (unseen, at its resting place) until the days have run.
   function releaseData() { if (!ui || !('hold' in ui.data.dataset)) return; delete ui.data.dataset.hold; if (ui.data.dataset.prep) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } }
   // While bare, the new slide's cards are fitted at their resting place but unseen, and the camera frames around them (see transitionRun).
@@ -2081,12 +2114,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!dataOut && out.every((el) => el.hidden || !el.childElementCount)) return 0;
     // The catheter's monitor stays up from one measuring slide to the next: only the words around it go.
     const keep = mon && next?.monitor && !next.visual && mon.el.parentNode === ui.text;
+    // Cards already on their way out or fully out (the slide was asked for again before the last one's cards came back: Next
+    // pressed in a row) have nothing new to fade: the move waits only for what is still fading, never a whole step more.
+    const leaving = !dataOut && !out.some((el) => !el.hidden && el.childElementCount && !(keep && el === ui.text ? [...el.children].every((c) => c === mon.el || c.classList.contains('pz-leave')) : el.classList.contains('pz-leave')));
+    const fading = leaving ? fadeLeft([...out, data, ui.scl, ui.shade]) : 0;
     for (const el of out) {
       if (keep && el === ui.text) { for (const c of el.children) if (c !== mon.el) c.classList.add('pz-leave'); }
       else el.classList.add('pz-leave');
     }
+    if (leaving) return fading ? fading + 20 : 0;
     return D_SMALL + 20;   // (the words leave at the data card's pace, one small step; with reduced motion they still fade, without sliding: app.css)
   }
+  // What is left, ms, of the longest fade still running on these cards (0 when none).
+  const fadeLeft = (els) => els.reduce((m, el) => el.getAnimations().reduce((n, a) => { const t = a.playState === 'running' && a.effect?.getComputedTiming?.(); return t && Number.isFinite(t.endTime) ? Math.max(n, t.endTime - (t.localTime || 0)) : n; }, m), 0);
   // A slide's tiles can say how far each number moved: from the slide before (delta: true) or a named one. A slide that
   // changes the same patient (a drug, an action, days) counts from the slide before unless it says delta: false.
   const deltaOf = (s, i) => s.delta ?? (i > 0 && !s.preset && changes(s) ? true : null);

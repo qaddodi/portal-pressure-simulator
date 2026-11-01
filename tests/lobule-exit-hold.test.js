@@ -33,7 +33,7 @@ test('the presenter holds it before the new cards change the space, on every way
   assert.match(run, /if \(\(!s\.visual && s\.cath\) \|\| \(cam && !LOBULE_CAM\.test\(cam\)\)\) stage\.lobuleHold\?\.\(true\);/);
   const toA = pr.match(/async function toAnatomy\(next\) \{[\s\S]*?\n {2}\}/)[0];
   assert.ok(toA.indexOf('stage.lobuleHold?.(true)') > 0 && toA.indexOf('stage.lobuleHold?.(true)') < toA.indexOf("stage.lobuleFocus('fit'"), 'every way out (a deck closing, a catheter) holds before the zoom back to the fit');
-  const cam = pr.match(/async function camera\(cam, s, cut, early = 0\) \{[\s\S]*?\n {2}\}/)[0];
+  const cam = pr.match(/async function camera\(cam, s, cut, early = 0, begun = null\) \{[\s\S]*?\n {2}\}/)[0];
   const lob = cam.slice(cam.indexOf('if (LOBULE_CAM.test(cam)) {'));
   assert.ok(lob.indexOf('stage.lobuleHold?.(false)') > 0 && lob.indexOf('stage.lobuleHold?.(false)') < lob.indexOf('stage.lobuleFocus(part'), 'back to a lobule slide: it follows that slide\'s cards again');
   assert.match(pr, /app\.style\.removeProperty\(k\);\n\s+stage\.lobuleHold\?\.\(false\);/, 'and when the presentation ends');
