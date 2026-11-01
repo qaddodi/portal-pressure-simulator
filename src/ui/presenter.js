@@ -16,9 +16,9 @@
 import { store, replaceParams } from './store.js?v=80d4358be8';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=2659ec3c97';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=9a7337195e';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=3bcc44010c';
+import { liveText, wordsOf } from './live-text.js?v=7abb3f2a0a';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
@@ -29,8 +29,8 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=9203793d71';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { createHvpgMonitor } from './hvpg-proc.js?v=f793608052';
-import { createTools } from './presenter-tools.js?v=7fb5a2f0c2';
+import { createHvpgMonitor } from './hvpg-proc.js?v=223ef6602d';
+import { createTools } from './presenter-tools.js?v=c31f6972f0';
 import { openHandout } from './handout.js?v=c777173ffd';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -38,13 +38,13 @@ import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS
 import { frameFor, cancelFrame } from './frame.js?v=6a53e5fc6e';
 import { createFigureKey } from './figure-key.js?v=e41b9d0553';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=09fccecb86';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=3f73426b76';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=ef10c8c794';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=cb51863780';
 import { clotWords } from './callout-math.js?v=3e3475420c';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=8afd36d2b8';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=8a82824f3d';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=e74a0c9729';
+import { anchorsOf, roomFor } from './cam-room.js?v=c6ec82b29d';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=665223a4a5';
@@ -52,7 +52,7 @@ import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=b2bbcb6fb2';
 import { sheetPanes } from './sheet-glass.js?v=9a3f1c1ff1';
-import { createScopeTile } from './scope-tile.js?v=648611e43c';
+import { createScopeTile } from './scope-tile.js?v=160a387afd';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
 const nextFrame = frameFor('presenter');
@@ -5025,7 +5025,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   async function addStep(id) {
     if (!readMine().find((x) => x.id === id) || readMine().find((x) => x.id === id).deck) return;
     const step = captureStep();
-    step.title = (await askText({ title: 'Add this state as a slide', label: 'Slide title', value: step.title, yes: 'Add slide' })) || step.title;
+    const named = await askText({ title: 'Add this state as a slide', label: 'Slide title', value: step.title, yes: 'Add slide' });
+    if (!named) return;   // (Cancel, the × and Esc add nothing; the field never answers empty)
+    step.title = named;
     const list = readMine(), s = list.find((x) => x.id === id);   // (read again: the dialog was open a while)
     if (!s || s.deck) return;
     s.steps.push(step);

@@ -263,3 +263,17 @@ test('a change of the device\'s light or dark setting repaints the instruments t
   assert.ok(!/\bREDUCED\b/.test(f), 'no constant read once at load is left');
   assert.equal((f.match(/REDUCED_MQ\.matches/g) || []).length, 3);
 });
+
+test('a question over the menu: its letters stay in the dialog, Tab stays in it, Esc cancels its one-line field, Cancel adds nothing', () => {
+  const mn = read('src/ui/menu.js');
+  assert.match(mn, /e\.target\.closest\?\.\('input, textarea, select, \[contenteditable\], #modalBack'\)\) return;/, 'typing in the dialog does not move focus to the menu\'s search');
+  const u = read('src/ui/util.js');
+  assert.match(u, /const behindDialog = \(on\) => \{ for \(const m of document\.querySelectorAll\('\.umenu, \.um-pv'\)\) m\.inert = on; \};/);
+  assert.match(u, /appEl\.inert = true;\n {2}behindDialog\(true\);/);
+  assert.match(u, /appEl\.inert = false;\n {2}behindDialog\(false\);\n {2}const back0/, 'undone before focus goes back');
+  const m = read('src/ui/main.js');
+  assert.match(m, /if \(tag === 'input' && isModalOpen\(\) && e\.target\.closest\?\.\('#modalBack'\)\) \{ e\.preventDefault\(\); closeModal\(\); \} else e\.target\.blur\(\);/);
+  const p = read('src/ui/presenter.js');
+  assert.match(p, /const named = await askText\(\{ title: 'Add this state as a slide'[^\n]*\n\s*if \(!named\) return;/);
+  assert.ok(!/\)\) \|\| step\.title;/.test(p), 'a cancelled name no longer falls back to the default title and adds the slide');
+});

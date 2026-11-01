@@ -25,12 +25,14 @@ export const VARIX_JUMP_MM = 1.5;
 /**
  * The diameter's running mean at time `now` (ms) in `held.m`: a pulse of the beat or the breath (the engine's varix.d swings 0.8 mm
  * with them, so it crossed the step below about every model frame in a decompensated patient) averages out, a real change is followed
- * within VARIX_MEAN_MS and a jump or a long gap is taken at once.
+ * within VARIX_MEAN_MS and a jump or a long gap is taken at once. `held.snap` (the stage sets it for a frame of a model that is
+ * paused, which sends one frame per change and none after, and for a frame the model jumped in) takes the diameter at once too: no
+ * later frame would finish the move, and a stopped model has no pulse to average.
  */
 export function varixMean(held, d, now) {
   const dt = now - (held.at ?? now);
   held.at = now;
-  if (held.m == null || dt > 3000 || dt < 0 || Math.abs(d - held.m) > VARIX_JUMP_MM) held.m = d;
+  if (held.snap || held.m == null || dt > 3000 || dt < 0 || Math.abs(d - held.m) > VARIX_JUMP_MM) held.m = d;
   else if (dt > 0) held.m += (d - held.m) * (1 - Math.exp(-dt / VARIX_MEAN_MS));
   return held.m;
 }

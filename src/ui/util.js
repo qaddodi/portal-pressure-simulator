@@ -631,6 +631,9 @@ export function svgIcon(id, cls = '') {
 }
 
 let modalReturn = null;
+// (The main menu and its preview sit outside #app and stay open behind a question asked from one of its rows, Delete script or a name: while
+// the dialog is up they are inert, so Tab does not leave the dialog and a letter typed in it does not reach the menu's search.)
+const behindDialog = (on) => { for (const m of document.querySelectorAll('.umenu, .um-pv')) m.inert = on; };
 // (The on-screen keyboard covers the page's foot without shrinking it: the dialog is held to the room above it, and eases there.)
 const modalVV = window.visualViewport;
 let modalKbT = 0;
@@ -655,6 +658,7 @@ export function openModal(title, body, { wide = false, sub = null, bare = false,
   if (!back.classList.contains('show')) modalReturn = openMenu && openMenu.el.contains(document.activeElement) ? openMenu.anchor : (document.activeElement === document.body && performance.now() - lastMenu.t < 400 ? lastMenu.anchor : document.activeElement);
   // The page behind a dialog cannot be reached by Tab or a screen reader; the dialog's own copy of the page is the only one left.
   const appEl = document.getElementById('app'); if (appEl) appEl.inert = true;
+  behindDialog(true);
   const passed = modalDone; modalDone = onClose; passed?.();   // (a dialog opened over another one: the first is answered as closed)
   modal.innerHTML = '';
   modal.style.width = wide ? 'min(960px, 100%)' : compact ? 'min(440px, 100%)' : '';
@@ -684,6 +688,7 @@ export function closeModal() {
   clearTimeout(modalLeaveT); modalLeaveT = setTimeout(() => back.classList.remove('leaving'), 220);
   setTimeout(() => { if (!back.classList.contains('show')) { back.classList.remove('kb'); back.style.removeProperty('--modal-kb'); back.style.removeProperty('--modal-top'); } }, 240);   // (the dialog holds its place while it fades)
   const appEl = document.getElementById('app'); if (appEl) appEl.inert = false;
+  behindDialog(false);
   const back0 = modalReturn?.isConnected ? modalReturn : document.getElementById('btnMenu');
   // (Shown, by its own boxes: offsetParent is missing on an SVG element and null on a fixed one, so a vessel or a fixed bar never got its focus back.)
   if (back0 && (back0.checkVisibility ? back0.checkVisibility({ checkVisibilityCSS: true }) : back0.getClientRects().length > 0)) back0.focus?.({ preventScroll: true });

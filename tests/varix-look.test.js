@@ -124,3 +124,20 @@ test('BRTO\'s balloon sits near the renal end of the shunt, clear of the splenic
   assert.ok(m, 'the route is still there');
   assert.ok(+m[1] < 0.25, `the tip is ${m[1]} up the shunt (the splenic vein crosses from 0.30)`);
 });
+
+test('a paused model\'s frame takes the diameter at once: its one frame per change is the only one that will come', () => {
+  // Unpaused, 6.0 → 5.2 mm one second on is followed only part of the way (the beat's pulse is averaged out)...
+  const a = {}; varixMean(a, 6.0, 0);
+  const partial = varixMean(a, 5.2, 1000);
+  assert.ok(partial > 5.6 && partial < 5.8, `part way (${partial.toFixed(2)})`);
+  // ...which is right while frames keep coming, and wrong for a paused model, whose next frame is the next change.
+  const b = { snap: true }; varixMean(b, 6.0, 0);
+  assert.equal(varixMean(b, 5.2, 1000), 5.2);
+  // The drawn step follows: the held diameter was left on 6.0 by the part-way mean, and moves with the snapped one.
+  const unsnapped = { m: 6.0, at: 0, d: 6.0, now: 1000 };
+  assert.equal(varixHold(unsnapped, 5.2), 6.0, 'held at 6.0 by the part-way mean');
+  const snapped = { m: 6.0, at: 0, d: 6.0, now: 1000, snap: true };
+  assert.equal(varixHold(snapped, 5.2), 5.0, 'drawn at the new size');
+  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(src, /varixHeld\.VAR\.snap = varixHeld\.GV\.snap = f\.running === false \|\| !!f\.jump;/);
+});

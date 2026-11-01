@@ -3,30 +3,30 @@
 
 import { startHost, host } from './host.js?v=66efaebf2c';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=80d4358be8';
-import { createStage } from './stage.js?v=b209f2386e';
+import { createStage } from './stage.js?v=2d2fe088a1';
 import { createCreditPlacer } from './credit.js?v=6fcd93faed';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=df35a15e24';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=05865efeba';
-import { setHvpgStage } from './hvpg-proc.js?v=f793608052';
-import { createWhy } from './why.js?v=f17bd7d958';
-import { createTimeline, LAPSES } from './timeline.js?v=d25e6813da';
-import { createCompare } from './compare.js?v=3d12ce7687';
-import { createCard } from './card.js?v=fa652d17df';
-import { createChart } from './chart.js?v=9183684b04';
-import { createMenu } from './menu.js?v=5a3e120aad';
-import { caption } from './a11y.js?v=db1f5eab1f';
+import { createInspector } from './inspector.js?v=350c583275';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=9b25da708b';
+import { setHvpgStage } from './hvpg-proc.js?v=223ef6602d';
+import { createWhy } from './why.js?v=12431e6adc';
+import { createTimeline, LAPSES } from './timeline.js?v=180afb68f6';
+import { createCompare } from './compare.js?v=2a12a1aede';
+import { createCard } from './card.js?v=179a57e9a7';
+import { createChart } from './chart.js?v=3625326598';
+import { createMenu } from './menu.js?v=7cf13316b1';
+import { caption } from './a11y.js?v=c6a7938c32';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=e2f9976786';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=09fccecb86';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=3961104d39';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=ef10c8c794';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=2659ec3c97';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=9a7337195e';
 import { releaseSpeed, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
-import { morphKey, crossfadeText } from './legend-morph.js?v=b2c9050783';
+import { morphKey, crossfadeText } from './legend-morph.js?v=53b22bb31f';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -39,7 +39,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=5db8b95914';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=30d47bb729';
 import { initTopbarMotion } from './topbar-motion.js?v=3e2875ae90';
 import { ORIGINS } from './blood.js?v=d85ddf7c2c';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
@@ -109,8 +109,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=2ae1fd765e'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=d987fd8a14'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=28f2eb2b2f'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=85df9da5a7'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -183,7 +183,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=63330aab88'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=b7260c26ef'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -191,7 +191,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=cadebae9e0'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=32417338c1'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -1834,7 +1834,11 @@ function wireKeyboard() {
       if (z) { e.preventDefault(); if (z === 'in') stage.zoomIn(); else if (z === 'out') stage.zoomOut(); else stage.fit(); return; }
     }
     const inputType = tag === 'input' ? (e.target.type || 'text') : '';
-    if (tag === 'select' || tag === 'textarea' || e.target.isContentEditable || (tag === 'input' && !NON_TEXT_INPUT.has(inputType))) { if (e.key === 'Escape') e.target.blur(); return; }
+    if (tag === 'select' || tag === 'textarea' || e.target.isContentEditable || (tag === 'input' && !NON_TEXT_INPUT.has(inputType))) {
+      // (A dialog's one-line field, a name or a link, cancels its dialog with Esc as the old prompt did; a longer text box blurs first.)
+      if (e.key === 'Escape') { if (tag === 'input' && isModalOpen() && e.target.closest?.('#modalBack')) { e.preventDefault(); closeModal(); } else e.target.blur(); }
+      return;
+    }
     // A slider or a switch left with focus (Chrome keeps it after a click or a drag) keeps the keys it uses; the rest, Cmd Z, Space, the letters, are the page's.
     if (tag === 'input' && (inputType === 'range' ? /^(Arrow(Left|Right|Up|Down)|Home|End|Page(Up|Down))$/ : /^(Arrow(Left|Right|Up|Down)| |Enter)$/).test(e.key)) return;
     // Search open with focus on one of its results: Esc closes it, and no letter reaches the figure behind it.
