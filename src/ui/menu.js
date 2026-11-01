@@ -5,13 +5,13 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=4ef2a6ffd8';
-import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=126338cd30';
+import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=1adf903085';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=1c1ba5d2ac';
-import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
+import { pressureColor } from './colormap.js?v=6407bf2920';
+import { ownsSideways, pageGo } from './swipe.js?v=9ed936bf04';
 import { frameFor } from './frame.js?v=15d5254a2c';
-import { D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=615d96d663';
+import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=fc509dabe4';
 const nextFrame = frameFor('menu');
 
 // Where each group's resistance sits along the pathway from the gut to the heart.
@@ -458,14 +458,16 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         if (nb) { nb.style.top = cols.scrollTop + 'px'; nb.style.height = cols.clientHeight + 'px'; nb.classList.add('um-peer'); }
       }
       sw.dx = nb ? tdx : tdx / 3;
+      (sw.trail ||= []).push([performance.now(), t.clientX]); if (sw.trail.length > 8) sw.trail.shift();
       sw.cur.style.transform = `translateX(${sw.dx}px)`;
       if (nb) nb.style.transform = `translateX(${sw.dx + d * sw.w}px)`;
     }, { passive: false });
     const endSwipe = () => {
       const s = sw; sw = null;
       if (!s?.on) return;
-      const go = !!s.nb && pageGo(s.dx, performance.now() - s.t, s.w);
-      const d = s.dx < 0 ? 1 : -1, ease = `transform ${D_SMALL}ms var(--ease)`;
+      const v = releaseSpeed(s.trail, performance.now());   // (the finger's, px per ms to the right: the lists carry it on)
+      const go = !!s.nb && pageGo(s.dx, performance.now() - s.t, s.w, v);
+      const d = s.dx < 0 ? 1 : -1, ease = `transform ${D_SMALL}ms ${carryCurve(s.nb ? v : v / 3, (go ? -d * s.w : 0) - s.dx, D_SMALL)}`;   // (past the end the list moves a third of the finger)
       s.cur.style.transition = ease; if (s.nb) s.nb.style.transition = ease;
       s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';
       if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;

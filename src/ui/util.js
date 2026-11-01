@@ -1,6 +1,6 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame } from './frame.js?v=15d5254a2c';
-import { releaseSpeed, settleSlope, settleAt, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=615d96d663';
+import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=fc509dabe4';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
@@ -631,7 +631,7 @@ function liveShift(panel) {
   } catch { return 0; }
 }
 export function swipeSheet(panel, onClose) {
-  let s = null;
+  let s = null, easeT = 0;   // easeT: lets go of the transition a release leaves on the panel (one timer: an older release's must not cut a newer one's short)
   // Over the thumb dock the sheet slides down behind the tab row: what passes below its resting bottom edge is clipped.
   const thumbUi = () => document.documentElement.classList.contains('thumb-ui');
   const scroller = (t) => {
@@ -669,9 +669,10 @@ export function swipeSheet(panel, onClose) {
   const end = () => {
     const s0 = s; s = null;
     if (!s0?.on) return;
-    const flick = s0.dy > 30 && s0.dy / Math.max(1, performance.now() - s0.t) > 0.6;
-    const gone = flick || s0.dy > Math.min(90, panel.offsetHeight * 0.3);
     const speed = releaseSpeed(s0.trail, performance.now());   // (px per ms down, as the finger lifted: the settle starts at that speed)
+    // (A flick is how fast the finger was going as it lifted, not only the pull's average: a slow start and a quick flick at the end is one.)
+    const flick = isFlick(s0.dy, speed, s0.dy / Math.max(1, performance.now() - s0.t), 0.6, 30);
+    const gone = flick || s0.dy > Math.min(90, panel.offsetHeight * 0.3);
     // (Over the thumb dock it sinks behind the tab row: the move and the cut in one value, never one ahead of the other.)
     if (thumbUi()) {
       panel.style.transition = '';
@@ -680,9 +681,9 @@ export function swipeSheet(panel, onClose) {
     }
     // (The same, as a CSS curve: its opening slope is the finger's speed over the distance left, up to the .2/.8 curve's own, 4.)
     const left = gone ? panel.offsetHeight - s0.dy : -s0.dy;
-    panel.style.transition = `transform ${D_SMALL}ms cubic-bezier(.2, ${(0.2 * settleSlope(speed, left, D_SMALL, 4)).toFixed(3)}, .2, 1)`;   // motion-scale: own pace (a let-go carries the finger's own speed, so the curve opens at its slope)
+    panel.style.transition = `transform ${D_SMALL}ms ${carryCurve(speed, left, D_SMALL)}`;   // (a let-go carries the finger's own speed, so the curve opens at its slope)
     if (gone) { panel.style.transform = 'translateY(100%)'; panel.dataset.swiped = '1'; onClose(); }
-    else { panel.style.transform = ''; setTimeout(() => { if (!s) panel.style.transition = ''; }, D_SMALL); }
+    else { panel.style.transform = ''; clearTimeout(easeT); easeT = setTimeout(() => { if (!s) panel.style.transition = ''; }, D_SMALL); }
   };
   panel.addEventListener('touchend', end);
   panel.addEventListener('touchcancel', end);

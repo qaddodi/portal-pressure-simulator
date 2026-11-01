@@ -4,9 +4,9 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=4ef2a6ffd8';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone } from './util.js?v=126338cd30';
-import { releaseSpeed, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
-import { cardFor, normalizeSel } from './actions.js?v=b03fd421fb';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone } from './util.js?v=1adf903085';
+import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
+import { cardFor, normalizeSel } from './actions.js?v=321f1d19d1';
 import { frameFor, cancelFrame } from './frame.js?v=15d5254a2c';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
@@ -199,7 +199,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   // Over the thumb dock (an upright phone) the card follows the finger down behind the tab row (--sink, as the other
   // cards there) and, let go past a short pull or flicked, sinks out of sight and closes; a short pull eases back.
   function wireSheet(top) {
-    let y0 = null, t0 = 0, dy = 0, trail = [];
+    let y0 = null, t0 = 0, dy = 0, trail = [], pid = -1, px = 0, py = 0, held = false;   // pid: the finger that has the card (a second one's moves and lifts are not the pull); px, py: where it came down; held: past the 6 px a tap may wobble
     const thumb = () => document.documentElement.classList.contains('thumb-ui');
     const stop = () => {
       y0 = null;
@@ -208,27 +208,32 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       removeEventListener('pointercancel', cancel);
     };
     const move = (e) => {
+      if (e.pointerId !== pid) return;
       dy = Math.max(0, e.clientY - y0);
+      // (A tap on the header does not nudge the card: it follows the finger only once the finger has moved a few px, as the other sheets do.)
+      if (!held) { if (Math.hypot(e.clientX - px, e.clientY - py) < 6) return; held = true; }
       trail.push([performance.now(), e.clientY]); if (trail.length > 8) trail.shift();
       if (thumb()) el.style.setProperty('--sink', `${dy}px`);
     };
-    const settle = (gone) => {
+    const settle = (gone, speed) => {
       if (!thumb()) { if (gone) store.set({ selection: null }); return; }
-      const speed = releaseSpeed(trail, performance.now());   // (the finger's, px per ms down: the settle carries it on)
       if (!gone) { sinkTo(el, 0, 220, undefined, speed); return; }
       sinkTo(el, el.offsetHeight, 220, () => { if (el.hidden) return; el.dataset.swiped = '1'; store.set({ selection: null }); if (!el.hidden) { delete el.dataset.swiped; el.style.removeProperty('--sink'); } }, speed);
     };
     const up = (e) => {
+      if (e.pointerId !== pid) return;
       dy = Math.max(0, e.clientY - y0);
-      const flick = dy > 30 && dy / Math.max(1, performance.now() - t0) > 0.6;
+      const speed = releaseSpeed(trail, performance.now());   // (the finger's, px per ms down: the settle carries it on)
+      // (A flick is how fast the finger was going as it lifted, not only the pull's average: a slow start and a quick flick at the end is one.)
+      const flick = isFlick(dy, speed, dy / Math.max(1, performance.now() - t0), 0.6, 30);
       stop();
-      settle(flick || dy > 40);
+      settle(flick || dy > 40, speed);
     };
-    const cancel = () => { stop(); settle(false); };
+    const cancel = (e) => { if (e.pointerId !== pid) return; stop(); settle(false, releaseSpeed(trail, performance.now())); };
     stopSheetGesture = () => { if (y0 != null) stop(); stopSink(el); el.style.removeProperty('--sink'); };
     top.addEventListener('pointerdown', (e) => {
       if (!isDocked() || !e.isPrimary || e.button !== 0 || e.target.closest('.ac-close, .ac-foot')) return;
-      y0 = e.clientY - (parseFloat(el.style.getPropertyValue('--sink')) || 0); t0 = performance.now(); dy = 0; trail = [];
+      y0 = e.clientY - (parseFloat(el.style.getPropertyValue('--sink')) || 0); t0 = performance.now(); dy = 0; trail = []; pid = e.pointerId; px = e.clientX; py = e.clientY; held = false;
       stopSink(el);
       addEventListener('pointermove', move);
       addEventListener('pointerup', up);

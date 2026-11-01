@@ -3,22 +3,22 @@
 
 import { store, hiddenNow } from './store.js?v=4ef2a6ffd8';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=126338cd30';
-import { lobuleFlows } from './lobule-model.js?v=b2066e77ba';
-import { createProfile } from './charts.js?v=50c6956a2e';
-import { createPressureTime } from './pressure-time.js?v=6d44e5bfd9';
-import { createHvpgProcedure } from './hvpg-proc.js?v=5200a0415c';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=0b8813894a';
-import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=6c80be19e1';
-import { createReadoutsPane } from './readouts-pane.js?v=4a4b122271';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=1adf903085';
+import { lobuleFlows } from './lobule-model.js?v=b1aed97fe4';
+import { createProfile } from './charts.js?v=3b0f3aa854';
+import { createPressureTime } from './pressure-time.js?v=5975530061';
+import { createHvpgProcedure } from './hvpg-proc.js?v=625243c51a';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=1b4de29b55';
+import { ownsSideways, pageGo } from './swipe.js?v=9ed936bf04';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=e82bf9e8d0';
+import { createReadoutsPane } from './readouts-pane.js?v=9e261ef8e9';
 import { frameFor } from './frame.js?v=15d5254a2c';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=8a7bc6961d';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { compareRows } from './idle-keys.js?v=c5c00c9da1';
-import { D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=615d96d663';
+import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
@@ -480,14 +480,16 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const nb = j >= 0 && j < TABS.length && !byId[TABS[j]].need?.() ? paneFor(TABS[j]) : null;   // (an instrument still on its way is not slid in empty)
     if (nb !== sw.nb) { clearSwipe([sw.nb]); sw.nb = nb; sw.j = j; if (nb) nb.classList.add('swipe-peer'); }
     sw.dx = nb ? tdx : tdx / 3;   // (past the first or last tab it gives a little and springs back)
+    (sw.trail ||= []).push([performance.now(), t.clientX]); if (sw.trail.length > 8) sw.trail.shift();
     sw.cur.style.transform = `translateX(${sw.dx}px)`;
     if (nb) nb.style.transform = `translateX(${sw.dx + d * sw.w}px)`;
   }, { passive: false });
   const endSwipe = () => {
     const s = sw; sw = null;
     if (!s?.on) return;
-    const ms = performance.now() - s.t, go = !!s.nb && pageGo(s.dx, ms, s.w);
-    const d = s.dx < 0 ? 1 : -1, ease = `transform ${D_SMALL}ms var(--ease)`;
+    const v = releaseSpeed(s.trail, performance.now());   // (the finger's, px per ms to the right: the panes carry it on)
+    const ms = performance.now() - s.t, go = !!s.nb && pageGo(s.dx, ms, s.w, v);
+    const d = s.dx < 0 ? 1 : -1, ease = `transform ${D_SMALL}ms ${carryCurve(s.nb ? v : v / 3, (go ? -d * s.w : 0) - s.dx, D_SMALL)}`;   // (past the end the pane moves a third of the finger)
     s.cur.style.transition = ease; if (s.nb) s.nb.style.transition = ease;
     s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';
     if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;

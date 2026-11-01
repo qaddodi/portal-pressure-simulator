@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { easeMove, carryRate, carried, CARRY_MAX, releaseSpeed, settleSlope, settleAt } from '../src/ui/ease.js';
+import { easeMove, carryRate, carried, CARRY_MAX, releaseSpeed, settleSlope, settleAt, carryCurve, isFlick, flickAim, FLICK_REACH } from '../src/ui/ease.js';
 import { lerpVT } from '../src/ui/cam-arc.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -59,6 +59,33 @@ test('a settle starts at the finger\'s speed toward its target, up to the limit,
   for (const m0 of [0, 1, 3]) { let last = -1; for (let k = 0; k <= 1; k += 0.001) { const v = settleAt(k, m0); assert.ok(v <= 1 + 1e-12 && v >= last - 1e-12, `${m0} at ${k}`); last = v; } }
 });
 
+test('a settle curve opens at the finger\'s speed toward the target, and a let-go at rest opens gently', () => {
+  assert.equal(carryCurve(0, 200, 240), 'cubic-bezier(.2, 0.000, .2, 1)');
+  assert.equal(carryCurve(-1, 200, 240), 'cubic-bezier(.2, 0.000, .2, 1)', 'away from the target');
+  assert.equal(carryCurve(1, 240, 240), 'cubic-bezier(.2, 0.200, .2, 1)', 'a slope of 1: one distance per settle');
+  assert.equal(carryCurve(50, 100, 240), 'cubic-bezier(.2, 0.800, .2, 1)', 'capped at the arrive curve\'s own slope, 4');
+  assert.equal(carryCurve(-2, -120, 240), 'cubic-bezier(.2, 0.800, .2, 1)', 'up toward a target above');
+});
+
+test('a flick is how fast the finger went as it lifted, or the pull\'s average if it was not coming back', () => {
+  assert.equal(isFlick(60, 1.2, 0.05, 0.9, 40), true, 'a slow start, then a quick flick at the end');
+  assert.equal(isFlick(60, 0.5, 0.05, 0.9, 40), false, 'a firm pull is not a flick');
+  assert.equal(isFlick(60, 0, 1.4, 0.9, 40), true, 'quick all through and let go at once');
+  assert.equal(isFlick(60, -0.4, 1.4, 0.9, 40), false, 'quick down, then turned back up as it lifted');
+  assert.equal(isFlick(30, 3, 3, 0.9, 40), false, 'too short to be one');
+  assert.equal(isFlick(NaN, 3, 3, 0.9, 40), false);
+});
+
+test('a sheet let go is headed a little past where the finger left it, by its speed, never past the next height', () => {
+  assert.equal(flickAim(0.62, 0, 600), 0.62);
+  assert.equal(flickAim(0.62, -0.2, 600), 0.62, 'too slow to carry');
+  assert.equal(flickAim(0.62, -1, 600), 0.62 + (1 * 150) / 600, 'a flick up reaches toward the top');
+  assert.ok(flickAim(0.62, -1, 600) > 0.81, 'past half way to Full from Half: it is Full that is nearer');
+  assert.ok(flickAim(0.62, 1, 600) < 0.62, 'and a flick down goes the other way');
+  assert.equal(flickAim(0.5, -20, 300), 0.5 + FLICK_REACH, 'capped');
+  assert.equal(flickAim(0.5, -1, 0), 0.5);
+});
+
 test('the camera, the lobule, the sheets and the paging take it', () => {
   const stage = read('src/ui/stage.js'), lz = read('src/ui/lobule-zoom.js'), util = read('src/ui/util.js'), main = read('src/ui/main.js'), card = read('src/ui/card.js'), menu = read('src/ui/menu.js'), dock = read('src/ui/dock.js');
   assert.match(stage, /c0 = carryRate\(v0, from, to, VIEW\.w\) \* ms;/);
@@ -70,6 +97,19 @@ test('the camera, the lobule, the sheets and the paging take it', () => {
   assert.match(util, /export function sinkTo\(el, px, ms = 220, done, speed = null\)/);
   assert.equal((main.match(/releaseSpeed\(s0\.trail/g) || []).length, 1);
   assert.match(card, /releaseSpeed\(trail, performance\.now\(\)\)/);
+  // The sheets judge a flick by the finger's release, and ease the height on from its speed (a card caught sunk grows from where it is drawn).
+  assert.match(main, /const flick = isFlick\(s0\.dy, speed, s0\.dy \/ Math\.max\(1, performance\.now\(\) - s0\.t0\), 0\.9, 40\);/);
+  assert.match(main, /const h0 = el\.getBoundingClientRect\(\)\.height, frac = flickAim\(h0 \/ s0\.H, speed, s0\.H\)/);
+  assert.match(main, /easing: carryCurve\(-speed, goal - h0, D_SMALL\)/);
+  assert.match(main, /el\.style\.height = `\$\{Math\.max\(60, start\.h - start\.dy\)\}px`/, 'start.dy, not dy: the sunk card\'s pull up continues from where it is drawn');
+  assert.match(util, /const flick = isFlick\(s0\.dy, speed, s0\.dy \/ Math\.max\(1, performance\.now\(\) - s0\.t\), 0\.6, 30\);/);
+  assert.match(util, /carryCurve\(speed, left, D_SMALL\)/);
+  assert.match(card, /const flick = isFlick\(dy, speed, dy \/ Math\.max\(1, performance\.now\(\) - t0\), 0\.6, 30\);/);
+  assert.match(card, /if \(e\.pointerId !== pid\) return;/, 'a second finger is not the pull');
+  // The bottom bar's fold reversed mid-glide stands at the size it is drawn at while its words fade, then glides on from there (no snap to the glide's end).
+  assert.match(main, /const hold = vdockEl\.animate\(\[drawn, drawn\], \{ duration: D_FLIP \}\);/);
+  assert.match(main, /vdockEl\.animate\(\[drawn, \{ height: `\$\{h1\}px`, width: `\$\{w1\}px` \}\], \{ duration: D_SURFACE, easing: ease \}\)/);
+  assert.match(main, /closed: \(\) => \{ stopSink\(el\); el\.style\.removeProperty\('--sink'\); el\.style\.translate = ''; heightAnim\?\.cancel\(\);/);
   assert.match(menu, /sw\.carry = resting && settle \? shiftX\(resting\) : 0;/);
   assert.match(dock, /sw\.carry = resting && settle \? shiftX\(resting\) : 0;/);
 });

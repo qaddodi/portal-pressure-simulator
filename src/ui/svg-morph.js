@@ -27,7 +27,7 @@
 // The clock is the eases' (frame.js easeNow: no leap after a long frame) and the writes come in the frame's late phase, after the
 // chart's own paints, so a frame shows the glide and nothing else.
 import { lateFrameFor, cancelFrame, easeNow } from './frame.js?v=15d5254a2c';
-import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, easeMove } from './ease.js?v=615d96d663';
+import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, easeMove } from './ease.js?v=fc509dabe4';
 
 const nextLate = lateFrameFor('svg-morph');
 

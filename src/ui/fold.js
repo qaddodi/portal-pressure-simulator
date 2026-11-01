@@ -2,7 +2,7 @@
 // `flat`, folds its height in and out, so what is under it glides rather than jumping a line. Keeps `hidden` the source of truth
 // (hidden while folded away), so CSS and tests that read the attribute still hold. Nothing animates when the piece is not on screen
 // (a closed section) or under Reduce Motion: it is then shown or hidden at once.
-import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
+import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
 
 const jobs = new WeakMap();
 const still = matchMedia('(prefers-reduced-motion: reduce)');

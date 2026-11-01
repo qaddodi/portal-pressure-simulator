@@ -2,16 +2,16 @@
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=fe0f3d1f0e';
-import { pressureColor } from './colormap.js?v=1c1ba5d2ac';
+import { pressureColor } from './colormap.js?v=6407bf2920';
 import { store, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=126338cd30';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=1adf903085';
 import { frameFor, cancelFrame, paceMs } from './frame.js?v=15d5254a2c';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { shownOr } from './shown.js?v=8a7bc6961d';
 import { monotoneSegs, curveTester } from './curve-near.js?v=9ff15157e9';
 import { glideMoving } from './idle-keys.js?v=c5c00c9da1';
 import { plotFill } from './plot-look.js?v=5037697da7';
-import { D_SMALL, EASE_ARRIVE } from './ease.js?v=615d96d663';
+import { D_SMALL, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

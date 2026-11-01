@@ -103,5 +103,34 @@ export function settleSlope(v, dist, ms, max = 3) {
   const toward = (dist > 0 ? v : -v) * ms / Math.abs(dist);
   return Math.min(max, Math.max(0, toward));
 }
+/**
+ * The CSS curve a sheet or a page settles on, as an inline transition: its opening slope is the finger's speed toward the target (settleSlope,
+ * up to the .2/.8 curve's own, 4), so a slow let-go starts slowly and a flick carries on at its speed, and it comes to rest as every other curve
+ * does. v: px per ms along +axis as the finger lifted; dist: px to go (+ or −, along the same axis); ms: the transition's time.
+ */
+export const carryCurve = (v, dist, ms) => `cubic-bezier(.2, ${(0.2 * settleSlope(v, dist, ms, 4)).toFixed(3)}, .2, 1)`;
+
+/**
+ * Whether a pull of `dy` px down (past `far`) was a flick: fast as the finger lifted (`speed`, releaseSpeed, px/ms down), or fast over the whole
+ * pull (`avg`, px/ms) and not coming back up as it lifted. Judged by the release alone it caught a quick flick after a slow start, which the
+ * whole pull's average (a held finger, a slow start) had let fall short; a pull turned back up before it lifted is not one either way.
+ */
+export function isFlick(dy, speed, avg, min, far) {
+  if (!(dy > far)) return false;
+  return speed > min || (avg > min && speed >= 0);
+}
+
+/**
+ * Where a sheet let go at `frac` of its room (0..1) is headed: carried on a little by the finger's speed (`speed`, px per ms down, `room` px
+ * the sheet may fill), as a scroll view's detents are chosen, so a quick flick up reaches the next height without crossing half way to it. A
+ * finger slower than FLICK_V carries nothing, and it never carries more than FLICK_REACH of the room (never past the next height).
+ */
+export const FLICK_V = 0.3, FLICK_MS = 150, FLICK_REACH = 0.3;
+export function flickAim(frac, speed, room) {
+  if (!(room > 0) || !Number.isFinite(frac) || !Number.isFinite(speed) || Math.abs(speed) < FLICK_V) return frac;
+  const carry = Math.max(-FLICK_REACH, Math.min(FLICK_REACH, (-speed * FLICK_MS) / room));
+  return frac + carry;
+}
+
 /** The Hermite settle from 0 to 1 over its clock `k` (0..1), starting with slope `m0` and ending at rest: m0 = 0 is the smoothstep. */
 export const settleAt = (k, m0 = 0) => (k <= 0 ? 0 : k >= 1 ? 1 : (k * k * k - 2 * k * k + k) * m0 + (3 * k * k - 2 * k * k * k));

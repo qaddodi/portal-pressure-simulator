@@ -11,7 +11,7 @@
 //
 // Cost: one passive scroll listener per list, and a read of scrollTop / scrollHeight / clientHeight (no other layout read) in at most
 // one frame per list; a list is only watched while it is in the page.
-import { D_SMALL } from './ease.js?v=615d96d663';
+import { D_SMALL } from './ease.js?v=fc509dabe4';
 import { frameFor } from './frame.js?v=15d5254a2c';
 
 const nextFrame = frameFor('scroll-edges');

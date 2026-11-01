@@ -83,12 +83,17 @@ export function caseFlight(left, vx) {
 export const PAGE_FAR = 0.35;     // of the width
 export const PAGE_V = 0.4;        // px/ms over the whole drag
 export const PAGE_MIN = 40;       // px a flick must travel
+export const PAGE_BACK = 0.6;     // px/ms back the way it came, as the finger lifted, that springs it back
 
-/** True when a sideways page drag of `dx` px over `ms` ms across a box `w` px wide goes on to the next tab; false springs back. */
-export function pageGo(dx, ms, w) {
+/** True when a sideways page drag of `dx` px over `ms` ms across a box `w` px wide goes on to the next tab; false springs back.
+ *  v: the finger's speed as it lifted, px per ms, positive to the right (0 if not given): a quick flick at the end of a slow drag goes on
+ *  (the whole drag's average had let it fall short), and one flung back the way it came springs back, however far it was pulled. */
+export function pageGo(dx, ms, w, v = 0) {
   const a = Math.abs(dx);
   if (!Number.isFinite(a) || !(w > 0)) return false;
-  return a > w * PAGE_FAR || (a > PAGE_MIN && a / Math.max(1, ms) > PAGE_V);
+  const along = Number.isFinite(v) ? v * Math.sign(dx) : 0;
+  if (along < -PAGE_BACK) return false;
+  return a > w * PAGE_FAR || (a > PAGE_MIN && (a / Math.max(1, ms) > PAGE_V || along > PAGE_V));
 }
 
 // A trackpad (or a wheel) works the slide as a finger does (Mohammad, 22 Oct: "use the touch pad on the mac to move slides just like on ipad

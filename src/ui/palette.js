@@ -3,8 +3,8 @@
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
 import { store, updateParams } from './store.js?v=4ef2a6ffd8';
-import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=126338cd30';
-import { D_FLIP, EASE_ARRIVE } from './ease.js?v=615d96d663';
+import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=1adf903085';
+import { D_FLIP, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
 import { HIDDEN_EDGES } from './anatomy.js?v=fe0f3d1f0e';

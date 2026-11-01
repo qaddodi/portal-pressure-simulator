@@ -19,9 +19,26 @@ test('a page drag goes on past a third of the width or after a quick flick, and 
   assert.equal(pageGo(-200, 100, 0), false);
 });
 
-test('the Tests card and the menu share the same paging rule', () => {
-  assert.match(dock, /pageGo\(s\.dx, ms, s\.w\)/);
-  assert.match(menu, /pageGo\(s\.dx, performance\.now\(\) - s\.t, s\.w\)/);
+test('a page drag is also judged by how fast the finger was going as it lifted: a quick flick at the end goes on, one flung back springs back', () => {
+  // (the finger's speed along +x, px/ms: a drag to the left, dx < 0, goes on when the finger is still moving left)
+  assert.equal(pageGo(-60, 1500, 400, -0.8), true, 'slow drag, quick flick left at the end');
+  assert.equal(pageGo(60, 1500, 400, 0.8), true, '(and right)');
+  assert.equal(pageGo(-60, 1500, 400, -0.2), false, 'a slow lift is not a flick');
+  assert.equal(pageGo(-30, 1500, 400, -2), false, 'a twitch is never a page');
+  assert.equal(pageGo(-60, 100, 400, 0.8), false, 'a quick drag flung back the way it came springs back');
+  assert.equal(pageGo(-200, 400, 400, 0.9), false, 'so does a far one');
+  assert.equal(pageGo(-200, 400, 400, 0.3), true, 'a slight roll back off the glass as it lifts does not');
+  assert.equal(pageGo(-200, 400, 400, NaN), true, 'no speed is the drag alone');
+});
+
+test('the Tests card and the menu share the same paging rule, and carry the finger\'s speed into the settle', () => {
+  assert.match(dock, /pageGo\(s\.dx, ms, s\.w, v\)/);
+  assert.match(menu, /pageGo\(s\.dx, performance\.now\(\) - s\.t, s\.w, v\)/);
+  for (const src of [dock, menu]) {
+    assert.match(src, /const v = releaseSpeed\(s\.trail, performance\.now\(\)\);/);
+    assert.match(src, /carryCurve\(s\.nb \? v : v \/ 3, \(go \? -d \* s\.w : 0\) - s\.dx, D_SMALL\)/);
+    assert.match(src, /\(sw\.trail \|\|= \[\]\)\.push\(\[performance\.now\(\), t\.clientX\]\)/);
+  }
 });
 
 test('every menu (sheet or popover) gets the pull down and the sideways paging, each time it is built', () => {

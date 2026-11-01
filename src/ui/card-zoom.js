@@ -7,7 +7,7 @@
 // the camera keep to them) and puts the card back before a slide changes. Nor does it measure the card: what the card answers while it is up
 // is where it rests, so a measure of how far the readings travel would read none.
 
-import { EASE_ARRIVE } from './ease.js?v=615d96d663';
+import { EASE_ARRIVE } from './ease.js?v=fc509dabe4';
 export const ZOOM_MAX = 2.2;    // the most the card grows
 export const ZOOM_MIN = 1.2;    // under this the card is large enough; no zoom is offered
 export const ZOOM_MS = 520;     // in

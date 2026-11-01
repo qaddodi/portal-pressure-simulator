@@ -1,10 +1,10 @@
 // The endoscopic view as a tile of the readings card (slide field `scopeTile: true`): a small round picture of the distal esophagus
 // at the varix's size now, so a time-lapse shows the varices swelling from small to large behind the chart. The picture is the
 // instrument's own (endo-render.js, endo-size.js), drawn once for each step of 1/14 of its engorgement and eased from the one before.
-import { h } from './util.js?v=126338cd30';
-import { renderEndo } from './endo-render.js?v=2900edbd82';
+import { h } from './util.js?v=1adf903085';
+import { renderEndo } from './endo-render.js?v=cb02a8850b';
 import { endoGrow, LARGE_MM } from './endo-size.js?v=e0a58bf20e';
-import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=615d96d663';
+import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
 
 const RES = 168, STEPS = 14, NONE_MM = 2.5;   // (2.5 mm: below it the metrics call it no varix)
 export const scopeKey = (d) => (Number.isFinite(d) && d >= NONE_MM ? Math.round(endoGrow(d) * STEPS) : -1);
