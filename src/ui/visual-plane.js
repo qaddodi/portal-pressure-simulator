@@ -23,11 +23,11 @@
 // Everything that decides a place or a size is a pure function here (tests/panels-e.test.js); the drawing is at the
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
-import { h, fmt, clamp } from './util.js?v=c8ef361fbc';
+import { h, fmt, clamp } from './util.js?v=eda7f8e3d1';
 import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { TILE, tileShown } from './table-marks.js?v=ff3ed0cc47';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { frameFor } from './frame.js?v=15d5254a2c';
+import { frameFor } from './frame.js?v=7710f677e2';
 
 const nextFrame = frameFor('plane');
 /** The switch for the patient's trail on the card (a tool's trail: Mohammad, 1 Nov, mock B): ?trail=0 gives the card as it was. */

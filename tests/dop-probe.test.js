@@ -224,7 +224,8 @@ test('a "60 %" the probe would cover steps out to a clear spot on a leader line,
   assert.match(stage, /if \(cur && free\(boxAt\(cur\.d, cur\.t\)\)\) want = cur;/);
   // The move fades out where it stands and in at the new place, never a jump; the leader joins the clamp's outer tip to the label.
   assert.match(stage, /function clampStep\(id, want\)/);
-  assert.match(stage, /\{ opacity: getComputedStyle\(el\)\.opacity \}, \{ opacity: 0 \}/);
+  // (from where it stands: the fade's only keyframe is its end, so starting it reads no style.)
+  assert.match(stage, /el\.animate\?\.\(\[\{ opacity: 0 \}\], \{ duration: dur, fill: 'forwards' \}\)/);
   assert.match(stage, /k: 'cl:' \+ c\.id, tag: 'path', at: \{ class: 'leader'/);
   assert.match(stage, /c\.x \+ c\.nx \* \(c\.off \+ 8\), c\.y \+ c\.ny \* \(c\.off \+ 8\)/);
   assert.match(stage, /mv = c\.id !== clampFor \? clampMv\.get\(c\.id\)\?\.cur : null/);

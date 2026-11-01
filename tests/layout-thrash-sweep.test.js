@@ -7,7 +7,7 @@ const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 const mn = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
 
 test("a card's own list scrolling keeps the figure's box; the page's scroll, or one holding the figure, drops it", () => {
-  assert.match(st, /addEventListener\('scroll', \(e\) => \{ const t = e\.target; if \(t === document \|\| t === window \|\| t\?\.contains\?\.\(wrap\)\) \{ box = null; CTM = null; \} \}, true\);/);
+  assert.match(st, /addEventListener\('scroll', \(e\) => \{ const t = e\.target; if \(t === document \|\| t === window \|\| t\?\.contains\?\.\(wrap\)\) boxAgain\(\); \}, true\);/);
   assert.doesNotMatch(st, /addEventListener\('scroll', \(\) => \{ box = null; CTM = null; \}, true\);/);
 });
 

@@ -4,13 +4,13 @@
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=fe0f3d1f0e';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=ee1715cd71';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=a3e02529d4';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=4ef2a6ffd8';
 import { fibroReading } from './clock.js?v=16aba0e2eb';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=c8ef361fbc';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=eda7f8e3d1';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
@@ -40,18 +40,18 @@ import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels, noteStripRead, stripPx } from './plate-upload.js?v=ea6a71d855';
 import { refine } from './refine.js?v=e6e17cc013';
-import { fadeOver, fadeStop, fading } from './res-fade.js?v=6f305af9e6';
+import { fadeOver, fadeStop, fading } from './res-fade.js?v=4ffac3ef7f';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
 import { cropToGrid } from './organs-gl.js?v=ecf7b49c24';
 import { readGroup, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=1c406a11a6';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=f7d920b7d0';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=163a178b8b';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=6b1951c36b';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=df3c3152ad';
-import { createLabelGL } from './label-gl.js?v=141b25f480';
-import { createGlassGL } from './glass-gl.js?v=4e498e55d2';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=e1721f52d0';
+import { createLabelGL } from './label-gl.js?v=df325000d1';
+import { createGlassGL } from './glass-gl.js?v=6a77550d27';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=2f1b0e2e2c';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -2624,7 +2624,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=2365a5109f').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=4b68e3a505').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -8501,10 +8501,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const els = () => [...ov.clamps.querySelectorAll(`.clamp-label[data-id="${id}"]`)];
     m.busy = true;
     const dur = reduceMotion.matches ? 0 : D_SMALL;
-    for (const el of els()) el.animate?.([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration: dur, fill: 'forwards' });
+    // (From and to its own opacity as it stands, the keyframe left out: no style read for it. 1 Nov 2026.)
+    for (const el of els()) el.animate?.([{ opacity: 0 }], { duration: dur, fill: 'forwards' });
     setTimeout(() => {
       m.cur = m.want; m.busy = false;
-      for (const el of els()) { el.getAnimations?.().forEach((a) => a.cancel()); clampLabelAt(el); el.animate?.([{ opacity: 0 }, { opacity: getComputedStyle(el).opacity }], { duration: dur }); }
+      for (const el of els()) { el.getAnimations?.().forEach((a) => a.cancel()); clampLabelAt(el); el.animate?.([{ opacity: 0, offset: 0 }], { duration: dur }); }
       if (F) updateLabels(F);
     }, dur);
   }
@@ -9540,8 +9541,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     blockerBoxes = readBlockersRead(); blockersAt = performance.now(); blockersStale = false;
     nextFrame(() => { if (F && !camMove && !lz?.isOpen()) updateLabels(F); });   // (a new list: the labels' key changes with it)
   }
+  let creditKept = null;
   function readBlockersRead() {
     const wr = stageBox();
+    { const el = document.querySelector('.stage-credit'), r = el?.getBoundingClientRect();
+      creditKept = r?.width && getComputedStyle(el).opacity !== '0' ? { x0: r.left - wr.left - 10, y0: r.top - wr.top - 10, x1: r.right - wr.left + 10, y1: r.bottom - wr.top + 10 } : null; }
     { const r = store.get().presenting && document.querySelector('.pz-bar.pzb-pill')?.getBoundingClientRect();
       pillEdge = r?.width ? { m: Math.max(6, Math.round(wr.right - r.right)), top: r.top - wr.top } : null; }
     // (The teaching card's glass, .pz-shade, too: on a phone it reaches 16 px above the words, and a label kept off only the words
@@ -9945,7 +9949,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // (The corner credit, where it shows: a stent's column and the slide's mark beside it keep off it where they can, so it holds its
     // spot when another point is picked. It moves whenever a label comes to cover it, and does not come back.)
-    const creditBox = solve && dop.all ? (() => { const el = document.querySelector('.stage-credit'), r = el?.getBoundingClientRect(); return r?.width && getComputedStyle(el).opacity !== '0' ? { x0: r.left - wr.left - 10, y0: r.top - wr.top - 10, x1: r.right - wr.left + 10, y1: r.bottom - wr.top + 10 } : null; })() : null;
+    // (Its box read with the cards', first in a frame: readBlockersRead.)
+    const creditBox = solve && dop.all ? creditKept : null;
     const markDots = solve && dop.all && dop.id && geo[dop.id]?.cur?.length > 1 ? ['proximal', 'mid', 'distal'].map((pt) => worldToLocal(...pointAt(geo[dop.id].cur, STENT_SITES[pt]))) : null;   // (the stent's three dots)
     const later = [];   // labels placed after the slide's marks (a stent's points other than the sampled one)
     // Where a stent's point goes when nothing near its third is free: a little farther out on a leader that crosses no label (diagonal

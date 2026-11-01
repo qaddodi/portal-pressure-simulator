@@ -5,12 +5,12 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=4ef2a6ffd8';
-import { h, icon, svgIcon, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=c8ef361fbc';
+import { h, icon, svgIcon, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=eda7f8e3d1';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=ee1715cd71';
+import { pressureColor } from './colormap.js?v=a3e02529d4';
 import { ownsSideways, pageGo } from './swipe.js?v=9ed936bf04';
-import { frameFor } from './frame.js?v=15d5254a2c';
+import { frameFor } from './frame.js?v=7710f677e2';
 import { leaveFromHere, menuLeaveOff } from './menu-leave.js?v=e885166f40';
 import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=fc509dabe4';
 const nextFrame = frameFor('menu');

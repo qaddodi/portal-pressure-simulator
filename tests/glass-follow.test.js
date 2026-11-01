@@ -186,7 +186,7 @@ test('a reading starts exactly where its pill was, eases in, and lands without a
 test('the travel is written each frame on the main thread, not left to a CSS transition the compositor runs', () => {
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(stage, /r\._flip = flipFrom\(a\.left - b\.left, a\.top - b\.top, performance\.now\(\)\);/);
+  assert.match(stage, /r\._flip = flipFrom\(a\.left - \(x \+ R\[j\]\[0\]\), a\.top - \(y \+ R\[j\]\[1\]\), performance\.now\(\)\);/, 'from its row\'s kept place, no box read');
   assert.match(stage, /const q = flipAt\(f, performance\.now\(\)\);\s*r\.style\.transform = q\.done \? '' : `translate\(/);
   // It asks for the next frame until every reading has landed, as a glide does.
   assert.match(stage, /if \(travelling && !cath\.glideRaf\) cath\.glideRaf = nextFrame\(\(\) => \{ cath\.glideRaf = 0; cath\.lblKey = ''; cathLabelsSoon\(\); \}\);/);
