@@ -152,7 +152,7 @@ test('the probe and its line of sight take the side clear of the labels and call
 test('in a deck the probe shows only once the zoom has settled: hidden while the camera moves, repainted when it lands', () => {
   assert.match(stage, /morph > 0\.99\) && !camHides && !dpr\.hold && dprMonitorOn\(\) && !st\.lobule/);
   assert.match(stage, /const camHides = camMove && !dpr\.carry;/, 'a camera move hides it unless it is only a refit to the cards, with the probe showing');
-  assert.match(stage, /camMove = false; dpr\.carry = false;\s*if \(F\) updateLabels\(F\);/);
+  assert.match(stage, /camMove = false; dpr\.carry = false;\s*rideStop\(\);\s*if \(F\) updateLabels\(F\);/);   // (rideStop: labels that rode the move on the GPU, label-ride.test.js)
 });
 
 test('the line of sight stops at the near gate bar, the flow axis reaches past both bars, and the bars are a bit thicker than the axis line', () => {

@@ -16,6 +16,7 @@ import { frameFor, cancelFrame } from './frame.js?v=15d5254a2c';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=bb8f7eca29';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
+import { easeMove, D_SURFACE } from './ease.js?v=fc509dabe4';
 
 const nextFrame = frameFor('labels-gl');
 const VS = `#version 300 es
@@ -414,6 +415,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
   };
   if (!host) svg.after(canvas);
   let lost = false, dpr = 1, W = 1, H = 1, last = [], raf = 0;
+  // A slide's camera glide (stage.js, ?labelride=0 off): the labels ride with the figure on the GPU instead of fading out for the whole
+  // move. rideM maps where they were laid out (stage px) to where that point is now; each label's picture keeps its size, its centre
+  // carried. At the landing they are laid out again, and each label glides from where it rode to its new place (one that stays), fades
+  // in (a new one) or fades out where it rode (one that goes), over D_SURFACE on the app's curve: nothing jumps.
+  let rideM = null, rideFrom = null, rideT0 = 0;
+  const glides = new Map();   // group → { fx, fy (device px, where it rode), t0 } or { fadeIn: true, t0 }
+  let outgoing = [];          // [{ g, st, x, y, a, t0 }]: labels gone at the landing, fading out where they rode
+  const RIDE_MS = D_SURFACE;
   // (Host mode: whether a picture with the labels is owed to the host's canvas; whether the SVG was given every label back.)
   let owed = false, released = true;   // (at first the SVG shows every label: none is marked yet)
   // (Host mode: the labels and marks the SVG still draws, as of the last picture: what lies between the figure's canvas and the callouts'
@@ -484,7 +493,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     publishWhenDone(gl, hs, () => {
       if (!lost || gl.isContextLost()) return;   // (lost again: the next restore starts over)
       try { finish(hs); } catch { return; }   // (the shaders will not build: the SVG keeps every label)
-      pageTex.length = 0; needRepack = false; packer.reset();
+      pageTex.length = 0; needRepack = false; packer.reset(); outgoing = []; glides.clear(); rideFrom = null;
       holeMasks = new WeakMap(); headSp = null; beamSp = null; sHeadSp = null;
       for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
       pDirty = true; sDirty = true; allMarks(); boxKey = '';
@@ -561,7 +570,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // The pages were full: every picture is given back and drawn again, packed afresh (at most one such frame in a while).
   function repack() {
     needRepack = false;
-    packer.reset();
+    packer.reset(); outgoing = [];
     for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
     ask();
   }
@@ -586,6 +595,19 @@ void main() { o = texture(uT, vUV) * uA; }`;
     moving = drawMarks(now) || moving;
     // (Every label's box and atlas place, in painter order; drawn below as one batch per run of pictures on a page.)
     const items = [];
+    // (The labels gone at a ride's landing first, under the rest, fading out where they rode; their pictures given back once faded.)
+    if (outgoing.length) {
+      const keep = [];
+      for (const o of outgoing) {
+        const u = easeMove(Math.min(1, (now - o.t0) / RIDE_MS));
+        if (u >= 1 || !o.st.slot) { if (o.st.slot) packer.free(o.st.slot); continue; }
+        keep.push(o); moving = true;
+        if (o.x > W || o.y > H || o.x + o.st.w < 0 || o.y + o.st.h < 0) continue;
+        items.push({ page: o.st.slot.page, x: o.x, y: o.y, w: o.st.w, h: o.st.h, ax: o.st.slot.x, ay: o.st.slot.y, a: o.a * (1 - u) });
+        boxAt(o.x, o.y, o.x + o.st.w, o.y + o.st.h);
+      }
+      outgoing = keep;
+    }
     for (const s of last) {
       const { g } = s;
       const until = live.get(g);
@@ -598,9 +620,22 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (!g.hasAttribute('data-gl')) g.setAttribute('data-gl', '');
       if (!(st.opacity > 0.001)) continue;
       // (The label's origin on a whole device pixel, the picture at its offset from it.)
-      const x = Math.round(s.x * dpr) + st.ox, y = Math.round(s.y * dpr) + st.oy;
+      let x = Math.round(s.x * dpr) + st.ox, y = Math.round(s.y * dpr) + st.oy, a = Math.min(1, st.opacity);
+      if (rideM) {
+        // (Riding: its centre carried by the camera's move since it was laid out, on a whole device pixel.)
+        const cx = (x + st.w / 2) / dpr, cy = (y + st.h / 2) / dpr, M = rideM;
+        x = Math.round((M[0] * cx + M[2] * cy + M[4]) * dpr - st.w / 2); y = Math.round((M[1] * cx + M[3] * cy + M[5]) * dpr - st.h / 2);
+      } else {
+        const gl0 = glides.get(g);
+        if (gl0) {
+          const u = easeMove(Math.min(1, (now - gl0.t0) / RIDE_MS));
+          if (gl0.fadeIn) a *= u; else { x = Math.round(gl0.fx + (x - gl0.fx) * u); y = Math.round(gl0.fy + (y - gl0.fy) * u); }
+          if (u >= 1) glides.delete(g); else moving = true;
+        }
+      }
+      st.dx = x; st.dy = y; st.drawn = now;
       if (x > W || y > H || x + st.w < 0 || y + st.h < 0) continue;
-      items.push({ page: st.slot.page, x, y, w: st.w, h: st.h, ax: st.slot.x, ay: st.slot.y, a: Math.min(1, st.opacity) });
+      items.push({ page: st.slot.page, x, y, w: st.w, h: st.h, ax: st.slot.x, ay: st.slot.y, a });
       boxAt(x, y, x + st.w, y + st.h);
     }
     if (items.length) {
@@ -1069,13 +1104,40 @@ void main() { o = texture(uT, vUV) * uA; }`;
       take(mo.takeRecords());
       for (const r of mmo.takeRecords()) { if (!changed(r)) continue; const el = markOf(r.target); if (el) markDirty.add(el); }
       const was = new Set(last.map((s) => s.g));
+      // (The first layout after a ride: each label that stays glides from where it rode, a new one fades in, one that goes fades out.)
+      const from = rideFrom;
+      rideFrom = null;
+      if (from) {
+        const t0 = performance.now(), now2 = new Set(list.map((s) => s.g));
+        for (const s of list) { const f = from.get(s.g); glides.set(s.g, f ? { fx: f.x, fy: f.y, t0 } : { fadeIn: true, t0 }); }
+        for (const [g, f] of from) if (!now2.has(g)) { const st = sprites.get(g); if (st?.slot && st.mode === 'gl') { outgoing.push({ g, st, x: f.x, y: f.y, a: f.a, t0 }); sprites.delete(g); } }
+      }
       last = list;
       for (const s of list) was.delete(s.g);
-      for (const g of was) { g.removeAttribute('data-gl'); const st = sprites.get(g); if (st) { packer.free(st.slot); sprites.delete(g); } live.delete(g); }
+      for (const g of was) { g.removeAttribute('data-gl'); glides.delete(g); const st = sprites.get(g); if (st) { packer.free(st.slot); sprites.delete(g); } live.delete(g); }
       if (host) { ask(); return; }
       if (raf) { cancelFrame(raf); raf = 0; }
       draw();
     },
+    /** Whether the labels can ride a camera move on the GPU: every label on screen is drawn here (none left to the SVG). */
+    canRide() { return !lost && !host && ![...svgLeft].some((el) => el.classList?.contains('lb')); },
+    /** A camera move's carry, [a, b, c, d, e, f] (where the labels were laid out, stage px, to where that point is now), drawn now. */
+    ride(m) {
+      if (lost) return;
+      if (m && !rideM) rideT0 = performance.now();
+      rideM = m; glides.clear();
+      if (raf) { cancelFrame(raf); raf = 0; }
+      draw();
+    },
+    /** The ride is over: the next layout (sync) glides each label on from where it rode. */
+    rideEnd() {
+      if (!rideM) return;
+      rideM = null;
+      const from = new Map();
+      for (const s of last) { const st = sprites.get(s.g); if (st && st.mode === 'gl' && st.drawn >= rideT0) from.set(s.g, { x: st.dx, y: st.dy, a: Math.min(1, st.opacity) }); }
+      rideFrom = from.size ? from : null;
+    },
+    get riding() { return !!rideM; },
     /** A label animated by script (the Web Animations API, which sends no events): read each frame for `ms`. */
     hold(g, ms) {
       if (!g) return;

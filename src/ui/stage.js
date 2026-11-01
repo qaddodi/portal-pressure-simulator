@@ -49,7 +49,7 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=dd283e159c';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=542bb8db66';
-import { createLabelGL } from './label-gl.js?v=e802a15814';
+import { createLabelGL } from './label-gl.js?v=545f444258';
 import { createGlassGL } from './glass-gl.js?v=773d159c52';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=8e0c281489';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
@@ -122,6 +122,8 @@ const STREAK_LEN = !(typeof location !== 'undefined' && /[?&]streaklen=0\b/.test
 const TAPER = !(typeof location !== 'undefined' && /[?&]taper=0\b/.test(location.search));
 // The organs' GPU picture kept up through a return from under the lobule when the changing organs are painted live (platePoke).
 const STALE_KEEP = !(typeof location !== 'undefined' && /[?&]stalekeep=0\b/.test(location.search));
+// A presenter's camera move: the labels ride it on the GPU instead of fading out for it (rideStart).
+const LABEL_RIDE = !(typeof location !== 'undefined' && /[?&]labelride=0\b/.test(location.search));
 // The glasses' own canvases, each blurring a copy of the figure (createImageBitmap), as before 31 Oct: only with ?glasscopy=1. By default
 // they are drawn inside the figure's canvas (frostHost) and are otherwise the browser's (round 2, 2.1).
 const GLASS_COPY = typeof location !== 'undefined' && /[?&]glasscopy=1\b/.test(location.search);
@@ -2248,6 +2250,36 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let landRide = false, landTo = null, landAt = -1e9;
   const landing = () => landRide && vtGliding && vtTarget === landTo;
   const rideLeaders = (on) => wrap.classList.toggle('lb-ride', on);
+  // A presenter's camera move (camMove) with every label on the GPU: the names ride with the figure on the GPU through the glide, their
+  // pictures carried by the camera's move since they were laid out (label-gl.js ride), instead of fading out for the whole move and
+  // back in once it lands; the leaders, their dots and the liver's pane ease out as on a small move (lb-ride), and at the landing each
+  // label glides on to its new place. No label is laid out, and nothing of the page is written for them, on any frame of the glide.
+  // Mohammad, 1 Nov: "Labels don't seem like GPU". ?labelride=0: they fade out for the move, as before.
+  let labelRider = null, rideCTM = null;
+  const stagePx = (m) => [m.a, m.b, m.c, m.d, m.e - wrapRect.left, m.f - wrapRect.top];
+  function rideStart() {
+    if (rideCTM) return true;   // (a move taken over by another: the labels ride on from where they were laid out)
+    if (!LABEL_RIDE || !labelRider?.canRide() || cath.st || pinchHide || lobuleOn || lz?.isOpen() || diveT > 0 || wrap.classList.contains('cam-move') || reduceMotion.matches) return false;
+    refreshCTM();
+    rideCTM = stagePx(CTM);
+    rideLeaders(true); glass.style.opacity = '0';
+    labelRider.ride([1, 0, 0, 1, 0, 0]);
+    return true;
+  }
+  function rideStep() {
+    if (!rideCTM) return;
+    refreshCTM();
+    const [a, b, c, d, e, f] = rideCTM, n = stagePx(CTM), det = a * d - b * c || 1e-9;
+    const i = [d / det, -b / det, -c / det, a / det, (c * f - d * e) / det, (b * e - a * f) / det];   // (where the labels were laid out, inverted)
+    labelRider.ride([n[0] * i[0] + n[2] * i[1], n[1] * i[0] + n[3] * i[1], n[0] * i[2] + n[2] * i[3], n[1] * i[2] + n[3] * i[3], n[0] * i[4] + n[2] * i[5] + n[4], n[1] * i[4] + n[3] * i[5] + n[5]]);
+  }
+  // (The landing, before the labels are laid out again: they glide on from where they rode.)
+  function rideStop() {
+    if (!rideCTM) return;
+    rideCTM = null;
+    labelRider?.rideEnd();
+    rideLeaders(false); glass.style.opacity = '';
+  }
   function driftEnd() { if (!drifting) return; drifting = false; carrying = false; rideLeaders(false); labelSettleSoon(); }
   function carryAbort() {
     carrying = false; drifting = false; rideLeaders(false);
@@ -2257,6 +2289,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function camSettle() {
     if (!camMove) return;
     camMove = false; dpr.carry = false;
+    rideStop();
     if (F) updateLabels(F);
     nextFrame(() => { if (!camMove) wrap.classList.remove('cam-move'); });
   }
@@ -2404,7 +2437,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     vtGliding = true; vtUntil = t0 + ms; vtMs = ms;
     if (carry) { drifting = carrying = true; rideLeaders(true); }
     else if (carrying) { carrying = false; rideLeaders(false); }   // (a slow push or a plain glide after one: its leaders are back)
-    if (cath.st?.keep && !sameView(from, to) || store.get().presenting && !drift && !carry && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, left + 80); } else camSettle();
+    if (cath.st?.keep && !sameView(from, to) || store.get().presenting && !drift && !carry && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; if (!rideStart()) wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, left + 80); } else camSettle();
     // (A plain glide, or a presenter's small one that keeps its labels (carry): solved for its landing now, carried there; not a slow push
     // or a move on an arc, whose labels the push's own rules and the fade keep.)
     if (!drift && !arcRun && !opt.steady && !sameView(from, to) && landable(from, to) && solveLanding(to)) { landRide = true; landTo = to; labelKey = null; updateLabels(F); }
@@ -2420,6 +2453,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         vtLast = { t: now, k: vt.k, x: vt.x, y: vt.y };
       }
       applyVT(); CTM = null;
+      if (rideCTM) rideStep();   // (the labels riding the move: their pictures carried on the GPU, label-gl.js)
       // With the catheter in, the vessels, the catheter and its labels follow the camera in this very frame (the labels and the
       // vessel layer after the frame's other steps: cathLabelsSoon, then animate's one render pass).
       if (cath.st) { refreshCTM(); cathLabelsSoon(); }
@@ -8606,6 +8640,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const frostWake = () => { glassGL?.redraw(); paneGL?.redraw(); for (const g of cardGLs) g.redraw(); };
   const labelGL = createLabelGL(labelSvg, gLabels, { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), marks: [gLeaders, gScan], onBoxes: frostWake });
   wrap.dataset.labels = labelGL ? 'gpu' : 'svg';
+  labelRider = labelGL;
   labelHoles = labelGL?.setHoles ? labelGL : null;
   sendHoles();
   // The frosted glasses drawn inside the figure's canvas (round 2, 2.1, 31 Oct): each glass's blur is taken from the picture the vessel
