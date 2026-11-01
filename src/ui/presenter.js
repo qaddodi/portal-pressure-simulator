@@ -1742,7 +1742,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // left and the new ones in from the right, Back the other way, a jump further (the slide list, a typed number, Home, End) neither, they rise.
   // turn: the way of the slide move asked last; turnNow: the way the move under way
   // turns its words while the teaching card's glass stays up, '' when the card leaves and comes back whole (as every card did before).
-  let turn = 'jump', turnNow = '', glassT = 0, turnIn = false;
+  let turn = 'jump', turnNow = '', glassT = 0, turnIn = false, turnAnim = null;
   // The words' box comes in after a turn (app.css: its lines stay at rest, so the fit, done unseen, measures them where they will stand;
   // a line offset sideways read as overflow and the words were fitted small, then grew in view): one composited move of the box,
   // from the side the talk comes from, with its fade, held at its start through the entrance's short delay.
@@ -1751,7 +1751,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     turnIn = false;
     const t = ui.text, k = t.dataset.turn, d = parseFloat(getComputedStyle(ui.root).getPropertyValue('--pz-turn-d')) || 20;
     const from = k === 'next' ? `translateX(${d}px)` : k === 'back' ? `translateX(${-d}px)` : `translateY(${RISE_PX}px)`;
-    t.animate?.([{ transform: from, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: D_SURFACE, delay: 120, easing: EASE_ARRIVE, fill: 'backwards' });
+    turnAnim = t.animate?.([{ transform: from, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: D_SURFACE, delay: 120, easing: EASE_ARRIVE, fill: 'backwards' });
   }
   // (Off until it is right on his devices (Mohammad, 1 Nov: on Next the words slid half way and stuck, then the card popped out and back):
   // The page-turn and the finger follow are on by default; ?cardturn=0 turns them off, and every card leaves and comes back whole, as before.)
@@ -2167,6 +2167,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const up = !ui.text.hidden && ui.shade.style.opacity !== '0' && (ui.shade.classList.contains('pz-turn') || !ui.shade.classList.contains('pz-leave'));
     const on = CARD_TURN && up && !booting && !reduce.matches && !s.visual && !s.vignette && !ask && !ct && !s.cath && !s.monitor && !caseCard;
     turnNow = on ? turn : '';
+    if (!on) turnIn = false;   // (a slide that keeps its words, or leaves whole, never fires a stale entrance)
     clearTimeout(glassT);
     setTurn(on);
   }
@@ -2183,6 +2184,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!ui) return 0;
     // (A card the next slide would build the same stays where it is and leaves nothing to fade: keepFor, card-keep.js.)
     const out = [ui.text, ui.panel].filter((el) => !(keepNow.text && el === ui.text)), data = ui.data;
+    if (!keepNow.text) wordsFreeze();
     // The data card leaves with the words on every slide change, whole (the same ease and pace), and comes back in with the new cards:
     // never left standing while the words go, nor changed in place.
     const dataOut = !keepNow.data && !data.hidden && !data.classList.contains('pz-hide');
@@ -2204,6 +2206,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     if (leaving) return fading ? fading + 20 : 0;
     return D_SMALL + 20;   // (the words leave at the data card's pace, one small step; with reduced motion they still fade, without sliding: app.css)
+  }
+  // Next pressed while the words are still coming in: their entrance (a WAAPI move, above the CSS leave) is stopped where it has got
+  // to, held there for one style read, and let go, so the leave starts from where the words are, never from full or after a jump.
+  function wordsFreeze() {
+    const a = turnAnim; turnAnim = null; turnIn = false;
+    if (!a || a.playState === 'finished' || a.playState === 'idle') return;
+    const t = ui.text, cs = getComputedStyle(t), o = cs.opacity, tf = cs.transform;
+    a.cancel();
+    t.style.transition = 'none'; t.style.opacity = o; t.style.transform = tf;
+    void getComputedStyle(t).opacity;
+    t.style.transition = ''; t.style.opacity = ''; t.style.transform = '';
   }
   // What is left, ms, of the longest fade still running on these cards (0 when none).
   const fadeLeft = (els) => els.reduce((m, el) => el.getAnimations().reduce((n, a) => { const t = a.playState === 'running' && a.effect?.getComputedTiming?.(); return t && Number.isFinite(t.endTime) ? Math.max(n, t.endTime - (t.localTime || 0)) : n; }, m), 0);
