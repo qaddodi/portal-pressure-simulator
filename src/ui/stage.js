@@ -45,7 +45,7 @@ import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './org
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { nameSpots } from './organ-names.js?v=83dcd84fe3';
-import { createLabelGL } from './label-gl.js?v=06a1b6c3a3';
+import { createLabelGL } from './label-gl.js?v=020bc162b7';
 import { createGlassGL } from './glass-gl.js?v=8a4c8e11ef';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=5547f26bd1';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';

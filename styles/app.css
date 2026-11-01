@@ -244,13 +244,8 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 .lb-leaders > .dpr-hid { opacity: 0; transition-duration: var(--d-surface); }   /* (the station dot under the Doppler's gate fades with the probe, stage.js dprDots) */
 @media (prefers-reduced-motion: reduce) { #labels .lb, .lb-leaders > * { transition: none; animation: none; } }
 /* The halo grows with the text (--lbk: the labels' size, set by the stage), so large text still reads over the art. */
-/* The halo is two layers (tokens.css --halo-*): this solid knockout right at the letters, and a feather past it that falls from about 70 % to nothing. The GPU labels draw the
-   feather from --halo-fe (its reach, grown with --lbk like the stroke; label-gl.js); the SVG's own text takes it as a text-shadow below (two stacked shadows: the edge of one blur
-   is half its opacity, two make about 70 %). */
-@property --halo-fe { syntax: '<length>'; inherits: true; initial-value: 0px; }
-#labels text { font-family: var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--label-halo); stroke-width: max(2px, calc(var(--halo-in) * 2 * var(--lbk, 1))); stroke-linejoin: round; --halo-fe: calc(var(--halo-feather) * var(--lbk, 1)); }
-:root:not([data-halo="off"]) #labels text { text-shadow: 0 0 calc(var(--halo-blur) * var(--lbk, 1)) var(--label-halo), 0 0 calc(var(--halo-blur) * var(--lbk, 1)) var(--label-halo); }
-#labels .lb.inline text, #labels .lb.focus text { stroke: none; text-shadow: none; }
+#labels text { font-family: var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--label-halo); stroke-width: max(2px, calc(3px * var(--lbk, 1))); stroke-linejoin: round; }
+#labels .lb.inline text, #labels .lb.focus text { stroke: none; }
 /* A label's pill is its fill alone, no hairline round it (Mohammad, 31 Oct); the ones that want an outline (a note mark, a selected or focused name, the liver card) say so themselves below. */
 #labels .lb-bg { fill: var(--label-panel); stroke: none; }
 .lb.inline .lb-bg { filter: drop-shadow(0 1px 1.5px rgb(var(--night-rgb) / .1)); }
@@ -281,7 +276,7 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 /* The FibroScan probe's callout: a pill in the waves' orange (--fibroscan, the colour of the card's readout) with a leader to the waves. It eases in
    and out with the probe; its own layer (.lb-scan) carries the leader, so neither ever pops. */
 #labels .lb.scan { transition: opacity var(--d-surface) var(--ease); animation: crossfade var(--d-surface) var(--ease) both; }
-#labels .lb.scan text { stroke: none; text-shadow: none; }
+#labels .lb.scan text { stroke: none; }
 #labels .lb.scan .lb-bg { fill: var(--fibroscan); stroke: none; filter: drop-shadow(0 1px 2px color-mix(in srgb, black 25%, transparent)); }
 #labels .lb-scan-val { fill: color-mix(in srgb, var(--fibroscan) 12%, black); } #labels .lb-scan-unit { fill: color-mix(in srgb, var(--fibroscan) 30%, black); }
 #labels .lb-scan { transition: opacity var(--d-surface) var(--ease); }
@@ -1571,7 +1566,6 @@ button.finding { cursor: pointer; }
   font: var(--caps-w) calc(var(--t-cap) * var(--label-scale, 1)) var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-2);
   --hw: clamp(.8px, calc(1px * var(--label-k, 1)), 1.5px);
   -webkit-text-stroke: calc(var(--hw) * 2) var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
-:root:not([data-halo="off"]) .sv-region { text-shadow: 0 0 calc(var(--halo-blur) * var(--label-k, 1)) var(--label-halo), 0 0 calc(var(--halo-blur) * var(--label-k, 1)) var(--label-halo); }   /* (the feather past the rim: tokens.css --halo-*) */
 .sv-region .v { letter-spacing: 0; text-transform: none; font-weight: 500; font-size: calc(var(--t-cap) * var(--label-scale, 1)); color: var(--text-2); }
 .sv-region .v b { font-weight: 700; font-size: calc(var(--t-lab) * var(--label-scale, 1)); color: var(--text); margin-right: 1px; }
 /* The fenestrae named as the cells are (small tinted capitals, the lining's slate), their state a quiet value beneath. */
@@ -1662,7 +1656,6 @@ button.finding { cursor: pointer; }
   font: var(--caps-w) calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)) var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: color-mix(in srgb, var(--zc) 55%, var(--text));   /* (the zone's colour, deepened: the pure purple read 2.4:1 on its own pill over the central vein) */
   --hw: clamp(.8px, calc(1px * var(--label-k, 1)), 1.5px);
   -webkit-text-stroke: calc(var(--hw) * 2) var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
-:root:not([data-halo="off"]) .lz-zone { text-shadow: 0 0 calc(var(--halo-blur) * var(--label-k, 1)) var(--label-halo), 0 0 calc(var(--halo-blur) * var(--label-k, 1)) var(--label-halo); }   /* (the feather past the rim: tokens.css --halo-*) */
 :root[data-theme="dark"] .lz-zone b { font-weight: 700; }
 .lz-zone span { font-size: calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)); font-weight: 600; letter-spacing: .08em; opacity: calc(.9 * var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1) * var(--off-o, 1)); }
 .lz-zone.z1 { --zc: var(--zone-1); } .lz-zone.z2 { --zc: var(--zone-2); } .lz-zone.z3 { --zc: var(--zone-3); }
@@ -2943,13 +2936,12 @@ button.finding { cursor: pointer; }
    from layering. Texture appears only as a sign of disease (nodular cirrhosis, nutmeg congestion,
    the congested vignette), so a healthy patient looks clean and a sick one visibly changes. */
 .org-form { opacity: .55; }
-#labels .lb.inline.bare text { stroke: var(--label-halo); stroke-width: max(2.5px, calc(var(--halo-in-bare) * 2 * var(--lbk, 1))); }
-:where(:root:not([data-halo="off"])) #labels .lb.inline.bare text { text-shadow: 0 0 calc(var(--halo-blur) * var(--lbk, 1)) var(--label-halo), 0 0 calc(var(--halo-blur) * var(--lbk, 1)) var(--label-halo); }   /* (as specific as the on-vessel rule below, which comes later and takes no feather) */
+#labels .lb.inline.bare text { stroke: var(--label-halo); stroke-width: max(2.5px, calc(4px * var(--lbk, 1))); }
 /* A reading with no clear spot near its station sits on its vessel (stage.js layoutLabels, onVessel): a wide halo in the stage's
    own colour round each glyph, 7 px as the stent callouts below, knocks the vessel out behind the words with no box, and no flow
    arrowhead runs under it. Circuit only (.cmap). Never an SVG filter: the grown-glyph filter (#lb-onv) drew dark rectangles behind
    the readings on iPhone, over the liver in Anatomy and over the zone bands in the Circuit, and was redrawn on every frame (16 Oct). */
-.cmap #labels .lb.on-vessel text { stroke: var(--stage-bg); stroke-width: 7px; stroke-linejoin: round; paint-order: stroke; text-shadow: none; --halo-fe: 0px; }
+.cmap #labels .lb.on-vessel text { stroke: var(--stage-bg); stroke-width: 7px; stroke-linejoin: round; paint-order: stroke; }
 /* A stent's three point callouts stay level beside their dots, over whatever vessel runs there: a solid halo in the stage's colour,
    7 px wide, knocks the vessel out behind and between the glyphs, so they read as the Circuit readings do, with no box (Review 16 Oct). */
 #labels .lb.inline:is([data-key^="n:TIPS:"], [data-key^="n:DIPS:"]) text { stroke: var(--stage-bg); stroke-width: 7px; stroke-linejoin: round; }
@@ -4088,7 +4080,6 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 /* The anatomy's halo: a smooth outline around each letter (a stroke painted under the fill), so the labels read over the tissue. */
 .lz-lab .n, .lz-lab .v { --hw: clamp(.8px, calc(1px * var(--label-k, 1)), 1.5px);
   -webkit-text-stroke: calc(var(--hw) * 2) var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
-:root:not([data-halo="off"]) .lz-lab .n, :root:not([data-halo="off"]) .lz-lab .v { text-shadow: 0 0 calc(var(--halo-blur) * var(--label-k, 1)) var(--label-halo), 0 0 calc(var(--halo-blur) * var(--label-k, 1)) var(--label-halo); }   /* (the feather past the rim: tokens.css --halo-*) */
 /* Floors keep the pill's order at small label sizes: the reading never drops below its unit or name (all 11 px or more). */
 .lz-lab .n { font-size: calc(var(--t-lab) * var(--label-scale, 1)); font-weight: 500; color: var(--text-2); }
 .lz-lab .v { display: flex; align-items: baseline; gap: 2.5px; font-size: calc(var(--t-val) * var(--label-scale, 1)); }
@@ -7080,7 +7071,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .fx-zone { fill: var(--accent); fill-opacity: 0; visibility: hidden; transition: fill-opacity var(--d-surface) var(--ease), visibility 0s var(--d-surface); pointer-events: none; }
 .fx-zone.on { fill-opacity: .09; visibility: visible; transition: fill-opacity var(--d-surface) var(--ease); }
 /* The readings (calipers, brackets) and the step numbers (V10): plain pills in the label's own glass, the words in ink. */
-#labels .lb:is(.fx-cal, .fx-span, .fx-step) text { fill: var(--text); stroke: none; text-shadow: none; }
+#labels .lb:is(.fx-cal, .fx-span, .fx-step) text { fill: var(--text); stroke: none; }
 #labels .lb.fx-step .lb-bg { fill: var(--text); stroke: none; }
 #labels .lb.fx-step text { fill: var(--stage-bg); }
 
