@@ -151,18 +151,23 @@ test('the host says no: that picture has no glass, the browser\'s shows at once,
   assert.ok(glassCanvas.width > 1);
 });
 
-test('back again, and a glass crossing what lies between keeps its own canvas', async () => {
+// (1 Nov 2026: each callout decides alone, as the cards do: one crossing what lies between goes back to the browser's glass only once it has
+// crossed it for 400 ms at rest, never at once, and the figure's canvas keeps the others.)
+test('back again, and a glass crossing what lies between goes back to the browser\'s glass alone, once it has crossed it for 400 ms at rest', async () => {
   may = true;
   await frames(3);
   assert.equal(G.hosted, true);
+  const look = async () => { for (let i = 0; i < 40; i++) { [...observers][0].cb([]); await frames(1); } };
   between = [rect(300, 120, 40, 40)];
   [...observers][0].cb([]);
   await frames(2);
-  assert.equal(G.hosted, false, 'crossed');
+  assert.ok(glass.attrs.has('data-gl'), 'not at once');
+  await look();
+  assert.equal(glass.attrs.has('data-gl'), false, 'crossed at rest for 400 ms: the browser\'s glass');
+  assert.equal(G.hosted, true, 'the figure\'s canvas still takes the glass');
   between = [rect(500, 400, 40, 40)];
-  [...observers][0].cb([]);
-  await frames(2);
-  assert.equal(G.hosted, true, 'apart');
+  await look();
+  assert.ok(glass.attrs.has('data-gl'), 'apart');
 });
 
 test('let go: its objects in the figure\'s context are deleted, and the picture laid once more without it', async () => {

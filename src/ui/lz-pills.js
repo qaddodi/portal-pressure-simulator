@@ -24,6 +24,9 @@ export function rgbaOf(c) {
 }
 
 /** One label's pill as it shows now, or null: { r (its box, page CSS px, a DOMRect's fields), rad (corners), a, tint, ring }. */
+// (Its tint from --gl-pill, the colour its CSS paints it (app.css), never from its computed background: a pill whose glass the GPU draws
+// has no background of its own ([data-gl]), so read from there the next look found no tint, gave the pill back to the browser's blur, found
+// its tint again, and so on: the pills' glass went between the two over and over (1 Nov 2026).)
 export function pillOf(el, gcs = getComputedStyle) {
   if (el.hidden) return null;
   const ps = gcs(el, '::before');
@@ -38,7 +41,7 @@ export function pillOf(el, gcs = getComputedStyle) {
   const x1 = b.right - NUM(es.borderRightWidth) - NUM(ps.right), y1 = b.bottom - NUM(es.borderBottomWidth) - NUM(ps.bottom);
   if (!(x1 > x0 && y1 > y0)) return null;
   const w = x1 - x0, h = y1 - y0, r = Math.min(NUM(ps.borderTopLeftRadius), w / 2, h / 2);
-  return { r: { left: x0, top: y0, width: w, height: h, right: x1, bottom: y1 }, rad: [r, r, r, r], a: Math.min(1, a), tint: rgbaOf(ps.backgroundColor), ring: ringOf(ps.boxShadow) };
+  return { r: { left: x0, top: y0, width: w, height: h, right: x1, bottom: y1 }, rad: [r, r, r, r], a: Math.min(1, a), tint: rgbaOf(ps.getPropertyValue?.('--gl-pill')?.trim() || ps.backgroundColor), ring: ringOf(ps.boxShadow) };
 }
 
 /** The labels under `root` that may carry a pill. */

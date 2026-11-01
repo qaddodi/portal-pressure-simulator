@@ -73,6 +73,25 @@ export function blurBoxes(boxes, ox, oy, t, bw, bh, keep = BLUR_KEEP) {
 }
 
 const NUM = (v) => parseFloat(v) || 0;
+/**
+ * A colour as the canvas gives it back (#rrggbb, rgb(), rgba(), or color(srgb r g b / a), which Chrome and Safari give for a colour mixed
+ * by color-mix(), the cards' --gl-tint), as straight [r, g, b, a] (0–1); [0, 0, 0, 0] when it is none of those.
+ * (The color(srgb) form was read as no colour until 1 Nov 2026, so a card tinted by color-mix() was never drawn in the figure's canvas.)
+ */
+export function parseColour(v) {
+  const m = /^#([\da-f]{6})$/i.exec(v);
+  if (m) { const n = parseInt(m[1], 16); return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255, 1]; }
+  const c = /^color\(srgb\s+([^)]+)\)$/i.exec(String(v).trim());
+  if (c) {
+    const [rgb, a] = c[1].split('/');
+    const n = rgb.trim().split(/\s+/).map((x) => (x.endsWith('%') ? parseFloat(x) / 100 : parseFloat(x)));
+    const al = a == null ? 1 : a.trim().endsWith('%') ? parseFloat(a) / 100 : parseFloat(a);
+    if (n.length === 3 && n.every(Number.isFinite) && Number.isFinite(al)) return [...n.map((x) => Math.min(1, Math.max(0, x))), Math.min(1, Math.max(0, al))];
+    return [0, 0, 0, 0];
+  }
+  const q = /rgba?\(([^)]+)\)/.exec(v)?.[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+  return q ? [q[0] / 255, q[1] / 255, q[2] / 255, q.length > 3 ? q[3] : 1] : [0, 0, 0, 0];
+}
 /** The first shadow of a computed box-shadow: { c: [r, g, b, a] (0–1), x, y, blur, spread } or null. */
 export function parseShadow(s) {
   if (!s || s === 'none') return null;
@@ -209,7 +228,7 @@ function texOf(gl, filter) {
  * drawn into the figure's canvas, at the end of each picture it lays (drawInto), from that picture itself: no copy of the canvas, no
  * canvas of its own. Otherwise, and for the frame of each change, it is drawn here as before.
  */
-export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = REBLUR_URL ? REBLUR_MS : 0, fresh = null, full = FULL_URL } = {}) {
+export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = REBLUR_URL ? REBLUR_MS : 0, fresh = null, full = FULL_URL, onHoles = null } = {}) {
   if (HOLD_URL || reblur > 0) fresh = null;
   const look = pane ? PANE : GLASS;
   // (cards: { find, watch, before, read? }: the Present cards' glass (recs A2, 31 Oct): find() lists the elements, each its own rounded box, its
@@ -251,10 +270,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const norm = document.createElement('canvas').getContext('2d');
   const colour = (str, fb) => {   // any CSS colour, as straight [r, g, b, a] (0–1), through the canvas' own parser
     norm.fillStyle = 'transparent'; norm.fillStyle = str || fb;
-    const v = norm.fillStyle, m = /^#([\da-f]{6})$/i.exec(v);
-    if (m) { const n = parseInt(m[1], 16); return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255, 1]; }
-    const q = /rgba?\(([^)]+)\)/.exec(v)?.[1].split(/[\s,/]+/).filter(Boolean).map(Number);
-    return q ? [q[0] / 255, q[1] / 255, q[2] / 255, q.length > 3 ? q[3] : 1] : [0, 0, 0, 0];
+    return parseColour(norm.fillStyle);
   };
   const unmark = () => { for (const g of marked) g.removeAttribute('data-gl'); marked.clear(); };
   const wanted = glassCheck(document, window);
@@ -284,10 +300,15 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     cv.width = mw; cv.height = mh;
     const c = cv.getContext('2d');
     c.setTransform(k, 0, 0, k, 0, 0); c.fillStyle = 'black'; c.fill(new Path2D(d));
+    // (Made and uploaded on unit 1, where the glass reads its mask, never on unit 0: the blurred figure is bound there while the glasses
+    // are drawn, and a mask made in the middle of them (a callout's new size, the sheet's readings card sliding) took its place, so every
+    // glass drawn after it in that picture read the mask as the figure: a grey glass for one frame, a flicker (1 Nov 2026).)
+    G.activeTexture(G.TEXTURE1);
     if (!m) { m = { tex: texOf(G, G.LINEAR) }; (K ? K.maskTex : maskTex).add(m.tex); }
     G.bindTexture(G.TEXTURE_2D, m.tex);
     G.pixelStorei(G.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
     G.texImage2D(G.TEXTURE_2D, 0, G.RGBA, G.RGBA, G.UNSIGNED_BYTE, cv);
+    G.activeTexture(G.TEXTURE0);
     Object.assign(m, { key, ms: [w * k / mw, h * k / mh] });
     store.set(g, m);
     return m;
@@ -461,6 +482,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       if (cards && !(ta > 0)) continue;
       const bx = (p.r.left - cr.left) * k, by = (p.r.top - cr.top) * k;
       if (p.rad) {
+        // (No mask: unit 1 is left empty, as a texture the figure left there (an integer one, the blood's) makes every draw of this
+        // program fail in the figure's context, the shape not sampling it notwithstanding: a card's glass was never drawn there.)
+        G.activeTexture(G.TEXTURE1); G.bindTexture(G.TEXTURE_2D, null); G.activeTexture(G.TEXTURE0);
         G.uniform1i(U.uMode, 1);
         G.uniform4f(U.uRad, p.rad[0] * k, p.rad[1] * k, p.rad[2] * k, p.rad[3] * k);
         G.uniform2f(U.uMS, 1, 1);
@@ -504,6 +528,20 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // pane): a glass drawn into the figure's canvas would show those sharp through it, where the browser's blurs them. The callouts and
   // the pane go back to their own way as a whole when any of theirs crosses one; a card, alone.)
   const heldOut = new Map();
+  // (What the figure's labels leave out (onHoles; 1 Nov 2026): the shapes of the glasses drawn in the figure's canvas, each with its fade. The
+  // labels' own canvas lies over the figure's, under the callouts and the cards, so a label under a glass drawn there would show sharp
+  // through it; the browser's blur makes such a label a faint smear, so here the labels are left out under it, as the glass's own copy
+  // always left them. Told in the same task the glass is laid, so the two change in the same frame; [] when none is drawn there.)
+  let holesKey = '';
+  function tellHoles(panes) {
+    if (!onHoles) return;
+    if (cards) panes = panes.filter((p) => colour(p.tint.trim(), 'transparent')[3] * p.k > 0);   // (as drawPanes: a card whose tint did not read is not drawn)
+    let key = '';
+    for (const p of panes) key += `|${p.r.left},${p.r.top},${p.r.width},${p.r.height},${p.a},${p.d || p.rad},${p.lw},${p.lh}`;
+    if (key === holesKey) return;
+    holesKey = key;
+    onHoles(panes.map((p) => ({ x: p.r.left, y: p.r.top, w: p.r.width, h: p.r.height, a: Math.min(1, p.a), rad: p.d ? null : p.rad || [0, 0, 0, 0], d: p.d || null, lw: p.lw, lh: p.lh, el: p.g })));
+  }
   // (Why a glass shows the browser's blur instead of being drawn in the figure's canvas, for the ?perf blur gauge (why(), below):
   // whyAll, for the glass as a whole; whyEl, for a card held out by itself. Written where the decision is made, read by nothing else.)
   const whyEl = new Map();
@@ -539,6 +577,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     hostOn = false; hf = null;
     if (hk) hk.key = '';
     unmark();
+    tellHoles([]);
     if (canvas) canvas.style.visibility = '';
     if (again) host?.now(); else ask();
   }
@@ -550,9 +589,16 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     // (A glass reaching past the figure's canvas could not be drawn there whole: the browser's, or its own canvas, takes it.)
     // (2 px of slack: the split sheet's glass panes reach 1 px past the card's box (their border) and the card moves by fractions of a pixel as the view follows it, so a pane
     // standing at the canvas's edge, as the readings' card does when fully out, was in and out of reach from frame to frame.)
-    const inside = (p) => p.r.left >= cr.left - 2 && p.r.top >= cr.top - 2 && p.r.right <= cr.right + 2 && p.r.bottom <= cr.bottom + 2;
+    // (Only the part of a glass on the screen counts (1 Nov 2026): the figure's canvas fills the screen, so a card sliding in from below it, as
+    // the phone's sheet untucks, or a callout pushed off its edge by a pan, is drawn there clipped by the screen as the browser's would be,
+    // never handed to the browser's blur at the edge and back as it comes in: that swap read as the sheet flickering on every untuck.)
+    const vw = document.documentElement?.clientWidth || window.innerWidth || cr.right, vh = document.documentElement?.clientHeight || window.innerHeight || cr.bottom;
+    const inside = (p) => {
+      const l = Math.max(p.r.left, 0), t = Math.max(p.r.top, 0), r = Math.min(p.r.right, vw), b = Math.min(p.r.bottom, vh);
+      return !(r > l && b > t) || (l >= cr.left - 2 && t >= cr.top - 2 && r <= cr.right + 2 && b <= cr.bottom + 2);
+    };
     let panes = readPanes(list);
-    if (cards) {
+    {
       let lo = null, hi = null;
       // (A card is drawn here whole or not at all: marked, a card with one of its panes kept out (the split sheet's two, one reaching past the
       // canvas or crossing a label as it slides) would lose the browser's blur for that pane and show none, flickering as it moves.)
@@ -564,7 +610,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       const nowT = performance.now(), edge = new Set(), cross = new Set(), boxes = new Map();
       for (const p of panes) {
         if (!inside(p)) edge.add(p.g);
-        else if (crosses([p], host.low?.(p.g) ? (lo ||= host.over?.('low') || []) : (hi ||= host.over?.('high') || []))) cross.add(p.g);
+        else if (crosses([p], !cards ? (lo ||= host.over?.() || []) : host.low?.(p.g) ? (lo ||= host.over?.('low') || []) : (hi ||= host.over?.('high') || []))) cross.add(p.g);
         boxes.set(p.g, (boxes.get(p.g) || '') + `${p.r.left},${p.r.top},${p.r.width},${p.r.height};`);
       }
       const out = new Set();
@@ -587,8 +633,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       for (const g of heldOut.keys()) if (!boxes.has(g) || !g.isConnected) { heldOut.delete(g); whyEl.delete(g); }
       if (waiting && !heldWake) heldWake = setTimeout(() => { heldWake = 0; ask(); }, 120);
       panes = panes.filter((p) => !out.has(p.g));
-    } else if (!panes.every(inside)) { whyAll = 'a glass reaches past the figure\'s canvas'; dropHost(true); return undefined; }
-    else if (crosses(panes, host.over?.())) { whyAll = 'a glass crosses a label, a leader or a card'; dropHost(true); return undefined; }
+    }
     if (!hk && !(hk = hostKit())) { whyAll = 'the figure\'s context cannot take the glass\'s programs'; dropHost(true); host = null; return undefined; }
     const ws = getComputedStyle(wrap), bgs = ws.backgroundColor, bg = colour(bgs, 'transparent');
     const bgVar = bg[3] > 0 ? '' : ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim();
@@ -604,6 +649,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     }
     if (hf && hf.key === key) return panes.length ? 'same' : false;
     hf = { panes, cr, base: bg[3] > 0 ? bg : colour(bgVar, 'transparent'), key };
+    tellHoles(panes);
     host.now();
     return panes.length ? true : false;
   }
@@ -795,7 +841,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     G.activeTexture(G.TEXTURE1); G.bindTexture(G.TEXTURE_2D, null); G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, null);
     G.pixelStorei(G.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
   }
-  const onHostLost = () => { hk = null; if (hostOn) { hostOn = false; hf = null; unmark(); if (canvas) canvas.style.visibility = ''; ask(); } };
+  const onHostLost = () => { hk = null; if (hostOn) { hostOn = false; hf = null; unmark(); tellHoles([]); if (canvas) canvas.style.visibility = ''; ask(); } };
   // Callout glass kept (keep()): what draw() reads from the page each frame, read only when keptStale says it may have changed. The
   // reads and the picture are draw()'s own; only when they are taken differs. (A list of glasses that is not the one measured, a new
   // screen density, a callout's transition or event in the last 0.8 s, an animation in the layers when last measured (a CSS transition
@@ -960,6 +1006,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       for (const off of hostTops) off();
       hostTops = [];
       unmark();
+      tellHoles([]);
       if (hostOn) { hostOn = false; hf = null; host?.now(); }
       hostFree();
       if (gl && !lost) {

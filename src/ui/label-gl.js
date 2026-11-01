@@ -78,7 +78,8 @@ void main() {
 const MFS = `#version 300 es
 precision highp float;
 uniform vec2 uView;
-uniform int uKind;          // 0: a line (butt ends), 1: a circle, 2: a line with round ends, 3: a triangle filled with a linear gradient
+uniform int uKind;          // 0: a line (butt ends), 1: a circle, 2: a line with round ends, 3: a triangle filled with a linear gradient,
+                            // 4: an arc, 5: a turned rounded rectangle, 6: a box with its own radius at each corner
 uniform vec2 uT0, uT1, uT2; // the triangle (device px)
 uniform vec4 uG;            // the gradient's start and end (device px)
 uniform vec4 uS0, uS1, uS2; // its three stops, premultiplied
@@ -110,6 +111,17 @@ void main() {
     q = vec2(dot(q, c), dot(q, vec2(-c.y, c.x)));
     vec2 b = abs(q) - uGeo.zw + uW;
     float dist = length(max(b, 0.0)) + min(max(b.x, b.y), 0.0) - uW;
+    o = uFill * clamp(0.5 - dist, 0.0, 1.0) * uA;
+    return;
+  }
+  if (uKind == 6) {
+    // A box with a radius of its own at each corner (uR4: top left, top right, bottom right, bottom left), from its top left uGeo.xy, its
+    // size uGeo.zw (device px): a frosted glass's shape, which the labels leave out (setHoles).
+    vec2 c = p - uGeo.xy - uGeo.zw * 0.5;
+    float r = c.x < 0.0 ? (c.y < 0.0 ? uR4.x : uR4.w) : (c.y < 0.0 ? uR4.y : uR4.z);
+    r = min(r, min(uGeo.z, uGeo.w) * 0.5);
+    vec2 q = abs(c) - uGeo.zw * 0.5 + r;
+    float dist = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
     o = uFill * clamp(0.5 - dist, 0.0, 1.0) * uA;
     return;
   }
@@ -581,6 +593,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     dirty.clear();
     moving = drawScan(now) || moving;   // (the FibroScan probe over the labels, as its layer lay)
+    if (!host && holes.length) cutHoles();
     // (In the host's context: its state as its own passes expect to find it.)
     if (host) {
       gl.disable(gl.BLEND); gl.bindVertexArray(null); gl.useProgram(null); gl.bindBuffer(gl.ARRAY_BUFFER, null);
@@ -594,6 +607,73 @@ void main() { o = texture(uT, vUV) * uA; }`;
     // nothing over the figure on every frame the blood moves. It shows again in the task that draws the first thing back. app.css [data-blank].)
     if (!host) { const empty = boxes.length === 0; if (empty !== blank) { blank = empty; canvas.toggleAttribute('data-blank', empty); } }
     if (moving) ask();
+  }
+  // ── Holes (1 Nov 2026): the frosted glasses drawn in the figure's canvas, under this one (glass-gl.js onHoles) ──
+  // The labels, marks and probes are left out under each, by its fade: what the browser's blur would show of them there is a faint smear.
+  // A rounded box is cut as a shape (uKind 6); a callout's outline (its pointer included) from a mask drawn once from its path.
+  let holes = [], holesKey = '';
+  const holeMasks = new WeakMap();
+  function holeMask(h) {
+    const key = `${h.d}|${h.lw}|${h.lh}|${dpr}`;
+    let m = holeMasks.get(h.el);
+    if (m?.key === key) return m;
+    const cv = document.createElement('canvas'), mw = Math.max(1, Math.ceil(h.lw * dpr)), mh = Math.max(1, Math.ceil(h.lh * dpr));
+    cv.width = mw; cv.height = mh;
+    const c = cv.getContext('2d');
+    c.setTransform(dpr, 0, 0, dpr, 0, 0); c.fillStyle = 'black'; c.fill(new Path2D(h.d));
+    if (!m) {
+      m = { tex: gl.createTexture() };
+      gl.bindTexture(gl.TEXTURE_2D, m.tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+    gl.bindTexture(gl.TEXTURE_2D, m.tex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+    // (The share of the mask the path fills: its canvas is rounded up to whole pixels.)
+    Object.assign(m, { key, sw: h.lw * dpr / mw, sh: h.lh * dpr / mh });
+    holeMasks.set(h.el, m);
+    return m;
+  }
+  function cutHoles() {
+    const cr = canvas.getBoundingClientRect();
+    // (Each hole takes away what lies under it: the destination kept by one less the hole's cover.)
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
+    for (const h of holes) {
+      if (!(h.a > 0.001) || !(h.w > 0) || !(h.h > 0)) continue;
+      const x = (h.x - cr.left) * dpr, y = (h.y - cr.top) * dpr, w = h.w * dpr, hh = h.h * dpr;
+      if (x > W || y > H || x + w < 0 || y + hh < 0) continue;
+      if (h.d) {
+        const m = holeMask(h);
+        gl.useProgram(rprog); gl.bindVertexArray(vao);
+        gl.uniform2f(RU.uView, W, H); gl.uniform2f(RU.uP, x, y); gl.uniform2f(RU.uS, w / m.sw, hh / m.sh); gl.uniform2f(RU.uO, 0, 0);
+        gl.uniform1f(RU.uAng, 0); gl.uniform1i(RU.uT, 0); gl.uniform1f(RU.uA, h.a);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, m.tex);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      } else {
+        gl.useProgram(mprog); gl.bindVertexArray(vao);
+        gl.uniform2f(MU.uView, W, H);
+        gl.uniform4f(MU.uBox, x - 1, y - 1, x + w + 1, y + hh + 1);
+        gl.uniform1i(MU.uKind, 6);
+        gl.uniform4f(MU.uGeo, x, y, w, hh);
+        gl.uniform4f(MU.uR4, ...h.rad.map((r) => r * dpr));
+        gl.uniform4f(MU.uFill, 1, 1, 1, 1);
+        gl.uniform1f(MU.uA, h.a);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+    }
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  }
+  /** The glasses drawn in the figure's canvas now (client px boxes, their fades, their shapes): the labels leave them out, drawn again at
+   *  once when they changed, so the labels and the glass change in the same frame. */
+  function setHoles(list) {
+    if (host || lost) return;
+    let key = '';
+    for (const h of list) key += `|${h.x},${h.y},${h.w},${h.h},${h.a},${h.d || h.rad},${h.lw},${h.lh}`;
+    if (key === holesKey) return;
+    holesKey = key; holes = list;
+    if (raf) { cancelFrame(raf); raf = 0; }
+    draw();
   }
   // A mark's look, read again while it may be changing.
   const lookOf = (el, now) => {
@@ -941,6 +1021,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
     setScan,
     /** Draws now (a mark the stage just moved, outside a label layout: the probe's ease). */
     redraw() { if (lost) return; if (host) { ask(); return; } if (raf) { cancelFrame(raf); raf = 0; } draw(); },
+    setHoles,
+    /** Whether the labels leave the figure's glasses out (setHoles): their own canvas, drawn by the GPU. */
+    get holes() { return !host && !lost; },
     /** Host mode: draws the labels into the host's canvas now (veins-gl top, at the end of each present). */
     drawInto() { if (host) draw(); },
     /** Host mode: something that decides whether the labels may be drawn over the figure changed (see check). */

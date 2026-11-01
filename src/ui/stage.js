@@ -44,8 +44,8 @@ import { cropToGrid } from './organs-gl.js?v=e536a90598';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=e08cf3a692';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
-import { createLabelGL } from './label-gl.js?v=1eecde9495';
-import { createGlassGL } from './glass-gl.js?v=48e1b2e195';
+import { createLabelGL } from './label-gl.js?v=7171f52e6f';
+import { createGlassGL } from './glass-gl.js?v=544edc333d';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=fec8575f25';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
@@ -2483,7 +2483,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=4054df20c9').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=0dbb91f086').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -6634,8 +6634,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.append(el);
     return { el, list: null, fp: null, made: new Map(), dy: null, dyG: null };
   })();
+  // (The glasses drawn in the figure's canvas, each as the labels are to leave it out (glass-gl.js onHoles, label-gl.js setHoles): every
+  // glass's list, told to the labels as one whenever one changes. The labels' renderer is made further down (labelHoles).)
+  const holeSets = new Map();
+  let labelHoles = null;
+  const sendHoles = () => labelHoles?.setHoles([].concat(...holeSets.values()));
+  const frostHoles = (key) => (list) => { if (list.length) holeSets.set(key, list); else holeSets.delete(key); sendHoles(); };
   // The callouts' frosted glass, drawn on the GPU under both callout layers while it can be (glass-gl.js); else the browser's.
-  const glassGL = veins ? createGlassGL(wrap, vCanvas, [cath.labels, sites.el], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: () => veins.bloodSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), copy: GLASS_COPY }) : null;
+  const glassGL = veins ? createGlassGL(wrap, vCanvas, [cath.labels, sites.el], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: () => veins.bloodSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), copy: GLASS_COPY, onHoles: frostHoles('callouts') }) : null;
   wrap.dataset.glass = glassGL ? 'gpu' : 'css';
   // The Present cards' glass (recs A2, 31 Oct): the same renderer, one per presenter run (cardGlass, below), drawing each card's blur
   // and tint from the figure's canvas while the anatomy shows (not the lobule, nor a dive), so the browser re-blurs none of them as the
@@ -6647,12 +6653,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const cardGlass = (cards) => {
     if (!veins?.top || GLASS_COPY || CARD_FROST_OFF) return null;
     const shade = cards.low;
-    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), cards, live: () => wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0), version: () => veins.drawSeq, fresh: () => veins.bloodSeq, onFigure: (f) => veins.onPicture(f), copy: false });
+    const key = {};
+    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), cards, live: () => wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0), version: () => veins.drawSeq, fresh: () => veins.bloodSeq, onFigure: (f) => veins.onPicture(f), copy: false, onHoles: frostHoles(key) });
     if (!g) return null;
     hostFrost(g, { order: { low: 1, high: 3 }, over: (level) => frostOver(level === 'low' ? 'low' : 'cards'), low: (el) => el === shade });
     cardGLs.add(g);
     const dispose = g.dispose;
-    g.dispose = () => { cardGLs.delete(g); frostHosts.delete(g); dispose(); };
+    g.dispose = () => { cardGLs.delete(g); frostHosts.delete(g); dispose(); if (holeSets.delete(key)) sendHoles(); };
     return g;
   };
   // A slide's numbers (its fingerprint, or a what-if's or time-lapse's since): the tiles show them, and a callout or figure
@@ -8387,6 +8394,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const frostWake = () => { glassGL?.redraw(); paneGL?.redraw(); for (const g of cardGLs) g.redraw(); };
   const labelGL = createLabelGL(labelSvg, gLabels, { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), marks: [gLeaders, gScan], onBoxes: frostWake });
   wrap.dataset.labels = labelGL ? 'gpu' : 'svg';
+  labelHoles = labelGL?.setHoles ? labelGL : null;
+  sendHoles();
   // The frosted glasses drawn inside the figure's canvas (round 2, 2.1, 31 Oct): each glass's blur is taken from the picture the vessel
   // renderer has just laid in its own context (veins-gl top), so nothing is copied off the GPU, and the glass's own canvas (the
   // callouts', the liver pane's) or the browser's blur (the Present cards') is not needed. Drawn in the page's order: the pane (under the
@@ -8416,10 +8425,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const blurWhy = (el) => { for (const g of [glassGL, paneGL, ...cardGLs]) { const w = g?.why?.(el); if (w != null) return w; } return null; };
   // (Each glass and what it was set with: set again on a new renderer, after a lost context is restored.)
   const frostHosts = new Map();
-  // (Off unless ?glasshost=1 since 1 Nov 2026: on an iPhone the glass drawn in the figure's canvas flickered, the callouts' (FHVP on
-  // HVPG 3, IVC on HVPG 7) and the bottom sheet's cards' (worst while it untucks), as a glass went between the figure's canvas and the
-  // browser's blur and back. The browser's blur shows instead, as before 31 Oct; ?glasscopy=1 still gives the callouts their own canvas.)
-  const FROST_HOST = /[?&]glasshost=1\b/.test(location.search);
+  // (On by default again since 1 Nov 2026 (Mohammad: "Move to GPU"), ?glasshost=0 shows the browser's blur instead. It had been off since
+  // 759be3e1: on an iPhone the glass flickered as it went between the figure's canvas and the browser's blur and back, at the screen's
+  // edge as the sheet untucked and wherever a label crossed it. Now a glass is clipped by the screen, never sent back at its edge; the
+  // labels leave every glass drawn here out (sendHoles), so they never send one back; and what still does (an overlay the GPU does not
+  // paint, a callout under a card) changes it only after it has rested 400 ms, never while anything moves (glass-gl.js hostDraw).)
+  const FROST_HOST = !/[?&]glasshost=0\b/.test(location.search);
   function hostFrost(g, o) { if (!FROST_HOST || !g || !veins?.top) return; frostHosts.set(g, o); g.setHost(frostHost(o)); }
   // (What the page lays between the figure's canvas and a glass, as client boxes. 'pane': the overlays the GPU does not paint (#stageOver's
   // SVG). 'low' (the teaching card's shade, z-index 1, over the whole stage view): those, the liver pane when the browser blurs it, the
@@ -8441,8 +8452,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lc = labelGL && !labelGL.lost ? labelGL.canvas : labelSvg;
     if (visible(lc) && visible(labelSvg)) {
       if (labelGL && !labelGL.lost) {
-        const r = lc.getBoundingClientRect();
-        for (const b of labelGL.boxes) out.push({ left: r.left + b[0] - 1, top: r.top + b[1] - 1, right: r.left + b[2] + 1, bottom: r.top + b[3] + 1 });
+        // (The labels the GPU draws leave every glass drawn in the figure's canvas out (setHoles): they never send a glass back to the
+        // browser's blur. Only those the SVG still draws itself lie over it.)
+        if (!labelGL.holes) {
+          const r = lc.getBoundingClientRect();
+          for (const b of labelGL.boxes) out.push({ left: r.left + b[0] - 1, top: r.top + b[1] - 1, right: r.left + b[2] + 1, bottom: r.top + b[3] + 1 });
+        }
         for (const el of labelGL.svgLeft()) out.push(el.getBoundingClientRect());
       } else for (const el of labelSvg.querySelectorAll('.lb, .leader, .leader-dot')) out.push(el.getBoundingClientRect());
     }

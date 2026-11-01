@@ -3,7 +3,7 @@
 // what lies outside the instrument card shows (its CSS mask). Read here as the card glass draws them (glass-gl cards.read): the
 // readings' card first, as that same shape (its rounded box with the instrument card's cut out, a mask path), then the instrument's
 // card over it, each with its own corners, tint and fade.
-import { rgbaOf } from './lz-pills.js?v=9c2fefe6b4';
+import { rgbaOf } from './lz-pills.js?v=bafcf3977d';
 
 const NUM = (v) => parseFloat(v) || 0;
 const radii = (s, w, h) => [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomRightRadius, s.borderBottomLeftRadius].map((v) => Math.max(0, Math.min(NUM(v), w / 2, h / 2)));
@@ -22,6 +22,11 @@ function boxOf(b, es, ps) {
   return right > left && bottom > top ? { left, top, right, bottom, width: right - left, height: bottom - top } : null;
 }
 
+// A pane's tint: --gl-tint, the colour its CSS paints it (app.css), never its computed background. A sheet whose glass the GPU draws has no
+// background of its own ([data-gl]), so read from there the next frame found no tint, gave the sheet back to the browser's blur, found its
+// tint again and drew it on the GPU: the sheet's glass went between the two on every frame (1 Nov 2026).
+const tintOf = (ps) => rgbaOf(ps.getPropertyValue?.('--gl-tint')?.trim() || ps.backgroundColor);
+
 /** The split sheet's two panes as glass-gl cards.read takes them ([readings' card, instrument's card], either left out while it does
  *  not show), or undefined for any other card (its own glass, read as usual). */
 export function sheetPanes(el, gcs = getComputedStyle) {
@@ -37,8 +42,8 @@ export function sheetPanes(el, gcs = getComputedStyle) {
     const rad = radii(as, back.width, back.height);
     // (Its own box, the instrument card's cut out of it the other way round, in its own coordinates.)
     const d = boxPath(0, 0, back.width, back.height, rad) + (front ? boxPath(front.left - back.left, front.top - back.top, front.width, front.height, fr, true) : '');
-    out.push({ r: back, d, a: Math.min(1, NUM(as.opacity)), tint: rgbaOf(as.backgroundColor) });
+    out.push({ r: back, d, a: Math.min(1, NUM(as.opacity)), tint: tintOf(as) });
   }
-  if (front) out.push({ r: front, rad: fr, a: Math.min(1, NUM(bs.opacity)), tint: rgbaOf(bs.backgroundColor) });
+  if (front) out.push({ r: front, rad: fr, a: Math.min(1, NUM(bs.opacity)), tint: tintOf(bs) });
   return out;
 }

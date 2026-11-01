@@ -82,7 +82,9 @@ test('the lobule pills are named as the browser\'s blur on purpose, the toast an
 
 test('the glasses give their reasons where they decide, and the stage the canvas\'s own', () => {
   const g = read('../src/ui/glass-gl.js'), st = read('../src/ui/stage.js'), pr = read('../src/ui/perf-readout.js');
-  for (const why of ['reaches past the figure', 'crosses a label, a leader or a callout', 'a glass crosses a label, a leader or a card']) assert.ok(g.includes(why), why);
+  for (const why of ['reaches past the figure', 'crosses a label, a leader or a callout']) assert.ok(g.includes(why), why);
+  // (Since 1 Nov 2026 every glass decides alone, the callouts' and the pane's too: none sends all of them back at once.)
+  assert.ok(!g.includes('a glass crosses a label, a leader or a card'));
   assert.match(g, /why\(el\) \{/);
   // The canvas's reasons are the old test, in the old order, in words.
   assert.match(st, /const frostOn = \(\) => !frostWhy\(\);/);

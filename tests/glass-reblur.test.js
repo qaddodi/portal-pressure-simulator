@@ -153,7 +153,7 @@ test('let go: the waiting blur is cancelled', async () => {
 test('the hold is off by default: only ?reblur=1 or the reblur option holds a blur', async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
-  assert.match(src, /reblur = REBLUR_URL \? REBLUR_MS : 0, fresh = null, full = FULL_URL \} = \{\}\)/);
+  assert.match(src, /reblur = REBLUR_URL \? REBLUR_MS : 0, fresh = null, full = FULL_URL, onHoles = null \} = \{\}\)/);
   assert.match(src, /if \(HOLD_URL \|\| reblur > 0\) fresh = null;/, 'the hold, when asked for, is the old one: the blood\'s frames keep the blur');
   assert.match(src, /REBLUR_URL = typeof location !== 'undefined' && \/\[\?&\]reblur=1\\b\//);
   assert.match(src, /if \(reblur > 0 && view !== null/);
