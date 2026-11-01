@@ -3,7 +3,7 @@
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
 import { store, updateParams } from './store.js?v=80d4358be8';
-import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore } from './util.js?v=91fdb22a78';
+import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore } from './util.js?v=95cecc6a0a';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=e71da00102';
 import { HIDDEN_EDGES } from './anatomy.js?v=6d1acc2a06';

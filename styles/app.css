@@ -846,11 +846,18 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 
 /* ── Popovers, menus, modals, toasts ────────────── */
 .tooltip {
-  position: fixed; z-index: var(--z-toast); pointer-events: none; background: var(--text); color: var(--stage-bg); padding: 8px 8px; border-radius: var(--r-control);
-  font-size: var(--fs-12); font-weight: 500; max-width: 280px; line-height: 1.45; box-shadow: var(--shadow-2); opacity: 0; transition: opacity var(--d-flip) var(--ease);
+  position: fixed; z-index: var(--z-toast); pointer-events: none; background: var(--text); color: var(--stage-bg); padding: 6px 10px 7px; border-radius: var(--r-control);
+  font-size: var(--fs-12); font-weight: 500; max-width: min(300px, calc(100vw - 16px)); line-height: 1.45; letter-spacing: .005em; box-shadow: var(--shadow-2);
+  /* It eases in a few pixels from its button's side (--tip-x/-y) and leaves at once in place, so a pointer moving along a row never trails tips. */
+  --tip-x: -4px; --tip-y: 0px; opacity: 0; transform: translate(var(--tip-x), var(--tip-y)) scale(.98);
+  transition: opacity var(--d-flip) var(--ease-in), transform 0s linear var(--d-flip);
 }
-.tooltip.show { opacity: 1; }
-.tooltip kbd { font: 500 var(--fs-12) var(--font-mono); opacity: .7; margin-left: 8px; }
+.tooltip[data-side="left"] { --tip-x: 4px; }
+.tooltip[data-side="bottom"] { --tip-x: 0px; --tip-y: -4px; }
+.tooltip[data-side="top"] { --tip-x: 0px; --tip-y: 4px; }
+.tooltip.show { opacity: 1; transform: none; transition: opacity var(--d-flip) var(--ease-arrive), transform var(--d-small) var(--ease-arrive); }
+@media (prefers-reduced-motion: reduce) { .tooltip, .tooltip.show { transform: none; } }
+.tooltip kbd { font: 500 var(--fs-12) var(--font-mono); opacity: .72; margin-left: 8px; padding: 0 5px; border-radius: 4px; box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 32%, transparent); }
 .menu {
   position: fixed; z-index: var(--z-popover); min-width: 180px; max-width: calc(100vw - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)); padding: 8px; border-radius: var(--r-sheet); background: var(--surface); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline);
   display: flex; flex-direction: column; gap: 1px; animation: scale-settle var(--d-flip) var(--ease);

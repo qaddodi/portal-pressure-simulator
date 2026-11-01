@@ -215,13 +215,19 @@ export function tooltipFor(el, text, side = 'right') {
     tip.replaceChildren(typeof v === 'object' ? [v.text, v.key ? h('kbd', {}, v.key) : null] : v);
     tip.classList.add('show');
     const tr = tip.getBoundingClientRect();
-    let x, y;
-    if (side === 'bottom') { x = r.left + r.width / 2 - tr.width / 2; y = r.bottom + 8; }
-    else if (side === 'top') { x = r.left + r.width / 2 - tr.width / 2; y = r.top - tr.height - 8; }
-    else {
+    // A side that would run off the window takes the opposite one (a top-bar button's tip had sat on its own button when
+    // 'top' ran off; a timeline tip clipped at a short window's foot), and the tip rises from the side it came from.
+    let x, y, at = side;
+    if (side === 'bottom' || side === 'top') {
+      x = r.left + r.width / 2 - tr.width / 2;
+      if (at === 'top' && r.top - tr.height - 8 < 8) at = 'bottom';
+      else if (at === 'bottom' && r.bottom + 8 + tr.height > innerHeight - 8 && r.top - tr.height - 8 >= 8) at = 'top';
+      y = at === 'top' ? r.top - tr.height - 8 : r.bottom + 8;
+    } else {
       x = r.right + 10; y = r.top + r.height / 2 - tr.height / 2;
-      if (x + tr.width > innerWidth - 8) x = r.left - tr.width - 10;
+      if (x + tr.width > innerWidth - 8) { x = r.left - tr.width - 10; at = 'left'; }
     }
+    tip.dataset.side = at;
     tip.style.left = clamp(x, 8, innerWidth - tr.width - 8) + 'px'; tip.style.top = clamp(y, 8, innerHeight - tr.height - 8) + 'px';
   };
   const hide = () => tip.classList.remove('show');
