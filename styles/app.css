@@ -2064,7 +2064,7 @@ button.finding { cursor: pointer; }
 .pz-cell .pz-kick { font-size: min(var(--s-cap), 8.4cqi); }
 .pz.stack .pz-cell .pz-kick { font-size: min(var(--s-lab), 8.4cqi); letter-spacing: .06em; white-space: nowrap; }
 .pz-cell-k { display: flex; align-items: baseline; gap: 0 .6em; flex-wrap: nowrap; }   /* (the site and the cause on one row, the cause stepping down to fit: presenter.js fitRow) */
-.pz-cell-k .pz-kick { flex: none; white-space: nowrap; font-size: min(var(--s-cap), 6.4cqi); }
+.pz-cell-k .pz-kick { flex: none; white-space: nowrap; font-size: max(min(var(--s-cap), 6.4cqi), calc(12.02px / var(--pz-fit, 1))); }   /* (never under 12 px on the screen: a short Mac window zooms the six ladders down by --pz-fit, and the site tag went to 9 px there) */
 .pz-cell-k .pz-cell-t { flex: none; white-space: nowrap; }
 .pz-cell-k.under { flex-wrap: wrap; }   /* (a cause too wide for the room beside its site even at 12 px goes under it, whole, rather than out of the card: presenter.js fitRow) */
 .pz.stack .pz-cell-k .pz-kick { font-size: min(var(--s-lab), 6.4cqi); letter-spacing: .05em; }
