@@ -75,3 +75,8 @@ test('a line name with no clear place sits on lines before it sits on a word', (
   const src = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
   assert.match(src, /k = \(cr > 0 \? 1e6 \+ cr : 0\) \+ 1e4 \* place\.lineCost\(b\)/);
 });
+
+test('a stent\'s velocity callout hides when its stent is out of the frame', () => {
+  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(src, /if \(!within\(\{ x0: ax, y0: ay, x1: ax, y1: ay \}, view\)\) continue;\n {10}const it = velItem\(sid, f\);/);
+});

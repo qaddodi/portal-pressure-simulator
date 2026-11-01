@@ -9790,6 +9790,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           let { ax, ay, mid, w: vw } = labelAnchor(sid, t);
           // (While the Doppler samples this stent, the callout points at the third its gate reads, where the stent glows.)
           if (dop.id === sid && dop.seg && geo[sid]?.cur?.length > 1) [ax, ay] = worldToLocal(...pointAt(geo[sid].cur, STENT_SITES[dop.seg]));
+          // (Its stent out of the frame, no callout: "TIPS 80 cm/s" stood alone at the stomach view's edge, Ten years 16, 31 Oct.)
+          if (!within({ x0: ax, y0: ay, x1: ax, y1: ay }, view)) continue;
           const it = velItem(sid, f);
           it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = 9; it.side = 'R';
           items.push(it);
