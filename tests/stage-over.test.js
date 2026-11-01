@@ -195,7 +195,7 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   assert.match(st, /vCanvas\.addEventListener\('webglcontextlost', \(\) => \{\n\s+wrap\.classList\.remove\('gl-on'\);\n\s+if \(OVER_GPU\) overClear\(\);/);
   assert.match(st, /function overClear\(\) \{\n\s+for \(const u of overPainted\) u\.classList\.remove\(OVER_CLASS\);\n\s+overPainted = \[\];\n\s+svgOver\?\.classList\.remove\(OVER_ALL\);/);
   assert.match(st, /const spec = readGroup\(u, \{ nest: true, strict: true \}\);/);
-  assert.match(st, /if \(easing\.some\(\(el\) => u\.contains\(el\)\)\) return null;/);
+  assert.match(st, /if \(easing\.some\(\(el\) => u\.contains\(el\)\)\) \{ why = \['easing', [^\n]*\]; return null; \}/);
   assert.match(st, /svgOver\.addEventListener\('transitionrun', ran\);\n\s+svgOver\.addEventListener\('transitionend', ended\);\n\s+svgOver\.addEventListener\('transitioncancel', ended\);/);
   assert.match(st, /watch\.observe\(svgOver, \{ subtree: true, childList: true, attributes: true, attributeOldValue: true, characterData: true \}\);/);
   // (Each painted group's frame as it is at each paint, under the overlays' own group where it is one of its children.)

@@ -19,7 +19,7 @@ export function overUnits(worldOver, gOver) {
 /**
  * The run the GPU paints: `read(unit)` gives a group's reading (organ-paint readGroup, strict), 'hidden' for a group that shows
  * nothing (it does not stop the run), or null for one that cannot be read. The units before the first null, the hidden ones left
- * out: [[unit, reading]], with `whole` true when no unit stopped it (everything the overlays show is painted).
+ * out: [[unit, reading]], with `whole` true when no unit stopped it (everything the overlays show is painted), and `stop` the unit that did.
  */
 export function overRun(units, read) {
   const out = [];
@@ -27,7 +27,7 @@ export function overRun(units, read) {
   for (const u of units) {
     const r = read(u);
     if (r === 'hidden') continue;
-    if (!r) { out.whole = false; break; }
+    if (!r) { out.whole = false; out.stop = u; break; }
     out.push([u, r]);
   }
   return out;

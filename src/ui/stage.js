@@ -13,7 +13,7 @@ import { fibroReading } from './clock.js?v=16aba0e2eb';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=f7055730cc';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
-import { easeMove, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
+import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
 import { markFade } from './mark-fade.js?v=603220fe29';
 import { lesionEase } from './lesion-ease.js?v=eb0e2e5c5c';
 import { bandsStep } from './band-ease.js?v=ef2d4ce809';
@@ -43,15 +43,15 @@ import { refine } from './refine.js?v=e6e17cc013';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=27eed66b9b';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
-import { cropToGrid } from './organs-gl.js?v=156a096f9a';
-import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=c3718bc30b';
-import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
-import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=f4b132f33c';
+import { cropToGrid } from './organs-gl.js?v=257548fa58';
+import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=6ebf626f89';
+import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
+import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=f7d920b7d0';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=9f34964670';
-import { nameSpots, NAME_BREAK } from './organ-names.js?v=957b60c682';
+import { nameSpots, NAME_BREAK } from './organ-names.js?v=df3c3152ad';
 import { createLabelGL } from './label-gl.js?v=45fd8fd644';
 import { createGlassGL } from './glass-gl.js?v=3b4d8a3b4a';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=61c753582c';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=0f00ad86eb';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -67,7 +67,7 @@ import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=49e37b0228';
-import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=569c2fbefa';
+import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=a427721422';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { layoutWatch } from './idle-keys.js?v=bb8f7eca29';
@@ -1046,6 +1046,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates.
   const flank = s('path', { class: 'flank', d: '' });
   gOver.before(abdWall);
+  // The abdominal wall's fade, eased here a frame at a time (its opacity attribute, which the overlays' GPU painter reads at each paint),
+  // not by a CSS transition: one the browser eases is invisible to the painter, so while it ran the wall and every overlay above it
+  // went back to the SVG (stage-over.js). Same length and curve as the transition it replaces. ?abdease=0: the CSS transition, as before.
+  const ABD_JS = !/[?&]abdease=0\b/.test(location.search);
+  if (ABD_JS) abdWall.classList.add('js-ease');
+  const abdE = { from: 0, to: 0, t0: 0, raf: 0 };
+  const abdStep = (now) => {
+    abdE.raf = 0;
+    const k = Math.min(1, (now - abdE.t0) / D_SURFACE), v = abdE.from + (abdE.to - abdE.from) * easeArrive(k);
+    putA(abdWall, 'opacity', k >= 1 ? abdE.to.toFixed(2) : v.toFixed(3));
+    if (k < 1) abdE.raf = drawFrame(abdStep);
+  };
+  function abdTo(v) {
+    if (!ABD_JS || reduceMotion.matches) { if (abdE.raf) cancelFrame(abdE.raf); abdE.raf = 0; abdE.to = +v; putA(abdWall, 'opacity', v); return; }
+    if (+v === abdE.to) return;
+    abdE.from = parseFloat(abdWall.getAttribute('opacity')) || 0; abdE.to = +v; abdE.t0 = performance.now();
+    if (!abdE.raf) abdE.raf = drawFrame(abdStep);
+  }
   const ascitesPath = s('path', { class: 'ascites-fill', d: '', fill: 'url(#fluid)' });
   const ascitesLine = s('path', { class: 'ascites-line', d: '' });
   gAscites.append(ascitesPath, ascitesLine);
@@ -2567,7 +2585,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=b1f6495da3').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=40c7244907').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -6503,7 +6521,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       gpuProbe.time(null, 'organs: caudate', () => caud.sync(pressureColor(qP(PA2[NI.IVCS] + 0.5)), caudK));
     }
     const c3 = recruitFrac('C3', f);
-    putA(abdWall, 'opacity', (clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
+    abdTo((clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
     // The umbilicus is a landmark only for the paraumbilical vein that runs to it: with that vein closed, it was a lone ring
     // in the empty abdomen beside the gut (sweep batches 02–04). It fades in as the vein opens, as the caput's veins do, in
     // quarter steps (the organs' raster is drawn again at each step: plateStateKey).
@@ -11369,7 +11387,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the painter does not read at each paint (needsReread), when the page's state around them changes (overKey), and while a CSS
   // transition runs in a group (overEasing: the browser eases it, so that group and those above stay in the SVG until it ends).
   // (OVER_ON is set just after SOFTWARE, near the top: the labels' host below the vessel canvas reads it while the stage is made.)
-  let overDirty = true, overKeyWas = '', overPainted = [], overFor = null;
+  let overDirty = true, overKeyWas = '', overPainted = [], overFor = null, overStop = null;
   let overNow = { units: 0, painted: 0, whole: false };   // (the last sync's overlay groups, for the ?perf surfaces list)
   // (How long an element's CSS transitions run, ms, read once a reading: a value the painter reads at each paint, eased by them.)
   let overTrans = new WeakMap();
@@ -11415,6 +11433,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     overNow = { units: worldOver ? overUnits(worldOver, gOver).length : 0, painted: 0, whole: false };
     overDirty = true;
   }
+  // (A unit or element named for the readout: its id, else its tag and classes.)
+  const overName = (el) => (el ? el.id ? `#${el.id}` : `${el.localName}${el.getAttribute('class') ? `.${el.getAttribute('class').trim().split(/\s+/).join('.')}` : ''}` : '?');
   function syncOver() {
     if (!OVER_ON) return;
     // (No picture to paint them in: the context lost, or the GPU not drawing the figure.)
@@ -11427,13 +11447,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!overDirty && key === overKeyWas) return;
     overDirty = false; overKeyWas = key; overTrans = new WeakMap();
     const easing = [...overEasing.keys()];
+    let why = null;
     const read = (u) => {
-      if (easing.some((el) => u.contains(el))) return null;
+      if (easing.some((el) => u.contains(el))) { why = ['easing', easing.find((el) => u.contains(el))]; return null; }
       const spec = readGroup(u, { nest: true, strict: true });
-      if (!spec) return null;
+      if (!spec) { why = readFail(); return null; }
       return spec.ops.length ? spec : 'hidden';
     };
     const run = overRun(overUnits(worldOver, gOver), read);
+    overStop = run.whole ? null : { unit: run.stop, why: why?.[0] || '?', el: why?.[1] || null };
     const groups = new Map(), names = [];
     run.forEach(([u, spec], i) => {
       const n = `o${i}`, up = u.parentNode === gOver ? gOver : null;
@@ -11447,7 +11469,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     overPainted = [...now2];
     svgOver.classList.toggle(OVER_ALL, run.whole);
     overNow = { units: worldOver ? overUnits(worldOver, gOver).length : 0, painted: run.length, whole: run.whole };   // (for the ?perf surfaces list)
-    if (gpuProbe.on) gpuProbe.gauge('overlays on the GPU', `${run.length} groups`);
+    if (gpuProbe.on) gpuProbe.gauge('overlays on the GPU', run.whole ? `all (${run.length} groups)` : `${run.length} groups, stopped at ${overName(overStop.unit)} (${overStop.why}${overStop.el && overStop.el !== overStop.unit ? ` in ${overName(overStop.el)}` : ''})`);
   }
   // The figure's pass is one owned request (animRaf): however many paths ask for it (its own loop, a wake), it is drawn once a frame.
   let animRaf = 0;
@@ -12433,6 +12455,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     markAmounts: () => markA.amounts(),
     /** The layer the GPU's picture lies under (lesions, stents, halos), when the GPU draws. */
     overLayer: () => (veins && wrap.classList.contains('gl-on') ? svgOver : null),
+    /** The overlays on the GPU now (for tests and the readout): on, whole (everything they show painted there), how many groups,
+     *  and where a run stopped (the unit, why, the element). */
+    overState: () => ({ on: OVER_ON && !!veins?.overlay && !veins.lost && wrap.classList.contains('gl-on'), whole: !!svgOver?.classList.contains(OVER_ALL), groups: overPainted.length, stop: overStop && { unit: overName(overStop.unit), why: overStop.why, el: overName(overStop.el) } }),
     /** A vessel's stream (for tests): flow, display speed, stream distance, stasis. */
     flowDir(id) {
       const k = EI[id], sm = streams[k];

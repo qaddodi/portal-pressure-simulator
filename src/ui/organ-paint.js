@@ -13,17 +13,64 @@
 // luminance). Anything else (a dash, a filter, a nested mask, a focal point) and the organ is not read: null, and the caller
 // keeps the organ's picture.
 
-import { flattenPath, flattenCmds, ellipsePoly, polyBox, polyMesh, prestartShapes } from './shape-gl.js?v=f4b132f33c';
+import { flattenPath, flattenCmds, ellipsePoly, polyBox, polyMesh, prestartShapes } from './shape-gl.js?v=f7d920b7d0';
 import { prestart, linkProgram } from './gl-compile.js?v=e48e05cdb3';
 import { strHash } from './liver-geo.js?v=977185f80a';
 
 const ID = [1, 0, 0, 1, 0, 0];
+// A dashed stroke (the stent guide, the stented veins' mesh) cut into its dashes on the CPU once per outline and tolerance, each dash a
+// stroke of its own with the stroke's caps, painted on the GPU like any other. ?gpudash=0 in the address refuses dashes, as before.
+const DASH = !(typeof location !== 'undefined' && /[?&]gpudash=0\b/.test(location.search));
+/** A computed dash pattern → { a: lengths (user units, even count), off }, or null (a percentage, or nothing to draw). */
+function readDash(cs) {
+  const parts = String(cs.strokeDasharray).split(/[\s,]+/).filter(Boolean);
+  if (parts.some((v) => v.endsWith('%'))) return null;
+  let a = parts.map((v) => parseFloat(v));
+  if (a.some((v) => !(v >= 0)) || !a.some((v) => v > 0)) return null;
+  if (a.length % 2) a = [...a, ...a];
+  if (a.reduce((t, v) => t + v, 0) <= 1e-6) return null;
+  return { a, off: parseFloat(cs.strokeDashoffset) || 0 };
+}
+/** Polylines cut into their dashes (SVG's rule: the pattern runs on along each subpath from its start, shifted by the offset). */
+export function dashPolys(polys, { a, off }) {
+  const P = a.reduce((t, v) => t + v, 0), out = [];
+  for (const { pts, closed } of polys) {
+    const n = pts.length / 2;
+    if (n < 2) continue;
+    const xs = [], ys = [];
+    for (let k = 0; k < n; k++) { xs.push(pts[2 * k]); ys.push(pts[2 * k + 1]); }
+    if (closed) { xs.push(pts[0]); ys.push(pts[1]); }
+    // (Where in the pattern the subpath starts: the offset taken into one period.)
+    let pos = ((off % P) + P) % P, i = 0;
+    while (pos >= a[i]) { pos -= a[i]; i = (i + 1) % a.length; }
+    let left = a[i] - pos, on = i % 2 === 0, cur = on ? [xs[0], ys[0]] : null;
+    for (let k = 1; k < xs.length; k++) {
+      let x0 = xs[k - 1], y0 = ys[k - 1], L = Math.hypot(xs[k] - x0, ys[k] - y0);
+      const x1 = xs[k], y1 = ys[k];
+      for (;;) {
+        if (left >= L) { left -= L; if (on) cur.push(x1, y1); break; }
+        const f = left / L, x = x0 + (x1 - x0) * f, y = y0 + (y1 - y0) * f;
+        if (on) { cur.push(x, y); if (cur.length >= 4) out.push({ pts: new Float32Array(cur), closed: false }); cur = null; }
+        L -= left; x0 = x; y0 = y;
+        i = (i + 1) % a.length; left = a[i]; on = i % 2 === 0;
+        if (on) cur = [x, y];
+      }
+    }
+    if (cur && cur.length >= 4) out.push({ pts: new Float32Array(cur), closed: false });
+  }
+  return out;
+}
+// An even-odd fill (the tamponade balloon's latex rim, a ring cut out of its outline) painted on the GPU by its parity; ?evenodd=0 in
+// the address refuses it, so its group and those above it stay in the SVG, as before.
+const EVENODD = !(typeof location !== 'undefined' && /[?&]evenodd=0\b/.test(location.search));
 
 // Shapes the app makes itself (the liver's outline and its nodules, stage.js morphLiver), handed over as numbers as they are made:
 // { d (the text written to the elements), cmds (shape-gl pathCmds' form), id }. A path whose `d` is still that text is cut from
 // the numbers, named by the id, so the painter neither hashes nor parses the liver's thousands of characters (the nodules' tens of
 // thousands) on any frame; any other `d` (written by anything else) is read from the text as before.
 const SRC = new WeakMap();
+// (A fixed shape's dashed meshes' names, by shape and pattern: objects, as a fixed shape's own name is the shape.)
+const DASHED = new WeakMap();
 let srcId = 0;
 /** A shape made by the app: its `d` and its commands, under a name of its own. */
 export const shapeSource = (d, cmds) => ({ d, cmds, id: ++srcId });
@@ -145,6 +192,10 @@ function readClip(doc, id, m) {
  * a group's opacity is carried to its shapes, and a mask inside is not read). (The organs drawn as pictures, organs-gl bake: the
  * gut's see-through shades, the stomach's and duodenum's fades, each a group of overlapping shapes.)
  */
+// (Why the last reading that came back null stopped: [reason, element], for the overlays' readout and tests.)
+let lastFail = null;
+/** Why the last readGroup that gave null stopped: [reason, element], or null. */
+export const readFail = () => lastFail;
 // `strict` (the figure's overlays, stage.js syncOver): visibility as the page computes it, and refused as well, so that such a group
 // stays in the SVG rather than painted otherwise than the browser paints it: a CSS animation, a marker, a vector effect other than a
 // non-scaling stroke (painted at its width in the page's px: the painter's cssPx), a paint order, crisp edges, or a stroke whose joins are not round on an outline with corners (the painter joins every stroke
@@ -152,6 +203,7 @@ function readClip(doc, id, m) {
 export function readGroup(root, { withMask = true, nest = false, strict = false } = {}) {
   const doc = root.ownerDocument, ops = [];
   let ok = true;
+  const no = (r, el) => { ok = false; lastFail = [r, el]; };
   // (Visibility as the picture's copy takes it, svg-inline.js inlineStyles: the element's own setting, else its parent's. The
   // computed one is hidden under the whole figure while the GPU draws it (.gl-plate); the liver's congestion, islands and gloss
   // are hidden with their own style in the imaging view, whatever their opacity.)
@@ -168,11 +220,11 @@ export function readGroup(root, { withMask = true, nest = false, strict = false 
     if (cs.display === 'none') return;
     if (strict) {
       vis = cs.visibility === 'collapse' ? 'hidden' : cs.visibility || 'visible';
-      if (strictRefused(el, cs, { cssTransforms: true })) { ok = false; return; }
+      { const r = strictRefused(el, cs, { cssTransforms: true }); if (r) { no(r, el); return; } }
       CSS_M.delete(el);
       if (cssTransformed(el, cs)) {
         const lm = cssLocal(el);
-        if (!lm) { ok = false; return; }
+        if (!lm) { no('css transform', el); return; }
         CSS_M.set(el, lm); cssAny = true;
       }
     } else {
@@ -181,19 +233,20 @@ export function readGroup(root, { withMask = true, nest = false, strict = false 
     }
     const o = parseFloat(cs.opacity);
     if (!(o > 0) && !ownO(el)) return;   // (at nothing by the page's styles: never shown; by its own setting: shown as it eases)
-    if ((cs.filter && cs.filter !== 'none') || (cs.mixBlendMode && cs.mixBlendMode !== 'normal')) { ok = false; return; }
+    if (cs.filter && cs.filter !== 'none') { no('filter', el); return; }
+    if (cs.mixBlendMode && cs.mixBlendMode !== 'normal') { no('blend mode', el); return; }
     const masked = el !== root && ((cs.mask && cs.mask !== 'none') || !!el.getAttribute('mask'));
     const own2 = nest && el !== root && el.localName === 'g' && (masked || o < 1);
-    if (masked && !own2) { ok = false; return; }
+    if (masked && !own2) { no('mask', el); return; }
     const me = el === root ? ID : mul(m, matOf(el)), a = el === root ? 1 : alpha * o;
     const ch = el === root ? chain : [...chain, el];
     CS_O.set(el, o);
     let cl = clip;
     const cid = el === root ? null : urlId(cs.clipPath && cs.clipPath !== 'none' ? cs.clipPath : el.getAttribute('clip-path'));
     if (cid) {
-      if (clip) { ok = false; return; }   // (two clips, one inside the other: not drawn here)
+      if (clip) { no('nested clip', el); return; }   // (two clips, one inside the other: not drawn here)
       cl = readClip(doc, cid, me);
-      if (!cl) { ok = false; return; }
+      if (!cl) { no('clip', el); return; }
       cl.chain = ch;
     }
     if (own2) {
@@ -204,9 +257,9 @@ export function readGroup(root, { withMask = true, nest = false, strict = false 
       let mk = null;
       if (masked) {
         const mel = doc.getElementById(urlId(cs.mask && cs.mask !== 'none' ? cs.mask : el.getAttribute('mask')));
-        if (!mel || mel.localName !== 'mask' || (mel.getAttribute('maskContentUnits') || 'userSpaceOnUse') !== 'userSpaceOnUse') { ok = false; return; }
+        if (!mel || mel.localName !== 'mask' || (mel.getAttribute('maskContentUnits') || 'userSpaceOnUse') !== 'userSpaceOnUse') { no('mask units', el); return; }
         mk = readGroup(mel);
-        if (!mk) { ok = false; return; }
+        if (!mk) { no(`mask content: ${lastFail?.[0]}`, el); return; }
       }
       if (sub.length) out.push({ kind: 'group', ops: sub, mask: mk, m: me, alpha: a, el, chain: ch, a0 });
       return;
@@ -214,23 +267,29 @@ export function readGroup(root, { withMask = true, nest = false, strict = false 
     if (el.localName === 'g' || el === root) { for (const k of el.children) walk(k, me, a, cl, vis, ch, out, a0); return; }
     if (/^(title|desc|metadata)$/.test(el.localName) || vis !== 'visible') return;
     const geom = readGeom(el);
-    if (!geom) { ok = false; return; }
+    if (!geom) { no(`element ${el.localName}`, el); return; }
     if (geom.d && !el.getAttribute('d')) return;
-    if (cs.strokeDasharray && cs.strokeDasharray !== 'none') { ok = false; return; }
-    if (strict && geom.d && cs.stroke && cs.stroke !== 'none' && (cs.strokeLinejoin || 'miter') !== 'round' && /[LlHhVvZz]/.test(el.getAttribute('d'))) { ok = false; return; }
-    if ((cs.fillRule || 'nonzero') !== 'nonzero') { ok = false; return; }
+    let dash = null;
+    if (cs.strokeDasharray && cs.strokeDasharray !== 'none') {
+      dash = DASH ? readDash(cs) : null;
+      if (!dash) { no('dash', el); return; }
+    }
+    if (strict && geom.d && cs.stroke && cs.stroke !== 'none' && (cs.strokeLinejoin || 'miter') !== 'round' && /[LlHhVvZz]/.test(el.getAttribute('d'))) { no('miter join', el); return; }
+    const eo = (cs.fillRule || 'nonzero') === 'evenodd';
+    if (eo && !EVENODD) { no('evenodd', el); return; }
     const fill = readPaintValue(doc, cs.fill), stroke = readPaintValue(doc, cs.stroke);
-    if (fill === false || stroke === false) { ok = false; return; }
+    if (fill === false || stroke === false) { no(`paint ${fill === false ? cs.fill : cs.stroke}`, el); return; }
     if (fill) {
       const fo = parseFloat(cs.fillOpacity) || 0;
       CS_FO.set(el, fo);
-      if (a * fo > 0 || ownFO(el) || ch.some(ownO)) out.push({ geom, m: me, kind: 'fill', paint: fill, alpha: a * fo, clip: cl, el, chain: ch, a0 });
+      if (a * fo > 0 || ownFO(el) || ch.some(ownO)) out.push({ geom, m: me, kind: 'fill', paint: fill, alpha: a * fo, clip: cl, el, chain: ch, a0, ...(eo ? { eo: true } : {}) });
     }
     if (stroke) {
       const so = parseFloat(cs.strokeOpacity) || 0, w = parseFloat(cs.strokeWidth) || 0;
       CS_SO.set(el, so);
       if ((a * so > 0 || ownSO(el) || ch.some(ownO)) && w > 0) {
         const op = { geom, m: me, kind: 'stroke', paint: stroke, alpha: a * so, w, cap: { butt: 0, round: 1, square: 2 }[cs.strokeLinecap] ?? 0, clip: cl, el, chain: ch, a0 };
+        if (dash) op.dash = dash;
         // (A non-scaling stroke (a slide's calipers): its width in the page's px, read only strictly.)
         if (strict && cs.vectorEffect === 'non-scaling-stroke') op.nss = true;
         out.push(op);
@@ -245,12 +304,12 @@ export function readGroup(root, { withMask = true, nest = false, strict = false 
   const mid = urlId(rcs.mask && rcs.mask !== 'none' ? rcs.mask : root.getAttribute('mask'));
   if (mid && withMask) {
     const mel = doc.getElementById(mid);
-    if (!mel || mel.localName !== 'mask' || (mel.getAttribute('maskContentUnits') || 'userSpaceOnUse') !== 'userSpaceOnUse') return null;
+    if (!mel || mel.localName !== 'mask' || (mel.getAttribute('maskContentUnits') || 'userSpaceOnUse') !== 'userSpaceOnUse') { lastFail = ['mask units', root]; return null; }
     mask = readGroup(mel);
     if (!mask) return null;
   } else if (mid) mask = undefined;
   const clipId = urlId(rcs.clipPath && rcs.clipPath !== 'none' ? rcs.clipPath : null);
-  if (clipId) return null;
+  if (clipId) { lastFail = ['clip on the group', root]; return null; }
   return { ops, opacity: parseFloat(rcs.opacity) || 0, mask, root };
 }
 
@@ -452,11 +511,15 @@ export function createOrganPaint(gl, shape) {
   }
   // (A path's name: its shape source's, else its text's hash.)
   const pathKey = (el) => { const s = srcOf(el); return s ? `n${s.id}` : dKey(el.getAttribute('d') || ''); };
-  function meshOf(geom, cap, tol) {
+  function meshOf(geom, cap, tol, dash = null) {
     const src = geom.d ? srcOf(geom.el) : null;
     const d = geom.d && !src ? geom.el.getAttribute('d') || '' : null;
-    const key = geom.d ? `${tol}|${cap}|${src ? `n${src.id}` : dKey(d)}` : geom;
-    const flat = () => (src ? flattenCmds(src.cmds, tol) : geom.d ? flattenPath(d, tol) : geom.poly);
+    // (A dashed stroke's mesh is its dashes: named by its pattern too. A fixed shape dashed is named by the pattern on the shape.)
+    const dk = dash ? `|${dash.a.join(',')}@${dash.off}` : '';
+    let key = geom.d ? `${tol}|${cap}|${src ? `n${src.id}` : dKey(d)}${dk}` : geom;
+    if (dash && !geom.d) { let m = DASHED.get(geom); if (!m) DASHED.set(geom, (m = new Map())); const k2 = `${cap}${dk}`; if (!m.has(k2)) m.set(k2, { k2 }); key = m.get(k2); }
+    const flat0 = () => (src ? flattenCmds(src.cmds, tol) : geom.d ? flattenPath(d, tol) : geom.poly);
+    const flat = dash ? () => dashPolys(flat0(), dash) : flat0;
     if (keeping) {
       let k = kept.get(key);
       if (!k) {
@@ -509,7 +572,7 @@ export function createOrganPaint(gl, shape) {
     }
     // (The tolerance in powers of two, a fifth of a pixel or finer: a pinch reuses the meshes until the zoom doubles.)
     const om = mul(m, lv.m), sc = scaleOf(om), tol = detailTol(sc);
-    const sh = meshOf(op.geom, op.kind === 'stroke' ? op.cap : 0, tol);
+    const sh = meshOf(op.geom, op.kind === 'stroke' ? op.cap : 0, tol, op.kind === 'stroke' ? op.dash || null : null);
     const grow = op.kind === 'stroke' ? (wOf(op, sc) / 2) * sc + 2 : 2;
     // (At no opacity it paints nothing: no box, so a change check sees it come and go.)
     let b = lv.alpha > 0 ? devBox(sh.box, om, grow) : null, cm = null, csh = null;
@@ -575,7 +638,7 @@ export function createOrganPaint(gl, shape) {
     gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
     gl.colorMask(true, true, true, true);
     gl.disable(gl.SCISSOR_TEST);
-    if (op.kind === 'fill') shape.fill(sh.mesh, om, sz, [true, false, false, false]);
+    if (op.kind === 'fill') shape.fill(sh.mesh, om, sz, [true, false, false, false], false, !!op.eo);
     else shape.stroke(sh.mesh, om, sz, [true, false, false, false], wOf(op, scaleOf(om)));
     if (newClip) { shape.fill(csh.mesh, cm, sz, [false, true, false, false]); job.ck = ck; }
     // Painted over the target within the op's box.
@@ -621,7 +684,7 @@ export function createOrganPaint(gl, shape) {
   }
   // What an op paints, as a string: what it is painted with (fixed while the spec lives: kept on the op) and where (its outline's
   // `d` and its frame, read now). Two frames with the same string paint the same pixels in the same box.
-  const paintKey = (op) => op.pk || (op.pk = JSON.stringify([op.kind, op.w, op.cap, op.paint]));
+  const paintKey = (op) => op.pk || (op.pk = JSON.stringify([op.kind, op.w, op.cap, op.paint, op.eo ? 1 : 0, op.dash || 0]));
   const opSig = (op, m) => { const lv = liveAt(op); return `${paintKey(op)}|${lv.alpha}|${lv.m.join(',')}|${lv.cm ? lv.cm.join(',') : ''}|${m.join(',')}|${op.geom.d ? pathKey(op.geom.el) : ''}|${op.clip ? (op.clip.geom.d ? pathKey(op.clip.geom.el) : '') : ''}${op.nss ? `|${cssPx}` : ''}`; };
   /**
    * The group under m described for a change check: its own string (opacity, whether masked) and, per op (the mask's after its

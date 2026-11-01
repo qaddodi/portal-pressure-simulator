@@ -397,8 +397,8 @@ export function createShapeGL(gl) {
       segs(mesh, m, size, ch, 0, hw, Math.max(hw, 0.5) + 1.5);
       gl.blendEquation(gl.FUNC_ADD); gl.disable(gl.BLEND); gl.colorMask(true, true, true, true); gl.bindVertexArray(null);
     },
-    /** A fill (non-zero winding) into channels ch, its edge smoothed unless `hard` (under a stroke that covers it). */
-    fill(mesh, m, size, ch, hard = false) {
+    /** A fill (non-zero winding, or even-odd with `evenodd`) into channels ch, its edge smoothed unless `hard` (under a stroke that covers it). */
+    fill(mesh, m, size, ch, hard = false, evenodd = false) {
       if (!mesh.nTri) return;
       gl.useProgram(posP.p);
       setWorld(posP.u, m);
@@ -407,18 +407,23 @@ export function createShapeGL(gl) {
       gl.enable(gl.STENCIL_TEST);
       gl.colorMask(false, false, false, false);
       gl.stencilFunc(gl.ALWAYS, 0, 0xff);
-      gl.stencilOpSeparate(gl.FRONT, gl.KEEP, gl.KEEP, gl.INCR_WRAP);
-      gl.stencilOpSeparate(gl.BACK, gl.KEEP, gl.KEEP, gl.DECR_WRAP);
+      // (Even-odd: each triangle over a pixel flips its count, and only the count's lowest bit is tested, its parity.)
+      const sm = evenodd ? 0x01 : 0xff;
+      if (evenodd) gl.stencilOp(gl.KEEP, gl.KEEP, gl.INVERT);
+      else {
+        gl.stencilOpSeparate(gl.FRONT, gl.KEEP, gl.KEEP, gl.INCR_WRAP);
+        gl.stencilOpSeparate(gl.BACK, gl.KEEP, gl.KEEP, gl.DECR_WRAP);
+      }
       gl.drawArrays(gl.TRIANGLES, 0, mesh.nTri);
       gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
-      gl.stencilFunc(gl.NOTEQUAL, 0, 0xff);
+      gl.stencilFunc(gl.NOTEQUAL, 0, sm);
       gl.enable(gl.BLEND); gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE);
       gl.colorMask(...ch);
       gl.drawArrays(gl.TRIANGLES, 0, mesh.nTri);
       if (!hard) {
         gl.blendEquation(gl.MIN);
         segs(mesh, m, size, ch, 1, 0, 1.5);
-        gl.stencilFunc(gl.EQUAL, 0, 0xff);
+        gl.stencilFunc(gl.EQUAL, 0, sm);
         gl.blendEquation(gl.MAX);
         segs(mesh, m, size, ch, 2, 0, 1.5);
       }
