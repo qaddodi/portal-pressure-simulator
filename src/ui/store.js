@@ -79,8 +79,13 @@ export function varicesPresent(f, site = 'VAR') {
   if (!m) return false;
   return (site === 'VAR' ? m.varix : m.gastricVarix).present;
 }
-/** How far the varices have grown (0 at the cut-off, 1 at about 5.5 mm), for drawing their feeding channels. */
-export const varixGrowth = (f, site = 'VAR') => (varicesPresent(f, site) ? Math.min(1, Math.max(0.2, ((site === 'VAR' ? f.metrics.varix : f.metrics.gastricVarix).d - 2.5) / 3)) : 0);
+/** How far the varices have grown (0 at the cut-off, 1 at about 5.5 mm), for drawing their feeding channels. `mean`: the diameter's
+ *  running mean (varix-look.js varixMean) in place of this frame's, which pulses with the beat; none yet, this frame's is used. */
+export const varixGrowth = (f, site = 'VAR', mean) => {
+  if (!varicesPresent(f, site)) return 0;
+  const d = Number.isFinite(mean) ? mean : (site === 'VAR' ? f.metrics.varix : f.metrics.gastricVarix).d;
+  return Math.min(1, Math.max(0.2, (d - 2.5) / 3));
+};
 
 /** Learner actions (probe, invert, endoscopy view, focus…), newest last, so a do-step can test a target and value. */
 export function logAction(type, target, value) {

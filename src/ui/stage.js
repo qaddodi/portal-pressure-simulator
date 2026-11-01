@@ -8,8 +8,8 @@ import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf,
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
-import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=99200f9d94';
-import { fibroReading } from './clock.js?v=7e05d69e85';
+import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=80d4358be8';
+import { fibroReading } from './clock.js?v=23735b9141';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=6951477fa8';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
@@ -48,7 +48,7 @@ import { createLabelGL } from './label-gl.js?v=a5c5f652bc';
 import { createGlassGL } from './glass-gl.js?v=61c2d51089';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=7e3233a591';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
-import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=6656962d05';
+import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=f008c82110';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
 import { follow2, createColourFollow } from './display-state.js?v=8d062d39dc';
 import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=d85ddf7c2c';
@@ -2477,7 +2477,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=fd9d7ad436').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=0fe92a2b89').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2713,9 +2713,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // veins → fundal varices) are drawn open whenever the varices exist (see varicesPresent), whatever their own
   // recruitment, so the figure and circuit show the same varices as the endoscopy pane.
   const VARIX_CHANNELS = { C1a: 'VAR', C1b: 'VAR', C2: 'GV' };
+  const varixHeld = { VAR: {}, GV: {} };   // each varix's diameter held in steps (varix-look.js)
+  // (The growth follows the diameter's mean, as the held size does: a varix of 3 to 5 mm pulses by 0.8 mm with the beat, which moved the
+  // channels' coil target past its 0.6 step again and again and kept the plexus easing, re-binned and re-sent, in every treated patient.)
   function shownFrac(id, f) {
     const site = VARIX_CHANNELS[id];
-    return site ? Math.max(recruitFrac(id, f), varixGrowth(f, site)) : recruitFrac(id, f);
+    return site ? Math.max(recruitFrac(id, f), varixGrowth(f, site, varixHeld[site].m)) : recruitFrac(id, f);
   }
   function recruitFrac(id, f) {
     const e = EDGES[EI[id]];
@@ -2882,7 +2885,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     prepIdle(run);
   }
   let catchUp = false, wAt = 0, widthEasing = false;
-  const varixHeld = { VAR: {}, GV: {} };   // each varix's diameter held in steps (varix-look.js)
   // (What the last full update was drawn from, and whether a coil or an organ was still easing then: see stepWidths.)
   let widthF = null, widthVer = -1, widthCTM = null, coilEasing = false, organsEasing = false, storeVer = 0;
   // A presenter's slide change holds the fit still while it runs: the words leaving or arriving change the space the camera
