@@ -1743,6 +1743,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // turn: the way of the slide move asked last; turnNow: the way the move under way
   // turns its words while the teaching card's glass stays up, '' when the card leaves and comes back whole (as every card did before).
   let turn = 'jump', turnNow = '', glassT = 0;
+  // (Off until it is right on his devices (Mohammad, 1 Nov: on Next the words slid half way and stuck, then the card popped out and back):
+  // ?cardturn=1 turns the page-turn and the finger follow on; without it every card leaves and comes back whole, as before.)
+  const CARD_TURN = /[?&]cardturn=1\b/.test(location.search);
   const lastBeat = (i) => beatCount(slides[i]) - 1;
   function go(i) {
     if (!deck || leaving) return;
@@ -2152,7 +2155,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function glassTurn(s, ask, ct) {
     if (!ui) return;
     const up = !ui.text.hidden && ui.shade.style.opacity !== '0' && (ui.shade.classList.contains('pz-turn') || !ui.shade.classList.contains('pz-leave'));
-    const on = up && !booting && !reduce.matches && !s.visual && !s.vignette && !ask && !ct && !s.cath && !s.monitor && !caseCard;
+    const on = CARD_TURN && up && !booting && !reduce.matches && !s.visual && !s.vignette && !ask && !ct && !s.cath && !s.monitor && !caseCard;
     turnNow = on ? turn : '';
     clearTimeout(glassT);
     setTurn(on);
@@ -4579,7 +4582,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const PULL_K = 0.25, PULL_MAX = 32, PULL_END_K = 0.1;
   let pull = null;
   const pullEls = () => (ui ? [...ui.text.children] : []);
-  const pullCan = () => !!ui && !busy && !caseCard && !zoomOn() && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
+  const pullCan = () => CARD_TURN && !!ui && !busy && !caseCard && !zoomOn() && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
   function pullTo(dx) {
     const end = dx > 0 && want === 0, k = end ? PULL_END_K : PULL_K, x = Math.max(-PULL_MAX, Math.min(PULL_MAX, dx * k));
     const o = end ? 1 : 1 - 0.6 * Math.min(1, Math.abs(x) / PULL_MAX);
