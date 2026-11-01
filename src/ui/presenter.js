@@ -732,7 +732,7 @@ function scaleKey(sc, rows) {
     h('div', { class: 'pzk-bar', 'aria-hidden': 'true' },
       zones.map((z) => h('i', { 'data-rate': z.c, style: span(z) })),
       sc.marks.map(([v]) => h('b', { style: `left:${P(v)}` })),
-      pins.map((r, i) => h('span', { class: 'pzk-dot', 'data-rate': rate(r), style: `--x:${P(r.f[sc.key])};--i:${i}` }, String(i + 1)))),
+      pins.map((r, i) => h('span', { class: 'pzk-dot', 'data-rate': rate(r), style: `--x:${P(r.f[sc.key])};--xq:${P(r.f[sc.key]).replace('%', 'cqw')};--i:${i}` }, String(i + 1)))),
     h('div', { class: 'pzk-axis', 'aria-hidden': 'true' }, [0, ...sc.marks.map(([v]) => v)].map((v) => h('span', { style: `left:${P(v)}` }, String(v))), h('span', { class: 'end' }, `${max}+ ${u}`)),
     // (rules: each zone's rule in words, under its stretch of the axis)
     sc.rules ? h('div', { class: 'pzk-rules', style: cols }, zones.map((z, i) => h('span', { 'data-rate': z.c }, sc.rules[i] || ''))) : null,
