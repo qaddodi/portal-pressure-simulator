@@ -12,7 +12,7 @@
 // tissue is drawn on the 2D canvas as before.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
-import { TILE_OVER } from './field-gl.js?v=862e2a9122';
+import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=5e76368a8d';
 import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=624ae21d7d';
 
 const VS = `#version 300 es
@@ -143,16 +143,19 @@ export function createTissueGL(canvas, opts = {}) {
   function texFor(cv, ver, tile) {
     let t = texs.get(cv);
     if (t && t.w === cv.width && t.h === cv.height && t.ver === ver) return t.tex;
+    // (A send that failed (field-gl.js sendCanvas): the 2D canvas draws, and the send is tried again only after a while.)
+    if (t?.bad && t.w === cv.width && t.h === cv.height && t.badVer === ver && performance.now() < t.retryAt) return null;
     if (!t) { t = { tex: gl.createTexture() }; texs.set(cv, t); }
     gl.activeTexture(gl.TEXTURE0 + SCRATCH);   // (a unit no draw uses, so sending a canvas never replaces a texture already bound for the frame)
     gl.bindTexture(gl.TEXTURE_2D, t.tex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !tile);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+    const sent = sendCanvas(gl, cv);
     const wrap = tile ? gl.REPEAT : gl.CLAMP_TO_EDGE;
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     gl.generateMipmap(gl.TEXTURE_2D);
-    Object.assign(t, { w: cv.width, h: cv.height, ver });
+    if (!sent) { Object.assign(t, { w: cv.width, h: cv.height, ver: NaN, bad: true, badVer: ver, retryAt: performance.now() + SEND_RETRY }); return null; }
+    Object.assign(t, { w: cv.width, h: cv.height, ver, bad: false });
     return t.tex;
   }
   // The lobule's shapes (lobule-live.js buildLive) as float textures, sent once per shape. NEAREST and texelFetch: no filtering.
@@ -326,11 +329,11 @@ export function createTissueGL(canvas, opts = {}) {
       const isLive = !!(live && live.share > 0 && liveP), U = isLive ? liveP.U : U0;
       gl.useProgram(isLive ? liveP.prog : prog);
       const bind = (unit, tex) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); };
-      bind(0, texFor(qa, 0, true)); bind(1, qb ? texFor(qb, 0, true) : texFor(qa, 0, true));
-      bind(2, qo && qOld > 0 ? texFor(qo, 0, true) : none);
-      bind(3, w?.width ? texFor(w, wVer, false) : none);
+      // (Every texture first: one the GPU could not take (null), and the 2D canvas draws this frame, never black hepatocytes.)
       const old = wo?.width && wMix < 1;
-      bind(4, old ? texFor(wo, woVer, false) : none);
+      const tx = [texFor(qa, 0, true), qb ? texFor(qb, 0, true) : texFor(qa, 0, true), qo && qOld > 0 ? texFor(qo, 0, true) : none, w?.width ? texFor(w, wVer, false) : none, old ? texFor(wo, woVer, false) : none];
+      if (tx.some((t) => !t)) return false;
+      tx.forEach((t, unit) => bind(unit, t));
       gl.uniform1f(U.uMix, qb ? mix : 0); gl.uniform1f(U.uQOld, qo ? qOld : 0);
       gl.uniform2f(U.uO, ox, oy); gl.uniform1f(U.uRd, rd); gl.uniform1f(U.uH, H);
       gl.uniform3f(U.uRect, rect[0], rect[1], Math.max(rect[2], 1e-6));

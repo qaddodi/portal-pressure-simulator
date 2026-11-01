@@ -218,6 +218,7 @@ function stubGL({ failLive = false, badFbo = false, shortBuffer = false } = {}) 
       if (k in t) return t[k];
       if (typeof k === 'symbol') return undefined;
       if (/^[A-Z0-9_]+$/.test(k)) return k;
+      if (k === 'getError') return () => 'NO_ERROR';   // (every send goes through, as on a GPU with room: field-gl.js sendCanvas)
       if (/^uniform/.test(k)) return (loc, ...a) => { calls.push(['set', current?.id, loc?.name, ...a]); };
       return () => {};
     },

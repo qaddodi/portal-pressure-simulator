@@ -28,3 +28,40 @@ test('a blank tile is not kept: it is drawn again, at most every TILE_RETRY ms',
   assert.match(lz, /if \(t\.quiet\?\.k === k && !tileDue\(t\.quiet\)\) return t\.quiet;/);
   assert.match(lz, /\|\| tileDue\(t\.liverQ\)\) \{/);
 });
+
+// Mohammad, 1 Nov (iPhone): once the lobule settled, the hepatocytes and the neighbours went black for a moment. A texture the GPU
+// could not take (no memory for the sharper bitmap) has no level 0 and reads opaque black. Now the level is made clear first, the canvas
+// laid into it, the GPU asked whether it went, and a draw with any texture that did not go returns false (the 2D canvas draws instead).
+test('a texture the GPU could not take is never drawn: the draw returns false, and the send is tried again only after a while', async () => {
+  const { sendCanvas } = await import('../src/ui/field-gl.js');
+  const { createTissueGL } = await import('../src/ui/tissue-gl.js');
+  let fail = false;
+  const calls = [];
+  const gl = new Proxy({}, { get(_, p) {
+    if (typeof p !== 'string') return undefined;
+    if (/^[A-Z0-9_]+$/.test(p)) return p;
+    if (p === 'getShaderParameter' || p === 'getProgramParameter') return () => true;
+    if (p === 'isContextLost') return () => false;
+    if (p === 'getExtension' || p === 'getParameter') return () => null;
+    if (p === 'getError') return () => (fail ? 'OUT_OF_MEMORY' : 'NO_ERROR');
+    return (...a) => { calls.push([p, ...a]); return {}; };
+  } });
+  // (The send: the level made clear at the canvas's size, then the canvas laid into it.)
+  const cv = { width: 16, height: 8 };
+  assert.equal(sendCanvas(gl, cv, true), true);
+  assert.deepEqual(calls.at(-2).slice(1), ['TEXTURE_2D', 0, 'RGBA8', 16, 8, 0, 'RGBA', 'UNSIGNED_BYTE', null]);
+  assert.deepEqual(calls.at(-1), ['texSubImage2D', 'TEXTURE_2D', 0, 0, 0, 'RGBA', 'UNSIGNED_BYTE', cv]);
+  assert.equal(sendCanvas(gl, cv, false), true, '?texsafe=0: one send, unchecked');
+  const g = createTissueGL({ width: 0, height: 0, getContext: () => gl, addEventListener() {} });
+  const q = { width: 4, height: 4 }, w = { width: 64, height: 64 };
+  const frame = (wVer) => ({ W: 100, H: 100, qa: q, qb: null, mix: 0, w, wVer, rect: [0, 0, 100], ox: 50, oy: 50, rd: 40, fade: [44, 128], mid: 0.5, bg: [1, 1, 1] });
+  assert.equal(g.draw(frame(1)), true);
+  fail = true;
+  assert.equal(g.draw(frame(2)), false, 'the new bitmap did not go: no black frame, the 2D canvas draws');
+  fail = false;
+  const n = calls.length;
+  assert.equal(g.draw(frame(2)), false, 'not sent again at once');
+  assert.equal(calls.slice(n).filter((c) => c[0] === 'texSubImage2D').length, 0);
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal(g.draw(frame(2)), true, 'sent again after a while, and drawn');
+});

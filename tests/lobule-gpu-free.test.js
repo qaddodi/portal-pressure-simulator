@@ -27,6 +27,8 @@ test('a sweep only deletes the textures of canvases given back (width 0) or not 
   const gl = readFileSync(new URL('../src/ui/tissue-gl.js', import.meta.url), 'utf8');
   assert.match(gl, /sweep\(keep = \(\) => true\) \{\n\s+for \(const \[cv, t\] of texs\) if \(!cv\.width \|\| !keep\(cv\)\) \{ if \(!lost\) gl\.deleteTexture\(t\.tex\); texs\.delete\(cv\); \}/);
   // (Every draw looks a texture up by a canvas with pixels, so one swept is never sampled: an empty canvas binds the 1 px clear one.)
-  assert.match(gl, /bind\(3, w\?\.width \? texFor\(w, wVer, false\) : none\);/);
+  assert.match(gl, /w\?\.width \? texFor\(w, wVer, false\) : none,/);
+  // (and a texture the GPU could not take (null) is never bound: the 2D canvas draws that frame)
+  assert.match(gl, /if \(tx\.some\(\(t\) => !t\)\) return false;\n\s+tx\.forEach\(\(t, unit\) => bind\(unit, t\)\);/);
   assert.match(gl, /const old = wo\?\.width && wMix < 1;/);
 });

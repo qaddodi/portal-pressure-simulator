@@ -231,8 +231,11 @@ test('on the GPU, a bitmap laid tile by tile is that canvas\'s texture once done
     if (p === 'getShaderParameter' || p === 'getProgramParameter') return () => true;
     if (p === 'isContextLost') return () => false;
     if (p === 'getExtension' || p === 'getParameter') return () => null;
+    if (p === 'getError') return () => 'NO_ERROR';
     return (...a) => { calls.push([p, ...a.map((x) => x?.tag ?? x)]); return { tag: `${p}#${++id}` }; };
   } });
+  // (A canvas is sent into a level made clear first, field-gl.js sendCanvas: the send is the texSubImage2D of the canvas.)
+  const isSend = (c, src) => (c[0] === 'texImage2D' || c[0] === 'texSubImage2D') && c.at(-1) !== null && c.at(-1) !== 'bmp' && (src === undefined || c.at(-1) === src);
   const g = createTissueGL({ width: 0, height: 0, getContext: () => gl, addEventListener() {} });
   const cv = { width: 1100, height: 1100, ver: 5 }, tile = { tag: 'bmp', width: 512, height: 512 };
   g.put(cv, 0, 0, tile);
@@ -247,7 +250,7 @@ test('on the GPU, a bitmap laid tile by tile is that canvas\'s texture once done
   // Drawn: the canvas's texture is bound as it is, not sent again (a texImage2D of the canvas would be the page's long upload).
   const n = calls.length, q = { width: 4, height: 4 };
   assert.equal(g.draw({ W: 100, H: 100, qa: q, qb: null, mix: 0, w: cv, wVer: 5, rect: [0, 0, 100], ox: 50, oy: 50, rd: 40, fade: [44, 128], mid: 0.5, bg: [1, 1, 1] }), true);
-  const sends = calls.slice(n).filter((c) => c[0] === 'texImage2D' && c.at(-1) !== null);   // (not the first draw's 1 px warm-up, gl-compile.js)
+  const sends = calls.slice(n).filter((c) => isSend(c) && typeof c.at(-1) === 'object');   // (not the first draw's 1 px warm-up, gl-compile.js)
   assert.equal(sends.length, 1, 'only the quiet tile, sent for the first time');
   assert.equal(sends[0].at(-1), q);
   // A texture begun but not done is not taken as the canvas's own: a draw would send the canvas whole.
@@ -255,5 +258,5 @@ test('on the GPU, a bitmap laid tile by tile is that canvas\'s texture once done
   g.begin(cv2);
   const m = calls.length;
   g.draw({ W: 100, H: 100, qa: q, qb: null, mix: 0, w: cv2, wVer: 9, rect: [0, 0, 100], ox: 50, oy: 50, rd: 40, fade: [44, 128], mid: 0.5, bg: [1, 1, 1] });
-  assert.equal(calls.slice(m).filter((c) => c[0] === 'texImage2D' && c.at(-1) === cv2).length, 1);
+  assert.equal(calls.slice(m).filter((c) => isSend(c, cv2)).length, 1);
 });

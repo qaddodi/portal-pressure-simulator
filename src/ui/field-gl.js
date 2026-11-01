@@ -25,6 +25,21 @@ void main() { gl_Position = vec4(p, 0.0, 1.0); }`;
 // tile shows the page's colour for the frame or two until it is drawn again (lobule-zoom.js tileBlank). ?tileover=0: the rgb alone, as before.)
 export const TILE_OVER = !(typeof location !== 'undefined' && /[?&]tileover=0\b/.test(location.search || ''));
 const R = (over, s) => (over ? `over(texture(${s}, uv, bias))` : `texture(${s}, uv, bias).rgb`);
+// A canvas sent to the bound texture, level 0. A canvas the browser had no memory for, or a send the GPU had no memory for, left the
+// texture without a picture, and a texture without its level reads opaque black: the lobule's hepatocytes and its neighbours went
+// black for a moment once it settled, as the sharper bitmap was sent (Mohammad, 1 Nov, iPhone). So the level is made first, clear, and
+// the canvas laid into it (an unsent canvas leaves it clear, never black), and the GPU is asked whether it all went: false if not, and
+// the caller draws that frame on the 2D canvas instead. ?texsafe=0: one send, unchecked, as before.
+export const TEX_SAFE = !(typeof location !== 'undefined' && /[?&]texsafe=0\b/.test(location.search || ''));
+export function sendCanvas(gl, cv, safe = TEX_SAFE) {
+  if (!safe) { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, cv); return true; }
+  for (let i = 0; i < 8 && gl.getError() !== gl.NO_ERROR; i++);   // (errors left by earlier calls are not this send's)
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, cv.width, cv.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+  return gl.getError() === gl.NO_ERROR;
+}
+// (A texture whose send failed is asked for again at most this often: each try is a whole canvas's worth of GPU memory.)
+export const SEND_RETRY = 250;
 export const fieldFS = (over = TILE_OVER) => `#version 300 es
 precision highp float;
 uniform sampler2D uA, uB, uQA, uQB;   // the liver-toned and the quieted tiles, at the two sizes blended
@@ -111,17 +126,18 @@ export function createFieldGL(canvas) {
   const texs = new Map();
   function texFor(cv) {
     let t = texs.get(cv);
-    if (t && t.w === cv.width && t.h === cv.height) return t.tex;
+    if (t && t.w === cv.width && t.h === cv.height && !t.bad) return t.tex;
+    if (t?.bad && t.w === cv.width && t.h === cv.height && performance.now() < t.retryAt) return null;   // (failed: the 2D canvas, a while)
     if (t) gl.deleteTexture(t.tex);
     const tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+    const sent = sendCanvas(gl, cv);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     gl.generateMipmap(gl.TEXTURE_2D);
-    texs.set(cv, { tex, w: cv.width, h: cv.height });
-    return tex;
+    texs.set(cv, { tex, w: cv.width, h: cv.height, bad: !sent, retryAt: sent ? 0 : performance.now() + SEND_RETRY });
+    return sent ? tex : null;
   }
   return {
     get lost() { return lost || failed || gl.isContextLost(); },
@@ -142,9 +158,10 @@ export function createFieldGL(canvas) {
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
       gl.viewport(0, 0, W, H);
       gl.useProgram(prog);
-      const bind = (unit, cv) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, texFor(cv)); };
-      bind(0, a); bind(1, b || a);
-      if (quiet > 0) { bind(2, qa); bind(3, qb || qa); }
+      // (Every texture first: one the GPU could not take, and the 2D canvas draws this frame, never a black field.)
+      const tx = [a, b || a, ...(quiet > 0 ? [qa, qb || qa] : [])].map((cv) => texFor(cv));
+      if (tx.some((t) => !t)) return false;
+      tx.forEach((t, unit) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); });
       gl.uniform1f(U.uMix, b ? mix : 0); gl.uniform1f(U.uQuiet, quiet);
       gl.uniform2f(U.uO, ox, oy); gl.uniform1f(U.uRd, rd); gl.uniform1f(U.uH, H);
       gl.uniform4f(U.uFade, fade ? fade[0] : 0, fade ? fade[1] : 0, fade ? fade[2] : 0, fade ? 1 : 0); gl.uniform1f(U.uMid, mid);
