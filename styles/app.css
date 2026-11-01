@@ -2408,6 +2408,25 @@ button.finding { cursor: pointer; }
 @media (prefers-reduced-transparency: reduce) { .pz-shade.stack { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 .pz.stack .pz-text.pz-leave, .pz.stack .pz-text > .pz-leave { transform: translateY(18px); }
 .pz.stack .pz-text.pz-enter > * { animation-name: fade-rise; }
+/* A slide change where the teaching card's glass stays (Mohammad, 1 Nov, review/card-motion-spec-1nov.md; presenter.js glassTurn): the words
+   turn over like a page, sideways the way the talk goes. Next: out to the left, in from the right; Back: the other way; a jump (the slide
+   list, Home, End): out rising, in rising. The words leave quickly (--d-small, --ease-in) and arrive settling (--d-surface,
+   --ease-arrive), a short way: --pz-turn-d, one step of the slide's own scale on a wide screen, 20 px on an upright phone. The words'
+   box stays where it is (its translate is the card's rise); the lines inside it move. The glass eases to the new slide's size over the
+   camera's glide (--d-camera, --ease-move) while it stands empty, so the words never reflow in view. */
+.pz { --pz-turn-d: clamp(20px, calc(1.6 * var(--pz-b, 15px)), 36px); }
+.pz.stack { --pz-turn-d: 20px; }
+.pz .pz-text.pz-text:is([data-out="next"], [data-out="back"], [data-out="jump"]).pz-leave { transform: none; transition-timing-function: var(--ease-in); }
+.pz .pz-text.pz-text[data-out="next"].pz-leave > * { translate: calc(-1 * var(--pz-turn-d)) 0; transition: translate var(--d-small) var(--ease-in); }
+.pz .pz-text.pz-text[data-out="back"].pz-leave > * { translate: var(--pz-turn-d) 0; transition: translate var(--d-small) var(--ease-in); }
+.pz .pz-text.pz-text[data-out="jump"].pz-leave > * { translate: 0 calc(-1 * var(--rise-y, 6px)); transition: translate var(--d-small) var(--ease-in); }
+.pz .pz-text.pz-text.pz-enter[data-turn="next"] > * { --edge-x: var(--pz-turn-d); --edge-o: 0; animation-name: slide-from-edge; }
+.pz .pz-text.pz-text.pz-enter[data-turn="back"] > * { --edge-x: calc(-1 * var(--pz-turn-d)); --edge-o: 0; animation-name: slide-from-edge; }
+.pz .pz-text.pz-text.pz-enter[data-turn="jump"] > * { animation-name: fade-rise; }
+.pz-shade.pz-shade.pz-shade:is(.pz-card, .stack) { transition-property: opacity, transform, filter, top, height, width; transition-timing-function: var(--ease), var(--ease), var(--ease), var(--ease-move), var(--ease-move), var(--ease-move); }
+.pz-shade.pz-shade.pz-shade:is(.pz-card, .stack).pz-leave { transition-duration: var(--d-small), var(--d-small), var(--d-small), 0s, 0s, 0s; transition-delay: 0s; }
+.pz-shade.pz-shade.pz-shade:is(.pz-card, .stack):not(.pz-leave) { transition-duration: var(--d-surface), var(--d-surface), var(--d-surface), 0s, 0s, 0s; transition-delay: .12s, .12s, 0s, 0s, 0s, 0s; }
+.pz-shade.pz-shade.pz-shade:is(.pz-card, .stack).pz-turn { transition-duration: var(--d-surface), var(--d-surface), var(--d-surface), var(--d-camera), var(--d-camera), var(--d-camera); transition-delay: 0s; }
 .pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh)), 20px)); left: 21px; right: 21px; top: auto; bottom: calc(max(26px, 65px - var(--pz-lh)) + var(--pz-sb)); margin-block: 0; width: auto; max-height: 62%; gap: 6px; }/* (With a data card under the words, the pair keeps to the top so the card has room.) */
 .pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: var(--s-lab); }

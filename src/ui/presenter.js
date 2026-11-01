@@ -19,7 +19,7 @@ import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=126338cd30';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
 import { liveText, wordsOf } from './live-text.js?v=120fb7b4c4';
-import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
+import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
 import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=3c321f5f7f';
@@ -1738,9 +1738,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // want; shownBeat: the one on screen once it has landed. A slide opens on its first going forward one at a time (opening: 0), and on
   // its last any other way (Back from the next slide, a jump, a reload), so it stands with its whole point made.
   let beat = 0, shownBeat = 0, firstBeat = false;
+  // Which way the talk is going, for the card motion (Mohammad, 1 Nov, review/card-motion-spec-1nov.md): Next turns the words out to the
+  // left and the new ones in from the right, Back the other way, a jump further (the slide list, a typed number, Home, End) neither, they rise.
+  // turn: the way of the slide move asked last; turnNow: the way the move under way
+  // turns its words while the teaching card's glass stays up, '' when the card leaves and comes back whole (as every card did before).
+  let turn = 'jump', turnNow = '', glassT = 0;
   const lastBeat = (i) => beatCount(slides[i]) - 1;
   function go(i) {
     if (!deck || leaving) return;
+    turn = i === want + 1 || firstBeat ? 'next' : i === want - 1 ? 'back' : 'jump';   // (the slide before or after, by whatever key or button: a turn; further: a jump)
     want = clamp(i, 0, slides.length - 1);
     noteResume(deck.id, want, slides.length);   // (the Present menu offers to resume here; the first or last slide forgets it)
     beat = firstBeat ? 0 : lastBeat(want);
@@ -1826,6 +1832,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (A move cut by a newer slide leaves its cards unseen: that move fades nothing out, and Next pressed in a row waits no step for cards
       // that were brought in for a moment. A move that ends otherwise still brings its cards in.)
       if (bare && want === to) { bare = false; layout(); cardsIn(); }
+      turnDone();
       creditHolds--; clearTimeout(creditT);
       creditT = setTimeout(() => { if (!creditHolds) app.classList.remove('pz-moving'); }, 120);   // (the cards come in after the one camera move; src/ui/credit.js then waits for any card still sliding)
     }
@@ -1871,6 +1878,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const done = back && lastAt === to + 1, pre = !lap && !done && to > 0 && !!s.procedure && stateOf[to] === to && !holdQ;
     const si = lap || holdQ ? stateOf[to - 1] : stateOf[to];
     keepNow = keepFor(was && slides[was.i], s, to, si !== shownState || liveOff || (lap && !!states[stateOf[to]]?.start) || (pre && !!states[to]?.before), { again: !was || was.i === to }); keepCut = cut;
+    glassTurn(s, ask, ct);
     const outAt = performance.now(), outMs = wordsOut(s);
     if (outMs) { await painted(); await painted(); }
     // Words out, and the marks: they belong to the slide that is leaving.
@@ -2135,6 +2143,28 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const shortSide = matchMedia(SHORT_SIDE_MQ);
   const sinTiles = (s) => s.data === 'tiles' && !s.visual && /^sinusoid/.test(s.cam || '');
   const under = (s) => sinTiles(s) && !shortSide.matches && phone();
+  // The teaching card's glass stays up through a slide change when the slide coming has a teaching card of the same kind: only the
+  // words turn over, sideways the way the talk goes (turn), and the glass eases to its new size with the camera's glide (app.css
+  // .pz-shade.pz-turn). It still leaves whole, as before, for a reading card or a case or question card (another kind of card), a
+  // catheter or monitor slide (their words come in at once with the live tracing), with reduced motion (fades only), and when it is not
+  // up to begin with. (pz-turn on the root and the glass: the words' leave and the glass's geometry ease; data-out/data-turn on the
+  // words: which way they leave and come in, kept on them until they next leave or are built again, so nothing restarts their entrance.)
+  function glassTurn(s, ask, ct) {
+    if (!ui) return;
+    const up = !ui.text.hidden && ui.shade.style.opacity !== '0' && (ui.shade.classList.contains('pz-turn') || !ui.shade.classList.contains('pz-leave'));
+    const on = up && !booting && !reduce.matches && !s.visual && !s.vignette && !ask && !ct && !s.cath && !s.monitor && !caseCard;
+    turnNow = on ? turn : '';
+    clearTimeout(glassT);
+    setTurn(on);
+  }
+  function setTurn(on) {
+    if (!ui) return;
+    ui.root.classList.toggle('pz-turn', on); ui.shade.classList.toggle('pz-turn', on);
+    ui.shade.classList.toggle('pz-leave', !on && ui.text.classList.contains('pz-leave'));
+  }
+  // (Once a move has landed, the glass's eases are let finish (its size: the camera's step at most) before they are switched off again,
+  // so a resize or a turn of the device later moves it at once, as before; switched off mid-ease, a transition would jump to its end.)
+  const turnDone = () => { clearTimeout(glassT); turnNow = ''; glassT = setTimeout(() => { if (ui && !busy) setTurn(false); }, D_SURFACE + 520); };
   // (Starts the cards' fade out and returns how long it runs, ms: 0 when nothing is showing.)
   function wordsOut(next) {
     if (!ui) return 0;
@@ -2154,6 +2184,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // pressed in a row) have nothing new to fade: the move waits only for what is still fading, never a whole step more.
     const leaving = !dataOut && !out.some((el) => !el.hidden && el.childElementCount && !(keep && el === ui.text ? [...el.children].every((c) => c === mon.el || c.classList.contains('pz-leave')) : el.classList.contains('pz-leave')));
     const fading = leaving ? fadeLeft([...out, data, ui.scl, ui.shade]) : 0;
+    if (!keepNow.text) ui.text.dataset.out = turnNow;   // (set with the leave, in the same style change, so the words go the right way at once)
     for (const el of out) {
       if (keep && el === ui.text) { for (const c of el.children) if (c !== mon.el) c.classList.add('pz-leave'); }
       else el.classList.add('pz-leave');
@@ -2321,6 +2352,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null, s);
       markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
+      text.dataset.turn = turnNow;   // (the way the new words come in: app.css; '' comes in from the card's edge with the glass, as before)
       text.classList.remove('pz-enter'); void text.offsetWidth; text.classList.add('pz-enter');
     }
     textOn = textPlan(s);
@@ -4537,15 +4569,63 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }, { passive: false, capture: true });
   wrap.addEventListener('touchend', (e) => { if (cd && !e.touches.length) caseLet(true); }, { passive: true, capture: true });
   wrap.addEventListener('touchcancel', () => { if (cd) caseLet(false); }, { passive: true, capture: true });
+  // The words follow the finger while a sideways swipe is under way (Mohammad, 1 Nov, card motion spec 8): the lines of the teaching card
+  // move a quarter of the finger's travel, 32 px at most, fading toward 40 %, so the swipe shows what it will do and can be pulled back.
+  // The glass, the data card, the figure and its vessels stay where they are. Let go past the swipe's distance (or flicked): the words
+  // carry on from where the finger left them into their way out (app.css data-out, the same translate, eased from where it stands); short
+  // of it, they ease back. At the first slide, where Back goes nowhere, they follow a tenth of the finger and do not fade. Only while
+  // nothing is moving (no slide change, no case card) and the words are in.
+  const PULL_K = 0.25, PULL_MAX = 32, PULL_END_K = 0.1;
+  let pull = null;
+  const pullEls = () => (ui ? [...ui.text.children] : []);
+  const pullCan = () => !!ui && !busy && !caseCard && !zoomOn() && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
+  function pullTo(dx) {
+    const end = dx > 0 && want === 0, k = end ? PULL_END_K : PULL_K, x = Math.max(-PULL_MAX, Math.min(PULL_MAX, dx * k));
+    const o = end ? 1 : 1 - 0.6 * Math.min(1, Math.abs(x) / PULL_MAX);
+    pull.x = x;
+    for (const c of pullEls()) { c.style.transition = 'none'; c.style.translate = `${x.toFixed(1)}px 0`; }
+    ui.text.style.transition = 'none'; ui.text.style.opacity = o.toFixed(3);
+  }
+  // (Let go: the inline styles go in one style change with the slide's own leave (gone: the words carry on out from where they stand),
+  // or, staying, the lines ease back from where they are and the words' opacity eases back by the card's own transition.)
+  function pullLet(gone) {
+    const g = pull; pull = null;
+    if (!g?.on || !ui) return;
+    const x = g.x;
+    ui.text.style.removeProperty('transition'); ui.text.style.removeProperty('opacity');
+    const out = gone && ui.text.classList.contains('pz-leave') && !!ui.text.dataset.out;
+    for (const c of pullEls()) {
+      c.style.removeProperty('transition'); c.style.removeProperty('translate');
+      if (!out && Math.abs(x) > 0.5) c.animate?.([{ translate: `${x}px 0` }, { translate: '0px 0' }], { duration: D_SMALL, easing: EASE_ARRIVE });
+    }
+  }
   wrap.addEventListener('touchmove', (e) => {
-    if (e.touches.length > 1) sw = null;
+    if (e.touches.length > 1) { sw = null; if (pull) pullLet(false); return; }
+    const g = sw, t = e.touches[0];
+    if (!g || !t || !deck) { if (pull) pullLet(false); return; }
+    const dx = t.clientX - g.x, dy = t.clientY - g.y, now = performance.now();
+    if (!pull) {
+      if (Math.abs(dx) < 8 || Math.abs(dx) <= SWIPE_RATIO * Math.abs(dy) || !pullCan()) return;
+      pull = { on: true, x: 0, pts: [] };
+    }
+    pull.pts.push([t.clientX, now]);
+    while (pull.pts.length > 2 && now - pull.pts[0][1] > 80) pull.pts.shift();
+    pullTo(dx);
   }, { passive: true, capture: true });
-  wrap.addEventListener('touchcancel', () => { sw = null; }, { passive: true, capture: true });
+  wrap.addEventListener('touchcancel', () => { sw = null; if (pull) pullLet(false); }, { passive: true, capture: true });
   wrap.addEventListener('touchend', (e) => {
-    const g = sw, t = e.changedTouches[0]; sw = null;
-    if (!g || !deck || !t || e.touches.length) return;
-    const d = swipeDir(t.clientX - g.x, t.clientY - g.y, performance.now() - g.t);
+    const g = sw, t = e.changedTouches[0], p = pull; sw = null;
+    if (!g || !deck || !t || e.touches.length) { if (p) pullLet(false); return; }
+    const dx = t.clientX - g.x, dy = t.clientY - g.y, now = performance.now();
+    let d = swipeDir(dx, dy, now - g.t);
+    // (A swipe the words have followed also counts when slower than a quick swipe, once past its distance, or when flicked: 0.3 px/ms
+    // over its last 80 ms and at least half the distance.)
+    if (!d && p?.on && Math.abs(dx) > SWIPE_RATIO * Math.abs(dy)) {
+      const [x0, t0] = p.pts[0] || [t.clientX, now], v = (t.clientX - x0) / Math.max(1, now - t0);
+      if (Math.abs(dx) >= SWIPE_MIN || (Math.abs(v) >= 0.3 && Math.abs(dx) >= SWIPE_MIN / 2 && Math.sign(v) === Math.sign(dx))) d = dx < 0 ? 1 : -1;
+    }
     if (d > 0) next(); else if (d < 0) prev();
+    if (p) pullLet(!!d);
   }, { passive: true, capture: true });
 
   // ── A swipe up or down anywhere else on an upright slide (the figure, the teaching card, the space around them) works the
@@ -4946,7 +5026,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     veil.after(pscrim);   // (above the page's veil, under everything else)
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
-    new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave'))).observe(text, { attributes: true, attributeFilter: ['class'] });
+    // (Except while the words turn over on it (pz-turn, glassTurn): then the glass stays and only the words go.)
+    new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave') && !shade.classList.contains('pz-turn'))).observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
     const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
