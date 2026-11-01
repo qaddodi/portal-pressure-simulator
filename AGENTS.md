@@ -71,6 +71,23 @@ Pages serves each copy as its production build (`npm run build` → `dist/`: bun
   Read them from there and the colour tokens (`--ok`, `--caution`, `--danger`); `tests/pressure-vocabulary.test.js` fails on a
   second copy.
 
+## Screenshots of the real app (always use `scripts/shoot.mjs`)
+
+Cloud sandboxes have no GPU, and headless Chromium then gives the app one of three different pictures, which is why shots from
+different threads looked different (vessels flat, soft or sharp):
+1. no WebGL2 (`data-veins="none"`): the SVG vessels, a fallback no phone or laptop shows;
+2. SwiftShader as is (`data-renderer="software"`, `data-quality="2"`): the app deliberately drops to 8 frames a second at half the pixels;
+3. SwiftShader named as a GPU (`data-renderer="gpu"`, `data-quality="0"`): the code path, resolution and shading of the owner's iPhone, iPad and Mac.
+
+Only the third is a screenshot of the real app. `scripts/shoot.mjs` always gets it (software WebGL2 flags, renderer named as a GPU,
+the model paused so two frames can match), checks it before and after the shot and exits non-zero with the reason when it did not:
+`node scripts/shoot.mjs --out <png> --device mac|ipad|ipad-portrait|iphone|iphone-landscape --theme light|dark --query "preset=cirr-decomp"`
+(or `--script <deck> --slide <n>`; `--dir dist` to shoot the build; `--selector` for one element; `--no-vessels` for a view with none).
+Several shots in one script: `import { openApp } from './scripts/shoot.mjs'` (a fresh page per view; `settle()` then `app.page.screenshot`).
+Do not write your own `chromium.launch` for screenshots. A shot takes 2-4 minutes (software GL; Mac is 1x, `--dpr 2` is far slower),
+so run one or two at a time. A view that is still easing in a shot is not a bug; `settle()` waits for two identical frames.
+Keep screenshots outside the repo. A headless shot is still not a device test: say "headless, software GL" when you report one.
+
 ## Pages setup and troubleshooting
 
 One-time settings the owner made on GitHub (repo Settings), needed for deploys to work:
