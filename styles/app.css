@@ -6,6 +6,14 @@
    content, painted once with --hv-bg (and --hv-bd over a 1px border, --hv-bw), that fades in and out by its opacity. */
 :where(.brand, .chip-btn, .lens-btn, .metric, .check-row, .ib, .btn, .menu-item, .lens, .tl-pin, .tl-ff, .tl-hist, .tl-pop-ic, .menu-credit, button.finding, .order-btn, .pz-abb, .pzj-list button, .pal-btn, .tb-act, .menu-btn, .um-row, .um-link, button.pzb-n, .pzc-q) { position: relative; isolation: isolate; }
 :where(.brand, .chip-btn, .lens-btn, .metric, .check-row, .ib, .btn, .menu-item, .lens, .tl-pin, .tl-ff, .tl-hist, .tl-pop-ic, .menu-credit, button.finding, .order-btn, .pz-abb, .pzj-list button, .pal-btn, .tb-act, .menu-btn, .um-row, .um-link, button.pzb-n)::before, :where(.pzc-q)::after { content: ''; position: absolute; inset: calc(-1 * var(--hv-bw, 0px)); border-radius: inherit; background: var(--hv-bg, transparent); box-shadow: inset 0 0 0 var(--hv-bw, 0px) var(--hv-bd, transparent); opacity: 0; transition: opacity var(--d-flip) var(--ease); pointer-events: none; z-index: -1; }
+/* Hover ink eases without a repaint (1 Nov 2026, nothing snaps): a quiet icon button's content is drawn in the hover ink (--text)
+   at the quiet ink's strength (--ink-rest, text-2 over the surface) and comes up to full by its opacity on hover. */
+@media (hover: hover) {
+  :is(.ib, .tl-pop-ic, .tb-act, .nb-tab, .instr-tab):not([aria-pressed="true"], [aria-selected="true"], [aria-expanded="true"], .on, :disabled, .pzb-next, .play, .lapse) { color: var(--text); --ink-rest: .76; }
+  :is(.ib, .tl-pop-ic, .tb-act, .nb-tab, .instr-tab):not([aria-pressed="true"], [aria-selected="true"], [aria-expanded="true"], .on, :disabled, .pzb-next, .play, .lapse) > :not(.tb-hc) { opacity: var(--ink-rest); transition: opacity var(--d-flip) var(--ease); }
+  :is(.ib, .tl-pop-ic, .tb-act, .nb-tab, .instr-tab):not([aria-pressed="true"], [aria-selected="true"], [aria-expanded="true"], .on, :disabled, .pzb-next, .play, .lapse):hover > :not(.tb-hc) { opacity: 1; }
+  .app.pz-hi .pz-bar .ib > * { opacity: 1; }   /* (full ink there: its quiet ink is --text) */
+}
 html, body { height: 100%; }
 /* Installed on an iPhone or iPad, the page runs edge to edge under the status bar. The top bar
    owns that strip (its own color runs up behind the clock), and the document never scrolls, so
@@ -70,7 +78,7 @@ html.fr :is(.lens-btn, .ps-btn, .tl-pop-ic, .pz-zbtn, .ask-field, .pz-abb, .pzc-
 .topbar > * { pointer-events: auto; }
 .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; flex: none; margin-left: -8px; padding: 4px 8px 4px 8px; border: 1px solid transparent; border-radius: var(--r-card); transition: none; }
 @media (hover: hover) { .brand { --hv-bg: var(--surface-2); --hv-bd: var(--border); --hv-bw: 1px; } .brand:hover::before { opacity: 1 } }
-.brand:active { background: var(--surface-3); }
+.brand:active { --hv-bg: var(--surface-3); } .brand:active::before { opacity: 1 }
 .brand-mark { width: 32px; height: 32px; flex: none; }
 /* The logo opens the start screen: say so with a "Modes" chevron beside it. */
 .brand-bg { fill: var(--brand-bg); }
@@ -603,11 +611,11 @@ div.vital { cursor: default; }
 /* A press sinks the control a touch and lets it go on the same step (--d-flip), on a mouse and under a finger alike. The scale
    property, not transform, so it composes with any positioning transform; nothing on the figure moves. */
 .btn:not(:disabled):active { scale: .97; }
-.btn:not(.primary):not(.danger-fill):not([aria-pressed="true"]):not(:disabled):active { background: var(--surface-3); border-color: var(--border-strong); }
-.ib:not(:disabled):active { scale: .92; background: var(--surface-3); color: var(--text); }
+.btn:not(.primary):not(.danger-fill):not([aria-pressed="true"]):not(:disabled):active { --hv-bg: var(--surface-3); --hv-bd: var(--border-strong); --hv-bw: 1px; } .btn:not(.primary):not(.danger-fill):not([aria-pressed="true"]):not(:disabled):active::before { opacity: 1 }
+.ib:not(:disabled):active { scale: .92; --hv-bg: var(--surface-3); color: var(--text); } .ib:not(:disabled):active::before { opacity: 1 }
 .ib[aria-pressed="true"]:not(:disabled):active { background: var(--accent-soft); color: var(--accent); }
 .seg button:not([aria-pressed="true"]):not([aria-selected="true"]):active { background: color-mix(in srgb, var(--surface) 55%, transparent); color: var(--text); }
-.menu-item:active { background: var(--surface-3); }
+.menu-item:active { --hv-bg: var(--surface-3); } .menu-item:active::before { opacity: 1 }
 .nb-tab:active { scale: .96; }
 @media (prefers-reduced-motion: reduce) { .btn:active, .ib:active, .nb-tab:active { scale: none; } }
 /* Press and hover for the rest of the controls (?pressfx=0 leaves it all off; main.js sets html.press-fx). Before, the bar and dock
@@ -626,9 +634,11 @@ html.press-fx :is(.drug, .ac-btn, .ac-toggle, .card):not(:disabled):active { sca
 html.press-fx :is(.tl-pop-ic, .toast-x, .um-info, .reset-btn, .pz-zbtn):not(:disabled):active { scale: .88; }
 html.press-fx .pz-fold:active { scale: .96; }
 /* the tint under a press, for what is not already on */
-html.press-fx :is(.chip-btn, .lens-btn, .menu-btn, .pal-btn, .tb-act, .tl-speed, .tl-pin, .tl-hist, .measure-launch, .dop-tint, .pt-chip, .lens, .drug, .ac-btn, .ac-toggle, .card):not(:disabled):not([aria-pressed="true"]):not([aria-expanded="true"]):not(.on):active { background-color: var(--surface-3); }
-html.press-fx :is(.um-row, .um-link, .um-info, .tl-pop-ic, .toast-x, .reset-btn, .pal-item, .pzj-list button, .check-row, button.finding, .dock-title, .select, .pz-zbtn, .metric:not(.inert)):not(:disabled):not(.on):not([aria-current]):active { background-color: var(--surface-3); color: var(--text); }
-html.press-fx .pz-abb:not(:disabled):active, html.press-fx .pzc-q:active { background-color: var(--hairline); color: var(--text); }
+html.press-fx :is(.tl-speed, .dop-tint, .pt-chip, .drug, .ac-btn, .ac-toggle, .card):not(:disabled):not([aria-pressed="true"]):not([aria-expanded="true"]):not(.on):active { background-color: var(--surface-3); }
+html.press-fx :is(.chip-btn, .lens-btn, .menu-btn, .pal-btn, .tb-act, .tl-pin, .tl-hist, .lens):not(:disabled):not([aria-pressed="true"]):not([aria-expanded="true"]):not(.on):active { --hv-bg: var(--surface-3); } html.press-fx :is(.chip-btn, .lens-btn, .menu-btn, .pal-btn, .tb-act, .tl-pin, .tl-hist, .lens):not(:disabled):not([aria-pressed="true"]):not([aria-expanded="true"]):not(.on):active::before { opacity: 1 }   /* (a pressed tint is the hover layer, faded in: nothing snaps) */
+html.press-fx :is(.um-info, .toast-x, .reset-btn, .pal-item, .dock-title, .select, .pz-zbtn):not(:disabled):not(.on):not([aria-current]):active { background-color: var(--surface-3); color: var(--text); }
+html.press-fx :is(.um-row, .um-link, .tl-pop-ic, .pzj-list button, .check-row, button.finding, .metric:not(.inert)):not(:disabled):not(.on):not([aria-current]):active { --hv-bg: var(--surface-3); color: var(--text); } html.press-fx :is(.um-row, .um-link, .tl-pop-ic, .pzj-list button, .check-row, button.finding, .metric:not(.inert)):not(:disabled):not(.on):not([aria-current]):active::before { opacity: 1 }
+html.press-fx .pz-abb:not(:disabled):active, html.press-fx .pzc-q:active { --hv-bg: var(--hairline); color: var(--text); } html.press-fx .pz-abb:not(:disabled):active::before, html.press-fx .pzc-q:active::after { opacity: 1 }
 html.press-fx .chg .chg-go:active, html.press-fx .order-chip:active { color: var(--text); }
 html.press-fx .link:active { color: var(--accent-ink); opacity: .7; text-decoration: underline; text-underline-offset: 2px; }
 /* tabs and the segmented options: the label goes to full ink under the press (the glide pill follows the pick) */
