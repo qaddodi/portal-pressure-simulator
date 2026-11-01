@@ -29,7 +29,7 @@ test('both paths write a width the same way and draw the same width-led layers',
   assert.match(body('updateInner'), /widthWrites\(x, w, t, f, k\);/);
   const inner = body('stepWidthsInner');
   assert.match(inner, /widthWrites\(x, w, t, f, EI\[x\.e\.id\]\);/);
-  for (const call of ['renderTube(x, p, t, J)', 'clearJoins()', 'updateJoins(t)', 'syncVeins(t)', 'updateOverlays(', 'updateBridges(t)', 'updateLabels(f)']) {
+  for (const call of ['renderTube(x, p, t, J, TP)', 'clearJoins()', 'updateJoins(t)', 'syncVeins(t)', 'updateOverlays(', 'updateBridges(t)', 'updateLabels(f)']) {
     assert.ok(inner.includes(call), `the width step calls ${call}`);
   }
   // The labels are laid out again when a width moves past its 2 px band, as the full update's signature has it (sigWidth).

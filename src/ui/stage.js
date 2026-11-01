@@ -55,6 +55,7 @@ import { advanceStream, createStreamChain, displaySpeed, createReversalHold, ble
 import { retireRows, flowClose } from './flow-rows.js?v=59053c0155';
 import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=6432b95cb3';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
+import { planTaper, taperAt } from './vessel-taper.js?v=38c471f360';
 import { frameFor, lateFrameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K } from './frame.js?v=6692e20c1b';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
@@ -104,6 +105,9 @@ const OVER_GPU = !(typeof location !== 'undefined' && /[?&]stageover=svg\b/.test
 // Parcels and arrowheads carried through junctions (blood.js createStreamChain; combined plan B1 + C1). ?bloodchain=0: each
 // vessel's blood its own pattern, dimmed at every join, as before.
 const BLOOD_CHAIN = !(typeof location !== 'undefined' && /[?&]bloodchain=0\b/.test(location.search));
+// Vessels that run on into one another narrow or widen as one continuous taper through the run (vessel-taper.js). ?taper=0 in the
+// address draws each join as it was before 1 Nov (one ease over half of each vessel, counted in samples): the same picture exactly.
+const TAPER = !(typeof location !== 'undefined' && /[?&]taper=0\b/.test(location.search));
 // The glasses' own canvases, each blurring a copy of the figure (createImageBitmap), as before 31 Oct: only with ?glasscopy=1. By default
 // they are drawn inside the figure's canvas (frostHost) and are otherwise the browser's (round 2, 2.1).
 const GLASS_COPY = typeof location !== 'undefined' && /[?&]glasscopy=1\b/.test(location.search);
@@ -3027,6 +3031,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return jWidths.answer();
   }
 
+  // The SVG tubes' share of the taper (vessel-taper.js; on the GPU sendRadii draws the same from the drawn courses' ends): the
+  // tubes that run on into one another at a node of exactly two vessels, found from the model's own nodes. A vessel drawn as a plain
+  // stroke or a ghost has no width to taper, but still counts as one of the vessels at its node.
+  function svgTaper(p, t) {
+    const ends = new Map(), vessels = new Map(), links = [];
+    const imaging = isImaging();
+    for (const x of EV) {
+      if (!x.vis || x.isArt || x.g.classList.contains('coll-ghost')) continue;
+      for (const [n, end] of [[x.e.from, 0], [x.e.to, 1]]) { const a = ends.get(n); if (a) a.push([x, end]); else ends.set(n, [[x, end]]); }
+    }
+    const tube = (x) => !x.reveal && (t < 0.5 || (imaging ? 0 : p.stenosis[x.e.id] || 0) > 0.01);
+    for (const e of ends.values()) {
+      if (e.length !== 2 || e[0][0] === e[1][0] || !tube(e[0][0]) || !tube(e[1][0])) continue;
+      for (const [x] of e) if (!vessels.has(x.e.id)) vessels.set(x.e.id, { body: Math.max(0.35, x.width / 2), len: geo[x.e.id].len || 1 });
+      links.push({ a: e[0][0].e.id, ea: e[0][1], b: e[1][0].e.id, eb: e[1][1] });
+    }
+    return planTaper(vessels, links);
+  }
+
   function updateInner(f) {
     // Covered by the lobule or the dive's field (anatCovered), the plate is left as it is (reading the cards' boxes and
     // restyling it each model frame, unseen, stalled the zoom); it catches up on the way out, with its eases already where they
@@ -3213,7 +3236,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // dashed stroke from its first frame (never first as a full tube that then vanishes).
     trackChanges(f, p);
     stepReveals(performance.now());
-    gpuProbe.time(null, 'update: tubes', () => { for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J); });
+    const TP = TAPER && !glWanted(t) ? svgTaper(p, t) : null;
+    gpuProbe.time(null, 'update: tubes', () => { for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J, TP); });
     if (glWanted(t)) clearJoins(); else updateJoins(t);
     // A selected vessel stays bright while the rest of the network recedes.
     wrap.classList.toggle('has-sel', st.selection?.type === 'edge' && !!E[st.selection.id]?.vis);
@@ -3356,7 +3380,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!moved) return;
     const J = junctionWidths();
     const p = f.viewParams || store.get().params;
-    for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J);
+    const TP = TAPER && !glWanted(t) ? svgTaper(p, t) : null;
+    for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J, TP);
     if (glWanted(t)) clearJoins(); else updateJoins(t);
     if (syncRadiiOnly(t)) gpuProbe.note(COUNTED.widthRadii);
     else { gpuProbe.note(COUNTED.widthWhole); syncVeins(t); }
@@ -3371,7 +3396,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // closed collaterals and vessels being drawn on use plain strokes. Recomputed only when a
   // width, a lesion or the geometry changes.
   const smooth = (u) => u * u * (3 - 2 * u);
-  function renderTube(x, p, t, J) {
+  function renderTube(x, p, t, J, TP) {
     const g = geo[x.e.id], id = x.e.id, w = x.width, wallPx = x.wallPx;
     const v = isImaging() ? 0 : p.stenosis[id] || 0;
     const sten = v > 0.01;
@@ -3395,14 +3420,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const qw = widthMoving(x) ? 2 * edgeQ() : 0;
     keep(x, 'kw', w, qw); keep(x, 'ka', a, qw); keep(x, 'kb', b, qw);
     keep(x, 'kh0', hostR(0), qw); keep(x, 'kh1', hostR(1), qw);
-    const key = `${x.kw},${x.ka},${x.kb},${x.kh0},${x.kh1}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + stenosisAt(id, p) : ''}|${lastMorph}|${stroked}|${gpu}`;
+    // A tube that runs on into another one at either end: its radius follows the run's taper (its caliber at those ends is the node's).
+    const tp = TP && !stroked ? TP.get(id) : null;
+    if (tp) { const L = g.len || 1; keep(x, 'ky0', tp.y0, qw); keep(x, 'ky1', tp.y1, qw); keep(x, 'kd0', tp.d0 * L, qw); keep(x, 'kd1', tp.d1 * L, qw); }
+    const key = `${x.kw},${x.ka},${x.kb},${x.kh0},${x.kh1}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + stenosisAt(id, p) : ''}|${lastMorph}|${stroked}|${gpu}${tp ? `|${x.ky0},${x.ky1},${x.kd0},${x.kd1},${tp.j0 ? 1 : 0}${tp.j1 ? 1 : 0}` : ''}`;
     if (key === x.shadeKey) return;
     x.shadeKey = key;
     const f = sten ? waist(id, v, g.len, w, p) : null;
     x.stenF = f;   // (its caliber factor along it: the GPU's colour follows the resistance it adds, sendRadii alongOf)
     const h0 = x.kh0, h1 = x.kh1, L = g.len || 1;
+    const tpl = tp && { y0: x.ky0, y1: x.ky1, d0: x.kd0, d1: x.kd1 }, j0 = tp?.j0, j1 = tp?.j1, iw = w > 0 ? 1 / w : 0;
     x.rOf = (u) => {
-      const r = u < 0.3 ? lerp(a, w, smooth(u / 0.3)) : u > 0.7 ? lerp(w, b, smooth((u - 0.7) / 0.3)) : w;
+      // (On a run the radius is the run's taper, 2 × its radius for the width; an end that does not run on keeps its own ease to the junction.)
+      const r = tpl
+        ? 2 * taperAt(tpl, 1, u) * (!j0 && u < 0.3 ? lerp(a, w, smooth(u / 0.3)) * iw : 1) * (!j1 && u > 0.7 ? lerp(w, b, smooth((u - 0.7) / 0.3)) * iw : 1)
+        : u < 0.3 ? lerp(a, w, smooth(u / 0.3)) : u > 0.7 ? lerp(w, b, smooth((u - 0.7) / 0.3)) : w;
       const side = (h0 ? sideEndScale(u * L, h0) : 1) * (h1 ? sideEndScale((1 - u) * L, h1) : 1);
       return Math.max(0.35, (r / 2) * (f ? f(u) : 1) * side);
     };
@@ -3881,7 +3913,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       o.glR0 = Array.from({ length: N_SAMPLES }, (_, i) => rOf(i));
     }
     // Where one vessel runs on into the next, both ends ease to the same caliber, so the tube is one
-    // smooth course (no step and no swelling at the join).
+    // smooth course (no step and no swelling at the join): a run of vessels joined end to end at two-vessel nodes is one
+    // continuous taper through the whole run (vessel-taper.js), in length, so caliber and slope meet at every join.
     // (Kept while the radii they start from are the same arrays: the same eases, and those rows are then skipped below.)
     let eased = new Map(), refs = null;
     if (glRadDirty && glStraight.length) {
@@ -3891,7 +3924,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (refs) {
       const byRow = new Map(items.map((it) => [it.row, it.obj])), itOf = new Map(items.map((it) => [it.row, it]));
-      for (const { a, ia, b, ib, fork } of glStraight) {
+      // The runs: vessels that run on into one another at a node of two vessels. (The cava drawn as one, with its caliber
+      // eased to the heart's, and any strand keep the pairwise ease below; a fork has its funnel below too.)
+      const plain = (row) => { const it = itOf.get(row); return !!it && it.kind !== 's' && !it.ra && !!it.obj.glR0; };
+      const chained = new Set(), links = [];
+      if (TAPER) for (const L of glStraight) if (!L.fork && plain(L.a) && plain(L.b)) { chained.add(L); links.push({ a: L.a, ea: L.ia, b: L.b, eb: L.ib }); }
+      if (links.length) {
+        const vessels = new Map();
+        for (const { a, b } of links) for (const row of [a, b]) if (!vessels.has(row)) { const it = itOf.get(row); vessels.set(row, { body: Math.max(...it.obj.glR0), len: arcLen(it.pts) }); }
+        for (const [row, p] of planTaper(vessels, links)) {
+          const O = itOf.get(row).obj, { body, len } = vessels.get(row);
+          // (Its own radii scaled by the plan over its own caliber: a stenosis's waist and a narrowed end ride on the taper, and where
+          // the plan is its own caliber the scale is exactly 1.)
+          if (body > 0) eased.set(O, Array.from(O.glR0, (r, i) => r * (taperAt(p, len, i / (N_SAMPLES - 1)) / body)));
+        }
+      }
+      for (const L of glStraight) {
+        if (chained.has(L)) continue;
+        const { a, ia, b, ib, fork } = L;
         const A = byRow.get(a), B = byRow.get(b);
         if (!A?.glR0 || !B?.glR0) continue;
         const ra = A.glR0[ia ? N_SAMPLES - 1 : 0], rb = B.glR0[ib ? N_SAMPLES - 1 : 0];
