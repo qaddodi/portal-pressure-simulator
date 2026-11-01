@@ -191,7 +191,7 @@ export function createSinusoidView({ host, before = null }) {
   const S = {};          // the drawing's state, easing toward sinusoidTargets(model)
   let geo = null, geoKey = '';
   // The share of the way the view's own glide (stepView) takes each frame, and whether a name is still catching up (see noteJumps).
-  let easeA = 0, layoutBusy = false;
+  let easeA = 0, layoutBusy = false, svMoving = false;
 
   // Where the sinusoid sits: centred in the space the floating pieces leave (a row kept for the legend).
   const appStyle = document.getElementById('app')?.style;
@@ -819,6 +819,7 @@ export function createSinusoidView({ host, before = null }) {
     // (Not settled while the view is still gliding to the space the cards left, or a name to its place: the loop must not go to
     // sleep with the glide half done, which a paused simulation did.)
     if (gliding || layoutBusy) settled = false;
+    svMoving = gliding || layoutBusy;   // (its names gliding to their places: the corner credit looks again, credit.js)
     const dk = [Math.round(S.por * 4), S.col > 0.15, S.act > 0.4, model.hide, model.P2.toFixed(0), model.lymph.toFixed(1), Math.round(model.lyProt * 100)].join('|');
     if (dk !== descKey) { descKey = dk; canvas.setAttribute('aria-label', describe()); }
   }
@@ -897,6 +898,8 @@ export function createSinusoidView({ host, before = null }) {
       return { x: VW.tC[0], y: VW.tC[1], ang: geo.ang, k: VW.tk, lumen: 2 * UM.lum * (S.lum ?? 1) * VW.tk };
     },
     isOpen: () => open,
+    /** Whether its names are gliding to new places this frame (the corner credit's look, credit.js). */
+    labelsMoving: () => open && svMoving,
     available: !!gpu,
   };
 }

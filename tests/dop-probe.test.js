@@ -596,7 +596,12 @@ test('stage: the Doppler monitor check keeps its last answer while nothing place
   const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   assert.match(src, /const dprQuiet = \(\) => dpr\.monAt > 0 && !watch\.due\(\);/);
   assert.match(src, /if \(dprQuiet\(\)\) return dprMonLast;\n\s+dpr\.monAt = now;\n\s+dprMonLast = dprMonitorLook\(\);/);
-  assert.match(src, /if \(!dpr\.ready \|\| !dop\.id\) return;\n\s+let on = dprMonLast;\n\s+if \(!dprQuiet\(\)\) \{ dpr\.monAt = 0; on = dprMonitorOn\(\); \}/);
+  assert.match(src, /if \(dpr\.ready && dop\.id\) \{\n\s+let on = dprMonLast;\n\s+if \(!dprQuiet\(\)\) \{ dpr\.monAt = 0; on = dprMonitorOn\(\); \}/);
+  // (Since 1 Nov 2026 no timer at rest: the look starts on the change that makes the watch due, and on a new vessel, and stops once quiet.)
+  assert.match(src, /if \(DPR_POLL \|\| !dprQuiet\(\)\) dprMonT = setTimeout\(dprMonTick, 200\);/);
+  assert.match(src, /watch\.onTouch\(dprMonSoon\);\n\s+dpr\.kick = dprMonSoon;/);
+  assert.match(src, /dop\.id = id; dop\.key = key; dop\.seg = seg; dop\.all = all;\n\s+dpr\.kick\?\.\(\);/);
+  assert.doesNotMatch(src, /\}, 200\);\n\s+\/\/ What the probe remembers between frames/);
 });
 
 // ── The probe through the readings' tuck and untuck (Mohammad, 22 Oct: "it should only hide once there is no space available, not hide and

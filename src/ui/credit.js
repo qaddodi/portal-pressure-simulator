@@ -4,8 +4,9 @@
 import { frameFor, figLab } from './frame.js?v=15d5254a2c';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
-import { layoutWatch, PLACED } from './idle-keys.js?v=bb8f7eca29';
+import { layoutWatch, PLACED } from './idle-keys.js?v=81fbedda6b';
 const nextFrame = frameFor('credit');
+const CREDIT_POLL = typeof location !== 'undefined' && /[?&]creditpoll=1\b/.test(location.search || '');
 
 // Corners in order of preference. A bottom corner rises above whatever covers it (up to the middle of the figure);
 // a top corner drops below whatever covers it.
@@ -747,7 +748,9 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     if (document.hidden) return;
     const st = window.pps?.store?.get(), k = pollKey();
     // (Settings › Figure performance › Credit check in talks (frame.js): in Present too, only when one of those may have changed.)
-    if (watch.due() || k !== polled || st?.lobule || st?.sinusoid || (app?.classList.contains('presenting') && !figLab('creditLean'))) soon();
+    // (Since 1 Nov 2026 not every second in the lobule and the sinusoid either: their views and gliding names are in the key (stage.js
+    // labelStamp), so a still lobule or sinusoid measures nothing. ?creditpoll=1 looks every second there again, as before.)
+    if (watch.due() || k !== polled || (CREDIT_POLL && (st?.lobule || st?.sinusoid)) || (app?.classList.contains('presenting') && !figLab('creditLean'))) soon();
     polled = k;
   }, 1000);
   soon();

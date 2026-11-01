@@ -80,7 +80,8 @@ export const inSvg = (n) => n.namespaceURI === SVG_NS;
 const withQueued = (given, mo) => { const q = mo.takeRecords(); return given?.length ? (q.length ? [...given, ...q] : [...given]) : q; };
 export function createLayoutWatch({ root, exclude = inSvg, settle = 2500, now = () => performance.now(), MO = globalThis.MutationObserver, RO = globalThis.ResizeObserver, sel = PLACED } = {}) {
   let until = now() + settle;   // (the first look is always taken)
-  const touch = () => { until = Math.max(until, now() + settle); };
+  const heard = new Set();   // (onTouch: told at each touch, so a look can be started by a change instead of a timer polling due())
+  const touch = () => { until = Math.max(until, now() + settle); for (const f of heard) f(); };
   const places = (n) => n?.nodeType === 1 && !exclude(n) && (n.matches(sel) || !!n.querySelector(sel));
   let sized = new Set();
   const ro = RO ? new RO(() => touch()) : null;
@@ -128,6 +129,8 @@ export function createLayoutWatch({ root, exclude = inSvg, settle = 2500, now = 
   if (doc?.addEventListener) for (const t of motion) doc.addEventListener(t, onMotion, true);
   return {
     touch,
+    /** Calls fn at each change that makes the watch due (it must be cheap: start a look, not take one). Returns the stop. */
+    onTouch(fn) { heard.add(fn); return () => heard.delete(fn); },
     /** Whether a measured box may have changed since the watch last settled. */
     due() { flush(); return now() < until; },
     /** The SVG groups whose boxes are measured (getBBox): any net change in them counts. */

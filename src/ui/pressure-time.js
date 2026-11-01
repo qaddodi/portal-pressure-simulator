@@ -7,7 +7,7 @@
 
 import { store, hiddenNow } from './store.js?v=4ef2a6ffd8';
 import { h, fmt, cssVar, cssAlpha, clamp } from './util.js?v=c8ef361fbc';
-import { FONT as FONT0, FONT } from './charts.js?v=15e9dd4f2d';
+import { FONT as FONT0, FONT } from './charts.js?v=2274babdf3';
 import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=15d5254a2c';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';

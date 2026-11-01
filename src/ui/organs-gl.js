@@ -61,7 +61,7 @@ void main() {
 import { createShapeGL } from './shape-gl.js?v=f7d920b7d0';
 import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=6ebf626f89';
 import { prestart, linkProgram } from './gl-compile.js?v=e48e05cdb3';
-import { netChanged } from './idle-keys.js?v=bb8f7eca29';
+import { netChanged } from './idle-keys.js?v=81fbedda6b';
 import { easeMove, D_SURFACE } from './ease.js?v=fc509dabe4';
 
 /** The pixels (bytes) of live groups' pictures kept at a time on a canvas cw × ch: most of a screen, never more than 12 MB (an iPhone's budget is a few MB). */

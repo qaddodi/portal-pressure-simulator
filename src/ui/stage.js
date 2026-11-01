@@ -43,15 +43,15 @@ import { refine } from './refine.js?v=e6e17cc013';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=27eed66b9b';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
-import { cropToGrid } from './organs-gl.js?v=257548fa58';
+import { cropToGrid } from './organs-gl.js?v=a4fbc9947c';
 import { readGroup, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=6ebf626f89';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=f7d920b7d0';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=163a178b8b';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=df3c3152ad';
-import { createLabelGL } from './label-gl.js?v=cf0b8ad15f';
+import { createLabelGL } from './label-gl.js?v=7ccd5560e4';
 import { createGlassGL } from './glass-gl.js?v=3b4d8a3b4a';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=d6ea3e7dfc';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=2c5ef97cf9';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -70,7 +70,7 @@ import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-
 import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=a427721422';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
-import { layoutWatch } from './idle-keys.js?v=bb8f7eca29';
+import { layoutWatch } from './idle-keys.js?v=81fbedda6b';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
@@ -1451,6 +1451,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const all = !!seg && dop.points && id === dop.pin, key = `${id}|${seg}|${+all}`;
     if (key === dop.key) return;
     dop.id = id; dop.key = key; dop.seg = seg; dop.all = all;
+    dpr.kick?.();   // (the monitor's look, now for this vessel: dprMonTick)
     // (On a slide it waits for the slide's camera: the framing comes a moment after the slide's tool, once its cards land, and the
     // probe showed before the zoom, went with it and came back after (Doppler 2, Mohammad, 20 Oct). animateVT lets it go.)
     if (id && store.get().presenting) dprHold();
@@ -2585,7 +2586,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=94decef247').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=a9b9956b61').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -7465,12 +7466,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return false;
   }
-  setInterval(() => {
-    if (!dpr.ready || !dop.id) return;
-    let on = dprMonLast;
-    if (!dprQuiet()) { dpr.monAt = 0; on = dprMonitorOn(); }
-    if (on !== dpr.mon || (on && !dpr.on && !dpr.swap)) { dpr.mon = on; dprobePaint(); }
-  }, 200);
+  // (Since 1 Nov 2026 the look runs only while the layout watch is due: started by the change that made it due (onTouch), every 200 ms
+  // while it stays due, and stopped once it has settled, so a still page has no timer for it at all. ?dprpoll=1: every 200 ms always.)
+  const DPR_POLL = /[?&]dprpoll=1\b/.test(location.search);
+  let dprMonT = 0;
+  const dprMonTick = () => {
+    dprMonT = 0;
+    if (dpr.ready && dop.id) {
+      let on = dprMonLast;
+      if (!dprQuiet()) { dpr.monAt = 0; on = dprMonitorOn(); }
+      if (on !== dpr.mon || (on && !dpr.on && !dpr.swap)) { dpr.mon = on; dprobePaint(); }
+    }
+    if (DPR_POLL || !dprQuiet()) dprMonT = setTimeout(dprMonTick, 200);
+  };
+  const dprMonSoon = () => { if (!dprMonT) dprMonT = setTimeout(dprMonTick, 200); };
+  watch.onTouch(dprMonSoon);
+  dpr.kick = dprMonSoon;
+  dprMonSoon();
   // What the probe remembers between frames: the places it has left on this layout, and how long a fresh place has held still
   // (dop-probe.js createProbeMind: the cure for the probe flashing on and off, Right heart 6 on an iPhone, 21 Oct).
   const dprMind = createProbeMind();
@@ -12591,7 +12603,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelClearance: () => clearanceReport(),   // (the browser check's: see clearanceReport)
     lobuleSpot: () => lz?.spot() ?? null, lobuleLensFade: () => lz?.lensFade() ?? null, lobuleMem: (detail) => lz?.memBytes(detail) ?? 0, diveProgress: () => diveT, plateRasters: () => plateSeq,
     // (What the station labels' boxes follow: their layouts and the camera. The corner credit's poll looks again only when it changed.)
-    labelStamp: () => `${stats.layouts}|${vt.k},${vt.x},${vt.y}|${morph}|${rotU}`,
+    // (And the lobule's view and state when it is open, and a fresh value each look while the sinusoid's names glide: the corner credit
+    // looks again only when one of them changed, never every second in the lobule or the sinusoid as before, credit.js.)
+    labelStamp: () => `${stats.layouts}|${vt.k},${vt.x},${vt.y}|${morph}|${rotU}|${lz?.isOpen?.() ? lz.viewKey() : ''}|${lz?.sinusoidMoving?.() ? performance.now() : ''}`,
     /** The stage's kept copy of its computed style, for the stage's own element (null for any other): read it instead of a live read. */
     keptStyle: (el) => (el === wrap ? wrapCS() : null),
     /** Where the sinusoid's reading and lesion pointer meet their sinusoid (see lobule-zoom sinAnchor). */
