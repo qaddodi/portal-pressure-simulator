@@ -45,3 +45,11 @@ test('a glide\'s own step paints the callouts and probes; the view\'s frame does
   assert.match(fn, /if \(sites\.list\) \{ refreshCTM\(\); sitesPaint\(\); \}\n\s+if \(scan\.on\) scanPaint\(\);\n\s+dprobePaint\(\);/);
   assert.match(STAGE, /const GLIDE_PAINT = !\/\[\?&\]glidepaint=0\\b\/\.test\(location\.search\);/);
 });
+
+test('the status bar\'s colour is not read again for a gesture\'s or a glide\'s own classes', () => {
+  const MAIN = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
+  assert.match(MAIN, /new MutationObserver\(\(rs\) => \{ if \(STATUS_GESTURE_FREE && rs\.every\(\(r\) => classOnly\(r, GESTURE_LOOK\)\)\) return; syncStatusBar\(\); setTimeout\(syncStatusBar, 600\); \}\)\.observe\(document\.getElementById\('app'\), \{ attributes: true, attributeFilter: \['class'\], attributeOldValue: true \}\);/);
+  // (The stage's colour is the theme's: no class on #app sets it.)
+  const TOKENS = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
+  for (const l of (CSS + TOKENS).split('\n').filter((x) => /--stage-bg:/.test(x))) assert.doesNotMatch(l, /figure-focus|stage-busy|cam-move|off-home|panning|pinch-hide|lb-ride/);
+});

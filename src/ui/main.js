@@ -54,6 +54,7 @@ import { feedbackDiagnostics } from './feedback-diag.js?v=c53f8f2d9e';
 import { noteJump } from './display-state.js?v=8d062d39dc';
 import { createIdleRest } from './idle-rest.js?v=4d23822371';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=c4a5941276';
+import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=bb8f7eca29';
 import './scroll-edges.js?v=0d5fe0d834';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 const nextFrame = frameFor('main');
 
@@ -1108,7 +1109,11 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
   syncStatusBar();
 });
 // (again once the figure's background has finished its .5 s fade)
-new MutationObserver(() => { syncStatusBar(); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'] });
+// (Not for a gesture's or a glide's own classes (idle-keys.js GESTURE_LOOK): the stage's colour comes from the theme alone, and each read
+// of it, right after the classes changed, was a style pass of the whole page as every pan, pinch and slide's zoom began and ended.
+// ?glidekeys=0: on every class change, as before.)
+const STATUS_GESTURE_FREE = !/[?&]glidekeys=0\b/.test(location.search);
+new MutationObserver((rs) => { if (STATUS_GESTURE_FREE && rs.every((r) => classOnly(r, GESTURE_LOOK))) return; syncStatusBar(); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
 // ── Patient chart, Treat card and instrument workspace ─
 // The chart is a card floating over the right of the figure (a bottom sheet on a phone), opened
