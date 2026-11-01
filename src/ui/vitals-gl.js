@@ -1,13 +1,14 @@
 // The vitals monitor on the GPU (vitals-monitor.js; ?vitalsgl=0 keeps the 2D canvas). Nothing is drawn with a 2D context while it runs:
 // - the panel, the baseline and a reading's alarm patch are rounded rectangles, each one instance of a quad whose edge is found in the shader;
 // - the EKG strip is a line of capsules, one instance per segment, read from the strip's points (two floats a point, the only data sent a frame);
-// - every word and digit is a sprite from one glyph atlas, laid out at the canvas's own pixels and tinted in the shader, so a number that
-//   changes, or a reading that turns to the alarm colour, needs no new picture. The atlas (words, units and the digits at each size used)
-//   is drawn once, when the layout, the density or the fonts change, never while the strip scrolls.
+// - every word and digit is a glyph of the shared SDF atlas of Inter (glyphs-inter.js, made offline by scripts/glyph-atlas.mjs and loaded
+//   as an image: no canvas draws a letter), laid out from its own advances and kerning and edged in the shader at the canvas's density,
+//   so a number that changes, a reading that turns to the alarm colour or a new size needs no new picture.
 // Its three programs are started when the monitor is made (gl-compile.js) and published once the driver says they are done; a frame
 // before that draws nothing new. A lost context draws nothing until it is restored, when everything is made again.
+import { GLYPHS, KERN, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H } from './glyphs-inter.js?v=3d311882ab';
+import { ATLAS_PNG } from './glyphs-inter-png.js?v=9ce07768be';
 import { startProgram, compileDone, checkProgram } from './gl-compile.js?v=e48e05cdb3';
-import { cssVar } from './util.js?v=c8ef361fbc';
 
 /** '#rgb', '#rrggbb', 'rgb()' or 'rgba()' as premultiplied [r, g, b, a] in 0–1. */
 export function colorOf(c) {
@@ -57,20 +58,37 @@ void main() {
   float d = length(pa - ba * h);
   o = uCol * clamp(uHalf + 0.5 - d, 0.0, 1.0);
 }`;
-// (Sprites: iDst = x, y, w, h on the canvas, iSrc the same in the atlas, both device pixels at one to one; the atlas's alpha tinted by iCol.)
-const GLYPH_VS = `${VS_HEAD}in vec2 aCorner; in vec4 iDst; in vec4 iSrc; in vec4 iCol; uniform vec2 uAtlas;
-out vec2 vUV; out vec4 vCol;
-void main() { vUV = (iSrc.xy + aCorner * iSrc.zw) / uAtlas; vCol = iCol; gl_Position = clipOf(iDst.xy + aCorner * iDst.zw); }`;
+// (Glyphs: iDst = x, y, w, h on the canvas (device px), iSrc the glyph's box in the atlas (atlas px), iCol premultiplied, iK device px per
+// atlas px. The field's distance to the edge, in device px, gives the coverage as a canvas's antialiased edge: half a pixel each side.)
+const GLYPH_VS = `${VS_HEAD}in vec2 aCorner; in vec4 iDst; in vec4 iSrc; in vec4 iCol; in float iK; uniform vec2 uAtlas;
+out vec2 vUV; out vec4 vCol; out float vK;
+void main() { vUV = (iSrc.xy + aCorner * iSrc.zw) / uAtlas; vCol = iCol; vK = iK; gl_Position = clipOf(iDst.xy + aCorner * iDst.zw); }`;
 const GLYPH_FS = `#version 300 es
-precision mediump float;
-uniform sampler2D uTex; in highp vec2 vUV; in vec4 vCol; out vec4 o;
-void main() { o = vCol * texture(uTex, vUV).a; }`;
+precision highp float;
+uniform sampler2D uTex; uniform vec2 uSdf; in vec2 vUV; in vec4 vCol; in float vK; out vec4 o;
+void main() {
+  float d = (1.0 - uSdf.y - texture(uTex, vUV).r) * uSdf.x * vK;
+  float a = clamp(0.5 - d, 0.0, 1.0);
+  if (a <= 0.0) discard;
+  o = vCol * a;
+}`;
 
-const ATLAS_W = 1024;
+// The atlas's image, decoded once for every monitor (no canvas); a monitor drawn before it is in is drawn again when it is.
+let atlasImage = null;
+const waiting = new Set();
+if (typeof Image === 'function') { const im = new Image(); im.decoding = 'async'; im.onload = () => { atlasImage = im; for (const f of [...waiting]) f(); waiting.clear(); }; im.src = ATLAS_PNG; }
+const WEIGHTS = Object.keys(GLYPHS).map(Number);
+const weightOf = (w) => WEIGHTS.reduce((a, b) => (Math.abs(b - w) < Math.abs(a - w) ? b : a));
+/** A word's width in CSS px at weight w and size px, from the atlas's advances and kerning (no canvas). */
+export function textWidth(str, w, px) {
+  const g = GLYPHS[weightOf(w)], kw = KERN[weightOf(w)];
+  let em = 0, prev = '';
+  for (const ch of String(str)) { em += (g[ch] || g['?'])[0] + (prev ? kw[prev + ch] || 0 : 0); prev = ch; }
+  return em * px;
+}
 
 /**
  * A GPU renderer on `cv`, or null where WebGL 2 cannot be had (the caller keeps its 2D canvas: no context of any kind was made on it then).
- * `measure` is a 2D context the caller lays text out with (measureText only; it never draws to the screen).
  */
 export function createVitalsGL(cv) {
   if (typeof WebGL2RenderingContext === 'undefined') return null;
@@ -78,16 +96,14 @@ export function createVitalsGL(cv) {
   try { gl = cv.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false }); } catch { gl = null; }
   if (!gl) return null;
   let R = null, lost = false;
-  const atlasCv = document.createElement('canvas');
-  // (atlas: the key it was drawn for and where each entry sits: key → { x, y, w, h, ox, oy } in device pixels, ox/oy the text's origin in it)
-  let atlasKey = null, entries = new Map(), atlasH = 1;
+  let atlasIn = false;   // (the atlas's image is in this context's texture)
 
   function init() {
     const quad = new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]);
     const progs = {
       rect: startProgram(gl, RECT_VS, RECT_FS, [['aCorner', 0], ['iRect', 1], ['iR', 2], ['iCol', 3]]),
       line: startProgram(gl, LINE_VS, LINE_FS, [['aCorner', 0], ['iA', 1], ['iB', 2]]),
-      glyph: startProgram(gl, GLYPH_VS, GLYPH_FS, [['aCorner', 0], ['iDst', 1], ['iSrc', 2], ['iCol', 3]]),
+      glyph: startProgram(gl, GLYPH_VS, GLYPH_FS, [['aCorner', 0], ['iDst', 1], ['iSrc', 2], ['iCol', 3], ['iK', 4]]),
     };
     const qb = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, qb); gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW);
@@ -102,15 +118,15 @@ export function createVitalsGL(cv) {
     };
     const tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
-    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     R = {
       progs, ready: false, u: null, tex,
       rect: mk([[1, 4, 36, 0], [2, 1, 36, 16], [3, 4, 36, 20]]),
       line: mk([[1, 2, 8, 0], [2, 2, 8, 8]]),
-      glyph: mk([[1, 4, 48, 0], [2, 4, 48, 16], [3, 4, 48, 32]]),
+      glyph: mk([[1, 4, 52, 0], [2, 4, 52, 16], [3, 4, 52, 32], [4, 1, 52, 48]]),
     };
-    atlasKey = null;
+    atlasIn = false;
   }
   function publish() {
     if (R.ready) return true;
@@ -122,7 +138,7 @@ export function createVitalsGL(cv) {
       R.u = {
         rect: { size: u(p.rect, 'uSize') },
         line: { size: u(p.line, 'uSize'), half: u(p.line, 'uHalf'), col: u(p.line, 'uCol') },
-        glyph: { size: u(p.glyph, 'uSize'), atlas: u(p.glyph, 'uAtlas'), tex: u(p.glyph, 'uTex') },
+        glyph: { size: u(p.glyph, 'uSize'), atlas: u(p.glyph, 'uAtlas'), tex: u(p.glyph, 'uTex'), sdf: u(p.glyph, 'uSdf') },
       };
       R.ready = true;
     } catch (e) { R.failed = String(e?.message || e); return false; }
@@ -132,36 +148,31 @@ export function createVitalsGL(cv) {
   cv.addEventListener('webglcontextrestored', () => { lost = false; init(); });
   init();
 
-  /** Draws the atlas again for `want`: [[key, font, text], …] (each text laid out at `dpr`), when the set or the density changed. */
-  function ensureAtlas(want, dpr, epoch) {
-    const key = `${dpr}|${epoch}|${want.map((w) => w[0]).join('\u0001')}`;
-    if (key === atlasKey) return;
-    const c = atlasCv.getContext('2d');
-    const laid = new Map();
-    let x = 0, y = 0, row = 0;
-    for (const [k, font, text] of want) {
-      if (laid.has(k)) continue;
-      c.font = font;
-      const px = parseFloat(/(\d+(\.\d+)?)px/.exec(font)?.[1]) || 12, m = c.measureText(text);
-      const pad = 2, ox = Math.ceil(pad * dpr), oy = Math.ceil((px * 1.05 + pad) * dpr);
-      const w = Math.ceil((m.width + 2 * pad) * dpr) + ox, hh = Math.ceil((px * 1.4 + 2 * pad) * dpr);
-      if (x + w > ATLAS_W) { x = 0; y += row + 1; row = 0; }
-      laid.set(k, { x, y, w, h: hh, ox, oy, font, text });
-      x += w + 1; row = Math.max(row, hh);
-    }
-    atlasH = Math.max(1, y + row + 1);
-    atlasCv.width = ATLAS_W; atlasCv.height = atlasH;
-    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, ATLAS_W, atlasH);
-    c.fillStyle = cssVar('--white') || 'white'; c.textBaseline = 'alphabetic'; c.textAlign = 'left';
-    for (const e of laid.values()) {
-      c.setTransform(dpr, 0, 0, dpr, e.x + e.ox, e.y + e.oy);
-      c.font = e.font; c.fillText(e.text, 0, 0);
-    }
+  /** Puts the atlas's image in the texture once it is decoded (an upload of the image, once per context). False until then. */
+  function atlasReady(redraw) {
+    if (atlasIn) return true;
+    if (!atlasImage) { if (redraw) waiting.add(redraw); return false; }
     gl.bindTexture(gl.TEXTURE_2D, R.tex);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlasCv);
-    atlasCv.width = atlasCv.height = 1;   // (the texture holds it: the canvas's memory let go)
-    entries = laid; atlasKey = key;
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlasImage);
+    atlasIn = true;
+    return true;
+  }
+  // A word's glyphs as instance data: each glyph's box on the canvas from the pen, its box in the atlas, the colour and the field's scale.
+  function layText(out, n, str, w, px, x, y, col, dpr) {
+    const wt = weightOf(w), g = GLYPHS[wt], kw = KERN[wt], k = px / BASE, kd = k * dpr;
+    let pen = x * dpr, prev = '';
+    const by = y * dpr;
+    for (const ch of String(str)) {
+      const e = g[ch] || g['?'];
+      if (prev) pen += (kw[prev + ch] || 0) * px * dpr;
+      if (e[3] > 0 && e[4] > 0) {
+        out.set([pen - e[5] * kd, by - e[6] * kd, e[3] * kd, e[4] * kd, e[1], e[2], e[3], e[4], col[0], col[1], col[2], col[3], kd], n * 13);
+        n++;
+      }
+      pen += e[0] * px * dpr; prev = ch;
+    }
+    return n;
   }
   function send(slot, data) {
     gl.bindBuffer(gl.ARRAY_BUFFER, slot.buf);
@@ -174,13 +185,12 @@ export function createVitalsGL(cv) {
     get lost() { return lost || gl.isContextLost(); },
     get failed() { return R?.failed || null; },
     /**
-     * One frame. `s`: { W, H (device pixels), dpr, epoch, atlas: [[key, font, text], …], rects: [[x, y, w, h, r, col], …] (CSS pixels),
-     * line: { pts: Float32Array of device pixels, n, half, col, clip: [x, y, w, h] device }, glyphs: [[key, x, y, col], …] (x, y the text's
-     * origin in CSS pixels) }. False when nothing could be drawn (no program yet, a lost context).
+     * One frame. `s`: { W, H (device pixels), dpr, rects: [[x, y, w, h, r, col], …] (CSS pixels), line: { pts: Float32Array of device
+     * pixels, n, half, col, clip: [x, y, w, h] device }, texts: [[text, weight, px, x, y, col], …] (x, y the pen on the baseline, CSS px),
+     * redraw: called once the atlas is in if it was not yet }. False when nothing could be drawn (no program yet, a lost context).
      */
     draw(s) {
       if (!R || lost || gl.isContextLost() || !publish()) return false;
-      ensureAtlas(s.atlas, s.dpr, s.epoch);
       const { W, H, dpr } = s;
       gl.viewport(0, 0, W, H);
       gl.disable(gl.SCISSOR_TEST);
@@ -203,19 +213,17 @@ export function createVitalsGL(cv) {
         gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, L.n - 1);
         gl.disable(gl.SCISSOR_TEST);
       }
-      // Words and digits.
-      const gd = new Float32Array(s.glyphs.length * 12);
-      let n = 0;
-      for (const [k, x, y, col] of s.glyphs) {
-        const e = entries.get(k);
-        if (!e) continue;
-        const dx = Math.round(x * dpr) - e.ox, dy = Math.round(y * dpr) - e.oy;
-        gd.set([dx, dy, e.w, e.h, e.x, e.y, e.w, e.h, ...col], n * 12); n++;
-      }
-      if (n) {
-        gl.useProgram(R.p.glyph); gl.uniform2f(R.u.glyph.size, W, H); gl.uniform2f(R.u.glyph.atlas, ATLAS_W, atlasH);
-        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, R.tex); gl.uniform1i(R.u.glyph.tex, 0);
-        send(R.glyph, gd.subarray(0, n * 12)); gl.bindVertexArray(R.glyph.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, n);
+      // Words and digits, from the shared atlas (none until its image is in; the monitor is drawn again then).
+      if (s.texts.length && atlasReady(s.redraw)) {
+        let cap = 0; for (const t of s.texts) cap += String(t[0]).length;
+        const gd = new Float32Array(cap * 13);
+        let n = 0;
+        for (const [str, w, px, x, y, col] of s.texts) n = layText(gd, n, str, w, px, x, y, col, dpr);
+        if (n) {
+          gl.useProgram(R.p.glyph); gl.uniform2f(R.u.glyph.size, W, H); gl.uniform2f(R.u.glyph.atlas, ATLAS_W, ATLAS_H); gl.uniform2f(R.u.glyph.sdf, RADIUS, CUTOFF);
+          gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, R.tex); gl.uniform1i(R.u.glyph.tex, 0);
+          send(R.glyph, gd.subarray(0, n * 13)); gl.bindVertexArray(R.glyph.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, n);
+        }
       }
       gl.bindVertexArray(null);
       return true;

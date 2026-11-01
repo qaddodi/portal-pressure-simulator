@@ -23,9 +23,19 @@ test('the GPU path is on by default, off with ?vitalsgl=0, and draws nothing wit
   assert.match(body, /glr\.draw\(/);
 });
 
-test('the atlas is the only canvas text, drawn when its key changes; the strip and the readings are instance data', () => {
-  assert.match(gl, /if \(key === atlasKey\) return;/);
+test('no letter is drawn by a canvas: words come from the shared SDF atlas, measured from its advances; strip and readings are instance data', () => {
+  const g = gl.replace(/\/\/.*$/gm, ''), m = mon.slice(mon.indexOf('function layout('), mon.indexOf("cv.addEventListener('webglcontextrestored'"));
+  assert.ok(!/getContext\('2d'\)|fillText|measureText/.test(g), 'vitals-gl.js draws and measures no text on a canvas');
+  assert.ok(!/measureText|getContext|fillText/.test(m), 'the GPU layout measures with textWidth');
+  assert.match(gl, /import \{ ATLAS_PNG \} from '\.\/glyphs-inter-png\.js/);
   assert.match(gl, /drawArraysInstanced\(gl\.TRIANGLES, 0, 6, L\.n - 1\)/, 'one capsule per strip segment');
   assert.ok(/startProgram/.test(gl) && /compileDone/.test(gl), 'programs compiled in parallel at creation, published when done');
   assert.ok(!/getError|readPixels|getParameter\(/.test(gl), 'no synchronous queries');
+});
+
+test('textWidth sums the atlas advances and kerning at the size asked', async () => {
+  const { textWidth } = await import('../src/ui/vitals-gl.js');
+  const { GLYPHS } = await import('../src/ui/glyphs-inter.js');
+  assert.ok(Math.abs(textWidth('8', 700, 20) - GLYPHS['700']['8'][0] * 20) < 1e-9);
+  assert.ok(Math.abs(textWidth('88', 700, 40) - 2 * textWidth('88', 700, 20)) < 1e-9);
 });
