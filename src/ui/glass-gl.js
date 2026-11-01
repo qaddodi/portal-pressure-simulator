@@ -32,6 +32,45 @@ export const REBLUR_MS = 50;
 // (a catheter's pulse, eased colours), stepped between a fresh blur and a stale one and read as a hard flicker (FHVP on HVPG 3, IVC on
 // HVPG 7). ?reblur=1, or the option reblur: REBLUR_MS, brings the 50 ms hold back.)
 const REBLUR_URL = typeof location !== 'undefined' && /[?&]reblur=1\b/.test(location.search || '');
+// (Since 1 Nov 2026 (Mohammad: "is there a way to keep it and make it faster", and the sheet's cards flickering on his iPhone) the glass drawn in
+// the figure's canvas is blurred again on every picture laid, the moving blood's frames too (option fresh: the figure's count of them), so
+// the frost never holds an old blood picture and then jumps to a new one. Each blur reads only the texels some glass samples (blurBoxes):
+// the same texels from the same pixels as a blur of the whole region, so the same glass, from a fraction of the figure. ?glasshold=1 keeps
+// the blur through the blood's frames again, ?glassfull=1 blurs the whole region again, as before.)
+const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
+const HOLD_URL = /[?&]glasshold=1\b/.test(SEARCH), FULL_URL = /[?&]glassfull=1\b/.test(SEARCH);
+/** Texels of the small copy kept around each glass when only part of it is blurred: the blur's 12 taps, one for the glass's smooth
+ *  sampling between two texels, and one spare. */
+export const BLUR_KEEP = 14;
+/**
+ * The parts of the small copy (texels, from its top left: [x0, y0, x1, y1], ends excluded) that a blur must make so every glass reads
+ * what a blur of the whole copy gives it: each glass's box (CSS px from the canvas's corner: { x, y, w, h }) grown by `keep` texels and
+ * held inside the copy (bw × bh texels, its top left at ox, oy CSS px, t CSS px to a texel), boxes that overlap made one. A copy texel a
+ * glass reads lies within `keep` - 1 texels of its box: the blur's taps across and down, and the glass's sampling between two texels.
+ */
+export function blurBoxes(boxes, ox, oy, t, bw, bh, keep = BLUR_KEEP) {
+  let out = [];
+  for (const b of boxes) {
+    const r = [Math.max(0, Math.floor((b.x - ox) / t) - keep), Math.max(0, Math.floor((b.y - oy) / t) - keep),
+      Math.min(bw, Math.ceil((b.x + b.w - ox) / t) + keep), Math.min(bh, Math.ceil((b.y + b.h - oy) / t) + keep)];
+    if (r[2] > r[0] && r[3] > r[1]) out.push(r);
+  }
+  for (let again = true; again;) {
+    again = false;
+    for (let i = 0; i < out.length && !again; i++) {
+      for (let j = i + 1; j < out.length; j++) {
+        const a = out[i], c = out[j];
+        if (a[0] < c[2] && c[0] < a[2] && a[1] < c[3] && c[1] < a[3]) {
+          out[i] = [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[2]), Math.max(a[3], c[3])];
+          out.splice(j, 1); again = true; break;
+        }
+      }
+    }
+  }
+  // (Parts that together cover most of the copy: the whole of it, in one go.)
+  const sum = out.reduce((a, r) => a + (r[2] - r[0]) * (r[3] - r[1]), 0);
+  return sum >= 0.85 * bw * bh ? [[0, 0, bw, bh]] : out;
+}
 
 const NUM = (v) => parseFloat(v) || 0;
 /** The first shadow of a computed box-shadow: { c: [r, g, b, a] (0–1), x, y, blur, spread } or null. */
@@ -170,7 +209,8 @@ function texOf(gl, filter) {
  * drawn into the figure's canvas, at the end of each picture it lays (drawInto), from that picture itself: no copy of the canvas, no
  * canvas of its own. Otherwise, and for the frame of each change, it is drawn here as before.
  */
-export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = REBLUR_URL ? REBLUR_MS : 0 } = {}) {
+export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = REBLUR_URL ? REBLUR_MS : 0, fresh = null, full = FULL_URL } = {}) {
+  if (HOLD_URL || reblur > 0) fresh = null;
   const look = pane ? PANE : GLASS;
   // (cards: { find, watch, before, read? }: the Present cards' glass (recs A2, 31 Oct): find() lists the elements, each its own rounded box, its
   // corners its border radii and its tint the colour its CSS declares in --gl-tint (app.css: the same colour its background was), drawn
@@ -593,7 +633,46 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (!(X1 > X0 && Y1 > Y0)) return null;
     return { T, k, X0, X1, Y0, Y1, x: X0 / k, y: (H2 - Y1) / k, w: (X1 - X0) / k, h: (Y1 - Y0) / k };
   }
-  function hostBlur(g) {
+  // hostBlur for some parts of the copy only (blurBoxes): each halving and the turn into the copy blit each part's pixels alone, from the
+  // same pixels to the same texels as the blit of the whole region (each part starts and ends on the grid of every step, so each step
+  // is still an exact 2 × 2 average), and the two passes are cut to the parts (scissor). Texels outside the parts keep whatever they
+  // held; no glass reads them (blurBoxes).
+  function partBlur(g, parts, bw, bh) {
+    const G = hk.G;
+    let t = g.T, ox = g.X0, oy = g.Y0, src = null;
+    // (A part's pixels at t device px to a texel, from (ox, oy), y up: the copy's top row is the region's top.)
+    const px = (r, t, ox, oy) => [ox + r[0] * t, oy + (bh - r[3]) * t, ox + r[2] * t, oy + (bh - r[1]) * t];
+    for (let i = 0; t > 2; i++) {
+      const nt = t / 2, st = step(i, bw * nt, bh * nt);
+      G.bindFramebuffer(G.READ_FRAMEBUFFER, src); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, st.fb);
+      for (const r of parts) {
+        const a = px(r, t, ox, oy), b = px(r, nt, 0, 0);
+        G.blitFramebuffer(a[0], a[1], a[2], a[3], b[0], b[1], b[2], b[3], G.COLOR_BUFFER_BIT, G.LINEAR);
+      }
+      src = st.fb; ox = 0; oy = 0; t = nt;
+    }
+    G.bindFramebuffer(G.READ_FRAMEBUFFER, src); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, hk.fbCopy);
+    for (const r of parts) {
+      const a = px(r, t, ox, oy);
+      G.blitFramebuffer(a[0], a[1], a[2], a[3], r[0], r[3], r[2], r[1], G.COLOR_BUFFER_BIT, G.LINEAR);
+    }
+    G.bindFramebuffer(G.READ_FRAMEBUFFER, null); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, null);
+    G.useProgram(hk.bprog); G.bindVertexArray(hk.vao); G.disable(G.BLEND);
+    G.viewport(0, 0, bw, bh);
+    G.uniform4f(hk.BU.uBox, 0, 0, bw, bh); G.uniform2f(hk.BU.uView, bw, bh); G.uniform1i(hk.BU.uT, 0);
+    G.uniform1fv(hk.BU.uW, gaussTaps(look.blur * g.k / g.T));
+    G.activeTexture(G.TEXTURE0);
+    G.enable(G.SCISSOR_TEST);
+    for (const [fb, tex, dx, dy] of [[hk.fbPass, hk.copy, 1, 0], [hk.fbOut, hk.pass, 0, 1]]) {
+      G.bindFramebuffer(G.FRAMEBUFFER, fb); G.bindTexture(G.TEXTURE_2D, tex); G.uniform2f(hk.BU.uDir, dx, dy);
+      for (const r of parts) { G.scissor(r[0], r[1], r[2] - r[0], r[3] - r[1]); G.drawArrays(G.TRIANGLE_STRIP, 0, 4); }
+    }
+    G.disable(G.SCISSOR_TEST);
+    G.bindFramebuffer(G.FRAMEBUFFER, null);
+    return true;
+  }
+  // (parts: blurBoxes' parts of the copy to make, or null for all of it.)
+  function hostBlur(g, parts = null) {
     const G = hk.G, { T, k } = g;
     let x0 = g.X0, y0 = g.Y0, w = g.X1 - g.X0, h = g.Y1 - g.Y0;
     const bw = w / T, bh = h / T;
@@ -608,6 +687,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     }
     if (gpuProbe.on) gpuProbe.note(COUNTED.glassCopy);
     let src = null;
+    if (parts) return partBlur(g, parts, bw, bh);
     for (let i = 0; w > bw * 2 || h > bh * 2; i++) {
       const nw = w / 2, nh = h / 2, st = step(i, nw, nh);
       G.bindFramebuffer(G.READ_FRAMEBUFFER, src); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, st.fb);
@@ -651,7 +731,13 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (!grid) return;
     const reg = { x: grid.x, y: grid.y, w: grid.w, h: grid.h };
     G.disable(G.SCISSOR_TEST); G.disable(G.STENCIL_TEST);
-    const rest = `${grid.X0}|${grid.Y0}|${grid.X1}|${grid.Y1}|${W2}x${H2}`, key = `${version ? version() : performance.now()}|${rest}`;
+    // (The parts of the copy the glasses read, unless the whole of it is blurred (?glassfull=1). Glasses that move change them, so they are
+    // part of the key: the same picture with a card moved is blurred again where the card now is; a blur is never kept for other parts.)
+    const bw = (grid.X1 - grid.X0) / grid.T, bh = (grid.Y1 - grid.Y0) / grid.T;
+    let parts = full ? null : blurBoxes(panes.map((p) => ({ x: p.r.left - cr.left, y: p.r.top - cr.top, w: p.r.width, h: p.r.height })), grid.x, grid.y, grid.T / k, bw, bh);
+    if (parts && (!parts.length || (parts.length === 1 && !parts[0][0] && !parts[0][1] && parts[0][2] === bw && parts[0][3] === bh))) parts = null;
+    const rest = `${grid.X0}|${grid.Y0}|${grid.X1}|${grid.Y1}|${W2}x${H2}${parts ? `|${parts.join(';')}` : ''}`;
+    const key = `${version ? version() : performance.now()}|${fresh ? fresh() : ''}|${rest}`;
     if (key !== hk.key) {
       // (Only the figure under the glass drawn again, its view and the region taken the same as the last blur's: blurred again at most
       // every REBLUR_MS, the glass drawn meanwhile from the blur it has. Those are the frames that are not plain blood (the ascites
@@ -668,7 +754,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         if (gpuProbe.on) gpuProbe.note(COUNTED.glassSkip);
         return;
       }
-      const ok = hostBlur(grid);
+      const ok = hostBlur(grid, parts);
       // (The figure's context left as its other passes expect to find it.)
       G.bindFramebuffer(G.FRAMEBUFFER, null); G.viewport(0, 0, W2, H2);
       G.bindTexture(G.TEXTURE_2D, null); G.useProgram(null); G.bindVertexArray(null);

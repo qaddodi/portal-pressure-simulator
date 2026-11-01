@@ -42,7 +42,7 @@ test('the browser\'s glass stays with the blur effect off, reduced transparency,
 });
 
 test('the stage lays the GPU glass under both callout layers, off with the other GPU layers and on a software renderer', () => {
-  assert.match(STAGE, /const glassGL = veins \? createGlassGL\(wrap, vCanvas, \[cath\.labels, sites\.el\], \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\), live: \(\) => wrap\.classList\.contains\('gl-on'\), version: \(\) => veins\.drawSeq, capture: \(\) => veins\?\.capture\(\), onFigure: \(f\) => veins\.onPicture\(f\), keep: \(\) => figLab\('glassCache'\), due: \(\) => watch\.due\(\), copy: GLASS_COPY \}\) : null;/);
+  assert.match(STAGE, /const glassGL = veins \? createGlassGL\(wrap, vCanvas, \[cath\.labels, sites\.el\], \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\), live: \(\) => wrap\.classList\.contains\('gl-on'\), version: \(\) => veins\.drawSeq, fresh: \(\) => veins\.bloodSeq, capture: \(\) => veins\?\.capture\(\), onFigure: \(f\) => veins\.onPicture\(f\), keep: \(\) => figLab\('glassCache'\), due: \(\) => watch\.due\(\), copy: GLASS_COPY \}\) : null;/);
   // (Its own canvas and copy only with ?glasscopy=1; by default drawn in the figure's canvas, its turn between the cards' two.)
   assert.match(STAGE, /const GLASS_COPY = typeof location !== 'undefined' && \/\[\?&\]glasscopy=1\\b\/\.test\(location\.search\);/);
   assert.match(STAGE, /hostFrost\(glassGL, \{ order: 2, over: \(\) => frostOver\('callouts'\) \}\);/);
@@ -62,7 +62,7 @@ test('the liver label\'s frosted pane is drawn the same way, under the labels, w
   assert.ok(m, 'the CSS pane');
   assert.equal(+m[1], PANE.blur);
   assert.equal(+m[2], PANE.sat);
-  assert.match(STAGE, /labelSvg\.before\(glass\);\n.*\n\s+const paneGL = veins \? createGlassGL\(wrap, vCanvas, \[\], \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\), live: \(\) => wrap\.classList\.contains\('gl-on'\), pane: glass, version: \(\) => veins\.drawSeq, capture: \(\) => veins\?\.capture\(\), onFigure: \(f\) => veins\.onPicture\(f\), keep: \(\) => figLab\('glassCache'\), due: \(\) => watch\.due\(\), copy: GLASS_COPY \}\) : null;/);
+  assert.match(STAGE, /labelSvg\.before\(glass\);\n.*\n\s+const paneGL = veins \? createGlassGL\(wrap, vCanvas, \[\], \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\), live: \(\) => wrap\.classList\.contains\('gl-on'\), pane: glass, version: \(\) => veins\.drawSeq, fresh: \(\) => veins\.bloodSeq, capture: \(\) => veins\?\.capture\(\), onFigure: \(f\) => veins\.onPicture\(f\), keep: \(\) => figLab\('glassCache'\), due: \(\) => watch\.due\(\), copy: GLASS_COPY \}\) : null;/);
   assert.match(SRC, /if \(canvas\) \(cards \? cards\.before : pane \|\| layers\[0\]\)\.before\(canvas\);/, 'its canvas just before the pane, so under the labels');
   assert.match(STAGE, /hostFrost\(paneGL, \{ order: 0, over: \(\) => frostOver\('pane'\) \}\);/, 'in the figure\'s canvas: the first turn, under the labels');
   assert.match(CSS, /\.cl-glass\[data-gl\], \.lb-glass\[data-gl\] \{ background: none; -webkit-backdrop-filter: none; backdrop-filter: none; \}/);
@@ -79,7 +79,7 @@ test('the glass takes a new copy of the figure only when the figure, the region 
   assert.match(SRC, /ready = \{ \.\.\.got \};\n\s+takenKey = key;/);
   assert.ok(SRC.indexOf('const key = version') < SRC.indexOf('createImageBitmap(source'), 'the key is read before the snapshot');
   // Without a version the old rule stands: a copy whenever the last has arrived.
-  assert.match(SRC, /version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = REBLUR_URL \? REBLUR_MS : 0 \} = \{\}\) \{/);
+  assert.match(SRC, /version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = REBLUR_URL \? REBLUR_MS : 0, fresh = null, full = FULL_URL \} = \{\}\) \{/);
   // The figure counts every time its canvas is drawn on: a composite that drew something, and a clear; and the stage hands that on.
   // (But for a frame of the moving blood alone, whose streaks the glass's blur evens out: review H4, 30 Oct.)
   assert.match(VEINS, /pictured\(!full && !part && !dirt && !pool && !\(fl\?\.ripple && nFluid\) && !cath && bare && same && !figNew\);/);
