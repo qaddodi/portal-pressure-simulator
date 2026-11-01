@@ -8,7 +8,7 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, fitCanvas, clamp, icon, cssVar, toast } from './util.js?v=e8e300385d';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, toast, swapText } from './util.js?v=e8e300385d';
 import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { FONT } from './charts.js?v=ac5c1ea005';
 import { pressureColor } from './colormap.js?v=86535c797a';
@@ -220,7 +220,7 @@ export function createHvpgProcedure() {
       : ph === 'result' ? `${sevWord(v.hvpg)}. ${STEPS[3][2]}` : STEPS[cur][2];
     // (A treatment playing tells its own step instead.)
     const say = proc ? PROCS[procKind].steps[Math.max(0, procStep)][2] : cap;
-    if (caption.textContent !== say) caption.textContent = say;
+    swapText(caption, say);   // (a new step's words crossfade in)
     const busy = (t0 != null && t < tEnd()) || !!proc;
     if (startBtn.disabled !== busy) startBtn.disabled = busy;
     for (const [k, b] of Object.entries(procBtns)) {
@@ -237,7 +237,7 @@ export function createHvpgProcedure() {
     const n = st.mode === 'explore' && !st.presenting
       ? (st.showHvpg ? 'The HVPG readouts are always shown (Settings).' : st.hvpgMeasured ? 'Measured: the HVPG readouts are live for this patient until a new one.' : 'The HVPG readouts stay hidden until it is measured here.')
       : 'The same numbers as the HVPG tile.';
-    if (note.textContent !== n) note.textContent = n;
+    swapText(note, n);
   }
 
   // ── The tracing ──────────────────────────────────

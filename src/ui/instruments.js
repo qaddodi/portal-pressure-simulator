@@ -5,7 +5,7 @@ import { NODES } from '../engine/topology.js?v=4044766e96';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
 import { pressureColor } from './colormap.js?v=86535c797a';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=e8e300385d';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon, swapText, putText } from './util.js?v=e8e300385d';
 import { simTime, isPaused } from './clock.js?v=16aba0e2eb';
 import { createEndoGL } from './endo-gl.js?v=050ce6f010';
 import { renderEndo } from './endo-render.js?v=a58e99f108';
@@ -601,11 +601,13 @@ export function createAbdomen({ onAction }) {
     volOut.replaceChildren(L.toFixed(1), h('small', {}, 'L'));
     volMinus.disabled = L <= 1; volPlus.disabled = L >= 10;
     albT.textContent = 'Albumin';
-    albS.textContent = albOn() ? `${Math.round(L * 8)} g` : warn ? 'Advised' : 'Optional';
+    // (Optional / Advised / grams crossfade into each other; the grams count on as the litres change.)
+    const albTxt = albOn() ? `${Math.round(L * 8)} g` : warn ? 'Advised' : 'Optional', albKind = albTxt.replace(/\d+/, '#');
+    if (albS._kind !== albKind) { albS._kind = albKind; swapText(albS, albTxt); } else putText(albS, albTxt);
     albS.classList.toggle('ab-warn', warn);
     alb.classList.toggle('ab-warn', warn);
     alb.title = warn ? `For >5 L, give albumin (${Math.round(L * 8)} g, 8 g per liter drained) to protect the kidneys.` : 'Albumin 8 g per liter drained: advised for >5 L, optional for ≤5 L.';
-    drain.textContent = hasFluid ? 'Drain' : 'No fluid';
+    swapText(drain, hasFluid ? 'Drain' : 'No fluid');
     drain.disabled = !hasFluid;
   }
   paintVol();

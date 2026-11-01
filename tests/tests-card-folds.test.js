@@ -33,3 +33,13 @@ test('the status beside the name crossfades between kinds and counts on within o
 test('Scope view / Wall mechanics fade the view that comes in', () => {
   assert.match(dock, /\(v === 'wall' \? wall\.el : endoscopy\.el\)\.animate\?\./);
 });
+
+test('HVPG steps, the Ascites albumin and Drain words crossfade, and the gastric-varix procedure buttons fade up', () => {
+  const proc = read('../src/ui/hvpg-proc.js'), instr = read('../src/ui/instruments.js'), css = read('../styles/app.css');
+  assert.match(proc, /swapText\(caption, say\)/);
+  assert.match(proc, /swapText\(note, n\)/);
+  assert.match(instr, /swapText\(albS, albTxt\)/);
+  assert.match(instr, /putText\(albS, albTxt\)/, 'the grams count on within one kind');
+  assert.match(instr, /swapText\(drain, hasFluid \? 'Drain' : 'No fluid'\)/);
+  assert.match(css, /\.hvpg-proc-btn:not\(\[hidden\]\) \{ animation: crossfade/);
+});

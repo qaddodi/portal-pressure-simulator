@@ -3365,6 +3365,7 @@ button.finding { cursor: pointer; }
 .hvpg-procs-k { font-size: 12px; font-weight: 600; letter-spacing: .05em; color: var(--text-3); }
 .hvpg-proc-btn { gap: 6px; }
 .hvpg-proc-btn[hidden] { display: none; }   /* (BRTO and BATO: only with gastric varices) */
+.hvpg-proc-btn:not([hidden]) { animation: crossfade var(--d-small) var(--ease); }   /* (BRTO and BATO come in with gastric varices: they fade up, they do not pop) */
 .hvpg-proc-btn svg { width: 12px; height: 12px; }
 .hvpg-proc-btn.off:not(:disabled) { opacity: .55; }
 .hvpg-proc-btn[aria-pressed="true"]:disabled { opacity: 1; cursor: default; }
