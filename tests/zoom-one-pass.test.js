@@ -136,7 +136,7 @@ test('the one-pass vertex shader is the vessel cells\' with the composite\'s zoo
 
 test('veins-gl: on by default (?zoompass=two goes back), a zoom or turn only, plain frames only, the old two passes otherwise', () => {
   assert.match(src, /const ONE_PASS = !\(typeof location !== 'undefined' && \/\[\?&\]zoompass=two\\b\/\.test\(location\.search\)\);/);
-  assert.match(src, /stencil: ONE_PASS,/, 'no stencil with ?zoompass=two');
+  assert.match(src, /stencil: ONE_PASS && !\(ownBuf && CTX_STENCIL_FREE\),/, 'no stencil with ?zoompass=two, nor on the canvas when the figure has its own buffer');
   assert.match(src, /if \(ONE_PASS\) \{\s*try \{/, 'the one-pass builds are not made with ?zoompass=two');
   const draw = body(src, '    draw(m, look, blood, rows = null) {');
   const fuse = draw.match(/if \(!pan && baseM && m\.slice\(0, 4\)\.some\(\(v, i\) => v !== baseM\[i\]\) && fuseReady\(\) && bareOf\(blood \|\| \{\}\) && !gpuProbe\.skipGL && !lost\) \{([\s\S]*?)\n {6}\}/);

@@ -112,6 +112,10 @@ const ONE_PASS = !(typeof location !== 'undefined' && /[?&]zoompass=two\b/.test(
 // practices", invalidateFramebuffer on tiled mobile GPUs): a canvas-sized buffer no longer written out to memory on every zoom or pan
 // frame, bandwidth and heat the picture never needed. ?invalidate=0 in the address: kept as before.
 const INVALIDATE = !(typeof location !== 'undefined' && /[?&]invalidate=0\b/.test(location.search));
+// No stencil on the canvas's own buffer when the figure draws into a buffer of its own (OWN_BUF): the one-pass frames mark their cells in
+// that buffer's stencil, never the canvas's, so the canvas's was a second screen-sized stencil kept for nothing (GPU memory, and on a
+// tile GPU a buffer stored every frame). ?stencilfree=0 in the address: the canvas keeps one, as before.
+const CTX_STENCIL_FREE = !(typeof location !== 'undefined' && /[?&]stencilfree=0\b/.test(location.search));
 // Tube depth (vessel depth pass, 31 Oct): a lumen darkens a little toward its wall, more on the side away from the light, and
 // a pale band of wall sits between the lumen and the casing; a vessel passing over another casts a slightly fuller contact
 // shadow. The centre of every lumen keeps its pressure or flow colour exactly. ALU only, no texture reads. ?depth=0: as before.
@@ -1798,7 +1802,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // so it keeps its own picture, as before.)
   const ownBuf = OWN_BUF && who === 'stage';
   let gl = null;
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: ONE_PASS, preserveDrawingBuffer: !ownBuf, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
+  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: ONE_PASS && !(ownBuf && CTX_STENCIL_FREE), preserveDrawingBuffer: !ownBuf, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (!gl) return null;
   // The composite's per-frame uniforms are sent only when they changed (uniform-cache.js; laptop-heat Q2). They are set nowhere else.
   const UC = uniformCache(gl);
