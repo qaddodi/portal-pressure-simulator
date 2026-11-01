@@ -5586,6 +5586,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 @media (max-width: 720px) and (max-height: 500px) and (orientation: landscape) {
   .topbar[data-fit] #viewSeg button { padding: 6px 5px; }
   .top-right .ib, .top-right .pal-btn { width: 34px; min-width: 34px; }
+  /* A 568 px phone with the Tests card open: the bar has 208 px beside the card and the view pill (251 px) ran 37 px under it, the Lobule button half
+     covered. The pill keeps inside the bar: its padding and words step from the phone's 10 px and 12 px at 568 up to the full 14 px and 14 px by 610 px, so 667 is unchanged. */
+  .app.dock-open:has(#dock.side) .vdock:not(.mini) > .nb-views { max-width: 100%; }
+  .app.dock-open:has(#dock.side) .vdock:not(.mini) > .nb-views #viewSeg button { padding: 0 clamp(10px, calc(10px + (100vw - 568px) * .1), 14px); font-size: min(var(--fs-14), max(var(--fs-12), calc(var(--fs-12) + (100vw - 568px) * .1))); }
 }
 /* Every Tests picture fits its pane: the pane (absolutely placed, so its size is known) is a size container and no
    chart box grows taller than the room inside it, at any card height (an iPad sheet dragged low, a short side card). */
@@ -6126,7 +6130,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > .ab-grade { font-size: clamp(12px, 11cqi, 34px) !important; }
 .pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > .ab-rate { font-size: clamp(12px, 8.5cqi, 28px) !important; }
 .ab .ab-belly > .ab-big > .ab-rate { display: inline-flex; align-items: baseline; justify-content: center; gap: .3em; transition: color var(--d-small) var(--ease); }   /* (a new value is written in place, never faded: 19 Oct) */
-.ab-rate-a { font-style: normal; font-size: .72em; transition: color var(--d-small) var(--ease); }
+.ab-rate-a { font-style: normal; font-size: max(12px, .72em); transition: color var(--d-small) var(--ease); }
 .ab-rate-a:empty { display: none; }
 /* (The daily balance has no backing: a card-coloured outline round its letters makes it read on the fluid, on the empty belly and across the fluid line, in every theme.) */
 .ab .ab-belly > .ab-big > .ab-rate[data-dir] { padding: .06em .55em .1em; --ab-rate-halo: 1px 0 0 var(--surface), -1px 0 0 var(--surface), 0 1px 0 var(--surface), 0 -1px 0 var(--surface), 1px 1px 0 var(--surface), -1px -1px 0 var(--surface), 1px -1px 0 var(--surface), -1px 1px 0 var(--surface), 0 0 2px var(--surface), 0 0 3px var(--surface), 0 0 5px var(--surface); text-shadow: var(--ab-rate-halo) !important; }   /* (no pill, Mohammad 19 Oct: a solid 1 px outline of the card's colour round every letter, then a soft halo, so the words read on the fluid and on the empty belly alike) */
