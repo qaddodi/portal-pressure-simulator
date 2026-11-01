@@ -56,3 +56,17 @@ test('the patient pill glides to a new name\'s width and the name crossfades (P8
   assert.match(read('src/ui/topbar-motion.js'), /if \(face\) face\.animate\(\[\{ width: `\$\{s\.w\}px` \}, \{ width: `\$\{n\.w\}px` \}\]/);
   assert.match(read('src/ui/main.js'), /swapFade\(el, \(\) => \{\s*el\.replaceChildren\(h\('span', \{ class: 'sn-l' \}, name\)/);
 });
+
+test('a tile\'s number fades between "?" and a value, its compare line fades in, and its bar and change colours ease', () => {
+  assert.match(util, /export function fadeIn\(el\)/);
+  assert.match(util, /const was = c\.shown != null; c\.shown = null; putNum\(el, '\?'\); if \(was\) fadeNum\(el\)/);
+  assert.match(util, /const fresh = c\.shown == null; c\.shown = v; putNum\(el, fmt\(v, d\)\); if \(fresh\) fadeNum\(el\)/);
+  for (const f of ['src/ui/dock.js', 'src/ui/readouts-pane.js']) {
+    const src = read(f);
+    assert.match(src, /if \(!x\.st\.hidden\) \{ x\.st\.hidden = true; fadeIn\(x\.cmp\); \}/);
+    assert.match(src, /x\.st\.hidden = false; fadeIn\(x\.st\);/);
+  }
+  assert.match(css, /\.rb-fill \{[^}]*transition: background-color var\(--d-small\) var\(--ease\), opacity var\(--d-small\) var\(--ease\);/);
+  assert.match(css, /\.metric \.cmp \{[^}]*transition: color var\(--d-small\) var\(--ease\);/);
+  assert.match(css, /\.vital b \{ transition: color var\(--d-small\) var\(--ease\); \}/);
+});

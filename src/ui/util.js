@@ -553,18 +553,23 @@ function rollStep(now) {
   }
   if (rolling.size) rollRaf = frame(rollStep, 'numbers');
 }
+// A number that appears where "?" was (a tile measured again), or "?" where a number was, fades in rather than popping: the roll
+// above moves a number between two numbers, and this is the step it cannot take.
+/** An element that has just been shown comes up from nothing over a small step (Reduce Motion: at once). */
+export function fadeIn(el) { if (!reduceMotionMQ.matches && el.animate && el.isConnected && hasBox(el)) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
+const fadeNum = fadeIn;
 export function countTo(el, v, d = 1, { eased = false } = {}) {
   let c = counts.get(el);
   if (!c) counts.set(el, c = { shown: null, from: 0, to: 0, t0: null, d });
   c.d = d;
-  if (v == null || !Number.isFinite(v)) { rolling.delete(el); c.t0 = null; c.shown = null; putNum(el, '?'); return; }
+  if (v == null || !Number.isFinite(v)) { rolling.delete(el); c.t0 = null; const was = c.shown != null; c.shown = null; putNum(el, '?'); if (was) fadeNum(el); return; }
   if (c.t0 != null) {   // (a roll under way)
     if (eased || reduceMotionMQ.matches) { if (reduceMotionMQ.matches) { rolling.delete(el); c.t0 = null; c.shown = v; putNum(el, fmt(v, d)); } else c.to = v; return; }
     if (Math.abs(v - c.to) < Math.pow(10, -d) * 0.5) return;
     c.from = c.shown; c.to = v; c.t0 = performance.now(); return;
   }
   const same = c.shown != null && fmt(c.shown, d) === fmt(v, d);
-  if (eased || same || c.shown == null || reduceMotionMQ.matches || !el.isConnected || !hasBox(el)) { c.shown = v; putNum(el, fmt(v, d)); return; }
+  if (eased || same || c.shown == null || reduceMotionMQ.matches || !el.isConnected || !hasBox(el)) { const fresh = c.shown == null; c.shown = v; putNum(el, fmt(v, d)); if (fresh) fadeNum(el); return; }
   c.from = c.shown; c.to = v; c.t0 = performance.now();
   rolling.add(el);
   if (!rollRaf) rollRaf = frame(rollStep, 'numbers');

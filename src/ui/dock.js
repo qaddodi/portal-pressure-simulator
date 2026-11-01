@@ -3,15 +3,15 @@
 
 import { store, hiddenNow } from './store.js?v=4ef2a6ffd8';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=a5645eadf0';
-import { lobuleFlows } from './lobule-model.js?v=ee740497a0';
-import { createProfile } from './charts.js?v=9eacb7ec27';
-import { createPressureTime } from './pressure-time.js?v=d914d2315a';
-import { createHvpgProcedure } from './hvpg-proc.js?v=3e8857cabb';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=6a6e1d2657';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=9cc632ebbb';
+import { lobuleFlows } from './lobule-model.js?v=ef4f54cec8';
+import { createProfile } from './charts.js?v=14608d850d';
+import { createPressureTime } from './pressure-time.js?v=ed025ea6e6';
+import { createHvpgProcedure } from './hvpg-proc.js?v=ab9938eb8c';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=c431dba456';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=47a0c06f50';
-import { createReadoutsPane } from './readouts-pane.js?v=c2f656b103';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=47f492dc22';
+import { createReadoutsPane } from './readouts-pane.js?v=e2527999ec';
 import { frameFor } from './frame.js?v=15d5254a2c';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=8a7bc6961d';
@@ -313,8 +313,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         const ct = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`, cc = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
         if (x.cmp.textContent !== ct) x.cmp.textContent = ct;
         if (x.cmp.className !== cc) x.cmp.className = cc;
-        x.st.hidden = true;
-      } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; }
+        if (!x.st.hidden) { x.st.hidden = true; fadeIn(x.cmp); }
+      } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; fadeIn(x.st); }
       // A new band must hold for a moment before the tile takes it, so a value hovering on a
       // cut-off does not flicker between two colors. (A paused model sends no more frames: it takes the band at once.)
       if (sev !== x.sev) {

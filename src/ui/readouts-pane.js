@@ -5,7 +5,7 @@
 
 import { store, hiddenNow } from './store.js?v=4ef2a6ffd8';
 import { hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=a5645eadf0';
+import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn } from './util.js?v=9cc632ebbb';
 import { vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { SCALE, RATE } from './table-marks.js?v=ff3ed0cc47';
 import { shownState, FILL_SMALL, fillQ } from './shown.js?v=8a7bc6961d';
@@ -128,8 +128,8 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
         const ct = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`, cc = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
         if (x.cmp.textContent !== ct) x.cmp.textContent = ct;
         if (x.cmp.className !== cc) x.cmp.className = cc;
-        x.st.hidden = true;
-      } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; }
+        if (!x.st.hidden) { x.st.hidden = true; fadeIn(x.cmp); }
+      } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; fadeIn(x.st); }
       // A new band must hold for a moment before the tile takes it, so a value on a cut-off does not flicker (paused: at once).
       if (sev !== x.sev) {
         if (x.sevNext !== sev) { x.sevNext = sev; x.sevSince = now; }

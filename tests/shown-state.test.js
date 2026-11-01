@@ -84,7 +84,7 @@ test('the bar, the Readouts tab, the charts and the instruments read the one sho
   assert.match(dock, /shownState\.on\(\(\) => \{ if \(frame\) paintStrip\(frame, true\); \}\)/);
   assert.match(dock, /const gap = \{ hvpg: tenthGap\(sm\.whvp, sm\.fhvp, null\), ppg: tenthGap\(sm\.pv, sm\.ivc, null\) \}/);
   assert.match(pane, /shownState\.set\('rp:' \+ t\.id, v, followOpts\(t\.d, !eased\)\)/);
-  assert.match(read('../styles/app.css'), /\.rb-fill \{[^}]*transition: background-color var\(--d-small\) var\(--ease\);/);
+  assert.match(read('../styles/app.css'), /\.rb-fill \{[^}]*transition: background-color var\(--d-small\) var\(--ease\)(, opacity var\(--d-small\) var\(--ease\))?;/);
   assert.match(main, /if \(jumpSeen\) \{ jumpSeen = false; noteJump\(\); \}/);
   assert.match(worker, /jump: jumpDirty \|\| clock !== postedClock/);
   assert.match(worker, /function stateChanged\(\) \{[^}]*jumpDirty = true; \}/);
