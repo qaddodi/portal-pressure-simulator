@@ -439,15 +439,17 @@ function artStep() {
   // own changes to the page, the first shape's box and style made the browser lay the page out there and then, 49 to 91 ms in one
   // frame on the catheter slide on his Mac (1d32d326, 30 Oct). Just after the frame the layout is the one the frame just drew, so
   // the reads find it ready. The same reads of the same page, a slice a frame as before.)
-  if (still && j.stage === 0) { setTimeout(() => artRead(j), 0); return; }
-  if (still) gpuProbe.time(null, 'credit: art grid', () => artSlice(j, inv, performance.now() + ART_SLICE));
+  // (The grid's slices too run in that task straight after the frame, never inside it: a slice reads a lit vessel's stroke the first
+  // time its glow asks for it.)
+  if (still) { setTimeout(artReadJob, 0); return; }
   artNext(j);
 }
+const artReadJob = () => artRead(artJob);
 function artRead(j) {
-  if (artJob !== j) return;
+  if (!j || artJob !== j) return;
   const world = document.getElementById('world'), wm = world?.getScreenCTM?.(), inv = wm && invert(wm);
   if (world !== j.world || !inv || !world.closest('.stage-view')?.classList.contains('gl-on')) { artJob = null; artDirty = true; j.done?.(); return; }
-  gpuProbe.time(null, 'credit: art read', () => artSlice(j, inv, performance.now() + ART_SLICE));
+  gpuProbe.time(null, j.stage === 0 ? 'credit: art read' : 'credit: art grid', () => artSlice(j, inv, performance.now() + ART_SLICE));
   artNext(j);
 }
 function artNext(j) {
