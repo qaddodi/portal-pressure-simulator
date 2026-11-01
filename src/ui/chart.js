@@ -6,10 +6,10 @@
 //   Advanced physiology                  side panel, from Settings
 
 import { store, updateParams } from './store.js?v=80d4358be8';
-import { h, icon, svgIcon, toast, reconcile } from './util.js?v=95cecc6a0a';
+import { h, icon, svgIcon, toast, reconcile } from './util.js?v=191af24263';
 import { DRUGS } from '../engine/scenario.js?v=e71da00102';
-import { activeInterventions } from './inspector.js?v=ed6913a568';
-import { DRUG_NOTE } from './actions.js?v=9994ff69dd';
+import { activeInterventions } from './inspector.js?v=8a2bb8a1a8';
+import { DRUG_NOTE } from './actions.js?v=bcb11a225e';
 import { factTarget } from './fact-target.js?v=50935889f6';
 
 
@@ -44,7 +44,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
   }
   function changes() {
     const list = h('div', { class: 'chg-list', role: 'list' });
-    const empty = h('p', { class: 'fd-empty' }, 'Nothing changed yet. Move a slider or treat, and it shows here.');
+    const empty = h('p', { class: 'fd-empty' }, h('b', {}, 'Nothing changed yet.'), ' Move a slider or treat, and it shows here.');
     // Clear all takes back only the learner's own changes: the patient's own picture stays.
     const clear = h('button', { class: 'link chg-clear', onclick: () => updateParams((q) => { const base = presetBase(); if (base) return structuredClone(base); for (const a of activeInterventions(q)) a.remove(q); return q; }, { label: 'Clear all changes' }) }, 'Clear all');
     let key = null, count = null;

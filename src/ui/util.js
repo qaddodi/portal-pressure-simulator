@@ -130,7 +130,10 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   while (stay.length >= 2) { const o = stay.shift(); if (o._close) o._close('pushed'); else o.remove(); }
   // A card slides down from behind the top bars and settles just below them (below every row on a phone).
   placeToasts(wrap);
-  const t = h('div', { class: 'toast ' + kind, role: 'status' }, h('span', { class: 'toast-msg' }, msg));
+  // (An error leads with a small warning mark in the danger ink, so it reads as an error by its shape, not by red words alone.)
+  const mark = kind === 'bad' ? icon('alert') : null;
+  if (mark) mark.setAttribute('class', 'toast-ic');
+  const t = h('div', { class: 'toast ' + kind, role: kind === 'bad' ? 'alert' : 'status' }, h('span', { class: 'toast-msg' }, mark, msg));
   let timer = 0, gone = false;
   const close = (why = 'user') => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(why); t.classList.add('leaving'); setTimeout(() => dropToast(t), 340); };
   t._close = close;

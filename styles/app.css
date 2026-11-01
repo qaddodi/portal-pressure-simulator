@@ -4130,7 +4130,7 @@ input[type="range"] { touch-action: none; }
 .tl-hc:empty { display: none; }   /* an empty badge would still take a grid row and push the clock icon up */
 .tl-hc:not(:empty) { animation: scale-settle var(--d-small) var(--ease); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
 /* Events: a colored flag standing on the rail, so they read apart from the learner's changes. */
-.tl-pop-empty { margin: 0; padding: 8px; font-size: var(--fs-14); color: var(--text-2); }
+.tl-pop-empty { margin: 0; padding: 8px; font-size: var(--fs-14); line-height: 1.45; color: var(--text-3); }
 .tl-pop-row.future { opacity: .5; }
 .tl-history { max-height: min(320px, 45vh); }
 .menu.as-sheet .tl-history { max-height: none; }
@@ -4374,7 +4374,11 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 /* Change messages: a light, translucent pill above the play bar; click, swipe or x to dismiss. */
 .toast-wrap { transform: translateX(-50%); }
 .toast { display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; background: var(--glass); color: var(--text); border-radius: var(--r-sheet); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); font-size: var(--fs-12); line-height: 1.4; max-width: min(440px, 92vw); pointer-events: auto; cursor: pointer; touch-action: pan-x; }
-.toast.bad { background: var(--glass); color: var(--danger-ink); }
+.toast.bad { background: var(--glass); color: var(--text); }
+/* An error's mark: the warning triangle in the danger ink, one text-height tall, so it scales with the docked card's fitted size. */
+.toast-ic { display: inline-block; width: 1.05em; height: 1.05em; margin: 0 .4em 0 0; vertical-align: -.17em; color: var(--danger-ink); stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* Words wrap into even lines, never one word left alone on the last. */
+.toast-msg { text-wrap: balance; }
 .toast-x { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-2); cursor: pointer; }
 @media (hover: hover) { .toast-x:hover { background: var(--surface-3); color: var(--text); } }
 .toast-x svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }
@@ -7175,3 +7179,9 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 #topbar svg:not(.brand-mark), #timeline svg, #zoomPill .ib svg, #thumbBar svg { stroke-width: var(--ic-w-m); stroke-linecap: round; stroke-linejoin: round; }
 #topbar #btnMenu .chev, #topbar #btnBlood svg, #topbar #btnLobuleLayers svg, #topbar #btnLayers .chev { stroke-width: var(--ic-w-s); }
 .top-right .pal-btn svg { width: var(--ic-m); height: var(--ic-m); }
+
+/* Empty states (History, the changes list, the patient and presentation search): one look with Search's. A short
+   headline in the second ink, the way forward in the third, rising gently into place when the list turns up empty. */
+:is(.fd-empty, .tl-pop-empty, .um-empty) b { color: var(--text-2); font-weight: 600; }
+:is(.fd-empty, .tl-pop-empty, .um-empty, .pal-empty):not([hidden]) { text-wrap: pretty; animation: fade-rise var(--d-small) var(--ease) backwards; }
+.um-empty > span:first-child { color: var(--text-2); font-weight: 600; }
