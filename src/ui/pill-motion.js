@@ -5,7 +5,7 @@
 // moving edge of the face: the Sinusoid button slides out from behind Lobule, Anatomy and Circuit fold in behind it
 // (17 Oct, Mohammad). All of it on one clock and curve (FOLD_MS, FOLD_EASE), while the pill as a whole glides with the zoom.
 //
-// Only transform, opacity and clip-path move the buttons (no layout per frame, and nothing the dock's ResizeObserver
+// Only transform and opacity move the buttons (no layout per frame, and nothing the dock's ResizeObserver
 // sees); the face is an absolutely placed box with nothing inside, so its width eases at no cost to anything else.
 // Every measure is taken in the pill's own px from its centre, so a glide of the whole pill (main.js) does not enter it,
 // and one fold taking over from another starts from wherever the buttons and the face are drawn at that moment.
@@ -60,6 +60,24 @@ export function foldPlan(before, after, order) {
 /** The clip that keeps the buttons inside the face, as insets (px) from the button row's own box: seg is the row's { l, r }. */
 export const faceClip = (w, seg) => ({ l: -w / 2 - seg.l, r: seg.r - w / 2 });
 
+/**
+ * A coming or going button shown only as the face covers it, by its opacity alone (no clip: a clip-path repaints the row every
+ * frame). l, r: its edges at rest (pill px from the centre); dx0 → dx1 its offset; o0 → o1 its own fade; e0 → e1 the face's half
+ * width. All of these move linearly in the fold's eased progress, so the keyframes' offsets are taken in it (the effect carries the
+ * easing). At each step its opacity is its own fade times the share of it the face covers then, so it shows as the clip showed it,
+ * softly instead of cut.
+ */
+export function coverFade({ l, r, dx0, dx1, o0, o1, e0, e1 }, steps = 16) {
+  const out = [];
+  for (let i = 0; i <= steps; i++) {
+    const p = i / steps, dx = dx0 + (dx1 - dx0) * p, e = e0 + (e1 - e0) * p;
+    const a = l + dx, b = r + dx, w = Math.max(1e-6, b - a);
+    const cov = Math.max(0, Math.min(b, e) - Math.max(a, -e)) / w;
+    out.push({ offset: p, opacity: +((o0 + (o1 - o0) * p) * Math.min(1, cov)).toFixed(4) });
+  }
+  return out;
+}
+
 const running = new Set();
 /** Ends a fold where it stands: its animations dropped (each button at rest) and its ghosts removed. */
 export function stopFold() {
@@ -104,7 +122,11 @@ export function foldPill(seg, box, before, ms = FOLD_MS) {
   const real = (k) => seg.querySelector(`:scope > button[data-view="${k}"]`);
   for (const [k, p] of plan) {
     if (p.kind !== 'out') {
-      keep(real(k).animate([{ transform: `translateX(${p.dx0.toFixed(2)}px)`, opacity: p.o0 }, { transform: 'none', opacity: 1 }], opt));
+      const at = after.btns.find((e) => e.key === k);
+      if (p.kind === 'in' && at) {
+        keep(real(k).animate([{ transform: `translateX(${p.dx0.toFixed(2)}px)` }, { transform: 'none' }], opt));
+        keep(real(k).animate(coverFade({ l: at.l, r: at.r, dx0: p.dx0, dx1: 0, o0: p.o0, o1: 1, e0: before.w / 2, e1: after.w / 2 }), opt));
+      } else keep(real(k).animate([{ transform: `translateX(${p.dx0.toFixed(2)}px)`, opacity: p.o0 }, { transform: 'none', opacity: 1 }], opt));
       continue;
     }
     // A button going away: a copy of it stays in the row (out of its layout) where it was drawn and travels with its
@@ -114,12 +136,10 @@ export function foldPill(seg, box, before, ms = FOLD_MS) {
     g.setAttribute('aria-hidden', 'true'); g.inert = true; g.tabIndex = -1; g.dataset.ghost = ''; g.dataset.ghostOf = k; g.classList.add('vp-ghost');
     Object.assign(g.style, { position: 'absolute', top: '0', left: `${(was.l - after.seg.l).toFixed(2)}px`, width: `${(was.r - was.l).toFixed(2)}px`, margin: '0', pointerEvents: 'none' });
     seg.append(g); running.add(g);
-    const a = g.animate([{ transform: 'none', opacity: p.o0 }, { transform: `translateX(${p.dx1.toFixed(2)}px)`, opacity: 0 }], { ...opt, fill: 'forwards' });
+    g.animate([{ transform: 'none' }, { transform: `translateX(${p.dx1.toFixed(2)}px)` }], { ...opt, fill: 'forwards' });
+    const a = g.animate(coverFade({ l: was.l, r: was.r, dx0: 0, dx1: p.dx1, o0: p.o0, o1: 0, e0: before.w / 2, e1: after.w / 2 }), { ...opt, fill: 'forwards' });
     a.onfinish = () => { g.remove(); running.delete(g); };
     running.add(a); a.oncancel = () => running.delete(a);
   }
-  // The row is cut to the face as it eases (round, as the face is), so a button coming or going shows only inside it.
-  const rad = getComputedStyle(box).borderTopLeftRadius || '21px', s = after.seg;
-  const clip = (w) => { const c = faceClip(w, s); return `inset(${(-s.t).toFixed(2)}px ${c.r.toFixed(2)}px ${(-s.b).toFixed(2)}px ${c.l.toFixed(2)}px round ${rad})`; };
-  keep(seg.animate([{ clipPath: clip(before.w) }, { clipPath: clip(after.w) }], opt));
+  // (A button coming or going shows only as the face covers it, by its opacity: coverFade. The row is never clipped.)
 }

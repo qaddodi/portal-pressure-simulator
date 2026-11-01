@@ -3,8 +3,8 @@
 // does not pop. The new button fades and grows in, a removed one fades out as a ghost, and everything
 // next to them glides to its new place (FLIP: first measure, last measure, play the difference).
 //
-// Only transform, opacity and clip-path animate (the compositor does the work, and no layout runs per
-// frame). Positions are read from offsetLeft/offsetTop, which ignore transforms, so a measure taken while
+// Only transform and opacity animate (the compositor does the work: nothing repaints and no layout runs per
+// frame; a pill that grows glides its plate and shows what it gained as the plate covers it, never by a clip-path). Positions are read from offsetLeft/offsetTop, which ignore transforms, so a measure taken while
 // a glide is still playing is the true layout and an interrupted glide continues from where it was.
 // Nothing moves on a window resize or with reduced motion: the bar just takes its new layout.
 import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE } from './ease.js?v=fc509dabe4';
@@ -42,7 +42,7 @@ export function initTopbarMotion() {
   const measure = () => {
     const m = new Map([[bar, { vis: bar.offsetParent !== null, ...pageXY(bar) }]]);
     for (const el of bar.querySelectorAll(ITEMS)) {
-      if (el.closest('[data-ghost]')) continue;
+      if (el.closest('[data-ghost]') || el.classList.contains('tb-face-lent')) continue;
       const vis = el.offsetParent !== null;
       m.set(el, vis ? { vis, ...pageXY(el), w: el.offsetWidth, h: el.offsetHeight, display: getComputedStyle(el).display } : { vis });
     }
@@ -115,10 +115,7 @@ export function initTopbarMotion() {
           else if (face) face.animate([{ width: `${s.w}px` }, { width: `${n.w}px` }], { duration: MOVE_MS, easing: EASE }).id = 'tbm';
           else ghost(el, s, { own, tot, next }, true);
         }
-        if (t.dw > 2 && el.matches(GROW)) {
-          const a = el.animate([{ clipPath: `inset(-32px ${t.dw}px -32px -32px)` }, { clipPath: 'inset(-32px -32px -32px -32px)' }], { duration: MOVE_MS, easing: EASE });
-          a.id = 'tbm';
-        }
+        if (t.dw > 2 && el.matches(GROW)) growPill(el, s, n, next);
       }
     }
         next.set(bar, barNext);
@@ -151,8 +148,7 @@ export function initTopbarMotion() {
       const old = mk('none'); old.style.width = `${w0}px`;
       const a = tag(old.animate([{ translate: `${x0}px 0px`, opacity: 1 }, { translate: `${x0}px 0px`, opacity: 0 }], { ...timing, fill: 'forwards' }));
       a.onfinish = a.oncancel = () => old.remove();
-      tag(face.animate([{ opacity: 0 }, { opacity: 1 }], timing));
-      return;
+      return tag(face.animate([{ opacity: 0 }, { opacity: 1 }], timing));
     }
     const hold = tag(face.animate([{ opacity: 0 }, { opacity: 0 }], timing));
     const o = 40;   // (room left for the shadow outside the plate)
@@ -169,6 +165,48 @@ export function initTopbarMotion() {
     for (const [el, f] of parts) tag(el.animate([f(0), f(1)], { ...timing, fill: 'forwards' }));
     // (The copies go with the hold: at the landing, or when the next glide cancels it, so the face is never hidden without them.)
     hold.onfinish = hold.oncancel = () => { for (const [g] of parts) g.remove(); };
+    return hold;
+  }
+
+  // A pill that grows (a longer name, a button more): its plate glides from the old width to the new by transform alone (plateGlide,
+  // on its own face, or on a face lent for the glide when the pill paints its own glass), and what lies past the old edge shows
+  // as the plate covers it, by its opacity (coverage of its box by the moving edge, sampled on the glide's curve). No clip-path.
+  const LOOK = ['backgroundColor', 'backgroundImage', 'boxShadow', 'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomRightRadius', 'borderBottomLeftRadius'];
+  function growPill(el, s, n, next) {
+    const timing = { duration: MOVE_MS, easing: EASE };
+    let face = el.querySelector(':scope > .tb-face:not([data-ghost])'), lent = null;
+    if (!face) {
+      const cs = getComputedStyle(el);
+      const paints = !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(cs.backgroundColor) || cs.backgroundImage !== 'none' || cs.boxShadow !== 'none';
+      if (paints && PLATEGLIDE) {
+        lent = document.createElement('span');
+        lent.className = 'tb-face tb-face-lent'; lent.setAttribute('aria-hidden', 'true');
+        const look = {};
+        for (const k of LOOK) look[k] = cs[k];
+        Object.assign(lent.style, look, { position: 'absolute', zIndex: '-1', left: '0', top: '0', bottom: '0', width: '100%', pointerEvents: 'none', margin: '0', padding: '0' });
+        const keep = { position: el.style.position, isolation: el.style.isolation };
+        el.style.setProperty('background', 'transparent', 'important'); el.style.setProperty('box-shadow', 'none', 'important');
+        if (cs.position === 'static') el.style.position = 'relative';
+        el.style.isolation = 'isolate';
+        el.prepend(lent);
+        lent._restore = () => { lent.remove(); el.style.removeProperty('background'); el.style.removeProperty('box-shadow'); el.style.position = keep.position; el.style.isolation = keep.isolation; };
+        face = lent;
+      }
+    }
+    if (face && PLATEGLIDE) {
+      const hold = plateGlide(face, 0, s.w, n.w, timing);
+      if (lent) { const end = () => lent._restore(); if (hold) hold.addEventListener('finish', end), hold.addEventListener('cancel', end); else end(); }
+    }
+    for (const c of el.children) {
+      if (c.classList.contains('tb-face') || c.dataset.ghost != null || c.classList.contains('face-half')) continue;
+      const cn = next.get(c);
+      if (!cn?.vis || !snap.get(c)?.vis) continue;   // (a button coming in has its own fade)
+      const a = cn.x - n.x, b = a + cn.w;
+      if (!(b > s.w + 0.5) || !(b - a > 0)) continue;
+      const frames = [];
+      for (let i = 0; i <= 12; i++) { const k = i / 12, e = s.w + (n.w - s.w) * k; frames.push({ offset: k, opacity: +Math.max(0, Math.min(1, (e - a) / (b - a))).toFixed(4) }); }
+      c.animate(frames, timing).id = 'tbm';
+    }
   }
 
   // A clone of the removed button stays where it was and fades out, so it does not vanish in one frame.

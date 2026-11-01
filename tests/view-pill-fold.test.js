@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { foldPlan, faceClip, easeIO3, FOLD_MS, FOLD_EASE } from '../src/ui/pill-motion.js';
+import { foldPlan, faceClip, coverFade, easeIO3, FOLD_MS, FOLD_EASE } from '../src/ui/pill-motion.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const main = read('../src/ui/main.js');
@@ -110,4 +110,15 @@ test('the fold is wired to every change of the pill\'s buttons, on the zoom\'s c
   assert.match(main, /\$\$\('#viewSeg button\[data-view\]'\)\.forEach\(\(b\) => b\.setAttribute\('aria-pressed'/);
   // In the top bar (presenting) the bar's own motion plays it (topbar-motion.js): the fold stops there.
   assert.match(main, /if \(home && seg\.parentElement !== home\) \{ if \(pres\) stopFold\(\); home\.append\(seg\); \}/, 'the same element, moved');
+});
+
+test('a coming button shows only as the face covers it, by opacity (no clip-path on the row)', () => {
+  // A button 40 px wide at 60..100 from the centre, the face's half width growing 50 → 110: hidden at first, whole at the end.
+  const k = coverFade({ l: 60, r: 100, dx0: -40, dx1: 0, o0: 0, o1: 1, e0: 50, e1: 110 });
+  assert.equal(k[0].opacity, 0); assert.equal(k.at(-1).opacity, 1);
+  for (let i = 1; i < k.length; i++) assert.ok(k[i].opacity >= k[i - 1].opacity - 1e-9, 'it only grows');
+  // A going button (face shrinking over it) is gone by the end.
+  const g = coverFade({ l: 60, r: 100, dx0: 0, dx1: -40, o0: 1, o1: 0, e0: 110, e1: 50 });
+  assert.equal(g[0].opacity, 1); assert.equal(g.at(-1).opacity, 0);
+  assert.doesNotMatch(motion.match(/export function foldPill[\s\S]*$/)[0], /clipPath/);
 });

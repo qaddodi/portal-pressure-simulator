@@ -18,20 +18,20 @@ test('a presenter slide that lights something in the liver hides only the lobule
     assert.match(r, /\.lz-lab|\.lz-leaders/);
   }
   assert.match(rules[0], /:is\(\.lz-lab, \.lz-zone\):not\(/, 'the lobule\'s names and zone names still ease out');
-  assert.match(rules[0], /--lit-o: 0/);
+  assert.match(rules[0], /\{ opacity: 0; pointer-events: none; \}/);
   // No other rule fades an unlit sinusoid name: the end names (Portal venule, Central vein) and the cells are plain captions.
   assert.doesNotMatch(CSS, /\.sv-region[^{]*:not\(:is\(\.app\[data-lit/, 'no rule fades a sinusoid name by what is lit');
 });
 
 test('a lit sinusoid name still takes the pill and its colour', () => {
-  const pill = CSS.split('\n').find((l) => l.includes(')::before { --pill-o: 1;')) || '';
+  const pill = CSS.split('\n').find((l) => l.includes(')::before { opacity: 1;')) || '';
   for (const k of ['fenestrae', 'disse', 'stellate', 'kupffer', 'hepatocyte', 'lymph', 'lumen']) assert.ok(pill.includes(`.app[data-lit~="sinusoid:${k}"] [data-target="sinusoid:${k}"]`), k);
   assert.match(pill, /^:is\(\.lz-lab, \.lz-zone, \.sv-region\):is\(/);
 });
 
 test('the end arrows follow their names, so the kept names keep their arrows', () => {
   assert.match(VIEW, /const endShown = \(key\) => \{/);
-  assert.match(VIEW, /\(\+getComputedStyle\(e\)\.opacity \|\| 0\) \* \(\+getComputedStyle\(e\.firstElementChild\)\.opacity \|\| 0\) \/ 0\.78/);
+  assert.match(VIEW, /\(\+getComputedStyle\(e\)\.opacity \|\| 0\) \* \(\+getComputedStyle\(e\.firstElementChild\)\.opacity \|\| 0\) \* \(\+getComputedStyle\(labels\)\.opacity \|\| 0\) \/ 0\.78/);
   assert.match(VIEW, /\[\['in', 'Portal venule', val\(m\.P1\), 0\], \['out', 'Central vein', val\(m\.P3\), 1\]\]/);
   assert.match(VIEW, /region\('hep', 'Hepatocyte'/);
   assert.match(VIEW, /region\('lymph', 'Lymph'/);

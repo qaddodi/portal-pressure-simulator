@@ -591,7 +591,7 @@ export function createSinusoidView({ host, before = null }) {
     const e = regions[key]?.el;
     if (!document.getElementById('app')?.classList.contains('presenting')) return 1;
     if (!e || e.hidden || !e.firstElementChild) return 0;
-    return Math.min(1, (+getComputedStyle(e).opacity || 0) * (+getComputedStyle(e.firstElementChild).opacity || 0) / 0.78);
+    return Math.min(1, (+getComputedStyle(e).opacity || 0) * (+getComputedStyle(e.firstElementChild).opacity || 0) * (+getComputedStyle(labels).opacity || 0) / 0.78);
   };
   const END = [0, 0, 1];   // the end arrows: portal x, central x, size (µm)
   const ENDBOX = [null, null];
@@ -661,7 +661,7 @@ export function createSinusoidView({ host, before = null }) {
       const covered = under(at(off[0], off[1], off[2]));
       if (covered !== !!R.covered) {
         R.covered = covered;
-        if (covered) R.el.style.setProperty('--lit-o', '0'); else R.el.style.removeProperty('--lit-o');   // (eased: --lit-o has its transition)
+        if (covered) R.el.style.opacity = '0'; else R.el.style.removeProperty('opacity');   // (eased: .sv-region's opacity has its transition, the compositor's)
         if (lead[k]) lead[k].style.visibility = covered ? 'hidden' : '';
       }
       R.el.style.translate = off[0] || off[1] ? `${off[0].toFixed(1)}px ${off[1].toFixed(1)}px` : '';

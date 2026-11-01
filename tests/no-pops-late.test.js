@@ -8,7 +8,7 @@ const css = read('styles/app.css'), util = read('src/ui/util.js'), dock = read('
 
 test('Reduce Motion takes the movement out but keeps the fades (P3)', () => {
   assert.doesNotMatch(css, /transition-duration: \.001s !important/, 'no blanket rule that turns every transition into a pop');
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\*, \*::before, \*::after \{ transition-property: opacity, visibility, color/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\*, \*::before, \*::after \{ transition-property: opacity, visibility !important; \}/, 'only fades are left to keep (a colour change is a crossfade of layers)');
   const tail = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce) {'));
   for (const k of ['fade-rise', 'fade-rise-out', 'slide-from-edge', 'slide-to-edge', 'scale-settle', 'scale-settle-out', 'thumbOut']) {
     assert.match(tail, new RegExp(`@keyframes ${k} \\{ (from|to) \\{ opacity: 0; \\} \\}`), `${k} becomes a fade`);

@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=dd95596be7';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { createStage } from './stage.js?v=0120cc4d5c';
+import { createStage } from './stage.js?v=a254d95e1a';
 import { createCreditPlacer } from './credit.js?v=6f70840556';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
@@ -15,7 +15,7 @@ import { createTimeline, LAPSES } from './timeline.js?v=da5c855fd5';
 import { createCompare } from './compare.js?v=48555ef19a';
 import { createCard } from './card.js?v=1447b16a2b';
 import { createChart } from './chart.js?v=2dddc58c93';
-import { createMenu } from './menu.js?v=0df09e6919';
+import { createMenu } from './menu.js?v=39f87d49fc';
 import { caption } from './a11y.js?v=7f67c286b8';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
@@ -28,9 +28,9 @@ import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor,
 import { glidePlate } from './plate-glide.js?v=f28a1c1e9e';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=367c3b0561';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
-import { morphKey, crossfadeText } from './legend-morph.js?v=f15f97d4ba';
+import { morphKey, crossfadeText } from './legend-morph.js?v=d6e65bb85f';
 import './seg-glide.js?v=f292ee90e4';
-import './focus-ring.js?v=ab12c60bd7';
+import './focus-ring.js?v=b6a5d745b3';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
 import { lookChooser } from './look-chooser.js?v=469b3e3e95';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
@@ -46,7 +46,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=87e88f0e26';
-import { initTopbarMotion } from './topbar-motion.js?v=19f1b81462';
+import { initTopbarMotion } from './topbar-motion.js?v=88683d9e34';
 import { ORIGINS } from './blood.js?v=f6c91d8676';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0762d1b820';
@@ -56,9 +56,9 @@ import { sizeOf, watchSize, rectsSoon, restTask, flushTask } from './geom.js?v=2
 import { feedbackDiagnostics } from './feedback-diag.js?v=a6fd7380e0';
 import { noteJump } from './display-state.js?v=8d062d39dc';
 import { createIdleRest } from './idle-rest.js?v=4d23822371';
-import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=f24d02047b';
+import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=2fbb7ca1d6';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
-import './scroll-edges.js?v=e2330b9e5f';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
+import './scroll-edges.js?v=a577c6fa99';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -206,7 +206,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=4f7f9b9e35'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=93404b41c9'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

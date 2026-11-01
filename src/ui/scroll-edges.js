@@ -1,7 +1,7 @@
 // Soft edges on the lists that scroll (1 Nov 2026, scroll-edges): a 12 px fade at an edge only while there is more beyond it in
 // that direction. At the top of a list there is no top fade, scrolled to the end no bottom fade, and a list that does not scroll
 // has no fade at all (it carries no class). The fades ease in and out on --d-small as an end is reached or left: this module only
-// says which ends have more (--sedge-t / --sedge-b, 0 or 1, registered in app.css and transitioned there); the stylesheet draws them
+// says which ends have more (--sedge-t / --sedge-b, 0 or 1, registered in app.css; a menu's veils ease them by their opacity, a list's mask takes them at once); the stylesheet draws them
 // (a mask on the scrolling element, or a sticky veil on a menu, which is its own glass and must keep its edge and shadow whole).
 //
 // Which lists: the menu's two columns, the Treat and Tests bodies, the docked cards' scroller and every popover menu (Settings, Blood,

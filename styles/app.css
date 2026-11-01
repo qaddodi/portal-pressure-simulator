@@ -217,10 +217,8 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 @media (max-width: 1599px) { .legend .lg-cap { display: flex; } }
 .lg-scale { position: relative; width: 168px; height: 30px; }
 .lg-bar { position: absolute; left: 0; right: 0; top: 4px; height: 8px; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--key-edge); }
-.lg-bar.morphing { transition: --lg-k var(--d-surface) var(--ease-move); }   /* (a new lens mixes the old key's colours into the new in OKLab, legend-morph.js: --lg-k runs 0 to 100 with the figure's own clock) */
-/* (the old ramp, painted once, fading out over the new by opacity as a new lens lands: legend-morph.js, ?keymix=0 mixes --lg-k instead) */
+/* (the old ramp, painted once, fading out over the new by opacity as a new lens lands: legend-morph.js, ?keymix=0 takes the new one at once) */
 .lg-bar-was { position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px var(--key-edge); pointer-events: none; will-change: opacity; }
-@property --lg-k { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
 .lg-tick { position: absolute; top: 12px; width: 1px; height: 3px; margin-left: -.5px; background: var(--text-2); opacity: .7; }   /* (a notch under the bar at each number between its ends, never across the colours) */
 .lg-num { position: absolute; top: 15px; transform: translateX(-50%); font-size: var(--fs-12); font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .lg-cats { display: flex; gap: 12px; font-size: var(--fs-12); color: var(--text-2); }
@@ -1217,10 +1215,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 }
 
 /* Reduce Motion takes the movement out and keeps the fades (MOTION_HEAT_REVIEW P3): nothing glides, slides, grows or turns,
-   but what appears, leaves or changes colour still fades over its own short time rather than popping. Transitions keep only
-   these properties (a move, a size or a turn lands at once); the moving keyframes become fades at the end of this file. */
+   but what appears or leaves still fades over its own short time rather than popping (a change of colour is a crossfade of two
+   layers, so it is an opacity too). Transitions keep only these properties (a move, a size or a turn lands at once); the moving keyframes become fades at the end of this file. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition-property: opacity, visibility, color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, fill-opacity, stroke-opacity, stop-color, box-shadow, filter, --lab-o, --lit-o, --sv-in, --pill-o !important; }
+  *, *::before, *::after { transition-property: opacity, visibility !important; }
 }
 @media (pointer: coarse) {
   .ib { min-width: 40px; min-height: 40px; }
@@ -1651,15 +1649,15 @@ button.finding { cursor: pointer; }
 .lz.lz-drag { cursor: grabbing; }
 .lz-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .lz.lz-sin { pointer-events: none !important; }
-.lz.lz-sin .lz-leaders { opacity: 0; transition: opacity var(--d-flip) var(--ease); } .lz.lz-sin .lz-labels { --lab-o: 0; transition: --lab-o var(--d-flip) var(--ease); }
+.lz.lz-sin .lz-leaders { opacity: 0; transition: opacity var(--d-flip) var(--ease); } .lz.lz-sin .lz-labels { opacity: 0; transition: opacity var(--d-flip) var(--ease); }
 /* One level deeper: the sinusoid view (sinusoid-view.js), over the lobule. */
 .sv { --label-k: var(--label-scale, 1); position: absolute; inset: 0; opacity: 0; visibility: hidden; pointer-events: none; z-index: var(--z-figure); touch-action: none; will-change: transform, opacity; }
 .sv.on { pointer-events: auto; }
 .sv-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.sv .lz-leaders { transition: opacity var(--d-surface) var(--ease); } .sv .lz-labels { transition: --lab-o var(--d-surface) var(--ease); }
-.sv-region { animation: sv-fade-in var(--d-surface) var(--ease) both; transition: translate var(--d-surface) var(--ease), scale var(--d-surface) var(--ease), --lit-o var(--d-surface) var(--ease); }   /* a name appears by fading in, never pops */
-@keyframes sv-fade-in { from { --sv-in: 0; } }   /* (run once by the caption itself, through --sv-in on its children: a rebuilt caption's new children must not fade in again) */
-.sv:not(.on) .lz-leaders { opacity: 0; } .sv:not(.on) .lz-labels { --lab-o: 0; }
+.sv .lz-leaders { transition: opacity var(--d-surface) var(--ease); } .sv .lz-labels { transition: opacity var(--d-surface) var(--ease); }
+.sv-region { animation: sv-fade-in var(--d-surface) var(--ease) both; transition: translate var(--d-surface) var(--ease), scale var(--d-surface) var(--ease), opacity var(--d-surface) var(--ease); }   /* a name appears by fading in, never pops */
+@keyframes sv-fade-in { from { opacity: 0; } }   /* (run once by the caption itself, by its own opacity (the compositor's): a rebuilt caption's new children do not fade in again) */
+.sv:not(.on) .lz-leaders { opacity: 0; } .sv:not(.on) .lz-labels { opacity: 0; }
 /* Each part named in place, as the organs and the lobule's zones are: spaced small capitals on a halo, the reading beneath. */
 .sv-region { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; pointer-events: none; white-space: nowrap; line-height: 1.15; text-align: center;
   font: var(--caps-w) calc(var(--t-cap) * var(--label-scale, 1)) var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-2);
@@ -1669,8 +1667,8 @@ button.finding { cursor: pointer; }
 .sv-region .v b { font-weight: 700; font-size: calc(var(--t-lab) * var(--label-scale, 1)); color: var(--text); margin-right: 1px; }
 /* The fenestrae named as the cells are (small tinted capitals, the lining's slate), their state a quiet value beneath. */
 .sv-region-fen { font-size: calc(var(--t-cap) * var(--label-scale, 1)); color: var(--sv-fenestra); gap: 2px; }
-.sv-region-fen > span:first-child { opacity: calc(.9 * var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1)); }
-.sv-region-fen .v { font-size: calc(var(--t-cap) * var(--label-scale, 1)); font-weight: 500; color: var(--text-2); opacity: calc(.9 * var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1)); }
+.sv-region-fen > span:first-child { opacity: .9; }
+.sv-region-fen .v { font-size: calc(var(--t-cap) * var(--label-scale, 1)); font-weight: 500; color: var(--text-2); opacity: .9; }
 .sv-region-fen .v { font-variant-numeric: tabular-nums; }
 .sv-region-fen .v b { font-size: calc(var(--t-cap) * var(--label-scale, 1)); font-weight: 600; color: var(--text-2); margin-right: 2px; transition: opacity var(--d-small) var(--ease); }
 .sv-region-sin { color: var(--text); font-size: calc(var(--t-lab) * var(--label-scale, 1)); }
@@ -1678,12 +1676,12 @@ button.finding { cursor: pointer; }
 .sv-region > span:first-child { white-space: pre-line; }
 /* As a journal figure (NEJM) sets its secondary names: the ends' venules are the Sinusoid's caption a size smaller and a
    little faded, and the cells are named small, in a faded tint of their own colour. */
-.sv-region.sv-end { font-size: calc(var(--t-cap) * var(--label-scale, 1)); } .sv-region.sv-end > * { opacity: calc(.78 * var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1)); }
+.sv-region.sv-end { font-size: calc(var(--t-cap) * var(--label-scale, 1)); } .sv-region.sv-end > * { opacity: .78; }
 .sv-region.sv-end .v { font-size: calc(var(--t-cap) * var(--label-scale, 1)); }
 .sv-region.sv-end .v b { font-size: calc(var(--t-lab) * var(--label-scale, 1)); }
-.sv-region-hsc, .sv-region-hep { font-size: calc(var(--t-cap) * var(--label-scale, 1)); } .sv-region-hsc > *, .sv-region-hep > * { opacity: calc(.9 * var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1)); }
+.sv-region-hsc, .sv-region-hep { font-size: calc(var(--t-cap) * var(--label-scale, 1)); } .sv-region-hsc > *, .sv-region-hep > * { opacity: .9; }
 .sv-region-hsc { color: var(--sv-hsc); }
-.sv-region-kup { font-size: calc(var(--t-cap) * var(--label-scale, 1)); color: var(--sv-kupffer); } .sv-region-kup > * { opacity: calc(.85 * var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1)); }
+.sv-region-kup { font-size: calc(var(--t-cap) * var(--label-scale, 1)); color: var(--sv-kupffer); } .sv-region-kup > * { opacity: .85; }
 .sv-region-hep { color: var(--sv-hepatocyte); }
 /* The sinusoid view is a focused mode: only the way back to the lobule and the pressure legend stay (no lens to pick). The zoom pill keeps its place at the bottom right: its minus and fit step back out to the lobule, its plus rests (there is nothing closer to go to). */
 #zoomPill .ib:disabled { opacity: .35; pointer-events: none; }
@@ -1711,29 +1709,24 @@ button.finding { cursor: pointer; }
 .sv-legend i.alb { width: 8px; height: 8px; background: var(--albumin); box-shadow: inset 0 0 0 1px var(--albumin-line); }
 .sv:not(.on) .sv-legend { opacity: 0; }
 .lz-field { z-index: var(--z-figure); pointer-events: none; opacity: 0; }
-.lz .lz-leaders { opacity: var(--lz-chrome, 1); } .lz .lz-labels { --lab-o: var(--lz-chrome, 1); }
-/* The labels fade through their children and glass, never as a whole: a faded ancestor would stop the frosted glass behind them seeing the figure (and the blur would pop on at full opacity). */
-@property --lab-o { syntax: '<number>'; inherits: true; initial-value: 1; }
+.lz .lz-leaders { opacity: var(--lz-chrome, 1); } .lz .lz-labels { opacity: var(--lz-chrome, 1); }
+/* The labels fade as layers, by opacity alone (the compositor's, no repaint; 1 Nov 2026): the whole set by .lz-labels' opacity (the camera, the dive, the sinusoid, a slide's hush), each label or zone name by its own (lit or not, coming or going, a caption's entrance), and a lit pill by its ::before's. Their glass is drawn on the GPU (lz-pills.js multiplies the three), so a faded ancestor hides no browser blur. */
 /* A Present card's glass tint, read by glass-gl.js (its card mode) as a colour: each glass rule declares its background through it. */
 @property --gl-tint { syntax: '<color>'; inherits: false; initial-value: transparent; }
-@property --lit-o { syntax: '<number>'; inherits: true; initial-value: 1; }
-@property --sv-in { syntax: '<number>'; inherits: true; initial-value: 1; }
-@property --off-o { syntax: '<number>'; inherits: true; initial-value: 1; }
-@property --pill-o { syntax: '<number>'; inherits: false; initial-value: 0; }
 /* A lobule label or zone name fades in where it comes and out where it goes (lobule-zoom.js fadeIn, fadeOut), never pops (P15). */
-.lz-lab, .lz-zone { transition: --lit-o var(--d-surface) var(--ease), --off-o var(--d-small) var(--ease); animation: lz-in var(--d-small) var(--ease); }
-@keyframes lz-in { from { --off-o: 0; } }
-.lz-labels .lz-off { --off-o: 0; pointer-events: none; }
+.lz-lab, .lz-zone { transition: opacity var(--d-surface) var(--ease); animation: lz-in var(--d-small) var(--ease); }
+@keyframes lz-in { from { opacity: 0; } }
+.lz-labels .lz-off { opacity: 0; pointer-events: none; }
+.lz-labels :is(.lz-lab, .lz-zone).lz-off.lz-off { transition-duration: var(--d-small), var(--d-surface), var(--d-surface); }   /* (going, it fades on the quicker clock; opacity is first in every list) */
 @media (prefers-reduced-motion: reduce) { .lz-lab, .lz-zone { animation: none; } }
-.lz-labels > * > * { opacity: calc(var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1) * var(--off-o, 1)); }
 .lz-leaders .leader { stroke: color-mix(in srgb, var(--text) 55%, transparent); transition: opacity var(--d-small) var(--ease); } .lz-leaders .leader.lz-hid { opacity: 0; transition: none; }
 .lz-leaders .leader-dot { transition: opacity var(--d-small) var(--ease); } .lz-leaders .ld-gone { opacity: 0; transition: opacity var(--d-small) var(--ease); }   /* (a leader and dot leave with their label) */
 /* The presenter's camera gliding in the lobule: its labels ease out, and back in at their new places (lobule-zoom.js focusOn). */
-.lz.lz-cam .lz-leaders { opacity: 0; transition: opacity var(--d-small) var(--ease); } .lz.lz-cam .lz-labels { --lab-o: 0; transition: --lab-o var(--d-small) var(--ease); }
-.lz.lz-cam-in .lz-leaders { transition: opacity var(--d-surface) var(--ease); } .lz.lz-cam-in .lz-labels { transition: --lab-o var(--d-surface) var(--ease); }
+.lz.lz-cam .lz-leaders { opacity: 0; transition: opacity var(--d-small) var(--ease); } .lz.lz-cam .lz-labels { opacity: 0; transition: opacity var(--d-small) var(--ease); }
+.lz.lz-cam-in .lz-leaders { transition: opacity var(--d-surface) var(--ease); } .lz.lz-cam-in .lz-labels { transition: opacity var(--d-surface) var(--ease); }
 .lz-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .lz-labels { position: absolute; inset: 0; pointer-events: none; }
-.lz-labels.lz-ease .lz-lab { transition: left var(--d-surface) var(--ease), top var(--d-surface) var(--ease), box-shadow var(--d-surface) var(--ease), background-color var(--d-surface) var(--ease), --lit-o var(--d-surface) var(--ease), --off-o var(--d-small) var(--ease); }
+.lz-labels.lz-ease .lz-lab { transition: opacity var(--d-surface) var(--ease), left var(--d-surface) var(--ease), top var(--d-surface) var(--ease); }
 @media (prefers-reduced-motion: reduce) { .lz-labels.lz-ease .lz-lab { transition: none; } }
 /* Station cards: the anatomy's label style, as buttons that open the station's card */
 .lz-call { position: absolute; padding: 4px 10px 5px; border-radius: 999px; font: 600 14px/1.2 var(--font-ui); width: max-content; text-wrap: balance; color: var(--on-status); background: var(--danger); box-shadow: var(--shadow-1); pointer-events: none; opacity: 0; transform: scale(.94); transition: opacity var(--d-surface) var(--ease), transform var(--d-surface) var(--ease); }
@@ -1756,7 +1749,7 @@ button.finding { cursor: pointer; }
   --hw: clamp(.8px, calc(1px * var(--label-k, 1)), 1.5px);
   -webkit-text-stroke: calc(var(--hw) * 2) var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 :root[data-theme="dark"] .lz-zone b { font-weight: 700; }
-.lz-zone span { font-size: calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)); font-weight: 600; letter-spacing: .08em; opacity: calc(.9 * var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1) * var(--off-o, 1)); }
+.lz-zone span { font-size: calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)); font-weight: 600; letter-spacing: .08em; opacity: .9; }
 .lz-zone.z1 { --zc: var(--zone-1); } .lz-zone.z2 { --zc: var(--zone-2); } .lz-zone.z3 { --zc: var(--zone-3); }
 .stage-view.in-lobule #labels, .stage-view.in-lobule #labelGl, .stage-view.in-lobule #veins, .stage-view.in-lobule .res-fade, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
 /* Phone: snugger cards (labels keep the one size every screen uses) */
@@ -1811,7 +1804,7 @@ button.finding { cursor: pointer; }
 .app.presenting.pz-blacked .stage-credit { opacity: 0; }   /* (set with the black screen's own .on, presenter.js toggleBlack) */
 .pz { position: absolute; inset: 0; z-index: var(--z-hud); pointer-events: none; color: var(--text); }
 /* A pane of frosted glass: a crisp edge with a hairline highlight and a soft shadow onto the figure. */
-.pz-shade { --pz-glass-edge: color-mix(in srgb, var(--white) 34%, transparent); --pz-glass-line: color-mix(in srgb, var(--text) 12%, transparent); --pz-glass-drop: var(--glass-drop); position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: var(--z-figure); pointer-events: none; --gl-glass: 1; --gl-tint: color-mix(in srgb, var(--stage-bg) var(--pz-glass-tint, 56%), transparent); background: var(--gl-tint); box-shadow: inset -1px 0 0 var(--pz-glass-edge), 1px 0 0 var(--pz-glass-line), 10px 0 28px -6px var(--pz-glass-drop), 2px 0 6px -1px var(--pz-glass-drop); transition: width var(--d-surface) var(--ease), height var(--d-surface) var(--ease), top var(--d-surface) var(--ease), opacity var(--d-small) var(--ease), filter var(--d-small) var(--ease); }
+.pz-shade { --pz-glass-edge: color-mix(in srgb, var(--white) 34%, transparent); --pz-glass-line: color-mix(in srgb, var(--text) 12%, transparent); --pz-glass-drop: var(--glass-drop); position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: var(--z-figure); pointer-events: none; --gl-glass: 1; --gl-tint: color-mix(in srgb, var(--stage-bg) var(--pz-glass-tint, 56%), transparent); background: var(--gl-tint); box-shadow: inset -1px 0 0 var(--pz-glass-edge), 1px 0 0 var(--pz-glass-line), 10px 0 28px -6px var(--pz-glass-drop), 2px 0 6px -1px var(--pz-glass-drop); transition: width var(--d-surface) var(--ease), height var(--d-surface) var(--ease), top var(--d-surface) var(--ease), opacity var(--d-small) var(--ease); }
 :root[data-theme="dark"] .pz-shade { --pz-glass-edge: color-mix(in srgb, var(--white) 14%, transparent); --pz-glass-line: rgb(var(--black-rgb) / .5); --pz-glass-drop: rgb(var(--black-rgb) / .42); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-shade { --pz-glass-edge: color-mix(in srgb, var(--white) 14%, transparent); --pz-glass-line: rgb(var(--black-rgb) / .5); --pz-glass-drop: rgb(var(--black-rgb) / .42); } }
 /* (Without a backdrop blur the words keep a plain backdrop of the page colour.) */
@@ -1830,8 +1823,8 @@ button.finding { cursor: pointer; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade.pz-card:not(.stack) { --gl-glass: 0; background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz-shade.pz-card:not(.stack) { --gl-glass: 0; background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 /* A card never changes shape in view: its size snaps while it is gone, and it leaves and arrives like the data card. */
-.pz-shade.pz-card:not(.stack) { transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease), filter var(--d-small) var(--ease); }
-.pz-shade.pz-card:not(.stack):not(.pz-leave) { transition-duration: var(--d-surface), var(--d-surface), var(--d-surface); transition-delay: .12s, .12s, 0s; }
+.pz-shade.pz-card:not(.stack) { transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
+.pz-shade.pz-card:not(.stack):not(.pz-leave) { transition-duration: var(--d-surface), var(--d-surface); transition-delay: .12s, .12s; }
 .pz-shade.pz-card.pz-leave:not(.stack) { opacity: 0 !important; transform: translateX(-18px); transition-delay: 0s; }
 .pz.pz-card:not(.stack) .pz-text, .pz.pz-card:not(.stack) .pz-data.under { left: calc(var(--pz-cm) + var(--pz-cp)); }
 /* (The teaching card sits at the top left on every slide, one margin from the top as from the side, with or without a data card.) */
@@ -1862,7 +1855,7 @@ button.finding { cursor: pointer; }
 @media (prefers-reduced-transparency: reduce) { .pz-data.pz-data { --gl-glass: 0; background: color-mix(in srgb, var(--surface) 96%, transparent); } .pz-data.pz-data { background: var(--surface-2); } .pz-data .pz-tile, .pz-data .pz-tool .endo-read > div { background: var(--surface); } }
 .pz-safe { position: absolute; left: 0; top: 0; bottom: 0; width: 0; opacity: 0; pointer-events: none; }
 .pz.stack .pz-safe { right: 0; top: auto; bottom: 0; width: auto; }
-.pz-text { position: absolute; left: clamp(20px, 3.4vw, 76px); top: clamp(20px, calc(8 * var(--pzh)), 110px); bottom: clamp(20px, calc(8 * var(--pzh)), 110px); height: fit-content; margin-block: auto; width: min(calc(clamp(300px, 29vw, 600px) * var(--pz-wk, 1)), 42vw); max-height: calc(100% - 2 * clamp(20px, calc(8 * var(--pzh)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3 * var(--pzh)), 30px); transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease), filter var(--d-small) var(--ease); }
+.pz-text { position: absolute; left: clamp(20px, 3.4vw, 76px); top: clamp(20px, calc(8 * var(--pzh)), 110px); bottom: clamp(20px, calc(8 * var(--pzh)), 110px); height: fit-content; margin-block: auto; width: min(calc(clamp(300px, 29vw, 600px) * var(--pz-wk, 1)), 42vw); max-height: calc(100% - 2 * clamp(20px, calc(8 * var(--pzh)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3 * var(--pzh)), 30px); transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
 .pz-panel.pz-leave { opacity: 0; transform: translateY(-6px); }
 /* The teaching card leaves and arrives like the data card: a fade with a short slide toward its own edge, same timing. */
 .pz-text.pz-leave { opacity: 0; transform: translateX(-18px); }
@@ -2489,9 +2482,9 @@ button.finding { cursor: pointer; }
 /* An upright phone: the words sit in a teaching card at the bottom, the same glass, margin and corners as the data card at
    the top, so the figure shows between the two. presenter.js sets its top (16 px above the words); it never changes shape in
    view: it leaves and arrives like the data card (a fade with a short slide toward its own edge) and snaps its size while gone. */
-.pz-shade.stack { --pz-glass-drop: var(--glass-drop); --pz-r: 18px; width: auto !important; left: 8px; right: 8px; top: auto; bottom: calc(8px + var(--pz-sb)); height: auto; --gl-tint: color-mix(in srgb, var(--surface) 58%, transparent); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r) var(--pz-r) var(--pz-card-br) var(--pz-card-br); box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease), filter var(--d-small) var(--ease); }
+.pz-shade.stack { --pz-glass-drop: var(--glass-drop); --pz-r: 18px; width: auto !important; left: 8px; right: 8px; top: auto; bottom: calc(8px + var(--pz-sb)); height: auto; --gl-tint: color-mix(in srgb, var(--surface) 58%, transparent); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r) var(--pz-r) var(--pz-card-br) var(--pz-card-br); box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
 :root.iphone-app { --pz-sb: 0px; --pz-card-br: calc(var(--screen-r) - 8px); }   /* (8 px is the card's gap to the screen's edge: styles above) */
-.pz-shade.stack:not(.pz-leave) { transition-duration: var(--d-surface), var(--d-surface), var(--d-surface); transition-delay: .12s, .12s, 0s; }
+.pz-shade.stack:not(.pz-leave) { transition-duration: var(--d-surface), var(--d-surface); transition-delay: .12s, .12s; }
 .pz-shade.stack.pz-leave { opacity: 0 !important; transform: translateY(18px); transition-delay: 0s; }
 :root[data-theme="dark"] .pz-shade.stack { --pz-glass-drop: rgb(var(--black-rgb) / .45); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-shade.stack { --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
@@ -2516,15 +2509,15 @@ button.finding { cursor: pointer; }
 .pz .pz-text.pz-text[data-out="back"].pz-leave { transform: translateX(var(--pz-turn-d)); transition-timing-function: var(--ease-in); }
 .pz .pz-text.pz-text[data-out="jump"].pz-leave { transform: translateY(calc(-1 * var(--rise-y, 6px))); transition-timing-function: var(--ease-in); }
 .pz .pz-text.pz-text.pz-enter:is([data-turn="next"], [data-turn="back"], [data-turn="jump"]) > * { animation: none; }
-.pz .pz-text.pz-text:is([data-turn="next"], [data-turn="back"], [data-turn="jump"]):not(.pz-leave) { transition-property: opacity, filter; }
-.pz-shade.pz-shade.pz-shade:is(.pz-card, .stack) { transition-property: opacity, transform, filter, top, height, width; transition-timing-function: var(--ease), var(--ease), var(--ease), var(--ease-move), var(--ease-move), var(--ease-move); }
-.pz-shade.pz-shade.pz-shade:is(.pz-card, .stack).pz-leave { transition-duration: var(--d-small), var(--d-small), var(--d-small), 0s, 0s, 0s; transition-delay: 0s; }
-.pz-shade.pz-shade.pz-shade:is(.pz-card, .stack):not(.pz-leave) { transition-duration: var(--d-surface), var(--d-surface), var(--d-surface), 0s, 0s, 0s; transition-delay: .12s, .12s, 0s, 0s, 0s, 0s; }
+.pz .pz-text.pz-text:is([data-turn="next"], [data-turn="back"], [data-turn="jump"]):not(.pz-leave) { transition-property: opacity; }
+.pz-shade.pz-shade.pz-shade:is(.pz-card, .stack) { transition-property: opacity, transform, top, height, width; transition-timing-function: var(--ease), var(--ease), var(--ease-move), var(--ease-move), var(--ease-move); }
+.pz-shade.pz-shade.pz-shade:is(.pz-card, .stack).pz-leave { transition-duration: var(--d-small), var(--d-small), 0s, 0s, 0s; transition-delay: 0s; }
+.pz-shade.pz-shade.pz-shade:is(.pz-card, .stack):not(.pz-leave) { transition-duration: var(--d-surface), var(--d-surface), 0s, 0s, 0s; transition-delay: .12s, .12s, 0s, 0s, 0s; }
 /* On a turn the glass fades on the words' own clock and curve (out: --d-small, --ease-in; in: --d-surface after .12s, --ease-arrive), in
    place, never dropping or rising, so the words never stand over the figure without it (presenter.js setTurn, pz-turnfade). */
 .pz-shade.pz-shade.pz-shade.pz-shade.pz-turnfade:is(.pz-card, .stack) { transform: none; }
-.pz-shade.pz-shade.pz-shade.pz-shade.pz-turnfade:is(.pz-card, .stack).pz-leave { transition-timing-function: var(--ease-in), var(--ease-in), var(--ease-in), var(--ease-move), var(--ease-move), var(--ease-move); }
-.pz-shade.pz-shade.pz-shade.pz-shade.pz-turnfade:is(.pz-card, .stack):not(.pz-leave) { transition-timing-function: var(--ease-arrive), var(--ease-arrive), var(--ease-arrive), var(--ease-move), var(--ease-move), var(--ease-move); }
+.pz-shade.pz-shade.pz-shade.pz-shade.pz-turnfade:is(.pz-card, .stack).pz-leave { transition-timing-function: var(--ease-in), var(--ease-in), var(--ease-move), var(--ease-move), var(--ease-move); }
+.pz-shade.pz-shade.pz-shade.pz-shade.pz-turnfade:is(.pz-card, .stack):not(.pz-leave) { transition-timing-function: var(--ease-arrive), var(--ease-arrive), var(--ease-move), var(--ease-move), var(--ease-move); }
 /* The teaching card as one page (presenter.js CARD_PAGE, src/ui/card-page.js; ?cardpage=0 turns it off): the glass goes with its words, the
    same way and the same distance (--pz-turn-d, copied onto the glass with the leave), on the same clock and curve, and comes back in with
    them by the same keyframes (WAAPI, both). Only transform and opacity move: nothing clipped, the glass never resized in view (its size
@@ -2532,7 +2525,7 @@ button.finding { cursor: pointer; }
 .pz-shade.pz-shade.pz-shade.pz-shade.pz-page:is(.pz-card, .stack)[data-out="next"].pz-leave { transform: translateX(calc(-1 * var(--pz-turn-d))); }
 .pz-shade.pz-shade.pz-shade.pz-shade.pz-page:is(.pz-card, .stack)[data-out="back"].pz-leave { transform: translateX(var(--pz-turn-d)); }
 .pz-shade.pz-shade.pz-shade.pz-shade.pz-page:is(.pz-card, .stack)[data-out="jump"].pz-leave { transform: translateY(calc(-1 * var(--rise-y, 6px))); }
-.pz-shade.pz-shade.pz-shade.pz-shade.pz-page:is(.pz-card, .stack):is([data-out="next"], [data-out="back"], [data-out="jump"]):not(.pz-leave) { transition-property: opacity, filter; transition-duration: var(--d-surface), var(--d-surface); transition-delay: .12s, 0s; }
+.pz-shade.pz-shade.pz-shade.pz-shade.pz-page:is(.pz-card, .stack):is([data-out="next"], [data-out="back"], [data-out="jump"]):not(.pz-leave) { transition-property: opacity; transition-duration: var(--d-surface); transition-delay: .12s; }
 .pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh)), 20px)); left: 21px; right: 21px; top: auto; bottom: calc(max(26px, 65px - var(--pz-lh)) + var(--pz-sb)); margin-block: 0; width: auto; max-height: 62%; gap: 6px; }/* (With a data card under the words, the pair keeps to the top so the card has room.) */
 .pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: var(--s-lab); }
@@ -3962,9 +3955,9 @@ button.finding { cursor: pointer; }
 .um-col.se, .um-cols.se, .tc-body.se, .ac-scroll.se, .action-card.docked .ac-scroll.se, .instrument-workspace .dock-pane.se {
   --se-d: 12px;
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--sedge-t) * var(--se-d)), #000 calc(100% - var(--sedge-b) * var(--se-d)), transparent);
-  mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--sedge-t) * var(--se-d)), #000 calc(100% - var(--sedge-b) * var(--se-d)), transparent);
-  transition: --sedge-t var(--d-small) var(--ease-move), --sedge-b var(--d-small) var(--ease-move); }
-.menu.se { transition: --sedge-t var(--d-small) var(--ease-move), --sedge-b var(--d-small) var(--ease-move); }
+  mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--sedge-t) * var(--se-d)), #000 calc(100% - var(--sedge-b) * var(--se-d)), transparent); }
+/* (The list's edge fade is taken at once as it reaches or leaves an end: a mask eased by its variables repainted the whole list on
+   every frame of the ease. A menu's veils still ease, by their own opacity, the compositor's.) */
 .um-hi { width: var(--ic-s); height: var(--ic-s); color: var(--text-2); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .um-g { margin-top: 4px; }
 .um-gl { display: flex; align-items: baseline; gap: 6px; padding: 6px 8px 2px; font-size: var(--fs-12); color: var(--text-3); }
@@ -4012,6 +4005,9 @@ html:not([data-pvcpu]) .um-pv { transition: opacity var(--d-flip) var(--ease), t
   background: var(--pg-bg, var(--glass)); border: 1px solid var(--hairline); box-shadow: var(--pg-shadow, calc(1px * var(--light-slant)) 1px 2px rgb(var(--shadow-rgb) / .08)); }
 .toast-wrap.docked .toast.toast-tall { height: 84px; }
 .why-pop { --pg-bg: var(--surface); --pg-shadow: var(--shadow-3); }
+/* (the words' cut: two opposite translates reveal or hide them as the card's height changes, menu.js pvResize; no clip-path) */
+.um-pv-cut, .um-pv-cutin { position: relative; }
+.um-pv.pv-resizing .um-pv-cut { overflow: hidden; }
 .um-pv-plate { position: absolute; left: 0; right: 0; z-index: -1; background: var(--surface); border-radius: inherit; box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline); pointer-events: none; will-change: transform; }
 .um-pv:not(.on) { translate: calc(-1 * var(--rise-y)) 0; }   /* (the preview settles in from the panel's side by the rise distance, and leaves back toward it) */
 @media (prefers-reduced-motion: reduce) { .um-pv { translate: none !important; } }
@@ -4286,10 +4282,10 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 }
 /* Dark lobule labels: white names, values, units and zones on the anatomy's dark outline. */
 :root[data-theme="dark"] .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: var(--white); }
-:root[data-theme="dark"] .lz-zone span { opacity: calc(var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1) * var(--off-o, 1)); }
+:root[data-theme="dark"] .lz-zone span { opacity: 1; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="soft"]) .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: var(--white); }
-  :root:not([data-theme="light"]):not([data-theme="soft"]) .lz-zone span { opacity: calc(var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1) * var(--off-o, 1)); }
+  :root:not([data-theme="light"]):not([data-theme="soft"]) .lz-zone span { opacity: 1; }
 }
 /* Phone: the lobule keeps the zoom controls where the anatomy view has them. */
 @media (max-width: 720px) {
@@ -5431,32 +5427,31 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    It fades in over .7s, also when the label is first drawn during a dive. */
 .lz-lab, .lz-zone, .sv-region { isolation: isolate; --pill-y: calc(3px * var(--label-k, 1) + var(--hw, 1px) * 2); --pill-x: calc(6px * var(--label-k, 1) + var(--hw, 1px) * 2); }
 .lz-lab { --pill-y: calc(5px * var(--label-k, 1)); --pill-x: calc(4px * var(--label-k, 1)); }   /* on top of its own padding */
-:is(.lz-lab, .lz-zone, .sv-region)::before { content: ""; position: absolute; z-index: -1; inset: calc(-1 * var(--pill-y)) calc(-1 * var(--pill-x)); border-radius: 12px; --gl-pill: color-mix(in srgb, var(--term-c, var(--accent)) 18%, color-mix(in srgb, var(--surface) 35%, transparent)); background: var(--gl-pill); box-shadow: inset 0 0 0 2px var(--term-c, var(--accent)); opacity: calc(min(var(--pill-o), var(--lit-o, 1)) * var(--lab-o, 1) * var(--sv-in, 1) * var(--off-o, 1)); transition: --pill-o var(--d-surface) var(--ease), background-color var(--d-surface) var(--ease), box-shadow var(--d-surface) var(--ease); pointer-events: none; }
+:is(.lz-lab, .lz-zone, .sv-region)::before { content: ""; position: absolute; z-index: -1; inset: calc(-1 * var(--pill-y)) calc(-1 * var(--pill-x)); border-radius: 12px; --gl-pill: color-mix(in srgb, var(--term-c, var(--accent)) 18%, color-mix(in srgb, var(--surface) 35%, transparent)); background: var(--gl-pill); box-shadow: inset 0 0 0 2px var(--term-c, var(--accent)); opacity: 0; transition: opacity var(--d-surface) var(--ease); pointer-events: none; }
 .lz-zone::before { inset: calc(-1 * var(--pill-y)) calc(-1 * var(--pill-x)) calc(-1 * var(--pill-y)) calc(-1 * var(--pill-x) + .12em); }   /* the trailing letter-spacing would make it lopsided */
 .sv-region::before { right: calc(-1 * var(--pill-x) + .12em); }
-:is(.lz-lab, .lz-zone, .sv-region):is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"])::before { --pill-o: 1; background: color-mix(in srgb, var(--term-c, var(--accent)) 18%, color-mix(in srgb, var(--surface) 35%, transparent)); box-shadow: inset 0 0 0 2px var(--term-c, var(--accent)); animation: pill-in var(--d-surface) var(--ease); }
-@keyframes pill-in { from { --pill-o: 0; } }
+:is(.lz-lab, .lz-zone, .sv-region):is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"])::before { opacity: 1; background: color-mix(in srgb, var(--term-c, var(--accent)) 18%, color-mix(in srgb, var(--surface) 35%, transparent)); box-shadow: inset 0 0 0 2px var(--term-c, var(--accent)); animation: pill-in var(--d-surface) var(--ease); }
+@keyframes pill-in { from { opacity: 0; } }
 /* (A pill's frost drawn on the GPU instead, on #pillGl under the labels (lobule-zoom.js pillsOn, recs B4): its tint and blur there, its ring
    still the page's. Specific enough to win over the lit rule above.) */
 .lz .lz-labels :is(.lz-lab, .lz-zone)[data-gl][data-gl][data-gl]::before { background: none; }
 .lz > canvas#pillGl { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 /* The labels leave and return as one: while the camera glides (or the view changes) the labels fade as a whole, so a pill that is added or removed by the slide waits until they are gone, then snaps (unseen), instead of fading ahead of its text. */
-.lz.lz-cam :is(.lz-lab, .lz-zone)::before { transition: --pill-o .01s linear .2s, background-color .01s linear .2s, box-shadow .01s linear .2s; }
-.lz.lz-sin :is(.lz-lab, .lz-zone)::before { transition: --pill-o .01s linear .18s, background-color .01s linear .18s, box-shadow .01s linear .18s; }
-.sv:not(.on) .sv-region::before { transition: --pill-o .01s linear .6s, background-color .01s linear .6s, box-shadow .01s linear .6s; }
+.lz.lz-cam :is(.lz-lab, .lz-zone)::before { transition: opacity .01s linear .2s; }
+.lz.lz-sin :is(.lz-lab, .lz-zone)::before { transition: opacity .01s linear .18s; }
+.sv:not(.on) .sv-region::before { transition: opacity .01s linear .6s; }
 /* Presenting, on a slide that lights something in the lobule or sinusoid: the lobule's labels it is not talking about ease out (and their leaders), so the crowded figure shows only the pilled ones. The sinusoid view keeps every name and arrow (Hepatocyte, Lymph, Portal venule, Central vein, ...): its slide's lit ones take the pill, the rest stay plain, as in Explore. */
 .lz-leaders :is(.leader, .leader-dot), .sv-lead { transition: opacity var(--d-surface) var(--ease); }
-.app.presenting:is([data-lit*="lobule:"], [data-lit*="sinusoid:"]) :is(.lz-lab, .lz-zone):not(:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"])) { --lit-o: 0; pointer-events: none; }
+.app.presenting:is([data-lit*="lobule:"], [data-lit*="sinusoid:"]) :is(.lz-lab, .lz-zone):not(:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"])) { opacity: 0; pointer-events: none; }
 .app.presenting:is([data-lit*="lobule:"], [data-lit*="sinusoid:"]) :is(.lz-leaders .leader, .lz-leaders .leader-dot)[data-target]:not(:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"])) { opacity: 0; }
 /* A presenter slide change in the liver (presenter.js hush): every label, pill, ring, leader and callout eases out together and
    stays out while the camera moves and the lit set changes underneath; then only the new slide's ease in together. Ahead of
    every other label state (the camera's, the sinusoid's, the lit set's), so none can bring a label back for a frame. */
-#app.pz-hush :is(.lz, .sv) .lz-labels { --lab-o: 0; transition: --lab-o var(--d-small) var(--ease); }
+#app.pz-hush :is(.lz, .sv) .lz-labels { opacity: 0; transition: opacity var(--d-small) var(--ease); }
 #app.pz-hush :is(.lz, .sv) :is(.lz-leaders, .sv-leaders, .sv-legend, .lz-call) { opacity: 0; transition: opacity var(--d-small) var(--ease); }
-#app.pz-hush-in :is(.lz, .sv) .lz-labels { transition: --lab-o var(--d-surface) var(--ease); }
+#app.pz-hush-in :is(.lz, .sv) .lz-labels { transition: opacity var(--d-surface) var(--ease); }
 #app.pz-hush-in :is(.lz, .sv) :is(.lz-leaders, .sv-leaders, .sv-legend) { transition: opacity var(--d-surface) var(--ease); }
 #app.pz-hush-in .lz .lz-call { transition: opacity var(--d-surface) var(--ease), transform var(--d-surface) var(--ease); }
-.lz-lab .n, .lz-zone b, .sv-region > span:first-child { transition: color var(--d-surface) var(--ease); }
 .lz-lab:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"]) .n { color: color-mix(in srgb, var(--term-c) 72%, var(--text)); font-weight: 700; }
 .lz-zone:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"]) b, .sv-region:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"]), .sv-region:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"]) > span:first-child { color: color-mix(in srgb, var(--term-c) 72%, var(--text)); }
 
@@ -6560,7 +6555,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 :root[data-noglass] .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, :root[data-noglass] .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: var(--surface); }
 /* (Settings › Blur effect off.) The frost goes; the pill stays. A lit lobule or sinusoid name keeps the tinted fill and the ring it has with the blur
    (the slide's own term pill), the tint laid on the solid surface as the cards are, so it reads over the tissue and nothing glows. Same box as with
-   the blur, so the labels' spacing and the way it eases in and out (--pill-o) are unchanged. The resistance and problem pills and the figure's
+   the blur, so the labels' spacing and the way it eases in and out (its ::before's opacity) are unchanged. The resistance and problem pills and the figure's
    focus and term labels are solid fills or plain coloured words in both settings, so they need nothing here. */
 :root[data-noglass] :is(.lz-lab, .lz-zone, .sv-region)::before { background: color-mix(in srgb, var(--term-c, var(--accent)) 18%, var(--surface)) !important; }
 /* No browser blur anywhere (Mohammad, 1 Nov 2026: "Move everything to GPU"; no backdrop-filter is declared in this file at all). A glass the figure's GPU draws ([data-gl]) keeps its frost; any other glass, and a GPU glass whenever the figure's canvas cannot take it

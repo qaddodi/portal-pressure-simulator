@@ -13,15 +13,16 @@ test('lobule labels, zone names and leaders never cut out', () => {
   assert.doesNotMatch(js, /zoneEls\.pop\(\)\.remove\(\)/, 'zone names fade out before they are removed');
   assert.doesNotMatch(js, /z\.hidden = !at/, 'a zone name with no spot fades out');
   assert.match(js, /function fadeOut\(el, done\)/);
-  assert.match(css, /@property --off-o \{[^}]*inherits: true; initial-value: 1;/);
-  assert.match(css, /\.lz-lab, \.lz-zone \{[^}]*--off-o var\(--d-small\)[^}]*animation: lz-in var\(--d-small\)/, 'labels fade in and out');
-  assert.match(css, /@keyframes lz-in \{ from \{ --off-o: 0; \} \}/);
-  assert.match(css, /\.lz-labels \.lz-off \{ --off-o: 0; pointer-events: none; \}/);
+  assert.match(css, /\.lz-lab, \.lz-zone \{ transition: opacity var\(--d-surface\) var\(--ease\); animation: lz-in var\(--d-small\)/, 'labels fade in and out');
+  assert.match(css, /@keyframes lz-in \{ from \{ opacity: 0; \} \}/);
+  assert.match(css, /\.lz-labels \.lz-off \{ opacity: 0; pointer-events: none; \}/);
+  assert.match(css, /\.lz-labels :is\(\.lz-lab, \.lz-zone\)\.lz-off\.lz-off \{ transition-duration: var\(--d-small\)/, 'going, on the quicker clock');
   assert.match(css, /\.lz-leaders \.ld-gone \{ opacity: 0; transition: opacity var\(--d-small\)/);
-  // Every opacity a label's parts take carries the fade, its lit pill included, so pill and letters fade together.
-  assert.match(css, /\.lz-labels > \* > \* \{ opacity: calc\([^}]*var\(--off-o, 1\)\); \}/);
-  for (const m of css.matchAll(/\.lz-zone span \{[^}]*opacity: calc\(([^}]*)\); \}/g)) assert.match(m[1], /--off-o/, 'zone name fade');
-  assert.match(css, /:is\(\.lz-lab, \.lz-zone, \.sv-region\)::before \{[^}]*opacity: calc\([^;]*var\(--off-o, 1\)\);/, 'lit pill fade');
+  // The fades are layers' opacities (the compositor's, no repaint), so pill and letters fade together as their label does: no
+  // registered variable is eased for them any more.
+  assert.doesNotMatch(css, /--(lab|lit|off|pill)-o|--sv-in/, 'no label fade runs through a variable');
+  assert.match(css, /:is\(\.lz-lab, \.lz-zone, \.sv-region\)::before \{[^}]*opacity: 0; transition: opacity var\(--d-surface\) var\(--ease\);/, 'lit pill fade');
+  assert.match(css, /\.lz\.lz-cam \.lz-labels \{ opacity: 0; transition: opacity var\(--d-small\)/, 'the set fades as one layer');
 });
 
 test('a label\'s colour change does not rebuild it', () => {

@@ -37,7 +37,8 @@ test('the file is wired in once, eases with the app\'s own curve, and leaves hig
   assert.match(f, /prefers-reduced-motion: reduce/);
   assert.match(f, /if \(!root \|\| ringOff\(search\)/);
   assert.match(f, /isTextEntry\(el\)/, 'a text field keeps its ring after a click');
-  assert.match(f, /outlineOffset: `\$\{-w\}px`/, 'a clipped ring moves inside');
+  assert.match(f, /holdStyle\(el, 'outline-offset', `\$\{-w\}px`\)/, 'a clipped ring moves inside');
+  assert.doesNotMatch(f, /animate\(\[?\{ ?outline/, 'an outline is never animated (it repaints the control each frame)');
 });
 
 test('the stylesheet\'s ring colours and offsets alike are behind html.fr', () => {

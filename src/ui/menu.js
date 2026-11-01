@@ -167,7 +167,10 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   function showPreview(row, make, col) {
     if (!el || !row.isConnected) return;
     if (!pv) {
-      pv = h('div', { class: 'um-pv', role: 'region', 'aria-label': 'Preview' });
+      // (The words sit in a cut of their own, kept for the card's life: a change of height reveals or hides them by two opposite
+      // translates, the cut's and its contents', never by a clip-path, so it is the compositor's.)
+      pv = h('div', { class: 'um-pv', role: 'region', 'aria-label': 'Preview' }, h('div', { class: 'um-pv-cut' }, h('div', { class: 'um-pv-cutin' })));
+      pv._in = pv.firstChild.firstChild;
       pv.addEventListener('pointerenter', () => clearTimeout(hideT));
       pv.addEventListener('pointerleave', () => { hideT = setTimeout(() => hidePreview(), 220); });
       document.body.append(pv);
@@ -176,10 +179,10 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (pvKey !== key) {
       // Crossfade: the old content fades out over the new, and the card eases to the new height.
       pvKey = key;
-      const old = [...pv.children].find((c) => !c.classList.contains('um-pv-plate')), h0 = pv._h1 || pv.offsetHeight;
+      const old = pv._in.firstElementChild, h0 = pv._h1 || pv.offsetHeight;
       const next = make();
       if (old && pv.classList.contains('on')) { old.classList.add('um-pv-old'); setTimeout(() => old.remove(), 130); } else old?.remove();
-      pv.append(next);
+      pv._in.append(next);
       if (old && h0 && !reduce.matches && PVGLIDE) pvResize(pv, h0, next.offsetHeight);
       else if (old && h0 && !reduce.matches) { const h1 = next.offsetHeight; pv.style.height = h0 + 'px'; void pv.offsetHeight; pv.style.height = h1 + 'px'; setTimeout(() => { pv && (pv.style.height = ''); }, 140); }
       $$rows().forEach((r) => r.classList.toggle('pv-on', r === row));
@@ -228,13 +231,20 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       foot.animate([{ translate: `0px ${h0 - capH}px` }, { translate: `0px ${h1 - capH}px` }], t),
       mid.animate([{ scale: `1 ${(h0 - p) / (H - p)}` }, { scale: `1 ${(h1 - p) / (H - p)}` }], t),
     ];
-    // (the words, old and new, cut at the foot: they never show past the card's glass)
-    for (const c of card.children) if (!c.classList.contains('um-pv-plate')) anims.push(c.animate([{ clipPath: `inset(0px -2px ${H - h0}px -2px)` }, { clipPath: `inset(0px -2px ${H - h1}px -2px)` }], t));
+    // (the words, old and new, cut at the foot: they never show past the card's glass. The cut, H tall, rides up by what is
+    // below the foot and its contents ride down by as much, so the words stand still and only the cut's edge moves.)
+    const cut = card.querySelector(':scope > .um-pv-cut');
+    if (cut && card._in) {
+      cut.style.height = H + 'px';
+      anims.push(cut.animate([{ translate: `0px ${h0 - H}px` }, { translate: `0px ${h1 - H}px` }], t),
+        card._in.animate([{ translate: `0px ${H - h0}px` }, { translate: `0px ${H - h1}px` }], t));
+    }
     let over = false;
     const done = () => {
       if (over) return; over = true;
       for (const x of anims) x.cancel();
       top.remove(); mid.remove(); foot.remove();
+      if (cut) cut.style.height = '';
       card.classList.remove('pv-resizing'); card._h1 = 0; card.style.height = '';
       if (card._size === done) card._size = null;
     };

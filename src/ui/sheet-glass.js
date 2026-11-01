@@ -3,7 +3,7 @@
 // what lies outside the instrument card shows (its CSS mask). Read here as the card glass draws them (glass-gl cards.read): the
 // readings' card first, as that same shape (its rounded box with the instrument card's cut out, a mask path), then the instrument's
 // card over it, each with its own corners, tint and fade.
-import { rgbaOf } from './lz-pills.js?v=bafcf3977d';
+import { rgbaOf } from './lz-pills.js?v=78a9c7ce60';
 
 const NUM = (v) => parseFloat(v) || 0;
 const radii = (s, w, h) => [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomRightRadius, s.borderBottomLeftRadius].map((v) => Math.max(0, Math.min(NUM(v), w / 2, h / 2)));

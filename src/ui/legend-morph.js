@@ -85,8 +85,7 @@ export function pairItems(olds, news) {
 
 // The bar's colour change is a crossfade of two ramps painted once: the new bar wears its own ramp, and a layer on it wears the
 // old ramp (where it had got to, for a key switched again mid-way) and fades out by opacity on the compositor, riding the bar's
-// glide. Nothing is repainted per frame. ?keymix=0 mixes the two ramps in OKLab through --lg-k (a gradient repainted every frame
-// of the switch), as before.
+// glide. Nothing is repainted per frame. ?keymix=0 takes the new ramp at once (no fade).
 const KEYFADE = typeof location === 'undefined' || !/[?&]keymix=0\b/.test(location.search);
 const jobs = new WeakMap();
 const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -172,7 +171,6 @@ export function morphKey(el, kids, { instant = false } = {}) {
     }
   }
 
-  const plain = newBar?._ramp;
   let toLab = null, timer = 0, layer = null;
   if (morph && fromLab && KEYFADE) {
     toLab = labsOf(newBar);
@@ -183,25 +181,14 @@ export function morphKey(el, kids, { instant = false } = {}) {
       newBar.append(layer);
       anims.push(layer.animate([{ opacity: 1 }, { opacity: 0 }], opt({ fill: 'forwards' })));
     }
-  } else if (morph && fromLab) {
-    toLab = labsOf(newBar);
-    if (toLab) {
-      newBar.style.background = plain;   // (a browser that does not know color-mix keeps this, the new ramp at once)
-      newBar.style.background = morphGradient(fromLab, toLab);
-      newBar.style.setProperty('--lg-k', '0%');
-      newBar.classList.add('morphing');
-      void newBar.offsetWidth;
-      newBar.style.setProperty('--lg-k', '100%');
-    }
-  }
+  }   // (?keymix=0: the new ramp at once. No ramp is ever mixed by an eased variable: that repaints the gradient every frame.)
   const job = {
-    current: () => (toLab && fromLab ? mixLabs(fromLab, toLab, layer ? clamp01(1 - (parseFloat(getComputedStyle(layer).getPropertyValue('opacity')) || 0)) : clamp01(parseFloat(getComputedStyle(newBar).getPropertyValue('--lg-k')) / 100 || 0)) : null),
+    current: () => (toLab && fromLab ? mixLabs(fromLab, toLab, layer ? clamp01(1 - (parseFloat(getComputedStyle(layer).getPropertyValue('opacity')) || 0)) : 1) : null),
     finish() {
       clearTimeout(timer);
       for (const a of anims) a.cancel();
       ghost.remove();
       layer?.remove();
-      if (toLab && !layer) { newBar.style.background = plain; newBar.style.removeProperty('--lg-k'); newBar.classList.remove('morphing'); }
       if (jobs.get(el) === job) jobs.delete(el);
     },
   };

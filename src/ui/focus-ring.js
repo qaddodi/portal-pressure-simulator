@@ -20,9 +20,9 @@ import { D_SMALL } from './ease.js?v=fc509dabe4';
 /** ?focusring=0 in a page's search string: this file does nothing. */
 export const ringOff = (search) => /[?&]focusring=0\b/.test(String(search ?? ''));
 
-/** ?ringgpu=0: the ring's fade is its outline colour easing in (a repaint of the control each frame), as before. Otherwise (the default)
- *  the fade is a copy of the ring, laid over the control on its own layer, whose opacity eases in (the compositor's), while the
- *  control's own outline waits clear; at the end the copy goes and the outline shows, in one task. */
+/** ?ringgpu=0: the ring shows at once, with no fade (nothing of the ring is ever eased by its colour: that repaints the control each
+ *  frame). Otherwise (the default) the fade is a copy of the ring, laid over the control on its own layer, whose opacity eases in
+ *  (the compositor's), while the control's own outline waits clear; at the end the copy goes and the outline shows, in one task. */
 export const ringGpuOff = (search) => /[?&]ringgpu=0\b/.test(String(search ?? ''));
 
 /** The ring's copy as a box on the screen: the control's box r grown by the outline's offset and width (all scaled by k, the scale
@@ -73,6 +73,15 @@ export const isTextEntry = (el) => {
   return t === 'textarea' || t === 'select' || el.isContentEditable === true || (t === 'input' && TEXT_TYPES.has((el.type || 'text').toLowerCase()));
 };
 
+/** An inline style held on a control until cancel() (the same shape as an animation's, so the ring's holds drop with its fades):
+ *  a set, not an animation (an outline's colour or offset is never eased). */
+export function holdStyle(el, prop, value) {
+  const was = el.style.getPropertyValue(prop), pri = el.style.getPropertyPriority(prop);
+  el.style.setProperty(prop, value, 'important');
+  let done = false;
+  return { cancel() { if (done) return; done = true; if (was) el.style.setProperty(prop, was, pri); else el.style.removeProperty(prop); } };
+}
+
 export function startFocusRing(root = typeof document !== 'undefined' ? document : null, search = typeof location !== 'undefined' ? location.search : '') {
   if (!root || ringOff(search) || typeof root.addEventListener !== 'function') return null;
   const RING_GPU = !ringGpuOff(search);
@@ -88,11 +97,11 @@ export function startFocusRing(root = typeof document !== 'undefined' ? document
     Object.assign(ring.style, { position: 'fixed', left: '0', top: '0', width: `${b.w}px`, height: `${b.h}px`, transform: `translate(${b.x}px, ${b.y}px)`, boxSizing: 'border-box',
       border: `${b.bw}px ${cs.outlineStyle === 'auto' ? 'solid' : cs.outlineStyle} ${cs.outlineColor}`, borderRadius: `${b.rad}px`, pointerEvents: 'none', zIndex: '2147483646', margin: '0', padding: '0', opacity: '0' });
     document.body.append(ring);
-    const hide = el.animate({ outlineColor: 'transparent' }, { duration: D_SMALL, fill: 'forwards' });
+    const hide = holdStyle(el, 'outline-color', 'transparent');
     const up = ring.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing, fill: 'forwards' });
     let done = false;
     const end = () => { if (done) return; done = true; ring.remove(); hide.cancel(); up.cancel(); };
-    up.addEventListener('finish', end); up.addEventListener('cancel', end); hide.addEventListener('cancel', end);
+    up.addEventListener('finish', end); up.addEventListener('cancel', end);
     anims.push(hide, up);
     return true;
   }
@@ -112,23 +121,20 @@ export function startFocusRing(root = typeof document !== 'undefined' ? document
     const anims = [];
     const w = parseFloat(cs.outlineWidth) || 0, off = parseFloat(cs.outlineOffset) || 0;
     if (by === 'ptr' && !isTextEntry(el)) {
-      anims.push(el.animate({ outlineColor: 'transparent' }, { duration: 1, fill: 'forwards' }));
+      anims.push(holdStyle(el, 'outline-color', 'transparent'));
     } else {
       // Cut off? The ring reaches off + w beyond the control's box.
       let inset = false;
       try { inset = ringClipped(el.getBoundingClientRect(), clipBoxes(el), off + w); } catch { /* measure again below */ }
-      if (inset) anims.push(el.animate({ outlineOffset: `${-w}px` }, { duration: 1, fill: 'forwards' }));
+      if (inset) anims.push(holdStyle(el, 'outline-offset', `${-w}px`));
       const ease = () => getComputedStyle(document.documentElement).getPropertyValue('--ease-arrive').trim() || 'ease-out';
-      if (!mq('(prefers-reduced-motion: reduce)') && cs.outlineColor && RING_GPU && fadeCopy(el, cs, w, inset ? -w : off, ease(), anims)) { /* faded on its own layer */ }
-      else if (!mq('(prefers-reduced-motion: reduce)') && cs.outlineColor) {
-        anims.push(el.animate([{ outlineColor: 'transparent' }, { outlineColor: cs.outlineColor }], { duration: D_SMALL, easing: getComputedStyle(document.documentElement).getPropertyValue('--ease-arrive').trim() || 'ease-out' }));
-      }
+      if (!mq('(prefers-reduced-motion: reduce)') && cs.outlineColor && RING_GPU) fadeCopy(el, cs, w, inset ? -w : off, ease(), anims);   // (faded on its own layer; where no copy can be made the ring shows at once)
       // (A scroll that focus itself causes can move the control against an edge after this point: measured once more, in a task of
       // its own after the next paint, never inside a frame.)
       if (!inset) setTimeout(() => {
         if (!held || held.el !== el || !el.isConnected) return;
         try {
-          if (ringClipped(el.getBoundingClientRect(), clipBoxes(el), off + w)) held.anims.push(el.animate({ outlineOffset: `${-w}px` }, { duration: 1, fill: 'forwards' }));
+          if (ringClipped(el.getBoundingClientRect(), clipBoxes(el), off + w)) held.anims.push(holdStyle(el, 'outline-offset', `${-w}px`));
         } catch { /* leave the ring as it is */ }
       }, 20);
     }

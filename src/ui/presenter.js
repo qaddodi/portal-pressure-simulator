@@ -53,7 +53,7 @@ import { flowTimeHeight, trailKeys } from './flow-time.js?v=621af7a953';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=4f9eb5f262';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=8413714371';
-import { sheetPanes } from './sheet-glass.js?v=770c926c2c';
+import { sheetPanes } from './sheet-glass.js?v=fc8b724c05';
 import { createScopeTile } from './scope-tile.js?v=424a9f24c2';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, RISE_PX } from './ease.js?v=fc509dabe4';
@@ -1835,8 +1835,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const HUSH_OUT = D_SMALL, HUSH_IN = D_SURFACE;   // (app.css .pz-hush: the labels out over a small step, back over a surface step)
   let hushed = false, hushAt = 0, hushInT = 0, lastCam = null;
   // The liver labels' own eases still running (by property or animation name); getAnimations also starts any pending one.
-  async function eased(props, cap) {
-    const run = document.getAnimations().filter((a) => a.effect?.target?.closest?.('.lz, .sv') && (props.includes(a.transitionProperty) || props.includes(a.animationName)));
+  // (sel: only the eases of what matches it; the label fades are opacities, app.css, so they are told apart by what they move.)
+  async function eased(props, cap, sel) {
+    const run = document.getAnimations().filter((a) => a.effect?.target?.closest?.('.lz, .sv') && (!sel || a.effect.target.matches?.(sel)) && (props.includes(a.transitionProperty) || props.includes(a.animationName)));
     if (run.length) await Promise.race([Promise.all(run.map((a) => a.finished.catch(() => {}))), wait(cap)]);
   }
   function hush() {
@@ -1850,7 +1851,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (a pill in or out, a label lit or not) have run, unseen.
     await until(() => cut() || (!document.querySelector('.lz.lz-cam') && (store.get().sinusoid ? !!document.querySelector('.sv.on .sv-region') : !document.querySelector('.lz.lz-sin'))), 2500);
     await wait(80);
-    await eased(['--pill-o', '--lit-o', 'pill-in', 'sv-fade-in'], 1500);
+    await eased(['opacity', 'pill-in', 'sv-fade-in'], 1500, ':is(.lz-lab, .lz-zone, .sv-region)');
     if (cut()) return;
     hushed = false;
     app.classList.add('pz-hush-in'); app.classList.remove('pz-hush');
@@ -1934,7 +1935,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = done && s.procedure ? to : -1;
     await wait(Math.max(0, outMs - (performance.now() - outAt)));
     // (Nothing in the liver changes until its labels are gone.)
-    if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }
+    if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['opacity'], 600, '.lz-labels'); if (cut()) return; }
     if (cut()) return;
     // (A flip of the scale still moving stops at its next step, cut by this slide: its camera is let finish before the slide's own.)
     if (flipping) { await until(() => !flipping, 9000); if (cut()) return; }
@@ -4350,7 +4351,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if ((store.get().lobule || store.get().sinusoid) && !booting) hush();
     markBase = null;
     store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
-    if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }
+    if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['opacity'], 600, '.lz-labels'); if (cut()) return; }
     stage.holdHome(true);
     try { await camera(cam, v, cut); } finally { stage.holdHome(false); }
     lastCam = cam;
@@ -4372,7 +4373,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       markBase = null;
       store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
       figureHooks('clear');
-      if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }
+      if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['opacity'], 600, '.lz-labels'); if (cut()) return; }
       fig = { i, s: v };
       stage.holdHome(true);
       try { await camera(cam, v, cut); } finally { stage.holdHome(false); }

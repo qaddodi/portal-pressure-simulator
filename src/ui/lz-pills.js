@@ -31,12 +31,15 @@ export function pillOf(el, gcs = getComputedStyle) {
   if (el.hidden) return null;
   const ps = gcs(el, '::before');
   if (!ps || ps.display === 'none' || ps.content === 'none' || ps.visibility === 'hidden') return null;
-  const a = NUM(ps.opacity);
+  // (Its fades are layers' opacities, app.css: the pill's own, its label's (lit, coming or going) and the label set's (the camera,
+  // a slide's hush). The glass takes their product, as the page draws them.)
+  const OP = (v) => (v == null || v === '' ? 1 : NUM(v));
+  const es = gcs(el), set = el.parentElement?.classList?.contains('lz-labels') ? gcs(el.parentElement) : null;
+  const a = NUM(ps.opacity) * OP(es.opacity) * (set ? OP(set.opacity) : 1);
   if (!(a > 0.001)) return null;
   const b = el.getBoundingClientRect();
   if (!b.width || !b.height) return null;
   // (Resolved insets: the pill's edges against its label's padding box, negative outward.)
-  const es = gcs(el);
   const x0 = b.left + NUM(es.borderLeftWidth) + NUM(ps.left), y0 = b.top + NUM(es.borderTopWidth) + NUM(ps.top);
   const x1 = b.right - NUM(es.borderRightWidth) - NUM(ps.right), y1 = b.bottom - NUM(es.borderBottomWidth) - NUM(ps.bottom);
   if (!(x1 > x0 && y1 > y0)) return null;

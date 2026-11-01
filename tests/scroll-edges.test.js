@@ -42,7 +42,8 @@ test('main.js loads it, and the stylesheet eases the two depths on the motion sc
   assert.ok(i > css.indexOf('.um-col.more, .um-cols.more {'), 'after the .more fades it takes over from');
   const block = css.slice(i, css.indexOf('}', i));
   assert.match(block, /--se-d: 12px/);
-  assert.match(block, /transition: --sedge-t var\(--d-small\) var\(--ease-move\), --sedge-b var\(--d-small\) var\(--ease-move\)/);
+  assert.doesNotMatch(css, /transition: --sedge/, 'a mask is never eased by its variables (the list repainted every frame); a menu\'s veils ease by their opacity');
+  assert.match(css, /\.menu\.se::before, \.menu\.se::after \{[^}]*transition: opacity var\(--d-small\) var\(--ease-move\);/);
   assert.match(css, /\.menu\.se::before \{[^}]*opacity: var\(--sedge-t\)/, 'a menu is its own glass: a veil, not a mask');
   assert.match(css, /\.menu\.se::after \{[^}]*opacity: var\(--sedge-b\)/);
 });

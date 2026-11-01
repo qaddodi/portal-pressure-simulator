@@ -209,7 +209,7 @@ test('the sources: main.js hands the key and the name to legend-morph.js, the ba
   const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(main, /import \{ morphKey, crossfadeText \} from '\.\/legend-morph\.js/);
   assert.match(main, /Object\.assign\(h\('div', \{ class: 'lg-bar', style: \{ background: grad \} \}\), \{ _ramp: grad \}\)/);
-  assert.match(css, /@property --lg-k \{ syntax: '<percentage>'; inherits: false; initial-value: 0%; \}/);
-  assert.match(css, /\.lg-bar\.morphing \{ transition: --lg-k var\(--d-surface\) var\(--ease-move\); \}/, 'the figure\'s own 420 ms');
+  assert.doesNotMatch(css, /transition: --lg-k/, 'no ramp is mixed by an eased variable (a repaint every frame)');
+  assert.match(css, /\.lg-bar-was \{[^}]*will-change: opacity;/, 'the old ramp fades by opacity on its own layer');
   assert.match(css, /\.lens-btn \{ position: relative;/, 'the ghost is placed in the button');
 });
