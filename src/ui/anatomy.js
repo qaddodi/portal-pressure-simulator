@@ -529,6 +529,8 @@ export const flankPath = (b = 0) => `M336 470 C ${324 - b} 610 ${330 - b} 780 ${
 export const abdomenOutline = (b = 0) => `M336 440 L${flankPath(b).slice(1)} L1088 440 Z`;
 export const ABDOMEN_CLIP = abdomenOutline(0);
 
+/** The most the cavity's half-width may fall per world unit of height below its floor's lowest point (cavityHalfWidths). */
+const FLOOR_SLOPE_CAP = 60;
 // The same cavity as half-widths about x = 712 (its mirror line), one per row: n rows evenly from y0 to y0 + h. Each row
 // crosses it once (the flanks and both halves of the floor run steadily down), so a row's half-width is the whole shape:
 // the GPU fills the fluid from these at each bulge step, a few KB, where a raster of the outline was a slow upload in
@@ -550,7 +552,11 @@ export function cavityHalfWidths(b, y0, h, n) {
     else if (y <= 470) out[i] = 376;
     else if (y >= yEnd) {
       // Past the lowest point, continued at the slope of the last stretch above it.
-      const k = ys.length - 1, sl = (xs[k] - xs[k - 1]) / (ys[k] - ys[k - 1]);
+      // (The slope is capped: the floor's lowest point is flat, so the last stretch's slope runs to the thousands, the first row below it fell
+      // to -300 and the shader, dividing a row's reading by the edge's slope, took the whole width of that one row for the edge itself:
+      // a hairline across the figure's foot, wider than the pool (Mac, decompensated cirrhosis, 1 Nov). Capped, the drop stays steep
+      // enough to close the pool and no steeper than the pool's own edge.)
+      const k = ys.length - 1, sl = Math.min((xs[k] - xs[k - 1]) / (ys[k] - ys[k - 1]), FLOOR_SLOPE_CAP);
       out[i] = (712 - xs[k]) - sl * (y - ys[k]);
     } else {
       while (ys[j + 1] < y) j++;

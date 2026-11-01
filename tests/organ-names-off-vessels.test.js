@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ORGANS, ORGAN_LABELS } from '../src/ui/anatomy.js';
 import { pathCmds, flattenCmds } from '../src/ui/shape-gl.js';
-import { nameSpots, NAME_ORGAN, NEAR, APART, MOST } from '../src/ui/organ-names.js';
+import { nameSpots, NAME_ORGAN, NAME_BREAK, NEAR, APART, MOST } from '../src/ui/organ-names.js';
 
 const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -59,7 +59,7 @@ test('a name anchored inside its organ stays inside it; one beside its organ sta
 });
 
 test('the label solver tries the anchor first, then those spots, then the anchor over any vessel', () => {
-  assert.match(stage, /import \{ nameSpots \} from '\.\/organ-names\.js(\?v=[0-9a-f]+)?';/);
+  assert.match(stage, /import \{ nameSpots, NAME_BREAK \} from '\.\/organ-names\.js(\?v=[0-9a-f]+)?';/);
   assert.match(stage, /const spot = \{ gap: 0, leader: false, clear: true \};\s*placeMulti\(it, \['C'\], \[spot, \.\.\.nameSpots\(txt\)\.map\(\(\[sx, sy\]\) => \{ const \[bx, by\] = worldToLocal\(sx, sy\); return \{ \.\.\.spot, at: \[bx - ax, by - ay\] \}; \}\), \{ gap: 0, leader: false \}\]\);/);
   assert.doesNotMatch(stage, /it\.h = LINE_H\(it\.lines\[0\]\);\s*place\(it, \['C'\], 0, false\);/, 'no organ name is placed by the old single pass');
 });
@@ -80,4 +80,20 @@ test('an upright tablet\'s key stands level with its nav pill, and rises with it
   // (On its own row: the pill's 38 px and 6 px of air above its bottom, as the phone's 65 px is 21 + 38 + 6.)
   assert.match(body('.pz.stack.tab.fk-up .pz-fk'), new RegExp(`bottom: calc\\(${+pill[1] + 38 + 6}px \\+ var\\(--pz-sb\\)\\);`), 'on its own row: clear of the pill');
   assert.match(body('.pz.stack:not(.fk-up) .pz-fk'), /bottom: calc\(21px \+ var\(--pz-sb\)\); min-height: 38px;/, 'the phone\'s key is as it was');
+});
+
+test('RIGHT ATRIUM can stand clear of the IVC that runs up the heart\'s left side', () => {
+  // The name's own outline (heart-ra) is the small chamber on the heart's right border, 46 units wide: every spot it offered lay left, on the
+  // cava (Mac, decompensated cirrhosis, 1 Nov). The caption names the atrium drawn as the heart's body, so spots reach the heart's right of the cava.
+  assert.equal(NAME_ORGAN['Right atrium'], 'heart');
+  const spots = nameSpots('Right atrium');
+  assert.ok(spots.filter(([x]) => x >= 700).length >= 3, 'spots right of the cava (world x 655, its caption 95 units wide)');
+  const R = rings('heart');
+  for (const [x, y] of spots) assert.ok(inside(R, x, y), `(${x}, ${y}) is inside the heart`);
+});
+
+test('RIGHT ATRIUM stands on two lines, one word each, the other captions on one', () => {
+  assert.deepEqual([...NAME_BREAK], ['Right atrium']);
+  assert.match(stage, /lines: up\.split\(NAME_BREAK\.has\(txt\) \? ' ' : '\\u0000'\)\.map\(\(t\) => \[\{ t, size: 9\.5, weight: 600, cls: 'lb-organ', track: 0\.06 \}\]\)/);
+  assert.match(stage, /it\.w = Math\.max\(\.\.\.it\.lines\.map\(lineW\)\); it\.h = it\.lines\.reduce\(\(a, l\) => a \+ LINE_H\(l\), 0\);\s*const spot/);
 });

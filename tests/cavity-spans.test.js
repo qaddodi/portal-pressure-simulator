@@ -72,3 +72,14 @@ test('the floor closes at its lowest point and the rows past it lie outside', ()
     assert.ok(hw.every(Number.isFinite));
   }
 });
+
+test('below the floor the half-widths fall at a gentle slope, so the shader draws no line across the foot of the figure', () => {
+  // The shader divides a row's reading by the edge's slope between two rows: a drop of hundreds in one row (the old extrapolation fell
+  // from 30 to -319, then thousands) read as half covered across the whole width of that row, a hairline wider than the pool (1 Nov).
+  for (let b = 0; b <= 34; b += 8.5) {
+    const hw = cavityHalfWidths(b, R[1], R[3], N);
+    let worst = 0;
+    for (let i = 1; i < N; i++) worst = Math.max(worst, hw[i - 1] - hw[i]);
+    assert.ok(worst < 40, `bulge ${b}: a row falls ${worst.toFixed(1)} units below the one above it`);
+  }
+});

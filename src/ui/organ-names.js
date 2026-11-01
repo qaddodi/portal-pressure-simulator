@@ -7,11 +7,14 @@
 // A name whose anchor lies inside its organ stays inside it; one that stands beside its organ (the spleen's above it, the kidney's below
 // it, the atrium's and the esophagus's at their side) stays within NEAR units of it. The spots are the centres of the caption's box
 // on a grid, nearest the anchor first, so the label rests where it always did whenever nothing is in the way.
-import { ORGANS, ORGAN_LABELS } from './anatomy.js?v=f5c417240a';
+import { ORGANS, ORGAN_LABELS } from './anatomy.js?v=fe0f3d1f0e';
 import { pathCmds, flattenCmds } from './shape-gl.js?v=74fff72fb9';
 
 /** The organ outline each caption belongs to (anatomy.js ORGANS ids; a band shape such as the colon takes its ring). */
-export const NAME_ORGAN = { Liver: 'liver', Stomach: 'stomach', Spleen: 'spleen', Colon: 'colon', Kidney: 'kidney-l', 'Small bowel': 'bowel', Esophagus: 'esophagus', 'Right atrium': 'heart-ra' };
+export const NAME_ORGAN = { Liver: 'liver', Stomach: 'stomach', Spleen: 'spleen', Colon: 'colon', Kidney: 'kidney-l', 'Small bowel': 'bowel', Esophagus: 'esophagus', 'Right atrium': 'heart' };
+
+/** The captions that stand on two lines, one word each (stage.js): wider than the room their organ leaves between the vessels at its sides on one. */
+export const NAME_BREAK = new Set(['Right atrium']);
 
 /** How far past its organ's outline a name that stands beside it may step, in world units. */
 export const NEAR = 28;
