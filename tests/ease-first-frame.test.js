@@ -50,10 +50,10 @@ const splitSrc = stage.match(/const SPLIT_EPS[\s\S]*?(?=\n {2}const siteLive)/)[
 function splitRig({ reduce = false } = {}) {
   const shown = [], queued = new Map();
   let id = 0, clock = 0;
-  const frame = (cb) => { queued.set(++id, cb); return id; };
+  const easeFrame = (cb) => { queued.set(++id, cb); return id; };
   const cancelFrame = (i) => { queued.delete(i); };
-  const make = new Function('portalSplit', 'follow2', 'SHOWN_TAU', 'splitShow', 'frame', 'cancelFrame', 'matchMedia', 'performance', `${splitSrc}\nreturn splitTo;`);
-  const splitTo = make(portalSplit, follow2, SHOWN_TAU, (el, sh) => shown.push(sh), frame, cancelFrame, () => ({ matches: reduce }), { now: () => clock });
+  const make = new Function('portalSplit', 'follow2', 'SHOWN_TAU', 'splitShow', 'easeFrame', 'cancelFrame', 'matchMedia', 'performance', `${splitSrc}\nreturn splitTo;`);
+  const splitTo = make(portalSplit, follow2, SHOWN_TAU, (el, sh) => shown.push(sh), easeFrame, cancelFrame, () => ({ matches: reduce }), { now: () => clock });
   // Runs the scheduled step, if any, at time `at` (the callback's own clock, which may be before the easing began).
   const run = (at) => { const first = queued.entries().next().value; if (!first) return false; queued.delete(first[0]); first[1](at); return true; };
   return { splitTo, shown, queued, at: (t) => { clock = t; }, run };
@@ -151,4 +151,15 @@ test('the same three easings are clamped at the source', () => {
   assert.match(read('src/ui/main.js'), /const u = Math\.max\(0, Math\.min\(1, \(now - t0\) \/ ms\)\), e = easeIO3\(u\);/);
   assert.match(stage, /dt = Math\.max\(0, \(now - el\._shAt\) \/ 1000\);/);
   assert.match(stage, /follow2\(el\._sh, el\._shW, T, dt, SHOWN_TAU, SPLIT_EPS\)/);
+});
+
+// The cause of the freeze, found in a real page on 1 Nov: stage.js's grid kept a path helper called `frame` inside createStage, so
+// every `frame(step, 'stage-ease')` there called it (with a function for its width), got a string back, and scheduled nothing. The split
+// bar's ease and the catheter's fade-out never ran. The scheduler is now `easeFrame` (frameFor('stage-ease')) and nothing local can stand in.
+test('stage.js asks the frame scheduler for its eases, and no local helper is named for it', () => {
+  assert.match(stage, /^const easeFrame = frameFor\('stage-ease'\);/m);
+  assert.doesNotMatch(stage, /(?:const|let|var|function) frame\b/, 'a local `frame` would shadow the scheduler for whatever calls it');
+  assert.doesNotMatch(stage.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, ''), /(^|[^\w.$])frame\(/, 'a bare frame( call: use easeFrame, nextFrame or lateFrame');
+  assert.match(stage, /me\.raf = easeFrame\(step\);/, 'the catheter fade-out steps on the scheduler');
+  assert.match(stage, /const el = Math\.max\(0, now - t0\), k = Math\.min\(1, el \/ CATH_OUT_MS\);/);
 });

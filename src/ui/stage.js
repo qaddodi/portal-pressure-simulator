@@ -77,6 +77,7 @@ import { encodePNG } from './png-encode.js?v=514301c9f4';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=97fde9fc5b';
 const nextFrame = frameFor('stage');
+const easeFrame = frameFor('stage-ease');   // (the scheduler's, named so that no local `frame` can stand in for it: the grid's path helper once did, and every ease asked through it never ran)
 // The figure's render pass (animate) runs after every other callback of its frame: a glide's step, the catheter's state and its
 // camera, the labels are all set first, and the vessel layer is drawn once, as they left it.
 const drawFrame = lateFrameFor('stage');
@@ -642,12 +643,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // circuit drew six screen-sized layers on the CPU, most of them empty (Mohammad, 26 Oct: "Circuit view in particular is slow
   // when zoomed"). The dots never overlap, so the same pixels.)
   const GRID_STEPS = [[0, 0.9], [200, 0.7], [450, 0.5], [750, 0.3], [1100, 0.15], [1500, 0.06]];
-  const frame = (e) => `M${30 - e} ${30 - e}h${1340 + 2 * e}v${700 + 2 * e}h${-1340 - 2 * e}z`;
+  const gridPath = (e) => `M${30 - e} ${30 - e}h${1340 + 2 * e}v${700 + 2 * e}h${-1340 - 2 * e}z`;
   GRID_STEPS.forEach(([e, op], i) => {
     const pat = s('pattern', { id: `mapGrid${i}`, width: 20, height: 20, patternUnits: 'userSpaceOnUse' });
     pat.append(s('circle', { class: 'map-dot', cx: 10, cy: 10, r: 0.9, 'fill-opacity': op }));
     defs.append(pat);
-    gGrid.append(s('path', { d: i ? frame(e) + frame(GRID_STEPS[i - 1][0]) : frame(e), 'fill-rule': 'evenodd', fill: `url(#mapGrid${i})`, class: 'map-grid' }));
+    gGrid.append(s('path', { d: i ? gridPath(e) + gridPath(GRID_STEPS[i - 1][0]) : gridPath(e), 'fill-rule': 'evenodd', fill: `url(#mapGrid${i})`, class: 'map-grid' }));
   });
   CIRCUIT_ZONES.forEach(([, x0, x1], i) => {
     gGrid.append(s('rect', { x: x0, y: 40, width: x1 - x0, height: 690, class: 'zone' + (i % 2 ? ' alt' : '') }));
@@ -6766,7 +6767,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (el.isConnected) { const r = follow2(el._sh, el._shW, T, dt, SHOWN_TAU, SPLIT_EPS); el._sh = r.v; el._shW = r.w; } else el._sh = el._shW = T;
     const landed = el._sh === T && el._shW === T;
     splitPaint(el, el._sh, landed);
-    if (!landed) el._shRaf = frame(el._shStep, 'stage-ease');
+    if (!landed) el._shRaf = easeFrame(el._shStep);
   }
   function splitTo(el, to) {
     if (el._shTo === to) return;
@@ -6774,7 +6775,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const rest = !el._shRaf;
     if (el._sh == null || matchMedia('(prefers-reduced-motion: reduce)').matches) { cancelFrame(el._shRaf); el._shRaf = 0; el._shW = el._sh = to; splitPaint(el, to, true); return; }
     if (rest && Math.abs(to - el._sh) < SPLIT_EPS) { el._shW = el._sh = to; splitPaint(el, to, false); return; }
-    if (rest) { el._shAt = performance.now(); el._shStep ||= (now) => splitStep(el, now); el._shRaf = frame(el._shStep, 'stage-ease'); }
+    if (rest) { el._shAt = performance.now(); el._shStep ||= (now) => splitStep(el, now); el._shRaf = easeFrame(el._shStep); }
   }
   const siteLive = (f, live, tol) => Number.isFinite(live) ? (Number.isFinite(f) && Math.abs(live - f) < tol ? f : live) : f;
   // Where a reading stands on the stage (its CSS translate worked out here, so placing it reads no layout), pointer included:
@@ -7783,14 +7784,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       cath.labels.replaceChildren(); cath.made?.clear();
     };
     const step = (now) => {
-      const el = now - t0, k = Math.min(1, el / CATH_OUT_MS);
+      const el = Math.max(0, now - t0), k = Math.min(1, el / CATH_OUT_MS);   // (the frame's clock can be a few ms before t0: 0, not a negative k that would draw the catheter brighter than it was)
       if (el >= READING_OUT_MS) { me.done(); return; }
       if (k >= 1) catheterGone();
       else if (gs && veins?.canCath) { const a = (1 - k) * (1 - k); veins.setCath({ ...gs, draws: gs.draws.map((d) => ({ ...d, alpha: d.alpha * a })) }); cathVer++; stageWake(); }
-      me.raf = frame(step, 'stage-ease');
+      me.raf = easeFrame(step);
     };
     cathFade = me;
-    me.raf = frame(step, 'stage-ease');
+    me.raf = easeFrame(step);
     me.timer = setTimeout(me.done, READING_OUT_MS + 150);   // (frames stalled in a background tab: it still ends)
   }   // the catheter's vertices, reused frame to frame
   const rFree = (r) => cathAt(r, r.free).r;
