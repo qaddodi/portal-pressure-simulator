@@ -510,6 +510,17 @@ void main() {
   o = vec4(c * a, a);
 }`;
 
+// (The mix: the kept picture across the whole canvas, premultiplied as the canvas holds it.)
+const MVS = `#version 300 es
+layout(location=0) in vec2 corner;
+out vec2 vT;
+void main() { vT = corner * 0.5 + 0.5; gl_Position = vec4(corner, 0.0, 1.0); }`;
+const MFS = `#version 300 es
+precision mediump float;
+uniform sampler2D uOld;
+in vec2 vT;
+out vec4 o;
+void main() { o = texture(uOld, vT); }`;
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 
@@ -527,6 +538,11 @@ export function createSinusoidGL(canvas) {
   let pend = null;
   const begin = () => { if (!pend) pend = [startProgram(gl, VS, FS), startProgram(gl, PVS, PFS)]; return pend; };
   let T, P, vao, pvao, pbuf;
+  // The resolution change's mix on the GPU (sinusoid-view.js svSwap; ?svmix=0: the 2D mix): keep() copies the picture just drawn into a
+  // texture of its own (a copy inside the GPU, no read back), and mix(a) lays it over each new picture as old × a + new × (1 − a), the
+  // 2D mix's own sum, at the canvas's new size. Its small program is made the first time it is asked for (a change of the resolution
+  // setting, rare) and kept.
+  let M = null, mTex = null, mOk = null;
   function init() {
     const [ht, hp] = begin();
     T = finish(ht); P = finish(hp); pend = null;
@@ -584,8 +600,40 @@ export function createSinusoidGL(canvas) {
     set(T.U, 'uPass', pass);
     gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   };
+  const mixReady = () => {
+    if (mOk !== null) return mOk;
+    try { M = finish(startProgram(gl, MVS, MFS)); } catch { M = null; }
+    mOk = !!M;
+    if (M) { gl.useProgram(M.p); gl.uniform1i(M.U.uOld, 0); }
+    return mOk;
+  };
+  canvas.addEventListener('webglcontextlost', () => { M = null; mTex = null; mOk = null; });
   return {
     get ok() { return ready(); },
+    /** Copies the picture drawn in this task into the mix's texture; false where it cannot (no context, no program). */
+    keep() {
+      if (!ok || gl.isContextLost() || !canvas.width || !canvas.height || !mixReady()) return false;
+      mTex ||= gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, mTex);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, canvas.width, canvas.height, 0);
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      return gl.getError() === gl.NO_ERROR;
+    },
+    /** Lays the kept picture over the one just drawn, at weight a (1: the old picture alone, 0: the new). */
+    mix(a) {
+      if (!mTex || !M || gl.isContextLost() || !(a > 0)) return;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.useProgram(M.p); gl.bindVertexArray(vao);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, mTex);
+      gl.enable(gl.BLEND); gl.blendColor(0, 0, 0, Math.min(1, a)); gl.blendFunc(gl.CONSTANT_ALPHA, gl.ONE_MINUS_CONSTANT_ALPHA);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.bindVertexArray(null);
+    },
+    /** Lets the kept picture go. */
+    drop() { if (mTex && !gl.isContextLost()) gl.deleteTexture(mTex); mTex = null; },
     get epoch() { return epoch; },
     /** u: uniforms by name; pts: Float32Array of (x, y, r, alpha, kind) × n. The tissue, the particles, then the cells over them. */
     draw(u, pts, n) {

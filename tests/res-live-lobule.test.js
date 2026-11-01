@@ -130,3 +130,17 @@ test('sinusoid-view.js: the change waits for the open view, is mixed right after
   assert.match(sv, /if \(u >= 1 \|\| dive\) \{ svFadeEnd\(\); return; \}/);
   assert.match(sv, /if \(opacity <= 0 && was > 0\) \{ svFadeEnd\(\);/);
 });
+
+test('sinusoid-view.js: on the GPU the change is mixed in the canvas itself (keep, mix, drop), ?svmix=0 keeps the 2D mix', () => {
+  const sv = src('sinusoid-view.js'), gl = src('sinusoid-gl.js');
+  assert.match(sv, /const SV_MIX = typeof location === 'undefined' \|\| !\/\[\?&\]svmix=0\\b\/\.test\(location\.search\);/);
+  const swap = sv.slice(sv.indexOf('function svSwap()'), sv.indexOf('function svFadeStep('));
+  assert.ok(swap.indexOf('draw(0, false);') < swap.indexOf('gpu.keep?.()') && swap.indexOf('gpu.keep?.()') < swap.indexOf('drawImage(src, 0, 0)'), 'kept right after the draw, before any 2D copy');
+  assert.match(sv, /if \(f\.gpu\) \{ gpu\.mix\(fadeAlpha\(u\)\); return; \}/, 'mixed after each draw at the same smoothstep');
+  assert.match(sv, /if \(f\.gpu\) \{ gpu\.drop\?\.\(\); return; \}/, 'let go at the end, the canvas never hidden');
+  const g = sv.slice(sv.indexOf('function gpuSwap('), sv.indexOf('const S = {};'));
+  assert.ok(!/visibility|drawImage|getContext/.test(g), 'no 2D canvas, the canvas stays shown');
+  // old × a + new × (1 − a): the kept picture blended at a constant alpha over the new one.
+  assert.match(gl, /gl\.blendColor\(0, 0, 0, Math\.min\(1, a\)\); gl\.blendFunc\(gl\.CONSTANT_ALPHA, gl\.ONE_MINUS_CONSTANT_ALPHA\);/);
+  assert.match(gl, /gl\.copyTexImage2D\(gl\.TEXTURE_2D, 0, gl\.RGBA, 0, 0, canvas\.width, canvas\.height, 0\);/, 'copied inside the GPU, no read back');
+});
