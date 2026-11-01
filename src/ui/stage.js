@@ -44,12 +44,13 @@ import { fadeOver, fadeStop, fading } from './res-fade.js?v=4ffac3ef7f';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
 import { cropToGrid } from './organs-gl.js?v=ecf7b49c24';
+import { textPolys, loadGlyphs, glyphsReady } from './text-gl.js?v=b384a10c15';
 import { readGroup, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=1c406a11a6';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=f7d920b7d0';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=0123933215';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=df3c3152ad';
-import { createLabelGL } from './label-gl.js?v=df325000d1';
+import { createLabelGL } from './label-gl.js?v=f617040a4e';
 import { createGlassGL } from './glass-gl.js?v=6a77550d27';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=3e4b680ef4';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
@@ -5548,6 +5549,38 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   haloEls.push(gHalo); if (haloK) gHalo.style.setProperty('--halo-k', haloK);
   gOver.after(gHalo);
   let haloBase = null, haloTimer = 0, deltaT = 0;
+  // The halos drawn as shapes the overlays' GPU painter reads (stage-over.js), not as an SVG text and a CSS-animated circle (which
+  // sent the halos and every overlay above them back to the SVG for their 1.5 s): the ring a path whose outline grows and fades and
+  // the number its glyphs' outlines (text-gl.js, the font's own), over a knock-out stroke in the page's colour, as the text's
+  // paint-order stroke was; both eased here a frame at a time (haloPlay) on the attributes the painter reads at each paint, as the
+  // keyframes haloRing and haloText eased them. ?halogl=0: the SVG text and CSS animation, as before.
+  const HALO_GL = !/[?&]halogl=0\b/.test(location.search);
+  if (HALO_GL) setTimeout(() => loadGlyphs().catch(() => {}), 3000);   // (the outlines fetched ahead of the first halo, after start-up)
+  const ringD = (r) => `M${-r} 0A${r} ${r} 0 1 0 ${r} 0A${r} ${r} 0 1 0 ${-r} 0Z`;
+  const polysD = (polys) => polys.map((p) => { let d = ''; for (let k = 0; k < p.pts.length; k += 2) d += `${k ? 'L' : 'M'}${p.pts[k].toFixed(2)} ${p.pts[k + 1].toFixed(2)}`; return d + (p.closed ? 'Z' : ''); }).join('');
+  function haloShapes(txt) {
+    const look = { weight: 700, size: 16, tnum: true }, w = textPolys(txt, 0, 0, look).w, d = polysD(textPolys(txt, -w / 2, -24, look).polys);
+    return [s('path', { class: 'halo-ring', d: ringD(8), 'stroke-opacity': 0 }), s('path', { class: 'halo-knock', d, opacity: 0 }), s('path', { class: 'halo-num', d, opacity: 0 })];
+  }
+  // (haloRing: r 8 → 26 over 1.5 s, its stroke at nothing, .9 at a fifth, nothing at the end; haloText: in by an eighth, held to 70 %,
+  // out by the end; each stretch eased as the keyframes' own --ease.)
+  const HALO_MS = 1500, seg = (p, a, b) => easeArrive(Math.min(1, Math.max(0, (p - a) / (b - a))));
+  let haloRaf = 0, haloT0 = 0;
+  function haloStep(now) {
+    haloRaf = 0;
+    const p = Math.min(1, (now - haloT0) / HALO_MS), still = reduceMotion.matches;
+    const r = still ? 16 : 8 + 18 * easeArrive(p), so = still ? 1 : p < 0.2 ? 0.9 * seg(p, 0, 0.2) : 0.9 * (1 - seg(p, 0.2, 1));
+    const to = still ? 1 : p < 0.12 ? seg(p, 0, 0.12) : p < 0.7 ? 1 : 1 - seg(p, 0.7, 1);
+    for (const g of gHalo.children) {
+      const [ring, knock, num] = g.firstChild?.children || [];
+      if (!ring) continue;
+      g.firstChild.setAttribute('transform', `scale(${+haloK || 1})`);   // (its size on screen at any zoom, as --halo-k sets the SVG's: an attribute the painter reads)
+      ring.setAttribute('d', ringD(+r.toFixed(2))); ring.setAttribute('stroke-opacity', so.toFixed(3));
+      knock.setAttribute('opacity', to.toFixed(3)); num.setAttribute('opacity', to.toFixed(3));
+    }
+    if (p < 1 && !still && gHalo.childElementCount) haloRaf = drawFrame(haloStep);
+  }
+  function haloPlay() { haloT0 = performance.now(); if (haloRaf) cancelFrame(haloRaf); haloRaf = drawFrame(haloStep); }
   // Opening or resuming the app restores parameters and the model settles; that is not a change to explain.
   let resumedAt = 0;
   document.addEventListener('visibilitychange', () => { resumedAt = performance.now(); });
@@ -5594,13 +5627,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     glows.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
     if (!reduceMotion.matches) setGlowSrc('delta', glows.slice(0, 16).map(([x, d]) => ({ id: x.e.id, col: d > 0 ? 'var(--glow-up)' : 'var(--glow-down)', amt: 1.35, wide: 1.1, dur: 420 })));
+    const gpu = HALO_GL && glyphsReady();
     gHalo.replaceChildren(...cand.slice(0, 3).map(([id, d]) => {
       const [x, y] = nodePos(id, t);
       // (Its ring and number keep their size on screen at any zoom, as the labels do: --halo-k, applyClampFs. Drawn in world units,
       // the number was 4 to 6 px on a phone. One decimal, as every reading.)
-      return s('g', { class: 'halo ' + (d > 0 ? 'up' : 'down'), transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` },
-        s('g', { class: 'halo-in' }, s('circle', { r: 16 }), s('text', { y: -24, 'text-anchor': 'middle' }, `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}`)));
+      const txt = `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}`;
+      const inner = gpu ? haloShapes(txt) : [s('circle', { r: 16 }), s('text', { y: -24, 'text-anchor': 'middle' }, txt)];
+      return s('g', { class: 'halo ' + (d > 0 ? 'up' : 'down') + (gpu ? ' gl' : ''), transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` }, gpu ? s('g', { class: 'halo-gin', transform: `scale(${+haloK || 1})` }, ...inner) : s('g', { class: 'halo-in' }, ...inner));
     }));
+    if (gpu) haloPlay();
     haloTimer = setTimeout(() => gHalo.replaceChildren(), 1700);
     clearTimeout(deltaT); deltaT = setTimeout(() => setGlowSrc('delta', []), 1000);
   }

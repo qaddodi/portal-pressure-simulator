@@ -5,8 +5,19 @@
 //   const t = textPolys('7.2', 0, 12, { weight: 700, size: 12, tnum: true });   // { polys: [{ pts, closed }], w }
 //   textWidth('kPa', { weight: 600, size: 12 });
 //   (after loadGlyphs() has resolved: glyphsReady())
+//
+// The app's one door to GPU text, with two ways of drawing behind it (1 Nov 2026):
+//  - outlines (above): exact, for words drawn once into a picture (a probe's screen, a halo's number, a label's picture);
+//  - the SDF atlas (sdfAtlas, made by scripts/glyph-atlas.mjs): one texture of soft-edged glyphs, for text that changes every frame
+//    (a chart's ticks, a monitor's live number: trace-gl.js), where a fresh outline fill each frame would cost more.
+// No other module imports glyphs-inter.js or its PNG (tests/text-gl.test.js).
 
 import { flattenPath } from './shape-gl.js?v=f7d920b7d0';
+import { GLYPHS as SDF_GLYPHS, KERN as SDF_KERN, BASELINES as SDF_BASELINES, BASE as SDF_BASE, RADIUS as SDF_RADIUS, CUTOFF as SDF_CUTOFF, ATLAS_W as SDF_W, ATLAS_H as SDF_H } from './glyphs-inter.js?v=3d311882ab';
+import { ATLAS_PNG as SDF_PNG } from './glyphs-inter-png.js?v=9ce07768be';
+
+/** The SDF atlas for text that changes every frame: metrics (em), kerning, baselines, its size and its PNG (a data URL). */
+export const sdfAtlas = Object.freeze({ GLYPHS: SDF_GLYPHS, KERN: SDF_KERN, BASELINES: SDF_BASELINES, BASE: SDF_BASE, RADIUS: SDF_RADIUS, CUTOFF: SDF_CUTOFF, ATLAS_W: SDF_W, ATLAS_H: SDF_H, ATLAS_PNG: SDF_PNG });
 // (The outlines, 200 kB, are fetched when text is first wanted, loadGlyphs: never with the page itself.)
 let GLYPHS = null, UPM = 2048, WEIGHTS = [], loading = null;
 /** Fetches the outlines once; resolves when text can be drawn. */

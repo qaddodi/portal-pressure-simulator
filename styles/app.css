@@ -1631,6 +1631,10 @@ button.finding { cursor: pointer; }
 /* Δ halos: where pressure moved most after a change */
 .halo-in { transform: scale(var(--halo-k, 1)); }   /* (its size on screen at any zoom: stage.js applyClampFs) */
 .halo circle { fill: none; stroke-width: 2.5; animation: haloRing 1.5s var(--ease) forwards /*own pace*/; }
+/* The halos as shapes for the GPU painter (stage.js haloShapes, ?halogl=0 off): eased by stage.js haloStep, no CSS animation. */
+.halo.gl .halo-ring { fill: none; stroke: var(--text-2); stroke-width: 2.5; stroke-linejoin: round; }
+.halo.gl .halo-knock { fill: none; stroke: var(--bg); stroke-width: 4; stroke-linejoin: round; }
+.halo.gl .halo-num { fill: var(--text); }
 .halo circle { stroke: var(--text-2); }
 .halo text { font: 700 var(--fs-16) var(--font-num); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--bg); stroke-width: 4px; animation: haloText 1.5s var(--ease) forwards /*own pace*/; }
 .halo text { fill: var(--text); }

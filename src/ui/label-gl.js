@@ -19,7 +19,7 @@ import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=fc509dabe4';
 import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=f7d920b7d0';
 import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=1c406a11a6';
-import { textPolys, textWidth, loadGlyphs, glyphsReady } from './text-gl.js?v=5d53c16a50';
+import { textPolys, textWidth, loadGlyphs, glyphsReady } from './text-gl.js?v=b384a10c15';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=56dc51edb3';
 
 // (1 Nov 2026, the GPU motion review.) ?labeltrack=0: a label's or a leader's fade or colour ease is read from the page on every frame of it,

@@ -24,3 +24,12 @@ test('dashes: a pattern runs along each subpath from its start, shifted by the o
   const r = dashPolys([{ pts: new Float32Array([0, 0, 10, 0, 10, 10]), closed: false }], { a: [3, 2], off: 1 });
   assert.deepEqual(r.map((p) => [...p.pts].map((v) => +v.toFixed(2))), [[0, 0, 2, 0], [4, 0, 7, 0], [9, 0, 10, 0, 10, 2], [10, 4, 10, 7], [10, 9, 10, 10]]);
 });
+
+test('text-gl.js is the only module that reads the SDF atlas', async () => {
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const dir = new URL('../src/ui/', import.meta.url);
+  for (const f of readdirSync(dir).filter((n) => n.endsWith('.js') && !/^glyphs-inter/.test(n) && n !== 'text-gl.js')) {
+    const src = readFileSync(new URL(f, dir), 'utf8');
+    assert.ok(!/from\s+['"]\.\/glyphs-inter/.test(src), `${f} imports the SDF atlas directly; go through text-gl.js sdfAtlas`);
+  }
+});

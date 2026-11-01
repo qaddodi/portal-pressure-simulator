@@ -17,8 +17,8 @@
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
 import { canvasSize, fitCanvas } from './util.js?v=e710e031d9';
-import { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H } from './glyphs-inter.js?v=3d311882ab';
-import { ATLAS_PNG } from './glyphs-inter-png.js?v=9ce07768be';
+import { sdfAtlas } from './text-gl.js?v=b384a10c15';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
+const { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
 
 /** ?tracegl=0 in a page's search string: every chart and monitor draws on its 2D canvas, as before. */
 export const traceGLOff = (search) => /[?&]tracegl=0\b/.test(String(search ?? ''));
