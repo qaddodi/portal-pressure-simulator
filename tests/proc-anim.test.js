@@ -259,17 +259,17 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   const wk = readFileSync(new URL('../src/worker-core.js', import.meta.url), 'utf8');
   assert.match(wk, /if \(st\.before\) \{\n\s+const b = new Engine\(\); b\.restore\(e\.snapshot\(\)\); b\.setParams\(deepMerge\(b\.params, st\.before\)\); b\.settle\(\);/);
   for (const k of PROC_KINDS) assert.ok(PROCS[k].before && PROCS[k].had(PROCS[k].apply({})) && !PROCS[k].had(structuredClone(PROCS[k].before)), `${k}: before undoes it`);
-  // A catheter you can see: half the narrowest vein, a dark rim, a balloon wall to wall, and a close shot that follows the tip.
+  // A catheter you can see: 0.4 of the narrowest vein (the one catheter look he chose, 1 Nov), a hairline edge, a balloon wall to wall, and a close shot that follows the tip.
   assert.match(st, /cath\.rc = r\.parts \? procRc\(r, Rf\) :/);
   // (one caliber for all three, the TIPS one: his ask, 29 Oct, the BRTO catheter was hair thin)
   assert.match(st, /if \(E\.RHV_IVC\) for \(let f = 0\.2; f <= 1\.001; f \+= 0\.1\) t = Math\.min\(t, cathRadOf\('RHV_IVC', f\)\);/);
-  assert.match(st, /return Math\.max\(0\.5, Math\.min\(t \* 0\.5, m \* 0\.85\)\);/);
+  assert.match(st, /return Math\.max\(0\.5, Math\.min\(t \* 0\.4, m \* 0\.7\)\);/);
   assert.match(st, /const PROC_K_TIP = 8;/);
   // A step callout keeps clear of every vessel on a short leader, at its own point, on a vessel not drawn yet too (the tract).
   assert.match(st, /const tidy = \(lv \|\| m\.pin\) && !dop\.all \?/);
   assert.match(st, /const segAt = m\.f \?\? /);
   assert.match(st, /m\.ghost && geo\[m\.edges\[0\]\]\?\.cur\?\.length/);
-  assert.match(st, /if \(r\.parts\) shaftPart\(0, rc \* 1\.45, 0, \[0\.06, 0\.08, 0\.14\], 0\.9\);/);
+  assert.match(st, /shaftPart\(sh\.n \* 2, rc \* CATH_EDGE, 7, edge, 0\.62\);/, 'every catheter, HVPG and treatments alike, on the one hairline edge');
   assert.match(st, /r\.parts \? Math\.max\(rc \* 1\.35, Rb\) : rc \* 1\.35/);
   assert.match(st, /const PROC_K_MAX = 5;/);
   assert.match(st, /if \(r\.parts\) \{\n\s+const tq = cathAt\(r, Math\.max\(tipD, procIn\(r\)\)\)\.p/, 'the view follows the tip in');

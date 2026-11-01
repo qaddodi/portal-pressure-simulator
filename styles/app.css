@@ -3242,9 +3242,9 @@ button.finding { cursor: pointer; }
 .cath { pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
 .cath-shadow { fill: none; stroke: var(--cath-shadow); stroke-linecap: round; stroke-linejoin: round; }
 .cath-body { fill: none; stroke: var(--cath-body); stroke-linecap: round; stroke-linejoin: round; }
-.cath-tip { fill: var(--cath-tip); stroke: var(--cath-body); stroke-width: .6; }
+.cath-tip { fill: var(--cath-body); stroke: none; }
 .cath-ring { fill: none; stroke-width: .8; stroke-opacity: .85; }
-.cath-balloon { fill: var(--cath-balloon); stroke: var(--white); stroke-width: .6; }
+.cath-balloon { fill: var(--cath-balloon); stroke: var(--cath-shadow); stroke-width: .5; }
 .cath-column { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .9; }
 /* While the catheter is in, the figure's own readouts are hidden so its labels read clearly. */
 .stage-view #labels, .stage-view #labelGl { transition: opacity var(--d-surface) var(--ease); }

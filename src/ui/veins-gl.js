@@ -879,13 +879,14 @@ void main() {
   vec3 L = normalize(vec3(light * 0.85, 0.95)), H = normalize(L + vec3(0.0, 0.0, 1.0));
   float a = alpha;
   vec3 c = col, n;
-  if (mode <= 3) {
+  if (mode <= 3 || mode == 7) {
     float v = clamp(vUV.x, -1.0, 1.0), e = 1.0 - abs(vUV.x);
     float aa = clamp(e / max(fwidth(vUV.x), 1e-4), 0.0, 1.0);
     a *= aa * smoothstep(0.0, max(fade.x, 1e-4), vUV.y) * clamp((len - vUV.y) / max(fade.y, 1e-4), 0.0, 1.0);
     n = vec3(vDir * v, sqrt(max(0.0, 1.0 - v * v)));
     float dif = max(dot(n, L), 0.0), sp = pow(max(dot(n, H), 0.0), mode == 3 ? 60.0 : 34.0);
-    if (mode == 0) { a *= pow(1.0 - v * v, 1.6); }
+    if (mode == 0) { a *= pow(1.0 - v * v, 2.2); }
+    else if (mode == 7) { c = col; }
     else if (mode == 1) {
       // Blood standing in the vein: deep at the walls, a soft sheen down its middle.
       c = col * (0.62 + 0.42 * dif) + vec3(0.16) * pow(max(dot(n, H), 0.0), 12.0);
@@ -895,11 +896,14 @@ void main() {
       // few pixels across, where it would turn the whole tube grey.
       float wpx = 2.0 / max(fwidth(vUV.x), 1e-4), rim = smoothstep(2.5, 9.0, wpx);
       if (mode == 2) {
-        c = col * (0.5 + 0.56 * dif) + vec3(0.9) * sp * 0.75;
-        c = mix(c, col * 0.32, smoothstep(0.7, 1.0, abs(v)) * 0.75 * rim);
+        // Satin polymer: a broad soft sheen, the sides falling off gently into the hairline edge drawn under it.
+        float sat = pow(max(dot(n, H), 0.0), 14.0);
+        c = col * (0.66 + 0.38 * dif) + vec3(1.0) * sat * 0.28;
+        c = mix(c, col * 0.62, smoothstep(0.55, 1.0, abs(v)) * 0.55 * rim);
       } else {
-        c = col * (0.35 + 0.8 * dif) + vec3(1.0) * sp * 0.95;
-        c = mix(c, col * 0.25, smoothstep(0.7, 1.0, abs(v)) * 0.6 * rim);
+        // Brushed platinum: a cool grey with one narrow glint.
+        c = col * (0.55 + 0.6 * dif) + vec3(1.0) * sp * 0.7;
+        c = mix(c, col * 0.45, smoothstep(0.6, 1.0, abs(v)) * 0.6 * rim);
       }
     }
   } else {
@@ -909,21 +913,24 @@ void main() {
     float z = sqrt(max(0.0, 1.0 - r2));
     n = normalize(vec3(w, z + 1e-3));
     float dif = max(dot(n, L), 0.0), sp = pow(max(dot(n, H), 0.0), 34.0);
-    if (mode == 4) {
+    if (mode == 8) { c = col; a *= aa; }
+    else if (mode == 4) {
       // The rounded end shades like the shaft it closes (a cylinder across its width, not a ball), so
       // it reads as part of the tube rather than a glossy bead stuck on.
       float v = clamp(vUV.y, -1.0, 1.0);
       vec3 nc = vec3(vec2(-vDir.y, vDir.x) * v, sqrt(max(0.0, 1.0 - v * v)));
       float dc = max(dot(nc, L), 0.0), sc = pow(max(dot(nc, H), 0.0), 34.0);
-      c = col * (0.5 + 0.56 * dc) + vec3(0.9) * sc * 0.75;
-      c = mix(c, col * 0.32, smoothstep(0.78, 1.0, r) * 0.6);
+      float sat = pow(max(dot(nc, H), 0.0), 14.0);
+      c = col * (0.66 + 0.38 * dc) + vec3(1.0) * sat * 0.28;
+      c = mix(c, col * 0.62, smoothstep(0.55, 1.0, r) * 0.55);
       a *= aa;
     } else if (mode == 5) {
       // Thin latex over contrast: clear in the middle, bright at the rim, a hard highlight up-left.
-      float fr = pow(1.0 - z, 1.8), sp2 = pow(max(dot(n, H), 0.0), 90.0), edge = smoothstep(0.88, 0.985, r);
-      c = col * (0.66 + 0.42 * dif) + vec3(1.0) * (sp * 0.3 + sp2 * 0.9);
-      c = mix(c, col * vec3(0.7, 0.6, 0.5), edge * 0.7);
-      float k = 0.4 + 0.45 * fr + 0.5 * sp2 + edge * 0.35;
+      // Clear latex over dilute contrast: see-through in the middle, denser toward its walls, a crisp thin rim, one small glint.
+      float fr = pow(1.0 - z, 1.6), sp2 = pow(max(dot(n, H), 0.0), 160.0), edge = smoothstep(0.9, 0.99, r);
+      c = col * (0.72 + 0.32 * dif) + vec3(1.0) * (sp * 0.12 + sp2 * 0.45);
+      c = mix(c, col * vec3(0.42, 0.46, 0.52), edge * 0.85);
+      float k = 0.46 + 0.36 * fr + 0.3 * sp2 + edge * 0.5;
       a *= aa * clamp(k, 0.0, 1.0);
     } else {
       float d = abs(r - 0.86), fw = max(fwidth(r), 1e-4);

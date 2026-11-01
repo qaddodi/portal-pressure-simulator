@@ -50,7 +50,7 @@ import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=00ccbe128c'
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=542bb8db66';
 import { createLabelGL } from './label-gl.js?v=020bc162b7';
 import { createGlassGL } from './glass-gl.js?v=8a4c8e11ef';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=6767e82bc0';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=f37d56108d';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -2501,7 +2501,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=feed094a3b').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=e3bb85bd6a').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -7680,9 +7680,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const tipD = r.start + (end - r.start) * clamp(st.u, 0, 1) + (st.probe || 0) * Rf * 1.6;
     // A 5 F catheter in the hepatic vein, held at one width in the world for the whole procedure (never
     // thinner than about 3 px at the start, nor so thick it crowds the vein), so it scales with the anatomy as the camera moves.
-    // (A treatment's catheter is a real one in the narrowest vein it goes through: half that vein's lumen, so it reads as a tube
-    // with a tip and a rim, never a line: his ask, 29 Oct.)
-    if (!cath.rc) cath.rc = r.parts ? procRc(r, Rf) : clamp(1.5 / (CTM.sc || 1), Rf * 0.17, Rf * 0.28);
+    // (A treatment's catheter is a real one in the narrowest vein it goes through: 0.4 of that vein's lumen, so it reads as a tube
+    // with a tip and an edge, never a line: his ask, 29 Oct. The HVPG one is as wide for its vein: one catheter look, 1 Nov.)
+    if (!cath.rc) cath.rc = r.parts ? procRc(r, Rf) : clamp(1.6 / (CTM.sc || 1), Rf * 0.26, Rf * 0.34);
     const rc = cath.rc, ahead = cathAt(r, Math.min(r.total, tipD + Rf * 6.4));
     const tp = cathAt(r, tipD);
     cath.at = { tip: tp.p, ahead: ahead.p, nx: -tp.t[1], ny: tp.t[0] };
@@ -7725,15 +7725,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (The render pass runs a lay out still waiting first, so the frame goes catheter, camera, readings, render.)
   function cathLabelsNow() { if (!cath.lblRaf) return; cancelFrame(cath.lblRaf); cath.lblRaf = 0; if (cath.st) cathLabels(); }
   let cathVer = 0;
-  // A treatment catheter's radius: one caliber for all three, the TIPS one (his ask, 29 Oct: the BRTO catheter was hair thin), half
-  // the narrowest lumen on the TIPS way (the right hepatic vein, and the tract as wide as the stent), never wider than 0.85 of the
-  // narrowest lumen on this route, so it always fits inside its vessels.
+  // A treatment catheter's radius: one caliber for all three, the TIPS one (his ask, 29 Oct: the BRTO catheter was hair thin), 0.4 of
+  // the narrowest lumen on the TIPS way (the right hepatic vein, and the tract as wide as the stent), never wider than 0.7 of the
+  // narrowest lumen on this route, so it fits inside its vessels with room for its edge (the one catheter look, 1 Nov).
   function procRc(r, Rf) {
     let m = Rf;
     for (let i = 0; i < r.pts.length; i++) if (r.cum[i] >= procIn(r) && r.cum[i] <= r.free) m = Math.min(m, r.rad[i]);
     let t = E.PVH_R ? cathRadOf('PVH_R', 0.5) * 0.8 : m * 2;
     if (E.RHV_IVC) for (let f = 0.2; f <= 1.001; f += 0.1) t = Math.min(t, cathRadOf('RHV_IVC', f));
-    return Math.max(0.5, Math.min(t * 0.5, m * 0.85));
+    return Math.max(0.5, Math.min(t * 0.4, m * 0.7));
   }
   // On the GPU (veins-gl.js): the still column, the shaft and its shadow, the marker band and rounded tip,
   // the balloon behind the tip and the reading ripples, as tubes and discs in world units.
@@ -7754,11 +7754,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const [u, v] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) V.push(c[0] + t[0] * hx * u + nx * hy * v, c[1] + t[1] * hx * u + ny * hy * v, t[0], t[1], u, v);
       draws.push({ mode, first, count: 4, col, alpha: alpha * op });
     };
-    const shaft = [0.93, 0.95, 0.98];
-    // The shaft and its shadow: the part of the whole route's tubes (sampled once, cathShaft) in to the last sample short of the
-    // end, then the piece from there to the end itself, so only that piece is new in a frame.
-    const b = tipD - rc * 0.4, k = Math.min(sh.n, Math.ceil(b / sh.step));
-    const shaftPart = (first, w, mode, col, alpha, ox = 0, oy = 0) => {
+    // One catheter for every procedure (HVPG, TIPS, BRTO, BATO): a satin polymer shaft with a hairline edge and a soft contact
+    // shadow, a tip that tapers to a rounded end, and a slim platinum marker band behind it.
+    const shaft = CATH_POLY, edge = CATH_EDGE_INK, metal = CATH_METAL;
+    const b = tipD - rc * 1.6, k = Math.min(sh.n, Math.ceil(b / sh.step));
+    const shaftPart = (first, w, mode, col, alpha) => {
       if (k < 1) return;
       draws.push({ mode, first, count: k * 2, col, alpha: alpha * op, fade: [60, 0], len: b });
       const a = (k - 1) * sh.step;
@@ -7766,19 +7766,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const f = begin();
         for (const d of [a, b]) {
           const q = cathAt(r, d), nx = -q.t[1], ny = q.t[0];
-          for (const side of [-1, 1]) V.push(q.p[0] + ox + nx * w * side, q.p[1] + oy + ny * w * side, nx, ny, side, d);
+          for (const side of [-1, 1]) V.push(q.p[0] + nx * w * side, q.p[1] + ny * w * side, nx, ny, side, d);
         }
         draws.push({ mode, first: f, count: 4, col, alpha: alpha * op, fade: [60, 0], len: b });
       }
     };
-    if (r.parts) shaftPart(0, rc * 1.45, 0, [0.06, 0.08, 0.14], 0.9);
-    else shaftPart(0, rc * 2.1, 0, [0.03, 0.05, 0.12], 0.34, rc * 0.7, rc * 1.1);
-    shaftPart(sh.n * 2, rc, 2, shaft, 1);
-    // The pressure-reading tip: a dark marker band, then the rounded end.
-    tube(Math.max(0, tipD - rc * 3.2), tipD - rc * 1.6, () => rc * 1.06, 3, [0.2, 0.23, 0.29], 1, [0, 0]);
-    const tp = cathAt(r, tipD);
-    if (r.parts) disc(tp.p, tp.t, rc * 1.45, rc * 1.45, 4, [0.06, 0.08, 0.14], 0.9);   // (the rim round the rounded tip)
-    disc(tp.p, tp.t, rc, rc, 4, shaft, 1);
+    // The taper: the last stretch narrows to two thirds, then a rounded end (its edge drawn first, round it).
+    const taper = (q, d) => rc * lerp(1, 0.66, smoothstep01((d - b) / (rc * 1.6)));
+    const tp = cathAt(r, tipD), tipR = rc * 0.66;
+    shaftPart(0, rc * 2.2, 0, [0.04, 0.05, 0.08], 0.2);
+    tube(b, tipD - rc * 0.3, (q, d) => taper(q, d) * 2.2, 0, [0.04, 0.05, 0.08], 0.12, [0, 0]);
+    shaftPart(sh.n * 2, rc * CATH_EDGE, 7, edge, 0.62);
+    tube(Math.max(0, b - rc * 0.2), tipD, (q, d) => taper(q, d) + (CATH_EDGE - 1) * rc, 7, edge, 0.62, [0, 0]);
+    disc(tp.p, tp.t, tipR + (CATH_EDGE - 1) * rc, tipR + (CATH_EDGE - 1) * rc, 8, edge, 0.62);
+    shaftPart(sh.n * 4, rc, 2, shaft, 1);
+    tube(Math.max(0, b - rc * 0.2), tipD, taper, 2, shaft, 1, [0, 0]);
+    disc(tp.p, tp.t, tipR, tipR, 4, shaft, 1);
+    // The radiopaque marker: a slim platinum band just behind the taper.
+    const band = (d0, d1, w = 1.04) => tube(Math.max(0, d0), d1, () => rc * w, 3, metal, 1, [0, 0]);
+    band(tipD - rc * 3.1, tipD - rc * 2.4);
     // The balloon sits just behind the tip; inflated, it fills the vein and wedges, held inside its walls.
     const bl = clamp(st.balloon || 0, 0, 1);
     cath.balBox = null;
@@ -7790,13 +7796,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const at = (d) => cathAt(r, d), ry0 = balloonRy(at, dC, rx, r.parts ? Math.max(rc * 1.35, Rb) : rc * 1.35, { floor: rc * 1.05 });
       // Bent with the vein: a strip whose sides are the outline, its local coords on the unit circle at the
       // sides so it shades and edges as the latex disc does.
+      // (its two marker bands, at the shoulders, under the latex as the shaft is)
+      band(dC - rx * 0.72 - rc * 0.35, dC - rx * 0.72 + rc * 0.35, 1.0); band(dC + rx * 0.72 - rc * 0.35, dC + rx * 0.72 + rc * 0.35, 1.0);
       const first = begin(), ol = balloonOutline(at, dC, rx, ry0, bl, { floor: rc * 1.05 });
       cath.balBox = outlineBox(ol);   // (the readings keep clear of it)
       for (const o of ol) {
         const nx = -o.t[1], ny = o.t[0], v = Math.sqrt(Math.max(0, 1 - o.s * o.s));
         for (const side of [-1, 1]) V.push(o.c[0] + nx * o.h * side, o.c[1] + ny * o.h * side, o.t[0], o.t[1], o.s, v * side);
       }
-      draws.push({ mode: 5, first, count: begin() - first, col: [0.99, 0.9, 0.7], alpha: (r.parts ? 0.8 + 0.2 * bl : 0.55 + 0.45 * bl) * op });   // latex
+      draws.push({ mode: 5, first, count: begin() - first, col: CATH_LATEX, alpha: (0.7 + 0.3 * bl) * op });   // latex over dilute contrast
     }
     // The tip reading: two ripples running out from it.
     if (st.ring) {
@@ -7808,13 +7816,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     veins.setCath(cathLast = { base: sh.verts, verts: cathV.subarray(0, V.length), draws, light: LIGHT });
   }
   let cathV = new Float32Array(0), cathLast = null;
+  // The catheter's materials: an ivory polymer, a deep neutral hairline at 1.16 of its radius, platinum markers, clear latex.
+  const CATH_POLY = [0.94, 0.94, 0.93], CATH_EDGE = 1.16, CATH_EDGE_INK = [0.11, 0.13, 0.17], CATH_METAL = [0.66, 0.68, 0.72], CATH_LATEX = [0.9, 0.93, 0.97];
+  const smoothstep01 = (x) => { const u = Math.min(1, Math.max(0, x)); return u * u * (3 - 2 * u); };
   // The shaft's tube and its shadow's along the whole route, at the shaft's one width (cath.rc), sampled every `step` from the
   // start: made once per route and width and sent to the GPU once (veins-gl.js setCath's base); a frame draws them in to the tip.
   // (It was every sample of both rebuilt and sent again each frame, the ripples alone changing as a reading showed.)
   function cathShaft(r, rc) {
     const key = `${r.kind}|${r.pts.length}|${r.total}|${r.pts[0]}|${r.pts.at(-1)}|${rc}`;
     if (cath.shaft?.key === key) return cath.shaft;
-    const step = Math.max(rc * 0.6, 0.35), n = Math.floor(r.total / step) + 1, V = new Float32Array(n * 24);
+    const step = Math.max(rc * 0.6, 0.35), n = Math.floor(r.total / step) + 1, V = new Float32Array(n * 36);
     const tube = (o, w, ox, oy) => {
       const walk = { i: 1 };
       for (let i = 0; i < n; i++) {
@@ -7823,9 +7834,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     };
     // the shadow; a treatment's is its dark rim, round the shaft, so the catheter stands out on any vein
-    if (r.parts) tube(0, rc * 1.45, 0, 0); else tube(0, rc * 2.1, rc * 0.7, rc * 1.1);
-    tube(n * 12, rc, 0, 0);                   // the shaft
-    return (cath.shaft = { key, step, n, count: n * 4, verts: V });
+    tube(0, rc * 2.2, 0, 0);                  // a soft contact shadow, straight under it
+    tube(n * 12, rc * CATH_EDGE, 0, 0);       // its hairline edge
+    tube(n * 24, rc, 0, 0);                   // the shaft
+    return (cath.shaft = { key, step, n, count: n * 6, verts: V });
   }
   // When the procedure ends or is cancelled the catheter, its balloon and its labels fade out instead of vanishing in one frame
   // (MOTION_HEAT_REVIEW P21). A new catheter meanwhile ends the fade at once.
@@ -7869,12 +7881,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     me.timer = setTimeout(me.done, READING_OUT_MS + 150);   // (frames stalled in a background tab: it still ends)
   }   // the catheter's vertices, reused frame to frame
   const rFree = (r) => cathAt(r, r.free).r;
-  // Without WebGL: the same catheter in SVG.
+  // Without WebGL: the same catheter in SVG (the ivory shaft on its hairline edge, a rounded end, clear latex).
   function cathSVG(st, r, tipD, cw, wHV) {
     const body = cutLen(r.pts, r.cum, 0, tipD), d = polyD(body), tp = body[body.length - 1];
     for (const el of [cath.shadow, cath.body]) el.setAttribute('d', d);
-    cath.shadow.setAttribute('stroke-width', (cw * 1.6).toFixed(2)); cath.body.setAttribute('stroke-width', cw.toFixed(2));
-    cath.tip.setAttribute('cx', tp[0].toFixed(2)); cath.tip.setAttribute('cy', tp[1].toFixed(2)); cath.tip.setAttribute('r', (cw * 0.85).toFixed(2));
+    cath.shadow.setAttribute('stroke-width', (cw * CATH_EDGE).toFixed(2)); cath.body.setAttribute('stroke-width', cw.toFixed(2));
+    cath.tip.setAttribute('cx', tp[0].toFixed(2)); cath.tip.setAttribute('cy', tp[1].toFixed(2)); cath.tip.setAttribute('r', (cw * 0.5).toFixed(2));
     cath.ring.setAttribute('cx', tp[0].toFixed(2)); cath.ring.setAttribute('cy', tp[1].toFixed(2));
     cath.ring.setAttribute('r', (cw * (1.8 + 0.8 * (st.pulse || 0))).toFixed(2)); cath.ring.style.display = st.ring ? '' : 'none';
     cath.ring.style.stroke = st.ring || '';
