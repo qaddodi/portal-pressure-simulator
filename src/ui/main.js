@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=136eaa602e';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=80d4358be8';
-import { createStage } from './stage.js?v=ed19cf2a7a';
+import { createStage } from './stage.js?v=d9f329dc46';
 import { createCreditPlacer } from './credit.js?v=6fcd93faed';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
@@ -109,7 +109,7 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=aacb5e7a51'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  dopplerL = lazy(() => import('./doppler.js?v=934ffd138c'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
   fibroL = lazy(() => import('./fibroscan.js?v=1d7c1fbc60'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
@@ -183,7 +183,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=f15bd1cde4'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=6bf46bfb32'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

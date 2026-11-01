@@ -68,7 +68,7 @@ import { layoutWatch } from './idle-keys.js?v=c5c00c9da1';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
-import { fitPose, probeShapes, beamBoxes, gateBoxes, awayFromProbe, createProbeMind, NONE_MS, SLACK, PROBE, PROBE_SVG } from './dop-probe.js?v=34cec11e48';
+import { fitPose, probeShapes, beamBoxes, gateBoxes, wedgeBoxes, awayFromProbe, createProbeMind, NONE_MS, SLACK, PROBE, PROBE_SVG } from './dop-probe.js?v=25dc819909';
 import { pathPieces, piecesLength, pointsAlong } from './path-pieces.js?v=e486672c9b';
 import { organDimMatrix } from './organ-dim.js?v=9e19f2fc30';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=02072c578d';
@@ -7259,7 +7259,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     dprShape();
     const at = `translate(${gx.toFixed(1)}px, ${gy.toFixed(1)}px)`;
     if (at !== dpr.at) { dpr.at = at; dpr.el.style.transform = at; }
-    dpr.key = key; dpr.side = pose.side; dpr.reach = pose.reach; dpr.rev = pose.rev; dpr.box = pose.box; dpr.marks = [...beamBoxes([gx, gy], pose.ang, pose.D, r), ...gateBoxes([gx, gy], pose.ang, pose.phi, r)];
+    dpr.key = key; dpr.side = pose.side; dpr.reach = pose.reach; dpr.rev = pose.rev; dpr.box = pose.box; dpr.marks = [...beamBoxes([gx, gy], pose.ang, pose.D, r), ...gateBoxes([gx, gy], pose.ang, pose.phi, r), ...wedgeBoxes([gx, gy], pose.ang, pose.D, r)];
     // (Only its marks fit clear of the cards: the head fades, as the FibroScan probe's does under a card (scanHead).)
     dpr.headOff = !!pose.headOff;
     dpr.el.classList.toggle('head-off', dpr.headOff);

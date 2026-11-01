@@ -61,6 +61,20 @@ export function beamBoxes(g, ang, D, r = 0, pad = 4) {
   return out;
 }
 
+/** Boxes over the faded ultrasound wedge (stage px), as probeShapes draws it: from the probe's face, widening to past the vessel's far
+ *  wall, `pad` px around it. The line of sight's boxes stop at the near gate bar and are 4 px wide, so a label beside the vessel or
+ *  just past it was kept off the line but not off the cone: the wedge overdrew the first letters of "Portal vein" on After the
+ *  sinusoids 11. Its last tenth, where the fade has all but gone, is left out. */
+export function wedgeBoxes(g, ang, D, r = 0, pad = 2) {
+  const c = Math.cos(rad(ang)), s = Math.sin(rad(ang)), far = -(Math.max(0, r) + 10), tn = Math.tan(rad(PROBE.BEAM_DEG)), u0 = far + 0.1 * (D - far), out = [];
+  const n = Math.max(1, Math.ceil((D - u0) / 8));
+  for (let i = 0; i <= n; i++) {
+    const u = u0 + ((D - u0) * i) / n, x = g[0] + u * c, y = g[1] + u * s, h = tn * (D - u) + pad + (D - u0) / n / 2;   // (half a step more, so the boxes meet along the axis)
+    out.push({ x0: x - h, y0: y - h, x1: x + h, y1: y + h });
+  }
+  return out;
+}
+
 /** Boxes over the gate bars and along the flow axis through the gate (stage px), as probeShapes draws it, 4 px either side: the axis runs `phi` degrees from
  *  the line of sight at ang and reaches a little past the gate bars. Labels (the narrowing's "60 %" too) keep off it, and the probe
  *  weighs it with the line of sight when it picks a side. */

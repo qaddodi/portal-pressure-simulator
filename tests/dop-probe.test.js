@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { AWAY, probePose, fitPose, SIZES, QUIET, ZOOMED_OUT, probeShapes, probeJumps, JUMP_DEG, JUMP_PX, gateDims, bodyBox, beamBoxes, gateBoxes, PROBE, PROBE_SVG, placeId, createProbeMind, SLACK, NONE_MS, PEND_MS, LEAVES } from '../src/ui/dop-probe.js';
+import { AWAY, probePose, fitPose, SIZES, QUIET, ZOOMED_OUT, probeShapes, probeJumps, JUMP_DEG, JUMP_PX, gateDims, bodyBox, beamBoxes, gateBoxes, wedgeBoxes, PROBE, PROBE_SVG, placeId, createProbeMind, SLACK, NONE_MS, PEND_MS, LEAVES } from '../src/ui/dop-probe.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const stage = read('src/ui/stage.js'), doppler = read('src/ui/doppler.js'), css = read('styles/app.css'), tokens = read('styles/tokens.css');
@@ -211,7 +211,7 @@ test('the probe stands clear of a narrowing\'s "60 %": its flow axis counts with
   const side = probePose({ g, t, r, w: W, h: H, avoid: [label] });
   assert.ok(side.lab === 0 || side.side !== a.side, 'the side whose axis crosses the label is left when the other is clear');
   assert.match(stage, /querySelectorAll\('\.clamp-label'\)\) if \(el\._box\) out\.push\(el\._box\);/);
-  assert.match(stage, /dpr\.marks = \[\.\.\.beamBoxes\(\[gx, gy\], pose\.ang, pose\.D, r\), \.\.\.gateBoxes\(\[gx, gy\], pose\.ang, pose\.phi, r\)\];/);
+  assert.match(stage, /dpr\.marks = \[\.\.\.beamBoxes\(\[gx, gy\], pose\.ang, pose\.D, r\), \.\.\.gateBoxes\(\[gx, gy\], pose\.ang, pose\.phi, r\), \.\.\.wedgeBoxes\(\[gx, gy\], pose\.ang, pose\.D, r\)\];/);
 });
 
 test('a "60 %" the probe would cover steps out to a clear spot on a leader line, fading out and in, and comes back when the probe goes', () => {
@@ -660,4 +660,11 @@ test('probeMind: while the cards move, a far place is swung to; otherwise it fad
   // (A place with no room at all still holds and then hides: the probe fades only where nothing is clear.)
   assert.equal(mind.act({ pose: { ...pose, none: true }, tgt, on: true, cur, sig: 'a', now: 20, swing: true }), 'hold');
   assert.equal(mind.act({ pose: { ...pose, none: true }, tgt, on: true, cur, sig: 'a', now: 20 + NONE_MS + 1, swing: true }), 'hide');
+});
+
+test('the labels keep off the faded wedge, past the vessel too (After the sinusoids 11: the cone over "Portal vein")', () => {
+  const g = [300, 300], r = 10, D = 90, far = -(r + 10), tn = Math.tan(PROBE.BEAM_DEG * Math.PI / 180), b = wedgeBoxes(g, 0, D, r);
+  const inAny = (x, y) => b.some((q) => x >= q.x0 && x <= q.x1 && y >= q.y0 && y <= q.y1);
+  for (const u of [D - 4, D / 2, 0, far + 0.15 * (D - far)]) for (const f of [-1, -0.5, 0, 0.5, 1]) assert.ok(inAny(g[0] + u, g[1] + f * tn * (D - u)), `wedge point at ${u}, ${f}`);
+  assert.ok(!inAny(g[0] + D / 2, g[1] + tn * (D / 2) + 10), 'and not far wider than it');
 });

@@ -41,7 +41,7 @@
 import { store } from './store.js?v=80d4358be8';
 import { h } from './util.js?v=5300d2ce2f';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=aacb5e7a51';
+import { createDoppler } from './doppler.js?v=934ffd138c';
 import { createFibroScan } from './fibroscan.js?v=1d7c1fbc60';
 import { createPressureTime } from './pressure-time.js?v=5a826ab1d0';
 import { createVitalsMonitor } from './vitals-monitor.js?v=08fec6a5f0';
