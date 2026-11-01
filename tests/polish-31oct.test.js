@@ -366,3 +366,7 @@ test('a History change line that folds extra parts says "+N more", as the Compar
   assert.match(src('src/ui/timeline.js'), /parts\.length > 3 \? ` · \+\$\{parts\.length - 3\} more`/);
   assert.match(src('src/ui/compare.js'), /· \+\$\{labels\.length - 4\} more/);
 });
+
+test('a zoomable data card\'s heading keeps clear of its expand button (a long title wraps before the corner)', () => {
+  assert.match(css, /\.pz\.pz-wide \.pz-data\.pz-zoomable > \.pz-dh \{ position: relative; padding-inline: calc\(28px \/ var\(--pz-z, 1\)\);/);
+});
