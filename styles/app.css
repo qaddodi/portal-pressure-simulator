@@ -3241,6 +3241,9 @@ button.finding { cursor: pointer; }
 .cl-glass { position: absolute; z-index: -1; pointer-events: none; background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); }
 .cl-glass svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .cl-glass path { fill: none; stroke: var(--rg); stroke-width: 4; stroke-linejoin: miter; }
+/* The printed tag (callout.js HAIR, off with ?cathtag=0): the path is stroked 2 px and clipped to its inside, so 1 px shows; the border
+   colour carries a fifth of the reading's colour, enough to tell a free tag from a wedged one at the edge without a ring. */
+.cl-glass.cl-hair path { stroke: color-mix(in srgb, var(--c) 20%, var(--border-strong)); stroke-width: 2; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .cl-glass { background: color-mix(in srgb, var(--surface) 94%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .cl-glass { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 /* (Its blur and tint drawn on the GPU under the callout layers instead, glass-gl.js: the outline above stays the DOM's) */

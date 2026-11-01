@@ -1,16 +1,19 @@
 // The frosted-glass body of a figure callout (.cath-label): the card and its pointer are ONE shape, so the blur,
 // the tint and the 2 px outline stay seamless where the pointer joins the card. The glass is a child (backdrop blur
-// and tint, clipped to the shape's path); the outline is that same path stroked 4 px inside it, so only the inner 2 px
-// shows. The pointer reaches outside the card's box, so the child is the box grown by the pointer's depth.
+// and tint, clipped to the shape's path); the outline is that same path stroked inside it (4 px, so only the inner 2 px shows; the
+// hairline of cl-hair strokes 2 px, so 1 px shows). The pointer reaches outside the card's box, so the child is the box grown by the pointer's depth.
 
 const NS = 'http://www.w3.org/2000/svg';
 const PTR = 11;   // how far the pointer reaches past the card's edge, and its half-width at the edge
 const KEEP = 28;  // the pointer stays this far from the card's sides, clear of the rounded corners
 const BORDER = 2; // the card's (transparent) border, which the glass covers
+// The printed-tag outline (1 Nov 2026): a 1 px hairline in the theme's strong border with a fifth of the reading's colour in it, not a
+// 2 px ring of the colour itself (app.css .cl-glass.cl-hair). ?cathtag=0 leaves the class off and the old ring as it was.
+const HAIR = !/[?&]cathtag=0\b/.test(globalThis.location?.search || '');
 
 const make = (el) => {
   const glass = document.createElement('i');
-  glass.className = 'cl-glass'; glass.setAttribute('aria-hidden', 'true');
+  glass.className = HAIR ? 'cl-glass cl-hair' : 'cl-glass'; glass.setAttribute('aria-hidden', 'true');
   const svg = document.createElementNS(NS, 'svg');
   svg.append(document.createElementNS(NS, 'path'));
   glass.append(svg);
