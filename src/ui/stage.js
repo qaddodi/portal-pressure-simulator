@@ -49,15 +49,9 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=dd283e159c';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=542bb8db66';
-<<<<<<< HEAD
 import { createLabelGL } from './label-gl.js?v=24d747917c';
 import { createGlassGL } from './glass-gl.js?v=732ccf097f';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=65c955076a';
-=======
-import { createLabelGL } from './label-gl.js?v=24d747917c';
-import { createGlassGL } from './glass-gl.js?v=732ccf097f';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=65c955076a';
->>>>>>> d4b60ec7 (Glass drawn on the GPU reads the page only when something may have moved it (?glassreads=0 reads every frame, as before))
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -2568,11 +2562,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-<<<<<<< HEAD
   const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=f9ce22fa91').catch((err) => { lzCode = null; throw err; }));
-=======
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=f9ce22fa91').catch((err) => { lzCode = null; throw err; }));
->>>>>>> d4b60ec7 (Glass drawn on the GPU reads the page only when something may have moved it (?glassreads=0 reads every frame, as before))
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
