@@ -39,7 +39,7 @@ import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, 
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=d85ddf7c2c';
 import { createSinusoidView } from './sinusoid-view.js?v=257bc7d9ec';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, framePart } from './frame.js?v=6a53e5fc6e';
-import { createGlassGL } from './glass-gl.js?v=61c2d51089';
+import { createGlassGL } from './glass-gl.js?v=da4a2c9287';
 import { pillOf, pillLabels, pillHold } from './lz-pills.js?v=9c2fefe6b4';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=513015e51a';
@@ -2413,6 +2413,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Right before a zoom into the lobule starts: the lobule is drawn, whole and unseen, for the framing it will land on (flow marks
   // faded), so the zoom only magnifies and fades in what is already drawn. Its canvases (about 16 MB on a phone) are given back
   // when the zoom returns to the anatomy (setDiveZoom), and drawn again before the next one.
+  const STAGE_UP = /[?&]stageup=1\b/.test(location.search);
   function stage() {
     while (warm());   // the dive's field tiles (built ahead while idle, so usually nothing left), the vessels' WebGL
     if (fade > 0 || !F) return;
@@ -2427,7 +2428,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     try { idleDrawn = ''; draw(0); diveDrawn = true; staged = api.viewKey(); relLater = true; wide = wideChecked(wd); } finally { keep2D = false; }
     // (The bitmap just drawn is the one the landing shows on the GPU: sent now, while nothing of the lobule is seen, rather than in the
     // landing's frame, where a 3600 px texture and its mipmaps held the frame after the zoom.)
-    if (worldCv.width && worldGeo === geo) framePart('lz.stageUpload', () => { if (tissueGL && !tissueGL.lost && ensureGL()) tissueGL.upload(worldCv, worldCv.ver || 0); });
+    // (Off unless ?stageup=1 since 1 Nov 2026: the lobule's tissue showed black on a Mac while zooming into it, until a pan, at the first
+    // build with this send. The landing frame sends the bitmap itself (tissueOnGPU), as before.)
+    if (STAGE_UP && worldCv.width && worldGeo === geo) framePart('lz.stageUpload', () => { if (tissueGL && !tissueGL.lost && ensureGL()) tissueGL.upload(worldCv, worldCv.ver || 0); });
   }
   function warm() { const f = warmQ.shift(); if (f) f(); return warmQ.length > 0; }
   // Before a dive (stage.js setLobule): a new patient's tissue bitmap, which stage() would otherwise paint here, on the main thread,

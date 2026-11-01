@@ -43,9 +43,10 @@ test("the rise's first frame on the 2D canvas shows the sharper bitmap of the sa
 
 // HVPG 5 to 6 (the gate on 25f3009e, phone profile): the frame the dive landed in spent 2.5 s in paintTissue, the bitmap
 // staged on the 2D canvas sent to the GPU there. It is sent at the end of stage(), while nothing of the lobule is seen.
-test('stage() sends the staged bitmap to the GPU before the zoom, and the landing frame names its upload and draw', () => {
+test('stage() sends the staged bitmap to the GPU before the zoom only with ?stageup=1, and the landing frame names its upload and draw', () => {
   const stage = lz.match(/function stage\(\) \{[\s\S]*?\n {2}\}\n/)[0];
-  assert.match(stage, /framePart\('lz\.stageUpload', \(\) => \{ if \(tissueGL && !tissueGL\.lost && ensureGL\(\)\) tissueGL\.upload\(worldCv, worldCv\.ver \|\| 0\); \}\);/);
+  assert.match(lz, /const STAGE_UP = \/\[\?&\]stageup=1\\b\/\.test\(location\.search\);/, 'off unless ?stageup=1 (1 Nov: black lobule while zooming in)');
+  assert.match(stage, /if \(STAGE_UP && worldCv\.width && worldGeo === geo\) framePart\('lz\.stageUpload', \(\) => \{ if \(tissueGL && !tissueGL\.lost && ensureGL\(\)\) tissueGL\.upload\(worldCv, worldCv\.ver \|\| 0\); \}\);/);
   assert.ok(stage.indexOf('lz.stageUpload') > stage.indexOf('keep2D = false'), 'after the staged drawing');
   const onGPU = lz.match(/function tissueOnGPU\([\s\S]*?\n {2}\}\n/)[0];
   assert.match(onGPU, /framePart\('lz\.texUpload', \(\) => tg\.upload\(worldCv, worldCv\.ver \|\| 0\)\);/);

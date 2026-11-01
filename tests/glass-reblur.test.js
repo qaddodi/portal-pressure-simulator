@@ -79,7 +79,7 @@ const flush = async () => { await new Promise((r) => setImmediate(r)); };
 const frame = () => { clock += 16; const q = rafs.splice(0); for (const cb of q) cb(clock); };
 const frames = async (k) => { for (let i = 0; i < k; i++) { frame(); await flush(); } };
 
-const G = createGlassGL(wrap, source, [layer], { version: () => seq, capture() {}, onFigure: (f) => { figure.add(f); return () => figure.delete(f); } });
+const G = createGlassGL(wrap, source, [layer], { reblur: REBLUR_MS, version: () => seq, capture() {}, onFigure: (f) => { figure.add(f); return () => figure.delete(f); } });
 // (The figure's picture laid: its top hooks (veins-gl top.add) blur, then draw the glass; the host's now() lays one at once.)
 let presents = 0, may = true, between = [], viewKey = 'v0';
 const tops = [];
@@ -146,4 +146,14 @@ test('let go: the waiting blur is cancelled', async () => {
   assert.equal(waiting().length, 1);
   G.dispose();
   assert.equal(waiting().length, 0, 'no timer left for it');
+});
+
+// (1 Nov 2026: the 50 ms hold is off unless asked for. On an iPhone the callouts' glass stepped between a fresh blur and a stale one
+// under a figure that moved each frame (the catheter's pulse) and read as a hard flicker (FHVP on HVPG 3, IVC on HVPG 7).)
+test('the hold is off by default: only ?reblur=1 or the reblur option holds a blur', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
+  assert.match(src, /reblur = REBLUR_URL \? REBLUR_MS : 0 \} = \{\}\)/);
+  assert.match(src, /REBLUR_URL = typeof location !== 'undefined' && \/\[\?&\]reblur=1\\b\//);
+  assert.match(src, /if \(reblur > 0 && view !== null/);
 });

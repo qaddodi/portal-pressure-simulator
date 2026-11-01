@@ -79,7 +79,7 @@ test('the glass takes a new copy of the figure only when the figure, the region 
   assert.match(SRC, /ready = \{ \.\.\.got \};\n\s+takenKey = key;/);
   assert.ok(SRC.indexOf('const key = version') < SRC.indexOf('createImageBitmap(source'), 'the key is read before the snapshot');
   // Without a version the old rule stands: a copy whenever the last has arrived.
-  assert.match(SRC, /version = null, capture = null, onFigure = null, keep = null, due = null, copy = true \} = \{\}\) \{/);
+  assert.match(SRC, /version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = REBLUR_URL \? REBLUR_MS : 0 \} = \{\}\) \{/);
   // The figure counts every time its canvas is drawn on: a composite that drew something, and a clear; and the stage hands that on.
   // (But for a frame of the moving blood alone, whose streaks the glass's blur evens out: review H4, 30 Oct.)
   assert.match(VEINS, /pictured\(!full && !part && !dirt && !pool && !\(fl\?\.ripple && nFluid\) && !cath && bare && same && !figNew\);/);

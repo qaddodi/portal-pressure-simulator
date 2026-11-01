@@ -28,6 +28,10 @@ export const glassDpr = () => Math.min(2, window.devicePixelRatio || 1);
 const MARGIN = 48;  // CSS px of the figure taken around the callouts: three of the blur's sigmas (blur(16px): sigma 16 px)
 /** The longest a glass drawn in the figure's canvas goes between two blurs when only the figure under it has been drawn again (a host that gives view()). */
 export const REBLUR_MS = 50;
+// (Off by default since 1 Nov 2026: on an iPhone the callouts' glass, blurred only every 50 ms while the figure under it moved each frame
+// (a catheter's pulse, eased colours), stepped between a fresh blur and a stale one and read as a hard flicker (FHVP on HVPG 3, IVC on
+// HVPG 7). ?reblur=1, or the option reblur: REBLUR_MS, brings the 50 ms hold back.)
+const REBLUR_URL = typeof location !== 'undefined' && /[?&]reblur=1\b/.test(location.search || '');
 
 const NUM = (v) => parseFloat(v) || 0;
 /** The first shadow of a computed box-shadow: { c: [r, g, b, a] (0–1), x, y, blur, spread } or null. */
@@ -166,7 +170,7 @@ function texOf(gl, filter) {
  * drawn into the figure's canvas, at the end of each picture it lays (drawInto), from that picture itself: no copy of the canvas, no
  * canvas of its own. Otherwise, and for the frame of each change, it is drawn here as before.
  */
-export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, copy = true } = {}) {
+export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = REBLUR_URL ? REBLUR_MS : 0 } = {}) {
   const look = pane ? PANE : GLASS;
   // (cards: { find, watch, before, read? }: the Present cards' glass (recs A2, 31 Oct): find() lists the elements, each its own rounded box, its
   // corners its border radii and its tint the colour its CSS declares in --gl-tint (app.css: the same colour its background was), drawn
@@ -654,10 +658,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       // ripple, a catheter, dye, an eased colour): a plain blood frame never gets here. A pan, a zoom or a glide moves the view, and
       // a card sliding or growing moves the region: both blur at once, as before. The last change is blurred when the time is up.)
       const view = version && host.view ? host.view() : null, t = performance.now();
-      if (view !== null && hk.rest === rest && hk.view === view && hk.reg && t - hk.at < REBLUR_MS) {
+      if (reblur > 0 && view !== null && hk.rest === rest && hk.view === view && hk.reg && t - hk.at < reblur) {
         if (!hk.trail) {
           const K = hk;
-          K.trail = setTimeout(() => { K.trail = 0; if (hk === K && hostOn) { K.key = ''; host.now(); } }, REBLUR_MS - (t - K.at) + 1);
+          K.trail = setTimeout(() => { K.trail = 0; if (hk === K && hostOn) { K.key = ''; host.now(); } }, reblur - (t - K.at) + 1);
         }
         hk.k = k;
         blurOK = true;
