@@ -44,9 +44,10 @@ test('item 33: the sinusoid view keeps its size, colours and dark-mode query ins
   const draw = src.slice(src.indexOf('function draw(dt, run = true'), src.indexOf('function describe()'));
   assert.doesNotMatch(draw, /getBoundingClientRect|getComputedStyle|matchMedia\(/);
   assert.match(draw, /const \[W, H\] = hostSize\(\);/);
-  assert.match(src, /new ResizeObserver\(\(\) => \{ hostWH = null;/);
-  // (The colours are read again when the theme or a setting's class changes, never from the presenter's inline room.)
-  assert.match(src, /if \(cssVer !== lookVer\) \{ cssVer = lookVer; cssVals\.clear\(\); \}/);
+  assert.match(src, /new ResizeObserver\(\(\) => \{ readHost\(\); readGap\(\);/, 'the stage read by its observer, not by a frame');
+  // (The colours are read again when the theme or a setting's class changes, between frames (a rest pass), never from the presenter's inline room.)
+  assert.match(src, /const lookChanged = \(\) => \{ cssStale = true; readGap\(\); askRest\(\); \};/);
+  assert.match(src, /if \(cssStale \|\| cssMiss\) \{ readCss\(\); cssMiss = false; ch = true; \}/);
   assert.match(src, /r\.attributeName !== 'style'/);
   assert.match(src, /if \(el\.style\.getPropertyValue\('--label-k'\) !== lk\)/);
 });

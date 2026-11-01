@@ -43,7 +43,10 @@ let hostBox = { width: 390, height: 844, left: 0, top: 0 };
 globalThis.window = globalThis;
 globalThis.Element = class {};
 globalThis.devicePixelRatio = 1;
-globalThis.ResizeObserver = class { observe() {} };
+// (An observer reports its elements' sizes before the next frame paints, as a browser's does: here, before each frame run by hand.)
+const observers = [];
+globalThis.ResizeObserver = class { constructor(cb) { this.cb = cb; this.fresh = []; observers.push(this); } observe(t) { this.fresh.push(t); } };
+const reportSizes = () => { for (const o of observers) { const ts = o.fresh.splice(0); if (ts.length) o.cb(ts.map((target) => ({ target })), o); } };
 globalThis.MutationObserver = class { observe() {} disconnect() {} };
 globalThis.matchMedia = () => ({ matches: false, addEventListener() {}, addListener() {} });
 globalThis.getComputedStyle = () => ({ getPropertyValue: () => '', opacity: '1' });
@@ -59,7 +62,7 @@ globalThis.document = {
 let flushNext = null;
 globalThis.requestAnimationFrame = (cb) => { flushNext = cb; return 1; };
 let clock = 1000;
-const frames = (n, ms = 1000 / 60) => { for (let i = 0; i < n; i++) { clock += ms; const f = flushNext; flushNext = null; if (f) f(clock); } };
+const frames = (n, ms = 1000 / 60) => { for (let i = 0; i < n; i++) { reportSizes(); clock += ms; const f = flushNext; flushNext = null; if (f) f(clock); } };
 
 const { createSinusoidView } = await import('../src/ui/sinusoid-view.js');
 const { store } = await import('../src/ui/store.js');
