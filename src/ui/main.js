@@ -50,6 +50,7 @@ import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0762d1b820';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
 import { frameFor, cancelFrame, perf as framePerf, framePart } from './frame.js?v=15d5254a2c';
+import { sizeOf, watchSize, rectsSoon, restTask, flushTask } from './geom.js?v=254133713c';
 import { feedbackDiagnostics } from './feedback-diag.js?v=a6fd7380e0';
 import { noteJump } from './display-state.js?v=8d062d39dc';
 import { createIdleRest } from './idle-rest.js?v=4d23822371';
@@ -183,16 +184,21 @@ async function main() {
   });
   // The figure's labels the open menu covers are hidden while it is open: one tucked under its edge showed a sliver, the "S" of
   // Sinusoids R between the screen edge and the menu (sweep batches 02 and 04). The labels keep their places.
+  let underTok = 0;
   function labelsUnderMenu(on) {
+    if (!on) underTok++;
     for (const g of document.querySelectorAll('#labels .lb.under-menu')) g.classList.remove('under-menu');
-    if (on) nextFrame(() => {
+    // (The menu's box and the labels' come from the browser's own next layout, rectsSoon: nothing is laid out to read them.)
+    if (!on) return;
+    const tok = ++underTok;
+    nextFrame(() => {
       const m = document.querySelector('.umenu:not(.out)');
-      if (!m) return;
-      const r = m.getBoundingClientRect();
-      for (const g of document.querySelectorAll('#labels .lb')) {
-        const b = g.getBoundingClientRect();
-        if (b.width && b.right > r.left - 8 && b.left < r.right + 8 && b.bottom > r.top - 8 && b.top < r.bottom + 8) g.classList.add('under-menu');
-      }
+      if (!m || tok !== underTok) return;
+      const gs = [...document.querySelectorAll('#labels .lb')];
+      rectsSoon([m, ...gs]).then(([r, ...bs]) => {
+        if (tok !== underTok || !m.isConnected || m.classList.contains('out')) return;
+        gs.forEach((g, i) => { const b = bs[i]; if (b.width && b.right > r.left - 8 && b.left < r.right + 8 && b.bottom > r.top - 8 && b.top < r.bottom + 8) g.classList.add('under-menu'); });
+      });
     });
   }
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
@@ -643,7 +649,9 @@ function buildHud() {
   renderLegend();
   enhanceRanges();
   tipEl = h('div', { class: 'hover-tip', 'aria-hidden': 'true' });
+  watchSize(tipEl, () => { if (tipInfo && tipEl.classList.contains('on')) hoverInfo(tipInfo); });
   view.append(tipEl);
+  watchSize(view);
   stageClock = h('div', { class: 'stage-clock', 'aria-hidden': 'true' });
   view.append(stageClock);
   $('#zoomFit').onclick = () => stage.fit();
@@ -866,22 +874,29 @@ function hoverInfo(info) {
   vals.forEach((t, i) => { const n = tipVals[i]; if (n.data !== t) n.data = t; lens += t.length + ','; });
   tipEl.classList.add('on');
   tipEl.classList.toggle('peek', !!info.peek);
-  const place = `${info.x},${info.y}|${lens}`;
+  // (The view's and the tip's sizes are the ones the browser reported after its last layout, geom.js sizeOf: nothing is laid
+  // out to place it. A new size, a new number's width say, places it again as it is reported, before that frame is painted. It moves
+  // by translate, on the compositor, never by left and top.)
+  const vs = sizeOf(view), ts = sizeOf(tipEl);
+  const W = vs ? vs.w : innerWidth, H = vs ? vs.h : innerHeight, th = ts ? ts.h : 0, tw = (ts && ts.w) || 200;
+  const place = `${info.x},${info.y}|${lens}|${W}x${H}|${tw}x${th}`;
   if (place === tipPlace) return;
   tipPlace = place;
-  const W = view.clientWidth, H = view.clientHeight, th = tipEl.offsetHeight, tw = tipEl.offsetWidth || 200;
-  if (info.peek) {
-    // Above the finger, so the finger doesn't hide it; below it only when there is no room above.
-    tipEl.style.left = Math.max(8, Math.min(W - tw - 8, info.x - tw / 2)) + 'px';
-    tipEl.style.top = (info.y - th - 44 >= 8 ? info.y - th - 44 : Math.min(H - th - 8, info.y + 44)) + 'px';
-    return;
-  }
-  tipEl.style.left = Math.max(8, Math.min(W - tw - 8, info.x + 16)) + 'px';
-  tipEl.style.top = Math.max(8, Math.min(H - th - 8, info.y + 16)) + 'px';
+  const x = info.peek ? Math.max(8, Math.min(W - tw - 8, info.x - tw / 2)) : Math.max(8, Math.min(W - tw - 8, info.x + 16));
+  // (A long press: above the finger, so the finger doesn't hide it; below it only when there is no room above.)
+  const y = info.peek ? (info.y - th - 44 >= 8 ? info.y - th - 44 : Math.min(H - th - 8, info.y + 44)) : Math.max(8, Math.min(H - th - 8, info.y + 16));
+  tipEl.style.translate = `${Math.round(x)}px ${Math.round(y)}px`;
 }
 let tipShape = '', tipVals = [], tipPlace = '';
 
 // The figure header carries the Then / Now / Change switch when a moment is pinned.
+let cmpWatched = false;
+function syncCmpH() {
+  const c = $('#stageCenter');
+  if (!cmpWatched && c) { cmpWatched = true; watchSize(c, syncCmpH); }
+  const z = sizeOf(c), v = store.get().compareSnap && z ? `${Math.round(z.h) + 8}px` : '0px';
+  if (app.style.getPropertyValue('--cmp-h') !== v) app.style.setProperty('--cmp-h', v);
+}
 function renderBanner() {
   const el = $('#stageBanner');
   const s0 = store.get();
@@ -907,7 +922,8 @@ function renderBanner() {
   else { swapFade(el, () => el.replaceChildren(...kids), { instant: true }); if (!had && kids.length) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
   app.classList.toggle('cmp-on', !!s0.compareSnap);
   // The switch's height, for views that place their own controls under it (the lobule's).
-  app.style.setProperty('--cmp-h', s0.compareSnap ? `${$('#stageCenter').offsetHeight + 8}px` : '0px');
+  // (Its height as the browser last reported it, geom.js: the switch just built is reported after this layout and written again then.)
+  syncCmpH();
   // "Showing <then>" fades in and out (styles: .cmp-badge) instead of popping.
   const badge = view.querySelector('.cmp-badge:not(.leaving)');
   if (s0.compareSnap && s0.compareView === 'A') {
@@ -1132,8 +1148,8 @@ function readLS(k) { try { return localStorage.getItem(k); } catch { return null
 function leave(el) {
   if (el.dataset.swiped) { delete el.dataset.swiped; return; }   // (swiped away: already slid out of sight behind the tab row)
   // (With Reduce Motion it fades where it stands: app.css turns the leaving keyframes into fades.)
-  // (The reflow only restarts a leave already playing; laid out on every call, a presenter's start, closing several cards, paid one each.)
-  if (el.classList.contains('card-leaving')) { el.classList.remove('card-leaving'); void el.offsetWidth; }
+  // (A leave already playing starts again from its first frame: its own animations are set back to the start, no reflow to restart it.)
+  if (el.classList.contains('card-leaving')) { for (const a of el.getAnimations?.() || []) if (a.animationName) a.currentTime = 0; }
   el.classList.add('card-leaving');
   markGone(180);
   const done = (e) => { if (e && e.target !== el) return; el.classList.remove('card-leaving'); el.removeEventListener('animationend', done); };
@@ -1172,7 +1188,8 @@ function syncPanelToggle() {
 function giveFocusBack(card, to) {
   const a = document.activeElement;
   if (a && a !== document.body && !card.contains(a)) return;
-  if (to?.isConnected && to.getClientRects().length) to.focus({ preventScroll: true });
+  // (A button that is not drawn takes no focus: focus() leaves it where it is, with no box read to ask first.)
+  if (to?.isConnected) to.focus({ preventScroll: true });
 }
 let panelOpener = null;
 /** Opens the patient chart; or the instruments when named. */
@@ -1184,7 +1201,9 @@ function rightShort(opening) {
   // (A maximised Tests card fills the screen and the figure is hidden: there is no vessel card to leave a strip for, and the stretched card is not 380 px wide.)
   if (isPhone() || !matchMedia('(pointer: coarse)').matches || app.classList.contains('instrument-focus')) return false;
   const dock = $('#dock'), on = { panel: opening === 'panel' || panelShown(), dock: opening === 'dock' || (app.classList.contains('dock-open') && dock.classList.contains('side')), treat: opening === 'treat' || treatOpen() || historyOpen() };
-  const w = [on.panel && ($('#panel').offsetWidth || 380), on.dock && (dock.offsetWidth || (innerWidth < 1200 ? 380 : Math.max(440, innerWidth * 0.38))), on.treat && 400].filter(Boolean);
+  // (The cards' widths as the browser last reported them, geom.js: none is laid out to ask.)
+  const pw = sizeOf($('#panel'))?.w, dw = sizeOf(dock)?.w;
+  const w = [on.panel && (Math.round(pw || 0) || 380), on.dock && (Math.round(dw || 0) || (innerWidth < 1200 ? 380 : Math.max(440, innerWidth * 0.38))), on.treat && 400].filter(Boolean);
   return w.length > 1 && innerWidth - w.reduce((a, b) => a + b, 0) - (w.length + 1) * 12 < 316;
 }
 function giveWay(opening) {
@@ -1197,7 +1216,7 @@ function giveWay(opening) {
     else if (k === 'dock') { if (app.classList.contains('dock-open')) setPanelTab('chart'); }
     else closePanel();
     const to = held && (opening === 'treat' ? $('#btnTreat') : opening === 'dock' ? $('#tabInstruments') : panelOpener);
-    if (to?.isConnected && to.getClientRects().length) to.focus({ preventScroll: true });
+    if (to?.isConnected) to.focus({ preventScroll: true });
   }
 }
 function openPanel(tab = 'chart') {
@@ -1259,9 +1278,7 @@ function wireFloating() {
   // bottom (--bot-occ: the vitals dock, or a sheet of instruments above it). The cards stack from the
   // right without covering each other; the zoom buttons and a vessel's card keep clear of them all.
   const px = (v) => `${Math.max(0, Math.round(v))}px`;
-  let pubRaf = 0;
   const publish = () => {
-    pubRaf = 0;
     syncThumb();
     if ($('#vdock').dataset.folding === '1') return;   // the dock is gliding to a height already published
     const gap = isPhone() ? 8 : 12;
@@ -1348,11 +1365,14 @@ function wireFloating() {
     if (pubVals.topOcc !== topOcc) { pubVals.topOcc = topOcc; document.documentElement.style.setProperty('--thumb-top', topOcc); }
     const sig = `${appClass()}|${tb.className}|${tb.dataset.fit}`;
     if (changed || sig !== pubSig) { pubSig = sig; dispatchEvent(new Event('pps:occ')); }
+    if (changed) pillRemeasure?.();   // (a pill gliding into or out of the sinusoid rests on this space: sinMotion)
   };
   const pubVals = {};
   let pubSig = '';
-  const soon = () => { if (!pubRaf) pubRaf = nextFrame(publish); };
-  publishNow = () => { if (pubRaf) { cancelFrame(pubRaf); publish(); } };
+  // (Published in a task of its own once a change has been laid out, never in a frame: its reads then find the page laid out
+  // already, and nothing it measures runs in a frame or under a moving finger. geom.js restTask.)
+  const soon = () => restTask(publish);
+  publishNow = () => { if (!flushTask(publish)) publish(); };
   const ro = new ResizeObserver(soon);
   for (const id of ['#topbar', '#vdock', '#dock', '#panel', '#treatCard', '.tb-id', '.top-right', '.topbar .sb-right', '#viewSeg']) ro.observe($(id));
   // (Not for stage-busy, the floating pieces' fade while the figure moves: it changes only their opacity. Announced, every
@@ -1639,8 +1659,9 @@ function syncThumb() {
 const PILL_IN = 1150, PILL_OUT = 950;
 // (With the lobule the Sinusoid button slides out of the pill or back into it, 17 Oct, Mohammad: it "should slide out not just
 // appear snap"; the fold, there and into or out of the sinusoid, is pill-motion.js FOLD_MS, quicker than the zoom.)
-// (publishNow: the space the floating pieces leave, published at once if it waits for a frame, wireFloating.)
-let publishNow = () => {};
+// (publishNow: the space the floating pieces leave, published at once, in the caller's task, wireFloating. pillRemeasure:
+// the gliding pill reads where it rests again, from that task, each time the space is published.)
+let publishNow = () => {}, pillRemeasure = null;
 let pillRaf = 0, pillEl = null, pillShiftY = 0;   // (pillShiftY: the glide's vertical shift now, in screen px)
 let barY = 0;   // (the dock's slide now, in its own px: 0 at rest, down is positive)
 const pillHome = () => { const b = $('#viewSeg')?.parentElement; return b && (b.id === 'nbViews' || b.id === 'sinViews') && b.offsetWidth ? b : null; };
@@ -1667,6 +1688,7 @@ function pillChange(change, kind) {
 function sinMotion(from, intoSin) {
   cancelFrame(pillRaf); pillRaf = 0;
   if (pillEl) { pillEl.style.transform = ''; pillEl.classList.remove('vp-glide'); delete pillEl.dataset.slideY; pillEl = null; pillShiftY = 0; }
+  pillRemeasure = null;
   const vd = $('#vdock'), reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, ms = intoSin ? PILL_IN : PILL_OUT, t0 = performance.now();
   // The dock: from where it is drawn now (at rest, part way, or off the screen) to off the screen, or back to rest.
   const leaving = vd.classList.contains('vd-out');
@@ -1682,14 +1704,25 @@ function sinMotion(from, intoSin) {
   }
   // The pill.
   const box = from && !reduce ? pillHome() : null, inDock = !!box && vd.contains(box);
-  let shift = [0, 0];
-  if (box) { pillEl = box; box.style.setProperty('--vp-ms', `${ms}ms`); box.classList.add('vp-glide'); }
+  let shift = [0, 0], rest = null, drawnDock = 0;
+  // (Where the pill rests, less its glide's shift and the dock's, is read here, at the tap, once the space it rests in is published
+  // (publishNow, in this task), and again each time that space is published anew (pillRemeasure, from the publish's own task):
+  // never in a frame. The space with the dock gone is published before the pill's first frame, so no frame is drawn against the old
+  // space and then jumps (17 Oct).)
+  const measure = () => {
+    if (pillEl !== box) return;
+    const r = box.getBoundingClientRect();
+    rest = r.width ? { x: r.left + r.width / 2 - shift[0], y: r.top + r.height / 2 - shift[1] - drawnDock } : 'gone';
+  };
+  if (box) {
+    pillEl = box; box.style.setProperty('--vp-ms', `${ms}ms`); box.classList.add('vp-glide');
+    drawnDock = inDock && bars ? barY : 0;
+    publishNow();
+    measure();
+    pillRemeasure = measure;
+  }
   const step = (now) => {
     const u = Math.max(0, Math.min(1, (now - t0) / ms)), e = easeIO3(u);
-    // (The sinusoid view's pill rests on the space the dock leaves, published on a frame of its own, asked for after this one: it
-    // is published first, here, so the pill is never drawn for a frame at the old space and then jumps, 17 Oct. Not in the change's
-    // own task, the first call: there the zoom's own listeners may not have run yet.)
-    if (now > t0) publishNow();
     if (bars) {
       barY = u >= 1 ? 0 : y0 + (y1 - y0) * e;
       vd.style.translate = u >= 1 ? '' : `0 ${barY.toFixed(2)}px`;
@@ -1698,14 +1731,12 @@ function sinMotion(from, intoSin) {
     }
     const el = pillEl;
     if (el) {
-      // (Where it lies now, less the glide's own shift and the dock's (read, not cleared, so no extra layout runs), drawn on its
-      // own path from where it was to where it rests: pill-motion.js glideShift.)
-      const r = el.getBoundingClientRect();
-      if (u >= 1 || !r.width) { el.style.transform = ''; el.classList.remove('vp-glide'); delete el.dataset.slideY; pillEl = null; pillShiftY = 0; }
+      // (Drawn on its own path from where it was to where it rests: pill-motion.js glideShift, from the rest last reported.)
+      if (u >= 1 || rest === 'gone' || !rest) { el.style.transform = ''; el.classList.remove('vp-glide'); delete el.dataset.slideY; pillEl = null; pillShiftY = 0; pillRemeasure = null; }
       else {
         const dock = inDock && bars ? barY : 0, k = 1 - e;
-        shift = [glideShift(r.left + r.width / 2, shift[0], 0, from.x, k).shift, glideShift(r.top + r.height / 2, shift[1], dock, from.y, k).shift];
-        el.style.transform = `translate(${shift[0].toFixed(2)}px, ${shift[1].toFixed(2)}px)`; pillShiftY = shift[1];
+        shift = [glideShift(rest.x + shift[0], shift[0], 0, from.x, k).shift, glideShift(rest.y + shift[1] + dock, shift[1], dock, from.y, k).shift];
+        el.style.transform = `translate(${shift[0].toFixed(2)}px, ${shift[1].toFixed(2)}px)`; pillShiftY = shift[1]; drawnDock = dock;
         el.dataset.slideY = (pillShiftY + dock).toFixed(2);
       }
     }

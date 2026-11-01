@@ -72,9 +72,14 @@ test('nothing hides or rebuilds the pill on the way: it is moved, whole, in one 
   // Moved to its new home straight after the buttons change, before anything is drawn (never a frame homeless or in a hidden home).
   assert.match(change, /change\(\);\n {2}syncThumb\(\);/);
   for (const body of [change, m]) assert.doesNotMatch(body, /opacity|visibility|\.hidden =|display|innerHTML|cloneNode|replaceWith|remove\(\)/, 'the pill itself is only moved');
-  assert.ok(m.includes('if (now > t0) publishNow();') && m.includes('vd.style.translate = u >= 1'));
-  assert.ok(m.indexOf('if (now > t0) publishNow();') < m.indexOf('vd.style.translate = u >= 1') && m.indexOf('if (now > t0) publishNow();') < m.indexOf('el.getBoundingClientRect()'), 'the space first');
-  assert.match(main, /publishNow = \(\) => \{ if \(pubRaf\) \{ cancelFrame\(pubRaf\); publish\(\); \} \};/);
+  // The space is published at the tap, before the pill's resting place is read, and that place is read again from each later
+  // publish's own task: no frame reads it (off-GPU rule, 1 Nov).
+  assert.ok(m.includes('publishNow();\n    measure();\n    pillRemeasure = measure;'), 'the space first, then the read, at the tap');
+  assert.ok(m.indexOf('measure();') < m.indexOf('const step = (now) =>'));
+  const step = m.slice(m.indexOf('const step = (now) =>'));
+  assert.doesNotMatch(step, /getBoundingClientRect|offset(Width|Height|Top|Left)|client(Width|Height)|getComputedStyle|publishNow/, 'nothing laid out or published in a frame');
+  assert.match(main, /publishNow = \(\) => \{ if \(!flushTask\(publish\)\) publish\(\); \};/);
+  assert.match(main, /if \(changed\) pillRemeasure\?\.\(\);/);
   // The sinusoid view's rules hide the dock and the pill's old home, never the pill or its new home: only Anatomy and Circuit.
   for (const rule of css.match(/[^{}]*#app\.sin-focus[^{}]*\{[^{}]*(display: none|opacity: 0|visibility: hidden)[^{}]*\}/g)) {
     const sel = rule.split('{')[0];

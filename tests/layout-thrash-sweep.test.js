@@ -18,8 +18,9 @@ test('a hover reads the kept box and transform, never a fresh layout', () => {
   assert.match(hov, /clientToWorldFast\(ev\.clientX, ev\.clientY\)/);
 });
 
-test('a card leaving lays the page out only to restart a leave already playing', () => {
-  assert.match(mn, /if \(el\.classList\.contains\('card-leaving'\)\) \{ el\.classList\.remove\('card-leaving'\); void el\.offsetWidth; \}\n\s+el\.classList\.add\('card-leaving'\);/);
+test('a card leaving never lays the page out: a leave already playing is set back to its start', () => {
+  assert.match(mn, /if \(el\.classList\.contains\('card-leaving'\)\) \{ for \(const a of el\.getAnimations\?\.\(\) \|\| \[\]\) if \(a\.animationName\) a\.currentTime = 0; \}\n\s+el\.classList\.add\('card-leaving'\);/);
+  assert.doesNotMatch(mn, /void el\.offsetWidth/);
 });
 
 test('focus, label level and selection redraw the figure only for a new value', () => {

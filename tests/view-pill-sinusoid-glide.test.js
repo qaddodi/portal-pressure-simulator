@@ -31,7 +31,7 @@ test('the pill and the bars move over the sinusoid zoom\'s own time and curve', 
   assert.match(m, /const u = Math\.max\(0, Math\.min\(1, \(now - t0\) \/ ms\)\), e = easeIO3\(u\);/);
   assert.match(m, /barY = u >= 1 \? 0 : y0 \+ \(y1 - y0\) \* e;/, 'the dock on the zoom\'s curve');
   assert.match(m, /k = 1 - e;/, 'the pill on the same curve, from the same clock');
-  assert.ok(m.indexOf('vd.style.translate =') < m.indexOf('el.getBoundingClientRect()'), 'the dock is placed before the pill reads its place');
+  assert.ok(m.indexOf("vd.style.translate = u >= 1") < m.indexOf('el.style.transform = `translate('), 'the dock is placed before the pill, from the same frame\'s slide');
   // Drawn in its first place in the change's own task, so no frame shows the dock at rest before it slides back in.
   assert.match(m, /\n {2}step\(t0\);$/);
 });
@@ -55,7 +55,7 @@ test('out of the sinusoid the dock and the pill rise together, the pill above th
   assert.ok(Math.abs((pill(0) - pill(0.5)) / (pill(0) - pill(1)) - 0.5) < 1e-9);
 });
 
-test('the pill starts where it was drawn and reads its resting place each frame, less its own shift and the dock\'s', () => {
+test('the pill starts where it was drawn and eases onto its resting place, less its own shift and the dock\'s, read at the tap and at each publish (never in a frame)', () => {
   const sync = main.match(/const syncViewSeg = \(\) => \{([\s\S]*?)\n {2}\};/)[1];
   assert.match(sync, /pillChange\(\(\) => \{ sinBtn\.hidden = sinHide; app\.classList\.toggle\('sin-focus', inSin\); \}/, 'the buttons change inside one move');
   assert.ok(sync.indexOf('pillChange(') < sync.indexOf("b.setAttribute('aria-pressed'"), 'the pressed state is set after the move, so it crossfades');
@@ -64,7 +64,8 @@ test('the pill starts where it was drawn and reads its resting place each frame,
   assert.ok(change.indexOf("classList.add('vd-out')") < change.indexOf('change();'), 'into the sinusoid the dock stays to slide away');
   const m = fn('sinMotion');
   assert.match(m, /prefers-reduced-motion: reduce/, 'reduced motion: the pill and the dock just take their places');
-  assert.match(m, /glideShift\(r\.top \+ r\.height \/ 2, shift\[1\], dock, from\.y, k\)\.shift/, 'less its own shift and the dock\'s');
+  assert.match(m, /rest = r\.width \? \{ x: r\.left \+ r\.width \/ 2 - shift\[0\], y: r\.top \+ r\.height \/ 2 - shift\[1\] - drawnDock \} : 'gone';/, 'its rest is its box less its own shift and the dock\'s as drawn');
+  assert.match(m, /glideShift\(rest\.y \+ shift\[1\] \+ dock, shift\[1\], dock, from\.y, k\)\.shift/, 'less its own shift and the dock\'s');
   assert.match(m, /const dock = inDock && bars \? barY : 0, k = 1 - e;/);
   // A move reversed part way starts from where the dock is drawn, not from its far end.
   assert.match(m, /if \(intoSin\) y1 = off; else if \(!leaving\) y0 = off;/);
