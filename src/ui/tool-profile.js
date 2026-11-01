@@ -17,7 +17,7 @@ import { NODES } from '../engine/topology.js?v=4044766e96';
 import { RATE } from './table-marks.js?v=ff3ed0cc47';
 import { monotoneSegs } from './curve-near.js?v=663c98a29c';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { pressureColor } from './colormap.js?v=1e3a1162cc';
+import { pressureColor } from './colormap.js?v=3e75c1fc60';
 import { measure } from './glyph-measure.js?v=9f91f3677d';
 
 const PATH = PROFILE_PATHS[0];
@@ -606,7 +606,7 @@ export function createProfileTool() {
   const el = document.createElement('div');
   el.className = 'pz-prof';
   const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
-  let goal = null, shown = null, ref = null, cfg = { from: null }, ctx0 = null, raf = 0, plan = null, stale = false, size = '';
+  let goal = null, shown = null, ref = null, cfg = { from: null }, ctx0 = null, raf = 0, plan = null, stale = false, size = '', wantMin = null;
   let fSeen = 0;   // (the type size it was drawn at, x100: a zoom the box's own size does not show)
   // (Each bracket's row as drawn: where it stands, where it stood, and when it began to fade from that one to this one. A bracket that
   // must move fades out where it was as it fades in where it goes, so it never sweeps across the line or the numbers.)
@@ -710,7 +710,8 @@ export function createProfileTool() {
     // much: judged from that layout alone, so the box never flips between two heights.)
     const need = profileGeo(w, hh, f, tw).need;
     const cssMin = 11 * fs0, want = need > cssMin + 0.5 ? `${Math.ceil(need)}px` : '';
-    if (el.style.minHeight !== want) el.style.minHeight = want;
+    // (laid out between frames, never in the frame that drew: the next frame draws in the taller box)
+    if (el.style.minHeight !== want && wantMin !== want) { wantMin = want; restPass(() => { el.style.minHeight = wantMin; }); }
     const top = shown.top, y = (v) => G.Z - (G.Z - G.T) * Math.max(0, Math.min(v, top)) / top;
     const pts = (p) => p.v.map((v, i) => [G.x(i), y(v)]);
     const now = pts(shown), labels = shown.v.map(whole);

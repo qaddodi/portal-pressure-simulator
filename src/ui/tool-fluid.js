@@ -7,7 +7,7 @@
 // compare button moves it.
 
 import { frame } from './frame.js?v=7710f677e2';
-import { h, fmt, clamp } from './util.js?v=73d39176eb';
+import { h, fmt, clamp } from './util.js?v=79b7c7454f';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { store } from './store.js?v=4ef2a6ffd8';
 
@@ -182,6 +182,36 @@ const band = (x0, y0, x1, y1, t) => { const m = (x0 + x1) / 2; return `M${x0},${
 const NAMES = { liver: 'Liver', gut: 'Gut', carried: 'Lymphatics', back: 'Taken back', build: 'Ascites' };
 const FILL = { liver: 'gf-liver', gut: 'gf-gut', carried: 'gf-carried', back: 'gf-back', build: 'gf-build' };
 
+// One part of a strip (a coloured part, the dashed room left, the Leaked bracket, an arrow of the tug), whose place and length ease
+// every frame by transform only: it is laid out once as wide as its track, and its look is three pieces, an end at each side and a
+// middle as long as the track, the middle shown only between the two ends by two clips that slide against each other (each clip
+// and the content in it moved by opposite translates, so the middle and the words in it stay still on the track while the window
+// over them moves). Nothing is laid out or repainted per frame; a dashed edge keeps its dashes, a rounded end its corners, an
+// arrow its point. el._at(x, w, tw, em) puts it from x, w px long, on a track tw px wide whose type is em px (the ends' widths, in
+// em, are app.css's: [left, right]).
+function span(cls, label, ends = [0.4, 0.4]) {
+  const piece = (c) => { const e = document.createElement('i'); e.className = c; return e; };
+  const endL = piece('gp gp-l'), endR = piece('gp gp-r'), mid = piece('gp gp-m');
+  const a = piece('gp-win'), b = piece('gp-win-in'), c = piece('gp-win'), d = piece('gp-win-in');
+  d.append(mid); if (label) d.append(label);
+  c.append(d); b.append(c); a.append(b);
+  const el = document.createElement('i');
+  el.className = `gs-span ${cls}`;
+  el.append(a, endL, endR);
+  const T = (e, x, sx = 1) => { e.style.translate = `${x.toFixed(2)}px 0`; if (e.style.scale !== `${sx.toFixed(4)} 1`) e.style.scale = sx === 1 ? '' : `${sx.toFixed(4)} 1`; };
+  el._at = (x, w, tw, em) => {
+    if (!tw || !em) return;
+    w = Math.max(0, w);
+    const eL = ends[0] * em, eR = ends[1] * em, k = Math.min(1, w / (eL + eR));   // (shorter than its two ends: both shrink)
+    T(endL, x, k); T(endR, x + w - eR * k, k);
+    // (the middle shows from l to r, half a pixel under each end so no seam opens)
+    const l = x + eL * k - 0.5, r = Math.max(l, x + w - eR * k + 0.5);
+    T(a, l); T(b, -l); T(c, r - tw); T(d, tw - r);
+    if (label) T(label, x);
+  };
+  return el;
+}
+
 export function createFluid() {
   // The flow picture: one SVG drawn at the card's own width (a ResizeObserver redraws it), so its 13 px labels stay 13 px.
   const flow = sv('svg', { class: 'gf-flow', height: FLOW_H, 'aria-hidden': 'true' });
@@ -208,8 +238,8 @@ export function createFluid() {
   const swCar = h('i', { class: 'gs-sw gs-sw-car' }), swBack = h('i', { class: 'gs-sw gs-sw-back' }), swBuild = h('i', { class: 'gs-sw gs-sw-build' }), nBuild = h('span', {}, 'Builds ');
   const inn = () => h('span', { class: 'gs-in' });
   const tCar = inn(), tSpare = inn();
-  const segCar = h('i', { class: 'gs-seg gs-car' }, tCar), segBlue = h('i', { class: 'gs-seg gs-blue' }), segShrink = h('i', { class: 'gs-seg gs-shrink' }), segBuild = h('i', { class: 'gs-seg gs-build' });
-  const segRoom = h('i', { class: 'gs-ghost' }, tSpare), brk = h('i', { class: 'gs-brk' });
+  const segCar = span('gs-seg gs-car', tCar), segBlue = span('gs-seg gs-blue'), segShrink = span('gs-seg gs-shrink'), segBuild = span('gs-seg gs-build');
+  const segRoom = span('gs-ghost', tSpare), brk = span('gs-brk', null, [0.3, 0.3]);
   const trk = h('div', { class: 'gs-trk' }, segCar, segBlue, segShrink, segBuild, segRoom);
   const legCar = h('span', {}, swCar, 'Carried ', sCarN);
   const lab = h('div', { class: 'gs-lab' }, legCar, h('span', {}, swBack, 'Reabsorbed ', sBack, h('span', { class: 'gs-gap' }, swBuild, nBuild, sBuildN)));
@@ -222,13 +252,15 @@ export function createFluid() {
   // The forces across the sinusoid wall (forces: true): a line naming the wall and the net, over one strip: the push from the
   // blood's side and the pull from the tissue's side as two arrows meeting at the wall, each as long as its pressure, named inside.
   const fNet = h('b'), tPush = inn(), tPull = inn();
-  const segPush = h('i', { class: 'gs-seg gs-push' }, tPush), segPull = h('i', { class: 'gs-seg gs-pull' }, tPull), wall = h('i', { class: 'gs-wall' });
+  const segPush = span('gs-seg gs-push', tPush, [0.4, 0.7]), segPull = span('gs-seg gs-pull', tPull, [0.7, 0.4]), wall = h('i', { class: 'gs-wall' });
   const tug = h('div', { class: 'gs-trk gs-tug' }, segPush, segPull, wall);
   const forces = h('div', { class: 'gs-forces' }, h('div', { class: 'gs-fcap' }, h('span', {}, 'Across the sinusoid wall · mmHg'), h('span', {}, 'net ', fNet)), tug);
   const el = h('div', { class: 'gf', role: 'img' }, win, flow, unit, words, forces, caveat);
   const set = (n, t) => { if (n.textContent === t) return false; n.textContent = t; return true; };
   const px = (v) => `${v.toFixed(2)}px`;
-  const place = (n, p) => { n.style.left = px(p.x); n.style.width = px(p.w); };
+  // (A part goes where its pieces are slid: span() below; the wall is a line, slid.)
+  let em = 0;   // (the strip's type size, px: read with the labels' fit)
+  const place = (n, p, tw) => n._at(p.x, p.w, tw, em);
   let W = 0, TW = 0, FW = 0, goal = null, shown = null, fGoal = null, fShown = null, raf = 0, last = 0, day = null, labSig = '';
   // (everything eases: the drawn values follow the goal over about half a second; the numbers swap in place)
   const KEYS = ['hep', 'spl', 'made', 'cap', 'carried', 'spare', 'back', 'net', 'perDay'];
@@ -244,7 +276,7 @@ export function createFluid() {
     const sig = `${tw}|${fw}|${day ? JSON.stringify(day) : ''}|${fGoal ? `${fmt(fGoal.out, 1)}${fmt(fGoal.pull, 1)}` : ''}`;
     if (sig === labSig) return;
     labSig = sig;
-    const em = parseFloat(getComputedStyle(win).fontSize) || 14;
+    em = parseFloat(getComputedStyle(win).fontSize) || 14;
     if (opts.window && day && tw) {
       const P = stripParts(dayOf(goal), tw), sw = stripWords(day);
       const seen = fit(tCar, sw.carried, P.car.w, em);
@@ -263,9 +295,9 @@ export function createFluid() {
       const tw = TW;   // (the widths as the observer last read them: a glide's frame reads no layout)
       if (shown && tw > 0 && 'dCar' in shown) {
         const P = stripParts(dayOf(shown), tw);
-        place(segCar, P.car); place(segBlue, P.blue); place(segShrink, P.shrink); place(segBuild, P.build); place(segRoom, P.room);
+        place(segCar, P.car, tw); place(segBlue, P.blue, tw); place(segShrink, P.shrink, tw); place(segBuild, P.build, tw); place(segRoom, P.room, tw);
         segRoom.style.opacity = P.room.op.toFixed(3);
-        brk.style.left = px(P.brk.x); brk.style.width = px(P.brk.w); brk.style.opacity = P.brk.op.toFixed(3);
+        place(brk, P.brk, tw); brk.style.opacity = P.brk.op.toFixed(3);
       }
     } else if (shown && W > 0) {
       const L = fluidFlows(shown, W);
@@ -282,7 +314,7 @@ export function createFluid() {
     const fw = FW;
     if (fShown && fw > 0) {
       const T = tugParts(fShown.out, fShown.pull, fw);
-      place(segPush, T.push); place(segPull, T.pull); wall.style.left = px(T.wall);
+      place(segPush, T.push, fw); place(segPull, T.pull, fw); wall.style.translate = `${px(T.wall)} 0`;
     }
   }
   function tick(now) {
@@ -303,7 +335,7 @@ export function createFluid() {
   }
   const kick = () => { if (!raf && typeof requestAnimationFrame === 'function') raf = frame(tick, 'tool-fluid'); };
   if (typeof ResizeObserver === 'function') {
-    const ro = new ResizeObserver(() => { W = flow.getBoundingClientRect().width; TW = trk.clientWidth; FW = tug.clientWidth; labSig = ''; draw(); labels(); });
+    const ro = new ResizeObserver(() => { W = flow.getBoundingClientRect().width; TW = trk.clientWidth; FW = tug.clientWidth; labSig = ''; labels(); draw(); });
     ro.observe(el); ro.observe(trk); ro.observe(tug);
   }
   document.fonts?.ready.then(() => { labSig = ''; labels(); });

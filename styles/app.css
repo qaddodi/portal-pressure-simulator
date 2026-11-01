@@ -1063,9 +1063,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 
 .modal-back { position: fixed; inset: var(--modal-top, 0px) 0 var(--modal-kb, 0px) 0; background: var(--scrim); z-index: var(--z-dialog); display: none; place-items: center; padding: calc(16px + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
 .modal-back.show { display: grid; animation: crossfade var(--d-small) var(--ease); }
-/* (The on-screen keyboard covers the page's foot without shrinking it: the dialog is held to what is left above it, util.js fitModal, and eases there.) */
-.modal-back.kb { transition: top var(--d-small) var(--ease), bottom var(--d-small) var(--ease); }
-.modal-back.kb .modal { transition: max-height var(--d-small) var(--ease); }
+/* (The on-screen keyboard covers the page's foot without shrinking it: the dialog is held to what is left above it, util.js fitModal,
+   and glides there by translate.) */
 /* Closing: the scrim fades and the dialog sinks back the way it came, then it is hidden (util.js closeModal). */
 /* (Own exit keyframes: the same name played in reverse would not restart, and would land on its last frame at once.) */
 .modal-back.leaving { display: grid; pointer-events: none; animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }
@@ -1259,8 +1258,9 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .action-card {
   position: absolute; z-index: var(--z-hud); width: 300px; max-height: calc(100% - 16px); display: flex; flex-direction: column; overflow: hidden;
   background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
-  padding: 0; animation: scale-settle var(--d-small) var(--ease); font-size: var(--fs-14); transition: left var(--d-flip) var(--ease), top var(--d-flip) var(--ease);
+  padding: 0; animation: scale-settle var(--d-small) var(--ease); font-size: var(--fs-14);
 }
+.action-card:not(.docked) { left: 0; top: 0; }   /* (placed by translate: card.js moveTo) */
 /* One fixed size per kind of card, whatever text it holds: the header and foot keep their place, the controls scroll inside. */
 .action-card { height: min(600px, calc(100vh - 150px)); max-height: none; }
 /* On a short desktop window the card leaves room above the vitals dock (a 600 px card ran 4 px into it at 1180x820). */
@@ -1741,7 +1741,8 @@ button.finding { cursor: pointer; }
 .lz.lz-cam-in .lz-leaders { transition: opacity var(--d-surface) var(--ease); } .lz.lz-cam-in .lz-labels { transition: opacity var(--d-surface) var(--ease); }
 .lz-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .lz-labels { position: absolute; inset: 0; pointer-events: none; }
-.lz-labels.lz-ease .lz-lab { transition: opacity var(--d-surface) var(--ease), left var(--d-surface) var(--ease), top var(--d-surface) var(--ease); }
+.lz-labels > :is(.lz-lab, .lz-zone, .lz-call) { left: 0; top: 0; }   /* (placed by translate: lobule-zoom.js put) */
+.lz-labels.lz-ease .lz-lab { transition: opacity var(--d-surface) var(--ease), translate var(--d-surface) var(--ease); }
 @media (prefers-reduced-motion: reduce) { .lz-labels.lz-ease .lz-lab { transition: none; } }
 /* Station cards: the anatomy's label style, as buttons that open the station's card */
 .lz-call { position: absolute; padding: 4px 10px 5px; border-radius: 999px; font: 600 14px/1.2 var(--font-ui); width: max-content; text-wrap: balance; color: var(--on-status); background: var(--danger); box-shadow: var(--shadow-1); pointer-events: none; opacity: 0; transform: scale(.94); transition: opacity var(--d-surface) var(--ease), transform var(--d-surface) var(--ease); }
@@ -3814,7 +3815,7 @@ button.finding { cursor: pointer; }
 /* Focus: while the figure is dragged, pinched or scrolled, the floating pieces step back. */
 .float-ui, .stage-fit, .stage-rotate { transition: opacity var(--d-surface, .42s) var(--ease); }
 /* (The desktop card keeps its left/top glide with the fade: a new vessel moved it 23 px in one frame; round 2 review, RF7.) */
-.action-card:not(.docked) { transition: opacity var(--d-small) var(--ease), left var(--d-flip) var(--ease), top var(--d-flip) var(--ease); }
+.action-card:not(.docked) { transition: opacity var(--d-small) var(--ease); }   /* (its moves glide by translate: card.js moveTo, RF7) */
 /* R7: the pieces step back to .55 (not .28), over 240 ms, once the figure has moved for 120 ms (main.js), and return over 420 ms. The zoom pill's buttons
    no longer dim again inside the pill (that made them .08). Only opacity and its duration: the guard test pins that nothing else changes. */
 .app.stage-busy .float-ui:not(:hover):not(:focus-within) { opacity: .55; transition-duration: var(--d-small, .24s); }
@@ -4003,7 +4004,7 @@ html:not([data-pvcpu]) .um-pv { transition: opacity var(--d-flip) var(--ease), t
 /* A plate gliding to a new size by transform (plate-glide.js): the box's own glass steps aside for the nine pieces, which carry it. */
 .pg-on { background: transparent !important; box-shadow: none !important; overflow: visible !important; isolation: isolate; }
 .pg-piece { position: absolute; left: 0; top: 0; z-index: -1; box-sizing: border-box; transform-origin: 0 0; pointer-events: none; will-change: transform;
-  background: var(--pg-bg, var(--glass)); border: 1px solid var(--hairline); box-shadow: var(--pg-shadow, calc(1px * var(--light-slant)) 1px 2px rgb(var(--shadow-rgb) / .08)); }
+  background: var(--pg-bg, var(--glass)); border: var(--pg-border, 1px solid var(--hairline)); box-shadow: var(--pg-shadow, calc(1px * var(--light-slant)) 1px 2px rgb(var(--shadow-rgb) / .08)); }
 .toast-wrap.docked .toast.toast-tall { height: 84px; }
 .why-pop { --pg-bg: var(--surface); --pg-shadow: var(--shadow-3); }
 /* (the words' cut: two opposite translates reveal or hide them as the card's height changes, menu.js pvResize; no clip-path) */
@@ -4297,11 +4298,13 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
    the pill grows rather than jumping (round 2 review, NP12). Folded it takes no room: no size, and margins that take back the
    pill's 2 px gap. (After the phone rules, which size every button in the pill.) */
 .zoom-pill .stage-rotate.ib { width: 0; height: 0; margin: -1px; overflow: hidden; opacity: 0; visibility: hidden; pointer-events: none;
-  transition: width var(--d-small) var(--ease), height var(--d-small) var(--ease), margin var(--d-small) var(--ease), opacity var(--d-small) var(--ease), visibility 0s linear var(--d-small); }
+  transition: opacity var(--d-small) var(--ease), visibility 0s linear var(--d-small); }
 .cmap .zoom-pill .stage-rotate.ib { width: 36px; height: 36px; margin: 0; opacity: 1; visibility: visible; pointer-events: auto;
-  transition: width var(--d-small) var(--ease), height var(--d-small) var(--ease), margin var(--d-small) var(--ease), opacity var(--d-small) var(--ease), visibility 0s; }
+  transition: opacity var(--d-small) var(--ease) var(--d-flip), visibility 0s; }
 #app.sin-focus .zoom-pill .stage-rotate.ib { width: 0; height: 0; margin: -1px; opacity: 0; visibility: hidden; pointer-events: none;
-  transition: width var(--d-small) var(--ease), height var(--d-small) var(--ease), margin var(--d-small) var(--ease), opacity var(--d-small) var(--ease), visibility 0s linear var(--d-small); }
+  transition: opacity var(--d-small) var(--ease), visibility 0s linear var(--d-small); }
+/* (the pill's glass and its other buttons glide to the new size by transform: plate-glide.js glideOnResize, from main.js) */
+.zoom-pill { --pg-border: 0 solid transparent; --pg-shadow: var(--shadow-pill); }
 /* In the tall Instruments card the trace chips wrap instead of scrolling sideways. */
 .instrument-workspace.side .pt-chips { flex-wrap: wrap; overflow: visible; -webkit-mask-image: none; mask-image: none; padding-right: 0; }
 
@@ -5576,10 +5579,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz:not(.stack) .pz-tool .dop .dop-velrow { flex-wrap: wrap; }
 .dop-range { margin: 10px 8px 14px; }
 .dop-range[hidden] { display: none; }
-.dop-track { position: relative; height: 8px; border-radius: 4px; background: var(--surface-2); }
-.dop-band { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: var(--ok); opacity: .45; transition: left var(--d-surface) var(--ease), width var(--d-surface) var(--ease); }
+.dop-track { position: relative; height: 8px; border-radius: 4px; background: var(--surface-2); container-type: inline-size; }
+.dop-band { position: absolute; top: 0; bottom: 0; left: 0; width: 100%; transform-origin: 0 50%; border-radius: 4px; background: var(--ok); opacity: .45; transition: translate var(--d-surface) var(--ease), scale var(--d-surface) var(--ease); }
 /* Where the reading sits on the usual range: a short upright tick, not a dot. */
-.dop-mark { position: absolute; top: 50%; width: 4px; height: 18px; margin: -9px 0 0 -2px; border-radius: 2px; background: var(--text); box-shadow: 0 0 0 2px var(--surface, var(--bg)); box-sizing: border-box; transition: left var(--d-surface) var(--ease); }
+.dop-mark { position: absolute; top: 50%; left: 0; width: 4px; height: 18px; margin: -9px 0 0 -2px; border-radius: 2px; background: var(--text); box-shadow: 0 0 0 2px var(--surface, var(--bg)); box-sizing: border-box; transition: translate var(--d-surface) var(--ease), background-color var(--d-small) var(--ease); }
 .dop-range[data-out="true"] .dop-mark { background: var(--caution); }
 .dop-vel b { transition: none; }
 .dop-vel[data-out="true"] b { color: var(--caution-ink); }
@@ -5589,8 +5592,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .instrument-workspace .dop-stats > div.on { border-color: var(--doppler); }
 .instrument-workspace .dop-stats > div.on dt { box-shadow: none; }
 @media (prefers-reduced-motion: reduce) { .dop-vel b { transition: none; } }
-.dop-ticks { position: relative; height: 15px; margin-top: 6px; font-size: 12px; line-height: 15px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-.dop-ticks > span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; transition: left var(--d-surface) var(--ease); }
+.dop-ticks { position: relative; container-type: inline-size; height: 15px; margin-top: 6px; font-size: 12px; line-height: 15px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.dop-ticks > span { position: absolute; top: 0; left: 0; transform: translateX(-50%); white-space: nowrap; transition: translate var(--d-surface) var(--ease); }
 .dop-ticks > span[data-u]:not([data-u=""])::after { content: '\00a0' attr(data-u); position: absolute; left: 100%; top: 0; }
 .dop-g-zero { transform: none !important; }
 .dop .dop-report .dop-stats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; padding: 0; border: 0; }
@@ -5631,7 +5634,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
   .app.dock-open:has(#dock.side) .vdock .readouts { display: none; }
   /* A vessel card opened with the side Tests card up ends 6 px before it, as the bar below does, so Tests no longer covers its close,
      Why?, Details and right-hand controls (the card was the full width, half of it under Tests). `right` eases both ways. */
-  .action-card.docked { transition: left var(--d-flip) var(--ease), top var(--d-flip) var(--ease), right var(--d-small) var(--ease); }
+
   .app.dock-open:not(.instrument-focus):has(#dock.side) .action-card.docked { right: calc(env(safe-area-inset-right) + var(--instr-occ, 0px) + 6px); }
   .instrument-workspace.side .dop-vessel { min-width: 84px; }
   .instrument-workspace.side .dop-tint { gap: 5px; padding: 0 8px; }
@@ -6777,8 +6780,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   }
   #app .instrument-workspace.side .instrument-view.dop .dop-note { display: none; }
   /* (the range's numbers in the narrow column as one line, "90–190 cm/s", right-aligned: placed under the band they ran into each other) */
-  #app .instrument-workspace.side .instrument-view.dop .dop-ticks { position: static; display: flex; justify-content: flex-end; height: auto; margin-top: 4px; font-size: var(--fs-12); line-height: 1.3; }
-  #app .instrument-workspace.side .instrument-view.dop .dop-ticks > span { position: static; transform: none !important; }
+  #app .instrument-workspace.side .instrument-view.dop .dop-ticks { position: static; container-type: normal; display: flex; justify-content: flex-end; height: auto; margin-top: 4px; font-size: var(--fs-12); line-height: 1.3; }
+  #app .instrument-workspace.side .instrument-view.dop .dop-ticks > span { position: static; transform: none !important; translate: none !important; }
   #app .instrument-workspace.side .instrument-view.dop .dop-ticks > .dop-g-zero { display: none; }
   #app .instrument-workspace.side .instrument-view.dop .dop-ticks > .dop-g-lo::after { content: '–'; }
   #app .instrument-workspace.side .instrument-view.dop .dop-ticks > span::after { position: static; }
@@ -7386,14 +7389,26 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* (the bracket's line sits under the Leaked words; its length and place are set from the strip's parts) */
 .gs-brkrow { position: relative; height: 1.6em; }
 .gs-brkrow > span { position: absolute; right: 0; top: 0; white-space: nowrap; }
-.gs-brk { position: absolute; bottom: 0; height: .3em; box-sizing: border-box; border: 1.5px solid color-mix(in srgb, var(--text) 45%, transparent); border-bottom: 0; opacity: 0; }
 .gs-trk { position: relative; height: var(--gs-bar); border-radius: .4em; background: var(--gs-slot); }
-.gs-seg, .gs-ghost { position: absolute; top: 0; bottom: 0; border-radius: .4em; }
-.gs-seg { overflow: hidden; }
+/* (Each part is laid out as wide as its track and drawn by three pieces that slide and stretch: tool-fluid.js span(). An end is
+   as wide as its corner (or its arrow's point); the middle is shown between the ends by two sliding clips.) */
+.gs-span { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; pointer-events: none; }
+.gs-span .gp-win, .gs-span .gp-win-in { position: absolute; inset: 0; }
+.gs-span .gp-win { overflow: hidden; }
+.gs-span .gp { position: absolute; left: 0; top: 0; bottom: 0; box-sizing: border-box; background: var(--gs-c, none); transform-origin: 0 50%; }
+.gs-span .gp-m { width: 100%; }
+.gs-span .gp-l { width: .4em; border-radius: .4em 0 0 .4em; } .gs-span .gp-r { width: .4em; border-radius: 0 .4em .4em 0; }
 /* (the dashed outline is the room the lymphatics have left; its opacity follows its width, set in tool-fluid.js, so it fades, never pops) */
-.gs-ghost { box-sizing: border-box; border: 1.5px dashed var(--gs-dash); pointer-events: none; opacity: 0; }
-.gs-car { background: var(--gs-carried); } .gs-blue { background: var(--gs-back); } .gs-shrink { background: var(--ok); } .gs-build { background: var(--gs-build); }
-.gs-push { background: var(--gs-push); } .gs-pull { background: var(--gs-pull); }
+.gs-ghost { --gs-line: 1.5px dashed var(--gs-dash); opacity: 0; }
+.gs-ghost .gp-m { border-top: var(--gs-line); border-bottom: var(--gs-line); }
+.gs-ghost .gp-l { border: var(--gs-line); border-right: 0; } .gs-ghost .gp-r { border: var(--gs-line); border-left: 0; }
+.gs-car { --gs-c: var(--gs-carried); } .gs-blue { --gs-c: var(--gs-back); } .gs-shrink { --gs-c: var(--ok); } .gs-build { --gs-c: var(--gs-build); }
+.gs-push { --gs-c: var(--gs-push); } .gs-pull { --gs-c: var(--gs-pull); }
+/* (the Leaked bracket: a line over what leaked with a short tick down at each end) */
+.gs-span.gs-brk { top: auto; height: .3em; opacity: 0; --gs-line: 1.5px solid color-mix(in srgb, var(--text) 45%, transparent); }
+.gs-brk .gp-m { border-top: var(--gs-line); }
+.gs-span.gs-brk .gp-l { width: .3em; border-radius: 0; border-top: var(--gs-line); border-left: var(--gs-line); }
+.gs-span.gs-brk .gp-r { width: .3em; border-radius: 0; border-top: var(--gs-line); border-right: var(--gs-line); }
 .gs-in { position: absolute; left: .55em; top: 0; bottom: 0; display: flex; align-items: center; white-space: nowrap; color: var(--text); font-weight: 600; pointer-events: none; transition: opacity var(--d-small) var(--ease); }
 .gs-lab { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: .1em .8em; }
 .gs-lab > span { white-space: nowrap; }
@@ -7404,10 +7419,10 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .gs-forces { display: flex; flex-direction: column; gap: .3em; margin-top: .1em; color: var(--text-3); font: 500 var(--gs-fs)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; }
 .gs-fcap { border-top: 1px solid var(--border); padding-top: .3em; }
 /* (the push and the pull are arrows meeting at the wall: a notch cut into the pull, a point on the push) */
-.gs-tug .gs-push { border-radius: .4em 0 0 .4em; clip-path: polygon(0 0, calc(100% - .7em) 0, 100% 50%, calc(100% - .7em) 100%, 0 100%); }
-.gs-tug .gs-pull { border-radius: 0 .4em .4em 0; clip-path: polygon(.7em 0, 100% 0, 100% 100%, .7em 100%, 0 50%); }
+.gs-tug .gs-push .gp-r { width: .7em; border-radius: 0; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.gs-tug .gs-pull .gp-l { width: .7em; border-radius: 0; clip-path: polygon(100% 0, 100% 100%, 0 50%); }
 .gs-tug .gs-push .gs-in { left: .6em; } .gs-tug .gs-pull .gs-in { left: 1.1em; }
-.gs-wall { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1.5px dashed color-mix(in srgb, var(--text) 60%, transparent); pointer-events: none; }
+.gs-wall { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-left: 1.5px dashed color-mix(in srgb, var(--text) 60%, transparent); pointer-events: none; }
 
 /* ── Package G: end ── */
 
