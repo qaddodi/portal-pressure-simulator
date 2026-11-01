@@ -10,7 +10,7 @@ import { h, icon, svgIcon, toast, reconcile } from './util.js?v=126338cd30';
 import { fold } from './fold.js?v=959314c577';
 import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
 import { activeInterventions } from './inspector.js?v=7502d1b63b';
-import { DRUG_NOTE } from './actions.js?v=b99be06cde';
+import { DRUG_NOTE } from './actions.js?v=b03fd421fb';
 import { factTarget } from './fact-target.js?v=50935889f6';
 
 
