@@ -313,3 +313,7 @@ test('the Patients preview names what its curve plots and its scale', () => {
   assert.match(src('src/ui/menu.js'), /class: 'hp-cap' \}, 'Pressure, gut to right atrium \(0 to 30 mmHg\)'/);
   assert.match(css, /\.um-pv-in \.hp-cap \{ display: block;[^}]*font-size: var\(--fs-12\)/);
 });
+
+test('the Readouts tab never calls cardiac output just "Output"', () => {
+  assert.match(src('src/ui/readouts-pane.js'), /\['co', 'Cardiac output', 'Cardiac output'\]/);
+});

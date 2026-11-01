@@ -20,7 +20,7 @@ const SEV = { ok: 'ok', mid: 'caution', hi: 'danger' };
 
 // [id, full name, short name for a narrow card]
 const SYSTEMIC = [
-  ['map', 'Mean arterial pressure', 'MAP'], ['hr', 'Heart rate', 'Heart rate'], ['co', 'Cardiac output', 'Output'], ['ra', 'Right atrial pressure', 'RA pressure'], ['hb', 'Hemoglobin', 'Hb'],
+  ['map', 'Mean arterial pressure', 'MAP'], ['hr', 'Heart rate', 'Heart rate'], ['co', 'Cardiac output', 'Cardiac output'], ['ra', 'Right atrial pressure', 'RA pressure'], ['hb', 'Hemoglobin', 'Hb'],
 ];
 
 export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy, show }) {
