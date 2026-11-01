@@ -5,7 +5,8 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=4ef2a6ffd8';
-import { h, icon, svgIcon, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=73d39176eb';
+import { createTraceGL, fitPen } from './trace-gl.js?v=f0965e42db';
+import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=73d39176eb';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { pressureColor } from './colormap.js?v=1e3a1162cc';
@@ -14,6 +15,7 @@ import { frameFor } from './frame.js?v=7710f677e2';
 import { leaveFromHere, menuLeaveOff } from './menu-leave.js?v=e885166f40';
 import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=fc509dabe4';
 const nextFrame = frameFor('menu');
+const profFrame = frameFor('menu-profile');
 // The hover preview's change of size and place runs without layout per frame: the card is laid out once at the taller of its old
 // and new heights, a clip (with the card's own round foot) eases from the old height to the new, and a move to a new row eases
 // by transform from where it stood; the card takes its new height once it has landed. ?pvglide=0 eases its height and top, as before.
@@ -23,28 +25,55 @@ if (!PVGLIDE) document.documentElement.setAttribute('data-pvcpu', '');
 // Where each group's resistance sits along the pathway from the gut to the heart.
 const GROUP_WHERE = { Normal: 'No added resistance', 'Pre-hepatic': 'Before the liver', Presinusoidal: 'In the portal tracts', Sinusoidal: 'In the sinusoids', Postsinusoidal: 'At the central veins', 'Post-hepatic': 'Hepatic veins and IVC', Cardiac: 'The right heart' };
 
-const NS = 'http://www.w3.org/2000/svg';
-const sv = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
 // A patient's pressure profile from the gut to the right atrium (a hydraulic grade line): blood runs
-// downhill, and the steepest fall is where the resistance sits.
+// downhill, and the steepest fall is where the resistance sits. Drawn by the GPU (trace-gl.js; 1 Nov 2026, move everything to GPU):
+// a canvas the box is laid out in, with the GPU's own canvas over it, never an SVG. A few of them are kept and handed out in turn, so the
+// old preview fading out keeps its curve while the new one draws (each holds one small WebGL context). ?tracegl=0: drawn on the canvas.
+const PROFS = [];
 function profile(snap) {
-  const W = 180, H = 56, pad = 3, max = 30;
-  const x = (i) => pad + (i * (W - 2 * pad)) / (snap.P.length - 1);
-  const y = (p) => H - pad - (Math.max(0, Math.min(max, p)) / max) * (H - 2 * pad - 4);
-  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, class: 'hp-prof', 'aria-hidden': 'true', preserveAspectRatio: 'none' });
-  for (const t of [10, 20]) svg.append(sv('line', { x1: pad, x2: W - pad, y1: y(t), y2: y(t), class: 'hp-grid' }));
-  let drop = 0, at = 0;
-  for (let i = 1; i < snap.P.length; i++) { const d = snap.P[i - 1] - snap.P[i]; if (d > drop) { drop = d; at = i; } }
-  const pts = snap.P.map((p, i) => `${x(i).toFixed(1)},${y(p).toFixed(1)}`);
-  svg.append(sv('polygon', { points: `${x(0)},${H - pad} ${pts.join(' ')} ${x(snap.P.length - 1)},${H - pad}`, class: 'hp-area' }));
-  if (drop > 5) svg.append(sv('rect', { x: x(at - 1), y: pad - 2, width: x(at) - x(at - 1), height: H - 2 * pad + 2, rx: 3, class: 'hp-drop' }));
-  for (let i = 1; i < snap.P.length; i++) {
-    svg.append(sv('line', { x1: x(i - 1), y1: y(snap.P[i - 1]), x2: x(i), y2: y(snap.P[i]), stroke: pressureColor((snap.P[i - 1] + snap.P[i]) / 2), class: 'hp-line' + (i === at && drop > 5 ? ' fall' : '') }));
+  let pr = PROFS.find((q) => !q.box.isConnected || q.box.closest('.um-pv-old'));
+  if (pr && pr.box.isConnected) pr = PROFS.find((q) => !q.box.isConnected) || (PROFS.length < 3 ? null : pr);
+  if (!pr) {
+    const cv = h('canvas', { class: 'hp-prof-cv', 'aria-hidden': 'true' });
+    pr = { cv, box: h('div', { class: 'hp-prof', 'aria-hidden': 'true' }, cv), snap: null };
+    pr.gpu = createTraceGL(cv, { redraw: () => drawProfile(pr) });
+    PROFS.push(pr);
   }
-  // (The curve is stretched to the card's width, so a <circle> came out an oval. A round-capped stroke of no length, drawn at a fixed
-  // pixel width, stays a true round dot at any width; the surface-coloured ring under it keeps it clear of the line.)
-  snap.P.forEach((p, i) => { const d = `M${x(i).toFixed(1)} ${y(p).toFixed(1)}h.01`; svg.append(sv('path', { d, class: 'hp-ring' }), sv('path', { d, stroke: pressureColor(p), class: 'hp-dot' })); });
-  return svg;
+  pr.box.remove();
+  pr.snap = snap;
+  profFrame(() => drawProfile(pr));
+  return pr.box;
+}
+function drawProfile(pr) {
+  if (!pr.box.isConnected || !pr.snap) return;
+  const p = fitPen(pr.cv, pr.gpu);
+  try { paintProfile(p.ctx, p.w, p.h, pr.snap); } finally { p.ctx.end?.(); }
+}
+function paintProfile(ctx, W, H, snap) {
+  ctx.clearRect(0, 0, W, H);
+  if (W < 10 || H < 10) return;
+  const pad = 3, max = 30, n = snap.P.length;
+  const x = (i) => pad + (i * (W - 2 * pad)) / (n - 1);
+  const y = (p) => H - pad - (Math.max(0, Math.min(max, p)) / max) * (H - 2 * pad - 4);
+  ctx.lineCap = 'butt'; ctx.lineWidth = 1; ctx.strokeStyle = cssVar('--grid'); ctx.setLineDash([2, 3]);
+  for (const t of [10, 20]) { ctx.beginPath(); ctx.moveTo(pad, y(t)); ctx.lineTo(W - pad, y(t)); ctx.stroke(); }
+  ctx.setLineDash([]);
+  let drop = 0, at = 0;
+  for (let i = 1; i < n; i++) { const d = snap.P[i - 1] - snap.P[i]; if (d > drop) { drop = d; at = i; } }
+  ctx.globalAlpha = 0.06; ctx.fillStyle = cssVar('--accent');
+  ctx.beginPath(); ctx.moveTo(x(0), H - pad); snap.P.forEach((p, i) => ctx.lineTo(x(i), y(p))); ctx.lineTo(x(n - 1), H - pad); ctx.closePath(); ctx.fill();
+  if (drop > 5) { ctx.globalAlpha = 0.08; ctx.fillStyle = cssVar('--danger'); ctx.beginPath(); ctx.roundRect(x(at - 1), pad - 2, x(at) - x(at - 1), H - 2 * pad + 2, 3); ctx.fill(); }
+  ctx.globalAlpha = 1; ctx.lineCap = 'round';
+  for (let i = 1; i < n; i++) {
+    ctx.lineWidth = i === at && drop > 5 ? 3.2 : 2.4; ctx.strokeStyle = pressureColor((snap.P[i - 1] + snap.P[i]) / 2);
+    ctx.beginPath(); ctx.moveTo(x(i - 1), y(snap.P[i - 1])); ctx.lineTo(x(i), y(snap.P[i])); ctx.stroke();
+  }
+  // (a surface-coloured ring under each dot keeps it clear of the line)
+  const surface = cssVar('--surface');
+  snap.P.forEach((p, i) => {
+    ctx.fillStyle = surface; ctx.beginPath(); ctx.arc(x(i), y(p), 3.1, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = pressureColor(p); ctx.beginPath(); ctx.arc(x(i), y(p), 2.1, 0, Math.PI * 2); ctx.fill();
+  });
 }
 // The standing cut-offs: HVPG amber from 5, red from 10; PPG amber from 6, red from 12.
 const sev = (cuts, v) => ({ ok: 'ok', caution: 'low', danger: 'high' })[sevOfCuts(cuts, v)];

@@ -3105,15 +3105,8 @@ button.finding { cursor: pointer; }
 #labels .lb.inline:is([data-key^="n:TIPS:"], [data-key^="n:DIPS:"]) text { stroke: var(--stage-bg); stroke-width: 7px; stroke-linejoin: round; }
 
 /* ── Home: a map of the disease ───────────────────────────────────────────────── */
-.hp-prof { width: 100%; height: 56px; display: block; margin: 2px 0 0; overflow: visible; }
-.hp-grid { stroke: var(--grid); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
-.hp-area { fill: var(--accent); fill-opacity: .06; }
-.hp-drop { fill: var(--danger); fill-opacity: .08; }
-.hp-line { stroke-width: 2.4; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-.hp-line.fall { stroke-width: 3.2; }
-.hp-ring, .hp-dot { fill: none; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-.hp-ring { stroke: var(--surface); stroke-width: 6.2px; }
-.hp-dot { stroke-width: 4.2px; }
+.hp-prof { position: relative; width: 100%; height: 56px; display: block; margin: 2px 0 0; }
+.hp-prof > canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }   /* (the box the GPU's picture is laid in, and the GPU's canvas over it, trace-gl.js) */
 .hp-facts { display: flex; flex-wrap: wrap; gap: 4px; }
 .hp-chip { display: inline-flex; align-items: baseline; gap: 4px; padding: 1px 8px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 500; color: var(--text-2); background: var(--surface-2); font-variant-numeric: tabular-nums; }
 .hp-chip b { font-weight: 600; color: var(--text); }
@@ -3132,7 +3125,6 @@ button.finding { cursor: pointer; }
 
 /* Motion: things arrive, they do not pop. (Reduced motion turns all of it off, above.) */
 .dock-pane.active { animation: fade-rise var(--d-small) var(--ease); }
-.hp-line { transition: none; }
 
 /* ── Anatomy plate (2.1): tissue tones, volume, rim light, surface anatomy ─────────
    Each organ group carries its tissue's three tones (--o1 light face, --o2 shaded face, --o3

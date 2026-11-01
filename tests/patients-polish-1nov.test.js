@@ -6,10 +6,13 @@ import { readFileSync } from 'node:fs';
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const css = read('styles/app.css'), util = read('src/ui/util.js'), menu = read('src/ui/menu.js'), compare = read('src/ui/compare.js');
 
-test('the preview card\'s profile dots are round strokes, not circles stretched with the curve', () => {
-  assert.doesNotMatch(menu, /sv\('circle'/);
-  assert.match(menu, /class: 'hp-ring'/);
-  assert.match(css, /\.hp-ring, \.hp-dot \{ fill: none; stroke-linecap: round; vector-effect: non-scaling-stroke; \}/);
+test('the preview card\'s profile is drawn by the GPU, its dots true circles at the card\'s own width (no SVG stretched with the curve)', () => {
+  assert.doesNotMatch(menu, /sv\('circle'|createElementNS/);
+  assert.match(menu, /import \{ createTraceGL, fitPen \} from '\.\/trace-gl\.js\?v=[0-9a-f]+';/);
+  assert.match(menu, /const p = fitPen\(pr\.cv, pr\.gpu\);/);
+  assert.match(menu, /ctx\.arc\(x\(i\), y\(p\), 3\.1, 0, Math\.PI \* 2\)/, 'a surface ring under each dot');
+  assert.match(menu, /ctx\.arc\(x\(i\), y\(p\), 2\.1, 0, Math\.PI \* 2\)/);
+  assert.match(css, /\.hp-prof > canvas \{ position: absolute; inset: 0;/);
 });
 
 test('the comparison table is written in place and its change column takes its colour at once', () => {
