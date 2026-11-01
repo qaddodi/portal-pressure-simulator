@@ -67,7 +67,8 @@ function place() { return document.body.getBoundingClientRect(); }
   assert.ok(has('layoutRead', 'src/ui/m.js', /getBoundingClientRect.*step@\d+ → place/), 'reached from a scheduler callback by name');
   assert.ok(has('layoutRead', 'src/ui/n.js', /getComputedStyle/), 'followed through an import');
   assert.ok(!hits.some((h) => h.cat === 'layoutRead' && /offsetWidth|clientWidth/.test(h.detail)), 'one-shot reads outside a frame pass');
-  assert.match(inventory(hits), /\| Total|Total: \*\*\d+\*\*/);
+  assert.ok(hits.onGpu >= 2 && hits.sites === hits.onGpu + hits.length, 'the webgl2 context and the opacity animation count as on the GPU, every hit as a site');
+  assert.match(inventory(hits), /\*\*\d+\/\d+ on GPU/);
 });
 
 test('nothing in the app is off the GPU (the limit is zero; see docs/off-gpu-inventory.md)', () => {

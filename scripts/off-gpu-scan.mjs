@@ -74,6 +74,10 @@ export function ownerOf(file, cat) {
 }
 
 // ---- CSS (styles/*.css, index.html <style>, and CSS inside script strings) ----
+// Every render or motion site looked at, on the GPU or not ("x/y on GPU"): the lines holding a drawing call, a context, an animation,
+// a frame request, a layout read or write, a blur or a shader status read. A line with no hit is on the GPU (x); y is x plus the hits.
+let sites = new Set();
+const look = (kind, file, line) => sites.add(`${file}:${line}`);
 function cssHits(text, file, lineBase, fn, push) {
   const src = text.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
   let depth = 0, kfDepth = -1, sel = fn;
@@ -95,6 +99,7 @@ function cssHits(text, file, lineBase, fn, push) {
       // (a selector like a:hover would read as a declaration; only those followed by ; } or end count)
       const after = chunk[m.index + m[0].length];
       if (after !== undefined && after !== ';' && after !== '}' && after !== '\n') continue;
+      if (/^(-webkit-)?backdrop-filter$/.test(prop) || prop === 'filter') look('blur', file, at);
       if (/^(-webkit-)?backdrop-filter$/.test(prop) && !/^none\b/.test(val)) push('backdrop', file, at, sel, `${prop}: ${val}`);
       if (prop === 'filter' && /blur\(/.test(val)) push('cpuBlur', file, at, sel, `filter: ${val}`);
       if (prop === 'transition' || prop === 'transition-property') {
@@ -102,9 +107,11 @@ function cssHits(text, file, lineBase, fn, push) {
           const first = part.trim().split(/\s+/)[0];
           const isTime = /^[\d.]+m?s$/.test(first) || /^var\(/.test(first) && prop === 'transition' && !/[a-z]-?[a-z]*\s*$/.test(first);
           const p = prop === 'transition' && (isTime || /^(ease|linear|cubic|steps)/.test(first)) ? 'all' : first;
+          look('anim', file, at);
           if (LAYOUT_PROPS.has(p)) push('layoutAnim', file, at, sel, `${prop}: ${part.trim()}`);
         }
       }
+      if (kfDepth >= 0) look('anim', file, at);
       if (kfDepth >= 0 && LAYOUT_PROPS.has(prop)) push('layoutAnim', file, at, sel, `@keyframes sets ${prop}: ${val}`);
     }
   };
@@ -171,7 +178,8 @@ function parseJs(file, text) {
 
 export function scan({ root = ROOT } = {}) {
   const hits = [];
-  const push = (cat, file, line, fn, detail) => hits.push({ cat, file, line, fn, detail: String(detail).slice(0, 260), owner: ownerOf(file, cat) });
+  sites = new Set();
+  const push = (cat, file, line, fn, detail) => (look(cat, file, line), hits.push({ cat, file, line, fn, detail: String(detail).slice(0, 260), owner: ownerOf(file, cat) }));
   const files = [...walk(join(root, 'src')), ...walk(join(root, 'styles')), join(root, 'index.html')].map((p) => relative(root, p).split('\\').join('/'));
 
   // Per JS file: functions, their calls, frame seeds, deferred hits (frame-only categories).
@@ -238,6 +246,10 @@ export function scan({ root = ROOT } = {}) {
 
         // Always-hits.
         const a0 = n.arguments[0];
+        if (cn === 'getContext' || cn === 'drawImage' || cn === 'putImageData' || cn === 'getImageData' || cn === 'createElementNS' || frameCallers.has(cn)
+          || /^(drawArrays|drawElements|drawArraysInstanced|drawElementsInstanced|drawRangeElements|blitFramebuffer)$/.test(cn || '')
+          || (cn === 'getShaderParameter' || cn === 'getProgramParameter') && /COMPILE_STATUS|LINK_STATUS/.test(text.slice(n.arguments[1]?.start ?? 0, n.arguments[1]?.end ?? 0))
+          || cn === 'animate' && n.callee.type === 'MemberExpression' && a0) look(cn, file, n.loc.start.line);
         if (cn === 'getContext') {
           const k = strOf(a0);
           if (k === '2d' || (k == null) || !/^(webgl|webgl2|experimental-webgl|bitmaprenderer|webgpu)$/.test(k)) push('ctx2d', file, n.loc.start.line, label(f), text.slice(n.start, n.end));
@@ -268,6 +280,7 @@ export function scan({ root = ROOT } = {}) {
       if (n.type === 'AssignmentExpression' && n.left.type === 'MemberExpression' && !n.left.computed) {
         const prop = n.left.property.name, obj = n.left.object;
         const onStyle = obj.type === 'MemberExpression' && !obj.computed && obj.property.name === 'style';
+        if (onStyle && /^(transition|filter|backdropFilter|webkitBackdropFilter)$/.test(prop) || prop === 'filter') look(prop, file, n.loc.start.line);
         if (onStyle && LAYOUT_JS.has(prop)) mod.late.push(['layoutWrite', n, enclosing(n), `style.${prop} =`]);
         if (onStyle && /^(webkitB|b)ackdropFilter$/.test(prop) && !/^['"`]none['"`]$/.test(text.slice(n.right.start, n.right.end))) push('backdrop', file, n.loc.start.line, label(enclosing(n)), text.slice(n.start, Math.min(n.end, n.start + 100)));
         if (prop === 'filter' && !onStyle && /blur\(/.test(text.slice(n.right.start, n.right.end))) push('cpuBlur', file, n.loc.start.line, label(enclosing(n)), `canvas filter: ${text.slice(n.right.start, Math.min(n.right.end, n.right.start + 80))}`);
@@ -315,6 +328,7 @@ export function scan({ root = ROOT } = {}) {
     }
   }
   for (const mod of mods.values()) for (const [cat, n, f, detail] of mod.late) {
+    look(cat, mod.file, n.loc.start.line);
     let hit = null;
     for (let p = f; p && !hit; p = enclosing(p)) if (reach.has(`${mod.file}#${p.__key}`)) hit = `${mod.file}#${p.__key}`;
     if (!hit) continue;
@@ -325,9 +339,14 @@ export function scan({ root = ROOT } = {}) {
   }
   // One hit per place: a line can match twice (a string scanned as CSS and as a declaration).
   const seen = new Set();
-  return hits.filter((h) => { const k = `${h.cat}|${h.file}|${h.line}|${h.detail}`; if (seen.has(k)) return false; seen.add(k); return true; })
+  const out = hits.filter((h) => { const k = `${h.cat}|${h.file}|${h.line}|${h.detail}`; if (seen.has(k)) return false; seen.add(k); return true; })
     .sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.cat.localeCompare(b.cat));
+  const hitLines = new Set(out.map((h) => `${h.file}:${h.line}`));
+  const onGpu = [...sites].filter((k) => !hitLines.has(k)).length;
+  out.onGpu = onGpu; out.sites = onGpu + out.length;
+  return out;
 }
+export const score = (hits) => `${hits.onGpu}/${hits.sites} on GPU (${hits.sites ? Math.floor(100 * hits.onGpu / hits.sites) : 100}%), ${hits.length} off`;
 
 const esc = (s) => String(s).replace(/\|/g, '\\|').replace(/`/g, "'").replace(/\n/g, ' ');
 export function inventory(hits, { commit = '' } = {}) {
@@ -338,7 +357,7 @@ export function inventory(hits, { commit = '' } = {}) {
   L.push('# Off-GPU inventory', '');
   L.push('Generated by `node scripts/off-gpu-scan.mjs --doc`; do not edit by hand. The Pages gate and `npm run lint` fail while this list is not empty',
     '(owner, 1 Nov 2026: block everything until everything is on the GPU). What each category means is at the top of the script.', '');
-  L.push(`Total: **${hits.length}**${commit ? ` at \`${commit}\`` : ''}.`, '');
+  L.push(`**${score(hits)}**${commit ? ` at \`${commit}\`` : ''}.`, '');
   L.push('| Category | Count |', '|---|---|');
   for (const [c, n] of Object.entries(byCat)) L.push(`| ${CATS[c]} (\`${c}\`) | ${n} |`);
   L.push('', '| Owning thread | Count |', '|---|---|');
@@ -356,8 +375,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   if (args.has('--summary') && process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, inventory(hits, { commit: process.env.GITHUB_SHA?.slice(0, 8) || '' }));
   const byCat = {};
   for (const h of hits) byCat[h.cat] = (byCat[h.cat] || 0) + 1;
-  if (!hits.length) { console.log('off-gpu: nothing off the GPU.'); process.exit(0); }
+  if (!hits.length) { console.log(`off-gpu: ${score(hits)}. Nothing off the GPU.`); process.exit(0); }
   for (const h of hits) console.error(`${h.file}:${h.line}  ${h.cat}  ${h.fn}  ${h.detail}  [${h.owner}]`);
-  console.error(`\noff-gpu: ${hits.length} off the GPU (${Object.entries(byCat).map(([c, n]) => `${c} ${n}`).join(', ')}). The limit is 0; see docs/off-gpu-inventory.md.`);
+  console.error(`\noff-gpu: ${score(hits)} (${Object.entries(byCat).map(([c, n]) => `${c} ${n}`).join(', ')}). The limit is 0; see docs/off-gpu-inventory.md.`);
   process.exit(1);
 }
