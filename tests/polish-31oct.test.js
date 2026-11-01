@@ -361,3 +361,8 @@ test('visible words in the talks, the Testing deck and the toasts are US spellin
   }
   assert.doesNotMatch(src('src/ui/stage.js'), /toast\('[^']*cancelled/);
 });
+
+test('a History change line that folds extra parts says "+N more", as the Compare line does', () => {
+  assert.match(src('src/ui/timeline.js'), /parts\.length > 3 \? ` · \+\$\{parts\.length - 3\} more`/);
+  assert.match(src('src/ui/compare.js'), /· \+\$\{labels\.length - 4\} more/);
+});

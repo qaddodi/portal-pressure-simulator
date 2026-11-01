@@ -143,7 +143,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     for (const [k, l] of after) if (before.get(k) !== l) parts.push(l);
     for (const [k, l] of before) if (!after.has(k)) parts.push(removedLabel(k, l));
     baseline = structuredClone(p);
-    const e = push({ kind: 'change', label: parts.length ? parts.slice(0, 3).join(' · ') + (parts.length > 3 ? ` · +${parts.length - 3}` : '') : fallback || 'Change', keys: [...after.keys()].filter((k) => before.get(k) !== after.get(k)) });
+    const e = push({ kind: 'change', label: parts.length ? parts.slice(0, 3).join(' · ') + (parts.length > 3 ? ` · +${parts.length - 3} more` : '') : fallback || 'Change', keys: [...after.keys()].filter((k) => before.get(k) !== after.get(k)) });
     snapInto(e);
   }
   /** An engine action (band, fluids, paracentesis…). */
