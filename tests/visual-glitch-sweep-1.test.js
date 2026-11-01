@@ -70,3 +70,8 @@ test('the beat card on a phone keeps "17.1 WHVP" inside its edge, and its top nu
   const pt = readFileSync(new URL('../src/ui/pressure-time.js', import.meta.url), 'utf8');
   assert.match(pt, /\.filter\(\(\[, y\]\) => !\(top - 10 > \(lay\.ekg \? lay\.ekg\.bot : 0\) && y < top \+ 9\)\)/);
 });
+
+test('a line name with no clear place sits on lines before it sits on a word', () => {
+  const src = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
+  assert.match(src, /k = \(cr > 0 \? 1e6 \+ cr : 0\) \+ 1e4 \* place\.lineCost\(b\)/);
+});

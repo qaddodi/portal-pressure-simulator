@@ -521,7 +521,8 @@ export function placeLineNames(G, tw, goal, hl, bf, sides, brk, bfName = 'Before
         if (place.cost(b) === 0) { got = { t, c, x: cx, y: base, b }; break; }
         // (Never a key instead (Mohammad, 21 Oct: "Put healthy on the dashed line and then no need for a legend"): where no place is
         // clear, the least crowded one beside its own line, inside the plot.)
-        const k = place.crowd(b) + 1e4 * place.lineCost(b);
+        // (A word or a dot under it is worse than any line through it: "Healthy" was written over RA's "3", Sites 3 on a phone, 31 Oct.)
+        const cr = place.crowd(b), k = (cr > 0 ? 1e6 + cr : 0) + 1e4 * place.lineCost(b);
         if (b[2] >= G.T && b[3] <= G.Z && (!best || k < best.k)) best = { t, c, x: cx, y: base, b, k };
       }
     }
