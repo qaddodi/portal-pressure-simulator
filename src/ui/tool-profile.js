@@ -497,6 +497,7 @@ export function placePills(G, tw, goal, hl, bf, sides, brk = null) {
 /** The healthy and earlier lines named on the drawing, not in a key (Mohammad, 19 Oct): each name just over or under its own
  *  line, nearest the line's right end, BR_PAD px clear of every line, dot, value, bracket and the liver's name.
  *  → [{ t, c, x, y }] (x the middle, y the baseline), or null where one has no such place (the key then shows). */
+export const NAME_REACH = 3;   // (rows of type a line's name may stand from its line when no place at the line is clear)
 export function placeLineNames(G, tw, goal, hl, bf, sides, brk, bfName = 'Before', pills = []) {
   const named = [[hl, 'Healthy', 'hl'], [bf, bfName, 'bf']].filter(([p]) => p);
   if (!named.length) return [];
@@ -510,6 +511,9 @@ export function placeLineNames(G, tw, goal, hl, bf, sides, brk, bfName = 'Before
   for (const r of [0, 1]) place.take(bracketBox(G, r, brk ? brk[r] : G.brY(r)));
   for (const b of zoneBoxes(G, tw)) place.take(b);
   for (const b of pills) place.take(b);
+  // (A snug placer holding the same boxes, 1 px clear of everything, for a plot too crowded for BR_PAD.)
+  const snug = labelPlacer(runs, [], G.T, G.Z - BR_PAD, [], [1, 1], 1);
+  place.boxes.forEach((b) => snug.take(b));
   const out = [];
   for (const [, t, c] of named) {
     const run = runs[1 + out.length], w = tw(t, 500);
@@ -526,9 +530,24 @@ export function placeLineNames(G, tw, goal, hl, bf, sides, brk, bfName = 'Before
         if (b[2] >= G.T && b[3] <= G.Z && (!best || k < best.k)) best = { t, c, x: cx, y: base, b, k };
       }
     }
+    // (No clear place at its own line's side: the nearest one a little further off, over or under the line (up to NAME_REACH rows of type), so the name
+    // is not written over the line or a number (Healthy over the line between the 7 and the 5, Circulation 5 on a Mac and Sites 8 on an iPad, 1 Nov); and
+    // in a plot too crowded even for that, the nearest place that merely stands clear of every line and word by 1 px. The places clear before are still
+    // the ones taken.)
+    for (const pl of [place, snug]) {
+      for (let k = pl === place ? 1 : 0; k <= NAME_REACH * 2 && !got; k++) {
+        for (let q = run.length - 1; q >= 0 && !got; q--) {
+          const [x, y] = run[q], cx = Math.max(G.L + w / 2 + 2, Math.min(G.R - w / 2, x));
+          for (const base of [y - BR_PAD - 1.5 - 0.5 * f * k, y + BR_PAD + 1.5 + cap + 0.5 * f * k]) {
+            const b = [cx - w / 2, cx + w / 2, base - cap, base + 0.2 * f];
+            if (pl.cost(b) === 0) { got = { t, c, x: cx, y: base, b }; break; }
+          }
+        }
+      }
+    }
     got = got || best;
     if (!got) continue;
-    place.take(got.b);
+    place.take(got.b); snug.take(got.b);
     out.push({ t: got.t, c: got.c, x: got.x, y: got.y });
   }
   return out;
@@ -591,6 +610,7 @@ export function createProfileTool() {
   el.className = 'pz-prof';
   const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
   let goal = null, shown = null, ref = null, cfg = { from: null }, ctx0 = null, raf = 0, plan = null, stale = false, size = '';
+  let fSeen = 0;   // (the type size it was drawn at, x100: a zoom the box's own size does not show)
   // (Each bracket's row as drawn: where it stands, where it stood, and when it began to fade from that one to this one. A bracket that
   // must move fades out where it was as it fades in where it goes, so it never sweeps across the line or the numbers.)
   const rows = [null, null];
@@ -634,7 +654,7 @@ export function createProfileTool() {
     const sz = size0();
     if (!sz) return;
     const [w, hh, f] = sz, tw = (t, wt) => textW(t, f, wt);
-    size = `${Math.round(w)}x${Math.round(hh)}`;
+    size = `${Math.round(w)}x${Math.round(hh)}`; fSeen = Math.round(f * 100);
     const hl = healthy(), bf = ref;
     // (Each value's place and the brackets' are settled once per state, from where the lines will end up, so they never flip while
     // the lines glide. The brackets stand inside the plot where they clear everything; else in a band at the plot's foot.)
@@ -818,6 +838,8 @@ export function createProfileTool() {
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { plan = null; draw(); } }).observe(el);
   return {
     el,
+    /** The card has fitted: drawn again if its zoom, and so the chart's type, is not what it was drawn at (the observer does not see a zoom). */
+    refit() { const sz = shown && el.isConnected ? size0() : null; if (sz && Math.round(sz[2] * 100) !== fSeen) { plan = null; draw(); } },
     /** The slide's options and context (presenter-tools.js show), before its numbers. */
     configure(t, ctx) { cfg = { from: t?.from ?? null, fromLabel: typeof t?.fromLabel === 'string' && t.fromLabel.trim() ? t.fromLabel.trim() : 'Before' }; ctx0 = ctx || null; if (ctx?.fp) aim(ctx.fp); },
     /** The numbers the slide's tiles show: the slide's state, or a what-if slider's or a compare button's. */

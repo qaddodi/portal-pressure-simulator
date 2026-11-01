@@ -30,7 +30,7 @@ import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { createHvpgMonitor } from './hvpg-proc.js?v=6426d547c7';
-import { createTools } from './presenter-tools.js?v=787be7f3eb';
+import { createTools } from './presenter-tools.js?v=5a12afdb70';
 import { openHandout } from './handout.js?v=492f217fcb';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -39,15 +39,15 @@ import { frameFor, cancelFrame } from './frame.js?v=6692e20c1b';
 import { createFigureKey } from './figure-key.js?v=a52319283f';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=6b3d7fc707';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=435d22afe5';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=c08c67f08d';
 import { clotWords } from './callout-math.js?v=97fde9fc5b';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=41cfe54aea';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=110bfc574f';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=33067120cd';
+import { anchorsOf, roomFor } from './cam-room.js?v=2370f85c72';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
-import { flowTimeHeight, trailKeys } from './flow-time.js?v=2f9c56ecb2';
+import { flowTimeHeight, trailKeys } from './flow-time.js?v=0e88a9ae8d';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=ade11d5acb';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=b2bbcb6fb2';
@@ -3144,6 +3144,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     else { el.style.setProperty('--ft-room', `${h.toFixed(2)}px`); el.style.setProperty('--ft-card', `${(h + chrome).toFixed(2)}px`); }
   }
   function fitCards(...els) {
+    let refit = false;
     for (const el of els) {
       if (!el || el.hidden || 'folding' in el.dataset) continue;   // (a part mid-fold: the card keeps the fit it will rest with)
       const sig = fitSig(el);
@@ -3271,7 +3272,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (under) { el.classList.remove('tool-open'); ui.lipMO?.takeRecords(); }
       if (stacked) { el.style.removeProperty('--pz-grow'); ui.lipMO?.takeRecords(); }
       fitDone.set(el, fitSig(el));   // (as it rests once fitted: a folding part's height is part of it)
+      if (el === ui.data) refit = true;
     }
+    if (refit) ui.tools?.refit();   // (the chart in the data card draws at the zoom the fit left, not one it tried on the way)
   }
   // A card whose contents grow after the layout (a time-lapse, the numbers settling) is fitted again.
   // A slide whose data card changes only its readings while it shows: a what-if slider or compare button driving the live model

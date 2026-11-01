@@ -1001,12 +1001,13 @@ export function createCurve() {
     } else { el.replaceChildren(parts.svg); }
     paint(ring || goal);
   }
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => {
+  const remake = () => {
     if (!t || !parts || !el.isConnected) return;
     const sz = size().map(Math.round).join('x'); if (sz === lastSz) return;
     altNow = false;
     redraw(false);
-  }).observe(el);
+  };
+  if (typeof ResizeObserver === 'function') new ResizeObserver(remake).observe(el);
 
   let aimed = null;
   function aim(params, fp) {
@@ -1054,6 +1055,8 @@ export function createCurve() {
       aim(fp === ctx.fp ? ctx.params : ctx.liveParams?.() || ctx.params, fp);
     },
     update() {}, clear() {},
+    /** The card has fitted: drawn again if its zoom, and so the chart's type, is not what it was drawn at (the observer does not see a zoom). */
+    refit: remake,
     dispose() { t = null; ctx = null; parts = null; el.replaceChildren(); },
   };
 }

@@ -12082,6 +12082,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cathFollow() { cathFollow(); if (cath.st) cathLabelsSoon(); },
     /** Forget the view cathFocus would go back to (the presenter moves its own camera on). */
     cathForget() { cath.saved = null; },
+    /** The catheter's route over the figure as boxes in wrap pixels (the shaft's width and a hair more), from the neck to where it ends, the whole
+     *  way so they stand still as it travels: the corner credit keeps clear of the shaft, which the GPU draws and the page does not hold. [] with
+     *  no catheter on. */
+    cathBoxes() {
+      const st = cath.st, r = st && cathRoute();
+      if (!r) return [];
+      if (!CTM || !wrapRect) refreshCTM();
+      const sc = CTM.sc || 1, hw = Math.max(3, (cath.rc || 0) * sc) + 3, step = 16 / sc, out = [];
+      for (let d = 0; d <= r.free + step; d += step) {
+        const [x, y] = worldToLocal(...cathAt(r, Math.min(d, r.free)).p);
+        if (x < -hw || y < -hw || x > wrapRect.width + hw || y > wrapRect.height + hw) continue;
+        out.push({ l: x - hw, t: y - hw, r: x + hw, b: y + hw });
+      }
+      return out;
+    },
     /** The vessel the Doppler is reading, glowing green while the Doppler instrument is open (null: none). */
     setDoppler(id) { dop.want = id; dopApply(); },
     /** The presenter's Doppler slide pins its vessel's glow, over whatever Explore's Doppler reads (null: unpin). points: on a
