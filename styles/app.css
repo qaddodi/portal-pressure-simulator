@@ -3773,8 +3773,10 @@ button.finding { cursor: pointer; }
 .um-esc { margin-left: auto; padding-right: 8px; font-size: var(--fs-12); color: var(--text-3); }
 .um-g li.um-new > .um-row { background: var(--accent-soft); }
 /* The preview beside the panel (mouse) and under a row (touch). */
-.um-pv { position: fixed; z-index: var(--z-popover); width: 360px; max-width: calc(100vw - 16px); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline); overflow: hidden; opacity: 0; transition: opacity var(--d-flip) var(--ease), height var(--d-flip) var(--ease), top var(--d-flip) var(--ease); }
-.um-pv.on { opacity: 1; }
+.um-pv { position: fixed; z-index: var(--z-popover); width: 360px; max-width: calc(100vw - 16px); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline); overflow: hidden; opacity: 0; transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease), height var(--d-flip) var(--ease), top var(--d-flip) var(--ease); }
+.um-pv.on { opacity: 1; translate: none; }
+.um-pv:not(.on) { translate: calc(-1 * var(--rise-y)) 0; }   /* (the preview settles in from the panel's side by the rise distance, and leaves back toward it) */
+@media (prefers-reduced-motion: reduce) { .um-pv { translate: none !important; } }
 .um-pv-in { padding: 0 0 12px; animation: crossfade var(--d-flip) var(--ease); }
 .um-pv-old { position: absolute; left: 0; right: 0; top: 0; animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }
 .um-pv-in.pt { padding-top: 12px; }

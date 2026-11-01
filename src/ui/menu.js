@@ -11,7 +11,7 @@ import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=8cc
 import { pressureColor } from './colormap.js?v=d4df33b95e';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
 import { frameFor } from './frame.js?v=6a53e5fc6e';
-import { D_FLIP, D_SMALL } from './ease.js?v=615d96d663';
+import { D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=615d96d663';
 const nextFrame = frameFor('menu');
 
 // Where each group's resistance sits along the pathway from the gut to the heart.
@@ -342,6 +342,19 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     el.style.left = clamp(r.left, 12, Math.max(12, innerWidth - el.offsetWidth - 12)) + 'px';
     el.style.top = (r.bottom + 8) + 'px';
   }
+  // The panel opens with its groups rising into place one after another, 30 ms apart, over the panel's own entrance:
+  // the eye reads it top down instead of seeing the whole list land at once. Only the first few in sight, so a long list
+  // never waits on its tail; transform and opacity only, and Reduce Motion keeps the panel's plain fade.
+  // (A cold open draws the panel again once the talks arrive: the new groups carry on from where the old ones were, by the time since the open.)
+  let openAt = -1e9;
+  function groupsIn(panel) {
+    const since = performance.now() - openAt;
+    if (reduce.matches || !panel.animate || since > 40 + 5 * 30 + D_SMALL) return;
+    const col = panel.querySelector(`.um-col[data-col="${tab}"]`) || panel.querySelector('.um-col');
+    const gs = [...(col?.children || [])].filter((g) => g.classList.contains('um-g') && g.getClientRects().length).slice(0, 6);
+    gs.forEach((g, i) => g.animate([{ opacity: 0, transform: `translateY(${RISE_PX}px)` }, { opacity: 1, transform: 'none' }],
+      { duration: D_SMALL, easing: EASE_ARRIVE, delay: 40 + i * 30 - since, fill: 'backwards' }));
+  }
   function render() {
     if (!el) return;
     const lib = libraryNow(), keep = el.querySelector('.um-cols')?.scrollTop, focus = document.activeElement?.classList.contains('um-q') ? 'q' : document.activeElement?.dataset?.k, sheet = el.classList.contains('sheet');
@@ -354,7 +367,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     for (const v of ['--menu-kb', '--menu-h']) { const x = el.style.getPropertyValue(v); if (x) next.style.setProperty(v, x); }   // (the keyboard is still up)
     next.classList.toggle('kb-tight', el.classList.contains('kb-tight'));
     el.replaceWith(next); el = next;
-    filter(); place(); dragToClose(el); swipeTabs(el);
+    filter(); place(); groupsIn(el); dragToClose(el); swipeTabs(el);
     if (keep) el.querySelector('.um-cols').scrollTop = keep;
     if (focus === 'q') el.querySelector('.um-q').focus({ preventScroll: true });
     else if (focus) el.querySelector(`[data-k="${CSS.escape(focus)}"]`)?.focus({ preventScroll: true });
@@ -374,7 +387,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         el = build(lib); coldOpen = !lib;
         if (sheet) { el.classList.add('sheet'); back = h('div', { class: 'um-scrim', onclick: () => close() }); document.body.append(back); }
         document.body.append(el);
-        place(); filter();
+        openAt = performance.now(); place(); filter(); groupsIn(el);
         anchor.setAttribute('aria-expanded', 'true');
         setTimeout(() => document.addEventListener('pointerdown', outside, true), 0);
         addEventListener('resize', place);
