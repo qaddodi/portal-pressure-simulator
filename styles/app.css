@@ -352,6 +352,9 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 @property --edge-x { syntax: '<length-percentage>'; inherits: false; initial-value: 0px; }
 @property --edge-y { syntax: '<length-percentage>'; inherits: false; initial-value: 0px; }
 @property --edge-o { syntax: '<number>'; inherits: false; initial-value: 1; }
+/* (scroll-edges.js: 1 while a list has more beyond its top / bottom; they inherit so a menu's veils, its ::before and ::after, read them) */
+@property --sedge-t { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --sedge-b { syntax: '<number>'; inherits: true; initial-value: 0; }
 @keyframes fade-rise { from { opacity: 0; transform: translate(var(--rise-x, 0px), var(--rise-y, 6px)); } }
 @keyframes fade-rise-out { to { opacity: 0; transform: translate(var(--rise-x, 0px), var(--rise-y, 6px)); } }
 @keyframes slide-from-edge { from { opacity: var(--edge-o, 1); transform: translate(var(--edge-x, 0px), var(--edge-y, 0px)); } }
@@ -966,6 +969,11 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
    below it (util.js fadeWhileMore), so its last row is never just cut at the edge (sweep 01 #05). A sticky
    veil rather than a mask, so the menu's own background and edge stay whole. */
 .menu.more::after { content: ''; position: sticky; bottom: calc(-1 * var(--fade-pb, 8px)); flex: none; height: 28px; margin: -29px -8px 0; background: linear-gradient(to bottom, transparent, var(--surface)); pointer-events: none; }
+/* Scroll edges (scroll-edges.js, ?edges=0 off): the same veil, 12 px, at either end, only while there is more beyond that end, easing in and
+   out on --d-small (the class .se is there only while the menu scrolls; a menu is its own glass, so a veil and not a mask). */
+.menu.se::before, .menu.se::after { content: ''; position: sticky; z-index: 1; flex: none; height: 12px; margin-left: -8px; margin-right: -8px; pointer-events: none; transition: opacity var(--d-small) var(--ease-move); }
+.menu.se::before { top: calc(-1 * var(--fade-pt, 8px)); margin-top: 0; margin-bottom: -13px; background: linear-gradient(to top, transparent, var(--surface)); opacity: var(--sedge-t); }
+.menu.se::after { bottom: calc(-1 * var(--fade-pb, 8px)); margin-top: -13px; margin-bottom: 0; height: 12px; background: linear-gradient(to bottom, transparent, var(--surface)); opacity: var(--sedge-b); }
 .menu.as-sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto !important; min-width: 0; max-width: none; max-height: 75dvh; overflow: hidden auto; overscroll-behavior: contain; touch-action: pan-y;
   padding: 10px 8px calc(10px + env(safe-area-inset-bottom)); border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: slide-from-edge var(--d-small) var(--ease); }
 .menu.as-sheet.leaving { animation: slide-to-edge var(--d-flip) var(--ease-in) forwards; }
@@ -3844,6 +3852,14 @@ button.finding { cursor: pointer; }
 .um-col { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 8px 10px; }
 /* A list with more below fades out at the bottom, as the docked cards do, so a heading is never cut by the footer's line. */
 .um-col.more, .um-cols.more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); }
+/* Scroll edges (scroll-edges.js, ?edges=0 off): a list that scrolls fades 12 px at an end only while there is more beyond it, the depth easing on
+   --d-small; the mask is on the scrolling element itself, never on its glass. Placed after the .more fades above, which it takes over from. */
+.um-col.se, .um-cols.se, .tc-body.se, .ac-scroll.se, .action-card.docked .ac-scroll.se, .instrument-workspace .dock-pane.se {
+  --se-d: 12px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--sedge-t) * var(--se-d)), #000 calc(100% - var(--sedge-b) * var(--se-d)), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--sedge-t) * var(--se-d)), #000 calc(100% - var(--sedge-b) * var(--se-d)), transparent);
+  transition: --sedge-t var(--d-small) var(--ease-move), --sedge-b var(--d-small) var(--ease-move); }
+.menu.se { transition: --sedge-t var(--d-small) var(--ease-move), --sedge-b var(--d-small) var(--ease-move); }
 .um-hi { width: var(--ic-s); height: var(--ic-s); color: var(--text-2); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .um-g { margin-top: 4px; }
 .um-gl { display: flex; align-items: baseline; gap: 6px; padding: 6px 8px 2px; font-size: var(--fs-12); color: var(--text-3); }

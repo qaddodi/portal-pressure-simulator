@@ -51,6 +51,7 @@ import { feedbackDiagnostics } from './feedback-diag.js?v=c53f8f2d9e';
 import { noteJump } from './display-state.js?v=8d062d39dc';
 import { createIdleRest } from './idle-rest.js?v=4d23822371';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=2ccfd56d45';
+import './scroll-edges.js?v=db6c6a6a0e';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
