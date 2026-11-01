@@ -28,7 +28,7 @@ import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-mode
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL } from './field-gl.js?v=edd6d916b7';
-import { createTissueGL } from './tissue-gl.js?v=425addba8c';
+import { createTissueGL } from './tissue-gl.js?v=5ba9975ef5';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=624ae21d7d';
 import { createTissueWorker } from './tissue-worker.js?v=53ff8ce89e';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
@@ -2814,10 +2814,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function tissueGLOn() {
     if (tissueGL === undefined) { tissueGL = createTissueGL(tissueG, { onLive: liveCompiled }); if (!tissueGL) tissueG.remove(); else tissueGL.liveReady(); }
     // (A context the browser takes back (Safari does, under GPU memory pressure or past its count of live contexts) leaves the canvas
-    // black: it is opaque. It was left showing until something drew the lobule again, a pan (Mohammad, 1 Nov: the cells went black
+    // with no picture. It was left showing until something drew the lobule again, a pan (Mohammad, 1 Nov: the cells went black
     // while zooming in, and came back when he panned; black on Lobule 5 in a talk, where nothing pans). It is put aside at once and the
-    // lobule drawn again on the 2D canvas in the next frame.)
-    if (tissueGL && !tissueG._lostWatch) { tissueG._lostWatch = true; tissueG.addEventListener('webglcontextlost', tissueLost); }   // (liveReady: the shader that draws the lobule starts compiling now, ahead of the first look)
+    // lobule drawn again on the 2D canvas in the next frame; the canvas is see-through (tissue-gl.js), so the moment before that shows
+    // no black. Once the browser gives the context back, the tissue goes back on the GPU (tissueRestored).)
+    if (tissueGL && !tissueG._lostWatch) { tissueG._lostWatch = true; tissueG.addEventListener('webglcontextlost', tissueLost); tissueG.addEventListener('webglcontextrestored', tissueRestored); }   // (liveReady: the shader that draws the lobule starts compiling now, ahead of the first look)
     return tissueGL && !tissueGL.lost ? tissueGL : null;
   }
   // The lobule's tissue drawn live by the shader (lobule-live.js, A5b): in the share of the picture the state allows (liveEligible:
@@ -2940,6 +2941,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     wake();
   }
   function tissueLost() { showTissueGL(false); wake(); }
+  // (The context given back after a loss (tissue-gl.js asks for it): everything on it was lost with it, so the tissue's GPU drawing is
+  // made again on the same canvas the next time it is asked for. Until then, and if that fails, the 2D canvas carries on.)
+  function tissueRestored() { if (tissueGL?.lost) { tissueGL = undefined; wake(); } }
   // The lobule draws again (its tissue first): a bitmap came in, or the next one can be asked for.
   function wake() { tissueKey = ''; idleDrawn = ''; if (!raf && fade > 0) raf = nextFrame(loop); }
   // Which of the two shows (in the frame it was drawn in, so the picture never goes missing between them).

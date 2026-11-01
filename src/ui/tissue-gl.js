@@ -68,7 +68,11 @@ void main() {
  *  will be); the caller then asks again. */
 export function createTissueGL(canvas, opts = {}) {
   let gl = null;
-  try { gl = canvas.getContext('webgl2', { alpha: false, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
+  // (See-through, not opaque: every pixel is drawn whole (alpha 1), so the picture is the same, but a frame in which the browser has no
+  // picture for the canvas (its context taken back, or its buffer let go before a frame was drawn) shows the page through it, where an
+  // opaque canvas showed solid black over the whole lobule and its surround, until the next draw (Mohammad, 31 Oct and 1 Nov: the
+  // hepatocytes and the background all went black while zooming).)
+  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl) return null;
   // The program is started here and published once the driver has finished it (gl-compile.js); a draw that comes first publishes it.
   // This one is the tissue as it was before the shader drew any of the lobule: the bitmap over the surround, nothing of lobule-live.js
