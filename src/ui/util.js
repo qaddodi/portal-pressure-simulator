@@ -549,7 +549,7 @@ export function sinkTo(el, px, ms = 220, done, speed = null) {
     done?.();
   };
   const step = (now) => {
-    const k = Math.min(1, (now - t0) / ms);
+    const k = clamp((now - t0) / ms, 0, 1);   // (the frame's time can be a few ms before t0, taken in the handler: held at 0, so the cubic ease out never starts backwards)
     if (k >= 1) { finish(); return; }
     el.style.setProperty('--sink', `${from + (px - from) * (m0 == null ? 1 - (1 - k) ** 3 : settleAt(k, m0))}px`);
     a.raf = frame(step, 'numbers');

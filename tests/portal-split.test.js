@@ -32,7 +32,7 @@ test('the callout is a headline over a split bar, not the old two-stroke fork', 
 });
 
 test('a new share eases over 0.8 s, and the callout keeps one size (fixed headline width, stacked on phones)', () => {
-  assert.match(stage, /\(now - t0\) \/ 800\); splitShow\(el, el\._sh = from \+ \(to - from\) \* easeInOut\(k\)\)/);
+  assert.match(stage, /\(now - t0\) \/ 800, 0, 1\), landed = k >= 1 \|\| !el\.isConnected;\n\s+splitShow\(el, el\._sh = landed \? to : from \+ \(to - from\) \* easeInOut\(k\)\)/);
   assert.match(stage, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.cath-label\.site\.split \.sp-h \{ width: 12\.6em;/);
   assert.match(css, /\.cath-label\.site\.split, \.app\.presenting \.cath-label\.site\.split \{[^}]*flex-direction: column;/);

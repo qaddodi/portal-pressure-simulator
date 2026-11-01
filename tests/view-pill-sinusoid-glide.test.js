@@ -28,7 +28,7 @@ test('the pill and the bars move over the sinusoid zoom\'s own time and curve', 
   // One step moves both, from one clock: the dock first, then the pill read against it, every frame.
   const m = fn('sinMotion');
   assert.match(m, /ms = intoSin \? PILL_IN : PILL_OUT, t0 = performance\.now\(\)/);
-  assert.match(m, /const u = Math\.min\(1, \(now - t0\) \/ ms\), e = easeIO3\(u\);/);
+  assert.match(m, /const u = Math\.max\(0, Math\.min\(1, \(now - t0\) \/ ms\)\), e = easeIO3\(u\);/);
   assert.match(m, /barY = u >= 1 \? 0 : y0 \+ \(y1 - y0\) \* e;/, 'the dock on the zoom\'s curve');
   assert.match(m, /k = 1 - e;/, 'the pill on the same curve, from the same clock');
   assert.ok(m.indexOf('vd.style.translate =') < m.indexOf('el.getBoundingClientRect()'), 'the dock is placed before the pill reads its place');
