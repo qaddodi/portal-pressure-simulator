@@ -7,7 +7,7 @@
 // again. No imports, so the worker loads it too.
 //
 // `bleed` is not a guideline cut-off: HVPG 12 is where this model's varices start to rupture (a calibration, src/version.js), drawn
-// as a faint line and named "can bleed" on the Over time chart, never as a colour change of its own.
+// as a faint line and named "Bleed risk" on the Over time chart, never as a colour change of its own.
 export const HVPG_CUTS = Object.freeze({ amber: 5, red: 10, bleed: 12 });
 export const PPG_CUTS = Object.freeze({ amber: 6, red: 12 });
 export const PRESSURE_CUTS = Object.freeze({ hvpg: HVPG_CUTS, ppg: PPG_CUTS });

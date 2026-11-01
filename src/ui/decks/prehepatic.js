@@ -114,10 +114,10 @@ export const PREHEPATIC = {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'plt', 'wave'], wave: 'PV_TRUNK', asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'clot', kicker: 'No cirrhosis', title: 'Acute thrombosis' }, { id: 'cavernoma', kicker: 'No cirrhosis', title: 'Cavernoma' },
         { id: 'base', kicker: 'Cirrhosis', title: 'Before the clot' }, { id: 'gradients', kicker: 'Cirrhosis', title: 'Partial clot' }, { id: 'pvt-anticoag', kicker: 'Cirrhosis', title: 'Six months on' }],
-      kicker: 'Summary', title: 'The HVPG stays normal while the PPG shows the clot',
+      kicker: 'Summary', title: 'The clot raises the PPG, not the HVPG',
       line: 'The clot is before the liver, so the HVPG barely moves; the PPG rises when the portal vein itself carries the resistance.',
       notes: 'A clot before the liver raises the pressure upstream of it and leaves the sinusoids alone: the HVPG does not show it, the stiffness is normal without cirrhosis and the liver works. In cirrhosis the clot adds to the sinusoidal resistance without changing what the wedge reads. Look for it on every surveillance scan, protect the varices, treat the clot with early anticoagulation, and the varices as in cirrhosis.',
-      ask: ['Which pressure reading is normal in every case of pre-hepatic resistance?', 'The HVPG, because the sinusoids are downstream of the clot.'],
+      ask: ['A clot in the portal vein of a normal liver: which reading stays normal?', 'The HVPG, because the sinusoids are downstream of the clot. In cirrhosis the clot adds to the PPG, not the HVPG.'],
     },
   ],
 };

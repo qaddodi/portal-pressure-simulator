@@ -4,19 +4,19 @@
 import { store, hiddenNow } from './store.js?v=80d4358be8';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=5300d2ce2f';
-import { lobuleFlows } from './lobule-model.js?v=558327122b';
-import { createProfile } from './charts.js?v=a3aeb86cd1';
-import { createPressureTime } from './pressure-time.js?v=f0cbd5c535';
-import { createHvpgProcedure } from './hvpg-proc.js?v=7426b21977';
+import { lobuleFlows } from './lobule-model.js?v=511da2d8a8';
+import { createProfile } from './charts.js?v=9798de2b77';
+import { createPressureTime } from './pressure-time.js?v=55b74b426c';
+import { createHvpgProcedure } from './hvpg-proc.js?v=e27fad918b';
 import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=35a2b162ee';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=11001c0a3d';
-import { createReadoutsPane } from './readouts-pane.js?v=b6627a9323';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=75359b56a0';
+import { createReadoutsPane } from './readouts-pane.js?v=da46b105c1';
 import { frameFor } from './frame.js?v=6a53e5fc6e';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=9f263ec53f';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
-import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=42f1f09042';
+import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { compareRows } from './idle-keys.js?v=c5c00c9da1';
 import { D_FLIP, D_SMALL, EASE_IN } from './ease.js?v=615d96d663';
 const nextFrame = frameFor('dock');
@@ -35,7 +35,7 @@ export const TILES = [
     scale: [0, 25], ticks: [HVPG_CUTS.amber, HVPG_CUTS.red],
     st: hvpgSev,
     s: (v) => ({ ok: 'Normal', caution: 'Mild', danger: 'CSPH' })[hvpgSev(v)] },
-  { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portal pressure gradient: portal confluence − inferior vena cava at the right atrium, directly from the model network. Unlike HVPG it also includes resistance before the liver (presinusoidal or prehepatic). Normal < 6, high ≥ 12 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
+  { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portal pressure gradient: portal confluence − suprahepatic inferior vena cava, directly from the model network. Unlike HVPG it also includes resistance before the liver (presinusoidal or prehepatic). Normal < 6, high ≥ 12 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
     scale: [0, 25], ticks: [PPG_CUTS.amber, PPG_CUTS.red],
     st: ppgSev, s: (v) => ({ ok: 'Normal', caution: 'High', danger: 'Bleed risk' })[ppgSev(v)] },
   { id: 'pv', group: 'pressure', k: 'Portal pressure', ks: 'Portal P', title: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',

@@ -100,32 +100,32 @@
 
 import { CIRCULATION } from './decks/circulation.js?v=6f34425bc2';
 import { SITES } from './decks/sites.js?v=df9b36d209';
-import { HVPG } from './decks/hvpg.js?v=cce91212e6';
+import { HVPG } from './decks/hvpg.js?v=9931b4b9d0';
 import { ASCITES } from './decks/ascites.js?v=a66831c764';
 import { VARICES } from './decks/varices.js?v=56ea505657';
 import { TREATMENT } from './decks/treatment.js?v=b2c0dcc11b';
 import { STIFFNESS } from './decks/stiffness.js?v=5b2d2385cf';
 import { LOBULE } from './decks/lobule.js?v=d52e883d47';
-import { SHUNTS } from './decks/shunts.js?v=0bc4a8592d';
+import { SHUNTS } from './decks/shunts.js?v=2552996ea8';
 import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=359feee3f0';
 import { CIRCUIT } from './decks/circuit.js?v=b3b5b96f55';
-import { DOPPLER } from './decks/doppler.js?v=4a37e56815';
+import { DOPPLER } from './decks/doppler.js?v=da1aa30e81';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=b87d96a3db';
-import { PREHEPATIC } from './decks/prehepatic.js?v=7916930ff2';
+import { PREHEPATIC } from './decks/prehepatic.js?v=8149a24e61';
 import { BLEED } from './decks/variceal-bleed.js?v=6738c3ceac';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=bac786bc6d';
 import { NCPH } from './decks/ncph.js?v=fba64b2bbf';
 import { OUTFLOW } from './decks/outflow.js?v=272a4f621e';
-import { RECOMPENSATION } from './decks/recompensation.js?v=0c98a198a5';
+import { RECOMPENSATION } from './decks/recompensation.js?v=555d8ababe';
 import { WHERE } from './decks/where.js?v=c28f096edc';
 import { PREGNANCY_DECK } from './decks/pregnancy.js?v=d79b566bbb';
 import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=7d08be79e0';
 import { CAUSE_TREATED } from './decks/cause-treated.js?v=70702ca374';
-import { NEXT_BLEED } from './decks/next-bleed.js?v=b01a7d6b89';
+import { NEXT_BLEED } from './decks/next-bleed.js?v=51f4c97418';
 import { GASTRIC } from './decks/gastric-varices.js?v=86aab71c34';
 import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=90b476c393';
 import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=c81f907a9c';
-import { TEN_YEARS } from './decks/ten-years.js?v=72b87e59ee';
+import { TEN_YEARS } from './decks/ten-years.js?v=4ebfbf5725';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

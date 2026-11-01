@@ -23,28 +23,28 @@ import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wh
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
 import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=3c321f5f7f';
-import { NODE_POS } from './anatomy.js?v=bf648f6a02';
+import { NODE_POS } from './anatomy.js?v=f5c417240a';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=1ea1ddc763';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=800291ce2d';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
-import { hvpgSev } from '../engine/pressure-cuts.js?v=42f1f09042';
-import { createHvpgMonitor } from './hvpg-proc.js?v=7426b21977';
-import { createTools } from './presenter-tools.js?v=2ed5fdebd5';
-import { openHandout } from './handout.js?v=a7f2afdcf8';
+import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
+import { createHvpgMonitor } from './hvpg-proc.js?v=e27fad918b';
+import { createTools } from './presenter-tools.js?v=ccf52b83bf';
+import { openHandout } from './handout.js?v=44772f1a83';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js?v=08dc4ede67';
+import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js?v=ff3ed0cc47';
 import { frameFor, cancelFrame } from './frame.js?v=6a53e5fc6e';
 import { createFigureKey } from './figure-key.js?v=e41b9d0553';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=d4df33b95e';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=eaf6a22da9';
-import { clotWords } from './callout-math.js?v=5bc627a527';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=1836356cec';
+import { clotWords } from './callout-math.js?v=97fde9fc5b';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=0f71e79aaa';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=cb909b3e9e';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=bdbffff695';
+import { anchorsOf, roomFor } from './cam-room.js?v=23c4e361d8';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=665223a4a5';
@@ -856,7 +856,7 @@ function makeCalc() {
   const ready = (async () => {
     let w = null;
     try {
-      w = new Worker(new URL('../worker.js?v=c2d2617e92', import.meta.url), { type: 'module' });
+      w = new Worker(new URL('../worker.js?v=25dfab1e7d', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -870,7 +870,7 @@ function makeCalc() {
     } catch {
       if (w) { w.onmessage = w.onerror = null; w.terminate(); }   // (a worker that never said hello: not left running beside the page's own engine)
       try {
-        const { createCore } = await import('../worker-core.js?v=86ca82ae9c');
+        const { createCore } = await import('../worker-core.js?v=5a26888c69');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

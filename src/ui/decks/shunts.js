@@ -61,9 +61,9 @@ export const SHUNTS = {
     },
     {
       id: 'check', lens: 'flow', cam: 'liver', data: 'tiles', tiles: ['asc', 'ppg'], key: ['asc'],
-      tool: { kind: 'criteria', title: 'Before the stent', short: 'Before', ticks: false, rows: ['No **heart failure**', '**Kidney function** staged (eGFR)', '**Encephalopathy** history and medicines reviewed, **rifaximin** considered', 'No **single number** rules a TIPS out'] },
+      tool: { kind: 'criteria', title: 'Before the stent', short: 'Before', ticks: false, rows: ['No severe **heart failure** or **pulmonary hypertension**', '**Kidney function** staged (eGFR)', '**Encephalopathy** history and medicines reviewed, **rifaximin** considered', 'No **MELD** cut-off alone rules a TIPS out'] },
       kicker: 'Who gets a TIPS', site: 'sin', title: 'Check the heart, the kidneys and the brain first',
-      line: 'A stent sends portal blood straight to the heart and past the liver to the brain, so check those first. No single number rules a TIPS out.',
+      line: 'A stent sends portal blood straight to the heart and past the liver to the brain, so check those first. No MELD cut-off on its own rules a TIPS out.',
       notes: 'Baveno VIII lists no heart failure, age under 75 and a creatinine under 3 mg/dL as the box for a pre-emptive TIPS, asks for kidney function to be staged before a TIPS for ascites (6.9), and asks for the encephalopathy history and medicines to be reviewed (6.14). A history of overt encephalopathy is not an absolute contraindication (6.15); rifaximin should be considered before an elective TIPS (6.16). What is not an absolute contraindication: for a pre-emptive TIPS, acute-on-chronic liver failure, overt encephalopathy, a raised bilirubin, the MELD score and severe alcohol-related hepatitis (5.33); liver cancer unless the tumor lies along the stent path (4.15); frailty or sarcopenia alone (4.19); and age 70 or over with refractory ascites, which is judged case by case (6.8). Each item is weighed with the rest, and the heart and the kidneys count for more than any of them.',
       ask: ['A woman with refractory ascites is sent for a TIPS. Which three systems do you check first?', 'The heart, the kidneys and the brain: heart failure, kidney function, and the encephalopathy history, with rifaximin considered.'],
     },

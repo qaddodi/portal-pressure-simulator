@@ -3,7 +3,7 @@
 // presenter-tools.js, so the deck visuals' chart package can extend it without touching the instruments' file.)
 
 import { h, fmt, clamp } from './util.js?v=5300d2ce2f';
-import { hvpgRate } from '../engine/pressure-cuts.js?v=42f1f09042';
+import { hvpgRate } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { frameFor } from './frame.js?v=6a53e5fc6e';
 import { plotPanel } from './plot-look.js?v=5037697da7';

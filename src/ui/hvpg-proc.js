@@ -9,15 +9,15 @@
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
 import { h, fmt, fitCanvas, clamp, icon, cssVar, toast } from './util.js?v=5300d2ce2f';
-import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=42f1f09042';
-import { FONT } from './charts.js?v=a3aeb86cd1';
+import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
+import { FONT } from './charts.js?v=9798de2b77';
 import { pressureColor } from './colormap.js?v=d4df33b95e';
 import { store, logAction, hiddenNow, updateParams } from './store.js?v=80d4358be8';
 import { shownOr } from './shown.js?v=9f263ec53f';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=95f13823ce';
 import { frameFor, cancelFrame } from './frame.js?v=6a53e5fc6e';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
-import { rateOf } from './table-marks.js?v=08dc4ede67';
+import { rateOf } from './table-marks.js?v=ff3ed0cc47';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=192c4357ea';
 const nextFrame = frameFor('hvpg-proc');
 

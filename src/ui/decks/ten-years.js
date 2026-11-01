@@ -65,7 +65,7 @@ export const TEN_YEARS = {
       compare: [{ label: 'Carvedilol alone', short: 'Carv.', own: true, params: { diuretics: false } }, { label: 'Add diuretics', short: 'Diuretics', params: { diuretics: true } }],
       kicker: 'Year 6', site: 'sin', title: 'Year 6: the first ascites',
       line: 'Five more years of injury: the HVPG is {hvpg}, the albumin has fallen to {salb}, and {asc} of ascites has gathered despite carvedilol. Try adding diuretics.',
-      notes: 'The first ascites you can find on examination is the first decompensation, and it changes the outlook. A little fluid seen only on ultrasound (grade 1) comes earlier and is not decompensation; grade 2 shows as a symmetric distension and grade 3 is tense. After the first decompensation, Baveno VIII 4.2 recommends treating the cause, to prevent further decompensation. In this case the injury goes on, so the later steps can follow. What happens to the carvedilol is the next slide.',
+      notes: 'The first ascites you can find on examination is the first decompensation, and it changes the outlook. A little fluid seen only on ultrasound (grade 1) comes earlier and is not decompensation; grade 2 shows as a symmetric distension and grade 3 is tense. After the first decompensation, Baveno VIII 4.2 recommends treating the cause, to prevent further decompensation. From this first decompensation he should be considered for a transplant (Baveno VIII 4.3); listing comes later, as the disease advances. In this case the injury goes on, so the later steps can follow. What happens to the carvedilol is the next slide.',
       ask: ['What is the first decompensation in this case?', 'Ascites at year 6.'],
     },
     {
@@ -108,7 +108,7 @@ export const TEN_YEARS = {
       id: 'he', tick: 'Confusion', days: 60, cam: 'liver', tool: { kind: 'profile' }, data: 'tiles', tiles: ['shunt', 'ppg'], key: ['shunt'], delta: 'tips',
       compare: [{ label: '8 mm stent', short: '8 mm', own: true, params: { tips: { d: 8 } } }, { label: 'Narrower stent', short: 'Narrower', params: { tips: { d: 5 } } }],
       kicker: 'Year 9', site: 'sin', title: 'Two months after the TIPS he is confused',
-      line: 'He sleeps by day and is slow to answer. {shunt} of the portal blood now bypasses the liver. Narrow the stent with the buttons and watch the PPG.',
+      line: 'He sleeps by day and is slow to answer. {shunt} of the portal blood now bypasses the liver. The stent comes last; the buttons show what narrowing costs the PPG.',
       notes: 'Overt encephalopathy is a known price of the TIPS: more portal blood reaches the brain without passing through the liver. The first move is not the stent. The narrower stent lowers the shunted share but raises the portal pressure again, which brings the risk of bleeding back. The model has no ammonia or brain; the share of portal blood that skips the liver stands in for the risk.',
       ask: ['What is the downside of narrowing the stent?', 'The portal pressure rises again, so varices and bleeding come back.'],
     },

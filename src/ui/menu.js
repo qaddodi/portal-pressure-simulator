@@ -7,7 +7,7 @@
 import { store } from './store.js?v=80d4358be8';
 import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=5300d2ce2f';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
-import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=42f1f09042';
+import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { pressureColor } from './colormap.js?v=d4df33b95e';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
 import { frameFor } from './frame.js?v=6a53e5fc6e';

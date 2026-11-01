@@ -10,10 +10,10 @@
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
 
 import { frame, cancelFrame } from './frame.js?v=6a53e5fc6e';
-import { PROFILE_PATHS } from './anatomy.js?v=bf648f6a02';
+import { PROFILE_PATHS } from './anatomy.js?v=f5c417240a';
 import { follow2, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { RATE } from './table-marks.js?v=08dc4ede67';
+import { RATE } from './table-marks.js?v=ff3ed0cc47';
 import { monotoneSegs } from './curve-near.js?v=9ff15157e9';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { pressureColor } from './colormap.js?v=d4df33b95e';

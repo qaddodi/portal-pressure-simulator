@@ -24,8 +24,8 @@
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
 import { h, fmt, clamp } from './util.js?v=5300d2ce2f';
-import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js?v=42f1f09042';
-import { TILE, tileShown } from './table-marks.js?v=08dc4ede67';
+import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
+import { TILE, tileShown } from './table-marks.js?v=ff3ed0cc47';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 
 // ── Conditions: [key, op, value], all of which must hold ──
