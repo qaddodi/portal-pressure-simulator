@@ -14,7 +14,7 @@
 
 import { frameFor, cancelFrame } from './frame.js?v=6692e20c1b';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=c5c00c9da1';
-import { startProgram, checkProgram } from './gl-compile.js?v=71adf77c58';
+import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 
 const nextFrame = frameFor('labels-gl');
@@ -379,22 +379,29 @@ uniform float uA;
 in vec2 vUV;
 out vec4 o;
 void main() { o = texture(uT, vUV) * uA; }`;
-  // All four programs are started before any is read, so the driver compiles them side by side (gl-compile.js).
-  const hp = startProgram(gl, VS, FS), hm = startProgram(gl, MVS, MFS), hr = startProgram(gl, RVS, RFS), ha = startProgram(gl, AVS, AFS, [['aR', 0], ['aT', 1]]);
-  let prog, mprog, rprog, aprog;
-  try { prog = checkProgram(gl, hp); mprog = checkProgram(gl, hm); rprog = checkProgram(gl, hr); aprog = checkProgram(gl, ha); } catch { return null; }
-  const U = Object.fromEntries(['uR', 'uView', 'uT', 'uA'].map((k) => [k, gl.getUniformLocation(prog, k)]));
-  const MU = Object.fromEntries(['uBox', 'uView', 'uKind', 'uGeo', 'uW', 'uDash', 'uStroke', 'uFill', 'uA', 'uT0', 'uT1', 'uT2', 'uG', 'uS0', 'uS1', 'uS2', 'uSO', 'uR4'].map((k) => [k, gl.getUniformLocation(mprog, k)]));
-  const RU = Object.fromEntries(['uView', 'uP', 'uS', 'uO', 'uAng', 'uT', 'uA'].map((k) => [k, gl.getUniformLocation(rprog, k)]));
-  const vao = gl.createVertexArray();
-  // The atlas: pages of pictures (each a square texture, at most two), and the instance list drawn from them.
-  const AU = Object.fromEntries(['uView', 'uT'].map((k) => [k, gl.getUniformLocation(aprog, k)]));
+  // The programs, the vertex arrays and the atlas's buffer: made now, and again when a lost context comes back (none of a context's
+  // objects survives a loss). All four programs are started before any is read, so the driver compiles them side by side (gl-compile.js).
+  let prog, mprog, rprog, aprog, U, MU, RU, AU, vao, avao, abuf;
+  function start() {
+    const hp = startProgram(gl, VS, FS), hm = startProgram(gl, MVS, MFS), hr = startProgram(gl, RVS, RFS), ha = startProgram(gl, AVS, AFS, [['aR', 0], ['aT', 1]]);
+    return [hp, hm, hr, ha];
+  }
+  function finish([hp, hm, hr, ha]) {
+    prog = checkProgram(gl, hp); mprog = checkProgram(gl, hm); rprog = checkProgram(gl, hr); aprog = checkProgram(gl, ha);
+    U = Object.fromEntries(['uR', 'uView', 'uT', 'uA'].map((k) => [k, gl.getUniformLocation(prog, k)]));
+    MU = Object.fromEntries(['uBox', 'uView', 'uKind', 'uGeo', 'uW', 'uDash', 'uStroke', 'uFill', 'uA', 'uT0', 'uT1', 'uT2', 'uG', 'uS0', 'uS1', 'uS2', 'uSO', 'uR4'].map((k) => [k, gl.getUniformLocation(mprog, k)]));
+    RU = Object.fromEntries(['uView', 'uP', 'uS', 'uO', 'uAng', 'uT', 'uA'].map((k) => [k, gl.getUniformLocation(rprog, k)]));
+    vao = gl.createVertexArray();
+    // The atlas: pages of pictures (each a square texture, at most two), and the instance list drawn from them.
+    AU = Object.fromEntries(['uView', 'uT'].map((k) => [k, gl.getUniformLocation(aprog, k)]));
+    avao = gl.createVertexArray(); abuf = gl.createBuffer();
+    gl.bindVertexArray(avao); gl.bindBuffer(gl.ARRAY_BUFFER, abuf);
+    for (const [loc, off] of [[0, 0], [1, 16]]) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, 32, off); gl.vertexAttribDivisor(loc, 1); }
+    gl.bindVertexArray(null);
+  }
+  try { finish(start()); } catch { return null; }
   const packer = createAtlasPacker({ size: Math.min(2048, gl.getParameter(gl.MAX_TEXTURE_SIZE) || 2048), pad: 2, maxPages: 2 });
   const pageTex = [];
-  const avao = gl.createVertexArray(), abuf = gl.createBuffer();
-  gl.bindVertexArray(avao); gl.bindBuffer(gl.ARRAY_BUFFER, abuf);
-  for (const [loc, off] of [[0, 0], [1, 16]]) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, 32, off); gl.vertexAttribDivisor(loc, 1); }
-  gl.bindVertexArray(null);
   let inst = new Float32Array(64 * 8), needRepack = false;
   const pageOf = (n) => {
     if (pageTex[n]) return pageTex[n];
@@ -464,6 +471,24 @@ void main() { o = texture(uT, vUV) * uA; }`;
     for (const s of last) s.g.removeAttribute('data-gl');
     for (const root of marks) for (const el of root.children) el.removeAttribute('data-gl');
     probe?.removeAttribute('data-gl'); scanEl?.removeAttribute('data-gl');
+  });
+  // The context given back (iOS Safari returns to the page, or a GPU process restarts): the programs are started again at once and read
+  // when the driver has finished them, at an idle moment, not in a frame (the SVG draws every label meanwhile, as in the loss). Then every
+  // picture goes up again, packed afresh, and the layer is drawn: the labels, marks and probes are the GPU's again, in the same frame.
+  // (Host mode has no restore of its own: the host owns the context and the layer is not made with one.)
+  if (!host) canvas.addEventListener('webglcontextrestored', () => {
+    let hs;
+    try { hs = start(); } catch { return; }
+    publishWhenDone(gl, hs, () => {
+      if (!lost || gl.isContextLost()) return;   // (lost again: the next restore starts over)
+      try { finish(hs); } catch { return; }   // (the shaders will not build: the SVG keeps every label)
+      pageTex.length = 0; needRepack = false; packer.reset();
+      holeMasks = new WeakMap(); headSp = null; beamSp = null; sHeadSp = null;
+      for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
+      pDirty = true; sDirty = true; allMarks(); boxKey = '';
+      lost = false;
+      ask();
+    });
   });
   function size() {
     if (host) {
@@ -612,7 +637,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // The labels, marks and probes are left out under each, by its fade: what the browser's blur would show of them there is a faint smear.
   // A rounded box is cut as a shape (uKind 6); a callout's outline (its pointer included) from a mask drawn once from its path.
   let holes = [], holesKey = '';
-  const holeMasks = new WeakMap();
+  let holeMasks = new WeakMap();
   function holeMask(h) {
     const key = `${h.d}|${h.lw}|${h.lh}|${dpr}`;
     let m = holeMasks.get(h.el);

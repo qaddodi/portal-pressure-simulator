@@ -177,7 +177,8 @@ test('a draw that comes before its program is published publishes it first', () 
   // (Recs B8: a lost context is not ready, so the scope draws on the CPU, as with no WebGL.)
   assert.match(src('src/ui/endo-gl.js'), /cv\.addEventListener\('webglcontextlost', \(e\) => \{ e\.preventDefault\(\); lost = true; \}\);/);
   assert.match(src('src/ui/endo-gl.js'), /ready\(\) \{ if \(lost\) return false; publish\(\); return !!u; \},/);
-  assert.match(src('src/ui/instruments.js'), /if \(gl && !gl\.ready\(\)\) \{ gl\.dispose\(\); gl = null; glKey = ''; \}/);
+  // (A shader that failed is let go for the CPU renderer; a lost context is kept, for the GPU to take over again once it is built afresh.)
+  assert.match(src('src/ui/instruments.js'), /if \(gl && !gl\.ready\(\) && !gl\.lost\) \{ gl\.dispose\(\); gl = null; glKey = ''; \}/);
   assert.match(src('src/ui/fibroscan-gl.js'), /st\.publish\(\);\n\s+if \(st\.lost\) return null;/);
 });
 
@@ -185,7 +186,7 @@ test('a failed shader hands the picture to the 2D path rather than leaving a bla
   assert.match(src('src/ui/tissue-gl.js'), /get lost\(\) \{ return lost \|\| failed/);
   assert.match(src('src/ui/field-gl.js'), /get lost\(\) \{ return lost \|\| failed/);
   assert.match(src('src/ui/doppler-gl.js'), /get lost\(\) \{ return lost \|\| failed; \}/);
-  assert.match(src('src/ui/instruments.js'), /if \(gl && !gl\.ready\(\)\) \{ gl\.dispose\(\); gl = null; glKey = ''; \}/);
+  assert.match(src('src/ui/instruments.js'), /if \(gl && !gl\.ready\(\) && !gl\.lost\) \{ gl\.dispose\(\); gl = null; glKey = ''; \}/);
 });
 
 test('the label layer starts all four programs before reading any', () => {

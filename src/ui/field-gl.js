@@ -11,7 +11,7 @@
 // Without WebGL2 (or on a software renderer, or once the context is lost) createFieldGL returns null / reports lost, and the
 // field is drawn on the 2D canvas as before.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=71adf77c58';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -60,30 +60,46 @@ export function createFieldGL(canvas) {
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl) return null;
-  // The program is started here and published once the driver has finished it (gl-compile.js); a draw that comes first publishes it.
-  let started;
-  try { started = startProgram(gl, VS, FS, [['p', 0]]); } catch (err) { console.warn('The lobule field falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
-  const buf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);   // one triangle over the whole canvas
-  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-  gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
-
-  let lost = false;
-  canvas.addEventListener('webglcontextlost', (e) => { lost = true; texs.clear(); e.preventDefault?.(); });
+  // (lost: the GPU does not draw the field, from the loss until the rebuilt program is published.)
+  let lost = false, dead = false, started = null, stopPoll = null;
   let prog = null, U = null, failed = false;
   // Reads the finished program, sets its samplers and runs one small offscreen draw, so the first real draw has no driver work left.
   function publish() {
-    if (prog || failed || lost) return;
+    if (prog || failed || gl.isContextLost()) return;
     try {
       prog = checkProgram(gl, started);
       U = Object.fromEntries(['uA', 'uB', 'uQA', 'uQB', 'uMix', 'uQuiet', 'uO', 'uRd', 'uH', 'uFade', 'uMid', 'uBg', 'uMask', 'uDof', 'uGrey'].map((n) => [n, gl.getUniformLocation(prog, n)]));
       gl.useProgram(prog);
       gl.uniform1i(U.uA, 0); gl.uniform1i(U.uB, 1); gl.uniform1i(U.uQA, 2); gl.uniform1i(U.uQB, 3);
       exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));
-    } catch (err) { failed = true; console.warn('The lobule field falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); }
+      lost = false;   // (after a restore: the GPU draws the field again)
+    } catch (err) {
+      if (gl.isContextLost()) { prog = null; U = null; return; }   // (lost while it was read: the restore makes it again)
+      failed = true; console.warn('The lobule field falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext();
+    }
   }
-  publishWhenDone(gl, [started], publish);
+  // What the context holds: the program (started now, published once the driver has finished it, gl-compile.js; a draw that comes first
+  // publishes it) and the one triangle over the canvas. Made at the start, and again when a lost context comes back. (The tiles'
+  // textures are made as each is drawn, texFor, and went with the context.)
+  function build() {
+    prog = null; U = null; failed = false;
+    started = startProgram(gl, VS, FS, [['p', 0]]);
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);   // one triangle over the whole canvas
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
+    stopPoll?.(); stopPoll = publishWhenDone(gl, [started], publish);
+  }
+  try { build(); } catch (err) { console.warn('The lobule field falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
+  canvas.addEventListener('webglcontextlost', (e) => { lost = true; texs.clear(); e.preventDefault?.(); });
+  // A context the browser gives back is built afresh; the field stays on the 2D canvas (lost) until the program is published, at an idle
+  // moment, and the tiles go up again as they are drawn.
+  canvas.addEventListener('webglcontextrestored', () => {
+    if (dead) return;
+    texs.clear();
+    try { build(); } catch (err) { failed = true; console.warn('The lobule field could not be rebuilt; the 2D canvas stays.', err); }
+  });
   // A tile's texture, made once per tile canvas (a new canvas for each tissue state and tone) and kept until that canvas is
   // given back (width 0: forget, sweep).
   const texs = new Map();

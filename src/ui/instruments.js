@@ -7,7 +7,7 @@ import { wallRead } from '../engine/wall-read.js?v=09449acd01';
 import { pressureColor } from './colormap.js?v=6b3d7fc707';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=c7662eb248';
 import { simTime, isPaused } from './clock.js?v=16aba0e2eb';
-import { createEndoGL } from './endo-gl.js?v=2ce78ca0f6';
+import { createEndoGL } from './endo-gl.js?v=2db5994c33';
 import { renderEndo } from './endo-render.js?v=9e2ef0c0e5';
 import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=3ef9727a43';
@@ -81,7 +81,7 @@ export function createEndoscopy({ onAction }) {
   // Rendered endoscopic view (see endo-render.js): a per-pixel 3D shading of the lumen with raised,
   // winding varices, drawn once per state into a cached bitmap, so it is perfectly steady. Balloon,
   // bleeding and the scope mask are drawn on top.
-  let gl = createEndoGL();
+  let gl = createEndoGL({ onBack: () => { if (!raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); }); } }), wasGl = !!gl;   // (wasGl: which renderer drew the field last, so a change between them fades)
   const glOut = document.createElement('canvas');
   let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedLast = null, poolA = 0, cache = { key: '', img: null }, glKey = '', painted = '', mv = null, held = null, pinned = null;
   // A slide's options for this scope (configure, below): air, the air's pressure in the lumen in mmHg (the varix is drawn and measured as it is seen
@@ -170,8 +170,12 @@ export function createEndoscopy({ onAction }) {
     if (busy && !raf && !isPaused()) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
     let img;
-    if (gl && !gl.ready()) { gl.dispose(); gl = null; glKey = ''; }   // (its shader failed: the CPU renderer below, as with no WebGL)
-    if (gl) {
+    if (gl && !gl.ready() && !gl.lost) { gl.dispose(); gl = null; glKey = ''; }   // (its shader failed: the CPU renderer below, as with no WebGL)
+    // (A lost context is not a failure: the CPU renderer draws the field while it is gone, and the GPU takes over again, with the new
+    // field fading in over the old, when the browser gives it back and builds the shader afresh: endo-gl.js.)
+    const onGl = !!gl && !gl.lost;
+    if (onGl !== wasGl) { if (shown && gl) keep(shown, res); wasGl = onGl; }
+    if (onGl) {
       // Drawn once per state and kept as a 2D bitmap: a steady field costs no shader pass or GPU readback.
       // (Size, presence and stigmata redraw once they have moved a step and a half of 32 from the field shown, so a slow drift
       // or the last of the beat's swell does not redraw it to and fro across one step; banding redraws at every step.)
@@ -216,7 +220,7 @@ export function createEndoscopy({ onAction }) {
     const moving = fadeT0 >= 0 || balA !== +balloon || shutA !== +shut || jetA !== +bleeding;
     if (moving && !raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     if (!moving) uiT = 0;   // (the next ease starts from its first frame, not from the last one painted)
-    const sig = [cv.width, cv.height, w, hh, gl ? glKey : cache.key, balloon, shut, root.getAttribute('data-theme'), root.className, dark.matches].join('|');
+    const sig = [cv.width, cv.height, w, hh, onGl ? glKey : cache.key, balloon, shut, root.getAttribute('data-theme'), root.className, dark.matches].join('|');
     if (!bleeding && !moving && sig === painted) return;
     painted = bleeding || moving ? '' : sig;
     ctx.clearRect(0, 0, w, hh);
@@ -237,7 +241,7 @@ export function createEndoscopy({ onAction }) {
       // Active bleeding: blood spurting (or oozing) from the ruptured column, running down the wall and pooling in the
       // lowest part of the lumen (endo-bleed.js). On the model's clock, so a paused bleed holds still.
       // (the tear lies on the column as the field was last drawn)
-      const tear = scopeTear(gl && held ? held[0] / 32 : an.g);
+      const tear = scopeTear(onGl && held ? held[0] / 32 : an.g);
       drawScopeBleed(ctx, { cx, cy, R, jx: cx + tear.x * R, jy: cy + tear.y * R, t: still.matches ? 0.3 : simTime(), a: jetA, rate: bleedLast.rate, fill: poolA, hr: bleedLast.hr });
     }
     if (jetA <= 0 && !bleeding) { bleedLast = null; poolA = 0; }

@@ -11,7 +11,7 @@
 // Without WebGL2 (or on a software renderer, or once the context is lost) createTissueGL returns null / reports lost, and the
 // tissue is drawn on the 2D canvas as before.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=71adf77c58';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
 import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=624ae21d7d';
 
 const VS = `#version 300 es

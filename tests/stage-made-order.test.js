@@ -7,9 +7,11 @@ import { readFileSync } from 'node:fs';
 const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 
 test('OVER_ON is set before the overlays\' watch reads it while the stage is made', () => {
-  const set = STAGE.indexOf('  const OVER_ON = '), read = STAGE.indexOf('  if (OVER_ON) {');
+  // (let, not const: renderPath reads both again from the context a restore hands back; the start-up lines are still the first.)
+  const set = STAGE.indexOf('  let OVER_ON = '), read = STAGE.indexOf('  if (OVER_ON) overWatch();');
   assert.ok(set > 0 && read > 0, 'both are there');
   assert.ok(set < read, 'set first');
-  assert.ok(STAGE.indexOf('  const SOFTWARE = ') < set, 'after what it reads');
-  assert.equal(STAGE.split('const OVER_ON = ').length, 2, 'set once');
+  assert.ok(STAGE.indexOf('  let SOFTWARE = ') < set, 'after what it reads');
+  assert.equal(STAGE.split('let OVER_ON = ').length, 2, 'set once');
+  assert.equal(STAGE.split('let SOFTWARE = ').length, 2, 'set once');
 });

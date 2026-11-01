@@ -8,7 +8,7 @@
 
 import { cssRGB } from './util.js?v=c7662eb248';
 import { columnConsts } from './endo-columns.js?v=381d1443b7';
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=71adf77c58';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
 
 const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';
 // The colours are tokens (--endo-* in styles/tokens.css), written into the shader when it is built.
@@ -195,25 +195,22 @@ void main() {
 
 // The drawing buffer is not preserved: every render() draws the whole field and the one reader (instruments.js) copies it with
 // drawImage in the same task, before the browser presents and clears it.
-export function createEndoGL() {
+export function createEndoGL({ onBack = null } = {}) {
   const cv = document.createElement('canvas');
   const gl = cv.getContext('webgl', { antialias: false, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: false });
   if (!gl) return null;
   // A context the browser takes back (iOS Safari in the background or under memory pressure; recs B8): not ready from then on, so the
-  // scope draws its field on the CPU (instruments.js), as with no WebGL, instead of copying an empty canvas.
-  let lost = false;
+  // scope draws its field on the CPU (instruments.js), as with no WebGL, instead of copying an empty canvas. When the browser gives it
+  // back (webglcontextrestored) the shader is made again and the GPU draws the field from the next state on.
+  // (lost: the GPU does not draw the field, from the loss until the rebuilt shader is published.)
+  let lost = false, dead = false;
   cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
   // Started now, published when the driver has finished it (gl-compile.js; this shader is the longest in the app); ready() publishes it
   // at once if a render comes first, and says false if it failed (the CPU renderer then draws the field, as with no WebGL).
-  let started;
-  try { started = startProgram(gl, VS, FS(), [['p', 0]]); } catch { return null; }
-  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-  let u = null, failed = false;
+  let started = null, buf = null, stopPoll = null, u = null, failed = false;
   const { c0, c1 } = columnConsts();
   function publish() {
-    if (u || failed) return;
+    if (u || failed || gl.isContextLost()) return;
     try {
       const pr = checkProgram(gl, started);
       gl.useProgram(pr);
@@ -221,15 +218,33 @@ export function createEndoGL() {
       u = { size: U('uSize'), grow: U('uGrow'), vis: U('uVis'), red: U('uRed'), c0: U('uC0'), c1: U('uC1'), def: U('uDef'), kn: U('uKn') };
       gl.uniform4fv(u.c0, new Float32Array(c0)); gl.uniform4fv(u.c1, new Float32Array(c1));
       exerciseDraw(gl, () => { gl.uniform1f(u.size, 1); gl.drawArrays(gl.TRIANGLES, 0, 3); });
-    } catch { failed = true; u = null; }
+      if (lost) { lost = false; try { onBack?.(); } catch { /* (the owner's redraw: not this drawing's failure) */ } }   // (after a restore: the GPU draws again)
+    } catch { u = null; if (!gl.isContextLost()) failed = true; }   // (lost while it was read: the restore makes it again)
   }
-  publishWhenDone(gl, [started], publish);
+  // What the context holds: the program and the one triangle that covers the field. Made at the start and again after a restore.
+  function build() {
+    u = null; failed = false;
+    started = startProgram(gl, VS, FS(), [['p', 0]]);
+    buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    stopPoll?.(); stopPoll = publishWhenDone(gl, [started], publish);
+  }
+  try { build(); } catch { return null; }
+  // (The shader is published at an idle moment, as at the start, not in a frame: lost holds until then, the field stays the CPU's, and
+  // onBack asks the scope to draw it once the GPU can.)
+  cv.addEventListener('webglcontextrestored', () => {
+    if (dead) return;
+    try { build(); } catch { failed = true; }   // (failed: lost says false and ready() false, and the scope lets the GPU go for the CPU renderer)
+  });
   return {
     canvas: cv,
     /** True once the shader is published (waiting for it if it is not yet); false if it failed. */
     ready() { if (lost) return false; publish(); return !!u; },
+    /** True from the loss of the context until it is built again: not a failure, the scope draws the CPU field meanwhile and keeps this. */
+    get lost() { return lost && !failed; },
     /** Free the GL context now (a presenter copy that is done), rather than whenever the browser gets to it. */
-    dispose() { gl.getExtension('WEBGL_lose_context')?.loseContext(); cv.width = cv.height = 0; },
+    dispose() { dead = true; stopPoll?.(); gl.getExtension('WEBGL_lose_context')?.loseContext(); cv.width = cv.height = 0; },
     // Raw RGBA of the last frame (for tests).
     pixels() { const n = cv.width, a = new Uint8Array(n * n * 4); gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, a); return a; },
     // st: { grow, vis, red (0..1 red-sign strength), def: [4], kn: [16] }; draws into the shared canvas at res x res.

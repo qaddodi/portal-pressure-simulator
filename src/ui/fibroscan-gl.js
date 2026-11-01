@@ -6,7 +6,7 @@
 // One small context serves every FibroScan panel: a map is drawn into it (resized to the map's size) and copied out
 // (drawImage) in the same task.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=71adf77c58';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -59,38 +59,51 @@ function make(F) {
   canvas.width = canvas.height = 1;
   const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'low-power' });
   if (!gl) return false;
-  const started = startProgram(gl, VS, FS, [['p', 0]]);
-  const buf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(0);
-  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-  // The noise grids, as they are (one float a texel, fetched exactly).
-  ['a1', 'a2', 'b1', 'b2', 'p1', 'p2'].forEach((k, i) => {
-    const f = F[k], t = gl.createTexture();
-    gl.activeTexture(gl.TEXTURE0 + i);
-    gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, f.gw, f.gh, 0, gl.RED, gl.FLOAT, Float32Array.from(f.grid));
-  });
-  let lost = false;
-  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
+  // (lost: the GPU does not draw the map, from the loss until the rebuilt program is published.)
+  let lost = false, started = null, stopPoll = null;
   const U = {};
   const s = { canvas, gl, U, failed: false, published: false, get lost() { return lost || s.failed; } };
   // The finished program read, its samplers set and one draw made into a throwaway 1 × 1 target, so the first map has no driver work left.
   s.publish = () => {
-    if (s.published || s.failed || lost) return;
+    if (s.published || s.failed || gl.isContextLost()) return;
     try {
       const prog = checkProgram(gl, started);
       gl.useProgram(prog);
       for (const n of ['uA1', 'uA2', 'uB1', 'uB2', 'uP1', 'uP2', 'uCell', 'uOffA', 'uOffB', 'uOffP', 'uN', 'uNB', 'uC', 'uT0', 'uCos', 'uSin']) U[n] = gl.getUniformLocation(prog, n);
       ['a1', 'a2', 'b1', 'b2', 'p1', 'p2'].forEach((k, i) => gl.uniform1i(U[`u${k.toUpperCase()}`], i));
       exerciseDraw(gl, () => { gl.uniform1f(U.uN, 1); gl.uniform1f(U.uNB, 1); gl.uniform1f(U.uC, 1); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); });
-      s.published = true;
-    } catch (e) { s.failed = true; console.warn('FibroScan map: WebGL2 shader failed, drawn on the CPU.', e); }
+      s.published = true; lost = false;   // (after a restore: the GPU draws the maps again)
+    } catch (e) {
+      if (gl.isContextLost()) return;   // (lost while it was read: the restore makes it again)
+      s.failed = true; console.warn('FibroScan map: WebGL2 shader failed, drawn on the CPU.', e);
+    }
   };
-  publishWhenDone(gl, [started], s.publish);
+  // What the context holds: the program, the quad and the six noise grids. Made at the start, and again when a lost context comes back.
+  function build() {
+    s.published = false; s.failed = false;
+    started = startProgram(gl, VS, FS, [['p', 0]]);
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    // The noise grids, as they are (one float a texel, fetched exactly).
+    ['a1', 'a2', 'b1', 'b2', 'p1', 'p2'].forEach((k, i) => {
+      const f = F[k], t = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0 + i);
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, f.gw, f.gh, 0, gl.RED, gl.FLOAT, Float32Array.from(f.grid));
+    });
+    stopPoll?.(); stopPoll = publishWhenDone(gl, [started], s.publish);
+  }
+  build();
+  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
+  // A context the browser gives back is built afresh; the maps stay on the CPU (lost) until the program is published, at an idle moment.
+  canvas.addEventListener('webglcontextrestored', () => {
+    try { build(); } catch (e) { s.failed = true; console.warn('FibroScan map: WebGL2 could not be rebuilt, drawn on the CPU.', e); }
+  });
   return s;
 }
 

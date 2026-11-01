@@ -10,7 +10,7 @@
 // smoothing), the noise is added and clamped as 'lighter' adds it, and the band darkens as the gradient's black did.
 // doppler.js keeps its 2D path where WebGL2 is missing, on a software renderer (the browser checks), or when the context is lost.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=71adf77c58';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -48,26 +48,35 @@ export function createDopplerGL() {
     const ri = gl.getExtension('WEBGL_debug_renderer_info');
     if (/SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)))) { gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
   } catch { /* the renderer's name withheld: taken as a GPU */ }
-  let lost = false;
+  // (lost: the GPU does not draw the monitor, from the loss until the rebuilt program is published.)
+  let lost = false, dead = false;
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
-  // The program is started now and published once the driver has finished it (gl-compile.js); render() publishes it if it comes first.
-  let started;
-  try { started = startProgram(gl, VS, FS, [['p', 0]]); } catch (e) { console.warn('Doppler on the GPU: shader failed; the 2D monitor stays.', e); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
-  const quad = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-  const vao = gl.createVertexArray();
-  gl.bindVertexArray(vao);
-  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-  gl.bindVertexArray(null);
-  const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); return t; };
-  const ringT = tex(), noiseT = tex();
+  let started = null, quad = null, vao = null, ringT = null, noiseT = null, stopPoll = null;
   let prog = null, U = null, failed = false;
+  let rw = 0, rh = 0, noiseSrc = null;   // (noiseSrc: the noise floor as last sent, to send it again to a context that came back)
+  const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); return t; };
+  // What the context holds: the program (started now, published once the driver has finished it, gl-compile.js; render() publishes it if
+  // it comes first), the quad and the two textures. Made at the start, and again when a lost context comes back (webglcontextrestored):
+  // none of it survives a loss. The ring is sent whole by doppler.js on its next GPU frame (it draws the 2D path until then and marks it),
+  // the noise floor is sent again here.
+  function build() {
+    prog = null; U = null; failed = false; rw = rh = 0;
+    started = startProgram(gl, VS, FS, [['p', 0]]);
+    quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
+    ringT = tex(); noiseT = tex();
+    stopPoll?.(); stopPoll = publishWhenDone(gl, [started], publish);
+  }
   // The finished program read, and one draw of it into a throwaway 1 × 1 target: the browser builds the shader's GPU pipeline at its
   // first draw (Safari's Metal does it then, not at the link), which fell on the monitor's first frame as it opened. The ring's and the
   // noise's textures are not touched (they may already hold the monitor's data); render() binds both again.
   function publish() {
-    if (prog || failed || lost) return;
+    if (prog || failed || gl.isContextLost()) return;
     try {
       prog = checkProgram(gl, started);
       U = Object.fromEntries(['ring', 'noise', 'size', 'org', 'p', 'nOff', 'noiseA', 'wall'].map((k) => [k, gl.getUniformLocation(prog, k)]));
@@ -81,10 +90,25 @@ export function createDopplerGL() {
         gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
       });
       for (const t of dummy) gl.deleteTexture(t);
-    } catch (e) { failed = true; console.warn('Doppler on the GPU: shader failed; the 2D monitor stays.', e); }
+      lost = false;   // (after a restore: the GPU draws the monitor again from the next frame)
+    } catch (e) {
+      if (gl.isContextLost()) { prog = null; U = null; return; }   // (lost while it was read: the restore makes it again)
+      failed = true; console.warn('Doppler on the GPU: shader failed; the 2D monitor stays.', e);
+    }
   }
-  publishWhenDone(gl, [started], publish);
-  let rw = 0, rh = 0;
+  try { build(); } catch (e) { console.warn('Doppler on the GPU: shader failed; the 2D monitor stays.', e); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
+  const putNoise = (fi) => {
+    gl.bindTexture(gl.TEXTURE_2D, noiseT);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, fi.width, fi.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, bytes(fi.data));
+  };
+  // A context the browser gives back (iOS Safari returns to the page, or a GPU process restarts) is built afresh. The monitor stays on the
+  // 2D path (doppler.js reads lost) until the program is published, at an idle moment as at the start, not in a frame; the ring goes up
+  // whole with the first GPU frame (rw and rh are zero, and doppler.js marks it while the GPU is not drawing).
+  canvas.addEventListener('webglcontextrestored', () => {
+    if (dead) return;
+    try { build(); if (noiseSrc) putNoise(noiseSrc); } catch (e) { failed = true; console.warn('Doppler on the GPU: could not be rebuilt; the 2D monitor stays.', e); }
+  });
   const bytes = (d) => (d instanceof Uint8Array ? d : new Uint8Array(d.buffer, d.byteOffset, d.byteLength));
   return {
     get lost() { return lost || failed; },
@@ -108,11 +132,7 @@ export function createDopplerGL() {
       gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
     },
     /** The noise floor's texture (an ImageData, makeNoise). */
-    noise(fi) {
-      gl.bindTexture(gl.TEXTURE_2D, noiseT);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, fi.width, fi.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, bytes(fi.data));
-    },
+    noise(fi) { noiseSrc = fi; if (!lost && !gl.isContextLost()) putNoise(fi); },
     /**
      * The trace drawn at (dx, dy) of a canvas W × H (device px, from the top left): the ring from column p + 1 on the left,
      * the noise view at (nx, ny) added with share noiseA, and the wall filter's band about the baseline (base px from the
@@ -141,6 +161,7 @@ export function createDopplerGL() {
       return true;
     },
     dispose() {
+      dead = true; noiseSrc = null; stopPoll?.();
       gl.deleteTexture(ringT); gl.deleteTexture(noiseT); gl.deleteBuffer(quad); gl.deleteVertexArray(vao); gl.deleteProgram(prog);
       canvas.width = canvas.height = 0;
       gl.getExtension('WEBGL_lose_context')?.loseContext();   // (the context given back at once, as endo-gl.js does, not when the browser gets to it)

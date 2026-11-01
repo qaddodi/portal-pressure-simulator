@@ -44,9 +44,9 @@ import { cropToGrid } from './organs-gl.js?v=e536a90598';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=e08cf3a692';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
-import { createLabelGL } from './label-gl.js?v=56cf5831ba';
-import { createGlassGL } from './glass-gl.js?v=0835b7a5c8';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=8235933c82';
+import { createLabelGL } from './label-gl.js?v=448210a59f';
+import { createGlassGL } from './glass-gl.js?v=b76d0cb615';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=bb5d4afd68';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -2488,7 +2488,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=fd7449d103').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=239ecb623d').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2508,12 +2508,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the live site, which shares this origin: both are dropped.)
   const QUALITY = [{ fps: 0, res: 1 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }], Q_SAVER = 1, Q_SOFTWARE = 2;
   const paceOf = (q) => (QUALITY[q].fps ? 1000 / QUALITY[q].fps : 0);   // (ms between drawn frames of the blood; 0: every frame)
-  const SOFTWARE = !!veins?.software;
+  let SOFTWARE = !!veins?.software;
   // The overlays on the GPU (stage-over.js, veins-gl overlay; ?stageover=gpu): see syncOver. Set here, before anything made with the
   // stage reads it: read before this line, it threw while the stage was made (31 Oct, d213d755).
-  const OVER_ON = OVER_GPU && !!veins?.overlay && (!SOFTWARE || OVER_ASK);
+  // (Both are read from the context the stage starts with, and again from the one a restore hands back: renderPath.)
+  let OVER_ON = OVER_GPU && !!veins?.overlay && (!SOFTWARE || OVER_ASK);
   try { localStorage.removeItem('pps.quality'); localStorage.removeItem('pps.q'); } catch { /* storage unavailable */ }
-  let quality = SOFTWARE ? Q_SOFTWARE : 0;
+  let quality = SOFTWARE ? Q_SOFTWARE : 0, saverOn = false;   // (saverOn: Settings › Battery saver, for the step a changed renderer returns to)
+  // A context handed back by a restore is read again for what the start-up one decided: whether the renderer is software (the browser can
+  // lose its GPU and hand back a software one, which then needs the lower step, the yield between frames and the SVG overlays, as a
+  // software start-up has) and whether the overlays can be painted in it (veins.overlay). The labels' and the glasses' own choice, made
+  // when they were built, stands. Only on a restore: at start-up the lines above did it, before the things made after them read it.
+  function renderPath() {
+    const soft = !!veins?.software;
+    OVER_ON = OVER_GPU && !!veins?.overlay && (!soft || OVER_ASK);
+    if (OVER_ON) overWatch();
+    if (soft === SOFTWARE) return;
+    SOFTWARE = soft;
+    quality = SOFTWARE ? Q_SOFTWARE : saverOn ? Q_SAVER : 0;
+    wrap.dataset.renderer = SOFTWARE ? 'software' : 'gpu'; wrap.dataset.quality = String(quality);
+    swYield = softwareYield(SOFTWARE, SOFTWARE ? vCanvas.getContext('webgl2') : null);
+    resizeCanvas();
+  }
   // The context is lost (iOS Safari takes it in the background or under memory pressure): the SVG vessels and organs
   // come back at once, as they do whenever the GPU is not wanted (syncVeinsNow with `on` false, which a lost context never
   // reaches). Without this the tubes stayed hidden under a blank canvas until a restore, which Safari may never send.
@@ -2535,6 +2551,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     veins?.setLayerScale?.(figOpt('glow'));
     if (picNow) veins?.setPicture?.(picNow, picLin);   // (Sharper upscaling, or the overlays' plain upscale: the new context draws the picture at the same share)
     if (!veins) { wrap.classList.remove('gl-on', 'gl-plate'); syncPlateLook(); return; }   // (no context this time: the SVG stays)
+    renderPath();
     vBinKey = ''; binShown = null; bendShown = null; glOrgans = false; plateKey = ''; tubesShown = null;   // (a new context holds no vessels yet)
     liverKey = '';   // (nor the liver's lower edge the ascites stops at: morphLiver sends it again)
     for (const x of EV) for (const o of [x, ...(x.strands || []), ...(x.feeders || [])]) { o.glRadKey = null; o.glRSent = null; }
@@ -11078,7 +11095,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let flowGate = lastT;
   // On a software renderer only (WebGL drawn on the CPU), a vessel frame waits for the last to finish on the GPU and gives the
   // page as long again (see sw-yield.js); on a GPU there is no yield (null) and the loop below is unchanged.
-  const swYield = softwareYield(SOFTWARE, SOFTWARE ? vCanvas.getContext('webgl2') : null);
+  let swYield = softwareYield(SOFTWARE, SOFTWARE ? vCanvas.getContext('webgl2') : null);
   // The overlays on the GPU (stage-over.js, veins-gl overlay; ?stageover=gpu): the lowest run of #stageOver's groups the painter can
   // read is painted in the vessel canvas, and its SVG copy hidden (OVER_CLASS). Read again when anything in the overlays changes that
   // the painter does not read at each paint (needsReread), when the page's state around them changes (overKey), and while a CSS
@@ -11098,7 +11115,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   };
   const overEasing = new Map();   // element → when its ease ends at the latest (performance.now), for a transition that never reports
   const overKey = () => `${appEl?.className || ''}|${document.documentElement.className}|${wrap.className}|${svgOver ? [...svgOver.classList].filter((c) => c !== OVER_ALL).join(' ') : ''}|${document.documentElement.dataset.theme || ''}|${reduceMotion.matches}`;
-  if (OVER_ON) {
+  // (Set up once, at start-up where the overlays are on the GPU, or by renderPath if a restore makes them possible.)
+  let overWatching = false;
+  function overWatch() {
+    if (overWatching) return;
+    overWatching = true;
     const watch = new MutationObserver((rs) => {
       for (const r of netChanges(rs)) {
         if (needsReread(r)) { overDirty = true; break; }
@@ -11116,6 +11137,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     svgOver.addEventListener('transitionend', ended);
     svgOver.addEventListener('transitioncancel', ended);
   }
+  if (OVER_ON) overWatch();
   // (Every SVG copy shown again: the GPU paints none of them now.)
   function overClear() {
     for (const u of overPainted) u.classList.remove(OVER_CLASS);
@@ -11990,6 +12012,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelSlots: () => Object.fromEntries([...labelSol].filter(([, r]) => !r.drop).map(([k, r]) => [k, `${r.dir}/${r.pi}/${Math.round(r.dx)},${Math.round(r.dy)}`])),
     setSaver(on) {
       setFrameSaver(on);   // (the lobule, the sinusoid and the FibroScan read it each frame)
+      saverOn = !!on;
       if (!SOFTWARE) { quality = on ? Q_SAVER : 0; wrap.dataset.quality = String(quality); resizeCanvas(); }
     },
     labelScale: () => labelScale,

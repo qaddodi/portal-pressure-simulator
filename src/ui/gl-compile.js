@@ -8,9 +8,20 @@
 import { leftAlone } from './quiet.js?v=388052eba8';
 
 // (Asked once per context where it is there: getExtension is a call into the browser each time. Not kept when it is missing, so a
-// context that came back from a loss is asked again.)
-const parallel = new WeakMap();
-const parallelOf = (gl) => { let e = parallel.get(gl); if (!e) { e = gl.getExtension('KHR_parallel_shader_compile'); if (e) parallel.set(gl, e); } return e; };
+// context that came back from a loss is asked again; and one that is there is forgotten when its context is restored, as a restored
+// context has none of its extensions on until they are asked for once more.)
+const parallel = new WeakMap(), watched = new WeakSet();
+const parallelOf = (gl) => {
+  let e = parallel.get(gl);
+  if (!e) {
+    e = gl.getExtension('KHR_parallel_shader_compile');
+    if (e) {
+      parallel.set(gl, e);
+      if (!watched.has(gl)) { watched.add(gl); gl.canvas?.addEventListener?.('webglcontextrestored', () => parallel.delete(gl)); }
+    }
+  }
+  return e;
+};
 
 /** Starts a program: its shaders compiled and its link begun, nothing read. bind: [[attribute, location], …] set before the link. */
 export function startProgram(gl, vs, fs, bind = []) {

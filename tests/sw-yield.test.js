@@ -48,9 +48,11 @@ test('a GPU makes no yield', () => {
 test('on a GPU the frame loop never enters the yield', () => {
   const js = readFileSync(new URL('stage.js', SRC), 'utf8');
   // (the yield exists only from the software test, and every use of it is guarded by its existence)
-  assert.match(js, /const swYield = softwareYield\(SOFTWARE, SOFTWARE \? vCanvas\.getContext\('webgl2'\) : null\);/);
-  assert.match(js, /const SOFTWARE = !!veins\?\.software;/);
-  const uses = js.match(/swYield\b[^;]*/g).slice(1);
+  assert.match(js, /let swYield = softwareYield\(SOFTWARE, SOFTWARE \? vCanvas\.getContext\('webgl2'\) : null\);/);
+  assert.match(js, /let SOFTWARE = !!veins\?\.software;/);
+  // (made again, from the same test, when a restore hands the stage another renderer: renderPath; these two are the only writes)
+  assert.equal((js.match(/swYield = softwareYield\(SOFTWARE, SOFTWARE \? vCanvas\.getContext\('webgl2'\) : null\);/g) || []).length, 2);
+  const uses = js.replace(/(?:let )?swYield = softwareYield\([^;]*;/g, '').match(/swYield\b[^;]*/g);   // (the declaration and the second write taken out: what is left is the uses)
   assert.ok(uses.length >= 3, 'the yield is used in the frame loop');
   for (const u of uses) assert.match(u, /^swYield(\?\.drew\(now\)|\s*&&\s*!swYield\.ready\()/, `unguarded use: ${u}`);
   // The lobule and the sinusoid view the same: a yield only from their own context's software test, every use guarded.

@@ -250,11 +250,16 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     progs = programsOf(gl);
     if (!progs) return null;
   }
-  const { bprog, pprog, BU, PU } = progs || {};
-  const vao = gl?.createVertexArray();
+  // (The glass's own objects in its own context, copy mode only: made now, and again when a lost context comes back.)
+  let bprog, pprog, BU, PU, vao, copyTex = null, pass = null, blurred = null, fbPass, fbOut;
   const tex = (filter) => texOf(gl, filter);
-  const copyTex = gl ? tex(gl.LINEAR) : null, pass = gl ? tex(gl.LINEAR) : null, blurred = gl ? tex(gl.LINEAR) : null;
-  const fbPass = gl?.createFramebuffer(), fbOut = gl?.createFramebuffer();
+  const own = () => {
+    ({ bprog, pprog, BU, PU } = progs);
+    vao = gl.createVertexArray();
+    copyTex = tex(gl.LINEAR); pass = tex(gl.LINEAR); blurred = tex(gl.LINEAR);
+    fbPass = gl.createFramebuffer(); fbOut = gl.createFramebuffer();
+  };
+  if (gl) own();
   // (Where a fade from above stops being the glass's own: where its canvas lies, or would.)
   const stop = (cards ? cards.before : pane || layers[0]).parentNode;
   if (canvas) (cards ? cards.before : pane || layers[0]).before(canvas);
@@ -266,7 +271,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   let shown = false, drawnKey = '', quiet = 0, liveUntil = 0, poll = 0, gen = 0, readySeq = 0;
   // (Callout glass kept: the page as last read for the glasses, and whether something may have changed it since; see drawKept.)
   let kept = null, keptStale = true;
-  const masks = new WeakMap(), maskTex = new Set(), marked = new Set();
+  let masks = new WeakMap();
+  const maskTex = new Set(), marked = new Set();
   const norm = document.createElement('canvas').getContext('2d');
   const colour = (str, fb) => {   // any CSS colour, as straight [r, g, b, a] (0–1), through the canvas' own parser
     norm.fillStyle = 'transparent'; norm.fillStyle = str || fb;
@@ -946,6 +952,20 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const offFigure = onFigure?.(() => { if (shown && !hostOn) wake(); });   // (drawn into the figure's canvas: laid with each picture)
   const onLost = (e) => { e.preventDefault(); lost = true; unmark(); };
   canvas?.addEventListener('webglcontextlost', onLost);
+  // Copy mode: the context given back (iOS Safari returns to the page, or a GPU process restarts) gets its programs, textures and
+  // framebuffers again and the next frame takes a fresh copy of the figure; the browser's glass shows until it is in. (Without a copy of
+  // its own there is no context here: the glass drawn into the figure's canvas follows that canvas, setHost.)
+  const onBack = () => {
+    if (dead || !gl) return;
+    progs = programsOf(gl);
+    if (!progs) { dead = true; unmark(); return; }   // (the shaders will not build: the browser's glass stays)
+    own();
+    maskTex.clear(); masks = new WeakMap();   // (the masks' textures went with the context)
+    gen++; pending = false; ready = null; takenKey = ''; kept = null; fbSize = ''; drawn = false;
+    lost = false;
+    ask();
+  };
+  canvas?.addEventListener('webglcontextrestored', onBack);
   ask();
   return {
     canvas,
@@ -1001,6 +1021,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       removeEventListener('resize', again);
       offFigure?.();
       canvas?.removeEventListener('webglcontextlost', onLost);
+      canvas?.removeEventListener('webglcontextrestored', onBack);
       host?.canvas.removeEventListener('webglcontextlost', onHostLost);
       hostMo?.disconnect();
       for (const off of hostTops) off();
