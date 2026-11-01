@@ -2,9 +2,9 @@
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=f5c417240a';
-import { pressureColor } from './colormap.js?v=e335f225fc';
+import { pressureColor } from './colormap.js?v=86535c797a';
 import { store, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=65ea7f9f65';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=e8e300385d';
 import { frameFor, cancelFrame, paceMs } from './frame.js?v=15d5254a2c';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { shownOr } from './shown.js?v=8a7bc6961d';

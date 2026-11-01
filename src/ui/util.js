@@ -462,6 +462,43 @@ export function reconcile(list, rows) {
     for (const r of fresh) if (r.dataset.row) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${RISE_PX}px)` }, { opacity: 1, transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE, delay: going.length ? 80 : 0, fill: 'backwards' });
   }
 }
+/**
+ * Shows or hides a strip that sits in the flow (a block kept with `hidden`): it opens from nothing and fades in, or fades and
+ * folds shut and is hidden once gone, so what stands under it eases to its place instead of jumping (the Tests card's
+ * comparison line and its pick-a-second-instrument hint popped in and out). Where nothing is drawn yet, or the strip is not
+ * on screen, it just switches. Reduce Motion: a fade, no movement. A second call mid-way turns round from where it has got to.
+ */
+const folds = new WeakMap();
+const FOLD_PROPS = ['paddingTop', 'paddingBottom', 'marginTop', 'marginBottom'];
+export function foldHidden(el, hide) {
+  const cur = folds.get(el);
+  if (cur ? cur.hide === hide : el.hidden === hide) return;
+  let now = null;   // (turning round mid-way: from what is drawn now)
+  if (cur) {
+    const c = getComputedStyle(el);
+    now = { opacity: +c.opacity, height: `${el.offsetHeight}px`, ...Object.fromEntries(FOLD_PROPS.map((k) => [k, c[k]])) };
+    cur.anim.cancel(); folds.delete(el); el.style.overflow = '';
+  }
+  const drawn = el.animate && el.isConnected && (cur || (hide ? hasBox(el) : !!el.parentElement && hasBox(el.parentElement)));
+  if (!drawn) { el.hidden = hide; return; }
+  if (!hide) el.hidden = false;
+  const c = getComputedStyle(el);
+  const open = { opacity: 1, height: `${el.offsetHeight}px`, ...Object.fromEntries(FOLD_PROPS.map((k) => [k, c[k]])) };
+  const shut = { opacity: 0, height: '0px', ...Object.fromEntries(FOLD_PROPS.map((k) => [k, '0px'])) };
+  const from = now || (hide ? open : shut), to = hide ? shut : open;
+  const still = reduceMotionMQ.matches;
+  if (!still) el.style.overflow = 'hidden';
+  const a = el.animate(still ? [{ opacity: from.opacity }, { opacity: to.opacity }] : [from, to],
+    hide ? { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' } : { duration: D_SMALL, easing: EASE_ARRIVE });
+  const me = { hide, anim: a };
+  folds.set(el, me);
+  a.finished.then(() => {
+    if (folds.get(el) !== me) return;
+    folds.delete(el); el.style.overflow = '';
+    if (hide) el.hidden = true;
+    a.cancel();
+  }, () => {});
+}
 /** Text that crossfades when it changes (a status word, an arrow): swapFade, and a fade in from empty, so a word
  *  that appears doesn't pop either. then: run with the new text in (a class that goes with it). */
 export function swapText(el, txt, then) {

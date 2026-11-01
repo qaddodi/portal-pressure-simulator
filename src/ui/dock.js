@@ -3,22 +3,22 @@
 
 import { store, hiddenNow } from './store.js?v=4ef2a6ffd8';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=65ea7f9f65';
-import { lobuleFlows } from './lobule-model.js?v=582106de44';
-import { createProfile } from './charts.js?v=e8145ddcb3';
-import { createPressureTime } from './pressure-time.js?v=26f4e66d17';
-import { createHvpgProcedure } from './hvpg-proc.js?v=6de83d47fb';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=1e382e9e87';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=e8e300385d';
+import { lobuleFlows } from './lobule-model.js?v=5b88ae0091';
+import { createProfile } from './charts.js?v=ac5c1ea005';
+import { createPressureTime } from './pressure-time.js?v=7562e9873a';
+import { createHvpgProcedure } from './hvpg-proc.js?v=a171bfda65';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=942d858380';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=8ae4016b2f';
-import { createReadoutsPane } from './readouts-pane.js?v=1bf6f25ce0';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=b64250ae28';
+import { createReadoutsPane } from './readouts-pane.js?v=e50e7c1fe5';
 import { frameFor } from './frame.js?v=15d5254a2c';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=8a7bc6961d';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { compareRows } from './idle-keys.js?v=c5c00c9da1';
-import { D_FLIP, D_SMALL, EASE_IN } from './ease.js?v=615d96d663';
+import { D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=615d96d663';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
@@ -522,8 +522,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       type: 'button', class: 'ps-btn', 'data-view': v, 'aria-pressed': String(v === 'scope'), onclick: () => setEndoSub(v),
     }, label)));
   function setEndoSub(v) {
+    const was = endoSub, shownBefore = hasBox(endoPane);
     endoSub = v; endoPane.dataset.sub = v;
     for (const b of endoSwitch.children) b.setAttribute('aria-pressed', String(b.dataset.view === v));
+    // The view that comes in fades up where the other was (the pane switched with one display flip).
+    if (was !== v && shownBefore) (v === 'wall' ? wall.el : endoscopy.el).animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
     if (frame) nextFrame(() => (v === 'wall' ? wall : endoscopy).update(frame));
     fitHeight();
   }
@@ -666,16 +669,16 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const probe = open.length === 1 && open[0] === 'doppler' && frame?.probe ? EDGES.find((e) => e.id === frame.probe)?.label : null;
     const txt = probe || '';
     const l = titleEl.querySelector('.dt-l');
-    if (l.textContent !== txt) l.textContent = txt;
+    swapText(l, txt);   // (the probe's vessel name crossfades when the probe moves)
     titleEl.classList.toggle('dop-on', !!probe);
   }
-  function endPick() { picking = false; pickHint.hidden = true; workspace.classList.remove('picking'); }
+  function endPick() { picking = false; foldHidden(pickHint, true); workspace.classList.remove('picking'); }
   function toggleSecond() {
     if (open.length > 1) { open = open.slice(0, 1); endPick(); layout(); return; }
     if (picking) { endPick(); layout(); return; }
     picking = true;
     pickHint.querySelector('b').textContent = byId[open[0]].label;
-    pickHint.hidden = false; workspace.classList.add('picking');
+    foldHidden(pickHint, false); workspace.classList.add('picking');
     layout();
     tabs.querySelector(`.instr-tab:not([data-instrument="${tabOf(open[0])}"])`)?.focus();
   }
@@ -790,7 +793,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   function updateHeader() {
     const st = store.get(), comparing = !!st.compareSnap;
     const hideCmp = !comparing || state === 'peek' || st.imaging;
-    if (comparison.hidden !== hideCmp) comparison.hidden = hideCmp;
+    foldHidden(comparison, hideCmp);   // (it opens and folds shut, so the card under it eases rather than jumps)
     if (comparing && frame) {
       const a = st.compareSnap.metrics, b = frame.metrics;
       const rows = compareRows(a, b, !hiddenNow(st)?.has('trueHVPG'), !st.hiddenReadouts?.has('model'), fmt);
@@ -805,8 +808,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     paintTitle();
     const txt = !frame ? '' : state === 'peek' && !st.imaging ? INFO[open[0]][1](frame)
       : frame.clock === 'disease' ? (st.running ? `Day ${frame.day}` : `Paused · Day ${frame.day}`) : st.running ? '' : 'Paused';
-    if (live.textContent !== txt) live.textContent = txt;
     const ls = state === 'peek' ? 'summary' : st.running ? 'live' : 'paused';
+    // A new kind of status (Paused, a day count, an instrument's summary) crossfades in; the numbers inside one kind just count on.
+    const kind = ls + '|' + txt.replace(/[\d.]+/g, '#');
+    if (live._kind !== kind) { live._kind = kind; swapText(live, txt); } else putText(live, txt);
     if (live.dataset.state !== ls) live.dataset.state = ls;
     // Each tab carries its instrument's reading (not where the numbers are hidden).
     if (frame && isVisible()) for (const id of TABS) {
