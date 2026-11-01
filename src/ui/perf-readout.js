@@ -149,6 +149,8 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
     cur = { n: ++n, kind, win, tally: {}, counts: {}, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly, hide: HIDES[hideAt], orgs: gpuProbe.gpuOrgans, dts: [], totals: perf().totals };
     gpuProbe.take(); gpuProbe.takeNotes(); gpuProbe.takeGauges();
     cur.paths = surfaceRows();
+    if (recent.length < 30) calUntil = Math.max(calUntil, performance.now() + 1000);
+    kick();
     if (!was && !beatT) { beatAt = performance.now(); busy = 0; beatT = setTimeout(beat, 0); }
   };
   addEventListener('pointerdown', (e) => { if (!onStage(e)) return; down.set(e.pointerId, [e.clientX, e.clientY]); maxDown = Math.max(maxDown, down.size); if (down.size === 1) moved = false; }, { capture: true, passive: true });
@@ -210,9 +212,19 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
       }
     }
     prevT = t; prevTs = ts > 0 ? ts : 0;
-    nextFrame(tick);
+    loop = 0;
+    if (wanted()) loop = nextFrame(tick) || 1;
+    else { prevT = prevTs = 0; gpuProbe.take(); gpuProbe.takeNotes(); gpuProbe.takeGauges(); }   // (the next run starts clean: an idle gap is not a frame)
   };
-  nextFrame(tick);
+  // The sampler runs only while it is wanted: a window open (a gesture's, At rest, Record) or the first second after the panel opens or a
+  // window begins with too few intervals seen to tell the refresh (a bounded calibration), never in a hidden tab. An endless frame loop of
+  // its own kept the page drawing at rest and changed the idle it was there to measure (GPU motion review, 1 Nov). ?perfloop=1: as before.
+  const ALWAYS = /[?&]perfloop=1\b/.test(location.search);
+  let loop = 0, calUntil = performance.now() + 1000;
+  const wanted = () => !document.hidden && (ALWAYS || !!cur || performance.now() < calUntil);
+  const kick = () => { if (!loop && wanted()) loop = nextFrame(tick) || 1; };
+  addEventListener('visibilitychange', kick);
+  kick();
 
   // The panel: top left under the top bar, small, folded to one line by a tap on its title. It takes taps only on itself.
   const el = document.createElement('div');
@@ -269,7 +281,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   const surfText = () => surfacesText(surfaceRows());
   let shownSurf = '';
   const paintSurf = () => { const t = surfText(); if (t !== shownSurf) { shownSurf = t; surfEl.textContent = t; } };
-  setInterval(() => { if (!cur && !folded) paintSurf(); }, 500);
+  setInterval(() => { if (!cur && !folded && !document.hidden) paintSurf(); }, 500);
   if (window.pps) window.pps.surfaces = () => surfaceRows();   // (for a headless run: pps.surfaces())
   const scan = () => blurText(scanBlurs(document, (el) => window.pps?.stage?.blurWhy?.(el) ?? null), document.querySelectorAll('[data-gl]').length);
   blurs.textContent = 'Blurs';
@@ -287,12 +299,11 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   const logEl = document.createElement('div');
   logEl.style.cssText = 'margin-top:8px';
   const logText = () => [longFramesText(frameLog.long), inputsText(perf().inputToPaint)].join('\n\n');
-  let shownLog = '';
+  let shownLog = '', folded = false;
   const paintLog = () => { const t = logText(); if (t !== shownLog) { shownLog = t; logEl.textContent = t; } };
-  setInterval(() => { if (!cur) paintLog(); }, 1000);
+  setInterval(() => { if (!cur && !document.hidden && !folded) paintLog(); }, 1000);   // (not while hidden or folded: nothing to see)
   paintLog();
   bar.append(title, rest, rec, hide, gpu, orgs, blurs, copy); el.append(bar, body, surfEl, blurEl, logEl);
-  let folded = false;
   title.onclick = () => { folded = !folded; for (const e of [body, surfEl, blurEl, logEl]) e.style.display = folded ? 'none' : ''; };
   const text = () => [`${navigator.userAgent}`, `screen ${innerWidth}x${innerHeight} @${devicePixelRatio}x, refresh offered to the page ${refreshOf(recent) || '?'} Hz, ${location.pathname}${document.getElementById('preview-badge') ? ` ${document.getElementById('preview-badge').textContent.trim()}` : ''}`, ...reports.map(gestureText), surfText(), ...(blurEl.textContent ? [blurEl.textContent] : []), logText()].join('\n\n');
   copy.onclick = async () => {

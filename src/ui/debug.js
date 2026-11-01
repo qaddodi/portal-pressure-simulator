@@ -39,10 +39,12 @@ function sync() {
   }
   if (st.graph && !cv) { cv = document.createElement('canvas'); cv.width = 240; cv.height = 40; cv.style.cssText = 'display:block;margin-top:4px'; el.append(cv); }
   if (!st.graph && cv) { cv.remove(); cv = null; }
-  if (!raf) { last = performance.now(); raf = nextFrame(tick); }
+  if (!raf && !document.hidden) { last = performance.now(); prevT = 0; stamps = []; raf = nextFrame(tick); }
 }
+// (Not in a hidden tab: the overlay's frame loop stops there and starts again when the page is shown.)
+if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { if (any()) sync(); });
 function tick(t) {
-  raf = nextFrame(tick);
+  raf = document.hidden ? 0 : nextFrame(tick);
   stamps.push(t);
   while (stamps[0] < t - 1000) stamps.shift();
   if (st.gpu) {

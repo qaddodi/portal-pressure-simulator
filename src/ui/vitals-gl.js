@@ -1,0 +1,225 @@
+// The vitals monitor on the GPU (vitals-monitor.js; ?vitalsgl=0 keeps the 2D canvas). Nothing is drawn with a 2D context while it runs:
+// - the panel, the baseline and a reading's alarm patch are rounded rectangles, each one instance of a quad whose edge is found in the shader;
+// - the EKG strip is a line of capsules, one instance per segment, read from the strip's points (two floats a point, the only data sent a frame);
+// - every word and digit is a sprite from one glyph atlas, laid out at the canvas's own pixels and tinted in the shader, so a number that
+//   changes, or a reading that turns to the alarm colour, needs no new picture. The atlas (words, units and the digits at each size used)
+//   is drawn once, when the layout, the density or the fonts change, never while the strip scrolls.
+// Its three programs are started when the monitor is made (gl-compile.js) and published once the driver says they are done; a frame
+// before that draws nothing new. A lost context draws nothing until it is restored, when everything is made again.
+import { startProgram, compileDone, checkProgram } from './gl-compile.js?v=e48e05cdb3';
+import { cssVar } from './util.js?v=f7055730cc';
+
+/** '#rgb', '#rrggbb', 'rgb()' or 'rgba()' as premultiplied [r, g, b, a] in 0–1. */
+export function colorOf(c) {
+  c = String(c || '').trim();
+  let r, g, b, a = 1;
+  if (c[0] === '#') {
+    const x = c.length < 6 ? [...c.slice(1, 4)].map((d) => d + d).join('') : c.slice(1, 7);
+    [r, g, b] = [0, 2, 4].map((k) => parseInt(x.slice(k, k + 2), 16) / 255);
+    if (c.length === 9) a = parseInt(c.slice(7, 9), 16) / 255;
+  } else {
+    const n = c.match(/[\d.]+/g) || [];
+    [r, g, b] = [0, 1, 2].map((k) => (+n[k] || 0) / 255);
+    if (n.length > 3) a = +n[3];
+  }
+  return [r * a, g * a, b * a, a];
+}
+
+const VS_HEAD = '#version 300 es\nprecision highp float;\nuniform vec2 uSize;\nvec4 clipOf(vec2 p) { return vec4(p / uSize * vec2(2.0, -2.0) + vec2(-1.0, 1.0), 0.0, 1.0); }\n';
+// (Rounded rectangles: iRect = x, y, w, h in device pixels; iR = corner radius; iCol premultiplied.)
+const RECT_VS = `${VS_HEAD}in vec2 aCorner; in vec4 iRect; in float iR; in vec4 iCol;
+out vec2 vP; out vec4 vRect; out float vR; out vec4 vCol;
+void main() { vec2 p = iRect.xy - 1.0 + aCorner * (iRect.zw + 2.0); vP = p; vRect = iRect; vR = iR; vCol = iCol; gl_Position = clipOf(p); }`;
+const RECT_FS = `#version 300 es
+precision mediump float;
+in highp vec2 vP; in highp vec4 vRect; in float vR; in vec4 vCol; out vec4 o;
+void main() {
+  highp vec2 c = vRect.xy + vRect.zw * 0.5, hs = vRect.zw * 0.5;
+  highp vec2 q = abs(vP - c) - hs + vR;
+  float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - vR;
+  o = vCol * clamp(0.5 - d, 0.0, 1.0);
+}`;
+// (The strip: iA, iB a segment's ends in device pixels, read from one buffer of points at two offsets; a capsule of half width uHalf.)
+const LINE_VS = `${VS_HEAD}in vec2 aCorner; in vec2 iA; in vec2 iB; uniform float uHalf;
+out vec2 vP; out vec2 vA; out vec2 vB;
+void main() {
+  vec2 d = iB - iA; float l = length(d); vec2 t = l > 1e-4 ? d / l : vec2(1.0, 0.0), n = vec2(-t.y, t.x);
+  float e = uHalf + 1.0;
+  vec2 p = mix(iA - t * e, iB + t * e, aCorner.x) + n * e * (aCorner.y * 2.0 - 1.0);
+  vP = p; vA = iA; vB = iB; gl_Position = clipOf(p);
+}`;
+const LINE_FS = `#version 300 es
+precision highp float;
+in vec2 vP; in vec2 vA; in vec2 vB; uniform float uHalf; uniform vec4 uCol; out vec4 o;
+void main() {
+  vec2 pa = vP - vA, ba = vB - vA;
+  float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
+  float d = length(pa - ba * h);
+  o = uCol * clamp(uHalf + 0.5 - d, 0.0, 1.0);
+}`;
+// (Sprites: iDst = x, y, w, h on the canvas, iSrc the same in the atlas, both device pixels at one to one; the atlas's alpha tinted by iCol.)
+const GLYPH_VS = `${VS_HEAD}in vec2 aCorner; in vec4 iDst; in vec4 iSrc; in vec4 iCol; uniform vec2 uAtlas;
+out vec2 vUV; out vec4 vCol;
+void main() { vUV = (iSrc.xy + aCorner * iSrc.zw) / uAtlas; vCol = iCol; gl_Position = clipOf(iDst.xy + aCorner * iDst.zw); }`;
+const GLYPH_FS = `#version 300 es
+precision mediump float;
+uniform sampler2D uTex; in highp vec2 vUV; in vec4 vCol; out vec4 o;
+void main() { o = vCol * texture(uTex, vUV).a; }`;
+
+const ATLAS_W = 1024;
+
+/**
+ * A GPU renderer on `cv`, or null where WebGL 2 cannot be had (the caller keeps its 2D canvas: no context of any kind was made on it then).
+ * `measure` is a 2D context the caller lays text out with (measureText only; it never draws to the screen).
+ */
+export function createVitalsGL(cv) {
+  if (typeof WebGL2RenderingContext === 'undefined') return null;
+  let gl = null;
+  try { gl = cv.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false }); } catch { gl = null; }
+  if (!gl) return null;
+  let R = null, lost = false;
+  const atlasCv = document.createElement('canvas');
+  // (atlas: the key it was drawn for and where each entry sits: key → { x, y, w, h, ox, oy } in device pixels, ox/oy the text's origin in it)
+  let atlasKey = null, entries = new Map(), atlasH = 1;
+
+  function init() {
+    const quad = new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]);
+    const progs = {
+      rect: startProgram(gl, RECT_VS, RECT_FS, [['aCorner', 0], ['iRect', 1], ['iR', 2], ['iCol', 3]]),
+      line: startProgram(gl, LINE_VS, LINE_FS, [['aCorner', 0], ['iA', 1], ['iB', 2]]),
+      glyph: startProgram(gl, GLYPH_VS, GLYPH_FS, [['aCorner', 0], ['iDst', 1], ['iSrc', 2], ['iCol', 3]]),
+    };
+    const qb = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, qb); gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW);
+    const mk = (attrs) => {
+      const vao = gl.createVertexArray(), buf = gl.createBuffer();
+      gl.bindVertexArray(vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, qb); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      for (const [loc, n, stride, off] of attrs) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, n, gl.FLOAT, false, stride, off); gl.vertexAttribDivisor(loc, 1); }
+      gl.bindVertexArray(null);
+      return { vao, buf, cap: 0 };
+    };
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    R = {
+      progs, ready: false, u: null, tex,
+      rect: mk([[1, 4, 36, 0], [2, 1, 36, 16], [3, 4, 36, 20]]),
+      line: mk([[1, 2, 8, 0], [2, 2, 8, 8]]),
+      glyph: mk([[1, 4, 48, 0], [2, 4, 48, 16], [3, 4, 48, 32]]),
+    };
+    atlasKey = null;
+  }
+  function publish() {
+    if (R.ready) return true;
+    if (!compileDone(gl, Object.values(R.progs))) return false;
+    try {
+      const p = {}; for (const [k, h] of Object.entries(R.progs)) p[k] = checkProgram(gl, h);
+      const u = (pr, n) => gl.getUniformLocation(pr, n);
+      R.p = p;
+      R.u = {
+        rect: { size: u(p.rect, 'uSize') },
+        line: { size: u(p.line, 'uSize'), half: u(p.line, 'uHalf'), col: u(p.line, 'uCol') },
+        glyph: { size: u(p.glyph, 'uSize'), atlas: u(p.glyph, 'uAtlas'), tex: u(p.glyph, 'uTex') },
+      };
+      R.ready = true;
+    } catch (e) { R.failed = String(e?.message || e); return false; }
+    return true;
+  }
+  cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; R = null; });
+  cv.addEventListener('webglcontextrestored', () => { lost = false; init(); });
+  init();
+
+  /** Draws the atlas again for `want`: [[key, font, text], …] (each text laid out at `dpr`), when the set or the density changed. */
+  function ensureAtlas(want, dpr, epoch) {
+    const key = `${dpr}|${epoch}|${want.map((w) => w[0]).join('\u0001')}`;
+    if (key === atlasKey) return;
+    const c = atlasCv.getContext('2d');
+    const laid = new Map();
+    let x = 0, y = 0, row = 0;
+    for (const [k, font, text] of want) {
+      if (laid.has(k)) continue;
+      c.font = font;
+      const px = parseFloat(/(\d+(\.\d+)?)px/.exec(font)?.[1]) || 12, m = c.measureText(text);
+      const pad = 2, ox = Math.ceil(pad * dpr), oy = Math.ceil((px * 1.05 + pad) * dpr);
+      const w = Math.ceil((m.width + 2 * pad) * dpr) + ox, hh = Math.ceil((px * 1.4 + 2 * pad) * dpr);
+      if (x + w > ATLAS_W) { x = 0; y += row + 1; row = 0; }
+      laid.set(k, { x, y, w, h: hh, ox, oy, font, text });
+      x += w + 1; row = Math.max(row, hh);
+    }
+    atlasH = Math.max(1, y + row + 1);
+    atlasCv.width = ATLAS_W; atlasCv.height = atlasH;
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, ATLAS_W, atlasH);
+    c.fillStyle = cssVar('--white') || 'white'; c.textBaseline = 'alphabetic'; c.textAlign = 'left';
+    for (const e of laid.values()) {
+      c.setTransform(dpr, 0, 0, dpr, e.x + e.ox, e.y + e.oy);
+      c.font = e.font; c.fillText(e.text, 0, 0);
+    }
+    gl.bindTexture(gl.TEXTURE_2D, R.tex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlasCv);
+    atlasCv.width = atlasCv.height = 1;   // (the texture holds it: the canvas's memory let go)
+    entries = laid; atlasKey = key;
+  }
+  function send(slot, data) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.buf);
+    if (data.length > slot.cap) { slot.cap = Math.max(64, data.length * 2); gl.bufferData(gl.ARRAY_BUFFER, slot.cap * 4, gl.DYNAMIC_DRAW); }
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
+  }
+
+  return {
+    get ready() { return !!R && !lost && publish(); },
+    get lost() { return lost || gl.isContextLost(); },
+    get failed() { return R?.failed || null; },
+    /**
+     * One frame. `s`: { W, H (device pixels), dpr, epoch, atlas: [[key, font, text], …], rects: [[x, y, w, h, r, col], …] (CSS pixels),
+     * line: { pts: Float32Array of device pixels, n, half, col, clip: [x, y, w, h] device }, glyphs: [[key, x, y, col], …] (x, y the text's
+     * origin in CSS pixels) }. False when nothing could be drawn (no program yet, a lost context).
+     */
+    draw(s) {
+      if (!R || lost || gl.isContextLost() || !publish()) return false;
+      ensureAtlas(s.atlas, s.dpr, s.epoch);
+      const { W, H, dpr } = s;
+      gl.viewport(0, 0, W, H);
+      gl.disable(gl.SCISSOR_TEST);
+      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      // Rectangles.
+      const rd = new Float32Array(s.rects.length * 9);
+      s.rects.forEach(([x, y, w, h, r, col], i) => { rd.set([x * dpr, y * dpr, w * dpr, h * dpr, r * dpr, ...col], i * 9); });
+      if (s.rects.length) {
+        gl.useProgram(R.p.rect); gl.uniform2f(R.u.rect.size, W, H);
+        send(R.rect, rd); gl.bindVertexArray(R.rect.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, s.rects.length);
+      }
+      // The strip.
+      const L = s.line;
+      if (L && L.n > 1) {
+        gl.useProgram(R.p.line); gl.uniform2f(R.u.line.size, W, H); gl.uniform1f(R.u.line.half, L.half); gl.uniform4fv(R.u.line.col, L.col);
+        gl.enable(gl.SCISSOR_TEST);
+        const [cx, cy, cw, ch] = L.clip; gl.scissor(Math.round(cx), Math.round(H - cy - ch), Math.round(cw), Math.round(ch));
+        send(R.line, L.pts.subarray(0, L.n * 2)); gl.bindVertexArray(R.line.vao);
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, L.n - 1);
+        gl.disable(gl.SCISSOR_TEST);
+      }
+      // Words and digits.
+      const gd = new Float32Array(s.glyphs.length * 12);
+      let n = 0;
+      for (const [k, x, y, col] of s.glyphs) {
+        const e = entries.get(k);
+        if (!e) continue;
+        const dx = Math.round(x * dpr) - e.ox, dy = Math.round(y * dpr) - e.oy;
+        gd.set([dx, dy, e.w, e.h, e.x, e.y, e.w, e.h, ...col], n * 12); n++;
+      }
+      if (n) {
+        gl.useProgram(R.p.glyph); gl.uniform2f(R.u.glyph.size, W, H); gl.uniform2f(R.u.glyph.atlas, ATLAS_W, atlasH);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, R.tex); gl.uniform1i(R.u.glyph.tex, 0);
+        send(R.glyph, gd.subarray(0, n * 12)); gl.bindVertexArray(R.glyph.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, n);
+      }
+      gl.bindVertexArray(null);
+      return true;
+    },
+    dispose() { gl.getExtension('WEBGL_lose_context')?.loseContext(); R = null; lost = true; },
+  };
+}
