@@ -97,7 +97,7 @@ test('a vital holds steady through a breath, and its red flag does not flicker',
 
 test('paused, the bar repaints on a measurement or a new patient and takes a new band at once', () => {
   const dock = src('dock.js'), pane = src('readouts-pane.js');
-  const keys = dock.match(/for \(const k of \[([^\]]*)\]\) store\.on\(k, \(\) => \{ if \(frame\) update\(frame\); \}\)/);
+  const keys = dock.match(/for \(const k of \[([^\]]*)\]\) store\.on\(k, \(\) => \{ if \(frame\) updateDock\(frame\); \}\)/);
   assert.ok(keys, 'the bar listens for the HVPG measurement');
   for (const k of ['hvpgMeasured', 'showHvpg', 'hiddenReadouts', 'lastHVPG', 'presetId']) assert.match(keys[1], new RegExp(`'${k}'`));
   for (const s of [dock, pane]) assert.match(s, /if \(!x\.sev \|\| sev === 'none' \|\| !st0\.running \|\| now - x\.sevSince > 1500\)/);

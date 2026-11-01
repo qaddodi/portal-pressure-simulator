@@ -18,8 +18,9 @@ import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=8a7bc6961d
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { compareRows } from './idle-keys.js?v=81fbedda6b';
-import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
+import { releaseSpeed, carryCurve, cubicBezier, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
 const nextFrame = frameFor('dock');
+const DRAG_GUIDE = !/[?&]dockdrag=0\b/.test(typeof location === 'object' ? location.search : '');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
 
@@ -187,7 +188,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   for (const k of ['lobule', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); resizeSoon(); });
   // (A measurement, the Always show HVPG switch or a new patient's hidden readouts change what the tiles show: repaint
   // them from the last frame now, or a paused model keeps showing "Not measured" or the last patient's band until Play.)
-  for (const k of ['hvpgMeasured', 'showHvpg', 'hiddenReadouts', 'lastHVPG', 'presetId']) store.on(k, () => { if (frame) update(frame); });
+  for (const k of ['hvpgMeasured', 'showHvpg', 'hiddenReadouts', 'lastHVPG', 'presetId']) store.on(k, () => { if (frame) updateDock(frame); });
   syncLobule();
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');
@@ -265,6 +266,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   // Every display frame the shown state steps while something moves: the tiles follow (paintStrip reads only what is shown).
   shownState.on(() => { if (frame) paintStrip(frame, true); });
+  // (The flash restarts by swapping between two names of the same keyframes, flash and flash2: a new animation name starts the
+  // animation over without the reflow that removing and adding one class needed, a layout of the page inside a display frame.)
+  const flashTile = (el) => { const two = el.classList.contains('flash'); el.classList.toggle('flash', !two); el.classList.toggle('flash2', two); };
   function paintStrip(f, follow = false) {
     const m = f.metrics;
     const st0 = store.get();
@@ -322,7 +326,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         if (!x.sev || sev === 'none' || !st0.running || now - x.sevSince > 1500) {
           // A value crossing into a worse band flashes once, so a change is noticed without every number on screen.
           const RANKS = { none: -1, ok: 0, caution: 1, danger: 2, critical: 3 };
-          if (x.sev && RANKS[sev] > RANKS[x.sev]) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+          if (x.sev && RANKS[sev] > RANKS[x.sev]) flashTile(el);
           el.dataset.sev = sev; x.sev = sev;
         }
       } else x.sevNext = null;
@@ -455,7 +459,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // the finger with the next (or previous) tab's pane beside it; on release it eases to whichever is nearer, or on to the
   // next one after a quick flick. A vertical pull stays the sheet's (it closes or resizes the card).
   let sw = null, settle = null, resting = null;   // settle: the last swipe's switch, while its panes are still easing; resting: the pane that lands (still drawn off its place)
-  const shiftX = (el) => { try { const m = getComputedStyle(el).transform; return !m || m === 'none' ? 0 : new DOMMatrixReadOnly(m).m41 || 0; } catch { return 0; } };
+  // Where a pane still easing from the last swipe is drawn, worked out from that ease (its ends, start, length and curve) rather than
+  // read back from the page: a read in the middle of the drag laid the page out in a touch frame (off-GPU scan, 1 Nov).
+  let easing = null;   // { el, from, to, t0, ms, f }
+  const shiftX = (el) => { const e = easing; if (!e || e.el !== el) return 0; return e.from + (e.to - e.from) * e.f(Math.min(1, (performance.now() - e.t0) / e.ms)); };
+  // (The body's width, kept by an observer: read when a sideways drag began, it laid the page out in the touch's frame.)
+  let bodyW = 0;
+  new ResizeObserver(() => { bodyW = body.clientWidth; }).observe(body);
   const paneFor = (id) => (panes.find((p) => p.id === id) || panes.find((p) => tabOf(p.id) === id))?.el;
   const clearSwipe = (els) => { for (const e of els) if (e) { e.style.transform = ''; e.style.transition = ''; e.classList.remove('swipe-peer'); } };
   body.addEventListener('touchstart', (e) => {
@@ -473,7 +483,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // nothing jumps by what was left to go.)
       sw.carry = resting && settle ? shiftX(resting) : 0;
       settle?.();
-      sw.on = true; sw.cur = body.querySelector('.dock-pane.active'); sw.i = TABS.indexOf(tabOf(open[0])); sw.w = body.clientWidth;
+      sw.on = true; sw.cur = body.querySelector('.dock-pane.active'); sw.i = TABS.indexOf(tabOf(open[0])); sw.w = bodyW;
     }
     if (e.cancelable) e.preventDefault();
     const tdx = dx + sw.carry, d = tdx < 0 ? 1 : -1, j = sw.i + d;
@@ -489,12 +499,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (!s?.on) return;
     const v = releaseSpeed(s.trail, performance.now());   // (the finger's, px per ms to the right: the panes carry it on)
     const ms = performance.now() - s.t, go = !!s.nb && pageGo(s.dx, ms, s.w, v);
-    const d = s.dx < 0 ? 1 : -1, ease = `transform ${D_SMALL}ms ${carryCurve(s.nb ? v : v / 3, (go ? -d * s.w : 0) - s.dx, D_SMALL)}`;   // (past the end the pane moves a third of the finger)
+    const d = s.dx < 0 ? 1 : -1, curve = carryCurve(s.nb ? v : v / 3, (go ? -d * s.w : 0) - s.dx, D_SMALL), ease = `transform ${D_SMALL}ms ${curve}`;   // (past the end the pane moves a third of the finger)
     s.cur.style.transition = ease; if (s.nb) s.nb.style.transition = ease;
     s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';
     if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;
     const done = () => {
-      clearTimeout(timer); settle = null;
+      clearTimeout(timer); settle = null; easing = null;
       // (The pane that slid in is already in place: it must not play its entrance again once the drag's classes go, a blink.)
       if (go) s.nb?.classList.add('landed');
       clearSwipe([s.cur, s.nb]);
@@ -502,6 +512,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     };
     const timer = setTimeout(done, 250);
     settle = done; resting = go ? s.nb : s.cur;
+    const [x1, y1, x2, y2] = curve.match(/-?[\d.]+/g).map(Number);
+    easing = { el: resting, from: go ? s.dx + d * s.w : s.dx, to: 0, t0: performance.now(), ms: D_SMALL, f: cubicBezier(x1, y1, x2, y2) };
   };
   body.addEventListener('touchend', endSwipe, { passive: true });
   body.addEventListener('touchcancel', endSwipe, { passive: true });
@@ -545,14 +557,20 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // Whether the card is displayed (offsetParent: not display: none), kept by an observer: read on every model frame, after
   // the tiles' writes, it made the browser restyle and lay the page out in the middle of the frame (round 2 review, P5). A
   // card that comes into view catches up at once.
+  // (Until the observer's first word, which comes with the first layout and refreshes a shown card, it counts as not shown.)
   let displayed = null;
-  if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const b = es[es.length - 1].contentRect, on = b.width > 0 || b.height > 0; if (on !== displayed) { displayed = on; if (on) queueRefresh(); } }).observe(workspace);
-  const isDisplayed = () => (displayed == null ? !!workspace.offsetParent : displayed);
+  new ResizeObserver((es) => { const b = es[es.length - 1].contentRect, on = b.width > 0 || b.height > 0; if (on !== displayed) { displayed = on; if (on) queueRefresh(); } }).observe(workspace);
+  const isDisplayed = () => displayed === true;
+  // Whether each pane overflows (it scrolls), kept by an observer on the pane and what it holds: read in the refresh, a frame, it laid
+  // the page out there.
+  const overflows = new WeakMap();
+  const overflowWatch = new ResizeObserver((es) => { for (const en of es) { const el = en.target.closest('.dock-pane'); if (el) overflows.set(el, el.scrollHeight > el.clientHeight + 1); } });
+  for (const p of panes) { overflowWatch.observe(p.el); for (const c of p.el.children) overflowWatch.observe(c); }
   function refresh() {
     if (!frame || !isVisible() || state === 'peek' || !isDisplayed()) return;
     for (const id of open) {
       const p = byId[id];
-      if (id !== 'scope' && id !== 'doppler' && holding() && p.el.scrollHeight > p.el.clientHeight + 1) continue;
+      if (id !== 'scope' && id !== 'doppler' && holding() && overflows.get(p.el)) continue;
       // live instruments keep their own history and only redraw; the rest draw from the frame
       if (id === 'scope' || id === 'doppler') p.redraw(); else if (id === 'endoscopy' && endoSub === 'wall') wall.update(frame); else p.update(frame);
     }
@@ -567,21 +585,30 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     workspace.classList.toggle('side', side);
     workspace.dataset.safe = side ? 'right' : 'bottom';
     divider.setAttribute('aria-orientation', side ? 'vertical' : 'horizontal');
-    if (side) {
-      const W = stageWrap.clientWidth, w = clamp(widthPx ?? (sidewaysMQ.matches ? Math.max(340, W * 0.45) : coarseMQ.matches && W < 1200 ? 380 : Math.max(440, W * 0.38)), sidewaysMQ.matches ? 320 : 360, Math.max(360, W * 0.62));
-      workspace.style.setProperty('--instrument-w', `${Math.round(w)}px`);
-      app.style.setProperty('--side-ws-w', `${Math.round(w)}px`);   // (a sideways phone's play bar ends at the card)
-      divider.setAttribute('aria-valuenow', String(Math.round((w / W) * 100)));
-    } else {
-      // The sheet rises from above the vitals dock, at most to just under the top bar.
-      const max = stageWrap.clientHeight - css('--top-safe') - css('--vdock-h') - 40;
-      // (A tablet held upright takes the phone's sheet: main.js sheetBehaviour sets its Half and Full heights.)
-      const ratio = heightRatio ?? (isPhoneLayout() ? 0.56 : 0.46);
-      const height = Math.min(max, Math.max(180, stageWrap.clientHeight * ratio));
-      workspace.style.setProperty('--instrument-h', `${Math.max(140, height)}px`);
-      divider.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
-    }
+    if (side) putWidth(stageWrap.clientWidth);
+    else putHeight(stageWrap.clientHeight, sheetMax(stageWrap.clientHeight));
     fitHeight();
+  }
+  // The card's size from the stage's (W wide, H high): worked out with no read of the page, so a drag can size it from the stage
+  // it measured as it began.
+  const sideWidth = (W) => clamp(widthPx ?? (sidewaysMQ.matches ? Math.max(340, W * 0.45) : coarseMQ.matches && W < 1200 ? 380 : Math.max(440, W * 0.38)), sidewaysMQ.matches ? 320 : 360, Math.max(360, W * 0.62));
+  // The sheet rises from above the vitals dock, at most to just under the top bar.
+  const sheetMax = (H) => H - css('--top-safe') - css('--vdock-h') - 40;
+  const sheetRatio = () => {
+    // (A tablet held upright takes the phone's sheet: main.js sheetBehaviour sets its Half and Full heights.)
+    const ratio = heightRatio ?? (isPhoneLayout() ? 0.56 : 0.46);
+    return ratio;
+  };
+  const sheetHeight = (H, max) => Math.max(140, Math.min(max, Math.max(180, H * sheetRatio())));
+  function putWidth(W) {
+    const w = sideWidth(W);
+    workspace.style.setProperty('--instrument-w', `${Math.round(w)}px`);
+    app.style.setProperty('--side-ws-w', `${Math.round(w)}px`);   // (a sideways phone's play bar ends at the card)
+    divider.setAttribute('aria-valuenow', String(Math.round((w / W) * 100)));
+  }
+  function putHeight(H, max) {
+    workspace.style.setProperty('--instrument-h', `${sheetHeight(H, max)}px`);
+    divider.setAttribute('aria-valuenow', String(Math.round(sheetRatio() * 100)));
   }
   // A tab whose picture keeps its own shape (Ascites has none to stretch; HVPG and FibroScan are boxes of a fixed
   // aspect) has nothing to fill a tall card with, so its card is only as tall as its content: the height eases to
@@ -740,26 +767,47 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     document.getElementById('tabInstruments')?.focus();
   }
   function ensure() { updateSize(); layout(); workspace.classList.remove('entering'); void workspace.offsetWidth; workspace.classList.add('entering'); }
-  function toggle() {
+  function toggleDock() {
     if (isVisible()) close();
     else { onOpen(); setState('open'); ensure(); }
   }
   // The divider resizes the card: its width on the right, its height as a sheet. Mouse, touch and
   // keyboard; it changes the layout, never the simulation.
+  // Everything the drag needs is measured once as it begins (the stage, the card, the sheet's ceiling). While it moves, a guide line
+  // follows the pointer by a transform alone, showing where the card's edge will be, and the card takes that size once, on release:
+  // no read of the page and no new layout of the card on any frame of the drag. (?dockdrag=0: the card resizes as the pointer
+  // moves, as before, still sized from what was measured at the start.)
   let drag = null;
+  const guide = h('div', { class: 'dock-guide', 'aria-hidden': 'true' });
   divider.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
-    drag = { x: e.clientX, y: e.clientY, w: workspace.clientWidth, height: workspace.clientHeight };
+    const side = isSide(), W = stageWrap.clientWidth, H = stageWrap.clientHeight;
+    drag = { x: e.clientX, y: e.clientY, w: workspace.clientWidth, height: workspace.clientHeight, side, W, H, max: side ? 0 : sheetMax(H) };
+    if (DRAG_GUIDE) {
+      const d = divider.getBoundingClientRect(), c = workspace.getBoundingClientRect();
+      if (!guide.isConnected) document.body.append(guide);
+      guide.classList.toggle('side', side);
+      Object.assign(guide.style, side
+        ? { left: `${d.left + d.width / 2 - 1}px`, top: `${c.top}px`, width: '2px', height: `${c.height}px`, transform: '' }
+        : { left: `${c.left}px`, top: `${d.top + d.height / 2 - 1}px`, width: `${c.width}px`, height: '2px', transform: '' });
+      guide.classList.add('on');
+    }
     workspace.classList.add('resizing');
     divider.setPointerCapture(e.pointerId);
   });
   divider.addEventListener('pointermove', (e) => {
     if (!drag) return;
-    if (isSide()) widthPx = drag.w + drag.x - e.clientX;
-    else heightRatio = clamp((drag.height + drag.y - e.clientY) / stageWrap.clientHeight, 0.25, 0.75);
-    updateSize();
+    if (drag.side) widthPx = drag.w + drag.x - e.clientX;
+    else heightRatio = clamp((drag.height + drag.y - e.clientY) / drag.H, 0.25, 0.75);
+    if (DRAG_GUIDE) guide.style.transform = drag.side ? `translate3d(${Math.round(drag.w - sideWidth(drag.W))}px, 0, 0)` : `translate3d(0, ${Math.round(drag.height - sheetHeight(drag.H, drag.max))}px, 0)`;
+    else if (drag.side) putWidth(drag.W);
+    else putHeight(drag.H, drag.max);
   });
-  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) divider.addEventListener(ev, () => { if (drag) { drag = null; workspace.classList.remove('resizing'); remember(); dispatchEvent(new Event('resize')); } });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) divider.addEventListener(ev, () => {
+    if (!drag) return;
+    drag = null; guide.classList.remove('on'); workspace.classList.remove('resizing');
+    updateSize(); remember(); dispatchEvent(new Event('resize'));
+  });
   divider.addEventListener('keydown', (e) => {
     const grow = e.key === 'ArrowUp' || e.key === 'ArrowLeft', shrink = e.key === 'ArrowDown' || e.key === 'ArrowRight';
     if (!grow && !shrink && e.key !== 'Home' && e.key !== 'End') return;
@@ -828,7 +876,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (on !== beat) { beat = on; onBeat?.(on); }
   }
   let preloaded = false;
-  function update(f, force) {
+  function updateDock(f, force) {
     if (!preloaded && isVisible()) { preloaded = true; load(); }   // (the card is open: the Doppler and the FibroScan are asked for before a tab is reached)
     // (The traces are fed by main.js as each frame arrives: this frame may be an older, repainted one.)
     frame = f; updateStrip(f); updateHeader(); syncBeat();
@@ -847,7 +895,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   /** Bring in the instruments that load after the first paint (main.js calls it when the app is idle). */
   function load() { for (const p of panes) p.need?.(); }
   return {
-    update, ingest, clearTraces, backfillTraces, show, toggle, close, ensure, openGrid, profile, load,
+    update: updateDock, ingest, clearTraces, backfillTraces, show, toggle: toggleDock, close, ensure, openGrid, profile, load,
     pane: (id) => id === 'landscape' ? profile : id === 'varixwall' ? wall : byId[id],
     isOpen: (id) => isVisible() && open.includes(id === 'landscape' ? 'profile' : id === 'varixwall' ? 'endoscopy' : id),
     setState,

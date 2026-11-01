@@ -18,7 +18,7 @@ test('opening Tests refits; closing it refits only a fitted view', () => {
 test('every close path runs through setPanelTab', () => {
   assert.match(main, /onClose: \(\) => setPanelTab\('chart'\)/, 'dock.close (Tests button, close button, Esc)');
   assert.match(main, /dockSheet = sheetBehaviour\(\$\('#dock'\), \{[^\n]*onClose: \(\) => dock\.close\(\)/, 'a swipe');
-  assert.match(dock, /function toggle\(\) \{\n {4}if \(isVisible\(\)\) close\(\);/, 'the Tests button closes through close()');
+  assert.match(dock, /function toggleDock\(\) \{\n {4}if \(isVisible\(\)\) close\(\);/, 'the Tests button closes through close()');
 });
 
 test('closeView fits again a fitted view, whatever the tools did with the camera; a moved one is kept', () => {

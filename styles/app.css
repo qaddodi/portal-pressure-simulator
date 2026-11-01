@@ -3767,7 +3767,9 @@ button.finding { cursor: pointer; }
 .metric[data-sev="caution"] .val { color: var(--caution-ink); }
 .metric[data-sev="danger"] .val, .metric[data-sev="critical"] .val { color: color-mix(in srgb, var(--critical) 80%, var(--text)); }
 .metric.flash { animation: roFlash 1.4s var(--ease) /*own pace*/; }
+.metric.flash2 { animation: roFlash2 1.4s var(--ease) /*own pace*/; }
 @keyframes roFlash { 0%, 60% { background: color-mix(in srgb, var(--sev) 22%, transparent); } }
+@keyframes roFlash2 { 0%, 60% { background: color-mix(in srgb, var(--sev) 22%, transparent); } }   /* (the same flash under a second name: swapping names restarts it with no reflow, dock.js flashTile) */
 /* Stack the play bar under the readouts where the two do not fit side by side. */
 @media (max-width: 1099px) {
   .vdock { grid-template-columns: minmax(0, 1fr); grid-template-areas: "ro" "tl"; }
@@ -4135,6 +4137,12 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 .instrument-workspace.float-ui.fit.dragging, .instrument-workspace.float-ui.fit.resizing { transition: none; }
 @media (prefers-reduced-motion: reduce) { .instrument-workspace.float-ui.fit { transition: none; } }
 .instrument-workspace.resizing { transition: none; user-select: none; -webkit-user-select: none; }
+/* The Tests card's resize guide: while the divider is dragged this line follows the pointer by a transform (no layout), and the card
+   takes its size on release (dock.js, ?dockdrag=0 off). */
+.dock-guide { position: fixed; z-index: 60; pointer-events: none; border-radius: 1px; background: var(--accent); opacity: 0; transition: opacity var(--d-flip) var(--ease); will-change: transform, opacity; }
+.dock-guide.on { opacity: 1; }
+.dock-guide::after { content: ''; position: absolute; left: 50%; top: 50%; width: 42px; height: 4px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--accent); }
+.dock-guide.side::after { width: 4px; height: 44px; }
 .instrument-workspace.side .workspace-divider { position: absolute; left: -7px; top: 0; bottom: 0; width: 14px; height: auto; z-index: 3; cursor: ew-resize; background: transparent; }
 .instrument-workspace.side .workspace-divider span { width: 4px; height: 44px; border-radius: 2px; opacity: 0; transition: opacity var(--d-flip) var(--ease); }
 .instrument-workspace.side .workspace-divider:focus-visible span { opacity: 1; }
