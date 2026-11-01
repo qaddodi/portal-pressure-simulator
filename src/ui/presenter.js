@@ -1628,7 +1628,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     await toAnatomy(null); if (cut()) return false;
     if (!card.lifted) {
       const gl = reduce.matches ? 300 : 1500;
-      stage.fitSlow(gl); await wait(gl);
+      stage.fitSlow(gl);
+      // (One move: the new patient starts as the camera is still, which the glide's own landing says (480 to 900 ms), not 1.5 s after it set off;
+      // and at once when it was already the whole patient. Polled, so a card lifted or a newer slide is not waited behind.)
+      if (ONE_MOVE) await until(() => cut() || !stage.gliding(), gl + 600); else await wait(gl);
       await until(() => cut() || !stage.gliding(), 600); if (cut()) return false;
     }
     // Then, the camera still, the new patient eases in.

@@ -116,3 +116,11 @@ test('a move that waits for no cards ends with its glide: polled, cut by a newer
   const flip = src.slice(src.indexOf('async function flipMove('), src.indexOf('async function beatMove('));
   assert.ok(flip.indexOf('await camera(cam, v, cut)') > 0 && flip.indexOf('await camera(cam, v, cut)') < flip.indexOf('paintOverlays(v, i,'));
 });
+
+// Behind a case card the camera eases out to the whole patient: the new patient starts when that glide has landed (it takes 480 to 900 ms),
+// not a flat 1.5 s after it set off, and at once when the figure was already whole. ?onemove=0 keeps the flat wait.
+test('the case card\'s retreat ends with its glide, and ?onemove=0 keeps the flat wait', () => {
+  const rc = src.slice(src.indexOf('async function caseRun('), src.indexOf('// A question card (slide field question)'));
+  assert.match(rc, /stage\.fitSlow\(gl\);\s*(?:\/\/[^\n]*\n\s*)*if \(ONE_MOVE\) await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), gl \+ 600\); else await wait\(gl\);\s*await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), 600\); if \(cut\(\)\) return false;/);
+  assert.ok(rc.indexOf('else await wait(gl);') < rc.indexOf('await morphTo(st, cut'), 'the patient changes only once the camera is still');
+});
