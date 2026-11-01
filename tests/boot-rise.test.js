@@ -63,3 +63,12 @@ test('the loading screen never swaps typeface in view and its mark does not anim
   assert.match(bootCss, /#boot\.named \.boot-name \{ opacity: 1; animation: fade-rise var\(--d-surface\) var\(--ease\) both; \}/);
   assert.match(html, /document\.fonts\.load\('600 20px "Source Serif 4"'\)\.then\(n,n\)\}catch\(e\)\{n\(\)\}setTimeout\(n,900\)/);
 });
+
+test('the first screen\'s fonts are loaded under the cover (1.5 s cap, ?fonthold=0 off) and JetBrains Mono is preloaded', () => {
+  assert.match(html, /fonthold=0/);
+  assert.match(html, /document\.fonts\.load\(x,'Ag0123456789'\)/);
+  assert.match(html, /\(window\.ppsHold=window\.ppsHold\|\|\[\]\)\.push\(Promise\.race\(\[load,new Promise\(function\(r\)\{setTimeout\(r,1500\)\}\)\]\)\)/);
+  assert.match(html, /preload" href="fonts\/jetbrains-mono-latin\.woff2"/);
+  const build = readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8');
+  assert.match(build, /monoLatin \? `<link rel="preload"/);
+});

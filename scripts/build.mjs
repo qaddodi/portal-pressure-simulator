@@ -78,6 +78,7 @@ const cssFile = basename(Object.keys(css.metafile.outputs).find((f) => f.endsWit
 const fontFiles = Object.keys(css.metafile.outputs).filter((f) => f.endsWith('.woff2')).map((f) => basename(f));
 const interLatin = fontFiles.find((f) => f.startsWith('inter-latin-') && !f.startsWith('inter-latin-ext'));
 const serifLatin = fontFiles.find((f) => f.startsWith('source-serif-4-latin-') && !f.startsWith('source-serif-4-latin-ext'));
+const monoLatin = fontFiles.find((f) => f.startsWith('jetbrains-mono-latin-') && !f.startsWith('jetbrains-mono-latin-ext'));
 
 // 4. Static files.
 for (const d of ['brand', 'guides']) cpSync(join(ROOT, d), join(OUT, d), { recursive: true });
@@ -93,6 +94,7 @@ html = html
 const head = [
   interLatin ? `<link rel="preload" href="assets/${interLatin}" as="font" type="font/woff2" crossorigin />` : '',
   serifLatin ? `<link rel="preload" href="assets/${serifLatin}" as="font" type="font/woff2" crossorigin />` : '',
+  monoLatin ? `<link rel="preload" href="assets/${monoLatin}" as="font" type="font/woff2" crossorigin />` : '',
   `<link rel="stylesheet" href="assets/${cssFile}" />`,
   ...staticChunks.map((c) => `<link rel="modulepreload" href="assets/${c}" />`),
   `<script type="module" src="assets/${appFile}"></script>`,
