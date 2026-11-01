@@ -265,10 +265,24 @@ const SPAN = { free: [T.free - 300, T.inflate - 80], wedge: [T.inflate, T.result
 const ORDER = ['free', 'wedge', 'result'];
 export function createHvpgMonitor() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Catheter pressure tracing, as on the monitor in the procedure room' });
-  const el = h('div', { class: 'pz-mon' }, h('div', { class: 'chart-box hvpg-box' }, cv));
-  let mode = null, t = 0, t1 = 0, last = 0, raf = 0, fp = null, bal = 0;
+  // The readings the tracing draws, in words (a screen reader gets no canvas): the phase, the free and wedged pressures, the HVPG and
+  // its band, in mmHg. Written when the phase changes and once the numbers have held still, never with every frame of the sweep.
+  const said = h('p', { class: 'sr-only' });
+  const el = h('div', { class: 'pz-mon' }, h('div', { class: 'chart-box hvpg-box' }, cv), h('div', { class: 'sr-only', role: 'group', 'aria-label': 'Catheter pressure readings' }, said));
+  let mode = null, t = 0, t1 = 0, last = 0, raf = 0, fp = null, bal = 0, sayT = 0;
   // The slide's own readings (the catheter's callouts and the tiles show the same), else the live model's.
   const live = () => { const m = fp || store.get().frame?.metrics; return { fhvp: m?.fhvp ?? 0, whvp: m?.whvp ?? 0, hvpg: m?.hvpg ?? 0 }; };
+  const sayNow = () => {
+    sayT = 0;
+    const m = fp || store.get().frame?.metrics, v = live(), mm = (x) => `${fmt(x, 1)} mmHg`;
+    const say = !mode ? ''
+      : !(Number.isFinite(m?.fhvp) && Number.isFinite(m?.whvp)) ? 'No pressure can be read. HVPG is not measurable.'
+      : mode === 'free' ? `Free hepatic venous pressure (FHVP) ${mm(v.fhvp)}. The tracing runs level at the free pressure. ${STEPS[1][2]}`
+      : mode === 'wedge' ? `Balloon up. Wedged hepatic venous pressure (WHVP) ${mm(v.whvp)}; free pressure (FHVP) ${mm(v.fhvp)}. The tracing rises with the balloon and holds a steady plateau. ${STEPS[2][2]}`
+      : `HVPG ${mm(v.hvpg)}: the wedged pressure (WHVP) ${mm(v.whvp)} minus the free pressure (FHVP) ${mm(v.fhvp)}. ${sevWord(v.hvpg)}.`;
+    if (said.textContent !== say) said.textContent = say;
+  };
+  const saySoon = () => { clearTimeout(sayT); sayT = setTimeout(sayNow, 400); };
   const phase = () => (t < T.inflate ? 'free' : t < T.result ? 'wedge' : 'result');
   const draw = () => drawTrace(cv, { ph: phase(), t, v: live(), blocked: false, running: true });
   // The balloon is the clock for the pressure's rise: the trace climbs exactly as far as the balloon is filled, so it
@@ -290,6 +304,7 @@ export function createHvpgMonitor() {
   function set(m, f = null, b = bal, instant = false) {
     const span = SPAN[m];
     fp = f; bal = b;
+    saySoon();
     if (!span || (m === mode && (raf || t >= t1))) { if (!raf) draw(); return; }
     const fwd = mode && ORDER.indexOf(m) > ORDER.indexOf(mode);
     // (A free slide reached with the balloon still up keeps the trace as it is until the balloon is down.)

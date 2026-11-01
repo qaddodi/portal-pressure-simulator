@@ -3664,18 +3664,32 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const LENS_FADE = D_SURFACE;   // (a lens crossfade is a surface step of the motion scale, ease.js; the organs' and the lobule's clocks are the same)
   const lensFading = () => !!lensFrom && performance.now() - lensT0 < LENS_FADE + 20;
-  const colorCtx = veins ? document.createElement('canvas').getContext('2d') : null;
+  // The CSS colour parser: a 2D canvas of its own, made when first needed and whether or not the GPU draws the vessels. (It was made
+  // only with the GPU's veins, so a device without WebGL2 threw "Cannot set properties of null" at the first toned organ a slide
+  // pinned, HVPG 8: the slide stopped mid-change and its cards never came.) A browser with no 2D context at all reads a colour written
+  // as #rrggbb or rgb()/rgba() itself, and takes anything else for black.
+  let colorCtx;
+  const colorParser = () => {
+    if (colorCtx === undefined) { try { colorCtx = document.createElement('canvas').getContext('2d'); } catch { colorCtx = null; } }
+    return colorCtx;
+  };
   const rgbCache = new Map();
+  // (The canvas hands the colour back as #rrggbb, or rgba(r, g, b, a) where it is not opaque.)
+  function readRGB(f) {
+    if (f[0] === '#') return [1, 3, 5].map((i) => parseInt(f.slice(i, i + 2), 16) / 255);
+    const k = f.match(/[\d.]+/g)?.map(Number);
+    return k && k.length >= 3 ? [k[0] / 255, k[1] / 255, k[2] / 255] : null;
+  }
   // Any CSS color (rgb(), #hex, a named var) as [r, g, b] in 0–1.
   function toRGB(c, cs) {
     const m = /^var\((--[\w-]+)\)$/.exec(c || '');
     const v = m ? cs.getPropertyValue(m[1]).trim() : c;
     let out = rgbCache.get(v);
     if (out) return out;
-    colorCtx.fillStyle = '#000'; colorCtx.fillStyle = v || '#000';   // colour-exempt: the parser's reset
-    const f = colorCtx.fillStyle;
-    if (f[0] === '#') out = [1, 3, 5].map((i) => parseInt(f.slice(i, i + 2), 16) / 255);
-    else { const k = f.match(/[\d.]+/g).map(Number); out = [k[0] / 255, k[1] / 255, k[2] / 255]; }
+    const ctx = colorParser();
+    if (!ctx) return /^(#[0-9a-f]{6}|rgba?\(.*)$/i.test(v || '') ? readRGB(v) || [0, 0, 0] : [0, 0, 0];   // (not kept: the parser may come back)
+    ctx.fillStyle = '#000'; ctx.fillStyle = v || '#000';   // colour-exempt: the parser's reset
+    out = readRGB(ctx.fillStyle) || [0, 0, 0];
     rgbCache.set(v, out);
     return out;
   }

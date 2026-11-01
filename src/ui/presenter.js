@@ -29,8 +29,8 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=b5f5cad028';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=998eca3d3e';
-import { createTools } from './presenter-tools.js?v=dfacacfd52';
+import { createHvpgMonitor } from './hvpg-proc.js?v=10e032def3';
+import { createTools } from './presenter-tools.js?v=b8eb98a40d';
 import { openHandout } from './handout.js?v=492f217fcb';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -1761,7 +1761,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!busy) run();
   }
   async function run() {
-    busy = true;
+    busy = true; announce();   // (the cards are changing: a reader waits for them, aria-busy)
     try {
       // (A move that ends without landing and without being cut, for the same slide twice running, is not tried a third time: a
       // slide that could not land had the loop rebuild it without end, and the talk froze. Next or a jump tries it again.)
@@ -1773,7 +1773,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         if (tries > 2) { console.warn(`presenter: slide ${want + 1} did not land`); break; }
         if (landed) await beatMove(want, beat); else await transition(want);
       }
-    } finally { busy = false; }
+    } catch (e) {
+      // (A slide that threw has put its cards back (transition's last step), and the talk goes on: Next or a jump tries again.)
+      console.error(`presenter: slide ${want + 1} could not be shown`, e);
+      busy = false; announce(true);
+    } finally { busy = false; announce(); }
   }
   // Inside the liver a slide change is one sequence: every label (text, pill, ring, leader) eases out together, the
   // camera moves and the lit set changes with nothing showing, then only the new slide's labels ease in together
@@ -2064,7 +2068,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       store.set({ presentLabels: [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg.terms || null,
         presentNames: s.tool?.kind === 'profile' || !!s.cath, presentFp: st?.fp || null,
         focus: markFocus(marks), stented: stentedOf(s), lobuleCallout: !s.callout ? null : { kind: 'block', ...s.callout } });
-      if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs.map((o) => (o.id === 'spleen' && st?.fp ? { id: o.id, tone: rateTone('spleen', st.fp) } : o))); stage.setResGlow(tg.res); }
+      // (The glows and outlines are the figure's decoration: one that cannot be drawn, as on a device without WebGL2 once, leaves the slide
+      // without it rather than half-changed with its cards never in.)
+      if (tg) {
+        try { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs.map((o) => (o.id === 'spleen' && st?.fp ? { id: o.id, tone: rateTone('spleen', st.fp) } : o))); stage.setResGlow(tg.res); }
+        catch (e) { console.warn(`presenter: slide ${to + 1}'s glows and outlines could not be drawn`, e); }
+      }
       app.dataset.lit = tg?.lit.join(' ') || '';
       if (hooks) figureHooks('show', xc);   // (a deck visuals package's own marks on the figure: slide-ext.js; a flip leaves them as they are)
     }
@@ -3055,6 +3064,22 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const px = minText(el);
     return px > 12 && isFinite(px) ? Math.ceil(12 / px * 1000) / 1000 : 1;
   }
+  // The words' card (a wide screen): the smallest zoom its smallest lettering allows at 12 px on the screen, at least a half (1 where there is
+  // none to give: the usual text size), and its height at a zoom (css px, held to no cap), for the pair that is too tall (layout).
+  function wordsFloor() {
+    const ts = ui.text.style, sv = ts.getPropertyValue('--pz-fit');
+    ts.removeProperty('--pz-fit');
+    const px = minText(ui.text);
+    if (sv) ts.setProperty('--pz-fit', sv);
+    return px > 12 && isFinite(px) ? Math.max(0.5, Math.ceil(12 / px * 1000) / 1000) : 1;
+  }
+  function wordsHeightAt(z) {
+    const ts = ui.text.style, sv = [ts.maxHeight, ts.getPropertyValue('--pz-fit'), ts.getPropertyValue('--pz-z')];
+    ts.maxHeight = 'none'; ts.removeProperty('--pz-z'); ts.setProperty('--pz-fit', String(z));
+    const v = ui.text.offsetHeight;
+    ts.maxHeight = sv[0]; if (sv[1]) ts.setProperty('--pz-fit', sv[1]); else ts.removeProperty('--pz-fit'); if (sv[2]) ts.setProperty('--pz-z', sv[2]);
+    return v;
+  }
   // The smallest lettering in a card as it reaches the screen: its font size times every zoom on its way (the card's own, its parts',
   // the interface's), or an SVG's drawn scale. (As tests/e2e/text-floor.mjs measures it.)
   function minText(el) {
@@ -3436,7 +3461,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // On a laptop or tablet the data card always stacks under the words' card, at its width, a gap below it (0.6 of the margin),
     // above the controls; what does not fit is made smaller in fixed steps, never moved to the top right. A card in view that
     // changes place fades out, moves while unseen and fades back in.
-    let below = false, gap = 0, cw = 0, foot = H;
+    let below = false, gap = 0, cw = 0, foot = H, wordsCap = Infinity;   // (wordsCap: the height the words' card is held to where the data card needs the room, below)
     slip.base = 0;
     const top0 = cardOn && t ? sl : 0;   // (the cards' top: one margin from the top, as from the side)
     if (cardOn && !low && t && !off(dd)) {
@@ -3544,7 +3569,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The sheet's edge under the card is part of it for the camera: left out, the room between the cards was taken 24 px taller
     // than it is, and the figure sat that much high.)
     if (dd.dataset.safe) ui.lip.dataset.safe = dd.dataset.safe; else delete ui.lip.dataset.safe;
-    const y = top0 + t?.height + 2 * pad + gap + (below && wideSheet(dd) ? LIP * k : 0);   // (a wide stacked card: its readings' card's tucked edge above it)
+    const lipK = below && wideSheet(dd) ? LIP * k : 0;   // (a wide stacked card: its readings' card's tucked edge above it)
+    let y = top0 + t?.height + 2 * pad + gap + lipK;
     dd.style.left = below ? `${(sl / k).toFixed(1)}px` : '';
     // (One width on every slide: stacked or at the top right, the data card is always the teaching card's width, whatever it holds.)
     dd.style.width = cw ? `${(cw / k).toFixed(1)}px` : '';
@@ -3586,6 +3612,28 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const beside = low && tabBeside();
     fitCards(ui.data, ui.panel);
     if (beside && !tabBeside()) { fitDone.delete(ui.panel); fitCards(ui.panel); }
+    // The words give way once more for a data card its own fit cannot make whole. At a large text size on a Mac or an iPad on its side, a
+    // card holding the Gut to heart chart (drawn at its own size, never zoomed by the fit, with a smallest height) or readings that would
+    // have to pass half size still ended below its card, cut off by it, the stacked pair being taller than the screen (HVPG 7 at 200 %: the
+    // chart's axis names gone). The words' card, which zooms as a whole, takes what the data card lacks, down to the size where its smallest
+    // lettering is still 12 px on the screen (only at a text size above 100 %: the usual size is laid out exactly as it was), and the data card is fitted again in the room
+    // that gains it. A card that fits is never touched. (A readings' sheet is measured with its readings tucked, as it rests: its
+    // instrument or chart is what the card must hold, and the readings still rise from under it, slip.lift.)
+    if (below && t && !off(dd) && !phone() && stage.labelScale() > 1.001) {
+      for (let n = 0; n < 3; n++) {
+        const cut = overflowOf(dd).v;
+        if (!(cut > 1)) break;
+        const have = t.height / k, z = wordsFloor();
+        if (z >= 1) break;
+        const room = Math.max(wordsHeightAt(z), have - cut);
+        if (!(room < have - 0.5)) break;
+        wordsCap = room; ts.maxHeight = `${room.toFixed(1)}px`;
+        fitDone.delete(ui.text); fitCards(ui.text); t = r(ui.text);
+        y = top0 + t.height + 2 * pad + gap + lipK;
+        dd.style.top = `${(y / k).toFixed(1)}px`; dd.style.maxHeight = capOf(dd, (foot - y) / k);
+        fitDone.delete(ui.data); fitCards(ui.data);
+      }
+    }
     // The stacked pair shorter than the screen is centred top to bottom as one (equal room above and below, never closer than one margin
     // to the top or the controls); a pair that fills the screen stays where it is. Set here, before the cards come in, so nothing moves after.
     let shift = 0;
@@ -3623,7 +3671,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       : cardOn && t ? (d && !below ? d.top - wr.top : off(dd) ? Math.max(sl, (H - t.height - 2 * pad) / 2) : top0 + shift) + pad : null;
     ts.top = lvl != null ? `${(lvl / k).toFixed(1)}px` : ''; ts.bottom = ts.marginBlock = lvl != null ? 'auto' : '';
     if (lvl != null) ts.marginBlock = '0';
-    ts.maxHeight = lvl != null ? `${((H - lvl - pad - (low ? vm : sl)) / k).toFixed(1)}px` : phoneCap != null ? `${phoneCap.toFixed(1)}px` : '';   // (one margin at the bottom too)
+    ts.maxHeight = lvl != null ? `${Math.min((H - lvl - pad - (low ? vm : sl)) / k, wordsCap).toFixed(1)}px` : phoneCap != null ? `${phoneCap.toFixed(1)}px` : '';   // (one margin at the bottom too)
     if (t) t = r(ui.text);   // (always: the words may already stand there, and the glass is sized to where they are)
     // The words sit on a frosted glass pane: the figure shows through it blurred, behind a crisp edge with a soft
     // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.
@@ -4265,11 +4313,23 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     fk.hidden = was;
     return cut;
   }
+  // What a screen reader is told: one line per slide ("Slide 3 of 12: its title"), and only once that slide is on screen. The count on the bar
+  // runs ahead (want is the slide asked for), but the cards of the slide before stay until the move has landed, and a jump that fails or is
+  // overtaken by the next one never reaches its slide: it was announced all the same, and the page then read out a slide it did not show.
+  // (force: a move that ended in an error, whose cards came back; busy: the cards are changing, so a reader waits for them.)
+  const landedNow = () => !!shown && shown.i === want && shown.gen === gen;
+  function announce(force = false) {
+    if (!ui) return;
+    const i = want, t = `Slide ${i + 1} of ${slides.length}${slides[i]?.title ? `: ${slides[i].title}` : ''}`;
+    if ((force || landedNow()) && ui.say.textContent !== t) ui.say.textContent = t;
+    const moving = String(busy && !landedNow());
+    for (const e of [ui.text, ui.data]) if (e.getAttribute('aria-busy') !== moving) e.setAttribute('aria-busy', moving);
+  }
   function paintChrome() {
     if (!ui) return;
     const n = slides.length, i = want;
     ui.prog.style.setProperty('--p', String((i + 1) / n));
-    { const t = `Slide ${i + 1} of ${n}${slides[i]?.title ? `: ${slides[i].title}` : ''}`; if (ui.say.textContent !== t) ui.say.textContent = t; }
+    announce();
     const ph = phone(), skip = lapseOn && lapseLeft > 0, more = !skip && beat < lastBeat(i), last = i === n - 1 && !skip && !more;
     // The count opens the slide list (G).
     // (A list still fading out after a pick counts as closed: the count must not stay grey, as if the list were open, on the slide picked.)

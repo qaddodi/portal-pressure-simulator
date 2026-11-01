@@ -57,9 +57,12 @@ test('a figure tap closes Treat on a phone; Treat\'s own selecting buttons do no
   assert.doesNotMatch(main, /store\.on\('selection', \(sel\) => \{ if \(sel && isPhone\(\) && treatOpen\(\)\) closeTreat\(\); \}\)/, 'no store-wide subscriber: it closed Treat from its own procedure buttons');
 });
 
-test('the feedback ask waits for a sheet on a phone only (a laptop works with Tests open), menus and sheets included', () => {
+// (It was phone only, so that a laptop working with Tests open was not held back; the outside review of 1 Nov found the card standing over the
+// top of Tests on a Mac and an iPad. It waits on every screen now: no surface is open on a fresh load (the Tests dock starts shut), so it
+// comes as soon as the person has put the surface away.)
+test('the feedback ask waits for every open working surface on every screen (Tests on a laptop too), menus and sheets included', () => {
   const main = read('src/ui/main.js');
-  assert.match(main, /\|\| down \|\| presenter\.active\(\) \|\| projector \|\| \(isPhone\(\) && \(app\.classList\.contains\('dock-open'\) \|\| panelShown\(\) \|\| treatOpen\(\) \|\| historyOpen\(\) \|\| popoverOpen\(\)\)\) \|\|/);
+  assert.match(main, /\|\| down \|\| presenter\.active\(\) \|\| projector \|\| app\.classList\.contains\('dock-open'\) \|\| panelShown\(\) \|\| treatOpen\(\) \|\| historyOpen\(\) \|\| popoverOpen\(\) \|\|/);
 });
 
 test('the Compare strip centres in the room the right-hand cards leave, and eases as they come and go', () => {

@@ -2411,6 +2411,50 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
   });
 
+  // A large text size on a Mac or an iPad on its side: the data card holds everything it shows (the Gut to heart chart's axis names, a readings'
+  // sheet's instrument too), because the words' card above it gives way, down to the size where its smallest lettering is still 12 px.
+  // (The external review of 1 Nov: HVPG slide 7 at 200 % had the chart's axis names cut off by the card.)
+  if (device === 'desktop') await check(device, 'presenter: at 200% text the stacked data card holds what it shows and the words above it keep their 12 px, on a Mac and an iPad on its side', async () => {
+    const bad = [];
+    const probe = () => {
+      const out = [], dd = document.querySelector('.pz-data'), tx = document.querySelector('.pz-text');
+      const visible = (e, root) => { for (let a = e; a && a !== root; a = a.parentElement) { const cs = getComputedStyle(a); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.05) return false; } return true; };
+      if (!dd || dd.hidden) return ['no data card'];
+      const r = dd.getBoundingClientRect(), tucked = dd.classList.contains('pz-sheet') && !dd.classList.contains('tool-open');
+      const w = document.createTreeWalker(dd, NodeFilter.SHOW_TEXT);
+      for (let n; (n = w.nextNode());) {
+        const el = n.parentElement;
+        if (!n.textContent.trim() || el.closest('.sr-only, [aria-hidden="true"]') || (tucked && el.closest('.pz-tiles')) || !visible(el, dd)) continue;
+        const g = document.createRange(); g.selectNodeContents(n);
+        const q = [...g.getClientRects()].find((x) => x.width && x.height);
+        if (q && (q.left < r.left - 2 || q.right > r.right + 2 || q.top < r.top - 2 || q.bottom > r.bottom + 2)) { out.push(`data card: "${n.textContent.trim().slice(0, 20)}" outside it (${Math.round(q.bottom)} vs ${Math.round(r.bottom)})`); break; }
+      }
+      // (the words' smallest lettering as it reaches the screen: its size times every zoom on its way)
+      if (tx && !tx.hidden) {
+        const t = document.createTreeWalker(tx, NodeFilter.SHOW_TEXT);
+        for (let n; (n = t.nextNode());) {
+          const el = n.parentElement;
+          if (!n.textContent.trim() || !el.getClientRects().length || el.closest('.sr-only, [aria-hidden="true"]') || !visible(el, tx)) continue;
+          let k = parseFloat(getComputedStyle(el).fontSize) || 0;
+          for (let a = el; a; a = a.parentElement) k *= parseFloat(getComputedStyle(a).zoom) || 1;
+          if (k && k < 11.4) { out.push(`words: "${n.textContent.trim().slice(0, 20)}" drawn at ${k.toFixed(1)} px`); break; }
+        }
+      }
+      return out;
+    };
+    for (const [w, h] of [[1440, 900], [1180, 820]]) {
+      const ctx = await fastContext(browser, { viewport: { width: w, height: h } });
+      await ctx.addInitScript(() => { try { localStorage.setItem('pps.labelScale', '2'); localStorage.setItem('pps.labelScaleV', '2'); } catch { /* private mode */ } });
+      const page = await ctx.newPage();
+      for (const [deck, slide] of [['hvpg', 7], ['hvpg', 6], ['circulation', 4], ['two-inflows', 2], ['two-inflows', 5], ['ascites', 4], ['varices', 6]]) {
+        await gotoSlide(page, server.url, deck, slide - 1); await quiet(page);
+        for (const c of await page.evaluate(probe)) bad.push(`${deck} slide ${slide} at ${w}x${h}, 200% text: ${c}`);
+      }
+      await ctx.close();
+    }
+    if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+  });
+
   // The phone pressure strip on every slide that has it: all its text at least 11 px as drawn, labels centred in their brackets, clear of every line.
   // (One check per deck: the whole sweep is 64 page loads and took 45 minutes in one piece, longer than a runner's limit.)
   if (device === 'desktop') for (const deck of new Set((await stripSlides()).map((s) => s.deck))) {

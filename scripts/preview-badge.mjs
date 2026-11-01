@@ -19,8 +19,10 @@ export const RELOAD_JS = `(function(){var b=document.getElementById('preview-bad
 // Absolute, not fixed: on iOS 26 an installed app's top bar stays sharp under the status bar only
 // while the app's own fixed layer is the one fixed element there; a second fixed element at the top
 // edge (this pill) makes iOS blur that strip again. The page never scrolls, so it stays in place.
-// A slim tab, 13 px tall, hanging from the top edge: slide words and chips start below it (tests/e2e/phone-fit.mjs).
-export const badgeHtml = (label) => `<div id="preview-badge" role="button" style="position:absolute;left:50%;transform:translateX(-50%);top:env(safe-area-inset-top);z-index:2147483647;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:0 7px;border-radius:0 0 7px 7px;background:#d9480f;color:#fff;font:700 9px/13px system-ui,sans-serif;letter-spacing:.08em;box-shadow:0 1px 4px rgba(0,0,0,.35)">PREVIEW${label ? ` · ${esc(label)}` : ''}</div><script>${RELOAD_JS}</script>`;
+// A slim tab, BADGE_H px tall, hanging from the top edge: slide words and chips start below it (tests/e2e/phone-fit.mjs).
+// Its words keep the app's 12 px floor (they were 9 px); the fill is a shade deeper than before so white on it reads at 4.5 : 1.
+export const BADGE_H = 16;
+export const badgeHtml = (label) => `<div id="preview-badge" role="button" style="position:absolute;left:50%;transform:translateX(-50%);top:env(safe-area-inset-top);z-index:2147483647;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:0 8px;border-radius:0 0 8px 8px;background:#c9430d;color:#fff;font:700 12px/${BADGE_H}px system-ui,sans-serif;letter-spacing:.04em;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.35)">PREVIEW${label ? ` · ${esc(label)}` : ''}</div><script>${RELOAD_JS}</script>`;
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [dir, label = ''] = process.argv.slice(2);

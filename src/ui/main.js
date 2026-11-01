@@ -3,13 +3,13 @@
 
 import { startHost, host } from './host.js?v=dd95596be7';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { createStage } from './stage.js?v=2d5956c6e4';
+import { createStage } from './stage.js?v=a5bcbeaff9';
 import { createCreditPlacer } from './credit.js?v=8af601e22c';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=0fd0861a88';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=d552188951';
-import { setHvpgStage } from './hvpg-proc.js?v=998eca3d3e';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=4aa090dc9a';
+import { setHvpgStage } from './hvpg-proc.js?v=10e032def3';
 import { createWhy } from './why.js?v=9ccf1e63ce';
 import { createTimeline, LAPSES } from './timeline.js?v=eaab3fa090';
 import { createCompare } from './compare.js?v=7029b75147';
@@ -192,7 +192,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=07fc9f27dd'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=f66ba3b841'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -2091,10 +2091,13 @@ function showFirstHint() {
   const show = () => {
     if (store.get().selection || presenter.active()) return;
     const verb = matchMedia('(hover: hover) and (pointer: fine)').matches ? 'Click' : 'Tap';
-    let off = null;
-    const done = () => { off?.(); off = null; try { localStorage.setItem(HINT_KEY, '1'); } catch { /* storage unavailable */ } };
+    let off = null, offTalk = null;
+    const done = (why) => { off?.(); off = null; offTalk?.(); offTalk = null; if (why === 'talk') return; try { localStorage.setItem(HINT_KEY, '1'); } catch { /* storage unavailable */ } };
     const close = toast(`${verb} a vessel or the liver to change it.`, '', { sticky: true, onClose: done });
     off = store.on('selection', (sel) => { if (sel) close(); });
+    // A talk beginning takes the hint away with the Explore screen it spoke of (it stayed over the slides, sticky). It is not counted as
+    // read: a person who went straight to a talk meets it on their next visit to Explore.
+    offTalk = store.on('presenting', (on) => { if (on) close('talk'); });
   };
   if (window.ppsFigureReady) setTimeout(show, 600); else addEventListener('pps:figure-ready', () => setTimeout(show, 600), { once: true });
 }
@@ -2102,6 +2105,8 @@ function showFirstHint() {
 // scroll within the last minute), a message card asks for feedback, once per device; "Not now" (or dismissing it) asks once
 // more on a later visit, then never again. Only the person's own answer counts: a card pushed out by newer messages
 // asks again after another FEEDBACK_ASK_MIN active minutes. It waits out a drag, a talk and projector mode, and never pauses the model.
+// It also waits while any surface the person is working in is open, on every screen (Tests, a side panel, Treat, History, a menu or a
+// dialog): the card stood over the top of Tests on a Mac and an iPad, where only a phone had held it back.
 const FEEDBACK_ASK_MIN = 10;
 const ASK_KEY = 'pps.feedbackAsk';   // (absent: never asked · 'later': asked once, once more on a later visit · 'done')
 function armFeedbackAsk() {
@@ -2121,7 +2126,7 @@ function armFeedbackAsk() {
     last = now;
     if (document.visibilityState === 'visible' && now - lastInput < IDLE) active += dt;
     if (now - lastInput > 5000) down = 0;   // (a lift the page never heard, outside the window, does not hold the ask forever)
-    if (active < FEEDBACK_ASK_MIN * 60000 || down || presenter.active() || projector || (isPhone() && (app.classList.contains('dock-open') || panelShown() || treatOpen() || historyOpen() || popoverOpen())) || document.getElementById('modalBack')?.classList.contains('show')) return;
+    if (active < FEEDBACK_ASK_MIN * 60000 || down || presenter.active() || projector || app.classList.contains('dock-open') || panelShown() || treatOpen() || historyOpen() || popoverOpen() || document.getElementById('modalBack')?.classList.contains('show')) return;
     clearInterval(timer);
     const answer = (v) => { try { localStorage.setItem(ASK_KEY, v); } catch { /* storage unavailable */ } };
     toast('Anything look wrong or confusing so far? A short email helps the author fix it.', '', { sticky: true,

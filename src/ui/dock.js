@@ -7,7 +7,7 @@ import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_
 import { lobuleFlows } from './lobule-model.js?v=2ae99c78c5';
 import { createProfile } from './charts.js?v=1744ae2f99';
 import { createPressureTime } from './pressure-time.js?v=42f4693622';
-import { createHvpgProcedure } from './hvpg-proc.js?v=998eca3d3e';
+import { createHvpgProcedure } from './hvpg-proc.js?v=10e032def3';
 import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=bda815b6cf';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=10dde586f6';

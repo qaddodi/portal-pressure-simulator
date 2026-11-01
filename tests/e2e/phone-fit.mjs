@@ -78,14 +78,14 @@ export const fitIssues = () => {
     const R = rl.getBoundingClientRect();
     for (const n of rl.querySelectorAll('.n')) { const q = n.getBoundingClientRect(); if (q.width && (q.left < R.left - 1 || q.right > R.right + 1)) { out.push(`level name "${n.textContent}" outside its rail (${Math.round(q.left)} vs ${Math.round(R.left)})`); break; } }
   }
-  // No slide words, card or legend chip under the preview badge (a slim tab at the top centre, 13 px tall, added only to
-  // /preview/). (An organ's name the camera leaves at the screen's edge is the figure, not a chip; it is not judged.)
+  // No slide words, card or legend chip under the preview badge (a slim tab at the top centre, 16 px tall (BADGE_H in
+  // scripts/preview-badge.mjs) and 150 to 190 px wide, added only to /preview/). (An organ's name the camera leaves at the screen's edge is the figure, not a chip; it is not judged.)
   const seen = (e) => { for (let a = e; a; a = a.parentElement) { const cs = getComputedStyle(a); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.05) return false; } return true; };
   const cx = innerWidth / 2, w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n; (n = w.nextNode());) {
     if (!n.textContent.trim() || n.parentElement.closest('.sr-only') || !n.parentElement.closest('.pz, [class*="legend"]')) continue;
     const g = document.createRange(); g.selectNodeContents(n);
-    const q = [...g.getClientRects()].find((r) => r.width && r.top < 13 && r.bottom > 1 && r.right > cx - 60 && r.left < cx + 60);
+    const q = [...g.getClientRects()].find((r) => r.width && r.top < 16 && r.bottom > 1 && r.right > cx - 95 && r.left < cx + 95);
     if (q && seen(n.parentElement)) { out.push(`"${n.textContent.trim().slice(0, 20)}" under the preview badge`); break; }
   }
   return out;
