@@ -8087,16 +8087,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const held = {};
   const hold = (k, v, step) => { const h0 = held[k]; if (h0 == null || Math.abs(v - h0) > step * 0.75) held[k] = Math.round(v / step) * step; return held[k]; };
   function overlayInputs(f, p, t) {
-    const m = f.metrics;
     const lesions = [...Object.keys(p.stenosis), ...Object.keys(p.thrombus), ...Object.keys(p.occluded), 'TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', ...LIGATED.map((l) => l[1]), ...Object.keys(p.customShunts || {}), ...(store.get().stented || []), 'C3'];
     return JSON.stringify([t.toFixed(3), isImaging(), findingHidden('clot'), p.stenosis, p.stenosisSite, p.thrombus, p.occluded, p.splenicRx | 0, p.tips, p.dips, p.customShunts, p.balloonEso, p.balloonGas,
       // A vessel's width eases with its pressure for a long while after a change; held in steps,
       // so a clot or stent is not rebuilt several times a second for sub-pixel drift.
       lesions.map((id) => (E[id] ? [E[id].vis, hold(`w${id}`, E[id].width, 0.25), !!E[id].reveal] : 0)),
-      // Varix geometry follows the grade, not the pulse: red wales appear above 70 % of the
-      // rupture threshold, in coarse steps.
-      hold('vd', m.varix.d, 0.5), hold('vr', m.varix.r, 0.5), m.varix.ratio > 0.7 ? hold('vt', m.varix.ratio, 0.2) : 0, Math.round(f.bands || 0),
-      hold('gd', m.gastricVarix.d, 0.5), hold('c3', recruitFrac('C3', f), 0.1), lastMorph]);
+      // (The varices are no longer drawn here, but by the plexus of channels and strands (varix-look.js), so the varix's diameter, radius
+      // and wall-stress ratio are not part of what these overlays are built from. They were in this key, held in steps narrower than the
+      // beat's own swing, and rebuilt the clamps, clots and plugs, and the vessel marks with them (a style pass and a triangulation of
+      // every mark), five to ten times a second in any patient with a varix.)
+      Math.round(f.bands || 0), hold('c3', recruitFrac('C3', f), 0.1), lastMorph]);
   }
   const setVar = (el, k, v) => { const c = el._v || (el._v = {}); if (c[k] === v) return; c[k] = v; el.style.setProperty(k, v); };
   // The tamponade tube goes in and its balloons fill in order, each eased: the tube slides down the esophagus and into the stomach (adv),
