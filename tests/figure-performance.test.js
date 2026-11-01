@@ -93,44 +93,40 @@ test('Credit check in talks: off, Present looks every second as before; on, only
   assert.match(src('stage.js'), /labelStamp: \(\) => `\$\{stats\.layouts\}\|\$\{vt\.k\},\$\{vt\.x\},\$\{vt\.y\}\|\$\{morph\}\|\$\{rotU\}\|\$\{lz\?\.isOpen\?\.\(\) \? lz\.viewKey\(\) : ''\}\|\$\{lz\?\.sinusoidMoving\?\.\(\) \? performance\.now\(\) : ''\}`,/);
 });
 
-test('Callout glass kept: off, draw() reads the page as before; on, it reads it only once something may have changed', () => {
+test('Callout glass kept (always, since 1 Nov 2026): no frame reads the page; it is read once outside frames, the motion put back each frame', () => {
   const g = src('glass-gl.js');
   const draw = g.slice(g.indexOf('  function draw() {'), g.indexOf('  // The glasses drawn over the blurred copy'));
-  assert.match(draw, /if \(keep\?\.\(\)\) return drawKept\(list\);\n\s*kept = null;\n\s*const cr = canvas\.getBoundingClientRect\(\)/, 'off: straight on to the old reads');
-  assert.match(draw, /const panes = readPanes\(list\);/);
-  assert.match(draw, /return paint\(panes, cr, bgs, bg, bgVar\);/);
-  const kept = g.slice(g.indexOf('  function drawKept(list) {'), g.indexOf('  function draw() {') > g.indexOf('  function drawKept(list) {') ? g.indexOf('  function draw() {') : g.length);
-  assert.match(kept, /keepWatch\(\);/);
-  assert.match(kept, /if \(!kept \|\| keptStale \|\| !sameList\(kept\.list, list\) \|\| kept\.k !== k0 \|\| kept\.anim \|\| performance\.now\(\) < liveUntil \|\| due\?\.\(\)\) \{/);
-  // Every way a glass can change marks the boxes stale: a write in the layers (in the frame or after it), the page's own signals,
-  // a callout's transition or pointer, a parent's style or class, a size change, a scroll.
-  assert.match(g, /const loop = \(\) => \{ raf = 0; if \(mo\.takeRecords\(\)\.length\) keptStale = true; settle\(draw\(\)\); \};/);
-  assert.match(g, /const mo = new MutationObserver\(\(\) => \{ keptStale = true; quiet = 0; ask\(\); \}\);/);
-  assert.match(g, /const again = \(\) => \{ keptStale = true; wake\(\); \};/);
-  assert.match(g, /const held = \(\) => \{ liveUntil = performance\.now\(\) \+ 800; keptStale = true; wake\(\); \};/);
-  assert.match(g, /keptMo\.observe\(e, \{ attributes: true, attributeFilter: \['style', 'class', 'hidden'\] \}\)/);
-  assert.match(g, /for \(const e of \[canvas, source, wrap\]\) keptRo\?\.observe\(e\);/);
-  assert.match(g, /document\.addEventListener\('scroll', stale, true\);/);
-  // (The watchers exist only once the switch has been on: off, none of them is made.)
-  // (Made from drawKept, and since 1 Nov 2026 from hostReads too (the glass drawn in the figure's canvas keeps its reads as well, ?glassreads=0 off).)
-  assert.ok(g.indexOf('keepWatch();') > g.indexOf('function drawKept(') || g.indexOf('if (READS_KEEP) keepWatch();') > 0, 'made from drawKept or hostReads only');
-  assert.equal(g.split('keepWatch();').length - 1, 2);
-  assert.match(g, /if \(keptMo\) \{ keptMo\.disconnect\(\); keptRo\?\.disconnect\(\); document\.removeEventListener\('scroll', stale, true\);/, 'and let go with the glass');
+  assert.match(draw, /const N = nowGeo\(list\);\n\s*if \(!N\) return true;/, 'the copy path draws from the kept page');
+  assert.doesNotMatch(draw, /getBoundingClientRect|getComputedStyle|readPanes\(/, 'no read in the frame');
+  assert.match(draw, /return paint\(panes, cr, N\.bgs, N\.bg, N\.bgVar\);/);
+  const now = g.slice(g.indexOf('  function nowGeo(list) {'), g.indexOf('  // While a callout shows, every frame'));
+  assert.doesNotMatch(now, /getBoundingClientRect|getComputedStyle|offset(Width|Height|Left|Top)|client(Width|Height)/, 'nowGeo reads nothing');
+  assert.match(now, /if \(flag\.bad \|\| flag\.ended\) measureSoon\(\);/, 'what it cannot follow is read just after the frame');
+  assert.match(now, /if \(due\?\.\(\)\) measureSoon\(\);/, 'the layout watch likewise');
+  // Every way a glass can change reads the page again, outside the frame: a write that is more than a glide or a fade (in the frame or
+  // after it), the page's own signals, a callout's transition ending, a parent's style or class, a size change, a scroll.
+  assert.match(g, /const loop = \(\) => \{ raf = 0; if \(changed\(mo\.takeRecords\(\)\)\) measureSoon\(\); settle\(draw\(\)\); \};/);
+  assert.match(g, /const mo = new MutationObserver\(\(recs\) => \{ if \(!recs\?\.length \|\| changed\(recs\)\) measureGeo\(\); quiet = 0; ask\(\); \}\);/);
+  assert.match(g, /const again = \(\) => measureGeo\(\);/);
+  assert.match(g, /if \(\/\(end\|cancel\)\$\/\.test\(e\?\.type \|\| ''\)\) \{ measureGeo\(\); return; \}/);
+  assert.match(g, /parentsMo\.observe\(e, \{ attributes: true, attributeFilter: \['style', 'class', 'hidden'\] \}\)/);
+  assert.match(g, /for \(const e of \[canvas, source, wrap\]\) if \(e\) watchRo\?\.observe\(e\);/);
+  assert.match(g, /document\.addEventListener\?\.\('scroll', onScroll, true\);/);
   const stage = src('stage.js');
   assert.equal(stage.split("keep: () => figLab('glassCache'), due: () => watch.due(), copy: GLASS_COPY").length - 1, 2, 'the callouts and the liver pane (the Present cards take no copy: they are drawn in the figure\'s canvas or are the browser\'s)');
 });
 
-test('Callout glass kept: the kept path draws from the same reads, through the same paint', () => {
+test('Callout glass kept: the page is read in one place, with each moving part taken out, and the copy taken from those reads', () => {
   const g = src('glass-gl.js');
-  const m = g.slice(g.indexOf('  function measure(list) {'), g.indexOf('  function drawKept(list) {'));
-  assert.match(m, /const cr = canvas\.getBoundingClientRect\(\), k = glassDpr\(\);/);
-  assert.match(m, /const panes = readPanes\(list\);/);
-  assert.match(m, /const ws = getComputedStyle\(wrap\), bgs = ws\.backgroundColor, bg = colour\(bgs, 'transparent'\);/);
-  assert.match(m, /sr: source\.getBoundingClientRect\(\), anim: animating\(\)/);
-  const k = g.slice(g.indexOf('  function drawKept(list) {'));
-  assert.match(k, /take\(\{ x: x0, y: y0, w: x1 - x0, h: y1 - y0 \}, cr, sr\);/, 'the figure copy from the kept boxes');
-  assert.match(k, /return paint\(panes, cr, bgs, bg, bgVar\);/);
-  assert.match(g, /function take\(reg, cr, srKept = null\) \{\n\s*const sr = srKept \|\| source\.getBoundingClientRect\(\);/, 'off: take reads the figure’s box as before');
+  const m = g.slice(g.indexOf('  function measureGeo() {'), g.indexOf('  /** The page read again just after this frame'));
+  assert.match(m, /const cr = tgt \? tgt\.getBoundingClientRect\(\)/);
+  assert.match(m, /const panes = readPanes\(list, MOTION\)/);
+  assert.match(m, /const ws = getComputedStyle\(wrap\), bgs = ws\.backgroundColor;\n\s+resolveColour\(bgs\);\n\s+const bg = colour\(bgs, 'transparent'\);/);
+  assert.match(m, /r0: shift\(p\.r, back\), er0: shift\(p\.er, back\)/, 'the boxes kept without their glide');
+  assert.match(m, /sr: source\.getBoundingClientRect\(\)/);
+  const d = g.slice(g.indexOf('  function draw() {'));
+  assert.match(d, /take\(\{ x: x0, y: y0, w: x1 - x0, h: y1 - y0 \}, cr, N\.sr\);/, 'the figure copy from the kept boxes');
+  assert.match(g, /function take\(reg, cr, sr\) \{/, 'take reads nothing itself');
 });
 
 test('Lymph redrawn where it moves: off, the layer is cleared and the drops stepped as before; on, only the tiles they touch', () => {

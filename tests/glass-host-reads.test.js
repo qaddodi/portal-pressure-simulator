@@ -109,12 +109,14 @@ test('hosted: a write to the callout reads it again and lays its new place', asy
   assert.ok(presents > p, 'laid at once');
 });
 
-test('hosted: a CSS transition anywhere on the page reads it for the next 0.6 s, then stops', async () => {
+test('hosted: a CSS transition anywhere on the page is followed with no read while it runs, read once where it ended, then still', async () => {
   clock += 1000; await frames(3);
   let r = reads;
   fire('transitionrun');
   await frames(3);
-  assert.ok(reads > r, 'read while it runs');
+  assert.equal(reads, r, 'no read while it runs');
+  fire('transitionend');
+  assert.ok(reads > r, 'read once where it ended');
   clock += 700; await frames(3);
   r = reads;
   G.redraw(); await frames(3);

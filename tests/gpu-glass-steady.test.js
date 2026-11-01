@@ -36,7 +36,10 @@ test('the sheet\'s and the pills\' tint come from their CSS custom property, whi
 
 test('a glass\'s mask is made on unit 1, never where the blurred figure is bound, and a box glass leaves unit 1 empty', () => {
   // (A mask made in the middle of the glasses took unit 0, and every glass drawn after it in that picture read the mask as the figure: grey.)
-  assert.match(GLASS, /G\.activeTexture\(G\.TEXTURE1\);\n\s+if \(!m\) \{ m = \{ tex: texOf\(G, G\.LINEAR\) \};[^\n]*\n\s+G\.bindTexture\(G\.TEXTURE_2D, m\.tex\);\n\s+G\.pixelStorei\(G\.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true\);\n\s+G\.texImage2D\(G\.TEXTURE_2D, 0, G\.RGBA, G\.RGBA, G\.UNSIGNED_BYTE, cv\);\n\s+G\.activeTexture\(G\.TEXTURE0\);/);
+  assert.match(GLASS, /G\.activeTexture\(G\.TEXTURE1\);\n\s+if \(!m\) \{ m = \{ tex: texOf\(G, G\.LINEAR\), fb: G\.createFramebuffer\(\) \};[^\n]*\n\s+G\.bindTexture\(G\.TEXTURE_2D, m\.tex\);\n[^\n]*\n\s+fillMask\(G, m, d, ss, mw, mh\);\n\s+G\.activeTexture\(G\.TEXTURE0\);/);
+  // (Since 1 Nov 2026 filled on the GPU, never in the middle of the glasses: every mask of a picture made before the first is drawn.)
+  assert.match(GLASS, /masksFor\(panes\);\n\s+gl\.viewport\(0, 0, W, H\);/);
+  assert.match(GLASS, /masksFor\(panes, hk\);\n\s+G\.bindFramebuffer\(G\.FRAMEBUFFER, null\);/);
   assert.match(GLASS, /if \(p\.rad\) \{\n(\s+\/\/[^\n]*\n)+\s+G\.activeTexture\(G\.TEXTURE1\); G\.bindTexture\(G\.TEXTURE_2D, null\); G\.activeTexture\(G\.TEXTURE0\);/);
 });
 

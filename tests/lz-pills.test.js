@@ -78,7 +78,7 @@ test('the pills keep their own backdrop blur unless ?lzpills=1 asks for the fros
   assert.match(lz, /const PILLS_OFF = !\/\[\?&\]lzpills=1\\b\/\.test\(location\.search\) \|\| \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\);/);
   assert.match(lz, /off: PILLS_OFF, live: pillLive,/);
   // (Off, no glass is made, so pillCopy stops at once: no copy of the lobule is taken in any frame.)
-  assert.match(lz, /if \(!pillsOn\(\)\) return;/);
+  assert.match(lz, /if \(pillGL === undefined\) \{ if \(!pillMake\) pillMake = setTimeout\(\(\) => \{ pillsOn\(\); wake\(\); \}, 0\); return; \}\n\s*if \(!pillGL\) return;/, 'made just after a frame, never in one');
 });
 
 // (Laptop-heat Q4, 31 Oct: with the frost drawn on the GPU (?lzpills=1), a new copy of the lobule every frame sampled the moving streaks a

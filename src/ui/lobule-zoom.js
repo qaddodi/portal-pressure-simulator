@@ -42,7 +42,7 @@ import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
 import { createSinusoidView } from './sinusoid-view.js?v=200648b9a5';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, framePart, easeNow, inMotion, PACED } from './frame.js?v=15d5254a2c';
-import { createGlassGL } from './glass-gl.js?v=3b4d8a3b4a';
+import { createGlassGL } from './glass-gl.js?v=4e498e55d2';
 import { pillOf, pillLabels, pillHold } from './lz-pills.js?v=bafcf3977d';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=6f305af9e6';
@@ -1786,7 +1786,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     c.drawImage(cur, 0, 0, cw, ch, 0, 0, w, h);
   }
   pillSrc.getBoundingClientRect = () => el.getBoundingClientRect();   // (it lies on the lobule's layers, inset 0 in it, as they do)
-  let pillGL, pillSeq = 0, pillTisOK = false, pillUntil = 0, tissueDrew = false, pillHeld = '';
+  let pillGL, pillMake = 0, pillSeq = 0, pillTisOK = false, pillUntil = 0, tissueDrew = false, pillHeld = '';
   const pillFig = new Set();
   const pillLit = () => { litOf(); return /(^| )(lobule|sinusoid):/.test(litRaw || ''); };
   const pillLive = () => fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !resCover && !keep2D && pillTisOK && pillSeq > 0;
@@ -1805,7 +1805,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   new MutationObserver(() => { if (pillLit()) { pillTisOK = false; wake(); } }).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['data-lit'] });
   function pillCopy(W, H) {
     if (!pillLit()) { if (performance.now() > pillUntil) return; } else pillUntil = performance.now() + 700;   // (and through the pills' fade out)
-    if (!pillsOn()) return;
+    // (The glass is made, and the page read for it, just after this frame, never inside one: pillsOn is not on a frame path.)
+    if (pillGL === undefined) { if (!pillMake) pillMake = setTimeout(() => { pillsOn(); wake(); }, 0); return; }
+    if (!pillGL) return;
     const w = Math.max(1, Math.ceil(W / 2)), h = Math.max(1, Math.ceil(H / 2));
     if (pillSrc.width !== w || pillSrc.height !== h) { pillSrc.width = pillTis.width = w; pillSrc.height = pillTis.height = h; pillTisOK = false; }
     // (Only the blood moved since the last copy: the frost stays as it is, see pillHold.)

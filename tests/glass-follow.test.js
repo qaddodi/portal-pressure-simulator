@@ -119,6 +119,7 @@ test('it stays awake while a script\'s fade runs in the layer, which sends no ev
   await write();
   await frames(6);
   assert.ok(rafs.length > 0, 'still asking for frames while the fade runs');
+  fade.playState = 'finished';   // (it ends: the browser marks it finished, and it is let go)
   layer.anims = [];
   await frames(5);
   assert.equal(rafs.length, 0, 'asleep again once nothing animates');

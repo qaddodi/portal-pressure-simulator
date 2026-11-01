@@ -11,6 +11,8 @@
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { finalFrameFor, cancelFrame, noteDraw } from './frame.js?v=15d5254a2c';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=e48e05cdb3';
+import { shiftOf, translateOf, motionAt, movesOnly } from './glass-motion.js?v=d367c59900';
+import { pathPolys, fanTriangles } from './path-poly.js?v=07f30beea9';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
@@ -80,8 +82,13 @@ const NUM = (v) => parseFloat(v) || 0;
  * (The color(srgb) form was read as no colour until 1 Nov 2026, so a card tinted by color-mix() was never drawn in the figure's canvas.)
  */
 export function parseColour(v) {
-  const m = /^#([\da-f]{6})$/i.exec(v);
-  if (m) { const n = parseInt(m[1], 16); return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255, 1]; }
+  const sv = String(v ?? '').trim();
+  if (sv === 'transparent') return [0, 0, 0, 0];
+  const h = /^#([\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.exec(sv)?.[1];
+  if (h) {
+    const f = h.length <= 4 ? [...h].map((c) => c + c).join('') : h, n = (i) => parseInt(f.slice(i, i + 2), 16) / 255;
+    return [n(0), n(2), n(4), f.length === 8 ? n(6) : 1];
+  }
   const c = /^color\(srgb\s+([^)]+)\)$/i.exec(String(v).trim());
   if (c) {
     const [rgb, a] = c[1].split('/');
@@ -90,8 +97,8 @@ export function parseColour(v) {
     if (n.length === 3 && n.every(Number.isFinite) && Number.isFinite(al)) return [...n.map((x) => Math.min(1, Math.max(0, x))), Math.min(1, Math.max(0, al))];
     return [0, 0, 0, 0];
   }
-  const q = /rgba?\(([^)]+)\)/.exec(v)?.[1].split(/[\s,/]+/).filter(Boolean).map(Number);
-  return q ? [q[0] / 255, q[1] / 255, q[2] / 255, q.length > 3 ? q[3] : 1] : [0, 0, 0, 0];
+  const q = /^rgba?\(([^)]+)\)$/.exec(sv)?.[1].split(/[\s,/]+/).filter(Boolean).map((x, i) => (x.endsWith('%') ? (i < 3 ? 2.55 : 0.01) * parseFloat(x) : +x));
+  return q && q.length >= 3 && q.every(Number.isFinite) ? [q[0] / 255, q[1] / 255, q[2] / 255, q.length > 3 ? q[3] : 1] : [0, 0, 0, 0];
 }
 /** The first shadow of a computed box-shadow: { c: [r, g, b, a] (0–1), x, y, blur, spread } or null. */
 export function parseShadow(s) {
@@ -267,6 +274,59 @@ function readWarm(gl, e) {
   const ok = e.hs.map((h) => { try { checkProgram(gl, h); return true; } catch { return false; } });
   e.P = ok[0] && ok[1] ? uniformsOf(gl, e.hs[0].p, e.hs[1].p) : null;
 }
+// A mask's fill (fillMask): the triangles of a callout's outline (mask px, y down) turn each pixel they cover over, 0 to 1 and back
+// (blend: one minus the destination), so a pixel inside the outline is turned an odd number of times and shows; the texture's row 0 is
+// the mask's top, as the glass samples it.
+const MVS = `#version 300 es
+in vec2 aP;
+uniform vec2 uS;
+void main() { gl_Position = vec4(aP / uS * 2.0 - 1.0, 0.0, 1.0); }`;
+const MFS = `#version 300 es
+precision mediump float;
+out vec4 o;
+void main() { o = vec4(1.0); }`;
+const fills = new WeakMap();   // (context → its fill program, vertex array and buffer, made at its first mask)
+function fillKit(G) {
+  let f = fills.get(G);
+  if (f !== undefined) return f;
+  try {
+    const p = checkProgram(G, startProgram(G, MVS, MFS));
+    const vao = G.createVertexArray(), buf = G.createBuffer();
+    G.bindVertexArray(vao); G.bindBuffer(G.ARRAY_BUFFER, buf);
+    const at = G.getAttribLocation(p, 'aP');
+    G.enableVertexAttribArray(at); G.vertexAttribPointer(at, 2, G.FLOAT, false, 0, 0);
+    G.bindVertexArray(null); G.bindBuffer(G.ARRAY_BUFFER, null);
+    f = { p, vao, buf, uS: G.getUniformLocation(p, 'uS') };
+  } catch { f = null; }   // (it will not build: no mask is made, and each such glass keeps the CSS's solid look)
+  fills.set(G, f);
+  return f;
+}
+/** Fills mask m (its texture bound on the active unit, mw × mh) with the outline d at ss mask px per CSS px, on the GPU. Leaves the
+ *  framebuffer, program, vertex array and blend as the caller sets them next (paint, drawInto); depth test and culling as they were. */
+function fillMask(G, m, d, ss, mw, mh) {
+  const f = fillKit(G);
+  if (!f) return;
+  const tri = fanTriangles(pathPolys(d, 0.25 / ss), ss);
+  G.bindFramebuffer(G.FRAMEBUFFER, m.fb);
+  G.framebufferTexture2D(G.FRAMEBUFFER, G.COLOR_ATTACHMENT0, G.TEXTURE_2D, m.tex, 0);
+  G.viewport(0, 0, mw, mh);
+  G.disable(G.SCISSOR_TEST); G.disable(G.STENCIL_TEST);
+  const depth = G.isEnabled(G.DEPTH_TEST), cull = G.isEnabled(G.CULL_FACE);
+  if (depth) G.disable(G.DEPTH_TEST);
+  if (cull) G.disable(G.CULL_FACE);
+  G.clearColor(0, 0, 0, 0); G.clear(G.COLOR_BUFFER_BIT);
+  if (tri.length) {
+    G.useProgram(f.p); G.bindVertexArray(f.vao);
+    G.bindBuffer(G.ARRAY_BUFFER, f.buf); G.bufferData(G.ARRAY_BUFFER, tri, G.STREAM_DRAW);
+    G.uniform2f(f.uS, mw, mh);
+    G.enable(G.BLEND); G.blendEquation(G.FUNC_ADD); G.blendFuncSeparate(G.ONE_MINUS_DST_COLOR, G.ZERO, G.ONE_MINUS_DST_ALPHA, G.ZERO);
+    G.drawArrays(G.TRIANGLES, 0, tri.length / 2);
+    G.disable(G.BLEND); G.bindBuffer(G.ARRAY_BUFFER, null); G.bindVertexArray(null); G.useProgram(null);
+  }
+  if (depth) G.enable(G.DEPTH_TEST);
+  if (cull) G.enable(G.CULL_FACE);
+  G.bindFramebuffer(G.FRAMEBUFFER, null);
+}
 function texOf(gl, filter) {
   const t = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, t);
@@ -283,17 +343,18 @@ function texOf(gl, filter) {
  * again; while it, the region behind the callouts and the canvas' place on the page all hold, the copy already taken is still the
  * figure, so none is taken (without it, one is taken whenever the last has arrived). `onFigure(f)`: calls f each time the figure is
  * drawn again, and returns the call that stops it: the glass, settled, sleeps until then (or until a callout changes). Null when it cannot run.
- * `keep()` (Settings › Figure performance › Callout glass kept, off by default): while true, each glass's box, fade, shape and shadow,
- * the canvas's and the figure's boxes and the stage's colour are read once and kept until something says they may have changed
- * (keptStale), so a frame where only the figure under them was drawn again reads no style and forces no layout. `due()`: the page's
- * layout watch (idle-keys.js), true while a card, bar or the stage may have moved.
+ * Each glass's box, fade, shape and shadow, the canvas's and the figure's boxes and the stage's colour are read outside any frame and
+ * kept (measureGeo), their glides and fades put back each frame (nowGeo), so no frame reads layout or style (1 Nov 2026; `keep()` is
+ * no longer asked: always so). `due()`: the page's layout watch (idle-keys.js), true while a card, bar or the stage may have moved:
+ * the page is read again just after that frame.
  * setHost(h) (the callouts' glass only; recs A1, glass): h = { gl, canvas, now, active, over }, the figure's own canvas (veins-gl top).
  * While h.active() and no glass crosses an element of h.over() (what the page lays between that canvas and this one), the glass is
  * drawn into the figure's canvas, at the end of each picture it lays (drawInto), from that picture itself: no copy of the canvas, no
  * canvas of its own. Otherwise, and for the frame of each change, it is drawn here as before.
  */
-// (What hostDraw reads from the page, kept until something may have changed it: hostReads. ?glassreads=0 reads it on every frame.)
-const READS_KEEP = typeof location === 'undefined' || !/[?&]glassreads=0\b/.test(location.search);
+// (What the glass reads from the page, read outside any frame and kept, its motion put back each frame from what it is given: measureGeo,
+// glass-motion.js. ?glassmotion=0: any write to a glass or what holds it reads the page again, its motion included.)
+const MOTION = typeof location === 'undefined' || !/[?&]glassmotion=0\b/.test(location.search);
 export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = REBLUR_URL ? REBLUR_MS : 0, fresh = null, full = FULL_URL, onHoles = null } = {}) {
   if (HOLD_URL || reblur > 0) fresh = null;
   const look = pane ? PANE : GLASS;
@@ -335,15 +396,32 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // same is skipped; quiet: the frames in a row that changed nothing; liveUntil: a callout's transition or animation runs until then;
   // poll: the slow look while it sleeps; gen: a copy asked for before the glass was let go is never put in.)
   let shown = false, drawnKey = '', quiet = 0, liveUntil = 0, poll = 0, gen = 0, readySeq = 0;
-  // (Callout glass kept: the page as last read for the glasses, and whether something may have changed it since; see drawKept.)
-  let kept = null, keptStale = true;
   let masks = new WeakMap();
-  const maskTex = new Set(), marked = new Set();
-  const norm = document.createElement('canvas').getContext('2d');
-  const colour = (str, fb) => {   // any CSS colour, as straight [r, g, b, a] (0–1), through the canvas' own parser
-    norm.fillStyle = 'transparent'; norm.fillStyle = str || fb;
-    return parseColour(norm.fillStyle);
-  };
+  const maskTex = new Set(), maskFb = new Set(), marked = new Set();
+  // Any CSS colour as straight [r, g, b, a] (0–1). A colour the page gives as written (a custom property that is not registered: a
+  // color-mix(), a name, oklab) is resolved by the browser's own CSS once, when the page is read (resolveColour, from measureGeo, outside
+  // any frame), through a colour mixed into sRGB, so it always comes back as color(srgb ...); a frame only looks it up. (Through a 2D
+  // canvas's parser until 1 Nov 2026: no canvas 2D anywhere.)
+  const colours = new Map();
+  let probe = null;
+  function resolveColour(str) {
+    const k = (str || '').trim();
+    if (!k || colours.has(k)) return;
+    let v = parseColour(k);
+    if (!(v[3] > 0) && k !== 'transparent' && !/^#|^rgba?\(|^color\(srgb/i.test(k)) {
+      try {
+        if (!probe) { probe = document.createElement('i'); probe.style.display = 'none'; document.head?.appendChild(probe); }
+        if (probe?.isConnected) {
+          probe.style.color = ''; probe.style.color = `color-mix(in srgb, ${k} 100%, transparent)`;
+          if (!probe.style.color) probe.style.color = k;
+          v = parseColour(getComputedStyle(probe).color);
+        }
+      } catch { /* (no CSS to ask: as parsed) */ }
+    }
+    if (colours.size > 256) colours.clear();
+    colours.set(k, v);
+  }
+  const colour = (str, fb) => colours.get((str || '').trim()) || parseColour((str || '').trim() || fb);
   const unmark = () => { for (const g of marked) g.removeAttribute('data-gl'); marked.clear(); };
   const wanted = glassCheck(document, window);
   const glassesOf = () => (cards ? cards.find().filter((g) => g?.isConnected) : pane ? (pane.isConnected ? [pane] : []) : layers.flatMap((l) => [...l.getElementsByClassName('cl-glass')]));
@@ -363,38 +441,39 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const heldBy = (g) => {
     let a = 1;
     for (let e = g.parentElement; e && e !== stop && a > 0.001; e = e.parentElement) {
-      const v = READS_KEEP ? fadeOf(e) : parseFloat(getComputedStyle(e).opacity);
+      const v = fadeOf(e);
       if (v < 1) a *= v;   // (a missing or odd value is no fade)
     }
     return a;
   };
-  // A callout's shape as a mask, drawn from its own outline path (callout.js), again only when that or its size changes.
+  // A callout's shape as a mask, drawn from its own outline path (callout.js), again only when that or its size changes. Filled on the
+  // GPU (fillMask) from the path cut into polygons (path-poly.js) at twice the glass's density, so the glass, sampling it between texels,
+  // takes a 2 × 2 average at its edge; through a 2D canvas until 1 Nov 2026. Made before any glass of a picture is drawn (masksFor), never
+  // between two of them.
   // (K: the figure's context's kit when the glass is drawn there (host), with its own masks, at that canvas's density.)
   function maskOf(g, d, w, h, K = null) {
     const G = K ? K.G : gl, k = K ? K.k : dpr, store = K ? K.masks : masks;
     const key = `${d}|${w}|${h}|${k}`;
     let m = store.get(g);
     if (m?.key === key) return m;
-    const cv = document.createElement('canvas'), mw = Math.max(1, Math.ceil(w * k)), mh = Math.max(1, Math.ceil(h * k));
-    cv.width = mw; cv.height = mh;
-    const c = cv.getContext('2d');
-    c.setTransform(k, 0, 0, k, 0, 0); c.fillStyle = 'black'; c.fill(new Path2D(d));
-    // (Made and uploaded on unit 1, where the glass reads its mask, never on unit 0: the blurred figure is bound there while the glasses
-    // are drawn, and a mask made in the middle of them (a callout's new size, the sheet's readings card sliding) took its place, so every
-    // glass drawn after it in that picture read the mask as the figure: a grey glass for one frame, a flicker (1 Nov 2026).)
+    if (!fillKit(G)) return null;   // (no fill program: that glass is left to the CSS's solid look, unmarked)
+    const ss = 2 * k, mw = Math.max(1, Math.ceil(w * ss)), mh = Math.max(1, Math.ceil(h * ss));
+    // (Made on unit 1, where the glass reads its mask, never on unit 0: the blurred figure is bound there while the glasses are drawn;
+    // a mask made in the middle of them once took its place, a grey glass for one frame (1 Nov 2026).)
     G.activeTexture(G.TEXTURE1);
-    if (!m) { m = { tex: texOf(G, G.LINEAR) }; (K ? K.maskTex : maskTex).add(m.tex); }
+    if (!m) { m = { tex: texOf(G, G.LINEAR), fb: G.createFramebuffer() }; (K ? K.maskTex : maskTex).add(m.tex); (K ? K.maskFb : maskFb).add(m.fb); }
     G.bindTexture(G.TEXTURE_2D, m.tex);
-    G.pixelStorei(G.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-    G.texImage2D(G.TEXTURE_2D, 0, G.RGBA, G.RGBA, G.UNSIGNED_BYTE, cv);
+    if (m.w !== mw || m.h !== mh) { G.texImage2D(G.TEXTURE_2D, 0, G.RGBA8 ?? G.RGBA, mw, mh, 0, G.RGBA, G.UNSIGNED_BYTE, null); m.w = mw; m.h = mh; }
+    fillMask(G, m, d, ss, mw, mh);
     G.activeTexture(G.TEXTURE0);
-    Object.assign(m, { key, ms: [w * k / mw, h * k / mh] });
+    Object.assign(m, { key, ms: [w * ss / mw, h * ss / mh] });
     store.set(g, m);
     return m;
   }
+  // Every mask a picture's glasses need, made before the first of them is drawn (the state they are drawn with set after).
+  function masksFor(panes, K = null) { for (const p of panes) if (!p.rad && p.d) maskOf(p.g, p.d, p.lw, p.lh, K); }
   // A new small copy of the figure behind the callouts, blurred once in two passes when it arrives.
-  function take(reg, cr, srKept = null) {
-    const sr = srKept || source.getBoundingClientRect();
+  function take(reg, cr, sr) {
     if (!sr.width || !sr.height || !source.width) return;
     // (The key of the figure as it is copied now, read before the copy is asked for: the browser takes its snapshot in that call.)
     const key = version ? `${version()}|${reg.x}|${reg.y}|${reg.w}|${reg.h}|${cr.left}|${cr.top}|${sr.left}|${sr.top}|${sr.width}|${sr.height}|${source.width}x${source.height}` : '';
@@ -454,9 +533,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     gl.viewport(0, 0, W, H); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); drawn = false;
   }
   // Each callout's glass as the page lays it out this frame (its fades, glides and the card's shadow included).
-  function readPanes(list) {
-    fadeMemo = READS_KEEP ? new Map() : null;
+  function readPanes(list, keep0 = false) {
+    fadeMemo = new Map();
     const panes = [];
+    const shows = (a) => keep0 || a > 0.001;   // (keep0: a glass faded right out is kept too, its fade put back each frame by the motion)
     for (const g of list) {
       const el = cards ? g : g.parentElement, cs = getComputedStyle(g);
       if (!el || cs.display === 'none' || cs.visibility !== 'visible') continue;
@@ -466,8 +546,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       const q = cards?.read ? cards.read(g) : undefined;
       if (q !== undefined) {
         for (const one of [].concat(q || [])) {
-          if (!one || !(a * one.a > 0.001) || !one.r.width || !one.r.height) continue;
-          panes.push({ g, el, a: a * one.a, r: one.r, d: one.d || null, rad: one.d ? null : one.rad, lw: one.r.width, lh: one.r.height, er: one.r, shadow: null, tint: one.tint, k: 1 });
+          if (!one || !shows(a * one.a) || !one.r.width || !one.r.height) continue;
+          panes.push({ g, el, oa: one.a, a: a * one.a, r: one.r, d: one.d || null, rad: one.d ? null : one.rad, lw: one.r.width, lh: one.r.height, er: one.r, shadow: null, tint: one.tint, k: 1 });
         }
         continue;
       }
@@ -476,17 +556,17 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         // not reach a glass drawn here, so such a card keeps the browser's.)
         if (cs.getPropertyValue('--gl-glass').trim() !== '1' || (cs.filter && cs.filter !== 'none')) continue;
         const r = g.getBoundingClientRect();
-        if (!r.width || !r.height || !(a > 0.001)) continue;
-        panes.push({ g, el, a, r, d: null, rad: radiiOf(cs), lw: r.width, lh: r.height, er: r, shadow: null, tint: cs.getPropertyValue('--gl-tint'), k: 1 });
+        if (!r.width || !r.height || !shows(a)) continue;
+        panes.push({ g, el, oa: 1, a, r, d: null, rad: radiiOf(cs), lw: r.width, lh: r.height, er: r, shadow: null, tint: cs.getPropertyValue('--gl-tint'), k: 1 });
         continue;
       }
       const r = g.getBoundingClientRect(), lw = NUM(g.style.width), lh = NUM(g.style.height);
-      if (!r.width || !r.height || !lw || !lh || !(a > 0.001)) continue;
+      if (!r.width || !r.height || !lw || !lh || !shows(a)) continue;
       // (The liver's pane: its own rounded box, tinted with --frost as it stands; its soft shadow, outside it, stays the DOM's.)
-      if (pane) { panes.push({ g, el, a, r, d: roundPath(lw, lh, NUM(cs.borderTopLeftRadius)), lw, lh, er: r, shadow: null, tint: cs.getPropertyValue('--frost'), k: 1 }); continue; }
+      if (pane) { panes.push({ g, el, oa: 1, a, r, d: roundPath(lw, lh, NUM(cs.borderTopLeftRadius)), lw, lh, er: r, shadow: null, tint: cs.getPropertyValue('--frost'), k: 1 }); continue; }
       const d = g.firstChild?.firstChild?.getAttribute?.('d');
       if (!d) continue;
-      panes.push({ g, el, a, r, d, lw, lh, er: el.getBoundingClientRect(), shadow: parseShadow(getComputedStyle(el).boxShadow), tint: cs.getPropertyValue('--surface'), k: GLASS.tint });
+      panes.push({ g, el, oa: 1, a, r, d, lw, lh, er: el.getBoundingClientRect(), shadow: parseShadow(getComputedStyle(el).boxShadow), tint: cs.getPropertyValue('--surface'), k: GLASS.tint });
     }
     return panes;
   }
@@ -494,33 +574,31 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (lost || dead || gl?.isContextLost()) return false;
     const list = glassesOf();
     if (hostOn && (!list.length || !wanted() || !live())) dropHost(true);
-    if (!list.length || !wanted() || !live()) { unmark(); clear(); kept = null; return false; }
+    if (!list.length || !wanted() || !live()) { unmark(); clear(); return false; }
     if (host) { const r = hostDraw(list); if (r !== undefined) return r; }
     // (No copy of its own: the browser's glass, until the figure's canvas can take it again.)
-    if (!copy) { unmark(); kept = null; return false; }
-    if (keep?.()) return drawKept(list);
-    kept = null;
-    const cr = canvas.getBoundingClientRect(), k = glassDpr();
+    if (!copy) { unmark(); return false; }
+    const N = nowGeo(list);
+    if (!N) return true;   // (the page read once more just after this frame: measureGeo)
+    const { cr } = N, k = glassDpr();
     const w = Math.max(1, Math.round(cr.width * k)), h = Math.max(1, Math.round(cr.height * k));
     if (w !== W || h !== H) { W = w; H = h; canvas.width = w; canvas.height = h; }
     dpr = k;
-    const panes = readPanes(list);
+    const panes = N.panes;
     // The figure taken around them all (CSS px from the canvas' corner).
     if (panes.length) {
       let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
       for (const p of panes) { x0 = Math.min(x0, p.r.left); y0 = Math.min(y0, p.r.top); x1 = Math.max(x1, p.r.right); y1 = Math.max(y1, p.r.bottom); }
       x0 = Math.max(0, x0 - cr.left - MARGIN); y0 = Math.max(0, y0 - cr.top - MARGIN);
       x1 = Math.min(cr.width, x1 - cr.left + MARGIN); y1 = Math.min(cr.height, y1 - cr.top + MARGIN);
-      if (x1 > x0 && y1 > y0 && !pending) take({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, cr);
+      if (x1 > x0 && y1 > y0 && !pending) take({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, cr, N.sr);
     }
     // No glass shows (all hidden, faded out or empty): the canvas is cleared once and nothing more is done. (A card still marked from an
     // earlier frame goes back to the browser's glass: its CSS may have turned its own off while it was the only one.)
     if (!panes.length) { if (cards) unmark(); clear(); return false; }
     // (Until the first copy is in, the browser's own glass stays.)
     if (!ready) return true;
-    const ws = getComputedStyle(wrap), bgs = ws.backgroundColor, bg = colour(bgs, 'transparent');
-    const bgVar = bg[3] > 0 ? '' : ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim();
-    return paint(panes, cr, bgs, bg, bgVar);
+    return paint(panes, cr, N.bgs, N.bg, N.bgVar);
   }
   // The glasses drawn over the blurred copy, unless the picture would be the one already on the canvas ('same').
   function paint(panes, cr, bgs, bg, bgVar) {
@@ -530,6 +608,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (drawn && key === drawnKey) return 'same';
     noteDraw(cards ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
     if (gpuProbe.on) gpuProbe.note(cards ? COUNTED.cardDrawn : pane ? COUNTED.paneDrawn : COUNTED.glassDrawn);
+    masksFor(panes);
     gl.viewport(0, 0, W, H); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(pprog); gl.bindVertexArray(vao);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -570,6 +649,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         G.uniform2f(U.uMS, 1, 1);
       } else {
         const m = maskFor(p);
+        if (!m) continue;
         G.activeTexture(G.TEXTURE1); G.bindTexture(G.TEXTURE_2D, m.tex); G.activeTexture(G.TEXTURE0);
         G.uniform1i(U.uMode, 0);
         G.uniform2f(U.uMS, m.ms[0], m.ms[1]);
@@ -636,7 +716,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (!P) return null;
     const K = { G, ...P, shared: GLASS_WARM, vao: G.createVertexArray(), copy: texOf(G, G.LINEAR), pass: texOf(G, G.LINEAR), blurred: texOf(G, G.LINEAR),
       fbCopy: G.createFramebuffer(), fbPass: G.createFramebuffer(), fbOut: G.createFramebuffer(), steps: [], size: '', key: '', reg: null, k: 1,
-      masks: new WeakMap(), maskTex: new Set() };
+      masks: new WeakMap(), maskTex: new Set(), maskFb: new Set() };
     G.bindTexture(G.TEXTURE_2D, null);
     return K;
   }
@@ -647,7 +727,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (!K || K.G.isContextLost()) return;
     const G = K.G;
     for (const t of [K.copy, K.pass, K.blurred, ...K.steps.map((st) => st.t), ...K.maskTex]) G.deleteTexture(t);
-    for (const fb of [K.fbCopy, K.fbPass, K.fbOut, ...K.steps.map((st) => st.fb)]) G.deleteFramebuffer(fb);
+    for (const fb of [K.fbCopy, K.fbPass, K.fbOut, ...K.steps.map((st) => st.fb), ...K.maskFb]) G.deleteFramebuffer(fb);
     if (!K.shared) { G.deleteProgram(K.bprog); G.deleteProgram(K.pprog); }   // (the warmed set stays with its context, for the others)
     G.deleteVertexArray(K.vao);
   }
@@ -655,7 +735,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // without the glass now (again), or by the figure's next picture (from inside one, which has just been laid without it).
   function dropHost(again) {
     if (!hostOn) return;
-    hostOn = false; hf = null; hr = null;
+    hostOn = false; hf = null;
     if (hk) hk.key = '';
     unmark();
     tellHoles([]);
@@ -663,32 +743,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (again) host?.now(); else ask();
   }
   // The loop's turn while a host is set: true, 'same' or false as draw() returns, or undefined when the glass is drawn on its own canvas.
-  // What hostDraw reads from the page (the figure's canvas's box, the window's size, every glass's box, corners, tint and fade, the stage's
-  // colour), read again only when something may have changed it (1 Nov 2026, "Move everything to GPU": no layout or style read on a frame
-  // that changes nothing on the page). A write in the glasses' layers or on any of their parents, a size change of a glass, the canvas or
-  // the stage, a scroll, a resize, a font coming in, a theme, any CSS transition or animation starting or ending anywhere on the page, an
-  // animation still running in the layers, a callout's live window, a new list of glasses or the slow look while asleep all read it
-  // again, and so does every frame for 0.6 s after any of them (a fade on a parent the layers' events do not reach). The blood and the
-  // figure moving under a still glass read nothing. ?glassreads=0 reads it all on every frame, as before.
-  let hr = null, readUntil = 0;
-  function hostReads(list) {
-    const t = performance.now();
-    if (READS_KEEP) keepWatch();
-    if (!READS_KEEP || !hr || keptStale || !sameList(hr.list, list) || t < readUntil || t < liveUntil || animating() || due?.()) {
-      if (keptStale || !hr) readUntil = t + 600;
-      keptStale = false;
-      const cr = host.canvas.getBoundingClientRect();
-      const vw = document.documentElement?.clientWidth || window.innerWidth || cr.right, vh = document.documentElement?.clientHeight || window.innerHeight || cr.bottom;
-      const ws = getComputedStyle(wrap), bgs = ws.backgroundColor, bg = colour(bgs, 'transparent');
-      const bgVar = bg[3] > 0 ? '' : ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim();
-      hr = { list, cr, vw, vh, panes: readPanes(list), bgs, bg, bgVar };
-      if (keptRo) { keptRo.observe(host.canvas); for (const g of list) keptRo.observe(g); }
-    }
-    return hr;
-  }
   function hostDraw(list) {
     if (!host.active()) { whyAll = host.why?.() || 'the figure\'s canvas is not taking glass'; dropHost(true); return undefined; }
-    const R = hostReads(list), cr = R.cr;
+    const R = nowGeo(list);
+    if (!R) return hostOn ? 'same' : false;   // (the page read once more just after this frame: measureGeo)
+    const cr = R.cr;
     if (!cr.width || !cr.height) { whyAll = 'the figure\'s canvas has no size'; dropHost(true); return undefined; }
     // (A glass reaching past the figure's canvas could not be drawn there whole: the browser's, or its own canvas, takes it.)
     // (2 px of slack: the split sheet's glass panes reach 1 px past the card's box (their border) and the card moves by fractions of a pixel as the view follows it, so a pane
@@ -703,7 +762,6 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     };
     let panes = R.panes;
     {
-      let lo = null, hi = null;
       // (A card is drawn here whole or not at all: marked, a card with one of its panes kept out (the split sheet's two, one reaching past the
       // canvas or crossing a label as it slides) would lose the browser's blur for that pane and show none, flickering as it moves.)
       // (Each swap from one blur to the other shows as the whole card blinking (Mohammad, 31 Oct: "while tucking and untucking those cards the
@@ -714,7 +772,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       const nowT = performance.now(), edge = new Set(), cross = new Set(), boxes = new Map();
       for (const p of panes) {
         if (!inside(p)) edge.add(p.g);
-        else if (crosses([p], !cards ? (lo ||= host.over?.() || []) : host.low?.(p.g) ? (lo ||= host.over?.('low') || []) : (hi ||= host.over?.('high') || []))) cross.add(p.g);
+        else if (crosses([p], !cards ? R.over.all : host.low?.(p.g) ? R.over.low : R.over.high)) cross.add(p.g);
         boxes.set(p.g, (boxes.get(p.g) || '') + `${p.r.left},${p.r.top},${p.r.width},${p.r.height};`);
       }
       const out = new Set();
@@ -743,7 +801,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const key = `${cr.left}|${cr.top}|${cr.width}|${cr.height}|${bgs}|${bgVar}` + panesKey(panes);
     if (!hostOn) {
       // (This canvas cleared and out of the page's layers; a copy on its way is not put in, and the next one here is taken afresh.)
-      hostOn = true; hf = null; gen++; pending = false; ready = null; takenKey = ''; kept = null;
+      hostOn = true; hf = null; gen++; pending = false; ready = null; takenKey = '';
       if (canvas) {
         clear();
         canvas.style.visibility = 'hidden';
@@ -929,6 +987,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     noteDraw(cards ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
     if (gpuProbe.on) gpuProbe.note(cards ? COUNTED.cardDrawn : pane ? COUNTED.paneDrawn : COUNTED.glassDrawn);
     const U = hk.PU, R = hk.reg;
+    masksFor(panes, hk);
     G.bindFramebuffer(G.FRAMEBUFFER, null);
     G.viewport(0, 0, W2, H2);
     G.disable(G.SCISSOR_TEST); G.disable(G.STENCIL_TEST);
@@ -944,41 +1003,125 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     G.activeTexture(G.TEXTURE1); G.bindTexture(G.TEXTURE_2D, null); G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, null);
     G.pixelStorei(G.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
   }
-  const onHostLost = () => { if (host) warmed.delete(host.gl); hk = null; if (hostOn) { hostOn = false; hf = null; unmark(); tellHoles([]); if (canvas) canvas.style.visibility = ''; ask(); } };
-  // Callout glass kept (keep()): what draw() reads from the page each frame, read only when keptStale says it may have changed. The
-  // reads and the picture are draw()'s own; only when they are taken differs. (A list of glasses that is not the one measured, a new
-  // screen density, a callout's transition or event in the last 0.8 s, an animation in the layers when last measured (a CSS transition
-  // or keyframes, or a script's fade: measured again every frame until it ends), or the page's layout watch all measure again. A
-  // script's fade started on a callout with no write to the layers would go unseen until one of those; nothing does that today.)
+  const onHostLost = () => { if (host) { warmed.delete(host.gl); fills.delete(host.gl); } hk = null; if (hostOn) { hostOn = false; hf = null; unmark(); tellHoles([]); if (canvas) canvas.style.visibility = ''; ask(); } };
   const sameList = (a, b) => a.length === b.length && a.every((g, i) => g === b[i]);
-  function measure(list) {
-    const cr = canvas.getBoundingClientRect(), k = glassDpr();
-    const panes = readPanes(list);
-    const ws = getComputedStyle(wrap), bgs = ws.backgroundColor, bg = colour(bgs, 'transparent');
-    const bgVar = bg[3] > 0 ? '' : ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim();
-    return { list, cr, k, panes, bgs, bg, bgVar, sr: source.getBoundingClientRect(), anim: animating() };
+  // The page as the glasses need it, read once, outside any frame, and kept (geo), each moving part taken out (glass-motion.js): every
+  // glass's box, corners, tint and the fade of everything that is not moving; the canvas's and the figure's boxes; the stage's colour;
+  // what lies across the glasses (host.over). Read again only when something other than a glide or a fade changed: a write that is not
+  // only a translation or an opacity (a size, a class, a new callout), a size change, a scroll, a resize, a font come in, the theme, an
+  // animation ending, the slow look while asleep, the camera at rest after a move (what lies across the glasses), or the labels at rest
+  // after a change. Each frame puts the motion back (nowGeo): the translations and opacities written inline on a glass or on what holds
+  // it, and each running animation of either, from its keyframes and timing. No layout or style is read in a frame.
+  let geo = null, geoT = 0, restT = 0;
+  const anims = new Map();   // (element → Map(animation → its keyframes))
+  const chainOf = (g) => { const c = []; for (let e = g; e && e !== stop && e.nodeType !== 9; e = e.parentElement) c.push(e); return c; };
+  function addAnim(e, an) {
+    let m = anims.get(e);
+    if (!m) anims.set(e, (m = new Map()));
+    if (!m.has(an)) { let kf; try { kf = an.effect?.getKeyframes?.() || null; } catch { kf = null; } m.set(an, kf); }
   }
-  function drawKept(list) {
-    keepWatch();
-    const k0 = glassDpr();
-    if (!kept || keptStale || !sameList(kept.list, list) || kept.k !== k0 || kept.anim || performance.now() < liveUntil || due?.()) {
-      keptStale = false;
-      kept = measure(list);
+  function track(e) { if (e?.getAnimations) for (const an of e.getAnimations()) addAnim(e, an); }
+  // (A script's animate() on a glass or on what holds it is followed from its first frame: no event announces one.)
+  const hooked = new WeakSet();
+  function hook(e) {
+    if (!e || hooked.has(e) || typeof e.animate !== 'function') return;
+    hooked.add(e);
+    const own = e.animate;
+    e.animate = function (...args) { const an = own.apply(this, args); if (an) { addAnim(this, an); wake(); } return an; };
+  }
+  const fills = (an) => /forwards|both/.test(an.effect?.getTiming?.().fill || '');
+  // One element's moving part now: { t: [x, y] (its translation), o (its opacity, or null when not moving) }; bad: something it cannot
+  // follow (the page is read again just after this frame); ended: an animation of it has ended (likewise, for its end state).
+  function moveOf(e, flag) {
+    let t = null, o = null;
+    const m = anims.get(e);
+    if (m) {
+      for (const [an, kf] of m) {
+        const st = an.playState;
+        if (st === 'idle' || (st === 'finished' && !fills(an))) { m.delete(an); flag.ended = true; continue; }
+        const p = an.effect?.getComputedTiming?.().progress;
+        if (p == null) continue;
+        const v = motionAt(kf, p);
+        if (!v) { flag.bad = true; continue; }
+        if (v.t) t = v.t;
+        if (v.o != null) o = v.o;
+      }
+      if (!m.size) anims.delete(e);
     }
-    const { cr, k, panes, bgs, bg, bgVar, sr } = kept;
-    const w = Math.max(1, Math.round(cr.width * k)), h = Math.max(1, Math.round(cr.height * k));
-    if (w !== W || h !== H) { W = w; H = h; canvas.width = w; canvas.height = h; }
-    dpr = k;
-    if (panes.length) {
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-      for (const p of panes) { x0 = Math.min(x0, p.r.left); y0 = Math.min(y0, p.r.top); x1 = Math.max(x1, p.r.right); y1 = Math.max(y1, p.r.bottom); }
-      x0 = Math.max(0, x0 - cr.left - MARGIN); y0 = Math.max(0, y0 - cr.top - MARGIN);
-      x1 = Math.min(cr.width, x1 - cr.left + MARGIN); y1 = Math.min(cr.height, y1 - cr.top + MARGIN);
-      if (x1 > x0 && y1 > y0 && !pending) take({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, cr, sr);
+    const s = e.style;
+    if (s) {
+      if (!t) { const a = shiftOf(s.transform); if (!a) flag.bad = true; else t = a; }
+      const b = translateOf(s.translate);
+      if (!b) flag.bad = true; else if (t) t = [t[0] + b[0], t[1] + b[1]]; else t = b;
+      if (o == null && s.opacity !== '' && s.opacity != null) o = NUM(s.opacity);
     }
-    if (!panes.length) { if (cards) unmark(); clear(); return false; }
-    if (!ready) return true;
-    return paint(panes, cr, bgs, bg, bgVar);
+    return { t: t || [0, 0], o };
+  }
+  const shift = (r, t) => (t[0] || t[1] ? { left: r.left + t[0], top: r.top + t[1], right: r.right + t[0], bottom: r.bottom + t[1], width: r.width, height: r.height } : r);
+  function chainMove(chain, flag) {
+    let x = 0, y = 0, o = 1;
+    for (const e of chain) { const m = moveOf(e, flag); x += m.t[0]; y += m.t[1]; if (m.o != null) o *= m.o; }
+    return { t: [x, y], o };
+  }
+  function measureGeo() {
+    clearTimeout(geoT); geoT = 0;
+    if (dead || lost) return;
+    const list = glassesOf();
+    const tgt = host?.canvas || canvas;
+    for (const g of list) for (const e of chainOf(g)) { track(e); hook(e); }
+    if (tgt) track(tgt);
+    const flag = {};
+    const cr = tgt ? tgt.getBoundingClientRect() : { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
+    const cm = tgt ? moveOf(tgt, flag) : { t: [0, 0] };
+    const vw = document.documentElement?.clientWidth || window.innerWidth || cr.right, vh = document.documentElement?.clientHeight || window.innerHeight || cr.bottom;
+    const ws = getComputedStyle(wrap), bgs = ws.backgroundColor;
+    resolveColour(bgs);
+    const bg = colour(bgs, 'transparent');
+    const bgVar = bg[3] > 0 ? '' : ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim();
+    resolveColour(bgVar);
+    const panes = readPanes(list, MOTION).map((p) => {
+      resolveColour(p.tint);
+      const chain = chainOf(p.g), mv = chainMove(chain, flag);
+      // (The fade of what does not move, read now; what moves is put back each frame.)
+      let aS = p.oa ?? 1;
+      for (const e of chain) { if (moveOf(e, flag).o != null) continue; const v = fadeOf(e); if (v < 1) aS *= v; }   // (a missing or odd value is no fade)
+      const back = [-mv.t[0], -mv.t[1]];
+      return { ...p, chain, r0: shift(p.r, back), er0: shift(p.er, back), aS };
+    });
+    const over = host ? (cards ? { low: host.over?.('low') || [], high: host.over?.('high') || [] } : { all: host.over?.() || [] }) : null;
+    geo = { list, cr0: shift(cr, [-cm.t[0], -cm.t[1]]), tgt, sr: source.getBoundingClientRect(), vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
+    if (watchRo) { if (tgt) watchRo.observe(tgt); for (const g of list) watchRo.observe(g); }
+    wake();
+  }
+  /** The page read again just after this frame (or now, outside a frame), once however often asked. */
+  function measureSoon(ms = 0) { if (!geoT) geoT = setTimeout(measureGeo, ms); }
+  // (The labels drawn anew (their boxes may now lie across a glass): read once they rest, 250 ms after the last change.)
+  function measureAtRest() { clearTimeout(restT); restT = setTimeout(() => { restT = 0; measureGeo(); }, 250); }
+  let vkSeen = null, vkAt = 0;
+  /** The glasses as they are this frame, from geo and their motion: { cr, panes, sr, bgs, bg, bgVar, over, vw, vh }, or null with none read yet. */
+  function nowGeo(list) {
+    const G = geo;
+    if (!G) { measureSoon(); return null; }
+    if (!sameList(G.list, list)) measureSoon();
+    const flag = {}, cr = G.tgt ? shift(G.cr0, moveOf(G.tgt, flag).t) : G.cr0, panes = [];
+    for (const p of G.panes) {
+      if (!p.g.isConnected) continue;
+      const mv = chainMove(p.chain, flag), a = p.aS * mv.o;
+      if (!(a > 0.001)) continue;
+      panes.push({ ...p, r: shift(p.r0, mv.t), er: shift(p.er0, mv.t), a });
+    }
+    if (flag.bad || flag.ended) measureSoon();
+    if (due?.()) measureSoon();
+    // (The camera moved since the page was read: what lies across the glasses is read again once it has rested 250 ms. While it moves, a
+    // glass keeps the way it is drawn; hostDraw changes it only at rest anyway.)
+    const vk = host?.view?.() ?? null;
+    if (vk !== G.vk) {
+      const t = performance.now();
+      if (vk !== vkSeen) { vkSeen = vk; vkAt = t; }
+      else if (t - vkAt >= 250) measureSoon();
+      if (!heldWake) heldWake = setTimeout(() => { heldWake = 0; ask(); }, 120);
+    }
+    return { cr, panes, sr: G.sr, bgs: G.bgs, bg: G.bg, bgVar: G.bgVar, over: G.over, vw: G.vw, vh: G.vh };
   }
   // While a callout shows, every frame something under or in it moves: the figure drawn again (the blood under it), a callout
   // written (its place, its size, a class), or one of its transitions or animations running. A frame that would draw the same
@@ -988,10 +1131,19 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // (On the shared scheduler's final phase: after every other surface's frame, the figure's own pass and the callouts' writes
   // included, so it blurs the figure of this frame, not the last, and is drawn once in a frame whoever asked.)
   const later = finalFrameFor(cards ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
-  const loop = () => { raf = 0; if (mo.takeRecords().length) keptStale = true; settle(draw()); };   // (the writes made before it in this frame are drawn here, not again after it)
+  // (The writes made before it in this frame: a glide or a fade is put back by the motion now; anything else is read just after this frame.)
+  const loop = () => { raf = 0; if (changed(mo.takeRecords())) measureSoon(); settle(draw()); };
   function ask() { if (!raf && !lost && !dead) raf = later(loop); }
   /** Something the glass shows may have changed: it looks again (for two frames at least). */
   function wake() { quiet = 0; ask(); }
+  // (Any animation of a glass or of what holds it still running: no event says when a script's ends.)
+  function moving() {
+    for (const [e, m] of anims) {
+      for (const an of m.keys()) if ((an.playState === 'running' || an.pending) && Number.isFinite(an.effect?.getComputedTiming?.().endTime)) return true;   // (one that never ends does not hold it awake)
+      if (![...m.keys()].some((an) => an.playState !== 'idle' && (an.playState !== 'finished' || fills(an)))) anims.delete(e);
+    }
+    return false;
+  }
   function settle(r) {
     shown = !!r;
     clearTimeout(poll); poll = 0;
@@ -1000,52 +1152,60 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const running = performance.now() < liveUntil;
     // (Showing: on while it drew, a copy is on its way, or for two quiet frames. Not showing: on only while a transition may bring it in.
     // Either way, never asleep while something in the layers is still animating: a script's fade sends no event.)
-    if ((r ? r === true || pending || quiet < 2 : false) || running || animating()) { ask(); return; }
+    if ((r ? r === true || pending || quiet < 2 : false) || running || moving()) { ask(); return; }
     // (Asleep: a slow look while any glass is on the page; none, and only a new callout (a write to the layers) wakes it.)
-    if (glassesOf().length) poll = setTimeout(() => { poll = 0; keptStale = true; ask(); }, 1000);
+    if (glassesOf().length) poll = setTimeout(() => { poll = 0; measureGeo(); }, 1000);
+  }
+  // (Whether these writes change more than the motion puts back: anything but a style that changed only in a translation or an opacity
+  // already written there (glass-motion.js movesOnly) on an element inside the glasses' layers. ?glassmotion=0: every write does.)
+  function changed(recs) {
+    for (const r of recs) {
+      if (!MOTION || r.type !== 'attributes' || r.attributeName !== 'style') return true;
+      const e = r.target;
+      if (e.contains?.(stop) || !movesOnly(r.oldValue || '', e.getAttribute('style') || '')) return true;
+    }
+    return false;
   }
   // (A write to the callouts asks for the glass's frame, not a draw of its own: a write made in a task (an event, a timer) is drawn in the
   // final phase of the frame that shows it, so the glass still never trails its outline, and one made in a frame before the glass's turn
   // is taken by its loop (takeRecords). The microtask draw it was had drawn a second time in a frame while callouts moved; 30 Oct,
   // review H4b.)
-  const mo = new MutationObserver(() => { keptStale = true; quiet = 0; ask(); });
+  const mo = new MutationObserver((recs) => { if (!recs?.length || changed(recs)) measureGeo(); quiet = 0; ask(); });
   const watched = cards ? cards.watch : pane ? [pane] : layers;
-  for (const l of watched) mo.observe(l, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class', 'data-at', 'hidden'] });
-  // Whether a callout layer still holds an animation that will end: a transition (its delay included), a keyframe animation or a
-  // script's fade. Transitions and keyframes announce themselves (held, below); a script's (the Web Animations API) does not.
-  const animating = () => {
-    for (const l of watched) {
-      const list = l.getAnimations?.({ subtree: true });
-      if (list?.some((an) => an.playState === 'running' && Number.isFinite(an.effect?.getComputedTiming?.().endTime))) return true;
-    }
-    return false;
-  };
-  const again = () => { keptStale = true; wake(); };
+  for (const l of watched) mo.observe(l, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['style', 'class', 'data-at', 'hidden'] });
+  const again = () => measureGeo();
   const observers = [mo, new MutationObserver(again), new MutationObserver(again)];
   observers[1].observe(document.documentElement, { attributes: true, attributeFilter: ['data-noglass', 'data-theme', 'data-palette', 'class'] });
   observers[2].observe(wrap, { attributes: true, attributeFilter: ['class'] });   // (the GPU figure on or off: live(); the stage's look)
-  // (Callout glass kept: what can move the glasses, the canvas or the figure without a write in the layers: a style, class or hidden on
-  // any of their parents or on the figure's canvas (the dive's scale, a sub-pixel shift), a size change, a scroll. Each only marks the
-  // boxes as stale. Set up the first time the switch is on (keepWatch); with it off, none of it exists.)
-  const stale = () => { keptStale = true; wake(); };   // (and looks: an asleep glass drawn in the figure's canvas has no frame of its own to notice it in)
-  let keptMo = null, keptRo = null;
-  function keepWatch() {
-    if (keptMo) return;
+  // (What can move the glasses, the canvas or the figure with no write in the layers: a style, class or hidden on any of their parents, a
+  // size change, a scroll, a font come in. A parent's glide or fade above the layers is read again too: the motion follows only what lies
+  // between a glass and its canvas.)
+  const parentsMo = new MutationObserver(() => measureGeo());
+  {
     const chain = new Set();
     for (const el of [...watched, source]) for (let e = el === source ? el : el.parentElement; e && e.nodeType === 1; e = e.parentElement) chain.add(e);
-    keptMo = new MutationObserver(stale);
-    for (const e of chain) keptMo.observe(e, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
-    keptRo = typeof ResizeObserver === 'function' ? new ResizeObserver(stale) : null;
-    for (const e of [canvas, source, wrap]) keptRo?.observe(e);
-    document.addEventListener('scroll', stale, true);
-    if (READS_KEEP) { for (const t of DOC_EVENTS) document.addEventListener(t, docMoved, true); document.fonts?.addEventListener?.('loadingdone', docMoved); }
-    keptStale = true;
+    for (const e of chain) parentsMo.observe(e, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+    observers.push(parentsMo);
   }
-  // (Any CSS transition or animation on the page, or a font come in: what hostDraw read may move, so it reads again and looks.)
-  const DOC_EVENTS = ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel'];
-  function docMoved() { keptStale = true; wake(); }
+  const watchRo = typeof ResizeObserver === 'function' ? new ResizeObserver(() => measureGeo()) : null;
+  for (const e of [canvas, source, wrap]) if (e) watchRo?.observe(e);
+  const onScroll = () => measureSoon();
+  document.addEventListener?.('scroll', onScroll, true);
+  document.fonts?.addEventListener?.('loadingdone', again);
+  // (A CSS transition or animation starting anywhere: followed if it moves a glass or what holds it (its keyframes taken now, once); one
+  // ending, anywhere: the page read again for where it ended.)
+  const docStart = (e) => { track(e?.target); wake(); };
+  const docEnd = () => measureGeo();
+  const DOC_START = ['transitionrun', 'animationstart'], DOC_END = ['transitionend', 'transitioncancel', 'animationend', 'animationcancel'];
+  for (const t of DOC_START) document.addEventListener?.(t, docStart, true);
+  for (const t of DOC_END) document.addEventListener?.(t, docEnd, true);
   // A callout's fade, glide or hover moves its glass with no write to wake it: it is followed while it runs.
-  const held = () => { liveUntil = performance.now() + 800; keptStale = true; wake(); };
+  const held = (e) => {
+    liveUntil = performance.now() + 800;
+    if (/(end|cancel)$/.test(e?.type || '')) { measureGeo(); return; }   // (ended: read where it ended)
+    if (e?.target && /^(transition|animation)/.test(e.type)) track(e.target);
+    wake();
+  };
   const EVENTS = ['transitionrun', 'transitionstart', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel', 'pointerover', 'pointerout'];
   for (const l of watched) for (const t of EVENTS) l.addEventListener(t, held, true);
   addEventListener('resize', again);
@@ -1061,16 +1221,17 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     progs = programsOf(gl);
     if (!progs) { dead = true; unmark(); return; }   // (the shaders will not build: the browser's glass stays)
     own();
-    maskTex.clear(); masks = new WeakMap();   // (the masks' textures went with the context)
-    gen++; pending = false; ready = null; takenKey = ''; kept = null; fbSize = ''; drawn = false;
+    maskTex.clear(); maskFb.clear(); masks = new WeakMap(); fills.delete(gl);   // (the masks' textures went with the context)
+    gen++; pending = false; ready = null; takenKey = ''; fbSize = ''; drawn = false;
     lost = false;
-    ask();
+    measureGeo();
   };
   canvas?.addEventListener('webglcontextrestored', onBack);
-  ask();
+  measureGeo();
   return {
     canvas,
-    redraw() { wake(); },
+    // (Asked from outside, often in a frame (the labels drew anew): it looks now, and reads the page once that has rested.)
+    redraw() { measureAtRest(); wake(); },
     /** The figure's canvas to draw into while it may (see above); callouts only. */
     // (h: { gl, canvas, add, now, active, over, low, order }: the figure's canvas and its context (veins-gl top), add({ order, prep,
     // draw }) to be drawn at the end of each picture it lays, now() to lay one at once, active() whether the glass may be drawn there,
@@ -1092,9 +1253,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         ? [host.add({ order: h.order?.low ?? 1, prep: prepInto, draw: () => drawInto('low') }), host.add({ order: h.order?.high ?? 3, draw: () => drawInto('high') })]
         : [host.add({ order: h.order ?? 2, prep: prepInto, draw: () => drawInto('all') })];
       // (The figure's canvas faded, hidden or moved by a style of its own (a resolution's fade, a sub-pixel rest): looked at again.)
-      hostMo = new MutationObserver(() => { keptStale = true; if (host) wake(); });
-      hostMo.observe(host.canvas, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
-      wake();
+      hostMo = new MutationObserver((recs) => { if (!recs?.length || changed(recs)) measureGeo(); else wake(); });
+      hostMo.observe(host.canvas, { attributes: true, attributeOldValue: true, attributeFilter: ['style', 'class', 'hidden'] });
+      measureGeo();
     },
     /** Gives the figure's canvas back at once (the stage is about to copy its picture: a resolution's fade): the browser's glass, or the
      *  glass's own canvas, shows in the same frame. Drawn there again when active() says so. */
@@ -1126,9 +1287,14 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     dispose() {
       if (gen < 0) return;
       dead = true; gen = -1;
-      cancelFrame(raf); raf = 0; clearTimeout(poll); poll = 0;
+      cancelFrame(raf); raf = 0; clearTimeout(poll); poll = 0; clearTimeout(geoT); geoT = 0; clearTimeout(restT); restT = 0;
       for (const o of observers) o.disconnect();
-      if (keptMo) { keptMo.disconnect(); keptRo?.disconnect(); document.removeEventListener('scroll', stale, true); for (const t of DOC_EVENTS) document.removeEventListener(t, docMoved, true); document.fonts?.removeEventListener?.('loadingdone', docMoved); }
+      watchRo?.disconnect();
+      document.removeEventListener?.('scroll', onScroll, true);
+      document.fonts?.removeEventListener?.('loadingdone', again);
+      for (const t of DOC_START) document.removeEventListener?.(t, docStart, true);
+      for (const t of DOC_END) document.removeEventListener?.(t, docEnd, true);
+      anims.clear();
       for (const l of watched) for (const t of EVENTS) l.removeEventListener(t, held, true);
       removeEventListener('resize', again);
       offFigure?.();
@@ -1145,10 +1311,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       if (gl && !lost) {
         for (const t of [copyTex, pass, blurred, ...maskTex]) gl.deleteTexture(t);
         gl.deleteFramebuffer(fbPass); gl.deleteFramebuffer(fbOut);
+        for (const fb of maskFb) gl.deleteFramebuffer(fb);
         gl.deleteProgram(bprog); gl.deleteProgram(pprog); gl.deleteVertexArray(vao);
         gl.getExtension('WEBGL_lose_context')?.loseContext();
       }
-      maskTex.clear();
+      maskTex.clear(); maskFb.clear();
       canvas?.remove();
     },
   };

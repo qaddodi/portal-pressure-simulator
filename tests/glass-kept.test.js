@@ -100,7 +100,7 @@ test('on: the blood moving under a still callout reads nothing, yet the glass fo
   assert.equal(reads, r, 'no box or style read');
   assert.ok(copies - k >= 5, 'a new copy of the figure nearly every frame');
   assert.ok(n.draw - d >= 5, 'and the glass drawn with it');
-  assert.ok(resizers.size >= 1 && docListeners.size === 2, 'its watchers are up (the scroll, and any transition or animation on the page: hostReads, 1 Nov)');
+  assert.ok(resizers.size >= 1 && docListeners.size >= 2, 'its watchers are up (the scroll, and any transition or animation starting or ending on the page)');
 });
 
 test('on: a write to a callout reads it again, and its new place is drawn', async () => {
@@ -119,25 +119,39 @@ test('on: a parent\'s change, a resize, a scroll, the layout watch and a transit
   for (const poke of [
     () => { for (const o of observers) if (o !== moOf()) o.cb([]); },
     () => { for (const o of resizers) o.cb([]); },
-    () => { for (const [f] of docListeners) f(); },
+    () => { for (const [f] of docListeners) f({ type: 'transitionend', target: card }); },
     () => { dueOn = true; },
-    () => { for (const [f] of layer.m) f(); },   // (the layers' transition, animation and pointer events share one listener)
+    () => { for (const [f] of layer.m) f({ type: 'transitionend', target: card }); },   // (the layers' transition, animation and pointer events share one listener: an end reads where it ended)
   ]) {
     await frames(4); clock += 1000;
     const r = reads;
     poke();
     await blood(1);
+    // (a read asked for inside a frame waits for the frame to end: it runs from a timer, never in the frame)
+    for (const [id, t] of [...timers]) if (!t.ms) { timers.delete(id); t.f(); }
     dueOn = false;
     assert.ok(reads > r, String(poke));
   }
 });
 
-test('off: every frame of the blood reads the boxes, as before the switch', async () => {
-  keepOn = false;
-  await frames(4);
-  const r = reads;
-  await blood(3);
-  assert.ok(reads - r >= 3 * 4, `read every frame (${reads - r})`);
+test('a glide written as a translation is followed with no read: the glass is drawn where the callout now is', async () => {
+  await frames(4); clock += 1000; await frames(2);
+  const r = reads, d = n.draw;
+  let st = 'transform: translate(0px, 0px)';
+  card.style = { transform: 'translate(0px, 0px)', translate: '', opacity: '' };
+  card.getAttribute = () => st;
+  // (written once, so the page is read with the translation in place: from then on it is the motion's)
+  moOf().cb([]); await frames(2);
+  const r1 = reads;
+  for (let x = 4; x <= 40; x += 4) {
+    const was = st;
+    st = `transform: translate(${x}px, 0px)`; card.style.transform = `translate(${x}px, 0px)`;
+    moOf().cb([{ type: 'attributes', attributeName: 'style', target: card, oldValue: was }]);
+    seq++; for (const f of figure) f(); frame(); await flush();
+  }
+  assert.ok(r1 >= r);
+  assert.equal(reads, r1, 'no box or style read for the whole glide');
+  assert.ok(n.draw > d, 'drawn as it went');
 });
 
 test('let go, its watchers go with it', async () => {

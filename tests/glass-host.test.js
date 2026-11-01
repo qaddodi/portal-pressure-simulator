@@ -42,7 +42,7 @@ function fakeGL(name) {
       if (k === 'useProgram') return (p) => { prog = p; };
       return (...a) => {
         n.calls.push([k, ...a]);
-        if (k === 'drawArrays') { if (prog?.n % 2 === 0) n.draw++; else n.blur++; }   // (the glass's program is the second of each pair)
+        if (k === 'drawArrays' && a[0] !== 'TRIANGLES') { if (prog?.n % 2 === 0) n.draw++; else n.blur++; }   // (the glass's program is the second of each pair; a mask's fill, TRIANGLES, apart)
         if (k === 'blitFramebuffer') n.blit++;
         if (k === 'clear') n.clear++;
         if (k.startsWith('delete')) n.deleted++;
