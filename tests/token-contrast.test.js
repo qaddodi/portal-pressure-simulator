@@ -137,3 +137,25 @@ test('the green and red pills\' text clears 4.5:1 on their own tint, on every su
   }
   assert.deepEqual(fails, []);
 });
+
+// Critical red as text and the surgical-shunt green (dark sweep, 1 Nov): --critical is the dark theme's bright #FF4747, 4.3:1 on a raised surface, so the status
+// table's heads and stacked labels use --critical-ink (12 % toward the text colour). --s6 was the light theme's #008300 on the dark ground (3.2:1 on --surface, 2.9:1 on
+// --surface-2); the dark theme now carries a lighter green that clears 4:1 on both.
+test('critical red as text (--critical-ink) is at least 4.5:1 on the surfaces text sits on, and the dark --s6 line colour stays visible', () => {
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(tokens, /--critical-ink: color-mix\(in srgb, var\(--critical\) 88%, var\(--text\)\);/);
+  const fails = [];
+  for (const [theme, t] of Object.entries(THEMES)) {
+    const ink = mixRGB(hex(t['--critical']), hex(t['--text']), 0.88);
+    for (const bg of ['--bg', '--surface', '--surface-2']) {
+      const r = ratio(ink, hex(t[bg]));
+      if (r < 4.5) fails.push(`${theme}: critical ink on ${bg} ${t[bg]} is ${r.toFixed(2)}:1`);
+    }
+  }
+  for (const bg of ['--bg', '--surface', '--surface-2']) {
+    const r = ratio(hex(dark['--s6']), hex(dark[bg]));
+    if (r < 4) fails.push(`dark: --s6 ${dark['--s6']} on ${bg} is ${r.toFixed(2)}:1`);
+  }
+  assert.deepEqual(fails, []);
+  assert.deepEqual(css.match(/(?<![-\w])color: var\(--critical\)/g) || [], []);
+});
