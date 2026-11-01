@@ -35,3 +35,11 @@ test('the cover never waits on the load event or an animation: the figure being 
   assert.match(bootJs, /setTimeout\(function\(\)\{if\(failed\|\|lifting\)return;if\(ready\(\)\)lift\(\);/, 'the fallback no longer returns early when the figure is ready');
   assert.doesNotMatch(html.slice(html.indexOf('<div id="boot"'), html.indexOf('</div></div>', html.indexOf('<div id="boot"'))), /pathLength|class="bv/, 'the mark is drawn whole; no main-thread stroke animation');
 });
+
+test('a CSS failsafe lifts the cover and shows the figure at 20 s even if no script runs; a card saying why the app failed stays', () => {
+  assert.match(bootCss, /#boot \{[^}]*animation: boot-failsafe \.01s 20s forwards; \}/);
+  assert.match(bootCss, /@keyframes boot-failsafe \{ to \{ opacity: 0; visibility: hidden; \} \}/);
+  assert.match(bootCss, /html\[data-boot="hold"\] #stageView \{ animation: boot-failsafe-in \.01s 20s forwards; \}/);
+  assert.match(bootCss, /#boot\.failed \{ animation: none; \}/);
+  assert.match(html, /failed=true;b\.classList\.remove\('done'\);b\.classList\.add\('failed'\);/);
+});
