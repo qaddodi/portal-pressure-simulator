@@ -8,12 +8,15 @@ import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=b2e9419bfb';
 import { FONT } from './charts.js?v=0aa9d50d1e';
 import { simTime, isPaused, fibroReading } from './clock.js?v=23735b9141';
 import { store } from './store.js?v=80d4358be8';
-import { elastogramGL, prepareElastogramGL } from './fibroscan-gl.js?v=569bc680a5';
+import { elastogramGL, prepareElastogramGL } from './fibroscan-gl.js?v=fb4eaae7f8';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=6a53e5fc6e';
 import { createFollow } from './display-state.js?v=8d062d39dc';
 const nextFrame = frameFor('fibroscan');
 
-const WAVE_T0 = 8; // ms: the shear wave reaches the top of the window about 8 ms after the push
+const WAVE_T0 = 8; // ms: the shear wave reaches the top of the measurement window about 8 ms after the push
+// The depth the map shows (mm under the skin) and the M probe's measurement window inside it, 25 to 65 mm (Echosens; the XL probe reads
+// 35 to 75 mm). The fitted line runs the window's 40 mm; fibroscan-gl.js carries the same numbers.
+export const DEPTH0 = 20, DEPTH_SPAN = 50, WIN0 = 25, WIN1 = 65;
 // Colours come from the app's theme tokens (light or dark), re-read about once a second.
 let theme = null, themeAt = 0;
 function colors(now) {
@@ -57,15 +60,15 @@ function fields() {
 }
 
 /** Draw one frame of the elastogram into `ctx2` for shear speed c (m/s) at time t (s). The speckle streams along the wave front
- *  and is mixed between fixed fields as it goes, so it evolves coherently: opaque every frame, no fades. Time 0-80 ms across, depth 30-90 mm down; the bands lie along the wave front, with
+ *  and is mixed between fixed fields as it goes, so it evolves coherently: opaque every frame, no fades. Time 0-80 ms across, depth 20-70 mm down (the M probe's window, 25-65 mm, between the two dotted lines); the bands lie along the wave front, with
  *  one dominant dark band whose edge the fitted line follows. */
 function drawElastogram(ctx2, img, N, c, t) {
   const F = fields(), th1 = t * 1.3, th2 = t * 1.9 + 1, th3 = t * 2.3 + 2;
   const c1 = Math.cos(th1), s1 = Math.sin(th1), c2 = Math.cos(th2), s2 = Math.sin(th2), c3 = Math.cos(th3), s3 = Math.sin(th3);
   const sc = NB / N, d = img.data, flowY = t * 22, flowX = t * 9; // the speckle streams along the front, so it reads as motion, not a dissolve
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const tMs = (x / N) * 80, depth = 30 + (y / N) * 60;
-    const s = tMs - WAVE_T0 - (depth - 35) / c;
+    const tMs = (x / N) * 80, depth = DEPTH0 + (y / N) * DEPTH_SPAN;
+    const s = tMs - WAVE_T0 - (depth - WIN0) / c;
     const across = (s / 80) * NB * 1.6 + NB * 1.7 + flowX, along = y * sc * 0.65 + NB * 0.6 + flowY;
     const a = 0.5 + (F.a1(across, along) - 0.5) * c1 + (F.a2(across, along) - 0.5) * s1;
     const b = 0.5 + (F.b1(across * 1.4, along) - 0.5) * c2 + (F.b2(across * 1.4, along) - 0.5) * s2;
@@ -73,7 +76,7 @@ function drawElastogram(ctx2, img, N, c, t) {
     const noise = a * 0.6 + b * 0.4;
     const w = Math.cos(2 * Math.PI * 0.05 * s + jit);
     const u = clamp((s + 9) / 6, 0, 1), arrive = u * u * (3 - 2 * u); // smooth arrival of the wave: no hard step at the front
-    const amp = (0.2 + 0.8 * arrive) * clamp(1 - Math.max(s, 0) / 40, 0.12, 1) * clamp(1.2 - (depth - 30) / 110, 0.5, 1);
+    const amp = (0.2 + 0.8 * arrive) * clamp(1 - Math.max(s, 0) / 40, 0.12, 1) * clamp(1.2 - (depth - DEPTH0) / 110, 0.5, 1);
     const band = Math.exp(-(((s + 3.5) / 3.2) ** 2));
     const k = clamp(0.76 + w * 0.32 * amp + (noise - 0.5) * 1.25 - band * 0.55, 0, 1) ** 1.5;
     const i = (y * N + x) * 4;
@@ -159,20 +162,20 @@ export function createFibroScan() {
     ctx.save(); rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.clip();
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(mapCv, 0, 0, N, N, ex, top, ew, ph);
     ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
-    for (const d of [35, 75]) { const y = top + ((d - 30) / 60) * ph; ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + ew, y); ctx.stroke(); }
+    for (const d of [WIN0, WIN1]) { const y = top + ((d - DEPTH0) / DEPTH_SPAN) * ph; ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + ew, y); ctx.stroke(); }
     ctx.setLineDash([]);
     const x0 = ex + (WAVE_T0 / 80) * ew, x1 = x0 + clamp((40 / c) / 80, 0, 1) * ew;
-    ctx.strokeStyle = cssAlpha('--white', 0.95); ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(x0, top + (5 / 60) * ph); ctx.lineTo(x1, top + (45 / 60) * ph); ctx.stroke();
+    ctx.strokeStyle = cssAlpha('--white', 0.95); ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(x0, top + ((WIN0 - DEPTH0) / DEPTH_SPAN) * ph); ctx.lineTo(x1, top + ((WIN1 - DEPTH0) / DEPTH_SPAN) * ph); ctx.stroke();
     ctx.restore();
     rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
     // Axes: the units ride on one tick each ("60 mm", "0 ms"), so they need no room of their own.
     const TK = side ? FLOOR : CAP;
     ctx.fillStyle = th.tick; ctx.font = FONT(500, TK);
     // Depth labels sit inside the map's left edge in white with a dark halo, so they read on any colour of the elastogram. They stand at
-    // 40, 60 and 80 mm (a sixth, a half and five sixths of the way down): even gaps, clear of the corners and of the time row.
+    // 30, 45 and 60 mm (a fifth, a half and four fifths of the way down the 20-70 mm map): even gaps, clear of the corners and of the time row.
     ctx.textAlign = 'left'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(3, TK * 0.32); ctx.strokeStyle = cssAlpha('--black', 0.7);
-    for (let d = 40; d <= 80; d += 20) {
-      const y = top + ((d - 30) / 60) * ph, txt = d === 60 ? '60 mm' : String(d), by = y + TK * 0.35;
+    for (let d = 30; d <= 60; d += 15) {
+      const y = top + ((d - DEPTH0) / DEPTH_SPAN) * ph, txt = d === 45 ? '45 mm' : String(d), by = y + TK * 0.35;
       ctx.fillStyle = cssAlpha('--white', 0.96); ctx.strokeText(txt, ex + m, by); ctx.fillText(txt, ex + m, by);
     }
     // Time labels sit inside the map's bottom edge the same way, 0 to 80 ms with the unit on the first: their centres are spread evenly
