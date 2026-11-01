@@ -13,6 +13,8 @@
 //   svgRaster    an SVG turned into pixels by the browser: 'image/svg+xml' Blob/data URL, XMLSerializer
 //   svgDom       SVG drawn by the page: createElementNS with the SVG namespace, '<svg' markup in script or index.html
 //   backdrop     backdrop-filter (CSS or script) with any value but none
+//   paintAnim    CSS transition/@keyframes or a WAAPI animate() of a property that repaints every frame it moves: mask*,
+//                clip-path, background*, colours, borders, shadows, filter, outline, SVG fill/stroke/dash, border-radius, custom --vars
 //   layoutAnim   CSS transition/@keyframes or a WAAPI animate() of width, height, top, left, right, bottom, inset,
 //                margin*, padding*, min/max-width/height (a transition with no property, or 'all', counts too)
 //   layoutWrite  a style write of one of those properties in a frame or motion callback
@@ -40,6 +42,7 @@ export const CATS = {
   svgDom: 'SVG drawn as page content',
   backdrop: 'backdrop-filter',
   layoutAnim: 'Layout property animated (CSS / WAAPI)',
+  paintAnim: 'Repainting property animated (mask, clip-path, colour, shadow… ; CSS / WAAPI)',
   layoutWrite: 'Layout style written in a frame or motion callback',
   layoutRead: 'Layout read in a frame or motion callback',
   rawRaf: 'Raw requestAnimationFrame (outside the scheduler)',
@@ -50,6 +53,9 @@ const LAYOUT_PROPS = new Set(['width', 'height', 'top', 'left', 'right', 'bottom
   'margin-right', 'margin-block', 'margin-inline', 'padding', 'padding-top', 'padding-bottom', 'padding-left', 'padding-right', 'padding-block',
   'padding-inline', 'max-height', 'min-height', 'max-width', 'min-width', 'block-size', 'inline-size', 'grid-template-rows', 'grid-template-columns',
   'flex-basis', 'r', 'cx', 'cy', 'd', 'all']);
+// Animated, these repaint every frame on the CPU (only transform and opacity stay on the compositor).
+const isPaint = (p) => /^(-webkit-)?mask(-|$)/.test(p) || /^(-webkit-)?clip-path$/.test(p) || /^(background|border|outline|box-shadow|text-shadow|color|fill|stroke|filter|backdrop-filter|-webkit-backdrop-filter|caret-color|accent-color|text-decoration-color|column-rule|stop-color|flood-color|lighting-color|-webkit-text-stroke|-webkit-text-fill-color)/.test(p) || /^--/.test(p);
+const PAINT_JS = /^(webkit)?[Mm]ask|^(webkit)?[Cc]lipPath$|^(background|border|outline|boxShadow|textShadow|color|fill|stroke|filter|backdropFilter|webkitBackdropFilter|stopColor)/;
 const camel = (s) => s.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 const LAYOUT_JS = new Set([...LAYOUT_PROPS].filter((p) => p !== 'all').map(camel));
 const READ_PROPS = new Set(['offsetWidth', 'offsetHeight', 'offsetTop', 'offsetLeft', 'offsetParent', 'clientWidth', 'clientHeight', 'clientTop',
@@ -110,10 +116,12 @@ function cssHits(text, file, lineBase, fn, push) {
           const p = prop === 'transition' && (isTime || /^(ease|linear|cubic|steps)/.test(first)) ? 'all' : first;
           look('anim', file, at);
           if (LAYOUT_PROPS.has(p)) push('layoutAnim', file, at, sel, `${prop}: ${part.trim()}`);
+          else if (isPaint(p)) push('paintAnim', file, at, sel, `${prop}: ${part.trim()}`);
         }
       }
       if (kfDepth >= 0) look('anim', file, at);
       if (kfDepth >= 0 && LAYOUT_PROPS.has(prop)) push('layoutAnim', file, at, sel, `@keyframes sets ${prop}: ${val}`);
+      else if (kfDepth >= 0 && isPaint(prop)) push('paintAnim', file, at, sel, `@keyframes sets ${prop}: ${val}`);
     }
   };
   for (i = 0; i < src.length; i++) {
@@ -267,6 +275,8 @@ export function scan({ root = ROOT } = {}) {
           const kf = text.slice(a0.start, a0.end);
           const props = [...kf.matchAll(/\b([a-zA-Z]+)\s*:/g)].map((m) => m[1]).filter((p) => LAYOUT_JS.has(p));
           if (props.length) push('layoutAnim', file, n.loc.start.line, label(f), `animate() of ${[...new Set(props)].join(', ')}`);
+          const paints = [...kf.matchAll(/\b([a-zA-Z]+)\s*:/g)].map((m) => m[1]).filter((p) => PAINT_JS.test(p) && !/^(easing|offset|composite)$/.test(p));
+          if (paints.length) push('paintAnim', file, n.loc.start.line, label(f), `animate() of ${[...new Set(paints)].join(', ')}`);
         }
         if (cn === 'setProperty' && LAYOUT_PROPS.has(strOf(a0))) mod.late.push(['layoutWrite', n, f, `setProperty('${strOf(a0)}')`]);
         if (READ_CALLS.has(cn)) mod.late.push(['layoutRead', n, f, `${cn}()`]);
@@ -288,7 +298,7 @@ export function scan({ root = ROOT } = {}) {
         if (onStyle && prop === 'filter' && /blur\(/.test(text.slice(n.right.start, n.right.end))) push('cpuBlur', file, n.loc.start.line, label(enclosing(n)), text.slice(n.start, Math.min(n.end, n.start + 100)));
         if (onStyle && prop === 'transition') {
           const v = strOf(n.right) || text.slice(n.right.start, n.right.end);
-          for (const part of v.split(',')) { const first = part.trim().replace(/^['"`]/, '').split(/\s+/)[0]; if (LAYOUT_PROPS.has(first)) push('layoutAnim', file, n.loc.start.line, label(enclosing(n)), `style.transition = ${part.trim()}`); }
+          for (const part of v.split(',')) { const first = part.trim().replace(/^['"`]/, '').split(/\s+/)[0]; if (isPaint(first)) push('paintAnim', file, n.loc.start.line, label(enclosing(n)), `style.transition = ${part.trim()}`); if (LAYOUT_PROPS.has(first)) push('layoutAnim', file, n.loc.start.line, label(enclosing(n)), `style.transition = ${part.trim()}`); }
         }
       }
       // Strings: SVG rasters, SVG markup, and CSS text (cssText, style sheets built in script).

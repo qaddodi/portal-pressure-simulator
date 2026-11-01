@@ -21,6 +21,7 @@ test('the scanner finds each kind of off-GPU work (so it can never quietly go bl
     '.ok { transition: transform .2s, opacity .2s; filter: drop-shadow(0 0 1px red); }',
     '@keyframes grow { from { width: 0; } to { width: 10px; transform: none; } }',
     '.s { filter: blur(3px); }',
+    '.m { transition: -webkit-mask-position .2s, --edge .2s, clip-path .3s; }',
   ].join('\n'));
   writeFileSync(join(root, 'src/ui/frame.js'), 'export function frame(cb) { return requestAnimationFrame(cb); }\nexport const frameFor = (t) => (cb) => frame(cb, t);\n');
   writeFileSync(join(root, 'src/ui/m.js'), `
@@ -58,6 +59,7 @@ function place() { return document.body.getBoundingClientRect(); }
   assert.ok(has('layoutAnim', 'styles/a.css', /transition: \.2s ease/), 'no property means all');
   assert.ok(has('layoutAnim', 'styles/a.css', /keyframes sets width/));
   assert.ok(!hits.some((h) => h.file === 'styles/a.css' && /\.ok/.test(h.fn)), 'transform/opacity and drop-shadow pass');
+  assert.equal(hits.filter((h) => h.cat === 'paintAnim' && h.file === 'styles/a.css').length, 3, 'mask, a custom property and clip-path repaint as they ease');
   assert.ok(has('layoutAnim', 'index.html', /height/) && has('svgDom', 'index.html', /<svg/));
   assert.equal(hits.filter((h) => h.cat === 'layoutAnim' && h.file === 'src/ui/m.js').length, 1, 'animate() of height counts, of opacity/transform does not');
   assert.ok(has('svgDom', 'src/ui/m.js', /createElementNS/) && has('svgRaster', 'src/ui/m.js', /svg\+xml/));
