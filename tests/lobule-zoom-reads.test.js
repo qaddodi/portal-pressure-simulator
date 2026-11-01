@@ -21,13 +21,13 @@ test('the boxes are read at rest boundaries only', () => {
   assert.match(src, /if \(!onScene\(ev\) \|\| systemEdge\(ev\)\) return;\n\s*readBox\(\);/, 'a press reads the lobule\'s place first');
   assert.match(src, /landing\(\) \{\n\s*readAll\(\);/);
   assert.match(src, /const local = \(ev\) => \[ev\.clientX - snap\.l, ev\.clientY - snap\.t\];/);
-  assert.match(src, /if \(!restT\) restT = setTimeout\(readRest, 0\);/, 'a landed glide reads the cards again in a task of its own');
+  assert.match(src, /if \(!restT\) restT = restPass\(readRest\);/, 'a landed glide reads the cards again in a task of its own');
 });
 
 test('a label waits a frame to be measured rather than read in the frame', () => {
   const lay = between('function layoutLabels()', 'for (const [i, [k, L]] of shown.entries())');
   assert.doesNotMatch(lay, /offsetWidth|offsetHeight|getComputedStyle|getBoundingClientRect/);
-  assert.match(lay, /labWant = \{ ks: shown\.map\(\(\[k\]\) => k\), fw \};\n\s*if \(!measT\) measT = setTimeout\(measureRun, 0\);/);
+  assert.match(lay, /labWant = \{ ks: shown\.map\(\(\[k\]\) => k\), fw \};\n\s*if \(!measT\) measT = restPass\(measureRun\);/);
   assert.match(lay, /if \(bakeFollow\(\)\) \{ bakedEase = true; relayout\(\); return; \}/, 'a bake is drawn first, the glide starts next frame');
   assert.doesNotMatch(between('function bakeRides()', 'function bakeFollow()'), /offsetWidth/);
 });

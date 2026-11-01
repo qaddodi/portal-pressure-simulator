@@ -48,6 +48,7 @@ import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=4ffac3ef7f';
 import { createResCover, coverFollow } from './res-cover-gl.js?v=3804da2e78';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 import { LIGHT } from './light.js?v=f0c4eefb81';
+import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
 import { easeMove, carryRate, carried, cubicBezier, D_SMALL, D_SURFACE } from './ease.js?v=fc509dabe4';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 const CAM_M2 = !(typeof location !== 'undefined' && /[?&]camease=0\b/.test(location.search));
@@ -325,7 +326,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     camMove = false; layoutKey = '';
     if (fade > 0 && geo) layoutLabels();
     // (Landed: the cards' boxes are read again in a task after this frame, and the labels laid out again should one have moved.)
-    if (!restT) restT = setTimeout(readRest, 0);
+    if (!restT) restT = restPass(readRest);
     nextFrame(() => { if (camMove) return; el.classList.remove('lz-cam'); el.classList.add('lz-cam-in'); clearTimeout(camInT); camInT = setTimeout(() => el.classList.remove('lz-cam-in'), 400); });
   }
   // (ease 'in': from rest and still at speed where it lands, for a glide another move carries on from: the way out to the rise.)
@@ -1001,7 +1002,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // when what decides it changed; the layout is done again once it has been (measureRun).
   function sizeOf(e, fw, fh) {
     const z = e._lzSz;
-    if (z?.key !== sizeKeyOf(e, sizeEnv())) { measQ.add(e); if (!measT) measT = setTimeout(measureRun, 0); }
+    if (z?.key !== sizeKeyOf(e, sizeEnv())) { measQ.add(e); if (!measT) measT = restPass(measureRun); }
     return [z?.w || fw, z?.h || fh];
   }
   function measureRun() {
@@ -1044,7 +1045,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const f = freeRect();
     labWant = { ks: Object.keys(labs).filter((k) => !labs[k].el.hidden), fw: (f.r - f.l) * 0.32 };
     for (const e of [callEl, ...zoneEls]) if (e.isConnected) measQ.add(e);
-    clearTimeout(measT); measureRun();
+    cancelRest(measT); measureRun();
   }
   // A label's size as measured, for the stacking it has now.
   const labWH = (L) => (L.sz && (L.el.classList.contains('stack') ? L.sz.s1 : L.sz.s0)) || [100, 40];
@@ -1495,7 +1496,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // a label pays heavily to sit on either, so at large text sizes the labels move off them rather than cover them.
     // (Their boxes as kept, snap.cards: read at a rest boundary, never in the frame.)
     const cards = snap.cards.slice();
-    if (LZSNAP_EVERY && !restT) restT = setTimeout(readRest, 0);
+    if (LZSNAP_EVERY && !restT) restT = restPass(readRest);
     // What no label may cover: the central vein, every portal tract (venule, arteriole, ductule and lymphatic) and the
     // spot each label names, each a disc on screen. A label is pinned just beside what it names, on a short leader, clear of them all.
     const keep = [[g.cx, g.cy, g.rcv0 * 1.7], ...g.lobules[0].corners.map(([x, y]) => [x, y, (g.rt || 6) * 2.4])]
@@ -1540,7 +1541,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (Measured for what decides their sizes now, or, where something changed since (a class on the lobule mid-dive, new words),
       // for what came before: laid out with those, and measured afresh in a task after this frame (measureRun), which lays them out
       // again only should a size have changed.)
-      if (!shown.every(([, L], i) => L.sz.key === keys[i])) { labWant = { ks: shown.map(([k]) => k), fw }; if (!measT) measT = setTimeout(measureRun, 0); }
+      if (!shown.every(([, L], i) => L.sz.key === keys[i])) { labWant = { ks: shown.map(([k]) => k), fw }; if (!measT) measT = restPass(measureRun); }
       stack = shown.map(([, L]) => L.sz.w0 > fw && L.sz.u2);
       shown.forEach(([, L], i) => L.el.classList.toggle('stack', stack[i]));
       sizes = shown.map(([, L], i) => (stack[i] ? L.sz.s1 : L.sz.s0));
@@ -1549,7 +1550,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // stay as they are seen until then (one frame); the frame itself never reads the page.
       for (const [, L] of shown) if (L.peek) L.el.hidden = true;
       labWant = { ks: shown.map(([k]) => k), fw };
-      if (!measT) measT = setTimeout(measureRun, 0);
+      if (!measT) measT = restPass(measureRun);
       layoutKey = ''; follow = wasFollow; layoutV = wasV;
       return;
     }
@@ -1841,7 +1842,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const g = coverGL();
     if (g?.ready && draw(0)) {
       // (A change while one still fades starts from the mix as it shows: the cover before, laid over at its weight and place.)
-      const [W, H] = hostWH || [g.cv.width || 1, g.cv.height || 1];
+      const [W, H] = snap.hostWH || [g.cv.width || 1, g.cv.height || 1];
       const prev = resCover ? { a: +resCover.style.opacity, m: coverFollow(resV0, V, W, H) } : null;
       if (g.build([tissue, tissueG, glCv, fx], prev)) {
         const cv = g.cv;
