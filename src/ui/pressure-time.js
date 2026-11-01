@@ -515,10 +515,12 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       const over = es.length ? es[es.length - 1].y - bot : 0;
       if (over > 0) for (const e of es) e.y -= over;
       ctx.textBaseline = 'middle';
+      ctx.font = FONT(650, 12.5);
+      const colW = Math.max(0, ...es.map((e) => ctx.measureText(fmt(e.v, 1).replace(/\d/g, '0')).width));   // (one right-aligned column, as the lanes' readings)
       for (const e of es) {
         ctx.fillStyle = e.c; ctx.fillRect(R + 22, e.y - 1.5, 9, 3);
-        const vt = fmt(e.v, 1); ctx.font = FONT(650, 12.5); ctx.fillStyle = text; ctx.fillText(vt, R + 35, e.y);
-        ctx.font = FONT(600, 12); ctx.fillStyle = e.c; ctx.fillText(e.label, R + 39 + ctx.measureText(vt).width, e.y);
+        const vt = fmt(e.v, 1); ctx.font = FONT(650, 12.5); ctx.fillStyle = text; ctx.textAlign = 'right'; ctx.fillText(vt, R + 35 + colW, e.y); ctx.textAlign = 'left';
+        ctx.font = FONT(600, 12); ctx.fillStyle = e.c; ctx.fillText(e.label, R + 39 + colW, e.y);
       }
       ctx.textBaseline = 'alphabetic';
     }
@@ -797,16 +799,21 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       for (let i = 1; i < es.length; i++) es[i].y = Math.max(es[i].y, es[i - 1].y + (tiny ? 27 : slide ? 18 : 15));
       const over = es.length ? Math.min(es[es.length - 1].y - lane.bot, es[0].y - (lane.top + 4)) : 0;   // (lifted only as far as the top allows: a short lane lets its last label hang below rather than pile the readings on each other)
       if (over > 0) for (const e of es) e.y -= over;
+      // The readings stand in one column, right-aligned (canvas text has no tabular figures): a value's width as if every digit were
+      // a 0, the widest in the lane, so the decimal points line up down the column and a name never shifts as a digit changes.
+      ctx.font = FONT(650, 12.5);
+      const colW = tiny ? 0 : Math.max(0, ...es.map((e) => ctx.measureText(fmt(e.v, e.dec ?? 1).replace(/\d/g, '0')).width));
       for (const e of es) {
         const yy = Math.max(lane.top + 4, e.y);
         ctx.fillStyle = e.c; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(L + plotW + 4, yy - 1.5, 10, 3, 1.5) : ctx.rect(L + plotW + 4, yy - 1.5, 10, 3); ctx.fill();   // (a short stroke in the trace's colour, not a dot)
         ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
         ctx.font = FONT(650, 12.5); ctx.fillStyle = text;
         const vt = fmt(e.v, e.dec ?? 1);
-        ctx.fillText(vt, L + plotW + 17, yy);
+        if (tiny) ctx.fillText(vt, L + plotW + 17, yy);
+        else { ctx.textAlign = 'right'; ctx.fillText(vt, L + plotW + 17 + colW, yy); ctx.textAlign = 'left'; }
         // Each line is named at its end (PV, WHVP, FHVP, HVPG), on every screen.
-        const vw = ctx.measureText(vt).width; ctx.font = FONT(600, 12); ctx.fillStyle = e.c === text ? muted : e.c;
-        if (tiny) ctx.fillText(e.label, L + plotW + 17, yy + 12); else ctx.fillText(e.label, L + plotW + 20 + vw, yy);
+        ctx.font = FONT(600, 12); ctx.fillStyle = e.c === text ? muted : e.c;
+        if (tiny) ctx.fillText(e.label, L + plotW + 17, yy + 12); else ctx.fillText(e.label, L + plotW + 20 + colW, yy);
         ctx.textBaseline = 'alphabetic';
       }
     }
