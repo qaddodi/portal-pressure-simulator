@@ -48,7 +48,11 @@ export function compileDone(gl, handles) {
 }
 
 /** Reads a started program's status (it waits if the compile is not done); throws the info log on a failure. */
+// (The link's status first, as MDN's "WebGL best practices" advises: a program that linked had shaders that compiled, so their own status,
+// one more synchronous query each, is read only for a failure's log. ?linkfirst=0 in the address: every shader's status read first, as before.)
+const LINK_FIRST = !(typeof location !== 'undefined' && /[?&]linkfirst=0\b/.test(location.search));
 export function checkProgram(gl, { p, sh }) {
+  if (LINK_FIRST && gl.getProgramParameter(p, gl.LINK_STATUS)) return p;
   for (const s of sh) if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
   return p;

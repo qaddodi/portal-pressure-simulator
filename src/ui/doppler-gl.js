@@ -10,7 +10,7 @@
 // smoothing), the noise is added and clamped as 'lighter' adds it, and the band darkens as the gradient's black did.
 // doppler.js keeps its 2D path where WebGL2 is missing, on a software renderer (the browser checks), or when the context is lost.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=d90ea8acf6';
 
 const VS = `#version 300 es
 in vec2 p;

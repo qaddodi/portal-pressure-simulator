@@ -11,8 +11,8 @@
 // Without WebGL2 (or on a software renderer, or once the context is lost) createTissueGL returns null / reports lost, and the
 // tissue is drawn on the 2D canvas as before.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
-import { TILE_OVER, TEX_SAFE, sendCanvas, SEND_RETRY } from './field-gl.js?v=73310cf1c3';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=d90ea8acf6';
+import { TILE_OVER, TEX_SAFE, sendCanvas, SEND_RETRY } from './field-gl.js?v=d8037bed4a';
 import { isTileCopy, createTileCopier } from './tile-gl.js?v=88c03cf91f';
 import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=624ae21d7d';
 

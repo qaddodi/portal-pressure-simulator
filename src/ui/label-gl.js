@@ -14,7 +14,7 @@
 
 import { frameFor, cancelFrame } from './frame.js?v=15d5254a2c';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=bb8f7eca29';
-import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
+import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=d90ea8acf6';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=fc509dabe4';
 

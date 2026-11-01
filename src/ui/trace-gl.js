@@ -14,7 +14,7 @@
 // Where WebGL2 is missing, the renderer is software, the shader is not yet ready, or the context is lost, begin() returns false and the
 // chart draws its 2D picture whole, as before (?tracegl=0 keeps that always).
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=d90ea8acf6';
 
 /** ?tracegl=0 in a page's search string: every chart and monitor draws its moving parts on its 2D canvas, as before. */
 export const traceGLOff = (search) => /[?&]tracegl=0\b/.test(String(search ?? ''));
