@@ -60,8 +60,8 @@ Loop for every change (fast previews first, full tests before merge):
 **Nothing off the GPU (owner, 1 Nov 2026: "block everything until everything is on GPU").** `npm run lint` and the unit tests run
 `scripts/off-gpu-scan.mjs`, which lists every canvas 2D, CPU pixel copy, SVG drawing or raster, backdrop or CSS blur, layout-property
 animation, repainting animation (mask, clip-path, colours, shadows, filters, custom properties), layout read or write in a frame or motion callback, raw `requestAnimationFrame` and synchronous shader status read, and prints
-the share on the GPU (x/y). They fail, and the Pages gate ("Nothing off the GPU") with them, while less than 90% is on the GPU
-(owner, 1 Nov 2026, 6:29 PM ET: "at 90% you can let things through"; `GATE_PCT` in the script). The goal is still nothing off. The full list,
+the share on the GPU (x/y). They fail, and the Pages gate ("Nothing off the GPU") with them, while less than 85% is on the GPU
+(owner, 1 Nov 2026, 6:45 PM ET: "ok let things through now at 85%"; `GATE_PCT` in the script). The goal is still nothing off. The full list,
 with file, function, frame path and owning thread, is `docs/off-gpu-inventory.md` (`npm run offgpu` rewrites it; owners in
 `scripts/off-gpu-owners.json`). `npx eslint .` alone checks code style while the list is not yet empty. Never weaken the scanner or
 loosen its test to get green. `?offgpu=1` shows the same kinds of work live, per frame, and flashes red when any happens during motion.
