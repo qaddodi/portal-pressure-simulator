@@ -88,7 +88,8 @@ const MFS = `#version 300 es
 precision highp float;
 uniform vec2 uView;
 uniform int uKind;          // 0: a line (butt ends), 1: a circle, 2: a line with round ends, 3: a triangle filled with a linear gradient,
-                            // 4: an arc, 5: a turned rounded rectangle, 6: a box with its own radius at each corner
+                            // 4: an arc, 5: a turned rounded rectangle, 6: a box with its own radius at each corner,
+                            // 7: a soft sector (the FibroScan beam) filled with a two-stop radial gradient, its edges blurred
 uniform vec2 uT0, uT1, uT2; // the triangle (device px)
 uniform vec4 uG;            // the gradient's start and end (device px)
 uniform vec4 uS0, uS1, uS2; // its three stops, premultiplied
@@ -121,6 +122,22 @@ void main() {
     vec2 b = abs(q) - uGeo.zw + uW;
     float dist = length(max(b, 0.0)) + min(max(b.x, b.y), 0.0) - uW;
     o = uFill * clamp(0.5 - dist, 0.0, 1.0) * uA;
+    return;
+  }
+  if (uKind == 7) {
+    // A sector from its apex uGeo.xy, radius uGeo.z, about direction uR4.x (radians, y down) by half angle uR4.y, as a Gaussian blur of
+    // sigma uW (device px) blurs it: each edge's share is the blur's normal curve (a logistic fit) across it, a product of the three
+    // (two straight sides and the arc). Coloured by a radial gradient from uR4.zw over radius uGeo.w, its stops uS0, uS1 at uSO.xy.
+    vec2 q = p - uGeo.xy, dir = vec2(cos(uR4.x), sin(uR4.x));
+    vec2 n1 = vec2(cos(uR4.x - uR4.y - 1.5707963), sin(uR4.x - uR4.y - 1.5707963)), n2 = vec2(cos(uR4.x + uR4.y + 1.5707963), sin(uR4.x + uR4.y + 1.5707963));
+    float sg = max(uW, 0.5) / 1.702;
+    float c = 1.0 / (1.0 + exp(dot(q, n1) / sg));
+    c *= 1.0 / (1.0 + exp(dot(q, n2) / sg));
+    c *= 1.0 / (1.0 + exp((length(q) - uGeo.z) / sg));
+    if (dot(q, dir) < -3.0 * max(uW, 0.5)) c = 0.0;
+    float t = clamp(length(p - uR4.zw) / max(uGeo.w, 1e-6), 0.0, 1.0);
+    vec4 col = mix(uS0, uS1, clamp((t - uSO.x) / max(uSO.y - uSO.x, 1e-6), 0.0, 1.0));
+    o = col * c * uA;
     return;
   }
   if (uKind == 6) {
@@ -358,6 +375,21 @@ const roundRect = (ctx, x, y, w, h, r) => {
   ctx.lineTo(x + r, y + h); ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r); ctx.closePath();
 };
 // How far a filter's drop shadows and blurs reach (px): the picture is grown by that much.
+// The FibroScan beam drawn by the shader as a soft sector (kind 7), not painted into a 2D picture through a CSS blur and uploaded.
+// ?beamgl=0: the 2D picture, as before.
+const BEAM_GL = !/[?&]beamgl=0\b/.test(SEARCH);
+/** The beam's path (apex, a side, an arc of radius r to the other side) and its blur as a sector, in its own units, or null. */
+export function beamSector({ d, filter }) {
+  const n = String(d || '').match(/-?[\d.]+(?:e-?\d+)?/g)?.map(Number);
+  if (!/^\s*M[^L]*L[^A]*A[^Z]*Z\s*$/i.test(String(d || '')) || !n || n.length !== 11) return null;
+  const apex = [n[0], n[1]], e0 = [n[2], n[3]], e1 = [n[9], n[10]], r = n[4];
+  const f = String(filter || '').trim(), bm = /^blur\(\s*([\d.]+)px\s*\)$/.exec(f);
+  if (f && !bm) return null;
+  const a0 = Math.atan2(e0[1] - apex[1], e0[0] - apex[0]), a1 = Math.atan2(e1[1] - apex[1], e1[0] - apex[0]);
+  let h = (a1 - a0) / 2;
+  if (h < 0) h += Math.PI;
+  return { apex, r, dir: a0 + h, half: Math.abs(h), blur: bm ? +bm[1] : 0 };
+}
 const filterReach = (f) => (f ? Math.ceil((f.match(/-?[\d.]+px/g) || []).reduce((s, v) => s + Math.abs(parseFloat(v)), 0) * 3) + 2 : 0);
 
 /**
@@ -1163,7 +1195,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
       Object.assign(sLook, { op: NUM(cs(scanEl).opacity), ang: angOf(cs(scanEl.querySelectorAll(':scope > svg')[1]).transform), headOp: NUM(cs(q('.sp-head')).opacity), cableOp: NUM(cs(q('.sp-cable')).opacity), tipX: m ? Number(m[1].split(',')[4]) : 0 });
     }
     const live = now < sLive, L = sLook;
-    if (!L || !canvasCaps().filter) { if (scanEl.hasAttribute('data-gl')) scanEl.removeAttribute('data-gl'); return live; }
+    // (The beam's blur needs the canvas's filter only where the 2D picture draws it: the shader's sector needs none, as on Safari.)
+    if (!L || !((BEAM_GL && L.beam.stops.length === 2 && beamSector(L.beam)) || canvasCaps().filter)) { if (scanEl.hasAttribute('data-gl')) scanEl.removeAttribute('data-gl'); return live; }
     if (!scanEl.hasAttribute('data-gl')) scanEl.setAttribute('data-gl', '');
     if (!(L.op > 0.001)) return live;
     const tm = /translate\(\s*(-?[\d.]+)px,\s*(-?[\d.]+)px\)/.exec(scanEl.style.transform || '');
@@ -1173,9 +1206,24 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const at = (u, v) => [(px + (u - PIV[0]) * ca - (v - PIV[1]) * sa) * dpr, (py + (u - PIV[0]) * sa + (v - PIV[1]) * ca) * dpr];
     // (Its box, for the glass: everything it draws lies within 170 px of the tip: the beam's 150 px arc and its blur, the body.)
     boxAt((px - 170) * dpr, (py - 170) * dpr, (px + 170) * dpr, (py + 170) * dpr);
-    // The beam: drawn once, unturned, through its own filter, then turned here (it is soft through and through).
+    // The beam: a soft sector drawn by the shader (kind 7), its blur worked out per pixel, so no picture of it is made off the GPU.
+    const bsec = BEAM_GL && L.beam.stops.length === 2 ? beamSector(L.beam) : null;
+    if (bsec) {
+      const [ax, ay] = at(bsec.apex[0], bsec.apex[1]), [gx, gy] = at(L.beam.grad[0], L.beam.grad[1]), R = bsec.r * dpr, sg = bsec.blur * dpr, m = R + 4 * sg + 2;
+      const st = L.beam.stops.map(([o, col, a]) => [o, rgba(col).map((v) => v * a)]);   // (rgba: premultiplied; times the stop's opacity)
+      gl.useProgram(mprog);
+      gl.uniform2f(MU.uView, W, H);
+      gl.uniform1i(MU.uKind, 7);
+      gl.uniform4f(MU.uBox, ax - m, ay - m, ax + m, ay + m);
+      gl.uniform4f(MU.uGeo, ax, ay, R, L.beam.grad[2] * dpr);
+      gl.uniform4f(MU.uR4, bsec.dir + L.ang, bsec.half, gx, gy);
+      gl.uniform1f(MU.uW, sg);
+      gl.uniform4f(MU.uS0, ...st[0][1]); gl.uniform4f(MU.uS1, ...st[1][1]); gl.uniform3f(MU.uSO, st[0][0], st[1][0], 1);
+      gl.uniform1f(MU.uA, Math.min(1, L.op));
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
     const bkey = JSON.stringify([L.beam, dpr]);
-    if (!beamSp || beamSp.key !== bkey) {
+    if (!bsec && (!beamSp || beamSp.key !== bkey)) {
       const m = filterReach(L.beam.filter) + 4, x0 = 66 - m, y0 = -24 - m, x1 = 216 + m, y1 = 120 + m;   // (the beam's path: the tip, out to its 150 px arc)
       beamCv.width = Math.ceil((x1 - x0) * dpr); beamCv.height = Math.ceil((y1 - y0) * dpr);
       const c = beamCv.getContext('2d');
@@ -1194,11 +1242,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       Object.assign(beamSp, { key: bkey, w: beamCv.width, h: beamCv.height, o: [(PIV[0] - x0) * dpr, (PIV[1] - y0) * dpr] });
     }
-    gl.useProgram(rprog);
-    gl.uniform2f(RU.uView, W, H); gl.uniform2f(RU.uP, px * dpr, py * dpr); gl.uniform2f(RU.uS, beamSp.w, beamSp.h); gl.uniform2f(RU.uO, ...beamSp.o);
-    gl.uniform1f(RU.uAng, L.ang); gl.uniform1i(RU.uT, 0); gl.uniform1f(RU.uA, Math.min(1, L.op));
-    gl.bindTexture(gl.TEXTURE_2D, beamSp.tex);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    if (!bsec) {
+      gl.useProgram(rprog);
+      gl.uniform2f(RU.uView, W, H); gl.uniform2f(RU.uP, px * dpr, py * dpr); gl.uniform2f(RU.uS, beamSp.w, beamSp.h); gl.uniform2f(RU.uO, ...beamSp.o);
+      gl.uniform1f(RU.uAng, L.ang); gl.uniform1i(RU.uT, 0); gl.uniform1f(RU.uA, Math.min(1, L.op));
+      gl.bindTexture(gl.TEXTURE_2D, beamSp.tex);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
     // The waves: each packet's arcs (read off the SVG every frame, where scanTick writes them), at the packet's opacity.
     gl.useProgram(mprog);
     gl.uniform2f(MU.uView, W, H);

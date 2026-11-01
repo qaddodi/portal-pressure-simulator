@@ -111,7 +111,11 @@ test('the FibroScan probe is drawn on the GPU over the labels, its SVGs kept as 
   assert.match(STAGE, /el\.remove\(\); if \(!scan\.el\) labelGL\?\.setScan\(null\);/, 'gone from the GPU layer when its element goes');
   assert.match(CSS, /\.scan-probe\[data-gl\] > svg \{ visibility: hidden; \}/);
   assert.match(LGL, /dirty\.clear\(\);\n\s+moving = drawScan\(now\) \|\| moving;/, 'over the labels, as its layer lay');
-  assert.match(LGL, /!canvasCaps\(\)\.filter\) \{ if \(scanEl\.hasAttribute\('data-gl'\)\) scanEl\.removeAttribute\('data-gl'\)/, 'no canvas filter: the SVG keeps the probe');
+  assert.match(LGL, /\|\| canvasCaps\(\)\.filter\)\) \{ if \(scanEl\.hasAttribute\('data-gl'\)\) scanEl\.removeAttribute\('data-gl'\)/, 'no canvas filter and no shader beam: the SVG keeps the probe');
+  // (The beam a soft sector drawn by the shader, kind 7: no 2D picture through a CSS blur, so Safari's canvas without filter keeps it on the GPU.)
+  assert.match(LGL, /if \(uKind == 7\) \{/);
+  assert.match(LGL, /const bsec = BEAM_GL && L\.beam\.stops\.length === 2 \? beamSector\(L\.beam\) : null;/);
+  assert.doesNotMatch(CSS, /\.sp-beam \{[^}]*filter: blur/);
   // The waves' writes ask for a frame, not a new look (they are read as it draws).
   assert.match(LGL, /!r\.target\.closest\?\.\('\.sp-waves'\)/);
 });
