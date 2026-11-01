@@ -947,6 +947,9 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 @media (hover: hover) { .menu-item:hover { background: var(--surface-2); } }
 .menu-item:focus-visible, .lens-opt:focus-visible { outline-offset: -2px; }   /* (the ring sits inside its row, as the main menu's do, not over the rows beside it) */
 .menu-item[aria-checked="true"] { font-weight: 600; }
+/* (A menu's rows keep their own height where the menu is shorter than they are together, and the menu scrolls: they shrank to their 40 px
+   touch floor, which for a row with a two-line note (Blur effect, Always show HVPG) left its words over the next row on a phone held sideways.) */
+.menu > :is(.menu-item, .lens-opt, .menu-title) { flex-shrink: 0; }
 @media (pointer: coarse) { .menu-item, .lens-opt { min-height: 40px; } }   /* (a finger's 40 px: these rows were 36.3 px) */
 .menu-item svg { width: var(--ic-s); height: var(--ic-s); flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); }
 .menu-item .mi-check { width: var(--ic-s); height: var(--ic-s); stroke: var(--accent); stroke-width: 2.4; fill: none; opacity: 0; }
@@ -6760,6 +6763,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   .app.thumb .topbar .lg-scale { flex: none; width: clamp(48px, calc(100vw - 302px), 88px); }   /* (88 px from a 390 px phone up, 48 at 320: an empty box adds only its width to the bar's size, so it is set by the screen) */
   .app.thumb .topbar .legend { gap: 13px; }   /* (9 px between the caption and the first number, which hangs past the scale's end by half its width) */
   .app.thumb .topbar .tb-id { flex: 0 1 auto; min-width: min-content; margin-right: auto; }
+  /* The name's room is the most the widest key (Velocity, 216 px at 390) leaves it, whichever key shows, so a long name wraps the same
+     on every lens ("Decomp. cirrhosis" jumped between one line and two as the key changed width). The key's scale is the clamp above. */
+  .app.thumb .topbar .tb-id { max-width: calc(100% - 136px - clamp(48px, calc(100vw - 302px), 88px)); }
   .topbar .lg-cats:not(.lg-dots) { display: grid; gap: 1px 0; line-height: 1.25; }   /* (Physiological over Reversed) */
 }
 /* A phone held sideways: the key keeps its whole width too, so the bar's fit (main.js) sees what it needs and compacts or takes two rows. */

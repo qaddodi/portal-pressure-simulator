@@ -1,0 +1,19 @@
+// Leftover phone layout bugs, 1 Nov 2026 (source pins, nobody looked at these in a test browser).
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+test('an upright phone gives the name the room the widest key leaves it, so it wraps the same on every lens', () => {
+  assert.match(css, /\.app\.thumb \.topbar \.tb-id \{ max-width: calc\(100% - 136px - clamp\(48px, calc\(100vw - 302px\), 88px\)\); \}/);
+});
+
+test('a label shortened past the round\'s allowance is put back whole (a rescue keeps the number)', () => {
+  assert.match(stage, /if \(\(it\.short \|\| 0\) <= maxShort\) return placeMulti\(it, dirs, passes, from, to, final, maxShort\); Object\.assign\(it, whole\)/);
+});
+
+test('menu rows keep their own height; the menu scrolls instead of squeezing them onto the next row', () => {
+  assert.match(css, /\.menu > :is\(\.menu-item, \.lens-opt, \.menu-title\) \{ flex-shrink: 0; \}/);
+});

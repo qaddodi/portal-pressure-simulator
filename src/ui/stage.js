@@ -9933,7 +9933,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (reslot && (!best || lineHits(best.r, 2) || callouts.some((b) => hits(best.r, b)))) { stale = true; return false; }
       if (!best) {
         // No room with the value: try it without its units and change, then the name alone (up to maxShort), before giving the label up.
-        if (it.canShort && (it.short || 0) < maxShort && shortenItem(it)) return placeMulti(it, dirs, passes, from, to, final, maxShort);
+        // (A reading with no unit left to drop goes straight to the name alone: where that is more than this round allows (a rescue's
+        // maxShort 1), it is put back whole, so the rescue's later tries, the one line among them, still keep its number.)
+        if (it.canShort && (it.short || 0) < maxShort) {
+          const whole = { lines: it.lines, w: it.w, h: it.h, short: it.short, abbr: it.abbr };
+          if (shortenItem(it)) { if ((it.short || 0) <= maxShort) return placeMulti(it, dirs, passes, from, to, final, maxShort); Object.assign(it, whole); }
+        }
         if (!final) return false;
         nextSol.set(it.key, { drop: true }); return false;
       }
