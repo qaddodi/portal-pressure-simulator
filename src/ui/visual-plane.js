@@ -23,7 +23,7 @@
 // Everything that decides a place or a size is a pure function here (tests/panels-e.test.js); the drawing is at the
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
-import { h, fmt, clamp } from './util.js?v=b2e9419bfb';
+import { h, fmt, clamp } from './util.js?v=2659ec3c97';
 import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js?v=8cc52435da';
 import { TILE, tileShown } from './table-marks.js?v=c82b75e3d5';
 import { plotPanel } from './plot-look.js?v=5037697da7';

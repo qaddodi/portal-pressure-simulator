@@ -5,10 +5,10 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=80d4358be8';
-import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=b2e9419bfb';
+import { h, icon, svgIcon, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=2659ec3c97';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=8cc52435da';
-import { pressureColor } from './colormap.js?v=f317143d5b';
+import { pressureColor } from './colormap.js?v=09fccecb86';
 import { ownsSideways, pageGo } from './swipe.js?v=3ad619631e';
 import { frameFor } from './frame.js?v=6a53e5fc6e';
 import { D_FLIP, D_SMALL } from './ease.js?v=615d96d663';
