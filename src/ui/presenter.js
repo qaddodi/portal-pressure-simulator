@@ -1746,15 +1746,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The words' box comes in after a turn (app.css: its lines stay at rest, so the fit, done unseen, measures them where they will stand;
   // a line offset sideways read as overflow and the words were fitted small, then grew in view): one composited move of the box,
   // from the side the talk comes from, with its fade, held at its start through the entrance's short delay.
-  // The words never show past their own column while they move (their box is clipped where it rests, so they go under the card's edge,
-  // never out past the glass: Mohammad, 1 Nov, iPhone): x is the box's offset, px.
-  const clipX = (x) => `inset(-2000px ${Math.max(0, x).toFixed(1)}px -2000px ${Math.max(0, -x).toFixed(1)}px)`;
+  // How far the words may move sideways: the slide's own step (--pz-turn-d), never more than the room between the words and the glass's
+  // edge, so they never show past the card (Mohammad, 1 Nov, iPhone: 12 px of room on an upright phone). px.
+  const turnRoom = () => {
+    const d = parseFloat(getComputedStyle(ui.root).getPropertyValue('--pz-turn-d')) || 20, t = ui.text.getBoundingClientRect(), g = ui.shade.getBoundingClientRect();
+    return g.width > 0 && t.width > 0 ? Math.max(4, Math.min(d, t.left - g.left - 2, g.right - t.right - 2)) : d;
+  };
   function wordsTurnIn() {
     if (!turnIn || !ui) return;
     turnIn = false;
-    const t = ui.text, k = t.dataset.turn, d = parseFloat(getComputedStyle(ui.root).getPropertyValue('--pz-turn-d')) || 20;
+    const t = ui.text, k = t.dataset.turn, d = parseFloat(getComputedStyle(t).getPropertyValue('--pz-turn-d')) || 20;
     const x = k === 'next' ? d : k === 'back' ? -d : 0, from = x ? `translateX(${x}px)` : `translateY(${RISE_PX}px)`;
-    turnAnim = t.animate?.([{ transform: from, opacity: 0, clipPath: clipX(x) }, { transform: 'none', opacity: 1, clipPath: clipX(0) }], { duration: D_SURFACE, delay: 120, easing: EASE_ARRIVE, fill: 'backwards' });
+    turnAnim = t.animate?.([{ transform: from, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: D_SURFACE, delay: 120, easing: EASE_ARRIVE, fill: 'backwards' });
   }
   // (Off until it is right on his devices (Mohammad, 1 Nov: on Next the words slid half way and stuck, then the card popped out and back):
   // The page-turn and the finger follow are on by default; ?cardturn=0 turns them off, and every card leaves and comes back whole, as before.)
@@ -2168,8 +2171,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function glassTurn(s, ask, ct) {
     if (!ui) return;
     const up = !ui.text.hidden && ui.shade.style.opacity !== '0' && (ui.shade.classList.contains('pz-turn') || !ui.shade.classList.contains('pz-leave'));
-    const on = CARD_TURN && up && !booting && !reduce.matches && !s.visual && !s.vignette && !ask && !ct && !s.cath && !s.monitor && !caseCard;
+    // (Every kind of slide coming, a question, a case, a visual, a new patient, gets the same leave: only a catheter or monitor slide,
+    // whose words come in at once with the live tracing, and a case card still up (the words are already out) keep their own.)
+    const on = CARD_TURN && up && !booting && !reduce.matches && !s.cath && !s.monitor && !caseCard;
     turnNow = on ? turn : '';
+    if (on) ui.text.style.setProperty('--pz-turn-d', `${turnRoom().toFixed(1)}px`);
     if (!on) turnIn = false;   // (a slide that keeps its words, or leaves whole, never fires a stale entrance)
     clearTimeout(glassT);
     setTurn(on);
@@ -2178,7 +2184,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!ui) return;
     // (The glass itself always leaves and comes back with the words, never resized in view: easing a blurred glass's size made iPhone
     // Safari redraw its backdrop every frame (the camera's glide ran at a few frames a second) and drop it at once, Mohammad, 1 Nov.)
-    ui.root.classList.toggle('pz-turn', on); ui.shade.classList.remove('pz-turn');
+    ui.root.classList.toggle('pz-turn', on); ui.shade.classList.remove('pz-turn'); ui.shade.classList.toggle('pz-turnfade', on);
     ui.shade.classList.toggle('pz-leave', ui.text.classList.contains('pz-leave'));
   }
   // (Once a move has landed, the glass's eases are let finish (its size: the camera's step at most) before they are switched off again,
@@ -2219,14 +2225,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const t = ui.text;
     if (!a || a.playState === 'finished' || a.playState === 'idle') {
       // (the leave's clip starts from the box's own place, so it closes in step with the move, never cutting the words at once)
-      if (turnNow && !pull) { const m = getComputedStyle(t).transform; t.style.clipPath = clipX(m && m !== 'none' ? new DOMMatrix(m).e : 0); void getComputedStyle(t).clipPath; t.style.clipPath = ''; }
       return;
     }
-    const cs = getComputedStyle(t), o = cs.opacity, tf = cs.transform, cp = cs.clipPath;
+    const cs = getComputedStyle(t), o = cs.opacity, tf = cs.transform;
     a.cancel();
-    t.style.transition = 'none'; t.style.opacity = o; t.style.transform = tf; t.style.clipPath = cp;
+    t.style.transition = 'none'; t.style.opacity = o; t.style.transform = tf;
     void getComputedStyle(t).opacity;
-    t.style.transition = ''; t.style.opacity = ''; t.style.transform = ''; t.style.clipPath = '';
+    t.style.transition = ''; t.style.opacity = ''; t.style.transform = '';
   }
   // What is left, ms, of the longest fade still running on these cards (0 when none).
   const fadeLeft = (els) => els.reduce((m, el) => el.getAnimations().reduce((n, a) => { const t = a.playState === 'running' && a.effect?.getComputedTiming?.(); return t && Number.isFinite(t.endTime) ? Math.max(n, t.endTime - (t.localTime || 0)) : n; }, m), 0);
@@ -2389,7 +2394,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null, s);
       markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
-      text.dataset.turn = turnNow; text.style.removeProperty('--pz-turn-d');   // (the way the new words come in: app.css; '' comes in from the card's edge with the glass, as before)
+      text.dataset.turn = turnNow;   // (the way the new words come in: app.css; '' comes in from the card's edge with the glass, as before)
       turnIn = !!turnNow;   // (its box comes in by wordsTurnIn once the cards come in)
       text.classList.remove('pz-enter'); void text.offsetWidth; text.classList.add('pz-enter');
     }
@@ -4613,14 +4618,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // carry on from where the finger left them into their way out (app.css data-out, the same transform, eased from where it stands); short
   // of it, they ease back. At the first slide, where Back goes nowhere, they follow a tenth of the finger and do not fade. Only while
   // nothing is moving (no slide change, no case card) and the words are in.
-  const PULL_K = 0.25, PULL_MAX = 32, PULL_END_K = 0.1;
+  const PULL_K = 0.25, PULL_FADE = 160, PULL_END_K = 0.1;
   let pull = null;
   const pullCan = () => CARD_TURN && !!ui && !busy && !caseCard && !zoomOn() && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
   function pullTo(dx) {
-    const end = dx > 0 && want === 0, k = end ? PULL_END_K : PULL_K, x = Math.max(-PULL_MAX, Math.min(PULL_MAX, dx * k));
-    const o = end ? 1 : 1 - 0.6 * Math.min(1, Math.abs(x) / PULL_MAX);
+    // (The words follow the finger the whole way, never stopping: their move eases toward the room they have inside the glass (never past
+    // its edge) while they fade on with the finger's own travel.)
+    const end = dx > 0 && want === 0, k = end ? PULL_END_K : PULL_K, cap = pull.cap ??= turnRoom();
+    const x = Math.sign(dx) * cap * (1 - Math.exp(-Math.abs(dx) * k / cap));
+    const o = end ? 1 : 1 - 0.6 * Math.min(1, Math.abs(dx) / PULL_FADE);
     pull.x = x;
-    ui.text.style.transition = 'none'; ui.text.style.transform = `translateX(${x.toFixed(1)}px)`; ui.text.style.opacity = o.toFixed(3); ui.text.style.clipPath = clipX(x);
+    ui.text.style.transition = 'none'; ui.text.style.transform = `translateX(${x.toFixed(1)}px)`; ui.text.style.opacity = o.toFixed(3);
   }
   // (Let go: the inline styles go in one style change with the slide's own leave (gone: the words carry on out from where they stand),
   // or, staying, the lines ease back from where they are and the words' opacity eases back by the card's own transition.)
@@ -4628,11 +4636,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const g = pull; pull = null;
     if (!g?.on || !ui) return;
     const x = g.x;
-    ui.text.style.removeProperty('transition'); ui.text.style.removeProperty('opacity'); ui.text.style.removeProperty('transform'); ui.text.style.removeProperty('clip-path');
+    ui.text.style.removeProperty('transition'); ui.text.style.removeProperty('opacity'); ui.text.style.removeProperty('transform');
     const out = gone && ui.text.classList.contains('pz-leave');
-    // (words dragged further than the leave's own way carry on out from there, never back toward the card while they fade)
-    if (out && Math.abs(x) > (parseFloat(getComputedStyle(ui.root).getPropertyValue('--pz-turn-d')) || 20)) ui.text.style.setProperty('--pz-turn-d', `${Math.abs(x).toFixed(1)}px`);
-    if (!out && Math.abs(x) > 0.5) ui.text.animate?.([{ transform: `translateX(${x}px)`, clipPath: clipX(x) }, { transform: 'none', clipPath: clipX(0) }], { duration: D_SMALL, easing: EASE_ARRIVE });
+    if (!out && Math.abs(x) > 0.5) ui.text.animate?.([{ transform: `translateX(${x}px)` }, { transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE });
   }
   wrap.addEventListener('touchmove', (e) => {
     if (e.touches.length > 1) { sw = null; if (pull) pullLet(false); return; }

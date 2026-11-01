@@ -2486,8 +2486,8 @@ button.finding { cursor: pointer; }
    turn over like a page, sideways the way the talk goes. Next: out to the left, in from the right; Back: the other way; a jump (the slide
    list, Home, End): out rising, in rising. The words leave quickly (--d-small, --ease-in) and arrive settling (--d-surface,
    --ease-arrive), a short way: --pz-turn-d, one step of the slide's own scale on a wide screen, 20 px on an upright phone. The glass leaves and comes back with the words
-   (never resized in view: a blurred glass easing its size stalled iPhone Safari), and the words are clipped to their own column while they
-   move, so they never show past the card's edge (presenter.js clipX). */
+   (never resized in view: a blurred glass easing its size stalled iPhone Safari), and the words move no further than the room inside the glass,
+   so they never show past the card's edge (presenter.js turnRoom). */
 .pz { --pz-turn-d: clamp(20px, calc(1.6 * var(--pz-b, 15px)), 36px); }
 .pz.stack { --pz-turn-d: 20px; }
 @property --pz-turn-d { syntax: '<length>'; inherits: true; initial-value: 20px; }
@@ -2495,14 +2495,19 @@ button.finding { cursor: pointer; }
    so the fit (run unseen while the box is out) measures them as they will stand. (Lines offset sideways read as overflow: the words were
    fitted small and grew back in view, Mohammad, 1 Nov, iPhone.) The box comes back in by presenter.js wordsTurnIn (transform and
    opacity on the box); once its leave is over it snaps back unseen, so its way out never runs backwards into the way in. */
-.pz .pz-text.pz-text[data-out="next"].pz-leave { transform: translateX(calc(-1 * var(--pz-turn-d))); clip-path: inset(-2000px 0px -2000px var(--pz-turn-d)); transition-property: opacity, transform, filter, clip-path; transition-timing-function: var(--ease-in); }
-.pz .pz-text.pz-text[data-out="back"].pz-leave { transform: translateX(var(--pz-turn-d)); clip-path: inset(-2000px var(--pz-turn-d) -2000px 0px); transition-property: opacity, transform, filter, clip-path; transition-timing-function: var(--ease-in); }
+.pz .pz-text.pz-text[data-out="next"].pz-leave { transform: translateX(calc(-1 * var(--pz-turn-d))); transition-timing-function: var(--ease-in); }
+.pz .pz-text.pz-text[data-out="back"].pz-leave { transform: translateX(var(--pz-turn-d)); transition-timing-function: var(--ease-in); }
 .pz .pz-text.pz-text[data-out="jump"].pz-leave { transform: translateY(calc(-1 * var(--rise-y, 6px))); transition-timing-function: var(--ease-in); }
 .pz .pz-text.pz-text.pz-enter:is([data-turn="next"], [data-turn="back"], [data-turn="jump"]) > * { animation: none; }
 .pz .pz-text.pz-text:is([data-turn="next"], [data-turn="back"], [data-turn="jump"]):not(.pz-leave) { transition-property: opacity, filter; }
 .pz-shade.pz-shade.pz-shade:is(.pz-card, .stack) { transition-property: opacity, transform, filter, top, height, width; transition-timing-function: var(--ease), var(--ease), var(--ease), var(--ease-move), var(--ease-move), var(--ease-move); }
 .pz-shade.pz-shade.pz-shade:is(.pz-card, .stack).pz-leave { transition-duration: var(--d-small), var(--d-small), var(--d-small), 0s, 0s, 0s; transition-delay: 0s; }
 .pz-shade.pz-shade.pz-shade:is(.pz-card, .stack):not(.pz-leave) { transition-duration: var(--d-surface), var(--d-surface), var(--d-surface), 0s, 0s, 0s; transition-delay: .12s, .12s, 0s, 0s, 0s, 0s; }
+/* On a turn the glass fades on the words' own clock and curve (out: --d-small, --ease-in; in: --d-surface after .12s, --ease-arrive), in
+   place, never dropping or rising, so the words never stand over the figure without it (presenter.js setTurn, pz-turnfade). */
+.pz-shade.pz-shade.pz-shade.pz-shade.pz-turnfade:is(.pz-card, .stack) { transform: none; }
+.pz-shade.pz-shade.pz-shade.pz-shade.pz-turnfade:is(.pz-card, .stack).pz-leave { transition-timing-function: var(--ease-in), var(--ease-in), var(--ease-in), var(--ease-move), var(--ease-move), var(--ease-move); }
+.pz-shade.pz-shade.pz-shade.pz-shade.pz-turnfade:is(.pz-card, .stack):not(.pz-leave) { transition-timing-function: var(--ease-arrive), var(--ease-arrive), var(--ease-arrive), var(--ease-move), var(--ease-move), var(--ease-move); }
 .pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh)), 20px)); left: 21px; right: 21px; top: auto; bottom: calc(max(26px, 65px - var(--pz-lh)) + var(--pz-sb)); margin-block: 0; width: auto; max-height: 62%; gap: 6px; }/* (With a data card under the words, the pair keeps to the top so the card has room.) */
 .pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: var(--s-lab); }
