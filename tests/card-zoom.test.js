@@ -366,7 +366,7 @@ test('the readings come out and tuck away under a zoomed card, the zoom fitted a
   assert.match(js, /zoomU0 = underU\(ui\.data\);\n {4}if \(z\.open\(\)\) paintZoom\(\);/);
   // (A pull on a zoomed card follows the finger over the readings' travel as it is seen: the card is larger, so the finger moves less of it.)
   assert.match(js, /g\.zk = zoomOn\(\) \? ui\.zoom\.scale : 1;/);
-  assert.match(js, /follow\(g, dy \* g\.dir \/ \(g\.zk \|\| 1\)\);/);
+  assert.match(js, /foldFollow\(g, dy \* g\.dir \/ \(g\.zk \|\| 1\)\);/);
   // (The rise is the cards' own CSS translate, which a zoom's transform does not scale: card-zoom.js makes up for it.)
   assert.match(css, /\.pz\.pz-wide \.pz-data\.col, \.pz\.pz-wide \.pz-lip \{ translate: 0 calc\(-1 \* var\(--pz-lift, 0px\)\); \}/);
   assert.match(zoomSrc, /lift \* k \* \(1 - sc\)/);

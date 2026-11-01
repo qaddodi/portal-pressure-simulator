@@ -90,17 +90,17 @@ test('the bar takes the change line\'s place, so a tile never grows for it', () 
 test('the now dot and the start ring stay whole inside the track, even past either end of the scale (sweep, 16 Oct)', () => {
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  const size = (cls) => +css.match(new RegExp(`\\.${cls} \\{[^}]*width: ([\\d.]+)px`))[1];
+  const size = (cls) => +css.match(new RegExp(`\\.${cls}::before \\{[^}]*width: ([\\d.]+)px`))[1];
   // (Platelets of 380 on a bar that stops at 300 put the dot half off the end, its halo on the card's border.)
   const r = size('pzb-now') / 2, r0 = size('pzb-was') / 2;
-  assert.ok(js.includes(`p.now.style.left = \`clamp(${r}px, \${w}%, calc(100% - ${r}px))\``), 'the dot rests against the end, whole');
-  assert.ok(js.includes(`p.was.style.left = \`clamp(${r0}px, \${w0}%, calc(100% - ${r0}px))\``), 'the ring rests against the end, whole');
+  assert.ok(js.includes(`p.now.style.translate = \`clamp(${r}px, \${w}%, calc(100% - ${r}px)) 0\``), 'the dot rests against the end, whole');
+  assert.ok(js.includes(`p.was.style.translate = \`clamp(${r0}px, \${w0}%, calc(100% - ${r0}px)) 0\``), 'the ring rests against the end, whole');
 });
 
 test('a tile\'s number and unit always fit inside it, shrinking together, the unit never below 12 px (pregnancy deck, 17 Oct)', () => {
   const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   const body = js.slice(js.indexOf('function bigTiles()'), js.indexOf('// The six levels along the route'));
-  const fit = body.slice(body.indexOf('function fit()'), body.indexOf('function build('));
+  const fit = body.slice(body.indexOf('function fit()'), body.indexOf('function buildTiles('));
   assert.ok(fit.length > 0, 'bigTiles has a fit');
   assert.match(fit, /12 \/ uf/, 'the unit stops at 12 px');
   assert.match(fit, /Math\.max\(12,/, 'the number never goes below 12 px');

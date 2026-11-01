@@ -2304,15 +2304,20 @@ button.finding { cursor: pointer; }
 .pz-table td.dir.zero { color: var(--text-3); }
 .pz-table td.asc.dir { text-align: left; }
 .pz-arr { display: inline-block; line-height: 0; vertical-align: -.14em; }
-.pz-arr svg { display: block; height: 1.05em; width: .79em; overflow: visible; fill: none; stroke: currentColor; }
-.pz-arr.two svg { width: 1.25em; }
+.pz-arr .pz-ag { position: relative; display: flex; height: 1.05em; width: .79em; }
+.pz-arr.two .pz-ag { width: 1.25em; }
+/* (The arrow as a shape: a box of the text's colour cut to a head and a shaft, the old 12 x 16 drawing's own lines, its head's
+   rounded edge included; two arrows share a 19 x 16 box; level is a short round-ended dash.) */
+.pz-ag > i { flex: 1; background: currentColor; clip-path: polygon(50% 3.75%, 90% 53.75%, 60.42% 53.75%, 60.42% 95%, 39.58% 95%, 39.58% 53.75%, 10% 53.75%); }
+.pz-arr.two .pz-ag > i { clip-path: polygon(50% 3.75%, 95.26% 53.75%, 63.16% 53.75%, 63.16% 95%, 36.84% 95%, 36.84% 53.75%, 4.74% 53.75%); }
+.pz-arr.zero .pz-ag > i { position: absolute; left: 16.67%; width: 66.67%; top: 48.75%; height: 10%; border-radius: 99px; clip-path: none; }
 .pz-table td.dir[data-eff="good"] { color: var(--ok-ink); }
 .pz-table td.dir[data-eff="bad"] { color: var(--danger-ink); }
-.pz-arr.dn svg { transform: rotate(180deg); }
+.pz-arr.dn .pz-ag { transform: rotate(180deg); }
 .pz-arr.zero { opacity: .5; }
-.pz-table .pz-foot .pz-arr svg { height: 1em; width: .75em; }
-.pz-table .pz-foot .pz-arr.two svg { width: 1.19em; }
-.pz-table td.asc .pz-arr svg { height: .95em; width: .71em; }
+.pz-table .pz-foot .pz-arr .pz-ag { height: 1em; width: .75em; }
+.pz-table .pz-foot .pz-arr.two .pz-ag { width: 1.19em; }
+.pz-table td.asc .pz-arr .pz-ag { height: .95em; width: .71em; }
 .pz-table th.num { text-align: center; }
 .pz-table thead th[tabindex] { cursor: help; }
 .pz-cutl:not(:empty) { display: block; margin-top: .3em; color: var(--text-2); }
@@ -2345,7 +2350,7 @@ button.finding { cursor: pointer; }
   .pz-table .tw { display: block; min-width: 0; }
   .pz-table .vs { font-size: var(--s-cap); }
   .pz-table td.num { font-size: var(--s-body); }
-  .pz-table .pz-arr svg { height: .85em; }
+  .pz-table .pz-arr .pz-ag { height: .85em; }
   .pz-table td.asc { padding: .3em 6px .3em 2px; font-size: var(--s-cap); line-height: 1.3; white-space: normal; text-align: left; }
   .pz-table td.asc .ap { display: block; white-space: nowrap; }
   .pz-table td.asc small { font-size: .85em; text-transform: uppercase; letter-spacing: .03em; color: var(--text-3); }
@@ -6250,13 +6255,17 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pzb-l.lo { translate: 0 0; }
 .pzb-l.hi { translate: -100% 0; }
 .pzb-l.off { visibility: hidden; }
-.pzb-link { position: absolute; top: 2px; height: 2px; background: color-mix(in srgb, var(--text) 45%, transparent); }
-.pzb-was, .pzb-now { position: absolute; top: 3px; translate: -50% -50%; border-radius: 50%; box-sizing: border-box; }
-.pzb-was { width: 9px; height: 9px; border: 2px solid color-mix(in srgb, var(--text) 50%, transparent); background: var(--surface); }
-.pzb-now { width: 12px; height: 12px; background: var(--text-3); box-shadow: 0 0 0 2px var(--surface); transition: background-color var(--d-surface) var(--ease); }
-.pz-tile:is([data-rate="ok"], [data-rate="lo"]) .pzb-now { background: var(--ok); }
-.pz-tile[data-rate="mid"] .pzb-now { background: var(--caution); }
-.pz-tile[data-rate="hi"] .pzb-now { background: var(--danger); }
+/* The dot, the ring and their link move by transforms only (presenter.js bigTiles): each mark is a box as wide as the track, so a
+   translate's percentage is the scale's, and its visible part is drawn at its start. No left or width is written as the readings run. */
+.pzb-link, .pzb-was, .pzb-now { position: absolute; left: 0; width: 100%; }
+.pzb-link { top: 2px; height: 2px; transform-origin: 0 0; background: color-mix(in srgb, var(--text) 45%, transparent); }
+.pzb-was, .pzb-now { top: 3px; height: 0; }
+.pzb-was::before, .pzb-now::before { content: ''; position: absolute; left: 0; top: 0; translate: -50% -50%; border-radius: 50%; box-sizing: border-box; }
+.pzb-was::before { width: 9px; height: 9px; border: 2px solid color-mix(in srgb, var(--text) 50%, transparent); background: var(--surface); }
+.pzb-now::before { width: 12px; height: 12px; background: var(--text-3); box-shadow: 0 0 0 2px var(--surface); transition: background-color var(--d-surface) var(--ease); }
+.pz-tile:is([data-rate="ok"], [data-rate="lo"]) .pzb-now::before { background: var(--ok); }
+.pz-tile[data-rate="mid"] .pzb-now::before { background: var(--caution); }
+.pz-tile[data-rate="hi"] .pzb-now::before { background: var(--danger); }
 .pz .pz-data .pz-tiles .pz-tile[data-rate] .pzt-v { color: var(--text); }
 .pz .pz-data .pz-tiles .pz-tile[data-rate="none"] .pzt-v { color: var(--text-3); }
 /* A tile with a scale bar colours its number by the band the value is in, as the bar's marker is (the status word beside it says the same). */

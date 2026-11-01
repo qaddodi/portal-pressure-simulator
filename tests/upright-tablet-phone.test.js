@@ -108,7 +108,7 @@ test('a pull down on the closed card brings out the instrument card, and carried
   assert.match(dt, /if \(gg\.pull\) \{ const show = !to && \(flick < 0 \|\| gg\.pull\.u > 0\.5\); dockTo\(to, 300\); sheetPull\.settle\(gg\.pull, show\); \}/);
   assert.match(dt, /if \(g\?\.pull\) sheetPull\.settle\(g\.pull, false\);/, 'a cancelled touch tucks them away');
   // (The same follow and settle as the readings' own pull: margins, fade and the eased rest, setFold.)
-  assert.match(js, /sheetPull = \{ begin: \(\) => \{ const gg = grab\(0, 0, false\); take\(gg\); return gg; \}, follow, settle \};/);
+  assert.match(js, /sheetPull = \{ begin: \(\) => \{ const gg = grab\(0, 0, false\); take\(gg\); return gg; \}, follow: foldFollow, settle \};/);
   assert.match(js, /const u = clamp\(gg\.u0 \* gg\.full \+ dy, 0, gg\.full\) \/ \(gg\.full \|\| 1\);/, 'from wherever the readings stand');
   assert.match(js, /if \(gg\.split\) \{ el\.classList\.add\('pz-sliding'\); el\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); camAt\(u\); return; \}/, 'the whole readings\' card follows the finger');
   // (Closing stays two steps: a push up from fully open is the readings' own, a push up from partly open the card's.)

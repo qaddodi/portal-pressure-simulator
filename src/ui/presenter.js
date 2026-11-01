@@ -36,6 +36,7 @@ import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js?v=ff3ed0cc47';
 import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=15d5254a2c';
+import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=5d53c16a50';
 import { restPass, cancelRest } from './rest-pass.js?v=c412430106';
 import { createFigureKey } from './figure-key.js?v=5c3b74621a';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
@@ -612,12 +613,12 @@ function bigTiles() {
         p.now.hidden = !on;
         // (The marks stay whole inside the track: a value past either end of the scale, as platelets of 380 on a bar
         // that stops at 300, rests against that end instead of running half off it. Sweep, 16 Oct.)
-        if (p.now._w !== w) { p.now._w = w; p.now.style.left = `clamp(6px, ${w}%, calc(100% - 6px))`; }   // (written only when it moves)
+        if (p.now._w !== w) { p.now._w = w; p.now.style.translate = `clamp(6px, ${w}%, calc(100% - 6px)) 0`; }   // (written only when it moves; a transform: the mark is the track's width, app.css)
         if (p.was) {
           const ok = on && r0 != null, w0 = ok ? at(p.k, r0) : 0;
           p.was.hidden = p.link.hidden = !ok;
-          if (p.was._w !== w0) { p.was._w = w0; p.was.style.left = `clamp(4.5px, ${w0}%, calc(100% - 4.5px))`; }
-          if (p.link._w !== w || p.link._w0 !== w0) { p.link._w = w; p.link._w0 = w0; p.link.style.left = Math.min(w, w0) + '%'; p.link.style.width = Math.abs(w - w0) + '%'; }
+          if (p.was._w !== w0) { p.was._w = w0; p.was.style.translate = `clamp(4.5px, ${w0}%, calc(100% - 4.5px)) 0`; }
+          if (p.link._w !== w || p.link._w0 !== w0) { p.link._w = w; p.link._w0 = w0; p.link.style.translate = `${Math.min(w, w0)}% 0`; p.link.style.scale = `${(Math.abs(w - w0) / 100).toFixed(4)} 1`; }
         }
       }
       if (r0 == null || f[p.k] == null) return;
@@ -2697,18 +2698,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // Purpose-drawn arrows: a solid head on a shaft of real weight, one per symbol; a large change is two arrows side by side.
   // A thin dash means unchanged / normal. Drawn on one grid so they sit on the table's cap height. n: 2 / 1 up, -1 / -2 down, 0 the dash.
-  const ARROW = (x, w) => `<path d="M${x} 15.2V7.4" stroke-width="2.5"/><path d="M${x} 1L${x + w} 8.2H${x - w}Z" fill="currentColor" stroke="currentColor" stroke-width=".8" stroke-linejoin="round"/>`;
-  const SHAPE = {
-    1: ['0 0 12 16', ARROW(6, 4.4)],
-    2: ['0 0 19 16', ARROW(4.6, 3.9) + ARROW(14.4, 3.9)],
-    0: ['0 0 12 16', '<path d="M2.8 8.6H9.2" stroke-width="1.6" stroke-linecap="round"/>'],
-  };
+  // A change's arrow: one, two, or a level dash, drawn by the stylesheet as plain shapes (app.css .pz-ag: a clip path on a box of
+  // its colour, no SVG), composited with the card's own layer.
   function arrowEl(n) {
-    const el = document.createElement('span');
-    const [box, d] = SHAPE[Math.abs(n)];
-    el.className = `pz-arr${n < 0 ? ' dn' : ''}${n === 0 ? ' zero' : ''}${Math.abs(n) === 2 ? ' two' : ''}`;
+    const el = document.createElement('span'), m = Math.abs(n);
+    el.className = `pz-arr${n < 0 ? ' dn' : ''}${n === 0 ? ' zero' : ''}${m === 2 ? ' two' : ''}`;
     el.setAttribute('aria-hidden', 'true');
-    el.innerHTML = `<svg viewBox="${box}" focusable="false">${d}</svg>`;   // (constant markup, never user text)
+    const g = document.createElement('i');
+    g.className = 'pz-ag';
+    for (let k = 0; k < Math.max(1, m); k++) g.append(document.createElement('i'));
+    el.append(g);
     return el;
   }
   // A cell that cannot be measured: a hollow ring, never the dash that means normal.
@@ -4016,14 +4015,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A header's Show or Hide keeps its title clear by the chip's own width, not a fixed 64 or 66 px: a larger text size grows the chip,
   // and a title once ran under it (DOPPLER, TH at 200 % on a 390 px phone). Its words' width goes to the stylesheet in ems of the
   // header's own type (--pz-chip-em, the wider of Show and Hide), so the room never changes with the card's zoom or a tap.
-  const chipCanvas = document.createElement('canvas').getContext('2d');
+  // (Measured from Inter's own advances and kerning, text-gl.js, the font the GPU draws words from: no 2D canvas. Until those are
+  // here, the first card uses a wide guess, 0.68 em a letter, and is measured again once they arrive.)
+  let chipWait = false;
   function chipRoom(dd) {
     const f = dd.querySelector('.pz-dh > .pz-fold');
-    if (!f || !chipCanvas) return;
+    if (!f) return;
     const cs = getComputedStyle(f), fs = parseFloat(cs.fontSize) || 0, ls = parseFloat(cs.letterSpacing) || 0;
     if (!fs) return;
-    chipCanvas.font = `${cs.fontWeight} ${fs}px ${cs.fontFamily}`;
-    const w = Math.max(...['Show', 'Hide'].map((t) => { const x = cs.textTransform === 'uppercase' ? t.toUpperCase() : t; return chipCanvas.measureText(x).width + ls * x.length; }));
+    if (!glyphsReady() && !chipWait) { chipWait = true; loadGlyphs().then(() => restPass(() => { if (ui && !ui.data.hidden) chipRoom(ui.data); })).catch(() => {}); }
+    const w = Math.max(...['Show', 'Hide'].map((t) => {
+      const x = cs.textTransform === 'uppercase' ? t.toUpperCase() : t;
+      return (glyphsReady() ? textWidth(x, { weight: cs.fontWeight, size: fs }) : x.length * fs * 0.68) + ls * x.length;
+    }));
     dd.style.setProperty('--pz-chip-em', (w / fs).toFixed(3));
   }
   function colHeight(w, dk = 1) {
@@ -4964,7 +4968,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     };
     const take = (gg) => { gg.on = true; if (gg.split) { cancelFrame(slip.raf); slideTell(); } else gg.p.style.transition = 'none'; if (gg.split && (gg.u0 === 0 || gg.u0 === 1)) camGrab(); hold(true); };   // (camGrab: the view follows the finger, from rest)
     // (dy: how far the finger has moved since the part began to follow it, down positive.)
-    const follow = (gg, dy) => {
+    const foldFollow = (gg, dy) => {
       const u = clamp(gg.u0 * gg.full + dy, 0, gg.full) / (gg.full || 1);
       gg.u = u; gg.pts.push([performance.now(), dy]);
       if (gg.split) { el.classList.add('pz-sliding'); el.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); camAt(u); return; }
@@ -4980,7 +4984,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       hold(false);
     };
     // (The closed card's own pull hands on to the readings once the instrument card is out, dockTouch.)
-    sheetPull = { begin: () => { const gg = grab(0, 0, false); take(gg); return gg; }, follow, settle };
+    sheetPull = { begin: () => { const gg = grab(0, 0, false); take(gg); return gg; }, follow: foldFollow, settle };
     on('touchstart', (e) => {
       if (g?.on) { const gg = g; g = null; settle(gg, gg.shown); return; }   // (a second finger on a fold being followed: it goes back to where it began, not left part way with its inline height and opacity)
       g = null;
@@ -5002,7 +5006,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       }
       e.stopImmediatePropagation();
       if (e.cancelable) e.preventDefault();
-      follow(g, dy * g.dir / (g.zk || 1));
+      foldFollow(g, dy * g.dir / (g.zk || 1));
     }, { passive: false });
     const end = (e) => {
       const gg = g; g = null;

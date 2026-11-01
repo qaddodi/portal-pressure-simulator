@@ -30,7 +30,7 @@ test('each slide comes in with the readings tucked; the card starts in its place
   assert.match(js, /if \(e\.touches\.length !== 1 \|\| !deck \|\| ui\?\.root\.classList\.contains\('pz-wide'\)\) \{ reset\(\); return; \}/);
   // (A pull up brings the readings out, a push down tucks them.)
   assert.match(js, /g\.dir = wideSheet\(el\) \? -1 : 1;/);
-  assert.match(js, /follow\(g, dy \* g\.dir( \/ \(g\.zk \|\| 1\))?\);/);   // (a zoomed card follows the finger over what it shows: card-zoom.test.js)
+  assert.match(js, /foldFollow\(g, dy \* g\.dir( \/ \(g\.zk \|\| 1\))?\);/);   // (a zoomed card follows the finger over what it shows: card-zoom.test.js)
 });
 
 test('the instrument is fitted to the tucked room; readings that need more room lift the pair, frame by frame, and it comes back down', () => {
