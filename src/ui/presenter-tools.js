@@ -39,22 +39,26 @@
 // has recorded (backfill.js), so the trace sweeps on live from there instead of in from empty.
 
 import { store } from './store.js?v=4ef2a6ffd8';
-import { h } from './util.js?v=b280e98bc3';
+import { h } from './util.js?v=7a4bd2b204';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=f9f78d0097';
-import { createFibroScan } from './fibroscan.js?v=ede10bd985';
-import { createPressureTime } from './pressure-time.js?v=885f52f5c5';
-import { createVitalsMonitor } from './vitals-monitor.js?v=a045d5a084';
-import { createHvpgCard } from './tool-hvpg.js?v=2fcfabbf28';
+import { createDoppler } from './doppler.js?v=8e6e4d4628';
+import { createFibroScan } from './fibroscan.js?v=61ee97105b';
+import { createPressureTime } from './pressure-time.js?v=32d7c3a773';
+import { createVitalsMonitor } from './vitals-monitor.js?v=bc4acdb416';
+import { createHvpgCard } from './tool-hvpg.js?v=a2a3efdc4c';
 import { createFlowTime } from './flow-time.js?v=447c3f6bb9';
 <<<<<<< HEAD
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=d20e584c42';
+<<<<<<< HEAD
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=df5f92d71a';
 =======
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=d20e584c42';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=df5f92d71a';
 >>>>>>> b9fc33e3 (Abdomen steppers (serum albumin, litres to drain) roll their number to the new value instead of jumping; ?stepnum=0 writes it at once)
+=======
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=df5f92d71a';
+>>>>>>> 173a2178 (Put back util.js's easeNow, easeMove and D_SURFACE imports a rebase dropped)
 import { frameFor, cancelFrame } from './frame.js?v=15d5254a2c';
-import { talkTrace } from './talk-trace.js?v=b11f94d743';
-import { EXT, guard, safe } from './slide-ext.js?v=2f2122d8dd';
+import { talkTrace } from './talk-trace.js?v=0978a47ed2';
+import { EXT, guard, safe } from './slide-ext.js?v=7a24665ac2';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
