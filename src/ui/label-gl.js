@@ -731,7 +731,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
   }
   // (Its callback runs once the page is laid out: the canvas's place read there costs no extra layout.)
   new ResizeObserver(() => { placeHoles(); if (size()) ask(); }).observe(svg.parentElement);
-  matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener?.('change', () => { size(); ask(); });
+  let densT = 0;
+  const densityChanged = () => { if (!densT) densT = setTimeout(() => { densT = 0; size(); ask(); }, 0); };
+  matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener?.('change', densityChanged);
   size();
   function ask() {
     if (lost) return;
@@ -1533,7 +1535,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     /** This frame's labels: drawn now, in the same frame as the SVG's layout. */
     sync(list) {
       if (lost) return;
-      if ((devicePixelRatio || 1) !== dpr) size();   // (moved to a screen of another density)
+      if ((devicePixelRatio || 1) !== dpr) densityChanged();   // (moved to a screen of another density: sized in a task of its own)
       take(mo.takeRecords());
       for (const r of mmo.takeRecords()) { if (!changed(r)) continue; const el = markOf(r.target); if (el) markDirty.add(el); }
       const was = new Set(last.map((s) => s.g));

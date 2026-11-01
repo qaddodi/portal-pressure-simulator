@@ -50,7 +50,7 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=f7d920b7d0';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=0123933215';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=df3c3152ad';
-import { createLabelGL } from './label-gl.js?v=416dad64ad';
+import { createLabelGL } from './label-gl.js?v=4ed7e554fb';
 import { createGlassGL } from './glass-gl.js?v=6a77550d27';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=3e4b680ef4';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
@@ -2335,7 +2335,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const stagePx = (m) => [m.a, m.b, m.c, m.d, m.e - wrapRect.left, m.f - wrapRect.top];
   function rideStart() {
     if (rideCTM) return true;   // (a move taken over by another: the labels ride on from where they were laid out)
-    if (!LABEL_RIDE || !labelRider?.canRide() || cath.st || pinchHide || lobuleOn || lz?.isOpen() || diveT > 0 || wrap.classList.contains('cam-move') || reduceMotion.matches) return false;
+    // (A treatment's catheter keeps the figure's labels on (keep): they ride its glides too. The HVPG catheter hides them: nothing to carry.)
+    if (!LABEL_RIDE || !labelRider?.canRide() || (cath.st && !cath.st.keep) || pinchHide || lobuleOn || lz?.isOpen() || diveT > 0 || wrap.classList.contains('cam-move') || reduceMotion.matches) return false;
     refreshCTM();
     rideCTM = stagePx(CTM);
     rideLeaders(true); glass.style.opacity = '0';
