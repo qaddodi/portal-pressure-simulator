@@ -85,7 +85,7 @@ test('Auto: 1/zoom past the home framing, in steps down to 10%, changed only onc
 test('every resize for a share goes through easeRes; the copy is laid over first, then the canvas is resized', () => {
   const stage = src('stage.js');
   const fn = stage.slice(stage.indexOf('function easeRes('), stage.indexOf('// (The canvas\'s share of its pixels:'));
-  const at = fn.indexOf('fadeOver(vCanvas, resFollow, () => veins?.present?.())');
+  const at = fn.indexOf('fadeOver(vCanvas, resFollow, () => veins?.present?.(), veins && !veins.lost ? veins.top : null)');
   assert.ok(at >= 0 && at < fn.indexOf('resizeCanvas()'), 'copied before the resize clears it, the kept picture put on the canvas for each read');
   assert.ok(!/moveLow = true; resizeCanvas\(\)/.test(stage) && !/autoK = k; moveLow = false; resizeCanvas\(\)/.test(stage), 'no share change resizes without the fade');
   assert.match(src('../../styles/app.css'), /\.stage-view\.in-lobule \.res-fade/);
@@ -277,7 +277,7 @@ test('A dive takes the canvas over at once from a resolution fade', () => {
   const fade = stage.slice(stage.indexOf('function setDiveFade('), stage.indexOf('function setDiveFade(') + 600);
   assert.ok(fade.indexOf('fadeStop(vCanvas)') > 0 && fade.indexOf('fadeStop(vCanvas)') < fade.indexOf('for (const el of diveEls())'));
   assert.match(stage, /el\.style\.transformOrigin = o; \}\n\s*fadeStop\(vCanvas\);/);
-  assert.match(src('res-fade.js'), /export function fadeStop\(canvas\) \{ const f = fades\.get\(canvas\); if \(f\) end\(canvas, f\); \}/);
+  assert.match(src('res-fade.js'), /export function fadeStop\(canvas\) \{ const f = fades\.get\(canvas\); if \(f\) \(f\.gpu \? endGpu : end\)\(canvas, f\); \}/);
 });
 
 test('Auto keeps its step near an edge: no flip between 75% and 50% when the zoom is let go about 2×', () => {

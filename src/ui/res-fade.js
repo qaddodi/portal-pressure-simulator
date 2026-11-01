@@ -15,12 +15,17 @@
 import { finalFrameFor, noteDraw } from './frame.js?v=15d5254a2c';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { D_SURFACE } from './ease.js?v=fc509dabe4';
+import { keepOnGpu } from './res-fade-gl.js?v=24d9dfc57e';
 
 export const FADE_MS = D_SURFACE;
 /** The old picture's weight u of the way through the fade: 1 to 0, smoothstep (no step at either end). */
 export const fadeAlpha = (u) => { const t = Math.min(1, Math.max(0, u)); return 1 - t * t * (3 - 2 * t); };
 
 const late = finalFrameFor('res-fade');
+// (Since 1 Nov 2026 (Mohammad: "Move everything to GPU") a canvas whose renderer lays things over its own presents (host: veins-gl top)
+// fades on the GPU (res-fade-gl.js): the picture before copied once inside the GPU and mixed in at each present, the canvas left
+// shown, nothing read back. ?fadegpu=0: the 2D mix below, as before.)
+const GPU_FADE = !(typeof location !== 'undefined' && /[?&]fadegpu=0\b/.test(location.search || ''));
 const fades = new Map();   // canvas → { cv (shown: the mix), old (the picture before), t0, follow, at (the translate it showed at), tr (the canvas's own inline transition), capture }
 
 /** A CSS `translate` value as [x, y] px ('' is none). */
@@ -66,6 +71,32 @@ export function mixInto(c, cv, old, canvas, a, m) {
   c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
 }
 
+function endGpu(canvas, f) {
+  f.gpu.remove(); fades.delete(canvas);
+  try { if (canvas.isConnected) f.capture?.(); } catch { /* (a lost context: nothing to lay) */ }   // (the picture alone, at once)
+}
+// The fade on the GPU (see GPU_FADE). False when it cannot be made (the 2D mix is used).
+function gpuFadeOver(canvas, follow, capture, host) {
+  const was = fades.get(canvas);
+  if (was && !was.gpu) return false;
+  // (The picture before: the canvas as presented now, with the mix still under way when one is.)
+  try { capture?.(); } catch { return false; }
+  const keep = keepOnGpu(host);
+  if (!keep) return false;
+  if (was) was.gpu.remove();
+  const w = canvas.offsetWidth, h = canvas.offsetHeight;
+  const f = { gpu: keep, t0: performance.now(), follow, at: translateOf(canvas.style.translate), capture, w, h };
+  keep.set(1, null, w, h);
+  fades.set(canvas, f);
+  // (The caller resizes the canvas next, which clears it: the picture before is laid on it at once, before the page shows it blank.)
+  queueMicrotask(() => {
+    if (fades.get(canvas) !== f || (canvas.width === keep.w && canvas.height === keep.h)) return;
+    try { keep.draw(1, oldPlace(null, f.at, translateOf(canvas.style.translate)), w, h, true); } catch { /* (a lost context) */ }
+  });
+  if (!asked) { asked = true; late(step); }
+  return true;
+}
+
 function end(canvas, f) { f.cv.remove(); f.cv.width = f.cv.height = 1; f.old.width = f.old.height = 1; snapOpacity(canvas, '', f.tr); fades.delete(canvas); }
 
 function step() {
@@ -73,6 +104,13 @@ function step() {
   const now = performance.now();
   for (const [canvas, f] of fades) {
     const u = (now - f.t0) / FADE_MS;
+    if (f.gpu) {
+      if (u >= 1 || !canvas.isConnected) { endGpu(canvas, f); continue; }
+      f.gpu.set(fadeAlpha(u), oldPlace(f.follow?.(), f.at, translateOf(canvas.style.translate)), f.w, f.h);
+      try { f.capture?.(); } catch { endGpu(canvas, f); continue; }
+      noteDraw('res-fade');
+      continue;
+    }
     if (u >= 1 || !canvas.isConnected) { end(canvas, f); continue; }
     // (As many pixels as the sharper of the two pictures: a fade up to a finer canvas shows its detail all the way, not at the end.)
     if (canvas.width > f.cv.width || canvas.height > f.cv.height) { f.cv.width = Math.max(f.cv.width, canvas.width); f.cv.height = Math.max(f.cv.height, canvas.height); }
@@ -86,9 +124,11 @@ function step() {
 }
 
 /** Keeps canvas's picture and shows it mixed into what the canvas is drawn next; call it just before the canvas is resized.
- *  capture (optional): puts the canvas's whole current picture on it, called just before each read of the canvas. */
-export function fadeOver(canvas, follow = null, capture = null) {
+ *  capture (optional): puts the canvas's whole current picture on it, called just before each read of the canvas.
+ *  host (optional): the canvas's own renderer's { gl, canvas, add } (veins-gl top): the fade is then done on the GPU (GPU_FADE). */
+export function fadeOver(canvas, follow = null, capture = null, host = null) {
   if (!canvas?.isConnected || canvas.width < 2 || canvas.height < 2 || !canvas.offsetWidth) return;
+  if (GPU_FADE && host?.gl && host.canvas === canvas && gpuFadeOver(canvas, follow, capture, host)) return;
   const was = fades.get(canvas);
   // (The picture before: the mix on screen while a fade still runs, else the canvas.)
   const src = was ? was.cv : canvas;
@@ -118,7 +158,9 @@ export function fadeOver(canvas, follow = null, capture = null) {
 }
 
 /** Ends a fade over canvas at once: the mix goes and the canvas shows (a dive taking the canvas over). */
-export function fadeStop(canvas) { const f = fades.get(canvas); if (f) end(canvas, f); }
+export function fadeStop(canvas) { const f = fades.get(canvas); if (f) (f.gpu ? endGpu : end)(canvas, f); }
+/** Whether the fade over canvas runs on the GPU (inside its own presents). */
+export const fadingOnGpu = (canvas) => !!fades.get(canvas)?.gpu;
 
 /** Whether a mix is still showing over canvas (for tests). */
 export const fading = (canvas) => fades.has(canvas);

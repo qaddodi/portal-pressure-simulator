@@ -39,12 +39,12 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=8e0c281489';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
-import { createSinusoidView } from './sinusoid-view.js?v=af05758d8f';
+import { createSinusoidView } from './sinusoid-view.js?v=971f770d2e';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, framePart, easeNow, inMotion, PACED } from './frame.js?v=15d5254a2c';
 import { createGlassGL } from './glass-gl.js?v=773d159c52';
 import { pillOf, pillLabels, pillHold } from './lz-pills.js?v=bafcf3977d';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=5ef122c173';
+import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=4d4c051a59';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { easeMove, carryRate, carried, D_SMALL, D_SURFACE } from './ease.js?v=fc509dabe4';

@@ -40,7 +40,7 @@ import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels, noteStripRead, stripPx } from './plate-upload.js?v=ea6a71d855';
 import { refine } from './refine.js?v=e6e17cc013';
-import { fadeOver, fadeStop, fading } from './res-fade.js?v=5ef122c173';
+import { fadeOver, fadeStop, fading } from './res-fade.js?v=4d4c051a59';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
 import { cropToGrid } from './organs-gl.js?v=1d301b120d';
@@ -2549,7 +2549,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=0e41e4573d').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=94b1b2bc25').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2707,7 +2707,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (The picture kept for the fade is the figure without the glasses drawn in its canvas: they go back to their own way first, and
       // come back once the fade has ended, frostOn.)
       frostHold = true;
-      try { glassGL?.release(); paneGL?.release(); for (const g of cardGLs) g.release(); fadeOver(vCanvas, resFollow, () => veins?.present?.()); } finally { frostHold = false; }
+      try { glassGL?.release(); paneGL?.release(); for (const g of cardGLs) g.release(); fadeOver(vCanvas, resFollow, () => veins?.present?.(), veins && !veins.lost ? veins.top : null); } finally { frostHold = false; }
       fadeM0 = [...glM];
     }
     resizeCanvas();
