@@ -15,6 +15,7 @@ const KEPT = [
   ['.sv-legend', 'the sinusoid legend, in the lobule view only'],
   ['.pz-fold', 'the Show / Hide chip in a folded card\'s header, 92 % opaque; no glass of the figure draws it'],
   ['.toast', 'a toast, there for a few seconds'],
+  ['.pz-shade', 'the teaching card, on the browser\'s blur on purpose (moved to the GPU glass and back, an iPhone dropped its outline, 1 Nov)'],
 ];
 /** Why a blur no glass owns stays the browser's, or '' for one with no entry here. */
 export function keptReason(el) {
