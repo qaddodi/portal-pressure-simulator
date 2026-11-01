@@ -1403,6 +1403,13 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .pal-list { max-height: min(56vh, 440px, var(--pal-room, 100vh)); overflow: auto; padding: 8px; }   /* (--pal-room: the room above the on-screen keyboard, set by palette.js while it is up) */
 .pal-item { display: grid; grid-template-columns: 72px 1fr; gap: 2px 12px; width: 100%; padding: 8px 12px; border: 0; border-radius: var(--r-card); background: transparent; text-align: left; cursor: pointer; color: var(--text); }
 .pal-item.on { background: var(--accent-soft); }
+.pal-list.glides { position: relative; }   /* (one highlight under the rows glides to the active one; palette.js, ?palglide=0 keeps the row's own background) */
+.pal-glide { position: absolute; left: 0; top: 0; width: 0; height: 0; opacity: 0; border-radius: var(--r-card); background: var(--accent-soft); pointer-events: none; transition: translate var(--d-flip) var(--ease-move), width var(--d-flip) var(--ease-move), height var(--d-flip) var(--ease-move), opacity var(--d-flip) var(--ease-move); }
+.pal-glide.still { transition: none; }
+.pal-list.glides .pal-item { position: relative; }
+.pal-list.glides .pal-item.on { background: transparent; }
+@media (prefers-reduced-motion: reduce) { .pal-glide { transition: none; } }
+@media (forced-colors: active) { .pal-glide { display: none; } .pal-list.glides .pal-item.on { forced-color-adjust: none; background: Highlight; color: HighlightText; } .pal-list.glides .pal-item.on :is(.pal-g, .pal-t b, .pal-h) { color: HighlightText; } }
 @media (pointer: coarse) { .pal-item { min-height: 40px; align-content: center; } .pal-top kbd { display: none; } }   /* (a finger's 40 px; no Esc key on a touch screen) */
 .pal-g { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); padding-top: 2px; }
 .pal-t { font-size: var(--fs-14); font-weight: 500; }

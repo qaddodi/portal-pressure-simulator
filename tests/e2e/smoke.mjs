@@ -1475,6 +1475,16 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => !document.querySelector('.umenu'));
     await page.evaluate(() => window.pps.palette.open());
     await page.waitForSelector('.pal-back:not([hidden])');
+    // (Search: an arrow key or a pointer over another row moves the highlight and aria-selected on two rows; the rows stay the same nodes.)
+    await page.keyboard.type('portal');
+    await page.waitForFunction(() => document.querySelectorAll('.pal-item').length > 2);
+    const glide = await page.evaluate(() => {
+      const list = document.getElementById('pal-list'), kept = [...list.children], input = document.querySelector('.pal-input');
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+      const rows = [...list.querySelectorAll('.pal-item')];
+      return { same: kept.length === list.children.length && kept.every((n, i) => n === list.children[i]), active: input.getAttribute('aria-activedescendant'), selected: rows.filter((r) => r.getAttribute('aria-selected') === 'true').map((r) => r.id), hl: !!list.querySelector('.pal-glide') };
+    });
+    if (!glide.same || glide.active !== 'pal-opt-1' || glide.selected.join() !== 'pal-opt-1' || !glide.hl) throw new Error(`search: an arrow key rebuilt the list or left the highlight behind (${JSON.stringify(glide)})`);
     await page.keyboard.press('Escape');
     await page.evaluate(() => window.pps.dock.show('profile', { reveal: true }));
     await page.waitForTimeout(500);

@@ -3,24 +3,29 @@
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
 import { store, updateParams } from './store.js?v=4ef2a6ffd8';
-import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore } from './util.js?v=65ea7f9f65';
+import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=65ea7f9f65';
+import { D_FLIP, EASE_ARRIVE } from './ease.js?v=615d96d663';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
 import { HIDDEN_EDGES } from './anatomy.js?v=f5c417240a';
 
+// One highlight under the list that glides to the active row; the arrow keys and the pointer only move it (and aria-selected on two rows),
+// and the list is rebuilt only when the results change. ?palglide=0 gives the old list: the row paints its own highlight, a rebuild per move.
+const GLIDE = !/[?&]palglide=0\b/.test(location.search);
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
 export function createPalette({ ctx }) {
   const back = h('div', { class: 'pal-back', hidden: true });
   const input = h('input', { class: 'pal-input', type: 'text', placeholder: innerWidth < 600 ? 'Search vessels, patients, treatments' : 'Search a vessel, patient or treatment: “tips 10”, “+6 months”…', 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false', role: 'combobox', 'aria-autocomplete': 'list', 'aria-controls': 'pal-list', 'aria-expanded': 'true' });
-  const list = h('div', { class: 'pal-list', id: 'pal-list', role: 'listbox', 'aria-label': 'Results' });
+  const list = h('div', { class: GLIDE ? 'pal-list glides' : 'pal-list', id: 'pal-list', role: 'listbox', 'aria-label': 'Results' });
+  const hl = GLIDE ? h('div', { class: 'pal-glide', 'aria-hidden': 'true' }) : null;   // (the highlight: a sibling of the rows, in the list's scrolled space)
   // (The same magnifier as the Search button that opens it. The key hints under the list are for a keyboard: a touch screen hides them.)
   const foot = h('div', { class: 'pal-foot', 'aria-hidden': 'true' }, h('span', {}, h('kbd', {}, '↑'), h('kbd', {}, '↓'), 'to move'), h('span', {}, h('kbd', {}, 'Enter'), 'to run'), h('span', {}, h('kbd', {}, 'Esc'), 'to close'));
   const box = h('div', { class: 'pal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Command palette' }, h('div', { class: 'pal-top' }, svgIcon('search', 'pal-ic'), input), list, foot);
   back.append(box);
   document.body.append(back);
   const syncMore = fadeWhileMore(list);   // (a list that scrolls fades at its foot while there is more below it, as the menus do)
-  let items = [], sel = 0, ret = null;
+  let items = [], sel = 0, ret = null, rows = [], shownKey = '', ptX = -1, ptY = -1, fade = null;
 
   function commands() {
     const st = store.get();
@@ -105,20 +110,62 @@ export function createPalette({ ctx }) {
     }
     return scored.sort((a, b) => b.score - a.score).slice(0, 12);
   }
-  function renderList() {
+  // (The options are reached through the field, by arrow keys: it names the one that is current, and a screen reader reads it as the field's choice.)
+  function syncActive() {
+    if (items.length) input.setAttribute('aria-activedescendant', `pal-opt-${sel}`); else input.removeAttribute('aria-activedescendant');
+  }
+  // The highlight goes to the active row: its top and height together on --d-flip (the CSS decides how). A new query, the first
+  // placement and a resize put it there with no glide ('still' holds the transition for that one write).
+  function place(glide) {
+    if (!hl || back.hidden) return;
+    const r = items.length ? rows[sel] : null;
+    const snap = !glide || hl.style.opacity !== '1';
+    if (snap) hl.classList.add('still');
+    if (r) { hl.style.translate = `${r.offsetLeft}px ${r.offsetTop}px`; hl.style.width = `${r.offsetWidth}px`; hl.style.height = `${r.offsetHeight}px`; hl.style.opacity = '1'; }
+    else hl.style.opacity = '0';
+    if (snap) { void hl.offsetWidth; hl.classList.remove('still'); }
+  }
+  function mark() {
+    rows.forEach((b, i) => { const on = i === sel; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); });
+  }
+  function renderList({ fadeIn = true } = {}) {
     items = search(input.value);
     sel = Math.min(sel, Math.max(0, items.length - 1));
-    list.replaceChildren(...(items.length ? items.map(({ c, num }, i) => {
+    // (The same results as on screen: the rows stay, only the current one changes.)
+    const key = GLIDE ? (items.length ? items.map(({ c, num }) => `${c.group}|${c.title}|${num}`).join('\n') : `none:${input.value.trim()}`) : '';
+    if (GLIDE && key === shownKey && list.isConnected && !back.hidden) { mark(); place(false); syncActive(); return; }
+    rows = items.map(({ c, num }, i) => {
       const b = h('button', { class: 'pal-item' + (i === sel ? ' on' : ''), id: `pal-opt-${i}`, tabindex: '-1', role: 'option', 'aria-selected': String(i === sel) },
         h('span', { class: 'pal-g' }, c.group), h('span', { class: 'pal-t' }, c.title, num != null ? h('b', {}, ` → ${num} ${c.num}`) : null), c.hint && num == null ? h('span', { class: 'pal-h' }, c.hint) : null);
       b.addEventListener('click', () => run(i));
-      b.addEventListener('pointermove', () => { if (sel !== i) { sel = i; renderList(); } });
+      b.addEventListener('pointermove', (e) => {
+        if (!GLIDE) { if (sel !== i) { sel = i; renderList(); } return; }
+        // (A list that scrolls under a still pointer sends a move at the same spot: the keyboard keeps the highlight then.)
+        if (e.clientX === ptX && e.clientY === ptY) return;
+        ptX = e.clientX; ptY = e.clientY;
+        move(i, false);
+      });
       return b;
-    }) : [h('div', { class: 'pal-empty' }, h('b', {}, input.value.trim() ? `Nothing matches “${input.value.trim()}”.` : 'No commands yet.'), 'Try a vessel (“portal vein”), a patient, a presentation or a treatment (“tips 8”).')]));
+    });
+    list.replaceChildren(...(GLIDE ? [hl] : []), ...(items.length ? rows : [h('div', { class: 'pal-empty' }, h('b', {}, input.value.trim() ? `Nothing matches “${input.value.trim()}”.` : 'No commands yet.'), 'Try a vessel (“portal vein”), a patient, a presentation or a treatment (“tips 8”).')]));
     list.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
     syncMore();
-    // (The options are reached through the field, by arrow keys: it names the one that is current, and a screen reader reads it as the field's choice.)
-    if (items.length) input.setAttribute('aria-activedescendant', `pal-opt-${sel}`); else input.removeAttribute('aria-activedescendant');
+    if (GLIDE) {
+      place(false);
+      // (New results come in on one fade for the whole list, no stagger; typing on carries the fade already under way.)
+      const was = shownKey; shownKey = key;
+      if (fadeIn && was && list.animate && !(fade && fade.playState === 'running')) {
+        fade = list.animate({ opacity: [0.35, 1] }, { duration: D_FLIP, easing: EASE_ARRIVE });
+      }
+    }
+    syncActive();
+  }
+  // The arrow keys and the pointer: the highlight glides, two rows change their aria-selected, and the list is not rebuilt.
+  function move(i, scroll) {
+    if (!GLIDE) { sel = i; renderList(); return; }
+    if (i === sel || !items.length) return;
+    sel = i; mark(); syncActive(); place(true);
+    if (scroll) rows[sel]?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
   }
   function run(i) {
     const it = items[i];
@@ -130,7 +177,7 @@ export function createPalette({ ctx }) {
     // (Ctrl K, or a click Safari does not focus: the Search button takes focus back, not the page.)
     ret = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.getElementById('btnPalette');
     clearTimeout(leaveT); back.classList.remove('leaving');
-    back.hidden = false; input.value = ''; sel = 0; renderList();
+    back.hidden = false; input.value = ''; sel = 0; shownKey = ''; renderList({ fadeIn: false });
     if (ctx.library && !ctx.libraryNow?.()) ctx.library().then(() => { if (!back.hidden) renderList(); }).catch(() => {});
     setTimeout(() => input.focus(), 0);
     vv?.addEventListener('resize', fitList); vv?.addEventListener('scroll', fitList);
@@ -156,8 +203,8 @@ export function createPalette({ ctx }) {
   input.addEventListener('input', () => { sel = 0; renderList(); });
   input.addEventListener('keydown', (e) => {
     if (e.isComposing || e.keyCode === 229) return;   // (an input method is composing: its Enter picks its candidate, not a command)
-    if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(items.length - 1, sel + 1); renderList(); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(0, sel - 1); renderList(); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); move(Math.min(items.length - 1, sel + 1), true); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); move(Math.max(0, sel - 1), true); }
     else if (e.key === 'Enter') { e.preventDefault(); run(sel); }
     else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
     else if (e.key === 'Tab') e.preventDefault();   // (the field is the card's one stop: Tab does not carry focus out to the page behind it)
