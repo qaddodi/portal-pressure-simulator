@@ -80,7 +80,8 @@ test('G22: the neighbouring lobules are blurred once per tile, seamlessly, with 
   assert.equal(neighbourBlur(12), 0);
   assert.ok(neighbourBlur(192) > 3 && neighbourBlur(192) < 5);
   // Built into the cached quiet tile (the lobule view's surround and the dive's quieting), never per frame.
-  assert.match(lz, /blurTile\(c, t\.cv, t\.tw, t\.th, neighbourBlur\(t\.R\)\);\n\s+fieldQuiet\(c, bg, 1, t\.tw, t\.th\);\n\s+c\.fillStyle = css\(bg, NEIGHBOUR_FLAT\);/);
+  assert.match(lz, /const src = !c \|\| \(TILE_OVER && t\.blank\) \? null : t\.cv;/);
+  assert.match(lz, /blurTile\(c, src, t\.tw, t\.th, neighbourBlur\(t\.R\)\);\n\s+fieldQuiet\(c, bg, 1, t\.tw, t\.th\);\n\s+c\.fillStyle = css\(bg, NEIGHBOUR_FLAT\);/);
   assert.match(lz, /img\.data\.set\(blurWrapped\(img\.data, w, h, r\)\);/, 'the same smooth blur on every browser');
   assert.doesNotMatch(lz, /c\.filter = `blur/, 'no canvas filter (some Safaris lack it)');
   assert.doesNotMatch(lz, /\.filter = `blur[^\n]*\n[^\n]*requestAnimationFrame/);

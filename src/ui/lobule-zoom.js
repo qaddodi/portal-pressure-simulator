@@ -27,8 +27,8 @@ import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=50bb9afc3b';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
-import { createFieldGL } from './field-gl.js?v=943ee36ec4';
-import { createTissueGL } from './tissue-gl.js?v=9f896f17a8';
+import { createFieldGL, TILE_OVER } from './field-gl.js?v=862e2a9122';
+import { createTissueGL } from './tissue-gl.js?v=5f78384f0c';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=624ae21d7d';
 import { createTissueWorker } from './tissue-worker.js?v=d9b45fb202';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
@@ -2039,6 +2039,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // tens of ms to draw: the open lobule keeps showing the last state's tile (its quiet surround changes slowly) while the new one is
   // drawn between frames, then redraws with it.
   let tileLater = null, tileLast = null;
+  // A tile canvas the browser could not give memory to (iPhone Safari, at the peak of the way out of a zoomed-in lobule) is left
+  // transparent, with no picture (or no context at all): it was kept as drawn, and the GPU read its rgb, 0, as solid black neighbours
+  // (Mohammad, 1 Nov). One pixel is read back after each tile is drawn (tiles are opaque everywhere); a blank one is not kept, and is
+  // drawn again the next time it is asked for, at most every TILE_RETRY ms, while the shaders lay it over the page's colour meanwhile
+  // (field-gl.js TILE_OVER). ?tileover=0: neither, as before.
+  const TILE_RETRY = 250;
+  function tileBlank(cv, c) {
+    if (!TILE_OVER) return false;
+    try { return !c || !cv.width || c.getImageData(0, 0, 1, 1).data[3] === 0; } catch { return true; }
+  }
+  const tileDue = (q) => !!q && !!q.blank && performance.now() >= q.blankAt + TILE_RETRY;
   function fieldTile(cs, dark, rd, later = false) {
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
     const cell = v('--og-liver-1'), gap = v('--og-liver-2'), cvc = v('--vein-systemic'), pvc = v('--vein-portal');
@@ -2069,6 +2080,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     else { tileSets.delete(key); tileSets.set(key, tiles); }
     const t = tiles.find((q) => q.R >= rd) || tiles[tiles.length - 1];
+    if (t.cv && tileDue(t)) { free(t.cv); t.cv = null; if (t.quiet) { free(t.quiet.cv); t.quiet = null; } if (t.liverQ) { free(t.liverQ.cv); t.liverQ = null; } fieldGL?.sweep(); tissueGL?.sweep(); }
     if (!t.cv) framePart('lz.drawTile', () => drawTile(t, { cell, gap, cvc, pvc, art: v('--artery'), duct: v('--bile-duct'), dark, fs }));
     return t;
   }
@@ -2084,6 +2096,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const TW = 6 * R, TH = 2 * S3 * R, tw = Math.round(TW), th = Math.round(TH);
     const cv = document.createElement('canvas'); cv.width = tw; cv.height = th;
     const c = cv.getContext('2d');
+    if (!c && TILE_OVER) { Object.assign(t, { tw, th, TW, TH, cv, pats: new WeakMap(), blank: true, blankAt: performance.now() }); return; }
     c.scale(tw / TW, th / TH);
     c.fillStyle = gap; c.fillRect(0, 0, TW, TH);
     // The corners of the lobule at the pattern's origin (where the lobule view draws its own lobule) stay
@@ -2187,7 +2200,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       }
       c.globalAlpha = 1;
     }
-    Object.assign(t, { tw, th, TW, TH, cv, pats: new WeakMap() });
+    const blank = tileBlank(cv, c);
+    Object.assign(t, { tw, th, TW, TH, cv, pats: new WeakMap(), blank, blankAt: blank ? performance.now() : 0 });
   }
   // The field's pattern on context c, with the lobule at the origin centred on x, y (device px), radius rd.
   function fieldFill(c, t, x, y, rd, w, h) {
@@ -2209,15 +2223,20 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // phone. The one exception to the no-blur rule (Mohammad, 16 Oct), and only for these neighbours.
   function quietTile(t, bg) {
     const k = bg.join(',');
-    if (t.quiet?.k === k) return t.quiet;
+    if (t.quiet?.k === k && !tileDue(t.quiet)) return t.quiet;
     // (the cache holds one tone at a time; the dive's liver tone is kept apart, see paintField)
-    if (t.quiet) free(t.quiet.cv);
+    if (t.quiet) { free(t.quiet.cv); fieldGL?.sweep(); tissueGL?.sweep(); }
     const cv = document.createElement('canvas'); cv.width = t.tw; cv.height = t.th;
     const c = cv.getContext('2d');
-    blurTile(c, t.cv, t.tw, t.th, neighbourBlur(t.R));
-    fieldQuiet(c, bg, 1, t.tw, t.th);
-    c.fillStyle = css(bg, NEIGHBOUR_FLAT); c.fillRect(0, 0, t.tw, t.th);
-    return (t.quiet = { k, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap() });
+    // (No context, or a blank tile under it: nothing to lay, so the canvas is kept blank and asked for again; tileBlank.)
+    const src = !c || (TILE_OVER && t.blank) ? null : t.cv;
+    if (src) {
+      blurTile(c, src, t.tw, t.th, neighbourBlur(t.R));
+      fieldQuiet(c, bg, 1, t.tw, t.th);
+      c.fillStyle = css(bg, NEIGHBOUR_FLAT); c.fillRect(0, 0, t.tw, t.th);
+    }
+    const blank = !src || tileBlank(cv, c);
+    return (t.quiet = { k, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap(), blank, blankAt: blank ? performance.now() : 0 });
   }
   // Draws the repeating tile src (w × h) onto c blurred by r px, seamless where the pattern repeats and smooth at full
   // resolution on every browser (blurWrapped, lobule-look.js; no canvas filter, which some Safaris lack, and no unfiltered canvas rescale).
@@ -2342,11 +2361,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const lv = rgb01(cs.getPropertyValue('--og-liver-2').trim());
     const tone = bg.map((x, i) => lerp(x, lv[i], 0.6));
     const tk = tone.map((x) => x.toFixed(2)).join(',');
-    if (!t.liverQ || t.liverQ.k !== tk) {
-      if (t.liverQ) free(t.liverQ.cv);
+    if (!t.liverQ || t.liverQ.k !== tk || tileDue(t.liverQ)) {
+      if (t.liverQ) { free(t.liverQ.cv); fieldGL?.sweep(); }
       const cv = document.createElement('canvas'); cv.width = t.tw; cv.height = t.th;
-      const cc = cv.getContext('2d'); cc.drawImage(t.cv, 0, 0); fieldQuiet(cc, tone, 1, t.tw, t.th);
-      t.liverQ = { k: tk, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap() };
+      const cc = cv.getContext('2d'), src = !cc || (TILE_OVER && t.blank) ? null : t.cv;
+      if (src) { cc.drawImage(src, 0, 0); fieldQuiet(cc, tone, 1, t.tw, t.th); }
+      const blank = !src || tileBlank(cv, cc);
+      t.liverQ = { k: tk, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap(), blank, blankAt: blank ? performance.now() : 0 };
     }
     return t.liverQ;
   }

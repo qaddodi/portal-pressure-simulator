@@ -151,7 +151,8 @@ test('the GPU field comes in soft and sharpens, and keeps far lobules a little s
   assert.match(lz, /dof: fieldDof\(d, rd, Math\.hypot\(fw, fh\)\),/);
   const fgl = read('../src/ui/field-gl.js');
   assert.match(fgl, /float bias = uDof\.x \+ uDof\.w \* smoothstep\(uDof\.y, uDof\.z, length\(p - uO\)\);/);
-  assert.equal((fgl.match(/texture\(u(A|B|QA|QB), uv, bias\)/g) || []).length, 4, 'every tile read with the same softness');
+  const { fieldFS } = await import('../src/ui/field-gl.js');
+  for (const over of [true, false]) assert.equal((fieldFS(over).match(/texture\(u(A|B|QA|QB), uv, bias\)/g) || []).length, 4, 'every tile read with the same softness');
   // At the landing (blur 0, dof 0) nothing is softened: the lobule view takes over without a jump.
   assert.deepEqual(fieldDof({ blur: 0, dof: 0 }, 100, 2000).filter((v, i) => i === 0 || i === 3), [0, 0]);
   const [pull, r0, r1, far] = fieldDof({ blur: 1, dof: 1 }, 20, 2000);

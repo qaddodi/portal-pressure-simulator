@@ -12,6 +12,7 @@
 // tissue is drawn on the 2D canvas as before.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
+import { TILE_OVER } from './field-gl.js?v=862e2a9122';
 import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=624ae21d7d';
 
 const VS = `#version 300 es
@@ -22,7 +23,10 @@ export const tissueVS = VS;   // (for the shader lint in the unit tests)
 // Mirrors paintTissue's 2D passes: the quiet surround (its pattern puts one repeat, two lobules wide and two high, per 6 rd by
 // 2√3 rd device px, the lobule's centre at uO), the lobule's bitmap over it (premultiplied, mixed with the last state's while a
 // new one fades in), then the fade into the page from r0 (clear) through FADE_MID halfway to whole at r1 and past it.
-export const tissueFS = (live) => `#version 300 es
+// (A tile laid over the page's colour by its own alpha: the same picture for an opaque tile, the page's colour, not black, for one the
+// browser could not give memory to. See field-gl.js TILE_OVER; ?tileover=0 reads the rgb alone, as before.)
+const Q = (over, s) => (over ? `over(texture(${s}, uv))` : `texture(${s}, uv).rgb`);
+export const tissueFS = (live, over = TILE_OVER) => `#version 300 es
 precision highp float;
 uniform sampler2D uQA, uQB, uQO, uW, uWO;   // the quiet tiles at the two sizes blended, the last state's tile; the bitmap, the last state's
 uniform float uMix, uQOld;                   // how much of the larger tile; how much of the last state's tile is left
@@ -34,12 +38,12 @@ uniform vec2 uFade;                          // r0, r1
 uniform float uMid;                          // FADE_MID
 uniform vec3 uBg;                            // the page's colour
 uniform vec2 uGrey;                          // the surround's grade in a lens other than Pressure: saturation, opacity (1, 1: as drawn)
-out vec4 o;${live ? '\n' + LIVE_FS : ''}
+out vec4 o;${live ? '\n' + LIVE_FS : ''}${over ? '\nvec3 over(vec4 t) { return t.rgb * t.a + uBg * (1.0 - t.a); }' : ''}
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uH - gl_FragCoord.y);
   vec2 uv = (p - uO) / (uRd * vec2(6.0, 3.4641016151377544));
-  vec3 c = mix(texture(uQA, uv).rgb, texture(uQB, uv).rgb, uMix);
-  if (uQOld > 0.0) c = mix(c, texture(uQO, uv).rgb, uQOld);
+  vec3 c = mix(${Q(over, 'uQA')}, ${Q(over, 'uQB')}, uMix);
+  if (uQOld > 0.0) c = mix(c, ${Q(over, 'uQO')}, uQOld);
   // Grey as the anatomy's liver is in this lens (lobule-look.js surroundGrade): toward its luma, then toward the page. Only the surround:
   // the lobule's bitmap, laid over it next, keeps the lens's colours.
   if (uGrey.x < 1.0 || uGrey.y < 1.0) c = mix(uBg, mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uGrey.x), uGrey.y);

@@ -19,7 +19,13 @@ void main() { gl_Position = vec4(p, 0.0, 1.0); }`;
 
 // Mirrors paintField's 2D passes. The tile's pattern puts one repeat (two lobules wide, two high: 6 R by 2√3 R) per
 // 6 rd by 2√3 rd device px, with the landing lobule's centre at uO, the same for every size of tile.
-const FS = `#version 300 es
+// (A tile is opaque everywhere it is drawn, so laying it over the page's colour by its own alpha changes nothing. But a tile canvas the
+// browser could not give memory to (iPhone Safari, at the peak of the way out of a zoomed-in lobule, with the wide copy still held) is
+// transparent, and its rgb, read alone, is 0: the neighbouring lobules flashed solid black (Mohammad, 1 Nov). Laid over the page, such a
+// tile shows the page's colour for the frame or two until it is drawn again (lobule-zoom.js tileBlank). ?tileover=0: the rgb alone, as before.)
+export const TILE_OVER = !(typeof location !== 'undefined' && /[?&]tileover=0\b/.test(location.search || ''));
+const R = (over, s) => (over ? `over(texture(${s}, uv, bias))` : `texture(${s}, uv, bias).rgb`);
+export const fieldFS = (over = TILE_OVER) => `#version 300 es
 precision highp float;
 uniform sampler2D uA, uB, uQA, uQB;   // the liver-toned and the quieted tiles, at the two sizes blended
 uniform float uMix;                    // how much of the larger size (0 … 1)
@@ -32,15 +38,15 @@ uniform vec3 uBg;                      // the page's colour
 uniform vec4 uMask;                    // ox, oy, rho (the emerging mask), on (1 / 0)
 uniform vec4 uDof;                     // the softness as mip biases: the whole field's, depth of field from r0 to r1, its bias there
 uniform vec2 uGrey;                    // the grade in a lens other than Pressure: saturation, opacity (1, 1: as drawn)
-out vec4 o;
+out vec4 o;${over ? '\nvec3 over(vec4 t) { return t.rgb * t.a + uBg * (1.0 - t.a); }   // (a tile over the page: its own rgb where it is opaque)' : ''}
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uH - gl_FragCoord.y);
   vec2 uv = (p - uO) / (uRd * vec2(6.0, 3.4641016151377544));
   // Soft by sampling a coarser level of the tiles' mipmaps (no extra pass): the field arrives blurred and sharpens, and the lobules
   // far from the landing one stay a little soft (fieldDof, lobule-look.js).
   float bias = uDof.x + uDof.w * smoothstep(uDof.y, uDof.z, length(p - uO));
-  vec3 c = mix(texture(uA, uv, bias).rgb, texture(uB, uv, bias).rgb, uMix);
-  if (uQuiet > 0.0) c = mix(c, mix(texture(uQA, uv, bias).rgb, texture(uQB, uv, bias).rgb, uMix), uQuiet);
+  vec3 c = mix(${R(over, 'uA')}, ${R(over, 'uB')}, uMix);
+  if (uQuiet > 0.0) c = mix(c, mix(${R(over, 'uQA')}, ${R(over, 'uQB')}, uMix), uQuiet);
   // Grey as the anatomy's liver is in this lens (lobule-look.js surroundGrade): toward its luma, then toward the page, so the field
   // coming in over the grey organs is the same grey.
   if (uGrey.x < 1.0 || uGrey.y < 1.0) c = mix(uBg, mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uGrey.x), uGrey.y);
@@ -83,7 +89,7 @@ export function createFieldGL(canvas) {
   // textures are made as each is drawn, texFor, and went with the context.)
   function build() {
     prog = null; U = null; failed = false;
-    started = startProgram(gl, VS, FS, [['p', 0]]);
+    started = startProgram(gl, VS, fieldFS(), [['p', 0]]);
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);   // one triangle over the whole canvas
