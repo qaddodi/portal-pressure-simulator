@@ -307,6 +307,10 @@ test('the Patients and Present previews opened by the (i) on touch scroll their 
   const m = src('src/ui/menu.js');
   const fn = m.slice(m.indexOf('function toggleInline('), m.indexOf('const $$rows'));
   assert.match(fn, /li\.scrollIntoView\(\{ block: 'nearest', behavior: reduce\.matches \? 'auto' : 'smooth' \}\)/);
+  // The wait counts from the moment the preview starts to open (a slow frame can start it late), ends on its transition, and the
+  // row leaves a margin above the footer and below the sticking heading.
+  assert.match(fn, /box\.classList\.add\('on'\);[\s\S]*addEventListener\('transitionend'[\s\S]*setTimeout\(show, /);
+  assert.match(css, /\.um-g li \{[^}]*scroll-margin: 28px 0 36px;/);
 });
 
 test('the Patients preview names what its curve plots and its scale', () => {

@@ -195,9 +195,15 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (was) return;
     const box = h('div', { class: 'um-inline' }, h('div', {}, make()));
     li.append(box); btn.setAttribute('aria-expanded', 'true');
-    nextFrame(() => nextFrame(() => box.classList.add('on')));
-    // (A row near the foot of the list opened its preview below the fold: once it has eased open, the row and its preview are scrolled into view.)
-    setTimeout(() => { if (box.isConnected && box.classList.contains('on')) li.scrollIntoView({ block: 'nearest', behavior: reduce.matches ? 'auto' : 'smooth' }); }, reduce.matches ? 0 : 260);
+    // (A row near the foot of the list opened its preview below the fold: once the preview has eased open, the row and its preview scroll
+    // into view, clear of the footer. The wait counts from the moment it starts to open, not from the tap: a slow frame can start it late.)
+    nextFrame(() => nextFrame(() => {
+      box.classList.add('on');
+      let shown = false;
+      const show = () => { if (shown) return; shown = true; if (box.isConnected && box.classList.contains('on')) li.scrollIntoView({ block: 'nearest', behavior: reduce.matches ? 'auto' : 'smooth' }); };
+      box.addEventListener('transitionend', (e) => { if (e.target === box) show(); });
+      setTimeout(show, reduce.matches ? 0 : 320);
+    }));
   }
   const $$rows = () => (el ? [...el.querySelectorAll('.um-row')] : []);
 

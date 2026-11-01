@@ -3662,7 +3662,7 @@ button.finding { cursor: pointer; }
 .um-gl b { font-weight: 600; color: var(--text-2); }
 .um-gacts { margin-left: auto; display: flex; gap: 4px; }
 .um-g ul { list-style: none; margin: 0; padding: 0; }
-.um-g li { position: relative; display: flex; flex-wrap: wrap; align-items: center; }
+.um-g li { position: relative; display: flex; flex-wrap: wrap; align-items: center; scroll-margin: 28px 0 36px; }   /* (scrollIntoView on an opened preview clears the sticking heading above and the fade and footer below) */
 .um-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 28px; padding: 4px 8px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text); font: inherit; font-size: var(--fs-14); text-align: left; cursor: pointer; transition: background-color var(--d-flip) var(--ease); }
 .um-row.pv-on { background: var(--surface-2); }
 @media (hover: hover) { .um-row:hover { background: var(--surface-2); } }
