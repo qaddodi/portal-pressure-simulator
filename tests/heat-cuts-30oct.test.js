@@ -158,10 +158,11 @@ test('H7: the pressure strip and the vitals monitor scroll at the pace the figur
   assert.match(vm, /if \(!pace \|\| now - loopAt >= pace\) \{ loopAt = now; draw\(now\); noteDraw\('vitals-monitor'\); \}\n\s+loopRaf = nextFrame\(loop\);/);
 });
 
-test('H10: the FibroScan probe\'s tap restarts with a style read, not a layout of the whole page', () => {
+test('H10: the FibroScan probe\'s tap restarts with no style read and no layout (1 Nov 2026: two copies of its animation, turned between)', () => {
   const s = src('stage.js');
   assert.doesNotMatch(s, /void scan\.el\.offsetWidth/);
-  assert.match(s, /scan\.el\.classList\.remove\('tap'\); void getComputedStyle\(scan\.el\.querySelector\('\.sp-tip'\) \|\| scan\.el\)\.animationName; scan\.el\.classList\.add\('tap'\);/);
+  assert.doesNotMatch(s, /void getComputedStyle\(scan\.el/);
+  assert.match(s, /scan\.tapB = !scan\.tapB; scan\.el\.classList\.toggle\('tap', !scan\.tapB\); scan\.el\.classList\.toggle\('tap2', scan\.tapB\);/);
 });
 
 test('none of the visible trade-offs changed their defaults', async () => {

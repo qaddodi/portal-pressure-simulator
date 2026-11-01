@@ -27,7 +27,7 @@ import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb64813
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns, boxOutside, paintBox, maskRegionIn, maskSlot, fillMaskHead, pruneDefs } from './plate-copy.js?v=0b5acb0928';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
-import { glassCallout } from './callout.js?v=a738782635';
+import { glassCallout } from './callout.js?v=5a8b4ada73';
 import { flipFrom, flipAt } from './cath-flip.js?v=6b016952c4';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
@@ -166,15 +166,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const GLIDE_KEYS = !/[?&]glidekeys=0\b/.test(location.search);
   const gestureFree = (c) => (c || '').replace(GLIDE_KEYS ? /(?:^|\s)(?:panning|stage-busy|figure-focus|lb-ride|cam-move|pinch-hide|off-home)(?=\s|$)/g : /(?:^|\s)(?:panning|stage-busy|figure-focus|lb-ride)(?=\s|$)/g, '');
   const MQ = ['(prefers-color-scheme: dark)', '(prefers-reduced-motion: reduce)', '(prefers-reduced-transparency: reduce)', '(hover: hover)', '(pointer: coarse)', 'print'].map((q) => matchMedia(q));
+  // (1 Nov 2026, "Move everything to GPU": a dropped snapshot is taken again first in the next frame (readFrame), never between a frame's
+  // writes; the frame in between keeps the last one.)
+  let csLast = null, csAsk = 0;
+  function wrapCSTake() {
+    csAsk = 0;
+    csMq = MQ.map((q) => q.matches);
+    const live = getComputedStyle(wrap), m = new Map();
+    csSnap = csLast = { getPropertyValue: (n) => { let v = m.get(n); if (v === undefined) m.set(n, (v = live.getPropertyValue(n))); return v; } };
+  }
   function wrapCS() {
     if (csSnap && MQ.some((q, i) => q.matches !== csMq[i])) csSnap = null;
-    if (!csSnap) {
-      csMq = MQ.map((q) => q.matches);
-      const live = getComputedStyle(wrap), m = new Map();
-      csSnap = { getPropertyValue: (n) => { let v = m.get(n); if (v === undefined) m.set(n, (v = live.getPropertyValue(n))); return v; } };
-    }
-    return csSnap;
+    if (!csSnap) csAsk ||= readFrame(wrapCSTake);
+    return csSnap || csLast;
   }
+  wrapCSTake();
   {
     const drop = () => { csSnap = null; };
     // (Not for the classes of a gesture alone: panning (the cursor), stage-busy (the menus' fade) and figure-focus (the phone's
@@ -1570,18 +1576,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const tf = svg.style.transform; if (tf) svg.style.transform = '';
     const r = wrap.getBoundingClientRect(), q = svg.getBoundingClientRect();
     if (tf) svg.style.transform = tf; box = boxKept = { left: r.left, top: r.top, width: r.width, height: r.height, right: r.right, bottom: r.bottom, sx: q.left - r.left, sy: q.top - r.top, sw: q.width, sh: q.height }; };
-  const stageBox = () => { if (!box) measureBox(); return box; };
-  new ResizeObserver(() => { box = null; CTM = null; }).observe(wrap);
-  addEventListener('resize', () => { box = null; CTM = null; });
+  // (1 Nov 2026, "Move everything to GPU": measured as the stage is made, when its size changes (the observer's callback, after the
+  // browser's own layout) and first in the frame after a resize or a scroll that may have moved it (readFrame); never inside a frame's
+  // writes. Until then the last box serves.)
+  let boxAsk = 0;
+  const boxAgain = () => { box = null; CTM = null; boxAsk ||= readFrame(() => { boxAsk = 0; if (!box) { measureBox(); CTM = null; } }); };
+  const stageBox = () => { if (!box) boxAgain(); return box || boxKept; };
+  measureBox();
+  new ResizeObserver(() => { measureBox(); CTM = null; }).observe(wrap);
+  addEventListener('resize', boxAgain);
   // (Only a scroll that can move the figure: the page's, or a box holding it. A card's own list scrolling (Treat, Tests, a menu) left the
   // box dropped, so the next model frame measured the whole figure again after writing it, on every frame of the scroll.)
-  addEventListener('scroll', (e) => { const t = e.target; if (t === document || t === window || t?.contains?.(wrap)) { box = null; CTM = null; } }, true);
+  addEventListener('scroll', (e) => { const t = e.target; if (t === document || t === window || t?.contains?.(wrap)) boxAgain(); }, true);
   // The screen's left and right safe-area insets (a notched phone held sideways, 47 to 59 px), read once from a zero-size probe (an
   // unregistered custom property hands env() back unresolved) and again after a resize or a turn. Zero everywhere else.
+  // (Read as the stage is made and after a resize or a turn, in those events: never on a frame.)
   let saSnap = null;
-  addEventListener('resize', () => { saSnap = null; }); addEventListener('orientationchange', () => { saSnap = null; });
-  const saSides = () => {
-    if (!saSnap) {
+  const saRead = () => {
+    {
       const p = document.createElement('div');
       p.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;pointer-events:none;padding:0 env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)';
       document.body.append(p);
@@ -1589,8 +1601,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       saSnap = { l: parseFloat(cs.paddingLeft) || 0, r: parseFloat(cs.paddingRight) || 0 };
       p.remove();
     }
-    return saSnap;
   };
+  saRead();
+  addEventListener('resize', saRead); addEventListener('orientationchange', saRead);
+  const saSides = () => saSnap;
   let ctmLast = null;
   function refreshCTM() {
     const b = stageBox(), vb = svg.viewBox.baseVal;
@@ -2257,7 +2271,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // Out of the lobule the anatomy always ends on its full fit, not where the dive began (often the liver close-up).
         // (Already taken to its fit when the way out began; measuring it again here read the floating pieces mid-change and sent the view down, then back.)
         if (riseUsed) riseUsed = false;   // (the rise already landed on the slide's own framing)
-        else if (morphTarget === 0) { if (liverBox() && sameView(vt, homeAt || vt)) homeAt = { ...vt }; else { const d = defaultVT(false); homeAt = d; fitted = true; if (!sameView(vt, d)) animateVT(d, 450); } }
+        else if (morphTarget === 0) { if (liverBox() && sameView(vt, homeAt || vt)) homeAt = { ...vt }; else riseFitAsk ||= readFrame(riseFitRead); }   // (its fit read first in the next frame)
       }
     };
     step(t0);
@@ -2359,7 +2373,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The viewBox units the stage really shows (the svg meets its viewBox, so the spare room on one axis shows more), and the widest
   // view an arc may pull back to: the whole figure's fit.
   function arcRoom() {
-    const cw = svg.clientWidth, ch = svg.clientHeight;
+    const b = stageBox(), cw = b.sw, ch = b.sh;   // (the svg's box, kept: no layout read)
     if (!cw || !ch) return null;
     const s0 = Math.min(cw / VIEW.w, ch / VIEW.h), vb = { w: cw / s0, h: ch / s0, cx: VIEW.w / 2, cy: VIEW.h / 2 };
     return { vb, wMax: vb.w / defaultVT(false).k };
@@ -2791,7 +2805,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // or no GPU renderer): the canvas is then the picture, as before.
   let picNow = null, picLin = false;
   function resizeCanvas() {
-    const r = wrap.getBoundingClientRect(), was = vdpr;
+    const r = stageBox(), was = vdpr;   // (the stage's box, kept by its observer: no layout read on the frame)
     const base = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res;
     vdpr = base * figShare(r.width, r.height, base); vBase = base;   // (Settings › Figure resolution)
     veins?.setLayerScale?.(figOpt('glow'));   // (Figure resolution › Glows: the glow layers' own share)
@@ -2999,13 +3013,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function firstFrame() {
     if (firstFit || !F || !(morphTarget === 1 || patientReady)) return;
     firstFit = true;
+    readFrame(firstFitRead);   // (the fit's boxes read first in the next frame, before any write; set in that frame's own phase)
+  }
+  function firstFitRead() {
+    const d = morphTarget === 0 && !userMoved && !store.get().presenting ? defaultVT(false) : null;
     nextFrame(() => {
       // (Set outright, so a glide still under way (a refit as the bars came in) stops here: left running it never landed,
       // stayed 'gliding' for good, and the zoom-out spring and the pans' bounds waited on it, so a pinch out stayed stuck.)
       // (While presenting, the slide's framing is the presenter's: set outright here it jumped the figure off the slide's framing,
       // after the start's cover had lifted when the patient came late. Shown already (the 4 s backstop), the figure glides to its fit.)
-      if (morphTarget === 0 && !userMoved && !store.get().presenting) {
-        const d = defaultVT(false);
+      if (d && morphTarget === 0 && !userMoved && !store.get().presenting) {
         if (figureShown) { homeAt = d; fitted = true; if (!sameView(d, vtGliding ? vtTarget : vt)) animateVT(d, 450); }
         else { cancelFrame(vtAnim); driftEnd(); vtGliding = false; vt = { ...d }; homeAt = d; vtTarget = { ...d }; fitted = true; applyVT(); CTM = null; }   // (three views, not one object: see zoomAt)
       }
@@ -3071,7 +3088,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (The look measures the organs' boxes and the cards' (a forced layout in the middle of the model's frames, about 22 ms twice
   // a second on a slowed phone): it is taken only while something it measures may have moved, see layoutWatch, and once
   // whenever the view comes back home.)
-  let wasHome = false;
+  let wasHome = false, riseFitAsk = 0;
+  // (Back from the lobule: the anatomy's full fit, read first in a frame (its boxes and the cards'), and glided to in the frame's own phase.)
+  function riseFitRead() {
+    riseFitAsk = 0;
+    if (morphTarget !== 0 || lobuleOn) return;
+    const d = defaultVT(false);
+    nextFrame(() => { homeAt = d; fitted = true; if (!sameView(vt, d)) animateVT(d, 450); });
+  }
   function followHome(now = performance.now()) {
     if (homeResizeT) return;   // (a resize still settling: its own look comes once it has)
     const home = !!homeAt && !homeHeld && morphTarget === 0 && !lobuleOn && diveT === 0 && (sameView(vt, homeAt) || (vtGliding && sameView(vtTarget, homeAt))) && (!vtTarget || sameView(vtTarget, homeAt));
@@ -3227,7 +3251,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The cards' boxes, read at most every 100 ms (each read forces a layout in the middle of the model's frames);
     // a card that opens, closes or moves announces itself (pps:occ, resize) and is read at once.
     // (And only while one of them may have moved: layoutWatch.)
-    if (!under && (blockersStale || (performance.now() - blockersAt > 100 && watch.due()))) { blockerBoxes = readBlockers(); blockersAt = performance.now(); blockersStale = false; }
+    // (1 Nov 2026: read first in the next frame (readFrame), never between a frame's writes; the labels are laid out again with them then.)
+    if (!under && (blockersStale || (performance.now() - blockersAt > 100 && watch.due()))) blockersAsk ||= readFrame(blockersRead);
     F = f;
     holdReversals(f);
     lz?.update(f);
@@ -7588,8 +7613,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const el = document.createElement('div');
       el.className = 'dop-probe off'; el.setAttribute('aria-hidden', 'true'); el.innerHTML = PROBE_SVG;
       // (Beneath the figure's labels and the callouts, above the figure: where no side is clear of them, they read over its marks.)
-      labelSvg.before(el); dpr.el = el; void el.offsetWidth;
+      labelSvg.before(el); dpr.el = el;
       labelGL?.setProbe(el);   // (drawn on the GPU with the labels, its SVG the model: label-gl.js)
+      // (Placed from the next frame: this frame's own style pass sees it hidden, so it fades in with no layout forced for that.)
+      nextFrame(dprobePaint);
+      return;
     }
     if (dpr.swap) return;   // (fading out to move: it comes back at its new place)
     const key = `${id}|${dop.seg}`, u = dop.seg ? STENT_SITES[dop.seg] : null;
@@ -8143,7 +8171,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const from = {};
     for (const [k, el] of made) if (!want.has(k)) {
       made.delete(k);
-      if (travel && (k === 'f' || k === 'w')) { from[k === 'f' ? 'tip' : 'ahead'] = el.getBoundingClientRect(); el._glass?.dispose(); el.remove(); continue; }
+      // (Where it stood, from its own last placing (stage px), not read off the page.)
+      if (travel && (k === 'f' || k === 'w')) { if (el._box) from[k === 'f' ? 'tip' : 'ahead'] = { left: el._box.x0, top: el._box.y0 }; el._glass?.dispose(); el.remove(); continue; }
       // It fades out where it is on the figure (following the camera, never stuck on the screen), then goes.
       el.classList.add('cath-pre', 'cath-out'); leaving.set(el, el._l);
       setTimeout(() => { el._glass?.dispose(); el.remove(); leaving.delete(el); }, 450);
@@ -8178,7 +8207,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const el = build(l); el.classList.add(l.at === 'sum' && travel ? 'cath-travel' : 'cath-pre'); cath.labels.append(el); made.set(k, el);
       if (l.at === 'sum' && travel) el._from = from;
       el._l = l;
-      void el.offsetWidth; el.classList.remove('cath-pre');   // the transition runs from the hidden state
+      // (The transition runs from the hidden state: this frame's own style pass sees it hidden, and it is shown from the next, with no
+      // layout forced for that.)
+      if (el.classList.contains('cath-pre')) nextFrame(() => { el.classList.remove('cath-pre'); });
     }
     // Read, then write: every reading's new text first, then all the sizes (one layout), then the positions.
     // (The live labels: those shown, and those fading out, which follow the camera until they go.)
@@ -8190,8 +8221,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const room = cathRoomNow(), W = room.W, H = room.H;
     // The readings stay in the space the cards leave (a phone's Measure card sits over the bottom).
     const sp = room.sp, lim = H - sp.b;
-    const size = new Map(pills.map(([el, l]) => [el, cathSize(el, `${l.kicker}|${l.text}|${l.unit}`, () => [el.offsetWidth, el.offsetHeight])]));
-    const fEl = made.get('f'), fW = fEl ? (size.get(fEl) || [fEl.offsetWidth])[0] : 0;
+    const size = new Map(pills.map(([el, l]) => [el, cathSize(el, `${l.kicker}|${l.text}|${l.unit}`)]));
+    const fEl = made.get('f'), fW = fEl ? (size.get(fEl) || [0])[0] : 0;
     for (const [el] of pills) {
       const [w, h] = size.get(el);
       const p = el.dataset.at === 'ahead' ? at.ahead : at.tip;
@@ -8215,8 +8246,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       fill(box.querySelector('.calc'), l.calc);
       const A = Object.fromEntries(['tip', 'ahead'].map((k) => [k, worldToLocal(at[k][0], at[k][1])]));
       // (read before any write below; kept while the readings' texts and classes stay as they are)
-      const [bw, bh, R] = cathSize(box, [...l.rows, l.calc].map((q) => `${q.kicker}|${q.text}|${q.unit}|${q.cls}`).join('/'),
-        () => [box.offsetWidth, box.offsetHeight, rows.map((r) => [r.offsetLeft, r.offsetTop, r.offsetWidth, r.offsetHeight])]);
+      const [bw, bh, R] = cathSize(box, [...l.rows, l.calc].map((q) => `${q.kicker}|${q.text}|${q.unit}|${q.cls}`).join('/'), rows);
       const top = Math.max(70, sp.t + 6), gap = lim < 440 ? 40 : 64;
       // Above the readings, centred between them; below them when there is no room above. Either way it sits in the
       // free figure, clear of the cards, the slide's panel and its controls, and never over what it names: the tip,
@@ -8257,8 +8287,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // HVPG wait (CSS delays) until they have landed.
         rows.forEach((r, j) => {
           const a = el._from[l.rows[j].at]; if (!a) return;
-          const b = r.getBoundingClientRect();
-          r._flip = flipFrom(a.left - b.left, a.top - b.top, performance.now());
+          r._flip = flipFrom(a.left - (x + R[j][0]), a.top - (y + R[j][1]), performance.now());   // (its row's place, stage px, from the sizes kept)
         });
         el._from = null; nextFrame(() => el.classList.remove('cath-travel'));
       }
@@ -8280,16 +8309,36 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // readings' numbers are tabular), so a value counting up does not measure it again each frame.
   let cathEpoch = 0;
   function cathRoom() { cath.room = null; cath.ins = null; cathEpoch++; }
+  // (1 Nov 2026, "Move everything to GPU": both are read first in a frame (readFrame), when they may have changed, and the readings laid
+  // out again then; never between a frame's writes. Until then the last ones serve; a reading not measured yet waits hidden (cath-pre).)
+  let cathRoomAsk = 0, cathSizeAsk = 0;
+  const cathWant = new Map();
   function cathRoomNow() {
     const now = performance.now();
-    if (!cath.room || now - cath.room.t > 250) cath.room = { t: now, W: wrap.clientWidth, H: wrap.clientHeight, sp: cardSpace(), blk: readBlockers() };
+    if (!cath.room || now - cath.room.t > 250) cathRoomAsk ||= readFrame(cathRoomRead);
+    if (!cath.room) { const b = stageBox(); return { t: 0, W: b.width, H: b.height, sp: { t: 0, b: 0 }, blk: [] }; }
     return cath.room;
   }
-  function cathSize(el, text, read) {
+  function cathRoomRead() {
+    cathRoomAsk = 0;
+    const b = stageBox();
+    cath.room = { t: performance.now(), W: b.width, H: b.height, sp: cardSpaceRead(), blk: readBlockersRead() };
+    cath.lblKey = ''; nextFrame(cathLabelsSoon);
+  }
+  function cathSize(el, text, rows = null) {
     const rs = document.documentElement.style;   // (the label sizes, as set inline: read without a layout)
-    const key = `${cathEpoch}|${rs.getPropertyValue('--label-k')}|${rs.getPropertyValue('--label-scale')}|${appEl?.classList.contains('presenting')}|${el.className}|${el.dataset.at || ''}|${text.replace(/\d/g, '0')}`;
-    if (el._sz?.key !== key) el._sz = { key, v: read() };
-    return el._sz.v;
+    const key = `${cathEpoch}|${rs.getPropertyValue('--label-k')}|${rs.getPropertyValue('--label-scale')}|${appEl?.classList.contains('presenting')}|${el.className.replace(/(?:^|\s)cath-pre(?=\s|$)/, '')}|${el.dataset.at || ''}|${text.replace(/\d/g, '0')}`;
+    if (el._sz?.key !== key) { cathWant.set(el, [key, rows]); cathSizeAsk ||= readFrame(cathSizeRead); }
+    return el._sz?.v || (rows ? [0, 0, rows.map(() => [0, 0, 0, 0])] : [0, 0]);
+  }
+  function cathSizeRead() {
+    cathSizeAsk = 0;
+    for (const [el, [key, rows]] of cathWant) {
+      if (!el.isConnected) continue;
+      el._sz = { key, v: rows ? [el.offsetWidth, el.offsetHeight, rows.map((r) => [r.offsetLeft, r.offsetTop, r.offsetWidth, r.offsetHeight])] : [el.offsetWidth, el.offsetHeight] };
+    }
+    cathWant.clear();
+    cath.lblKey = ''; nextFrame(cathLabelsSoon);
   }
   if (document.fonts) document.fonts.addEventListener?.('loadingdone', () => cathRoom());
   // The camera for the procedure: the route, the tip close up, then back where it was.
@@ -9485,7 +9534,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const calloutSig = () => [...sites.made.values(), ...(cath.made && !cath.labels.hidden ? cath.made.values() : [])]
     .map((el) => el._box ? `${el.className}:${Math.round(el._box.x1 - el._box.x0)}x${Math.round(el._box.y1 - el._box.y0)}` : '').join('|')
     + (dpr.on && dpr.box ? `|dpr:${Math.round((dpr.box.x1 - dpr.box.x0) / 8)}x${Math.round((dpr.box.y1 - dpr.box.y0) / 8)}` : '');
-  function readBlockers() {
+  let blockersAsk = 0;
+  function blockersRead() {
+    blockersAsk = 0;
+    blockerBoxes = readBlockersRead(); blockersAt = performance.now(); blockersStale = false;
+    nextFrame(() => { if (F && !camMove && !lz?.isOpen()) updateLabels(F); });   // (a new list: the labels' key changes with it)
+  }
+  function readBlockersRead() {
     const wr = stageBox();
     { const r = store.get().presenting && document.querySelector('.pz-bar.pzb-pill')?.getBoundingClientRect();
       pillEdge = r?.width ? { m: Math.max(6, Math.round(wr.right - r.right)), top: r.top - wr.top } : null; }
@@ -9869,7 +9924,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const compact = W < 700;
     // Floating panels over the figure (notifications, hint cards, banners): a label under one is hidden.
     // Their boxes are read before this frame's SVG changes (see updateInner), while layout is clean.
-    const blockers = blockerBoxes || readBlockers();
+    const blockers = blockerBoxes || [];   // (none read yet: read first in the next frame, see updateInner)
     const callouts = calloutBoxes();
     const obstacles = [...blockers, ...callouts];   // what can hide a label this frame
     const placed = solve ? callouts.map((b) => ({ x0: b.x0 - 3, y0: b.y0 - 3, x1: b.x1 + 3, y1: b.y1 + 3, call: true, probe: !!b.probe })) : [];

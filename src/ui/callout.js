@@ -33,20 +33,29 @@ const outline = (w, h, r, top, px, dir) => {
   return `${d}H${f(r)}${arc(0, b - r)}V${f(top + r)}${arc(r, top)}Z`;
 };
 
+// (Read in the observer's callback, after the browser's own layout: never on a frame.)
+function observedSize(el, es) {
+  const b = es[es.length - 1].borderBoxSize?.[0];
+  return [b ? [b.inlineSize, b.blockSize] : [el.offsetWidth, el.offsetHeight], parseFloat(getComputedStyle(el).borderTopLeftRadius) || 14];
+}
+
 /** Gives `el` its glass body and returns `update(ax)`: call it whenever the pointer's offset `ax` (px from the card's
  *  centre) may have changed. It also redraws itself when the card is resized (a reading's text changing). */
 export function glassCallout(el, { pointer = true } = {}) {
   const glass = make(el), path = glass.firstChild.firstChild;
-  let ax = 0, key = '', size = null;   // size: the card's exact (fractional) border box, once observed
+  // size: the card's exact (fractional) border box, and rad its corner radius, both taken when it is observed (its size changes): the
+  // update itself, called on the figure's frames, reads no layout or style (1 Nov 2026, "Move everything to GPU").
+  let ax = 0, key = '', size = null, rad = 14;
   const update = (a) => {
     if (a != null) ax = a;
-    const w = size ? size[0] : el.offsetWidth, h = size ? size[1] : el.offsetHeight;
+    if (!size) return;
+    const [w, h] = size;
     if (!w) return;
     const dir = !pointer || el.classList.contains('in-sum') ? 'none' : el.dataset.at === 'ahead' && !el.classList.contains('above') ? 'top' : 'bottom';
     const k = `${w.toFixed(2)}|${h.toFixed(2)}|${dir}|${ax.toFixed(1)}`;
     if (k === key) return;
     key = k;
-    const r = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 14;
+    const r = rad;
     const px = Math.max(KEEP, Math.min(w - KEEP, w / 2 + Math.max(-0.4 * w, Math.min(0.4 * w, ax)))), up = dir === 'top' ? PTR : 0;
     const d = outline(w, h, r, up, px, dir);
     glass.style.cssText = `left:${-BORDER}px;top:${-BORDER - up}px;width:${+w.toFixed(2)}px;height:${+(h + (dir === 'none' ? 0 : PTR)).toFixed(2)}px;clip-path:path('${d}')`;
@@ -55,7 +64,8 @@ export function glassCallout(el, { pointer = true } = {}) {
   // A live observation keeps the observer and the card alive: it ends with dispose(), or when the card leaves the page.
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => {
     if (!el.isConnected) { ro.disconnect(); return; }
-    const b = es[es.length - 1].borderBoxSize?.[0]; if (b) size = [b.inlineSize, b.blockSize]; update();
+    [size, rad] = observedSize(el, es);
+    update();
   }) : null;
   ro?.observe(el);
   update.dispose = () => ro?.disconnect();

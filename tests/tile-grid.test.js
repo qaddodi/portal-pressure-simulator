@@ -96,6 +96,6 @@ test('the FibroScan names its depths and times at even gaps, and the probe\'s he
   assert.match(src, /for \(let d = 30; d <= 60; d \+= 15\)/);   // (the M probe's 20-70 mm map: 30, 45 and 60 mm)
   assert.match(src, /bx = c0 \+ i \* \(c1 - c0\) \/ \(tks\.length - 1\)/);
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(stage, /classList\.toggle\('head-off', hit\)/);
+  assert.match(stage, /scan\.el\.classList\.toggle\('head-off', scanLook\('head'\)\.some\(/);
   assert.match(css, /\.scan-probe\.head-off :is\(\.sp-head, \.sp-cable\) \{ opacity: 0; \}/);
 });

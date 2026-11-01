@@ -120,7 +120,7 @@ test('the leaders\' and the FibroScan callout\'s layers go to the GPU with the l
 });
 
 test('the Doppler probe is drawn on the GPU under the leaders, its SVG kept as the model and hidden while drawn', () => {
-  assert.match(STAGE, /labelSvg\.before\(el\); dpr\.el = el; void el\.offsetWidth;\n\s+labelGL\?\.setProbe\(el\);/);
+  assert.match(STAGE, /labelSvg\.before\(el\); dpr\.el = el;\n\s+labelGL\?\.setProbe\(el\);/);
   assert.match(STAGE, /dprShape\(\); {3}\/\/ \(and the next frame, while it is still easing\)\n\s+labelGL\?\.redraw\(\);/, 'each frame of its ease drawn in that frame');
   assert.match(CSS, /\.dop-probe\[data-gl\] \.dpr-svg \{ visibility: hidden; \}/);
   assert.match(LGL, /let moving = drawProbe\(now\);\n\s+moving = drawMarks\(now\) \|\| moving;/, 'the probe under the leaders and labels, as it lay under their SVG');
