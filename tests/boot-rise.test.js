@@ -43,3 +43,23 @@ test('a CSS failsafe lifts the cover and shows the figure at 20 s even if no scr
   assert.match(bootCss, /#boot\.failed \{ animation: none; \}/);
   assert.match(html, /failed=true;b\.classList\.remove\('done'\);b\.classList\.add\('failed'\);/);
 });
+
+test('the cover lifts only once start-up work is done and the page is calm: held work, then 400 ms of frames under 50 ms, capped', () => {
+  assert.match(bootJs, /function lift\(\)\{[^}]*setTimeout\(settle,Math\.max\(0,MIN-performance\.now\(\)\)\)\}/);
+  assert.match(bootJs, /setTimeout\(go,4000\)/, 'a hard cap: the cover never waits more than 4 s past ready for calm');
+  assert.match(bootJs, /if\(t-since>=400\|\|t-t0>3500\)go\(\)/);
+  assert.match(bootJs, /var hs=\(w\.ppsHold\|\|\[\]\)\.splice\(0\);if\(!hs\.length\|\|!w\.Promise\|\|performance\.now\(\)-t0>2500\)return calm\(\);/);
+  const quiet = readFileSync(new URL('../src/ui/quiet.js', import.meta.url), 'utf8');
+  assert.match(quiet, /export function holdCover\(p\) \{\n {2}if \(booting\(\) && p && typeof p\.then === 'function'\) \(globalThis\.ppsHold \|\|= \[\]\)\.push\(p\);/);
+  const sin = readFileSync(new URL('../src/ui/sinusoid-gl.js', import.meta.url), 'utf8');
+  assert.match(sin, /if \(booting\(\)\) holdCover\(new Promise\(\(done\) => setTimeout\(\(\) => \{ try \{ ready\(\); \} finally \{ done\(\); \} \}, 0\)\)\);/, 'the sinusoid compile runs under the cover');
+  const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
+  assert.match(main, /const warmUnder = \(\) => \{ if \(!booting\(\)\) return; while \(warmUp\.length\) holdCover\(/);
+});
+
+test('the loading screen never swaps typeface in view and its mark does not animate in', () => {
+  assert.match(bootCss, /#boot \.boot-mark \{ width: 64px; height: 64px; overflow: visible; \}/);
+  assert.match(bootCss, /#boot \.boot-name \{[^}]*opacity: 0; \}/);
+  assert.match(bootCss, /#boot\.named \.boot-name \{ opacity: 1; animation: fade-rise var\(--d-surface\) var\(--ease\) both; \}/);
+  assert.match(html, /document\.fonts\.load\('600 20px "Source Serif 4"'\)\.then\(n,n\)\}catch\(e\)\{n\(\)\}setTimeout\(n,900\)/);
+});

@@ -39,14 +39,14 @@ import { plateStrips, premultiply, gutStep, viewReuse, copyPixels, noteStripRead
 import { refine } from './refine.js?v=e6e17cc013';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=513015e51a';
 import { LIGHT } from './light.js?v=f0c4eefb81';
-import { leftAlone, sinceInput } from './quiet.js?v=82fc0f97e3';
+import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
 import { cropToGrid } from './organs-gl.js?v=e536a90598';
 import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=e08cf3a692';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
-import { createLabelGL } from './label-gl.js?v=89cded2a31';
+import { createLabelGL } from './label-gl.js?v=1eecde9495';
 import { createGlassGL } from './glass-gl.js?v=da4a2c9287';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=c2703b02c6';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=44272eb0f7';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -2483,7 +2483,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=a161f21608').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=87f6177c78').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2872,7 +2872,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   };
   function prepLobule() {
     if (!lz) {   // (the lobule's code comes once the figure is on screen and the page is quiet; the first dive is prepared as soon as it is built)
-      if (figureShown && !lzLoad && !lzSoon) { lzSoon = true; lobuleCode().catch(() => {}); prepIdle(() => lobuleReady().then(() => prepLobule(), (err) => console.warn('The lobule view did not load.', err))); }
+      if (figureShown && !lzLoad && !lzSoon) { lzSoon = true; lobuleCode().catch(() => {}); prepIdle(() => lobuleReady().then(() => prepLobule(), (err) => console.warn('The lobule view did not load.', err))); if (booting()) holdCover(lobuleReady().catch(() => {})); }
       return;
     }
     const now = performance.now();

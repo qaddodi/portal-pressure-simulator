@@ -510,8 +510,8 @@ void main() {
   o = vec4(c * a, a);
 }`;
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=54cf3ac2c6';
-import { whenQuiet } from './quiet.js?v=82fc0f97e3';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=71adf77c58';
+import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 
 export function createSinusoidGL(canvas) {
   let gl = null;
@@ -552,6 +552,10 @@ export function createSinusoidGL(canvas) {
   const startLater = () => { if (ok === null) publishWhenDone(gl, begin(), ready); };
   // (And only once the page has been left alone: a program started in a pan or a first touch had its compile in that frame, P3.)
   whenQuiet(() => { if (window.requestIdleCallback) requestIdleCallback(startLater, { timeout: 8000 }); else setTimeout(startLater, 3000); });
+  // While the loading cover is still up nobody can touch the page, so the compile is done there and then, under it, and the cover
+  // waits for it: on a phone without requestIdleCallback (Safari) it otherwise came 3 to 4 s after the cover lifted, in the first
+  // seconds of use, and its status read blocks until the driver is done.
+  if (booting()) holdCover(new Promise((done) => setTimeout(() => { try { ready(); } finally { done(); } }, 0)));
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); ok = false; pend = null; });
   // (epoch: counts the restores, so a paused view whose picture is "the same as last frame" knows the context is new and draws it again.)
   let epoch = 0;

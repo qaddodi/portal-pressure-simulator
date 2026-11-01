@@ -11,7 +11,7 @@
 // Without WebGL2 (or on a software renderer, or once the context is lost) createFieldGL returns null / reports lost, and the
 // field is drawn on the 2D canvas as before.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=54cf3ac2c6';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=71adf77c58';
 
 const VS = `#version 300 es
 in vec2 p;

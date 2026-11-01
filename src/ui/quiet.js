@@ -30,6 +30,16 @@ export function createQuiet(target = globalThis, now = () => performance.now()) 
   return { since, leftAlone, whenQuiet };
 }
 
+/** True while the loading cover is up (index.html sets data-boot="hold" before anything else runs). */
+export const booting = () => globalThis.document?.documentElement?.dataset?.boot === 'hold';
+/** Start-up work that would land in the first seconds of use (a shader compile, a view's first build) is done under the loading
+ *  cover instead: while the cover is up, the cover waits for `p` (capped in index.html), so the person never meets that work in a
+ *  pan or a tap. After the cover has gone it does nothing. Returns p. */
+export function holdCover(p) {
+  if (booting() && p && typeof p.then === 'function') (globalThis.ppsHold ||= []).push(p);
+  return p;
+}
+
 const shared = createQuiet();
 /** Milliseconds since the last input. */
 export const sinceInput = shared.since;

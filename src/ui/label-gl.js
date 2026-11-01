@@ -14,7 +14,7 @@
 
 import { frameFor, cancelFrame } from './frame.js?v=6a53e5fc6e';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=c5c00c9da1';
-import { startProgram, checkProgram } from './gl-compile.js?v=54cf3ac2c6';
+import { startProgram, checkProgram } from './gl-compile.js?v=71adf77c58';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 
 const nextFrame = frameFor('labels-gl');

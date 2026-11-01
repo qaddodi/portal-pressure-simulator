@@ -33,12 +33,14 @@
     html[data-boot="hold"] #stageView { animation: boot-failsafe-in .01s 20s forwards; }
     #boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
     #boot .boot-in { display: flex; flex-direction: column; align-items: center; gap: 16px; margin: auto; }
-    /* The cover arrives from the paper: the mark settles in whole (opacity and scale only, which the compositor runs even while the
-       page's scripts are busy; an SVG stroke animation needs the main thread and showed a liver without its vessels on an iPhone).
-       Nothing loops; the wait bar below says when a load runs long.
+    /* The cover is there from the first paint, mark whole and still (an animation that starts while the page's scripts are busy
+       starts late and jumps; an SVG stroke draw needed the main thread and showed a liver without its vessels on an iPhone). The
+       name rises in once its serif has loaded (.named), so it never swaps typeface in view. Nothing loops; the wait bar below says
+       when a load runs long.
        On its way out the mark and name lift 6 px and fade at the step below, while the cover lifts and the figure rises on its clock. */
-    #boot .boot-mark { width: 64px; height: 64px; overflow: visible; animation: scale-settle var(--d-surface) var(--ease) both; }
-    #boot .boot-name { font: 600 var(--fs-20, 20px)/1.2 var(--font-display, Georgia, serif); letter-spacing: -.01em; color: var(--text, #16181D); animation: fade-rise var(--d-surface) var(--ease) .16s both; }
+    #boot .boot-mark { width: 64px; height: 64px; overflow: visible; }
+    #boot .boot-name { font: 600 var(--fs-20, 20px)/1.2 var(--font-display, Georgia, serif); letter-spacing: -.01em; color: var(--text, #16181D); opacity: 0; }
+    #boot.named .boot-name { opacity: 1; animation: fade-rise var(--d-surface) var(--ease) both; }
     #boot.done .boot-in { --rise-y: -6px; animation: fade-rise-out var(--d-small) var(--ease-in) forwards; }
     /* In the dark reading room the mark's own dark tile would melt into the page; a hairline keeps its edge. */
     #boot .bm-tile { stroke: transparent; stroke-width: .5; }
@@ -75,7 +77,7 @@ if(w.ppsUnsupported){show('This browser can’t run the simulator','<p>It is mis
 w.ppsBootFail=function(){if(ready()||failed)return;show('The simulator couldn’t start','<p>Something went wrong while it was loading. Reloading often fixes it. If it keeps happening on this computer, the browser may be too old or restricted.</p>'+ADVICE,(w.ppsBootErrors||[]).slice(0,3).join('\n')+'\nBrowser: '+navigator.userAgent,'<button type="button" data-reload>Reload</button><button type="button" data-anyway>Close</button>')};
 if(w.ppsBootErrors&&w.ppsBootErrors.some(function(m){return/SyntaxError/.test(m)}))w.ppsBootFail();
 function oldNote(){if(!w.ppsOldBrowser)return;try{if(sessionStorage.getItem('pps.oldNote'))return;sessionStorage.setItem('pps.oldNote','1')}catch(e){}var n=document.createElement('div');n.className='old-browser-note';n.setAttribute('role','status');n.innerHTML='<span>This browser is older than the simulator expects, so some panels may look off. A current Chrome, Edge or Safari works best.</span><button type="button" aria-label="Dismiss">×</button>';n.lastChild.onclick=function(){n.remove()};document.body.appendChild(n)}
-var lifting=false;function lift(){if(lifting||w.ppsUnsupported)return;failed=false;lifting=true;setTimeout(hide,Math.max(0,MIN-performance.now()))}function wait(){if(ready())lift();else requestAnimationFrame(wait)}addEventListener('load',function(){requestAnimationFrame(wait)});addEventListener('pps:figure-ready',lift);setTimeout(function(){if(failed||lifting)return;if(ready())lift();else if(w.ppsBootErrors&&w.ppsBootErrors.length)w.ppsBootFail();else hide()},15000)})();</script>
+var lifting=false;function lift(){if(lifting||w.ppsUnsupported)return;failed=false;lifting=true;setTimeout(settle,Math.max(0,MIN-performance.now()))}function settle(){var t0=performance.now(),gone=false;function go(){if(!gone){gone=true;hide()}}setTimeout(go,4000);function calm(){var last=performance.now(),since=last;function f(t){if(gone)return;if(t-last>50)since=t;last=t;if(t-since>=400||t-t0>3500)go();else requestAnimationFrame(f)}requestAnimationFrame(f)}function holds(){var hs=(w.ppsHold||[]).splice(0);if(!hs.length||!w.Promise||performance.now()-t0>2500)return calm();Promise.all(hs.map(function(p){return Promise.resolve(p).then(null,function(){})})).then(function(){setTimeout(holds,0)})}holds()}function wait(){if(ready())lift();else requestAnimationFrame(wait)}addEventListener('load',function(){requestAnimationFrame(wait)});addEventListener('pps:figure-ready',lift);setTimeout(function(){if(failed||lifting)return;if(ready())lift();else if(w.ppsBootErrors&&w.ppsBootErrors.length)w.ppsBootFail();else hide()},15000);(function(){var named=false;function n(){var b=boot();if(named||!b)return;named=true;b.classList.add('named')}try{document.fonts.load('600 20px "Source Serif 4"').then(n,n)}catch(e){n()}setTimeout(n,900)})()})();</script>
   <noscript><div style="position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#FBFAF7;font:15px/1.5 system-ui,Arial,sans-serif;padding:16px"><p style="max-width:480px">The Portal Pressure Simulator needs JavaScript, which is turned off in this browser. Please turn it on, or open the simulator in a current Chrome, Edge, Safari or Firefox.</p></div></noscript>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -243,17 +245,17 @@ var lifting=false;function lift(){if(lifting||w.ppsUnsupported)return;failed=fal
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=da982bb468" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=51d7bda67e" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=6d1acc2a06" />
   <link rel="modulepreload" href="src/ui/util.js?v=5300d2ce2f" />
   <link rel="modulepreload" href="src/ui/store.js?v=80d4358be8" />
   <link rel="modulepreload" href="src/ui/colormap.js?v=d4df33b95e" />
   <link rel="modulepreload" href="src/ui/inspector.js?v=b9ba6cbfdf" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=49196850eb" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=1c8001edaf" />
   <link rel="modulepreload" href="src/ui/charts.js?v=2b312d6727" />
-  <link rel="modulepreload" href="src/ui/instruments.js?v=ed3155c1e7" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=74f4d3c9ca" />
   <link rel="modulepreload" href="src/ui/timeline.js?v=2f549d46ed" />
   <link rel="modulepreload" href="src/engine/topology.js?v=4044766e96" />
-  <script type="module" src="src/ui/main.js?v=fcf4d795be"></script>
+  <script type="module" src="src/ui/main.js?v=405b305456"></script>
 </body>
 </html>
