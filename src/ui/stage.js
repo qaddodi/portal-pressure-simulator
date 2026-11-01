@@ -132,6 +132,8 @@ const LABEL_RIDE = !(typeof location !== 'undefined' && /[?&]labelride=0\b/.test
 const GLASS_COPY = typeof location !== 'undefined' && /[?&]glasscopy=1\b/.test(location.search);
 // ?hostcards=0: the Present cards keep the browser's glass (isolates the cards' GPU frost).
 const CARD_FROST_OFF = typeof location !== 'undefined' && /[?&]hostcards=0\b/.test(location.search);
+// The FibroScan probe's waves stop at idle rest with the rest of the figure (scanTick); ?scanrest=0 keeps them running at rest.
+const SCAN_REST = !(typeof location !== 'undefined' && /[?&]scanrest=0\b/.test(location.search));
 // ?boot=quick: the loading screen lifts as soon as the framed figure has painted twice, without the flat 260 ms settle after it
 // (about a quarter second sooner to the first figure on every device). Off, the wait is unchanged.
 const BOOT_QUICK = typeof location !== 'undefined' && /[?&]boot=quick\b/.test(location.search);
@@ -7152,6 +7154,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function scanTick(now) {
     scan.raf = 0;
     if (!scan.on || !scan.el) return;
+    // At idle rest (the figure drawn no more, the blood stopped: idle-rest.js) the probe's waves stop with it: no frame is asked for until
+    // rest(false) starts them again from where they stood. It had been the one loop of the figure that kept every frame going at rest.
+    // ?scanrest=0: they run on at rest, as before.
+    if (SCAN_REST && restStill()) { scan.last = 0; scan.parked = true; return; }
     // Under an open lobule the probe is covered: it looks again four times a second instead of every frame (leaving the
     // lobule uncovers it gradually, so it is moving again before it shows).
     if (lz?.isOpen()) { scan.last = 0; clearTimeout(scan.nap); scan.nap = setTimeout(() => { if (scan.on && !scan.raf) scan.raf = nextFrame(scanTick); }, 250); return; }
@@ -12261,7 +12267,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   return {
     update,
     /** Idle rest: true eases the blood to a stop and lets the figure sleep; false brings the motion back from this frame. */
-    rest(on) { on = !!on; if (on === restOn) return; restOn = on; wake(); askAnimate(); },
+    rest(on) {
+      on = !!on; if (on === restOn) return; restOn = on; wake(); askAnimate();
+      if (!on && scan.parked) { scan.parked = false; if (scan.on && !scan.raf) { scan.last = 0; scan.raf = nextFrame(scanTick); } }   // (the probe's waves, parked at rest: scanTick)
+    },
     cardGlass,
     blurWhy,
     setView(v) {

@@ -143,3 +143,13 @@ test('the field handoff, step by step: three GPU frames over the 2D one, then it
   assert.deepEqual(shown, [true, true, true, false, false, false]);
   assert.equal(hidden, 3);   // (hidden once, then fieldHide on an empty canvas is a no-op)
 });
+
+test('idle rest: the FibroScan probe\'s waves stop with the figure and start again on waking (?scanrest=0 keeps them running)', () => {
+  const st = src('src/ui/stage.js');
+  assert.match(st, /if \(SCAN_REST && restStill\(\)\) \{ scan\.last = 0; scan\.parked = true; return; \}/);
+  assert.match(st, /if \(!on && scan\.parked\) \{ scan\.parked = false; if \(scan\.on && !scan\.raf\) \{ scan\.last = 0; scan\.raf = nextFrame\(scanTick\); \} \}/);
+  // (The other loops of the figure's marks stop by themselves once nothing eases: the halos, the Doppler probe's ease and its card tracking.)
+  assert.match(st, /glow\.raf = moving \? nextFrame\(glowStep\) : 0;/);
+  assert.match(st, /dpr\.track = dprTrackQuiet <= 6;/);
+  assert.match(st, /if \(done\) \{ dpr\.eAt = 0; return; \}/);
+});
