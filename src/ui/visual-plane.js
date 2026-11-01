@@ -903,8 +903,8 @@ export function planePlot(pl, { card = false } = {}) {
     const step = () => { paintWalk(); if (stops.length && performance.now() < followTill) follow = nextFrame(step); else follow = 0; };
     follow = nextFrame(step);
   };
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (`${el.clientWidth}x${el.clientHeight}` !== size) requestAnimationFrame(draw); }).observe(el);
-  const redraw = () => { if (el.isConnected) draw(); else requestAnimationFrame(draw); };
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (`${el.clientWidth}x${el.clientHeight}` !== size) frameFor('plane plot')(draw); }).observe(el);
+  const redraw = () => { if (el.isConnected) draw(); else frameFor('plane plot')(draw); };
   return {
     el,
     set(points, r = ring) { pts = points || []; ptsVer++; ring = r; redraw(); },

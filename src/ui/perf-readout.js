@@ -5,7 +5,9 @@
 // steps that ran in it (and every interval counted in a histogram at that refresh, with p50/p95/p99), and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
 import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=625c2c9315';
-import { perf, watchFrames } from './frame.js?v=15d5254a2c';
+import { perf, watchFrames, finalFrameFor } from './frame.js?v=15d5254a2c';
+// (The readout's own loop: through the app's one frame scheduler, last in each frame, not a requestAnimationFrame of its own.)
+const nextFrame = finalFrameFor('perf readout');
 import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js?v=9cd1d0c4e3';
 import { scanBlurs, blurText } from './blur-gauge.js?v=3e4c02d9c9';
 import { surfaceRows, surfacesText } from './gpu-surfaces.js?v=2af17044e7';
@@ -208,9 +210,9 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
       }
     }
     prevT = t; prevTs = ts > 0 ? ts : 0;
-    requestAnimationFrame(tick);
+    nextFrame(tick);
   };
-  requestAnimationFrame(tick);
+  nextFrame(tick);
 
   // The panel: top left under the top bar, small, folded to one line by a tap on its title. It takes taps only on itself.
   const el = document.createElement('div');

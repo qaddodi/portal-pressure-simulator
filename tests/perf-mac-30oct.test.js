@@ -16,7 +16,7 @@ globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
 test('the refresh and the histogram come from the frames\' timestamps, the gaps from the clock', () => {
   const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
-  const tick = src.slice(src.indexOf('const tick = (ts) => {'), src.indexOf('requestAnimationFrame(tick);\n  };'));
+  const tick = src.slice(src.indexOf('const tick = (ts) => {'), src.indexOf('nextFrame(tick);\n  };'));
   assert.match(tick, /const fdt = prevTs && ts > prevTs \? ts - prevTs : 0;/);
   assert.match(tick, /if \(fdt\) \{ recent\.push\(fdt\);/);
   assert.match(tick, /if \(fdt\) cur\.dts\.push\(fdt\);/);

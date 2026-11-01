@@ -12,13 +12,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const walk = (d) => readdirSync(join(ROOT, d)).flatMap((f) => (statSync(join(ROOT, d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]));
 
-const ALLOWED = {
-  'src/ui/debug.js': 2,          // (the debug overlay's own clock, off by default)
-  'src/ui/perf-readout.js': 2,   // (?perf: it measures the frames, so it must not ride the scheduler it reports on)
-  'src/ui/stage.js': 2,          // (one double-wait before a class fades a label in)
-  'src/ui/presenter.js': 4,      // (a card's refit after a resize, the label scale, a class that fades a new row in)
-  'src/ui/visual-plane.js': 2,   // (a plane drawn once it is in the page, and after a resize)
-};
+// (Every one of them moved to frameFor / finalFrameFor on 1 Nov 2026 (the off-GPU gate's rawRaf rows): none is allowed now. ?perf's
+// readout and the debug overlay run last in each frame (finalFrameFor), so what they time still includes every other surface's work.)
+const ALLOWED = {};
 
 test('no new requestAnimationFrame outside src/ui/frame.js', () => {
   const found = {};

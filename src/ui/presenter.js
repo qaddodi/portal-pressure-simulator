@@ -30,7 +30,7 @@ import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { createHvpgMonitor } from './hvpg-proc.js?v=452478026e';
-import { createTools } from './presenter-tools.js?v=cbf311705a';
+import { createTools } from './presenter-tools.js?v=530648e8a1';
 import { openHandout } from './handout.js?v=be99975ab1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -39,12 +39,12 @@ import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=15d5254a2
 import { createFigureKey } from './figure-key.js?v=5c3b74621a';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=9bdfe02add';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=a72509b9a3';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=f3e15523ca';
 import { clotWords } from './callout-math.js?v=6ef2901a08';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=e559542b8e';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=e3747d8f15';
+import { anchorsOf, roomFor } from './cam-room.js?v=ae560d3ad1';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=447c3f6bb9';
@@ -514,10 +514,10 @@ function fitChart(svg, lay) {
   const c = { svg, lay, fs: null };
   fitted.add(c);
   // (On the next frame, not inside the observer: the new layout changes the chart's own height.)
-  if (typeof ResizeObserver !== 'undefined') { c.ro = new ResizeObserver(() => { cancelAnimationFrame(c.raf); c.raf = requestAnimationFrame(() => fitNow(c)); }); c.ro.observe(svg); }
+  if (typeof ResizeObserver !== 'undefined') { c.ro = new ResizeObserver(() => { cancelFrame(c.raf); c.raf = frameFor('charts fit')(() => fitNow(c)); }); c.ro.observe(svg); }
   return c;
 }
-if (typeof addEventListener !== 'undefined') addEventListener('pps:labelscale', () => requestAnimationFrame(() => fitted.forEach(fitNow)));
+if (typeof addEventListener !== 'undefined') addEventListener('pps:labelscale', () => frameFor('charts fit')(() => fitted.forEach(fitNow)));
 const fsOf = (el, px) => { el.style.fontSize = px.toFixed(2) + 'px'; };
 
 // The block is a hatched fill: bold diagonal red stripes over a faint red tint (visible in light and dark, no label).
@@ -4264,7 +4264,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const want = k === 'sinusoid' && !el.querySelector('[data-scale="sinusoid"]') ? 'lobule' : k;
     for (const b of el.querySelectorAll('button')) { const yes = b.dataset.scale === want; b.setAttribute('aria-pressed', String(yes)); if (yes) on = b; }
     if (on) { el.style.setProperty('--pzs-x', `${on.offsetLeft}px`); el.style.setProperty('--pzs-w', `${on.offsetWidth}px`); }
-    if (el.classList.contains('pzs-new')) requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('pzs-new')));
+    if (el.classList.contains('pzs-new')) { const nf = frameFor('scale select'); nf(() => nf(() => el.classList.remove('pzs-new'))); }
   }
   function placeScales() {
     const el = ui?.scl;

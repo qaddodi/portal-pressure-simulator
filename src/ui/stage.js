@@ -2585,7 +2585,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=40c7244907').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=1c3b48bee4').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -5852,7 +5852,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       el = s('g', { class: cls });
       el.append(s('path', { class: 'fx-halo' }), s('path', { class: 'fx-ink' }));
       parent.append(el); fxEls.set(key, el);
-      if (!reduceMotion.matches) requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('on'))); else el.classList.add('on');
+      if (!reduceMotion.matches) nextFrame(() => nextFrame(() => el.classList.add('on'))); else el.classList.add('on');
     }
     el.seen = true;
     if (el._d !== d) { el._d = d; for (const p of el.children) p.setAttribute('d', d); }

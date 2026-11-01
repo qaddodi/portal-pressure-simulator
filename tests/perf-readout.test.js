@@ -33,7 +33,7 @@ test('without the readout the probe is off and never waits for the GPU; with it,
   const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   assert.match(src, /gpuProbe\.cpuOnly = true; gpuProbe\.on = true;/);
   // The panel is written only when a gesture's window closes, never on each frame.
-  const tick = src.slice(src.indexOf('const tick'), src.indexOf('requestAnimationFrame(tick);\n  };'));
+  const tick = src.slice(src.indexOf('const tick'), src.indexOf('nextFrame(tick);\n  };'));
   assert.equal((tick.match(/paint\(\)/g) || []).length, 1);
   assert.match(tick, /if \(t - cur\.t0 >= cur\.win\) \{\n[^}]*reports\.unshift\(cur\); reports\.length = Math\.min\(reports\.length, KEEP\); cur = null; paint\(\);\n\s+\}/);
 });

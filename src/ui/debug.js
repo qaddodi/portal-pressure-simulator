@@ -1,6 +1,9 @@
 // Debug overlay: FPS and frame time, zoom, pixel ratio and build. Off by default; choices persist.
 import { cssVar, cssAlpha } from './util.js?v=f7055730cc';
 import { gpuProbe } from './gpu-probe.js?v=625c2c9315';
+import { finalFrameFor, cancelFrame } from './frame.js?v=15d5254a2c';
+// (The overlay's loop goes through the app's one frame scheduler, last in each frame, never a requestAnimationFrame of its own.)
+const nextFrame = finalFrameFor('debug');
 const KEY = 'pps.debug';
 const OPTS = [['fps', 'FPS and frame time'], ['zoom', 'Zoom level and scale'], ['res', 'Render resolution scale'], ['graph', 'Frame graph'], ['gpu', 'GPU time per step']];
 let st = {};
@@ -27,7 +30,7 @@ export function setDebug(k, on) {
 function sync() {
   gpuProbe.on = !!st.gpu;
   if (!st.gpu) { gpuProbe.take(); frames = []; prevT = 0; }
-  if (!any()) { cancelAnimationFrame(raf); raf = 0; el?.remove(); el = null; return; }
+  if (!any()) { cancelFrame(raf); raf = 0; el?.remove(); el = null; return; }
   if (!el) {
     el = document.createElement('div');
     el.style.cssText = 'position:fixed;left:8px;top:calc(64px + env(safe-area-inset-top));z-index:2147483000;pointer-events:none;padding:4px 8px;border-radius:8px;background:rgb(var(--black-rgb) / .65);color:var(--white);font:600 11px/1.5 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-width:calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right));box-sizing:border-box';
@@ -36,10 +39,10 @@ function sync() {
   }
   if (st.graph && !cv) { cv = document.createElement('canvas'); cv.width = 240; cv.height = 40; cv.style.cssText = 'display:block;margin-top:4px'; el.append(cv); }
   if (!st.graph && cv) { cv.remove(); cv = null; }
-  if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick); }
+  if (!raf) { last = performance.now(); raf = nextFrame(tick); }
 }
 function tick(t) {
-  raf = requestAnimationFrame(tick);
+  raf = nextFrame(tick);
   stamps.push(t);
   while (stamps[0] < t - 1000) stamps.shift();
   if (st.gpu) {
