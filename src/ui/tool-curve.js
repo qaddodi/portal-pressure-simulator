@@ -71,6 +71,7 @@ import { TILE, SCALE, RATE } from './table-marks.js?v=ff3ed0cc47';
 import { HVPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { frameFor } from './frame.js?v=15d5254a2c';
 import { plotPanel } from './plot-look.js?v=5037697da7';
+import { morphSvg } from './svg-morph.js?v=22c0db5818';
 import { airRatio } from './endo-size.js?v=e0a58bf20e';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 const nextFrame = frameFor('tool-curve');
@@ -552,8 +553,10 @@ function curveWork(t, c, myKey = curveKey(t, c)) {
     // (Nothing to run: the slide's own reading holds it all.)
     const st = scopeStates(t, c.fp);
     if (!st) return null;
-    p = Promise.resolve({ s: curveSeries(t, st), dd: [] });
+    const v = { s: curveSeries(t, st), dd: [] };
+    p = Promise.resolve(v);
     store.set(myKey, p);
+    ready.set(p, v);
     return p;
   }
   const ds = dotsOf(t), dSteps = dotSteps(t);
@@ -565,9 +568,13 @@ function curveWork(t, c, myKey = curveKey(t, c)) {
     return { s, dd };
   });
   store.set(myKey, p);
-  p.then((s) => { if (!s) store.delete(myKey); }, () => store.delete(myKey));
+  p.then((s) => { if (!s) store.delete(myKey); else ready.set(p, s); }, () => store.delete(myKey));
   return p;
 }
+// A curve already worked out, as its value (a promise's value cannot be read at once): a slide that comes up after the deck's states are in draws
+// its lines in the first drawing, so the chart on the card glides straight from the last slide's lines to these, not through an empty one.
+const ready = new WeakMap();
+const haveOf = (tool, c) => { const p = c?.snap && !overScope(tool) ? keepOf(c.deck).get(curveKey(tool, c)) : null; return p ? ready.get(p) ?? null : null; };
 /** Starts a slide's curve once the deck's states are in, so a curve that runs model days (seconds of work) is ready when its
  *  slide comes up (presenter.js, after the deck's states). */
 export function warmCurve(t, c) { if (t && c) curveWork(t, c)?.catch(() => null); }
@@ -683,7 +690,7 @@ export function createCurve() {
     if (edge) {
       const pts = edge.map(([x, y]) => [X(x), YL(clamp(y, sL.min, sL.max))]);
       const top = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('');
-      zoneLab = typeof t.zone.label === 'string' && t.zone.label ? sv('text', { class: 'pcv-zone-t' }, t.zone.label) : null;
+      zoneLab = typeof t.zone.label === 'string' && t.zone.label ? sv('text', { class: 'pcv-zone-t', 'data-nomorph': '' }, t.zone.label) : null;
       zone = sv('g', { class: 'pcv-zone' }, sv('path', { class: 'pcv-zone-fill', d: `${top}L${pts.at(-1)[0].toFixed(1)} ${B}L${pts[0][0].toFixed(1)} ${B}Z` }),
         sv('path', { class: 'pcv-zone-edge', d: top }), zoneLab);
     }
@@ -700,7 +707,7 @@ export function createCurve() {
       const nm = t.cutNames?.[c.v], vtxt = fmt(c.v, Number.isInteger(c.v) ? 0 : 1), isHeld = held(c);
       // (A named cut-off reads "Grade 2 ≥1.5 L", or just "Grade 2" where its number already stands on the axis; an unnamed one "Ascites 1.5".)
       const y = YL(c.v), txt = nm ? (isHeld ? nm : `${nm} ≥${vtxt} ${ls[0].unit}`.trim()) : `${G.ag ? readingName(t) : ls[0].name} ${vtxt}`;
-      const el = sv('text', { class: 'pcv-cut' }, txt);
+      const el = sv('text', { class: 'pcv-cut', 'data-nomorph': '' }, txt);
       // (short: where the whole name has no clear spot, just its number, in the rating's colour, beside its line: two cut-offs a line's width apart, "Liver flow 55" over "Liver flow 75".)
       cutLabs.push({ el, txt, short: nm ? null : vtxt, twS: 1.12 * cw(vtxt, f, true), tw: 1.12 * cw(txt, f, true), lines: cutVs.filter((o) => o !== c && !held(o)).map((o) => ({ y: YL(o.v), x0: L, x1: R })),
         // (Over the line; else on it, the dashes stopping round the words (a short chart's cut-offs stand close); else under.)
@@ -715,7 +722,7 @@ export function createCurve() {
     const xCutLabs = [];
     const xCuts = xCutsOf(t).filter((c) => c.v > G.x0 && c.v < G.x1).map((c) => {
       // (The HVPG 10 line is named for what it marks, "CSPH ≥10"; any other reads as its number and unit.)
-      const x = X(c.v), vtxt = fmt(c.v, Number.isInteger(c.v) ? 0 : 1), nm = xCutName(G.ax.k, c.v), txt = nm ? `${nm} ≥${vtxt}` : `${vtxt} ${ax.unit}`.trim(), el = sv('text', { class: 'pcv-cut' }, txt);
+      const x = X(c.v), vtxt = fmt(c.v, Number.isInteger(c.v) ? 0 : 1), nm = xCutName(G.ax.k, c.v), txt = nm ? `${nm} ≥${vtxt}` : `${vtxt} ${ax.unit}`.trim(), el = sv('text', { class: 'pcv-cut', 'data-nomorph': '' }, txt);
       xCutLabs.push({ el, x, tw: 1.12 * cw(txt, f, true) });
       segs.push(Object.assign([x, T, x, B], { w: 5 }));
       return sv('g', { class: 'ptk-grid cut', 'data-rate': c.rate }, sv('line', { x1: x, x2: x, y1: T - 0.2 * f, y2: B }), el);
@@ -766,10 +773,10 @@ export function createCurve() {
       const Y = j && !G.one ? YR || YL : YL, ys = ser?.ys[j], xs = lineX(j);
       const d = ys ? ys.map((y, i) => (Number.isFinite(y) ? [X(xs[i]), Y(y)] : null)).filter(Boolean).map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') : '';
       return { l, Y, path: sv('path', { class: `ptk-line pcv-line${l.ref ? ' pcv-ref' : l.dash ? ' pcv-dash' : ''}`, d, style: `stroke: var(${l.c})` }),
-        ring: sv('circle', { class: 'pcv-ring off', r: Math.max(5, f * 0.45), style: `stroke: var(${l.c})` }),
-        val: sv('text', { class: 'pcv-v', style: `fill: var(${l.c})` }),
+        ring: sv('circle', { class: 'pcv-ring off', r: Math.max(5, f * 0.45), style: `stroke: var(${l.c})`, 'data-nomorph': '' }),
+        val: sv('text', { class: 'pcv-v', style: `fill: var(${l.c})`, 'data-nomorph': '' }),
         // (With against each line is named on the drawing, placed on every paint clear of the rings and the values.)
-        name: G.ag ? sv('text', { class: 'pcv-name', style: `fill: var(${l.c})` }, l.name) : null };
+        name: G.ag ? sv('text', { class: 'pcv-name', style: `fill: var(${l.c})`, 'data-nomorph': '' }, l.name) : null };
     });
     // (The other states as small filled points in their line's colour, named beside the first; a walk joins them in order.)
     const dr = Math.max(3.5, 0.3 * f), dotEls = [], walks = [];
@@ -780,7 +787,7 @@ export function createCurve() {
       const first = at.find(Boolean), num = d.name && first ? String(++nth) : '';
       // (With a key of steps the dot carries its number, and the name stands in the key.)
       const txt = G.stepKey && num ? num : d.name || '';
-      return { name: d.name ? sv('text', { class: `pcv-dname off${G.stepKey ? ' pcv-dnum' : ''}` }, txt) : null, lead: d.name ? sv('line', { class: 'pcv-lead off' }) : null, txt, full: d.name || '', at, first };
+      return { name: d.name ? sv('text', { class: `pcv-dname off${G.stepKey ? ' pcv-dnum' : ''}`, 'data-nomorph': '' }, txt) : null, lead: d.name ? sv('line', { class: 'pcv-lead off', 'data-nomorph': '' }) : null, txt, full: d.name || '', at, first };
     });
     const stepsKey = G.stepKey?.rows ? sv('g', { class: 'pcv-steps' }, G.stepKey.items.map((it) => sv('text', { class: 'pcv-sk', x: it.x, y: B + G.foot + 1.3 * f + it.row * 1.5 * f },
       sv('tspan', { class: 'pcv-sn' }, String(it.n)), ` ${it.name}`))) : null;
@@ -797,7 +804,7 @@ export function createCurve() {
     }));
     for (const d of dotPts) for (const p of d.at) if (p) segs.push(Object.assign([p[0] - dr, p[1], p[0] + dr, p[1]], { w: 3 }));
     // (With a reading on x the case stands out by its rings: its mark is only a short tick on the x axis, not a second upright dashed line.)
-    const xk = xKeyOf(t), at = sv('line', { class: xk ? 'pcv-at pcv-atx' : 'pcv-at', y1: xk ? B - 0.8 * f : T - 0.4 * f, y2: B });
+    const xk = xKeyOf(t), at = sv('line', { class: xk ? 'pcv-at pcv-atx' : 'pcv-at', y1: xk ? B - 0.8 * f : T - 0.4 * f, y2: B, 'data-nomorph': '' });
     // (The panel under everything: from just under the key row to under the axis's name, the chart's full width.)
     const panel = plotPanel(sv, 0, G.keyH + 0.2 * f, G.w, B + G.foot - (G.keyH + 0.2 * f));
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${f.toFixed(2)}px` },
@@ -994,7 +1001,10 @@ export function createCurve() {
     // above the plot and rows for it, the plot a little shorter.)
     paint(ring || goal);
     if (G.ag && !altNow && parts.fits === false) { altNow = true; G = geo(w, hh, f, !!G.stepKey, true); parts = build(); }
-    if (fade && old) {
+    // (A new chart takes over the old one's lines, gridlines and numbers, each gliding to its new place (svg-morph.js; the words the chart places on every
+    // paint and its rings are data-nomorph and fade); where that cannot be, it fades in over the old one.)
+    if (fade && old && morphSvg(old, parts.svg)) { /* the morph appended it */ }
+    else if (fade && old) {
       parts.svg.classList.add('in'); el.append(parts.svg);
       nextFrame(() => nextFrame(() => parts?.svg.classList.remove('in')));
       setTimeout(() => old.remove(), 480);
@@ -1039,10 +1049,11 @@ export function createCurve() {
       const k2 = curveKey(tool, c);
       t = tool; ctx = c || null;
       if (k2 !== key) {
-        key = k2; ser = null; dots = []; ring = null; aimed = null; altNow = false;
+        const have = haveOf(tool, c);
+        key = k2; ser = have?.s ?? null; dots = have?.dd ?? []; ring = null; aimed = null; altNow = false;
         goal = ringAt(t, ctx?.params, ctx?.fp);
         redraw(!!parts);
-        if (ctx) fetchCurve(key, ctx);
+        if (have) { if (againstOf(t)) aim(ctx.params, ctx.fp); } else if (ctx) fetchCurve(key, ctx);
       } else {
         aim(ctx?.params, ctx?.fp);
         if (!ser && ctx) fetchCurve(key, ctx);

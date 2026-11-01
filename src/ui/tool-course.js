@@ -22,9 +22,10 @@
 // These are the model's own speeds, not a patient's: a deck line that quotes them needs a source, or none.
 
 import { TILE, RATE } from './table-marks.js?v=ff3ed0cc47';
-import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js?v=fcb4044092';
+import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js?v=19776e91bc';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { frameFor } from './frame.js?v=15d5254a2c';
+import { morphSvg } from './svg-morph.js?v=22c0db5818';
 const nextFrame = frameFor('tool-course');
 
 const CO_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
@@ -217,9 +218,13 @@ function courseWork(t, c, myKey = courseKey(t, c)) {
     return snap ? c.run(tailSteps(t), snap).then((tail) => courseSeries(t, head, tail)) : null;
   });
   store.set(myKey, p);
-  p.then((s) => { if (!s) store.delete(myKey); }, () => store.delete(myKey));
+  p.then((s) => { if (!s) store.delete(myKey); else ready.set(p, s); }, () => store.delete(myKey));
   return p;
 }
+// A course already worked out, as its value (a promise's value cannot be read at once): a slide that comes up after the deck's states are in draws
+// its lines in the first drawing, so the chart on the card glides straight from the last slide's lines to these, not through an empty one.
+const ready = new WeakMap();
+const haveOf = (tool, cx) => { const p = cx?.snap ? keepOf(cx.deck).get(courseKey(tool, cx)) : null; return p ? ready.get(p) ?? null : null; };
 /** Starts a slide's course once the deck's states are in, so it is ready when its slide comes up (presenter.js, after the deck's states). */
 export function warmCourse(t, c) { if (t && c) courseWork(t, c)?.catch(() => null); }
 
@@ -279,7 +284,10 @@ export function createCourse() {
     const old = parts?.svg;
     ({ G, labels, zoneNames } = compose(w, hh, f, c, ser));
     parts = build();
-    if (fade && old) {
+    // (The new course takes over the old chart's zones, numbers and lines, each gliding to its new place; the lines of a course that has just
+    // arrived fade in over the axes already there (svg-morph.js). Where that cannot be, the new chart fades in over the old one.)
+    if (fade && old && morphSvg(old, parts.svg)) { /* the morph appended it */ }
+    else if (fade && old) {
       parts.svg.classList.add('in'); el.append(parts.svg);
       nextFrame(() => nextFrame(() => parts?.svg.classList.remove('in')));
       setTimeout(() => old.remove(), 480);
@@ -306,9 +314,9 @@ export function createCourse() {
       const k2 = courseKey(tool, cx);
       t = tool; ctx = cx || null; c = courseOf(tool);
       if (k2 !== key) {
-        key = k2; ser = null;
+        key = k2; ser = haveOf(tool, ctx);
         redraw(!!parts);
-        if (ctx) fetchCourse(key, ctx);
+        if (ctx && !ser) fetchCourse(key, ctx);
       } else if (!ser && ctx) fetchCourse(key, ctx);
     },
     pin() {}, update() {}, clear() {},

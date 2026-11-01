@@ -8,6 +8,7 @@ import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { frameFor } from './frame.js?v=15d5254a2c';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { bandKeys, bandRuns, bandSpan, namePlaces } from './rx-bands.js?v=51e83c7c59';
+import { morphSvg } from './svg-morph.js?v=22c0db5818';
 const nextFrame = frameFor('presenter-tools');
 
 // ── The talk so far: PV, WHVP and FHVP at each state, the HVPG in its own lane with its cut-offs ──
@@ -164,10 +165,13 @@ export function talkTrace() {
       pts.map((p, i) => sv('circle', { class: 'ptk-pt', 'data-rate': sev(p.fp.hvpg), cx: X(i), cy: Y(p.fp.hvpg), r: i === last ? 6 : 4 })),
       pts.length ? sv('text', { class: 'ptk-v', 'data-rate': sev(pts[last].fp.hvpg), x: R + 10, y: Y(pts[last].fp.hvpg) + 0.35 * vfs }, fmt(pts[last].fp.hvpg, 1)) : null);
   }
-  // The new chart fades in over the old one, which then goes (never a jump); a new size just redraws.
+  // The new chart takes over the old one: each line, point, gridline and word in both glides to its new place, the rest fades (svg-morph.js).
+  // Where that cannot be (?chartmorph=0, Reduce Motion, another size) the new chart fades in over the old one, which then goes (never a
+  // jump); a new size just redraws.
   function show(svg, fade) {
     const old = [...el.children];
     if (!fade) { el.replaceChildren(svg); return; }
+    if (old.length && morphSvg(old.at(-1), svg)) { old.slice(0, -1).forEach((o) => o.remove()); return; }
     svg.classList.add('in');
     el.append(svg);
     nextFrame(() => nextFrame(() => svg.classList.remove('in')));
