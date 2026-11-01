@@ -331,10 +331,10 @@ export function segHits([x1, y1, x2, y2], [bx0, by0, bx1, by1]) {
   return true;
 }
 /** How badly a box [x0, y0, x1, y1] lands: on a horizontal line ({ y, x0, x1, w }) its weight w (1 if unset), on a data
- *  line's segment its weight w (2 if unset), on other words 3, outside the bounds 10. A line with side (the y of the ring
+ *  line's segment its weight w (2 if unset), on other words boxW (3 unless the caller asks for more), outside the bounds 10. A line with side (the y of the ring
  *  the word names) also costs 20 when the word's middle is across it from that ring: a value over a cut-off it is under
  *  reads as the wrong side of it. */
-export function boxScore(b, { lines = [], segs = [], boxes = [], bounds = null }) {
+export function boxScore(b, { lines = [], segs = [], boxes = [], bounds = null, boxW = 3 }) {
   let n = 0;
   if (bounds && (b[0] < bounds[0] || b[1] < bounds[1] || b[2] > bounds[2] || b[3] > bounds[3])) n += 10;
   for (const l of lines) {
@@ -342,7 +342,7 @@ export function boxScore(b, { lines = [], segs = [], boxes = [], bounds = null }
     if (l.side != null && ((b[1] + b[3]) / 2 - l.y) * (l.side - l.y) < 0) n += 20;
   }
   for (const sg of segs) if (segHits(sg, b)) n += sg.w ?? 2;
-  for (const o of boxes) if (hitBox(b, o)) n += 8;   // (a word on a word reads worse than a word over a line: it loses to a spot that crosses a gridline or a data line)
+  for (const o of boxes) if (hitBox(b, o)) n += boxW;   // (boxW: what a word on a word costs; the cut-off names ask 8, so they lose to a spot that crosses a gridline or a data line)
   return n;
 }
 /** A word's place: of the candidates ({ x, y, anchor }, in order of liking), the first that lands on the fewest things.
@@ -940,9 +940,11 @@ export function createCurve() {
     for (const c of ob.cutLabs) {
       // (If both ends are taken, beside the dashed line: just left of it, or just right.)
       const near = ok ? c.cands.filter((q) => q.anchor === 'end').flatMap((q) => [{ ...q, x: cx - 0.5 * f, anchor: 'end' }, { ...q, x: cx + 0.5 * f, anchor: 'start' }]) : [];
-      const obs = { segs: [...ob.segs, ...leads], boxes, bounds: ob.cutBounds, lines: c.lines, inside: ob.inside };
+      const obs = { segs: [...ob.segs, ...leads], boxes, bounds: ob.cutBounds, lines: c.lines, inside: ob.inside, boxW: 8 };
       let p = placeWord([...c.cands, ...near], c.tw, f, obs), short = false;
-      if (p.n > 0 && c.short) { const q = placeWord([...c.cands, ...near], c.twS, f, obs); if (q.n < p.n) { p = q; short = true; } }
+      // (A name with no clear spot (a word, a line or the edge in its way) stands as its number where that does better; and once a drawing has made it a
+      // number it stays one, as the rings glide, so it never flips between the two.)
+      if (c.short && (c.useShort || p.n > 0)) { const q = placeWord([...c.cands, ...near], c.twS, f, obs); if (c.useShort || q.n < p.n) { p = q; short = true; c.useShort = true; } }
       if (c.el.textContent !== (short ? c.short : c.txt)) c.el.textContent = short ? c.short : c.txt;
       boxes.push(p.box);
       c.el.setAttribute('x', p.x.toFixed(1)); c.el.setAttribute('y', p.y.toFixed(1)); c.el.setAttribute('text-anchor', p.anchor);

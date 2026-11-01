@@ -48,3 +48,16 @@ test('a page crossfade that the next one skips leaves no unhandled rejection', (
   assert.match(main, /vt\.finished\.catch\(\(\) => \{\}\)\.finally\(\(\) => document\.elementFromPoint/);
   assert.equal((main.match(/startViewTransition\(/g) || []).length, 1, 'every crossfade goes through crossfade()');
 });
+
+// (A tap on the figure puts Treat away on a phone: the vessel card used to open behind it. Only the figure's own tap does it: Treat's own buttons
+// (Spleen, TIPS, Band) select a vessel too, and Treat stays.)
+test('a figure tap closes Treat on a phone; Treat\'s own selecting buttons do not', () => {
+  const main = read('src/ui/main.js');
+  assert.match(main, /onSelect: \(sel, opts\) => \{ if \(sel && isPhone\(\) && treatOpen\(\)\) closeTreat\(\); select\(sel\);/);
+  assert.doesNotMatch(main, /store\.on\('selection', \(sel\) => \{ if \(sel && isPhone\(\) && treatOpen\(\)\) closeTreat\(\); \}\)/, 'no store-wide subscriber: it closed Treat from its own procedure buttons');
+});
+
+test('the feedback ask waits for a sheet on a phone only (a laptop works with Tests open), menus and sheets included', () => {
+  const main = read('src/ui/main.js');
+  assert.match(main, /\|\| down \|\| presenter\.active\(\) \|\| projector \|\| \(isPhone\(\) && \(app\.classList\.contains\('dock-open'\) \|\| panelShown\(\) \|\| treatOpen\(\) \|\| historyOpen\(\) \|\| popoverOpen\(\)\)\) \|\|/);
+});

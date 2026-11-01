@@ -205,7 +205,8 @@ test('phone relation charts: no word is printed over another, cut-off names incl
   }
 });
 
-test('a cut-off whose name has no clear spot stands as its number (Two inflows, 55 and 75 a line\'s width apart)', async () => {
+test('a cut-off whose name has no clear spot stands as its number (Two inflows, 55 and 75 a line\'s width apart), clear of the other', async () => {
   const r = await draw('two-inflows', 346, 170, 13.5), cuts = r.texts.filter((t) => /pcv-cut/.test(t.cls));
   assert.deepEqual(cuts.map((t) => t.txt).sort(), ['55', '75'], 'the two cut-offs, as numbers');
+  assert.ok(!hit(boxOf(cuts[0], 13.5), boxOf(cuts[1], 13.5)), 'clear of each other');
 });
