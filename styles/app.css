@@ -28,6 +28,9 @@ svg { flex: none; }
 .unit { color: var(--text-3); font-weight: 500; font-size: var(--fs-12); margin-left: 4px; letter-spacing: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-control); }
+/* Rings alike (src/ui/focus-ring.js puts html.fr on the page; ?focusring=0 leaves it off): the controls whose ring was the accent colour, or 1 px off, wear the focus colour and the 2 px of the rest. The inset ones (rows, tabs) keep their place. */
+html.fr :is(.ps-btn, .tl-pop-ic, .pz-zbtn, .ask-field):focus-visible { outline-offset: 2px; }
+html.fr :is(.lens-btn, .ps-btn, .tl-pop-ic, .pz-zbtn, .ask-field, .pz-abb, .pzc-q, .chg-go, .nb-tab, .pz-table tbody tr):focus-visible { outline-color: var(--focus); }
 .overline { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
 .muted { color: var(--text-3); }
 .sub { font-size: var(--fs-14); color: var(--text-2); line-height: 1.5; }

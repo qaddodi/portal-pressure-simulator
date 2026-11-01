@@ -4,18 +4,8 @@
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
-<<<<<<< HEAD
-<<<<<<< HEAD
-import { pressureColor } from './colormap.js?v=fa0379104f';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon, swapText, putText } from './util.js?v=7a4bd2b204';
-=======
 import { pressureColor } from './colormap.js?v=fa0379104f';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=7a4bd2b204';
->>>>>>> b9fc33e3 (Abdomen steppers (serum albumin, litres to drain) roll their number to the new value instead of jumping; ?stepnum=0 writes it at once)
-=======
-import { pressureColor } from './colormap.js?v=fa0379104f';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon, swapText, putText } from './util.js?v=7a4bd2b204';
->>>>>>> 173a2178 (Put back util.js's easeNow, easeMove and D_SURFACE imports a rebase dropped)
 import { simTime, isPaused } from './clock.js?v=16aba0e2eb';
 import { createEndoGL } from './endo-gl.js?v=73d96a88fc';
 import { renderEndo } from './endo-render.js?v=854f439701';

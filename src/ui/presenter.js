@@ -29,18 +29,8 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { createHvpgMonitor } from './hvpg-proc.js?v=dd7f93c525';
-import { createTools } from './presenter-tools.js?v=d529e1b608';
-=======
-import { createHvpgMonitor } from './hvpg-proc.js?v=dd7f93c525';
-import { createTools } from './presenter-tools.js?v=d529e1b608';
->>>>>>> b9fc33e3 (Abdomen steppers (serum albumin, litres to drain) roll their number to the new value instead of jumping; ?stepnum=0 writes it at once)
-=======
-import { createHvpgMonitor } from './hvpg-proc.js?v=dd7f93c525';
-import { createTools } from './presenter-tools.js?v=d529e1b608';
->>>>>>> 173a2178 (Put back util.js's easeNow, easeMove and D_SURFACE imports a rebase dropped)
+import { createTools } from './presenter-tools.js?v=dc935fa444';
 import { openHandout } from './handout.js?v=be99975ab1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';

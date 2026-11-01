@@ -7,10 +7,8 @@ import { createStage } from './stage.js?v=2210b7ecbd';
 import { createCreditPlacer } from './credit.js?v=21f50433fe';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { createInspector } from './inspector.js?v=dbce7cdd96';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=787f89924d';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=594ae18fc0';
 import { setHvpgStage } from './hvpg-proc.js?v=dd7f93c525';
 import { createWhy } from './why.js?v=5df9bd09c0';
 import { createTimeline, LAPSES } from './timeline.js?v=a327d2576e';
@@ -19,30 +17,6 @@ import { createCard } from './card.js?v=ba24a5cfdf';
 import { createChart } from './chart.js?v=2d0bc456e7';
 import { createMenu } from './menu.js?v=c4433ffab4';
 import { caption } from './a11y.js?v=fd0a7b94bb';
-=======
-import { createInspector } from './inspector.js?v=dbce7cdd96';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=787f89924d';
-import { setHvpgStage } from './hvpg-proc.js?v=dd7f93c525';
-import { createWhy } from './why.js?v=5df9bd09c0';
-import { createTimeline, LAPSES } from './timeline.js?v=a327d2576e';
-import { createCompare } from './compare.js?v=ec83a14f74';
-import { createCard } from './card.js?v=ba24a5cfdf';
-import { createChart } from './chart.js?v=2d0bc456e7';
-import { createMenu } from './menu.js?v=c4433ffab4';
-import { caption } from './a11y.js?v=fd0a7b94bb';
->>>>>>> b9fc33e3 (Abdomen steppers (serum albumin, litres to drain) roll their number to the new value instead of jumping; ?stepnum=0 writes it at once)
-=======
-import { createInspector } from './inspector.js?v=dbce7cdd96';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=787f89924d';
-import { setHvpgStage } from './hvpg-proc.js?v=dd7f93c525';
-import { createWhy } from './why.js?v=5df9bd09c0';
-import { createTimeline, LAPSES } from './timeline.js?v=a327d2576e';
-import { createCompare } from './compare.js?v=ec83a14f74';
-import { createCard } from './card.js?v=ba24a5cfdf';
-import { createChart } from './chart.js?v=2d0bc456e7';
-import { createMenu } from './menu.js?v=c4433ffab4';
-import { caption } from './a11y.js?v=fd0a7b94bb';
->>>>>>> 173a2178 (Put back util.js's easeNow, easeMove and D_SURFACE imports a rebase dropped)
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
 import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=0f6b29ca83';
@@ -52,8 +26,9 @@ import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
 import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=7a4bd2b204';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
-import { morphKey, crossfadeText } from './legend-morph.js?v=1e8e11f180';
+import { morphKey, crossfadeText } from './legend-morph.js?v=c855f723cb';
 import './seg-glide.js?v=93c0a2ce93';
+import './focus-ring.js?v=c1d725174c';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
 import { lookChooser } from './look-chooser.js?v=3da88e1fbc';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
@@ -69,7 +44,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=e075ec83d2';
-import { initTopbarMotion } from './topbar-motion.js?v=187ed19bfd';
+import { initTopbarMotion } from './topbar-motion.js?v=84268f029e';
 import { ORIGINS } from './blood.js?v=f6c91d8676';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0762d1b820';
@@ -222,15 +197,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-<<<<<<< HEAD
-<<<<<<< HEAD
-  presenterL = lazy(() => import('./presenter.js?v=fc399c4f54'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
-=======
-  presenterL = lazy(() => import('./presenter.js?v=fc399c4f54'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
->>>>>>> b9fc33e3 (Abdomen steppers (serum albumin, litres to drain) roll their number to the new value instead of jumping; ?stepnum=0 writes it at once)
-=======
-  presenterL = lazy(() => import('./presenter.js?v=fc399c4f54'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
->>>>>>> 173a2178 (Put back util.js's easeNow, easeMove and D_SURFACE imports a rebase dropped)
+  presenterL = lazy(() => import('./presenter.js?v=7e96397a9d'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

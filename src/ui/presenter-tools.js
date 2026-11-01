@@ -47,15 +47,7 @@ import { createPressureTime } from './pressure-time.js?v=32d7c3a773';
 import { createVitalsMonitor } from './vitals-monitor.js?v=bc4acdb416';
 import { createHvpgCard } from './tool-hvpg.js?v=a2a3efdc4c';
 import { createFlowTime } from './flow-time.js?v=447c3f6bb9';
-<<<<<<< HEAD
-<<<<<<< HEAD
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=df5f92d71a';
-=======
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=df5f92d71a';
->>>>>>> b9fc33e3 (Abdomen steppers (serum albumin, litres to drain) roll their number to the new value instead of jumping; ?stepnum=0 writes it at once)
-=======
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=df5f92d71a';
->>>>>>> 173a2178 (Put back util.js's easeNow, easeMove and D_SURFACE imports a rebase dropped)
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=965cbffe73';
 import { frameFor, cancelFrame } from './frame.js?v=15d5254a2c';
 import { talkTrace } from './talk-trace.js?v=0978a47ed2';
 import { EXT, guard, safe } from './slide-ext.js?v=7a24665ac2';

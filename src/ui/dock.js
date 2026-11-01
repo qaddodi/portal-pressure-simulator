@@ -10,18 +10,8 @@ import { createPressureTime } from './pressure-time.js?v=32d7c3a773';
 import { createHvpgProcedure } from './hvpg-proc.js?v=dd7f93c525';
 import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=357867550d';
 import { ownsSideways, pageGo } from './swipe.js?v=9ed936bf04';
-<<<<<<< HEAD
-<<<<<<< HEAD
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=df5f92d71a';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=965cbffe73';
 import { createReadoutsPane } from './readouts-pane.js?v=5b6eaca084';
-=======
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=df5f92d71a';
-import { createReadoutsPane } from './readouts-pane.js?v=5b6eaca084';
->>>>>>> b9fc33e3 (Abdomen steppers (serum albumin, litres to drain) roll their number to the new value instead of jumping; ?stepnum=0 writes it at once)
-=======
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=df5f92d71a';
-import { createReadoutsPane } from './readouts-pane.js?v=5b6eaca084';
->>>>>>> 173a2178 (Put back util.js's easeNow, easeMove and D_SURFACE imports a rebase dropped)
 import { frameFor } from './frame.js?v=15d5254a2c';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=8a7bc6961d';
