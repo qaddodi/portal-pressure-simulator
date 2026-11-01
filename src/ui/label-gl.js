@@ -425,7 +425,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
   let boxes = [], boxKey = '', blank = false;
   const boxAt = (x0, y0, x1, y1) => boxes.push([x0 / dpr, y0 / dpr, x1 / dpr, y1 / dpr]);
   const sprites = new WeakMap();   // group → { key, tex, ox, oy, w, h }
-  const live = new Map();          // group → until (ms): a fade, an ease or a hover is running, its look read each frame
+  // (A Map that only ever lengthens a label's time: a short event's 700 ms never cuts a held fade's longer one, e.g. a step's number waiting for its turn.)
+  class Until extends Map { set(k, t) { return super.set(k, Math.max(t, this.get(k) || 0)); } }
+  const live = new Until();          // group → until (ms): a fade, an ease or a hover is running, its look read each frame
   const dirty = new Set();
   const scratch = document.createElement('canvas');
   // The label layer's inline style (the dive's zoom and fade, its visibility) is the canvas's too; its classes' rules are in app.css.
@@ -458,7 +460,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const hold = (ev, ms = 700) => { const g = labelOf(ev.target); if (g) { dirty.add(g); live.set(g, performance.now() + ms); ask(); } };
   for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel', 'pointerover', 'pointerout', 'focusin', 'focusout']) blocks.addEventListener(t, (ev) => hold(ev), true);
   // The leaders and their dots (marks: their layers, the leaders' and the FibroScan callout's): read as the labels are.
-  const looks = new WeakMap(), markLive = new Map(), markDirty = new Set();
+  const looks = new WeakMap(), markLive = new Until(), markDirty = new Set();
   const markOf = (n) => { const el = n.nodeType === 1 ? n : n.parentElement; return marks.includes(el) ? el : marks.includes(el?.parentElement) ? el : null; };
   const mmo = new MutationObserver((rs) => { for (const r of rs) { if (!changed(r)) continue; const el = markOf(r.target); if (el) markDirty.add(el); } ask(); });
   for (const root of marks) {
