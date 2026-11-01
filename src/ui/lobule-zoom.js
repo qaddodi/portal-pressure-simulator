@@ -31,6 +31,7 @@ import { createFieldGL, TILE_OVER } from './field-gl.js?v=e9914773cd';
 import { createTissueGL, DIVE_GPU } from './tissue-gl.js?v=9c2ff16bf9';
 import { TILE_GPU, tileCopy, isTileCopy } from './tile-gl.js?v=88c03cf91f';
 import { FX_GPU, createFxGL } from './fx-gl.js?v=f6896ed5e0';
+import { WIDE_GL, createWideGL } from './wide-gl.js?v=90d9964c4d';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=624ae21d7d';
 import { createTissueWorker } from './tissue-worker.js?v=d9b45fb202';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
@@ -1889,6 +1890,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     resCoverEnd();
     // Only the newest field state's tiles are kept for the dive (each older state is tens of MB), and no crossfade's old picture.
     trimFieldStates();
+    if (WIDE_GL) { const wg = buildWideGL(W, H, box); if (wg) return wg; }   // (on the GPU: wide-gl.js; the 2D tiles below where it cannot)
     const dpr0 = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), dpr = wideDpr(dpr0, box.w, box.h, apple());
     const dark = isDark(), cs = styles(), g = ensureGL(), flat = !g || g.lost, [cx, cy] = toScreen([geo.cx, geo.cy]), r = geo.R * V.k;
     // The tiles sit in one box, and only the box is scaled. Scaled, the compositor still softens each tile's own edges, and edge to
@@ -1939,6 +1941,56 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     el.insertBefore(box0, leaders);
     return { el: box0, tiles, box, soft: dpr < dpr0 };
   }
+  // The same copy on the GPU (wide-gl.js): each tile the layers drawn on the GPU at its size, as above, laid into a texture of the
+  // copy's own context; each frame of the zoom draws the tiles where the box's scale puts them (setDiveZoom). Null where the GPU
+  // cannot (no WebGL2 for the vessels, a tile refused): the 2D tiles then.
+  let wideCv = null, wideGL, wideGone = null;
+  function wideGLOn() {
+    if (wideGL === undefined) {
+      wideCv = h('canvas', { class: 'lz-canvas lz-wide-gl', 'aria-hidden': 'true', style: { visibility: 'hidden', pointerEvents: 'none' } });
+      wideGL = createWideGL(wideCv);
+    }
+    return wideGL && !wideGL.lost ? wideGL : null;
+  }
+  function buildWideGL(W, H, box) {
+    const g = ensureGL();
+    if (!g || g.lost) return null;   // (the vessels drawn flat on the tissue: the 2D tiles)
+    // (A copy still fading out, from the last dive, is given back first: its canvas is this one.)
+    if (wideFadeT) { clearTimeout(wideFadeT); wideFadeT = 0; const f = wideGone; wideGone = null; f?.(); }
+    const wg = wideGLOn();
+    if (!wg || !wg.begin()) return null;
+    const dpr0 = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), dpr = wideDpr(dpr0, box.w, box.h, apple());
+    const dark = isDark(), cs = styles(), [cx, cy] = toScreen([geo.cx, geo.cy]), r = geo.R * V.k;
+    // (Each tile reaches OV under its right and lower neighbours, as above: there it only feeds the filtering at the tile's edge.)
+    const OV = 2 / dpr, parts = wideTiles(box.w, box.h, dpr), TW = Math.max(...parts.map((t) => t.w)) + OV, TH = Math.max(...parts.map((t) => t.h)) + OV;
+    let ok = true;
+    wideBuild = true;
+    try { for (const t of parts) {
+      const ox = box.l - t.x, oy = box.t - t.y, or = t.x + t.w < box.w - 1e-6, ob = t.y + t.h < box.h - 1e-6, w = t.w + (or ? OV : 0), hh = t.h + (ob ? OV : 0);
+      V.x += ox; V.y += oy;
+      try {
+        // The tissue (rimmed, by the shader), the vessels (one size for every tile, cropped), the ductules and the lymph, each drawn
+        // on the GPU for this tile and laid in while its canvas still holds it. (Where the tissue's or the overlay's GPU drawing
+        // cannot, its 2D canvas is laid in instead.)
+        const tg = DIVE_GPU ? tissueGLOn() : null;
+        diveRim = rimOf(cx + ox, cy + oy, r); tissueKey = '';
+        const onG = paintTissue(w, hh, dpr, dark, cs, false, tg);   // (on the 2D canvas, it makes its rimmed copy itself: diveCv)
+        drawKey = ''; drawGL(TW, TH, dpr, dark, cs, 0);
+        fxDrawn = ''; fxBoxes = null; lyKey = ''; fxGLKey = '';
+        const fxOn = fxOnGPU(w, hh, dpr, dark, 0, true);
+        if (!fxOn) paintFx(w, hh, dpr, dark, 0, false);
+        ok = wg.tile(t, canvasPx(w, dpr), canvasPx(hh, dpr), dpr, [onG ? tissueG : diveCv, glCv, fxOn ? fxG : fx]);
+        free(rimCv); free(tissue); free(diveCv); if (!fxOn) free(fx);
+      } finally { V.x -= ox; V.y -= oy; }
+      if (!ok) break;
+    } } finally { wideBuild = false; }
+    diveCopyKey = ''; diveRim = null;
+    tissueKey = ''; drawKey = ''; glDirty = true; fxDrawn = ''; fxBoxes = null; lyKey = ''; fxGLKey = ''; idleDrawn = '';
+    if (!ok) { wg.release(); return null; }
+    Object.assign(wideCv.style, { visibility: 'hidden', opacity: '', transition: '' });
+    if (wideCv.parentNode !== el) el.insertBefore(wideCv, leaders);
+    return { el: wideCv, gl: wg, tiles: [], box, soft: dpr < dpr0, W, H, dpr: dpr0 };
+  }
   function opaqueOnly(c, x, y, w, h) {
     const im = c.getImageData(x, y, w, h), d = im.data;
     for (let i = 3; i < d.length; i += 4) if (d[i] < 255) { d[i - 3] = d[i - 2] = d[i - 1] = d[i] = 0; }
@@ -1947,7 +1999,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The layers, drawn for the screen after the copy: if the browser refused them, the copy goes and they are drawn again.
   function wideChecked(wd) {
     if (!wd || ((DIVE_GPU && tissueOnGL ? true : probe(tissue)) && (fxGLShown ? true : probe(fx)))) return wd;   // (on the GPU: its canvas has no 2D context to probe; nor the overlay's, fx-gl.js)
-    for (const cv of wd.tiles) free(cv); wd.el.remove();
+    for (const cv of wd.tiles) free(cv); wd.gl?.release(); wd.el.remove();
     tissueKey = ''; idleDrawn = ''; fxDrawn = ''; fxBoxes = null; lyKey = ''; draw(0);
     return null;
   }
@@ -1962,10 +2014,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!wide) return;
     const w = wide; wide = null;
     for (const e of WIDE_HIDE) if (e !== diveCv) e.style.visibility = '';
-    const gone = () => { for (const cv of w.tiles) free(cv); w.el.remove(); };
+    const gone = () => { wideGone = null; for (const cv of w.tiles) free(cv); w.gl?.release(); w.el.remove(); };
     clearTimeout(wideFadeT);
     // (A copy drawn softer than the screen, past the budget, fades into the sharp layers below it rather than switching to them.)
-    if (ease && w.soft && !reduce.matches) { w.el.style.transform = ''; w.el.style.transition = `opacity ${D_SMALL}ms var(--ease)`; w.el.style.opacity = '0'; wideFadeT = setTimeout(gone, D_SMALL + 40); }
+    // (On the GPU it is drawn once more at full size, where the CSS copy's transform was cleared.)
+    if (ease && w.soft && !reduce.matches) { wideGone = gone; if (w.gl) w.gl.draw(w.W, w.H, w.dpr, w.box, 1, 0, 0, 0, 0); w.el.style.transform = ''; w.el.style.transition = `opacity ${D_SMALL}ms var(--ease)`; w.el.style.opacity = '0'; wideFadeT = setTimeout(gone, D_SMALL + 40); }
     else gone();
   }
   // Out of a lobule framed zoomed in (a slide's station, or a hand's zoom) on a way that does not glide to the whole lobule first:
@@ -4046,6 +4099,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // with the rim, the triads' arterioles, ductules and lymphatics just past the corners were faded through the zoom and popped in.)
       const r = geo ? geo.R * V.k : 0, rim = k < 0.9999 && r > 0;
       // (Landed, or back at full size: the wide copy goes, and the layers, drawn for the screen before the zoom, show as they are.)
+      // (A GPU copy whose context was lost goes too: the layers, scaled, as before there was a copy.)
+      if (wide?.gl?.lost) dropWide();
       if (wide && !rim) dropWide(true);
       diveRim = rim && !wide ? { x: +x.toFixed(1), y: +y.toFixed(1), r: +r.toFixed(1) } : null;
       // (DIVE_GPU: the rim drawn by the tissue's shader, and the GPU canvas scaled as it is: no 2D paint and no copy. Where the GPU
@@ -4066,7 +4121,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         e.style.transform = `translate(${(tx - x).toFixed(1)}px, ${(ty - y).toFixed(1)}px) scale(${k.toFixed(4)})`;
       }
       // (The wide copy's box about the same stage point, in its own frame.)
-      if (wide) {
+      if (wide?.gl) wide.gl.draw(wide.W, wide.H, wide.dpr, wide.box, k, x, y, tx, ty);   // (on the GPU: one pass, no CSS transform)
+      else if (wide) {
         wide.el.style.transformOrigin = `${(x + wide.box.l).toFixed(1)}px ${(y + wide.box.t).toFixed(1)}px`;
         wide.el.style.transform = `translate(${(tx - x).toFixed(1)}px, ${(ty - y).toFixed(1)}px) scale(${k.toFixed(4)})`;
       }
