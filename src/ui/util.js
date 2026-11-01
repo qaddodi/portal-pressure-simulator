@@ -821,6 +821,7 @@ export function enhanceRanges(root = document) {
     if (e.pointerType !== 'touch' || !isRange(input)) return;
     e.preventDefault();
     input.focus({ preventScroll: true });
+    input.classList.add('held');   // (the thumb's held ring, app.css: iOS gives a range no :active)
     const th = parseFloat(getComputedStyle(input).getPropertyValue('--tw')) || 18;
     setTo(input, fromX(input, e.clientX, th));
     try { input.setPointerCapture(e.pointerId); } catch { /* gone */ }
@@ -828,6 +829,7 @@ export function enhanceRanges(root = document) {
     const up = (ev) => {
       if (ev.pointerId !== e.pointerId) return;
       input.removeEventListener('pointermove', move); input.removeEventListener('pointerup', up); input.removeEventListener('pointercancel', up);
+      input.classList.remove('held');
       input.dispatchEvent(new Event('change', { bubbles: true }));
     };
     input.addEventListener('pointermove', move); input.addEventListener('pointerup', up); input.addEventListener('pointercancel', up);

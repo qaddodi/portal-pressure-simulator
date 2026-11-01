@@ -772,9 +772,21 @@ div.vital { cursor: default; }
 input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; height: 20px; margin: 0; position: relative; z-index: 2; cursor: pointer; }
 input[type=range]::-webkit-slider-runnable-track { height: 6px; background: transparent; }
 input[type=range]::-moz-range-track { height: 6px; background: transparent; }
-input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: var(--tw, 18px); height: var(--tw, 18px); border-radius: 50%; background: var(--accent); border: 0; margin-top: calc(3px - var(--tw, 18px) / 2); box-shadow: 0 0 0 3px var(--surface); transition: transform var(--d-flip) var(--ease); }
-input[type=range]::-moz-range-thumb { width: var(--tw, 18px); height: var(--tw, 18px); border-radius: 50%; background: var(--accent); border: 0; box-shadow: 0 0 0 3px var(--surface); }
-input[type=range]:active::-webkit-slider-thumb { transform: scale(1.12); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: var(--tw, 18px); height: var(--tw, 18px); border-radius: 50%; background: var(--accent); border: 0; margin-top: calc(3px - var(--tw, 18px) / 2); box-shadow: 0 0 0 3px var(--surface), 0 1px 3px 3px rgb(var(--black-rgb) / .14), 0 0 0 3px transparent; transition: transform var(--d-small) var(--ease-arrive), box-shadow var(--d-small) var(--ease-arrive); }
+input[type=range]::-moz-range-thumb { width: var(--tw, 18px); height: var(--tw, 18px); border-radius: 50%; background: var(--accent); border: 0; box-shadow: 0 0 0 3px var(--surface), 0 1px 3px 3px rgb(var(--black-rgb) / .14), 0 0 0 3px transparent; transition: transform var(--d-small) var(--ease-arrive), box-shadow var(--d-small) var(--ease-arrive); }
+/* Held (a mouse press, or a finger: .held, set in enhanceRanges since iOS gives a range no :active): the dot grows a little and a
+   soft ring of the accent's wash spreads out from under it, so a finger that covers the dot still sees the slider has it. The ring
+   eases in and back out (transition above); it never flashes. Hover on a mouse shows a smaller ring. */
+input[type=range]:active::-webkit-slider-thumb, input[type=range].held::-webkit-slider-thumb { transform: scale(1.12); box-shadow: 0 0 0 3px var(--surface), 0 2px 6px 3px rgb(var(--black-rgb) / .16), 0 0 0 8px var(--accent-soft); }
+input[type=range]:active::-moz-range-thumb, input[type=range].held::-moz-range-thumb { transform: scale(1.12); box-shadow: 0 0 0 3px var(--surface), 0 2px 6px 3px rgb(var(--black-rgb) / .16), 0 0 0 8px var(--accent-soft); }
+@media (hover: hover) {
+  input[type=range]:not(:disabled):not(:active):hover::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--surface), 0 1px 3px 3px rgb(var(--black-rgb) / .14), 0 0 0 6px var(--accent-soft); }
+  input[type=range]:not(:disabled):not(:active):hover::-moz-range-thumb { box-shadow: 0 0 0 3px var(--surface), 0 1px 3px 3px rgb(var(--black-rgb) / .14), 0 0 0 6px var(--accent-soft); }
+}
+@media (prefers-reduced-motion: reduce) {
+  input[type=range]::-webkit-slider-thumb { transition: none; }
+  input[type=range]::-moz-range-thumb { transition: none; }
+}
 input[type=range]:disabled { cursor: not-allowed; opacity: .45; }
 input[type=range]:focus-visible { outline: none; }
 input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--focus); }
