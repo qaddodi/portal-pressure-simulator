@@ -538,7 +538,7 @@ export function createSinusoidGL(canvas) {
   let pend = null;
   const begin = () => { if (!pend) pend = [startProgram(gl, VS, FS), startProgram(gl, PVS, PFS)]; return pend; };
   let T, P, vao, pvao, pbuf;
-  // The resolution change's mix on the GPU (sinusoid-view.js svSwap; ?svmix=0: the 2D mix): keep() copies the picture just drawn into a
+  // The resolution change's mix on the GPU (sinusoid-view.js svSwap): keep() copies the picture just drawn into a
   // texture of its own (a copy inside the GPU, no read back), and mix(a) lays it over each new picture as old × a + new × (1 − a), the
   // 2D mix's own sum, at the canvas's new size. Its small program is made the first time it is asked for (a change of the resolution
   // setting, rare) and kept.

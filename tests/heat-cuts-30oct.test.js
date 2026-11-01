@@ -59,8 +59,7 @@ test('the readout lists every frame that missed the refresh, keeps GPU timing ap
   assert.ok(shift.length > 100 && !shift.includes('blitFramebuffer'), 'a pan copies no target');
   assert.ok(v.includes("gpuProbe.note('uploaded: noise'"));
   assert.match(v, /patchGeometry: 'uploads', setRadii: 'uploads', setBend: 'uploads'/);
-  const f = src('res-fade.js');
-  assert.equal((f.match(/COUNTED\.fadeCopy/g) || []).length, 3, 'the fade\'s three copies');
+  assert.equal((src('res-fade.js').match(/COUNTED\.fadeCopy/g) || []).length, 0, 'no 2D fade copies left: the fade is mixed on the GPU');
   for (const n of ['uploaded: patchGeometry', 'uploaded: setBend', 'uploaded: noise']) assert.ok(r.includes(n.slice(10)), n);
 });
 

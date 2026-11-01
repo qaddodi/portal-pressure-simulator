@@ -40,12 +40,13 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=8362a21198';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
-import { createSinusoidView } from './sinusoid-view.js?v=4d1a3557a2';
+import { createSinusoidView } from './sinusoid-view.js?v=200648b9a5';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, framePart, easeNow, inMotion, PACED } from './frame.js?v=15d5254a2c';
 import { createGlassGL } from './glass-gl.js?v=3b4d8a3b4a';
 import { pillOf, pillLabels, pillHold } from './lz-pills.js?v=bafcf3977d';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=27eed66b9b';
+import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=6f305af9e6';
+import { createResCover, coverFollow } from './res-cover-gl.js?v=3804da2e78';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { easeMove, carryRate, carried, D_SMALL, D_SURFACE } from './ease.js?v=fc509dabe4';
@@ -562,6 +563,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const k = renderScale();
     if (fade <= 0) { lzK = k; lzWant = null; return; }
     lzWant = k === lzK ? null : k;
+    if (lzWant != null) coverGL()?.prepare();   // (the cover's program compiles while the lobule comes to rest: res-cover-gl.js)
     if (lzWant != null && !raf) raf = nextFrame(loop);
   });
   let geo = null, geoKey = '', model = null;
@@ -1703,7 +1705,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // themselves never change opacity or visibility for it, and the tissue fills every pixel, so the cover at opacity a shows exactly
   // old × a + new × (1 − a). It follows a pan or a zoom (viewFollow). A dive or a rise starting meanwhile (they scale the layers
   // one by one, under a copy of their own) takes the cover away; the lobule leaving gives it back (setFade, release).
-  let resCover = null, resT0 = 0, resV0 = null;
+  // (On the GPU, 1 Nov, "Move everything to GPU": the stack is made in the cover's own WebGL context (res-cover-gl.js), each layer taken
+  // into a texture once at the change and the picture kept there; no 2D canvas, no drawImage. Where that context cannot be had or its
+  // program is not ready yet, the new share is taken at once.)
+  let resCover = null, resT0 = 0, resV0 = null, resGL;
+  const coverGL = () => (resGL === undefined ? (resGL = createResCover(() => h('canvas', { class: 'lz-canvas lz-res', 'aria-hidden': 'true', style: { transformOrigin: '0 0' } }))) : resGL);
   const resSteady = () => fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !keep2D && !staging && !!geo && !!model;
   function resSwap() {
     const k = lzWant;
@@ -1711,22 +1717,19 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (k === lzK) return;
     const fresh = () => { tissueKey = ''; drawKey = ''; glDirty = true; fxDrawn = ''; fxBoxes = null; lyKey = ''; idleDrawn = ''; };
     fresh();
-    if (draw(0)) {
-      const cv = h('canvas', { class: 'lz-canvas lz-res', 'aria-hidden': 'true', style: { transformOrigin: '0 0' } });
-      if (stackInto(cv, [tissue, tissueG, glCv, fx])) {
-        // (A change while one still fades starts from the mix as it shows: the cover before, laid over at its weight and place.)
-        if (resCover) {
-          const [W, H] = hostSize(), sx = cv.width / W, sy = cv.height / H, a = +resCover.style.opacity, r = V.k / resV0.k;
-          const c = cv.getContext('2d');
-          c.globalAlpha = a; c.setTransform(sx * r, 0, 0, sy * r, sx * (V.x - resV0.x * r), sy * (V.y - resV0.y * r));
-          try { c.drawImage(resCover, 0, 0, W, H); } catch { /* (unreadable: the layers alone) */ }
-          c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1;
-          resCover.replaceWith(cv); resCover.width = resCover.height = 0;
-        } else fx.after(cv);
+    const g = coverGL();
+    if (g?.ready && draw(0)) {
+      // (A change while one still fades starts from the mix as it shows: the cover before, laid over at its weight and place.)
+      const [W, H] = hostWH || [g.cv.width || 1, g.cv.height || 1];
+      const prev = resCover ? { a: +resCover.style.opacity, m: coverFollow(resV0, V, W, H) } : null;
+      if (g.build([tissue, tissueG, glCv, fx], prev)) {
+        const cv = g.cv;
+        if (!cv.isConnected) fx.after(cv);
+        cv.style.transform = '';
         cv.style.opacity = '1';
         resCover = cv; resT0 = performance.now(); resV0 = { ...V };
       } else resCoverEnd();
-    }
+    } else resCoverEnd();
     lzK = k;
     fresh();
   }
@@ -1739,7 +1742,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   function resCoverEnd() {
     if (!resCover) return;
-    resCover.remove(); resCover.width = resCover.height = 0; resCover = null;
+    resCover.remove(); resGL?.drop(); resCover = null;
   }
   // The flow marks (shimmer and chevrons) fade out as the dive starts and back in once the lobule has landed, over about
   // 0.3 s each way. Ordinary panning and zooming inside the lobule view leave them alone.

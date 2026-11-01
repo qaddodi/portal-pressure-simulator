@@ -25,16 +25,14 @@ import { isPaused } from './clock.js?v=16aba0e2eb';
 import { store } from './store.js?v=4ef2a6ffd8';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=bd900627e7';
-import { placeFenDisse } from './fen-place.js?v=b650ebdf2a';
+import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=85e18568b4';
+import { placeFenDisse } from './fen-place.js?v=d019fd9268';
 import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=15d5254a2c';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
-import { FADE_MS, fadeAlpha, mixInto } from './res-fade.js?v=27eed66b9b';
+import { FADE_MS, fadeAlpha } from './res-fade.js?v=6f305af9e6';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 const nextFrame = frameFor('sinusoid-view');
-// The resolution change mixed on the GPU (gpuSwap); ?svmix=0: the 2D canvas mix, as before.
-const SV_MIX = typeof location === 'undefined' || !/[?&]svmix=0\b/.test(location.search);
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -139,54 +137,31 @@ export function createSinusoidView({ host, before = null }) {
     svWant = k === svK ? null : k;
     if (svWant != null) wake();
   });
-  // The change, as the anatomy's (res-fade.js): the picture as it stands is drawn once more and copied in that frame (the GPU canvas
-  // keeps nothing after the frame it is drawn in), the canvas is hidden under a 2D canvas showing old × a + new × (1 − a) (mixInto,
-  // remade after each draw of the canvas, which draws every frame meanwhile), and shown again once a reaches 0, drawn that frame.
-  // Hidden by its visibility, not its opacity: nothing eases it. The zoom back to the lobule starting meanwhile ends it.
-  let svFade = null;   // { cv (shown: the mix), c, old (the picture before), t0 }
+  // The change, mixed on the GPU (sinusoid-gl keep/mix): the picture as it stands is drawn once more in this frame and kept in a texture
+  // inside the GPU, then laid over each new draw of the canvas itself as old × a + new × (1 − a), so the canvas stays shown and nothing
+  // is copied back from the GPU or drawn in 2D. The zoom back to the lobule starting meanwhile ends it. (The 2D mix and its off switch are gone,
+  // 1 Nov, "Move everything to GPU": where the texture cannot be kept, the new resolution is taken at once.)
+  let svFade = null;   // { t0 }
   function svSwap() {
     const k = svWant;
     svWant = null;
     if (k === svK) return;
     gpuKey = '';
-    draw(0, false);   // (the picture as it stands, drawn again in this frame so it can be read; a fade still running: its mix, remade)
-    if (SV_MIX && (!svFade || svFade.gpu) && gpu.keep?.()) { gpuSwap(k); return; }   // (on the GPU: no copy back, no 2D canvas)
-    const src = svFade ? svFade.cv : canvas, old = document.createElement('canvas');
-    old.width = src.width; old.height = src.height;
-    try { old.getContext('2d').drawImage(src, 0, 0); } catch { svFadeEnd(); svK = k; return; }
-    let f = svFade;
-    if (!f) {
-      const cv = h('canvas', { class: 'sv-canvas sv-res', 'aria-hidden': 'true' });
-      f = svFade = { cv, c: cv.getContext('2d'), old: null, t0: 0 };
-      canvas.after(cv);
-    } else f.old.width = f.old.height = 0;
-    f.old = old; f.t0 = performance.now();
-    f.cv.width = old.width; f.cv.height = old.height;
-    f.c.drawImage(old, 0, 0);
-    canvas.style.visibility = 'hidden';
+    draw(0, false);   // (the picture as it stands, drawn again in this frame so it can be kept; a fade still running: its mix, remade)
+    if (gpu.keep?.()) svFade = { t0: performance.now() };
+    else svFadeEnd();
     svK = k;
   }
   // (Called right after the canvas was drawn, in the same frame.)
   function svFadeStep() {
-    const f = svFade, u = (performance.now() - f.t0) / FADE_MS;
+    const u = (performance.now() - svFade.t0) / FADE_MS;
     if (u >= 1 || dive) { svFadeEnd(); return; }
-    if (f.gpu) { gpu.mix(fadeAlpha(u)); return; }
-    if (canvas.width > f.cv.width || canvas.height > f.cv.height) { f.cv.width = Math.max(f.cv.width, canvas.width); f.cv.height = Math.max(f.cv.height, canvas.height); }
-    try { mixInto(f.c, f.cv, f.old, canvas, fadeAlpha(u), null); } catch { svFadeEnd(); }
+    gpu.mix(fadeAlpha(u));
   }
   function svFadeEnd() {
-    const f = svFade;
-    if (!f) return;
+    if (!svFade) return;
     svFade = null;
-    if (f.gpu) { gpu.drop?.(); return; }
-    f.cv.remove(); f.cv.width = f.cv.height = 0; f.old.width = f.old.height = 0;
-    canvas.style.visibility = '';
-  }
-  // The GPU's way (?svmix=0: the 2D canvas above): the picture just drawn is kept in a texture (sinusoid-gl keep) and mixed over each new
-  // draw of the canvas itself (mix), so the canvas stays shown and nothing is copied back from the GPU or drawn in 2D.
-  function gpuSwap(k) {
-    svFade = { gpu: true, t0: performance.now() };
-    svK = k;
+    gpu.drop?.();
   }
   const S = {};          // the drawing's state, easing toward sinusoidTargets(model)
   let geo = null, geoKey = '';

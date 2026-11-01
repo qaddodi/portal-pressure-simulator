@@ -60,7 +60,7 @@ export function createVitalsMonitor({ stillLayer = true, gpu = VITALS_GL } = {})
   let last = 0, raf = 0, seen = false, lastLabel = '';
   const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { seen = es[es.length - 1].isIntersecting; wake(); }) : null;
   io?.observe(cv);
-  const live = () => frame?.running && (io ? seen : cv.offsetParent !== null) && !document.hidden;
+  const live = () => frame?.running && (io ? seen : true) && !document.hidden;   // (no IntersectionObserver: taken as on screen; no layout is read in a frame)
   // (Laptop-heat Q6, 31 Oct: the parts of the monitor that do not move, the panel with its baseline and name and, under the strip, the vitals'
   // names, numbers and units, are drawn into pictures of their own, again only when what they are drawn from changes (still-layer.js); the strip
   // is drawn over the first each frame. The numbers change at most a few times a second.)

@@ -85,7 +85,7 @@ test('Auto: 1/zoom past the home framing, in steps down to 10%, changed only onc
 test('every resize for a share goes through easeRes; the copy is laid over first, then the canvas is resized', () => {
   const stage = src('stage.js');
   const fn = stage.slice(stage.indexOf('function easeRes('), stage.indexOf('// (The canvas\'s share of its pixels:'));
-  const at = fn.indexOf('fadeOver(vCanvas, resFollow, () => veins?.present?.(), veins && !veins.lost ? veins.top : null)');
+  const at = fn.indexOf('fadeOver(vCanvas, resFollow, () => veins?.present?.(), veins && !veins.lost ? veins.top : null, { w: boxW, h: boxH })');
   assert.ok(at >= 0 && at < fn.indexOf('resizeCanvas()'), 'copied before the resize clears it, the kept picture put on the canvas for each read');
   assert.ok(!/moveLow = true; resizeCanvas\(\)/.test(stage) && !/autoK = k; moveLow = false; resizeCanvas\(\)/.test(stage), 'no share change resizes without the fade');
   assert.match(src('../../styles/app.css'), /\.stage-view\.in-lobule \.res-fade/);
@@ -108,8 +108,8 @@ test('res-fade: the opacity eases 1 → 0 with no step at either end', async () 
   assert.ok(fadeAlpha(0.01) > 0.999 && fadeAlpha(0.99) < 0.001, 'flat at both ends');
   assert.ok(FADE_MS >= 250 && FADE_MS <= 500);
   const rf = src('res-fade.js');
-  assert.match(rf, /const src = was \? was\.cv : canvas;/, 'a second change starts from the mix as it shows');
-  assert.match(rf, /canvas\.style\.opacity = '0';/, 'the canvas hides under the mix, not under a copy laid over it');
+  assert.match(rf, /if \(was\) was\.gpu\.remove\(\);/, 'a second change starts from the mix as it shows (captured with the mix still in it)');
+  assert.ok(!/style\.opacity/.test(rf), 'the canvas is never hidden: the mix is made in its own presents');
 });
 
 test('the further options: all off by default but the 8-megapixel budget, stored, and each one heard', async () => {
@@ -205,42 +205,12 @@ test('Auto’s lowest: Auto never goes under the chosen floor (10% unless chosen
   for (const f of [0.1, 0.25, 0.5]) assert.ok(steps.includes(f), `${f} is one of Auto's steps`);
 });
 
-// (Mohammad, 30 Oct: the figure brightened mid-fade. The old copy laid over the new canvas at opacity a gave a·old + (1 − a·α)·new,
-// so every translucent pixel (a glow, an organ) showed more of both; the mix now weights them a and 1 − a, adding to exactly 1.)
-test('res-fade mixes old × a + new × (1 − a): a translucent pixel keeps its brightness all through the fade', async () => {
-  const { mixInto, fadeAlpha } = await import('../src/ui/res-fade.js');
-  // A one-pixel 2D context that composites premultiplied RGBA as a canvas does (source-over and lighter).
-  const px = (r, g, b, a) => ({ width: 1, height: 1, offsetWidth: 1, offsetHeight: 1, px: [r * a, g * a, b * a, a] });
-  const ctx = () => {
-    const c = { buf: [0, 0, 0, 0], globalAlpha: 1, globalCompositeOperation: 'source-over' };
-    c.setTransform = () => {}; c.clearRect = () => { c.buf = [0, 0, 0, 0]; };
-    c.save = c.restore = c.beginPath = c.rect = c.clip = () => {};   // (the old picture covers this pixel)
-    c.drawImage = (img) => {
-      const s = img.px.map((v) => v * c.globalAlpha);
-      c.buf = c.globalCompositeOperation === 'lighter' ? c.buf.map((v, i) => Math.min(1, v + s[i])) : c.buf.map((v, i) => s[i] + v * (1 - s[3]));
-    };
-    return c;
-  };
-  const glow = px(1, 0.8, 0.3, 0.4);   // (the same translucent glow before and after: nothing should change)
-  for (const u of [0, 0.25, 0.5, 0.75, 1]) {
-    const c = ctx();
-    mixInto(c, { width: 1, height: 1 }, glow, glow, fadeAlpha(u), null);
-    c.buf.forEach((v, i) => assert.ok(Math.abs(v - glow.px[i]) < 1e-9, `u ${u}: channel ${i} ${v} vs ${glow.px[i]}`));
-  }
-  // And between two pictures the result is the weighted sum, never more than either at full.
-  const a = px(1, 1, 1, 0.3), b = px(1, 1, 1, 0.6), c = ctx();
-  mixInto(c, { width: 1, height: 1 }, a, b, 0.5, null);
-  assert.ok(Math.abs(c.buf[3] - 0.45) < 1e-9);
-});
-
-// (Review, 30 Oct: where the moved old picture no longer reaches, the new one was drawn at 1 − a only, so the page showed through.)
-test('res-fade: outside the old picture the new one is drawn whole; the mix grows to the sharper picture', () => {
-  const rf = src('res-fade.js');
-  const mix = rf.slice(rf.indexOf('export function mixInto('), rf.indexOf('function end('));
-  assert.ok(mix.indexOf('c.drawImage(canvas, 0, 0, cv.width, cv.height);') < mix.indexOf('c.clip()'), 'the new picture whole first');
-  assert.match(mix, /c\.rect\(0, 0, w, h\); c\.clip\(\);/, 'then the mix only inside the old picture, where it is now');
-  assert.ok(mix.indexOf('c.clip()') < mix.indexOf('c.globalAlpha = a;'));
-  assert.match(rf, /if \(canvas\.width > f\.cv\.width \|\| canvas\.height > f\.cv\.height\) \{ f\.cv\.width = Math\.max/);
+// (Mohammad, 30 Oct: the figure brightened mid-fade. The mix weights old and new a and 1 − a, adding to exactly 1: since 1 Nov it is
+// made only on the GPU, a constant-alpha blend inside the canvas's presents, the new picture whole outside the old one's rectangle.)
+test('res-fade mixes old × a + new × (1 − a) on the GPU, the new picture whole outside the old one', () => {
+  const gl = src('res-fade-gl.js');
+  assert.match(gl, /gl\.blendColor\(0, 0, 0, a\); gl\.blendFunc\(gl\.CONSTANT_ALPHA, gl\.ONE_MINUS_CONSTANT_ALPHA\);/);
+  assert.ok(!/mixInto|drawImage/.test(src('res-fade.js')), 'no 2D mix left');
 });
 
 test('Adapt learns the screen again: after a few moves at 60 a second, 60 is the pace, and the figure steps back up', () => {
@@ -277,7 +247,7 @@ test('A dive takes the canvas over at once from a resolution fade', () => {
   const fade = stage.slice(stage.indexOf('function setDiveFade('), stage.indexOf('function setDiveFade(') + 600);
   assert.ok(fade.indexOf('fadeStop(vCanvas)') > 0 && fade.indexOf('fadeStop(vCanvas)') < fade.indexOf('for (const el of diveEls())'));
   assert.match(stage, /el\.style\.transformOrigin = o; \}\n\s*fadeStop\(vCanvas\);/);
-  assert.match(src('res-fade.js'), /export function fadeStop\(canvas\) \{ const f = fades\.get\(canvas\); if \(f\) \(f\.gpu \? endGpu : end\)\(canvas, f\); \}/);
+  assert.match(src('res-fade.js'), /export function fadeStop\(canvas\) \{ const f = fades\.get\(canvas\); if \(f\) endGpu\(canvas, f\); \}/);
 });
 
 test('Auto keeps its step near an edge: no flip between 75% and 50% when the zoom is let go about 2×', () => {

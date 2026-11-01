@@ -1,5 +1,4 @@
 // Debug overlay: FPS and frame time, zoom, pixel ratio and build. Off by default; choices persist.
-import { cssVar, cssAlpha } from './util.js?v=c8ef361fbc';
 import { gpuProbe } from './gpu-probe.js?v=625c2c9315';
 import { finalFrameFor, cancelFrame } from './frame.js?v=15d5254a2c';
 // (The overlay's loop goes through the app's one frame scheduler, last in each frame, never a requestAnimationFrame of its own.)
@@ -14,7 +13,7 @@ try { st = asked ? JSON.parse(localStorage.getItem(KEY) || '{}') || {} : {}; } c
 let stamps = [], cv = null, hist = [], el = null, raf = 0, last = 0, fps = 0, ms = 0, getZoom = null;
 // GPU time per step (gpu-probe.js): each frame's interval with the steps' times in it; the slowest in the last 10 s stays shown.
 let frames = [], prevT = 0;
-const WORST_MS = 10000, SLOW_MS = 50;
+const WORST_MS = 10000, SLOW_MS = 50, GRAPH_N = 150;
 const sumFrames = (fs) => { const parts = {}; for (const f of fs) for (const [k, v] of Object.entries(f.parts)) parts[k] = (parts[k] || 0) + v; return { dt: fs.reduce((a, f) => a + f.dt, 0), parts }; };
 // (What the steps leave of the frame is the rest of the page: its other script, style, layout, painting and compositing.)
 const stepsText = (f) => Object.entries({ ...f.parts, 'rest of page': Math.max(0, f.dt - Object.values(f.parts).reduce((a, b) => a + b, 0)) }).filter(([, v]) => v >= 0.05).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(' · ') || 'none';
@@ -37,7 +36,22 @@ function sync() {
     el.setAttribute('aria-hidden', 'true');
     document.body.append(el);
   }
-  if (st.graph && !cv) { cv = document.createElement('canvas'); cv.width = 240; cv.height = 40; cv.style.cssText = 'display:block;margin-top:4px'; el.append(cv); }
+  if (st.graph && !cv) {
+    cv = document.createElement('div');
+    cv.style.cssText = 'position:relative;width:240px;height:40px;margin-top:4px;overflow:hidden';
+    cv.bars = []; cv.lines = [];
+    for (let i = 0; i < GRAPH_N; i++) {
+      const b = document.createElement('i');
+      b.style.cssText = `position:absolute;left:${(i * 240 / GRAPH_N).toFixed(2)}px;bottom:1px;width:${(240 / GRAPH_N).toFixed(2)}px;height:38px;background:var(--debug-line);transform-origin:50% 100%;transform:scaleY(0)`;
+      cv.bars.push(b); cv.append(b);
+    }
+    for (let i = 0; i < 3; i++) {
+      const ln = document.createElement('i');
+      ln.style.cssText = 'position:absolute;left:0;bottom:1px;width:240px;height:1px;background:rgb(var(--white-rgb) / .25)';
+      cv.lines.push(ln); cv.append(ln);
+    }
+    el.append(cv);
+  }
   if (!st.graph && cv) { cv.remove(); cv = null; }
   if (!raf && !document.hidden) { last = performance.now(); prevT = 0; stamps = []; raf = nextFrame(tick); }
 }
@@ -55,7 +69,7 @@ function tick(t) {
   if (t - last < 100) return;
   last = t;
   fps = stamps.length > 1 ? ((stamps.length - 1) * 1000) / (t - stamps[0]) : 0; ms = fps ? 1000 / fps : 0;
-  hist.push(fps); if (hist.length > 150) hist.shift();
+  hist.push(fps); if (hist.length > GRAPH_N) hist.shift();
   const L = [];
   if (st.fps) L.push(`${fps.toFixed(0)} fps · ${ms.toFixed(1)} ms`);
   if (st.zoom) { let z = ''; try { z = getZoom ? Number(getZoom()).toFixed(2) : ''; } catch { /* no stage yet */ } L.push(`zoom ${z}×`); }
@@ -74,14 +88,14 @@ function tick(t) {
     tn.nodeValue = L.join('\n');
   }
   if (cv) {
-    // (The scale tops at 120 once a frame rate over 60 has been seen in the window, so a ProMotion screen's 120 shows as 120.)
-    const top = hist.some((v) => v > 66) ? 120 : 60, g = cv.getContext('2d'), Y = (f) => 40 - Math.min(f, top) * (38 / top) - 1;
-    g.clearRect(0, 0, 240, 40);
-    g.strokeStyle = cssAlpha('--white', 0.25); g.lineWidth = 1; g.beginPath();
-    for (const f of top > 60 ? [30, 60, 120] : [30, 60]) { g.moveTo(0, Y(f)); g.lineTo(240, Y(f)); }
-    g.stroke();
-    g.strokeStyle = cssVar('--debug-line'); g.lineWidth = 1.5; g.beginPath();
-    hist.forEach((v, i) => { const x = (i / 149) * 240; i ? g.lineTo(x, Y(v)) : g.moveTo(x, Y(v)); });
-    g.stroke();
+    // The frame graph as 150 bars and three lines moved by transforms only (no canvas drawn, no style read): each bar's scaleY is its
+    // frame rate over the scale's top. (The scale tops at 120 once a frame rate over 60 has been seen in the window, so a ProMotion
+    // screen's 120 shows as 120.)
+    const top = hist.some((v) => v > 66) ? 120 : 60, off = GRAPH_N - hist.length;
+    for (let i = 0; i < GRAPH_N; i++) {
+      const v = i < off ? 0 : hist[i - off], k = (Math.min(v, top) / top).toFixed(3);
+      if (cv.bars[i].k !== k) { cv.bars[i].k = k; cv.bars[i].style.transform = `scaleY(${k})`; }
+    }
+    [30, 60, 120].forEach((f, i) => { const ln = cv.lines[i], y = `translateY(${(-38 * Math.min(f, top) / top).toFixed(1)}px)`, o = f > top ? '0' : '1'; if (ln.y !== y) { ln.y = y; ln.style.transform = y; } if (ln.o !== o) { ln.o = o; ln.style.opacity = o; } });
   }
 }

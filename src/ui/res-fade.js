@@ -1,19 +1,10 @@
 // Every change of a figure canvas's resolution eases (Mohammad, 30 Oct: "everything should transition ease nothing snaps"): the
-// picture as it stood is kept, the canvas is resized and drawn again, and for FADE_MS a canvas laid over it shows the two mixed,
-// old × a + new × (1 − a) ('lighter' adds premultiplied pixels exactly), while the canvas itself is hidden under it. Laying the old
-// copy over the new one instead brightened every translucent pixel mid-fade (glows, organs: each showed through the other; his
-// 30 Oct report), so the mix is made in one canvas and the sum of the two weights is always 1. follow() (optional) gives the old
-// picture's transform each frame ([a, b, c, d, e, f], CSS px), so it moves with a view that moves meanwhile (stage.js). A second
-// change while one still fades starts from the mix as it shows, so neither picture jumps.
-// The canvas is hidden and shown again with its CSS opacity transition held off (app.css eases every canvas of the stage over
-// .25 s): eased, it went on showing under the mix as the fade began, and at the end, with the mix gone, it came back up from 0,
-// so the figure blinked out and in at every change (Mohammad, 30 Oct: "it flashes whenever it switches resolution"). The mix is
-// moved by the canvas's own sub-pixel translate (stage.js subPixel), so neither picture shifts as the mix comes and goes, and it
-// is drawn in the frame's final phase, after the figure's own pass, so the new picture in it is this frame's. A canvas that keeps no
-// picture of its own between frames (the vessel canvas: veins-gl OWN_BUF) passes capture, which puts its whole current picture back
-// on it just before each read, so a frame the figure did not draw in still mixes the picture, not an empty buffer.
+// picture as it stood is kept and, for FADE_MS, mixed into what the canvas draws next as old × a + new × (1 − a), the sum of the two
+// weights always 1 (laying the old copy over the new one brightened every translucent pixel mid-fade, his 30 Oct report). follow()
+// (optional) gives the old picture's transform each frame ([a, b, c, d, e, f], CSS px), so it moves with a view that moves meanwhile
+// (stage.js). A second change while one still fades starts from the mix as it shows, so neither picture jumps. Since 1 Nov the mix is
+// made only on the GPU, inside the canvas's own presents (res-fade-gl.js); the canvas stays shown, so its opacity is never touched.
 import { finalFrameFor, noteDraw } from './frame.js?v=15d5254a2c';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { D_SURFACE } from './ease.js?v=fc509dabe4';
 import { keepOnGpu } from './res-fade-gl.js?v=37c4818df3';
 
@@ -22,11 +13,11 @@ export const FADE_MS = D_SURFACE;
 export const fadeAlpha = (u) => { const t = Math.min(1, Math.max(0, u)); return 1 - t * t * (3 - 2 * t); };
 
 const late = finalFrameFor('res-fade');
-// (Since 1 Nov 2026 (Mohammad: "Move everything to GPU") a canvas whose renderer lays things over its own presents (host: veins-gl top)
-// fades on the GPU (res-fade-gl.js): the picture before copied once inside the GPU and mixed in at each present, the canvas left
-// shown, nothing read back. ?fadegpu=0: the 2D mix below, as before.)
-const GPU_FADE = !(typeof location !== 'undefined' && /[?&]fadegpu=0\b/.test(location.search || ''));
-const fades = new Map();   // canvas → { cv (shown: the mix), old (the picture before), t0, follow, at (the translate it showed at), tr (the canvas's own inline transition), capture }
+// (Since 1 Nov 2026 (Mohammad: "Move everything to GPU") the fade runs only on the GPU (res-fade-gl.js): the picture before copied once
+// inside the GPU and mixed in at each present of the canvas's own renderer (host: veins-gl top), the canvas left shown, nothing read
+// back. The 2D mix (a WebGL canvas copied into a 2D canvas twice a frame) is gone, ?fadegpu=0 with it: a canvas with no such renderer
+// (no WebGL, a lost context) takes its new resolution at once.)
+const fades = new Map();   // canvas → { gpu, t0, follow, at (the translate it showed at), capture, w, h (its CSS box) }
 
 /** A CSS `translate` value as [x, y] px ('' is none). */
 export const translateOf = (v) => { const [x = 0, y = 0] = String(v || '').trim().split(/\s+/).filter(Boolean).map((t) => parseFloat(t) || 0); return [x, y]; };
@@ -36,57 +27,41 @@ export function oldPlace(m, at, now) {
   const [a, b, c, d, e, f] = m || [1, 0, 0, 1, 0, 0];
   return [a, b, c, d, a * at[0] + c * at[1] + e - now[0], b * at[0] + d * at[1] + f - now[1]];
 }
-/** Sets an element's opacity at once, its CSS transition held off for that change only (the style is read in between, so the change
- *  is taken with no transition, and putting the transition back starts none). */
-export function snapOpacity(el, v, tr = el.style.transition) {
-  el.style.transition = 'none';
-  el.style.opacity = v;
-  void getComputedStyle(el).opacity;
-  el.style.transition = tr;
-}
 let asked = false;
-
-/** One frame of the mix: the canvas as drawn now, and where the old picture (moved by follow) still lies, old × a + new × (1 − a).
- *  (Outside it, at the edge a pan or a zoom out uncovers, the new picture is drawn whole: weighted 1 − a there with nothing to add,
- *  it let the page show through, brighter in the light theme.) */
-export function mixInto(c, cv, old, canvas, a, m) {
-  const w = canvas.offsetWidth || cv.width, h = canvas.offsetHeight || cv.height, sx = cv.width / w, sy = cv.height / h;
-  c.setTransform(1, 0, 0, 1, 0, 0);
-  c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
-  c.clearRect(0, 0, cv.width, cv.height);
-  c.drawImage(canvas, 0, 0, cv.width, cv.height);
-  if (a <= 0) return;
-  const [ma, mb, mc, md, me, mf] = m || [1, 0, 0, 1, 0, 0];
-  c.save();
-  c.setTransform(sx * ma, sy * mb, sx * mc, sy * md, sx * me, sy * mf);
-  c.beginPath(); c.rect(0, 0, w, h); c.clip();   // (the old picture's own rectangle, where it is now)
-  c.setTransform(1, 0, 0, 1, 0, 0);
-  c.clearRect(0, 0, cv.width, cv.height);
-  c.globalAlpha = a;
-  c.setTransform(sx * ma, sy * mb, sx * mc, sy * md, sx * me, sy * mf);
-  c.drawImage(old, 0, 0, w, h);
-  c.setTransform(1, 0, 0, 1, 0, 0);
-  if (a < 1) { c.globalCompositeOperation = 'lighter'; c.globalAlpha = 1 - a; c.drawImage(canvas, 0, 0, cv.width, cv.height); }
-  c.restore();
-  c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
-}
 
 function endGpu(canvas, f) {
   f.gpu.remove(); fades.delete(canvas);
   try { if (canvas.isConnected) f.capture?.(); } catch { /* (a lost context: nothing to lay) */ }   // (the picture alone, at once)
 }
-// The fade on the GPU (see GPU_FADE). False when it cannot be made (the 2D mix is used).
-function gpuFadeOver(canvas, follow, capture, host) {
+
+function step() {
+  asked = false;
+  const now = performance.now();
+  for (const [canvas, f] of fades) {
+    const u = (now - f.t0) / FADE_MS;
+    if (u >= 1 || !canvas.isConnected) { endGpu(canvas, f); continue; }
+    f.gpu.set(fadeAlpha(u), oldPlace(f.follow?.(), f.at, translateOf(canvas.style.translate)), f.w, f.h);
+    try { f.capture?.(); } catch { endGpu(canvas, f); continue; }
+    noteDraw('res-fade');
+  }
+  if (fades.size) { asked = true; late(step); }
+}
+
+/** Keeps canvas's picture and shows it mixed into what the canvas is drawn next, on the GPU; call it just before the canvas is resized.
+ *  follow (optional): the old picture's transform each frame. capture (optional): puts the canvas's whole current picture on it, called
+ *  just before each read. host: the canvas's own renderer's { gl, canvas, add } (veins-gl top). box: the canvas's CSS size { w, h },
+ *  as its owner last laid it out (no layout is read here). Without a host the change is taken at once. */
+export function fadeOver(canvas, follow = null, capture = null, host = null, box = null) {
+  if (!host?.gl || host.canvas !== canvas || !canvas?.isConnected || canvas.width < 2 || canvas.height < 2) return;
+  const w = box?.w, h = box?.h;
+  if (!(w > 0 && h > 0)) return;
   const was = fades.get(canvas);
-  if (was && !was.gpu) return false;
   // (The picture before: the canvas as presented now, with the mix still under way when one is.)
-  try { capture?.(); } catch { return false; }
+  try { capture?.(); } catch { return; }
   const keep = keepOnGpu(host);
-  // (Its program still compiling (res-fade-gl warmFade): the new picture comes in as it is, with no frame waiting on the compile.)
-  if (keep === false) return true;
-  if (!keep) return false;
+  // (Its program still compiling (res-fade-gl warmFade), or a context that cannot: the new picture comes in as it is, no frame waits.)
+  if (!keep) return;
   if (was) was.gpu.remove();
-  const w = canvas.offsetWidth, h = canvas.offsetHeight;
   const f = { gpu: keep, t0: performance.now(), follow, at: translateOf(canvas.style.translate), capture, w, h };
   keep.set(1, null, w, h);
   fades.set(canvas, f);
@@ -96,95 +71,19 @@ function gpuFadeOver(canvas, follow, capture, host) {
     try { keep.draw(1, oldPlace(null, f.at, translateOf(canvas.style.translate)), w, h, true); } catch { /* (a lost context) */ }
   });
   if (!asked) { asked = true; late(step); }
-  return true;
 }
 
-function end(canvas, f) { f.cv.remove(); f.cv.width = f.cv.height = 1; f.old.width = f.old.height = 1; snapOpacity(canvas, '', f.tr); fades.delete(canvas); }
-
-function step() {
-  asked = false;
-  const now = performance.now();
-  for (const [canvas, f] of fades) {
-    const u = (now - f.t0) / FADE_MS;
-    if (f.gpu) {
-      if (u >= 1 || !canvas.isConnected) { endGpu(canvas, f); continue; }
-      f.gpu.set(fadeAlpha(u), oldPlace(f.follow?.(), f.at, translateOf(canvas.style.translate)), f.w, f.h);
-      try { f.capture?.(); } catch { endGpu(canvas, f); continue; }
-      noteDraw('res-fade');
-      continue;
-    }
-    if (u >= 1 || !canvas.isConnected) { end(canvas, f); continue; }
-    // (As many pixels as the sharper of the two pictures: a fade up to a finer canvas shows its detail all the way, not at the end.)
-    if (canvas.width > f.cv.width || canvas.height > f.cv.height) { f.cv.width = Math.max(f.cv.width, canvas.width); f.cv.height = Math.max(f.cv.height, canvas.height); }
-    const tr = canvas.style.translate || '';
-    if (f.cv.style.translate !== tr) f.cv.style.translate = tr;
-    try { f.capture?.(); mixInto(f.c, f.cv, f.old, canvas, fadeAlpha(u), oldPlace(f.follow?.(), f.at, translateOf(tr))); } catch { end(canvas, f); continue; }
-    noteDraw('res-fade');
-    if (gpuProbe.on) gpuProbe.note(COUNTED.fadeCopy, f.cv.width * f.cv.height * 4 / 1024);
-  }
-  if (fades.size) { asked = true; late(step); }
-}
-
-/** Keeps canvas's picture and shows it mixed into what the canvas is drawn next; call it just before the canvas is resized.
- *  capture (optional): puts the canvas's whole current picture on it, called just before each read of the canvas.
- *  host (optional): the canvas's own renderer's { gl, canvas, add } (veins-gl top): the fade is then done on the GPU (GPU_FADE). */
-export function fadeOver(canvas, follow = null, capture = null, host = null) {
-  if (!canvas?.isConnected || canvas.width < 2 || canvas.height < 2 || !canvas.offsetWidth) return;
-  if (GPU_FADE && host?.gl && host.canvas === canvas && gpuFadeOver(canvas, follow, capture, host)) return;
-  const was = fades.get(canvas);
-  // (The picture before: the mix on screen while a fade still runs, else the canvas.)
-  const src = was ? was.cv : canvas;
-  const at = translateOf(src.style.translate);   // (where the picture before shows: the canvas's, or the mix's, sub-pixel translate)
-  const old = document.createElement('canvas');
-  old.width = src.width; old.height = src.height;
-  if (!was) try { capture?.(); } catch { /* (a lost context: the canvas is read as it is) */ }
-  try { old.getContext('2d').drawImage(src, 0, 0); } catch { return; }   // (a canvas that cannot be read: it changes as it is)
-  if (gpuProbe.on) gpuProbe.note(COUNTED.fadeCopy, old.width * old.height * 4 / 1024);
-  let f = was;
-  if (!f) {
-    const cv = document.createElement('canvas');
-    cv.className = 'res-fade'; cv.setAttribute('aria-hidden', 'true');
-    Object.assign(cv.style, { position: 'absolute', left: `${canvas.offsetLeft}px`, top: `${canvas.offsetTop}px`, width: `${canvas.offsetWidth}px`,
-      height: `${canvas.offsetHeight}px`, pointerEvents: 'none', zIndex: getComputedStyle(canvas).zIndex });
-    f = { cv, c: cv.getContext('2d'), old: null, t0: 0, follow, at, tr: canvas.style.transition, capture };
-    canvas.after(cv);
-  } else f.old.width = f.old.height = 1;
-  f.cv.width = old.width; f.cv.height = old.height;
-  f.old = old; f.t0 = performance.now(); f.follow = follow; f.at = at; f.capture = capture;
-  f.cv.style.translate = src.style.translate || '';
-  mixInto(f.c, f.cv, old, canvas, 1, null);   // (the old picture alone, until the first frame of the fade)
-  // (Hidden under the mix at once, never eased; its buffer is still drawn and read.)
-  if (!was) { canvas.style.transition = 'none'; canvas.style.opacity = '0'; void getComputedStyle(canvas).opacity; }
-  fades.set(canvas, f);
-  if (!asked) { asked = true; late(step); }
-}
-
-/** Ends a fade over canvas at once: the mix goes and the canvas shows (a dive taking the canvas over). */
-export function fadeStop(canvas) { const f = fades.get(canvas); if (f) (f.gpu ? endGpu : end)(canvas, f); }
-/** Whether the fade over canvas runs on the GPU (inside its own presents). */
-export const fadingOnGpu = (canvas) => !!fades.get(canvas)?.gpu;
+/** Ends a fade over canvas at once (a dive taking the canvas over). */
+export function fadeStop(canvas) { const f = fades.get(canvas); if (f) endGpu(canvas, f); }
+/** Whether the fade over canvas runs on the GPU (inside its own presents): always, now. */
+export const fadingOnGpu = (canvas) => fades.has(canvas);
 
 /** Whether a mix is still showing over canvas (for tests). */
 export const fading = (canvas) => fades.has(canvas);
 
 // The lobule and the sinusoid (30 Oct, Mohammad: "when I check manual 25% for example the lobule doesn't change"): a change made
-// while either shows is taken up at once, under the same FADE_MS ease. Their GPU canvases keep no picture after the frame they are
-// drawn in, so the picture before is copied in the frame that draws it, never from a Settings click (lobule-zoom.js resSwap,
-// sinusoid-view.js svSwap).
-/** The layers that show, stacked into cv as the page stacks them (each stretched over the whole box, as its CSS stretches it).
- *  Skipped: a canvas out of the page, with no pixels, or hidden by its inline opacity or visibility. False when none shows or one
- *  cannot be read. */
-export function stackInto(cv, layers) {
-  const shown = layers.filter((l) => l?.isConnected && l.width > 0 && l.height > 0 && l.style.opacity !== '0' && l.style.visibility !== 'hidden');
-  if (!shown.length) return false;
-  cv.width = Math.max(...shown.map((l) => l.width)); cv.height = Math.max(...shown.map((l) => l.height));
-  const c = cv.getContext('2d');
-  c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
-  c.clearRect(0, 0, cv.width, cv.height);
-  try { for (const l of shown) c.drawImage(l, 0, 0, cv.width, cv.height); } catch { return false; }
-  if (gpuProbe.on) gpuProbe.note(COUNTED.fadeCopy, cv.width * cv.height * 4 * shown.length / 1024);
-  return true;
-}
+// while either shows is taken up at once, under the same FADE_MS ease, on the GPU (lobule-zoom.js resSwap with res-cover-gl.js,
+// sinusoid-view.js svSwap with sinusoid-gl.js keep/mix).
 /** The CSS transform that carries a picture drawn at view v0 ({ k, x, y }: screen = world × k + (x, y)) to where view v puts it
  *  ('' when the view has not moved). With transform-origin 0 0. */
 export function viewFollow(v0, v) {
