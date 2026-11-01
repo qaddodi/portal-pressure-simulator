@@ -11,8 +11,8 @@
 // and a context that is handed one in place of a canvas makes its texture from the record (isGpuPicture), the first time it is drawn.
 // No 2D context, no drawImage and no pixel read anywhere (the owner, 1 Nov 2026: "block everything until everything is on GPU").
 
-import { cssColor } from './css-color.js?v=0000000000';
-import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=388052eba8';
+import { cssColor } from './css-color.js?v=e56f0c77ae';
+import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
 
 const TAU = Math.PI * 2;
 const TOL = 0.2;   // (curves flattened to within 0.2 device px)

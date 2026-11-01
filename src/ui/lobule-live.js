@@ -7,7 +7,7 @@
 // disorder), the nutmeg, the zones, and the limiting plate's hairline. A state with anything else in it (the collagen of fibrosis, the
 // stellate cells, septa, tracts, the central vein's cuff) is drawn from the bitmap, as before, until the shader draws that too.
 
-import { fibHash, bandGeom, bandFibre, bandFibreCount, bandNucleiCount, bandNucleus, scarGrowth } from './lobule-paint.js?v=f6e22a327b';
+import { fibHash, bandGeom, bandFibre, bandFibreCount, bandNucleiCount, bandNucleus, scarGrowth } from './lobule-paint.js?v=ccb5ac5fe2';
 
 export const BIN = 16;          // a bin's side, world units
 export const CELLS_PER_ROW = 512;   // the cell texture: three texels a cell, so 1536 wide

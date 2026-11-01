@@ -14,8 +14,8 @@
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=e48e05cdb3';
 import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=d1fb535a12';
 import { isTileCopy, createTileCopier } from './tile-gl.js?v=65ea6bb117';
-import { isGpuPicture, paintGL } from './paint-gl.js?v=0000000000';
-import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=624ae21d7d';
+import { isGpuPicture, paintGL } from './paint-gl.js?v=3fb6599f48';
+import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=f100c25e77';
 
 const VS = `#version 300 es
 in vec2 p;
