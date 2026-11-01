@@ -277,3 +277,33 @@ test('a question over the menu: its letters stay in the dialog, Tab stays in it,
   assert.match(p, /const named = await askText\(\{ title: 'Add this state as a slide'[^\n]*\n\s*if \(!named\) return;/);
   assert.ok(!/\)\) \|\| step\.title;/.test(p), 'a cancelled name no longer falls back to the default title and adds the slide');
 });
+
+test('a tooltip is measured by its layout size and shown only once its side is set, so it eases in from its own button', () => {
+  const u = read('src/ui/util.js');
+  const at = u.indexOf('export function tooltipFor');
+  const body = u.slice(at, at + 2600);
+  assert.match(body, /const tr = \{ width: tip\.offsetWidth, height: tip\.offsetHeight \};/, 'the hidden state\'s scale does not shrink what is measured');
+  assert.ok(body.indexOf('tip.dataset.side = at') < body.indexOf("tip.classList.add('show')"), 'side first, then .show starts the transition');
+  assert.equal((body.match(/classList\.add\('show'\)/g) || []).length, 1);
+});
+
+test('the organs with a look of their own keep it over the general organ lines: the right atrium faint, the kidney heavier', () => {
+  const css = read('styles/app.css');
+  const general = css.indexOf('.organ .org-line { stroke-opacity: .62; stroke-width: 1.1; }');
+  assert.ok(general > 0);
+  for (const rule of [
+    '.organ-heart-ra .org-line { stroke-opacity: .35; }',
+    '.organ-heart-ra .org-rimlight { stroke-opacity: .2; }',
+    '.organ-heart-ra .org-shade.s1, .organ-heart-ra .org-shade.s2, .organ-heart-ra .org-shade.s3 { stroke-opacity: .05; }',
+    '.organ-kidney-l .org-line { stroke-width: 1.4; stroke-opacity: .95; }',
+  ]) assert.ok(css.lastIndexOf(rule) > general, `${rule} comes after the general rule it overrides`);
+});
+
+test('the overlays are drawn again when the spleen\'s size moves (infarcted patches) or a lesioned collateral coils (its marks)', () => {
+  const s = read('src/ui/stage.js');
+  const at = s.indexOf('function overlayInputs');
+  const key = s.slice(at, at + 3600);
+  assert.match(key, /p\.splenicRx === 1 \? hold\('sp', f\.slow\.spleen \/ 11, 0\.02\) : 0/, 'the patches ride the organ\'s size');
+  assert.match(key, /geo\[id\]\?\.wig \? hold\(`g\$\{id\}`, geo\[id\]\.wig, 0\.5\) : 0/, 'a mark follows the path its collateral has now');
+  assert.ok(!/geometryVersion/.test(key), 'not on every geometry change: that rebuilt the marks several times a second (d3828608)');
+});

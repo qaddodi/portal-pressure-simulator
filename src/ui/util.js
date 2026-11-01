@@ -216,8 +216,9 @@ export function tooltipFor(el, text, side = 'right') {
     const r = el.getBoundingClientRect();
     const v = typeof text === 'function' ? text() : text;
     tip.replaceChildren(typeof v === 'object' ? [v.text, v.key ? h('kbd', {}, v.key) : null] : v);
-    tip.classList.add('show');
-    const tr = tip.getBoundingClientRect();
+    // (Measured by its layout size, which the hidden state's scale does not touch; and shown only once its side is set, so it eases in from
+    // this button's side, not from the previous tip's: the transition starts when .show is added.)
+    const tr = { width: tip.offsetWidth, height: tip.offsetHeight };
     // A side that would run off the window takes the opposite one (a top-bar button's tip had sat on its own button when
     // 'top' ran off; a timeline tip clipped at a short window's foot), and the tip rises from the side it came from.
     let x, y, at = side;
@@ -232,6 +233,7 @@ export function tooltipFor(el, text, side = 'right') {
     }
     tip.dataset.side = at;
     tip.style.left = clamp(x, 8, innerWidth - tr.width - 8) + 'px'; tip.style.top = clamp(y, 8, innerHeight - tr.height - 8) + 'px';
+    tip.classList.add('show');
   };
   const hide = () => tip.classList.remove('show');
   el.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch') show(); });

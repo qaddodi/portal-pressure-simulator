@@ -39,18 +39,18 @@
 // has recorded (backfill.js), so the trace sweeps on live from there instead of in from empty.
 
 import { store } from './store.js?v=80d4358be8';
-import { h } from './util.js?v=191af24263';
+import { h } from './util.js?v=5300d2ce2f';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=f00c0c1638';
-import { createFibroScan } from './fibroscan.js?v=a872c1d110';
-import { createPressureTime } from './pressure-time.js?v=e2bd2402da';
-import { createVitalsMonitor } from './vitals-monitor.js?v=fbb3438549';
-import { createHvpgCard } from './tool-hvpg.js?v=1c8916df9d';
+import { createDoppler } from './doppler.js?v=aacb5e7a51';
+import { createFibroScan } from './fibroscan.js?v=1d7c1fbc60';
+import { createPressureTime } from './pressure-time.js?v=c7260794df';
+import { createVitalsMonitor } from './vitals-monitor.js?v=08fec6a5f0';
+import { createHvpgCard } from './tool-hvpg.js?v=b51c5be590';
 import { createFlowTime } from './flow-time.js?v=665223a4a5';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=fb191971f0';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=ed3155c1e7';
 import { frameFor, cancelFrame } from './frame.js?v=6a53e5fc6e';
-import { talkTrace } from './talk-trace.js?v=a6d8e22700';
-import { EXT, guard, safe } from './slide-ext.js?v=983059986f';
+import { talkTrace } from './talk-trace.js?v=333f81b73b';
+import { EXT, guard, safe } from './slide-ext.js?v=46ebcdfd27';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',

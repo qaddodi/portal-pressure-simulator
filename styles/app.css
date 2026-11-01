@@ -3047,6 +3047,12 @@ button.finding { cursor: pointer; }
 .organ .org-shade.s3 { stroke-opacity: .24; }
 .organ .org-rimlight { stroke-opacity: .58; }
 .organ .org-line { stroke-opacity: .62; stroke-width: 1.1; }
+/* (The organs with a look of their own keep it over the general turn above, as they did before it: the right atrium's faint rim and line, no
+   inner shade of its own, and the kidney's heavier outline, Mohammad's 21 Oct request. Same specificity, so they come after it.) */
+.organ-heart-ra .org-line { stroke-opacity: .35; }
+.organ-heart-ra .org-rimlight { stroke-opacity: .2; }
+.organ-heart-ra .org-shade.s1, .organ-heart-ra .org-shade.s2, .organ-heart-ra .org-shade.s3 { stroke-opacity: .05; }
+.organ-kidney-l .org-line { stroke-width: 1.4; stroke-opacity: .95; }
 .action-card.docked [data-key]::after, .action-card.docked .ac-slider[data-key]::after { display: none; }
 /* Every live number uses tabular figures, so digits hold still as the model runs. */
 .metric,
