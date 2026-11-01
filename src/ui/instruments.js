@@ -18,6 +18,7 @@ import { FONT } from './charts.js?v=6a7a378639';
 import { store, updateParams, varicesPresent } from './store.js?v=4ef2a6ffd8';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
 import { lateFrameFor, cancelFrame, framePhase } from './frame.js?v=7710f677e2';
+import { restPass } from './rest-pass.js?v=bf0c42ead5';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
 const drawFrame = lateFrameFor('instruments');
 
@@ -341,7 +342,11 @@ export function createVarixWall() {
     wPin = !Number.isFinite(x) ? NaN : Number.isFinite(wPin) && now - wPinT < 1000 ? wPin + (x - wPin) * 0.35 : x;
     wPinT = now;
   }
+  let lastF = null;
+  // (The card's type size for the picture's labels: read between frames, never in one; a new size draws again.)
+  const readFs = () => { cv._fsAsk = 0; if (!cv.isConnected) return; cv._fsKey = cv._fsWant; const was = cv._fs; cv._fs = parseFloat(getComputedStyle(cv).fontSize) || 12; if (cv._fs !== was && lastF) update(lastF); };
   function update(f) {
+    lastF = f;
     const v = f.metrics.varix;
     const wr = wallRead(v);   // (the index is worked out from the shown ΔP, r and w, so the tiles multiply out)
     set(ptm.v, wr.ptm); set(rad.v, wr.r); set(wal.v, wr.w); set(idx.v, wr.index);
@@ -364,7 +369,10 @@ export function createVarixWall() {
     if (w < 32 || hh < 32) return;
     ctx.clearRect(0, 0, w, hh);
     // (On a slide the labels take the card's small size, so they never fall under 12 px; 12 px is the floor in the Tests card too.)
-    const fs = cv.closest('.pz-tool') ? parseFloat(getComputedStyle(cv).fontSize) || 12 : clamp((Math.min(w, hh) / 2 - 6) / 11, 12, 14);
+    // (The card's type size is read between frames, rest-pass.js, when the picture's size changes; drawn meanwhile at the last one read.)
+    const onCard = !!cv.closest('.pz-tool'), fk = `${w}x${hh}`;
+    if (onCard && cv._fsKey !== fk && !cv._fsAsk) { cv._fsWant = fk; cv._fsAsk = restPass(readFs); }
+    const fs = onCard ? cv._fs || 12 : clamp((Math.min(w, hh) / 2 - 6) / 11, 12, 14);
     const f6 = FONT(600, fs), f5 = FONT(500, fs), inkT = inkRows(f6, 'σ');
     const cx = w / 2;
     // The varix and its marks for a picture of radius R round (cx, cy), at this beat's radius, wall and ΔP.

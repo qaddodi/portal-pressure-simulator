@@ -204,7 +204,7 @@ export function createHvpgProcedure() {
         vals[k].textContent = txt;
         // The difference arrives after the two readings have settled: it fades and rises in, never pops. (Not a live reading:
         // restarted with every new tenth, its fade held it blank on Mac, iPad and sideways, sweep 2 review item 5.)
-        if (k === 'hvpg' && shown.hvpg && !open) { vals.hvpg.classList.remove('in'); void vals.hvpg.offsetWidth; vals.hvpg.classList.add('in'); }
+        if (k === 'hvpg' && shown.hvpg && !open) { vals.hvpg.classList.remove('in'); nextFrame(() => vals.hvpg.classList.add('in')); }   // (the next frame starts the fade again: no layout forced to restart it)
       }
     }
     // This runs on every model frame: write only what changed. Rewriting the button's label each frame
