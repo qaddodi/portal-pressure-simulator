@@ -3,7 +3,8 @@
 import { host } from './host.js?v=dd95596be7';
 import { h, fmt, svgIcon, visibleBottom, settleFrom, announce } from './util.js?v=e710e031d9';
 import { leaveFromHere } from './menu-leave.js?v=e885166f40';
-import { D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=fc509dabe4';
+import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=fc509dabe4';
+import { glidePlate } from './plate-glide.js?v=f28a1c1e9e';
 
 export function createWhy(pop) {
   let openFor = null, anchorEl = null;
@@ -65,12 +66,17 @@ export function createWhy(pop) {
     place(anchor);
     // The answer takes the waiting lines' place by growing (or shrinking) the card to its height, the words fading in,
     // rather than the card jumping to a new size (P20).
-    const h1 = pop.offsetHeight;
-    if (pop.animate && h0 && Math.abs(h1 - h0) > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      pop.animate([{ height: `${h0}px`, top: t0, overflow: 'hidden' }, { height: `${h1}px`, top: pop.style.top, overflow: 'hidden' }], { duration: D_SMALL, easing: EASE_MOVE });
+    // (By transform: the card takes its new size and place at once and its paper glides there from the old in pieces, plate-glide.js;
+    // nothing is laid out per frame. The words come in as the paper is nearly there, so they never show past it.)
+    const h1 = pop.offsetHeight, glide = pop.animate && h0 && Math.abs(h1 - h0) > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (glide) {
+      glideEnd?.();
+      const w = pop.offsetWidth, dy = (parseFloat(t0) || 0) - (parseFloat(pop.style.top) || 0);
+      glideEnd = glidePlate(pop, { x: 0, y: dy, w, h: h0 }, { x: 0, y: 0, w, h: h1 }, { R: 16, duration: D_SMALL, easing: EASE_MOVE, done: () => { glideEnd = null; } });
     }
-    for (const k of pop.children) if (k.tagName !== 'HEADER') k.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
+    for (const k of pop.children) if (k.tagName !== 'HEADER' && !k.classList.contains('pg-piece')) k.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, delay: glide ? D_FLIP : 0, easing: EASE_ARRIVE, fill: 'backwards' });
   }
+  let glideEnd = null;
   // It fades out as it came in (it vanished in one frame: P20).
   let leaveT = 0;
   function close() {

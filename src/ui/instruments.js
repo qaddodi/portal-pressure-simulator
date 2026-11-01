@@ -358,8 +358,8 @@ export function createVarixWall() {
     const ms = wMean > 1 ? 'critical' : wMean > 0.7 ? 'danger' : wMean > 0.4 ? 'caution' : 'ok';
     set(wPct, String(Math.round(wMean * 100))); set(wSev, WALL_SEV[ms]);
     if (wSev.dataset.sev !== ms) wSev.dataset.sev = wBig.dataset.sev = ms;
-    const wPctW = `${Math.round(clamp(v.ratioShown, 0, 1) * 1000) / 10}%`;
-    if (stressFill.style.width !== wPctW) stressFill.style.width = wPctW;
+    const wPctW = `${Math.round(clamp(v.ratioShown, 0, 1) * 1000) / 10 - 100}% 0px`;   // (slid in from the left inside its track: app.css .endo-bar i)
+    if (stressFill.style.translate !== wPctW) stressFill.style.translate = wPctW;
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 32 || hh < 32) return;
     ctx.clearRect(0, 0, w, hh);
@@ -691,8 +691,8 @@ export function createAbdomen({ onAction }) {
     setText(iapNum, `${fmt(a.iap, 0)} mmHg`);
     setText(iapWord, `· ${a.iap >= 20 ? 'compartment syndrome' : a.iap >= 12 ? 'high' : 'normal'}`);
     setData(iapWord, 'sev', sev); setData(iapFill, 'sev', sev);
-    const iw = `${Math.round(clamp(a.iap / 30, 0, 1) * 1000) / 10}%`;
-    if (iapFill.style.width !== iw) iapFill.style.width = iw;
+    const iw = `${Math.round(clamp(a.iap / 30, 0, 1) * 1000) / 10 - 100}% 0px`;   // (slid in from the left inside its track: app.css .ab-iap-fill)
+    if (iapFill.style.translate !== iw) iapFill.style.translate = iw;
     setAttr(iapBar, 'aria-label', `Abdominal pressure ${fmt(a.iap, 0)} mmHg`);
     // SAAG from the rounded parts, so serum − ascitic always adds up on screen.
     const tapped = a.volume > 150;
@@ -703,8 +703,8 @@ export function createAbdomen({ onAction }) {
     setAttr(tiles, 'data-empty', tapped ? null : '');
     if (hasFluid !== a.volume > 150) { hasFluid = a.volume > 150; paintVol(); }
     // Whole percents only: rewriting the height every frame would keep restarting its ease.
-    const bh = `${Math.round(a.volume > 150 ? 15 + clamp(a.volume / 8000, 0, 1) * 70 : 0)}%`;
-    if (bellyFill.style.height !== bh) bellyFill.style.height = bh;
+    const bh = `0px ${100 - Math.round(a.volume > 150 ? 15 + clamp(a.volume / 8000, 0, 1) * 70 : 0)}%`;   // (risen by sliding up inside the belly: app.css .ab-belly-fill)
+    if (bellyFill.style.translate !== bh) bellyFill.style.translate = bh;
   }
   return { id: 'abdomen', label: 'Ascites & paracentesis', el, update };
 }

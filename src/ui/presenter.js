@@ -30,7 +30,7 @@ import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { createHvpgMonitor } from './hvpg-proc.js?v=d8ba392051';
-import { createTools } from './presenter-tools.js?v=7bf17fada7';
+import { createTools } from './presenter-tools.js?v=f194c3db02';
 import { openHandout } from './handout.js?v=be99975ab1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -4276,6 +4276,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     paintScaleSel(pickedScale(scalePick, i, s));
     placeScales();
   }
+  // The inner pill moves and stretches on the compositor (translate and a horizontal scale of a width laid out once), never a width
+  // eased by layout: its laid-out width is the first word's it stood under, kept until the pill is built again.
+  function pzsThumb(el, on) {
+    const w = on.offsetWidth;
+    if (!el._pzsW0 || el.classList.contains('pzs-new')) { el._pzsW0 = w; el.style.setProperty('--pzs-w0', `${w}px`); }
+    el.style.setProperty('--pzs-x', `${on.offsetLeft}px`);
+    el.style.setProperty('--pzs-s', (w / el._pzsW0).toFixed(4));
+  }
   // The selected word, and the soft inner pill eased under it (as Explore's selection eases from one word to the next).
   function paintScaleSel(k) {
     const el = ui?.scl;
@@ -4284,7 +4292,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A sinusoid slide on a device that cannot draw the wall shows the lobule: camera(). Its pill selects Lobule.)
     const want = k === 'sinusoid' && !el.querySelector('[data-scale="sinusoid"]') ? 'lobule' : k;
     for (const b of el.querySelectorAll('button')) { const yes = b.dataset.scale === want; b.setAttribute('aria-pressed', String(yes)); if (yes) on = b; }
-    if (on) { el.style.setProperty('--pzs-x', `${on.offsetLeft}px`); el.style.setProperty('--pzs-w', `${on.offsetWidth}px`); }
+    if (on) pzsThumb(el, on);
     if (el.classList.contains('pzs-new')) { const nf = frameFor('scale select'); nf(() => nf(() => el.classList.remove('pzs-new'))); }
   }
   function placeScales() {
@@ -4301,7 +4309,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       }
     } else if (ui.bar.offsetWidth) el.style.setProperty('--pzs-r', `${ui.bar.offsetWidth}px`);
     const on = el.querySelector('[aria-pressed="true"]');
-    if (on) { el.style.setProperty('--pzs-x', `${on.offsetLeft}px`); el.style.setProperty('--pzs-w', `${on.offsetWidth}px`); }
+    if (on) pzsThumb(el, on);
   }
   // A tap on the pill: once the slide has landed (cards in, any case card lifted), and while it shows. A tap while a flip moves
   // turns it to the new scale once its present step ends; Next, Back or a jump cuts it.

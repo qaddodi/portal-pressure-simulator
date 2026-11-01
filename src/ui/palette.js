@@ -123,7 +123,12 @@ export function createPalette({ ctx }) {
     const r = items.length ? rows[sel] : null;
     const snap = !glide || hl.style.opacity !== '1';
     if (snap) hl.classList.add('still');
-    if (r) { hl.style.translate = `${r.offsetLeft}px ${r.offsetTop}px`; hl.style.width = `${r.offsetWidth}px`; hl.style.height = `${r.offsetHeight}px`; hl.style.opacity = '1'; }
+    if (r) {
+      // (Its size is laid out once, at a placement with no glide; a glide to a row of another size stretches it on the compositor.)
+      const w = r.offsetWidth, hh = r.offsetHeight;
+      if (snap || !hl._w) { hl._w = w; hl._h = hh; hl.style.width = `${w}px`; hl.style.height = `${hh}px`; }
+      hl.style.translate = `${r.offsetLeft}px ${r.offsetTop}px`; hl.style.scale = `${(w / hl._w).toFixed(4)} ${(hh / hl._h).toFixed(4)}`; hl.style.opacity = '1';
+    }
     else hl.style.opacity = '0';
     if (snap) { void hl.offsetWidth; hl.classList.remove('still'); }
   }
