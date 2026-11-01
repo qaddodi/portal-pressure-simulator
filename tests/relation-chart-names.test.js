@@ -174,3 +174,20 @@ test('the other charts that name their lines keep their names too: on the lines 
     }
   }
 });
+
+// (A phone's Treatment relation chart, HVPG after each drug against the HVPG before it: its key of three lines took a row for the reading and
+// two more for the names, and left the plot about 40 px; the names now run on from the reading on its own row, as far as they fit.)
+test('a key of three lines starts on the reading\'s own row, so the plot keeps the row the key no longer takes', async () => {
+  const W = 346, H = 160, f = 13.5, r = await draw('treatment', W, H, f);
+  assert.equal(r.alt.hidden, false, 'the key of the lines shows');
+  const read = r.texts.find((t) => /^HVPG mmHg/.test(t.txt)), names = ['No change', 'Carvedilol', 'Propranolol'].map((n) => r.texts.find((t) => t.txt === n));
+  assert.ok(read && names.every(Boolean), 'the reading and the three lines are named');
+  assert.ok(Math.abs(names[0].y - read.y) < 0.1, 'the first name on the reading\'s row');
+  assert.ok(Math.abs(names[1].y - read.y) < 0.1, 'the second too: it fits before the card\'s edge');
+  assert.ok(names[2].y > read.y, 'the third, which does not fit, on the row under');
+  const words = [read, ...names].map((t) => ({ t, b: boxOf(t, f) }));
+  words.forEach(({ t, b }) => assert.ok(b[0] >= 0 && b[2] <= W, `"${t.txt}" inside the card`));
+  for (let i = 0; i < words.length; i++) for (let j = i + 1; j < words.length; j++) assert.ok(!hit(words[i].b, words[j].b), `"${words[i].t.txt}" clear of "${words[j].t.txt}"`);
+  const y0 = r.texts.find((t) => t.txt === '0' && t.x < 40).y, y40 = r.texts.find((t) => t.txt === '40').y;
+  assert.ok(y0 - y40 >= 50, `the plot's 0 to 40 is ${(y0 - y40).toFixed(0)} px, not a strip`);
+});

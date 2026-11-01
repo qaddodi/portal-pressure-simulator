@@ -22,7 +22,7 @@
 // These are the model's own speeds, not a patient's: a deck line that quotes them needs a source, or none.
 
 import { TILE, RATE } from './table-marks.js?v=c82b75e3d5';
-import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js?v=05a99342ab';
+import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js?v=40a941ffe3';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { frameFor } from './frame.js?v=6a53e5fc6e';
 const nextFrame = frameFor('tool-course');

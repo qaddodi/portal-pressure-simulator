@@ -628,8 +628,15 @@ export function createCurve() {
     const altW = ag && alt ? ls.reduce((a, l) => a + 22 + 1.05 * cw(l.name, f, 1), 0) + f * (ls.length - 1) : 0;
     const altBelow = ag && alt && (styBelow || readW + (sty ? styW + f : 0) + altW + 2 * f > w);
     // (Below, the names wrap onto as many rows as the width asks, none run off the card's edge: altRows, each row's list of line numbers.)
-    const altRows = [];
-    if (altBelow) { let used = 0; ls.forEach((l, j) => { const kw = 22 + 1.05 * cw(l.name, f, 1); if (!altRows.length || used + kw > w) { altRows.push([]); used = 0; } altRows.at(-1).push(j); used += kw + f; }); }
+    // (The first names run on from the reading's end, on its own row, as far as they fit before the styles' key at the right edge: altFirst. A key
+    // of three lines on a phone took a row for the reading and two more for the names, and left the plot a strip; now one row less.)
+    const altRows = [], altFirst = [], altX = readW + 1.5 * f;
+    if (altBelow) {
+      let used = 0, k = 0;
+      if (!styBelow) for (; k < ls.length; k++) { const kw = 22 + 1.05 * cw(ls[k].name, f, 1); if (altX + used + kw > w - (sty ? styW + f : 0)) break; altFirst.push(k); used += kw + f; }
+      used = 0;
+      ls.forEach((l, j) => { if (j < k) return; const kw = 22 + 1.05 * cw(l.name, f, 1); if (!altRows.length || used + kw > w) { altRows.push([]); used = 0; } altRows.at(-1).push(j); used += kw + f; });
+    }
     // (No more numbers up the side than fit a line and a half of type apart.)
     const stepKey = steps ? stepKeyOf(w, f) : null, stepH = stepKey?.rows ? stepKey.rows * 1.5 * f + 0.3 * f : 0;
     const plotH = h - 3.3 * f - stepH - ((keys0 && !altBelow ? 1 : keys0 ? 1 + altRows.length : 2) * 1.5 * f + styRows * 1.5 * f + 2 * f), most = clamp(Math.floor(plotH / (1.6 * f)) + 1, 3, 7);
@@ -647,7 +654,7 @@ export function createCurve() {
     // (The panel's foot: 1.7 em under the axis when the x axis's name stands on the numbers' row, else 3.1 em with the name on a row of its own.)
     // (Over the plot, room for the x cut-offs' names, 2 em; a plot with none keeps only what its top number and a name beside a line's end need.)
     const foot = (nameAt == null ? 3.1 : 1.7) * f, T = legH + (xCutsOf(t).length ? 2 : 1.4) * f, B = h - foot - 0.2 * f - stepH;
-    return { w, h, f, ls, ag, alt, sty, styBelow, one, ax, x0, x1, xt, nameAt, foot, sL, sR, tickCuts, keyRead, stepKey, keys, oneRow, altBelow, altRows, rowH, keyH: legH, L, R, T, B: Math.max(T + 3 * f, B) };
+    return { w, h, f, ls, ag, alt, sty, styBelow, one, ax, x0, x1, xt, nameAt, foot, sL, sR, tickCuts, keyRead, stepKey, keys, oneRow, altBelow, altRows, rowH, altFirst, altX, keyH: legH, L, R, T, B: Math.max(T + 3 * f, B) };
   }
   const X = (x) => G.L + (G.R - G.L) * (x - G.x0) / ((G.x1 - G.x0) || 1);
   const Yof = (sc) => (v) => G.B - (G.B - G.T) * clamp((v - sc.min) / ((sc.max - sc.min) || 1), 0, 1);
@@ -728,7 +735,10 @@ export function createCurve() {
     if (G.ag) {
       // (Beside the reading, run in from the card's right edge in the lines' order; below it, in rows from the left edge, the way the reading above stands.)
       const kw = (l) => 22 + 1.05 * cw(l.name, f, 1), at = ls.map(() => null);
-      if (G.altBelow) G.altRows.forEach((row, r) => { let x = -G.w; row.forEach((j) => { at[j] = [x, r * G.rowH]; x += kw(ls[j]) + f; }); });
+      if (G.altBelow) {
+        let x = G.altX - G.w; G.altFirst.forEach((j) => { at[j] = [x, -G.rowH]; x += kw(ls[j]) + f; });   // (on the reading's own row, a row up from the group)
+        G.altRows.forEach((row, r) => { let x = -G.w; row.forEach((j) => { at[j] = [x, r * G.rowH]; x += kw(ls[j]) + f; }); });
+      }
       else { let x = 0; for (let j = ls.length - 1; j >= 0; j--) { x -= kw(ls[j]); at[j] = [x, 0]; x -= f; } }
       // (Beside the reading the key of the lines stands left of the styles' key, which keeps the right end.)
       const shift = G.sty && !G.styBelow && !G.altBelow ? G.sty.reduce((a, s) => a + 22 + 1.05 * cw(s, f, 1), 0) + 2 * f : 0;
