@@ -38,7 +38,7 @@ test('the surfaces list is read only by the ?perf readout, never by a frame', ()
   assert.match(pr, /cur\.paths = surfaceRows\(\);/);
   // (Every GPU surface of the figure, the lobule and the instruments says where it draws.)
   const names = [['stage.js', ['figure canvas', 'vessels and blood', 'organs', 'overlays (stents, balloons, catheter, guides)', 'labels', 'callout glass', 'liver label pane glass', 'card glass']],
-    ['lobule-zoom.js', ['lobule tissue', 'lobule field (neighbouring lobules)', 'lobule vessels', 'lobule label pills']], ['sinusoid-view.js', ['sinusoid']],
+    ['lobule-zoom.js', ['lobule tissue', 'lobule field (neighbouring lobules)', 'lobule vessels']], ['sinusoid-view.js', ['sinusoid']],
     ['doppler.js', ['Doppler trace']], ['instruments.js', ['endoscopy field']], ['fibroscan.js', ['FibroScan map']]];
   for (const [f, ns] of names) for (const n of ns) assert.ok(src(`src/ui/${f}`).includes(`surface('${n}'`), `${f}: ${n}`);
 });

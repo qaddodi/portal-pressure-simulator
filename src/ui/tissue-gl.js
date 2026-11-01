@@ -8,12 +8,13 @@
 // sharper bitmap painted ahead for zooming in: paintTissue). The surround blends the two tile sizes nearest its size on screen,
 // as the dive's field does (fieldBlend), so its detail never changes in a step.
 //
-// Without WebGL2 (or on a software renderer, or once the context is lost) createTissueGL returns null / reports lost, and the
-// tissue is drawn on the 2D canvas as before.
+// Without WebGL2 (or once the context is lost) createTissueGL returns null / reports lost, and the tissue is not drawn until the
+// context is back: there is no 2D drawing of it (1 Nov 2026, nothing off the GPU). A software renderer draws it too.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=e48e05cdb3';
 import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=d1fb535a12';
 import { isTileCopy, createTileCopier } from './tile-gl.js?v=65ea6bb117';
+import { isGpuPicture, paintGL } from './paint-gl.js?v=0000000000';
 import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=624ae21d7d';
 
 const VS = `#version 300 es
@@ -91,13 +92,16 @@ export function createTissueGL(canvas, opts = {}) {
   // picture for the canvas (its context taken back, or its buffer let go before a frame was drawn) shows the page through it, where an
   // opaque canvas showed solid black over the whole lobule and its surround, until the next draw (Mohammad, 31 Oct and 1 Nov: the
   // hepatocytes and the background all went black while zooming).)
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
+  // (On a software renderer too, as the lobule's vessels are (veins-gl.js force): the tissue has no other drawing; nothing is drawn on a
+  // 2D canvas.)
+  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: false }); } catch { gl = null; }
   if (!gl) return null;
   // (Hosted, the picture's own target, sized to each frame; tgt: the size it holds (the canvas itself, on a context of its own); scr():
   // the framebuffer a frame ends in, null for the canvas.)
   let hostT = null;
   const tgt = host ? { width: 0, height: 0 } : canvas;
   const scr = () => (hostT ? hostT.fbo : null);
+  paintGL(gl);   // (the painter of the lobule's picture, paint-gl.js: its programs start compiling now, beside the tissue's)
   // The program is started here and published once the driver has finished it (gl-compile.js); a draw that comes first publishes it.
   // This one is the tissue as it was before the shader drew any of the lobule: the bitmap over the surround, nothing of lobule-live.js
   // in it. The program that also draws the lobule live is a second one (tissueFS(true)), started by the first liveReady() (the caller
@@ -182,6 +186,15 @@ export function createTissueGL(canvas, opts = {}) {
     if (t && t.w === cv.width && t.h === cv.height && t.ver === ver) return t.tex;
     // (A send that failed (field-gl.js sendCanvas): the 2D canvas draws, and the send is tried again only after a while.)
     if (t?.bad && t.w === cv.width && t.h === cv.height && t.badVer === ver && performance.now() < t.retryAt) return null;
+    // (The lobule's picture recorded by paint-gl.js: painted here on the GPU, into its own texture, mipmapped; never a canvas.)
+    if (isGpuPicture(cv)) {
+      if (t) gl.deleteTexture(t.tex);
+      gl.activeTexture(gl.TEXTURE0 + SCRATCH);
+      const tex = paintGL(gl).paint(cv.rec);
+      if (!tex) { texs.set(cv, { tex: gl.createTexture(), w: cv.width, h: cv.height, ver: NaN, bad: true, badVer: ver, retryAt: performance.now() + SEND_RETRY }); return null; }
+      texs.set(cv, { tex, w: cv.width, h: cv.height, ver, bad: false });
+      return tex;
+    }
     // (A copy of a tile made here on the GPU, tile-gl.js: drawn into its own texture from the tile, never sent from a canvas.)
     if (isTileCopy(cv)) {
       if (t) gl.deleteTexture(t.tex);
@@ -324,40 +337,6 @@ export function createTissueGL(canvas, opts = {}) {
     liveReady() { startLive(); return !!liveP && !this.lost; },
     /** Sends a canvas to the GPU now (painted ahead, so no frame of a gesture waits for it). */
     upload(cv, ver = 0, tile = false) { if (!this.lost && cv?.width) { texFor(cv, ver, tile); hostDone(); } },
-    /** A bitmap painted off the page (the tissue worker, tissue-worker.js) and sent in tiles, a few a frame: begin(cv) makes the
-     *  canvas's texture at its size, put(cv, x, y, bmp) lays one tile (an ImageBitmap, premultiplied as the canvas's own upload is),
-     *  done(cv, ver) builds its mipmaps. From then on it is the canvas's texture for that version, as if sent from the canvas (texFor);
-     *  until then a draw of the canvas would send it whole, so a texture half laid is never sampled. */
-    begin(cv) {
-      if (this.lost || !cv?.width) return;
-      let t = texs.get(cv);
-      if (!t) { t = { tex: gl.createTexture() }; texs.set(cv, t); }
-      gl.activeTexture(gl.TEXTURE0 + SCRATCH);
-      gl.bindTexture(gl.TEXTURE_2D, t.tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, cv.width, cv.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-      Object.assign(t, { w: cv.width, h: cv.height, ver: NaN });
-      hostDone();
-    },
-    put(cv, x, y, bmp) {
-      const t = texs.get(cv);
-      if (this.lost || !t || t.w !== cv.width || t.h !== cv.height) return;
-      gl.activeTexture(gl.TEXTURE0 + SCRATCH);
-      gl.bindTexture(gl.TEXTURE_2D, t.tex);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, gl.RGBA, gl.UNSIGNED_BYTE, bmp);
-      hostDone();
-    },
-    done(cv, ver) {
-      const t = texs.get(cv);
-      if (this.lost || !t || t.w !== cv.width || t.h !== cv.height) return;
-      gl.activeTexture(gl.TEXTURE0 + SCRATCH);
-      gl.bindTexture(gl.TEXTURE_2D, t.tex);
-      gl.generateMipmap(gl.TEXTURE_2D);
-      t.ver = ver;
-      hostDone();
-    },
     /** Gives back every texture whose canvas was given back (width 0) or is no longer wanted (keep(cv) false). */
     sweep(keep = () => true) {
       for (const [cv, t] of texs) if (!cv.width || !keep(cv)) { if (!lost) gl.deleteTexture(t.tex); texs.delete(cv); }

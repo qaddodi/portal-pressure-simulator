@@ -35,34 +35,16 @@ test('a colour serialised as color(srgb …) is given to the glass as rgba()', a
   assert.equal(rgbaOf('rgba(1, 2, 3, 0.4)'), 'rgba(1, 2, 3, 0.4)');
 });
 
-test('the lobule draws the lit pills\' frost on the GPU from its own stacked copy, only in frames it drew', async () => {
-  const { readFileSync } = await import('node:fs');
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  const gg = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(gg, /const q = cards\?\.read \? cards\.read\(g\) : undefined;\n\s+if \(q !== undefined\) \{/);
-  assert.match(lz, /cards: \{ find: \(\) => pillLabels\(labels\), watch: \[labels\], before: labels, read: \(e\) => pillOf\(e\) \|\| null \},/);
-  assert.match(lz, /const pillLive = \(\) => fade > 0\.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !resCover && !keep2D && pillTisOK && pillSeq > 0;/);
-  // (The tissue's GPU canvas read only in a frame it drew.)
-  assert.match(lz, /if \(!tissueOnGL \|\| tissueDrew\) \{/);
-  assert.match(lz, /if \(!ok\) return false;\n\s+tissueDrew = true;/);
-  assert.match(lz, /paintFx\(W, H, dpr, dark, dt, !g \|\| g\.lost\);\n\s+pillCopy\(W, H\);\n\s+return true;/);
-  assert.match(css, /\.lz \.lz-labels :is\(\.lz-lab, \.lz-zone\)\[data-gl\]\[data-gl\]\[data-gl\]::before \{ background: none; \}/);
-});
-
-// (31 Oct: the frost flickered under the pills. The copy it is blurred from was drawn from the screen's density straight to half a
-// CSS px, one draw catching one pixel in four of the moving blood streaks; it is now made small by halves, each a 2 × 2 average.)
-test('the pills\' copy is made small by halves, never in one draw from the screen\'s density', () => {
+// (1 Nov, the off-GPU gate: the lobule's own GPU frost for its pills (?lzpills=1, never the default) copied the lobule's canvases on the
+// CPU (pillCopy, pillDown) and is gone; the pills keep the look they have always had by default. The readers here stay: the sheet's
+// glass uses them.)
+test('the lobule takes no copy of its canvases for the pills', () => {
   const lz = readSrc(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(lz, /pillCopy|pillDown|pillsOn|PILLS_OFF|pillTis/);
+  assert.doesNotMatch(lz, /lz-pills\.js/);
+  // (The glass laid from the region its copy really took, on the source's own pixels.)
   const gg = readSrc(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
-  assert.match(lz, /for \(let i = 0; cw > w \* 2 \|\| ch > h \* 2; i\+\+\) \{/);
-  assert.match(lz, /if \(src\.width && src\.height\) pillDown\(t, src, w, h\);/);
-  assert.match(lz, /gl\.capture\?\.\(\); pillDown\(c, glCv, w, h\);/);
-  assert.match(lz, /if \(fx\.width && fx\.height\) pillDown\(c, fx, w, h\);/);
-  assert.doesNotMatch(lz, /\.drawImage\((glCv|fx), 0, 0, w, h\)/);
-  // (The glass laid from the region the copy really took, on the source's own pixels.)
   assert.match(gg, /got = \{ x: sx \/ kx - cr\.left \+ sr\.left, y: sy \/ ky - cr\.top \+ sr\.top, w: sw \/ kx, h: sh \/ ky \};/);
-  assert.match(gg, /ready = \{ \.\.\.got \};/);
 });
 
 test('halving: each step at most halves, and the last lands on the size asked for', () => {
@@ -71,14 +53,6 @@ test('halving: each step at most halves, and the last lands on the size asked fo
   assert.deepEqual(steps(3000, 1800, 750, 450), [[1500, 900], [750, 450]]);
   assert.deepEqual(steps(1500, 900, 750, 450), [[750, 450]], 'a 1× screen: one draw at exactly half');
   assert.deepEqual(steps(4500, 2700, 750, 450), [[2250, 1350], [1125, 675], [750, 450]]);
-});
-
-test('the pills keep their own backdrop blur unless ?lzpills=1 asks for the frost drawn on the GPU', () => {
-  const lz = readSrc(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.match(lz, /const PILLS_OFF = !\/\[\?&\]lzpills=1\\b\/\.test\(location\.search\) \|\| \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\);/);
-  assert.match(lz, /off: PILLS_OFF, live: pillLive,/);
-  // (Off, no glass is made, so pillCopy stops at once: no copy of the lobule is taken in any frame.)
-  assert.match(lz, /if \(pillGL === undefined\) \{ if \(!pillMake\) pillMake = setTimeout\(\(\) => \{ pillsOn\(\); wake\(\); \}, 0\); return; \}\n\s*if \(!pillGL\) return;/, 'made just after a frame, never in one');
 });
 
 // (Laptop-heat Q4, 31 Oct: with the frost drawn on the GPU (?lzpills=1), a new copy of the lobule every frame sampled the moving streaks a
@@ -90,7 +64,4 @@ test('the pills\' copy is kept while only the blood moves, and taken again for a
   assert.equal(pillHold('a', 'a', true, true), false, 'the tissue was painted in this frame');
   assert.equal(pillHold('a', 'a', false, false), false, 'no copy yet, or the tissue\'s part is not in');
   assert.equal(pillHold('', '', false, false), false);
-  const lz = readSrc(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.match(lz, /const held = `\$\{w\}x\$\{h\}\|\$\{drawVersion\}\|\$\{V\.k\}\|\$\{V\.x\}\|\$\{V\.y\}\|\$\{flowA\.toFixed\(2\)\}`;\n\s+if \(pillHold\(pillHeld, held, pillTisOK && pillSeq > 0, tissueDrew\)\) return;/);
-  assert.match(lz, /pillHeld = held;\n\s+pillSeq\+\+;/);
 });

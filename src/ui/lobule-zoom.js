@@ -19,33 +19,32 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=78d76c2001';
+import { runFlick, FLICK } from './flick.js?v=b4fb13bd3d';
 import { store } from './store.js?v=4ef2a6ffd8';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=d7da37e68e';
+import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=6d6b2d11c3';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL, TILE_OVER } from './field-gl.js?v=d1fb535a12';
-import { createTissueGL, DIVE_GPU } from './tissue-gl.js?v=6b0adb8a3f';
-import { TILE_GPU, tileCopy, isTileCopy } from './tile-gl.js?v=65ea6bb117';
+import { createTissueGL } from './tissue-gl.js?v=6b0adb8a3f';
+import { TILE_GPU, tileCopy } from './tile-gl.js?v=65ea6bb117';
 import { FX_GPU, createFxGL } from './fx-gl.js?v=63f5590264';
 import { WIDE_GL, createWideGL } from './wide-gl.js?v=b0622c784c';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=624ae21d7d';
-import { createTissueWorker } from './tissue-worker.js?v=ae29de2677';
+import { recordPaint, gpuPicture } from './paint-gl.js?v=0000000000';
+import { cssColor8 } from './css-color.js?v=0000000000';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=e710e031d9';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=6362ea8bbe';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=c8ef361fbc';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=ee1715cd71';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=3e4b680ef4';
+import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=e1721f52d0';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
-import { createSinusoidView } from './sinusoid-view.js?v=d200b2db91';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, framePart, easeNow, inMotion, PACED } from './frame.js?v=7710f677e2';
-import { createGlassGL } from './glass-gl.js?v=6a77550d27';
-import { pillOf, pillLabels, pillHold } from './lz-pills.js?v=bafcf3977d';
+import { createSinusoidView } from './sinusoid-view.js?v=200648b9a5';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=15d5254a2c';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=4ffac3ef7f';
+import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=6f305af9e6';
 import { createResCover, coverFollow } from './res-cover-gl.js?v=3804da2e78';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 import { LIGHT } from './light.js?v=f0c4eefb81';
@@ -99,15 +98,13 @@ function distTo(pts, x, y) {
   }
   return [best, bu];
 }
-// The canvas's own CSS color parser, for any CSS color → [r, g, b] 0–1.
-const rgbCtx = document.createElement('canvas').getContext('2d');
+// Any CSS colour → [r, g, b] 0–1, in the canvas's 8-bit steps (css-color.js: read in script, no canvas made).
 const rgbCache = new Map();
 function rgb01(c) {
   let o = rgbCache.get(c);
   if (o) return o;
-  rgbCtx.fillStyle = '#000'; rgbCtx.fillStyle = c || '#000';   // colour-exempt: the parser's reset
-  const f = rgbCtx.fillStyle;
-  o = f[0] === '#' ? [1, 3, 5].map((i) => parseInt(f.slice(i, i + 2), 16) / 255) : f.match(/[\d.]+/g).slice(0, 3).map((v) => +v / 255);
+  o = cssColor8(c || 'black').slice(0, 3);
+  if (rgbCache.size > 256) rgbCache.clear();
   rgbCache.set(c, o);
   return o;
 }
@@ -160,17 +157,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   store.on('lobuleCallout', onCallout);
 
   const phoneMQ = matchMedia('(max-width: 720px)');
-  // While the dive shows the tissue scaled down, a copy of it with everything past the lobule's rim cleared is shown in its place (see
-  // diveCopy). With only a CSS mask on the tissue, Safari now and then dropped the mask for a frame: the whole bitmap, a pale card of
-  // the lobules around the landing one, flashed on and off through the zoom.
-  const diveCv = h('canvas', { class: 'lz-canvas lz-dive', 'aria-hidden': 'true', style: { visibility: 'hidden' } });
-  const rimCv = document.createElement('canvas');   // the lobule's own layer, faded the other way (see diveCopy)
-  // The tissue drawn on the GPU (tissue-gl.js), where it can be: it stands in for the 2D canvas under it (left empty then), except
-  // through the dive and the rise, whose copies are made from the 2D canvas (paint2D). It follows the 2D canvas's visibility and zoom.
+  // The tissue drawn on the GPU (tissue-gl.js): it stands in for the canvas under it (left empty, never drawn), through the dive and
+  // the rise too (the rim past the lobule cleared by its shader). It follows that canvas's visibility and zoom.
   const tissueG = h('canvas', { class: 'lz-canvas lz-tissue-gl', 'aria-hidden': 'true', style: { opacity: '0', pointerEvents: 'none' } });
   // (The overlay on the GPU, fx-gl.js: shown in the 2D overlay's place while it draws it, see fxOnGPU.)
   const fxG = h('canvas', { class: 'lz-canvas lz-fx lz-fx-gl', 'aria-hidden': 'true', style: { opacity: '0', pointerEvents: 'none' } });
-  const el = h('div', { class: 'lz', 'aria-hidden': 'true' }, tissue, tissueG, diveCv, glCv, fx, ...(FX_GPU ? [fxG] : []), leaders, labels);
+  const el = h('div', { class: 'lz', 'aria-hidden': 'true' }, tissue, tissueG, glCv, fx, ...(FX_GPU ? [fxG] : []), leaders, labels);
   // The dive's field (below the view): the liver's lobules, few and large, that the camera falls through (those away from the landing lobule fade as it nears).
   const field = h('canvas', { class: 'lz-canvas lz-field', 'aria-hidden': 'true' });
   // The same field drawn on the GPU (field-gl.js), where it can be: the 2D canvas above is then left empty.
@@ -581,12 +573,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let surfKey = '', surfCs = null, flowG = null, flowAt = -1;   // what the last surface pass and flow upload in drawGL were made for (see there)
   let layoutV = '', gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', radCal = '', radNow = [], inkWas = [], attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
   const pills = new Map();   // (a lit label's pill insets, read once per label layout, not on every frame of a glide: each read restyles the page)
-  let worldCv = document.createElement('canvas');   // the lobule's tissue in world space (see paintTissue)
+  // The lobule's tissue in world space (see paintTissue): a GPU picture (paint-gl.js), which stands where its canvas did.
+  const noPicture = () => ({ width: 0, height: 0 });
+  let worldCv = noPicture();
   // A new patient (or any change to the tissue's state) crossfades into the lobule instead of snapping: the bitmap it replaces
   // is kept (worldOld, swapped rather than copied) and laid under the new one as it fades in, and the surround's tiles the
   // same way. Both pictures stay sharp throughout; the fade only adds one image draw a frame while it runs.
   const XF_MS = 900;   // as long as the vessels' calibers take to settle (easeRadii, τ 0.3 s)
-  let worldOld = document.createElement('canvas'), xfCv = document.createElement('canvas'), worldOldSc = 0, worldState = '', xfT0 = 0, surNow = null, surOld = null, surT0 = 0;
+  let worldOld = noPicture(), worldOldSc = 0, worldState = '', xfT0 = 0, surNow = null, surOld = null, surT0 = 0;
   const xfU = (t0, now) => { const u = Math.min(1, Math.max(0, (now - t0) / XF_MS)); return u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2; };
   // (The crossfades run on the eases' clock, frame.js easeNow: a long frame as a new picture comes in, its texture going up, holds the fade
   // back rather than eating its first half. ?paced=0: the wall clock, as before.)
@@ -619,12 +613,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function release() {
     dropWide();
     resCoverEnd();
-    free(tissue); free(tissueG); free(fx); free(glCv); free(diveCv); free(rimCv); diveCopyKey = ''; rimDrawn = false; fxGLOff();
+    free(tissue); free(tissueG); free(fx); free(glCv); rimDrawn = false; fxGLOff();
     if (tisHostFor) tissueGL?.release?.();   // (hosted: the tissue's own picture in the vessels' context)
     clearTimeout(spareT); spareT = 0; free(spareCv); spare = null;
-    jobGen++; if (laying) { closeTiles(laying.tiles, laying.i); free(laying.cv); laying = null; }   // (a bitmap the worker is painting or sending is dropped)
     gl?.trim?.();   // (the vessels' framebuffer: the shaders and the uploaded network are kept)
-    tissueKey = ''; idleDrawn = ''; drawKey = ''; glDirty = true; fxKey = '';
+    tissueKey = ''; idleDrawn = ''; drawKey = ''; glDirty = true;
     staged = ''; relLater = false;
     trimCaches();
     tissueGL?.sweep();   // (the textures of the canvases given back)
@@ -637,7 +630,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const dpr = Math.min(2, devicePixelRatio || 1), k = kFit || V.k;
     const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * k)) * 2) / 2), worldCap(geo, dpr)), n = Math.ceil(2.6 * geo.R * sc);
     if (worldCv.width > n) { free(worldCv); worldKey = ''; prepKey = ''; }
-    free(worldOld); free(xfCv); xfT0 = 0; surNow = null; surOld = null; surT0 = 0;
+    free(worldOld); xfT0 = 0; surNow = null; surOld = null; surT0 = 0;
     // The field: the newest state's tiles only, and none above the largest the dive or the framed lobule draws.
     const keys = [...tileSets.keys()], top = Math.max(geo.R * k * Math.min(1, devicePixelRatio || 1) * 0.8, geo.R * k * dpr) * 0.55;
     const drop = (q) => { if (q.cv) free(q.cv); q.cv = null; freeCopies(q); };
@@ -868,7 +861,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // to cirrhosis as it landed.
   function snapState() {
     easeP = createEaser(); easeS = createEaser(); rz = null;
-    xfT0 = 0; free(worldOld); free(xfCv); surOld = null; surT0 = 0; snapNext = true;
+    xfT0 = 0; free(worldOld); surOld = null; surT0 = 0; snapNext = true;
     tissueGL?.sweep();   // (and the GPU's copy of the picture given back, now rather than at the next sweep)
   }
   // (snapNext: reopened without a picture drawn ahead, the first frame is already fading in, but shows nothing seen before either.)
@@ -1711,12 +1704,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // program is not ready yet, the new share is taken at once.)
   let resCover = null, resT0 = 0, resV0 = null, resGL;
   const coverGL = () => (resGL === undefined ? (resGL = createResCover(() => h('canvas', { class: 'lz-canvas lz-res', 'aria-hidden': 'true', style: { transformOrigin: '0 0' } }))) : resGL);
-  const resSteady = () => fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !keep2D && !staging && !!geo && !!model;
+  const resSteady = () => fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !staging && !!geo && !!model;
   function resSwap() {
     const k = lzWant;
     lzWant = null;
     if (k === lzK) return;
-    const fresh = () => { tissueKey = ''; drawKey = ''; glDirty = true; fxDrawn = ''; fxBoxes = null; lyKey = ''; idleDrawn = ''; };
+    const fresh = () => { tissueKey = ''; drawKey = ''; glDirty = true; idleDrawn = ''; };
     fresh();
     const g = coverGL();
     if (g?.ready && draw(0)) {
@@ -1761,77 +1754,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // nothing to draw: drawing it there (sizing three full-screen canvases, the tissue, the vessels) snagged the zoom's last stretch.
   // staged: the view it was drawn for; relLater: its canvases are given back when the dive ends, not mid-zoom.
   let staging = false, staged = '', relLater = false;
-  // The lit labels' pills (app.css :is(.lz-lab, .lz-zone)::before): their frost drawn on the GPU (glass-gl.js, read through lz-pills.js)
-  // from a small copy of the lobule as it stacks (pillSrc: the tissue, the vessels, the ductules, at half the CSS px), so the browser
-  // blurs none of them on every frame of a pan (recs B4). Their ring stays the page's. The copy is made only in frames the lobule draws,
-  // while a slide lights a lobule term; the tissue's GPU canvas keeps no picture between frames, so its part is copied (pillTis) only
-  // in a frame it drew. Through a dive, a rise, the sinusoid's zoom, a resolution change or the dive's wide copy, and before the
-  // tissue's part is in, each pill keeps the browser's blur.
-  const pillSrc = document.createElement('canvas'), pillTis = document.createElement('canvas');
-  // (The copy made small by halves, each step a 2 × 2 average (a draw at exactly half size samples between four pixels), never in
-  // one draw from the screen's density to half a CSS px: that drew one pixel in four of the moving blood streaks, a different few
-  // each frame, and the frost under the pills flickered with them (31 Oct). pillHalf: the steps' canvases, kept between frames.)
-  // (Off by default since 31 Oct, evening: the pills flickered on his Mac with the frost drawn here, even with the copy made small by
-  // halves, so they are back on each pill's own backdrop blur, as before recs B4 that morning. ?lzpills=1 draws them here again.)
-  const PILLS_OFF = !/[?&]lzpills=1\b/.test(location.search) || /[?&]gpulabels=0\b/.test(location.search);
-  const pillHalf = [document.createElement('canvas'), document.createElement('canvas')];
-  function pillDown(c, src, w, h) {
-    let cur = src, cw = src.width, ch = src.height;
-    for (let i = 0; cw > w * 2 || ch > h * 2; i++) {
-      const nw = Math.max(w, Math.ceil(cw / 2)), nh = Math.max(h, Math.ceil(ch / 2)), t = pillHalf[i % 2];
-      if (t.width !== nw || t.height !== nh) { t.width = nw; t.height = nh; }
-      const tc = t.getContext('2d');
-      tc.globalCompositeOperation = 'copy'; tc.drawImage(cur, 0, 0, cw, ch, 0, 0, nw, nh); tc.globalCompositeOperation = 'source-over';
-      cur = t; cw = nw; ch = nh;
-    }
-    c.drawImage(cur, 0, 0, cw, ch, 0, 0, w, h);
-  }
-  pillSrc.getBoundingClientRect = () => el.getBoundingClientRect();   // (it lies on the lobule's layers, inset 0 in it, as they do)
-  let pillGL, pillMake = 0, pillSeq = 0, pillTisOK = false, pillUntil = 0, tissueDrew = false, pillHeld = '';
-  const pillFig = new Set();
-  const pillLit = () => { litOf(); return /(^| )(lobule|sinusoid):/.test(litRaw || ''); };
-  const pillLive = () => fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !resCover && !keep2D && pillTisOK && pillSeq > 0;
-  function pillsOn() {
-    if (pillGL !== undefined) return pillGL;
-    const g = ensureGL();
-    pillGL = g && !g.software && !g.lost ? createGlassGL(el, pillSrc, [], {
-      off: PILLS_OFF, live: pillLive, version: () => pillSeq,
-      onFigure: (f) => { pillFig.add(f); return () => pillFig.delete(f); },
-      cards: { find: () => pillLabels(labels), watch: [labels], before: labels, read: (e) => pillOf(e) || null },
-    }) : null;
-    if (pillGL) pillGL.canvas.id = 'pillGl';
-    return pillGL;
-  }
-  // (A slide lighting a lobule term: the lobule is drawn again, its tissue's part copied in that frame.)
-  new MutationObserver(() => { if (pillLit()) { pillTisOK = false; wake(); } }).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['data-lit'] });
-  function pillCopy(W, H) {
-    if (!pillLit()) { if (performance.now() > pillUntil) return; } else pillUntil = performance.now() + 700;   // (and through the pills' fade out)
-    // (The glass is made, and the page read for it, just after this frame, never inside one: pillsOn is not on a frame path.)
-    if (pillGL === undefined) { if (!pillMake) pillMake = setTimeout(() => { pillsOn(); wake(); }, 0); return; }
-    if (!pillGL) return;
-    const w = Math.max(1, Math.ceil(W / 2)), h = Math.max(1, Math.ceil(H / 2));
-    if (pillSrc.width !== w || pillSrc.height !== h) { pillSrc.width = pillTis.width = w; pillSrc.height = pillTis.height = h; pillTisOK = false; }
-    // (Only the blood moved since the last copy: the frost stays as it is, see pillHold.)
-    const held = `${w}x${h}|${drawVersion}|${V.k}|${V.x}|${V.y}|${flowA.toFixed(2)}`;
-    if (pillHold(pillHeld, held, pillTisOK && pillSeq > 0, tissueDrew)) return;
-    const src = tissueOnGL ? tissueG : tissue;
-    try {
-      if (!tissueOnGL || tissueDrew) {
-        const t = pillTis.getContext('2d');
-        t.clearRect(0, 0, w, h);
-        if (src.width && src.height) pillDown(t, src, w, h);
-        pillTisOK = true;
-      }
-      if (!pillTisOK) { wake(); return; }
-      const c = pillSrc.getContext('2d');
-      c.globalCompositeOperation = 'copy'; c.drawImage(pillTis, 0, 0); c.globalCompositeOperation = 'source-over';
-      if (gl && !gl.lost && glCv.width) { gl.capture?.(); pillDown(c, glCv, w, h); }
-      if (fx.width && fx.height) pillDown(c, fx, w, h);
-    } catch { pillTisOK = false; return; }
-    pillHeld = held;
-    pillSeq++;
-    for (const f of pillFig) f();
-  }
+  // (tissueDrew: the tissue was drawn in this frame, so a hosted one lies in the vessels' canvas now: draw.)
+  let tissueDrew = false;
   function draw(dt) {
     stepFlowA();
     tissueDrew = false;
@@ -1849,24 +1773,18 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     idleDrawn = dt === 0 ? idleKey : '';
     const cs = styles();   // (the stage's kept copy of its styles, read again when a class, theme or system setting changes)
     const g = ensureGL();
-    // (On the GPU for the screen; on the 2D canvas while the dive or the rise is staged (keep2D) or scaled, whose copies read it.
-    // With DIVE_GPU the dive and the rise stay on the GPU too, their rim drawn by the shader. With SIN_GPU the zoom into and out of a
-    // sinusoid does as well: the GPU canvas, drawn once, is turned and grown with the lobule by the compositor as the dive's is, so
-    // the tissue never steps from the GPU to the 2D canvas and back at either end of it, the moment it showed empty (black in a dark
-    // look) on the iPhone (Mohammad, 1 Nov, Sites and causes 7). ?singpu=0: the 2D canvas through that zoom, as before.)
-    const onGPU = !keep2D && (!scaled || (DIVE_GPU && (sinU === 0 || SIN_GPU)));
-    showTissueGL(paintTissue(W, H, dpr, dark, cs, !g, onGPU && g ? tissueGLOn() : null));
+    // (On the GPU, always: through the dive, the rise and the zoom into and out of a sinusoid too, the GPU canvas, drawn once, is
+    // turned and grown with the lobule by the compositor, its rim drawn by the shader. Nothing is drawn on a 2D canvas.)
+    showTissueGL(paintTissue(W, H, dpr, dark, cs, !g, g ? tissueGLOn() : null));
     snapNext = false;
     framePart('lz.layoutLabels', layoutLabels);
     // (The overlay first: in the vessels' own context (LZ_ONE) it is laid over them at their present, in drawGL.)
-    const fxOn = fxOnGPU(W, H, dpr, dark, dt, g && !g.lost && onGPU);
+    const fxOn = fxOnGPU(W, H, dpr, dark, dt, g && !g.lost);
     const laid = g?.top?.presents;
     if (g && !g.lost) drawGL(W, H, dpr, dark, cs, dt);
     // (What is drawn in the vessels' canvas besides them, the tissue under and the overlay over: a frame that drew the vessels again
     // laid them all; one that did not lays them now.)
     if (g && !g.lost && laid !== undefined && g.top.presents === laid && (fxOn || (tisHostFor && tissueDrew))) g.present();
-    if (!fxOn) paintFx(W, H, dpr, dark, dt, !g || g.lost);
-    pillCopy(W, H);
     return true;
   }
   // A dive aimed at a station (a presenter slide's portal tract or central vein) lands zoomed in, where the lobule reaches past the
@@ -1880,84 +1798,22 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // canvas memory spent) drops the copy, and the dive shows the layers as before rather than a blank lobule.
   let wideBuild = false;   // (buildWide is drawing the copy's tiles)
   let wide = null;   // { el, tiles, box, soft }: the copy, its tiles in one box placed at (−l, −t) in the stage
-  const WIDE_HIDE = [tissue, tissueG, diveCv, glCv, fx, fxG];
+  const WIDE_HIDE = [tissue, tissueG, glCv, fx, fxG];
   function padBox(W, H) {
     if (!geo || atFit) return null;
     const [x, y] = toScreen([geo.cx, geo.cy]);
     return padRect(x, y, geo.R * V.k * 1.35, W, H);
   }
-  // (A canvas past the browser's memory has no context, or reads back nothing: a probe pixel, drawn, read and put back, tells.)
-  function probe(cv) {
-    if (!cv.width || !cv.height) return false;
-    const c = cv.getContext('2d');
-    if (!c) return false;
-    // (Written with putImageData, which no transform, clip, alpha or blend the layer's drawing left set can change.)
-    const d = c.getImageData(0, 0, 1, 1);
-    c.putImageData(new ImageData(new Uint8ClampedArray([0, 0, 0, 255]), 1, 1), 0, 0);
-    const seen = c.getImageData(0, 0, 1, 1).data[3] > 0;
-    c.putImageData(d, 0, 0);
-    return seen;
-  }
   function buildWide(W, H, box) {
     resCoverEnd();
     // Only the newest field state's tiles are kept for the dive (each older state is tens of MB), and no crossfade's old picture.
     trimFieldStates();
-    if (WIDE_GL) { const wg = buildWideGL(W, H, box); if (wg) return wg; }   // (on the GPU: wide-gl.js; the 2D tiles below where it cannot)
-    const dpr0 = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), dpr = wideDpr(dpr0, box.w, box.h, apple());
-    const dark = isDark(), cs = styles(), g = ensureGL(), flat = !g || g.lost, [cx, cy] = toScreen([geo.cx, geo.cy]), r = geo.R * V.k;
-    // The tiles sit in one box, and only the box is scaled. Scaled, the compositor still softens each tile's own edges, and edge to
-    // edge they showed a pale hairline (WebKit, 20 Oct): so each reaches OV (2 device px) under its right and lower neighbours,
-    // which lie over it, keeping there only its opaque pixels (a translucent one would be laid twice, darker).
-    const OV = 2 / dpr, parts = wideTiles(box.w, box.h, dpr), TW = Math.max(...parts.map((t) => t.w)) + OV, TH = Math.max(...parts.map((t) => t.h)) + OV;
-    const box0 = h('div', { class: 'lz-wide', 'aria-hidden': 'true', style: { position: 'absolute', left: `${-box.l}px`, top: `${-box.t}px`, width: `${box.w}px`, height: `${box.h}px`, visibility: 'hidden', pointerEvents: 'none' } });
-    const tiles = [];
-    let ok = true;
-    wideBuild = true; fxArgs = null;   // (the overlay is drawn on the 2D canvas for each tile, not laid in the vessels' canvas)
-    try { for (const t of parts) {
-      // (The view moved so this tile's corner is the layers' own corner: they draw the tile as they would the screen.)
-      const ox = box.l - t.x, oy = box.t - t.y, or = t.x + t.w < box.w - 1e-6, ob = t.y + t.h < box.h - 1e-6, w = t.w + (or ? OV : 0), hh = t.h + (ob ? OV : 0);
-      const cv = h('canvas', { 'aria-hidden': 'true', style: { position: 'absolute', display: 'block', left: `${t.x}px`, top: `${t.y}px`, width: `${w}px`, height: `${hh}px` } });
-      V.x += ox; V.y += oy;
-      try {
-        // One tile at a time, each source given back as soon as it is laid on: the tissue (rimmed, with the lobule's own layer, as
-        // the dive's copy always is), then the vessels, then the ductules, as the layers stack. Every canvas is checked.
-        // (DIVE_GPU: the tissue's part drawn by the shader at the tile's size, rim and all, and laid on in the same task, while the
-        // GPU canvas still holds it: no 2D paint of the tissue and no rim copy on the CPU. If the GPU cannot, the 2D canvas, as before.)
-        const tg = DIVE_GPU && !flat ? tissueGLOn() : null;
-        let onG = false;
-        tisWide = false;
-        if (tg) {
-          diveRim = rimOf(cx + ox, cy + oy, r); tissueKey = ''; onG = paintTissue(w, hh, dpr, dark, cs, flat, tg);
-          if (onG && tisHostFor) { tisWide = true; const pw = canvasPx(w, dpr), ph = canvasPx(hh, dpr); if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; } ok = probe(cv); }   // (hosted: laid under the vessels in their canvas, copied below)
-          else if (onG) { if (cv.width !== tissueG.width || cv.height !== tissueG.height) { cv.width = tissueG.width; cv.height = tissueG.height; } cv.getContext('2d')?.drawImage(tissueG, 0, 0); ok = probe(cv); }
-          else { diveCopyKey = ''; diveCopy(cv); ok = probe(tissue) && (!worldAt?.cv.width || probe(rimCv)) && probe(cv); }
-        } else {
-          tissueKey = ''; paintTissue(w, hh, dpr, dark, cs, flat);
-          diveRim = { x: +(cx + ox).toFixed(1), y: +(cy + oy).toFixed(1), r: +r.toFixed(1) }; diveCopyKey = ''; diveCopy(cv);
-          ok = probe(tissue) && (!worldAt?.cv.width || probe(rimCv)) && probe(cv);
-        }
-        free(rimCv); free(tissue); if (tg) free(diveCv);
-        if (!ok) { free(cv); break; }
-        const c = cv.getContext('2d');
-        // (The vessels at one size for every tile, cropped: their canvas is sized once for the copy, not once a tile.)
-        if (g && !g.lost) { drawKey = ''; drawGL(TW, TH, dpr, dark, cs, 0); c.drawImage(glCv, 0, 0, cv.width, cv.height, 0, 0, cv.width, cv.height); }
-        fxDrawn = ''; fxBoxes = null; lyKey = ''; paintFx(w, hh, dpr, dark, 0, flat);
-        if (!probe(fx)) { ok = false; free(fx); free(cv); break; }
-        c.drawImage(fx, 0, 0, cv.width, cv.height); free(fx);
-        if (or) opaqueOnly(c, cv.width - 2, 0, 2, cv.height);
-        if (ob) opaqueOnly(c, 0, cv.height - 2, cv.width, 2);
-      } finally { V.x -= ox; V.y -= oy; }
-      tiles.push(cv); box0.append(cv);
-    } } finally { wideBuild = false; tisWide = false; }
-    diveCopyKey = ''; diveRim = null;
-    tissueKey = ''; drawKey = ''; glDirty = true; fxDrawn = ''; fxBoxes = null; lyKey = ''; idleDrawn = '';
-    if (!ok) { for (const cv of tiles) free(cv); return null; }
-    el.insertBefore(box0, leaders);
-    return { el: box0, tiles, box, soft: dpr < dpr0 };
+    // (On the GPU (wide-gl.js), or none: the dive then scales the layers themselves, as for a dive with no station.)
+    return WIDE_GL ? buildWideGL(W, H, box) : null;
   }
   // The same copy on the GPU (wide-gl.js): each tile the layers drawn on the GPU at its size, as above, laid into a texture of the
   // copy's own context; each frame of the zoom draws the tiles where the box's scale puts them (setDiveZoom). Null where the GPU
-  // cannot (no WebGL2 for the vessels, a tile refused): the 2D tiles then.
+  // cannot (no WebGL2 for the vessels, a tile refused): no copy then.
   let wideCv = null, wideGL, wideGone = null;
   function wideGLOn() {
     if (wideGL === undefined) {
@@ -1968,7 +1824,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   function buildWideGL(W, H, box) {
     const g = ensureGL();
-    if (!g || g.lost) return null;   // (the vessels drawn flat on the tissue: the 2D tiles)
+    if (!g || g.lost) return null;   // (no vessels on the GPU: no copy)
     // (A copy still fading out, from the last dive, is given back first: its canvas is this one.)
     if (wideFadeT) { clearTimeout(wideFadeT); wideFadeT = 0; const f = wideGone; wideGone = null; f?.(); }
     const wg = wideGLOn();
@@ -1984,44 +1840,29 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       V.x += ox; V.y += oy;
       try {
         // The tissue (rimmed, by the shader), the vessels (one size for every tile, cropped), the ductules and the lymph, each drawn
-        // on the GPU for this tile and laid in while its canvas still holds it. (Where the tissue's or the overlay's GPU drawing
-        // cannot, its 2D canvas is laid in instead.)
-        const tg = DIVE_GPU ? tissueGLOn() : null;
+        // on the GPU for this tile and laid in while its canvas still holds it. (A layer the GPU cannot draw drops the copy.)
+        const tg = tissueGLOn();
         diveRim = rimOf(cx + ox, cy + oy, r); tissueKey = '';
-        const onG = paintTissue(w, hh, dpr, dark, cs, false, tg);   // (on the 2D canvas, it makes its rimmed copy itself: diveCv)
+        const onG = !!tg && paintTissue(w, hh, dpr, dark, cs, false, tg);
         // (The overlay first: in the vessels' own context (LZ_ONE) it is laid over them as they are drawn, one canvas for both; and the
         // tissue drawn on the GPU under them there too (tisWide), when it is hosted.)
-        fxDrawn = ''; fxBoxes = null; lyKey = ''; fxGLKey = ''; fxArgs = null;
+        fxGLKey = ''; fxArgs = null;
         const fxOn = fxOnGPU(w, hh, dpr, dark, 0, true), fxIn = fxOn && !!fxArgs, tisIn = onG && !!tisHostFor;
         tisWide = tisIn;
         drawKey = ''; drawGL(TW, TH, dpr, dark, cs, 0);
-        if (!fxOn) paintFx(w, hh, dpr, dark, 0, false);
-        ok = wg.tile(t, canvasPx(w, dpr), canvasPx(hh, dpr), dpr, [...(tisIn ? [] : [onG ? tissueG : diveCv]), glCv, ...(fxIn ? [] : [fxOn ? fxG : fx])]);
-        free(rimCv); free(tissue); free(diveCv); if (!fxOn) free(fx);
+        ok = onG && wg.tile(t, canvasPx(w, dpr), canvasPx(hh, dpr), dpr, [...(tisIn ? [] : [tissueG]), glCv, ...(fxIn || !fxOn ? [] : [fxG])]);
       } finally { V.x -= ox; V.y -= oy; }
       if (!ok) break;
     } } finally { wideBuild = false; fxArgs = null; tisWide = false; }
-    diveCopyKey = ''; diveRim = null;
-    tissueKey = ''; drawKey = ''; glDirty = true; fxDrawn = ''; fxBoxes = null; lyKey = ''; fxGLKey = ''; idleDrawn = '';
+    diveRim = null;
+    tissueKey = ''; drawKey = ''; glDirty = true; fxGLKey = ''; idleDrawn = '';
     if (!ok) { wg.release(); return null; }
     Object.assign(wideCv.style, { visibility: 'hidden', opacity: '', transition: '' });
     if (wideCv.parentNode !== el) el.insertBefore(wideCv, leaders);
     return { el: wideCv, gl: wg, tiles: [], box, soft: dpr < dpr0, W, H, dpr: dpr0 };
   }
-  function opaqueOnly(c, x, y, w, h) {
-    const im = c.getImageData(x, y, w, h), d = im.data;
-    for (let i = 3; i < d.length; i += 4) if (d[i] < 255) { d[i - 3] = d[i - 2] = d[i - 1] = d[i] = 0; }
-    c.putImageData(im, x, y);
-  }
-  // The layers, drawn for the screen after the copy: if the browser refused them, the copy goes and they are drawn again.
-  function wideChecked(wd) {
-    if (!wd || ((DIVE_GPU && tissueOnGL ? true : probe(tissue)) && (fxGLShown ? true : probe(fx)))) return wd;   // (on the GPU: its canvas has no 2D context to probe; nor the overlay's, fx-gl.js)
-    for (const cv of wd.tiles) free(cv); wd.gl?.release(); wd.el.remove();
-    tissueKey = ''; idleDrawn = ''; fxDrawn = ''; fxBoxes = null; lyKey = ''; draw(0);
-    return null;
-  }
   function trimFieldStates() {
-    free(worldOld); free(xfCv); xfT0 = 0; surOld = null; surT0 = 0;
+    free(worldOld); xfT0 = 0; surOld = null; surT0 = 0;
     const keys = [...tileSets.keys()];
     for (const key of keys.slice(0, -1)) { for (const q of tileSets.get(key)) { if (q.cv) free(q.cv); freeCopies(q); } tileSets.delete(key); }
     tissueGL?.sweep(); fieldGL?.sweep();   // (the GPU's copies of what was just given back)
@@ -2030,7 +1871,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function dropWide(ease = false) {
     if (!wide) return;
     const w = wide; wide = null;
-    for (const e of WIDE_HIDE) if (e !== diveCv) e.style.visibility = '';
+    for (const e of WIDE_HIDE) e.style.visibility = '';
     const gone = () => { wideGone = null; for (const cv of w.tiles) free(cv); w.gl?.release(); w.el.remove(); };
     clearTimeout(wideFadeT);
     // (A copy drawn softer than the screen, past the budget, fades into the sharp layers below it rather than switching to them.)
@@ -2046,8 +1887,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!box) return;
     if (gliding) { cancelFrame(glide); gliding = false; camAim = null; }   // (the copy is of this framing: the view holds it)
     const wd = buildWide(W, H, box);
-    keep2D = !DIVE_GPU;   // (DIVE_GPU: the layers under the copy stay on the GPU; nothing reads them)
-    try { idleDrawn = ''; draw(0); wide = wideChecked(wd); } finally { keep2D = false; }
+    idleDrawn = ''; draw(0); wide = wd;   // (the layers under the copy stay on the GPU; nothing reads them)
   }
   const apple = () => /iP(hone|ad|od)/.test(navigator.platform) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -2537,17 +2377,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const dpr = Math.min(2, devicePixelRatio || 1);
       quietTile(fieldTile(cs, dark, geo.R * V.k * dpr * 0.55), bg);
     }, () => {
-      // (The bitmap in the worker where it can be painted there, so the anatomy is not held while it is: paintTissue below then finds
-      // it painted. The pieces wait for it, a moment at a time.)
-      const dpr = Math.min(2, devicePixelRatio || 1), G = geo, m = model;
-      if (!G || !m || !offPage()) return;
-      const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), worldCap(G, dpr)), ws = worldStateOf(m, G, dark, cs), wk = sc.toFixed(3) + '|' + ws;
-      if (wk === worldKey || !askPaint('world', sc, ws, wk, m, G, dark, cs)) return;
-      const wait = () => { if ((job || laying?.j)?.wk === wk) q.unshift(wait); };
-      q.unshift(wait);
-    }, () => {
-      const dpr = Math.min(2, devicePixelRatio || 1);
-      paintTissue(W, H, dpr, dark, cs, !gl || gl.lost);
+      const dpr = Math.min(2, devicePixelRatio || 1), tg = gl && !gl.lost ? tissueGLOn() : null;
+      if (tg) paintTissue(W, H, dpr, dark, cs, false, tg);
     }, () => { if (fade <= 0) { draw(0); release(); prepKey = key; } });
     return q;
   }
@@ -2577,11 +2408,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (Aimed at a station: the whole lobule's copy for the zoom, built first; the layers are then drawn for the screen.)
     // (Reduced motion: the dive fades, nothing is magnified, so no copy: it was built and freed in the same moment.)
     const [W, H] = hostSize(), box = reduce.matches ? null : padBox(W, H), wd = box ? buildWide(W, H, box) : null;
-    keep2D = !DIVE_GPU;
-    // (DIVE_GPU: the tissue drawn on the GPU now, unseen, with the rim the dive will scale it down with (setDiveZoom, about the landing),
-    // so the zoom's first frame has nothing to draw. Landed, it is drawn once more without the rim.)
-    if (DIVE_GPU && !wd && !reduce.matches && geo) { const [x, y] = toScreen([geo.cx, geo.cy]); diveRim = rimOf(x, y, geo.R * V.k); }
-    try { idleDrawn = ''; draw(0); diveDrawn = true; staged = api.viewKey(); relLater = true; wide = wideChecked(wd); } finally { keep2D = false; }
+    // (The tissue drawn on the GPU now, unseen, with the rim the dive will scale it down with (setDiveZoom, about the landing), so the
+    // zoom's first frame has nothing to draw. Landed, it is drawn once more without the rim.)
+    if (!wd && !reduce.matches && geo) { const [x, y] = toScreen([geo.cx, geo.cy]); diveRim = rimOf(x, y, geo.R * V.k); }
+    idleDrawn = ''; draw(0); diveDrawn = true; staged = api.viewKey(); relLater = true; wide = wd;
     // (The bitmap just drawn is the one the landing shows on the GPU: sent now, while nothing of the lobule is seen, rather than in the
     // landing's frame, where a 3600 px texture and its mipmaps held the frame after the zoom.)
     // (Off unless ?stageup=1 since 1 Nov 2026: the lobule's tissue showed black on a Mac while zooming into it, until a pan, at the first
@@ -2589,14 +2419,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (STAGE_UP && worldCv.width && worldGeo === geo) framePart('lz.stageUpload', () => { if (tissueGL && !tissueGL.lost && ensureGL()) tissueGL.upload(worldCv, worldCv.ver || 0); });
   }
   function warm() { const f = warmQ.shift(); if (f) f(); return warmQ.length > 0; }
-  // Before a dive (stage.js setLobule): a new patient's tissue bitmap, which stage() would otherwise paint here, on the main thread,
-  // in the frame the zoom starts (the 1.8 s frame of CI's laptop profile, HVPG 5 to 6: up to 3600 px square of plates), is painted in
-  // the worker first, for the view and the model stage() then sets the same way. Null when there is nothing to wait for (painted
-  // already, no worker, the lobule showing); else a promise that resolves once the bitmap is in, or after AHEAD_MS at most (stage()
-  // then paints it here, as before). Never rejects. Nothing is seen meanwhile: the lobule is not showing.
-  const AHEAD_MS = 1000;
+  // Before a dive (stage.js setLobule): a new patient's tissue picture, which stage() would otherwise record in the frame the zoom
+  // starts, is recorded here first (paint-gl.js: its shapes only; the GPU paints it when it is first drawn), for the view and the
+  // model stage() then sets the same way. Null when there is nothing to wait for (recorded already, no GPU, the lobule showing); else
+  // a promise that resolves once it is in. Never rejects. Nothing is seen meanwhile: the lobule is not showing.
   function paintAhead() {
-    if (fade > 0 || !F || !geo || !offPage()) return null;
+    if (fade > 0 || !F || !geo || !tissueGLOn()) return null;
     const [W, H] = hostSize();
     ensureGeo(W, H);
     resetView(); staging = true; snapState();
@@ -2606,16 +2434,18 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const dark = isDark(), cs = styles(), dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale();   // (draw's own)
     const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), worldCap(G, dpr)), ws = worldStateOf(m, G, dark, cs), wk = sc.toFixed(3) + '|' + ws;
     if (wk === worldKey) return null;
-    const t0 = performance.now();
-    return new Promise((done) => {
-      const look = () => {
-        if (worldKey === wk || fade > 0 || geo !== G || performance.now() - t0 > AHEAD_MS) { done(); return; }
-        if (!job && !laying) askPaint('world', sc, ws, wk, m, G, dark, cs);   // (one already on its way, for another state, is let in first)
-        setTimeout(look, 16);
-      };
-      look();
-    });
+    return new Promise((done) => setTimeout(() => {
+      // (In a task of its own, not a frame: as paintTissue would, with the last state's picture given back, nothing showing to fade.)
+      if (fade <= 0 && geo === G && worldKey !== wk) {
+        free(worldCv); free(worldOld); xfT0 = 0;
+        worldKey = wk; worldState = ws; worldSc = sc; worldGeo = G; worldDraws++;
+        worldCv = paintWorld(sc, m, G, dark, cs);
+        tissueGL?.sweep();
+      }
+      done();
+    }, 0));
   }
+
 
   // Lumen radius of a tube at sample i (world px), from the model.
   // The few model values the calibers follow, eased toward the model's every display frame (~0.3 s), so a
@@ -2726,7 +2556,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   const segOf = (t) => (t.kind === 'pv' || t.kind === 'in' || t.kind === 'cv' ? t.kind : 'sin');
   const tubeW = (t, end) => { const sg = segOf(t); return sg === 'sin' ? sinW(t.rho[end ? N - 1 : 0]) : end ? 1 : 0; };
-  const tubeInk = (t, end) => (segOf(t) === 'sin' && sinFib() > 0 ? css(tubeRGB(t, end)) : ink(segOf(t), tubeW(t, end)));
   // Capillarized sinusoids are drawn duller as fibSin rises (G21): drained toward the lobule's shade, never brighter.
   // (From the eased sinusoidal resistance, so a new patient's sinusoids dull gradually, as their calibers change.)
   const sinFib = () => clamp(Math.log(rzOf().sin) / 3.2, 0, 1);
@@ -2912,7 +2741,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const triplet = (cs, n) => { const k = cs.getPropertyValue(n).trim().split(/[\s,/]+/).map(Number); return k.length >= 3 && k.every(Number.isFinite) ? k.slice(0, 3).map((v) => v / 255) : [0, 0, 0]; };
 
   // ── Tissue: plates, collagen, zones, congestion (repainted only when the model changes it) ──
-  let worldSc = 0, worldGeo = null, surRd = 0, worldDraws = 0, holdT = 0;
+  let worldSc = 0, worldGeo = null, worldDraws = 0, holdT = 0;
   // The hand let go of a held picture: drawn once more at the sharpness its zoom wants.
   const holdSoon = () => { if (!holdT) holdT = setTimeout(holdEnd, 140); };
   function holdEnd() { holdT = 0; if (handOn()) { holdSoon(); return; } viewChanged(); }
@@ -2925,18 +2754,18 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The tissue's state, as the lobule's bitmap shows it (what it is painted again for, besides its scale).
   const worldStateOf = (m, G, dark, cs) => [G.W, G.H, dark, m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), congKey(m), m.hide, zonesOn, cs.getPropertyValue('--bg')].join('|');
   // The lobule in world space, painted into cv at sc px per world unit (its box: 1.3 R about the centre each way).
-  function paintWorld(cv, sc, m, G, dark, cs) {
+  // (Recorded, not drawn: paint-gl.js keeps the painting's shapes and colours, and the GPU context that shows the picture paints them
+  // into its texture, tiles of a multisampled framebuffer, the first time it is drawn. No canvas, no pixels on the CPU.)
+  function paintWorld(sc, m, G, dark, cs) {
     if (gpuProbe.on) gpuProbe.note(COUNTED.tissue);
-    const B = 1.3 * G.R, bx = G.cx - B, by = G.cy - B, n = Math.ceil(2 * B * sc);
-    if (cv.width !== n || cv.height !== n) { cv.width = n; cv.height = n; }
-    framePart('lz.paintWorld', () => { paintWorldInto(cv.getContext('2d'), n, sc, bx, by, worldInput(m, G, dark, cs)); });
-    cv.ver = ++texVer;   // (its texture is sent again: tissue-gl.js)
+    const B = 1.3 * G.R, bx = G.cx - B, by = G.cy - B, n = Math.ceil(2 * B * sc), P = worldInput(m, G, dark, cs);
+    return framePart('lz.paintWorld', () => gpuPicture(recordPaint(n, n, (w) => paintWorldInto(w, n, sc, bx, by, P)), ++texVer));
   }
   // On the GPU: the lobule's bitmap is mipmapped, so one painted for a closer zoom stays sharp shown smaller. Once the view has
   // settled, the bitmap for twice its zoom (and the surround's tiles for it) are painted ahead, between frames (spareMake): a pinch
   // or a glide in then takes them over as it gets there, sharp all the way, with nothing painted mid-gesture and no picture shown
-  // softer than its zoom wants (on the 2D canvas the bitmap is held at its scale through a gesture and drawn sharp after: holdEnd).
-  let spareCv = document.createElement('canvas'), spare = null, spareT = 0, texVer = 0;
+  // softer than its zoom wants.
+  let spareCv = noPicture(), spare = null, spareT = 0, texVer = 0;
   const spareSoon = () => { if (!spareT) spareT = setTimeout(spareMake, 400); };
   function spareMake() {
     spareT = 0;
@@ -2950,14 +2779,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (The shader has the whole picture, so no bitmap is seen at the zooms this one is for: none is painted, and one made earlier is given back.)
       if (spare || spareCv.width) { free(spareCv); spare = null; }
     } else if (sc > worldSc * 1.01 && !(spare && spare.G === G && spare.ws === ws && spare.sc >= sc)) {
-      // (In the worker where it can paint, so the page never waits for it; a job already under way is waited for.)
-      // (Not while the bitmap shown is still waiting for the one the lobule wants: that one goes first.)
-      if (offPage()) { if (worldKey !== wantWk || !askPaint('spare', sc, ws, '', m, G, dark, cs)) spareSoon(); }
-      else {
-        paintWorld(spareCv, sc, m, G, dark, cs);
-        spare = { sc, ws, G };
-        g.upload(spareCv, spareCv.ver);
-      }
+      // (Recorded here, a moment's script, and painted on the GPU now, between frames.)
+      free(spareCv); spareCv = paintWorld(sc, m, G, dark, cs); spare = { sc, ws, G };
+      g.upload(spareCv, spareCv.ver);
     }
     // (The surround's tiles for that zoom too, each with its quieted copy, on the GPU.)
     const tone = shadeOf(stageBg(cs, dark), dark), { a, b } = fieldBlend(G.R * V.k * dpr * 0.55 * 2);
@@ -2965,8 +2789,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     g.sweep();
   }
   // The tissue's GPU drawing (tissue-gl.js): made the first time it is asked for; null where WebGL2 is missing or would run in
-  // software, and set aside if its context is lost (the 2D canvas carries on).
-  let tissueGL, tissueOnGL = false, keep2D = false;
+  // software, and set aside if its context is lost (the tissue then waits for the context back: nothing is painted on a 2D canvas).
+  let tissueGL, tissueOnGL = false;
   // One context for the lobule (LZ_ONE, veins-gl.js): the tissue is drawn in the vessels' own context, into a picture of its own, and
   // laid on their canvas under them at each picture they lay (their under), with no canvas or context of its own. Laid while it shows
   // (tissueG, out of the page, keeps the showing state: showTissueGL, the dive's copies) and, for a wide copy's tile, while the tile
@@ -2990,7 +2814,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (A context the browser takes back (Safari does, under GPU memory pressure or past its count of live contexts) leaves the canvas
     // with no picture. It was left showing until something drew the lobule again, a pan (Mohammad, 1 Nov: the cells went black
     // while zooming in, and came back when he panned; black on Lobule 5 in a talk, where nothing pans). It is put aside at once and the
-    // lobule drawn again on the 2D canvas in the next frame; the canvas is see-through (tissue-gl.js), so the moment before that shows
+    // lobule drawn again once the context is back; the canvas is see-through (tissue-gl.js), so the moment before that shows
     // no black. Once the browser gives the context back, the tissue goes back on the GPU (tissueRestored).)
     if (tissueGL && !tissueG._lostWatch) { tissueG._lostWatch = true; tissueG.addEventListener('webglcontextlost', tissueLost); tissueG.addEventListener('webglcontextrestored', tissueRestored); }   // (liveReady: the shader that draws the lobule starts compiling now, ahead of the first look)
     return tissueGL && !tissueGL.lost ? tissueGL : null;
@@ -2998,7 +2822,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The lobule's tissue drawn live by the shader (lobule-live.js, A5b): in the share of the picture the state allows (liveEligible:
   // the shader draws the fill, cells, congestion, zones and hairline so far, a state with collagen, stellate cells or septa is the
   // bitmap's) and the zoom wants (liveZoomShare: the bitmap's mipmaps average cells under about 3.5 px, where a shader would shimmer).
-  // The bitmap is still painted and kept, for the 2D canvas, the dive's copies and the shares that are not the shader's. Where the
+  // The picture is still recorded and kept (on the GPU, paint-gl.js) for the shares that are not the shader's. Where the
   // state changes between the two, the share eases over LIVE_MS.
   // The lobule is always drawn live where it can be: the goal is 1 while the state allows it and the shader is ready, and the share
   // eases over LIVE_MS (lobule-live.js) toward it, so nothing steps when the shader arrives after the lobule is on show. Unseen (closed,
@@ -3035,88 +2859,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!dynVal || dynVal.S !== S || dynKey !== key) { dynVal = buildDyn(S, radii, buildItems(S, m, { col: rgbW.col, dark, cvIn })); dynVal.S = S; dynKey = key; }
     return { shape: S, data, dyn: dynVal, fib: liveFibre(m), rs0: geo.rs0, share: liveShare, cu: m.congU, sj: m.septU, zones: zonesOn, dark, cen: [geo.cx, geo.cy, geo.R], col: liveColours(rgbW, dark, cssVar) };
   }
-  // The bitmap painted off the page (performance review A5a, 31 Oct): painting it here held the page for as long as it took, up to
-  // 3600 px square (the 2.8 s step into the lobule after a new patient, the 60 to 80 ms pinch repaints). Where the tissue is on the
-  // GPU and a worker can paint the same picture (tissue-worker.js), a new bitmap is painted there by the same code from the same
-  // values (lobule-paint.js), while the bitmap it replaces goes on showing; its tiles come back and are laid a few a frame, on the
-  // GPU and on the 2D canvas the dive's copies read, and once all are in it takes over exactly as one painted here would: the last
-  // state's picture fading out under it, or simply replaced. One job at a time; one that lands after the bitmap changed on the page
-  // (worldSeq), the lobule's shape changed, or its pictures were given back (jobGen) is dropped, and the next frame asks again.
-  // Without the GPU (and so in the headless checks) and until the worker is ready, the bitmap is painted here, as before.
-  const painter = createTissueWorker();
-  const offPage = () => !!tissueGLOn() && painter.ready;
   // The GPU's frame does not show the bitmap when the shader has the whole picture: its share is 1 (a cell 6 px or more across, and the
-  // shader eased fully in, so the bitmap is mixed out entirely: tissue-gl.js uLive). Then the bitmap exists for the 2D canvas, which the
-  // dive's and the rise's copies are made from (paint2D, buildWide), and for the zooms where the share falls below 1 again, and
-  // nothing else: it is not painted ahead (spareMake), not held at the sharpness of a gesture's every step (paintTissue), and a new
-  // state does not crossfade into it. Needs the worker (offPage), so the bitmap is never painted on the page to make up for it.
-  const bitmapUnseen = () => liveShare >= 1 && tissueOnGL && offPage();
-  const TILE_BYTES = 4 * 1024 * 1024;   // laid per frame (four 512 px tiles, about a millisecond)
-  const layNext = frameFor('lobule-tiles');
-  let job = null, laying = null, worldSeq = 0, jobGen = 0, wantWk = '';   // (wantWk: the bitmap the screen last wanted)
-  // A bitmap asked of the worker: kind 'world' (the one shown) or 'spare' (twice the zoom, painted ahead). False while another is
-  // under way (the same one under way counts as asked).
-  function askPaint(kind, sc, ws, wk, m, G, dark, cs) {
-    if (job || laying) { const j = job || laying.j; return j.kind === kind && j.sc === sc && j.ws === ws && j.G === G; }
-    const B = 1.3 * G.R, n = Math.ceil(2 * B * sc), { G: shape, ...P } = worldInput(m, G, dark, cs);
-    const j = job = { kind, sc, ws, wk, G, n, seq: worldSeq, gen: jobGen };
-    painter.paint({ shape, n, sc, bx: G.cx - B, by: G.cy - B, P }).then((tiles) => landed(j, tiles));
-    return true;
-  }
-  const jobLive = (j) => j.gen === jobGen && j.G === geo && (j.kind === 'spare' ? !bitmapUnseen() : j.seq === worldSeq);
-  const closeTiles = (tiles, from = 0) => { for (let i = from; i < (tiles?.length || 0); i++) { try { tiles[i].bmp.close(); } catch { /* gone */ } } };
-  function landed(j, tiles) {
-    if (job === j) job = null;
-    if (!tiles || !jobLive(j)) { closeTiles(tiles); wake(); return; }   // (dropped, or the worker failed and is off: the next frame asks or paints here)
-    const cv = document.createElement('canvas');
-    cv.width = j.n; cv.height = j.n;
-    const c = cv.getContext('2d');
-    if (!c) { free(cv); closeTiles(tiles); wake(); return; }
-    cv.ver = ++texVer;
-    tissueGLOn()?.begin(cv);
-    laying = { j, cv, c, tiles, i: 0 };
-    layNext(layTilesTimed);
-  }
-  const layTilesTimed = () => framePart('lz.layTiles', layTiles);
-  function layTiles() {
-    const L = laying;
-    if (!L) return;
-    if (!jobLive(L.j)) { laying = null; closeTiles(L.tiles, L.i); free(L.cv); tissueGL?.sweep(); wake(); return; }
-    const g = tissueGLOn();
-    let bytes = 0;
-    while (L.i < L.tiles.length && bytes < TILE_BYTES) {
-      const { x, y, bmp } = L.tiles[L.i++];
-      L.c.drawImage(bmp, x, y);
-      g?.put(L.cv, x, y, bmp);
-      bytes += bmp.width * bmp.height * 4;
-      bmp.close();
-    }
-    if (L.i < L.tiles.length) { layNext(layTilesTimed); return; }
-    laying = null;
-    g?.done(L.cv, L.cv.ver);
-    adopt(L.j, L.cv);
-  }
-  // A bitmap from the worker takes over, as paintTissue does with one it paints itself.
-  function adopt(j, cv) {
-    if (gpuProbe.on) gpuProbe.note(COUNTED.tissue);
-    if (j.kind === 'spare') {
-      free(spareCv); spareCv = cv; spare = { sc: j.sc, ws: j.ws, G: j.G };
-    } else {
-      // (Not while the shader has the whole picture (bitmapUnseen's share): the bitmap is not seen, so there is nothing to fade and no old one kept.)
-      // (The old picture stays under the new one as it fades in; a change while one is fading in replaces the incoming picture and
-      // lets the fade run on.)
-      const now = performance.now();
-      if (worldState && j.ws !== worldState && !unseen() && !(tissueOnGL && liveShare >= 1) && worldGeo === j.G && worldCv.width && !(xfT0 && xfNow(now) - xfT0 < XF_MS)) { free(worldOld); worldOld = worldCv; worldOldSc = worldSc; xfT0 = xfNow(now); }
-      else free(worldCv);
-      worldCv = cv;
-      worldKey = j.wk; worldState = j.ws; worldSc = j.sc; worldGeo = j.G; worldDraws++; worldSeq++;
-    }
-    tissueGL?.sweep();
-    wake();
-  }
+  // shader eased fully in, so the bitmap is mixed out entirely: tissue-gl.js uLive). Then the bitmap exists only for the zooms where the
+  // share falls below 1 again: it is not painted ahead (spareMake), not held at the sharpness of a gesture's every step (paintTissue),
+  // and a new state does not crossfade into it.
+  const bitmapUnseen = () => liveShare >= 1 && tissueOnGL;
   function tissueLost() { showTissueGL(false); wake(); }
   // (The context given back after a loss (tissue-gl.js asks for it): everything on it was lost with it, so the tissue's GPU drawing is
-  // made again on the same canvas the next time it is asked for. Until then, and if that fails, the 2D canvas carries on.)
+  // made again on the same canvas the next time it is asked for.)
   function tissueRestored() { if (tissueGL?.lost) { tissueGL = undefined; wake(); } }
   // The lobule draws again (its tissue first): a bitmap came in, or the next one can be asked for.
   function wake() { tissueKey = ''; idleDrawn = ''; if (!raf && fade > 0) raf = nextFrame(loop); }
@@ -3128,7 +2878,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // picture is opaque, so the 2D one under it is never seen once it shows. (Not while the dive's rim clears the surround on the GPU:
   // the 2D picture would show through there.) ?handoff=0: both switched in the one frame, as before.
   const HANDOFF = !/[?&]handoff=0\b/.test(location.search), HANDOFF_MS = 160;
-  const SIN_GPU = !/[?&]singpu=0\b/.test(location.search);
   let handoffT = 0;
   function showTissueGL(on) {
     if (on === tissueOnGL) return;
@@ -3140,14 +2889,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     tissueOnGL = on; tissue.style.opacity = on ? '0' : ''; tissueG.style.opacity = on ? '' : '0';
   }
-  // The tissue drawn on the 2D canvas now, for the dive's or the rise's copy (diveCopy), which is made from it.
-  function paint2D() {
-    if (!tissueOnGL || !geo || !model) return;
-    const [W, H] = hostSize(), g = ensureGL();
-    tissueKey = ''; idleDrawn = '';
-    paintTissue(W, H, Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), isDark(), styles(), !g, null);
-    showTissueGL(false);
-  }
+
   // The tissue on the GPU: the same picture as the 2D passes below (the quiet surround, the lobule's bitmap over it, crossfading with
   // the last state's while a new one fades in, and the fade into the page), with the surround's two nearest tile sizes blended.
   function tissueOnGPU(tg, tw, th, dpr, dark, cs, bgCss, now) {
@@ -3155,10 +2897,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const [ocx, ocy] = toScreen([cx, cy]), ox = ocx * dpr, oy = ocy * dpr, rd = R * V.k * dpr, fIn = rd * 1.1;
     const reach = Math.max(...[[0, 0], [tw, 0], [0, th], [tw, th]].map(([x, y]) => Math.hypot(x - ox, y - oy)));
     const fOut = fadeOuter(fIn, reach), tone = shadeOf(rgb01(bgCss), dark);
-    const { a, b, mix } = fieldBlend(rd * 0.55);   // (half the tile's resolution, as on the 2D canvas: the quiet surround)
+    const { a, b, mix } = fieldBlend(rd * 0.55);   // (half the tile's resolution: the quiet surround)
     const ta = fieldTile(cs, dark, FIELD_RS[a], !unseen()), tb = b !== a && mix > 0 ? fieldTile(cs, dark, FIELD_RS[b], !unseen()) : null;
     const qa = quietCopy(ta, tone), qb = tb ? quietCopy(tb, tone) : null;
-    // (A new state's tiles fade in over the last state's, as on the 2D canvas.)
+    // (A new state's tiles fade in over the last state's.)
     if (surNow && ta.set !== surNow.set && surNow.q.cv?.width && !unseen()) { surOld = surNow.q; surT0 = xfNow(now); }
     surNow = { set: ta.set, q: qa };
     const su = surT0 ? xfU(surT0, xfNow(now)) : 1;
@@ -3174,16 +2916,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       rim: rimArg(tw, th), hold: tissueOnGL,
     }));
     if (!ok) return false;
-    tissueDrew = true;   // (its canvas holds this frame's picture: pillCopy may read it now)
+    tissueDrew = true;
     rimDrawn = !!rimArg(tw, th); rimKeyGL = rimKey();   // (its canvas holds the dive's rimmed picture: drawn again without it once the zoom lands)
-    if (!crossfading && xfT0) { xfT0 = 0; free(worldOld); free(xfCv); tg.sweep(); }   // (faded in: the old picture is given back, its GPU copy too)
-    // (The 2D canvas is left empty under it: paint2D draws it again when the dive's copy needs it. In the frame the GPU's canvas takes over
-    // from it, though, it stays whole under it for a moment (showTissueGL, HANDOFF_MS).)
+    if (!crossfading && xfT0) { xfT0 = 0; free(worldOld); tg.sweep(); }   // (faded in: the old picture is given back, its GPU copy too)
+    // (The canvas under it is left empty.)
     if (!(HANDOFF && (!tissueOnGL || handoffT) && !rimDrawn)) free(tissue);
-    flatAt = null;
     return true;
   }
-  // tg: the GPU drawing to draw with (null: the 2D canvas). True when it drew on the GPU.
+  // tg: the GPU drawing to draw with (null: none, nothing is drawn). True when it drew on the GPU.
   function paintTissue(W, H, dpr, dark, cs, flatVessels, tg = null) {
     const m = model, G = geo;
     const gpu = !!tg && !flatVessels;
@@ -3204,147 +2944,65 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (gpu && kept && sc > worldSc && spare && spare.G === G && spare.ws === ws && ws === worldState && spare.sc >= sc && spareCv.width) {
       // (The zoom wants more than the bitmap has: the sharper one painted ahead takes over, already on the GPU.)
       [worldCv, spareCv] = [spareCv, worldCv]; free(spareCv); tg.sweep();   // (the replaced bitmap's GPU copy goes with it)
-      worldSc = spare.sc; worldKey = worldSc.toFixed(3) + '|' + ws; spare = null; worldSeq++;
+      worldSc = spare.sc; worldKey = worldSc.toFixed(3) + '|' + ws; spare = null;
     }
     if (!held && gpu && kept && ws === worldState && sc <= worldSc && worldSc <= sc * 2.01) sc = worldSc;
     if (held && kept && (!gpu || sc <= worldSc || bitmapUnseen())) { if (hand && sc !== worldSc) holdSoon(); sc = worldSc; }   // (bitmapUnseen: not repainted at each step of a gesture's zoom, as nothing of it is seen; drawn at the zoom's sharpness once the hand lets go, for the 2D canvas)
     // (The dive's wide copy drawn at a lower pixel ratio than the screen's, its box past the budget (buildWide): it is drawn from the
     // screen's sharper bitmap of the same state, not from a softer one painted here for it, with the screen's painted again after.)
     if (wideBuild && !held && kept && ws === worldState && sc < worldSc && worldSc <= sc * 2.01) sc = worldSc;
-    // (And the rise's first frame, the layers drawn once on the 2D canvas to be shrunk by the compositor (HVPG 6 to 7: 0.6 to 1 s on CI,
-    // the bitmap painted again for the fit the presenter glided to just before): the sharper bitmap of the same state, shown smaller.)
-    let shrink = 1;
-    if (diveScaled && !wideBuild && kept && ws === worldState && sc < worldSc && worldSc <= sc * 4.01) { shrink = worldSc / sc; sc = worldSc; }
+    // (And the rise's first frame, the layers drawn once to be shrunk by the compositor (HVPG 6 to 7: 0.6 to 1 s on CI, the bitmap
+    // painted again for the fit the presenter glided to just before): the sharper bitmap of the same state, shown smaller.)
+    if (diveScaled && !wideBuild && kept && ws === worldState && sc < worldSc && worldSc <= sc * 4.01) sc = worldSc;
     const wk = sc.toFixed(3) + '|' + ws;
     const now = performance.now(), fading = tissueFading(now), gk = greyNow(now);   // (gk: the surround's grey, easing with the lens)
     const lk = gpu ? liveStep(dpr, now) : 0;   // (the share of the lobule drawn live by the shader)
-    const key = [...(DIVE_GPU && gpu && diveRim ? [diveRim.x, diveRim.y, diveRim.r] : []), W, H, dpr, wk, gpu, fading ? `${xfU(xfT0, xfNow(now)).toFixed(3)},${xfU(surT0, xfNow(now)).toFixed(3)}` : '', flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', lk > 0 ? lk.toFixed(3) + ',' + m.congU.toFixed(3) : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1), gk.toFixed(3)].join('|');
-    if (key === tissueKey) return DIVE_GPU ? gpu && keyGPU : gpu;
-    tissueKey = key; tissueVer++; tissueCss = [W, H]; keyGPU = false;
+    const key = [...(gpu && diveRim ? [diveRim.x, diveRim.y, diveRim.r] : []), W, H, dpr, wk, gpu, fading ? `${xfU(xfT0, xfNow(now)).toFixed(3)},${xfU(surT0, xfNow(now)).toFixed(3)}` : '', flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', lk > 0 ? lk.toFixed(3) + ',' + m.congU.toFixed(3) : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1), gk.toFixed(3)].join('|');
+    if (key === tissueKey) return gpu && keyGPU;
+    tissueKey = key; tissueCss = [W, H]; keyGPU = false;
     const tw = canvasPx(W, dpr), th = canvasPx(H, dpr);
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
     const bg = v('--stage-bg', v('--bg'));
-    const { R, cx, cy } = G;
-    const B = 1.3 * R, bx = cx - B, by = cy - B;
-    if (gpu) wantWk = wk;
-    if (wk !== worldKey && gpu && worldGeo === G && worldCv.width && offPage()) {
-      // On the GPU with this lobule's bitmap to show meanwhile: the new one is painted in the worker (askPaint), and takes over
-      // when its tiles are in, as below (adopt). Nothing is painted here.
-      if (askPaint('world', sc, ws, wk, m, G, dark, cs) && gpuProbe.on && job?.wk === wk && !job.noted) { job.noted = true; gpuProbe.note(COUNTED.tissueWhy + (ws !== worldState ? 'state changed' : sc > worldSc ? 'zoomed in' : 'zoomed out'), Math.ceil(2.6 * R * sc) ** 2 * 4 / 1024); }
-    } else if (wk !== worldKey) {
+    const { R } = G;
+    if (wk !== worldKey && gpu) {
       // The tissue's state changed (not just the scale it is drawn at): the old picture stays under the new one as it fades in.
-      // (Not while the shader has the whole picture, as in adopt: the bitmap is painted again in place.)
-      // (A change while one is fading in redraws the incoming picture in place and lets the fade run on, so a state that keeps
-      // moving, as the pressures glide after a new patient, never restarts it.)
-      if (worldState && ws !== worldState && !unseen() && !(gpu && liveShare >= 1) && worldGeo === G && worldCv.width && !(xfT0 && xfNow(now) - xfT0 < XF_MS)) { [worldOld, worldCv] = [worldCv, worldOld]; worldOldSc = worldSc; xfT0 = xfNow(now); }
+      // (Not while the shader has the whole picture: the bitmap is painted again in place.)
+      // (A change while one is fading in replaces the incoming picture and lets the fade run on, so a state that keeps moving, as the
+      // pressures glide after a new patient, never restarts it.)
+      if (worldState && ws !== worldState && !unseen() && !(liveShare >= 1) && worldGeo === G && worldCv.width && !(xfT0 && xfNow(now) - xfT0 < XF_MS)) { free(worldOld); worldOld = worldCv; worldOldSc = worldSc; xfT0 = xfNow(now); }
+      else free(worldCv);
       // (For the ?perf readout: why, and how large, gpu-probe.js TISSUE_WHY.)
       if (gpuProbe.on) gpuProbe.note(COUNTED.tissueWhy + (!worldState || worldGeo !== G ? 'first' : ws !== worldState ? 'state changed' : sc > worldSc ? 'zoomed in' : 'zoomed out'), Math.ceil(2.6 * R * sc) ** 2 * 4 / 1024);
       worldKey = wk; worldState = ws;
-      worldSc = sc; worldGeo = G; worldDraws++; worldSeq++;   // (a bitmap from the worker asked for before this one is dropped: adopt)
-      paintWorld(worldCv, sc, m, G, dark, cs);
+      worldSc = sc; worldGeo = G; worldDraws++;
+      worldCv = paintWorld(sc, m, G, dark, cs);
+      tg.sweep();   // (the picture it replaced: its texture given back)
     }
     if (gpu && tissueOnGPU(tg, tw, th, dpr, dark, cs, bg, now)) { keyGPU = true; if (!held) spareSoon(); return true; }
-    if (tissue.width !== tw || tissue.height !== th) { tissue.width = tw; tissue.height = th; }
-    const c = tissue.getContext('2d');
-    c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // Each pixel is filled only by the passes that can change it (a slide's camera gliding inside the lobule lagged: Safari
-    // draws these canvases on the CPU, so every full-screen pass costs tens of ms there). The same picture, pixel for pixel:
-    // past the focus fade's outer edge it lays the page's colour at full strength, so only the page's colour goes there; inside
-    // its inner edge it adds nothing, so it is not laid there; and the surround is not filled under the lobule's opaque middle,
-    // which the lobule's bitmap covers whole (kept a few pixels in from its edge, past any smoothing of the bitmap's edge).
-    // (Not mid-crossfade: two pictures mixed may leave its middle a hair short of opaque.)
-    const [ocx, ocy] = toScreen([cx, cy]), ox = ocx * dpr, oy = ocy * dpr, rdv = R * V.k * dpr, fIn = rdv * 1.1;
-    const reach = Math.max(...[[0, 0], [tw, 0], [0, th], [tw, th]].map(([x, y]) => Math.hypot(x - ox, y - oy)));
-    const fOut = fadeOuter(fIn, reach);   // (3.2 R, or farther when the screen reaches past it: the neighbours reach every edge)
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.fillStyle = bg;
-    if (reach > fOut + 1) { c.beginPath(); c.rect(0, 0, tw, th); c.moveTo(ox + fOut + 1, oy); c.arc(ox, oy, fOut + 1, 0, TAU); c.fill('evenodd'); }
-    const crossfading = !!(xfT0 && xfNow(now) - xfT0 < XF_MS && worldOld.width && worldOldSc);
-    // The neighbours are the dive's field, carried on: the same tissue, in the same state, fading into
-    // the page with distance from this lobule, never wholly before the screen's edge (fadeOuter, lobule-look.js).
-    {
-      c.save();
-      c.beginPath(); c.arc(ox, oy, fOut + 2, 0, TAU);
-      if (!crossfading) {
-        // (The bitmap's pixels are 1/worldSc wide: a few of them in from its edge, as many screen pixels as they span, and 2 more.)
-        const mg = 2 + 3 * Math.max(1, (dpr * V.k) / worldSc);
-        G.lobules[0].corners.forEach(([x, y], i) => {
-          const [px, py] = toScreen([x, y]), dx = px * dpr - ox, dy = py * dpr - oy, d = Math.hypot(dx, dy) || 1, f = Math.max(0, 1 - mg / d);
-          c[i ? 'lineTo' : 'moveTo'](ox + dx * f, oy + dy * f);
-        });
-        c.closePath();
-      }
-      c.clip('evenodd');
-      const [sx, sy] = toScreen([cx, cy]), rd = R * V.k * dpr;
-      // (Mid-glide, the tile it had is stretched rather than a larger one drawn; a new tissue state's tiles are built between frames, see fieldTile.)
-      const want = held && surRd ? surRd : rd * 0.55;
-      if (hand && want !== rd * 0.55) holdSoon();
-      if (!held) surRd = rd * 0.55;
-      const t = fieldTile(cs, dark, want, !unseen()), q = quietTile(t, shadeOf(rgb01(bg), dark));
-      // (A new state's tiles fade in over the last state's; a new size of the same state just takes over: the same picture.)
-      if (surNow && t.set !== surNow.set && surNow.q.cv?.width && !unseen()) { surOld = surNow.q; surT0 = xfNow(now); }
-      surNow = { set: t.set, q };
-      const su = surT0 ? xfU(surT0, xfNow(now)) : 1;
-      if (su >= 1) { surT0 = 0; surOld = null; }
-      fieldFill(c, q, sx * dpr, sy * dpr, rd, W * dpr, H * dpr);   // half resolution is plenty for the quiet surround
-      if (surOld?.cv?.width && !isTileCopy(surOld.cv)) { c.globalAlpha = 1 - su; fieldFill(c, surOld, sx * dpr, sy * dpr, rd, W * dpr, H * dpr); c.globalAlpha = 1; }   // (a copy made on the GPU, tile-gl.js, has no canvas to lay)
-      // (Grey as the anatomy's liver is in a lens other than Pressure: only here, inside the clip, so the lobule's bitmap laid next keeps
-      // the lens's colours; before the fade into the page, as on the GPU.)
-      if (gk > 0) fieldGrey(c, shadeOf(rgb01(bg), dark), surroundGrade(gk), tw, th);
-      c.restore();
-    }
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    {
-      const [sx, sy] = toScreen([bx, by]), side = 2 * B * V.k * dpr;
-      if (xfT0 && xfNow(now) - xfT0 < XF_MS && worldOld.width && worldOldSc) {
-        // Mixed (1 − u)·old + u·new before it is laid on the field: drawn one over the other, the see-through rim (the soft
-        // outer collagen past the lobule's edge) grew denser mid-fade and dropped back after, so it pulsed at every redraw.
-        const u = xfU(xfT0, xfNow(now)), x = xfCv.getContext('2d'), n = worldCv.width;
-        if (xfCv.width !== n || xfCv.height !== worldCv.height) { xfCv.width = n; xfCv.height = worldCv.height; }
-        x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'copy'; x.globalAlpha = 1 - u; x.drawImage(worldOld, 0, 0, n, xfCv.height);
-        x.globalCompositeOperation = 'lighter'; x.globalAlpha = u; x.drawImage(worldCv, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
-        c.drawImage(xfCv, sx * dpr, sy * dpr, side, side);
-        worldAt = { cv: xfCv, x: sx * dpr, y: sy * dpr, side };
-      } else {
-        if (shrink > 2.01) c.imageSmoothingQuality = 'high';   // (a bitmap over twice as sharp as the frame: filtered, not shimmering)
-        c.drawImage(worldCv, sx * dpr, sy * dpr, side, side);
-        if (shrink > 2.01) c.imageSmoothingQuality = 'low';
-        worldAt = { cv: worldCv, x: sx * dpr, y: sy * dpr, side };
-        if (xfT0) { xfT0 = 0; free(worldOld); free(xfCv); tissueGL?.sweep(); }   // (faded in: the old picture is given back, and any GPU copy of it)
-      }
-    }
-    // Focus: the surround fades into the page (as the dive's field does at its end).
-    // (Only between its inner edge and the outer one: inside it adds nothing, outside the page's colour is already there.)
-    { c.setTransform(1, 0, 0, 1, 0, 0); if (fIn - 1 < reach) fieldFade(c, shadeOf(rgb01(bg), dark), ox, oy, rdv, 1, W * dpr, H * dpr, fIn, fOut, [fIn - 1, fOut + 4]); c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y); }
-    if (flatVessels) paintFlatVessels(c, cs);
-    flatAt = flatVessels ? { cs, m: [dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y] } : null;
-    if (diveRim) diveCopy();
-    return false;
+    return false;   // (no GPU: the tissue is not drawn; the canvas keeps the last frame it showed)
   }
   // The tissue as the dive shows it scaled down. Past the lobule's rim the bitmap holds the lobule view's own surround (a pale card,
   // scaled down), so that is faded out, opaque to 1.02 of the lobule's radius and gone by 1.2 (DIVE_RIM). The lobule's own drawing
   // stays whole there: its portal tracts reach about 1.2 R in portal fibrosis (and the arteriole, ductule and lymphatic sit just past
-  // the corners), and faded with the surround they were cut back through the whole zoom, then popped in when it landed. So the copy is
-  // diveRimMix: the tissue × the fade, plus the lobule's own layer (the world bitmap, and the flat vessels without WebGL) × the rest.
-  // Baked into the copy rather than a CSS mask, which Safari now and then dropped for a frame (the whole pale card flashed). Made
-  // once per drawing of the tissue, not per frame.
-  let tissueVer = 0, tissueCss = [1, 1], diveRim = null, diveCopyKey = '', worldAt = null, flatAt = null;
-  // (DIVE_GPU: the rim drawn by the tissue's shader instead (tissue-gl.js). keyGPU: the last key drawn went on the GPU; rimDrawn: the
+  // the corners), and faded with the surround they were cut back through the whole zoom, then popped in when it landed. The tissue's
+  // shader draws that rim itself (tissue-gl.js uRim), once per drawing of the tissue, not per frame.
+  let tissueCss = [1, 1], diveRim = null;
+  // (The rim drawn by the tissue's shader (tissue-gl.js). keyGPU: the last key drawn went on the GPU; rimDrawn: the
   // GPU canvas holds a rimmed picture.)
   let keyGPU = false, rimDrawn = false, rimKeyGL = '';
   const rimKey = () => (diveRim ? `${diveRim.x},${diveRim.y},${diveRim.r}` : '');
   const rimOf = (x, y, r) => ({ x: +x.toFixed(1), y: +y.toFixed(1), r: +r.toFixed(1) });
   // The rim in the GPU canvas's device px (tw × th for a stage of tissueCss CSS px), null for none.
   const rimArg = (tw, th) => {
-    if (!DIVE_GPU || !diveRim) return null;
+    if (!diveRim) return null;
     const kx = tw / tissueCss[0], ky = th / tissueCss[1], k = (kx + ky) / 2, { x, y, r } = diveRim;
     return [x * kx, y * ky, r * k * DIVE_RIM.solid, r * k * DIVE_RIM.clear];
   };
   // The tissue drawn on the GPU now for the rim as it is (diveRim: the dive's, or none once it lands). True when it is on the GPU.
   function rimOnGPU() {
-    if (!DIVE_GPU || !geo || !model) return false;
+    if (!geo || !model) return false;
     const g = ensureGL();
-    if (!g || g.lost) return false;   // (vessels drawn flat on the tissue: the 2D canvas and its copy, as before)
+    if (!g || g.lost) return false;   // (no vessels on the GPU: nothing is drawn)
     const tg = tissueGLOn();
     if (!tg) return false;
     const [W, H] = hostSize();
@@ -3352,39 +3010,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     showTissueGL(on);
     return on;
   }
-  function diveCopy(dst = diveCv) {   // (dst: a tile of the wide copy, see buildWide)
-    if (!diveRim || !tissue.width) return;
-    // (In the padded box's own frame when the layers are padded.)
-    const { x, y, r } = diveRim, key = [tissueVer, tissue.width, tissue.height, x, y, r].join('|');
-    if (key === diveCopyKey) return;
-    diveCopyKey = key;
-    const tw = tissue.width, th = tissue.height, ks = [tw / tissueCss[0], th / tissueCss[1]];
-    if (dst.width !== tw || dst.height !== th) { dst.width = tw; dst.height = th; }
-    // (In the tissue's CSS pixels, as the mask was: the canvas is stretched over the view's box.)
-    const rimFade = (q) => { const g = q.createRadialGradient(x, y, r * DIVE_RIM.solid, x, y, r * DIVE_RIM.clear); g.addColorStop(0, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)'); return g; };   // colour-exempt: a mask
-    const c = dst.getContext('2d');
-    if (!c) return;
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.globalCompositeOperation = 'copy'; c.drawImage(tissue, 0, 0);
-    c.setTransform(ks[0], 0, 0, ks[1], 0, 0);
-    c.globalCompositeOperation = 'destination-in'; c.fillStyle = rimFade(c); c.fillRect(0, 0, tissueCss[0], tissueCss[1]);
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    // The lobule's own layer, only in its box (nothing of it lies outside), cleared where the tissue is kept whole.
-    const w = worldAt, bx = Math.max(0, Math.floor(w?.x ?? 0)), by = Math.max(0, Math.floor(w?.y ?? 0));
-    const bw = w ? Math.min(tw, Math.ceil(w.x + w.side)) - bx : 0, bh = w ? Math.min(th, Math.ceil(w.y + w.side)) - by : 0;
-    if (w?.cv.width && bw > 0 && bh > 0) {
-      if (rimCv.width !== tw || rimCv.height !== th) { rimCv.width = tw; rimCv.height = th; }
-      const q = rimCv.getContext('2d');
-      q.setTransform(1, 0, 0, 1, 0, 0); q.globalCompositeOperation = 'source-over'; q.clearRect(bx, by, bw, bh);
-      q.drawImage(w.cv, w.x, w.y, w.side, w.side);
-      if (flatAt) { q.setTransform(...flatAt.m); paintFlatVessels(q, flatAt.cs); }
-      q.setTransform(ks[0], 0, 0, ks[1], 0, 0);
-      q.globalCompositeOperation = 'destination-out'; q.fillStyle = rimFade(q); q.fillRect(bx / ks[0], by / ks[1], bw / ks[0], bh / ks[1]);
-      q.globalCompositeOperation = 'source-over'; q.setTransform(1, 0, 0, 1, 0, 0);
-      c.globalCompositeOperation = 'lighter'; c.drawImage(rimCv, bx, by, bw, bh, bx, by, bw, bh);
-    }
-    c.globalCompositeOperation = 'source-over';
-  }
+
   // The plain values the lobule's painting reads (lobule-paint.js paintLobule), the same whether it paints on the page or in the
   // worker: the model's tissue values, the lobule's shape (copied once per shape), the layers, its colours, and the calibers of the
   // sinusoids and the central vein as they are now (only where the painting reads them: capillarization, the central vein's cuff).
@@ -3416,26 +3042,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       cvIn: m.fibPost > 0.05 ? radiusAt(G.cv, 0) : 0,
     };
   }
-  // Without WebGL2: the vessels as plain strokes on the tissue.
-  function paintFlatVessels(c, cs) {
-    const G = geo, art = cs.getPropertyValue('--artery').trim(), casing = tk('--lz-casing');
-    c.lineCap = 'round'; c.lineJoin = 'round';
-    for (const t of G.tubes) {
-      const r = radiusAt(t, N >> 1), isArt = t.kind === 'ha' || t.kind === 'tw', disc = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd';
-      const color = isArt ? art : t.kind === 'bd' ? tk('--lz-bile-duct') : tubeInk(t, 0), rim = EDGE[t.kind];
-      const [x0, y0] = t.pts[0];
-      if (disc) {
-        c.fillStyle = rim ? `rgb(${rim.map((q) => Math.round(q * 255))})` : casing; c.beginPath(); c.arc(x0, y0, r + (rim ? 1.8 : 1.2), 0, TAU); c.fill();
-        c.fillStyle = color; c.beginPath(); c.arc(x0, y0, r, 0, TAU); c.fill();
-        continue;
-      }
-      const path = () => { c.beginPath(); t.pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); };
-      if (selIds().has(t.id)) { c.strokeStyle = tk('--lz-select'); c.lineWidth = 2 * r + 7; path(); c.stroke(); }
-      if (!isArt) { c.strokeStyle = casing; c.lineWidth = 2 * r + 2; path(); c.stroke(); }
-      c.strokeStyle = color; c.lineWidth = 2 * r; path(); c.stroke();
-    }
-  }
-
   // ── Overlay: lymph droplets; without WebGL2, the red cells too ──
   // What the effects layer draws that does not move, as world-space paths, each with the box it covers (so a frame
   // draws only those that reach the screen; one wholly off it changes no pixel there). The ductules' cells follow only
@@ -3446,106 +3052,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const G = geo, rs = G.triads.map((tr) => Math.max(radiusAt(tr.bdT, N >> 1), G.R * 0.008)), key = rs.join(',');
     if (ductP && ductP.G === G && key === ductKey) return ductP;
     ductKey = key;
-    const NC = 16, TAU2 = Math.PI * 2;
+    const NC = 16;
+    // (Per ductule, for the GPU's instanced drawing (fx-gl.js): its centre, the lining's inner and outer radius, its middle, the
+    // nucleus radius (about a third of a cell's width) and the turn of its cells.)
     const duct = G.triads.map((tr, j) => {
       const r = rs[j], rm = r * 1.35, hw = Math.PI * rm / NC, rin = rm - hw, rout = rm + hw, x = tr.bd[0], y = tr.bd[1];
-      const lumen = new Path2D(); lumen.arc(x, y, rin, 0, TAU2);
-      const cells = [];
-      for (let i = 0; i < NC; i++) {
-        const a0 = (i / NC) * TAU2 + tr.i, a1 = ((i + 1) / NC) * TAU2 + tr.i, p = new Path2D();
-        p.arc(x, y, rin, a0, a1); p.arc(x, y, rout, a1, a0, true); p.closePath(); cells.push(p);
-      }
-      const nuc = new Path2D(), rn = rm, nr = hw * 0.34;   // diameter about a third of the cell's width
-      for (let i = 0; i < NC; i++) { const a = ((i + 0.5) / NC) * TAU2 + tr.i, nx = x + Math.cos(a) * rn, ny = y + Math.sin(a) * rn; nuc.moveTo(nx + nr, ny); nuc.arc(nx, ny, nr, 0, TAU2); }
-      return { lumen, cells, nuc, disc: [x, y, rout], num: [x, y, rin, rout, rm, nr, tr.i, 0] };
+      return { disc: [x, y, rout], num: [x, y, rin, rout, rm, hw * 0.34, tr.i, 0] };
     });
     return (ductP = { G, key, duct, nums: Float32Array.from(duct.flatMap((d) => d.num)) });
   }
-  // A world-space box [x0, y0, x1, y1] round some points.
-  const boxOf = (pts) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const [x, y] of pts) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } return [x0, y0, x1, y1]; };
-  let fxKey = '', fxP = null, fxCourses = null, liningKey = '', liningP = null;
-  function fxPaths() {
-    const G = geo, key = [geoKey, Object.values(rzOf()).map((x) => x.toFixed(5)).join(','), V.k.toFixed(5)].join('|');
-    if (key === fxKey && fxP.G === G) return fxP;
-    fxKey = key;
-    // The eraser's courses: a disc for each vessel seen end-on, and each other blood vessel in thirds (each stroked as wide as
-    // the lumen at its middle: the sinusoids widen toward the central vein). They depend on the geometry alone.
-    if (fxCourses?.G !== G) {
-      const list = [];
-      for (const t of G.tubes) {
-        if (t.lymph || t.kind === 'ly' || t.kind === 'lt' || t.kind === 'lv') continue;
-        if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd') { list.push({ t, disc: true }); continue; }
-        for (let q = 0; q < 3; q++) {
-          const i0 = Math.floor((q * (N - 1)) / 3), i1 = Math.floor(((q + 1) * (N - 1)) / 3), p = new Path2D();
-          p.moveTo(...t.pts[i0]);
-          for (let i = i0 + 1; i <= i1; i++) p.lineTo(...t.pts[i]);
-          list.push({ t, p, mid: (i0 + i1) >> 1, box: boxOf(t.pts.slice(i0, i1 + 1)) });
-        }
-      }
-      fxCourses = { G, list };
-    }
-    // The eraser: a disc (w 0, filled) or a stroke of width w each, in the order they are cut, each with the box it covers.
-    const erase = [];
-    for (const e of fxCourses.list) {
-      const t = e.t, wall = (WALL[t.kind] || 0.8) + 0.6 / V.k;
-      if (e.disc) {
-        const [x0, y0] = t.pts[0], p = new Path2D(), r = radiusAt(t, N >> 1) + wall;
-        p.arc(x0, y0, r, 0, TAU); erase.push({ p, w: 0, box: [x0 - r, y0 - r, x0 + r, y0 + r] });
-        continue;
-      }
-      const w = 2 * (radiusAt(t, e.mid) + wall), b = e.box;
-      erase.push({ p: e.p, w, box: [b[0] - w / 2, b[1] - w / 2, b[2] + w / 2, b[3] + w / 2] });
-    }
-    // The sinusoid lining, a line either side of each sinusoid: one path for the whole of it, and each side on its own
-    // with its box (stroked with the default miter joins, which reach at most 10 half-widths past a point).
-    const z = rzOf(), lw = 0.9 / V.k, lk = [geoKey, z.sin.toFixed(5), z.congU.toFixed(5), V.k.toFixed(5)].join('|');
-    if (lk !== liningKey || liningP?.G !== G) {
-      liningKey = lk;
-      const lining = new Path2D(), sides = [], reach = 5 * lw;
-      for (const t of G.tubes) {
-        if (t.kind !== 's0' && t.kind !== 's1' && t.kind !== 's2') continue;
-        for (const side of [-1, 1]) {
-          const one = new Path2D(), pts = [];
-          t.pts.forEach(([x, y], i) => {
-            if (t.rho[i] < CV_STOP) return;   // stops at the central vein's edge: no spokes into it
-            const [xa, ya] = t.pts[Math.max(0, i - 1)], [xb, yb] = t.pts[Math.min(N - 1, i + 1)], d = Math.hypot(xb - xa, yb - ya) || 1;
-            const o = side * (radiusAt(t, i) + lw);
-            const px = x - ((yb - ya) / d) * o, py = y + ((xb - xa) / d) * o;
-            if (pts.length) { lining.lineTo(px, py); one.lineTo(px, py); } else { lining.moveTo(px, py); one.moveTo(px, py); }
-            pts.push([px, py]);
-          });
-          if (!pts.length) continue;
-          const b = boxOf(pts);
-          sides.push({ p: one, box: [b[0] - reach, b[1] - reach, b[2] + reach, b[3] + reach] });
-        }
-      }
-      liningP = { G, lining, sides };
-    }
-    return (fxP = { G, erase, lining: liningP });
-  }
   // What part of the world the effects layer shows, with a few device pixels to spare for antialiasing: [x0, y0, x1, y1].
-  let fxAll = false;   // (for the checks: draw the eraser and the lining whole, see fxCheck)
-  const fxView = (W, H, dpr) => { if (fxAll) return [-Infinity, -Infinity, Infinity, Infinity]; const mg = 4 / (dpr * V.k); return [-V.x / V.k - mg, -V.y / V.k - mg, (W - V.x) / V.k + mg, (H - V.y) / V.k + mg]; };
-  const meets = (b, v) => b[2] >= v[0] && b[0] <= v[2] && b[3] >= v[1] && b[1] <= v[3];
-  let fxDrawn = '';
-  let fxBoxes = null;   // (device-pixel boxes round all the layer holds, when that is only the ductules; null: anything)
-  // Settings › Figure performance › Lymph redrawn where it moves (frame.js lymphBoxes, off by default): with the GPU's vessels, the
-  // layer holds the ductules, the lymph's drops and the lining. Only the drops move; the rest changes only with what lyKey holds. So
-  // while that key holds, only the tiles the drops covered last frame or cover now are cleared and drawn again (the same drawing, the
-  // same order, clipped to them: inside them every pixel is drawn as a full redraw draws it, and outside them nothing changed).
-  // lyKey: everything but the drops that the layer is drawn from; lyTiles: the tiles last frame's drops covered.
-  let lyKey = '', lyTiles = null, lyPaths = null;
-  const LY_TILE = 32;   // device px
-  function lyTilesOf(drops, ringW, fw, fh, dpr) {
-    const out = new Set(), cols = Math.ceil(fw / LY_TILE), rows = Math.ceil(fh / LY_TILE);
-    for (let j = 0; j < drops.length; j += 4) {
-      const X = (drops[j] * V.k + V.x) * dpr, Y = (drops[j + 1] * V.k + V.y) * dpr, e = (drops[j + 2] + ringW) * V.k * dpr + 3;
-      const c0 = Math.max(0, Math.floor((X - e) / LY_TILE)), c1 = Math.min(cols - 1, Math.floor((X + e) / LY_TILE));
-      const r0 = Math.max(0, Math.floor((Y - e) / LY_TILE)), r1 = Math.min(rows - 1, Math.floor((Y + e) / LY_TILE));
-      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) out.add(r * cols + c);
-    }
-    return out;
-  }
   // The lymph's drops this frame, [x, y, r, seed] each, and what drawing them needs. (Each drop's motion steps here, once a frame.)
   function lyDrops(G, m, dt, W, H, dpr) {
     const p = lyProt(m), still = reduce.matches, lw = 0.9 / V.k, seal = 1 - smooth(0.15, 0.6, p);
@@ -3557,9 +3073,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const gapW = G.R * 0.06, minR = 2.6 / V.k;
     lyV = lyV == null ? lyR : lyV + (lyR - lyV) * -Math.expm1(-dt / 0.5);
     const vW = G.R * 0.035 * Math.sqrt(lyV);
-    // (Every drop is drawn, on the screen or not: the drops and beads go out as one path each, and a path with fewer
-    // circles in it comes out a shade different at a few edges. The eraser and the lining below draw only what reaches the screen.)
-    const view = fxView(W, H, dpr);
+    // (Every drop is drawn, on the screen or not: the GPU draws them as one instanced pass.)
     const drops = [];
     for (const t of G.tubes) {
       if (t.kind !== 'ly' && t.kind !== 'lt') continue;
@@ -3575,12 +3089,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         drops.push(x, y, r * Math.min(1, e) * smooth(0.2, 0.8, tp), t.id + i);
       }
     }
-    return { lw, seal, beads, minR, view, drops };
+    return { lw, seal, beads, minR, drops };
   }
   // ── The overlay on the GPU (fx-gl.js) ──
-  // The picture paintFx draws (with WebGL vessels: the ductules, and with the Lymph layer the drops, beads, eraser and lining), drawn by
-  // the GPU in the 2D overlay's place, scaled with the others through the dive and the rise as the tissue's GPU canvas is (DIVE_GPU);
-  // not while they are staged on the 2D canvas (keep2D: their copies read the 2D overlay), nor without the vessels' WebGL. The 2D overlay is given back while the GPU's shows. ?fxgpu=0: paintFx always, as before.
+  // The lobule's overlay (with WebGL vessels: the ductules, and with the Lymph layer the drops, beads, eraser and lining), drawn by
+  // the GPU in the 2D overlay's place, scaled with the others through the dive and the rise as the tissue's GPU canvas is;
+  // not without the vessels' WebGL. Its old 2D canvas stays empty (given back). ?fxgpu=0: no overlay.
   let fxGL, fxGLKey = '', fxGLShown = false;
   // One context for the lobule (LZ_ONE, veins-gl.js): the overlay is drawn in the vessels' own canvas, over them, at the end of each
   // picture they lay (their top), from the frame's arguments fxOnGPU leaves here (fxArgs; null: nothing laid, the 2D overlay draws),
@@ -3611,23 +3125,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!on) { fxGLKey = ''; fxGL?.release(); fxHostGL?.release(); if (fxG.width) { fxG.width = 0; fxG.height = 0; } }
   }
   function fxGLOff() { fxGLShow(false); }
-  // A colour token as [r, g, b, a] (0–1), whatever form it is written in: read back from a 1 px canvas, once per string.
-  const rgbaSeen = new Map();
-  let rgbaCv = null;
-  function rgbaOf(str) {
-    let v = rgbaSeen.get(str);
-    if (v) return v;
-    if (!rgbaCv) { rgbaCv = document.createElement('canvas'); rgbaCv.width = rgbaCv.height = 1; }
-    const c = rgbaCv.getContext('2d', { willReadFrequently: true });
-    c.clearRect(0, 0, 1, 1); c.fillStyle = 'transparent'; c.fillStyle = str; c.fillRect(0, 0, 1, 1);   // colour-exempt: a reset before the token
-    const d = c.getImageData(0, 0, 1, 1).data;   // (read back unpremultiplied)
-    v = [d[0] / 255, d[1] / 255, d[2] / 255, d[3] / 255];
-    if (rgbaSeen.size > 64) rgbaSeen.clear();
-    rgbaSeen.set(str, v);
-    return v;
-  }
+  // A colour token as [r, g, b, a] (0–1), whatever form it is written in (css-color.js: read in script, in the canvas's 8-bit steps).
+  const rgbaOf = (str) => cssColor8(str);
   // The eraser as capsules (x0, y0, x1, y1, r, 0): a disc for each vessel seen end-on, each other blood vessel's segments as wide as
-  // its lumen at the middle of its third, with its wall (the 0.6 / k the wall grows with the zoom is added in the shader). As fxPaths.
+  // its lumen at the middle of its third, with its wall (the 0.6 / k the wall grows with the zoom is added in the shader).
   let gEraseKey = '', gErase = null, gLineKey = '', gLine = null;
   function fxGLErase() {
     const G = geo, key = [geoKey, Object.values(rzOf()).map((x) => x.toFixed(5)).join(',')].join('|');
@@ -3645,7 +3146,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     return (gErase = Float32Array.from(out));
   }
-  // The sinusoid lining as capsules, a line either side of each sinusoid lw out from its lumen (as fxPaths, which strokes them lw wide).
+  // The sinusoid lining as capsules, a line either side of each sinusoid lw out from its lumen, lw wide.
   function fxGLLine(lw) {
     const G = geo, z = rzOf(), key = [geoKey, z.sin.toFixed(5), z.congU.toFixed(5), V.k.toFixed(5)].join('|');
     if (key === gLineKey && gLine) return gLine;
@@ -3675,8 +3176,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const moving = fxMoves({ lymph: lymphOn, flat: false, hide: m.hide, flow: store.get().layers?.flow });
     const dc = [tk('--lz-duct-lumen'), tk('--lz-duct-cell'), tk('--lz-duct-edge'), tk('--lz-duct-nucleus')];
     const key = moving ? '' : [fw, fh, dpr, dark, m.hide, m.hide ? '' : fxDuct().key, V.k, V.x, V.y, ...dc].join('|');
-    // (The 2D overlay is not shown meanwhile: given back, and drawn whole again by paintFx when it is wanted.)
-    const fx2D = () => { if (fx.width) { free(fx); fxDrawn = ''; fxBoxes = null; lyKey = ''; } };
+    // (The old 2D overlay canvas is kept empty: given back.)
+    const fx2D = () => { if (fx.width) { free(fx); } };
     if (key && key === fxGLKey && fxGLShown && !hosted) { fx2D(); return true; }
     let lymph = null;
     if (lymphOn && !m.hide) {
@@ -3711,172 +3212,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     fx2D();
     return true;
   }
-  function paintFx(W, H, dpr, dark, dt, flat) {
-    const fw = canvasPx(W, dpr), fh = canvasPx(H, dpr);
-    if (fx.width !== fw || fx.height !== fh) { fx.width = fw; fx.height = fh; fxDrawn = ''; fxBoxes = null; lyKey = ''; }
-    const G = geo, m = model;
-    // With nothing moving on this layer (no lymph, WebGL vessels), it holds only the ductules' epithelium: drawn again only when
-    // the view, a caliber or the theme changes, not every frame (clearing and redrawing a full-screen canvas the screen then re-uploads).
-    const moving = fxMoves({ lymph: lymphOn, flat, hide: m.hide, flow: store.get().layers?.flow });
-    const fk = moving ? '' : [fw, fh, dpr, dark, m.hide, m.hide ? '' : fxDuct().key, V.k, V.x, V.y, tk('--lz-duct-cell'), tk('--lz-duct-edge'), tk('--lz-duct-nucleus'), tk('--lz-duct-lumen')].join('|');
-    if (fk && fk === fxDrawn) return;
-    fxDrawn = fk;
-    const c = fx.getContext('2d');
-    c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // (Lymph redrawn where it moves (lyKey), when on: the drops are stepped here, before the clear, so the tiles they leave and the
-    // tiles they reach are both known; the drawing below takes them from lyPre instead of stepping them again.)
-    let lyPre = null, lyClip = null;
-    if (moving && lymphOn && !flat && !m.hide && figLab('lymphBoxes')) {
-      lyPre = lyDrops(G, m, dt, W, H, dpr);
-      const tiles = lyTilesOf(lyPre.drops, Math.max(0.5 / V.k, lyPre.minR * 0.22), fw, fh, dpr), paths = fxPaths();
-      const key = [fw, fh, dpr, dark, fxAll, fxDuct().key, V.k, V.x, V.y, lyPre.lw, lyPre.seal, tk('--lz-duct-cell'), tk('--lz-duct-edge'), tk('--lz-duct-nucleus'), tk('--lz-duct-lumen'), tk('--lz-lymph'), tk('--lz-albumin-ring'), tk('--lz-albumin'), tk('--lz-collagen', ((dark ? 0.6 : 0.5) * lyPre.seal).toFixed(3))].join('|');
-      if (key === lyKey && paths === lyPaths && lyTiles) {
-        const dirty = new Set([...lyTiles, ...tiles]);
-        if (dirty.size * LY_TILE * LY_TILE < 0.5 * fw * fh) lyClip = [...dirty].sort((a, b) => a - b);
-      }
-      lyKey = key; lyPaths = paths; lyTiles = tiles;
-    } else if (lyKey) { lyKey = ''; lyTiles = null; lyPaths = null; }
-    if (lyClip) {
-      // (The dirty tiles as runs along each row, in device pixels; cleared, and everything below drawn inside them only.)
-      const cols = Math.ceil(fw / LY_TILE);
-      c.save();
-      c.setTransform(1, 0, 0, 1, 0, 0);
-      c.beginPath();
-      for (let i = 0; i < lyClip.length;) {
-        let j = i;
-        while (j + 1 < lyClip.length && lyClip[j + 1] === lyClip[j] + 1 && lyClip[j + 1] % cols !== 0) j++;
-        const row = Math.floor(lyClip[i] / cols), c0 = lyClip[i] % cols;
-        c.rect(c0 * LY_TILE, row * LY_TILE, (j - i + 1) * LY_TILE, LY_TILE);
-        i = j + 1;
-      }
-      c.clip();
-      c.clearRect(0, 0, fw, fh);
-      c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-    // Holding only the ductules (nothing moving), the layer is clear but for them: only where they were drawn is cleared, not the
-    // whole screen each frame a pan or a slide's camera moves (the same picture; any other layer drawn last clears it all).
-    else if (fxBoxes) { c.setTransform(1, 0, 0, 1, 0, 0); for (const [x0, y0, x1, y1] of fxBoxes) c.clearRect(x0, y0, x1 - x0, y1 - y0); c.setTransform(dpr, 0, 0, dpr, 0, 0); }
-    else c.clearRect(0, 0, W, H);
-    fxBoxes = moving ? null : [];
-    c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y);
-    if (!m.hide) {
-      // The bile ductule is lined all round by a simple cuboidal epithelium: wedge-shaped cells side by side
-      // around an open lumen, each with a darker round nucleus.
-      const cellFill = tk('--lz-duct-cell'), cellEdge = tk('--lz-duct-edge'), nuc = tk('--lz-duct-nucleus'), lumen = tk('--lz-duct-lumen');
-      c.lineWidth = Math.max(0.3, G.R * 0.0013); c.strokeStyle = cellEdge; c.globalAlpha = 0.72;   // a little faded, so the ductule sits back in the tract
-      // One ring of 16 cuboidal cells round each: as deep as they are wide, so each nucleus has room (a third of the cell's width).
-      for (const d of fxDuct().duct) {
-        // (A ductule whose disc, its stroke and a margin lie wholly off the canvas draws no pixel of it: left out, not drawn clipped, as
-        // most of them are at a close zoom. Its box is left out of the clear list too, since nothing of it was drawn there.)
-        const [x, y, r] = d.disc, e = (r + c.lineWidth) * V.k * dpr + 3, X = (x * V.k + V.x) * dpr, Y = (y * V.k + V.y) * dpr;
-        if (X + e < 0 || Y + e < 0 || X - e > fw || Y - e > fh) continue;
-        if (gpuProbe.on) gpuProbe.note(COUNTED.ductules);
-        if (fxBoxes) fxBoxes.push([Math.floor(X - e), Math.floor(Y - e), Math.ceil(X + e), Math.ceil(Y + e)]);
-        c.fillStyle = lumen; c.fill(d.lumen);
-        c.fillStyle = cellFill;
-        for (const p of d.cells) { c.fill(p); c.stroke(p); }
-        c.fillStyle = nuc; c.fill(d.nuc);
-      }
-      c.globalAlpha = 1;
-    }
-    if (lymphOn && flat) {
-      // Without WebGL2, hepatic lymph as shimmer: plasma filtered into the space of Disse drifts out through the tissue
-      // to the portal tract (space of Mall), where it leaves in the lymphatics. More sinusoidal pressure,
-      // more lymph: the streaks grow denser, brighter and faster (and so does ascites).
-      const rate = lymphRate(m), n = clamp(Math.round(22 * rate), 10, G.lymph.length), speed = 0.07 * Math.sqrt(clamp(rate, 0.3, 6));
-      const R = G.R, glowA = clamp(0.35 + 0.15 * rate, 0.35, 0.9);
-      const ink = [255, 255, 255];   // lymph is clear and pale: white streaks
-      const pos = (d, u) => {
-        const aC = Math.round(d.a / (Math.PI / 3)) * (Math.PI / 3), e = u ** 1.6;
-        const ang = d.a + (aC - d.a) * e, rr = lerp(d.r0, 0.96, u) * R, wob = Math.sin(u * 7 + d.w) * R * 0.014 * (1 - u);
-        return [G.cx + Math.cos(ang) * rr - Math.sin(ang) * wob, G.cy + Math.sin(ang) * rr + Math.cos(ang) * wob];
-      };
-      c.save();
-      c.globalCompositeOperation = 'source-over';
-      // On the pale tissue a faint shadow keeps the white streaks legible.
-      if (!dark) { c.shadowColor = tk('--lz-streak-shadow'); c.shadowBlur = 3; }
-      c.lineCap = 'round'; c.lineJoin = 'round';
-      for (let i = 0; i < n; i++) {
-        const d = G.lymph[i];
-        d.ph = (d.ph + (reduce.matches ? 0 : dt * speed * d.sp)) % 1;
-        const u = d.ph, env = smooth(0, 0.15, u) * (1 - smooth(0.82, 1, u));
-        if (env <= 0.01) continue;
-        const u0 = Math.max(0, u - d.len), tail = pos(d, u0), head = pos(d, u);
-        const gr = c.createLinearGradient(tail[0], tail[1], head[0], head[1]);
-        gr.addColorStop(0, `rgba(${ink.join(',')},0)`); gr.addColorStop(1, `rgba(${ink.join(',')},${(glowA * env).toFixed(3)})`);
-        c.strokeStyle = gr;
-        c.beginPath();
-        for (let k = 0; k <= 6; k++) { const q = pos(d, lerp(u0, u, k / 6)); if (k) c.lineTo(q[0], q[1]); else c.moveTo(q[0], q[1]); }
-        c.lineWidth = 5; c.globalAlpha = 0.22; c.stroke();     // soft glow
-        c.lineWidth = 1.8; c.globalAlpha = 1; c.stroke();      // bright core
-      }
-      // It gathers in the portal tracts.
-      c.globalAlpha = 1; c.shadowBlur = 0;
-      for (const tr of G.triads) {
-        const rg = c.createRadialGradient(tr.x, tr.y, 0, tr.x, tr.y, G.rt * 1.1);
-        rg.addColorStop(0, `rgba(${ink.join(',')},${(0.1 + 0.06 * clamp(rate, 0, 4)).toFixed(3)})`); rg.addColorStop(1, `rgba(${ink.join(',')},0)`);
-        c.fillStyle = rg; c.beginPath(); c.arc(tr.x, tr.y, G.rt * 1.1, 0, TAU); c.fill();
-      }
-      c.restore();
-    }
-    if (lymphOn && !flat && !m.hide) {
-      const { lw, seal, beads, minR, view, drops } = lyPre || lyDrops(G, m, dt, W, H, dpr);
-      c.fillStyle = tk('--lz-lymph');
-      c.beginPath();
-      for (let j = 0; j < drops.length; j += 4) { const [x, y, rr] = [drops[j], drops[j + 1], drops[j + 2]]; c.moveTo(x + rr, y); c.arc(x, y, rr, 0, TAU); }
-      c.fill();
-      // Albumin beads: a saturated amber with a ring of the opposite lightness, so they stand off the pale
-      // green lymph in either theme.
-      c.beginPath();
-      for (let j = 0; j < drops.length; j += 4) {
-        const x = drops[j], y = drops[j + 1], rr = drops[j + 2], br = rr * 0.3, a0 = drops[j + 3] * 1.7;
-        for (let b = 0; b < beads; b++) {
-          const a = a0 + (b * TAU) / beads, q = beads === 1 ? 0 : rr * 0.5;
-          c.moveTo(x + Math.cos(a) * q + br, y + Math.sin(a) * q); c.arc(x + Math.cos(a) * q, y + Math.sin(a) * q, br, 0, TAU);
-        }
-      }
-      c.lineWidth = Math.max(0.5 / V.k, minR * 0.22);
-      c.strokeStyle = tk('--lz-albumin-ring');
-      c.stroke();
-      c.fillStyle = tk('--lz-albumin');
-      c.fill();
-      // The lymph runs beneath the blood: cut the drops away wherever a blood vessel (with its wall)
-      // lies over them, so the arterioles, venules and sinusoids pass on top.
-      c.save();
-      c.globalCompositeOperation = 'destination-out';
-      c.fillStyle = c.strokeStyle = '#000';   // colour-exempt: an eraser (destination-out)
-      c.lineCap = 'round'; c.lineJoin = 'round';
-      for (const { p, w, box } of fxPaths().erase) { if (!meets(box, view)) continue; if (w) { c.lineWidth = w; c.stroke(p); } else c.fill(p); }
-      c.restore();
-      // The sinusoid lining: nothing extra while the fenestrae are open; a thin continuous collagen line
-      // fades in as the sinusoids capillarize and hold protein back.
-      if (seal > 0.02) {
-        c.save();
-        c.lineWidth = lw;
-        c.strokeStyle = tk('--lz-collagen', ((dark ? 0.6 : 0.5) * seal).toFixed(3));
-        const { lining, sides } = fxPaths().lining, seen = sides.filter((sd) => meets(sd.box, view));
-        let path = lining;
-        if (seen.length < sides.length) { path = new Path2D(); for (const sd of seen) path.addPath(sd.p); }
-        c.stroke(path);
-        c.restore();
-      }
-    }
-    if (flat && !m.hide && store.get().layers?.flow !== false) {
-      // Red cells along the sinusoids at the model's flow.
-      c.fillStyle = tk('--lz-rbc');
-      const sp = 0.1 * Math.max(0, m.flow);
-      c.beginPath();
-      for (const t of G.tubes) {
-        if (t.kind !== 's0' && t.kind !== 's1' && t.kind !== 's2') continue;
-        t.u = ((t.u ?? (t.id * 0.137) % 1) + dt * sp * (t.kind === 's2' ? 2 : t.kind === 's1' ? 1.45 : 1)) % 1;
-        for (const off of [0, 0.5]) { const [x, y] = at(t.pts, (t.u + off) % 1); c.moveTo(x + 2, y); c.arc(x, y, 2, 0, TAU); }
-      }
-      c.fill();
-    }
-    if (lyClip) c.restore();   // (the clip goes: the next frame's clear is its own)
-  }
-
-  // ── Hit testing and the card ──
   function hit(x, y) {
     const G = geo, m = model;
     if (!G || !m) return null;
@@ -4076,16 +3411,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // with nothing inside it named. Each call is unchanged; only while frames are watched is it timed.
   const timed = (tag, f) => (...a) => framePart(tag, () => f(...a));
   /* eslint-disable no-func-assign */
-  drawGL = timed('lz.drawGL', drawGL); paintFx = timed('lz.paintFx', paintFx); paintTissue = timed('lz.paintTissue', paintTissue);
-  diveCopy = timed('lz.diveCopy', diveCopy); probe = timed('lz.probe', probe); opaqueOnly = timed('lz.opaqueOnly', opaqueOnly);
-  update = timed('lz.update', update); ensureGeo = timed('lz.ensureGeo', ensureGeo); fieldTile = timed('lz.fieldTile', fieldTile);
+  drawGL = timed('lz.drawGL', drawGL); paintTissue = timed('lz.paintTissue', paintTissue);
+    update = timed('lz.update', update); ensureGeo = timed('lz.ensureGeo', ensureGeo); fieldTile = timed('lz.fieldTile', fieldTile);
   /* eslint-enable no-func-assign */
   // The ?perf surfaces list (gpu-surfaces.js): the lobule's own canvases, from the state kept here. Read by the readout only.
   const lzShown = () => fade > 0 || fieldOp > 0;
   surface('lobule tissue', () => {
     if (!(fade > 0)) return null;
     if (tissueOnGL) return { on: 'gpu', via: 'WebGL2' };
-    return { on: 'fallback', via: '2D canvas', why: tissueGL === null ? 'no WebGL2 for the tissue' : tissueGL?.lost ? 'context lost' : keep2D ? 'drawn on the 2D canvas for the dive\'s copy' : 'the GPU has not drawn it yet' };
+    return { on: 'fallback', via: '2D canvas', why: tissueGL === null ? 'no WebGL2 for the tissue' : tissueGL?.lost ? 'context lost' : 'the GPU has not drawn it yet' };
   });
   surface('lobule field (neighbouring lobules)', () => {
     if (!(fieldOp > 0)) return null;
@@ -4096,10 +3430,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!lzShown()) return null;
     if (gl && !gl.lost && !gl.software) return { on: 'gpu', via: 'WebGL2' };
     return { on: 'fallback', via: gl ? 'WebGL2 on the CPU' : '2D canvas', why: !gl ? 'no WebGL2' : gl.lost ? 'context lost' : 'software renderer' };
-  });
-  surface('lobule label pills', () => {
-    if (!(fade > 0) || !pillGL) return null;
-    return pillGL.state();
   });
   const api = {
     el,
@@ -4161,27 +3491,23 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (!diveScaled && fade <= 0) { staged = ''; if (relLater) { relLater = false; release(); } }   // the dive is over with the lobule unseen
       // Landed with a Sinusoid tap waiting (made during the dive): on into the sinusoid now.
       sinOnLanding();
-      // Scaled down, the tissue's own page fill would show as a pale card: the tissue's copy keeps only the lobule, its own drawing and
-      // a soft rim (diveCopy). (The vessels' canvas holds only the lobule's own vessels, so it is shown whole, as at rest: masked
-      // with the rim, the triads' arterioles, ductules and lymphatics just past the corners were faded through the zoom and popped in.)
+      // Scaled down, the tissue's own page fill would show as a pale card: the tissue's shader keeps only the lobule, its own drawing
+      // and a soft rim (tissue-gl.js uRim). (The vessels' canvas holds only the lobule's own vessels, so it is shown whole, as at rest:
+      // masked with the rim, the triads' arterioles, ductules and lymphatics just past the corners were faded through the zoom and popped in.)
       const r = geo ? geo.R * V.k : 0, rim = k < 0.9999 && r > 0;
       // (Landed, or back at full size: the wide copy goes, and the layers, drawn for the screen before the zoom, show as they are.)
       // (A GPU copy whose context was lost goes too: the layers, scaled, as before there was a copy.)
       if (wide?.gl?.lost) dropWide();
       if (wide && !rim) dropWide(true);
       diveRim = rim && !wide ? { x: +x.toFixed(1), y: +y.toFixed(1), r: +r.toFixed(1) } : null;
-      // (DIVE_GPU: the rim drawn by the tissue's shader, and the GPU canvas scaled as it is: no 2D paint and no copy. Where the GPU
-      // cannot, the 2D canvas and its copy, as before. Landed, the picture is drawn again without the rim before the scale goes.)
-      // (Drawn once for the rim, as the 2D copy was: each frame of the zoom only scales it.)
-      const rimGL = DIVE_GPU && rim && !wide && ((rimDrawn && tissueOnGL && rimKeyGL === rimKey()) || rimOnGPU());
-      if (rimGL) { if (diveCv.width) { free(diveCv); free(rimCv); diveCopyKey = ''; } }
-      else if (rim && !wide) { paint2D(); diveCopy(); }
-      else if (diveCv.width) { free(diveCv); free(rimCv); diveCopyKey = ''; }
-      if (DIVE_GPU && !diveRim && rimDrawn) { rimDrawn = false; tissueKey = ''; idleDrawn = ''; if (fade > 0 && !wide) rimOnGPU(); }
-      const show = wide ? null : rim && !rimGL && diveCopyKey ? diveCv : tissue;
-      if (tissue.style.visibility !== (show === tissue ? '' : 'hidden')) { tissue.style.visibility = tissueG.style.visibility = show === tissue ? '' : 'hidden'; diveCv.style.visibility = show === diveCv ? '' : 'hidden'; }
+      // (The rim drawn by the tissue's shader, and the GPU canvas scaled as it is: no copy. Drawn once for the rim: each frame of the
+      // zoom only scales it. Landed, the picture is drawn again without the rim before the scale goes.)
+      if (rim && !wide && !(rimDrawn && tissueOnGL && rimKeyGL === rimKey())) rimOnGPU();
+      if (!diveRim && rimDrawn) { rimDrawn = false; tissueKey = ''; idleDrawn = ''; if (fade > 0 && !wide) rimOnGPU(); }
+      const vis = wide ? 'hidden' : '';
+      if (tissueG.style.visibility !== vis) tissue.style.visibility = tissueG.style.visibility = vis;
       if (wide) { for (const e of WIDE_HIDE) e.style.visibility = 'hidden'; wide.el.style.visibility = ''; }
-      for (const e of [tissue, tissueG, diveCv, glCv, fx, fxG, leaders, labels]) {
+      for (const e of [tissue, tissueG, glCv, fx, fxG, leaders, labels]) {
         if (k >= 0.9999) { e.style.transform = ''; e.style.transformOrigin = ''; continue; }
         // Scaled about its own centre, which sits where the field's lobule at the dive's focus is (tx, ty), so it morphs out of that one.
         e.style.transformOrigin = `${x.toFixed(1)}px ${y.toFixed(1)}px`;
@@ -4189,10 +3515,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       }
       // (The wide copy's box about the same stage point, in its own frame.)
       if (wide?.gl) wide.gl.draw(wide.W, wide.H, wide.dpr, wide.box, k, x, y, tx, ty);   // (on the GPU: one pass, no CSS transform)
-      else if (wide) {
-        wide.el.style.transformOrigin = `${(x + wide.box.l).toFixed(1)}px ${(y + wide.box.t).toFixed(1)}px`;
-        wide.el.style.transform = `translate(${(tx - x).toFixed(1)}px, ${(ty - y).toFixed(1)}px) scale(${k.toFixed(4)})`;
-      }
     },
     /** Where the sinusoid's reading and the lesion pointer meet their sinusoid (for the checks): its generation, how far
      *  out from the central vein (0) to the lobule's rim (1) along that ray, and where on screen. */
@@ -4247,27 +3569,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     /** For the checks: bytes held in the lobule's bitmaps (its canvases, world bitmap and field tiles). */
     memBytes(detail = false) {
       const b = (cv) => (cv ? cv.width * cv.height * 4 : 0);
-      const d = { canvases: b(tissue) + b(tissueG) + b(diveCv) + b(glCv) + b(fx) + b(field) + b(fieldG), world: b(worldCv), tiles: 0, worldDraws, tileSets: tileSets.size };
+      const d = { canvases: b(tissue) + b(tissueG) + b(glCv) + b(fx) + b(field) + b(fieldG), world: b(worldCv), tiles: 0, worldDraws, tileSets: tileSets.size };
       for (const tiles of tileSets.values()) for (const q of tiles) d.tiles += b(q.cv) + b(q.quiet?.cv) + b(q.liverQ?.cv);
       return detail ? d : d.canvases + d.world + d.tiles;
     },
     /** For the checks: how many times the labels have been placed in full (a pan should only carry them along). */
     labelLayouts: () => layoutN,
-    /** For the checks: the effects layer drawn as a frame draws it (the eraser and lining only where they reach the screen), then
-     *  with all of them: how many bytes differ (0 when nothing on the screen was left out). Drawn at rest (no step in the drops' motion). */
-    fxCheck() {
-      if (!geo || !model || fade <= 0.98 || !fx.width) return null;
-      const rect = host.getBoundingClientRect(), W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
-      const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), flat = !gl || gl.lost, c = fx.getContext('2d');
-      const read = () => { fxDrawn = ''; paintFx(W, H, dpr, isDark(), 0, flat); return c.getImageData(0, 0, fx.width, fx.height).data; };
-      const a = read();
-      fxAll = true;
-      const b = read();
-      fxAll = false;
-      let differ = 0;
-      for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) differ++;
-      return { bytes: a.length, differ, lymph: lymphOn };
-    },
     isOpen: () => fade > 0.98,
     isShown: () => fade > 0,
     /** The lobule's outline in client px while the view is wholly the lobule (not the sinusoid), else null: the corner credit keeps off it. */

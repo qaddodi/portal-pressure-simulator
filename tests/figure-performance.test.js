@@ -129,26 +129,15 @@ test('Callout glass kept: the page is read in one place, with each moving part t
   assert.match(g, /function take\(reg, cr, sr\) \{/, 'take reads nothing itself');
 });
 
-test('Lymph redrawn where it moves: off, the layer is cleared and the drops stepped as before; on, only the tiles they touch', () => {
+test('Lymph drawn by the GPU each frame it moves: the drops stepped once a frame, their rings as wide as the 2D drawing stroked them', () => {
+  // (1 Nov, the off-GPU gate: the 2D overlay (paintFx) and its partial redraw are gone; the overlay is the GPU's, fx-gl.js.)
   const lz = src('lobule-zoom.js');
-  const fx = lz.slice(lz.indexOf('  function paintFx(W, H, dpr, dark, dt, flat) {'), lz.indexOf('  // ── Hit testing and the card ──'));
-  assert.match(fx, /if \(moving && lymphOn && !flat && !m\.hide && figLab\('lymphBoxes'\)\) \{/, 'only with the switch, the GPU vessels and moving lymph');
-  assert.match(fx, /\} else if \(lyKey\) \{ lyKey = ''; lyTiles = null; lyPaths = null; \}/);
-  // Off: lyPre and lyClip stay null, lyKey stays '', and the clear is the old one.
-  assert.match(fx, /else if \(fxBoxes\) \{ c\.setTransform\(1, 0, 0, 1, 0, 0\); for \(const \[x0, y0, x1, y1\] of fxBoxes\) c\.clearRect\(x0, y0, x1 - x0, y1 - y0\); c\.setTransform\(dpr, 0, 0, dpr, 0, 0\); \}\n\s+else c\.clearRect\(0, 0, W, H\);/);
-  assert.match(fx, /const \{ lw, seal, beads, minR, view, drops \} = lyPre \|\| lyDrops\(G, m, dt, W, H, dpr\);/, 'the drops stepped once a frame either way');
-  assert.equal(fx.split('lyDrops(G, m, dt, W, H, dpr)').length - 1, 2);
-  // On: a partial redraw only while everything but the drops is unchanged, and under half the screen; the clip is let go at the end.
-  assert.match(fx, /if \(key === lyKey && paths === lyPaths && lyTiles\) \{/);
-  assert.match(fx, /if \(dirty\.size \* LY_TILE \* LY_TILE < 0\.5 \* fw \* fh\) lyClip = /);
-  assert.match(fx, /if \(lyClip\) c\.restore\(\);/);
-  assert.equal((fx.match(/c\.save\(\)/g) || []).length, (fx.match(/c\.restore\(\)/g) || []).length, 'saves and restores balance');
-  // Every reset of the layer resets the key too, so a cleared or resized canvas is drawn whole.
-  assert.equal((lz.match(/(?<!let )fxBoxes = null;/g) || []).length, lz.split('fxBoxes = null; lyKey = \'\';').length - 1);
-  // The drops' tiles reach past each drop by its ring and a few pixels of antialiasing.
-  assert.match(lz, /e = \(drops\[j \+ 2\] \+ ringW\) \* V\.k \* dpr \+ 3;/);
-  assert.match(fx, /lyTilesOf\(lyPre\.drops, Math\.max\(0\.5 \/ V\.k, lyPre\.minR \* 0\.22\), fw, fh, dpr\)/, 'the ring as the drawing strokes it');
-  assert.match(lz, /c\.lineWidth = Math\.max\(0\.5 \/ V\.k, minR \* 0\.22\);/);
+  const fx = lz.slice(lz.indexOf('  function fxOnGPU(W, H, dpr, dark, dt, can) {'), lz.indexOf('\n  }\n', lz.indexOf('  function fxOnGPU(W, H, dpr, dark, dt, can) {')));
+  assert.equal(fx.split('lyDrops(G, m, dt, W, H, dpr)').length - 1, 1, 'the drops stepped once a frame');
+  assert.equal(lz.split('lyDrops(G, m, dt, W, H, dpr)').length - 1, 2, 'and nowhere else (the other is its own definition)');
+  assert.match(fx, /ringHalf: Math\.max\(0\.5 \/ V\.k, minR \* 0\.22\) \/ 2,/, 'the ring as the drawing stroked it');
+  assert.match(fx, /const key = moving \? '' : /, 'a moving overlay is drawn every frame, a still one only when it changes');
+  assert.doesNotMatch(lz, /function paintFx\(|lyTiles|lyKey|fxBoxes/);
 });
 
 test('Pinch frame reuse: off, the one-pass frame is as before; on, only while a hand zooms, and the stop is shaded whole', () => {

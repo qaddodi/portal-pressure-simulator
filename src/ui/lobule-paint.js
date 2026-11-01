@@ -1,6 +1,6 @@
 // The lobule's tissue as the lobule view paints it into its bitmap (lobule-zoom.js paintWorld): the plates, the zones, the collagen
 // of fibrosis and cirrhosis, the stellate cells and the nutmeg of congestion. Kept apart from the view, with no page and no styles
-// in it, so the same code paints the bitmap on the page or in a worker (tissue-worker.js): one picture, wherever it is painted, from
+// in it: it draws through a 2D-context API that paint-gl.js records and the GPU paints (1 Nov 2026, nothing off the GPU), from
 // the same plain values (the view's worldInput).
 
 import { cordTone, bandOutline } from './lobule-look.js?v=cf14995b07';

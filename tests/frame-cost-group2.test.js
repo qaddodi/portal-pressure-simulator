@@ -59,13 +59,13 @@ test('item 34: sinusoid uniforms are sent only when they change, and the second 
 test("item 32: the lobule's world bitmap and surround keep their scale under a hand too, drawn sharp once it lets go", () => {
   const src = read('../src/ui/lobule-zoom.js');
   const pt = src.slice(src.indexOf('function paintTissue('), src.indexOf('fieldFill(c, q,'));
-  // (On the 2D canvas a hand is a finger, a flick or a trackpad scroll, as before; on the GPU any wheel too, and there the bitmap is
+  // (Without the GPU a hand is a finger, a flick or a trackpad scroll, as before; on the GPU any wheel too, and there the picture is
   // held only while it is at least as sharp as the zoom wants: tests/tissue-gl.test.js.)
   assert.match(pt, /const hand = !gliding && \(gpu \? handOn\(\) : touches\.size > 0 \|\| !!cancelFlick \|\| \(wheelKind === 'pad' && performance\.now\(\) - wheelAt < 250\)\), held = gliding \|\| hand;/);
   assert.match(pt, /const kept = worldSc && worldCv\.width && worldGeo === G;/);
   // (bitmapUnseen: where the shader has the whole picture on the GPU the bitmap is held at any gesture step, as nothing of it is seen.)
   assert.match(pt, /if \(held && kept && \(!gpu \|\| sc <= worldSc \|\| bitmapUnseen\(\)\)\) \{ if \(hand && sc !== worldSc\) holdSoon\(\); sc = worldSc; \}/);
-  assert.match(pt, /const want = held && surRd \? surRd : rd \* 0\.55;/);
+  // (The surround is the GPU's own tiles, blended at every size (tissueOnGPU fieldBlend), so it has no scale to hold.)
   assert.match(src, /function holdEnd\(\) \{ holdT = 0; if \(handOn\(\)\) \{ holdSoon\(\); return; \} viewChanged\(\); \}/);
 });
 

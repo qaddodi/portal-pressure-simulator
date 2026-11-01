@@ -11,7 +11,7 @@ const gl = readFileSync(new URL('../src/ui/tissue-gl.js', import.meta.url), 'utf
 const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 const fn = (head) => { const i = lz.indexOf(head); assert.ok(i >= 0, head); return lz.slice(i, lz.indexOf('\n  }\n', i)); };
 
-test('the shader lays the same picture as the 2D passes: surround, the bitmap over it premultiplied, then the fade into the page', () => {
+test('the shader lays the picture the 2D passes did: surround, the bitmap over it premultiplied, then the fade into the page', () => {
   assert.match(gl, /vec2 uv = \(p - uO\) \/ \(uRd \* vec2\(6\.0, 3\.4641016151377544\)\);/, 'one repeat per 6 rd by 2√3 rd, as fieldFill');
   // (Each tile laid over the page by its own alpha, the same picture for an opaque tile; ?tileover=0: its rgb alone, as before.)
   assert.match(tissueFS(false, true), /vec3 c = mix\(over\(texture\(uQA, uv\)\), over\(texture\(uQB, uv\)\), uMix\);/);
@@ -21,7 +21,7 @@ test('the shader lays the same picture as the 2D passes: surround, the bitmap ov
   assert.match(gl, /vec4 l = textureGrad\(uW, w, gx, gy\) \* uWMix\.x;\n\s+if \(uWMix\.y > 0\.0\) l \+= textureGrad\(uWO, w, gx, gy\) \* uWMix\.y;\n\s+l \*= e;\n\s+c = l\.rgb \+ c \* \(1\.0 - l\.a\);/, '(1 − u)·old + u·new, laid over');
   assert.match(gl, /gl\.pixelStorei\(gl\.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !tile\);/);
   assert.match(gl, /gl\.TEXTURE_MIN_FILTER, gl\.LINEAR_MIPMAP_LINEAR\);\n\s+gl\.generateMipmap\(gl\.TEXTURE_2D\);/, 'mipmapped: a closer bitmap shown smaller stays sharp');
-  assert.match(gl, /failIfMajorPerformanceCaveat: true/, 'never in software: the 2D canvas then');
+  assert.match(gl, /failIfMajorPerformanceCaveat: false/, 'in software too: there is no 2D drawing of the tissue to fall back on (1 Nov)');
 });
 
 test("the shader's fade is fieldFade's gradient (fadeAt)", () => {
@@ -31,14 +31,15 @@ test("the shader's fade is fieldFade's gradient (fadeAt)", () => {
   for (const d of [0, 50, 110, 150, 200, 260, 320, 400, 900]) assert.ok(Math.abs(shader(d, 110, 320) - fadeAt(d, 110, 320)) < 1e-12, `d ${d}`);
 });
 
-test('the screen draws on the GPU; the dive, the rise and their copies keep the 2D canvas', () => {
-  assert.match(fn('function draw(dt) {'), /const onGPU = !keep2D && \(!scaled \|\| \(DIVE_GPU && \(sinU === 0 \|\| SIN_GPU\)\)\);\n\s+showTissueGL\(paintTissue\(W, H, dpr, dark, cs, !g, onGPU && g \? tissueGLOn\(\) : null\)\);/);
+test('the screen, the dive and the rise all draw on the GPU (no 2D canvas or copy since 1 Nov)', () => {
+  assert.match(fn('function draw(dt) {'), /showTissueGL\(paintTissue\(W, H, dpr, dark, cs, !g, g \? tissueGLOn\(\) : null\)\);/);
   assert.match(lz, /if \(gpu && tissueOnGPU\(tg, tw, th, dpr, dark, cs, bg, now\)\) \{ keyGPU = true; if \(!held\) spareSoon\(\); return true; \}/);
-  assert.match(lz, /tissue\.style\.visibility = tissueG\.style\.visibility = show === tissue \? '' : 'hidden';/);
-  assert.match(lz, /for \(const e of \[tissue, tissueG, diveCv, glCv, fx, fxG, leaders, labels\]\) \{/, 'zoomed with the others through the dive');
-  assert.match(lz, /const WIDE_HIDE = \[tissue, tissueG, diveCv, glCv, fx, fxG\];/);
+  assert.match(lz, /const vis = wide \? 'hidden' : '';\n\s+if \(tissueG\.style\.visibility !== vis\) tissue\.style\.visibility = tissueG\.style\.visibility = vis;/);
+  assert.match(lz, /for \(const e of \[tissue, tissueG, glCv, fx, fxG, leaders, labels\]\) \{/, 'zoomed with the others through the dive');
+  assert.match(lz, /const WIDE_HIDE = \[tissue, tissueG, glCv, fx, fxG\];/);
   assert.match(fn('function showTissueGL(on) {'), /tissue\.style\.opacity = on \? '0' : ''; tissueG\.style\.opacity = on \? '' : '0';/);
-  assert.match(lz, /pointerEvents: 'none'/, 'the 2D canvas under it still takes the pointer');
+  assert.match(lz, /pointerEvents: 'none'/, 'the canvas under it still takes the pointer');
+  assert.doesNotMatch(lz, /diveCv|paint2D/);
 });
 
 test('never softer than the zoom wants: the bitmap is held only while at least as sharp, the sharper one is painted ahead', () => {

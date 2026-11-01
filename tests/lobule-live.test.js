@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { buildLive, buildDyn, liveEligible, liveZoomShare, liveFibre, parseRGBA, liveColours, cellReach, LIVE_FS, BIN, CELLS_PER_ROW, IDX_ROW, PAN_TOL, panShift, panPlan } from '../src/ui/lobule-live.js';
 import { createTissueGL, tissueFS } from '../src/ui/tissue-gl.js';
+import { paintShaders } from '../src/ui/paint-gl.js';
+const PAINT_SRC = new Set(Object.values(paintShaders));
 
 const gl = readFileSync(new URL('../src/ui/tissue-gl.js', import.meta.url), 'utf8');
 
@@ -184,14 +186,14 @@ test('the program without the live lobule is the one with it, less its additions
 // every uniform set on it. No GPU runs.
 function stubGL({ failLive = false, badFbo = false, shortBuffer = false } = {}) {
   const all = [], calls = [];
-  const tissue = () => all.filter((p) => !p.shaders.some((sh) => sh.src.includes('uSigma')));
+  const tissue = () => all.filter((p) => !p.shaders.some((sh) => sh.src.includes('uSigma')) && !p.shaders.every((sh) => PAINT_SRC.has(sh.src)));
   let current = null, nfb = 0;
   const bound = { read: null, draw: null, scissor: false, rect: null };
   const canvas = { width: 0, height: 0, getContext: () => gl, addEventListener() {} };
   const own = {
     createShader: (type) => ({ type, src: '' }), shaderSource: (s, src) => { s.src = src; },
-    // (The tile copier's program, started with the context since the shader warm-up (tile-gl.js), is not the tissue's: left out of
-    // `programs` and its numbering.)
+    // (The tile copier's program, started with the context since the shader warm-up (tile-gl.js), and the GPU painter's (paint-gl.js,
+    // started with the context too: it paints the tissue's picture) are not the tissue's: left out of `programs` and its numbering.)
     createProgram: () => { const p = { shaders: [], get id() { return tissue().indexOf(this); } }; all.push(p); return p; },
     attachShader: (p, s) => p.shaders.push(s),
     getShaderParameter: () => true,
@@ -591,23 +593,17 @@ test('the bitmap is out of the GPU\'s picture exactly when the share is 1: the s
   assert.match(gl, /c = mix\(c, ls\.rgb \+ c0 \* \(1\.0 - ls\.a\), uLive\);/, 'at 1 the bitmap\'s part of the picture is multiplied by 0');
 });
 
-test('with the shader covering the picture the bitmap is not painted ahead, not repainted at each step of a gesture, and does not crossfade; everything else about it is as it was', () => {
+test('with the shader covering the picture the bitmap is not painted ahead, not repainted at each step of a gesture, and does not crossfade', () => {
   const lz = uiSrc('lobule-zoom.js');
-  assert.match(lz, /const bitmapUnseen = \(\) => liveShare >= 1 && tissueOnGL && offPage\(\);/, 'the share is 1, the last frame was the GPU\'s, and the worker can paint');
-  // The painted-ahead copy: none, and one made earlier is given back; a job for one that lands later is dropped.
+  assert.match(lz, /const bitmapUnseen = \(\) => liveShare >= 1 && tissueOnGL;/, 'the share is 1 and the last frame was the GPU\'s');
+  // The painted-ahead copy: none, and one made earlier is given back.
   const sm = lz.slice(lz.indexOf('function spareMake() {'), lz.indexOf('\n  }\n', lz.indexOf('function spareMake() {')));
   assert.match(sm, /if \(bitmapUnseen\(\)\) \{\n[^\n]*\n\s+if \(spare \|\| spareCv\.width\) \{ free\(spareCv\); spare = null; \}\n\s+\} else if \(sc > worldSc \* 1\.01 && /);
   assert.match(sm, /const tone = shadeOf\(stageBg\(cs, dark\), dark\), \{ a, b \} = fieldBlend\(/, 'the surround\'s tiles for that zoom are still prepared: they are seen');
-  assert.match(lz, /const jobLive = \(j\) => j\.gen === jobGen && j\.G === geo && \(j\.kind === 'spare' \? !bitmapUnseen\(\) : j\.seq === worldSeq\);/);
   // A gesture's zoom holds the bitmap at the sharpness it has; the GPU's frame needs no sharper. Once the hand lets go it is painted at the zoom's own.
   assert.match(lz, /if \(held && kept && \(!gpu \|\| sc <= worldSc \|\| bitmapUnseen\(\)\)\) \{ if \(hand && sc !== worldSc\) holdSoon\(\); sc = worldSc; \}/);
-  // No crossfade into a bitmap nobody sees, in the page's paint and in the worker's landing; the 2D canvas (gpu false) keeps its crossfade.
-  assert.match(lz, /!unseen\(\) && !\(gpu && liveShare >= 1\) && worldGeo === G && worldCv\.width && !\(xfT0 && xfNow\(now\) - xfT0 < XF_MS\)\) \{ \[worldOld, worldCv\]/);
-  assert.match(lz, /!unseen\(\) && !\(tissueOnGL && liveShare >= 1\) && worldGeo === j\.G && worldCv\.width && !\(xfT0 && xfNow\(now\) - xfT0 < XF_MS\)\) \{ free\(worldOld\);/);
-  // What stays, and why: the 2D canvas path asks for the bitmap at the zoom's own sharpness whatever the shader does, because the dive's and the rise's
-  // copies (paint2D, and buildWide's tiles) are made from it, and a bitmap that is not there is painted on the page, which is what the worker took off it.
+  // No crossfade into a picture nobody sees.
+  assert.match(lz, /!unseen\(\) && !\(liveShare >= 1\) && worldGeo === G && worldCv\.width && !\(xfT0 && xfNow\(now\) - xfT0 < XF_MS\)\) \{ free\(worldOld\); worldOld = worldCv;/);
   const pt = lz.slice(lz.indexOf('function paintTissue('), lz.indexOf('\n  }\n', lz.indexOf('function paintTissue(')));
   assert.match(pt, /let sc = Math\.min\(2 \*\* \(Math\.ceil\(Math\.log2\(Math\.max\(0\.05, dpr \* V\.k\)\) \* 2\) \/ 2\), worldCap\(G, dpr\)\);/, 'the scale is the zoom\'s own, shader or not');
-  assert.match(lz, /paintTissue\(W, H, Math\.min\(saver\(\) \? 1 : 2, devicePixelRatio \|\| 1\) \* lzScale\(\), isDark\(\), styles\(\), !g, null\);/, 'paint2D: gpu false');
-  assert.match(lz, /tissueKey = ''; paintTissue\(w, hh, dpr, dark, cs, flat\);/, 'buildWide: tiles painted through the 2D path');
 });

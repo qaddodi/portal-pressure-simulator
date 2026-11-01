@@ -36,11 +36,12 @@ test('the surface pass is still counted for the ?perf readout', () => {
   assert.match(gl, /if \(gpuProbe\.on\) gpuProbe\.note\(COUNTED\.lobuleSurface\);/);
 });
 
-test('the ductule layer leaves out a ductule that lies wholly off the canvas, and keeps its clear box list to the ones drawn', () => {
-  const fx = src.slice(src.indexOf('function paintFx('), src.indexOf('// ── Hit testing and the card ──'));
-  assert.match(fx, /if \(X \+ e < 0 \|\| Y \+ e < 0 \|\| X - e > fw \|\| Y - e > fh\) continue;/);
-  assert.match(fx, /if \(fxBoxes\) fxBoxes\.push\(\[Math\.floor\(X - e\), Math\.floor\(Y - e\), Math\.ceil\(X \+ e\), Math\.ceil\(Y \+ e\)\]\);/);
-  // (The bound is the ring's outer radius, its stroke and 3 px: the same box the clear list always used for what it drew.)
-  assert.match(fx, /e = \(r \+ c\.lineWidth\) \* V\.k \* dpr \+ 3/);
-  assert.match(src, /disc: \[x, y, rout\]/);
+test('the ductules are drawn by the GPU from one number list per lobule, made again only when their calibers change', () => {
+  // (1 Nov, the off-GPU gate: the 2D overlay that culled and cleared each ductule (paintFx) is gone; fx-gl.js draws them instanced.)
+  const f = src.slice(src.indexOf('function fxDuct() {'), src.indexOf('\n  }\n', src.indexOf('function fxDuct() {')));
+  assert.match(f, /if \(ductP && ductP\.G === G && key === ductKey\) return ductP;/);
+  assert.match(f, /num: \[x, y, rin, rout, rm, hw \* 0\.34, tr\.i, 0\]/);
+  assert.doesNotMatch(f, /Path2D/, 'no paths for a 2D canvas');
+  assert.match(src, /ducts: m\.hide \? null : fxDuct\(\)\.nums,/);
+  assert.doesNotMatch(src, /function paintFx\(|fxBoxes/);
 });

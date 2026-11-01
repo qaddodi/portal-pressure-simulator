@@ -55,8 +55,10 @@ test('the lobule view draws its fibrous bands through the round-ended outline, t
 // The tissue's cross-fade mixes old and new before laying them on the field: drawn one over the other, the see-through
 // collagen past the lobule's edge grew denser mid-fade and dropped back after, so it pulsed (Mohammad, 16 Oct).
 test('the tissue cross-fade is a true mix, (1 - u) old + u new, so see-through parts never pulse', () => {
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.match(lz, /globalCompositeOperation = 'copy'; x\.globalAlpha = 1 - u; x\.drawImage\(worldOld/);
-  assert.match(lz, /globalCompositeOperation = 'lighter'; x\.globalAlpha = u; x\.drawImage\(worldCv/);
-  assert.doesNotMatch(lz, /c\.drawImage\(worldOld, sx \* dpr/);
+  // (On the GPU, the only painter since 1 Nov: the shader mixes the two premultiplied pictures, tissue-gl.js uWMix.)
+  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), tgl = readFileSync(new URL('../src/ui/tissue-gl.js', import.meta.url), 'utf8');
+  assert.match(tgl, /vec4 l = textureGrad\(uW, w, gx, gy\) \* uWMix\.x;\n\s+if \(uWMix\.y > 0\.0\) l \+= textureGrad\(uWO, w, gx, gy\) \* uWMix\.y;/);
+  assert.match(tgl, /gl\.uniform2f\(U\.uWMix, old \? wMix : 1, old \? 1 - wMix : 0\);/, 'u new + (1 - u) old');
+  assert.match(lz, /wo: crossfading \? worldOld : null, woVer: worldOld\.ver \|\| 0, wMix: crossfading \? xfU\(xfT0, xfNow\(now\)\) : 1,/);
+  assert.doesNotMatch(lz, /drawImage\(worldOld/);
 });

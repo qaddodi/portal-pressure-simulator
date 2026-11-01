@@ -38,17 +38,11 @@ test("the dive's copy fades the surround but never the lobule's own drawing", ()
   assert.deepEqual(diveRimMix(tissue, tract, 0), tract);
 });
 
-test('diveCopy builds that mix, and nothing of the lobule is masked with the rim', () => {
-  const s = lz.indexOf('function diveCopy('), e = lz.indexOf('function paintFlatVessels(');
-  assert.ok(s >= 0 && e > s);
-  const body = lz.slice(s, e);
-  assert.match(body, /destination-in/);
-  assert.match(body, /drawImage\(w\.cv, w\.x, w\.y, w\.side, w\.side\)/);
-  assert.match(body, /paintFlatVessels\(q, flatAt\.cs\)/);
-  assert.match(body, /destination-out/);
-  assert.match(body, /'lighter'/);
-  // The vessels' canvas (only the lobule's own vessels) and the copy carry no CSS mask that would fade the triads past the corners.
+test('the tissue\'s shader builds that mix (1 Nov: the 2D copy, diveCopy, is gone), and nothing of the lobule is masked with the rim', async () => {
+  const { tissueFS } = await import('../src/ui/tissue-gl.js');
+  assert.match(tissueFS(false, true, true), /if \(uRim\.w > 0\.0\) \{ float f = clamp\(\(uRim\.w - length\(p - uRim\.xy\)\) \/ max\(uRim\.w - uRim\.z, 1e-6\), 0\.0, 1\.0\); o = o \* f \+ own \* \(1\.0 - f\); \}/, 'tissue × keep + own × (1 − keep)');
+  assert.match(lz, /return \[x \* kx, y \* ky, r \* k \* DIVE_RIM\.solid, r \* k \* DIVE_RIM\.clear\];/, 'at the rim\'s own radii');
+  // The vessels' canvas (only the lobule's own vessels) carries no CSS mask that would fade the triads past the corners.
   assert.doesNotMatch(lz, /maskImage/);
-  // Every way the world bitmap is laid on the tissue records where, for the copy.
-  assert.equal((lz.match(/worldAt = \{ cv: (xfCv|worldCv), x: sx \* dpr, y: sy \* dpr, side \}/g) || []).length, 2);
+  assert.doesNotMatch(lz, /function diveCopy\(|worldAt = /);
 });

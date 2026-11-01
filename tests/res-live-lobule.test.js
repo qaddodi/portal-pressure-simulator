@@ -54,7 +54,7 @@ test('res-cover-gl.js: the stack is made in its own WebGL context, kept in a tex
 
 test('lobule-zoom.js: the change waits for a still, whole lobule, and its GPU cover never touches the layers', () => {
   const lz = src('lobule-zoom.js');
-  assert.match(lz, /const resSteady = \(\) => fade > 0\.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !keep2D && !staging && !!geo && !!model;/);
+  assert.match(lz, /const resSteady = \(\) => fade > 0\.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !staging && !!geo && !!model;/);
   assert.match(lz, /if \(lzWant != null && resSteady\(\)\) resSwap\(\);\n\s*const drew = draw\(moving \? dt : 0\);/, 'swapped in the loop, just before the frame is drawn');
   assert.match(lz, /if \(resCover\) resCoverStep\(now\);/);
   assert.match(lz, /\(flowA === 0 \|\| flowA === 1\) && !resCover\) \{/, 'the loop sleeps only once the cover is gone');
@@ -63,7 +63,7 @@ test('lobule-zoom.js: the change waits for a still, whole lobule, and its GPU co
   assert.ok(!/stackInto|getContext|drawImage|hostSize\(/.test(swap), 'no 2D stack, no layout read');
   assert.ok(swap.indexOf('g?.ready && draw(0)') < swap.indexOf('g.build([tissue, tissueG, glCv, fx], prev)'), 'copied in the frame that drew it');
   assert.ok(swap.indexOf('g.build(') < swap.indexOf('lzK = k;'), 'at the share before');
-  assert.match(swap, /tissueKey = ''; drawKey = ''; glDirty = true; fxDrawn = ''; fxBoxes = null; lyKey = ''; idleDrawn = '';/, 'every layer drawn whole');
+  assert.match(swap, /const fresh = \(\) => \{ tissueKey = ''; drawKey = ''; glDirty = true; idleDrawn = ''; \};/, 'every layer drawn whole');
   assert.match(swap, /if \(!cv\.isConnected\) fx\.after\(cv\);/, 'over the layers, under the leaders and labels');
   assert.match(lz, /if \(u >= 1 \|\| diveScaled \|\| wide \|\| fade <= 0\) \{ resCoverEnd\(\); return; \}/);
   assert.match(lz, /setDiveZoom\(k, x, y, tx = x, ty = y\) \{\n\s*if \(k < 0\.9999\) resCoverEnd\(\);/, 'a dive takes it away before the layers scale');

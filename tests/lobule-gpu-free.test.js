@@ -9,9 +9,9 @@ import { readFileSync } from 'node:fs';
 const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 const fn = (head) => { const i = lz.indexOf(head); assert.ok(i >= 0, head); return lz.slice(i, lz.indexOf('\n  }\n', i)); };
 
-test('a crossfade that ends gives back the old picture and its texture, on the GPU and on the 2D canvas', () => {
-  assert.match(fn('function tissueOnGPU('), /if \(!crossfading && xfT0\) \{ xfT0 = 0; free\(worldOld\); free\(xfCv\); tg\.sweep\(\); \}/);
-  assert.match(fn('function paintTissue('), /if \(xfT0\) \{ xfT0 = 0; free\(worldOld\); free\(xfCv\); tissueGL\?\.sweep\(\); \}/);
+test('a crossfade that ends gives back the old picture and its texture', () => {
+  assert.match(fn('function tissueOnGPU('), /if \(!crossfading && xfT0\) \{ xfT0 = 0; free\(worldOld\); tg\.sweep\(\); \}/);
+  assert.doesNotMatch(fn('function paintTissue('), /xfCv/, 'no 2D mix canvas'); 
 });
 
 test('the bitmap replaced by the sharper one painted ahead takes its texture with it', () => {
@@ -19,7 +19,7 @@ test('the bitmap replaced by the sharper one painted ahead takes its texture wit
 });
 
 test('a snap to the patient and the trim before a wide dive give back the textures of what they free', () => {
-  assert.match(fn('function snapState() {'), /free\(worldOld\); free\(xfCv\);[^\n]*\n\s+tissueGL\?\.sweep\(\);/);
+  assert.match(fn('function snapState() {'), /free\(worldOld\);[^\n]*\n\s+tissueGL\?\.sweep\(\);/);
   assert.match(fn('function trimFieldStates() {'), /tileSets\.delete\(key\); \}\n\s+tissueGL\?\.sweep\(\); fieldGL\?\.sweep\(\);/);
 });
 

@@ -62,7 +62,7 @@ test('both shaders grade the surround before the lobule\'s bitmap and the fade i
   }
 });
 
-test('every place the surround is drawn takes the grade: the field on the GPU and on the 2D canvas, the tissue on the GPU and on the 2D canvas', () => {
+test('every place the surround is drawn takes the grade: the field on the GPU and on the 2D canvas, the tissue on the GPU', () => {
   assert.match(fn('function paintFieldGL('), /gk = greyNow\(\);[\s\S]*grey: gk > 0 \? surroundGrade\(gk\) : null,/);
   const pf = fn('function paintField(d) {');
   assert.match(pf, /const gk = greyNow\(\);\n\s+if \(gk > 0\) fieldGrey\(c, shadeOf\(bg, dark\), surroundGrade\(gk\), field\.width, field\.height\);\n\s+if \(fadeWhole\) c\.restore\(\);/, '2D field: inside its clip, before the fade');
@@ -70,13 +70,10 @@ test('every place the surround is drawn takes the grade: the field on the GPU an
   assert.match(fn('function tissueOnGPU('), /bg: tone, grey: grey\.k > 0 \? surroundGrade\(grey\.k\) : null,/);
   const pt = fn('function paintTissue(W, H, dpr, dark, cs, flatVessels, tg = null) {');
   assert.match(pt, /gk = greyNow\(now\)/);
-  assert.match(pt, /V\.y\.toFixed\(1\), gk\.toFixed\(3\)\]\.join\('\|'\);\n\s+if \(key === tissueKey\) return DIVE_GPU \? gpu && keyGPU : gpu;/, 'a changing grey redraws the picture, and nothing else');
-  assert.match(pt, /if \(gk > 0\) fieldGrey\(c, shadeOf\(rgb01\(bg\), dark\), surroundGrade\(gk\), tw, th\);\n\s+c\.restore\(\);/, '2D tissue: inside the surround\'s clip');
-  assert.ok(pt.indexOf('fieldGrey(') < pt.indexOf('c.drawImage(worldCv'), 'the 2D bitmap is laid after it: the lobule in focus is not greyed');
-  assert.ok(pt.indexOf('fieldGrey(') < pt.indexOf('fieldFade(c,'));
-  // The dive's and the rise's copies are made from the 2D tissue, so they carry the grey.
-  assert.match(lz, /if \(rim && !wide\) \{ paint2D\(\); diveCopy\(\); \}/, 'the copy is made from a fresh 2D drawing');
-  assert.match(fn('function paint2D() {'), /tissueKey = ''; idleDrawn = '';[\s\S]*paintTissue\(W, H,/);
+  assert.match(pt, /V\.y\.toFixed\(1\), gk\.toFixed\(3\)\]\.join\('\|'\);\n\s+if \(key === tissueKey\) return gpu && keyGPU;/, 'a changing grey redraws the picture, and nothing else');
+  // (The tissue has no 2D drawing since 1 Nov: the dive's and the rise's pictures are the shader's, so they carry the grey.)
+  assert.doesNotMatch(pt, /fieldGrey\(|drawImage/);
+  assert.doesNotMatch(lz, /function paint2D\(|diveCopy\(/);
 });
 
 test('the grey is drawn as the 2D passes can: a saturation blend, then the page\'s colour over it', () => {

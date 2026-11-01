@@ -19,18 +19,19 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=e710e031d9';
-import { pressureColor } from './colormap.js?v=6362ea8bbe';
+import { h, fmt, clamp, lerp } from './util.js?v=c8ef361fbc';
+import { pressureColor } from './colormap.js?v=ee1715cd71';
 import { isPaused } from './clock.js?v=16aba0e2eb';
 import { store } from './store.js?v=4ef2a6ffd8';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=85e18568b4';
 import { placeFenDisse } from './fen-place.js?v=d019fd9268';
-import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=7710f677e2';
+import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=15d5254a2c';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
-import { FADE_MS, fadeAlpha } from './res-fade.js?v=4ffac3ef7f';
+import { FADE_MS, fadeAlpha } from './res-fade.js?v=6f305af9e6';
+import { cssColor8 } from './css-color.js?v=0000000000';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 const nextFrame = frameFor('sinusoid-view');
 
@@ -322,13 +323,13 @@ export function createSinusoidView({ host, before = null }) {
   }
 
   // ── Colours, from the theme's tokens as the lobule takes them (0–1 rgb for the shader) ──
-  const rgbCv = document.createElement('canvas').getContext('2d'), rgbMemo = new Map();
+  // (css-color.js: read in script, in the canvas's 8-bit steps; no canvas made.)
+  const rgbMemo = new Map();
   function rgb(c) {
     let o = rgbMemo.get(c);
     if (o) return o;
-    rgbCv.fillStyle = '#000'; rgbCv.fillStyle = c;   // colour-exempt: the parser's reset
-    const f = rgbCv.fillStyle;
-    o = (f[0] === '#' ? [1, 3, 5].map((i) => parseInt(f.slice(i, i + 2), 16)) : f.match(/[\d.]+/g).slice(0, 3).map(Number)).map((x) => x / 255);
+    o = cssColor8(c || 'black').slice(0, 3);
+    if (rgbMemo.size > 256) rgbMemo.clear();
     rgbMemo.set(c, o);
     return o;
   }

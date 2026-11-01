@@ -44,7 +44,7 @@ test('a copy stands where a canvas did: its size, given back by free(), told apa
   assert.match(read('../src/ui/field-gl.js'), /if \(isTileCopy\(cv\)\) \{\n\s+const tex = copier\.make\(cv\);/);
   assert.match(read('../src/ui/tissue-gl.js'), /if \(isTileCopy\(cv\)\) \{/);
   assert.match(lz, /const freeCopies = \(q\) => \{ for \(const k of \['quiet', 'liverQ', 'quietG', 'liverG'\]\) if \(q\[k\]\) \{ free\(q\[k\]\.cv\); q\[k\] = null; \} \};/);
-  assert.match(lz, /if \(surOld\?\.cv\?\.width && !isTileCopy\(surOld\.cv\)\)/, 'the 2D canvas never lays a GPU copy');
+  assert.doesNotMatch(lz, /drawImage\(surOld|surOld\.cv\.getContext/, 'no 2D canvas lays a tile (1 Nov: the tissue is the GPU\'s alone)');
 });
 
 test('?tilegpu=0 and ?fxgpu=0 put the old paths back whole', () => {
@@ -55,10 +55,9 @@ test('?tilegpu=0 and ?fxgpu=0 put the old paths back whole', () => {
   assert.match(lz, /const g = can && FX_GPU \? fxGLOn\(\) : null;\n\s+if \(!g\) \{ fxGLShow\(false\); return false; \}/);
 });
 
-test('the overlay is the GPU\'s for the screen and through a GPU dive; a 2D-staged dive keeps the 2D overlay', () => {
-  assert.match(lz, /const onGPU = !keep2D && \(!scaled \|\| \(DIVE_GPU && \(sinU === 0 \|\| SIN_GPU\)\)\);/);
-  assert.match(lz, /const fxOn = fxOnGPU\(W, H, dpr, dark, dt, g && !g\.lost && onGPU\);\n\s+const laid = g\?\.top\?\.presents;\n\s+if \(g && !g\.lost\) drawGL\(W, H, dpr, dark, cs, dt\);[^]*?if \(!fxOn\) paintFx\(W, H, dpr, dark, dt, !g \|\| g\.lost\);/, 'scaled with the tissue\'s GPU canvas through the dive (DIVE_GPU) and the sinusoid\'s zoom (SIN_GPU), as it is');
-  assert.match(lz, /\(fxGLShown \? true : probe\(fx\)\)/, 'a wide copy is kept when the overlay is the GPU\'s');
+test('the overlay is the GPU\'s for the screen, through the dive and the sinusoid\'s zoom (no 2D overlay since 1 Nov)', () => {
+  assert.match(lz, /const fxOn = fxOnGPU\(W, H, dpr, dark, dt, g && !g\.lost\);\n\s+const laid = g\?\.top\?\.presents;\n\s+if \(g && !g\.lost\) drawGL\(W, H, dpr, dark, cs, dt\);/, 'scaled with the tissue\'s GPU canvas through the dive and the sinusoid\'s zoom, as it is');
+  assert.doesNotMatch(lz, /paintFx|probe\(fx\)/);
   assert.match(lz, /const fxG = h\('canvas', \{ class: 'lz-canvas lz-fx lz-fx-gl', 'aria-hidden': 'true', style: \{ opacity: '0', pointerEvents: 'none' \} \}\);/);
   assert.match(fgl, /failIfMajorPerformanceCaveat: true/, 'a software renderer keeps the 2D overlay');
   // The same layers in paintFx's order: ductules, drops, rings, beads, the eraser cutting all of them, the lining over.
@@ -72,10 +71,9 @@ test('one context for the lobule: the overlay is laid in the vessels\' canvas at
   assert.match(vgl, /const ownBuf = OWN_BUF && \(who === 'stage' \|\| \(who === 'lobule' && LZ_ONE\)\);/);
   assert.match(lz, /fxHostGL = createFxGL\(fxG, \{ host: gl\.top \}\);\n\s+fxHostOff = fxHostGL \? gl\.top\.add\(\{ order: 1, draw: fxHostDraw \}\) : null;/);
   assert.match(lz, /if \(!fxArgs \|\| !fxHostGL\) return;/);
-  // A wide copy on the GPU lays the overlay in the vessels' canvas, set before they are drawn; the 2D tiles never have it there.
+  // A wide copy on the GPU lays the overlay in the vessels' canvas, set before they are drawn.
   assert.match(lz, /const fxOn = fxOnGPU\(w, hh, dpr, dark, 0, true\), fxIn = fxOn && !!fxArgs, tisIn = onG && !!tisHostFor;\n\s+tisWide = tisIn;\n\s+drawKey = ''; drawGL\(TW, TH, dpr, dark, cs, 0\);/);
   assert.match(lz, /\} \} finally \{ wideBuild = false; fxArgs = null; tisWide = false; \}/, 'no tile\'s overlay left for the screen');
-  assert.match(lz, /wideBuild = true; fxArgs = null;/, 'the 2D tiles: the overlay on the 2D canvas, not in the vessels\'');
   assert.match(fgl, /if \(host\) \{ W = canvas\.width; H = canvas\.height; if \(!W \|\| !H\) return false; \}/, 'over the whole host canvas (a wide tile is cropped from a larger one)');
   assert.match(fgl, /if \(host\) \{ gl\.enable\(gl\.BLEND\); gl\.blendEquation\(gl\.FUNC_ADD\); gl\.blendFunc\(gl\.ONE, gl\.ONE_MINUS_SRC_ALPHA\); \}/, 'over the vessels, premultiplied');
   assert.match(fgl, /gl\.disable\(gl\.BLEND\); gl\.useProgram\(null\); gl\.bindVertexArray\(null\);/, 'the host\'s state put back');

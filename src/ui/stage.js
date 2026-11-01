@@ -12786,7 +12786,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     keptStyle: (el) => (el === wrap ? wrapCS() : null),
     /** Where the sinusoid's reading and lesion pointer meet their sinusoid (see lobule-zoom sinAnchor). */
     lobuleSinAnchor: () => lz?.sinAnchor() ?? null,
-    lobuleGlCheck: () => lz?.glCheck() ?? null, lobuleFxCheck: () => lz?.fxCheck() ?? null, lobuleLabelLayouts: () => lz?.labelLayouts() ?? 0,
+    lobuleGlCheck: () => lz?.glCheck() ?? null, lobuleLabelLayouts: () => lz?.labelLayouts() ?? 0,
     /** The lobule's outline in client px while it fills the view (see lobule-zoom ring), else null. */
     lobuleRing: () => (lobuleOn && diveT >= 1 ? lz?.ring() ?? null : null),
     /** The vessels lit by a glow that stays (a selection, a slide's or step's vessels, the Doppler's), as [id, band width ×]: the corner
