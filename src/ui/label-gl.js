@@ -19,7 +19,7 @@ import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=fc509dabe4';
 import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=f7d920b7d0';
 import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=1c406a11a6';
-import { textPolys, textWidth, loadGlyphs, glyphsReady } from './text-gl.js?v=b384a10c15';
+import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=517a8ac2ae';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=56dc51edb3';
 
 // (1 Nov 2026, the GPU motion review.) A label's or a leader's fade or colour ease is followed from its animations (label-track.js), and its
@@ -281,7 +281,8 @@ export function describeBlock(g, cs = getComputedStyle) {
         const r = cs(sp);
         if (r.display === 'none') continue;
         line.runs.push({ t: sp.textContent, dx: NUM(sp.getAttribute('dx')), font: `${r.fontStyle === 'normal' ? '' : r.fontStyle + ' '}${r.fontWeight} ${r.fontSize} ${r.fontFamily}`,
-          size: NUM(r.fontSize), ls: r.letterSpacing === 'normal' ? 0 : NUM(r.letterSpacing), tnum: /tabular-nums/.test(r.fontVariantNumeric),
+          size: NUM(r.fontSize), wt: NUM(r.fontWeight) || 400, it: r.fontStyle !== 'normal', fam: r.fontFamily,
+          ls: r.letterSpacing === 'normal' ? 0 : NUM(r.letterSpacing), tnum: /tabular-nums/.test(r.fontVariantNumeric),
           fill: none(r.fill) ? '' : r.fill, stroke: none(r.stroke) ? '' : r.stroke, sw: NUM(r.strokeWidth), join: r.strokeLinejoin, strokeFirst: /^stroke/.test(r.paintOrder) });
       }
       // (Spaces as the SVG sets them: runs of white space as one, none at the line's ends.)
@@ -297,26 +298,27 @@ export function describeBlock(g, cs = getComputedStyle) {
 /** The look of a description, as a key: a picture is drawn again only when it changes (the opacity is the GPU's, not the picture's). */
 export const lookKey = (d, rot, dpr) => JSON.stringify([d.filter, d.parts, rot, dpr]);
 
-// What Canvas 2D can do here (asked once): letter spacing and filters are newer than the rest.
-let caps = null;
-function canvasCaps() {
-  if (caps) return caps;
-  // (Read off the 2D context's prototype: no canvas made to ask.)
-  const P = typeof CanvasRenderingContext2D !== 'undefined' ? CanvasRenderingContext2D.prototype : {};
-  caps = { ls: 'letterSpacing' in P, filter: 'filter' in P };
-  return caps;
-}
-/** Why the SVG must draw this description itself ('' when the GPU can). */
-export function svgOnly(d, cap = canvasCaps()) {
+const INTER = /^\s*"?Inter\b/i;
+/** Why the SVG must draw this description itself ('' when the GPU can). Its words are filled from Inter's outlines (text-gl.js), so till
+ *  they have come, or for a font other than Inter, a character they lack or a colour the painter cannot read, the SVG keeps the label. */
+export function svgOnly(d, ready = glyphsReady()) {
   if (d.svg) return d.svg;
   // (A rect's drop shadows are drawn by the GPU, under its picture (shadowsOf, shadowBox); any other filter, or one on the whole label
-  // (none in the stylesheet), is the SVG's. Nothing is drawn through a canvas filter. ?labelfx=0: every filter is the SVG's.)
+  // (none in the stylesheet), is the SVG's. ?labelfx=0: every filter is the SVG's.)
   if (d.filter || d.parts.some((p) => p.filter && !(LABEL_FX && p.k === 'rect' && shadowsOf(p.filter)))) return 'filter';
-  // (Without the canvas's own letter spacing, each letter is set by hand at the SVG's place for it: runPieces.)
-  if (!cap.ls && !LABEL_FX && d.parts.some((p) => p.runs?.some((r) => r.ls))) return 'letter-spacing';
+  const paints = (c) => !c || !!parseColor(c);
+  for (const p of d.parts) {
+    if (p.k === 'rect') { if (!paints(p.fill) || !paints(p.stroke)) return 'colour'; continue; }
+    for (const r of p.runs) {
+      if (r.fam && !INTER.test(r.fam)) return 'font';
+      if (!ready) return 'glyphs';
+      if (!textCovers(r.t)) return 'glyph';
+      if (!paints(r.fill) || !paints(r.stroke)) return 'colour';
+    }
+  }
   return '';
 }
-// ?labelfx=0: a label with a filter or letter spacing the canvas lacks, or a keyboard focus, is drawn by the SVG, as before.
+// ?labelfx=0: a label with a filter, or a keyboard focus, is drawn by the SVG, as before.
 const LABEL_FX = !(typeof location !== 'undefined' && /[?&]labelfx=0\b/.test(location.search || ''));
 const GPU_FOCUS = LABEL_FX;
 // A filter's functions, split at the top level: 'drop-shadow(<colour> 0px 1px 1.5px) blur(2px)' → ['drop-shadow(...)', 'blur(2px)'].
@@ -347,37 +349,6 @@ export function shadowsOf(f) {
   }
   return out.length ? out : null;
 }
-// The widths of a run, digit by digit as the SVG sets them with tabular figures (every digit as wide as a zero, centred in it),
-// the rest as the font sets them, so the run is as wide as the labels' own measure (stage.js textW) and the SVG's.
-function runPieces(ctx, r) {
-  ctx.font = r.font;
-  if ('letterSpacing' in ctx) ctx.letterSpacing = `${r.ls}px`;
-  else if (r.ls && LABEL_FX) return spacedPieces(ctx, r);
-  const out = [];
-  if (!r.tnum) { out.push({ t: r.t, x: 0 }); return { pieces: out, w: ctx.measureText(r.t).width }; }
-  const zero = ctx.measureText('0').width;
-  let x = 0;
-  for (const m of r.t.match(/\d|\D+/g) || []) {
-    if (/\d/.test(m)) { const w = ctx.measureText(m).width; out.push({ t: m, x: x + (zero - w) / 2 }); x += zero; }
-    else { out.push({ t: m, x }); x += ctx.measureText(m).width; }
-  }
-  return { pieces: out, w: x };
-}
-
-// Letter spacing set by hand (a canvas without its own): each letter where the SVG sets it, the run's width up to it (kerning kept) and
-// the spacing after each letter before it; tabular digits as wide as a zero, centred in it, as above.
-function spacedPieces(ctx, r) {
-  const out = [], zero = r.tnum ? ctx.measureText('0').width : 0;
-  let x = 0;
-  for (const m of (r.tnum ? r.t.match(/\d|\D+/g) : [r.t]) || []) {
-    if (r.tnum && /\d/.test(m)) { const w = ctx.measureText(m).width; out.push({ t: m, x: x + (zero - w) / 2 }); x += zero + r.ls; continue; }
-    const ch = Array.from(m);
-    let pre = '';
-    for (let i = 0; i < ch.length; i++) { out.push({ t: ch[i], x: x + ctx.measureText(pre).width + i * r.ls }); pre += ch[i]; }
-    x += ctx.measureText(m).width + ch.length * r.ls;
-  }
-  return { pieces: out, w: x };
-}
 /** A rounded rectangle as one closed polyline (its corners' quarter circles cut fine enough for a probe's body at any zoom). */
 export function roundRectPoly(x, y, w, h, r) {
   r = Math.max(0, Math.min(r || 0, w / 2, h / 2));
@@ -386,12 +357,6 @@ export function roundRectPoly(x, y, w, h, r) {
   corner(x + w - r, y + r, -Math.PI / 2); corner(x + w - r, y + h - r, 0); corner(x + r, y + h - r, Math.PI / 2); corner(x + r, y + r, Math.PI);
   return [{ pts: new Float32Array(out), closed: true }];
 }
-const roundRect = (ctx, x, y, w, h, r) => {
-  r = Math.max(0, Math.min(r, w / 2, h / 2));
-  ctx.beginPath();
-  ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r); ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-  ctx.lineTo(x + r, y + h); ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r); ctx.closePath();
-};
 // How far a filter's drop shadows and blurs reach (px): the picture is grown by that much.
 // The FibroScan beam drawn by the shader as a soft sector (kind 7), not painted into a 2D picture through a CSS blur and uploaded.
 // ?beamgl=0: the 2D picture, as before.
@@ -411,81 +376,80 @@ export function beamSector({ d, filter }) {
   return { apex, r, dir: a0 + h, half: Math.abs(h), blur: bm ? +bm[1] : 0 };
 }
 
+// A run's type as text-gl.js sets it (its widths are the font's own advances and kerning, as the browser's).
+const typeOf = (r) => ({ weight: r.wt, size: r.size, tnum: r.tnum, ls: r.ls });
+// (No italic face is shipped: the browser slants Inter itself, by this much; the GPU slants its outlines the same.)
+const SLANT = 0.25;
 /**
- * Draws a description into `cv` (a canvas, resized here) at `dpr` device px per px, turned −90° when `rot` (a caption read bottom to
- * top: its origin then is the box's bottom left). Returns the picture's offset from the label's origin, { ox, oy } in device px.
+ * A description laid out at `dpr` device px per px, turned −90° when `rot` (a caption read bottom to top: its origin then is the box's
+ * bottom left), with nothing measured on the page or on a canvas: { ox, oy, w, h (the picture's offset from the label's origin and its
+ * size, device px), lines, shadows (its rects' drop shadows), frame, m (the label's px to the picture's) }, or null when it draws nothing.
  */
-export function drawBlock(cv, d, dpr, rot = false) {
-  const ctx0 = cv.getContext('2d');
-  // The extent first, in the label's own px (before any turn).
+export function layBlock(d, dpr, rot = false) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   const grow = (a, b, c, e) => { x0 = Math.min(x0, a); y0 = Math.min(y0, b); x1 = Math.max(x1, c); y1 = Math.max(y1, e); };
   const lines = [];
   for (const p of d.parts) {
     if (p.k === 'rect') { const m = p.sw / 2; grow(p.x - m, p.y - m, p.x + p.w + m, p.y + p.h + m); continue; }
-    const runs = p.runs.map((r) => ({ r, ...runPieces(ctx0, r) }));
+    const runs = p.runs.map((r) => ({ r, w: textWidth(r.t, typeOf(r)) }));
     let w = 0;
     runs.forEach((q, i) => { w += (i ? q.r.dx : 0) + q.w; });
     let x = p.anchor === 'end' ? p.x - w : p.anchor === 'middle' ? p.x - w / 2 : p.x;
     for (const [i, q] of runs.entries()) {
       if (i) x += q.r.dx;
       q.x = x; x += q.w;
-      const h = q.r.stroke ? q.r.sw / 2 : 0;
-      grow(q.x - h - 2, p.y - q.r.size * 1.1 - h - 2, q.x + q.w + h + 2, p.y + q.r.size * 0.35 + h + 2);
+      const h = q.r.stroke ? q.r.sw / 2 : 0, lean = q.r.it ? q.r.size * SLANT : 0;
+      grow(q.x - h - 2, p.y - q.r.size * 1.1 - h - 2, q.x + q.w + lean + h + 2, p.y + q.r.size * 0.35 + h + 2);
     }
     lines.push({ p, runs });
   }
   if (!(x1 > x0)) return null;
   // Device px, the label's origin on a whole pixel (where the GPU puts it).
   const L = Math.floor(x0 * dpr), T = Math.floor(y0 * dpr), R = Math.ceil(x1 * dpr), B = Math.ceil(y1 * dpr);
-  const W = rot ? B - T : R - L, H = rot ? R - L : B - T;
-  // (A canvas already of this size is only cleared below: a value that ticks to another digit keeps its width, and setting the size again
-  // frees the bitmap and allocates it afresh. Everything this draws sets what it reads, so nothing carries over from the last picture.)
-  const cw = Math.max(1, W), ch = Math.max(1, H);
-  if (cv.width !== cw || cv.height !== ch) { cv.width = cw; cv.height = ch; }
-  const c = ctx0;
-  c.setTransform(1, 0, 0, 1, 0, 0);
-  c.clearRect(0, 0, cv.width, cv.height);
-  // (The label's own px to the picture's: scaled, then moved so its extent starts at 0; turned, the label's x runs up the picture.)
-  if (rot) c.setTransform(0, -dpr, dpr, 0, -T, R);
-  else c.setTransform(dpr, 0, 0, dpr, -L, -T);
+  const w = Math.max(1, rot ? B - T : R - L), h = Math.max(1, rot ? R - L : B - T);
   // (A point of the label's own px in the picture's device px.)
   const at = (px, py) => (rot ? [dpr * py - T, R - dpr * px] : [dpr * px - L, dpr * py - T]);
   // A rect's drop shadows (the soft knockout under a value's paper) are not in the picture: each is a blurred rounded box the GPU draws
-  // under it (shadowBox), so no canvas filter, shadow or scratch canvas makes them. Kept in the picture's device px.
+  // under it (shadowBox), so no filter, shadow or scratch canvas makes them. Kept in the picture's device px.
   const shadows = [];
   for (const p of d.parts) {
-    if (p.k === 'rect') {
-      if (p.filter) {
-        const fa = Math.max(rgba(p.fill)[3], p.sw > 0 ? rgba(p.stroke)[3] : 0);
-        for (const sh of shadowsOf(p.filter) || []) {
-          const col = rgba(sh.color);
-          if (!(col[3] > 0) || !(fa > 0)) continue;
-          const [cx, cy] = at(p.x + p.w / 2 + sh.x, p.y + p.h / 2 + sh.y), hw = (p.w / 2 + p.sw / 2) * dpr, hh = (p.h / 2 + p.sw / 2) * dpr;
-          shadows.push({ cx, cy, hw: rot ? hh : hw, hh: rot ? hw : hh, r: Math.min(p.rx * dpr, hw, hh), sig: sh.blur * dpr, col: col.map((v) => v * fa) });
-        }
-      }
-      c.save();
-      roundRect(c, p.x, p.y, p.w, p.h, p.rx);
-      const fill = () => { if (p.fill) { c.fillStyle = p.fill; c.fill(); } };
-      const stroke = () => { if (p.stroke && p.sw > 0) { c.strokeStyle = p.stroke; c.lineWidth = p.sw; c.stroke(); } };
-      if (p.strokeFirst) { stroke(); fill(); } else { fill(); stroke(); }
-      c.restore();
-      continue;
-    }
-    for (const q of lines.find((l) => l.p === p).runs) {
-      const r = q.r;
-      c.font = r.font;
-      if ('letterSpacing' in c) c.letterSpacing = `${r.ls}px`;
-      c.textBaseline = 'alphabetic'; c.textAlign = 'left';
-      const stroke = () => { if (r.stroke && r.sw > 0) { c.strokeStyle = r.stroke; c.lineWidth = r.sw; c.lineJoin = r.join || 'miter'; c.miterLimit = 4; for (const s of q.pieces) c.strokeText(s.t, q.x + s.x, p.y); } };
-      const fill = () => { if (r.fill) { c.fillStyle = r.fill; for (const s of q.pieces) c.fillText(s.t, q.x + s.x, p.y); } };
-      if (r.strokeFirst) { stroke(); fill(); } else { fill(); stroke(); }
+    if (p.k !== 'rect' || !p.filter) continue;
+    const fa = Math.max(rgba(p.fill)[3], p.sw > 0 ? rgba(p.stroke)[3] : 0);
+    for (const sh of shadowsOf(p.filter) || []) {
+      const col = rgba(sh.color);
+      if (!(col[3] > 0) || !(fa > 0)) continue;
+      const [cx, cy] = at(p.x + p.w / 2 + sh.x, p.y + p.h / 2 + sh.y), hw = (p.w / 2 + p.sw / 2) * dpr, hh = (p.h / 2 + p.sw / 2) * dpr;
+      shadows.push({ cx, cy, hw: rot ? hh : hw, hh: rot ? hw : hh, r: Math.min(p.rx * dpr, hw, hh), sig: sh.blur * dpr, col: col.map((v) => v * fa) });
     }
   }
-  return rot ? { ox: T, oy: -R, w: cv.width, h: cv.height, shadows, frame: [L, T, R, true] } : { ox: L, oy: T, w: cv.width, h: cv.height, shadows, frame: [L, T, R, false] };
+  return { ox: rot ? T : L, oy: rot ? -R : T, w, h, lines, shadows, frame: [L, T, R, rot], m: rot ? [0, -dpr, dpr, 0, -T, R] : [dpr, 0, 0, dpr, -L, -T] };
 }
-/** A keyboard focus's ring, in the picture's device px (`frame`: drawBlock's), or null. It is not in the picture: a plain rectangle the GPU
+/**
+ * A laid-out description as the GPU painter's operations (organ-paint.js), in the SVG's paint order: each rect a rounded box filled and
+ * outlined, each run's words filled from Inter's outlines (text-gl.js) with their halo (the SVG's stroke, round-joined) under or over
+ * them. Drawn into the label's place in the atlas by the shape drawer; nothing is painted on a 2D canvas.
+ */
+export function blockOps(d, lay) {
+  const ops = [];
+  const put = (geom, m, fill, stroke, sw, strokeFirst) => {
+    const f = fill ? parseColor(fill) : null, k = stroke && sw > 0 ? parseColor(stroke) : null;
+    const F = () => { if (f && f[3] > 0) ops.push({ geom, m, kind: 'fill', paint: { solid: f }, alpha: 1, clip: null }); };
+    const S = () => { if (k && k[3] > 0) ops.push({ geom, m, kind: 'stroke', paint: { solid: k }, alpha: 1, w: sw, cap: 0, clip: null }); };
+    if (strokeFirst) { S(); F(); } else { F(); S(); }
+  };
+  for (const p of d.parts) {
+    if (p.k === 'rect') { put({ poly: roundRectPoly(p.x, p.y, p.w, p.h, p.rx) }, lay.m, p.fill, p.stroke, p.sw, p.strokeFirst); continue; }
+    for (const q of lay.lines.find((l) => l.p === p).runs) {
+      const r = q.r;
+      if (!r.t) continue;
+      // (Slanted about its baseline when italic: x moves right by SLANT per px above it.)
+      const m = r.it ? mul(lay.m, [1, 0, -SLANT, 1, SLANT * p.y, 0]) : lay.m;
+      put({ poly: textPolys(r.t, q.x, p.y, typeOf(r)).polys }, m, r.fill, r.stroke, r.sw, r.strokeFirst);
+    }
+  }
+  return ops;
+}
+/** A keyboard focus's ring, in the picture's device px (`frame`: layBlock's), or null. It is not in the picture: a plain rectangle the GPU
  *  strokes over the label (the marks' shader, kind 9), its stroke centred outlineOffset + half its width out, as the browser draws an
  *  outline; so a focus, and its colour easing in, sends no picture. */
 export function ringBox(d, dpr, frame) {
@@ -565,6 +529,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     return (pageTex[n] = t);
   };
   if (!host) svg.after(canvas);
+  // (The labels' words are Inter's outlines (text-gl.js), fetched as the layer starts: till they come, the SVG shows every label.)
+  if (!glyphsReady()) loadGlyphs().then(() => { for (const s of last) dirty.add(s.g); ask(); }, () => {});
   let lost = false, dpr = 1, W = 1, H = 1, last = [], raf = 0;
   // A slide's camera glide (stage.js, ?labelride=0 off): the labels ride with the figure on the GPU instead of fading out for the whole
   // move. rideM maps where they were laid out (stage px) to where that point is now; each label's picture keeps its size, its centre
@@ -646,7 +612,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // through what no animation of the label's own shows. The rest, its own CSS fades and colour eases and script fades, are followed: label-track.js.)
   const exact = new Until();
   const dirty = new Set();
-  const scratch = document.createElement('canvas');
   // The label layer's inline style (the dive's zoom and fade, its visibility) is the canvas's too; its classes' rules are in app.css.
   const copyStyle = () => { const w = canvas.style.width, h = canvas.style.height; canvas.style.cssText = svg.style.cssText; canvas.style.width = w; canvas.style.height = h; placeSoon(); };
   if (!host) new MutationObserver(copyStyle).observe(svg, { attributes: true, attributeFilter: ['style'] });
@@ -702,7 +667,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (!lost || gl.isContextLost()) return;   // (lost again: the next restore starts over)
       try { finish(hs); } catch { return; }   // (the shaders will not build: the SVG keeps every label)
       pageTex.length = 0; needRepack = false; packer.reset(); outgoing = []; glides.clear(); rideFrom = null;
-      holeMasks = new WeakMap(); holeShape = null; picPaint = null; headSp = null; sHeadSp = null;
+      holeMasks = new WeakMap(); holeShape = null; picPaint = null; headSp = null; sHeadSp = null; slotTex = null;
       for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
       pReadSoon(); sReadSoon(); allMarks(); boxKey = '';
       lost = false;
@@ -773,16 +738,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (st.mode !== 'gl') return st;
     const key = lookKey(d, rot, dpr);
     if (st.key !== key) {
-      const at = drawBlock(scratch, d, dpr, rot);
-      if (!at) { st.mode = 'none'; return st; }
-      // (Its place in the atlas: kept while the picture stays the same size, else given back and found again. Only this rectangle is uploaded.)
-      if (st.slot && (st.slot.w !== scratch.width || st.slot.h !== scratch.height)) { packer.free(st.slot); st.slot = null; }
-      if (!st.slot) st.slot = packer.alloc(scratch.width, scratch.height);
+      const lay = layBlock(d, dpr, rot);
+      if (!lay) { st.mode = 'none'; return st; }
+      // (Its place in the atlas: kept while the picture stays the same size, else given back and found again.)
+      if (st.slot && (st.slot.w !== lay.w || st.slot.h !== lay.h)) { packer.free(st.slot); st.slot = null; }
+      if (!st.slot) st.slot = packer.alloc(lay.w, lay.h);
       if (!st.slot) { needRepack = true; st.mode = 'svg'; st.key = ''; return st; }   // (the pages are full: the SVG draws it till they are packed again)
-      gl.bindTexture(gl.TEXTURE_2D, pageOf(st.slot.page));
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, st.slot.x, st.slot.y, gl.RGBA, gl.UNSIGNED_BYTE, scratch);
-      Object.assign(st, at, { key });
+      paintSlot(st.slot, lay, blockOps(d, lay));
+      Object.assign(st, { ox: lay.ox, oy: lay.oy, w: lay.w, h: lay.h, shadows: lay.shadows, frame: lay.frame }, { key });
     }
     st.ring = GPU_FOCUS ? ringBox(d, dpr, st.frame) : null;
     st.opacity = d.opacity;
@@ -1224,6 +1187,36 @@ void main() { o = texture(uT, vUV) * uA; }`;
     gl.bindVertexArray(vao); gl.activeTexture(gl.TEXTURE0);
     gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     return sp;
+  }
+  // A label's picture drawn by the GPU into its place in the atlas: painted by the shape drawer into the corner of a scratch texture (made
+  // once, grown only for a larger label), then copied on the GPU into its rectangle of the atlas page, rows as the atlas keeps them (the
+  // top first). Nothing crosses to the CPU and nothing is uploaded.
+  let slotTex = null, slotFbo = null, slotW = 0, slotH = 0;
+  function paintSlot(slot, lay, ops) {
+    picPaint ||= createOrganPaint(gl, createShapeGL(gl));
+    if (!slotTex) { slotTex = gl.createTexture(); slotFbo = gl.createFramebuffer(); slotW = slotH = 0; }
+    if (slotW < lay.w || slotH < lay.h) {
+      slotW = Math.max(slotW, lay.w, 512); slotH = Math.max(slotH, lay.h, 128);
+      gl.bindTexture(gl.TEXTURE_2D, slotTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, slotW, slotH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, slotFbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, slotTex, 0);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, slotFbo);
+    gl.viewport(0, 0, lay.w, lay.h);
+    gl.disable(gl.BLEND);
+    gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+    // (Turned over: the painter's top row is the target's last; the copy below keeps the rows, and the atlas's first row is the top.)
+    picPaint.paintGroupInto({ ops, opacity: 1, mask: null }, [1, 0, 0, -1, 0, lay.h], lay.w, lay.h, slotFbo, lay.w, lay.h);
+    picPaint.endFrame();
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, slotFbo);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, pageOf(slot.page));
+    gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, slot.x, slot.y, 0, 0, lay.w, lay.h);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, W, H);
+    gl.bindVertexArray(vao);
+    gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   }
   // A shape's fill and stroke as the painter's ops (solid colours as the page computes them), the fill under the stroke as SVG lays them.
   function shapeOps(ops, geom, m, fill, stroke, sw) {

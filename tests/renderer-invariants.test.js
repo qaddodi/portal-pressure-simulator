@@ -80,11 +80,13 @@ test('a catheter update sends the shaft once and only the moving vertices after'
   assert.ok(subs.every((c) => c[3].byteLength === 48));
 });
 
-test('the label atlas sends a picture only when its look key changed, and the key holds no position', () => {
+test('the label atlas draws a picture only when its look key changed, and the key holds no position', () => {
   const src = read('../src/ui/label-gl.js');
   const ref = src.slice(src.indexOf('function refresh('), src.indexOf('function repack('));
   assert.match(ref, /if \(st\.key !== key\) \{/);
-  assert.equal(ref.match(/texSubImage2D/g).length, 1);
+  assert.equal(ref.match(/paintSlot\(/g).length, 1);   // (one GPU drawing into the atlas, inside the key check)
+  assert.ok(ref.indexOf('st.key !== key') < ref.indexOf('paintSlot('));
+  assert.doesNotMatch(ref, /texSubImage2D|getContext/);
   assert.match(src, /export const lookKey = \(d, rot, dpr\) => JSON\.stringify\(\[d\.filter, d\.parts, rot, dpr\]\);/);   // (look, rotation and ratio; no place)
 });
 

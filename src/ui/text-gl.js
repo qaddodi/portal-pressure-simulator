@@ -45,6 +45,13 @@ function outline(w, ch, tnum) {
 }
 const kernOf = (w, a, b, tnum) => (tnum && /\d/.test(a + b) ? 0 : GLYPHS[w].kern[a + b] || 0);
 
+/** Whether every character of the text has its outline here (at every weight cut: they are cut alike), so none is drawn as '?'. */
+export function textCovers(text) {
+  if (!GLYPHS) return false;
+  const set = GLYPHS[WEIGHTS[0]].chars;
+  for (const ch of String(text)) if (!set[ch]) return false;
+  return true;
+}
 /** The width (px) of text set in the given weight and size: its advances, its kerning and its letter spacing. */
 export function textWidth(text, { weight = 400, size = 12, tnum = false, ls = 0 } = {}) {
   const w = weightOf(weight), s = size / UPM, cs = [...String(text)];

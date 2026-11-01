@@ -3,28 +3,35 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { svgOnly, lookKey, drawBlock, shadowsOf, ringBox, rgba } from '../src/ui/label-gl.js';
+import { svgOnly, lookKey, layBlock, blockOps, shadowsOf, ringBox, rgba } from '../src/ui/label-gl.js';
 
 const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const LGL = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8');
-const run = (o = {}) => ({ t: '12.0', dx: 0, font: '500 14px Inter', size: 14, ls: 0, tnum: true, fill: 'rgb(0, 0, 0)', stroke: 'rgba(251, 250, 247, 0.92)', sw: 3, join: 'round', strokeFirst: true, ...o });
+// (The same copy of the GPU text module label-gl.js uses, by its stamped name, with Inter's outlines loaded as the page loads them.)
+const TEXT_SPEC = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8').match(/from '\.\/(text-gl\.js\?v=[0-9a-f]+)'/)[1];
+const TEXT = await import(`../src/ui/${TEXT_SPEC}`);
+await TEXT.loadGlyphs();
+const run = (o = {}) => ({ t: '12.0', dx: 0, font: '500 14px Inter', size: 14, wt: 500, it: false, fam: 'Inter, system-ui, sans-serif', ls: 0, tnum: true, fill: 'rgb(0, 0, 0)', stroke: 'rgba(251, 250, 247, 0.92)', sw: 3, join: 'round', strokeFirst: true, ...o });
 const desc = (o = {}) => ({ opacity: 1, filter: '', parts: [{ k: 'text', x: 0, y: 11, anchor: 'start', runs: [run()] }], ...o });
-const ALL = { ls: true, filter: true };
 
-test('a label the browser\'s Canvas 2D cannot draw exactly stays drawn by the SVG', () => {
-  assert.equal(svgOnly(desc(), ALL), '');
-  assert.equal(svgOnly({ svg: 'focus' }, ALL), 'focus');
-  // (A rect's drop shadows are the GPU's (shadowBox), with or without the canvas's own filter; letter spacing is set by hand where the canvas
-  // has none; any other filter, or one on the whole label, is the SVG's.)
-  const rect = (filter) => desc({ parts: [{ k: 'rect', x: 0, y: 0, w: 10, h: 10, rx: 5, fill: 'red', stroke: '', sw: 0, filter }] });
-  for (const cap of [ALL, { ls: true, filter: false }]) {
-    assert.equal(svgOnly(rect('drop-shadow(rgba(0, 0, 0, 0.1) 0px 1px 1.5px)'), cap), '');
-    assert.equal(svgOnly(rect('blur(2px)'), cap), 'filter');
-    assert.equal(svgOnly(rect('drop-shadow(red 0px 0px 5px) blur(1px)'), cap), 'filter');
-    assert.equal(svgOnly(desc({ filter: 'drop-shadow(0px 0px 5px red)' }), cap), 'filter');
-  }
-  assert.equal(svgOnly(desc({ parts: [{ k: 'text', x: 0, y: 0, anchor: 'start', runs: [run({ ls: 1.2 })] }] }), { ls: false, filter: true }), '');
+test('a label the GPU cannot draw exactly stays drawn by the SVG; every other is filled from Inter\'s outlines', () => {
+  assert.equal(svgOnly(desc()), '');
+  assert.equal(svgOnly({ svg: 'focus' }), 'focus');
+  // (A rect's drop shadows are the GPU's (shadowBox); any other filter, or one on the whole label, is the SVG's.)
+  const rect = (filter) => desc({ parts: [{ k: 'rect', x: 0, y: 0, w: 10, h: 10, rx: 5, fill: 'rgb(255, 0, 0)', stroke: '', sw: 0, filter }] });
+  assert.equal(svgOnly(rect('drop-shadow(rgba(0, 0, 0, 0.1) 0px 1px 1.5px)')), '');
+  assert.equal(svgOnly(rect('blur(2px)')), 'filter');
+  assert.equal(svgOnly(rect('drop-shadow(red 0px 0px 5px) blur(1px)')), 'filter');
+  assert.equal(svgOnly(desc({ filter: 'drop-shadow(0px 0px 5px red)' })), 'filter');
+  const text = (o) => desc({ parts: [{ k: 'text', x: 0, y: 0, anchor: 'start', runs: [run(o)] }] });
+  assert.equal(svgOnly(text({ ls: 1.2 })), '', 'letter spacing is the GPU text\'s');
+  assert.equal(svgOnly(text({ it: true })), '', 'a slant too');
+  assert.equal(svgOnly(text({ fill: 'color(srgb 0.5 0.5 0.5 / 0.8)' })), '', 'a colour-mix() colour');
+  assert.equal(svgOnly(text({ fam: 'Georgia, serif' })), 'font');
+  assert.equal(svgOnly(text({ t: '12 ✕' })), 'glyph', 'a character whose outline is not here');
+  assert.equal(svgOnly(text({ fill: 'lab(50% 20 30)' })), 'colour');
+  assert.equal(svgOnly(desc(), false), 'glyphs', 'till the outlines have come');
 });
 
 test('drop shadows are read in whatever order the browser writes them', () => {
@@ -47,17 +54,14 @@ test('a keyboard focus\'s ring and a rect\'s drop shadow are GPU shapes, never p
   assert.deepEqual([r.x0, r.y0, r.x1, r.y1, r.w], [2, 2, 38, 38, 4]);
   assert.deepEqual(r.col, [0, 0, 1, 1]);
   // The shadow is handed back with the picture, in its device px, its colour taking the rect's own opacity; nothing drawn through a filter.
-  const calls = [];
-  const ctx = new Proxy({}, { get: (t, k) => (k === 'measureText' ? (str) => ({ width: String(str).length * 7 }) : k in t ? t[k] : (...a) => { calls.push([k, ...a]); }), set: (t, k, v) => { t[k] = v; return true; } });
-  const cv = { width: 0, height: 0, getContext: () => ctx };
-  const at = drawBlock(cv, desc({ parts: [{ k: 'rect', x: 0, y: 0, w: 20, h: 10, rx: 5, fill: 'rgba(255, 255, 255, 0.5)', stroke: '', sw: 0, filter: 'drop-shadow(rgba(0, 0, 0, 0.2) 0px 1px 2px)' }] }), 2);
+  const at = layBlock(desc({ parts: [{ k: 'rect', x: 0, y: 0, w: 20, h: 10, rx: 5, fill: 'rgba(255, 255, 255, 0.5)', stroke: '', sw: 0, filter: 'drop-shadow(rgba(0, 0, 0, 0.2) 0px 1px 2px)' }] }), 2);
   assert.equal(at.shadows.length, 1);
   const sh = at.shadows[0];
   assert.deepEqual([sh.cx, sh.cy, sh.hw, sh.hh, sh.r, sh.sig], [20 - at.ox, 12 - at.oy, 20, 10, 10, 4]);
   assert.ok(Math.abs(sh.col[3] - 0.1) < 1e-9);
-  assert.ok(!('filter' in ctx) && !('shadowBlur' in ctx), 'no canvas filter or shadow set');
-  const block = LGL.slice(LGL.indexOf('export function drawBlock('), LGL.indexOf('export function ringBox('));
-  assert.doesNotMatch(block, /\.filter = |shadowBlur|createElement/);
+  assert.ok(blockOps(desc({ parts: [{ k: 'rect', x: 0, y: 0, w: 20, h: 10, rx: 5, fill: 'rgba(255, 255, 255, 0.5)', stroke: '', sw: 0, filter: 'drop-shadow(rgba(0, 0, 0, 0.2) 0px 1px 2px)' }] }), at).every((op) => op.kind === 'fill'), 'the rect alone, no shadow, in the picture');
+  const block = LGL.slice(LGL.indexOf('export function layBlock('), LGL.indexOf('export function ringBox('));
+  assert.doesNotMatch(block, /\.filter = |shadowBlur|createElement|getContext|measureText/);
   assert.doesNotMatch(LGL, /drawShadowed/);
   assert.match(LGL, /uKind == 8/); assert.match(LGL, /uKind == 9/);
 });
@@ -195,7 +199,9 @@ test('batches split only where the page changes, keeping painter order', async (
 test('labels draw as one instanced batch from the atlas, texel for texel', () => {
   assert.match(LGL, /drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, run\.to - run\.from\)/);
   assert.match(LGL, /texelFetch\(uT, q, 0\) \* vT\.z/);
-  assert.match(LGL, /gl\.texSubImage2D\(gl\.TEXTURE_2D, 0, st\.slot\.x, st\.slot\.y/);
+  assert.match(LGL, /paintSlot\(st\.slot, lay, blockOps\(d, lay\)\);/, 'each picture drawn by the GPU into its atlas place');
+  assert.match(LGL, /gl\.copyTexSubImage2D\(gl\.TEXTURE_2D, 0, slot\.x, slot\.y, 0, 0, lay\.w, lay\.h\);/);
+  assert.doesNotMatch(LGL, /texSubImage2D\(|getContext\('2d'\)|measureText|fillText|strokeText/, 'no picture painted on a 2D canvas or uploaded');
   assert.match(LGL, /for \(const run of batchRuns\(items\)\)/);
   assert.match(LGL, /maxPages: 2/);
 });
@@ -220,26 +226,29 @@ test('the labels stay on their own canvas; what they drew is told to the glass d
   assert.match(STAGE, /marks: \[gLeaders, gScan\], onBoxes: frostWake \}\);/);
 });
 
-// Laptop-heat recs H6: a value that ticks to another digit keeps its width, so its scratch canvas is cleared and drawn into again, not given a new size
-// (setting a canvas's size frees its bitmap and allocates another). The picture is the same: the canvas is cleared whole before anything is drawn.
-test('a picture drawn into a canvas of its size does not set the size again, and one of another size does', () => {
-  const calls = [];
-  const ctx = new Proxy({}, {
-    get: (t, k) => (k === 'measureText' ? (str) => ({ width: String(str).length * 7 }) : k in t ? t[k] : (...a) => { calls.push([k, ...a]); }),
-    set: (t, k, v) => { t[k] = v; return true; },
-  });
-  const sets = [];
-  const cv = { w: 0, h: 0, get width() { return this.w; }, set width(v) { sets.push(['width', v]); this.w = v; }, get height() { return this.h; }, set height(v) { sets.push(['height', v]); this.h = v; }, getContext: () => ctx };
-  const first = drawBlock(cv, desc(), 2);
-  assert.deepEqual(sets.map((e) => e[0]), ['width', 'height'], 'a new canvas is given its size');
-  sets.length = 0; calls.length = 0;
-  const again = drawBlock(cv, desc({ parts: [{ k: 'text', x: 0, y: 11, anchor: 'start', runs: [run({ t: '12.1' })] }] }), 2);
-  assert.deepEqual(sets, [], 'the same size is not set again');
-  assert.deepEqual(again, first, 'and the picture lies where the last did');
-  assert.ok(calls.some((c) => c[0] === 'clearRect' && c[3] === cv.width && c[4] === cv.height), 'it is cleared whole');
-  assert.ok(calls.findIndex((c) => c[0] === 'clearRect') < calls.findIndex((c) => c[0] === 'fillText'), 'before anything is drawn');
-  drawBlock(cv, desc({ parts: [{ k: 'text', x: 0, y: 11, anchor: 'start', runs: [run({ t: '12.10' })] }] }), 2);
-  assert.deepEqual(sets.map((e) => e[0]), ['width', 'height'], 'a wider text gets a bigger canvas');
+// Laptop-heat recs H6, on the GPU: a value that ticks to another digit keeps its width (tabular figures), so its picture keeps its size and
+// its place in the atlas, drawn again there; a wider value gets a bigger picture. Its words are Inter's outlines, its halo their stroke.
+test('a ticking value keeps its picture\'s size and place; a wider one gets a bigger picture; words and halo are GPU shapes', () => {
+  const d = desc(), first = layBlock(d, 2);
+  const again = layBlock(desc({ parts: [{ k: 'text', x: 0, y: 11, anchor: 'start', runs: [run({ t: '12.1' })] }] }), 2);
+  assert.deepEqual([again.w, again.h, again.ox, again.oy], [first.w, first.h, first.ox, first.oy]);
+  const wide = layBlock(desc({ parts: [{ k: 'text', x: 0, y: 11, anchor: 'start', runs: [run({ t: '12.10' })] }] }), 2);
+  assert.ok(wide.w > first.w);
+  const turned = layBlock(desc(), 2, true);
+  assert.deepEqual([turned.w, turned.h], [first.h, first.w]);
+  // (The halo (stroke-first) under the words, at the SVG's width, round-joined by the shape drawer; both from the same outlines.)
+  const ops = blockOps(d, first);
+  assert.deepEqual(ops.map((o) => o.kind), ['stroke', 'fill']);
+  assert.equal(ops[0].w, 3);
+  assert.equal(ops[0].geom, ops[1].geom);
+  assert.deepEqual(ops[1].paint.solid, [0, 0, 0, 1]);
+  assert.ok(ops[1].geom.poly.length > 3, 'the outlines of 1, 2, . and 0');
+  // (Its width is the GPU text's own (advances, tabular figures), the halo and a 2 px margin round it.)
+  const tw = TEXT.textWidth('12.0', { weight: 500, size: 14, tnum: true });
+  assert.equal(first.w, Math.ceil((tw + 1.5 + 2) * 2) - Math.floor(-3.5 * 2));
+  // (An italic run is slanted about its baseline.)
+  const it = desc({ parts: [{ k: 'text', x: 0, y: 11, anchor: 'start', runs: [run({ it: true })] }] }), li = layBlock(it, 2);
+  assert.deepEqual(blockOps(it, li)[1].m, [2, 0, -0.5, 2, 0.25 * 11 * 2 - li.ox, -li.oy]);
 });
 
 // (Laptop-heat, 31 Oct: the label canvas covers the whole stage and was put together with the figure on every frame the blood moved, even

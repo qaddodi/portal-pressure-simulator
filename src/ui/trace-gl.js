@@ -17,8 +17,8 @@
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
 import { canvasSize, fitCanvas } from './util.js?v=e710e031d9';
-import { sdfAtlas } from './text-gl.js?v=b384a10c15';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
-import { fontOf, measure } from './glyph-measure.js?v=3ec1724dd5';
+import { sdfAtlas } from './text-gl.js?v=517a8ac2ae';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
+import { fontOf, measure } from './glyph-measure.js?v=857a31abc9';
 export { measure };
 const { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
 
