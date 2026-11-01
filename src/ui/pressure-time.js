@@ -18,7 +18,7 @@ import { createBeatClock, ekgSeries, leadIISeries } from './ekg.js?v=f27505b539'
 import { laneRoom } from './trace-lanes.js?v=3d3cb1915e';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
 import { plotFill } from './plot-look.js?v=5037697da7';
-import { createTraceGL, fitPen } from './trace-gl.js?v=3d226655b5';
+import { createTraceGL, fitPen } from './trace-gl.js?v=d6ce1072db';
 import { createStill } from './still-layer.js?v=8d8a2727b4';
 import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from './beat-card.js?v=89d9fda241';
 import { VITALS } from './vital-read.js?v=cbba41a6b7';
@@ -75,7 +75,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   // The chart drawn by the GPU (trace-gl.js; Mohammad, 1 Nov: "Move everything to GPU"): every part of it, the panel, grid and words as
   // well as the traces, the markers and the crosshair's card, through the GPU drawer's 2D context, with this canvas left blank under it.
   // No WebGL2, a software renderer, a lost context or ?tracegl=0: drawn on this canvas, as before.
-  const gpu = createTraceGL(cv);
+  const gpu = createTraceGL(cv, { redraw: () => { if (frame) draw(); } });
   let pen = null;   // (the context the frame being drawn uses, for the markers' measuring and drawing)
   const chosen = new Set(TRACES.filter((t) => t.on).map((t) => t.id));
   const chips = h('div', { class: 'pt-chips', role: 'group', 'aria-label': 'Traces' }, TRACES.map((t) => {
@@ -880,28 +880,11 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     }
   }
 
-  // The readout card's shadow: a blur drawn once per card size and screen density into a small picture and laid under the
-  // card, instead of the browser blurring it again on every frame the crosshair shows while the model runs (shadowBlur is the
-  // one costly 2D call in this chart). The card's own fill, edge and words are still drawn live. The picture is laid at the
-  // card's fractional place, so a blur may land a fraction of a pixel off its old rendering; the card itself is unchanged.
-  const SH_PAD = 40, shadows = new Map();
+  // The readout card's shadow: a soft-edged box the GPU draws (trace-gl.js), never a blur on the CPU.
   function drawShadow(ctx, bx, by, cw, ch) {
-    if (ctx.onGPU === true) { ctx.shadowBox(bx, by, cw, ch, 10, cssAlpha('--black', 0.14), 16, 4); return; }   // (the GPU draws the soft edge itself)
-    const m = ctx.getTransform(), dpr = m.a || 1, key = `${cw}|${ch}|${dpr}`;
-    let pic = shadows.get(key);
-    if (!pic) {
-      if (shadows.size > 24) shadows.clear();
-      const W = Math.ceil((cw + 2 * SH_PAD) * dpr), H = Math.ceil((ch + 2 * SH_PAD) * dpr);
-      pic = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(W, H) : Object.assign(document.createElement('canvas'), { width: W, height: H });
-      const c = pic.getContext('2d');
-      c.setTransform(dpr, 0, 0, dpr, 0, 0);
-      // (the card itself is drawn a picture's width to the left, outside it, and only its shadow lands in it: the same blur and
-      // offset as before, in a canvas with the same transform; offsets are not scaled by it)
-      c.fillStyle = cssAlpha('--black', 0.14); c.shadowColor = cssAlpha('--black', 0.14); c.shadowBlur = 16; c.shadowOffsetX = W; c.shadowOffsetY = 4;
-      c.beginPath(); c.roundRect ? c.roundRect(SH_PAD - W / dpr, SH_PAD, cw, ch, 10) : c.rect(SH_PAD - W / dpr, SH_PAD, cw, ch); c.fill();
-      shadows.set(key, pic);
-    }
-    ctx.drawImage(pic, 0, 0, pic.width, pic.height, bx - SH_PAD, by - SH_PAD, pic.width / dpr, pic.height / dpr);
+    // (The GPU draws the soft edge itself, as wide and as low as the old blurred picture's; a chart drawn on its own canvas, with no GPU,
+    // shows the card without one.)
+    if (ctx.onGPU === true) ctx.shadowBox(bx, by, cw, ch, 10, cssAlpha('--black', 0.14), 16, 4);
   }
 
   // Markers a few pixels apart (several changes made at once) share one dot and one label ("… +2").
@@ -918,7 +901,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   }
   function layoutMarkers(ms, X, right) {
     if (!ms.length) return { groups: [], rows: 0 };   // (no markers in the window, the common case and every slide's: the font below cost each frame a font lookup for nothing)
-    const ctx = pen || cv.getContext('2d');
+    const ctx = pen;
     ctx.font = FONT(600, 12);
     const groups = [];
     for (const mk of ms) {
@@ -946,7 +929,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     return { groups, rows };
   }
   function drawMarkers({ groups }, lanes) {
-    const ctx = pen || cv.getContext('2d');
+    const ctx = pen;
     const top = lanes[0].top, allBot = lanes[lanes.length - 1].bot;
     const muted = cssVar('--text-2'), halo = cssVar('--surface-2');
     const colOf = (g) => cssVar(g.sev ? `--${g.sev}` : '--accent');

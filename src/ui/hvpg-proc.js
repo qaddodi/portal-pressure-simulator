@@ -16,7 +16,7 @@ import { store, logAction, hiddenNow, updateParams } from './store.js?v=4ef2a6ff
 import { shownOr } from './shown.js?v=8a7bc6961d';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=95f13823ce';
 import { frameFor, cancelFrame } from './frame.js?v=15d5254a2c';
-import { createTraceGL, fitPen } from './trace-gl.js?v=3d226655b5';
+import { createTraceGL, fitPen } from './trace-gl.js?v=d6ce1072db';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
 import { rateOf } from './table-marks.js?v=ff3ed0cc47';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=424928e1b2';
@@ -49,7 +49,7 @@ export function createHvpgProcedure() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'HVPG measurement: catheter pressure tracing' });
   const box = h('div', { class: 'chart-box hvpg-box' }, cv);
   // (The tracing drawn by the GPU, trace-gl.js: its canvas over this one, which is left blank; null: drawn on this canvas.)
-  const gpu = createTraceGL(cv);
+  const gpu = createTraceGL(cv, { redraw: () => draw() });
   const vals = {};
   // On top: the button and the three readings; then the tracing; then the steps and what is happening.
   const kv = h('dl', { class: 'hvpg-kv' }, ['fhvp', 'whvp', 'hvpg'].map((k) => {
@@ -272,7 +272,7 @@ export function createHvpgMonitor() {
   // its band, in mmHg. Written when the phase changes and once the numbers have held still, never with every frame of the sweep.
   const said = h('p', { class: 'sr-only' });
   const el = h('div', { class: 'pz-mon' }, h('div', { class: 'chart-box hvpg-box' }, cv), h('div', { class: 'sr-only', role: 'group', 'aria-label': 'Catheter pressure readings' }, said));
-  const gpu = createTraceGL(cv);   // (the tracing drawn by the GPU, trace-gl.js)
+  const gpu = createTraceGL(cv, { redraw: () => { if (mode) draw(); } });   // (the tracing drawn by the GPU, trace-gl.js)
   let mode = null, t = 0, t1 = 0, last = 0, raf = 0, fp = null, bal = 0, sayT = 0;
   // The slide's own readings (the catheter's callouts and the tiles show the same), else the live model's.
   const live = () => { const m = fp || store.get().frame?.metrics; return { fhvp: m?.fhvp ?? 0, whvp: m?.whvp ?? 0, hvpg: m?.hvpg ?? 0 }; };

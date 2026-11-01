@@ -17,6 +17,8 @@
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
 import { canvasSize, fitCanvas } from './util.js?v=c8ef361fbc';
+import { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H } from './glyphs-inter.js?v=3d311882ab';
+import { ATLAS_PNG } from './glyphs-inter-png.js?v=9ce07768be';
 
 /** ?tracegl=0 in a page's search string: every chart and monitor draws on its 2D canvas, as before. */
 export const traceGLOff = (search) => /[?&]tracegl=0\b/.test(String(search ?? ''));
@@ -159,89 +161,142 @@ void main() {
 }`;
 // Text: the atlas's picture (its alpha) copied texel for texel to the canvas's pixels, tinted.
 const TEXT_VS = `#version 300 es
-layout(location = 0) in vec4 dst;    // x, y, w, h (device px, whole)
-layout(location = 1) in vec2 src;    // the picture's top left in the atlas (texels)
+layout(location = 0) in vec4 dst;    // x, y, w, h (device px)
+layout(location = 1) in vec4 src;    // the glyph's box in the atlas (texels)
 layout(location = 2) in vec4 tc;     // premultiplied
-uniform vec2 res;
+layout(location = 3) in vec2 sk;     // device px per atlas px; an outline's half width (device px; 0: the glyph itself)
+uniform vec2 res, asz;
 out vec2 vT;
 flat out vec4 vC;
+flat out vec2 vK;
 void main() {
   int id = gl_VertexID;
   vec2 f = vec2(id == 1 || id == 3 ? 1.0 : 0.0, id >= 2 ? 1.0 : 0.0);
   vec2 q = dst.xy + dst.zw * f;
-  vT = src + dst.zw * f;
-  vC = tc;
+  vT = (src.xy + src.zw * f) / asz;
+  vC = tc; vK = sk;
   gl_Position = vec4(q.x / res.x * 2.0 - 1.0, 1.0 - q.y / res.y * 2.0, 0.0, 1.0);
 }`;
+// The glyph's distance from its edge, in device px, from the atlas's field; its coverage as the 2D canvas's antialiased edge (half a pixel
+// each side), or an outline's (strokeText's) as wide as the stroke.
 const TEXT_FS = `#version 300 es
 precision highp float;
 uniform sampler2D atlas;
+uniform vec2 sdf;                    // the field's radius and cutoff (atlas px)
 in vec2 vT;
 flat in vec4 vC;
+flat in vec2 vK;
 out vec4 o;
 void main() {
-  float a = texelFetch(atlas, ivec2(floor(vT)), 0).a;
+  float v = texture(atlas, vT).r;
+  float d = (1.0 - sdf.y - v) * sdf.x * vK.x;   // device px, < 0 inside
+  float a = vK.y > 0.0 ? clamp(vK.y - d + 0.5, 0.0, 1.0) : clamp(0.5 - d, 0.0, 1.0);
   if (a <= 0.0) discard;
   o = vC * a;
 }`;
 
-const NUMERIC = /^[-−+0-9.,%]+$/;
-const ATLAS = 1024;
-
-// A colour as the 2D canvas reads it, [r, g, b, a] (0–1, not premultiplied). Read once per string through a 1 × 1 canvas.
-const colours = new Map();
-let normCtx = null;
-function rgba(c) {
-  let v = colours.get(c);
-  if (!v) {
-    normCtx ||= document.createElement('canvas').getContext('2d');
-    normCtx.fillStyle = '#000'; normCtx.fillStyle = c;   // colour-exempt: a reset, so a colour the canvas cannot read stays black
-    const s = String(normCtx.fillStyle);
-    let r = 0, g = 0, b = 0, a = 1;
-    const m = /^#([\da-f]{6})$/i.exec(s);
-    if (m) { const n = parseInt(m[1], 16); r = (n >> 16) / 255; g = ((n >> 8) & 255) / 255; b = (n & 255) / 255; }
-    else {
-      const q = /rgba?\(([^)]+)\)/.exec(s)?.[1].split(/[\s,/]+/).filter(Boolean).map(Number);
-      if (q) { r = q[0] / 255; g = q[1] / 255; b = q[2] / 255; a = q.length > 3 ? q[3] : 1; }
-    }
-    v = [r, g, b, a];
-    if (colours.size > 512) colours.clear();
-    colours.set(c, v);
+// The font a chart names ("650 12.5px Inter, …"): its weight, the nearest the atlas holds, and its size.
+const WEIGHTS = Object.keys(GLYPHS).map(Number);
+const fonts = new Map();
+function fontOf(font) {
+  let f = fonts.get(font);
+  if (!f) {
+    const m = /(?:^|\s)(\d{3})\s/.exec(' ' + font + ' '), z = /([\d.]+)px/.exec(font);
+    const want = m ? +m[1] : /bold/.test(font) ? 700 : 400;
+    f = { w: WEIGHTS.reduce((a, b) => (Math.abs(b - want) < Math.abs(a - want) ? b : a)), px: z ? +z[1] : 10 };
+    fonts.set(font, f);
   }
+  return f;
+}
+const widthsOf = new Map();
+/** A word's width in CSS px in `font`, from the atlas's own advances and kerning (Inter, as the browser sets it), with no canvas. */
+export function measure(str, font) {
+  str = String(str);
+  const key = font + '\u0001' + str;
+  let w = widthsOf.get(key);
+  if (w === undefined) {
+    const f = fontOf(font), g = GLYPHS[f.w], kw = KERN[f.w];
+    let em = 0, prev = '';
+    for (const ch of str) { em += (g[ch] || g['?'])[0] + (prev ? kw[prev + ch] || 0 : 0); prev = ch; }
+    w = em * f.px;
+    if (widthsOf.size > 4000) widthsOf.clear();
+    widthsOf.set(key, w);
+  }
+  return w;
+}
+// The glyphs' field, decoded once for every chart (an image, no canvas).
+let glyphImage = null;
+// (A chart that drew on its own canvas while the field was still decoding is drawn again on the GPU once it is in.)
+const waiting = new Set();
+if (typeof Image === 'function') { const im = new Image(); im.decoding = 'async'; im.onload = () => { glyphImage = im; for (const f of [...waiting]) f(); waiting.clear(); }; im.src = ATLAS_PNG; }
+
+// A CSS colour as [r, g, b, a] (0–1, not premultiplied), read by hand (no canvas): #rgb, #rgba, #rrggbb, #rrggbbaa, rgb()/rgba() in either
+// syntax, color(srgb …), the few names the app writes, and color-mix(in srgb, a p%, b q%) of any of those. Cached per string.
+const colours = new Map();
+const NAMED = { transparent: [0, 0, 0, 0], white: [1, 1, 1, 1], black: [0, 0, 0, 1], red: [1, 0, 0, 1] };
+const num = (t, scale) => (t.endsWith('%') ? parseFloat(t) / 100 : parseFloat(t) / scale);
+// (the arguments of a function, split at top-level commas)
+const args = (t) => { const out = []; let d = 0, cur = ''; for (const ch of t) { if (ch === '(') d++; if (ch === ')') d--; if (ch === ',' && !d) { out.push(cur.trim()); cur = ''; } else cur += ch; } if (cur.trim()) out.push(cur.trim()); return out; };
+export function parseColour(c) {
+  c = String(c ?? '').trim().toLowerCase();
+  let v = colours.get(c);
+  if (v) return v;
+  v = [0, 0, 0, 0];
+  let m;
+  if (NAMED[c]) v = NAMED[c];
+  else if ((m = /^#([\da-f]{3,8})$/.exec(c))) {
+    let h = m[1];
+    if (h.length <= 4) h = [...h].map((x) => x + x).join('');
+    const n = (i) => parseInt(h.slice(i, i + 2), 16) / 255;
+    v = [n(0), n(2), n(4), h.length >= 8 ? n(6) : 1];
+  } else if ((m = /^rgba?\((.*)\)$/.exec(c))) {
+    const [rgb, al] = m[1].includes('/') ? m[1].split('/') : [m[1], null];
+    const q = rgb.split(/[\s,]+/).filter(Boolean);
+    const a = al != null ? num(al.trim(), 1) : q[3] != null ? num(q[3], 1) : 1;
+    v = [num(q[0], 255), num(q[1], 255), num(q[2], 255), a];
+  } else if ((m = /^color\(srgb\s+([^)]*)\)$/.exec(c))) {
+    const [rgb, al] = m[1].split('/');
+    const q = rgb.trim().split(/\s+/).map((x) => num(x, 1));
+    v = [q[0], q[1], q[2], al == null ? 1 : num(al.trim(), 1)];
+  } else if ((m = /^color-mix\(in srgb,(.*)\)$/.exec(c))) {
+    const [A, B] = args(m[1]).map((t) => { const p = /\s([\d.]+%)$/.exec(t); return { c: parseColour(p ? t.slice(0, p.index) : t), p: p ? parseFloat(p[1]) / 100 : null }; });
+    if (A && B) {
+      let pa = A.p ?? (B.p != null ? 1 - B.p : 0.5), pb = B.p ?? 1 - pa;
+      const sum = pa + pb, scale = sum < 1 ? sum : 1; pa /= sum || 1; pb /= sum || 1;
+      // (mixed premultiplied, as CSS mixes)
+      const a = A.c[3] * pa + B.c[3] * pb;
+      v = a > 0 ? [0, 1, 2].map((i) => (A.c[i] * A.c[3] * pa + B.c[i] * B.c[3] * pb) / a).concat(a * scale) : [0, 0, 0, 0];
+    }
+  }
+  v = v.map((x) => (Number.isFinite(x) ? Math.min(1, Math.max(0, x)) : 0));
+  if (colours.size > 512) colours.clear();
+  colours.set(c, v);
   return v;
 }
+const rgba = parseColour;
 const premul = (c, alpha = 1) => { const v = rgba(c), a = v[3] * alpha; return [v[0] * a, v[1] * a, v[2] * a, a]; };
 
 /** The GPU drawer for one chart, over `host` (the chart's 2D canvas), or null where it cannot be (the 2D canvas draws the chart). */
-export function createTraceGL(host, { search = globalThis.location?.search } = {}) {
+export function createTraceGL(host, { search = globalThis.location?.search, redraw = null } = {}) {
   if (typeof document === 'undefined' || traceGLOff(search)) return null;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 1;
   canvas.setAttribute('aria-hidden', 'true');
   canvas.className = 'trace-gl';
   canvas.style.pointerEvents = 'none';
-  const atlasCv = document.createElement('canvas');
-  atlasCv.width = atlasCv.height = ATLAS;
-  // (A canvas kept in memory, not on the GPU, never shown: a new word's few pixels are read from it and sent up alone, never the whole atlas.)
-  const actx = atlasCv.getContext('2d', { willReadFrequently: true });
-  let entries = new Map(), shelfX = 0, shelfY = 0, shelfH = 0, atlasK = 0;
-  const widths = new Map();
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: true, preserveDrawingBuffer: false, powerPreference: 'low-power', failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl || typeof gl.createShader !== 'function' || typeof host?.after !== 'function') return null;
-  try {
-    const ri = gl.getExtension('WEBGL_debug_renderer_info');
-    if (/SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)))) { gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
-  } catch { /* the renderer's name withheld: taken as a GPU */ }
+  // (A software renderer draws it too: a chart is a few hundred small shapes, well within one.)
 
   let lost = false, dead = false, failed = false;
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
   let P = null, started = null, stopPoll = null;
   let quad = null, quadVao = null, segBuf = null, segVao = null, fillBuf = null, fillVao = null, boxBuf = null, boxVao = null, textBuf = null, textVao = null;
-  let covTex = null, fbo = null, covW = 0, covH = 0, atlasTex = null, dirty = null;
+  let covTex = null, fbo = null, covW = 0, covH = 0, atlasTex = null, atlasIn = false;
   const SRC = { seg: [SEG_VS, SEG_FS], comp: [QUAD_VS, COMP_FS], fill: [FILL_VS, FILL_FS], box: [BOX_VS, BOX_FS], text: [TEXT_VS, TEXT_FS] };
   const PU = ['pc', 'po', 'pl', 'pn', 'ga'];
-  const UN = { seg: ['res', 'hw', 'dash', 'cap'], comp: ['cov', 'res', 'k', ...PU], fill: ['res', 'k', ...PU], box: ['res', 'k'], text: ['res', 'atlas'] };
+  const UN = { seg: ['res', 'hw', 'dash', 'cap'], comp: ['cov', 'res', 'k', ...PU], fill: ['res', 'k', ...PU], box: ['res', 'k'], text: ['res', 'asz', 'atlas', 'sdf'] };
 
   function build() {
     P = null; failed = false; covW = covH = 0;
@@ -258,14 +313,13 @@ export function createTraceGL(host, { search = globalThis.location?.search } = {
     boxBuf = gl.createBuffer(); boxVao = gl.createVertexArray(); gl.bindVertexArray(boxVao); gl.bindBuffer(gl.ARRAY_BUFFER, boxBuf);
     for (const [i, n, off] of [[0, 4, 0], [1, 2, 16], [2, 4, 24], [3, 4, 40]]) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, n, gl.FLOAT, false, 56, off); gl.vertexAttribDivisor(i, 1); }
     textBuf = gl.createBuffer(); textVao = gl.createVertexArray(); gl.bindVertexArray(textVao); gl.bindBuffer(gl.ARRAY_BUFFER, textBuf);
-    for (const [i, n, off] of [[0, 4, 0], [1, 2, 16], [2, 4, 24]]) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, n, gl.FLOAT, false, 40, off); gl.vertexAttribDivisor(i, 1); }
+    for (const [i, n, off] of [[0, 4, 0], [1, 4, 16], [2, 4, 32], [3, 2, 48]]) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, n, gl.FLOAT, false, 56, off); gl.vertexAttribDivisor(i, 1); }
     gl.bindVertexArray(null);
     covTex = gl.createTexture(); fbo = gl.createFramebuffer();
     atlasTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, atlasTex);
-    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ATLAS, ATLAS, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-    // (A context built again holds none of the words: every one set so far goes up once more.)
-    dirty = shelfY + shelfH > 0 || shelfX > 0 ? [0, 0, ATLAS, Math.min(ATLAS, shelfY + shelfH)] : null;
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    // (The glyphs' field goes up once, from the decoded PNG, when the context is made or made again; 1 MB, never in a frame of motion.)
+    atlasIn = false;
     stopPoll?.(); stopPoll = publishWhenDone(gl, Object.values(started), publish);
   }
   function publish() {
@@ -290,50 +344,6 @@ export function createTraceGL(host, { search = globalThis.location?.search } = {
     try { build(); } catch (e) { failed = true; console.warn('Charts on the GPU: could not be rebuilt; the 2D chart stays.', e); }
   });
   host.after(canvas);
-  // (The atlas sits in the page beside the chart, never shown, so its words take the type settings the chart's own canvas inherits from the
-  // page, its tabular figures and stylistic sets: a canvas apart from the page set "11.2" narrower than the 2D chart does.)
-  atlasCv.style.display = 'none';
-  atlasCv.setAttribute('aria-hidden', 'true');
-  canvas.after(atlasCv);
-
-  // ── The atlas: each word (in its font, baseline and outline) set once; a number from its characters, each set once ──
-  function resetAtlas(k) {
-    entries = new Map(); widths.clear(); shelfX = shelfY = shelfH = 0; atlasK = k;
-    actx.setTransform(1, 0, 0, 1, 0, 0); actx.clearRect(0, 0, ATLAS, ATLAS); dirty = null;
-  }
-  function measure(str, font) {
-    const key = font + '\u0001' + str;
-    let w = widths.get(key);
-    if (w === undefined) { actx.font = font; w = actx.measureText(str).width; widths.set(key, w); }
-    return w;
-  }
-  function entry(str, font, base, k, sw = 0) {
-    if (k !== atlasK) resetAtlas(k);
-    const key = font + '\u0001' + base + '\u0001' + sw + '\u0001' + str;
-    let e = entries.get(key);
-    if (e) return e;
-    actx.setTransform(1, 0, 0, 1, 0, 0);
-    actx.font = font; actx.textBaseline = base; actx.textAlign = 'left';
-    const m = actx.measureText(str);
-    const ex = Math.ceil((sw / 2) * k) + 2;   // (an outline's reach past the letters)
-    const asc = Math.ceil((m.actualBoundingBoxAscent || 0) * k) + ex, desc = Math.ceil((m.actualBoundingBoxDescent || 0) * k) + ex;
-    const left = Math.ceil(Math.max(0, m.actualBoundingBoxLeft || 0) * k) + ex, right = Math.ceil(Math.max(m.width, m.actualBoundingBoxRight || 0) * k) + ex;
-    const w = left + right, hh = Math.max(1, asc + desc);
-    if (shelfX + w > ATLAS) { shelfX = 0; shelfY += shelfH; shelfH = 0; }
-    if (shelfY + hh > ATLAS) { resetAtlas(k); return entry(str, font, base, k, sw); }
-    const x = shelfX, y = shelfY;
-    shelfX += w; shelfH = Math.max(shelfH, hh);
-    actx.save();
-    actx.beginPath(); actx.rect(x, y, w, hh); actx.clip();
-    actx.setTransform(k, 0, 0, k, x + left, y + asc);
-    actx.font = font; actx.textBaseline = base; actx.textAlign = 'left'; actx.fillStyle = actx.strokeStyle = '#fff';   // colour-exempt: the atlas holds coverage (a mask), tinted in the shader
-    if (sw) { actx.lineWidth = sw; actx.lineJoin = 'round'; actx.strokeText(str, 0, 0); } else actx.fillText(str, 0, 0);
-    actx.restore();
-    e = { x, y, w, h: hh, ax: left, ay: asc };
-    entries.set(key, e);
-    dirty = dirty ? [Math.min(dirty[0], x), Math.min(dirty[1], y), Math.max(dirty[2], x + w), Math.max(dirty[3], y + hh)] : [x, y, x + w, y + hh];
-    return e;
-  }
 
   // ── A frame ──
   let W = 1, H = 1, K = 1, clipR = null, inFrame = false;
@@ -354,20 +364,12 @@ export function createTraceGL(host, { search = globalThis.location?.search } = {
   };
   function flush() {
     if (textN) {
-      if (dirty) {
-        // (Only the new words' rectangle: a few hundred bytes, read from the atlas kept in memory.)
-        const [x0, y0, x1, y1] = dirty, img = actx.getImageData(x0, y0, x1 - x0, y1 - y0);
-        gl.bindTexture(gl.TEXTURE_2D, atlasTex);
-        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-        gl.texSubImage2D(gl.TEXTURE_2D, 0, x0, y0, x1 - x0, y1 - y0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(img.data.buffer));
-        dirty = null;
-      }
       if (scissor(clipR)) {
         gl.useProgram(P.text.p);
-        gl.uniform2f(P.text.u.res, W, H);
+        gl.uniform2f(P.text.u.res, W, H); gl.uniform2f(P.text.u.asz, ATLAS_W, ATLAS_H); gl.uniform2f(P.text.u.sdf, RADIUS, CUTOFF);
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.uniform1i(P.text.u.atlas, 0);
         gl.bindVertexArray(textVao); gl.bindBuffer(gl.ARRAY_BUFFER, textBuf);
-        gl.bufferData(gl.ARRAY_BUFFER, textData.subarray(0, textN * 10), gl.STREAM_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, textData.subarray(0, textN * 14), gl.STREAM_DRAW);
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, textN);
       }
       textN = 0;
@@ -410,7 +412,18 @@ export function createTraceGL(host, { search = globalThis.location?.search } = {
 
   const api = {
     canvas,
-    get ready() { publish(); return !!P && !lost && !failed && !dead && !gl.isContextLost(); },
+    get ready() {
+      publish();
+      if (!glyphImage && redraw && !dead) waiting.add(redraw);
+      if (!P || lost || failed || dead || gl.isContextLost() || !glyphImage) return false;
+      if (!atlasIn) {
+        gl.bindTexture(gl.TEXTURE_2D, atlasTex);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, ATLAS_W, ATLAS_H, 0, gl.RED, gl.UNSIGNED_BYTE, glyphImage);
+        atlasIn = true;
+      }
+      return true;
+    },
     /** Starts a frame over a chart w × h CSS px, drawn at Wd × Hd device px. False: the GPU cannot draw now (the 2D canvas draws the chart). */
     begin(w, h, Wd, Hd) {
       if (!api.ready || w < 1 || h < 1) { api.hide(); return false; }
@@ -543,19 +556,25 @@ export function createTraceGL(host, { search = globalThis.location?.search } = {
       if (boxN) flush();
       const tint = premul(color, alpha);
       if (tint[3] <= 0) return;
-      const parts = NUMERIC.test(str) && !sw ? [...str] : [str];
-      let width = 0;
-      const adv = parts.map((p) => { const a = measure(p, font); width += a; return a; });
+      const f = fontOf(font), g = GLYPHS[f.w], kw = KERN[f.w], s = f.px / BASE, sk = s * K;
+      const width = measure(str, font);
       let cx = align === 'right' || align === 'end' ? x - width : align === 'center' ? x - width / 2 : x;
-      textData = grow(textData, (textN + parts.length) * 10);
-      for (let i = 0; i < parts.length; i++) {
-        const e = entry(parts[i], font, base, K, sw);
-        const o = textN * 10;
-        textData[o] = Math.round(cx * K) - e.ax; textData[o + 1] = Math.round(y * K) - e.ay; textData[o + 2] = e.w; textData[o + 3] = e.h;
-        textData[o + 4] = e.x; textData[o + 5] = e.y;
-        textData.set(tint, o + 6);
-        textN++;
-        cx += adv[i];
+      const by = y + (BASELINES[f.w][base] ?? 0) * f.px;
+      textData = grow(textData, (textN + str.length) * 14);
+      let prev = '';
+      for (const ch of str) {
+        const e = g[ch] || g['?'];
+        if (prev) cx += (kw[prev + ch] || 0) * f.px;
+        if (ch !== ' ') {
+          const o = textN * 14;
+          textData[o] = (cx - e[5] * s) * K; textData[o + 1] = (by - e[6] * s) * K; textData[o + 2] = e[3] * sk; textData[o + 3] = e[4] * sk;
+          textData[o + 4] = e[1]; textData[o + 5] = e[2]; textData[o + 6] = e[3]; textData[o + 7] = e[4];
+          textData.set(tint, o + 8);
+          textData[o + 12] = sk; textData[o + 13] = sw ? (sw / 2) * K : 0;
+          textN++;
+        }
+        cx += e[0] * f.px;
+        prev = ch;
       }
     },
     /**
@@ -566,7 +585,6 @@ export function createTraceGL(host, { search = globalThis.location?.search } = {
       if (!api.begin(w, h, Wd, Hd)) return null;
       return shim.reset(K);
     },
-    fonts() { resetAtlas(-1); },
     get lost() { return lost || failed; },
     dispose() {
       dead = true; stopPoll?.();
@@ -576,14 +594,13 @@ export function createTraceGL(host, { search = globalThis.location?.search } = {
         gl.deleteTexture(covTex); gl.deleteTexture(atlasTex); gl.deleteFramebuffer(fbo);
         if (P) for (const k of Object.keys(P)) gl.deleteProgram(P[k].p);
       } catch { /* a lost context holds nothing */ }
-      canvas.width = canvas.height = 0; atlasCv.width = atlasCv.height = 0; atlasCv.remove();
+      canvas.width = canvas.height = 0;
       gl.getExtension('WEBGL_lose_context')?.loseContext();
       canvas.remove();
       host.style.opacity = '';
     },
   };
   const shim = createShim(api);
-  globalThis.document?.fonts?.addEventListener?.('loadingdone', () => api.fonts());
   return api;
 }
 
