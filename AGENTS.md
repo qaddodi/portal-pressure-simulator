@@ -85,7 +85,13 @@ the model paused so two frames can match), checks it before and after the shot a
 (or `--script <deck> --slide <n>`; `--dir dist` to shoot the build; `--selector` for one element; `--no-vessels` for a view with none).
 Several shots in one script: `import { openApp } from './scripts/shoot.mjs'` (a fresh page per view; `settle()` then `app.page.screenshot`).
 Do not write your own `chromium.launch` for screenshots. A shot takes 2-4 minutes (software GL; Mac is 1x, `--dpr 2` is far slower),
-so run one or two at a time. A view that is still easing in a shot is not a bug; `settle()` waits for two identical frames.
+so run one at a time: a second browser at once starves the first, and its slide's cards (not a bug) arrive 60 seconds or more later.
+A view that is still easing in a shot is not a bug; `settle()` waits for two identical frames. On a deck slide (`--script`) it also waits
+for the slide's cards to come in (words, data and teaching card whole, no entry running, the Doppler past "Acquiring…"), up to 240 s
+(`--cards-wait <s>`, 0 skips it): a slide's entry takes about 90 s on software GL, and a shot inside it shows a card that is only a
+shell with its tag, or no card at all. Do not report that as a bug without re-shooting the slide alone.
+A slide whose figure is faded behind a table card (the summary tables) has almost no vessel colour, so `shoot.mjs` fails its vessel check:
+pass `--no-vessels` for it.
 Keep screenshots outside the repo. A headless shot is still not a device test: say "headless, software GL" when you report one.
 
 ## Pages setup and troubleshooting

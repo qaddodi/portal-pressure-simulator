@@ -11,7 +11,10 @@
 //   node scripts/shoot.mjs --out <png> [--device mac|ipad|ipad-portrait|iphone|iphone-landscape] [--theme light|dark]
 //        [--script <deck> --slide <n>] [--query "preset=cirr-decomp&..."] [--eval "<js run in the page once, before settling>"]
 //        [--dir <folder to serve: . (default) or dist>] [--url <already running site>] [--dpr <n>] [--wait <s, default 20>] [--no-vessels] [--live (do not pause the model)]
-//        [--selector "<css>"] (screenshot just that element)
+//        [--selector "<css>"] (screenshot just that element) [--cards-wait <s, default 240; 0 = do not wait for a talk slide's cards>]
+// On a talk slide (--script, or a query with script=) the shot also waits until the slide's cards have come in: on software GL that takes
+// about 90 s alone and over 150 s beside a second browser, and a shot taken inside it shows a card that is only a shell. Run one shot at a time.
+// A slide whose figure is faded behind a table card (the summary tables) has almost no vessel colour: pass --no-vessels for it.
 //
 // As a module (several shots in one browser): import { openApp } from './shoot.mjs'.
 //   const app = await openApp({ device: 'iphone', theme: 'dark', query: '?script=hvpg&slide=3' });
@@ -83,10 +86,28 @@ const colourShare = (page, png) => page.evaluate(async (b64) => {
   return n / (c.width * c.height);
 }, png.toString('base64'));
 
+/** Runs in the page: true once the open talk slide's cards have come in whole. False while the talk is still opening, while the slide's
+ *  cards are built unseen (`pz-prep`, the words held at opacity 0 behind a card that shows only its tag), while a card is fading or
+ *  sliding in or out (a running finite animation or transition in it, or its own opacity under 1), and while the Doppler still says
+ *  "Acquiring…" (it needs 1.5 s of the vessel recorded). A slide held behind its case card counts once that card is up. */
+const CARDS_LANDED = () => {
+  const root = document.querySelector('.pz');
+  if (!root || root.classList.contains('pz-prep') || 'bare' in root.dataset) return false;
+  const shown = (e) => !!e && !e.hidden && getComputedStyle(e).display !== 'none';
+  const moving = (e) => e.getAnimations({ subtree: true }).some((a) => a.playState === 'running' && Number.isFinite(a.effect?.getComputedTiming().endTime));
+  const whole = (e) => +getComputedStyle(e).opacity >= 0.99 && !moving(e) && !e.classList.contains('pz-leave') && !e.classList.contains('pz-hide');
+  const kase = document.querySelector('.pz-case.on');
+  if (shown(kase)) return whole(kase);
+  const cards = ['.pz-text', '.pz-data', '.pz-panel'].map((q) => document.querySelector(q)).filter((e) => shown(e) && e.childElementCount);
+  if (!cards.length || !cards.every(whole)) return false;
+  return !/Acquiring/.test(document.querySelector('.pz-data')?.textContent || '');
+};
+
 /** Opens the app on a fresh page on the GPU path. Rejects (naming the cause) when that is not what it got. */
 export async function openApp({ device = 'mac', theme = 'light', query = '', dir = '.', url = '', timeout = 180000, dpr, browser: shared } = {}) {
   const dev = DEVICES[device];
   if (!dev) throw new Error(`unknown device "${device}" (${Object.keys(DEVICES).join(', ')})`);
+  const isTalk = /(^|[?&])script=/.test(query);   // (a deck slide: its cards are waited for, settle)
   const server = url ? null : await serve(resolve(ROOT, dir));
   const browser = shared || await chromium.launch({ args: CHROMIUM_ARGS, ...(EXE ? { executablePath: EXE } : {}) });
   const ctx = await browser.newContext({ ...dev, ...(dpr ? { deviceScaleFactor: dpr } : {}), colorScheme: theme, serviceWorkers: 'block' });
@@ -106,10 +127,26 @@ export async function openApp({ device = 'mac', theme = 'light', query = '', dir
   /** Pauses the model (its beat and the moving blood hold still) so two shots can be identical. */
   const freeze = () => page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
 
-  /** Waits for the view to land, pauses the model, waits until two shots 2.5 s apart are byte-identical (a view still easing is not a
-   *  bug), then checks the GPU path again and that vessels are in the shot. Returns the last shot. */
-  async function settle({ wait = 20, vessels = true, max = 150, hold = true } = {}) {
+  /** A talk slide's cards (words, data, teaching card) take a long time to come in on software GL: about 90 s alone and over 150 s beside a
+   *  second browser, the slide's own entry running all the while (built unseen, the card a shell with only its tag, then faded in). Two
+   *  shots 2.5 s apart can match inside that, so a shot waits here until the cards have landed (CARDS_LANDED, seen twice in a row, 1 s
+   *  apart). True when they did, false when `max` seconds passed first. */
+  async function cardsIn(max) {
+    const t0 = Date.now();
+    for (let ok = 0; Date.now() - t0 < max * 1000;) {
+      ok = (await page.evaluate(CARDS_LANDED)) ? ok + 1 : 0;
+      if (ok >= 2) return true;
+      await page.waitForTimeout(1000);
+    }
+    return false;
+  }
+
+  /** Waits for the view to land (and, on a talk slide, for its cards to come in: `cards` is the most seconds to wait for that, 0 to skip),
+   *  pauses the model (its beat and the moving blood hold still), waits until two shots 2.5 s apart are byte-identical (a view still easing
+   *  is not a bug), then checks the GPU path again and that vessels are in the shot. Returns the last shot. */
+  async function settle({ wait = 20, vessels = true, max = 150, hold = true, cards = isTalk ? 240 : 0 } = {}) {
     await page.waitForTimeout(wait * 1000);
+    if (cards && !(await cardsIn(cards))) console.warn(`shoot: the slide's cards had not come in after ${cards} s more; taking it as it is (a loaded machine: raise --cards-wait, and shoot one browser at a time; or a slide held on something else)`);
     if (hold) await freeze();
     let prev = null, shot;
     const t0 = Date.now();
@@ -134,7 +171,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const arg = (k, d) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ? process.argv[i + 1] : d; };
   const flag = (k) => process.argv.includes(`--${k}`);
   const out = arg('out');
-  if (!out) { console.error('usage: node scripts/shoot.mjs --out <png> [--device mac|ipad|ipad-portrait|iphone|iphone-landscape] [--theme light|dark] [--script deck --slide n] [--query q] [--eval js] [--dir .|dist] [--url u] [--wait s] [--no-vessels] [--live (do not pause the model)] [--selector css]'); process.exit(2); }
+  if (!out) { console.error('usage: node scripts/shoot.mjs --out <png> [--device mac|ipad|ipad-portrait|iphone|iphone-landscape] [--theme light|dark] [--script deck --slide n] [--query q] [--eval js] [--dir .|dist] [--url u] [--wait s] [--no-vessels] [--live (do not pause the model)] [--selector css] [--cards-wait s]'); process.exit(2); }
   const script = arg('script'), slide = arg('slide');
   let query = arg('query', '');
   if (script) query += `${query ? '&' : ''}script=${script}${slide ? `&slide=${slide}` : ''}`;
@@ -143,7 +180,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     app = await openApp({ device: arg('device', 'mac'), theme: arg('theme', 'light'), query, dpr: Number(arg('dpr', 0)) || undefined, dir: arg('dir', '.'), url: arg('url', '') });
     const js = arg('eval');
     if (js) await app.page.evaluate(js);
-    await app.settle({ wait: Number(arg('wait', 20)), vessels: !flag('no-vessels'), hold: !flag('live') });
+    await app.settle({ wait: Number(arg('wait', 20)), vessels: !flag('no-vessels'), hold: !flag('live'), ...(arg('cards-wait') != null ? { cards: Number(arg('cards-wait')) } : {}) });
     mkdirSync(dirname(resolve(out)), { recursive: true });
     const sel = arg('selector');
     if (sel) await app.page.locator(sel).first().screenshot({ path: out, timeout: 150000 });
