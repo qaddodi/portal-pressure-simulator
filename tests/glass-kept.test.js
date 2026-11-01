@@ -100,7 +100,7 @@ test('on: the blood moving under a still callout reads nothing, yet the glass fo
   assert.equal(reads, r, 'no box or style read');
   assert.ok(copies - k >= 5, 'a new copy of the figure nearly every frame');
   assert.ok(n.draw - d >= 5, 'and the glass drawn with it');
-  assert.ok(resizers.size >= 1 && docListeners.size === 1, 'its watchers are up');
+  assert.ok(resizers.size >= 1 && docListeners.size === 2, 'its watchers are up (the scroll, and any transition or animation on the page: hostReads, 1 Nov)');
 });
 
 test('on: a write to a callout reads it again, and its new place is drawn', async () => {

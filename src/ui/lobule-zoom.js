@@ -41,7 +41,7 @@ import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, 
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
 import { createSinusoidView } from './sinusoid-view.js?v=b03d5e370d';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, framePart, easeNow, inMotion, PACED } from './frame.js?v=15d5254a2c';
-import { createGlassGL } from './glass-gl.js?v=66775fda44';
+import { createGlassGL } from './glass-gl.js?v=732ccf097f';
 import { pillOf, pillLabels, pillHold } from './lz-pills.js?v=bafcf3977d';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=4d4c051a59';

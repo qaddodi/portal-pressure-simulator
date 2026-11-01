@@ -110,8 +110,10 @@ test('Callout glass kept: off, draw() reads the page as before; on, it reads it 
   assert.match(g, /for \(const e of \[canvas, source, wrap\]\) keptRo\?\.observe\(e\);/);
   assert.match(g, /document\.addEventListener\('scroll', stale, true\);/);
   // (The watchers exist only once the switch has been on: off, none of them is made.)
-  assert.ok(g.indexOf('keepWatch();') > g.indexOf('function drawKept('), 'made from drawKept only');
-  assert.match(g, /if \(keptMo\) \{ keptMo\.disconnect\(\); keptRo\?\.disconnect\(\); document\.removeEventListener\('scroll', stale, true\); \}/, 'and let go with the glass');
+  // (Made from drawKept, and since 1 Nov 2026 from hostReads too (the glass drawn in the figure's canvas keeps its reads as well, ?glassreads=0 off).)
+  assert.ok(g.indexOf('keepWatch();') > g.indexOf('function drawKept(') || g.indexOf('if (READS_KEEP) keepWatch();') > 0, 'made from drawKept or hostReads only');
+  assert.equal(g.split('keepWatch();').length - 1, 2);
+  assert.match(g, /if \(keptMo\) \{ keptMo\.disconnect\(\); keptRo\?\.disconnect\(\); document\.removeEventListener\('scroll', stale, true\);/, 'and let go with the glass');
   const stage = src('stage.js');
   assert.equal(stage.split("keep: () => figLab('glassCache'), due: () => watch.due(), copy: GLASS_COPY").length - 1, 2, 'the callouts and the liver pane (the Present cards take no copy: they are drawn in the figure\'s canvas or are the browser\'s)');
 });
