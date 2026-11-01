@@ -195,8 +195,8 @@ test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a n
   const p = src('presenter.js');
   assert.match(src('card-tiles.js'), /export const tileKeys = \(s, onPhone\) => \[\.\.\.ownKeys\(s, onPhone\), \.\.\.\(s\.scopeTile \? \['scope'\] : \[\]\), \.\.\.\(s\.hvpgResp && !s\.tiles\?\.includes\('hvpgFall'\) \? \['hvpgFall'\] : \[\]/, 'the tile joins the slide\'s tiles');
   assert.match(p, /hvpgFall: \(\(base - f\.hvpg\) \/ base\) \* 100/, 'the fall in percent, live');
-  assert.match(p, /ui\.tiles\.set\(respFp\(s, now\.fp\)/);
-  assert.match(p, /ui\.tiles\.set\(respFp\(s, f\)/);
+  assert.match(p, /ui\.tiles\.paintTiles\(respFp\(s, now\.fp\)/);
+  assert.match(p, /ui\.tiles\.paintTiles\(respFp\(s, f\)/);
 });
 
 test('no Since the bleed tile (his 30 Oct, "I kinda hate the time since bleed tile and it should go"): no slide sets clock, the card has no clock row', () => {

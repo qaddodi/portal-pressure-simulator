@@ -36,6 +36,7 @@ import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js?v=ff3ed0cc47';
 import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=15d5254a2c';
+import { restPass, cancelRest } from './rest-pass.js?v=c412430106';
 import { createFigureKey } from './figure-key.js?v=5c3b74621a';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=ee1715cd71';
@@ -513,11 +514,11 @@ const est = (t, px, w = 0.6) => String(t).length * px * w;   // (a run's width: 
 function fitChart(svg, lay) {
   const c = { svg, lay, fs: null };
   fitted.add(c);
-  // (On the next frame, not inside the observer: the new layout changes the chart's own height.)
-  if (typeof ResizeObserver !== 'undefined') { c.ro = new ResizeObserver(() => { cancelFrame(c.raf); c.raf = frameFor('charts fit')(() => fitNow(c)); }); c.ro.observe(svg); }
+  // (After the observer, not inside it: the new layout changes the chart's own height. A rest pass between frames, rest-pass.js.)
+  if (typeof ResizeObserver !== 'undefined') { c.ro = new ResizeObserver(() => { cancelRest(c.raf); c.raf = restPass(() => fitNow(c)); }); c.ro.observe(svg); }
   return c;
 }
-if (typeof addEventListener !== 'undefined') addEventListener('pps:labelscale', () => frameFor('charts fit')(() => fitted.forEach(fitNow)));
+if (typeof addEventListener !== 'undefined') addEventListener('pps:labelscale', () => restPass(() => fitted.forEach(fitNow)));
 const fsOf = (el, px) => { el.style.fontSize = px.toFixed(2) + 'px'; };
 
 // The block is a hatched fill: bold diagonal red stripes over a faint red tint (visible in light and dark, no label).
@@ -568,10 +569,10 @@ function bigTiles() {
     }
   }
   let fitRaf = 0, fitShape = '';
-  const fitSoon = () => { cancelFrame(fitRaf); fitRaf = nextFrame(fit); };
+  const fitSoon = () => { cancelRest(fitRaf); fitRaf = restPass(fit); };   // (measured between frames, never in one: rest-pass.js)
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fitSoon).observe(el);
   document.fonts?.ready?.then(fitSoon);
-  function build(ks, withRef) {
+  function buildTiles(ks, withRef) {
     const bars = ks.some((k) => SCALE[k]);
     parts = ks.map((k) => {
       const T = tileOf(k) || { t: k, s: '', u: '' };
@@ -638,10 +639,10 @@ function bigTiles() {
   }
   return {
     el,
-    set(f, ks, key = [], ref = null, ms, tips = false) {
+    paintTiles(f, ks, key = [], ref = null, ms, tips = false) {
       goal = !!tips;
       const sg = ks.join() + (ref ? '|ref' : '');
-      if (sg !== sig || !draw) { sig = sg; build(ks, !!ref); }   // (no tiles at all is a build too)
+      if (sg !== sig || !draw) { sig = sg; buildTiles(ks, !!ref); }   // (no tiles at all is a build too)
       el.dataset.keys = ks.join();
       parts.forEach((p) => p.tile.classList.toggle('key', key.includes(p.k)));
       paintBands(f);
@@ -718,8 +719,8 @@ function scaleKey(sc, rows) {
       h('span', { class: 'pzk-v' }, fmt(r.f[sc.key], dig(sc.key)), h('small', {}, ` ${u}`)),
       h('span', { class: 'pzk-name' }, r.name),
       sub(r.f).map((t) => h('span', { class: 'pzk-sub' }, t))))));
-  const go = () => box.classList.add('in');
-  nextFrame(() => nextFrame(go)); setTimeout(go, 120);
+  const boxIn = () => box.classList.add('in');
+  nextFrame(() => nextFrame(boxIn)); setTimeout(boxIn, 120);
   return box;
 }
 
@@ -1558,7 +1559,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }   // (a ladder already brackets the HVPG and PPG: tiles there would repeat them, rounded differently)
   function dataTo(s, f, ref, ms) {
     if (!ui) return;
-    if (s.data) ui.tiles.set(respFp(s, f), tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on);
+    if (s.data) ui.tiles.paintTiles(respFp(s, f), tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on);
     ui.tools.pin(f);   // (an instrument's reading is the tiles' number)
     // (and the catheter's callouts and its monitor, on a catheter slide whose compare buttons or time-lapse move the model)
     if (s.cath && cath.on && cath.fp) { cath.fp = f; if (s.monitor) mon?.set(s.monitor, f); }
@@ -1696,8 +1697,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // too: the glide runs on and the slide's cards still wait for it to land). Too short a drag springs it back with an ease.
   // (It carries on from where the finger let go at the finger's own speed, then eases out as it fades to nothing; a slow
   // let-go still takes long enough to be seen leaving, never a pop. The card is hidden only once the flight is over.)
-  function caseFly(card, dir, v) {
-    const c = card.c, dist = innerWidth / 2 + c.offsetWidth, left = Math.max(1, dist - Math.abs(card.dx || 0));
+  function caseFly(card, dir, v, w) {   // (w: the card's width, read at rest: as the finger landed, or before a wheel's throw)
+    const c = card.c, dist = innerWidth / 2 + w, left = Math.max(1, dist - Math.abs(card.dx || 0));
     // (With reduced motion it only fades where it was let go.)
     const ms = reduce.matches ? 300 : caseFlight(left, v);
     const slope = (Math.abs(v) * ms) / left;   // the finger's speed as the curve's starting slope
@@ -2330,13 +2331,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // Already up (the slide before measured too): it stays, and glides to its new place under the new words.
     const stay = mon.el.parentNode === ui.text && !ui.text.hidden, y0 = stay ? mon.el.getBoundingClientRect().top : 0;
     mon.el.classList.toggle('pz-stay', stay);
-    nextFrame(() => {
-      if (stay && !reduce.matches) {
-        const dy = y0 - mon.el.getBoundingClientRect().top;
-        if (Math.abs(dy) > 1) mon.el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: D_SURFACE, easing: EASE_ARRIVE });
-      }
-      mon.set(s.monitor, states[stateOf[i]]?.fp, cath.v.balloon);
+    // (Where it lands is read once, as the slide's words are placed (a microtask: after this pass has put it under them, before any
+    // frame paints it there), never in a frame; the glide itself is a transform.)
+    if (stay && !reduce.matches) queueMicrotask(() => {
+      const dy = y0 - mon.el.getBoundingClientRect().top;
+      if (Math.abs(dy) > 1) mon.el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: D_SURFACE, easing: EASE_ARRIVE });
     });
+    nextFrame(() => mon.set(s.monitor, states[stateOf[i]]?.fp, cath.v.balloon));
     return mon.el;
   }
   // ── The question card ──
@@ -2471,7 +2472,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // too while the new cards wait, unseen, for the camera to land (bare): their count ran unseen beside the glide, a frame's
       // work each frame of it, and was over before they came in.)
       const ms = fresh || (bare && ui.root.classList.contains('pz-prep')) ? 0 : undefined;
-      if (s.data) ui.tiles.set(respFp(s, now.fp), tileKeys(s), s.key || [], refOf(s, i), ms, now.params?.tips?.on);
+      if (s.data) ui.tiles.paintTiles(respFp(s, now.fp), tileKeys(s), s.key || [], refOf(s, i), ms, now.params?.tips?.on);
       ui.tools.pin(now.fp);
       clearTimeout(dataHideT); dataHideT = 0;   // (a card shown again is not hidden by the timer of its last leaving, while it fades in or waits to)
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
@@ -2558,7 +2559,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function dataKept(s, i, now) {
     if (keepNow.swap) return;
     if (s.tool) showTool(s, i);
-    if (s.data) ui.tiles.set(respFp(s, now.fp), tileKeys(s), s.key || [], refOf(s, i), undefined, now.params?.tips?.on);
+    if (s.data) ui.tiles.paintTiles(respFp(s, now.fp), tileKeys(s), s.key || [], refOf(s, i), undefined, now.params?.tips?.on);
     ui.tools.pin(now.fp);
   }
   // A kept data card with a new patient: its tiles and instrument ride the live model as it eases to the slide's state,
@@ -2993,9 +2994,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A phone on its side: the strip that stays on show, and its handle, sit inside the island's or notch's inset, not under it.)
     return [wrap.clientWidth - GRIP - (ui.root.classList.contains('low') ? insetR() : 0) - d.offsetLeft, 0];
   };
+  // (Where the closed card goes, read at rest: by the layout, as a glide starts and as a finger lands. A glide's or a drag's frames
+  // only write transforms from it, never read the page. Its offsets are the card's resting box: its translate never changes them.)
+  const dockRest = () => (dock.vec = ui && !ui.data.hidden ? dockVec() : [0, 0]);
   const dockPaint = () => {
     if (!ui) return;
-    const [x, y] = dockVec();
+    const [x, y] = dock.vec || [0, 0];
     // (A wide screen's stacked pair keeps its rise, --pz-lift, while the card docks: styles/app.css.)
     const ly = wideSheet(ui.data) ? ' - var(--pz-lift, 0px)' : '';
     ui.data.style.translate = dock.lvl ? `${(x * dock.lvl).toFixed(1)}px ${ly ? `calc(${(y * dock.lvl).toFixed(1)}px${ly})` : `${(y * dock.lvl).toFixed(1)}px`}` : '';
@@ -3003,7 +3007,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.data.dataset.restTranslate = `${(x * dock.to).toFixed(1)} ${(y * dock.to).toFixed(1)}`;
     ui.data.classList.toggle('docked', dock.to === 1);
     dockFade(dock.to === 1);
-    placeLip();
+    lipPaint();
   };
   // A closed card shows only its glass edge and handle: its contents fade out as it goes and back in as it comes out (the sliver
   // had shown the cut-off foot of its readings, under the preview badge too). By the Web Animations API, over the parts' own
@@ -3047,8 +3051,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Mac and iPad landscape: over the card's top, in the readings' card's top edge, tucked or out; the rise, --pz-lift, carries it up.)
     const ut = wideSheet(d) ? (sliding ? u : open ? 1 : 0) : 0;
     l.style.left = px(d.offsetLeft); l.style.width = px(d.offsetWidth); l.style.top = px(wideSheet(d) ? d.offsetTop - LIP * (1 - ut) : d.offsetTop + (sliding && slip.h0 != null ? slip.h0 + u * slip.d : d.offsetHeight));
-    l.style.translate = d.style.translate; l.dataset.restTranslate = d.dataset.restTranslate ?? '0 0';
     if (sliding) l.style.setProperty('--pz-u', u.toFixed(4)); else l.style.removeProperty('--pz-u');
+    lipPaint();
+  }
+  // (The edge's part of a dock glide's or a drag's frame: it moves with the card's translate and names what a tap on it does. Its
+  // place and size are set at rest, placeLip, where nothing moves: nothing is read here.)
+  function lipPaint() {
+    const d = ui?.data, l = ui?.lip;
+    if (!l || d.hidden || !d.classList.contains('pz-sheet')) return;
+    const split = splitSheet(d), open = d.classList.contains('tool-open');
+    l.style.translate = d.style.translate; l.dataset.restTranslate = d.dataset.restTranslate ?? '0 0';
     const say = dock.to === 1 ? 'Open the card' : wideSheet(d) ? (open ? 'Hide the readings' : 'Show the readings') : open ? (split ? 'Hide the readings' : 'Close the card') : split && dock.down === want ? 'Close the card' : 'Show the rest of the card';
     if (l.getAttribute('aria-label') !== say) l.setAttribute('aria-label', say);
   }
@@ -3060,12 +3072,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (to === 1 && ui?.data.classList.contains('pz-sheet') && ui.data.classList.contains('tool-open')) ui.setFold(false);
     if (reduce.matches) ms = 0;
     const from = dock.lvl, t0 = performance.now();
+    dockRest();
     const step = (now) => {
       const u = ms ? clamp((now - t0) / ms, 0, 1) : 1;
       dock.lvl = from + (to - from) * ease(u);
       dockPaint();
       if (u < 1) dock.raf = nextFrame(step);
+      else dock.rest = restPass(() => ui && placeLip());   // (landed: the edge measured where the card now rests, between frames)
     };
+    cancelRest(dock.rest);
     dock.raf = nextFrame(step);
     layout();   // (the figure frames itself for where the card is going)
     clearTimeout(dock.fit); dock.fit = setTimeout(() => ui && onResize(), 60);
@@ -3494,14 +3509,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // wordsAt, wordsGlide.)
   const zoomBehind = (up, ms) => { words.held = up; wordsGlide(ms); };
   // (The card is back: a layout asked for while it was up runs now, once.)
-  const zoomSettled = () => nextFrame(() => { if (!ui || !zoomMissed || ui.zoom.on) return; zoomMissed = false; fitDone.delete(ui.data); onResize(); });
+  const zoomSettled = () => restPass(() => { if (!ui || !zoomMissed || ui.zoom.on) return; zoomMissed = false; fitDone.delete(ui.data); onResize(); });
   let shiftLock = null;   // (the stacked pair's centring, keyed as the words' lock: layout)
   let textLock = null, foldHeld = null;   // (foldHeld: the foldKey the data card was last folded for, layout)
   let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0, paneRaf = 0, fitKids = [], clearFor = null;
   const fitWatch = () => {
     fitRO ||= new ResizeObserver(() => {
-      cancelFrame(fitRaf);
-      fitRaf = nextFrame(() => { if (ui && cardMoving()) return; if (ui && cardsStill()) { fitCards(ui.data); return; } if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (el.style.getPropertyValue('--pz-fit') || (({ v, h }) => v > 1 || h > 1)(overflowOf(el))))) layout(); });   // (a shrunk card is fitted again when it changes, so it can grow back)
+      cancelRest(fitRaf);
+      fitRaf = restPass(() => { if (ui && cardMoving()) return; if (ui && cardsStill()) { fitCards(ui.data); return; } if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (el.style.getPropertyValue('--pz-fit') || (({ v, h }) => v > 1 || h > 1)(overflowOf(el))))) layout(); });   // (a shrunk card is fitted again when it changes, so it can grow back)
     });
     // (Watched again only when the cards' children changed: observing a box reports it at once, so re-observing on every pass
     // ran the layout again every frame on a slide sitting still, Circuit 7 on an iPhone some four times a second.)
@@ -3512,7 +3527,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (cardSig() !== framedSig) reframe(400); };   // (only when the cards really changed: the camera framed them once; any slide, so a card that grew never covers its box)
     const soon = () => { clearTimeout(clearT); clearT = setTimeout(again, 120); };
     // (The words' glass pane and the figure's insets follow a card that grows after the layout, a chart arriving under the words.)
-    clearRO ||= new ResizeObserver(() => { cancelFrame(paneRaf); paneRaf = nextFrame(() => { if (!ui || cardMoving()) return; if (cardsStill()) fitCards(ui.data); else layout(); }); soon(); });
+    clearRO ||= new ResizeObserver(() => { cancelRest(paneRaf); paneRaf = restPass(() => { if (!ui || cardMoving()) return; if (cardsStill()) fitCards(ui.data); else layout(); }); soon(); });
     if (clearFor !== ui) { clearRO.disconnect(); clearRO.observe(ui.data); clearRO.observe(ui.text); clearFor = ui; }
     ui.data.ontransitionend = ui.text.ontransitionend = soon;   // (a card slides into place: its edge is where it ends, not where it was measured)
   };
@@ -3649,12 +3664,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', trim ? Math.min(tk, WIDE.tight) : tk); ui.text.style.setProperty('--pz-bk', bk); ui.text.classList.toggle('pz-nocauses', trim > 1); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
       const title = () => put(1, 1) || put(WIDE.title, WIDE.words);   // (Regular, else Compact)
       const foldH = (s) => colHeight(cw / k, s);
-      const step = (s) => { dk = s; ch = foldH(s) * k; };
+      const stepDk = (s) => { dk = s; ch = foldH(s) * k; };
       // (The words stay Compact while the blocks step down: one size for the words, whatever the data card needs.)
       // (The compact layout steps its blocks tighter instead (.pz-lt, .pz-lt2), never smaller: its lettering stays 12 px, shortFit.)
       const ladder = () => {
         if (short) { for (const c of ['pz-lt', 'pz-lt2']) { if (below) break; dd.classList.add(c); ch = colHeight(cw / k) * k; below = put(WIDE.title, WIDE.words); } return; }
-        for (const s of DK) { if (below) break; step(s); below = put(WIDE.title, WIDE.words); }   // (the data card's blocks a step or two smaller: no further, or the words would squeeze)
+        for (const s of DK) { if (below) break; stepDk(s); below = put(WIDE.title, WIDE.words); }   // (the data card's blocks a step or two smaller: no further, or the words would squeeze)
       };
       // When even the smallest blocks leave the pair too tall, the words' card gives way once more before anything is cut off: its title one
       // step down, then the CAUSES line gone, the blocks stepping again from full size under each (Mohammad, 23 Oct, Sites 4 on a Mac at a
@@ -3662,7 +3677,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // comes here, so every slide that fitted stays as it was.
       const squeeze = () => {
         for (const n of [1, 2]) {
-          trim = n; dd.classList.remove('pz-lt', 'pz-lt2'); step(1);
+          trim = n; dd.classList.remove('pz-lt', 'pz-lt2'); stepDk(1);
           below = put(WIDE.title, WIDE.words);
           if (!below && n === 2) ladder();
           if (below) return;
@@ -3678,12 +3693,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         t = r(ui.text); below = lock.below; dk = lock.dk; cw = t.right - wr.left + pad - sl; ch = foldH(dk) * k;
       } else {
         // (The words at Compact at the one card width, then the steps below; the column never widens.)
-        if (held) step(1);
+        if (held) stepDk(1);
         dd.classList.remove('pz-lt', 'pz-lt2'); ch = foldH(dk) * k;
         below = title();
         if (!below) ladder();
         if (!below) squeeze();
-        if (!below && canFold && !held) { setFolds(true); trim = 0; ts.removeProperty('--pz-tk'); ts.removeProperty('--pz-bk'); ui.text.classList.remove('pz-nocauses'); step(1); below = title(); if (!below) ladder(); }
+        if (!below && canFold && !held) { setFolds(true); trim = 0; ts.removeProperty('--pz-tk'); ts.removeProperty('--pz-bk'); ui.text.classList.remove('pz-nocauses'); stepDk(1); below = title(); if (!below) ladder(); }
         if (!below && !held && dd.classList.contains('pz-folds')) squeeze();   // (folded just now: the same last steps again)
         // (Still too tall at the smallest step: the pair stays stacked at the one card width, the words at their smallest (the title one step
         // down and no CAUSES line) and the blocks at their smallest step; the data card is never moved to the top right, its own fit (fitCards)
@@ -3812,7 +3827,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!(below && t && wideSheet(dd))) { slip.lift = 0; slip.base = 0; }
     liftTo(underU(dd));
     fitWatch();
-    const dv = ui.data.hidden ? [0, 0] : dockVec();
+    const dv = dockRest();
     const d = below ? null : r(ui.data);
     // The words' card is only as tall as the words. With a data card beside or under it, its top is level with the data
     // card's place at the top right and the words start one padding below it; without one, the words stay centred and the card wraps them.
@@ -3854,7 +3869,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     set('--pz-r', !p && d ? W - (ui.data.offsetLeft + dock.to * dv[0]) * k + 8 : 0);   // (where the card comes to rest: past its entry shift, at its dock)
     set('--pz-t', p && d ? (ui.data.offsetTop + ui.data.offsetHeight + (lipOn(ui.data) ? LIP : 0) + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
     set('--pz-b', p && t ? B + 34 : 0);
-    if (!dock.drag) dockPaint();
+    if (!dock.drag) { dockPaint(); placeLip(); }   // (the edge's place, read here at rest: a glide's frames only move it)
     // (The corner icon is offered where the card has room to grow, and only on a wide screen with an instrument: card-zoom.js.)
     ui.data.classList.toggle('pz-zoomable', wide && !ui.data.hidden && ui.data.classList.contains('has-tool') && !!ui.zoom.plan());
     placeBar();
@@ -3927,7 +3942,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const line = ui.text.querySelector('.pz-line, p'), body = line ? parseFloat(getComputedStyle(line).fontSize) : 0;
     // (Measured at that size, not scaled from the full size: zoomed down, the lines take more words each and the card comes
     // out shorter than its full height times the zoom. Scaled, HVPG 5 on a 667 px iPhone asked 263 px for words that take 230.)
-    const at = (z) => (z < 1 ? (() => {
+    const textAt = (z) => (z < 1 ? (() => {
       const sv = [ts.maxHeight, ts.getPropertyValue('--pz-fit'), ts.getPropertyValue('--pz-z')];
       ts.maxHeight = 'none'; ts.removeProperty('--pz-z'); ts.setProperty('--pz-fit', String(z));
       const v = ui.text.offsetHeight * k;
@@ -3936,7 +3951,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     })() : natural(ui.text, ts)) + 4;
     // (words: at 12 px, whether the data card can stay open beside them, as before; compact: at Compact, the room the words take,
     // from the figure's share when they need it: the figure gives way before the words drop under Compact.)
-    const floor = body > 12 ? Math.ceil(12 / body * 1000) / 1000 : 1, words = at(floor), compact = at(Math.max(COMPACT, floor));
+    const floor = body > 12 ? Math.ceil(12 / body * 1000) / 1000 : 1, words = textAt(floor), compact = textAt(Math.max(COMPACT, floor));
     // (The words' glass starts 16 px above them or higher, glassLift, the data card ends 8 px above that and stands its own top (8 px) from the
     // screen's top: the same room the layout gives it below.) The data card shows at full size or comes in closed: never shrunk to fit.
     // It comes in closed (autoDock, its edge and handle at the top) where it and the words at 12 px cannot both fit beside the figure's
@@ -3979,7 +3994,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // the card leaves them all but its edge (GRIP) at the top, and brought back it stands over the figure down to the words.)
     const room = H - foot - reach - 8, mine = Number.isFinite(own) ? own : 0.62 * H;
     // (Regular, where it needs more than its share but no more than the figure can lend: the figure keeps what is left, at least FIG_REG.)
-    const regular = shut ? Infinity : at(1), lend = regular - (both - data);
+    const regular = shut ? Infinity : textAt(1), lend = regular - (both - data);
     const reg = lend > 0 && lend <= phoneFig - FIG_REG(H) && regular <= mine && regular <= room - dtop - data;
     if (reg) phoneFig -= lend;
     // (Where the data card stays open and the words fit at 12 px but not at Compact in the room it leaves them, they take that room, between
@@ -4076,7 +4091,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // tucked and for them out are worked out once (stage.aimView, the slide's own camera asked where it would go), and liftTo sets the view
   // between the two at the share the card has travelled. Only for a slide framed at the fit or on a box, its view standing still at that
   // framing; a catheter, a procedure's shot, a time-lapse's push, the lobule, a zoomed card, a dock moving or reduced motion keep the
-  // refit glide (foldFrame, foldStill). (Mac and iPad landscape: the figure's column is the same tucked or out, the two framings agree,
+  // refit glide (foldReframe, foldStill). (Mac and iPad landscape: the figure's column is the same tucked or out, the two framings agree,
   // and nothing follows.)
   // (camSlide: the slide the view follows a card on; a move to another slide ends it, so the card put back for the new slide never takes
   // the view back to the old slide's framing.)
@@ -4151,7 +4166,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (e?.type === 'resize') sizeSeen = sizeNow();
     // (Turned between upright (a phone's or tablet's stacked cards) and a wider layout: a data card closed in the one comes in open in
     // the other, at once with everything else. Kept closed, an iPad's card turned on its side stood off the screen's left edge.)
-    if (e?.type === 'resize' && phone() !== ui.root.classList.contains('stack') && dock.to === 1 && !dock.auto) { cancelFrame(dock.raf); dock.to = 0; dock.lvl = 0; dock.down = -1; dockPaint(); }
+    if (e?.type === 'resize' && phone() !== ui.root.classList.contains('stack') && dock.to === 1 && !dock.auto) { cancelFrame(dock.raf); dock.to = 0; dock.lvl = 0; dock.down = -1; dockRest(); dockPaint(); placeLip(); }
     clearTimeout(refitT); refitT = setTimeout(reFit, 250);
     if (ui.data.hasAttribute('data-sin-tiles')) ui.data.classList.toggle('under', !shortSide.matches && phone());   // (turned on or off its side)
     // (For 0.8 s after a resize or a turn the data card takes each new place at once, with no fade or glide: the words' card
@@ -4609,6 +4624,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const t = e.touches[0];
     sw = deck && e.touches.length === 1 && !caseOn(e) && !ownsSideways(e.target, { stop: wrap, cardSideways: ui && !ui.data.hidden && !phone() && !ui.root.classList.contains('pz-wide') })
       ? { x: t.clientX, y: t.clientY, t: performance.now() } : null;
+    // (The room the words have to follow a finger in, read once as it lands, at rest: the moves after it read nothing.)
+    if (sw) sw.room = ui && CARD_TURN && !CARD_PAGE ? turnRoom() : 20;
   }, { passive: true, capture: true });
 
   // ── The case card on a touch screen: it follows a finger sideways (tilting a little) and flies off when let go far enough
@@ -4622,14 +4639,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!g?.on) return;
     g.card.drag = false; caseDragAt = performance.now();
     const p = g.pts, a = p[0], b = p[p.length - 1], v = b[1] - a[1] >= 16 ? (b[0] - a[0]) / (b[1] - a[1]) : 0;
-    const dir = fly ? caseFling(g.card.dx, v, g.card.c.offsetWidth) : 0;
-    if (dir) caseFly(g.card, dir, v); else caseBack(g.card);
+    const dir = fly ? caseFling(g.card.dx, v, g.w) : 0;
+    if (dir) caseFly(g.card, dir, v, g.w); else caseBack(g.card);
   };
   wrap.addEventListener('touchstart', (e) => {
     if (cd) { caseLet(false); return; }   // (a second finger: back it goes)
     if (!deck || e.touches.length !== 1 || !caseOn(e)) return;
     const t = e.touches[0];
     cd = { card: caseCard, x: t.clientX, y: t.clientY, on: false, pts: [[t.clientX, performance.now()]] };
+    cd.w = caseCard.c.offsetWidth || 1;   // (its width, read once as the finger lands: the drag reads nothing)
   }, { passive: true, capture: true });
   wrap.addEventListener('touchmove', (e) => {
     if (!cd) return;
@@ -4644,7 +4662,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (e.cancelable) e.preventDefault();
     cd.pts.push([t.clientX, now]);
     while (cd.pts.length > 2 && now - cd.pts[0][1] > 100) cd.pts.shift();
-    const c = cd.card.c, w = c.offsetWidth || 1;
+    const c = cd.card.c, w = cd.w;
     cd.card.dx = dx;
     c.style.transform = `translateX(${dx}px) rotate(${(dx / w) * 6}deg)`;
     c.style.opacity = String(1 - Math.min(0.5, Math.abs(dx) / w * 0.6));
@@ -4675,7 +4693,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     // (The words follow the finger the whole way, never stopping: their move eases toward the room they have inside the glass (never past
     // its edge) while they fade on with the finger's own travel.)
-    const end = dx > 0 && want === 0, k = end ? PULL_END_K : PULL_K, cap = pull.cap ??= turnRoom();
+    const end = dx > 0 && want === 0, k = end ? PULL_END_K : PULL_K, cap = pull.cap ?? 20;
     const x = Math.sign(dx) * cap * (1 - Math.exp(-Math.abs(dx) * k / cap));
     const o = end ? 1 : 1 - 0.6 * Math.min(1, Math.abs(dx) / PULL_FADE);
     pull.x = x;
@@ -4714,7 +4732,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const dx = t.clientX - g.x, dy = t.clientY - g.y, now = performance.now();
     if (!pull) {
       if (Math.abs(dx) < 8 || Math.abs(dx) <= SWIPE_RATIO * Math.abs(dy) || !pullCan(dx)) return;
-      pull = { on: true, x: 0, pts: [] };
+      pull = { on: true, x: 0, pts: [], cap: g.room };
     }
     pull.pts.push([t.clientX, now]);
     while (pull.pts.length > 2 && now - pull.pts[0][1] > 80) pull.pts.shift();
@@ -4808,13 +4826,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     wheelG = r.g;
     const a = r.act;
     if (!a) return;
+    // (The gesture's one action runs as its own task right after this event, where the slide's cards are measured once before they
+    // move (rest-pass.js): the wheel's events, dozens a second, read nothing.)
+    restPass(() => wheelAct(a));
+  }, { passive: false, capture: true });
+  function wheelAct(a) {
+    if (!deck || !ui || leaving) return;
     const card = caseCard && !caseCard.flown ? caseCard : null;
     if (a.axis === 'x') {
-      if (card) caseFly(card, a.dir, 1.2);   // (fingers right: off to the right)
+      if (card) caseFly(card, a.dir, 1.2, card.c.offsetWidth);   // (fingers right: off to the right)
       else if (a.dir < 0) next();   // (on the last slide a fresh swipe ends the talk, as the touch swipe does; the glide that reached it is spent and never also closes)
       else prev();
     } else stackFold(a.dir < 0);   // (fingers up: the readings come out, as a swipe up does)
-  }, { passive: false, capture: true });
+  }
 
   // ── Hands off: while presenting, the figure only points (hover glow); taps, drags, pans and zooms that would
   // move it off the slide's script are swallowed. The swipe above uses touch events, so it still works. ──
@@ -4876,7 +4900,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     on('touchstart', (e) => {
       if (e.touches.length > 1) abort();   // (a second finger: a drag under way lands first)
       if (e.touches.length !== 1 || !deck || ui?.root.classList.contains('pz-wide')) { reset(); return; }   // (Mac and iPad landscape: the card never closes to the side, Mohammad, 22 Oct)
-      const t = e.touches[0], vec = dockVec(), k = wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1;
+      const t = e.touches[0], vec = dockRest(), k = wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1;
       g = { x: t.clientX, y: t.clientY, t: performance.now(), lvl0: dock.lvl, vec, k, on: false, last: 0 };
     }, { passive: true });
     on('touchmove', (e) => {
@@ -5021,7 +5045,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         data.dataset.openFor = String(want);
         delete data.dataset.folding; fitDone.delete(data); layout();
         measureUnder(data);
-        if (!stage.following?.() && !(vNow && camFollow(vNow, open))) foldFrame();
+        if (!stage.following?.() && !(vNow && camFollow(vNow, open))) foldReframe();
         data.dataset.folding = '';
         slideUnder(u0, open ? 1 : 0);
         clearTimeout(foldT); foldT = setTimeout(foldStill, reduce.matches ? 0 : 450);
@@ -5045,7 +5069,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // camera reads the room it will have. foldStill's own refit then finds the camera already headed there (frameBox and fitSlow leave a
     // glide to the same view alone). (Not while a slide comes in or goes, a dock moves the card (dockTo frames for where it goes), a zoomed
     // card (it frames itself) or a resize still settling.)
-    const foldFrame = () => {
+    const foldReframe = () => {
       if (!shown || shown.i !== want || shown.gen !== gen || (busy && !playing) || leaving || dock.to !== 0 || dock.lvl !== 0 || zoomOn() || reframeT) return;
       placeLip();
       reframe(400);
@@ -5277,7 +5301,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     removeEventListener('resize', onResize);
     wrapRO?.disconnect();
     document.fonts?.removeEventListener('loadingdone', onFonts);
-    fitRO?.disconnect(); clearRO?.disconnect(); fitKids = []; clearFor = null; clearTimeout(clearT); cancelFrame(fitRaf);
+    fitRO?.disconnect(); clearRO?.disconnect(); fitKids = []; clearFor = null; clearTimeout(clearT); cancelRest(fitRaf); cancelRest(paneRaf);
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, stented: [], lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     figureHooks('clear');
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in', 'pz-held'); heldNow = false; holdEase = false;

@@ -211,7 +211,7 @@ test('a kept data card rides the model through a new patient and lands on the sl
   assert.match(run, /if \(under\) \{\n\s+if \(keepNow\.data && keepNow\.swap\) followData\(s, to, st, cut\);/);
   const kept = src.slice(src.indexOf('function dataKept('), src.indexOf('function followData('));
   assert.match(kept, /if \(keepNow\.swap\) return;/, 'with a new patient nothing jumps ahead of the figure');
-  assert.match(kept, /ui\.tiles\.set\(respFp\(s, now\.fp\), tileKeys\(s\), s\.key \|\| \[\], refOf\(s, i\), undefined, now\.params\?\.tips\?\.on\);/, 'the tiles count (an undefined ease is theirs)');
+  assert.match(kept, /ui\.tiles\.paintTiles\(respFp\(s, now\.fp\), tileKeys\(s\), s\.key \|\| \[\], refOf\(s, i\), undefined, now\.params\?\.tips\?\.on\);/, 'the tiles count (an undefined ease is theirs)');
   const follow = src.slice(src.indexOf('function followData('), src.indexOf('// Each row of a table still computing'));
   assert.match(follow, /dataTo\(s, liveFp\(fr\), ref, 280\)/);
   assert.match(follow, /if \(shownState === stateOf\[to\]\) \{ if \(s\.tool\) showTool\(s, to\); dataTo\(s, st\.fp, ref, 280\); return; \}/, 'landed: the slide\'s own numbers, and done');

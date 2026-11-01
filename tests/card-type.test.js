@@ -40,7 +40,7 @@ test('the fit has two sizes: Regular, else Compact for the whole card; the title
   assert.doesNotMatch(js, /--pz-ptk|\bTK\b/);
   // (A phone's cap gives the words their room at Compact, from the figure's share when they need it; over an open data card they take
   // no more than the room it leaves them, never under 12 px: floorCap.)
-  assert.match(js, /compact = at\(Math\.max\(COMPACT, floor\)\);/);
+  assert.match(js, /compact = textAt\(Math\.max\(COMPACT, floor\)\);/);
   // (Regular borrows from the figure's share, down to FIG_REG, before the words drop a whole step to Compact.)
   assert.match(js, /const FIG_REG = \(H\) => Math\.round\(Math\.max\(170, 0\.25 \* H\)\);/);
   assert.match(js, /const reg = lend > 0 && lend <= phoneFig - FIG_REG\(H\) && regular <= mine && regular <= room - dtop - data;/);
@@ -92,7 +92,7 @@ test('the words give way once more before the data card is cut off: a tighter ti
   assert.ok(WIDE.tight < WIDE.title && WIDE.tight >= 0.5, 'the title has one further step, still well above the words');
   assert.match(js, /let trim = 0;/);
   assert.match(js, /const put = \(tk, bk\) => \{ ui\.text\.style\.setProperty\('--pz-tk', trim \? Math\.min\(tk, WIDE\.tight\) : tk\); ui\.text\.style\.setProperty\('--pz-bk', bk\); ui\.text\.classList\.toggle\('pz-nocauses', trim > 1\);/);
-  assert.match(js, /for \(const n of \[1, 2\]\) \{\s*trim = n; dd\.classList\.remove\('pz-lt', 'pz-lt2'\); step\(1\);\s*below = put\(WIDE\.title, WIDE\.words\);\s*if \(!below && n === 2\) ladder\(\);/);
+  assert.match(js, /for \(const n of \[1, 2\]\) \{\s*trim = n; dd\.classList\.remove\('pz-lt', 'pz-lt2'\); stepDk\(1\);\s*below = put\(WIDE\.title, WIDE\.words\);\s*if \(!below && n === 2\) ladder\(\);/);
   // (Only after the steps before it failed: a slide that fitted at Compact, or with its blocks stepped, is never trimmed.)
   assert.match(js, /below = title\(\);\s*if \(!below\) ladder\(\);\s*if \(!below\) squeeze\(\);/);
   // (A fold starts the steps again from the loosest, the trim with them; the slide's lock keeps the CAUSES line's state with its sizes.)

@@ -94,7 +94,7 @@ test('a sideways phone puts its words in the floating card, level with the data 
 test('a data card folded for the slide at this size stays folded until the words lock', () => {
   assert.match(js, /const held = !lock && foldHeld === foldKey && dd\.classList\.contains\('pz-folds'\);/);
   assert.match(js, /if \(!lock && !held && dd\.classList\.contains\('pz-folds'\)\) setFolds\(false\);/);
-  assert.match(js, /if \(held\) step\(1\);/);
+  assert.match(js, /if \(held\) stepDk\(1\);/);
   assert.match(js, /if \(!below && canFold && !held\) \{ setFolds\(true\);/);
   assert.match(js, /foldHeld = dd\.classList\.contains\('pz-folds'\) \? foldKey : null;/);
   assert.doesNotMatch(js, /if \(!lock && dd\.classList\.contains\('pz-folds'\)\) setFolds\(false\);/, 'never unfolded unconditionally on an unlocked pass');
@@ -126,8 +126,8 @@ test('a time-lapse slide in view never lays its cards out again as its readings 
   // (Every reading that measured the data card a hair different ran the whole layout again, many times a second while the days ran,
   // and on an iPhone the teaching card vibrated: Endoscopy 3, 18 Oct.)
   assert.match(js, /const cardsStill = \(\) => !!shown && shown\.i === want && \(liveOff \|\| handOn \|\| !!slides\[want\]\?\.lapse\) && !!ui && !ui\.root\.classList\.contains\('pz-prep'\);/);
-  assert.match(js, /clearRO \|\|= new ResizeObserver\(\(\) => \{ cancelFrame\(paneRaf\); paneRaf = nextFrame\(\(\) => \{ if \(!ui \|\| cardMoving\(\)\) return; if \(cardsStill\(\)\) fitCards\(ui\.data\); else layout\(\); \}\); soon\(\); \}\);/);
-  assert.match(js, /fitRaf = nextFrame\(\(\) => \{ if \(ui && cardMoving\(\)\) return; if \(ui && cardsStill\(\)\) \{ fitCards\(ui\.data\); return; \}/);
+  assert.match(js, /clearRO \|\|= new ResizeObserver\(\(\) => \{ cancelRest\(paneRaf\); paneRaf = restPass\(\(\) => \{ if \(!ui \|\| cardMoving\(\)\) return; if \(cardsStill\(\)\) fitCards\(ui\.data\); else layout\(\); \}\); soon\(\); \}\);/);
+  assert.match(js, /fitRaf = restPass\(\(\) => \{ if \(ui && cardMoving\(\)\) return; if \(ui && cardsStill\(\)\) \{ fitCards\(ui\.data\); return; \}/);
   assert.ok(js.indexOf('const cardsStill') < js.indexOf('function layout()'));
 });
 

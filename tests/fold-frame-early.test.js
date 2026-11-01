@@ -14,13 +14,13 @@ const between = (src, a, b) => { const i = src.indexOf(a); assert.ok(i >= 0, a);
 
 test('a stacked card that folds frames the camera as it starts to move, between its layout and its slide', () => {
   const split = between(presenter, 'if (splitSheet(data)) {', 'clearTimeout(foldT); foldT = setTimeout(foldStill');
-  const lay = split.indexOf('layout();'), meas = split.indexOf('measureUnder(data);'), frame = split.indexOf('foldFrame();'), fold = split.indexOf("data.dataset.folding = '';"), slide = split.indexOf('slideUnder(u0');
+  const lay = split.indexOf('layout();'), meas = split.indexOf('measureUnder(data);'), frame = split.indexOf('foldReframe();'), fold = split.indexOf("data.dataset.folding = '';"), slide = split.indexOf('slideUnder(u0');
   assert.ok(lay >= 0 && meas > lay && frame > meas, 'framed once the card is laid out and measured as it will rest');
   assert.ok(fold > frame && slide > frame, 'and before the slide begins: the card still stands where it will rest, not part way');
 });
 
 test('the early framing reads the handle where it will rest and refits as the card\'s own refit does', () => {
-  const f = between(presenter, 'const foldFrame = () => {', 'let foldT = 0;');
+  const f = between(presenter, 'const foldReframe = () => {', 'let foldT = 0;');
   assert.ok(f.indexOf('placeLip();') >= 0 && f.indexOf('placeLip();') < f.indexOf('reframe(400);'), 'the handle at the card\'s foot first: it counts in the room');
   for (const g of ['shown.i !== want', 'shown.gen !== gen', '(busy && !playing)', 'leaving', 'dock.to !== 0', 'dock.lvl !== 0', 'zoomOn()', 'reframeT'])
     assert.ok(f.includes(g), `left to the old path when ${g}`);
@@ -71,7 +71,7 @@ test('the card\'s every move sets the view: a tap\'s ease, the finger, the end o
 test('a tap frames the new state and follows from the view as it stood; a finger works out the other state as it takes the card', () => {
   const split = between(presenter, 'if (splitSheet(data)) {', 'clearTimeout(foldT); foldT = setTimeout(foldStill');
   assert.ok(split.indexOf('stage.viewNow?.()') < split.indexOf('stopUnder();'), 'the view taken before anything moves');
-  assert.match(split, /if \(!stage\.following\?\.\(\) && !\(vNow && camFollow\(vNow, open\)\)\) foldFrame\(\);/, 'the glide only where nothing follows; a finger let go follows on');
+  assert.match(split, /if \(!stage\.following\?\.\(\) && !\(vNow && camFollow\(vNow, open\)\)\) foldReframe\(\);/, 'the glide only where nothing follows; a finger let go follows on');
   const follow = fnBody(presenter, 'function camFollow(');
   assert.match(follow, /stage\.follow\?\.\(open \? vNow : vTo, open \? vTo : vNow\)/, 'v0 the readings tucked, v1 out');
   const grab = fnBody(presenter, 'function camGrab(');
