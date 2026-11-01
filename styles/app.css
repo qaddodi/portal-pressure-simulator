@@ -1261,7 +1261,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .ac-close svg { width: var(--ic-s); height: var(--ic-s); }
 .ac-readout { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 8px 0 12px; }
 .ac-value { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 10px; }
-.ac-num { display: inline-flex; align-items: baseline; gap: 2px; white-space: nowrap; }
+.ac-num { display: inline-flex; align-items: baseline; gap: 0; white-space: nowrap; }   /* (the number's gap to its unit is the unit's own 3 px, as the Readouts tiles' 20 px numbers; it was 6 px here) */
 .ac-state:empty { display: none; }
 .ac-state { transition: color var(--d-small) var(--ease); }
 /* A status is a coloured word, as the data card tiles' status words (17 Oct, V5): the card's after its reading,
@@ -1272,8 +1272,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .st-word.rev { color: color-mix(in srgb, var(--flow-reversed) 85%, var(--text)); }
 .st-word.bad { color: var(--danger-ink); }
 .ac-value b { font-size: var(--fs-20); font-weight: 600; letter-spacing: -.02em; }
-.ac-value .unit { font-size: var(--fs-12); }
-.ac-delta { margin-left: 8px; font-size: var(--fs-12); font-weight: 600; }
+.ac-value .unit { font-size: var(--fs-12); margin-left: 3px; }
+.ac-delta { margin-left: 10px; font-size: var(--fs-12); font-weight: 600; }
 .ac-delta.up, .ac-delta.down { color: var(--text); }   /* (a change is in its reading's colour, as the figure's callouts) */
 .ac-unmeasured { color: var(--text-3); font-style: italic; font-size: var(--fs-14); }
 .ac-body { display: flex; flex-direction: column; gap: 8px; padding: 12px 0 8px; border-top: 1px solid var(--hairline); }
@@ -4641,7 +4641,10 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .ac-value b { display: inline-block; min-width: 3.4ch; text-align: right; }
 .ac-delta { display: inline-block; min-width: 5ch; }
 .ac-stat b { min-width: 5ch; text-align: right; white-space: nowrap; }
-.hover-tip .r b { min-width: 5ch; text-align: right; }
+.hover-tip .rows { display: grid; grid-template-columns: 1fr minmax(5ch, auto) auto; align-items: baseline; color: var(--text-2); line-height: 1.7; text-align: right; }   /* (right: the number's own box is anonymous, so it takes its alignment from the grid, not from the b) */
+.hover-tip .r, .hover-tip .r b { display: contents; }
+.hover-tip .r .k { grid-column: 1; padding-right: 16px; text-align: left; }
+.hover-tip .r .u { grid-column: 3; text-align: left; }   /* (a row is three columns, name / number / unit, shared by every row: the numbers' points line up whatever their units, "mmHg", "L/min", "cm/s", "mm"; the unit column is as wide as the longest unit) */
 
 /* The figure mirrors the question */
 @keyframes dmPulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 50% { box-shadow: 0 0 0 10px transparent; } }
