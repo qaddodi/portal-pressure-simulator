@@ -57,7 +57,8 @@ test('the GPU field takes its numbers from the same places as the 2D field', () 
 
 test('nothing is sent to the GPU or compiled during the zoom', () => {
   // Every tile the dive steps through, and the one size above the landing's that it blends in, uploaded ahead.
-  assert.equal((lz.match(/quietTile\(t, shadeOf\(bg, dark\)\); fieldUp\(t\); \}\); if \(r >= top \* 2\) break; \}/g) || []).length, 2, 'idle preparation and prewarm');
+  assert.equal((lz.match(/fieldCopies\(fieldTile\(cs, dark, r\), cs, dark, bg\); \}\); if \(r >= top \* 2\) break; \}/g) || []).length, 2, 'idle preparation and prewarm');
+  assert.match(lz, /const fieldCopies = \(t, cs, dark, bg\) => \{ if \(TILE_GPU && fieldGLOn\(\)\) \{ liverCopy\(t, cs, dark, bg\); quietCopy\(t, shadeOf\(bg, dark\)\); \} else \{ liverTile\(t, cs, dark, bg\); quietTile\(t, shadeOf\(bg, dark\)\); \} fieldUp\(t\); \};/, 'each with both its copies, sent');
   assert.match(lz, /\(\) => fieldGLOn\(\), {3}\/\/ \(the field's GPU context, made here once/);
   assert.match(lz, /warmQ = \[\(\) => ensureGL\(\), \(\) => fieldGLOn\(\)\];/);
   // Kept when the lobule is left (the next dive's), and their GPU copies given back with them.

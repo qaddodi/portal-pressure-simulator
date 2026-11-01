@@ -86,7 +86,8 @@ test('every zoom into the lobule draws it first, for where it lands, then zooms;
 });
 
 test('nothing is built during the zoom: the field\'s tiles and their quieted copies are ready before it starts', () => {
-  assert.equal((lz.match(/const t = fieldTile\(cs, dark, r\); liverTile\(t, cs, dark, bg\); quietTile\(t, shadeOf\(bg, dark\)\);/g) || []).length, 2, 'idle preparation and prewarm both build the quieted copy');
+  assert.equal((lz.match(/fieldCopies\(fieldTile\(cs, dark, r\), cs, dark, bg\);/g) || []).length, 2, 'idle preparation and prewarm both build the quieted copy');
+  assert.match(lz, /\{ liverCopy\(t, cs, dark, bg\); quietCopy\(t, shadeOf\(bg, dark\)\); \} else \{ liverTile\(t, cs, dark, bg\); quietTile\(t, shadeOf\(bg, dark\)\); \}/, 'on the GPU where the field is drawn there, on the main thread otherwise');
   assert.match(lz, /function stage\(\) \{\n\s+while \(warm\(\)\);/, 'whatever prewarm queued is done before the zoom starts');
 });
 

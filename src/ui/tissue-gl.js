@@ -12,7 +12,8 @@
 // tissue is drawn on the 2D canvas as before.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
-import { TILE_OVER, TEX_SAFE, sendCanvas, SEND_RETRY } from './field-gl.js?v=56465be481';
+import { TILE_OVER, TEX_SAFE, sendCanvas, SEND_RETRY } from './field-gl.js?v=73310cf1c3';
+import { isTileCopy, createTileCopier } from './tile-gl.js?v=88c03cf91f';
 import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=624ae21d7d';
 
 const VS = `#version 300 es
@@ -147,12 +148,22 @@ export function createTissueGL(canvas, opts = {}) {
   }
   // A canvas's texture, sent again only when the canvas was painted again (ver, the caller's count of its paints) or resized.
   // Tiles repeat; the lobule's bitmap is premultiplied (as the 2D canvas lays it) and stops at its edges.
-  const texs = new Map(), SCRATCH = 7, LIVE_UNIT = 8;
+  const texs = new Map(), SCRATCH = 7, LIVE_UNIT = 8, copier = createTileCopier(gl);
   function texFor(cv, ver, tile) {
     let t = texs.get(cv);
     if (t && t.w === cv.width && t.h === cv.height && t.ver === ver) return t.tex;
     // (A send that failed (field-gl.js sendCanvas): the 2D canvas draws, and the send is tried again only after a while.)
     if (t?.bad && t.w === cv.width && t.h === cv.height && t.badVer === ver && performance.now() < t.retryAt) return null;
+    // (A copy of a tile made here on the GPU, tile-gl.js: drawn into its own texture from the tile, never sent from a canvas.)
+    if (isTileCopy(cv)) {
+      if (t) gl.deleteTexture(t.tex);
+      gl.activeTexture(gl.TEXTURE0 + SCRATCH);
+      const tex = copier.make(cv);
+      copier.drop();   // (the surround needs one copy of each tile: the tile itself is not kept on the GPU)
+      if (!tex) { texs.set(cv, { tex: gl.createTexture(), w: cv.width, h: cv.height, ver: NaN, bad: true, badVer: ver, retryAt: performance.now() + SEND_RETRY }); return null; }
+      texs.set(cv, { tex, w: cv.width, h: cv.height, ver, bad: false });
+      return tex;
+    }
     if (!t) { t = { tex: gl.createTexture() }; texs.set(cv, t); }
     gl.activeTexture(gl.TEXTURE0 + SCRATCH);   // (a unit no draw uses, so sending a canvas never replaces a texture already bound for the frame)
     gl.bindTexture(gl.TEXTURE_2D, t.tex);
@@ -318,6 +329,7 @@ export function createTissueGL(canvas, opts = {}) {
     /** Gives back every texture whose canvas was given back (width 0) or is no longer wanted (keep(cv) false). */
     sweep(keep = () => true) {
       for (const [cv, t] of texs) if (!cv.width || !keep(cv)) { if (!lost) gl.deleteTexture(t.tex); texs.delete(cv); }
+      copier.sweep();
       if (!canvas.width) dropKept();   // (the canvas itself given back: the picture kept for it goes too)
     },
     /** One frame of the tissue. W, H: the canvas's size (device px); qa, qb, mix: the quiet tiles' canvases and the blend; qo, qOld:

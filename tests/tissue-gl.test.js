@@ -35,8 +35,8 @@ test('the screen draws on the GPU; the dive, the rise and their copies keep the 
   assert.match(fn('function draw(dt) {'), /showTissueGL\(paintTissue\(W, H, dpr, dark, cs, !g, !keep2D && \(!scaled \|\| \(DIVE_GPU && sinU === 0\)\) && g \? tissueGLOn\(\) : null\)\);/);
   assert.match(lz, /if \(gpu && tissueOnGPU\(tg, tw, th, dpr, dark, cs, bg, now\)\) \{ keyGPU = true; if \(!held\) spareSoon\(\); return true; \}/);
   assert.match(lz, /tissue\.style\.visibility = tissueG\.style\.visibility = show === tissue \? '' : 'hidden';/);
-  assert.match(lz, /for \(const e of \[tissue, tissueG, diveCv, glCv, fx, leaders, labels\]\) \{/, 'zoomed with the others through the dive');
-  assert.match(lz, /const WIDE_HIDE = \[tissue, tissueG, diveCv, glCv, fx\];/);
+  assert.match(lz, /for \(const e of \[tissue, tissueG, diveCv, glCv, fx, fxG, leaders, labels\]\) \{/, 'zoomed with the others through the dive');
+  assert.match(lz, /const WIDE_HIDE = \[tissue, tissueG, diveCv, glCv, fx, fxG\];/);
   assert.match(fn('function showTissueGL(on) {'), /tissue\.style\.opacity = on \? '0' : ''; tissueG\.style\.opacity = on \? '' : '0';/);
   assert.match(lz, /pointerEvents: 'none'/, 'the 2D canvas under it still takes the pointer');
 });
@@ -50,7 +50,7 @@ test('never softer than the zoom wants: the bitmap is held only while at least a
   assert.match(sm, /if \(handOn\(\) \|\| gliding \|\| inMotion\(\)\) \{ spareSoon\(\); return; \}/, 'painted between gestures, never in one');
   assert.match(sm, /\* 2, cap\);/);
   assert.match(sm, /g\.upload\(spareCv, spareCv\.ver\);/);
-  assert.match(sm, /g\.upload\(quietTile\(t, tone\)\.cv, 0, true\);/, 'and the surround\'s tiles for that zoom');
+  assert.match(sm, /g\.upload\(quietCopy\(t, tone\)\.cv, 0, true\);/, 'and the surround\'s tiles for that zoom');
 });
 
 test('nothing is ever sampled as black: the empty texture is complete, uploads use a spare unit, a tile given back skips the GPU frame', () => {

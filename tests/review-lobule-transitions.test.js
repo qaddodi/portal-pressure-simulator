@@ -179,7 +179,7 @@ test('holding only the ductules, the lobule\'s effects layer clears only where t
   assert.match(lz, /fx\.width = fw; fx\.height = fh; fxDrawn = ''; fxBoxes = null;/, 'a resized layer starts from a full clear');
   // Each ductule's box: its outer ring plus the stroke, on screen, and 3 px more.
   assert.match(lz, /e = \(r \+ c\.lineWidth\) \* V\.k \* dpr \+ 3/);
-  assert.match(lz, /return \{ lumen, cells, nuc, disc: \[x, y, rout\] \};/);
+  assert.match(lz, /return \{ lumen, cells, nuc, disc: \[x, y, rout\], num: \[x, y, rin, rout, rm, nr, tr\.i, 0\] \};/);
 });
 
 // (31 Oct, his iPhone readout on e52a280e: every frame of a pan in the lobule painted its tissue again, "state changed", 10.9 MB

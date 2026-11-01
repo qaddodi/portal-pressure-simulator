@@ -27,8 +27,10 @@ import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=50bb9afc3b';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
-import { createFieldGL, TILE_OVER } from './field-gl.js?v=56465be481';
-import { createTissueGL, DIVE_GPU } from './tissue-gl.js?v=a3bec707b0';
+import { createFieldGL, TILE_OVER } from './field-gl.js?v=73310cf1c3';
+import { createTissueGL, DIVE_GPU } from './tissue-gl.js?v=16b27a1f71';
+import { TILE_GPU, tileCopy, isTileCopy } from './tile-gl.js?v=88c03cf91f';
+import { FX_GPU, createFxGL } from './fx-gl.js?v=f6896ed5e0';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=624ae21d7d';
 import { createTissueWorker } from './tissue-worker.js?v=d9b45fb202';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
@@ -163,7 +165,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The tissue drawn on the GPU (tissue-gl.js), where it can be: it stands in for the 2D canvas under it (left empty then), except
   // through the dive and the rise, whose copies are made from the 2D canvas (paint2D). It follows the 2D canvas's visibility and zoom.
   const tissueG = h('canvas', { class: 'lz-canvas lz-tissue-gl', 'aria-hidden': 'true', style: { opacity: '0', pointerEvents: 'none' } });
-  const el = h('div', { class: 'lz', 'aria-hidden': 'true' }, tissue, tissueG, diveCv, glCv, fx, leaders, labels);
+  // (The overlay on the GPU, fx-gl.js: shown in the 2D overlay's place while it draws it, see fxOnGPU.)
+  const fxG = h('canvas', { class: 'lz-canvas lz-fx lz-fx-gl', 'aria-hidden': 'true', style: { opacity: '0', pointerEvents: 'none' } });
+  const el = h('div', { class: 'lz', 'aria-hidden': 'true' }, tissue, tissueG, diveCv, glCv, fx, ...(FX_GPU ? [fxG] : []), leaders, labels);
   // The dive's field (below the view): the liver's lobules, few and large, that the camera falls through (those away from the landing lobule fade as it nears).
   const field = h('canvas', { class: 'lz-canvas lz-field', 'aria-hidden': 'true' });
   // The same field drawn on the GPU (field-gl.js), where it can be: the 2D canvas above is then left empty.
@@ -611,7 +615,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function release() {
     dropWide();
     resCoverEnd();
-    free(tissue); free(tissueG); free(fx); free(glCv); free(diveCv); free(rimCv); diveCopyKey = ''; rimDrawn = false;
+    free(tissue); free(tissueG); free(fx); free(glCv); free(diveCv); free(rimCv); diveCopyKey = ''; rimDrawn = false; fxGLOff();
     clearTimeout(spareT); spareT = 0; free(spareCv); spare = null;
     jobGen++; if (laying) { closeTiles(laying.tiles, laying.i); free(laying.cv); laying = null; }   // (a bitmap the worker is painting or sending is dropped)
     gl?.trim?.();   // (the vessels' framebuffer: the shaders and the uploaded network are kept)
@@ -631,7 +635,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     free(worldOld); free(xfCv); xfT0 = 0; surNow = null; surOld = null; surT0 = 0;
     // The field: the newest state's tiles only, and none above the largest the dive or the framed lobule draws.
     const keys = [...tileSets.keys()], top = Math.max(geo.R * k * Math.min(1, devicePixelRatio || 1) * 0.8, geo.R * k * dpr) * 0.55;
-    const drop = (q) => { if (q.cv) free(q.cv); if (q.quiet) free(q.quiet.cv); if (q.liverQ) free(q.liverQ.cv); q.cv = null; q.quiet = null; q.liverQ = null; };
+    const drop = (q) => { if (q.cv) free(q.cv); q.cv = null; freeCopies(q); };
     for (const key of keys.slice(0, -1)) { for (const q of tileSets.get(key)) drop(q); tileSets.delete(key); }
     const tiles = tileSets.get(keys[keys.length - 1]);
     // (and the size the GPU field blends in above the landing's: fieldBlend)
@@ -1843,7 +1847,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     snapNext = false;
     framePart('lz.layoutLabels', layoutLabels);
     if (g && !g.lost) drawGL(W, H, dpr, dark, cs, dt);
-    paintFx(W, H, dpr, dark, dt, !g || g.lost);
+    if (!fxOnGPU(W, H, dpr, dark, dt, g && !g.lost && !keep2D && (!scaled || (DIVE_GPU && sinU === 0)))) paintFx(W, H, dpr, dark, dt, !g || g.lost);
     pillCopy(W, H);
     return true;
   }
@@ -1858,7 +1862,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // canvas memory spent) drops the copy, and the dive shows the layers as before rather than a blank lobule.
   let wideBuild = false;   // (buildWide is drawing the copy's tiles)
   let wide = null;   // { el, tiles, box, soft }: the copy, its tiles in one box placed at (−l, −t) in the stage
-  const WIDE_HIDE = [tissue, tissueG, diveCv, glCv, fx];
+  const WIDE_HIDE = [tissue, tissueG, diveCv, glCv, fx, fxG];
   function padBox(W, H) {
     if (!geo || atFit) return null;
     const [x, y] = toScreen([geo.cx, geo.cy]);
@@ -1937,7 +1941,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   // The layers, drawn for the screen after the copy: if the browser refused them, the copy goes and they are drawn again.
   function wideChecked(wd) {
-    if (!wd || ((DIVE_GPU && tissueOnGL ? true : probe(tissue)) && probe(fx))) return wd;   // (on the GPU: its canvas has no 2D context to probe)
+    if (!wd || ((DIVE_GPU && tissueOnGL ? true : probe(tissue)) && (fxGLShown ? true : probe(fx)))) return wd;   // (on the GPU: its canvas has no 2D context to probe; nor the overlay's, fx-gl.js)
     for (const cv of wd.tiles) free(cv); wd.el.remove();
     tissueKey = ''; idleDrawn = ''; fxDrawn = ''; fxBoxes = null; lyKey = ''; draw(0);
     return null;
@@ -1945,7 +1949,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function trimFieldStates() {
     free(worldOld); free(xfCv); xfT0 = 0; surOld = null; surT0 = 0;
     const keys = [...tileSets.keys()];
-    for (const key of keys.slice(0, -1)) { for (const q of tileSets.get(key)) { if (q.cv) free(q.cv); if (q.quiet) free(q.quiet.cv); if (q.liverQ) free(q.liverQ.cv); } tileSets.delete(key); }
+    for (const key of keys.slice(0, -1)) { for (const q of tileSets.get(key)) { if (q.cv) free(q.cv); freeCopies(q); } tileSets.delete(key); }
     tissueGL?.sweep(); fieldGL?.sweep();   // (the GPU's copies of what was just given back)
   }
   let wideFadeT = 0;
@@ -2061,6 +2065,26 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     try { return !c || !cv.width || c.getImageData(0, 0, 1, 1).data[3] === 0; } catch { return true; }
   }
   const tileDue = (q) => !!q && !!q.blank && performance.now() >= q.blankAt + TILE_RETRY;
+  // A tile's toned copies given back: the 2D canvas's (quiet, liverQ) and the GPU's (quietG, liverG: tile-gl.js descriptions, whose
+  // textures each GPU context gives back at its next sweep).
+  const freeCopies = (q) => { for (const k of ['quiet', 'liverQ', 'quietG', 'liverG']) if (q[k]) { free(q[k].cv); q[k] = null; } };
+  // The copies the GPU draws from, made on the GPU itself (tile-gl.js): the same steps as quietTile and liverTile below (the blur, the
+  // grey blend, the tones), but as a description each GPU context draws into its own texture from the tile, once, with no blur in
+  // script and no canvas held for them. Remade when the tile was drawn again (a blank one, retried) or the tone changed.
+  // ?tilegpu=0: quietTile and liverTile's canvases, as before.
+  function gpuCopy(t, slot, k, look) {
+    const q = t[slot];
+    if (q && q.k === k && q.cv.src === t.cv && q.cv.width) return q;
+    if (q) { free(q.cv); fieldGL?.sweep(); tissueGL?.sweep(); }
+    const blank = !t.cv || !t.cv.width || (TILE_OVER && t.blank);
+    return (t[slot] = { k, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv: tileCopy(t.cv, t.tw, t.th, look, blank), blank, blankAt: 0 });
+  }
+  const quietCopy = (t, bg) => (TILE_GPU ? gpuCopy(t, 'quietG', bg.join(','), { blur: neighbourBlur(t.R), sat: 0.45, tone: bg, toneA: 0.42, flat: NEIGHBOUR_FLAT }) : quietTile(t, bg));
+  const liverCopy = (t, cs, dark, bg) => {
+    if (!TILE_GPU) return liverTile(t, cs, dark, bg);
+    const tone = liverTone(cs, bg);
+    return gpuCopy(t, 'liverG', tone.map((x) => x.toFixed(2)).join(','), { blur: 0, sat: 0.45, tone, toneA: 0.42, flat: 0 });
+  };
   function fieldTile(cs, dark, rd, later = false) {
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
     const cell = v('--og-liver-1'), gap = v('--og-liver-2'), cvc = v('--vein-systemic'), pvc = v('--vein-portal');
@@ -2087,11 +2111,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     let tiles = tileSets.get(key);
     if (!tiles) {
       tiles = FIELD_RS.map((R) => ({ R, cv: null, set: key })); tileSets.set(key, tiles);
-      if (tileSets.size > 3) { const k0 = tileSets.keys().next().value; for (const q of tileSets.get(k0)) { if (q.cv) free(q.cv); if (q.quiet) free(q.quiet.cv); if (q.liverQ) free(q.liverQ.cv); } tileSets.delete(k0); }   // (zeroed: Safari frees a dropped canvas's memory late)
+      if (tileSets.size > 3) { const k0 = tileSets.keys().next().value; for (const q of tileSets.get(k0)) { if (q.cv) free(q.cv); freeCopies(q); } tileSets.delete(k0); }   // (zeroed: Safari frees a dropped canvas's memory late)
     }
     else { tileSets.delete(key); tileSets.set(key, tiles); }
     const t = tiles.find((q) => q.R >= rd) || tiles[tiles.length - 1];
-    if (t.cv && tileDue(t)) { free(t.cv); t.cv = null; if (t.quiet) { free(t.quiet.cv); t.quiet = null; } if (t.liverQ) { free(t.liverQ.cv); t.liverQ = null; } fieldGL?.sweep(); tissueGL?.sweep(); }
+    if (t.cv && tileDue(t)) { free(t.cv); t.cv = null; freeCopies(t); fieldGL?.sweep(); tissueGL?.sweep(); }
     if (!t.cv) framePart('lz.drawTile', () => drawTile(t, { cell, gap, cvc, pvc, art: v('--artery'), duct: v('--bile-duct'), dark, fs }));
     return t;
   }
@@ -2348,7 +2372,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return fieldGL && !fieldGL.lost ? fieldGL : null;
   }
   // A tile's liver-toned and quieted copies sent to the GPU ahead of the dive (no frame of it uploads a texture).
-  const fieldUp = (t) => { const g = fieldGLOn(); if (g) { g.upload(t.liverQ?.cv); g.upload(t.quiet?.cv); } };
+  // (Made on the GPU from the tile, tile-gl.js: the tile kept there for them is let go of once both are made.)
+  const fieldUp = (t) => { const g = fieldGLOn(); if (!g) return; if (TILE_GPU) { g.upload(t.liverG?.cv); g.upload(t.quietG?.cv); g.dropRaw(); } else { g.upload(t.liverQ?.cv); g.upload(t.quiet?.cv); } };
+  // A tile's two copies for the dive, ahead of it: made on the GPU where the field is drawn there, on the main thread otherwise.
+  const fieldCopies = (t, cs, dark, bg) => { if (TILE_GPU && fieldGLOn()) { liverCopy(t, cs, dark, bg); quietCopy(t, shadeOf(bg, dark)); } else { liverTile(t, cs, dark, bg); quietTile(t, shadeOf(bg, dark)); } fieldUp(t); };
   // One frame of the field on the GPU, the same picture paintField's 2D passes make (the same tiles, quieting, fade and emerging
   // mask, with the same numbers), except that the two tile sizes nearest the lobules' size on screen are blended (fieldBlend), so
   // the detail of the larger one comes in gradually as the lobules grow instead of in a step where the 2D canvas switched.
@@ -2362,15 +2389,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const q = d.quiet >= 1 ? 1 : Math.max(0, d.quiet || 0), tone = shadeOf(bg, dark);
     const rho = Math.hypot(W, H) * dpr * (0.2 + 1.1 * d.a + 2 * smooth(0.7, 1, d.a)), gk = greyNow();
     return g.draw({
-      W: fw, H: fh, a: liverTile(ta, cs, dark, bg).cv, b: tb ? liverTile(tb, cs, dark, bg).cv : null,
-      qa: q > 0 ? quietTile(ta, tone).cv : null, qb: q > 0 && tb ? quietTile(tb, tone).cv : null, mix: tb ? mix : 0, quiet: q,
+      W: fw, H: fh, a: liverCopy(ta, cs, dark, bg).cv, b: tb ? liverCopy(tb, cs, dark, bg).cv : null,
+      qa: q > 0 ? quietCopy(ta, tone).cv : null, qb: q > 0 && tb ? quietCopy(tb, tone).cv : null, mix: tb ? mix : 0, quiet: q,
       ox: fx0, oy: fy0, rd, fade: f > 0 ? [r0, r1, fq] : null, mid: FADE_MID, bg: tone, mask: d.a < 1 ? [d.ox * dpr, d.oy * dpr, rho] : null,
       dof: fieldDof(d, rd, Math.hypot(fw, fh)), grey: gk > 0 ? surroundGrade(gk) : null, hold: fieldG.style.opacity !== '0',
     });
   }
+  // The liver's tone the dive starts from: the page's colour 60% of the way to the liver's.
+  function liverTone(cs, bg) { const lv = rgb01(cs.getPropertyValue('--og-liver-2').trim()); return bg.map((x, i) => lerp(x, lv[i], 0.6)); }
   function liverTile(t, cs, dark, bg) {
-    const lv = rgb01(cs.getPropertyValue('--og-liver-2').trim());
-    const tone = bg.map((x, i) => lerp(x, lv[i], 0.6));
+    const tone = liverTone(cs, bg);
     const tk = tone.map((x) => x.toFixed(2)).join(',');
     if (!t.liverQ || t.liverQ.k !== tk || tileDue(t.liverQ)) {
       if (t.liverQ) { free(t.liverQ.cv); fieldGL?.sweep(); }
@@ -2408,7 +2436,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (Each with its quieted copy too: the dive lays it over the field from midway, and building one there, a tile at a time,
       // snagged the zoom's last stretch.)
       // (One size past the landing's: the GPU field blends it in over the last stretch, fieldBlend.)
-      for (let rd = 6; ; rd *= 2) { const r = rd; q.splice(q.indexOf(null), 0, () => { const t = fieldTile(cs, dark, r); liverTile(t, cs, dark, bg); quietTile(t, shadeOf(bg, dark)); fieldUp(t); }); if (r >= top * 2) break; }
+      for (let rd = 6; ; rd *= 2) { const r = rd; q.splice(q.indexOf(null), 0, () => { fieldCopies(fieldTile(cs, dark, r), cs, dark, bg); }); if (r >= top * 2) break; }
     }, null);
     q.push(() => {   // the landed lobule: its state, then the tissue, then one full frame
       const st = store.get();
@@ -2443,7 +2471,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const cs = getComputedStyle(host), dark = isDark(), bg = stageBg(cs, dark), top = rEnd * Math.min(1, devicePixelRatio || 1) * 0.8 * 0.55;
     warmQ = [() => ensureGL(), () => fieldGLOn()];   // (the field's GPU context too, if the idle preparation has not made it)
     // The tiles paintField steps through (each a no-op when the idle preparation already drew it).
-    for (let rd = 6; ; rd *= 2) { const r = rd; warmQ.push(() => { const t = fieldTile(cs, dark, r); liverTile(t, cs, dark, bg); quietTile(t, shadeOf(bg, dark)); fieldUp(t); }); if (r >= top * 2) break; }
+    for (let rd = 6; ; rd *= 2) { const r = rd; warmQ.push(() => { fieldCopies(fieldTile(cs, dark, r), cs, dark, bg); }); if (r >= top * 2) break; }
   }
   // Right before a zoom into the lobule starts: the lobule is drawn, whole and unseen, for the framing it will land on (flow marks
   // faded), so the zoom only magnifies and fades in what is already drawn. Its canvases (about 16 MB on a phone) are given back
@@ -2843,7 +2871,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     // (The surround's tiles for that zoom too, each with its quieted copy, on the GPU.)
     const tone = shadeOf(stageBg(cs, dark), dark), { a, b } = fieldBlend(G.R * V.k * dpr * 0.55 * 2);
-    for (const i of new Set([a, b])) { const t = fieldTile(cs, dark, FIELD_RS[i]); g.upload(quietTile(t, tone).cv, 0, true); }
+    for (const i of new Set([a, b])) { const t = fieldTile(cs, dark, FIELD_RS[i]); g.upload(quietCopy(t, tone).cv, 0, true); }
     g.sweep();
   }
   // The tissue's GPU drawing (tissue-gl.js): made the first time it is asked for; null where WebGL2 is missing or would run in
@@ -3020,7 +3048,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const fOut = fadeOuter(fIn, reach), tone = shadeOf(rgb01(bgCss), dark);
     const { a, b, mix } = fieldBlend(rd * 0.55);   // (half the tile's resolution, as on the 2D canvas: the quiet surround)
     const ta = fieldTile(cs, dark, FIELD_RS[a], !unseen()), tb = b !== a && mix > 0 ? fieldTile(cs, dark, FIELD_RS[b], !unseen()) : null;
-    const qa = quietTile(ta, tone), qb = tb ? quietTile(tb, tone) : null;
+    const qa = quietCopy(ta, tone), qb = tb ? quietCopy(tb, tone) : null;
     // (A new state's tiles fade in over the last state's, as on the 2D canvas.)
     if (surNow && ta.set !== surNow.set && surNow.q.cv?.width && !unseen()) { surOld = surNow.q; surT0 = xfNow(now); }
     surNow = { set: ta.set, q: qa };
@@ -3150,7 +3178,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const su = surT0 ? xfU(surT0, xfNow(now)) : 1;
       if (su >= 1) { surT0 = 0; surOld = null; }
       fieldFill(c, q, sx * dpr, sy * dpr, rd, W * dpr, H * dpr);   // half resolution is plenty for the quiet surround
-      if (surOld?.cv?.width) { c.globalAlpha = 1 - su; fieldFill(c, surOld, sx * dpr, sy * dpr, rd, W * dpr, H * dpr); c.globalAlpha = 1; }
+      if (surOld?.cv?.width && !isTileCopy(surOld.cv)) { c.globalAlpha = 1 - su; fieldFill(c, surOld, sx * dpr, sy * dpr, rd, W * dpr, H * dpr); c.globalAlpha = 1; }   // (a copy made on the GPU, tile-gl.js, has no canvas to lay)
       // (Grey as the anatomy's liver is in a lens other than Pressure: only here, inside the clip, so the lobule's bitmap laid next keeps
       // the lens's colours; before the fade into the page, as on the GPU.)
       if (gk > 0) fieldGrey(c, shadeOf(rgb01(bg), dark), surroundGrade(gk), tw, th);
@@ -3320,9 +3348,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       }
       const nuc = new Path2D(), rn = rm, nr = hw * 0.34;   // diameter about a third of the cell's width
       for (let i = 0; i < NC; i++) { const a = ((i + 0.5) / NC) * TAU2 + tr.i, nx = x + Math.cos(a) * rn, ny = y + Math.sin(a) * rn; nuc.moveTo(nx + nr, ny); nuc.arc(nx, ny, nr, 0, TAU2); }
-      return { lumen, cells, nuc, disc: [x, y, rout] };
+      return { lumen, cells, nuc, disc: [x, y, rout], num: [x, y, rin, rout, rm, nr, tr.i, 0] };
     });
-    return (ductP = { G, key, duct });
+    return (ductP = { G, key, duct, nums: Float32Array.from(duct.flatMap((d) => d.num)) });
   }
   // A world-space box [x0, y0, x1, y1] round some points.
   const boxOf = (pts) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const [x, y] of pts) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } return [x0, y0, x1, y1]; };
@@ -3439,6 +3467,116 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       }
     }
     return { lw, seal, beads, minR, view, drops };
+  }
+  // ── The overlay on the GPU (fx-gl.js) ──
+  // The picture paintFx draws (with WebGL vessels: the ductules, and with the Lymph layer the drops, beads, eraser and lining), drawn by
+  // the GPU in the 2D overlay's place, scaled with the others through the dive and the rise as the tissue's GPU canvas is (DIVE_GPU);
+  // not while they are staged on the 2D canvas (keep2D: their copies read the 2D overlay), nor without the vessels' WebGL. The 2D overlay is given back while the GPU's shows. ?fxgpu=0: paintFx always, as before.
+  let fxGL, fxGLKey = '', fxGLShown = false;
+  function fxGLOn() {
+    if (fxGL === undefined) { fxGL = FX_GPU ? createFxGL(fxG) : null; if (!fxGL) fxG.remove(); }
+    return fxGL && !fxGL.lost ? fxGL : null;
+  }
+  function fxGLShow(on) {
+    if (on === fxGLShown) return;
+    fxGLShown = on; fxG.style.opacity = on ? '' : '0';
+    if (!on) { fxGLKey = ''; fxGL?.release(); if (fxG.width) { fxG.width = 0; fxG.height = 0; } }
+  }
+  function fxGLOff() { fxGLShow(false); }
+  // A colour token as [r, g, b, a] (0–1), whatever form it is written in: read back from a 1 px canvas, once per string.
+  const rgbaSeen = new Map();
+  let rgbaCv = null;
+  function rgbaOf(str) {
+    let v = rgbaSeen.get(str);
+    if (v) return v;
+    if (!rgbaCv) { rgbaCv = document.createElement('canvas'); rgbaCv.width = rgbaCv.height = 1; }
+    const c = rgbaCv.getContext('2d', { willReadFrequently: true });
+    c.clearRect(0, 0, 1, 1); c.fillStyle = 'transparent'; c.fillStyle = str; c.fillRect(0, 0, 1, 1);   // colour-exempt: a reset before the token
+    const d = c.getImageData(0, 0, 1, 1).data;   // (read back unpremultiplied)
+    v = [d[0] / 255, d[1] / 255, d[2] / 255, d[3] / 255];
+    if (rgbaSeen.size > 64) rgbaSeen.clear();
+    rgbaSeen.set(str, v);
+    return v;
+  }
+  // The eraser as capsules (x0, y0, x1, y1, r, 0): a disc for each vessel seen end-on, each other blood vessel's segments as wide as
+  // its lumen at the middle of its third, with its wall (the 0.6 / k the wall grows with the zoom is added in the shader). As fxPaths.
+  let gEraseKey = '', gErase = null, gLineKey = '', gLine = null;
+  function fxGLErase() {
+    const G = geo, key = [geoKey, Object.values(rzOf()).map((x) => x.toFixed(5)).join(',')].join('|');
+    if (key === gEraseKey && gErase) return gErase;
+    gEraseKey = key;
+    const out = [];
+    for (const t of G.tubes) {
+      if (t.lymph || t.kind === 'ly' || t.kind === 'lt' || t.kind === 'lv') continue;
+      const wall = WALL[t.kind] || 0.8;
+      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd') { const [x0, y0] = t.pts[0]; out.push(x0, y0, x0, y0, radiusAt(t, N >> 1) + wall, 0); continue; }
+      for (let q = 0; q < 3; q++) {
+        const i0 = Math.floor((q * (N - 1)) / 3), i1 = Math.floor(((q + 1) * (N - 1)) / 3), r = radiusAt(t, (i0 + i1) >> 1) + wall;
+        for (let i = i0; i < i1; i++) out.push(t.pts[i][0], t.pts[i][1], t.pts[i + 1][0], t.pts[i + 1][1], r, 0);
+      }
+    }
+    return (gErase = Float32Array.from(out));
+  }
+  // The sinusoid lining as capsules, a line either side of each sinusoid lw out from its lumen (as fxPaths, which strokes them lw wide).
+  function fxGLLine(lw) {
+    const G = geo, z = rzOf(), key = [geoKey, z.sin.toFixed(5), z.congU.toFixed(5), V.k.toFixed(5)].join('|');
+    if (key === gLineKey && gLine) return gLine;
+    gLineKey = key;
+    const out = [];
+    for (const t of G.tubes) {
+      if (t.kind !== 's0' && t.kind !== 's1' && t.kind !== 's2') continue;
+      for (const side of [-1, 1]) {
+        let last = null;
+        t.pts.forEach(([x, y], i) => {
+          if (t.rho[i] < CV_STOP) return;
+          const [xa, ya] = t.pts[Math.max(0, i - 1)], [xb, yb] = t.pts[Math.min(N - 1, i + 1)], d = Math.hypot(xb - xa, yb - ya) || 1;
+          const o = side * (radiusAt(t, i) + lw), px = x - ((yb - ya) / d) * o, py = y + ((xb - xa) / d) * o;
+          if (last) out.push(last[0], last[1], px, py, lw / 2, 0);
+          last = [px, py];
+        });
+      }
+    }
+    return (gLine = Float32Array.from(out));
+  }
+  function fxOnGPU(W, H, dpr, dark, dt, can) {
+    const g = can && FX_GPU ? fxGLOn() : null;
+    if (!g) { fxGLShow(false); return false; }
+    const fw = canvasPx(W, dpr), fh = canvasPx(H, dpr), G = geo, m = model;
+    const moving = fxMoves({ lymph: lymphOn, flat: false, hide: m.hide, flow: store.get().layers?.flow });
+    const dc = [tk('--lz-duct-lumen'), tk('--lz-duct-cell'), tk('--lz-duct-edge'), tk('--lz-duct-nucleus')];
+    const key = moving ? '' : [fw, fh, dpr, dark, m.hide, m.hide ? '' : fxDuct().key, V.k, V.x, V.y, ...dc].join('|');
+    // (The 2D overlay is not shown meanwhile: given back, and drawn whole again by paintFx when it is wanted.)
+    const fx2D = () => { if (fx.width) { free(fx); fxDrawn = ''; fxBoxes = null; lyKey = ''; } };
+    if (key && key === fxGLKey && fxGLShown) { fx2D(); return true; }
+    let lymph = null;
+    if (lymphOn && !m.hide) {
+      const { lw, seal, beads, minR, drops } = lyDrops(G, m, dt, W, H, dpr);
+      const nd = drops.length / 4, dI = new Float32Array(nd * 6), bI = new Float32Array(nd * beads * 6);
+      for (let j = 0, b6 = 0; j < nd; j++) {
+        const x = drops[j * 4], y = drops[j * 4 + 1], rr = drops[j * 4 + 2], br = rr * 0.3, a0 = drops[j * 4 + 3] * 1.7;
+        dI[j * 6] = x; dI[j * 6 + 1] = y; dI[j * 6 + 2] = x; dI[j * 6 + 3] = y; dI[j * 6 + 4] = rr;
+        for (let b = 0; b < beads; b++, b6 += 6) {
+          const a = a0 + (b * TAU) / beads, q = beads === 1 ? 0 : rr * 0.5, bx = x + Math.cos(a) * q, by = y + Math.sin(a) * q;
+          bI[b6] = bx; bI[b6 + 1] = by; bI[b6 + 2] = bx; bI[b6 + 3] = by; bI[b6 + 4] = br;
+        }
+      }
+      const lineOn = seal > 0.02;
+      lymph = {
+        drops: dI, beadRings: bI, erase: fxGLErase(), eraseAdd: 0.6 / V.k, ringHalf: Math.max(0.5 / V.k, minR * 0.22) / 2,
+        line: lineOn ? fxGLLine(lw) : null,
+        colours: { ly: rgbaOf(tk('--lz-lymph')), ring: rgbaOf(tk('--lz-albumin-ring')), bead: rgbaOf(tk('--lz-albumin')), line: lineOn ? rgbaOf(tk('--lz-collagen', ((dark ? 0.6 : 0.5) * seal).toFixed(3))) : [0, 0, 0, 0] },
+      };
+    }
+    const ok = framePart('lz.fxGL', () => g.draw({
+      W: fw, H: fh, view: [V.k, V.x, V.y, dpr], lymph,
+      ducts: m.hide ? null : fxDuct().nums,
+      duct: { lum: rgbaOf(dc[0]), cell: rgbaOf(dc[1]), edge: rgbaOf(dc[2]), nuc: rgbaOf(dc[3]), width: Math.max(0.3, G.R * 0.0013), alpha: 0.72 },
+    }));
+    if (!ok) { fxGLShow(false); return false; }
+    fxGLKey = key;
+    fxGLShow(true);
+    fx2D();
+    return true;
   }
   function paintFx(W, H, dpr, dark, dt, flat) {
     const fw = canvasPx(W, dpr), fh = canvasPx(H, dpr);
@@ -3886,7 +4024,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const show = wide ? null : rim && !rimGL && diveCopyKey ? diveCv : tissue;
       if (tissue.style.visibility !== (show === tissue ? '' : 'hidden')) { tissue.style.visibility = tissueG.style.visibility = show === tissue ? '' : 'hidden'; diveCv.style.visibility = show === diveCv ? '' : 'hidden'; }
       if (wide) { for (const e of WIDE_HIDE) e.style.visibility = 'hidden'; wide.el.style.visibility = ''; }
-      for (const e of [tissue, tissueG, diveCv, glCv, fx, leaders, labels]) {
+      for (const e of [tissue, tissueG, diveCv, glCv, fx, fxG, leaders, labels]) {
         if (k >= 0.9999) { e.style.transform = ''; e.style.transformOrigin = ''; continue; }
         // Scaled about its own centre, which sits where the field's lobule at the dive's focus is (tx, ty), so it morphs out of that one.
         e.style.transformOrigin = `${x.toFixed(1)}px ${y.toFixed(1)}px`;

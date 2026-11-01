@@ -40,7 +40,7 @@ test('every canvas the copy needs is checked; a refusal drops the copy, never sh
   assert.match(b, /if \(!probe\(fx\)\) \{ ok = false;/, 'the ductules\' layer');
   assert.match(b, /if \(!ok\) \{ for \(const cv of tiles\) free\(cv\); return null; \}/);
   // The layers drawn for the screen after it: refused, the copy goes and they are drawn again.
-  assert.match(lz, /function wideChecked\(wd\) \{\n\s+if \(!wd \|\| \(\(DIVE_GPU && tissueOnGL \? true : probe\(tissue\)\) && probe\(fx\)\)\) return wd;/);
+  assert.match(lz, /function wideChecked\(wd\) \{\n\s+if \(!wd \|\| \(\(DIVE_GPU && tissueOnGL \? true : probe\(tissue\)\) && \(fxGLShown \? true : probe\(fx\)\)\)\) return wd;/, 'the overlay checked unless the GPU draws it (fx-gl.js)');
   assert.match(lz, /function probe\(cv\) \{[\s\S]*?c\.putImageData\(new ImageData\(new Uint8ClampedArray\(\[0, 0, 0, 255\]\), 1, 1\), 0, 0\);[\s\S]*?c\.putImageData\(d, 0, 0\);/);
   assert.match(lz, /function diveCopy\(dst = diveCv\) \{/);
   assert.match(lz, /const c = dst\.getContext\('2d'\);\n\s+if \(!c\) return;/);

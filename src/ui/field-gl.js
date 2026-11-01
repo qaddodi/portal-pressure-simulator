@@ -12,6 +12,7 @@
 // field is drawn on the 2D canvas as before.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e4e20bb727';
+import { isTileCopy, createTileCopier } from './tile-gl.js?v=88c03cf91f';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -124,12 +125,19 @@ export function createFieldGL(canvas) {
   });
   // A tile's texture, made once per tile canvas (a new canvas for each tissue state and tone) and kept until that canvas is
   // given back (width 0: forget, sweep).
-  const texs = new Map();
+  const texs = new Map(), copier = createTileCopier(gl);
   function texFor(cv) {
     let t = texs.get(cv);
     if (t && t.w === cv.width && t.h === cv.height && !t.bad) return t.tex;
     if (t?.bad && t.w === cv.width && t.h === cv.height && performance.now() < t.retryAt) return null;   // (failed: the 2D canvas, a while)
     if (t) gl.deleteTexture(t.tex);
+    // (A copy of a tile made here on the GPU, tile-gl.js: drawn into its own texture from the tile, never sent from a canvas.)
+    if (isTileCopy(cv)) {
+      const tex = copier.make(cv);
+      if (tex) texs.set(cv, { tex, w: cv.width, h: cv.height, bad: false, retryAt: 0 });
+      else texs.set(cv, { tex: gl.createTexture(), w: cv.width, h: cv.height, bad: true, retryAt: performance.now() + SEND_RETRY });
+      return tex;
+    }
     const tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
@@ -147,7 +155,10 @@ export function createFieldGL(canvas) {
     /** Gives back the textures of tiles whose canvases were given back (or are no longer wanted: keep(cv) false). */
     sweep(keep = () => true) {
       for (const [cv, t] of texs) if (!cv.width || !keep(cv)) { if (!lost) gl.deleteTexture(t.tex); texs.delete(cv); }
+      copier.sweep();
     },
+    /** Lets go of the tile kept on the GPU for its next copy (tile-gl.js), once a dive's copies are made. */
+    dropRaw() { copier.drop(); },
     /** One frame of the field. W, H: the canvas's size (device px); a, b, qa, qb: the tiles' canvases (liver-toned and
      *  quieted, at the smaller and larger size); dof: the softness (fieldDof); grey: the grade [saturation, opacity] (surroundGrade),
      *  null as drawn; the rest as paintField's (see FS). */
@@ -159,6 +170,7 @@ export function createFieldGL(canvas) {
       // (Every texture first, before the canvas is touched: one the GPU could not take is never sampled (it read opaque black). Showing
       // (hold) at this size with a picture, the field keeps its last frame for this one; otherwise the 2D canvas draws it.)
       const tx = [a, b || a, ...(quiet > 0 ? [qa, qb || qa] : [])].map((cv) => texFor(cv));
+      copier.drop();   // (a tile kept on the GPU for its copies, tile-gl.js: both are made, so it goes)
       if (tx.some((t) => !t)) return hold && TEX_SAFE && pictured && canvas.width === W && canvas.height === H ? 'held' : false;
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; pictured = false; }
       gl.viewport(0, 0, W, H);
