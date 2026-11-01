@@ -742,6 +742,8 @@ export function createSinusoidView({ host, before = null }) {
       }
     }
   }
+  let legendMax = '', legendAsk = 0;
+  function writeLegendMax() { legendAsk = 0; if (legend.style.maxWidth !== legendMax) legend.style.maxWidth = legendMax; }
   function layoutEnds() {
     const g = geo, f = VW.fe;
     // The ends: the portal venule the blood comes from and the central vein it goes to, with their pressures (as the lobule labels them).
@@ -749,7 +751,9 @@ export function createSinusoidView({ host, before = null }) {
     const lx = f.l + 2, ly = VW.ins[0] + 12;
     // (On a top-down sinusoid it stays in the plate on the left, clear of the vessel and the portal venule's name.)
     const lr = g.vert ? toScreen(0, hepIn(0))[0] - 8 : geo.W - 12;
-    legend.style.maxWidth = `${Math.max(90, lr - lx)}px`;
+    // (Its room is written between frames, a rest pass; its observer then reports its new size and the names are laid out again.)
+    const mw = `${Math.max(90, lr - lx)}px`;
+    if (mw !== legendMax) { legendMax = mw; if (!legendAsk) legendAsk = restPass(writeLegendMax); }
     legend.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px)`;
     [LEG.w, LEG.h] = szOf(legend); LEG.x = lx; LEG.y = ly;
     // (The unit is said once, in the pressure legend, as the anatomy's and the lobule's labels have it; looks review L2.)
