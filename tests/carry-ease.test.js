@@ -99,9 +99,9 @@ test('the camera, the lobule, the sheets and the paging take it', () => {
   assert.match(card, /releaseSpeed\(trail, performance\.now\(\)\)/);
   // The sheets judge a flick by the finger's release, and ease the height on from its speed (a card caught sunk grows from where it is drawn).
   assert.match(main, /const flick = isFlick\(s0\.dy, speed, s0\.dy \/ Math\.max\(1, performance\.now\(\) - s0\.t0\), 0\.9, 40\);/);
-  assert.match(main, /const h0 = el\.getBoundingClientRect\(\)\.height, frac = flickAim\(h0 \/ s0\.H, speed, s0\.H\)/);
-  assert.match(main, /easing: carryCurve\(-speed, goal - h0, D_SMALL\)/);
-  assert.match(main, /el\.style\.height = `\$\{Math\.max\(60, start\.h - start\.dy\)\}px`/, 'start.dy, not dy: the sunk card\'s pull up continues from where it is drawn');
+  assert.match(main, /const frac = flickAim\(drawn \/ s0\.H, speed, s0\.H\)/, 'the height the finger left is the one drawn (the box less the content\'s offset), not a read of the page');
+  assert.match(main, /easing: carryCurve\(speed, to - \(el\._sheetOff \|\| 0\), D_SMALL\)/, 'the settle leaves at the finger\'s speed (the content\'s offset, down)');
+  assert.match(main, /else h = Math\.max\(60, start\.h - dy\);/, "the pull up continues from the height drawn when it began (start.h is the drawn height, a sunk card's included)");
   assert.match(util, /const flick = isFlick\(s0\.dy, speed, s0\.dy \/ Math\.max\(1, performance\.now\(\) - s0\.t\), 0\.6, 30\);/);
   assert.match(util, /carryCurve\(speed, left, D_SMALL\)/);
   assert.match(card, /const flick = isFlick\(dy, speed, dy \/ Math\.max\(1, performance\.now\(\) - t0\), 0\.6, 30\);/);
@@ -109,7 +109,7 @@ test('the camera, the lobule, the sheets and the paging take it', () => {
   // The bottom bar's fold reversed mid-glide stands at the size it is drawn at while its words fade, then glides on from there (no snap to the glide's end).
   assert.match(main, /const hold = vdockEl\.animate\(\[drawn, drawn\], \{ duration: D_FLIP \}\);/);
   assert.match(main, /vdockEl\.animate\(\[drawn, \{ height: `\$\{h1\}px`, width: `\$\{w1\}px` \}\], \{ duration: D_SURFACE, easing: ease \}\)/);
-  assert.match(main, /closed: \(\) => \{ stopSink\(el\); el\.style\.removeProperty\('--sink'\); el\.style\.translate = ''; heightAnim\?\.cancel\(\);/);
+  assert.match(main, /closed: \(\) => \{ stopSheet\(el\); setSheetOffset\(el, 0\); el\.style\.translate = '';/);
   assert.match(menu, /sw\.carry0 = resting && settle \? shiftX\(resting\) : 0;/, 'read at the touch');
   assert.match(menu, /sw\.carry = sw\.carry0;\s*settle\?\.\(\);/, 'taken over as the drag starts, with no read in the move');
   assert.match(dock, /sw\.carry = resting && settle \? shiftX\(resting\) : 0;/);

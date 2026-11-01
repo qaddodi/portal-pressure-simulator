@@ -24,7 +24,8 @@ import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, he
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=c8ef361fbc';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js?v=c8ef361fbc';
+import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=367c3b0561';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
 import { morphKey, crossfadeText } from './legend-morph.js?v=805989b53d';
 import './seg-glide.js?v=f292ee90e4';
@@ -1485,46 +1486,58 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   const half = () => stops().length - 2;
   // The room a thumb sheet may fill: the CSS cap (100% - top bar - tab row - 22 px, styles/app.css thumb block).
   const room = () => (thumb() ? app.clientHeight - (parseFloat(app.style.getPropertyValue('--top-safe')) || 0) - (parseFloat(app.style.getPropertyValue('--nb-occ')) || 0) - 22 : 0);
-  let size = 1, lastN = stops().length, heightAnim = null;   // heightAnim: the finger's-speed ease of the height after a release (settleHeight)
+  let size = 1, lastN = stops().length;
   el.prepend(handle);
+  // The sheet moves by its content's offset only (sheet-move.js): its box is laid out once for a gesture and committed once at
+  // rest. `lay`: the height the box is laid out at while it is held taller than it is drawn (0: its own, --sheet-size).
+  sheetParts(el);
+  let lay = 0;
   const natural = () => {
     if (!fit || !isPhone() || el.hidden) return Infinity;
     const cs = getComputedStyle(el);
     // The body fills the sheet, so its own height says nothing: measure down to its last child.
     const inner = (c) => { const l = c.lastElementChild; if (!l) return 0; const b = parseFloat(getComputedStyle(c).paddingBottom) + parseFloat(getComputedStyle(l).marginBottom); return l.getBoundingClientRect().bottom - c.getBoundingClientRect().top + c.scrollTop + b; };
-    return [...el.children].reduce((a, c) => a + (c.matches(fit) ? inner(c) : c.offsetHeight), 0) + parseFloat(cs.paddingBottom) + parseFloat(cs.paddingTop);
+    return [...el.children].reduce((a, c) => a + (c.classList.contains('sheet-plate') ? 0 : c.matches(fit) ? inner(c) : c.offsetHeight), 0) + parseFloat(cs.paddingBottom) + parseFloat(cs.paddingTop);
   };
   // (A phone turned upright or sideways changes the stops, three sideways and two over the thumb dock: Half stays Half and the top stays the top.)
   const remap = () => { const n = stops().length; if (n !== lastN) { size = size === lastN - 1 ? n - 1 : n - 2; lastN = n; } };
-  const apply = () => {
-    heightAnim?.cancel(); heightAnim = null;   // (a new height is eased by the card's own transition from where the old one is drawn)
+  // The height the sheet is given at `size`, as --sheet-size's value.
+  const sizeValue = () => {
     remap();
     const S = stops(), r = room();
     size = Math.min(size, S.length - 1);
     const need = size === half() ? natural() : Infinity;
-    el.classList.toggle('sheet-half', thumb() && size === half());   // (a phone's Tests card hides its longer words at Half)
-    el.style.setProperty('--sheet-size', need < S[half()] * (r || app.clientHeight) ? `${Math.ceil(need)}px` : r ? `${Math.round(S[size] * r)}px` : `${Math.round(S[size] * 100)}%`);
+    return need < S[half()] * (r || app.clientHeight) ? `${Math.ceil(need)}px` : r ? `${Math.round(S[size] * r)}px` : `${Math.round(S[size] * 100)}%`;
   };
+  const pxOf = (v) => (/px$/.test(v) ? parseFloat(v) : (parseFloat(v) / 100) * app.clientHeight);
+  // Commits the sheet at rest: its own height, the content in place (the same picture: what was drawn lay - off tall now is).
+  const commit = (v) => {
+    el.classList.toggle('sheet-half', thumb() && size === half());   // (a phone's Tests card hides its longer words at Half)
+    el.style.setProperty('--sheet-size', v);
+    el.style.height = ''; lay = 0;
+    setSheetOffset(el, 0);
+  };
+  // Takes the sheet to its size. glide: from the height it is drawn at (h0), the box held at the taller of the two for the ease and
+  // committed once landed; otherwise at once (a turn of the device, an opening).
+  const apply = (glide = false, h0 = 0, easing) => {
+    const v = sizeValue();
+    if (!glide || !isPhone() || matchMedia('(prefers-reduced-motion: reduce)').matches) { stopSheet(el); commit(v); return; }
+    const h1 = pxOf(v), H = Math.max(h0, h1);
+    if (Math.abs(h1 - h0) < 1) { stopSheet(el); commit(v); return; }
+    if (lay !== H) { stopSheet(el); el.style.height = `${H}px`; lay = H; setSheetOffset(el, H - h0); }
+    el.classList.toggle('sheet-half', thumb() && size === half());
+    glideSheet(el, H - h1, { easing, done: () => commit(v) });
+  };
+  const drawnHeight = () => (lay || el.offsetHeight) - sheetOffset(el);
   // A new tab refits the sheet to its content (the height eases).
-  if (fit) el.addEventListener('click', (e) => { if (size === half() && e.target.closest('[role="tab"]')) nextFrame(apply); });
+  if (fit) el.addEventListener('click', (e) => { if (size === half() && e.target.closest('[role="tab"]')) nextFrame(() => apply(true, drawnHeight())); });
   apply();
   // A turn of the device or a new window size changes the stops and the room (px over the thumb dock): a sheet takes its size
-  // again once the size has held for a moment, and its height eases there (a sheet in the hand is left to its release).
+  // again once the size has held for a moment (a sheet in the hand is left to its release).
   let retakeT = 0;
   addEventListener('resize', () => { clearTimeout(retakeT); retakeT = setTimeout(() => { if (!start && isPhone()) apply(); }, 220); });
-  handle.addEventListener('click', () => { if (!isPhone() || !active()) return; remap(); size = (size + 1) % stops().length; apply(); });
+  handle.addEventListener('click', () => { if (!isPhone() || !active()) return; const h0 = drawnHeight(); remap(); size = (size + 1) % stops().length; apply(true, h0); });
   let start = null, swallow = 0;
-  // The height the finger left (h0) eases to the one the sheet settles at, starting at the finger's speed (`speed`, px per ms down: a height
-  // grows as a finger goes up), instead of at the ease's own, which a slow let-go felt as a lurch. (The card's own height transition still
-  // runs under it and ends with it; a share of the screen, sideways, or Reduce Motion leaves it to that alone.)
-  const settleHeight = (h0, speed) => {
-    apply();
-    const sz = el.style.getPropertyValue('--sheet-size'), goal = parseFloat(sz);
-    el.style.height = '';
-    heightAnim?.cancel(); heightAnim = null;
-    if (!/px$/.test(sz) || !el.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    heightAnim = el.animate([{ height: `${h0}px` }, { height: `${goal}px` }], { duration: D_SMALL, easing: carryCurve(-speed, goal - h0, D_SMALL) });
-  };
   // Controls keep their own gestures. With `anywhere` (a phone sheet), a vertical drag from any other spot on the
   // card moves it too; a sideways one is left alone, and content scrolled away from its top scrolls back first.
   const FIELDS = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]), select, textarea, [role="slider"], [contenteditable]';
@@ -1538,10 +1551,24 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     // (Over the thumb dock buttons and tabs carry the pull too, so Treat moves from anywhere; a tap still clicks.)
     if (e.target !== handle && e.target.closest(thumb() && anywhere ? FIELDS : CONTROLS) && !headTab) return;
     if (!own && !(anywhere && isPhone())) return;
-    const r = el.getBoundingClientRect(), mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat);
-    start = { id: e.pointerId, t0: performance.now(), x: e.clientX, y: e.clientY, h: r.height, H: room() || app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false, base: 0, loose: !own || headTab, sc: own ? null : scroller(e.target) };
+    // Everything the pull needs is read here, once: nothing is measured while the finger moves.
+    const mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat), S = stops(), R = room() || app.clientHeight;
+    const sc = own ? null : scroller(e.target);
+    const h0 = drawnHeight(), box = lay || el.offsetHeight;
+    start = { id: e.pointerId, t0: performance.now(), x: e.clientX, y: e.clientY, h: h0, box, H: R, S, size, thumb: thumb(), phone: isPhone(), tx: mv[0] || 0, ty: mv[1] || 0, moved: false, loose: !own || headTab, sc, scTop: sc ? sc.scrollTop : 0, top: S[S.length - 1] * R };
     // (Half's height, as apply() sets it: the content's own height when that is less)
-    if (thumb() && size === stops().length - 1 && stops().length > 1) { start.full = true; start.half = Math.min(r.height, natural(), stops()[half()] * room()); }
+    if (start.thumb && size === S.length - 1 && S.length > 1) { start.full = true; start.half = Math.min(h0, natural(), S[half()] * R); }
+  });
+  // The box is laid out tall enough for a pull up once the pull has begun (the sheet takes the finger's capture), not on every touch.
+  el.addEventListener('gotpointercapture', (e) => {
+    if (e.target !== el || !start || e.pointerId !== start.id || !start.moved || !start.phone || start.full) return;   // (the sheet's own capture, at the pull's start: a touch's first capture goes to what is under the finger)
+    const off = sheetOffset(el), drawn = start.box - off, H = Math.max(start.box, Math.round(start.top));
+    if (H <= start.box + 1) return;
+    stopSheet(el);
+    el.style.height = `${H}px`; lay = H;
+    start.box = el.offsetHeight;   // (as laid out: the stylesheet's cap may hold it lower)
+    lay = start.box;
+    setSheetOffset(el, start.box - drawn);
   });
   el.addEventListener('pointermove', (e) => {
     if (!start || e.pointerId !== start.id) return;
@@ -1549,29 +1576,28 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     const dx = e.clientX - start.x, dy = e.clientY - start.y;
     if (!start.moved) {
       if (Math.hypot(dx, dy) < 6) return;
-      const sc = start.sc;
-      if (start.loose && (Math.abs(dx) > Math.abs(dy) || (sc && (sc.scrollTop > 0 || (dy < 0 && size === stops().length - 1))))) { start = null; return; }
+      if (start.loose && (Math.abs(dx) > Math.abs(dy) || (start.sc && (start.scTop > 0 || (dy < 0 && size === start.S.length - 1))))) { start = null; return; }
       start.moved = true;
-      // (Caught while it is still easing: the pull takes it over from where it is, without a jump. A tap leaves it easing.)
-      start.base = thumb() && !start.full ? parseFloat(el.style.getPropertyValue('--sink')) || 0 : 0;
-      stopSink(el);
-      // (Caught while its height is still easing: the ease is let go of, and the height keeps where it is drawn until the pull is over.)
-      heightAnim?.cancel(); heightAnim = null;
-      const want = el.style.getPropertyValue('--sheet-size');
-      start.pin = /px$/.test(want) && Math.abs(start.h - parseFloat(want)) > 1;
+      // (Caught while it is still easing: the pull takes it over from where it is drawn, without a jump. A tap leaves it easing.)
+      start.off0 = sheetOffset(el);
+      stopSheet(el); setSheetOffset(el, start.off0);
       el.setPointerCapture?.(e.pointerId);   // (only once it moves: captured at once, a tap's click would land on the sheet, not the grabber)
     }
     el.classList.add('dragging');
-    start.dy = dy + start.base;
+    start.dy = dy;
     (start.trail ||= []).push([performance.now(), e.clientY]); if (start.trail.length > 8) start.trail.shift();
-    // Over the thumb dock a pull down slides the card down behind the tab row (--sink: moved and cut at its resting
-    // bottom edge in one value, styles/app.css).
-    // From Full a pull down shrinks the card the way a pull up grew it (15 Oct, Mohammad): its foot stays on the tab row and
-    // its top follows the finger, slowing past Half, where it settles.
-    if (thumb() && dy > 0 && start.full) { el.style.removeProperty('--sink'); const lo = start.half, h = start.h - dy; el.style.height = `${Math.max(60, h >= lo ? h : lo - (lo - h) * 0.25)}px`; }
-    else if (thumb() && start.dy > 0) { el.style.height = start.pin ? `${start.h}px` : ''; el.style.setProperty('--sink', `${start.dy}px`); }
-    else if (isPhone()) { el.style.removeProperty('--sink'); el.style.height = `${Math.max(60, start.h - start.dy)}px`; }   // (start.dy, not dy: a card caught sunk and pulled up past its place grows from there, not by what it was sunk)
-    else el.style.translate = `${start.tx + dx}px ${start.ty + dy}px`;
+    // The height the finger draws: from Full a pull down shrinks the card the way a pull up grew it (15 Oct, Mohammad): its foot
+    // stays on the tab row and its top follows the finger, slowing past Half, where it settles. Over the thumb dock a pull down
+    // from Half slides the card down behind the tab row. Everything is the content's offset in the still box.
+    let h;
+    if (!start.phone) { el.style.translate = `${start.tx + dx}px ${start.ty + dy}px`; return; }
+    if (start.thumb && dy > 0 && start.full) { const lo = start.half, hh = start.h - dy; h = Math.max(60, hh >= lo ? hh : lo - (lo - hh) * 0.25); }
+    else if (start.thumb && dy > 0) h = start.h - dy;
+    else h = Math.max(60, start.h - dy);
+    const box = lay || start.box;
+    el._sheetOff = Math.max(0, box - h);
+    const v = el._sheetOff ? `0px ${el._sheetOff}px` : '';
+    for (const c of el.children) c.style.translate = v;
   });
   // Once the sheet follows the finger, the page must not scroll under it, and the lift is not a tap.
   // (iOS hands a pull on scrollable content to the page and cancels the pointer before it has moved 6 px: a pull down
@@ -1580,7 +1606,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     if (!start || !e.cancelable) return;
     if (start.moved) { e.preventDefault(); return; }
     const t = e.touches[0], dx = t.clientX - start.x, dy = t.clientY - start.y;
-    if (thumb() && dy > 0 && dy >= Math.abs(dx) && !(start.sc && start.sc.scrollTop > 0)) e.preventDefault();
+    if (start.thumb && dy > 0 && dy >= Math.abs(dx) && !(start.sc && start.scTop > 0)) e.preventDefault();
   }, { passive: false });
   // (The click a drag's release makes is not a tap: swallowed if it comes within 350 ms, timed by the clock, not a timer a busy page runs late.)
   el.addEventListener('click', (e) => { if (performance.now() < swallow) { swallow = 0; e.stopPropagation(); e.preventDefault(); } }, true);
@@ -1589,37 +1615,41 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     const s0 = start; start = null;
     el.classList.remove('dragging');
     if (s0.moved) swallow = performance.now() + 350;
-    if (!s0.moved || !isPhone()) return;
+    if (!s0.moved || !s0.phone) return;
     const speed = releaseSpeed(s0.trail, performance.now());   // (the finger's, px per ms down: the settle carries it on)
-    if (thumb() && s0.dy > 0) {
+    const box = lay || s0.box, off = el._sheetOff || 0, drawn = box - off;
+    const carry = (to) => carryCurve(speed, to - off, D_SMALL);
+    if (s0.thumb && s0.dy > 0) {
       // (15 Oct, Mohammad) From Full a pull down always settles at Half, however fast; only a second pull, from Half,
       // closes the card: past a short way down or a quick flick. A short pull eases back where it was.
-      const S = stops(), fromFull = size === S.length - 1 && S.length > 1;
+      const S = s0.S, fromFull = s0.size === S.length - 1 && S.length > 1;
       // (A flick is how fast the finger was going as it lifted, not only the pull's average: a slow start and a quick flick at the end is one.)
       const flick = isFlick(s0.dy, speed, s0.dy / Math.max(1, performance.now() - s0.t0), 0.9, 40);
       if (fromFull) {
-        // (the card eases from where the finger left it: back to Full after a short pull, to Half otherwise; its height leaves at the finger's speed)
+        // (the card eases from where the finger left it: back to Full after a short pull, to Half otherwise, leaving at the finger's speed)
         if (s0.dy > 40) size = half();
-        settleHeight(el.getBoundingClientRect().height, speed);
-        stopSink(el); el.style.removeProperty('--sink');
+        const v = sizeValue(), to = box - pxOf(v);
+        glideSheet(el, Math.max(0, to), { easing: carry(Math.max(0, to)), done: () => commit(v) });
         return;
       }
       const gone = flick || s0.dy > Math.min(90, s0.h * 0.3);
-      if (!gone) { if (s0.pin) el.style.height = ''; sinkTo(el, 0, 220, undefined, speed); return; }   // (a height still easing when the pull began goes on easing from where it was held)
+      if (!gone) { const to = box - s0.h; glideSheet(el, to, { easing: carry(to), done: () => commit(sizeValue()) }); return; }
       // Sinks out of sight behind the tab row, then closes (already gone, so the close plays nothing of its own).
-      sinkTo(el, el.offsetHeight, 220, () => { el.dataset.swiped = '1'; onClose(); delete el.dataset.swiped; el.style.removeProperty('--sink'); }, speed);
+      glideSheet(el, box + 8, { easing: carry(box + 8), done: () => { el.dataset.swiped = '1'; onClose(); delete el.dataset.swiped; setSheetOffset(el, 0); } });
       return;
     }
     // (The height it is headed for: where the finger left it, carried on a little by its speed, so a flick up reaches the next height.)
-    const h0 = el.getBoundingClientRect().height, frac = flickAim(h0 / s0.H, speed, s0.H), S = stops();
-    if (frac < (thumb() ? 0.4 : SIZES[0] * 0.7)) { el.style.height = ''; onClose(); return; }
+    const frac = flickAim(drawn / s0.H, speed, s0.H), S = s0.S;
+    if (frac < (s0.thumb ? 0.4 : SIZES[0] * 0.7)) { onClose(); return; }
     size = S.reduce((best, v, i) => (Math.abs(v - frac) < Math.abs(S[best] - frac) ? i : best), 0);
-    settleHeight(h0, speed);
+    const v = sizeValue(), h1 = pxOf(v);
+    if (h1 > box + 1) { stopSheet(el); el.style.height = `${h1}px`; lay = h1; setSheetOffset(el, h1 - drawn); }
+    const B = lay || box, to = Math.max(0, B - h1);
+    glideSheet(el, to, { easing: carryCurve(speed, to - (el._sheetOff || 0), D_SMALL), done: () => commit(v) });
   };
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', (e) => { if (e.target === el) end(e); });   // (not a child's: a touch is first captured by what is under the finger, and handing the capture to the sheet at 6 px ends that one, which bubbles up here)
-  // (Opening sizes the sheet at once: its height eases only for a change while it is open, so it never comes in
-  // at the last size it had and shrinks into place, and the figure frames once.)
-  return { open: () => { if (isPhone()) { size = half(); el.style.transition = 'none'; apply(); void el.offsetHeight; el.style.transition = ''; } }, closed: () => { stopSink(el); el.style.removeProperty('--sink'); el.style.translate = ''; heightAnim?.cancel(); heightAnim = null; el.style.height = ''; el.style.clipPath = ''; } };
+  // (Opening sizes the sheet at once: it never comes in at the last size it had and shrinks into place, and the figure frames once.)
+  return { open: () => { if (isPhone()) { size = half(); stopSheet(el); commit(sizeValue()); } }, closed: () => { stopSheet(el); setSheetOffset(el, 0); el.style.translate = ''; el.style.height = ''; lay = 0; el.style.clipPath = ''; } };
 }
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key

@@ -144,6 +144,8 @@ const OTHER_KEYFRAMES = {
   'sv-fade-in': 'a registered variable (--sv-in) other code reads', 'lz-in': 'a registered variable (--off-o) other code reads',
   'pill-in': 'a registered variable (--pill-o) other code reads', thumbIn: 'a registered variable (--sink) the stacked card\'s tuck also drives',
   thumbOut: 'a registered variable (--sink) the stacked card\'s tuck also drives',
+  'sheet-rise': 'a phone sheet\'s content rising by translate under its still clip (sheet-move.js)', 'sheet-sink': 'a phone sheet\'s content sinking by translate under its still clip (sheet-move.js)',
+  'sheet-hold': 'holds a sinking sheet\'s box until its content has gone, so its leave ends on it',
 };
 const noComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 const keyframeNames = (css) => [...noComments(css).matchAll(/@keyframes ([\w-]+)\s*\{/g)].map((m) => m[1]);

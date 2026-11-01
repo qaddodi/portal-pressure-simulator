@@ -3849,7 +3849,7 @@ button.finding { cursor: pointer; }
   .panel, .treat-card {
     top: auto !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: auto !important; max-height: none;
     height: var(--sheet-size, 55%); border-radius: var(--r-sheet) var(--r-sheet) 0 0; padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);   /* (held sideways, the sheet's glass runs edge to edge and its words keep clear of the notch or island) */
-    transform: translateY(105%); transition: transform var(--d-small) var(--ease), height var(--d-small) var(--ease), visibility var(--d-small); z-index: calc(var(--z-panel) + 2);
+    transform: translateY(105%); transition: transform var(--d-small) var(--ease), visibility var(--d-small); z-index: calc(var(--z-panel) + 2);   /* (its height is never eased: the sheet moves by its content's offset, main.js sheetBehaviour, sheet-move.js) */
   }
   .treat-card { transform: none; }
   .panel.dragging, .treat-card.dragging { transition: none; }
@@ -3860,7 +3860,7 @@ button.finding { cursor: pointer; }
      the handle (or the head) drags them between three heights, and a drag down closes them. */
   .instrument-workspace.float-ui:not(.side) {
     left: 0; right: 0; bottom: 0; top: auto; height: var(--sheet-size, 56%); border-radius: var(--r-sheet) var(--r-sheet) 0 0;
-    padding-bottom: env(safe-area-inset-bottom); z-index: calc(var(--z-panel) + 2); transition: height var(--d-small) var(--ease);
+    padding-bottom: env(safe-area-inset-bottom); z-index: calc(var(--z-panel) + 2);
   }
   .instrument-workspace.float-ui:not(.side).entering { --edge-y: 100%; animation: slide-from-edge var(--d-small) var(--ease); }
   .instrument-workspace.float-ui:not(.side).dragging { transition: none; }
@@ -3993,6 +3993,7 @@ button.finding { cursor: pointer; }
 /* (The preview's change of size and place runs on transforms, menu.js pvResize: no height or top transition; ?pvglide=0 keeps them.) */
 html:not([data-pvcpu]) .um-pv { transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease); }
 .um-pv.pv-resizing { background: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
+.sheet-plate { display: none; }
 .um-pv-plate { position: absolute; left: 0; right: 0; z-index: -1; background: var(--surface); border-radius: inherit; box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline); pointer-events: none; will-change: transform; }
 .um-pv:not(.on) { translate: calc(-1 * var(--rise-y)) 0; }   /* (the preview settles in from the panel's side by the rise distance, and leaves back toward it) */
 @media (prefers-reduced-motion: reduce) { .um-pv { translate: none !important; } }
@@ -4487,7 +4488,14 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 #panel.card-leaving, #treatCard.card-leaving, #historyCard.card-leaving, #dock.card-leaving { display: flex !important; visibility: visible !important; pointer-events: none; animation: var(--card-out) var(--d-flip) var(--ease-in) forwards !important; }
 @media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
   .panel, .treat-card, .instrument-workspace.float-ui:not(.side) { --card-in: slide-from-edge; --card-out: slide-to-edge; --edge-x: 0px; --edge-y: 100%; --edge-o: 1; --card-t: var(--d-small); }
-  .panel, .treat-card { transform: none; transition: height var(--d-small) var(--ease), opacity var(--d-surface, .42s) var(--ease); }
+  .panel, .treat-card { transform: none; transition: opacity var(--d-surface, .42s) var(--ease); }
+  /* A sheet moved by its content (sheet-move.js): its box stands still and wears nothing; its paper and shadow are its plate, the
+     first child, which slides with the rest of the content. The box's still clip (the thumb block's polygon, or the screen's edge
+     sideways) hides what slides below its resting foot. */
+  :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)).has-plate { background: transparent !important; box-shadow: none !important; overflow: visible; isolation: isolate; }
+  :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)).has-plate:not(.app.thumb *) { clip-path: inset(-48px -48px 0 -48px); }
+  :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)).has-plate > .sheet-plate { display: block; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--surface); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); pointer-events: none; }
+  .instrument-workspace.float-ui:not(.side).has-plate > .sheet-plate { box-shadow: var(--shadow-menu), inset 0 0 0 1px var(--hairline); }
   .panel .panel-head { touch-action: none; border-radius: 0; }
 }
 
@@ -6435,7 +6443,16 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn var(--d-small) var(--ease) var(--enter-delay, 0ms) backwards; }
   html.thumb-ui .menu.from-dock { animation: thumbIn var(--d-small) var(--ease) var(--enter-delay, 0ms) backwards; }
   html.thumb-ui .menu.from-dock.leaving { animation: thumbOut var(--d-flip) var(--ease-in) forwards; }
+  /* A sheet moved by its content (has-plate, sheet-move.js) rises and sinks the same way, but by its content's translate alone under
+     its still clip: no --sink is eased frame by frame on the main thread. The box holds (sheet-hold) so its leave still ends on it. */
+  #app.thumb.panel-open .panel.has-plate, #app.thumb .treat-card.has-plate, #app.thumb .instrument-workspace.float-ui.entering.has-plate { animation: none; }
+  #app.thumb.panel-open .panel.has-plate > *, #app.thumb .treat-card.has-plate > *, #app.thumb .instrument-workspace.float-ui.entering.has-plate > * { animation: sheet-rise var(--d-small) var(--ease) var(--enter-delay, 0ms) backwards; }
+  #app.thumb :is(#panel, #treatCard, #historyCard, #dock).has-plate.card-leaving { --card-out: sheet-hold; }
+  #app.thumb :is(#panel, #treatCard, #historyCard, #dock).has-plate.card-leaving > * { animation: sheet-sink var(--d-flip) var(--ease-in) forwards; }
 }
+@keyframes sheet-rise { from { translate: 0px calc(var(--sheet-size, 60vh) + 8px); } }
+@keyframes sheet-sink { to { translate: 0px calc(var(--sheet-size, 60vh) + 8px); } }
+@keyframes sheet-hold { to { opacity: 1; } }
 /* (15 Oct, Mohammad) No card may ever be drawn over the tab row, at any moment (open, close, drag, switch). So the
    whole thumb dock is stacked above every card, and its play-bar half steps out of the way instead: the dock's glass
    lives on its own layer (::before) and fades, with the play bar and readouts, while a card or menu is up, so the card
@@ -6903,6 +6920,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   @keyframes scale-settle-out { to { opacity: 0; } }
   @keyframes thumbIn { from { opacity: 0; } }
   @keyframes thumbOut { to { opacity: 0; } }
+  @keyframes sheet-rise { from { opacity: 0; } }
+  @keyframes sheet-sink { to { opacity: 0; } }
   @keyframes spin { 50% { opacity: .35; } }
   @keyframes pz-spin { 50% { opacity: .35; } }
   @keyframes pzw-drift { }

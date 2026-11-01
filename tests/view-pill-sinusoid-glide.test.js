@@ -110,6 +110,7 @@ test('the framing reads the dock and the pill where they rest while they slide',
 
 // (A regression from the pill's earlier fix: a card dragged aside on a wide screen is moved by translate, and closing it must clear that.)
 test('a card dragged aside returns to its place when it closes', () => {
-  assert.match(main, /closed: \(\) => \{ stopSink\(el\); el\.style\.removeProperty\('--sink'\); el\.style\.translate = '';/);
-  assert.match(main, /else el\.style\.translate = `\$\{start\.tx \+ dx\}px \$\{start\.ty \+ dy\}px`;/);
+  assert.match(main, /closed: \(\) => \{ stopSheet\(el\); setSheetOffset\(el, 0\); el\.style\.translate = '';/);
+  assert.match(main, /if \(!start\.phone\) \{ el\.style\.translate = `\$\{start\.tx \+ dx\}px \$\{start\.ty \+ dy\}px`; return; \}/);
+  assert.doesNotMatch(main, /else el\.style\.translate = `\$\{start\.tx \+ dx\}px \$\{start\.ty \+ dy\}px`;/);
 });
