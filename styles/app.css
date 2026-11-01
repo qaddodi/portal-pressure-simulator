@@ -5241,6 +5241,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
   .app.dock-open:has(#dock.side:not([data-state="peek"])) .instrument-workspace.side { bottom: calc(env(safe-area-inset-bottom) + 6px); }
   .app.dock-open:has(#dock.side) .vdock { right: calc(env(safe-area-inset-right) + var(--side-ws-w, 340px) + 14px); width: auto; }   /* (width: auto lets `right` hold over the slim bar's fixed 640 px from 768 px wide, 88e0a8d: an 844 px phone's bar ran under the card) */
   .app.dock-open:has(#dock.side) .vdock .readouts { display: none; }
+  /* A vessel card opened with the side Tests card up ends 6 px before it, as the bar below does, so Tests no longer covers its close,
+     Why?, Details and right-hand controls (the card was the full width, half of it under Tests). `right` eases both ways. */
+  .action-card.docked { transition: left var(--d-flip) var(--ease), top var(--d-flip) var(--ease), right var(--d-small) var(--ease); }
+  .app.dock-open:not(.instrument-focus):has(#dock.side) .action-card.docked { right: calc(env(safe-area-inset-right) + var(--instr-occ, 0px) + 6px); }
   .instrument-workspace.side .dop-vessel { min-width: 84px; }
   .instrument-workspace.side .dop-tint { gap: 5px; padding: 0 8px; }
   .instrument-workspace.side .dock-pane { padding-left: 12px; padding-right: 12px; }
@@ -6121,6 +6125,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   html.thumb-ui .umenu.sheet { left: 15% !important; right: 15%; height: min(62dvh, var(--menu-h, 62dvh)); }   /* (the library menu: the tablet's 70 % and its 62 % Full, as the other menus) */
   html.thumb-ui .menu.as-sheet { left: 15% !important; right: 15%; max-height: min(62dvh, calc(100dvh - var(--thumb-bot, var(--thumb-occ, 0px)) - max(72px, var(--thumb-top, 0px) + 8px))); }
   html.thumb-ui .menu.as-sheet .tl-pop.tl-history { max-height: calc(62dvh - 24px); }   /* (History's list scrolls under its head, as on the phone) */
+  html:not(.thumb-ui) .menu.as-sheet { left: 15% !important; right: 15%; max-height: 62dvh; }   /* (a talk has no thumb dock, and Settings there is the same 70 % and 62 % as every other sheet on the iPad) */
 }
 
 /* ── History beside Treat and Tests (15 Oct) ───────────────────────

@@ -3,30 +3,30 @@
 
 import { startHost, host } from './host.js?v=66efaebf2c';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=80d4358be8';
-import { createStage } from './stage.js?v=a72d861c4d';
+import { createStage } from './stage.js?v=2daa64328f';
 import { createCreditPlacer } from './credit.js?v=853fefa4ac';
 import { whenQuiet } from './quiet.js?v=82fc0f97e3';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=5ebc41c441';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=c7eff6e90f';
-import { setHvpgStage } from './hvpg-proc.js?v=28541b160e';
-import { createWhy } from './why.js?v=c0a65ef99e';
-import { createTimeline, LAPSES } from './timeline.js?v=3d2308b7d0';
-import { createCompare } from './compare.js?v=e1e40d2771';
-import { createCard } from './card.js?v=899b31bf97';
-import { createChart } from './chart.js?v=b078349f46';
-import { createMenu } from './menu.js?v=7531482022';
-import { caption } from './a11y.js?v=7a2995c501';
+import { createInspector } from './inspector.js?v=14507cdbf7';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=0be99fdd6e';
+import { setHvpgStage } from './hvpg-proc.js?v=7cfabd69a3';
+import { createWhy } from './why.js?v=9ed9ae662b';
+import { createTimeline, LAPSES } from './timeline.js?v=4e500c0be5';
+import { createCompare } from './compare.js?v=561612c04d';
+import { createCard } from './card.js?v=d9f7fea759';
+import { createChart } from './chart.js?v=f1cf00efe1';
+import { createMenu } from './menu.js?v=c0d479ad75';
+import { caption } from './a11y.js?v=6d0ec8b2ea';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=84a406f1e6';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=af179467bf';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=b3ea651179';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=f317143d5b';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=6951477fa8';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=b2e9419bfb';
 import { releaseSpeed, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
-import { morphKey, crossfadeText } from './legend-morph.js?v=49e967a0a8';
+import { morphKey, crossfadeText } from './legend-morph.js?v=00658e5d41';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -39,7 +39,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=8d93daba30';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=db9808cbcb';
 import { initTopbarMotion } from './topbar-motion.js?v=3e2875ae90';
 import { ORIGINS } from './blood.js?v=d85ddf7c2c';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
@@ -109,8 +109,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=3fe802e60c'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=948bc2cebf'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=86defad33d'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=7bb596de3f'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -183,7 +183,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=8e22f3f6b0'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=14e9f8453e'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -191,7 +191,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=68d3617beb'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=9582886f49'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -296,6 +296,7 @@ async function main() {
   // (Only on a new value: a slide change sets focus and selection to null each time, and a full figure update for a value that
   // stayed the same cost a frame's worth of script in the tap.)
   for (const k of ['focus', 'labelLevel', 'selection']) { let was = store.get()[k]; store.on(k, (v) => { if (v === was) return; was = v; redraw(); }); }
+  store.on('selection', (sel) => { if (sel && isPhone() && treatOpen()) closeTreat(); });   // (a tap on the figure puts Treat away, as a tab does; else the card opens behind it)
 
   // Console handle for educators preparing a class (and for automated screenshots).
   window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, get credit() { return creditPlacer; } };
@@ -1280,7 +1281,10 @@ function wireFloating() {
     const sheet = wsOn && !ws.classList.contains('side') && ws.dataset.state !== 'peek' ? ws.offsetHeight + gap : 0;
     // On a phone the instruments sheet rises from the bottom edge, over the vitals dock.
     // (With the thumb dock the sheet sits above the dock instead.)
-    const bot = isPhone() && sheet && !thumb ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
+    // (Over the thumb dock a sheet sits on the tab row's top edge, so a card above it rests on the sheet, not above the whole dock.)
+    const nbR = thumb && vdH ? (({ x, y, width, height }) => new DOMRect(x, y - vdSlide, width, height))($('#thumbBar').getBoundingClientRect()) : null;
+    const ar = app.getBoundingClientRect(), tabOcc = nbR && nbR.height ? ar.bottom - nbR.top + 8 : 0;
+    const bot = isPhone() && sheet && !thumb ? Math.max(vdock + gap, sheet) : tabOcc && sheet ? tabOcc + sheet : vdock + gap + sheet;
     // The patient chart is a bottom sheet on a phone, over the dock: the corner credit rides above it, unless the
     // sheet is so tall (nearly full screen) that there is no figure left to ride on.
     const pn = $('#panel'), lift = isPhone() && panelShown() && pn.offsetParent ? pn.offsetParent.clientHeight - pn.offsetTop + 8 : 0;
@@ -1296,10 +1300,8 @@ function wireFloating() {
     // screen's bottom, since the sheets are fixed to it and the dock sits above the home indicator's safe area.)
     // The cards and sheets sit on the tab row's top edge, over the play bar (which they cover), and slide away behind
     // the tab row: --nb-occ from the app's bottom (the cards), --thumb-occ from the screen's (the menu sheets).
-    const nbR = thumb && vdH ? (({ x, y, width, height }) => new DOMRect(x, y - vdSlide, width, height))($('#thumbBar').getBoundingClientRect()) : null;
     // (8 px clear of it: the tab row is its own rounded piece while a card is up, 15 Oct.)
-    const ar = app.getBoundingClientRect();
-    const nbOcc = px(nbR && nbR.height ? ar.bottom - nbR.top + 8 : 0);
+    const nbOcc = px(tabOcc);
     if (pubVals.nbOcc !== nbOcc) { pubVals.nbOcc = nbOcc; app.style.setProperty('--nb-occ', nbOcc); }
     const occ = px(nbR && nbR.height ? innerHeight - nbR.top + 8 : 0);
     if (pubVals.occ !== occ) { pubVals.occ = occ; document.documentElement.style.setProperty('--thumb-occ', occ); }
@@ -1687,7 +1689,15 @@ function wireThumbBar() {
   new MutationObserver(sync).observe(app, { attributes: true, attributeFilter: ['class'] });
   new MutationObserver(sync).observe($('#treatCard'), { attributes: true, attributeFilter: ['hidden'] });
   new MutationObserver(sync).observe($('#timeline'), { subtree: true, characterData: true, childList: true });
-  thumbMQ.addEventListener?.('change', syncThumb);
+  thumbMQ.addEventListener?.('change', (e) => {
+    syncThumb();
+    closePopover(); why?.close();   // (a menu or Why? placed for the other turn has lost its button: put away, as iOS puts a popover away on a turn)
+    if (!e.matches) return;
+    // Upright has room for one sheet, as openPanel and openTreat keep it: History has no sheet there; then Treat, Details, Tests.
+    closeHistory();
+    if (treatOpen()) { closePanel(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
+    else if (panelShown() && app.classList.contains('dock-open')) setPanelTab('chart');
+  });
   syncThumb(); sync();
 }
 // Layers: Fit and the circuit's turn upright, then what is drawn on the figure (the moving blood and what it shows, or the
@@ -2072,7 +2082,7 @@ function armFeedbackAsk() {
     last = now;
     if (document.visibilityState === 'visible' && now - lastInput < IDLE) active += dt;
     if (now - lastInput > 5000) down = 0;   // (a lift the page never heard, outside the window, does not hold the ask forever)
-    if (active < FEEDBACK_ASK_MIN * 60000 || down || presenter.active() || projector || document.getElementById('modalBack')?.classList.contains('show')) return;
+    if (active < FEEDBACK_ASK_MIN * 60000 || down || presenter.active() || projector || app.classList.contains('dock-open') || panelShown() || treatOpen() || historyOpen() || document.getElementById('modalBack')?.classList.contains('show')) return;
     clearInterval(timer);
     const answer = (v) => { try { localStorage.setItem(ASK_KEY, v); } catch { /* storage unavailable */ } };
     toast('Anything look wrong or confusing so far? A short email helps the author fix it.', '', { sticky: true,

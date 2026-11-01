@@ -4,9 +4,9 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=80d4358be8';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=6951477fa8';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone } from './util.js?v=b2e9419bfb';
 import { releaseSpeed, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
-import { cardFor, normalizeSel } from './actions.js?v=84a406f1e6';
+import { cardFor, normalizeSel } from './actions.js?v=b3ea651179';
 import { frameFor, cancelFrame } from './frame.js?v=6a53e5fc6e';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
@@ -79,6 +79,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       // (Docked, it sinks away; a desktop card fades out where it stands: it had closed in one frame.)
       // (With Reduce Motion both only fade: app.css turns the keyframes into fades.)
       el.classList.add('ac-leaving');
+      if (isDocked()) markGone(180);   // (a phone's card sinks like a sheet: whatever opens next waits for it, as it does for a sheet)
       closeTimer = afterExit(el, 'ac-leaving', () => { el.hidden = true; el.classList.remove('ac-leaving'); });
     }
     model = null; live = []; syncs = []; actionable = [];
