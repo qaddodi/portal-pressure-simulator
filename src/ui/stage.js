@@ -8416,7 +8416,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const blurWhy = (el) => { for (const g of [glassGL, paneGL, ...cardGLs]) { const w = g?.why?.(el); if (w != null) return w; } return null; };
   // (Each glass and what it was set with: set again on a new renderer, after a lost context is restored.)
   const frostHosts = new Map();
-  function hostFrost(g, o) { if (!g || !veins?.top) return; frostHosts.set(g, o); g.setHost(frostHost(o)); }
+  // (Off unless ?glasshost=1 since 1 Nov 2026: on an iPhone the glass drawn in the figure's canvas flickered, the callouts' (FHVP on
+  // HVPG 3, IVC on HVPG 7) and the bottom sheet's cards' (worst while it untucks), as a glass went between the figure's canvas and the
+  // browser's blur and back. The browser's blur shows instead, as before 31 Oct; ?glasscopy=1 still gives the callouts their own canvas.)
+  const FROST_HOST = /[?&]glasshost=1\b/.test(location.search);
+  function hostFrost(g, o) { if (!FROST_HOST || !g || !veins?.top) return; frostHosts.set(g, o); g.setHost(frostHost(o)); }
   // (What the page lays between the figure's canvas and a glass, as client boxes. 'pane': the overlays the GPU does not paint (#stageOver's
   // SVG). 'low' (the teaching card's shade, z-index 1, over the whole stage view): those, the liver pane when the browser blurs it, the
   // labels and marks (their GPU canvas's boxes, or the SVG's own). 'callouts' (z-index 4): those, the shade (its tabs and words), and the
