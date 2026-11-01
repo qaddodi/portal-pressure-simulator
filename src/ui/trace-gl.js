@@ -16,7 +16,7 @@
 // chart draws on its own 2D canvas, as before (?tracegl=0 keeps that always).
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
-import { canvasSize, fitCanvas } from './util.js?v=f7055730cc';
+import { canvasSize, fitCanvas } from './util.js?v=c8ef361fbc';
 
 /** ?tracegl=0 in a page's search string: every chart and monitor draws on its 2D canvas, as before. */
 export const traceGLOff = (search) => /[?&]tracegl=0\b/.test(String(search ?? ''));

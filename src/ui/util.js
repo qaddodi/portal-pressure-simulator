@@ -863,12 +863,17 @@ export function canvasSize(canvas) {
   return { w: r.width, h: r.height, W: Math.max(1, Math.round(r.width * dpr)), H: Math.max(1, Math.round(r.height * dpr)), dpr };
 }
 export function fitCanvas(canvas) {
-  const { w: cw, h: ch, W: w, H: hh, dpr } = canvasSize(canvas);
-  const r = { width: cw, height: ch };
-  if (canvas.width !== w || canvas.height !== hh) { canvas.width = w; canvas.height = hh; }
+  const { w, h: hh, dpr } = fitBox(canvas);
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  return { ctx, w: r.width, h: r.height };
+  return { ctx, w, h: hh };
+}
+/** The canvas's buffer sized to its box at fitCanvas's density, with no context asked for (a WebGL instrument sizes its buffer this way):
+ *  { w, h } in CSS pixels and the dpr its buffer is drawn at. */
+export function fitBox(canvas) {
+  const { w, h, W, H, dpr } = canvasSize(canvas);
+  if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+  return { w, h, dpr };
 }
 
 /** ?sliderglide=0 in a page's search string: a slider's dot and fill always jump to a new value, as before. */

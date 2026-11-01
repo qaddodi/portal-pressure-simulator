@@ -8,8 +8,9 @@
 // parks it for a moment) the monitor goes on: the strip scrolls on this card's clock and lays beats at the heart rate shown, closing in as the
 // number climbs, then hands over to the live beat where the model's phase resumes, so the strip neither stalls nor jumps (ekg.js walkBeats).
 
-import { h, fmt, fitCanvas, clamp, cssVar } from './util.js?v=f7055730cc';
-import { FONT } from './charts.js?v=6acfc16ef7';
+import { h, fmt, fitCanvas, fitBox, clamp, cssVar } from './util.js?v=c8ef361fbc';
+import { createVitalsGL, colorOf } from './vitals-gl.js?v=930b0d3bf3';
+import { FONT } from './charts.js?v=15e9dd4f2d';
 import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=15d5254a2c';
 import { VITALS, vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js?v=f27505b539';
@@ -18,6 +19,9 @@ import { createStill } from './still-layer.js?v=8d8a2727b4';
 const nextFrame = frameFor('vitals-monitor');
 
 export const VITALS_DEFAULT = ['hr', 'map', 'hb'];
+// The monitor on the GPU (vitals-gl.js: rounded rectangles, the strip as a line of capsules, words and digits from one glyph atlas); no
+// 2D canvas is drawn while the strip scrolls. ?vitalsgl=0: the 2D canvas, as before.
+const VITALS_GL = typeof location === 'undefined' || !/[?&]vitalsgl=0\b/.test(location.search);
 const SPAN_S = 6, LAG_S = 0.12, EASE_S = 0.3, JUMP_S = 0.3, STEP_S = 0.004;   // (JUMP_S: more than this ahead of the last sample is a clock that was set, not the next frame)
 
 /** The vitals a slide asks for: up to three of the four the monitor knows, in the order given; the default otherwise. */
@@ -41,8 +45,10 @@ let fontEpoch = 0;
 globalThis.document?.fonts?.addEventListener?.('loadingdone', () => { fontEpoch++; });
 
 /** `stillLayer`: false draws the still parts straight onto the canvas every frame, as before the pictures (the switch the tests compare with). */
-export function createVitalsMonitor({ stillLayer = true } = {}) {
+export function createVitalsMonitor({ stillLayer = true, gpu = VITALS_GL } = {}) {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Vital signs monitor' });
+  const glr = gpu ? createVitalsGL(cv) : null;   // (null where WebGL 2 is not there: the 2D canvas below, as before)
+  const measure = glr ? document.createElement('canvas').getContext('2d') : null;   // (text laid out with it, never drawn on the screen)
   const el = h('div', { class: 'chart-box vitals-box' }, cv);
   const clock = createBeatClock();
   const raw = { t: [], ph: [] };   // (the (time, phase) samples the beat clock was made from: a history goes in front of them and the clock is made again)
@@ -70,6 +76,7 @@ export function createVitalsMonitor({ stillLayer = true } = {}) {
   }
   function draw(now = performance.now()) {
     advanceSynth(now);
+    if (glr) return drawGL(now);
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 120 || hh < 90) return;
     ctx.clearRect(0, 0, w, hh);
@@ -139,6 +146,92 @@ export function createVitalsMonitor({ stillLayer = true } = {}) {
     eased = moving;
     if (moving && !raf && !ticking) raf = nextFrame((t) => { raf = 0; draw(t); });
   }
+  // ── The GPU's way (vitals-gl.js): the same layout, the same numbers, colours and eases, sent as rectangles, a line and sprites. ──
+  // (lay: the layout of the readings, made again only when the size, the cells' words or the fonts change: the font sizes are found with
+  // measureText, which never draws; pts: the strip's points, kept from frame to frame.)
+  let lay = null, layKey = '', pts = new Float32Array(512);
+  const DIGITS = '0123456789.−-—,';
+  function layout(w, hh, cells, dpr) {
+    const pad = 14, ew = w - 2 * pad, eh = Math.round(clamp(hh * 0.42, 34, 110)), top = pad, bot = pad + eh;
+    const y0 = bot + 12, rh = hh - pad - y0, cw = ew / cells.length;
+    const key = JSON.stringify([w, hh, dpr, fontEpoch, cells.map((c) => [c.k, c.u])]);
+    if (key === layKey) return lay;
+    const g = measure, atlas = [['EKG', FONT(600, 12), 'EKG']], cl = [];
+    cells.forEach((c, i) => {
+      let big = Math.round(clamp(Math.min(rh - 20, cw * 0.42, 46), 22, 46)), uw;
+      for (;;) {
+        g.font = FONT(500, 12); uw = g.measureText(c.u).width;
+        g.font = FONT(700, big);
+        if (g.measureText('88.8').width + uw + 10 <= cw - 6 || big <= 18) break;
+        big -= 2;
+      }
+      g.font = FONT(700, big);
+      const adv = new Map([...DIGITS].map((ch) => [ch, g.measureText(ch).width]));
+      atlas.push([`k|${c.k}`, FONT(600, 12), c.k], [`u|${c.u}`, FONT(500, 12), c.u]);
+      for (const ch of DIGITS) atlas.push([`d${big}|${ch}`, FONT(700, big), ch]);
+      cl.push({ x: pad + i * cw, big, adv });
+    });
+    layKey = key;
+    lay = { pad, ew, eh, top, bot, y0, rh, cw, cells: cl, atlas };
+    return lay;
+  }
+  function drawGL(now) {
+    const { w, h: hh, dpr } = fitBox(cv);
+    if (w < 120 || hh < 90) return;
+    const m = pinned ? metricsOfFp(pinned) : frame?.metrics;
+    const cells = m ? vitalCells(m, ids, xs, !!frame?.running, now) : ids.map((id) => { const def = VITALS.find((v) => v.id === id); return { id, k: def.k, u: def.u, v: NaN, bad: false, d: def.d, title: def.title }; });
+    const L = layout(w, hh, cells, dpr), { pad, ew, eh, top, bot, y0 } = L;
+    const bg = colorOf(C('--mon-bg')), text = colorOf(C('--mon-text')), bright = colorOf(C('--mon-bright')), alarm = colorOf(C('--mon-alarm')), grid = colorOf(C('--mon-grid'));
+    const ecg = colorOf(C('--mon-ecg') || C('--mon-bright')), art = colorOf(C('--mon-art') || C('--mon-bright'));
+    const inkOf = (id) => (id === 'hr' ? ecg : id === 'map' ? art : bright);
+    const rects = [[0, 0, w, hh, 12, bg], [pad, Math.round(bot - 6), ew, 1, 0, grid]], glyphs = [['EKG', pad, top + 11, text]];
+    // The strip.
+    let line = null;
+    const x1 = headX(), x0 = Math.max(x1 - SPAN_S, firstT), hr = synth ? synth.w.bpm : frame?.metrics?.hr;
+    if (Number.isFinite(x1) && x1 > x0 + 0.05 && clock.times.length) {
+      const e = ekgSeries(clock.times, x0, x1, 60 / (hr > 20 ? hr : 70));
+      const n = e.x.length;
+      if (n > 1) {
+        if (pts.length < n * 2) pts = new Float32Array(n * 4);
+        for (let i = 0; i < n; i++) {
+          pts[2 * i] = (pad + ((e.x[i] - (x1 - SPAN_S)) / SPAN_S) * ew) * dpr;
+          pts[2 * i + 1] = (bot - 6 - ((e.v[i] + 0.3) / 1.3) * (eh - 22)) * dpr;
+        }
+        line = { pts, n, half: 0.8 * dpr, col: ecg, clip: [pad * dpr, top * dpr, ew * dpr, eh * dpr] };
+      }
+    }
+    // The readings, eased to their values as on the 2D canvas.
+    let moving = false;
+    if (m) {
+      cells.forEach((c, i) => {
+        let val = '—';
+        if (Number.isFinite(c.v)) {
+          let sv = shownV.get(c.id);
+          if (sv == null) sv = c.v;
+          else if (Math.abs(c.v - sv) < Math.pow(10, -c.d) * 0.05) sv = c.v;
+          else { sv += (c.v - sv) * (1 - Math.exp(-clamp((now - last) / 1000, 0, 0.1) / EASE_S)); moving = true; }
+          shownV.set(c.id, sv); val = fmt(sv, c.d);
+        }
+        const { x, big, adv } = L.cells[i], by = y0 + 12 + 6 + big;
+        let nw = 0; for (const ch of val) nw += adv.get(ch) ?? 0;
+        glyphs.push([`k|${c.k}`, x, y0 + 12, c.bad ? alarm : inkOf(c.id) === bright ? text : inkOf(c.id)]);
+        if (c.bad) rects.push([x - 5, by - big * 0.78 - 4, nw + 10, big * 0.78 + 10, 5, alarm]);
+        let cx = x;
+        for (const ch of val) { glyphs.push([`d${big}|${ch}`, cx, by, c.bad ? bg : inkOf(c.id)]); cx += adv.get(ch) ?? 0; }
+        glyphs.push([`u|${c.u}`, x + nw + 5, by, c.bad ? alarm : text]);
+      });
+    }
+    const drawn = glr.draw({ W: cv.width, H: cv.height, dpr, epoch: fontEpoch, atlas: L.atlas, rects, line, glyphs });
+    if (!drawn && !glr.lost && !ticking && !raf) raf = nextFrame((t) => { raf = 0; draw(t); });   // (its programs are not ready yet: the next frame)
+    if (!m) return;
+    last = now;
+    const label = `Vital signs: ${cells.map((c) => `${c.title} ${Number.isFinite(c.v) ? fmt(c.v, c.d) : 'not available'} ${c.u}${c.bad ? ', past its limit' : ''}`).join('; ')}.`;
+    if (label !== lastLabel) { lastLabel = label; cv.setAttribute('aria-label', label); }
+    eased = moving;
+    if (moving && !raf && !ticking) raf = nextFrame((t) => { raf = 0; draw(t); });
+  }
+  cv.addEventListener('webglcontextrestored', () => { layKey = ''; draw(); });
+
   // While the model runs and the card is on screen the strip scrolls on every frame the screen offers; otherwise it is drawn when something changes.
   // (One frame asked for at a time (loopRaf), let go with the strip: dispose. eased: the numbers were still easing at the last draw.)
   // (Battery saver or Settings › Figure performance › Motion at 60: the strip scrolls at that pace, as the figure's steady motion does;
@@ -240,6 +333,6 @@ export function createVitalsMonitor({ stillLayer = true } = {}) {
     clear() { clock.reset(); raw.t.length = raw.ph.length = 0; lastT = -Infinity; firstT = Infinity; synth = null; off = 0; synthed = false; xs.clear(); shownV.clear(); if (frame) draw(); },
     backfill, historySecs: () => SPAN_S,
     restart() { this.clear(); },
-    dispose() { gone = true; cancelFrame(raf); raf = 0; cancelFrame(loopRaf); loopRaf = 0; ticking = false; io?.disconnect(); ro?.disconnect(); stillTop.drop(); stillCells.drop(); },
+    dispose() { gone = true; cancelFrame(raf); raf = 0; cancelFrame(loopRaf); loopRaf = 0; ticking = false; io?.disconnect(); ro?.disconnect(); stillTop.drop(); stillCells.drop(); glr?.dispose(); },
   };
 }

@@ -7,7 +7,7 @@
 // Its three programs are started when the monitor is made (gl-compile.js) and published once the driver says they are done; a frame
 // before that draws nothing new. A lost context draws nothing until it is restored, when everything is made again.
 import { startProgram, compileDone, checkProgram } from './gl-compile.js?v=e48e05cdb3';
-import { cssVar } from './util.js?v=f7055730cc';
+import { cssVar } from './util.js?v=c8ef361fbc';
 
 /** '#rgb', '#rrggbb', 'rgb()' or 'rgba()' as premultiplied [r, g, b, a] in 0–1. */
 export function colorOf(c) {
