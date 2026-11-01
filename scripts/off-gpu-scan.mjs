@@ -67,8 +67,9 @@ function walk(dir, out = []) {
   return out;
 }
 
-export function ownerOf(file, cat) {
-  for (const o of OWNERS.byCategory) if (o.cats.includes(cat) && (!o.files || o.files.some((f) => file.includes(f)))) return o.thread;
+export function ownerOf(file, cat, fn = '') {
+  // (fns: an entry for some functions of a file only, matched against the hit's function path.)
+  for (const o of OWNERS.byCategory) if (o.cats.includes(cat) && (!o.files || o.files.some((f) => file.includes(f))) && (!o.fns || o.fns.some((f) => String(fn).includes(f)))) return o.thread;
   for (const o of OWNERS.byFile) if (o.files.some((f) => file.includes(f))) return o.thread;
   return OWNERS.unassigned;
 }
@@ -179,7 +180,7 @@ function parseJs(file, text) {
 export function scan({ root = ROOT } = {}) {
   const hits = [];
   sites = new Set();
-  const push = (cat, file, line, fn, detail) => (look(cat, file, line), hits.push({ cat, file, line, fn, detail: String(detail).slice(0, 260), owner: ownerOf(file, cat) }));
+  const push = (cat, file, line, fn, detail) => (look(cat, file, line), hits.push({ cat, file, line, fn, detail: String(detail).slice(0, 260), owner: ownerOf(file, cat, fn) }));
   const files = [...walk(join(root, 'src')), ...walk(join(root, 'styles')), join(root, 'index.html')].map((p) => relative(root, p).split('\\').join('/'));
 
   // Per JS file: functions, their calls, frame seeds, deferred hits (frame-only categories).

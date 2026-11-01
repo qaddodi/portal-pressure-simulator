@@ -59,7 +59,8 @@ test('label-gl follows a label\'s own animations and still reads hovers, focus a
   assert.match(src, /const EXACT = new Set\(\['pointerover', 'pointerout', 'focusin', 'focusout'\]\)/);
   assert.match(src, /g\.getAnimations\(\{ subtree: true \}\)/);
   assert.match(src, /labeltrack=0/);
-  assert.match(src, /holecache=0/);
+  // (The canvas's place is read only when the page may have moved it, never in a frame: no ?holecache=0 any more.)
+  assert.match(src, /const holeOrigin = \(\) => holeCr;/);
   assert.match(src, /atlasidle=0/);
   assert.match(src, /if \(needRepack && \(!ATLAS_IDLE \|\| !moving\)\) repack\(\);/);
 });

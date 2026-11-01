@@ -25,7 +25,7 @@ import { trackOf, trackAt, mixColour } from './label-track.js?v=56dc51edb3';
 // mask as its shape changes, in the frame, as before. ?atlasidle=0: a full atlas is packed again at once, mid-move, and its second page
 // made only when a picture first needs it, as before.
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
-const TRACK = !/[?&]labeltrack=0\b/.test(SEARCH), HOLE_CACHE = !/[?&]holecache=0\b/.test(SEARCH), ATLAS_IDLE = !/[?&]atlasidle=0\b/.test(SEARCH);
+const TRACK = !/[?&]labeltrack=0\b/.test(SEARCH), ATLAS_IDLE = !/[?&]atlasidle=0\b/.test(SEARCH);
 
 const nextFrame = frameFor('labels-gl');
 const VS = `#version 300 es
@@ -388,8 +388,7 @@ const roundRect = (ctx, x, y, w, h, r) => {
 // ?beamgl=0: the 2D picture, as before.
 const BEAM_GL = !/[?&]beamgl=0\b/.test(SEARCH);
 // A callout's shaped hole (the glass's outline the labels leave out) filled into its mask by the GPU's shape drawer (shape-gl.js), not
-// painted on a 2D canvas and uploaded. ?holegl=0: the 2D canvas, as before.
-const HOLE_GL = !/[?&]holegl=0\b/.test(SEARCH);
+// painted on a 2D canvas and uploaded (the only way since 1 Nov: no 2D mask is made at all).
 /** The beam's path (apex, a side, an arc of radius r to the other side) and its blur as a sector, in its own units, or null. */
 export function beamSector({ d, filter }) {
   const n = String(d || '').match(/-?[\d.]+(?:e-?\d+)?/g)?.map(Number);
@@ -587,7 +586,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const dirty = new Set();
   const scratch = document.createElement('canvas');
   // The label layer's inline style (the dive's zoom and fade, its visibility) is the canvas's too; its classes' rules are in app.css.
-  const copyStyle = () => { const w = canvas.style.width, h = canvas.style.height; canvas.style.cssText = svg.style.cssText; canvas.style.width = w; canvas.style.height = h; holeCr = null; };
+  const copyStyle = () => { const w = canvas.style.width, h = canvas.style.height; canvas.style.cssText = svg.style.cssText; canvas.style.width = w; canvas.style.height = h; placeSoon(); };
   if (!host) new MutationObserver(copyStyle).observe(svg, { attributes: true, attributeFilter: ['style'] });
   // (Host mode: the layer's own fade or visibility changed (the dive's, a camera move's): whether the labels may be drawn over the
   // figure is asked again, at the next picture, and when its fade ends, so they come back onto the GPU once it has settled.)
@@ -670,7 +669,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     return true;
   }
   // (Its callback runs once the page is laid out: the canvas's place read there costs no extra layout.)
-  new ResizeObserver(() => { if (!host && HOLE_CACHE && holes.length) holeCr = canvas.getBoundingClientRect(); else holeCr = null; if (size()) ask(); }).observe(svg.parentElement);
+  new ResizeObserver(() => { placeHoles(); if (size()) ask(); }).observe(svg.parentElement);
   matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener?.('change', () => { size(); ask(); });
   size();
   function ask() {
@@ -923,24 +922,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     let m = holeMasks.get(h.el);
     if (m?.key === key) return m;
     const mw = Math.max(1, Math.ceil(h.lw * dpr)), mh = Math.max(1, Math.ceil(h.lh * dpr));
-    if (HOLE_GL) return holeMaskGL(h, m, key, mw, mh);
-    const cv = document.createElement('canvas');
-    cv.width = mw; cv.height = mh;
-    const c = cv.getContext('2d');
-    c.setTransform(dpr, 0, 0, dpr, 0, 0); c.fillStyle = 'black'; c.fill(new Path2D(h.d));
-    if (!m) {
-      m = { tex: gl.createTexture() };
-      gl.bindTexture(gl.TEXTURE_2D, m.tex);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    }
-    gl.bindTexture(gl.TEXTURE_2D, m.tex);
-    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv);
-    // (The share of the mask the path fills: its canvas is rounded up to whole pixels.)
-    Object.assign(m, { key, sw: h.lw * dpr / mw, sh: h.lh * dpr / mh });
-    holeMasks.set(h.el, m);
-    return m;
+    return holeMaskGL(h, m, key, mw, mh);
   }
   // The shaped hole's mask on the GPU: the path's coverage (shape-gl's stencil fill, its edge smoothed) in every channel of a texture of
   // its own, laid as the 2D one was (its first row the path's top). The blend cutHoles set is set again after (the fill leaves it off).
@@ -977,12 +959,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
     holeMasks.set(h.el, m);
     return m;
   }
-  // (HOLE_CACHE: the canvas's place on the page, read when the stage is laid out again (its resize, the window's, a scroll, its own style
-  // changing), not at every picture: a read in the frame, after the stage has written that frame's places, made the browser lay the page
-  // out again mid-frame.)
-  let holeCr = null;
-  const holeOrigin = () => (HOLE_CACHE && holeCr) || (holeCr = canvas.getBoundingClientRect());
-  if (!host && HOLE_CACHE) { addEventListener('resize', () => { holeCr = null; }); addEventListener('scroll', () => { holeCr = null; }, { capture: true, passive: true }); }
+  // (The canvas's place on the page, read only when the page may have moved it: the stage laid out again (its resize, the window's), its own
+  // style changing, a scroll (read in a task after it, once per burst). Never in a frame: a read there, after the stage has written that
+  // frame's places, made the browser lay the page out again mid-frame.)
+  let holeCr = { left: 0, top: 0 }, holeT = 0;
+  function placeHoles() { if (!host) holeCr = canvas.getBoundingClientRect(); }
+  function placeSoon() { if (!host && !holeT) holeT = setTimeout(() => { holeT = 0; placeHoles(); }, 0); }
+  const holeOrigin = () => holeCr;
+  if (!host) { addEventListener('resize', placeHoles); addEventListener('scroll', placeSoon, { capture: true, passive: true }); }
   function cutHoles() {
     const cr = holeOrigin();
     // (Each hole takes away what lies under it: the destination kept by one less the hole's cover.)
