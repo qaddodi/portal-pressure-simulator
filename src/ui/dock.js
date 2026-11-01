@@ -35,7 +35,7 @@ export const TILES = [
     scale: [0, 25], ticks: [HVPG_CUTS.amber, HVPG_CUTS.red],
     st: hvpgSev,
     s: (v) => ({ ok: 'Normal', caution: 'Mild', danger: 'CSPH' })[hvpgSev(v)] },
-  { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portosystemic pressure gradient: portal confluence − inferior vena cava at the right atrium, directly from the model network. Unlike HVPG it also includes resistance before the liver (presinusoidal or prehepatic). Normal < 6, high ≥ 12 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
+  { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portal pressure gradient: portal confluence − inferior vena cava at the right atrium, directly from the model network. Unlike HVPG it also includes resistance before the liver (presinusoidal or prehepatic). Normal < 6, high ≥ 12 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
     scale: [0, 25], ticks: [PPG_CUTS.amber, PPG_CUTS.red],
     st: ppgSev, s: (v) => ({ ok: 'Normal', caution: 'High', danger: 'Bleed risk' })[ppgSev(v)] },
   { id: 'pv', group: 'pressure', k: 'Portal pressure', ks: 'Portal P', title: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',

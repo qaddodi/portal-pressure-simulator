@@ -349,3 +349,8 @@ test('History says a put-away change as what is off: acronyms keep their case, v
   assert.match(t, /parts\.push\(removedLabel\(k, l\)\)/);
   assert.doesNotMatch(t, /toLowerCase\(\)\}`\)/);
 });
+
+test('the PPG tile names the gradient as the rest of the app does (portal pressure gradient)', () => {
+  assert.match(dock, /id: 'ppg'[^\n]*title: 'Portal pressure gradient: portal confluence/);
+  assert.doesNotMatch(dock, /Portosystemic pressure gradient/);
+});
