@@ -50,7 +50,7 @@ import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
-import { follow2, createColourFollow } from './display-state.js?v=8d062d39dc';
+import { follow2, createColourFollow, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=82a8bfadac';
 import { retireRows, flowClose } from './flow-rows.js?v=59053c0155';
 import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=6432b95cb3';
@@ -6733,8 +6733,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const pinned = () => (store.get().presenting ? slideFp || store.get().presentFp : null);
   const breath = (v) => Math.max(0.8, Math.abs(v) * 0.08);   // (how far the live model may breathe from a pinned number and still read it)
   // The "Portal blood" callout: the share that bypasses the liver as its headline, over one bar split into the liver's
-  // share (portal pink) and the shunts' (tinted like the shunt tile: plain, amber, red). A new share counts and slides
-  // there over 0.8 s, eased; the callout's size never changes.
+  // share (portal pink) and the shunts' (tinted like the shunt tile: plain, amber, red). The bar follows the share it is
+  // asked for through the one filter the tiles' bars follow theirs with (display-state.js follow2, SHOWN_TAU): a new share
+  // glides in, a share that keeps moving (a running model's mean, a what-if slider) is followed as it goes, and the callout's
+  // size never changes.
   function splitShow(el, sh) {
     const p = portalSplit(sh), [n, lt, st] = el.querySelectorAll('.sp-n, .sp-lt, .sp-st'), lx = `To the liver ${p.liver}%`, sx = `Shunts ${p.shunt}%`;   // (a share of the portal blood: never read as the tile's liver flow, % of normal)
     if (n.textContent !== `${p.shunt}`) n.textContent = `${p.shunt}`;
@@ -6743,20 +6745,36 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     el.style.setProperty('--sp-lf', (1 - sh).toFixed(4)); el.style.setProperty('--sp-sf', sh.toFixed(4));
     el.style.setProperty('--sp-lm', p.liver ? '4px' : '0px'); el.style.setProperty('--sp-sm', p.shunt ? '4px' : '0px');   // a share that rounds above 0 keeps a sliver; 0 leaves none
   }
+  // (What a quarter of a pixel of the bar is, and under, cannot be seen: a share that far from the one shown lands, and is drawn
+  // only when the bar or the number it prints would change, so a model that only breathes costs no styles.)
+  const SPLIT_EPS = 0.002, SPLIT_DRAW = 0.0005;
+  function splitPaint(el, sh, landed) {
+    const d = el._shDrawn;
+    if (d === sh || (d != null && !landed && Math.abs(sh - d) < SPLIT_DRAW && portalSplit(sh).shunt === portalSplit(d).shunt)) return;
+    el._shDrawn = sh; splitShow(el, sh);
+  }
+  // splitTo only sets the share the bar aims at; the bar's own frames follow it. An ease that began afresh at each new share ran its
+  // first step at no distance, so a share that changed every frame (the live model's running mean) cancelled each step before it
+  // ran and the bar froze, 1 Nov. Here nothing restarts: a moving target is followed, from where the bar is, and never snaps.
+  // (_sh the share shown, _shW the filter's first stage, _shAt the clock of its last step; the frame's own time can be a few ms before
+  // the moment splitTo asked, so a step never runs on a negative interval. A tile that has left the page lands on its share at once,
+  // not part way: _shTo already holds it, so the same share asked for again would otherwise never move it.)
+  function splitStep(el, now) {
+    el._shRaf = 0;
+    const T = el._shTo, dt = Math.max(0, (now - el._shAt) / 1000);
+    el._shAt = now;
+    if (el.isConnected) { const r = follow2(el._sh, el._shW, T, dt, SHOWN_TAU, SPLIT_EPS); el._sh = r.v; el._shW = r.w; } else el._sh = el._shW = T;
+    const landed = el._sh === T && el._shW === T;
+    splitPaint(el, el._sh, landed);
+    if (!landed) el._shRaf = frame(el._shStep, 'stage-ease');
+  }
   function splitTo(el, to) {
     if (el._shTo === to) return;
     el._shTo = to; el.dataset.rate = portalSplit(to).rate;
-    cancelFrame(el._shRaf);
-    if (el._sh == null || matchMedia('(prefers-reduced-motion: reduce)').matches) { splitShow(el, el._sh = to); return; }
-    const from = el._sh, t0 = performance.now();
-    // (The frame's own time can be a few ms before t0, so k is held at 0, not let run negative. A tile that has left the page lands on
-    // its share at once, not part way: _shTo already holds it, so the same share asked for again would otherwise never move it.)
-    const step = (now) => {
-      const k = clamp((now - t0) / 800, 0, 1), landed = k >= 1 || !el.isConnected;
-      splitShow(el, el._sh = landed ? to : from + (to - from) * easeInOut(k));
-      if (!landed) el._shRaf = frame(step, 'stage-ease');
-    };
-    el._shRaf = frame(step, 'stage-ease');
+    const rest = !el._shRaf;
+    if (el._sh == null || matchMedia('(prefers-reduced-motion: reduce)').matches) { cancelFrame(el._shRaf); el._shRaf = 0; el._shW = el._sh = to; splitPaint(el, to, true); return; }
+    if (rest && Math.abs(to - el._sh) < SPLIT_EPS) { el._shW = el._sh = to; splitPaint(el, to, false); return; }
+    if (rest) { el._shAt = performance.now(); el._shStep ||= (now) => splitStep(el, now); el._shRaf = frame(el._shStep, 'stage-ease'); }
   }
   const siteLive = (f, live, tol) => Number.isFinite(live) ? (Number.isFinite(f) && Math.abs(live - f) < tol ? f : live) : f;
   // Where a reading stands on the stage (its CSS translate worked out here, so placing it reads no layout), pointer included:
