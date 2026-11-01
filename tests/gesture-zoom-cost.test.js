@@ -22,7 +22,7 @@ test('the figure\'s labels are carried further during a hand\'s zoom, never onto
   assert.match(ul, /dz > \(hand \? SOLVE_ZOOM_HAND : SOLVE_ZOOM\)/);
   assert.match(ul, /else if \(hand \|\| reslotted\) labelSettleSoon\(\);/);
   // (A carry past 5 % that would put a label on another, or on a callout, is solved at once.)
-  assert.match(stage, /if \(carryClear && \(placed\.some\(\(p\) => !p\.dot && hits\(rectOf\(it\), p\)\) \|\| callouts\.some\(\(b\) => hits\(rectOf\(it\), b\)\)\)\) \{ stale = true; return false; \}/);
+  assert.match(stage, /if \(carryClear && \(placed\.some\(\(p\) => !p\.dot && hits\(box, p\)\) \|\| callouts\.some\(\(b\) => hits\(box, b\)\)\)\) \{ stale = true; return false; \}/);
   // (Settled: solved again once no hand is on it, the labels gliding to their spots: labelGlide.)
   assert.match(body(stage, 'function labelSettleSoon('), /if \(gestureOn\(\)\) \{ labelSettleT = setTimeout\(settle, 120\); return; \}/);
 });

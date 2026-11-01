@@ -9573,8 +9573,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         }
         if (!reslot) {
           // (Carried past the usual 5 % by a hand's zoom: a label that would come onto another, or onto a slide's callout, is solved again.)
-          if (carryClear && (placed.some((p) => !p.dot && hits(rectOf(it), p)) || callouts.some((b) => hits(rectOf(it), b)))) { stale = true; return false; }
-          placed.push(rectOf(it)); out.push(it);
+          const box = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it);   // (a turned caption's box is turned too, as when it was solved)
+          if (carryClear && (placed.some((p) => !p.dot && hits(box, p)) || callouts.some((b) => hits(box, b)))) { stale = true; return false; }
+          placed.push(box); out.push(it);
           return true;
         }
       }
@@ -10295,7 +10296,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.live) { it.hide = false; continue; }
       // A label a pan has pushed over the stage edge is pulled back inside (with a leader to its station)
       // so it is never cut off; once its station has left the stage the label goes too.
-      const edge = rectOf(it), V = viewOf(it);
+      // (A caption turned upright takes its box turned too: pulled in by its unturned box, one beside the right edge slid left across the lanes.)
+      const edge = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it), V = viewOf(it);
       // An organ's name is pinned inside its organ: where a card or the stage edge covers it, it hides with the organ, never slides.
       if (it.cls === 'organ') { const was = labelVis.get(it.key) !== false, m = was ? 0 : 10; it.hide = !within({ x0: edge.x0 - m, y0: edge.y0 - m, x1: edge.x1 + m, y1: edge.y1 + m }, V) || obstacles.some((o) => hits(edge, o)); labelVis.set(it.key, !it.hide); continue; }
       const cx = Math.max(V.x0 - edge.x0, Math.min(0, V.x1 - edge.x1)), cy = Math.max(V.y0 - edge.y0, Math.min(0, V.y1 - edge.y1));

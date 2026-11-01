@@ -17,7 +17,18 @@ test('a reading bumped onto a ring mid-gesture is placed again alone; otherwise 
   // A spot only a whole solve could give (none, on a vessel, on a callout) solves them all.
   assert.match(pm, /if \(reslot && \(!best \|\| lineHits\(best\.r, 2\) \|\| callouts\.some\(\(b\) => hits\(best\.r, b\)\)\)\) \{ stale = true; return false; \}/);
   // The carried ones are carried exactly as before.
-  assert.match(pm, /if \(!reslot\) \{\n[^\n]*\n\s*if \(carryClear && \(placed\.some/);
+  assert.match(pm, /if \(!reslot\) \{\n[^\n]*\n\s*const box = it\.rot \? rectOf\(\{ \.\.\.it, w: it\.h, h: it\.w \}\) : rectOf\(it\);[^\n]*\n\s*if \(carryClear && \(placed\.some/);
+});
+
+test('a lane caption turned upright is kept inside the stage by its turned box, never the unturned one', () => {
+  // Pulled in by its unturned box (as wide as its text is long), one beside the stage's right edge on a phone was slid left across
+  // the lanes beside it ("Epigastric -> SVC" on the iPhone's upright Circuit).
+  assert.match(stage, /const edge = it\.rot \? rectOf\(\{ \.\.\.it, w: it\.h, h: it\.w \}\) : rectOf\(it\), V = viewOf\(it\);/, 'the pull-in');
+  assert.match(stage, /const boxOf = \(it\) => \(it\.rot \? rectOf\(\{ \.\.\.it, w: it\.h, h: it\.w \}\) : rectOf\(it\)\);/, 'the overlap pass');
+  // A carried one keeps the box it was solved with.
+  assert.match(pm, /const box = it\.rot \? rectOf\(\{ \.\.\.it, w: it\.h, h: it\.w \}\) : rectOf\(it\);[^\n]*\n\s*if \(carryClear && \(placed\.some\(\(p\) => !p\.dot && hits\(box, p\)\)[^\n]*\n\s*placed\.push\(box\); out\.push\(it\);/);
+  // The solve probes the turned box too.
+  assert.match(pm, /const probe = it\.rot \? \{ \.\.\.it, w: it\.h, h: it\.w \} : \{ \.\.\.it, w: wRes \};/);
 });
 
 test('once the hand lets go, every reading is solved together', () => {
