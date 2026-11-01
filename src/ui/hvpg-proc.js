@@ -10,13 +10,13 @@
 
 import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=73d39176eb';
 import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { FONT } from './charts.js?v=d3950f5ca8';
+import { FONT } from './charts.js?v=6a7a378639';
 import { pressureColor } from './colormap.js?v=1e3a1162cc';
 import { store, logAction, hiddenNow, updateParams } from './store.js?v=4ef2a6ffd8';
 import { shownOr } from './shown.js?v=d456014820';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=95f13823ce';
 import { frameFor, cancelFrame } from './frame.js?v=7710f677e2';
-import { createTraceGL, fitPen } from './trace-gl.js?v=940b907fc3';
+import { createTraceGL, fitPen } from './trace-gl.js?v=f0965e42db';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
 import { rateOf } from './table-marks.js?v=ff3ed0cc47';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=4f9eb5f262';

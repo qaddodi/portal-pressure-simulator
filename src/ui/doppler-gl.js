@@ -8,7 +8,8 @@
 //
 // The same picture: the ring and the noise are read texel for texel where the 2D draws copied them pixel for pixel (no
 // smoothing), the noise is added and clamped as 'lighter' adds it, and the band darkens as the gradient's black did.
-// doppler.js keeps its 2D path where WebGL2 is missing, on a software renderer (the browser checks), or when the context is lost.
+// There is no 2D path any more (the owner, 1 Nov 2026: nothing off the GPU): a monitor with no WebGL2 shows its words over a black trace,
+// and a lost context shows the trace black until the ring is sent again.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
 
@@ -37,17 +38,13 @@ void main() {
   o = vec4(col * (1.0 - a), 1.0);
 }`;
 
-/** The monitor's GPU drawer, or null where WebGL2 is missing or the renderer is software (the 2D path stays). */
+/** The monitor's GPU drawer, or null where WebGL2 is missing (the trace then stays black: nothing of it is drawn on the CPU). */
 export function createDopplerGL() {
   if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 1;
   const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'low-power' });
   if (!gl) return null;
-  try {
-    const ri = gl.getExtension('WEBGL_debug_renderer_info');
-    if (/SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)))) { gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
-  } catch { /* the renderer's name withheld: taken as a GPU */ }
   // (lost: the GPU does not draw the monitor, from the loss until the rebuilt program is published.)
   let lost = false, dead = false;
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
@@ -120,6 +117,35 @@ export function createDopplerGL() {
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       if (src instanceof ImageData) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, bytes(src.data));
       else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+    },
+    /**
+     * A ring of a new size (w × h) from the one the GPU holds, stretched as the 2D canvas's copies did: the ring turned so its oldest line
+     * (column po + 1) is on the left, then laid with that line at column sx, scaled to the new size. Two blits each way, on the GPU.
+     * False where there is nothing to stretch (the ring is then sent whole).
+     */
+    stretch(w, h, po, sx) {
+      if (lost || failed || gl.isContextLost() || !rw || !rh || w < 1 || h < 1) return false;
+      const oW = rw, oH = rh, T = tex(), N = tex();
+      gl.bindTexture(gl.TEXTURE_2D, T); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, oW, oH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindTexture(gl.TEXTURE_2D, N); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      const rf = gl.createFramebuffer(), df = gl.createFramebuffer();
+      const blit = (src, dst, sx0, sx1, dx0, dx1, sh, dh, filter) => {
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, rf); gl.framebufferTexture2D(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, src, 0);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, df); gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, dst, 0);
+        gl.blitFramebuffer(sx0, 0, sx1, sh, dx0, 0, dx1, dh, gl.COLOR_BUFFER_BIT, filter);
+      };
+      gl.disable(gl.SCISSOR_TEST);
+      // (turned: old columns po + 1 … end first, then 0 … po)
+      if (po + 1 < oW) blit(ringT, T, po + 1, oW, 0, oW - po - 1, oH, oH, gl.NEAREST);
+      blit(ringT, T, 0, po + 1, oW - po - 1, oW, oH, oH, gl.NEAREST);
+      // (laid: the turned ring scaled into new columns sx … end, then 0 … sx − 1)
+      const fx = oW / w, cut = Math.round((w - sx) * fx);
+      if (w - sx > 0) blit(T, N, 0, cut, sx, w, oH, h, gl.LINEAR);
+      if (sx > 0) blit(T, N, cut, oW, 0, sx, oH, h, gl.LINEAR);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.deleteFramebuffer(rf); gl.deleteFramebuffer(df); gl.deleteTexture(T); gl.deleteTexture(ringT);
+      ringT = N; rw = w; rh = h;
+      return true;
     },
     /** Columns x0 … x0 + n − 1 of the ring from the ImageData img (the ring's size), as synthesised. */
     ringCols(img, x0, n) {

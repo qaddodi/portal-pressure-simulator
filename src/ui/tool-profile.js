@@ -18,7 +18,7 @@ import { RATE } from './table-marks.js?v=ff3ed0cc47';
 import { monotoneSegs } from './curve-near.js?v=663c98a29c';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { pressureColor } from './colormap.js?v=1e3a1162cc';
-import { measure } from './glyph-measure.js?v=857a31abc9';
+import { measure } from './glyph-measure.js?v=9f91f3677d';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;

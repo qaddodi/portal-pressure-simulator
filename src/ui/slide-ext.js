@@ -19,7 +19,7 @@
 // Every call into a package is guarded, so a package that throws loses its own feature and never stops a talk.
 
 import highlights from './ext-highlights.js?v=9e59667812';
-import charts from './ext-charts.js?v=47a4bfa6d5';
+import charts from './ext-charts.js?v=111bfc2cb5';
 import model from './ext-model.js?v=d6225a9f63';
 import panels from './ext-panels.js?v=6e8faa1600';
 import callouts from './ext-callouts.js?v=63d28fc0a3';

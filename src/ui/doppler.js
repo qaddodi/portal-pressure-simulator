@@ -5,19 +5,20 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=73d39176eb';
-import { FONT, textW } from './charts.js?v=d3950f5ca8';
+import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=73d39176eb';
+import { FONT, textW } from './charts.js?v=6a7a378639';
 import { logAction, shownVel, store } from './store.js?v=4ef2a6ffd8';
 import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=714910469c';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=7710f677e2';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=15fc499dcd';
-import { createDopplerGL } from './doppler-gl.js?v=ae78ac5c22';
+import { createDopplerGL } from './doppler-gl.js?v=ff3f96a0b5';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { olderThan } from './backfill.js?v=455d888760';
 import { createFollow } from './display-state.js?v=8d062d39dc';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
+import { createTraceGL, fitPen } from './trace-gl.js?v=f0965e42db';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -122,13 +123,15 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const WAVE_PX = 20;   // the a, S, v, D letters: large enough to read against the card text
   const cv = h('canvas', { role: 'img', 'aria-label': 'Spectral Doppler' });
   const box = h('div', { class: 'chart-box dark dop-box' }, cv);
-  // The trace (the ring, the noise floor, the wall filter's band) is drawn on the GPU into a canvas under this one, which then
-  // clears the trace's rectangle and keeps the margins, words, ticks and calipers (doppler-gl.js; Mohammad, 22 Oct: "Move to
-  // GPU"). Without WebGL2, on a software renderer or after a lost context the 2D path below draws the trace as before.
+  // The trace (the ring, the noise floor, the wall filter's band) is drawn on the GPU into a canvas under this one (doppler-gl.js;
+  // Mohammad, 22 Oct: "Move to GPU"), and the margins, words, ticks and calipers by the GPU's chart drawer in a canvas over it
+  // (trace-gl.js; 1 Nov: nothing off the GPU). This canvas is only their host: it takes the pointer and is never drawn (?tracegl=0 draws
+  // the margins and words on it, as before). Nothing of the trace is drawn on the CPU: without WebGL2 it stays black.
   const gpu = createDopplerGL();
   if (gpu) { gpu.canvas.setAttribute('aria-hidden', 'true'); cv.before(gpu.canvas); }
-  // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only. The trace on the GPU; the margins, words and calipers stay 2D.)
-  const offSurface = surface('Doppler trace', () => (!cv.isConnected ? null : gpu && !gpu.lost ? { on: 'mixed', via: 'trace WebGL2, words and calipers 2D canvas' } : { on: 'fallback', via: '2D canvas', why: gpu ? 'context lost' : 'no WebGL2 or a software renderer' }));
+  const words = createTraceGL(cv, { redraw: () => redraw() });
+  // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
+  const offSurface = surface('Doppler trace', () => (!cv.isConnected ? null : gpu && !gpu.lost ? { on: cv.style.opacity === '0' ? 'gpu' : 'mixed', via: cv.style.opacity === '0' ? 'trace and words WebGL2' : 'trace WebGL2, words 2D canvas (?tracegl=0)' } : { on: 'fallback', via: 'none', why: gpu ? 'context lost' : 'no WebGL2' }));
 
   // The report
   const dirEl = h('b', { class: 'dop-dir' }, '—');
@@ -535,9 +538,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
   let tDisp = null;     // the display clock (model seconds)
   let wallLast = 0;
   let ovLast = '', ovAt = 0, ovOn = false, ovTop = 26;   // the report in the top strip (see draw)
-  let img = null, off = null, octx = null, colCv = null, cctx = null;
-  let floor = null, noiseAt = 0, nx = 0, ny = 0, traceBox = null;
-  let glFrom = null;    // what the GPU's ring texture still needs whole: 'img' (the ImageData) or 'off' (the ring canvas), else only new columns
+  let img = null;
+  let floor = null, noiseAt = 0, nx = 0, ny = 0, traceBox = null;   // (floor: the noise texture's size and density, { width, height, dpr })
+  let glFrom = null;    // 'img': the GPU's ring texture needs the whole ImageData, else only new columns
+  let imgWhole = false;  // (whether the ImageData holds the whole ring: not after a stretch on the GPU, which leaves it the new lines alone)
   let ringKey = '', lastCol = null, jit = 0, lineGain = 0, spk = null;
   const cc = [0, 0, 0, 0], sc = [0, 0, 0];   // scratch: one pixel's colour
   const A_SIG = 10 ** 2.8;          // signal power over the noise floor (≈ 28 dB)
@@ -547,7 +551,6 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const PAD = 96;                   // the noise texture is this much larger than the display
   const live = () => !!frame?.running;
   const expo = () => -Math.log(1 - Math.random() * 0.999999);
-  const mk = (w, h) => typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h });
 
   // Model time shown at the right edge. Follows the samples by ~0.16 s of wall time so there is
   // always data to draw, and eases back to that lag instead of jumping when frames come unevenly.
@@ -596,8 +599,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
         F[q] = 236 * I; F[q + 1] = 240 * I; F[q + 2] = 250 * I; F[q + 3] = 255;
       }
     }
-    floor = mk(TW, TH); floor.getContext('2d').putImageData(fi, 0, 0);
-    floor.dpr = cw;
+    floor = { width: TW, height: TH, dpr: cw };
     gpu?.noise(fi);
   }
 
@@ -807,21 +809,27 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }
 
   function draw(now = performance.now()) {
+    const pen = fitPen(cv, words);
+    try { drawWith(pen, now); } finally { pen.ctx.end?.(); }
+  }
+  function drawWith({ ctx, w, h: hh }, now) {
     labBusy = false;
-    const { ctx, w, h: hh } = fitCanvas(cv);
-    const dpr = cv.width / Math.max(1, w);
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const z = canvasSize(cv), CW = z.W, CH = z.H, dpr = CW / Math.max(1, w), onPen = ctx.onGPU === true;
     ctx.fillStyle = cssVar('--black');
-    // (The trace's own rectangle is drawn whole and opaque below, so only the margins are cleared: the whole canvas was, every
-    // frame, at the phone's three pixels per point.)
     const onGpu = !!gpu && !gpu.lost;
-    if (traceBox && traceBox[2] > 0 && traceBox[3] > 0 && traceBox[0] >= 0 && traceBox[1] >= 0 && traceBox[0] + traceBox[2] <= cv.width && traceBox[1] + traceBox[3] <= cv.height) {
-      const [bx, by, bw, bh] = traceBox;
-      ctx.fillRect(0, 0, cv.width, by); ctx.fillRect(0, by + bh, cv.width, cv.height - by - bh);
-      ctx.fillRect(0, by, bx, bh); ctx.fillRect(bx + bw, by, cv.width - bx - bw, bh);
-    } else ctx.fillRect(0, 0, cv.width, cv.height);
+    // On the GPU's drawer the words lie over the trace's own canvas, which is black round the trace: nothing to lay. On this canvas
+    // (?tracegl=0) the margins are laid black and the trace's rectangle cleared to show it.
+    if (!onPen) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      if (traceBox && traceBox[2] > 0 && traceBox[3] > 0 && traceBox[0] >= 0 && traceBox[1] >= 0 && traceBox[0] + traceBox[2] <= CW && traceBox[1] + traceBox[3] <= CH) {
+        const [bx, by, bw, bh] = traceBox;
+        ctx.fillRect(0, 0, CW, by); ctx.fillRect(0, by + bh, CW, CH - by - bh);
+        ctx.fillRect(0, by, bx, bh); ctx.fillRect(bx + bw, by, CW - bx - bw, bh);
+        ctx.clearRect(bx, by, bw, bh);
+      } else ctx.fillRect(0, 0, CW, CH);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    } else if (!onGpu) ctx.fillRect(0, 0, w, hh);
     traceBox = null;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // On a slide's data card the report sits in the top strip (CSS sets --dop-ov on the box): the strip is as tall as the
     // report, and the vessel and settings move to the bottom strip under the second ticks. Read again when the size changes.
     // (Its height is read only when the strip was refitted or the size changed, and it gives back room only by more than 4 px.)
@@ -906,77 +914,46 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const cNow = Math.floor(tNow * g.cps);
     const rest = `${scale}|${baseF}|${probe}|${sgn}|${sweepSeconds}|${mode}`, key = `${RW}x${RH}|${rest}`;
     if (!img || img.width !== RW || img.height !== RH) {
-      const old = off, oRW = img?.width, oRH = img?.height;
+      const oRW = img?.width, oRH = img?.height;
       img = new ImageData(RW, RH);
-      off = mk(RW, RH);
-      octx = off.getContext('2d');
-      // Only the size changed (a card settling as it enters, the top strip refitted): the trace already drawn is stretched
-      // to the new size in two image copies instead of being synthesised again line by line, and new lines scroll in sharp.
-      const lc = lastCol != null && old && ringKey === `${oRW}x${oRH}|${rest}` ? Math.floor(lastCol * RW / oRW) : null;
-      if (lc != null && cNow >= lc && cNow - lc < RW) {
-        const T = mk(oRW, oRH), tctx = T.getContext('2d'), po = ((lastCol % oRW) + oRW) % oRW;
-        if (po + 1 < oRW) tctx.drawImage(old, po + 1, 0, oRW - po - 1, oRH, 0, 0, oRW - po - 1, oRH);
-        tctx.drawImage(old, 0, 0, po + 1, oRH, oRW - po - 1, 0, po + 1, oRH);
-        const sx = (lc + 1) % RW, fx = oRW / RW;   // (the oldest line shown goes to ring column sx)
-        if (RW - sx > 0) octx.drawImage(T, 0, 0, (RW - sx) * fx, oRH, sx, 0, RW - sx, RH);
-        if (sx > 0) octx.drawImage(T, (RW - sx) * fx, 0, sx * fx, oRH, 0, 0, sx, RH);
-        ringKey = key; lastCol = lc; glFrom = 'off';
-      }
+      // Only the size changed (a card settling as it enters, the top strip refitted): the trace already drawn is stretched to the new
+      // size on the GPU (doppler-gl stretch) instead of being synthesised again line by line, and new lines scroll in sharp.
+      const lc = lastCol != null && ringKey === `${oRW}x${oRH}|${rest}` ? Math.floor(lastCol * RW / oRW) : null;
+      if (lc != null && cNow >= lc && cNow - lc < RW && onGpu && !glFrom && gpu.stretch(RW, RH, ((lastCol % oRW) + oRW) % oRW, (lc + 1) % RW)) { ringKey = key; lastCol = lc; imgWhole = false; }
     }
     // redraw every line after a change of scale, size or colour, or when time runs backwards
     const full = key !== ringKey || lastCol == null || cNow < lastCol || cNow - lastCol >= RW;
     const from = full ? cNow - RW + 1 : lastCol + 1;
     for (let c = from; c <= cNow; c++) writeLine(c, g);
-    if (full) { octx.putImageData(img, 0, 0); glFrom = 'img'; }
-    else if (cNow > lastCol) {
-      // The new lines go into the ring through a small canvas of their own: pixels written straight into the ring (putImageData
-      // on a canvas the size of the trace, which the browser keeps on the GPU) made it wait for the GPU and copy the whole ring
-      // back and forth on every frame; a few columns drawn from a small canvas are one small copy. The same pixels: the lines are
-      // opaque and copied one to one.
+    if (full) { glFrom = 'img'; imgWhole = true; }
+    else if (cNow > lastCol && gpu && !glFrom) {
+      // (the new lines alone go up to the GPU's ring: a texture update of those columns)
       const x0 = ((from % RW) + RW) % RW, n = cNow - from + 1;
-      if (!colCv || colCv.height !== RH || colCv.width < n) { colCv = mk(Math.max(64, 1 << Math.ceil(Math.log2(n))), RH); cctx = colCv.getContext('2d'); cctx.imageSmoothingEnabled = false; }
-      octx.imageSmoothingEnabled = false;
-      const put = (sx, w) => { cctx.putImageData(img, -sx, 0, sx, 0, w, RH); octx.drawImage(colCv, 0, 0, w, RH, sx, 0, w, RH); if (gpu && !glFrom) gpu.ringCols(img, sx, w); };
-      if (x0 + n <= RW) put(x0, n);
-      else { put(x0, RW - x0); put(0, x0 + n - RW); }
+      if (x0 + n <= RW) gpu.ringCols(img, x0, n);
+      else { gpu.ringCols(img, x0, RW - x0); gpu.ringCols(img, 0, x0 + n - RW); }
     }
     ringKey = key; lastCol = cNow;
     // copy the ring out, oldest line on the left, pixel for pixel
     const p = ((cNow % RW) + RW) % RW;
     const dx = Math.round(padL * dpr), dy = Math.round(padT * dpr);
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-    const ring = (c2, src, ox, oy) => {
-      if (p + 1 < RW) c2.drawImage(src, p + 1, 0, RW - p - 1, RH, ox, oy, RW - p - 1, RH);
-      c2.drawImage(src, 0, 0, p + 1, RH, ox + RW - p - 1, oy, p + 1, RH);
-    };
     // the noise floor, fixed to the screen: a new random view of the texture ~10 times a second
     if (!floor || floor.width < RW + PAD || floor.height < RH + PAD || floor.dpr !== Math.max(1, dpr)) makeNoise(RW, RH, g.binPx, Math.max(1, dpr));
     if (now - noiseAt > 100) { noiseAt = now; nx = (Math.random() * (floor.width - RW)) | 0; ny = (Math.random() * (floor.height - RH)) | 0; }
     // the wall filter removes the noise near the baseline as well as the slow signal
-    const wfPx = Math.max(1.2, 0.025 * scale) * g.rPxPerV * 1.6, by = dy + g.rBase;
+    const wfPx = Math.max(1.2, 0.025 * scale) * g.rPxPerV * 1.6;
     traceBox = [dx, dy, RW, RH];   // (drawn whole: the next frame clears round it)
     let drawn = false;
     if (onGpu) {
-      // the whole ring after a redraw or a stretch (from the ImageData or the stretched canvas), else the new columns went up above
-      if (glFrom === 'img') gpu.ringAll(img, RW, RH); else if (glFrom === 'off') gpu.ringAll(off, RW, RH);
+      // the whole ring after a redraw (from the ImageData), else the new columns went up above
+      if (glFrom === 'img') gpu.ringAll(img, RW, RH);
       glFrom = null;
-      drawn = gpu.render({ W: cv.width, H: cv.height, dx, dy, RW, RH, p, nx, ny, noiseA: mode === 'spectrum' ? 1 : 0.3, base: g.rBase, wf: wfPx });
-      if (drawn) ctx.clearRect(dx, dy, RW, RH);   // (the GPU's canvas shows through)
+      drawn = gpu.render({ W: CW, H: CH, dx, dy, RW, RH, p, nx, ny, noiseA: mode === 'spectrum' ? 1 : 0.3, base: g.rBase, wf: wfPx });
     }
     if (!drawn) {
-      if (gpu) glFrom = 'off';   // (the GPU's ring is sent whole when it draws again)
-      ring(ctx, off, dx, dy);
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = mode === 'spectrum' ? 1 : 0.3;
-      ctx.drawImage(floor, nx, ny, RW, RH, dx, dy, RW, RH);
-      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
-      const wg = ctx.createLinearGradient(0, by - wfPx, 0, by + wfPx);
-      wg.addColorStop(0, cssAlpha('--black', 0)); wg.addColorStop(0.5, cssAlpha('--black', .9)); wg.addColorStop(1, cssAlpha('--black', 0));
-      ctx.fillStyle = wg; ctx.fillRect(dx, Math.max(dy, by - wfPx), RW, Math.min(dy + RH, by + wfPx) - Math.max(dy, by - wfPx));
+      // (no GPU picture this frame, a lost context: the trace black, its ring synthesised whole when the GPU draws again)
+      if (gpu) { glFrom = 'img'; if (!imgWhole) ringKey = ''; }
+      ctx.fillStyle = cssVar('--black'); ctx.fillRect(padL, padT, RW / dpr, RH / dpr);
     }
-    ctx.imageSmoothingEnabled = true;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // Baseline
     ctx.fillStyle = cssAlpha('--white', .8); ctx.fillRect(padL, padT + baseY, W, 1);
@@ -1227,7 +1204,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function dispose() {
     if (raf) { cancelFrame(raf); raf = 0; }
     io?.disconnect(); ro?.disconnect(); frame = null;
-    gpu?.dispose(); gpu?.canvas.remove(); offSurface();
+    gpu?.dispose(); gpu?.canvas.remove(); words?.dispose(); offSurface();
   }
   return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, restart, backfill, historySecs: () => sweepSeconds, setInvert, setWaves, autoWindow, pin, configure, dispose };
 }

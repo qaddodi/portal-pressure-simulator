@@ -12,8 +12,8 @@ import { monotoneSegs, curveTester } from './curve-near.js?v=663c98a29c';
 import { glideMoving } from './idle-keys.js?v=81fbedda6b';
 import { plotFill } from './plot-look.js?v=5037697da7';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
-import { createTraceGL, fitPen } from './trace-gl.js?v=940b907fc3';
-import { measure } from './glyph-measure.js?v=857a31abc9';
+import { createTraceGL, fitPen } from './trace-gl.js?v=f0965e42db';
+import { measure } from './glyph-measure.js?v=9f91f3677d';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

@@ -18,7 +18,7 @@ import { serve } from './serve.mjs';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const BASE = 32, RADIUS = 8, CUTOFF = 0.25, PAD = 9;
 const WEIGHTS = [400, 500, 600, 650, 700];
-const CHARS = [...Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i)), ...'−·–—≥≤▲▼×°µ±→←’‘“”…≈Δ½²³√•'].join('');
+const CHARS = [...Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i)), ...'−·–—≥≤▲▼×°µ±→←’‘“”…≈Δ½²³√•§©¹¼¾éøΣαβγδθκλμπρστφω⁴⁵⁻₂↑↓↔↗↘⇄⇅∘∝∞✓✕'].join('');
 
 const CELL = 80, PX = 22, PY = 52, COLS = 32;   // (each glyph set in a cell of its own, its pen at (PX, PY) in it)
 const server = await serve(ROOT);
