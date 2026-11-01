@@ -1409,7 +1409,6 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .pal-list.glides .pal-item { position: relative; }
 .pal-list.glides .pal-item.on { background: transparent; }
 @media (prefers-reduced-motion: reduce) { .pal-glide { transition: none; } }
-@media (forced-colors: active) { .pal-glide { display: none; } .pal-list.glides .pal-item.on { forced-color-adjust: none; background: Highlight; color: HighlightText; } .pal-list.glides .pal-item.on :is(.pal-g, .pal-t b, .pal-h) { color: HighlightText; } }
 @media (pointer: coarse) { .pal-item { min-height: 40px; align-content: center; } .pal-top kbd { display: none; } }   /* (a finger's 40 px; no Esc key on a touch screen) */
 .pal-g { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); padding-top: 2px; }
 .pal-t { font-size: var(--fs-14); font-weight: 500; }
@@ -7225,6 +7224,9 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 /* Windows high contrast (forced colours) removes backgrounds and shadows, so a control that shows "on" or "selected" by a fill alone, or a focus ring that is a
    box-shadow, shows nothing. The on and selected states are given system colours and the switches an edge. Nothing here applies in any other mode. */
 @media (forced-colors: active) {
+  .pal-glide { display: none; }
+  .pal-list.glides .pal-item.on { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  .pal-list.glides .pal-item.on :is(.pal-g, .pal-t b, .pal-h) { color: HighlightText; }
   :is(.ib[aria-pressed="true"], .seg button[aria-pressed="true"], .seg button[aria-selected="true"], .instr-tab[aria-selected="true"]) { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   :is(.ib[aria-pressed="true"], .instr-tab[aria-selected="true"]) :is(svg, svg *) { stroke: HighlightText; }
   :is(.modes button[aria-selected="true"], .um-tab[aria-selected="true"])::after { background: Highlight; }

@@ -44,7 +44,7 @@ test('the highlight is the row look it replaces, glides on the scale, and does n
   assert.match(g, /transition: translate var\(--d-flip\) var\(--ease-move\), width var\(--d-flip\) var\(--ease-move\), height var\(--d-flip\) var\(--ease-move\)/);
   assert.match(g, /pointer-events: none/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.pal-glide \{ transition: none; \} \}/);
-  assert.match(css, /@media \(forced-colors: active\) \{ \.pal-glide \{ display: none; \}/);
+  assert.match(css, /@media \(forced-colors: active\) \{\n\s{2}\.pal-glide \{ display: none; \}/);
 });
 
 test('the combobox, listbox and option semantics are unchanged', () => {
