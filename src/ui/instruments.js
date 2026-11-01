@@ -220,7 +220,7 @@ export function createEndoscopy({ onAction }) {
     const moving = fadeT0 >= 0 || balA !== +balloon || shutA !== +shut || jetA !== +bleeding;
     if (moving && !raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     if (!moving) uiT = 0;   // (the next ease starts from its first frame, not from the last one painted)
-    const sig = [cv.width, cv.height, w, hh, onGl ? glKey : cache.key, balloon, shut, root.getAttribute('data-theme'), root.className, dark.matches].join('|');
+    const sig = [cv.width, cv.height, w, hh, onGl ? glKey : cache.key, balloon, shut, root.getAttribute('data-theme'), root.getAttribute('data-palette'), root.className, dark.matches].join('|');
     if (!bleeding && !moving && sig === painted) return;
     painted = bleeding || moving ? '' : sig;
     ctx.clearRect(0, 0, w, hh);

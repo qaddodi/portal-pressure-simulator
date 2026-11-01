@@ -451,7 +451,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (Not for a gesture's own classes, which change no label's look (idle-keys.js GESTURE_LOOK): each one made every label and mark read
   // again on every frame for 0.7 s as a pan or pinch began and as it ended. 30 Oct, review G3.)
   const outer = new MutationObserver((rs) => { if (rs.some((r) => changed(r) && !classOnly(r, GESTURE_LOOK))) all(); });
-  for (let el = svg.parentElement; el; el = el.parentElement) outer.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class', 'data-theme', 'data-noglass', 'data-mode'] });
+  for (let el = svg.parentElement; el; el = el.parentElement) outer.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class', 'data-theme', 'data-palette', 'data-noglass', 'data-mode'] });
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', all);
   addEventListener('pps:labelscale', all);   // (the text size: --label-k on the page)
   // A CSS fade or colour ease, a hover (its colour comes with no class), a focus: that label is read each frame till it ends.

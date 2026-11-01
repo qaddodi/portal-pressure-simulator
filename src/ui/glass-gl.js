@@ -925,7 +925,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   };
   const again = () => { keptStale = true; wake(); };
   const observers = [mo, new MutationObserver(again), new MutationObserver(again)];
-  observers[1].observe(document.documentElement, { attributes: true, attributeFilter: ['data-noglass', 'data-theme', 'class'] });
+  observers[1].observe(document.documentElement, { attributes: true, attributeFilter: ['data-noglass', 'data-theme', 'data-palette', 'class'] });
   observers[2].observe(wrap, { attributes: true, attributeFilter: ['class'] });   // (the GPU figure on or off: live(); the stage's look)
   // (Callout glass kept: what can move the glasses, the canvas or the figure without a write in the layers: a style, class or hidden on
   // any of their parents or on the figure's canvas (the dive's scale, a sub-pixel shift), a size change, a scroll. Each only marks the

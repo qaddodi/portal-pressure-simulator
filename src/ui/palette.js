@@ -8,6 +8,7 @@ import { D_FLIP, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
 import { HIDDEN_EDGES } from './anatomy.js?v=fe0f3d1f0e';
+import { LOOKS } from './looks.js?v=2d098211a4';
 
 // One highlight under the list that glides to the active row; the arrow keys and the pointer only move it (and aria-selected on two rows),
 // and the list is rebuilt only when the results change. ?palglide=0 gives the old list: the row paints its own highlight, a rebuild per move.
@@ -84,6 +85,7 @@ export function createPalette({ ctx }) {
     add('App', 'Home', () => ctx.home(), { kw: 'start' });
     add('App', 'Reset everything', () => ctx.reset(), { kw: 'reset reload refresh clear start over' });
     add('App', 'Light / dark theme', () => ctx.theme(), { kw: 'appearance' });
+    for (const l of LOOKS) add('App', `Appearance: ${l.name}`, () => ctx.look(l.id), { kw: `theme look colour palette ${l.theme} ${l.palette || ''}` });   // (Settings > Appearance, by name: "navy" finds Navy)
     add('App', 'Guide & shortcuts', () => ctx.help(), { kw: 'help keyboard' });
     add('App', 'Copy share link', () => ctx.share(), { kw: 'url' });
     return cmds;

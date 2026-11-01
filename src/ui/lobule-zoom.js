@@ -39,7 +39,7 @@ import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, 
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
 import { createSinusoidView } from './sinusoid-view.js?v=838c96a557';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, framePart, easeNow, inMotion, PACED } from './frame.js?v=15d5254a2c';
-import { createGlassGL } from './glass-gl.js?v=8a4c8e11ef';
+import { createGlassGL } from './glass-gl.js?v=773d159c52';
 import { pillOf, pillLabels, pillHold } from './lz-pills.js?v=bafcf3977d';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=5ef122c173';
@@ -1998,7 +1998,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }).observe(host, { box: 'border-box' });
   addEventListener('resize', () => { hostWH = null; });
   const darkMQ = matchMedia('(prefers-color-scheme: dark)');   // (one query kept, not a new one each frame)
-  const isDark = () => document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && darkMQ.matches);
+  const isDark = () => { const d = document.documentElement.dataset; return d.theme === 'dark' ? (d.palette || true) : (!d.theme && darkMQ.matches); };   // (truthy for every dark look; Navy and Black answer their name, so the caches below that hold `dark` in their keys repaint when the palette changes)
 
   // ── The dive's field ──
   // A flat-topped hexagonal tiling with the lobule view's own spacing (so the lobule it settles on, and

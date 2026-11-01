@@ -126,7 +126,7 @@ test('a theme chosen in the app crossfades the page; loading applies it at once'
   assert.match(main, /crossfade\(\(\) => applyTheme\(t, clear\)\);/);
   assert.match(main, /const vt = pageFade = document\.startViewTransition\(fn\);/);
   assert.match(main, /switchTheme\(v === 'system' \? null : v, v === 'system'\)/);
-  assert.match(main, /applyTheme\(\['dark', 'light', 'soft'\]\.includes\(savedTheme\)/);
+  assert.match(main, /applyTheme\(knownLook\(savedTheme\)\)/);
   assert.match(css, /::view-transition-old\(root\), ::view-transition-new\(root\) \{ animation-duration: var\(--d-surface\);/);
 });
 

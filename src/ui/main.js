@@ -28,6 +28,8 @@ import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor,
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
 import { morphKey, crossfadeText } from './legend-morph.js?v=cb88ce5b28';
 import './seg-glide.js?v=d7ea61ee6a';
+import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
+import { lookChooser } from './look-chooser.js?v=6740a4e1ca';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -103,7 +105,7 @@ const presenter = {
 
 async function main() {
   const savedTheme = readLS('pps.theme');
-  applyTheme(['dark', 'light', 'soft'].includes(savedTheme) ? savedTheme : null);   // an unknown saved theme falls back to the device's
+  applyTheme(knownLook(savedTheme));   // an unknown saved theme falls back to the device's
   startLMS();
   // The Student role was removed (to come back later): an old saved role is dropped, everyone gets the full app.
   try { localStorage.removeItem('pps.role'); } catch { /* storage unavailable */ }
@@ -207,7 +209,7 @@ async function main() {
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
-    home: () => mainMenu.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
+    home: () => mainMenu.open(), theme: () => toggleTheme(), look: (id) => switchTheme(id), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
     library: presenter.library, libraryNow: presenter.libraryNow, present: (id) => presenter.start(id),
   } }));
   card = createCard({
@@ -926,7 +928,7 @@ function wireTopbar() {
 // Two menus with one job each: Settings (how the simulator looks and reads) and Help (how to
 // use it, what it is, and who made it).
 function openSettings(anchor, withSearch = false) {
-  const cur = document.documentElement.getAttribute('data-theme') || 'system';
+  const cur = currentLook() || 'system';
   // While presenting, only what changes how the talk looks (appearance, full screen, text size, blur effect), and Send feedback.
   const talk = presenter.active();
   popover(anchor, [
@@ -938,7 +940,7 @@ function openSettings(anchor, withSearch = false) {
     // (Enter full screen is a one-shot row like Send feedback, Search and Help, so it sits with them, not between Appearance and Text size.)
     fullscreenControl(),
     h('div', { class: 'menu-title' }, 'Appearance'),
-    h('div', { class: 'seg full menu-seg' }, [['light', 'Light'], ['dark', 'Dark'], ['soft', 'Soft'], ['system', 'System']].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { switchTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
+    lookChooser(cur, (v) => switchTheme(v === 'system' ? null : v, v === 'system')),
     ...(talk ? presenterSettings() : []),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
     textSizeControl(),
@@ -1032,7 +1034,7 @@ function openHelpMenu(anchor, at = { align: 'start', cls: 'app-menu' }) {
 function sendFeedback() {
   try { localStorage.setItem(ASK_KEY, 'done'); } catch { /* storage unavailable */ }   // (sent once: the timed ask never comes)
   const build = document.getElementById('preview-badge')?.textContent.trim() || 'Live site';
-  const theme = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const theme = currentLook() || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   const body = ['What happened, and what did you expect to happen?', '', '', '',
     'Please keep these details:', `Build: ${build}`, `Device: ${navigator.userAgent}`,
     `Screen: ${innerWidth} × ${innerHeight} at ${devicePixelRatio}×, ${theme} theme`, `View: ${resumeUrl()}`,
@@ -1042,8 +1044,8 @@ function sendFeedback() {
 function doUndo() { timeline.undo(); }
 function doRedo() { timeline.redo(); }
 function toggleTheme() {
-  const cur = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  switchTheme(cur === 'dark' ? 'light' : 'dark');
+  const cur = currentLook() || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  switchTheme(isDarkLook(cur) ? 'light' : lastDarkLook());   // (a dark look goes to Light; from any other, back to the dark look last worn)
 }
 function settle() { host.send({ type: 'settle' }); toast('Settled to equilibrium.'); }
 function setSpeed(v, lapse = false) {
@@ -1077,7 +1079,7 @@ addEventListener('pointerdown', (e) => {
   vt.finished.catch(() => {}).finally(() => document.elementFromPoint(x, y)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, view: window })));
 }, true);
 function applyTheme(t, clear) {
-  if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
+  applyLookAttrs(document.documentElement, t);   // (data-theme, and data-palette for Navy and Black: looks.js)
   try { if (t) localStorage.setItem('pps.theme', t); else if (clear) localStorage.removeItem('pps.theme'); } catch { /* storage unavailable */ }
   const f = store.get().frame; if (f) { stage?.update(viewFrame(f)); dock?.update(f); }
   syncStatusBar();

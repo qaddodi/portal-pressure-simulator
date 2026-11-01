@@ -704,7 +704,7 @@ div.vital { cursor: default; }
    syncOrganDim, an SVG filter, since WebKit draws no CSS filter functions on SVG elements. */
 /* A lens or a selection eases the anatomy back (no one-frame dim or grey). */
 #backEdges .vg { transition: filter var(--d-surface) var(--ease-move); }
-.map-dot { fill: var(--map-dot); }
+.map-dot { fill: var(--map-accent); }
 /* Background plane: the diaphragm (no body-cavity shading). */
 #backdrop { pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
 .tex { fill: none; stroke: currentColor; stroke-width: .8; }
@@ -1464,6 +1464,29 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 /* Home */
 .home { position: fixed; inset: 0; z-index: var(--z-popover); background: var(--bg); overflow: auto; animation: fade-rise var(--d-small) var(--ease) both; transition: opacity var(--d-small) var(--ease); padding: var(--safe-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 .menu-seg { margin: 2px 8px 8px; }
+/* Settings > Appearance (src/ui/look-chooser.js): the looks as tiles, three to a row. A tile draws its look small (ground, a card on it,
+   two lines of ink, a short bar in the accent: the --look-* tokens) with its name under it; System shows Light and Dark side by side. The chosen
+   tile's chip takes a 2 px accent ring that fades in and out (--d-flip), never snaps. The names keep the 12 px floor. */
+.look-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 2px 8px 8px; }
+.look-tile { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 0; border: 0; border-radius: 12px; background: transparent; color: var(--text-2); font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color var(--d-flip) var(--ease); }
+.look-chip { display: flex; height: 34px; overflow: hidden; border-radius: 10px; box-shadow: 0 0 0 1px var(--border), 0 0 0 1px transparent; transition: box-shadow var(--d-flip) var(--ease), opacity var(--d-flip) var(--ease); }
+.look-name { font-size: var(--fs-12); font-weight: 500; line-height: 16px; text-align: center; white-space: nowrap; }
+.look-tile[aria-pressed="true"] { color: var(--text); }
+.look-tile[aria-pressed="true"] .look-chip { box-shadow: 0 0 0 1px var(--border), 0 0 0 3px var(--accent); }
+@media (hover: hover) { .look-tile:hover { color: var(--text); } .look-tile:not([aria-pressed="true"]):hover .look-chip { box-shadow: 0 0 0 1px var(--border-strong), 0 0 0 1px transparent; } }
+.look-tile:active .look-chip { opacity: .82; }
+.look-tile:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.look-half { position: relative; display: block; flex: 1 1 0; min-width: 0; background: var(--lk-bg); }
+.look-half[data-look="light"] { --lk-bg: var(--look-light-bg); --lk-card: var(--look-light-card); --lk-ink: var(--look-light-ink); --lk-accent: var(--look-light-accent); }
+.look-half[data-look="soft"] { --lk-bg: var(--look-soft-bg); --lk-card: var(--look-soft-card); --lk-ink: var(--look-soft-ink); --lk-accent: var(--look-soft-accent); }
+.look-half[data-look="dark"] { --lk-bg: var(--look-dark-bg); --lk-card: var(--look-dark-card); --lk-ink: var(--look-dark-ink); --lk-accent: var(--look-dark-accent); }
+.look-half[data-look="black"] { --lk-bg: var(--look-black-bg); --lk-card: var(--look-black-card); --lk-ink: var(--look-black-ink); --lk-accent: var(--look-black-accent); }
+.look-half[data-look="navy"] { --lk-bg: var(--look-navy-bg); --lk-card: var(--look-navy-card); --lk-ink: var(--look-navy-ink); --lk-accent: var(--look-navy-accent); }
+.look-card { position: absolute; left: 8px; right: 8px; top: 9px; bottom: 0; display: flex; flex-direction: column; gap: 3px; padding: 6px 7px 0; border-radius: 6px 6px 0 0; background: var(--lk-card); box-shadow: 0 0 0 1px color-mix(in srgb, var(--lk-ink) 12%, transparent); }
+.look-card b { display: block; width: 72%; height: 3px; border-radius: 2px; background: var(--lk-ink); opacity: .78; }
+.look-card b.short { width: 44%; opacity: .45; }
+.look-card u { position: absolute; top: 6px; right: 7px; width: 10px; height: 4px; border-radius: 2px; background: var(--lk-accent); }
+@media (forced-colors) { .look-chip, .look-half, .look-card { forced-color-adjust: none; } .look-tile[aria-pressed="true"] .look-chip { outline: 2px solid Highlight; outline-offset: 2px; } }
 .fs-hint { display: block; padding: 4px 12px 8px; font-size: var(--fs-12); line-height: 1.4; color: var(--text-3); }   /* (the iPhone's full-screen hint: a <small> inside 14 px text came out at 11.7 px, flush with the menu's edge) */
 .menu-credit .mc-link { display: inline-flex; align-items: center; gap: 2px; color: var(--accent-ink); font-weight: 600; text-decoration: none; }
 .menu-credit svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 2; }

@@ -17,12 +17,16 @@ const block = (sel, from = 0) => {
 const vars = (src) => Object.fromEntries([...src.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
 const light = vars(block(':root'));
 const dark = { ...light, ...vars(block(':root[data-theme="dark"]')) };
-const THEMES = {
-  light,
-  dark,
-  soft: { ...light, ...vars(block(':root[data-theme="soft"]')) },
-  'dark circuit map': { ...dark, ...vars(block(':root[data-theme="dark"] .stage-wrap.cmap')) },
-};
+const darkMap = vars(block(':root[data-theme="dark"] .stage-wrap.cmap'));
+// (A dark palette (Navy, and any added later) is data-theme="dark" plus data-palette: it takes Dark's tokens and moves only its own, so every
+// palette block in tokens.css is measured, found by its selector.)
+const PALETTES = [...tokens.matchAll(/\n:root\[data-theme="dark"\]\[data-palette="([\w-]+)"\] \{/g)].map((m) => m[1]);
+const THEMES = { light, dark, soft: { ...light, ...vars(block(':root[data-theme="soft"]')) }, 'dark circuit map': { ...dark, ...darkMap } };
+for (const name of PALETTES) {
+  const own = { ...dark, ...vars(block(`:root[data-theme="dark"][data-palette="${name}"]`)) };
+  THEMES[name] = own;
+  THEMES[`${name} circuit map`] = { ...own, ...darkMap, ...vars(block(`:root[data-theme="dark"][data-palette="${name}"] .stage-wrap.cmap`)) };
+}
 
 const TEXT = ['--text', '--text-2', '--text-3'];
 const SURFACES = ['--bg', '--stage-bg', '--surface', '--surface-2', '--surface-3'];

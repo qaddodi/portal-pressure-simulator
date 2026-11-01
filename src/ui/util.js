@@ -810,7 +810,7 @@ export const lerp = (a, b, t) => a + (b - a) * t;
 // the frame's DOM writes forces a style pass, so values are cached and dropped when the theme
 // can change (the data-theme attribute or the system color scheme).
 const varCache = new Map();
-new MutationObserver(() => varCache.clear()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'style', 'class'] });
+new MutationObserver(() => varCache.clear()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'style', 'class'] });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => varCache.clear());
 export function cssVar(name) {
   let v = varCache.get(name);

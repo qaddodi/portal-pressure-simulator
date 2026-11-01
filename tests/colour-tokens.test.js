@@ -46,5 +46,5 @@ test('the page colours painted before the styles load match the tokens', () => {
   const dark = tokens.match(/\n:root\[data-theme="dark"\] \{[^}]*?--bg: (#[0-9A-F]{6})/i)[1];
   assert.match(html, new RegExp(`theme-color" content="${light}" media="\\(prefers-color-scheme: light\\)`, 'i'));
   assert.match(html, new RegExp(`theme-color" content="${dark}" media="\\(prefers-color-scheme: dark\\)`, 'i'));
-  assert.match(html, new RegExp(`style\\.background='${dark}'`, 'i'));
+  assert.match(html, new RegExp(`style\\.background=pb\\|\\|'${dark}'`, 'i'));   // (Dark's; each palette's is tested in tests/appearance.test.js)
 });

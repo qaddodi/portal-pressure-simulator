@@ -81,6 +81,9 @@ import { encodePNG } from './png-encode.js?v=514301c9f4';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
 const nextFrame = frameFor('stage');
+// The page's look as one string for the caches below that are drawn in its colours: data-theme, and data-palette too (Navy and Black keep
+// data-theme="dark" and differ from Dark only by the palette: looks.js).
+const themeKey = () => { const d = document.documentElement.dataset; return d.palette ? `${d.theme || ''}/${d.palette}` : (d.theme || ''); };
 const easeFrame = frameFor('stage-ease');   // (the scheduler's, named so that no local `frame` can stand in for it: the grid's path helper once did, and every ease asked through it never ran)
 // The figure's render pass (animate) runs after every other callback of its frame: a glide's step, the catheter's state and its
 // camera, the labels are all set first, and the vessel layer is drawn once, as they left it.
@@ -163,7 +166,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         drop(); return;
       }
     });
-    for (let el = wrap; el; el = el.parentElement) { seen.set(el, gestureFree(el.getAttribute('class'))); mo.observe(el, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-theme', 'data-noglass', 'data-mode'] }); }
+    for (let el = wrap; el; el = el.parentElement) { seen.set(el, gestureFree(el.getAttribute('class'))); mo.observe(el, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-theme', 'data-palette', 'data-noglass', 'data-mode'] }); }
     // (The settings the style sheets ask about; the sizes come with a resize, as does a turn of the device or a page zoom.)
     for (const q of MQ) q.addEventListener?.('change', drop);
     addEventListener('resize', drop); addEventListener('orientationchange', drop); addEventListener('pps:labelscale', drop);
@@ -4797,7 +4800,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function liveKey() {
     const cs = wrapCS();
     return [organG.liver.getAttribute('mask'), ghost.style.display, lv.sep.style.visibility, lv.nod.style.visibility, lv.cong.style.visibility, lv.isl.style.visibility,
-      cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging'), document.documentElement.dataset.theme || ''].join('|');
+      cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging'), themeKey()].join('|');
   }
   function syncLiveOrgans(force = false) {
     const v = veins;
@@ -5015,7 +5018,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // What the gut's colours are made of, read again only when the classes or the theme change.
   const GUT_VARS = ['--og-gut-1', '--og-gut-2', '--og-gut-3', '--og-ao', '--og-light', '--og-hi', '--og-hi-k', '--gut-rim-k', '--organ-gut', '--stage-bg'];
   function gutLook() {
-    const r = document.documentElement, at = `${gestureFree(wrap.className).replace(/\bgl-plate\b/, '')}|${r.className}|${r.dataset.theme || ''}|${darkMq.matches}`;
+    const r = document.documentElement, at = `${gestureFree(wrap.className).replace(/\bgl-plate\b/, '')}|${r.className}|${themeKey()}|${darkMq.matches}`;
     if (at !== gutLookAt) { const cs = getComputedStyle(gGut); gutLookAt = at; gutLookV = GUT_VARS.map((v) => cs.getPropertyValue(v).trim()).join('|'); }
     return gutLookV;
   }
@@ -5271,11 +5274,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const g of greyList) g.el.style.setProperty(g.p, greyOf(g.c, sat), 'important');
   }
   // The colours are read again when what they depend on changes (the theme, the stage's classes), before the next paint.
-  const greyDeps = () => { const r = document.documentElement; return `${gestureFree(wrap.className)}|${r.className}|${r.dataset.theme || ''}|${matchMedia('(prefers-color-scheme: dark)').matches}`; };
+  const greyDeps = () => { const r = document.documentElement; return `${gestureFree(wrap.className)}|${r.className}|${themeKey()}|${matchMedia('(prefers-color-scheme: dark)').matches}`; };
   let greyAt = '';
   const greyStale = () => { if (greyList && greyDeps() !== greyAt) { greyClear(); organDimKey = ''; syncOrganDim(); } };
   new MutationObserver(greyStale).observe(wrap, { attributes: true, attributeFilter: ['class'] });
-  new MutationObserver(greyStale).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });   // (not its style: label sizes change there on every frame of a glide)
+  new MutationObserver(greyStale).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'class'] });   // (not its style: label sizes change there on every frame of a glide)
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', greyStale);
   function greyOn(sat) {
     if (!greyFilter && !greyList) {
@@ -5456,7 +5459,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const SEL_GLOW = { reach: 12, alpha: 0.22 };
   const orgToneCache = new Map();
   function orgTone(id) {
-    const k = `${id}|${document.documentElement.dataset.theme}|${darkMQ.matches}`;
+    const k = `${id}|${themeKey()}|${darkMQ.matches}`;
     let c = orgToneCache.get(k);
     if (!c) {
       const g = organG[id], v = g && getComputedStyle(g).getPropertyValue('--o3').trim();
@@ -5958,7 +5961,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // fills; the SVG copy stays, hidden (data-gl), and shows again wherever the GPU cannot draw.
   const mk = { key: '', ver: 0, verts: new Float32Array(0), draws: [], all: null, dirty: false };
   const darkMQ = matchMedia('(prefers-color-scheme: dark)');
-  const marksKey = () => `${mk.ver}|${gestureFree(wrap.className)}|${document.documentElement.dataset.theme}|${darkMQ.matches}`;
+  const marksKey = () => `${mk.ver}|${gestureFree(wrap.className)}|${themeKey()}|${darkMQ.matches}`;
   // Subpaths of an absolute M/L/H/V/C/Q/Z path as point lists (curves sampled); null for anything else.
   function pathRings(d) {
     const tok = d.match(/[a-zA-Z]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/g) || [];
@@ -9403,7 +9406,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     const st = store.get(), sig = labelSig(f), b = stageBox();
     if (carrying && solvedFor?.sig !== sig) { carryAbort(); return; }   // (what the labels show changed mid-move: the usual fade, then laid out as it lands)
-    const key = [[CTM.a, CTM.b, CTM.e, CTM.f].map((v) => v.toFixed(2)).join(), b.width, b.height, morph, rotU, labelFonts, document.documentElement.dataset.theme,
+    const key = [[CTM.a, CTM.b, CTM.e, CTM.f].map((v) => v.toFixed(2)).join(), b.width, b.height, morph, rotU, labelFonts, themeKey(),
       pzInset('--pz-l'), pzInset('--pz-t'), st.mode, !!st.compareSnap, st.compareView, paramJSON(blockerBoxes), sig,
       calloutBoxes().map((b) => [b.x0, b.y0].map((v) => Math.round(v / 8)).join()).join(';')].join('|');
     if (!force && key === labelKey && refreshValues(f)) { stats.skips++; stats.ms += performance.now() - t0; }
@@ -11207,7 +11210,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return ms;
   };
   const overEasing = new Map();   // element → when its ease ends at the latest (performance.now), for a transition that never reports
-  const overKey = () => `${appEl?.className || ''}|${document.documentElement.className}|${wrap.className}|${svgOver ? [...svgOver.classList].filter((c) => c !== OVER_ALL).join(' ') : ''}|${document.documentElement.dataset.theme || ''}|${reduceMotion.matches}`;
+  const overKey = () => `${appEl?.className || ''}|${document.documentElement.className}|${wrap.className}|${svgOver ? [...svgOver.classList].filter((c) => c !== OVER_ALL).join(' ') : ''}|${themeKey()}|${reduceMotion.matches}`;
   // (Set up once, at start-up where the overlays are on the GPU, or by renderPath if a restore makes them possible.)
   let overWatching = false;
   function overWatch() {
