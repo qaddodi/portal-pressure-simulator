@@ -1486,6 +1486,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .look-card b { display: block; width: 72%; height: 3px; border-radius: 2px; background: var(--lk-ink); opacity: .78; }
 .look-card b.short { width: 44%; opacity: .45; }
 .look-card u { position: absolute; top: 6px; right: 7px; width: 10px; height: 4px; border-radius: 2px; background: var(--lk-accent); }
+.look-tile[data-look="system"] .look-card { left: 5px; right: 5px; padding: 6px 4px 0; }   /* (the halves are half as wide: the accent bar sits under the lines, not across them) */
+.look-tile[data-look="system"] .look-card u { top: 17px; right: auto; left: 4px; width: 9px; height: 3px; }
 @media (forced-colors) { .look-chip, .look-half, .look-card { forced-color-adjust: none; } .look-tile[aria-pressed="true"] .look-chip { outline: 2px solid Highlight; outline-offset: 2px; } }
 .fs-hint { display: block; padding: 4px 12px 8px; font-size: var(--fs-12); line-height: 1.4; color: var(--text-3); }   /* (the iPhone's full-screen hint: a <small> inside 14 px text came out at 11.7 px, flush with the menu's edge) */
 .menu-credit .mc-link { display: inline-flex; align-items: center; gap: 2px; color: var(--accent-ink); font-weight: 600; text-decoration: none; }
