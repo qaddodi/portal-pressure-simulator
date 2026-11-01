@@ -130,8 +130,10 @@ test('lobule handoff: the 2D tissue and the 2D field stay under the GPU picture 
   // (Field: the 2D one hidden only after FIELD_HOLD GPU frames, and only when it had a picture.)
   assert.match(lz, /fieldHold = FIELD_HANDOFF && field\.width \? \(fieldHold \? fieldHold - 1 : FIELD_HOLD\) : 0;\n\s*if \(!fieldHold\) fieldHide\(field\);/);
   // (A texture the GPU could not take keeps the last frame where one is showing: tissue and field.)
-  assert.match(src('src/ui/tissue-gl.js'), /return hold && TEX_SAFE && pictured && canvas\.width === W && canvas\.height === H \? 'held' : false;/);
-  assert.match(src('src/ui/field-gl.js'), /return hold && TEX_SAFE && pictured && canvas\.width === W && canvas\.height === H \? 'held' : false;/);
+  // (And with no frame to keep, still drawn on the GPU with the clear texture in its place, never the 2D canvas.)
+  for (const f of ['src/ui/tissue-gl.js', 'src/ui/field-gl.js']) assert.match(src(f), /if \(hold && pictured && canvas\.width === W && canvas\.height === H\) return 'held';/);
+  assert.match(src('src/ui/tissue-gl.js'), /if \(!tx\[i\]\) tx\[i\] = none;/);
+  assert.match(src('src/ui/field-gl.js'), /if \(!tx\[i\]\) tx\[i\] = clearTex\(\);/);
 });
 
 test('the field handoff, step by step: three GPU frames over the 2D one, then it is hidden', () => {
