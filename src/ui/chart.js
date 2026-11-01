@@ -102,31 +102,48 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       drugChip('diuretics', 'Diuretics', 'Spironolactone + furosemide: renal sodium and water loss mobilizes ascites.', (p) => p.diuretics, (p, v) => { p.diuretics = v; }));
     // One line per order; what it does is in its tooltip, so the list stays short.
     const btn = (ic, label, run, sub) => { const b = h('button', { class: 'order-btn', title: sub ? `${label}: ${sub}` : label }, ic ? svgIcon(ic, 'ac-ic') : null, h('span', { class: 'ob-t' }, label)); b.addEventListener('click', run); return b; };
+    // A fluid is given at once: its line under the name says what it does, and the tile answers the press with the
+    // accent tint easing in and back out (data-given), since nothing on it stays on.
+    const fluid = (label, fl, sub) => {
+      const b = h('button', { class: 'order-btn fluid-btn', title: `${label}: ${sub}` }, h('span', { class: 'ob-t' }, label, h('small', {}, sub)));
+      let t = 0;
+      b.addEventListener('click', () => { action({ kind: 'infuse', fluid: fl }); b.dataset.given = ''; clearTimeout(t); t = setTimeout(() => delete b.dataset.given, 1400); });
+      return b;
+    };
     const fluids = h('div', { class: 'order-grid three' },
-      btn(null, '1 L crystalloid', () => action({ kind: 'infuse', fluid: 'crystalloid' }), 'about 25% stays in the vessels'),
-      btn(null, '1 unit PRBC', () => action({ kind: 'infuse', fluid: 'prbc' }), 'packed red cells'),
-      btn(null, 'Albumin', () => action({ kind: 'infuse', fluid: 'albumin' }), 'raises oncotic pressure'));
+      fluid('1 L crystalloid', 'crystalloid', 'about 25% stays in the vessels'),
+      fluid('1 unit PRBC', 'prbc', 'packed red cells'),
+      fluid('Albumin', 'albumin', 'raises oncotic pressure'));
     const proc = (ic, label, sub, run) => btn(ic, label, run, sub);
+    // A procedure that is in place says so (data-on): the button takes the accent tint and its icon gives way to a tick
+    // that draws itself in, both eased, so TIPS or BRTO reads as done without opening the figure. The tick sits in the
+    // icon's own place, so no name loses room or wraps.
+    const placed = (b, isOn) => {
+      const t = b.querySelector('.ob-t'), tick = h('span', { class: 'ob-on', 'aria-hidden': 'true' }, icon('check'));
+      b.append(tick);
+      const paint = () => { const on = !!isOn(store.get().params); b.toggleAttribute('data-on', on); b.setAttribute('aria-label', on ? `${t.textContent}, in place` : t.textContent); };
+      paint(); live.push(paint); return b;
+    };
     // A procedure that continues on the figure (a card, a shunt to draw) puts the Treat card away.
     const procs = h('div', { class: 'order-grid' },
       proc('band', 'Band ligation', 'on the esophageal varices', () => { select({ type: 'organ', id: 'varices' }); action({ kind: 'band' }); }),
-      proc('balloon', 'Balloon tamponade', 'gastric balloon first, then esophageal', () => { select({ type: 'organ', id: 'varices' }); toast('Switch the gastric balloon on in the varices card; the esophageal balloon is the second step.'); }),
+      placed(proc('balloon', 'Balloon tamponade', 'gastric balloon first, then esophageal', () => { select({ type: 'organ', id: 'varices' }); toast('Switch the gastric balloon on in the varices card; the esophageal balloon is the second step.'); }), (p) => p.balloonGas || p.balloonEso),
       // A TIPS is always right portal vein → right hepatic vein, so it is placed at once.
-      proc('stent', 'TIPS', 'right portal vein → right hepatic vein', () => {
+      placed(proc('stent', 'TIPS', 'right portal vein → right hepatic vein', () => {
         const on = store.get().params.tips.on;
         if (!on) updateParams({ tips: { on: true, d: store.get().params.tips.d || 8 } }, { label: 'TIPS' });
         select({ type: 'edge', id: 'TIPS' });
         toast(on ? 'The TIPS is already in place.' : 'TIPS placed: right portal vein → right hepatic vein.');
-      }),
+      }), (p) => p.tips.on),
       // A DIPS is always right portal vein → the intrahepatic IVC, so it is placed at once too.
-      proc('stent', 'DIPS', 'right portal vein → intrahepatic IVC', () => {
+      placed(proc('stent', 'DIPS', 'right portal vein → intrahepatic IVC', () => {
         const on = store.get().params.dips.on;
         if (!on) updateParams({ dips: { on: true, d: store.get().params.dips.d || 8 } }, { label: 'DIPS' });
         select({ type: 'edge', id: 'DIPS' });
         toast(on ? 'The DIPS is already in place.' : 'DIPS placed: right portal vein → IVC, through the caudate lobe.');
-      }),
-      proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', () => { select(null); startShunt('PV_TRUNK'); }),
-      proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }),
+      }), (p) => p.dips.on),
+      placed(proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', () => { select(null); startShunt('PV_TRUNK'); }), (p) => p.portocaval || p.dsrs || p.mesocaval),
+      placed(proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }), (p) => !!p.occluded?.C5),
       // One button cycles the spleen: untreated → partial embolization → splenectomy → untreated.
       (() => {
         const NAME = ['Spleen', 'Embolization', 'Splenectomy'], SUB = ['embolization or splenectomy', 'partial splenic artery embolization', 'spleen removed'];
@@ -135,7 +152,8 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
           updateParams((p) => { p.splenicRx = v; return p; }, { label: ['Spleen untreated', 'Partial splenic embolization', 'Splenectomy'][v] });
           select({ type: 'organ', id: 'spleen' });
         });
-        const paint = () => { const v = store.get().params.splenicRx | 0; b.querySelector('.ob-t').textContent = NAME[v]; b.title = `${NAME[v]}: ${SUB[v]} (click to change)`; b.setAttribute('aria-pressed', String(v > 0)); };
+        b.append(h('span', { class: 'ob-on', 'aria-hidden': 'true' }, icon('check')));
+        const paint = () => { const v = store.get().params.splenicRx | 0; b.querySelector('.ob-t').textContent = NAME[v]; b.title = `${NAME[v]}: ${SUB[v]} (click to change)`; b.setAttribute('aria-pressed', String(v > 0)); b.toggleAttribute('data-on', v > 0); };
         paint(); live.push(paint); return b;
       })(),
       proc('needle', 'Paracentesis', 'drain ascites', () => select({ type: 'organ', id: 'abdomen' })));
@@ -166,7 +184,15 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(spare) : null;
     for (const x of panes) ro?.observe(x[2]);
     // Words only: the three names always fit, so an icon beside each would only repeat it (design giveaway DG5, 17 Oct).
-    for (const [id, label] of panes) tabs.append(h('button', { class: 'instr-tab', role: 'tab', 'data-tab': id, 'aria-selected': 'false', onclick: () => show(id) }, h('span', {}, label)));
+    // A tab with orders running says how many beside its name (none says nothing), so the third of "3 running" is found
+    // without opening every tab. The number hangs past the name's end, so the names never shift.
+    const ran = { drugs: (p) => Object.keys(DRUGS).filter((k) => p.drugs[k]).length + !!p.anticoag + !!p.diuretics, procs: (p) => procs.querySelectorAll('.order-btn[data-on]').length };
+    for (const [id, label] of panes) {
+      const n = ran[id] ? h('span', { class: 'tt-n', 'aria-hidden': 'true' }) : null;
+      const b = h('button', { class: 'instr-tab', role: 'tab', 'data-tab': id, 'aria-selected': 'false', onclick: () => show(id) }, h('span', { class: 'tt-l' }, label, n));
+      if (n) { const paint = () => { const v = ran[id](store.get().params); if (v) n.textContent = v; n.classList.toggle('on', v > 0); b.setAttribute('aria-label', v ? `${label}, ${v} running` : label); }; paint(); live.push(paint); }
+      tabs.append(b);
+    }
     show(treatTab);
     return [tabs, body];
   }

@@ -1412,17 +1412,39 @@ button.finding { cursor: pointer; }
 .order-chip { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; min-height: 38px; padding: 0 2px; border: 0; border-bottom: 1px solid var(--hairline); border-radius: 0; background: none; cursor: pointer; text-align: left; font: 500 var(--fs-14) var(--font-ui); color: var(--text-2); transition: color var(--d-small) var(--ease), font-weight var(--d-small) var(--ease); }
 @media (hover: hover) { .order-chip:hover { color: var(--text); } }
 .order-chip .oc-t { min-width: 0; }
-.order-chip .oc-dot { flex: none; width: 16px; height: 16px; display: grid; place-items: center; }
-.order-chip .oc-dot svg { width: 16px; height: 16px; stroke: var(--accent); stroke-width: 2.4; fill: none; opacity: 0; transition: opacity var(--d-small) var(--ease); }
+.order-chip .oc-dot { flex: none; width: 16px; height: 16px; display: grid; place-items: center; border-radius: 5px; box-shadow: inset 0 0 0 1.5px var(--border-strong); transition: box-shadow var(--d-small) var(--ease); }
+.order-chip .oc-dot svg { width: 12px; height: 12px; stroke: var(--accent); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; fill: none; stroke-dasharray: 24; stroke-dashoffset: 24; opacity: 0; transition: opacity var(--d-small) var(--ease), stroke-dashoffset var(--d-small) var(--ease); }
 .order-chip[aria-pressed="true"] { color: var(--text); font-weight: 600; }   /* (a drug that is on reads heavier as well as ticked: the tick alone was a small thing to find) */
-.order-chip[aria-pressed="true"] .oc-dot svg { opacity: 1; }
+/* (1 Nov: an off drug shows its empty box, so a row reads as something to tick; on, the box takes the accent and the
+   tick draws itself in, stroke by stroke, rather than appearing whole.) */
+.order-chip[aria-pressed="true"] .oc-dot { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.order-chip[aria-pressed="true"] .oc-dot svg { opacity: 1; stroke-dashoffset: 0; }
+@media (hover: hover) { .order-chip:hover:not([aria-pressed="true"]) .oc-dot { box-shadow: inset 0 0 0 1.5px var(--text-3); } }
 .order-chip:disabled, .order-btn:disabled { opacity: .45; cursor: not-allowed; }
 .order-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.order-grid.three { display: flex; flex-wrap: wrap; }
-.order-grid.three .order-btn { flex: 1 1 auto; justify-content: center; white-space: nowrap; }
-.order-btn { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 8px; border-radius: var(--r-card); border: 1px solid var(--border); background: var(--surface); cursor: pointer; text-align: left; color: var(--text); }
+/* Fluids: three equal tiles, the name over what it does; a press tints the tile and it eases back (data-given). */
+.order-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.order-grid.three .order-btn { align-items: flex-start; padding: 8px 8px 10px 10px; }
+.order-grid.three .ob-t { min-width: 0; }
+.order-grid.three .ob-t small { line-height: 1.3; text-wrap: balance; }
+/* A narrow card (phone): one fluid per row, the name and what it does on one line, so "1 L crystalloid" never breaks. */
+@container treatpane (max-width: 440px) {
+  .treat-pane > .order-grid.three { grid-template-columns: minmax(0, 1fr); }
+  .treat-pane > .order-grid.three .order-btn { align-items: center; padding: 6px 10px; }
+  .treat-pane > .order-grid.three .ob-t { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 8px; }
+}
+.order-btn { position: relative; display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 8px; border-radius: var(--r-card); border: 1px solid var(--border); background: var(--surface); cursor: pointer; text-align: left; color: var(--text); transition: background-color var(--d-surface, .42s) var(--ease), border-color var(--d-surface, .42s) var(--ease), color var(--d-small) var(--ease), scale var(--d-flip) var(--ease); }
 @media (hover: hover) { .order-btn:hover:not(:disabled) { border-color: var(--accent-line); background: var(--surface-2); } }
-.order-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-ink); }
+.order-btn:active:not(:disabled) { scale: .98; }
+.order-btn[aria-pressed="true"], .order-btn[data-on], .order-btn[data-given] { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-ink); }
+.order-btn[data-given] { color: var(--text); transition-duration: var(--d-flip); }   /* (in quickly, then back over the longer time) */
+@media (hover: hover) { .order-btn:is([data-on], [data-given]):hover:not(:disabled) { background: var(--accent-soft); } }
+/* A procedure in place: its icon gives way to a tick that draws itself in, in the icon's own place. */
+.order-btn .ac-ic { transition: opacity var(--d-small) var(--ease); }
+.order-btn[data-on] .ac-ic { opacity: 0; }
+.order-btn .ob-on { position: absolute; left: 8px; top: 50%; translate: 0 -50%; width: var(--ic-s); height: var(--ic-s); display: grid; place-items: center; pointer-events: none; }
+.order-btn .ob-on svg { width: var(--ic-s); height: var(--ic-s); stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; fill: none; stroke-dasharray: 24; stroke-dashoffset: 24; opacity: 0; transition: opacity var(--d-small) var(--ease), stroke-dashoffset var(--d-small) var(--ease); }
+.order-btn[data-on] .ob-on svg { opacity: 1; stroke-dashoffset: 0; }
 .order-btn .ac-ic { flex: none; }
 .ob-t { display: flex; flex-direction: column; gap: 1px; font-size: var(--fs-14); font-weight: 600; line-height: 1.3; }
 .ob-t small { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); }
@@ -4523,7 +4545,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 
 /* Treat's Drugs / Fluids / Procedures tabs reuse the Tests card's tab row (.instr-tabs); the pane under it needs no extra top gap. */
 .treat-card .instr-tab { flex: 1 1 0; }
-@media (pointer: coarse) { .treat-tabs .instr-tab, .treat-tabs .instr-tab[aria-selected="true"] { height: 40px; } }   /* (Drugs / Fluids / Procedures were 28 px high, the only way to change them) */
+@media (pointer: coarse) { .treat-tabs .instr-tab, .treat-tabs .instr-tab[aria-selected="true"] { height: 40px; } }
+/* How many orders run under a tab, hung past the name's end so the name stays centred and never moves (1 Nov). */
+.treat-tabs .tt-l { position: relative; }
+.treat-tabs .tt-n { position: absolute; left: calc(100% + 5px); top: 50%; translate: 0 -50%; font: 600 12px/1 var(--font-ui); color: var(--accent-ink); opacity: 0; transition: opacity var(--d-small) var(--ease); }
+.treat-tabs .tt-n.on { opacity: 1; }   /* (Drugs / Fluids / Procedures were 28 px high, the only way to change them) */
 .treat-pane { padding-top: 4px; display: grid; }
 .treat-pane > * { grid-area: 1 / 1; align-self: start; }
 .treat-pane > .tp-off { visibility: hidden; }
