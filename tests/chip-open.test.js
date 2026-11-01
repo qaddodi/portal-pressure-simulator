@@ -40,17 +40,20 @@ test('the open chip holds --surface-2 with no border or ring, also inside the to
 });
 
 test('a switch thumb widens 4 px toward its travel under a finger (left for a checked one), only without Reduce Motion', () => {
-  assert.match(CSS, /\.switch span::after \{[^}]*transition: transform var\(--d-small\) var\(--ease\), width var\(--d-flip\) var\(--ease\);/);
-  const m = CSS.match(/@media \(prefers-reduced-motion: no-preference\) \{\s*html\.chip-open \.switch input:active:not\(:disabled\) \+ span::after \{ width: 20px; \}\s*html\.chip-open \.switch input:checked:active:not\(:disabled\) \+ span::after \{ transform: translateX\(10px\); \}/);
+  // (Since the off-GPU gate: a stretch on the compositor, scaleX from the edge it leaves, not a width laid out again.)
+  assert.match(CSS, /\.switch span::after \{[^}]*transition: transform var\(--d-small\) var\(--ease\); transform-origin: left center;/);
+  assert.match(CSS, /\.switch input:checked \+ span::after \{ transform: translateX\(14px\); transform-origin: right center; \}/);
+  const m = CSS.match(/@media \(prefers-reduced-motion: no-preference\) \{[\s\S]*?html\.chip-open \.switch input:active:not\(:disabled\) \+ span::after \{ transform: scaleX\(1\.25\); \}\s*html\.chip-open \.switch input:checked:active:not\(:disabled\) \+ span::after \{ transform: translateX\(14px\) scaleX\(1\.25\); \}/);
   assert.ok(m, 'press rules');
-  // Track 34 wide, thumb 2 px in: unchecked 2..22; checked 12..32 (the rest position's right edge is 32).
-  assert.equal(10 + 2 + 20, 34 - 2);
-  // Settings' and the menus' switches (.mt-sw), the card's and instrument panel's: the same cue, thumb and travel to match.
-  for (const [pressed, w] of [['.lens-opt:active .mt-sw::after', 16], ['.ac-toggle:active:not(:disabled) .switch-vis i', 18], ['.ab-tg:active:not(:disabled) .switch-vis i', 22]]) {
-    assert.ok(CSS.includes(`html.chip-open ${pressed} { width: ${w}px; }`), pressed);
+  // Track 34 wide, thumb 16 from 2 px in: unchecked 2..22 (16 x 1.25 = 20 from its left edge); checked 12..32 (from its right edge, 32).
+  assert.equal(2 + 16 * 1.25, 22); assert.equal(2 + 14 + 16 - 16 * 1.25, 12);
+  for (const [pressed, s, w] of [['.lens-opt:active .mt-sw::after', '1.3333', 12], ['.ac-toggle:active:not(:disabled) .switch-vis i', '1.2857', 14], ['.ab-tg:active:not(:disabled) .switch-vis i', '1.2222', 18]]) {
+    assert.ok(CSS.includes(`html.chip-open ${pressed} { transform: scaleX(${s}); }`), pressed);
+    assert.ok(Math.abs(w * +s - (w + 4)) < 0.01, `${pressed}: 4 px wider`);
   }
   for (const rule of ['.lens-opt .mt-sw::after {', '.ac-toggle .switch-vis i {', '.ab-tg .switch-vis i {', '.ab-dp-alb .switch-vis i {']) {
     const line = CSS.split('\n').find((l) => l.startsWith(rule));
-    assert.match(line, /transition: transform var\(--d-small\) var\(--ease\), width var\(--d-flip\) var\(--ease\);/, rule);
+    assert.match(line, /transition: transform var\(--d-small\) var\(--ease\); transform-origin: left center;/, rule);
+    assert.doesNotMatch(line, /width var\(/, rule);
   }
 });

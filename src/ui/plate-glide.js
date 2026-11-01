@@ -7,7 +7,7 @@
 // is laid out or painted again per frame: the compositor carries every piece. The box takes its own glass back as they land.
 import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
 
-const O = 12;   // (room each piece keeps for its shadow on its outer sides)
+const O = 64;   // (room each piece keeps for its shadow on its outer sides)
 const PIECES = [
   // [name, cut: which outer sides keep their edge and shadow (top, right, bottom, left)]
   ['tl', [1, 0, 0, 1]], ['t', [1, 0, 0, 0]], ['tr', [1, 1, 0, 0]],

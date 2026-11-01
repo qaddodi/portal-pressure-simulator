@@ -16,7 +16,7 @@
 // chart draws on its own 2D canvas, as before (?tracegl=0 keeps that always).
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
-import { canvasSize, fitCanvas } from './util.js?v=eda7f8e3d1';
+import { canvasSize, fitCanvas } from './util.js?v=e710e031d9';
 import { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H } from './glyphs-inter.js?v=3d311882ab';
 import { ATLAS_PNG } from './glyphs-inter-png.js?v=9ce07768be';
 

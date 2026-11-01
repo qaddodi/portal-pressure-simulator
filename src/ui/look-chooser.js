@@ -2,7 +2,7 @@
 // accent) so the choice is seen, not read. Three to a row: Light, Soft, Dark / Navy, Black, System. System shows Light and Dark
 // side by side. The chosen tile carries aria-pressed like the segmented controls beside it, and a ring that fades in and out
 // (never snaps). The colours are the --look-* tokens (styles/tokens.css); the shapes are styles/app.css (.look-grid).
-import { h } from './util.js?v=eda7f8e3d1';
+import { h } from './util.js?v=e710e031d9';
 import { LOOKS } from './looks.js?v=2d098211a4';
 
 const tile = (id, name, chip, cur, pick) => {

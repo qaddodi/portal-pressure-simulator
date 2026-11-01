@@ -160,7 +160,7 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   // Fill the docked card: the largest size that fits, stepping down for longer text, never clipped.
   if (wrap.classList.contains('docked')) {
     const m = t.querySelector('.toast-msg');
-    if (msg.length > 60 || actions?.length) t.style.height = '84px';
+    if (msg.length > 60 || actions?.length) t.classList.add('toast-tall');   // (84 px: app.css, a class, so no height is written)
     let px = msg.length <= 28 ? 20 : msg.length <= 60 ? 17 : 15;
     const room = t.clientHeight - 8 - (actions?.length ? t.querySelector('.toast-acts').offsetHeight + 6 : 0);
     for (; px > 12; px--) { m.style.fontSize = `${px}px`; if (m.scrollHeight <= room && m.scrollWidth <= m.clientWidth) break; }

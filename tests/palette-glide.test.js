@@ -41,7 +41,9 @@ test('the highlight is the row look it replaces, glides on the scale, and does n
   const g = rule('.pal-glide');
   assert.match(g, /background: var\(--accent-soft\)/);
   assert.match(g, /border-radius: var\(--r-card\)/);
-  assert.match(g, /transition: translate var\(--d-flip\) var\(--ease-move\), width var\(--d-flip\) var\(--ease-move\), height var\(--d-flip\) var\(--ease-move\)/);
+  // (Since the off-GPU gate it stretches by scale on the compositor, its size laid out once: no width or height eases.)
+  assert.match(g, /transform-origin: 0 0; transition: translate var\(--d-flip\) var\(--ease-move\), scale var\(--d-flip\) var\(--ease-move\)/);
+  assert.doesNotMatch(g, /(width|height) var\(--d-flip\)/);
   assert.match(g, /pointer-events: none/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.pal-glide \{ transition: none; \} \}/);
   assert.match(css, /@media \(forced-colors: active\) \{\n\s{2}\.pal-glide \{ display: none; \}/);
