@@ -1820,7 +1820,7 @@ button.finding { cursor: pointer; }
 .app.presenting.pz-blacked .stage-credit { opacity: 0; }   /* (set with the black screen's own .on, presenter.js toggleBlack) */
 .pz { position: absolute; inset: 0; z-index: var(--z-hud); pointer-events: none; color: var(--text); }
 /* A pane of frosted glass: a crisp edge with a hairline highlight and a soft shadow onto the figure. */
-.pz-shade { --pz-glass-edge: color-mix(in srgb, var(--white) 34%, transparent); --pz-glass-line: color-mix(in srgb, var(--text) 12%, transparent); --pz-glass-drop: var(--glass-drop); position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: var(--z-figure); pointer-events: none; --gl-glass: 1; --gl-tint: color-mix(in srgb, var(--stage-bg) var(--pz-glass-tint, 56%), transparent); background: var(--gl-tint); box-shadow: inset -1px 0 0 var(--pz-glass-edge), 1px 0 0 var(--pz-glass-line), 10px 0 28px -6px var(--pz-glass-drop), 2px 0 6px -1px var(--pz-glass-drop); transition: width var(--d-surface) var(--ease), height var(--d-surface) var(--ease), top var(--d-surface) var(--ease), opacity var(--d-small) var(--ease); }
+.pz-shade { --pz-glass-edge: color-mix(in srgb, var(--white) 34%, transparent); --pz-glass-line: color-mix(in srgb, var(--text) 12%, transparent); --pz-glass-drop: var(--glass-drop); position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: var(--z-figure); pointer-events: none; --gl-glass: 1; --gl-tint: color-mix(in srgb, var(--stage-bg) var(--pz-glass-tint, 56%), transparent); background: var(--gl-tint); box-shadow: inset -1px 0 0 var(--pz-glass-edge), 1px 0 0 var(--pz-glass-line), 10px 0 28px -6px var(--pz-glass-drop), 2px 0 6px -1px var(--pz-glass-drop); transition: opacity var(--d-small) var(--ease); }
 :root[data-theme="dark"] .pz-shade { --pz-glass-edge: color-mix(in srgb, var(--white) 14%, transparent); --pz-glass-line: rgb(var(--black-rgb) / .5); --pz-glass-drop: rgb(var(--black-rgb) / .42); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-shade { --pz-glass-edge: color-mix(in srgb, var(--white) 14%, transparent); --pz-glass-line: rgb(var(--black-rgb) / .5); --pz-glass-drop: rgb(var(--black-rgb) / .42); } }
 /* (Without a backdrop blur the words keep a plain backdrop of the page colour.) */
@@ -2118,7 +2118,7 @@ button.finding { cursor: pointer; }
 .pz-data.col { right: auto; }
 /* Stacked under the words' card, it leaves the way that card does, toward the left edge (not away from it). */
 .pz-data.col:not(.under).pz-hide { transform: translateX(-18px); }
-.pz-data.col:not(.pz-hide) { transition-property: opacity, transform, top; transition-duration: var(--d-surface), var(--d-surface), var(--d-surface); transition-delay: .12s, .12s, 0s; }
+.pz-data.col:not(.pz-hide) { transition-property: opacity, transform; transition-duration: var(--d-surface), var(--d-surface); transition-delay: .12s, .12s; }
 .pz.pz-turning .pz-data, .pz.pz-turning .pz-data .pz-tool, .pz.pz-turning .pz-data .pz-tiles { transition: none !important; }   /* (just after a resize or a turn: the data card takes its new place and size at once, never easing over the words; src/ui/presenter.js onResize) */
 .pz-data.under.tiles-only .pzt-v { font-size: var(--s-big); }
 /* Tiles alone, beside the words: the card is as wide as its tiles need (never wider than its old width). The tiles
@@ -2526,14 +2526,14 @@ button.finding { cursor: pointer; }
 .pz .pz-text.pz-text[data-out="jump"].pz-leave { transform: translateY(calc(-1 * var(--rise-y, 6px))); transition-timing-function: var(--ease-in); }
 .pz .pz-text.pz-text.pz-enter:is([data-turn="next"], [data-turn="back"], [data-turn="jump"]) > * { animation: none; }
 .pz .pz-text.pz-text:is([data-turn="next"], [data-turn="back"], [data-turn="jump"]):not(.pz-leave) { transition-property: opacity; }
-.pz-shade.pz-shade.pz-shade:is(.pz-card, .stack) { transition-property: opacity, transform, top, height, width; transition-timing-function: var(--ease), var(--ease), var(--ease-move), var(--ease-move), var(--ease-move); }
-.pz-shade.pz-shade.pz-shade:is(.pz-card, .stack).pz-leave { transition-duration: var(--d-small), var(--d-small), 0s, 0s, 0s; transition-delay: 0s; }
-.pz-shade.pz-shade.pz-shade:is(.pz-card, .stack):not(.pz-leave) { transition-duration: var(--d-surface), var(--d-surface), 0s, 0s, 0s; transition-delay: .12s, .12s, 0s, 0s, 0s; }
+.pz-shade.pz-shade.pz-shade:is(.pz-card, .stack) { transition-property: opacity, transform; transition-timing-function: var(--ease), var(--ease); }
+.pz-shade.pz-shade.pz-shade:is(.pz-card, .stack).pz-leave { transition-duration: var(--d-small), var(--d-small); transition-delay: 0s; }
+.pz-shade.pz-shade.pz-shade:is(.pz-card, .stack):not(.pz-leave) { transition-duration: var(--d-surface), var(--d-surface); transition-delay: .12s, .12s; }
 /* On a turn the glass fades on the words' own clock and curve (out: --d-small, --ease-in; in: --d-surface after .12s, --ease-arrive), in
    place, never dropping or rising, so the words never stand over the figure without it (presenter.js setTurn, pz-turnfade). */
 .pz-shade.pz-shade.pz-shade.pz-shade.pz-turnfade:is(.pz-card, .stack) { transform: none; }
-.pz-shade.pz-shade.pz-shade.pz-shade.pz-turnfade:is(.pz-card, .stack).pz-leave { transition-timing-function: var(--ease-in), var(--ease-in), var(--ease-move), var(--ease-move), var(--ease-move); }
-.pz-shade.pz-shade.pz-shade.pz-shade.pz-turnfade:is(.pz-card, .stack):not(.pz-leave) { transition-timing-function: var(--ease-arrive), var(--ease-arrive), var(--ease-move), var(--ease-move), var(--ease-move); }
+.pz-shade.pz-shade.pz-shade.pz-shade.pz-turnfade:is(.pz-card, .stack).pz-leave { transition-timing-function: var(--ease-in), var(--ease-in); }
+.pz-shade.pz-shade.pz-shade.pz-shade.pz-turnfade:is(.pz-card, .stack):not(.pz-leave) { transition-timing-function: var(--ease-arrive), var(--ease-arrive); }
 /* The teaching card as one page (presenter.js CARD_PAGE, src/ui/card-page.js; ?cardpage=0 turns it off): the glass goes with its words, the
    same way and the same distance (--pz-turn-d, copied onto the glass with the leave), on the same clock and curve, and comes back in with
    them by the same keyframes (WAAPI, both). Only transform and opacity move: nothing clipped, the glass never resized in view (its size
@@ -2544,7 +2544,7 @@ button.finding { cursor: pointer; }
 /* A swipe's throw (presenter.js pageThrow, ?swipehand=0 off): the card carries on out from the finger at the finger's pace, slowing as it
    fades (--ease-arrive), never standing still at the finger first as the leave's --ease-in would have it. */
 .pz .pz-text.pz-text.pz-thrown[data-out].pz-leave { transition-timing-function: var(--ease-arrive); }
-.pz-shade.pz-shade.pz-shade.pz-shade.pz-shade.pz-page.pz-thrown:is(.pz-card, .stack).pz-leave { transition-timing-function: var(--ease-arrive), var(--ease-arrive), var(--ease-move), var(--ease-move), var(--ease-move); }
+.pz-shade.pz-shade.pz-shade.pz-shade.pz-shade.pz-page.pz-thrown:is(.pz-card, .stack).pz-leave { transition-timing-function: var(--ease-arrive), var(--ease-arrive); }
 .pz-shade.pz-shade.pz-shade.pz-shade.pz-page:is(.pz-card, .stack):is([data-out="next"], [data-out="back"], [data-out="jump"]):not(.pz-leave) { transition-property: opacity; transition-duration: var(--d-surface); transition-delay: .12s; }
 .pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh)), 20px)); left: 21px; right: 21px; top: auto; bottom: calc(max(26px, 65px - var(--pz-lh)) + var(--pz-sb)); margin-block: 0; width: auto; max-height: 62%; gap: 6px; }/* (With a data card under the words, the pair keeps to the top so the card has room.) */
 .pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
