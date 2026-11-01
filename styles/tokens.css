@@ -5,26 +5,26 @@
   /* surfaces */
   --bg: #FBFAF7;        /* ground: page and figure share the paper */
   --stage-bg: #FBFAF7;
-  --surface: #FFFFFF;
-  --surface-2: #F6F5F1;
+  --surface: #FFFEFB;
+  --surface-2: #F7F5F0;
   --chip-warm: #F6DCD3;   /* (the warm the frosted nav pill takes from the figure: a Show chip on a card mixes it in to match) */
-  --surface-3: #ECEAE4;
-  --glass: rgba(255, 255, 255, .94); --frost: rgba(255, 255, 255, .38);
+  --surface-3: #EEEBE4;
+  --glass: rgba(255, 254, 251, .94); --frost: rgba(255, 254, 251, .38);
   --scrim: rgba(18, 20, 28, .38);
 
   /* lines */
-  --hairline: rgba(24, 26, 34, .08);
-  --border: #E5E2DB;
-  --border-strong: #CFCAC0;
+  --hairline: rgba(52, 40, 28, .09);
+  --border: #E6E1D8;
+  --border-strong: #CEC7BB;
 
   /* ink */
-  --text: #16181D;
-  --text-2: #4D505A;
-  --text-3: #666870;   /* ≥ 4.5:1 on every light surface */
+  --text: #1A1917;
+  --text-2: #4E4B46;
+  --text-3: #67635D;   /* ≥ 4.5:1 on every light surface */
   --text-inverse: #FFFFFF;
 
   /* accent */
-  --brand-bg: #16181D;
+  --brand-bg: #1A1917;
   --accent: #3155D1;
   --accent-ink: #2442AE;
   --accent-soft: rgba(49, 85, 209, .09);
@@ -158,6 +158,9 @@
   --shadow-3: var(--shadow-dialog);
   /* A pill that sits at the screen's edge (the top bar's islands, the transport, the view pill, the zoom pill) sits on the paper:
      its hairline and a 1 px contact, no soft drop; only what floats over the figure (cards, menus, callouts) hovers (looks review L9). */
+  /* the glass cards' drop (teaching card, data card, case card, bars) in the same warm ink as the chrome's shadows, one
+     strength for every glass card on the paper; the dark theme sets its own deeper drop per card */
+  --glass-drop: rgb(var(--shadow-rgb) / .15);
   --shadow-pill: calc(1px * var(--light-slant)) 1px 2px rgb(var(--shadow-rgb) / .08), inset 0 0 0 1px var(--hairline);
   /* shape: three radii by hierarchy, and a pill for chips */
   --r-control: 6px; --r-card: 10px; --r-sheet: 16px; --r-pill: 999px;
