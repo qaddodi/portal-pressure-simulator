@@ -2875,11 +2875,26 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // had shown the cut-off foot of its readings, under the preview badge too). By the Web Animations API, over the parts' own
   // transitions; a part that arrives while the card is closed (the next slide's) is faded at once.
   const DOCK_FADE = { duration: D_SMALL, easing: EASE_ARRIVE, fill: 'forwards' };
+  // (Under a finger the contents follow the card instead: fully there once it is a third of the way out, so a slow pull shows the
+  // chart as it comes, never an empty glass until the finger lets go (Mohammad, 1 Nov 2026: "it's empty before it renders"). A paused
+  // animation held at the drag's level, so neither the parts' own transitions nor a frame's lag come between the finger and them.)
+  const dockShows = () => clamp((1 - dock.lvl) / 0.35, 0, 1);
   function dockFade(shut) {
     for (const c of ui.data.children) {
       if (c.classList.contains('pz-grip') || !c.animate) continue;
-      if (shut && !c._dockFade) c._dockFade = c.animate([{ opacity: 1 }, { opacity: 0 }], { ...DOCK_FADE, duration: dock.lvl > 0.5 ? 0 : DOCK_FADE.duration });
+      if (dock.drag) {
+        if (!c._dockHand) {
+          if (c._dockFade) { c._dockFade.cancel(); c._dockFade = null; }
+          c._dockHand = c.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, fill: 'both' }); c._dockHand.pause();   // (linear: its time is the drag's level)
+        }
+        c._dockHand.currentTime = dockShows() * D_SMALL;
+        continue;
+      }
+      let from = null;
+      if (c._dockHand) { from = dockShows(); c._dockHand.cancel(); c._dockHand = null; }
+      if (shut && !c._dockFade) c._dockFade = c.animate([{ opacity: from ?? 1 }, { opacity: 0 }], { ...DOCK_FADE, duration: from == null && dock.lvl > 0.5 ? 0 : DOCK_FADE.duration });
       else if (!shut && c._dockFade) { c._dockFade.cancel(); c._dockFade = null; c.animate([{ opacity: 0 }, { opacity: 1 }], { ...DOCK_FADE, fill: 'none' }); }
+      else if (!shut && from != null && from < 1) c.animate([{ opacity: from }, { opacity: 1 }], { ...DOCK_FADE, fill: 'none' });
     }
   }
   // The sheet's edge is the card's sibling, not its child: inside the card, the card's glass clipped it away on an iPhone (802e093,
