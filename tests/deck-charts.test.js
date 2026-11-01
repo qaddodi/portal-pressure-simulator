@@ -445,7 +445,7 @@ function checkRule(parts, w, hh, f, at, hParts = null) {
     else if (lay.tiers[i] === 2) assert.ok(pw <= room + 1e-9 && both > room, `${at}: ${s.name}'s percent alone on its segment`);
     else assert.ok(pw > room, `${at}: ${s.name} in a pill only where not even its percent fits`);
   });
-  assert.deepEqual(lay.pills.map((p) => p.id), lay.spans.filter((s, i) => lay.tiers[i] === 3).map((s) => s.id), `${at}: a pill for each name with no room on the bar, in its order`);
+  assert.deepEqual(lay.pills.map((p) => p.id), lay.spans.filter((s, i) => lay.tiers[i] >= 2).map((s) => s.id), `${at}: a pill for each name with no room on the bar (its percent alone on the bar, or not even that), in its order`);
   const rows = new Map();
   for (const p of lay.pills) {
     (rows.get(p.row) || rows.set(p.row, []).get(p.row)).push(p);

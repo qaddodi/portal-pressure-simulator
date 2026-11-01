@@ -2700,7 +2700,7 @@ button.finding { cursor: pointer; }
 .pft-v { transition: opacity var(--d-small) var(--ease); } .pft-v.off { opacity: 0; }
 .pft-v0 { font: 600 calc(15px * var(--svk, 1)) var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
 .pft-v { font: 700 calc(18px * var(--svk, 1)) var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
-.ptk-grid line { stroke: var(--border); stroke-width: 1; }
+.ptk-grid line { stroke: color-mix(in srgb, var(--text) 11%, transparent); stroke-width: 1; }   /* (a tint of the ink, not the card border: it reads on the profile zones' tints and the plot panel alike) */
 .ptk-grid.cut line { stroke-dasharray: 4 5; stroke-width: 1.5; }
 .ptk-grid[data-rate="mid"] line { stroke: var(--caution); } .ptk-grid[data-rate="hi"] line { stroke: var(--danger); }
 .ptk-grid text, .ptk-mark text { font: 500 calc(15px * var(--svk, 1)) var(--font-ui); fill: var(--text-3); font-variant-numeric: tabular-nums; }

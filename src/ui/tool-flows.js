@@ -241,7 +241,9 @@ function routeOnce(parts, w, hh, f, measure, hParts) {
     const room = s.b - s.a - 2 * g, pw = measure(`${s.pct}%`, f, 700);
     return Math.max(measure(s.name, f, 500), pw) <= room ? 0 : pw <= room ? 2 : 3;
   });
-  const { pills, rows } = routePills(spans.filter((s, i) => tiers[i] === 3).map((s) => ({ id: s.id, text: `${s.name} ${s.pct}%` })), w, geo, measure);
+  // (A segment that carries its percent alone is named in a pill under the bar too, its name only: a bare "14%" on a green segment
+  // left the reader to guess the route, Circuit slide 7.)
+  const { pills, rows } = routePills(spans.flatMap((s, i) => (tiers[i] === 3 ? [{ id: s.id, text: `${s.name} ${s.pct}%` }] : tiers[i] === 2 ? [{ id: s.id, text: s.name }] : [])), w, geo, measure);
   return { geo, spans, tiers, pills, rows, ok: rows <= routeRows(hh, geo), mark: routeMarker(hParts, w, f, measure), top: Math.max(0, (hh - routeHeight(rows, geo)) / 2) };
 }
 
@@ -321,12 +323,13 @@ export function createFlowsTool() {
     for (const id of ids) {
       const s = shown[id], t = tiers[id] || { drawn: memo.want[id].tier, o: 1 }, op = s.op * t.o, v = `${Math.round(s.pct)}%`, name = info(id)[1];
       if (op <= 0.01 || t.drawn > 3) continue;
-      if (t.drawn === 3) {
-        // A pill in the part's colour, like the app's other value pills, in the bar's order under it.
-        const pw = Math.min(w, textW(`${name} ${v}`, f, 700) + 2 * geo.px), px = Math.min(Math.max(s.lx - pw / 2, 0), w - pw), py = top0 + geo.pillsT + s.row * (geo.ph + geo.pg);
+      if (t.drawn === 3 || t.drawn === 2) {
+        // A pill in the part's colour, like the app's other value pills, in the bar's order under it (its name alone where its percent is on the bar).
+        const words = t.drawn === 3 ? `${name} ${v}` : name;
+        const pw = Math.min(w, textW(words, f, 700) + 2 * geo.px), px = Math.min(Math.max(s.lx - pw / 2, 0), w - pw), py = top0 + geo.pillsT + s.row * (geo.ph + geo.pg);
         kids.push(sv('g', { class: 'ppf-pill pfl-pill', 'data-part': id, style: `--tone: var(${info(id)[2]}); opacity: ${op.toFixed(3)}` }, sv('rect', { x: px, y: py, width: pw, height: geo.ph, rx: geo.ph / 2 }),
-          sv('text', { x: px + pw / 2, y: py + geo.ph / 2 + 0.36 * f, 'text-anchor': 'middle' }, sv('tspan', { class: 'k' }, `${name} `), v)));
-        continue;
+          sv('text', { x: px + pw / 2, y: py + geo.ph / 2 + 0.36 * f, 'text-anchor': 'middle' }, t.drawn === 3 ? [sv('tspan', { class: 'k' }, `${name} `), v] : name)));
+        if (t.drawn === 3) continue;
       }
       const cx = ((s.x + s.pct / 2) / 100) * w, lab = (...k) => sv('g', { class: 'pfl-lab', 'data-part': id, style: `opacity: ${op.toFixed(3)}` }, ...k);
       const text = (cls, y, t2) => sv('text', { class: cls, x: cx, y, 'text-anchor': 'middle' }, t2);

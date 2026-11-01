@@ -168,7 +168,7 @@ test('pills under the bar: in the bar\'s order, in rows centred on the card, ins
       assert.ok(Math.abs(a - (w - b)) < 1e-6, `${w}: a row centred, ${a.toFixed(1)} px at its left and ${(w - b).toFixed(1)} at its right`);
       row.slice(1).forEach((p, i) => assert.ok(p.cx - p.w / 2 - (row[i].cx + row[i].w / 2) >= geo.gx - 1e-9, `${w}: pills apart`));
     }
-    const named = lay.spans.filter((s, i) => lay.tiers[i] === 3).map((s) => s.id);
+    const named = lay.spans.filter((s, i) => lay.tiers[i] >= 2).map((s) => s.id);   // (a percent alone on the bar is named in a pill too)
     assert.deepEqual(lay.pills.map((p) => p.id), named, `${w}: a pill for each name that has no room on the bar, in the bar's order`);
     assert.deepEqual([...rows.keys()], [...rows.keys()].sort(), 'rows run downward in order');
   }
