@@ -2525,6 +2525,10 @@ button.finding { cursor: pointer; }
 .pz-shade.pz-shade.pz-shade.pz-shade.pz-page:is(.pz-card, .stack)[data-out="next"].pz-leave { transform: translateX(calc(-1 * var(--pz-turn-d))); }
 .pz-shade.pz-shade.pz-shade.pz-shade.pz-page:is(.pz-card, .stack)[data-out="back"].pz-leave { transform: translateX(var(--pz-turn-d)); }
 .pz-shade.pz-shade.pz-shade.pz-shade.pz-page:is(.pz-card, .stack)[data-out="jump"].pz-leave { transform: translateY(calc(-1 * var(--rise-y, 6px))); }
+/* A swipe's throw (presenter.js pageThrow, ?swipehand=0 off): the card carries on out from the finger at the finger's pace, slowing as it
+   fades (--ease-arrive), never standing still at the finger first as the leave's --ease-in would have it. */
+.pz .pz-text.pz-text.pz-thrown[data-out].pz-leave { transition-timing-function: var(--ease-arrive); }
+.pz-shade.pz-shade.pz-shade.pz-shade.pz-shade.pz-page.pz-thrown:is(.pz-card, .stack).pz-leave { transition-timing-function: var(--ease-arrive), var(--ease-arrive), var(--ease-move), var(--ease-move), var(--ease-move); }
 .pz-shade.pz-shade.pz-shade.pz-shade.pz-page:is(.pz-card, .stack):is([data-out="next"], [data-out="back"], [data-out="jump"]):not(.pz-leave) { transition-property: opacity; transition-duration: var(--d-surface); transition-delay: .12s; }
 .pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh)), 20px)); left: 21px; right: 21px; top: auto; bottom: calc(max(26px, 65px - var(--pz-lh)) + var(--pz-sb)); margin-block: 0; width: auto; max-height: 62%; gap: 6px; }/* (With a data card under the words, the pair keeps to the top so the card has room.) */
 .pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }

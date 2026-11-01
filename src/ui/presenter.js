@@ -1779,6 +1779,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     return g.width > 0 && t.width > 0 ? Math.max(4, Math.min(d, t.left - g.left - 2, g.right - t.right - 2)) : d;
   };
   function wordsTurnIn() {
+    pageCaught();   // (a swipe's throw over: the way in is the slide's own distance)
     if (!turnIn || !ui) return;
     turnIn = false;
     const t = ui.text, k = t.dataset.turn, d = parseFloat(getComputedStyle(t).getPropertyValue('--pz-turn-d')) || 20;
@@ -1800,6 +1801,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const CARD_PAGE = CARD_TURN && !/[?&]cardpage=0\b/.test(location.search);
   // A folding card's part follows a finger by transform and opacity, its height set once at each end (foldTouch); ?foldxf=0: no follow.
   const FOLD_XF = !/[?&]foldxf=0\b/.test(location.search), FOLD_SLIDE = 10;
+  // (A swipe let go past its distance: the card is held where the finger left it (its inline transform and opacity kept) until the slide's
+  // leave is set on the words and the glass, and the hold is dropped in that same style change, so the leave carries on from the finger.
+  // Dropped at the touch's end, as before, the glass was laid out at rest for a frame before its leave came (go() reaches wordsOut after a
+  // task or two): it jumped back to the middle and slid out again from there, behind words that went on from the finger. ?swipehand=0: as before.)
+  const SWIPE_HAND = CARD_PAGE && !/[?&]swipehand=0\b/.test(location.search);
+  let pageHeld = null;
   // (The teaching card's shade drawn by the cards' GPU glass, as every other card: see createPresenter's cardGlass. ?shadegl=0 keeps it on the browser's blur.)
   const SHADE_GL = !/[?&]shadegl=0\b/.test(location.search);
   let shadeAnim = null, pageForce = false;   // (the glass's entrance; pageForce: a swipe the card followed out, so its words leave even if the next slide's are the same)
@@ -2241,6 +2248,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!ui) return 0;
     // (A card the next slide would build the same stays where it is and leaves nothing to fade: keepFor, card-keep.js.)
     const out = [ui.text, ui.panel].filter((el) => !(keepNow.text && el === ui.text)), data = ui.data;
+    pageCaught();
     if (!keepNow.text) wordsFreeze();
     // The data card leaves with the words on every slide change, whole (the same ease and pace), and comes back in with the new cards:
     // never left standing while the words go, nor changed in place.
@@ -2266,6 +2274,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     for (const el of out) {
       if (keep && el === ui.text) { for (const c of el.children) if (c !== mon.el) c.classList.add('pz-leave'); }
       else el.classList.add('pz-leave');
+    }
+    if (SWIPE_HAND) {
+      // (The glass takes its leave now, with the words, in the same style change, not in the class observer's microtask after them: a
+      // style read in between (the glass's own observer reads the page) laid the glass at rest for a frame, so after a swipe it jumped
+      // back to the middle and slid out from there. A swipe's hold, if any, goes in the same change.)
+      const goes = !keepNow.text && ui.text.classList.contains('pz-leave');
+      if (goes && !ui.shade.classList.contains('pz-turn')) ui.shade.classList.add('pz-leave');
+      if (pageHeld) pageHand(goes);
     }
     if (leaving) return fading ? fading + 20 : 0;
     return D_SMALL + 20;   // (the words leave at the data card's pace, one small step; with reduced motion they still fade, without sliding: app.css)
@@ -4755,8 +4771,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // values, dropped in the same style change; further than the leave's own way, it carries on from there), or, the swipe given up,
       // both ease back from there.)
       const els = [ui.text, ui.shade], o = g.o ?? 1, out = gone && ui.text.classList.contains('pz-leave');
+      if (SWIPE_HAND && gone && busy && !out) {
+        // (The slide is on its way: held here until its leave comes (wordsOut, pageHand); one that never comes eases back.)
+        clearTimeout(pageHeld?.t);
+        pageHeld = { x, o, els, t: setTimeout(() => { if (pageHeld) pageHand(false); }, 600) };
+        return;
+      }
       for (const el of els) { el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); }
       if (out) {
+        if (SWIPE_HAND) { pageThrow(x, els); return; }
         const d = parseFloat(ui.text.style.getPropertyValue('--pz-turn-d')) || 20;
         if (Math.abs(x) > d) for (const el of els) el.style.setProperty('--pz-turn-d', `${Math.abs(x).toFixed(1)}px`);
       } else if (Math.abs(x) > 0.5 || o < 0.999) {
@@ -4769,6 +4792,32 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Dragged further than the leave's own way: the words carry on out from there, never back toward the card while they fade.)
     if (out && Math.abs(x) > (parseFloat(ui.text.style.getPropertyValue('--pz-turn-d')) || 20)) ui.text.style.setProperty('--pz-turn-d', `${Math.abs(x).toFixed(1)}px`);
     if (!out && Math.abs(x) > 0.5) ui.text.animate?.([{ transform: `translateX(${x}px)` }, { transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE });
+  }
+  // (A swipe's throw: the card carries on out from where the finger left it, the leave's own way further, decelerating from the finger's
+  // pace (app.css pz-thrown: --ease-arrive, not the leave's --ease-in, which stood the card still at the finger before it went on). The
+  // way in keeps the slide's own distance (pageThrown, put back by wordsTurnIn).)
+  let pageThrown = null;
+  function pageThrow(x, els) {
+    const d0 = ui.text.style.getPropertyValue('--pz-turn-d'), d = parseFloat(d0) || 20;
+    pageThrown = d0.trim();
+    for (const el of els) { el.style.setProperty('--pz-turn-d', `${(Math.abs(x) + d).toFixed(1)}px`); el.classList.add('pz-thrown'); }
+  }
+  function pageCaught() {
+    if (pageThrown == null || !ui) return;
+    for (const el of [ui.text, ui.shade]) { el.classList.remove('pz-thrown'); if (pageThrown) el.style.setProperty('--pz-turn-d', pageThrown); else el.style.removeProperty('--pz-turn-d'); }
+    pageThrown = null;
+  }
+  // (The held swipe let go: out, the leave just set carries on from the finger, further than its own way if the finger went further; not
+  // out, the card eases back from there.)
+  function pageHand(out) {
+    const h = pageHeld; pageHeld = null;
+    if (!h) return;
+    clearTimeout(h.t);
+    for (const el of h.els) { el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); }
+    if (out) pageThrow(h.x, h.els);
+    else if (Math.abs(h.x) > 0.5 || h.o < 0.999) {
+      for (const el of h.els) el.animate?.([{ transform: `translateX(${h.x}px)`, opacity: h.o }, { transform: 'none', opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
+    }
   }
   wrap.addEventListener('touchmove', (e) => {
     if (e.touches.length > 1) { sw = null; if (pull) pullLet(false); return; }
