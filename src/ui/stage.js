@@ -46,7 +46,7 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { createLabelGL } from './label-gl.js?v=1eecde9495';
 import { createGlassGL } from './glass-gl.js?v=48e1b2e195';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=44272eb0f7';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=977e3b3af8';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -1183,7 +1183,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // as hard-edged patches.)
       // (A selected vessel stays in its own tier, so it joins its neighbours as every vessel does, and stands out of the dimmed
       // network along its course instead (tube texel 12), easing back into it toward its ends. Only the cava, one vessel to the
-      // eye, is lifted whole, and stays so while it eases back: selA.)
+      // eye, is shown whole, and stays so while it eases back: selA. It is not drawn above the network for that: F_WHOLE, tube sync.)
       const on = (x.g.classList.contains('hl') || (IVC_EDGES.has(x.e.id) && (x.g.classList.contains('is-sel') || vh.selA.get(x.e.id) > 0))) && !SIN_EDGES.has(x.e.id);
       if (on !== !!x.lifted) { x.lifted = on; place(x); }
     }
@@ -2483,7 +2483,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=623714a6b5').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=7637cf518e').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -4018,7 +4018,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const originMode = originOn();
     const rgbCs = (c) => toRGB(c, cs);
     tubeData.fill(0);
-    // Hovering or selecting any part of the IVC shows it whole: no veil, and no fades on it or on the tributaries joining it.
+    // Selecting or spotlighting any part of the IVC shows it whole: no veil and no organ fading it, and no fades on it or on the
+    // tributaries joining it. It stays in its own tier (behind the network), as the body has it: the portal tree, which lies in front
+    // of the cava, and the hepatic veins that end on it still draw over it where they cross (it was lifted above them, 1 Nov).
     let ivcOn = false;
     for (const id of IVC_EDGES) { const g = E[id]?.g; if (g && (g.classList.contains('is-sel') || g.classList.contains('hl') || vh.selA.get(id) > 0)) ivcOn = true; }
     // (The colours' filter steps by the time since the last sync: every display frame while it moves, colEasing. From rest the
@@ -4047,14 +4049,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       let alpha = x.isArt ? 0.85 : kind === 'c' ? clamp(2 * T0 - 1, 0, 1) : kind === 's' || kind === 'f' ? (obj.live ?? 1) * clamp(1 - 2 * T0, 0, 1) : 1;
       const sinStrand = kind === 's' && SIN_EDGES.has(id);
-      const tier = ivcOn && IVC_EDGES.has(id) ? TIER_LIFT : x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x);
+      const tier = x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x);
       // The network recedes to netA with a vessel selected (the lifted tier and the vessels behind the organs are not faded as a
       // group): the selected vessel eases out of that dimming and, deselected, back into it (selA), so it never snaps.
       if (x.back || tier >= TIER_LIFT) alpha *= netA + (1 - netA) * easeInOut(Math.max(vh.selA.get(id) || 0, ra ? vh.selA.get(ra.e.id) || 0 : 0));
       const shade = !x.isArt && !ghost;
-      const veil = IVC_EDGES.has(id) && !ivcOn;
+      const veil = IVC_EDGES.has(id) && !ivcOn, whole = IVC_EDGES.has(id) && ivcOn;
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= 3.4;
-      const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0) | (veil ? F_VEIL : 0);
+      const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0) | (veil ? F_VEIL : 0) | (whole ? F_WHOLE : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
       if (COL_FOLLOW) {
         colT[0] = c0[0]; colT[1] = c0[1]; colT[2] = c0[2]; colT[3] = c1[0]; colT[4] = c1[1]; colT[5] = c1[2];

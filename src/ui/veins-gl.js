@@ -189,7 +189,7 @@ const put = (dst, src) => { dst.set(src); return dst; };
 // Flags (tube texel 2, z).
 // Stream flags (tube texel 5, w): the stream runs on at the upstream / downstream end; reversed flow.
 export const F_UP = 1, F_DN = 2, F_REV = 4;
-export const F_SEL = 1, F_DIFFUSE = 2, F_SHADOW = 4, F_DOTTED = 8, F_NOCASE = 16, F_SPEC = 32, F_EDGE = 64, F_VEIL = 128;   // F_EDGE: the casing takes its own color (texel 6) and is opaque; F_VEIL: faded along its whole course as if behind an organ
+export const F_SEL = 1, F_DIFFUSE = 2, F_SHADOW = 4, F_DOTTED = 8, F_NOCASE = 16, F_SPEC = 32, F_EDGE = 64, F_VEIL = 128, F_WHOLE = 256;   // F_EDGE: the casing takes its own color (texel 6) and is opaque; F_VEIL: faded along its whole course as if behind an organ; F_WHOLE: a vessel behind the organs shown whole (the cava, selected or spotlit): the organs do not fade it, yet it stays in its tier, behind every vessel of the network
 // How much an organ fades a vessel behind it (and a veiled vessel along its course): to 1 − VEIL_K of full. 0.5 read as a
 // translucent organ with vessels inside it; 0.6 leaves the lumen's ghost and says "behind" (looks review, vessels behind organs, 31 Oct).
 export const VEIL_K = 0.6;
@@ -457,7 +457,7 @@ void main() {
   }
 
   // ── Per-vessel attributes ──
-  float stier[MAXS], sz[MAXS], sflag[MAXS], sa[MAXS], swall[MAXS], shov[MAXS], ssel[MAXS];
+  float stier[MAXS], sz[MAXS], sflag[MAXS], sa[MAXS], swall[MAXS], shov[MAXS], ssel[MAXS], sof[MAXS];
   vec3 scol[MAXS], sedge[MAXS];
   // (A vessel behind an organ fades to about 0.4 of full where the organ covers it, an atlas's structure seen through another;
   // the hepatic veins and sinusoids lie inside the liver, in their own tiers, and are not faded by it.)
@@ -466,6 +466,7 @@ void main() {
     if (s >= n) break;
     vec4 t0 = T(sid[s], 0), t1 = T(sid[s], 1), t2 = T(sid[s], 2), t3 = T(sid[s], 3), t4 = T(sid[s], 4);
     stier[s] = t2.x; sz[s] = t2.y; sflag[s] = t2.z; swall[s] = t0.w;
+    sof[s] = (int(t2.z + 0.5) & ${F_WHOLE}) != 0 ? 0.0 : 1.0;   // (how far the organs fade this vessel: 1 as they cover it, 0 for a vessel shown whole)
     scol[s] = mix(t0.rgb, t1.rgb, alongAt(sid[s], clamp(su[s], 0.0, 1.0)));
     vec4 tc = T(sid[s], 8);
     shov[s] = T(sid[s], 9).w;
@@ -531,7 +532,7 @@ void main() {
         if (s >= n || (jm[j] & (1 << s)) == 0 || stier[s] >= stier[t]) continue;
         int lt = int(stier[s] + 0.5);
         if (tierGroup[lt] == 2) continue;
-        float shown = tierAlpha[lt] * (tierGroup[lt] == 0 ? 1.0 - occl : 1.0);
+        float shown = tierAlpha[lt] * (tierGroup[lt] == 0 ? 1.0 - occl * sof[s] : 1.0);
         float aC = sa[s] * jf[j] * min(tierAlpha[ti], shown), aO = sa[s] * shown;
         if (aO > 1e-4) keep[s] = min(keep[s], clamp((1.0 - aC / aO) / max(1.0 - aC, 1e-4), 0.0, 1.0));
       }
@@ -604,7 +605,7 @@ void main() {
         int lt = int(stier[s] + 0.5);
         if (tierGroup[lt] == 2) continue;
         mem |= 1 << s;
-        float shown = tierAlpha[lt] * (tierGroup[lt] == 0 ? 1.0 - occl : 1.0);
+        float shown = tierAlpha[lt] * (tierGroup[lt] == 0 ? 1.0 - occl * sof[s] : 1.0);
         pres[s] = max(pres[s], jf[j] * min(1.0, shown / max(tierAlpha[ti], 1e-3)) / (grp == 1 && tierGroup[lt] == 0 ? max(netAlpha, 1e-3) : 1.0));
       }
     }
@@ -753,7 +754,7 @@ ${DEPTH ? `      // Depth: the tube rounds off toward its wall (cubed, so the mi
     c = over(vec4(lum, 1.0) * aL, c);
     c *= alpha * tierAlpha[ti];
     float wsel = grp == 1 ? ssel[ow] : 0.0;   // (the network's vessels are faded as a group: the selected one's own share is laid on top)
-    float gf = grp == 0 ? 1.0 - occl : grp == 1 ? mix(netAlpha, 1.0, wsel) : 1.0;
+    float gf = grp == 0 ? 1.0 - occl * sof[ow] : grp == 1 ? mix(netAlpha, 1.0, wsel) : 1.0;
     float lumA = aL * alpha * tierAlpha[ti] * gf;
     if (lumA > 0.02 && (flags & ${F_DOTTED}) == 0) {
       // The stream shown here: the two joined lumens with the largest share, by nearness and by how
@@ -797,7 +798,7 @@ ${DEPTH ? `      // Depth: the tube rounds off toward its wall (cubed, so the mi
         }
       }
     } else gW *= 1.0 - c.a * gf;
-    if (grp == 0) { c *= 1.0 - occl; accB = over(c, accB); }
+    if (grp == 0) { c *= 1.0 - occl * sof[ow]; accB = over(c, accB); }
     else if (grp == 1) { accN = over(c, accN); if (wsel > 0.0) accT = over(c * wsel, accT); }
     else accT = over(c, accT);
   }
