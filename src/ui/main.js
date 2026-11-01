@@ -7,8 +7,9 @@ import { createStage } from './stage.js?v=4d0a3e0ca1';
 import { createCreditPlacer } from './credit.js?v=21f50433fe';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
+<<<<<<< HEAD
 import { createInspector } from './inspector.js?v=4fe18b2c56';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=6a683fac2f';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=e2246ee797';
 import { setHvpgStage } from './hvpg-proc.js?v=d8febcd21c';
 import { createWhy } from './why.js?v=89d2a1d039';
 import { createTimeline, LAPSES } from './timeline.js?v=353774809d';
@@ -17,6 +18,18 @@ import { createCard } from './card.js?v=ce61bd72f2';
 import { createChart } from './chart.js?v=c3c85f54b9';
 import { createMenu } from './menu.js?v=ecb04d4fb6';
 import { caption } from './a11y.js?v=0a8eea993d';
+=======
+import { createInspector } from './inspector.js?v=4fe18b2c56';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=e2246ee797';
+import { setHvpgStage } from './hvpg-proc.js?v=d8febcd21c';
+import { createWhy } from './why.js?v=89d2a1d039';
+import { createTimeline, LAPSES } from './timeline.js?v=353774809d';
+import { createCompare } from './compare.js?v=b98907e4c8';
+import { createCard } from './card.js?v=ce61bd72f2';
+import { createChart } from './chart.js?v=c3c85f54b9';
+import { createMenu } from './menu.js?v=ecb04d4fb6';
+import { caption } from './a11y.js?v=0a8eea993d';
+>>>>>>> b9fc33e3 (Abdomen steppers (serum albumin, litres to drain) roll their number to the new value instead of jumping; ?stepnum=0 writes it at once)
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
 import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=58f24743c7';
@@ -196,7 +209,11 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=5fb1fd4dfd'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+<<<<<<< HEAD
+  presenterL = lazy(() => import('./presenter.js?v=ace8a08583'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+=======
+  presenterL = lazy(() => import('./presenter.js?v=ace8a08583'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+>>>>>>> b9fc33e3 (Abdomen steppers (serum albumin, litres to drain) roll their number to the new value instead of jumping; ?stepnum=0 writes it at once)
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

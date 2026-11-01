@@ -47,7 +47,11 @@ import { createPressureTime } from './pressure-time.js?v=885f52f5c5';
 import { createVitalsMonitor } from './vitals-monitor.js?v=a045d5a084';
 import { createHvpgCard } from './tool-hvpg.js?v=2fcfabbf28';
 import { createFlowTime } from './flow-time.js?v=447c3f6bb9';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=4b429ebe6e';
+<<<<<<< HEAD
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=d20e584c42';
+=======
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=d20e584c42';
+>>>>>>> b9fc33e3 (Abdomen steppers (serum albumin, litres to drain) roll their number to the new value instead of jumping; ?stepnum=0 writes it at once)
 import { frameFor, cancelFrame } from './frame.js?v=15d5254a2c';
 import { talkTrace } from './talk-trace.js?v=b11f94d743';
 import { EXT, guard, safe } from './slide-ext.js?v=2f2122d8dd';

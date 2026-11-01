@@ -10,8 +10,13 @@ import { createPressureTime } from './pressure-time.js?v=885f52f5c5';
 import { createHvpgProcedure } from './hvpg-proc.js?v=d8febcd21c';
 import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=6cb406ddf6';
 import { ownsSideways, pageGo } from './swipe.js?v=9ed936bf04';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=4b429ebe6e';
+<<<<<<< HEAD
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=d20e584c42';
 import { createReadoutsPane } from './readouts-pane.js?v=fd1cfefb9d';
+=======
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=d20e584c42';
+import { createReadoutsPane } from './readouts-pane.js?v=fd1cfefb9d';
+>>>>>>> b9fc33e3 (Abdomen steppers (serum albumin, litres to drain) roll their number to the new value instead of jumping; ?stepnum=0 writes it at once)
 import { frameFor } from './frame.js?v=15d5254a2c';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=8a7bc6961d';

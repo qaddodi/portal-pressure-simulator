@@ -4,8 +4,13 @@
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
+<<<<<<< HEAD
 import { pressureColor } from './colormap.js?v=cc36398c3e';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon, swapText, putText } from './util.js?v=b280e98bc3';
+=======
+import { pressureColor } from './colormap.js?v=cc36398c3e';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=b280e98bc3';
+>>>>>>> b9fc33e3 (Abdomen steppers (serum albumin, litres to drain) roll their number to the new value instead of jumping; ?stepnum=0 writes it at once)
 import { simTime, isPaused } from './clock.js?v=16aba0e2eb';
 import { createEndoGL } from './endo-gl.js?v=66fb23ff4f';
 import { renderEndo } from './endo-render.js?v=aaf33c8a85';
@@ -567,12 +572,20 @@ function iapDial() {
   }
   return { el, set };
 }
+/** A stepper's number rolls to its new value over a small step instead of jumping (the tiles' number roll, util.js countTo); the
+ *  first paint is written at once, the unit stays put beside it. ?stepnum=0 writes every number at once, as before. */
+const stepNumOff = typeof location !== 'undefined' && /[?&]stepnum=0\b/.test(location.search || '');
+const paintStep = (out, v, dp, unit) => {
+  let n = out.firstElementChild;
+  if (!n?.classList.contains('ab-dp-n')) { n = h('span', { class: 'ab-dp-n' }); out.replaceChildren(n, h('small', {}, unit)); }
+  if (stepNumOff) putText(n, v.toFixed(dp)); else countTo(n, v, dp);
+};
 export function createAbdomen({ onAction }) {
   // The stepper for serum albumin: − value +, the value between the buttons, the same control as the litres to drain.
   const stepper = (label, unit, min, max, stepBy, dp, start, onSet) => {
     let v = start;
     const out = h('output', { class: 'ab-dp-l' });
-    const paint = () => { out.replaceChildren(v.toFixed(dp), h('small', {}, unit)); minus.disabled = v <= min; plus.disabled = v >= max; };
+    const paint = () => { paintStep(out, v, dp, unit); minus.disabled = v <= min; plus.disabled = v >= max; };
     const go = (d) => { v = +clamp(v + d, min, max).toFixed(dp); paint(); onSet(v); };
     const minus = h('button', { class: 'ab-dp-sb', 'aria-label': `${label}: less`, onclick: () => go(-stepBy) }, '−');
     const plus = h('button', { class: 'ab-dp-sb', 'aria-label': `${label}: more`, onclick: () => go(stepBy) }, '+');
@@ -598,7 +611,7 @@ export function createAbdomen({ onAction }) {
   const drain = h('button', { class: 'ab-drain', onclick: () => onAction({ kind: 'paracentesis', mL: L * 1000, albumin: albOn() }) });
   function paintVol() {
     const warn = L > 5 && !albOn();
-    volOut.replaceChildren(L.toFixed(1), h('small', {}, 'L'));
+    paintStep(volOut, L, 1, 'L');
     volMinus.disabled = L <= 1; volPlus.disabled = L >= 10;
     albT.textContent = 'Albumin';
     // (Optional / Advised / grams crossfade into each other; the grams count on as the litres change.)

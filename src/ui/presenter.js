@@ -29,8 +29,13 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
+<<<<<<< HEAD
 import { createHvpgMonitor } from './hvpg-proc.js?v=d8febcd21c';
-import { createTools } from './presenter-tools.js?v=4d88716e6e';
+import { createTools } from './presenter-tools.js?v=c7e6ec0f61';
+=======
+import { createHvpgMonitor } from './hvpg-proc.js?v=d8febcd21c';
+import { createTools } from './presenter-tools.js?v=c7e6ec0f61';
+>>>>>>> b9fc33e3 (Abdomen steppers (serum albumin, litres to drain) roll their number to the new value instead of jumping; ?stepnum=0 writes it at once)
 import { openHandout } from './handout.js?v=be99975ab1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
