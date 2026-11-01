@@ -629,6 +629,8 @@ function buildHud() {
   });
   // A chip that opens a menu says so: aria-expanded from the start (popover() keeps it), which app.css turns into a turned chevron and a held tint. ?chipopen=0 leaves all of it off.
   if (!/[?&]chipopen=0\b/.test(location.search)) { document.documentElement.classList.add('chip-open'); for (const id of ['btnBlood', 'btnLobuleLayers', 'btnLayers']) $('#' + id).setAttribute('aria-expanded', 'false'); }
+  // Press and hover on every other control eases and answers a finger (app.css, html.press-fx). ?pressfx=0 leaves all of it off.
+  if (!/[?&]pressfx=0\b/.test(location.search)) document.documentElement.classList.add('press-fx');
   $('#btnBlood').onclick = (e) => openBlood(e.currentTarget);
   $('#btnLobuleLayers').onclick = (e) => openLobuleLayers(e.currentTarget);
   store.on('lobule', (on) => { $('#btnLobuleLayers').hidden = !on; if (!on) closePopover(); });

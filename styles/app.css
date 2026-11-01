@@ -185,7 +185,7 @@ svg { flex: none; }
 .chip-btn {
   display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-card);
   background: var(--surface); color: var(--text); font-size: var(--fs-14); font-weight: 500; cursor: pointer; white-space: nowrap;
-  transition: background var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease);
+  transition: background var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease), scale var(--d-flip) var(--ease);
 }
 @media (hover: hover) { .chip-btn:hover { border-color: var(--border-strong); background: var(--surface-2); } }
 .chip-btn svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); }
@@ -199,7 +199,7 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 .chip-btn[aria-pressed="true"] svg { color: currentColor; }
 
 /* Legend: a horizontal scale that sits in the figure header, never on the anatomy */
-.lens-btn { position: relative; display: flex; align-items: center; gap: 4px; height: 42px; padding: 0 8px 0 8px; border-radius: var(--r-card); border: 1px solid transparent; cursor: pointer; transition: background var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease); }
+.lens-btn { position: relative; display: flex; align-items: center; gap: 4px; height: 42px; padding: 0 8px 0 8px; border-radius: var(--r-card); border: 1px solid transparent; cursor: pointer; transition: background var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease), scale var(--d-flip) var(--ease); }
 @media (hover: hover) { .lens-btn:hover { background: var(--surface); border-color: var(--border); } }
 .lens-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .lens-btn .chev { width: var(--ic-s); height: var(--ic-s); flex: none; stroke: var(--text-3); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -603,6 +603,30 @@ div.vital { cursor: default; }
 .menu-item:active { background: var(--surface-3); }
 .nb-tab:active { scale: .96; }
 @media (prefers-reduced-motion: reduce) { .btn:active, .ib:active, .nb-tab:active { scale: none; } }
+/* Press and hover for the rest of the controls (?pressfx=0 leaves it all off; main.js sets html.press-fx). Before, the bar and dock
+   buttons, the menu's own rows and most chips changed colour the instant a mouse reached them, and many had no press at all, so a
+   finger on an iPad or iPhone (which has no hover) saw nothing. Now each one eases its tint on --d-flip, and a press gives the
+   same answer as the .btn and .ib above: a small sink for a chip, a tint for a row, a darker ink for a link. A control that is on
+   (pressed, expanded, current) keeps its own tint and only sinks. Nothing on the figure moves. */
+html.press-fx :is(.pal-btn, .tb-act, .tl-speed, .tl-pin, .tl-hist, .measure-launch, .menu-btn, .dock-title, .um-link, .um-info, .tl-pop-ic,
+    .toast-x, .reset-btn, .pal-item, .pzj-list button, .check-row, button.finding, .chg .chg-go, .select, .pz-fold) {
+  transition: background-color var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease), color var(--d-flip) var(--ease), scale var(--d-flip) var(--ease); }
+html.press-fx .link { transition: color var(--d-flip) var(--ease), opacity var(--d-flip) var(--ease); }
+html.press-fx .dop-tint { transition: background-color var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease), color var(--d-flip) var(--ease), scale var(--d-flip) var(--ease); }
+/* the sink: a chip, a card, a row-sized button (small ones go in further) */
+html.press-fx :is(.chip-btn, .lens-btn, .menu-btn, .pal-btn, .tb-act, .tl-speed, .tl-pin, .tl-hist, .measure-launch, .dop-tint, .pt-chip, .pz-abb, .lens, .dock-title):not(:disabled):active { scale: .97; }
+html.press-fx :is(.drug, .ac-btn, .ac-toggle, .card):not(:disabled):active { scale: .985; }
+html.press-fx :is(.tl-pop-ic, .toast-x, .um-info, .reset-btn, .pz-zbtn):not(:disabled):active { scale: .88; }
+html.press-fx .pz-fold:active { scale: .96; }
+/* the tint under a press, for what is not already on */
+html.press-fx :is(.chip-btn, .lens-btn, .menu-btn, .pal-btn, .tb-act, .tl-speed, .tl-pin, .tl-hist, .measure-launch, .dop-tint, .pt-chip, .lens, .drug, .ac-btn, .ac-toggle, .card):not(:disabled):not([aria-pressed="true"]):not([aria-expanded="true"]):not(.on):active { background-color: var(--surface-3); }
+html.press-fx :is(.um-row, .um-link, .um-info, .tl-pop-ic, .toast-x, .reset-btn, .pal-item, .pzj-list button, .check-row, button.finding, .dock-title, .select, .pz-zbtn, .metric:not(.inert)):not(:disabled):not(.on):not([aria-current]):active { background-color: var(--surface-3); color: var(--text); }
+html.press-fx .pz-abb:not(:disabled):active, html.press-fx .pzc-q:active { background-color: var(--hairline); color: var(--text); }
+html.press-fx .chg .chg-go:active, html.press-fx .order-chip:active { color: var(--text); }
+html.press-fx .link:active { color: var(--accent-ink); opacity: .7; text-decoration: underline; text-underline-offset: 2px; }
+/* tabs and the segmented options: the label goes to full ink under the press (the glide pill follows the pick) */
+html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > button, .pz-bar button.pzb-n):not([aria-selected="true"]):not([aria-pressed="true"]):active { color: var(--text); }
+@media (prefers-reduced-motion: reduce) { html.press-fx :is(.chip-btn, .lens-btn, .menu-btn, .pal-btn, .tb-act, .tl-speed, .tl-pin, .tl-hist, .measure-launch, .dop-tint, .pt-chip, .pz-abb, .lens, .dock-title, .drug, .ac-btn, .ac-toggle, .card, .tl-pop-ic, .toast-x, .um-info, .reset-btn, .pz-zbtn, .pz-fold):active { scale: none; } }
 .glass { background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); border-radius: var(--r-card); }
 .select { height: 32px; border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface); padding: 0 28px 0 12px; font-size: var(--fs-14); appearance: none; -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2385878F' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -883,7 +907,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .switch input:focus-visible + span { box-shadow: 0 0 0 2px var(--focus); }
 .drug {
   display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px 12px; border-radius: var(--r-card); border: 1px solid var(--border); background: var(--surface); cursor: pointer;
-  transition: border-color var(--d-flip) var(--ease), background var(--d-flip) var(--ease);
+  transition: border-color var(--d-flip) var(--ease), background var(--d-flip) var(--ease), scale var(--d-flip) var(--ease);
 }
 @media (hover: hover) { .drug:hover { border-color: var(--border-strong); } }
 .drug .dn { font-weight: 600; font-size: var(--fs-14); display: flex; justify-content: space-between; align-items: center; }
@@ -910,7 +934,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 @keyframes spin { to { transform: rotate(360deg); } }
 .card {
   border: 1px solid var(--border); border-radius: var(--r-card); padding: 16px; cursor: pointer; background: var(--surface); text-align: left;
-  display: flex; flex-direction: column; gap: 4px; transition: border-color var(--d-flip) var(--ease), box-shadow var(--d-flip) var(--ease), transform var(--d-flip) var(--ease);
+  display: flex; flex-direction: column; gap: 4px; transition: border-color var(--d-flip) var(--ease), box-shadow var(--d-flip) var(--ease), transform var(--d-flip) var(--ease), scale var(--d-flip) var(--ease);
 }
 @media (hover: hover) { .card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-2); transform: translateY(-1px); } }
 .card .t { font-weight: 600; font-size: var(--fs-14); line-height: 1.35; }
@@ -1262,7 +1286,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .ac-btn, .ac-toggle {
   position: relative; display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; padding: 8px 12px; border-radius: var(--r-card);
   border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: var(--fs-14); font-weight: 500; cursor: pointer; text-align: left;
-  transition: background var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease);
+  transition: background var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease), scale var(--d-flip) var(--ease);
 }
 @media (hover: hover) { .ac-btn:hover:not(:disabled), .ac-toggle:hover:not(:disabled) { background: var(--surface-2); border-color: var(--border-strong); } }
 .ac-btn:disabled, .ac-toggle:disabled { opacity: .45; cursor: not-allowed; }
@@ -2122,7 +2146,7 @@ button.finding { cursor: pointer; }
 .pz-ab { display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; width: fit-content; max-width: 100%; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-2); pointer-events: auto; }
 /* (In the teaching card the switch sits centred, with no shadow: the card's own layer clipped a shadow to a hard-edged box.) */
 .pz-text .pz-ab { margin-inline: auto; align-self: center; box-shadow: none; background: none; border-color: transparent; }   /* (in the card: no track round the choices, the card is their ground; DG4 17 Oct) */
-.pz-abb { appearance: none; border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: 10px; padding: .5em 1.05em; min-height: 40px; font: 600 var(--s-lab)/1.1 var(--font-ui); color: var(--text-2); background: color-mix(in srgb, var(--surface) 55%, transparent); cursor: pointer; transition: background-color var(--d-small) var(--ease), color var(--d-small) var(--ease), border-color var(--d-small) var(--ease), box-shadow var(--d-small) var(--ease); }
+.pz-abb { appearance: none; border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: 10px; padding: .5em 1.05em; min-height: 40px; font: 600 var(--s-lab)/1.1 var(--font-ui); color: var(--text-2); background: color-mix(in srgb, var(--surface) 55%, transparent); cursor: pointer; transition: background-color var(--d-small) var(--ease), color var(--d-small) var(--ease), border-color var(--d-small) var(--ease), box-shadow var(--d-small) var(--ease), scale var(--d-flip) var(--ease); }
 @media (hover: hover) { .pz-abb:hover { color: var(--text); background: var(--hairline); } }
 /* Each option is its own outlined button, so it reads as something to tap; the chosen one is in full ink with an accent edge, the others grey.
    No shared track and no filled pill, an iOS switch's look (DG4, 17 Oct). */
@@ -3571,7 +3595,7 @@ button.finding { cursor: pointer; }
 .pt-box canvas { touch-action: pan-y; cursor: crosshair; }
 .pt-chips { display: flex; gap: 6px; flex-wrap: wrap; flex: none; }
 .pt-chips::-webkit-scrollbar { display: none; }
-.pt-chip { --chip: var(--text-3); display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 11px 0 9px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-3); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; transition: background var(--d-flip) var(--ease), color var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease); }
+.pt-chip { --chip: var(--text-3); display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 11px 0 9px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-3); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; transition: background var(--d-flip) var(--ease), color var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease), scale var(--d-flip) var(--ease); }
 .pt-chip i { width: 12px; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--chip) 35%, transparent); }
 .pt-chip[aria-pressed="true"] { color: var(--text); background: var(--surface-2); border-color: transparent; }
 .pt-chip[aria-pressed="true"] i { background: var(--chip); }
@@ -5912,7 +5936,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz.pz-wide .pz-data.pz-zoomable { cursor: zoom-in; }
 .pz-zoomed .pz.pz-wide .pz-data { cursor: zoom-out; }
 .pz.pz-wide .pz-data.pz-zoomable > .pz-dh { position: relative; padding-inline: calc(28px / var(--pz-z, 1)); }   /* (a long title wraps before the expand button's corner, 8 px short of it, and stays centered) */
-.pz.pz-wide .pz-data.pz-zoomable > .pz-dh > .pz-zbtn { display: grid; place-items: center; position: absolute; right: calc(-4px / var(--pz-z, 1)); top: 50%; translate: 0 -50%; width: calc(24px / var(--pz-z, 1)); height: calc(24px / var(--pz-z, 1)); margin: 0; padding: 0; border: 0; border-radius: calc(8px / var(--pz-z, 1)); background: none; color: var(--text-3); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color var(--d-small) var(--ease), background var(--d-small) var(--ease); }
+.pz.pz-wide .pz-data.pz-zoomable > .pz-dh > .pz-zbtn { display: grid; place-items: center; position: absolute; right: calc(-4px / var(--pz-z, 1)); top: 50%; translate: 0 -50%; width: calc(24px / var(--pz-z, 1)); height: calc(24px / var(--pz-z, 1)); margin: 0; padding: 0; border: 0; border-radius: calc(8px / var(--pz-z, 1)); background: none; color: var(--text-3); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color var(--d-small) var(--ease), background var(--d-small) var(--ease), scale var(--d-flip) var(--ease); }
 .pz-zbtn::before { content: ''; position: absolute; inset: calc(-8px / var(--pz-z, 1)) calc(-6px / var(--pz-z, 1)); }
 .pz-zbtn svg { width: calc(15px / var(--pz-z, 1)); height: calc(15px / var(--pz-z, 1)); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .pz-zbtn svg:last-child, .pz-zoomed .pz-zbtn svg:first-child { display: none; }

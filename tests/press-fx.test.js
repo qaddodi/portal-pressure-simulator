@@ -1,0 +1,33 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+// Press and hover states for the controls that had none (1 Nov 2026): eased tints, a press sink, a tint under a finger.
+// ?pressfx=0 leaves all of it off.
+
+const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const MAIN = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
+
+test('?pressfx=0 turns it off: main.js adds html.press-fx unless the flag is 0, and every new rule hangs on it', () => {
+  assert.match(MAIN, /!\/\[\?&\]pressfx=0\\b\/\.test\(location\.search\)\) document\.documentElement\.classList\.add\('press-fx'\)/);
+  const lines = CSS.split('\n').filter((l) => /press-fx/.test(l) && /\{/.test(l));
+  assert.ok(lines.length >= 10);
+  for (const l of lines) assert.match(l, /html\.press-fx/);
+});
+
+test('a press eases on --d-flip with the scale property, and sinks nothing under Reduce Motion', () => {
+  assert.match(CSS, /html\.press-fx :is\(\.chip-btn[^)]*\):not\(:disabled\):active \{ scale: \.97; \}/);
+  assert.match(CSS, /@media \(prefers-reduced-motion: reduce\) \{ html\.press-fx :is\([^)]*\):active \{ scale: none; \} \}/);
+  // every control that sinks and already had a transition list has scale in it
+  assert.match(CSS, /\.chip-btn \{[^}]*scale var\(--d-flip\) var\(--ease\)/);
+  assert.match(CSS, /\.lens-btn \{[^}]*scale var\(--d-flip\) var\(--ease\)/);
+  assert.match(CSS, /\.drug \{[^}]*scale var\(--d-flip\) var\(--ease\)/);
+});
+
+test('the controls that snapped now ease: bar, dock, menu and list buttons share one transition on --d-flip', () => {
+  const m = CSS.match(/html\.press-fx :is\((\.pal-btn[^)]*)\) \{\s*transition: ([^;]*);/);
+  assert.ok(m, 'shared transition rule');
+  for (const c of ['.tb-act', '.tl-speed', '.tl-pin', '.menu-btn', '.um-link', '.toast-x', '.pal-item', '.check-row', 'button.finding']) assert.ok(m[1].includes(c), c);
+  assert.match(m[2], /background-color var\(--d-flip\) var\(--ease\)/);
+  assert.match(m[2], /scale var\(--d-flip\) var\(--ease\)/);
+});
