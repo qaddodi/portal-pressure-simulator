@@ -6044,6 +6044,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    out of view until it is opened, and then without a chip of its own: the foot's button reads Hide. Critique A7, 17 Oct.) */
 .pz:not(.stack):not(.low) .pz-data.pz-folds > .pz-tool { overflow: hidden; transition: opacity var(--d-small) var(--ease); }   /* (the card takes its new size at once, a solid object, never easing its size in view; the instrument fades in) */
 .pz:not(.stack):not(.low) .pz-data.pz-folds:not(.tool-open) > .pz-tool { max-height: 0; opacity: 0; margin-bottom: calc(-1 * var(--pz-gap)); }
+/* (Under a finger the part stands at its full height once, and follows by opacity and a short slide: presenter.js foldTouch, ?foldxf=0.) */
+.pz:not(.stack):not(.low) .pz-data.pz-folds > .pz-tool.pz-follow { max-height: none; margin-bottom: 0; }
+.pz .pz-data > .pz-follow { will-change: transform, opacity; }
 /* (A ladder card folds its plot (or strip) and key the same way, at once: its tiles stay in a row under the header with the readings.
    Shown, the plot takes the tiles' place, as a phone's lead instrument does: the room holds one or the other, never both squeezed.) */
 /* (Shown on a wide screen: the unit goes in the header, so it never drops to the brackets' row away from its readings; the drop

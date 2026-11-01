@@ -63,3 +63,11 @@ test('presenter: a finger\'s moves read nothing; the room and the card\'s width 
   assert.match(pz, /cd\.w = caseCard\.c\.offsetWidth \|\| 1;/);
   assert.match(pz, /const c = cd\.card\.c, w = cd\.w;/);
 });
+
+test('presenter: a folding card follows a finger by transform and opacity; its height is set once at each end (?foldxf=0: as before)', () => {
+  assert.match(pz, /const FOLD_XF = !\/\[\?&\]foldxf=0\\b\/\.test\(location\.search\)/);
+  assert.match(pz, /if \(gg\.xf\) \{ gg\.p\.style\.translate = `0 \$\{\(-\(1 - u\) \* FOLD_SLIDE\)\.toFixed\(1\)\}px`; if \(gg\.fade\) gg\.p\.style\.opacity = u\.toFixed\(3\); return; \}/);
+  assert.match(pz, /if \(gg\.xf\) \{ gg\.xf = false; gg\.p\.classList\.remove\('pz-follow'\); gg\.p\.style\.translate = ''; \}/);
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.pz-data\.pz-folds > \.pz-tool\.pz-follow \{ max-height: none; margin-bottom: 0; \}/);
+});

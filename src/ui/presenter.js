@@ -1777,6 +1777,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The teaching card as one page (src/ui/card-page.js): the glass and the words move together, follow, leave and enter, and only
   // transform and opacity change while they move. On by default; ?cardpage=0 keeps the words turning inside a glass that fades in place.
   const CARD_PAGE = CARD_TURN && !/[?&]cardpage=0\b/.test(location.search);
+  // A folding card's part follows a finger by transform and opacity, its height set once at each end (foldTouch); ?foldxf=0: by its height.
+  const FOLD_XF = !/[?&]foldxf=0\b/.test(location.search), FOLD_SLIDE = 10;
   // (The teaching card's shade drawn by the cards' GPU glass, as every other card: see createPresenter's cardGlass. ?shadegl=0 keeps it on the browser's blur.)
   const SHADE_GL = !/[?&]shadegl=0\b/.test(location.search);
   let shadeAnim = null, pageForce = false;   // (the glass's entrance; pageForce: a swipe the card followed out, so its words leave even if the next slide's are the same)
@@ -4966,17 +4968,22 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const p = part(), split = splitSheet(el);
       return { x, y, p, open, shown: open, split, u0: split ? underU(el) : open ? 1 : 0, full: split ? slip.d || p.scrollHeight : Math.min(p.scrollHeight, innerHeight * 0.4), on: false, pts: [] };   // (open: its part shown, the tiles under a lead instrument or the instrument over its tiles)
     };
-    const take = (gg) => { gg.on = true; if (gg.split) { cancelFrame(slip.raf); slideTell(); } else gg.p.style.transition = 'none'; if (gg.split && (gg.u0 === 0 || gg.u0 === 1)) camGrab(); hold(true); };   // (camGrab: the view follows the finger, from rest)
+    // (A card that folds in place, not a sheet (an iPad upright, a short screen): the part takes its full height once as the finger
+    // starts, as a tap on Show gives the card its new size at once, and follows the finger by opacity and a short slide only, its
+    // height written again once at release (settle, setFold). ?foldxf=0: its height follows the finger, as before.)
+    const take = (gg) => { gg.on = true; if (gg.split) { cancelFrame(slip.raf); slideTell(); } else { gg.p.style.transition = 'none'; if (FOLD_XF) { gg.xf = true; gg.fade = el.classList.contains('pz-folds'); if (gg.fade) gg.p.style.opacity = String(gg.u0); gg.p.classList.add('pz-follow'); } } if (gg.split && (gg.u0 === 0 || gg.u0 === 1)) camGrab(); hold(true); };   // (camGrab: the view follows the finger, from rest)   // (fade: a part folded away fades in and out; a sheet's tiles, already in view, only slide)
     // (dy: how far the finger has moved since the part began to follow it, down positive.)
     const foldFollow = (gg, dy) => {
       const u = clamp(gg.u0 * gg.full + dy, 0, gg.full) / (gg.full || 1);
       gg.u = u; gg.pts.push([performance.now(), dy]);
       if (gg.split) { el.classList.add('pz-sliding'); el.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); camAt(u); return; }
+      if (gg.xf) { gg.p.style.translate = `0 ${(-(1 - u) * FOLD_SLIDE).toFixed(1)}px`; if (gg.fade) gg.p.style.opacity = u.toFixed(3); return; }
       gg.p.style.maxHeight = `${(u * gg.full).toFixed(1)}px`; gg.p.style.opacity = u.toFixed(3);
     };
     // (From where the finger left it to the class's own state: the part's transition, or the readings' card's slide, eases the
     // rest. setFold reads where the finger left it before letting go of it.)
     const settle = (gg, show) => {
+      if (gg.xf) { gg.xf = false; gg.p.classList.remove('pz-follow'); gg.p.style.translate = ''; }   // (its height back to its state's, once; the opacity eases on from where the finger left it)
       if (show !== gg.open) { if (gg.split && !show) dock.down = want; setFold(show); return; }
       if (gg.split) { slideUnder(gg.u ?? gg.u0, gg.open ? 1 : 0); hold(false); return; }
       gg.p.getBoundingClientRect(); gg.p.style.transition = '';
