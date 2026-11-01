@@ -97,7 +97,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (!el || el.contains(e.target) || e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1 || e.key === ' ' || e.target.closest?.('input, textarea, select, [contenteditable]')) return;
     el.querySelector('.um-q').focus();
   };
-  const outside = (e) => { if (el && !el.contains(e.target) && !pv?.contains(e.target) && !anchor.contains(e.target)) close(); };
+  const outside = (e) => { if (el && !el.contains(e.target) && !pv?.contains(e.target) && !anchor.contains(e.target) && !e.target.closest?.('#modalBack')) close(); };   // (a question opened from a row, Delete script or a name, is answered with the menu still open behind it)
 
   // ── Rows ──
   // A deck's level as a short muted word (Foundation, Core, Advanced), not a row of pips.

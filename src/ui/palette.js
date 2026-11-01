@@ -3,7 +3,7 @@
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
 import { store, updateParams } from './store.js?v=80d4358be8';
-import { h, svgIcon, toast, afterExit, visibleBottom } from './util.js?v=b2e9419bfb';
+import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore } from './util.js?v=b2e9419bfb';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=e71da00102';
 import { HIDDEN_EDGES } from './anatomy.js?v=6d1acc2a06';
@@ -14,9 +14,12 @@ export function createPalette({ ctx }) {
   const back = h('div', { class: 'pal-back', hidden: true });
   const input = h('input', { class: 'pal-input', type: 'text', placeholder: innerWidth < 600 ? 'Search vessels, patients, treatments' : 'Search a vessel, patient or treatment: “tips 10”, “+6 months”…', 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false', role: 'combobox', 'aria-autocomplete': 'list', 'aria-controls': 'pal-list', 'aria-expanded': 'true' });
   const list = h('div', { class: 'pal-list', id: 'pal-list', role: 'listbox', 'aria-label': 'Results' });
-  const box = h('div', { class: 'pal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Command palette' }, h('div', { class: 'pal-top' }, svgIcon('explore', 'pal-ic'), input, h('kbd', {}, 'Esc')), list);
+  // (The same magnifier as the Search button that opens it. The key hints under the list are for a keyboard: a touch screen hides them.)
+  const foot = h('div', { class: 'pal-foot', 'aria-hidden': 'true' }, h('span', {}, h('kbd', {}, '↑'), h('kbd', {}, '↓'), 'to move'), h('span', {}, h('kbd', {}, 'Enter'), 'to run'), h('span', {}, h('kbd', {}, 'Esc'), 'to close'));
+  const box = h('div', { class: 'pal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Command palette' }, h('div', { class: 'pal-top' }, svgIcon('search', 'pal-ic'), input), list, foot);
   back.append(box);
   document.body.append(back);
+  const syncMore = fadeWhileMore(list);   // (a list that scrolls fades at its foot while there is more below it, as the menus do)
   let items = [], sel = 0, ret = null;
 
   function commands() {
@@ -111,8 +114,9 @@ export function createPalette({ ctx }) {
       b.addEventListener('click', () => run(i));
       b.addEventListener('pointermove', () => { if (sel !== i) { sel = i; renderList(); } });
       return b;
-    }) : [h('div', { class: 'pal-empty' }, 'No matching command.')]));
+    }) : [h('div', { class: 'pal-empty' }, h('b', {}, input.value.trim() ? `Nothing matches “${input.value.trim()}”.` : 'No commands yet.'), 'Try a vessel (“portal vein”), a patient, a presentation or a treatment (“tips 8”).')]));
     list.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
+    syncMore();
     // (The options are reached through the field, by arrow keys: it names the one that is current, and a screen reader reads it as the field's choice.)
     if (items.length) input.setAttribute('aria-activedescendant', `pal-opt-${sel}`); else input.removeAttribute('aria-activedescendant');
   }

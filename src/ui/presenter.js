@@ -16,7 +16,7 @@
 import { store, replaceParams } from './store.js?v=80d4358be8';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=b2e9419bfb';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=b2e9419bfb';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
 import { liveText, wordsOf } from './live-text.js?v=589afc79b0';
 import { swipeDir, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3ad619631e';
@@ -5013,8 +5013,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const st = store.get();
     return { title: st.presetList?.find((p) => p.id === st.presetId)?.label || 'Step', preset: st.presetId, params: structuredClone(st.params), view: st.view, notes: '' };
   }
-  function newScript() {
-    const title = prompt('Name the new script', 'My script');
+  async function newScript() {
+    const title = await askText({ title: 'New script', label: 'Name', value: 'My script', yes: 'Create' });
     if (!title) return;
     const list = readMine();
     list.push({ id: 'my-' + Date.now().toString(36), title, summary: 'Built from the live model.', steps: [captureStep()] });
@@ -5022,18 +5022,32 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     rerenderHome?.();
     toast('Script created with the current model as its first slide. Change the model and use “Add current state” to add more.');
   }
-  function addStep(id) {
-    const list = readMine(), s = list.find((x) => x.id === id);
-    if (!s || s.deck) return;
+  async function addStep(id) {
+    if (!readMine().find((x) => x.id === id) || readMine().find((x) => x.id === id).deck) return;
     const step = captureStep();
-    step.title = prompt('Title for this slide', step.title) || step.title;
+    step.title = (await askText({ title: 'Add this state as a slide', label: 'Slide title', value: step.title, yes: 'Add slide' })) || step.title;
+    const list = readMine(), s = list.find((x) => x.id === id);   // (read again: the dialog was open a while)
+    if (!s || s.deck) return;
     s.steps.push(step);
     if (!writeMine(list)) { toast(NO_ROOM, 'bad'); return; }
     rerenderHome?.();
   }
-  function remove(id) { if (!confirm('Delete this script?')) return; if (!writeMine(readMine().filter((x) => x.id !== id))) { toast(NO_ROOM, 'bad'); return; } rerenderHome?.(); }
+  async function remove(id) {
+    const s = readMine().find((x) => x.id === id);
+    if (!await confirmDialog({ title: 'Delete this script?', body: s ? `“${s.title}” and its slides will be removed from this device. A link or an exported file you made of it still opens.` : 'It will be removed from this device.', yes: 'Delete', danger: true })) return;
+    if (!writeMine(readMine().filter((x) => x.id !== id))) { toast(NO_ROOM, 'bad'); return; }
+    rerenderHome?.();
+  }
   function exportScript(s) { download(`${s.title.replace(/[^\w-]+/g, '-').toLowerCase()}.pps-script.json`, JSON.stringify(s, null, 2), 'application/json'); }
-  const copy = (url, msg) => navigator.clipboard?.writeText(url).then(() => toast(msg, '', { present: true }), () => prompt('Copy this link', url)) ?? prompt('Copy this link', url);
+  // (Where the clipboard is not allowed, the link is shown in the app's own dialog, selected, to copy by hand.)
+  const showLink = (url) => {
+    const f = h('input', { class: 'ask-field', type: 'text', readOnly: true, value: url, 'aria-label': 'Link' });
+    f.addEventListener('focus', () => f.select());
+    openModal('Copy this link', h('div', {}, h('p', {}, 'Your browser did not allow copying. Select the link and copy it.'), f,
+      h('div', { class: 'btn-row end' }, h('button', { class: 'btn primary', onclick: () => closeModal() }, 'Done'))), { compact: true });
+    f.focus({ preventScroll: true });
+  };
+  const copy = (url, msg) => navigator.clipboard?.writeText(url).then(() => toast(msg, '', { present: true }), () => showLink(url)) ?? showLink(url);
   const shareScript = (s) => copy(`${location.origin}${location.pathname}#script=${enc(s)}`, 'Link copied: opening it adds the script to the recipient’s library.');
   // Built-in decks share through their page (c/deck-<id>.html, scripts/share-pages.mjs) on the hosted site, so a link preview shows the deck title.
   const shareDeck = (d) => copy(location.hostname.endsWith('github.io') && /^[\w-]+$/.test(d.id) && !String(d.id).startsWith('my-') ? new URL(`c/deck-${d.id}.html`, location.href).href : `${location.origin}${location.pathname}?script=${d.id}`, 'Link copied: it opens this presentation at its first slide.');
@@ -5052,7 +5066,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       inp,
       h('button', { class: 'btn', onclick: () => inp.click() }, icon('download'), 'Choose a file…'),
       area, err,
-      h('div', { class: 'btn-row', style: { justifyContent: 'flex-end', marginTop: '8px' } },
+      h('div', { class: 'btn-row end' },
         h('button', { class: 'btn', onclick: () => closeModal() }, 'Cancel'),
         h('button', { class: 'btn primary', onclick: () => add(area.value) }, 'Add to your scripts'))), { sub: null });
   }

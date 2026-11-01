@@ -523,6 +523,18 @@ div.vital { cursor: default; }
 .link { border: 0; background: none; padding: 0; color: var(--accent); font-weight: 500; font-size: inherit; cursor: pointer; }
 @media (hover: hover) { .link:hover { text-decoration: underline; text-underline-offset: 2px; } }
 .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn-row.end { justify-content: flex-end; margin-top: 20px; }
+/* A step that cannot be undone, as the button that takes it: the warning color as a fill (the text on it is --on-status, 4.5:1 in every theme). */
+.btn.danger-fill { background: var(--danger); border-color: transparent; color: var(--on-status); }
+@media (hover: hover) { .btn.danger-fill:hover { background: color-mix(in srgb, var(--danger) 86%, var(--text)); border-color: transparent; } }
+.modal .clear-q { flex: 1 0 100%; margin: 0; color: var(--text); font-weight: 500; }
+/* A short question's field (util.js askText). 16 px on a touch screen so an iPhone does not zoom into it. */
+.ask-label { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
+.ask-field { height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface-2); color: var(--text); font: 400 var(--fs-14) var(--font-ui); }
+.ask-field:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+@media (pointer: coarse) { .ask-field { font-size: 16px; } }
+.modal.compact > header { padding-bottom: 4px; }
+.modal.compact > .body { padding-top: 8px; }
 
 .seg { display: inline-flex; background: var(--surface-3); border-radius: calc(var(--r-sheet) - 6px); padding: 2px; gap: 2px; }
 .seg button { border: 0; background: transparent; padding: 4px 12px; border-radius: calc(var(--r-sheet) - 8px); cursor: pointer; color: var(--text-2); font-weight: 500; font-size: var(--fs-14); white-space: nowrap; transition: background var(--d-flip) var(--ease), color var(--d-flip) var(--ease); }
@@ -909,12 +921,17 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .modal-back.leaving .modal { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
 /* A theme chosen in the app (main.js switchTheme): the old page, held as a still, fades over the new one. */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--d-surface); animation-timing-function: var(--ease); }
-.modal { background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); width: min(720px, 100%); max-height: min(88dvh, 900px, calc(100dvh - var(--modal-kb, 0px) - var(--modal-top, 0px) - 32px - var(--safe-top) - env(safe-area-inset-bottom, 0px))); overflow: auto; animation: scale-settle var(--d-small) var(--ease); }
-.modal > header { padding: 20px 24px 16px; display: flex; align-items: flex-start; gap: 12px; position: sticky; top: 0; background: var(--surface); z-index: var(--z-figure); }
+.modal { background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); width: min(720px, 100%); max-height: min(88dvh, 900px, calc(100dvh - var(--modal-kb, 0px) - var(--modal-top, 0px) - 32px - var(--safe-top) - env(safe-area-inset-bottom, 0px))); overflow: auto; overscroll-behavior: contain; animation: scale-settle var(--d-small) var(--ease); }   /* (the hairline ring: a dialog keeps its edge on the dark theme's near-black as the menus do) */
+.modal > header { padding: 20px 24px 16px; display: flex; align-items: flex-start; gap: 12px; position: sticky; top: 0; background: var(--surface); z-index: var(--z-figure); transition: box-shadow var(--d-flip) var(--ease); }
+/* Once the page has scrolled under the title, a hairline and a faint shade mark its edge (util.js openModal); at the top there is none. */
+.modal > header.scrolled { box-shadow: 0 1px 0 var(--hairline), 0 8px 12px -10px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 2)); }
 .modal > header h2 { margin: 0; font-size: var(--fs-20); font-weight: 600; letter-spacing: -.015em; flex: 1; }
 .modal > header .sub { margin-top: 4px; }
 .modal > .body { padding: 4px 24px 24px; }
-.modal h3 { font-size: var(--fs-14); font-weight: 600; margin: 24px 0 12px; }
+/* A section heading in the display serif, a step above the 14 px prose, as the dialog's title is: it was 14 px bold over 14 px prose and read as part of it. */
+.modal h3 { font: 600 var(--fs-16)/1.3 var(--font-display); letter-spacing: -.005em; margin: 28px 0 8px; }
+.modal .body > div > :first-child { margin-top: 0; }
+.modal .lede { font-size: var(--fs-16); line-height: 1.55; color: var(--text); margin: 0 0 20px; text-wrap: pretty; }
 .modal [data-sec] { scroll-margin-top: 96px; }   /* (a jump to Keyboard shortcuts or References lands clear of the sticky header) */
 @media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .cut-table th, .cut-table td:first-child { white-space: normal; }   /* (About, Status colors: its first column was wider than a phone's dialog) */
@@ -922,15 +939,17 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 }
 .modal p { line-height: 1.6; color: var(--text-2); margin: 0 0 12px; }
 .modal ul { padding-left: 20px; color: var(--text-2); line-height: 1.6; }
+/* The Guide's three notes: they say something and do nothing, so they have no border, no pointer and no lift on hover (they were drawn as buttons). */
 .entry-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.entry { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: var(--r-sheet); border: 1px solid var(--border); background: var(--surface); cursor: pointer; text-align: left; transition: border-color var(--d-flip) var(--ease), box-shadow var(--d-flip) var(--ease), transform var(--d-flip) var(--ease); }
-@media (hover: hover) { .entry:hover { border-color: var(--accent-line); box-shadow: var(--shadow-2); transform: translateY(-1px); } }
+.entry { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: var(--r-sheet); background: var(--surface-2); text-align: left; }
 .entry .eic { width: 34px; height: 34px; border-radius: var(--r-card); display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
 .entry .eic svg { width: var(--ic-m); height: var(--ic-m); stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .entry .t { font-weight: 600; font-size: var(--fs-14); }
 .entry .d { font-size: var(--fs-14); color: var(--text-2); line-height: 1.5; }
-.keys { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 28px; }
-.keys div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--hairline); font-size: var(--fs-14); color: var(--text-2); }
+/* Each group lists down its columns (a grid read zigzag across them: Space, [ ], then Step, Z). */
+.keys-g h4 { margin: 20px 0 2px; font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
+.keys { column-count: 2; column-gap: 28px; }
+.keys div { break-inside: avoid; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--hairline); font-size: var(--fs-14); color: var(--text-2); }
 .keys kbd { font: 500 var(--fs-12) var(--font-mono); color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-control); padding: 1px 8px; white-space: nowrap; }
 .toast-wrap { position: fixed; left: calc(50% - 180px); bottom: 28px; transform: translateX(-50%); z-index: var(--z-toast); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
 .toast { background: var(--text); color: var(--stage-bg); padding: 8px 16px; border-radius: var(--r-card); box-shadow: var(--shadow-3); font-size: var(--fs-14); line-height: 1.45; max-width: min(520px, 92vw); --rise-y: -6px; animation: fade-rise var(--d-small) var(--ease); pointer-events: none; }
@@ -1013,7 +1032,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
   .modal > header { padding: 16px 20px 12px; }
   .modal > .body { padding: 4px 20px 20px; }
   .entry-grid { grid-template-columns: 1fr; }
-  .keys { grid-template-columns: 1fr; }
+  .keys { column-count: 1; }
   .toast-wrap { top: auto; bottom: calc(80px + env(safe-area-inset-bottom)); }
   .p-head { padding: 12px 16px 12px; }
   .p-body { padding: 4px 16px 24px; }
@@ -1332,7 +1351,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .pal-back { animation: crossfade var(--d-flip) var(--ease); }
 .pal-back.leaving { pointer-events: none; animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }
 .pal-back.leaving .pal { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
-.pal { width: min(620px, 100%); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); overflow: hidden; animation: scale-settle var(--d-flip) var(--ease); }
+.pal { width: min(620px, 100%); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); overflow: hidden; animation: scale-settle var(--d-flip) var(--ease); }
 .pal-top { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--hairline); }
 .pal-ic { width: var(--ic-m); height: var(--ic-m); stroke: var(--text-3); fill: none; stroke-width: 1.7; }
 .pal-input { flex: 1; border: 0; outline: none; background: transparent; font-size: var(--fs-16); color: var(--text); }
@@ -1344,7 +1363,13 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .pal-t { font-size: var(--fs-14); font-weight: 500; }
 .pal-t b { color: var(--accent-ink); font-weight: 600; }
 .pal-h { grid-column: 2; font-size: var(--fs-12); color: var(--text-3); }
-.pal-empty { padding: 20px; color: var(--text-3); font-size: var(--fs-14); }
+.pal-empty { display: flex; flex-direction: column; gap: 4px; padding: 20px 12px; color: var(--text-3); font-size: var(--fs-14); line-height: 1.45; }
+.pal-empty b { color: var(--text-2); font-weight: 600; overflow-wrap: anywhere; }
+/* The list fades into the card at its foot while it scrolls on, and the key hints sit under it (a touch screen has no keys: hidden there). */
+.pal-list.more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); }
+.pal-foot { display: flex; align-items: center; gap: 16px; padding: 8px 16px; border-top: 1px solid var(--hairline); font-size: var(--fs-12); color: var(--text-3); }
+.pal-foot span { display: inline-flex; align-items: center; gap: 4px; }
+@media (hover: none) { .pal-foot { display: none; } }
 
 /* Patient chart */
 

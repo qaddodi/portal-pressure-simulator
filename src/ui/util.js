@@ -645,7 +645,9 @@ const fitModal = () => {
     modalKbT = setTimeout(() => { if (!back.classList.contains('leaving')) { back.classList.remove('kb'); back.style.removeProperty('--modal-kb'); back.style.removeProperty('--modal-top'); } }, 320);
   }
 };
-export function openModal(title, body, { wide = false, sub = null, bare = false } = {}) {
+// compact: a question or a short form (Reset, Delete, a name), 440 px wide, not the reading dialogs' 720. onClose: told once when this
+// dialog goes, for any reason (its button, Esc, a tap on the scrim, another dialog opening in its place), so a question always answers.
+export function openModal(title, body, { wide = false, sub = null, bare = false, compact = false, onClose = null } = {}) {
   const back = document.getElementById('modalBack');
   const modal = document.getElementById('modal');
   // (The button to come back to is the first opener's: a dialog opened from a dialog, or from a menu row that is about to leave,
@@ -653,11 +655,17 @@ export function openModal(title, body, { wide = false, sub = null, bare = false 
   if (!back.classList.contains('show')) modalReturn = openMenu && openMenu.el.contains(document.activeElement) ? openMenu.anchor : (document.activeElement === document.body && performance.now() - lastMenu.t < 400 ? lastMenu.anchor : document.activeElement);
   // The page behind a dialog cannot be reached by Tab or a screen reader; the dialog's own copy of the page is the only one left.
   const appEl = document.getElementById('app'); if (appEl) appEl.inert = true;
+  const passed = modalDone; modalDone = onClose; passed?.();   // (a dialog opened over another one: the first is answered as closed)
   modal.innerHTML = '';
-  modal.style.width = wide ? 'min(960px, 100%)' : '';
+  modal.style.width = wide ? 'min(960px, 100%)' : compact ? 'min(440px, 100%)' : '';
+  modal.classList.toggle('compact', compact);
+  modal.scrollTop = 0;
   modal.setAttribute('aria-label', title || 'Dialog');
   const close = h('button', { class: 'ib', 'aria-label': 'Close', onclick: closeModal }, icon('close'));
-  modal.append(h('header', {}, h('div', { style: { flex: 1, minWidth: 0 } }, bare ? null : h('h2', {}, title), sub ? h('div', { class: 'sub' }, sub) : null), close), h('div', { class: 'body' }, body));
+  const head = h('header', {}, h('div', { style: { flex: 1, minWidth: 0 } }, bare ? null : h('h2', {}, title), sub ? h('div', { class: 'sub' }, sub) : null), close);
+  // The title and its close button stay in view over a long page; a hairline marks the edge once the page has scrolled under them.
+  modal.onscroll = () => head.classList.toggle('scrolled', modal.scrollTop > 2);
+  modal.append(head, h('div', { class: 'body' }, body));
   clearTimeout(modalLeaveT); back.classList.remove('leaving');
   back.classList.add('show');
   fitModal(); modalVV?.addEventListener('resize', fitModal); modalVV?.addEventListener('scroll', fitModal);
@@ -665,9 +673,11 @@ export function openModal(title, body, { wide = false, sub = null, bare = false 
   (modal.querySelector('.body button, .body [tabindex]') || close).focus({ preventScroll: true });
 }
 let modalLeaveT = 0;
+let modalDone = null;
 export function closeModal() {
   const back = document.getElementById('modalBack');
   if (!back.classList.contains('show')) return;
+  const done = modalDone; modalDone = null;
   // (It fades out as it faded in, then is hidden: closed in one frame, Help, About and every dialog blinked out.)
   back.classList.remove('show'); back.classList.add('leaving');
   modalVV?.removeEventListener('resize', fitModal); modalVV?.removeEventListener('scroll', fitModal);
@@ -677,6 +687,36 @@ export function closeModal() {
   const back0 = modalReturn?.isConnected ? modalReturn : document.getElementById('btnMenu');
   // (Shown, by its own boxes: offsetParent is missing on an SVG element and null on a fixed one, so a vessel or a fixed bar never got its focus back.)
   if (back0 && (back0.checkVisibility ? back0.checkVisibility({ checkVisibilityCSS: true }) : back0.getClientRects().length > 0)) back0.focus?.({ preventScroll: true });
+  done?.();
+}
+/** A question in the app's own dialog, not the browser's: resolves true on the confirming button, false on Cancel, Esc, the close
+ *  button or a tap outside. The safe button has focus. danger: the confirming button is drawn as a warning. */
+export function confirmDialog({ title, body, yes = 'OK', no = 'Cancel', danger = false }) {
+  return new Promise((resolve) => {
+    let answered = false;
+    const answer = (v) => { if (answered) return; answered = true; resolve(v); };
+    openModal(title, h('div', {},
+      ...(Array.isArray(body) ? body : [body]).map((t) => (typeof t === 'string' ? h('p', {}, t) : t)),
+      h('div', { class: 'btn-row end' },
+        h('button', { class: 'btn', onclick: () => closeModal() }, no),
+        h('button', { class: 'btn ' + (danger ? 'danger-fill' : 'primary'), onclick: () => { answer(true); closeModal(); } }, yes))),
+    { compact: true, onClose: () => answer(false) });
+  });
+}
+/** A short text answer in the app's own dialog: resolves the text (trimmed, never empty) or null when it is cancelled. */
+export function askText({ title, label, value = '', yes = 'Save', hint = null }) {
+  return new Promise((resolve) => {
+    let answered = false;
+    const answer = (v) => { if (answered) return; answered = true; resolve(v); };
+    const input = h('input', { class: 'ask-field', type: 'text', value, 'aria-label': label, autocomplete: 'off', spellcheck: 'false', maxlength: '80' });
+    const go = () => { const t = input.value.trim(); if (!t) { input.focus(); return; } answer(t); closeModal(); };
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); go(); } });
+    openModal(title, h('div', {},
+      h('label', { class: 'ask-label' }, label, input), hint ? h('p', { class: 'sub' }, hint) : null,
+      h('div', { class: 'btn-row end' }, h('button', { class: 'btn', onclick: () => closeModal() }, 'Cancel'), h('button', { class: 'btn primary', onclick: go }, yes))),
+    { compact: true, onClose: () => answer(null) });
+    input.focus({ preventScroll: true }); input.select();
+  });
 }
 export const isModalOpen = () => document.getElementById('modalBack').classList.contains('show');
 

@@ -529,11 +529,12 @@ async function restartPatient() {
 }
 function resetEverything() {
   closePopover();
+  // (A question, so a small dialog: Cancel has the focus, and the warning button says what it does.)
   openModal('Reset everything?', h('div', {},
     h('p', {}, 'This clears the timeline, comparisons and every change, and reloads the simulator with a healthy patient. Your preferences are kept.'),
-    h('div', { class: 'btn-row', style: { justifyContent: 'flex-end', marginTop: '8px' } },
+    h('div', { class: 'btn-row end' },
       h('button', { class: 'btn', onclick: () => closeModal() }, 'Cancel'),
-      h('button', { class: 'btn primary', onclick: () => { try { sessionStorage.clear(); } catch { /* storage unavailable */ } location.replace(location.pathname); } }, 'Reset and reload'))), { sub: null });
+      h('button', { class: 'btn danger-fill', onclick: () => { try { sessionStorage.clear(); } catch { /* storage unavailable */ } location.replace(location.pathname); } }, 'Reset and reload'))), { sub: null, compact: true });
 }
 
 // ── Actions ─────────────────────────────────────────
@@ -1959,21 +1960,23 @@ const PRESENT_KEYS = [
   ['B or .', 'Black screen'], ['F', 'Full screen'], ['?', 'This guide'], ['Esc', 'Put an enlarged card back, then stop presenting'],
 ];
 function openHelp(section) {
-  const rows = [
-    ['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['A', 'Anatomy ⇄ circuit'],
-    ['I', 'Open / close Tests'], ['T', 'Open / close Treat'], ['L', 'Next vessel coloring (Shift: previous)'],
-    ['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'],
-    ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'], ['P', 'Compare from here / stop comparing'], ['J', 'Inject dye (hold for longer)'], ['Esc', 'Cancel · close the card · close'], ['?', 'This guide'],
-    ['Tab · Enter', 'Reach a vessel, open its actions'], ['← →', 'Walk vessels along the flow'], ['Ctrl/⌘ + / − / 0', 'Zoom in / out / fit the figure'], ['Ctrl/⌘ K or /', 'Search'],
+  // (Grouped by what a person is doing, so the list reads down a column: run it, change the view, reach and act. Every row is a key the handler takes.)
+  const groups = [
+    ['Run the model', [['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'],
+      ['P', 'Compare from here / stop comparing'], ['J', 'Inject dye (hold for longer)']]],
+    ['Change the view', [['A', 'Anatomy ⇄ circuit'], ['L', 'Next vessel coloring (Shift: previous)'], ['I', 'Open / close Tests'], ['T', 'Open / close Treat'],
+      ['Ctrl/⌘ + / − / 0', 'Zoom in / out / fit the figure'], ['Ctrl/⌘ K or /', 'Search'], ['?', 'This guide']]],
+    ['Reach and act', [['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'], ['Tab · Enter', 'Reach a vessel, open its actions'],
+      ['← →', 'Walk vessels along the flow'], ['Esc', 'Cancel · close the card · close']]],
   ];
   openModal('Guide', h('div', {},
-    h('p', {}, 'A living model of the portal circulation. Every pressure, flow, collateral and varix comes out of one lumped-parameter hemodynamic model. Nothing is scripted: change a resistance and watch the consequences propagate.'),
+    h('p', { class: 'lede' }, 'A living model of the portal circulation. Every pressure, flow, collateral and varix comes out of one lumped-parameter hemodynamic model. Nothing is scripted: change a resistance and watch the consequences propagate.'),
     h('div', { class: 'entry-grid' },
       [['explore', 'Act on the anatomy', 'Click any vessel or organ. A card opens beside it with what you can do there: narrow or clot a vein, make the liver cirrhotic, band varices, start a shunt.'],
         ['settle', 'One timeline', 'Play runs the heartbeat-scale model; +1 wk, +1 mo and +6 mo jump the disease ahead. Every change is a marker you can go back to, or compare from.'],
-        ['bulb', 'Ask “Why?”', 'Click any readout for a causal breakdown of what is driving it, change by change.']].map(([ic, t, d]) => h('div', { class: 'entry', style: { cursor: 'default' } }, h('span', { class: 'eic' }, icon(ic)), h('span', { class: 't' }, t), h('span', { class: 'd' }, d)))),
+        ['bulb', 'Ask “Why?”', 'Click any readout for a causal breakdown of what is driving it, change by change.']].map(([ic, t, d]) => h('div', { class: 'entry' }, h('span', { class: 'eic' }, icon(ic)), h('span', { class: 't' }, t), h('span', { class: 'd' }, d)))),
     h('h3', { 'data-sec': 'keys' }, 'Keyboard'),
-    h('div', { class: 'keys' }, rows.map(([k, v]) => h('div', {}, h('span', {}, v), h('kbd', {}, k)))),
+    ...groups.map(([name, rows]) => h('section', { class: 'keys-g' }, h('h4', {}, name), h('div', { class: 'keys' }, rows.map(([k, v]) => h('div', {}, h('span', {}, v), h('kbd', {}, k)))))),
     h('h3', { 'data-sec': 'present' }, 'While presenting'),
     h('p', { class: 'sub' }, 'A presentation clicker sends the same keys. On a touch screen, swipe sideways on the slide to go on or back.'),
     h('div', { class: 'keys' }, PRESENT_KEYS.map(([k, v]) => h('div', {}, h('span', {}, v), h('kbd', {}, k)))),
@@ -2034,7 +2037,22 @@ function openPrivacy() {
     FEEDBACK_EMAIL ? h('p', {}, 'Send feedback (in Settings) opens a draft in your own email app with your device, screen size, how fast the page is running, which blurs the browser is drawing and a link to the view you were on. Nothing is sent unless you send that email yourself.') : null,
     h('p', {}, 'For institutions: no personal data is processed by the publisher, which supports FERPA and GDPR compliance.'),
     h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
-    h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: () => { if (!confirm('Delete everything this simulator has stored on this device?')) return; for (const k of keys) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Clear my data on this device'))));
+    clearRow(keys)));
+}
+// "Clear my data on this device" asks in place, in the dialog's own words, not with the browser's box: the button gives way to the
+// question and its two answers, and Cancel brings it back.
+function clearRow(keys) {
+  const row = h('div', { class: 'btn-row' });
+  const ask = () => {
+    const msg = h('p', { class: 'clear-q', role: 'alert' }, 'Delete everything this simulator has stored on this device?');
+    const go = h('button', { class: 'btn danger-fill', onclick: () => { for (const k of keys) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Delete it');
+    const no = h('button', { class: 'btn', onclick: () => { row.replaceChildren(start); start.focus({ preventScroll: true }); } }, 'Keep it');
+    row.replaceChildren(msg, h('div', { class: 'btn-row' }, no, go));
+    no.focus({ preventScroll: true });
+  };
+  const start = h('button', { class: 'btn', onclick: ask }, 'Clear my data on this device');
+  row.append(start);
+  return row;
 }
 // Launch goes straight into the simulator, the first time included. Only a deep link
 // (?script=, ?preset=, ?home=) opens anything else.
