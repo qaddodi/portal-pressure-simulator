@@ -31,7 +31,7 @@ import { createFieldGL, TILE_OVER } from './field-gl.js?v=e9914773cd';
 import { createTissueGL, DIVE_GPU } from './tissue-gl.js?v=9c2ff16bf9';
 import { TILE_GPU, tileCopy, isTileCopy } from './tile-gl.js?v=88c03cf91f';
 import { FX_GPU, createFxGL } from './fx-gl.js?v=f6896ed5e0';
-import { WIDE_GL, createWideGL } from './wide-gl.js?v=90d9964c4d';
+import { WIDE_GL, createWideGL } from './wide-gl.js?v=88a3fd5bd2';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=624ae21d7d';
 import { createTissueWorker } from './tissue-worker.js?v=d9b45fb202';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
@@ -1950,7 +1950,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       wideCv = h('canvas', { class: 'lz-canvas lz-wide-gl', 'aria-hidden': 'true', style: { visibility: 'hidden', pointerEvents: 'none' } });
       wideGL = createWideGL(wideCv);
     }
-    return wideGL && !wideGL.lost ? wideGL : null;
+    return wideGL || null;   // (begin says whether it can build: a copy lost with the context stays lost until the next)
   }
   function buildWideGL(W, H, box) {
     const g = ensureGL();
