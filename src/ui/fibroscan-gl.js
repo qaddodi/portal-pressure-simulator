@@ -37,8 +37,8 @@ float field(sampler2D g, float cell, float x, float y) {
 }
 void main() {
   float x = floor(gl_FragCoord.x), y = uN - 1.0 - floor(gl_FragCoord.y);   // (the map's first row is the top)
-  float tMs = (x / uN) * 80.0, depth = 30.0 + (y / uN) * 60.0;
-  float s = tMs - uT0 - (depth - 35.0) / uC;
+  float tMs = (x / uN) * 80.0, depth = 20.0 + (y / uN) * 50.0;   // (fibroscan.js DEPTH0, DEPTH_SPAN)
+  float s = tMs - uT0 - (depth - 25.0) / uC;   // (WIN0: the wave reaches the top of the M probe's window at uT0)
   float across = (s / 80.0) * uNB * 1.6 + uNB * 1.7, along = y * (uNB / uN) * 0.65 + uNB * 0.6;
   float a = 0.5 + (field(uA1, uCell.x, across + uOffA.x, along + uOffA.y) - 0.5) * uCos.x + (field(uA2, uCell.x, across + uOffA.z, along + uOffA.w) - 0.5) * uSin.x;
   float b = 0.5 + (field(uB1, uCell.y, across * 1.4 + uOffB.x, along + uOffB.y) - 0.5) * uCos.y + (field(uB2, uCell.y, across * 1.4 + uOffB.z, along + uOffB.w) - 0.5) * uSin.y;
@@ -46,7 +46,7 @@ void main() {
   float noise = a * 0.6 + b * 0.4;
   float w = cos(6.283185307179586 * 0.05 * s + jit);
   float u = clamp((s + 9.0) / 6.0, 0.0, 1.0), arrive = u * u * (3.0 - 2.0 * u);
-  float amp = (0.2 + 0.8 * arrive) * clamp(1.0 - max(s, 0.0) / 40.0, 0.12, 1.0) * clamp(1.2 - (depth - 30.0) / 110.0, 0.5, 1.0);
+  float amp = (0.2 + 0.8 * arrive) * clamp(1.0 - max(s, 0.0) / 40.0, 0.12, 1.0) * clamp(1.2 - (depth - 20.0) / 110.0, 0.5, 1.0);
   float q = (s + 3.5) / 3.2, band = exp(-(q * q));
   float k = pow(clamp(0.76 + w * 0.32 * amp + (noise - 0.5) * 1.25 - band * 0.55, 0.0, 1.0), 1.5);
   o = vec4((20.0 + 220.0 * k) / 255.0, (10.0 + 126.0 * k) / 255.0, (8.0 + 64.0 * k) / 255.0, 1.0);

@@ -295,6 +295,10 @@ export function gapSegs(segs, boxes, pad = 4) {
  *  boxes [x0, y0, x1, y1] the names keep clear of (the zones' words). cross: the cut-off lines among them a name may sit across
  *  where it has no room beside its point on its own side (the line then breaks behind it, gapSegs), so it stays right by its
  *  point rather than going out on a long line (an iPhone's 0 to 5 mmHg column, some 45 px, holds no name: Mohammad, 19 Oct). */
+// A dot's clearance from a zone's words and from the names beside it: the dot's radius, its outline and a breath of room (the Healthy
+// dot sat tight against "Both normal" and "Heart failure" at 12 px, deck inspector 31 Oct).
+export const DOT_CLEAR = 16;
+const WORD_PAD = 4;
 export function placeNames(pts, fr, fs, r = 8, avoid = [], cross = []) {
   // (When a round leaves a name out or sends one out on a line, others are tried: the round that names the most wins, then
   // the one with the fewest lines, then the one whose names sit closest to their points, then the fewest across a cut-off.)
@@ -313,9 +317,9 @@ export function placeNames(pts, fr, fs, r = 8, avoid = [], cross = []) {
 /** How far a name's box is from its point, across and down. */
 const near2 = (b, p) => [Math.max(b[0] - p.x, 0, p.x - b[2]), Math.max(b[1] - p.y, 0, p.y - b[3])];
 function placeOnce(pts, fr, fs, r, avoid, first, cross = []) {
-  // (A point keeps every name 4 px clear of its ring: its radius, its 1.5 px outline and the gap.)
-  const boxes = [...pts.map((p) => [p.x - r - 6, p.y - r - 6, p.x + r + 6, p.y + r + 6]), ...avoid];
-  const lh = fs * 1.2, gap = r + 6;
+  // (A point keeps every name 6 px clear of its ring: its radius, its 1.5 px outline and the gap.)
+  const boxes = [...pts.map((p) => [p.x - r - 8, p.y - r - 8, p.x + r + 8, p.y + r + 8]), ...avoid];
+  const lh = fs * 1.2, gap = r + 8;
   const meets = (b, o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1];
   const hit = (b) => boxes.some((o) => meets(b, o));
   // (Sitting across: clear of everything but the cut-off lines it may cross.)
@@ -429,7 +433,8 @@ export function placeZoneWords(pl, fr, X, Y, fs, used, dots, card = false, only 
     const forms = [fitWords(z.t, wpx, fs, 2), z.short && z.short !== z.t ? fitWords(z.short, wpx, fs, 2) : null].filter(Boolean);   // (the zone's short name where its full one has no room)
     const zl = Math.max(X(x0), fr.L) + 4, zr = Math.min(X(x1), fr.R) - 4, zt = Math.max(Y(y1), fr.T) + 4, zb = Math.min(Y(y0), fr.B) - 4;
     const inZone = (b) => b[0] >= zl && b[2] <= zr && b[1] >= zt && b[3] <= zb && !over.some((o) => b[0] < o[2] + 4 && b[2] > o[0] - 4 && b[1] < o[3] + 4 && b[3] > o[1] - 4);
-    const clear = (b) => !taken.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]) && !dots.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
+    // (A zone's words keep a breath of room, WORD_PAD, from the names and lines already placed: "Both normal" sat flush between Healthy and Heart failure.)
+    const clear = (b) => !taken.some((o) => b[0] < o[2] + WORD_PAD && b[2] > o[0] - WORD_PAD && b[1] < o[3] + WORD_PAD && b[3] > o[1] - WORD_PAD) && !dots.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
     for (const [k, lines] of forms.entries()) {
       // (The short name only where the full one has no clear place, and with no key only.)
       if (k && !noKey) break;
@@ -495,7 +500,7 @@ export function wasBoxes(p) {
  *  placeZoneWords). at: the points in px; extra: more boxes they keep clear of (the numbers written on the plot, plotNumbers). The names come first; with no key, a zone whose words found no room then takes its
  *  place first and the names are placed again around it, so every zone keeps its words and every point its name. */
 export function layoutPlane(pl, fr, X, Y, fs, at, card = false, extra = []) {
-  const base = [...lineBoxes(pl, X, Y, fr, fs), ...extra, ...at.flatMap((p) => wasBoxes(p))], dots = at.map((p) => [p.x - 12, p.y - 12, p.x + 12, p.y + 12]);
+  const base = [...lineBoxes(pl, X, Y, fr, fs), ...extra, ...at.flatMap((p) => wasBoxes(p))], dots = at.map((p) => [p.x - DOT_CLEAR, p.y - DOT_CLEAR, p.x + DOT_CLEAR, p.y + DOT_CLEAR]);
   // (The lines' own names come first, beside their lines: the points' names and the zones' words then keep clear of them.)
   const lines = lineNames(pl, fr, X, Y, fs, [...base, ...dots]), rules = [...base, ...lines.map((l) => l.box)];
   // (The cut-off lines come first among the rules: a name may sit across one of those, the line broken behind it.)
@@ -643,7 +648,7 @@ export function planePlot(pl, { card = false } = {}) {
     // fit whole.)
     // (The card's numbers and names stand on the plot first, its zones' words keeping clear of them. A summary's points keep their names
     // first: the axes' names, then the points' names, the zones' words and the lines' names round them, then the numbers in what room is left.)
-    const pointBoxes = at.flatMap((p) => [[p.x - 12, p.y - 12, p.x + 12, p.y + 12], ...wasBoxes(p)]);
+    const pointBoxes = at.flatMap((p) => [[p.x - DOT_CLEAR, p.y - DOT_CLEAR, p.x + DOT_CLEAR, p.y + DOT_CLEAR], ...wasBoxes(p)]);
     const cardNums = card ? plotNumbers(pl, fr, X, Y, fs) : [], axisNames = card ? [] : plotNumbers(pl, fr, X, Y, fs, pointBoxes, 'names');
     const numBoxes = cardNums.map((n) => n.box);
     const { names, words, lines } = card ? { names: [], words: [], lines: [] } : layoutPlane(pl, fr, X, Y, fs, at, card, axisNames.map((n) => n.box));
