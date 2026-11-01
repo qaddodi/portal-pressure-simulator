@@ -7117,6 +7117,13 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-ring .pze-halo { fill: var(--surface); }   /* (the clear gap around the case's dot, in the card's own colour) */
 .pze-ring .pze-dot { fill: var(--text); }
 .pze-cwords .pze-zt { transition: opacity var(--d-flip) var(--ease); }
+/* (The patient's trail on the card, a tool's trail: Mohammad, 1 Nov, mock B. Hollow rings where he stood on the slides before, their
+   short names beside them, and a thin line through them that is drawn on behind the dot as it glides. It eases in once.) */
+.pze-trail { transition: opacity var(--d-surface) var(--ease); }
+.pze-trail.pze-tin { opacity: 0; }
+.pze-walk { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.pze-stop { fill: none; stroke: var(--text); stroke-width: 1.6; }
+.pze-sn { fill: var(--text); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .pze-zt.pze-onl[data-tone="ok"] { paint-order: stroke; stroke: var(--pze-ok); stroke-width: 6px; stroke-linejoin: round; }   /* (words that must sit across a line inside their zone hide it) */
 .pze-zt.pze-onl[data-tone="mid"] { paint-order: stroke; stroke: var(--pze-mid); stroke-width: 6px; stroke-linejoin: round; }
 .pze-zt.pze-onl[data-tone="hi"] { paint-order: stroke; stroke: var(--pze-hi); stroke-width: 6px; stroke-linejoin: round; }

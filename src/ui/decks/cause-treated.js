@@ -44,7 +44,9 @@ export const CAUSE_TREATED = {
       ask: ['The stiffness falls fast in the first year after cure. Has the fibrosis regressed as fast?', 'No: much of the early fall is inflammation settling, so the stiffness overstates the regression.'],
     },
     {
-      id: 'year2', days: 365, ramp: { cirrhosis: [0.45, 0.32] }, lapse: { seconds: 8, from: 'One year', to: 'Two years after cure' }, cam: 'liver', tool: PLANE,
+      id: 'year2', days: 365, ramp: { cirrhosis: [0.45, 0.32] }, lapse: { seconds: 8, from: 'One year', to: 'Two years after cure' }, cam: 'liver',
+      // (His trail on the plane: where he stood before cure and a year after, a line on to the dot as it moves. Mohammad, 1 Nov, mock B.)
+      tool: { ...PLANE, trail: [{ slide: 'before', name: 'Before cure' }, { slide: 'year1', name: '1 year' }] },
       data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg'], delta: 'before',
       kicker: HCV, site: 'sin', title: 'Two years after cure, CSPH has resolved',
       line: 'Two years after cure the stiffness reads {lsm}, which is {<10 kPa}, and the platelets {plt}: by Baveno VIII, CSPH has resolved.',

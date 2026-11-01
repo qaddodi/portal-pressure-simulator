@@ -17,7 +17,7 @@ const ALLOWED = {
   'src/ui/perf-readout.js': 2,   // (?perf: it measures the frames, so it must not ride the scheduler it reports on)
   'src/ui/stage.js': 2,          // (one double-wait before a class fades a label in)
   'src/ui/presenter.js': 4,      // (a card's refit after a resize, the label scale, a class that fades a new row in)
-  'src/ui/visual-plane.js': 3,   // (a plane drawn once it is in the page, and after a resize)
+  'src/ui/visual-plane.js': 2,   // (a plane drawn once it is in the page, and after a resize)
 };
 
 test('no new requestAnimationFrame outside src/ui/frame.js', () => {

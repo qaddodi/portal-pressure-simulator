@@ -27,6 +27,11 @@ import { h, fmt, clamp } from './util.js?v=520d0b008c';
 import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { TILE, tileShown } from './table-marks.js?v=ff3ed0cc47';
 import { plotPanel } from './plot-look.js?v=5037697da7';
+import { frameFor } from './frame.js?v=15d5254a2c';
+
+const nextFrame = frameFor('plane');
+/** The switch for the patient's trail on the card (a tool's trail: Mohammad, 1 Nov, mock B): ?trail=0 gives the card as it was. */
+export const TRAIL = !/[?&]trail=0\b/.test(typeof location === 'undefined' ? '' : location.search);
 
 // ── Conditions: [key, op, value], all of which must hold ──
 const OPS = { '<': (a, b) => a < b, '<=': (a, b) => a <= b, '>': (a, b) => a > b, '>=': (a, b) => a >= b };
@@ -648,6 +653,48 @@ export function placeCardWords(pl, fr, X, Y, fs, avoid = []) {
   return out;
 }
 
+// ── The patient's trail on the card ──
+// A tool's trail: [{ slide, name }], the slides the patient stood at before this one, in order (Mohammad, 1 Nov, "a line of where the
+// patient was and where he is as the dot moves", mock B). Each is a hollow ring with its short name beside it, joined in order by a thin
+// line that runs on to the dot and is drawn behind it as it glides (the dot's own path, as it went).
+/** The circles [x, y, r] the zones' words and the stops' names keep out of along the trail: each ring, and the straight way from each
+ *  stop to the next and from the last to the dot (every 6 px). stops and now in px. */
+export function trailBoxes(stops, now) {
+  const pts = now ? [...stops, now] : stops, out = stops.map((p) => [p.x, p.y, 10]);
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i], n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6));
+    for (let k = 1; k < n; k++) out.push([a.x + (b.x - a.x) * k / n, a.y + (b.y - a.y) * k / n, 5]);
+  }
+  return out;
+}
+/** Each stop's name beside its ring, at the first spot round it that lands on nothing and stays inside the plot: right, left, above,
+ *  below, then the four corners, then the same a little further off. avoid: boxes [x0, y0, x1, y1] or circles [x, y, r]. A name with
+ *  no clear spot is left out ([] entry null), never drawn over something. Returns [{ x, y, anchor, box } | null], y the baseline. */
+export function placeStopNames(stops, fr, fs, avoid = []) {
+  const hit = (b, o) => (o.length === 3 ? Math.hypot(Math.max(b[0] - o[0], 0, o[0] - b[2]), Math.max(b[1] - o[1], 0, o[1] - b[3])) < o[2] : b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
+  const out = [], up = fs * 0.85, dn = fs * 0.25;
+  for (const p of stops) {
+    const w = est(p.name, fs, 0.62);
+    let got = null;
+    for (const d of [9, 14]) {
+      const ways = [[d, 0, 'start'], [-d, 0, 'end'], [0, -d, 'middle'], [0, d, 'middle'], [d * 0.7, -d * 0.7, 'start'], [d * 0.7, d * 0.7, 'start'], [-d * 0.7, -d * 0.7, 'end'], [-d * 0.7, d * 0.7, 'end']];
+      for (const [dx, dy, anchor] of ways) {
+        const x = p.x + dx, x0 = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2;
+        // (Beside the ring the words' middle is level with it; above it their foot, below it their top, is d away.)
+        const y = dy === 0 ? p.y + (up - dn) / 2 : dy < 0 ? p.y + dy - dn : p.y + dy + up;
+        const b = [x0 - 2, y - up - 2, x0 + w + 2, y + dn + 2];
+        if (b[0] < fr.L + 2 || b[2] > fr.R - 2 || b[1] < fr.T + 2 || b[3] > fr.B - 2) continue;
+        if (avoid.some((o) => hit(b, o)) || out.some((o) => o && hit(b, o.box))) continue;
+        got = { x, y, anchor, box: b };
+        break;
+      }
+      if (got) break;
+    }
+    out.push(got);
+  }
+  return out;
+}
+
 // ── Drawing ──
 const SVGNS = 'http://www.w3.org/2000/svg';
 const sv = (tag, attrs = {}, ...kids) => {
@@ -672,6 +719,10 @@ export function planePlot(pl, { card = false } = {}) {
   el.append(svg);
   const cardWords = new Map();   // (zone → its text element in the card)
   let pts = [], ring = null, size = '', was = null, sizeWas = '', ptsVer = 0, drawn = '', lastSize = [0, 0];
+  // The patient's trail (card only, set by trail()): the stops' readings and names, the dot's way since the slide came up (in the
+  // plot's units, so a resize keeps it), the scale it was drawn at, and the group that holds it (made on first use: with no trail
+  // the card is the same elements as before).
+  let stops = [], walk = [], trailG = null, walkPath = null, stopsG = null, stopsKey = '', inv = null, follow = 0, followTill = 0, armed = false;
   // (What the ring's dot and words read: its two values and whatever the zones test. A redraw with all of these, the size,
   // the font, the points and where the dot was the same as the last one draws the same picture, so it is skipped: the live
   // card pins a reading every 150 ms.)
@@ -688,7 +739,7 @@ export function planePlot(pl, { card = false } = {}) {
     const fs = Math.max(12, parseFloat(getComputedStyle(el).fontSize) || 13);
     // (The case is read as its tiles print it.)
     const rg = ring ? shownReading(pl, ring) : null;
-    const key = `${size}|${fs}|${ptsVer}|${rg ? ringKeys.map((k) => rg[k]).join(',') : '-'}|${sizeWas}|${was ? `${was.x},${was.y}` : '-'}`;
+    const key = `${size}|${fs}|${ptsVer}|${rg ? ringKeys.map((k) => rg[k]).join(',') : '-'}|${sizeWas}|${was ? `${was.x},${was.y}` : '-'}|${stops.length ? stops.map((s) => `${s.f[pl.x.key]},${s.f[pl.y.key]},${s.name}`).join(';') : ''}`;
     if (key === drawn) return;
     drawn = key;
     // (A scatter, a plane with no zones, draws axes of its own on a panel: hasAxes.)
@@ -757,9 +808,11 @@ export function planePlot(pl, { card = false } = {}) {
     } else ringG.style.opacity = '0';
     // The card's zones name themselves, clear of the dot where it stands and all along its way there.
     if (card) {
+      // (The trail's rings and names first, the zones' words then keeping clear of them and of its line.)
+      const tr = stops.length ? drawStops(fr, X, Y, fs, now, [...numBoxes, ...dotBoxes(now, sizeWas === size ? was : null, r + g)]) : [];
       // (Where the dot's whole way leaves a zone no room, its words keep clear of where the dot ends.)
-      let cw = placeCardWords(pl, fr, X, Y, fs, [...numBoxes, ...dotBoxes(now, sizeWas === size ? was : null, r + g)]);
-      if (cw.length < pl.zones.length) { const end = placeCardWords(pl, fr, X, Y, fs, [...numBoxes, ...dotBoxes(now, null, r + g)]); if (end.length > cw.length) cw = end; }
+      let cw = placeCardWords(pl, fr, X, Y, fs, [...numBoxes, ...tr, ...dotBoxes(now, sizeWas === size ? was : null, r + g)]);
+      if (cw.length < pl.zones.length) { const end = placeCardWords(pl, fr, X, Y, fs, [...numBoxes, ...tr, ...dotBoxes(now, null, r + g)]); if (end.length > cw.length) cw = end; }
       for (const [z, t] of cardWords) if (!cw.some((w) => w.z === z)) t.remove(), cardWords.delete(z);
       for (const w of cw) {
         let t = cardWords.get(w.z);
@@ -788,11 +841,82 @@ export function planePlot(pl, { card = false } = {}) {
     el.setAttribute('aria-label', `${pl.y.name} against ${pl.x.name}` + (at.length ? ': ' + at.map((p) => `${p.name}, ${valOf(pl.x.key, p.f[pl.x.key])} and ${valOf(pl.y.key, p.f[pl.y.key])}, ${zoneOf(pl, p.f)?.t || ''}`).join('; ') : '')
       + (rg ? `; this patient ${valOf(pl.x.key, rg[pl.x.key])} ${unitOf(pl.x.key)} and ${valOf(pl.y.key, rg[pl.y.key])} ${unitOf(pl.y.key)}, ${zoneOf(pl, rg)?.t || ''}` : ''));
   };
+  // The trail's rings and names, redrawn in place (a persistent group, so they fade in once and stay, not again at every redraw while
+  // the dot moves); returns the boxes the zones' words keep clear of.
+  function drawStops(fr, X, Y, fs, now, avoid) {
+    if (!trailG) {
+      walkPath = sv('path', { class: 'pze-walk' }); stopsG = sv('g', { class: 'pze-stops' });
+      trailG = sv('g', { class: 'pze-trail' }, walkPath, stopsG);
+      svg.insertBefore(trailG, wordsG);
+    }
+    const lo = (a) => a.min ?? 0;
+    // (The plot's units from px, for the dot's way: X and Y are straight lines between the axis's ends.)
+    inv = { x: (px) => lo(pl.x) + (px - fr.L) / (fr.R - fr.L) * (pl.x.max - lo(pl.x)), y: (py) => lo(pl.y) + (fr.B - py) / (fr.B - fr.T) * (pl.y.max - lo(pl.y)), X, Y };
+    const at = stops.map((s) => { const f = shownReading(pl, s.f); return { x: X(f[pl.x.key]), y: Y(f[pl.y.key]), name: s.name }; });
+    const boxes = trailBoxes(at, now);
+    const names = placeStopNames(at, fr, fs, [...avoid, ...boxes, ...lineBoxes(pl, X, Y, fr, fs)]);
+    const k = JSON.stringify([at.map((p) => [p.x.toFixed(1), p.y.toFixed(1)]), names.map((n) => n && [n.x.toFixed(1), n.y.toFixed(1), n.anchor]), fs]);
+    if (k !== stopsKey) {
+      const first = !stopsKey;
+      stopsKey = k;
+      stopsG.replaceChildren(...at.flatMap((p, i) => [sv('circle', { class: 'pze-stop', cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 5 }),
+        names[i] ? sv('text', { class: 'pze-sn', x: names[i].x.toFixed(1), y: names[i].y.toFixed(1), 'text-anchor': names[i].anchor, style: `font-size:${fs}px` }, p.name) : null]));
+      // (They ease in the first time, with the line, never pop.)
+      if (first) { trailG.classList.add('pze-tin'); nextFrame(() => nextFrame(() => trailG?.classList.remove('pze-tin'))); }
+    }
+    paintWalk();
+    return [...boxes, ...names.filter(Boolean).map((n) => n.box)];
+  }
+  // Where the dot is on screen now, mid-glide included (its group's eased transform), px, or null while it is hidden.
+  const dotNow = () => {
+    if (ringG.style.opacity === '0') return null;
+    const m = /matrix\(([^)]+)\)/.exec(getComputedStyle(ringG).transform || '');
+    if (m) { const v = m[1].split(',').map(Number); if (Number.isFinite(v[4]) && Number.isFinite(v[5])) return { x: v[4], y: v[5] }; }
+    const t = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(ringG.style.transform || '');
+    return t ? { x: +t[1], y: +t[2] } : null;
+  };
+  // The line: through the stops, then the way the dot went since the slide came up, to the dot where it stands now.
+  function paintWalk() {
+    if (!walkPath || !inv) return;
+    const cur = dotNow();
+    const stopPx = stops.map((s) => { const f = shownReading(pl, s.f); return [inv.X(f[pl.x.key]), inv.Y(f[pl.y.key])]; });
+    const end = stopPx[stopPx.length - 1];
+    // (The way is kept from the moment the dot stands on the last stop, where this slide's time-lapse starts; before that (gliding
+    // back from where another slide left it) the line runs straight from the last stop to the dot.)
+    if (cur && end && Math.hypot(end[0] - cur.x, end[1] - cur.y) < 3) { armed = true; walk = []; }
+    if (cur && armed) {
+      // (Where the dot goes back over its way (the time-lapse played again or scrubbed back), the way ends there again.)
+      const px = walk.map(([a, b]) => [inv.X(a), inv.Y(b)]), back = px.findIndex(([x, y], i) => i < px.length - 2 && Math.hypot(x - cur.x, y - cur.y) < 3);
+      if (back >= 0) walk.length = back + 1;
+      const last = walk.length ? [inv.X(walk[walk.length - 1][0]), inv.Y(walk[walk.length - 1][1])] : null;
+      if (!last || Math.hypot(last[0] - cur.x, last[1] - cur.y) >= 2) { walk.push([inv.x(cur.x), inv.y(cur.y)]); if (walk.length > 600) walk = walk.filter((_, i) => i % 2 === 0 || i === walk.length - 1); }
+    }
+    const pts = [...stopPx, ...walk.map(([a, b]) => [inv.X(a), inv.Y(b)])];
+    if (cur) pts.push([cur.x, cur.y]);
+    walkPath.setAttribute('d', pts.length > 1 ? 'M' + pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L') : '');
+  }
+  // While the dot glides, the line follows it each frame (the dot's ease, so the line is drawn in behind it, never ahead).
+  const followDot = () => {
+    if (!stops.length) return;
+    followTill = performance.now() + 700;
+    if (follow) return;
+    const step = () => { paintWalk(); if (stops.length && performance.now() < followTill) follow = nextFrame(step); else follow = 0; };
+    follow = nextFrame(step);
+  };
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (`${el.clientWidth}x${el.clientHeight}` !== size) requestAnimationFrame(draw); }).observe(el);
+  const redraw = () => { if (el.isConnected) draw(); else requestAnimationFrame(draw); };
   return {
     el,
-    set(points, r = ring) { pts = points || []; ptsVer++; ring = r; if (el.isConnected) draw(); else requestAnimationFrame(draw); },
-    ring(f) { ring = f; if (el.isConnected) draw(); else requestAnimationFrame(draw); },
+    set(points, r = ring) { pts = points || []; ptsVer++; ring = r; redraw(); },
+    ring(f) { ring = f; redraw(); followDot(); },
+    /** The patient's trail: [{ f, name }] the stops before this slide, in order ([] takes it away). The dot's way starts again here. */
+    trail(list) {
+      stops = (list || []).filter((s) => s?.f && Number.isFinite(s.f[pl.x.key]) && Number.isFinite(s.f[pl.y.key]));
+      walk = []; armed = false;
+      if (!stops.length && trailG) { trailG.remove(); trailG = walkPath = stopsG = null; stopsKey = ''; }
+      drawn = '';
+      redraw(); followDot();
+    },
   };
 }
 
@@ -834,21 +958,35 @@ export const toolPlane = (t) => planeOf(t?.plane ?? (t?.x || t?.y || t?.zones ? 
 /** The data card's instrument: the slide's case as a dot on the plane, its reading under it. */
 export function createPlaneTool() {
   const el = h('div', { class: 'pze-tool' }), read = h('p', { class: 'pze-read', 'aria-live': 'polite' });
-  let pl = null, plot = null, sig = '', last = null;
+  let pl = null, plot = null, sig = '', last = null, want = null, wantCtx = null, had = '';
+  // (The trail's stops are other slides' readings, which may not be worked out yet when the slide comes up: asked again at each pin
+  // until they are all in.)
+  const trailFrom = () => {
+    if (!plot || !want) return;
+    const list = want.map((s) => ({ f: typeof s?.slide === 'string' ? wantCtx?.fpOf?.(s.slide) ?? null : null, name: s?.name || '' }));
+    if (list.some((s) => !s.f)) return;
+    want = null;
+    plot.trail(list);
+  };
   return {
     el,
-    configure(t) {
+    configure(t, ctx) {
       const p = toolPlane(t);
       const k = JSON.stringify(t.plane ?? [t.x, t.y, t.zones, t.base]);
-      if (k === sig && plot) return;
-      sig = k; pl = p;
-      if (!pl) { el.replaceChildren(); plot = null; return; }
-      plot = planePlot(pl, { card: true });
-      el.replaceChildren(...[plot.el, pl.key === 'never' ? null : planeCardKey(pl), read].filter(Boolean));
-      if (last) this.pin(last);
+      // (Each slide sets its own trail, or none: a slide with none after one with a trail takes it away.)
+      const tr = TRAIL && Array.isArray(t.trail) && t.trail.length ? t.trail : null;
+      if (!(k === sig && plot)) {
+        sig = k; pl = p; had = '';
+        if (!pl) { el.replaceChildren(); plot = null; return; }
+        plot = planePlot(pl, { card: true });
+        el.replaceChildren(...[plot.el, pl.key === 'never' ? null : planeCardKey(pl), read].filter(Boolean));
+        if (last) this.pin(last);
+      }
+      if (tr) { want = tr; wantCtx = ctx || null; had = 'y'; trailFrom(); } else if (had) { want = null; had = ''; plot.trail([]); }
     },
     pin(fp) {
       last = fp;
+      if (want) trailFrom();
       if (!plot || !fp) return;
       plot.ring(fp);
       const t = planeReading(pl, fp);
