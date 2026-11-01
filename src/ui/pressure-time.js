@@ -334,6 +334,14 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     const { w, hh, panel, faint, muted, text, L, hrT, hvT, hrC, sevC } = S;
     const FONT = (wt, px) => FONT0(wt, px * 13 / 12);   // (a slide's card: the larger lettering)
     g.globalAlpha = 1; g.setLineDash([]);
+    // Canvas text has no tabular figures, and these readings follow the trace's ends as they settle after an event: each digit is set in
+    // a 0's width, as the tiles' HTML numbers are (tabular-nums), so a digit that changes never moves the others, the unit or the line.
+    const zw = (t) => g.measureText(t.replace(/\d/g, '0')).width;
+    const tab = (t, x, y) => {
+      const w0 = g.measureText('0').width, al = g.textAlign; let cx = x; g.textAlign = 'center';
+      for (const ch of t) { const cw = ch >= '0' && ch <= '9' ? w0 : g.measureText(ch).width; g.fillText(ch, cx + cw / 2, y); cx += cw; }
+      g.textAlign = al; return cx - x;
+    };
     plotFill(g, 0, 0, w, hh, panel);
     g.font = FONT(500, 12); g.fillStyle = faint; g.textAlign = 'right'; g.textBaseline = 'middle';
     for (const [t, y] of S.yl) g.fillText(t, L - 6, y);
@@ -344,8 +352,8 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       g.lineCap = S.cap; g.lineJoin = S.join;   // (the first two hairlines take the ends the context had; the ones among the rows follow the swatch's last, butt)
       const rule = (y) => { g.strokeStyle = S.hair; g.lineWidth = 1; g.beginPath(); g.moveTo(x, Math.round(y) + 0.5); g.lineTo(x + cw, Math.round(y) + 0.5); g.stroke(); };
       const big = (y, v, unit, px, colour) => {
-        g.font = FONT(650, px); g.fillStyle = colour; g.fillText(v, x, y);
-        const vw = g.measureText(v).width; g.font = FONT(500, 12); g.fillStyle = faint; g.fillText(unit, x + vw + 6, y);
+        g.font = FONT(650, px); g.fillStyle = colour; const vw = tab(v, x, y);   // (tabular digits: see tab)
+        g.font = FONT(500, 12); g.fillStyle = faint; g.fillText(unit, x + vw + 6, y);
       };
       // (a change upward is the bad way for both: red; downward green)
       const since = (y, t) => { if (!t) return; g.font = FONT(600, 12); g.fillStyle = t.startsWith('▲') ? S.danger : S.ok; g.fillText(t, x, y); };
@@ -374,11 +382,11 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       const y = 24;
       g.font = FONT(600, 12); g.fillStyle = muted; g.fillText('HVPG', 8, y);
       let x = 8 + g.measureText('HVPG').width + 6;
-      g.font = FONT(650, 17); g.fillStyle = text; g.fillText(hvT, x, y); x += g.measureText(hvT).width + 4;
+      g.font = FONT(650, 17); g.fillStyle = text; x += tab(hvT, x, y) + 4;
       g.font = FONT(500, 12); g.fillStyle = faint; g.fillText(MMHG, x, y); x += g.measureText(MMHG).width + 8;
       g.font = FONT(600, 12); g.fillStyle = sevC; g.fillText(S.word, x, y);
-      g.textAlign = 'right'; g.font = FONT(650, 13); g.fillStyle = hrC; g.fillText(hrT, w - 8, y);
-      const hw = g.measureText(hrT).width; g.font = FONT(600, 12); g.fillStyle = muted; g.fillText('HR', w - 12 - hw, y); g.textAlign = 'left';
+      g.font = FONT(650, 13); g.fillStyle = hrC; const hw = zw(hrT); tab(hrT, w - 8 - hw, y);
+      g.textAlign = 'right'; g.font = FONT(600, 12); g.fillStyle = muted; g.fillText('HR', w - 12 - hw, y); g.textAlign = 'left';
     }
   }
   function drawBeatCard(ctx, w, hh, x0, x1, xNow, FONT, noPv, { text, muted, faint, panel }) {
