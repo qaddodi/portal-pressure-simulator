@@ -658,6 +658,8 @@ export function createAbdomen({ onAction }) {
     h('div', { class: 'ab-row' }, icon('drop'), h('span', { class: 'ab-txt' }, h('b', {}, 'Serum albumin')), h('span', { class: 'ab-end' }, sa.el)),
     diu);
   const el = h('div', { class: 'ab', 'data-pane': 'abdomen' }, h('div', { class: 'ab-main' }, read, ctl));
+  // (A small belly is 84 px, not 72: its "300 mL/day" line sits where the circle is only about 65 px across and the edge cut it. ?belly=0 keeps 72.)
+  if (!/[?&]belly=0\b/.test(location.search)) el.dataset.belly = '84';
   // Every frame calls this, but a pane the learner is scrolling must not be touched when nothing changed: on a phone,
   // rewriting a text node or an attribute to the same value is enough to make the browser stop a scroll in flight.
   const setText = (el, t) => { if (el.textContent !== t) el.textContent = t; };
