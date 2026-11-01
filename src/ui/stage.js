@@ -3060,6 +3060,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const oxy = mode === 'oxygen' ? oxygenFor(EDGES, NODES, f).edge : null;
 
     // The varices' size now, held in steps (varix-look.js): their channels, strands and opacity are drawn as big as the varix is.
+    varixHeld.VAR.now = varixHeld.GV.now = nowW;   // (the held size follows the beat's mean, varix-look.js)
     const varixS = { VAR: varixSize('VAR', varixHold(varixHeld.VAR, f.metrics?.varix?.d)), GV: varixSize('GV', varixHold(varixHeld.GV, f.metrics?.gastricVarix?.d)) };
     // collateral tortuosity
     const coiling = [];

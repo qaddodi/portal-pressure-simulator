@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
 import { deepMerge } from '../src/engine/scenario.js';
-import { LOOK_SITE, VARIX_REST_MM, VARIX_FULL_MM, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from '../src/ui/varix-look.js';
+import { LOOK_SITE, VARIX_REST_MM, VARIX_FULL_MM, varixSize, varixHold, varixMean, VARIX_MEAN_MS, VARIX_JUMP_MM, varixWidthK, varixSpreadK, varixOpacity } from '../src/ui/varix-look.js';
 
 const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 const sizes = (id, patch) => {
@@ -78,6 +78,36 @@ test('the held size ignores a pulse across a rounding boundary and moves on a re
   assert.equal(varixHold(held, 4.7), 4.5);
   assert.equal(varixHold(held, 8.5), 8.5);
   assert.ok(Number.isNaN(varixHold(held, NaN)), 'no reading is passed on');
+});
+
+test('a varix that pulses with the beat and the breath holds one step: the plexus is not eased again on every model frame', () => {
+  // The engine's varix.d of the decompensated preset swung 6.4 to 7.2 mm (0.8 mm, more than the 0.5 mm step) with the beat and the breath.
+  // Held alone it crossed a step about every beat and every model frame eased, re-binned and re-sent the plexus (31 Oct, ~8 MB/s of uploads).
+  const held = { now: 0 }, steps = new Set();
+  let changes = 0, last = null;
+  for (let i = 0; i < 600; i++) {   // 60 s of 10 Hz model frames
+    held.now = i * 100;
+    const t = i / 10, d = 6.8 + 0.25 * Math.sin(2 * Math.PI * t) + 0.15 * Math.sin(2 * Math.PI * t / 4) + 0.05 * Math.sin(2 * Math.PI * t / 0.37);
+    const h = varixHold(held, d);
+    if (last !== null && h !== last && i > 40) changes++;
+    last = h; if (i > 40) steps.add(h);
+  }
+  assert.equal(changes, 0, `the held size moved ${changes} times in a steady pulse (${[...steps]})`);
+  assert.ok(Math.abs(varixMean(held, 6.8, held.now) - 6.8) < 0.15, 'the mean sits on the pulse\'s centre');
+});
+
+test('a real change in the varix is followed: a jump at once, a drift within seconds', () => {
+  const held = { now: 0 };
+  assert.equal(varixHold(held, 7.2), 7);
+  held.now = 100; assert.equal(varixHold(held, 2.1), 2, 'a new patient (a jump of over VARIX_JUMP_MM) is taken at once');
+  held.now = 200; assert.equal(varixHold(held, 8.6), 8.5, 'and a jump up');
+  // A drug taking the varix from 8.5 to 5.5 mm over 30 s: the held size is within a step of it 3 s after it arrives.
+  let h = 8.5;
+  for (let i = 0; i <= 330; i++) { held.now = 1000 + i * 100; const d = Math.max(5.5, 8.5 - i * 0.1); h = varixHold(held, d); }
+  assert.ok(Math.abs(h - 5.5) <= 0.5, `held ${h} after the drift`);
+  // A long gap (the figure was covered) takes the diameter as it is.
+  held.now += 10000; assert.equal(varixHold(held, 3), 3);
+  assert.ok(VARIX_MEAN_MS >= 1000 && VARIX_JUMP_MM >= 1, 'the constants stay above a beat and a pulse\'s swing');
 });
 
 test('stage.js draws the varices\' channels by it: width (anatomy, not the flow lens, not a closed shunt, never under the resting caliber), strands, opacity', () => {
