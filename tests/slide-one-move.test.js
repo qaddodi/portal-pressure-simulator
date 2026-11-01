@@ -23,7 +23,7 @@ test('the stage says what is left of its glide, read from the glide itself', () 
 test('camera() resolves at the glide\'s last part only when asked, over the plate', () => {
   assert.match(cam, /async function camera\(cam, s, cut, early = 0, begun = null\)/);
   // (The glide has set off: the hook runs, then one timer to the point asked for and a look, never a poll alone: late timers in a busy glide put the cards after its landing.)
-  assert.match(cam, /frameTo\(v === 'circuit' \? 'fit' : cam, s, gl\);\s*begun\?\.\(\);[^\n]*\n\s*(?:\/\/[^\n]*\n\s*)*if \(early && gl\) \{\s*(?:\/\/[^\n]*\n\s*)*const g0 = stage\.glideLeft\?\.\(\);\s*if \(g0\?\.ms\) await wait\(Math\.max\(0, g0\.left - g0\.ms \* early - 40\)\);\s*await until\(\(\) => \{ if \(cut\(\)\) return true; const g = stage\.glideLeft\?\.\(\); return !g \|\| g\.left <= g\.ms \* early; \}, gl \+ 1500\); return;\s*\}\s*await wait\(gl\);/);
+  assert.match(cam, /frameTo\(v === 'circuit' \? 'fit' : cam, s, gl\);\s*begun\?\.\(\);[^\n]*\n\s*(?:\/\/[^\n]*\n\s*)*if \(early && gl\) \{\s*(?:\/\/[^\n]*\n\s*)*const g0 = stage\.glideLeft\?\.\(\);\s*if \(g0\?\.ms\) await wait\(Math\.max\(0, g0\.left - g0\.ms \* early - 40\)\);\s*await until\(\(\) => \{ if \(cut\(\)\) return true; const g = stage\.glideLeft\?\.\(\); return !g \|\| g\.left <= g\.ms \* early; \}, gl \+ 1500\); return;\s*\}\s*(?:\/\/[^\n]*\n\s*)*if \(ONE_MOVE && gl\) \{[^}]*\}\s*await wait\(gl\);/);
   // (The lobule's way in keeps its own waits: its branch returns before the plate's glide.)
   const lob = cam.slice(cam.indexOf('if (LOBULE_CAM.test(cam))'), cam.indexOf("const v = s.view || 'anatomic';"));
   assert.doesNotMatch(lob, /early/);
@@ -100,4 +100,17 @@ test('a move cut by a newer slide leaves its cards unseen instead of bringing th
   const tr = src.slice(src.indexOf('async function transition(to) {'), src.indexOf('async function transitionRun('));
   assert.match(tr, /if \(bare && want === to\) \{ bare = false; layout\(\); cardsIn\(\); \}/);
   assert.doesNotMatch(tr, /if \(bare\) \{ bare = false; layout\(\); cardsIn\(\); \}/);
+});
+
+// A camera beat and a flip of the scale (they wait for no cards) used to wait a flat 1.5 s after the glide set off, though the glide lands in
+// 480 to 900 ms (camMs, and an arc's stretch), and at all when the framing did not change: their call-outs came late. Now the wait is the glide's.
+test('a move that waits for no cards ends with its glide: a timer to the landing, then a look; ?onemove=0 keeps the flat wait', () => {
+  const tail = cam.slice(cam.indexOf('if (ONE_MOVE && gl) {'), cam.indexOf('await wait(gl);') + 'await wait(gl);'.length);
+  assert.ok(tail.startsWith('if (ONE_MOVE && gl) {'), 'the flag gates the new wait');
+  assert.match(tail, /const g0 = stage\.glideLeft\?\.\(\);\s*if \(g0\?\.ms\) await wait\(Math\.max\(0, g0\.left - 40\)\);\s*await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), gl \+ 1500\); return;\s*\}\s*await wait\(gl\);$/);
+  // (the callers: a beat and a flip of the scale paint their call-outs right after the camera returns)
+  const beatMove = src.slice(src.indexOf('async function beatMove('), src.indexOf('function clearPill()'));
+  assert.ok(beatMove.indexOf('await camera(cam, v, cut)') > 0 && beatMove.indexOf('await camera(cam, v, cut)') < beatMove.indexOf('paintOverlays(v, i,'));
+  const flip = src.slice(src.indexOf('async function flipMove('), src.indexOf('async function beatMove('));
+  assert.ok(flip.indexOf('await camera(cam, v, cut)') > 0 && flip.indexOf('await camera(cam, v, cut)') < flip.indexOf('paintOverlays(v, i,'));
 });
