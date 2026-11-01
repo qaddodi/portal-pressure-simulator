@@ -47,7 +47,7 @@ import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=542bb8db66';
 import { createLabelGL } from './label-gl.js?v=020bc162b7';
 import { createGlassGL } from './glass-gl.js?v=8a4c8e11ef';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=7bd38361f0';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=bc747a4991';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -107,6 +107,9 @@ const OVER_GPU = !(typeof location !== 'undefined' && /[?&]stageover=svg\b/.test
 // Parcels and arrowheads carried through junctions (blood.js createStreamChain; combined plan B1 + C1). ?bloodchain=0: each
 // vessel's blood its own pattern, dimmed at every join, as before.
 const BLOOD_CHAIN = !(typeof location !== 'undefined' && /[?&]bloodchain=0\b/.test(location.search));
+// A streak's length follows its vessel's display speed (veins-gl.js bloodAt): a fast vessel's streaks run long and a slow one's are short
+// dashes, so a still frame shows speed too. ?streaklen=0 in the address draws every streak as it was before 1 Nov: the same picture exactly.
+const STREAK_LEN = !(typeof location !== 'undefined' && /[?&]streaklen=0\b/.test(location.search));
 // Vessels that run on into one another narrow or widen as one continuous taper through the run (vessel-taper.js). ?taper=0 in the
 // address draws each join as it was before 1 Nov (one ease over half of each vessel, counted in samples): the same picture exactly.
 const TAPER = !(typeof location !== 'undefined' && /[?&]taper=0\b/.test(location.search));
@@ -2495,7 +2498,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=4d7321729a').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=f1966b55c3').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -10940,7 +10943,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get(), b = st.blood || {};
     // (Each drawn while it shows at all, by its eased share: stepBlood's blendA; its own switch before the first step.)
     const sA = blendA.s ?? (bloodOn() ? 1 : 0), cA = blendA.c ?? (chevOn() && !cath.st ? 1 : 0), oA = blendA.o ?? (originOn() ? 1 : 0);
-    return { on: sA > 0, still: reduceMotion.matches, chev: cA > 0, look: b.look, origin: oA > 0, streakA: sA, chevA: cA, originA: oA, clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(), noChev: noChevBoxes, holes: chevHoles, vdpr, ...bloodColors() };
+    return { on: sA > 0, still: reduceMotion.matches, chev: cA > 0, look: b.look, origin: oA > 0, streakA: sA, chevA: cA, originA: oA, streakLen: STREAK_LEN, clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(), noChev: noChevBoxes, holes: chevHoles, vdpr, ...bloodColors() };
   }
 
   // ── ?flow=dashes: the motion as small layers (flow-dash.js) ──────────

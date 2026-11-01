@@ -1017,6 +1017,7 @@ uniform float cssPx;                   // canvas px per CSS px (stage.js vdpr, a
 uniform float flowA;                   // 0..1: how visible the moving blood and chevrons are (they fade in once the view is still)
 uniform vec3 blendA;                   // 0..1 each: the streaks, the chevrons and the origin colours fading in or out (switched on or off)
 uniform int sat;                       // 1: past a packed lane, more flow draws denser, brighter streaks (combined plan B2)
+uniform int lenOn;                     // 1: a streak's length follows its vessel's display speed (streak length with speed; ?streaklen=0 turns it off)
 #if PLAIN == 0
 uniform int origin;                    // 1: color parcels by where their blood came from
 uniform int dyeOn;
@@ -1102,6 +1103,10 @@ float vnoiseT(vec2 q, uint seed, int period, ivec2 o, int yo, int ny) {
 }
 #endif
 
+// The octaves' shares of the shimmer's noise (0.62 coarse, 0.38 fine), set per vessel by bloodAt: with the streaks' length following the
+// vessel's speed (lenOn) the fine octave's share falls toward 0 for a fast vessel (its streaks run long) and rises for a slow one (short
+// dashes), and lnS evens the spread (lnS 1: as always). Only the shares change, never a coordinate, so nothing in a streak moves for it.
+float lnWb = 0.62, lnWf = 0.38, lnS = 1.0;
 // The shimmer's noise at one parcel scale sx (its slot): two lane speeds blended by t, the fine octave
 // faded out where it would fall under a pixel and a half (replaced by its mean, so the level holds).
 // (bs: how many times shorter the cells are along this lumen than along the stream they are drawn from: 1 for a vessel's own,
@@ -1116,16 +1121,17 @@ float shimN(int id, float s, float qy, float D, float k0, float t, float sx, flo
   fw = smoothstep(1.2 * pxW, 2.0 * pxW, cellA * 0.5);
   if (bs != 1.0) fw = smoothstep(1.2 * pxW, 2.0 * pxW, cellA * 0.5 / bs);
 #endif
-  bool fine = fw > 0.0;
+  bool fine = fw > 0.0 && lnWf > 0.0;
 #if FAST
   ivec2 o0 = ivec2((id % ${NOISE_PER_ROW}) * ${NOISE_W} + ${OCTAVES[0].x}, (id / ${NOISE_PER_ROW}) * ${NOISE_H}), o1 = o0 + ivec2(${OCTAVES[1].x - OCTAVES[0].x}, 0);
-  float na = t < 1.0 ? 0.62 * vnoiseT(qa, sd0, per, o0, ${OCTAVES[0].yo}, ${OCTAVES[0].rows}) + 0.38 * (fine ? mix(0.5, vnoiseT(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2, o1, ${OCTAVES[1].yo}, ${OCTAVES[1].rows}), fw) : 0.5) : 0.0;
-  float nb = t > 0.0 ? 0.62 * vnoiseT(qb, sd0, per, o0, ${OCTAVES[0].yo}, ${OCTAVES[0].rows}) + 0.38 * (fine ? mix(0.5, vnoiseT(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2, o1, ${OCTAVES[1].yo}, ${OCTAVES[1].rows}), fw) : 0.5) : 0.0;
+  float na = t < 1.0 ? lnWb * vnoiseT(qa, sd0, per, o0, ${OCTAVES[0].yo}, ${OCTAVES[0].rows}) + lnWf * (fine ? mix(0.5, vnoiseT(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2, o1, ${OCTAVES[1].yo}, ${OCTAVES[1].rows}), fw) : 0.5) : 0.0;
+  float nb = t > 0.0 ? lnWb * vnoiseT(qb, sd0, per, o0, ${OCTAVES[0].yo}, ${OCTAVES[0].rows}) + lnWf * (fine ? mix(0.5, vnoiseT(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2, o1, ${OCTAVES[1].yo}, ${OCTAVES[1].rows}), fw) : 0.5) : 0.0;
 #else
-  float na = t < 1.0 ? 0.62 * vnoise(qa, sd0, per) + 0.38 * (fine ? mix(0.5, vnoise(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2), fw) : 0.5) : 0.0;
-  float nb = t > 0.0 ? 0.62 * vnoise(qb, sd0, per) + 0.38 * (fine ? mix(0.5, vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2), fw) : 0.5) : 0.0;
+  float na = t < 1.0 ? lnWb * vnoise(qa, sd0, per) + lnWf * (fine ? mix(0.5, vnoise(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2), fw) : 0.5) : 0.0;
+  float nb = t > 0.0 ? lnWb * vnoise(qb, sd0, per) + lnWf * (fine ? mix(0.5, vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2), fw) : 0.5) : 0.0;
 #endif
-  return mix(na, nb, t);
+  float nm = mix(na, nb, t);
+  return lnS == 1.0 ? nm : 0.5 + (nm - 0.5) * lnS;
 }
 // The caliber at arc length s, interpolated between its samples (not the nearest one), so nothing scaled by it steps along the vessel.
 ${ALONG_GLSL}
@@ -1141,6 +1147,19 @@ float radAt(int id, float s, float len) {
 vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, float R, vec3 vc) {
   float D = f0.x, vd = f0.y, flux = f0.z, stasis = f0.w;
   float dir = vd < 0.0 ? -1.0 : 1.0;
+  // Streak length with speed: a fast vessel's streaks run long, a slow one's are short dashes, so a still frame (a paused model, a
+  // screenshot, a handout) shows speed too. The factor is the square root of the display speed (the speed the streaks travel at, eased
+  // like them) over the healthy portal trunk's 36, kept to 0.6 … 1.6 and let go to 1 as the vessel stagnates (the smoke is as it was). It
+  // moves the octaves' shares (lnWb, lnWf) from today's 0.62 / 0.38: the fine octave fades out toward 1.6 (the streaks about 1.45 times as long)
+  // and grows toward 0.6 (about 0.75 times), the spread kept level (lnS) so the streaks' number and brightness hold within 7 %.
+  lnWb = 0.62; lnWf = 0.38; lnS = 1.0;
+  if (lenOn == 1) {
+    float kk = mix(clamp(sqrt(abs(vd) / 36.0), 0.6, 1.6), 1.0, stasis);
+    float lu = clamp(kk >= 1.0 ? (kk - 1.0) / 0.6 : (kk - 1.0) / 0.4, -1.0, 1.0);   // 0 at today's length, +1 longest, −1 shortest
+    lnWf = lu >= 0.0 ? 0.38 * (1.0 - lu) : 0.38 - 0.27 * lu;
+    lnWb = 1.0 - lnWf;
+    lnS = sqrt(0.5288 / (lnWb * lnWb + lnWf * lnWf));
+  }
   // Lanes ~5 device pixels apart (more when zoomed in), parcels at least ~8 apart along a lane.
 #if FAST
   float Lg = zoomA.x;
@@ -3342,6 +3361,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         UC.f3a(U.chevLight, blood.chevLight || [1, 0.93, 0.86]);
         UC.f1(U.cssPx, blood.vdpr || 1);
         UC.i1(U.sat, BLOOD_SAT ? 1 : 0);
+        UC.i1(U.lenOn, blood.streakLen ? 1 : 0);
         UC.i1(U.origin, blood.origin ? 1 : 0);
         UC.i1(U.dyeOn, dyeAny && blood.dye !== false ? 1 : 0);
         UC.f1(U.clock, blood.clock || 0);
@@ -3366,7 +3386,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         fluidRect || [0, 0, 1, 1], fl?.s || [0, 0, 0, 0], fl ? fl.ink : [0, 0, 0, 0], fl?.lv || [1, 0],
         blood.on, blood.chev, blood.still, blood.alpha ?? 1, blood.streakA ?? 1, blood.chevA ?? 1, blood.originA ?? 1,
         blood.chevInk || [0.08, 0.08, 0.1], blood.chevLight || [1, 0.93, 0.86], blood.vdpr || 1, blood.origin, dyeAny && blood.dye !== false,
-        BLOOD_SAT,
+        BLOOD_SAT, blood.streakLen,
         originColOf(blood.originCol || ORIGIN_WHITE), blood.dyeCol || [0.8, 0.95, 0.2], blood.revCol || [1, 0.55, 0.16],
         blood.inkLight || [1, 1, 1], blood.inkDark || [0.1, 0.1, 0.16], ncv, nc.length, hb, hr, ho.length, layer, glow, warm, useStack, bare, texVer);
       let same = !!stillSig && sn === stillN && sn < sigNow.length;
