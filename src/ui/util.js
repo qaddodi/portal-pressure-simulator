@@ -1,5 +1,6 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame, easeNow } from './frame.js?v=7710f677e2';
+import { restPass } from './rest-pass.js?v=bf0c42ead5';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=fc509dabe4';
 import { leaveFromHere } from './menu-leave.js?v=e885166f40';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
@@ -119,6 +120,20 @@ function placeToasts(wrap) {
   } else if (wrap.getAttribute('style')) wrap.removeAttribute('style');
 }
 addEventListener('resize', () => { const wrap = document.getElementById('toasts'); if (wrap?.children.length) placeToasts(wrap); });
+// A card slides down from behind the top bars and settles just below them (below every row on a phone); docked, it is filled: the
+// largest size that fits, stepping down for longer text, never clipped.
+function toastFit(wrap, t, msg, actions) {
+  if (!t.isConnected) return;
+  placeToasts(wrap);
+  if (wrap.classList.contains('docked')) {
+    const m = t.querySelector('.toast-msg');
+    if (msg.length > 60 || actions?.length) t.classList.add('toast-tall');   // (84 px: app.css, a class, so no height is written)
+    let px = msg.length <= 28 ? 20 : msg.length <= 60 ? 17 : 15;
+    const room = t.clientHeight - 8 - (actions?.length ? t.querySelector('.toast-acts').offsetHeight + 6 : 0);
+    for (; px > 12; px--) { m.style.fontSize = `${px}px`; if (m.scrollHeight <= room && m.scrollWidth <= m.clientWidth) break; }
+  }
+  t.style.visibility = '';
+}
 export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false } = {}) {
   if (!msg) return () => {};
   // While presenting, the projected figure stays clear: only errors, cards with buttons and what the presenter asked for
@@ -129,8 +144,6 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   // and the one left glides into its place, rather than vanishing mid-exit: P19.)
   const stay = [...wrap.children].filter((c) => !c.classList.contains('leaving'));
   while (stay.length >= 2) { const o = stay.shift(); if (o._close) o._close('pushed'); else o.remove(); }
-  // A card slides down from behind the top bars and settles just below them (below every row on a phone).
-  placeToasts(wrap);
   // (An error leads with a small warning mark in the danger ink, so it reads as an error by its shape, not by red words alone.)
   const mark = kind === 'bad' ? icon('alert') : null;
   if (mark) mark.setAttribute('class', 'toast-ic');
@@ -156,15 +169,11 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   t.addEventListener('pointerup', (e) => { if (Math.abs(e.clientY - sy) > 18 || Math.abs(e.clientX - sx) > 40) close(); });
   // (A card pushed out by newer ones still counts as closed, as pushed out.)
   if (onClose) new MutationObserver((_, ob) => { if (!t.isConnected) { ob.disconnect(); if (!gone) { gone = true; clearTimeout(timer); onClose?.('pushed'); } } }).observe(wrap, { childList: true });
+  // (Placed and sized as a task between frames (rest-pass.js), never inside the frame that asked for it: a toast raised from a frame's
+  // tick read the bars and its own text's size among that frame's writes. Unseen until then, so it never shows in the wrong place.)
+  t.style.visibility = 'hidden';
   wrap.append(t);
-  // Fill the docked card: the largest size that fits, stepping down for longer text, never clipped.
-  if (wrap.classList.contains('docked')) {
-    const m = t.querySelector('.toast-msg');
-    if (msg.length > 60 || actions?.length) t.classList.add('toast-tall');   // (84 px: app.css, a class, so no height is written)
-    let px = msg.length <= 28 ? 20 : msg.length <= 60 ? 17 : 15;
-    const room = t.clientHeight - 8 - (actions?.length ? t.querySelector('.toast-acts').offsetHeight + 6 : 0);
-    for (; px > 12; px--) { m.style.fontSize = `${px}px`; if (m.scrollHeight <= room && m.scrollWidth <= m.clientWidth) break; }
-  }
+  restPass(() => toastFit(wrap, t, msg, actions));
   // A toast with buttons stays longer, and stays while the pointer or the keyboard is on it, so its button can be reached.
   const life = actions?.length ? 9000 : 4200, arm = () => { clearTimeout(timer); if (!sticky && !gone) timer = setTimeout(close, life); };
   t.addEventListener('pointerenter', () => clearTimeout(timer)); t.addEventListener('focusin', () => clearTimeout(timer));
@@ -361,7 +370,11 @@ export function fadeWhileMore(el) {
 // Whether an element has a box (neither it nor an ancestor display: none), as getClientRects().length says, without laying
 // the page out: checkVisibility needs only styles. (Each read in the middle of a model frame, after its writes, laid the
 // page out: 1-2 ms each, several a frame in the Tests card's tiles; round 2 review, P5.)
-export const hasBox = (el) => (el.checkVisibility ? el.checkVisibility() : el.getClientRects().length > 0);
+// Whether a fade on el is worth starting: in the page and under no hidden piece. No layout read (1 Nov 2026, "zero layout inside the
+// frame": the number and text swaps ask it from frames); one hidden only by a style still takes its fade, which nobody sees and which
+// ends on its own clock as any other. isDrawn is the exact answer, for an input's handler.
+export const hasBox = (el) => el.isConnected && !el.closest?.('[hidden]');
+export const isDrawn = (el) => (el.checkVisibility ? el.checkVisibility() : el.getClientRects().length > 0);
 // One swap at a time per element: its newest content goes in when the old has faded.
 const fadeIns = new WeakMap();   // (swapFade: each element's fade-in, cancelled when the next swap lands)
 const swaps = new WeakMap();
@@ -709,7 +722,8 @@ export function swipeSheet(panel, onClose) {
     s = null;
     if (e.touches.length !== 1 || e.target.closest('input[type="range"], textarea, [contenteditable]')) return;
     const t = e.touches[0], sc = scroller(e.target);
-    s = { x: t.clientX, y: t.clientY, top: !sc || sc.scrollTop <= 0, on: false, dy: 0, t: 0, trail: [] };
+    // (Where the sheet is drawn and how tall it is, read at the touch, never in the moves that follow: liveShift, offsetHeight.)
+    s = { x: t.clientX, y: t.clientY, top: !sc || sc.scrollTop <= 0, on: false, dy: 0, t: 0, trail: [], shift: thumbUi() ? 0 : liveShift(panel), h: panel.offsetHeight };
   }, { passive: true });
   panel.addEventListener('touchmove', (e) => {
     if (!s) return;
@@ -724,7 +738,7 @@ export function swipeSheet(panel, onClose) {
       // (Caught while it is still easing back: the pull carries on from where the sheet is, without a jump.)
       // (Not over the thumb dock too: the sheet's own transform is still easing back, read where it is drawn now, so the pull takes it
       // over from there and it does not jump to the finger.)
-      s.on = true; s.y = t.clientY - (thumbUi() ? parseFloat(panel.style.getPropertyValue('--sink')) || 0 : liveShift(panel)); s.t = performance.now();
+      s.on = true; s.y = t.clientY - (thumbUi() ? parseFloat(panel.style.getPropertyValue('--sink')) || 0 : s.shift); s.t = performance.now();
       panel.style.transition = 'none'; panel.style.animation = 'none'; stopSink(panel);
     }
     if (e.cancelable) e.preventDefault();
@@ -739,15 +753,16 @@ export function swipeSheet(panel, onClose) {
     const speed = releaseSpeed(s0.trail, performance.now());   // (px per ms down, as the finger lifted: the settle starts at that speed)
     // (A flick is how fast the finger was going as it lifted, not only the pull's average: a slow start and a quick flick at the end is one.)
     const flick = isFlick(s0.dy, speed, s0.dy / Math.max(1, performance.now() - s0.t), 0.6, 30);
-    const gone = flick || s0.dy > Math.min(90, panel.offsetHeight * 0.3);
+    const H = s0.h;
+    const gone = flick || s0.dy > Math.min(90, H * 0.3);
     // (Over the thumb dock it sinks behind the tab row: the move and the cut in one value, never one ahead of the other.)
     if (thumbUi()) {
       panel.style.transition = '';
-      if (gone) { sinkTo(panel, panel.offsetHeight, 220, undefined, speed); panel.dataset.swiped = '1'; onClose(); } else sinkTo(panel, 0, 220, undefined, speed);
+      if (gone) { sinkTo(panel, H, 220, undefined, speed); panel.dataset.swiped = '1'; onClose(); } else sinkTo(panel, 0, 220, undefined, speed);
       return;
     }
     // (The same, as a CSS curve: its opening slope is the finger's speed over the distance left, up to the .2/.8 curve's own, 4.)
-    const left = gone ? panel.offsetHeight - s0.dy : -s0.dy;
+    const left = gone ? H - s0.dy : -s0.dy;
     panel.style.transition = `transform ${D_SMALL}ms ${carryCurve(speed, left, D_SMALL)}`;   // (a let-go carries the finger's own speed, so the curve opens at its slope)
     if (gone) { panel.style.transform = 'translateY(100%)'; panel.dataset.swiped = '1'; onClose(); }
     else { panel.style.transform = ''; clearTimeout(easeT); easeT = setTimeout(() => { if (!s) panel.style.transition = ''; }, D_SMALL); }
@@ -776,6 +791,11 @@ const behindDialog = (on) => { for (const m of document.querySelectorAll('.umenu
 // (The on-screen keyboard covers the page's foot without shrinking it: the dialog is held to the room above it, and eases there.)
 const modalVV = window.visualViewport;
 let modalKbT = 0, modalBand = [0, 0];   // ([top, keyboard] the dialog is centred between now, px)
+// (The viewport's moves (a keyboard sliding, the page panned to a field) are followed as a task between frames, once per batch: never
+// read in the move's own callback.)
+let modalFitAsk = 0;
+const fitModalSoon = () => { modalFitAsk ||= restPass(fitModalRest); };
+const fitModalRest = () => { modalFitAsk = 0; if (document.getElementById('modalBack')?.classList.contains('show')) fitModal(); };
 // (The dialog is centred in that band: a new band moves it by half the change of each edge. It takes its place at once and glides
 // there from where it stood by translate; nothing's top, bottom or height is eased.)
 const bandTo = (back, top, kb) => {
@@ -816,17 +836,22 @@ export function openModal(title, body, { wide = false, sub = null, bare = false,
   const close = h('button', { class: 'ib', 'aria-label': 'Close', onclick: closeModal }, icon('close'));
   const head = h('header', {}, h('div', { style: { flex: 1, minWidth: 0 } }, bare ? null : h('h2', {}, title), sub ? h('div', { class: 'sub' }, sub) : null), close);
   // The title and its close button stay in view over a long page; a hairline marks the edge once the page has scrolled under them.
-  modal.onscroll = () => head.classList.toggle('scrolled', modal.scrollTop > 2);
-  modal.append(head, h('div', { class: 'body' }, body));
+  // (Told by an observer of a one-pixel mark at the page's top leaving the dialog's view, not by reading the scroll on every scroll.)
+  modal.onscroll = null;
+  const topMark = h('div', { class: 'modal-top-mark', 'aria-hidden': 'true', style: { height: '1px', marginBottom: '-1px' } });
+  modalTopIO?.disconnect();
+  modalTopIO = typeof IntersectionObserver === 'function' ? new IntersectionObserver(([e]) => head.classList.toggle('scrolled', !e.isIntersecting), { root: modal, rootMargin: '2px 0px 0px 0px' }) : null;   // (scrolled past 2 px, as before)
+  modal.append(topMark, head, h('div', { class: 'body' }, body));
+  modalTopIO?.observe(topMark);
   clearTimeout(modalLeaveT); back.classList.remove('leaving');
   back.classList.add('show');
   // (Its page fades in over the old one's place, as every other change of words does, not in one frame.)
   if (replacing && !reduceMotionMQ.matches) modal.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
-  fitModal(); modalVV?.addEventListener('resize', fitModal); modalVV?.addEventListener('scroll', fitModal);
+  fitModal(); modalVV?.addEventListener('resize', fitModalSoon); modalVV?.addEventListener('scroll', fitModalSoon);
   back.onclick = (e) => { if (e.target === back) closeModal(); };
   (modal.querySelector('.body button, .body [tabindex]') || close).focus({ preventScroll: true });
 }
-let modalLeaveT = 0;
+let modalLeaveT = 0, modalTopIO = null;
 let modalDone = null;
 export function closeModal() {
   const back = document.getElementById('modalBack');
@@ -834,7 +859,7 @@ export function closeModal() {
   const done = modalDone; modalDone = null;
   // (It fades out as it faded in, then is hidden: closed in one frame, Help, About and every dialog blinked out.)
   back.classList.remove('show'); back.classList.add('leaving');
-  modalVV?.removeEventListener('resize', fitModal); modalVV?.removeEventListener('scroll', fitModal);
+  modalVV?.removeEventListener('resize', fitModalSoon); modalVV?.removeEventListener('scroll', fitModalSoon);
   clearTimeout(modalLeaveT); modalLeaveT = setTimeout(() => back.classList.remove('leaving'), 220);
   setTimeout(() => { if (!back.classList.contains('show')) { back.classList.remove('kb'); back.style.removeProperty('--modal-kb'); back.style.removeProperty('--modal-top'); modalBand = [0, 0]; } }, 240);   // (the dialog holds its place while it fades)
   const appEl = document.getElementById('app'); if (appEl) appEl.inert = false;
@@ -885,6 +910,7 @@ export const lerp = (a, b, t) => a + (b - a) * t;
 // the frame's DOM writes forces a style pass, so values are cached and dropped when the theme
 // can change (the data-theme attribute or the system color scheme).
 const varCache = new Map();
+const alphaCache = new Map();   // (cleared with varCache: the instruments ask for the same few colours on every frame)
 new MutationObserver(() => varCache.clear()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'style', 'class'] });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => varCache.clear());
 export function cssVar(name) {
@@ -902,7 +928,6 @@ export function parseRGB(c) {
 export const cssRGB = (name) => parseRGB(cssVar(name));
 export const cssRGB01 = (name) => cssRGB(name).map((v) => v / 255);
 /** A colour token with an alpha, for a canvas: cssAlpha('--white', .5) → 'rgba(255,255,255,0.5)' (colour-exempt). */
-const alphaCache = new Map();   // (cleared with varCache: the instruments ask for the same few colours on every frame)
 export const cssAlpha = (name, a) => { const k = `${name}|${a}`; let v = alphaCache.get(k); if (v === undefined || !varCache.has(name)) { v = `rgba(${cssRGB(name).join(',')},${a})`; if (alphaCache.size > 2000) alphaCache.clear(); alphaCache.set(k, v); } return v; };   // (a fade asks for a new alpha every frame: the cache is cut at 2000)
 /** A colour ramp token ('#hex position, #hex position, …') as [[position, '#hex'], …]. */
 export const cssRamp = (name) => [...cssVar(name).matchAll(/(#[0-9a-f]{6})\s+(-?[\d.]+)/gi)].map((m) => [+m[2], m[1]]);
@@ -1014,8 +1039,9 @@ export function enhanceRanges(root = document) {
     if (commit) input.dispatchEvent(new Event('change', { bubbles: true }));
   };
   // (th: the thumb's width, the slider's --tw, 18 px or 22 px on a phone: its centre runs from th / 2 to the far end less th / 2.)
-  const fromX = (input, cx, th) => {
-    const r = input.getBoundingClientRect(), min = +input.min || 0, max = +(input.max || 100);
+  // (r: the slider's box, read once at the press, never in the drag's moves.)
+  const fromX = (input, cx, th, r) => {
+    const min = +input.min || 0, max = +(input.max || 100);
     return min + clamp((cx - r.left - th / 2) / Math.max(1, r.width - th), 0, 1) * (max - min);
   };
   root.addEventListener('pointerdown', (e) => {
@@ -1025,9 +1051,10 @@ export function enhanceRanges(root = document) {
     input.focus({ preventScroll: true });
     input.classList.add('held');   // (the thumb's held ring, app.css: iOS gives a range no :active)
     const th = parseFloat(getComputedStyle(input).getPropertyValue('--tw')) || 18;
-    setTo(input, fromX(input, e.clientX, th));
+    const box = input.getBoundingClientRect();
+    setTo(input, fromX(input, e.clientX, th, box));
     try { input.setPointerCapture(e.pointerId); } catch { /* gone */ }
-    const move = (ev) => { if (ev.pointerId === e.pointerId) setTo(input, fromX(input, ev.clientX, th)); };
+    const move = (ev) => { if (ev.pointerId === e.pointerId) setTo(input, fromX(input, ev.clientX, th, box)); };
     const up = (ev) => {
       if (ev.pointerId !== e.pointerId) return;
       input.removeEventListener('pointermove', move); input.removeEventListener('pointerup', up); input.removeEventListener('pointercancel', up);
