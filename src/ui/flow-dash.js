@@ -133,6 +133,21 @@ export function revFrames(frames) {
  *   view(m): the world → host transform [a, b, c, d, e, f] (CSS px).
  *   show(on), clear(), count (elements).
  */
+// A closed outline (clockwise or not) grown by d px: each corner moved out along its edges' normals, a sharp corner's reach held to 2 d.
+export function grow(pts, d) {
+  const n = pts.length;
+  let area = 0;
+  for (let i = 0; i < n; i++) { const [x0, y0] = pts[i], [x1, y1] = pts[(i + 1) % n]; area += x0 * y1 - x1 * y0; }
+  const s = area > 0 ? 1 : -1;   // (outward normals for the outline's own turning)
+  return pts.map((p, i) => {
+    const a = pts[(i + n - 1) % n], b = pts[(i + 1) % n];
+    const nrm = (u, v) => { const dx = v[0] - u[0], dy = v[1] - u[1], l = Math.hypot(dx, dy) || 1; return [(s * dy) / l, (-s * dx) / l]; };
+    const n1 = nrm(a, p), n2 = nrm(p, b), mx = n1[0] + n2[0], my = n1[1] + n2[1], ml = Math.hypot(mx, my);
+    if (ml < 1e-6) return [p[0] + n1[0] * d, p[1] + n1[1] * d];
+    const cos = (n1[0] * mx + n1[1] * my) / ml, k = Math.min(2, 1 / Math.max(cos, 1e-6)) * d;
+    return [p[0] + (mx / ml) * k, p[1] + (my / ml) * k];
+  });
+}
 export function createFlowDash(host) {
   const doc = host.ownerDocument;
   const cam = doc.createElement('div');
@@ -255,10 +270,15 @@ export function createFlowDash(host) {
         // narrower than the head.
         if (chevSp > 0) {
           const frames = chevF();
-          const svg = `<svg viewBox="${(-0.5 * L - 2).toFixed(2)} ${(-hwPx - 2).toFixed(2)} ${(L + 4).toFixed(2)} ${(2 * hwPx + 4).toFixed(2)}" width="${(L + 4).toFixed(1)}" height="${(2 * hwPx + 4).toFixed(1)}"><path d="M${(0.55 * L).toFixed(2)} 0L${(-0.45 * L).toFixed(2)} ${hwPx.toFixed(2)}L${(-0.13 * L).toFixed(2)} 0L${(-0.45 * L).toFixed(2)} ${(-hwPx).toFixed(2)}Z"/></svg>`;
+          // (The head as two boxes cut to its outline, clip-path, no SVG: its rim, the outline grown by the rim's outer half, under its
+          // ink. The same shape and colours as the SVG path it replaces, whose stroke was painted under its fill.)
+          const head = [[0.55 * L, 0], [-0.45 * L, hwPx], [-0.13 * L, 0], [-0.45 * L, -hwPx]], ox = 0.5 * L + 2, oy = hwPx + 2;
+          const cut = (pts) => `polygon(${pts.map(([x, y]) => `${(x + ox).toFixed(2)}px ${(y + oy).toFixed(2)}px`).join(',')})`;
+          const box = `position:absolute;left:0;top:0;width:${(L + 4).toFixed(1)}px;height:${(2 * hwPx + 4).toFixed(1)}px`;
+          const chevHTML = `<div class="fd-rim" style="${box};clip-path:${cut(grow(head, 0.6))}"></div><div class="fd-ink" style="${box};clip-path:${cut(head)}"></div>`;
           for (let c = 0; c * chevSp < loop; c++) {
             const mk = marker(chevG, 'fd-chev', frames, loop, (ph + c * chevSp) % loop, dir);
-            mk.inner.innerHTML = svg;
+            mk.inner.innerHTML = chevHTML;
             mk.inner.style.cssText = `left:${(-0.5 * L - 2).toFixed(2)}px;top:${(-hwPx - 2).toFixed(2)}px`;
             mk.lane = 1;
             t.chevs.push(mk);

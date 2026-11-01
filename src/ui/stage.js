@@ -59,7 +59,7 @@ import { alongCurve } from './pressure-along.js?v=74c64e4286';
 import { follow2, createColourFollow, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=f6c91d8676';
 import { retireRows, flowClose } from './flow-rows.js?v=59053c0155';
-import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=0999a0cef3';
+import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=9a0b8c999f';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
 import { planTaper, taperAt } from './vessel-taper.js?v=38c471f360';
 import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=7710f677e2';
@@ -11436,17 +11436,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Where the readings keep the heads off, to 2 world units: rebuilt only once the view has settled, as for a zoom.)
   const dashHoleKey = () => [...noChevBoxes, ...chevHoles].map((b) => b.map((q) => Math.round(q / 2)).join(',')).join(';');
   // Where a vessel drawn behind is covered: the organs and every vessel drawn in front, rasterized at half a pixel a world unit.
+  // (Worked out from the shapes' geometry on a cell grid, cell-grid.js: no 2D canvas, no pixel read. A cell any cover touches counts.)
   function dashCover(items) {
     const k = 0.5, X0 = -200, Y0 = -400, Wd = Math.ceil((VIEW.w + 400) * k), Hd = Math.ceil((VIEW.h + 800) * k);
-    const c = document.createElement('canvas');
-    c.width = Wd; c.height = Hd;
-    const g = c.getContext('2d', { willReadFrequently: true });
+    const g = new CellGrid();
+    g.clearRect(0, 0, Wd, Hd);
     g.setTransform(k, 0, 0, k, -X0 * k, -Y0 * k);
-    g.lineCap = 'round'; g.lineJoin = 'round';
-    g.fillStyle = g.strokeStyle = '#000';   // colour-exempt: a mask
-    const solid = new Path2D();
-    for (const { p, w } of getOrganCovers()) { if (w) { g.lineWidth = w; g.stroke(p); } else solid.addPath(p); }
-    g.fill(solid);
+    for (const { geom, w } of organCoverGeoms()) { if (w) { g.lineWidth = w; g.stroke(geom); } else g.fill(geom); }
     for (const it of items) {
       if (it.x.back || it.pts.length < 2) continue;
       g.lineWidth = Math.max(1, it.kind === 'v' ? it.x.width || 2 : it.kind === 's' ? (it.x.width || 2) * (it.obj.k || 0.3) : it.obj.w || 2);
@@ -11454,10 +11450,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const q of it.pts) g.lineTo(q[0], q[1]);
       g.stroke();
     }
-    const a = g.getImageData(0, 0, Wd, Hd).data;
+    const a = new Uint8Array(Wd * Hd);
+    g.readInto(a);
     return (x, y) => {
       const i = Math.round((x - X0) * k), j = Math.round((y - Y0) * k);
-      return i < 0 || j < 0 || i >= Wd || j >= Hd ? 0 : a[(j * Wd + i) * 4 + 3] / 255;
+      return i < 0 || j < 0 || i >= Wd || j >= Hd ? 0 : a[j * Wd + i];
     };
   }
   function dashBuild(fade) {
@@ -11788,17 +11785,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // Opaque organ shapes (anatomy), as canvas paths; built once, band widths read from the CSS.
   let organCovers = null;
+  // (The same covers as outlines, for the cell grid: dashCover.)
+  let organCoverG = null;
+  const organCoverGeoms = () => (organCoverG ||= getOrganCovers().map(({ src, w }) => ({ geom: src.circle ? geomOf('circle', (q) => ({ cx: src.circle[0], cy: src.circle[1], r: src.circle[2] })[q]) : geomOf('path', () => src.d), w })));
   function getOrganCovers() {
     if (organCovers) return organCovers;
     organCovers = [];
     for (const o of ORGANS) {
       if (o.deco || o.noCover || !organEls[o.id]) continue;
-      if (o.circle) { const p = new Path2D(); p.arc(o.circle[0], o.circle[1], o.circle[2], 0, Math.PI * 2); organCovers.push({ p, w: 0 }); continue; }
+      if (o.circle) { const p = new Path2D(); p.arc(o.circle[0], o.circle[1], o.circle[2], 0, Math.PI * 2); organCovers.push({ p, w: 0, src: { circle: o.circle } }); continue; }
       // (The gut's tubes cover the vessels behind them along their earlier centre lines and widths: ORGANS cover.)
-      if (o.cover) { organCovers.push({ p: new Path2D(o.cover.d), w: o.cover.w }); continue; }
+      if (o.cover) { organCovers.push({ p: new Path2D(o.cover.d), w: o.cover.w, src: { d: o.cover.d } }); continue; }
       const w = o.band ? parseFloat(getComputedStyle(organEls[o.id]).strokeWidth) || 0 : 0;
       if (o.band && w < 4) continue; // the diaphragm is a hairline, not a cover
-      organCovers.push({ p: new Path2D(o.d), w });
+      organCovers.push({ p: new Path2D(o.d), w, src: { d: o.d } });
     }
     return organCovers;
   }

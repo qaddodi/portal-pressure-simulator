@@ -107,3 +107,13 @@ test('reversed flow runs the keyframes backwards at a positive rate, from a smal
   assert.ok(!/LOOPS/.test(src));
   assert.match(src, /setRate\(mk, Math\.abs\(f\.v\) \* mk\.lane\)/);
 });
+
+test('the head is cut from boxes (clip-path), no SVG: its rim is its outline grown outward, a sharp tip held to twice the rim', async () => {
+  const { grow } = await import('../src/ui/flow-dash.js');
+  const head = [[11, 0], [-9, 4], [-2.6, 0], [-9, -4]], g = grow(head, 0.6);
+  assert.ok(g[0][0] > 11 && g[0][0] <= 11 + 1.2 + 1e-9, 'the tip moves out, no further than 2 d');
+  assert.ok(g[2][0] < -2.6, 'the notch moves out too (back, away from the ink)');
+  assert.ok(Math.abs(g[1][1]) > 4 && Math.abs(g[3][1]) > 4, 'the wings move out');
+  const src = (await import('node:fs')).readFileSync(new URL('../src/ui/flow-dash.js', import.meta.url), 'utf8');
+  assert.ok(!/<svg|<path/.test(src), 'no SVG markup');
+});
