@@ -77,7 +77,7 @@ test('the Tests › HVPG readings carry their tile\'s colour too, and ease into 
   const js = readFileSync(new URL('../src/ui/hvpg-proc.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(js, /for \(const k of \['fhvp', 'whvp'\]\) \{\s*const sk = shown\[k\] \? sevOfRead\(k, v\[k\]\) : '';/);
-  assert.match(css, /\.hvpg-kv dd \{[^}]*transition: color var\(--d-surface\) var\(--ease\)/, 'the colour never snaps');
+  assert.match(css, /\.hvpg-kv dd \{[^}]*transition: none/, 'the colour is taken with the reading (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
 });
 
 test('the bar takes the change line\'s place, so a tile never grows for it', () => {

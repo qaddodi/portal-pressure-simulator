@@ -92,7 +92,7 @@ test('the label lights the vessel through setHover, so the glow is the vessel\'s
   assert.match(stage, /g\.matches\(':focus-visible'\)/, 'focus lights it only from the keyboard, not after a click');
 });
 
-test('the look is all behind #labels.hovlink, on a hovering pointer, eased on --d-small, and off with Reduce Motion', () => {
+test('the look is all behind #labels.hovlink, on a hovering pointer, its fades on --d-small, and off with Reduce Motion', () => {
   const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].trim(), m[2].trim()]);
   const mine = rules.filter(([sel]) => /hov-link|hovlink/.test(sel));
   assert.ok(mine.length >= 5, 'the lifted name, unit and leader, and their eases');
@@ -105,10 +105,9 @@ test('the look is all behind #labels.hovlink, on a hovering pointer, eased on --
   assert.match(lead[1], /stroke: color-mix\(in srgb, var\(--text\) 62%, transparent\)/);
   assert.doesNotMatch(lead[1], /filter|box-shadow|drop-shadow|outline/, 'no glow, no border');
   assert.doesNotMatch(lift[1], /stroke|filter|background/, 'no panel, no border, no glow on the label');
-  const fills = rules.filter(([, body]) => /transition: fill var\(--d-small\) var\(--ease\)/.test(body));
-  assert.ok(fills.length >= 1, 'the name and unit ease their ink on --d-small');
-  const leadEase = rules.filter(([, body]) => /transition: opacity var\(--d-small\) var\(--ease\), stroke var\(--d-small\) var\(--ease\)/.test(body));
-  assert.ok(leadEase.length >= 1, 'the leader keeps its fade and eases its stroke');
+  assert.ok(!rules.some(([, body]) => /transition:[^;]*\b(fill|stroke)\b/.test(body)), 'the ink is taken at once (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
+  const leadEase = rules.filter(([, body]) => /transition: opacity var\(--d-small\) var\(--ease\)/.test(body));
+  assert.ok(leadEase.length >= 1, 'the leader keeps its fade');
   assert.ok(css.includes('@media (hover: hover) {\n  .app:not(.presenting) #labels.hovlink'), 'on a hovering pointer only');
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.app:not\(\.presenting\) #labels\.hovlink \.lb :is\(\.lb-name, \.lb-unit\)[^}]*transition: none;/);
 });

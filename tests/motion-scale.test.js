@@ -138,12 +138,12 @@ test('the lint catches what it is for: an off-scale duration, a hand-written cur
 // also reads). A piece that enters or leaves takes a primitive; it does not get a keyframe set of its own.
 const PRIMITIVES = ['fade-rise', 'fade-rise-out', 'slide-from-edge', 'slide-to-edge', 'scale-settle', 'scale-settle-out', 'crossfade', 'crossfade-out'];
 const OTHER_KEYFRAMES = {
-  spin: 'a loop', 'pz-spin': 'a loop', shimmer: 'a loop', monAlarm: 'an alarm that pulses', dmPulse: 'an attention cue', roFlash: 'an attention cue', roFlash2: 'the same attention cue under a second name (restarts with no reflow)',
+  spin: 'a loop', 'pz-spin': 'a loop', shimmer: 'a loop', monAlarm: 'an alarm that pulses', roFlash: 'an attention cue', roFlash2: 'the same attention cue under a second name (restarts with no reflow)',
   haloRing: 'an attention cue', haloText: 'an attention cue', 'sp-tap': 'a tap wiggle', 'sp-tap2': 'a tap wiggle (its twin, so the tap restarts with no style read)',
   'pzw-drift': 'a scene that teaches', 'pzw-pulse': 'a scene that teaches', 'pzw-rise': 'a scene that teaches',
   'sv-fade-in': 'a caption\'s own entrance, by its opacity, that sinusoid-view.js lets go of by name once played', 'lz-in': 'a label\'s entrance, by its own opacity, that presenter.js waits on by name',
-  'pill-in': 'a lit pill\'s entrance, by its ::before\'s opacity, that presenter.js waits on by name', thumbIn: 'a registered variable (--sink) the stacked card\'s tuck also drives',
-  thumbOut: 'a registered variable (--sink) the stacked card\'s tuck also drives',
+  'pill-in': 'a lit pill\'s entrance, by its ::before\'s opacity, that presenter.js waits on by name', thumbIn: 'a card without a plate rising a short way from behind the opaque tab row (translate, which the drag\'s --sink also sets, and opacity)',
+  thumbOut: 'the same card sinking back behind the tab row as it fades',
   'sheet-rise': 'a phone sheet\'s content rising by translate under its still clip (sheet-move.js)', 'sheet-sink': 'a phone sheet\'s content sinking by translate under its still clip (sheet-move.js)',
   'sheet-hold': 'holds a sinking sheet\'s box until its content has gone, so its leave ends on it',
   'odo-up': 'a value that follows the model (a number rolling its digits)', 'odo-down': 'a value that follows the model (a number rolling its digits)',

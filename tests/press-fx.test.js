@@ -24,10 +24,10 @@ test('a press eases on --d-flip with the scale property, and sinks nothing under
   assert.match(CSS, /\.drug \{[^}]*scale var\(--d-flip\) var\(--ease\)/);
 });
 
-test('the controls that snapped now ease: bar, dock, menu and list buttons share one transition on --d-flip', () => {
+test('bar, dock, menu and list buttons share one press transition on --d-flip (the sink); their tints are taken at once', () => {
   const m = CSS.match(/html\.press-fx :is\((\.pal-btn[^)]*)\) \{\s*transition: ([^;]*);/);
   assert.ok(m, 'shared transition rule');
   for (const c of ['.tb-act', '.tl-speed', '.tl-pin', '.menu-btn', '.um-link', '.toast-x', '.pal-item', '.check-row', 'button.finding']) assert.ok(m[1].includes(c), c);
-  assert.match(m[2], /background-color var\(--d-flip\) var\(--ease\)/);
-  assert.match(m[2], /scale var\(--d-flip\) var\(--ease\)/);
+  assert.doesNotMatch(m[2], /background|border|color/, 'the tint is taken at once (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
+  assert.match(m[2], /scale var\(--d-flip\) var\(--ease\)/, 'the press still sinks on the compositor');
 });

@@ -24,14 +24,14 @@ const OPEN = '.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini)';
 const CARD_EXIT = 0.12;   // thumbOut, the phone card's slide down (one flip step)
 
 test('the play bar, views pill and glass come back after the card has mostly sunk, never over it', () => {
-  for (const [sel, props] of [['.app.thumb .vdock:not(.mini) > :not(.thumb-bar)', ['opacity', 'translate']], ['.app.thumb .vdock:not(.mini)::before', ['opacity']], ['.app.thumb .vdock:not(.mini) .thumb-bar', ['box-shadow', 'border-radius', 'border-top-width', 'padding-top']]]) {
+  for (const [sel, props] of [['.app.thumb .vdock:not(.mini) > :not(.thumb-bar)', ['opacity', 'translate']], ['.app.thumb .vdock:not(.mini)::before', ['opacity']], ['.app.thumb .vdock:not(.mini) .thumb-bar::before', ['opacity']], ['.app.thumb .vdock:not(.mini) .thumb-bar::after', ['opacity']]]) {
     for (const p of props) {
       const { dur, delay } = timing(rule(sel), p);
       assert.ok(delay >= CARD_EXIT / 2 && delay < CARD_EXIT, `${sel} ${p} waits for the card (${delay}s)`);
       assert.ok(dur >= 0.2, `${sel} ${p} eases in (${dur}s)`);
     }
   }
-  assert.match(css, /@keyframes thumbOut \{ to \{ --sink: 100%; \} \}/);
+  assert.match(css, /@keyframes thumbOut \{ to \{ opacity: 0; translate: 0 var\(--thumb-rise, 24px\); \} \}/);
   assert.match(css, /#treatCard\.card-leaving[^{]*\{[^}]*animation: var\(--card-out\) var\(--d-flip\)/);
 });
 

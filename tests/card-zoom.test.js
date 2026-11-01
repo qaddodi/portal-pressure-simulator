@@ -601,7 +601,7 @@ test('a tap on one of the six ladders zooms it, a tap on it, outside it, Esc, a 
   assert.match(rule('.pz-pscrim, .pz-gscrim {'), /background: var\(--scrim\)/); assert.match(rule('.pz-pscrim, .pz-gscrim {'), /transition: opacity var\(--d-surface\) var\(--ease\)/);
   assert.match(rule('.pz-pscrim.on'), /pointer-events: auto/);
   assert.match(rule('.pz-gscrim {'), /z-index: 1/);
-  assert.match(css, /^\.pz:not\(\.stack\):not\(\.low\) \.pz-cell \{ cursor: zoom-in; transition: box-shadow var\(--d-surface\) var\(--ease\); \}$/m);
+  assert.match(css, /^\.pz:not\(\.stack\):not\(\.low\) \.pz-cell \{ cursor: zoom-in; transition: none; \}$/m, '(1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
   assert.match(rule('.pz:not(.stack):not(.low) .pz-cell[data-zoomed] {'), /z-index: 2/, 'over its veil');
   assert.match(rule('.pz:not(.stack):not(.low) .pz-cell[data-zoomed=""]'), /box-shadow: var\(--shadow-3\)/);
   for (const sel of ['.pz-pscrim, .pz-gscrim {', '.pz:not(.stack):not(.low) .pz-cell[data-zoomed=""]']) assert.doesNotMatch(rule(sel), /gradient|glow/);

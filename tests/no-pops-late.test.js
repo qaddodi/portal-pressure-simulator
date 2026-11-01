@@ -27,7 +27,8 @@ test('a paused edit rolls the readouts to the new number, always ending on it (P
   assert.match(util, /c\.shown = u >= 1 \? c\.to : c\.from \+ \(c\.to - c\.from\) \* k;/);
   assert.match(dock, /countTo\(x\.val, v, t\.d, \{ eased \}\)/);
   assert.match(read('src/ui/readouts-pane.js'), /countTo\(x\.val, v, t\.d, \{ eased \}\)/);
-  assert.match(css, /\.metric \.val, \.metric \.status \{ transition: color var\(--d-small\) var\(--ease\); \}/);
+  // (Its colour is taken at once: an eased colour repaints the readout every frame, 1 Nov 2026, move everything to GPU.)
+  assert.match(css, /\.metric \.val, \.metric \.status \{ transition: none; \}/);
 });
 
 test('lists update in place, toasts leave through their own exit (P18, P19)', () => {
@@ -57,7 +58,7 @@ test('the patient pill glides to a new name\'s width and the name crossfades (P8
   assert.match(read('src/ui/main.js'), /swapFade\(el, \(\) => \{\s*el\.replaceChildren\(h\('span', \{ class: 'sn-l' \}, name\)/);
 });
 
-test('a tile\'s number fades between "?" and a value, its compare line fades in, and its bar and change colours ease', () => {
+test('a tile\'s number fades between "?" and a value, its compare line fades in, and its bar fades (its colours are taken at once)', () => {
   assert.match(util, /export function fadeIn\(el\)/);
   assert.match(util, /const was = c\.shown != null; c\.shown = null; putNum\(el, '\?'\); if \(was\) fadeNum\(el\)/);
   assert.match(util, /const fresh = c\.shown == null; c\.shown = v; putNum\(el, fmt\(v, d\)\); if \(fresh\) fadeNum\(el\)/);
@@ -66,7 +67,7 @@ test('a tile\'s number fades between "?" and a value, its compare line fades in,
     assert.match(src, /if \(!x\.st\.hidden\) \{ x\.st\.hidden = true; fadeIn\(x\.cmp\); \}/);
     assert.match(src, /x\.st\.hidden = false; fadeIn\(x\.st\);/);
   }
-  assert.match(css, /\.rb-fill \{[^}]*transition: background-color var\(--d-small\) var\(--ease\), opacity var\(--d-small\) var\(--ease\);/);
-  assert.match(css, /\.metric \.cmp \{[^}]*transition: color var\(--d-small\) var\(--ease\);/);
-  assert.match(css, /\.vital b \{ transition: color var\(--d-small\) var\(--ease\); \}/);
+  assert.match(css, /\.rb-fill \{[^}]*transition: opacity var\(--d-small\) var\(--ease\);/);
+  assert.match(css, /\.metric \.cmp \{[^}]*transition: none;/);
+  assert.match(css, /\.vital b \{ transition: none; \}/);
 });

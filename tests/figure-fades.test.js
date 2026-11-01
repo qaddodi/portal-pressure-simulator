@@ -43,11 +43,11 @@ test("a slide's reading fades out whole, glass and all, and counts to a new numb
   assert.match(stage, /siteCount\(el, ratio, 0\.15\)/);
   // (The resistors' group glides when a reading joins it; class-driven offsets ease too.)
   assert.match(stage, /resDy = ra0 && resH \? resShift\(resDy\)/);
-  assert.match(css, /\.cath-label\.site \{ transition: scale var\(--d-surface\) var\(--ease\) \.35s, box-shadow var\(--d-surface\) var\(--ease\) \.35s, translate var\(--d-surface\) var\(--ease\); \}/);
+  assert.match(css, /\.cath-label\.site \{ transition: scale var\(--d-surface\) var\(--ease\) \.35s, translate var\(--d-surface\) var\(--ease\); \}/, 'its shadow is no longer eased (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
 });
 
 test("the resistance zigzag's halo eases with its line, and it is removed only once faded", () => {
-  assert.match(css, /\.res-one \.res-halo \{[^}]*transition: stroke-width var\(--d-surface\) var\(--ease\), stroke var\(--d-surface\) var\(--ease\), opacity var\(--d-surface\) var\(--ease\); \}/);
+  assert.match(css, /\.res-one \.res-halo \{[^}]*transition: opacity var\(--d-surface\) var\(--ease\); \}/, 'it fades with its line by opacity; its width and stroke are taken at once (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
   assert.match(stage, /setTimeout\(\(\) => g\.remove\(\), 700\)/);
 });
 

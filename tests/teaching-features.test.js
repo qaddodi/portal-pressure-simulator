@@ -38,7 +38,7 @@ test('hold: the presenter sets it out of sight and lets the answer slide ease it
   assert.match(prof, /if \(hk < 0\.005\) return \[\];/, 'held, the brackets ease out');
   // (CSS: the rating words, the Doppler's words and the figure's alerts fade, never snap.)
   assert.match(css, /\.pz-data\[data-held\] \.pzt-r, \.pz-data\[data-held\] \.pz-tool :is\(\.dop-dir, \.dop-pattern, \.dop-note\) \{ opacity: 0; \}/);
-  assert.match(css, /\.pz-data \.pzt-r, \.pz-data \.pz-tool :is\(\.dop-dir, \.dop-pattern, \.dop-note\) \{ transition: color var\(--d-surface\) var\(--ease\), opacity var\(--d-surface\) var\(--ease\); \}/);
+  assert.match(css, /\.pz-data \.pzt-r, \.pz-data \.pz-tool :is\(\.dop-dir, \.dop-pattern, \.dop-note\) \{ transition: opacity var\(--d-surface\) var\(--ease\); \}/, 'they ease in by opacity (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
   assert.match(css, /\.app\.pz-held \.lb-alert \{ fill-opacity: 0; \}/);
 });
 
@@ -119,7 +119,7 @@ test('criteria card, plain rules (his pick 26 Oct, C with D\'s key words): a mar
   const block = css.slice(css.indexOf('/* Plain rules, no cut-off column'), css.indexOf("/* A case card's own question"));
   assert.ok(block.length > 400);
   assert.doesNotMatch(block, /border-(left|right)|inset \d+px 0 0|box-shadow: inset [^0]/, 'no side stripes: a ring is an outline all round');
-  assert.match(block, /\.pzc-row:not\(\.pzc-hrow\) \.pzc-c::before \{[^}]*border-radius: 50%[^}]*transition: background-color var\(--d-surface\) var\(--ease\), box-shadow var\(--d-surface\) var\(--ease\)/, 'a ring, its fill easing with the reading');
+  assert.match(block, /\.pzc-row:not\(\.pzc-hrow\) \.pzc-c::before \{[^}]*border-radius: 50%[^}]*transition: none/, 'a ring, its fill taken with the reading (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
   assert.match(block, /\[data-lit\], \[data-met="yes"\]\) \.pzc-c::before \{ background: var\(--text\)/, 'filled: the row that applies to the case');
   assert.match(block, /counter-increment: pzcn; content: counter\(pzcn\)/, 'numerals when the order matters');
   assert.match(block, /\.pz-crit\.has-lit:not\(\.has-cut\) \.pzc-row:not\(\[data-lit\]\) \.pzc-t > b \{ font-weight: 500/, 'key words go quiet on the rows that do not apply');

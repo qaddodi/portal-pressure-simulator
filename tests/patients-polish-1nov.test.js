@@ -12,10 +12,10 @@ test('the preview card\'s profile dots are round strokes, not circles stretched 
   assert.match(css, /\.hp-ring, \.hp-dot \{ fill: none; stroke-linecap: round; vector-effect: non-scaling-stroke; \}/);
 });
 
-test('the comparison table is written in place and its change column eases', () => {
+test('the comparison table is written in place and its change column takes its colour at once', () => {
   assert.match(compare, /if \(tableEl\._key !== key\)/);
   assert.match(compare, /if \(c\.b\.textContent !== b\) c\.b\.textContent = b;/);
-  assert.match(css, /\.cmp-table td\.d \{ transition: color var\(--d-small\) var\(--ease\); \}/);
+  assert.match(css, /\.cmp-table td\.d \{ transition: none; \}/, '(1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
 });
 
 test('a History row whose details change stays where it stands, and fades with its class', () => {

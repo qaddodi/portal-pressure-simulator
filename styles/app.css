@@ -64,7 +64,7 @@ html.fr :is(.lens-btn, .ps-btn, .tl-pop-ic, .pz-zbtn, .ask-field, .pz-abb, .pzc-
   min-width: 0; pointer-events: none;
 }
 .topbar > * { pointer-events: auto; }
-.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; flex: none; margin-left: -8px; padding: 4px 8px 4px 8px; border: 1px solid transparent; border-radius: var(--r-card); transition: background var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease); }
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; flex: none; margin-left: -8px; padding: 4px 8px 4px 8px; border: 1px solid transparent; border-radius: var(--r-card); transition: none; }
 @media (hover: hover) { .brand:hover { background: var(--surface-2); border-color: var(--border); } }
 .brand:active { background: var(--surface-3); }
 .brand-mark { width: 32px; height: 32px; flex: none; }
@@ -72,7 +72,7 @@ html.fr :is(.lens-btn, .ps-btn, .tl-pop-ic, .pz-zbtn, .ask-field, .pz-abb, .pzc-
 .brand-bg { fill: var(--brand-bg); }
 .modes button {
   display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 0 12px; height: 100%; cursor: pointer;
-  color: var(--text-2); font-weight: 500; font-size: var(--fs-14); position: relative; transition: color var(--d-flip) var(--ease);
+  color: var(--text-2); font-weight: 500; font-size: var(--fs-14); position: relative; transition: none;
 }
 .modes button svg { width: var(--ic-s); height: var(--ic-s); opacity: .8; }
 @media (hover: hover) { .modes button:hover { color: var(--text); } }
@@ -188,7 +188,7 @@ html.fr :is(.lens-btn, .ps-btn, .tl-pop-ic, .pz-zbtn, .ask-field, .pz-abb, .pzc-
 .chip-btn {
   display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-card);
   background: var(--surface); color: var(--text); font-size: var(--fs-14); font-weight: 500; cursor: pointer; white-space: nowrap;
-  transition: background var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease), scale var(--d-flip) var(--ease);
+  transition: scale var(--d-flip) var(--ease);
 }
 @media (hover: hover) { .chip-btn:hover { border-color: var(--border-strong); background: var(--surface-2); } }
 .chip-btn svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); }
@@ -202,7 +202,7 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 .chip-btn[aria-pressed="true"] svg { color: currentColor; }
 
 /* Legend: a horizontal scale that sits in the figure header, never on the anatomy */
-.lens-btn { position: relative; display: flex; align-items: center; gap: 4px; height: 42px; padding: 0 8px 0 8px; border-radius: var(--r-card); border: 1px solid transparent; cursor: pointer; transition: background var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease), scale var(--d-flip) var(--ease); }
+.lens-btn { position: relative; display: flex; align-items: center; gap: 4px; height: 42px; padding: 0 8px 0 8px; border-radius: var(--r-card); border: 1px solid transparent; cursor: pointer; transition: scale var(--d-flip) var(--ease); }
 @media (hover: hover) { .lens-btn:hover { background: var(--surface); border-color: var(--border); } }
 .lens-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .lens-btn .chev { width: var(--ic-s); height: var(--ic-s); flex: none; stroke: var(--text-3); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -269,8 +269,8 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
    hovered, or that is itself hovered or focused, lifts one step on --d-small: its name to full ink, its unit to the name's ink, its leader a step darker. No panel,
    no border, no glow on the label, and never in a talk (its slides set the lights). A label under the pointer keeps its accent name (above); a selected one its own. */
 @media (hover: hover) {
-  .app:not(.presenting) #labels.hovlink .lb :is(.lb-name, .lb-unit) { transition: fill var(--d-small) var(--ease); }
-  .app:not(.presenting) #labels.hovlink .lb-leaders > .leader { transition: opacity var(--d-small) var(--ease), stroke var(--d-small) var(--ease); }
+  .app:not(.presenting) #labels.hovlink .lb :is(.lb-name, .lb-unit) { transition: none; }
+  .app:not(.presenting) #labels.hovlink .lb-leaders > .leader { transition: opacity var(--d-small) var(--ease); }
   #labels.hovlink .lb.hov-link:not(.sel):not(:hover) .lb-name { fill: var(--text); }
   #labels.hovlink .lb.hov-link .lb-unit { fill: var(--text-2); }
   #labels.hovlink .lb-leaders > .leader.hov-link:not(.hl, .focus) { stroke: color-mix(in srgb, var(--text) 62%, transparent); }
@@ -406,7 +406,7 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 .metric[data-id="varix"] { flex-grow: 1.4; }
 .metric {
   flex: 1 1 0; min-width: 0; padding: 2px 6px 2px; border: 0; border-radius: var(--r-control); background: transparent; text-align: left; cursor: pointer; color: var(--text);
-  display: flex; flex-direction: column; gap: 0; transition: background var(--d-flip) var(--ease);
+  display: flex; flex-direction: column; gap: 0; transition: none;
 }
 @media (hover: hover) { .metric:hover { background: var(--surface-2); } }
 .metric.inert { cursor: default; }
@@ -416,9 +416,9 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 .metric .v .unit { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); margin-left: 3px; letter-spacing: 0; }
 .metric .tr { font-size: var(--fs-12); margin-left: 4px; color: var(--text-3); flex: none; }
 /* A tile's colours ease into a new band with its number rolling to the new value (dock.js countTo, P17). */
-.metric .val, .metric .status { transition: color var(--d-small) var(--ease); }
+.metric .val, .metric .status { transition: none; }
 .rb { position: relative; display: block; height: 4px; margin: 4px 0 5px; border-radius: 2px; background: var(--surface-3); }
-.rb-fill { position: absolute; top: 0; bottom: 0; left: 0; width: 100%; border-radius: 2px; background: var(--sev); transform-origin: 0 50%; translate: calc(var(--fl, 0) * 100%) 0; scale: var(--fw, 0) 1; transition: background-color var(--d-small) var(--ease), opacity var(--d-small) var(--ease); }   /* dock.js sets --fl (start) and --fw (length) as 0..1 shares of the track: the bar moves by transform, not layout. Its glide is the shown state's, frame by frame (display-state.js, premium-feel R4), not a transition trailing each model frame */
+.rb-fill { position: absolute; top: 0; bottom: 0; left: 0; width: 100%; border-radius: 2px; background: var(--sev); transform-origin: 0 50%; translate: calc(var(--fl, 0) * 100%) 0; scale: var(--fw, 0) 1; transition: opacity var(--d-small) var(--ease); }   /* dock.js sets --fl (start) and --fw (length) as 0..1 shares of the track: the bar moves by transform, not layout. Its glide is the shown state's, frame by frame (display-state.js, premium-feel R4), not a transition trailing each model frame */
 .rb-tick { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--surface); }
 .metric.hidden-val .rb-fill { scale: 0 1; }
 .table-wrap { overflow-x: auto; margin: 4px 0 8px; }
@@ -450,7 +450,7 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 .metric[data-sev="caution"] .status { color: var(--caution-ink); }
 .metric[data-sev="ok"] .rb-fill { opacity: .55; }
 .metric.hidden-val .v { color: var(--text-3); }
-.metric .cmp { font-size: var(--fs-12); font-weight: 600; font-variant-numeric: tabular-nums; transition: color var(--d-small) var(--ease); }   /* (up, down and same trade colours as the change crosses zero) */
+.metric .cmp { font-size: var(--fs-12); font-weight: 600; font-variant-numeric: tabular-nums; transition: none; }   /* (up, down and same trade colours as the change crosses zero) */
 .metric .cmp.up { color: color-mix(in srgb, var(--danger) 85%, var(--text)); } .metric .cmp.down { color: var(--accent-ink); } .metric .cmp.same { color: var(--text-3); font-weight: 500; }
 .ro-systemic { flex: 0 0 auto; padding-right: 4px; }
 .vb-grid { display: grid; grid-template-columns: repeat(2, auto); gap: 1px 16px; padding: 3px 8px 0; align-content: start; }
@@ -458,7 +458,7 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 div.vital { cursor: default; }
 .vital span { min-width: 22px; }
 .vital b { font-weight: 600; color: var(--text); font-size: var(--fs-14); font-variant-numeric: tabular-nums; }
-.vital b { transition: color var(--d-small) var(--ease); }
+.vital b { transition: none; }
 .vital.bad b { color: var(--danger-ink); }
 @media (hover: hover) { button.vital:hover b { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; } }
 /* Narrower: the systemic block folds behind the chevron. */
@@ -530,7 +530,7 @@ div.vital { cursor: default; }
 /* ── Buttons & basic controls ───────────────────── */
 .ib {
   display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: var(--r-control);
-  background: transparent; color: var(--text-2); cursor: pointer; transition: background var(--d-flip) var(--ease), color var(--d-flip) var(--ease), scale var(--d-flip) var(--ease);
+  background: transparent; color: var(--text-2); cursor: pointer; transition: scale var(--d-flip) var(--ease);
 }
 @media (hover: hover) { .ib:hover { background: var(--surface-3); color: var(--text); } }
 .ib:disabled { opacity: .35; cursor: default; background: transparent; }
@@ -540,7 +540,7 @@ div.vital { cursor: default; }
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 32px; padding: 0 12px;
   border: 1px solid var(--border); background: var(--surface); border-radius: var(--r-control); cursor: pointer;
   font-weight: 500; font-size: var(--fs-14); white-space: nowrap; color: var(--text);
-  transition: background var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease), box-shadow var(--d-flip) var(--ease), color var(--d-flip) var(--ease), scale var(--d-flip) var(--ease);
+  transition: scale var(--d-flip) var(--ease);
 }
 @media (hover: hover) { .btn:hover { background: var(--surface-2); border-color: var(--border-strong); } }
 .btn svg { width: var(--ic-s); height: var(--ic-s); }
@@ -573,7 +573,7 @@ div.vital { cursor: default; }
 .modal.compact > .body { padding-top: 8px; }
 
 .seg { display: inline-flex; background: var(--surface-3); border-radius: calc(var(--r-sheet) - 6px); padding: 2px; gap: 2px; }
-.seg button { border: 0; background: transparent; padding: 4px 12px; border-radius: calc(var(--r-sheet) - 8px); cursor: pointer; color: var(--text-2); font-weight: 500; font-size: var(--fs-14); white-space: nowrap; transition: background var(--d-flip) var(--ease), color var(--d-flip) var(--ease), box-shadow var(--d-flip) var(--ease); }
+.seg button { border: 0; background: transparent; padding: 4px 12px; border-radius: calc(var(--r-sheet) - 8px); cursor: pointer; color: var(--text-2); font-weight: 500; font-size: var(--fs-14); white-space: nowrap; transition: none; }
 @media (hover: hover) { .seg button:hover { color: var(--text); } }
 .seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }
 .seg.full { display: flex; } .seg.full button { flex: 1; }
@@ -613,9 +613,9 @@ div.vital { cursor: default; }
    (pressed, expanded, current) keeps its own tint and only sinks. Nothing on the figure moves. */
 html.press-fx :is(.pal-btn, .tb-act, .tl-speed, .tl-pin, .tl-hist, .measure-launch, .menu-btn, .dock-title, .um-link, .um-info, .tl-pop-ic,
     .toast-x, .reset-btn, .pal-item, .pzj-list button, .check-row, button.finding, .chg .chg-go, .select, .pz-fold) {
-  transition: background-color var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease), color var(--d-flip) var(--ease), scale var(--d-flip) var(--ease); }
-html.press-fx .link { transition: color var(--d-flip) var(--ease), opacity var(--d-flip) var(--ease); }
-html.press-fx .dop-tint { transition: background-color var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease), color var(--d-flip) var(--ease), scale var(--d-flip) var(--ease); }
+  transition: scale var(--d-flip) var(--ease); }
+html.press-fx .link { transition: opacity var(--d-flip) var(--ease); }
+html.press-fx .dop-tint { transition: scale var(--d-flip) var(--ease); }
 /* the sink: a chip, a card, a row-sized button (small ones go in further) */
 html.press-fx :is(.chip-btn, .lens-btn, .menu-btn, .pal-btn, .tb-act, .tl-speed, .tl-pin, .tl-hist, .measure-launch, .dop-tint, .pt-chip, .pz-abb, .lens, .dock-title):not(:disabled):active { scale: .97; }
 html.press-fx :is(.drug, .ac-btn, .ac-toggle, .card):not(:disabled):active { scale: .985; }
@@ -699,7 +699,7 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 #world .v-hit { fill: none; stroke: transparent; stroke-width: 20; stroke-linecap: round; pointer-events: stroke; cursor: pointer; }
 .v-hit:focus { outline: none; }
 /* Keyboard focus: a soft accent band along the vessel (the hit path is 20 px wide), so a sighted keyboard user sees where they are. */
-#world .v-hit:focus-visible { stroke: color-mix(in srgb, var(--accent) 55%, transparent); stroke-width: 26; transition: stroke var(--d-small) var(--ease); }
+#world .v-hit:focus-visible { stroke: color-mix(in srgb, var(--accent) 55%, transparent); stroke-width: 26; transition: none; }
 /* Organ keyboard stops (stage.js): invisible and pointerless; their focus shows as the organ's hover outline, never a ring. */
 #world .org-key { fill: none; stroke: none; }
 #world .org-key:focus, #world .org-key:focus-visible { outline: none; }
@@ -731,7 +731,7 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 /* Data layers and a selection step the anatomy back (#organs, #backdrop) with the GPU's values, eased on its clock: stage.js
    syncOrganDim, an SVG filter, since WebKit draws no CSS filter functions on SVG elements. */
 /* A lens or a selection eases the anatomy back (no one-frame dim or grey). */
-#backEdges .vg { transition: filter var(--d-surface) var(--ease-move); }
+#backEdges .vg { transition: none; }
 .map-dot { fill: var(--map-accent); }
 /* Background plane: the diaphragm (no body-cavity shading). */
 #backdrop { pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
@@ -741,8 +741,8 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .lit-hi { stop-color: var(--light-ink); stop-opacity: var(--lit-hi); }
 .lit-mid { stop-color: var(--light-ink); stop-opacity: 0; }
 .lit-lo { stop-color: var(--lit-lo-ink); stop-opacity: var(--lit-lo); }
-.v-select { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-opacity: 0; transition: stroke-opacity var(--d-small) var(--ease); }
-.v-select.on { stroke-opacity: .34; }
+.v-select { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-opacity: .34; opacity: 0; transition: opacity var(--d-small) var(--ease); }   /* (eased by its opacity, never its stroke's) */
+.v-select.on { opacity: 1; }
 .vg { transition: opacity var(--d-small) var(--ease); }
 #backEdges { opacity: .85; }
 /* (A band with no tint has no fill at all: a fill at opacity 0 was still painted over its whole band, the whole screen when zoomed,
@@ -862,8 +862,8 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; height: 20px; margin: 0; position: relative; z-index: 2; cursor: pointer; }
 input[type=range]::-webkit-slider-runnable-track { height: 6px; background: transparent; }
 input[type=range]::-moz-range-track { height: 6px; background: transparent; }
-input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: var(--tw, 18px); height: var(--tw, 18px); border-radius: 50%; background: var(--accent); border: 0; margin-top: calc(3px - var(--tw, 18px) / 2); box-shadow: 0 0 0 3px var(--surface), 0 1px 3px 3px rgb(var(--black-rgb) / .14), 0 0 0 3px transparent; transition: transform var(--d-small) var(--ease-arrive), box-shadow var(--d-small) var(--ease-arrive); }
-input[type=range]::-moz-range-thumb { width: var(--tw, 18px); height: var(--tw, 18px); border-radius: 50%; background: var(--accent); border: 0; box-shadow: 0 0 0 3px var(--surface), 0 1px 3px 3px rgb(var(--black-rgb) / .14), 0 0 0 3px transparent; transition: transform var(--d-small) var(--ease-arrive), box-shadow var(--d-small) var(--ease-arrive); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: var(--tw, 18px); height: var(--tw, 18px); border-radius: 50%; background: var(--accent); border: 0; margin-top: calc(3px - var(--tw, 18px) / 2); box-shadow: 0 0 0 3px var(--surface), 0 1px 3px 3px rgb(var(--black-rgb) / .14), 0 0 0 3px transparent; transition: transform var(--d-small) var(--ease-arrive); }
+input[type=range]::-moz-range-thumb { width: var(--tw, 18px); height: var(--tw, 18px); border-radius: 50%; background: var(--accent); border: 0; box-shadow: 0 0 0 3px var(--surface), 0 1px 3px 3px rgb(var(--black-rgb) / .14), 0 0 0 3px transparent; transition: transform var(--d-small) var(--ease-arrive); }
 /* Held (a mouse press, or a finger: .held, set in enhanceRanges since iOS gives a range no :active): the dot grows a little and a
    soft ring of the accent's wash spreads out from under it, so a finger that covers the dot still sees the slider has it. The ring
    eases in and back out (transition above); it never flashes. Hover on a mouse shows a smaller ring. */
@@ -885,9 +885,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .switch { position: relative; width: 34px; height: 20px; flex: none; }
 .switch input { opacity: 0; width: 100%; height: 100%; margin: 0; position: absolute; cursor: pointer; z-index: var(--z-figure); }
 .switch input:disabled { cursor: not-allowed; }
-.switch span { position: absolute; inset: 0; background: var(--surface-3); border-radius: var(--r-pill); transition: background var(--d-small) var(--ease); box-shadow: inset 0 0 0 1px var(--hairline); }
+.switch span { position: absolute; inset: 0; background: var(--surface-3); border-radius: var(--r-pill); transition: none; box-shadow: inset 0 0 0 1px var(--hairline); }
 .switch span::after { content: ''; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 3px rgb(var(--black-rgb) / .25); transition: transform var(--d-small) var(--ease); transform-origin: left center; }
-.switch input:checked + span { background: var(--accent); }
 .switch input:checked + span::after { transform: translateX(14px); transform-origin: right center; }
 /* A finger down widens the thumb 4 px toward where it travels (iOS's press cue); a checked one widens to the left so it stays inside the track. */
 /* (The same cue on the app's other switches, Settings' and the menus' (.mt-sw) first among them; each track is as wide as its thumb plus 4 px of travel.) */
@@ -912,7 +911,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .switch input:focus-visible + span { box-shadow: 0 0 0 2px var(--focus); }
 .drug {
   display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px 12px; border-radius: var(--r-card); border: 1px solid var(--border); background: var(--surface); cursor: pointer;
-  transition: border-color var(--d-flip) var(--ease), background var(--d-flip) var(--ease), scale var(--d-flip) var(--ease);
+  transition: scale var(--d-flip) var(--ease);
 }
 @media (hover: hover) { .drug:hover { border-color: var(--border-strong); } }
 .drug .dn { font-weight: 600; font-size: var(--fs-14); display: flex; justify-content: space-between; align-items: center; }
@@ -939,7 +938,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 @keyframes spin { to { transform: rotate(360deg); } }
 .card {
   border: 1px solid var(--border); border-radius: var(--r-card); padding: 16px; cursor: pointer; background: var(--surface); text-align: left;
-  display: flex; flex-direction: column; gap: 4px; transition: border-color var(--d-flip) var(--ease), box-shadow var(--d-flip) var(--ease), transform var(--d-flip) var(--ease), scale var(--d-flip) var(--ease);
+  display: flex; flex-direction: column; gap: 4px; transition: transform var(--d-flip) var(--ease), scale var(--d-flip) var(--ease);
 }
 @media (hover: hover) { .card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-2); transform: translateY(-1px); } }
 .card .t { font-weight: 600; font-size: var(--fs-14); line-height: 1.35; }
@@ -972,7 +971,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
   display: flex; flex-direction: column; gap: 1px; animation: scale-settle var(--d-flip) var(--ease);
 }
 .menu-title { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); padding: 8px 12px 4px; }
-.menu-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: calc(var(--r-sheet) - 8px); border: 0; background: transparent; cursor: pointer; font-size: var(--fs-14); text-align: left; color: var(--text); transition: background-color var(--d-flip) var(--ease), color var(--d-flip) var(--ease); }
+.menu-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: calc(var(--r-sheet) - 8px); border: 0; background: transparent; cursor: pointer; font-size: var(--fs-14); text-align: left; color: var(--text); transition: none; }
 @media (hover: hover) { .menu-item:hover { background: var(--surface-2); } }
 .menu-item:focus-visible, .lens-opt:focus-visible { outline-offset: -2px; }   /* (the ring sits inside its row, as the main menu's do, not over the rows beside it) */
 .menu-item[aria-checked="true"] { font-weight: 600; }
@@ -1043,8 +1042,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .wf-bar::before { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--axis); }
 .wf-bar i { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
 .wf-row .val { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
-.skeleton { height: 10px; border-radius: 4px; background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; margin: 8px 0; }
-@keyframes shimmer { to { background-position: -200% 0; } }
+.skeleton { position: relative; overflow: hidden; height: 10px; border-radius: 4px; background: var(--surface-2); margin: 8px 0; }
+/* (The sheen is a band of its own sliding by transform, the compositor's: no background position is animated.) */
+.skeleton::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, var(--surface-3), transparent); transform: translateX(100%); animation: shimmer 1.2s linear infinite; pointer-events: none; }
+@keyframes shimmer { to { transform: translateX(-100%); } }
 
 .modal-back { position: fixed; inset: var(--modal-top, 0px) 0 var(--modal-kb, 0px) 0; background: var(--scrim); z-index: var(--z-dialog); display: none; place-items: center; padding: calc(16px + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
 .modal-back.show { display: grid; animation: crossfade var(--d-small) var(--ease); }
@@ -1058,7 +1059,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 /* A theme chosen in the app (main.js switchTheme): the old page, held as a still, fades over the new one. */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--d-surface); animation-timing-function: var(--ease); }
 .modal { background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); width: min(720px, 100%); max-height: min(88dvh, 900px, calc(100dvh - var(--modal-kb, 0px) - var(--modal-top, 0px) - 32px - var(--safe-top) - env(safe-area-inset-bottom, 0px))); overflow: auto; overscroll-behavior: contain; animation: scale-settle var(--d-small) var(--ease); }   /* (the hairline ring: a dialog keeps its edge on the dark theme's near-black as the menus do) */
-.modal > header { padding: 20px 24px 16px; display: flex; align-items: flex-start; gap: 12px; position: sticky; top: 0; background: var(--surface); z-index: var(--z-figure); transition: box-shadow var(--d-flip) var(--ease); }
+.modal > header { padding: 20px 24px 16px; display: flex; align-items: flex-start; gap: 12px; position: sticky; top: 0; background: var(--surface); z-index: var(--z-figure); transition: none; }
 /* Once the page has scrolled under the title, a hairline and a faint shade mark its edge (util.js openModal); at the top there is none. */
 .modal > header.scrolled { box-shadow: 0 1px 0 var(--hairline), 0 8px 12px -10px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 2)); }
 .modal > header h2 { margin: 0; font-size: var(--fs-20); font-weight: 600; letter-spacing: -.015em; flex: 1; }
@@ -1075,7 +1076,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 }
 .modal p { line-height: 1.6; color: var(--text-2); margin: 0 0 12px; }
 /* A link in a dialog (the author's tools, PubMed) in the accent ink, underlined clear of the letters, not the browser's own blue and purple; the line eases on hover. */
-.modal a:not(.btn) { color: var(--accent-ink); text-decoration: underline; text-decoration-color: var(--accent-line); text-underline-offset: .18em; text-decoration-thickness: 1px; transition: text-decoration-color var(--d-flip) var(--ease); }
+.modal a:not(.btn) { color: var(--accent-ink); text-decoration: underline; text-decoration-color: var(--accent-line); text-underline-offset: .18em; text-decoration-thickness: 1px; transition: none; }
 @media (hover: hover) { .modal a:not(.btn):hover { text-decoration-color: currentColor; } }
 .modal a:not(.btn):visited { color: var(--accent-ink); }
 .modal ul { padding-left: 20px; color: var(--text-2); line-height: 1.6; }
@@ -1127,7 +1128,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .cmp-table td { vertical-align: middle; }
 /* The change: a small triangle ahead of the signed number, so the number reads first. */
 .cmp-table td.d .tri { display: inline-block; margin-right: 4px; font-size: var(--fs-12); vertical-align: 1px; }
-.cmp-table td.d { transition: color var(--d-small) var(--ease); }   /* (the change column's colour eases from red to quiet to green as a number moves; the cells are written in place, compare.js) */
+.cmp-table td.d { transition: none; }   /* (the change column's colour eases from red to quiet to green as a number moves; the cells are written in place, compare.js) */
 
 /* ── Tablet (768–1279) ──────────────────────────── */
 @media (max-width: 1279px) {
@@ -1268,7 +1269,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .ac-value { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 10px; }
 .ac-num { display: inline-flex; align-items: baseline; gap: 0; white-space: nowrap; }   /* (the number's gap to its unit is the unit's own 3 px, as the Readouts tiles' 20 px numbers; it was 6 px here) */
 .ac-state:empty { display: none; }
-.ac-state { transition: color var(--d-small) var(--ease); }
+.ac-state { transition: none; }
 /* A status is a coloured word, as the data card tiles' status words (17 Oct, V5): the card's after its reading,
    Details' under the name. */
 .st-word { font-size: var(--fs-14); font-weight: 600; color: var(--text-2); }
@@ -1291,7 +1292,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .ac-btn, .ac-toggle {
   position: relative; display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; padding: 8px 12px; border-radius: var(--r-card);
   border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: var(--fs-14); font-weight: 500; cursor: pointer; text-align: left;
-  transition: background var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease), scale var(--d-flip) var(--ease);
+  transition: scale var(--d-flip) var(--ease);
 }
 @media (hover: hover) { .ac-btn:hover:not(:disabled), .ac-toggle:hover:not(:disabled) { background: var(--surface-2); border-color: var(--border-strong); } }
 .ac-btn:disabled, .ac-toggle:disabled { opacity: .45; cursor: not-allowed; }
@@ -1304,9 +1305,9 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .ac-bl, .ac-tl { flex: 1; min-width: 0; }
 [data-key]::after { content: attr(data-key); font: 500 var(--fs-12) var(--font-mono); color: var(--text-3); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; line-height: 15px; }
 .ac-slider[data-key]::after { position: absolute; right: 0; top: -1px; display: none; }
-.ac-toggle .switch-vis { position: relative; width: 30px; height: 18px; border-radius: var(--r-pill); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--hairline); flex: none; transition: background var(--d-small) var(--ease); }
+.ac-toggle .switch-vis { position: relative; width: 30px; height: 18px; border-radius: var(--r-pill); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--hairline); flex: none; transition: none; }
 .ac-toggle .switch-vis i { position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 2px rgb(var(--black-rgb) / .25); transition: transform var(--d-small) var(--ease); transform-origin: left center; }
-.ac-toggle[aria-checked="true"] .switch-vis { background: var(--accent); }
+.ac-toggle[aria-checked="true"] .switch-vis { }   /* (its accent is the track's ::before, crossfaded) */
 .ac-toggle[aria-checked="true"] .switch-vis i { transform: translateX(12px); transform-origin: right center; }
 .ac-toggle[data-key]::after { order: 3; }
 .ac-about { order: 99; font-size: var(--fs-12); line-height: 1.5; color: var(--text-2); }
@@ -1497,8 +1498,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
    two lines of ink, a short bar in the accent: the --look-* tokens) with its name under it; System shows Light and Dark side by side. The chosen
    tile's chip takes a 2 px accent ring that fades in and out (--d-flip), never snaps. The names keep the 12 px floor. */
 .look-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 2px 8px 8px; }
-.look-tile { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 0; border: 0; border-radius: 12px; background: transparent; color: var(--text-2); font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color var(--d-flip) var(--ease); }
-.look-chip { display: flex; height: 34px; overflow: hidden; border-radius: 10px; box-shadow: 0 0 0 1px var(--border), 0 0 0 1px transparent; transition: box-shadow var(--d-flip) var(--ease), opacity var(--d-flip) var(--ease); }
+.look-tile { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 0; border: 0; border-radius: 12px; background: transparent; color: var(--text-2); font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: none; }
+.look-chip { display: flex; height: 34px; overflow: hidden; border-radius: 10px; box-shadow: 0 0 0 1px var(--border), 0 0 0 1px transparent; transition: opacity var(--d-flip) var(--ease); }
 .look-name { font-size: var(--fs-12); font-weight: 500; line-height: 16px; text-align: center; white-space: nowrap; }
 .look-tile[aria-pressed="true"] { color: var(--text); }
 .look-tile[aria-pressed="true"] .look-chip { box-shadow: 0 0 0 1px var(--border), 0 0 0 3px var(--accent); }
@@ -1575,11 +1576,11 @@ button.finding { cursor: pointer; }
 /* Drugs: a plain two-column list, name on the left and a check on the right when it runs; no chips with a radio circle
    (design giveaway DG5, 17 Oct). Three rows, as the chips were, so the Treat card keeps its height. */
 .order-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; }
-.order-chip { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; min-height: 38px; padding: 0 2px; border: 0; border-bottom: 1px solid var(--hairline); border-radius: 0; background: none; cursor: pointer; text-align: left; font: 500 var(--fs-14) var(--font-ui); color: var(--text-2); transition: color var(--d-small) var(--ease), font-weight var(--d-small) var(--ease); }
+.order-chip { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; min-height: 38px; padding: 0 2px; border: 0; border-bottom: 1px solid var(--hairline); border-radius: 0; background: none; cursor: pointer; text-align: left; font: 500 var(--fs-14) var(--font-ui); color: var(--text-2); transition: font-weight var(--d-small) var(--ease); }
 @media (hover: hover) { .order-chip:hover { color: var(--text); } }
 .order-chip .oc-t { min-width: 0; }
-.order-chip .oc-dot { flex: none; width: 16px; height: 16px; display: grid; place-items: center; border-radius: 5px; box-shadow: inset 0 0 0 1.5px var(--border-strong); transition: box-shadow var(--d-small) var(--ease); }
-.order-chip .oc-dot svg { width: 12px; height: 12px; stroke: var(--accent); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; fill: none; stroke-dasharray: 24; stroke-dashoffset: 24; opacity: 0; transition: opacity var(--d-small) var(--ease), stroke-dashoffset var(--d-small) var(--ease); }
+.order-chip .oc-dot { flex: none; width: 16px; height: 16px; display: grid; place-items: center; border-radius: 5px; box-shadow: inset 0 0 0 1.5px var(--border-strong); transition: none; }
+.order-chip .oc-dot svg { width: 12px; height: 12px; stroke: var(--accent); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; fill: none; stroke-dasharray: 24; stroke-dashoffset: 24; opacity: 0; transition: opacity var(--d-small) var(--ease); }
 .order-chip[aria-pressed="true"] { color: var(--text); font-weight: 600; }   /* (a drug that is on reads heavier as well as ticked: the tick alone was a small thing to find) */
 /* (1 Nov: an off drug shows its empty box, so a row reads as something to tick; on, the box takes the accent and the
    tick draws itself in, stroke by stroke, rather than appearing whole.) */
@@ -1599,7 +1600,7 @@ button.finding { cursor: pointer; }
   .treat-pane > .order-grid.three .order-btn { align-items: center; padding: 6px 10px; }
   .treat-pane > .order-grid.three .ob-t { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 8px; }
 }
-.order-btn { position: relative; display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 8px; border-radius: var(--r-card); border: 1px solid var(--border); background: var(--surface); cursor: pointer; text-align: left; color: var(--text); transition: background-color var(--d-surface, .42s) var(--ease), border-color var(--d-surface, .42s) var(--ease), color var(--d-small) var(--ease), scale var(--d-flip) var(--ease); }
+.order-btn { position: relative; display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 8px; border-radius: var(--r-card); border: 1px solid var(--border); background: var(--surface); cursor: pointer; text-align: left; color: var(--text); transition: scale var(--d-flip) var(--ease); }
 @media (hover: hover) { .order-btn:hover:not(:disabled) { border-color: var(--accent-line); background: var(--surface-2); } }
 .order-btn:active:not(:disabled) { scale: .98; }
 .order-btn[aria-pressed="true"], .order-btn[data-on], .order-btn[data-given] { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-ink); }
@@ -1609,7 +1610,7 @@ button.finding { cursor: pointer; }
 .order-btn .ac-ic { transition: opacity var(--d-small) var(--ease); }
 .order-btn[data-on] .ac-ic { opacity: 0; }
 .order-btn .ob-on { position: absolute; left: 8px; top: 50%; translate: 0 -50%; width: var(--ic-s); height: var(--ic-s); display: grid; place-items: center; pointer-events: none; }
-.order-btn .ob-on svg { width: var(--ic-s); height: var(--ic-s); stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; fill: none; stroke-dasharray: 24; stroke-dashoffset: 24; opacity: 0; transition: opacity var(--d-small) var(--ease), stroke-dashoffset var(--d-small) var(--ease); }
+.order-btn .ob-on svg { width: var(--ic-s); height: var(--ic-s); stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; fill: none; stroke-dasharray: 24; stroke-dashoffset: 24; opacity: 0; transition: opacity var(--d-small) var(--ease); }
 .order-btn[data-on] .ob-on svg { opacity: 1; stroke-dashoffset: 0; }
 .order-btn .ac-ic { flex: none; }
 .ob-t { display: flex; flex-direction: column; gap: 1px; font-size: var(--fs-14); font-weight: 600; line-height: 1.3; }
@@ -1636,7 +1637,7 @@ button.finding { cursor: pointer; }
 .halo circle { stroke: var(--text-2); }
 .halo text { font: 700 var(--fs-16) var(--font-num); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--bg); stroke-width: 4px; animation: haloText 1.5s var(--ease) forwards /*own pace*/; }
 .halo text { fill: var(--text); }
-@keyframes haloRing { 0% { r: 8px; stroke-opacity: 0; } 20% { stroke-opacity: .9; } 100% { r: 26px; stroke-opacity: 0; } }
+@keyframes haloRing { 0% { r: 8px; opacity: 0; } 20% { opacity: .9; } 100% { r: 26px; opacity: 0; } }
 @keyframes haloText { 0% { opacity: 0; } 12%, 70% { opacity: 1; } 100% { opacity: 0; } }   /* (fades in: it appeared in one frame) */
 /* Selection lift: the chosen vessel rises off the page */
 .vg.is-sel .v-shadow { transform: translate(0, 3px); opacity: .5; transition: transform var(--d-flip) var(--ease); }
@@ -1795,7 +1796,7 @@ button.finding { cursor: pointer; }
 .app.presenting #labels .lb.focus.k-note .lb-bg { fill: var(--surface); stroke: var(--text-2); stroke-width: 1; } .app.presenting #labels .lb.focus.k-note text { fill: var(--text); }
 .app.presenting #labels .leader.focus.k-note { stroke: var(--text-2); }
 /* A slide's term (a pill in the words): the station's label in the same colour, eased in. */
-#labels .lb .lb-name, #labels .lb .lb-val, #labels .lb .lb-delta { transition: fill var(--d-surface) var(--ease); }
+#labels .lb .lb-name, #labels .lb .lb-val, #labels .lb .lb-delta { transition: none; }
 #labels .lb.term .lb-name, #labels .lb.term .lb-val, #labels .lb.term .lb-unit, #labels .lb.term .lb-delta { fill: var(--term); }
 #labels .lb.term .lb-name { font-weight: 700; }
 .app.presenting #labels .lb { animation: crossfade var(--d-surface) var(--ease) both; }
@@ -2002,7 +2003,7 @@ button.finding { cursor: pointer; }
 .app.pz-hi .pz-val { background: color-mix(in srgb, var(--text) 12%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 55%, transparent); }
 /* A pill in a station's colour (--tone): a live value ({pv}) or a term that points at the figure ([portal vein](pv)). */
 .pz-val.tone, .pz-term { background: color-mix(in srgb, var(--tone) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 50%, transparent); color: color-mix(in srgb, var(--tone) 72%, var(--text)); }
-.pz-val.tone { transition: background-color var(--d-surface) var(--ease), box-shadow var(--d-surface) var(--ease), color var(--d-surface) var(--ease); }
+.pz-val.tone { transition: none; }
 /* A filled pill rated as its tile is (data-rate: ok, mid, hi) is tinted in its tile bar's colour, the number a little deeper so it
    reads on both themes. */
 .pz-val.tone[data-rate] { color: color-mix(in srgb, var(--tone) 82%, var(--text)); }
@@ -2074,15 +2075,15 @@ button.finding { cursor: pointer; }
 .pz-hs { fill: var(--danger); fill-opacity: .55; }
 .pz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: clamp(8px, calc(1.2 * var(--pzh)), 14px); }
 .pz-tiles[data-n="0"] { display: none; }   /* (a ladder alone: its brackets give the HVPG and PPG) */
-.pz-tile { display: flex; flex-direction: column; align-items: center; text-align: center; gap: .2em; container-type: inline-size; padding: clamp(10px, calc(1.5 * var(--pzh)), 18px) clamp(12px, calc(1.6 * var(--pzh)), 20px); border-radius: clamp(12px, calc(1.6 * var(--pzh)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: border-color var(--d-surface) var(--ease), background-color var(--d-surface) var(--ease), box-shadow var(--d-surface) var(--ease); }
+.pz-tile { display: flex; flex-direction: column; align-items: center; text-align: center; gap: .2em; container-type: inline-size; padding: clamp(10px, calc(1.5 * var(--pzh)), 18px) clamp(12px, calc(1.6 * var(--pzh)), 20px); border-radius: clamp(12px, calc(1.6 * var(--pzh)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: none; }
 /* No tile is marked as the one a slide is about (17 Oct, Mohammad): every tile looks the same, the sentence's pill points at it.
    (A ring read as "selected", a top accent line as stock generated design, greying the others he did not like.) */
-.pz-tile .pzt-r { transition: color var(--d-surface) var(--ease); }
-.pz-tile .pzt-bar { transition: filter var(--d-surface) var(--ease), opacity var(--d-surface) var(--ease); }
+.pz-tile .pzt-r { transition: none; }
+.pz-tile .pzt-bar { transition: opacity var(--d-surface) var(--ease); }
 .pzt-k { font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-2); overflow-wrap: break-word; }
 /* The number shrinks with its tile (30cqi) and the unit drops under it rather than leave the box. */
 .pzt-vu { display: flex; flex-wrap: nowrap; align-items: baseline; justify-content: center; gap: 0 .3em; min-width: 0; }
-.pzt-v { font: 600 min(var(--s-big), 24cqi)/1.05 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--text); transition: color var(--d-surface) var(--ease); }
+.pzt-v { font: 600 min(var(--s-big), 24cqi)/1.05 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--text); transition: none; }
 .pzt-vu small { font: 500 var(--s-cap) var(--font-ui); color: var(--text-3); white-space: nowrap; }
 .pzt-r { display: inline-flex; align-items: center; justify-content: center; gap: .45em; font: 600 var(--s-cap)/1.2 var(--font-ui); color: var(--text-2); }
 .pz-tile[data-rate="hi"] .pzt-v, .pz-tile[data-rate="hi"] .pzt-r { color: var(--danger-ink); }
@@ -2130,7 +2131,7 @@ button.finding { cursor: pointer; }
 .pz-col .c-edge { fill: none; stroke: color-mix(in srgb, var(--text) 30%, transparent); stroke-width: 1; stroke-linejoin: round; }
 /* The column fills from the balloon back: the wedge-coloured lumen grows from its right end, and the fine channels draw in from the central vein. */
 .pz-col .c-fill { fill: color-mix(in srgb, var(--tr-wedge) 76%, var(--surface)); transform-box: fill-box; transform-origin: right center; transform: scaleX(0); transition: transform 1.6s var(--ease) .5s /*own pace*/; }
-.pz-col .c-lane-f { fill: none; stroke: color-mix(in srgb, var(--tr-wedge) 76%, var(--surface)); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; opacity: 0; transition: stroke-dashoffset 1.6s var(--ease) .5s /*own pace*/, opacity 0s .5s; }
+.pz-col .c-lane-f { fill: none; stroke: color-mix(in srgb, var(--tr-wedge) 76%, var(--surface)); stroke-width: 4; stroke-linecap: round; stroke-dasharray: none; stroke-dashoffset: 0; opacity: 0; transition: opacity var(--d-surface) var(--ease) .5s; }   /* (the lane fades in; a drawn-on dash repainted it every frame) */
 .pz-col .c-lane-f.c-link { stroke-width: 2.6; stroke-linecap: butt; stroke-dasharray: none; stroke-dashoffset: 0; transition: opacity var(--d-surface) var(--ease) 1.1s; }
 .pz-col .c-bal { fill: color-mix(in srgb, var(--caution) 30%, var(--surface)); stroke: color-mix(in srgb, var(--caution) 90%, transparent); stroke-width: 1.5; }
 .pz-col .c-cath { fill: none; stroke: color-mix(in srgb, var(--text) 62%, transparent); stroke-width: 2.6; stroke-linecap: round; }
@@ -2150,7 +2151,7 @@ button.finding { cursor: pointer; }
 .pz-ab { display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; width: fit-content; max-width: 100%; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-2); pointer-events: auto; }
 /* (In the teaching card the switch sits centred, with no shadow: the card's own layer clipped a shadow to a hard-edged box.) */
 .pz-text .pz-ab { margin-inline: auto; align-self: center; box-shadow: none; background: none; border-color: transparent; }   /* (in the card: no track round the choices, the card is their ground; DG4 17 Oct) */
-.pz-abb { appearance: none; border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: 10px; padding: .5em 1.05em; min-height: 40px; font: 600 var(--s-lab)/1.1 var(--font-ui); color: var(--text-2); background: color-mix(in srgb, var(--surface) 55%, transparent); cursor: pointer; transition: background-color var(--d-small) var(--ease), color var(--d-small) var(--ease), border-color var(--d-small) var(--ease), box-shadow var(--d-small) var(--ease), scale var(--d-flip) var(--ease); }
+.pz-abb { appearance: none; border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: 10px; padding: .5em 1.05em; min-height: 40px; font: 600 var(--s-lab)/1.1 var(--font-ui); color: var(--text-2); background: color-mix(in srgb, var(--surface) 55%, transparent); cursor: pointer; transition: scale var(--d-flip) var(--ease); }
 @media (hover: hover) { .pz-abb:hover { color: var(--text); background: var(--hairline); } }
 /* Each option is its own outlined button, so it reads as something to tap; the chosen one is in full ink with an accent edge, the others grey.
    No shared track and no filled pill, an iOS switch's look (DG4, 17 Oct). */
@@ -2160,8 +2161,8 @@ button.finding { cursor: pointer; }
    reflows. */
 .pz-procs { margin: 0; font: 400 var(--s-body)/1.4 var(--font-ui); color: var(--text-3); text-wrap: pretty; }
 .pz.stack .pz-procs { font-size: var(--s-lab); }
-.pz-proc { white-space: nowrap; transition: color var(--d-small) var(--ease); }
-.pz-proc .pz-step { transition: background-color var(--d-small) var(--ease), color var(--d-small) var(--ease); }
+.pz-proc { white-space: nowrap; transition: none; }
+.pz-proc .pz-step { transition: none; }
 .pz-proc.on { color: var(--text); }
 .pz-proc.on .pz-step { background: var(--accent); color: var(--on-accent); }
 .pz-procs[data-why] { opacity: .5; }
@@ -2274,7 +2275,7 @@ button.finding { cursor: pointer; }
 /* A wide screen's value columns keep less padding at the sides than the row names: their arrows and numbers are centred, so a roomy table
    looks as before, and a tight one (nine columns on an iPad on its side) gives the room to the columns instead of scrolling. */
 .pz:not(.stack) .pz-table :is(thead th.num, tbody td.num) { padding-inline: .45em; }
-.pz-table tbody tr { border-top: 1px solid var(--border); cursor: pointer; transition: background-color var(--d-small) var(--ease); }
+.pz-table tbody tr { border-top: 1px solid var(--border); cursor: pointer; transition: none; }
 @media (hover: hover) { .pz-table tbody tr:hover { background: var(--accent-soft); } }
 .pz-table tbody th .pz-kick { font-size: var(--s-cap); }
 .pz-table .tn { display: block; margin-top: .15em; font: 600 1em/1.2 var(--font-display); color: var(--text); }
@@ -2430,14 +2431,14 @@ button.finding { cursor: pointer; }
 /* Dark: the slide progress line was a 4 px bar of mid grey, the brightest line on a talk in a dark room; quieter ink keeps it readable without pulling the eye (dark sweep, 1 Nov). */
 :root[data-theme="dark"] .pz-prog i { background: color-mix(in srgb, var(--text) 30%, transparent); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-prog i { background: color-mix(in srgb, var(--text) 30%, transparent); } }
-.pz-bar { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: var(--glass-drop); position: absolute; left: 50%; bottom: 22px; translate: -50% 0; display: flex; align-items: center; gap: 4px; padding: 5px; max-width: calc(100% - 24px); overflow-x: auto; --gl-glass: 1; --gl-tint: color-mix(in srgb, var(--surface) 58%, transparent); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-card); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: auto; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease), background-color var(--d-small) var(--ease), border-color var(--d-small) var(--ease); }
+.pz-bar { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: var(--glass-drop); position: absolute; left: 50%; bottom: 22px; translate: -50% 0; display: flex; align-items: center; gap: 4px; padding: 5px; max-width: calc(100% - 24px); overflow-x: auto; --gl-glass: 1; --gl-tint: color-mix(in srgb, var(--surface) 58%, transparent); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-card); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: auto; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
 /* The presenter bar is the same frosted glass as the data card: quiet controls, a soft accent on Next, no solid blocks. */
 :root[data-theme="dark"] :is(.pz-bar, .pz-fk) { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pz-bar, .pz-fk) { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-bar { --gl-glass: 0; background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz-bar { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 .app.pz-hi .pz-bar { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
-.pz-bar .ib { width: 40px; height: 40px; border-radius: var(--r-control); transition: background-color var(--d-small) var(--ease), color var(--d-small) var(--ease), opacity var(--d-small) var(--ease), scale var(--d-flip) var(--ease); }
+.pz-bar .ib { width: 40px; height: 40px; border-radius: var(--r-control); transition: opacity var(--d-small) var(--ease), scale var(--d-flip) var(--ease); }
 @media (hover: hover) { .pz-bar .ib:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
 .pz-bar .ib.pzb-next:not(:disabled) { color: var(--accent); }
 @media (hover: hover) { .pz-bar .ib.pzb-next:not(:disabled):hover { background: var(--accent-soft); color: var(--accent-ink); } }
@@ -2448,7 +2449,7 @@ button.finding { cursor: pointer; }
 /* The pill's hover, pressed and current highlights follow its curve: each button's box is the pill's 44 px (its tap target, 1 px over the border on each side), a 4 px clear border keeps the highlight 4 px inside the pill's edge, and the highlight's radius is the pill's less that 4 (concentric), so it never touches or crosses the curve. */
 .pz-bar.pzb-pill > :is(.ib, button.pzb-n), .pz.stack .pz-bar > :is(.ib, button.pzb-n) { border: 4px solid transparent; background-clip: padding-box !important; border-radius: var(--r-sheet); }   /* (!important: the buttons' background shorthands would reset the clip) */
 /* One quiet tint for hover, press and the open list, so every button in the pill reads the same: soft on hover, a touch deeper while pressed (touch screens too), easing in and out. */
-.pz-bar.pzb-pill > :is(.ib, button.pzb-n):not(:disabled), .pz.stack .pz-bar > :is(.ib, button.pzb-n):not(:disabled) { transition: background-color var(--d-small) var(--ease), color var(--d-small) var(--ease), scale var(--d-flip) var(--ease); -webkit-tap-highlight-color: transparent; }
+.pz-bar.pzb-pill > :is(.ib, button.pzb-n):not(:disabled), .pz.stack .pz-bar > :is(.ib, button.pzb-n):not(:disabled) { transition: scale var(--d-flip) var(--ease); -webkit-tap-highlight-color: transparent; }
 @media (hover: hover) { .pz-bar.pzb-pill > :is(.ib, button.pzb-n):not(:disabled):hover, .pz.stack .pz-bar > :is(.ib, button.pzb-n):not(:disabled):hover { background-color: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); } }
 .pz-bar.pzb-pill > :is(.ib, button.pzb-n)[aria-expanded="true"], .pz.stack .pz-bar > :is(.ib, button.pzb-n)[aria-expanded="true"] { background-color: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
 .pz-bar.pzb-pill > :is(.ib, button.pzb-n):not(:disabled):active, .pz.stack .pz-bar > :is(.ib, button.pzb-n):not(:disabled):active { background-color: color-mix(in srgb, var(--text) 14%, transparent); color: var(--text); transition-duration: var(--d-flip); }
@@ -2462,7 +2463,7 @@ button.finding { cursor: pointer; }
 .pz-scales { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: var(--glass-drop); position: absolute; right: calc(var(--pz-cm) + var(--pzs-r, 236px) + 8px); bottom: max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)); display: flex; align-items: stretch; height: 44px; box-sizing: border-box; padding: 4px; --gl-glass: 1; --gl-tint: color-mix(in srgb, var(--surface) 58%, transparent); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-sheet); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: auto; opacity: 1; transition: opacity var(--d-surface) var(--ease) .12s; }
 .pz-scales.pz-leave { opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease); }
 .pz-scales[hidden] { display: none; }
-.pz-scales > button { position: relative; z-index: 1; border: 0; background: none; padding: 0 14px; border-radius: calc(var(--r-sheet) - 4px); font: 500 14px/1 var(--font-ui); color: var(--text-2); white-space: nowrap; cursor: pointer; transition: color var(--d-small) var(--ease); -webkit-tap-highlight-color: transparent; }
+.pz-scales > button { position: relative; z-index: 1; border: 0; background: none; padding: 0 14px; border-radius: calc(var(--r-sheet) - 4px); font: 500 14px/1 var(--font-ui); color: var(--text-2); white-space: nowrap; cursor: pointer; transition: none; -webkit-tap-highlight-color: transparent; }
 @media (hover: hover) { .pz-scales > button:hover { color: var(--text); } }
 .pz-scales > button[aria-pressed="true"] { color: var(--text); }
 .pz-scales > button::before { content: ''; position: absolute; inset: -5px 0; }   /* (the words are 34 px tall inside the pill's 44: the pill's padding and border take touches too) */
@@ -2725,7 +2726,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-check { font-size: var(--s-lab); }   /* (a phone: the controls' pill sits below the card now, so the list keeps no room for it: 48 px of it left an empty band under the last question, sweep 16 Oct) */
 .pz-check li { counter-increment: pzc; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
 .pz-check li:first-child { border-top: 0; }
-.pzc-q { appearance: none; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; width: 100%; cursor: pointer; display: grid; grid-template-columns: 2.1em minmax(0, 1fr) auto; align-items: baseline; gap: 0 .8em; padding: .6em .2em; border-radius: 12px; transition: background-color var(--d-small) var(--ease); }
+.pzc-q { appearance: none; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; width: 100%; cursor: pointer; display: grid; grid-template-columns: 2.1em minmax(0, 1fr) auto; align-items: baseline; gap: 0 .8em; padding: .6em .2em; border-radius: 12px; transition: none; }
 .pzc-q::before { content: counter(pzc, decimal-leading-zero); font: 600 .74em/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: .04em; color: var(--accent); }
 @media (hover: hover) { .pzc-q:hover { background: var(--hairline); } }
 .pzc-q:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -2979,7 +2980,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-tool .dop-stats dd { font-size: var(--s-body); white-space: nowrap; }
 .pz.stack .pz-table td.note { min-width: 6.5em; }
 /* The count opens the slide list; a running time-lapse shows that Next skips it. */
-.pz-bar button.pzb-n { border: 0; background: none; border-radius: var(--r-control); min-height: 40px; padding: 0 10px; font-weight: 500; cursor: pointer; transition: background-color var(--d-small) var(--ease), color var(--d-small) var(--ease); }
+.pz-bar button.pzb-n { border: 0; background: none; border-radius: var(--r-control); min-height: 40px; padding: 0 10px; font-weight: 500; cursor: pointer; transition: none; }
 .pz.stack .pz-bar button.pzb-n { min-height: 44px; }
 .pz-bar button.pzb-n[aria-expanded="true"] { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
 @media (hover: hover) { .pz-bar button.pzb-n:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); } }
@@ -3055,7 +3056,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-outline { --pzo-fs: calc(var(--s-body) * .85); gap: 14px; }   /* (a phone: the outline's words a little smaller) */
 .pz.stack .pz-panel[data-visual="outline"] .pz-dtitle { font-size: calc(var(--s-big) * .85); }
 .pz.stack .pzo-obj { padding: 12px 14px; border-radius: 14px; }
-.app.pz-hi .pzt-r { align-self: center; padding: .22em .7em; border-radius: var(--r-pill); background: var(--text-2); color: var(--surface); transition: background-color var(--d-surface) var(--ease), color var(--d-surface) var(--ease); }
+.app.pz-hi .pzt-r { align-self: center; padding: .22em .7em; border-radius: var(--r-pill); background: var(--text-2); color: var(--surface); transition: none; }
 .app.pz-hi .pz-tile[data-rate="hi"] .pzt-r { background: var(--danger); color: var(--stage-bg); }
 .app.pz-hi .pz-tile[data-rate="mid"] .pzt-r { background: var(--caution); color: var(--on-caution); }
 .app.pz-hi .pz-tile:is([data-rate="ok"], [data-rate="lo"]) .pzt-r { background: var(--ok); color: var(--stage-bg); }
@@ -3116,7 +3117,7 @@ button.finding { cursor: pointer; }
 
 /* Motion: things arrive, they do not pop. (Reduced motion turns all of it off, above.) */
 .dock-pane.active { animation: fade-rise var(--d-small) var(--ease); }
-.hp-line { transition: stroke var(--d-small) var(--ease); }
+.hp-line { transition: none; }
 
 /* ── Anatomy plate (2.1): tissue tones, volume, rim light, surface anatomy ─────────
    Each organ group carries its tissue's three tones (--o1 light face, --o2 shaded face, --o3
@@ -3325,7 +3326,7 @@ button.finding { cursor: pointer; }
   --c: var(--text); --rg: color-mix(in srgb, var(--c) 70%, transparent); --lo: 1;
   color: var(--text); font: 500 12px var(--font-ui);
   box-shadow: var(--shadow-cath-label);
-  translate: -50% calc(-100% - 18px); transition: top var(--d-surface) var(--ease), box-shadow var(--d-surface) var(--ease); }
+  translate: -50% calc(-100% - 18px); transition: top var(--d-surface) var(--ease); }
 /* The body is frosted glass like the panels (the data card's tint and blur), drawn by callout.js as one shape: the card and
    its pointer (down to the tip, or up to the wedged vein, for the reading ahead of it) with its 2 px outline.
    The fades run on the label's children, not the label: a faded ancestor would stop the glass seeing the figure behind it. */
@@ -3357,7 +3358,7 @@ button.finding { cursor: pointer; }
 .cath-label.wedge { --c: var(--tr-wedge); }
 .cath-label.ghost { --lo: .5; }
 /* The presenter's measuring sites (PPG: portal vein and IVC), in the tracing colours; one off the free space waits hidden. */
-.cath-label.site { transition: scale var(--d-surface) var(--ease) .35s, box-shadow var(--d-surface) var(--ease) .35s, translate var(--d-surface) var(--ease); } .cath-label.site > * { transition: opacity var(--d-surface) var(--ease) .35s; }
+.cath-label.site { transition: scale var(--d-surface) var(--ease) .35s, translate var(--d-surface) var(--ease); } .cath-label.site > * { transition: opacity var(--d-surface) var(--ease) .35s; }
 /* One leaving fades out whole and at once (no entrance pause), its glass and shadow with it; the glass is hidden outright only once
    faded (stage.js siteLeave removes it after). */
 .cath-label.site.cath-leave { --lo: 0; box-shadow: var(--shadow-cath-label-off); }
@@ -3415,13 +3416,13 @@ button.finding { cursor: pointer; }
 .cath-label.site.split b, .app.presenting .cath-label.site.split b { display: flex; flex-direction: column; font-size: 15px; line-height: 1.25; color: var(--text); }
 .cath-label.site.split .sp-h { width: 12.6em; font-weight: 700; }
 .cath-label.site.split em { font-style: normal; }
-.cath-label.site.split .sp-n { color: var(--sp-t); transition: color var(--d-surface) var(--ease); }
+.cath-label.site.split .sp-n { color: var(--sp-t); transition: none; }
 .cath-label.site.split .sp-bar { display: flex; gap: 2px; height: 8px; margin: 6px 0 4px; }
 .cath-label.site.split .sp-bar i { border-radius: 4px; flex-basis: 0; flex-shrink: 1; }
 .cath-label.site.split .sp-l { flex-grow: var(--sp-lf, .5); min-width: var(--sp-lm, 4px); background: var(--tr-pv); }
-.cath-label.site.split .sp-s { flex-grow: var(--sp-sf, .5); min-width: var(--sp-sm, 4px); background: var(--sp-c); transition: background-color var(--d-surface) var(--ease); }
+.cath-label.site.split .sp-s { flex-grow: var(--sp-sf, .5); min-width: var(--sp-sm, 4px); background: var(--sp-c); transition: none; }
 .cath-label.site.split .sp-cap { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; font-weight: 600; }
-.cath-label.site.split .sp-lt { color: var(--tr-pv); } .cath-label.site.split .sp-st { color: var(--sp-t); transition: color var(--d-surface) var(--ease); }
+.cath-label.site.split .sp-lt { color: var(--tr-pv); } .cath-label.site.split .sp-st { color: var(--sp-t); transition: none; }
 .cath-label.site.split b + span { display: none; }
 @media (max-width: 600px) { .cath-label.site.split b, .app.presenting .cath-label.site.split b { font-size: 14px; } .cath-label.site.split .sp-cap { font-size: 12px; } .cath-label.site.split .sp-bar { height: 7px; margin: 5px 0 3px; } }
 /* A resistor's reading is a faded figure label, not a callout: its name and the ratio on one line, no box. */
@@ -3446,9 +3447,9 @@ button.finding { cursor: pointer; }
 .app .cath-label.site.res.coll.low.keyed .res-k { left: -10px; }
 /* The circuit's resistors: a zigzag over the vessel, heavier as its resistance rises (eased, never a jump). */
 .res-one { transition: opacity var(--d-surface) var(--ease); }
-.res-one path { fill: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; transition: stroke-width var(--d-surface) var(--ease); }
-.res-one .res-halo { stroke: var(--stage-bg, var(--bg)); stroke-width: calc(var(--res-w, 1.5px) + 3px); opacity: .85; transition: stroke-width var(--d-surface) var(--ease), stroke var(--d-surface) var(--ease), opacity var(--d-surface) var(--ease); }
-.res-one .res-line { stroke: var(--res-c, var(--text)); stroke-width: var(--res-w, 1.5px); opacity: .8; transition: stroke-width var(--d-surface) var(--ease), stroke var(--d-surface) var(--ease), opacity var(--d-surface) var(--ease); }
+.res-one path { fill: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; transition: none; }
+.res-one .res-halo { stroke: var(--stage-bg, var(--bg)); stroke-width: calc(var(--res-w, 1.5px) + 3px); opacity: .85; transition: opacity var(--d-surface) var(--ease); }
+.res-one .res-line { stroke: var(--res-c, var(--text)); stroke-width: var(--res-w, 1.5px); opacity: .8; transition: opacity var(--d-surface) var(--ease); }
 .res-one.lit .res-line { opacity: 1; stroke-width: calc(var(--res-w, 1.5px) + 1.5px); }
 .res-one.lit .res-halo { stroke: var(--res-c); stroke-width: calc(var(--res-w, 1.5px) + 9px); opacity: .22; }
 .cath-label.site.off { --lo: 0; } .cath-label.site.off, .cath-label.site.off > * { transition-delay: 0s; }
@@ -3472,7 +3473,7 @@ button.finding { cursor: pointer; }
 .cath-leads .wedge { stroke: var(--tr-wedge); } .cath-leads .lead-dot.wedge { fill: var(--tr-wedge); stroke: var(--surface); }
 .cath-sum-box { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; transition: top var(--d-surface) var(--ease); }
 .cath-sum-col { display: flex; flex-direction: column; gap: 10px; }
-.cath-label.in-sum { position: relative; translate: none; transition: box-shadow var(--d-surface) var(--ease); }
+.cath-label.in-sum { position: relative; translate: none; transition: none; }
 .cath-label.in-sum > * { transition: opacity var(--d-surface) var(--ease); }
 .cath-brace { flex: none; overflow: visible; }
 .cath-brace path { fill: none; stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -3485,7 +3486,7 @@ button.finding { cursor: pointer; }
 .cath-sum.cath-pre .cath-label { --lo: 0; } .cath-sum.cath-pre .cath-brace, .cath-sum.cath-pre .cath-leads { opacity: 0; transition-delay: 0s; }
 /* The summary after the readings travel in: the bracket and leaders follow, then the HVPG fades and rises in. */
 .cath-sum .cath-brace, .cath-sum .cath-leads { transition: opacity var(--d-surface) var(--ease) .65s; }
-.cath-sum .cath-label.in-sum.calc { transition: translate var(--d-surface) var(--ease) .75s, box-shadow var(--d-surface) var(--ease) .75s; } .cath-sum .cath-label.in-sum.calc > * { transition: opacity var(--d-surface) var(--ease) .75s; }
+.cath-sum .cath-label.in-sum.calc { transition: translate var(--d-surface) var(--ease) .75s; } .cath-sum .cath-label.in-sum.calc > * { transition: opacity var(--d-surface) var(--ease) .75s; }
 .cath-sum.cath-travel .cath-brace, .cath-sum.cath-travel .cath-leads { opacity: 0; transition: none; }
 .cath-sum.cath-travel .cath-label.in-sum.calc { --lo: 0; transition: none; } .cath-sum.cath-travel .cath-label.in-sum.calc > * { transition: none; }
 .cath-sum.cath-travel .cath-label.in-sum.calc { translate: 0 6px; }
@@ -3503,7 +3504,7 @@ button.finding { cursor: pointer; }
 /* (The unit on the name's own line, never wrapped: "FHVP ·" over "mmHg" read as a break, sweep batch 03, shot 30; a line of its
    own instead cost the monitor 19 px on an iPad and cut the words under it sideways, sweep 2 review items 6 and 7.) */
 .hvpg-kv dt { font-size: 12px; font-weight: 600; letter-spacing: .05em; color: var(--text-3); white-space: nowrap; }
-.hvpg-kv dd { margin: 0; font-size: 17px; line-height: 1.2; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; transition: color var(--d-surface) var(--ease); }
+.hvpg-kv dd { margin: 0; font-size: 17px; line-height: 1.2; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; transition: none; }
 .hvpg-kv dt::after { content: '\00a0· mmHg'; font-weight: 500; letter-spacing: 0; }
 .hvpg-box { border-radius: var(--r-card); background: var(--mon-bg); }
 .hvpg-kv dd[data-sev="ok"] { color: color-mix(in srgb, var(--ok) 75%, var(--text)); }
@@ -3612,7 +3613,7 @@ button.finding { cursor: pointer; }
 .pt-box canvas { touch-action: pan-y; cursor: crosshair; }
 .pt-chips { display: flex; gap: 6px; flex-wrap: wrap; flex: none; }
 .pt-chips::-webkit-scrollbar { display: none; }
-.pt-chip { --chip: var(--text-3); display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 11px 0 9px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-3); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; transition: background var(--d-flip) var(--ease), color var(--d-flip) var(--ease), border-color var(--d-flip) var(--ease), scale var(--d-flip) var(--ease); }
+.pt-chip { --chip: var(--text-3); display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 11px 0 9px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-3); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; transition: scale var(--d-flip) var(--ease); }
 .pt-chip i { width: 12px; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--chip) 35%, transparent); }
 .pt-chip[aria-pressed="true"] { color: var(--text); background: var(--surface-2); border-color: transparent; }
 .pt-chip[aria-pressed="true"] i { background: var(--chip); }
@@ -3761,10 +3762,13 @@ button.finding { cursor: pointer; }
 @container (max-width: 720px) { .readouts:not(.all) .metric .v { font-size: var(--fs-16); } }
 .metric[data-sev="caution"] .val { color: var(--caution-ink); }
 .metric[data-sev="danger"] .val, .metric[data-sev="critical"] .val { color: color-mix(in srgb, var(--critical) 80%, var(--text)); }
-.metric.flash { animation: roFlash 1.4s var(--ease) /*own pace*/; }
-.metric.flash2 { animation: roFlash2 1.4s var(--ease) /*own pace*/; }
-@keyframes roFlash { 0%, 60% { background: color-mix(in srgb, var(--sev) 22%, transparent); } }
-@keyframes roFlash2 { 0%, 60% { background: color-mix(in srgb, var(--sev) 22%, transparent); } }   /* (the same flash under a second name: swapping names restarts it with no reflow, dock.js flashTile) */
+.metric:is(.flash, .flash2) { position: relative; isolation: isolate; }
+/* (The flash is a tinted layer of its own fading by its opacity, under the words: no background is eased.) */
+.metric:is(.flash, .flash2)::after { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: color-mix(in srgb, var(--sev) 22%, transparent); opacity: 0; pointer-events: none; }
+.metric.flash::after { animation: roFlash 1.4s var(--ease) /*own pace*/; }
+.metric.flash2::after { animation: roFlash2 1.4s var(--ease) /*own pace*/; }
+@keyframes roFlash { 0%, 60% { opacity: 1; } }
+@keyframes roFlash2 { 0%, 60% { opacity: 1; } }   /* (the same flash under a second name: swapping names restarts it with no reflow, dock.js flashTile) */
 /* Stack the play bar under the readouts where the two do not fit side by side. */
 @media (max-width: 1099px) {
   .vdock { grid-template-columns: minmax(0, 1fr); grid-template-areas: "ro" "tl"; }
@@ -3911,7 +3915,7 @@ button.finding { cursor: pointer; }
 .um-cols { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
 /* Two tabs, Present and Patients: one list at a time, eased in on a switch; the panel keeps its size. */
 .um-tabs { display: flex; gap: 4px; padding: 6px 10px 0; border-bottom: 1px solid var(--hairline); }
-.um-tab { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: var(--fs-14); font-weight: 500; cursor: pointer; border-radius: var(--r-control) var(--r-control) 0 0; transition: color var(--d-flip) var(--ease); }
+.um-tab { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: var(--fs-14); font-weight: 500; cursor: pointer; border-radius: var(--r-control) var(--r-control) 0 0; transition: none; }
 @media (hover: hover) { .um-tab:hover { color: var(--text); } }
 .um-tab::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); opacity: 0; transform: scaleX(.6); transition: opacity var(--d-flip) var(--ease), transform var(--d-flip) var(--ease); }
 .um-tab[aria-selected="true"] { color: var(--text); font-weight: 600; }
@@ -3955,13 +3959,13 @@ button.finding { cursor: pointer; }
 .um-gacts { margin-left: auto; display: flex; gap: 4px; }
 .um-g ul { list-style: none; margin: 0; padding: 0; }
 .um-g li { position: relative; display: flex; flex-wrap: wrap; align-items: center; scroll-margin: 28px 0 36px; }   /* (scrollIntoView on an opened preview clears the sticking heading above and the fade and footer below) */
-.um-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 28px; padding: 4px 8px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text); font: inherit; font-size: var(--fs-14); text-align: left; cursor: pointer; transition: background-color var(--d-flip) var(--ease); }
+.um-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 28px; padding: 4px 8px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text); font: inherit; font-size: var(--fs-14); text-align: left; cursor: pointer; transition: none; }
 .um-row.pv-on { background: var(--surface-2); }
 @media (hover: hover) { .um-row:hover { background: var(--surface-2); } }
 .um-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .um-row[aria-current="true"] { background: var(--accent-soft); color: var(--accent-ink); }
 .um-t { flex: 1; min-width: 0; line-height: 1.25; overflow-wrap: break-word; }   /* (a long title wraps to a second line, whole, never cut with "…": sweep, 16 Oct; the row grows to hold it) */
-.um-play { width: var(--ic-s); height: var(--ic-s); margin: 0 -2px; flex: none; color: var(--text-3); fill: currentColor; stroke: none; transition: color var(--d-flip) var(--ease); }
+.um-play { width: var(--ic-s); height: var(--ic-s); margin: 0 -2px; flex: none; color: var(--text-3); fill: currentColor; stroke: none; transition: none; }
 .um-row.pv-on .um-play, .um-row[aria-current="true"] .um-play { color: var(--accent); }
 @media (hover: hover) { .um-row:hover .um-play { color: var(--accent); } }
 .um-row .um-lv { min-width: 0; text-align: right; }
@@ -4296,7 +4300,7 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 /* Instrument tabs: one slim segmented bar; the chosen instrument is a raised chip. */
 .instr-tabs { display: flex; gap: 2px; margin: 2px 12px 10px; padding: 3px; flex: none; border-radius: 10px; background: var(--surface-2); overflow: hidden; }
 .instr-tabs[hidden] { display: none; }
-.instr-tab { position: relative; flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; height: 30px; padding: 0 8px; border: 0; border-radius: 7px; background: none; color: var(--text-2); cursor: pointer; font: 600 var(--fs-12) var(--font-ui); white-space: nowrap; transition: background var(--d-flip) var(--ease), color var(--d-flip) var(--ease), box-shadow var(--d-flip) var(--ease); }
+.instr-tab { position: relative; flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; height: 30px; padding: 0 8px; border: 0; border-radius: 7px; background: none; color: var(--text-2); cursor: pointer; font: 600 var(--fs-12) var(--font-ui); white-space: nowrap; transition: none; }
 @media (hover: hover) { .instr-tab:hover { color: var(--text); } }
 .instr-tab > svg { width: var(--ic-s); height: var(--ic-s); flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .it-t { display: flex; min-width: 0; }
@@ -4639,12 +4643,12 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .lens-opt.on .bo-ic { color: var(--accent-ink); }
 /* The on state is a small switch at the row's end, not only the faint outline. */
 .lens-opt:has(.mt-sw) { grid-template-columns: var(--ic-s) 1fr auto; }
-.lens-opt .mt-sw { grid-column: 3; grid-row: 1 / 3; position: relative; width: 28px; height: 16px; border-radius: 8px; background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--hairline); transition: background var(--d-small) var(--ease), box-shadow var(--d-small) var(--ease); }
+.lens-opt .mt-sw { grid-column: 3; grid-row: 1 / 3; position: relative; width: 28px; height: 16px; border-radius: 8px; background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--hairline); transition: none; }
 .lens-opt:not(:has(.lens-d)) .mt-sw { grid-row: 1; }
 /* The knob is white on and off, as on the app's other switches (.switch, .ac-toggle, .ab-tg), so off stays plain in dark
    too (sweep 01 #05); the track keeps the hairline edge of .switch and .ac-toggle. */
 .lens-opt .mt-sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 2px rgb(var(--black-rgb) / .25); transition: transform var(--d-small) var(--ease); transform-origin: left center; }
-.lens-opt.on .mt-sw { background: var(--accent); box-shadow: none; }
+.lens-opt.on .mt-sw { }   /* (its accent is the track's ::before, crossfaded over the ring) */
 .lens-opt.on .mt-sw::after { transform: translateX(12px); transform-origin: right center; }
 @media (prefers-reduced-motion: reduce) { .lens-opt .mt-sw, .lens-opt .mt-sw::after { transition: none; } }
 
@@ -4696,7 +4700,6 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .hover-tip .r .u { grid-column: 3; text-align: left; }   /* (a row is three columns, name / number / unit, shared by every row: the numbers' points line up whatever their units, "mmHg", "L/min", "cm/s", "mm"; the unit column is as wide as the longest unit) */
 
 /* The figure mirrors the question */
-@keyframes dmPulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 50% { box-shadow: 0 0 0 10px transparent; } }
 /* Compare table */
 .cmp-table tbody th small { display: block; font-size: var(--fs-12); color: var(--text-3); font-weight: 400; }
 .cmp-table td { font-weight: 600; color: var(--text); }
@@ -4824,7 +4827,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* The switch inside the Pressure tab: along the circuit, or the same pressures over time. */
 .dock-body.pair .pressure-switch { display: none; }
 .pressure-switch { display: flex; gap: 2px; flex: none; align-self: flex-start; padding: 2px; border-radius: 9px; background: var(--surface-2); }
-.ps-btn { height: 26px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--text-2); cursor: pointer; font: 600 var(--fs-12) var(--font-ui); white-space: nowrap; transition: background var(--d-flip) var(--ease), color var(--d-flip) var(--ease), box-shadow var(--d-flip) var(--ease); }
+.ps-btn { height: 26px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--text-2); cursor: pointer; font: 600 var(--fs-12) var(--font-ui); white-space: nowrap; transition: none; }
 @media (hover: hover) { .ps-btn:hover { color: var(--text); } }
 .ps-btn[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(var(--night-rgb) / .12), 0 0 0 .5px var(--hairline); }
 .ps-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -5053,11 +5056,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .ab-kv > span:first-child { color: var(--text-2); white-space: nowrap; }
 .ab-v { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 2px 6px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .ab-v b { font-weight: 650; color: var(--text); }
-.ab-w { color: var(--text-3); transition: color var(--d-small) var(--ease); }
+.ab-w { color: var(--text-3); transition: none; }
 .ab-w[data-sev="caution"] { color: var(--caution-ink); font-weight: 600; }
 .ab-w[data-sev="danger"] { color: var(--danger-ink); font-weight: 600; }
 .ab-iap-bar { position: relative; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
-.ab-iap-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; translate: -100% 0; border-radius: 3px; background: var(--ok); transition: translate var(--d-surface) var(--ease), background var(--d-small) var(--ease); }   /* (filled by sliding in from the left inside its track, instruments.js: no width laid out per frame) */
+.ab-iap-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; translate: -100% 0; border-radius: 3px; background: var(--ok); transition: translate var(--d-surface) var(--ease); }   /* (filled by sliding in from the left inside its track, instruments.js: no width laid out per frame) */
 .ab-iap-fill[data-sev="caution"] { background: var(--caution); }
 .ab-iap-fill[data-sev="danger"] { background: var(--danger); }
 .ab-iap-mark { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--stage-bg); opacity: .9; }
@@ -5074,16 +5077,16 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .ab-row > svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); }
 .ab-txt { display: grid; min-width: 0; line-height: 1.3; }
 .ab-txt b { font-size: var(--fs-14); font-weight: 500; color: var(--text); }
-.ab-txt small { font-size: var(--fs-12); color: var(--text-3); transition: color var(--d-small) var(--ease); }
+.ab-txt small { font-size: var(--fs-12); color: var(--text-3); transition: none; }
 .ab-txt small.ab-warn { color: var(--caution-ink); }
 .ab-end { display: flex; align-items: center; gap: 8px; }
 .ab-tg { width: 100%; border: 0; border-radius: var(--r-control); background: none; text-align: left; cursor: pointer; touch-action: manipulation; }
 .ab-tg:disabled { opacity: .5; cursor: not-allowed; }
-.ab-tg .switch-vis { position: relative; flex: none; width: 38px; height: 22px; border-radius: var(--r-pill); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong); transition: background var(--d-small) var(--ease), box-shadow var(--d-small) var(--ease); }
+.ab-tg .switch-vis { position: relative; flex: none; width: 38px; height: 22px; border-radius: var(--r-pill); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong); transition: none; }
 .ab-tg .switch-vis i { position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 3px rgb(var(--black-rgb) / .3); transition: transform var(--d-small) var(--ease); transform-origin: left center; }
-.ab-tg[aria-checked="true"] .switch-vis { background: var(--accent); box-shadow: inset 0 0 0 1px transparent; }
+.ab-tg[aria-checked="true"] .switch-vis { }   /* (its accent is the track's ::before, crossfaded over the ring) */
 .ab-tg[aria-checked="true"] .switch-vis i { transform: translateX(16px); transform-origin: right center; }
-.ab-drain { min-width: 84px; height: var(--ab-sb-h); padding: 0 14px; border: 0; border-radius: var(--r-control); background: var(--accent); color: var(--on-accent); font: 600 var(--fs-14)/1 var(--font-ui); cursor: pointer; touch-action: manipulation; transition: opacity var(--d-small) var(--ease), filter var(--d-flip) var(--ease); }
+.ab-drain { min-width: 84px; height: var(--ab-sb-h); padding: 0 14px; border: 0; border-radius: var(--r-control); background: var(--accent); color: var(--on-accent); font: 600 var(--fs-14)/1 var(--font-ui); cursor: pointer; touch-action: manipulation; transition: opacity var(--d-small) var(--ease); }
 .ab-drain:disabled { opacity: .4; cursor: not-allowed; }
 @media (hover: hover) {
   .ab-drain:hover:not(:disabled) { filter: brightness(1.07); }
@@ -5102,7 +5105,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .dock-pane > .instrument-view.ab .ab-dial-box { display: block; position: absolute; top: 50%; right: calc(100% + 6px); width: var(--ab-dw); transform: translateY(-50%); }
 .ab-dial { display: block; width: 100%; height: auto; overflow: visible; }
 .ab-dial-band { fill: none; stroke-width: 7; opacity: .2; }
-.ab-dial-live { fill: none; stroke-width: 7; transition: stroke-dasharray var(--d-surface) var(--ease); }
+.ab-dial-live { fill: none; stroke-width: 7; transition: none; }
 .ab-dial :is(.ab-dial-band, .ab-dial-live)[data-sev="ok"] { stroke: var(--ok); }
 .ab-dial :is(.ab-dial-band, .ab-dial-live)[data-sev="caution"] { stroke: var(--caution); }
 .ab-dial :is(.ab-dial-band, .ab-dial-live)[data-sev="danger"] { stroke: var(--danger); }
@@ -5110,35 +5113,35 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .ab-dial-tl { fill: var(--text-3); font: 600 8.5px var(--font-ui); text-anchor: middle; font-variant-numeric: tabular-nums; }
 .ab-dial-knob { transform-box: view-box; transform-origin: 64px 64px; transition: transform var(--d-surface) var(--ease); }
 .ab-dial-knob line { stroke: var(--text-2); stroke-width: 2; stroke-linecap: round; }
-.ab-dial-knob circle { fill: var(--surface); stroke: var(--ok); stroke-width: 2.6; transition: stroke var(--d-small) var(--ease); }
+.ab-dial-knob circle { fill: var(--surface); stroke: var(--ok); stroke-width: 2.6; transition: none; }
 .ab-dial[data-sev="caution"] .ab-dial-knob circle { stroke: var(--caution); }
 .ab-dial[data-sev="danger"] .ab-dial-knob circle { stroke: var(--danger); }
 .ab-dial text:not(.ab-dial-tl) { text-anchor: middle; font-family: var(--font-ui); }
 .ab-dial-k { fill: var(--text-3); font-size: 8.5px; font-weight: 600; letter-spacing: .12em; }
 .ab-dial-n { fill: var(--text); font-size: 25px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .ab-dial-u { fill: var(--text-3); font-size: 8.5px; font-weight: 500; }
-.ab-dial-w { fill: var(--ok); font-size: 9px; font-weight: 650; transition: fill var(--d-small) var(--ease); }
+.ab-dial-w { fill: var(--ok); font-size: 9px; font-weight: 650; transition: none; }
 .ab-dial[data-sev="caution"] .ab-dial-w { fill: var(--caution); }
 .ab-dial[data-sev="danger"] .ab-dial-w { fill: var(--danger); }
 /* The drain: its label level with the dial's, then litres, albumin and the button, as wide as the dial at most. */
 .dock-pane > .instrument-view.ab .ab-dp { display: grid; grid-column: 3; justify-self: start; align-content: center; gap: 5px; width: 100%; max-width: max(116px, var(--ab-dw)); min-width: 0; }
 .ab-dp-k { text-align: center; color: var(--text-3); font: 600 12px/1.2 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; }
 .ab-dp-vol { display: flex; align-items: center; height: 32px; border-radius: var(--r-control); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong); overflow: hidden; }
-.ab-dp-sb { flex: none; width: 28px; height: 100%; padding: 0; border: 0; background: transparent; color: var(--text); font: 500 19px/1 var(--font-ui); cursor: pointer; touch-action: manipulation; outline-offset: -3px; transition: background var(--d-flip) var(--ease); }
+.ab-dp-sb { flex: none; width: 28px; height: 100%; padding: 0; border: 0; background: transparent; color: var(--text); font: 500 19px/1 var(--font-ui); cursor: pointer; touch-action: manipulation; outline-offset: -3px; transition: none; }
 .ab-dp-sb:active:not(:disabled) { background: var(--surface-3); }
 .ab-dp-sb:disabled { color: var(--text-3); opacity: .45; cursor: not-allowed; }
 .ab-dp-l { flex: 1; min-width: 0; text-align: center; font: 650 16px/1 var(--font-ui); color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ab-dp-l small { margin-left: 2px; font-size: 12px; font-weight: 500; color: var(--text-3); }
 .ab-dp-alb { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 0; height: 34px; padding: 0 6px 0 8px; border: 0; border-radius: var(--r-control); background: var(--surface-2);
-  text-align: left; cursor: pointer; touch-action: manipulation; transition: box-shadow var(--d-small) var(--ease); }
+  text-align: left; cursor: pointer; touch-action: manipulation; transition: none; }
 .ab-dp-alb.ab-warn { box-shadow: inset 0 0 0 1px var(--caution); }
 .ab-dp-at { display: grid; min-width: 0; line-height: 1.15; }
 .ab-dp-at b { white-space: nowrap; font: 500 12px/1.15 var(--font-ui); color: var(--text); }
-.ab-dp-at small { white-space: nowrap; font: 500 12px/1.15 var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; transition: color var(--d-small) var(--ease); }
+.ab-dp-at small { white-space: nowrap; font: 500 12px/1.15 var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; transition: none; }
 .ab-dp-at small.ab-warn { color: var(--caution-ink); font-weight: 600; }
-.ab-dp-alb .switch-vis { position: relative; flex: none; width: 30px; height: 18px; border-radius: var(--r-pill); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong); transition: background var(--d-small) var(--ease), box-shadow var(--d-small) var(--ease); }
+.ab-dp-alb .switch-vis { position: relative; flex: none; width: 30px; height: 18px; border-radius: var(--r-pill); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong); transition: none; }
 .ab-dp-alb .switch-vis i { position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 3px rgb(var(--black-rgb) / .3); transition: transform var(--d-small) var(--ease); transform-origin: left center; }
-.ab-dp-alb[aria-checked="true"] .switch-vis { background: var(--accent); box-shadow: inset 0 0 0 1px transparent; }
+.ab-dp-alb[aria-checked="true"] .switch-vis { }   /* (its accent is the track's ::before, crossfaded over the ring) */
 .ab-dp-alb[aria-checked="true"] .switch-vis i { transform: translateX(12px); transform-origin: right center; }
 .ab-dp .ab-drain { width: 100%; min-width: 0; height: 34px; padding: 0 8px; }
 @container (max-width: 300px) {   /* (a 320 px phone: the drain column is about 84 px) */
@@ -5220,7 +5223,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .endo-grade b { font-size: 26px; font-weight: 700; line-height: 1.05; letter-spacing: -.01em; color: var(--text); }
 .endo-grade span { font-weight: 600; color: var(--text); }
 /* The grade's and the stigmata's colour ease as the varix changes (the reduced-motion rule below turns them off). */
-.endo-grade :is(b, span), .endo-chip-v { transition: color var(--d-small) var(--ease); }
+.endo-grade :is(b, span), .endo-chip-v { transition: none; }
 .endo-grade b:empty { display: none; }
 /* The grade's state in its own words' colour (no dot): amber or red past normal, the theme's ink when normal. */
 .endo-grade[data-sev="caution"] { --sev-ink: color-mix(in srgb, var(--caution) 80%, var(--text)); }
@@ -5231,13 +5234,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .endo-stress { display: grid; gap: 2px; }
 .endo-stress-v { font-size: var(--fs-14); font-weight: 600; color: var(--text); }
 .endo-bar { position: relative; margin-top: 4px; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
-.endo-bar i { position: absolute; inset: 0 auto 0 0; width: 100%; translate: -100% 0; border-radius: inherit; background: var(--ok); transition: translate var(--d-surface) var(--ease), background var(--d-small) var(--ease); }   /* (filled by sliding in inside its track: no width laid out per frame) */
+.endo-bar i { position: absolute; inset: 0 auto 0 0; width: 100%; translate: -100% 0; border-radius: inherit; background: var(--ok); transition: translate var(--d-surface) var(--ease); }   /* (filled by sliding in inside its track: no width laid out per frame) */
 .endo-bar[data-sev="caution"] i { background: var(--caution); }
 .endo-bar[data-sev="danger"] i { background: var(--danger); }
 .endo-bar[data-sev="critical"] i { background: var(--critical); }
 .endo-tile { padding: 6px 10px; border-radius: var(--r-control); background: var(--surface-2); min-width: 0; }
 .endo-num { font-size: var(--fs-16); font-weight: 650; color: var(--text); white-space: nowrap; }
-.endo-chip { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 8px; min-width: 0; padding: 4px 10px; border-radius: var(--r-control); border: 1px solid var(--hairline); transition: border-color var(--d-small) var(--ease), background var(--d-small) var(--ease); }
+.endo-chip { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 8px; min-width: 0; padding: 4px 10px; border-radius: var(--r-control); border: 1px solid var(--hairline); transition: none; }
 .endo-chip dt { white-space: nowrap; }
 .endo-chip-v { margin-left: auto !important; font-size: var(--fs-14); font-weight: 600; color: var(--text); text-align: right; min-width: 0; }
 /* A chip that is on keeps its fill and gains a 3px edge drawn inside it (856bf8e), so the tile never changes size. */
@@ -5498,7 +5501,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 @container (min-width: 300px) { .instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read > div { flex-basis: 120px; } }
 @container (min-width: 500px) { .instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read > div { flex-basis: 94px; } }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read > div,
-.instrument-workspace .dop-stats > div:not([hidden]) { grid-column: auto; display: flex; flex-direction: column; justify-content: space-between; align-items: stretch; gap: 4px; min-width: 0; min-height: 0; padding: 8px 7px; border-radius: 12px; background: var(--surface-2); border: 2px solid transparent; transition: border-color var(--d-small) var(--ease), background-color var(--d-small) var(--ease); }
+.instrument-workspace .dop-stats > div:not([hidden]) { grid-column: auto; display: flex; flex-direction: column; justify-content: space-between; align-items: stretch; gap: 4px; min-width: 0; min-height: 0; padding: 8px 7px; border-radius: 12px; background: var(--surface-2); border: 2px solid transparent; transition: none; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read dt,
 .instrument-workspace .dop-stats dt { font: 600 12px/1.2 var(--font-ui); letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); overflow-wrap: anywhere; }
 .instrument-workspace .endo-num, .instrument-workspace .dop-stats dd { font: 600 20px/1.05 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--text); white-space: nowrap; }
@@ -5566,9 +5569,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .dop-track { position: relative; height: 8px; border-radius: 4px; background: var(--surface-2); }
 .dop-band { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: var(--ok); opacity: .45; transition: left var(--d-surface) var(--ease), width var(--d-surface) var(--ease); }
 /* Where the reading sits on the usual range: a short upright tick, not a dot. */
-.dop-mark { position: absolute; top: 50%; width: 4px; height: 18px; margin: -9px 0 0 -2px; border-radius: 2px; background: var(--text); box-shadow: 0 0 0 2px var(--surface, var(--bg)); box-sizing: border-box; transition: left var(--d-surface) var(--ease), background-color var(--d-small) var(--ease); }
+.dop-mark { position: absolute; top: 50%; width: 4px; height: 18px; margin: -9px 0 0 -2px; border-radius: 2px; background: var(--text); box-shadow: 0 0 0 2px var(--surface, var(--bg)); box-sizing: border-box; transition: left var(--d-surface) var(--ease); }
 .dop-range[data-out="true"] .dop-mark { background: var(--caution); }
-.dop-vel b { transition: color var(--d-small) var(--ease); }
+.dop-vel b { transition: none; }
 .dop-vel[data-out="true"] b { color: var(--caution-ink); }
 /* A stent's three segments: one outside 90–190 cm/s reads in the caution colour; the gated one is underlined in the Doppler's green. */
 .dop-stats > div[data-out="true"] dd { color: var(--caution-ink); }
@@ -5837,7 +5840,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
   cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity var(--d-small) var(--ease) .42s, transform var(--d-surface) var(--ease) .12s, margin-top var(--d-surface) var(--ease); }
 .pz:is(.stack, .low) .pz-lip::before { content: ''; position: absolute; inset: 0 14px; border: 1px solid color-mix(in srgb, var(--text) 9%, transparent); border-top: 0; border-radius: 0 0 16px 16px;
   background: color-mix(in srgb, var(--surface-2) 94%, transparent); box-shadow: 0 6px 14px -8px rgb(var(--black-rgb) / .14), 0 1px 2px rgb(var(--black-rgb) / .14);
-  transition: inset var(--d-surface) var(--ease), background-color var(--d-surface) var(--ease), border-color var(--d-surface) var(--ease), box-shadow var(--d-surface) var(--ease); }
+  transition: inset var(--d-surface) var(--ease); }
 .pz:is(.stack, .low) .pz-lip::after { content: ''; position: absolute; left: 50%; top: 50%; width: 34px; height: 4px; translate: -50% -50%; border-radius: 2px; background: color-mix(in srgb, var(--text) 32%, transparent); }
 .pz:is(.stack, .low) .pz-data.pz-sheet.tool-open { padding-bottom: 26px; }
 .pz:is(.stack, .low) .pz-data.tool-open + .pz-lip { margin-top: -24px; }
@@ -5994,7 +5997,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz.pz-wide .pz-data.pz-zoomable { cursor: zoom-in; }
 .pz-zoomed .pz.pz-wide .pz-data { cursor: zoom-out; }
 .pz.pz-wide .pz-data.pz-zoomable > .pz-dh { position: relative; padding-inline: calc(28px / var(--pz-z, 1)); }   /* (a long title wraps before the expand button's corner, 8 px short of it, and stays centered) */
-.pz.pz-wide .pz-data.pz-zoomable > .pz-dh > .pz-zbtn { display: grid; place-items: center; position: absolute; right: calc(-4px / var(--pz-z, 1)); top: 50%; translate: 0 -50%; width: calc(24px / var(--pz-z, 1)); height: calc(24px / var(--pz-z, 1)); margin: 0; padding: 0; border: 0; border-radius: calc(8px / var(--pz-z, 1)); background: none; color: var(--text-3); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color var(--d-small) var(--ease), background var(--d-small) var(--ease), scale var(--d-flip) var(--ease); }
+.pz.pz-wide .pz-data.pz-zoomable > .pz-dh > .pz-zbtn { display: grid; place-items: center; position: absolute; right: calc(-4px / var(--pz-z, 1)); top: 50%; translate: 0 -50%; width: calc(24px / var(--pz-z, 1)); height: calc(24px / var(--pz-z, 1)); margin: 0; padding: 0; border: 0; border-radius: calc(8px / var(--pz-z, 1)); background: none; color: var(--text-3); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: scale var(--d-flip) var(--ease); }
 .pz-zbtn::before { content: ''; position: absolute; inset: calc(-8px / var(--pz-z, 1)) calc(-6px / var(--pz-z, 1)); }
 .pz-zbtn svg { width: calc(15px / var(--pz-z, 1)); height: calc(15px / var(--pz-z, 1)); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .pz-zbtn svg:last-child, .pz-zoomed .pz-zbtn svg:first-child { display: none; }
@@ -6009,7 +6012,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz-pscrim, .pz-gscrim { position: absolute; inset: 0; background: var(--scrim); opacity: 0; pointer-events: none; cursor: zoom-out; transition: opacity var(--d-surface) var(--ease); }
 .pz-pscrim.on, .pz-gscrim.on { opacity: 1; pointer-events: auto; }
 .pz-gscrim { z-index: 1; }
-.pz:not(.stack):not(.low) .pz-cell { cursor: zoom-in; transition: box-shadow var(--d-surface) var(--ease); }
+.pz:not(.stack):not(.low) .pz-cell { cursor: zoom-in; transition: none; }
 .pz:not(.stack):not(.low) .pz-cell[data-zoomed] { position: relative; z-index: 2; cursor: zoom-out; }
 .pz:not(.stack):not(.low) .pz-cell[data-zoomed=""] { box-shadow: var(--shadow-3); }
 /* Mac and iPad landscape: when even the smallest steps leave the pair too tall, the instrument folds behind Show as on a phone
@@ -6174,8 +6177,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b { font-size: clamp(14px, 29cqi, 96px) !important; }
 .pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > .ab-grade { font-size: clamp(12px, 11cqi, 34px) !important; }
 .pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > .ab-rate { font-size: clamp(12px, 8.5cqi, 28px) !important; }
-.ab .ab-belly > .ab-big > .ab-rate { display: inline-flex; align-items: baseline; justify-content: center; gap: .3em; transition: color var(--d-small) var(--ease); }   /* (a new value is written in place, never faded: 19 Oct) */
-.ab-rate-a { font-style: normal; font-size: max(12px, .72em); transition: color var(--d-small) var(--ease); }
+.ab .ab-belly > .ab-big > .ab-rate { display: inline-flex; align-items: baseline; justify-content: center; gap: .3em; transition: none; }   /* (a new value is written in place, never faded: 19 Oct) */
+.ab-rate-a { font-style: normal; font-size: max(12px, .72em); transition: none; }
 .ab-rate-a:empty { display: none; }
 /* (The daily balance has no backing: a card-coloured outline round its letters makes it read on the fluid, on the empty belly and across the fluid line, in every theme.) */
 .ab .ab-belly > .ab-big > .ab-rate[data-dir] { padding: .06em .55em .1em; --ab-rate-halo: 1px 0 0 var(--surface), -1px 0 0 var(--surface), 0 1px 0 var(--surface), 0 -1px 0 var(--surface), 1px 1px 0 var(--surface), -1px -1px 0 var(--surface), 1px -1px 0 var(--surface), -1px 1px 0 var(--surface), 0 0 2px var(--surface), 0 0 3px var(--surface), 0 0 5px var(--surface); text-shadow: var(--ab-rate-halo) !important; }   /* (no pill, Mohammad 19 Oct: a solid 1 px outline of the card's colour round every letter, then a soft halo, so the words read on the fluid and on the empty belly alike) */
@@ -6248,7 +6251,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .tglide :is(.pzb-now, .pzb-was) { transition: translate var(--tile-ms) var(--ease-move) /*own pace*/; }
 .tglide .pzb-link { transition: translate var(--tile-ms) var(--ease-move) /*own pace*/, scale var(--tile-ms) var(--ease-move) /*own pace*/; }
 .pzb-zs { position: absolute; inset: 0; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--text) 8%, transparent); }
-.pzb-z { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--text-3) 30%, transparent); transition: background-color var(--d-surface) var(--ease); }
+.pzb-z { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--text-3) 30%, transparent); transition: none; }
 .pzb-z[data-rate="ok"] { background: color-mix(in srgb, var(--ok) 60%, transparent); }
 .pzb-z[data-rate="mid"] { background: color-mix(in srgb, var(--caution) 62%, transparent); }
 .pzb-z[data-rate="hi"] { background: color-mix(in srgb, var(--danger) 60%, transparent); }
@@ -6264,7 +6267,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pzb-was, .pzb-now { top: 3px; height: 0; }
 .pzb-was::before, .pzb-now::before { content: ''; position: absolute; left: 0; top: 0; translate: -50% -50%; border-radius: 50%; box-sizing: border-box; }
 .pzb-was::before { width: 9px; height: 9px; border: 2px solid color-mix(in srgb, var(--text) 50%, transparent); background: var(--surface); }
-.pzb-now::before { width: 12px; height: 12px; background: var(--text-3); box-shadow: 0 0 0 2px var(--surface); transition: background-color var(--d-surface) var(--ease); }
+.pzb-now::before { width: 12px; height: 12px; background: var(--text-3); box-shadow: 0 0 0 2px var(--surface); transition: none; }
 .pz-tile:is([data-rate="ok"], [data-rate="lo"]) .pzb-now::before { background: var(--ok); }
 .pz-tile[data-rate="mid"] .pzb-now::before { background: var(--caution); }
 .pz-tile[data-rate="hi"] .pzb-now::before { background: var(--danger); }
@@ -6357,7 +6360,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .thumb-bar { display: none; }
 .app.thumb .thumb-bar { grid-area: nb; display: flex; align-items: stretch; gap: 2px; padding: 3px 6px 4px; border-top: 1px solid var(--hairline); }
 .app.thumb .vdock:not(.mini) { grid-template-areas: "st st" "tl ro" "nb nb"; }
-.nb-tab { position: relative; flex: 1 1 0; min-width: 0; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0; border: 0; border-radius: calc(var(--r-sheet) - 6px); background: none; color: var(--text-2); font: 600 var(--fs-12)/1 var(--font-ui); cursor: pointer; transition: background var(--d-flip) var(--ease), color var(--d-flip) var(--ease), scale var(--d-flip) var(--ease); -webkit-tap-highlight-color: transparent; }
+.nb-tab { position: relative; flex: 1 1 0; min-width: 0; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0; border: 0; border-radius: calc(var(--r-sheet) - 6px); background: none; color: var(--text-2); font: 600 var(--fs-12)/1 var(--font-ui); cursor: pointer; transition: scale var(--d-flip) var(--ease); -webkit-tap-highlight-color: transparent; }
 .nb-tab > svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .nb-l { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.25; }   /* (a line as tall as the letters: line-height 1 clipped the descenders of y and g) */
 @media (hover: hover) { .nb-tab:hover { color: var(--text); } }
@@ -6444,8 +6447,12 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* The slide and the cut are one value, --sink, so they always move together: iOS runs an animated transform on its own
    layer, ahead of a clip-path animated beside it, and the card showed over the tab row while it closed (15 Oct). */
 @property --sink { syntax: '<length-percentage>'; inherits: false; initial-value: 0px; }
-@keyframes thumbIn { from { --sink: 100%; } }
-@keyframes thumbOut { to { --sink: 100%; } }
+/* (1 Nov 2026, move everything to GPU) A card with a plate (sheet-move.js: Details, Treat, Tests) slides its whole height under its still
+   cut, below. One without (a vessel's card, the Doppler and the other floating tools before their plate) rises a short way from behind
+   the opaque tab row as it fades in, by translate and opacity alone: the eased --sink moved its clip-path with it, a repaint every
+   frame. The drag still moves --sink under the finger. */
+@keyframes thumbIn { from { opacity: 0; translate: 0 var(--thumb-rise, 24px); } }
+@keyframes thumbOut { to { opacity: 0; translate: 0 var(--thumb-rise, 24px); } }
 /* (Only a menu that opens from the dock, class from-dock (util.js popover), rises and sinks this way: the Colored-by menu
    from the top bar of an upright iPad had slid up from under its spot, its card cut away but its shadow showing, 17 Oct.) */
 .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui), html.thumb-ui .menu.from-dock { translate: 0 var(--sink, 0px); }
@@ -6456,8 +6463,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { --card-out: thumbOut; }
 @media (prefers-reduced-motion: no-preference) {
   #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn var(--d-small) var(--ease) var(--enter-delay, 0ms) backwards; }
-  html.thumb-ui .menu.from-dock { animation: thumbIn var(--d-small) var(--ease) var(--enter-delay, 0ms) backwards; }
-  html.thumb-ui .menu.from-dock.leaving { animation: thumbOut var(--d-flip) var(--ease-in) forwards; }
+  /* (A menu is drawn above the tab row, so it never rises across it: it settles in from its own foot, by scale and opacity.) */
+  html.thumb-ui .menu.from-dock { animation: scale-settle var(--d-small) var(--ease) var(--enter-delay, 0ms) backwards; transform-origin: 50% 100%; }
+  html.thumb-ui .menu.from-dock.leaving { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
   /* A sheet moved by its content (has-plate, sheet-move.js) rises and sinks the same way, but by its content's translate alone under
      its still clip: no --sink is eased frame by frame on the main thread. The box holds (sheet-hold) so its leave still ends on it. */
   #app.thumb.panel-open .panel.has-plate, #app.thumb .treat-card.has-plate, #app.thumb .instrument-workspace.float-ui.entering.has-plate { animation: none; }
@@ -6474,7 +6482,12 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    shows in their place; the tab row has its own opaque face and stays on top throughout. */
 .app.thumb .vdock:not(.mini) { z-index: calc(var(--z-panel) + 20); background: transparent; box-shadow: none; }
 .app.thumb .vdock:not(.mini)::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--glass); box-shadow: var(--shadow-pill); pointer-events: none; transition: opacity var(--d-small) var(--ease) .1s; }
-.app.thumb .vdock:not(.mini) .thumb-bar { position: relative; border-radius: 0 0 var(--r-sheet) var(--r-sheet); background: linear-gradient(var(--glass), var(--glass)), var(--stage-bg); box-shadow: inset 1px 0 0 var(--hairline), inset -1px 0 0 var(--hairline), inset 0 -1px 0 var(--hairline); transition: box-shadow var(--d-small) var(--ease) .1s, border-radius var(--d-small) var(--ease) .1s, border-top-width var(--d-small) var(--ease) .1s, padding-top var(--d-small) var(--ease) .1s; }
+.app.thumb .vdock:not(.mini) .thumb-bar { position: relative; isolation: isolate; border-top: 0; padding-top: 4px; border-radius: var(--r-sheet); background: linear-gradient(var(--glass), var(--glass)), var(--stage-bg); box-shadow: inset 0 0 0 1px var(--hairline); }
+/* (The tab row's two looks, closed (square top, a top hairline, sitting on the play bar) and open (round all over, lifted by a shadow,
+   with a card on it), are layers crossfaded by their opacity alone: the row itself is the open shape, always opaque; ::before puts
+   back the closed square top (its corners and hairlines), ::after carries the open shadow. No radius, shadow or border is eased.) */
+.app.thumb .vdock:not(.mini) .thumb-bar::before { content: ""; position: absolute; z-index: -1; left: 0; right: 0; top: 0; height: var(--r-sheet); background: linear-gradient(var(--glass), var(--glass)), var(--stage-bg); box-shadow: inset 0 1px 0 var(--hairline), inset 1px 0 0 var(--hairline), inset -1px 0 0 var(--hairline); pointer-events: none; transition: opacity var(--d-small) var(--ease) .1s; }
+.app.thumb .vdock:not(.mini) .thumb-bar::after { content: ""; position: absolute; z-index: -1; inset: 0; border-radius: inherit; box-shadow: var(--shadow-2); opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease) .1s; }
 .app.thumb .vdock:not(.mini) > :not(.thumb-bar) { transition: opacity var(--d-small) var(--ease) .1s, translate var(--d-small) var(--ease) .1s; }
 /* (17 Oct, Mohammad: the timeline appearing as a card slides down should be smoother.) The play bar, the views pill and the
    dock's glass come back only once the card has mostly sunk behind the tab row (its exit is .18 s, eased fast-out, so it is
@@ -6490,7 +6503,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    (3,500 elements) on every node a model tick wrote anywhere in it, 30–60% of the CPU while a slide sat still.) */
 .app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) > :is(.nb-views, .stage-bar, .readouts), .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) > :is(.nb-views, .stage-bar, .readouts), html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) > :is(.nb-views, .stage-bar, .readouts) { opacity: 0; pointer-events: none; translate: 0 var(--bar-sink, 0px); transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease); }
 /* (Open, the tab row's top hairline is its edge ring on the outer edge, as on a card: its own top border goes, with 1 px more padding, so no fill shows above the line.) */
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) .thumb-bar, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) .thumb-bar { border-radius: var(--r-sheet); border-top-width: 0; padding-top: 4px; box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); transition: box-shadow var(--d-flip) var(--ease), border-radius var(--d-flip) var(--ease), border-top-width var(--d-flip) var(--ease), padding-top var(--d-flip) var(--ease); }
+.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar::before, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) .thumb-bar::before, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) .thumb-bar::before { opacity: 0; transition: opacity var(--d-flip) var(--ease); }
+.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar::after, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) .thumb-bar::after, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) .thumb-bar::after { opacity: 1; transition: opacity var(--d-flip) var(--ease); }
 @media (prefers-reduced-motion: no-preference) { .app.thumb .vdock:not(.mini) { --bar-sink: 6px; } }   /* (the rise; with reduced motion the bar only fades) */
 
 /* While a card covers the play bar, the bar's empty top row must not catch taps meant for the card's bottom edge (the Doppler's stent tiles sit there): only the tab row takes touches. */
@@ -7293,8 +7307,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* V25, the circuit's bracket under a span of stations, and a zone band lit softly (stage.js fxZone). */
 .fx-span-line .fx-ink { stroke: var(--text-2); stroke-width: 1.6px; }
 /* (Off, hidden once its fade has run: at opacity 0 it was still painted over its band on every pan or zoom frame.) */
-.fx-zone { fill: var(--accent); fill-opacity: 0; visibility: hidden; transition: fill-opacity var(--d-surface) var(--ease), visibility 0s var(--d-surface); pointer-events: none; }
-.fx-zone.on { fill-opacity: .09; visibility: visible; transition: fill-opacity var(--d-surface) var(--ease); }
+.fx-zone { fill: var(--accent); fill-opacity: .09; opacity: 0; visibility: hidden; transition: opacity var(--d-surface) var(--ease), visibility 0s var(--d-surface); pointer-events: none; }
+.fx-zone.on { opacity: 1; visibility: visible; transition: opacity var(--d-surface) var(--ease); }
 /* The readings (calipers, brackets) and the step numbers (V10): plain pills in the label's own glass, the words in ink. */
 #labels .lb:is(.fx-cal, .fx-span, .fx-step) text { fill: var(--text); stroke: none; }
 #labels .lb.fx-step .lb-bg { fill: var(--text); stroke: none; }
@@ -7355,7 +7369,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .gs-meas { position: absolute; left: 0; top: 0; visibility: hidden; white-space: nowrap; pointer-events: none; font-weight: 600; }
 .gs-hero, .gs-cap, .gs-fcap { display: flex; justify-content: space-between; align-items: baseline; gap: .6em; white-space: nowrap; }
 .gs-hero { padding-bottom: .3em; border-bottom: 1px solid var(--border); }
-.gs-hero > b { font-size: 1.5em; line-height: 1; transition: color var(--d-surface) var(--ease); }
+.gs-hero > b { font-size: 1.5em; line-height: 1; transition: none; }
 .gs-hero > b[data-dir="up"] { color: var(--caution-ink); } .gs-hero > b[data-dir="down"] { color: var(--ok-ink); }
 .gs-word, .gs-dim { color: var(--text-3); }
 .gs-cap { margin-bottom: .28em; }
@@ -7401,11 +7415,10 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    their numbers but not their rating words, the Doppler's top strip keeps its trace and reading but not its direction, pattern and note,
    and the figure's "no flow" and "stasis" words stand down. On the answer slide they ease back in, never snap. The Gut to
    heart chart's red blocks and brackets are held by the chart itself (tool-profile.js hold). */
-.pz-data .pzt-r, .pz-data .pz-tool :is(.dop-dir, .dop-pattern, .dop-note) { transition: color var(--d-surface) var(--ease), opacity var(--d-surface) var(--ease); }
+.pz-data .pzt-r, .pz-data .pz-tool :is(.dop-dir, .dop-pattern, .dop-note) { transition: opacity var(--d-surface) var(--ease); }
 .pz-data[data-held] .pzt-r, .pz-data[data-held] .pz-tool :is(.dop-dir, .dop-pattern, .dop-note) { opacity: 0; }
 .pz-data[data-held-now] .pzt-r, .pz-data[data-held-now] .pz-tool :is(.dop-dir, .dop-pattern, .dop-note) { transition: none; }
-.lb-alert { transition: fill-opacity var(--d-surface) var(--ease); }
-.app.pz-held .lb-alert { fill-opacity: 0; }
+.app.pz-held .lb-alert { fill-opacity: 0; }   /* (a run of the label's words: taken at once, as the label's picture is redrawn on the GPU; no fill is eased) */
 /* The criteria card (tool-criteria.js, teaching card C2; V3 26 Oct, review/guideline-cards-ideas/round8): a guideline's rules as rows,
    in the card so a phone shows them. The rules in the serif, as the guideline's own words; how they combine and the rule's number
    (an outlined pill: outlined is the rule, filled the patient) above them; the case's column set apart by space alone, never a
@@ -7418,7 +7431,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pzc-lead { flex: 0 1 auto; min-width: 0; margin: 0; text-align: center; font: 400 1em/1.35 var(--font-ui); color: var(--text-2); }
 .pzc-rule { flex: none; margin: 0; font-size: max(12px, .86em); }
 .pzc-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
-.pzc-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: baseline; padding: .55em 0; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); font: 400 1.07em/1.35 var(--font-display); color: var(--text-2); transition: color var(--d-surface) var(--ease); }
+.pzc-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: baseline; padding: .55em 0; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); font: 400 1.07em/1.35 var(--font-display); color: var(--text-2); transition: none; }
 @supports not (grid-template-columns: subgrid) { .pzc-row { grid-template-columns: auto minmax(0, 1fr) auto; } }
 .pzc-row:first-child { border-top: 0; }   /* (the quick check's rows: a hairline between, no fills) */
 .pzc-row:is([data-lit], [data-met="yes"]) { color: var(--text); font-weight: 600; }   /* (the row that fits the case: full ink, as a key tile's name) */
@@ -7435,7 +7448,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pzc-end { grid-column: 3; display: flex; flex-direction: column; align-items: flex-start; gap: .1em; white-space: nowrap; padding-left: 22px; font: 500 calc(1em / 1.07)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
 .pzc-hrow .pzc-end { font: inherit; color: inherit; }
 .pz-crit:not(.has-case) .pzc-end { display: none; }   /* (a plain list: its words take the full width) */
-.pzc-v { transition: color var(--d-surface) var(--ease); }
+.pzc-v { transition: none; }
 .pzc-row:is([data-lit], [data-met]) .pzc-v, .pzc-live .pzc-v { font-size: 1.3em; font-weight: 600; line-height: 1.15; color: var(--text); }
 .pzc-row[data-met="no"] .pzc-v { color: var(--text-2); }
 .pzc-live:not([data-met="yes"]) .pzc-v { color: var(--text-3); }
@@ -7452,11 +7465,11 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    when one row applies. The mark sits level with the first line of a row that wraps, and its fill eases with the reading, never snaps. */
 .pz-crit:not(.has-cut) .pzc-row:not(.pzc-hrow) { font-size: 1.12em; }
 .pz-crit:not(.has-cut) .pzc-row:not(.pzc-hrow) .pzc-c { display: block; align-self: start; padding-right: .75em; }
-.pz-crit:not(.has-cut) .pzc-row:not(.pzc-hrow) .pzc-c::before { content: ""; display: block; box-sizing: border-box; width: .58em; height: .58em; margin-top: .385em; border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 45%, transparent); transition: background-color var(--d-surface) var(--ease), box-shadow var(--d-surface) var(--ease); }
+.pz-crit:not(.has-cut) .pzc-row:not(.pzc-hrow) .pzc-c::before { content: ""; display: block; box-sizing: border-box; width: .58em; height: .58em; margin-top: .385em; border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 45%, transparent); transition: none; }
 .pz-crit:not(.has-cut) .pzc-row:is([data-lit], [data-met="yes"]) .pzc-c::before { background: var(--text); box-shadow: inset 0 0 0 1.5px var(--text); }
 .pz-crit.ordered .pzc-list { counter-reset: pzcn; }
 .pz-crit.ordered:not(.has-cut) .pzc-row:not(.pzc-hrow) .pzc-c { align-self: baseline; }
-.pz-crit.ordered:not(.has-cut) .pzc-row:not(.pzc-hrow) .pzc-c::before { counter-increment: pzcn; content: counter(pzcn); width: auto; height: auto; margin: 0; border-radius: 0; background: none; box-shadow: none; font: 400 1.15em/1 var(--font-display); font-variant-numeric: lining-nums; color: var(--text-3); transition: color var(--d-surface) var(--ease); }
+.pz-crit.ordered:not(.has-cut) .pzc-row:not(.pzc-hrow) .pzc-c::before { counter-increment: pzcn; content: counter(pzcn); width: auto; height: auto; margin: 0; border-radius: 0; background: none; box-shadow: none; font: 400 1.15em/1 var(--font-display); font-variant-numeric: lining-nums; color: var(--text-3); transition: none; }
 .pz-crit.ordered:not(.has-cut) .pzc-row:is([data-lit], [data-met="yes"]) .pzc-c::before { background: none; box-shadow: none; color: var(--text); font-weight: 500; }
 .pz-crit.has-lit:not(.has-cut) .pzc-row:not([data-lit]) .pzc-t > b { font-weight: 500; color: inherit; }
 /* Its title in the serif, in sentence case, as a guideline's heading: the one card whose caps header gives way (the rules' words
@@ -7514,6 +7527,10 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 
 /* Windows high contrast (forced colours) removes backgrounds and shadows, so a control that shows "on" or "selected" by a fill alone, or a focus ring that is a
    box-shadow, shows nothing. The on and selected states are given system colours and the switches an edge. Nothing here applies in any other mode. */
+/* A switch's track turns to the accent by a crossfade: the accent is a layer of its own (::before, under the knob) whose opacity
+   eases; no colour or shadow is ever eased (each repaints the switch every frame). */
+:is(.switch span, .ac-toggle .switch-vis, .lens-opt .mt-sw, .ab-tg .switch-vis, .ab-dp-alb .switch-vis)::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--accent); opacity: 0; transition: opacity var(--d-small) var(--ease); pointer-events: none; }
+:is(.switch input:checked + span, .ac-toggle[aria-checked="true"] .switch-vis, .lens-opt.on .mt-sw, .ab-tg[aria-checked="true"] .switch-vis, .ab-dp-alb[aria-checked="true"] .switch-vis)::before { opacity: 1; }
 @media (forced-colors: active) {
   .pal-glide { display: none; }
   .pal-list.glides .pal-item.on { forced-color-adjust: none; background: Highlight; color: HighlightText; }
@@ -7522,6 +7539,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
   :is(.ib[aria-pressed="true"], .instr-tab[aria-selected="true"]) :is(svg, svg *) { stroke: HighlightText; }
   :is(.modes button[aria-selected="true"], .um-tab[aria-selected="true"])::after { background: Highlight; }
   :is(.switch span, .ac-toggle .switch-vis, .lens-opt .mt-sw, .ab-tg .switch-vis) { border: 1px solid ButtonText; box-shadow: none; }
+  :is(.switch span, .ac-toggle .switch-vis, .lens-opt .mt-sw, .ab-tg .switch-vis, .ab-dp-alb .switch-vis)::before { display: none; }
   :is(.switch input:checked + span, .ac-toggle[aria-checked="true"] .switch-vis, .lens-opt.on .mt-sw, .ab-tg[aria-checked="true"] .switch-vis) { forced-color-adjust: none; background: Highlight; }
   .switch span::after, .lens-opt .mt-sw::after, .ac-toggle .switch-vis i, .ab-tg .switch-vis i { forced-color-adjust: none; background: ButtonText; box-shadow: none; }
   .switch input:checked + span::after, .lens-opt.on .mt-sw::after, .ac-toggle[aria-checked="true"] .switch-vis i, .ab-tg[aria-checked="true"] .switch-vis i { background: HighlightText; }
