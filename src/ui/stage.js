@@ -4255,7 +4255,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!glOrgans) {
       // The organ covers, painted once on the GPU into their world-space texture (1.5 texels per unit): tiers behind them fade.
       // (They were drawn on a 2D canvas and uploaded.)
-      veins.paintOrgans(getOrganCovers().map(({ d, circle, w }) => ({ d, circle, w })), [0, 0, VIEW.w, VIEW.h], 1.5);
+      veins.paintOrgans(getOrganCovers().map(({ src, w }) => ({ ...src, w })), [0, 0, VIEW.w, VIEW.h], 1.5);
       glOrgans = true; tubesNew = true;
     }
     const items = gpuProbe.time(null, 'vessel sync: list', () => glItems());
