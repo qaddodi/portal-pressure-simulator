@@ -55,10 +55,15 @@ test('what is not followed exactly is left to be read each frame (null)', () => 
   assert.ok(trackOf([anim({ target: run, kf: move })], g, () => false, 0));
 });
 
-test('label-gl follows a label\'s own animations and still reads hovers, focus and the theme each frame', () => {
-  assert.match(src, /const EXACT = new Set\(\['pointerover', 'pointerout', 'focusin', 'focusout'\]\)/);
+test('label-gl follows a label\'s own animations, hovers, focus and theme changes included, and reads no style in a frame', () => {
   assert.match(src, /g\.getAnimations\(\{ subtree: true \}\)/);
-  assert.match(src, /labeltrack=0/);
+  assert.doesNotMatch(src, /labeltrack=0\\b/);
+  // (Styles are kept by what decides them and read in a task after the frame; the eases are followed meanwhile.)
+  assert.match(src, /try \{ d = given \|\| describeBlock\(g, styleOf\); \}/);
+  assert.match(src, /describeMark\(el, styleOf\)/);
+  assert.match(src, /if \(!fillT\) fillT = setTimeout\(fillStyles, 0\);/);
+  const fn = src.slice(src.indexOf('function styleOf('), src.indexOf('function fillStyles('));
+  assert.doesNotMatch(fn, /getComputedStyle/);
   // (The canvas's place is read only when the page may have moved it, never in a frame: no ?holecache=0 any more.)
   assert.match(src, /const holeOrigin = \(\) => holeCr;/);
   assert.match(src, /atlasidle=0/);

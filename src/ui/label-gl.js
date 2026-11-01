@@ -22,12 +22,11 @@ import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=1c406a11a6
 import { textPolys, textWidth, loadGlyphs, glyphsReady } from './text-gl.js?v=b384a10c15';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=56dc51edb3';
 
-// (1 Nov 2026, the GPU motion review.) ?labeltrack=0: a label's or a leader's fade or colour ease is read from the page on every frame of it,
-// as before (label-track.js). ?holecache=0: the glasses' holes read the canvas's place on the page at every picture and draw a callout's
-// mask as its shape changes, in the frame, as before. ?atlasidle=0: a full atlas is packed again at once, mid-move, and its second page
-// made only when a picture first needs it, as before.
+// (1 Nov 2026, the GPU motion review.) A label's or a leader's fade or colour ease is followed from its animations (label-track.js), and its
+// style read off the frame (styleOf): nothing on the page is read in a frame. ?atlasidle=0: a full atlas is packed again at once, mid-move,
+// and its second page made only when a picture first needs it, as before.
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
-const TRACK = !/[?&]labeltrack=0\b/.test(SEARCH), ATLAS_IDLE = !/[?&]atlasidle=0\b/.test(SEARCH);
+const TRACK = true, ATLAS_IDLE = !/[?&]atlasidle=0\b/.test(SEARCH);
 
 const nextFrame = frameFor('labels-gl');
 const VS = `#version 300 es
@@ -586,6 +585,60 @@ void main() { o = texture(uT, vUV) * uA; }`;
   let boxes = [], boxKey = '', blank = false;
   const boxAt = (x0, y0, x1, y1) => boxes.push([x0 / dpr, y0 / dpr, x1 / dpr, y1 / dpr]);
   const sprites = new WeakMap();   // group → { key, tex, ox, oy, w, h }
+  // ── Styles, read off the frame (1 Nov 2026: no layout or style read in a frame) ──
+  // A label's or mark's computed style is kept by what decides it: each element's tag, classes, inline style and attributes, up to the
+  // labels' SVG, its hover and keyboard focus, and the page's look (epoch: the theme, a mode, the text size). A picture is drawn from the
+  // kept style; one not kept yet (a new class, a hover, a new theme) is read in a task of its own just after the frame (fillStyles), the
+  // label keeping its last picture meanwhile, or the SVG drawing it for that one frame. An element whose style is easing as it is read
+  // is kept for itself alone till its animations end (its eases are followed meanwhile: label-track.js), then read again at rest.
+  const MISS = new Error('style not read yet');
+  const STYLE_PROPS = ['display', 'opacity', 'filter', 'outlineStyle', 'outlineWidth', 'outlineColor', 'outlineOffset', 'fill', 'stroke', 'strokeWidth', 'paintOrder',
+    'fontStyle', 'fontWeight', 'fontSize', 'fontFamily', 'letterSpacing', 'fontVariantNumeric', 'strokeLinejoin', 'strokeLinecap', 'strokeDasharray', 'strokeDashoffset'];
+  const VOLATILE = new Set(['x', 'y', 'dx', 'dy', 'width', 'height', 'rx', 'ry', 'cx', 'cy', 'r', 'd', 'transform', 'data-gl', 'aria-label', 'tabindex', 'role']);
+  let epoch = 0, fillT = 0;
+  const snaps = new Map(), easing = new WeakMap(), unread = new Set(), waiting = new Set();
+  function styleKey(el) {
+    let k = String(epoch);
+    for (let e = el; e; e = e.parentElement) {
+      k += `|${e.tagName}`;
+      if (e === svg) { k += `.${e.getAttribute('class') || ''}`; break; }
+      for (const a of e.attributes) if (!VOLATILE.has(a.name)) k += ` ${a.name}=${a.value}`;
+      if (e.classList?.contains('lb')) { try { k += `:${e.matches(':hover') ? 'h' : ''}${e.matches(':focus-visible') ? 'f' : ''}`; } catch { /* no state */ } }
+    }
+    return k;
+  }
+  function styleOf(el) {
+    const k = styleKey(el), e = easing.get(el);
+    if (e && e.key === k) return e.s;
+    const s = snaps.get(k);
+    if (s) return s;
+    unread.add(el);
+    if (!fillT) fillT = setTimeout(fillStyles, 0);
+    throw MISS;
+  }
+  function fillStyles() {
+    fillT = 0;
+    const els = [...unread];
+    unread.clear();
+    for (const el of els) {
+      if (!el.isConnected) continue;
+      const k = styleKey(el);
+      if (snaps.has(k) || easing.get(el)?.key === k) continue;
+      const c = getComputedStyle(el), s = {};
+      for (const p of STYLE_PROPS) s[p] = c[p];
+      let anims;
+      try { anims = el.getAnimations().filter((a) => a.playState !== 'finished' && a.playState !== 'idle'); } catch { anims = []; }
+      if (!anims.length) { snaps.set(k, s); continue; }
+      easing.set(el, { key: k, s });
+      Promise.allSettled(anims.map((a) => a.finished)).then(() => { if (easing.get(el)?.key === k) easing.delete(el); unread.add(el); if (!fillT) fillT = setTimeout(fillStyles, 0); });
+    }
+    if (snaps.size > 2000) snaps.clear();
+    // (The labels and marks that waited for these are read again at the next picture.)
+    for (const el of waiting) { if (markOf(el)) markDirty.add(el); else dirty.add(el); }
+    waiting.clear();
+    ask();
+  }
+  const restyle = () => { epoch++; };
   // (A Map that only ever lengthens a label's time: a short event's 700 ms never cuts a held fade's longer one, e.g. a step's number waiting for its turn.)
   class Until extends Map { set(k, t) { return super.set(k, Math.max(t, this.get(k) || 0)); } }
   const live = new Until();          // group → until (ms): a fade, an ease or a hover is running, its look read each frame
@@ -609,20 +662,19 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // nothing (classList.add of a class it has) is passed over.)
   const changed = (r) => r.type !== 'attributes' || r.oldValue !== r.target.getAttribute(r.attributeName);
   // (The layer's own group: its text scale, --lbk, sets the halos' width: every label.)
-  const take = (rs) => { for (const r of rs) { if (!changed(r)) continue; if (r.target === blocks && r.type === 'attributes') { for (const s of last) dirty.add(s.g); continue; } const g = labelOf(r.target); if (g) dirty.add(g); } };
+  const take = (rs) => { for (const r of rs) { if (!changed(r)) continue; if (r.target === blocks && r.type === 'attributes') { restyle(); for (const s of last) dirty.add(s.g); continue; } const g = labelOf(r.target); if (g) dirty.add(g); } };
   const mo = new MutationObserver((rs) => { take(rs); if (dirty.size) ask(); });
   mo.observe(blocks, { subtree: true, childList: true, characterData: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'x', 'y', 'dx', 'width', 'height', 'rx', 'fill', 'font-size', 'font-weight', 'letter-spacing', 'text-anchor'] });
   // Anything outside them that can change how they look (the theme, the glass setting, the text size, a mode's class): every label.
-  const all = () => { const t = performance.now() + 700; for (const s of last) { dirty.add(s.g); live.set(s.g, t); exact.set(s.g, t); } allMarks(); ask(); };
+  const all = () => { restyle(); const t = performance.now() + 700; for (const s of last) { dirty.add(s.g); live.set(s.g, t); if (!TRACK) exact.set(s.g, t); } allMarks(); ask(); };
   // (Not for a gesture's own classes, which change no label's look (idle-keys.js GESTURE_LOOK): each one made every label and mark read
   // again on every frame for 0.7 s as a pan or pinch began and as it ended. 30 Oct, review G3.)
   const outer = new MutationObserver((rs) => { if (rs.some((r) => changed(r) && !classOnly(r, GESTURE_LOOK))) all(); });
   for (let el = svg.parentElement; el; el = el.parentElement) outer.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class', 'data-theme', 'data-palette', 'data-noglass', 'data-mode'] });
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', all);
   addEventListener('pps:labelscale', all);   // (the text size: --label-k on the page)
-  // A CSS fade or colour ease, a hover (its colour comes with no class), a focus: that label is read each frame till it ends.
-  const EXACT = new Set(['pointerover', 'pointerout', 'focusin', 'focusout']);
-  const hold = (ev, ms = 700) => { const g = labelOf(ev.target); if (g) { dirty.add(g); const t = performance.now() + ms; live.set(g, t); if (!TRACK || EXACT.has(ev.type)) exact.set(g, t); ask(); } };
+  // A CSS fade or colour ease, a hover, a focus: that label's eases are followed till they end (its style read once, off the frame: styleOf).
+  const hold = (ev, ms = 700) => { const g = labelOf(ev.target); if (g) { dirty.add(g); const t = performance.now() + ms; live.set(g, t); if (!TRACK) exact.set(g, t); ask(); } };
   for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel', 'pointerover', 'pointerout', 'focusin', 'focusout']) blocks.addEventListener(t, (ev) => hold(ev), true);
   // The leaders and their dots (marks: their layers, the leaders' and the FibroScan callout's): read as the labels are.
   const looks = new WeakMap(), markLive = new Until(), markDirty = new Set(), markExact = new Until();
@@ -632,7 +684,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     mmo.observe(root, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style'] });
     for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel']) root.addEventListener(t, (ev) => { const el = markOf(ev.target); if (el) { markDirty.add(el); markLive.set(el, performance.now() + 800); ask(); } }, true);
   }
-  const allMarks = () => { const t = performance.now() + 700; for (const root of marks) { markDirty.add(root); markLive.set(root, t); markExact.set(root, t); for (const el of root.children) { markDirty.add(el); markLive.set(el, t); markExact.set(el, t); } } };
+  const allMarks = () => { const t = performance.now() + 700; for (const root of marks) { markDirty.add(root); markLive.set(root, t); if (!TRACK) markExact.set(root, t); for (const el of root.children) { markDirty.add(el); markLive.set(el, t); if (!TRACK) markExact.set(el, t); } } };
   canvas.addEventListener('webglcontextlost', (e) => {
     e.preventDefault(); lost = true;
     for (const s of last) s.g.removeAttribute('data-gl');
@@ -707,7 +759,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
   function refresh(g, rot, given = null) {
     let st = sprites.get(g);
     if (!st) { st = { mode: 'none', key: '', slot: null }; sprites.set(g, st); }
-    const d = given || describeBlock(g);
+    let d;
+    try { d = given || describeBlock(g, styleOf); } catch (e) {
+      if (e !== MISS) throw e;
+      // (Its style not read yet: its last picture stays, or the SVG draws it for this frame; read just after it, then drawn again.)
+      waiting.add(g);
+      if (st.mode !== 'gl' || !st.slot) st.mode = 'svg';
+      return st;
+    }
     st.mode = !d ? 'none' : svgOnly(d) ? 'svg' : 'gl';
     if (st.mode !== 'gl') return st;
     const key = lookKey(d, rot, dpr);
@@ -739,11 +798,12 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (m?.paint) {
       const pairs = m.paint.pairs;
       const cs = (el) => {
-        const c = getComputedStyle(el), mine = [];
+        const c = styleOf(el), mine = [];
         pairs.forEach((q, i) => { if (q.el === el) mine.push([q.prop, TOK + i]); });
         return mine.length ? new Proxy(c, { get: (o, k) => { const hit = mine.find((x) => x[0] === k); return hit ? hit[1] : o[k]; } }) : c;
       };
-      const base = describeBlock(g, cs);
+      let base;
+      try { base = describeBlock(g, cs); } catch (e) { if (e !== MISS) throw e; base = null; }
       if (base && !base.svg && base.parts) {
         m.base = base; m.w = trackAt(m, now).w;
         st = refresh(g, rot, fillLook(m, m.w));
@@ -1028,7 +1088,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const isLive = markLive.has(el), exactly = markExact.has(el);
     if (!lk || markDirty.has(el) || (isLive && (exactly || !lk.trk))) {
       const tracked = TRACK && isLive && !exactly && (!lk || lk.trk !== false || markDirty.has(el));
-      lk = { st: el.tagName === 'g' ? { op: NUM(getComputedStyle(el).opacity) } : describeMark(el), trk: tracked ? false : null };
+      let st0;
+      try { st0 = el.tagName === 'g' ? { op: NUM(styleOf(el).opacity) } : describeMark(el, styleOf); } catch (e) {
+        if (e !== MISS) throw e;
+        // (Its style not read yet: as it was, or the SVG's for this frame.)
+        waiting.add(el); markDirty.delete(el);
+        return lk ? (lk.cur || lk.st) : false;
+      }
+      lk = { st: st0, trk: tracked ? false : null };
       if (tracked && lk.st) {
         let m;
         try { m = trackOf(el.getAnimations(), el, (t) => t === el && el.tagName !== 'g', now); } catch { m = null; }
