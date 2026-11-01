@@ -22,7 +22,7 @@ export const GAS = {
   margin: 3.5,   // how far inside the wall the balloon stays, in world units: the wall's line and glow, and the balloon's own edge
   slack: 8,      // how far down the tube the balloon sits before the traction, in world units; the traction draws it up this far
   neck: 1.6,     // the half width of the collapsed balloon: a sheath on the tube (the esophageal one: BALLOON.sleeve)
-  pole: 0,       // from the middle of the cardia to the balloon's upper end, along the tube: the cone's tip is at the cardia, where the tube bends into the axis
+  bend: 10,      // the radius of the tube's bend at the cardia, from the esophagus's line into the balloon's axis, in world units (a real tube curves, it does not corner)
   tail: 7,       // the tube past the balloon's lower end
   bMax: 20,      // the half width it is drawn at when the stomach has room for it (about twice the esophagus's)
   ratio: 2.9,    // its length over its half width
@@ -129,6 +129,23 @@ function pearOutline(p0, dir, L, b, h0, n) {
   return { ring: [...A, ...B.reverse()], half };
 }
 
+/** The esophagus's line where the esophageal balloon ends and the tube starts to bend: its point E and its unit direction t (down the esophagus). */
+const eso = () => {
+  const eb = BALLOON.bottom, c = esoAt(eb).c, d = [c - esoAt(eb - 8).c, 8], l = Math.hypot(d[0], d[1]);
+  return { E: [c, eb], t: [d[0] / l, d[1] / l] };
+};
+/**
+ * The tube's bend at the cardia for a balloon axis at `deg` (below the horizontal): a circular arc of radius GAS.bend that turns the tube from the esophagus's
+ * line into the axis, tangent to both, evenly stepped (about 2 units apart, so a curve drawn through the points does not kink or loop). The points after the
+ * start, as offsets from E (where the esophageal balloon ends); the last one is where the axis begins, the balloon's upper end.
+ */
+export function bendArc(deg) {
+  const { t } = eso(), n = [t[1], -t[0]], a = (deg * Math.PI) / 180, dir = [Math.cos(a), Math.sin(a)], th = Math.atan2(n[0] * dir[0] + n[1] * dir[1], t[0] * dir[0] + t[1] * dir[1]);
+  const R = GAS.bend, N = Math.max(3, Math.ceil((R * th) / 2)), out = [];
+  for (let i = 1; i <= N; i++) { const ph = (th * i) / N, s = R * Math.sin(ph), c = R * (1 - Math.cos(ph)); out.push([s * t[0] + c * n[0], s * t[1] + c * n[1]]); }
+  return out;
+}
+
 /**
  * The balloon fitted to a stomach outline: where the tube meets the cardia (the middle of the esophagus's foot), the axis down the
  * stomach's upper part that leaves the balloon the most room, and the largest half width b (up to GAS.bMax) at which the filled balloon,
@@ -137,8 +154,10 @@ function pearOutline(p0, dir, L, b, h0, n) {
  * the balloon a little, never a lot. → { mouth, dir, deg, p0 (the balloon's upper end, drawn up), b, L }
  */
 export function fitGas(poly = paintedOutline(), mouth = [esoAt(251).c, 251]) {
-  const { slack, pole, ratio, bMax, neck } = GAS;
-  const at = (deg) => { const t = (deg * Math.PI) / 180, dir = [Math.cos(t), Math.sin(t)]; return { dir, p0: [mouth[0] + dir[0] * pole, mouth[1] + dir[1] * pole] }; };
+  const { slack, ratio, bMax, neck } = GAS;
+  // (The balloon's upper end is where the tube's bend ends, the cardia being where it is on this outline: the same bend as the tube's, so the tube runs on into the balloon.)
+  const { E } = eso(), start = [mouth[0] + E[0] - esoAt(251).c, mouth[1] + E[1] - 251];
+  const at = (deg) => { const t = (deg * Math.PI) / 180, dir = [Math.cos(t), Math.sin(t)], end = bendArc(deg).at(-1); return { dir, p0: [start[0] + end[0], start[1] + end[1]] }; };
   // The widest half width that fits with the axis at deg (bisected; n points round the outline, a coarse look first, a fine one at the end).
   const widest = (deg, steps, n) => {
     const { dir, p0 } = at(deg);
@@ -203,12 +222,10 @@ export function tubePath(f = fit()) {
   if (PATH && PATH.f === f) return PATH;
   const pts = [];
   for (let y = BALLOON.from; y <= BALLOON.bottom; y += 4) pts.push([esoAt(y).c, y]);
-  // The bend: a quadratic from the esophagus's middle at the esophageal balloon's lower end (so the balloon lies on the tube all its length) into the
-  // axis at the gastric balloon's upper end.
-  const eb = BALLOON.bottom, E = [esoAt(eb).c, eb], t = [esoAt(eb).c - esoAt(eb - 8).c, 8], tl = Math.hypot(t[0], t[1]), uE = [t[0] / tl, t[1] / tl];
-  const dx = f.p0[0] - E[0], dy = f.p0[1] - E[1], det = uE[0] * f.dir[1] - uE[1] * f.dir[0];
-  const a = (dx * f.dir[1] - dy * f.dir[0]) / det, K = [E[0] + uE[0] * a, E[1] + uE[1] * a];
-  for (let i = 1; i <= 10; i++) { const u = i / 10, m = 1 - u; pts.push([m * m * E[0] + 2 * m * u * K[0] + u * u * f.p0[0], m * m * E[1] + 2 * m * u * K[1] + u * u * f.p0[1]]); }
+  // The bend: a circular arc from the esophagus's middle at the esophageal balloon's lower end (so the balloon lies on the tube all its length) into the axis
+  // at the gastric balloon's upper end (bendArc), then the axis itself.
+  const { E } = eso();
+  for (const [dx, dy] of bendArc(f.deg)) pts.push([E[0] + dx, E[1] + dy]);
   const p0i = pts.length - 1, run = f.L + GAS.tail + GAS.slack;
   for (let u = 4; u < run; u += 4) pts.push([f.p0[0] + f.dir[0] * u, f.p0[1] + f.dir[1] * u]);
   pts.push([f.p0[0] + f.dir[0] * run, f.p0[1] + f.dir[1] * run]);
@@ -240,7 +257,7 @@ export function tubeTip(a, q = 0, path = tubePath()) {
   const g = Math.min(1, Math.max(0, a));
   return g * path.total - GAS.slack * Math.min(1, Math.max(0, q)) * g;
 }
-/** The tube's points as far as its tip has gone (tubeTip): the last point is the tip itself. */
+/** The tube's points as far as its tip has gone (tubeTip): the last point is the tip itself, and no two of the last are closer than a point or two apart. */
 export function tubeTo(a, q = 0, path = tubePath()) {
   const goal = tubeTip(a, q, path), out = [];
   for (let i = 0; i < path.pts.length; i++) {
@@ -249,6 +266,8 @@ export function tubeTo(a, q = 0, path = tubePath()) {
     out.push([p[0] + (r[0] - p[0]) * u, p[1] + (r[1] - p[1]) * u]);
     break;
   }
+  // (A tip a hair past a point would make a curve drawn through them loop there, its last piece being so short: that point is dropped, the tip standing for it.)
+  if (out.length > 2 && Math.hypot(out.at(-1)[0] - out.at(-2)[0], out.at(-1)[1] - out.at(-2)[1]) < 1.5) out.splice(-2, 1);
   if (out.length < 2) out.push([path.pts[0][0], path.pts[0][1] + 0.01]);
   return out;
 }

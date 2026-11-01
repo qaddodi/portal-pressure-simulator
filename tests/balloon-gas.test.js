@@ -6,8 +6,8 @@
 import './dom-shim.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GAS, outlineOf, stomachOutline, paintedOutline, standoffAt, wallPress, clearance, fitGas, gasShape, tubePath, tubeTip, tubeTo, pathAt, arcAtY, sheath, sheathArcs, pullArrow, PULL } from '../src/ui/balloon-gas.js';
-import { balloonShape } from '../src/ui/balloon-eso.js';
+import { GAS, outlineOf, stomachOutline, paintedOutline, standoffAt, wallPress, bendArc, clearance, fitGas, gasShape, tubePath, tubeTip, tubeTo, pathAt, arcAtY, sheath, sheathArcs, pullArrow, PULL } from '../src/ui/balloon-gas.js';
+import { balloonShape, smoothPath } from '../src/ui/balloon-eso.js';
 import { esoAt, BALLOON } from '../src/ui/balloon-eso.js';
 import { SEAM_D } from '../src/ui/anatomy.js';
 
@@ -70,10 +70,12 @@ test('it is a balloon: it grows, from a sheath on the tube to a pear wider than 
 test('the traction draws it up the tube to the cardia, and the cone seats there', () => {
   const f = fitGas(), loose = gasShape(1, 0), seated = gasShape(1, 1);
   assert.ok(Math.abs(dist(seated.p0, loose.p0) - GAS.slack) < 1e-9, 'drawn up by the slack, along the tube');
-  assert.ok(Math.abs((seated.p0[0] - f.mouth[0]) * f.dir[0] + (seated.p0[1] - f.mouth[1]) * f.dir[1] - GAS.pole) < 1e-6 && Math.abs(dist(seated.p0, f.mouth) - Math.abs(GAS.pole)) < 1e-6, 'its upper end is the pole from the cardia, on the axis');
+  // Its upper end is where the tube's bend ends, at the cardia: the bend from the esophageal balloon's lower end into the axis.
+  const end = bendArc(f.deg).at(-1), E = [esoAt(BALLOON.bottom).c, BALLOON.bottom];
+  assert.ok(dist(seated.p0, [E[0] + end[0], E[1] + end[1]]) < 1e-9, 'its upper end is where the bend ends');
   const near = (s) => Math.min(...s.outline.map((p) => dist(p, MOUTH)));
   assert.ok(near(seated) < near(loose) - 1, 'the balloon is closer to the cardia once drawn up');
-  assert.ok(near(seated) <= Math.abs(GAS.pole) + GAS.neck, 'against the cardia: no further from it than the tube between, and its sheath');
+  assert.ok(near(seated) <= 3.5, `against the cardia: ${near(seated).toFixed(1)} from the middle of its opening`);
   // The axis runs down into the stomach from the cardia, not across it.
   assert.ok(f.deg > 20 && f.deg < 80);
   // A half-filled balloon is part way, on the same axis.
@@ -99,11 +101,11 @@ test('the tube runs down the middle of the esophagus, bends at the cardia, and g
   assert.ok(Math.abs(dist(tip, f.p0) - (f.L + GAS.tail + GAS.slack)) < 1e-9, 'before the traction it rests the slack further in');
   assert.ok(clearance(tip) >= GAS.margin, 'the tip is inside the stomach too');
   for (let i = 1; i < P.arc.length; i++) assert.ok(P.arc[i] > P.arc[i - 1], 'one steady run');
-  // The bend is the one elbow at the cardia, from the esophagus's line into the axis (about half a right angle): no step turns more than 55°, no hook.
+  // The bend is one smooth curve at the cardia, from the esophagus's line into the axis (about half a right angle, a radius of GAS.bend): no step turns more than 15°, no corner, no hook.
   for (let i = 2; i < P.pts.length; i++) {
     const a = [P.pts[i - 1][0] - P.pts[i - 2][0], P.pts[i - 1][1] - P.pts[i - 2][1]], b = [P.pts[i][0] - P.pts[i - 1][0], P.pts[i][1] - P.pts[i - 1][1]];
     const turn = Math.acos(Math.min(1, (a[0] * b[0] + a[1] * b[1]) / (Math.hypot(...a) * Math.hypot(...b))));
-    assert.ok(turn < (55 * Math.PI) / 180, `a turn of ${((turn * 180) / Math.PI).toFixed(0)}° at ${P.pts[i].map((v) => v.toFixed(0))}`);
+    assert.ok(turn < (15 * Math.PI) / 180, `a turn of ${((turn * 180) / Math.PI).toFixed(0)}° at ${P.pts[i].map((v) => v.toFixed(0))}`);
   }
 });
 
@@ -253,8 +255,44 @@ test('the fit keeps the full size with the give: the balloon is as large as befo
   const f = fitGas();
   assert.equal(f.b, GAS.bMax);
   assert.equal(f.poly, PAINTED);
-  // Its axis is the pole from the cardia, so the cone is at the opening, and it presses on the roof round it, not on the lesser curvature below.
+  // Its cone is at the opening, where the tube's bend ends, and it presses on the roof round it, not on the lesser curvature below.
   const s = gasShape(1, 1), by = moved(s), at = s.outline[by.indexOf(Math.max(...by))];
   assert.ok(dist(at, MOUTH) < GAS.reach[0] + 4, `the deepest give is ${dist(at, MOUTH).toFixed(0)} from the cardia`);
   assert.ok(at[1] < MOUTH[1] + 12, 'on the roof, not down the wall');
+});
+
+test('the tube is drawn as one smooth curve from the esophagus into the balloon, at every stage: no corner, no loop, no break at the cardia', () => {
+  // The curve the stage draws (a smooth path through the tube's points), sampled finely, and the heading at each sample.
+  const sample = (pts) => {
+    const n = smoothPath(pts).match(/-?\d+\.?\d*/g).map(Number), out = [[n[0], n[1]]];
+    let cur = [n[0], n[1]];
+    for (let i = 2; i + 5 < n.length + 1; i += 6) {
+      const c1 = [n[i], n[i + 1]], c2 = [n[i + 2], n[i + 3]], e = [n[i + 4], n[i + 5]];
+      for (let s = 1; s <= 12; s++) { const u = s / 12, m = 1 - u; out.push([m ** 3 * cur[0] + 3 * m * m * u * c1[0] + 3 * m * u * u * c2[0] + u ** 3 * e[0], m ** 3 * cur[1] + 3 * m * m * u * c1[1] + 3 * m * u * u * c2[1] + u ** 3 * e[1]]); }
+      cur = e;
+    }
+    return out;
+  };
+  const worstTurn = (line) => {
+    let worst = 0;
+    for (let i = 2; i < line.length; i++) {
+      const a = [line[i - 1][0] - line[i - 2][0], line[i - 1][1] - line[i - 2][1]], b = [line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]];
+      if (Math.hypot(...a) < 1e-6 || Math.hypot(...b) < 1e-6) continue;
+      worst = Math.max(worst, Math.acos(Math.max(-1, Math.min(1, (a[0] * b[0] + a[1] * b[1]) / (Math.hypot(...a) * Math.hypot(...b))))));
+    }
+    return (worst * 180) / Math.PI;
+  };
+  const P = tubePath();
+  for (const a of Array.from({ length: 29 }, (_, i) => 0.3 + i * 0.025)) for (const q of [0, 0.5, 1]) {   // (the tube as it slides in, the tip in the esophagus, through the bend and in the stomach)
+    const line = sample(tubeTo(a, q, P));
+    assert.ok(worstTurn(line) < 7, `advance ${a}, traction ${q}: a turn of ${worstTurn(line).toFixed(1)}° between samples a twelfth of a step apart`);
+  }
+  // The radius of the bend is about GAS.bend where it is tightest (the drawn curve is the arc, not a corner rounded off).
+  const line = sample(tubeTo(1, 1, P));
+  let tight = Infinity;
+  for (let i = 2; i < line.length; i += 1) {
+    const a = [line[i - 1][0] - line[i - 2][0], line[i - 1][1] - line[i - 2][1]], b = [line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]], turn = Math.acos(Math.max(-1, Math.min(1, (a[0] * b[0] + a[1] * b[1]) / (Math.hypot(...a) * Math.hypot(...b) || 1))));
+    if (turn > 1e-4) tight = Math.min(tight, ((Math.hypot(...a) + Math.hypot(...b)) / 2) / turn);
+  }
+  assert.ok(tight >= GAS.bend * 0.6, `the tightest curve has a radius of ${tight.toFixed(1)}, the bend's is ${GAS.bend}`);
 });
