@@ -1115,12 +1115,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       await until(() => { if (cut()) return true; const g = stage.glideLeft?.(); return !g || g.left <= g.ms * early; }, gl + 1500); return;
     }
     // (A camera beat or a flip of the scale, which wait for no cards: its call-outs come once the glide has landed, 480 to 900 ms and an arc's
-    // stretch, not 1.5 s after it set off; and at once when the framing did not change, where no glide began. One timer, then a look.)
-    if (ONE_MOVE && gl) {
-      const g0 = stage.glideLeft?.();
-      if (g0?.ms) await wait(Math.max(0, g0.left - 40));
-      await until(() => cut() || !stage.gliding(), gl + 1500); return;
-    }
+    // stretch, not 1.5 s after it set off; and at once when the framing did not change, where no glide began. Polled, so a beat pressed
+    // again while this one moves is noticed within a frame or two, not after the glide: nothing waits on the exact frame it lands.)
+    if (ONE_MOVE && gl) { await until(() => cut() || !stage.gliding(), gl + 1500); return; }
     await wait(gl);
   }
   // (left: only the entrances with more than this many ms still to run count: 0 is all of them; CARDS_SEEN, the cards in sight.)

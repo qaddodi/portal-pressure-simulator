@@ -104,10 +104,12 @@ test('a move cut by a newer slide leaves its cards unseen instead of bringing th
 
 // A camera beat and a flip of the scale (they wait for no cards) used to wait a flat 1.5 s after the glide set off, though the glide lands in
 // 480 to 900 ms (camMs, and an arc's stretch), and at all when the framing did not change: their call-outs came late. Now the wait is the glide's.
-test('a move that waits for no cards ends with its glide: a timer to the landing, then a look; ?onemove=0 keeps the flat wait', () => {
+test('a move that waits for no cards ends with its glide: polled, cut by a newer beat; ?onemove=0 keeps the flat wait', () => {
   const tail = cam.slice(cam.indexOf('if (ONE_MOVE && gl) {'), cam.indexOf('await wait(gl);') + 'await wait(gl);'.length);
   assert.ok(tail.startsWith('if (ONE_MOVE && gl) {'), 'the flag gates the new wait');
-  assert.match(tail, /const g0 = stage\.glideLeft\?\.\(\);\s*if \(g0\?\.ms\) await wait\(Math\.max\(0, g0\.left - 40\)\);\s*await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), gl \+ 1500\); return;\s*\}\s*await wait\(gl\);$/);
+  assert.match(tail, /^if \(ONE_MOVE && gl\) \{ await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), gl \+ 1500\); return; \}\s*await wait\(gl\);$/);
+  // (polled, never one timer: a beat pressed again while this one moves is noticed within a frame or two, not after the glide)
+  assert.doesNotMatch(tail, /glideLeft/);
   // (the callers: a beat and a flip of the scale paint their call-outs right after the camera returns)
   const beatMove = src.slice(src.indexOf('async function beatMove('), src.indexOf('function clearPill()'));
   assert.ok(beatMove.indexOf('await camera(cam, v, cut)') > 0 && beatMove.indexOf('await camera(cam, v, cut)') < beatMove.indexOf('paintOverlays(v, i,'));
