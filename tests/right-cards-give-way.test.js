@@ -68,9 +68,10 @@ test('the feedback ask waits for every open working surface on every screen (Tes
 test('the Compare strip centres in the room the right-hand cards leave, and eases as they come and go', () => {
   const css = read('styles/app.css');
   const rule = css.match(/^\.sb-center\.float-ui \{([^}]*)\}/m)?.[1] ?? '';
-  assert.match(rule, /right: calc\(env\(safe-area-inset-right\) \+ var\(--gap\) \+ var\(--right-occ, 0px\)\)/);
+  // (since the off-GPU gate: the room's centre is reached by translate, half the cards' width, not by easing right)
+  assert.match(rule, /right: calc\(env\(safe-area-inset-right\) \+ var\(--gap\)\);/);
   assert.match(rule, /left: calc\(env\(safe-area-inset-left\) \+ var\(--gap\)\)/);
-  assert.match(rule, /transition: right var\(--d-small\) var\(--ease\)/);
+  assert.match(rule, /translate: calc\(-\.5 \* var\(--right-occ, 0px\)\) 0; transition: translate var\(--d-small\) var\(--ease\)/);
   assert.doesNotMatch(rule, /translateX\(-50%\)/, 'no longer centred on the whole window');
-  assert.match(css, /^\.sb-center\.float-ui > \* \{ pointer-events: auto; margin-inline: auto; \}/m);
+  assert.match(css, /^\.sb-center\.float-ui > \* \{ pointer-events: auto; margin-inline: auto; max-width: calc\(100% - var\(--right-occ, 0px\)\); \}/m);
 });

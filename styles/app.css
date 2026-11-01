@@ -4118,8 +4118,8 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 /* The compare switch floats under the top bar, centered. */
 /* (It centres in the room the cards on the right leave, --right-occ, and eases as they come and go: centred on the whole window, "Differences" ran under an
    open Details card on an iPad held sideways. The auto margins centre it when there is room; when there is not, it starts at the left edge.) */
-.sb-center.float-ui { position: absolute; z-index: var(--z-hud); top: calc(var(--top-safe) + 6px); left: calc(env(safe-area-inset-left) + var(--gap)); right: calc(env(safe-area-inset-right) + var(--gap) + var(--right-occ, 0px)); display: flex; justify-content: flex-start; pointer-events: none; transition: right var(--d-small) var(--ease); }
-.sb-center.float-ui > * { pointer-events: auto; margin-inline: auto; }
+.sb-center.float-ui { position: absolute; z-index: var(--z-hud); top: calc(var(--top-safe) + 6px); left: calc(env(safe-area-inset-left) + var(--gap)); right: calc(env(safe-area-inset-right) + var(--gap)); display: flex; justify-content: flex-start; pointer-events: none; translate: calc(-.5 * var(--right-occ, 0px)) 0; transition: translate var(--d-small) var(--ease); }   /* (centred in the room the right-hand cards leave by translate, half their width: eased on the compositor, no right eased) */
+.sb-center.float-ui > * { pointer-events: auto; margin-inline: auto; max-width: calc(100% - var(--right-occ, 0px)); }
 .sb-center.float-ui:has(.sb-banner:empty) { display: none; }
 .sb-center .sb-banner { padding: 4px 4px 4px 12px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-pill); }
 
@@ -4804,7 +4804,7 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .vdock.mini { grid-template-columns: auto; grid-template-areas: "tl"; right: auto; width: max-content; }   /* a small pill in the lower-left corner: the lower-right is the zoom controls' */
 .vdock.mini .readouts { display: none; }
 .vdock.mini .stage-bar.bottom { height: 54px; min-height: 54px; padding: 0 12px 0 4px; }
-.app.figure-focus .zoom-pill { transition: opacity var(--d-surface, .42s) var(--ease), translate var(--d-small) var(--ease), bottom var(--d-small) var(--ease), transform var(--d-small) var(--ease), font-size var(--d-small) var(--ease); }
+.app.figure-focus .zoom-pill { transition: opacity var(--d-surface, .42s) var(--ease), translate var(--d-small) var(--ease), transform var(--d-small) var(--ease), font-size var(--d-small) var(--ease); }
 /* The credit is never animated: no glide, no fade, no scale ease. When it must move it vanishes at once, stays hidden until the
    cards and camera settle, and appears at once at its new spot (src/ui/credit.js). */
 .stage-credit { transition: none; }
@@ -4817,7 +4817,8 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .vdock.mini .tl-time { display: inline !important; min-width: 0; text-align: left; }
 /* The zoom controls drop to the lower-right corner, level with the pill, while the figure is being moved. */
 @media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
-  .app.figure-focus .zoom-pill:not(.under-sheet) { bottom: calc(env(safe-area-inset-bottom) + 6px + 6px); }
+  /* (by translate from its usual place, so the drop eases on the compositor: no bottom eased) */
+  .app.figure-focus .zoom-pill:not(.under-sheet) { translate: 0 calc(var(--bot-occ, 120px) + 8px - env(safe-area-inset-bottom) - 12px - var(--sheet-h, 0px)); }
 }
 .topbar .stage-bar.top { transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease), visibility var(--d-small); }   /* (visibility last, so the fade-out finishes before it flips) */
 .app.figure-focus .topbar.two-rows .stage-bar.top { opacity: 0; visibility: hidden; transform: translateY(-8px); pointer-events: none; }
@@ -4936,7 +4937,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pzk-names { display: grid; align-items: end; min-height: 1.6em; padding-bottom: .3em; box-sizing: border-box; }
 .pzk-names span { padding: 0 .2em; text-align: center; font-weight: var(--caps-w); font-size: var(--s-cap); line-height: 1.15; letter-spacing: var(--caps-ls); text-transform: uppercase; }
 .pzk-names [data-rate="ok"] { color: var(--ok-ink); } .pzk-names [data-rate="mid"] { color: var(--caution-ink); } .pzk-names [data-rate="hi"], .pzk-names [data-rate="top"] { color: var(--danger-ink); }
-.pzk-bar { height: 1.5em; }
+.pzk-bar { height: 1.5em; container-type: inline-size; }   /* (1cqw: a hundredth of the bar, for the dots' translate) */
 .pzk-bar i { position: absolute; top: .25em; bottom: .25em; }
 .pzk-bar i:first-child { border-radius: 99px 0 0 99px; } .pzk-bar i:nth-last-of-type(1) { border-radius: 0 99px 99px 0; }
 .pzk-bar i[data-rate="ok"] { background: color-mix(in srgb, var(--ok) 28%, transparent); }
@@ -4946,8 +4947,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pzk-bar b { position: absolute; top: -.15em; bottom: -.15em; width: 2px; margin-left: -1px; background: var(--text-2); }
 .pzk-dot { --d: calc(var(--sk, 14px) * .72); position: absolute; top: 50%; left: 0; width: calc(var(--d) * 2.1); height: calc(var(--d) * 2.1); margin: calc(var(--d) * -1.05) 0 0 calc(var(--d) * -1.05); border-radius: 50%; display: grid; place-items: center;
   background: var(--surface); border: calc(var(--d) * .17) solid currentColor; font: 700 max(var(--d), 12px)/1 var(--font-ui); color: var(--text-2); box-sizing: border-box;   /* (the dot is the size it was, .72 of the scale's text; its digit is never under 12 px) */
-  opacity: 0; transition: left 1.4s var(--ease) /*own pace*/ calc(var(--i, 0) * 160ms + 250ms), opacity var(--d-surface) var(--ease) calc(var(--i, 0) * 160ms + 100ms); }
-.pz-sk.in .pzk-dot { left: var(--x); opacity: 1; }
+  opacity: 0; transition: translate 1.4s var(--ease) /*own pace*/ calc(var(--i, 0) * 160ms + 250ms), opacity var(--d-surface) var(--ease) calc(var(--i, 0) * 160ms + 100ms); }
+.pz-sk.in .pzk-dot { translate: var(--xq) 0; opacity: 1; }   /* (by translate from the bar's start: no layout per frame) */
 .pzk-dot[data-rate="ok"], .pzk-key [data-rate="ok"] .pzk-n, .pzk-key [data-rate="ok"] .pzk-v { color: var(--ok-ink); }   /* (the dot is a ring with a digit in it: text, so the ink) */
 .pzk-dot[data-rate="mid"], .pzk-key [data-rate="mid"] .pzk-n, .pzk-key [data-rate="mid"] .pzk-v { color: var(--caution-ink); }
 .pzk-dot[data-rate="hi"], .pzk-key [data-rate="hi"] .pzk-n, .pzk-key [data-rate="hi"] .pzk-v { color: var(--danger-ink); }
@@ -6355,7 +6356,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .instrument-workspace .dock-head.tabbed > .instr-tabs { flex: 1 1 auto; min-width: 0; margin: 0; }
 .instrument-workspace .dock-head.tabbed .card-close.card-close { position: static; transform: none; flex: none; width: 36px; height: 36px; margin-left: auto; }
 .instrument-workspace .dock-head .ws-tabs.tight .instr-tab, .instrument-workspace .dock-head .ws-tabs.tight .instr-tab[aria-selected="true"] { flex: 1 1 auto; flex-direction: row; gap: 0; height: 34px; min-width: 0; padding: 0 8px; }
-.instrument-workspace .dock-head .ws-tabs.tight .it-t { max-width: 0; margin-left: 0; opacity: 0; overflow: hidden; transition: max-width var(--d-small) var(--ease), margin-left var(--d-small) var(--ease), opacity var(--d-flip) var(--ease); }
+.instrument-workspace .dock-head .ws-tabs.tight .it-t { max-width: 0; margin-left: 0; opacity: 0; overflow: hidden; transition: opacity var(--d-flip) var(--ease); }   /* (the name takes its room at once and fades; the tabs slide by translate: dock.js) */
 .instrument-workspace .dock-head .ws-tabs.tight .instr-tab[aria-selected="true"] .it-t { max-width: 120px; margin-left: 5px; opacity: 1; }
 /* (The open tab keeps its whole name, never cut: the icons give way to it, down to their own width. Where even that leaves no
    room, the open tab is an icon like the rest (dock.js fitTabs, "bare"). The coordinator's 667 x 375 check: "Pressur".) */

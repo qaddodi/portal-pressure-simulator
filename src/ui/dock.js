@@ -681,6 +681,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     body.classList.toggle('stack', open.length > 1 && (isPair() || (isSide() && state !== 'focus')));
     body.classList.toggle('pair', isPair());
     paintTitle();
+    // (In a tight row the open tab shows its name and the others give way at once; each slides from where it stood by translate.)
+    const flip = tabs.classList.contains('tight') && !matchMedia('(prefers-reduced-motion: reduce)').matches ? TABS.map((id) => [tabEls[id].b, tabEls[id].b.offsetLeft]) : null;
     for (const id of TABS) {
       const at = open.findIndex((x) => tabOf(x) === id), on = at >= 0;
       tabEls[id].b.setAttribute('aria-selected', String(on));
@@ -688,6 +690,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       tabEls[id].b.dataset.slot = on && open.length > 1 && !isPair() ? String(at + 1) : '';
     }
     fitTabs();
+    if (flip) for (const [b, x0] of flip) { const dx = x0 - b.offsetLeft; if (Math.abs(dx) > 0.5) b.animate([{ translate: `${dx}px 0` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
     remember();
     fitHeight();
     queueRefresh();
