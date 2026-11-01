@@ -14,6 +14,7 @@ import { store, replaceParams, onParamChange } from './store.js?v=80d4358be8';
 import { host } from './host.js?v=66efaebf2c';
 import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText } from './util.js?v=2659ec3c97';
 import { activeInterventions } from './inspector.js?v=df35a15e24';
+import { removedLabel } from './removed-label.js?v=ea3de67900';
 import { frameFor } from './frame.js?v=6a53e5fc6e';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=615d96d663';
 const nextFrame = frameFor('timeline');
@@ -140,7 +141,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     const before = labelsOf(baseline || p), after = labelsOf(p);
     const parts = [];
     for (const [k, l] of after) if (before.get(k) !== l) parts.push(l);
-    for (const [k, l] of before) if (!after.has(k)) parts.push(`No ${l.replace(/ \d.*$/, '').toLowerCase()}`);
+    for (const [k, l] of before) if (!after.has(k)) parts.push(removedLabel(k, l));
     baseline = structuredClone(p);
     const e = push({ kind: 'change', label: parts.length ? parts.slice(0, 3).join(' · ') + (parts.length > 3 ? ` · +${parts.length - 3}` : '') : fallback || 'Change', keys: [...after.keys()].filter((k) => before.get(k) !== after.get(k)) });
     snapInto(e);

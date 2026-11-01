@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { cutDp, SCALE } from '../src/ui/table-marks.js';
+import { removedLabel } from '../src/ui/removed-label.js';
 import './dom-shim.js';
 const { fmt } = await import('../src/ui/util.js');
 
@@ -320,4 +321,31 @@ test('the Patients preview names what its curve plots and its scale', () => {
 
 test('the Readouts tab never calls cardiac output just "Output"', () => {
   assert.match(src('src/ui/readouts-pane.js'), /\['co', 'Cardiac output', 'Cardiac output'\]/);
+});
+
+test('History says a put-away change as what is off: acronyms keep their case, values and units are cut, the odd ones read in words', () => {
+  const r = removedLabel;
+  assert.equal(r('tips', 'TIPS 8 mm'), 'No TIPS');
+  assert.equal(r('dips', 'DIPS 10 mm'), 'No DIPS');
+  assert.equal(r('drug:carvedilol', 'Carvedilol'), 'No carvedilol');
+  assert.equal(r('cirrhosis', 'Cirrhosis 60%'), 'No cirrhosis');
+  assert.equal(r('fib:pre', 'Presinusoidal fibrosis ×2.0'), 'No presinusoidal fibrosis');
+  assert.equal(r('fib:R:sin', 'Sinusoidal fibrosis, right lobe ×1.5'), 'No sinusoidal fibrosis, right lobe');
+  assert.equal(r('splTone', 'Splanchnic tone ×0.80'), 'Splanchnic tone back to normal');
+  assert.equal(r('sysTone', 'Systemic tone ×1.20'), 'Systemic tone back to normal');
+  assert.equal(r('habr', 'Arterial buffer ×0.50'), 'Arterial buffer back to normal');
+  assert.equal(r('contractility', 'RV contractility 80%'), 'RV contractility back to normal');
+  assert.equal(r('albumin', 'Albumin 3.0 g/dL'), 'Albumin back to 4.0 g/dL');
+  assert.equal(r('meal', 'After a meal'), 'Back to fasting');
+  assert.equal(r('sten:SV', 'Splenic vein narrowed 50%'), 'Splenic vein no longer narrowed');
+  assert.equal(r('thr:PV', 'Portal vein thrombus 40%'), 'Portal vein thrombus cleared');
+  assert.equal(r('occ:C5', 'BRTO (gastrorenal shunt occluded)'), 'Gastrorenal shunt open again');
+  assert.equal(r('occ:C6', 'Splenorenal shunt occluded'), 'Splenorenal shunt open again');
+  assert.equal(r('C5', 'No gastrorenal shunt (no fundal varices)'), 'Gastrorenal shunt present again');
+  assert.equal(r('pericardial', 'Pericardial constraint 50%'), 'No pericardial constraint');
+  assert.equal(r('gestation', 'Pregnancy 20 weeks'), 'No pregnancy');
+  // and the timeline uses it, not the old lowercasing
+  const t = src('src/ui/timeline.js');
+  assert.match(t, /parts\.push\(removedLabel\(k, l\)\)/);
+  assert.doesNotMatch(t, /toLowerCase\(\)\}`\)/);
 });

@@ -202,7 +202,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       let shown = false;
       const show = () => { if (shown) return; shown = true; if (box.isConnected && box.classList.contains('on')) li.scrollIntoView({ block: 'nearest', behavior: reduce.matches ? 'auto' : 'smooth' }); };
       box.addEventListener('transitionend', (e) => { if (e.target === box) show(); });
-      setTimeout(show, reduce.matches ? 0 : 320);
+      setTimeout(show, reduce.matches ? 0 : 450);
     }));
   }
   const $$rows = () => (el ? [...el.querySelectorAll('.um-row')] : []);
