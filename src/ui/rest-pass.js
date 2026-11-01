@@ -10,12 +10,12 @@
 //   const id = restPass(fn)   fn runs once, between frames
 //   cancelRest(id)
 //
-// ?restpass=0 runs them in the next frame instead, as before.
-import { frame, cancelFrame } from './frame.js?v=15d5254a2c';
+// ?restpass=0 runs each on a plain zero timer of its own instead (no shared message port), still never inside a frame.
 
 export const REST_PASS = !(typeof location !== 'undefined' && /[?&]restpass=0\b/.test(location.search || ''));
 
 let q = new Map(), next = 1, posted = false, port = null;
+const timers = new Map();
 function drain() {
   posted = false;
   const now = q;
@@ -31,8 +31,8 @@ function post() {
 
 /** Runs fn once, as a task between two frames (never inside one); returns an id for cancelRest (never 0). */
 export function restPass(fn) {
-  if (!REST_PASS) return -frame(fn, 'rest');
   const id = next++;
+  if (!REST_PASS) { timers.set(id, setTimeout(() => { timers.delete(id); fn(); }, 0)); return id; }
   q.set(id, fn);
   post();
   return id;
@@ -40,5 +40,5 @@ export function restPass(fn) {
 /** Cancels a rest pass not yet run (0 and spent ids are ignored). */
 export function cancelRest(id) {
   if (!id) return;
-  if (id < 0) cancelFrame(-id); else q.delete(id);
+  if (timers.has(id)) { clearTimeout(timers.get(id)); timers.delete(id); } else q.delete(id);
 }

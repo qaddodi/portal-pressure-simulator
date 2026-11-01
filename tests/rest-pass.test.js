@@ -7,7 +7,8 @@ import { readFileSync } from 'node:fs';
 let rafs = 0;
 globalThis.requestAnimationFrame = () => { rafs++; return rafs; };
 const { restPass, cancelRest, REST_PASS } = await import('../src/ui/rest-pass.js');
-const tick = () => new Promise((r) => setTimeout(r, 5));
+// (Waits for a pass to land, up to 2 s: a loaded test machine can hold a message past a short timer.)
+const tick = async (until = () => true) => { for (let t = 0; t < 400; t++) { await new Promise((r) => setTimeout(r, 5)); if (until()) return; } };
 
 test('a rest pass runs once as a task of its own, never through the frame scheduler', async () => {
   assert.equal(REST_PASS, true);
@@ -16,9 +17,16 @@ test('a rest pass runs once as a task of its own, never through the frame schedu
   restPass(() => ran.push('b'));
   assert.ok(a > 0);
   assert.deepEqual(ran, [], 'not run on the spot');
-  await tick();
+  await tick(() => ran.length >= 2);
   assert.deepEqual(ran, ['a', 'b'], 'in the order asked, once each');
   assert.equal(rafs, 0, 'no frame asked for');
+});
+
+test('a rest pass never goes through the frame scheduler, off switch included; the off-GPU scan knows it defers', () => {
+  const src = readFileSync(new URL('../src/ui/rest-pass.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /^import|requestAnimationFrame\(|\bframe\(fn/m);
+  const scan = readFileSync(new URL('../scripts/off-gpu-scan.mjs', import.meta.url), 'utf8');
+  assert.match(scan, /const DEFERRED = [^\n]*\|restPass\|/);
 });
 
 test('a cancelled rest pass never runs; one asked for while passes run waits for the next', async () => {
@@ -26,7 +34,7 @@ test('a cancelled rest pass never runs; one asked for while passes run waits for
   const a = restPass(() => ran.push('a'));
   cancelRest(a); cancelRest(0); cancelRest(a);
   restPass(() => { ran.push('b'); restPass(() => ran.push('c')); });
-  await tick(); await tick();
+  await tick(() => ran.length >= 2); await tick();
   assert.deepEqual(ran, ['b', 'c']);
 });
 
