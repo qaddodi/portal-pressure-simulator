@@ -1,13 +1,14 @@
 // The rounded plot (his G2 look, 27 Oct: "this rounded look we need to give maybe most of our graphs"): one shape the card's full width,
 // its fills clipped to rounded corners, its numbers on it in the FibroScan readings' style, no axis lines. src/ui/plot-look.js is the
 // shared piece; the planes draw their zones out to the element's edge with the numbers on the plot, and the curve, flow-time,
-// talk and ladder charts put their lines on a rounded panel that holds their numbers.
+// talk and ladder charts put their lines on a rounded panel that holds their numbers. A plane with no zones (the wedge against the
+// portal pressure, a scatter) has no shape whose edge could be the axis, so it draws axes of its own (1 Nov, Mohammad: "no axes?!").
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { plotR, plotPanel, plotFill, PLOT_R } from '../src/ui/plot-look.js';
-import { planeOf, frame, bleed, scaler, plotNumbers, PAD, est } from '../src/ui/visual-plane.js';
+import { planeOf, frame, bleed, scaler, plotNumbers, hasAxes, PAD, est } from '../src/ui/visual-plane.js';
 import { xAxisRow, xAxisName, xTicks, fmtTick } from '../src/ui/tool-curve.js';
 import { ZONE_TOP } from '../src/ui/tool-profile.js';
 
@@ -84,16 +85,20 @@ test('a number never sits on a point: a box kept off takes the number out, the a
   assert.deepEqual(hs.map((n) => n.text).sort(), ['10', '5', '6'], 'the y 12 beside the point is left out, the other cut-offs stay');
 });
 
-test('the charts all put their plot on a rounded panel, the planes draw their zones out to the edge, and no plane keeps an axis line', () => {
+test('the charts all put their plot on a rounded panel, the planes draw their zones out to the edge, and only a plane with no zones keeps axis lines', () => {
   for (const f of ['tool-curve', 'flow-time', 'talk-trace', 'tool-profile']) {
     const src = read(`../src/ui/${f}.js`);
     assert.match(src, /import \{ plotPanel \} from '\.\/plot-look\.js/, `${f} uses the shared rounded plot`);
     assert.match(src, /plotPanel\(sv, /, `${f} draws one`);
   }
   const plane = read('../src/ui/visual-plane.js');
-  assert.match(plane, /plotPanel\(sv, 0, 0, W, H, \{ fill: false \}\)/, 'the plane\'s zones are clipped to a rounded shape the element\'s size');
+  assert.match(plane, /plotPanel\(sv, 0, 0, W, H, \{ fill: axed \}\)/, 'the plane\'s zones are clipped to a rounded shape the element\'s size (a scatter has the panel itself behind its axes)');
   assert.match(plane, /bleed\(\{ x1: X\(x0\), x2: X\(x1\), y1: Y\(y1\), y2: Y\(y0\) \}, fr, W, H\)/, 'a zone that ends at the plot\'s edge goes on to the element\'s');
-  assert.doesNotMatch(plane, /pze-axis/, 'no axis lines: the rounded edge is the axis');
+  // (Axis lines only where there are no zones: the lines are drawn from axesMarks alone, which a plane with zones never calls, and each of the app's zone planes has its edge for an axis.)
+  assert.match(plane, /const axed = !card && hasAxes\(pl\)/, 'axes are drawn by the plane with none of its own shape, never in the data card');
+  assert.match(plane, /if \(ax\) for \(const l of \[\.\.\.ax\.axes, \.\.\.ax\.ticks\]\)/, 'the axis lines and ticks come from axesMarks alone');
+  for (const named of ['csph', 'hvpg-ppg']) assert.equal(hasAxes(planeOf(named)), false, `the ${named} plane keeps its zones' edge for an axis`);
+  assert.equal(hasAxes(planeOf({ x: 'pv', y: 'whvp', zones: [] })), true, 'a plane with no zones draws axes');
   assert.doesNotMatch(plane, /rotate\(-90\)/, 'no rotated axis name: the names stand on the plot');
   assert.match(css, /\.pz-plotbg \{ fill: var\(--surface-2\); \}/, 'the panel is the app\'s own tile tone');
   // (Mohammad, 29 Oct: the 55 % black outline the FibroScan readings wear on a picture smeared the plane's numbers and axis names, drawn in the

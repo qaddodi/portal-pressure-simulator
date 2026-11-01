@@ -177,6 +177,58 @@ export function plotNumbers(pl, fr, X, Y, fs, keepOff = [], part = 'all') {
   if (part !== 'names') for (const [, text, x, y, anchor] of rest) put(text, x, y, anchor, 'pze-t');
   return out;
 }
+/** A plane with no zones is a scatter (the wedge against the portal pressure): it has no coloured shape whose edge could stand for an
+ *  axis, so it draws its own (axesFrame, axesMarks). `axes: true` or `false` on a plane overrides this. A plane with zones keeps the
+ *  G2 look, the shape's edge as its axis and the numbers written on it. */
+export const hasAxes = (pl) => pl.axes ?? !(pl.zones || []).length;
+export const AX_TICK = 5, AX_GAP = 4;   // (a tick's length outward from the axis, and the clear gap between a tick and its number)
+const ticksOf = (a) => a.ticks || [a.min ?? 0, a.max];
+/** The plot area of a plane with axes, in the element's pixels: inside the panel, with a column for the y numbers on its left (the widest
+ *  number, a gap and the tick), a row above for the y axis's name, and under it a row for the x numbers and one for the x axis's name,
+ *  each on its own so no number is ever left out for a name. The last x number is centred on the plot's right edge, so the right
+ *  margin keeps half of it (6 px from the panel's edge: it stands in the foot row, clear of the rounded corner). */
+export function axesFrame(pl, W, H, fs) {
+  const yw = Math.max(...ticksOf(pl.y).map((v) => est(String(v), fs, 0.62))), xw = Math.max(...ticksOf(pl.x).map((v) => est(String(v), fs, 0.62)));
+  const nameBase = H - PAD - 3 - fs * 0.25, numBase = nameBase - fs * 1.3;
+  return {
+    L: PAD + 3 + yw + AX_TICK + AX_GAP + 2, R: W - PAD - xw / 2,
+    T: PAD + 3 + fs * 1.45 + AX_GAP + 3, B: numBase - fs * 0.72 - AX_TICK - AX_GAP,
+    numBase, nameBase,
+  };
+}
+/** What a plane with axes draws round its plot area fr: its hairline gridlines (one at each number but the first, which is the axis), the
+ *  two axis lines, a short tick outside the axis at each number, the numbers (the origin's one 0 shared, left of the x numbers' row
+ *  and under the y numbers' column), and the two names (x centred under the numbers, y at the panel's top left, each in the longest of
+ *  its name, short name and abbreviation that fits the panel). Lines are { x1, y1, x2, y2 }; words are as plotNumbers': { text, x,
+ *  y, anchor, cls, box }, y the baseline. */
+export function axesMarks(pl, fr, X, Y, fs, W) {
+  const x0 = pl.x.min ?? 0, y0 = pl.y.min ?? 0, xt = ticksOf(pl.x), yt = ticksOf(pl.y);
+  const grid = [], ticks = [], nums = [];
+  const boxOf = (text, x, y, anchor) => { const w = est(text, fs, 0.62), l = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2; return [l, y - fs * 0.8, l + w, y + fs * 0.25]; };
+  const put = (text, x, y, anchor, cls) => nums.push({ text, x, y, anchor, cls, box: boxOf(text, x, y, anchor) });
+  const shared = xt.includes(x0) && yt.includes(y0) && String(x0) === String(y0);
+  for (const v of xt) {
+    ticks.push({ x1: X(v), y1: fr.B, x2: X(v), y2: fr.B + AX_TICK });
+    if (v > x0) grid.push({ x1: X(v), y1: fr.T, x2: X(v), y2: fr.B });
+    if (!(shared && v === x0)) put(String(v), X(v), fr.numBase, 'middle', 'pze-t');
+  }
+  for (const v of yt) {
+    ticks.push({ x1: fr.L - AX_TICK, y1: Y(v), x2: fr.L, y2: Y(v) });
+    if (v > y0) { grid.push({ x1: fr.L, y1: Y(v), x2: fr.R, y2: Y(v) }); put(String(v), fr.L - AX_TICK - AX_GAP, Y(v) + fs * 0.35, 'end', 'pze-t'); }
+    else if (!shared) put(String(v), fr.L - AX_TICK - AX_GAP, Y(v) + fs * 0.35, 'end', 'pze-t');
+  }
+  // (One 0 for the origin, outside both axes: left of the x numbers and under the y numbers.)
+  if (shared) put(String(x0), fr.L - AX_TICK - AX_GAP, fr.numBase, 'end', 'pze-t');
+  const room = W - 2 * (PAD + 3), form = (a) => { const forms = [...new Set([a.name, a.short, a.abbr, a.key].filter(Boolean))]; return forms.find((t) => est(t, fs, 0.62) <= room) ?? forms.at(-1); };
+  const xn = form(pl.x), yn = form(pl.y), xw = est(xn, fs, 0.62);
+  const names = [];
+  if (pl.axisNames !== false) {
+    const cx = Math.min(Math.max((fr.L + fr.R) / 2, PAD + 3 + xw / 2), W - PAD - 3 - xw / 2);
+    names.push({ text: xn, x: cx, y: fr.nameBase, anchor: 'middle', cls: 'pze-ax', box: boxOf(xn, cx, fr.nameBase, 'middle') });
+    names.push({ text: yn, x: PAD + 3, y: PAD + 3 + fs * 0.8, anchor: 'start', cls: 'pze-ax', box: boxOf(yn, PAD + 3, PAD + 3 + fs * 0.8, 'start') });
+  }
+  return { grid, axes: [{ x1: fr.L, y1: fr.T, x2: fr.L, y2: fr.B }, { x1: fr.L, y1: fr.B, x2: fr.R, y2: fr.B }], ticks, nums, names };
+}
 /** Words that fit a width at a size: one line, else broken at spaces (or after a dash, as in Budd–Chiari) into as few lines as
  *  fit, else null (never cut short). */
 export function fitWords(t, w, fs, maxLines = 3) {
@@ -236,7 +288,8 @@ export function diagOf(pl, X, Y, fs = 13) {
   const text = typeof pl.diag === 'object' && pl.diag.label ? String(pl.diag.label) : '';
   // (Over the line, left of a point near its top: on the side where the wedge would read above the portal pressure, which no patient does.)
   const at = { x: seg.x1 + (seg.x2 - seg.x1) * 0.9, y: seg.y1 + (seg.y2 - seg.y1) * 0.9 }, w = est(text, fs);
-  const label = text ? { text, x: at.x - 6, y: at.y - 6, anchor: 'end', box: [at.x - 6 - w - 2, at.y - 6 - fs, at.x - 4, at.y - 2] } : null;
+  const lift = pl.axes === false || !hasAxes(pl) ? 6 : 9;   // (a scatter's line is drawn over gridlines: its name stands a little higher off it, so a flat line never runs under the words)
+  const label = text ? { text, x: at.x - 6, y: at.y - lift, anchor: 'end', box: [at.x - 6 - w - 2, at.y - lift - fs, at.x - 4, at.y - lift + 4] } : null;
   if (label) boxes.push(label.box);
   return { seg, boxes, label };
 }
@@ -299,24 +352,24 @@ export function gapSegs(segs, boxes, pad = 4) {
 // dot sat tight against "Both normal" and "Heart failure" at 12 px, deck inspector 31 Oct).
 export const DOT_CLEAR = 16;
 const WORD_PAD = 4;
-export function placeNames(pts, fr, fs, r = 8, avoid = [], cross = []) {
+export function placeNames(pts, fr, fs, r = 8, avoid = [], cross = [], pad = 0) {
   // (When a round leaves a name out or sends one out on a line, others are tried: the round that names the most wins, then
   // the one with the fewest lines, then the one whose names sit closest to their points, then the fewest across a cut-off.)
   const score = (res) => [res.filter((o) => !o).length, res.filter((o) => o?.lead).length, res.reduce((s, o, i) => s + (o ? Math.hypot(...near2(o.box, pts[i])) : 0), 0), res.filter((o) => o?.across).length];
   const better = (a, b) => a[0] < b[0] || (a[0] === b[0] && (a[1] < b[1] || (a[1] === b[1] && (a[2] < b[2] - 0.5 || (Math.abs(a[2] - b[2]) <= 0.5 && a[3] < b[3])))));
-  let best = placeOnce(pts, fr, fs, r, avoid, null, cross), bs = score(best), order = null;
+  let best = placeOnce(pts, fr, fs, r, avoid, null, cross, pad), bs = score(best), order = null;
   for (let round = 0; (bs[0] || bs[1] || bs[3]) && round < 4; round++) {
     // (A name left without a place, or on a line, goes first in the next round, then one sitting across a cut-off.)
-    const prev = order || pts.map((_, i) => i), res = round ? placeOnce(pts, fr, fs, r, avoid, prev, cross) : best, rank = (i) => (!res[i] || res[i].lead ? 0 : res[i].across ? 1 : 2);
+    const prev = order || pts.map((_, i) => i), res = round ? placeOnce(pts, fr, fs, r, avoid, prev, cross, pad) : best, rank = (i) => (!res[i] || res[i].lead ? 0 : res[i].across ? 1 : 2);
     order = [0, 1, 2].flatMap((k) => prev.filter((i) => rank(i) === k));
-    const next = placeOnce(pts, fr, fs, r, avoid, order, cross), sc = score(next);
+    const next = placeOnce(pts, fr, fs, r, avoid, order, cross, pad), sc = score(next);
     if (better(sc, bs)) best = next, bs = sc;
   }
   return best;
 }
 /** How far a name's box is from its point, across and down. */
 const near2 = (b, p) => [Math.max(b[0] - p.x, 0, p.x - b[2]), Math.max(b[1] - p.y, 0, p.y - b[3])];
-function placeOnce(pts, fr, fs, r, avoid, first, cross = []) {
+function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0) {
   // (A point keeps every name 6 px clear of its ring: its radius, its 1.5 px outline and the gap.)
   const boxes = [...pts.map((p) => [p.x - r - 8, p.y - r - 8, p.x + r + 8, p.y + r + 8]), ...avoid];
   const lh = fs * 1.2, gap = r + 8;
@@ -410,10 +463,19 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = []) {
 
       done = sh && (!far || far.d > fs) ? sh : over || (farOver && (!far || farOver.d + fs < far.d) ? farOver : shFar && (!far || shFar.d + 2 * fs < far.d) ? shFar : far || shFar);
     }
-    if (done) boxes.push(done.box), named.push(done.box);
+    // (pad: a name's box is kept that much larger against the names after it, for the letters' widths the estimate falls short of: "SOS" in capitals.)
+    if (done) boxes.push(pad ? [done.box[0] - pad, done.box[1] - pad, done.box[2] + pad, done.box[3] + pad] : done.box), named.push(done.box);
     out[i] = done;
   }
   return out;
+}
+/** A summary's point radius on a plot with axes: 8 px, or less where two points lie close (an iPhone's: Schistosomiasis and a clot are 1.2 mmHg
+ *  from each other each way, 15 px apart there, and two 8 px dots with their rings would run together): half the distance of the closest pair
+ *  less 1.5 px of clear air, 5 px at the least. at: the points in px, { x, y }. */
+export function pointR(at) {
+  let d = Infinity;
+  for (let i = 0; i < at.length; i++) for (let j = i + 1; j < at.length; j++) d = Math.min(d, Math.hypot(at[i].x - at[j].x, at[i].y - at[j].y));
+  return clamp((d - 3) / 2, 5, 8);
 }
 /** A zone's rectangle on the plot, in data units: [x0, x1, y0, y1] (the rest of the plane: the whole of it). */
 export const zoneRect = (pl, z) => {
@@ -499,14 +561,14 @@ export function wasBoxes(p) {
 /** The plot's words: the cut-off lines' boxes (rules), each point's name (names, as placeNames) and the zones' words (words, as
  *  placeZoneWords). at: the points in px; extra: more boxes they keep clear of (the numbers written on the plot, plotNumbers). The names come first; with no key, a zone whose words found no room then takes its
  *  place first and the names are placed again around it, so every zone keeps its words and every point its name. */
-export function layoutPlane(pl, fr, X, Y, fs, at, card = false, extra = []) {
+export function layoutPlane(pl, fr, X, Y, fs, at, card = false, extra = [], r = 8, pad = 0) {
   const base = [...lineBoxes(pl, X, Y, fr, fs), ...extra, ...at.flatMap((p) => wasBoxes(p))], dots = at.map((p) => [p.x - DOT_CLEAR, p.y - DOT_CLEAR, p.x + DOT_CLEAR, p.y + DOT_CLEAR]);
   // (The lines' own names come first, beside their lines: the points' names and the zones' words then keep clear of them.)
   const lines = lineNames(pl, fr, X, Y, fs, [...base, ...dots]), rules = [...base, ...lines.map((l) => l.box)];
   // (The cut-off lines come first among the rules: a name may sit across one of those, the line broken behind it.)
   const cross = rules.slice(0, cutSegs(pl, X, Y, fr).length);
   const boxesOf = (ns) => ns.filter(Boolean).map((n) => n.box);
-  let names = placeNames(at, fr, fs, 8, rules, cross), words = placeZoneWords(pl, fr, X, Y, fs, [...boxesOf(names), ...rules], dots, card);
+  let names = placeNames(at, fr, fs, r, rules, cross, pad), words = placeZoneWords(pl, fr, X, Y, fs, [...boxesOf(names), ...rules], dots, card);
   const missing = (pl.key === false || pl.key === 'never') && !card ? pl.zones.filter((z) => !words.some((w) => w.z === z)) : [];
   if (missing.length) {
     // (Each of them where it leaves the names best placed: all of them named, the fewest out on a line, then the nearest.)
@@ -515,12 +577,12 @@ export function layoutPlane(pl, fr, X, Y, fs, at, card = false, extra = []) {
     const chosen = [];
     const judge = (cands) => {
       let bi = 0, bs = null;
-      cands.forEach((b, i) => { const sc = score(placeNames(at, fr, fs, 8, [...rules, ...chosen, b], cross)); if (!bs || better(sc, bs)) bi = i, bs = sc; });
+      cands.forEach((b, i) => { const sc = score(placeNames(at, fr, fs, r, [...rules, ...chosen, b], cross, pad)); if (!bs || better(sc, bs)) bi = i, bs = sc; });
       chosen.push(cands[bi]);
       return bi;
     };
     const first = placeZoneWords(pl, fr, X, Y, fs, rules, dots, card, missing, judge), held = first.map((w) => w.box);
-    const again = placeNames(at, fr, fs, 8, [...rules, ...held], cross);
+    const again = placeNames(at, fr, fs, r, [...rules, ...held], cross, pad);
     if (first.length && boxesOf(again).length >= boxesOf(names).length) {
       names = again;
       words = [...first, ...placeZoneWords(pl, fr, X, Y, fs, [...boxesOf(names), ...rules, ...held], dots, card, [...pl.zones.filter((z) => !missing.includes(z)), ...(pl.boxes || [])])];
@@ -600,7 +662,8 @@ const unitOf = (k) => TILE[k]?.u || '';
 /** The plot itself: an element whose CSS gives it a size; draw(points, ring) redraws it at that size.
  *  points: [{ f, from?, name, site }] (from: where the patient started, drawn as a ring with a line to the point); ring: the case's fingerprint or null. */
 export function planePlot(pl, { card = false } = {}) {
-  const el = h('div', { class: 'pze-plot' + (card ? ' pze-incard' : '') + (card && pl.key === 'never' ? ' pze-ownwords' : ''), role: 'img' });
+  // (pze-axes from the start, so the plot has its size, which a scatter's axes need more of, before it is drawn.)
+  const el = h('div', { class: 'pze-plot' + (card ? ' pze-incard' : '') + (card && pl.key === 'never' ? ' pze-ownwords' : '') + (!card && hasAxes(pl) ? ' pze-axes' : ''), role: 'img' });
   const svg = sv('svg', { class: 'pze-plane', 'aria-hidden': 'true' });
   // (The drawing redraws in base; the card's zone words and its dot stay the same elements, so they ease from where they were.)
   const halo = sv('circle', { class: 'pze-halo' }), dot = sv('circle', { class: 'pze-dot' });
@@ -628,18 +691,21 @@ export function planePlot(pl, { card = false } = {}) {
     const key = `${size}|${fs}|${ptsVer}|${rg ? ringKeys.map((k) => rg[k]).join(',') : '-'}|${sizeWas}|${was ? `${was.x},${was.y}` : '-'}`;
     if (key === drawn) return;
     drawn = key;
-    const fr = frame(W, H), { X, Y } = scaler(pl, fr);
+    // (A scatter, a plane with no zones, draws axes of its own on a panel: hasAxes.)
+    const axed = !card && hasAxes(pl), fr = axed ? axesFrame(pl, W, H, fs) : frame(W, H), { X, Y } = scaler(pl, fr);
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     svg.setAttribute('width', W); svg.setAttribute('height', H);
     const kids = [];
     // Zones, the rest of the plane first, the first listed last (on top), as zoneOf reads them: out to the element's edge where they end at
     // the plot's, the whole of them one rounded shape (plot-look.js, his G2 look).
-    const panel = plotPanel(sv, 0, 0, W, H, { fill: false });
+    const panel = plotPanel(sv, 0, 0, W, H, { fill: axed });
     const fills = [...pl.zones].reverse().map((z) => {
       const [x0, x1, y0, y1] = zoneRect(pl, z), b = bleed({ x1: X(x0), x2: X(x1), y1: Y(y1), y2: Y(y0) }, fr, W, H);
       return sv('rect', { class: 'pze-zone', 'data-tone': z.tone || 'none', x: b.x1, y: b.y1, width: b.x2 - b.x1, height: b.y2 - b.y1 });
     });
-    kids.push(sv('defs', {}, panel.clip), sv('g', { 'clip-path': panel.url }, fills));
+    kids.push(sv('defs', {}, panel.clip), axed ? panel.back : sv('g', { 'clip-path': panel.url }, fills));
+    const ax = axed ? axesMarks(pl, fr, X, Y, fs, W) : null;
+    if (ax) for (const g of ax.grid) kids.push(sv('line', { class: 'pze-grid', ...g }));
     // The patients' names first, so every point keeps its name; the zones' words then take what room is left (the key names
     // every zone anyway; with no key, each zone's words search the whole zone for a clear place).
     // (Each at the numbers as printed, as the case's dot is: the zone it stands in is the one its numbers name.)
@@ -649,10 +715,11 @@ export function planePlot(pl, { card = false } = {}) {
     // (The card's numbers and names stand on the plot first, its zones' words keeping clear of them. A summary's points keep their names
     // first: the axes' names, then the points' names, the zones' words and the lines' names round them, then the numbers in what room is left.)
     const pointBoxes = at.flatMap((p) => [[p.x - DOT_CLEAR, p.y - DOT_CLEAR, p.x + DOT_CLEAR, p.y + DOT_CLEAR], ...wasBoxes(p)]);
-    const cardNums = card ? plotNumbers(pl, fr, X, Y, fs) : [], axisNames = card ? [] : plotNumbers(pl, fr, X, Y, fs, pointBoxes, 'names');
+    const cardNums = card ? plotNumbers(pl, fr, X, Y, fs) : [], axisNames = card || axed ? [] : plotNumbers(pl, fr, X, Y, fs, pointBoxes, 'names');
     const numBoxes = cardNums.map((n) => n.box);
-    const { names, words, lines } = card ? { names: [], words: [], lines: [] } : layoutPlane(pl, fr, X, Y, fs, at, card, axisNames.map((n) => n.box));
-    const nums = card ? cardNums : [...axisNames, ...plotNumbers(pl, fr, X, Y, fs, [...pointBoxes, ...axisNames.map((n) => n.box), ...names.filter(Boolean).map((n) => n.box), ...words.map((w) => w.box), ...lines.map((l) => l.box)], 'ticks')];
+    const pr = axed ? pointR(at) : 8;
+    const { names, words, lines } = card ? { names: [], words: [], lines: [] } : layoutPlane(pl, fr, X, Y, fs, at, card, axisNames.map((n) => n.box), pr, axed ? 3 : 0);
+    const nums = card ? cardNums : axed ? [...ax.nums, ...ax.names] : [...axisNames, ...plotNumbers(pl, fr, X, Y, fs, [...pointBoxes, ...axisNames.map((n) => n.box), ...names.filter(Boolean).map((n) => n.box), ...words.map((w) => w.box), ...lines.map((l) => l.box)], 'ticks')];
     for (const b of pl.boxes || []) {
       const [x0, x1, y0, y1] = zoneRect(pl, b);
       kids.push(sv('rect', { class: 'pze-box', x: X(x0), y: Y(y1), width: X(x1) - X(x0), height: Y(y0) - Y(y1) }));
@@ -667,14 +734,16 @@ export function planePlot(pl, { card = false } = {}) {
     for (const l of lines) kids.push(sv('text', { class: 'pze-ln', x: l.x, y: l.y, 'text-anchor': l.anchor, style: `font-size:${fs}px` }, l.text));
     const dg = diagOf(pl, X, Y, fs);
     if (dg) kids.push(sv('line', { class: 'pze-diag', ...dg.seg }), dg.label ? sv('text', { class: 'pze-dt', x: dg.label.x, y: dg.label.y, 'text-anchor': dg.label.anchor, style: `font-size:${fs}px` }, dg.label.text) : null);
-    // The numbers and the axes' names on the plot (no axis lines: the shape's edge is the axis).
+    // The axes: their lines and ticks over the diagonal's start, the numbers and names beside them.
+    if (ax) for (const l of [...ax.axes, ...ax.ticks]) kids.push(sv('line', { class: 'pze-axis', ...l }));
+    // The numbers and the axes' names on the plot (a plane with zones: no axis lines, the shape's edge is the axis).
     for (const n of nums) kids.push(sv('text', { class: n.cls, x: n.x, y: n.y, 'text-anchor': n.anchor, style: `font-size:${fs}px` }, n.text));
     // The patients: a point each, its name beside it.
     at.forEach((p, i) => {
       const n = names[i];
       kids.push(sv('g', { class: 'pze-pt', 'data-site': p.site || 'none', style: `--i:${i}` }, p.was ? sv('line', { class: 'pze-path', x1: p.was.x, y1: p.was.y, x2: p.x, y2: p.y }) : null,
         p.was ? sv('circle', { class: 'pze-was', cx: p.was.x, cy: p.was.y, r: 6 }) : null,
-        n?.lead ? sv('line', { class: 'pze-lead', x1: p.x, y1: p.y, x2: n.lead[0], y2: n.lead[1] }) : null, sv('circle', { cx: p.x, cy: p.y, r: 8 }),
+        n?.lead ? sv('line', { class: 'pze-lead', x1: p.x, y1: p.y, x2: n.lead[0], y2: n.lead[1] }) : null, sv('circle', { cx: p.x, cy: p.y, r: pr }),
         n ? sv('text', { x: n.x, y: n.y, 'text-anchor': n.anchor, style: `font-size:${fs}px` }, n.lines.map((l, j) => sv('tspan', { x: n.x, dy: j ? fs * 1.2 : null }, l))) : null));
     });
     // The slide's case: a dot in proportion to the plot, a gap in the card's colour around it, that eases from where it was (a

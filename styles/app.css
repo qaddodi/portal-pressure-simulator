@@ -6908,6 +6908,15 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-zt.pze-bxw { font-weight: 600; fill: var(--text-2); }
 .pze-cut { stroke: var(--text-3); stroke-width: 1; stroke-dasharray: 3 4; }
 .pze-diag { stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 3 4; }   /* (where the two readings are equal) */
+/* A scatter's axes (a plane with no zones, visual-plane.js axesFrame and axesMarks): the app's chart panel under hairline gridlines at the
+   numbers, an axis line on the left and along the foot with a short tick at each number, the diagonal a step stronger than the grid so
+   it still reads as the line that matters. Inside it the halos round words are the panel's own tone, as in every chart panel. */
+.pze-plot.pze-axes { --surface: var(--surface-2); }
+.pze-grid { stroke: color-mix(in srgb, var(--border-strong) 70%, transparent); stroke-width: 1; }
+.pze-axis { stroke: var(--text-3); stroke-width: 1.5; }
+.pze-axes .pze-diag { stroke: var(--text-2); }
+.pze-axes .pze-dt { paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }   /* (the grid breaks behind the diagonal's name) */
+.pz.stack .pze-plot.pze-axes { aspect-ratio: .94; }   /* (an iPhone's plot is taller than the zones' 1.15: the axes take their rows and columns out of it, and the dots of Schistosomiasis and a clot, 1.2 mmHg apart each way, must stay clear of each other) */
 .pze-dt { font-weight: 600; fill: var(--text-2); }
 .pze-ln { font-weight: 600; fill: var(--text); }   /* (a cut-off line's own name: CSPH ≥10, Bleed risk ≥12) */
 /* (His G2 look, 27 Oct: no axis lines, the plot's rounded edge is the axis; the numbers and the axes' names stand on the plot, a cut-off's number full and the rest and the names quieter. They carry no outline: the 55 % black one the FibroScan readings wear on a picture smeared these in the card's own dark text on a light card, Mohammad 29 Oct; the cut-off lines break behind them instead, visual-plane.js.) */
