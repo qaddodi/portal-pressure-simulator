@@ -15,6 +15,7 @@ import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { easeMove, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
 import { markFade } from './mark-fade.js?v=603220fe29';
+import { lesionEase } from './lesion-ease.js?v=eb0e2e5c5c';
 import { bandsStep } from './band-ease.js?v=ef2d4ce809';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
@@ -3017,6 +3018,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // band closes fades out instead of vanishing in one frame. Each display frame's full update steps it (the width step stands aside
   // while it moves: stepWidths).
   let bandsShown = null;
+  // A narrowing and a clot are drawn as they follow the params in a moment too (lesion-ease.js): the waist closes or opens and the clot
+  // thickens, instead of either arriving whole in one frame. The same stand-aside for the width step while they move.
+  const lesions = lesionEase();
+  const lesionsMoving = () => !!F && lesions.differs(F.viewParams || store.get().params);
   const bandsMoving = () => bandsShown !== null && !!F && bandsShown !== (F.bands || 0);
   const stepBands = (f, dt) => { bandsShown = bandsStep(bandsShown, f.bands || 0, dt, reduceMotion.matches); return bandsShown !== (f.bands || 0); };
   // What follows from a vessel's drawn width (its hit stroke, casing, lumen, the liver branches, braided strands and drawn-in
@@ -3116,7 +3121,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (stepBands(f, dtW)) widthEasing = true;
     tubesHidden = wrap.classList.contains('gl-on');
     const st = store.get();
-    const p = f.viewParams || st.params;
+    const pRaw = f.viewParams || st.params, p = lesions.view(pRaw, dtW, reduceMotion.matches);
+    if (lesions.differs(pRaw)) widthEasing = true;
     const t = easeInOut(morph);
     const gain = lerp(1, 0.8, t);
     const ref = REF();
@@ -3360,7 +3366,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // and takes the full update. (30 Oct, review G1: every frame of a pan while the breath eased had taken the whole update.)
   function stepWidths() {
     const f = F;
-    if (!f || f !== widthF || storeVer !== widthVer || !widthCTM || coilEasing || organsEasing || catchUp || bandsMoving()) return false;
+    if (!f || f !== widthF || storeVer !== widthVer || !widthCTM || coilEasing || organsEasing || catchUp || bandsMoving() || lesionsMoving()) return false;
     if (anatCovered() || hid.at || plateStale || plateRedraw || blockersStale || (performance.now() - blockersAt > 100 && watch.due())) return false;
     if (ascShown !== ascTarget || morph !== morphTarget || tubesHidden !== wrap.classList.contains('gl-on') || EV.some((x) => x.reveal)) return false;
     if (!CTM) refreshCTM();   // (as the update itself does before it reads the view: a glide's step this frame let it go)
@@ -3384,7 +3390,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // turn changes the sizes kept in screen pixels, and takes the full update.)
     if (!organsEasing || !f || f !== widthF || storeVer !== widthVer || !CTM || !widthCTM || CTM.sc !== widthCTM.sc || CTM.a !== widthCTM.a || CTM.b !== widthCTM.b || coilEasing || catchUp) return false;
     if (anatCovered() || hid.at || plateStale || blockersStale || (performance.now() - blockersAt > 100 && watch.due())) return false;
-    if (morph !== morphTarget || tubesHidden !== wrap.classList.contains('gl-on') || EV.some((x) => x.reveal || (x.vis && widthMoving(x)))) return false;
+    if (morph !== morphTarget || tubesHidden !== wrap.classList.contains('gl-on') || bandsMoving() || lesionsMoving() || EV.some((x) => x.reveal || (x.vis && widthMoving(x)))) return false;
     stageWake();
     inUpdate = true;
     try {
@@ -3422,7 +3428,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (!moved) return;
     const J = junctionWidths();
-    const p = f.viewParams || store.get().params;
+    const p = lesions.view(f.viewParams || store.get().params);
     const TP = TAPER && !glWanted(t) ? svgTaper(p, t) : null;
     for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J, TP);
     if (glWanted(t)) clearJoins(); else updateJoins(t);
