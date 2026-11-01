@@ -17,6 +17,7 @@ import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=bb8f7eca29';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=fc509dabe4';
+import { createShapeGL, flattenPath, polyMesh } from './shape-gl.js?v=f7d920b7d0';
 import { trackOf, trackAt, mixColour } from './label-track.js?v=56dc51edb3';
 
 // (1 Nov 2026, the GPU motion review.) ?labeltrack=0: a label's or a leader's fade or colour ease is read from the page on every frame of it,
@@ -378,6 +379,9 @@ const roundRect = (ctx, x, y, w, h, r) => {
 // The FibroScan beam drawn by the shader as a soft sector (kind 7), not painted into a 2D picture through a CSS blur and uploaded.
 // ?beamgl=0: the 2D picture, as before.
 const BEAM_GL = !/[?&]beamgl=0\b/.test(SEARCH);
+// A callout's shaped hole (the glass's outline the labels leave out) filled into its mask by the GPU's shape drawer (shape-gl.js), not
+// painted on a 2D canvas and uploaded. ?holegl=0: the 2D canvas, as before.
+const HOLE_GL = !/[?&]holegl=0\b/.test(SEARCH);
 /** The beam's path (apex, a side, an arc of radius r to the other side) and its blur as a sector, in its own units, or null. */
 export function beamSector({ d, filter }) {
   const n = String(d || '').match(/-?[\d.]+(?:e-?\d+)?/g)?.map(Number);
@@ -640,7 +644,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (!lost || gl.isContextLost()) return;   // (lost again: the next restore starts over)
       try { finish(hs); } catch { return; }   // (the shaders will not build: the SVG keeps every label)
       pageTex.length = 0; needRepack = false; packer.reset(); outgoing = []; glides.clear(); rideFrom = null;
-      holeMasks = new WeakMap(); headSp = null; beamSp = null; sHeadSp = null;
+      holeMasks = new WeakMap(); holeShape = null; headSp = null; beamSp = null; sHeadSp = null;
       for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
       pDirty = true; sDirty = true; allMarks(); boxKey = '';
       lost = false;
@@ -890,7 +894,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const key = `${h.d}|${h.lw}|${h.lh}|${dpr}`;
     let m = holeMasks.get(h.el);
     if (m?.key === key) return m;
-    const cv = document.createElement('canvas'), mw = Math.max(1, Math.ceil(h.lw * dpr)), mh = Math.max(1, Math.ceil(h.lh * dpr));
+    const mw = Math.max(1, Math.ceil(h.lw * dpr)), mh = Math.max(1, Math.ceil(h.lh * dpr));
+    if (HOLE_GL) return holeMaskGL(h, m, key, mw, mh);
+    const cv = document.createElement('canvas');
     cv.width = mw; cv.height = mh;
     const c = cv.getContext('2d');
     c.setTransform(dpr, 0, 0, dpr, 0, 0); c.fillStyle = 'black'; c.fill(new Path2D(h.d));
@@ -904,6 +910,41 @@ void main() { o = texture(uT, vUV) * uA; }`;
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv);
     // (The share of the mask the path fills: its canvas is rounded up to whole pixels.)
+    Object.assign(m, { key, sw: h.lw * dpr / mw, sh: h.lh * dpr / mh });
+    holeMasks.set(h.el, m);
+    return m;
+  }
+  // The shaped hole's mask on the GPU: the path's coverage (shape-gl's stencil fill, its edge smoothed) in every channel of a texture of
+  // its own, laid as the 2D one was (its first row the path's top). The blend cutHoles set is set again after (the fill leaves it off).
+  let holeShape = null;
+  function holeMaskGL(h, m, key, mw, mh) {
+    holeShape ||= createShapeGL(gl);
+    if (!m?.fbo) {
+      m = { tex: gl.createTexture(), fbo: gl.createFramebuffer(), st: gl.createRenderbuffer() };
+      gl.bindTexture(gl.TEXTURE_2D, m.tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+    if (m.w !== mw || m.h !== mh) {
+      gl.bindTexture(gl.TEXTURE_2D, m.tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, mw, mh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindRenderbuffer(gl.RENDERBUFFER, m.st); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, mw, mh);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, m.fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, m.tex, 0);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, m.st);
+      m.w = mw; m.h = mh;
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, m.fbo);
+    gl.viewport(0, 0, mw, mh);
+    gl.disable(gl.BLEND);
+    gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]); gl.clearBufferfi(gl.DEPTH_STENCIL, 0, 1, 0);
+    // (Path px → the target's y-down px, turned over so that its first row holds the path's top, as an uploaded canvas's does.)
+    const mesh = polyMesh(flattenPath(h.d, Math.min(0.25, 0.2 / dpr)), 0);
+    holeShape.fill(mesh, [dpr, 0, 0, -dpr, 0, mh], [mw, mh], [true, true, true, true]);
+    holeShape.release(mesh);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, W, H);
+    gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
     Object.assign(m, { key, sw: h.lw * dpr / mw, sh: h.lh * dpr / mh });
     holeMasks.set(h.el, m);
     return m;
