@@ -55,6 +55,7 @@ import { sheetPanes } from './sheet-glass.js?v=770c926c2c';
 import { createScopeTile } from './scope-tile.js?v=914cd01a1f';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, RISE_PX } from './ease.js?v=fc509dabe4';
+import { pageOn, followOf, pageIn } from './card-page.js?v=ebb4448222';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1748,7 +1749,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // from the side the talk comes from, with its fade, held at its start through the entrance's short delay.
   // How far the words may move sideways: the slide's own step (--pz-turn-d), never more than the room between the words and the glass's
   // edge, so they never show past the card (Mohammad, 1 Nov, iPhone: 12 px of room on an upright phone). px.
+  // (As one page the glass goes with its words, so they have the slide's whole step, and no box is read.)
   const turnRoom = () => {
+    if (CARD_PAGE) return parseFloat(getComputedStyle(ui.root).getPropertyValue('--pz-turn-d')) || 20;
     const d = parseFloat(getComputedStyle(ui.root).getPropertyValue('--pz-turn-d')) || 20, t = ui.text.getBoundingClientRect(), g = ui.shade.getBoundingClientRect();
     return g.width > 0 && t.width > 0 ? Math.max(4, Math.min(d, t.left - g.left - 2, g.right - t.right - 2)) : d;
   };
@@ -1757,11 +1760,22 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     turnIn = false;
     const t = ui.text, k = t.dataset.turn, d = parseFloat(getComputedStyle(t).getPropertyValue('--pz-turn-d')) || 20;
     const x = k === 'next' ? d : k === 'back' ? -d : 0, from = x ? `translateX(${x}px)` : `translateY(${RISE_PX}px)`;
+    if (CARD_PAGE) {
+      // (The page: the glass and its words come in as one card, the same keyframes on both, started in the same frame.)
+      const frames = pageIn(k, d, RISE_PX), how = { duration: D_SURFACE, delay: 120, easing: EASE_ARRIVE, fill: 'backwards' };
+      turnAnim = t.animate?.(frames, how) || null;
+      shadeAnim = ui.shade.animate?.(frames, how) || null;
+      return;
+    }
     turnAnim = t.animate?.([{ transform: from, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: D_SURFACE, delay: 120, easing: EASE_ARRIVE, fill: 'backwards' });
   }
   // (Off until it is right on his devices (Mohammad, 1 Nov: on Next the words slid half way and stuck, then the card popped out and back):
   // The page-turn and the finger follow are on by default; ?cardturn=0 turns them off, and every card leaves and comes back whole, as before.)
   const CARD_TURN = !/[?&]cardturn=0\b/.test(location.search);
+  // The teaching card as one page (src/ui/card-page.js): the glass and the words move together, follow, leave and enter, and only
+  // transform and opacity change while they move. On by default; ?cardpage=0 keeps the words turning inside a glass that fades in place.
+  const CARD_PAGE = CARD_TURN && !/[?&]cardpage=0\b/.test(location.search);
+  let shadeAnim = null, pageForce = false;   // (the glass's entrance; pageForce: a swipe the card followed out, so its words leave even if the next slide's are the same)
   const lastBeat = (i) => beatCount(slides[i]) - 1;
   function go(i) {
     if (!deck || leaving) return;
@@ -1897,6 +1911,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const done = back && lastAt === to + 1, pre = !lap && !done && to > 0 && !!s.procedure && stateOf[to] === to && !holdQ;
     const si = lap || holdQ ? stateOf[to - 1] : stateOf[to];
     keepNow = keepFor(was && slides[was.i], s, to, si !== shownState || liveOff || (lap && !!states[stateOf[to]]?.start) || (pre && !!states[to]?.before), { again: !was || was.i === to }); keepCut = cut;
+    // (A swipe the card followed out never leaves its words standing: they go on out from the finger, and the next slide's come in.)
+    if (pageForce) { pageForce = false; if (keepNow.text) keepNow = { ...keepNow, text: false }; }
     glassTurn(s, ask, ct);
     const outAt = performance.now(), outMs = wordsOut(s);
     if (outMs) { await painted(); await painted(); }
@@ -2173,7 +2189,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const up = !ui.text.hidden && ui.shade.style.opacity !== '0' && (ui.shade.classList.contains('pz-turn') || !ui.shade.classList.contains('pz-leave'));
     // (Every kind of slide coming, a question, a case, a visual, a new patient, gets the same leave: only a catheter or monitor slide,
     // whose words come in at once with the live tracing, and a case card still up (the words are already out) keep their own.)
-    const on = CARD_TURN && up && !booting && !reduce.matches && !s.cath && !s.monitor && !caseCard;
+    // (As one page, catheter and monitor slides too: only a monitor kept in place across the change keeps the old way.)
+    const monKept = !!mon && !!s.monitor && !s.visual && mon.el.parentNode === ui.text;
+    const on = CARD_TURN && up && !booting && !reduce.matches && (CARD_PAGE ? pageOn({ up, caseCard: !!caseCard, monKept }) : !s.cath && !s.monitor && !caseCard);
     turnNow = on ? turn : '';
     if (on) ui.text.style.setProperty('--pz-turn-d', `${turnRoom().toFixed(1)}px`);
     if (!on) turnIn = false;   // (a slide that keeps its words, or leaves whole, never fires a stale entrance)
@@ -2211,6 +2229,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const leaving = !dataOut && !out.some((el) => !el.hidden && el.childElementCount && !(keep && el === ui.text ? [...el.children].every((c) => c === mon.el || c.classList.contains('pz-leave')) : el.classList.contains('pz-leave')));
     const fading = leaving ? fadeLeft([...out, data, ui.scl, ui.shade]) : 0;
     if (!keepNow.text) ui.text.dataset.out = turnNow;   // (set with the leave, in the same style change, so the words go the right way at once)
+    if (!keepNow.text && CARD_PAGE) {
+      // (The glass goes the same way and the same distance as its words, as one card.)
+      ui.shade.dataset.out = turnNow;
+      const d = ui.text.style.getPropertyValue('--pz-turn-d');
+      if (d) ui.shade.style.setProperty('--pz-turn-d', d.trim()); else ui.shade.style.removeProperty('--pz-turn-d');
+    }
     for (const el of out) {
       if (keep && el === ui.text) { for (const c of el.children) if (c !== mon.el) c.classList.add('pz-leave'); }
       else el.classList.add('pz-leave');
@@ -2223,6 +2247,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function wordsFreeze() {
     const a = turnAnim; turnAnim = null; turnIn = false;
     const t = ui.text;
+    if (CARD_PAGE) {
+      // (The page: the glass and the words are stopped together where their entrance has got to, and leave from there.)
+      for (const [el, an] of [[t, a], [ui.shade, shadeAnim]]) {
+        if (!an || an.playState === 'finished' || an.playState === 'idle') continue;
+        const cs = getComputedStyle(el), o = cs.opacity, tf = cs.transform;
+        an.cancel();
+        el.style.transition = 'none'; el.style.opacity = o; el.style.transform = tf;
+        void getComputedStyle(el).opacity;
+        el.style.transition = ''; el.style.opacity = ''; el.style.transform = '';
+      }
+      shadeAnim = null;
+      return;
+    }
     if (!a || a.playState === 'finished' || a.playState === 'idle') {
       // (the leave's clip starts from the box's own place, so it closes in step with the move, never cutting the words at once)
       return;
@@ -4627,6 +4664,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     : !procRun && !procWait && beat === 0 && want > 0;
   const pullCan = (dx) => turnsSlide(dx) && CARD_TURN && !!ui && !busy && !caseCard && !zoomOn() && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
   function pullTo(dx) {
+    if (CARD_PAGE) {
+      // (The page: the glass and the words follow as one card, transform and opacity only, nothing read from the layout.)
+      const f = followOf(dx);
+      pull.x = f.x; pull.o = f.o;
+      for (const el of [ui.text, ui.shade]) { el.style.transition = 'none'; el.style.transform = `translateX(${f.x.toFixed(1)}px)`; el.style.opacity = f.o.toFixed(3); }
+      return;
+    }
     // (The words follow the finger the whole way, never stopping: their move eases toward the room they have inside the glass (never past
     // its edge) while they fade on with the finger's own travel.)
     const end = dx > 0 && want === 0, k = end ? PULL_END_K : PULL_K, cap = pull.cap ??= turnRoom();
@@ -4641,6 +4685,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const g = pull; pull = null;
     if (!g?.on || !ui) return;
     const x = g.x;
+    if (CARD_PAGE) {
+      // (Let go: the card goes on out from where the finger left it, the glass and words together (their leave starts from the inline
+      // values, dropped in the same style change; further than the leave's own way, it carries on from there), or, the swipe given up,
+      // both ease back from there.)
+      const els = [ui.text, ui.shade], o = g.o ?? 1, out = gone && ui.text.classList.contains('pz-leave');
+      for (const el of els) { el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); }
+      if (out) {
+        const d = parseFloat(ui.text.style.getPropertyValue('--pz-turn-d')) || 20;
+        if (Math.abs(x) > d) for (const el of els) el.style.setProperty('--pz-turn-d', `${Math.abs(x).toFixed(1)}px`);
+      } else if (Math.abs(x) > 0.5 || o < 0.999) {
+        for (const el of els) el.animate?.([{ transform: `translateX(${x}px)`, opacity: o }, { transform: 'none', opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
+      }
+      return;
+    }
     ui.text.style.removeProperty('transition'); ui.text.style.removeProperty('opacity'); ui.text.style.removeProperty('transform');
     const out = gone && ui.text.classList.contains('pz-leave');
     if (!out && Math.abs(x) > 0.5) ui.text.animate?.([{ transform: `translateX(${x}px)` }, { transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE });
@@ -4670,7 +4728,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const [x0, t0] = p.pts[0] || [t.clientX, now], v = (t.clientX - x0) / Math.max(1, now - t0);
       if (Math.abs(dx) >= SWIPE_MIN || (Math.abs(v) >= 0.3 && Math.abs(dx) >= SWIPE_MIN / 2 && Math.sign(v) === Math.sign(dx))) d = dx < 0 ? 1 : -1;
     }
+    // (A swipe the card followed: its words leave even when the next slide's are the same, so the card never goes back where it was.)
+    if (CARD_PAGE && d && p?.on && Math.abs(p.x) > 0.5) pageForce = true;
     if (d > 0) next(); else if (d < 0) prev();
+    if (!busy) pageForce = false;   // (nothing moved: a stale force never reaches a later change)
     if (p) pullLet(!!d);
   }, { passive: true, capture: true });
 
@@ -5069,6 +5130,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     tapTracker(data, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });
     tapTracker(panel, { ok: () => cellReady() || zoom.up, onTap: cellTap });
     const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);
+    if (CARD_PAGE) { root.classList.add('pz-page'); shade.classList.add('pz-page'); }   // (the teaching card as one page: card-page.js)
     veil.after(pscrim);   // (above the page's veil, under everything else)
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.

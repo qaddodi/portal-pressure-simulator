@@ -2508,6 +2508,14 @@ button.finding { cursor: pointer; }
 .pz-shade.pz-shade.pz-shade.pz-shade.pz-turnfade:is(.pz-card, .stack) { transform: none; }
 .pz-shade.pz-shade.pz-shade.pz-shade.pz-turnfade:is(.pz-card, .stack).pz-leave { transition-timing-function: var(--ease-in), var(--ease-in), var(--ease-in), var(--ease-move), var(--ease-move), var(--ease-move); }
 .pz-shade.pz-shade.pz-shade.pz-shade.pz-turnfade:is(.pz-card, .stack):not(.pz-leave) { transition-timing-function: var(--ease-arrive), var(--ease-arrive), var(--ease-arrive), var(--ease-move), var(--ease-move), var(--ease-move); }
+/* The teaching card as one page (presenter.js CARD_PAGE, src/ui/card-page.js; ?cardpage=0 turns it off): the glass goes with its words, the
+   same way and the same distance (--pz-turn-d, copied onto the glass with the leave), on the same clock and curve, and comes back in with
+   them by the same keyframes (WAAPI, both). Only transform and opacity move: nothing clipped, the glass never resized in view (its size
+   changes while it is out). (Above pz-turnfade, which holds the glass in place for the words-only turn.) */
+.pz-shade.pz-shade.pz-shade.pz-shade.pz-page:is(.pz-card, .stack)[data-out="next"].pz-leave { transform: translateX(calc(-1 * var(--pz-turn-d))); }
+.pz-shade.pz-shade.pz-shade.pz-shade.pz-page:is(.pz-card, .stack)[data-out="back"].pz-leave { transform: translateX(var(--pz-turn-d)); }
+.pz-shade.pz-shade.pz-shade.pz-shade.pz-page:is(.pz-card, .stack)[data-out="jump"].pz-leave { transform: translateY(calc(-1 * var(--rise-y, 6px))); }
+.pz-shade.pz-shade.pz-shade.pz-shade.pz-page:is(.pz-card, .stack):is([data-out="next"], [data-out="back"], [data-out="jump"]):not(.pz-leave) { transition-property: opacity, filter; transition-duration: var(--d-surface), var(--d-surface); transition-delay: .12s, 0s; }
 .pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh)), 20px)); left: 21px; right: 21px; top: auto; bottom: calc(max(26px, 65px - var(--pz-lh)) + var(--pz-sb)); margin-block: 0; width: auto; max-height: 62%; gap: 6px; }/* (With a data card under the words, the pair keeps to the top so the card has room.) */
 .pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: var(--s-lab); }
