@@ -61,7 +61,7 @@ import { portalSplit } from './table-marks.js?v=c82b75e3d5';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=49e37b0228';
-import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=09f4333fdc';
+import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=1f584585fd';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { layoutWatch } from './idle-keys.js?v=c5c00c9da1';
@@ -8160,7 +8160,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       ov.balloons.append(s('path', { d, class: 'balloon-edge' }));
     };
     // The gastric balloon, the first step: collapsed on the tube it rides in with it, then a pear on the tube's axis, its cone drawn up into the
-    // cardia, as wide as the stomach's outline leaves room for.
+    // cardia, as wide as the stomach's outline leaves room for, and pressed on by the junction where it meets it (its shoulder gives against the roof).
     if (kG > 0.001) {
       const gs = gasShape(kG, pull);
       latex(gs.outline, gs.ring);

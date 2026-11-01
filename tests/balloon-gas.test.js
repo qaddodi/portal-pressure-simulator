@@ -1,51 +1,58 @@
 // The tamponade tube's gastric balloon (balloon-gas.js) is the first step: filled in the stomach, the tube drawn up so it seats against the
 // cardia. It must stay inside the stomach as drawn at every stage (Mohammad, 31 Oct: "the gastric balloon has to remain within the bounds of
-// the stomach"), and it is fitted to the stomach's own outline, not to fixed coordinates.
+// the stomach"), and it is fitted to the stomach's own outline, not to fixed coordinates. Drawn up it gives against the gastro-esophageal
+// junction from the stomach's side (Mohammad, 1 Nov: "deform a bit against the GE junction from the gastric side"): softly, only there,
+// and never through the wall.
 import './dom-shim.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GAS, outlineOf, stomachOutline, clearance, fitGas, gasShape, tubePath, tubeTip, tubeTo, pathAt, arcAtY, sheath, sheathArcs, pullArrow, PULL } from '../src/ui/balloon-gas.js';
+import { GAS, outlineOf, stomachOutline, paintedOutline, standoffAt, wallPress, clearance, fitGas, gasShape, tubePath, tubeTip, tubeTo, pathAt, arcAtY, sheath, sheathArcs, pullArrow, PULL } from '../src/ui/balloon-gas.js';
 import { balloonShape } from '../src/ui/balloon-eso.js';
 import { esoAt, BALLOON } from '../src/ui/balloon-eso.js';
 import { SEAM_D } from '../src/ui/anatomy.js';
 
-const STOMACH = stomachOutline(), SEAM = outlineOf(SEAM_D), MOUTH = [esoAt(251).c, 251];
+const STOMACH = stomachOutline(), PAINTED = paintedOutline(), MOUTH = [esoAt(251).c, 251];
 const steps = (n) => Array.from({ length: n + 1 }, (_, i) => i / n);
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
-test('the stomach outline is the drawn one: the cardia and the body are in, the esophagus above it is out', () => {
-  assert.ok(STOMACH.length > 40);
+test('the wall is the outline as the stage paints it: the cardia and the body are in, the esophagus runs into it, the spleen is out', () => {
+  assert.ok(PAINTED.length > 60 && STOMACH.length > 40);
   assert.ok(clearance([870, 300]) > 20, 'the fundus is well inside');
-  assert.ok(clearance([800, 200]) < 0, 'the lower esophagus is not the stomach');
+  assert.ok(clearance([MOUTH[0], 200]) > 3, 'the esophagus above the cardia is one shape with the stomach, so it is inside');
+  assert.ok(clearance([MOUTH[0], 200], STOMACH) < 0, 'the stomach path itself stops at the cardia');
   assert.ok(clearance([1040, 360]) < 0, 'the spleen is not the stomach');
+  assert.ok(clearance([MOUTH[0] + 10, 252]) > 0 && clearance([MOUTH[0], 252]) > 3, 'the cardia is open: the opening is inside the painted outline');
+  assert.equal(PAINTED.length, outlineOf(SEAM_D).length);
 });
 
-test('the gastric balloon stays inside the stomach at every inflation and every stage of the traction, a margin from the wall', () => {
+test('the gastric balloon stays inside the stomach at every inflation and every stage of the traction, off the wall by its standoff (the margin, less at the junction where it presses)', () => {
   for (const k of steps(20)) for (const q of steps(10)) {
     const s = gasShape(k, q);
     for (const p of s.outline) {
-      assert.ok(clearance(p, STOMACH) >= GAS.margin - 1e-6, `k ${k} q ${q}: ${p.map((v) => v.toFixed(1))} is ${clearance(p, STOMACH).toFixed(2)} from the wall`);
-      assert.ok(clearance(p, SEAM) >= GAS.margin - 1.5, `k ${k} q ${q}: inside the stomach as the stage paints it (esophagus and stomach in one shape)`);
+      assert.ok(clearance(p) >= standoffAt(p) - 1e-6, `k ${k} q ${q}: ${p.map((v) => v.toFixed(1))} is ${clearance(p).toFixed(2)} from the wall, its standoff ${standoffAt(p).toFixed(2)}`);
+      assert.ok(clearance(p) > 0.5, 'always inside, with the wall line and the balloon\'s edge clear of each other');
+      // (Away from the junction the stomach path and the painted outline are one wall: the full margin from it.)
+      if (Math.hypot(p[0] - MOUTH[0], p[1] - MOUTH[1]) > GAS.reach[1]) assert.ok(clearance(p, STOMACH) >= GAS.margin - GAS.nudge - 1e-6, `k ${k} q ${q}: clear of the stomach's own outline away from the cardia`);
     }
   }
 });
 
 test('its rims, which the latex is drawn with, lie inside it', () => {
   const s = gasShape(1, 1);
-  for (const f of [0.86, 0.7]) for (const p of s.ring(f)) assert.ok(clearance(p, STOMACH) >= GAS.margin - 1e-6);
+  for (const f of [0.86, 0.7]) for (const p of s.ring(f)) assert.ok(clearance(p) >= standoffAt(p) - 1e-6);
 });
 
 test('the balloon is fitted to the stomach it is given, not to fixed coordinates', () => {
   const home = fitGas();
   // A stomach under a third the size about the cardia: the balloon is smaller, and still inside it.
-  const small = STOMACH.map(([x, y]) => [MOUTH[0] + (x - MOUTH[0]) * 0.3, MOUTH[1] + (y - MOUTH[1]) * 0.3]), fs = fitGas(small, MOUTH);
+  const small = PAINTED.map(([x, y]) => [MOUTH[0] + (x - MOUTH[0]) * 0.3, MOUTH[1] + (y - MOUTH[1]) * 0.3]), fs = fitGas(small, MOUTH);
   assert.ok(fs.b < home.b, `${fs.b.toFixed(1)} against ${home.b.toFixed(1)}`);
   for (const k of [1]) for (const q of [0, 1]) {
     const s = gasShape(k, q, 40, fs);
-    for (const p of s.outline) assert.ok(clearance(p, small) >= GAS.margin - 1e-6, `smaller stomach, q ${q}: ${clearance(p, small).toFixed(2)}`);
+    for (const p of s.outline) assert.ok(clearance(p, small) >= standoffAt(p, MOUTH) - 0.3, `smaller stomach, q ${q}: ${clearance(p, small).toFixed(2)}`);
   }
   // The same stomach and cardia moved over: the balloon moves with them.
-  const dx = 31, dy = 14, moved = STOMACH.map(([x, y]) => [x + dx, y + dy]), fm = fitGas(moved, [MOUTH[0] + dx, MOUTH[1] + dy]);
+  const dx = 31, dy = 14, moved = PAINTED.map(([x, y]) => [x + dx, y + dy]), fm = fitGas(moved, [MOUTH[0] + dx, MOUTH[1] + dy]);
   assert.ok(Math.abs(fm.b - home.b) < 0.05 && Math.abs(fm.deg - home.deg) < 1e-6);
   assert.ok(dist(fm.p0, [home.p0[0] + dx, home.p0[1] + dy]) < 1e-6);
 });
@@ -63,10 +70,10 @@ test('it is a balloon: it grows, from a sheath on the tube to a pear wider than 
 test('the traction draws it up the tube to the cardia, and the cone seats there', () => {
   const f = fitGas(), loose = gasShape(1, 0), seated = gasShape(1, 1);
   assert.ok(Math.abs(dist(seated.p0, loose.p0) - GAS.slack) < 1e-9, 'drawn up by the slack, along the tube');
-  assert.ok(dist(seated.p0, f.mouth) - GAS.pole < 1e-6, 'its upper end is the pole from the cardia');
+  assert.ok(Math.abs((seated.p0[0] - f.mouth[0]) * f.dir[0] + (seated.p0[1] - f.mouth[1]) * f.dir[1] - GAS.pole) < 1e-6 && Math.abs(dist(seated.p0, f.mouth) - Math.abs(GAS.pole)) < 1e-6, 'its upper end is the pole from the cardia, on the axis');
   const near = (s) => Math.min(...s.outline.map((p) => dist(p, MOUTH)));
   assert.ok(near(seated) < near(loose) - 1, 'the balloon is closer to the cardia once drawn up');
-  assert.ok(near(seated) <= GAS.pole + GAS.neck, 'against the cardia: no further from it than the tube between, and its sheath');
+  assert.ok(near(seated) <= Math.abs(GAS.pole) + GAS.neck, 'against the cardia: no further from it than the tube between, and its sheath');
   // The axis runs down into the stomach from the cardia, not across it.
   assert.ok(f.deg > 20 && f.deg < 80);
   // A half-filled balloon is part way, on the same axis.
@@ -92,11 +99,11 @@ test('the tube runs down the middle of the esophagus, bends at the cardia, and g
   assert.ok(Math.abs(dist(tip, f.p0) - (f.L + GAS.tail + GAS.slack)) < 1e-9, 'before the traction it rests the slack further in');
   assert.ok(clearance(tip) >= GAS.margin, 'the tip is inside the stomach too');
   for (let i = 1; i < P.arc.length; i++) assert.ok(P.arc[i] > P.arc[i - 1], 'one steady run');
-  // The bend is gentle: no turn of more than 40° between two steps.
+  // The bend is the one elbow at the cardia, from the esophagus's line into the axis (about half a right angle): no step turns more than 55°, no hook.
   for (let i = 2; i < P.pts.length; i++) {
     const a = [P.pts[i - 1][0] - P.pts[i - 2][0], P.pts[i - 1][1] - P.pts[i - 2][1]], b = [P.pts[i][0] - P.pts[i - 1][0], P.pts[i][1] - P.pts[i - 1][1]];
     const turn = Math.acos(Math.min(1, (a[0] * b[0] + a[1] * b[1]) / (Math.hypot(...a) * Math.hypot(...b))));
-    assert.ok(turn < (40 * Math.PI) / 180, `a turn of ${((turn * 180) / Math.PI).toFixed(0)}° at ${P.pts[i].map((v) => v.toFixed(0))}`);
+    assert.ok(turn < (55 * Math.PI) / 180, `a turn of ${((turn * 180) / Math.PI).toFixed(0)}° at ${P.pts[i].map((v) => v.toFixed(0))}`);
   }
 });
 
@@ -173,4 +180,81 @@ test('the traction arrow rises beside the bare tube, clear of the esophagus wall
   assert.ok(tip[1] < l[1] && tip[1] < r[1], 'the head points up');
   assert.ok(a.line[0][1] > a.line.at(-1)[1], 'the shaft runs up');
   assert.equal(tip[1], PULL.to);
+});
+
+// ── The give against the junction ──────────────────────
+const moved = (s) => s.outline.map((p, i) => dist(p, s.raw[i]));
+const segDist = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy, u = l2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)) : 0; return Math.hypot(p[0] - a[0] - u * dx, p[1] - a[1] - u * dy); };
+const toRing = (ring, p) => Math.min(...ring.map((a, i) => segDist(p, a, ring[(i + 1) % ring.length])));
+const hausdorff = (A, B) => Math.max(...A.map((p) => toRing(B, p)), ...B.map((p) => toRing(A, p)));
+
+test('drawn up, the balloon gives against the gastro-esophageal junction: a visible flattening there, a little more with every unit of traction, and none elsewhere', () => {
+  const full = (q) => gasShape(1, q), deepest = (q) => Math.max(...moved(full(q)));
+  // At full traction it is pressed in by a couple of units, no more than the limit, and not a hair's breadth.
+  assert.ok(deepest(1) >= 1.5, `${deepest(1).toFixed(2)} units`);
+  assert.ok(deepest(1) <= GAS.push + 1e-9);
+  // It grows with the traction, never going back.
+  let last = -1;
+  for (const q of steps(20)) { const d = deepest(q); assert.ok(d >= last - 1e-9, `q ${q}`); last = d; }
+  assert.ok(deepest(1) > deepest(0.5) + 0.5 && deepest(0.5) > deepest(0.2));
+  // It is the junction that presses: every point that gives by more than the wall's own softness is within the junction's reach of the cardia.
+  const s = full(1);
+  s.outline.forEach((p, i) => {
+    const d = dist(p, s.raw[i]), r = dist(p, MOUTH);
+    if (d > GAS.nudge) assert.ok(r <= GAS.reach[1], `a point ${r.toFixed(0)} from the cardia gave by ${d.toFixed(2)}`);
+  });
+  // The rest of the balloon is the free pear: it is only the skin near the junction that moves.
+  const far = s.outline.filter((p) => dist(p, MOUTH) > GAS.reach[1]);
+  assert.ok(far.length > 20);
+  s.outline.forEach((p, i) => { if (dist(p, MOUTH) > GAS.reach[1]) assert.ok(dist(p, s.raw[i]) <= GAS.nudge, 'the far skin is the free pear'); });
+  // Collapsed on the tube it presses on nothing.
+  for (const q of steps(4)) assert.ok(Math.max(...moved(gasShape(0, q))) < 0.05, `collapsed, q ${q}`);
+});
+
+test('the give is soft: no corner where the skin meets the wall, and the outline changes in small steps as the traction and the filling go on', () => {
+  const turn = (ring) => {
+    let worst = 0;
+    ring.forEach((b, i) => {
+      const a = ring[(i + ring.length - 1) % ring.length], c = ring[(i + 1) % ring.length], u = [b[0] - a[0], b[1] - a[1]], v = [c[0] - b[0], c[1] - b[1]];
+      worst = Math.max(worst, Math.acos(Math.max(-1, Math.min(1, (u[0] * v[0] + u[1] * v[1]) / (Math.hypot(...u) * Math.hypot(...v) || 1)))));
+    });
+    return (worst * 180) / Math.PI;
+  };
+  for (const q of [0.5, 0.75, 1]) assert.ok(turn(gasShape(1, q).outline) < 32, `q ${q}: a turn of ${turn(gasShape(1, q).outline).toFixed(0)}° between two steps of the outline`);
+  // (the shape, not its points: how far one outline is from the next, 1/50th of the way on, in either direction)
+  for (let i = 0; i < 50; i += 3) {
+    const q = i / 50, k = i / 50;
+    assert.ok(hausdorff(gasShape(1, q).outline, gasShape(1, q + 0.02).outline) < 0.5, `traction at ${q}`);
+    assert.ok(hausdorff(gasShape(k + 0.0001, 1).outline, gasShape(k + 0.02, 1).outline) < 0.6, `filling at ${k}`);
+  }
+});
+
+test('wallPress: a ring clear of the wall is left alone, and one through it is brought back in, softly, to rest off the wall', () => {
+  const M = MOUTH;
+  const circle = (c, r, n = 48) => Array.from({ length: n }, (_, i) => [c[0] + r * Math.cos((2 * Math.PI * i) / n), c[1] + r * Math.sin((2 * Math.PI * i) / n)]);
+  const free = circle([880, 330], 15), left = wallPress(free);
+  assert.deepEqual(left.ring, free, 'clear of the wall: not a point moved');
+  assert.ok(left.deepest < 1e-3);
+  // Through the roof at the junction: back in, off it by about the seat.
+  const through = circle([M[0] + 14, M[1] + 8], 12), back = wallPress(through, PAINTED, M);
+  assert.ok(back.deepest > 3, 'it was pressed on');
+  for (const p of back.ring) assert.ok(clearance(p) >= GAS.seat - 0.2, `at ${p.map((v) => v.toFixed(1))}: ${clearance(p).toFixed(2)}`);
+  // Through the greater curvature, far from the cardia: the same, to the margin there (the standoff eases from the seat to the margin).
+  const out = circle([960, 400], 25), farBack = wallPress(out, PAINTED, M);
+  for (const p of farBack.ring) assert.ok(clearance(p) >= GAS.margin - 0.3, `far from the cardia: ${clearance(p).toFixed(2)}`);
+  // The standoff: the seat at the cardia, the margin beyond the junction's reach, between them in between.
+  assert.equal(standoffAt(M, M), GAS.seat);
+  assert.equal(standoffAt([M[0] + GAS.reach[1] + 1, M[1]], M), GAS.margin);
+  const mid = standoffAt([M[0] + (GAS.reach[0] + GAS.reach[1]) / 2, M[1]], M);
+  assert.ok(mid > GAS.seat && mid < GAS.margin);
+});
+
+test('the fit keeps the full size with the give: the balloon is as large as before, only its skin is pressed, and it presses on the junction rather than elsewhere', () => {
+  const f = fitGas();
+  assert.equal(f.b, GAS.bMax);
+  assert.equal(f.poly, PAINTED);
+  // Its axis is the pole from the cardia, so the cone is at the opening, and it presses on the roof round it, not on the lesser curvature below.
+  const s = gasShape(1, 1), by = moved(s), at = s.outline[by.indexOf(Math.max(...by))];
+  assert.ok(dist(at, MOUTH) < GAS.reach[0] + 4, `the deepest give is ${dist(at, MOUTH).toFixed(0)} from the cardia`);
+  assert.ok(at[1] < MOUTH[1] + 12, 'on the roof, not down the wall');
 });

@@ -9,7 +9,12 @@
 // the middle of the stomach's upper part from the cardia, and the balloon is as large as the outline leaves room for, a margin inside
 // the wall, at every inflation and every stage of the traction, up to the size it is drawn at. A redrawn stomach moves and resizes it
 // (tests/balloon-gas.test.js holds it inside, and fits it to a smaller outline too).
-import { ORGANS } from './anatomy.js?v=6d1acc2a06';
+//
+// Drawn up, the balloon presses on the gastro-esophageal junction from the stomach's side, and gives where it does: the wall near the
+// cardia (the roof round the opening and the lesser curvature below it) holds its skin a hair's breadth off, so the cone's shoulder
+// flattens against it, softly and a little more with every unit of traction, and the rest of the balloon is as it was. The give is worked
+// out from the stomach's own outline (wallPress), so it follows a redrawn stomach too, and never goes through the wall.
+import { ORGANS, SEAM_D } from './anatomy.js?v=6d1acc2a06';
 import { pathCmds, flattenCmds } from './shape-gl.js?v=74fff72fb9';
 import { esoAt, BALLOON } from './balloon-eso.js?v=49e37b0228';
 
@@ -17,13 +22,18 @@ export const GAS = {
   margin: 3.5,   // how far inside the wall the balloon stays, in world units: the wall's line and glow, and the balloon's own edge
   slack: 8,      // how far down the tube the balloon sits before the traction, in world units; the traction draws it up this far
   neck: 1.6,     // the half width of the collapsed balloon: a sheath on the tube (the esophageal one: BALLOON.sleeve)
-  pole: 10,      // from the middle of the cardia to the balloon's upper end, along the tube
+  pole: 0,       // from the middle of the cardia to the balloon's upper end, along the tube: the cone's tip is at the cardia, where the tube bends into the axis
   tail: 7,       // the tube past the balloon's lower end
   bMax: 20,      // the half width it is drawn at when the stomach has room for it (about twice the esophagus's)
   ratio: 2.9,    // its length over its half width
   cone: 0.6,     // how far down its length it is widest
   pCone: 1.3,    // the curve of the cone into the cardia (1: straight sides) and of the round end below
   pCap: 2.2,
+  seat: 1.5,     // how near the wall the balloon's skin comes where it presses on it: the two lines almost touch
+  soft: 1.2,     // how softly it gives: the skin eases toward the wall over about this much more than the seat, it does not stop at it
+  reach: [26, 40],   // the junction: the cardia and the roof round it, within the first distance of the cardia, and not beyond the second
+  push: 5,       // the most the skin is pressed in at the junction, in world units ("a bit"): a fit that would press further is turned down
+  nudge: 0.9,    // and the most anywhere else (the softness of the margin itself): the balloon is fitted not to press on the rest of the wall
 };
 
 // ── The stomach's outline ─────────────────────────────
@@ -33,10 +43,17 @@ export function outlineOf(d) {
   for (let i = 0; i < f.length; i += 2) out.push([f[i], f[i + 1]]);
   return out;
 }
-let STOMACH = null;
-/** The stomach as drawn (anatomy.js ORGANS 'stomach': its own outline, which the highlights and the diaphragm's cut use), as a polygon. */
+let STOMACH = null, PAINTED = null;
+/** The stomach's own outline (anatomy.js ORGANS 'stomach', which the highlights and the diaphragm's cut use), as a polygon. It closes across the cardia. */
 export function stomachOutline() {
   return STOMACH || (STOMACH = outlineOf(ORGANS.find((o) => o.id === 'stomach').d));
+}
+/**
+ * The outline the stage paints: the esophagus and the stomach as one shape (anatomy.js SEAM_D), open at the cardia, the esophagus's edges running
+ * on into the stomach's roof and its lesser curvature. This is the wall the balloon is fitted to and presses on: it is the one on the screen.
+ */
+export function paintedOutline() {
+  return PAINTED || (PAINTED = outlineOf(SEAM_D));
 }
 const inside = (poly, [x, y]) => {
   let c = false;
@@ -47,7 +64,7 @@ const inside = (poly, [x, y]) => {
   return c;
 };
 /** How far inside the polygon a point stands: its distance to the nearest wall, negative outside. */
-export function clearance(p, poly = stomachOutline()) {
+export function clearance(p, poly = paintedOutline()) {
   let best = Infinity;
   for (let i = 0; i < poly.length; i++) {
     const a = poly[i], b = poly[(i + 1) % poly.length], dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
@@ -55,6 +72,45 @@ export function clearance(p, poly = stomachOutline()) {
     best = Math.min(best, Math.hypot(p[0] - a[0] - u * dx, p[1] - a[1] - u * dy));
   }
   return inside(poly, p) ? best : -best;
+}
+/** Where a point stands against the wall: { c: its clearance (negative outside), n: the unit vector at the nearest wall point, pointing into the stomach }. */
+function probe(p, poly) {
+  let best = Infinity, qx = 0, qy = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length], dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+    const u = l2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)) : 0;
+    const x = a[0] + u * dx, y = a[1] + u * dy, d = Math.hypot(p[0] - x, p[1] - y);
+    if (d < best) { best = d; qx = x; qy = y; }
+  }
+  const out = !inside(poly, p), l = best || 1;
+  return { c: out ? -best : best, n: best > 1e-9 ? [((out ? -1 : 1) * (p[0] - qx)) / l, ((out ? -1 : 1) * (p[1] - qy)) / l] : [0, 1] };
+}
+const smooth = (t) => t * t * (3 - 2 * t);
+/** How much the junction counts at a point: 1 within GAS.reach[0] of the cardia, 0 beyond GAS.reach[1], eased between. */
+const giveAt = (p, mouth) => 1 - smooth(Math.min(1, Math.max(0, (Math.hypot(p[0] - mouth[0], p[1] - mouth[1]) - GAS.reach[0]) / (GAS.reach[1] - GAS.reach[0]))));
+/** How near the wall the skin may come at a point: the seat at the junction, the margin away from it, eased between. */
+const standoff = (w) => GAS.seat + (GAS.margin - GAS.seat) * (1 - w);
+/** How near the wall the skin may come at a point p (given the cardia): the seat within the junction's reach, GAS.margin beyond it. */
+export const standoffAt = (p, mouth = [esoAt(251).c, 251]) => standoff(giveAt(p, mouth));
+/**
+ * A balloon's outline (a ring of points) pressed on the wall: each point is eased back along the wall's normal to stand off the wall by at
+ * least the standoff for where it is (the seat at the cardia, GAS.margin away from it), and softly: clearance c becomes
+ * s + soft·ln(1 + e^((c − s)/soft)) for a standoff s, so there is no edge where the skin meets the wall, and a point that had gone through
+ * the wall is brought back in. A balloon that is clear of the wall is untouched (to a hair); the give comes only where it presses.
+ * → { ring, deepest (the most any point moved), over (how far past what the place allows the most-moved point went: GAS.nudge away from
+ * the junction, up to GAS.push at it; a fit wants this at 0 or below) }
+ */
+export function wallPress(ring, poly = paintedOutline(), mouth = [esoAt(251).c, 251]) {
+  const { soft, nudge, push } = GAS;
+  let deepest = 0, over = -Infinity;
+  const out = ring.map((p) => {
+    const w = giveAt(p, mouth), s = standoff(w), { c, n } = probe(p, poly);
+    if (c > s + 9 * soft) { over = Math.max(over, -nudge); return p; }
+    const d = s + soft * Math.log1p(Math.exp((c - s) / soft)) - c;
+    deepest = Math.max(deepest, d); over = Math.max(over, d - (nudge + (push - nudge) * w));
+    return d < 1e-4 ? p : [p[0] + n[0] * d, p[1] + n[1] * d];
+  });
+  return { ring: out, deepest, over };
 }
 
 // ── The pear ──────────────────────────────────────────
@@ -76,19 +132,21 @@ function pearOutline(p0, dir, L, b, h0, n) {
 /**
  * The balloon fitted to a stomach outline: where the tube meets the cardia (the middle of the esophagus's foot), the axis down the
  * stomach's upper part that leaves the balloon the most room, and the largest half width b (up to GAS.bMax) at which the filled balloon,
- * at every stage of the traction, stays GAS.margin inside the wall. `poly` and `mouth` default to the drawn stomach and cardia.
+ * at every stage of the traction, stays GAS.margin inside the wall. `poly` and `mouth` default to the painted stomach (paintedOutline) and the cardia.
  * The axis is the middle of the run of angles that give the full size (not the sharpest of them), so a small change to the outline moves
  * the balloon a little, never a lot. → { mouth, dir, deg, p0 (the balloon's upper end, drawn up), b, L }
  */
-export function fitGas(poly = stomachOutline(), mouth = [esoAt(251).c, 251]) {
+export function fitGas(poly = paintedOutline(), mouth = [esoAt(251).c, 251]) {
   const { margin, slack, pole, ratio, bMax, neck } = GAS;
   const at = (deg) => { const t = (deg * Math.PI) / 180, dir = [Math.cos(t), Math.sin(t)]; return { dir, p0: [mouth[0] + dir[0] * pole, mouth[1] + dir[1] * pole] }; };
   // The widest half width that fits with the axis at deg (bisected; n points round the outline, a coarse look first, a fine one at the end).
   const widest = (deg, steps, n) => {
     const { dir, p0 } = at(deg);
+    // (Each stage of the traction as it is drawn, the skin pressed on the wall: the junction may give it up to GAS.push, the rest of the wall hardly.)
     const fits = (b) => [0, slack / 2, slack].every((s) => {
       const q = [p0[0] + dir[0] * s, p0[1] + dir[1] * s];
-      return pearOutline(q, dir, ratio * b, b, neck, n).ring.every((pt) => clearance(pt, poly) >= margin);
+      const pressed = wallPress(pearOutline(q, dir, ratio * b, b, neck, n).ring, poly, mouth);
+      return pressed.over <= 0 && pressed.ring.every((pt) => clearance(pt, poly) >= standoff(giveAt(pt, mouth)) - 0.15);   // (and it has come to rest off the wall: a stomach too small to give room does not fit)
     });
     if (fits(bMax)) return bMax;
     let lo = neck, hi = bMax;
@@ -113,23 +171,24 @@ export function fitGas(poly = stomachOutline(), mouth = [esoAt(251).c, 251]) {
     b = widest(deg, 16, 32);
   }
   const { dir, p0 } = at(deg);
-  return { mouth, dir, deg, p0, b, L: ratio * b };
+  return { mouth, poly, dir, deg, p0, b, L: ratio * b };
 }
 let FIT = null;
 const fit = () => FIT || (FIT = fitGas());
 
 /**
  * The gastric balloon at inflation k (0 collapsed on the tube … 1 filled) with the traction at q (0 let go: it sits GAS.slack down the
- * tube … 1 drawn up: its cone is seated against the cardia). The outline as a closed ring of points, the upper end p0, the axis dir,
+ * tube … 1 drawn up: its cone is seated against the cardia). The outline as a closed ring of points (pressed on the wall where it meets it: wallPress; `raw`
+ * is the same ring before that, the pear as it would be in free space), the upper end p0, the axis dir,
  * the length L, half(u) its half width u along its length (0 … 1), ring(f) the outline narrowed to f of its width (for the latex's
  * rims) and b the widest half width now.
  */
 export function gasShape(k, q = 1, n = 40, f = fit()) {
   const b = GAS.neck + (f.b - GAS.neck) * k, s = GAS.slack * (1 - q);
   const p0 = [f.p0[0] + f.dir[0] * s, f.p0[1] + f.dir[1] * s], { ring, half } = pearOutline(p0, f.dir, f.L, b, GAS.neck, n);
-  const [dx, dy] = f.dir;
-  const narrow = (w) => ring.map(([x, y]) => { const a = (x - p0[0]) * dx + (y - p0[1]) * dy, l = (x - p0[0]) * -dy + (y - p0[1]) * dx; return [p0[0] + dx * a - dy * l * w, p0[1] + dy * a + dx * l * w]; });
-  return { outline: ring, p0, dir: f.dir, L: f.L, half, ring: narrow, b };
+  const [dx, dy] = f.dir, pressed = wallPress(ring, f.poly, f.mouth).ring;
+  const narrow = (w) => pressed.map(([x, y]) => { const a = (x - p0[0]) * dx + (y - p0[1]) * dy, l = (x - p0[0]) * -dy + (y - p0[1]) * dx; return [p0[0] + dx * a - dy * l * w, p0[1] + dy * a + dx * l * w]; });
+  return { outline: pressed, raw: ring, p0, dir: f.dir, L: f.L, half, ring: narrow, b };
 }
 
 // ── The tube ──────────────────────────────────────────
