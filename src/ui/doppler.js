@@ -5,7 +5,7 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=9cc632ebbb';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=9cc632ebbb';
 import { FONT, textW } from './charts.js?v=14608d850d';
 import { logAction, shownVel, store } from './store.js?v=4ef2a6ffd8';
 import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=9f29772630';
@@ -80,7 +80,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   invBtn.addEventListener('click', () => { setInvert(!invert); logAction('invert', 'doppler', invert); });
   function sync() {
     const m = DOPPLER_MODES.find((x) => x.id === mode);
-    modeTxt.textContent = m.short;
+    swapText(modeTxt, m.short);   // (the display mode's name crossfades)
     modeBtn.title = `Doppler display: ${m.label}. Tap to change.`;
     modeBtn.setAttribute('aria-label', `Doppler display mode: ${m.label}. Activate to change.`);
     modeBtn.setAttribute('aria-pressed', String(mode !== 'spectrum'));
@@ -99,7 +99,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function setSweep(i) {
     sweepIndex = i;
     sweepSeconds = SWEEP_SECONDS[sweepIndex];
-    sweepBtn.lastChild.textContent = `${sweepSeconds} s`;
+    swapText(sweepBtn.lastChild, `${sweepSeconds} s`);
     sweepBtn.title = `Sweep window: ${sweepSeconds} seconds. Tap to cycle.`;
     sweepBtn.setAttribute('aria-label', `Doppler sweep duration: ${sweepSeconds} seconds. Activate to cycle.`);
     ringKey = '';
@@ -437,7 +437,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (!r) {
       setDir(frame?.clock === 'disease' ? 'Not available during time lapse' : 'Acquiring…'); dirEl.dataset.sev = '';
       rangeEl.hidden = true; velEl.dataset.out = 'false'; velEl.hidden = false;
-      for (const e of [velEl.firstChild, patternEl, noteEl]) if (e.textContent) e.textContent = e === velEl.firstChild ? '—' : '';
+      for (const e of [velEl.firstChild, patternEl]) if (e.textContent) e.textContent = e === velEl.firstChild ? '—' : '';
+      swapText(noteEl, '');
       for (const k in statEls) setStat(statEls[k].dd, '—');
       return;
     }
@@ -502,7 +503,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
         }
       });
     }
-    set(noteEl, it.note);
+    swapText(noteEl, it.note);   // (the vessel's note crossfades when the reading's story changes)
     const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${it.dir}, ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;
     if (cv.getAttribute('aria-label') !== aria) cv.setAttribute('aria-label', aria);
   }
