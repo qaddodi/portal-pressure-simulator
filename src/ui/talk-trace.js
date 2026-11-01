@@ -9,6 +9,7 @@ import { frameFor } from './frame.js?v=7710f677e2';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { bandKeys, bandRuns, bandSpan, namePlaces } from './rx-bands.js?v=51e83c7c59';
 import { morphSvg } from './svg-morph.js?v=97871b107c';
+import { measure } from './glyph-measure.js?v=3ec1724dd5';
 const nextFrame = frameFor('presenter-tools');
 
 // ── The talk so far: PV, WHVP and FHVP at each state, the HVPG in its own lane with its cut-offs ──
@@ -21,13 +22,8 @@ const sv = (tag, attrs = {}, ...kids) => {
 };
 const LINES = [['pv', 'PV', '--tr-pv'], ['whvp', 'WHVP', '--tr-wedge'], ['fhvp', 'FHVP', '--tr-hv']];
 const sev = hvpgRate;
-let mctx = null;
-const textW = (t, f, wt = 600) => {
-  if (mctx === null) mctx = (typeof document !== 'undefined' && document.createElement?.('canvas')?.getContext?.('2d')) || false;
-  if (!mctx?.measureText) return t.length * f * 0.62;
-  mctx.font = `${wt} ${f}px Inter, system-ui, -apple-system, 'Segoe UI', sans-serif`;
-  return mctx.measureText(t).width;
-};
+// (a word's width as Inter sets it, from the GPU atlas's own metrics: no canvas)
+const textW = (t, f, wt = 600) => measure(t, `${wt} ${f}px Inter`);
 
 /** Where the milestones' names go, level over their lines: each centred on its x (moved in to stay inside [0, W]), on the
  *  first row from the plot up where it keeps gap px from the name before it; as many rows as that takes, never cut short.

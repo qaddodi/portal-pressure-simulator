@@ -18,24 +18,26 @@
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
 import { canvasSize, fitCanvas } from './util.js?v=e710e031d9';
 import { sdfAtlas } from './text-gl.js?v=b384a10c15';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
+import { fontOf, measure } from './glyph-measure.js?v=3ec1724dd5';
+export { measure };
 const { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
 
 /** ?tracegl=0 in a page's search string: every chart and monitor draws on its 2D canvas, as before. */
 export const traceGLOff = (search) => /[?&]tracegl=0\b/.test(String(search ?? ''));
 
-// Paint (a colour or a linear gradient of up to four stops), shared by the fills and the strokes' laying down. Positions in CSS px.
+// Paint (a colour or a linear gradient of up to sixteen stops: the profile's curve has a stop per station), shared by the fills and the strokes' laying down. Positions in CSS px.
 const PAINT = `
-uniform vec4 pc[4];                  // the stops' colours (premultiplied)
-uniform vec4 po;                     // the stops' offsets
+uniform vec4 pc[16];                 // the stops' colours (premultiplied)
+uniform float po[16];                // the stops' offsets
 uniform vec4 pl;                     // the gradient's line: x0, y0, x1, y1 (CSS px)
 uniform int pn;                      // how many stops (1: a plain colour)
 vec4 paint(vec2 p) {
   if (pn < 2) return pc[0];
   vec2 d = pl.zw - pl.xy;
   float t = dot(d, d) > 0.0 ? dot(p - pl.xy, d) / dot(d, d) : 0.0;
-  if (t <= po.x) return pc[0];
+  if (t <= po[0]) return pc[0];
   vec4 c = pc[0];
-  for (int i = 1; i < 4; i++) {
+  for (int i = 1; i < 16; i++) {
     if (i >= pn) break;
     float a = po[i - 1], b = po[i];
     if (t <= b) return mix(pc[i - 1], pc[i], b > a ? (t - a) / (b - a) : 1.0);
@@ -160,11 +162,14 @@ void main() {
   if (o.a <= 0.0) discard;
 }`;
 // Text: the atlas's picture (its alpha) copied texel for texel to the canvas's pixels, tinted.
+// (floats per glyph: its box, its atlas box, its tint, its scale and outline, its turn)
+const TS = 18;
 const TEXT_VS = `#version 300 es
 layout(location = 0) in vec4 dst;    // x, y, w, h (device px)
 layout(location = 1) in vec4 src;    // the glyph's box in the atlas (texels)
 layout(location = 2) in vec4 tc;     // premultiplied
 layout(location = 3) in vec2 sk;     // device px per atlas px; an outline's half width (device px; 0: the glyph itself)
+layout(location = 4) in vec4 rot;    // words turned about (rot.xy) (device px) by the angle whose cos, sin are rot.zw
 uniform vec2 res, asz;
 out vec2 vT;
 flat out vec4 vC;
@@ -172,7 +177,8 @@ flat out vec2 vK;
 void main() {
   int id = gl_VertexID;
   vec2 f = vec2(id == 1 || id == 3 ? 1.0 : 0.0, id >= 2 ? 1.0 : 0.0);
-  vec2 q = dst.xy + dst.zw * f;
+  vec2 q = dst.xy + dst.zw * f - rot.xy;
+  q = rot.xy + vec2(q.x * rot.z - q.y * rot.w, q.x * rot.w + q.y * rot.z);
   vT = (src.xy + src.zw * f) / asz;
   vC = tc; vK = sk;
   gl_Position = vec4(q.x / res.x * 2.0 - 1.0, 1.0 - q.y / res.y * 2.0, 0.0, 1.0);
@@ -195,35 +201,6 @@ void main() {
   o = vC * a;
 }`;
 
-// The font a chart names ("650 12.5px Inter, …"): its weight, the nearest the atlas holds, and its size.
-const WEIGHTS = Object.keys(GLYPHS).map(Number);
-const fonts = new Map();
-function fontOf(font) {
-  let f = fonts.get(font);
-  if (!f) {
-    const m = /(?:^|\s)(\d{3})\s/.exec(' ' + font + ' '), z = /([\d.]+)px/.exec(font);
-    const want = m ? +m[1] : /bold/.test(font) ? 700 : 400;
-    f = { w: WEIGHTS.reduce((a, b) => (Math.abs(b - want) < Math.abs(a - want) ? b : a)), px: z ? +z[1] : 10 };
-    fonts.set(font, f);
-  }
-  return f;
-}
-const widthsOf = new Map();
-/** A word's width in CSS px in `font`, from the atlas's own advances and kerning (Inter, as the browser sets it), with no canvas. */
-export function measure(str, font) {
-  str = String(str);
-  const key = font + '\u0001' + str;
-  let w = widthsOf.get(key);
-  if (w === undefined) {
-    const f = fontOf(font), g = GLYPHS[f.w], kw = KERN[f.w];
-    let em = 0, prev = '';
-    for (const ch of str) { em += (g[ch] || g['?'])[0] + (prev ? kw[prev + ch] || 0 : 0); prev = ch; }
-    w = em * f.px;
-    if (widthsOf.size > 4000) widthsOf.clear();
-    widthsOf.set(key, w);
-  }
-  return w;
-}
 // The glyphs' field, decoded once for every chart (an image, no canvas).
 let glyphImage = null;
 // (A chart that drew on its own canvas while the field was still decoding is drawn again on the GPU once it is in.)
@@ -313,7 +290,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
     boxBuf = gl.createBuffer(); boxVao = gl.createVertexArray(); gl.bindVertexArray(boxVao); gl.bindBuffer(gl.ARRAY_BUFFER, boxBuf);
     for (const [i, n, off] of [[0, 4, 0], [1, 2, 16], [2, 4, 24], [3, 4, 40]]) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, n, gl.FLOAT, false, 56, off); gl.vertexAttribDivisor(i, 1); }
     textBuf = gl.createBuffer(); textVao = gl.createVertexArray(); gl.bindVertexArray(textVao); gl.bindBuffer(gl.ARRAY_BUFFER, textBuf);
-    for (const [i, n, off] of [[0, 4, 0], [1, 4, 16], [2, 4, 32], [3, 2, 48]]) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, n, gl.FLOAT, false, 56, off); gl.vertexAttribDivisor(i, 1); }
+    for (const [i, n, off] of [[0, 4, 0], [1, 4, 16], [2, 4, 32], [3, 2, 48], [4, 4, 56]]) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, n, gl.FLOAT, false, TS * 4, off); gl.vertexAttribDivisor(i, 1); }
     gl.bindVertexArray(null);
     covTex = gl.createTexture(); fbo = gl.createFramebuffer();
     atlasTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, atlasTex);
@@ -348,7 +325,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
   // ── A frame ──
   let W = 1, H = 1, K = 1, clipR = null, inFrame = false;
   let segData = new Float32Array(6144), fillData = new Float32Array(4096);
-  let textData = new Float32Array(400), textN = 0, boxData = new Float32Array(560), boxN = 0;
+  let textData = new Float32Array(18 * 32), textN = 0, boxData = new Float32Array(560), boxN = 0;
   const grow = (a, n) => { if (a.length >= n) return a; let m = a.length; while (m < n) m *= 2; const b = new Float32Array(m); b.set(a); return b; };
   function scissor(r) {
     if (!r) { gl.disable(gl.SCISSOR_TEST); return true; }
@@ -369,7 +346,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
         gl.uniform2f(P.text.u.res, W, H); gl.uniform2f(P.text.u.asz, ATLAS_W, ATLAS_H); gl.uniform2f(P.text.u.sdf, RADIUS, CUTOFF);
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.uniform1i(P.text.u.atlas, 0);
         gl.bindVertexArray(textVao); gl.bindBuffer(gl.ARRAY_BUFFER, textBuf);
-        gl.bufferData(gl.ARRAY_BUFFER, textData.subarray(0, textN * 14), gl.STREAM_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, textData.subarray(0, textN * TS), gl.STREAM_DRAW);
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, textN);
       }
       textN = 0;
@@ -388,15 +365,15 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
   // Paint uniforms: a colour string, or a gradient from the context ({ grad: [x0, y0, x1, y1], stops: [[offset, colour], …] }).
   function setPaint(u, style, alpha) {
     if (style && style.grad) {
-      const st = style.stops.slice().sort((a, b) => a[0] - b[0]).slice(0, 4);
+      const st = style.stops.slice().sort((a, b) => a[0] - b[0]).slice(0, 16);
       if (st.length) {
-        const pc = new Float32Array(16), po = new Float32Array(4);
+        const pc = new Float32Array(64), po = new Float32Array(16);
         st.forEach(([o, c], i) => { pc.set(premul(c), i * 4); po[i] = o; });
-        gl.uniform4fv(u.pc, pc); gl.uniform4fv(u.po, po); gl.uniform4fv(u.pl, style.grad); gl.uniform1i(u.pn, st.length); gl.uniform1f(u.ga, alpha);
+        gl.uniform4fv(u.pc, pc); gl.uniform1fv(u.po, po); gl.uniform4fv(u.pl, style.grad); gl.uniform1i(u.pn, st.length); gl.uniform1f(u.ga, alpha);
         return;
       }
     }
-    const pc = new Float32Array(16); pc.set(premul(typeof style === 'string' ? style : 'transparent'));
+    const pc = new Float32Array(64); pc.set(premul(typeof style === 'string' ? style : 'transparent'));
     gl.uniform4fv(u.pc, pc); gl.uniform1i(u.pn, 1); gl.uniform1f(u.ga, alpha);
   }
   function coverTarget() {
@@ -549,8 +526,9 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
       boxData.set(f, o + 6); boxData.set(s, o + 10);
       boxN++;
     },
-    /** Words at (x, y) (CSS px) in `font`, aligned as the 2D canvas aligns them. sw: the words' outline that wide instead of the words. */
-    text(str, x, y, font, color, align = 'left', base = 'alphabetic', alpha = 1, sw = 0) {
+    /** Words at (x, y) (CSS px) in `font`, aligned as the 2D canvas aligns them. sw: the words' outline that wide instead of the words.
+     *  turn: [ox, oy, angle] turns them about (ox, oy) (CSS px) by the angle (radians, clockwise on the page, as the 2D canvas's rotate). */
+    text(str, x, y, font, color, align = 'left', base = 'alphabetic', alpha = 1, sw = 0, turn = null) {
       str = String(str);
       if (!str || typeof color !== 'string') return;
       if (boxN) flush();
@@ -558,19 +536,21 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
       if (tint[3] <= 0) return;
       const f = fontOf(font), g = GLYPHS[f.w], kw = KERN[f.w], s = f.px / BASE, sk = s * K;
       const width = measure(str, font);
+      const rx = turn ? turn[0] * K : 0, ry = turn ? turn[1] * K : 0, rc = turn ? Math.cos(turn[2]) : 1, rs = turn ? Math.sin(turn[2]) : 0;
       let cx = align === 'right' || align === 'end' ? x - width : align === 'center' ? x - width / 2 : x;
       const by = y + (BASELINES[f.w][base] ?? 0) * f.px;
-      textData = grow(textData, (textN + str.length) * 14);
+      textData = grow(textData, (textN + str.length) * TS);
       let prev = '';
       for (const ch of str) {
         const e = g[ch] || g['?'];
         if (prev) cx += (kw[prev + ch] || 0) * f.px;
         if (ch !== ' ') {
-          const o = textN * 14;
+          const o = textN * TS;
           textData[o] = (cx - e[5] * s) * K; textData[o + 1] = (by - e[6] * s) * K; textData[o + 2] = e[3] * sk; textData[o + 3] = e[4] * sk;
           textData[o + 4] = e[1]; textData[o + 5] = e[2]; textData[o + 6] = e[3]; textData[o + 7] = e[4];
           textData.set(tint, o + 8);
           textData[o + 12] = sk; textData[o + 13] = sw ? (sw / 2) * K : 0;
+          textData[o + 14] = rx; textData[o + 15] = ry; textData[o + 16] = rc; textData[o + 17] = rs;
           textN++;
         }
         cx += e[0] * f.px;
@@ -613,7 +593,7 @@ function createShim(G) {
   let st, stack, K = 1;
   let pieces = [], cur = null, shapes = [], only = true;
   let sx = new Float32Array(1024), sy = new Float32Array(1024);   // (a stroke's points, kept from frame to frame)   // (only: the path is made of whole shapes and nothing else)
-  const fresh = () => ({ fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, lineCap: 'butt', lineJoin: 'miter', font: '10px sans-serif', textAlign: 'start', textBaseline: 'alphabetic', globalAlpha: 1, dash: [], lineDashOffset: 0, clip: null });   // colour-exempt: the 2D canvas's own defaults
+  const fresh = () => ({ fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, lineCap: 'butt', lineJoin: 'miter', font: '10px sans-serif', textAlign: 'start', textBaseline: 'alphabetic', globalAlpha: 1, dash: [], lineDashOffset: 0, clip: null, tf: null });   // colour-exempt: the 2D canvas's own defaults
   const startPiece = (x, y) => { cur = [x, y]; pieces.push(cur); };
   const add = (x, y) => { if (!cur) startPiece(x, y); else cur.push(x, y); };
   const arcPts = (cx, cy, r, a0, a1, ccw) => {
@@ -645,8 +625,11 @@ function createShim(G) {
     getLineDash() { return [...st.dash]; },
     save() { stack.push({ ...st, dash: [...st.dash] }); },
     restore() { if (!stack.length) return; const prev = st.clip; st = stack.pop(); if (st.clip !== prev) G.clip(st.clip); },
-    setTransform() {}, resetTransform() {},
-    getTransform() { return { a: K, b: 0, c: 0, d: K, e: 0, f: 0 }; },
+    // (A translation and a turn, kept for words: tf = [tx, ty, angle]; the charts turn only words. The device scale is the drawer's own.)
+    setTransform() { st.tf = null; }, resetTransform() { st.tf = null; },
+    translate(dx, dy) { const t = st.tf || [0, 0, 0], c0 = Math.cos(t[2]), s0 = Math.sin(t[2]); st.tf = [t[0] + c0 * dx - s0 * dy, t[1] + s0 * dx + c0 * dy, t[2]]; },
+    rotate(a) { const t = st.tf || [0, 0, 0]; st.tf = [t[0], t[1], t[2] + a]; },
+    getTransform() { const t = st.tf || [0, 0, 0], c0 = Math.cos(t[2]), s0 = Math.sin(t[2]); return { a: K * c0, b: K * s0, c: -K * s0, d: K * c0, e: K * t[0], f: K * t[1] }; },
     beginPath() { pieces = []; cur = null; shapes = []; only = true; },
     moveTo(x, y) { only = false; startPiece(x, y); },
     lineTo(x, y) { only = false; add(x, y); },
@@ -726,8 +709,8 @@ function createShim(G) {
     fillRect(x, y, w, h) { G.box(x, y, w, h, 0, typeof st.fillStyle === 'string' ? st.fillStyle : stopColour(st.fillStyle), null, 0, st.globalAlpha); },
     strokeRect(x, y, w, h) { G.box(x, y, w, h, 0, null, st.strokeStyle, st.lineWidth, st.globalAlpha); },
     clearRect() {},
-    fillText(t, x, y) { G.text(t, x, y, st.font, typeof st.fillStyle === 'string' ? st.fillStyle : stopColour(st.fillStyle), align(), st.textBaseline, st.globalAlpha); },
-    strokeText(t, x, y) { G.text(t, x, y, st.font, typeof st.strokeStyle === 'string' ? st.strokeStyle : stopColour(st.strokeStyle), align(), st.textBaseline, st.globalAlpha, st.lineWidth); },
+    fillText(t, x, y) { const f = st.tf; G.text(t, x + (f ? f[0] : 0), y + (f ? f[1] : 0), st.font, typeof st.fillStyle === 'string' ? st.fillStyle : stopColour(st.fillStyle), align(), st.textBaseline, st.globalAlpha, 0, f && f[2] ? f : null); },
+    strokeText(t, x, y) { const f = st.tf; G.text(t, x + (f ? f[0] : 0), y + (f ? f[1] : 0), st.font, typeof st.strokeStyle === 'string' ? st.strokeStyle : stopColour(st.strokeStyle), align(), st.textBaseline, st.globalAlpha, st.lineWidth, f && f[2] ? f : null); },
     measureText(t) { return { width: G.measure(String(t), st.font) }; },
     createLinearGradient(x0, y0, x1, y1) { const g = { grad: [x0, y0, x1, y1], stops: [], addColorStop(o, col) { g.stops.push([o, col]); } }; return g; },
     /** A soft shadow under a rounded box (the GPU's own, in place of a blurred picture): its colour, blur and offset as the 2D canvas's. */

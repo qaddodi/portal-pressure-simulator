@@ -4,14 +4,16 @@ import { NODES } from '../engine/topology.js?v=4044766e96';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=fe0f3d1f0e';
 import { pressureColor } from './colormap.js?v=6362ea8bbe';
 import { store, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=e710e031d9';
+import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=e710e031d9';
 import { frameFor, cancelFrame, paceMs } from './frame.js?v=7710f677e2';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { shownOr } from './shown.js?v=d456014820';
-import { monotoneSegs, curveTester } from './curve-near.js?v=9ff15157e9';
+import { monotoneSegs, curveTester } from './curve-near.js?v=663c98a29c';
 import { glideMoving } from './idle-keys.js?v=81fbedda6b';
 import { plotFill } from './plot-look.js?v=5037697da7';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
+import { createTraceGL, fitPen } from './trace-gl.js?v=d48491ba03';
+import { measure } from './glyph-measure.js?v=3ec1724dd5';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -55,6 +57,11 @@ export function createProfile() {
   const box = h('div', { class: 'chart-box' });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Pressure profile along the selected path' });
   box.append(cv);
+  // (Drawn by the GPU, words and all, over its canvas; the canvas itself only where WebGL2 cannot draw, or with ?tracegl=0.)
+  const gpu = createTraceGL(cv, { redraw: () => draw() });
+  let pen = null;   // (the context a frame draws with, while it draws)
+  // (what shows the chart, for a fade: the GPU's picture over the canvas, or the canvas)
+  const faceOf = (c) => (c.style.opacity === '0' && gpu?.canvas) || c;
   const legend = h('div', { class: 'legend-inline' },
     h('span', {}, h('i', { style: { borderColor: 'var(--text)' } }), 'Now'),
     h('span', {}, h('i', { style: { borderColor: 'var(--text-3)', borderTopStyle: 'dashed' } }), 'Healthy'),
@@ -124,14 +131,15 @@ export function createProfile() {
   // band: the HVPG and PPG brackets in rows of their own under the station names (BAND_ROW each), the plot above them shorter,
   // where they find no clear spot inside a short plot (a phone's half sheet): the chart, never the strip, while it has its room.
   function geometry(band = false) {
-    const { w, h: hh } = fitCanvas(cv);
+    const { w, h: hh } = canvasSize(cv);
     const path = curPath();
     // Venous stations only: the arterial pressure sits far off the portal scale and says little here.
     const stations = path.nodes.filter((n) => !ARTERIAL.has(n));
     const slot0 = (w - 56) / stations.length;
     // Close together, the station names turn 30° on one row (each ending under its point).
     const stagger = slot0 < 74;
-    const m = cv.getContext('2d'); m.font = FONT(500, 12);
+    const m = pen || { font: '', measureText: (t) => ({ width: measure(t, FONT(500, 12)) }) };   // (the pen's own widths; between frames Inter's from the GPU atlas: no canvas)
+    m.font = FONT(500, 12);
     let tilt = 0;
     if (stagger) tilt = Math.max(...stations.map((n) => textW(m, nm(n)))) * 0.5;
     // Arterial stations sit far above the venous scale: they are drawn in a band above a broken
@@ -182,7 +190,7 @@ export function createProfile() {
   // (Which form shows: a fade when it changes; the strip's own key. A full chart whose labels cannot all stand clear switches
   // to the strip for that size and stays there, so a beat's wobble never flips it back and forth.)
   const setForm = (strip) => {
-    if (wasStrip !== null && strip !== wasStrip) cv.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });   // (a short fade as it changes form)
+    if (wasStrip !== null && strip !== wasStrip) faceOf(cv).animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });   // (a short fade as it changes form)
     wasStrip = strip;
     setDisplay(legend, strip ? 'none' : '');   // (the strip draws no lines to key)
   };
@@ -242,12 +250,15 @@ export function createProfile() {
   }
 
   // (The brackets move between the plot and the band by a fade in place, never a glide across the line and the numbers.)
-  function bandFade() { easePill = createEaser(0.18); cv.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
+  function bandFade() { easePill = createEaser(0.18); faceOf(cv).animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
   function draw() {
     if (!F) return;
+    const p = fitPen(cv, gpu);
+    pen = p.ctx;
+    try { drawWith(p.ctx, p.w, p.h); } finally { pen = null; p.ctx.end?.(); }
+  }
+  function drawWith(ctx, w0, hh0) {
     const c = theme();
-    const { ctx } = fitCanvas(cv);
-    const { w: w0, h: hh0 } = fitCanvas(cv);
     const formKey = `${w0}x${hh0}|${pathId}|${[...(hiddenNow() || [])].join()}|${!!predict?.on}`;
     if (formLock?.key !== formKey) {
       // (A new size starts in the plot, or straight in the band where the plot alone is too short for the brackets.)
@@ -348,6 +359,7 @@ export function createProfile() {
     const testers = new Map([[curve, curveTester(P0)]]);
     if (hCurve) testers.set(hCurve, curveTester(pts(stations.map((n) => healthy.P[NI[n]]))));
     const nearCurve = (r, pad, path = curve) => {
+      if (ctx.onGPU === true) return testers.get(path)(r, 3 + 2 * pad, null);   // (no canvas to ask: the curve's own distance settles every point)
       ctx.save(); ctx.lineWidth = 3 + 2 * pad; const M = ctx.getTransform();
       const hit = testers.get(path)(r, 3 + 2 * pad, (px, py) => ctx.isPointInStroke(path, M.a * px + M.e, M.d * py + M.f));
       ctx.restore(); return hit;

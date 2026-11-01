@@ -14,9 +14,10 @@ import { PROFILE_PATHS } from './anatomy.js?v=fe0f3d1f0e';
 import { follow2, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { RATE } from './table-marks.js?v=ff3ed0cc47';
-import { monotoneSegs } from './curve-near.js?v=9ff15157e9';
+import { monotoneSegs } from './curve-near.js?v=663c98a29c';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { pressureColor } from './colormap.js?v=6362ea8bbe';
+import { measure } from './glyph-measure.js?v=3ec1724dd5';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;
@@ -414,13 +415,8 @@ const hatchDef = (id, s) => sv('pattern', { id, width: s, height: s, patternUnit
   sv('rect', { class: 'pz-hb', width: s, height: s }), sv('rect', { class: 'pz-hs', width: s / 2, height: s }));
 const one = (v) => (Math.round(v * 10) / 10).toFixed(1);
 const lerp = (a, b, k) => a + (b - a) * k;
-let mctx = null;
-const textW = (t, f, wt = 600) => {
-  if (mctx === null) mctx = (typeof document !== 'undefined' && document.createElement?.('canvas')?.getContext?.('2d')) || false;
-  if (!mctx?.measureText) return t.length * f * 0.58;
-  mctx.font = `${wt} ${f}px Inter, system-ui, -apple-system, 'Segoe UI', sans-serif`;
-  return mctx.measureText(t).width;
-};
+// (a word's width as Inter sets it, from the GPU atlas's own metrics: no canvas)
+const textW = (t, f, wt = 600) => measure(t, `${wt} ${f}px Inter`);
 
 /** (Legacy: the chart writes each value on its dot, numberSides, clear of the zones' names by the strip's own height; this is where the values
  *  would stand beside their dots, kept as the placer's checks use it, with the old LIVER word's box as its one obstacle.)

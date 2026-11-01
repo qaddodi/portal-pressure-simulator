@@ -82,7 +82,13 @@ export function curveTester(pts) {
   }
   // (A coordinate that is not a number: the browser's own answer for every point, as before.)
   const odd = !pts.every(([x, y]) => Number.isFinite(x) && Number.isFinite(y)) || !Number.isFinite(err);
+  const every = Array.from({ length: Math.max(0, n - 1) }, (_, i) => i);
+  // exact null (no canvas to ask, the GPU draws the chart): a point on the edge is settled by its distance from the fine polyline.
   return function near(r, lineWidth, exact) {
+    if (!exact) {
+      if (odd) return false;
+      exact = (px, py) => dist(px, py, every) <= lineWidth / 2;
+    }
     if (odd) {
       const sx = Math.min(2, (r.x1 - r.x0) / 2 || 2), sy = Math.min(2, (r.y1 - r.y0) / 2 || 2);
       for (let px = r.x0; px <= r.x1 + 0.1; px += sx) for (let py = r.y0; py <= r.y1 + 0.1; py += sy) if (exact(px, py)) return true;

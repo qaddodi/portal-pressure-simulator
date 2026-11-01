@@ -20,6 +20,7 @@
 import { frame, cancelFrame } from './frame.js?v=7710f677e2';
 import { EDGES, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from '../engine/topology.js?v=4044766e96';
 import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
+import { measure } from './glyph-measure.js?v=3ec1724dd5';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const STENTS = new Set(['TIPS', 'DIPS']);
@@ -254,13 +255,8 @@ const sv = (tag, attrs = {}, ...kids) => {
   el.append(...kids.flat().filter((k) => k != null));
   return el;
 };
-let mctx = null;
-const textW = (t, f, wt = 600) => {
-  if (mctx === null) mctx = (typeof document !== 'undefined' && document.createElement?.('canvas')?.getContext?.('2d')) || false;
-  if (!mctx?.measureText) return t.length * f * 0.58;
-  mctx.font = `${wt} ${f}px Inter, system-ui, -apple-system, 'Segoe UI', sans-serif`;
-  return mctx.measureText(t).width;
-};
+// (a word's width as Inter sets it, from the GPU atlas's own metrics: no canvas)
+const textW = (t, f, wt = 600) => measure(t, `${wt} ${f}px Inter`);
 // Every part the bar can show.
 const ALL = [LIVER, ...ROUTES, OTHER];
 let uid = 0;

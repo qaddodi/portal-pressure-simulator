@@ -89,5 +89,5 @@ test('a Pressure chart too short for its plot shows the compact strip, and the f
   assert.match(charts, /const stripNow = \(g\) => !predict\?\.on && g\.hh - g\.T - g\.B < \(g\.band \? BAND_PLOT_MIN : PLOT_MIN\);/);
   assert.match(charts, /const band = !predict\?\.on && stripNow\(geometry\(\)\);/);   // (a half sheet starts with the brackets in the band)
   assert.match(charts, /if \(stripNow\(g\) \|\| \(formLock\.strip && !predict\?\.on\)\) \{ toStrip\(\); return; \}/);
-  assert.match(charts, /cv\.animate\?\.\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/);   // (eased, never a jump)
+  assert.match(charts, /faceOf\(cv\)\.animate\?\.\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/);   // (the GPU picture or the canvas, whichever shows)   // (eased, never a jump)
 });
