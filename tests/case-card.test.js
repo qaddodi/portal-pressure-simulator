@@ -164,7 +164,7 @@ test('a flung case card glides off and fades over a visible time, and is hidden 
   assert.match(fly, /c\.style\.opacity = '0'/);
   assert.doesNotMatch(fly, /'none'|hidden|caseShut/);
   // The card is hidden only once the flight has run (caseShut waits for card.flown).
-  assert.match(src, /const ms = card\.flown \? Math\.max\(0, Math\.ceil\(card\.flown - performance\.now\(\)\)\) : card\.ms;\s*setTimeout\(\(\) => \{ if \(!card\.c\.classList\.contains\('on'\)\) card\.c\.hidden = true; \}, ms\);/);
+  assert.match(src, /const ms = card\.flown \? Math\.max\(0, Math\.ceil\(card\.flown - performance\.now\(\)\)\) : card\.ms;\s*(?:\/\/[^\n]*\n\s*)*clearTimeout\(caseHideT\);\s*caseHideT = setTimeout\(\(\) => \{ caseHideT = 0; if \(!card\.c\.classList\.contains\('on'\)\) card\.c\.hidden = true; \}, ms\);/);
 });
 
 test('no slide card shows while a case card is up, a catheter slide included; they come in once it is lifted', () => {

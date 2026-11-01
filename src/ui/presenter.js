@@ -1609,10 +1609,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // grow in, seen around the card (a camera move over a changing patient paints the organs whole every frame). The slide's words
   // are fitted unseen meanwhile; the tap lifts the card, the camera makes one eased zoom to the slide's own framing, and the
   // slide's cards come in once it has landed (see caseLifted, caseEnd).
-  let caseLift = null, caseCard = null;
+  let caseLift = null, caseCard = null, caseHideT = 0;   // (caseHideT: the timer that hides the card once it has faded out, caseShut)
   // The glass card goes up, a case's or a question's: its words fitted before it enters, so it never resizes on screen.
   function cardUp(tag, ...words) {
     const c = ui.vcase, ms = reduce.matches ? 0 : D_SURFACE;
+    clearTimeout(caseHideT); caseHideT = 0;   // (the card is shown again: the timer of its last leaving has nothing left to hide)
     c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, tag), ...words);
     for (const k of ['transform', 'transition', 'opacity']) c.style.removeProperty(k);   // (a card flung off last time comes back whole)
     c.hidden = false; void c.offsetWidth;
@@ -1636,7 +1637,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The leaving slide's cards (faded out, still in place) no longer count for the framing: the wide view is the whole patient
     // around the case card. (The new slide's words set their own space again before the zoom to the slide: settleRun.)
     ui.safe.hidden = true;
-    if (ui.data.classList.contains('pz-hide') && !ui.data.hidden) { ui.data.hidden = true; ui.tools.hide(); }
+    if (ui.data.classList.contains('pz-hide') && !ui.data.hidden) { clearTimeout(dataHideT); dataHideT = 0; ui.data.hidden = true; ui.tools.hide(); }
     // Behind the card: out of the liver, and out to the whole patient (unless the card was already lifted: the slide goes on from here).
     await toAnatomy(null); if (cut()) return false;
     if (!card.lifted) {
@@ -1683,7 +1684,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     caseCard = null; caseLift = null;
     card.c.classList.remove('on');
     const ms = card.flown ? Math.max(0, Math.ceil(card.flown - performance.now())) : card.ms;
-    setTimeout(() => { if (!card.c.classList.contains('on')) card.c.hidden = true; }, ms);
+    // (One card element serves every case: a timer of an earlier leaving would hide it in the middle of this one's.)
+    clearTimeout(caseHideT);
+    caseHideT = setTimeout(() => { caseHideT = 0; if (!card.c.classList.contains('on')) card.c.hidden = true; }, ms);
     return ms;
   }
   // Swiped: the card flies off sideways from where the finger let go and lifts as a tap does (during the glide behind it
@@ -2319,6 +2322,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     textOn = textPlan(s);
   }
   // The data card for slide i: its instrument and tiles, or nothing (the card then leaves).
+  let dataHideT = 0;   // (the timer that hides the data card once it has faded out)
   function dataIn(s, st, i, fresh, lap, now) {
     const { data } = ui;
     delete data.dataset.hold;
@@ -2351,6 +2355,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const ms = fresh || (bare && ui.root.classList.contains('pz-prep')) ? 0 : undefined;
       if (s.data) ui.tiles.set(respFp(s, now.fp), tileKeys(s), s.key || [], refOf(s, i), ms, now.params?.tips?.on);
       ui.tools.pin(now.fp);
+      clearTimeout(dataHideT); dataHideT = 0;   // (a card shown again is not hidden by the timer of its last leaving, while it fades in or waits to)
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
       if (!ui.root.classList.contains('pz-prep')) data.classList.remove('pz-hide');   // (else once fitted: settle)
       else data.dataset.prep = '1';
@@ -2358,7 +2363,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     } else if (!data.hidden) {
       data.dataset.gone = '';
       data.classList.add('pz-hide'); delete data.dataset.colswap;
-      setTimeout(() => { if (data.classList.contains('pz-hide')) { data.hidden = true; ui?.tools.hide(); } }, D_SMALL + 20);
+      // (The timer belongs to the fade that began first: a second leaving with no card shown between lets it run, and one shown between has cleared it.)
+      dataHideT ||= setTimeout(() => { dataHideT = 0; if (data.classList.contains('pz-hide')) { data.hidden = true; ui?.tools.hide(); } }, D_SMALL + 20);
     }
     dataOn = planOf(s, i) ?? null;
     holdEase = answerAfter(s, i);
@@ -4408,7 +4414,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // The panel's width changes under cover: the words fade out, the panel takes its new width (the glass behind eases to it),
   // and the words fade back in. Nothing jumps and nothing is measured mid-way.
-  let widthT = 0;
+  // (widthOwn: the words' fade out is this function's, so it brings them back. A change that follows another within the 240 ms finds the
+  // words already leaving, and must not take that for a slide's fade: it keeps what the first found. A change coming between the timer and the
+  // next frame leaves the bringing back to its own timer, so the words never show at the old width in the middle of it.)
+  let widthT = 0, widthOwn = false;
   function setPanelWidth(w) {
     if (!PW_K[w] || w === pzWidth) return;
     pzWidth = w;
@@ -4417,9 +4426,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const apply = () => { app.style.setProperty('--pz-wk', String(PW_K[pzWidth])); layout(); setLabels(); };
     if (phone() || ui.text.hidden || reduce.matches) { apply(); return; }
     clearTimeout(widthT);
-    const had = ui.text.classList.contains('pz-leave');
+    if (!widthOwn) widthOwn = !ui.text.classList.contains('pz-leave');
     ui.text.classList.add('pz-leave');
-    widthT = setTimeout(() => { apply(); nextFrame(() => { if (!had) ui?.text.classList.remove('pz-leave'); }); }, 240);
+    widthT = setTimeout(() => {
+      widthT = 0; apply();
+      nextFrame(() => { if (widthT || !widthOwn) return; widthOwn = false; ui?.text.classList.remove('pz-leave'); });
+    }, 240);
   }
   // (The page carries it too, for the credit's rule: a :has() over the whole page was looked at again on every "on" anywhere in it.)
   function toggleBlack(on = !black) { black = on; ui?.black.classList.toggle('on', black); app.classList.toggle('pz-blacked', black && !!ui); }
