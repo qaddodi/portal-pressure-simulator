@@ -122,28 +122,18 @@ test('every WebGL2 surface rebuilds after a lost context (or is a probe or a sec
   assert.match(src('src/ui/label-gl.js'), /if \(!host\) canvas\.addEventListener\('webglcontextrestored'/);
 });
 
-test('lobule handoff: the 2D tissue and the 2D field stay under the GPU picture as it takes over', () => {
+test('lobule handoff: the 2D tissue stays under the GPU picture as it takes over; the field never draws 2D while the GPU is there', () => {
   const lz = src('src/ui/lobule-zoom.js');
   // (Tissue: kept whole and showing HANDOFF_MS, not freed while the hold runs.)
   assert.match(lz, /if \(on && HANDOFF && !rimDrawn\) \{\n\s*tissueOnGL = true; tissueG\.style\.opacity = '';\n\s*handoffT = setTimeout\(\(\) => \{ handoffT = 0; if \(tissueOnGL\) \{ tissue\.style\.opacity = '0'; free\(tissue\); \} \}, HANDOFF_MS\);/);
   assert.match(lz, /if \(!\(HANDOFF && \(!tissueOnGL \|\| handoffT\) && !rimDrawn\)\) free\(tissue\);/);
-  // (Field: the 2D one hidden only after FIELD_HOLD GPU frames, and only when it had a picture.)
-  assert.match(lz, /fieldHold = FIELD_HANDOFF && field\.width \? \(fieldHold \? fieldHold - 1 : FIELD_HOLD\) : 0;\n\s*if \(!fieldHold\) fieldHide\(field\);/);
+  // (Field: with the GPU there no 2D field is ever drawn; a frame the GPU cannot draw keeps its last GPU frame, or waits for the first.)
+  assert.match(lz, /if \(g && !FIELD_2D\) \{\n\s*fieldHide\(field\);\n\s*fieldOp = Math\.min\(1, d\.a \* 1\.25\);\n\s*if \(fieldG\.width\) fieldG\.style\.opacity = fieldOp\.toFixed\(3\);\n\s*return;\n\s*\}/);
   // (A texture the GPU could not take keeps the last frame where one is showing: tissue and field.)
   // (And with no frame to keep, still drawn on the GPU with the clear texture in its place, never the 2D canvas.)
   for (const f of ['src/ui/tissue-gl.js', 'src/ui/field-gl.js']) assert.match(src(f), /if \(hold && pictured && canvas\.width === W && canvas\.height === H\) return 'held';/);
   assert.match(src('src/ui/tissue-gl.js'), /if \(!tx\[i\]\) tx\[i\] = none;/);
   assert.match(src('src/ui/field-gl.js'), /if \(!tx\[i\]\) tx\[i\] = clearTex\(\);/);
-});
-
-test('the field handoff, step by step: three GPU frames over the 2D one, then it is hidden', () => {
-  // (The rule from paintField, run on its own.)
-  let fieldHold = 0, width = 600, hidden = 0;
-  const step = () => { fieldHold = width ? (fieldHold ? fieldHold - 1 : 3) : 0; if (!fieldHold) { width = 0; hidden++; } };
-  const shown = [];
-  for (let i = 0; i < 6; i++) { step(); shown.push(width > 0); }
-  assert.deepEqual(shown, [true, true, true, false, false, false]);
-  assert.equal(hidden, 3);   // (hidden once, then fieldHide on an empty canvas is a no-op)
 });
 
 test('idle rest: the FibroScan probe\'s waves stop with the figure and start again on waking (?scanrest=0 keeps them running)', () => {

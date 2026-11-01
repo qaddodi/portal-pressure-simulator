@@ -2362,11 +2362,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let diveCtx = null;
   const styleSnap = (cs) => { const m = new Map(); return { getPropertyValue: (n) => { let v = m.get(n); if (v === undefined) m.set(n, (v = cs.getPropertyValue(n))); return v; } }; };
   const fieldHide = (cv) => { if (cv.width) { cv.width = 0; cv.height = 0; } cv.style.opacity = '0'; };
-  const FIELD_HANDOFF = !/[?&]handoff=0\b/.test(location.search), FIELD_HOLD = 3;
-  let fieldHold = 0;   // (GPU frames of the field left before the 2D one under it is hidden: see paintField)
+  const FIELD_2D = /[?&]field2d=1\b/.test(location.search);   // (a frame the GPU could not draw drawn on the 2D canvas, as before: paintField)
   function paintField(d) {
     if (!d) diveCtx = null;
-    if (!d || d.a <= 0.002) { fieldHide(field); fieldHide(fieldG); fieldOp = 0; fieldHold = 0; return; }
+    if (!d || d.a <= 0.002) { fieldHide(field); fieldHide(fieldG); fieldOp = 0; return; }
     if (!diveCtx) {
       const rect = host.getBoundingClientRect(), cs = getComputedStyle(host), dark = isDark();
       diveCtx = { W: Math.max(1, Math.round(rect.width)), H: Math.max(1, Math.round(rect.height)), cs: styleSnap(cs), dark, bg: stageBg(cs, dark) };
@@ -2375,18 +2374,24 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const dpr = Math.min(1, devicePixelRatio || 1) * 0.8;   // in motion and behind the lobule: a modest resolution is plenty
     // On the GPU where it can be (the same picture, its tile sizes blended); otherwise the 2D canvas, as below.
     const g = fieldGLOn();
-    if (g && paintFieldGL(g, d, W, H, dpr, cs, dark, bg)) {
-      // (The GPU's canvas taking over from the 2D one mid-dive (a tile's send that failed and came through on its retry): the 2D field
-      // stays showing, as it last was, under the GPU's first FIELD_HOLD frames, as the tissue's does (showTissueGL). Safari can show a
-      // just-resized WebGL canvas's first frame a frame or more late, and the 2D field hidden in the same frame left the page's dark
-      // colour where the neighbouring lobules were. ?handoff=0: both switched in the one frame, as before.)
-      fieldHold = FIELD_HANDOFF && field.width ? (fieldHold ? fieldHold - 1 : FIELD_HOLD) : 0;
-      if (!fieldHold) fieldHide(field);
+    const drew = g ? paintFieldGL(g, d, W, H, dpr, cs, dark, bg) : false;
+    if (drew) {
+      fieldHide(field);
       fieldOp = Math.min(1, d.a * 1.25);
       fieldG.style.opacity = fieldOp.toFixed(3);
       return;
     }
-    fieldHold = 0;
+    // (The GPU is there but could not draw this frame (a tile's texture not taken yet; field-gl.js keeps the last frame where one shows,
+    // 'held', and tries the send again shortly): no 2D field is drawn. The GPU's canvas keeps its last frame, at this frame's opacity, or,
+    // with none yet, the field waits for its first GPU frame: the tiles go to the GPU ahead of the dive (fieldUp), so this is a frame or
+    // two at most. The 2D field below is drawn only with no GPU for it at all (no WebGL2, or the context lost). ?field2d=1: the 2D field
+    // draws such a frame instead, as before.)
+    if (g && !FIELD_2D) {
+      fieldHide(field);
+      fieldOp = Math.min(1, d.a * 1.25);
+      if (fieldG.width) fieldG.style.opacity = fieldOp.toFixed(3);
+      return;
+    }
     fieldHide(fieldG);
     if (field.width !== Math.round(W * dpr) || field.height !== Math.round(H * dpr)) { field.width = Math.round(W * dpr); field.height = Math.round(H * dpr); }
     // Half the tile's resolution, as at rest: the field is in motion and behind the lobule.
@@ -4025,7 +4030,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   });
   surface('lobule field (neighbouring lobules)', () => {
     if (!(fieldOp > 0)) return null;
-    if (fieldG.width && fieldG.style.opacity !== '0') return { on: field.width ? 'mixed' : 'gpu', via: field.width ? 'WebGL2, the 2D one under it for the handoff' : 'WebGL2' };
+    if (fieldG.width && fieldG.style.opacity !== '0') return { on: 'gpu', via: 'WebGL2' };
     return { on: 'fallback', via: '2D canvas', why: fieldGL === null ? 'no WebGL2 for the field' : fieldGL?.lost ? 'context lost' : 'a tile the GPU could not take' };
   });
   surface('lobule vessels', () => {
