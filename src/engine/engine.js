@@ -6,7 +6,7 @@ import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
-import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js?v=e71da00102';
+import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js?v=0762d1b820';
 import { detectEvents } from './events.js?v=3492d2d513';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
@@ -292,7 +292,9 @@ export class Engine {
     const e = { hr: 1, contr: 1, spl: 1, sys: 1, sin: 1, baroHr: 1, baroSlow: 1 };
     for (const [k, on] of Object.entries(this.params.drugs)) {
       if (!on || !DRUGS[k]) continue;
-      const d = DRUGS[k];
+      const d0 = DRUGS[k], g = (k === 'propranolol' || k === 'carvedilol') ? (this.params.nsbbGain ?? 1) : 1;
+      // (nsbbGain: a stronger or weaker responder to a beta-blocker, the portal side of its effect scaled; 1 leaves it as it was)
+      const d = g === 1 ? d0 : { ...d0, spl: 1 + (d0.spl - 1) * g, sin: 1 - (1 - d0.sin) * g };
       e.hr *= d.hr; e.contr *= d.contr; e.spl *= d.spl; e.sys *= d.sys; e.sin *= d.sin; e.baroHr = Math.min(e.baroHr, d.baroHr); e.baroSlow = Math.min(e.baroSlow, d.baroSlow ?? 1);
     }
     return e;

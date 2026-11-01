@@ -39,6 +39,8 @@ export function defaultParams() {
     diuretics: false,             // spironolactone + furosemide: renal sodium/water loss offsets ascites
     fenestrae: 0,                 // how far the sinusoid lining's pores are opened past what the disease leaves (0: as the disease has it, 1: all open); see starling()
     drugs: { propranolol: false, carvedilol: false, terlipressin: false, octreotide: false },
+    nsbbGain: 1,                  // how strongly this patient's portal pressure answers a beta-blocker: 1 the usual (an HVPG fall near 15 to 20%),
+                                  // more for a good responder; it scales the splanchnic and sinusoidal parts of propranolol and carvedilol only
     catheter: { vein: null, wedged: false },
     bleeding: false,              // spontaneous variceal rupture (off: varices swell but never tear on their own)
     deterministicRupture: false,

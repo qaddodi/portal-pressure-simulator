@@ -13,7 +13,7 @@
 // Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide, Esc. (The Guide lists them: PRESENT_KEYS in
 // main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=80d4358be8';
+import { store, replaceParams } from './store.js?v=4ef2a6ffd8';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=9c16986fdb';
@@ -26,12 +26,12 @@ import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?
 import { NODE_POS } from './anatomy.js?v=f5c417240a';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=800291ce2d';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=b5f5cad028';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=a84b93c57b';
-import { createTools } from './presenter-tools.js?v=07c0c33731';
-import { openHandout } from './handout.js?v=44772f1a83';
+import { createHvpgMonitor } from './hvpg-proc.js?v=998eca3d3e';
+import { createTools } from './presenter-tools.js?v=dfacacfd52';
+import { openHandout } from './handout.js?v=492f217fcb';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js?v=ff3ed0cc47';
@@ -39,12 +39,12 @@ import { frameFor, cancelFrame } from './frame.js?v=6692e20c1b';
 import { createFigureKey } from './figure-key.js?v=a52319283f';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=21be20ca31';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=a731e8296d';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=8f3f7c0dac';
 import { clotWords } from './callout-math.js?v=97fde9fc5b';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=5dc901a033';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=79403c2fec';
+import { anchorsOf, roomFor } from './cam-room.js?v=7e86c4a21c';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=2f9c56ecb2';
@@ -856,7 +856,7 @@ function makeCalc() {
   const ready = (async () => {
     let w = null;
     try {
-      w = new Worker(new URL('../worker.js?v=25dfab1e7d', import.meta.url), { type: 'module' });
+      w = new Worker(new URL('../worker.js?v=2306918e01', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -870,7 +870,7 @@ function makeCalc() {
     } catch {
       if (w) { w.onmessage = w.onerror = null; w.terminate(); }   // (a worker that never said hello: not left running beside the page's own engine)
       try {
-        const { createCore } = await import('../worker-core.js?v=5a26888c69');
+        const { createCore } = await import('../worker-core.js?v=5aeea5cf4c');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

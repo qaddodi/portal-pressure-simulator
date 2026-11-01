@@ -9,7 +9,7 @@
 //         treatment from the same day (tool-course.js)
 
 import { createCurve, warmCurve, curveLines, lineMeta, axisMeta } from './tool-curve.js?v=08a110e453';
-import { createCauses, metricOf } from './tool-causes.js?v=96c7b5fa0a';
+import { createCauses, metricOf } from './tool-causes.js?v=989e113653';
 import { createCourse, warmCourse, courseOf } from './tool-course.js?v=f48e487966';
 import { TILE } from './table-marks.js?v=ff3ed0cc47';
 

@@ -10,9 +10,9 @@
 
 import { h, fmt, fitCanvas, clamp, icon, cssVar, toast } from './util.js?v=9c16986fdb';
 import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { FONT } from './charts.js?v=1286947c70';
+import { FONT } from './charts.js?v=1744ae2f99';
 import { pressureColor } from './colormap.js?v=21be20ca31';
-import { store, logAction, hiddenNow, updateParams } from './store.js?v=80d4358be8';
+import { store, logAction, hiddenNow, updateParams } from './store.js?v=4ef2a6ffd8';
 import { shownOr } from './shown.js?v=a54f9abf30';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=95f13823ce';
 import { frameFor, cancelFrame } from './frame.js?v=6692e20c1b';

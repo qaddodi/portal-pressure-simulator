@@ -20,7 +20,7 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { runFlick, FLICK } from './flick.js?v=592e3b5cd9';
-import { store } from './store.js?v=80d4358be8';
+import { store } from './store.js?v=4ef2a6ffd8';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
@@ -37,7 +37,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=c4b552ae83';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=82a8bfadac';
-import { createSinusoidView } from './sinusoid-view.js?v=2d6f1f1480';
+import { createSinusoidView } from './sinusoid-view.js?v=8bf5fbfcb0';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, framePart } from './frame.js?v=6692e20c1b';
 import { createGlassGL } from './glass-gl.js?v=0835b7a5c8';
 import { pillOf, pillLabels, pillHold } from './lz-pills.js?v=bafcf3977d';

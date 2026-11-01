@@ -7,8 +7,10 @@
 const BAND = { kind: 'band' };
 const SCOPE = { kind: 'scope' };
 const NONE = { drugs: { propranolol: false, carvedilol: false } };
-const PROP = { drugs: { propranolol: true, carvedilol: false } };
-const CARV = { drugs: { propranolol: false, carvedilol: true } };
+// (nsbbGain: this man is a clear responder, his HVPG falling about a quarter on carvedilol, so the slide shows a response by the
+// after-a-bleed target of 20% or more; the model's usual patient falls about 19%, a near miss, which the notes say is common.)
+const PROP = { drugs: { propranolol: true, carvedilol: false }, nsbbGain: 1.3 };
+const CARV = { drugs: { propranolol: false, carvedilol: true }, nsbbGain: 1.3 };
 const BANDED = { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' };
 
 export const NEXT_BLEED = {
@@ -55,7 +57,7 @@ export const NEXT_BLEED = {
       compare: [{ label: 'No drug', params: NONE }, { label: 'Propranolol', short: 'Prop.', params: PROP }, { label: 'Carvedilol', short: 'Carv.', own: true, params: CARV }],
       kicker: 'Carvedilol', site: 'sin', title: 'Carvedilol lowers the pressure behind the varices',
       line: 'At discharge, carvedilol lowers the HVPG from {hvpg@after} to {hvpg} and the pulse to {hr}. After a bleed, a fall of ≥20%, or to {<=12 mmHg}, is a response.',
-      notes: 'Carvedilol starts at 6.25 mg a day and rises to 12.5 mg a day if the blood pressure allows. It cuts the portal inflow, as propranolol does, and also relaxes the resistance inside the liver, so it lowers the HVPG more; Baveno VIII prefers it after a bleed. The 10% fall is the response before any bleed (Baveno VIII Table 3, primary prophylaxis); after a bleed the target is a fall of 20% or more, or to 12 mmHg or less. HVPG is rarely measured in practice, so the response is usually assumed. Reduce or stop carvedilol if the systolic pressure stays below 90 mmHg, the mean pressure below 65 mmHg, or kidney injury develops. (Baveno VIII 4.8, Table 3.) The response tile is the third tile on this slide because the fall is the point of it.',
+      notes: 'Carvedilol starts at 6.25 mg a day and rises to 12.5 mg a day if the blood pressure allows. It cuts the portal inflow, as propranolol does, and also relaxes the resistance inside the liver, so it lowers the HVPG more; Baveno VIII prefers it after a bleed. The 10% fall is the response before any bleed (Baveno VIII Table 3, primary prophylaxis); after a bleed the target is a fall of 20% or more, or to 12 mmHg or less. About half of patients reach that response, so a near miss is common; this man responds clearly, by about a quarter. HVPG is rarely measured in practice, so the response is usually assumed. Reduce or stop carvedilol if the systolic pressure stays below 90 mmHg, the mean pressure below 65 mmHg, or kidney injury develops. (Baveno VIII 4.8, Table 3.) The response tile is the third tile on this slide because the fall is the point of it.',
       ask: ['What fall in HVPG marks a response to a beta-blocker?', 'After a bleed, a fall of ≥20% from baseline, or to ≤12 mmHg.'],
     },
     {
@@ -82,7 +84,7 @@ export const NEXT_BLEED = {
           { slide: 'nsbb', name: 'Carvedilol', on: [0], walk: 'both' }, { slide: 'both', name: 'Both', on: [0], walk: 'both' }, { slide: 'held', on: [0], walk: 'both' }] },
       kicker: 'Summary', site: 'sin', title: 'Bands move the varix down, carvedilol moves him left',
       line: 'Bands drop the varix from {varix@after} to {varix@bands} without lowering the HVPG, and ten months on it is back at {varix@slough}. Carvedilol moves him left, to {hvpg@nsbb}.',
-      notes: 'The line is the model\'s cirrhosis from mild to severe, each point settled for a year, with the varix (left) and its wall stress as a share of the tear point (right) against the HVPG, as on the Varices talk. The dots are this talk\'s visits, in two walks. Bands: after the bleed the varix is 5.4 mm; three sessions take it to 3.2 mm, below the line, while the HVPG creeps up to 17.9 mmHg, because closing the collateral takes away an escape route for portal blood. Ten months later the bands have sloughed and the varix is back on the line, at 7.2 mm. Carvedilol lowers the HVPG, so he moves left along the line, to 13.5 mmHg. With bands as well he sits at 14.4 mmHg and a varix of 2.7 mm; ten months on, the ring, the varix has grown back only to 5.3 mm, because the pressure behind it is lower. Bands treat the varix and carvedilol treats the pressure. One model patient per point; real patients vary far more. (Baveno VIII 4.8; AASLD 2024 p. 1193.)',
+      notes: 'The line is the model\'s cirrhosis from mild to severe, each point settled for a year, with the varix (left) and its wall stress as a share of the tear point (right) against the HVPG, as on the Varices talk. The dots are this talk\'s visits, in two walks. Bands: after the bleed the varix is 5.4 mm; three sessions take it to 3.2 mm, below the line, while the HVPG creeps up to 17.9 mmHg, because closing the collateral takes away an escape route for portal blood. Ten months later the bands have sloughed and the varix is back on the line, at 7.2 mm. Carvedilol lowers the HVPG, so he moves left along the line, to 12.8 mmHg. With bands as well he sits at 13.6 mmHg and a varix of 2.6 mm; ten months on, the ring, the varix has grown back only to 5.0 mm, because the pressure behind it is lower. Bands treat the varix and carvedilol treats the pressure. One model patient per point; real patients vary far more. (Baveno VIII 4.8; AASLD 2024 p. 1193.)',
       ask: ['After banding the varix is smaller and the HVPG has not fallen. Why does the varix come back?', 'The pressure that made it is still there, so blood reopens the same collaterals as the bands slough.'],
     },
     {

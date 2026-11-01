@@ -1,25 +1,25 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=233f4eb3f8';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=80d4358be8';
-import { createStage } from './stage.js?v=157e1f8059';
+import { startHost, host } from './host.js?v=dd95596be7';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=4ef2a6ffd8';
+import { createStage } from './stage.js?v=2d5956c6e4';
 import { createCreditPlacer } from './credit.js?v=8af601e22c';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
-import { createInspector } from './inspector.js?v=0967484d0b';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=e7499478d9';
-import { setHvpgStage } from './hvpg-proc.js?v=a84b93c57b';
-import { createWhy } from './why.js?v=388842fa48';
-import { createTimeline, LAPSES } from './timeline.js?v=cee37e6aad';
-import { createCompare } from './compare.js?v=071d9e8375';
-import { createCard } from './card.js?v=fd06ada3b7';
-import { createChart } from './chart.js?v=2b6062e8c5';
-import { createMenu } from './menu.js?v=cca9ccd70b';
-import { caption } from './a11y.js?v=7843b1c557';
+import { createInspector } from './inspector.js?v=0fd0861a88';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=d552188951';
+import { setHvpgStage } from './hvpg-proc.js?v=998eca3d3e';
+import { createWhy } from './why.js?v=9ccf1e63ce';
+import { createTimeline, LAPSES } from './timeline.js?v=eaab3fa090';
+import { createCompare } from './compare.js?v=7029b75147';
+import { createCard } from './card.js?v=bd488a1ed6';
+import { createChart } from './chart.js?v=6b8269e362';
+import { createMenu } from './menu.js?v=99e6077cd8';
+import { caption } from './a11y.js?v=d3313e5a02';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=269febb4b9';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=18bfcf5524';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=21be20ca31';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
@@ -43,7 +43,7 @@ import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=56cde43
 import { initTopbarMotion } from './topbar-motion.js?v=104e6e64e0';
 import { ORIGINS } from './blood.js?v=82a8bfadac';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
-import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=e71da00102';
+import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0762d1b820';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
 import { frameFor, cancelFrame, perf as framePerf, framePart } from './frame.js?v=6692e20c1b';
 import { feedbackDiagnostics } from './feedback-diag.js?v=680203e900';
@@ -110,8 +110,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=d7f3057135'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=f8ad20761f'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=7726c91e9f'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=bed6c339d2'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -192,7 +192,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=11006031a7'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=07fc9f27dd'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -200,7 +200,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=2fed831a53'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=199d3a761e'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),

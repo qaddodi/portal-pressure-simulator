@@ -18,12 +18,12 @@
 // Built-in names win, and a name two packages register is kept from the first only: tests/slide-ext.test.js fails on both.
 // Every call into a package is guarded, so a package that throws loses its own feature and never stops a talk.
 
-import highlights from './ext-highlights.js?v=207ba7682e';
+import highlights from './ext-highlights.js?v=954ec3d8b6';
 import charts from './ext-charts.js?v=10851f0941';
-import model from './ext-model.js?v=cf25789380';
+import model from './ext-model.js?v=5551391e98';
 import panels from './ext-panels.js?v=88d48ab5b8';
 import callouts from './ext-callouts.js?v=bd5eb88d19';
-import instruments from './ext-instruments.js?v=2a9092b940';
+import instruments from './ext-instruments.js?v=07ed78f683';
 import teaching from './ext-teaching.js?v=9b5c01e059';
 
 export const PACKAGES = { A: highlights, B: charts, C: model, E: panels, F: callouts, G: instruments, H: teaching };
