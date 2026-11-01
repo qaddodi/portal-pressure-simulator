@@ -120,6 +120,8 @@ const STREAK_LEN = !(typeof location !== 'undefined' && /[?&]streaklen=0\b/.test
 // Vessels that run on into one another narrow or widen as one continuous taper through the run (vessel-taper.js). ?taper=0 in the
 // address draws each join as it was before 1 Nov (one ease over half of each vessel, counted in samples): the same picture exactly.
 const TAPER = !(typeof location !== 'undefined' && /[?&]taper=0\b/.test(location.search));
+// The organs' GPU picture kept up through a return from under the lobule when the changing organs are painted live (platePoke).
+const STALE_KEEP = !(typeof location !== 'undefined' && /[?&]stalekeep=0\b/.test(location.search));
 // The glasses' own canvases, each blurring a copy of the figure (createImageBitmap), as before 31 Oct: only with ?glasscopy=1. By default
 // they are drawn inside the figure's canvas (frostHost) and are otherwise the browser's (round 2, 2.1).
 const GLASS_COPY = typeof location !== 'undefined' && /[?&]glasscopy=1\b/.test(location.search);
@@ -4912,7 +4914,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     plateTheme = theme;
     // Shown again after being covered while the patient changed (followHidden): the raster still holds the patient before, so
     // the live drawing, already of the patient now, shows until it is rasterized again.
-    if ((themed || stale) && veins.hasPlate(0)) {
+    // (With the changing organs painted live on the GPU (liveOn) the pictures hold none of them, as for any other change of patient
+    // below: the GPU picture stays up and is made again behind it. Dropping it showed the page's SVG organs, which Safari draws again
+    // on the CPU at the screen's full pixels on every frame the camera moves: the way out of the lobule and the slide's glide after it
+    // ran at a few frames a second on an iPhone (Mohammad, 1 Nov). ?stalekeep=0: dropped, as before.)
+    const drop = themed || (stale && !(live && STALE_KEEP));
+    if (drop && veins.hasPlate(0)) {
       hidePlate();
     }
     if (plateBusy) { plateAgain = true; return; }
