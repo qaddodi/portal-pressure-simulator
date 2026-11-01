@@ -197,7 +197,7 @@ test('a key of three lines starts on the reading\'s own row, so the plot keeps t
 // cut-off with no clear spot for its name stands as its number.)
 test('phone relation charts: no word is printed over another, cut-off names included', async () => {
   for (const deck of ['two-inflows', 'stiffness', 'outflow', 'treatment', 'circuit', 'gastric-varices']) {
-    for (const [W, H, f] of [[346, 170, 13.5], [346, 190, 12], [330, 150, 12]]) {
+    for (const [W, H, f] of [[346, 170, 13.5], [346, 190, 12], [330, 150, 12], [282, 175, 12], [300, 175, 12], [320, 175, 12]]) {
       const r = await draw(deck, W, H, f), words = r.texts.map((t) => ({ t, b: boxOf(t, f) })), bad = [];
       for (let i = 0; i < words.length; i++) for (let j = i + 1; j < words.length; j++) if (hit(words[i].b, words[j].b)) bad.push(`"${words[i].t.txt}" on "${words[j].t.txt}"`);
       assert.deepEqual(bad, [], `${deck} ${W} × ${H}`);

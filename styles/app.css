@@ -6753,7 +6753,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-curve, .pz-cbars { display: grid; font-size: var(--pz-sm, var(--pz-psm, 12px)); min-height: 9em; }
 .pz-curve { height: calc(var(--cv-h, max(56cqi, 15em)) * var(--pz-fit, 1)); }
 .pz-cbars { height: calc(var(--cs-h, max(56cqi, 22em)) * var(--pz-fit, 1)); }
-.pz.stack .pz-curve { --cv-h: min(54cqi, 190px); }
+.pz.stack .pz-curve { --cv-h: min(max(54cqi, 175px), 190px); }   /* (a narrow phone (320 px) had a 152 px chart and a plot of 41 to 66 px, Treatment 10's Carvedilol and Propranolol almost one line: it keeps 175 px (180 put "Response" on "HVPG 10"); from about a 350 px phone up, 54cqi already passes it and nothing changes) */
 .pz.stack .pz-cbars { --cs-h: min(60cqi, 214px); }
 /* (An iPad held upright stacks its cards too, but has room: the charts take more of its height.) */
 @media (min-width: 700px) and (min-height: 900px) {
