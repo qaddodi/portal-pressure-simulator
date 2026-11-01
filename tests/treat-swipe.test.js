@@ -14,7 +14,8 @@ test('#20 the Treat card keeps every tab in one grid cell, so it is as tall as t
   assert.doesNotMatch(chart, /body\.replaceChildren\(panes\.find/);
   assert.match(css, /\.treat-pane \{[^}]*display: grid;/);
   assert.match(css, /\.treat-pane > \* \{ grid-area: 1 \/ 1;/);
-  assert.match(css, /\.treat-pane > \.tp-off \{ visibility: hidden; \}/);
+  assert.match(css, /\.treat-pane > \.tp-off \{ visibility: hidden; opacity: 0;/);   // (hidden but still laid out; it fades out first, 1 Nov)
+  assert.match(css, /visibility 0s linear var\(--d-flip\)/, 'the pane leaves the page only once its fade is done');
 });
 
 test('#21 a swipe in phone Tests first finishes the previous swipe still settling, once it moves, and takes the pane over from where it is drawn', () => {

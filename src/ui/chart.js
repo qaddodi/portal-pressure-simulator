@@ -7,6 +7,7 @@
 
 import { store, updateParams } from './store.js?v=4ef2a6ffd8';
 import { h, icon, svgIcon, toast, reconcile } from './util.js?v=e8e300385d';
+import { fold } from './fold.js?v=959314c577';
 import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
 import { activeInterventions } from './inspector.js?v=4d4f8406fb';
 import { DRUG_NOTE } from './actions.js?v=4a7bc0b676';
@@ -74,8 +75,9 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       reconcile(list, [
         ...(about.length ? [keyed(h('div', { class: 'chg-sub' }, 'About this patient'), 'sub:about'), ...about.map((a) => keyed(row(a, false), `about:${a.label}`)), keyed(h('div', { class: 'chg-sub' }, 'Your changes'), 'sub:mine')] : []),
         ...mine.map((a) => keyed(row(a, true), `mine:${a.label}`))]);
-      empty.hidden = mine.length > 0; clear.hidden = !mine.length;
-      if (count) { count.textContent = mine.length; count.hidden = !mine.length; }
+      // (the hint, the Clear all link and the count ease in and out with the list rows, rather than popping)
+      fold(empty, !mine.length); fold(clear, !!mine.length);
+      if (count) { if (mine.length) count.textContent = mine.length; fold(count, !!mine.length, { flat: true }); }
     };
     live.push(paint);
     const sec = section('changes', 'Changes', null, '0', list, empty, clear);
