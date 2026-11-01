@@ -50,7 +50,8 @@ test('a mutated live shader is caught: each of these edits is something a hand e
   change('uniform float uLive;', 'uniform float uLivee;', /"uLive" is not declared in scope/);
   change('lvThin(2.0 * Wb / px)', 'lvThin(2.0 * Wb, px)', /"lvThin" is called with 2 arguments/);
   change('vec2 w = (p - uRect.xy) / uRect.z;', 'vec2 w = (p - uRect.xy) / uRect.z', /side by side: an operator or a ";" is missing/);
-  change('o = vec4(mix(c, uBg, a), 1.0);\n}', 'o = vec4(mix(c, uBg, a), 1.0);', /ends inside a block|expected "}"/);
+  change('o = vec4(mix(c, uBg, a), 1.0);', 'o = vec4(mix(c, uBg, a), 1.0)', /side by side: an operator or a ";" is missing|expected ";"/);
+  change('o = o * f + own * (1.0 - f); }\n}', 'o = o * f + own * (1.0 - f); }', /ends inside a block|expected "}"/);   // (the dive's rim, DIVE_GPU, is the shader's last line)
 });
 
 test('the tissue\'s vertex shader and both fragment shaders (the bitmap\'s and the live lobule\'s) pass the lint', () => {

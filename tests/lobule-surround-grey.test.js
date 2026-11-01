@@ -55,10 +55,10 @@ test('both shaders grade the surround before the lobule\'s bitmap and the fade i
   assert.ok(fgl.indexOf('if (uQuiet > 0.0) c = ') < fgl.search(line) && fgl.search(line) < fgl.indexOf('if (uFade.w > 0.0)') && fgl.indexOf('if (uFade.w > 0.0)') < fgl.indexOf('float m = 1.0;'));
   // The tissue: after the last state's tile, before the bitmap goes over: the lobule in focus keeps the lens's colours.
   assert.ok(tgl.indexOf('if (uQOld > 0.0) c = ') < tgl.search(line) && tgl.search(line) < tgl.indexOf('vec4 l = textureGrad(uW, w') && tgl.indexOf('vec4 l = textureGrad(uW, w') < tgl.indexOf('float s = clamp('));
-  for (const [src, looked] of [[fgl, /'uGrey'\]\.map/], [tgl, /const COMMON_U = \[[^\]]*'uGrey'\];/]]) {
+  for (const [src, looked] of [[fgl, /'uGrey'\]\.map/], [tgl, /const COMMON_U = \[[^\]]*'uGrey', \.\.\.\(DIVE_GPU \? \['uRim'\] : \[\]\)\];/]]) {
     assert.match(src, looked, 'the uniform is looked up');
     assert.match(src, /gl\.uniform2f\(U\.uGrey, grey \? grey\[0\] : 1, grey \? grey\[1\] : 1\);/, 'and set each frame (1, 1 when nothing greys)');
-    assert.match(src, /grey = null \}\) \{/);
+    assert.match(src, /grey = null(, rim = null)? \}\) \{/);
   }
 });
 
@@ -70,7 +70,7 @@ test('every place the surround is drawn takes the grade: the field on the GPU an
   assert.match(fn('function tissueOnGPU('), /bg: tone, grey: grey\.k > 0 \? surroundGrade\(grey\.k\) : null,/);
   const pt = fn('function paintTissue(W, H, dpr, dark, cs, flatVessels, tg = null) {');
   assert.match(pt, /gk = greyNow\(now\)/);
-  assert.match(pt, /V\.y\.toFixed\(1\), gk\.toFixed\(3\)\]\.join\('\|'\);\n\s+if \(key === tissueKey\) return gpu;/, 'a changing grey redraws the picture, and nothing else');
+  assert.match(pt, /V\.y\.toFixed\(1\), gk\.toFixed\(3\)\]\.join\('\|'\);\n\s+if \(key === tissueKey\) return DIVE_GPU \? gpu && keyGPU : gpu;/, 'a changing grey redraws the picture, and nothing else');
   assert.match(pt, /if \(gk > 0\) fieldGrey\(c, shadeOf\(rgb01\(bg\), dark\), surroundGrade\(gk\), tw, th\);\n\s+c\.restore\(\);/, '2D tissue: inside the surround\'s clip');
   assert.ok(pt.indexOf('fieldGrey(') < pt.indexOf('c.drawImage(worldCv'), 'the 2D bitmap is laid after it: the lobule in focus is not greyed');
   assert.ok(pt.indexOf('fieldGrey(') < pt.indexOf('fieldFade(c,'));

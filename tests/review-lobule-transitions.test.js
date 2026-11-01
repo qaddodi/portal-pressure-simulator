@@ -132,7 +132,7 @@ test('a new patient eases into the lobule: the tissue crossfades instead of snap
   // The surround's tiles too, and the frame loop keeps drawing while either fades.
   assert.match(lz, /if \(surNow && t\.set !== surNow\.set && surNow\.q\.cv\?\.width && !unseen\(\)\) \{ surOld = surNow\.q; surT0 = xfNow\(now\); \}/);
   assert.match(lz, /if \(rzMoving \|\| lensFrom \|\| tissueFading\(now\)\) drawVersion\+\+;/);
-  assert.match(lz, /\[W, H, dpr, wk, gpu, fading \?/, 'each fading frame draws the tissue again');
+  assert.match(lz, /\[\.\.\.\(DIVE_GPU && gpu && diveRim \? \[diveRim\.x, diveRim\.y, diveRim\.r\] : \[\]\), W, H, dpr, wk, gpu, fading \?/, 'each fading frame draws the tissue again');
   // The sinusoids' dulling follows the eased resistance, as their calibers do.
   assert.match(lz, /const sinFib = \(\) => clamp\(Math\.log\(rzOf\(\)\.sin\) \/ 3\.2, 0, 1\);/);
 });

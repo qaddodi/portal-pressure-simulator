@@ -28,7 +28,7 @@ import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-mode
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL, TILE_OVER } from './field-gl.js?v=5e76368a8d';
-import { createTissueGL } from './tissue-gl.js?v=2e421ee455';
+import { createTissueGL, DIVE_GPU } from './tissue-gl.js?v=427a95415e';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=624ae21d7d';
 import { createTissueWorker } from './tissue-worker.js?v=d9b45fb202';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
@@ -611,7 +611,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function release() {
     dropWide();
     resCoverEnd();
-    free(tissue); free(tissueG); free(fx); free(glCv); free(diveCv); free(rimCv); diveCopyKey = '';
+    free(tissue); free(tissueG); free(fx); free(glCv); free(diveCv); free(rimCv); diveCopyKey = ''; rimDrawn = false;
     clearTimeout(spareT); spareT = 0; free(spareCv); spare = null;
     jobGen++; if (laying) { closeTiles(laying.tiles, laying.i); free(laying.cv); laying = null; }   // (a bitmap the worker is painting or sending is dropped)
     gl?.trim?.();   // (the vessels' framebuffer: the shaders and the uploaded network are kept)
@@ -1837,8 +1837,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     idleDrawn = dt === 0 ? idleKey : '';
     const cs = styles();   // (the stage's kept copy of its styles, read again when a class, theme or system setting changes)
     const g = ensureGL();
-    // (On the GPU for the screen; on the 2D canvas while the dive or the rise is staged (keep2D) or scaled, whose copies read it.)
-    showTissueGL(paintTissue(W, H, dpr, dark, cs, !g, !keep2D && !scaled && g ? tissueGLOn() : null));
+    // (On the GPU for the screen; on the 2D canvas while the dive or the rise is staged (keep2D) or scaled, whose copies read it.
+    // With DIVE_GPU the dive and the rise stay on the GPU too, their rim drawn by the shader: only the sinusoid's zoom keeps the 2D canvas.)
+    showTissueGL(paintTissue(W, H, dpr, dark, cs, !g, !keep2D && (!scaled || (DIVE_GPU && sinU === 0)) && g ? tissueGLOn() : null));
     snapNext = false;
     framePart('lz.layoutLabels', layoutLabels);
     if (g && !g.lost) drawGL(W, H, dpr, dark, cs, dt);
@@ -1897,10 +1898,20 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       try {
         // One tile at a time, each source given back as soon as it is laid on: the tissue (rimmed, with the lobule's own layer, as
         // the dive's copy always is), then the vessels, then the ductules, as the layers stack. Every canvas is checked.
-        tissueKey = ''; paintTissue(w, hh, dpr, dark, cs, flat);
-        diveRim = { x: +(cx + ox).toFixed(1), y: +(cy + oy).toFixed(1), r: +r.toFixed(1) }; diveCopyKey = ''; diveCopy(cv);
-        ok = probe(tissue) && (!worldAt?.cv.width || probe(rimCv)) && probe(cv);
-        free(rimCv); free(tissue);
+        // (DIVE_GPU: the tissue's part drawn by the shader at the tile's size, rim and all, and laid on in the same task, while the
+        // GPU canvas still holds it: no 2D paint of the tissue and no rim copy on the CPU. If the GPU cannot, the 2D canvas, as before.)
+        const tg = DIVE_GPU && !flat ? tissueGLOn() : null;
+        let onG = false;
+        if (tg) {
+          diveRim = rimOf(cx + ox, cy + oy, r); tissueKey = ''; onG = paintTissue(w, hh, dpr, dark, cs, flat, tg);
+          if (onG) { if (cv.width !== tissueG.width || cv.height !== tissueG.height) { cv.width = tissueG.width; cv.height = tissueG.height; } cv.getContext('2d')?.drawImage(tissueG, 0, 0); ok = probe(cv); }
+          else { diveCopyKey = ''; diveCopy(cv); ok = probe(tissue) && (!worldAt?.cv.width || probe(rimCv)) && probe(cv); }
+        } else {
+          tissueKey = ''; paintTissue(w, hh, dpr, dark, cs, flat);
+          diveRim = { x: +(cx + ox).toFixed(1), y: +(cy + oy).toFixed(1), r: +r.toFixed(1) }; diveCopyKey = ''; diveCopy(cv);
+          ok = probe(tissue) && (!worldAt?.cv.width || probe(rimCv)) && probe(cv);
+        }
+        free(rimCv); free(tissue); if (tg) free(diveCv);
         if (!ok) { free(cv); break; }
         const c = cv.getContext('2d');
         // (The vessels at one size for every tile, cropped: their canvas is sized once for the copy, not once a tile.)
@@ -1926,7 +1937,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   // The layers, drawn for the screen after the copy: if the browser refused them, the copy goes and they are drawn again.
   function wideChecked(wd) {
-    if (!wd || (probe(tissue) && probe(fx))) return wd;
+    if (!wd || ((DIVE_GPU && tissueOnGL ? true : probe(tissue)) && probe(fx))) return wd;   // (on the GPU: its canvas has no 2D context to probe)
     for (const cv of wd.tiles) free(cv); wd.el.remove();
     tissueKey = ''; idleDrawn = ''; fxDrawn = ''; fxBoxes = null; lyKey = ''; draw(0);
     return null;
@@ -1956,7 +1967,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!box) return;
     if (gliding) { cancelFrame(glide); gliding = false; camAim = null; }   // (the copy is of this framing: the view holds it)
     const wd = buildWide(W, H, box);
-    keep2D = true;
+    keep2D = !DIVE_GPU;   // (DIVE_GPU: the layers under the copy stay on the GPU; nothing reads them)
     try { idleDrawn = ''; draw(0); wide = wideChecked(wd); } finally { keep2D = false; }
   }
   const apple = () => /iP(hone|ad|od)/.test(navigator.platform) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2448,7 +2459,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (Aimed at a station: the whole lobule's copy for the zoom, built first; the layers are then drawn for the screen.)
     // (Reduced motion: the dive fades, nothing is magnified, so no copy: it was built and freed in the same moment.)
     const [W, H] = hostSize(), box = reduce.matches ? null : padBox(W, H), wd = box ? buildWide(W, H, box) : null;
-    keep2D = true;
+    keep2D = !DIVE_GPU;
+    // (DIVE_GPU: the tissue drawn on the GPU now, unseen, with the rim the dive will scale it down with (setDiveZoom, about the landing),
+    // so the zoom's first frame has nothing to draw. Landed, it is drawn once more without the rim.)
+    if (DIVE_GPU && !wd && !reduce.matches && geo) { const [x, y] = toScreen([geo.cx, geo.cy]); diveRim = rimOf(x, y, geo.R * V.k); }
     try { idleDrawn = ''; draw(0); diveDrawn = true; staged = api.viewKey(); relLater = true; wide = wideChecked(wd); } finally { keep2D = false; }
     // (The bitmap just drawn is the one the landing shows on the GPU: sent now, while nothing of the lobule is seen, rather than in the
     // landing's frame, where a 3600 px texture and its mipmaps held the frame after the zoom.)
@@ -3006,9 +3020,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       W: tw, H: th, qa: qa.cv, qb: qb?.cv, mix: tb ? mix : 0, qo: surOld?.cv?.width ? surOld.cv : null, qOld: surOld ? 1 - su : 0,
       w: worldCv, wVer: worldCv.ver || 0, wo: crossfading ? worldOld : null, woVer: worldOld.ver || 0, wMix: crossfading ? xfU(xfT0, xfNow(now)) : 1,
       rect: [sx * dpr, sy * dpr, 2 * B * V.k * dpr], ox, oy, rd, fade: [fIn, fOut], mid: FADE_MID, bg: tone, grey: grey.k > 0 ? surroundGrade(grey.k) : null, live: liveArgs(dark, cs),
+      rim: rimArg(tw, th),
     }));
     if (!ok) return false;
     tissueDrew = true;   // (its canvas holds this frame's picture: pillCopy may read it now)
+    rimDrawn = !!rimArg(tw, th); rimKeyGL = rimKey();   // (its canvas holds the dive's rimmed picture: drawn again without it once the zoom lands)
     if (!crossfading && xfT0) { xfT0 = 0; free(worldOld); free(xfCv); tg.sweep(); }   // (faded in: the old picture is given back, its GPU copy too)
     free(tissue); flatAt = null;   // (the 2D canvas is left empty under it: paint2D draws it again when the dive's copy needs it)
     return true;
@@ -3048,9 +3064,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const wk = sc.toFixed(3) + '|' + ws;
     const now = performance.now(), fading = tissueFading(now), gk = greyNow(now);   // (gk: the surround's grey, easing with the lens)
     const lk = gpu ? liveStep(dpr, now) : 0;   // (the share of the lobule drawn live by the shader)
-    const key = [W, H, dpr, wk, gpu, fading ? `${xfU(xfT0, xfNow(now)).toFixed(3)},${xfU(surT0, xfNow(now)).toFixed(3)}` : '', flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', lk > 0 ? lk.toFixed(3) + ',' + m.congU.toFixed(3) : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1), gk.toFixed(3)].join('|');
-    if (key === tissueKey) return gpu;
-    tissueKey = key; tissueVer++; tissueCss = [W, H];
+    const key = [...(DIVE_GPU && gpu && diveRim ? [diveRim.x, diveRim.y, diveRim.r] : []), W, H, dpr, wk, gpu, fading ? `${xfU(xfT0, xfNow(now)).toFixed(3)},${xfU(surT0, xfNow(now)).toFixed(3)}` : '', flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', lk > 0 ? lk.toFixed(3) + ',' + m.congU.toFixed(3) : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1), gk.toFixed(3)].join('|');
+    if (key === tissueKey) return DIVE_GPU ? gpu && keyGPU : gpu;
+    tissueKey = key; tissueVer++; tissueCss = [W, H]; keyGPU = false;
     const tw = canvasPx(W, dpr), th = canvasPx(H, dpr);
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
     const bg = v('--stage-bg', v('--bg'));
@@ -3073,7 +3089,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       worldSc = sc; worldGeo = G; worldDraws++; worldSeq++;   // (a bitmap from the worker asked for before this one is dropped: adopt)
       paintWorld(worldCv, sc, m, G, dark, cs);
     }
-    if (gpu && tissueOnGPU(tg, tw, th, dpr, dark, cs, bg, now)) { if (!held) spareSoon(); return true; }
+    if (gpu && tissueOnGPU(tg, tw, th, dpr, dark, cs, bg, now)) { keyGPU = true; if (!held) spareSoon(); return true; }
     if (tissue.width !== tw || tissue.height !== th) { tissue.width = tw; tissue.height = th; }
     const c = tissue.getContext('2d');
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -3159,6 +3175,29 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Baked into the copy rather than a CSS mask, which Safari now and then dropped for a frame (the whole pale card flashed). Made
   // once per drawing of the tissue, not per frame.
   let tissueVer = 0, tissueCss = [1, 1], diveRim = null, diveCopyKey = '', worldAt = null, flatAt = null;
+  // (DIVE_GPU: the rim drawn by the tissue's shader instead (tissue-gl.js). keyGPU: the last key drawn went on the GPU; rimDrawn: the
+  // GPU canvas holds a rimmed picture.)
+  let keyGPU = false, rimDrawn = false, rimKeyGL = '';
+  const rimKey = () => (diveRim ? `${diveRim.x},${diveRim.y},${diveRim.r}` : '');
+  const rimOf = (x, y, r) => ({ x: +x.toFixed(1), y: +y.toFixed(1), r: +r.toFixed(1) });
+  // The rim in the GPU canvas's device px (tw × th for a stage of tissueCss CSS px), null for none.
+  const rimArg = (tw, th) => {
+    if (!DIVE_GPU || !diveRim) return null;
+    const kx = tw / tissueCss[0], ky = th / tissueCss[1], k = (kx + ky) / 2, { x, y, r } = diveRim;
+    return [x * kx, y * ky, r * k * DIVE_RIM.solid, r * k * DIVE_RIM.clear];
+  };
+  // The tissue drawn on the GPU now for the rim as it is (diveRim: the dive's, or none once it lands). True when it is on the GPU.
+  function rimOnGPU() {
+    if (!DIVE_GPU || !geo || !model) return false;
+    const g = ensureGL();
+    if (!g || g.lost) return false;   // (vessels drawn flat on the tissue: the 2D canvas and its copy, as before)
+    const tg = tissueGLOn();
+    if (!tg) return false;
+    const [W, H] = hostSize();
+    const on = paintTissue(W, H, Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), isDark(), styles(), false, tg);
+    showTissueGL(on);
+    return on;
+  }
   function diveCopy(dst = diveCv) {   // (dst: a tile of the wide copy, see buildWide)
     if (!diveRim || !tissue.width) return;
     // (In the padded box's own frame when the layers are padded.)
@@ -3819,9 +3858,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (Landed, or back at full size: the wide copy goes, and the layers, drawn for the screen before the zoom, show as they are.)
       if (wide && !rim) dropWide(true);
       diveRim = rim && !wide ? { x: +x.toFixed(1), y: +y.toFixed(1), r: +r.toFixed(1) } : null;
-      if (rim && !wide) { paint2D(); diveCopy(); }
+      // (DIVE_GPU: the rim drawn by the tissue's shader, and the GPU canvas scaled as it is: no 2D paint and no copy. Where the GPU
+      // cannot, the 2D canvas and its copy, as before. Landed, the picture is drawn again without the rim before the scale goes.)
+      // (Drawn once for the rim, as the 2D copy was: each frame of the zoom only scales it.)
+      const rimGL = DIVE_GPU && rim && !wide && ((rimDrawn && tissueOnGL && rimKeyGL === rimKey()) || rimOnGPU());
+      if (rimGL) { if (diveCv.width) { free(diveCv); free(rimCv); diveCopyKey = ''; } }
+      else if (rim && !wide) { paint2D(); diveCopy(); }
       else if (diveCv.width) { free(diveCv); free(rimCv); diveCopyKey = ''; }
-      const show = wide ? null : rim && diveCopyKey ? diveCv : tissue;
+      if (DIVE_GPU && !diveRim && rimDrawn) { rimDrawn = false; tissueKey = ''; idleDrawn = ''; if (fade > 0 && !wide) rimOnGPU(); }
+      const show = wide ? null : rim && !rimGL && diveCopyKey ? diveCv : tissue;
       if (tissue.style.visibility !== (show === tissue ? '' : 'hidden')) { tissue.style.visibility = tissueG.style.visibility = show === tissue ? '' : 'hidden'; diveCv.style.visibility = show === diveCv ? '' : 'hidden'; }
       if (wide) { for (const e of WIDE_HIDE) e.style.visibility = 'hidden'; wide.el.style.visibility = ''; }
       for (const e of [tissue, tissueG, diveCv, glCv, fx, leaders, labels]) {

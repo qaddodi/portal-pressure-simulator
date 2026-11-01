@@ -15,7 +15,7 @@ test('an aimed dive shows the whole lobule, built before the zoom, the layers th
   assert.match(box, /return padRect\(x, y, geo\.R \* V\.k \* 1\.35, W, H\);/, 'out past the rim and the corners\' triads');
   // (Reduced motion fades the dive, magnifying nothing: no copy is built then.)
   // (Drawn on the 2D canvas (keep2D): the dive's copy of the tissue is made from it, and wideChecked checks it.)
-  assert.match(lz, /const \[W, H\] = hostSize\(\), box = reduce\.matches \? null : padBox\(W, H\), wd = box \? buildWide\(W, H, box\) : null;\n\s+keep2D = true;\n\s+try \{ idleDrawn = ''; draw\(0\); diveDrawn = true; staged = api\.viewKey\(\); relLater = true; wide = wideChecked\(wd\); \} finally \{ keep2D = false; \}/);
+  assert.match(lz, /const \[W, H\] = hostSize\(\), box = reduce\.matches \? null : padBox\(W, H\), wd = box \? buildWide\(W, H, box\) : null;\n\s+keep2D = !DIVE_GPU;\n[\s\S]*?\n\s+try \{ idleDrawn = ''; draw\(0\); diveDrawn = true; staged = api\.viewKey\(\); relLater = true; wide = wideChecked\(wd\); \} finally \{ keep2D = false; \}/);
   // Each tile is the layers as they stack: the tissue's rimmed copy, the vessels, the ductules; each source given back at once.
   const b = lz.match(/function buildWide\([\s\S]*?\n {2}\}/)[0];
   assert.match(b, /paintTissue\(w, hh, dpr, dark, cs, flat\);\n\s+diveRim = [^\n]*diveCopy\(cv\);/);
@@ -40,7 +40,7 @@ test('every canvas the copy needs is checked; a refusal drops the copy, never sh
   assert.match(b, /if \(!probe\(fx\)\) \{ ok = false;/, 'the ductules\' layer');
   assert.match(b, /if \(!ok\) \{ for \(const cv of tiles\) free\(cv\); return null; \}/);
   // The layers drawn for the screen after it: refused, the copy goes and they are drawn again.
-  assert.match(lz, /function wideChecked\(wd\) \{\n\s+if \(!wd \|\| \(probe\(tissue\) && probe\(fx\)\)\) return wd;/);
+  assert.match(lz, /function wideChecked\(wd\) \{\n\s+if \(!wd \|\| \(\(DIVE_GPU && tissueOnGL \? true : probe\(tissue\)\) && probe\(fx\)\)\) return wd;/);
   assert.match(lz, /function probe\(cv\) \{[\s\S]*?c\.putImageData\(new ImageData\(new Uint8ClampedArray\(\[0, 0, 0, 255\]\), 1, 1\), 0, 0\);[\s\S]*?c\.putImageData\(d, 0, 0\);/);
   assert.match(lz, /function diveCopy\(dst = diveCv\) \{/);
   assert.match(lz, /const c = dst\.getContext\('2d'\);\n\s+if \(!c\) return;/);
@@ -74,7 +74,7 @@ test('the rise out of a zoomed-in lobule shrinks it whole, whichever way out', (
   assert.match(st, /const p = riseFast \? u \* u \* \(2 - u\) : /);
   const sr = lz.match(/function stageRise\(\) \{[\s\S]*?\n {2}\}/)[0];
   assert.match(sr, /const \[W, H\] = hostSize\(\), box = padBox\(W, H\);\n\s+if \(!box\) return;/);
-  assert.match(sr, /const wd = buildWide\(W, H, box\);\n\s+keep2D = true;\n\s+try \{ idleDrawn = ''; draw\(0\); wide = wideChecked\(wd\); \} finally \{ keep2D = false; \}/);
+  assert.match(sr, /const wd = buildWide\(W, H, box\);\n\s+keep2D = !DIVE_GPU;[^\n]*\n\s+try \{ idleDrawn = ''; draw\(0\); wide = wideChecked\(wd\); \} finally \{ keep2D = false; \}/);
 });
 
 test('the padded box covers the lobule wherever it reaches past the screen, and only there', async () => {
