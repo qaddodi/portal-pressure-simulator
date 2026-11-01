@@ -8,18 +8,31 @@
 // a glide is still playing is the true layout and an interrupted glide continues from where it was.
 // Nothing moves on a window resize or with reduced motion: the bar just takes its new layout.
 import { frameFor } from './frame.js?v=15d5254a2c';
-import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
+import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE } from './ease.js?v=fc509dabe4';
 const nextFrame = frameFor('topbar-motion');
 
-const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > button, .sb-right > *, .top-right, .top-right > *';
+const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > button, .sb-right > :not(.tb-face), .top-right, .top-right > *';
 // Pills that grow reveal their new width from the old one instead of snapping wide.
 const GROW = '.tb-id, .top-right, #viewSeg';
 const MOVE_MS = D_SMALL, IN_MS = D_SMALL, OUT_MS = D_FLIP, EASE = EASE_ARRIVE;
+// The lens pill (the Layers and Blood chips and the colour key) glides its plate to a new width on the key's own clock (a new lens
+// takes D_SURFACE on EASE_MOVE, legend-morph.js), anchored at its right edge so the chevron and the key stay put as it grows or
+// shrinks. ?keyglide=0 keeps the pill snapping to its new width, as before.
+const KEYGLIDE = !/[?&]keyglide=0\b/.test(location.search);
 
 export function initTopbarMotion() {
   const bar = document.getElementById('topbar'), app = document.getElementById('app');
   if (!bar || !app || !bar.animate) return;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  // (The pill's glass moves onto a face of its own, as the patient pill's, so the plate can change width while the row inside is already laid out.)
+  const row = KEYGLIDE ? bar.querySelector('.sb-right') : null;
+  if (row && !row.querySelector(':scope > .tb-face')) {
+    const f = document.createElement('span');
+    f.className = 'tb-face'; f.setAttribute('aria-hidden', 'true');
+    row.prepend(f); row.classList.add('has-face');
+  }
+  const lens = row && row.querySelector(':scope > .lens-btn');
+  const inRow = (el) => !!row && row.contains(el);
 
   const pageXY = (el) => { let x = 0, y = 0; for (let n = el; n && n !== document.body; n = n.offsetParent) { x += n.offsetLeft; y += n.offsetTop; } return { x, y }; };
   const measure = () => {
@@ -60,6 +73,14 @@ export function initTopbarMotion() {
       for (let p = el; p; p = trackedParent(p, next)) { const o = own.get(p); cx += o.x; cy += o.y; }
       tot.set(el, { x: s.x + cx - n.x, y: s.y + cy - n.y, dw: n.w - s.w });
     }
+    // The lens pill hangs from its right edge (its key grows and shrinks to the left): the pill and its key move by how far their
+    // right edges moved, not their left, so the chevron holds still and the plate (the face, below) is what changes width.
+    const sRow = row && snap.get(row), nRow = row && next.get(row);
+    const hang = !!(sRow?.vis && nRow?.vis && Math.abs(sRow.x + sRow.w - nRow.x - nRow.w) + .5 < Math.abs(sRow.x - nRow.x));
+    if (hang) for (const el of [row, lens]) {
+      const t = tot.get(el), s = snap.get(el), n = next.get(el);
+      if (t && s?.vis && n?.vis) t.x += (s.x + s.w - n.x - n.w) - (s.x - n.x);
+    }
     for (const el of next.keys()) for (const a of el.getAnimations()) if (a.id === 'tbm') a.cancel();
 
     for (const [el, n] of next) {
@@ -76,7 +97,11 @@ export function initTopbarMotion() {
         const dx = t.x - (pt ? pt.x : 0), dy = t.y - (pt ? pt.y : 0);
         const frames = [];
         if (Math.abs(dx) >= 1.5 || Math.abs(dy) >= 1.5) frames.push({ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' });
-        if (frames.length) { const a = el.animate(frames, { duration: MOVE_MS, easing: EASE }); a.id = 'tbm'; }
+        if (frames.length) { const a = el.animate(frames, inRow(el) ? { duration: D_SURFACE, easing: EASE_MOVE } : { duration: MOVE_MS, easing: EASE }); a.id = 'tbm'; }
+        if (el === row && Math.abs(t.dw) > 2) {
+          const face = row.querySelector(':scope > .tb-face');
+          if (face) face.animate([{ translate: `${hang ? t.dw : 0}px 0px`, width: `${s.w}px` }, { translate: '0px 0px', width: `${n.w}px` }], { duration: D_SURFACE, easing: EASE_MOVE }).id = 'tbm';
+        }
         if (t.dw < -2 && el.matches(GROW)) {
           // A pill with its own face (the patient pill) glides its face from the old width to the new; others leave the old,
           // wider plate fading behind them.

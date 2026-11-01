@@ -4039,6 +4039,9 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
    instead of snapping (topbar-motion.js); a longer one is revealed from the old width. */
 .topbar .tb-id { position: relative; isolation: isolate; background: transparent; box-shadow: none; }
 .tb-id > .tb-face { position: absolute; z-index: -1; left: 0; top: 0; bottom: 0; width: 100%; border-radius: inherit; background: var(--glass); box-shadow: var(--shadow-pill); pointer-events: none; }
+/* The lens pill (Blood, Layers and the colour key) wears its glass the same way, so a new key glides the plate to its width (topbar-motion.js; ?keyglide=0 leaves the glass on the pill). */
+.topbar .sb-right.has-face { position: relative; isolation: isolate; background: transparent; box-shadow: none; overflow: visible; }
+.sb-right > .tb-face { position: absolute; z-index: -1; left: 0; top: 0; bottom: 0; width: 100%; border-radius: inherit; background: var(--glass); box-shadow: var(--shadow-pill); pointer-events: none; }
 /* The patient's name is never cut off a phone: the bar compacts (data-fit, below) and wraps it instead. */
 .menu-btn .scenario-v { max-width: none; overflow: visible; text-overflow: clip; }
 .topbar .stage-bar.top { justify-content: space-between; }

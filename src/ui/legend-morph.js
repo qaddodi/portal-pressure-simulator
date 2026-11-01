@@ -111,8 +111,17 @@ export function morphKey(el, kids, { instant = false } = {}) {
   const o0 = frame(), before = items(el, o0);
   const box0 = local(el, o0), bar0 = oldBar && shown(oldBar) ? local(oldBar, o0) : null;
   const ghost = el.cloneNode(true);
+  const r0 = btn.getBoundingClientRect();
 
   el.replaceChildren(...kids);
+
+  // The pill hangs from its right edge (topbar-motion.js, ?keyglide=0 off): its key grows and shrinks to the left, so the old key
+  // stands where it stood by the same distance in the new box.
+  const r1 = btn.getBoundingClientRect(), hung = btn.closest?.('.sb-right.has-face') && Math.abs(r1.right - r0.right) + .5 < Math.abs(r1.left - r0.left) ? r1.width - r0.width : 0;
+  if (hung) {
+    box0.x += hung; if (bar0) bar0.x += hung;
+    for (const kind of ['num', 'tick']) for (const it of before[kind]) if (it.r) it.r.x += hung;
+  }
 
   const o1 = frame(), after = items(el, o1);
   const bar1 = newBar && shown(newBar) ? local(newBar, o1) : null;
