@@ -61,7 +61,9 @@ const LAYOUT_JS = new Set([...LAYOUT_PROPS].filter((p) => p !== 'all').map(camel
 const READ_PROPS = new Set(['offsetWidth', 'offsetHeight', 'offsetTop', 'offsetLeft', 'offsetParent', 'clientWidth', 'clientHeight', 'clientTop',
   'clientLeft', 'scrollWidth', 'scrollHeight', 'scrollTop', 'scrollLeft']);
 const READ_CALLS = new Set(['getBoundingClientRect', 'getClientRects', 'getComputedStyle', 'elementFromPoint', 'elementsFromPoint']);
-const MOTION_EVENTS = new Set(['pointermove', 'touchmove', 'mousemove', 'scroll', 'wheel', 'gesturechange', 'drag']);
+const MOTION_EVENTS = new Set(['pointermove', 'touchmove', 'mousemove', 'scroll', 'wheel', 'gesturechange', 'drag', 'dragover', 'pointerrawupdate']);
+// An argument that names a motion event, also as one choice of several (isTouch ? 'touchmove' : 'pointermove').
+const MOTION_RE = /['"`](pointermove|touchmove|mousemove|scroll|wheel|gesturechange|drag|dragover|pointerrawupdate)['"`]/;
 // Calls that keep a function to run later, not now (its own frame or event, if any, makes it a seed).
 const DEFERRED = /^(setTimeout|setInterval|requestIdleCallback|queueMicrotask|addEventListener|removeEventListener|then|catch|finally|Promise|ResizeObserver|IntersectionObserver|MutationObserver|PerformanceObserver|afterMotion|whenQuiet|restPass|idle|onRenderScale|onFigLab|watchFrames|observe|subscribe|on|once|frame|lateFrame|finalFrame|requestAnimationFrame|nextFrame|easeFrame|drawFrame)$/;
 // Receivers whose methods are the browser's own (a Map's set, a class list's add): a call on one never runs an app function.
@@ -210,7 +212,7 @@ export function scan({ root = ROOT } = {}) {
     }
     if (!file.endsWith('.js')) continue;
     const ast = parseJs(file, text);
-    const mod = { file, fns: new Map(), origins: new Map(), calls: new Map(), imports: new Map(), exports: new Map(), seeds: new Set(), late: [] };
+    const mod = { file, text, motionProps: [], fns: new Map(), origins: new Map(), calls: new Map(), imports: new Map(), exports: new Map(), seeds: new Set(), late: [] };
     mods.set(file, mod);
     const frameCallers = new Set(['requestAnimationFrame', 'frame', 'lateFrame', 'finalFrame']);
     // (raf = frameFor('x'), and imported scheduler names under any local alias)
@@ -263,6 +265,7 @@ export function scan({ root = ROOT } = {}) {
       if (n.type === 'AssignmentExpression' && madeBy(n.right)) { const l = n.left; const nm = l.type === 'Identifier' ? l.name : !l.computed ? l.property?.name : null; if (nm) mod.origins.set(nm, madeBy(n.right)); }
       if (n.type === 'Property' && !n.computed && madeBy(n.value)) mod.origins.set(n.key.name ?? n.key.value, madeBy(n.value));
       if (n.type === 'AssignmentExpression' && builtinValue(n.right)) { const l = n.left; const nm = l.type === 'Identifier' ? l.name : !l.computed ? l.property?.name : null; if (nm) mod.containers.add(nm); }
+      if (n.type === 'Property' && !n.computed && /^(pointermove|touchmove|mousemove|scroll|wheel|gesturechange|drag|dragover|on(Pointer|Touch|Mouse)Move|onScroll|onWheel|onDrag|move)$/.test(n.key.name ?? n.key.value ?? '')) mod.motionProps.push([n.value, enclosing(n)]);
       if (n.type === 'Property' && !n.computed && n.parent?.type === 'ObjectExpression') {
         const k = n.key.name ?? n.key.value;
         if (builtinValue(n.value)) mod.containers.add(k);
@@ -403,10 +406,13 @@ export function scan({ root = ROOT } = {}) {
   const allCalls = (mod) => { const out = [...mod.top]; for (const g of mod.fns.values()) if (g.__calls) out.push(...g.__calls); return out; };
   for (let changed = true, round = 0; changed && round < 12; round++) {
     changed = false;
+    for (const mod of mods.values()) for (const [v, at] of mod.motionProps) changed = seedArg(mod, v, at) || changed;
     for (const mod of mods.values()) for (const call of allCalls(mod)) {
       const a = call.node.arguments;
       if (mod.frameCallers.has(call.name) || call.name === 'setInterval') changed = seedArg(mod, a[0], call.at) || changed;
-      if (call.name === 'addEventListener' && MOTION_EVENTS.has(strOf(a[0]))) changed = seedArg(mod, a[1], call.at) || changed;
+      // (addEventListener, or any helper that takes the event's name first: on('touchmove', fn), listen(el, 'scroll', fn)…)
+      const ev = a.findIndex((x) => x && MOTION_RE.test(mod.text.slice(x.start, x.end)) && (x.type === 'Literal' || x.type === 'TemplateLiteral' || x.type === 'ConditionalExpression' || x.type === 'LogicalExpression'));
+      if (ev >= 0) for (const x of a.slice(ev + 1)) changed = seedArg(mod, x, call.at) || changed;
       if (takers.size) for (const [, g] of resolveCall(mod, call)) for (const i of takers.get(g) || []) changed = seedArg(mod, a[i], call.at) || changed;
     }
   }

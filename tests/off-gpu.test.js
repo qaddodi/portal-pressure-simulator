@@ -92,6 +92,10 @@ later(pass);
 const step = (d) => document.body.getBoundingClientRect();   // (a click handler that happens to be called step)
 document.body.addEventListener('click', () => step(1));
 function outer() { function fit() { return document.body.scrollHeight; } return fit; }
+const on = (t, f) => document.body.addEventListener(t, f);
+function fold(h) { document.body.style.maxHeight = h + 'px'; }
+on('touchmove', (e) => fold(e.touches[0].clientY));                  // (through a listener helper)
+const handlers = { pointermove(e) { document.body.style.top = e.clientY + 'px'; } };
 function other() { const fit = () => 0; draw(() => fit()); }
 export { tiles, outer, other };
 `);
@@ -102,6 +106,9 @@ export { tiles, outer, other };
   assert.ok(!at('src/ui/p.js', /getBoundingClientRect/), 'a function named step is not a frame callback by its name');
   assert.ok(!at('src/ui/p.js', /scrollHeight/), "the fit in scope is the frame's, not another function's fit");
   assert.ok(!at('src/ui/z.js', /clientWidth/), 'what no frame calls stays out');
+  const writes = scan({ root }).filter((h) => h.cat === 'layoutWrite' && h.file === 'src/ui/p.js');
+  assert.ok(writes.some((h) => /maxHeight.*fold@/.test(h.detail)), 'a layout write in a touchmove handler registered through on()');
+  assert.ok(writes.some((h) => /style\.top/.test(h.detail)), 'a layout write in a handler map keyed pointermove');
 });
 
 test('nothing in the app is off the GPU (the limit is zero; see docs/off-gpu-inventory.md)', () => {
