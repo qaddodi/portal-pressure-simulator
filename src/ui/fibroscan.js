@@ -4,11 +4,12 @@
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
-import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=73d39176eb';
+import { h, clamp, cssAlpha } from './util.js?v=73d39176eb';
+import { createTraceGL, fitPen } from './trace-gl.js?v=f0965e42db';
 import { FONT } from './charts.js?v=6a7a378639';
 import { simTime, isPaused, fibroReading } from './clock.js?v=16aba0e2eb';
 import { store } from './store.js?v=4ef2a6ffd8';
-import { elastogramGL, prepareElastogramGL } from './fibroscan-gl.js?v=cb8be9a88d';
+import { createElastogramGL } from './fibroscan-gl.js?v=fa6d85c265';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=7710f677e2';
 import { createFollow } from './display-state.js?v=8d062d39dc';
@@ -60,13 +61,16 @@ function fields() {
   return FIELDS;
 }
 
-/** Draw one frame of the elastogram into `ctx2` for shear speed c (m/s) at time t (s). The speckle streams along the wave front
- *  and is mixed between fixed fields as it goes, so it evolves coherently: opaque every frame, no fades. Time 0-80 ms across, depth 20-70 mm down (the M probe's window, 25-65 mm, between the two dotted lines); the bands lie along the wave front, with
- *  one dominant dark band whose edge the fitted line follows. */
-function drawElastogram(ctx2, img, N, c, t) {
+/** The elastogram for shear speed c (m/s) at time t (s), N × N RGBA pixels, worked out here: the GPU's map (fibroscan-gl.js, which
+ *  draws it) is checked against it (tests/e2e/idle-steady.mjs). The speckle streams along the wave front and is mixed between fixed
+ *  fields as it goes, so it evolves coherently: opaque every frame, no fades. Time 0-80 ms across, depth 20-70 mm down (the M
+ *  probe's window, 25-65 mm, between the two dotted lines); the bands lie along the wave front, with one dominant dark band whose
+ *  edge the fitted line follows. */
+export function elastogramPixels(N, c, t) {
+  const d = new Uint8ClampedArray(N * N * 4);
   const F = fields(), th1 = t * 1.3, th2 = t * 1.9 + 1, th3 = t * 2.3 + 2;
   const c1 = Math.cos(th1), s1 = Math.sin(th1), c2 = Math.cos(th2), s2 = Math.sin(th2), c3 = Math.cos(th3), s3 = Math.sin(th3);
-  const sc = NB / N, d = img.data, flowY = t * 22, flowX = t * 9; // the speckle streams along the front, so it reads as motion, not a dissolve
+  const sc = NB / N, flowY = t * 22, flowX = t * 9; // the speckle streams along the front, so it reads as motion, not a dissolve
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const tMs = (x / N) * 80, depth = DEPTH0 + (y / N) * DEPTH_SPAN;
     const s = tMs - WAVE_T0 - (depth - WIN0) / c;
@@ -83,20 +87,11 @@ function drawElastogram(ctx2, img, N, c, t) {
     const i = (y * N + x) * 4;
     d[i] = 20 + 220 * k; d[i + 1] = 10 + 126 * k; d[i + 2] = 8 + 64 * k; d[i + 3] = 255;
   }
-  ctx2.putImageData(img, 0, 0);
+  return d;
 }
 
-/** For the checks: the map drawn on the CPU and on the GPU for the same moment, as RGBA pixel arrays (the GPU's null without WebGL2). */
-export function elastogramPair(N, c, t) {
-  const cv = Object.assign(document.createElement('canvas'), { width: N, height: N }), x = cv.getContext('2d', { willReadFrequently: true });
-  const img = x.createImageData(N, N);
-  drawElastogram(x, img, N, c, t);
-  const cpu = x.getImageData(0, 0, N, N).data;
-  const g = elastogramGL(fields(), NB, WAVE_T0, N, c, t);
-  if (!g) return { cpu, gpu: null };
-  x.clearRect(0, 0, N, N); x.drawImage(g, 0, 0, N, N, 0, 0, N, N);
-  return { cpu, gpu: x.getImageData(0, 0, N, N).data };
-}
+/** For the checks: what the GPU's map is drawn from (its noise fields, their grid and the wave's start). */
+export const elastogramInputs = () => ({ F: fields(), NB, t0: WAVE_T0 });
 
 function rrect(ctx, x, y, w, h2, r) {
   ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h2, r); ctx.arcTo(x + w, y + h2, x, y + h2, r);
@@ -105,14 +100,24 @@ function rrect(ctx, x, y, w, h2, r) {
 
 export function createFibroScan() {
   // (The map's shader is started at the next idle moment and compiles beside the page, not at the first map; a map that comes sooner starts it itself.)
-  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 1000 }) : (f) => setTimeout(f, 50))(() => prepareElastogramGL(fields()));
+  // (The panel's map: its own WebGL2 canvas under the words, made at the next idle moment so its shader compiles beside the page;
+  // a map wanted sooner makes it itself. The words, lines and edge are drawn over it by the GPU's chart drawer, trace-gl.js, in a
+  // canvas of its own (?tracegl=0: on the panel's own canvas, still over the map). Nothing is copied from one canvas to another,
+  // and nothing of the map is drawn on the CPU: without WebGL2 it is not drawn.)
+  let map, mapCv = null;
+  const makeMap = () => {
+    if (map !== undefined || gone) return map;
+    map = createElastogramGL(fields());
+    if (map) { mapCv = map.canvas; mapCv.className = 'fs-map'; mapCv.setAttribute('aria-hidden', 'true'); mapCv.style.visibility = 'hidden'; cv.before(mapCv); }
+    return map;
+  };
+  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 1000 }) : (f) => setTimeout(f, 50))(makeMap);
   const cv = h('canvas', { role: 'img', 'aria-label': 'Simulated FibroScan elastography panel, live' });
   let mapGpu = null;   // (whether the last map came from the GPU: the ?perf surfaces list)
   const box = h('div', { class: 'chart-box fibroscan-box' }, cv);
   const note = h('p', { class: 'ctl-sub' }, 'A simulated FibroScan, live: the slope of the shear wave front gives its speed and so the stiffness. It is an estimate from the model, not a measurement. Normal is about 5 kPa; >25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
   const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, note);
-  const off = document.createElement('canvas'), octx = off.getContext('2d');
-  let N = 0, img = null;
+  let N = 0;
   const cap = 300;
   let model = 10, running = false, shown = null, last = 0;
   const kShown = createFollow({ small: 0.05, eps: 0.01 });
@@ -127,8 +132,12 @@ export function createFibroScan() {
   io?.observe(cv);
   const onScreen = () => cv.isConnected && (io ? seen : cv.offsetParent !== null);
 
+  const words = createTraceGL(cv, { redraw: () => { if (!gone) paint(performance.now()); } });
   function paint(now) {
-    const { ctx, w, h: hh } = fitCanvas(cv);
+    const pen = fitPen(cv, words);
+    try { paintWith(pen, now); } finally { pen.ctx.end?.(); }
+  }
+  function paintWith({ ctx, w, h: hh }, now) {
     if (w < 80 || hh < 80) return;
     const st = simTime(now), t = REDUCED_MQ.matches ? 3 : st, dt = clamp(st - last, 0, 0.2); last = st;
     // The wave front drifts gently around the model's median; the readout is the median itself (eased when it changes),
@@ -158,18 +167,16 @@ export function createFibroScan() {
     // run long). (Battery saver: a third of them.)
     const lo = saver();
     const want = clamp(Math.round(Math.max(ew, ph) * sized.r * (lo ? 0.5 : 0.75)), lo ? 100 : 140, lo ? Math.min(cap, 200) : cap);
-    if (want !== N) { N = want; off.width = off.height = N; img = octx.createImageData(N, N); }
-    // The map: on the GPU (the same formula and noise, a fraction of a millisecond), else pixel by pixel here.
-    const mapCv = elastogramGL(fields(), NB, WAVE_T0, N, c, t) || (drawElastogram(octx, img, N, c, t), off);
-    mapGpu = mapCv !== off;
-    ctx.save(); rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.clip();
-    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(mapCv, 0, 0, N, N, ex, top, ew, ph);
+    N = want;
+    // The map: drawn by the GPU into its own canvas, under these words (the same formula and noise, a fraction of a millisecond).
+    const m0 = makeMap(), drawn = !!m0 && m0.draw(fields(), NB, WAVE_T0, N, c, t);
+    mapGpu = m0 ? drawn : false;
+    if (mapCv) { const v = drawn ? '' : 'hidden'; if (mapCv.style.visibility !== v) mapCv.style.visibility = v; }
     ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
     for (const d of [WIN0, WIN1]) { const y = top + ((d - DEPTH0) / DEPTH_SPAN) * ph; ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + ew, y); ctx.stroke(); }
     ctx.setLineDash([]);
     const x0 = ex + (WAVE_T0 / 80) * ew, x1 = x0 + clamp((40 / c) / 80, 0, 1) * ew;
     ctx.strokeStyle = cssAlpha('--white', 0.95); ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(x0, top + ((WIN0 - DEPTH0) / DEPTH_SPAN) * ph); ctx.lineTo(x1, top + ((WIN1 - DEPTH0) / DEPTH_SPAN) * ph); ctx.stroke();
-    ctx.restore();
     rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
     // Axes: the units ride on one tick each ("60 mm", "0 ms"), so they need no room of their own.
     const TK = side ? FLOOR : CAP;
@@ -228,7 +235,7 @@ export function createFibroScan() {
   const offRun = store.on('running', (on) => { if (on && onScreen()) start(); });
   /** The panel is done with (a presentation's own instruments go with it): its frame, observer and store watch are let go. */
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
-  const offSurface = surface('FibroScan map', () => (!cv.isConnected || mapGpu === null ? null : mapGpu ? { on: 'mixed', via: 'map WebGL2, copied into the 2D panel' } : { on: 'fallback', via: 'CPU, pixel by pixel, 2D canvas', why: 'no WebGL2, a software renderer or a lost context' }));
-  function dispose() { gone = true; running = false; cancelFrame(raf); raf = 0; io?.disconnect(); offRun(); }
+  const offSurface = surface('FibroScan map', () => (!cv.isConnected || mapGpu === null ? null : mapGpu ? { on: 'gpu', via: words ? 'map WebGL2, words on the GPU chart drawer' : 'map WebGL2, words 2D canvas (?tracegl=0)' } : { on: 'fallback', via: 'none', why: 'no WebGL2 or a lost context: no map' }));
+  function dispose() { gone = true; running = false; cancelFrame(raf); raf = 0; io?.disconnect(); offRun(); words?.dispose(); if (mapCv) { mapCv.width = mapCv.height = 0; mapCv.remove(); } }
   return { id: 'fibroscan', label: 'FibroScan', el, update, pin(fp) { pinned = fp?.lsm ?? null; if (pinned != null) model = pinned; }, dispose() { dispose(); offSurface(); } };
 }

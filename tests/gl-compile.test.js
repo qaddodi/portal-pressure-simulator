@@ -181,7 +181,7 @@ test('a draw that comes before its program is published publishes it first', () 
   assert.match(src('src/ui/endo-gl.js'), /ready\(\) \{ if \(lost\) return false; publish\(\); return !!u; \},/);
   // (A shader that failed is let go for the CPU renderer; a lost context is kept, for the GPU to take over again once it is built afresh.)
   assert.match(src('src/ui/instruments.js'), /if \(gl && !gl\.ready\(\) && !gl\.lost\) \{ gl\.dispose\(\); gl = null; glKey = ''; \}/);
-  assert.match(src('src/ui/fibroscan-gl.js'), /st\.publish\(\);\n\s+if \(st\.lost\) return null;/);
+  assert.match(src('src/ui/fibroscan-gl.js'), /s\.publish\(\);\n\s+if \(s\.lost \|\| !s\.published\) return null;/);
 });
 
 test('a failed shader hands the picture to the 2D path rather than leaving a blank', () => {

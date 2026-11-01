@@ -19,8 +19,11 @@ test('the one read of the Endoscopy canvas follows its draw in the same call', (
   assert.match(s, /gl\.render\(res, \{[^\n]*\}\);\n\s+if \(glOut\.width !== res\) glOut\.width = glOut\.height = res;\n\s+glOut\.getContext\('2d'\)\.drawImage\(gl\.canvas, 0, 0\);/);
 });
 
-test('the FibroScan map is copied out right after its draw, and the Doppler trace is cleared and drawn whole', () => {
-  assert.match(src('src/ui/fibroscan.js'), /elastogramGL\(fields\(\), NB, WAVE_T0, N, c, t\)/);
+test('the FibroScan map is shown from its own canvas (never copied out), and the Doppler trace is cleared and drawn whole', () => {
+  const f = src('src/ui/fibroscan.js');
+  assert.match(f, /m0\.draw\(fields\(\), NB, WAVE_T0, N, c, t\)/);
+  assert.match(f, /cv\.before\(mapCv\)/, 'the map canvas sits in the page under the words');
+  assert.doesNotMatch(f, /drawImage|getContext\('2d'|putImageData|getImageData/, 'nothing of the panel on a 2D canvas copy');
   const d = src('src/ui/doppler-gl.js');
   assert.match(d, /gl\.clear\(gl\.COLOR_BUFFER_BIT\);/);
   assert.match(d, /gl\.drawArrays\(gl\.TRIANGLE_STRIP, 0, 4\);\n\s+gl\.bindVertexArray\(null\);\n\s+return true;/);

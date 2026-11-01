@@ -140,7 +140,7 @@ test('the figure\'s pass is one owned request, whoever asks for it', () => {
 
 test('a presentation\'s instruments let go of their frames and observers', () => {
   const fib = read('../src/ui/fibroscan.js');
-  assert.match(fib, /function dispose\(\) \{ gone = true; running = false; cancelFrame\(raf\); raf = 0; io\?\.disconnect\(\); offRun\(\); \}/);
+  assert.match(fib, /function dispose\(\) \{ gone = true; running = false; cancelFrame\(raf\); raf = 0; io\?\.disconnect\(\); offRun\(\); words\?\.dispose\(\); if \(mapCv\) \{ mapCv\.width = mapCv\.height = 0; mapCv\.remove\(\); \} \}/, 'its frame, observer, store watch, words drawer and map canvas');
   assert.match(fib, /if \(gone \|\| !onScreen\(\) \|\| document\.hidden\) \{ running = false; return; \}/);
   assert.match(read('../src/ui/pressure-time.js'), /io\?\.disconnect\(\); cancelFrame\(tickRaf\); tickRaf = 0; ticking = false; frame = null;/);
   assert.match(read('../src/ui/flow-time.js'), /dispose\(\) \{ cancelFrame\(raf\); raf = 0; ro\?\.disconnect\(\); \},/);

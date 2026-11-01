@@ -188,8 +188,18 @@ try {
     // moments from the start to a day in (the GPU works in single precision; offsets are reduced on the CPU).
     const eq = await gp.evaluate(async () => {
       const mod = await import(new URL('src/ui/fibroscan.js', location.href).href);
+      const glm = await import(new URL('src/ui/fibroscan-gl.js', location.href).href);
+      const { F, NB, t0 } = mod.elastogramInputs();
+      // (The GPU's map read back here, in the check: the app itself never reads a pixel.)
+      const pair = (N, c, t) => {
+        const cpu = mod.elastogramPixels(N, c, t), g = glm.elastogramGL(F, NB, t0, N, c, t);
+        if (!g) return { cpu, gpu: null };
+        const x = Object.assign(document.createElement('canvas'), { width: N, height: N }).getContext('2d', { willReadFrequently: true });
+        x.drawImage(g, 0, 0, N, N, 0, 0, N, N);
+        return { cpu, gpu: x.getImageData(0, 0, N, N).data };
+      };
       return [[140, 1.3, 0.5], [300, 1.8, 12.3], [217, 3.2, 86400.77]].map(([N, c, t]) => {
-        const { cpu, gpu } = mod.elastogramPair(N, c, t);
+        const { cpu, gpu } = pair(N, c, t);
         if (!gpu) return { N, max: null };
         let max = 0; for (let i = 0; i < cpu.length; i++) max = Math.max(max, Math.abs(cpu[i] - gpu[i]));
         return { N, max };

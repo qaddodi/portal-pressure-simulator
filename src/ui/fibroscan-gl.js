@@ -114,10 +114,23 @@ function make(F) {
  */
 export function elastogramGL(F, NB, t0, N, c, t) {
   if (st === null) { try { st = make(F); } catch (e) { console.warn('FibroScan map: WebGL2 unavailable, drawn on the CPU.', e); st = false; } }
-  if (!st || st.lost) return null;
-  st.publish();
-  if (st.lost) return null;
-  const { gl, U, canvas } = st;
+  return st ? drawMap(st, F, NB, t0, N, c, t) : null;
+}
+/**
+ * A panel's own map drawer, its canvas to put in the page (under the panel's words): { canvas, draw(F, NB, t0, N, c, t) → whether it
+ * drew, lost }, or null without WebGL2. Each panel has its own, so two panels on screen never share one canvas.
+ */
+export function createElastogramGL(F) {
+  let s = null;
+  try { s = make(F); } catch (e) { console.warn('FibroScan map: WebGL2 unavailable.', e); s = null; }
+  if (!s) return null;
+  return { canvas: s.canvas, draw: (F2, NB, t0, N, c, t) => !!drawMap(s, F2, NB, t0, N, c, t), get lost() { return s.lost; } };
+}
+function drawMap(s, F, NB, t0, N, c, t) {
+  if (s.lost) return null;
+  s.publish();
+  if (s.lost || !s.published) return null;
+  const { gl, U, canvas } = s;
   if (canvas.width !== N || canvas.height !== N) { canvas.width = canvas.height = N; }
   gl.viewport(0, 0, N, N);
   const th1 = t * 1.3, th2 = t * 1.9 + 1, th3 = t * 2.3 + 2, flowY = t * 22, flowX = t * 9;
