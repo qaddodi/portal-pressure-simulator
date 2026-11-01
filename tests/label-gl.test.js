@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { svgOnly, lookKey, drawBlock, shadowsOf } from '../src/ui/label-gl.js';
+import { svgOnly, lookKey, drawBlock, shadowsOf, ringBox, rgba } from '../src/ui/label-gl.js';
 
 const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
@@ -15,13 +15,16 @@ const ALL = { ls: true, filter: true };
 test('a label the browser\'s Canvas 2D cannot draw exactly stays drawn by the SVG', () => {
   assert.equal(svgOnly(desc(), ALL), '');
   assert.equal(svgOnly({ svg: 'focus' }, ALL), 'focus');
-  // (Without the canvas's own filter, drop shadows are drawn with its shadows, and letter spacing is set by hand: only another filter is left to the SVG.)
-  assert.equal(svgOnly(desc({ filter: 'drop-shadow(0px 0px 5px red)' }), { ls: true, filter: false }), '');
-  assert.equal(svgOnly(desc({ parts: [{ k: 'rect', x: 0, y: 0, w: 10, h: 10, rx: 5, fill: 'red', stroke: '', sw: 0, filter: 'drop-shadow(rgba(0, 0, 0, 0.1) 0px 1px 1.5px)' }] }), { ls: true, filter: false }), '');
-  assert.equal(svgOnly(desc({ filter: 'blur(2px)' }), { ls: true, filter: false }), 'filter');
-  assert.equal(svgOnly(desc({ filter: 'drop-shadow(0px 0px 5px red) blur(1px)' }), { ls: true, filter: false }), 'filter');
+  // (A rect's drop shadows are the GPU's (shadowBox), with or without the canvas's own filter; letter spacing is set by hand where the canvas
+  // has none; any other filter, or one on the whole label, is the SVG's.)
+  const rect = (filter) => desc({ parts: [{ k: 'rect', x: 0, y: 0, w: 10, h: 10, rx: 5, fill: 'red', stroke: '', sw: 0, filter }] });
+  for (const cap of [ALL, { ls: true, filter: false }]) {
+    assert.equal(svgOnly(rect('drop-shadow(rgba(0, 0, 0, 0.1) 0px 1px 1.5px)'), cap), '');
+    assert.equal(svgOnly(rect('blur(2px)'), cap), 'filter');
+    assert.equal(svgOnly(rect('drop-shadow(red 0px 0px 5px) blur(1px)'), cap), 'filter');
+    assert.equal(svgOnly(desc({ filter: 'drop-shadow(0px 0px 5px red)' }), cap), 'filter');
+  }
   assert.equal(svgOnly(desc({ parts: [{ k: 'text', x: 0, y: 0, anchor: 'start', runs: [run({ ls: 1.2 })] }] }), { ls: false, filter: true }), '');
-  assert.equal(svgOnly(desc({ filter: 'drop-shadow(0px 0px 5px red)' }), ALL), '');
 });
 
 test('drop shadows are read in whatever order the browser writes them', () => {
@@ -30,12 +33,33 @@ test('drop shadows are read in whatever order the browser writes them', () => {
   assert.deepEqual(shadowsOf('drop-shadow(red 1px 2px) drop-shadow(blue 0px 0px 3px)'), [{ x: 1, y: 2, blur: 0, color: 'red' }, { x: 0, y: 0, blur: 3, color: 'blue' }]);
   assert.equal(shadowsOf('blur(2px)'), null);
   assert.equal(shadowsOf(''), null);
+  // (Their colours as the browser computes them: rgb()/rgba(), and color(srgb …) for a color-mix().)
+  assert.deepEqual(rgba('color(srgb 0 0 0 / 0.25)'), [0, 0, 0, 0.25]);
+  assert.deepEqual(rgba('rgba(255, 0, 0, 0.5)'), [0.5, 0, 0, 0.5]);
 });
 
-test('a keyboard focus is drawn into the label\'s picture (its ring), not handed to the SVG; ?labelfx=0 hands it over as before', () => {
+test('a keyboard focus\'s ring and a rect\'s drop shadow are GPU shapes, never pixels in the picture; ?labelfx=0 hands both to the SVG', () => {
   assert.match(LGL, /if \(focused && !GPU_FOCUS\) return \{ svg: 'focus' \};/);
   assert.match(LGL, /d\.ring = \{ w, color: gs\.outlineColor, off: NUM\(gs\.outlineOffset\), box: b\.map/);
-  assert.notEqual(lookKey(desc(), false, 2), lookKey({ ...desc(), ring: { w: 2, color: 'blue', off: 3, box: [0, 0, 10, 10] } }, false, 2), 'a ring');
+  // (A focus, or its colour easing in, sends no picture: the ring is not in the look key.)
+  assert.equal(lookKey(desc(), false, 2), lookKey({ ...desc(), ring: { w: 2, color: 'blue', off: 3, box: [0, 0, 10, 10] } }, false, 2));
+  const r = ringBox({ ring: { w: 2, color: 'rgb(0, 0, 255)', off: 3, box: [0, 0, 10, 10] } }, 2, [-10, -10, 30, false]);
+  assert.deepEqual([r.x0, r.y0, r.x1, r.y1, r.w], [2, 2, 38, 38, 4]);
+  assert.deepEqual(r.col, [0, 0, 1, 1]);
+  // The shadow is handed back with the picture, in its device px, its colour taking the rect's own opacity; nothing drawn through a filter.
+  const calls = [];
+  const ctx = new Proxy({}, { get: (t, k) => (k === 'measureText' ? (str) => ({ width: String(str).length * 7 }) : k in t ? t[k] : (...a) => { calls.push([k, ...a]); }), set: (t, k, v) => { t[k] = v; return true; } });
+  const cv = { width: 0, height: 0, getContext: () => ctx };
+  const at = drawBlock(cv, desc({ parts: [{ k: 'rect', x: 0, y: 0, w: 20, h: 10, rx: 5, fill: 'rgba(255, 255, 255, 0.5)', stroke: '', sw: 0, filter: 'drop-shadow(rgba(0, 0, 0, 0.2) 0px 1px 2px)' }] }), 2);
+  assert.equal(at.shadows.length, 1);
+  const sh = at.shadows[0];
+  assert.deepEqual([sh.cx, sh.cy, sh.hw, sh.hh, sh.r, sh.sig], [20 - at.ox, 12 - at.oy, 20, 10, 10, 4]);
+  assert.ok(Math.abs(sh.col[3] - 0.1) < 1e-9);
+  assert.ok(!('filter' in ctx) && !('shadowBlur' in ctx), 'no canvas filter or shadow set');
+  const block = LGL.slice(LGL.indexOf('export function drawBlock('), LGL.indexOf('export function ringBox('));
+  assert.doesNotMatch(block, /\.filter = |shadowBlur|createElement/);
+  assert.doesNotMatch(LGL, /drawShadowed/);
+  assert.match(LGL, /uKind == 8/); assert.match(LGL, /uKind == 9/);
 });
 
 test('a picture is drawn again when its look changes, never for its opacity alone', () => {

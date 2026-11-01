@@ -15,9 +15,6 @@
 //     colour or 1 px off their control the focus colour and the 2 px of the rest.
 //   - ?focusring=0: this file does nothing and the page is today's.
 import { D_SMALL } from './ease.js?v=fc509dabe4';
-import { frameFor } from './frame.js?v=15d5254a2c';
-
-const nextFrame = frameFor('focus-ring');
 
 /** ?focusring=0 in a page's search string: this file does nothing. */
 export const ringOff = (search) => /[?&]focusring=0\b/.test(String(search ?? ''));
@@ -89,13 +86,14 @@ export function startFocusRing(root = typeof document !== 'undefined' ? document
       if (!mq('(prefers-reduced-motion: reduce)') && cs.outlineColor) {
         anims.push(el.animate([{ outlineColor: 'transparent' }, { outlineColor: cs.outlineColor }], { duration: D_SMALL, easing: getComputedStyle(document.documentElement).getPropertyValue('--ease-arrive').trim() || 'ease-out' }));
       }
-      // (A scroll that focus itself causes can move the control against an edge after this point: measured once more, a frame on.)
-      if (!inset) nextFrame(() => {
+      // (A scroll that focus itself causes can move the control against an edge after this point: measured once more as the focus
+      // call that moved it returns (its scroll into view is done by then), in a task of its own, never in a frame.)
+      if (!inset) setTimeout(() => {
         if (!held || held.el !== el || !el.isConnected) return;
         try {
           if (ringClipped(el.getBoundingClientRect(), clipBoxes(el), off + w)) held.anims.push(el.animate({ outlineOffset: `${-w}px` }, { duration: 1, fill: 'forwards' }));
         } catch { /* leave the ring as it is */ }
-      });
+      }, 0);
     }
     held = { el, anims };
   }

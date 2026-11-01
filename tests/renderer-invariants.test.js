@@ -85,7 +85,7 @@ test('the label atlas sends a picture only when its look key changed, and the ke
   const ref = src.slice(src.indexOf('function refresh('), src.indexOf('function repack('));
   assert.match(ref, /if \(st\.key !== key\) \{/);
   assert.equal(ref.match(/texSubImage2D/g).length, 1);
-  assert.match(src, /export const lookKey = \(d, rot, dpr\) => JSON\.stringify\(\[d\.filter, d\.parts, rot, dpr, d\.ring \|\| null\]\);/);   // (look, rotation and ratio; no place)
+  assert.match(src, /export const lookKey = \(d, rot, dpr\) => JSON\.stringify\(\[d\.filter, d\.parts, rot, dpr\]\);/);   // (look, rotation and ratio; no place)
 });
 
 test('the stage resizes its drawing buffer from the wrap size and ratio, never from the zoom', () => {

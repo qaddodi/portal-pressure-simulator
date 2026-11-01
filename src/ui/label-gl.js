@@ -91,6 +91,7 @@ uniform vec2 uView;
 uniform int uKind;          // 0: a line (butt ends), 1: a circle, 2: a line with round ends, 3: a triangle filled with a linear gradient,
                             // 4: an arc, 5: a turned rounded rectangle, 6: a box with its own radius at each corner,
                             // 7: a soft sector (the FibroScan beam) filled with a two-stop radial gradient, its edges blurred
+                            // 8: a rounded box's drop shadow (blurred), 9: a rectangle's outline (a focus ring)
 uniform vec2 uT0, uT1, uT2; // the triangle (device px)
 uniform vec4 uG;            // the gradient's start and end (device px)
 uniform vec4 uS0, uS1, uS2; // its three stops, premultiplied
@@ -104,8 +105,27 @@ uniform float uA;
 out vec4 o;
 // The share of a pixel centred at x (one pixel wide) inside [a, b].
 float span(float x, float a, float b) { return clamp(min(x + 0.5, b) - max(x - 0.5, a), 0.0, 1.0); }
+// erf, to within 0.0002 (Winitzki).
+float erf1(float x) { float x2 = x * x, k = 0.147 * x2; return sign(x) * sqrt(1.0 - exp(-x2 * (1.27323954 + k) / (1.0 + k))); }
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uView.y - gl_FragCoord.y);
+  if (uKind == 8) {
+    // A drop shadow: the rounded box (centre uGeo.xy, half sizes uGeo.zw, corner radius uW) blurred by a Gaussian of standard deviation
+    // uDash.x, in its colour uFill (premultiplied, the box's own opacity in it), as CSS's drop-shadow() casts it.
+    vec2 b = abs(p - uGeo.xy) - uGeo.zw + uW;
+    float dist = length(max(b, 0.0)) + min(max(b.x, b.y), 0.0) - uW;
+    float c = uDash.x > 0.25 ? 0.5 - 0.5 * erf1(dist / (1.41421356 * uDash.x)) : clamp(0.5 - dist, 0.0, 1.0);
+    o = uFill * c * uA;
+    return;
+  }
+  if (uKind == 9) {
+    // A rectangle's outline (uGeo: left, top, right, bottom of its stroke's middle; uW wide), square cornered, as an outline is drawn.
+    float h = uW * 0.5;
+    float outer = span(p.x, uGeo.x - h, uGeo.z + h) * span(p.y, uGeo.y - h, uGeo.w + h);
+    float inner = span(p.x, uGeo.x + h, uGeo.z - h) * span(p.y, uGeo.y + h, uGeo.w - h);
+    o = uStroke * max(outer - inner, 0.0) * uA;
+    return;
+  }
   if (uKind == 4) {
     // An arc of the circle about uGeo.xy, radius uGeo.z, from angle uR4.x to uR4.y (radians, y down), its ends round.
     vec2 q = p - uGeo.xy;
@@ -195,7 +215,13 @@ const NUM = (v) => parseFloat(v) || 0;
 // A computed colour as premultiplied RGBA, 0 … 1.
 export function rgba(c) {
   const m = /rgba?\(([^)]+)\)/.exec(c || '');
-  if (!m) return [0, 0, 0, 0];
+  if (!m) {
+    // (A colour-mix() is computed as color(srgb r g b / a), each 0 … 1.)
+    const k = /color\(srgb\s+([^)]+)\)/.exec(c || '');
+    if (!k) return [0, 0, 0, 0];
+    const v = k[1].split(/[\s/]+/).filter(Boolean).map(Number), a = v.length > 3 ? v[3] : 1;
+    return [v[0] * a, v[1] * a, v[2] * a, a];
+  }
   const v = m[1].split(/[\s,/]+/).filter(Boolean).map(Number), a = v.length > 3 ? v[3] : 1;
   return [v[0] / 255 * a, v[1] / 255 * a, v[2] / 255 * a, a];
 }
@@ -268,21 +294,23 @@ export function describeBlock(g, cs = getComputedStyle) {
 }
 
 /** The look of a description, as a key: a picture is drawn again only when it changes (the opacity is the GPU's, not the picture's). */
-export const lookKey = (d, rot, dpr) => JSON.stringify([d.filter, d.parts, rot, dpr, d.ring || null]);
+export const lookKey = (d, rot, dpr) => JSON.stringify([d.filter, d.parts, rot, dpr]);
 
 // What Canvas 2D can do here (asked once): letter spacing and filters are newer than the rest.
 let caps = null;
 function canvasCaps() {
   if (caps) return caps;
-  const c = document.createElement('canvas').getContext('2d');
-  caps = { ls: !!c && 'letterSpacing' in c, filter: !!c && 'filter' in c && (c.filter = 'blur(1px)', c.filter === 'blur(1px)') };
+  // (Read off the 2D context's prototype: no canvas made to ask.)
+  const P = typeof CanvasRenderingContext2D !== 'undefined' ? CanvasRenderingContext2D.prototype : {};
+  caps = { ls: 'letterSpacing' in P, filter: 'filter' in P };
   return caps;
 }
 /** Why the SVG must draw this description itself ('' when the GPU can). */
 export function svgOnly(d, cap = canvasCaps()) {
   if (d.svg) return d.svg;
-  // (Without the canvas's own filter, a filter made only of drop shadows is drawn with the canvas's shadows: shadowsOf.)
-  if (!cap.filter && [d.filter, ...d.parts.map((p) => p.filter)].some((f) => f && !(LABEL_FX && shadowsOf(f)))) return 'filter';
+  // (A rect's drop shadows are drawn by the GPU, under its picture (shadowsOf, shadowBox); any other filter, or one on the whole label
+  // (none in the stylesheet), is the SVG's. Nothing is drawn through a canvas filter. ?labelfx=0: every filter is the SVG's.)
+  if (d.filter || d.parts.some((p) => p.filter && !(LABEL_FX && p.k === 'rect' && shadowsOf(p.filter)))) return 'filter';
   // (Without the canvas's own letter spacing, each letter is set by hand at the SVG's place for it: runPieces.)
   if (!cap.ls && !LABEL_FX && d.parts.some((p) => p.runs?.some((r) => r.ls))) return 'letter-spacing';
   return '';
@@ -318,26 +346,6 @@ export function shadowsOf(f) {
   }
   return out.length ? out : null;
 }
-// Draws `src` onto ctx through a list of drop shadows (the canvas's own shadows; each shadow in the list falls from the picture the ones
-// before it made, as CSS chains them). `m`: the label's px to the picture's device px, for the shadows' offsets (canvas shadows take no
-// transform). blur: the CSS standard deviation; the canvas's shadowBlur is twice it.
-function drawShadowed(ctx, src, list, m) {
-  let cur = src;
-  for (let i = 0; i < list.length; i++) {
-    const s = list[i], last = i === list.length - 1;
-    const dst = last ? ctx : Object.assign(document.createElement('canvas'), { width: src.width, height: src.height }).getContext('2d');
-    if (!dst) return false;
-    dst.save();
-    dst.setTransform(1, 0, 0, 1, 0, 0);
-    dst.shadowColor = s.color; dst.shadowBlur = 2 * s.blur * Math.hypot(m[0], m[1]);
-    dst.shadowOffsetX = m[0] * s.x + m[2] * s.y; dst.shadowOffsetY = m[1] * s.x + m[3] * s.y;
-    dst.drawImage(cur.canvas || cur, 0, 0);
-    dst.restore();
-    cur = dst;
-  }
-  return true;
-}
-
 // The widths of a run, digit by digit as the SVG sets them with tabular figures (every digit as wide as a zero, centred in it),
 // the rest as the font sets them, so the run is as wide as the labels' own measure (stage.js textW) and the SVG's.
 function runPieces(ctx, r) {
@@ -407,7 +415,7 @@ export function drawBlock(cv, d, dpr, rot = false) {
   const grow = (a, b, c, e) => { x0 = Math.min(x0, a); y0 = Math.min(y0, b); x1 = Math.max(x1, c); y1 = Math.max(y1, e); };
   const lines = [];
   for (const p of d.parts) {
-    if (p.k === 'rect') { const m = p.sw / 2 + filterReach(p.filter); grow(p.x - m, p.y - m, p.x + p.w + m, p.y + p.h + m); continue; }
+    if (p.k === 'rect') { const m = p.sw / 2; grow(p.x - m, p.y - m, p.x + p.w + m, p.y + p.h + m); continue; }
     const runs = p.runs.map((r) => ({ r, ...runPieces(ctx0, r) }));
     let w = 0;
     runs.forEach((q, i) => { w += (i ? q.r.dx : 0) + q.w; });
@@ -421,11 +429,6 @@ export function drawBlock(cv, d, dpr, rot = false) {
     lines.push({ p, runs });
   }
   if (!(x1 > x0)) return null;
-  // (A keyboard focus's ring: an outline round the label's box, outlineOffset off it.)
-  const ring = d.ring;
-  if (ring) { const e = ring.off + ring.w + 1, [bx, by, bw, bh] = ring.box; grow(bx - e, by - e, bx + bw + e, by + bh + e); }
-  const f = filterReach(d.filter);
-  x0 -= f; y0 -= f; x1 += f; y1 += f;
   // Device px, the label's origin on a whole pixel (where the GPU puts it).
   const L = Math.floor(x0 * dpr), T = Math.floor(y0 * dpr), R = Math.ceil(x1 * dpr), B = Math.ceil(y1 * dpr);
   const W = rot ? B - T : R - L, H = rot ? R - L : B - T;
@@ -433,32 +436,34 @@ export function drawBlock(cv, d, dpr, rot = false) {
   // frees the bitmap and allocates it afresh. Everything this draws sets what it reads, so nothing carries over from the last picture.)
   const cw = Math.max(1, W), ch = Math.max(1, H);
   if (cv.width !== cw || cv.height !== ch) { cv.width = cw; cv.height = ch; }
-  const ctx = cv.getContext('2d');
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, cv.width, cv.height);
-  // (A filter on the whole label (the glowing labels with the frosted glass off) applies to its picture as one: it is drawn on a
-  // scratch canvas first and laid down through the filter, its lengths in device px.)
-  let c = ctx, tmp = null;
-  if (d.filter) { tmp = document.createElement('canvas'); tmp.width = cv.width; tmp.height = cv.height; c = tmp.getContext('2d'); }
-  // (Without the canvas's own filter, drop shadows are drawn with its shadows (shadowsOf): m, the label's px to the picture's device px.)
-  const hand = (!!d.filter || d.parts.some((p) => p.filter)) && !canvasCaps().filter, m = rot ? [0, -dpr, dpr, 0] : [dpr, 0, 0, dpr];
+  const c = ctx0;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, cv.width, cv.height);
   // (The label's own px to the picture's: scaled, then moved so its extent starts at 0; turned, the label's x runs up the picture.)
   if (rot) c.setTransform(0, -dpr, dpr, 0, -T, R);
   else c.setTransform(dpr, 0, 0, dpr, -L, -T);
+  // (A point of the label's own px in the picture's device px.)
+  const at = (px, py) => (rot ? [dpr * py - T, R - dpr * px] : [dpr * px - L, dpr * py - T]);
+  // A rect's drop shadows (the soft knockout under a value's paper) are not in the picture: each is a blurred rounded box the GPU draws
+  // under it (shadowBox), so no canvas filter, shadow or scratch canvas makes them. Kept in the picture's device px.
+  const shadows = [];
   for (const p of d.parts) {
     if (p.k === 'rect') {
-      const sh = p.filter && hand ? shadowsOf(p.filter) : null;
-      // (Its shadows by hand: the rect drawn whole on a canvas of its own, then laid down through them, so fill and stroke cast one shadow.)
-      let r = c, own = null;
-      if (sh) { own = Object.assign(document.createElement('canvas'), { width: cv.width, height: cv.height }).getContext('2d'); r = own || c; r.setTransform(c.getTransform()); }
-      r.save();
-      if (p.filter && !sh) r.filter = p.filter.replace(/(-?[\d.]+)px/g, (_, v) => `${(+v * dpr).toFixed(3)}px`);
-      roundRect(r, p.x, p.y, p.w, p.h, p.rx);
-      const fill = () => { if (p.fill) { r.fillStyle = p.fill; r.fill(); } };
-      const stroke = () => { if (p.stroke && p.sw > 0) { r.strokeStyle = p.stroke; r.lineWidth = p.sw; r.stroke(); } };
+      if (p.filter) {
+        const fa = Math.max(rgba(p.fill)[3], p.sw > 0 ? rgba(p.stroke)[3] : 0);
+        for (const sh of shadowsOf(p.filter) || []) {
+          const col = rgba(sh.color);
+          if (!(col[3] > 0) || !(fa > 0)) continue;
+          const [cx, cy] = at(p.x + p.w / 2 + sh.x, p.y + p.h / 2 + sh.y), hw = (p.w / 2 + p.sw / 2) * dpr, hh = (p.h / 2 + p.sw / 2) * dpr;
+          shadows.push({ cx, cy, hw: rot ? hh : hw, hh: rot ? hw : hh, r: Math.min(p.rx * dpr, hw, hh), sig: sh.blur * dpr, col: col.map((v) => v * fa) });
+        }
+      }
+      c.save();
+      roundRect(c, p.x, p.y, p.w, p.h, p.rx);
+      const fill = () => { if (p.fill) { c.fillStyle = p.fill; c.fill(); } };
+      const stroke = () => { if (p.stroke && p.sw > 0) { c.strokeStyle = p.stroke; c.lineWidth = p.sw; c.stroke(); } };
       if (p.strokeFirst) { stroke(); fill(); } else { fill(); stroke(); }
-      r.restore();
-      if (own) drawShadowed(c, own.canvas, sh, m);
+      c.restore();
       continue;
     }
     for (const q of lines.find((l) => l.p === p).runs) {
@@ -471,23 +476,16 @@ export function drawBlock(cv, d, dpr, rot = false) {
       if (r.strokeFirst) { stroke(); fill(); } else { fill(); stroke(); }
     }
   }
-  // (The ring last, over the label, as the browser draws an outline: a plain rectangle, its stroke centred outlineOffset + half its width out.)
-  if (ring) {
-    const e = ring.off + ring.w / 2, [bx, by, bw, bh] = ring.box;
-    c.save(); c.strokeStyle = ring.color; c.lineWidth = ring.w; c.lineJoin = 'miter';
-    c.strokeRect(bx - e, by - e, bw + 2 * e, bh + 2 * e);
-    c.restore();
-  }
-  if (tmp) {
-    const sh = hand ? shadowsOf(d.filter) : null;
-    if (sh) drawShadowed(ctx, tmp, sh, m);
-    else {
-      ctx.filter = d.filter.replace(/(-?[\d.]+)px/g, (_, v) => `${(+v * dpr).toFixed(3)}px`);
-      ctx.drawImage(tmp, 0, 0);
-      ctx.filter = 'none';
-    }
-  }
-  return rot ? { ox: T, oy: -R, w: cv.width, h: cv.height } : { ox: L, oy: T, w: cv.width, h: cv.height };
+  return rot ? { ox: T, oy: -R, w: cv.width, h: cv.height, shadows, frame: [L, T, R, true] } : { ox: L, oy: T, w: cv.width, h: cv.height, shadows, frame: [L, T, R, false] };
+}
+/** A keyboard focus's ring, in the picture's device px (`frame`: drawBlock's), or null. It is not in the picture: a plain rectangle the GPU
+ *  strokes over the label (the marks' shader, kind 9), its stroke centred outlineOffset + half its width out, as the browser draws an
+ *  outline; so a focus, and its colour easing in, sends no picture. */
+export function ringBox(d, dpr, frame) {
+  if (!d?.ring || !frame) return null;
+  const [L, T, R, rot] = frame, at = (px, py) => (rot ? [dpr * py - T, R - dpr * px] : [dpr * px - L, dpr * py - T]);
+  const e = d.ring.off + d.ring.w / 2, [bx, by, bw, bh] = d.ring.box, p0 = at(bx - e, by - e), p1 = at(bx + bw + e, by + bh + e);
+  return { x0: Math.min(p0[0], p1[0]), y0: Math.min(p0[1], p1[1]), x1: Math.max(p0[0], p1[0]), y1: Math.max(p0[1], p1[1]), w: d.ring.w * dpr, col: rgba(d.ring.color) };
 }
 
 /**
@@ -651,15 +649,17 @@ void main() { o = texture(uT, vUV) * uA; }`;
       ask();
     });
   });
+  // (The host's canvas, sized by its owner at the screen's density: stage.js resizeCanvas. Read as each picture is laid: no layout.)
+  function hostSize() {
+    const k = devicePixelRatio || 1, w = canvas.width, h = canvas.height;
+    if (w === W && h === H && k === dpr) return false;
+    W = w; H = h; dpr = k;
+    for (const s of last) dirty.add(s.g);
+    return true;
+  }
+  // (Its own canvas: sized from the stage's box when that changes (the ResizeObserver below, and a change of screen density), never in a frame.)
   function size() {
-    if (host) {
-      // (The host's canvas, sized by its owner at the screen's density: stage.js resizeCanvas.)
-      const k = devicePixelRatio || 1, w = canvas.width, h = canvas.height;
-      if (w === W && h === H && k === dpr) return false;
-      W = w; H = h; dpr = k;
-      for (const s of last) dirty.add(s.g);
-      return true;
-    }
+    if (host) return hostSize();
     const r = svg.parentElement.getBoundingClientRect(), k = devicePixelRatio || 1;   // (the stage's box: the dive zooms the layer itself)
     const w = Math.max(1, Math.round(r.width * k)), h = Math.max(1, Math.round(r.height * k));
     if (w === W && h === H && k === dpr) return false;
@@ -715,6 +715,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       gl.texSubImage2D(gl.TEXTURE_2D, 0, st.slot.x, st.slot.y, gl.RGBA, gl.UNSIGNED_BYTE, scratch);
       Object.assign(st, at, { key });
     }
+    st.ring = GPU_FOCUS ? ringBox(d, dpr, st.frame) : null;
     st.opacity = d.opacity;
     return st;
   }
@@ -769,11 +770,29 @@ void main() { o = texture(uT, vUV) * uA; }`;
       gl.bindTexture(gl.TEXTURE_2D, was);
     }, 120);
   }
+  // A drop shadow of a label's rect (kind 8), its centre at (x, y) device px; its reach is three standard deviations.
+  function shadowBox(x, y, sh, a) {
+    const m = sh.sig * 3 + 1, box = [x - sh.hw - m, y - sh.hh - m, x + sh.hw + m, y + sh.hh + m];
+    if (box[0] > W || box[1] > H || box[2] < 0 || box[3] < 0) return;
+    boxAt(...box);
+    gl.uniform4f(MU.uBox, ...box); gl.uniform4f(MU.uGeo, x, y, sh.hw, sh.hh); gl.uniform1f(MU.uW, sh.r);
+    gl.uniform2f(MU.uDash, sh.sig, 0); gl.uniform4f(MU.uFill, ...sh.col); gl.uniform1f(MU.uA, Math.min(1, a));
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+  // A keyboard focus's ring (kind 9) over the label's picture at (x, y) device px.
+  function ringDraw(x, y, r, a) {
+    const m = r.w / 2 + 1, box = [x + r.x0 - m, y + r.y0 - m, x + r.x1 + m, y + r.y1 + m];
+    if (box[0] > W || box[1] > H || box[2] < 0 || box[3] < 0) return;
+    boxAt(...box);
+    gl.uniform4f(MU.uBox, ...box); gl.uniform4f(MU.uGeo, x + r.x0, y + r.y0, x + r.x1, y + r.y1); gl.uniform1f(MU.uW, r.w);
+    gl.uniform4f(MU.uStroke, ...r.col); gl.uniform1f(MU.uA, Math.min(1, a));
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
   function draw() {
     if (lost || gl.isContextLost()) return;
     if (host) {
       owed = false;
-      size();
+      hostSize();
       if (!host.active()) { if (!released) release(); return; }
       if (released) { released = false; for (const s of last) dirty.add(s.g); allMarks(); pDirty = true; sDirty = true; }
     }
@@ -798,7 +817,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (u >= 1 || !o.st.slot) { if (o.st.slot) packer.free(o.st.slot); continue; }
         keep.push(o); moving = true;
         if (o.x > W || o.y > H || o.x + o.st.w < 0 || o.y + o.st.h < 0) continue;
-        items.push({ page: o.st.slot.page, x: o.x, y: o.y, w: o.st.w, h: o.st.h, ax: o.st.slot.x, ay: o.st.slot.y, a: o.a * (1 - u) });
+        items.push({ page: o.st.slot.page, x: o.x, y: o.y, w: o.st.w, h: o.st.h, ax: o.st.slot.x, ay: o.st.slot.y, a: o.a * (1 - u), st: o.st });
         boxAt(o.x, o.y, o.x + o.st.w, o.y + o.st.h);
       }
       outgoing = keep;
@@ -846,8 +865,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
       }
       st.dx = x; st.dy = y; st.drawn = now;
       if (x > W || y > H || x + st.w < 0 || y + st.h < 0) continue;
-      items.push({ page: st.slot.page, x, y, w: st.w, h: st.h, ax: st.slot.x, ay: st.slot.y, a });
+      items.push({ page: st.slot.page, x, y, w: st.w, h: st.h, ax: st.slot.x, ay: st.slot.y, a, st });
       boxAt(x, y, x + st.w, y + st.h);
+    }
+    // (Under the pictures, their rects' drop shadows; over them, a keyboard focus's ring: shapes the GPU draws, not pixels in the pictures.)
+    if (items.some((it) => it.st?.shadows?.length)) {
+      gl.useProgram(mprog); gl.uniform2f(MU.uView, W, H); gl.uniform1i(MU.uKind, 8);
+      for (const it of items) for (const sh of it.st?.shadows || []) shadowBox(it.x + sh.cx, it.y + sh.cy, sh, it.a);
     }
     if (items.length) {
       if (inst.length < items.length * 8) inst = new Float32Array(Math.max(items.length * 8, inst.length * 2));
@@ -863,6 +887,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.to - run.from);
       }
       gl.bindVertexArray(vao);
+    }
+    if (items.some((it) => it.st?.ring)) {
+      gl.useProgram(mprog); gl.uniform2f(MU.uView, W, H); gl.uniform1i(MU.uKind, 9);
+      for (const it of items) if (it.st?.ring) ringDraw(it.x, it.y, it.st.ring, it.a);
     }
     dirty.clear();
     moving = drawScan(now) || moving;   // (the FibroScan probe over the labels, as its layer lay)

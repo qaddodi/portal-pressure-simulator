@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=dd95596be7';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { createStage } from './stage.js?v=134f36b437';
+import { createStage } from './stage.js?v=21094947fe';
 import { createCreditPlacer } from './credit.js?v=7f5c55aa0e';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
@@ -28,7 +28,7 @@ import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor,
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
 import { morphKey, crossfadeText } from './legend-morph.js?v=b0be10184d';
 import './seg-glide.js?v=93c0a2ce93';
-import './focus-ring.js?v=c1d725174c';
+import './focus-ring.js?v=5e78e53a13';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
 import { lookChooser } from './look-chooser.js?v=716b0bfe4a';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
