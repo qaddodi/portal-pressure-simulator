@@ -40,18 +40,18 @@ import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { plateStrips, premultiply, gutStep, viewReuse, copyPixels, noteStripRead, stripPx } from './plate-upload.js?v=ea6a71d855';
 import { refine } from './refine.js?v=e6e17cc013';
-import { fadeOver, fadeStop, fading } from './res-fade.js?v=4d4c051a59';
+import { fadeOver, fadeStop, fading } from './res-fade.js?v=27eed66b9b';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
-import { cropToGrid } from './organs-gl.js?v=1d301b120d';
-import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=e08cf3a692';
+import { cropToGrid } from './organs-gl.js?v=156a096f9a';
+import { readGroup, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=c3718bc30b';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=f364156fef';
-import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=74fff72fb9';
+import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=f4b132f33c';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=9f34964670';
-import { nameSpots, NAME_BREAK } from './organ-names.js?v=542bb8db66';
-import { createLabelGL } from './label-gl.js?v=847fbf1b60';
-import { createGlassGL } from './glass-gl.js?v=dd287b10a7';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=5b0a8a2b0a';
+import { nameSpots, NAME_BREAK } from './organ-names.js?v=957b60c682';
+import { createLabelGL } from './label-gl.js?v=45fd8fd644';
+import { createGlassGL } from './glass-gl.js?v=3b4d8a3b4a';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=61c753582c';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -67,7 +67,7 @@ import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=49e37b0228';
-import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=7c1f42eb92';
+import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=569c2fbefa';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { layoutWatch } from './idle-keys.js?v=bb8f7eca29';
@@ -2567,7 +2567,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=ef8259c2fb').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=b1f6495da3').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -8696,7 +8696,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return vc.display !== 'none' && vc.visibility === 'visible' && +vc.opacity >= 0.999 ? '' : 'the figure\'s canvas is hidden or faded';
   };
   const frostOn = () => !frostWhy();
-  const frostHost = (o) => ({ gl: veins.top.gl, canvas: veins.top.canvas, add: veins.top.add, now: () => { if (veins && !veins.lost) veins.present(); }, active: frostOn, why: frostWhy, view: () => veins?.viewKey ?? null, ...o });
+  const frostHost = (o) => ({ gl: veins.top.gl, canvas: veins.top.canvas, add: veins.top.add, warmIn: veins.top.warmIn, now: () => { if (veins && !veins.lost) veins.present(); }, active: frostOn, why: frostWhy, view: () => veins?.viewKey ?? null, ...o });
   // The ?perf blur gauge's question: why the browser's blur, not a glass drawn in the figure's canvas, shows on `el` (null: no glass
   // here is meant to own it, as the toast or the fold chip; '' : its glass is drawn, a mark is about to be set).
   const blurWhy = (el) => { for (const g of [glassGL, paneGL, ...cardGLs]) { const w = g?.why?.(el); if (w != null) return w; } return null; };

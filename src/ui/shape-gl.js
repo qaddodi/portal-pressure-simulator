@@ -10,6 +10,7 @@
 // any zoom: it is drawn again from its outline at the screen's resolution.
 
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
+import { prestart, linkProgram } from './gl-compile.js?v=e48e05cdb3';
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const NUM = /[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g;
@@ -314,20 +315,16 @@ void main() {
   o = vec4(c);
 }`;
 
+// (Linked through gl-compile.js: the programs the figure's renderer started at its setup (prestartShapes), else compiled here.)
 function compile(gl, vs, fs) {
-  const p = gl.createProgram();
-  for (const [type, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) {
-    const sh = gl.createShader(type);
-    gl.shaderSource(sh, src); gl.compileShader(sh);
-    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
-    gl.attachShader(p, sh); gl.deleteShader(sh);
-  }
-  gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const p = linkProgram(gl, vs, fs);
   const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
   for (let k = 0; k < n; k++) { const name = gl.getActiveUniform(p, k).name; u[name] = gl.getUniformLocation(p, name); }
   return { p, u };
 }
+
+/** Starts the drawer's two programs on gl, nothing read (gl-compile.js prestart): createShapeGL takes them up. */
+export function prestartShapes(gl) { prestart(gl, POS_VS, POS_FS); prestart(gl, SEG_VS, SEG_FS); }
 
 /**
  * The coverage drawer on a WebGL2 context. The caller binds a framebuffer with a stencil attachment (cleared to 0 where it

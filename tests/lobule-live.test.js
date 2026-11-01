@@ -183,13 +183,16 @@ test('the program without the live lobule is the one with it, less its additions
 // A stand-in for the GL context that records what it is asked: the programs made (with their shaders' sources), the one in use and
 // every uniform set on it. No GPU runs.
 function stubGL({ failLive = false, badFbo = false, shortBuffer = false } = {}) {
-  const programs = [], calls = [];
+  const all = [], calls = [];
+  const tissue = () => all.filter((p) => !p.shaders.some((sh) => sh.src.includes('uSigma')));
   let current = null, nfb = 0;
   const bound = { read: null, draw: null, scissor: false, rect: null };
   const canvas = { width: 0, height: 0, getContext: () => gl, addEventListener() {} };
   const own = {
     createShader: (type) => ({ type, src: '' }), shaderSource: (s, src) => { s.src = src; },
-    createProgram: () => { const p = { id: programs.length, shaders: [] }; programs.push(p); return p; },
+    // (The tile copier's program, started with the context since the shader warm-up (tile-gl.js), is not the tissue's: left out of
+    // `programs` and its numbering.)
+    createProgram: () => { const p = { shaders: [], get id() { return tissue().indexOf(this); } }; all.push(p); return p; },
     attachShader: (p, s) => p.shaders.push(s),
     getShaderParameter: () => true,
     getProgramParameter: (p, what) => (what === 'LINK_STATUS' ? !(failLive && p.shaders.some((s) => s.src.includes('liveTissue'))) : true),
@@ -223,7 +226,7 @@ function stubGL({ failLive = false, badFbo = false, shortBuffer = false } = {}) 
       return () => {};
     },
   });
-  return { gl, canvas, programs, calls, set: (name) => calls.filter((c) => c[0] === 'set' && c[2] === name), used: () => calls.filter((c) => c[0] === 'useProgram').map((c) => c[1]) };
+  return { gl, canvas, get programs() { return tissue(); }, calls, set: (name) => calls.filter((c) => c[0] === 'set' && c[2] === name), used: () => calls.filter((c) => c[0] === 'useProgram').map((c) => c[1]) };
 }
 const tick = (ms = 150) => new Promise((r) => setTimeout(r, ms));
 function liveArgs(share) {

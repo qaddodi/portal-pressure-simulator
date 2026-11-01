@@ -24,11 +24,11 @@ Written 1 Nov 2026 against preview `claude/settings-topbar-icon-flvft1`.
 
 | Practice | Here | Status |
 |---|---|---|
-| Compile all shaders, then link all programs, and read the status later; `KHR_parallel_shader_compile` lets the driver do it on other threads and say when it is done without waiting [1]. | `gl-compile.js` startProgram / publishWhenDone (veins, labels, lobule). | Done |
-| Never read `COMPILE_STATUS` unless the link failed: the read is synchronous [1]. | `checkProgram` reads `LINK_STATUS` first (8808b771, `?linkfirst=0`). | Done |
-| Warm a program with one tiny draw before its first real frame: Safari's WebGL runs on Metal (via ANGLE), which builds a pipeline at the first draw with a given state [1][3]. | `exerciseDraw` for veins. The glass compiles and links from the moment it is handed the figure's context (ae5f781a, `?glasswarm=0`); no warm draw yet. | Part |
+| Compile all shaders, then link all programs, and read the status later; `KHR_parallel_shader_compile` lets the driver do it on other threads and say when it is done without waiting [1]. | `gl-compile.js` startProgram / publishWhenDone (veins, labels, lobule). The figure's renderer also starts, at its setup and beside its own, every helper program it would otherwise compile later one after another: organs' stack, painter and shapes (`prestart` / `linkProgram`), the overlays' laying, Sharper upscaling, pinch reuse, the resolution fade and the glass (`?shaderwarm=0` as before). | Done |
+| Never read `COMPILE_STATUS` unless the link failed: the read is synchronous [1]. | `checkProgram` reads `LINK_STATUS` first (8808b771, `?linkfirst=0`); veins-gl `finishProgram` and the glass too (`?shaderwarm=0` as before). | Done |
+| Warm a program with one tiny draw before its first real frame: Safari's WebGL runs on Metal (via ANGLE), which builds a pipeline at the first draw with a given state [1][3]. | `exerciseDraw` for veins, the lobule field, the present's variants (overlays, upscale, reuse), the resolution fade and the glass's two programs, each at a free moment of the figure's renderer once the driver has them (veins-gl `prepare`, `top.warmIn`). A frame that comes first never waits: upscale and reuse draw the plain way, the fade lets the new picture in without a mix, the field keeps its frame. | Done |
 | Keep the number of shader variants small: every `#define` combination is another compile and another pipeline. | veins-gl builds several variants (`later` list in ?perf). New looks should be uniforms, not new programs, when cheap. | Note |
-| Organs, shapes and organ painting still compile synchronously at first use (`organs-gl.js`, `shape-gl.js`, `organ-paint.js`). | Owned by the organs thread. | Gap |
+| Organs, shapes and organ painting compile at the figure's setup, started together with the vessels' programs and read after (`prestartOrganStack`), not one after another. | `organs-gl.js`, `shape-gl.js`, `organ-paint.js`. | Done |
 
 ## 3. Synchronous calls and GPU stalls
 

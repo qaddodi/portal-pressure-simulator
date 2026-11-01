@@ -10,6 +10,8 @@
 // returns false and the caller builds the 2D tiles instead. A context lost mid-zoom reports lost; the caller then drops the copy. When
 // the browser gives the context back, the programs are made again in place, and the next copy is built on it (the lost one stays lost).
 
+import { startProgram, checkProgram } from './gl-compile.js?v=e48e05cdb3';
+
 export const WIDE_GL = !(typeof location !== 'undefined' && /[?&]widegl=0\b/.test(location.search || ''));
 
 // Laying a layer into a tile: one texel of the layer per texel of the tile, from the layer's top left (a layer larger than the
@@ -51,19 +53,15 @@ export function createWideGL(canvas) {
   let lost = false, stale = false;   // (stale: the copy was lost with the context, until the next begin)
   canvas.addEventListener('webglcontextlost', (e) => { lost = true; stale = true; tiles = []; e.preventDefault?.(); });
   canvas.addEventListener('webglcontextrestored', () => { try { init(); lost = false; } catch (err) { console.warn('The wide copy falls back to the 2D canvas.', err); } });
-  const prog = (vs, fs) => {
-    const p = gl.createProgram();
-    for (const [t, s] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); gl.attachShader(p, sh); }
-    gl.bindAttribLocation(p, 0, 'p');
-    gl.linkProgram(p);
-    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('wide-gl: ' + gl.getProgramInfoLog(p));
-    return p;
-  };
+  // (Through gl-compile.js: both programs started before either is read, so the driver compiles them side by side; the copy's context is
+  // made by the lobule's idle preparation, ahead of the first dive, so no dive's frame compiles them.)
+  const prog = (h) => { try { return checkProgram(gl, h); } catch (e) { throw new Error('wide-gl: ' + e.message, { cause: e }); } finally { for (const s of h.sh) gl.deleteShader(s); } };
   const U = (p, n) => gl.getUniformLocation(p, n);
   let lay, show, uL, uS, tri, quad, MAX, scratch;
   // (Everything the context holds but the tiles: made at the start, and again when a lost context comes back.)
   function init() {
-    lay = prog(LAY_VS, LAY_FS); show = prog(SHOW_VS, SHOW_FS);
+    const hl = startProgram(gl, LAY_VS, LAY_FS, [['p', 0]]), hs = startProgram(gl, SHOW_VS, SHOW_FS, [['p', 0]]);
+    lay = prog(hl); show = prog(hs);
     uL = { S: U(lay, 'uS'), size: U(lay, 'uSize') }; uS = { T: U(show, 'uT'), rect: U(show, 'uRect'), cv: U(show, 'uCv'), uv: U(show, 'uUv') };
     tri = gl.createBuffer(); quad = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, tri); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);

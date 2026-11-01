@@ -58,6 +58,44 @@ export function checkProgram(gl, { p, sh }) {
   return p;
 }
 
+// Every shader started at the context's setup, before any is read (GPU practice §2, docs/gpu-practices.md; Mohammad, 1 Nov: "Move
+// everything to GPU"). The figure's renderer starts, in one go and side by side with its own, the programs its helpers would otherwise
+// compile one after another as each is first made or first drawn (the organs' painter and shapes, the overlays' stack, the resolution
+// fade): prestart() leaves each compiling, and the helper's own linkProgram() takes it up, by when the driver has long finished. A
+// helper made before or without that start compiles its own, as before. ?shaderwarm=0: every program compiled where it is first
+// needed, as before (with the status of each shader read first).
+export const SHADER_WARM = !(typeof location !== 'undefined' && /[?&]shaderwarm=0\b/.test(location.search || ''));
+const pre = new WeakMap();   // gl → Map(sources → started program)
+const srcKey = (vs, fs) => `${vs}\u0000${fs}`;
+/** Starts a program (strings only) for a later linkProgram on the same context; nothing is read. Returns its handle (null: not started). */
+export function prestart(gl, vs, fs, bind = []) {
+  if (!SHADER_WARM || !gl || gl.isContextLost?.()) return null;
+  let m = pre.get(gl);
+  if (!m) pre.set(gl, (m = new Map()));
+  const k = srcKey(vs, fs);
+  let h = m.get(k);
+  if (h && gl.isProgram(h.p)) return h;   // (one from before a lost context is gone with it: started again)
+  h = startProgram(gl, vs, fs, bind);
+  m.set(k, h);
+  return h;
+}
+/** The started program waiting for these sources, if there is one (not taken). */
+export function prestarted(gl, vs, fs) {
+  const h = pre.get(gl)?.get(srcKey(vs, fs));
+  return h && gl.isProgram(h.p) ? h : null;
+}
+/** A linked program for these sources (strings): the one prestart left compiling, or one compiled now; its status read (throws the
+ *  info log on a failure). Its shaders are let go of (freed with the program). */
+export function linkProgram(gl, vs, fs, bind = []) {
+  const m = pre.get(gl), k = srcKey(vs, fs);
+  let h = m?.get(k);
+  if (h) m.delete(k);
+  if (!h || !gl.isProgram(h.p)) h = startProgram(gl, vs, fs, bind);
+  try { checkProgram(gl, h); } catch (e) { gl.deleteProgram(h.p); for (const s of h.sh) gl.deleteShader(s); throw e; }
+  for (const s of h.sh) gl.deleteShader(s);
+  return h.p;
+}
+
 /** One 1 × 1 draw into a throwaway framebuffer: draw() sets the program and issues the draw call; the canvas is untouched.
  *  The target texture is bound on no unit while it is drawn to (a program whose sampler read it would be reading what it writes, a
  *  feedback loop: the driver refuses the draw and warns, and on another it is undefined); every unit holds a blank 1 × 1 meanwhile, and

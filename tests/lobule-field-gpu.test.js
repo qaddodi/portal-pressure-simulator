@@ -61,7 +61,7 @@ test('nothing is sent to the GPU or compiled during the zoom', () => {
   assert.equal((lz.match(/fieldCopies\(fieldTile\(cs, dark, r\), cs, dark, bg\); \}\); if \(r >= top \* 2\) break; \}/g) || []).length, 2, 'idle preparation and prewarm');
   assert.match(lz, /const fieldCopies = \(t, cs, dark, bg\) => \{ if \(TILE_GPU && fieldGLOn\(\)\) \{ liverCopy\(t, cs, dark, bg\); quietCopy\(t, shadeOf\(bg, dark\)\); \} else \{ liverTile\(t, cs, dark, bg\); quietTile\(t, shadeOf\(bg, dark\)\); \} fieldUp\(t\); \};/, 'each with both its copies, sent');
   assert.match(lz, /\(\) => fieldGLOn\(\), {3}\/\/ \(the field's GPU context, made here once/);
-  assert.match(lz, /warmQ = \[\(\) => ensureGL\(\), \(\) => fieldGLOn\(\)\];/);
+  assert.match(lz, /warmQ = \[\(\) => ensureGL\(\), \(\) => fieldGLOn\(\), \(\) => \{ if \(FX_GPU\) fxGLOn\(\); \}, \(\) => \{ if \(WIDE_GL\) wideGLOn\(\); \}\];/);   // (the ductules' overlay's programs too)
   // Kept when the lobule is left (the next dive's), and their GPU copies given back with them.
   assert.match(lz, /FIELD_RS\[fieldBlend\(geo\.R \* k \* Math\.min\(1, devicePixelRatio \|\| 1\) \* 0\.8 \* 0\.55\)\.b\]/);
   assert.match(lz, /fieldGL\?\.sweep\(\);/);

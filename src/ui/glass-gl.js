@@ -10,6 +10,7 @@
 
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { finalFrameFor, cancelFrame, noteDraw } from './frame.js?v=15d5254a2c';
+import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=e48e05cdb3';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
@@ -194,9 +195,13 @@ void main() {
 
 // The blur's and the glass's programs, linked in a context (the glass's own, or the figure's when it draws there: host).
 function programsOf(gl) {
-  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
-  const link = (fs) => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, QVS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); return gl.getProgramParameter(p, gl.LINK_STATUS) ? p : null; };
-  const bprog = link(BFS), pprog = link(PFS);
+  // (Through gl-compile.js: both started before either is read, so the driver compiles them side by side, and only the link's status
+  // read when it went. ?shaderwarm=0 links and reads one, then the other.)
+  const start = (fs) => startProgram(gl, QVS, fs);
+  const read = (h) => { try { return checkProgram(gl, h); } catch { gl.deleteProgram(h.p); return null; } };
+  let bprog, pprog;
+  if (SHADER_WARM) { const b = start(BFS), q = start(PFS); bprog = read(b); pprog = read(q); }
+  else { bprog = read(start(BFS)); pprog = read(start(PFS)); }
   if (!bprog || !pprog) { if (bprog) gl.deleteProgram(bprog); if (pprog) gl.deleteProgram(pprog); return null; }
   return uniformsOf(gl, bprog, pprog);
 }
@@ -227,11 +232,40 @@ function warmPrograms(gl, now) {
   if (now) readWarm(gl, e);
   return e.P ?? null;
 }
+// The warmed set published at a free moment of the figure's renderer (veins-gl top.warmIn, GPU practice §2): once the driver says both
+// are compiled, their link status and uniforms are read and each is drawn once with the glass's own blend into a throwaway 1 × 1 target
+// (exerciseDraw), so the first card or pane that shows neither waits on a link nor has Metal build the pipeline in its frame.
+// One task per context. ?shaderwarm=0: read at the first glass, as before.
+function warmTask(gl) {
+  const e = warmed.get(gl);
+  if (!e || e.task) return null;
+  e.task = true;
+  return {
+    done: () => e.P !== undefined || gl.isContextLost() || compileDone(gl, e.hs),
+    run() {
+      if (warmed.get(gl) !== e || gl.isContextLost()) return;
+      const first = e.P === undefined;
+      readWarm(gl, e);
+      if (!first || !e.P) return;
+      const { bprog, pprog, BU, PU } = e.P;
+      exerciseDraw(gl, () => {
+        for (const [p, U, blend] of [[bprog, BU, false], [pprog, PU, true]]) {
+          gl.useProgram(p);
+          gl.uniform4f(U.uBox, 0, 0, 1, 1); gl.uniform2f(U.uView, 1, 1);
+          if (blend) { gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); } else gl.disable(gl.BLEND);
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
+        gl.disable(gl.BLEND);
+      });
+    },
+  };
+}
 function readWarm(gl, e) {
   if (e.P !== undefined || gl.isContextLost()) return;
-  // (Only the link's status is read, as MDN advises: the shaders' own status is never asked for.)
-  const [b, p] = e.hs.map((h) => gl.getProgramParameter(h.p, gl.LINK_STATUS));
-  e.P = b && p ? uniformsOf(gl, e.hs[0].p, e.hs[1].p) : null;
+  // (Through gl-compile.js checkProgram: the link's status first, a shader's only for a failure's log. Published by warmTask once the
+  // driver says both are compiled, so this read no longer waits.)
+  const ok = e.hs.map((h) => { try { checkProgram(gl, h); return true; } catch { return false; } });
+  e.P = ok[0] && ok[1] ? uniformsOf(gl, e.hs[0].p, e.hs[1].p) : null;
 }
 function texOf(gl, filter) {
   const t = gl.createTexture();
@@ -1052,7 +1086,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         hostFree();
       }
       host = h;
-      if (GLASS_WARM) warmPrograms(h.gl, false);   // (started now, read when done: see warmPrograms)
+      if (GLASS_WARM) { warmPrograms(h.gl, false); if (SHADER_WARM) h.warmIn?.(warmTask(h.gl)); }   // (started now, published when done: see warmPrograms, warmTask)
       host.canvas.addEventListener('webglcontextlost', onHostLost);
       hostTops = cards
         ? [host.add({ order: h.order?.low ?? 1, prep: prepInto, draw: () => drawInto('low') }), host.add({ order: h.order?.high ?? 3, draw: () => drawInto('high') })]

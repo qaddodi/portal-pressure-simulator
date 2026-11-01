@@ -27,25 +27,25 @@ import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=fbead2c8f9';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
-import { createFieldGL, TILE_OVER } from './field-gl.js?v=e9914773cd';
-import { createTissueGL, DIVE_GPU } from './tissue-gl.js?v=9c2ff16bf9';
-import { TILE_GPU, tileCopy, isTileCopy } from './tile-gl.js?v=88c03cf91f';
-import { FX_GPU, createFxGL } from './fx-gl.js?v=f6896ed5e0';
-import { WIDE_GL, createWideGL } from './wide-gl.js?v=88a3fd5bd2';
+import { createFieldGL, TILE_OVER } from './field-gl.js?v=d1fb535a12';
+import { createTissueGL, DIVE_GPU } from './tissue-gl.js?v=1a2a534e0e';
+import { TILE_GPU, tileCopy, isTileCopy } from './tile-gl.js?v=65ea6bb117';
+import { FX_GPU, createFxGL } from './fx-gl.js?v=054bc9db17';
+import { WIDE_GL, createWideGL } from './wide-gl.js?v=b0622c784c';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=624ae21d7d';
 import { createTissueWorker } from './tissue-worker.js?v=d3c5b9aaf6';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=f6e22a327b';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=f7055730cc';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=9bdfe02add';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=5b0a8a2b0a';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=61c753582c';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
-import { createSinusoidView } from './sinusoid-view.js?v=95e2a378b0';
+import { createSinusoidView } from './sinusoid-view.js?v=aae7cc659c';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, figLab, framePart, easeNow, inMotion, PACED } from './frame.js?v=15d5254a2c';
-import { createGlassGL } from './glass-gl.js?v=dd287b10a7';
+import { createGlassGL } from './glass-gl.js?v=3b4d8a3b4a';
 import { pillOf, pillLabels, pillHold } from './lz-pills.js?v=bafcf3977d';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=4d4c051a59';
+import { FADE_MS, fadeAlpha, stackInto, viewFollow } from './res-fade.js?v=27eed66b9b';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { easeMove, carryRate, carried, D_SMALL, D_SURFACE } from './ease.js?v=fc509dabe4';
@@ -2494,6 +2494,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       () => ensureGL(),
       () => fieldGLOn(),   // (the field's GPU context, made here once, so the first dive does not compile its shader)
       () => tissueGLOn(),   // (and the tissue's)
+      () => { if (FX_GPU) fxGLOn(); },   // (and the ductules' and lymph overlay's: its two programs compiled here, not in the dive's first frame)
+      () => { if (WIDE_GL) wideGLOn(); },   // (and the wide copy's, for a station dive or a rise)
     ];
     // The dive's field: every tile it steps through on the way to the landing size (see paintField).
     const fdpr = Math.min(1, devicePixelRatio || 1) * 0.8;
@@ -2535,7 +2537,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let warmQ = [];
   function prewarm(rEnd) {
     const cs = getComputedStyle(host), dark = isDark(), bg = stageBg(cs, dark), top = rEnd * Math.min(1, devicePixelRatio || 1) * 0.8 * 0.55;
-    warmQ = [() => ensureGL(), () => fieldGLOn()];   // (the field's GPU context too, if the idle preparation has not made it)
+    warmQ = [() => ensureGL(), () => fieldGLOn(), () => { if (FX_GPU) fxGLOn(); }, () => { if (WIDE_GL) wideGLOn(); }];   // (the field's GPU context too, if the idle preparation has not made it)
     // The tiles paintField steps through (each a no-op when the idle preparation already drew it).
     for (let rd = 6; ; rd *= 2) { const r = rd; warmQ.push(() => { fieldCopies(fieldTile(cs, dark, r), cs, dark, bg); }); if (r >= top * 2) break; }
   }

@@ -8,6 +8,8 @@
 // The canvas keeps no picture between frames, so the old one is laid on the blank canvas at once after its resize (seed), and from
 // then on only by a present (which first puts the whole current picture back): a frame that draws nothing shows the last one.
 
+import { prestart, prestarted, linkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=e48e05cdb3';
+
 const VS = `#version 300 es
 in vec2 c;
 uniform mat3 m;      // CSS px of the old picture's box → CSS px in the canvas (the follow, with the sub-pixel moves)
@@ -25,16 +27,10 @@ in vec2 uv;
 out vec4 o;
 void main() { o = texture(t, uv); }`;
 
+// (Linked through gl-compile.js: the program started at the figure's context's setup (warmFade), else compiled here, as before.)
+const BIND = [['c', 0]];
 function program(gl) {
-  const sh = (type, src) => {
-    const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { const e = gl.getShaderInfoLog(s); gl.deleteShader(s); throw new Error(e || 'shader'); }
-    return s;
-  };
-  const p = gl.createProgram(), v = sh(gl.VERTEX_SHADER, VS), f = sh(gl.FRAGMENT_SHADER, FS);
-  gl.attachShader(p, v); gl.attachShader(p, f); gl.bindAttribLocation(p, 0, 'c'); gl.linkProgram(p);
-  gl.deleteShader(v); gl.deleteShader(f);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { const e = gl.getProgramInfoLog(p); gl.deleteProgram(p); throw new Error(e || 'link'); }
+  const p = linkProgram(gl, VS, FS, BIND);
   return { p, m: gl.getUniformLocation(p, 'm'), box: gl.getUniformLocation(p, 'box'), t: gl.getUniformLocation(p, 't') };
 }
 
@@ -52,9 +48,52 @@ function kit(gl) {
   return k;
 }
 
+// The fade's draw, with the state it is drawn in (the blend's constant alpha): the program, the kit's quad, the texture on unit 0.
+function lay(gl, k, a, m, w, h) {
+  const [ma, mb, mc, md, me, mf] = m || [1, 0, 0, 1, 0, 0];
+  gl.useProgram(k.P.p);
+  gl.uniformMatrix3fv(k.P.m, false, [ma, mb, 0, mc, md, 0, me, mf, 1]);
+  gl.uniform2f(k.P.box, w, h);
+  gl.uniform1i(k.P.t, 0);
+  gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD);
+  gl.blendColor(0, 0, 0, a); gl.blendFunc(gl.CONSTANT_ALPHA, gl.ONE_MINUS_CONSTANT_ALPHA);
+  gl.bindVertexArray(k.vao);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.bindVertexArray(null);
+  gl.disable(gl.BLEND); gl.blendColor(0, 0, 0, 0);
+}
+
+/**
+ * The fade's program started on gl when the figure's context is set up (GPU practice §2, docs/gpu-practices.md): nothing read then.
+ * Returns the task that publishes it at a free moment of the renderer (veins-gl warmIn): done() once the driver says it has finished,
+ * run() reads its status, makes the kit and draws it once, with the fade's own blend, into a throwaway 1 × 1 target (exerciseDraw), so
+ * the first fade after a camera move neither compiles, nor waits on a link, nor has Metal build its pipeline. Null: nothing to start.
+ * ?shaderwarm=0: compiled at the first fade, as before.
+ */
+export function warmFade(gl) {
+  if (!SHADER_WARM || !gl || kits.has(gl)) return null;
+  const h = prestart(gl, VS, FS, BIND);
+  if (!h) return null;
+  return {
+    done: () => kits.has(gl) || compileDone(gl, h),
+    run() {
+      if (kits.has(gl) || gl.isContextLost?.()) return;
+      try { const k = kit(gl); exerciseDraw(gl, () => lay(gl, k, 0.5, null, 1, 1)); } catch { /* (failed: the first fade tries again, or mixes in 2D) */ }
+    },
+  };
+}
+/** Whether a fade on gl's canvas can be laid now without compiling: false while its started program is still compiling. */
+export function fadeReady(gl) {
+  if (!gl || kits.has(gl)) return true;
+  const h = prestarted(gl, VS, FS);
+  return !h || compileDone(gl, h);
+}
+
 /**
  * The old picture of host's canvas (host: veins-gl top, { gl, canvas, add }), kept on the GPU, and the pass that mixes it in.
- * Call just after a present of the canvas (its picture is read from the canvas's own buffer). Null when the GPU cannot.
+ * Call just after a present of the canvas (its picture is read from the canvas's own buffer). Null when the GPU cannot; false while its
+ * program, started at the context's setup, is still compiling (the canvas then takes its new picture without a fade: no frame waits
+ * for a compile, and none is mixed in 2D).
  *   draw(a, m, w, h, clear): lays it with weight a (0..1) at m ([a, b, c, d, e, f], CSS px), the canvas being w × h CSS px;
  *     clear first (the seed, on a canvas just resized).
  *   remove(): takes it out of the canvas's presents and frees the copy.
@@ -64,6 +103,7 @@ export function keepOnGpu(host) {
   if (!gl || !canvas || gl.isContextLost?.()) return null;
   const W = canvas.width, H = canvas.height;
   if (W < 2 || H < 2) return null;
+  if (!fadeReady(gl)) return false;
   let k, tex;
   try {
     k = kit(gl);
@@ -86,17 +126,8 @@ export function keepOnGpu(host) {
     gl.colorMask(true, true, true, true);
     if (clear) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
     if (a <= 0) return;
-    const [ma, mb, mc, md, me, mf] = m || [1, 0, 0, 1, 0, 0];
-    gl.useProgram(k.P.p);
-    gl.uniformMatrix3fv(k.P.m, false, [ma, mb, 0, mc, md, 0, me, mf, 1]);
-    gl.uniform2f(k.P.box, w, h);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(k.P.t, 0);
-    gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD);
-    gl.blendColor(0, 0, 0, a); gl.blendFunc(gl.CONSTANT_ALPHA, gl.ONE_MINUS_CONSTANT_ALPHA);
-    gl.bindVertexArray(k.vao);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    gl.bindVertexArray(null);
-    gl.disable(gl.BLEND); gl.blendColor(0, 0, 0, 0);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
+    lay(gl, k, a, m, w, h);
     gl.bindTexture(gl.TEXTURE_2D, null);
   }
   // (Laid first of everything drawn over the figure in its canvas, so the glasses drawn after it blur the mix as it shows.)

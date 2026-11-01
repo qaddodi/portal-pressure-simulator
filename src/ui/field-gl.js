@@ -11,8 +11,8 @@
 // Without WebGL2 (or on a software renderer, or once the context is lost) createFieldGL returns null / reports lost, and the
 // field is drawn on the 2D canvas as before.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=d90ea8acf6';
-import { isTileCopy, createTileCopier } from './tile-gl.js?v=88c03cf91f';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=e48e05cdb3';
+import { isTileCopy, createTileCopier } from './tile-gl.js?v=65ea6bb117';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -173,8 +173,16 @@ export function createFieldGL(canvas) {
      *  quieted, at the smaller and larger size); dof: the softness (fieldDof); grey: the grade [saturation, opacity] (surroundGrade),
      *  null as drawn; the rest as paintField's (see FS). */
     draw({ W, H, a, b, qa, qb, mix, quiet, ox, oy, rd, fade, mid, bg, mask, dof = null, grey = null, hold = false }) {
-      publish();
-      if (this.lost) return false;
+      // (Its program published by the idle poll, long before a dive. A draw that comes first publishes it only once the driver says it is
+      // compiled (no wait); still compiling, the field keeps the frame it shows (hold, at this size) or the 2D canvas draws this one, and no
+      // frame waits on a compile. ?shaderwarm=0: published here whatever it costs, as before.)
+      if (!prog && !failed && started && !gl.isContextLost()) {
+        let ready = true;
+        if (SHADER_WARM) try { ready = compileDone(gl, [started]); } catch { ready = true; }
+        if (ready) publish();
+        else return hold && pictured && canvas.width === W && canvas.height === H ? 'held' : false;
+      }
+      if (this.lost || !prog) return false;
       // (A tile given back, or a zero-sized canvas, would be sampled as black: the 2D canvas draws this frame instead.)
       if (!a?.width || (b && !b.width) || (quiet > 0 && (!qa?.width || (qb && !qb.width)))) return false;
       // (Every texture first, before the canvas is touched: one the GPU could not take is never sampled (it read opaque black). Showing

@@ -11,9 +11,9 @@
 // Without WebGL2 (or on a software renderer, or once the context is lost) createTissueGL returns null / reports lost, and the
 // tissue is drawn on the 2D canvas as before.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=d90ea8acf6';
-import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=e9914773cd';
-import { isTileCopy, createTileCopier } from './tile-gl.js?v=88c03cf91f';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=e48e05cdb3';
+import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=d1fb535a12';
+import { isTileCopy, createTileCopier } from './tile-gl.js?v=65ea6bb117';
 import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=624ae21d7d';
 
 const VS = `#version 300 es
@@ -339,6 +339,14 @@ export function createTissueGL(canvas, opts = {}) {
      *  of the picture, null for none (lobule-live.js): { shape, data (buildLive), share, cu, sj, zones, dark, cen: [x, y, R], col (liveColours) };
      *  rim: the dive's rim [x, y, r solid, r clear] (device px), past which only the lobule's own layer is kept (DIVE_GPU), null for none. */
     draw({ W, H, qa, qb, mix, qo = null, qOld = 0, w, wVer, wo = null, woVer = 0, wMix = 1, rect, ox, oy, rd, fade, mid, bg, live = null, grey = null, rim = null, hold = false }) {
+      // (Published by the idle poll, long before a dive; a draw that comes first publishes it only once the driver says it is compiled, so
+      // no frame waits on a compile: still compiling, the tissue keeps the frame it shows (hold, at this size) or the 2D canvas draws this one.
+      // ?shaderwarm=0: published here whatever it costs, as before.)
+      if (!prog && !failed && !lost && SHADER_WARM) {
+        let ready;
+        try { ready = compileDone(gl, [started]); } catch { ready = true; }
+        if (!ready) return hold && pictured && canvas.width === W && canvas.height === H ? 'held' : false;
+      }
       publish();
       if (this.lost) return false;
       // (A tile given back, or a zero-sized canvas, would be sampled as black: the 2D canvas draws this frame instead.)

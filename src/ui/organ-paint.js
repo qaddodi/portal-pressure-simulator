@@ -13,7 +13,8 @@
 // luminance). Anything else (a dash, a filter, a nested mask, a focal point) and the organ is not read: null, and the caller
 // keeps the organ's picture.
 
-import { flattenPath, flattenCmds, ellipsePoly, polyBox, polyMesh } from './shape-gl.js?v=74fff72fb9';
+import { flattenPath, flattenCmds, ellipsePoly, polyBox, polyMesh, prestartShapes } from './shape-gl.js?v=f4b132f33c';
+import { prestart, linkProgram } from './gl-compile.js?v=e48e05cdb3';
 import { strHash } from './liver-geo.js?v=977185f80a';
 
 const ID = [1, 0, 0, 1, 0, 0];
@@ -372,20 +373,16 @@ void main() {
   o = texelFetch(src, ip, 0) * k;
 }`;
 
+// (Linked through gl-compile.js: the programs the figure's renderer started at its setup (prestartOrganPaint), else compiled here.)
 function program(gl, vs, fs) {
-  const p = gl.createProgram();
-  for (const [type, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) {
-    const sh = gl.createShader(type);
-    gl.shaderSource(sh, src); gl.compileShader(sh);
-    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
-    gl.attachShader(p, sh); gl.deleteShader(sh);
-  }
-  gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const p = linkProgram(gl, vs, fs);
   const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
   for (let k = 0; k < n; k++) { const name = gl.getActiveUniform(p, k).name.replace(/\[0\]$/, ''); u[name] = gl.getUniformLocation(p, name); }
   return { p, u };
 }
+
+/** Starts the painter's programs and its shapes' on gl, nothing read (gl-compile.js prestart): createOrganPaint takes them up. */
+export function prestartOrganPaint(gl) { prestart(gl, QUAD_VS, PAINT_FS); prestart(gl, QUAD_VS, LAY_FS); prestartShapes(gl); }
 
 /**
  * The painter, on a WebGL2 context, drawing with `shape` (createShapeGL on the same context). paintGroup(spec, m, w, h, fbo)

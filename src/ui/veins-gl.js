@@ -42,8 +42,9 @@ import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { changedRows } from './flow-rows.js?v=59053c0155';
 import { leftAlone } from './quiet.js?v=388052eba8';
 import { uniformCache } from './uniform-cache.js?v=2a2500a2e8';
-import { PUBLISH_QUIET_MS } from './gl-compile.js?v=d90ea8acf6';
-import { createOrganStack } from './organs-gl.js?v=1d301b120d';
+import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=e48e05cdb3';
+import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=156a096f9a';
+import { warmFade } from './res-fade-gl.js?v=37c4818df3';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 
@@ -1731,8 +1732,12 @@ function startProgram(gl, vs, fs) {
   return { p, sh };
 }
 function finishProgram(gl, { p, sh }) {
-  for (const x of sh) if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x));
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  // (Only the link's status when it went (?shaderwarm=0: each shader's first, as before): a shader's is read only to say why it failed.)
+  if (!SHADER_WARM) for (const x of sh) if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x));
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    for (const x of sh) if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x));
+    throw new Error(gl.getProgramInfoLog(p));
+  }
   const u = {};
   const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
   for (let i = 0; i < n; i++) { const name = gl.getActiveUniform(p, i).name.replace(/\[0\]$/, ''); u[name] = gl.getUniformLocation(p, name); }
@@ -1836,6 +1841,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     started = { fuseGen: fuse && startProgram(gl, fuseVS, fuse.gen), fuseOne: fuse?.one ? startProgram(gl, fuseVS, fuse.one) : null,
       prog: startProgram(gl, vesVS, vesselFS(false)), simple: GENERIC ? null : startProgram(gl, vesVS, vesselFS(true)), comp: startProgram(gl, compVS, compFS), compCell: startProgram(gl, compCellVS, compFS), plain: startProgram(gl, compVS, plainFS), plainCell: startProgram(gl, compCellVS, plainFS), cath: startProgram(gl, CATH_VS, CATH_FS), line: startProgram(gl, LINE_VS, LINE_FS) };
   } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); return null; }
+  // Every other program this context will draw with, started now beside these, before any is read (GPU practice §2, docs/gpu-practices.md;
+  // ?shaderwarm=0: each compiled where it is first made or drawn, as before): the organs' stack, painter and shapes (taken up just below,
+  // their compiles run while these finish), and the variants of the canvas's own presents (the overlays' laying, Sharper upscaling,
+  // pinch reuse: aux below, each published by prepare() once the driver has it, with one small draw, never compiled in a gesture's frame).
+  if (SHADER_WARM) try { prestartOrganStack(gl); } catch { /* (only a head start: each is compiled where it is made, as before) */ }
   // (Shaders are freed with the programs that hold them, once no program is still to be finished: see prepare.)
   const freeShaders = () => { for (const x of new Set(Object.values(started).filter(Boolean).flatMap((st) => st.sh))) gl.deleteShader(x); };
   // The optional builds (the one-vessel vessel program, the plain composite) are not needed to draw: every cell and every
@@ -1882,7 +1892,17 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // own size into a stack of their own, laid over the picture as it goes onto the canvas (present). Only with a kept picture of
   // its own (the canvas is then drawn whole at each present, the overlays with it). Made when first asked for (overlay.set).
   const overOK = !!stack?.painter && ownBuf;
+  // The present's variants, started ahead (see above): name → started program, until prepare() publishes it (or a frame that cannot do
+  // without it takes it, auxTake). The overlays' stack program too, for their first set. The tasks of what is drawn over the figure in
+  // this canvas (warmIn: the resolution fade's program, the glass's) are published in the same free moments.
+  const aux = {}, freeTasks = [];
+  const AUX_FS = { lay: LAY_FS, up: UP_FS, reuse: REUSE_FS };
+  const auxStart = (k) => { if (!SHADER_WARM || aux[k] || lost || (k === 'lay' ? layP : k === 'up' ? upP : rz.P) !== null) return; try { aux[k] = startProgram(gl, REUSE_VS, AUX_FS[k]); } catch { /* (compiled at its first use, as before) */ }
+    // (Where the driver cannot say when it is done, it is finished now, where the switch is set, as the optional builds are: never in a frame.)
+    if (!pcx && aux[k]) publishAux(k, false);
+  };
   let over = null, layP = null, overShown = false;
+  if (overOK && SHADER_WARM) { try { prestartLayer(gl); } catch { /* (a head start only) */ } }
   let cathP = null;
   try { cathP = finishProgram(gl, started.cath); } catch (e) { console.warn('Veins renderer: catheter shader failed.', e); }
   const cathBuf = gl.createBuffer(), cathVAO = gl.createVertexArray();
@@ -2592,7 +2612,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     stack.painter.cssPx = overCss;
     if (over.stale(m, canvas.width, canvas.height)) over.render(m, canvas.width, canvas.height);
     if (layP === null) {
-      try { layP = finishProgram(gl, startProgram(gl, REUSE_VS, LAY_FS)); } catch (e) { console.warn('Veins renderer: the overlays\' shader could not be made.', e); layP = false; }
+      // (Started at setup: taken up now if prepare() has not published it yet; waited on only here, as dropping the overlays would blink.)
+      try { layP = auxTake('lay', true) || finishProgram(gl, startProgram(gl, REUSE_VS, LAY_FS)); } catch (e) { console.warn('Veins renderer: the overlays\' shader could not be made.', e); layP = false; }
     }
     if (!layP) return;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -2612,7 +2633,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let upP = null;
   function upDraw() {
     if (upP === null) {
-      try { upP = finishProgram(gl, startProgram(gl, REUSE_VS, UP_FS)); } catch (e) { console.warn('Veins renderer: the upscale shader could not be made.', e); upP = false; }
+      // (Still compiling, started when the switch came on: this frame is the plain filtered copy, never a wait.)
+      let P;
+      try { P = auxTake('up', false); if (P === undefined) P = finishProgram(gl, startProgram(gl, REUSE_VS, UP_FS)); } catch (e) { console.warn('Veins renderer: the upscale shader could not be made.', e); P = false; }
+      if (P === null) return false;
+      upP = P;
     }
     if (!upP) return false;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -2634,6 +2659,31 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // since, a new size, a lost context). `reused`: this draw laid the kept picture rather than shading the figure.
   let reuseEvery = 0, reuseOn = false, reuseN = 0, reused = false;
   const rz = { tex: null, fbo: null, w: 0, h: 0, m: null, P: null };
+  // A started variant (aux): its program finished and its shaders let go of; null while the driver is still compiling it (unless wait),
+  // undefined when none was started. Throws a failed build's log.
+  function auxTake(k, wait) {
+    const st = aux[k];
+    if (!st) return undefined;
+    if (!wait && pcx && !gl.getProgramParameter(st.p, pcx.COMPLETION_STATUS_KHR)) return null;
+    delete aux[k];
+    try { return finishProgram(gl, st); } catch (e) { gl.deleteProgram(st.p); throw e; } finally { for (const x of st.sh) gl.deleteShader(x); }
+  }
+  // A variant published at a free moment (prepare): finished and drawn once into a 1 × 1 target with its own state (exerciseDraw),
+  // so its first real frame has no driver work left (Metal builds a pipeline at a program's first draw).
+  function publishAux(k, exercise = true) {
+    let P;
+    try { P = auxTake(k, false); } catch (e) { console.warn(`Veins renderer: the ${k} shader could not be made.`, e); P = false; }
+    if (P === null || P === undefined) return;
+    if (k === 'lay') layP = P; else if (k === 'up') upP = P; else rz.P = P;
+    if (!P || !exercise) return;
+    exerciseDraw(gl, () => {
+      gl.useProgram(P.p);
+      if (k === 'lay') { gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); } else gl.disable(gl.BLEND);
+      if (P.u.uT) gl.uniform1i(P.u.uT, 0);
+      gl.bindVertexArray(compVAO); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
+      gl.disable(gl.BLEND);
+    });
+  }
   function reuseKeep(m) {
     if (!rz.tex) { rz.tex = dataTex(gl, gl.LINEAR); rz.fbo = gl.createFramebuffer(); }
     if (rz.w !== PW() || rz.h !== PH()) {
@@ -2655,8 +2705,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (!rz.m || rz.w !== PW() || rz.h !== PH()) return false;
     const k = reuseMap(rz.m, m);
     if (!reuseCovers(k, rz.w, rz.h)) return false;
-    if (!rz.P) {
-      try { rz.P = finishProgram(gl, startProgram(gl, REUSE_VS, REUSE_FS)); } catch (e) { console.warn('Veins renderer: the pinch reuse shader could not be made; every zoom frame is shaded.', e); rz.P = false; }
+    if (rz.P === null) {
+      // (Still compiling, started when reuse came on: this frame is shaded, as without reuse, never a wait.)
+      let P;
+      try { P = auxTake('reuse', false); if (P === undefined) P = finishProgram(gl, startProgram(gl, REUSE_VS, REUSE_FS)); } catch (e) { console.warn('Veins renderer: the pinch reuse shader could not be made; every zoom frame is shaded.', e); P = false; }
+      if (P === null) return false;
+      rz.P = P;
     }
     if (!rz.P) return false;
     gl.bindFramebuffer(gl.FRAMEBUFFER, own ? own.fbo : null);
@@ -2777,10 +2831,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
   function prepare() {
-    if (!later.length || lost) return;
+    if (lost || (!later.length && !freeTasks.length && !Object.keys(aux).length)) return;
     // (Not mid pan or pinch: a finished program's publishing is its status read, a small draw and, for the one-vessel build, every
     // cell uploaded again and the next frame whole. The general programs draw the same picture meanwhile.)
     if (!leftAlone(PUBLISH_QUIET_MS)) return;
+    for (const k of Object.keys(aux)) publishAux(k);
+    for (const t of freeTasks.slice()) {
+      let done = true;
+      try { done = t.done(); } catch { /* (dropped) */ }
+      if (!done) continue;
+      freeTasks.splice(freeTasks.indexOf(t), 1);
+      try { t.run(); } catch (e) { console.warn('Veins renderer: a warm-up drawn over the figure failed.', e); }
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (!later.length) return;
     for (const k of [...later]) {
       const sts = startsOf(k);
       if (!sts.every((st) => gl.getProgramParameter(st.p, pcx.COMPLETION_STATUS_KHR))) continue;
@@ -2791,6 +2855,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     }
     if (!later.length) freeShaders();
   }
+  // (Started now: the overlays' laying where there are overlays, the resolution fade where the canvas keeps its picture (res-fade-gl).)
+  if (overOK) auxStart('lay');
+  if (ownBuf && SHADER_WARM) { const t = warmFade(gl); if (t) freeTasks.push(t); }
   const onLost = (e) => { e.preventDefault(); lost = true; };
   canvas.addEventListener('webglcontextlost', onLost);
   // A software renderer (no usable GPU: the browser draws on the CPU) is told apart so the stage
@@ -3164,6 +3231,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (!reuseOn) rz.m = null;
       if (every === reuseEvery) return;
       reuseEvery = every; reuseN = 0; rz.m = null;
+      if (every) auxStart('reuse');   // (compiling from now, published before the next pinch)
       if (!every && rz.w && !lost) { rz.w = rz.h = 0; gl.bindTexture(gl.TEXTURE_2D, rz.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); }
     },
     /**
@@ -3175,6 +3243,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       const next = size && size[0] > 0 && size[1] > 0 && (size[0] !== canvas.width || size[1] !== canvas.height) ? [size[0], size[1]] : null;
       if ((`${next}` === `${up}` && !!linear === upLin) || lost) return;
       up = next; upLin = !!linear;
+      if (up && !upLin) auxStart('up');   // (compiling from now: the plain copy until it is published)
       if (up && !own) own = makeOwn();
       if (!up && own && !ownBuf) { gl.deleteTexture(own.tex); gl.deleteFramebuffer(own.fbo); if (own.rb) gl.deleteRenderbuffer(own.rb); own = null; }
       fboOK = false; rz.m = null;
@@ -3190,6 +3259,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     top: ownBuf ? {
       gl, canvas,
       add(t) { tops.push(t); tops.sort((a, b) => (a.order || 0) - (b.order || 0)); return () => { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); }; },
+      /** A warm-up of something drawn over the figure here ({ done(), run() }): run once done() says its programs are compiled, at a free
+       *  moment of the renderer (prepare: between pictures, not mid gesture), where its small draw may set any state. */
+      warmIn(t) { if (t && !lost) freeTasks.push(t); },
     } : null,
     overlay: overOK ? {
       set(groups, names) {
@@ -3601,6 +3673,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         if (own) { gl.deleteTexture(own.tex); gl.deleteFramebuffer(own.fbo); if (own.rb) gl.deleteRenderbuffer(own.rb); }
         if (rz.tex) { gl.deleteTexture(rz.tex); gl.deleteFramebuffer(rz.fbo); }
         if (rz.P) gl.deleteProgram(rz.P.p);
+        for (const x of [layP, upP]) if (x) gl.deleteProgram(x.p);
+        for (const k of Object.keys(aux)) { gl.deleteProgram(aux[k].p); for (const x of aux[k].sh) gl.deleteShader(x); delete aux[k]; }
+        freeTasks.length = 0;
         lowFree();
         if (warmT) { for (const t of warmT.tx) gl.deleteTexture(t); gl.deleteFramebuffer(warmT.fb); gl.deleteBuffer(warmT.buf); gl.deleteVertexArray(warmT.va); }
         // (Builds still compiling: given back unpublished, with every shader.)

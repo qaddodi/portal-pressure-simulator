@@ -72,6 +72,8 @@ const figure = new Set();
 const source = { width: 1600, height: 1200, getBoundingClientRect: () => rect(0, 0, 800, 600) };
 
 const { createGlassGL } = await import('../src/ui/glass-gl.js');
+// (The page-wide listeners its imports set up once at load (quiet.js, through gl-compile.js) are the page's, not this glass's.)
+const pageListeners = new Set(winListeners.keys());
 const flush = async () => { await new Promise((r) => setImmediate(r)); };
 const frame = () => { clock += 16; const q = rafs.splice(0); for (const cb of q) cb(clock); };
 const frames = async (k) => { for (let i = 0; i < k; i++) { frame(); await flush(); } };
@@ -152,7 +154,7 @@ test('let go, it leaves nothing running or held', async () => {
   assert.equal(observers.size, 0, 'observers disconnected');
   assert.equal(figure.size, 0, 'no longer told of the figure');
   assert.equal(layer.m.size, 0, 'listeners removed');
-  assert.equal(winListeners.size, 0, 'resize listener removed');
+  assert.equal([...winListeners.keys()].filter((f) => !pageListeners.has(f)).length, 0, 'resize listener removed');
   assert.equal(timers.size, 0, 'no timer');
   assert.ok(n.deleted >= 8, 'GPU objects deleted');
   assert.equal(n.lostCtx, 1, 'context given back');

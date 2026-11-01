@@ -15,7 +15,7 @@
 import { finalFrameFor, noteDraw } from './frame.js?v=15d5254a2c';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { D_SURFACE } from './ease.js?v=fc509dabe4';
-import { keepOnGpu } from './res-fade-gl.js?v=24d9dfc57e';
+import { keepOnGpu } from './res-fade-gl.js?v=37c4818df3';
 
 export const FADE_MS = D_SURFACE;
 /** The old picture's weight u of the way through the fade: 1 to 0, smoothstep (no step at either end). */
@@ -82,6 +82,8 @@ function gpuFadeOver(canvas, follow, capture, host) {
   // (The picture before: the canvas as presented now, with the mix still under way when one is.)
   try { capture?.(); } catch { return false; }
   const keep = keepOnGpu(host);
+  // (Its program still compiling (res-fade-gl warmFade): the new picture comes in as it is, with no frame waiting on the compile.)
+  if (keep === false) return true;
   if (!keep) return false;
   if (was) was.gpu.remove();
   const w = canvas.offsetWidth, h = canvas.offsetHeight;

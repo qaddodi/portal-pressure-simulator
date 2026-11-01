@@ -13,6 +13,8 @@
 //
 // ?tilegpu=0: the copies are made on the main thread and sent from their canvases, as before.
 
+import { prestart, linkProgram } from './gl-compile.js?v=e48e05cdb3';
+
 export const TILE_GPU = !(typeof location !== 'undefined' && /[?&]tilegpu=0\b/.test(location.search || ''));
 
 /** A copy of tile canvas src made on the GPU. look: { blur (Gaussian sigma, tile px; 0 for none), sat (the grey blend's share),
@@ -68,19 +70,15 @@ void main() {
  *  not take it (the caller draws that frame on the 2D canvas, as for a canvas whose send failed). The tile itself is kept on the GPU
  *  only between copies made from it (one at a time: the large tiles are 12 MB each), and the program is made on first use. */
 export function createTileCopier(gl) {
+  try { prestart(gl, VS, copyFS, [['p', 0]]); } catch { /* (compiled at the first copy, as before) */ }
   let prog = null, U = null, vao = null, raw = null, failed = false;
   gl.canvas?.addEventListener?.('webglcontextlost', () => { prog = null; U = null; vao = null; raw = null; });
   function ready() {
     if (prog) return true;
     if (failed || gl.isContextLost()) return false;
     try {
-      const sh = [[gl.VERTEX_SHADER, VS], [gl.FRAGMENT_SHADER, copyFS]].map(([type, s]) => { const x = gl.createShader(type); gl.shaderSource(x, s); gl.compileShader(x); return x; });
-      const p = gl.createProgram();
-      for (const s of sh) gl.attachShader(p, s);
-      gl.bindAttribLocation(p, 0, 'p');
-      gl.linkProgram(p);
-      for (const s of sh) if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
-      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+      // (Started with its context by createTileCopier, gl-compile.js prestart, and taken up here, its compile long done.)
+      const p = linkProgram(gl, VS, copyFS, [['p', 0]]);
       U = Object.fromEntries(['uS', 'uDir', 'uSigma', 'uN', 'uTone', 'uK'].map((n) => [n, gl.getUniformLocation(p, n)]));
       // (Its own vertex array, so the context's own attribute set-up is never changed.)
       vao = gl.createVertexArray();

@@ -135,7 +135,7 @@ function fakeGL({ failSimple = false, pcx = null, stencil = false } = {}) {
         if (k === 'shaderSource') src.set(a[0], a[1]);
         if (k === 'attachShader') { if (!att.has(a[0])) att.set(a[0], []); att.get(a[0]).push(a[1]); }
         if (k === 'getShaderParameter') return !(failSimple && /#define SIMPLE 1/.test(src.get(a[0]) || ''));
-        if (k === 'getProgramParameter') return a[1] === gl.ACTIVE_UNIFORMS ? UNIFORMS.length : a[1] === 0x91b1 ? pcx.done : true;
+        if (k === 'getProgramParameter') return a[1] === gl.ACTIVE_UNIFORMS ? UNIFORMS.length : a[1] === 0x91b1 ? pcx.done : !(failSimple && (att.get(a[0]) || []).some((sh) => /#define SIMPLE 1/.test(src.get(sh) || '')));   // (a shader that failed fails its link, as in a browser)
         if (k === 'getActiveUniform') return { name: UNIFORMS[a[1]] };
         if (k === 'getUniformLocation') return { uniform: a[1] };
         if (k === 'getExtension') return pcx && a[0] === 'KHR_parallel_shader_compile' ? { COMPLETION_STATUS_KHR: 0x91b1 } : null;

@@ -58,8 +58,9 @@ void main() {
   }
 }`;
 
-import { createShapeGL } from './shape-gl.js?v=74fff72fb9';
-import { createOrganPaint, mul } from './organ-paint.js?v=e08cf3a692';
+import { createShapeGL } from './shape-gl.js?v=f4b132f33c';
+import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=c3718bc30b';
+import { prestart, linkProgram } from './gl-compile.js?v=e48e05cdb3';
 import { netChanged } from './idle-keys.js?v=bb8f7eca29';
 import { easeMove, D_SURFACE } from './ease.js?v=fc509dabe4';
 
@@ -74,16 +75,9 @@ export const VIEW_FADE_MS = D_SURFACE;   // (the lens crossfade's clock, on its 
 const VIEW_FADE = !(typeof location !== 'undefined' && /[?&]viewfade=0\b/.test(location.search || ''));
 const within4 = (a, b) => b[0] >= a[0] && b[1] >= a[1] && b[0] + b[2] <= a[0] + a[2] && b[1] + b[3] <= a[1] + a[3];
 
+// (Linked through gl-compile.js: the program the figure's renderer started at its setup (prestartOrganStack), else compiled here.)
 function program(gl, vs, fs) {
-  const p = gl.createProgram();
-  for (const [type, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) {
-    const sh = gl.createShader(type);
-    gl.shaderSource(sh, src); gl.compileShader(sh);
-    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
-    gl.attachShader(p, sh); gl.deleteShader(sh);
-  }
-  gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const p = linkProgram(gl, vs, fs);
   const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
   for (let k = 0; k < n; k++) { const name = gl.getActiveUniform(p, k).name; u[name] = gl.getUniformLocation(p, name); }
   return { p, u };
@@ -105,6 +99,12 @@ export function cropToGrid(want, box, scale) {
 
 // `shared`: another stack's painter to paint with (the figure's overlays share the organs': organ-paint keeps its targets grown to the
 // largest size asked, so the two never make them again), which this one then neither makes nor gives back.
+/** Starts the stack's program and its painter's on gl, nothing read (gl-compile.js prestart): createOrganStack takes them up (the
+ *  figure's own stack at its setup, the overlays' at their first set). */
+export function prestartOrganStack(gl) { prestartLayer(gl); prestartOrganPaint(gl); }
+/** The stack's own program alone (a second stack sharing the first one's painter: the overlays). */
+export function prestartLayer(gl) { prestart(gl, LAYER_VS, LAYER_FS); }
+
 export function createOrganStack(gl, { painter: shared = null } = {}) {
   let layerP;
   try { layerP = program(gl, LAYER_VS, LAYER_FS); } catch (e) { console.warn('Organ stack: shader failed; the organs stay one picture.', e); return null; }

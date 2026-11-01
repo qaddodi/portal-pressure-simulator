@@ -13,6 +13,8 @@
 // Without WebGL2, on a software renderer or once the context is lost, createFxGL returns null / reports lost, and paintFx draws.
 // ?fxgpu=0: paintFx always, as before.
 
+import { startProgram, checkProgram } from './gl-compile.js?v=e48e05cdb3';
+
 export const FX_GPU = !(typeof location !== 'undefined' && /[?&]fxgpu=0\b/.test(location.search || ''));
 export const MAX_DUCTS = 8;
 
@@ -107,16 +109,9 @@ void main() {
   o = c;
 }`;
 
-function compile(gl, vs, fs, attrs = []) {
-  const sh = [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]].map(([t, src]) => { const x = gl.createShader(t); gl.shaderSource(x, src); gl.compileShader(x); return x; });
-  const p = gl.createProgram();
-  for (const s of sh) gl.attachShader(p, s);
-  attrs.forEach((n, i) => gl.bindAttribLocation(p, i, n));
-  gl.linkProgram(p);
-  for (const s of sh) if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
-  return p;
-}
+// (Through gl-compile.js: both programs started before either is read, so the driver compiles them side by side, and only the link's
+// status read (?shaderwarm=0: one after the other, each shader's status first, as before).)
+const startOf = (gl, vs, fs, attrs = []) => startProgram(gl, vs, fs, attrs.map((n, i) => [n, i]));
 export const fxShaders = { capVS, capFS, quadVS, compFS };   // (for the shader checks in the unit tests)
 
 export function createFxGL(canvas) {
@@ -128,7 +123,9 @@ export function createFxGL(canvas) {
   const bufs = {};
   let cov = null, lin = null;   // the coverage targets, at the canvas's size
   function build() {
-    const cap = compile(gl, capVS, capFS, ['a', 'b']), comp = compile(gl, quadVS, compFS);
+    const hc = startOf(gl, capVS, capFS, ['a', 'b']), hk = startOf(gl, quadVS, compFS);
+    const cap = checkProgram(gl, hc), comp = checkProgram(gl, hk);
+    for (const x of [...hc.sh, ...hk.sh]) gl.deleteShader(x);
     const loc = (p, names) => Object.fromEntries(names.map((n) => [n, gl.getUniformLocation(p, n)]));
     P = {
       cap, comp,
