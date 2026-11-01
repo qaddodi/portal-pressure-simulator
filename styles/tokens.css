@@ -211,7 +211,7 @@
   /* colour Doppler (both themes): velocity map toward and away, variance map laminar to turbulent, the spectrum's bright end */
   --dop-toward: rgb(224, 90, 48); --dop-away: rgb(58, 75, 168); --dop-var-toward: rgb(240, 138, 40); --dop-var-toward-turb: rgb(255, 232, 48);
   --dop-var-away: rgb(107, 88, 168); --dop-var-away-turb: rgb(46, 154, 92); --dop-bright: rgb(236, 240, 250);
-  --mon-bright: #E8EDF4; --mon-free: #5CA4F2; --mon-wedge: #DA7EDD; --mon-ok: #34C38F; --mon-caution: #F0B43C;   /* (free and wedge: the dark theme's --tr-hv and --tr-wedge) */
+  --mon-bright: #E8EDF4; --mon-ecg: #43D98B; --mon-art: #FF6E62; --mon-free: #5CA4F2; --mon-wedge: #DA7EDD; --mon-ok: #34C38F; --mon-caution: #F0B43C;   /* (free and wedge: the dark theme's --tr-hv and --tr-wedge; ecg and art: a bedside monitor's green ECG and red arterial line) */
   /* pure inks: shadows, glass edges and sheens take these with an alpha (rgb(var(--black-rgb) / .2)) */
   --white: #FFFFFF; --black: #000000; --white-rgb: 255 255 255; --black-rgb: 0 0 0; --night-rgb: 20 22 30;
   --scrim-panel: var(--scrim); --scrim-menu: var(--scrim);

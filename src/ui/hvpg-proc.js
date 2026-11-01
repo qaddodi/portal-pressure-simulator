@@ -14,11 +14,11 @@ import { FONT } from './charts.js?v=b5d09052c5';
 import { pressureColor } from './colormap.js?v=4a2f66f91b';
 import { store, logAction, hiddenNow, updateParams } from './store.js?v=99200f9d94';
 import { shownOr } from './shown.js?v=9f263ec53f';
-import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=553551a92a';
+import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=95f13823ce';
 import { frameFor, cancelFrame } from './frame.js?v=6a53e5fc6e';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
 import { rateOf } from './table-marks.js?v=c82b75e3d5';
-import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=f70220794d';
+import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=192c4357ea';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;

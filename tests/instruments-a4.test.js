@@ -77,7 +77,7 @@ test('the vitals read the slide\'s own numbers, decimals as its tiles print them
   assert.equal(vitalReading({ v: VITALS[0] }, { map: 60 }, false, 0).bad, true);
   const src = read('../src/ui/vitals-monitor.js');
   assert.match(src, /import \{ createBeatClock, ekgSeries(?:, \w+)* \} from '\.\/ekg\.js(\?v=\w+)?'/, 'the strip is the pressure trace\'s');
-  assert.match(src, /g\.fillStyle = c\.bad \? alarm : bright;/);   // (the readings are drawn into their picture, still-layer.js; the bad flag is in its key)
+  assert.match(src, /g\.fillStyle = c\.bad \? bg : inkOf\(c\.id\); g\.fillText\(val, x, by\);/);   // (the readings are drawn into their picture, still-layer.js; the bad flag is in its key: reverse video on the alarm patch)
   assert.match(src, /cells\.map\(\(c, i\) => \[c\.k, c\.u, c\.bad, vals\[i\]\]\)/);
   assert.doesNotMatch(src, /shadowBlur|createLinearGradient|arc\(/, 'no glow, gradient or status dot');
   assert.doesNotMatch(src, /FONT\(\d+, (?:[0-9]|1[01])\)/, 'no word under 12 px');

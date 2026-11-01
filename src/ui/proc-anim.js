@@ -8,7 +8,7 @@
 //   BATO: through the liver into the right portal vein → portal and splenic veins → the short gastric feeder of the varices.
 
 import { frameFor, cancelFrame } from './frame.js?v=6a53e5fc6e';
-import { ease, k01 } from './hvpg-clock.js?v=553551a92a';
+import { ease, k01 } from './hvpg-clock.js?v=95f13823ce';
 const nextFrame = frameFor('proc-anim');
 
 // Each step: [id, its word (the callout on the part it works on, and its numbered step in the teaching card), the caption, a

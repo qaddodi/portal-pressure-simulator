@@ -73,7 +73,9 @@ export function createVitalsMonitor({ stillLayer = true } = {}) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 120 || hh < 90) return;
     ctx.clearRect(0, 0, w, hh);
-    const bg = C('--mon-bg'), text = C('--mon-text'), bright = C('--mon-bright'), alarm = C('--mon-alarm'), grid = C('--mon-grid');
+    const bg = C('--mon-bg'), text = C('--mon-text'), bright = C('--mon-bright'), alarm = C('--mon-alarm'), grid = C('--mon-grid'), ecg = C('--mon-ecg') || bright, art = C('--mon-art') || bright;
+    // (As a bedside monitor colours them: the ECG and the heart rate green, the arterial pressure red, the rest in the monitor's white.)
+    const inkOf = (id) => (id === 'hr' ? ecg : id === 'map' ? art : bright);
     const pad = 14, ew = w - 2 * pad, eh = Math.round(clamp(hh * 0.42, 34, 110)), top = pad, bot = pad + eh;
     ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
     // The panel, the baseline and the strip's name: still.
@@ -90,7 +92,7 @@ export function createVitalsMonitor({ stillLayer = true } = {}) {
       const X = (t) => pad + ((t - (x1 - SPAN_S)) / SPAN_S) * ew, Y = (v) => bot - 6 - ((v + 0.3) / 1.3) * (eh - 22);
       if (e.x.length > 1) {
         ctx.save(); ctx.beginPath(); ctx.rect(pad, top, ew, eh); ctx.clip();
-        ctx.strokeStyle = bright; ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath();
+        ctx.strokeStyle = ecg; ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath();
         for (let i = 0; i < e.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(e.x[i]), Y(e.v[i]));
         ctx.stroke(); ctx.restore();
       }
@@ -111,11 +113,11 @@ export function createVitalsMonitor({ stillLayer = true } = {}) {
       }
       return Number.isFinite(c.v) ? fmt(shownV.get(c.id), c.d) : '—';
     });
-    stillCells.lay(ctx, JSON.stringify([cv.width, cv.height, w, hh, text, bright, alarm, y0, rh, cw, pad, fontEpoch, cells.map((c, i) => [c.k, c.u, c.bad, vals[i]])]), (g) => {
+    stillCells.lay(ctx, JSON.stringify([cv.width, cv.height, w, hh, text, bright, alarm, ecg, art, bg, y0, rh, cw, pad, fontEpoch, cells.map((c, i) => [c.k, c.u, c.bad, vals[i]])]), (g) => {
       g.textBaseline = 'alphabetic'; g.textAlign = 'left';
       cells.forEach((c, i) => {
         const x = pad + i * cw, val = vals[i];
-        g.font = FONT(600, 12); g.fillStyle = text; g.fillText(c.k, x, y0 + 12);
+        g.font = FONT(600, 12); g.fillStyle = c.bad ? alarm : inkOf(c.id) === bright ? text : inkOf(c.id); g.fillText(c.k, x, y0 + 12);
         let big = Math.round(clamp(Math.min(rh - 20, cw * 0.42, 46), 22, 46)), uw;
         for (;;) {
           g.font = FONT(500, 12); uw = g.measureText(c.u).width;
@@ -123,9 +125,10 @@ export function createVitalsMonitor({ stillLayer = true } = {}) {
           if (g.measureText('88.8').width + uw + 10 <= cw - 6 || big <= 18) break;
           big -= 2;
         }
-        const by = y0 + 12 + 6 + big;
-        g.fillStyle = c.bad ? alarm : bright; g.fillText(val, x, by);
-        const nw = g.measureText(val).width;
+        const by = y0 + 12 + 6 + big, nw = g.measureText(val).width;
+        // (A reading past its limit is shown as a monitor's parameter alarm is: the number in reverse video on a patch of the alarm colour.)
+        if (c.bad) { g.fillStyle = alarm; g.beginPath(); const px = x - 5, py = by - big * 0.78 - 4, pw = nw + 10, ph = big * 0.78 + 10; g.roundRect ? g.roundRect(px, py, pw, ph, 5) : g.rect(px, py, pw, ph); g.fill(); }
+        g.fillStyle = c.bad ? bg : inkOf(c.id); g.fillText(val, x, by);
         g.font = FONT(500, 12); g.fillStyle = c.bad ? alarm : text; g.fillText(c.u, x + nw + 5, by);
       });
     });
