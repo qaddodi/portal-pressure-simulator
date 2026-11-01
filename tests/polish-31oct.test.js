@@ -354,3 +354,10 @@ test('the PPG tile names the gradient as the rest of the app does (portal pressu
   assert.match(dock, /id: 'ppg'[^\n]*title: 'Portal pressure gradient: portal confluence/);
   assert.doesNotMatch(dock, /Portosystemic pressure gradient/);
 });
+
+test('visible words in the talks, the Testing deck and the toasts are US spelling (gray, color, canceled)', () => {
+  for (const f of ['src/ui/test-decks/demo-all-new-visuals.js', 'src/ui/decks/ascites.js']) {
+    assert.doesNotMatch(src(f), /\b(the|a|its|rating|cut-off|switch the|plain) (grey|colours?)\b/i, f);
+  }
+  assert.doesNotMatch(src('src/ui/stage.js'), /toast\('[^']*cancelled/);
+});

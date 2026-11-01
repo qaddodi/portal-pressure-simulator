@@ -11756,7 +11756,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function shuntDrop(ev) {
     const tgt = edgeFromEvent(ev);
     if (tgt && shunt.targets.has(tgt)) { shuntDropOn(tgt); return; }
-    if (!tgt) { cancelShunt(); toast('Shunt cancelled.'); }
+    if (!tgt) { cancelShunt(); toast('Shunt canceled.'); }
   }
   function shuntDropOn(tgt) {
     const r = shunt?.targets.get(tgt);

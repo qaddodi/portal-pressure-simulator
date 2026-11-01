@@ -26,12 +26,12 @@ import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?
 import { NODE_POS } from './anatomy.js?v=6d1acc2a06';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=9203793d71';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=1ea1ddc763';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=8cc52435da';
 import { createHvpgMonitor } from './hvpg-proc.js?v=cca382f7dc';
-import { createTools } from './presenter-tools.js?v=23a5c0806f';
-import { openHandout } from './handout.js?v=c777173ffd';
+import { createTools } from './presenter-tools.js?v=3983ea97e2';
+import { openHandout } from './handout.js?v=454e2a70ba';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js?v=c82b75e3d5';
@@ -39,12 +39,12 @@ import { frameFor, cancelFrame } from './frame.js?v=6a53e5fc6e';
 import { createFigureKey } from './figure-key.js?v=e41b9d0553';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=4c75b2cef2';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=aa0a643709';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=80c7686490';
 import { clotWords } from './callout-math.js?v=3e3475420c';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=43a49e791a';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=ee363b58a6';
+import { anchorsOf, roomFor } from './cam-room.js?v=2a0d1621e5';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=665223a4a5';
@@ -67,7 +67,7 @@ const readMine = () => { try { const v = JSON.parse(localStorage.getItem(KEY) ||
 const PREVIEW = typeof location !== 'undefined' && /\/preview\//.test(location.pathname);
 // (Loaded only there: the live site's bundle carried the 53 KB deck for nothing. The menu reads TESTING when it opens, long after.)
 let TESTING = [];
-const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js?v=8aeba8bb2b').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
+const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js?v=9fa2a9216f').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
 // (Says whether it kept them: storage that is full or blocked used to report "Script created" for a script that was not there.)
 const writeMine = (list) => { try { localStorage.setItem(KEY, JSON.stringify(list)); return true; } catch { return false; } };
 const NO_ROOM = 'This device has no room to keep scripts. Free some browser storage and try again.';
