@@ -117,7 +117,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function pickWindow() {
     pickNext = false;
     if (manualSweep) return;
-    const i = windowIndexFor(cv.clientWidth - PAD_L - PAD_R);   // (layout width: not scaled by a card still easing in, and never a stale cached size)
+    const i = windowIndexFor((ro && cvW > 0 ? cvW : cv.clientWidth) - PAD_L - PAD_R);   // (layout width: not scaled by a card still easing in, and never a stale cached size)
     if (i !== sweepIndex) { setSweep(i); updateReport(); }
   }
   const WAVE_PX = 20;   // the a, S, v, D letters: large enough to read against the card text
@@ -148,7 +148,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const showStat = (wrap, on) => {
     if (wrap.hidden !== on) return;
     wrap.hidden = !on;
-    if (on && wrap.isConnected && wrap.getClientRects().length) wrap.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
+    if (on && wrap.isConnected && shown()) wrap.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
   };
   const stats = h('dl', { class: 'dop-stats' }, ['Peak', 'Trough', 'Pulsatility', 'CI', 'Proximal', 'Mid', 'Distal'].map((k) => {
     const dd = h('dd', {}, '—');
@@ -168,7 +168,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   let seen = false, repW = -1, cvW = -1;
   const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { const was = seen; seen = es[es.length - 1].isIntersecting; if (seen && !was) redraw(); }) : null;
   io?.observe(cv);
-  const shown = () => cv.isConnected && (io ? seen : !!cv.offsetParent);
+  const shown = () => cv.isConnected && (io ? seen : true);   // (no observer, a bare test page: taken as shown)
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => {
     for (const e of es) { const w = e.borderBoxSize?.[0]?.inlineSize ?? e.contentRect.width; if (e.target === report) repW = w; else cvW = w; }
   }) : null;
@@ -811,6 +811,32 @@ export function createDoppler({ onProbe, pickGate = true }) {
     return { width: r > l ? r - l + (patternEl.textContent && !patternEl.hidden ? 14 : 0) : 0, bottom: b };
   }
 
+  // The strip laid out from the page as it stands just after a frame (see drawWith): its type, its fit, its height; the trace's window
+  // picked on its showing. A change asks for a frame, which draws with it.
+  let layoutSoon = 0, layoutSig = '', layW = 0, layH = 0;
+  function stripLayout() {
+    layoutSoon = 0;
+    if (!frame) return;
+    const w = layW, hh = layH, was = `${ovTop}|${ovOn}|${stripKey}|${sweepIndex}`;
+    const ovKey = `${w}x${hh}`, tOv = performance.now();
+    if (ovKey !== ovLast || tOv - ovAt > 500) {
+      ovAt = tOv; const cs = getComputedStyle(cv); ovOn = cs.getPropertyValue('--dop-ov').trim() === '1';
+      // (the strip's type sizes, read with it: a slide's text scale can settle after the strip was fitted, which left it fitted too wide)
+      if (ovOn) stripType = ['--bs', '--pz-num', '--fs-12', '--fs-14', '--fs-20'].map((v) => cs.getPropertyValue(v).trim()).join();
+    }
+    if (ovOn) {
+      const k0 = stripKey; fitStrip();
+      // (No word of the strip laid out yet gives no bottom: the strip keeps its last height. Taken as is, an infinite height made the
+      // trace's image fail to build, a monitor drawn while hidden.)
+      if (ovKey !== ovLast || stripKey !== k0) { rng ||= document.createRange(); const t = Math.max(Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4, stripStep === stripBase ? stripFull : 0); if (Number.isFinite(t) && (ovKey !== ovLast || t > ovTop || t < ovTop - 4)) ovTop = t; }
+    } else {
+      ovTop = 26;
+      if (stripFit) { stripStepSet(0); stripKey = stripFit = stripWordsKey = ''; stripSteps.clear(); velEl.firstChild.style.minWidth = ''; }   // (off the strip the words are always whole and full size, the number its own width)
+    }
+    ovLast = ovKey;
+    if (pickNext) pickWindow();
+    if (`${ovTop}|${ovOn}|${stripKey}|${sweepIndex}` !== was && !raf) raf = nextFrame(loop);
+  }
   function draw(now = performance.now()) {
     const pen = fitPen(cv, words);
     try { drawWith(pen, now); } finally { pen.ctx.end?.(); }
@@ -836,27 +862,14 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // On a slide's data card the report sits in the top strip (CSS sets --dop-ov on the box): the strip is as tall as the
     // report, and the vessel and settings move to the bottom strip under the second ticks. Read again when the size changes.
     // (Its height is read only when the strip was refitted or the size changed, and it gives back room only by more than 4 px.)
-    const ovKey = `${w}x${hh}`, tOv = performance.now();
-    if (ovKey !== ovLast || tOv - ovAt > 500) {
-      ovAt = tOv; const cs = getComputedStyle(cv); ovOn = cs.getPropertyValue('--dop-ov').trim() === '1';
-      // (the strip's type sizes, read with it: a slide's text scale can settle after the strip was fitted, which left it fitted too wide)
-      if (ovOn) stripType = ['--bs', '--pz-num', '--fs-12', '--fs-14', '--fs-20'].map((v) => cs.getPropertyValue(v).trim()).join();
-    }
-    if (ovOn) {
-      const k0 = stripKey; fitStrip();
-      // (No word of the strip laid out yet gives no bottom: the strip keeps its last height. Taken as is, an infinite height made the
-      // trace's image fail to build, a monitor drawn while hidden.)
-      if (ovKey !== ovLast || stripKey !== k0) { rng ||= document.createRange(); const t = Math.max(Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4, stripStep === stripBase ? stripFull : 0); if (Number.isFinite(t) && (ovKey !== ovLast || t > ovTop || t < ovTop - 4)) ovTop = t; }
-    } else {
-      ovTop = 26;
-      if (stripFit) { stripStepSet(0); stripKey = stripFit = stripWordsKey = ''; stripSteps.clear(); velEl.firstChild.style.minWidth = ''; }   // (off the strip the words are always whole and full size, the number its own width)
-    }
-    ovLast = ovKey;
+    // (The strip's fit, the words' type and the strip's height are worked out just after the frame, stripLayout, never inside it:
+    // here only asked for, when the size, the words or half a second has moved on. The frame draws with the last fit.)
+    const ovKey = `${w}x${hh}`, sig = `${ovKey}|${velEl.firstChild?.textContent}|${dirFull}|${patFull}|${pickNext}`;
+    if (sig !== layoutSig || performance.now() - ovAt > 500) { layoutSig = sig; layW = w; layH = hh; if (!layoutSoon) layoutSoon = setTimeout(stripLayout, 0); }
     const padL = PAD_L, padR = PAD_R, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;
     // (A slide's paired trace takes a band at the foot of the trace area: the main trace is shorter by it, the card the same size.)
     const W = Math.max(1, Math.round(w - padL - padR)), Hall = Math.max(1, Math.round(hh - padT - padB)), PB = pair ? pairBand(Hall) : 0, H = PB ? Hall - PB - PAIR_GAP : Hall;
     if (w < 60 || hh < 60 || !Number.isFinite(H) || !Number.isFinite(W)) return;
-    if (pickNext) pickWindow();
     const label = probe ? probeName(meta()) + (isStentProbe() ? ` · ${SEGS.find(([v]) => v === gateOf())[1]}` : '') : '';
     ctx.font = FONT(600, 12); ctx.fillStyle = cssAlpha('--white', .86); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(label, padL, yLab);
