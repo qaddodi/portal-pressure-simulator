@@ -88,3 +88,25 @@ export function cancelRest(id) {
   if (!q.delete(id)) carry?.delete(id);
   asked.delete(id);
 }
+
+// A class on or off from a per-frame paint (a ring's "off", a layer's "live"): the class changes only when the answer changes, and the
+// write is made between frames, so a tick that repeats the same answer for sixty frames writes nothing. The wanted state is kept on the
+// element (restClass_ → {name: on}); the first call always writes, as the element's state is not known yet. Only for a class this
+// helper alone sets on that element.
+const classWant = new WeakMap();
+let classQ = [], classAsk = 0;
+function classFlush() {
+  classAsk = 0;
+  const list = classQ; classQ = [];
+  for (let i = 0; i < list.length; i += 3) if (list[i].isConnected !== undefined) list[i].classList.toggle(list[i + 1], list[i + 2]);
+}
+/** Sets class `name` on `el` to `on` between frames; nothing is queued while the wanted state is unchanged. */
+export function restClass(el, name, on) {
+  on = !!on;
+  let m = classWant.get(el);
+  if (!m) classWant.set(el, m = Object.create(null));
+  if (m[name] === on) return;
+  m[name] = on;
+  classQ.push(el, name, on);
+  if (!classAsk) classAsk = restPass(classFlush);
+}

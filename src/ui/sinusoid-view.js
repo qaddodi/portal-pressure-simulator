@@ -34,7 +34,7 @@ import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.j
 import { FADE_MS, fadeAlpha } from './res-fade.js?v=1b8e9e6f20';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { restPass } from './rest-pass.js?v=e877681653';
+import { restPass, restClass } from './rest-pass.js?v=75e0aa565d';
 // ?willchange=0 in the address: the layer keeps will-change always, as before.
 const SV_LAYER = !(typeof location !== 'undefined' && /[?&]willchange=0\b/.test(location.search));
 const nextFrame = frameFor('sinusoid-view');
@@ -960,9 +960,9 @@ export function createSinusoidView({ host, before = null }) {
       shown = opacity; dive = dv;
       el.style.opacity = opacity.toFixed(3);
       el.style.visibility = opacity > 0 ? 'visible' : 'hidden';
-      if (SV_LAYER) el.classList.toggle('sv-live', opacity > 0);   // (its compositor layer only while it is shown)
+      if (SV_LAYER) restClass(el, 'sv-live', opacity > 0);   // (its compositor layer only while it is shown)
       open = isOpen;
-      el.classList.toggle('on', isOpen);
+      restClass(el, 'on', isOpen);
       el.setAttribute('aria-hidden', String(!isOpen));
       // Closed: the drawing buffer is given back (it is sized again on the way in).
       if (opacity <= 0 && was > 0) { svFadeEnd(); canvas.width = 0; canvas.height = 0; gpuKey = ''; }

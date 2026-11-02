@@ -70,7 +70,7 @@
 import { TILE, SCALE, RATE } from './table-marks.js?v=ff3ed0cc47';
 import { HVPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { frameFor } from './frame.js?v=8c8f2f530e';
-import { restPass } from './rest-pass.js?v=e877681653';
+import { restPass, restClass } from './rest-pass.js?v=75e0aa565d';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=410d6fdbe3';
 import { airRatio } from './endo-size.js?v=e0a58bf20e';
@@ -821,7 +821,7 @@ export function createCurve() {
     if (!parts || !r) return;
     const ok = Number.isFinite(r.x), cx = ok ? X(clamp(r.x, Math.min(G.x0, G.x1), Math.max(G.x0, G.x1))) : 0, f = G.f;
     parts.at.setAttribute('x1', cx.toFixed(1)); parts.at.setAttribute('x2', cx.toFixed(1));
-    parts.at.classList.toggle('off', !ok);
+    restClass(parts.at, 'off', !ok);
     parts.svg.dataset.ring = ok ? [r.x, ...r.ys.map((v) => (Number.isFinite(v) ? v.toFixed(2) : ''))].join(' ') + (goal?.on ? ' curve' : ' live') : '';   // (the browser checks read it)
     const left = cx > (G.L + G.R) / 2, fs = 1.1 * f, rr = Math.max(5, f * 0.45) + 2;
     const cys = parts.lines.map(() => null);   // (no ring or value for the current state on any chart: his 29 Oct; the case is still read into data-ring)
@@ -846,7 +846,7 @@ export function createCurve() {
       const lead = merge && j === ringed[0], gone = merge && on && !lead;   // (the first line's value carries both)
       const cyP = lead ? (cys[ringed[0]] + cys[ringed[1]]) / 2 : cy;
       p.ring.setAttribute('cx', cx.toFixed(1)); p.ring.setAttribute('cy', cy.toFixed(1));
-      p.ring.classList.toggle('off', !on); p.val.classList.toggle('off', !on || gone || G.keyRead);
+      restClass(p.ring, 'off', !on); restClass(p.val, 'off', !on || gone || G.keyRead);
       // (The value goes into its key, the ring alone on the chart.)
       if (G.keyRead) { const kt = on ? ` ${fmt(v, p.l.d)} ` : ' '; if (parts.kv[j]) setWords(parts.kv[j], kt); return; }
       const pieces = lead ? ringed.map((jj) => ({ c: parts.lines[jj].l.c, t: `${fmt(r.ys[jj], parts.lines[jj].l.d)} ${shortUnit(parts.lines[jj].l.unit)}` })) : null;
@@ -887,7 +887,7 @@ export function createCurve() {
       boxes.push(pl.box);
       if (G.ag) { boxes.push(pl.box); if (n === 0) upperY = pl.y; }   // (two values side by side read as one: landing on the other costs double)
       p.val.setAttribute('x', pl.x.toFixed(1)); p.val.setAttribute('y', pl.y.toFixed(1)); p.val.setAttribute('text-anchor', pl.anchor);
-      p.val.classList.toggle('on', pl.n > 0);   // (no clear spot on a cramped chart: the lines stop round the words)
+      restClass(p.val, 'on', pl.n > 0);   // (no clear spot on a cramped chart: the lines stop round the words)
     });
     // (With against, each line's name on the drawing beside its own line, after the values: the first clear spot along it,
     // over the line, then under it.)
@@ -920,8 +920,8 @@ export function createCurve() {
     // (Every name clear of everything, or none on the drawing: then the key at the top names the lines.)
     if (parts.alt) {
       const fits = !ser || (named.length > 0 && named.every(Boolean));
-      parts.lines.forEach((p) => p.name?.classList.toggle('off', !ser || !fits));
-      parts.alt.classList.toggle('off', fits);
+      parts.lines.forEach((p) => { if (p.name) restClass(p.name, 'off', !ser || !fits); });
+      restClass(parts.alt, 'off', fits);
       parts.fits = fits;
     }
     // (The x cut-offs' names over the plot, on their line's top: centred, else to its right or left, clear of each other and of
@@ -940,9 +940,9 @@ export function createCurve() {
     nd.forEach((d, i) => {
       const pl = spots[i];
       d.name.setAttribute('x', pl.x.toFixed(1)); d.name.setAttribute('y', pl.y.toFixed(1)); d.name.setAttribute('text-anchor', pl.anchor);
-      d.name.classList.toggle('off', !pl.ok);
+      restClass(d.name, 'off', !pl.ok);
       if (pl.lead && d.lead) for (const [k, v] of [['x1', pl.lead[0]], ['y1', pl.lead[1]], ['x2', pl.lead[2]], ['y2', pl.lead[3]]]) d.lead.setAttribute(k, v.toFixed(1));
-      d.lead?.classList.toggle('off', !pl.lead);
+      if (d.lead) restClass(d.lead, 'off', !pl.lead);
       if (pl.ok) { boxes.push(pl.box); if (pl.lead) leads.push(Object.assign([...pl.lead], { w: 2 })); }
     });
     // (The zone's name inside it, low and away from the lines: the right corner, else the left.)
@@ -965,7 +965,7 @@ export function createCurve() {
       setWords(c.el, short ? c.short : c.txt);
       boxes.push(p.box);
       c.el.setAttribute('x', p.x.toFixed(1)); c.el.setAttribute('y', p.y.toFixed(1)); c.el.setAttribute('text-anchor', p.anchor);
-      c.el.classList.toggle('on', !!p.on);
+      restClass(c.el, 'on', !!p.on);
     }
     const ax = G.ax;
     parts.svg.setAttribute('aria-label', `${parts.lines.map((p) => p.l.name).join(' and ')} against ${ax.name.toLowerCase()}, ${fmt(G.x0, ax.d)} to ${fmt(G.x1, ax.d)} ${ax.unit}`

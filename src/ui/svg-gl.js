@@ -16,7 +16,7 @@
 import { createTraceGL, fitPen } from './trace-gl.js?v=0364111c77';
 import { flattenPath, elBox } from './shape-gl.js?v=d13987be06';
 import { finalFrameFor, easeNow } from './frame.js?v=8c8f2f530e';
-import { restPass } from './rest-pass.js?v=e877681653';
+import { restPass } from './rest-pass.js?v=75e0aa565d';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
 import { morphSvg } from './svg-morph.js?v=956d7c9abc';

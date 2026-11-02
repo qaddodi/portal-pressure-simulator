@@ -17,6 +17,7 @@
 import { TILE, RATE, tileShown } from './table-marks.js?v=ff3ed0cc47';
 import { cutsOf } from './tool-curve.js?v=65a4122131';
 import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
+import { restClass } from './rest-pass.js?v=75e0aa565d';
 import { frameFor } from './frame.js?v=8c8f2f530e';
 import { createSvgGL, svgModel, setWords } from './svg-gl.js?v=410d6fdbe3';
 const nextFrame = frameFor('tool-causes');
@@ -220,9 +221,9 @@ export function createCauses({ host } = {}) {
     for (const c of parts.cuts) {
       const x = X(c.v), on = c.v > dom.lo && c.v < dom.hi, xs = x.toFixed(1);
       c.line.setAttribute('x1', xs); c.line.setAttribute('x2', xs); c.num.setAttribute('x', xs);
-      c.line.parentNode.classList.toggle('off', !on);
+      restClass(c.line.parentNode, 'off', !on);
       const l = x - c.tw / 2, r = x + c.tw / 2, show = on && l >= lastR + gap && r <= ux0 - gap;
-      c.num.parentNode.classList.toggle('off', !show);
+      restClass(c.num.parentNode, 'off', !show);
       if (show) lastR = r;
     }
     const alive = [];
