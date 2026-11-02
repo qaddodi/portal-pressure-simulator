@@ -92,6 +92,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     const m = st?.mo;
     if (!m) return;
     m.t0 ??= now;
+    st.tickAt = performance.now();
     const t = Math.max(0, now - m.t0), p = Math.min(1, t / m.ms);
     st.cur = lerpTo(m, easeArrive(p));
     for (const a of m.anims) if (a) a.currentTime = Math.min(t, m.ms);
@@ -202,8 +203,15 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       for (const v of st.veils) v.classList.add('on');
       const me = st, going = drive({ dx: plan.dx, dy: plan.dy, s: plan.s }, ms, [...riders.map((r) => r.anim), ...st.holes.map((h) => h.anim)]);
       if (ms && !part) {
-        // (A glide that never reports its end (a hidden tab runs no frames) is let go after its time.)
-        Promise.race([going, new Promise((res) => setTimeout(res, ZOOM_MS + 120))]).then(() => { if (st === me && !me.closing) { me.steady = true; if (me.mo) { me.mo.done(); me.mo = null; me.cur = { dx: plan.dx, dy: plan.dy, s: plan.s }; } } });
+        // (A glide that never reports its end (a hidden tab runs no frames) is let go after its time; one whose frames are coming, however slowly, is not.)
+        const arm = (wait) => setTimeout(() => {
+          if (st !== me || me.closing || !me.mo) return;
+          if (performance.now() - (me.tickAt ?? 0) < 400) { arm(200); return; }
+          me.mo.done(); me.mo = null; me.cur = { dx: plan.dx, dy: plan.dy, s: plan.s }; me.steady = true;
+          for (const a of [...riders.map((r) => r.anim), ...me.holes.map((h) => h.anim)]) a?.finish?.();
+        }, wait);
+        arm(ZOOM_MS + 120);
+        going.then(() => { if (st === me && !me.closing) me.steady = true; });
       }
       return true;
     },
@@ -247,7 +255,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       for (const r of s.riders) r.anim = glide(r.el, 'transform', 'none', SHUT_MS, r.anim);
       for (const h of s.holes) holeTo(h, s.box, SHUT_MS);
       // (A glide that never reports its end, a tab hidden mid-way, is let go after its time.)
-      const guard = new Promise((res) => setTimeout(res, SHUT_MS + 120));
+      const guard = new Promise((res) => { const arm = (w) => setTimeout(() => { if (st !== s || !s.mo || performance.now() - (s.tickAt ?? 0) >= 400) res(); else arm(200); }, w); arm(SHUT_MS + 120); });
       s.closing = Promise.race([drive({ dx: 0, dy: 0, s: 1 }, SHUT_MS, [...s.riders.map((r) => r.anim), ...s.holes.map((h) => h.anim)]), guard]).then(() => { if (st === s) end(); });
       return s.closing;
     },

@@ -637,7 +637,7 @@ test('zoom: the words stay up behind the card, cut away under it by a clip eased
     assert.equal(cuts.every((a) => !a.cancelled || a !== glide), true);
     z.reset();
     assert.ok(words.anims.every((a) => a.cancelled || a.prop !== 'clipPath'), 'the cut is lifted when the zoom ends');
-    assert.ok(/under: \(\) => \[text\]/.test(js), 'the presenter hands the words to the zoom');
+    assert.ok(/under: \(\) => \[text, shade\]/.test(js), 'the presenter hands the words and the tab on the card\'s edge (the shade holds it) to the zoom');
     assert.ok(!/\.pz-zoomed :is\(\.pz-text/.test(css), 'the words are not faded out by the zoom any more');
   } finally { back(); }
 });
