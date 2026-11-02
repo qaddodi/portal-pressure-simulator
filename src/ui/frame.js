@@ -60,6 +60,8 @@ function flush(now) {
   pending = 0;
   paceStep();
   frames++; allFrames++;
+  if (chained && lastNow && now > lastNow) noteGap(now - lastNow);
+  frameT0 = performance.now();
   const watching = watchers.size > 0, t0 = watching ? performance.now() : 0;
   parts = watching ? outsideParts.splice(0) : null;
   if (reads.size) {
@@ -79,6 +81,9 @@ function flush(now) {
     run(finalNow, now, 'final');
   } finally { current = null; lateNow = null; finalNow = null; }
   const script = watching ? performance.now() - t0 : 0;
+  lastScript = performance.now() - frameT0; frameT0 = 0;
+  overLast = lastScript > WATCH_SHARE * frameBudget();
+  if (FPS_LOG) logOverrun(now, lastScript, parts);
   globalThis.__frameProbe?.(now);   // (the tests read the camera here, once every frame has been drawn)
   roll(now);
   if (watching) {
@@ -86,7 +91,7 @@ function flush(now) {
     for (const w of watchers) try { w(f); } catch (e) { setTimeout(() => { throw e; }); }
   }
   parts = null; lastNow = now;
-  if ((queue.size || late.size || fin.size || reads.size) && !pending) pending = requestAnimationFrame(flush);
+  if ((queue.size || late.size || fin.size || reads.size || FPS_FORCE) && !pending && !(FPS_FORCE && document.hidden)) pending = requestAnimationFrame(flush);
   chained = !!pending;
 }
 
@@ -104,6 +109,86 @@ function run(batch, now, phase) {
 
 /** Calls fn({ now, gap, script, parts }) after every frame the scheduler runs (frame-stats.js has the shape). Returns the stop. */
 export function watchFrames(fn) { watchers.add(fn); return () => watchers.delete(fn); }
+
+// ── The display's refresh and the frame budget (120 Hz recs, P1; 2 Nov 2026, Mohammad: "make this game engine 120hz") ──
+// The rate the browser offers the page, told from the intervals of frames that ran one after another (the lower quartile of the last
+// 240, nearest of the rates screens run at: a late frame in Safari is followed by a short one, so the shortest ones lie). Until it is
+// known the budget is 120 Hz's. screen.refreshRate (a few browsers have it) is taken as the panel's own rate when it is given.
+export const REFRESH_RATES = [30, 48, 50, 60, 72, 75, 90, 100, 120, 144, 165, 240];
+/** The refresh rate (Hz) closest to the lower quartile of `dts` (frame intervals, ms), or 0 with too few to tell. */
+export function refreshFrom(dts) {
+  const v = dts.filter((d) => d > 2 && d < 100).sort((a, b) => a - b);
+  if (v.length < 20) return 0;
+  const hz = 1000 / v[Math.floor(v.length / 4)];
+  return REFRESH_RATES.reduce((a, b) => (Math.abs(b - hz) < Math.abs(a - hz) ? b : a));
+}
+const gapRing = new Float32Array(240);
+let gapN = 0, gapAt = 0, hzNow = 0, hzMax = 0, hzAt = 0;
+function noteGap(dt) {
+  gapRing[gapAt] = dt; gapAt = (gapAt + 1) % gapRing.length; if (gapN < gapRing.length) gapN++;
+  if (++hzAt >= 30) { hzAt = 0; hzNow = refreshFrom(Array.from(gapRing.subarray(0, gapN))); if (gapN >= 120) hzMax = Math.max(hzMax, hzNow); }
+}
+/** The refresh the browser offers the page now (Hz; 0 until enough frames have run). */
+export const refreshHz = () => hzNow;
+/** The highest refresh seen offered on this page (Hz): the panel can do at least this, so less now is a throttle. */
+export const refreshMaxHz = () => Math.max(hzMax, +globalThis.screen?.refreshRate || 0);
+/** The intervals of the last frames that ran one after another (ms, oldest first). */
+export const recentGaps = () => { const a = Array.from(gapRing.subarray(0, gapN)); return gapN < gapRing.length ? a : [...a.slice(gapAt), ...a.slice(0, gapAt)]; };
+/** One frame's time at the refresh offered (ms): 8.3 at 120 Hz (and until the refresh is known), 16.7 at 60. */
+export const frameBudget = () => 1000 / (hzNow || 120);
+
+// ── The frame-time watchdog (recs P3): a frame's main-thread work is held to its budget ──
+// Locked (the default): once the frame's script has used WATCH_SHARE (70 %) of the budget, the surfaces that do not draw the moving
+// picture (the credit's art, the timeline, the dock's strip, edges, the inspector and the like: DEFERRABLE) are carried to the next
+// frame instead of run in this one, up to SHED_MAX frames in a row each, so none starves. surfaces that can drop detail ask
+// overBudget(): true when the last frame went over the share. Balanced: shed only past the whole budget. Quality: never (full detail
+// whatever the frame time). ?perfmode=locked|balanced|quality chooses (and is kept); ?watchdog=0 never sheds.
+export const PERF_MODES = ['locked', 'balanced', 'quality'];
+const WATCHDOG = !(typeof location !== 'undefined' && /[?&]watchdog=0\b/.test(location.search || ''));
+export const WATCH_SHARE = 0.7;
+const SHED_MAX = 3;
+export const DEFERRABLE = new Set(['credit', 'timeline', 'scroll-edges', 'inspector', 'dock', 'figkey', 'scale select', 'menu-profile', 'menu', 'vitals-monitor', 'main', 'debug', 'perf readout']);
+let perfModeNow = 'locked';
+try {
+  const q = typeof location !== 'undefined' ? /[?&]perfmode=(locked|balanced|quality)\b/.exec(location.search || '')?.[1] : null;
+  if (q) { perfModeNow = q; localStorage.setItem('pps.perfMode', q); } else { const v = localStorage.getItem('pps.perfMode'); if (PERF_MODES.includes(v)) perfModeNow = v; }
+} catch { /* storage unavailable */ }
+/** The performance mode: 'locked' (hold the refresh, shed what can wait), 'balanced' or 'quality'. */
+export const perfMode = () => perfModeNow;
+export function setPerfMode(m) { if (!PERF_MODES.includes(m)) return; perfModeNow = m; try { localStorage.setItem('pps.perfMode', m); } catch { /* storage unavailable */ } }
+let frameT0 = 0, lastScript = 0, overLast = false;
+const shedRun = new Map();
+let shedTotal = 0;
+/** True when the last frame's script went over 70 % of the budget (Locked and Balanced; never in Quality): drop detail that can wait. */
+export const overBudget = () => WATCHDOG && perfModeNow !== 'quality' && overLast;
+/** The last frame's main-thread script time (ms), and how many callbacks the watchdog has carried over since the page opened. */
+export const watchdogStats = () => ({ last: lastScript, shed: shedTotal, mode: perfModeNow, budget: frameBudget() });
+function shedding(tag) {
+  if (!WATCHDOG || perfModeNow === 'quality' || !frameT0 || !DEFERRABLE.has(tag)) { if (shedRun.size) shedRun.delete(tag); return false; }
+  const share = perfModeNow === 'locked' ? WATCH_SHARE : 1;
+  const n = shedRun.get(tag) || 0;
+  if (n >= SHED_MAX || performance.now() - frameT0 < share * frameBudget()) { shedRun.delete(tag); return false; }
+  shedRun.set(tag, n + 1); shedTotal++;
+  return true;
+}
+
+// ── ?fps=120 (recs, quick win 1): frames asked for every refresh while the page shows, and every overrun logged ──
+// The scheduler keeps its chain alive (no idle stop), and each frame whose interval passed 1.5 refreshes, or whose script passed the
+// budget, is written to the console with the surfaces that ran in it (largest first). A measuring aid: it keeps the page drawing.
+const FPS_Q = typeof location !== 'undefined' ? /[?&]fps=(\d+)\b/.exec(location.search || '') : null;
+export const FPS_FORCE = !!FPS_Q;
+const FPS_LOG = !!FPS_Q;
+const FPS_HZ = FPS_Q ? +FPS_Q[1] || 120 : 0;
+let fpsUnwatch = null, fpsPrev = 0;
+if (FPS_LOG) fpsUnwatch = watchFrames(() => {});   // (a watcher on, so every frame's surfaces are timed for the log)
+function logOverrun(now, script, list) {
+  const per = 1000 / Math.max(FPS_HZ, hzNow || 0, 1), gap = chained && fpsPrev ? now - fpsPrev : 0;
+  fpsPrev = now;
+  if (gap <= 1.5 * per && script <= per) return;
+  const top = (list || []).slice().sort((a, b) => b[2] - a[2]).slice(0, 5).map(([t, ph, ms]) => `${t} (${ph}) ${ms.toFixed(1)}`).join(', ');
+  console.warn(`[fps] overrun at ${(now / 1000).toFixed(2)} s: interval ${gap.toFixed(1)} ms, script ${script.toFixed(1)} ms (budget ${per.toFixed(1)} ms at ${Math.round(1000 / per)} Hz)${top ? `: ${top}` : ''}`);
+}
+export const fpsLogOn = () => !!fpsUnwatch;
 
 // Closes the per-second window once a second has passed (also when perf() is read, so a page whose surfaces all stopped
 // asking reports zero rather than its last busy second).

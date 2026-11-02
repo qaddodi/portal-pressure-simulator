@@ -2,7 +2,7 @@
 // It is docked by the stylesheet, never floated: on a phone at the words' bottom-left corner, opposite the nav pill; on a wider
 // screen (Mac, iPad, a phone held sideways) right on top of the nav pill at the lower right, right-aligned with it (Mohammad,
 // 15 Oct: "put the legend on top of the zoom pill"). It waits for the cards to land and fades in there; it never slides.
-import { frameFor } from './frame.js?v=7710f677e2';
+import { frameFor } from './frame.js?v=8f6a8cf4d8';
 import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
 const nextFrame = frameFor('figkey');
 

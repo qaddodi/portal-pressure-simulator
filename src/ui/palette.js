@@ -3,10 +3,10 @@
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
 import { store, updateParams } from './store.js?v=4ef2a6ffd8';
-import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=9e8d423483';
+import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=dde8245092';
 import { D_FLIP, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
-import { frame } from './frame.js?v=7710f677e2';
+import { frame } from './frame.js?v=8f6a8cf4d8';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
 import { HIDDEN_EDGES } from './anatomy.js?v=fe0f3d1f0e';
