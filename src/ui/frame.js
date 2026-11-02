@@ -110,6 +110,8 @@ function run(batch, now, phase) {
 
 /** Calls fn({ now, gap, script, parts }) after every frame the scheduler runs (frame-stats.js has the shape). Returns the stop. */
 export function watchFrames(fn) { watchers.add(fn); return () => watchers.delete(fn); }
+/** The frames the scheduler has run since the page opened (a stamp for "once a frame"). */
+export const frameCount = () => allFrames;
 
 // ── The display's refresh and the frame budget (120 Hz recs, P1; 2 Nov 2026, Mohammad: "make this game engine 120hz") ──
 // The rate the browser offers the page, told from the intervals of frames that ran one after another (the lower quartile of the last

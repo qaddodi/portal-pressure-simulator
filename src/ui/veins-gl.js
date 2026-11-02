@@ -36,7 +36,7 @@ import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS } from './blood.js?v=f6c91d8676';
-import { cssRGB } from './util.js?v=51b62441db';
+import { cssRGB } from './util.js?v=21b73662d1';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=d72157dbac';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=6e462a9e6c';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
@@ -50,6 +50,7 @@ import { warmFade } from './res-fade-gl.js?v=3cf9d3504d';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 import { rendererVerdict } from './sw-yield.js?v=703c656c2b';
+import { frameCount } from './frame.js?v=43da9d808a';
 
 export { binVeins };
 
@@ -2588,6 +2589,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const makeOwn = () => { const o = { tex: dataTex(gl), fbo: gl.createFramebuffer(), w: 0, h: 0 }; gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); return o; };
   // (Sharper upscaling makes one too, while it is on, and gives it back after: the picture is drawn there and upscaled onto the canvas.)
   let own = ownBuf ? makeOwn() : null;
+  const PRESENT_ONCE = !/[?&]presentonce=0\b/.test(globalThis.location?.search || '');
+  let capturedAt = -1, capturedKey = '';
   // (Sized to the canvas, cleared; true when it was just made, so the next picture is drawn whole.)
   function ownSize() {
     if (own.w === PW() && own.h === PH()) return false;
@@ -3836,7 +3839,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * copy, drawImage, createImageBitmap, toDataURL): the kept picture is copied onto it first, so the reader
      * never depends on the canvas having kept its own picture. Every export of the figure goes through here.
      */
-    capture() { present(); return canvas; },
+    // (Audit R15: the picture is laid on the canvas once a frame. A second reader in the same frame, with nothing drawn since, takes the
+    // canvas as it is: the same full-screen copy and glass draw were done again for each glass that asked. ?presentonce=0: every time.)
+    capture() {
+      const f = frameCount(), key = `${pictureSeq}:${bloodSeq}:${presents}`;
+      if (PRESENT_ONCE && f === capturedAt && key === capturedKey && !(replace && replace.on())) return canvas;
+      present(); capturedAt = f; capturedKey = `${pictureSeq}:${bloodSeq}:${presents}`;
+      return canvas;
+    },
     /**
      * Copies the kept picture onto the canvas again, so a reader of the canvas outside the frame that drew it (a copy for the glass,
      * a resolution fade, a picture taken later) reads the whole current picture. Does nothing with ?vesselbuf=keep (the canvas keeps

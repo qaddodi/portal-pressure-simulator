@@ -6,7 +6,7 @@
 // instead of the compositor's words running on ahead of the main thread's glass. A card already moving is taken from wherever it is
 // (Next pressed mid-entrance, a swipe let go): its next move starts from there, never from a jump.
 
-import { frameFor, cancelFrame, easeNow, beginMotion } from './frame.js?v=ae4d297959';
+import { frameFor, cancelFrame, easeNow, beginMotion } from './frame.js?v=43da9d808a';
 import { D_SMALL, D_SURFACE, cubicBezier, easeMove } from './ease.js?v=7513a88c68';
 
 /** How far (px) the new card comes in from, and the stagger (ms) of a second card behind the first. */

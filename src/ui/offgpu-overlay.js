@@ -12,7 +12,7 @@
 // The first few call sites in a moving frame are kept (from the stack) and the last one is shown, so a red flash names its cause.
 // window.pps.offgpu() returns the totals and the recent sites (for tests and the console).
 import { restPass } from './rest-pass.js?v=a36f0b90ba';
-import { watchFrames } from './frame.js?v=ae4d297959';
+import { watchFrames } from './frame.js?v=43da9d808a';
 
 const KINDS = ['2d', 'svg', 'layout', 'upload', 'shader'];
 const UPLOAD_RED = 512 * 1024;   // (small row updates every frame are the GPU's normal diet; a big re-upload is the stall)
