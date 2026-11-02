@@ -124,8 +124,8 @@ test('Callout glass kept: the page is read in one place, with each moving part t
   assert.match(m, /const cr = tgt \? tgt\.getBoundingClientRect\(\)/);
   assert.match(m, /const panes = readPanes\(list, MOTION\)/);
   assert.match(m, /const ws = getComputedStyle\(wrap\), bgs = ws\.backgroundColor;\n\s+resolveColour\(bgs\);\n\s+const bg = colour\(bgs, 'transparent'\);/);
-  assert.match(m, /const raw0 = shift\(p\.r, back\), raw1 = shift\(p\.er, back\);\n\s+let r0 = raw0, er0 = raw1;/, 'the boxes kept without their glide (a live glide leads by a frame, below it)');
-  assert.match(m, /return \{ \.\.\.p, chain, r0, er0, aS, morph, raw0, raw1, rawN: seenN\.get\(p\.g\) - 1, live: !!flag\.live \};/);
+  assert.match(m, /const r0 = rest\(shift\(p\.r, back\)\), er0 = rest\(shift\(p\.er, back\)\);/, 'the boxes kept without their glide (a zoomed card taken back to where it rests)');
+  assert.match(m, /return \{ \.\.\.p, chain, r0, er0, aS, morph, zoomed: !!za, rad0: za && p\.rad \? p\.rad\.map\(\(v\) => v \/ za\.s\) : p\.rad \};/);
   assert.match(m, /sr: source\.getBoundingClientRect\(\)/);
   const d = g.slice(g.indexOf('  function draw() {'));
   assert.match(d, /take\(\{ x: x0, y: y0, w: x1 - x0, h: y1 - y0 \}, cr, N\.sr\);/, 'the figure copy from the kept boxes');

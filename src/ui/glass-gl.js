@@ -1241,7 +1241,6 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const ended = new Map();
   const RISE = !/[?&]glassrise=0\b/.test(SEARCH);
   const LIVE_READ = !/[?&]liveread=0\b/.test(SEARCH);
-  const FRAME_LEAD_MS = 16.7;   // (a frame at 60 Hz: the most a live glide is carried on by)
   const chainOf = (g) => { const c = []; for (let e = g; e && e !== stop && e.nodeType !== 9; e = e.parentElement) c.push(e); return c; };
   function addAnim(e, an) {
     let m = anims.get(e);
@@ -1296,7 +1295,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         const v = motionAt(kf, p);
         // (One that has finished and holds its end, a card zoomed up, is in the box the page was read at: nothing to put back, and its end
         // read the page again already, so it no longer asks for a read in every frame.)
-        if (!v && st === 'finished') continue;
+        if (!v && (st === 'finished' || e.zoomAffine)) continue;
         if (!v) { flag.bad = true; if (st === 'running' && endsOf(an, rec)) flag.live = true; continue; }
         if (v.t) t = v.t;
         if (v.o != null) o = v.o;
@@ -1307,7 +1306,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (end) { if (!t && end.t && !e.style?.transform) t = end.t; if (o == null && end.o != null) o = end.o; }
     const s = e.style;
     if (s) {
-      if (!t) { const a = shiftOf(s.transform); if (!a) flag.bad = true; else t = a; }
+      if (!t) { const a = e.zoomAffine ? [0, 0] : shiftOf(s.transform); if (!a) flag.bad = true; else t = a; }
       const b = translateOf(s.translate);
       if (!b) flag.bad = true; else if (t) t = [t[0] + b[0], t[1] + b[1]]; else t = b;
       if (o == null && s.opacity !== '' && s.opacity != null && !inlineLoses.has(e)) o = NUM(s.opacity);
@@ -1330,6 +1329,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const W = a.width + (b.width - a.width) * e, H = a.height + (b.height - a.height) * e;
     return { left: L, top: T, right: L + W, bottom: T + H, width: W, height: H };
   }
+  // (card-zoom.js zoomAffine(): the zoom's scale s about (ox, oy), then the move (dx, dy), in screen px, as the card is drawn this frame.)
+  const zoomed = (r, a) => { const f = (v, m, d) => m + (v - m) * a.s + d, l = f(r.left, a.ox, a.dx), t = f(r.top, a.oy, a.dy), rt = f(r.right, a.ox, a.dx), b = f(r.bottom, a.oy, a.dy); return { left: l, top: t, right: rt, bottom: b, width: rt - l, height: b - t }; };
+  const unzoom = (r, a) => { const f = (v, m, d) => m + (v - d - m) / a.s, l = f(r.left, a.ox, a.dx), t = f(r.top, a.oy, a.dy), rt = f(r.right, a.ox, a.dx), b = f(r.bottom, a.oy, a.dy); return { left: l, top: t, right: rt, bottom: b, width: rt - l, height: b - t }; };
   const shift = (r, t) => (t[0] || t[1] ? { left: r.left + t[0], top: r.top + t[1], right: r.right + t[0], bottom: r.bottom + t[1], width: r.width, height: r.height } : r);
   function chainMove(chain, flag) {
     let x = 0, y = 0, o = 1;
@@ -1353,7 +1355,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const bg = colour(bgs, 'transparent');
     const bgVar = bg[3] > 0 ? '' : ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim();
     resolveColour(bgVar);
-    const prev = geo?.panes || [], tNow = performance.now(), seenN = new Map();
+    const prev = geo?.panes || [], tNow = performance.now();
     const panes = readPanes(list, MOTION).map((p) => {
       resolveColour(p.tint);
       if (p.line) resolveColour(p.line);
@@ -1365,18 +1367,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       let aS = p.oa ?? 1;
       for (const e of chain) { if (moveOf(e, flag).o != null) continue; const v = fadeOf(e); if (v < 1) aS *= v; }   // (a missing or odd value is no fade)
       const back = [-mv.t[0], -mv.t[1]];
-      const raw0 = shift(p.r, back), raw1 = shift(p.er, back);
-      let r0 = raw0, er0 = raw1;
-      // (A card that glides by a transform the glass cannot follow (a zoom's scale) is composited at the display's next frame, while a picture
-      // drawn in this frame is shown a frame later: the frost trailed the card by a frame of its motion, a second card outline behind it,
-      // Mohammad, 2 Nov 2026, zooming the instrument card in and out. Its box is carried on by one frame at the speed it had between the last
-      // two reads.)
-      const q0 = geo?.raw && flag.live && tNow - geo.t < 40 && tNow - geo.t > 2 ? prev.find((x) => x.g === p.g && x.rawN === (seenN.get(p.g) || 0)) : null;
-      seenN.set(p.g, (seenN.get(p.g) || 0) + 1);
-      if (q0?.raw0 && q0.live) {
-        const f = Math.min(tNow - geo.t, FRAME_LEAD_MS) / (tNow - geo.t), lead = (a, b) => ({ left: a.left + (a.left - b.left) * f, top: a.top + (a.top - b.top) * f, right: a.right + (a.right - b.right) * f, bottom: a.bottom + (a.bottom - b.bottom) * f, width: a.width + (a.width - b.width) * f, height: a.height + (a.height - b.height) * f });
-        r0 = lead(raw0, q0.raw0); er0 = lead(raw1, q0.raw1);
-      }
+      // (A card card-zoom.js moves: its box is the rest box, its motion the zoom's analytic one (zoomAffine, put back each frame in nowGeo), so what is
+      // read now, at the zoom it has, is taken back to where the card rests.)
+      const za = p.g.zoomAffine?.() ?? null;
+      const rest = (r) => (za ? unzoom(r, za) : r);
+      const r0 = rest(shift(p.r, back)), er0 = rest(shift(p.er, back));
       // (A card the page asks to change size in view (data-gl-morph: the teaching card's glass kept up through a slide change) eases from
       // where it is drawn now to its new box on the GPU, its edge and shadows with it; read again mid-way, it carries on from there.)
       let morph = null;
@@ -1389,10 +1384,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         }
       }
       if (morph) liveUntil = Math.max(liveUntil, morph.t0 + morph.ms + 34);
-      return { ...p, chain, r0, er0, aS, morph, raw0, raw1, rawN: seenN.get(p.g) - 1, live: !!flag.live };
+      return { ...p, chain, r0, er0, aS, morph, zoomed: !!za, rad0: za && p.rad ? p.rad.map((v) => v / za.s) : p.rad };
     });
     const over = host ? (cards ? { low: host.over?.('low') || [], high: host.over?.('high') || [] } : { all: host.over?.() || [] }) : null;
-    geo = { t: tNow, raw: true, list, cr0: shift(cr, [-cm.t[0], -cm.t[1]]), tgt, sr: source.getBoundingClientRect(), vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
+    geo = { list, cr0: shift(cr, [-cm.t[0], -cm.t[1]]), tgt, sr: source.getBoundingClientRect(), vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
     if (watchRo) { if (tgt) watchRo.observe(tgt); for (const g of list) watchRo.observe(g); }
     wake();
   }
@@ -1441,6 +1436,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       const mv = chainMove(p.chain, flag), a = p.aS * mv.o;
       if (!(a > 0.001)) continue;
       if (p.morph) { const m0 = shift(morphAt(p, performance.now()), mv.t); panes.push({ ...p, r: m0, er: m0, a }); continue; }
+      if (p.zoomed) {
+        const za = p.g.zoomAffine?.() ?? null, put = (r) => shift(za ? zoomed(r, za) : r, mv.t);
+        panes.push({ ...p, r: put(p.r0), er: put(p.er0), rad: za && p.rad0 ? p.rad0.map((v) => v * za.s) : p.rad0, a });
+        continue;
+      }
       panes.push({ ...p, r: shift(p.r0, mv.t), er: shift(p.er0, mv.t), a });
     }
     // (A move the motion cannot put back by itself (a card zoomed up: a scale, in a glide that ends): read again in the next frame's read phase, so its glass is
@@ -1546,6 +1546,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const EVENTS = ['transitionrun', 'transitionstart', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel', 'pointerover', 'pointerout'];
   for (const l of watched) for (const t of EVENTS) l.addEventListener(t, held, true);
   addEventListener('resize', again);
+  // (card-zoom.js moves the card in the frame loop and tells each frame: the glass is drawn in that frame, from the same zoom.)
+  const onZoomFrame = () => { quiet = 0; ask(); };
+  addEventListener('pps:zoomframe', onZoomFrame);
   // (The figure drawn again: the blur under a glass that shows is taken again. With none showing, the figure is not its business.)
   const offFigure = onFigure?.(() => { if (shown && !hostOn) wake(); });   // (drawn into the figure's canvas: laid with each picture)
   const onLost = (e) => { e.preventDefault(); lost = true; unmark(); };
@@ -1633,7 +1636,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       for (const t of DOC_END) document.removeEventListener?.(t, docEnd, true);
       anims.clear();
       for (const l of watched) for (const t of EVENTS) l.removeEventListener(t, held, true);
-      removeEventListener('resize', again);
+      removeEventListener('resize', again); removeEventListener('pps:zoomframe', onZoomFrame);
       offFigure?.();
       canvas?.removeEventListener('webglcontextlost', onLost);
       canvas?.removeEventListener('webglcontextrestored', onBack);
