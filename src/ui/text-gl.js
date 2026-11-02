@@ -80,6 +80,39 @@ export function textPolys(text, x, y, { weight = 400, size = 12, tnum = false, l
   return { polys, w: cs.length ? at - x - ls : 0 };
 }
 
+// (recs-production-120hz §9: a readout that changes draws each glyph from a path made once per weight, figure style, character and size,
+// placed by a translation, so a new number builds no polygons and no path string, and its paths' flattening is cached by the painter
+// (svg-gl.js shapePath). textPolys stays for setup and unusual text.)
+const glyphD = new Map();
+function glyphPathOf(w, ch, tnum, size) {
+  const key = `${w}|${tnum ? 't' : ''}|${size}|${ch}`;
+  let d = glyphD.get(key);
+  if (d === undefined) {
+    const g = outline(w, ch, tnum), s = size / UPM;
+    d = '';
+    if (g) for (const p of g.polys) {
+      for (let k = 0; k < p.pts.length; k += 2) d += `${k ? 'L' : 'M'}${(p.pts[k] * s).toFixed(2)} ${(-p.pts[k + 1] * s).toFixed(2)}`;
+      if (p.closed) d += 'Z';
+    }
+    if (glyphD.size > 4096) glyphD.clear();
+    glyphD.set(key, d);
+  }
+  return d;
+}
+/** Text as one cached path per glyph and the x of each (px from `x`), on a baseline at 0: { glyphs: [[d, x], ...], w }. */
+export function glyphRun(text, x = 0, { weight = 400, size = 12, tnum = false, ls = 0 } = {}, out = []) {
+  const w = weightOf(weight), s = size / UPM, cs = [...String(text)];
+  let at = x;
+  out.length = 0;
+  cs.forEach((ch, i) => {
+    const g = outline(w, ch, tnum);
+    if (!g) return;
+    if (g.polys.length) out.push([glyphPathOf(w, ch, tnum, size), at]);
+    at += g.adv * s + ls + (i < cs.length - 1 ? kernOf(w, ch, cs[i + 1], tnum) * s : 0);
+  });
+  return { glyphs: out, w: cs.length ? at - x - ls : 0 };
+}
+
 /**
  * The box SVG text's getBBox() gives, worked out in script (2 Nov 2026): its advances for the width, and Inter's ascent and descent
  * (hhea 1984 and 494 of 2048) each rounded to whole pixels at the size the text has on screen, as the browser rounds them, for the

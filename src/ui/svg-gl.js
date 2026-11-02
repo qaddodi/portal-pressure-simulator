@@ -13,7 +13,7 @@
 // round or butt ends, fill and stroke opacity, visibility, display none, vector-effect non-scaling-stroke. A drawing's viewBox is mapped to
 // the box as SVG maps it (preserveAspectRatio none, or meet in the middle). The picture covers the box exactly.
 
-import { createTraceGL, fitPen } from './trace-gl.js?v=88d75b6853';
+import { createTraceGL, fitPen } from './trace-gl.js?v=2a0a048ab0';
 import { flattenPath, elBox } from './shape-gl.js?v=662f61f3d8';
 import { finalFrameFor, easeNow } from './frame.js?v=3693d2ccc8';
 import { restPass } from './rest-pass.js?v=45d9ddc06c';
@@ -306,6 +306,17 @@ export function transformOf(s) {
 }
 
 // ── Drawing a model ──
+// (recs-production-120hz §9: a path's flattening kept by its d and tolerance, so a glyph drawn again, or a chart piece that did not
+// change, is not parsed and flattened on every paint. Bounded: each tolerance's map is dropped whole past FLAT_MAX entries.)
+const FLAT_MAX = 2048, flatCache = new Map();
+function flatOf(d, tol) {
+  tol = 2 ** (Math.floor(Math.log2(tol) * 4) / 4);   // (in quarter octaves, never coarser than asked: a zoom's every scale shares a few)
+  let m = flatCache.get(tol);
+  if (!m) { if (flatCache.size > 8) flatCache.clear(); m = new Map(); flatCache.set(tol, m); }
+  let f = m.get(d);
+  if (!f) { if (m.size > FLAT_MAX) m.clear(); f = flattenPath(d, tol); m.set(d, f); }
+  return f;
+}
 const at = (el, k) => num(el.getAttribute(k));
 const firstNum = (el, k) => num(String(el.getAttribute(k) || '').split(/[\s,]+/)[0]);
 const paintOn = (p) => p && p !== 'none' && !/^url\(/.test(p);   // (gradient fills by url() are not drawn by any chart's model)
@@ -332,7 +343,7 @@ function shapePath(ctx, el, tag, k) {
   if (tag === 'path') {
     const d = el.getAttribute('d');
     if (!d) return false;
-    for (const { pts, closed } of flattenPath(d, 0.25 / Math.max(k, 0.05))) {
+    for (const { pts, closed } of flatOf(d, 0.25 / Math.max(k, 0.05))) {
       if (pts.length < 2) continue;
       ctx.moveTo(pts[0], pts[1]);
       for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]);

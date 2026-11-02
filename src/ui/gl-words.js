@@ -18,8 +18,8 @@
 // The words fall back to a write between frames (never in a frame) where the GPU cannot set them: no outlines yet, a character the
 // cut glyphs do not have, an element with no box. ?glwords=0: every change is written into the page between frames, with no picture.
 
-import { createSvgGL, svgModel } from './svg-gl.js?v=348c227d67';
-import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=18b4da73fb';
+import { createSvgGL, svgModel } from './svg-gl.js?v=fc08d6baee';
+import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=19dfe922f8';
 import { restPass, cancelRest } from './rest-pass.js?v=45d9ddc06c';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
 
@@ -131,21 +131,45 @@ function measureWrite(S, { at, pad, L, U }) {
   host.style.setProperty('--glw-w', `${pad.l + pad.r}px`); host.style.setProperty('--glw-h', `${pad.t + pad.b}px`);
   S.vPath = svgModel('path', { fill: L.fill, d: '' });
   S.uPath = svgModel('path', { fill: U.fill, d: '' });
-  S.gl.show(svgModel('svg', { viewBox: `${-pad.l} ${-pad.t} ${at.w + pad.l + pad.r} ${at.h + pad.t + pad.b}`, preserveAspectRatio: 'none' }, S.vPath, S.uPath), false);
+  // (recs-production-120hz §9: capacity reserved now, between frames: a glyph slot each, its path one cached per glyph, placed by a
+  // translation. A change fills the slots it needs; longer words than the slots hold take the one-path way, as before.)
+  S.vSlots = slotsOf(V_CAP, L.fill); S.uSlots = slotsOf(U_CAP, U.fill);
+  S.gl.show(svgModel('svg', { viewBox: `${-pad.l} ${-pad.t} ${at.w + pad.l + pad.r} ${at.h + pad.t + pad.b}`, preserveAspectRatio: 'none' }, S.vPath, S.uPath, S.vSlots.map((q) => q.el), S.uSlots.map((q) => q.el)), false);
   S.at = at;
   S.gl.paint();   // (a first, empty, drawing: the picture's canvas is sized now, between frames, so the first new words are drawn whole)
 }
 const askMeasure = (S) => { if (S.dead) return; measureQ.add(S); S.measureAsk = 1; if (!measureAll) measureAll = restPass(measurePass); };
 
 // ── A frame: the new words drawn, nothing written into the page ──
+const V_CAP = 24, U_CAP = 12;
+const slotsOf = (n, fill) => Array.from({ length: n }, () => ({ el: svgModel('path', { fill, d: '' }), d: '', tr: '' }));
+const setA = (q, d, tr) => { if (q.d !== d) { q.d = d; q.el.setAttribute('d', d); } if (tr != null && q.tr !== tr) { q.tr = tr; q.el.setAttribute('transform', tr); } };
+const runV = [], runU = [];
+// (The slots filled from a run of cached glyph paths; the rest emptied. Only what changed is written.)
+function fillSlots(slots, run, y) {
+  for (let i = 0; i < slots.length; i++) {
+    const g = run[i];
+    if (g) setA(slots[i], g[0], `translate(${g[1].toFixed(2)} ${y.toFixed(2)})`); else if (slots[i].d) setA(slots[i], '', null);
+  }
+}
+function clearSlots(S) { for (const q of S.vSlots || []) if (q.d) setA(q, '', null); for (const q of S.uSlots || []) if (q.d) setA(q, '', null); }
 function draw(S, t, u) {
   const { at, after } = S, { L, U, align } = at;
   const tt = L.upper ? t.toUpperCase() : t, uu = U.upper ? u.toUpperCase() : u;
   const wv = textWidth(tt, L), sp = u ? textWidth(' ', L) : 0, wu = u ? textWidth(uu, U) : 0, w = after ? wv : wv + sp + wu;
   const x = align === 'end' ? at.x1 - w : align === 'middle' ? (at.x0 + at.x1) / 2 - w / 2 : at.x0;
-  S.vPath.setAttribute('d', dOf(textPolys(tt, x, at.y, L).polys));
   // (after: the unit is the element's own ::after (attr(data-…)), set beside the words, outside the box, a no-break space after them)
-  S.uPath.setAttribute('d', u ? dOf(textPolys(uu, x + wv + sp, S.small && !after ? at.uy : at.y, U).polys) : '');
+  const uy = S.small && !after ? at.uy : at.y;
+  const rv = glyphRun(tt, x, L, runV).glyphs, ru = u ? glyphRun(uu, x + wv + sp, U, runU).glyphs : (runU.length = 0, runU);
+  if (S.vSlots && rv.length <= S.vSlots.length && ru.length <= S.uSlots.length) {
+    if (S.vPath.getAttribute('d')) S.vPath.setAttribute('d', '');
+    if (S.uPath.getAttribute('d')) S.uPath.setAttribute('d', '');
+    fillSlots(S.vSlots, rv, at.y); fillSlots(S.uSlots, ru, uy);
+  } else {
+    clearSlots(S);
+    S.vPath.setAttribute('d', dOf(textPolys(tt, x, at.y, L).polys));
+    S.uPath.setAttribute('d', u ? dOf(textPolys(uu, x + wv + sp, uy, U).polys) : '');
+  }
   S.pend = true;
   S.gl.paint();
 }
@@ -183,7 +207,7 @@ function land(S) {
   shown.t = want.t; shown.u = want.u;
   S.onLand?.();
   S.pend = false;
-  if (S.on) { S.on = false; el.classList.remove('glw-on'); S.vPath.setAttribute('d', ''); S.uPath.setAttribute('d', ''); S.gl.paint(); }
+  if (S.on) { S.on = false; el.classList.remove('glw-on'); S.vPath.setAttribute('d', ''); S.uPath.setAttribute('d', ''); clearSlots(S); S.gl.paint(); }
   if (!LAND_KEEP || !S.at || S.at.sm !== (!!S.small && !S.small.hidden)) askMeasure(S);   // (a unit that came or went moves the words: measured again)
 }
 const askLand = (S) => { clearTimeout(S.landT); S.landT = 0; if (S.dead) return; if (!S.landAsk) S.landAsk = restPass(() => land(S)); };
@@ -209,7 +233,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
     if (S.landAsk) { cancelRest(S.landAsk); S.landAsk = 0; }
     if (S.on) { S.on = false; S.el.classList.remove('glw-on'); }
     if (S.gl) { try { S.gl.dispose?.(); } catch { /* a lost context: nothing left to free */ } S.gl.cv?.remove(); S.gl = null; S.host.classList.remove('glw'); }
-    S.vPath = S.uPath = null;
+    S.vPath = S.uPath = null; S.vSlots = S.uSlots = null;
   };
   return {
     el,

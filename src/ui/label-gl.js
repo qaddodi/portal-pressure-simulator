@@ -20,7 +20,7 @@ import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
 import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=662f61f3d8';
 import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=38f26a5836';
-import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=18b4da73fb';
+import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=19dfe922f8';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=814746f511';
 
 // (1 Nov 2026, the GPU motion review.) A label's or a leader's fade or colour ease is followed from its animations (label-track.js), and its

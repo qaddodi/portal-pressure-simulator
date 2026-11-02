@@ -21,8 +21,8 @@ import { frame, cancelFrame } from './frame.js?v=3693d2ccc8';
 import { restPass, cancelRest } from './rest-pass.js?v=45d9ddc06c';
 import { EDGES, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from '../engine/topology.js?v=4044766e96';
 import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
-import { measure } from './glyph-measure.js?v=550f86c98c';
-import { createSvgGL, svgModel } from './svg-gl.js?v=348c227d67';
+import { measure } from './glyph-measure.js?v=c00a2078e8';
+import { createSvgGL, svgModel } from './svg-gl.js?v=fc08d6baee';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const STENTS = new Set(['TIPS', 'DIPS']);
