@@ -4,7 +4,7 @@
 // same lag every frame, so the dye moves evenly). While a step is out, the next frames' time is added up and sent with the next, so
 // none is lost. An injection shows as active at once (the figure keeps drawing until the first table comes). Where no worker can be
 // made, or with ?dyeworker=0, it is createBolus itself, on the main thread as before.
-import { createBolus, DYE_BINS } from './blood.js?v=f6c91d8676';
+import { createBolus, DYE_BINS } from './blood.js?v=a70439097a';
 
 export const DYE_WORKER = typeof Worker === 'function' && !(typeof location !== 'undefined' && /[?&]dyeworker=0\b/.test(location.search || ''));
 

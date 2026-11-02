@@ -251,5 +251,5 @@ test('the wiring: the frame says how long the model stands still, a time-lapse e
   assert.doesNotMatch(vm, /lastT = -Infinity; firstT = Infinity; off = 0; \}\s+\/\/ \(the model's clock went back/, 'a clock that was set does not wipe the strip');
   assert.match(vm, /off = lastT \+ \(s\.t\.length > 1 \? s\.t\[1\] - s\.t\[0\] : STEP_S\) - s\.t\[0\];/, 'it moves the strip\'s time on instead');
   assert.match(vm, /clock\.restart\(\);/, 'the live beats start a new run');
-  assert.match(ekg, /restart\(\) \{ prevT = prevPh = NaN; \}/);
+  assert.match(ekg, /restart\(\) \{ prev\[0\] = prev\[1\] = NaN; \}/);
 });

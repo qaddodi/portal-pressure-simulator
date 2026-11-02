@@ -31,6 +31,10 @@
 //   varWrite     style.setProperty (custom properties and dynamic names), style.cssText, and any other inline style (transform, opacity,
 //                translate, scale, display, visibility…) written in a frame or motion callback: script-driven style, not compositor-only
 //                (2 Nov 2026 independent audit: 295 sites uncounted)
+//   alloc        a new array, object, typed array, Map/Set, closure, spread, array-returning call (map, filter, slice, concat, split,
+//                Object.keys/entries…) or string build (template with a value, string +, toFixed/toString/padStart/JSON.stringify) in a frame or
+//                motion callback: garbage every frame, and the collector's pause lands in a frame (2 Nov 2026: 570 KB a frame measured on
+//                the must path by scripts/frame-alloc.mjs). One hit per line. The cure is a kept buffer or object, written in place.
 //   observerRead a layout read in a MutationObserver callback, or anything it calls: a microtask straight after the writes
 //   unreached    a site of the categories above that no frame, motion or observer path reaches, and that is not setup. Either it runs during use
 //                (reached from an event handler, timer, promise, observer or store listener; the reason is in its detail) or no caller was found.
@@ -72,6 +76,7 @@ export const CATS = {
   paintWrite: 'Repainting style written in a frame or motion callback (colour, fill, stroke, shadow, filter, mask…)',
   attrWrite: 'Attribute, dataset, hidden/disabled or node removal written in a frame or motion callback (setAttribute, dataset, removeAttribute, remove…: a style recalc, and a repaint for SVG attributes)',
   varWrite: 'Inline style or custom property written in a frame or motion callback (setProperty, style.transform/opacity/display…, cssText: script-driven style every frame)',
+  alloc: 'Memory allocated in a frame or motion callback (new array, object, typed array, closure, spread, string build: garbage every frame; keep a buffer and write in place)',
   observerRead: 'Layout read in a mutation observer callback (a microtask straight after the writes)',
   unreached: 'Site no frame path reaches, that runs during use (event, timer, promise, listener) or has no caller the scan can find: never credited as on the GPU, with its reason',
 };
@@ -377,6 +382,29 @@ export function scan({ root = ROOT } = {}) {
         if (member && cn === 'setProperty' && strOf(a0) == null) mod.late.push(['varWrite', n, f, `setProperty(<dyn>)`]);
         if (member && /^(remove|removeChild|removeAttribute|toggleAttribute|setAttributeNS|removeProperty)$/.test(cn||'') && !(n.callee.object.type==='MemberExpression' && n.callee.object.property.name==='classList')) mod.late.push(['attrWrite', n, f, `${cn}()`]);
         if (cn === 'XMLSerializer') push('svgRaster', file, n.loc.start.line, label(f), 'XMLSerializer');
+      }
+      // Allocation sites (late: only those a frame or motion callback reaches count).
+      {
+        const f = enclosing(n);
+        if (f) {
+          const par = n.parent;
+          if (n.type === 'ArrayExpression') mod.late.push(['alloc', n, f, par?.type === 'ReturnStatement' || par?.type === 'ArrowFunctionExpression' ? 'array literal (returned)' : 'array literal']);
+          else if (n.type === 'ObjectExpression') mod.late.push(['alloc', n, f, 'object literal']);
+          else if (n.type === 'NewExpression' && BUILTIN_NEW.test(n.callee.name || '') && !/^(Worker|BroadcastChannel|AbortController|ResizeObserver|IntersectionObserver|MutationObserver)$/.test(n.callee.name)) mod.late.push(['alloc', n, f, `new ${n.callee.name}`]);
+          else if ((n.type === 'ArrowFunctionExpression' || n.type === 'FunctionExpression') && par && par.type !== 'MethodDefinition' && !(par.type === 'Property' && par.method)) mod.late.push(['alloc', n, f, 'closure']);
+          else if (n.type === 'TemplateLiteral' && n.expressions.length && par?.type !== 'TaggedTemplateExpression') mod.late.push(['alloc', n, f, 'template string with a value']);
+          else if (n.type === 'BinaryExpression' && n.operator === '+' && (strOf(n.left) != null || strOf(n.right) != null || n.left.type === 'BinaryExpression' && n.left.operator === '+' && n.left.__str)) { n.__str = true; if (par?.type !== 'BinaryExpression' || !par.__str) mod.late.push(['alloc', n, f, 'string concatenation']); }
+          else if (n.type === 'SpreadElement') mod.late.push(['alloc', n, f, 'spread']);
+          else if (n.type === 'CallExpression') {
+            const cn = calleeName(n), c = n.callee;
+            const objName = c.type === 'MemberExpression' && c.object.type === 'Identifier' ? c.object.name : '';
+            if (c.type === 'MemberExpression' && !c.computed && /^(map|filter|slice|concat|flat|flatMap|split|toSorted|toReversed|substring|substr|padStart|padEnd|toFixed|toString|toLowerCase|toUpperCase|replace|replaceAll|trim|join|querySelectorAll)$/.test(cn) && !(cn === 'slice' && /Array$/.test(objName)) && !(cn === 'toString' && n.arguments.length === 0 && false)) mod.late.push(['alloc', n, f, `.${cn}()`]);
+            else if (objName === 'Array' && /^(from|of)$/.test(cn)) mod.late.push(['alloc', n, f, `Array.${cn}()`]);
+            else if (objName === 'Object' && /^(keys|values|entries|assign|fromEntries)$/.test(cn) && !(cn === 'assign' && n.arguments[0]?.type !== 'ObjectExpression')) mod.late.push(['alloc', n, f, `Object.${cn}()`]);
+            else if (objName === 'JSON') mod.late.push(['alloc', n, f, `JSON.${cn}()`]);
+            else if (c.type === 'Identifier' && /^(String|Array)$/.test(c.name)) mod.late.push(['alloc', n, f, `${c.name}()`]);
+          }
+        }
       }
       if (n.type === 'NewExpression' && n.callee.name === 'XMLSerializer') push('svgRaster', file, n.loc.start.line, label(enclosing(n)), 'new XMLSerializer()');
       if (n.type === 'MemberExpression' && !n.computed && READ_PROPS.has(n.property.name)) {
@@ -704,9 +732,10 @@ export function scan({ root = ROOT } = {}) {
   const useReach = reachFrom(useSeeds, true), initReach = reachFrom(initSeeds, false);
   const rootKindOf = (k) => { let guard = 0; while (guard++ < 200 && useReach.get(k)) k = useReach.get(k); return seedKind.get(k) || 'event or timer'; };
   const setupLines = new Set(), setupList = [];
+  const allocAt = new Map();
   for (const mod of mods.values()) for (const [cat0, n, f, detail] of mod.late) {
     let cat = cat0;
-    look(cat, mod.file, n.loc.start.line);
+    if (cat !== 'alloc') look(cat, mod.file, n.loc.start.line);   // (an allocation is a site only where a frame reaches it)
     let hit = null, wide = /^(classList\.|\.className)/.test(detail);
     for (let p = f; p && !hit; p = enclosing(p)) if (hardKeys.has(`${mod.file}#${p.__key}`)) hit = `${mod.file}#${p.__key}`;
     if (!hit) for (let p = f; p && !hit; p = enclosing(p)) if (reach.has(`${mod.file}#${p.__key}`)) { hit = `${mod.file}#${p.__key}`; wide = true; }
@@ -714,6 +743,7 @@ export function scan({ root = ROOT } = {}) {
       for (let p = f; p && !hit; p = enclosing(p)) if (obsReach.has(`${mod.file}#${p.__key}`)) hit = `${mod.file}#${p.__key}`;
       if (hit) cat = 'observerRead';
     }
+    if (!hit && cat === 'alloc') continue;   // (not on a frame path: allocating there is no cost to a frame)
     if (!hit) {
       // (Looked at above, so it would be credited as on the GPU. No frame path reaches it, so it is triaged, never assumed fine, 2 Nov 2026.)
       let useKey = null;
@@ -734,9 +764,21 @@ export function scan({ root = ROOT } = {}) {
     // How a frame reaches it: the chain of calls back to the frame callback or motion listener (shortened).
     const chain = [];
     for (let k = hit; k && chain.length < 8; k = R.get(k)) chain.push(k.split('#')[0] === mod.file ? k.split('#')[1] : k.replace(/^src\/ui\//, ''));
+    if (cat === 'alloc') {
+      // (One hit per line; its kinds listed together.)
+      const k = `${mod.file}:${n.loc.start.line}`;
+      const prev = allocAt.get(k);
+      if (prev) { if (!prev.kinds.includes(detail)) prev.kinds.push(detail); if (!wide) prev.hit.wide = false; continue; }
+      push(cat, mod.file, n.loc.start.line, label(f), '');
+      const rec = { hit: hits[hits.length - 1], kinds: [detail], path: chain.reverse().join(' → ') };
+      rec.hit.wide = wide;
+      allocAt.set(k, rec);
+      continue;
+    }
     push(cat, mod.file, n.loc.start.line, label(f), `${detail} — ${cat === 'observerRead' ? 'observer' : 'frame'} path: ${chain.reverse().join(' → ')}`);
     if (wide) hits[hits.length - 1].wide = true;
   }
+  for (const { hit, kinds, path } of allocAt.values()) hit.detail = `${kinds.join(', ')} — frame path: ${path}`.slice(0, 260);
   // One hit per place: a line can match twice (a string scanned as CSS and as a declaration).
   const seen = new Set();
   const out = hits.filter((h) => { const k = `${h.cat}|${h.file}|${h.line}|${h.detail}`; if (seen.has(k)) return false; seen.add(k); return true; })

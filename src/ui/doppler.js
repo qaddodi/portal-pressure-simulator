@@ -5,12 +5,12 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { glWords, wordsRect } from './gl-words.js?v=dc1d382deb';
-import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=784ba7732c';
-import { FONT, textW } from './charts.js?v=3c9bdc9491';
+import { glWords, wordsRect } from './gl-words.js?v=ac6c4590d4';
+import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=8adf2a8f53';
+import { FONT, textW } from './charts.js?v=a18df567d0';
 import { classSoon } from './class-soon.js?v=6ad82f25a8';
 import { logAction, shownVel, store } from './store.js?v=afc4d7c743';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=05f2177f16';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=52a06b89df';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=26e2e46fff';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';
@@ -21,8 +21,9 @@ import { olderThan } from './backfill.js?v=455d888760';
 import { createFollow } from './display-state.js?v=8d062d39dc';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { restPass } from './rest-pass.js?v=ed71462b47';
-import { createTraceGL, fitPen, keepLayer } from './trace-gl.js?v=671f8a9cea';
+import { createTraceGL, fitPen, keepLayer } from './trace-gl.js?v=dc1a7c0f1d';
 import { attrSoon, dataSoon, propSoon } from './class-soon.js?v=6ad82f25a8';
+import { dropFront } from './drop-front.js?v=21069ee0e8';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -284,7 +285,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const tNow = buf[buf.length - 1][0];
     if (f.settling) heldTo = tNow;
     let cut = 0; while (cut < buf.length && buf[cut][0] < tNow - KEEP) cut++;
-    if (cut && (!HIST_RING || cut >= 256 || cut * 4 >= buf.length)) buf.splice(0, cut);
+    if (cut && (!HIST_RING || cut >= 256 || cut * 4 >= buf.length)) dropFront(buf, cut);
   }
 
   // ── Reading ───────────────────────────────────────
@@ -1235,7 +1236,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     buf = rows.concat(buf);
     const tNow = buf[buf.length - 1][0];
     let cut = 0; while (cut < buf.length && buf[cut][0] < tNow - KEEP) cut++;
-    if (cut && (!HIST_RING || cut >= 256 || cut * 4 >= buf.length)) buf.splice(0, cut);
+    if (cut && (!HIST_RING || cut >= 256 || cut * 4 >= buf.length)) dropFront(buf, cut);
     redraw();
     return true;
   }

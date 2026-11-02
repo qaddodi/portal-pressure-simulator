@@ -173,12 +173,14 @@ export function polyMesh(polys, cap = 0, drop = null) {
     const n = pts.length / 2;
     for (let k = 1; k < n - 1; k++) { tri[a++] = pts[0]; tri[a++] = pts[1]; tri[a++] = pts[2 * k]; tri[a++] = pts[2 * k + 1]; tri[a++] = pts[2 * k + 2]; tri[a++] = pts[2 * k + 3]; }
     const { u, m, closed } = runs[r], nu = u.length / 2;
-    const dir = (k) => { k = (k + m) % m; const j = (k + 1) % nu; return [u[2 * j] - u[2 * k], u[2 * j + 1] - u[2 * k + 1]]; };
     for (let k = 0; k < m; k++) {
       const j = (k + 1) % nu, ax = u[2 * k], ay = u[2 * k + 1], bx = u[2 * j], by = u[2 * j + 1];
       if (drop && drop(ax, ay, bx, by)) continue;
       const first = !closed && k === 0, last = !closed && k === m - 1;
-      const [px, py] = first ? [0, 0] : dir(k - 1), [qx, qy] = last ? [0, 0] : dir(k + 1);
+      // (The directions of the segments before and after, as numbers: no pair made for each segment of each outline.)
+      const kp = (k - 1 + m) % m, kn = (k + 1) % m, jp = (kp + 1) % nu, jn = (kn + 1) % nu;
+      const px = first ? 0 : u[2 * jp] - u[2 * kp], py = first ? 0 : u[2 * jp + 1] - u[2 * kp + 1];
+      const qx = last ? 0 : u[2 * jn] - u[2 * kn], qy = last ? 0 : u[2 * jn + 1] - u[2 * kn + 1];
       seg[b++] = ax; seg[b++] = ay; seg[b++] = bx; seg[b++] = by;
       seg[b++] = first ? cap : 1; seg[b++] = last ? cap : 1;
       seg[b++] = px; seg[b++] = py; seg[b++] = qx; seg[b++] = qy;

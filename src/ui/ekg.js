@@ -1,3 +1,4 @@
+import { dropFront } from './drop-front.js?v=21069ee0e8';
 // A schematic EKG for the beat-by-beat pressure trace and the vitals monitor: a P wave, a QRS and a T wave drawn from the model's own
 // cardiac phase, so each QRS lands on the beat that moves the pressures. It is a rhythm timed to the model, not a modelled ECG.
 //
@@ -26,25 +27,26 @@ export const EKG_PHASES = (() => {
 
 /** The moments the cardiac phase wrapped, from a stream of (time, phase) samples. */
 export function createBeatClock() {
-  let prevT = NaN, prevPh = NaN;
+  // (The last sample in a typed array: a number kept in a closure's variable is a heap object made anew at each assignment, a sample at a time.)
+  const prev = new Float64Array([NaN, NaN]);
   const times = [];
   return {
     times,
     /** One sample. A drop of more than half a cycle is a wrap (a faster heart still moves less than that between samples). */
     push(t, ph) {
       if (!Number.isFinite(t) || !Number.isFinite(ph)) return;
-      if (Number.isFinite(prevPh) && ph < prevPh - 0.5) {
-        const run = 1 - prevPh + ph;   // (the phase covered between the two samples)
+      if (Number.isFinite(prev[1]) && ph < prev[1] - 0.5) {
+        const prevT = prev[0], prevPh = prev[1], run = 1 - prevPh + ph;   // (the phase covered between the two samples)
         const at = prevT + (run > 1e-9 ? (1 - prevPh) / run : 0) * (t - prevT);
         if (!times.length || at > times[times.length - 1]) times.push(at);   // (the beats stay in order, whatever was laid before)
       }
-      prevT = t; prevPh = ph;
+      prev[0] = t; prev[1] = ph;
     },
     /** The stream was broken (the strip ran on its own for a while): the next sample starts a new run, so no beat is read across the gap. */
-    restart() { prevT = prevPh = NaN; },
+    restart() { prev[0] = prev[1] = NaN; },
     /** Forget the beats before t (the buffer's tail), keeping the one that straddles it. */
-    trim(t) { let k = 0; while (k + 1 < times.length && times[k + 1] < t) k++; if (k) times.splice(0, k); },
-    reset() { times.length = 0; prevT = prevPh = NaN; },
+    trim(t) { let k = 0; while (k + 1 < times.length && times[k + 1] < t) k++; if (k) dropFront(times, k); },
+    reset() { times.length = 0; prev[0] = prev[1] = NaN; },
   };
 }
 

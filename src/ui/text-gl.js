@@ -12,7 +12,7 @@
 //    (a chart's ticks, a monitor's live number: trace-gl.js), where a fresh outline fill each frame would cost more.
 // No other module imports glyphs-inter.js or its PNG (tests/text-gl.test.js).
 
-import { flattenPath } from './shape-gl.js?v=d13987be06';
+import { flattenPath } from './shape-gl.js?v=425612f909';
 import { GLYPHS as SDF_GLYPHS, KERN as SDF_KERN, BASELINES as SDF_BASELINES, BASE as SDF_BASE, RADIUS as SDF_RADIUS, CUTOFF as SDF_CUTOFF, ATLAS_W as SDF_W, ATLAS_H as SDF_H } from './glyphs-inter.js?v=d7a58fccac';
 import { ATLAS_PNG as SDF_PNG } from './glyphs-inter-png.js?v=2e096d3c99';
 
@@ -54,10 +54,15 @@ export function textCovers(text) {
 }
 /** The width (px) of text set in the given weight and size: its advances, its kerning and its letter spacing. */
 export function textWidth(text, { weight = 400, size = 12, tnum = false, ls = 0 } = {}) {
-  const w = weightOf(weight), s = size / UPM, cs = [...String(text)];
-  let x = 0;
-  cs.forEach((ch, i) => { const g = outline(w, ch, tnum); x += (g ? g.adv : 0) * s + ls + (i < cs.length - 1 ? kernOf(w, ch, cs[i + 1], tnum) * s : 0); });
-  return cs.length ? x - ls : 0;
+  const w = weightOf(weight), s = size / UPM, str = String(text);
+  // (Walked by code point with no array made of the characters, and no closure, a call a label a frame.)
+  let x = 0, n = 0, ch = '', prev = '';
+  for (const c of str) {
+    if (n) { const g = outline(w, prev, tnum); x += (g ? g.adv : 0) * s + ls + kernOf(w, prev, c, tnum) * s; }
+    prev = c; n++; ch = c;
+  }
+  if (n) { const g = outline(w, ch, tnum); x += (g ? g.adv : 0) * s + ls; }
+  return n ? x - ls : 0;
 }
 
 /**

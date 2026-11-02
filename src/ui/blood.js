@@ -522,20 +522,34 @@ export function bleedShapes(bleed, rate, t, sites, hr = 80) {
 /** Ends this close (world units) count as one junction; speed ratios beyond these do not chain. */
 export const CHAIN_NEAR = 20, CHAIN_RATIO = 2, CHAIN_B_MAX = 3;
 
+// Lists of item indexes by node, kept from call to call (2 Nov 2026, scripts/frame-alloc.mjs: a Map and an array for each node, made
+// every frame). A list belongs to the call that stamped it; older ones read as empty and their arrays are written over.
+const byDownLists = { m: new Map(), stamp: 0 }, inflowLists = { m: new Map(), stamp: 0 };
+function lists(L) { L.stamp++; return L; }
+function listAdd(L, node, i) {
+  let l = L.m.get(node);
+  if (!l) L.m.set(node, (l = { stamp: 0, len: 0, a: [] }));
+  if (l.stamp !== L.stamp) { l.stamp = L.stamp; l.len = 0; }
+  l.a[l.len++] = i;
+}
+const listOf = (L, node) => { const l = L.m.get(node); return l && l.stamp === L.stamp ? l : null; };
+
 /**
  * The parent of each candidate: the candidate with the largest |flow| whose blood leaves at the node where this one's enters,
  * with their drawn ends within CHAIN_NEAR. items[i]: { up, down (node ids, by the shown flow), upPt, downPt ([x, y]), q (|flow|),
  * m (the model's mean display speed along the vessel's arc, signed; 0: it cannot chain) }. Returns an Int32Array (−1: none).
  */
 export function chainParents(items, out = new Int32Array(items.length)) {
-  const byDown = new Map();
-  items.forEach((it, i) => { if (it.m) { const l = byDown.get(it.down); if (l) l.push(i); else byDown.set(it.down, [i]); } });
+  const byDown = lists(byDownLists);
+  for (let i = 0; i < items.length; i++) if (items[i].m) listAdd(byDown, items[i].down, i);
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
     out[i] = -1;
     if (!it.m) continue;
     let best = -1;
-    for (const j of byDown.get(it.up) || []) {
+    const l = listOf(byDown, it.up);
+    for (let q = 0; l && q < l.len; q++) {
+      const j = l.a[q];
       if (j === i) continue;
       const p = items[j];
       if (Math.hypot(p.downPt[0] - it.upPt[0], p.downPt[1] - it.upPt[1]) >= CHAIN_NEAR) continue;
@@ -559,85 +573,98 @@ export function createStreamChain() {
   const close = (v, to, k, tol) => (Math.abs(to - v) <= tol ? to : v + (to - v) * k);
   const api = { par: [], root: [], A: [], B: [], w: [], ef: [], et: [], easing: false };
   let parIx = new Int32Array(0), done = new Uint8Array(0);
-  api.step = (items, kW = 1, kB = 1) => {
+  // (Kept from call to call so a step makes no Map, Set, array or closure: the index of each key, the stamp that marks a key for this
+  // call, and the call's items and easing shares.)
+  const atM = new Map(), mark = new Map();
+  let stamp = 0, cur = null, kW = 1, kB = 1;
+  const atGet = (key) => { const i = atM.get(key); return i != null && i < cur.length && cur[i].key === key ? i : null; };
+  const state = (key) => { let s = S.get(key); if (!s) S.set(key, (s = { p: -1, r: -1, w: 0, B: 1, A: 0, sj: 0, s0: 0, pA: 0, pB: 1, fresh: true, stable: false })); return s; };
+  const put = (i, arc, v) => {
+    const k = arc === 0 ? 'ef' : 'et', o = api[k][i];
+    if (v > 0) api[k][i] = Math.max(o > 0 ? o : 0, v); else if (!(o > 0)) api[k][i] = Math.min(o, v);
+  };
+  const go = (i) => {
+    if (done[i]) return;
+    done[i] = 2;   // (visiting: a parent met again on the way is a loop, and counts as none)
+    const items = cur, it = items[i], s = state(it.key);
+    let p = parIx[i];
+    if (p >= 0 && done[p] === 2) p = -1;
+    if (p >= 0) go(p);
+    // What this vessel should be drawn through: its parent's own pattern, or (once the parent's link is steady) the parent's root.
+    let want = -1, wantR = -1, Bw = 1, peA = 0, peB = 1;
+    if (p >= 0) {
+      const pi = items[p], ps = state(pi.key), ratio = Math.abs(pi.m / it.m);
+      const thru = ps.r >= 0 && ps.w === 1 && ps.stable;
+      peA = thru ? ps.A : 0; peB = thru ? ps.B : 1;
+      Bw = (peB * pi.m) / it.m;
+      if (ratio <= CHAIN_RATIO && ratio >= 1 / CHAIN_RATIO && Math.abs(Bw) <= CHAIN_B_MAX && Math.abs(Bw) >= 1 / CHAIN_B_MAX) {
+        want = pi.key; wantR = thru ? ps.r : pi.key;
+      }
+    }
+    const same = want === s.p && wantR === s.r;
+    if (s.fresh) {
+      s.fresh = false; s.p = want; s.r = wantR; s.B = Bw; s.w = want >= 0 ? 1 : 0;
+    } else if (same && want >= 0) {
+      const w = close(s.w, 1, kW, 0.002), B = close(s.B, Bw, kB, 1e-4);
+      if (w !== s.w || B !== s.B) api.easing = true;
+      s.w = w; s.B = B;
+    } else if (!same) {
+      if (s.w > 0) { s.w = close(s.w, 0, kW, 0.002); api.easing = true; }
+      if (s.w === 0 && mark.get(it.key) !== stamp) { s.p = want; s.r = wantR; s.B = Bw; if (want >= 0) api.easing = true; }
+    }
+    s.stable = s.p >= 0 && want === s.p && wantR === s.r;
+    // The junction, through the current link's parent (as it was when last drawn, if it is no longer a candidate).
+    if (s.p >= 0) {
+      const q = atGet(s.p);
+      if (q != null && s.p === want) { s.sj = items[q].sj; s.pA = peA; s.pB = peB; }
+      else if (q != null) { const qs = state(s.p); const thru = s.r !== s.p; s.sj = items[q].sj; s.pA = thru ? qs.A : 0; s.pB = thru ? qs.B : 1; }
+      s.s0 = it.s0;
+      s.A = s.pA + s.pB * s.sj - s.B * s.s0;
+    } else { s.A = 0; s.B = 1; }
+    done[i] = 1;
+    api.par[i] = s.w > 0 ? s.p : -1; api.root[i] = s.w > 0 ? s.r : -1;
+    api.A[i] = s.A; api.B[i] = s.B; api.w[i] = s.w;
+  };
+
+  api.step = (items, shareW = 1, shareB = 1) => {
     const n = items.length;
     if (parIx.length < n) { parIx = new Int32Array(n); done = new Uint8Array(n); }
     chainParents(items, parIx);
     done.fill(0, 0, n);
-    for (const k of ['par', 'root', 'A', 'B', 'w', 'ef', 'et']) api[k].length = n;
+    api.par.length = api.root.length = api.A.length = api.B.length = api.w.length = api.ef.length = api.et.length = n;
     api.easing = false;
-    const at = new Map();
-    items.forEach((it, i) => at.set(it.key, i));
+    // (The index of each key, a Map kept from call to call: written over for this call's keys, and an entry left by a key no longer drawn
+    // is told by its index not being this call's key's. No Map, Set, array or closure is made a call.)
+    stamp++;
+    if (atM.size > 4 * n + 64) atM.clear();
+    for (let i = 0; i < n; i++) atM.set(items[i].key, i);
+    const at = atGet;
     // (A vessel some child is still drawn through, by a root other than this vessel, keeps its link until that child has let go.)
-    const busy = new Set();
-    for (const [, s] of S) if (s.w > 0 && s.r !== s.p) busy.add(s.p);
-    const state = (key) => { let s = S.get(key); if (!s) S.set(key, (s = { p: -1, r: -1, w: 0, B: 1, A: 0, sj: 0, s0: 0, pA: 0, pB: 1, fresh: true, stable: false })); return s; };
-    const go = (i) => {
-      if (done[i]) return;
-      done[i] = 2;   // (visiting: a parent met again on the way is a loop, and counts as none)
-      const it = items[i], s = state(it.key);
-      let p = parIx[i];
-      if (p >= 0 && done[p] === 2) p = -1;
-      if (p >= 0) go(p);
-      // What this vessel should be drawn through: its parent's own pattern, or (once the parent's link is steady) the parent's root.
-      let want = -1, wantR = -1, Bw = 1, peA = 0, peB = 1;
-      if (p >= 0) {
-        const pi = items[p], ps = state(pi.key), ratio = Math.abs(pi.m / it.m);
-        const thru = ps.r >= 0 && ps.w === 1 && ps.stable;
-        peA = thru ? ps.A : 0; peB = thru ? ps.B : 1;
-        Bw = (peB * pi.m) / it.m;
-        if (ratio <= CHAIN_RATIO && ratio >= 1 / CHAIN_RATIO && Math.abs(Bw) <= CHAIN_B_MAX && Math.abs(Bw) >= 1 / CHAIN_B_MAX) {
-          want = pi.key; wantR = thru ? ps.r : pi.key;
-        }
-      }
-      const same = want === s.p && wantR === s.r;
-      if (s.fresh) {
-        s.fresh = false; s.p = want; s.r = wantR; s.B = Bw; s.w = want >= 0 ? 1 : 0;
-      } else if (same && want >= 0) {
-        const w = close(s.w, 1, kW, 0.002), B = close(s.B, Bw, kB, 1e-4);
-        if (w !== s.w || B !== s.B) api.easing = true;
-        s.w = w; s.B = B;
-      } else if (!same) {
-        if (s.w > 0) { s.w = close(s.w, 0, kW, 0.002); api.easing = true; }
-        if (s.w === 0 && !busy.has(it.key)) { s.p = want; s.r = wantR; s.B = Bw; if (want >= 0) api.easing = true; }
-      }
-      s.stable = s.p >= 0 && want === s.p && wantR === s.r;
-      // The junction, through the current link's parent (as it was when last drawn, if it is no longer a candidate).
-      if (s.p >= 0) {
-        const q = at.get(s.p);
-        if (q != null && s.p === want) { s.sj = items[q].sj; s.pA = peA; s.pB = peB; }
-        else if (q != null) { const qs = state(s.p); const thru = s.r !== s.p; s.sj = items[q].sj; s.pA = thru ? qs.A : 0; s.pB = thru ? qs.B : 1; }
-        s.s0 = it.s0;
-        s.A = s.pA + s.pB * s.sj - s.B * s.s0;
-      } else { s.A = 0; s.B = 1; }
-      done[i] = 1;
-      api.par[i] = s.w > 0 ? s.p : -1; api.root[i] = s.w > 0 ? s.r : -1;
-      api.A[i] = s.A; api.B[i] = s.B; api.w[i] = s.w;
-    };
+    for (const s of S.values()) if (s.w > 0 && s.r !== s.p) mark.set(s.p, stamp);
+    cur = items; kW = shareW; kB = shareB;
     for (let i = 0; i < n; i++) go(i);
     // The ends: a chained vessel's junction end and its parent's end there carry the link's weight; any other inflow at that
     // node is the minor one, carrying minus that weight.
     for (let i = 0; i < n; i++) { api.ef[i] = 0; api.et[i] = 0; }
-    const put = (i, arc, v) => {
-      const k = arc === 0 ? 'ef' : 'et', o = api[k][i];
-      if (v > 0) api[k][i] = Math.max(o > 0 ? o : 0, v); else if (!(o > 0)) api[k][i] = Math.min(o, v);
-    };
-    const inflows = new Map();
-    for (let j = 0; j < n; j++) if (items[j].m) { const l = inflows.get(items[j].down); if (l) l.push(j); else inflows.set(items[j].down, [j]); }
+    const inflows = lists(inflowLists);
+    for (let j = 0; j < n; j++) if (items[j].m) listAdd(inflows, items[j].down, j);
     for (let i = 0; i < n; i++) {
       const w = api.w[i];
       if (!(w > 0)) continue;
       put(i, items[i].s0, w);
-      const p = at.get(api.par[i]);
+      const p = at(api.par[i]);
       if (p == null) continue;
       put(p, items[p].sj, w);
-      for (const j of inflows.get(items[i].up) || []) if (j !== p && j !== i) put(j, items[j].sj, -w);
+      const l = listOf(inflows, items[i].up);
+      for (let q = 0; l && q < l.len; q++) { const j = l.a[q]; if (j !== p && j !== i) put(j, items[j].sj, -w); }
     }
     // (The state of a vessel no longer drawn, that nothing is drawn through, goes: drawn again, it starts afresh.)
-    const held = new Set();
-    for (const [, s] of S) if (s.w > 0) { held.add(s.p); held.add(s.r); }
-    for (const [key] of S) if (!at.has(key) && !held.has(key)) S.delete(key);
+    stamp++;
+    for (const s of S.values()) if (s.w > 0) { mark.set(s.p, stamp); mark.set(s.r, stamp); }
+    for (const key of S.keys()) if (at(key) == null && mark.get(key) !== stamp) S.delete(key);
+    cur = null;
     return api;
   };
   return api;
 }
+

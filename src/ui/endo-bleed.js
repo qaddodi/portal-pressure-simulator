@@ -6,9 +6,9 @@
 // the dark centre, its far end fading into the dark, its edges uneven and thin and see-through, widening as it fills, with the
 // scope's light as a soft patch on its surface and ripples running out from where the rivulet joins it. A red haze thickens with the
 // blood lost. The spot and the stain are radial gradients in circles of their own.
-import { bleedPulse } from './blood.js?v=f6c91d8676';
-import { scopeDrops, scopePool, inScopePool } from './endo-motion.js?v=1dc4743d1e';
-import { cssVar, cssAlpha } from './util.js?v=784ba7732c';
+import { bleedPulse } from './blood.js?v=a70439097a';
+import { scopeDrops, scopePool, inScopePool } from './endo-motion.js?v=ea7ccb902e';
+import { cssVar, cssAlpha } from './util.js?v=8adf2a8f53';
 
 const frac = (x) => ((x % 1) + 1) % 1;
 const smooth = (e0, e1, x) => { const u = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return u * u * (3 - 2 * u); };

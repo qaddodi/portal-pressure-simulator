@@ -6,24 +6,25 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js?v=afc4d7c743';
-import { h, fmt, cssVar, cssAlpha, clamp } from './util.js?v=784ba7732c';
-import { FONT as FONT0, FONT } from './charts.js?v=3c9bdc9491';
+import { h, fmt, cssVar, cssAlpha, clamp } from './util.js?v=8adf2a8f53';
+import { FONT as FONT0, FONT } from './charts.js?v=a18df567d0';
 import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=26e2e46fff';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
 import { limitLabelX as labelX } from './limit-label.js?v=6d7a63c949';
 import { wrapLabel } from './wrap-label.js?v=1af9654a99';
-import { createBeatClock, ekgSeries, leadIISeries } from './ekg.js?v=f27505b539';
+import { createBeatClock, ekgSeries, leadIISeries } from './ekg.js?v=e0e47eff4f';
 import { laneRoom } from './trace-lanes.js?v=3d3cb1915e';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
 import { plotFill } from './plot-look.js?v=5037697da7';
-import { createTraceGL, fitPen } from './trace-gl.js?v=671f8a9cea';
+import { createTraceGL, fitPen } from './trace-gl.js?v=dc1a7c0f1d';
 import { createStill } from './still-layer.js?v=d5a9373a74';
 import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from './beat-card.js?v=89d9fda241';
 import { VITALS } from './vital-read.js?v=cbba41a6b7';
 import { restPass, cancelRest } from './rest-pass.js?v=ed71462b47';
 import { shownOr } from './shown.js?v=331593cd88';
+import { dropFront } from './drop-front.js?v=21069ee0e8';
 const nextFrame = frameFor('pressure-time');
 
 // hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the
@@ -153,10 +154,13 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   const steadyHvpg = () => tenthGap(endOf('whvp'), endOf('RHV'), frame.metrics.hvpg);
   // Samples (a frame's, or the history's) into the fine buffer, the quarter-second bins and the beat clock; the buffers keep a fixed window.
   function record(smp) {
+    // (lastT is held in a local through the loop and written back once: a number kept in a closure's variable is a heap object made anew
+    // at each assignment, one for every sample of every frame.)
+    let lt = lastT;
     for (let i = 0; i < smp.t.length; i++) {
       const t = smp.t[i];
-      if (t <= lastT) continue;
-      lastT = t;
+      if (t <= lt) continue;
+      lt = t;
       fine.t.push(t); fine.ph.push(smp.ph?.[i] ?? NaN); beatClock.push(t, smp.ph?.[i]);
       for (const k of KEYS) fine[k].push(smp[k]?.[i] ?? NaN);
       const b0 = Math.floor(t / BIN) * BIN;
@@ -171,10 +175,11 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
         if (v < s[0]) s[0] = v; if (v > s[1]) s[1] = v; s[2] += v; s[3]++;
       }
     }
+    lastT = lt;
     let cut = 0; while (cut < fine.t.length && fine.t[cut] < lastT - FINE_S) cut++;
-    if (cut) { for (const k of Object.keys(fine)) fine[k].splice(0, cut); beatClock.trim(fine.t[0]); }
+    if (cut) { for (const k in fine) dropFront(fine[k], cut); beatClock.trim(fine.t[0]); }
     cut = 0; while (cut < coarse.length && coarse[cut].t < lastT - COARSE_S) cut++;
-    if (cut) coarse.splice(0, cut);
+    if (cut) dropFront(coarse, cut);
   }
   function ingest(f) {
     frame = f; wallAt = performance.now();
