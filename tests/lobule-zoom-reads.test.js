@@ -17,7 +17,8 @@ test('no layout read in the lobule zoom is reached from a frame or a motion call
 
 test('the boxes are read at rest boundaries only', () => {
   assert.match(src, /const boxRO = new ResizeObserver\(\(\) => \{ if \(readAll\(\) && fade > 0\) relayout\(\); \}\);\n\s*boxRO\.observe\(el\); boxRO\.observe\(host\);/);
-  assert.match(src, /addEventListener\('pps:occ', \(\) => \{ readAll\(\);/);
+  assert.match(src, /const onOcc = \(\) => \{ occT = 0; readAll\(\);/);
+  assert.match(src, /if \(fade <= 0 && !store\.get\(\)\.lobule\) \{ snap\.cardKey = '~'; return; \}\n\s*if \(!occT\) occT = restPass\(onOcc\);/, 'a slide change reads nothing with the lobule closed, and between frames with it open');
   assert.match(src, /if \(!onScene\(ev\) \|\| systemEdge\(ev\)\) return;\n\s*readBox\(\);/, 'a press reads the lobule\'s place first');
   assert.match(src, /landing\(\) \{\n\s*readAll\(\);/);
   assert.match(src, /const local = \(ev\) => \[ev\.clientX - snap\.l, ev\.clientY - snap\.t\];/);

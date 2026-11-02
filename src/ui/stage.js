@@ -2760,7 +2760,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=a73df1d9b3').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=4d902d92c8').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });

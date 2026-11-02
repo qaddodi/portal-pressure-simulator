@@ -394,7 +394,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const saved = { ...V }, wasFit = atFit; clampV(); const to = { ...V }, fit = atFit; Object.assign(V, saved); atFit = wasFit;
     if (Math.abs(to.k - V.k) + Math.abs(to.x - V.x) + Math.abs(to.y - V.y) > 0.5) { glideTo(to, 420, false, null, 'inOut', true); atFit = fit; } else { clampV(); viewChanged(); }
   }
-  addEventListener('pps:occ', () => { readAll(); if (fade > 0) { layoutKey = ''; refit(); } });
+  // (The cards' space changes on every slide change. With the lobule closed nothing is read: landing() reads its boxes as it opens.
+  // Open, they are read in a rest pass, between frames, never in the slide change's own task. ?lzoccrest=0: read at once, as before.)
+  const OCC_REST = !/[?&]lzoccrest=0\b/.test(location.search);
+  let occT = 0;
+  const onOcc = () => { occT = 0; readAll(); if (fade > 0) { layoutKey = ''; refit(); } };
+  addEventListener('pps:occ', () => {
+    if (!OCC_REST) { onOcc(); return; }
+    if (fade <= 0 && !store.get().lobule) { snap.cardKey = '~'; return; }
+    if (!occT) occT = restPass(onOcc);
+  });
   // A new text size: the labels glide to their new places instead of jumping.
   let easeT = 0;
   addEventListener('pps:labelscale', () => { measureShown(); labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); syncLeaders(); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
