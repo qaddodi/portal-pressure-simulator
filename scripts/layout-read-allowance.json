@@ -3,7 +3,7 @@
   "files": {
     "src/ui/stage.js": 87,
     "src/ui/util.js": 76,
-    "src/ui/card.js": 24,
+    "src/ui/card.js": 10,
     "src/ui/lobule-zoom.js": 26,
     "src/ui/menu.js": 20,
     "src/ui/focus-ring.js": 19,

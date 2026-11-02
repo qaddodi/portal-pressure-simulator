@@ -67,16 +67,20 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       pill.classList.remove('no-room');
     }
   }
+  // How much of the figure the sheet covers (it also covers the row below the figure): read here, between two frames, through layout-snap.
+  function coverNow() {
+    return Math.max(0, readBox(view).bottom - (readBox(dockHost).top + readMetric(el, 'offsetTop')));
+  }
+  function revealNow() {
+    const open = model && !el.hidden && isDocked();
+    const covered = open ? coverNow() : 0;
+    liftButtons(open ? `${covered + 6}px` : '0px');
+    if (open) stage.reveal?.(normalizeSel(selRef) || selRef, covered);
+  }
   function reveal() {
     // (A rest pass: the boxes are read between two frames, never inside one.)
     cancelRest(revealRaf);
-    revealRaf = restPass(() => {
-      const open = model && !el.hidden && isDocked();
-      // How much of the figure the sheet covers (it also covers the row below the figure).
-      const covered = open ? Math.max(0, view.getBoundingClientRect().bottom - (dockHost.getBoundingClientRect().top + el.offsetTop)) : 0;
-      liftButtons(open ? `${covered + 6}px` : '0px');
-      if (open) stage.reveal?.(normalizeSel(selRef) || selRef, covered);
-    });
+    revealRaf = restPass(revealNow);
   }
   let closeTimer = 0, stopSheetGesture = () => {};
   function hide() {
@@ -227,7 +231,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     const settle = (gone, speed) => {
       if (!thumb()) { if (gone) store.set({ selection: null }); return; }
       if (!gone) { sinkTo(el, 0, 220, undefined, speed); return; }
-      sinkTo(el, el.offsetHeight, 220, () => { if (el.hidden) return; el.dataset.swiped = '1'; store.set({ selection: null }); if (!el.hidden) { delete el.dataset.swiped; el.style.removeProperty('--sink'); } }, speed);
+      sinkTo(el, sizes.h, 220, () => { if (el.hidden) return; el.dataset.swiped = '1'; store.set({ selection: null }); if (!el.hidden) { delete el.dataset.swiped; el.style.removeProperty('--sink'); } }, speed);
     };
     const up = (e) => {
       if (e.pointerId !== pid) return;
@@ -410,12 +414,15 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (at && (Math.abs(at[0] - x) > 0.5 || Math.abs(at[1] - y) > 0.5) && !matchMedia('(prefers-reduced-motion: reduce)').matches) el.animate([{ translate: `${at[0]}px ${at[1]}px` }, { translate: t }], { duration: D_FLIP, easing: EASE_ARRIVE });
     el.style.translate = t; at = [x, y];
   }
-  function fitAbovePill() {
+  // (Measured in a rest pass, between two frames: placing the card never reads layout. A newer ask replaces one waiting.)
+  let fitRest = 0;
+  function fitAbovePill() { cancelRest(fitRest); fitRest = restPass(fitNow); }
+  function fitNow() {
     el.style.maxHeight = '';
-    const pill = view.querySelector('.zoom-pill'), box = el.offsetParent;
-    if (el.hidden || el.classList.contains('docked') || !box || !pill || pill.offsetParent !== box || !pill.offsetHeight) return;
-    const pt = pill.offsetTop, pl = pill.offsetLeft + transformEndX(pill), top = at ? at[1] : el.offsetTop, left = at ? at[0] : el.offsetLeft;   // (its glide aside is a transform: RF2; the card's own place is its translate)
-    if (left < pl + pill.offsetWidth && left + el.offsetWidth > pl && top + el.offsetHeight > pt - 8) el.style.maxHeight = Math.max(200, pt - 8 - top) + 'px';
+    const pill = view.querySelector('.zoom-pill'), box = readMetric(el, 'offsetParent');
+    if (el.hidden || el.classList.contains('docked') || !box || !pill || readMetric(pill, 'offsetParent') !== box || !readMetric(pill, 'offsetHeight')) return;
+    const pt = readMetric(pill, 'offsetTop'), pl = readMetric(pill, 'offsetLeft') + transformEndX(pill), top = at ? at[1] : readMetric(el, 'offsetTop'), left = at ? at[0] : readMetric(el, 'offsetLeft');   // (its glide aside is a transform: RF2; the card's own place is its translate)
+    if (left < pl + readMetric(pill, 'offsetWidth') && left + readMetric(el, 'offsetWidth') > pl && top + readMetric(el, 'offsetHeight') > pt - 8) el.style.maxHeight = Math.max(200, pt - 8 - top) + 'px';
   }
   function position() {
     if (!model || el.hidden) return;
