@@ -3,7 +3,7 @@
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
 import { store, updateParams } from './store.js?v=4ef2a6ffd8';
-import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=a7a76dfc36';
+import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=daeaa9eb04';
 import { D_FLIP, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
 import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
 import { frame } from './frame.js?v=7710f677e2';
@@ -178,7 +178,7 @@ export function createPalette({ ctx }) {
       return b;
     });
     list.replaceChildren(...(GLIDE ? [hl] : []), ...(items.length ? rows : [h('div', { class: 'pal-empty' }, h('b', {}, input.value.trim() ? `Nothing matches “${input.value.trim()}”.` : 'No commands yet.'), 'Try a vessel (“portal vein”), a patient, a presentation or a treatment (“tips 8”).')]));
-    list.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
+    restPass(onInView);   // (2 Nov 2026: scrolled between frames, never in a pointer's move: scrollIntoView lays the page out)
     syncMore();
     if (GLIDE) {
       place(false);
@@ -191,11 +191,13 @@ export function createPalette({ ctx }) {
     syncActive();
   }
   // The arrow keys and the pointer: the highlight glides, two rows change their aria-selected, and the list is not rebuilt.
+  function onInView() { list.querySelector('.on')?.scrollIntoView({ block: 'nearest' }); }
+  function selInView() { rows[sel]?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() }); }
   function move(i, scroll) {
     if (!GLIDE) { sel = i; renderList(); return; }
     if (i === sel || !items.length) return;
     sel = i; mark(); syncActive(); place(true);
-    if (scroll) rows[sel]?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
+    if (scroll) restPass(selInView);
   }
   function run(i) {
     const it = items[i];

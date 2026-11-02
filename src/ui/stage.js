@@ -4,13 +4,13 @@
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=fe0f3d1f0e';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=b4f74b7b7f';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=f081cbf0e8';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=4ef2a6ffd8';
 import { fibroReading } from './clock.js?v=16aba0e2eb';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=a7a76dfc36';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=daeaa9eb04';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
@@ -41,18 +41,18 @@ import { refine } from './refine.js?v=e6e17cc013';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=4ffac3ef7f';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
-import { cropToGrid } from './organs-gl.js?v=050bb08f99';
-import { textPolys, loadGlyphs, glyphsReady } from './text-gl.js?v=deadb4ae54';
+import { cropToGrid } from './organs-gl.js?v=de7a19fd36';
+import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js?v=8db702aacd';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
-import { measure as measureWords } from './glyph-measure.js?v=b3d35eceef';
-import { readGroup, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=2b4e833536';
+import { measure as measureWords } from './glyph-measure.js?v=131d137ce2';
+import { readGroup, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=106afca6f6';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
-import { pathCmds, flattenCmds, polyBox, measurePath } from './shape-gl.js?v=9778d0e19e';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=0fa4a4ee45';
-import { nameSpots, NAME_BREAK } from './organ-names.js?v=f960b96951';
-import { createLabelGL } from './label-gl.js?v=e9a4ab1e0b';
+import { pathCmds, flattenCmds, polyBox, measurePath, elBox } from './shape-gl.js?v=1e2bc57a21';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=718f39c095';
+import { nameSpots, NAME_BREAK } from './organ-names.js?v=37d9fdf180';
+import { createLabelGL } from './label-gl.js?v=f09b6dbba8';
 import { createGlassGL } from './glass-gl.js?v=ebe96d8dd3';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=36a333d50a';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=2bb5914778';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -68,7 +68,7 @@ import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=49e37b0228';
-import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=d22e9b46bf';
+import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=db59be811c';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { layoutWatch } from './idle-keys.js?v=81fbedda6b';
@@ -83,7 +83,7 @@ import { guardBlur } from './blur-guard.js?v=5228284718';
 import { capDensity } from './pixel-budget.js?v=279a2b54f6';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
-import { CellGrid, geomOf } from './cell-grid.js?v=18110c68a3';
+import { CellGrid, geomOf } from './cell-grid.js?v=92b12a8464';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
@@ -1885,15 +1885,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The boxes the home framing fits: whole groups as drawn, and each gut organ (in its own transform) with every clipped
   // part cut to its clip path's box.
   function fitBoxes(whole, clipped) {
-    const out = [], box = (el) => { try { return el.getBBox(); } catch { return null; } };
-    for (const g of whole) { const b = box(g); if (b) out.push(b); }
+    // (2 Nov 2026: each box worked out in script from the shapes' own numbers (elBox), not getBBox, which laid the page out in a pan.)
+    const out = [];
+    for (const g of whole) { const b = elBox(g); if (b) out.push(b); }
     for (const g of clipped) {
       const parts = [];
       for (const c of g.children) {
-        const b = box(c); if (!b || !b.width || !b.height) continue;
+        const b = elBox(c); if (!b || !b.width || !b.height) continue;
         const id = /url\(#([^)]+)\)/.exec(c.getAttribute('clip-path') || '')?.[1];
         const cp = id && svg.querySelector('#' + CSS.escape(id))?.firstElementChild;
-        const k = cp && box(cp);
+        const k = cp && elBox(cp);
         parts.push(k ? clipBox(b, k) : b);
       }
       const m = g.transform?.baseVal?.consolidate()?.matrix;
@@ -2362,7 +2363,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   let lobEnd = 0;
   function liverBox() {
-    if (!liverBB && organEls.liver) { try { const b = organEls.liver.getBBox(); if (b.width) liverBB = { x: b.x, y: b.y, w: b.width, h: b.height }; } catch { /* not rendered yet */ } }
+    if (!liverBB && organEls.liver) { const b = elBox(organEls.liver); if (b?.width) liverBB = { x: b.x, y: b.y, w: b.width, h: b.height }; }   // (in script: elBox)
     return liverBB;
   }
   function vbCenter() { const b = svg.viewBox.baseVal; return [b.x + b.width / 2, b.y + b.height / 2]; }
@@ -2704,7 +2705,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=28c0427c52').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=968de1ca9b').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -8161,6 +8162,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     el.style.strokeWidth = CTM.sc > 0 ? `${(7 / CTM.sc).toFixed(2)}px` : '';
   };
   // Moves a "60 %" to `want` ({ d, t } or null: back where it belongs): it fades out where it stands, then in at the new place.
+  const clampFades = new WeakMap();
   function clampStep(id, want) {
     const m = clampMv.get(id) || { cur: null, want: null, busy: false }, same = (a, b) => (a ? !!b && a.d === b.d && a.t === b.t : !b);
     clampMv.set(id, m);
@@ -8171,10 +8173,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     m.busy = true;
     const dur = reduceMotion.matches ? 0 : D_SMALL;
     // (From and to its own opacity as it stands, the keyframe left out: no style read for it. 1 Nov 2026.)
-    for (const el of els()) el.animate?.([{ opacity: 0 }], { duration: dur, fill: 'forwards' });
+    // (2 Nov 2026: the fade it ran is kept and cancelled by name, not looked up with getAnimations, which read the page's styles.)
+    for (const el of els()) { clampFades.get(el)?.cancel(); const a = el.animate?.([{ opacity: 0 }], { duration: dur, fill: 'forwards' }); if (a) clampFades.set(el, a); }
     setTimeout(() => {
       m.cur = m.want; m.busy = false;
-      for (const el of els()) { el.getAnimations?.().forEach((a) => a.cancel()); clampLabelAt(el); el.animate?.([{ opacity: 0, offset: 0 }], { duration: dur }); }
+      for (const el of els()) { clampFades.get(el)?.cancel(); clampFades.delete(el); clampLabelAt(el); el.animate?.([{ opacity: 0, offset: 0 }], { duration: dur }); }
       if (F) updateLabels(F);
     }, dur);
   }
@@ -8189,6 +8192,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     el.setAttribute('dx', (left ? -gap : gap).toFixed(2)); el.setAttribute('dy', gap.toFixed(2));
     if (left) el.setAttribute('text-anchor', 'end'); else el.removeAttribute('text-anchor');
     if (deg) el.setAttribute('transform', `rotate(${(-deg).toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)})`); else el.removeAttribute('transform');
+  }
+  // (2 Nov 2026: a "60 %"'s box worked out in script, from its own attributes and Inter's advances and metrics (textBox), as getBBox
+  // gives it, so the labels' search lays nothing out. Its size: its own, else the clamps' --clamp-fs. The outlines come in once, and
+  // the labels are laid again then.)
+  let clampGlyphAsk = false;
+  function clampTextBox(el) {
+    if (!glyphsReady()) { if (!clampGlyphAsk) { clampGlyphAsk = true; loadGlyphs().then(() => { if (F) updateLabels(F); }); } return null; }
+    const a = (k) => parseFloat(el.getAttribute(k)) || 0, cls = el.getAttribute('class') || '';
+    const size = parseFloat(el.style.fontSize) || (/clamp-label/.test(cls) && parseFloat(clampFs)) || 12;
+    return textBox(el.textContent, a('x') + a('dx'), a('y') + a('dy'), { anchor: el.getAttribute('text-anchor') || 'start', weight: 600, size, k: CTM?.sc > 0 ? CTM.sc : 1 });
   }
   // Where clampLabelAt puts a clamp's percentage (its spot, which side its text runs and its offset), without writing it.
   function clampLabelPos(el) {
@@ -9775,7 +9788,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           if (ref) bb = { x: ref.bb.x + (qx - ref.x), y: ref.bb.y + (qy - ref.y), width: ref.bb.width, height: ref.bb.height };
           else {
             clampLabelAt(el);
-            try { bb = el.getBBox(); } catch { break; }
+            bb = clampTextBox(el);
+            if (!bb) break;
             measured[+q.left] = { x: qx, y: qy, bb: { x: bb.x, y: bb.y, width: bb.width, height: bb.height } };
           }
           const cs = [[bb.x, bb.y], [bb.x + bb.width, bb.y + bb.height]].map(([x, y]) => worldToLocal(x, y));
@@ -9791,8 +9805,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Stenosis clamps and their percentages are drawn on the figure; keep labels off them. (Beside a stent called out in a column,
     // only the clamp's own arrows and its "60 %", so the callout at the narrowing can stand right by its dot.)
     const boxOfEl = (el, m = 2) => {
-      let b; try { b = el.getBBox(); } catch { return null; }
-      if (!b.width) return null;
+      const b = elBox(el, clampTextBox);
+      if (!b?.width) return null;
       const cs = [[b.x, b.y], [b.x + b.width, b.y], [b.x, b.y + b.height], [b.x + b.width, b.y + b.height]].map(([x, y]) => worldToLocal(x, y));
       return { x0: Math.min(...cs.map((c) => c[0])) - m, y0: Math.min(...cs.map((c) => c[1])) - m, x1: Math.max(...cs.map((c) => c[0])) + m, y1: Math.max(...cs.map((c) => c[1])) + m };
     };
@@ -11303,9 +11317,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // (A value the painter reads at each paint, eased by the page's CSS: the browser shows the ease, so the group waits in the SVG.
         // An outline's d is not eased by any of the overlays' styles.)
         // (2 Nov 2026: its transitions are read in the next frame's read phase (overReadNow), not here, in the observer's microtask
-        // straight after the page's writes, where the read laid the page out. ?overearly=0: here, as before.)
+        // straight after the page's writes, where the read laid the page out.)
         if (r.attributeName !== 'd' && r.target.nodeType === 1) {
-          if (OVER_EARLY) overCheck.add(r.target); else { const ms = transMs(r.target); if (ms > 0) { overEasing.set(r.target, performance.now() + ms + 50); overDirty = true; } }
+          overCheck.add(r.target);
         }
       }
       askAnimate();
@@ -11340,17 +11354,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (overDirty || key !== overKeyWas) {
       overDirty = false; overKeyWas = key;
       // (2 Nov 2026, the iPhone trace: the groups' styles were read here, after the frame's writes, and the browser restyled the page in
-      // the middle of the frame. They are read first thing in the next frame (readFrame), before any write, and laid then. ?overearly=0:
-      // read here, as before.)
-      if (!OVER_EARLY) overReadNow();
-      else { overNeed = true; if (!overAsk) overAsk = readFrame(overReadEarly); }
+      // the middle of the frame. They are read first thing in the next frame (readFrame), before any write, and laid then.)
+      overNeed = true;
+      if (!overAsk) overAsk = readFrame(overReadEarly);
     } else if (overCheck.size && !overAsk) overAsk = readFrame(overReadEarly);   // (only writes to look at: read again if one eases)
     if (!overGot) return;
     const run = overGot;
     overGot = null;
     overApply(run);
   }
-  const OVER_EARLY = !/[?&]overearly=0\b/.test(location.search);
   let overAsk = 0, overGot = null, overNeed = false;
   function overReadEarly() {
     overAsk = 0;
@@ -11593,10 +11605,46 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Organs under a point (anatomy only). The varices and fundus are small sites. The abdomen is
   // only the visible fluid itself, so the bowel and its vessels never open the ascites view by accident.
   const ORGAN_OF = { liver: 'liver', heart: 'heart', 'heart-ra': 'heart', spleen: 'spleen', stomach: null, esophagus: null, bowel: null, colon: null, appendix: null, duodenum: null, 'kidney-l': null };
+  // (2 Nov 2026: tested in script against the outline's own numbers (nonzero fill, or within half the stroke), not by the browser's
+  // isPointInFill/isPointInStroke, which laid the page out in the pointer's move. A band's stroke width is read between frames, once.)
+  const ptPolys = new Map(), ptSW = new WeakMap(), ptSWWant = new Set();
+  let ptSWAsk = 0;
+  function ptSWRead() { ptSWAsk = 0; for (const el of ptSWWant) ptSW.set(el, parseFloat(getComputedStyle(el).strokeWidth) || 0); ptSWWant.clear(); }
+  const polysOf = (d) => {
+    let p = ptPolys.get(d);
+    if (!p) { p = flattenCmds(pathCmds(d), 0.25); if (ptPolys.size > 64) ptPolys.clear(); ptPolys.set(d, p); }
+    return p;
+  };
   const ptIn = (el, x, y, stroke) => {
     if (!el) return false;
-    const pt = svg.createSVGPoint(); pt.x = x; pt.y = y;
-    try { return stroke ? el.isPointInStroke(pt) : el.isPointInFill(pt); } catch { return false; }
+    const d = el.getAttribute('d');
+    if (!d) return false;
+    const polys = polysOf(d);
+    if (stroke) {
+      const sw = ptSW.get(el);
+      if (sw == null) { ptSWWant.add(el); if (!ptSWAsk) ptSWAsk = restPass(ptSWRead); return false; }
+      const r2 = (sw / 2) ** 2;
+      for (const { pts, closed } of polys) {
+        const n = pts.length / 2;
+        for (let k = 0; k < (closed ? n : n - 1); k++) {
+          const ax = pts[2 * k], ay = pts[2 * k + 1], j = ((k + 1) % n) * 2, bx = pts[j], by = pts[j + 1];
+          const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy, t = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2)) : 0;
+          const ex = ax + t * dx - x, ey = ay + t * dy - y;
+          if (ex * ex + ey * ey <= r2) return true;
+        }
+      }
+      return false;
+    }
+    let wn = 0;
+    for (const { pts } of polys) {
+      const n = pts.length / 2;
+      for (let k = 0; k < n; k++) {
+        const ax = pts[2 * k], ay = pts[2 * k + 1], j = ((k + 1) % n) * 2, bx = pts[j], by = pts[j + 1];
+        const side = (bx - ax) * (y - ay) - (x - ax) * (by - ay);
+        if (ay <= y) { if (by > y && side > 0) wn++; } else if (by <= y && side < 0) wn--;
+      }
+    }
+    return wn !== 0;
   };
   function organAt(wx, wy) {
     if (morph > 0.5) return null;

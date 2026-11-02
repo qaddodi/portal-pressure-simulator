@@ -1,0 +1,52 @@
+// The figure's boxes, the "60 %"'s box and a sheet's eased offset are worked out in script, not asked of the browser (2 Nov 2026:
+// getBBox, getComputedTiming and isPointInFill each laid the page out or brought its styles up to date in a frame or a move).
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+globalThis.location ??= { search: '' };
+const near = (a, b, tol, what) => assert.ok(Math.abs(a - b) <= tol, `${what}: ${a} vs ${b}`);
+
+// (A small stand-in for an SVG element: what elBox reads, its name, attributes, inline style, children and transform.)
+const el = (name, at = {}, kids = [], m = null) => ({
+  localName: name, children: kids, style: at.style || {},
+  hasAttribute: (k) => k in at, getAttribute: (k) => (k in at ? String(at[k]) : null),
+  transform: { baseVal: { numberOfItems: m ? 1 : 0, consolidate: () => ({ matrix: m }) } },
+});
+
+test('elBox gives getBBox\'s box from the shapes\' own numbers: paths, circles, groups through their transforms, hidden left out', async () => {
+  const { elBox } = await import('../src/ui/shape-gl.js');
+  const b = elBox(el('path', { d: 'M0 0 A 10 10 0 0 1 20 0' }));   // (half a circle above the x axis: y to -10)
+  near(b.x, 0, 1e-6, 'x'); near(b.width, 20, 1e-6, 'w'); near(b.y, -10, 0.01, 'y'); near(b.height, 10, 0.01, 'h');
+  assert.deepEqual(elBox(el('circle', { cx: 5, cy: 5, r: 2 })), { x: 3, y: 3, width: 4, height: 4 });
+  const g = el('g', {}, [el('rect', { x: 0, y: 0, width: 10, height: 10 }), el('rect', { x: 0, y: 0, width: 10, height: 10 }, [], { a: 1, b: 0, c: 0, d: 1, e: 20, f: 5 }),
+    el('rect', { x: -100, y: -100, width: 1, height: 1, style: { display: 'none' } }), el('text', {})]);
+  assert.deepEqual(elBox(g), { x: 0, y: 0, width: 30, height: 15 });
+  assert.equal(elBox(el('g')), null, 'an empty group has no box');
+  assert.deepEqual(elBox(el('g', {}, [el('text', {})]), () => ({ x: 1, y: 2, width: 3, height: 4 })), { x: 1, y: 2, width: 3, height: 4 }, 'text by its measure');
+});
+
+test('textBox gives Chrome\'s text box: advances for the width, Inter\'s ascent and descent rounded to whole screen pixels', async () => {
+  const { textBox, loadGlyphs } = await import('../src/ui/text-gl.js');
+  await loadGlyphs();
+  // (Chromium's getBBox of "60%" in Inter 600, baseline at y 100, read on 2 Nov 2026: at 12 px and 1 px per unit, its ascent 12 and
+  // descent 3; at 2 px per unit 11.5 and 3; at half a pixel 12 and 2; and in the app at 27.28 units (iPhone) 62.87 wide.)
+  const a = textBox('60%', 100, 100, { weight: 600, size: 12 });
+  near(a.y, 88, 1e-9, 'ascent at 1x'); near(a.height, 15, 1e-9, 'height at 1x'); near(a.width, 27.656, 0.02, 'width');
+  const b = textBox('60%', 100, 100, { weight: 600, size: 12, k: 2 });
+  near(b.y, 88.5, 1e-9, 'ascent at 2x'); near(b.height, 14.5, 1e-9, 'height at 2x');
+  const c = textBox('60%', 100, 100, { weight: 600, size: 12, k: 0.5 });
+  near(c.y, 88, 1e-9, 'ascent at 0.5x'); near(c.height, 14, 1e-9, 'height at 0.5x');
+  near(textBox('60%', 0, 0, { weight: 600, size: 27.28 }).width, 62.87, 0.03, 'width at the iPhone\'s size');
+  const e = textBox('60%', 100, 100, { weight: 600, size: 12, anchor: 'end' });
+  near(e.x + e.width, 100, 1e-9, 'end anchor');
+});
+
+test('a sheet\'s offset mid-ease is worked out from its clock and curve, not read from the browser', async () => {
+  const { curveOf } = await import('../src/ui/sheet-move.js');
+  const { easeArrive } = await import('../src/ui/ease.js');
+  near(curveOf('cubic-bezier(.2, .8, .2, 1)')(0.37), easeArrive(0.37), 1e-12, 'the arrival curve');
+  near(curveOf('linear')(0.3), 0.3, 0, 'linear');
+  near(curveOf('ease-in-out')(0.5), 0.5, 1e-6, 'a named curve');
+  const src = (await import('node:fs')).readFileSync(new URL('../src/ui/sheet-move.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /\.getComputedTiming\b/);
+});

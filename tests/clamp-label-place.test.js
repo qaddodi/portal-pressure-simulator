@@ -47,5 +47,7 @@ test('the clamp label search measures once per text direction', () => {
   const search = body('const measured = [null, null];', 'clampAlts = clampAlts.filter');
   assert.match(search, /const qx = \+q\.x\.toFixed\(2\), qy = \+q\.y\.toFixed\(2\), ref = measured\[\+q\.left\];/);
   assert.match(search, /if \(ref\) bb = \{ x: ref\.bb\.x \+ \(qx - ref\.x\), y: ref\.bb\.y \+ \(qy - ref\.y\), width: ref\.bb\.width, height: ref\.bb\.height \};/);
-  assert.equal((search.match(/getBBox\(\)/g) || []).length, 1, 'one measuring call, taken only without a reference');
+  // (2 Nov 2026: the measure is worked out in script (clampTextBox, Inter's advances and metrics), not by getBBox.)
+  assert.equal((search.match(/clampTextBox\(el\)/g) || []).length, 1, 'one measuring call, taken only without a reference');
+  assert.equal((search.match(/getBBox\(\)/g) || []).length, 0, 'nothing measured by the browser');
 });

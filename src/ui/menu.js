@@ -5,11 +5,11 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=4ef2a6ffd8';
-import { createTraceGL, fitPen } from './trace-gl.js?v=38c6766e5b';
-import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=a7a76dfc36';
+import { createTraceGL, fitPen } from './trace-gl.js?v=a6748a2443';
+import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=daeaa9eb04';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=b4f74b7b7f';
+import { pressureColor } from './colormap.js?v=f081cbf0e8';
 import { ownsSideways, pageGo } from './swipe.js?v=c1f19a57dd';
 import { frameFor } from './frame.js?v=7710f677e2';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
@@ -531,7 +531,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         else el.querySelector(`.um-col[data-col="${tab}"] .um-row[aria-current="true"]`)?.scrollIntoView({ block: 'nearest' });
       };
       scrollOpen = scrollTo;
-      nextFrame(scrollTo);
+      // (2 Nov 2026: scrolled between frames (rest-pass.js), not inside one: scrollIntoView lays the page out.)
+      nextFrame(() => restPass(scrollTo));
     },
     close,
     toggle(section) { if (open) close(); else this.open(section); },

@@ -12,7 +12,7 @@
 //    (a chart's ticks, a monitor's live number: trace-gl.js), where a fresh outline fill each frame would cost more.
 // No other module imports glyphs-inter.js or its PNG (tests/text-gl.test.js).
 
-import { flattenPath } from './shape-gl.js?v=9778d0e19e';
+import { flattenPath } from './shape-gl.js?v=1e2bc57a21';
 import { GLYPHS as SDF_GLYPHS, KERN as SDF_KERN, BASELINES as SDF_BASELINES, BASE as SDF_BASE, RADIUS as SDF_RADIUS, CUTOFF as SDF_CUTOFF, ATLAS_W as SDF_W, ATLAS_H as SDF_H } from './glyphs-inter.js?v=d7a58fccac';
 import { ATLAS_PNG as SDF_PNG } from './glyphs-inter-png.js?v=2e096d3c99';
 
@@ -78,4 +78,18 @@ export function textPolys(text, x, y, { weight = 400, size = 12, tnum = false, l
     at += g.adv * s + ls + (i < cs.length - 1 ? kernOf(w, ch, cs[i + 1], tnum) * s : 0);
   });
   return { polys, w: cs.length ? at - x - ls : 0 };
+}
+
+/**
+ * The box SVG text's getBBox() gives, worked out in script (2 Nov 2026): its advances for the width, and Inter's ascent and descent
+ * (hhea 1984 and 494 of 2048) each rounded to whole pixels at the size the text has on screen, as the browser rounds them, for the
+ * height. `x`, `y`: the baseline's anchor point; `anchor`: 'start', 'middle' or 'end'; `k`: screen px per unit of the text's own
+ * space. Null until the outlines are here.
+ */
+export function textBox(text, x, y, { anchor = 'start', weight = 400, size = 12, tnum = false, ls = 0, k = 1 } = {}) {
+  if (!GLYPHS) return null;
+  const w = textWidth(text, { weight, size, tnum, ls }), px = size * k;
+  const asc = Math.round((1984 / 2048) * px) / k, desc = Math.round((494 / 2048) * px) / k;
+  const x0 = anchor === 'end' ? x - w : anchor === 'middle' ? x - w / 2 : x;
+  return { x: x0, y: y - asc, width: w, height: asc + desc };
 }

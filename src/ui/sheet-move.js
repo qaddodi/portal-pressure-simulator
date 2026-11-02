@@ -8,7 +8,7 @@
 // the compositor carries the eases (WAAPI on translate).
 //
 // ?sheetfx=0: the sheet still moves this way under the finger, but lands at once on release (no ease), for comparison.
-import { D_SMALL, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
+import { D_SMALL, EASE_ARRIVE, cubicBezier } from './ease.js?v=fc509dabe4';
 
 export const SHEET_EASE = !/[?&]sheetfx=0\b/.test(location.search);
 
@@ -25,13 +25,29 @@ export function sheetParts(el) {
 }
 
 const runs = new WeakMap();
+// (A CSS easing as a function of 0..1: cubic-bezier(...) as given, the named curves by their CSS values, else linear.)
+const NAMED = { ease: [0.25, 0.1, 0.25, 1], 'ease-in': [0.42, 0, 1, 1], 'ease-out': [0, 0, 0.58, 1], 'ease-in-out': [0.42, 0, 0.58, 1] };
+const curves = new Map();
+export function curveOf(easing) {
+  let f = curves.get(easing);
+  if (!f) {
+    const m = /^cubic-bezier\(([^)]*)\)$/.exec(String(easing).trim()), v = m ? m[1].split(',').map(Number) : NAMED[easing];
+    f = v?.length === 4 && v.every(Number.isFinite) ? cubicBezier(...v) : (t) => t;
+    if (curves.size > 32) curves.clear();
+    curves.set(easing, f);
+  }
+  return f;
+}
 /** Where the content is drawn now, px down from its place in the box (the eased value mid-way, read from the running ease). */
 export function sheetOffset(el) {
   const r = runs.get(el);
   if (r) {
-    const a = r.anims[0], t = a?.effect?.getComputedTiming?.();
-    if (t && t.progress != null) return r.from + (r.to - r.from) * (r.ease ? r.ease(t.progress) : t.progress);
-    return r.to;
+    // (2 Nov 2026: worked out from the run's own clock and curve, not getComputedTiming, which brought the page's styles up to date
+    // in the finger's move.)
+    const ms = r.anims[0]?.currentTime;
+    if (typeof ms !== 'number' || !(r.duration > 0)) return r.to;
+    const k = Math.max(0, Math.min(1, ms / r.duration));
+    return k >= 1 ? r.to : r.from + (r.to - r.from) * r.ease(k);
   }
   return el._sheetOff || 0;
 }
@@ -61,7 +77,7 @@ export function glideSheet(el, y, { easing = EASE_ARRIVE, duration = D_SMALL, do
   for (const c of parts) c.style.translate = v;
   if (!SHEET_EASE || Math.abs(from - y) < 0.5 || typeof parts[0].animate !== 'function') { done?.(); return; }
   const anims = parts.map((c) => c.animate([{ translate: `0px ${from}px` }, { translate: `0px ${y}px` }], { duration, easing }));
-  const r = { anims, from, to: y };
+  const r = { anims, from, to: y, duration, ease: curveOf(easing) };
   runs.set(el, r);
   let over = false;
   const finish = () => { if (over) return; over = true; if (runs.get(el) === r) runs.delete(el); done?.(); };

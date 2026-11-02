@@ -485,3 +485,58 @@ export function measurePath(d, tol = 0.002) {
   };
   return { L, at };
 }
+
+/**
+ * An SVG element's box in its own user space, the way getBBox() gives it (fill geometry, no stroke), worked out from its
+ * attributes in script, so nothing asks the browser to lay the page out (2 Nov 2026). A group is the union of its children,
+ * each through its own transform; hidden ones (display none, by attribute or inline style, or `hidden`) are left out, as the
+ * browser leaves them out. Text is measured by `textOf(el)` (its box, or null), when given. Returns null for an element with nothing
+ * to measure (an empty group). Paths are cached by d.
+ */
+const BOX_D = new Map();
+export function elBox(el, textOf = null) {
+  const b = elBox4(el, textOf);
+  return b ? { x: b[0], y: b[1], width: b[2] - b[0], height: b[3] - b[1] } : null;
+}
+function hiddenEl(el) {
+  return el.hasAttribute?.('hidden') || el.getAttribute?.('display') === 'none' || el.style?.display === 'none';
+}
+function num(el, k) { const v = parseFloat(el.getAttribute(k)); return Number.isFinite(v) ? v : 0; }
+function elBox4(el, textOf) {
+  if (!el || hiddenEl(el)) return null;
+  switch (el.localName) {
+    case 'text': { const t = textOf?.(el); return t ? [t.x, t.y, t.x + t.width, t.y + t.height] : null; }
+    case 'path': {
+      const d = el.getAttribute('d');
+      if (!d) return null;
+      let b = BOX_D.get(d);
+      if (b === undefined) {
+        const polys = flattenCmds(pathCmds(d), 0.002);
+        b = polys.some((p) => p.pts.length) ? polyBox(polys) : null;
+        if (BOX_D.size > 512) BOX_D.clear();
+        BOX_D.set(d, b);
+      }
+      return b;
+    }
+    case 'rect': { const x = num(el, 'x'), y = num(el, 'y'); return [x, y, x + num(el, 'width'), y + num(el, 'height')]; }
+    case 'circle': { const cx = num(el, 'cx'), cy = num(el, 'cy'), r = num(el, 'r'); return [cx - r, cy - r, cx + r, cy + r]; }
+    case 'ellipse': { const cx = num(el, 'cx'), cy = num(el, 'cy'), rx = num(el, 'rx'), ry = num(el, 'ry'); return [cx - rx, cy - ry, cx + rx, cy + ry]; }
+    case 'line': { const a = num(el, 'x1'), b = num(el, 'y1'), c = num(el, 'x2'), d = num(el, 'y2'); return [Math.min(a, c), Math.min(b, d), Math.max(a, c), Math.max(b, d)]; }
+    case 'polygon': case 'polyline': {
+      const v = (el.getAttribute('points') || '').trim().split(/[\s,]+/).map(Number).filter(Number.isFinite);
+      return v.length >= 2 ? polyBox([{ pts: v }]) : null;
+    }
+    case 'g': case 'a': case 'svg': {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const c of el.children) {
+        const b = elBox4(c, textOf);
+        if (!b) continue;
+        const m = c.transform?.baseVal?.numberOfItems ? c.transform.baseVal.consolidate()?.matrix : null;
+        const cs = m ? [[b[0], b[1]], [b[2], b[1]], [b[0], b[3]], [b[2], b[3]]].map(([x, y]) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f]) : [[b[0], b[1]], [b[2], b[3]]];
+        for (const [x, y] of cs) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      }
+      return x1 >= x0 ? [x0, y0, x1, y1] : null;
+    }
+    default: return null;
+  }
+}
