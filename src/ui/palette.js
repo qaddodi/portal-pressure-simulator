@@ -115,8 +115,10 @@ export function createPalette({ ctx }) {
     return scored.sort((a, b) => b.score - a.score).slice(0, 12);
   }
   // (The options are reached through the field, by arrow keys: it names the one that is current, and a screen reader reads it as the field's choice.)
+  const OPT_IDS = [];   // (the option ids, by row: made on a row's first asking)
+  const optId = (i) => OPT_IDS[i] ||= `pal-opt-${i}`;   // alloc-rare: made once per row, the first time it is the active one
   function syncActive() {
-    attrSoon(input, 'aria-activedescendant', items.length ? `pal-opt-${sel}` : null);
+    attrSoon(input, 'aria-activedescendant', items.length ? optId(sel) : null);
   }
   // The highlight goes to the active row: its top and height together on --d-flip (the CSS decides how). A new query, the first
   // placement and a resize put it there with no glide ('still' holds the transition for that one write).
@@ -141,7 +143,17 @@ export function createPalette({ ctx }) {
     // event that asked; a glide to a row of another size stretches it on the compositor.)
     if (snap || !hl._w) { snapping = restPass(snapNow); return; }
     const [x, y, w, hh] = g;
-    hl.style.translate = `${x}px ${y}px`; hl.style.scale = `${(w / hl._w).toFixed(4)} ${(hh / hl._h).toFixed(4)}`; hl.style.opacity = '1';
+    const c = hlFor(sel, x, y, w, hh);
+    hl.style.translate = c.t; hl.style.scale = c.s; hl.style.opacity = '1';
+  }
+  // The highlight's place and stretch for a row, as text: made again only when the row's box, or the box the highlight is sized to, changes.
+  const hlCache = [];
+  function hlFor(i, x, y, w, hh) {
+    let c = hlCache[i];
+    if (!c) c = hlCache[i] = { x: NaN, y: NaN, w: NaN, hh: NaN, hw: NaN, hhh: NaN, t: '', s: '' };   // alloc-rare: one per row, made the first time the highlight goes to it
+    if (c.x !== x || c.y !== y) { c.x = x; c.y = y; c.t = `${x}px ${y}px`; }   // alloc-rare: made only when the row's place changes
+    if (c.w !== w || c.hh !== hh || c.hw !== hl._w || c.hhh !== hl._h) { c.w = w; c.hh = hh; c.hw = hl._w; c.hhh = hl._h; c.s = `${(w / hl._w).toFixed(4)} ${(hh / hl._h).toFixed(4)}`; }   // alloc-rare: made only when the row's size, or the highlight's, changes
+    return c;
   }
   let snapping = 0;
   function snapNow() {
@@ -156,7 +168,7 @@ export function createPalette({ ctx }) {
     frame(() => classSoon(hl, 'still', false), 'palette');
   }
   function mark() {
-    rows.forEach((b, i) => { const on = i === sel; classSoon(b, 'on', on); attrSoon(b, 'aria-selected', String(on)); });
+    for (let i = 0; i < rows.length; i++) { const b = rows[i], on = i === sel; classSoon(b, 'on', on); attrSoon(b, 'aria-selected', on ? 'true' : 'false'); }
   }
   function renderList({ fadeIn = true } = {}) {
     items = search(input.value);

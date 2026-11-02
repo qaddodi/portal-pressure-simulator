@@ -49,7 +49,7 @@ test('a part of the app that cannot load says so once with a Reload, and the cal
   assert.match(m, /pending = null; loadFailed\(err\); throw err;/);
   assert.match(m, /open: \(\) => paletteL\.get\(\)\.then\(\(p\) => p\.open\(\)\)\.catch\(\(\) => \{\}\)/);
   const menu = read('src/ui/menu.js');
-  assert.equal((menu.match(/library\(\)\.then\([^\n]*\.catch\(\(\) => \{\}\)/g) || []).length, 2);
+  assert.equal((menu.match(/library\(\)\.then\([^\n]*\.catch\((?:\(\) => \{\}|NOOP)\)/g) || []).length, 2);
   assert.match(read('src/ui/stage.js'), /lzWaiting = false; loadFailed\(err\); store\.set\(\{ lobule: false, sinusoid: false \}\)/);
 });
 

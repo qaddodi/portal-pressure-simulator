@@ -7,7 +7,8 @@ import { readFileSync } from 'node:fs';
 const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
 
 test('#31 a drag adds stage-busy and figure-focus only when they are missing', () => {
-  assert.match(main, /armT = setTimeout\(\(\) => \{ armT = 0; if \(!app\.classList\.contains\('stage-busy'\)\) classSoon\(app, 'stage-busy', true\); \}, BUSY_DELAY\);/);
+  assert.match(main, /const busyArmed = \(\) => \{ armT = 0; if \(!app\.classList\.contains\('stage-busy'\)\) classSoon\(app, 'stage-busy', true\); \};/);
+  assert.match(main, /armT = setTimeout\(busyArmed, BUSY_DELAY\);/);
   assert.match(main, /if \(!focused\) \{ focused = true; classSoon\(app, 'figure-focus', true\); \}/);
   assert.doesNotMatch(main, /\{ app\.classList\.add\('stage-busy'\)/);
   assert.doesNotMatch(main, /\) app\.classList\.add\('stage-busy'\); clearTimeout\(busyT\)/);

@@ -37,7 +37,8 @@ test('the Tests card and the menu share the same paging rule, and carry the fing
   for (const src of [dock, menu]) {
     assert.match(src, /const v = releaseSpeed\(s\.trail, performance\.now\(\)\);/);
     assert.match(src, /carryCurve\(s\.nb \? v : v \/ 3, \(go \? -d \* s\.w : 0\) - s\.dx, D_SMALL\)/);
-    assert.match(src, /\(sw\.trail \|\|= \[\]\)\.push\(\[performance\.now\(\), t\.clientX\]\)/);
+    // (The last 8 points of the finger as [time, x] pairs: pushed new, or, as in the menu, written over the oldest of a set made at the touch.)
+    assert.match(src, /\(sw\.trail \|\|= \[\]\)\.push\(\[performance\.now\(\), t\.clientX\]\)|const tp = sw\.trail\.length >= 8 \? sw\.trail\.shift\(\) : sw\.pool\.pop\(\);\s+tp\[0\] = performance\.now\(\); tp\[1\] = t\.clientX;\s+sw\.trail\.push\(tp\);/);
   }
 });
 

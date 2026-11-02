@@ -69,8 +69,8 @@ test('P10: the composite fragment shader is compiled once per context, and every
 
 test('round 2 pops: the legend key names only what it shows (NP8); the Over time axis glides (τ 0.15 s) and a paused chart draws on until it lands', () => {
   const main = read('src/ui/main.js'), pt = read('src/ui/pressure-time.js');
-  assert.match(main, /const legendKeyOf = \(\{ m, ref \}\) => \(m === 'heat' \|\| m === 'delta' \? `\$\{m\}\|\$\{ref\}` : m\);/);
-  assert.match(main, /key = legendKeyOf\(\{ m, ref \}\), same = key === legendKey;/);
+  assert.match(main, /const legendSame = \(m, ref\) => m === legendM && \(!\(m === 'heat' \|\| m === 'delta'\) \|\| ref === legendRef\);/);
+  assert.match(main, /same = legendSame\(m, ref\);/);
   assert.match(pt, /const k = -Math\.expm1\(-Math\.min\(0\.1, \(now - ysAt\[key\]\) \/ 1000\) \/ 0\.15\)/);
   assert.match(pt, /if \(gliding && !glideReq && !\(ticking && live\(\)\)\) \{ glideReq = true; nextFrame\(/);
 });
@@ -106,7 +106,8 @@ test('NP9, NP11, NP12: the Compare badge stands under the desktop top bar; closi
   assert.match(css, /@media \(min-width: 1024px\) \{ \.cmp-badge \{ top: calc\(var\(--top-safe, 0px\) \+ 6px \+ var\(--cmp-h, 0px\)\); \} \}/);
   assert.match(card, /closeTimer = afterExit\(el, 'ac-leaving',/);
   assert.match(main, /hintT = afterExit\(el, 'leaving',/);
-  assert.match(main, /afterExit\(badge, 'leaving', \(\) => badge\.remove\(\)\)/);
+  assert.match(main, /badge\._gone \|\|= \(\) => badge\.remove\(\);/);
+  assert.match(main, /afterExit\(badge, 'leaving', badge\._gone\)/);
   assert.match(pal, /leaveT = afterExit\(back, 'leaving',/);
   assert.match(css, /\.zoom-pill \.stage-rotate\.ib \{ width: 0; height: 0; margin: -1px;/);
   assert.match(css, /\.cmap \.zoom-pill \.stage-rotate\.ib \{ width: 36px; height: 36px; margin: 0; opacity: 1;/);

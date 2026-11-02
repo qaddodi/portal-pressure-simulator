@@ -26,19 +26,28 @@ const WINDOW = 2000, KEEP = 5, GAP_LINES = 40, LONG_LINES = 15;
 // 60 Hz page under load had read as 144 Hz (his Mac readouts, 30 Oct). A quarter of the frames on time is enough.
 const RATES = [30, 48, 50, 60, 72, 75, 90, 100, 120, 144, 165, 240];
 /** The refresh rate (Hz) closest to the lower quartile of `dts` (frame intervals, ms), or 0 with too few to tell. */
+const refVals = [];   // (the intervals in range, sorted: one list kept and written over, as nothing keeps what it holds)
+const ascending = (a, b) => a - b;
 export function refreshOf(dts) {
-  const v = dts.filter((d) => d > 2 && d < 100).sort((a, b) => a - b);
+  refVals.length = 0;
+  for (let i = 0; i < dts.length; i++) { const d = dts[i]; if (d > 2 && d < 100) refVals.push(d); }
+  const v = refVals.sort(ascending);
   if (v.length < 20) return 0;
   const hz = 1000 / v[Math.floor(v.length / 4)];
-  return RATES.reduce((a, b) => (Math.abs(b - hz) < Math.abs(a - hz) ? b : a));
+  let best = RATES[0];
+  for (let i = 1; i < RATES.length; i++) if (Math.abs(RATES[i] - hz) < Math.abs(best - hz)) best = RATES[i];
+  return best;
 }
 /** Frame intervals at a refresh of `hz`: how many came on time, one, two or three and more refreshes late, and p50/p95/p99 (ms). An
  *  interval is n refreshes long from (n - 0.5) to (n + 0.5) refreshes: at 120 Hz a frame is on time under 12.5 ms. */
+const statVals = [];   // (the intervals sorted, kept and written over)
+const quantile = (v, p) => (v.length ? v[Math.min(v.length - 1, Math.floor(p * v.length))] : 0);
 export function intervalStats(dts, hz) {
-  const per = 1000 / hz, bins = [0, 0, 0, 0];
-  for (const d of dts) bins[Math.min(3, Math.max(0, Math.round(d / per) - 1))]++;
-  const v = [...dts].sort((a, b) => a - b), q = (p) => (v.length ? v[Math.min(v.length - 1, Math.floor(p * v.length))] : 0);
-  return { hz, per, bins, p50: q(0.5), p95: q(0.95), p99: q(0.99) };
+  const per = 1000 / hz, bins = [0, 0, 0, 0];   // alloc-rare: once as a gesture's window closes; the report keeps this record
+  statVals.length = 0;
+  for (let i = 0; i < dts.length; i++) { const d = dts[i]; bins[Math.min(3, Math.max(0, Math.round(d / per) - 1))]++; statVals.push(d); }
+  statVals.sort(ascending);
+  return { hz, per, bins, p50: quantile(statVals, 0.5), p95: quantile(statVals, 0.95), p99: quantile(statVals, 0.99) };   // alloc-rare: once as a gesture's window closes; the report keeps this record
 }
 /** The histogram as one line of the report. */
 export function intervalLine(s) {
@@ -47,9 +56,24 @@ export function intervalLine(s) {
   return `  frame intervals at ${s.hz} Hz (${s.per.toFixed(1)} ms): on time ${on}, 1 missed ${one}, 2 missed ${two}, 3+ missed ${more}; p50 ${s.p50.toFixed(1)}, p95 ${s.p95.toFixed(1)}, p99 ${s.p99.toFixed(1)} ms`;
 }
 /** Each surface's callbacks and the frames it really drew (frame.js noteDraw) over a window, from two readings of perf().totals. */
+const sKeys = [], sCount = [], sDraw = [];   // (the surfaces that asked, their callbacks and draws, kept and written over)
 export function surfaceLine(a, b) {
-  const rows = Object.keys(b.asks).map((k) => [k, b.asks[k] - (a.asks[k] || 0), k in b.drawn ? b.drawn[k] - (a.drawn[k] || 0) : null]).filter(([, n]) => n > 0).sort((x, y) => y[1] - x[1]);
-  return rows.length ? `  surfaces (callbacks / draws): ${rows.map(([k, n, d]) => `${k} ${n}${d == null ? '' : ` / ${d}`}`).join(', ')}` : '';
+  let n = 0;
+  for (const k of Object.keys(b.asks)) {   // alloc-rare: once as a gesture's window closes
+    const c = b.asks[k] - (a.asks[k] || 0);
+    if (c > 0) { sKeys[n] = k; sCount[n] = c; sDraw[n] = k in b.drawn ? b.drawn[k] - (a.drawn[k] || 0) : null; n++; }
+  }
+  if (!n) return '';
+  // (Most callbacks first; those with as many keep the order they came in.)
+  for (let i = 1; i < n; i++) {
+    const k = sKeys[i], c = sCount[i], d = sDraw[i];
+    let j = i - 1;
+    while (j >= 0 && sCount[j] < c) { sKeys[j + 1] = sKeys[j]; sCount[j + 1] = sCount[j]; sDraw[j + 1] = sDraw[j]; j--; }
+    sKeys[j + 1] = k; sCount[j + 1] = c; sDraw[j + 1] = d;
+  }
+  let text = '  surfaces (callbacks / draws): ';
+  for (let i = 0; i < n; i++) text += (i ? ', ' : '') + sKeys[i] + ' ' + sCount[i] + (sDraw[i] == null ? '' : ' / ' + sDraw[i]);   // alloc-rare: once as a gesture's window closes; the report's text
+  return text;
 }
 /** The long-frame log as text (premium-feel recs P4): every frame whose interval or script time passed LONG_FRAME_MS, the newest
  *  `n` of them, each with the surfaces that ran in it (surface, phase, ms) and what the scheduler does not account for. Times are
@@ -138,7 +162,8 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   const frameLog = createFrameRecorder({ keepLong: 60 });
   watchFrames(frameLog.add);
   const reports = [];
-  let n = 0, cur = null, prevT = 0, prevTs = 0, wheelT = 0;
+  let n = 0, cur = null, prevT = 0, prevTs = 0, wheelT = 0, wheelKind = '', wheelAt = 0;
+  const wheelDone = () => { begin(wheelKind); cur.t0 = wheelAt; };
   const recent = [];   // (the last 600 frame intervals, for the refresh)
   const down = new Map();
   let maxDown = 0, moved = false;
@@ -160,7 +185,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   const begin = (kind, win = WINDOW) => {
     const was = !!cur;
     if (cur?.mb) cur.budget = motionBudget.stop(cur.mb);   // (a window cut short by the next keeps what it counted)
-    cur = { n: ++n, kind, win, mb: motionBudget.on() ? motionBudget.start(kind) : null, tally: {}, counts: {}, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly, hide: HIDES[hideAt], orgs: gpuProbe.gpuOrgans, dts: [], totals: perf().totals };
+    cur = { n: ++n, kind, win, mb: motionBudget.on() ? motionBudget.start(kind) : null, tally: {}, counts: {}, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly, hide: HIDES[hideAt], orgs: gpuProbe.gpuOrgans, dts: [], totals: perf().totals };   // alloc-rare: once per gesture window; the report keeps this record
     gpuProbe.take(); gpuProbe.takeNotes(); gpuProbe.takeGauges();
     cur.paths = surfaceRows();
     if (recent.length < 30) calUntil = Math.max(calUntil, performance.now() + 1000);
@@ -184,8 +209,8 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   addEventListener('wheel', (e) => {
     if (!onStage(e)) return;
     clearTimeout(wheelT);
-    const kind = e.ctrlKey ? 'trackpad pinch' : 'scroll', at = performance.now();
-    wheelT = setTimeout(() => { begin(kind); cur.t0 = at; }, 150);
+    wheelKind = e.ctrlKey ? 'trackpad pinch' : 'scroll'; wheelAt = performance.now();
+    wheelT = setTimeout(wheelDone, 150);
   }, { capture: true, passive: true });
   try {
     new PerformanceObserver((list) => {
@@ -209,7 +234,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
     const parts = gpuProbe.take(), notes = gpuProbe.takeNotes(), gauges = gpuProbe.takeGauges(), was = busy;
     if (cur) {
       Object.assign(cur.gauges, gauges); for (const k of TALLY) if (notes[k]) cur.tally[k] = (cur.tally[k] || 0) + 1;
-      for (const k in notes) if (COUNT_NAMES.has(k)) { const c = cur.counts[k] || (cur.counts[k] = [0, 0, 0]); c[0] += notes[k][0]; c[1] += notes[k][1]; if (notes[k][0] > 1 && TWICE.has(k)) c[2]++; }
+      for (const k in notes) if (COUNT_NAMES.has(k)) { const c = cur.counts[k] || (cur.counts[k] = [0, 0, 0]); c[0] += notes[k][0]; c[1] += notes[k][1]; if (notes[k][0] > 1 && TWICE.has(k)) c[2]++; }   // alloc-rare: the first count of a name in a window
     }
     busy = 0; frameAt = t;
     // (Every interval, gesture or not, goes into the last few seconds the refresh is told from.)
@@ -220,7 +245,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
       cur.frames++; cur.worst = Math.max(cur.worst, dt); if (fdt) cur.dts.push(fdt);
       // (A frame missed its refresh past 1.5 of them: 12.5 ms at 120 Hz, 25 ms at 60. Before the refresh is known, 20 ms as before.)
       const hz = refreshOf(recent), limit = hz ? 1500 / hz : 20;
-      if (dt > limit) cur.gaps.push({ at: Math.max(0, at), dt, parts, notes, busy: was });
+      if (dt > limit) cur.gaps.push({ at: Math.max(0, at), dt, parts, notes, busy: was });   // alloc-rare: only a frame that missed its refresh, which the report lists
       if (t - cur.t0 >= cur.win) {
         cur.limit = limit;
         cur.stats = hz ? intervalStats(cur.dts, hz) : null;
@@ -312,7 +337,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   title.textContent = 'Lag after slides and gestures (tap to fold)';
   copy.textContent = 'Copy';
   rest.textContent = 'At rest';
-  rest.onclick = () => { rest.textContent = 'Wait 3 s'; setTimeout(() => { begin('at rest'); setTimeout(() => textSoon(rest, 'At rest'), 2000); }, 1000); };
+  rest.onclick = () => { rest.textContent = 'Wait 3 s'; setTimeout(() => { begin('at rest'); setTimeout(() => textSoon(rest, 'At rest'), 2000); }, 1000); };   // alloc-rare: a press of the panel's At rest button
   const body = document.createElement('div');
   body.textContent = 'Change slide, switch view, or pan, pinch or scroll-zoom the figure, then wait 3 s.';
   // Under the gestures: the long frames and the slowest inputs, written once a second and never while a gesture's window is open

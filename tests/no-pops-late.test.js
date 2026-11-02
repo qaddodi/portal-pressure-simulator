@@ -54,8 +54,14 @@ test('popovers and figure pieces fade out instead of vanishing (P20, P21, P23)',
 test('the patient pill glides to a new name\'s width and the name crossfades (P8)', () => {
   assert.match(read('index.html'), /<div class="float-pill tb-id">\s*<span class="tb-face" aria-hidden="true"><\/span>/);
   assert.match(css, /\.topbar \.tb-id \{ position: relative; isolation: isolate; background: transparent; box-shadow: none; \}/);
+<<<<<<< HEAD
   assert.match(read('src/ui/topbar-motion.js'), /if \(face\) plateGlide\(face, 0, s\.w, n\.w, \{ duration: MOVE_MS, easing: EASE \}\);/);
   assert.match(read('src/ui/main.js'), /swapFade\(el, \(\) => \{\s*el\.replaceChildren\(h\('span', \{ class: 'sn-l' \}, name\)/);
+=======
+  assert.match(read('src/ui/topbar-motion.js'), /if \(face && PLATEGLIDE\) plateGlide\(face, 0, s\.w, n\.w, \{ duration: MOVE_MS, easing: EASE \}\);/);
+  assert.match(read('src/ui/main.js'), /const scFill = \(\) => \{\s*const el = \$\('#scenarioName'\);\s*el\.replaceChildren\(h\('span', SN_L, scName\)/);
+  assert.match(read('src/ui/main.js'), /swapFade\(el, scFill\);/);
+>>>>>>> 8c554944 (Allocation-free frame/motion paths in main.js, menu.js, menu-leave.js, perf-readout.js, offgpu-overlay.js, quiet.js, palette.js, refine.js)
 });
 
 test('a tile\'s number fades between "?" and a value, its compare line fades in, and its bar fades (its colours are taken at once)', () => {

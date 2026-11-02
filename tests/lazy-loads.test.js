@@ -236,7 +236,8 @@ test('the dock holds the two panes, loads them when the card opens, a tab is tou
 });
 
 test('a load that failed is asked for again on the next ask', () => {
-  assert.match(read('main.js'), /pending \|\|= load\(\)\.then\(\(m\) => \(inst = make\(m\)\)\).catch\(\(err\) => \{ pending = null; loadFailed\(err\); throw err; \}\)/);
+  const mainSrc = read('main.js');
+  assert.match(mainSrc, /const made = \(m\) => \(inst = make\(m\)\);\s+const failed = \(err\) => \{ pending = null; loadFailed\(err\); throw err; \};\s+const get = \(\) => \(pending \|\|= load\(\)\.then\(made\)\.catch\(failed\)\);/);
 });
 
 // esbuild lists every module that is only import()ed (the lobule, the Doppler, the perf readout) with an entryPoint too. index.html's script

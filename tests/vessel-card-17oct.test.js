@@ -55,5 +55,6 @@ test('V8: a card slider\'s value stays in ink when changed; the accent is on the
 test('V9: a vessel, compartment or organ is the Details title; no "Live values" heading', () => {
   assert.ok(!/'Live values'/.test(inspector));
   assert.match(main, /\$\('#panelTitle'\)\?\.classList\.toggle\('sr-only', named\)/);
-  assert.match(main, /const named = \['edge', 'node', 'organ'\]\.includes\(d\?\.type\);/);
+  assert.match(main, /const named = NAMED_DETAILS\.includes\(d\?\.type\);/);
+  assert.match(main, /const NAMED_DETAILS = \['edge', 'node', 'organ'\];/);
 });

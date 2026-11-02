@@ -22,7 +22,7 @@ test('a hover reads the kept box and transform, never a fresh layout', () => {
 });
 
 test('a card leaving never lays the page out: a leave already playing is set back to its start', () => {
-  assert.match(mn, /if \(el\.classList\.contains\('card-leaving'\)\) \{ for \(const a of el\.getAnimations(?:\?\.)?\(\) \|\| \[\]\) if \(a\.animationName\) a\.currentTime = 0; \}\n\s+el\.classList\.add\('card-leaving'\);/);
+  assert.match(mn, /if \(el\.classList\.contains\('card-leaving'\)\) \{ const as = el\.getAnimations(?:\?\.)?\(\); if \(as\) for \(const a of as\) if \(a\.animationName\) a\.currentTime = 0; \}\n\s+el\.classList\.add\('card-leaving'\);/);
   assert.doesNotMatch(mn, /void el\.offsetWidth/);
 });
 
@@ -33,7 +33,7 @@ test('focus, label level and selection redraw the figure only for a new value', 
 test("a cold menu asks for the talks' code only once its frame is on screen", () => {
   const mu = readFileSync(new URL('../src/ui/menu.js', import.meta.url), 'utf8');
   assert.match(mu, /if \(!lib\) nextFrame\(askLibrary\);/);
-  assert.match(mu, /function askLibrary\(\) \{ setTimeout\(\(\) => library\(\)\.then\(libraryArrived\)\.catch\(\(\) => \{\}\), 0\); \}/);
+  assert.match(mu, /const askLibraryStep = \(\) => library\(\)\.then\(libraryArrived\)\.catch\(NOOP\);\s+function askLibrary\(\) \{ setTimeout\(askLibraryStep, 0\); \}/);
   assert.match(mu, /function libraryArrived\(\) \{ if \(open\) render\(\); scrollOpen\?\.\(\); \}/);
 });
 

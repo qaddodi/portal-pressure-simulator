@@ -32,16 +32,23 @@ if (typeof addEventListener === 'function') addEventListener('animationstart', o
 const timeIn = (el, name) => (name === 'scale-settle' ? (el.classList.contains('from-dock') ? D_SMALL : D_FLIP) : D_SMALL);
 const timeOut = (el, name) => (name === 'scale-settle' ? D_FLIP : name === 'crossfade' ? (el.classList.contains('um-scrim') ? D_SMALL : D_FLIP) : el.classList.contains('umenu') ? D_SMALL : D_FLIP);
 const delayOf = (el) => (el.classList.contains('from-dock') ? parseFloat(el.style.getPropertyValue('--enter-delay')) || 0 : 0);
-const f4 = (v) => +v.toFixed(4);
+const f4 = (v) => +v.toFixed(4);   // alloc-rare: a menu put away while its entrance still runs (a tap away), never per frame
 
 // The look now and the exit's end, for the entrance's eased progress k (0 = its from, 1 = at rest).
+// (Each kind's two keyframes are kept and written in place: animate() takes a copy of them, and each kind always sets the same properties.)
+const KF_SCALE = [{ opacity: 0, scale: 0.98 }, { opacity: 0, scale: 0.98 }];
+const KF_FADE = [{ opacity: 0 }, { opacity: 0 }];
+const O_EDGE = 'var(--edge-o, 1)';
+const KF_EDGE = [{ opacity: '', transform: '' }, { opacity: O_EDGE, transform: 'translate(var(--edge-x, 0px), var(--edge-y, 0px))' }];
+const ANIM = { duration: 0, easing: EASE_IN, fill: 'forwards' };
 function looks(name, k) {
-  if (name === 'scale-settle') return [{ opacity: f4(k), scale: f4(0.98 + 0.02 * k) }, { opacity: 0, scale: 0.98 }];   // (the separate scale property, as the keyframes: a menu placed by translate keeps its place)
-  if (name === 'crossfade') return [{ opacity: f4(k) }, { opacity: 0 }];
+  if (name === 'scale-settle') { KF_SCALE[0].opacity = f4(k); KF_SCALE[0].scale = f4(0.98 + 0.02 * k); return KF_SCALE; }   // (the separate scale property, as the keyframes: a menu placed by translate keeps its place)
+  if (name === 'crossfade') { KF_FADE[0].opacity = f4(k); return KF_FADE; }
   // slide-from-edge: from (--edge-o, translate(--edge-x, --edge-y)) to rest; the custom properties are the element's own.
-  const j = f4(1 - k), o = 'var(--edge-o, 1)';
-  return [{ opacity: `calc(${o} + (1 - ${o}) * ${f4(k)})`, transform: `translate(calc(var(--edge-x, 0px) * ${j}), calc(var(--edge-y, 0px) * ${j}))` },
-    { opacity: o, transform: 'translate(var(--edge-x, 0px), var(--edge-y, 0px))' }];
+  const j = f4(1 - k);
+  KF_EDGE[0].opacity = `calc(${O_EDGE} + (1 - ${O_EDGE}) * ${f4(k)})`;   // alloc-rare: a menu put away while its entrance still runs, never per frame
+  KF_EDGE[0].transform = `translate(calc(var(--edge-x, 0px) * ${j}), calc(var(--edge-y, 0px) * ${j}))`;   // alloc-rare: a menu put away while its entrance still runs, never per frame
+  return KF_EDGE;
 }
 
 /**
@@ -53,8 +60,9 @@ export function leaveFromHere(el, leave) {
   if (!rec || typeof el.animate !== 'function') { leave(); return false; }
   const x = (performance.now() - rec.t - delayOf(el)) / timeIn(el, rec.name);
   if (x >= 1) { leave(); return false; }   // (it had finished coming in)
-  const [a, b] = looks(rec.name, easeArrive(Math.max(0, x)));
+  const kf = looks(rec.name, easeArrive(Math.max(0, x)));
   leave();
-  el.animate([a, b], { duration: timeOut(el, rec.name), easing: EASE_IN, fill: 'forwards' });
+  ANIM.duration = timeOut(el, rec.name);
+  el.animate(kf, ANIM);
   return true;
 }

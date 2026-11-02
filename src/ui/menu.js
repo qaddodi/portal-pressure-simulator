@@ -32,6 +32,8 @@ const GROUP_WHERE = { Normal: 'No added resistance', 'Pre-hepatic': 'Before the 
 // a canvas the box is laid out in, with the GPU's own canvas over it, never an SVG. A few of them are kept and handed out in turn, so the
 // old preview fading out keeps its curve while the new one draws (each holds one small WebGL context). ?tracegl=0: drawn on the canvas.
 const PROFS = [];
+const NOOP = () => {};
+const COL_SEL = { present: '.um-col[data-col="present"]', patients: '.um-col[data-col="patients"]' };   // (the two lists, by their tab)
 function profile(snap) {
   let pr = PROFS.find((q) => !q.box.isConnected || q.box.closest('.um-pv-old'));
   if (pr && pr.box.isConnected) pr = PROFS.find((q) => !q.box.isConnected) || (PROFS.length < 3 ? null : pr);
@@ -51,31 +53,34 @@ function drawProfile(pr) {
   const p = fitPen(pr.cv, pr.gpu);
   try { paintProfile(p.ctx, p.w, p.h, pr.snap); } finally { p.ctx.end?.(); }
 }
+const PROF_DASH = [2, 3], PROF_SOLID = [], PROF_GRID = [10, 20];   // (setLineDash takes a copy)
+const PROF_PAD = 3, PROF_MAX = 30;
+const profX = (i, W, n) => PROF_PAD + (i * (W - 2 * PROF_PAD)) / (n - 1);
+const profY = (p, H) => H - PROF_PAD - (Math.max(0, Math.min(PROF_MAX, p)) / PROF_MAX) * (H - 2 * PROF_PAD - 4);
 function paintProfile(ctx, W, H, snap) {
   ctx.clearRect(0, 0, W, H);
   if (W < 10 || H < 10) return;
-  const pad = 3, max = 30, n = snap.P.length;
-  const x = (i) => pad + (i * (W - 2 * pad)) / (n - 1);
-  const y = (p) => H - pad - (Math.max(0, Math.min(max, p)) / max) * (H - 2 * pad - 4);
-  ctx.lineCap = 'butt'; ctx.lineWidth = 1; ctx.strokeStyle = cssVar('--grid'); ctx.setLineDash([2, 3]);
-  for (const t of [10, 20]) { ctx.beginPath(); ctx.moveTo(pad, y(t)); ctx.lineTo(W - pad, y(t)); ctx.stroke(); }
-  ctx.setLineDash([]);
+  const pad = 3, n = snap.P.length;
+  ctx.lineCap = 'butt'; ctx.lineWidth = 1; ctx.strokeStyle = cssVar('--grid'); ctx.setLineDash(PROF_DASH);
+  for (let k = 0; k < PROF_GRID.length; k++) { const t = PROF_GRID[k]; ctx.beginPath(); ctx.moveTo(pad, profY(t, H)); ctx.lineTo(W - pad, profY(t, H)); ctx.stroke(); }
+  ctx.setLineDash(PROF_SOLID);
   let drop = 0, at = 0;
   for (let i = 1; i < n; i++) { const d = snap.P[i - 1] - snap.P[i]; if (d > drop) { drop = d; at = i; } }
   ctx.globalAlpha = 0.06; ctx.fillStyle = cssVar('--accent');
-  ctx.beginPath(); ctx.moveTo(x(0), H - pad); snap.P.forEach((p, i) => ctx.lineTo(x(i), y(p))); ctx.lineTo(x(n - 1), H - pad); ctx.closePath(); ctx.fill();
-  if (drop > 5) { ctx.globalAlpha = 0.08; ctx.fillStyle = cssVar('--danger'); ctx.beginPath(); ctx.roundRect(x(at - 1), pad - 2, x(at) - x(at - 1), H - 2 * pad + 2, 3); ctx.fill(); }
+  ctx.beginPath(); ctx.moveTo(profX(0, W, n), H - pad); for (let i = 0; i < n; i++) ctx.lineTo(profX(i, W, n), profY(snap.P[i], H)); ctx.lineTo(profX(n - 1, W, n), H - pad); ctx.closePath(); ctx.fill();
+  if (drop > 5) { ctx.globalAlpha = 0.08; ctx.fillStyle = cssVar('--danger'); ctx.beginPath(); ctx.roundRect(profX(at - 1, W, n), pad - 2, profX(at, W, n) - profX(at - 1, W, n), H - 2 * pad + 2, 3); ctx.fill(); }
   ctx.globalAlpha = 1; ctx.lineCap = 'round';
   for (let i = 1; i < n; i++) {
     ctx.lineWidth = i === at && drop > 5 ? 3.2 : 2.4; ctx.strokeStyle = pressureColor((snap.P[i - 1] + snap.P[i]) / 2);
-    ctx.beginPath(); ctx.moveTo(x(i - 1), y(snap.P[i - 1])); ctx.lineTo(x(i), y(snap.P[i])); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(profX(i - 1, W, n), profY(snap.P[i - 1], H)); ctx.lineTo(profX(i, W, n), profY(snap.P[i], H)); ctx.stroke();
   }
   // (a surface-coloured ring under each dot keeps it clear of the line)
   const surface = cssVar('--surface');
-  snap.P.forEach((p, i) => {
-    ctx.fillStyle = surface; ctx.beginPath(); ctx.arc(x(i), y(p), 3.1, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = pressureColor(p); ctx.beginPath(); ctx.arc(x(i), y(p), 2.1, 0, Math.PI * 2); ctx.fill();
-  });
+  for (let i = 0; i < n; i++) {
+    const p = snap.P[i];
+    ctx.fillStyle = surface; ctx.beginPath(); ctx.arc(profX(i, W, n), profY(p, H), 3.1, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = pressureColor(p); ctx.beginPath(); ctx.arc(profX(i, W, n), profY(p, H), 2.1, 0, Math.PI * 2); ctx.fill();
+  }
 }
 // The standing cut-offs: HVPG amber from 5, red from 10; PPG amber from 6, red from 12.
 const sev = (cuts, v) => ({ ok: 'ok', caution: 'low', danger: 'high' })[sevOfCuts(cuts, v)];
@@ -197,9 +202,12 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   }
   // (The card is measured and placed between frames (rest-pass.js), never inside the hover timer; a newer hover or a hide drops the older ask.)
   function showPreview(row, make, col) {
-    const tok = ++pvTok;
-    restPass(() => { if (tok === pvTok) placePreview(row, make, col); });
+    pvAsk = ++pvTok; pvRow = row; pvMake = make; pvCol = col;
+    restPass(pvPlace);
   }
+  // (The step is made once and reads the ask made last: an older ask, or a hide, has moved the token on and drops it.)
+  let pvAsk = 0, pvRow = null, pvMake = null, pvCol = null;
+  const pvPlace = () => { if (pvAsk !== pvTok) return; pvAsk = 0; placePreview(pvRow, pvMake, pvCol); };
   function placePreview(row, make, col) {
     if (!el || !row.isConnected) return;
     if (!pv) {
@@ -293,9 +301,11 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   function hidePreview(now) {
     clearTimeout(hideT); pvTok++; if (!pv) return;
     const p = pv; pv = null; pvKey = null;
-    el?.querySelectorAll('.pv-on').forEach((r) => classSoon(r, 'pv-on', false));
+    // (The live list of the rows marked; their class is taken off in a rest pass, so the list does not change under the walk.)
+    const marked = el?.getElementsByClassName('pv-on');
+    if (marked) for (let i = 0; i < marked.length; i++) classSoon(marked[i], 'pv-on', false);
     if (now || !p.classList.contains('on')) { p.remove(); return; }
-    classSoon(p, 'on', false); setTimeout(() => removeSoon(p), 140);
+    classSoon(p, 'on', false); setTimeout(removeSoon, 140, p);
   }
   // On touch, the ⓘ opens the preview under its row (one at a time), easing open and shut.
   function toggleInline(li, make, btn) {
@@ -435,13 +445,19 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   // foot: its last rows could not be scrolled above the keyboard. The sheet is lifted to sit on the keyboard and held to the room above it (the
   // search card does the same, palette.js fitList). Off, it is as it was: no variable is set.
   const vv = window.visualViewport;
+  let kbNum = -1, kbText = '', roomNum = -1, roomText = '';   // (the sheet's lift and room as last written, and as text)
   function fitSheet() {
     if (!el || !el.classList.contains('sheet') || !vv) return;
     // (The visual viewport's own offset and height: the keyboard's room, not a layout read of the page.)
     const { offsetTop: vvTop, height: vvH } = vv, kb = Math.round(innerHeight - vvTop - vvH);
     // (No floor under the room: a floor above it put a phone held sideways' search row above the screen. With under 300 px the handle and
     // the footer give way, `kb-tight`, so the search row and some results stay in view.)
-    if (kb > 80) { const room = Math.round(vvH - 16); el.style.setProperty('--menu-kb', `${kb}px`); el.style.setProperty('--menu-h', `${room}px`); classSoon(el, 'kb-tight', room < 300); }
+    if (kb > 80) {
+      const room = Math.round(vvH - 16);
+      if (kb !== kbNum) { kbNum = kb; kbText = `${kb}px`; }   // alloc-rare: the text is made only when the keyboard's height changes
+      if (room !== roomNum) { roomNum = room; roomText = `${room}px`; }   // alloc-rare: the text is made only when the room above the keyboard changes
+      el.style.setProperty('--menu-kb', kbText); el.style.setProperty('--menu-h', roomText); classSoon(el, 'kb-tight', room < 300);
+    }
     else { el.style.removeProperty('--menu-kb'); el.style.removeProperty('--menu-h'); classSoon(el, 'kb-tight', false); }
     sheetLiftSoon();
   }
@@ -502,7 +518,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
 
   // (The talks asked for a frame after the menu's frame is up, in a task of their own; drawn into the menu when they arrive.)
   function libraryArrived() { if (open) render(); scrollOpen?.(); }
-  function askLibrary() { setTimeout(() => library().then(libraryArrived).catch(() => {}), 0); }
+  const askLibraryStep = () => library().then(libraryArrived).catch(NOOP);
+  function askLibrary() { setTimeout(askLibraryStep, 0); }
   let scrollOpen = null;
   return {
     // section: 'present' | 'patients' | 'scripts' (scrolled into view); opts.mark: a script id to highlight;
@@ -560,17 +577,17 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   // down; the search box keeps its own drags, and a tap is still a tap.
   function swipeTabs(panel) {
     const cols = panel.querySelector('.um-cols'), TABS = ['present', 'patients'];
-    const colOf = (k) => cols.querySelector(`.um-col[data-col="${k}"]`);
+    const colOf = (k) => cols.querySelector(COL_SEL[k]);
     // (A list off its peer role: its transform and class only, in the move; its top and height, set at the touch, are cleared once it has landed.)
-    const unpeer = (els) => { for (const e of els) if (e) { e.style.transform = ''; e.style.transition = ''; classSoon(e, 'um-peer', false); } };
-    const clear = (els) => { unpeer(els); for (const e of els) if (e) { e.style.top = ''; e.style.height = ''; } };
+    const unpeer = (e) => { if (e) { e.style.transform = ''; e.style.transition = ''; classSoon(e, 'um-peer', false); } };
+    const clear = (e) => { unpeer(e); if (e) { e.style.top = ''; e.style.height = ''; } };
     let sw = null, settle = null, resting = null;   // settle: the last swipe's switch, while its lists are still easing; resting: the list that lands (it is still drawn off its place)
     // (The other list's place over the room in view, as read at the touch: written once, as it becomes the peer.)
     function placePeer(nb, s) { nb.style.setProperty('top', `${s.top}px`); nb.style.setProperty('height', `${s.h}px`); }
     const shiftX = (el) => { try { const m = getComputedStyle(el).transform; return !m || m === 'none' ? 0 : new DOMMatrixReadOnly(m).m41 || 0; } catch { return 0; } };
     panel.addEventListener('touchstart', (e) => {
       // (A second swipe before the first has settled finishes the first once it moves, not on the touch: a tap leaves the lists easing.)
-      sw = e.touches.length === 1 && !ownsSideways(e.target, { stop: panel }) ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), on: false, dx: 0 } : null;
+      sw = e.touches.length === 1 && !ownsSideways(e.target, { stop: panel }) ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), on: false, dx: 0, trail: [], pool: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]] } : null;
       // Everything the drag needs from the page is read here, at the touch, never as the finger moves: the lists' width, the room in
       // view (where the other list shows from), and where an easing list is drawn now.
       if (sw) {
@@ -598,12 +615,15 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       if (e.cancelable) e.preventDefault();
       const tdx = dx + sw.carry, d = tdx < 0 ? 1 : -1, j = sw.i + d, nb = j >= 0 && j < TABS.length ? colOf(TABS[j]) : null;
       if (nb !== sw.nb) {
-        unpeer([sw.nb]); sw.nb = nb; sw.j = j;
+        unpeer(sw.nb); sw.nb = nb; sw.j = j;
         // (The other list shows from its own top, over the part of the list in view: it lands there. Its place was set at the touch.)
         if (nb) classSoon(nb, 'um-peer', true);
       }
       sw.dx = nb ? tdx : tdx / 3;
-      (sw.trail ||= []).push([performance.now(), t.clientX]); if (sw.trail.length > 8) sw.trail.shift();
+      // (The last 8 points of the finger, as [time, x] pairs: the ones made at the touch are written over, the oldest first.)
+      const tp = sw.trail.length >= 8 ? sw.trail.shift() : sw.pool.pop();
+      tp[0] = performance.now(); tp[1] = t.clientX;
+      sw.trail.push(tp);
       sw.cur.style.transform = `translateX(${sw.dx}px)`;
       if (nb) nb.style.transform = `translateX(${sw.dx + d * sw.w}px)`;
     }, { passive: false });
@@ -612,13 +632,13 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       if (!s?.on) return;
       const v = releaseSpeed(s.trail, performance.now());   // (the finger's, px per ms to the right: the lists carry it on)
       const go = !!s.nb && pageGo(s.dx, performance.now() - s.t, s.w, v);
-      const d = s.dx < 0 ? 1 : -1, ease = `transform ${D_SMALL}ms ${carryCurve(s.nb ? v : v / 3, (go ? -d * s.w : 0) - s.dx, D_SMALL)}`;   // (past the end the list moves a third of the finger)
+      const d = s.dx < 0 ? 1 : -1, ease = `transform ${D_SMALL}ms ${carryCurve(s.nb ? v : v / 3, (go ? -d * s.w : 0) - s.dx, D_SMALL)}`;   // alloc-rare: once as a swipe is let go, never per frame   // (past the end the list moves a third of the finger)
       s.cur.style.transition = ease; if (s.nb) s.nb.style.transition = ease;
-      s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';
-      if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;
-      const done = () => {
+      s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';   // alloc-rare: once as a swipe is let go, never per frame
+      if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;   // alloc-rare: once as a swipe is let go, never per frame
+      const done = () => {   // alloc-rare: one per swipe, made as it is let go
         clearTimeout(timer); settle = null;
-        clear([s.cur, s.nb]);
+        clear(s.cur); clear(s.nb);
         if (go) { setTab(TABS[s.j], false, true); cols.scrollTop = 0; }
       };
       const timer = setTimeout(done, 250);

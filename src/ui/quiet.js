@@ -23,9 +23,9 @@ export function createQuiet(target = globalThis, now = () => performance.now()) 
   /** Calls fn once the page has been left alone for `ms`; checked every `poll` ms. Returns a cancel. */
   function whenQuiet(fn, ms = 700, poll = 400) {
     let t = 0, dead = false;
-    const go = () => { t = 0; if (dead) return; if (leftAlone(ms)) fn(); else t = setTimeout(go, poll); };
+    const go = () => { t = 0; if (dead) return; if (leftAlone(ms)) fn(); else t = setTimeout(go, poll); };   // alloc-rare: one per request to run work once the page is quiet (a view's first build, start-up warm-ups), never per frame
     t = setTimeout(go, 0);
-    return () => { dead = true; clearTimeout(t); };
+    return () => { dead = true; clearTimeout(t); };   // alloc-rare: the cancel of that one request, never per frame
   }
   return { since, leftAlone, whenQuiet };
 }
@@ -36,7 +36,7 @@ export const booting = () => globalThis.document?.documentElement?.dataset?.boot
  *  cover instead: while the cover is up, the cover waits for `p` (capped in index.html), so the person never meets that work in a
  *  pan or a tap. After the cover has gone it does nothing. Returns p. */
 export function holdCover(p) {
-  if (booting() && p && typeof p.then === 'function') (globalThis.ppsHold ||= []).push(p);
+  if (booting() && p && typeof p.then === 'function') (globalThis.ppsHold ||= []).push(p);   // alloc-rare: made once, on the first hold, and only while the loading cover is up
   return p;
 }
 

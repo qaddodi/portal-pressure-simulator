@@ -57,11 +57,13 @@ test('U10: failures are said in learner words', () => {
 
 test('U11: the shunt hint is one target per line, says Tap on touch and shows Esc only with a keyboard', () => {
   const main = read('../src/ui/main.js');
-  assert.match(main, /verb = fine \? 'Click' : 'Tap'/);
-  assert.match(main, /h\('b', \{\}, 'hepatic vein'\), ' makes a TIPS\.'/);
-  assert.match(main, /h\('b', \{\}, 'IVC'\), ' below the hepatic veins makes a DIPS\.'/);
-  assert.match(main, /h\('b', \{\}, 'left renal vein'\), ' makes a Warren shunt\.'/);
-  assert.match(main, /fine \? h\('div', \{\}, 'Esc cancels\.'\) : null/);
+  assert.match(main, /fine \? 'Click a glowing vein to connect it to\.' : 'Tap a glowing vein to connect it to\.'/);
+  assert.match(main, /fine \? 'Click the ' : 'Tap the '/);
+  assert.match(main, /h\('b', NOATTR, 'hepatic vein'\), ' makes a TIPS\.'/);
+  assert.match(main, /h\('b', NOATTR, 'IVC'\), ' below the hepatic veins makes a DIPS\.'/);
+  assert.match(main, /h\('b', NOATTR, 'left renal vein'\), ' makes a Warren shunt\.'/);
+  assert.match(main, /fine \? h\('div', NOATTR, 'Esc cancels\.'\) : null/);
+  assert.match(main, /shuntHint\(only, matchMedia\('\(hover: hover\) and \(pointer: fine\)'\)\.matches\)/);
 });
 
 test('U12 and U13: "colored by", never "lens", in words people see; platelets per µL', () => {

@@ -46,11 +46,16 @@ const view = $('#stageView');
 const isPhone = isPhoneLayout;
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 const NAMED_DETAILS = ['edge', 'node', 'organ'];   // (the selections whose name is the panel's title itself)
+const SN_L = { class: 'sn-l' }, SN_S = { class: 'sn-s' }, SN_C = { class: 'sn-c' };   // (the scenario name's three forms)
+const NAME_FORMS = ['l', 's', 's2', 'c2'], NAME_FORMS_NARROW = ['s2', 'c2'];   // (the scenario name's forms, widest first)
+const FOCUS_NO_SCROLL = { preventScroll: true };
+const NOOP = () => {};
+const RUN_ON = { type: 'run', running: true }, RUN_OFF = { type: 'run', running: false };   // (host.send posts a copy)
+const runOff = () => host.send(RUN_OFF);
 const NOATTR = Object.freeze({});   // (the attributes of an element that has none: h() only reads them)
 const INSTANT = { instant: true };   // (options for swapFade and the like: read, never written, so one object serves every call)
-const PASSIVE = { passive: true };
 const TOOL_CLASS = { select: 'tool-select' };   // (the figure's class for each armed tool; only 'select' is ever set, any other is made once on its first use)
-const toolClass = (t) => TOOL_CLASS[t] ||= 'tool-' + t;
+const toolClass = (t) => TOOL_CLASS[t] ||= 'tool-' + t;   // alloc-rare: made once per tool value, and only 'select' is ever set (it is in the table)
 const ZOOM_TITLES = [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoomFit', 'Fit the figure to the view', 'Back out to the lobule']];   // (button, title, title in the sinusoid)
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
@@ -225,7 +230,8 @@ async function main() {
     underMenu = m;
     underEls.length = 0;
     underEls.push(m);
-    for (const g of document.querySelectorAll('#labels .lb')) underEls.push(g);
+    const lbs = document.getElementById('labels')?.getElementsByClassName('lb');   // (the labels, in page order: the live list of #labels .lb)
+    if (lbs) for (let i = 0; i < lbs.length; i++) underEls.push(lbs[i]);
     underFlight = underWant;
     rectsSoon(underEls).then(underApply);
   };
@@ -333,15 +339,24 @@ async function main() {
   // The compact form, for the narrowest room (a phone held sideways, 84 px): the short form where two lines of it fit, else a
   // shorter name (a soft hyphen breaks Schistosomiasis across the two lines with a hyphen if it must).
   const COMPACT = { 'Acute portal vein thrombosis': 'Acute PVT', 'Schistosomiasis / NCPH': 'Schisto\u00ADsomiasis', 'Cirrhosis with gastrorenal shunt': 'Gastrorenal shunt', 'Sinusoidal obstruction syndrome': 'SOS' };
+  // (A name is one of the presets' labels or "Custom", so each one's forms are made once here, not when the name changes.)
+  const nameOf = new Map(), shortOf = new Map();
+  for (const p of presets) if (!nameOf.has(p.id)) nameOf.set(p.id, p.label || 'Custom');
+  for (const n of [...nameOf.values(), 'Custom']) if (!shortOf.has(n)) shortOf.set(n, shortName(n));
+  // (The fill is made once and reads the name asked last, as the swap keeps only the last fill it is given.)
+  let scName = '', scShort = '';
+  const scFill = () => {
+    const el = $('#scenarioName');
+    el.replaceChildren(h('span', SN_L, scName), h('span', SN_S, scShort), h('span', SN_C, COMPACT[scShort] ?? scShort));
+    fitScenarioName();
+  };
   const syncScenarioName = () => {
-    const st = store.get(), name = presets.find((p) => p.id === st.presetId)?.label || 'Custom', short = shortName(name);
+    const st = store.get(), name = nameOf.get(st.presetId) || 'Custom', short = shortOf.get(name);
     // The new name crossfades in (it swapped in one frame, P8); the pill glides to its width as it lands (topbar-motion.js).
     const el = $('#scenarioName');
     if (el.querySelector('.sn-l')?.textContent === name) return;
-    swapFade(el, () => {
-      el.replaceChildren(h('span', { class: 'sn-l' }, name), h('span', { class: 'sn-s' }, short), h('span', { class: 'sn-c' }, COMPACT[short] ?? short));
-      fitScenarioName();
-    });
+    scName = name; scShort = short;
+    swapFade(el, scFill);
   };
   store.on('presetId', syncScenarioName);
   store.on('mode', syncScenarioName);
@@ -683,35 +698,44 @@ function doAction(a) {
 }
 
 // ── Armed gestures ─────
-function setTool() { store.set({ tool: 'select' }); }
+const TOOL_SELECT = { tool: 'select' };   // (store.set reads a patch and keeps none of it)
+function setTool() { store.set(TOOL_SELECT); }
 // The shunt hint, one target per line with the vein to pick in bold; "Tap" on touch, and Esc only where there is a keyboard.
-function shuntHint(only) {
-  const fine = matchMedia('(hover: hover) and (pointer: fine)').matches, verb = fine ? 'Click' : 'Tap';
-  if (only === 'tips') return [h('div', {}, `${verb} the `, h('b', {}, 'hepatic vein'), ' where the stent should end. Glowing vessels are valid targets.')];
-  return [
-    h('div', {}, `${verb} a glowing vein to connect it to.`),
-    h('div', {}, 'A portal branch to a ', h('b', {}, 'hepatic vein'), ' makes a TIPS.'),
-    h('div', {}, 'A portal branch to the ', h('b', {}, 'IVC'), ' below the hepatic veins makes a DIPS.'),
-    h('div', {}, 'The splenic vein to the ', h('b', {}, 'left renal vein'), ' makes a Warren shunt.'),
-    fine ? h('div', {}, 'Esc cancels.') : null,
-  ].filter(Boolean);
+// (Its lines are made here and set into the card by renderPaintHint, which knows how many there are: 1 for the TIPS, else 4 or 5.)
+const SHUNT_ONLY = [null];   // (the TIPS's one line)
+const SHUNT_LINES = [null, null, null, null, null];
+function shuntHint(only, fine) {
+  if (only === 'tips') { SHUNT_ONLY[0] = h('div', NOATTR, fine ? 'Click the ' : 'Tap the ', h('b', NOATTR, 'hepatic vein'), ' where the stent should end. Glowing vessels are valid targets.'); return SHUNT_ONLY; }
+  SHUNT_LINES[0] = h('div', NOATTR, fine ? 'Click a glowing vein to connect it to.' : 'Tap a glowing vein to connect it to.');
+  SHUNT_LINES[1] = h('div', NOATTR, 'A portal branch to a ', h('b', NOATTR, 'hepatic vein'), ' makes a TIPS.');
+  SHUNT_LINES[2] = h('div', NOATTR, 'A portal branch to the ', h('b', NOATTR, 'IVC'), ' below the hepatic veins makes a DIPS.');
+  SHUNT_LINES[3] = h('div', NOATTR, 'The splenic vein to the ', h('b', NOATTR, 'left renal vein'), ' makes a Warren shunt.');
+  SHUNT_LINES[4] = fine ? h('div', NOATTR, 'Esc cancels.') : null;
+  return SHUNT_LINES;
 }
+const cancelShunt = () => stage.cancelShunt();
+const TC_TITLE = { class: 'tc-title' }, TC_SP = { class: 'tc-sp' }, BTN_SM = { class: 'btn sm' };
+// The hint fades out where it stands: afterExit's step, made once (the card is the one element).
+const hintGone = () => { const el = $('#toolHint'); el.hidden = true; el.classList.remove('leaving'); };
 // The hint card for an armed gesture: a shunt waiting for its target.
 function renderPaintHint() {
   const el = $('#toolHint');
   const st = store.get();
-  const done = (label, fn) => { const b = h('button', { class: 'btn sm' }, label); b.addEventListener('click', fn); return b; };
   if (st.shunting) {
     const only = st.shunting.only;
     clearTimeout(hintT); el.classList.remove('leaving');
     el.hidden = false;
-    el.replaceChildren(h('div', { class: 'tc-title' }, icon('stent'), only === 'tips' ? 'Place the TIPS' : 'Make a shunt', h('span', { class: 'tc-sp' }), done('Cancel', () => stage.cancelShunt())),
-      ...shuntHint(only));
+    const cancel = h('button', BTN_SM, 'Cancel'); cancel.addEventListener('click', cancelShunt);
+    const title = h('div', TC_TITLE, icon('stent'), only === 'tips' ? 'Place the TIPS' : 'Make a shunt', h('span', TC_SP), cancel);
+    const lines = shuntHint(only, matchMedia('(hover: hover) and (pointer: fine)').matches);
+    if (lines === SHUNT_ONLY) el.replaceChildren(title, lines[0]);
+    else if (lines[4]) el.replaceChildren(title, lines[0], lines[1], lines[2], lines[3], lines[4]);
+    else el.replaceChildren(title, lines[0], lines[1], lines[2], lines[3]);
     redraw();
     return;
   }
   // (It fades out where it stands, as it came in, rather than vanishing: P20.)
-  if (!el.hidden && !el.classList.contains('leaving')) { el.classList.add('leaving'); hintT = afterExit(el, 'leaving', () => { el.hidden = true; el.classList.remove('leaving'); }); }
+  if (!el.hidden && !el.classList.contains('leaving')) { el.classList.add('leaving'); hintT = afterExit(el, 'leaving', hintGone); }
   redraw();
 }
 let hintT = 0;
@@ -730,7 +754,7 @@ function buildHud() {
   blood.look = 'shimmer'; blood.phasic = false;   // the Blood menu offers streaks and chevrons only
   store.set({ blood });
   store.on('blood', (v) => {
-    try { localStorage.setItem('pps.blood2', JSON.stringify(v)); } catch (e) { caught('main:690', e); /* storage unavailable */ }
+    try { localStorage.setItem('pps.blood2', JSON.stringify(v)); } catch (e) { caught('main:690', e); /* storage unavailable */ }   // alloc-rare: the saved choice is written when the Blood menu changes it, never per frame
     sendBeat(); syncBloodBtn();
     redraw();
   });
@@ -823,10 +847,10 @@ let lgRef = null, lgHeatUnit = '', lgHeatAria = '', lgDeltaTitle = '', lgDeltaAr
 function lgRefWords(ref) {
   if (ref === lgRef) return;
   lgRef = ref;
-  lgHeatUnit = `mmHg above ${ref}`;
-  lgHeatAria = `Legend: pressure above ${ref}, 0 to 15 millimeters of mercury, gray to yellow to deep red, with a glow where congestion is highest`;
-  lgDeltaTitle = `Change from ${ref}`;
-  lgDeltaAria = `Legend: change in pressure from ${ref}, blue lower, red higher, up to 12 millimeters of mercury`;
+  lgHeatUnit = `mmHg above ${ref}`;   // alloc-rare: made only when the reference changes
+  lgHeatAria = `Legend: pressure above ${ref}, 0 to 15 millimeters of mercury, gray to yellow to deep red, with a glow where congestion is highest`;   // alloc-rare: made only when the reference changes
+  lgDeltaTitle = `Change from ${ref}`;   // alloc-rare: made only when the reference changes
+  lgDeltaAria = `Legend: change in pressure from ${ref}, blue lower, red higher, up to 12 millimeters of mercury`;   // alloc-rare: made only when the reference changes
 }
 lgRefWords('healthy');
 const lgScale = (grad, spec) => {
@@ -901,9 +925,10 @@ const st = () => store.get();
 // The heartbeat (the model's pulsatile mode) always runs, so the Over time trace is beat to beat
 // from the first moment rather than smooth until a waveform instrument opens.
 let beatSent = null;
+const BEAT_ON = { type: 'beat', on: true };   // (host.send posts a copy)
 function sendBeat() {
   const on = true;
-  if (on !== beatSent) { beatSent = on; host.send({ type: 'beat', on }); }
+  if (on !== beatSent) { beatSent = on; host.send(BEAT_ON); }
 }
 const setBlood = (patch) => store.set({ blood: { ...store.get().blood, ...patch } });
 function syncBloodBtn() {
@@ -1045,37 +1070,79 @@ let tipShape = '', tipVals = [], tipPlace = '';
 
 // The figure header carries the Then / Now / Change switch when a moment is pinned.
 let cmpWatched = false;
+let cmpHNum = 0, cmpHStr = '0px';   // (the header's height as written, and as text: made again only when the height changes)
 function syncCmpH() {
   const c = $('#stageCenter');
   if (!cmpWatched && c) { cmpWatched = true; watchSize(c, syncCmpH); }
-  const z = sizeOf(c), v = store.get().compareSnap && z ? `${Math.round(z.h) + 8}px` : '0px';
+  const z = sizeOf(c);
+  let v = '0px';
+  if (store.get().compareSnap && z) {
+    const n = Math.round(z.h) + 8;
+    if (n !== cmpHNum) { cmpHNum = n; cmpHStr = `${n}px`; }   // alloc-rare: the text is made only when the header's height changes
+    v = cmpHStr;
+  }
   if (app.style.getPropertyValue('--cmp-h') !== v) app.style.setProperty('--cmp-h', v);
 }
 // (Scrolled between frames, rest-pass.js: scrollIntoView lays the page out.)
-function scrollCmp() { scrollInto($('.cmp-section'), { block: 'start', behavior: scrollBehavior() }); }
+const SCROLL_CMP = { block: 'start', behavior: 'auto' };   // (options read by scrollInto at once: the behaviour is written before each use)
+function scrollCmp() { SCROLL_CMP.behavior = scrollBehavior(); scrollInto($('.cmp-section'), SCROLL_CMP); }
+// The Compare banner. Its words name the pinned moment, so they are made again only when the moment, or the names of its two ends, change.
+const CMP_NAMES = ['Then', 'Now'];
+const CMP_LABEL = { class: 'cmp-label' }, CMP_SEG = { class: 'seg cmp-seg', role: 'group', 'aria-label': '' };
+const CMP_BTN = [{ 'aria-pressed': 'false', title: '' }, { 'aria-pressed': 'false', title: '' }, { 'aria-pressed': 'false', title: '' }];   // (written before each build: h() reads them at once)
+const CMP_SET = [{ compareView: 'A' }, { compareView: 'B' }, { compareView: 'D' }];
+const cmpSetA = () => store.set(CMP_SET[0]), cmpSetB = () => store.set(CMP_SET[1]), cmpSetD = () => store.set(CMP_SET[2]);
+const CMP_CLICK = [cmpSetA, cmpSetB, cmpSetD];
+const cmpTableLater = () => restPass(scrollCmp);
+const cmpTable = () => {
+  // (The table scrolls into view once the card has come in, not while it is still sliding: P22.)
+  const was = panelShown(); openPanel();
+  setTimeout(cmpTableLater, was ? 0 : 260);
+};
+const CMP_TABLE = { class: 'btn sm cmp-table-btn', title: 'Every value, then and now, in a table', onclick: cmpTable };
+const CMP_BADGE = { class: 'cmp-badge stage-blocker' };
+const BANNER_IN = [{ opacity: 0 }, { opacity: 1 }], BANNER_IN_OPTS = { duration: D_SMALL, easing: EASE_ARRIVE };
+let cmpWhen = null, cmpNA = null, cmpNB = null, cmpLabel = '', cmpAria = '', cmpTitleA = '', cmpTitleD = '', cmpShowing = '';
+function cmpWords(when, nA, nB) {
+  if (when !== cmpWhen) {
+    cmpWhen = when;
+    cmpLabel = `Comparing with ${when}`;   // alloc-rare: made when the pinned moment changes
+    cmpAria = `Comparing with ${when}: show`;   // alloc-rare: made when the pinned moment changes
+    cmpTitleA = `The model at ${when}`;   // alloc-rare: made when the pinned moment changes
+    cmpTitleD = `Change from ${when} to now`;   // alloc-rare: made when the pinned moment changes
+    cmpShowing = `Showing ${when}`;   // alloc-rare: made when the pinned moment changes
+  }
+  cmpNA = nA; cmpNB = nB;
+}
+let bannerEl = null, bannerOn = false, bannerLabel = null, bannerSeg = null, bannerTable = null;
+const bannerFill = () => { if (bannerOn) bannerEl.replaceChildren(bannerLabel, bannerSeg, bannerTable); else bannerEl.replaceChildren(); };
+const bannerClear = () => bannerEl.replaceChildren();
 function renderBanner() {
   const el = $('#stageBanner');
   const s0 = store.get();
-  const kids = [];
+  bannerEl = el;
+  bannerOn = !!s0.compareSnap;
   if (s0.compareSnap) {
-    kids.push(h('span', { class: 'cmp-label' }, `Comparing with ${s0.compareSnap.when}`));
-    const [nA, nB] = s0.compareSnap.names || ['Then', 'Now'];
-    kids.push(h('div', { class: 'seg cmp-seg', role: 'group', 'aria-label': `Comparing with ${s0.compareSnap.when}: show` }, [['A', nA, `The model at ${s0.compareSnap.when}`], ['B', nB, 'The live model'], ['D', 'Change', `Change from ${s0.compareSnap.when} to now`]].map(([v, l, t]) => {
-      const b = h('button', { 'aria-pressed': String((s0.compareView || 'B') === v), title: t }, h('b', {}, l));
-      b.addEventListener('click', () => store.set({ compareView: v }));
-      return b;
-    })));
-    const tbl = h('button', { class: 'btn sm cmp-table-btn', title: 'Every value, then and now, in a table', onclick: () => {
-      // (The table scrolls into view once the card has come in, not while it is still sliding: P22.)
-      const was = panelShown(); openPanel();
-      setTimeout(() => restPass(scrollCmp), was ? 0 : 260);
-    } }, 'Differences');
-    kids.push(tbl);
+    const names = s0.compareSnap.names || CMP_NAMES;
+    cmpWords(s0.compareSnap.when, names[0], names[1]);
+    bannerLabel = h('span', CMP_LABEL, cmpLabel);
+    CMP_SEG['aria-label'] = cmpAria;
+    const cur = s0.compareView || 'B';
+    CMP_BTN[0]['aria-pressed'] = cur === 'A' ? 'true' : 'false'; CMP_BTN[0].title = cmpTitleA;
+    CMP_BTN[1]['aria-pressed'] = cur === 'B' ? 'true' : 'false'; CMP_BTN[1].title = 'The live model';
+    CMP_BTN[2]['aria-pressed'] = cur === 'D' ? 'true' : 'false'; CMP_BTN[2].title = cmpTitleD;
+    bannerSeg = h('div', CMP_SEG);
+    for (let i = 0; i < 3; i++) {
+      const b = h('button', CMP_BTN[i], h('b', NOATTR, i === 0 ? cmpNA : i === 1 ? cmpNB : 'Change'));
+      b.addEventListener('click', CMP_CLICK[i]);
+      bannerSeg.append(b);
+    }
+    bannerTable = h('button', CMP_TABLE, 'Differences');
   }
   // The switch fades in when a moment is pinned and out when it is let go (it popped: P20).
   const had = !!el.firstChild;
-  if (had && !kids.length) swapFade(el, () => el.replaceChildren());
-  else { swapFade(el, () => el.replaceChildren(...kids), { instant: true }); if (!had && kids.length) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
+  if (had && !bannerOn) swapFade(el, bannerClear);
+  else { swapFade(el, bannerFill, INSTANT); if (!had && bannerOn) el.animate?.(BANNER_IN, BANNER_IN_OPTS); }
   app.classList.toggle('cmp-on', !!s0.compareSnap);
   // The switch's height, for views that place their own controls under it (the lobule's).
   // (Its height as the browser last reported it, geom.js: the switch just built is reported after this layout and written again then.)
@@ -1083,9 +1150,13 @@ function renderBanner() {
   // "Showing <then>" fades in and out (styles: .cmp-badge) instead of popping.
   const badge = view.querySelector('.cmp-badge:not(.leaving)');
   if (s0.compareSnap && s0.compareView === 'A') {
-    const t = `Showing ${s0.compareSnap.when}`;
-    if (badge) { if (badge.textContent !== t) badge.textContent = t; } else view.append(h('div', { class: 'cmp-badge stage-blocker' }, t));
-  } else if (badge) { badge.classList.add('leaving'); afterExit(badge, 'leaving', () => badge.remove()); }
+    const t = cmpShowing;
+    if (badge) { if (badge.textContent !== t) badge.textContent = t; } else view.append(h('div', CMP_BADGE, t));
+  } else if (badge) {
+    badge.classList.add('leaving');
+    badge._gone ||= () => badge.remove();   // alloc-rare: one per badge, made as it leaves (a pinned moment let go, or another view chosen)
+    afterExit(badge, 'leaving', badge._gone);
+  }
   redraw();
 }
 
@@ -1307,10 +1378,11 @@ function leave(el) {
   if (el.dataset.swiped) { delete el.dataset.swiped; return; }   // (swiped away: already slid out of sight behind the tab row)
   // (With Reduce Motion it fades where it stands: app.css turns the leaving keyframes into fades.)
   // (A leave already playing starts again from its first frame: its own animations are set back to the start, no reflow to restart it.)
-  if (el.classList.contains('card-leaving')) { for (const a of readAnims(el) || []) if (a.animationName) a.currentTime = 0; }
+  if (el.classList.contains('card-leaving')) { const as = readAnims(el); if (as) for (const a of as) if (a.animationName) a.currentTime = 0; }
   el.classList.add('card-leaving');
   markGone(180);
-  const done = (e) => { if (e && e.target !== el) return; el.classList.remove('card-leaving'); el.removeEventListener('animationend', done); };
+  // (Each card has its own step, made on its first leave and kept: adding the same listener again is a no-op, and it takes itself off as before.)
+  const done = el._leaveDone ||= (e) => { if (e && e.target !== el) return; el.classList.remove('card-leaving'); el.removeEventListener('animationend', el._leaveDone); };   // alloc-rare: one per card, made on its first leave
   el.addEventListener('animationend', done);
   setTimeout(done, 400);
 }
@@ -1324,21 +1396,29 @@ function panelShown() { return !app.classList.contains('instrument-focus') && ap
 function fitScenarioName() {
   const e = document.getElementById('scenarioName');
   if (!e?.querySelector('.sn-c') || !readMetric(e, 'offsetParent')) return;
-  const forms = matchMedia('(max-width: 480px)').matches ? ['s2', 'c2'] : ['l', 's', 's2', 'c2'];
+  const forms = matchMedia('(max-width: 480px)').matches ? NAME_FORMS_NARROW : NAME_FORMS;
   for (const f of forms) {
     e.dataset.form = f;
     if (readMetric(e, 'scrollWidth') <= readMetric(e, 'clientWidth') + 0.5 && readMetric(e, 'scrollHeight') <= readMetric(e, 'clientHeight') + 0.5) return;
   }
 }
 let refitT = 0;
+// (The steps the layout's timers run are made once here, not for each call.)
+const stageRefit = () => stage?.refit();
+const stageRelayoutSoon = () => stage?.relayout();
+const stageRelayout = () => stage.relayout();
+let dockFrame = null;   // (the frame the Tests card is brought up to date with, as asked last)
+const dockUpdate = () => dock.update(dockFrame, true);
+const RESIZE_EVENT = new Event('resize');   // (dispatched again each time: nothing keeps it)
+const fireResize = () => dispatchEvent(RESIZE_EVENT);
 function refitStage() {
   clearTimeout(refitT);
-  nextFrame(() => stage?.refit());
-  refitT = setTimeout(() => stage?.refit(), 380);
+  nextFrame(stageRefit);
+  refitT = setTimeout(stageRefit, 380);
 }
 function syncPanelToggle() {
   refitStage();
-  setTimeout(() => stage?.relayout(), 320);
+  setTimeout(stageRelayoutSoon, 320);
 }
 // Closing a card from the keyboard or its own button hands focus back to what opened it, never to the page (review #24).
 // (Safari does not focus a clicked button, so the card's own button stands in for the opener.) A card put away because
@@ -1347,7 +1427,7 @@ function giveFocusBack(card, to) {
   const a = document.activeElement;
   if (a && a !== document.body && !card.contains(a)) return;
   // (A button that is not drawn takes no focus: focus() leaves it where it is, with no box read to ask first.)
-  if (to?.isConnected) to.focus({ preventScroll: true });
+  if (to?.isConnected) to.focus(FOCUS_NO_SCROLL);
 }
 let panelOpener = null;
 /** Opens the patient chart; or the instruments when named. */
@@ -1358,14 +1438,19 @@ let panelOpener = null;
 function rightShort(opening) {
   // (A maximised Tests card fills the screen and the figure is hidden: there is no vessel card to leave a strip for, and the stretched card is not 380 px wide.)
   if (isPhone() || !matchMedia('(pointer: coarse)').matches || app.classList.contains('instrument-focus')) return false;
-  const dock = $('#dock'), on = { panel: opening === 'panel' || panelShown(), dock: opening === 'dock' || (app.classList.contains('dock-open') && dock.classList.contains('side')), treat: opening === 'treat' || treatOpen() || historyOpen() };
+  const dock = $('#dock'), onPanel = opening === 'panel' || panelShown(), onDock = opening === 'dock' || (app.classList.contains('dock-open') && dock.classList.contains('side')), onTreat = opening === 'treat' || treatOpen() || historyOpen();
   // (The cards' widths as the browser last reported them, geom.js: none is laid out to ask.)
   const pw = sizeOf($('#panel'))?.w, dw = sizeOf(dock)?.w;
-  const w = [on.panel && (Math.round(pw || 0) || 380), on.dock && (Math.round(dw || 0) || (innerWidth < 1200 ? 380 : Math.max(440, innerWidth * 0.38))), on.treat && 400].filter(Boolean);
-  return w.length > 1 && innerWidth - w.reduce((a, b) => a + b, 0) - (w.length + 1) * 12 < 316;
+  // (The widths of the cards open, counted and summed as they are met.)
+  let n = 0, sum = 0;
+  if (onPanel) { n++; sum += Math.round(pw || 0) || 380; }
+  if (onDock) { n++; sum += Math.round(dw || 0) || (innerWidth < 1200 ? 380 : Math.max(440, innerWidth * 0.38)); }
+  if (onTreat) { n++; sum += 400; }
+  return n > 1 && innerWidth - sum - (n + 1) * 12 < 316;
 }
+const GIVE_ORDER = ['treat', 'dock', 'panel'];
 function giveWay(opening) {
-  for (const k of ['treat', 'dock', 'panel']) {
+  for (const k of GIVE_ORDER) {
     if (!rightShort(opening)) return;
     if (k === opening) continue;
     // (A card put away with focus inside it, a control of its own that opened the other one: focus goes to the opening card's button, never to the page.)
@@ -1374,7 +1459,7 @@ function giveWay(opening) {
     else if (k === 'dock') { if (app.classList.contains('dock-open')) setPanelTab('chart'); }
     else closePanel();
     const to = held && (opening === 'treat' ? $('#btnTreat') : opening === 'dock' ? $('#tabInstruments') : panelOpener);
-    if (to?.isConnected) to.focus({ preventScroll: true });
+    if (to?.isConnected) to.focus(FOCUS_NO_SCROLL);
   }
 }
 function openPanel(tab = 'chart') {
@@ -1393,12 +1478,15 @@ function openPanel(tab = 'chart') {
   panelSheet?.open();
   syncPanelToggle();
 }
-function closePanel({ focus = false } = {}) {
+const DETAILS_NULL = { details: null };
+const panelDetailsClear = () => { if (!app.classList.contains('panel-open') && store.get().details) store.set(DETAILS_NULL); };
+function closePanel(opts) {
+  const focus = opts?.focus;
   if (focus) giveFocusBack($('#panel'), panelOpener);
   if (panelShown()) leave($('#panel'));
   app.classList.remove('panel-open'); panelSheet?.closed(); syncPanelToggle();
   // Once it has played out, what it showed is put away, so it never reopens on stale details.
-  setTimeout(() => { if (!app.classList.contains('panel-open') && store.get().details) store.set({ details: null }); }, 420);
+  setTimeout(panelDetailsClear, 420);
 }
 function setPanelTab(tab) {
   const instr = tab === 'instruments';
@@ -1407,7 +1495,7 @@ function setPanelTab(tab) {
   if (instr && !was) giveWay('dock');   // (the other right-hand cards give way when they would leave the vessel card no strip)
   if (instr) arrive($('#dock')); else if (was && !app.classList.contains('instrument-focus')) leave($('#dock'));
   app.classList.toggle('dock-open', instr);
-  $('#tabInstruments').setAttribute('aria-pressed', String(instr));
+  $('#tabInstruments').setAttribute('aria-pressed', instr ? 'true' : 'false');
   if (instr) $('#tabInstruments').classList.remove('ping');
   else app.classList.remove('instrument-focus');
   if (instr && !was) dockSheet?.open();
@@ -1421,8 +1509,8 @@ function setPanelTab(tab) {
       stage?.keepView(false);
       if (instr || stage?.closeView()) refitStage(); else clearTimeout(refitT);
     }
-    const f = store.get().frame; if (f && instr) nextFrame(() => dock.update(f, true));
-    setTimeout(() => dispatchEvent(new Event('resize')), 320);
+    const f = store.get().frame; if (f && instr) { dockFrame = f; nextFrame(dockUpdate); }
+    setTimeout(fireResize, 320);
   }
 }
 
@@ -1551,9 +1639,11 @@ function wireFloating() {
   // pinch woke four of them and laid the page out again, review #31. So the class is added only when it is missing.)
   // The pieces dim only once the figure has moved for BUSY_DELAY (premium-feel R7): a tap, or a drag that is over inside it, dims nothing.
   const BUSY_DELAY = 120;
+  const busyOff = () => { clearTimeout(armT); armT = 0; classSoon(app, 'stage-busy', false); };
+  const busyArmed = () => { armT = 0; if (!app.classList.contains('stage-busy')) classSoon(app, 'stage-busy', true); };
   const busy = (ms) => {
-    clearTimeout(busyT); busyT = setTimeout(() => { clearTimeout(armT); armT = 0; classSoon(app, 'stage-busy', false); }, ms);
-    if (!armT && !app.classList.contains('stage-busy')) armT = setTimeout(() => { armT = 0; if (!app.classList.contains('stage-busy')) classSoon(app, 'stage-busy', true); }, BUSY_DELAY);
+    clearTimeout(busyT); busyT = setTimeout(busyOff, ms);
+    if (!armT && !app.classList.contains('stage-busy')) armT = setTimeout(busyArmed, BUSY_DELAY);
   };
   // A gesture over: the pieces already dimmed stay so for ms more; ones still waiting to dim never do.
   const busyEnd = (ms) => { if (app.classList.contains('stage-busy')) busy(ms); else { clearTimeout(armT); armT = 0; clearTimeout(busyT); } };
@@ -1589,7 +1679,8 @@ function wireFloating() {
   });
   let shown = 1;   // (how much of the dock's content shows: 1 at rest, 0 once faded for a fold)
   // (The fold starts in a task of its own, never inside the gesture's move that asked for it: it begins by fading the content out, so one task's wait shows nothing.)
-  const foldSoon = (on) => runSoon(() => foldDock(on));
+  const foldOn = () => foldDock(true), foldOff = () => foldDock(false);
+  const foldSoon = (on) => runSoon(on ? foldOn : foldOff);
   const foldDock = async (on) => {
     if (on === foldGoal) return;
     foldGoal = on;
@@ -1740,7 +1831,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     const mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat), S = stops(), R = room() || readMetric(app, 'clientHeight');
     const sc = own ? null : scroller(e.target);
     const h0 = drawnHeight(), box = lay || readMetric(el, 'offsetHeight');
-    start = { id: e.pointerId, t0: performance.now(), x: e.clientX, y: e.clientY, h: h0, box, H: R, S, size, thumb: thumb(), phone: isPhone(), tx: mv[0] || 0, ty: mv[1] || 0, moved: false, loose: !own || headTab, sc, scTop: sc ? readMetric(sc, 'scrollTop') : 0, top: S[S.length - 1] * R };
+    start = { id: e.pointerId, t0: performance.now(), x: e.clientX, y: e.clientY, h: h0, box, H: R, S, size, thumb: thumb(), phone: isPhone(), tx: mv[0] || 0, ty: mv[1] || 0, moved: false, trail: [], pool: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], loose: !own || headTab, sc, scTop: sc ? readMetric(sc, 'scrollTop') : 0, top: S[S.length - 1] * R };
     // (Half's height, as apply() sets it: the content's own height when that is less)
     if (start.thumb && size === S.length - 1 && S.length > 1) { start.full = true; start.half = Math.min(h0, natural(), S[half()] * R); }
   });
@@ -1757,7 +1848,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   });
   el.addEventListener('pointermove', (e) => {
     if (!start || e.pointerId !== start.id) return;
-    if (e.pointerType === 'mouse' && !(e.buttons & 1)) { const s1 = start; restPass(() => { if (start === s1) end(e); }); return; }   // (ended between frames, never inside a move)   // (the button was let go outside the card before it was captured: the drag is over, not waiting to resume)
+    if (e.pointerType === 'mouse' && !(e.buttons & 1)) { const s1 = start; restPass(() => { if (start === s1) end(e); }); return; }   // alloc-rare: once per drag, when the mouse button was let go outside the card   // (ended between frames, never inside a move)   // (the button was let go outside the card before it was captured: the drag is over, not waiting to resume)
     const dx = e.clientX - start.x, dy = e.clientY - start.y;
     if (!start.moved) {
       if (Math.hypot(dx, dy) < 6) return;
@@ -1770,7 +1861,10 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     }
     classSoon(el, 'dragging', true);
     start.dy = dy;
-    (start.trail ||= []).push([performance.now(), e.clientY]); if (start.trail.length > 8) start.trail.shift();
+    // (The last 8 points of the finger, as [time, y] pairs: the ones made at the touch are written over, the oldest first, not new ones made.)
+    const tp = start.trail.length >= 8 ? start.trail.shift() : start.pool.pop();
+    tp[0] = performance.now(); tp[1] = e.clientY;
+    start.trail.push(tp);
     // The height the finger draws: from Full a pull down shrinks the card the way a pull up grew it (15 Oct, Mohammad): its foot
     // stays on the tab row and its top follows the finger, slowing past Half, where it settles. Over the thumb dock a pull down
     // from Half slides the card down behind the tab row. Everything is the content's offset in the still box.
@@ -1939,6 +2033,7 @@ function openLayersMenu(anchor) {
 }
 // ── Treat card ──────────────────────────────────────
 let treatOff = null;
+let runningN = 0, runningText = '';   // (the Treat card's "<n> running", as last made)
 const treatOpen = () => !$('#treatCard').hidden;
 function openTreat() {
   closeHistory();
@@ -1948,7 +2043,11 @@ function openTreat() {
   closePopover();
   const sync = [];
   const count = h('span', { class: 'card-meta' });
-  const paintCount = () => { const n = chart.treatCount(store.get().params); count.textContent = n ? `${n} running` : ''; };
+  const paintCount = () => {
+    const n = chart.treatCount(store.get().params);
+    if (n && n !== runningN) { runningN = n; runningText = `${n} running`; }   // alloc-rare: the text is made only when the number of treatments running changes
+    count.textContent = n ? runningText : '';
+  };
   sync.push(paintCount);
   const [tabs, pane] = chart.treatBody(sync, () => {});
   const body = h('div', { class: 'tc-body' }, pane, chart.treatChanges(sync));
@@ -1963,7 +2062,7 @@ function openTreat() {
   treatSheet?.open();
   $('#btnTreat').setAttribute('aria-expanded', 'true');
   refitStage();
-  nextFrame(() => stage.relayout());
+  nextFrame(stageRelayout);
 }
 // Presenter puts every card, sheet and menu away (each fades out) and hands back a function that reopens them on exit.
 function stashCards() {
@@ -1971,7 +2070,8 @@ function stashCards() {
   closePopover(); why?.close(); closeTreat(); closeHistory(); closePanel(); if (was.dock) setPanelTab('chart');
   return () => { if (was.panel) openPanel(); if (was.dock) openPanel('instruments'); if (was.treat) openTreat(); };
 }
-function closeTreat({ focus = false } = {}) {
+function closeTreat(opts) {
+  const focus = opts?.focus;
   const el = $('#treatCard');
   if (el.hidden) return;
   if (focus) giveFocusBack(el, $('#btnTreat'));
@@ -1981,7 +2081,7 @@ function closeTreat({ focus = false } = {}) {
   treatSheet?.closed();
   $('#btnTreat').setAttribute('aria-expanded', 'false');
   refitStage();
-  nextFrame(() => stage.relayout());
+  nextFrame(stageRelayout);
 }
 // ── History card (Mac and iPad landscape) ───────────
 // Every change and event, with a way back to each: the same list as the phone's History sheet, as a card in Treat's
@@ -2009,13 +2109,14 @@ function openHistory() {
   mo.observe($('#timeline .tl-hc'), { characterData: true, childList: true, subtree: true });
   if (!historyPaint) timeline.onChange(() => historyPaint?.());   // (registered once; it paints whichever card is open)
   historyPaint = paint;
-  historyOff = () => { mo.disconnect(); historyPaint = () => {}; };
+  historyOff = () => { mo.disconnect(); historyPaint = NOOP; };
   arrive(el);
   el.hidden = false;
   $('#btnHistory').setAttribute('aria-expanded', 'true');
   refitStage();
 }
-function closeHistory({ focus = false } = {}) {
+function closeHistory(opts) {
+  const focus = opts?.focus;
   const el = $('#historyCard');
   if (el.hidden) return;
   if (focus) giveFocusBack(el, $('#btnHistory'));
@@ -2024,15 +2125,16 @@ function closeHistory({ focus = false } = {}) {
   historyOff?.(); historyOff = null;
   $('#btnHistory').setAttribute('aria-expanded', 'false');
   refitStage();
-  nextFrame(() => stage.relayout());
+  nextFrame(stageRelayout);
 }
 
 // ── Modes ───────────────────────────────────────────
+const FOCUS_NULL = { focus: null }, EXPLORE_RESET = { hiddenReadouts: null, hiddenEvents: null, imaging: false, found: null }, SELECTION_NULL = { selection: null, details: null };   // (store.set patches: read, never kept)
 function onMode(mode) {
   app.dataset.mode = mode;
-  store.set({ focus: null });
-  if (mode === 'explore') { store.set({ hiddenReadouts: null, hiddenEvents: null, imaging: false, found: null }); if (store.get().tool !== 'select') setTool(); }
-  store.set({ selection: null, details: null });
+  store.set(FOCUS_NULL);
+  if (mode === 'explore') { store.set(EXPLORE_RESET); if (store.get().tool !== 'select') setTool(); }
+  store.set(SELECTION_NULL);
   inspector.render();
   renderPaintHint(); renderBanner(); renderLegend();
   setPanelTab('chart');
@@ -2103,7 +2205,7 @@ function wireKeyboard() {
     if (spaceIsOurs) { e.preventDefault(); host.send({ type: 'run', running: !store.get().running }); return; }
     // With a card open, the number keys run its verbs in order.
     if (/^[1-9]$/.test(e.key) && card.isOpen()) { if (card.trigger(+e.key)) e.preventDefault(); return; }
-    if (e.key === '.') { host.send({ type: 'run', running: true }); setTimeout(() => host.send({ type: 'run', running: false }), 60); return; }
+    if (e.key === '.') { host.send(RUN_ON); setTimeout(runOff, 60); return; }
     if (e.key === '[' || e.key === ']') {
       // One ladder: real-time speeds, then the time-lapse rates.
       const ladder = [...SPEEDS.map((v) => [v, false]), ...LAPSES.map(([d]) => [d, true])];
@@ -2223,7 +2325,10 @@ function openHelp(section) {
 }
 // Help and About open at a named section (Keyboard shortcuts, References).
 // (2 Nov 2026: scrolled between frames (rest-pass.js), never inside one: scrollIntoView lays the page out.)
-function scrollToSection(section) { if (section) nextFrame(() => restPass(() => sectionInView(section))); }
+let sectionWant = null;   // (the section to scroll to, as asked last: the scroll is made after the frame, whichever asked)
+const sectionNow = () => sectionInView(sectionWant);
+const sectionRest = () => restPass(sectionNow);
+function scrollToSection(section) { if (section) { sectionWant = section; nextFrame(sectionRest); } }
 function sectionInView(section) { scrollInto($(`#modal [data-sec="${section}"]`), { block: 'start' }); }
 const pmid = (id) => h('a', { href: `https://pubmed.ncbi.nlm.nih.gov/${id}/`, target: '_blank', rel: 'noopener' }, `PMID ${id}`);
 const CUT_HEADS = ['Readout', 'Normal', 'Borderline', 'Past a threshold', 'High risk'], CUT_SEV = ['', 'ok', 'caution', 'danger', 'critical'];
@@ -2342,13 +2447,17 @@ function armFeedbackAsk() {
     if (now - lastInput > 5000) down = 0;   // (a lift the page never heard, outside the window, does not hold the ask forever)
     if (active < FEEDBACK_ASK_MIN * 60000 || down || presenter.active() || projector || app.classList.contains('dock-open') || panelShown() || treatOpen() || historyOpen() || popoverOpen() || document.getElementById('modalBack')?.classList.contains('show')) return;
     clearInterval(timer);
-    const answer = (v) => { try { localStorage.setItem(ASK_KEY, v); } catch (e) { caught('main:2230', e); /* storage unavailable */ } };
-    toast('Anything look wrong or confusing so far? A short email helps the author fix it.', '', { sticky: true,
-      actions: [['Send feedback', () => sendFeedback()], ['Not now', () => {}]],
-      onClose: (why) => {
-        if (why === 'pushed') { active = 0; last = performance.now(); timer = setInterval(tick, TICK); return; }   // (not an answer)
-        try { if (localStorage.getItem(ASK_KEY) !== 'done') answer(was === 'later' ? 'done' : 'later'); } catch (e) { caught('main:2235', e); /* storage unavailable */ }
-      } });
+    toast('Anything look wrong or confusing so far? A short email helps the author fix it.', '', askToast);
+  };
+  // (The card's answers and options are made once, with the timer, not each time it asks.)
+  const answer = (v) => { try { localStorage.setItem(ASK_KEY, v); } catch (e) { caught('main:2230', e); /* storage unavailable */ } };
+  const askToast = {
+    sticky: true,
+    actions: [['Send feedback', () => sendFeedback()], ['Not now', () => {}]],
+    onClose: (why) => {
+      if (why === 'pushed') { active = 0; last = performance.now(); timer = setInterval(tick, TICK); return; }   // (not an answer)
+      try { if (localStorage.getItem(ASK_KEY) !== 'done') answer(was === 'later' ? 'done' : 'later'); } catch (e) { caught('main:2235', e); /* storage unavailable */ }
+    },
   };
   timer = setInterval(tick, TICK);
 }

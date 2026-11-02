@@ -14,8 +14,9 @@ test('the search field is a combobox over a listbox, naming the current option, 
   assert.match(p, /id: 'pal-list', role: 'listbox'/);
   assert.match(p, /role: 'dialog', 'aria-modal': 'true'/);
   assert.match(p, /id: `pal-opt-\$\{i\}`, tabindex: '-1', role: 'option'/, 'options are reached through the field, not by Tab');
-  assert.match(p, /attrSoon\(input, 'aria-activedescendant', items\.length \? `pal-opt-\$\{sel\}` : null\)/);
-  assert.match(p, /items\.length \? `pal-opt-\$\{sel\}` : null/, 'no stale option named when nothing matches');
+  assert.match(p, /attrSoon\(input, 'aria-activedescendant', items\.length \? optId\(sel\) : null\)/);
+  assert.match(p, /items\.length \? optId\(sel\) : null/, 'no stale option named when nothing matches');
+  assert.match(p, /const optId = \(i\) => OPT_IDS\[i\] \|\|= `pal-opt-\$\{i\}`;/);
   assert.match(p, /else if \(e\.key === 'Tab'\) e\.preventDefault\(\)/);
 });
 
@@ -111,7 +112,9 @@ test('a slider or switch left focused keeps only its own keys; text fields keep 
 test('the phone menu sheet is lifted above the on-screen keyboard and put back when it goes; unset, it is as it was', () => {
   const mn = read('src/ui/menu.js');
   assert.match(mn, /const \{ offsetTop: vvTop, height: vvH \} = vv, kb = Math\.round\(innerHeight - vvTop - vvH\);/);
-  assert.match(mn, /if \(kb > 80\) \{ const room = Math\.round\(vvH - 16\); el\.style\.setProperty\('--menu-kb', `\$\{kb\}px`\); el\.style\.setProperty\('--menu-h', `\$\{room\}px`\);/);
+  assert.match(mn, /if \(kb > 80\) \{\s*const room = Math\.round\(vvH - 16\);\s*if \(kb !== kbNum\) \{ kbNum = kb; kbText = `\$\{kb\}px`; \}/);
+  assert.match(mn, /if \(room !== roomNum\) \{ roomNum = room; roomText = `\$\{room\}px`; \}/);
+  assert.match(mn, /el\.style\.setProperty\('--menu-kb', kbText\); el\.style\.setProperty\('--menu-h', roomText\);/);
   assert.match(mn, /const room = Math\.round\(vvH - 16\);/, 'no floor under the room: a floor above it put a sideways phone\'s search row off the screen');
   assert.match(mn, /else \{ el\.style\.removeProperty\('--menu-kb'\); el\.style\.removeProperty\('--menu-h'\); classSoon\(el, 'kb-tight', false\); \}/);
   assert.match(mn, /vv\?\.addEventListener\('resize', fitSheet\); vv\?\.addEventListener\('scroll', fitSheet\);/);
@@ -176,7 +179,7 @@ test('a held Space stays the figure\'s and does not scroll the page; AltGr brack
 
 test('the menu sheet has no height floor over the keyboard and the tablet\'s 62 % follows it', () => {
   const m = read('src/ui/menu.js');
-  assert.match(m, /const room = Math\.round\(vvH - 16\); el\.style\.setProperty\('--menu-kb', `\$\{kb\}px`\); el\.style\.setProperty\('--menu-h', `\$\{room\}px`\);/, 'the sheet is held to the room above the keyboard');
+  assert.match(m, /const room = Math\.round\(vvH - 16\);[\s\S]*?el\.style\.setProperty\('--menu-kb', kbText\); el\.style\.setProperty\('--menu-h', roomText\);/, 'the sheet is held to the room above the keyboard');
   assert.ok(!/Math\.max\(240, Math\.round\(vv/.test(m), 'a 240 px floor pushed the top off a phone held sideways');
   const css = read('styles/app.css');
   assert.match(css, /html\.thumb-ui \.umenu\.sheet \{ left: 15% !important; right: 15%; height: min\(62dvh, var\(--menu-h, 62dvh\)\); \}/);

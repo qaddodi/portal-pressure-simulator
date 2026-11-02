@@ -28,6 +28,7 @@ export const REFINE_MS = 1;
 // for ?perf and the gate.
 export const MAX_DEBT_FRAMES = Infinity;   // (no cap: see above)
 
+const NEVER = () => false;   // (the default of the checks a caller may leave out)
 export function createRefine({ ms = REFINE_MS, probe = gpuProbe } = {}) {
   let stamp = NaN, given = false, debt = 0;
   const longest = { ms: 0, name: '' };
@@ -45,7 +46,7 @@ export function createRefine({ ms = REFINE_MS, probe = gpuProbe } = {}) {
       if (debt > 0) { debt = Math.max(0, debt - ms); stats.paid++; return 0; }
       return ms;
     },
-    async turn(wait, held = () => false, gone = () => false) {
+    async turn(wait, held = NEVER, gone = NEVER) {
       for (;;) {
         const at = await wait();
         if (gone()) return null;
@@ -63,7 +64,7 @@ export function createRefine({ ms = REFINE_MS, probe = gpuProbe } = {}) {
       }
       // (The longest one a step took: the work that did not fit its allowance, and which piece of the picture it was.)
       if (took > longest.ms) { longest.ms = took; longest.name = name; }
-      if (took > ms && probe.on) probe.gauge('refinement: longest step', `${name || '?'} ${took.toFixed(1)} ms (allowance ${ms} ms)`);
+      if (took > ms && probe.on) probe.gauge('refinement: longest step', `${name || '?'} ${took.toFixed(1)} ms (allowance ${ms} ms)`);   // alloc-rare: only a step that overran its allowance while the ?perf probe is on (the readout's gauge text)
     },
   };
 }

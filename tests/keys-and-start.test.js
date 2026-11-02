@@ -25,7 +25,7 @@ test('#24 closing Treat, History, Details or Search hands focus back, not to the
     assert.ok(body.includes(`giveFocusBack(el, $('${btn}'))`), fn);
     assert.match(escChain, new RegExp(`${fn}\\(\\{ focus: true \\}\\)`));
   }
-  assert.match(main, /function closePanel\(\{ focus = false \} = \{\}\) \{\s*if \(focus\) giveFocusBack\(\$\('#panel'\), panelOpener\);/);
+  assert.match(main, /function closePanel\(opts\) \{\s*const focus = opts\?\.focus;\s*if \(focus\) giveFocusBack\(\$\('#panel'\), panelOpener\);/);
   assert.match(escChain, /closePanel\(\{ focus: true \}\)/);
   assert.match(palette, /ret = document\.activeElement && document\.activeElement !== document\.body \? document\.activeElement : document\.getElementById\('btnPalette'\)/);
 });

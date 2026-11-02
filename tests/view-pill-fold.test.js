@@ -99,7 +99,8 @@ test('the fold is wired to every change of the pill\'s buttons, on the zoom\'s c
   assert.match(read('../styles/tokens.css'), /--ease: var\(--ease-arrive\);/);
   assert.match(motion, /const opt = \{ duration: ms, easing: FOLD_EASE \}/);
   assert.match(main, /if \(before && box1\) foldPill\(seg, box1, before\);/);
-  assert.match(main, /pillChange\(\(\) => \{ sinBtn\.hidden = sinHide; app\.classList\.toggle\('sin-focus', inSin\); \}\);/);
+  assert.match(main, /const viewChange = \(\) => \{ viewSinBtn\.hidden = viewSinHide; app\.classList\.toggle\('sin-focus', viewInSin\); \};/);
+  assert.match(main, /pillChange\(viewChange\);/);
   // Only compositor work on the buttons: transform, opacity and the row's clip; the face is a box with nothing in it.
   assert.doesNotMatch(motion.match(/export function foldPill[\s\S]*$/)[0], /\b(left|width|margin|padding)\b[^\n]*animate|animate\(\[\{ (left|margin|padding)/);
   assert.match(css, /\.nb-views > \.vp-face \{ position: absolute; z-index: -1;[^}]*background: var\(--glass\);/);
@@ -107,7 +108,8 @@ test('the fold is wired to every change of the pill\'s buttons, on the zoom\'s c
   // A going button's ghost is nothing the page finds (no data-view, so neither the sinusoid view's rule nor any lookup sees it).
   assert.match(motion, /for \(const at of \['data-view', 'title', 'hidden'\]\) g\.removeAttribute\(at\);/);
   assert.match(motion, /g\.inert = true;/);
-  assert.match(main, /\$\$\('#viewSeg button\[data-view\]'\)\.forEach\(\(b\) => b\.setAttribute\('aria-pressed'/);
+  assert.match(main, /viewBtns \|\|= \$\$\('#viewSeg button\[data-view\]'\);/);
+  assert.match(main, /viewBtns\[i\]\.setAttribute\('aria-pressed'/);
   // In the top bar (presenting) the bar's own motion plays it (topbar-motion.js): the fold stops there.
   assert.match(main, /if \(home && seg\.parentElement !== home\) \{ if \(pres\) stopFold\(\); home\.append\(seg\); \}/, 'the same element, moved');
 });

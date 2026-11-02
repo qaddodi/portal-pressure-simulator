@@ -19,7 +19,9 @@ const UPLOAD_RED = 512 * 1024;   // (small row updates every frame are the GPU's
 const SITES_PER_FRAME = 3;
 const zero = () => ({ '2d': 0, svg: 0, layout: 0, upload: 0, shader: 0, bytes: 0 });
 
-let now = zero();
+let now = zero(), spare = zero();   // (the frame's counts, and the last frame's, written over for the next: no new object a frame)
+// A set of counts put back to zero, in place.
+function resetCounts(o) { o['2d'] = 0; o.svg = 0; o.layout = 0; o.upload = 0; o.shader = 0; o.bytes = 0; return o; }
 const total = zero(), inMotion = zero(), sites = [];
 let quiet = 0;   // >0 while the overlay itself runs (its own work is never counted)
 
@@ -143,7 +145,7 @@ function onFrame(f) {
   chained = f.gap > 0;
   const mv = moveNow();
   const c = now;
-  now = zero(); now.sitesTaken = 0;
+  now = resetCounts(spare); spare = c; now.sitesTaken = 0;
   for (const k of KINDS) sec[k] += c[k];
   sec.bytes += c.bytes;
   if (mv) {
@@ -152,7 +154,7 @@ function onFrame(f) {
     const bad = c['2d'] || c.svg || c.layout || c.shader || c.bytes >= UPLOAD_RED;
     if (bad) { redFrames++; redUntil = f.now + 400; }
   }
-  if (f.now - secAt >= 1000) { secShown = sec; sec = zero(); secAt = f.now; }
+  if (f.now - secAt >= 1000) { const t = secShown; secShown = sec; sec = resetCounts(t); secAt = f.now; }
   const r = f.now < redUntil;
   // (The readout is written between frames, never in one: rest-pass.js.)
   if (r !== red || f.now - shownAt > 250) { red = r; show(f.now); }
@@ -170,6 +172,6 @@ export function startOffGpuOverlay() {
   ensureEl();   // (built once, here, outside any frame)
   // (Shown at once and kept current when nothing moves: a timer, never a frame of its own.)
   show(performance.now());
-  setInterval(() => { if (performance.now() - shownAt > 1000) { red = performance.now() < redUntil; secShown = sec; sec = zero(); secAt = performance.now(); show(performance.now()); } }, 1000);
+  setInterval(() => { if (performance.now() - shownAt > 1000) { red = performance.now() < redUntil; const t = secShown; secShown = sec; sec = resetCounts(t); secAt = performance.now(); show(performance.now()); } }, 1000);
   (globalThis.pps ||= {}).offgpu = () => ({ total: { ...total }, inMotion: { ...inMotion }, redFrames, sites: [...sites] });
 }

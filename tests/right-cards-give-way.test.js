@@ -15,8 +15,9 @@ test('every way a right-hand card opens asks the others to give way when the ves
   const short = main.slice(main.indexOf('function rightShort(opening)'), main.indexOf('function openPanel('));
   assert.match(short, /!matchMedia\('\(pointer: coarse\)'\)\.matches \|\| app\.classList\.contains\('instrument-focus'\)\) return false/, 'a mouse screen is untouched, and so is a maximised Tests card (no figure, no vessel card)');
   assert.match(short, /isPhone\(\) \|\|/, 'a phone has its own rules');
-  assert.match(short, /w\.length > 1 && innerWidth - w\.reduce\(\(a, b\) => a \+ b, 0\) - \(w\.length \+ 1\) \* 12 < 316/);
-  assert.match(short, /for \(const k of \['treat', 'dock', 'panel'\]\)/, 'Treat or History first, then Tests, then Details');
+  assert.match(short, /n > 1 && innerWidth - sum - \(n \+ 1\) \* 12 < 316/);
+  assert.match(short, /const GIVE_ORDER = \['treat', 'dock', 'panel'\];/, 'Treat or History first, then Tests, then Details');
+  assert.match(short, /for \(const k of GIVE_ORDER\)/);
   assert.match(main, /else giveWay\('panel'\);/, 'Details');
   assert.match(main, /if \(instr && !was\) giveWay\('dock'\);/, 'Tests');
   assert.equal((main.match(/giveWay\('treat'\)/g) || []).length, 2, 'Treat and History');
