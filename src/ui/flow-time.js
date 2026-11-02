@@ -14,7 +14,7 @@ import { classSoon, attrSoon, dataSoon } from './class-soon.js?v=97b9d0e0db';
 import { restPass } from './rest-pass.js?v=bb619a1659';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { RX, bandKeys } from './rx-bands.js?v=51e83c7c59';
-import { createSvgGL, svgModel, setWords, setGeo } from './svg-gl.js?v=e3bd682eee';
+import { createSvgGL, svgModel, setWords, setGeo } from './svg-gl.js?v=5e0fb23c8f';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=dc92422977';
 const nextFrame = frameFor('flow-time');
 

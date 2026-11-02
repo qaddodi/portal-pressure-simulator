@@ -11,9 +11,9 @@ import { createSvgGL, svgModel } from './svg-gl.js?v=e3bd682eee';
 import { h, fmt, clamp } from './util.js?v=ac15d08582';
 import { NODES } from '../engine/topology.js?v=512e725aea';
 import { store } from './store.js?v=a21c31dcb5';
-import { measure } from './glyph-measure.js?v=83f9b4c037';
+import { measure } from './glyph-measure.js?v=fb732c3b0d';
 import { txIndex, txWords, sxIndex, sxWords, SX_WHOLE, opWords } from './num-words.js?v=cf53d490d9';
-import { setGeo, setPts } from './svg-gl.js?v=e3bd682eee';
+import { setGeo, setPts } from './svg-gl.js?v=5e0fb23c8f';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const num = (x) => (Number.isFinite(+x) ? +x : null);

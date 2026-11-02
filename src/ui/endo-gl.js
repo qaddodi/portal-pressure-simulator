@@ -8,7 +8,7 @@
 
 import { cssRGB } from './util.js?v=ac15d08582';
 import { columnConsts } from './endo-columns.js?v=d9a6558d96';
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=79231d7c6b';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=f9222c848a';
 import { caught } from './caught.js?v=b96b17594a';
 
 const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';

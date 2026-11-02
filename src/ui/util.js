@@ -4,9 +4,9 @@ import { restPass, restAttr, restRemove } from './rest-pass.js?v=bb619a1659';
 import { glWords } from './gl-words.js?v=872c93f4d1';
 import { slideFold } from './fold-slide.js?v=4a28d2036e';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=dc92422977';
-import { leaveFromHere } from './menu-leave.js?v=8cc3b66748';
+import { leaveFromHere } from './menu-leave.js?v=6d74094ee1';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
-import { measure as measureWords } from './glyph-measure.js?v=83f9b4c037';
+import { measure as measureWords } from './glyph-measure.js?v=fb732c3b0d';
 import { caught } from './caught.js?v=b96b17594a';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.

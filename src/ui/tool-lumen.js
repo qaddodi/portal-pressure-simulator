@@ -8,7 +8,7 @@ import { h, clamp } from './util.js?v=ac15d08582';
 import { EDGES } from '../engine/topology.js?v=512e725aea';
 import { store } from './store.js?v=a21c31dcb5';
 import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
-import { createSvgGL, svgModel, snapOp, setWords, setGeo, setPts } from './svg-gl.js?v=e3bd682eee';
+import { createSvgGL, svgModel, snapOp, setWords, setGeo, setPts } from './svg-gl.js?v=5e0fb23c8f';
 import { restPass } from './rest-pass.js?v=bb619a1659';
 const nextFrame = frameFor('lumen');
 

@@ -21,7 +21,7 @@ import { pressureColor } from './colormap.js?v=9cfba4e88d';
 import { measure } from './glyph-measure.js?v=83f9b4c037';
 import { hvpgRate, ppgRate } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { numWords } from './num-words.js?v=cf53d490d9';
-import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js?v=e3bd682eee';
+import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js?v=5e0fb23c8f';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;

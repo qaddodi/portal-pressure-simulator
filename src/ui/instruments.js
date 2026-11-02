@@ -21,11 +21,11 @@ import { classSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=97b9d
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
 import { lateFrameFor, cancelFrame, framePhase, easeNow } from './frame.js?v=1d147c7c9a';
 import { restPass } from './rest-pass.js?v=bb619a1659';
-import { createTraceGL, fitPen } from './trace-gl.js?v=0805d02fe9';
-import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js?v=e3bd682eee';
-import { textWidth } from './text-gl.js?v=d2e4e7d633';
+import { createTraceGL, fitPen } from './trace-gl.js?v=48fdded63b';
+import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js?v=5e0fb23c8f';
+import { textWidth } from './text-gl.js?v=6ea0901c77';
 import { D_SURFACE, easeArrive } from './ease.js?v=dc92422977';
-import { inkBox } from './glyph-measure.js?v=83f9b4c037';
+import { inkBox } from './glyph-measure.js?v=fb732c3b0d';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
 const drawFrame = lateFrameFor('instruments');
 
