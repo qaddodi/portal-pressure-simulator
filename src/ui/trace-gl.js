@@ -35,6 +35,14 @@ const PARK_MS = 4000;
 // 'bitmaprenderer' context: the picture moves on the GPU, nothing is copied by the CPU). Its programs are compiled and its glyph field
 // uploaded once for all charts, so a chart coming into view never waits for a compile or comes in blank, and none is parked. Where
 // OffscreenCanvas WebGL2 is missing, each chart has its own context, as before. ?ctxshare=0: each its own, as before.)
+/** ?chartkeep=0: a chart's still parts (axes, grid, ticks, units) are drawn again every frame, not kept as a picture on the GPU (R16). */
+export const chartKeepOff = (search) => /[?&]chartkeep=0\b/.test(String(search ?? ''));
+/** The still parts of a chart drawn through `ctx` kept on the GPU under `name` while `sig` holds (see the drawer's keep); any other pen draws them. */
+export function keepLayer(ctx, name, sig, draw) {
+  if (ctx && typeof ctx.keep === 'function') return ctx.keep(name, sig, draw);
+  draw();
+  return false;
+}
 export const ctxShareOff = (search) => /[?&]ctxshare=0\b/.test(String(search ?? ''));
 let pool = null;
 function sharedGL() {
@@ -419,6 +427,11 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
 
   // ── A frame ──
   let W = 1, H = 1, K = 1, clipR = null, inFrame = false;
+  // (R16: the target a frame's draws land in: the chart's canvas (null), or a kept layer's texture while keep() draws one.)
+  let outFb = null;
+  const layers = new Map();   // (a kept layer's name → { tex, fb, rb, w, h, gen, sig }: the still parts of a chart, drawn once per sig)
+  const KEEP = !chartKeepOff(search);
+  const dropLayer = (e) => { try { gl.deleteTexture(e.tex); gl.deleteFramebuffer(e.fb); gl.deleteRenderbuffer(e.rb); } catch { /* lost */ } };
   let segData = new Float32Array(6144), fillData = new Float32Array(4096);
   let textData = new Float32Array(18 * 32), textN = 0, boxData = new Float32Array(560), boxN = 0;
   const grow = (a, n) => { if (a.length >= n) return a; let m = a.length; while (m < n) m *= 2; const b = new Float32Array(m); b.set(a); return b; };
@@ -489,7 +502,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
     if (!r) return;
     coverTarget();
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    if (!scissor(r)) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); return; }
+    if (!scissor(r)) { gl.bindFramebuffer(gl.FRAMEBUFFER, outFb); return; }
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE);
     gl.useProgram(P.text.p);
@@ -498,7 +511,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
     gl.bindVertexArray(textVao); gl.bindBuffer(gl.ARRAY_BUFFER, textBuf);
     gl.bufferData(gl.ARRAY_BUFFER, textData.subarray(0, n * TS), gl.STREAM_DRAW);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, outFb);
     gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.useProgram(P.comp.p);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, covTex); gl.uniform1i(P.comp.u.cov, 0);
@@ -658,7 +671,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
       if (!r) return;
       coverTarget();
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-      if (!scissor(r)) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); return; }
+      if (!scissor(r)) { gl.bindFramebuffer(gl.FRAMEBUFFER, outFb); return; }
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
       gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE);
       gl.useProgram(P.seg.p);
@@ -669,7 +682,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
       gl.bindVertexArray(segVao); gl.bindBuffer(gl.ARRAY_BUFFER, segBuf);
       gl.bufferData(gl.ARRAY_BUFFER, segData.subarray(0, m), gl.STREAM_DRAW);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, outFb);
       gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.useProgram(P.comp.p);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, covTex); gl.uniform1i(P.comp.u.cov, 0);
@@ -825,6 +838,54 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
       if (!api.begin(w, h, Wd, Hd)) { missed = true; return null; }
       return shim.reset(K);
     },
+    /**
+     * R16: the still parts of a chart (axes, grid, ticks, units, fixed labels) kept as a picture on the GPU. draw() is called, into the
+     * layer's own texture, only when sig (what those parts are drawn from: the layout, the scale, the theme's colours) or the canvas's size
+     * changed, or the context was made again; every other frame lays the kept picture, one textured quad, with no path, word or buffer
+     * built by the CPU. Inside a clip it simply draws (the layer is the whole canvas). ?chartkeep=0: drawn every frame, as before.
+     */
+    keep(name, sig, draw) {
+      if (!KEEP || !inFrame || !P || clipR || clipOn || outFb) { draw(); return false; }
+      flush();
+      let e = layers.get(name);
+      if (e && e.gen !== gen) { layers.delete(name); e = null; }   // (a context made again holds none of the old ones)
+      if (!e) {
+        if (layers.size >= 4) { const [k0, e0] = layers.entries().next().value; dropLayer(e0); layers.delete(k0); }
+        e = { tex: gl.createTexture(), fb: gl.createFramebuffer(), rb: gl.createRenderbuffer(), w: 0, h: 0, gen, sig: null };
+        layers.set(name, e);
+      }
+      if (e.w !== W || e.h !== H) {
+        gl.bindTexture(gl.TEXTURE_2D, e.tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, e.rb); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, W, H); gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, e.fb);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, e.tex, 0);
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, e.rb);
+        const okFb = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        if (!okFb) { dropLayer(e); layers.delete(name); draw(); return false; }
+        e.w = W; e.h = H; e.sig = null;
+      }
+      if (e.sig !== sig) {
+        outFb = e.fb; gl.bindFramebuffer(gl.FRAMEBUFFER, e.fb);
+        gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
+        gl.clearColor(0, 0, 0, 0); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+        try { draw(); flush(); } finally {
+          outFb = null; gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+          clipR = null; clipOn = false; gl.disable(gl.STENCIL_TEST); gl.disable(gl.SCISSOR_TEST); gl.stencilMask(0xff);
+          gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        }
+        e.sig = sig;
+      }
+      // (laid texel for texel, premultiplied over what is drawn so far, as its draws would have been; the texture's first row is the foot)
+      gl.disable(gl.SCISSOR_TEST);
+      gl.useProgram(P.img.p);
+      gl.uniform2f(P.img.u.res, W, H); gl.uniform1f(P.img.u.k, K); gl.uniform4f(P.img.u.box, 0, H / K, W / K, -H / K); gl.uniform1f(P.img.u.ga, 1);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, e.tex); gl.uniform1i(P.img.u.img, 0);
+      gl.bindVertexArray(unitVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
+      return true;
+    },
     get lost() { return (lost && !parked && !back) || failed; },   // (a parked chart is not lost: it draws again on its return)
     /** True while the chart is off the screen and its context given back (drawn again by redraw when it returns). */
     get parked() { return parked; },
@@ -835,6 +896,8 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
         for (const v of [quadVao, segVao, fillVao, boxVao, textVao, unitVao]) gl.deleteVertexArray(v);
         for (const e of images.values()) gl.deleteTexture(e.tex);
         images.clear();
+        for (const e of layers.values()) dropLayer(e);
+        layers.clear();
         gl.deleteTexture(covTex); if (!shown) gl.deleteTexture(atlasTex); gl.deleteFramebuffer(fbo);
         if (P && !shown) for (const k of Object.keys(P)) gl.deleteProgram(P[k].p);   // (shared: the programs and the field stay for the others)
       } catch { /* a lost context holds nothing */ }
@@ -889,6 +952,11 @@ function createShim(G) {
     onGPU: true,   // (what a chart asks to know it draws through this; a real context has no such field)
     canvas: null,
     reset(k) { K = k; st = fresh(); stack = []; pieces = []; cur = null; shapes = []; only = true; return c; },
+    /** R16: the still parts drawn by draw() kept as a GPU picture while sig holds (the drawer's keep); the context's state is as it was after. */
+    keep(name, sig, draw) {
+      const kp = [pieces, cur, shapes, only];
+      return G.keep(name, sig, () => { c.save(); try { draw(); } finally { c.restore(); [pieces, cur, shapes, only] = kp; } });
+    },
     end() { G.end(); },
     get fillStyle() { return st.fillStyle; }, set fillStyle(v) { st.fillStyle = v; },
     get strokeStyle() { return st.strokeStyle; }, set strokeStyle(v) { st.strokeStyle = v; },
