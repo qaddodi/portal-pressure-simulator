@@ -479,7 +479,30 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   }
   const colour = (str, fb) => colours.get((str || '').trim()) || parseColour((str || '').trim() || fb);
   const markOf = new WeakMap();
-  const unmark = () => { for (const g of marked) g.removeAttribute('data-gl'); marked.clear(); };
+  const unmark = () => { for (const g of marked) g.removeAttribute('data-gl'); marked.clear(); unwait(); };
+  // (A card about to have its glass drawn here for the first time (data-gl-wait) shows no solid card for that frame or two (app.css), so
+  // it never flashes solid then frost. Only such a card: one held out of this canvas (past its edge, crossing a label), or not drawn here
+  // for any reason, keeps the solid card (the browser's glass), never a bare one. Mohammad, 2 Nov 2026, iPhone, HVPG 6: both cards bare,
+  // the lobule showing through them unfrosted. A wait not met within WAIT_MS is given up: the solid card shows.)
+  const waiting = new Map(), WAIT_MS = 300;
+  let waitT = 0;
+  function unwait() { for (const g of waiting.keys()) g.removeAttribute('data-gl-wait'); waiting.clear(); gaveUp.clear(); wasDrawn.clear(); clearTimeout(waitT); waitT = 0; }
+  const wasDrawn = new Set();   // (cards whose glass this canvas has drawn while they stayed listed: only a first draw is waited for)
+  const gaveUp = new Set();   // (waited WAIT_MS and not drawn: solid until it is drawn here, or leaves the list and comes back)
+  function waitFor(list) {
+    if (!cards || !CARD_MARK) return;
+    const t = performance.now(), want = new Set();
+    for (const p of list) if (!marked.has(p.g) && !wasDrawn.has(p.g)) want.add(p.g);   // (a card drawn here before and not now: solid at once)
+    for (const g of gaveUp) if (!want.has(g)) gaveUp.delete(g);
+    if (wasDrawn.size) { const inList = new Set(list.map((p) => p.g)); for (const g of wasDrawn) if (!inList.has(g)) wasDrawn.delete(g); }
+    for (const [g, at] of waiting) {
+      if (!want.has(g)) { g.removeAttribute('data-gl-wait'); waiting.delete(g); }
+      else if (t - at > WAIT_MS) { g.removeAttribute('data-gl-wait'); waiting.delete(g); gaveUp.add(g); }
+    }
+    for (const g of want) if (!waiting.has(g) && !gaveUp.has(g)) { waiting.set(g, t); g.setAttribute('data-gl-wait', ''); }
+    if (waiting.size && !waitT) waitT = setTimeout(() => { waitT = 0; const n = performance.now(); for (const [g, at] of waiting) if (n - at > WAIT_MS) { g.removeAttribute('data-gl-wait'); waiting.delete(g); gaveUp.add(g); } }, WAIT_MS + 20);
+  }
+
   const wanted = glassCheck(document, window);
   const glassesOf = () => (cards ? cards.find().filter((g) => g?.isConnected) : pane ? (pane.isConnected ? [pane] : []) : layers.flatMap((l) => [...l.getElementsByClassName('cl-glass')]));
   // A card's corner radii (CSS px, top left round to bottom left): the first length of each computed radius (an elliptical corner's across).
@@ -744,6 +767,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       // edge and shadows are drawn here too, and the page's are taken off.)
       const mk = edge ? 'edge' : '';
       if (!p.g.hasAttribute('data-gl') || markOf.get(p.g) !== mk) { p.g.setAttribute('data-gl', mk); markOf.set(p.g, mk); }
+      if (waiting.has(p.g)) { waiting.delete(p.g); p.g.removeAttribute('data-gl-wait'); }
+      gaveUp.delete(p.g); wasDrawn.add(p.g);
       now.add(p.g);
     }
     if (final) settleMarks(now);
@@ -884,6 +909,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       panes = panes.filter((p) => !out.has(p.g));
     }
     if (!hk && !(hk = hostKit())) { whyAll = 'the figure\'s context cannot take the glass\'s programs'; dropHost(true); host = null; return undefined; }
+    waitFor(panes);
     const { bgs, bg, bgVar } = R;
     const key = `${cr.left}|${cr.top}|${cr.width}|${cr.height}|${bgs}|${bgVar}` + panesKey(panes);
     if (!hostOn) {

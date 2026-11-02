@@ -119,6 +119,11 @@ const css = (a, al = 1) => `rgba(${Math.round(a[0] * 255)},${Math.round(a[1] * 2
 /** `before`: a node of `host` the layer sits ahead of. The stage builds the layer after the first paint, and in the page it takes the
  *  place it always had (a layer of the same z-index drawn later would otherwise cover the labels the stage adds after it). With the
  *  layer built late, what the store already holds (a slide's callout, the sinusoid asked for) is read once it exists. */
+// The order the lobule's own pictures take among what is drawn over its vessels in their canvas (veins-gl top.add): below every glass
+// (stage.js hostFrost: the liver pane 0, the cards 1 and 3, the callouts 2), so the cards frost the whole lobule and nothing of it lies
+// over them.
+export const LZ_UNDER_GLASS = -10;
+
 export function createLobuleZoom({ host, styles = () => getComputedStyle(host), before = null }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const tissue = h('canvas', { class: 'lz-canvas', role: 'img', 'aria-label': 'Liver lobule microcirculation' });
@@ -2037,7 +2042,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         wideHostFor = gl; wideGL = createWideGL(null, { host: gl.top }) || null;
         if (wideGL) {
           const offR = gl.top.replace({ on: () => !!wide?.host && !!wideView && wideA >= 1, draw: () => wideShow(1) });
-          const offT = gl.top.add({ order: 10, draw: () => { if (wideView && wideA > 0 && wideA < 1) wideShow(wideA); } });
+          const offT = gl.top.add({ order: LZ_UNDER_GLASS + 1, draw: () => { if (wideView && wideA > 0 && wideA < 1) wideShow(wideA); } });   // (the copy fading in: over the overlay, as before, and under every glass)
           wideHostOff = () => { offR(); offT(); };
         } else wideHostOff = null;
       }
@@ -3248,7 +3253,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (fxHosted()) {
       if (fxHostFor !== gl) {
         fxHostOff?.(); fxHostFor = gl; fxHostGL = createFxGL(fxG, { host: gl.top });
-        fxHostOff = fxHostGL ? gl.top.add({ order: 1, draw: fxHostDraw }) : null;
+        // (Under every glass drawn in this canvas (the cards' low glass is order 1, the liver pane's 0): the overlay is the lobule's own
+        // picture, so it is frosted by the cards like the rest of it, never laid over them. At order 1 it tied with the cards' glass and,
+        // added after it, drew the portal tracts and the lymph over the cards: Mohammad, 2 Nov 2026, iPhone, HVPG 6.)
+        fxHostOff = fxHostGL ? gl.top.add({ order: LZ_UNDER_GLASS, draw: fxHostDraw }) : null;
         fxG.remove();
       }
       return fxHostGL && !fxHostGL.lost && performance.now() >= fxHostBad ? fxHostGL : null;
