@@ -140,6 +140,7 @@ function keyOf(el, pk) {
 // ancestors, the theme): the next slide's chart, built in the task that changes the slide, takes the looks of the pieces like it already
 // read, and only a new kind of piece asks the page (2 Nov 2026: the charts asked the page about 230 times in a slide change). Dropped
 // on a new theme or palette and on a resize (the stylesheet's media queries). ?lookshare=0 reads every chart's pieces afresh.
+export const FIRST_LOOK = !(typeof location !== 'undefined' && /[?&]firstlook=0\b/.test(location.search || ''));
 const LOOK_SHARE = !(typeof location !== 'undefined' && /[?&]lookshare=0\b/.test(location.search || ''));
 const SHARED = new Map(), SCALE_VARS = ['--svk', '--pzh', '--ch-cap', '--s-cap'];
 export const sharedLooks = () => SHARED;
@@ -205,11 +206,11 @@ function readLooks(root, fresh = false, cache = null, shared = '') {
   return longest;
 }
 /** A model's pieces given the looks of the pieces before them with the same key (cache), with no page read; false if one has none yet. */
-function adoptLooks(root, cache, pk = 'root') {
+function adoptLooks(root, cache, pk = 'root', into = null) {
   let all = true;
   const walk = (el, pk) => {
     const key = keyOf(el, pk), hit = cache.get(key);
-    if (hit) { const was = looks.get(el); if (was !== hit.L) looks.set(el, hit.L); } else all = false;
+    if (hit) { const was = looks.get(el); if (was !== hit.L) looks.set(el, hit.L); if (into) into.set(key, hit); } else all = false;
     for (const c of el.children) walk(c, hit?.full || key);
   };
   walk(root, pk);
@@ -591,7 +592,18 @@ export function createSvgGL(box) {
   g.place = (root) => { live.add(g); g.cache.clear(); g.pk = LOOK_SHARE ? placeKey(box) : ''; readLooks(root, true, g.cache, g.pk); g.paint(); };
   // (Pieces built again in a frame (a redraw, a glide): each takes the look of the piece before it like it, read from nothing; a new kind of
   // piece is read between frames, and drawn from then.)
-  g.adopt = (root) => { if (!adoptLooks(root, g.cache, g.pk ? `${g.pk}root` : 'root')) g.relook(); g.paint(); };
+  // (A chart's first drawing in a new box (a slide's new data card) has no looks of its own yet: it takes those read for a chart like it
+  // standing in the same place (the shared looks), with no page read; a chart's own first drawing, built in the task that brings its card,
+  // is placed instead (g.show), its looks read there. Its card never comes in empty with the chart popping in a moment later (Mohammad,
+  // 2 Nov 2026). ?firstlook=0 off.)
+  g.adopt = (root) => {
+    if (adoptLooks(root, g.cache, g.pk ? `${g.pk}root` : 'root')) { g.paint(); return; }
+    if (FIRST_LOOK && !g.cache.size) {
+      const pk = LOOK_SHARE ? placeKey(box) : '';
+      if (pk && adoptLooks(root, SHARED, `${pk}root`, g.cache)) { g.pk = pk; g.relook(); g.paint(); return; }
+    }
+    g.relook(); g.paint();
+  };
   // (A piece fading in, in the picture, from nothing to its own strength, over ms on easing.)
   g.fadeEl = (el, ms, easing = 'ease') => { EASES.set(el, { from: 0, to: 1, t0: easeNow(), ms, ease: cssCurve(easing) }); g.wake(ms + 20); };
   // (A class or a piece changed on a model after it was placed (a value turned on, a word's pieces rebuilt): its looks are read again

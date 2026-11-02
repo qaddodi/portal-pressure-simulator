@@ -17,9 +17,9 @@ import { NODES } from '../engine/topology.js?v=4044766e96';
 import { RATE } from './table-marks.js?v=ff3ed0cc47';
 import { monotoneSegs } from './curve-near.js?v=663c98a29c';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { pressureColor } from './colormap.js?v=d0bd746726';
+import { pressureColor } from './colormap.js?v=fa7ff19abc';
 import { measure } from './glyph-measure.js?v=131d137ce2';
-import { createSvgGL, svgModel } from './svg-gl.js?v=3f8fffe14d';
+import { createSvgGL, svgModel, FIRST_LOOK } from './svg-gl.js?v=4cdb912e89';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;
@@ -650,10 +650,12 @@ export function createProfileTool() {
   };
   const size0 = () => sz0;
   const setMin = () => { el.style.minHeight = wantMin; };   // (a rest pass's, between frames)
-  function draw() {
-    if (!shown) { gl.clear(); return; }
+  function draw() { const svg = build(); if (svg) gl.swap(svg); }   // (drawn afresh each frame of a glide: its pieces take the looks of the ones before them)
+  /** The chart's drawing at the shown numbers, or null (nothing shown: cleared; no size yet). */
+  function build() {
+    if (!shown) { gl.clear(); return null; }
     const sz = size0();
-    if (!sz) return;
+    if (!sz) return null;
     const [w, hh, f] = sz, tw = (t, wt) => textW(t, f, wt);
     size = `${Math.round(w)}x${Math.round(hh)}`; fSeen = Math.round(f * 100);
     const hl = healthy(), bf = ref;
@@ -794,7 +796,7 @@ export function createProfileTool() {
       }));
     for (const [i, b] of blk) if (!b.a && t - b.t0 >= FADE_MS) blk.delete(i);
     fading = rows.some((row) => row?.from != null) || Object.values(nameAt).some((a) => t - a.t0 < FADE_MS) || pillAt.some((a) => a && t - a.t0 < FADE_MS) || t - pillK.t0 < FADE_MS || t - heldK.t0 < FADE_MS || [...blk.values()].some((b) => t - b.t0 < FADE_MS);
-    gl.swap(svg);   // (drawn afresh each frame of a glide: its pieces take the looks of the ones before them)
+    return svg;
   }
   const glideAt = (a, now) => { const e = 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - a.t0) / FADE_MS))); return [lerp(a.fx, a.x, e), lerp(a.fy, a.y, e)]; };
   const fadeK = (row, now) => (row.from == null ? 1 : 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - row.t0) / FADE_MS))));
@@ -838,6 +840,15 @@ export function createProfileTool() {
     if (!sz0) { if (!measuring) measuring = restPass(() => { measuring = 0; if (el.isConnected) measure0(); if (goal && !raf) raf = frame(tick, 'tool-profile'); }); return; }
     if (!raf) raf = frame(tick, 'tool-profile');
   }
+  // (The chart's first drawing, built in the task that sets up its slide's card, at the slide's numbers, and placed with its looks read
+  // there (svg-gl g.show): the card comes in with the chart already drawn, never empty with it popping in a moment later (Mohammad,
+  // 2 Nov 2026, "this arrived empty then flashed the graph"). ?firstlook=0: drawn by the first frame, its looks read between frames.)
+  function firstDraw() {
+    if (!FIRST_LOOK || shown || !goal || !sz0 || !el.isConnected) return;
+    shown = { ...goal, v: goal.v.slice() }; shownW = { ...goal, v: goal.v.slice() }; tickAt = 0;
+    const svg = build();
+    if (svg) gl.show(svg);
+  }
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (el.isConnected) measure0(); if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { plan = null; draw(); } }).observe(el);
   return {
     el,
@@ -846,7 +857,7 @@ export function createProfileTool() {
     /** The slide's options and context (presenter-tools.js show), before its numbers. */
     // (A new slide's card, as the slide is set up: read now the first time, else again between frames.)
     configure(t, ctx) { if (!sz0) measure0(); else if (!measuring) measuring = restPass(() => { measuring = 0; if (el.isConnected) measure0(); });
-      cfg = { from: t?.from ?? null, fromLabel: typeof t?.fromLabel === 'string' && t.fromLabel.trim() ? t.fromLabel.trim() : 'Before' }; ctx0 = ctx || null; if (ctx?.fp) aim(ctx.fp); },
+      cfg = { from: t?.from ?? null, fromLabel: typeof t?.fromLabel === 'string' && t.fromLabel.trim() ? t.fromLabel.trim() : 'Before' }; ctx0 = ctx || null; if (ctx?.fp) aim(ctx.fp); firstDraw(); },
     /** The numbers the slide's tiles show: the slide's state, or a what-if slider's or a compare button's. */
     pin(fp) { if (el.isConnected && fp) aim(fp); },
     /** The answer held back (a question slide): no red blocks and no HVPG or PPG brackets, the line and its numbers as they are. On release
