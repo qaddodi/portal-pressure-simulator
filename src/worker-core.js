@@ -243,6 +243,19 @@ export function createCore(post) {
   }
 
   let lastFrame = 0;
+  // A frame goes out only when the model moved past a small hysteresis since the last one posted, or once a second as a heartbeat (the
+  // samples taken meanwhile wait in `samples` and go out with it, so the traces lose nothing). Anything that changes the model sets
+  // frameDirty/paramsDirty and posts at once, so nothing waits on the heartbeat.
+  let deltaOn = true, still = null;
+  const HEARTBEAT_MS = 1000, EPS_REL = 2e-4, EPS_ABS = 1e-5;
+  const near = (a, b) => { if (!b || a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > EPS_ABS + EPS_REL * Math.abs(b[i])) return false; return true; };
+  // (The figure's colours, widths and readouts follow the eased Pf, Qf and D; the beat-by-beat P, Q and ext ride the heartbeat frame and the samples.)
+  function movedSincePost() {
+    if (!still) return true;
+    if (!near(eng.Pf || eng.P, still.Pf) || !near(eng.Qf || eng.Q, still.Qf)) return true;
+    for (let k = 0; k < eng.E; k++) { const d = eng.diameter(eng.edges[k].id); if (Math.abs(d - still.D[k]) > EPS_ABS + EPS_REL * Math.abs(still.D[k])) return true; }
+    return false;
+  }
   function tickOnce() {
     const now = performance.now();
     const realDt = last == null ? 0 : Math.min(0.1, (now - last) / 1000);
@@ -291,7 +304,11 @@ export function createCore(post) {
       }
     }
     if (!finite(eng.P) || !finite(eng.Q)) throw new Error('The model produced a pressure or flow that is not a number.');
-    if (frameDirty || paramsDirty || eng.newEvents.length || (running && now - lastFrame > 95)) { lastFrame = now; frame(); }
+    const due = running && now - lastFrame > 95;
+    if (frameDirty || paramsDirty || eng.newEvents.length || (due && (!deltaOn || now - lastFrame > HEARTBEAT_MS || morph || lapse || eng.easing() || movedSincePost()))) {
+      lastFrame = now; frame();
+      if (deltaOn) still = { Pf: Float64Array.from(eng.Pf || eng.P), Qf: Float64Array.from(eng.Qf || eng.Q), D: Float64Array.from({ length: eng.E }, (_, k) => eng.diameter(eng.edges[k].id)) };
+    }
   }
 
   // A presenter time-lapse: one day at a time, exactly as the presenter's off-screen chain computed it
@@ -347,7 +364,8 @@ export function createCore(post) {
   }
 
   const handlers = {
-    init({ params }) {
+    init({ params, delta }) {
+      deltaOn = delta !== false;   // (?workerdelta=0 from the page: every tick posts, as before)
       if (params) { eng.setParams(sanitizeParams(params)); eng.settle(); }
       paramsDirty = true; jumpDirty = true;
       start();
