@@ -136,7 +136,7 @@ const FILLS_BACK = /backwards|both/, FILLS_FWD = /forwards|both/;
 /** An animation's clock, read once from it (its effect's timing, start or current time, rate): an object clockAt() reads, or null when
  *  its effect gives no timing. now: the timeline's time it was read at. */
 export function clockOf(an, now) {
-  let t = null;
+  let t;
   try { t = an?.effect?.getTiming?.() || null; } catch { t = null; }
   if (!t) return null;
   const dur = typeof t.duration === 'number' ? Math.max(0, t.duration) : 0;   // ('auto' is 0 for a keyframe effect)

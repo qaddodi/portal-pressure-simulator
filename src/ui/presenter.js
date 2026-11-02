@@ -1915,8 +1915,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     dispatchEvent(new Event('pps:go'));   // (the ?perf readout's slide-change window; nothing listens otherwise)
     turn = i === want + 1 || firstBeat ? 'next' : i === want - 1 ? 'back' : 'jump';   // (the slide before or after, by whatever key or button: a turn; further: a jump)
     want = clamp(i, 0, slides.length - 1);
-    noteResume(deck.id, want, slides.length);
-    slidePrep.aim(want, turn);   // (the Present menu offers to resume here; the first or last slide forgets it)
+    slidePrep.aim(want, turn);
+    noteResume(deck.id, want, slides.length);   // (the Present menu offers to resume here; the first or last slide forgets it)
     beat = firstBeat ? 0 : lastBeat(want);
     paintChrome();
     // (A zoomed card glides back first: the slide is laid out, and its cards kept or changed, with the card where it rests.)
