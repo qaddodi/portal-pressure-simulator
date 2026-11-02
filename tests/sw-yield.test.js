@@ -58,7 +58,7 @@ test('on a GPU the frame loop never enters the yield', () => {
   for (const u of uses) assert.match(u, /^swYield(\?\.drew\(now\)|\s*&&\s*!swYield\.ready\()/, `unguarded use: ${u}`);
   // The lobule and the sinusoid view the same: a yield only from their own context's software test, every use guarded.
   const lob = readFileSync(new URL('lobule-zoom.js', SRC), 'utf8');
-  assert.match(lob, /lzYield = softwareYield\(!!gl\?\.software, gl\?\.software \? glCv\.getContext\('webgl2'\) : null\);/);
+  assert.match(lob, /lzYield = softwareYield\(!!gl\?\.software, gl\?\.software \? surfOf\(\)\.getContext\('webgl2'\) : null\);/);
   for (const u of lob.match(/lzYield\b[^;]*/g).slice(2)) assert.match(u, /^lzYield(\?\.drew\(now\)|\s*&&\s*!lzYield\.ready\()/, `lobule-zoom.js: unguarded use: ${u}`);
   const sv = readFileSync(new URL('sinusoid-view.js', SRC), 'utf8');
   assert.match(sv, /svYield = svSoft \? softwareYield\(true, swGL\) : null;/);

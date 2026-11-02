@@ -57,7 +57,7 @@ import { createLabelGL } from './label-gl.js?v=d26f88e699';
 import { createGlassGL } from './glass-gl.js?v=b564b140eb';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4ad517372';
 import { ENT_W } from './veins-bin.js?v=6e462a9e6c';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=d5c671c5ba';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=48c7ba7e34';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -68,7 +68,8 @@ import { retireRows, flowClose } from './flow-rows.js?v=6cd335f84b';
 import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=a47075ffa6';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
 import { planTaper, taperAt } from './vessel-taper.js?v=38c471f360';
-import { frameFor, lateFrameFor, cancelFrame, mayTask, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=897b4f8e7e';
+import { cssAffine } from './gl-share.js?v=c9208afea0';
+import { frameFor, lateFrameFor, cancelFrame, finalFrameFor, mayTask, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=897b4f8e7e';
 import { softwareYield } from './sw-yield.js?v=18a3b54a4d';
 import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -711,7 +712,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   vCanvas.id = 'veins'; vCanvas.setAttribute('aria-hidden', 'true');
   svg.after(vCanvas);
   // Lite graphics (main.js) keeps the SVG tubes: a software renderer copied every WebGL frame back to the CPU.
-  veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
+  veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true, share: true });
   if (veins) {
     svgOver = s('svg', { id: 'stageOver', 'aria-hidden': 'true', viewBox: `0 0 ${VIEW.w} ${VIEW.h}`, preserveAspectRatio: 'xMidYMid meet' });
     worldOver = s('g');
@@ -2218,7 +2219,36 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // FIELD_WHOLE, where the magnified anatomy under it is hidden. About two octaves of zoom (×4.7), so it takes about a third of a
   // second at the dive's fastest instead of a sixth: the lobules came in, and the anatomy's vessels went, all at once (Mohammad, 25 Oct).
   const FIELD_IN = LC - 1.2, FIELD_WHOLE = LC + 0.35;
-  const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), vCanvas].filter(Boolean);
+  // Merged (gl-share.js): the lobule's and the dive field's layers laid on the figure's canvas, over its picture and
+  // under every glass (veins-gl top, their prep before any glass takes its blur), so a card frosts the whole picture through the dive and
+  // in the lobule (Mohammad, 2 Nov 2026: "CARDS ARE GLASS"). A change to either layer asks for the figure's canvas to be laid once more in
+  // the frame's final pass, unless the figure's own pass already laid it after the change.
+  let laidSeq = -1, layAsked = false, layForce = false, layOff = null, mergeMarked = false;
+  const layFinal = finalFrameFor('lobule layers');
+  function layLayers() {
+    if (!lz?.merged?.() || !veins?.lay) return;
+    laidSeq = lz.layerSeq(); layForce = false;
+    for (const l of lz.layers() || []) veins.lay.draw(l.tex, l.m, l.a);
+  }
+  function askLay(force = false) {
+    if (force) layForce = true;
+    if (!mergeMarked && lz?.merged?.()) { mergeMarked = true; wrap.classList.add('gl-merge'); }
+    if (layAsked) return;
+    layAsked = true;
+    layFinal(() => { layAsked = false; if (veins && !veins.lost && lz?.merged?.() && (layForce || lz.layerSeq() !== laidSeq)) veins.present(); });
+  }
+  function mergeWire() {
+    layOff?.(); layOff = null;
+    if (!veins?.share || !veins.top) return;
+    layOff = veins.top.add({ order: -40, prep: layLayers, draw: () => {} });
+    // (Fully in the lobule the page used to hide the figure's canvas (app.css .in-lobule #veins): the lobule alone is laid then.)
+    veins.setCover(() => !!lz?.merged?.() && wrap.classList.contains('in-lobule'));
+  }
+  mergeWire();
+  // (Merged (gl-share.js): the figure's canvas also lays the lobule and the field, so it is never scaled, faded or hidden by the page; its
+  // picture is magnified on the GPU instead (veins.setLay), and the lobule and field over it are placed by their own numbers.)
+  const lzMerged = () => !!lz?.merged?.();
+  const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), ...(lzMerged() ? [] : [vCanvas])].filter(Boolean);
   // Each zoomed layer's offset in the stage, for its zoom's origin. From the boxes, not offsetLeft/Top: an SVG has none, and its origin
   // would fall back to its own centre, so the overlays (stents, the Doppler's glow) drifted from the anatomy as it zoomed. Read when a
   // dive or rise is asked for (setLobule, an input or a slide's change), never in the zoom's frames.
@@ -2226,8 +2256,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function diveOffsRead() {
     const w0 = wrap.getBoundingClientRect();
     diveOffs.clear();
-    for (const el of diveEls()) { const r = el.getBoundingClientRect(); diveOffs.set(el, [r.left - w0.left, r.top - w0.top]); }
+    // (The figure's canvas always: merged, its picture is magnified about the same point on the GPU, from its box.)
+    for (const el of new Set([...diveEls(), vCanvas])) { const r = el.getBoundingClientRect(); diveOffs.set(el, [r.left - w0.left, r.top - w0.top]); if (el === vCanvas) diveCanvasWH = [r.width || 1, r.height || 1]; }
   }
+  let diveCanvasWH = [1, 1];
   function diveTarget() {
     const lb = liverBox();
     if (!lb) return null;
@@ -2272,6 +2304,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The stage's measured box (and so the drawing transform) may have been taken while the dive's zoom
       // was on, which would keep the canvas drawn zoomed in after it ends: measure again.
       if (diveOrig) { box = null; CTM = null; }
+      if (veins?.setLay) { veins.setLay(null); askLay(true); }
       diveOrig = null; return;
     }
     if (!diveOrig) {
@@ -2284,6 +2317,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     const tf = `scale(${k.toFixed(4)})`;
     for (const [el] of diveOrig) el.style.transform = tf;
+    // (Merged: the figure's picture magnified by the GPU about the same point, laid in the frame's final pass.)
+    if (lzMerged() && veins?.setLay) {
+      const [ox, oy] = diveAt, [dx, dy] = diveOffs.get(vCanvas) || [0, 0];
+      veins.setLay(cssAffine(diveCanvasWH[0], diveCanvasWH[1], { ox: ox - dx, oy: oy - dy, k }));
+      askLay(true);
+    }
   }
   function diveFrame(t) {
     if (diveAt && diveLand) {
@@ -2337,6 +2376,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // the lobule view's own surround takes over (GPU only: lobule-zoom.js paintFieldGL).
         blur: 1 - smoothT(FIELD_IN, FIELD_WHOLE + 0.3, z), dof: smoothT(FIELD_IN + 0.3, FIELD_WHOLE + 0.6, z) * (1 - smoothT(lt - 0.9, lt, z)),
       });
+      // (Merged: the page's own layers over the figure's canvas (the overlays the GPU does not draw, #overlay) used to lie under the field and
+      // the lobule; they now lie over the canvas that lays them, so they fade out as those come in over them.)
+      if (lzMerged()) {
+        const c = t <= 0 || t >= 1 ? 0 : lz.coverAlpha(), ov = wrap.querySelector('#overlay');
+        // (#stageOver also takes the dive's own fade, setDiveFade: the two multiply.)
+        const so = c > 0 ? ((1 - c) * (diveFadeO ?? 1)).toFixed(3) : diveFadeO == null ? '' : String(diveFadeO), oo = c > 0 ? (1 - c).toFixed(3) : '';
+        if (svgOver && svgOver.style.opacity !== so) svgOver.style.opacity = so;
+        if (ov && ov.style.opacity !== oo) ov.style.opacity = oo;
+      }
       // Once the field is whole (fully opaque, from z = FIELD_WHOLE) the magnified anatomy beneath it is not seen: it is hidden, so the
       // browser stops compositing it (Safari redraws a scaled SVG at each new scale, every frame); the labels as soon as they have faded.
       if (!landed) setDiveHidden(t > 0 && t < 1 && z >= FIELD_WHOLE, lab && t > 0 && t < 1 && +lab.style.opacity <= 0.001);
@@ -2821,10 +2869,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=2e6b0125d1').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=05682c36c3').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
-      lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
+      lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, share: () => (veins && !veins.lost && veins.share && veins.lay?.ready() ? veins.share : null), onLayer: () => askLay() });
       if (aimWait) { lz.aim(...aimWait); aimWait = null; }
       if (F) lz.update(F);
       return lz;
@@ -2881,7 +2929,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   });
   vCanvas.addEventListener('webglcontextrestored', () => {
     veins?.dispose();   // the lost instance's listener goes with it (one per restore otherwise)
-    veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
+    veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true, share: true });
     veins?.setLayerScale?.(figOpt('glow'));
     if (picNow) veins?.setPicture?.(picNow, picLin);   // (Sharper upscaling, or the overlays' plain upscale: the new context draws the picture at the same share)
     if (!veins) { wrap.classList.remove('gl-on', 'gl-plate'); syncPlateLook(); return; }   // (no context this time: the SVG stays)
@@ -2890,6 +2938,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     liverKey = '';   // (nor the liver's lower edge the ascites stops at: morphLiver sends it again)
     for (const x of EV) for (const o of [x, ...(x.strands || []), ...(x.feeders || [])]) { o.glRadKey = null; o.glRSent = null; }
     for (const [g, o] of frostHosts) hostFrost(g, o);   // (the glasses drawn in the new context's canvas)
+    mergeWire();   // (and the lobule's and the field's layers laid in it)
     if (F) update(F);
   });
   wrap.dataset.quality = String(quality);
@@ -7377,7 +7426,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // frost is taken from it, else null and the figure's. What the glass keys its blur on follows it: a new picture there, not the figure's.)
   const LIVER_FROST = !/[?&]liverfrost=0\b/.test(location.search);
   let frostCtx = null, frostLiver = null;
-  const frostSeq = () => (frostLiver ? `l${frostLiver.seq()}` : veins.drawSeq);
+  const frostSeq = () => (frostLiver ? `l${frostLiver.seq()}` : lz?.merged?.() ? `${veins.drawSeq}|m${lz.layerSeq()}` : veins.drawSeq);
   const frostFresh = () => (frostLiver ? 0 : veins.bloodSeq);
   // The callouts' frosted glass, drawn on the GPU under both callout layers while it can be (glass-gl.js); else the browser's.
   const glassGL = veins ? createGlassGL(wrap, vCanvas, [cath.labels, sites.el], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: () => veins.bloodSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), copy: GLASS_COPY, onHoles: frostHoles('callouts') }) : null;
@@ -7392,15 +7441,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A card is never kept out of its GPU glass by what lies between the figure's canvas and it: kept out, it showed no glass at all, the
   // figure sharp through it (Mohammad, 2 Nov 2026, HVPG 6 in the lobule: "CARDS ARE GLASS"), as the anatomy's overlay boxes, kept from
   // before the lobule covered it, still crossed it there. The labels the GPU draws already leave every card's glass out (setHoles); the
-  // card's own words lie over whatever else does. ?cardcross=1: kept out, as before.)
-  const CARD_CROSS = /[?&]cardcross=1\b/.test(location.search);
+  // card's own words lie over whatever else does.)
   const cardGlass = (cards) => {
     if (!veins?.top || GLASS_COPY || CARD_FROST_OFF) return null;
     const shade = cards.low;
     const key = {};
-    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0)), version: frostSeq, fresh: frostFresh, onFigure: (f) => veins.onPicture(f), copy: false, onHoles: frostHoles(key) });
+    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && (mergedFrost() || (!anatCovered() && !(diveT > 0)))), version: frostSeq, fresh: frostFresh, onFigure: (f) => veins.onPicture(f), copy: false, onHoles: frostHoles(key) });
     if (!g) return null;
-    hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: (level) => (CARD_CROSS ? frostOver(level === 'low' ? 'low' : 'cards') : []), low: (el) => el === shade || el?.dataset?.ghost === 'shade' });
+    hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: () => [], low: (el) => el === shade || el?.dataset?.ghost === 'shade' });
     cardGLs.add(g);
     const dispose = g.dispose;
     g.dispose = () => { cardGLs.delete(g); frostHosts.delete(g); dispose(); if (holeSets.delete(key)) sendHoles(); };
@@ -9388,12 +9436,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // cards' glass in it where it stands, and the glass drawn over the fade covers it (inside its box the glass is opaque), its blur taken
   // from the new picture (each glass's blur is taken before the fade is laid over it: veins-gl tops, every prep before any draw). Before, every card went flat for the fade's 420 ms, which with Figure resolution on Auto
   // is every zoom's settle (review/ui-gpu-review-opus-2nov.md: "the card visibly switches from frosted to flat and back"). ?resfrost=0: as before.)
+  // (The glass drawn in the figure's canvas while it lays the lobule (merged), except while the sinusoid view's own canvas comes in over it.)
+  const mergedFrost = () => !!lz?.merged?.() && !lz.sinusoidActive?.();
   const frostWhy = (cards = false) => {
     if (frostHold && !(cards && RES_FROST)) return 'a change of canvas is under way';
     if (!veins?.top) return 'the figure has no canvas to draw into';
     // (In the liver the glass is drawn into the lobule's or the open sinusoid's own GPU canvas (lobule-zoom.js glassHost), never let go
     // to a flat card: Mohammad, 2 Nov 2026, Circulation 6 on the iPhone, "No blur at all on top, solid card on bottom". ?liverfrost=0: as before.)
-    if (LIVER_FROST && wrap.classList.contains('in-lobule')) {
+    // (Merged, and not in the sinusoid: the figure's canvas lays the lobule and the dive's field, so the glass stays drawn there through the
+    // dive and in the lobule; only the figure's own conditions below hold.)
+    const merged = mergedFrost();
+    if (LIVER_FROST && wrap.classList.contains('in-lobule') && !merged) {
       const src = lz?.glassHost?.() || null;
       if (!src) return 'the lobule is moving';
       if (frostCtx !== src.gl) { rehostSoon(); return 'the glass is moving to the liver\'s canvas'; }
@@ -9401,11 +9454,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (frostLiver || frostCtx !== veins.top.gl) { rehostSoon(); return 'the glass is moving back to the figure\'s canvas'; }
     if (veins.lost) return 'the GPU context is lost';
-    if (diveT > 0) return 'the dive is under way';
+    if (diveT > 0 && !merged) return 'the dive is under way';
     if (!(cards && RES_FROST) && fading(vCanvas)) return 'the canvas is fading (a resolution change)';
     const wc = wrap.classList;
     if (!wc.contains('gl-on')) return 'the GPU figure is not showing';
-    if (wc.contains('in-lobule')) return 'the lobule is showing';
+    if (wc.contains('in-lobule') && !merged) return 'the lobule is showing';
     if (wc.contains('unframed')) return 'the figure is unframed';
     if (!VC_CACHE) return vcLook();
     if (vcEasing > 0) return 'the figure\'s canvas is easing';
@@ -9424,8 +9477,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     rehostT = setTimeout(() => {
       rehostT = 0;
       if (!veins?.top) return;
-      const src = LIVER_FROST && wrap.classList.contains('in-lobule') ? lz?.glassHost?.() || null : null;
-      if (LIVER_FROST && wrap.classList.contains('in-lobule') && !src) return;
+      const liver = LIVER_FROST && wrap.classList.contains('in-lobule') && !mergedFrost();
+      const src = liver ? lz?.glassHost?.() || null : null;
+      if (liver && !src) return;
       if (src ? frostCtx === src.gl : frostCtx === veins.top.gl && !frostLiver) return;
       frostLiver = src;
       frostCtx = src ? src.gl : veins.top.gl;

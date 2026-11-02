@@ -40,7 +40,7 @@ import { h, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, 
 import { createSvgGL, svgModel } from './svg-gl.js?v=82d47df415';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=98f7d74059';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=d5c671c5ba';
+import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=48c7ba7e34';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
 import { createSinusoidView } from './sinusoid-view.js?v=9a9826e96b';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=897b4f8e7e';
@@ -52,6 +52,7 @@ import { LIGHT } from './light.js?v=f0c4eefb81';
 import { restPass, cancelRest } from './rest-pass.js?v=442dee98c9';
 import { easeMove, carryRate, carried, cubicBezier, D_SMALL, D_SURFACE } from './ease.js?v=7513a88c68';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
+import { IDENTITY, cssAffine, compose } from './gl-share.js?v=c9208afea0';
 // ?willchange=0 in the address: the lobule and sinusoid layers keep will-change always, as before.
 const LZ_LAYER = !(typeof location !== 'undefined' && /[?&]willchange=0\b/.test(location.search));
 const CAM_M2 = !(typeof location !== 'undefined' && /[?&]camease=0\b/.test(location.search));
@@ -124,7 +125,7 @@ const css = (a, al = 1) => `rgba(${Math.round(a[0] * 255)},${Math.round(a[1] * 2
 // over them.
 export const LZ_UNDER_GLASS = -10;
 
-export function createLobuleZoom({ host, styles = () => getComputedStyle(host), before = null }) {
+export function createLobuleZoom({ host, styles = () => getComputedStyle(host), before = null, share = null, onLayer = null }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const tissue = h('canvas', { class: 'lz-canvas', role: 'img', 'aria-label': 'Liver lobule microcirculation' });
   const glCv = h('canvas', { class: 'lz-canvas lz-gl', 'aria-hidden': 'true' });
@@ -194,6 +195,29 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const fieldG = h('canvas', { class: 'lz-canvas lz-field', 'aria-hidden': 'true' });
   host.insertBefore(fieldG, before); host.insertBefore(field, before); host.insertBefore(el, before);
   let fieldGL;   // its drawing (fieldGLOn)
+  // One context with the figure (gl-share.js, stage.js): the lobule's vessels (with its tissue, overlay and wide copy
+  // hosted in their context, LZ_ONE) and the dive's field are drawn into layers of the figure's own context, which the figure lays over its
+  // picture under every glass, so a card frosts the whole picture through the dive and in the lobule. glCv and fieldG then stay out of the
+  // page; surf and fieldSurf are what their renderers draw on (the layers' stand-in canvases). share(): the figure's hub, or null.
+  let hub = null, hubAsked = false, lzL = null, fieldL = null;
+  const mergeHub = () => {
+    if (!hubAsked) {
+      hubAsked = true;
+      hub = LZ_ONE ? share?.() || null : null;
+      if (hub) {
+        lzL = hub.layer('lobule', () => touched()); fieldL = hub.layer('field');
+        glCv.style.display = 'none'; fieldG.style.display = 'none';
+        // (A loss and restore of the shared context reach the lobule's renderer through the figure's canvas.)
+        lzL.canvas.addEventListener('webglcontextrestored', restored);
+      }
+    }
+    return hub;
+  };
+  const surfOf = () => (mergeHub() ? lzL.canvas : glCv);
+  const fieldSurf = () => (mergeHub() ? fieldL.canvas : fieldG);
+  // (Where each layer lies, in fractions of the stage, y down (gl-share.js), and how much of it shows: kept as the transforms are written.)
+  let diveM = IDENTITY, sinM = IDENTITY, fieldShow = 0, laySeq = 0;
+  const touched = () => { laySeq++; onLayer?.(); };
 
   // ── The view: the lobule framed in the space the floating pieces leave (top bar, dock, cards and
   // its own card), free zoom up to 5× that, the pan held to this lobule. Zooming out stops at the framing.
@@ -674,23 +698,24 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function ensureGL() {
     if (glTried) return gl;
     glTried = true;
-    gl = createVeinsGL(glCv, { tubes: MAXT, force: true, who: 'lobule' });
+    gl = createVeinsGL(surfOf(), { tubes: MAXT, force: true, who: 'lobule' });
     el.dataset.vessels = gl ? 'webgl2' : 'flat';
     // (A software renderer only: each lobule frame waits for the last to finish on the GPU and gives the page as long again,
     // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
-    lzYield = softwareYield(!!gl?.software, gl?.software ? glCv.getContext('webgl2') : null);
+    lzYield = softwareYield(!!gl?.software, gl?.software ? surfOf().getContext('webgl2') : null);
     if (!gl) { glCv.remove(); return null; }
     return gl;
   }
   // (Registered once: one per ensureGL would add another handler on every restore.)
-  glCv.addEventListener('webglcontextrestored', () => { glTried = false; gl?.dispose?.(); gl = null; binKey = ''; radKey = []; radAll = ''; radCal = ''; attrKey = ''; ensureGL(); if (F) update(F); });
+  function restored() { glTried = false; gl?.dispose?.(); gl = null; binKey = ''; radKey = []; radAll = ''; radCal = ''; attrKey = ''; ensureGL(); if (F) update(F); }
+  glCv.addEventListener('webglcontextrestored', restored);
   // Closed: the full-screen canvases and the vessels' GPU buffers are given back (they are sized again on the way in).
   // The world bitmap, the field's tiles and the uploaded network stay, so the next dive has nothing heavy to build.
   const free = (cv) => { if (cv.width || cv.height) { cv.width = 0; cv.height = 0; } };
   function release() {
     dropWide();
     resCoverEnd();
-    free(tissue); free(tissueG); free(fx); free(glCv); rimDrawn = false; fxGLOff();
+    free(tissue); free(tissueG); free(fx); free(glCv); if (lzL) free(lzL.canvas); rimDrawn = false; fxGLOff();
     if (tisHostFor) tissueGL?.release?.();   // (hosted: the tissue's own picture in the vessels' context)
     clearTimeout(spareT); spareT = 0; free(spareCv); spare = null;
     gl?.trim?.();   // (the vessels' framebuffer: the shaders and the uploaded network are kept)
@@ -1922,7 +1947,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (k === lzK) return;
     const fresh = () => { tissueKey = ''; drawKey = ''; glDirty = true; idleDrawn = ''; };
     fresh();
-    const g = coverGL();
+    // (Merged: the lobule's picture is in the figure's context, not on a canvas a cover could be made from; the change of resolution is laid
+    // there at once. See gl-share.js.)
+    const g = lzL ? null : coverGL();
     if (g?.ready && draw(0)) {
       // (A change while one still fades starts from the mix as it shows: the cover before, laid over at its weight and place.)
       const [W, H] = snap.hostWH || [g.cv.width || 1, g.cv.height || 1];
@@ -2401,7 +2428,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const fieldHide = (cv) => { if (cv.width) { cv.width = 0; cv.height = 0; } cv.style.opacity = '0'; };
   function paintField(d) {
     if (!d) diveCtx = null;
-    if (!d || d.a <= 0.002) { fieldHide(field); fieldHide(fieldG); fieldOp = 0; return; }
+    if (!d || d.a <= 0.002) { fieldHide(field); fieldHide(fieldG); if (fieldL) { fieldL.canvas.width = 0; fieldL.canvas.height = 0; } fieldOp = 0; if (fieldShow) { fieldShow = 0; touched(); } return; }
     if (!diveCtx) {
       const rect = host.getBoundingClientRect(), cs = getComputedStyle(host), dark = isDark();
       diveCtx = { W: Math.max(1, Math.round(rect.width)), H: Math.max(1, Math.round(rect.height)), cs: styleSnap(cs), dark, bg: stageBg(cs, dark) };
@@ -2417,13 +2444,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // tries the send again shortly): its canvas keeps its last frame, at this frame's opacity, or, with none yet, the field waits for its
     // first GPU frame: the tiles go to the GPU ahead of the dive (fieldUp), so this is a frame or two at most. With no GPU for it at all
     // (no WebGL2, or the context lost), no field is drawn.)
-    if (drew || fieldG.width) fieldG.style.opacity = fieldOp.toFixed(3);
+    if (drew || fieldSurf().width) { fieldG.style.opacity = fieldOp.toFixed(3); fieldShow = fieldOp; }
+    if (fieldL) touched();
   }
   let fieldOp = 0;
   // The field's GPU drawing (field-gl.js): made the first time it is asked for (ahead of the first dive, by the idle preparation);
   // null where WebGL2 is missing, and set aside if its context is lost (no field is drawn until it is made again).
   function fieldGLOn() {
-    if (fieldGL === undefined) { fieldGL = createFieldGL(fieldG); if (!fieldGL) fieldG.remove(); }
+    if (fieldGL === undefined) { fieldGL = createFieldGL(fieldSurf()); if (!fieldGL) fieldG.remove(); }
     return fieldGL && !fieldGL.lost ? fieldGL : null;
   }
   // A tile's liver-toned and quieted copies sent to the GPU ahead of the dive (no frame of it uploads a texture).
@@ -2698,7 +2726,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const g = gl, G = geo, m = model;
     const res = g.software ? 0.5 : 1, k = dpr * res;
     const cw = Math.max(1, Math.round(W * k)), ch = Math.max(1, Math.round(H * k));
-    if (glCv.width !== cw || glCv.height !== ch) { glCv.width = cw; glCv.height = ch; glDirty = true; }
+    const sf = surfOf();
+    if (sf.width !== cw || sf.height !== ch) { sf.width = cw; sf.height = ch; glDirty = true; }
     const live = lymphOn ? G.tubes : G.bloodTubes;
     const T = [k * V.k, 0, 0, k * V.k, k * V.x, k * V.y];
     const dk = `${cw}x${ch}|${T.map((x) => x.toFixed(2)).join(',')}`;
@@ -3487,6 +3516,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!D || u <= 0) {
       sinZ = 0;
       el.style.transform = ''; el.style.transformOrigin = ''; el.style.visibility = ''; el.classList.remove('lz-sin');
+      if (sinM !== IDENTITY) { sinM = IDENTITY; touched(); }
       sv.place({ opacity: 0 });
       return;
     }
@@ -3500,6 +3530,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     el.style.transformOrigin = rm ? '' : `${D.q[0].toFixed(2)}px ${D.q[1].toFixed(2)}px`;
     el.style.transform = rm ? '' : `rotate(${(D.rot * g).toFixed(5)}rad) scale(${(D.Z ** g).toFixed(5)})`;
     el.style.visibility = u >= 1 ? 'hidden' : '';
+    { const [W, H] = hostSize(); sinM = rm ? IDENTITY : cssAffine(W, H, { ox: D.q[0], oy: D.q[1], r: D.rot * g, k: D.Z ** g }); touched(); }
     el.classList.add('lz-sin');
     // The sinusoid view: drawn by the GPU on the lobule's sinusoid each frame; it comes in over the lobule as the zoom lands.
     sv.place({
@@ -3592,6 +3623,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const was = fade;
       fade = clamp(u, 0, 1);
       el.style.opacity = fade.toFixed(3);
+      if (fade !== was) touched();
       if (LZ_LAYER) el.classList.toggle('lz-live', fade > 0);   // (its compositor layer only while it is shown)
       // The tissue first, then its labels and card (and on the way out, those go first).
       applyChrome();
@@ -3642,6 +3674,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
      *  seq, onPicture }. */
     glassHost() {
       if (sinU > 0 || sinTo === 1) return !sinBusyNow() && sv.isOpen() ? sv.glassHost?.() ?? null : null;
+      if (lzL) return null;   // (merged: the cards' glass stays in the figure's canvas, which lays the lobule: see layers)
       if (fade <= 0.98 || diveScaled || !gl || gl.lost || !gl.top || wide || el.style.transform || glCv.style.visibility === 'hidden') return null;
       const g = gl;
       return { gl: g.top.gl, canvas: g.top.canvas, add: g.top.add, warmIn: g.top.warmIn, now: () => { if (!g.lost) g.present(); }, seq: () => g.drawSeq, onPicture: (f) => g.onPicture(f) };
@@ -3651,6 +3684,24 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     prewarm, warm, stage: () => framePart('lz.stage', stage), stageRise: () => framePart('lz.stageRise', stageRise), paintAhead, preparePieces, prepareRun,
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
     covers: () => fade > 0.98 || fieldOp >= 0.999,
+    /** True while the lobule and the field are drawn into the figure's context (gl-share.js). */
+    merged: () => !!lzL,
+    /** True while the sinusoid view is coming in, open or leaving (its own canvas over the lobule then takes the cards' glass: glassHost). */
+    sinusoidActive: () => sinU > 0 || sinTo === 1,
+    /** Merged: the layers for the figure to lay, under its glasses, bottom first: { tex, m, a } each (gl-share.js lay), or null when none
+     *  shows. layerSeq() changes whenever what they show or where may have changed. */
+    layers() {
+      if (!lzL) return null;
+      const out = [];
+      const ft = fieldShow > 0 ? fieldL.texture() : null;
+      if (ft) out.push({ tex: ft, m: IDENTITY, a: fieldShow });
+      const lt = fade > 0 && el.style.visibility !== 'hidden' && glCv.style.visibility !== 'hidden' ? lzL.texture() : null;
+      if (lt) out.push({ tex: lt, m: sinM === IDENTITY ? diveM : diveM === IDENTITY ? sinM : compose(sinM, diveM), a: fade });
+      return out;
+    },
+    layerSeq: () => laySeq,
+    /** Merged: how much of the stage the field and the lobule cover now (0 … 1), for the page's own layers over them to fade by. */
+    coverAlpha: () => Math.max(fieldShow, fade),
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
     setDiveZoom(k, x, y, tx = x, ty = y) {
       if (k < 0.9999) resCoverEnd();
@@ -3676,6 +3727,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (wide) { for (const e of WIDE_HIDE) e.style.visibility = 'hidden'; wide.el.style.visibility = ''; }
       // (A copy in the vessels' own canvas: that canvas shows it, unscaled; the copy is placed on the GPU.)
       if (wide?.host) glCv.style.visibility = '';
+      // (Merged: the vessels' layer placed the same way by the figure, on the GPU.)
+      { const [W, H] = hostSize(); diveM = k >= 0.9999 || wide?.host ? IDENTITY : cssAffine(W, H, { ox: x, oy: y, tx: tx - x, ty: ty - y, k }); touched(); }
       for (const e of [tissue, tissueG, glCv, fx, fxG, leadersBox, labels]) {
         if (k >= 0.9999 || (wide?.host && e === glCv)) { e.style.transform = ''; e.style.transformOrigin = ''; continue; }
         // Scaled about its own centre, which sits where the field's lobule at the dive's focus is (tx, ty), so it morphs out of that one.
@@ -3686,7 +3739,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (wide?.host) {
         // (The canvas at the screen's size for it, then laid: the copy alone, through the vessels' replace.)
         const cw = Math.max(1, Math.round(wide.W * wide.dpr)), ch = Math.max(1, Math.round(wide.H * wide.dpr));
-        if (glCv.width !== cw || glCv.height !== ch) { glCv.width = cw; glCv.height = ch; glDirty = true; drawKey = ''; }
+        const sf = surfOf();
+        if (sf.width !== cw || sf.height !== ch) { sf.width = cw; sf.height = ch; glDirty = true; drawKey = ''; }
         wideView = { W: wide.W, H: wide.H, dpr: wide.dpr, box: wide.box, k, x, y, tx, ty };
         if (gl && !gl.lost) gl.present();
       } else if (wide?.gl) wide.gl.draw(wide.W, wide.H, wide.dpr, wide.box, k, x, y, tx, ty);   // (on the GPU: one pass, no CSS transform)

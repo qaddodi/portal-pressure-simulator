@@ -51,6 +51,7 @@ import { fusedVS, fusedFS } from './veins-fuse.js?v=b34d325734';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 import { softwareGL } from './sw-yield.js?v=18a3b54a4d';
 import { frameCount, framePhase } from './frame.js?v=897b4f8e7e';
+import { shareGL, createLay, IDENTITY } from './gl-share.js?v=c9208afea0';
 
 export { binVeins };
 
@@ -1850,7 +1851,7 @@ export function boxOfCells(cells, n, cell) {
   return [x0, y0, x1 + cell, y1 + cell];
 }
 
-export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'stage' }) {
+export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'stage', share = false }) {
   // (A row is written in ROW2_BITS bits in the second lumen target: many more rows than the figure has, about two hundred.)
   if (nTubes + 1 > ROW2_MASK) { console.warn(`Veins renderer: ${nTubes} vessel rows do not fit the second lumen target.`); return null; }
   // (For the ?perf readout: who asked for a whole draw or a target sized again, gpu-probe.js BY.)
@@ -1863,6 +1864,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: ONE_PASS && !(ownBuf && CTX_STENCIL_FREE), preserveDrawingBuffer: !ownBuf, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (!gl) return null;
+  // (share: the figure's context is shared with the lobule's and the dive field's renderers (gl-share.js), which draw into
+  // layers of their own that the figure lays over its picture, under its glasses (stage.js). This renderer then holds its owner of the
+  // context, as every helper that draws in it does.)
+  const hub = share && ownBuf ? shareGL(gl) : null;
+  if (hub) gl = hub.primary;
+  const layer = hub ? createLay(gl) : null;
+  // (layM: where the kept picture is laid on the canvas while the lobule dive magnifies it, an affine in fractions of the canvas (gl-share.js),
+  // null for as it is; cover: true while what the tops lay covers the whole canvas, so the picture under it need not be laid.)
+  let layM = null, cover = null;
   // The composite's per-frame uniforms are sent only when they changed (uniform-cache.js; laptop-heat Q2). They are set nowhere else.
   const UC = uniformCache(gl, { on: UNIFORM_CACHE });
   // Settings › Figure performance › Sharper upscaling (frame.js upscale, off by default): the picture's own size, [w, h], when the stage
@@ -2700,6 +2710,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     return true;
   }
+  // What is drawn over the figure in this canvas, the glasses (and the layers laid under them: their prep), on the picture just laid.
+  function runTops() {
+    for (const t of tops.slice()) { try { t.prep?.(); } catch (e) { console.warn('Veins renderer: what is drawn over the figure failed.', e); tops.splice(tops.indexOf(t), 1); } }
+    for (const t of tops.slice()) { try { t.draw(); } catch (e) { console.warn('Veins renderer: what is drawn over the figure failed.', e); tops.splice(tops.indexOf(t), 1); } }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
   // The kept picture onto the canvas, every pixel, as it is (no scaling, no filtering).
   // (top: with what is drawn over the figure in this canvas, the labels; false for a picture of the figure alone, snapshot.)
   function present(top = true) {
@@ -2711,6 +2727,17 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
       try { replace.draw(); } catch (e) { console.warn('Veins renderer: what stands in for the figure failed.', e); replace = null; }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return;
+    }
+    // (Covered whole by the layers the tops lay (the landed lobule, the dive's field once it is whole): the canvas cleared and only they
+    // laid, with the glasses over them. Nothing of the figure's picture is needed, so none need have been drawn yet.)
+    if (hub && !lost && top && cover?.()) {
+      presents++;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.BLEND);
+      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      runTops();
       return;
     }
     if (!own?.w || lost) return;
@@ -2743,7 +2770,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (gpuProbe.on) gpuProbe.note(COUNTED.present, own.w * own.h * 4 / 1024);
     gl.disable(gl.SCISSOR_TEST);
     presents++;
-    if (!up && under && under.on() && underLay()) { /* (laid: the under picture, the kept one over it) */ }
+    if (layM && layer?.ready()) {
+      // (Magnified by the dive (layM): the picture drawn over the canvas as the dive places it, filtered, by the GPU.)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.BLEND);
+      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      layer.draw(own.tex, layM, 1, false);
+    } else if (!up && under && under.on() && underLay()) { /* (laid: the under picture, the kept one over it) */ }
     else if (!(up && !upLin && upDraw())) {
       // (A picture under the canvas's size with the plain upscale: filtered, as the page's compositor scales a smaller canvas up.)
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own.fbo);
@@ -2799,6 +2833,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       try { layP = auxTake('lay', true) || finishProgram(gl, startProgram(gl, REUSE_VS, LAY_FS)); } catch (e) { console.warn('Veins renderer: the overlays\' shader could not be made.', e); layP = false; }
     }
     if (!layP) return;
+    // (Magnified by the dive: laid where the picture is, by the same affine.)
+    if (layM && layer?.ready()) { layer.draw(over.texture, layM, 1, true); return; }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
@@ -3108,6 +3144,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
 
   const api = {
+    /** The shared context's hub (gl-share.js) and the program that lays its layers, while the context is shared; else null. */
+    share: hub, lay: layer,
+    /** While the lobule dive magnifies the figure: where its picture is laid (an affine in fractions of the canvas, gl-share.js), or null. */
+    setLay(m) {
+      const n = m && !(m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1 && m[4] === 0 && m[5] === 0) ? m : null;
+      if (n === layM || (n && layM && n.every((v, i) => v === layM[i]))) return;
+      layM = n === IDENTITY ? null : n;
+    },
+    /** fn() true while the layers the tops lay cover the whole canvas (the figure's picture is then not laid). */
+    setCover(fn) { cover = fn; },
     get lost() { return lost; },
     /** Whether the browser renders WebGL on the CPU. */
     software,
@@ -3739,7 +3785,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // sends every other whole frame through it (recs 2 Nov, sec. 7: direct, kept, direct, kept). A one-pass frame marks its cells in a
       // stencil: it goes straight onto the canvas only when the canvas's own buffer has one (recs sec. 4: the kept picture's stencil is
       // not the canvas's), else it is drawn into the kept picture, which has, and laid from there.)
-      const direct = DIRECT && who !== 'lobule' && !noDirect && !!own && full && !up && !(under && under.on()) && !(replace && replace.on()) && !(fused && !ctxStencil);
+      const direct = DIRECT && who !== 'lobule' && !noDirect && !layM && !!own && full && !up && !(under && under.on()) && !(replace && replace.on()) && !(fused && !ctxStencil);
       if (own && ownStale && !full) full = true;
       if (full) dirt = 0;
       const fl = look.fluid && fluidRect ? look.fluid : null;

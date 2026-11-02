@@ -103,7 +103,7 @@ test('every WebGL2 surface rebuilds after a lost context (or is a probe or a sec
     assert.match(s, /webglcontextlost/, `${f}: no lost-context handler`);
     // (The tissue's restore is its owner's: lobule-zoom.js makes it again on the same canvas, tissueRestored.)
     // (The vessels' are their owners' too: the anatomy (stage.js) and the lobule each make a new renderer on the canvas, checked below.)
-    const OWNER = { 'tissue-gl.js': ['lobule-zoom.js', /tissueG\.addEventListener\('webglcontextrestored', tissueRestored\)/], 'veins-gl.js': ['stage.js', /veins = createVeinsGL\(vCanvas, \{ tubes: GL_ROWS, force: true \}\);/] };
+    const OWNER = { 'tissue-gl.js': ['lobule-zoom.js', /tissueG\.addEventListener\('webglcontextrestored', tissueRestored\)/], 'veins-gl.js': ['stage.js', /veins = createVeinsGL\(vCanvas, \{ tubes: GL_ROWS, force: true, share: true \}\);/] };
     if (OWNER[f]) assert.match(src(`src/ui/${OWNER[f][0]}`), OWNER[f][1], `${f}: no restore by its owner`);
     else assert.match(s, /webglcontextrestored/, `${f}: no restore`);
   }
@@ -130,7 +130,7 @@ test('lobule handoff: the 2D tissue stays under the GPU picture as it takes over
   // (Field: with the GPU there no 2D field is ever drawn; a frame the GPU cannot draw keeps its last GPU frame, or waits for the first.)
   // (Since 1 Nov there is no 2D field at all: the GPU's frame, its last one, or none.)
   assert.match(lz, /const drew = g \? paintFieldGL\(g, d, W, H, dpr, cs, dark, bg\) : false;\n\s*fieldHide\(field\);\n\s*fieldOp = Math\.min\(1, d\.a \* 1\.25\);/);
-  assert.match(lz, /if \(drew \|\| fieldG\.width\) fieldG\.style\.opacity = fieldOp\.toFixed\(3\);\n\s*\}/);
+  assert.match(lz, /if \(drew \|\| fieldSurf\(\)\.width\) \{ fieldG\.style\.opacity = fieldOp\.toFixed\(3\); fieldShow = fieldOp; \}/);
   assert.doesNotMatch(lz, /FIELD_2D|field2d/);
   // (A texture the GPU could not take keeps the last frame where one is showing: tissue and field.)
   // (And with no frame to keep, still drawn on the GPU with the clear texture in its place, never the 2D canvas.)

@@ -47,7 +47,7 @@ test('the stage builds the lobule layer when its code has come, in the place in 
   const stage = read('stage.js');
   assert.doesNotMatch(stage, /^import .*lobule-zoom/m, 'no static import');
   assert.match(stage, /const lzAnchor = document\.createComment\('lobule'\);\s*\n\s*wrap\.append\(lzAnchor\);/, 'a marker takes the layer\'s place where it was built');
-  assert.match(stage, /lz = createLobuleZoom\(\{ host: wrap, styles: wrapCS, before: lzAnchor \}\)/);
+  assert.match(stage, /lz = createLobuleZoom\(\{ host: wrap, styles: wrapCS, before: lzAnchor, share: /);
   const lobule = read('lobule-zoom.js'), view = read('sinusoid-view.js');
   assert.match(lobule, /host\.insertBefore\(field, before\); host\.insertBefore\(el, before\);/);
   assert.match(lobule, /createSinusoidView\(\{ host, before \}\)/, 'the sinusoid view sits in the same place');
