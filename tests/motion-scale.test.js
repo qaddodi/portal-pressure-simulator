@@ -197,7 +197,8 @@ test('R11: a popover settles from, and leaves toward, the thing that opened it (
   const util = read('src/ui/util.js'), why = read('src/ui/why.js');
   assert.match(util, /export function settleFrom\(el, anchor, left, top\) \{\s*el\.style\.transformOrigin = /);
   assert.match(util, /el\.style\.transformOrigin = `calc\(\$\{\(r\.left \+ r\.width \/ 2\)\.toFixed\(0\)\}px - \$\{leftCss\}\)/);
-  assert.match(why, /settleFrom\(pop, r, x, top\);/);
+  // (The Why card is placed by translate, as the menus are, so its origin is written in the same form: the button's centre less the card's left.)
+  assert.match(why, /pop\.style\.transformOrigin = `calc\(\$\{\(r\.left \+ r\.width \/ 2\)\.toFixed\(0\)\}px - \$\{leftCss\}\)/);
 });
 
 // The sources: no curve is written by hand outside ease.js, and no animation is given a number of milliseconds.
