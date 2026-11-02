@@ -68,7 +68,7 @@ import { retireRows, flowClose } from './flow-rows.js?v=6cd335f84b';
 import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=d64fcc2971';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
 import { planTaper, taperAt } from './vessel-taper.js?v=38c471f360';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=c67ad74ad8';
+import { frameFor, lateFrameFor, cancelFrame, mayTask, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=c67ad74ad8';
 import { softwareYield } from './sw-yield.js?v=18a3b54a4d';
 import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -3667,7 +3667,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     dopApply();
     gpuProbe.time(null, 'update: bridges', () => updateBridges(t));
     // (Not through a dive or a rise: the anatomy's labels fade out as it starts, and the way out lays them out once, for its landing.)
-    if (!(diveT > 0 && diveT < 1)) gpuProbe.time(null, 'update: labels', () => updateLabels(f));
+    // (Plan "Holding 120 Hz" rev 2 step 1: the figure's own work (geometry, tubes, overlays, organs) is the model frame's must; the labels
+    // are a may task of it, laid out from the newest frame once the frame's must work is in, within its share, at most four frames late,
+    // so a model frame never puts the label solver in the frame that draws the figure. A newer frame before it runs takes its place.)
+    labelF = f;
+    mayTask('stage-labels', labelsMay);
     gpuProbe.time(null, 'update: organs', () => updateOrgans(f, p, t));
     gpuProbe.time(null, 'update: slide marks', () => fxSync(f, t));
     widthF = f; widthVer = storeVer; widthCTM = CTM;
@@ -3678,6 +3682,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // and a new target is taken only after stepping up to its arrival, so the width and its speed change continuously and
   // trace the same curve at 60 or 120 Hz; a model frame's new target (10 a second) bends the speed instead of jumping it.
   const W_TAU = 0.2;
+  let labelF = null;
+  function labelsMay() {
+    const f = labelF; labelF = null;
+    if (f && !(diveT > 0 && diveT < 1)) gpuProbe.time(null, 'update: labels', () => updateLabels(f));
+  }
   function followWidth(x, dt) {
     if (x.w1 == null) x.w1 = x.width;
     if (x.wT == null || x.width == null) return false;   // (no target yet: the caller sets the first one after this)

@@ -28,7 +28,9 @@ test('model frames update the anatomy while it shows through the zoom, and only 
   assert.match(fn('  function stepWidths() {'), /if \(anatCovered\(\) \|\| hid\.at/);
   assert.match(fn('  function stepOrgans() {'), /if \(anatCovered\(\) \|\| hid\.at/);
   // The labels, faded out through the zoom, are not laid out on every model frame of it.
-  assert.match(inner, /if \(!\(diveT > 0 && diveT < 1\)\) gpuProbe\.time\(null, 'update: labels'/);
+  // (A may task of the model frame since rev 2 step 1: labelsMay.)
+  assert.match(inner, /mayTask\('stage-labels', labelsMay\);/);
+  assert.match(st, /function labelsMay\(\) \{\n\s*const f = labelF; labelF = null;\n\s*if \(f && !\(diveT > 0 && diveT < 1\)\) gpuProbe\.time\(null, 'update: labels'/);
 });
 
 test('the frame loop draws what eases while the anatomy shows; at rest the zoom only moves the blood (no idle redraws)', () => {
