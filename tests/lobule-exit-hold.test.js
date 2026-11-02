@@ -31,7 +31,7 @@ test('the presenter holds it before the new cards change the space, on every way
   assert.ok(holdAt > 0 && holdAt < outAt && outAt < inAt, 'held while the leaving slide\'s cards still set the space');
   // (The same slides that leave the lobule further down: a catheter slide, or any framing that is not the lobule's.)
   assert.match(run, /if \(\(!s\.visual && s\.cath\) \|\| \(cam && !LOBULE_CAM\.test\(cam\)\)\) stage\.lobuleHold\?\.\(true\);/);
-  const toA = pr.match(/async function toAnatomy\(next\) \{[\s\S]*?\n {2}\}/)[0];
+  const toA = pr.match(/async function toAnatomy\(next, cut = \(\) => false\) \{[\s\S]*?\n {2}\}/)[0];
   assert.ok(toA.indexOf('stage.lobuleHold?.(true)') > 0 && toA.indexOf('stage.lobuleHold?.(true)') < toA.indexOf("stage.lobuleFocus('fit'"), 'every way out (a deck closing, a catheter) holds before the zoom back to the fit');
   const cam = pr.match(/async function camera\(cam, s, cut, early = 0, begun = null\) \{[\s\S]*?\n {2}\}/)[0];
   const lob = cam.slice(cam.indexOf('if (LOBULE_CAM.test(cam)) {'));

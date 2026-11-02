@@ -28,8 +28,8 @@ test('ready means the picture shown is the state now: its key is the organs\' ke
 });
 
 test('the rise waits for it at rest in the lobule, then glides straight on and out; nothing holds a stale picture through the rise', () => {
-  const ta = pz.match(/async function toAnatomy\(next\) \{[\s\S]*?\n {2}\}\n/)[0];
-  const p = ta.indexOf('stage.prepRise?.();'), w = ta.indexOf('await until(() => stage.riseReady(), RISE_READY_MS);');
+  const ta = pz.match(/async function toAnatomy\(next, cut = \(\) => false\) \{[\s\S]*?\n {2}\}\n/)[0];
+  const p = ta.indexOf('stage.prepRise?.();'), w = ta.indexOf('await until(() => cut() || stage.riseReady(), RISE_READY_MS);');
   const g = ta.indexOf("stage.lobuleFocus('fit'"), out = ta.indexOf('store.set({ lobule: false });');
   assert.ok(p > 0 && p < w && w < g && g < out, 'prep, wait, glide to the whole lobule, then the rise');
   assert.ok(+/const RISE_READY_MS = (\d+);/.exec(pz)[1] <= 3000);

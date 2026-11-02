@@ -1071,7 +1071,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     slides.forEach((s, i) => { if (s.preset) pid = s.preset; presetAt[i] = pid; });
     extra.forEach((o, k) => { presetAt[slides.length + k] = o.preset; });
     const deckNow = deck;
+    // The preparation failed (a rejected snapshot, a sequence that threw, or slides that could not be computed): this talk's
+    // waiters are settled with nothing (never left parked), and the show ends with a word rather than holding its cover up.
+    const prepFailed = () => {
+      if (c.broken) { c.kill(); if (calc === c) calc = null; }
+      if (states !== mine || deck !== deckNow) return;
+      for (const w of waiters) w.res(null);
+      waiters = [];
+      stop();
+      toast('This presentation could not be prepared. Reload the page to present it.', 'bad');
+    };
     (async () => {
+      try {
       const first = slides[0]?.preset ? null : (await host.request('snapshot')).snap;
       if (!base) c.request('presetMetrics', { ids: ['healthy'] }).then((m) => { base = m.result?.healthy || null; });
       const end = await c.sequence(steps, first, (m) => {
@@ -1095,10 +1106,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       }
       // The slides could not be computed (most often a page left open across an update): the next try starts a fresh
       // engine, and the show ends with a word rather than holding its cover up for ever.
-      if (c.broken) { c.kill(); if (calc === c) calc = null; }
-      if (states !== mine || deck !== deckNow) return;
-      stop();
-      toast('This presentation could not be prepared. Reload the page to present it.', 'bad');
+      prepFailed();
+      } catch (err) { console.error(err); prepFailed(); }
     })();
   }
   // Each slide's numbers for the printed notes (handout.js): the deck computed as presenting it computes it, or the states
@@ -1183,24 +1192,28 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const RISE_AHEAD_MS = 1200;   // (a lobule slide settled this long: its way out's organ picture is made ahead)
   let prepAheadT = 0;
   const RISE_READY_MS = 2500;   // (the longest the rise waits for the organs' picture: past it, the live drawing shows, as before)
-  async function toAnatomy(next) {
+  // (cut: the owning transition was replaced or stopped. Checked after every wait and before every write, so a stale exit stops
+  // where it is and touches neither the camera nor the store; the newer transition owns the hold from then on.)
+  async function toAnatomy(next, cut = () => false) {
+    if (cut()) return;
     const st = store.get();
     if (!st.lobule && !st.sinusoid) return;
     // Out of the sinusoid, then back to the lobule's normal framing, and only then out of the lobule: three steps, never one zoom through them.
-    if (st.sinusoid) { store.set({ sinusoid: false }); await wait(60); await until(() => !stage.sinBusy() && !stage.sinusoidOpen(), 4000); }
+    if (st.sinusoid) { store.set({ sinusoid: false }); await wait(60); await until(() => cut() || (!stage.sinBusy() && !stage.sinusoidOpen()), 4000); if (cut()) return; }
     // The anatomy under the lobule is brought up to the patient now and its organs' picture made, unseen (begun in camera() as the
     // new cards come in); the rise waits for it (stage.js prepRise), so the organs fade in as they are, never swapped in one frame at landing.
+    if (cut()) return;
     stage.prepRise?.();
     stage.lobuleHold?.(true);   // (the lobule's framing stays where the leaving slide left it: the way out only zooms out, see transitionRun)
     // (Waited for before the glide, at rest: the glide runs straight on into the rise, never stopping at the whole lobule.)
-    if (stage.riseReady && !booting) await until(() => stage.riseReady(), RISE_READY_MS);
+    if (stage.riseReady && !booting) { await until(() => cut() || stage.riseReady(), RISE_READY_MS); if (cut()) return; }
     // (The way back to the fit eases in only: it reaches the fit still moving and the rise, which moves from its first frame, carries
     // straight on. Eased out as well, the zoom came to rest at the whole lobule and set off again: it stopped midway (Mohammad, 20 Oct,
     // Circulation 9 to 10).)
-    if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : RISE_FIT_MS; if (stage.lobuleFocus('fit', { ms, ease: 'in' })) await wait(ms); }
+    if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : RISE_FIT_MS; if (stage.lobuleFocus('fit', { ms, ease: 'in' })) { await wait(ms); if (cut()) return; } }
     if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear);   // (box: a function, asked for when the rise begins)
     store.set({ lobule: false });
-    await until(() => stage.lobuleSettled(), 6000); await wait(80);
+    await until(() => cut() || stage.lobuleSettled(), 6000); if (!cut()) await wait(80);
   }
   // Glide the camera to a slide's framing; resolves when it has landed (cut(): a newer slide was asked for).
   // (early: a share of the glide over the plate; camera() resolves once only that much of it is left, the glide running on: see ONE_MOVE.)
@@ -1246,7 +1259,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       await until(() => { const n = cardSig(); if (n !== sig) { sig = n; since = performance.now(); } return cut() || performance.now() - since > 250; }, Math.max(0, 1800 - (performance.now() - t0)));
     }
     if (cut()) return;
-    await toAnatomy(v === 'anatomic' ? riseFor(cam, s) : null);
+    await toAnatomy(v === 'anatomic' ? riseFor(cam, s) : null, cut);
     if (cut()) return;
     if (store.get().view !== v) { store.set({ view: v }); await wait(700); }
     // (Reduced motion keeps the glide, short: a jump of the whole figure is harder to follow than a quick move. Under the start's
@@ -1400,7 +1413,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (lapseOn) stopLapse();
     procWait = true; procPaint();
     try {
-      await toAnatomy();
+      await toAnatomy(null, () => !mine());
+      if (!mine()) return;
       if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(700); }
     } finally { procWait = false; }
     if (!mine() || procRun) { procPaint(); return; }
@@ -1477,7 +1491,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     cathStop();
   }
   async function cathTo(mode, fp, cut) {
-    await toAnatomy();
+    await toAnatomy(null, cut);
     if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(700); }
     if (cut()) return;
     if (!cath.on) { cath.on = true; cath.t0 = performance.now(); cath.ostium = mode === 'blocked'; cathFrame(); }
@@ -1775,7 +1789,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.safe.hidden = true;
     if (ui.data.classList.contains('pz-hide') && !ui.data.hidden) { clearTimeout(dataHideT); dataHideT = 0; ui.data.hidden = true; ui.tools.hide(); }
     // Behind the card: out of the liver, and out to the whole patient (unless the card was already lifted: the slide goes on from here).
-    await toAnatomy(null); if (cut()) return false;
+    await toAnatomy(null, cut); if (cut()) return false;
     if (!card.lifted) {
       const gl = reduce.matches ? 300 : 1500;
       stage.fitSlow(gl);
@@ -2196,7 +2210,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The catheter leaves with its slides. (Only a new patient on the first slide or with reduced motion fades the figure, which takes
     // it; otherwise the patient eases in after (morphTo) and the figure never dims, so the catheter retracts and fades on its own.)
     if (cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0 && (booting || reduce.matches)); if (cut()) return; }
-    if (outNow) { await toAnatomy(inAnatomy ? riseFor(cam, fv) : null); slideLayers(s); if (cut()) return; }
+    if (outNow) { await toAnatomy(inAnatomy ? riseFor(cam, fv) : null, cut); if (cut()) return; slideLayers(s); if (cut()) return; }
     // (A patient still being computed off screen: after a short wait the arc shows.)
     const lateT = states[si] && (!lap || states[stateOf[to]]) ? 0 : setTimeout(() => loading(true), 260);
     // (A time-lapse with its own params plays from them set and settled: the chain's start state, not the slide before's.)
@@ -5683,10 +5697,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       lobuleLayers: st.lobuleLayers, running: st.running, speed: st.speed, lapse: st.lapse, clock: st.clock, hvpgMeasured: st.hvpgMeasured, lastHVPG: st.lastHVPG,
       labelK: stage.labelScale(), cam: stage.cameraState() };
   }
+  let startGen = 0;
   async function start(id, at = 0, opts = null) {
     // (The slide a start lands on never plays its case card: it was skipped only while the start's cover was up, and the cover
     // gives up after 12 s, so on a slow machine a deep link sat on a case card waiting for a tap no one knew to give.)
     noCase = true;
+    const startMine = ++startGen;   // (B14: a start overtaken by a newer one does not install its deck over it)
     // (A talk still fading out is ended by this start, not by its own fade's end, which would otherwise run its restore under
     // the new talk; a return to healthy still under way stops where it is: motion review round 2, RF5.)
     leaving = null; healthyGen++;
@@ -5702,6 +5718,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // Starting another deck while one runs keeps the state from before the first.
     const before = deck ? saved : await capture();
     await up;
+    if (startMine !== startGen) return;
     if (deck) stopNow(false);
     lastAt = -1;
     saved = before;

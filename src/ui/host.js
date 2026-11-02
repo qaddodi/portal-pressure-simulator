@@ -1,6 +1,8 @@
 // Engine host: Web Worker when available, same-thread fallback otherwise (blueprint §7.7, §13.4).
 
 let impl = null;
+let liveWorker = null;      // the engine's worker while it is healthy
+let failed = false;         // the worker stopped for good (an uncaught error): sends and requests are refused until restartHost()
 const handlers = new Map();
 let reqSeq = 1;
 const pending = new Map();
@@ -8,24 +10,31 @@ const pending = new Map();
 function dispatch(msg) {
   if (msg.reqId && pending.has(msg.reqId)) {
     // An engine error rejects its request, so nothing waits on it forever.
-    const p = pending.get(msg.reqId); pending.delete(msg.reqId);
+    const p = pending.get(msg.reqId); pending.delete(msg.reqId); clearTimeout(p.timer);
     if (msg.type === 'error') p.reject(new Error(msg.message)); else p.resolve(msg);
   }
   (handlers.get(msg.type) || []).forEach((fn) => fn(msg));
 }
 
 function crashed(message) {
-  for (const [id, p] of pending) { pending.delete(id); p.reject(new Error(message)); }
+  // The worker is gone: mark the host failed, let go of the worker, then settle every request still waiting.
+  failed = true;
+  if (liveWorker) { liveWorker.onmessage = null; liveWorker.onerror = null; try { liveWorker.terminate(); } catch { /* already gone */ } liveWorker = null; }
+  impl = { post() { /* a stopped engine takes nothing */ }, kind: 'failed' };
+  for (const [id, p] of pending) { pending.delete(id); clearTimeout(p.timer); p.reject(new Error(message)); }
   dispatch({ type: 'crash', message });
 }
 
 export const WORKER_WAIT = 15000;
+/** How long a request may wait for its answer before it is rejected (a slow preset on a phone still fits). */
+export const REQUEST_WAIT = 30000;
 
 // The engine's worker starts in main(), once every module is in. It starts once.
 let hostStart = null;
 export function startHost() { return (hostStart ??= startHostNow()); }
 
 async function startHostNow() {
+  failed = false;
   let w;
   try {
     w = new Worker(new URL('../worker.js?v=953a319878', import.meta.url), { type: 'module' });
@@ -41,6 +50,7 @@ async function startHostNow() {
     // After start-up an uncaught error inside the worker is a crash: say so (main.js offers Reload or Restart),
     // and settle every request still waiting, so nothing hangs on an engine that will not answer.
     w.onerror = (e) => { e.preventDefault?.(); crashed(e.message || 'The engine stopped.'); };
+    liveWorker = w;
     impl = { post: (m) => w.postMessage(m), kind: 'worker' };
   } catch (err) {
     // A slow module load can finish after the timeout. Never leave a second
@@ -55,6 +65,17 @@ async function startHostNow() {
   return impl.kind;
 }
 
+/** True once the engine's worker has stopped; restartHost() brings an engine back. */
+export function hostFailed() { return failed; }
+
+/** A new engine in place of a stopped one (a fresh worker, or the main thread where no worker will start). The handlers stay
+ *  subscribed; the caller sends again what the engine had been told (visibility, speed) and loads its patient. */
+export async function restartHost() {
+  if (!failed) return impl?.kind;
+  hostStart = null; impl = null;
+  return startHost();
+}
+
 export const host = {
   send(msg) { impl?.post(msg); },
   on(type, fn) {
@@ -62,7 +83,13 @@ export const host = {
     handlers.get(type).push(fn);
   },
   request(type, payload = {}) {
+    if (failed || !impl) return Promise.reject(new Error('The engine is not running.'));
     const reqId = reqSeq++;
-    return new Promise((resolve, reject) => { pending.set(reqId, { resolve, reject }); impl.post({ type, reqId, ...payload }); });
+    return new Promise((resolve, reject) => {
+      // (No answer in REQUEST_WAIT: rejected, so a caller is never parked on an engine that will not reply.)
+      const timer = setTimeout(() => { if (pending.delete(reqId)) reject(new Error(`The engine did not answer ${type}.`)); }, REQUEST_WAIT);
+      pending.set(reqId, { resolve, reject, timer });
+      try { impl.post({ type, reqId, ...payload }); } catch (err) { pending.delete(reqId); clearTimeout(timer); reject(err); }
+    });
   },
 };

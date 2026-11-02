@@ -30,7 +30,7 @@ test('a catheter leaving for a new patient fades on its own unless the figure it
 
 test('leaving the lobule here, its layers change only once it is left', () => {
   assert.match(pres, /if \(!outNow\) slideLayers\(s\);/);
-  assert.match(pres, /if \(outNow\) \{ await toAnatomy\(inAnatomy \? riseFor\(cam, fv\) : null\); slideLayers\(s\);/);
+  assert.match(pres, /if \(outNow\) \{ await toAnatomy\(inAnatomy \? riseFor\(cam, fv\) : null, cut\); if \(cut\(\)\) return; slideLayers\(s\);/);
 });
 
 // Sweep 2: anatomy.

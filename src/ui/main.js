@@ -605,6 +605,15 @@ async function restartPatient() {
   if (stage.isShunting()) stage.cancelShunt();
   setTool('select');
   const id = store.get().presetId || 'healthy';
+  if (hostFailed()) {
+    // The worker stopped for good: a new engine first (a fresh worker, or the main thread), told again what the old one knew.
+    try { await restartHost(); } catch { toast('The model could not restart. Reload the page.', 'bad', { actions: [['Reload', () => location.reload()]] }); return; }
+    host.send({ type: 'ackPaint', on: true });
+    host.send({ type: 'visibility', visible: !document.hidden });
+    const s = store.get();
+    host.send(s.lapse ? { type: 'run', speed: s.lapse, clock: 'disease' } : { type: 'run', speed: s.speed, clock: 'hemo' });
+    if (s.running === false) host.send({ type: 'run', running: false });
+  }
   await loadPreset(id);
   toast(`Restarted: ${store.get().presetList?.find((p) => p.id === id)?.label || 'patient'}.`);
 }
