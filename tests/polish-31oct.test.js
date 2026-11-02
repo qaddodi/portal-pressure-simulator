@@ -312,7 +312,8 @@ test('the Patients and Present previews opened by the (i) on touch scroll their 
   assert.match(fn, /li\.scrollIntoView\(\{ block: 'nearest', behavior: reduce\.matches \? 'auto' : 'smooth' \}\)/);
   // It opens at the tap (a slide by transform, fold-slide.js), the scroll waits out the slide, and the row leaves a margin above the
   // footer and below the sticking heading.
-  assert.match(fn, /fold\(box, li, true, \(v\) => box\.classList\.toggle\('on', v\)\);[\s\S]*setTimeout\(\(\) => \{ if \(box\.isConnected && box\.classList\.contains\('on'\)\) li\.scrollIntoView[\s\S]*D_SMALL \+ 30\);/);
+  // (the scroll itself runs between frames, in a rest pass: scrollIntoView lays the page out)
+  assert.match(fn, /fold\(box, li, true, \(v\) => box\.classList\.toggle\('on', v\)\);[\s\S]*setTimeout\(\(\) => restPass\(scrollRow\), reduce\.matches \? 0 : D_SMALL \+ 30\);[\s\S]*function scrollRow\(\) \{ if \(box\.isConnected && box\.classList\.contains\('on'\)\) li\.scrollIntoView/);
   assert.match(css, /\.um-g li \{[^}]*scroll-margin: 28px 0 36px;/);
 });
 

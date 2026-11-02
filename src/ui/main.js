@@ -18,7 +18,7 @@ import { createTimeline, LAPSES } from './timeline.js?v=a8d13b8d37';
 import { createCompare } from './compare.js?v=708d535f79';
 import { createCard } from './card.js?v=3a1f1f7e16';
 import { createChart } from './chart.js?v=01dce7c841';
-import { createMenu } from './menu.js?v=15acff7669';
+import { createMenu } from './menu.js?v=2a539d2b02';
 import { caption } from './a11y.js?v=f3ddc54aa4';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
@@ -951,6 +951,8 @@ function syncCmpH() {
   const z = sizeOf(c), v = store.get().compareSnap && z ? `${Math.round(z.h) + 8}px` : '0px';
   if (app.style.getPropertyValue('--cmp-h') !== v) app.style.setProperty('--cmp-h', v);
 }
+// (Scrolled between frames, rest-pass.js: scrollIntoView lays the page out.)
+function scrollCmp() { scrollInto($('.cmp-section'), { block: 'start', behavior: scrollBehavior() }); }
 function renderBanner() {
   const el = $('#stageBanner');
   const s0 = store.get();
@@ -966,7 +968,7 @@ function renderBanner() {
     const tbl = h('button', { class: 'btn sm cmp-table-btn', title: 'Every value, then and now, in a table', onclick: () => {
       // (The table scrolls into view once the card has come in, not while it is still sliding: P22.)
       const was = panelShown(); openPanel();
-      setTimeout(() => scrollInto($('.cmp-section'), { block: 'start', behavior: scrollBehavior() }), was ? 0 : 260);
+      setTimeout(() => restPass(scrollCmp), was ? 0 : 260);
     } }, 'Differences');
     kids.push(tbl);
   }
@@ -1601,7 +1603,8 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   // A turn of the device or a new window size changes the stops and the room (px over the thumb dock): a sheet takes its size
   // again once the size has held for a moment (a sheet in the hand is left to its release).
   let retakeT = 0;
-  addEventListener('resize', () => { clearTimeout(retakeT); retakeT = setTimeout(() => { if (!start && isPhone()) apply(); }, 220); });
+  const retake = () => { if (!start && isPhone()) apply(); };   // (measured between frames, rest-pass.js)
+  addEventListener('resize', () => { clearTimeout(retakeT); retakeT = setTimeout(() => restPass(retake), 220); });
   handle.addEventListener('click', () => { if (!isPhone() || !active()) return; const h0 = drawnHeight(); remap(); size = (size + 1) % stops().length; apply(true, h0); });
   let start = null, swallow = 0;
   // Controls keep their own gestures. With `anywhere` (a phone sheet), a vertical drag from any other spot on the

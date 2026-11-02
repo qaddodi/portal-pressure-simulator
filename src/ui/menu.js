@@ -102,7 +102,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const sheetMQ = matchMedia(PHONE_MQ);
   const fine = matchMedia('(hover: hover) and (pointer: fine)');
-  let el = null, back = null, pv = null, coldOpen = false, open = false, leaveT = 0, hoverT = 0, hideT = 0, pvKey = null, mark = null, query = '', tab = 'present';
+  let el = null, back = null, pv = null, coldOpen = false, open = false, leaveT = 0, hoverT = 0, hideT = 0, pvKey = null, pvTok = 0, mark = null, query = '', tab = 'present';
 
   const close = (o = {}) => {
     if (!open) return;
@@ -194,7 +194,12 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     row.addEventListener('focus', () => { if (row.matches(':focus-visible')) want(); });
     row.addEventListener('pointerleave', () => { clearTimeout(hoverT); hideT = setTimeout(() => hidePreview(), 220); });
   }
+  // (The card is measured and placed between frames (rest-pass.js), never inside the hover timer; a newer hover or a hide drops the older ask.)
   function showPreview(row, make, col) {
+    const tok = ++pvTok;
+    restPass(() => { if (tok === pvTok) placePreview(row, make, col); });
+  }
+  function placePreview(row, make, col) {
     if (!el || !row.isConnected) return;
     if (!pv) {
       // (The words sit in a cut of their own, kept for the card's life: a change of height reveals or hides them by two opposite
@@ -282,7 +287,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     setTimeout(done, D_FLIP + 120);   // (a page whose frames stall still lands)
   }
   function hidePreview(now) {
-    clearTimeout(hideT); if (!pv) return;
+    clearTimeout(hideT); pvTok++; if (!pv) return;
     const p = pv; pv = null; pvKey = null;
     el?.querySelectorAll('.pv-on').forEach((r) => r.classList.remove('pv-on'));
     if (now || !p.classList.contains('on')) { p.remove(); return; }
@@ -300,7 +305,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     fold(box, li, true, (v) => box.classList.toggle('on', v));
     // (A row near the foot of the list opened its preview below the fold: once the preview has slid open, the row and its preview scroll
     // into view, clear of the footer.)
-    setTimeout(() => { if (box.isConnected && box.classList.contains('on')) li.scrollIntoView({ block: 'nearest', behavior: reduce.matches ? 'auto' : 'smooth' }); }, reduce.matches ? 0 : D_SMALL + 30);
+    setTimeout(() => restPass(scrollRow), reduce.matches ? 0 : D_SMALL + 30);   // (scrolled between frames: scrollIntoView lays the page out)
+    function scrollRow() { if (box.isConnected && box.classList.contains('on')) li.scrollIntoView({ block: 'nearest', behavior: reduce.matches ? 'auto' : 'smooth' }); }
   }
   const $$rows = () => (el ? [...el.querySelectorAll('.um-row')] : []);
 
