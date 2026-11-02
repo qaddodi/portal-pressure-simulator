@@ -36,7 +36,7 @@ const fp = (pv, ha, shunt = 0, c3 = 0) => {
   Q[idx.PRE_R] = pv / 2; Q[idx.PRE_L] = pv / 2; Q[idx.A_HR] = ha / 2; Q[idx.A_HL] = ha / 2; Q[idx.C3] = c3; Q[idx.PV_TRUNK] = pv + c3;
   return { at: { Q }, shunt };
 };
-const drawn = (card) => { while (frames.length) frames.shift()(); return card.el.kids.find((k) => k.tag === 'svg'); };   // (the card's model, beside its GPU picture)
+const drawn = (card) => { while (frames.length) frames.shift()(); return card.el.kids.find((k) => k.tag === 'svg') || card.el._svgGL?.pending; };   // (the card's model, beside its GPU picture; one swapped in during a frame waits off the page until a rest pass)
 
 for (const of of ['portal', 'inflow']) {
   test(`the ${of} card draws its Healthy bar, Now bar equal or not, without throwing`, () => {
