@@ -285,3 +285,28 @@ test('an imported Map or Set is the built-in\'s, not a method of its module (sto
   });
   assert.ok(!hits.some((h) => h.cat === 'domWrite' && h.file === 'src/ui/st.js' && / path: /.test(h.detail)), 'a frame calling seen.set does not reach store.set');
 });
+
+test('an allocation marked alloc-rare with a reason leaves the count and is listed; one with no reason still counts', () => {
+  const root = mkdtempSync(join(tmpdir(), 'offgpu-rare-'));
+  mkdirSync(join(root, 'src/ui'), { recursive: true }); mkdirSync(join(root, 'styles'));
+  writeFileSync(join(root, 'index.html'), '<html></html>');
+  writeFileSync(join(root, 'src/ui/frame.js'), 'export function frame(cb) { return requestAnimationFrame(cb); }\n');
+  writeFileSync(join(root, 'src/ui/r.js'), [
+    "import { frame } from './frame.js';",
+    'let cache = null;',
+    'function tick() {',
+    '  const a = [1, 2];                      // counted',
+    '  if (!cache) cache = { k: 1 };          // alloc-rare: first frame only',
+    '  // alloc-rare: a resize',
+    '  const b = [3, 4];',
+    '  const c = { z: 1 };                    // alloc-rare:',
+    '  frame(tick);',
+    '}',
+    'frame(tick);',
+  ].join('\n'));
+  const hits = scan({ root }).filter((h) => h.cat === 'alloc');
+  assert.deepEqual(hits.map((h) => h.line).sort((x, y) => x - y), [4, 8], 'counted: no marker, and a marker with no reason');
+  const rare = scan({ root }).rare;
+  assert.deepEqual(rare.map((h) => h.line), [5, 7]);
+  assert.match(rare[0].detail, /first frame only/);
+});

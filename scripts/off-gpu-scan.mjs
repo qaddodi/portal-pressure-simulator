@@ -36,6 +36,8 @@
 //                motion callback: garbage every frame, and the collector's pause lands in a frame (2 Nov 2026: 570 KB a frame measured on
 //                the must path by scripts/frame-alloc.mjs). One hit per line. The cure is a kept buffer or object, written in place.
 //   observerRead a layout read in a MutationObserver callback, or anything it calls: a microtask straight after the writes
+//                A line marked `// alloc-rare: <reason>` (or directly under a comment-only line that is) is a branch that never runs per frame
+//                (first use, a changed key, a resize, a context loss): it leaves the count and is listed with its reason (out.rare, inventory).
 //   unreached    a site of the categories above that no frame, motion or observer path reaches, and that is not setup. Either it runs during use
 //                (reached from an event handler, timer, promise, observer or store listener; the reason is in its detail) or no caller was found.
 //                Never credited as "on GPU" (2 Nov 2026 audit: the score had counted every such site as on the GPU).
@@ -733,6 +735,15 @@ export function scan({ root = ROOT } = {}) {
   const rootKindOf = (k) => { let guard = 0; while (guard++ < 200 && useReach.get(k)) k = useReach.get(k); return seedKind.get(k) || 'event or timer'; };
   const setupLines = new Set(), setupList = [];
   const allocAt = new Map();
+  const rareList = [];
+  const RARE = /\/\/\s*alloc-rare:\s*(\S.*?)\s*$/;
+  const rareReason = (mod, line) => {
+    const L = (mod.lines ||= mod.text.split('\n'));
+    const same = RARE.exec(L[line - 1] || '');
+    if (same) return same[1];
+    const above = L[line - 2] || '';
+    return /^\s*\/\//.test(above) ? RARE.exec(above)?.[1] || '' : '';
+  };
   for (const mod of mods.values()) for (const [cat0, n, f, detail] of mod.late) {
     let cat = cat0;
     if (cat !== 'alloc') look(cat, mod.file, n.loc.start.line);   // (an allocation is a site only where a frame reaches it)
@@ -744,6 +755,13 @@ export function scan({ root = ROOT } = {}) {
       if (hit) cat = 'observerRead';
     }
     if (!hit && cat === 'alloc') continue;   // (not on a frame path: allocating there is no cost to a frame)
+    if (cat === 'alloc') {
+      // (Triage, 2 Nov 2026: a line carrying `// alloc-rare: <reason>`, or directly under a comment-only line that does, allocates only
+      // on a branch that never runs per frame (first use, a changed key, a resize, a context loss). It leaves the count and is listed
+      // with its reason in out.rare and in the inventory. A marker with no reason does not count.)
+      const rl = n.loc.start.line, why = rareReason(mod, rl);
+      if (why) { rareList.push({ cat: 'alloc', file: mod.file, line: rl, fn: label(f), detail: `${detail} — rare: ${why}` }); continue; }
+    }
     if (!hit) {
       // (Looked at above, so it would be credited as on the GPU. No frame path reaches it, so it is triaged, never assumed fine, 2 Nov 2026.)
       let useKey = null;
@@ -790,6 +808,7 @@ export function scan({ root = ROOT } = {}) {
   const seenS = new Set();
   out.setup = setupList.filter((h) => { const k = `${h.cat}|${h.file}|${h.line}|${h.detail}`; if (seenS.has(k) || hitLines.has(`${h.file}:${h.line}`)) return false; seenS.add(k); return true; })
     .sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
+  { const seenR = new Set(); out.rare = rareList.filter((h) => { const k = `${h.file}:${h.line}`; if (seenR.has(k) || hitLines.has(k)) return false; seenR.add(k); return true; }).sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line); }
   out.wide = out.filter((h) => h.wide).length;   // class writes and timer/observer paths: in the honest total, not in the gate
   return out;
 }
@@ -859,6 +878,10 @@ export function inventory(hits, { commit = '' } = {}) {
     L.push('', `## Setup sites (${hits.setup.length}), left out of the count`, '', 'Code that runs once at module load or boot and that no event, timer, listener or frame calls. Listed in full so nothing is hidden; a site leaves this list (and returns to the count) when anything run during use calls it.', '',
       `Per file: ${Object.entries(sf).sort((a, b) => b[1] - a[1]).map(([f, n]) => `${f} ${n}`).join(', ')}`, '', '| File:line | Category | Function | What |', '|---|---|---|---|');
     for (const h of hits.setup) L.push(`| ${h.file}:${h.line} | ${h.cat} | ${esc(h.fn)} | ${esc(h.detail)} |`);
+  }
+  if (hits.rare?.length) {
+    L.push('', `## Rare-branch allocations (${hits.rare.length}), left out of the count`, '', 'Allocations a frame path reaches only on a branch that never runs per frame (first use, a changed key, a resize, a context loss), marked `// alloc-rare: <reason>` in the source. Listed in full with the reason; a marker without a reason does not count.', '', '| File:line | Function | What |', '|---|---|---|');
+    for (const h of hits.rare) L.push(`| ${h.file}:${h.line} | ${esc(h.fn)} | ${esc(h.detail)} |`);
   }
   L.push('', '## GPU 100% target: checklist', '', `Still off the GPU: ${hits.length}. Grouped by kind, then file; tick a box by moving the site to the GPU (the scan drops it on the next regeneration).`);
   const kinds = {};
