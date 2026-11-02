@@ -3,15 +3,15 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=2e6b562412';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, releaseWords } from './util.js?v=6aff9232ad';
+import { store, updateParams } from './store.js?v=0f9c79ec87';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, releaseWords } from './util.js?v=aef9bbf227';
 import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7d7bfe9a62';
-import { cardFor, normalizeSel } from './actions.js?v=705e887053';
-import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
-import { restPass, cancelRest } from './rest-pass.js?v=3164fa18ba';
-import { classSoon, runSoon, propSoon, attrSoon, textSoon } from './class-soon.js?v=60cf95af4a';
+import { cardFor, normalizeSel } from './actions.js?v=d62fdcfcb3';
+import { frameFor, cancelFrame } from './frame.js?v=07b68cf942';
+import { restPass, cancelRest } from './rest-pass.js?v=fea7233cda';
+import { classSoon, runSoon, propSoon, attrSoon, textSoon } from './class-soon.js?v=af0dd2b529';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
-import { readBox, readMetric } from './layout-snap.js?v=a48d65266b';
+import { readBox, readMetric } from './layout-snap.js?v=715abea938';
 const nextFrame = frameFor('card');
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number.
 const numOf = (t) => { const s = String(t).replace('−', '-'); return /^-?\d+(\.\d+)?$/.test(s) ? { n: +s, d: (s.split('.')[1] || '').length } : null; };

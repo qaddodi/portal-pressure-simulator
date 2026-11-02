@@ -38,20 +38,20 @@
 // has landed, the model sends the steady state's last seconds (worker-core.js, History) and the instrument takes them in front of what it
 // has recorded (backfill.js), so the trace sweeps on live from there instead of in from empty.
 
-import { store } from './store.js?v=2e6b562412';
-import { h } from './util.js?v=6aff9232ad';
+import { store } from './store.js?v=0f9c79ec87';
+import { h } from './util.js?v=aef9bbf227';
 import { EDGES } from '../engine/topology.js?v=512e725aea';
-import { createDoppler } from './doppler.js?v=9f2f87d022';
-import { createFibroScan } from './fibroscan.js?v=d1a2ca313a';
-import { createPressureTime } from './pressure-time.js?v=05da82f3db';
-import { createVitalsMonitor } from './vitals-monitor.js?v=f71ffec915';
-import { createHvpgCard } from './tool-hvpg.js?v=4a070befe2';
-import { createFlowTime } from './flow-time.js?v=e42ee2611b';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=eb91975ef6';
-import { frameFor } from './frame.js?v=1d147c7c9a';
-import { restPass, cancelRest } from './rest-pass.js?v=3164fa18ba';
-import { talkTrace } from './talk-trace.js?v=6e3ebacd5f';
-import { EXT, guard, safe } from './slide-ext.js?v=6ae7e2571a';
+import { createDoppler } from './doppler.js?v=89828f2481';
+import { createFibroScan } from './fibroscan.js?v=e3907320b8';
+import { createPressureTime } from './pressure-time.js?v=1af79fc6ed';
+import { createVitalsMonitor } from './vitals-monitor.js?v=3ce981b76d';
+import { createHvpgCard } from './tool-hvpg.js?v=671cfb68c4';
+import { createFlowTime } from './flow-time.js?v=bf9b8afb9b';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=816aa2020e';
+import { frameFor } from './frame.js?v=07b68cf942';
+import { restPass, cancelRest } from './rest-pass.js?v=fea7233cda';
+import { talkTrace } from './talk-trace.js?v=ca8adcb0fc';
+import { EXT, guard, safe } from './slide-ext.js?v=84a696e200';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',

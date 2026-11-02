@@ -13,7 +13,9 @@ function dispatch(msg) {
     const p = pending.get(msg.reqId); pending.delete(msg.reqId); clearTimeout(p.timer);
     if (msg.type === 'error') p.reject(new Error(msg.message)); else p.resolve(msg);
   }
-  (handlers.get(msg.type) || []).forEach((fn) => fn(msg));
+  // (By index over the handlers there were when the message came: one subscribed by a handler is told from the next message on, as forEach did.)
+  const list = handlers.get(msg.type);
+  if (list) for (let i = 0, n = list.length; i < n; i++) list[i](msg);
 }
 
 function crashed(message) {
@@ -82,14 +84,14 @@ export const host = {
     if (!handlers.has(type)) handlers.set(type, []);
     handlers.get(type).push(fn);
   },
-  request(type, payload = {}) {
+  request(type, payload) {
     if (failed || !impl) return Promise.reject(new Error('The engine is not running.'));
     const reqId = reqSeq++;
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {   // alloc-rare: a request is one user action (a history snapshot, a preset, a why), never a frame's: the promise, its timer and its message are the request itself
       // (No answer in REQUEST_WAIT: rejected, so a caller is never parked on an engine that will not reply.)
-      const timer = setTimeout(() => { if (pending.delete(reqId)) reject(new Error(`The engine did not answer ${type}.`)); }, REQUEST_WAIT);
-      pending.set(reqId, { resolve, reject, timer });
-      try { impl.post({ type, reqId, ...payload }); } catch (err) { pending.delete(reqId); clearTimeout(timer); reject(err); }
+      const timer = setTimeout(() => { if (pending.delete(reqId)) reject(new Error(`The engine did not answer ${type}.`)); }, REQUEST_WAIT);   // alloc-rare: the request's own timer, one per user action
+      pending.set(reqId, { resolve, reject, timer });   // alloc-rare: the request's own record, one per user action
+      try { impl.post({ type, reqId, ...payload }); } catch (err) { pending.delete(reqId); clearTimeout(timer); reject(err); }   // alloc-rare: the request's own message, one per user action
     });
   },
 };

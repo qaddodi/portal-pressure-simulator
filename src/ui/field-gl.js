@@ -11,8 +11,8 @@
 // Without WebGL2 (or on a software renderer, or once the context is lost) createFieldGL returns null / reports lost, and the
 // field is drawn on the 2D canvas as before.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=f9222c848a';
-import { isTileCopy, createTileCopier } from './tile-gl.js?v=f19eb73683';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=6c955f55d8';
+import { isTileCopy, createTileCopier } from './tile-gl.js?v=d66f6db5f2';
 import { uniformCache } from './uniform-cache.js?v=6488216aa0';
 
 const VS = `#version 300 es

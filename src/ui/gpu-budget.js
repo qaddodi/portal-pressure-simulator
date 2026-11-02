@@ -11,8 +11,8 @@
 // quality tiers read (adapt-tier.js, R07) to step the scene's resolution down before the motion skips frames.
 // Read it: ?perf (the readout's Surfaces block ends with the budget), or pps.budget() in the console.
 
-import { onGLCall, glRec } from './gl-state.js?v=4163c507aa';
-import { onFrameEnd } from './frame.js?v=1d147c7c9a';
+import { onGLCall, glRec } from './gl-state.js?v=f33764e84c';
+import { onFrameEnd } from './frame.js?v=07b68cf942';
 
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
 // (With ?perf, each entry keeps the line of code that made it, so the readout names the biggest creators: a leak names itself.)
@@ -89,7 +89,7 @@ const last = { targets: 0, draws: 0, area: 0, copies: 0, copyArea: 0, transfers:
 const PASS_KEYS = Object.keys(last);
 let worst = { area: 0, at: 0 }, overFrames = 0, overMem = false, warnedMem = false, memAt = 0;
 
-function onCall(gl, name, x) {
+function onCall(gl, name, x, n) {
   if (name === 'draw' || name === 'clear') { cur.draws++; cur.area += x; return; }
   if (name === 'copy') { cur.copies++; cur.copyArea += x; return; }
   if (name === 'target') { if (x !== cur.lastFb) { cur.targets++; cur.lastFb = x; } return; }
@@ -99,14 +99,14 @@ function onCall(gl, name, x) {
     return;
   }
   if (name === 'restored') { for (const [id, e] of entries) if (e.gl?.deref?.() === gl) forget(id); return; }
-  if (name.startsWith('delete')) { drop(x[0]); return; }
+  if (name.startsWith('delete')) { drop(x); return; }   // (x: the object let go)
   const r = glRec(gl);
   if (!r) return;
   const a = x;
   if (name === 'texStorage2D') {
     if (a[0] !== gl.TEXTURE_2D) return;   // (only the 2D binding is in the record: a 3D or array texture is left out, never credited to it)
     const tex = r.tex.get(r.unit), e = entryFor(gl, tex, 'texture'); if (!e) return;
-    const [, levels, ifmt, w, h, d = 1] = a, bpp = bppOf(gl, ifmt);
+    const levels = a[1], ifmt = a[2], w = a[3], h = a[4], d = a[5] === undefined ? 1 : a[5], bpp = bppOf(gl, ifmt);
     e.fmt = FMT_NAME(gl, ifmt); e.w = w; e.h = h; e.d = d; e.levels.clear(); if (entries.get(e.id) === e) regBytes -= e.bytes; e.bytes = 0; e.gl = ctxRef(gl);
     let b = 0; for (let l = 0, lw = w, lh = h; l < levels; l++, lw = Math.max(1, lw >> 1), lh = Math.max(1, lh >> 1)) b += lw * lh * d * bpp;
     setLevel(e, 0, b); e.nLevels = levels; e.bpp = bpp;
@@ -114,7 +114,7 @@ function onCall(gl, name, x) {
     if (a[0] !== gl.TEXTURE_2D) return;   // (a cube face or another target: not this app's)
     const tex = r.tex.get(r.unit), e = entryFor(gl, tex, 'texture'); if (!e) return;
     let w, h, type;
-    if (a.length >= 8) { w = a[3]; h = a[4]; type = a[7]; } else { const src = a[5]; w = src?.width || src?.videoWidth || 0; h = src?.height || src?.videoHeight || 0; type = a[4]; }
+    if (n >= 8) { w = a[3]; h = a[4]; type = a[7]; } else { const src = a[5]; w = src?.width || src?.videoWidth || 0; h = src?.height || src?.videoHeight || 0; type = a[4]; }
     const bpp = bppOf(gl, a[2], type);
     if (a[1] === 0) { e.fmt = FMT_NAME(gl, a[2]); e.w = w; e.h = h; }
     e.gl = ctxRef(gl);
@@ -155,7 +155,8 @@ function onCall(gl, name, x) {
 export const CTX_MAX = 2;
 const CTX_ASSERT = SITES || (typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(location.hostname || ''));
 let ctxWarned = 0;
-/** Live contexts now: { own, charts } (charts: the offscreen pool contexts). */
+const ctxCounts = { own: 0, charts: 0 };
+/** Live contexts now: { own, charts } (charts: the offscreen pool contexts). The same object each time: read it in the call. */
 export function contextCount() {
   let own = 0, charts = 0;
   for (let i = ctxRefs.length - 1; i >= 0; i--) {
@@ -164,15 +165,16 @@ export function contextCount() {
     if (gl.isContextLost?.()) continue;
     if (ownerOf(gl) === 'offscreen') charts++; else own++;
   }
-  return { own, charts };
+  ctxCounts.own = own; ctxCounts.charts = charts;
+  return ctxCounts;
 }
 function checkContexts() {
   const c = contextCount();
   if (c.own <= CTX_MAX) { ctxWarned = Math.min(ctxWarned, c.own); return; }
   if (c.own <= ctxWarned) return;
   ctxWarned = c.own;
-  const names = []; for (let i = 0; i < ctxRefs.length; i++) { const gl = ctxRefs[i].deref(); if (gl && !gl.isContextLost?.() && ownerOf(gl) !== 'offscreen') names.push(ownerOf(gl)); }
-  console.warn(`WebGL contexts over budget: ${c.own} of the page's own live (at most ${CTX_MAX}, plus ${c.charts} for charts)`, names);
+  const names = []; for (let i = 0; i < ctxRefs.length; i++) { const gl = ctxRefs[i].deref(); if (gl && !gl.isContextLost?.() && ownerOf(gl) !== 'offscreen') names.push(ownerOf(gl)); } // alloc-rare: only when the number of live contexts rises past its last high (a dev warning, ?perf or localhost)
+  console.warn(`WebGL contexts over budget: ${c.own} of the page's own live (at most ${CTX_MAX}, plus ${c.charts} for charts)`, names); // alloc-rare: only when the number of live contexts rises past its last high (a dev warning, ?perf or localhost)
 }
 
 // The canvases' own buffers: colour, and depth/stencil, at their backing size, twice (the one shown and the one drawn).
@@ -190,25 +192,25 @@ const screenPx = () => { const d = globalThis.devicePixelRatio || 1; return Math
 /** The registry and the passes now: bytes against the memory envelope, the last frame's area against the pass envelope. */
 export function budget() {
   const env = ENVELOPES[deviceClass()];
-  const owners = new Map();
+  const owners = new Map(); // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
   let bytes = 0;
-  for (const e of entries.values()) { bytes += e.bytes; const o = owners.get(e.owner) || { owner: e.owner, bytes: 0, n: 0 }; o.bytes += e.bytes; o.n++; owners.set(e.owner, o); }
+  for (const e of entries.values()) { bytes += e.bytes; const o = owners.get(e.owner) || { owner: e.owner, bytes: 0, n: 0 }; o.bytes += e.bytes; o.n++; owners.set(e.owner, o); } // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
   const canvases = canvasBytes();
   bytes += canvases;
-  const big = [...entries.values()].sort((a, b) => b.bytes - a.bytes).slice(0, 8).map((e) => ({ owner: e.owner, kind: e.kind, fmt: e.fmt, w: e.w, h: e.h, samples: e.samples, levels: e.nLevels || e.levels.size, mb: +(e.bytes / 1e6).toFixed(1) }));
-  const sites = new Map();
-  if (SITES) for (const e of entries.values()) { const k = `${e.owner} ${e.kind} ${e.site}`; const o = sites.get(k) || { site: k, n: 0, bytes: 0 }; o.n++; o.bytes += e.bytes; sites.set(k, o); }
-  const creators = [...sites.values()].sort((a, b) => b.bytes - a.bytes).slice(0, 8).map((o) => ({ site: o.site, n: o.n, mb: +(o.bytes / 1e6).toFixed(1) }));
+  const big = [...entries.values()].sort((a, b) => b.bytes - a.bytes).slice(0, 8).map((e) => ({ owner: e.owner, kind: e.kind, fmt: e.fmt, w: e.w, h: e.h, samples: e.samples, levels: e.nLevels || e.levels.size, mb: +(e.bytes / 1e6).toFixed(1) })); // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
+  const sites = new Map(); // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
+  if (SITES) for (const e of entries.values()) { const k = `${e.owner} ${e.kind} ${e.site}`; const o = sites.get(k) || { site: k, n: 0, bytes: 0 }; o.n++; o.bytes += e.bytes; sites.set(k, o); } // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
+  const creators = [...sites.values()].sort((a, b) => b.bytes - a.bytes).slice(0, 8).map((o) => ({ site: o.site, n: o.n, mb: +(o.bytes / 1e6).toFixed(1) })); // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
   const scr = screenPx();
-  return {
+  return { // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
     creators,
     device: deviceClass(), envelope: env,
-    mb: +(bytes / 1e6).toFixed(1), canvasesMb: +(canvases / 1e6).toFixed(1), overMemory: bytes > env.mb * 1e6,
-    owners: [...owners.values()].sort((a, b) => b.bytes - a.bytes).map((o) => ({ owner: o.owner, n: o.n, mb: +(o.bytes / 1e6).toFixed(1) })),
+    mb: +(bytes / 1e6).toFixed(1), canvasesMb: +(canvases / 1e6).toFixed(1), overMemory: bytes > env.mb * 1e6, // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
+    owners: [...owners.values()].sort((a, b) => b.bytes - a.bytes).map((o) => ({ owner: o.owner, n: o.n, mb: +(o.bytes / 1e6).toFixed(1) })), // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
     largest: big,
-    frame: { targets: last.targets, draws: last.draws, screens: +(last.area / scr).toFixed(2), copies: last.copies, copyScreens: +(last.copyArea / scr).toFixed(2), transfers: last.transfers, transferScreens: +(last.transferArea / scr).toFixed(2), uploads: last.uploads, uploadScreens: +(last.uploadArea / scr).toFixed(2) },
+    frame: { targets: last.targets, draws: last.draws, screens: +(last.area / scr).toFixed(2), copies: last.copies, copyScreens: +(last.copyArea / scr).toFixed(2), transfers: last.transfers, transferScreens: +(last.transferArea / scr).toFixed(2), uploads: last.uploads, uploadScreens: +(last.uploadArea / scr).toFixed(2) }, // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
     holders: holdersNow(),
-    worstScreens: +(worst.area / scr).toFixed(2), overPassFrames: overFrames,
+    worstScreens: +(worst.area / scr).toFixed(2), overPassFrames: overFrames, // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
   };
 }
 
@@ -241,12 +243,12 @@ const holderBytes = (h) => { try { return Math.max(0, +h.bytes() || 0); } catch 
  * drop() (the owner let it go itself, or uses it again as shown), get held }.
  */
 export function hold(spec) {
-  const h = { owner: spec.owner || 'gpu', kind: spec.kind === 'retained' ? 'retained' : 'warm', bytes: spec.bytes || (() => 0), release: spec.release, gl: spec.gl || null, at: nowMs() };
+  const h = { owner: spec.owner || 'gpu', kind: spec.kind === 'retained' ? 'retained' : 'warm', bytes: spec.bytes || (() => 0), release: spec.release, gl: spec.gl || null, at: nowMs() }; // alloc-rare: once per held resource: its owner touches an existing holder instead of holding again
   holders.add(h);
-  const handle = {
+  const handle = { // alloc-rare: once per held resource: its owner touches an existing holder instead of holding again
     touch() { if (holders.has(h)) h.at = nowMs(); },   // (cheap: called on every chart frame; enforce() runs on hold() and the tick)
     drop() { holders.delete(h); },
-    get held() { return holders.has(h); },
+    get held() { return holders.has(h); }, // alloc-rare: once per held resource: its owner touches an existing holder instead of holding again
   };
   enforce();
   return handle;
@@ -256,7 +258,7 @@ const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Da
 let releaseFails = 0, unmet = 0;
 function letGo(h) {
   holders.delete(h);
-  try { h.release?.(); evictions++; return true; } catch (e) { releaseFails++; console.warn(`GPU budget: ${h.owner} could not let go of what it held.`, e); return false; }
+  try { h.release?.(); evictions++; return true; } catch (e) { releaseFails++; console.warn(`GPU budget: ${h.owner} could not let go of what it held.`, e); return false; } // alloc-rare: only when a holder's release throws, once, as a warning
 }
 /** Gives back held resources until the warm ones are within their share and count and the registry within its envelope. */
 export function enforce(env = ENVELOPES[deviceClass()]) {
@@ -269,25 +271,25 @@ export function enforce(env = ENVELOPES[deviceClass()]) {
     if (wn <= WARM_MAX && wb <= env.mb * 1e6 * WARM_SHARE && total <= env.mb * 1e6) { unmet = 0; return 0; }
   }
   const before = evictions;
-  const lru = (kind) => [...holders].filter((h) => h.kind === kind).sort((a, b) => a.at - b.at);
+  const lru = (kind) => [...holders].filter((h) => h.kind === kind).sort((a, b) => a.at - b.at); // alloc-rare: only when the holders are over their share or the registry over its envelope (looked at twice a second)
   // (warm: by count, then by their share of the envelope)
   let warm = lru('warm');
   while (warm.length > WARM_MAX) letGo(warm.shift());
-  let warmBytes = warm.reduce((a, h) => a + holderBytes(h), 0);
+  let warmBytes = warm.reduce((a, h) => a + holderBytes(h), 0); // alloc-rare: only when the holders are over their share or the registry over its envelope (looked at twice a second)
   while (warm.length && warmBytes > env.mb * 1e6 * WARM_SHARE) { const h = warm.shift(), b = holderBytes(h); if (letGo(h)) warmBytes -= b; }
   // (the whole: the registry's bytes, or the holders' own where it counts nothing)
   let total = registryBytes(), held = 0;
   for (const h of holders) held += holderBytes(h);
   total = Math.max(total, held);   // (the registry already counts what holders hold)
-  const over = () => total > env.mb * 1e6;
-  for (const kind of ['warm', 'retained']) for (const h of lru(kind)) { if (!over()) break; const b = holderBytes(h); if (letGo(h)) total -= b; }
+  const over = () => total > env.mb * 1e6; // alloc-rare: only when the holders are over their share or the registry over its envelope (looked at twice a second)
+  for (const kind of ['warm', 'retained']) for (const h of lru(kind)) { if (!over()) break; const b = holderBytes(h); if (letGo(h)) total -= b; } // alloc-rare: only when the holders are over their share or the registry over its envelope (looked at twice a second)
   // (What is left over the envelope once every holder has been asked: pressure no release met, reported, never taken as solved.)
   unmet = over() ? total - env.mb * 1e6 : 0;
   return evictions - before;
 }
 function registryBytes() { return canvasBytes() + regBytes; }
 /** The holders now (tests and ?perf). */
-export function holdersNow() { return { evictions, releaseFails, unmetMB: +(unmet / 1e6).toFixed(1), list: [...holders].map((h) => ({ owner: h.owner, kind: h.kind, mb: +(holderBytes(h) / 1e6).toFixed(1) })) }; }
+export function holdersNow() { return { evictions, releaseFails, unmetMB: +(unmet / 1e6).toFixed(1), list: [...holders].map((h) => ({ owner: h.owner, kind: h.kind, mb: +(holderBytes(h) / 1e6).toFixed(1) })) }; } // alloc-rare: a report read by the ?perf readout and the tests
 
 /** True while the render graph is over its envelope: the last frames ran past the pass envelope, or the registry past memory's. */
 export function overBudget() { return overMem || overFrames >= 2; }
@@ -317,7 +319,7 @@ onFrameEnd((f) => {
     memAt = f.now;
     const bytes = registryBytes();
     overMem = bytes > env.mb * 1e6;
-    if (overMem && !warnedMem) { warnedMem = true; const b = budget(); console.warn(`GPU memory over its envelope: ${b.mb} of ${b.envelope.mb} MB`, b.owners.slice(0, 5)); }
+    if (overMem && !warnedMem) { warnedMem = true; const b = budget(); console.warn(`GPU memory over its envelope: ${b.mb} of ${b.envelope.mb} MB`, b.owners.slice(0, 5)); } // alloc-rare: once, when memory first runs over its envelope (warnedMem)
     if (!overMem) warnedMem = false;
     enforce(env);
     if (CTX_ASSERT) checkContexts();

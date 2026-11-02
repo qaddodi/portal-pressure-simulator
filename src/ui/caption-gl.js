@@ -17,12 +17,12 @@
 //   cap.box(key) / cap.at(key)                  // its box (px) / where it is drawn now
 //   cap.paint()
 
-import { createTraceGL, fitPen } from './trace-gl.js?v=0dcd67d32a';
-import { finalFrameFor, easeNow } from './frame.js?v=1d147c7c9a';
-import { measure } from './glyph-measure.js?v=89d38cd516';
+import { createTraceGL, fitPen } from './trace-gl.js?v=3047e389f0';
+import { finalFrameFor, easeNow } from './frame.js?v=07b68cf942';
+import { measure } from './glyph-measure.js?v=065ba67666';
 import { D_SURFACE, easeArrive } from './ease.js?v=7d7bfe9a62';
 import { cssColor } from './css-color.js?v=59ed182174';
-import { readBox, readRects, readStyle } from './layout-snap.js?v=a48d65266b';
+import { readBox, readRects, readStyle } from './layout-snap.js?v=715abea938';
 
 const finalFrame = finalFrameFor('caption-gl');
 const NONE = [];

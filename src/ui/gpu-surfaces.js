@@ -16,11 +16,11 @@ export function surface(name, read) {
 
 /** Every surface on screen now, in the order registered: [{ name, on, via, why }]. A getter that throws is listed as unknown. */
 export function surfaceRows() {
-  const out = [];
+  const out = []; // alloc-rare: read by the ?perf readout while it is open, twice a second, never by an ordinary frame
   for (const [name, read] of rows) {
     let s;
-    try { s = read(); } catch (err) { s = { on: 'fallback', via: '?', why: `state unreadable (${err?.message || err})` }; }
-    if (s) out.push({ name, on: s.on, via: s.via || '', why: s.why || '' });
+    try { s = read(); } catch (err) { s = { on: 'fallback', via: '?', why: `state unreadable (${err?.message || err})` }; } // alloc-rare: read by the ?perf readout while it is open, twice a second, never by an ordinary frame
+    if (s) out.push({ name, on: s.on, via: s.via || '', why: s.why || '' }); // alloc-rare: read by the ?perf readout while it is open, twice a second, never by an ordinary frame
   }
   return out;
 }

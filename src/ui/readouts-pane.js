@@ -3,12 +3,12 @@
 // The tile markup, classes and status logic follow the bar's tiles in dock.js; the data comes from there
 // (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
-import { store, hiddenNow } from './store.js?v=2e6b562412';
+import { store, hiddenNow } from './store.js?v=0f9c79ec87';
 import { hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn } from './util.js?v=6aff9232ad';
+import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn } from './util.js?v=aef9bbf227';
 import { vitalReading } from './vital-read.js?v=eb683dfbdd';
 import { SCALE, RATE } from './table-marks.js?v=a483b9975e';
-import { shownState, shownOr, FILL_SMALL, fillQ } from './shown.js?v=33ffa6d9eb';
+import { shownState, shownOr, FILL_SMALL, fillQ } from './shown.js?v=2bc5e1c629';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
 

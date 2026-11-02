@@ -12,8 +12,8 @@
 //
 // Without WebGL2, on a software renderer or once the context is lost, createFxGL returns null / reports lost, and paintFx draws.
 
-import { startProgram, checkProgram } from './gl-compile.js?v=f9222c848a';
-import { fbComplete } from './gl-state.js?v=4163c507aa';
+import { startProgram, checkProgram } from './gl-compile.js?v=6c955f55d8';
+import { fbComplete } from './gl-state.js?v=f33764e84c';
 import { uniformCache } from './uniform-cache.js?v=6488216aa0';
 
 export const FX_GPU = true;   // (switch deleted; kept for lobule-zoom.js until its own pass)
@@ -112,46 +112,63 @@ void main() {
 
 // (Through gl-compile.js: both programs started before either is read, so the driver compiles them side by side, and only the link's
 // status read (?shaderwarm=0: one after the other, each shader's status first, as before).)
+// alloc-rare: built once per program start (createFxGL setup), not per frame
 const startOf = (gl, vs, fs, attrs = []) => startProgram(gl, vs, fs, attrs.map((n, i) => [n, i]));
+// (The colour masks of the coverage channels, one array each, shared: a layer is drawn into one channel.)
+const M_R = [true, false, false, false], M_G = [false, true, false, false], M_B = [false, false, true, false], M_A = [false, false, false, true];
 export const fxShaders = { capVS, capFS, quadVS, compFS };   // (for the shader checks in the unit tests)
 
 /** host ({ gl, canvas }: the lobule's vessel renderer's top, veins-gl.js): no canvas or context of its own; each draw lays the overlay
  *  over what is in the host's canvas (it is called at the end of each picture the host lays), and leaves the context as the host's
  *  own passes expect to find it. */
+// alloc-rare: built once per context (createFxGL / restore), not per frame
 export function createFxGL(canvas, { host = null } = {}) {
   let gl = null;
   let ucache = null;   // (the uniform cache, made at the first draw; uniforms are set only through it, uniform-cache.js)
+  // alloc-rare: built once per context (createFxGL / restore), not per frame
   const D0 = new Float32Array(MAX_DUCTS * 4), D1 = new Float32Array(MAX_DUCTS * 4);   // (the ductules' two uniform arrays, refilled each frame)
   if (host) gl = host.gl;
+  // alloc-rare: built once per context (createFxGL / restore), not per frame
   else try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: false }); } catch { gl = null; }
   if (!gl) return null;
   if (host) canvas = host.canvas;
   let lost = false, failed = false, P = null;
   // (A buffer per kind of instance: the eraser and the lining are kept while their key holds; the drops and beads change each frame.)
+  // alloc-rare: built once per context (createFxGL / restore), not per frame
   const bufs = {};
   let cov = null, lin = null;   // the coverage targets, at the canvas's size
   function build() {
+    // alloc-rare: built once per context (createFxGL / restore), not per frame
     const hc = startOf(gl, capVS, capFS, ['a', 'b']), hk = startOf(gl, quadVS, compFS);
     const cap = checkProgram(gl, hc), comp = checkProgram(gl, hk);
+    // alloc-rare: built once per context (createFxGL / restore), not per frame
     for (const x of [...hc.sh, ...hk.sh]) gl.deleteShader(x);
+    // alloc-rare: built once per context (createFxGL / restore), not per frame
     const loc = (p, names) => Object.fromEntries(names.map((n) => [n, gl.getUniformLocation(p, n)]));
+    // alloc-rare: built once per context (createFxGL / restore), not per frame
     P = {
       cap, comp,
+      // alloc-rare: built once per context (createFxGL / restore), not per frame
       CU: loc(cap, ['uView', 'uSize', 'uAdd', 'uRing']),
+      // alloc-rare: built once per context (createFxGL / restore), not per frame
       KU: loc(comp, ['uView', 'uSize', 'uCov', 'uLin', 'uLy', 'uLine', 'uCLy', 'uCRing', 'uCBead', 'uCLine', 'uND', 'uD0', 'uD1', 'uCLum', 'uCCell', 'uCEdge', 'uCNuc', 'uEdge', 'uAlpha']),
     };
+    // alloc-rare: built once per context (createFxGL / restore), not per frame
     for (const k of ['erase', 'line', 'drops', 'beads']) {
       const vao = gl.createVertexArray(), buf = gl.createBuffer();
       gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 24, 0); gl.vertexAttribDivisor(0, 1);
       gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 24, 16); gl.vertexAttribDivisor(1, 1);
+      // alloc-rare: built once per context (createFxGL / restore), not per frame
       bufs[k] = { vao, buf, n: 0, data: null, cap: 0 };
     }
     gl.bindVertexArray(null);
   }
   try { build(); } catch (err) { console.warn('The lobule overlay falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
   // (Hosted, the host's owner makes the layer again with the renderer it makes after a loss.)
+  // alloc-rare: context loss/restore listeners, made once
   if (!host) canvas.addEventListener('webglcontextlost', (e) => { lost = true; cov = null; lin = null; P = null; e.preventDefault?.(); });
+  // alloc-rare: context loss/restore listeners, made once
   if (!host) canvas.addEventListener('webglcontextrestored', () => { try { build(); lost = false; for (const k in bufs) { bufs[k].arr = null; bufs[k].cap = 0; } } catch { failed = true; } });
   function target(t, w, h) {
     if (t && t.w === w && t.h === h) return t;
@@ -165,6 +182,7 @@ export function createFxGL(canvas, { host = null } = {}) {
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
     const ok = fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', w, h);   // (asked per framebuffer, size and attachment set: gl-state.js)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    // alloc-rare: a coverage target is made when the canvas size changes
     return ok ? { tex, fbo, w, h } : (gl.deleteFramebuffer(fbo), gl.deleteTexture(tex), null);
   }
   function feed(k, data) {
@@ -181,12 +199,14 @@ export function createFxGL(canvas, { host = null } = {}) {
   function layer(k, data, mask, add, ring) {
     const n = feed(k, data);
     if (!n) return;
-    gl.colorMask(...mask);
+    gl.colorMask(mask[0], mask[1], mask[2], mask[3]);
     ucache.f1(P.CU.uAdd, add); ucache.f1(P.CU.uRing, ring);
     gl.bindVertexArray(bufs[k].vao);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
   }
+  // alloc-rare: the layer object is made once per createFxGL, its methods are kept
   return {
+    // alloc-rare: the layer object is made once per createFxGL, its methods are kept
     get lost() { return lost || failed || !P || gl.isContextLost(); },
     /** Gives back the coverage targets and the canvas's memory (the overlay is not shown). */
     release() { if (cov) { gl.deleteFramebuffer(cov.fbo); gl.deleteTexture(cov.tex); cov = null; } if (lin) { gl.deleteFramebuffer(lin.fbo); gl.deleteTexture(lin.tex); lin = null; } },
@@ -211,16 +231,16 @@ export function createFxGL(canvas, { host = null } = {}) {
         gl.useProgram(P.cap);
         ucache.f4(P.CU.uView, view[0], view[1], view[2], view[3]); ucache.f2(P.CU.uSize, W, H);
         gl.enable(gl.BLEND); gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE);
-        layer('drops', lymph.drops, [true, false, false, false], 0, 0);
-        layer('beads', lymph.beadRings, [false, true, false, false], 0, lymph.ringHalf);
-        layer('beads', lymph.beadRings, [false, false, true, false], 0, 0);   // (the same discs, filled)
-        layer('erase', lymph.erase, [false, false, false, true], lymph.eraseAdd, 0);
+        layer('drops', lymph.drops, M_R, 0, 0);
+        layer('beads', lymph.beadRings, M_G, 0, lymph.ringHalf);
+        layer('beads', lymph.beadRings, M_B, 0, 0);   // (the same discs, filled)
+        layer('erase', lymph.erase, M_A, lymph.eraseAdd, 0);
         if (lymph.line) {
           lin = target(lin, W, H);
           if (!lin) { gl.disable(gl.BLEND); gl.colorMask(true, true, true, true); gl.bindFramebuffer(gl.FRAMEBUFFER, null); return false; }
           gl.bindFramebuffer(gl.FRAMEBUFFER, lin.fbo);
           gl.colorMask(true, true, true, true); gl.clear(gl.COLOR_BUFFER_BIT);
-          layer('line', lymph.line, [true, false, false, false], 0, 0);
+          layer('line', lymph.line, M_R, 0, 0);
         }
         gl.bindVertexArray(null);
         gl.disable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.colorMask(true, true, true, true);
@@ -240,7 +260,7 @@ export function createFxGL(canvas, { host = null } = {}) {
       ucache.i1(U.uND, nd);
       if (nd) {
         D0.fill(0); D1.fill(0);
-        for (let j = 0; j < nd; j++) { D0.set(ducts.subarray(j * 8, j * 8 + 4), j * 4); D1.set(ducts.subarray(j * 8 + 4, j * 8 + 8), j * 4); }
+        for (let j = 0; j < nd; j++) for (let q = 0; q < 4; q++) { D0[j * 4 + q] = ducts[j * 8 + q]; D1[j * 4 + q] = ducts[j * 8 + 4 + q]; }
         ucache.fv4(U.uD0, D0); ucache.fv4(U.uD1, D1);
         ucache.fv4(U.uCLum, duct.lum); ucache.fv4(U.uCCell, duct.cell); ucache.fv4(U.uCEdge, duct.edge); ucache.fv4(U.uCNuc, duct.nuc);
         ucache.f1(U.uEdge, duct.width); ucache.f1(U.uAlpha, duct.alpha);

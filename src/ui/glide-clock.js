@@ -10,7 +10,7 @@ export const STEP_MAX = 40;
 /** A clock for one glide: call it with each frame's time; it answers the milliseconds into the glide (0 on the first frame). */
 export function glideClock() {
   let last = null, at = 0;
-  return (now) => {
+  return (now) => {   // alloc-rare: once per glide, when a refit starts (the frames of the glide call the clock, not make it)
     if (last !== null) at += Math.min(Math.max(0, now - last), STEP_MAX);
     last = now;
     return at;

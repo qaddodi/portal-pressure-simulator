@@ -11,7 +11,7 @@
 // There is no 2D path any more (the owner, 1 Nov 2026: nothing off the GPU): a monitor with no WebGL2 shows its words over a black trace,
 // and a lost context shows the trace black until the ring is sent again.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=f9222c848a';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=6c955f55d8';
 
 const VS = `#version 300 es
 in vec2 p;

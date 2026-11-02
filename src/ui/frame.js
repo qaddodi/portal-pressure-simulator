@@ -16,8 +16,8 @@
 // while nobody watches. perf().inputToPaint is the input-to-first-change measure (input-latency.js, premium-feel recs R2), made on
 // its first read, so a page nobody measures has no listener for it.
 
-import { gpuProbe } from './gpu-probe.js?v=625c2c9315';
-import { createFrameRecorder } from './frame-stats.js?v=c6ae854a8b';
+import { gpuProbe } from './gpu-probe.js?v=94a4db0dc6';
+import { createFrameRecorder } from './frame-stats.js?v=41fd97ed52';
 import { createInputLatency, describeTarget } from './input-latency.js?v=3c0129b426';
 import { caught } from './caught.js?v=b96b17594a';
 // A batch of asked-for callbacks, in request order (plan "Holding 120 Hz, always" rev 2 §2.8: zero allocation on the frame path). Three
@@ -65,13 +65,19 @@ export function framePart(tag, fn) {
   if (!watchers.size) return fn();
   const t0 = performance.now();
   try { return fn(); } finally {
-    const e = [tag, parts ? 'in' : 'outside', performance.now() - t0];
+    const e = [tag, parts ? 'in' : 'outside', performance.now() - t0];   // alloc-rare: only while frames are watched (the ?perf readout, the gates): the early return above skips it
     if (parts) parts.push(e); else if (outsideParts.length < 64) outsideParts.push(e);
   }
 }
 
 // (gpuProbe's named steps, stage.js's 'update: geometry', 'organ picture: draw' and the rest, are such pieces too.)
 gpuProbe.part = framePart;
+
+// (An error thrown by a callback is raised again from a timer of its own, so one surface's error never stops the others. One function for
+// all the places that catch; the closure is made only when something threw.)
+function rethrow(e) {
+  setTimeout(() => { throw e; });   // alloc-rare: only when a callback or a watcher threw
+}
 
 function flush(now) {
   const taskT0 = performance.now();
@@ -115,15 +121,15 @@ function flush(now) {
   globalThis.__frameProbe?.(now);   // (the tests read the camera here, once every frame has been drawn)
   roll(now);
   if (watching) {
-    const f = { now, gap: chained ? now - lastNow : 0, script, parts };
-    for (const w of watchers) try { w(f); } catch (e) { setTimeout(() => { throw e; }); }
+    const f = { now, gap: chained ? now - lastNow : 0, script, parts };   // alloc-rare: only while a watcher is on (watching), for the ?perf readout and the gates
+    for (const w of watchers) try { w(f); } catch (e) { rethrow(e); }
   }
   // (recs-production-120hz §14: the cheap end-of-frame signal the adaptive tiers and the GPU budget run on. No parts are kept for it, so
   // ordinary rendering allocates no per-part records; detailed tracing (watchFrames) is opt-in, for ?perf and the gates. One object,
   // reused. The observers' own time is measured: lastTask is the whole frame task, scheduler bookkeeping and observers included.)
   if (ends.size) {
     endF.now = now; endF.gap = chained ? now - lastNow : 0; endF.script = lastScript;
-    for (const w of ends) try { w(endF); } catch (e) { setTimeout(() => { throw e; }); }
+    for (const w of ends) try { w(endF); } catch (e) { rethrow(e); }
   }
   lastTask = performance.now() - taskT0;
   parts = null; lastNow = now;
@@ -147,6 +153,10 @@ function run(batch, now, phase) {
   const passes = phase === 'early' ? EARLY_PASSES : ONE_PASS;
   for (let p = 0; p < passes.length; p++) runPass(batch, now, phase, passes[p]);
 }
+// (A callback timed by the GPU probe, which only the ?perf readout turns on: the name and the closure are made for it alone.)
+function probed(tag, cb, now) {
+  gpuProbe.time(null, `${tag} (script)`, () => cb(now));   // alloc-rare: only while the ?perf readout measures (gpuProbe.on)
+}
 function runPass(batch, now, phase, prio) {
   for (let i = 0; i < batch.n; i++) {
     const cb = batch.cbs[i];
@@ -158,12 +168,12 @@ function runPass(batch, now, phase, prio) {
     counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;
     const learn = phase === 'early' && prio > 0, timed = timeFrame || learn;
     const t0 = timed ? performance.now() : 0;
-    try { if (gpuProbe.on) gpuProbe.time(null, `${tag} (script)`, () => cb(now)); else cb(now); } catch (e) { setTimeout(() => { throw e; }); }   // one surface's error never stops the others
+    try { if (gpuProbe.on) probed(tag, cb, now); else cb(now); } catch (e) { rethrow(e); }   // one surface's error never stops the others
     if (!timed) continue;
     const ms = performance.now() - t0;
     if (learn) learnCost(tag, ms);
     if (timeFrame) totals.ms[tag] = (totals.ms[tag] || 0) + (parts || TIME_ALL ? ms : ms * TIME_EVERY);
-    parts?.push([tag, phase, ms]);
+    parts?.push([tag, phase, ms]);   // alloc-rare: only while frames are watched (parts is null otherwise)
   }
 }
 
@@ -296,17 +306,33 @@ function shedding(tag) {
 // task: it goes on next frame) and anything else when done. One task per tag: asking again before it ran replaces its fn (the newest work
 // only, as a model frame's paint). notBefore (a performance.now() time) makes it a timer that runs in a frame, never in a task of its own.
 export const MAY_SHARE = SCRIPT_SHARE, MAY_WAIT = CARRY_MAX;
-const mays = new Map();   // tag -> { tag, fn, waited, notBefore, maxWait }
+const mays = new Map();   // tag -> { tag, fn, waited, notBefore, maxWait, at, cancel }
+// (One record per tag, made at the tag's first ask and kept: a may task asked again after it ran writes into it, so an ask allocates
+// nothing. `at`: the pass of runMay it was last put in the queue in, so one asked again while a pass runs waits for the next frame, as
+// a new record would. `cancel`: the function mayTask returns, made once with the record.)
+const mayRecs = new Map();
+let mayPass = 0;
 const mayCost = new Map(), mayBatch = [];
 const mayStat = { ran: 0, waited: 0, aged: 0 };
 let mayT = 0, mayTAt = 0;
-export function mayTask(tag, fn, { notBefore = 0, maxWait = MAY_WAIT } = {}) {
-  const was = mays.get(tag);
-  if (was) { was.fn = fn; was.notBefore = notBefore; was.maxWait = maxWait; }
-  else mays.set(tag, { tag, fn, waited: 0, notBefore, maxWait });
+function newMayRec(tag) {
+  const m = { tag, fn: null, waited: 0, notBefore: 0, maxWait: MAY_WAIT, at: 0, cancel: () => cancelMay(tag) };   // alloc-rare: once per tag, at its first ask
+  mayRecs.set(tag, m);
+  return m;
+}
+export function mayTask(tag, fn, opts) {
+  const notBefore = opts === undefined || opts.notBefore === undefined ? 0 : opts.notBefore;
+  const maxWait = opts === undefined || opts.maxWait === undefined ? MAY_WAIT : opts.maxWait;
+  let m = mays.get(tag);
+  if (m) { m.fn = fn; m.notBefore = notBefore; m.maxWait = maxWait; }
+  else {
+    m = mayRecs.get(tag) || newMayRec(tag);
+    m.fn = fn; m.waited = 0; m.notBefore = notBefore; m.maxWait = maxWait; m.at = mayPass;
+    mays.set(tag, m);
+  }
   if (!notBefore || notBefore <= performance.now()) { if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush); }
   else if (!pending) mayTimer();
-  return () => cancelMay(tag);
+  return m.cancel;
 }
 /** Drops the may task of `tag` that has not run yet. */
 export function cancelMay(tag) { mays.delete(tag); }
@@ -327,17 +353,19 @@ function mayTimer() {
   for (const m of mays.values()) if (m.notBefore && m.notBefore < at) at = m.notBefore;
   if (at === Infinity || (mayT && mayTAt <= at)) return;
   clearTimeout(mayT); mayTAt = at;
-  mayT = setTimeout(() => { mayT = 0; if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush); }, Math.max(0, at - performance.now()));
+  mayT = setTimeout(mayFire, Math.max(0, at - performance.now()));
 }
+function mayFire() { mayT = 0; if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush); }
 function runMay(now) {
   if (!mays.size) return;
   const limit = MAY_SHARE * frameBudget();
   // (The tasks due as the pass starts, once each: one asked again while the pass runs, or going on (more), waits for the next frame.)
   mayBatch.length = 0;
+  mayPass++;
   for (const m of mays.values()) mayBatch.push(m);
   for (let i = 0; i < mayBatch.length; i++) {
     const m = mayBatch[i], tag = m.tag;
-    if (mays.get(tag) !== m) continue;
+    if (mays.get(tag) !== m || m.at === mayPass) continue;   // (cancelled, or asked again since the pass began: the next frame's)
     const t = performance.now();
     if (m.notBefore && m.notBefore > t) continue;
     const used = t - frameT0, aged = m.waited >= m.maxWait;
@@ -346,12 +374,12 @@ function runMay(now) {
     mays.delete(tag); mayStat.ran++;
     counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;
     let more = false;
-    try { more = m.fn(Math.max(0, limit - used), now) === true; } catch (e) { setTimeout(() => { throw e; }); }
+    try { more = m.fn(Math.max(0, limit - used), now) === true; } catch (e) { rethrow(e); }
     const ms = performance.now() - t, c = mayCost.get(tag);
     mayCost.set(tag, c == null ? ms : c * 0.7 + ms * 0.3);
     totals.ms[tag] = (totals.ms[tag] || 0) + ms;
-    parts?.push([tag, 'may', ms]);
-    if (more && !mays.has(tag)) { m.waited = 0; m.notBefore = 0; mays.set(tag, m); }   // (the same record goes on: nothing new a slice)
+    parts?.push([tag, 'may', ms]);   // alloc-rare: only while frames are watched (parts is null otherwise)
+    if (more && !mays.has(tag)) { m.waited = 0; m.notBefore = 0; m.at = mayPass; mays.set(tag, m); }   // (the same record goes on: nothing new a slice)
   }
   mayBatch.length = 0;
 }
@@ -369,8 +397,8 @@ function logOverrun(now, script, list) {
   const per = 1000 / Math.max(FPS_HZ, hzNow || 0, 1), gap = chained && fpsPrev ? now - fpsPrev : 0;
   fpsPrev = now;
   if (gap <= 1.5 * per && script <= per) return;
-  const top = (list || []).slice().sort((a, b) => b[2] - a[2]).slice(0, 5).map(([t, ph, ms]) => `${t} (${ph}) ${ms.toFixed(1)}`).join(', ');
-  console.warn(`[fps] overrun at ${(now / 1000).toFixed(2)} s: interval ${gap.toFixed(1)} ms, script ${script.toFixed(1)} ms (budget ${per.toFixed(1)} ms at ${Math.round(1000 / per)} Hz)${top ? `: ${top}` : ''}`);
+  const top = (list || []).slice().sort((a, b) => b[2] - a[2]).slice(0, 5).map(([t, ph, ms]) => `${t} (${ph}) ${ms.toFixed(1)}`).join(', ');   // alloc-rare: only under ?fps=, for a frame that overran (a measuring log)
+  console.warn(`[fps] overrun at ${(now / 1000).toFixed(2)} s: interval ${gap.toFixed(1)} ms, script ${script.toFixed(1)} ms (budget ${per.toFixed(1)} ms at ${Math.round(1000 / per)} Hz)${top ? `: ${top}` : ''}`);   // alloc-rare: only under ?fps=, for a frame that overran
 }
 export const fpsLogOn = () => !!fpsUnwatch;
 
@@ -493,17 +521,20 @@ export const inMotion = () => { const t = wall(); return t < holdUntil || (movin
 /** Calls fn once no move holds the page (polled with timers, never a frame loop); returns a cancel. */
 export function afterMotion(fn, poll = 60) {
   let t = 0, dead = false;
-  const go = () => { t = 0; if (dead) return; if (inMotion()) t = setTimeout(go, Math.max(poll, holdUntil - wall())); else fn(); };
+  const go = () => { t = 0; if (dead) return; if (inMotion()) t = setTimeout(go, Math.max(poll, holdUntil - wall())); else fn(); };   // alloc-rare: once per wait, not per frame: a caller starts one at a time (stage.js holdValues keeps heldWait)
   go();
-  return () => { dead = true; clearTimeout(t); };
+  return () => { dead = true; clearTimeout(t); };   // alloc-rare: once per wait, with the closure above
 }
 
 export const framePhase = () => (finalNow ? 'final' : lateNow ? 'late' : current ? 'early' : readsNow ? 'read' : null);
 
-export const frameFor = (tag) => (cb) => frame(cb, tag);
-export const readFrameFor = (tag) => (cb) => readFrame(cb, tag);
-export const lateFrameFor = (tag) => (cb) => lateFrame(cb, tag);
-export const finalFrameFor = (tag) => (cb) => finalFrame(cb, tag);
+// (The asker for a tag is made once and kept: a surface that asks `lateFrameFor('x')(cb)` in a frame gets the same function each time.)
+const askers = { frame: new Map(), read: new Map(), late: new Map(), final: new Map() };
+const keepAsker = (m, tag, f) => { m.set(tag, f); return f; };
+export const frameFor = (tag) => askers.frame.get(tag) || keepAsker(askers.frame, tag, (cb) => frame(cb, tag));   // alloc-rare: only at a tag's first use
+export const readFrameFor = (tag) => askers.read.get(tag) || keepAsker(askers.read, tag, (cb) => readFrame(cb, tag));   // alloc-rare: only at a tag's first use
+export const lateFrameFor = (tag) => askers.late.get(tag) || keepAsker(askers.late, tag, (cb) => lateFrame(cb, tag));   // alloc-rare: only at a tag's first use
+export const finalFrameFor = (tag) => askers.final.get(tag) || keepAsker(askers.final, tag, (cb) => finalFrame(cb, tag));   // alloc-rare: only at a tag's first use
 
 // A surface that paces itself (asks every frame, draws only some) notes each frame it really drew, for perf().drawn.
 export function noteDraw(tag) { draws.set(tag, (draws.get(tag) || 0) + 1); totals.drawn[tag] = (totals.drawn[tag] || 0) + 1; }
@@ -514,8 +545,9 @@ export function noteDraw(tag) { draws.set(tag, (draws.get(tag) || 0) + 1); total
 // totals.ms: the main-thread time each surface's callbacks took, in ms: CPU time issuing work, not the GPU's own time).
 export function perf() {
   roll(performance.now());
-  return { fps, surfaces: Object.fromEntries(rates), drawn: Object.fromEntries(drawRates), totals: { asks: { ...totals.asks }, drawn: { ...totals.drawn }, ms: { ...totals.ms }, frames: allFrames }, waiting: [...fin.waitingTags(late.waitingTags(queue.waitingTags(new Set())))],
-    get inputToPaint() { return inputMeasure(); }, frames: frameRecording };
+  // (A report: read by the ?perf readout, the gates and the tests, never by a frame of the figure.)
+  return { fps, surfaces: Object.fromEntries(rates), drawn: Object.fromEntries(drawRates), totals: { asks: { ...totals.asks }, drawn: { ...totals.drawn }, ms: { ...totals.ms }, frames: allFrames }, waiting: [...fin.waitingTags(late.waitingTags(queue.waitingTags(new Set())))],   // alloc-rare: a report for the ?perf readout, the gates and the tests
+    get inputToPaint() { return inputMeasure(); }, frames: frameRecording };   // alloc-rare: part of the same report
 }
 
 // Input to first change (input-latency.js; recs R2): the time from a tap, a press or a key to the frame in which the page first

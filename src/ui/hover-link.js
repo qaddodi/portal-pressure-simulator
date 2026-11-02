@@ -7,7 +7,7 @@
 //
 // This file is the pure part: what a label names, and which labels name a vessel. stage.js does the lighting.
 
-import { normalizeSel } from './actions.js?v=705e887053';
+import { normalizeSel } from './actions.js?v=d62fdcfcb3';
 import { LABEL_VESSEL } from './anatomy.js?v=8768b1f623';
 
 export const HOVER_LINK = true;   // (switch deleted; kept for stage.js until its own pass)
@@ -26,23 +26,38 @@ export function labelTarget(key) {
   if (typeof key !== 'string' || !key.startsWith('n:')) return null;
   let t = memo.get(key);
   if (t !== undefined) return t;
-  const id = key.slice(2).split(':')[0], hung = LABEL_VESSEL[id];
-  const sel = id === 'TIPS' || id === 'DIPS' ? { type: 'edge', id } : normalizeSel({ type: 'node', id });
-  if (sel?.type === 'edge') t = { edge: sel.id, also: hung && hung !== sel.id ? [hung] : [] };
-  else if (hung) t = { edge: hung, also: [] };
-  else if (sel?.type === 'organ' && OUTLINED.has(sel.id)) t = { organ: sel.id };
+  // (Only the first time a key is asked: the answer is kept in memo, whatever it is.)
+  const id = key.slice(2).split(':')[0], hung = LABEL_VESSEL[id];   // alloc-rare: only a label key's first ask (memo)
+  const sel = id === 'TIPS' || id === 'DIPS' ? { type: 'edge', id } : normalizeSel({ type: 'node', id });   // alloc-rare: only a label key's first ask (memo)
+  if (sel?.type === 'edge') t = { edge: sel.id, also: hung && hung !== sel.id ? [hung] : [] };   // alloc-rare: only a label key's first ask (memo)
+  else if (hung) t = { edge: hung, also: [] };   // alloc-rare: only a label key's first ask (memo)
+  else if (sel?.type === 'organ' && OUTLINED.has(sel.id)) t = { organ: sel.id };   // alloc-rare: only a label key's first ask (memo)
   else t = null;
   memo.set(key, t);
   return t;
 }
 
-/** The vessels a label names (its edge, then the others): a vessel in this list lights its label, and the label lights them all. */
-export const edgesOfLabel = (t) => (t?.edge ? [t.edge, ...(t.also || [])] : []);
+// (The list of a target is made once and kept with it, so asking for it builds nothing. Read it, never write to it.)
+const edgeLists = new WeakMap(), NO_EDGES = Object.freeze([]);
+/** The vessels a label names (its edge, then the others): a vessel in this list lights its label, and the label lights them all.
+ *  The same list each time for a label; read only. */
+export function edgesOfLabel(t) {
+  if (!t?.edge) return NO_EDGES;
+  let list = edgeLists.get(t);
+  if (!list) { list = [t.edge, ...(t.also || [])]; edgeLists.set(t, list); }   // alloc-rare: only a target's first ask (kept in edgeLists)
+  return list;
+}
 
-/** The label keys (of those given) that name a vessel in `edges` (a Set of vessel ids), in the order given. */
+// (The labels found, written into one list kept for it: read it before the next call.)
+const found = [];
+/** The label keys (of those given) that name a vessel in `edges` (a Set of vessel ids), in the order given. The same list is rewritten by
+ *  every call: use it at once (stage.js linkSync copies it into a Set), keep nothing of it. */
 export function labelsOf(keys, edges) {
-  const out = [];
-  if (!edges || !edges.size) return out;
-  for (const k of keys) if (edgesOfLabel(labelTarget(k)).some((e) => edges.has(e))) out.push(k);
-  return out;
+  found.length = 0;
+  if (!edges || !edges.size) return found;
+  for (const k of keys) {
+    const list = edgesOfLabel(labelTarget(k));
+    for (let i = 0; i < list.length; i++) if (edges.has(list[i])) { found.push(k); break; }
+  }
+  return found;
 }

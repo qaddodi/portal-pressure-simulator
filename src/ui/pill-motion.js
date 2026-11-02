@@ -12,7 +12,7 @@
 
 // (The glide rides the camera's curve, the quintic of ease.js, and its CSS copy is --ease-move: one curve for a move, premium-feel R3.)
 import { easeMove, D_SURFACE, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=7d7bfe9a62';
-import { readStyle } from './layout-snap.js?v=a48d65266b';
+import { readStyle } from './layout-snap.js?v=715abea938';
 import { splitFace } from './face-split.js?v=6b4ab1a4bf';
 export const easeIO3 = easeMove;
 export const EASE_IO3 = EASE_MOVE;

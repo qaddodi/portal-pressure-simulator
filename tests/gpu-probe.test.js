@@ -32,5 +32,6 @@ test('on, nested steps count apart and the waits before them count as other GPU 
 test('the frame loop times its callbacks only while the probe is on', async () => {
   const { readFileSync } = await import('node:fs');
   const js = readFileSync(new URL('../src/ui/frame.js', import.meta.url), 'utf8');
-  assert.match(js, /if \(gpuProbe\.on\) gpuProbe\.time\(null, `\$\{tag\} \(script\)`, \(\) => cb\(now\)\); else cb\(now\);/);
+  assert.match(js, /if \(gpuProbe\.on\) probed\(tag, cb, now\); else cb\(now\);/);
+  assert.match(js, /function probed\(tag, cb, now\) \{\n {2}gpuProbe\.time\(null, `\$\{tag\} \(script\)`, \(\) => cb\(now\)\);/, 'the name and the closure are made only inside the probed branch');
 });

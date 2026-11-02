@@ -31,27 +31,27 @@
 //
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
-import { glGet, glCap, glOkBefore, glOkAfter } from './gl-state.js?v=4163c507aa';
+import { glGet, glCap, glOkBefore, glOkAfter } from './gl-state.js?v=f33764e84c';
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD } from './blood.js?v=ca0abd6caa';
-import { cssRGB } from './util.js?v=6aff9232ad';
+import { cssRGB } from './util.js?v=aef9bbf227';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=ff6a633152';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=49b311283d';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=94a4db0dc6';
 import { changedRows } from './flow-rows.js?v=6cd335f84b';
 import { leftAlone } from './quiet.js?v=856a3cdf1e';
 import { uniformCache } from './uniform-cache.js?v=6488216aa0';
-import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=f9222c848a';
-import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-gl.js?v=af75f69de3';
-import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=0a24b692ed';
-import { warmFade } from './res-fade-gl.js?v=e3a9d83762';
+import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=6c955f55d8';
+import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-gl.js?v=b2df24cdc0';
+import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=df94041380';
+import { warmFade } from './res-fade-gl.js?v=80b5f6db60';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=b5cc409146';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
-import { createNoiseFiller } from './noise-gl.js?v=97605acd12';
+import { createNoiseFiller } from './noise-gl.js?v=441a34dc27';
 import { softwareGL } from './sw-yield.js?v=f7e0bc683b';
-import { frameCount, framePhase } from './frame.js?v=1d147c7c9a';
+import { frameCount, framePhase } from './frame.js?v=07b68cf942';
 import { caught } from './caught.js?v=b96b17594a';
 const ORGAN_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (the organ texture's shapes are meshed into it one at a time, each released after its draw)
 

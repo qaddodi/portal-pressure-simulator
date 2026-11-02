@@ -90,15 +90,15 @@ export const gpuProbe = {
   },
   add(name, ms) { this.parts[name] = (this.parts[name] || 0) + ms; },
   /** The time per step since the last take. */
-  take() { const p = this.parts; this.parts = {}; return p; },
+  take() { const p = this.parts; this.parts = {}; return p; }, // alloc-rare: only while the ?perf readout or the debug panel measures (gpuProbe.on); note() returns first when off
   // Things that happened, with no time of their own to give (an organ SVG the browser read in, its size): counted and summed.
   notes: {},
-  note(name, v = 0) { if (!this.on) return; const n = this.notes[name] || (this.notes[name] = [0, 0]); n[0]++; n[1] += v; },
+  note(name, v = 0) { if (!this.on) return; const n = this.notes[name] || (this.notes[name] = [0, 0]); n[0]++; n[1] += v; }, // alloc-rare: only while the ?perf readout or the debug panel measures (gpuProbe.on); note() returns first when off
   /** The notes since the last take: name → [count, sum]. */
-  takeNotes() { const n = this.notes; this.notes = {}; return n; },
+  takeNotes() { const n = this.notes; this.notes = {}; return n; }, // alloc-rare: only while the ?perf readout or the debug panel measures (gpuProbe.on); note() returns first when off
   // Things measured as they stand rather than summed (how much of the screen a frame repaints): the latest value of each.
   gauges: {},
   gauge(name, v) { if (this.on) this.gauges[name] = v; },
   /** The gauges since the last take: name → latest value. */
-  takeGauges() { const g = this.gauges; this.gauges = {}; return g; },
+  takeGauges() { const g = this.gauges; this.gauges = {}; return g; }, // alloc-rare: only while the ?perf readout or the debug panel measures (gpuProbe.on); note() returns first when off
 };

@@ -28,8 +28,8 @@ let suspendedAt = -Infinity, lifecycle = false;
 function watchLifecycle() {
   if (lifecycle || typeof document === 'undefined' || typeof addEventListener !== 'function' || !document.addEventListener) return;
   lifecycle = true;
-  const mark = () => { suspendedAt = performance.now(); };
-  document.addEventListener('visibilitychange', () => { if (document.hidden) mark(); else suspendedAt = Math.max(suspendedAt, performance.now()); });
+  const mark = () => { suspendedAt = performance.now(); };   // alloc-rare: once, the first frame a recorder takes
+  document.addEventListener('visibilitychange', () => { if (document.hidden) mark(); else suspendedAt = Math.max(suspendedAt, performance.now()); });   // alloc-rare: once, the first frame a recorder takes
   document.addEventListener('freeze', mark);
   document.addEventListener('resume', mark);
   addEventListener('pagehide', mark);
@@ -68,7 +68,7 @@ export function histSummary(d) { const h = createHistogram(); h.load(d); return 
  * cadence never becomes the new normal), with the observed cadence kept beside it as a diagnostic only. `ratio`: the jitter tolerance,
  * an interval past 1.5 target frames is a miss. target 0: judged against the observed cadence, the old rule. */
 export function createMissLog({ keep = 120, ratio = 1.5, target = 1000 / 120 } = {}) {
-  const recent = [], log = [];
+  const recent = [], log = [], sorted = new Float64Array(16);   // (sorted: the median's scratch, rewritten by every frame)
   let cadence = 0, frames = 0, misses = 0, missed = 0, run = 0, longestRun = 0;
   const add = (at, gap) => {
     if (!(gap > 0)) { run = 0; return; }
@@ -77,10 +77,16 @@ export function createMissLog({ keep = 120, ratio = 1.5, target = 1000 / 120 } =
     if (ref && gap > ratio * ref) {
       const lost = Math.max(1, Math.round(gap / ref) - 1);
       misses++; missed += lost; run += lost; if (run > longestRun) longestRun = run;
-      log.push({ at, gap, cadence, target: ref, missed: lost }); if (log.length > keep) log.shift();
+      log.push({ at, gap, cadence, target: ref, missed: lost }); if (log.length > keep) log.shift();   // alloc-rare: only a frame that missed against the target, and only while a recording runs
     } else run = 0;
     // (The cadence: the median of the last 15 intervals under 50 ms, a long frame not counted toward it.)
-    if (gap < 50) { recent.push(gap); if (recent.length > 15) recent.shift(); cadence = [...recent].sort((a, b) => a - b)[recent.length >> 1]; }
+    if (gap < 50) {
+      recent.push(gap); if (recent.length > 15) recent.shift();
+      // (Insertion sort of the recent intervals into the scratch: at most 15 numbers, no array or comparer made.)
+      const n = recent.length;
+      for (let i = 0; i < n; i++) { const v = recent[i]; let j = i - 1; while (j >= 0 && sorted[j] > v) { sorted[j + 1] = sorted[j]; j--; } sorted[j + 1] = v; }
+      cadence = sorted[n >> 1];
+    }
   };
   const summary = () => ({ frames, cadence, target, misses, missed, longestRun });
   const reset = () => { recent.length = 0; log.length = 0; cadence = 0; frames = 0; misses = 0; missed = 0; run = 0; longestRun = 0; };
@@ -98,6 +104,9 @@ export function summarize(values) {
   return { n, p50: percentile(v, 0.5), p95: percentile(v, 0.95), p99: percentile(v, 0.99), max: n ? v[n - 1] : 0, mean: n ? v.reduce((s, x) => s + x, 0) / n : 0 };
 }
 
+// Drops the oldest of a list at once, down to `keep` (a ring cut: a quarter's worth of frames each time).
+function cut(a, keep) { a.splice(0, a.length - keep); }   // alloc-rare: once per quarter of keepFrames, when the lists run past it
+
 /**
  * Records frames. Keeps the raw numbers (a list of intervals, a list of script times, and for each surface the ms it took in each
  * frame it ran in) so a caller can merge several recordings before judging them, and a ring of the long frames.
@@ -111,31 +120,52 @@ export function createFrameRecorder({ longMs = LONG_FRAME_MS, keepLong = 60, kee
   const reset = () => { gaps = []; scripts = []; byTag = {}; phases = { early: [], late: [], final: [] }; count = 0; seen = 0; dropped = 0; long.length = 0; hGap.reset(); hScript.reset(); miss.reset(); };
   // (The raw lists as a ring: past keepFrames by a quarter, the oldest are dropped at once, so the cost stays a slice now and then.)
   const trim = () => {
-    const cut = (a) => a.splice(0, a.length - keepFrames);
-    if (scripts.length > keepFrames * 1.25) { cut(gaps); cut(scripts); for (const p of PHASES) cut(phases[p]); for (const k in byTag) if (byTag[k].length > keepFrames) cut(byTag[k]); }
+    if (scripts.length > keepFrames * 1.25) { cut(gaps, keepFrames); cut(scripts, keepFrames); for (let i = 0; i < PHASES.length; i++) cut(phases[PHASES[i]], keepFrames); for (const k in byTag) if (byTag[k].length > keepFrames) cut(byTag[k], keepFrames); }
   };
   /** Whether an interval is a suspension (the page was hidden or frozen in it), not a stall: the only reason to drop it. */
   const suspended = (f) => !!f.suspended || (f.gap > 0 && suspendedAt >= (f.now ?? 0) - f.gap - 1 && suspendedAt <= (f.now ?? Infinity) + 1);
+  // (A frame's callbacks added up per surface and per phase, into records kept and written in place: a slot per surface, made the first
+  // time the surface is seen; `touched` lists the slots of this frame in the order their surfaces first ran in it.)
+  const slots = new Map(), touched = [], ph = { early: 0, late: 0, final: 0 };
+  let seq = 0;
+  const newSlot = (tag) => { const sl = { tag, ms: 0, seq: 0 }; slots.set(tag, sl); return sl; };   // alloc-rare: once per surface, the first frame it is seen in
+  const tally = (f) => {
+    seq++; touched.length = 0; ph.early = 0; ph.late = 0; ph.final = 0;
+    const parts = f.parts;
+    if (!parts) return;
+    for (let i = 0; i < parts.length; i++) {
+      const e = parts[i], tag = e[0], ms = e[2];
+      const sl = slots.get(tag) || newSlot(tag);
+      if (sl.seq !== seq) { sl.seq = seq; sl.ms = 0; touched.push(sl); }
+      sl.ms += ms;
+      const phase = e[1];
+      if (phase === 'early') ph.early += ms; else if (phase === 'late') ph.late += ms; else if (phase === 'final') ph.final += ms;
+    }
+  };
+  const push = () => {
+    for (let i = 0; i < touched.length; i++) { const sl = touched[i]; (byTag[sl.tag] ||= []).push(sl.ms); }   // alloc-rare: the first frame a surface is seen in
+    for (let i = 0; i < PHASES.length; i++) phases[PHASES[i]].push(ph[PHASES[i]]);
+  };
   /** Takes one frame (the shape above). Matches watchFrames' callback, so `watchFrames(recorder.add)` works as it is. */
   const add = (f) => {
     watchLifecycle();
     const sus = f.gap > 0 && suspended(f);
     if (sus) dropped++;
     const gap = f.gap > 0 && !sus ? f.gap : 0;
-    const sum = {}, ph = { early: 0, late: 0, final: 0 };
-    for (const [tag, phase, ms] of f.parts || []) { sum[tag] = (sum[tag] || 0) + ms; if (phase in ph) ph[phase] += ms; }
+    tally(f);
     seen++; count++;
     if (gap) { gaps.push(gap); hGap.add(gap); }
     scripts.push(f.script); hScript.add(f.script);
-    for (const tag in sum) (byTag[tag] ||= []).push(sum[tag]);
-    for (const p of PHASES) phases[p].push(ph[p]);
+    push();
     trim();
     miss.add(f.now, gap);
-    if (gap > longMs || f.script > longMs) {
-      const top = (f.parts || []).slice().sort((a, b) => b[2] - a[2]).slice(0, 4).map(([tag, phase, ms]) => [tag, phase, ms]);
-      long.push({ at: f.now, gap, script: f.script, phases: ph, top, outside: Math.max(0, (gap || f.script) - f.script) });
-      if (long.length > keepLong) long.shift();
-    }
+    if (gap > longMs || f.script > longMs) logLong(f, gap);
+  };
+  // (A long frame is kept whole in the log: its numbers copied out of the records above. Only a frame over longMs, one entry each.)
+  const logLong = (f, gap) => {
+    const top = (f.parts || []).slice().sort((a, b) => b[2] - a[2]).slice(0, 4).map(([tag, phase, ms]) => [tag, phase, ms]);   // alloc-rare: only a frame over longMs, while a recording runs
+    long.push({ at: f.now, gap, script: f.script, phases: { early: ph.early, late: ph.late, final: ph.final }, top, outside: Math.max(0, (gap || f.script) - f.script) });   // alloc-rare: only a frame over longMs, while a recording runs
+    if (long.length > keepLong) long.shift();
   };
   /** The recording as lists of numbers: intervals, script times, each surface's per-frame ms, each phase's per-frame ms. */
   const raw = () => ({ frames: count, whole: { gap: hGap.dump(), script: hScript.dump(), misses: miss.summary(), suspended: dropped, frames: seen }, gaps: gaps.slice(), scripts: scripts.slice(), byTag: Object.fromEntries(Object.entries(byTag).map(([k, v]) => [k, v.slice()])), phases: { early: phases.early.slice(), late: phases.late.slice(), final: phases.final.slice() } });

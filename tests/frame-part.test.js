@@ -15,7 +15,7 @@ test('pieces outside the scheduler are listed with the next frame, never in its 
   assert.match(fr, /parts = watching \? outsideParts\.splice\(0\) : null;/);
   assert.match(fr, /const e = \[tag, parts \? 'in' : 'outside', performance\.now\(\) - t0\];/);
   const st = readFileSync(new URL('../src/ui/frame-stats.js', import.meta.url), 'utf8');
-  assert.match(st, /if \(phase in ph\) ph\[phase\] \+= ms;/, "an 'in' or 'outside' piece is not added to a phase's time twice");
+  assert.match(st, /if \(phase === 'early'\) ph\.early \+= ms; else if \(phase === 'late'\) ph\.late \+= ms; else if \(phase === 'final'\) ph\.final \+= ms;/, "an 'in' or 'outside' piece is not added to a phase's time twice");
   assert.match(readFileSync(new URL('../scripts/frame-gate.mjs', import.meta.url), 'utf8'), /worst\.top\.slice\(0, 4\)/);
 });
 

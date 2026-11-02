@@ -18,10 +18,10 @@
 // The words fall back to a write between frames (never in a frame) where the GPU cannot set them: no outlines yet, a character the
 // cut glyphs do not have, an element with no box. ?glwords=0: every change is written into the page between frames, with no picture.
 
-import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=351e04fa46';
-import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=255ad66a41';
-import { restPass, cancelRest } from './rest-pass.js?v=3164fa18ba';
-import { readMetric } from './layout-snap.js?v=a48d65266b';
+import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=fb60a25e7c';
+import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=77b5de2d05';
+import { restPass, cancelRest } from './rest-pass.js?v=fea7233cda';
+import { readMetric } from './layout-snap.js?v=715abea938';
 import { cssColor } from './css-color.js?v=59ed182174';
 import { caught } from './caught.js?v=b96b17594a';
 
@@ -36,7 +36,7 @@ if (typeof document !== 'undefined') loadGlyphs();
 const dOf = (polys) => {
   let d = '';
   for (const { pts, closed } of polys) {
-    for (let i = 0; i < pts.length; i += 2) d += `${i ? 'L' : 'M'}${pts[i].toFixed(2)} ${pts[i + 1].toFixed(2)}`;
+    for (let i = 0; i < pts.length; i += 2) d += `${i ? 'L' : 'M'}${pts[i].toFixed(2)} ${pts[i + 1].toFixed(2)}`;   // alloc-rare: only words longer than the reserved glyph slots take this one-path way (draw below)
     if (closed) d += 'Z';
   }
   return d;
@@ -92,7 +92,7 @@ function wake(S) {
 // (Only isConnected is read: no layout.)
 function sweep() { for (const S of live) if (!S.el.isConnected) sleep(S); }
 let sweepAsk = 0, madeSince = 0;
-const askSweep = () => { if (!sweepAsk) sweepAsk = restPass(() => { sweepAsk = 0; madeSince = 0; sweep(); }); };
+const askSweep = () => { if (!sweepAsk) sweepAsk = restPass(() => { sweepAsk = 0; madeSince = 0; sweep(); }); };   // alloc-rare: once per sixteen readouts made, when a view is built anew
 function measurePass() {
   measureAll = 0;
   sweep();
@@ -183,18 +183,36 @@ const askMeasure = (S) => { if (S.dead) return; measureQ.add(S); S.measureAsk = 
 const V_CAP = 24, U_CAP = 12;
 const slotsOf = (n, fill) => Array.from({ length: n }, () => ({ el: svgModel('path', { fill, d: '' }), d: '', tr: '' }));
 const setA = (q, d, tr) => { if (q.d !== d) { q.d = d; setGeo(q.el, 'd', d); } if (tr != null && q.tr !== tr) { q.tr = tr; setGeo(q.el, 'transform', tr); } };
+// (A glyph's transform is a string kept for the place it was set at: a readout's glyphs come back to the same few places, so the string is
+// made once per place and then found again, not built for every glyph of every change. The cache is for one baseline; a new one empties it.)
+function trOf(S, x, y) {
+  let c = S.tr;
+  if (!c) c = S.tr = new Map();   // alloc-rare: once per readout, at its first draw
+  if (S.trY !== y) { c.clear(); S.trY = y; }
+  let t = c.get(x);
+  if (t === undefined) {
+    if (c.size > 256) c.clear();
+    t = `translate(${x.toFixed(2)} ${y.toFixed(2)})`;   // alloc-rare: once per place a glyph has been set at (then kept in the readout's cache)
+    c.set(x, t);
+  }
+  return t;
+}
 const runV = [], runU = [];
 // (The slots filled from a run of cached glyph paths; the rest emptied. Only what changed is written.)
-function fillSlots(slots, run, y) {
+function fillSlots(S, slots, run, y) {
   for (let i = 0; i < slots.length; i++) {
     const g = run[i];
-    if (g) setA(slots[i], g[0], `translate(${g[1].toFixed(2)} ${y.toFixed(2)})`); else if (slots[i].d) setA(slots[i], '', null);
+    if (g) setA(slots[i], g[0], trOf(S, g[1], y)); else if (slots[i].d) setA(slots[i], '', null);
   }
 }
-function clearSlots(S) { for (const q of S.vSlots || []) if (q.d) setA(q, '', null); for (const q of S.uSlots || []) if (q.d) setA(q, '', null); }
+function clearSlots(S) {
+  const v = S.vSlots, u = S.uSlots;
+  if (v) for (let i = 0; i < v.length; i++) if (v[i].d) setA(v[i], '', null);
+  if (u) for (let i = 0; i < u.length; i++) if (u[i].d) setA(u[i], '', null);
+}
 function draw(S, t, u) {
   const { at, after } = S, { L, U, align } = at;
-  const tt = L.upper ? t.toUpperCase() : t, uu = U.upper ? u.toUpperCase() : u;
+  const tt = L.upper ? t.toUpperCase() : t, uu = U.upper ? u.toUpperCase() : u;   // alloc-rare: only a readout set in capitals, and only when its words change (draw runs for new words alone)
   const wv = textWidth(tt, L), sp = u ? textWidth(' ', L) : 0, wu = u ? textWidth(uu, U) : 0, w = after ? wv : wv + sp + wu;
   const x = align === 'end' ? at.x1 - w : align === 'middle' ? (at.x0 + at.x1) / 2 - w / 2 : at.x0;
   // (after: the unit is the element's own ::after (attr(data-…)), set beside the words, outside the box, a no-break space after them)
@@ -203,7 +221,7 @@ function draw(S, t, u) {
   if (S.vSlots && rv.length <= S.vSlots.length && ru.length <= S.uSlots.length) {
     if (geoOf(S.vPath, 'd')) setGeo(S.vPath, 'd', '');
     if (geoOf(S.uPath, 'd')) setGeo(S.uPath, 'd', '');
-    fillSlots(S.vSlots, rv, at.y); fillSlots(S.uSlots, ru, uy);
+    fillSlots(S, S.vSlots, rv, at.y); fillSlots(S, S.uSlots, ru, uy);
   } else {
     clearSlots(S);
     setGeo(S.vPath, 'd', dOf(textPolys(tt, x, at.y, L).polys));
@@ -267,22 +285,27 @@ function land(S) {
   }
   if (!S.at || S.stale || S.at.sm !== (!!S.small && !S.small.hidden)) askMeasure(S);   // (a unit that came or went moves the words: measured again)
 }
-const askLand = (S) => { clearTimeout(S.landT); S.landT = 0; if (S.dead) return; if (!S.landAsk) S.landAsk = restPass(() => land(S)); };
+const askLand = (S) => { clearTimeout(S.landT); S.landT = 0; if (S.dead) return; if (!S.landAsk) S.landAsk = restPass(S.landFn); };
+
+// (The words as a string: callers hand one; a number or the like is made into its text, which is the new words themselves.)
+const textOf = (v) => (typeof v === 'string' ? v : String(v ?? ''));   // alloc-rare: only when a caller hands a number or the like, once per change of the words
 
 /** Words set through the GPU while they change (see above). `el`'s content is taken over: its words, then a <small> unit if any. */
-export function glWords(el, { unitClass = '', after = false, host = el, onLand = null } = {}) {
+export function glWords(el, { unitClass = '', after = false, host = el, onLand = null } = {}) { // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
   // (Its own text node, when it has one alone; otherwise one is made between frames, as the first words land: nothing is written here.)
   const only = el.firstChild?.nodeType === 3 && !el.firstChild.nextSibling ? el.firstChild : null, t0 = el.textContent || '';
-  const S = { el, host, after, unitClass, onLand, txt: only, small: null, want: { t: t0, u: '' }, shown: { t: t0, u: '' },
+  const S = { el, host, after, unitClass, onLand, txt: only, small: null, want: { t: t0, u: '' }, shown: { t: t0, u: '' }, // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
     at: null, gl: null, vPath: null, uPath: null, on: false, pend: false, handOver: false, handT: 0, stale: false, landT: 0, measureAsk: 0, landAsk: 0, dead: false, ro: null };
+  // (The two functions a change hands to a timer or a rest pass, made once with the readout: asking makes no closure.)
+  S.landFn = () => land(S); S.quietFn = () => askLand(S); // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
   if (!only && t0) askLand(S);
-  const ask = S.ask = () => askMeasure(S);
+  const ask = S.ask = () => askMeasure(S); // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
   if (typeof ResizeObserver === 'function') (S.ro = new ResizeObserver(ask)).observe(el);
   else ask();
   ALL.add(ask);
   live.add(S);
   if (++madeSince >= 16) askSweep();   // (a view built anew makes many: the ones it replaced are looked for between frames)
-  const dispose = () => {
+  const dispose = () => { // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
     if (S.dead) return;
     S.dead = true; S.asleep = false;
     S.ro?.disconnect(); S.ro = null;
@@ -293,24 +316,24 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
     // the drawing gone, nor left hidden once it has.)
     const gl = S.gl, wasOn = S.on, elx = S.el, host = S.host;
     S.on = false; S.gl = null;
-    if (wasOn || gl) restPass(() => {
-      const again = [...live].some((o) => o.el === elx || o.host === host);   // (made over again for the same element since: leave its flags)
+    if (wasOn || gl) restPass(() => { // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
+      const again = [...live].some((o) => o.el === elx || o.host === host);   // (made over again for the same element since: leave its flags) // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
       if (wasOn && !again) elx.classList.remove('glw-on');
       if (gl) { try { gl.dispose?.(); } catch (e) { caught('gl-words:274', e); /* a lost context: nothing left to free */ } gl.cv?.remove(); if (!again) host.classList.remove('glw'); }
     });
     S.vPath = S.uPath = null; S.vSlots = S.uSlots = null;
   };
-  return {
+  return { // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
     el,
     dispose,
-    get disposed() { return S.dead; },
+    get disposed() { return S.dead; }, // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
     /** Whether its words are the element's own text node (not replaced by someone else since). */
-    get owns() { return !S.dead && !!S.txt && S.txt.parentNode === el; },
-    get text() { return S.want.t; },
-    get unit() { return S.want.u; },
+    get owns() { return !S.dead && !!S.txt && S.txt.parentNode === el; }, // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
+    get text() { return S.want.t; }, // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
+    get unit() { return S.want.u; }, // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
     /** Sets the words (and a unit): drawn on the GPU now, written into the page once they hold still. */
     set(t, u = '') {
-      t = String(t ?? ''); u = String(u ?? '');
+      t = textOf(t); u = textOf(u);
       if (S.dead || (t === S.want.t && u === S.want.u)) return;
       wake(S);
       S.want.t = t; S.want.u = u;
@@ -318,15 +341,15 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
       if (!S.at || S.stale || !glyphsReady() || !t || !textCovers(t + u) || (u && !S.small && !after) || !attached(S)) { askLand(S); return; }
       draw(S, t, u);
       clearTimeout(S.landT);
-      S.landT = setTimeout(() => askLand(S), QUIET);
+      S.landT = setTimeout(S.quietFn, QUIET);
     },
     /** Takes the words into the page between frames, where a caller needs them laid out soon. */
-    settle: () => { wake(S); askLand(S); },
+    settle: () => { wake(S); askLand(S); }, // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
     /** Writes the words into the page at once: for a caller between frames that measures them (a fit trying its widest words). */
     now(t, u = '') {
       if (S.dead) return;
       wake(S);
-      S.want.t = String(t ?? ''); S.want.u = String(u ?? '');
+      S.want.t = textOf(t); S.want.u = textOf(u);
       clearTimeout(S.landT); S.landT = 0; cancelRest(S.landAsk);
       land(S);
     },

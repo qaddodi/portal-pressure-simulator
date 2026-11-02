@@ -10,7 +10,7 @@
 //   const id = restPass(fn)   fn runs once, between frames
 //   cancelRest(id)
 
-import { PREP_BUDGET, prepLeft, prepSpend, prepWindowLeft, STARVE_MS, frameMs } from './prep-budget.js?v=1e4ab0dd5c';
+import { PREP_BUDGET, prepLeft, prepSpend, prepWindowLeft, STARVE_MS, frameMs } from './prep-budget.js?v=fcbbb42fea';
 
 let q = new Map(), next = 1, posted = false, port = null;
 // One deadline for all of it (2 Nov 2026, audit R03: a drain ran every queued pass in one task, so a burst of card fits, chart

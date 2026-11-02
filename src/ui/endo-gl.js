@@ -6,9 +6,9 @@
 // the four columns a deflation (0 engorged .. 1 strangulated) and up to four knuckle strengths
 // (0 none .. 1 a cinched band with its dusky knuckle).
 
-import { cssRGB } from './util.js?v=6aff9232ad';
+import { cssRGB } from './util.js?v=aef9bbf227';
 import { columnConsts } from './endo-columns.js?v=d9a6558d96';
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=f9222c848a';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=6c955f55d8';
 import { caught } from './caught.js?v=b96b17594a';
 
 const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';

@@ -6,14 +6,14 @@
 // (engine.js starling), read from the slide's fingerprint at rest and from the live model while a time-lapse, a what-if or a
 // compare button moves it.
 
-import { frame, cancelFrame } from './frame.js?v=1d147c7c9a';
-import { createSvgGL, svgModel } from './svg-gl.js?v=351e04fa46';
-import { h, fmt, clamp } from './util.js?v=6aff9232ad';
+import { frame, cancelFrame } from './frame.js?v=07b68cf942';
+import { createSvgGL, svgModel } from './svg-gl.js?v=fb60a25e7c';
+import { h, fmt, clamp } from './util.js?v=aef9bbf227';
 import { NODES } from '../engine/topology.js?v=512e725aea';
-import { store } from './store.js?v=2e6b562412';
-import { measure } from './glyph-measure.js?v=89d38cd516';
+import { store } from './store.js?v=0f9c79ec87';
+import { measure } from './glyph-measure.js?v=065ba67666';
 import { txIndex, txWords, sxIndex, sxWords, SX_WHOLE, opWords } from './num-words.js?v=cf53d490d9';
-import { setGeo, setPts } from './svg-gl.js?v=351e04fa46';
+import { setGeo, setPts } from './svg-gl.js?v=fb60a25e7c';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const num = (x) => (Number.isFinite(+x) ? +x : null);

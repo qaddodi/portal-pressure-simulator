@@ -2,13 +2,13 @@
 // every state up to the slide, one point each, and the HVPG in its own lane with its cut-offs. (Moved here unchanged from
 // presenter-tools.js, so the deck visuals' chart package can extend it without touching the instruments' file.)
 
-import { h, fmt, clamp } from './util.js?v=6aff9232ad';
+import { h, fmt, clamp } from './util.js?v=aef9bbf227';
 import { hvpgRate } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { bandKeys, bandRuns, bandSpan, namePlaces } from './rx-bands.js?v=51e83c7c59';
-import { createSvgGL, svgModel } from './svg-gl.js?v=351e04fa46';
-import { measure } from './glyph-measure.js?v=89d38cd516';
+import { createSvgGL, svgModel } from './svg-gl.js?v=fb60a25e7c';
+import { measure } from './glyph-measure.js?v=065ba67666';
 
 // ── The talk so far: PV, WHVP and FHVP at each state, the HVPG in its own lane with its cut-offs ──
 // (2 Nov 2026: the chart is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)

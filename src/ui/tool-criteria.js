@@ -29,10 +29,10 @@
 // the graph, centred ('**Gray:** ...', or { text, swatch: 'hatch' } for the hatched area's line). The plot's height follows its width
 // only, so the card never changes size with the case.
 
-import { h, fmt } from './util.js?v=6aff9232ad';
+import { h, fmt } from './util.js?v=aef9bbf227';
 import { TILE } from './table-marks.js?v=a483b9975e';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { createSvgGL, svgModel } from './svg-gl.js?v=351e04fa46';
+import { createSvgGL, svgModel } from './svg-gl.js?v=fb60a25e7c';
 
 export const CRITERIA_MAX = 4;
 /** The graphs a criteria card can draw (zones), in their own units: x and y ranges, the zones, the hatched area and the axis marks. */

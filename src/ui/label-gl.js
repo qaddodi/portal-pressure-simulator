@@ -12,17 +12,17 @@
 // know, a keyboard focus ring) stays drawn by the SVG, label by label. Without WebGL2, on a software renderer, with ?gpulabels=0, or
 // once the context is lost, the SVG draws them all, as it always has.
 
-import { glGet, glCap } from './gl-state.js?v=4163c507aa';
-import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
+import { glGet, glCap } from './gl-state.js?v=f33764e84c';
+import { frameFor, cancelFrame } from './frame.js?v=07b68cf942';
 import { ucOf } from './uniform-cache.js?v=6488216aa0';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=1b5b7b8ddd';
-import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=f9222c848a';
+import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=6c955f55d8';
 import { createAtlasPacker } from './atlas-pack.js?v=f51c5cf455';
 import { easeMove, D_SURFACE } from './ease.js?v=7d7bfe9a62';
-import { createShapeGL, flattenPath, polyMeshInto, ellipsePoly } from './shape-gl.js?v=af75f69de3';
-import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=13d604610f';
-import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=255ad66a41';
-import { watchSize, sizeOf, rectSoon } from './geom.js?v=254133713c';
+import { createShapeGL, flattenPath, polyMeshInto, ellipsePoly } from './shape-gl.js?v=b2df24cdc0';
+import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=34037e2ca8';
+import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=77b5de2d05';
+import { watchSize, sizeOf, rectSoon } from './geom.js?v=ca69a8335e';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=23493a0e5d';
 import { caught } from './caught.js?v=b96b17594a';
 const HOLE_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (a hole's mask is meshed into it and released after its draw)

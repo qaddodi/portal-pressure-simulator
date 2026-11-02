@@ -9,19 +9,19 @@
 // Its numbers are the slide's own (its fingerprint, as the tiles read it: the same on every screen), easing to each new
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
 
-import { frame, cancelFrame } from './frame.js?v=1d147c7c9a';
-import { restPass, cancelRest, restAttr } from './rest-pass.js?v=3164fa18ba';
+import { frame, cancelFrame } from './frame.js?v=07b68cf942';
+import { restPass, cancelRest, restAttr } from './rest-pass.js?v=fea7233cda';
 import { PROFILE_PATHS } from './anatomy.js?v=8768b1f623';
 import { follow2, SHOWN_TAU } from './display-state.js?v=3783649ed7';
 import { NODES } from '../engine/topology.js?v=512e725aea';
 import { RATE } from './table-marks.js?v=a483b9975e';
 import { monotoneSegs } from './curve-near.js?v=6996ad536a';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { pressureColor } from './colormap.js?v=994e7de44c';
-import { measure } from './glyph-measure.js?v=89d38cd516';
+import { pressureColor } from './colormap.js?v=5120cbde02';
+import { measure } from './glyph-measure.js?v=065ba67666';
 import { hvpgRate, ppgRate } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { numWords } from './num-words.js?v=cf53d490d9';
-import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js?v=351e04fa46';
+import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js?v=fb60a25e7c';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;

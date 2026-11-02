@@ -16,17 +16,27 @@ export function writeGlowTexels(T, o, kind, id, raId, len, lit, hov, rgb, ease) 
   const la = lit.get(id), lb = raId && lit.get(raId), l = la || lb;
   // A strand's glow fades out toward both its ends, where it meets its own glowing vessel: run on, it would be
   // cut off square by the strand's cells at the junction.
-  const lend = kind === 's' ? [0.3 * len, 0.3 * len] : la && lb ? [la.end[0], lb.end[1]] : l?.end;
   const v = l ? ease(Math.max(0, l.v)) * l.amt : 0;
   if (v > 0) {
-    if (l.col) { const c = rgb(l.col); l.rgb = l.from && l.cu < 1 ? mix3(l.from, c, ease(l.cu)) : c; }
+    if (l.col) { const c = rgb(l.col); l.rgb = l.from && l.cu < 1 ? mix3(l, c, ease(l.cu)) : c; }
     // (A stretch is sent as its two ends along the vessel, each as −(1 + u): the shader fades the glow in and out there.)
     const part = kind === 'v' && la && la.span && (la.span[0] > 0.002 || la.span[1] < 0.998);
     const c = l.col ? l.rgb : ZERO;
     T[o + 40] = c[0]; T[o + 41] = c[1]; T[o + 42] = c[2]; T[o + 43] = v;
-    T[o + 44] = part ? -1 - la.span[0] : lend[0]; T[o + 45] = part ? -1 - la.span[1] : lend[1];
+    if (part) { T[o + 44] = -1 - la.span[0]; T[o + 45] = -1 - la.span[1]; }
+    else if (kind === 's') { T[o + 44] = 0.3 * len; T[o + 45] = 0.3 * len; }
+    else if (la && lb) { T[o + 44] = la.end[0]; T[o + 45] = lb.end[1]; }
+    else { T[o + 44] = l.end[0]; T[o + 45] = l.end[1]; }
     T[o + 46] = l.col ? 0 : 1; T[o + 47] = l.wide + (l.top ? 10 : 0);
   } else T.fill(0, o + 40, o + 48);
 }
 const ZERO = [0, 0, 0];
-const mix3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+// The colour between l.from and b, written into one of l's two mixing triples: the one l.from is not (the stage keeps the colour on show as
+// l.from when the glow's colour changes in the middle of a change, so the triple on show must not be the one written next).
+function mix3(l, b, t) {
+  const a = l.from;
+  if (!l.mixA) { l.mixA = [0, 0, 0]; l.mixB = [0, 0, 0]; }   // alloc-rare: once per glow record, at its first colour change
+  const out = a === l.mixA ? l.mixB : l.mixA;
+  out[0] = a[0] + (b[0] - a[0]) * t; out[1] = a[1] + (b[1] - a[1]) * t; out[2] = a[2] + (b[2] - a[2]) * t;
+  return out;
+}

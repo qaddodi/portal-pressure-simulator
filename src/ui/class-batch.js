@@ -6,7 +6,7 @@
 //
 //   setClass(el, 'on', true)   wants the class on (false: off)
 //   hasClass(el, 'on')         the wanted state if one is waiting, else the element's
-import { restPass } from './rest-pass.js?v=3164fa18ba';
+import { restPass } from './rest-pass.js?v=fea7233cda';
 
 const want = new Map();   // el -> Map(name -> boolean)
 let ask = 0;

@@ -9,16 +9,16 @@
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
 import { shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=ea5ed71e09';
-import { glCap, fbComplete } from './gl-state.js?v=4163c507aa';
-import { hold } from './gpu-budget.js?v=5a5dcd699f';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw } from './frame.js?v=1d147c7c9a';
-import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=f9222c848a';
+import { glCap, fbComplete } from './gl-state.js?v=f33764e84c';
+import { hold } from './gpu-budget.js?v=00c61687bd';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=94a4db0dc6';
+import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw } from './frame.js?v=07b68cf942';
+import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=6c955f55d8';
 import { Inline, inlineShift, inlineTranslate, Motion, compileKeyframes, motionAt, movesOnly, clockOf, clockAt } from './glass-motion.js?v=c45c2a76ac';
 import { pathPolys, fanTriangles } from './path-poly.js?v=01766890c9';
 import { easeArrive, D_SURFACE } from './ease.js?v=7d7bfe9a62';
 import { caught } from './caught.js?v=b96b17594a';
-import { viewSize } from './layout-snap.js?v=a48d65266b';
+import { viewSize } from './layout-snap.js?v=715abea938';
 import { parseCssColor } from './css-color.js?v=59ed182174';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */

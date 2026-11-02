@@ -2,12 +2,12 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js?v=2e6b562412';
-import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=6aff9232ad';
+import { store, updateParams } from './store.js?v=0f9c79ec87';
+import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=aef9bbf227';
 import { D_FLIP, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
-import { restPass, cancelRest } from './rest-pass.js?v=3164fa18ba';
-import { classSoon, attrSoon } from './class-soon.js?v=60cf95af4a';
-import { frame } from './frame.js?v=1d147c7c9a';
+import { restPass, cancelRest } from './rest-pass.js?v=fea7233cda';
+import { classSoon, attrSoon } from './class-soon.js?v=af0dd2b529';
+import { frame } from './frame.js?v=07b68cf942';
 import { EDGES } from '../engine/topology.js?v=512e725aea';
 import { DRUGS } from '../engine/scenario.js?v=d2669cef9b';
 import { HIDDEN_EDGES } from './anatomy.js?v=8768b1f623';

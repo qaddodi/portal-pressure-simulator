@@ -23,13 +23,13 @@
 // Everything that decides a place or a size is a pure function here (tests/panels-e.test.js); the drawing is at the
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
-import { h, fmt, clamp } from './util.js?v=6aff9232ad';
+import { h, fmt, clamp } from './util.js?v=aef9bbf227';
 import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { TILE, tileShown } from './table-marks.js?v=a483b9975e';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { frameFor } from './frame.js?v=1d147c7c9a';
+import { frameFor } from './frame.js?v=07b68cf942';
 import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
-import { createSvgGL, svgModel } from './svg-gl.js?v=351e04fa46';
+import { createSvgGL, svgModel } from './svg-gl.js?v=fb60a25e7c';
 const reduceDot = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
 
 const nextFrame = frameFor('plane');

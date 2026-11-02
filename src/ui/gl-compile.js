@@ -6,29 +6,30 @@
 // Publishing waits for the page to be left alone (quiet.js): the status read, the uniform lookups and the small draw are a few ms of
 // script, and a program that finishes mid pan or pinch had them land in a gesture's frame.
 import { leftAlone } from './quiet.js?v=856a3cdf1e';
-import { glGet } from './gl-state.js?v=4163c507aa';
+import { glGet } from './gl-state.js?v=f33764e84c';
 import { caught } from './caught.js?v=b96b17594a';
 
 // (Asked once per context where it is there: getExtension is a call into the browser each time. Not kept when it is missing, so a
 // context that came back from a loss is asked again; and one that is there is forgotten when its context is restored, as a restored
 // context has none of its extensions on until they are asked for once more.)
 const parallel = new WeakMap(), watched = new WeakSet();
+const NO_BIND = Object.freeze([]);   // (no attribute locations to set: the default of the starters, shared)
 const parallelOf = (gl) => {
   let e = parallel.get(gl);
   if (!e) {
     e = gl.getExtension('KHR_parallel_shader_compile');
     if (e) {
       parallel.set(gl, e);
-      if (!watched.has(gl)) { watched.add(gl); gl.canvas?.addEventListener?.('webglcontextrestored', () => parallel.delete(gl)); }
+      if (!watched.has(gl)) { watched.add(gl); gl.canvas?.addEventListener?.('webglcontextrestored', () => parallel.delete(gl)); } // alloc-rare: once per context, the first time its extension is asked for
     }
   }
   return e;
 };
 
 /** Starts a program: its shaders compiled and its link begun, nothing read. bind: [[attribute, location], …] set before the link. */
-export function startProgram(gl, vs, fs, bind = []) {
+export function startProgram(gl, vs, fs, bind = NO_BIND) {
   parallelOf(gl);   // (asking for it is what turns the parallel compile on)
-  const sh = [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]].map(([type, src]) => {
+  const sh = [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]].map(([type, src]) => { // alloc-rare: once per program, when it is started (a surface's first draw, a restored context)
     if (typeof src !== 'string') return src;   // (a shader object shared with another program)
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
@@ -39,14 +40,16 @@ export function startProgram(gl, vs, fs, bind = []) {
   for (const s of sh) gl.attachShader(p, s);
   for (const [name, loc] of bind) gl.bindAttribLocation(p, loc, name);
   gl.linkProgram(p);
-  return { p, sh };
+  return { p, sh }; // alloc-rare: once per program, when it is started (a surface's first draw, a restored context)
 }
 
 /** True when every started program has finished (always true where the driver cannot say: reading its status then waits). */
 export function compileDone(gl, handles) {
   const ext = parallelOf(gl);
   if (!ext) return true;
-  return [].concat(handles).every((h) => gl.getProgramParameter(h.p, ext.COMPLETION_STATUS_KHR));
+  if (!Array.isArray(handles)) return !!gl.getProgramParameter(handles.p, ext.COMPLETION_STATUS_KHR);
+  for (let i = 0; i < handles.length; i++) if (!gl.getProgramParameter(handles[i].p, ext.COMPLETION_STATUS_KHR)) return false;
+  return true;
 }
 
 /** Reads a started program's status (it waits if the compile is not done); throws the info log on a failure. */
@@ -66,12 +69,12 @@ export function checkProgram(gl, { p, sh }) {
 // helper made before or without that start compiles its own, as before.
 export const SHADER_WARM = true;   // (switch deleted; kept for veins-gl.js, glass-gl.js, field-gl.js and res-fade-gl.js until their own pass)
 const pre = new WeakMap();   // gl → Map(sources → started program)
-const srcKey = (vs, fs) => `${vs}\u0000${fs}`;
+const srcKey = (vs, fs) => `${vs}\u0000${fs}`; // alloc-rare: once per program, at a renderer's setup: the key is built to find the started program
 /** Starts a program (strings only) for a later linkProgram on the same context; nothing is read. Returns its handle (null: not started). */
-export function prestart(gl, vs, fs, bind = []) {
+export function prestart(gl, vs, fs, bind = NO_BIND) {
   if (!gl || gl.isContextLost?.()) return null;
   let m = pre.get(gl);
-  if (!m) pre.set(gl, (m = new Map()));
+  if (!m) pre.set(gl, (m = new Map())); // alloc-rare: once per program, at a renderer's setup: the key is built to find the started program
   const k = srcKey(vs, fs);
   let h = m.get(k);
   if (h && gl.isProgram(h.p)) return h;   // (one from before a lost context is gone with it: started again)
@@ -86,7 +89,7 @@ export function prestarted(gl, vs, fs) {
 }
 /** A linked program for these sources (strings): the one prestart left compiling, or one compiled now; its status read (throws the
  *  info log on a failure). Its shaders are let go of (freed with the program). */
-export function linkProgram(gl, vs, fs, bind = []) {
+export function linkProgram(gl, vs, fs, bind = NO_BIND) {
   const m = pre.get(gl), k = srcKey(vs, fs);
   let h = m?.get(k);
   if (h) m.delete(k);
@@ -105,8 +108,8 @@ export function linkProgram(gl, vs, fs, bind = []) {
 // a 1 × 1 viewport behind, for whoever drew next in the same context.)
 export function exerciseDraw(gl, draw) {
   const fbo = gl.createFramebuffer(), tex = gl.createTexture(), blank = gl.createTexture();
-  const g = (k) => glGet(gl, k);
-  const unit = g(gl.ACTIVE_TEXTURE), saved = [];
+  const g = (k) => glGet(gl, k); // alloc-rare: once per program, when its warm-up draw is made at publication
+  const unit = g(gl.ACTIVE_TEXTURE), saved = []; // alloc-rare: once per program, when its warm-up draw is made at publication
   const fbR = g(gl.READ_FRAMEBUFFER_BINDING), fbD = g(gl.DRAW_FRAMEBUFFER_BINDING), vp = g(gl.VIEWPORT), prog = g(gl.CURRENT_PROGRAM), vao = g(gl.VERTEX_ARRAY_BINDING);
   const UNITS = 16, T0 = gl.TEXTURE0 ?? 0x84C0;
   try {
@@ -191,11 +194,11 @@ export function stillCompiling(gl, handles) {
  */
 export function publishWhenDone(gl, handles, publish, tries = 400, calm = leftAlone) {
   let dead = false;
-  const idle = typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 250 }) : (f) => setTimeout(f, 32);
+  const idle = typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 250 }) : (f) => setTimeout(f, 32); // alloc-rare: once per program, when it waits to be published
   // (R10: registered while it waits, so a slide's preparation can publish it first; a draw that wanted it lifts the wait for calm.)
-  const entry = { gl, handles, wanted: false, publish: () => { if (dead) return; dead = true; waitingPub.delete(entry); try { publish(); } catch (e) { shaderStats.failed++; throw e; } finally { moved(); } } };
+  const entry = { gl, handles, wanted: false, publish: () => { if (dead) return; dead = true; waitingPub.delete(entry); try { publish(); } catch (e) { shaderStats.failed++; throw e; } finally { moved(); } } }; // alloc-rare: once per program, when it waits to be published
   waitingPub.add(entry);
-  const tick = () => {
+  const tick = () => { // alloc-rare: once per program, when it waits to be published
     if (dead) return;
     let done;
     try { done = gl.isContextLost() || compileDone(gl, handles); } catch { done = true; }
@@ -207,7 +210,7 @@ export function publishWhenDone(gl, handles, publish, tries = 400, calm = leftAl
     else setTimeout(tick, 500);
   };
   idle(tick);
-  const stop = () => { dead = true; if (waitingPub.delete(entry)) moved(); };
-  stop.want = () => { entry.wanted = true; };
+  const stop = () => { dead = true; if (waitingPub.delete(entry)) moved(); }; // alloc-rare: once per program, when it waits to be published
+  stop.want = () => { entry.wanted = true; }; // alloc-rare: once per program, when it waits to be published
   return stop;
 }

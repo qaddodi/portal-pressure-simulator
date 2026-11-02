@@ -13,8 +13,8 @@
 //   reading      a site's pressure pill (a station's reading on the figure)
 import { NODE_POS, EDGE_PATH, LABEL_VESSEL, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES } from './anatomy.js?v=8768b1f623';
 import { EDGES } from '../engine/topology.js?v=512e725aea';
-import { pathCmds, flattenCmds } from './shape-gl.js?v=af75f69de3';
-import { expandIds } from './slide-ext.js?v=6ae7e2571a';
+import { pathCmds, flattenCmds } from './shape-gl.js?v=b2df24cdc0';
+import { expandIds } from './slide-ext.js?v=84a696e200';
 
 /** The room kept round an anchor that the frame grows to hold, in world units (a ring and a label's dot need a little air). */
 export const ROOM = 28;
