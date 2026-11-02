@@ -113,6 +113,8 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     const t = (readStyle(el).translate || 'none').split(/\s+/).map(parseFloat), sh = shift(el) || [0, 0];
     return { el, k, anim: null, x: r.left - (t[0] || 0) * k + sh[0] * k, y: r.top - (t[1] || 0) * k + sh[1] * k };
   }).filter(Boolean);
+  // OPEN off-GPU item (paintAnim): a clip-path glide repaints the words on each frame of the zoom (about 0.4 s in and out). Compositor-only methods
+  // (transform, opacity) cannot cut a hole in DOM text; the real fix is the words drawn as GPU paragraph text (text-gl.js), cut in the shader.
   const holeTo = (h, box, ms) => {
     const to = carve(h, box), from = readStyle(h.el).clipPath;
     h.anim?.cancel();
