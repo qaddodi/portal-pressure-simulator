@@ -469,6 +469,9 @@ export function scan({ root = ROOT } = {}) {
           else if (c.type === 'CallExpression' && c.callee.type === 'MemberExpression' && c.callee.property.name === 'get') R = baseName(c.callee.object);
           else if (c.type === 'ChainExpression') R = baseName(c.expression);
           if (R && f0) (f0.__disp ||= new Set()).add(R);
+          // a method called on an element of a registry (for (const t of tops) t.draw(): an object stored in a registry, its functions are
+          // the callbacks; only a name that is an alias of a registry counts, never the registry's own name: tops.indexOf(t) calls nothing in it)
+          if (!R && f0 && c.type === 'MemberExpression' && !c.computed && c.object.type === 'Identifier') (f0.__dispM ||= new Set()).add(c.object.name);
           // stores into a registry
           if (c.type === 'MemberExpression' && !c.computed && /^(push|unshift|add|set)$/.test(c.property.name)) {
             const RR = baseName(c.object), viaMember = c.object.type === 'MemberExpression' || c.object.type === 'CallExpression';
@@ -604,12 +607,23 @@ export function scan({ root = ROOT } = {}) {
         if (pm) { changed = addSink(pm[0], r.key, pm[1]) || changed; continue; }
         for (const [m, g] of targetsOf(mod, r.v, r.at)) changed = addReg(r.key, m, g) || changed;
       }
-      if (sinks.size) for (const mod of mods.values()) for (const call of allCalls(mod)) for (const [, g] of resolveCall(mod, call)) for (const sk of sinks.get(g) || []) {
+      // (A handler object handed to a method of an object the scan cannot follow back to its module, host.add({ order, prep, draw }) with host a
+      // parameter: the methods of that name, in any module, that keep their argument in a registry.)
+      const keepers = (call) => {
+        if (!call.member || !call.node.arguments.some((a) => a.type === 'ObjectExpression')) return [];
+        const out = [];
+        for (const m of mods.values()) for (const g of m.byName?.get(call.name) || []) if (declKind(g) === 'method' && sinks.has(g)) out.push([m, g]);
+        return out;
+      };
+      if (sinks.size) for (const mod of mods.values()) for (const call of allCalls(mod)) for (const [, g] of [...resolveCall(mod, call), ...keepers(call)]) for (const sk of sinks.get(g) || []) {
         const arg = call.node.arguments[sk.idx];
         if (!arg) continue;
         const pm = call.at && paramOf(arg, call.at);
         if (pm) changed = addSink(pm[0], sk.key, pm[1]) || changed;
-        else for (const [m, h] of targetsOf(mod, arg, call.at)) changed = addReg(sk.key, m, h) || changed;
+        else if (arg.type === 'ObjectExpression') {
+          // (an object handed to a function that keeps it, host.add({ order, prep, draw }): each function it carries is held by the registry)
+          for (const pr of arg.properties) if (pr.type === 'Property') for (const [m, h] of targetsOf(mod, pr.value, call.at)) changed = addReg(sk.key, m, h) || changed;
+        } else for (const [m, h] of targetsOf(mod, arg, call.at)) changed = addReg(sk.key, m, h) || changed;
       }
     }
   }
@@ -617,6 +631,7 @@ export function scan({ root = ROOT } = {}) {
   const dispatched = (mod, f) => {
     const out = [];
     for (const R0 of f.__disp || []) for (const R of [R0, ...(mod.alias.get(R0) || [])]) for (const key of [`${mod.file}:${R}`, `*:${R}`]) for (const t of regs.get(key)?.values() || []) out.push(t);
+    for (const R0 of f.__dispM || []) for (const R of mod.alias.get(R0) || []) for (const key of [`${mod.file}:${R}`, `*:${R}`]) for (const t of regs.get(key)?.values() || []) out.push(t);
     return out;
   };
   const takers = new Map();   // fn -> Set of argument indexes it hands to a frame
