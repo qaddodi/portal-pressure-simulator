@@ -3,7 +3,7 @@
 
 import { NODES } from '../engine/topology.js?v=512e725aea';
 import { gastricUp } from '../engine/scenario.js?v=d2669cef9b';
-import { wallRead } from '../engine/wall-read.js?v=8c9c68ad85';
+import { wallRead } from '../engine/wall-read.js?v=06c32c9ed9';
 import { pressureColor } from './colormap.js?v=13bbd7ea4e';
 import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=65ddc3912c';
 import { wordSetter } from './gl-words.js?v=a0e7624175';

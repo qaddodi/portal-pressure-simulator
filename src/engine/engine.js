@@ -1295,6 +1295,6 @@ function solve(A, b, n) {
   return solveInPlace(A, b, n);
 }
 import { solveInPlace } from './linalg.js?v=4f20e14f7c';
-import { wallIndex } from './wall-read.js?v=8c9c68ad85';
+import { wallIndex } from './wall-read.js?v=06c32c9ed9';
 
 export { SPLANCHNIC_ARTERIES, PORTOSYSTEMIC_EDGES };
