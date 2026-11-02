@@ -16,11 +16,12 @@
 import { store, replaceParams } from './store.js?v=4ef2a6ffd8';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { glWords } from './gl-words.js?v=2536164d8f';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=d6dfa6855e';
+import { glWords } from './gl-words.js?v=240332cb55';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=bb5eaf3902';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=88a68a4afe';
+import { liveText, wordsOf } from './live-text.js?v=a9e2a42606';
 import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=ab010a5708';
+import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=37fc3df740';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
 import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=3c321f5f7f';
@@ -30,8 +31,8 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=de99eeaae5';
-import { createTools } from './presenter-tools.js?v=395d02b735';
+import { createHvpgMonitor } from './hvpg-proc.js?v=496da90c43';
+import { createTools } from './presenter-tools.js?v=2e12a56a92';
 import { openHandout } from './handout.js?v=be99975ab1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -43,23 +44,23 @@ import { createSlidePrep, SLIDE_PREP } from './slide-prep.js?v=16c5028385';
 import { prepareShaders } from './gl-compile.js?v=62b8693f78';
 import { createFigureKey } from './figure-key.js?v=ab027f9b0c';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=56a99ecafa';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=0b296994a7';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=87280274e9';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=e2f9088339';
 import { clotWords } from './callout-math.js?v=6ef2901a08';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=871e220aa2';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=58c042ed05';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=0f213ac3d3';
+import { anchorsOf, roomFor } from './cam-room.js?v=8855e3eaa1';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
-import { flowTimeHeight, trailKeys } from './flow-time.js?v=8c69218b1e';
+import { flowTimeHeight, trailKeys } from './flow-time.js?v=394b36b685';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=b92c516361';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=1c7a3c485b';
 import { sheetPanes } from './sheet-glass.js?v=fc8b724c05';
-import { createScopeTile } from './scope-tile.js?v=34316ca266';
+import { createScopeTile } from './scope-tile.js?v=39e26d96ce';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
-import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX } from './ease.js?v=7513a88c68';
+import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=7513a88c68';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { pageOn, followOf, pageIn } from './card-page.js?v=ebb4448222';
 import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=d4860aa5da';
@@ -398,15 +399,19 @@ function wedgeColumn() {
   for (let x = L; x <= R - 1 + 0.01; x += 1.5) { up.push(`${x.toFixed(1)} ${(-half(x)).toFixed(1)}`); dn.push(`${x.toFixed(1)} ${half(x).toFixed(1)}`); }
   const sil = `M${up.join(' L')} L${dn.reverse().join(' L')} Z`;
   // The sinusoids: three lanes (drawn from the central vein back, so the column fills along them) and two links between them.
-  const xs0 = xS0 + 6, xs1 = xS1 - 6, mid = (xs0 + xs1) / 2, ys = [-8.8, 0, 8.8];
+  const xs0 = xS0 + 6, xs1 = xS1 - 6, mid = (xs0 + xs1) / 2, ys = [-8.8, 0, 8.8], fw = bx0 + 8 - xN - 1, idF = `${id}f`;
   const lane = (dy) => `M${xs1} 0 C${xs1 - 16} ${dy * 0.15} ${xs1 - 22} ${dy} ${xs1 - 46} ${dy} H${xs0 + 46} C${xs0 + 22} ${dy} ${xs0 + 16} ${dy * 0.15} ${xs0} 0`;
   const links = `M${mid - 14} ${ys[0]} V${ys[1]} M${mid + 14} ${ys[1]} V${ys[2]}`;
   const lanes = (cls) => ys.map((dy) => sv('path', { class: cls, d: lane(dy), pathLength: 1 }));
+  const fill = sv('rect', { class: 'c-fill', x: xN + 1, y: -16, width: fw, height: 32, style: `transform: translate(${fw}px, 0px)` });
   const art = sv('g', { class: 'c-art' },
     sv('clipPath', { id }, sv('path', { d: sil })),
     sv('g', { 'clip-path': `url(#${id})` }, sv('rect', { class: 'c-pv', x: L - 1, y: -16, width: xN - L + 2, height: 32 }), sv('rect', { class: 'c-flow', x: xN + 1, y: -16, width: R - xN, height: 32 })),
     ...lanes('c-lane'), sv('path', { class: 'c-lane c-link-b', d: links }),
-    sv('g', { 'clip-path': `url(#${id})` }, sv('rect', { class: 'c-fill', x: xN + 1, y: -16, width: bx0 + 8 - xN - 1, height: 32 })),
+    // (The column fills from the balloon back: its colour slides in from the right inside its own span, eased by the picture from its
+    // transition, where a scaleX on SVG was repainted by the page every frame.)
+    sv('clipPath', { id: idF }, sv('rect', { x: xN + 1, y: -16, width: fw, height: 32 })),
+    sv('g', { 'clip-path': `url(#${id})` }, sv('g', { 'clip-path': `url(#${idF})` }, fill)),
     ...lanes('c-lane-f'), sv('path', { class: 'c-lane-f c-link', d: links }),
     sv('path', { class: 'c-edge', d: sil }),
     sv('path', { class: 'c-blk', d: `M${xN - 5} -11.4 Q${xN} -3.5 ${xN - 5} -1.3 M${xN + 6} -11.4 Q${xN + 1} -3.5 ${xN + 6} -1.3 M${xN - 5} 11.4 Q${xN} 3.5 ${xN - 5} 1.3 M${xN + 6} 11.4 Q${xN + 1} 3.5 ${xN + 6} 1.3` }),
@@ -416,8 +421,9 @@ function wedgeColumn() {
   const top = ['Still column:', 'reads the sinusoids'].map((t) => sv('text', { class: 'c-top', 'text-anchor': 'middle' }, t));
   const red = ['Resistance in', 'the portal tract'].map((t) => sv('text', { class: 'c-blkt' }, t));
   const names = [['Portal vein', 'start'], ['Sinusoids', 'middle'], ['Central vein', 'middle'], ['Balloon', 'end']].map(([t, a]) => sv('text', { 'text-anchor': a }, t));
-  const svg = sv('svg', { class: 'pz-col', viewBox: `0 0 ${W} 100`, role: 'img', 'aria-label': 'The still column fills from the balloon back through the central vein and the sinusoids, and stops at the resistance in the portal tract.' },
+  const model = sv('svg', { viewBox: `0 0 ${W} 100`, 'aria-label': 'The still column fills from the balloon back through the central vein and the sinusoids, and stops at the resistance in the portal tract.' },
     art, lead, brk, ...red, ...top, ...names);
+  const svg = glBox('pz-col', model, { role: 'img', 'aria-label': model.getAttribute('aria-label'), style: `aspect-ratio: ${W} / 100` });
   // The words follow the lettering (the slide's caption size as drawn): two lines over the picture, the names in one row under it.
   // (Widths are measured: the column only lays out while it shows.) The lettering never steps off its role: when the four names do not
   // stand in one row clear of each other they take two rows, and when the two headings do not stand side by side the column's heading
@@ -426,7 +432,8 @@ function wedgeColumn() {
   fitChart(svg, ({ cap: c0 }, box) => {
     // (A card that zooms its contents down, --pz-fit, takes the lettering down with it, never under 12 px on the screen nor under half its role.)
     const role = c0 * box.width / W, z = parseFloat(svg.closest('.pz-text')?.style.getPropertyValue('--pz-fit')) || 1;
-    const wOf = (e) => e.getComputedTextLength(), c = c0 * Math.min(1, Math.max(z, Math.max(12, role * 0.55) / role));
+    // (A run's width from Inter's own outlines, as the picture draws it (600, letter spacing .02 em), never asked of the page.)
+    const wOf = (e) => (glyphsReady() ? textWidth(e.textContent, { weight: 600, size: c, ls: 0.02 * c }) : est(e.textContent, c)), c = c0 * Math.min(1, Math.max(z, Math.max(12, role * 0.55) / role));
     const place = () => {
       [...red, ...top, ...names].forEach((e) => fsOf(e, c));
       const rW = Math.max(...red.map(wOf)), tW = Math.max(...top.map(wOf)), nW = names.map(wOf), tx = (bL + bR) / 2 + 14;
@@ -445,9 +452,11 @@ function wedgeColumn() {
     setA(art, 'transform', `translate(0 ${cy.toFixed(1)})`);
     setA(lead, 'd', `M${xN + 0.5} ${(yRed2 + 4).toFixed(1)} V${(cy - 14).toFixed(1)}`);
     setA(brk, 'd', `M${bL} ${(brY + 5).toFixed(1)} V${brY.toFixed(1)} H${bR} V${(brY + 5).toFixed(1)}`);
-    setA(svg, 'viewBox', `0 0 ${W} ${(base + (rows2 ? lh : 0) + 0.3 * c + 2).toFixed(1)}`);
-  });
-  nextFrame(() => nextFrame(() => svg.classList.add('in')));
+    const vh = (base + (rows2 ? lh : 0) + 0.3 * c + 2).toFixed(1);
+    setA(model, 'viewBox', `0 0 ${W} ${vh}`);
+    if (svg.style.aspectRatio !== `${W} / ${vh}`) svg.style.aspectRatio = `${W} / ${vh}`;
+  }, () => restPass(() => { svg.classList.add('in'); fill.style.transform = 'translate(0px, 0px)'; svg._svgGL.wake(2600); }));
+  if (!glyphsReady()) loadGlyphs().then(() => restPass(() => fitted.forEach((c) => c.svg === svg && (c.fs = null, fitNow(c)))));
   return svg;
 }
 const tileVal = (k, v) => (v == null ? '—' : fmt(v * (tileOf(k)?.x ?? 1), tileOf(k)?.d ?? 1));
@@ -485,13 +494,19 @@ function tweener(draw) {
   return run;
 }
 
-const SVGNS = 'http://www.w3.org/2000/svg';
-const sv = (tag, attrs = {}, ...kids) => {
-  const el = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v);
-  el.append(...kids.flat().filter((k) => k != null));
-  return el;
-};
+// The deck's own diagrams (the still column, the SAAG map, the two walls, the rail's block) are models drawn on the GPU (svg-gl.js), never
+// SVG the page paints (2 Nov 2026, "Move everything to GPU"): sv makes the same tree, of plain elements, hidden; glBox holds it and its picture.
+const sv = svgModel;
+/** A diagram's box: a block of the diagram's class (its look and size in the stylesheet) holding the model and the GPU picture of it. Its
+ *  look is read once it is on the page and laid out (fitChart), and again whenever its lettering is laid out anew. */
+function glBox(cls, root, attrs = {}) {
+  const box = h('div', { class: cls, ...attrs });
+  const gl = createSvgGL(box);
+  if (!attrs['aria-label']) { gl.cv.setAttribute('aria-hidden', 'true'); gl.cv.removeAttribute('role'); }
+  box.append(root);
+  box._model = root;
+  return box;
+}
 let uid = 0;
 
 // A drawn chart lays out in its own units, scaled to its card, so its lettering is set from the slide's type scale as
@@ -499,12 +514,15 @@ let uid = 0;
 // text and the rows around it. It runs again when the chart is resized or the text size changes, until the scale settles.
 const ROLE_NAMES = ['cap', 'lab', 'body', 'val', 'big'];
 const fitted = new Set();
-const fitNow = (c) => {
+const fitNow = (c) => { fitLoop(c); if (c.gl && c.fs) { if (c.placed) c.gl.relook(); else { c.placed = true; c.gl.place(c.root); c.onPlace?.(); } } };
+const fitLoop = (c) => {
   const { svg, lay } = c;
   if (!svg.isConnected) { fitted.delete(c); c.ro?.disconnect(); return; }
   for (let n = 0; n < 8; n++) {
-    // (Units per css px, before a full card's zoom: the chart's lettering zooms with the rest of its card.)
-    const m = svg.getScreenCTM?.(), k = m && m.a ? 1 / m.a : 0, box = svg.getBoundingClientRect();
+    // (Units per css px, before a full card's zoom: the chart's lettering zooms with the rest of its card. A model's box: its viewBox
+    // mapped into the box as the picture maps it.)
+    const box = svg.getBoundingClientRect(), m = c.root ? null : svg.getScreenCTM?.();
+    const k = c.root ? 1 / (viewMap(c.root.getAttribute('viewBox'), c.root.getAttribute('preserveAspectRatio'), box.width, box.height)[0] || Infinity) : m && m.a ? 1 / m.a : 0;
     if (!k || !box.width) return;
     // (A chart in a data card reads the card's own chart sizes, --ch-<role>, where it sets them: a ladder's words at the tiles' small size.)
     const pr = document.createElement('span'), host = svg.closest('.pz-data, .pz-cell') || svg.closest('.pz') || document.body;
@@ -528,8 +546,9 @@ const fitNow = (c) => {
 const setA = (e, k, v) => { v = String(v); if (e.getAttribute(k) !== v) e.setAttribute(k, v); };
 const setT = (e, t) => { t = String(t); if (e.textContent !== t) e.textContent = t; };
 const est = (t, px, w = 0.6) => String(t).length * px * w;   // (a run's width: Inter averages about 0.6 em a character, 0.66 bold capitals)
-function fitChart(svg, lay) {
-  const c = { svg, lay, fs: null };
+function fitChart(svg, lay, onPlace = null) {
+  // (A diagram's box (glBox): measured as the box, its model laid out, and its picture's look read once the lettering stands.)
+  const c = svg._model ? { svg, lay, fs: null, root: svg._model, gl: svg._svgGL, onPlace } : { svg, lay, fs: null };
   fitted.add(c);
   // (After the observer, not inside it: the new layout changes the chart's own height. A rest pass between frames, rest-pass.js.)
   if (typeof ResizeObserver !== 'undefined') { c.ro = new ResizeObserver(() => { cancelRest(c.raf); c.raf = restPass(() => fitNow(c)); }); c.ro.observe(svg); }
@@ -545,8 +564,16 @@ const hatch = (id, s) => sv('pattern', { id, width: s, height: s, patternUnits: 
 /** The block on the level rail: the phone ladder's block (rounded, red outline, red hatching) wrapped round the blocked level's whole bar. */
 function railBlock() {
   const id = 'pzRailB' + ++uid;
-  return sv('svg', { class: 'pz-rail-blk', 'aria-hidden': 'true' },
-    sv('defs', {}, hatch(id, 7)), sv('rect', { class: 'pzs-drop', width: '100%', height: '100%', rx: 6, fill: `url(#${id})` }));
+  // (A model drawn on the GPU in px of its box: its viewBox and its block's size are the box's own, set as the box is laid out.)
+  const pat = hatch(id, 7), drop = sv('rect', { class: 'pzs-drop', width: '100%', height: '100%', rx: 6, fill: `url(#${id})` });
+  const model = sv('svg', { viewBox: '0 0 100 20', preserveAspectRatio: 'none' }, sv('defs', {}, pat), drop);
+  const box = glBox('pz-rail-blk', model, { 'aria-hidden': 'true' });
+  fitChart(box, () => {
+    const w = box.offsetWidth, ht = box.offsetHeight;
+    if (!(w > 0 && ht > 0)) return;
+    setA(model, 'viewBox', `0 0 ${w} ${ht}`); setA(drop, 'width', w); setA(drop, 'height', ht);
+  });
+  return box;
 }
 /** Big number tiles, each rated; set() counts to the new values. Given ref (an earlier state's numbers), each
  *  tile also says how far it moved from there, green when it went the better way (and plain within normal). */
@@ -826,8 +853,10 @@ function quadrantVisual(rows) {
     const circle = sv('circle', { r: 15 }), names = p.names.map((nm) => sv('text', {}, nm));
     return { p, circle, names, g: sv('g', { class: 'pzq-pt', 'data-site': p.site || 'none', style: `--i:${i}` }, circle, names) };
   });
-  const svg = sv('svg', { class: 'pz-quad', viewBox: `0 0 ${W} 640`, role: 'img', 'aria-label': 'SAAG against ascites protein: ' + pts.map((p) => `${p.names.join(' and ')}, SAAG ${fmt(p.saag, 1)}, protein ${fmt(p.tp, 1)}`).join('; ') },
+  const label = 'SAAG against ascites protein: ' + pts.map((p) => `${p.names.join(' and ')}, SAAG ${fmt(p.saag, 1)}, protein ${fmt(p.tp, 1)}`).join('; ');
+  const model = sv('svg', { viewBox: `0 0 ${W} 640`, 'aria-label': label },
     quads.map((q) => q.g), cuts, axes, xt.map((t) => t.el), yt.map((t) => t.el), axX, axY, dots.map((d) => d.g));
+  const svg = glBox('pz-quad', model, { role: 'img', 'aria-label': label, style: `aspect-ratio: ${W} / 640` });
   const at = (e, o) => { for (const [k, v] of Object.entries(o)) e.setAttribute(k, typeof v === 'number' ? v.toFixed(1) : v); };
   const lay = (fs) => {
     const t = fs.cap, a = fs.cap, nm = fs.lab, n = fs.val;
@@ -840,7 +869,8 @@ function quadrantVisual(rows) {
     if (axY.textContent !== yName) axY.textContent = yName;
     B = T + Math.max(524, est(yName, a) + 24);
     const H = B + 20 + t + 12 + 0.75 * a + 0.3 * a + 6;
-    svg.setAttribute('viewBox', `0 0 ${W} ${H.toFixed(1)}`);
+    model.setAttribute('viewBox', `0 0 ${W} ${H.toFixed(1)}`);
+    if (svg.style.aspectRatio !== `${W} / ${H.toFixed(1)}`) svg.style.aspectRatio = `${W} / ${H.toFixed(1)}`;
     const xs = X(1.1), ys = Y(2.5), box = [[L, T, xs, ys], [xs, T, R, ys], [L, ys, xs, B], [xs, ys, R, B]];
     for (const { q, rect, n: el } of quads) {
       const [x0, y0, x1, y1] = box[(q.y ? 0 : 2) + q.x];
@@ -871,7 +901,9 @@ function quadrantVisual(rows) {
     }
   };
   lay({ cap: 25, lab: 29, val: 42 });
-  fitChart(svg, lay);
+  // (Each point fades and rises into place in turn (its transition, app.css .pzq-pt), run by the picture once its look is read.)
+  for (const { g } of dots) g.style.transform = 'translate(0px, 9px)';
+  fitChart(svg, lay, () => restPass(() => { svg.classList.add('in'); for (const { g } of dots) g.style.transform = 'translate(0px, 0px)'; svg._svgGL.wake(400 + dots.length * 180 + 600); }));
   return h('div', { class: 'pz-visual pz-quadwrap' }, svg,
     h('ol', { class: 'pz-quads' }, QUADS.map((q) => h('li', { 'data-q': String(q.n) },
       h('span', { class: 'qn' }, String(q.n)), h('span', { class: 'qt' }, q.t), h('span', { class: 'qc' }, q.c)))));
@@ -884,27 +916,39 @@ function wallsVisual() {
   // the type scale); the drawing between them keeps only the names of its bands, sized from the scale as drawn (lay).
   // Side by side on a wide screen, one above the other on a phone.
   const panel = (sin) => {
-    const yW = 236, lumen = [yW + 16, yW + 132], dots = [], mk = 'pzwArrow' + ++uid;
+    const yW = 236, lumen = [yW + 16, yW + 132], dots = [];
     for (let i = 0; i < 8; i++) dots.push(sv('circle', { class: 'pzw-alb', cx: 70 + i * 66, cy: lumen[0] + 30 + (i % 3) * 30, r: 8 }));   // (their drift stays in the lumen)
     const cross = [];
     // The sinusoid's wall: six plates with a pore between each; albumin rises through three of them.
     const pores = [104, 202, 300, 398, 496];
     if (sin) for (const x of [pores[0], pores[2], pores[4]]) cross.push(sv('circle', { class: 'pzw-alb pzw-cross', cx: x, cy: yW + 6, r: 8, style: `--d:${(x / 400).toFixed(2)}s` }));
-    const arrows = (sin ? pores : [170, 430]).map((x) => sv('path', { class: 'pzw-flow' + (sin ? ' big' : ''), d: `M${x} ${yW + 40} V${yW - (sin ? 22 : 26)}`, 'marker-end': `url(#${mk})` }));
+    // (Each arrow's head is drawn as its own shape at the line's end (the marker's triangle, 5 strokes long, pointing up), so the picture draws it.)
+    const sw = sin ? 7 : 4, hs = sw / 2;
+    const arrows = (sin ? pores : [170, 430]).map((x) => { const ey = yW - (sin ? 22 : 26); return sv('g', { class: 'pzw-arrow' }, sv('path', { class: 'pzw-flow' + (sin ? ' big' : ''), d: `M${x} ${yW + 40} V${ey}` }), sv('path', { class: 'pzw-head', d: `M${x - 5 * hs} ${ey + 5 * hs} L${x} ${ey - 5 * hs} L${x + 5 * hs} ${ey + 5 * hs} Z` })); });
     const wall = sin
       ? [0, 1, 2, 3, 4, 5].map((k) => sv('rect', { class: 'pzw-wall', x: 20 + k * 98, y: yW, width: 70, height: 14, rx: 7 }))
       : [sv('rect', { class: 'pzw-wall', x: 20, y: yW, width: 560, height: 14, rx: 7 }), sv('rect', { class: 'pzw-bm', x: 20, y: yW - 9, width: 560, height: 6, rx: 3 })];
     // A band's name, placed in lay: [text, band top, band height, centred in the band].
     const names = sin ? [[sv('text', { class: 'pzw-l', x: 34 }, 'Liver cells'), 108, 42, true], [sv('text', { class: 'pzw-l', x: 34 }, 'Space of Disse: lymph'), 154, 74, false]]
       : [[sv('text', { class: 'pzw-l', x: 34 }, 'Tissue fluid: little'), 108, 120, false]];
-    const draw = sv('svg', { class: 'pzw-art', viewBox: '0 100 600 276', 'aria-hidden': 'true' },
-      sv('defs', {}, sv('marker', { id: mk, viewBox: '0 0 10 10', refX: 5, refY: 5, markerWidth: 5, markerHeight: 5, orient: 'auto-start-reverse' }, sv('path', { d: 'M0 0 L10 5 L0 10 z', class: 'pzw-head' }))),
+    const dotsG = sv('g', { class: 'pzw-dots' }, dots);
+    const model = sv('svg', { viewBox: '0 100 600 276' },
       sin ? [sv('rect', { class: 'pzw-hep', x: 20, y: 108, width: 560, height: 42, rx: 12 }), sv('rect', { class: 'pzw-disse', x: 20, y: 154, width: 560, height: 74, rx: 8 })]
         : sv('rect', { class: 'pzw-tissue', x: 20, y: 108, width: 560, height: 120, rx: 12 }),
       names.map(([t]) => t),
       sv('rect', { class: 'pzw-lumen', x: 20, y: lumen[0], width: 560, height: lumen[1] - lumen[0], rx: 10 }),
-      sv('g', { class: 'pzw-dots' }, dots), cross, wall, arrows);
-    fitChart(draw, (fs) => { for (const [t, y, hgt, mid] of names) { t.setAttribute('y', (mid ? y + hgt / 2 + 0.36 * fs.cap : y + 8 + 0.75 * fs.cap).toFixed(1)); fsOf(t, fs.cap); } });
+      dotsG, cross, wall, arrows);
+    const draw = glBox('pzw-art', model, { style: 'aspect-ratio: 600 / 276' });
+    // The scene keeps moving on the picture (svg-gl noteLoop), as its keyframes did on SVG (app.css pzw-drift, pzw-pulse, pzw-rise): the
+    // albumin drifts in the lumen, the flow pulses up through the wall, and in the sinusoid albumin rises through three pores. Reduced
+    // motion keeps the pulse and the rise's fade, and nothing travels.
+    const still = reduce.matches, eM = cssCurve(EASE_MOVE), eA = cssCurve(EASE_ARRIVE);
+    const seg = (k, a, b, f) => f(Math.max(0, Math.min(1, (k - a) / (b - a))));
+    noteLoop(dotsG, { ms: 3200, alternate: true, xy: still ? null : (k) => [-30 + 60 * eM(k), 0] });
+    for (const g of arrows) noteLoop(g, { ms: 2400, op: (k) => (k < 0.5 ? 0.45 + 0.5 * seg(k, 0, 0.5, eM) : 0.95 - 0.5 * seg(k, 0.5, 1, eM)) });
+    for (const c of cross) noteLoop(c, { ms: 2600, delay: 1000 * parseFloat(/--d:([\d.]+)s/.exec(c.getAttribute('style'))?.[1] || 0),
+      op: (k) => (k < 0.25 ? seg(k, 0, 0.25, eA) : k < 0.75 ? 1 : 1 - seg(k, 0.75, 1, eA)), xy: still ? null : (k) => [0, 40 - 84 * eA(k)] });
+    fitChart(draw, (fs) => { for (const [t, y, hgt, mid] of names) { t.setAttribute('y', (mid ? y + hgt / 2 + 0.36 * fs.cap : y + 8 + 0.75 * fs.cap).toFixed(1)); fsOf(t, fs.cap); } }, () => draw._svgGL.paint());
     return h('div', { class: 'pzw-panel' + (sin ? ' sin' : '') },
       h('div', { class: 'pzw-t' }, sin ? 'Liver sinusoid' : 'Gut capillary'),
       h('div', { class: 'pzw-s' }, sin ? 'Open pores, no basement membrane' : 'Continuous wall, basement membrane'),

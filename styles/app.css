@@ -2416,7 +2416,8 @@ html.label-fill-both :is(#labels .lb.scan, .app.presenting #labels .lb) { animat
 .pzq-t { font: 500 25px var(--font-ui); fill: var(--text-3); }
 .pzq-t.on { font-weight: 700; fill: var(--text); }
 .pzq-ax { font: 600 25px var(--font-ui); fill: var(--text-2); }
-.pzq-pt { animation: fade-rise var(--d-surface) var(--ease) both; animation-delay: calc(var(--i, 0) * 180ms + 300ms); }
+.pzq-pt { opacity: 0; transition: opacity var(--d-surface) var(--ease), transform var(--d-surface) var(--ease); transition-delay: calc(var(--i, 0) * 180ms + 300ms); }   /* (a GPU model: the picture runs this ease, svg-gl.js) */
+.pz-quad.in .pzq-pt { opacity: 1; }
 .pzq-pt circle { fill: var(--site); stroke: var(--surface); stroke-width: 5; }
 .pzq-pt text { font: 700 29px var(--font-ui); fill: var(--text); }
 .pz-quads { display: flex; flex-direction: column; gap: clamp(8px, calc(1.6 * var(--pzh)), 20px); margin: 0; padding: 0; list-style: none; }

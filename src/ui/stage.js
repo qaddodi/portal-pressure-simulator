@@ -7,13 +7,13 @@ import { WARM_VIEWS, WARM_MS } from './warm-views.js?v=510b2dee9e';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=fe0f3d1f0e';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=56a99ecafa';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=87280274e9';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=4ef2a6ffd8';
 import { fibroReading } from './clock.js?v=16aba0e2eb';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=d6dfa6855e';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=bb5eaf3902';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
@@ -29,7 +29,7 @@ import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb64813
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { paintBox } from './plate-copy.js?v=20b30d30b0';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
-import { glassCallout, withGlass } from './callout.js?v=0a34a67d79';
+import { glassCallout, withGlass } from './callout.js?v=13e51ef5bf';
 import { flipFrom, flipAt } from './cath-flip.js?v=6b016952c4';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
@@ -51,13 +51,13 @@ import { measure as measureWords } from './glyph-measure.js?v=5fc78d0edb';
 import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=e0eecb7402';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
 import { pathCmds, flattenCmds, polyBox, measurePath, elBox } from './shape-gl.js?v=c6a05b4d08';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=a0b340e9dd';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=e9e76f8415';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=a901e8b4f3';
 import { createLabelGL } from './label-gl.js?v=11665a6c5f';
 import { createGlassGL } from './glass-gl.js?v=3edee1eab2';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4ad517372';
 import { ENT_W } from './veins-bin.js?v=6e462a9e6c';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=cbc8af12bf';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=f276b3f8b2';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -91,7 +91,7 @@ import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
 import { CellGrid, geomOf } from './cell-grid.js?v=d639bfecf2';
 import { restPass } from './rest-pass.js?v=c07b18f2fd';
-import { glWords } from './gl-words.js?v=2536164d8f';
+import { glWords } from './gl-words.js?v=240332cb55';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
 // key pill, the readings' own sizes, the home look's room) are read first in a frame, before anything is written (frame.js readFrame),
@@ -2764,7 +2764,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=e87b18aadc').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=c4b39e7318').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -9619,12 +9619,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The leader lines and their dots, kept by the label they belong to: a new one fades in, one no longer wanted fades out, and the
   // rest are moved in place (rebuilt wholesale, they popped in and out with every change).
   const leadEls = new Map();
+  // (A new leader takes a blank line or dot made ahead, between frames, never one made in the frame (2 Nov 2026, "Move everything to
+  // GPU"): when none is left it comes in the next frame, after the spares are made again.)
+  const leadSpare = new Map(), LEAD_SPARE = 12;
+  let leadFill = 0;
+  function leadTop() { leadFill = 0; for (const tag of ['path', 'circle']) { const l = leadSpare.get(tag) || []; while (l.length < LEAD_SPARE) l.push(s(tag, {})); leadSpare.set(tag, l); } }
+  const leadTake = (tag) => { const el = leadSpare.get(tag)?.pop() || null; if (!leadFill && (leadSpare.get(tag)?.length ?? 0) < LEAD_SPARE / 2) leadFill = restPass(leadTop); return el; };
   function paintLeaders(want) {
     const keep = new Set(want.map((w) => w.k)), els = [];
     for (const w of want) {
       let el = leadEls.get(w.k);
-      if (el && el.tagName !== w.tag) { el.remove(); el = null; }
-      if (!el) { el = s(w.tag, {}); leadEls.set(w.k, el); }
+      if (el && el.tagName !== w.tag) { el.remove(); leadEls.delete(w.k); el = null; }
+      if (!el) { el = leadTake(w.tag); if (!el) { if (!leadFill) leadFill = restPass(leadTop); continue; } leadEls.set(w.k, el); }
       if (el._gone) { clearTimeout(el._gone); el._gone = 0; el.classList.remove('ld-gone'); }
       for (const [a, v] of Object.entries(w.at)) setA(el, a, v);
       els.push(el);
@@ -9640,21 +9646,53 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
   }
   const termTone =(id) => { const st = store.get(); return (st.presenting && st.presentTerms?.[id]) || null; };
+  // A label new to the figure, or one whose pieces change (another line, another run), is built between frames (a rest pass), never in
+  // the frame that asks for it: a frame makes no element (2 Nov 2026, "Move everything to GPU"). Until then it stands as it was (a new
+  // one is not there yet); the build lays it out at once, with the newest words asked for it.
+  const blockWant = new Map();
+  let blockAsk = 0;
+  function blockBuild() {
+    blockAsk = 0;
+    const its = [...blockWant.values()];
+    blockWant.clear();
+    for (const it of its) {
+      const b = blockEl(it.key, it.cls, it.node, it.onClick), sig = blockSig(it);
+      if (sig !== b.sig) blockKids(b, it, sig);
+      renderBlock(it);
+    }
+  }
+  const blockSig = (it) => JSON.stringify([it.lines.map((line) => line.map(({ t, fill, cls, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK, fontPx(14), it.fxw ?? (/^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')) : 0)]);
   function renderBlock(it) {
-    const b = blockEl(it.key, it.cls, it.node, it.onClick);
+    const b = pool.get(it.key), sig = blockSig(it);
+    if (!b || sig !== b.sig) {
+      blockWant.set(it.key, it);
+      if (!blockAsk) blockAsk = restPass(blockBuild);
+      if (b) b.seen = frameNo;   // (kept as it stands until its new pieces are in)
+      return;
+    }
     b.seen = frameNo;
     b.g.classList.toggle('ring', / ring\b/.test(it.cls));   // (a slide's pill that could find no spot off the vessels: see the focus callout)
     // A presenter slide's term (presentTerms): the station's label takes the term's colour, eased (.lb.term).
     const tone = it.node ? termTone(it.node) : null;
     if (tone !== (b.tone || null)) { b.tone = tone; b.g.classList.toggle('term', !!tone); if (tone) b.g.style.setProperty('--term', toneCol(tone)); }   // (a tone may name its own token, '--tour-sys' for the right atrium: as var(--tr---tour-sys) it was unset and the label fell back to black, dark on dark in the dark theme)
     if (!!it.onVessel !== !!b.onVessel) { b.onVessel = !!it.onVessel; b.g.classList.toggle('on-vessel', b.onVessel); }
-    // Text and pressure colors change far more often than label structure.
-    // Retain the text nodes (and keyboard focus) across numeric updates. (A run's class is its colour, as its fill is: a change
-    // badge turning from + to − swaps its class on the same tspan rather than building the label again: 16 Oct.)
-    // (A slide's mark is drawn afresh when its words change: a pill kept from another slide's longer mark could hold its old width
-    // for a while after the new one was set: Review 16 Oct.)
-    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, fill, cls, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK, fontPx(14), it.fxw ?? (/^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')) : 0)]);
-    if (sig !== b.sig) {
+    let i = 0;
+    for (const line of it.lines) for (const r of line) {
+      const sp = b.spans[i++];
+      putText(sp, r.t);
+      if (sp.getAttribute('class') !== (r.cls || '')) sp.setAttribute('class', r.cls || '');
+      if ((sp._fill || '') !== (r.fill || '')) { sp._fill = r.fill || ''; late('fill', sp, sp._fill); }
+    }
+    blockRest(b, it);
+  }
+  // Text and pressure colors change far more often than label structure.
+  // Retain the text nodes (and keyboard focus) across numeric updates. (A run's class is its colour, as its fill is: a change
+  // badge turning from + to − swaps its class on the same tspan rather than building the label again: 16 Oct.)
+  // (A slide's mark is drawn afresh when its words change: a pill kept from another slide's longer mark could hold its old width
+  // for a while after the new one was set: Review 16 Oct.)
+  // (Between frames only: blockBuild.)
+  function blockKids(b, it, sig) {
+    {
       b.sig = sig;
       const kids = [];
       b.spans = [];
@@ -9690,13 +9728,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       b.sw = swEl;
       b.bg = bgEl;
     }
-    let i = 0;
-    for (const line of it.lines) for (const r of line) {
-      const sp = b.spans[i++];
-      putText(sp, r.t);
-      if (sp.getAttribute('class') !== (r.cls || '')) sp.setAttribute('class', r.cls || '');
-      if ((sp._fill || '') !== (r.fill || '')) { sp._fill = r.fill || ''; late('fill', sp, sp._fill); }
-    }
+  }
+  function blockRest(b, it) {
     for (const text of b.textLines) setA(text, 'x', it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : it.swatch ? 7 : 0);
     if (b.bg) { setA(b.bg, 'width', it.w + 2 * it.padX); setA(b.bg, 'height', it.h + 2 * it.padY); }
     if (it.label) setA(b.g, 'aria-label', it.label);
@@ -12563,8 +12596,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     hovO = key;
     const byOrgan = o && { liver: 'liver', heart: 'heart', spleen: 'spleen' }[o];
     if (glLines) olSet('hov', byOrgan || null);
-    late('hover', organHoverNodes(o, byOrgan));
+    // (Built between frames too, never in the frame the pointer moved in: 2 Nov 2026, "Move everything to GPU". The newest wins.)
+    hovWant = [o, byOrgan];
+    if (!hovAsk) hovAsk = restPass(() => { hovAsk = 0; lateRun('hover', organHoverNodes(...hovWant)); });
   }
+  let hovWant = null, hovAsk = 0;
   // (The soft outline's nodes, built here and put in the page between frames: late('hover').)
   function organHoverNodes(o, byOrgan) {
     if (!o) return [];

@@ -55,6 +55,19 @@ function fadeOf(el) {
   return f.from + (f.to - f.from) * f.ease(k);
 }
 
+// A piece a teaching scene keeps moving for as long as it shows (albumin drifting in a lumen, a pulse along a flow): its strength and its
+// offset at each moment of a loop, drawn by the picture from the frame's clock, never a keyframe animation the page runs on SVG (2 Nov
+// 2026, "Move everything to GPU"). spec: { ms (one turn), delay (ms), alternate, op(k) (its strength, 0 to 1), xy(k) ([x, y] in the
+// drawing's units) }, k the turn's place, 0 to 1. A drawing with a loop in it is drawn every frame while it is on the page.
+const LOOPS = new WeakMap();
+/** Keeps `el` moving on a loop in the picture (see above). */
+export function noteLoop(el, spec) { LOOPS.set(el, { t0: easeNow() + (spec.delay || 0), ...spec }); }
+function loopAt(lp, now) {
+  if (now < lp.t0) return 0;
+  const n = (now - lp.t0) / lp.ms, f = n - Math.floor(n);
+  return lp.alternate && Math.floor(n) % 2 ? 1 - f : f;
+}
+
 // ── A piece's look ──
 // The stylesheet's word is the computed style. A model's elements are not SVG, so an attribute such as text-anchor="end" or fill="…" is
 // not a presentation hint to the page: it is taken here as SVG takes it, under any rule of the stylesheet (a value the stylesheet left as
@@ -500,12 +513,21 @@ function paintEl(ctx, root, el, alpha, k) {
   const L = looks.get(el);
   if (!L || L.none) return;
   if (el.style.display === 'none') return;   // (a piece the chart hides inline)
-  const f = fadeOf(el), a = alpha * (f ?? opNow(el, L, easeNow()));
+  const f = fadeOf(el);
+  let a = alpha * (f ?? opNow(el, L, easeNow()));
   if (a <= 0.002) return;
   const own = el.style.visibility === 'hidden' || (L.hidden && el.style.visibility !== 'visible');
   let m = transformOf(el.getAttribute('transform'));
   const mv = el.style.transform ? moveNow(el, L, easeNow()) : null, clip = el.hasAttribute('clip-path');
   if (mv) m = m ? mulM([1, 0, 0, 1, mv[0], mv[1]], m) : [1, 0, 0, 1, mv[0], mv[1]];
+  const lp = LOOPS.get(el);
+  if (lp) {
+    easing = true;   // (drawn again next frame: a loop never ends while it shows)
+    const k = loopAt(lp, easeNow()), xy = lp.xy?.(k);   // (before its delay, the loop's start)
+    if (xy) m = m ? mulM([1, 0, 0, 1, xy[0], xy[1]], m) : [1, 0, 0, 1, xy[0], xy[1]];
+    a *= Math.max(0, Math.min(1, lp.op ? lp.op(k) : 1));
+    if (a <= 0.002) return;
+  }
   const mask = el.hasAttribute('mask');
   if (m || clip || mask) { ctx.save(); if (m) ctx.transform(...m); if (clip) clipTo(ctx, root, el, k); if (mask) maskTo(ctx, root, el); }
   const kk = m ? k * Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) : k;
