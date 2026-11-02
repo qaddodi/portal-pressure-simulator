@@ -12,7 +12,7 @@
 // No 2D context, no drawImage and no pixel read anywhere (the owner, 1 Nov 2026: "block everything until everything is on GPU").
 
 import { glGet, glOn, glCap } from './gl-state.js?v=4163c507aa';
-import { ucOf } from './uniform-cache.js?v=b914b447dd';
+import { ucOf } from './uniform-cache.js?v=0fc6d08369';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
 import { hold } from './gpu-budget.js?v=5a5dcd699f';
 import { WARM_VIEWS, WARM_MS, bucket } from './warm-views.js?v=5709bebee7';

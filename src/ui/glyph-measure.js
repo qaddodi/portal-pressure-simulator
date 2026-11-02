@@ -1,6 +1,6 @@
 // A word's width as Inter sets it, from the GPU atlas's own metrics (glyphs-inter.js, made by scripts/glyph-atlas.mjs): no canvas and no
 // page needed, so layout code and the tests measure words the way the GPU sets them.
-import { sdfAtlas } from './text-gl.js?v=04fdb8b647';   // (the app's one door to GPU text)
+import { sdfAtlas } from './text-gl.js?v=3438182a86';   // (the app's one door to GPU text)
 const { GLYPHS, KERN } = sdfAtlas;
 
 // The font a chart names ("650 12.5px Inter, …"): its weight, the nearest the atlas holds, and its size.

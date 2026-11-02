@@ -14,7 +14,7 @@
 // adds no frame loop of its own: an idle page stays idle (the panel then says so).
 import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watchdogStats, mayStats } from './frame.js?v=1d147c7c9a';
 import { restPass } from './rest-pass.js?v=d13e397f0b';
-import { sharedStats } from './trace-gl.js?v=00e53d1f88';
+import { sharedStats } from './trace-gl.js?v=6a8bbf1f42';
 import { caught } from './caught.js?v=b96b17594a';
 
 export const HUD_OFF = (search) => /[?&]hud=0\b/.test(String(search ?? ''));

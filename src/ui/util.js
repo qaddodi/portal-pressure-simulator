@@ -1,12 +1,12 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=1d147c7c9a';
 import { restPass, restAttr, restRemove } from './rest-pass.js?v=d13e397f0b';
-import { glWords } from './gl-words.js?v=a9b411a88f';
+import { glWords } from './gl-words.js?v=66e363c167';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7513a88c68';
 import { leaveFromHere } from './menu-leave.js?v=e71a0f16fe';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
-import { measure as measureWords } from './glyph-measure.js?v=450036b556';
+import { measure as measureWords } from './glyph-measure.js?v=aeb959e398';
 import { caught } from './caught.js?v=b96b17594a';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.

@@ -16,12 +16,12 @@
 import { store, replaceParams } from './store.js?v=2ac7b3a9d2';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { glWords } from './gl-words.js?v=a9b411a88f';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=a60489211b';
+import { glWords } from './gl-words.js?v=66e363c167';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=d98af2c7e2';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=1dd86e0fd5';
+import { liveText, wordsOf } from './live-text.js?v=516f10ea38';
 import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=d0702c7a1b';
-import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=f8458ee9c3';
+import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=912f4f35c0';
 import { sinusoidSupported } from './gl-support.js?v=6219c6f004';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
 import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=3c321f5f7f';
@@ -31,15 +31,15 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=a293ffc98b';
-import { createTools } from './presenter-tools.js?v=5debde852c';
+import { createHvpgMonitor } from './hvpg-proc.js?v=7c0ac62d60';
+import { createTools } from './presenter-tools.js?v=24a599d12f';
 import { openHandout } from './handout.js?v=3aaa29b61a';
 import { noteResume, resumeFor } from './resume.js?v=c0f39f9446';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=1eeb480f5f';
 import { cleanEq } from './import-safety.js?v=9db53247a5';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js?v=ff3ed0cc47';
 import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=1d147c7c9a';
-import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=04fdb8b647';
+import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=3438182a86';
 import { restPass, cancelRest } from './rest-pass.js?v=d13e397f0b';
 import { createSlidePrep } from './slide-prep.js?v=ce7a6bc089';
 import { createTxns } from './slide-txn.js?v=2b33d858d0';
@@ -47,21 +47,21 @@ import { glEpoch, onGLRestored } from './gl-state.js?v=4163c507aa';
 import { prepareShaders, shaderFailures } from './gl-compile.js?v=79231d7c6b';
 import { createFigureKey } from './figure-key.js?v=691383fd82';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=4f42de15df';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=e99aae8980';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=0950873052';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=4c28a4a28e';
 import { clotWords } from './callout-math.js?v=6ef2901a08';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=2bfa89bc8b';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=298fb5b6a0';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=e3687c94d5';
+import { anchorsOf, roomFor } from './cam-room.js?v=97cf3f584c';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
-import { flowTimeHeight, trailKeys } from './flow-time.js?v=a39d4f82e0';
+import { flowTimeHeight, trailKeys } from './flow-time.js?v=35368ca744';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=462dba6050';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=e2988acc94';
 import { sheetPanes } from './sheet-glass.js?v=9bad2768f7';
-import { createScopeTile } from './scope-tile.js?v=7aba66554f';
+import { createScopeTile } from './scope-tile.js?v=a232652ba4';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=7513a88c68';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
@@ -994,7 +994,7 @@ function makeCalc() {
   const ready = (async () => {
     let w = null;
     try {
-      w = new Worker(new URL('../worker.js?v=2118a304f6', import.meta.url), { type: 'module' });
+      w = new Worker(new URL('../worker.js?v=9ea8f6048f', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -1008,7 +1008,7 @@ function makeCalc() {
     } catch {
       if (w) { w.onmessage = w.onerror = null; w.terminate(); }   // (a worker that never said hello: not left running beside the page's own engine)
       try {
-        const { createCore } = await import('../worker-core.js?v=ec2d3407b3');
+        const { createCore } = await import('../worker-core.js?v=60e8598629');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

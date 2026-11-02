@@ -107,11 +107,11 @@ export function marginView(m, cw, ch) {
   return mul([k, 0, 0, k, cx * (1 - k), cy * (1 - k)], m);
 }
 
-import { createShapeGL } from './shape-gl.js?v=ed16218b02';
-import { createOrganPaint, mul, inv, prestartOrganPaint } from './organ-paint.js?v=b0072dafe4';
+import { createShapeGL } from './shape-gl.js?v=e67b567c43';
+import { createOrganPaint, mul, inv, prestartOrganPaint } from './organ-paint.js?v=7782490a38';
 import { prestart, linkProgram, exerciseDraw } from './gl-compile.js?v=79231d7c6b';
 import { netChanged } from './idle-keys.js?v=6329c6ef1f';
-import { uniformCache } from './uniform-cache.js?v=b914b447dd';
+import { uniformCache } from './uniform-cache.js?v=0fc6d08369';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);

@@ -38,20 +38,20 @@
 // has landed, the model sends the steady state's last seconds (worker-core.js, History) and the instrument takes them in front of what it
 // has recorded (backfill.js), so the trace sweeps on live from there instead of in from empty.
 
-import { store } from './store.js?v=afc4d7c743';
-import { h } from './util.js?v=a60489211b';
+import { store } from './store.js?v=2ac7b3a9d2';
+import { h } from './util.js?v=d98af2c7e2';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=42a4aa2602';
-import { createFibroScan } from './fibroscan.js?v=ca9d331e73';
-import { createPressureTime } from './pressure-time.js?v=c070ac6921';
-import { createVitalsMonitor } from './vitals-monitor.js?v=6afb03e790';
-import { createHvpgCard } from './tool-hvpg.js?v=5d3d3558c4';
-import { createFlowTime } from './flow-time.js?v=a39d4f82e0';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=83446e56fd';
+import { createDoppler } from './doppler.js?v=41a10e76ed';
+import { createFibroScan } from './fibroscan.js?v=1d58f1ba8d';
+import { createPressureTime } from './pressure-time.js?v=117ad96b7c';
+import { createVitalsMonitor } from './vitals-monitor.js?v=9d401405d7';
+import { createHvpgCard } from './tool-hvpg.js?v=43ef9e53b9';
+import { createFlowTime } from './flow-time.js?v=35368ca744';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=c3c001e57f';
 import { frameFor } from './frame.js?v=1d147c7c9a';
 import { restPass, cancelRest } from './rest-pass.js?v=d13e397f0b';
-import { talkTrace } from './talk-trace.js?v=667a68c9fb';
-import { EXT, guard, safe } from './slide-ext.js?v=e99aae8980';
+import { talkTrace } from './talk-trace.js?v=390a261aaa';
+import { EXT, guard, safe } from './slide-ext.js?v=4c28a4a28e';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
