@@ -1722,9 +1722,6 @@ button.finding { cursor: pointer; }
 /* The sinusoid view is a focused mode: only the way back to the lobule and the pressure legend stay (no lens to pick). The zoom pill keeps its place at the bottom right: its minus and fit step back out to the lobule, its plus rests (there is nothing closer to go to). */
 #zoomPill .ib:disabled { opacity: .35; pointer-events: none; }
 #app.sin-focus :is(#viewSeg [data-view="anatomic"], #viewSeg [data-view="circuit"], #btnLobuleLayers, #btnBlood, #btnInspector, #btnTreat, #tabInstruments, .top-right .tb-sep, #dock, #panel, #treatCard, #stageCenter) { display: none !important; }
-/* (The dock too, once it has slid away: main.js sinMotion keeps it shown, out of the framing and out of reach, while it slides
-   down off the screen with the zoom into the sinusoid (vd-out), and slides it back up with the zoom out. Its views pill has moved
-   to the sinusoid view's own home meanwhile.) */
 #app.sin-focus #btnLayers { pointer-events: none; cursor: default; }
 #app.sin-focus #btnLayers .chev { display: none; }
 .sv-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; color: var(--text-2); transition: opacity var(--d-surface) var(--ease); }
@@ -6474,27 +6471,25 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* The view switch (Circuit, Anatomy, Lobule, Sinusoid) is its own pill, centred a little above the play bar, on every screen
    (16 Oct, Mohammad: "detached from the timeline button slightly above it as a pill and centered"; main.js syncThumb moves it
    there). The selected view sits in a soft inner pill. On an upright phone or tablet an open card or menu covers it as it
-   covers the play row, and it comes back with them. The sinusoid view hides the bar: there the same pill sits centred at
-   the bottom, level with the zoom group (+, − back to the lobule, Fit) at the bottom right. While presenting the switch
+   covers the play row, and it comes back with them. The sinusoid view keeps the bar and the pill. While presenting the switch
    stays in the top bar. */
-.nb-views, .sin-views { display: none; }
-.app:not(.presenting) .vdock:not(.mini) > .nb-views, #app.sin-focus:not(.presenting) .sin-views { display: flex; position: absolute; left: 0; right: 0; width: max-content; max-width: calc(100vw - 16px); margin: 0 auto; padding: 6px; border-radius: 21px; isolation: isolate; }
+.nb-views { display: none; }
+.app:not(.presenting) .vdock:not(.mini) > .nb-views { display: flex; position: absolute; left: 0; right: 0; width: max-content; max-width: calc(100vw - 16px); margin: 0 auto; padding: 6px; border-radius: 21px; isolation: isolate; }
 /* The pill's face: its glass, on a box of its own behind the buttons, so it can grow and shrink about its centre as buttons come
    and go (pill-motion.js) while the buttons keep their places. (A full pill, 42 px tall; only a 1 px contact shade, so the 8 px
    gap and the bar's edge keep the canvas's colour.) */
-:is(.nb-views, .sin-views) > .vp-face { position: absolute; z-index: -1; top: 0; bottom: 0; left: 50%; width: 100%; translate: -50% 0; border-radius: inherit; background: var(--glass); box-shadow: 0 0 1px rgb(var(--night-rgb) / .04), inset 0 0 0 1px var(--hairline); pointer-events: none; }
+.nb-views > .vp-face { position: absolute; z-index: -1; top: 0; bottom: 0; left: 50%; width: 100%; translate: -50% 0; border-radius: inherit; background: var(--glass); box-shadow: 0 0 1px rgb(var(--night-rgb) / .04), inset 0 0 0 1px var(--hairline); pointer-events: none; }
 .app:not(.presenting) .vdock:not(.mini) > .nb-views { bottom: calc(100% + 8px); }   /* (8 px above the play bar) */
-#app.sin-focus:not(.presenting) .sin-views { z-index: var(--z-hud); bottom: calc(var(--bot-occ, 120px) + 8px); }
-:is(.nb-views, .sin-views) #viewSeg { position: relative; display: flex; gap: 2px; min-width: 0; height: auto; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
-:is(.nb-views, .sin-views) #viewSeg button { position: relative; flex: 0 0 auto; min-width: 0; min-height: 0; height: 30px; padding: 0 14px; border-radius: 15px; font-size: var(--fs-14); font-weight: 600; letter-spacing: 0; white-space: nowrap; }
+.nb-views #viewSeg { position: relative; display: flex; gap: 2px; min-width: 0; height: auto; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.nb-views #viewSeg button { position: relative; flex: 0 0 auto; min-width: 0; min-height: 0; height: 30px; padding: 0 14px; border-radius: 15px; font-size: var(--fs-14); font-weight: 600; letter-spacing: 0; white-space: nowrap; }
 /* (The painted pill is 30 px; the touch reaches 6 px past it above and below, to the pill's edge, unseen.) */
-:is(.nb-views, .sin-views) #viewSeg button::after { content: ""; position: absolute; inset: -6px 0; }
-:is(.nb-views, .sin-views) #viewSeg button[aria-pressed="true"] { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: none; color: var(--text); }
+.nb-views #viewSeg button::after { content: ""; position: absolute; inset: -6px 0; }
+.nb-views #viewSeg button[aria-pressed="true"] { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: none; color: var(--text); }
 /* (The gliding piece, seg-glide.js, wears this look: a 30 px pill tinted with the text colour. While the pill folds it travels on the fold's clock, below.) */
-:is(.nb-views, .sin-views) #viewSeg.seg-glide::before { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: none; border-radius: 15px; }
-@media (forced-colors: none) { :is(.nb-views, .sin-views) #viewSeg.seg-glide button[aria-pressed="true"] { background: transparent; } }
-@media (max-width: 359px) { :is(.nb-views, .sin-views) #viewSeg button { padding: 0 10px; font-size: var(--fs-12); } }   /* (the full 14 px pill is 340 px wide with four buttons, so it fits from 360 up) */
-@media (max-width: 299px) { :is(.nb-views, .sin-views) #viewSeg button { padding: 0 6px; } }   /* (Safari's page zoom lays a 390 phone out 260 wide: the pill is 245 px, not 278) */
+.nb-views #viewSeg.seg-glide::before { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: none; border-radius: 15px; }
+@media (forced-colors: none) { .nb-views #viewSeg.seg-glide button[aria-pressed="true"] { background: transparent; } }
+@media (max-width: 359px) { .nb-views #viewSeg button { padding: 0 10px; font-size: var(--fs-12); } }   /* (the full 14 px pill is 340 px wide with four buttons, so it fits from 360 up) */
+@media (max-width: 299px) { .nb-views #viewSeg button { padding: 0 6px; } }   /* (Safari's page zoom lays a 390 phone out 260 wide: the pill is 245 px, not 278) */
 /* A phone: the cards (Tests, Treat, Details) and the menus sit above the dock, inset like it, round on every corner. */
 @media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)) {
@@ -7658,7 +7653,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .seg-glide.glide-gpu.glide-still::before { transition: none; }
 /* While the pill folds (pill-motion.js), the highlight moves on the fold's own clock and curve, from where it was drawn to its new
    button, landing with it and inside the face throughout (2 Nov, Mohammad: it went to Anatomy first, outside the pill). */
-:is(.nb-views, .sin-views) #viewSeg.vp-fold.seg-glide.glide-gpu:not(.glide-still)::before { transition-duration: var(--d-surface); transition-timing-function: var(--ease-arrive); }
+.nb-views #viewSeg.vp-fold.seg-glide.glide-gpu:not(.glide-still)::before { transition-duration: var(--d-surface); transition-timing-function: var(--ease-arrive); }
 
 /* A menu's scroll-edge veils on the compositor (scroll-edges.js, ?edgesgpu=0: the variables ease, as above): the variables step and the
    veil's own opacity eases over the same --d-small on --ease-move. */
