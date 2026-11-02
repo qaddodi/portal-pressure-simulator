@@ -19,7 +19,8 @@ import { build } from 'esbuild';
 import { readFileSync, writeFileSync, rmSync, mkdirSync, cpSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname, resolve, relative, basename, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'dist');
@@ -64,13 +65,68 @@ const workerUrl = {
     }));
   },
 };
-const app = await build({ ...common, plugins: [stripStamps, workerUrl], entryPoints: [join(ROOT, 'src/ui/main.js')], outdir: ASSETS, splitting: true, entryNames: 'app-[hash]', chunkNames: 'chunk-[hash]', write: true, metafile: true });
+// Picture and glyph data (plain literals, nothing to run) ships as data, not script (Holding 120 Hz §2.9): a JSON file parses several
+// times faster than the same object written as JavaScript, and is not counted, compiled or kept as code. Each module becomes a two-line
+// loader that fetches its hashed .json (preloaded in the head for the ones the first screen needs, so the fetch runs beside the scripts),
+// and the SDF atlas's base64 PNG becomes a real .png the browser decodes off the main thread. The source modules stay as they are: the
+// repository root runs them as is. The build fails if a value does not come back from JSON exactly as it was.
+const DATA_MODULES = /[\\/]src[\\/]ui[\\/](organ-art|organ-art-lite|glyph-data|glyphs-inter|glyphs-inter-png)\.js$/;
+const dataOut = new Map();   // module name → the file it became
+const dataFiles = {
+  name: 'data-files',
+  setup(b) {
+    b.onLoad({ filter: DATA_MODULES }, async (args) => {
+      const name = basename(args.path, '.js');
+      const m = { ...(await import(pathToFileURL(args.path).href)) };
+      if (name === 'glyphs-inter-png') {
+        const png = Buffer.from(m.ATLAS_PNG.slice(m.ATLAS_PNG.indexOf(',') + 1), 'base64');
+        const file = `${name}-${sha(png)}.png`;
+        writeFileSync(join(ASSETS, file), png); dataOut.set(name, file);
+        return { contents: `export const ATLAS_PNG = new URL('./${file}', import.meta.url).href;`, loader: 'js' };
+      }
+      const json = JSON.stringify(m);
+      if (!isDeepStrictEqual(JSON.parse(json), m)) throw new Error(`${name}.js does not survive JSON: ship it as script`);
+      const file = `${name}-${sha(json)}.json`;
+      writeFileSync(join(ASSETS, file), json); dataOut.set(name, file);
+      return { contents: `const r = await fetch(new URL('./${file}', import.meta.url));\nif (!r.ok) throw new Error('${file}: ' + r.status);\nexport const { ${Object.keys(m).join(', ')} } = await r.json();`, loader: 'js' };
+    });
+  },
+};
+// No script file over 200 KB (Holding 120 Hz §2.9): esbuild splits only where import() does, so a chunk is every module the same entries
+// reach. A chunk over the limit made of more than one module has its largest module made an entry of its own, which gives that module a
+// file of its own, and the build runs again until no such chunk is left. (A single module over the limit has to be split in its source.)
+const CHUNK_LIMIT = 200 * 1024;
+const appEntries = new Set([join(ROOT, 'src/ui/main.js')]);
+const appOpts = () => ({ ...common, plugins: [stripStamps, workerUrl, dataFiles], entryPoints: [...appEntries], outdir: ASSETS, splitting: true, entryNames: '[name]-[hash]', chunkNames: 'chunk-[hash]', metafile: true });
+for (let round = 0; round < 60; round++) {
+  const trial = await build({ ...appOpts(), write: false });
+  const over = Object.values(trial.metafile.outputs).filter((o) => o.bytes > CHUNK_LIMIT && Object.values(o.inputs).filter((i) => i.bytesInOutput > 0).length > 1);
+  if (!over.length) break;
+  for (const o of over) {
+    const top = Object.entries(o.inputs).sort((a, b) => b[1].bytesInOutput - a[1].bytesInOutput).map(([i]) => resolve(ROOT, i)).find((i) => !appEntries.has(i));
+    if (top) appEntries.add(top);
+  }
+}
+const app = await build({ ...appOpts(), write: true });
+// A module made an entry above also gets an entry file that only re-exports it; the app imports the shared chunk instead, so a re-export
+// file nothing imports (and that is not the app itself or an import() target) is left out.
+const reached = new Set(Object.values(app.metafile.outputs).flatMap((o) => o.imports.map((i) => i.path)));
+for (const [f, o] of Object.entries(app.metafile.outputs)) {
+  if (o.entryPoint && !o.entryPoint.endsWith('src/ui/main.js') && !reached.has(f)) { rmSync(resolve(f), { force: true }); delete app.metafile.outputs[f]; }
+}
 // (esbuild lists a module that is only import()ed with an entryPoint too, so the page's script is the one made from main.js, not the first listed.)
 const isApp = (o) => o.entryPoint?.endsWith('src/ui/main.js');
 const appFile = basename(Object.keys(app.metafile.outputs).find((f) => isApp(app.metafile.outputs[f])));
 // Chunks the entry imports statically: preload them alongside it.
 const appOut = Object.values(app.metafile.outputs).find(isApp);
-const staticChunks = appOut.imports.filter((i) => i.kind === 'import-statement').map((i) => basename(i.path));
+// (Every chunk the first screen runs, the chunks' own imports included, so none waits for the one that names it.)
+const staticChunks = [];
+for (const queue = [appOut]; queue.length;) {
+  for (const i of queue.shift().imports) {
+    if (i.kind !== 'import-statement' || staticChunks.includes(basename(i.path))) continue;
+    staticChunks.push(basename(i.path)); queue.push(app.metafile.outputs[i.path]);
+  }
+}
 
 // 3. Styles: fonts, tokens and layout in one file; fonts get hashed names.
 const cssEntry = join(OUT, '_entry.css');
@@ -99,6 +155,9 @@ const head = [
   serifLatin ? `<link rel="preload" href="assets/${serifLatin}" as="font" type="font/woff2" crossorigin />` : '',
   monoLatin ? `<link rel="preload" href="assets/${monoLatin}" as="font" type="font/woff2" crossorigin />` : '',
   `<link rel="stylesheet" href="assets/${cssFile}" />`,
+  // (The data the first screen's scripts wait for: fetched beside them, not after them.)
+  ...['organ-art', 'glyphs-inter'].filter((n) => dataOut.has(n)).map((n) => `<link rel="preload" href="assets/${dataOut.get(n)}" as="fetch" crossorigin />`),
+  dataOut.has('glyphs-inter-png') ? `<link rel="preload" href="assets/${dataOut.get('glyphs-inter-png')}" as="image" />` : '',
   ...staticChunks.map((c) => `<link rel="modulepreload" href="assets/${c}" />`),
   `<script type="module" src="assets/${appFile}"></script>`,
 ].filter(Boolean).map((l) => '  ' + l).join('\n');
