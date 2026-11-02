@@ -2705,7 +2705,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=9f0c121a30').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=61e1663180').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -11271,6 +11271,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return ms;
   };
+  const overCheck = new Set();   // (elements written since the last reading, their transitions read at the next)
   const overEasing = new Map();   // element → when its ease ends at the latest (performance.now), for a transition that never reports
   const overKey = () => `${appEl?.className || ''}|${document.documentElement.className}|${wrap.className}|${svgOver ? [...svgOver.classList].filter((c) => c !== OVER_ALL).join(' ') : ''}|${themeKey()}|${reduceMotion.matches}`;
   // (Set up once, at start-up where the overlays are on the GPU, or by renderPath if a restore makes them possible.)
@@ -11283,8 +11284,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (needsReread(r)) { overDirty = true; break; }
         // (A value the painter reads at each paint, eased by the page's CSS: the browser shows the ease, so the group waits in the SVG.
         // An outline's d is not eased by any of the overlays' styles.)
-        const ms = r.attributeName !== 'd' && r.target.nodeType === 1 ? transMs(r.target) : 0;
-        if (ms > 0) { overEasing.set(r.target, performance.now() + ms + 50); overDirty = true; }
+        // (2 Nov 2026: its transitions are read in the next frame's read phase (overReadNow), not here, in the observer's microtask
+        // straight after the page's writes, where the read laid the page out. ?overearly=0: here, as before.)
+        if (r.attributeName !== 'd' && r.target.nodeType === 1) {
+          if (OVER_EARLY) overCheck.add(r.target); else { const ms = transMs(r.target); if (ms > 0) { overEasing.set(r.target, performance.now() + ms + 50); overDirty = true; } }
+        }
       }
       askAnimate();
     });
@@ -11321,19 +11325,35 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // the middle of the frame. They are read first thing in the next frame (readFrame), before any write, and laid then. ?overearly=0:
       // read here, as before.)
       if (!OVER_EARLY) overReadNow();
-      else if (!overAsk) overAsk = readFrame(overReadEarly);
-    }
+      else { overNeed = true; if (!overAsk) overAsk = readFrame(overReadEarly); }
+    } else if (overCheck.size && !overAsk) overAsk = readFrame(overReadEarly);   // (only writes to look at: read again if one eases)
     if (!overGot) return;
     const run = overGot;
     overGot = null;
     overApply(run);
   }
   const OVER_EARLY = !/[?&]overearly=0\b/.test(location.search);
-  let overAsk = 0, overGot = null;
-  function overReadEarly() { overAsk = 0; overReadNow(); askAnimate(); }
-  function overReadNow() {
-    if (!veins?.overlay || veins.lost || !wrap.classList.contains('gl-on')) return;
+  let overAsk = 0, overGot = null, overNeed = false;
+  function overReadEarly() {
+    overAsk = 0;
+    const need = overNeed;
+    overNeed = false;
+    if (overChecked() || need) { overReadNow(); askAnimate(); }
+  }
+  // (The written elements' transitions, read in the read phase: true when one of them eases, so the groups are read again.)
+  function overChecked() {
+    if (!overCheck.size) return false;
+    const t = performance.now();
+    let eased = false;
     overTrans = new WeakMap();
+    for (const el of overCheck) { if (!el.isConnected) continue; const ms = transMs(el); if (ms > 0) { overEasing.set(el, t + ms + 50); eased = true; } }
+    overCheck.clear();
+    return eased;
+  }
+  function overReadNow() {
+    if (!veins?.overlay || veins.lost || !wrap.classList.contains('gl-on')) { overCheck.clear(); return; }
+    overTrans = new WeakMap();
+    overChecked();
     const easing = [...overEasing.keys()];
     let why = null;
     const read = (u) => {

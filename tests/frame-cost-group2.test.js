@@ -46,7 +46,8 @@ test('item 33: the sinusoid view keeps its size, colours and dark-mode query ins
   assert.match(draw, /const \[W, H\] = hostSize\(\);/);
   assert.match(src, /new ResizeObserver\(\(\) => \{ readHost\(\); readGap\(\);/, 'the stage read by its observer, not by a frame');
   // (The colours are read again when the theme or a setting's class changes, between frames (a rest pass), never from the presenter's inline room.)
-  assert.match(src, /const lookChanged = \(\) => \{ cssStale = true; readGap\(\); askRest\(\); \};/);
+  assert.match(src, /const lookChanged = \(\) => \{ cssStale = true; gapStale = true; askRest\(\); \};/);
+  assert.match(src, /restAsk = 0;\n\s+if \(gapStale\) \{ gapStale = false; readGap\(\); \}/, 'the gap read in the rest pass, not in the observer (2 Nov 2026)');
   assert.match(src, /if \(cssStale \|\| cssMiss\) \{ readCss\(\); cssMiss = false; ch = true; \}/);
   assert.match(src, /r\.attributeName !== 'style'/);
   assert.match(src, /if \(el\.style\.getPropertyValue\('--label-k'\) !== lk\)/);

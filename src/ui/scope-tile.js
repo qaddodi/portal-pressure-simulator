@@ -6,7 +6,7 @@ import { h } from './util.js?v=7889f271cd';
 import { renderEndo } from './endo-render.js?v=821ef6242d';
 import { endoGrow, LARGE_MM } from './endo-size.js?v=e0a58bf20e';
 import { D_SURFACE, easeArrive } from './ease.js?v=fc509dabe4';
-import { createTraceGL, fitPen } from './trace-gl.js?v=3978e30586';
+import { createTraceGL, fitPen } from './trace-gl.js?v=3905285ca2';
 import { frameFor } from './frame.js?v=7710f677e2';
 
 const RES = 168, STEPS = 14, NONE_MM = 2.5;   // (2.5 mm: below it the metrics call it no varix)

@@ -205,7 +205,10 @@ export function createSinusoidView({ host, before = null }) {
   const darkMQ = matchMedia('(prefers-color-scheme: dark)');
   // (The look's values are read between frames, a rest pass (rest-pass.js), as the look changes; the frames use them as read.)
   let cssStale = true;
-  const lookChanged = () => { cssStale = true; readGap(); askRest(); };
+  // (2 Nov 2026: the gap is read in that rest pass too, not in the observer's microtask straight after the page's writes, where the
+  // read laid the page out: 30 ms on a phone's slide change.)
+  let gapStale = false;
+  const lookChanged = () => { cssStale = true; gapStale = true; askRest(); };
   darkMQ.addEventListener?.('change', lookChanged);
   if (typeof MutationObserver === 'function') {
     // (Not the inline style: the presenter writes its room there as cards move; the colours never come from it.)
@@ -655,6 +658,7 @@ export function createSinusoidView({ host, before = null }) {
   let restAsk = 0;
   function readRest() {
     restAsk = 0;
+    if (gapStale) { gapStale = false; readGap(); }
     if (shown <= 0) return;
     let ch = false;
     if (cssStale || cssMiss) { readCss(); cssMiss = false; ch = true; }
