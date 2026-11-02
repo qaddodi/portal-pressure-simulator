@@ -10285,7 +10285,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const key = [[CTM.a, CTM.b, CTM.e, CTM.f].map((v) => v.toFixed(2)).join(), b.width, b.height, morph, rotU, labelFonts, themeKey(),
       pzInset('--pz-l'), pzInset('--pz-t'), st.mode, !!st.compareSnap, st.compareView, paramJSON(blockerBoxes), sig,
       calloutBoxes().map((b) => [b.x0, b.y0].map((v) => Math.round(v / 8)).join()).join(';')].join('|');
-    if (!force && key === labelKey && refreshValues(f)) { stats.skips++; stats.ms += performance.now() - t0; }
+    if (!force && key === labelKey && (LABEL_HOLD && inMotion() ? holdValues(f) : refreshValues(f))) { stats.skips++; stats.ms += performance.now() - t0; }
     else {
       const sc = CTM.sc, th = Math.atan2(CTM.b, CTM.a);
       const csig = calloutSig();
@@ -10313,6 +10313,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     dprobePaint();
     labelPainted = true;
     labelGlSync();   // (last: the probe's place, just written, is drawn in this frame too)
+  }
+  // (Cached labels while something moves (recs.md item 6, 2 Nov 2026): during a transition (inMotion: a slide's cards thrown, a
+  // dive) a laid-out label is left exactly as it is, its places, widths and collisions kept from its last layout and its live values
+  // not rebuilt or written into the page, so a moving frame does no label DOM work at all. The values catch up in the first frame
+  // after the move ends. ?labelhold=0: the values written every frame, as before.)
+  const LABEL_HOLD = !/[?&]labelhold=0\b/.test(location.search);
+  let heldF = null, heldWait = null;
+  function holdValues(f) {
+    heldF = f;
+    heldWait ||= afterMotion(() => {
+      heldWait = null;
+      frameFor('labels')(() => { const g = heldF; heldF = null; if (!g || cathHid()) return; if (!refreshValues(g)) labelKey = null; labelGlSync(); });
+    });
+    return true;
   }
   // The live values of the labels showing, rebuilt and written into their text in place. False when one
   // changed shape (a width, a run, a change badge): the caller then lays the labels out again.
