@@ -106,14 +106,27 @@ export function invTo(o, m) {
   return o;
 }
 
-/** A CSS colour as computed ("rgb(…)", "rgba(…)", "color(srgb r g b / a)", "transparent") → [r, g, b, a] in 0..1, or null. */
+// (A colour string read once: the same string gives the same array again, which callers only read. A few hundred at most; past that, started over.)
+const COLORS = new Map();
+/** A CSS colour as computed ("rgb(…)", "rgba(…)", "color(srgb r g b / a)", "transparent") → [r, g, b, a] in 0..1, or null. The array is shared: not to be changed. */
 export function parseColor(s) {
-  s = String(s || '').trim();
-  if (s === 'transparent') return [0, 0, 0, 0];
-  let m = s.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/);
-  if (m) return [m[1] / 255, m[2] / 255, m[3] / 255, m[4] == null ? 1 : m[4].endsWith('%') ? parseFloat(m[4]) / 100 : +m[4]];
-  m = s.match(/^color\(srgb\s+([-\d.e]+)\s+([-\d.e]+)\s+([-\d.e]+)(?:\s*\/\s*([\d.]+%?))?\s*\)$/);
-  if (m) return [+m[1], +m[2], +m[3], m[4] == null ? 1 : m[4].endsWith('%') ? parseFloat(m[4]) / 100 : +m[4]];
+  if (typeof s === 'string') {
+    const hit = COLORS.get(s);
+    if (hit !== undefined) return hit;
+    if (COLORS.size >= 512) COLORS.clear();
+    const c = parseColorText(s);
+    COLORS.set(s, c);
+    return c;
+  }
+  return parseColorText(s);
+}
+function parseColorText(s) {
+  s = String(s || '').trim();   // alloc-rare: a colour string is parsed the first time it is seen, then kept in COLORS
+  if (s === 'transparent') return [0, 0, 0, 0];   // alloc-rare: as above
+  let m = s.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/);   // alloc-rare: as above
+  if (m) return [m[1] / 255, m[2] / 255, m[3] / 255, m[4] == null ? 1 : m[4].endsWith('%') ? parseFloat(m[4]) / 100 : +m[4]];   // alloc-rare: as above
+  m = s.match(/^color\(srgb\s+([-\d.e]+)\s+([-\d.e]+)\s+([-\d.e]+)(?:\s*\/\s*([\d.]+%?))?\s*\)$/);   // alloc-rare: as above
+  if (m) return [+m[1], +m[2], +m[3], m[4] == null ? 1 : m[4].endsWith('%') ? parseFloat(m[4]) / 100 : +m[4]];   // alloc-rare: as above
   return null;
 }
 

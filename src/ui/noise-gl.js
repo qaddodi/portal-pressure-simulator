@@ -50,7 +50,7 @@ export function createNoiseFiller(gl) {
   if (!gl || gl.isContextLost?.() || !gl.getExtension('EXT_color_buffer_float')) return null;
   let h = null, prog = null, fbo = null, vao = null, broken = false;
   try { h = startProgram(gl, NOISE_VS, NOISE_FS); } catch { return null; }
-  const take = () => {
+  const take = () => {   // alloc-rare: built once when the filler is made (once per GL context) and kept; a fill allocates nothing
     if (prog || broken) return !!prog;
     if (!compileDone(gl, h)) return false;
     try { prog = checkProgram(gl, h); } catch (e) { console.warn('Noise table: the GPU fill could not be made; filled in script.', e); broken = true; gl.deleteProgram(h.p); }
@@ -58,7 +58,7 @@ export function createNoiseFiller(gl) {
     if (prog) { fbo = gl.createFramebuffer(); vao = gl.createVertexArray(); }
     return !!prog;
   };
-  return {
+  return {   // alloc-rare: built once when the filler is made (once per GL context) and kept; a fill allocates nothing
     fill(tex, w, hgt) {
       if (broken || gl.isContextLost() || !take()) return false;
       const fbR = glGet(gl, gl.READ_FRAMEBUFFER_BINDING), fbD = glGet(gl, gl.DRAW_FRAMEBUFFER_BINDING), vp = glGet(gl, gl.VIEWPORT);

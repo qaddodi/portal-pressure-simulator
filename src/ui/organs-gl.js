@@ -274,7 +274,8 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
   };
   const liveNow = () => !!(painter && (liveOrgans.size || cuts.size));   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   // The key of a render at view m: filled into `k` (kNow) and returned; the same as another when every part of it is.
-  const keyOf = (k, m, cw, ch) => {   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  const keyOf = (k, m, cw, ch) => {
     pull();
     setView(k, ver, m, cw, ch);
     k.liveVer = liveVer; k.page = watch ? pageVer : -1; k.f = pending() ? performance.now() : -1; k.ok = true;
@@ -439,7 +440,8 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
   const moveStats = { moved: 0, bases: 0, margins: 0, exact: 0 };   // (for the tests and ?organpaths: frames moved, bases copied, margins painted, exact paints)   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   // (The content's name, built again only when a number in it moved: a camera-only frame finds the same string.)
   let ckVer = -1, ckLive = -1, ckPage = -1, ckW = -1, ckH = -1, ckStr = '';
-  const contentKey = (cw, ch) => {   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  const contentKey = (cw, ch) => {
     if (ckVer !== ver || ckLive !== liveVer || ckPage !== pageVer || ckW !== cw || ckH !== ch) {
       ckVer = ver; ckLive = liveVer; ckPage = pageVer; ckW = cw; ckH = ch;
       ckStr = `${ver}|${liveVer}|${pageVer}|${cw}x${ch}`;   // alloc-rare: built when the content changed (a live group written, the layers or the size), not for a camera-only frame
@@ -562,7 +564,8 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
     exactAt = null; kAt.ok = false; mvShown = true; mvAt = performance.now(); moveStats.moved++;
     return true;
   }
-  return {   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  return {
     /**
      * A layer's raster for `slot` (0 whole, 1 view), its texture filled (veins-gl plateJob), over world rect: held until commit.
      * `at`: for a layer that can be moved (shift), where it was drawn.

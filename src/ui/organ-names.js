@@ -24,8 +24,8 @@ export const REACH = 140, STEP = 8, APART = 22, MOST = 36;
 const outlines = new Map();
 function outlineOf(id) {
   if (!outlines.has(id)) {
-    const o = ORGANS.find((q) => q.id === id), polys = o ? flattenCmds(pathCmds(o.ring || o.d), 2) : [];
-    const rings = polys.map((p) => Array.from({ length: p.pts.length / 2 }, (_, i) => [p.pts[2 * i], p.pts[2 * i + 1]])).filter((r) => r.length > 2);
+    const o = ORGANS.find((q) => q.id === id), polys = o ? flattenCmds(pathCmds(o.ring || o.d), 2) : [];   // alloc-rare: a caption's spots are worked out the first time that name is asked and kept in `kept` (and the outlines in `outlines`), never again
+    const rings = polys.map((p) => Array.from({ length: p.pts.length / 2 }, (_, i) => [p.pts[2 * i], p.pts[2 * i + 1]])).filter((r) => r.length > 2);   // alloc-rare: a caption's spots are worked out the first time that name is asked and kept in `kept` (and the outlines in `outlines`), never again
     outlines.set(id, rings);
   }
   return outlines.get(id);
@@ -36,7 +36,7 @@ const inRing = (x, y, P) => {
   for (let i = 0, j = P.length - 1; i < P.length; j = i++) if ((P[i][1] > y) !== (P[j][1] > y) && x < ((P[j][0] - P[i][0]) * (y - P[i][1])) / (P[j][1] - P[i][1]) + P[i][0]) c = !c;
   return c;
 };
-const inside = (rings, x, y) => rings.reduce((n, P) => n + (inRing(x, y, P) ? 1 : 0), 0) % 2 === 1;   // (even-odd: a ring's hole is outside)
+const inside = (rings, x, y) => rings.reduce((n, P) => n + (inRing(x, y, P) ? 1 : 0), 0) % 2 === 1;   // (even-odd: a ring's hole is outside)   // alloc-rare: a caption's spots are worked out the first time that name is asked and kept in `kept` (and the outlines in `outlines`), never again
 const away = (rings, x, y) => {
   let d = Infinity;
   for (const P of rings) for (let i = 1; i < P.length; i++) {
@@ -53,18 +53,18 @@ const kept = new Map();
  */
 export function nameSpots(name) {
   if (kept.has(name)) return kept.get(name);
-  const at = ORGAN_LABELS.find((q) => q[0] === name), rings = outlineOf(NAME_ORGAN[name]);
-  let out = [];
+  const at = ORGAN_LABELS.find((q) => q[0] === name), rings = outlineOf(NAME_ORGAN[name]);   // alloc-rare: a caption's spots are worked out the first time that name is asked and kept in `kept` (and the outlines in `outlines`), never again
+  let out = [];   // alloc-rare: a caption's spots are worked out the first time that name is asked and kept in `kept` (and the outlines in `outlines`), never again
   if (at && rings?.length) {
-    const [, ax, ay] = at, own = inside(rings, ax, ay), cands = [];
+    const [, ax, ay] = at, own = inside(rings, ax, ay), cands = [];   // alloc-rare: a caption's spots are worked out the first time that name is asked and kept in `kept` (and the outlines in `outlines`), never again
     for (let dx = -REACH; dx <= REACH; dx += STEP) for (let dy = -REACH; dy <= REACH; dy += STEP) {
       if (!dx && !dy) continue;
       const d = Math.hypot(dx, dy), x = ax + dx, y = ay + dy;
       if (d > REACH) continue;
-      if (own ? inside(rings, x, y) : inside(rings, x, y) || away(rings, x, y) <= NEAR) cands.push([x, y, d]);
+      if (own ? inside(rings, x, y) : inside(rings, x, y) || away(rings, x, y) <= NEAR) cands.push([x, y, d]);   // alloc-rare: a caption's spots are worked out the first time that name is asked and kept in `kept` (and the outlines in `outlines`), never again
     }
     // (Spots a caption's own width would not tell apart are offered once: the nearest of each, so the few cover the organ.)
-    for (const [x, y] of cands.sort((p, q) => p[2] - q[2])) if (out.length < MOST && out.every(([u, v]) => Math.hypot(u - x, v - y) >= APART)) out.push([x, y]);
+    for (const [x, y] of cands.sort((p, q) => p[2] - q[2])) if (out.length < MOST && out.every(([u, v]) => Math.hypot(u - x, v - y) >= APART)) out.push([x, y]);   // alloc-rare: a caption's spots are worked out the first time that name is asked and kept in `kept` (and the outlines in `outlines`), never again
   }
   kept.set(name, out);
   return out;

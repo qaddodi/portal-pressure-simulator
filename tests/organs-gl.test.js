@@ -67,7 +67,7 @@ test('a live organ that changed is drawn again within its box, and only its cell
   const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   assert.match(gl, /setLive\(organs, masks\) \{ liveOrgans = organs \|\| EMPTY_ORGANS; cuts = masks \|\| EMPTY_ORGANS; liveVer\+\+; freeCache\(\); watchLive\(\); \}/, 'a live change moves its own version');
   assert.match(gl, /stale: \(m, cw, ch\) => !sameKey\(keyOf\(kNow, m, cw, ch\), kDrawn\) \|\| \(!watch && liveNow\(\)\) \|\| \(mvShown && performance\.now\(\) - mvAt >= MOVE_SETTLE_MS\),/);
-  assert.match(gl, /const keyOf = \(k, m, cw, ch\) => \{\n\s+pull\(\);\n\s+setView\(k, ver, m, cw, ch\);\n\s+k\.liveVer = liveVer; k\.page = watch \? pageVer : -1; k\.f = pending\(\) \? performance\.now\(\) : -1; k\.ok = true;/);
+  assert.match(gl, /const keyOf = \(k, m, cw, ch\) => \{[^\n]*\n\s+pull\(\);\n\s+setView\(k, ver, m, cw, ch\);\n\s+k\.liveVer = liveVer; k\.page = watch \? pageVer : -1; k\.f = pending\(\) \? performance\.now\(\) : -1; k\.ok = true;/);
   assert.match(gl, /const same = sameView\(kAt, ver, m, cw, ch\) && !!painter;\n\s+setView\(kAt, ver, m, cw, ch\); kAt\.ok = true;/, 'the same view and layers: only what changed');
   assert.match(gl, /if \(a\[i\]\.ops\[k\]\[0\] !== b\[i\]\.ops\[k\]\[0\]\) \{ addBox\(a\[i\]\.ops\[k\]\[1\]\); addBox\(b\[i\]\.ops\[k\]\[1\]\); \}/, "an op's old and new boxes");
   assert.match(gl, /if \(!whole && !dirtyOn\) \{ endFade\(\); painter\?\.endFrame\(\); setExact\(m, ck\); return null; \}/, 'nothing changed: nothing drawn');
@@ -224,11 +224,11 @@ test('a camera-only frame moves the last exact picture on the GPU instead of pai
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   // Only the camera: the content key leaves the view out, and the base must be of the same content.
-  assert.match(gl, /const contentKey = \(cw, ch\) => \{\n\s+if \(ckVer !== ver \|\| ckLive !== liveVer \|\| ckPage !== pageVer \|\| ckW !== cw \|\| ckH !== ch\) \{\n\s+ckVer = ver; ckLive = liveVer; ckPage = pageVer; ckW = cw; ckH = ch;\n\s+ckStr = `\$\{ver\}\|\$\{liveVer\}\|\$\{pageVer\}\|\$\{cw\}x\$\{ch\}`;/);
+  assert.match(gl, /const contentKey = \(cw, ch\) => \{[^\n]*\n\s+if \(ckVer !== ver \|\| ckLive !== liveVer \|\| ckPage !== pageVer \|\| ckW !== cw \|\| ckH !== ch\) \{\n\s+ckVer = ver; ckLive = liveVer; ckPage = pageVer; ckW = cw; ckH = ch;\n\s+ckStr = `\$\{ver\}\|\$\{liveVer\}\|\$\{pageVer\}\|\$\{cw\}x\$\{ch\}`;/);
   assert.match(gl, /const moveOk = \(ck, cw, ch\) => !!\(moveP && painter && watch && liveNow\(\) && !pending\(\) && w === cw && h === ch && \(base\?\.ck === ck \|\| exactAt\?\.ck === ck\)\);/);
   assert.match(gl, /if \(!unchanged && moveOk\(ck, cw, ch\)\) \{\n\s+if \(moveFrame\(m, ck, cw, ch\)\) \{ keepKey\(\); return true; \}/);
   // The moved frame paints no shape: one draw of the move program.
-  const mf = gl.slice(gl.indexOf('function moveFrame('), gl.indexOf('  return {\n    /**\n     * A layer\'s raster'));
+  const mf = gl.slice(gl.indexOf('function moveFrame('), gl.indexOf('    stage(slot, name, tex, rect'));
   assert.ok(mf.length > 200);
   assert.doesNotMatch(mf.replace(/paintStack\(p, null, mvM\.fb, cw, ch, null, null\);/, ''), /paintStack|paintGroup|layMasked/);
   assert.match(mf, /if \(s > base\.s \* MOVE_ZOOM_IN\) return false;/);
