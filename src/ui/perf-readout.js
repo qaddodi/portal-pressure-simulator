@@ -7,7 +7,7 @@
 import { TIERS_ON, TIERS, sceneTier, tierLog } from './adapt-tier.js?v=66ebe0e217';
 import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=625c2c9315';
 import { restPass } from './rest-pass.js?v=75e0aa565d';
-import { textSoon } from './class-soon.js?v=86393a213e';
+import { textSoon } from './class-soon.js?v=6cc03f6a35';
 import { perf, watchFrames, finalFrameFor } from './frame.js?v=8c8f2f530e';
 // (The readout's own loop: through the app's one frame scheduler, last in each frame, not a requestAnimationFrame of its own.)
 const nextFrame = finalFrameFor('perf readout');

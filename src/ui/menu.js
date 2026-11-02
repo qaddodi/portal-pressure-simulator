@@ -13,7 +13,7 @@ import { pressureColor } from './colormap.js?v=43e177633e';
 import { ownsSideways, pageGo } from './swipe.js?v=3d5089a9bf';
 import { frameFor } from './frame.js?v=8c8f2f530e';
 import { restPass } from './rest-pass.js?v=75e0aa565d';
-import { classSoon } from './class-soon.js?v=86393a213e';
+import { classSoon } from './class-soon.js?v=6cc03f6a35';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { leaveFromHere, menuLeaveOff } from './menu-leave.js?v=4a15e9707c';
 import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=7513a88c68';
@@ -563,7 +563,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const cols = panel.querySelector('.um-cols'), TABS = ['present', 'patients'];
     const colOf = (k) => cols.querySelector(`.um-col[data-col="${k}"]`);
     // (A list off its peer role: its transform and class only, in the move; its top and height, set at the touch, are cleared once it has landed.)
-    const unpeer = (els) => { for (const e of els) if (e) { e.style.transform = ''; e.style.transition = ''; e.classList.remove('um-peer'); } };
+    const unpeer = (els) => { for (const e of els) if (e) { e.style.transform = ''; e.style.transition = ''; classSoon(e, 'um-peer', false); } };
     const clear = (els) => { unpeer(els); for (const e of els) if (e) { e.style.top = ''; e.style.height = ''; } };
     let sw = null, settle = null, resting = null;   // settle: the last swipe's switch, while its lists are still easing; resting: the list that lands (it is still drawn off its place)
     // (The other list's place over the room in view, as read at the touch: written once, as it becomes the peer.)
@@ -601,7 +601,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       if (nb !== sw.nb) {
         unpeer([sw.nb]); sw.nb = nb; sw.j = j;
         // (The other list shows from its own top, over the part of the list in view: it lands there. Its place was set at the touch.)
-        if (nb) nb.classList.add('um-peer');
+        if (nb) classSoon(nb, 'um-peer', true);
       }
       sw.dx = nb ? tdx : tdx / 3;
       (sw.trail ||= []).push([performance.now(), t.clientX]); if (sw.trail.length > 8) sw.trail.shift();

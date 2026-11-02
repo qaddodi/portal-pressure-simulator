@@ -23,3 +23,14 @@ test('words are set once, the last ask winning', async () => {
 });
 
 test('a missing element is ignored', () => { classSoon(null, 'a', true); textSoon(null, 'x'); });
+
+test('runSoon runs after the queued class writes, in order', async () => {
+  const { runSoon } = await import('../src/ui/class-soon.js');
+  const el = fake(), seen = [];
+  classSoon(el, 'a', true);
+  runSoon(() => seen.push(el.classList.has('a')));
+  runSoon(() => seen.push('second'));
+  assert.deepEqual(seen, []);
+  await later();
+  assert.deepEqual(seen, [true, 'second']);
+});

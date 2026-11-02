@@ -13,12 +13,12 @@ import { sinusoidSupported } from './gl-support.js?v=622a3b9520';
 import { createInspector } from './inspector.js?v=c657eb5c58';
 import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=770397cdf2';
 import { setHvpgStage } from './hvpg-proc.js?v=4907fcc8a3';
-import { createWhy } from './why.js?v=9cf2d0cfb9';
-import { createTimeline, LAPSES } from './timeline.js?v=8226ac0d83';
+import { createWhy } from './why.js?v=791ccc5388';
+import { createTimeline, LAPSES } from './timeline.js?v=5b9d9ce281';
 import { createCompare } from './compare.js?v=21c67bce29';
 import { createCard } from './card.js?v=66d2dccd4a';
 import { createChart } from './chart.js?v=7df52e7104';
-import { createMenu } from './menu.js?v=29e7540d91';
+import { createMenu } from './menu.js?v=f645b5fdaf';
 import { caption } from './a11y.js?v=671bccc923';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
@@ -56,7 +56,7 @@ import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0762d1b820';
 import { createPaintGate } from './paint-gate.js?v=880ebfff88';
 import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, afterMotion, mayTask } from './frame.js?v=8c8f2f530e';
 import { restPass } from './rest-pass.js?v=75e0aa565d';
-import { classSoon } from './class-soon.js?v=86393a213e';
+import { classSoon, runSoon } from './class-soon.js?v=6cc03f6a35';
 import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js?v=254133713c';
 import { feedbackDiagnostics } from './feedback-diag.js?v=a6fd7380e0';
 import { noteJump } from './display-state.js?v=8d062d39dc';
@@ -221,7 +221,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=f594e9a3a5'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=8e6d615774'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -991,7 +991,7 @@ function wireTopbar() {
   if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=1986c6fbbd').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages.
   import('./high-refresh.js?v=c4ddc053d5').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=4b8ba87a37').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=68edeca7b8').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
   if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=2d02dae881').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
@@ -1455,13 +1455,13 @@ function wireFloating() {
   // for three seconds after. A tap anywhere, or an event on the timeline, brings them back at once.
   let focusT = 0;
   let focused = false;   // (the class itself is put on and taken off between frames, class-soon.js: this holds the state meanwhile)
-  const unfocus = () => { clearTimeout(focusT); if (!focused) return; focused = false; classSoon(app, 'figure-focus', false); foldDock(false); };
+  const unfocus = () => { clearTimeout(focusT); if (!focused) return; focused = false; classSoon(app, 'figure-focus', false); foldSoon(false); };
   const figureFocus = (ms) => {
     clearTimeout(focusT);
     // (The thumb dock stays put: its tab row is how the tools are reached, and it is slim already.)
     if (!isPhone() || app.classList.contains('thumb') || $('#strip').classList.contains('all') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     if (!focused) { focused = true; classSoon(app, 'figure-focus', true); }
-    foldDock(true);
+    foldSoon(true);
     if (ms) focusT = setTimeout(unfocus, ms);
   };
   // The dock folds to one line and opens again as an ease, never a jump: its old content fades out, the box takes its new size at
@@ -1481,6 +1481,8 @@ function wireFloating() {
     ro.observe(vdockEl);
   });
   let shown = 1;   // (how much of the dock's content shows: 1 at rest, 0 once faded for a fold)
+  // (The fold starts in a task of its own, never inside the gesture's move that asked for it: it begins by fading the content out, so one task's wait shows nothing.)
+  const foldSoon = (on) => runSoon(() => foldDock(on));
   const foldDock = async (on) => {
     if (on === foldGoal) return;
     foldGoal = on;
@@ -1644,7 +1646,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
       stopSheet(el); setSheetOffset(el, start.off0);
       el.setPointerCapture?.(e.pointerId);   // (only once it moves: captured at once, a tap's click would land on the sheet, not the grabber)
     }
-    el.classList.add('dragging');
+    classSoon(el, 'dragging', true);
     start.dy = dy;
     (start.trail ||= []).push([performance.now(), e.clientY]); if (start.trail.length > 8) start.trail.shift();
     // The height the finger draws: from Full a pull down shrinks the card the way a pull up grew it (15 Oct, Mohammad): its foot
@@ -1674,7 +1676,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   const end = (e) => {
     if (!start || (e && e.pointerId !== start.id)) return;
     const s0 = start; start = null;
-    el.classList.remove('dragging');
+    classSoon(el, 'dragging', false);
     if (s0.moved) swallow = performance.now() + 350;
     if (!s0.moved || !s0.phone) return;
     const speed = releaseSpeed(s0.trail, performance.now());   // (the finger's, px per ms down: the settle carries it on)
