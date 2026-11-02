@@ -130,6 +130,17 @@ export function readoutValue(t, m, hidden) {
 
 // Legacy pane names in content: flow and perfusion live in the readout strip, the pressure profile is the closest pane.
 const ALIAS = { flow: 'profile', perfusion: 'profile', chart: 'profile' };
+// (R11, review pass 2: the readout strip's tiles are not formatted or written while the strip cannot be seen: an instrument in focus,
+// the projector, the sinusoid view (its rule hides the dock). Read from the app's classes, never from layout. The shared shown numbers
+// (setShown: the charts and instruments read the tiles' numbers) are still kept; the strip is painted whole the moment it shows.
+// ?stripseen=0: painted whatever shows, as before.)
+const STRIP_SEEN = !(typeof location !== 'undefined' && /[?&]stripseen=0\b/.test(location.search || ''));
+function stripUnseen() {
+  const app = typeof document !== 'undefined' ? document.getElementById('app') : null;
+  if (!app) return false;
+  const c = app.classList;
+  return c.contains('projector') || c.contains('instrument-focus') || (c.contains('sin-focus') && !document.getElementById('vdock')?.classList.contains('vd-out'));
+}
 
 /** What this device last had open in the Instruments card (and its size): { open, h, w }, or {} when nothing is saved. */
 export const savedInstruments = () => { try { return JSON.parse(localStorage.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } };
@@ -271,7 +282,22 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // (The flash restarts by swapping between two names of the same keyframes, flash and flash2: a new animation name starts the
   // animation over without the reflow that removing and adding one class needed, a layout of the page inside a display frame.)
   const flashTile = (el) => { const two = el.classList.contains('flash'); el.classList.toggle('flash', !two); el.classList.toggle('flash2', two); };
+  let stripStale = false, stripObs = null;
+  function stripSeen() {
+    if (!stripStale || stripUnseen() || !frame) return;
+    stripStale = false;
+    paintStrip(frame);
+  }
   function paintStrip(f, follow = false) {
+    const unseen = STRIP_SEEN && stripUnseen();
+    if (unseen && !stripObs && typeof MutationObserver === 'function') {
+      // (one record per class change of the app or the dock, no layout read: the strip is painted as it shows again)
+      stripObs = new MutationObserver(stripSeen);
+      const app = document.getElementById('app'), vd = document.getElementById('vdock');
+      if (app) stripObs.observe(app, { attributes: true, attributeFilter: ['class'] });
+      if (vd) stripObs.observe(vd, { attributes: true, attributeFilter: ['class'] });
+    }
+    if (unseen) stripStale = true;
     const m = f.metrics;
     const st0 = store.get();
     const hidden = hiddenNow(st0);
@@ -291,6 +317,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // a running model a tile or two always wobbles, and the rest need not be worked out again on every frame. A model frame paints all.)
       if (follow) { const fk = `${v}|${shownState.or('fill:' + t.id, '')}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;
       if (!lz) setShown(t.id, v);
+      if (unseen) { x.followKey = null; continue; }   // (R11: the number is shared; the tile itself waits until it shows)
       const measured = !lz && v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) {
@@ -339,6 +366,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; el.setAttribute('aria-label', aria); }
     }
     for (const x of vitEls) {
+      if (unseen) { x.followKey = null; continue; }
       const hid = hidden?.has(x.v.hideKey);
       if (follow) x.shown = shownState.or('bar:' + x.v.id, x.shown);
       if (follow) { const fk = `${x.shown}|${hid}|${x.bad}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;

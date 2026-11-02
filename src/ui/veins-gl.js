@@ -47,7 +47,7 @@ import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=0
 import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=6041ddca5c';
 import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=e083c246d0';
 import { warmFade } from './res-fade-gl.js?v=b47ccc0622';
-import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
+import { fusedVS, fusedFS } from './veins-fuse.js?v=b34d325734';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 import { softwareGL } from './sw-yield.js?v=18a3b54a4d';
 import { frameCount, framePhase } from './frame.js?v=c67ad74ad8';
@@ -1028,6 +1028,9 @@ uniform sampler2D base;                // the vessel layer (premultiplied)
 uniform usampler2D gbuf;               // its frontmost lumen per pixel
 uniform usampler2D gbuf2;              // near a join, the lumen it joins and its share
 uniform ivec2 lA, lWrap, lSize;        // the layer holds the screen pixels from lA (device px, y down) lSize on, pixel s in texel (s − lA + lWrap) wrapped at lSize
+uniform vec2 lowS;                     // R10: a tier frame's layer read straight from its small targets: their share of the layer (0: the layer itself)
+uniform ivec2 lowSz;                   // (the share's texels: the corner of the small targets the tier drew in)
+uniform vec2 lowT;                     // (the small targets' size, texels: the colour is read filtered at uv inside them)
 uniform int lH;                        // the picture's height (device px)
 uniform highp sampler2D flow;          // per vessel: FLOW_TEXELS texels
 uniform highp sampler2D rad;
@@ -1408,6 +1411,10 @@ void main() {
   if (lt.x >= lSize.x) lt.x -= lSize.x;
   if (lt.y >= lSize.y) lt.y -= lSize.y;
   ivec2 lp = ivec2(lt.x, lSize.y - 1 - lt.y);
+  // (R10: on a tier frame the layer is its small targets, read where the stretch would have laid each pixel: the lumens' integers
+  // at the nearest texel, the colour filtered, as the blit up had done; no full-size copy of the layer is made.)
+  vec2 lowUV = (vec2(lp) + 0.5) * lowS / max(lowT, vec2(1.0));
+  if (lowSz.x > 0) lp = min(ivec2(vec2(lp) * lowS), lowSz - 1);
   uvec4 g = (inL ? texelFetch(gbuf, lp, 0) : uvec4(0u));
   // Between whole redraws a pixel with no lumen comes out as the last frame left it: everything it is made of (the plate, the
   // glows, the vessel layer, still fluid, the outlines) is unchanged, and the blood, chevrons, dye and origin colours are drawn
@@ -1426,6 +1433,7 @@ void main() {
 #endif
   vec2 w = (inv * vec3(gl_FragCoord.x, H - gl_FragCoord.y, 1.0)).xy;
   vec4 v = (inL ? texelFetch(base, lp, 0) : vec4(0.0));
+  if (lowSz.x > 0 && inL) v = texture(base, lowUV);   // (R10: a tier frame's colour, filtered as the blit up filtered it)
 #if FAST
   // Under a fully opaque vessel pixel (the inside of nearly every lumen) nothing laid below it can show: over(v, under) is
   // v + under × (1 − 1), exactly v. So the plate, its grey-down, the glows, the organ layers and the pool are not read there.
@@ -2331,10 +2339,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // fboOK: the vessel layer holds a whole draw of the current geometry, radii and organ covers, at baseM, so a redraw of
   // some of its cells (drawRows) leaves it exactly as a whole draw would. Cleared by anything else the vessel pass reads.
   let fboOK = false;
+  const LOW_DIRECT = !(typeof location !== 'undefined' && /[?&]lowdirect=0\b/.test(location.search || ''));
+  let lowLive = null;
   // The layer at w × h for the picture as it is now (its targets made again only when w or h changed).
   function ensureFBO(w, h) {
     if (fboW === w && fboH === h && fboPW === PW() && fboPH === PH()) return;
-    fboPW = PW(); fboPH = PH(); fboOK = false; wrapNone();
+    fboPW = PW(); fboPH = PH(); fboOK = false; wrapNone(); lowLive = null;
     if (fboW === w && fboH === h) return;
     fboW = w; fboH = h;
     if (gpuProbe.on) noteAlloc(fboW * fboH * 17 / 1024);
@@ -2346,7 +2356,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG16UI, fboW, fboH, 0, gl.RG_INTEGER, gl.UNSIGNED_SHORT, null);
     gl.bindTexture(gl.TEXTURE_2D, depTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, fboW, fboH, 0, gl.RED, gl.UNSIGNED_BYTE, null);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); lowLive = null;
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, baseTex, 0);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, gTex, 0);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT2, gl.TEXTURE_2D, gTex2, 0);
@@ -2489,7 +2499,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (!lAnch[0]) { if (dx > 0) strips.push([0, la[1], dx, H]); else if (dx < 0) strips.push([W + dx, la[1], -dx, H]); }
     if (!lAnch[1]) { if (dy > 0) strips.push([la[0], 0, W, dy]); else if (dy < 0) strips.push([la[0], H + dy, W, -dy]); }
     if (!strips.length) return;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); lowLive = null;
     gl.viewport(0, 0, W, H);
     gl.enable(gl.SCISSOR_TEST);
     for (const r of strips) eachPiece(r, () => { clearLayer(); vesselPass(m, look, [vao, nGen], [oneVAO, nSimple]); }, true);
@@ -2528,7 +2538,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function cellsPass(m, look, part) {
     if (part.k) {
       uploadPart(part);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); lowLive = null;
       gl.viewport(0, 0, fboW, fboH);
       eachPiece(windowRect(), () => vesselPass(m, look, [partVAO, partG], [partSVAO, partS], true));
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -2890,6 +2900,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // (Quality tiers, adapt-tier.js (R07): the targets are made once at the top tier's size (lowTop) and every tier draws inside them
   // at its own viewport, so stepping between tiers allocates nothing; prepLow makes them between frames, before the first is needed.)
   let lowK = 0, lowOn = false, soft = false, lowTop = 0, lowMade = 0;   // (lowMade: how often the tiers' targets were made, R10)
+  // (R10, review pass 2: a tier frame's small targets are read by the composite as they are (lowLive: the tier's [w, h] while they hold
+  // the layer), not stretched into the full-size layer by three blits first: the layer's full-size writes are gone from a tier frame. Any
+  // other draw into the layer lets them go (draw, layOut, trim). ?lowdirect=0: blitted up, as before.)
+  // (LOW_DIRECT and lowLive are declared with fboOK, above: the layer's own functions use them.)
   const lw = { fbo: null, tex: null, w: 0, h: 0, pw: 0, ph: 0 };
   function lowTargets(w, h) {
     if (!lw.fbo) { lw.fbo = gl.createFramebuffer(); lw.tex = ATTACH.map(() => dataTex(gl)); }
@@ -2903,6 +2917,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       lw.w = PREALLOC ? Math.ceil(needW / 64) * 64 : needW; lw.h = PREALLOC ? Math.ceil(needH / 64) * 64 : needH; lw.pw = PW(); lw.ph = PH(); lowMade++;
       const fmt = layerFmt();
       lw.tex.forEach((t, i) => { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, fmt[i][0], lw.w, lw.h, 0, fmt[i][1], fmt[i][2], null); gl.framebufferTexture2D(gl.FRAMEBUFFER, ATTACH[i], gl.TEXTURE_2D, t, 0); });
+      // (the colour read filtered by the composite on a tier frame, as the blit up filtered it; the integers stay nearest)
+      if (LOW_DIRECT) { gl.bindTexture(gl.TEXTURE_2D, lw.tex[0]); for (const k of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, k, gl.LINEAR); }
       gl.drawBuffers(ATTACH);
     }
   }
@@ -2918,6 +2934,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.disable(gl.SCISSOR_TEST);
     if (!cleared) clearLayer();
     vesselPass([m[0] * kx, m[1] * ky, m[2] * kx, m[3] * ky, m[4] * kx, m[5] * ky], look, [vao, nGen], [oneVAO, nSimple], false, false, [w, h]);
+    if (LOW_DIRECT) { lowLive = [w, h]; wrapNone(); return; }   // (R10: read as they are by the composite, compBind)
+    lowUp(w, h);
+  }
+  // The small targets stretched into the layer (each attachment, the colour filtered): the old way, and still the way for a program
+  // that cannot read them in place (compBind; R10).
+  function lowUp(w, h) {
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, lw.fbo);
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbo);
     for (let i = 0; i < ATTACH.length; i++) {
@@ -2932,6 +2954,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     wrapNone();   // (the layer laid whole, each pixel where it shows)
   }
   function lowFree() {
+    lowLive = null;
     if (!lw.fbo || lost) return;
     for (const t of lw.tex) gl.deleteTexture(t);
     gl.deleteFramebuffer(lw.fbo);
@@ -2941,8 +2964,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function compBind(U, layer, glow, warm, useStack) {
     const bind = (unit, tex, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); UC.i1(U[name], unit); };
     UC.i2(U.lA, la[0], la[1]); UC.i2(U.lWrap, wo[0], wo[1]); UC.i2(U.lSize, fboW, fboH); UC.i1(U.lH, PH());
-    bind(0, baseTex, 'base'); bind(1, gTex, 'gbuf'); bind(2, flowTex, 'flow'); bind(3, radTex, 'rad'); bind(4, tubeTex, 'tube');
-    bind(5, dyeTex, 'dye'); bind(6, plates[0]?.tex || baseTex, 'plate0'); bind(7, plates[1]?.tex || baseTex, 'plate1'); bind(8, gTex2, 'gbuf2'); bind(9, fluidTex, 'fluidMask');
+    // (R10: while the layer is a tier frame's small targets (lowLive), the composite reads them, scaled, in place of the layer.)
+    // (Every composite build (COMP_FS) reads lowS; a program without it (the builds' warm-up draw, whose picture is thrown away) is
+    // given the layer itself.)
+    if (lowLive && !lw.fbo) lowLive = null;
+    const L = lowLive && U.lowSz ? lw.tex : null;
+    UC.f2(U.lowS, L ? lowLive[0] / fboW : 0, L ? lowLive[1] / fboH : 0); UC.i2(U.lowSz, L ? lowLive[0] : 0, L ? lowLive[1] : 0); UC.f2(U.lowT, L ? lw.w : 1, L ? lw.h : 1);
+    bind(0, L ? L[0] : baseTex, 'base'); bind(1, L ? L[1] : gTex, 'gbuf'); bind(2, flowTex, 'flow'); bind(3, radTex, 'rad'); bind(4, tubeTex, 'tube');
+    bind(5, dyeTex, 'dye'); bind(6, plates[0]?.tex || baseTex, 'plate0'); bind(7, plates[1]?.tex || baseTex, 'plate1'); bind(8, L ? L[2] : gTex2, 'gbuf2'); bind(9, fluidTex, 'fluidMask');
     bind(10, lineLayer.tex, 'lineL'); UC.i1(U.lineOn, layer ? 1 : 0);
     bind(11, glowLayer.tex, 'glowL'); UC.i1(U.glowOn, glow ? 1 : 0);
     bind(13, warmLayer.tex, 'warmL'); UC.i1(U.warmOn, warm ? 1 : 0);
@@ -3233,7 +3262,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
         gl.bindRenderbuffer(gl.RENDERBUFFER, st);
         gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, W, H);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); lowLive = null;
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, organTex, 0);
         gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, st);
         gl.viewport(0, 0, W, H);
@@ -3448,7 +3477,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         // (The layer kept at its size and only cleared: it is laid out again by the whole draw that follows the zoom.)
         if (!fboW || fboPW !== PW() || fboPH !== PH()) layOut(layoutFor(m));
         if (!stale) { gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, fboW, fboH); gl.disable(gl.SCISSOR_TEST); clearLayer(); stale = true; }
-        wrapNone();   // (the layer empty, its texels where they show)
+        wrapNone(); lowLive = null;   // (the layer empty, its texels where they show)
         baseM = m; drawnLook = lk; tubesNew = false; clearMarks(); drawnNow();
         fboOK = false;
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -3471,7 +3500,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (pan) { shiftLayer(m, look, dx, dy); if (parts) { cellsPass(m, look, parts.part); tintPass(m, look, parts.tintPart); } }
       else {
         layOut(layoutFor(m));
-        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); lowLive = null;
         gl.viewport(0, 0, fboW, fboH);
         clearLayer();
         eachPiece(windowRect(), () => vesselPass(m, look, [vao, nGen], [oneVAO, nSimple]));
@@ -3987,7 +4016,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         else if (t === gTex2) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG16UI, 1, 1, 0, gl.RG_INTEGER, gl.UNSIGNED_SHORT, null);
         else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16UI, 1, 1, 0, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, null);
       }
-      fboW = fboH = 0; baseM = null; fboOK = false; wrapNone();
+      fboW = fboH = 0; baseM = null; fboOK = false; wrapNone(); lowLive = null;
       freeLayer(lineLayer); freeLayer(glowLayer); freeLayer(warmLayer); lineKey = glowKey = warmKey = '';
       stack?.trim(); over?.trim();
       if (own?.w) { own.w = own.h = 0; gl.bindTexture(gl.TEXTURE_2D, own.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); }

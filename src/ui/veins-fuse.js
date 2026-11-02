@@ -54,8 +54,9 @@ export function compPart(C) {
   s = one(s, /^uniform int bloodOnly;.*$/m, 'const int bloodOnly = 0;', 'bloodOnly');
   // (The layer's texel for the pixel, if the layer holds it: in a one-pass frame, the vessel pass's results for the pixel itself.)
   s = s.replace(/\(inL \? texelFetch\(gbuf, lp, 0\) : uvec4\(0u\)\)/g, 'fG').replace(/\(inL \? texelFetch\(gbuf2, lp, 0\) : uvec4\(0u\)\)/g, 'fG2')
-    .replace(/\(inL \? texelFetch\(base, lp, 0\) : vec4\(0\.0\)\)/g, 'fV');
-  if (/texelFetch\((gbuf|gbuf2|base),/.test(s)) throw new Error('compPart: a read of the layer left');
+    .replace(/\(inL \? texelFetch\(base, lp, 0\) : vec4\(0\.0\)\)/g, 'fV')
+    .replace(/texture\(base, lowUV\)/g, 'fVL');   // (a tier frame's read of the small targets (R10): a one-pass frame has the pixel's own, fVL = fV)
+  if (/texelFetch\((gbuf|gbuf2|base),|texture\(base,/.test(s)) throw new Error('compPart: a read of the layer left');
   s = one(s, /\bvoid main\(\)/, 'void compMain()', 'main');
   return s;
 }
@@ -70,6 +71,7 @@ ${vesselPart(V)}
 // ── The vessel pass's results, as the layer would hold them ──
 uvec4 fG, fG2;
 vec4 fV;
+#define fVL fV
 const float U8[256] = float[256](${U8.map(f32).join(', ')});
 vec4 unorm8(vec4 c) {
   ivec4 i = ivec4(roundEven(clamp(c, 0.0, 1.0) * 255.0));

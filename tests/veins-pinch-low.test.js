@@ -90,13 +90,10 @@ test('on, a hand zooming: each zoom frame drawn lower and stretched; the stop dr
   const ms = pinch(1, 1.02, 3);
   assert.deepEqual(frames(g, f, look, ms), ['lower', 'lower', 'lower']);
   const c = f.calls.slice(n0);
-  // The four targets stretched back, each alone: the colour filtered, the flow targets and the lumen mask as they are.
-  const b = blitsIn(f, n0);
-  assert.equal(b.length, 12);
-  for (const x of b) assert.deepEqual(x.slice(1, 9), [0, 0, LW, LH, 0, 0, 800, 600]);
-  assert.deepEqual(b.slice(0, 4).map((x) => x[10]), [gl.LINEAR, gl.NEAREST, gl.NEAREST, gl.NEAREST]);
-  const reads = c.filter((x) => x[0] === 'readBuffer').map((x) => x[1]);
-  assert.deepEqual(reads.slice(0, 5), [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2, gl.COLOR_ATTACHMENT3, gl.COLOR_ATTACHMENT0]);
+  // (R10, review pass 2: the small targets are read by the composite as they are, ?lowdirect=0 stretches them back as before: no
+  // full-size blit on a tier frame.)
+  assert.equal(blitsIn(f, n0).length, 0, 'nothing stretched into the full-size layer');
+  void gl;
   // The vessel pass in the small target: its size, and the view's transform scaled to it, each axis by its own share.
   const sizes = c.filter((x) => x[0] === 'uniform2f').map((x) => x.slice(2)).filter(([a, bb]) => a === LW && bb === LH);
   assert.ok(sizes.length >= 2, 'size and sizeF at the small target');

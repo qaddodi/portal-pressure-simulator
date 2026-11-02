@@ -370,16 +370,36 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
 
   let dragEl = null;
-  el.addEventListener('pointerdown', (e) => { dragEl = e.target.closest?.('input[type=range], .ac-btn, .ac-toggle, .seg button') || null; });
-  const dragEnd = () => { dragEl = null; };
+  // (R11, review pass 2: the control in use is kept in place by a ResizeObserver on what can push it (the readout above and the rows
+  // of the body), whose callback comes after the browser's own layout, so a drag reads no layout in a frame: the old way read the
+  // control's place before and after every model frame's live writes, two forced layouts a frame while a slider was held.
+  // ?dragro=0: the reads around every update, as before.)
+  const DRAG_RO = !/[?&]dragro=0\b/.test(location.search) && typeof ResizeObserver === 'function';
+  let dragTop = 0;
+  const dragRO = DRAG_RO ? new ResizeObserver(() => {
+    if (!dragEl?.isConnected) return;
+    const t = dragEl.getBoundingClientRect().top, d = t - dragTop, sc = el.querySelector('.ac-scroll');
+    if (d && sc) { const s0 = sc.scrollTop; sc.scrollTop = s0 + d; dragTop = t - (sc.scrollTop - s0); } else dragTop = t;
+  }) : null;
+  el.addEventListener('pointerdown', (e) => {
+    dragEl = e.target.closest?.('input[type=range], .ac-btn, .ac-toggle, .seg button') || null;
+    if (!dragRO || !dragEl) return;
+    dragTop = dragEl.getBoundingClientRect().top;   // (once, in the press's own event)
+    dragRO.disconnect();
+    const topEl = el.querySelector('.ac-top'), body = el.querySelector('.ac-scroll')?.firstElementChild;
+    if (topEl) dragRO.observe(topEl);
+    for (const c of body?.children || []) dragRO.observe(c);
+  });
+  const dragEnd = () => { dragEl = null; dragRO?.disconnect(); };
   addEventListener('pointerup', dragEnd, true); addEventListener('pointercancel', dragEnd, true);
 
   function update() {
     if (!model || el.hidden) return;
     // The control in use stays exactly where it is: if text came or went above it, scroll the card back by the difference.
-    const t0 = dragEl ? dragEl.getBoundingClientRect().top : 0;
+    const held = dragEl && !DRAG_RO;   // (R11: with the observer, nothing is read here)
+    const t0 = held ? dragEl.getBoundingClientRect().top : 0;
     for (const fn of live) fn();
-    if (dragEl) {
+    if (held) {
       const d = dragEl.getBoundingClientRect().top - t0, sc = el.querySelector('.ac-scroll');
       if (d && sc) sc.scrollTop += d;
     }
