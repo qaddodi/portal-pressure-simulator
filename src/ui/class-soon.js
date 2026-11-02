@@ -9,7 +9,7 @@
 //
 // A write that must land before the next frame paints (a class that holds a transition off while a transform is set) stays where it is.
 
-import { restPass } from './rest-pass.js?v=e877681653';
+import { restPass } from './rest-pass.js?v=75e0aa565d';
 
 const classes = new Map();   // element → Map(class → on)
 const words = new Map();     // element → text
