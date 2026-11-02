@@ -15,7 +15,7 @@
 // GitHub Pages also serves this build (.github/workflows/pages.yml): one bundled script and one
 // stylesheet load far faster than ~60 source files on a slow or filtered network (pages-build: 1).
 
-import { build } from 'esbuild';
+import { build as esbuild } from 'esbuild';
 import { readFileSync, writeFileSync, rmSync, mkdirSync, cpSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname, resolve, relative, basename, sep } from 'node:path';
@@ -36,6 +36,14 @@ const stripStamps = {
   setup(b) {
     b.onResolve({ filter: /\?v=/ }, (args) => ({ path: resolve(args.resolveDir, args.path.replace(/\?v=[0-9a-f]+$/, '')) }));
   },
+};
+// An import esbuild can only make `undefined` (the module is empty, or exports nothing) minifies to `(void 0)(...)` and the page dies at
+// boot ("(void 0) is not a function", preview c3fb93ed, when a conflict emptied glass-gl.js). esbuild only warns, so the build fails on it.
+const build = async (opts) => {
+  const r = await esbuild(opts);
+  const bad = r.warnings.filter((w) => w.id === 'import-is-undefined');
+  if (bad.length) throw new Error('Build refused, an import is always undefined:\n' + bad.map((w) => `  ${w.location?.file}:${w.location?.line} ${w.text}`).join('\n'));
+  return r;
 };
 const common = { bundle: true, format: 'esm', minify: true, target: ['es2022'], legalComments: 'none', logLevel: 'warning', plugins: [stripStamps] };
 
