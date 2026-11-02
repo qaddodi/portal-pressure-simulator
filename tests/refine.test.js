@@ -23,8 +23,8 @@ test('a frame gives its allowance to one job, the first to ask: the others wait 
   assert.equal(r.left(116.7), 1, 'the next frame has its own');
 });
 
-test('a step that ran over its allowance is noted by name, and the next frame starts clean', () => {
-  const r = createRefine({ ms: 1, probe: probe() });
+test('a step that ran over its allowance is noted by name, and the next frame starts clean (?refbound=0)', () => {
+  const r = createRefine({ ms: 1, probe: probe(), bound: false });
   r.left(1); r.spent(13, 'organ layer gut');
   assert.equal(r.left(2), 1, 'not carried as debt: the one indivisible op is noted, the frames after it are not starved');
   assert.deepEqual({ ms: r.longest.ms, name: r.longest.name }, { ms: 13, name: 'organ layer gut' });
@@ -109,4 +109,16 @@ test('the stage gives every refinement a turn: the layer bake and the shapes rea
   const layers = stage.slice(stage.indexOf('async function rasterLayers'), stage.indexOf('function bakeAll'));
   assert.match(layers, /if \(await refineTurn\(\(\) => seq0 !== plateSeq \|\| drops0 !== plateDrops \|\| v !== veins \|\| !v \|\| v\.lost\) === null\) return false;/, 'reading every organ\'s shapes waits its turn too');
   assert.match(layers, /refineStep\('organ layers: shapes read', bakeAll\)/);
+});
+
+test('R18: a step past its allowance leaves debt the next frames pay back, and the overrun is counted', async () => {
+  const { createRefine } = await import('../src/ui/refine.js');
+  const r = createRefine({ ms: 1, probe: { note() {}, gauge() {}, on: false }, bound: true });
+  assert.equal(r.left(1), 1);
+  r.spent(4, 'big');
+  assert.equal(r.stats.overruns, 1);
+  assert.equal(r.left(2), 0, 'paying back');
+  assert.equal(r.left(3), 0);
+  assert.equal(r.left(4), 0);
+  assert.equal(r.left(5), 1, 'paid');
 });

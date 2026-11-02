@@ -59,7 +59,7 @@ void main() {
 }`;
 
 import { createShapeGL } from './shape-gl.js?v=c6a05b4d08';
-import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=70c7cea2c5';
+import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=e0eecb7402';
 import { prestart, linkProgram } from './gl-compile.js?v=62b8693f78';
 import { netChanged } from './idle-keys.js?v=81fbedda6b';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';

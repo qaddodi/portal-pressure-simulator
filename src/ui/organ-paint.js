@@ -25,6 +25,8 @@ const ID = [1, 0, 0, 1, 0, 0];
 // a picture rasterized from the SVG copy. ?nestclip=0: such a group is not read, as before (the layer stays a picture).
 const NEST_CLIP = typeof location === 'undefined' || !/[?&]nestclip=0\b/.test(location.search);
 const DASH = !(typeof location !== 'undefined' && /[?&]gpudash=0\b/.test(location.search));
+const REFBOUND = !(typeof location !== 'undefined' && /[?&]refbound=0\b/.test(location.search));
+const REFINE_OPS = 64;   // (shapes a refinement step hands the GPU at most: R18)
 /** A computed dash pattern → { a: lengths (user units, even count), off }, or null (a percentage, or nothing to draw). */
 function readDash(cs) {
   const parts = String(cs.strokeDasharray).split(/[\s,]+/).filter(Boolean);
@@ -614,13 +616,24 @@ export function createOrganPaint(gl, shape) {
   // the scratch is the live painting's between two steps).
   const frameOf = (ops, m, into, within, d) => ({ ops, m, into, within, d, i: 0 });
   /** Runs a job's frames until they are all painted (true) or, after at least one op, `until` (performance.now) has passed (false). */
+  // (Bounded steps, recs_cgpt R18, 2 Nov 2026: each shape's paint is timed and its cost kept, so a step stops BEFORE an op that would
+  // run past its deadline, not after it; a step also hands the GPU at most REFINE_OPS shapes, so a cheap CPU step cannot flood it.
+  // The first op of a step always runs (progress). ?refbound=0: the old rule, stop only once past the deadline.)
+  const opCost = new WeakMap();
+  let opMean = 0.05;
   function runJob(job, until = Infinity) {
     let n = 0;
     job.ck = job.ck2 = null;
+    const bound = REFBOUND && until !== Infinity;
     while (job.frames.length) {
       const f = job.frames[job.frames.length - 1];
       if (f.lay) { job.frames.pop(); layOver(...f.lay); job.ck = job.ck2 = null; continue; }
       if (f.i >= f.ops.length) { job.frames.pop(); continue; }
+      if (bound && n > 0) {
+        if (n >= REFINE_OPS) return false;
+        const guess = opCost.get(f.ops[f.i]) ?? opMean;
+        if (performance.now() + guess > until) return false;
+      }
       if (n > 0 && performance.now() > until) return false;
       const op = f.ops[f.i++];
       n++;
@@ -637,7 +650,12 @@ export function createOrganPaint(gl, shape) {
         job.ck = job.ck2 = null;
         continue;
       }
-      paintOp(op, f.m, f.into, f.within, job);
+      if (bound) {
+        const t0 = performance.now();
+        paintOp(op, f.m, f.into, f.within, job);
+        const took = performance.now() - t0;
+        opCost.set(op, took); opMean += (took - opMean) * 0.1;
+      } else paintOp(op, f.m, f.into, f.within, job);
     }
     return true;
   }

@@ -19,7 +19,7 @@ import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=6
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
 import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=c6a05b4d08';
-import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=70c7cea2c5';
+import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=e0eecb7402';
 import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=b1a30d90ad';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=814746f511';
 
