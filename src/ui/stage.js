@@ -2503,13 +2503,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // label glides on to its new place. No label is laid out, and nothing of the page is written for them, on any frame of the glide.
   // Mohammad, 1 Nov: "Labels don't seem like GPU". ?labelride=0: they fade out for the move, as before.
   let labelRider = null, rideCTM = null;
+  let handRide = null, handRideT = 0, layCTM = null;   // (a hand's zoom ridden by the labels, and the camera they were last laid out under: updateLabels)
   const stagePx = (m) => [m.a, m.b, m.c, m.d, m.e - wrapRect.left, m.f - wrapRect.top];
-  function rideStart() {
+  // (from: the camera the labels were last laid out under, stage px (layCTM); a presenter's glide starts from the camera as it is.)
+  function rideStart(from = null) {
     if (rideCTM) return true;   // (a move taken over by another: the labels ride on from where they were laid out)
     // (A treatment's catheter keeps the figure's labels on (keep): they ride its glides too. The HVPG catheter hides them: nothing to carry.)
     if (!labelRider?.canRide() || (cath.st && !cath.st.keep) || pinchHide || lobuleOn || lz?.isOpen() || diveT > 0 || wrap.classList.contains('cam-move') || reduceMotion.matches) return false;
     refreshCTM();
-    rideCTM = stagePx(CTM);
+    rideCTM = from || stagePx(CTM);
     rideLeaders(true); glass.style.opacity = '0';
     labelRider.ride([1, 0, 0, 1, 0, 0]);
     return true;
@@ -10481,6 +10483,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     }
     const st = store.get(), sig = labelSig(f), b = stageBox();
+    // (A hand's zoom in the anatomy with every label on the GPU: the labels ride it there (handRide), carried by the camera's move
+    // since they were laid out, with no layout, no picture made and nothing of the page written on any frame of it; solved once the
+    // hand lets go. Only while nothing but the camera changed: anything else (a model frame's new widths, a callout) ends the ride
+    // and the labels are laid out as before.)
+    if (handRide && !handRide.settle) {
+      if (rideCTM && gestureOn() && solvedFor?.sig === sig && morph === 0) { rideStep(); stats.skips++; stats.ms += performance.now() - t0; return; }
+      handRideEnd(); labelKey = null;
+    } else if (!handRide && gestureOn() && solvedFor && solvedFor.sig === sig && labelKey && !labelJob && morph === 0 && layCTM && Math.abs(Math.log(CTM.sc / solvedFor.sc)) > PINCH_ZOOM && rideStart(layCTM)) {
+      handRide = { settle: false };
+      handRideWatch();
+      rideStep(); stats.skips++; stats.ms += performance.now() - t0;
+      return;
+    }
     if (carrying && solvedFor?.sig !== sig) { carryAbort(); return; }   // (what the labels show changed mid-move: the usual fade, then laid out as it lands)
     // (R04: the key is a list of numbers and identities compared one by one, not a string joined on every camera frame: the camera's
     // part (the transform in hundredths, the stage box, the morph and turn) and the revisions of the rest.)
@@ -10529,8 +10544,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     labelTail();
   }
+  // The hand's ride (see updateLabels): watched until the hand lets go, then the labels are laid out for where the view stopped while
+  // they still ride, and only once that layout has landed (a sliced solve too) does the ride end, each label gliding on from where it
+  // rode (label-gl.js rideEnd, sync). Ending it before would draw the old layout, uncarried, for the frames the solve takes.
+  function handRideWatch() {
+    clearTimeout(handRideT);
+    handRideT = setTimeout(function watch() {
+      if (!handRide || handRide.settle) return;
+      if (gestureOn()) { handRideT = setTimeout(watch, 120); return; }
+      handRideT = 0; handRide.settle = true;
+      if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); } else handRideEnd();
+    }, 160);
+  }
+  function handRideEnd() { if (!handRide) return; handRide = null; clearTimeout(handRideT); handRideT = 0; rideStop(); }
   // (What every layout of the labels ends with, a carried, a skipped or a sliced one too: the callouts and probes painted, then the GPU's copy.)
   function labelTail() {
+    if (handRide?.settle && !labelJob) handRideEnd();   // (the layout for where the hand stopped has landed: the ride ends as it is drawn)
+    // (The camera this layout was made under, for a hand's ride that starts from it. Not while a solve runs in slices: the labels drawn
+    // are still the last layout's, made under the camera kept before.)
+    if (!labelJob && !rideCTM) { refreshCTM(); layCTM = stagePx(CTM); }
     if (sites.list) sitesPaint();
     if (scan.on) scanPaint();
     dprobePaint();
