@@ -36,7 +36,7 @@ test('DG5: Treat and History are text-only headers, Treat tabs have no icons, dr
   const tabs = chart.slice(chart.indexOf("const panes = [['drugs'"), chart.indexOf('show(treatTab);'));
   assert.ok(!/svgIcon/.test(tabs), 'Treat tabs');
   assert.match(chart, /section\('changes', 'Changes', null,/);
-  assert.match(chart, /h\('span', \{ class: 'oc-t' \}, label\), h\('span', \{ class: 'oc-dot' \}, icon\('check'\)\)/, 'name first, check after');
+  assert.match(chart, /h\('span', \{ class: 'oc-t', 'data-t': label \}, label\), h\('span', \{ class: 'oc-dot' \}, icon\('check'\)\)/, 'name first, check after');
   const chip = rule('.order-chip {');
   assert.match(chip, /border: 0; border-bottom: 1px solid var\(--hairline\); border-radius: 0; background: none;/);
   assert.ok(!/background/.test(rule('.order-chip[aria-pressed="true"] {')), 'a running drug is not a filled chip');

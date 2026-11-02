@@ -297,9 +297,9 @@ test('Settings: Enter full screen sits with the one-shot rows above Appearance, 
 });
 
 test('a Treat chip that is on reads heavier as well as ticked; the Compare table has no unexplained row shading and columns with room', () => {
-  assert.match(css, /\.order-chip\[aria-pressed="true"\] \{ color: var\(--text\); font-weight: 600; \}/);
-  // (Its colour eases; its weight is set at once: a weight ease re-laid its words every frame, Holding 120 Hz §3.11.)
-  assert.match(css, /\.order-chip \{[^}]*transition: color var\(--d-small\) var\(--ease\)/);
+  assert.match(css, /\.order-chip\[aria-pressed="true"\] \{ font-weight: 600; \} \.order-chip\[aria-pressed="true"\]:not\(:disabled\) \.oc-t::before \{ opacity: 1; \}/);
+  // (Its colour eases as a brighter copy faded in by opacity; its weight is set at once: a weight ease re-laid its words every frame, Holding 120 Hz §3.11.)
+  assert.match(css, /\.order-chip \.oc-t::before \{ content: attr\(data-t\);[^}]*transition: opacity var\(--d-small\) var\(--ease\)/);
   assert.doesNotMatch(css, /\.order-chip \{[^}]*font-weight var\(--d-small\)/);
   assert.doesNotMatch(css, /\.cmp-table tr\.big/);
   assert.doesNotMatch(src('src/ui/compare.js'), /'big'/);

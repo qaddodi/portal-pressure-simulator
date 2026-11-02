@@ -93,7 +93,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     const live = sync;
     const p0 = store.get().params;
     const drugChip = (k, label, note, get, set) => {
-      const b = h('button', { class: 'order-chip', 'aria-pressed': String(!!get(p0)), title: note }, h('span', { class: 'oc-t' }, label), h('span', { class: 'oc-dot' }, icon('check')));
+      const b = h('button', { class: 'order-chip', 'aria-pressed': String(!!get(p0)), title: note }, h('span', { class: 'oc-t', 'data-t': label }, label), h('span', { class: 'oc-dot' }, icon('check')));
       b.addEventListener('click', () => updateParams((pp) => { set(pp, !get(pp)); return pp; }, { label }));
       live.push(() => b.setAttribute('aria-pressed', String(!!get(store.get().params))));
       return b;
