@@ -4173,6 +4173,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       u.path.push([j.x, j.y]); u.reach = Math.max(u.reach, j.reach);
     });
     pc.jby = new Map([...byKey].map(([k, list]) => [k, list.map((u) => u.i)]));
+    pc.jof = U.map((u) => u.j);
     pc.jpath = U.map((u) => u.path);
     pc.jreach = U.map((u) => u.reach * 1.5 + 6);
     const tubes = snaps[0].items.map((it) => { const r = pc.reach.get(it.row); return { id: it.row, path: pc.path.get(it.row), reach: r, core: r - 18 + BLOOD_PAD }; });
@@ -4196,7 +4197,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // faded, so the vessels a slide change shows are in it too. Each frame of an ease then sends only its points and joins (frameFrom),
   // and the vessels are drawn from them exactly as from a binning of their own. A frame that leaves it (a vessel shown that was not
   // there, one wider than it was binned for) is binned as before, and the envelope made again at the next rest. ?easegpu=0: every frame binned.
-  const EASE_GPU = MORPH_GPU && !/[?&]easegpu=0\b/.test(location.search), COIL_MAX = 5;
+  const EASE_GPU = MORPH_GPU && !/[?&]easegpu=0\b/.test(location.search), COIL_MAX = 5, COLL_REACH = 32;
   const ENV_AT = [[0, 0.55], [COIL_MAX / 2, 0.55], [COIL_MAX, 0.55], [COIL_MAX, 0.775], [COIL_MAX, 1], [COIL_MAX / 2, 1], [0, 1], [0, 0.775], [0, 0.55], [COIL_MAX / 2, 0.775], [COIL_MAX, 1]];
   let easeHeld = false;
   const et = { key: '', gen: 0, pc: null, restT: 0, checkT: 0, stats: { gpu: 0, builds: 0, miss: {} } };
@@ -4256,7 +4257,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // A frame wider than that was binned on the CPU, 12 of the 35 frames of a Varices 2 to 3 change, headless phone. The reach only
       // says which cells list a vessel; the drawing is unchanged.)
       const coll = new Set(snaps[0].items.filter((it) => it.x.e.kind === 'collateral').map((it) => it.row));
-      const more = new Map(snaps[0].items.map((it) => [it.row, (vBinReach.get(it.row) || snaps[0].reach.get(it.row) || 0) * (coll.has(it.row) ? 1.4 : 1)]));
+      // (A feeder not grown yet has no reach of its own to go by (C3's, 20 to 22 once grown, was binned for none): a collateral's rows
+      // get at least COLL_REACH.)
+      const more = new Map(snaps[0].items.map((it) => [it.row, coll.has(it.row) ? Math.max(COLL_REACH, (vBinReach.get(it.row) || snaps[0].reach.get(it.row) || 0) * 1.4) : vBinReach.get(it.row) || 0]));
       sweepPiece(pc, snaps, more).then((b) => {
         if (gen !== et.gen || !b || !veins || veins.lost) return;
         setOf(pc, b);
@@ -4362,6 +4365,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const j = J[ji];
       let u = -1, off = MORPH_JSLACK ** 2;
       for (const v of pc.jby.get(joinKey(j)) || []) { const d = joinOff(j.x, j.y, pc.jpath[v]); if (!on[v] && d <= off) { off = d; u = v; } }
+      // (Else a join binned with more members, those this frame does not draw, and the same trunk: the shader blends only the members
+      // a pixel has in reach, and a vessel not drawn has none, so it draws exactly this join. A vessel shown that the stretch binned
+      // hidden changes which ends meet where: the joins of the vessels shown now are then among those of every vessel.)
+      if (u < 0) for (let v = 0; v < pc.jof.length; v++) {
+        const q = pc.jof[v];
+        if (on[v] || q.trunk !== j.trunk || !!q.fork !== !!j.fork || !j.members.every((m) => { const i = q.members.indexOf(m); return i >= 0 && i < 4; }) || q.members.some((m) => drawn.has(m) && !j.members.includes(m))) continue;
+        const d = joinOff(j.x, j.y, pc.jpath[v]);
+        if (d <= off) { off = d; u = v; }
+      }
       if (u < 0) return morphMiss('joins');
       if (j.reach > pc.jreach[u]) return morphMiss('join');
       writeJoinNow(buf, pc.joinBase, u, j.x, j.y, j.reach, j.k, j.fillet);

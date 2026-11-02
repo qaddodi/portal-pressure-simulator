@@ -10,7 +10,7 @@ const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 const body = (name, end) => st.slice(st.indexOf(`  function ${name}(`), st.indexOf(end, st.indexOf(`  function ${name}(`)));
 
 test('?easegpu=0 turns it off, and it rides on the morph worker (off with ?morphgpu=0 too)', () => {
-  assert.match(st, /const EASE_GPU = MORPH_GPU && !\/\[\?&\]easegpu=0\\b\/\.test\(location\.search\), COIL_MAX = 5;/);
+  assert.match(st, /const EASE_GPU = MORPH_GPU && !\/\[\?&\]easegpu=0\\b\/\.test\(location\.search\), COIL_MAX = 5, COLL_REACH = 32;/);
 });
 
 test('the envelope goes round the whole box a coil and a fan can be in', () => {
