@@ -165,6 +165,8 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   let clock = 'hemo', dayNow = 0, lastT = -Infinity, frame = null, wallAt = 0;
   // off: the model's time plus off is the trace's (the model's clock was set while the trace went on: a state restored, a time-lapse ended).
   let off = 0;
+  // stripDays: a slide's chart on the disease clock (a time-lapse): the days' trend is drawn, and the beat strip goes on sweeping over it.
+  let stripDays = false;
 
   function resetBuffers() {
     for (const k of Object.keys(fine)) fine[k].length = 0;
@@ -225,9 +227,9 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   // has stay as they are.)
   const wheel = createFreewheel(KEYS);
   const HEAD = new Float64Array(2);   // [the head as last drawn, the wall time it was drawn at]: the freewheel goes on from it
-  const parkedNow = (f) => !!f && f.running && f.parkSecs != null && f.clock !== 'disease';
+  const parkedNow = (f) => !!f && f.running && f.parkSecs != null && (f.clock !== 'disease' || stripDays);
   /** The heart rate the chart shows (the slide's pinned reading, else the live one). */
-  const rateNow = () => { const hr = pinned?.hr ?? frame?.metrics?.hr; return Math.min(220, Math.max(30, hr > 20 ? hr : 70)); };
+  const rateNow = () => { const hr = frame?.clock === 'disease' ? frame.metrics?.hr : pinned?.hr ?? frame?.metrics?.hr; return Math.min(220, Math.max(30, hr > 20 ? hr : 70)); };
   function advanceFw(now) {
     if (!parkedNow(frame)) { wheel.stop(); return; }
     const left = frame.parkSecs == null ? NaN : Math.max(0, frame.parkSecs - (now - wallAt) / 1000);
@@ -244,6 +246,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       // The disease clock is a trend: show it as one while it runs, then return to the learner's range.
       setRange(clock === 'disease' ? 'days' : userRange);
     }
+    stripDays = f.clock === 'disease' && onSlide();
     // (A new day no longer wipes the beats: a time-lapse runs the days past, and the sweep goes on through them and after them.)
     dayNow = f.day;
     const smp = f.samples;
@@ -396,7 +399,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   let seen = false;
   const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { seen = es[es.length - 1].isIntersecting; wake(); }) : null;
   io?.observe(cv);
-  const live = () => frame?.running && range !== 'days' && (io ? seen : true) && !document.hidden;
+  const live = () => frame?.running && (range !== 'days' || stripDays) && (io ? seen : true) && !document.hidden;
   // (Battery saver or Settings › Figure performance › Motion at 60: the scroll is drawn at that pace, as the figure's steady motion is;
   // otherwise on every frame, as before. tickAt: when the loop last drew.)
   let tickAt = -Infinity;
@@ -847,7 +850,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     // (trace-lanes.js). The strip stands at the very top when no marker labels need the space there, so it never sits under them.
     const EGAP = slide ? 22 : 16;
     const wantLane = showHvpg && (slide ? cfg.lane : showLane || !traces.length);
-    const wantEkg = range === 'beats' && (slide ? cfg.ekg : showEkg);
+    const wantEkg = (range === 'beats' || stripDays) && (slide ? cfg.ekg : showEkg);
     // (two lanes: a slide's pressure lane holds the portal vein alone but keeps two thirds, as the dock's keeps 0.64)
     wantN.pressure = wantE.pressure = traces.length > 0; wantN.hvpg = wantE.hvpg = wantLane; wantN.gap = wantE.gap = GAP; wantN.egap = wantE.egap = EGAP; wantN.two = wantE.two = slide ? 0.66 : 0.64;
     let plan = wantEkg ? laneRoom(hh - (mRows ? T0 : 10) - B, wantE) : null;
@@ -977,11 +980,13 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       const { top, bot } = ekgLane, mid = Math.round((top + bot) / 2);
       F.et = top; F.eb = bot;
       const hr = slide && Number.isFinite(pinned?.hr) ? pinned.hr : frame.metrics.hr;
-      const e = ekgSeries(beatClock.times, Math.max(x0, fine.t[0]), x1, 60 / (hr > 20 ? hr : 70));
+      // (Over the days' trend of a time-lapse the strip has its own window, the last BEAT_CARD_S seconds of the sweep that goes on.)
+      const sd = range === 'days', xs1 = sd ? headX() : x1, xs0 = sd ? xs1 - BEAT_CARD_S : x0;
+      const e = ekgSeries(beatClock.times, Math.max(xs0, fine.t[0]), xs1, 60 / (hr > 20 ? hr : 70));
       if (e.x.length > 1) {
         ctx.save(); ctx.beginPath(); ctx.rect(L, top - 2, plotW, bot - top + 4); ctx.clip();
         ctx.strokeStyle = text; ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath();
-        for (let i = 0; i < e.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(e.x[i]), YEg(e.v[i]));
+        for (let i = 0; i < e.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](sd ? L + ((e.x[i] - xs0) / BEAT_CARD_S) * plotW : X(e.x[i]), YEg(e.v[i]));
         ctx.stroke(); ctx.restore();
       }
       ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('EKG', 8, mid); ctx.textBaseline = 'alphabetic';

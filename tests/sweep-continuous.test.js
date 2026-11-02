@@ -82,7 +82,7 @@ function fakeCtx(rec) {
     beginPath: () => { path = []; },
     moveTo: (x, y) => path.push({ x, y }),
     lineTo: (x, y) => path.push({ x, y }),
-    stroke: () => { if (state.lineWidth === 1.6 && path.length > 8) rec.strip = path.slice(); },
+    stroke: () => { if ((state.lineWidth === 1.6 || state.lineWidth === 1.5) && path.length > 8) rec.strip = path.slice(); },
     measureText: (s) => ({ width: String(s).length * 7 }),
     getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
     createLinearGradient: () => ({ addColorStop() {} }),
@@ -136,7 +136,7 @@ function peaksOf(strip) {
 
 /** The worker's frames: the model running, then parked for an easing (no samples, parkSecs counting down, the beat's phase it resumes at), then running on
  *  with its clock set to `snapT` as the easing ends and (optionally) a new day. */
-function* scenario({ live0 = 6, hr0 = 70, hr1 = 96, park = 1.6, after = 4, snapT = 3, dayAfter = 0 } = {}) {
+function* scenario({ live0 = 6, hr0 = 70, hr1 = 96, park = 1.6, after = 4, snapT = 3, dayAfter = 0, lapse = false } = {}) {
   const m = { t: 20, cyc: 0.3 };
   const run = function* (n, hr, day = 0) {
     for (let f = 0; f < n; f++) {
@@ -150,6 +150,12 @@ function* scenario({ live0 = 6, hr0 = 70, hr1 = 96, park = 1.6, after = 4, snapT
   for (let i = 0; i < n; i++) yield { running: true, clock: 'hemo', speed: 1, morphing: true, day: 0, t: m.t, metrics: { hr: hr0 + (hr1 - hr0) * (i / (n - 1)), whvp: 15, fhvp: 5, hvpg: 10, pv: 18 }, phase: p0, parkSecs: Math.max(0, park - i / 30), samples: null };
   m.t = snapT;
   yield* run(Math.round(after * 30), hr1, dayAfter);
+  if (lapse) {
+    // (A time-lapse: a year in a few seconds on the disease clock, the beat parked, the days running and the heart rate climbing; then the model runs on.)
+    const t0 = m.t, p1 = ph1(m.cyc), n = Math.round(lapse * 30);
+    for (let i = 0; i < n; i++) yield { running: true, clock: 'disease', speed: 36.5, morphing: false, day: 10 + i * 4, t: t0, metrics: { hr: hr1 + 20 * (i / (n - 1)), whvp: 15 + i / 10, fhvp: 5, hvpg: 10 + i / 10, pv: 18 }, phase: p1, parkSecs: Math.max(0, lapse - i / 30), samples: { t: [t0], ph: [p1] } };
+    yield* run(Math.round(after * 30), hr1 + 20, 10 + n * 4);
+  }
 }
 
 function play(opts) {
@@ -161,7 +167,7 @@ function play(opts) {
   for (let i = 0; !done; i++) {
     now += 1000 / 60;
     const frame = i % 2 === 0;
-    if (frame) { const f = g.next(); if (f.done) done = true; else { cv.rec.strip = null; pt.update(f.value); draws.push({ at: now, phase: f.value.morphing ? 'park' : 'live' }); } }
+    if (frame) { const f = g.next(); if (f.done) done = true; else { cv.rec.strip = null; pt.update(f.value); draws.push({ at: now, phase: f.value.morphing ? 'park' : f.value.clock === 'disease' ? 'lapse' : 'live' }); } }
     const q = queue; queue = []; for (const fn of q) fn(now);
     if (frame && !done) draws.at(-1).peaks = peaksOf(cv.rec.strip);
   }
@@ -189,6 +195,26 @@ for (const [snapT, dayAfter, where] of [[3, 0, 'back'], [500, 0, 'forward'], [3,
     assert.ok(med < 14, `frame ${i} (${b.phase}): the strip jumped ${med.toFixed(1)} px`);
   }
   assert.ok(checked > 200, `${checked} frames followed`);
+});
+
+test('the beat chart keeps a live, sweeping EKG strip over the days\' trend through a time-lapse, and carries on after it with no restart', () => {
+  const draws = play({ lapse: 3 });
+  const lapse = draws.filter((d) => d.phase === 'lapse');
+  assert.ok(lapse.length > 80, `${lapse.length} frames of the time-lapse`);
+  assert.ok(lapse.every((d) => d.peaks.length >= 3), 'the strip is full of beats all through the time-lapse');
+  const first = draws.findIndex((d) => d.phase === 'lapse'), end = draws.length - 1;
+  let checked = 0;
+  for (let i = first + 1; i <= end; i++) {
+    const a = draws[i - 1], b = draws[i];
+    if (a.phase !== b.phase) continue;   // (the chart's layout changes there, the beat card to the days' chart and back: the strip's own pixels move with it)
+    const shifts = [];
+    for (const x of a.peaks) { const near = b.peaks.filter((x2) => x2 < x + 0.5 && x2 > x - 40); if (near.length) shifts.push(x - near.reduce((p, q) => (Math.abs(q - (x - 6)) < Math.abs(p - (x - 6)) ? q : p))); }
+    if (!shifts.length) continue;
+    checked++;
+    const med = shifts.sort((p, q) => p - q)[shifts.length >> 1];
+    assert.ok(med > 0 && med < 14, `frame ${i} (${b.phase}): the strip moved ${med.toFixed(1)} px`);
+  }
+  assert.ok(checked > 150, `${checked} frames followed through the time-lapse and after it`);
 });
 
 test('the wiring: the EKG cards are not held, cleared or refilled by a change of state; the beat chart keeps its beats through days and clock changes', () => {

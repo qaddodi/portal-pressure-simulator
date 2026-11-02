@@ -105,7 +105,7 @@ test('a slide\'s card keeps the HVPG lane and shows the portal pressure alone; P
   assert.match(pt, /'data-lane': key/);
   assert.match(pt, /chips\.append\(ekgChip, laneChipBtn\);/, 'the pills sit in the chart\'s pill row');
   assert.match(pt, /ekgChip\.disabled = id !== 'beats'/, 'the strip belongs to the last beats');
-  assert.match(pt, /const wantEkg = range === 'beats' && \(slide \? cfg\.ekg : showEkg\);/);
+  assert.match(pt, /const wantEkg = \(range === 'beats' \|\| stripDays\) && \(slide \? cfg\.ekg : showEkg\);/);   // (a slide's time-lapse keeps its strip over the days' trend)
   // (a slide\'s card hides the pills; its own tool options decide the lanes)
   assert.ok(css.includes('.pz-tool .pt-chips,'), 'the pills are hidden on a slide');
   assert.match(pt, /cfg = \{ ekg: t\?\.ekg !== false, lane: t\?\.hvpgLane !== false \}/);
