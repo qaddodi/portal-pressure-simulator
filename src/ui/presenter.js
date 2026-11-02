@@ -38,6 +38,8 @@ import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS
 import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=31edc44488';
 import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=b1a30d90ad';
 import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
+import { createSlidePrep } from './slide-prep.js?v=897174de34';
+import { prepareShaders } from './gl-compile.js?v=62b8693f78';
 import { createFigureKey } from './figure-key.js?v=16f54d6cf3';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=95462b3d6a';
@@ -1853,11 +1855,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const pageEls = () => (glassStays() ? [ui.text] : [ui.text, ui.shade]);
   let shadeAnim = null, pageForce = false;   // (the glass's entrance; pageForce: a swipe the card followed out, so its words leave even if the next slide's are the same)
   const lastBeat = (i) => beatCount(slides[i]) - 1;
+  // (R05: the slide going in and its neighbours prepared as one set ahead of the press; a newer press cancels an older one's jobs.
+  // slide-prep.js; ?slideprep=0 off.)
+  const slidePrep = createSlidePrep({ count: () => slides.length, steps: {
+    state: (i) => stateReady(i),
+    glyphs: () => loadGlyphs(),
+    tool: (i) => { const s = slides[i], w = EXT.tools[s?.tool?.kind]?.warm; if (w) safe(() => w(s.tool, ctxOf(s, i)), null, 'warm'); },
+    shaders: () => prepareShaders(4),
+  } });
   function go(i) {
     if (!deck || leaving) return;
     dispatchEvent(new Event('pps:go'));   // (the ?perf readout's slide-change window; nothing listens otherwise)
     turn = i === want + 1 || firstBeat ? 'next' : i === want - 1 ? 'back' : 'jump';   // (the slide before or after, by whatever key or button: a turn; further: a jump)
     want = clamp(i, 0, slides.length - 1);
+    slidePrep.aim(want, turn);
     noteResume(deck.id, want, slides.length);   // (the Present menu offers to resume here; the first or last slide forgets it)
     beat = firstBeat ? 0 : lastBeat(want);
     paintChrome();
