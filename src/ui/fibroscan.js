@@ -6,9 +6,9 @@
 
 import { h, clamp, cssAlpha, canvasSize } from './util.js?v=d639a1333f';
 import { createTraceGL, fitPen } from './trace-gl.js?v=5f81c421c1';
-import { FONT } from './charts.js?v=3d85fec802';
-import { simTime, isPaused, fibroReading } from './clock.js?v=b2a395ebe7';
-import { store } from './store.js?v=bf85512db4';
+import { FONT } from './charts.js?v=354d3aa2e7';
+import { simTime, isPaused, fibroReading } from './clock.js?v=5094398a49';
+import { store } from './store.js?v=103e271dec';
 import { createElastogramGL, elastogramUnder } from './fibroscan-gl.js?v=2991b67874';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=897b4f8e7e';

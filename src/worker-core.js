@@ -243,7 +243,7 @@ export function createCore(post) {
     try { tickOnce(); } catch (err) { crash(err); }
   }
 
-  let lastFrame = 0, ackOn = false, unpainted = false;
+  let lastFrame = 0, ackOn = false, unpainted = false, owed = false;
   const ACK_MAX_MS = 400;
   // A frame goes out only when the model moved past a small hysteresis since the last one posted, or once a second as a heartbeat (the
   // samples taken meanwhile wait in `samples` and go out with it, so the traces lose nothing). Anything that changes the model sets
@@ -252,6 +252,13 @@ export function createCore(post) {
   const HEARTBEAT_MS = 1000, EPS_REL = 2e-4, EPS_ABS = 1e-5;
   const near = (a, b) => { if (!b || a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > EPS_ABS + EPS_REL * Math.abs(b[i])) return false; return true; };
   // (The figure's colours, widths and readouts follow the eased Pf, Qf and D; the beat-by-beat P, Q and ext ride the heartbeat frame and the samples.)
+  // (The last posted state, kept in buffers made once and written in place: no arrays made a posted frame, rev 2 step 3.)
+  function keepStill() {
+    const pf = eng.Pf || eng.P, qf = eng.Qf || eng.Q;
+    if (!still || still.Pf.length !== pf.length || still.Qf.length !== qf.length || still.D.length !== eng.E) still = { Pf: new Float64Array(pf.length), Qf: new Float64Array(qf.length), D: new Float64Array(eng.E) };
+    still.Pf.set(pf); still.Qf.set(qf);
+    for (let k = 0; k < eng.E; k++) still.D[k] = eng.diameter(eng.edges[k].id);
+  }
   function movedSincePost() {
     if (!still) return true;
     if (!near(eng.Pf || eng.P, still.Pf) || !near(eng.Qf || eng.Q, still.Qf)) return true;
@@ -307,9 +314,11 @@ export function createCore(post) {
     }
     if (!finite(eng.P) || !finite(eng.Q)) throw new Error('The model produced a pressure or flow that is not a number.');
     const due = running && now - lastFrame > 95 && (!ackOn || !unpainted || now - lastFrame > ACK_MAX_MS);
+    // (Held only by the page's paint: owed, and built the moment its 'painted' comes, not on the next 33 ms tick (rev 2 step 3).)
+    owed = running && !due && ackOn && unpainted && now - lastFrame > 95;
     if (frameDirty || paramsDirty || eng.newEvents.length || (due && (!deltaOn || now - lastFrame > HEARTBEAT_MS || morph || lapse || eng.easing() || movedSincePost()))) {
       lastFrame = now; frame();
-      if (deltaOn) still = { Pf: Float64Array.from(eng.Pf || eng.P), Qf: Float64Array.from(eng.Qf || eng.Q), D: Float64Array.from({ length: eng.E }, (_, k) => eng.diameter(eng.edges[k].id)) };
+      if (deltaOn) keepStill();
     }
   }
 
@@ -418,7 +427,7 @@ export function createCore(post) {
     // (Plan "Holding 120 Hz, always" §3.2: a page that says so (ackPaint) tells the worker each model frame it has painted; while one is
     // unpainted the clock's next frame waits (up to ACK_MAX_MS), so frames the page could not paint are never built, cloned and posted.)
     ackPaint({ on }) { ackOn = !!on; unpainted = false; },
-    painted() { unpainted = false; },
+    painted() { unpainted = false; if (owed && timer) { owed = false; tick(); } },
     // restartClock: the days are the patient's past (the patient aged before the story starts), so the clock and
     // event log start fresh at day 0 afterwards.
     *advance({ days, untilEvent, restartClock }) {

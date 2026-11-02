@@ -4,25 +4,25 @@
 import { motionBudget } from './motion-budget.js?v=ff13b79f5b';   // (first: counts from the start when ?perf or ?budget=1 asks)
 import { budget as gpuBudget } from './gpu-budget.js?v=82c7c5c48f';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js?v=900a43dce7';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
-import { startHost, host } from './host.js?v=606ab97574';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=bf85512db4';
-import { createStage } from './stage.js?v=6524de3ed5';
+import { startHost, host } from './host.js?v=b2e74450ff';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=103e271dec';
+import { createStage } from './stage.js?v=e621123f91';
 import { createCreditPlacer } from './credit.js?v=08910627ac';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
-import { createInspector } from './inspector.js?v=c4dbf80f0e';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=d3d9c05daa';
-import { setHvpgStage } from './hvpg-proc.js?v=7678096cf2';
-import { createWhy } from './why.js?v=821e7cf0f5';
-import { createTimeline, LAPSES } from './timeline.js?v=d391744b20';
-import { createCompare } from './compare.js?v=fcef220493';
-import { createCard } from './card.js?v=d8276cdf40';
-import { createChart } from './chart.js?v=8048ea26a4';
-import { createMenu } from './menu.js?v=89a8862a2b';
-import { caption } from './a11y.js?v=c585aab53e';
+import { createInspector } from './inspector.js?v=c72a5f2707';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=4cc5f61737';
+import { setHvpgStage } from './hvpg-proc.js?v=7bf02dea76';
+import { createWhy } from './why.js?v=6ca147988d';
+import { createTimeline, LAPSES } from './timeline.js?v=0dc46dc7e3';
+import { createCompare } from './compare.js?v=2870db1f83';
+import { createCard } from './card.js?v=8004ecf60f';
+import { createChart } from './chart.js?v=8e3e1157ae';
+import { createMenu } from './menu.js?v=6b9dbda6c0';
+import { caption } from './a11y.js?v=2cd1d5e944';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=933f2ca9f3';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=164ce96684';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=98f7d74059';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
@@ -124,8 +124,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=50e4fe4d04'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=82a6e06571'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=6dd2f5a756'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=1aba05da45'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -212,7 +212,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=bb55ddfe81'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=1a7a1dbeca'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -220,7 +220,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=7b1eb6ca0b'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=7b92d4ae27'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -467,6 +467,8 @@ function watchInspectorSeen() {
   inspSeen.observe(app, { attributes: true, attributeFilter: ['class'] });
 }
 // (Plan §3.2: the worker builds its next clock frame only once this one is painted (worker-core.js ackPaint).)
+let frameNext = null;
+const storeFrame = () => { const f = frameNext; frameNext = null; store.setFrame(f); };
 function paintFrame(f) {
   host?.send({ type: 'painted' });
   watchInspectorSeen();
@@ -475,7 +477,9 @@ function paintFrame(f) {
   // running and clock only when they change: their listeners (the endoscopy redraw among them) need not re-run every frame.
   const st0 = store.get();
   // (Each a named piece of the frame while frames are watched, framePart: the gate's long frames say which one took the time.)
-  framePart('store listeners', () => store.set({ frame: f, ...(st0.running !== f.running ? { running: f.running } : {}), ...(st0.clock !== f.clock ? { clock: f.clock } : {}), ...(f.clock === 'hemo' && st0.lapse ? { lapse: 0, speed: f.speed } : {}) }));
+  // (A frame that changes nothing else is set alone, store.setFrame: no patch, key list or closures made for it, rev 2 step 3.)
+  if (st0.running === f.running && st0.clock === f.clock && !(f.clock === 'hemo' && st0.lapse)) { frameNext = f; framePart('store listeners', storeFrame); }
+  else framePart('store listeners', () => store.set({ frame: f, ...(st0.running !== f.running ? { running: f.running } : {}), ...(st0.clock !== f.clock ? { clock: f.clock } : {}), ...(f.clock === 'hemo' && st0.lapse ? { lapse: 0, speed: f.speed } : {}) }));
   framePart('figure update', () => stage.update(viewFrame(f)));
   // (Plan "Holding 120 Hz, always" §3.2: the figure takes the model frame in the frame it lands (the blood reads it); everything else
   // that shows it, the cards, the dock, the panel, the timeline, the clock, is a may task of its own (frame.js mayTask), each run after

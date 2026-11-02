@@ -22,8 +22,8 @@
 import { h, fmt, clamp, lerp } from './util.js?v=d639a1333f';
 import { createSvgGL, svgModel } from './svg-gl.js?v=82d47df415';
 import { pressureColor } from './colormap.js?v=98f7d74059';
-import { isPaused } from './clock.js?v=b2a395ebe7';
-import { store } from './store.js?v=bf85512db4';
+import { isPaused } from './clock.js?v=5094398a49';
+import { store } from './store.js?v=103e271dec';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=7c4101adad';

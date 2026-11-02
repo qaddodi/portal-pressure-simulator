@@ -11,8 +11,8 @@ import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf,
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
-import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=bf85512db4';
-import { fibroReading } from './clock.js?v=b2a395ebe7';
+import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=103e271dec';
+import { fibroReading } from './clock.js?v=5094398a49';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=d639a1333f';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
@@ -51,7 +51,7 @@ import { measure as measureWords } from './glyph-measure.js?v=570fc5478f';
 import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=1221ba353e';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
 import { pathCmds, flattenCmds, polyBox, measurePath, elBox, chainMat } from './shape-gl.js?v=785ee20a7f';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=376774c659';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=db2db3a40e';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=8c44d6c86f';
 import { createLabelGL } from './label-gl.js?v=d26f88e699';
 import { createGlassGL } from './glass-gl.js?v=9e93d014b8';
@@ -2812,7 +2812,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=bbf6718c59').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=2e6b0125d1').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });

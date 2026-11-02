@@ -11,9 +11,9 @@
 import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=d639a1333f';
 import { glWords } from './gl-words.js?v=5994e0f886';
 import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { FONT } from './charts.js?v=3d85fec802';
+import { FONT } from './charts.js?v=354d3aa2e7';
 import { pressureColor } from './colormap.js?v=98f7d74059';
-import { store, logAction, hiddenNow, updateParams } from './store.js?v=bf85512db4';
+import { store, logAction, hiddenNow, updateParams } from './store.js?v=103e271dec';
 import { shownOr } from './shown.js?v=6a8c346497';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=95f13823ce';
 import { frameFor, cancelFrame } from './frame.js?v=897b4f8e7e';

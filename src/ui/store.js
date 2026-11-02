@@ -49,6 +49,7 @@ export const shownVel = new Map();
 // figure's label signature) can tell "nothing changed" by one number instead of rebuilding a string from it. The frame is left
 // out: a reader that follows the frame takes it by itself (its identity changes with every model frame).
 let rev = 0;
+const FRAME_KEYS = Object.freeze(['frame']);
 export const store = {
   get: () => state,
   /** Bumped by every set() that changes something besides `frame` (a camera move never sets the store). */
@@ -57,8 +58,18 @@ export const store = {
     const keys = Object.keys(patch);
     if (keys.some((k) => k !== 'frame')) rev++;
     Object.assign(state, patch);
-    for (const k of keys) (listeners.get(k) || []).forEach((fn) => fn(state[k], state));
-    (listeners.get('*') || []).forEach((fn) => fn(keys, state));
+    for (const k of keys) { const l = listeners.get(k); if (l) for (let i = 0; i < l.length; i++) l[i](state[k], state); }
+    const any = listeners.get('*');
+    if (any) for (let i = 0; i < any.length; i++) any[i](keys, state);
+  },
+  /** A model frame alone (the common set, several a second): the same as set({ frame: f }) without a patch, a key list or a
+   *  closure made for it (plan "Holding 120 Hz" rev 2 step 3). The '*' listeners get one frozen ['frame']. */
+  setFrame(f) {
+    state.frame = f;
+    const l = listeners.get('frame');
+    if (l) for (let i = 0; i < l.length; i++) l[i](f, state);
+    const any = listeners.get('*');
+    if (any) for (let i = 0; i < any.length; i++) any[i](FRAME_KEYS, state);
   },
   on(key, fn) {
     if (!listeners.has(key)) listeners.set(key, []);

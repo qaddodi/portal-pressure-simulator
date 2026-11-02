@@ -5,9 +5,9 @@
 // per day). Changes the learner makes and threshold events are marked where they happened, and
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
-import { store, hiddenNow } from './store.js?v=bf85512db4';
+import { store, hiddenNow } from './store.js?v=103e271dec';
 import { h, fmt, cssVar, cssAlpha, clamp } from './util.js?v=d639a1333f';
-import { FONT as FONT0, FONT } from './charts.js?v=3d85fec802';
+import { FONT as FONT0, FONT } from './charts.js?v=354d3aa2e7';
 import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=897b4f8e7e';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';

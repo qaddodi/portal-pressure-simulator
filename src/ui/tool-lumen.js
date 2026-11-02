@@ -6,7 +6,7 @@
 
 import { h, clamp } from './util.js?v=d639a1333f';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { store } from './store.js?v=bf85512db4';
+import { store } from './store.js?v=103e271dec';
 import { frameFor } from './frame.js?v=897b4f8e7e';
 import { createSvgGL, svgModel, snapOp, setWords } from './svg-gl.js?v=82d47df415';
 const nextFrame = frameFor('lumen');
