@@ -91,7 +91,7 @@ test('the profile\'s HVPG and PPG brackets round the true values, never the diff
   const src = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
   assert.doesNotMatch(src, /wholeGap/);
   assert.doesNotMatch(readFileSync(new URL('../src/engine/gap.js', import.meta.url), 'utf8'), /wholeGap/, 'the whole-number gap is gone');
-  assert.match(src, /const v = shown\[k\], rate = RATE\[k\]\(v\)\[0\];/);
-  assert.match(src, /HVPG \$\{whole\(shown\.hvpg\)\}, PPG \$\{whole\(shown\.ppg\)\}/);
+  assert.match(src, /const b = m\.br\[r\], v = shown\[b\.key\], vi = whole0\(v\)/);
+  assert.match(src, /HVPG \$\{whole\(goal\.hvpg\)\}, PPG \$\{whole\(goal\.ppg\)\}/);
   assert.match(src, /return \{ v, hvpg: fp\.hvpg, ppg: fp\.ppg \};/);
 });

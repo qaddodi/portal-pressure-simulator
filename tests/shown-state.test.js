@@ -89,7 +89,7 @@ test('the bar, the Readouts tab, the charts and the instruments read the one sho
   assert.match(worker, /jump: jumpDirty \|\| clock !== postedClock/);
   assert.match(worker, /function stateChanged\(\) \{[^}]*jumpDirty = true; \}/);
   assert.match(read('../src/ui/util.js'), /const r = follow2\(v\[i\], w\[i\], T, dt, tau, eps\)/);
-  assert.match(read('../src/ui/tool-profile.js'), /follow2\(i == null \? shown\[k\]/);
+  assert.match(read('../src/ui/tool-profile.js'), /follow2\(shown\.v\[i\], shownW\.v\[i\], goal\.v\[i\], dt, SHOWN_TAU, 0\.005\)/);
   assert.match(read('../src/ui/tool-hvpg.js'), /follow2\(cur\[key\], curW\[key\], target\[key\], dt, SHOWN_TAU, 0\.02\)/);
   assert.match(read('../src/ui/fibroscan.js'), /shown = kShown\.step\(model, dt, REDUCED_MQ\.matches \|\| isPaused\(\)\)/);
   assert.match(read('../src/ui/doppler.js'), /mean = velShown\.step\(mean, dt, velProbe !== probe \|\| !frame\?\.running\)/);
