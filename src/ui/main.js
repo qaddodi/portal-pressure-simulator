@@ -11,12 +11,12 @@ import { createCreditPlacer } from './credit.js?v=dc61db0c99';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=622a3b9520';
 import { createInspector } from './inspector.js?v=3cdc64b436';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=734e25c9dd';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=4032ed81cb';
 import { setHvpgStage } from './hvpg-proc.js?v=d2ea750740';
 import { createWhy } from './why.js?v=4aa29a8b54';
 import { createTimeline, LAPSES } from './timeline.js?v=f1634835d5';
 import { createCompare } from './compare.js?v=7785da8b25';
-import { createCard } from './card.js?v=8a7bf4f3fa';
+import { createCard } from './card.js?v=198939b073';
 import { createChart } from './chart.js?v=49dffa0533';
 import { createMenu } from './menu.js?v=5ee545906b';
 import { caption } from './a11y.js?v=edb355b261';
@@ -125,7 +125,7 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=df7c1f3da3'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  dopplerL = lazy(() => import('./doppler.js?v=f50fda3d5e'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
   fibroL = lazy(() => import('./fibroscan.js?v=5e9c4f89f6'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
