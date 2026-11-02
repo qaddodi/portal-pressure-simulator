@@ -6,7 +6,7 @@ await import('./dom-shim.js');   // (the chart draws on the GPU, svg-gl.js, whic
 const { flowTimeHeight, LINE, MEAL_LINES } = await import('../src/ui/flow-time.js');
 
 test('wide meal charts shorten to their room without sacrificing the two plots', () => {
-  const full = flowTimeHeight(420, 12, 500);
+  const full = { ...flowTimeHeight(420, 12, 500) };   // (copies: flowTimeHeight hands back one record it writes again on the next call)
   assert.equal(full.preferred, 252);
   assert.equal(full.height, full.preferred);
   assert.ok(Math.abs(full.min - 11.1 * 12) < 1e-9);
@@ -17,9 +17,9 @@ test('wide meal charts shorten to their room without sacrificing the two plots',
 
 test('wrapped legends, larger type and treatment bands reserve their actual space', () => {
   for (const lines of [MEAL_LINES, ['hvpg', 'varix'], ['ppg', 'asc']]) {
-    const wide = flowTimeHeight(800, 12, 1000, lines), narrow = flowTimeHeight(160, 12, 1000, lines);
+    const wide = { ...flowTimeHeight(800, 12, 1000, lines) }, narrow = { ...flowTimeHeight(160, 12, 1000, lines) };
     assert.ok(Math.abs(narrow.min - wide.min - 1.5 * 12) < 1e-9, `${lines}: second legend row`);
-    const banded = flowTimeHeight(800, 12, 1000, lines, 1.91);
+    const banded = { ...flowTimeHeight(800, 12, 1000, lines, 1.91) };
     assert.ok(Math.abs(banded.min - wide.min - 1.91 * 12) < 1e-9);
     assert.ok(Math.abs(banded.preferred - wide.preferred - 1.91 * 12) < 1e-9);
     assert.equal(flowTimeHeight(800, 12, banded.min - 1, lines, 1.91).height, null);

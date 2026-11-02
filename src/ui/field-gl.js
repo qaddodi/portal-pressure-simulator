@@ -77,6 +77,7 @@ void main() {
   o = vec4(c * m, m);
 }`;
 
+const KEEP_ALL = () => true;   // (sweep's default: every tile is kept; one function, not a new one each call)
 export function createFieldGL(canvas) {
   let gl = null;
   let ucache = null;   // (the uniform cache, made at the first draw)
@@ -163,7 +164,7 @@ export function createFieldGL(canvas) {
     /** Sends a tile to the GPU now (ahead of the dive), so no frame of it waits for one. */
     upload(cv) { if (!this.lost && cv?.width) texFor(cv); },
     /** Gives back the textures of tiles whose canvases were given back (or are no longer wanted: keep(cv) false). */
-    sweep(keep = () => true) {
+    sweep(keep = KEEP_ALL) {
       for (const [cv, t] of texs) if (!cv.width || !keep(cv)) { if (!lost) gl.deleteTexture(t.tex); texs.delete(cv); }
       copier.sweep();
     },

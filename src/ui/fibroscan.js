@@ -9,10 +9,11 @@ import { createTraceGL, fitPen } from './trace-gl.js?v=48fdded63b';
 import { FONT } from './charts.js?v=b8e84b1238';
 import { simTime, isPaused, fibroReading } from './clock.js?v=0920941d54';
 import { store } from './store.js?v=2e6b562412';
-import { createElastogramGL, elastogramUnder } from './fibroscan-gl.js?v=951d39e9a2';
+import { createElastogramGL, elastogramUnder } from './fibroscan-gl.js?v=2e03222c2b';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=1d147c7c9a';
 import { createFollow } from './display-state.js?v=3783649ed7';
+import { fix1 } from './fix-text.js?v=b5d2f96c9e';
 import { attrSoon, dataSoon } from './class-soon.js?v=60cf95af4a';
 const nextFrame = frameFor('fibroscan');
 
@@ -36,6 +37,12 @@ function watchTheme() {
   if (typeof matchMedia === 'function') matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', soon);
 }
 const colors = () => theme;
+// (Kept for every frame: the dash patterns and depth lines, the labels' texts, and the ?perf rows. The chart drawer copies a dash it is given.)
+const DASH = [2, 4], NO_DASH = [], WINDOW = [WIN0, WIN1];
+const DEPTH_TXT = ['30', '45 mm', '60'], TIME_TXT = ['0 ms', '20', '40', '60', '80'];
+const ROW_WORDS = { on: 'gpu', via: 'map WebGL2, words on the GPU chart drawer' }, ROW_2D = { on: 'gpu', via: 'map WebGL2, words 2D canvas (?tracegl=0)' };
+const ROW_NONE = { on: 'fallback', via: 'none', why: 'no WebGL2 or a lost context: no map' };
+// alloc-rare: the generator and the noise fields are made once, in fields() (FIELDS.built), for all panels
 const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
 
 /** Shear wave speed (m/s) from stiffness E (kPa): E = 3 ρ c², ρ about 1000 kg/m³. */
@@ -44,13 +51,16 @@ export const shearSpeed = (kpa) => Math.sqrt((kpa * 1000) / 3000);
 /** Smooth value noise on a coarse grid, bilinearly sampled. */
 function noiseField(w, hh, cell, seed) {
   const r = rnd(seed), gw = Math.ceil(w / cell), gh = Math.ceil(hh / cell); // periodic: any coordinate wraps seamlessly
+  // alloc-rare: made once, in fields()
   const g = Array.from({ length: gw * gh }, r);
+  // alloc-rare: made once, in fields()
   return Object.assign((x, y) => {
     const fx = x / cell, fy = y / cell, fix = Math.floor(fx), fiy = Math.floor(fy);
     const tx = fx - fix, ty = fy - fiy, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
     const ix = ((fix % gw) + gw) % gw, iy = ((fiy % gh) + gh) % gh, jx = (ix + 1) % gw, jy = (iy + 1) % gh;
     const a = g[iy * gw + ix], b = g[iy * gw + jx], c = g[jy * gw + ix], d = g[jy * gw + jx];
     return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+  // alloc-rare: made once, in fields()
   }, { grid: g, gw, gh, cell });   // (the grid itself, for the GPU's copy of this field: fibroscan-gl.js)
 }
 
@@ -61,6 +71,7 @@ const FIELDS = { built: false };
 function fields() {
   if (FIELDS.built) return FIELDS;
   const W = NB * 4, H = NB * 3;
+  // alloc-rare: made once (FIELDS.built is set by this very call)
   Object.assign(FIELDS, { built: true,
     a1: noiseField(W, H, NB / 10, 11), a2: noiseField(W, H, NB / 10, 12),
     b1: noiseField(W, H, NB / 6, 23), b2: noiseField(W, H, NB / 6, 24),
@@ -100,6 +111,7 @@ export function elastogramPixels(N, c, t) {
 /** For the checks: what the GPU's map is drawn from (its noise fields, their grid and the wave's start). */
 export const elastogramInputs = () => ({ F: fields(), NB, t0: WAVE_T0 });
 
+const twOf = (ctx, text) => ctx.measureText(text).width;   // (a text's width in the context's font)
 function rrect(ctx, x, y, w, h2, r) {
   ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h2, r); ctx.arcTo(x + w, y + h2, x, y + h2, r);
   ctx.arcTo(x, y + h2, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
@@ -116,6 +128,7 @@ export function createFibroScan() {
   let map, mapCv = null;
   const makeMap = () => {
     if (map !== undefined || gone || !onScreen()) return map ?? null;
+    // alloc-rare: only when the panel comes on screen and has no map yet (makeMap returns at once while it has one)
     map = createElastogramGL(fields(), { className: 'fs-map', onReady: () => { if (!gone) paint(performance.now()); } });
     if (map) { mapCv = map.canvas; attrSoon(mapCv, 'aria-hidden', 'true'); mapCv.style.visibility = 'hidden'; cv.before(mapCv); }
     return map;
@@ -152,7 +165,8 @@ export function createFibroScan() {
     mapU(gl, W, H, gen);
   };
   const words = createTraceGL(cv, { redraw: () => { if (!gone) paint(performance.now()); }, under });
-  let fr = { t: 0, c: 1 };
+  // (The frame's moment and the map's inputs: two records of this panel, written in place each frame; mapU keeps the map's and reads it as the drawer's frame begins.)
+  const fr = { t: 0, c: 1, map: null }, frMap = { NB, t0: WAVE_T0, N: 0, c: 1, t: 0, rad: 0 };
   function paint(now) {
     // (The moment, worked out before the frame starts: the map under the words is drawn as the frame begins.)
     const st = simTime(now), t = REDUCED_MQ.matches ? 3 : st, dt = clamp(st - last, 0, 0.2); last = st;
@@ -162,9 +176,10 @@ export function createFibroScan() {
     // (On the shown state's filter, display-state.js, premium-feel R4: the bar's and the figure's clock; a jump of the model, a pause or
     // Reduce Motion shows the new median at once.)
     shown = kShown.step(model, dt, REDUCED_MQ.matches || isPaused());
-    fr = { t, c: shearSpeed(kNow), map: null };
+    fr.t = t; fr.c = shearSpeed(kNow); fr.map = null;
     const z = canvasSize(cv), want = clamp(Math.round(Math.max(z.w, z.h) * sized.r * (saver() ? 0.5 : 0.75)), saver() ? 100 : 140, saver() ? Math.min(cap, 200) : cap);
-    fr.map = { NB, t0: WAVE_T0, N: want, c: fr.c, t, rad: 12 * (z.W / Math.max(1, z.w)) };   // (its corners as the panel's, 12 px)
+    frMap.N = want; frMap.c = fr.c; frMap.t = t; frMap.rad = 12 * (z.W / Math.max(1, z.w));   // (its corners as the panel's, 12 px)
+    fr.map = frMap;
     mapU?.set(fr.map);
     const pen = fitPen(cv, words);
     try { paintWith(pen); } finally { pen.ctx.end?.(); }
@@ -173,7 +188,7 @@ export function createFibroScan() {
     if (w < 80 || hh < 80) return;
     const { t, c } = fr;
     const th = colors();
-    const reading = shown.toFixed(1); dataSoon(cv, 'reading', reading);
+    const reading = fix1(shown); dataSoon(cv, 'reading', reading);
     fibroReading.txt = reading; fibroReading.cv = cv; fibroReading.show?.(reading);
     ctx.clearRect(0, 0, w, hh);
     // The map is the whole instrument: it fills the canvas, the depth labels inside its left edge, the time labels inside its bottom
@@ -206,9 +221,9 @@ export function createFibroScan() {
     }
     mapGpu = drawn;
     if (mapCv) { const v = drawn ? '' : 'hidden'; if (mapCv.style.visibility !== v) mapCv.style.visibility = v; }
-    ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
-    for (const d of [WIN0, WIN1]) { const y = top + ((d - DEPTH0) / DEPTH_SPAN) * ph; ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + ew, y); ctx.stroke(); }
-    ctx.setLineDash([]);
+    ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.setLineDash(DASH); ctx.lineWidth = 1;
+    for (let i = 0; i < 2; i++) { const d = WINDOW[i]; const y = top + ((d - DEPTH0) / DEPTH_SPAN) * ph; ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + ew, y); ctx.stroke(); }
+    ctx.setLineDash(NO_DASH);
     const x0 = ex + (WAVE_T0 / 80) * ew, x1 = x0 + clamp((40 / c) / 80, 0, 1) * ew;
     ctx.strokeStyle = cssAlpha('--white', 0.95); ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(x0, top + ((WIN0 - DEPTH0) / DEPTH_SPAN) * ph); ctx.lineTo(x1, top + ((WIN1 - DEPTH0) / DEPTH_SPAN) * ph); ctx.stroke();
     rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
@@ -219,22 +234,21 @@ export function createFibroScan() {
     // 30, 45 and 60 mm (a fifth, a half and four fifths of the way down the 20-70 mm map): even gaps, clear of the corners and of the time row.
     ctx.textAlign = 'left'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(3, TK * 0.32); ctx.strokeStyle = cssAlpha('--black', 0.7);
     for (let d = 30; d <= 60; d += 15) {
-      const y = top + ((d - DEPTH0) / DEPTH_SPAN) * ph, txt = d === 45 ? '45 mm' : String(d), by = y + TK * 0.35;
+      const y = top + ((d - DEPTH0) / DEPTH_SPAN) * ph, txt = DEPTH_TXT[(d - 30) / 15], by = y + TK * 0.35;
       ctx.fillStyle = cssAlpha('--white', 0.96); ctx.strokeText(txt, ex + m, by); ctx.fillText(txt, ex + m, by);
     }
     // Time labels sit inside the map's bottom edge the same way, 0 to 80 ms with the unit on the first: their centres are spread evenly
     // between the two end labels (which cannot sit on the edges), so the gaps between the numbers are equal.
     // (A narrow box names every other tick, 0, 40 and 80 ms: "60" ran into "80".)
-    const tw = (t) => ctx.measureText(t).width, tstep = tw('0 ms') / 2 + tw('80') / 2 + tw('60') + 3 * 8 > ew - 2 * m ? 40 : 20;
-    const tks = []; for (let tm = 0; tm <= 80; tm += tstep) tks.push(tm);
-    const c0 = ex + m + tw('0 ms') / 2, c1 = ex + ew - m - tw('80') / 2, by = bot - TK * 0.45;
+    const tstep = twOf(ctx, '0 ms') / 2 + twOf(ctx, '80') / 2 + twOf(ctx, '60') + 3 * 8 > ew - 2 * m ? 40 : 20, ntk = Math.floor(80 / tstep) + 1;
+    const c0 = ex + m + twOf(ctx, '0 ms') / 2, c1 = ex + ew - m - twOf(ctx, '80') / 2, by = bot - TK * 0.45;
     ctx.textAlign = 'center'; ctx.fillStyle = cssAlpha('--white', 0.96);
-    tks.forEach((tm, i) => { const txt = tm === 0 ? '0 ms' : String(tm), bx = c0 + i * (c1 - c0) / (tks.length - 1); ctx.strokeText(txt, bx, by); ctx.fillText(txt, bx, by); });
+    for (let i = 0; i < ntk; i++) { const txt = TIME_TXT[i * tstep / 20], bx = c0 + i * (c1 - c0) / (ntk - 1); ctx.strokeText(txt, bx, by); ctx.fillText(txt, bx, by); }
     // The reading, inside the top right corner in the same white with a dark halo: the number big (about four times the label size, within the map's room), "kPa" small
     // beside it. Right aligned, so "kPa" never moves while the number eases.
     // (It stays in the top right and keeps clear of the "40" depth label: where the two would meet (a box about 900 px wide),
     // the number steps smaller until a gap is left. Judged at the widest reading, "88.8", so its size never changes as the number eases.)
-    const ly = top + ph / 6 + TK * 0.35, lr = ex + m + tw('40') + CAP, lt = ly - TK * 0.8;   // (the "40" label's baseline, right edge plus a gap, and top)
+    const ly = top + ph / 6 + TK * 0.35, lr = ex + m + twOf(ctx, '40') + CAP, lt = ly - TK * 0.8;   // (the "40" label's baseline, right edge plus a gap, and top)
     ctx.font = FONT(500, Math.round(CAP * 1.4));
     const uw = ctx.measureText('kPa').width;
     let big = Math.round(Math.max(24, Math.min(CAP * 4, 72, ph * 0.3, ew * 0.28))), RM, RY;   // (RM: the reading's own margin from the map's top and right edges)
@@ -269,7 +283,7 @@ export function createFibroScan() {
   const offRun = store.on('running', (on) => { if (on && onScreen()) start(); });
   /** The panel is done with (a presentation's own instruments go with it): its frame, observer and store watch are let go. */
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
-  const offSurface = surface('FibroScan map', () => (!cv.isConnected || mapGpu === null ? null : mapGpu ? { on: 'gpu', via: words ? 'map WebGL2, words on the GPU chart drawer' : 'map WebGL2, words 2D canvas (?tracegl=0)' } : { on: 'fallback', via: 'none', why: 'no WebGL2 or a lost context: no map' }));
+  const offSurface = surface('FibroScan map', () => (!cv.isConnected || mapGpu === null ? null : mapGpu ? (words ? ROW_WORDS : ROW_2D) : ROW_NONE));
   function dispose() { gone = true; running = false; cancelFrame(raf); raf = 0; io?.disconnect(); boxRO?.disconnect(); offRun(); words?.dispose(); dropMap(); }
   return { id: 'fibroscan', label: 'FibroScan', el, update, pin(fp) { pinned = fp?.lsm ?? null; if (pinned != null) model = pinned; }, dispose() { dispose(); offSurface(); } };
 }

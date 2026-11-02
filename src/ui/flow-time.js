@@ -15,10 +15,12 @@ import { restPass } from './rest-pass.js?v=bb619a1659';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { RX, bandKeys } from './rx-bands.js?v=51e83c7c59';
 import { createSvgGL, svgModel, setWords, setGeo } from './svg-gl.js?v=8b92ad7b8f';
+import { fix1, round1, tenths, printedKey } from './fix-text.js?v=b5d2f96c9e';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=dc92422977';
 const nextFrame = frameFor('flow-time');
 
 // (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)
+// alloc-rare: a printed number's text, made only when the printed number changes (paint) or a chart is built
 const fmt = (v, d) => v.toFixed(d), clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const FT_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
 
@@ -41,6 +43,7 @@ export const modelLines = (lines) => lines.filter((k) => !opt(k).given);
 /** What the worker keeps of a slide's time-lapse for its chart: those keys (true: the portal pressure and flow, the meal's). */
 export const trailKeys = (tool) => (tool?.lines ? modelLines(tool.lines) : true);
 /** A value with its unit as the card prints it: "10.2 kPa", but "12%". */
+// alloc-rare: a printed value's text, made only when the printed number changes (paint) or a chart is built
 export const withUnit = (v, d, unit) => `${fmt(v, d)}${unit === '%' ? '' : ' '}${unit}`;
 const NICE = [1, 2, 2.5, 5, 10];
 const niceStep = (raw) => { const p = Math.pow(10, Math.floor(Math.log10(raw))); return NICE.find((s) => s * p >= raw - 1e-9) * p; };
@@ -87,23 +90,38 @@ const sv = svgModel;
 // lower's under it, the clock under both. Each band's numbers sit on its own side, in its line's colour; the legend names
 // the two lines (with their units) over the plot, on one row when it fits, else two.
 const cw = (t, f, b) => t.length * f * (b ? 0.6 : 0.56);   // (a text's width, near enough: the chart is laid out before it is drawn)
-const legendOf = (keys, f) => keys.map((key) => { const [name, unit, , c] = LINE[key]; return { c, name, unit, w: 22 + cw(name, f, 1) + 6 + cw(unit, f) }; });
+let legendKeys = null, legendF = 0, legendOut = null;
+// (The legend's entries for these lines in this type size, kept: asked again for the same lines and size, the same list is handed back.)
+function legendOf(keys, f) {
+  if (legendOut && keys === legendKeys && f === legendF) return legendOut;
+  // alloc-rare: only when the lines or the type size change from the last asked
+  legendOut = keys.map((key) => { const [name, unit, , c] = LINE[key]; return { c, name, unit, w: 22 + cw(name, f, 1) + 6 + cw(unit, f) }; });
+  legendKeys = keys; legendF = f;
+  return legendOut;
+}
+const FT_H = { min: 0, preferred: 0, height: null };   // (the fit's answer: one record, written again by the next call; read at once)
 // A full-width chart needs room for both plots as well as its legend, clock and treatment bars. Below this
 // minimum the presenter keeps its existing fit, rather than protecting a chart whose labels would collide.
 export function flowTimeHeight(w, f, room, keys = MEAL_LINES, bandEm = 0) {
   const legend = legendOf(keys, f), rows = legend[0].w + legend[1].w + 2 * f <= w ? 1 : 2;
   const bands = bandEm * f, min = (rows * 1.5 + 1.9 + 1.7 + 6) * f + bands;
   const preferred = Math.max(0.6 * w, 15 * f) + bands;
-  return { min, preferred, height: room >= min ? Math.min(preferred, room) : null };
+  const r = FT_H;
+  r.min = min; r.preferred = preferred; r.height = room >= min ? Math.min(preferred, room) : null;
+  return r;
 }
 const linesOf = (keys) => keys.map((key, j) => { const [name, unit, d, c] = LINE[key]; return j ? ['flow', 'fScale', null, c, name, unit, d] : ['pv', 'pScale', null, c, name, unit, d]; });
 const dec = (sc) => (sc.ticks.some((v) => Math.abs(v * 10 - Math.round(v * 10)) > 1e-6) ? 2 : sc.ticks.some((v) => v % 1) ? 1 : 0);
+const NO_BOXES = [];
+const YV = [0, 0], CY = [0, 0];
 /** Whether a line's value goes left of its head: when, drawn right of it (its baseline 0.7 f over the head, in type 1.1 f),
  *  it would run off the chart (width w) or onto one of the numbers in the right margin (boxes: [x0, x1, y0, y1], the upper
  *  band's gridline numbers), as the ascites ending at 1.2 L ran onto the "1.5" of its own scale. */
-export function headLeft(hx, hy, tw, f, w, boxes = []) {
+export function headLeft(hx, hy, tw, f, w, boxes = NO_BOXES) {
   const x0 = hx + 0.6 * f, x1 = x0 + tw, y1 = hy - 0.7 * f + 0.25 * f, y0 = y1 - 1.1 * f;
-  return x1 > w || boxes.some(([a, b, c, d]) => x0 < b && a < x1 && y0 < d && c < y1);
+  if (x1 > w) return true;
+  for (let i = 0; i < boxes.length; i++) { const q = boxes[i]; if (x0 < q[1] && q[0] < x1 && y0 < q[3] && q[2] < y1) return true; }
+  return false;
 }
 
 export function createFlowTime() {
@@ -199,27 +217,60 @@ export function createFlowTime() {
     return { svg, lines, boxes };
   }
   // Draw the lines up to minute m, each line's value over its head (flipped left near the right edge).
+  // (Written every frame of a glide, so nothing here makes a list: the path up to each passed point is a string kept on the line, grown as
+  // points are passed; coordinates come from the table of tenths; a printed value, its width and the chart's label are made again only
+  // when the printed number changes.)
   function paint(m) {
     if (!parts) return;
-    const heads = parts.lines.map((l) => {
-      const arr = ser[l.k], p = ser.min.filter((x) => x < m).map((x, j) => [X(x), l.Y(arr[j])]);
-      p.push([X(m), l.Y(val(arr, m))]);
-      setGeo(l.path, 'd', p.map(([x, y], j) => `${j ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(''));
-      const [hx, hy] = p.at(-1), v = val(arr, m), txt = withUnit(v, l.d, l.unit), left = headLeft(hx, hy, cw(txt, G.f * 1.1, 1), G.f, G.w, parts.boxes);
-      setGeo(l.dot, 'cx', hx.toFixed(1)); setGeo(l.dot, 'cy', hy.toFixed(1));
-      setGeo(l.val, 'x', (hx + (left ? -0.6 : 0.6) * G.f).toFixed(1)); setGeo(l.val, 'y', (hy - 0.7 * G.f).toFixed(1));
+    const ls = parts.lines, mins = ser.min, nm = mins.length;
+    let n = 0, printed = false;
+    while (n < nm && mins[n] < m) n++;
+    for (let i = 0; i < ls.length; i++) {
+      const l = ls[i], arr = ser[l.k], hx = X(m), v = val(arr, m), hy = l.Y(v);
+      let pre = l.pre;
+      // alloc-rare: the line's kept strings, made once per line of a chart (a chart is made again when its size or trail changes)
+      if (!pre) pre = l.pre = [''];
+      // alloc-rare: grows by one point's text the first time a glide passes it, then kept (a new chart starts again)
+      for (let c = pre.length; c <= n; c++) pre[c] = pre[c - 1] + (c - 1 ? 'L' : 'M') + fix1(X(mins[c - 1])) + ' ' + fix1(l.Y(arr[c - 1]));
+      // (The path is written only when its head or its point count moved.)
+      const kx = tenths(hx), ky = tenths(hy);   // (the path's text depends on the head only through these tenths)
+      if (l.dn !== n || kx < 0 || ky < 0 || l.dx !== kx || l.dy !== ky) { l.dn = n; l.dx = kx; l.dy = ky; setGeo(l.path, 'd', pre[n] + (n ? 'L' : 'M') + fix1(hx) + ' ' + fix1(hy)); }
+      const key = printedKey(v, l.d);
+      if (key !== l.pk) {
+        l.pk = key; printed = true;
+        // alloc-rare: only when the printed number changes
+        l.txt = withUnit(v, l.d, l.unit);
+        l.tw = cw(l.txt, G.f * 1.1, 1);
+      }
+      const left = headLeft(hx, hy, l.tw, G.f, G.w, parts.boxes);
+      setGeo(l.dot, 'cx', fix1(hx)); setGeo(l.dot, 'cy', fix1(hy));
+      setGeo(l.val, 'x', fix1(hx + (left ? -0.6 : 0.6) * G.f)); setGeo(l.val, 'y', fix1(hy - 0.7 * G.f));
       setGeo(l.val, 'text-anchor', left ? 'end' : 'start');
-      setWords(l.val, txt);   // (kept on the piece and drawn by the picture: no text node, no mutation, nothing read again)
+      setWords(l.val, l.txt);   // (kept on the piece and drawn by the picture: no text node, no mutation, nothing read again)
       classSoon(l.val, 'off', m - ax().from < 0.36 * (ax().end - ax().from));   // (near the start the first value is already there)
-      return v;
-    });
+      YV[i] = round1(hy - 0.7 * G.f); CY[i] = round1(hy);
+    }
     // (Two heads close together, the bands short on a phone: the lower band's value goes under its head, clear of the other.)
-    const [a, b] = parts.lines.map((l) => +l.val.getAttribute('y'));
-    if (Math.abs(a - b) < 1.4 * G.f) { const lo = parts.lines[a > b ? 0 : 1]; setGeo(lo.val, 'y', (+lo.dot.getAttribute('cy') + 1.5 * G.f).toFixed(1)); }
-    attrSoon(parts.svg, 'aria-label', `${LINES[0][4]} and ${LINES[1][4].toLowerCase()} ${clock === 'days' ? `over ${ax().end} days` : 'around a meal'}: `
-      + LINES.map(([k, , , , name, unit, d], j) => `${name.toLowerCase()} ${withUnit(ser[k][0], d, unit)} to ${withUnit(heads[j], d, unit)}`).join(', '));
-    dataSoon(parts.svg, 'points', String(ser.min.filter((x) => x < m).length + 1));   // (the points drawn so far, of data-of: the browser checks read them)
-    dataSoon(parts.svg, 'of', String(ser.min.length));
+    const a = YV[0], b = YV[1];
+    if (Math.abs(a - b) < 1.4 * G.f) { const j = a > b ? 0 : 1; setGeo(ls[j].val, 'y', fix1(CY[j] + 1.5 * G.f)); }
+    if (printed) {
+      // alloc-rare: only when a printed number changed
+      let label = `${LINES[0][4]} and ${LINES[1][4].toLowerCase()} ${clock === 'days' ? `over ${ax().end} days` : 'around a meal'}: `;
+      // alloc-rare: only when a printed number changed
+      for (let j = 0; j < LINES.length; j++) { const [k, , , , name, unit, d] = LINES[j]; label += `${j ? ', ' : ''}${name.toLowerCase()} ${withUnit(ser[k][0], d, unit)} to ${ls[j].txt}`; }
+      attrSoon(parts.svg, 'aria-label', label);
+    }
+    // (The points drawn so far, of data-of: the browser checks read them.)
+    if (parts.pn !== n + 1) {
+      parts.pn = n + 1;
+      // alloc-rare: only when a point is passed
+      dataSoon(parts.svg, 'points', String(n + 1));
+    }
+    if (!parts.of) {
+      parts.of = true;
+      // alloc-rare: once per chart
+      dataSoon(parts.svg, 'of', String(nm));
+    }
   }
   // The heads glide after the goal (never a jump).
   function tick() {
@@ -269,6 +320,7 @@ export function createFlowTime() {
         shown = goal = minuteOf(k);
         // (The new chart fades in over the old, in the GPU's picture, on the stylesheet's old ease, --d-surface on --ease.)
         if (parts) { el.append(parts.svg); paint(shown); gl.place(parts.svg); gl.fadeIn(parts.svg, D_SURFACE, EASE_ARRIVE); }
+        // alloc-rare: only when a new trail is set (a new chart fades in over the old), never per frame
         setTimeout(() => restPass(() => { old.forEach((o) => o.remove()); gl.paint(); }), 480);
         return;
       }

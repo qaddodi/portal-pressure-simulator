@@ -29,7 +29,7 @@ test('the FibroScan reads the model median, the number in the tile and words', (
   // (The median, on the shown state's filter, premium-feel R4: a change under 0.05 kPa at rest, a pause or a jump shows at once.)
   assert.match(src, /const kShown = createFollow\(\{ small: 0\.05, eps: 0\.01 \}\)/);
   assert.match(src, /shown = kShown\.step\(model, dt, REDUCED_MQ\.matches \|\| isPaused\(\)\)/);
-  assert.match(src, /const reading = shown\.toFixed\(1\)/);
+  assert.match(src, /const reading = fix1\(shown\)/);   // (fix1 is toFixed(1) from a table of tenths: tests/fix-text.test.js)
 });
 
 test('a ladder card shows no HVPG or PPG tiles: its brackets give them, so no number is shown twice, rounded two ways', () => {
@@ -94,7 +94,7 @@ test('the FibroScan draws its words at the card\'s small size: map fills the car
 test('the FibroScan names its depths and times at even gaps, and the probe\'s head gives way to a card over it', () => {
   const src = readFileSync(new URL('../src/ui/fibroscan.js', import.meta.url), 'utf8');
   assert.match(src, /for \(let d = 30; d <= 60; d \+= 15\)/);   // (the M probe's 20-70 mm map: 30, 45 and 60 mm)
-  assert.match(src, /bx = c0 \+ i \* \(c1 - c0\) \/ \(tks\.length - 1\)/);
+  assert.match(src, /bx = c0 \+ i \* \(c1 - c0\) \/ \(ntk - 1\)/);   // (ntk: the number of time labels)
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   assert.match(stage, /scan\.el\.classList\.toggle\('head-off', scanLook\('head'\)\.some\(/);
   assert.match(css, /\.scan-probe\.head-off :is\(\.sp-head, \.sp-cable\) \{ opacity: 0; \}/);

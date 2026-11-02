@@ -66,20 +66,26 @@ let st = null;   // { canvas, gl, U, publish, lost } once made; false when WebGL
 function make(F) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 1;
+  // alloc-rare: made once with a panel's map: createElastogramGL runs only when the panel comes on screen with no map (fibroscan.js makeMap returns at once while it has one)
   const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'low-power' });
   if (!gl) return false;
   // (lost: the GPU does not draw the map, from the loss until the rebuilt program is published.)
   let lost = false, started = null, stopPoll = null;
+  // alloc-rare: made once with a panel's map: createElastogramGL runs only when the panel comes on screen with no map (fibroscan.js makeMap returns at once while it has one)
   const U = {};
+  // alloc-rare: made once with a panel's map: createElastogramGL runs only when the panel comes on screen with no map (fibroscan.js makeMap returns at once while it has one)
   const s = { canvas, gl, U, failed: false, published: false, wanted: false, onReady: null, started: () => started, want: () => stopPoll?.want?.(), get lost() { return lost || s.failed; } };
   // The finished program read, its samplers set and one draw made into a throwaway 1 × 1 target, so the first map has no driver work left.
+  // alloc-rare: made once with a panel's map: createElastogramGL runs only when the panel comes on screen with no map (fibroscan.js makeMap returns at once while it has one)
   s.publish = () => {
     if (s.published || s.failed || gl.isContextLost()) return;
     try {
       const prog = checkProgram(gl, started);
       gl.useProgram(prog);
       for (const n of UNIS) U[n] = gl.getUniformLocation(prog, n);
+      // alloc-rare: publish and build run once per context (publish returns at once when published; build at the start and after a context restore), not per frame
       ['a1', 'a2', 'b1', 'b2', 'p1', 'p2'].forEach((k, i) => gl.uniform1i(U[`u${k.toUpperCase()}`], i));
+      // alloc-rare: publish and build run once per context (publish returns at once when published; build at the start and after a context restore), not per frame
       exerciseDraw(gl, () => { gl.uniform1f(U.uN, 1); gl.uniform1f(U.uNB, 1); gl.uniform1f(U.uC, 1); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); });
       s.published = true; lost = false;   // (after a restore: the GPU draws the maps again)
       if (s.wanted) { s.wanted = false; try { s.onReady?.(); } catch (e2) { console.warn('FibroScan map: the redraw failed.', e2); } }
@@ -91,13 +97,16 @@ function make(F) {
   // What the context holds: the program, the quad and the six noise grids. Made at the start, and again when a lost context comes back.
   function build() {
     s.published = false; s.failed = false;
+    // alloc-rare: publish and build run once per context (publish returns at once when published; build at the start and after a context restore), not per frame
     started = startProgram(gl, VS, FS, [['p', 0]]);
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    // alloc-rare: publish and build run once per context (publish returns at once when published; build at the start and after a context restore), not per frame
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     // The noise grids, as they are (one float a texel, fetched exactly).
+    // alloc-rare: publish and build run once per context (publish returns at once when published; build at the start and after a context restore), not per frame
     ['a1', 'a2', 'b1', 'b2', 'p1', 'p2'].forEach((k, i) => {
       const f = F[k], t = gl.createTexture();
       gl.activeTexture(gl.TEXTURE0 + i);
@@ -106,11 +115,14 @@ function make(F) {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, f.gw, f.gh, 0, gl.RED, gl.FLOAT, Float32Array.from(f.grid));
     });
+    // alloc-rare: publish and build run once per context (publish returns at once when published; build at the start and after a context restore), not per frame
     stopPoll?.(); stopPoll = publishWhenDone(gl, [started], s.publish);
   }
   build();
+  // alloc-rare: made once with a panel's map: createElastogramGL runs only when the panel comes on screen with no map (fibroscan.js makeMap returns at once while it has one)
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
   // A context the browser gives back is built afresh; the maps stay on the CPU (lost) until the program is published, at an idle moment.
+  // alloc-rare: made once with a panel's map: createElastogramGL runs only when the panel comes on screen with no map (fibroscan.js makeMap returns at once while it has one)
   canvas.addEventListener('webglcontextrestored', () => {
     try { build(); } catch (e) { s.failed = true; console.warn('FibroScan map: WebGL2 could not be rebuilt, drawn on the CPU.', e); }
   });
@@ -130,22 +142,25 @@ export function elastogramGL(F, NB, t0, N, c, t) {
  * A panel's own map drawer, its canvas to put in the page (under the panel's words): { canvas, draw(F, NB, t0, N, c, t) → whether it
  * drew, lost }, or null without WebGL2. Each panel has its own, so two panels on screen never share one canvas.
  */
+// alloc-rare: made once with a panel's map: createElastogramGL runs only when the panel comes on screen with no map (fibroscan.js makeMap returns at once while it has one)
 export function createElastogramGL(F, { onReady = null, className = '' } = {}) {
   let s = null;
   try { s = make(F); } catch (e) { console.warn('FibroScan map: WebGL2 unavailable.', e); s = null; }
   if (!s) return null;
   s.onReady = onReady;
   if (className) s.canvas.className = className;   // (set as the canvas is made, before it is in the page: no write to a live node)
+  // alloc-rare: made once with a panel's map: createElastogramGL runs only when the panel comes on screen with no map (fibroscan.js makeMap returns at once while it has one)
   return { canvas: s.canvas, draw: (fMap, NB, t0, N, c, t) => !!drawMap(s, fMap, NB, t0, N, c, t), get lost() { return s.lost; },
     /** Lets the context go (the panel is off screen): a page holds only so many WebGL contexts, and past that the browser drops the oldest, the figure's. */
     dispose() { stopAll(s); } };
 }
 function stopAll(s) { try { s.gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch (e) { caught('fibroscan-gl:142', e); /* already gone */ } s.canvas.width = s.canvas.height = 0; s.canvas.remove(); }
+const PEND = [null];   // (the one program drawMap asks about, written in place)
 function drawMap(s, F, NB, t0, N, c, t) {
   if (s.lost) return null;
   // (Never published inside a frame while the driver still compiles: no map this frame (the panel hides it), the poller publishes the
   // program once it is done and onReady draws the panel again. Review pass 2, item 2.)
-  if (!s.published && s.started?.() && stillCompiling(s.gl, [s.started()])) { s.wanted = true; s.want?.(); return null; }
+  if (!s.published && s.started?.() && stillCompiling(s.gl, (PEND[0] = s.started(), PEND))) { s.wanted = true; s.want?.(); return null; }
   s.publish();
   if (s.lost || !s.published) return null;
   const { gl, U, canvas } = s;
@@ -156,14 +171,15 @@ function drawMap(s, F, NB, t0, N, c, t) {
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   return canvas;
 }
+const per = (v, P) => ((v % P) + P) % P;   // (a field's offset reduced by its own period)
 function setMap(gl, U, F, NB, t0, N, c, t) {
   const th1 = t * 1.3, th2 = t * 1.9 + 1, th3 = t * 2.3 + 2, flowY = t * 22, flowX = t * 9;
   // Each field's offset, reduced by the field's own period (exact in double precision).
-  const per = (v, P) => ((v % P) + P) % P, off = (f, mx) => [per(flowX * mx, f.gw * f.cell), per(flowY, f.gh * f.cell)];
-  gl.uniform3f(U.uCell, F.a1.cell, F.b1.cell, F.p1.cell);
-  gl.uniform4f(U.uOffA, ...off(F.a1, 1), ...off(F.a2, 1));
-  gl.uniform4f(U.uOffB, ...off(F.b1, 1.4), ...off(F.b2, 1.4));
-  gl.uniform4f(U.uOffP, ...off(F.p1, 1), ...off(F.p2, 1));
+  const { a1, a2, b1, b2, p1, p2 } = F;
+  gl.uniform3f(U.uCell, a1.cell, b1.cell, p1.cell);
+  gl.uniform4f(U.uOffA, per(flowX, a1.gw * a1.cell), per(flowY, a1.gh * a1.cell), per(flowX, a2.gw * a2.cell), per(flowY, a2.gh * a2.cell));
+  gl.uniform4f(U.uOffB, per(flowX * 1.4, b1.gw * b1.cell), per(flowY, b1.gh * b1.cell), per(flowX * 1.4, b2.gw * b2.cell), per(flowY, b2.gh * b2.cell));
+  gl.uniform4f(U.uOffP, per(flowX, p1.gw * p1.cell), per(flowY, p1.gh * p1.cell), per(flowX, p2.gw * p2.cell), per(flowY, p2.gh * p2.cell));
   gl.uniform1f(U.uN, N); gl.uniform1f(U.uNB, NB); gl.uniform1f(U.uC, c); gl.uniform1f(U.uT0, t0);
   gl.uniform3f(U.uCos, Math.cos(th1), Math.cos(th2), Math.cos(th3));
   gl.uniform3f(U.uSin, Math.sin(th1), Math.sin(th2), Math.sin(th3));
@@ -208,7 +224,7 @@ export function elastogramUnder(F) {
     if (g !== gen || !G) { gen = g; G = build(gl); }
     if (!G.prog || !args) return;
     gl.useProgram(G.prog);
-    G.tex.forEach((t, i) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(G.U[UNIS[i]], i); });
+    for (let i = 0; i < G.tex.length; i++) { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, G.tex[i]); gl.uniform1i(G.U[UNIS[i]], i); }
     gl.uniform2f(G.U.uRes, W, H); gl.uniform1f(G.U.uRad, args.rad || 0);
     setMap(gl, G.U, F, args.NB, args.t0, args.N, args.c, args.t);
     gl.disable(gl.BLEND);
