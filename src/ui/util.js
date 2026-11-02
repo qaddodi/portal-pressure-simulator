@@ -1,7 +1,7 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=897b4f8e7e';
 import { restPass } from './rest-pass.js?v=442dee98c9';
-import { glWords, GL_WORDS } from './gl-words.js?v=306c3afabe';
+import { glWords, GL_WORDS } from './gl-words.js?v=d8990c50bd';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7513a88c68';
 import { leaveFromHere } from './menu-leave.js?v=e885166f40';
@@ -1058,12 +1058,23 @@ const boxes = new WeakMap();
 let canvasBoost = 1;
 export const setCanvasBoost = (k) => { canvasBoost = Math.max(1, +k || 1); };
 const sizedSubs = new WeakMap();   // (canvas -> functions run when it first has a box, or has one again after none)
+// (2 Nov 2026, timers and observers during motion: the observer only records the boxes. The redraws that waited for a box (a chart's
+// first GPU draw, seconds of work on a phone) run in a rest pass, between frames and within its shared budget, never inside the
+// observer's callback in the middle of a frame's delivery. A box that went away again before the pass runs is not redrawn.)
+const sizedDue = new Set();
+let sizedAsk = 0;
+function sizedRun() {
+  sizedAsk = 0;
+  const due = [...sizedDue]; sizedDue.clear();
+  for (const t of due) { const r = boxes.get(t); if (r && r.width >= 1 && r.height >= 1) for (const f of sizedSubs.get(t) || []) f(); }
+}
 const boxObserver = new ResizeObserver((entries) => {
   for (const e of entries) {
     const was = boxes.get(e.target), r = { width: e.contentRect.width, height: e.contentRect.height };
     boxes.set(e.target, r);
-    if ((!was || was.width < 1 || was.height < 1) && r.width >= 1 && r.height >= 1) for (const f of sizedSubs.get(e.target) || []) f();
+    if ((!was || was.width < 1 || was.height < 1) && r.width >= 1 && r.height >= 1 && sizedSubs.get(e.target)?.size) sizedDue.add(e.target);
   }
+  if (sizedDue.size && !sizedAsk) sizedAsk = restPass(sizedRun);
 });
 /** f() each time the canvas comes to have a box (its first, or again after it had none): a draw that waited redraws. */
 export function onCanvasSized(canvas, f) {

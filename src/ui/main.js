@@ -10,32 +10,32 @@ import { createStage } from './stage.js?v=4754f23527';
 import { createCreditPlacer } from './credit.js?v=244e2d3019';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=41d56de280';
-import { createInspector } from './inspector.js?v=ac0903ca7d';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=024f929918';
-import { setHvpgStage } from './hvpg-proc.js?v=e55566b864';
-import { createWhy } from './why.js?v=f4dd3cef91';
-import { createTimeline, LAPSES } from './timeline.js?v=ee2dddc13c';
-import { createCompare } from './compare.js?v=38da32e4ab';
-import { createCard } from './card.js?v=56d29b2aa0';
-import { createChart } from './chart.js?v=2751bd8e71';
-import { createMenu } from './menu.js?v=e07979ee97';
-import { caption } from './a11y.js?v=afe332a70a';
+import { createInspector } from './inspector.js?v=8f821e892e';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=6e1e9dc96f';
+import { setHvpgStage } from './hvpg-proc.js?v=f6d40dfbc2';
+import { createWhy } from './why.js?v=17da229dd1';
+import { createTimeline, LAPSES } from './timeline.js?v=83b0fd69b0';
+import { createCompare } from './compare.js?v=923bfecebb';
+import { createCard } from './card.js?v=415b3c6efa';
+import { createChart } from './chart.js?v=50e29eb0c6';
+import { createMenu } from './menu.js?v=b0a49cb6d0';
+import { caption } from './a11y.js?v=dd13f25707';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=4aa1288f75';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=5eddd2d7ac';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=9a7c83e885';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=35e98050ba';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js?v=9fd20c4fed';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js?v=494d080ac6';
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js?v=b608fe722c';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=09fc291f37';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
-import { morphKey, crossfadeText } from './legend-morph.js?v=e49646dd21';
+import { morphKey, crossfadeText } from './legend-morph.js?v=3aeb4aa0bc';
 import { glideNow } from './seg-glide.js?v=608e337195';
 import './focus-ring.js?v=3262cead68';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
-import { lookChooser } from './look-chooser.js?v=c3ebf8de27';
+import { lookChooser } from './look-chooser.js?v=a6734786c4';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -54,7 +54,7 @@ import { ORIGINS } from './blood.js?v=f6c91d8676';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0762d1b820';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, MAY_ON } from './frame.js?v=897b4f8e7e';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, afterMotion, mayTask, MAY_ON } from './frame.js?v=897b4f8e7e';
 import { restPass } from './rest-pass.js?v=442dee98c9';
 import { sizeOf, watchSize, rectsSoon, restTask, flushTask } from './geom.js?v=254133713c';
 import { feedbackDiagnostics } from './feedback-diag.js?v=a6fd7380e0';
@@ -124,8 +124,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=622457a187'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=aa421e27fe'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=5b33a3b3f8'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=1f5c345177'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -212,7 +212,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=105de9b3d7'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=8b565ed9cf'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -220,7 +220,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=2831998f4a'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=e73c2d3391'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -1006,7 +1006,7 @@ function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
   // (And the frame-time overlay beside it, frame-hud.js: fps, 1% low, interval and script percentiles, surfaces, throttle. ?hud=0 off.)
-  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=f7ecacb63a').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=b8c46f65bb').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages. ?highrefresh=0 off.
   import('./high-refresh.js?v=a5fd03fdf7').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
   if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=9ae0512721').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
@@ -1212,7 +1212,10 @@ if (/[?&]progfx=0\b/.test(location.search)) document.documentElement.setAttribut
 if (/[?&]cardfrost=soft\b/.test(location.search)) document.documentElement.setAttribute('data-cardfrost', 'soft');   // (the cards' lighter frost, as before 2 Nov: glass-gl.js CARD, app.css --pz-frost)
 if (/[?&]carddrop=1\b/.test(location.search)) document.documentElement.setAttribute('data-carddrop', '');   // (the Present cards' drop shadow, as before 2 Nov: app.css --glass-drop)
 // (2 Nov 2026: read between frames (rest-pass.js), not in the observer's microtask straight after the page's writes.)
-new MutationObserver((rs) => { if (STATUS_GESTURE_FREE && rs.every((r) => classOnly(r, GESTURE_LOOK))) return; restPass(syncStatusBar); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
+// (The late look, after the background's .5 s fade, waits out any move: a timer firing in the middle of a slide change read the page's colours then.)
+let statusLaterOff = null;
+const statusLater = () => { statusLaterOff?.(); statusLaterOff = afterMotion(() => { statusLaterOff = null; restPass(syncStatusBar); }); };
+new MutationObserver((rs) => { if (STATUS_GESTURE_FREE && rs.every((r) => classOnly(r, GESTURE_LOOK))) return; restPass(syncStatusBar); setTimeout(statusLater, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
 // ── Patient chart, Treat card and instrument workspace ─
 // The chart is a card floating over the right of the figure (a bottom sheet on a phone), opened

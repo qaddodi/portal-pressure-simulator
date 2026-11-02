@@ -7,13 +7,13 @@ import { WARM_VIEWS, WARM_MS } from './warm-views.js?v=510b2dee9e';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=fe0f3d1f0e';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=5eddd2d7ac';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=35e98050ba';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=103e271dec';
 import { fibroReading } from './clock.js?v=5094398a49';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=9fd20c4fed';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=494d080ac6';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
@@ -29,7 +29,7 @@ import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb64813
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { paintBox } from './plate-copy.js?v=20b30d30b0';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
-import { glassCallout, withGlass } from './callout.js?v=9dda8c599a';
+import { glassCallout, withGlass } from './callout.js?v=2340eaa2a4';
 import { flipFrom, flipAt } from './cath-flip.js?v=6b016952c4';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
@@ -51,7 +51,7 @@ import { measure as measureWords } from './glyph-measure.js?v=e05ea36d6e';
 import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=de4cbf1d4c';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
 import { pathCmds, flattenCmds, polyBox, measurePath, elBox, chainMat } from './shape-gl.js?v=f64e82c981';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=9a7d65f63d';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=03cd60a3bd';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=5c7241a41a';
 import { createLabelGL } from './label-gl.js?v=a3297b40d2';
 import { createGlassGL } from './glass-gl.js?v=09344fc822';
@@ -92,7 +92,7 @@ import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
 import { CellGrid, geomOf } from './cell-grid.js?v=fb0e451b4d';
 import { restPass } from './rest-pass.js?v=442dee98c9';
-import { glWords } from './gl-words.js?v=306c3afabe';
+import { glWords } from './gl-words.js?v=d8990c50bd';
 import { provideStage } from './layout-snap.js?v=49b358c305';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
@@ -4220,7 +4220,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const next = () => {
       if (gen !== mt.gen || k >= pieces.length) return;
       // (Not while the figure moves at rest, for a while: a moment is a pass over every vessel.)
-      if ((inMotion() || sinceInput() < 700) && morph === morphTarget && held++ < 12) { setTimeout(next, 120); return; }
+      // (A move holds it for as long as the move lasts, however long: beginMotion ends one itself after MOTION_MAX_MS. Only the person's
+      // own input is capped, at twelve looks.)
+      { const moving = inMotion(); if ((moving || (sinceInput() < 700 && held < 12)) && morph === morphTarget) { held++; setTimeout(next, 120); return; } }
       const pc = pieces[k];
       const ts = Array.from({ length: MORPH_STEPS + 1 }, (_, i) => pc.t0 + (pc.t1 - pc.t0) * i / MORPH_STEPS);
       if (pc.t1 === 0.5) ts[MORPH_STEPS] = 0.5 - 1e-6;   // (the anatomy's side ends just short of the half, where the circuit's vessels take over)
@@ -10247,8 +10249,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const io = new IntersectionObserver((es) => {
       io.disconnect();
       const rects = new Map(es.map((e) => [e.target, e.boundingClientRect]));
-      blockersAsk = 0;
-      blockersGot(readBlockersRead((el) => rects.get(el) || el.getBoundingClientRect(), rects.get(wrap) || stageBox(), els));
+      // (The reading of the boxes, with its style read of the credit, waits for a rest pass: not in the observer's delivery mid-frame.)
+      restPass(() => { blockersAsk = 0; blockersGot(readBlockersRead((el) => rects.get(el) || el.getBoundingClientRect(), rects.get(wrap) || stageBox(), els)); });
     });
     for (const el of els) io.observe(el);
   }
