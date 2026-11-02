@@ -140,7 +140,7 @@ test('every recording instrument takes the history, and the presenter lets its i
   assert.match(pt, /resetBuffers\(\);\s+record\(all\);/, 'the chart makes its bins and beats from the history and its own samples together');
   assert.match(dop, /hs\.probe !== probe/, 'a history for another vessel is let go');
   // Cards that keep recording across slides.
-  assert.match(tools, /const startOver = RECORDS\.includes\(k\) && \(stateKey !== lastSt \|\| cur !== inst\);/);
+  assert.match(tools, /const startOver = RECORDS\.includes\(k\) && \(cur !== inst \|\| \(stateKey !== lastSt && !SWEEPS\.includes\(k\)\)\);/, 'a card that comes up is started over; the EKG strips are not started over by a new state');
   assert.match(tools, /host\.request\('history'/);
   assert.match(tools, /if \(startOver\) \{ if \(held\) primeWait = true; else prime\(inst, k\); \}/, 'a card up while the state lands is filled at the landing');
   assert.match(tools, /ready\(ms\)/);

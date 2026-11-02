@@ -88,8 +88,10 @@ test('the vitals monitor is a recording kind: a new patient starts its strip ove
   assert.equal(eases({ kind: 'hvpg' }), true);
   assert.notEqual(dataPlan({ tool: { kind: 'vitals' }, data: 'tiles' }, {}), dataPlan({ tool: { kind: 'vitals', show: ['co'] }, data: 'tiles' }, {}), 'its options are part of the card\'s plan');
   assert.match(tools, /const RECORDS = \['doppler', 'beats', 'vitals'\];/, 'the vitals monitor is one of the recording kinds');
-  assert.match(tools, /const startOver = RECORDS\.includes\(k\) && \(stateKey !== lastSt \|\| cur !== inst\);\s+if \(startOver\) \{ inst\.clear\?\.\(\); primeTok\+\+; \}/, 'a new state clears its strip');
-  assert.match(tools, /for \(const k of RECORDS\) made\[k\]\?\.restart\?\.\(\) \?\? made\[k\]\?\.clear\?\.\(\);/, 'and a held state restarts it');
+  assert.match(tools, /const SWEEPS = \['beats', 'vitals'\];/, 'the two EKG strips keep one continuous sweep');
+  assert.match(tools, /const startOver = RECORDS\.includes\(k\) && \(cur !== inst \|\| \(stateKey !== lastSt && !SWEEPS\.includes\(k\)\)\);\s+if \(startOver\) \{ inst\.clear\?\.\(\); primeTok\+\+; \}/, 'a card that comes up starts empty; a new state does not clear a strip that is sweeping');
+  assert.match(tools, /for \(const k of RECORDS\) if \(!SWEEPS\.includes\(k\)\) made\[k\]\?\.restart\?\.\(\) \?\? made\[k\]\?\.clear\?\.\(\);/, 'and a held state restarts the Doppler only');
+  assert.match(tools, /if \(held && \(kind === 'doppler' \|\| primeWait\)\) return;/, 'the strips take their frames through a change of state');
 });
 
 // ── The HVPG monitor on the card ──

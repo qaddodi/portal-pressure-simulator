@@ -15,6 +15,7 @@ import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
 import { limitLabelX as labelX } from './limit-label.js?v=6d7a63c949';
 import { wrapLabel } from './wrap-label.js?v=213d36e12b';
 import { createBeatClock, ekgSeries, leadIISeries } from './ekg.js?v=ee939fbe92';
+import { createFreewheel } from './freewheel.js?v=45674dd07b';
 import { laneRoom } from './trace-lanes.js?v=02d17cf83f';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
 import { plotFill } from './plot-look.js?v=5037697da7';
@@ -49,6 +50,7 @@ const BEAT_CARD_S = 5;
 const RANGES = [['beats', '10 s', 10], ['minutes', '2 min', 120], ['days', 'Days', null]];
 const LAG_S = 0.12; // wall seconds the trace runs behind the newest sample, so it can glide between frames
 const FINE_S = 22, COARSE_S = 140, BIN = 0.25;
+const JUMP_S = 0.5;   // (a first sample this far ahead of the last one recorded, or any way behind it, is a clock that was set, not the next frame)
 // HVPG cut-offs: above normal, clinically significant (Baveno), and 12, below which varices rarely bleed.
 const LIMITS = [[HVPG_CUTS.amber, ''], [HVPG_CUTS.red, `CSPH ${HVPG_CUTS.red}`], [HVPG_CUTS.bleed, `Bleed risk ${HVPG_CUTS.bleed}`]];
 const sevOf = hvpgSev;
@@ -161,10 +163,12 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   let coarse = [], bin = null;
   let days = [];
   let clock = 'hemo', dayNow = 0, lastT = -Infinity, frame = null, wallAt = 0;
+  // off: the model's time plus off is the trace's (the model's clock was set while the trace went on: a state restored, a time-lapse ended).
+  let off = 0;
 
   function resetBuffers() {
     for (const k of Object.keys(fine)) fine[k].length = 0;
-    coarse = []; bin = null; lastT = -Infinity; beatClock.reset();
+    coarse = []; bin = null; lastT = -Infinity; beatClock.reset(); off = 0; wheel.stop();
   }
   function clearHemo() { resetBuffers(); steadyAt = 0; }
   // On a slide each reading is its steady value, the mean over the last few seconds, so the lines' end labels, the header and
@@ -186,12 +190,12 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   const endOf = (id) => (Number.isFinite(pinned?.[PIN[id]]) ? pinned[PIN[id]] : steady[id]);
   const steadyHvpg = () => tenthGap(endOf('whvp'), endOf('RHV'), frame.metrics.hvpg);
   // Samples (a frame's, or the history's) into the fine buffer, the quarter-second bins and the beat clock; the buffers keep a fixed window.
-  function record(smp) {
+  function record(smp, o = 0) {
     // (lastT is held in a local through the loop and written back once: a number kept in a closure's variable is a heap object made anew
     // at each assignment, one for every sample of every frame.)
     let lt = lastT;
     for (let i = 0; i < smp.t.length; i++) {
-      const t = smp.t[i];
+      const t = smp.t[i] + o;
       if (t <= lt) continue;
       lt = t;
       fine.t.push(t); fine.ph.push(smp.ph?.[i] ?? NaN); beatClock.push(t, smp.ph?.[i]);
@@ -214,7 +218,24 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     cut = 0; while (cut < coarse.length && coarse[cut].t < lastT - COARSE_S) cut++;
     if (cut) dropFront(coarse, cut);
   }
+  // ── The freewheel (freewheel.js) ──
+  // While the model's own clock stands still under a running page (a state easing in: frame.parkSecs is a number) it sends no samples, and the
+  // trace would stop at its last one, as if frozen: the last whole beat is replayed over the time that passes instead, so the sweep goes on and
+  // the live samples take it on from where it is. (On the disease clock the chart is the days' trend: it has no sweep to keep, and the beats it
+  // has stay as they are.)
+  const wheel = createFreewheel(KEYS);
+  const HEAD = new Float64Array(2);   // [the head as last drawn, the wall time it was drawn at]: the freewheel goes on from it
+  const parkedNow = (f) => !!f && f.running && f.parkSecs != null && f.clock !== 'disease';
+  /** The heart rate the chart shows (the slide's pinned reading, else the live one). */
+  const rateNow = () => { const hr = pinned?.hr ?? frame?.metrics?.hr; return Math.min(220, Math.max(30, hr > 20 ? hr : 70)); };
+  function advanceFw(now) {
+    if (!parkedNow(frame)) { wheel.stop(); return; }
+    const left = frame.parkSecs == null ? NaN : Math.max(0, frame.parkSecs - (now - wallAt) / 1000);
+    const smp = wheel.advance(now, fine, beatClock.times, lastT, wheel.on ? 0 : HEAD[1] ? HEAD[0] + Math.min(0.25, (now - HEAD[1]) / 1000) : headX(), LAG_S, rateNow(), frame.phase, left);
+    if (smp) record(smp);
+  }
   function ingest(f) {
+    const was = wheel.laid;
     frame = f; wallAt = performance.now();
     wake();
     if (f.clock !== 'disease') settle(f.metrics);
@@ -223,12 +244,20 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       // The disease clock is a trend: show it as one while it runs, then return to the learner's range.
       setRange(clock === 'disease' ? 'days' : userRange);
     }
-    if (f.day !== dayNow) { clearHemo(); dayNow = f.day; }
+    // (A new day no longer wipes the beats: a time-lapse runs the days past, and the sweep goes on through them and after them.)
+    dayNow = f.day;
     const smp = f.samples;
     if (smp && f.clock !== 'disease' && smp.t.length) {
-      // A new patient or a step back in time restarts the engine clock: start a fresh trace.
-      if (smp.t[0] < lastT - 1e-9) clearHemo();
-      record(smp);
+      // A new patient, a state restored or a step back in time sets the engine's clock: the trace goes on from where it is, its time moved on
+      // to start where it left off, and the beat clock finds the new run's beats.
+      const n = smp.t.length, t0 = smp.t[0] + off;
+      if (lastT > -Infinity && (t0 < lastT - 1e-9 || t0 > lastT + JUMP_S)) {
+        // (After a freewheel the newest sample is put the lag ahead of the head as it has moved on, so the trace keeps its pace through the landing.)
+        off = was ? Math.max(lastT, HEAD[0] + Math.min(0.25, (performance.now() - HEAD[1]) / 1000) + LAG_S) - smp.t[n - 1]
+          : lastT + (smp.t.length > 1 ? smp.t[1] - smp.t[0] : 0.004) - smp.t[0];
+      }
+      wheel.land();
+      record(smp, off);
     }
     const m = f.metrics;
     const last = days[days.length - 1];
@@ -354,6 +383,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   // Frames arrive ~10×/s in bursts; the right edge advances with the wall clock in between
   // (a little behind the newest sample), so the trace scrolls steadily instead of in steps.
   function headX() {
+    if (wheel.on) return wheel.head();   // (the freewheel's head: the model's clock stands still)
     if (lastT === -Infinity) return frame.t;
     if (!frame.running || clock === 'disease') return lastT;
     const rate = frame.speed || 1;
@@ -384,6 +414,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
 
   function draw() {
     gliding = false;
+    advanceFw(performance.now());
     drawNow();
     if (gliding && !glideReq && !(ticking && live())) { glideReq = true; nextFrame(glideAgain); }
   }
@@ -786,6 +817,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       const beatCard = slide && range === 'beats' && showHvpg;
       const span = beatCard ? BEAT_CARD_S : RANGE_SPAN[range];
       xNow = headX();
+      HEAD[0] = xNow; HEAD[1] = performance.now();
       x1 = xNow; x0 = x1 - span;
       // (On a slide the window starts where its record does: a slide just arrived has no empty left part. Not the beat-by-beat card: like a
       // monitor its readings come in at "now" on the right and run left from the first frame, Mohammad 29 Oct.)
@@ -1191,7 +1223,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
    *  front, and the record it has made itself stays. The two minutes' bins and the strip's beats are made from them as from live ones. */
   const SAMPLE_KEYS = ['t', 'ph', ...KEYS];
   function backfill(hs) {
-    if (!hs?.t?.length || clock !== 'hemo') return false;
+    if (!hs?.t?.length || clock !== 'hemo' || off || wheel.laid) return false;   // (a strip that went on by itself keeps its beats)
     const n = olderThan(hs, fine.t.length ? fine.t[0] : Infinity);
     if (!n) return false;
     const all = inFront(fine, hs, SAMPLE_KEYS, n);

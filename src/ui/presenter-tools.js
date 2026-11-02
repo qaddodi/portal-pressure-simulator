@@ -70,6 +70,10 @@ const TITLE = {
 };
 const noop = () => {};
 const RECORDS = ['doppler', 'beats', 'vitals'];   // (the instruments that record the patient's flow as it passes)
+// (The two with an EKG strip keep ONE continuous sweep through a change of state, a time-lapse and an easing: they are neither held nor
+// cleared nor refilled when the slide's state changes. Their frames go on being taken, the strip runs on its own clock while the model's stands
+// still (vitals-monitor.js, pressure-time.js freewheel), and the new state's beats come in at the head, so the strip never starts over in place.)
+const SWEEPS = ['beats', 'vitals'];
 
 export function createTools({ host, stage }) {
   const ghostEl = h('div', { class: 'pz-ghost', 'aria-live': 'polite' });
@@ -108,7 +112,8 @@ export function createTools({ host, stage }) {
   const offFrame = store.on('frame', (f) => {
     if (!cur || !f || !box.isConnected) return;
     // (Held while the slide's own state eases in: a recording trace would catch the leaving state, the old flow before it reverses.)
-    if (held && (kind === 'doppler' || kind === 'beats' || kind === 'vitals')) return;
+    // (A card started over while the state lands, still empty, waits for the landing to be filled: primeWait.)
+    if (held && (kind === 'doppler' || primeWait)) return;
     if (kind === 'doppler' && cur.ingest) { cur.update(f); return; }
     if (kind !== 'talk' && kind !== 'flowtime') cur.update?.(f);
   });
@@ -145,7 +150,7 @@ export function createTools({ host, stage }) {
       if (cur !== inst || slide !== lastSlide) inst.autoWindow?.();   // (a new slide chooses its Doppler window again from the width it is drawn at)
       lastSlide = slide;
       // A new patient clears a recording trace; so does an instrument coming back after another one showed (it missed the frames between).
-      const startOver = RECORDS.includes(k) && (stateKey !== lastSt || cur !== inst);
+      const startOver = RECORDS.includes(k) && (cur !== inst || (stateKey !== lastSt && !SWEEPS.includes(k)));
       if (startOver) { inst.clear?.(); primeTok++; }
       lastSt = stateKey;
       if (cur && cur !== inst) cur.park?.();
@@ -174,12 +179,12 @@ export function createTools({ host, stage }) {
     /** Resolves once the window of the instrument showing has been filled, or after ms at the longest: a card is not brought in
      *  before its trace is there, unless the model is slow to make it. */
     ready(ms) { const p = primeP; return p ? Promise.race([p, new Promise((r) => setTimeout(r, ms))]) : Promise.resolve(); },
-    /** Hold the recording instruments (Doppler, beat by beat, vitals) while the slide's state changes: they draw nothing new, and on
-     *  release start over with their window filled by the new state's own steady beats (prime), then record on. */
+    /** Hold the Doppler while the slide's state changes: it draws nothing new, and on release starts over with its window filled by the new
+     *  state's own steady beats (prime), then records on. (The EKG strips, beat by beat and vitals, are not held: SWEEPS.) */
     hold(on) {
       on = !!on; if (on === held) return; held = on;
       primeTok++;
-      for (const k of RECORDS) made[k]?.restart?.() ?? made[k]?.clear?.();
+      for (const k of RECORDS) if (!SWEEPS.includes(k)) made[k]?.restart?.() ?? made[k]?.clear?.();
       // Released: the state has landed. A card already up for it (held meanwhile) has its window filled now.
       if (!on && primeWait && cur && RECORDS.includes(kind)) prime(cur, kind);
       primeWait = false;
