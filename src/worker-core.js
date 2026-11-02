@@ -224,6 +224,7 @@ export function createCore(post) {
     jumpDirty = false; postedClock = clock;
     if (samples) { postedT = sampT; postedCyc = sampCyc; }
     samples = null;
+    unpainted = ackOn;
     post(f, [f.P.buffer, f.Pf.buffer, f.Q.buffer, f.Qf.buffer, f.ext.buffer, f.D.buffer]);
   }
 
@@ -242,7 +243,8 @@ export function createCore(post) {
     try { tickOnce(); } catch (err) { crash(err); }
   }
 
-  let lastFrame = 0;
+  let lastFrame = 0, ackOn = false, unpainted = false;
+  const ACK_MAX_MS = 400;
   // A frame goes out only when the model moved past a small hysteresis since the last one posted, or once a second as a heartbeat (the
   // samples taken meanwhile wait in `samples` and go out with it, so the traces lose nothing). Anything that changes the model sets
   // frameDirty/paramsDirty and posts at once, so nothing waits on the heartbeat.
@@ -304,7 +306,7 @@ export function createCore(post) {
       }
     }
     if (!finite(eng.P) || !finite(eng.Q)) throw new Error('The model produced a pressure or flow that is not a number.');
-    const due = running && now - lastFrame > 95;
+    const due = running && now - lastFrame > 95 && (!ackOn || !unpainted || now - lastFrame > ACK_MAX_MS);
     if (frameDirty || paramsDirty || eng.newEvents.length || (due && (!deltaOn || now - lastFrame > HEARTBEAT_MS || morph || lapse || eng.easing() || movedSincePost()))) {
       lastFrame = now; frame();
       if (deltaOn) still = { Pf: Float64Array.from(eng.Pf || eng.P), Qf: Float64Array.from(eng.Qf || eng.Q), D: Float64Array.from({ length: eng.E }, (_, k) => eng.diameter(eng.edges[k].id)) };
@@ -413,6 +415,10 @@ export function createCore(post) {
     // a morph under way keeps easing to its own state).
     breath({ on }) { eng.params.respiration = !!on; paramsDirty = true; },
     visibility({ visible: v }) { visible = v; },
+    // (Plan "Holding 120 Hz, always" §3.2: a page that says so (ackPaint) tells the worker each model frame it has painted; while one is
+    // unpainted the clock's next frame waits (up to ACK_MAX_MS), so frames the page could not paint are never built, cloned and posted.)
+    ackPaint({ on }) { ackOn = !!on; unpainted = false; },
+    painted() { unpainted = false; },
     // restartClock: the days are the patient's past (the patient aged before the story starts), so the clock and
     // event log start fresh at day 0 afterwards.
     *advance({ days, untilEvent, restartClock }) {
@@ -547,7 +553,7 @@ export function createCore(post) {
         if (RECOVER.includes(msg.type)) crashed = false;
         // Queries must not wake the renderer. Mutations send one immediate frame,
         // including UI-originated parameters without echoing those parameters back.
-        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence', 'history'].includes(msg.type)) {
+        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint'].includes(msg.type)) {
           frameDirty = true;
           if (visible) { lastFrame = performance.now(); frame(); }
         }

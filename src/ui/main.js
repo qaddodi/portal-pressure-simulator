@@ -4,7 +4,7 @@
 import { motionBudget } from './motion-budget.js?v=ff13b79f5b';   // (first: counts from the start when ?perf or ?budget=1 asks)
 import { budget as gpuBudget } from './gpu-budget.js?v=5999267cfa';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js?v=fb0dea79ba';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
-import { startHost, host } from './host.js?v=9eca545da1';
+import { startHost, host } from './host.js?v=606ab97574';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=bf85512db4';
 import { createStage } from './stage.js?v=c0036f5117';
 import { createCreditPlacer } from './credit.js?v=1d68d79e92';
@@ -13,8 +13,8 @@ import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
 import { createInspector } from './inspector.js?v=ac8ae82825';
 import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=1f656f6f7b';
 import { setHvpgStage } from './hvpg-proc.js?v=2a2b1f1d92';
-import { createWhy } from './why.js?v=e7426c674f';
-import { createTimeline, LAPSES } from './timeline.js?v=2172caab73';
+import { createWhy } from './why.js?v=4a04ecf2e0';
+import { createTimeline, LAPSES } from './timeline.js?v=5dc1d0ae02';
 import { createCompare } from './compare.js?v=f8ae02d4f7';
 import { createCard } from './card.js?v=73c59eb08b';
 import { createChart } from './chart.js?v=3de9d04487';
@@ -135,6 +135,7 @@ async function main() {
   app.dataset.engine = kind;
   document.addEventListener('visibilitychange', () => host.send({ type: 'visibility', visible: !document.hidden }));
   host.send({ type: 'visibility', visible: !document.hidden });
+  if (PAINT_ACK) host.send({ type: 'ackPaint', on: true });   // (each painted model frame is told back: paintFrame)
   bindParamSender((params, settle) => host.send({ type: 'setParams', params, settle }));
 
   // Both asked at once: one round trip to the engine before any UI, not two.
@@ -210,7 +211,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=26844211a9'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=2a26bce50a'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -466,7 +467,10 @@ function watchInspectorSeen() {
   inspSeen = new MutationObserver(inspectorSeen);
   inspSeen.observe(app, { attributes: true, attributeFilter: ['class'] });
 }
+// (Plan §3.2: the worker builds its next clock frame only once this one is painted (worker-core.js ackPaint). ?paintack=0: off.)
+const PAINT_ACK = !/[?&]paintack=0\b/.test(location.search);
 function paintFrame(f) {
+  if (PAINT_ACK) host?.send({ type: 'painted' });
   watchInspectorSeen();
   const now = performance.now();
   if (jumpSeen) { jumpSeen = false; noteJump(); }
