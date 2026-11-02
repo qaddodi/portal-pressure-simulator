@@ -8,7 +8,7 @@ import { hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn } from './util.js?v=d9ebc1fd77';
 import { vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { SCALE, RATE } from './table-marks.js?v=ff3ed0cc47';
-import { shownState, FILL_SMALL, fillQ } from './shown.js?v=331593cd88';
+import { shownState, shownOr, FILL_SMALL, fillQ } from './shown.js?v=331593cd88';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
 
@@ -102,7 +102,11 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
         x.shown = v == null ? null : shownState.set('rp:' + t.id, v, followOpts(t.d, !eased));
         fillTo('rpfill:' + t.id, t.scale[0], t.scale[1], v, x.fillSeen); x.fillSeen = v != null;
       } else if (x.target != null) x.shown = shownState.or('rp:' + t.id, x.target);
-      const v = x.shown ?? null, eased = follow || x.eased;
+      let v = x.shown ?? null;
+      const eased = follow || x.eased;
+      // HVPG and PPG read as the bar beside them prints them: the difference of their two readings as shown (dock.js paintStrip, shown.js),
+      // so this tab never says 11.7 where the bar says 11.6. A measured HVPG, or a number far from the bar's (a step still gliding), keeps its own.
+      if (v != null && (t.id === 'hvpg' || t.id === 'ppg') && !hidden?.has(t.hideKey)) { const g = shownOr(t.id, v); if (Math.abs(g - v) < 0.25) v = g; }
       // (A display frame between model frames repaints only the tiles whose shown number or bar moved since they were last painted.)
       if (follow) { const fk = `${v}|${shownState.or('rpfill:' + t.id, '')}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;
       const measured = v != null && hidden?.has(t.hideKey);

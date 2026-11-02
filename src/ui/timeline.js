@@ -44,7 +44,7 @@ export const fmtClock = (t, day) => {
 };
 
 export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scenarioLabel }) {
-  let entries = [], cursor = -1, seq = 0, baseline = null, pending = null, lastEv = {}, jumping = false;
+  let entries = [], cursor = -1, seq = 0, baseline = null, pending = null, lastEv = {}, jumping = false, jumpSeq = 0;
   const listeners = [];
   const absT = (e) => e.day * 86400 + e.t;
   const frameNow = () => store.get().frame;
@@ -210,13 +210,16 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     const d0 = f?.day ?? 0;
     onJump(days);
     jumping = true;
+    const mine = ++jumpSeq;   // (a newer jump takes the count over: this one's frames stop, so two counts never draw over each other)
     const t0 = performance.now();
     const dayOf = (u) => `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
     const gpu = days !== 'event' && dayStart(shownDay = dayOf(0), dayOf(1));
     // (Where the count cannot be drawn on the GPU, its glyphs not loaded yet or ?daygl=0, the clock takes its last day here, in the task that
     // starts the jump: no frame writes its words. 2 Nov 2026, "Move everything to GPU".)
+    if (!gpu && dayGL && timeEl.classList.contains('tl-gpu')) { timeEl.classList.remove('tl-gpu'); dayGL.clear(); }   // (an older count still drawn: the clock takes over from it)
     if (!gpu && days !== 'event') timeLong.textContent = timeShort.textContent = dayOf(1);
     const tick = (now) => {
+      if (mine !== jumpSeq) return;
       const u = clamp((now - t0) / 900, 0, 1);
       // (Drawn again only when the day shown changes: most frames of the count keep it.)
       const t = dayOf(u);
