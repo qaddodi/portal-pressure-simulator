@@ -20,7 +20,7 @@
 // around it.
 
 import { h, fmt, clamp, lerp } from './util.js?v=a60489211b';
-import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=1bde9c64b4';
+import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=50d7889e07';
 import { measure } from './glyph-measure.js?v=450036b556';
 import { readStyle } from './layout-snap.js?v=f609965236';
 import { pressureColor } from './colormap.js?v=4f42de15df';
@@ -55,7 +55,7 @@ export function createSinusoidView({ host, before = null }) {
   // leader, with its reading (if any) beneath in the lobule's number style. Captions in a narrow band (the lumen,
   // Disse) run along the vessel; those in the hepatocyte plates stay level.
   const regions = {};
-  // The names are drawn by the GPU (caption-gl.js: their words, halo, lit pills and leaders, and the legend), laid out here in script and
+  // The names are drawn by the GPU (caption-gl.js: their words, halo, lit terms' colour and leaders, and the legend), laid out here in script and
   // placed in the frame that moves the view; the page's own names are a quiet model (screen readers, data-target, what reads their boxes
   // at rest), made clear by .cap-gl-on and placed between frames (domPlace). Their sizes are set from the GPU's own type (their looks are
   // read between frames, readLooks), so no layout is read for them. A name made new is drawn once its look is read, fading in.
@@ -101,7 +101,7 @@ export function createSinusoidView({ host, before = null }) {
     }
     return R;
   }
-  // (The looks, read between frames: each caption's type, ink, halo and pill as the stylesheet gives them (its class, the theme, the
+  // (The looks, read between frames: each caption's type, ink and halo as the stylesheet gives them (its class, the theme, the
   // label size, a slide's lit terms), and the legend's. A change lays the names out again.)
   let lookAsk = 0;
   const askLooks = () => { if (!lookAsk) lookAsk = restPass(readLooks); };
@@ -112,7 +112,7 @@ export function createSinusoidView({ host, before = null }) {
       const el = R.el;
       if (!el?.isConnected || !el.firstElementChild) continue;
       const v = el.querySelector('.v'), b = v?.querySelector('b');
-      const lk = lookOf(readStyle(el), { name: readStyle(el.firstElementChild), fig: b && readStyle(b), unit: v && readStyle(v) }, readStyle(el, '::before'));
+      const lk = lookOf(readStyle(el), { name: readStyle(el.firstElementChild), fig: b && readStyle(b), unit: v && readStyle(v) });
       const sig = JSON.stringify(lk);
       if (sig !== R.lookSig) { R.lookSig = sig; cap.look(R.key, lk); ch = true; }
     }

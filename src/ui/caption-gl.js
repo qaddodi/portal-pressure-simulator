@@ -1,15 +1,15 @@
 // A figure's names drawn by the GPU (Mohammad, 2 Nov 2026: "Move. Everything. To. GPU."): the sinusoid's captions, their leaders and
-// their lit pills, set in script and drawn through the charts' shared GPU context (trace-gl.js, the SDF atlas of text-gl.js), in the
+// their lit terms' colour, set in script and drawn through the charts' shared GPU context (trace-gl.js, the SDF atlas of text-gl.js), in the
 // frame that asks for them. The page keeps its own captions only as a quiet model, for screen readers and for what reads their boxes
 // at rest (credit.js, a slide's wait for its names): made clear (app.css .cap-gl-on), and placed between frames, never in one.
 //
 // The GPU is the source of truth: each caption is numbers kept here (its lines and their looks, its centre, its step aside and its
-// scale, whether it shows, whether its pill is lit), and its fades and steps are eased here, on the frame's clock, as the stylesheet's
+// scale, whether it shows), and its fades and steps are eased here, on the frame's clock, as the stylesheet's
 // transitions eased them (D_SURFACE on the arrive curve). A frame that moves the figure moves its names in the same frame: the owner
 // puts their new places and calls paint(), and the names are drawn in that frame's last turn (finalFrame).
 //
 //   const cap = createCaptionGL(box);            // box: the names' layer (the canvas goes in first, under the page's own names)
-//   cap.look(key, look)                         // its type, ink, halo and pill, read between frames (lookOf below)
+//   cap.look(key, look)                         // its type, ink and halo, read between frames (lookOf below)
 //   cap.measure(key, lines)                     // lines: per line [[text, kind], ...]; its [w, h] in its look
 //   cap.put(key, { x, y, off, show })           // x, y: the box's centre (px); off: [dx, dy, scale]
 //   cap.lead(key, { x1, y1, x2, y2, show, colour, of })
@@ -58,20 +58,16 @@ const snap = (e, v) => { e.v = e.from = e.to = v; e.ms = 0; };
 
 /**
  * A caption's look, read from the page's own caption between frames (getComputedStyle results): `cs` the caption's, `runs` its kinds of
- * run ({ name: cs, ... }: the name's capitals, a reading's figure and its unit), `pill` its ::before's. Every number in px, colours as
+ * run ({ name: cs, ... }: the name's capitals, a reading's figure and its unit). Every number in px, colours as
  * the page computed them.
  */
-export function lookOf(cs, runs, pill) {
+export function lookOf(cs, runs) {
   const px = (v) => parseFloat(v) || 0;
   const run = (s) => ({ size: px(s.fontSize) || 12, weight: parseFloat(s.fontWeight) || 400, ls: px(s.letterSpacing), fill: rgbaOf(s.color), op: s.opacity === '' || s.opacity == null ? 1 : +s.opacity, upper: s.textTransform === 'uppercase', mr: px(s.marginRight) });
   const lh = cs.lineHeight === 'normal' || !cs.lineHeight ? 1.2 : /px$/.test(cs.lineHeight) ? px(cs.lineHeight) / (px(cs.fontSize) || 12) : px(cs.lineHeight);
-  const p = pill && pill.content !== 'none' && pill.display !== 'none' ? {
-    a: +pill.opacity || 0, t: px(pill.top), l: px(pill.left), r: px(pill.right), b: px(pill.bottom), rad: px(pill.borderTopLeftRadius),
-    tint: rgbaOf(pill.backgroundColor), ring: ringOf(pill.boxShadow),
-  } : null;
   const R = {};
   for (const k in runs) if (runs[k]) R[k] = run(runs[k]);
-  return { lh, gap: px(cs.rowGap), halo: px(cs.webkitTextStrokeWidth), haloC: rgbaOf(cs.webkitTextStrokeColor), runs: R, pill: p };
+  return { lh, gap: px(cs.rowGap), halo: px(cs.webkitTextStrokeWidth), haloC: rgbaOf(cs.webkitTextStrokeColor), runs: R };
 }
 /** The ring of an inset box shadow as computed ("<colour> 0px 0px 0px 2px inset"): { w, colour }, or null. */
 export function ringOf(s) {
@@ -147,24 +143,12 @@ export function createCaptionGL(box) {
       for (const I of items.values()) {
         const lk = looks.get(I.key);
         if (!lk || !I.set) continue;
-        const a = easeAt(I.a, now), s = easeAt(I.s, now), dx = easeAt(I.dx, now), dy = easeAt(I.dy, now), pa = easeAt(I.pa, now);
-        more ||= easing(I.a, now) || easing(I.s, now) || easing(I.dx, now) || easing(I.dy, now) || easing(I.pa, now);
+        const a = easeAt(I.a, now), s = easeAt(I.s, now), dx = easeAt(I.dx, now), dy = easeAt(I.dy, now);
+        more ||= easing(I.a, now) || easing(I.s, now) || easing(I.dx, now) || easing(I.dy, now);
         if (a <= 0.002) continue;
         const cx = I.x + dx, cy = I.y + dy, bw = I.w * s, bh = I.h * s, l = cx - bw / 2, t = cy - bh / 2;
-        // Its pill (lit by a slide's terms), the page's ::before: a tint and a ring a set way outside the name.
-        const P = lk.pill;
-        if (P && pa > 0.002) {
-          const x0 = l + P.l * s, y0 = t + P.t * s, x1 = l + bw - P.r * s, y1 = t + bh - P.b * s, pw = x1 - x0, ph = y1 - y0;
-          if (pw > 0 && ph > 0) {
-            const rr = Math.min(P.rad * s, pw / 2, ph / 2);
-            if (P.tint) { ctx.globalAlpha = a * pa; ctx.fillStyle = P.tint; ctx.beginPath(); ctx.roundRect(x0, y0, pw, ph, rr); ctx.fill(); }
-            if (P.ring?.w > 0 && P.ring.colour) {
-              const rw = P.ring.w * s;
-              ctx.globalAlpha = a * pa; ctx.strokeStyle = P.ring.colour; ctx.lineWidth = rw;
-              ctx.beginPath(); ctx.roundRect(x0 + rw / 2, y0 + rw / 2, pw - rw, ph - rw, Math.max(0, rr - rw / 2)); ctx.stroke();
-            }
-          }
-        }
+        // A lit term (a slide's) shows in its colour on the name and figure alone, as the page's look reads it: no pill or chip behind
+        // a figure's label (owner, 2 Nov: anatomy-style halo text, no pills).
         // Its words: each run's halo (the page's text stroke, laid first), then its ink, in the page's order.
         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
         for (const ln of I.set.lines) {
@@ -203,7 +187,7 @@ export function createCaptionGL(box) {
     measure(key, lines) {
       const lk = looks.get(key);
       let I = items.get(key);
-      if (!I) items.set(key, I = { key, a: easer(0), s: easer(1), dx: easer(0), dy: easer(0), pa: easer(0), x: 0, y: 0, w: 0, h: 0, shown: false });
+      if (!I) items.set(key, I = { key, a: easer(0), s: easer(1), dx: easer(0), dy: easer(0), x: 0, y: 0, w: 0, h: 0, shown: false });
       const sig = JSON.stringify(lines);
       if (lk && (I.sig !== sig || I.lk !== lk)) { I.sig = sig; I.lk = lk; I.lines = lines; I.set = setLines(lk, lines); I.w = I.set.w; I.h = I.set.h; }
       else if (!lk) { I.lines = lines; I.sig = ''; }
@@ -211,7 +195,7 @@ export function createCaptionGL(box) {
     },
     /**
      * Places a caption: x, y its box's centre (px), off [dx, dy, s] its step aside and scale (eased), show 0 or 1 (eased; a caption seen
-     * for the first time fades in). Its pill shows as its look says (a slide's lit terms: its look is read again as they change), eased.
+     * for the first time fades in).
      */
     put(key, { x, y, off = null, show = 1, now = easeNow() }) {
       const I = items.get(key);
@@ -226,12 +210,11 @@ export function createCaptionGL(box) {
         if (!I.placed) { I.placed = true; easeTo(I.a, show, now); }
         else easeTo(I.a, show, now);
         const lk = looks.get(key);
-        easeTo(I.pa, lk?.pill ? lk.pill.a : 0, now);
       }
       api.paint();
     },
     /** Hides a caption at once (as a view leaves): it fades in again the next time it is placed. */
-    reset(key) { const I = items.get(key); if (I) { I.placed = false; snap(I.a, 0); snap(I.pa, 0); } },
+    reset(key) { const I = items.get(key); if (I) { I.placed = false; snap(I.a, 0); } },
     lead(key, L) {
       let o = leads.get(key);
       if (!o) leads.set(key, o = { a: easer(L.show ?? 1) });
@@ -249,9 +232,9 @@ export function createCaptionGL(box) {
       const s = easeAt(I.s, now);
       return { x: I.x + easeAt(I.dx, now), y: I.y + easeAt(I.dy, now), w: I.w * s, h: I.h * s, a: easeAt(I.a, now) };
     },
-    /** Whether a caption, a leader or a pill is still easing. */
+    /** Whether a caption or a leader is still easing. */
     moving(now = easeNow()) {
-      for (const I of items.values()) if (easing(I.a, now) || easing(I.s, now) || easing(I.dx, now) || easing(I.dy, now) || easing(I.pa, now)) return true;
+      for (const I of items.values()) if (easing(I.a, now) || easing(I.s, now) || easing(I.dx, now) || easing(I.dy, now)) return true;
       for (const L of leads.values()) if (easing(L.a, now)) return true;
       return false;
     },
