@@ -6,7 +6,7 @@ import { budget as gpuBudget } from './gpu-budget.js?v=5d0f98936a';   // (the re
 import './gl-state.js?v=4163c507aa';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js?v=8d640e9c36';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=afc4d7c743';
-import { createStage } from './stage.js?v=65bc1214e9';
+import { createStage } from './stage.js?v=f9dfd41251';
 import { createCreditPlacer } from './credit.js?v=3b5ad91e95';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=da6533dfef';
@@ -1455,6 +1455,7 @@ function wireFloating() {
   panelSheet = sheetBehaviour($('#panel'), { handle: h('button', { class: 'panel-grab', 'aria-label': 'Resize the patient chart' }), drag: '.panel-head', anywhere: true, onClose: closePanel });
   treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', anywhere: true, onClose: closeTreat, fit: '.tc-body' });
   dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Tests card' }), drag: '.dock-head', anywhere: true, onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
+  sheetGlass();
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, armT = 0, down = null, moved = false;
   // (Adding a class it already has still counts as a change to the page's observers: every pointer move of a drag or
@@ -1554,6 +1555,21 @@ function wireFloating() {
 // top bar and the dock: the release is measured against that same room, so it lands where the finger left it.
 // No visible grabber over the thumb dock: a drag from anywhere moves the sheet (a tap on a tab still picks it); the hidden button toggles them from the keyboard.
 const tabletMQ = matchMedia(TABLET_UP_MQ);
+// The phone's Details, Treat and Tests sheets wear frosted GPU glass, like every card (Mohammad, 2 Nov 2026, "CARDS ARE GLASS"): each
+// sheet's paper (its plate, sheet-move.js) is drawn by the cards' glass in the figure's canvas (stage.cardGlass, glass-gl.js), following
+// the plate's slide from its translate and its eases, never a read in a frame. It is cut at the sheet's still foot (cut: the sheet's box, read with the
+// glass's other boxes when the page is read, not in each frame), as the sheet's own clip cuts what slides below it on the page. Where the figure's canvas cannot take it, the plate keeps its paper (app.css).
+const SHEETS = ['#panel', '#treatCard', '#dock'];
+let sheetGL = null, sheetGLTry = 0;
+function sheetGlass() {
+  if (sheetGL) return;
+  const els = SHEETS.map((q) => $(q)).filter(Boolean);
+  if (!els.length) return;
+  const plates = () => els.filter((el) => !el.hidden && el.classList.contains('has-plate')).map((el) => el.querySelector(':scope > .sheet-plate')).filter(Boolean);
+  sheetGL = stage?.cardGlass?.({ find: plates, watch: els, before: els[0], cut: (g) => { const el = g.parentElement; const b = el && readBox(el); return b ? { bottom: b.bottom } : null; } }) || null;
+  // (The figure's canvas not made yet: asked again shortly, a few times.)
+  if (!sheetGL && sheetGLTry++ < 20) setTimeout(sheetGlass, 500);
+}
 function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false }) {
   const SIZES = [0.32, 0.56, 0.9], THUMB = [0.62, 1], TABLET = [0.45, 0.62];
   const thumb = () => app.classList.contains('thumb') && isPhone();

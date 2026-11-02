@@ -662,7 +662,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         // (A card's own edge and drop shadows, drawn here with its glass where its CSS names them (--gl-line, --gl-drop): the page's own
         // are taken off while it is drawn here ([data-gl="edge"]), so the card is one GPU shape that may change size in view.)
         const drops = GPU_EDGE ? dropsOf(cs.getPropertyValue('--gl-drop')) : [], line = GPU_EDGE ? cs.getPropertyValue('--gl-line').trim() : '';
-        panes.push({ g, el, oa: 1, a, r, d: null, rad: zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: r.width, lh: r.height, er: r, shadow: null, tint: cs.getPropertyValue('--gl-tint'), k: 1, drops, line });
+        // (cut: the still box a glass that slides is cut off at (a phone sheet's paper sliding below its resting foot, which the sheet's
+        // own clip hides on the page): { bottom } in client px, from cards.cut(g), kept where it is while the glass moves.)
+        const cut = cards.cut ? cards.cut(g) || null : null;
+        panes.push({ g, el, oa: 1, a, r, d: null, rad: zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: r.width, lh: r.height, er: r, shadow: null, tint: cs.getPropertyValue('--gl-tint'), k: 1, drops, line, cut });
         continue;
       }
       const r = g.getBoundingClientRect(), lw = NUM(g.style.width), lh = NUM(g.style.height);
@@ -783,7 +786,14 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       G.uniform4f(U.uGrow, gl0, gt0, gr0, gb0);
       G.uniform4f(U.uLine, lc[0], lc[1], lc[2], edge ? lc[3] : 0);
       G.uniform1f(U.uLW, k);
+      const c = p.cut;
+      if (c) {
+        // (Cut at its still foot, on the canvas's own pixels: the scissor counts up from the bottom.)
+        const H = G.drawingBufferHeight, W = G.drawingBufferWidth, b = Math.round((c.bottom - cr.top) * k);
+        G.enable(G.SCISSOR_TEST); G.scissor(0, Math.max(0, H - b), W, Math.max(0, Math.min(H, b)));
+      }
       G.drawArrays(G.TRIANGLE_STRIP, 0, 4);
+      if (c) G.disable(G.SCISSOR_TEST);
       G.uniform4f(U.uGrow, 0, 0, 0, 0);
       // (Marked in the frame its glass is first drawn here: the browser's blur and this one never both show, nor neither. "edge": its own
       // edge and shadows are drawn here too, and the page's are taken off.)

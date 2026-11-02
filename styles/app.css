@@ -3341,6 +3341,10 @@ html.label-fill-both :is(#labels .lb.scan, .app.presenting #labels .lb) { animat
 /* (The Present cards likewise, recs A2: their blur and tint on #cardGl under them (presenter.js build, stage.cardGlass), each card's border,
    edge and shadow still the DOM's. Specific enough to win over every glass rule above, the stacked and the phone's bar included.) */
 .pz-shade.pz-shade.pz-shade.pz-shade[data-gl], .pz .pz-data.pz-data.pz-data.pz-data.pz-data[data-gl], .pz .pz-fk.pz-fk.pz-fk.pz-fk.pz-fk[data-gl], .pz .pz-case.pz-case.pz-case.pz-case.pz-case[data-gl], .pz .pz-bar.pz-bar.pz-bar.pz-bar.pz-bar[data-gl], .pz .pz-scales.pz-scales.pz-scales.pz-scales.pz-scales[data-gl] { background: none; }
+/* The phone's Details, Treat and Tests sheets: their paper (the plate, sheet-move.js) is frosted GPU glass like every card (main.js sheetGlass;
+   Mohammad, 2 Nov 2026, "CARDS ARE GLASS"), cut at the sheet's still foot as the sheet's own clip cuts the page. */
+.has-plate.has-plate > .sheet-plate.sheet-plate.sheet-plate[data-gl] { background: none; }
+@media (prefers-reduced-transparency: reduce) { .has-plate > .sheet-plate { --gl-glass: 0; } }
 #cardGl { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: var(--z-figure); }
 /* (The split readings sheet's two cards likewise, its glass being theirs (presenter.js sheetPanes): their borders, edges and shadows the DOM's.) */
 .pz.pz.pz .pz-data.pz-data.pz-sheet.pz-sheet[data-gl]::before, .pz.pz.pz .pz-data.pz-data.pz-sheet.pz-sheet[data-gl]::after { background: none; }
@@ -4515,7 +4519,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
      sideways) hides what slides below its resting foot. */
   :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)).has-plate { background: transparent !important; box-shadow: none !important; overflow: visible; isolation: isolate; }
   :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)).has-plate:not(.app.thumb *) { clip-path: inset(-48px -48px 0 -48px); }
-  :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)).has-plate > .sheet-plate { display: block; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--surface); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); pointer-events: none; }
+  :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)).has-plate > .sheet-plate { display: block; position: absolute; inset: 0; z-index: -1; border-radius: inherit; --gl-glass: 1; --gl-tint: color-mix(in srgb, var(--surface) var(--sheet-frost, 80%), transparent); background: var(--surface); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); pointer-events: none; }
   .instrument-workspace.float-ui:not(.side).has-plate > .sheet-plate { box-shadow: var(--shadow-menu), inset 0 0 0 1px var(--hairline); }
   .panel .panel-head { touch-action: none; border-radius: 0; }
 }
@@ -7658,5 +7662,6 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    the solid card, never a bare one (HVPG 6 on the iPhone, 2 Nov: both cards bare over the lobule). Where the figure's canvas cannot take the glass at all
    (a dive) the attribute is off and the solid card stands. */
 :root:root[data-cardgl] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .pz-fk, .pz .pz-fk.pz-fk)[data-gl-wait]:not([data-gl]):not([data-zoomed]) { background: none; }
+:root:root[data-cardgl] .has-plate.has-plate > .sheet-plate.sheet-plate.sheet-plate[data-gl-wait]:not([data-gl]) { background: none; }
 :root:root[data-cardgl] .pz.stack.stack .pz-data.pz-sheet[data-gl-wait]:not([data-gl]):not([data-zoomed])::before, :root:root[data-cardgl] .pz.stack.stack .pz-data.pz-sheet[data-gl-wait]:not([data-gl]):not([data-zoomed])::after,
 :root:root[data-cardgl] .pz.pz-wide.pz-wide .pz-data.pz-sheet[data-gl-wait]:not([data-gl]):not([data-zoomed])::before, :root:root[data-cardgl] .pz.pz-wide.pz-wide .pz-data.pz-sheet[data-gl-wait]:not([data-gl]):not([data-zoomed])::after { background: none; }
