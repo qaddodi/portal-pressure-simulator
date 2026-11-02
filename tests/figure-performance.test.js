@@ -106,7 +106,7 @@ test('Callout glass kept (always, since 1 Nov 2026): no frame reads the page; it
   // Every way a glass can change reads the page again, outside the frame: a write that is more than a glide or a fade (in the frame or
   // after it), the page's own signals, a callout's transition ending, a parent's style or class, a size change, a scroll.
   assert.match(g, /const loop = \(\) => \{ raf = 0; if \(changed\(mo\.takeRecords\(\)\)\) measureSoon\(\); settle\(draw\(\)\); \};/);
-  assert.match(g, /const mo = new MutationObserver\(\(recs\) => \{ if \(!recs\?\.length \|\| changed\(recs\)\) measureGeo\(\); quiet = 0; ask\(\); \}\);/);
+  assert.match(g, /const mo = new MutationObserver\(\(recs\) => \{ if \(!recs\?\.length \|\| changed\(recs\)\) measureEarly\(\); quiet = 0; ask\(\); \}\);/);
   assert.match(g, /const again = \(\) => measureGeo\(\);/);
   assert.match(g, /if \(\/\(end\|cancel\)\$\/\.test\(e\?\.type \|\| ''\)\) \{ measureGeo\(\); return; \}/);
   assert.match(g, /parentsMo\.observe\(e, \{ attributes: true, attributeFilter: \['style', 'class', 'hidden'\] \}\)/);
