@@ -9,7 +9,7 @@ import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './
 import { cardFor, normalizeSel } from './actions.js?v=d9c60e294b';
 import { frameFor, cancelFrame } from './frame.js?v=8c8f2f530e';
 import { restPass, cancelRest } from './rest-pass.js?v=75e0aa565d';
-import { setClass } from './class-batch.js?v=fa5edda987';
+import { setClass } from './class-batch.js?v=fe9af18394';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 import { readBox, readMetric } from './layout-snap.js?v=837f2b793c';
 const nextFrame = frameFor('card');
