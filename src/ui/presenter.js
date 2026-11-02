@@ -16,12 +16,12 @@
 import { store, replaceParams } from './store.js?v=afc4d7c743';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { glWords } from './gl-words.js?v=4af57a03b3';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=65cb882607';
+import { glWords } from './gl-words.js?v=808dd592ad';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=2ed427fd06';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=8f012e2338';
+import { liveText, wordsOf } from './live-text.js?v=5f39ce4a59';
 import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=d2a811fd2d';
-import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=6eb300c790';
+import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=b40997e8c9';
 import { sinusoidSupported } from './gl-support.js?v=622a3b9520';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
 import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=3c321f5f7f';
@@ -31,8 +31,8 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=a8eeb0fe7f';
-import { createTools } from './presenter-tools.js?v=2109381d2c';
+import { createHvpgMonitor } from './hvpg-proc.js?v=86e6766892';
+import { createTools } from './presenter-tools.js?v=70a16e1d32';
 import { openHandout } from './handout.js?v=be99975ab1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -45,21 +45,21 @@ import { createTxns, SLIDE_TXN } from './slide-txn.js?v=1fcea803eb';
 import { prepareShaders } from './gl-compile.js?v=3e750c4fef';
 import { createFigureKey } from './figure-key.js?v=57cf14f8b7';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=d313fdbd35';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=4e89bc343b';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=a390c550fc';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=e094ac7bda';
 import { clotWords } from './callout-math.js?v=6ef2901a08';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=c5670fdcad';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=b490294b30';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=9ce14c4389';
+import { anchorsOf, roomFor } from './cam-room.js?v=18b895277a';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
-import { flowTimeHeight, trailKeys } from './flow-time.js?v=d5036d276b';
+import { flowTimeHeight, trailKeys } from './flow-time.js?v=7f30c47eef';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=2bc5f69b17';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=62921e378f';
 import { sheetPanes } from './sheet-glass.js?v=9bad2768f7';
-import { createScopeTile } from './scope-tile.js?v=d313aa5089';
+import { createScopeTile } from './scope-tile.js?v=fb90185e0c';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=7513a88c68';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
@@ -3430,8 +3430,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     cancelRest(dock.rest);
     dock.raf = nextFrame(step);
     layout();   // (the figure frames itself for where the card is going)
-    clearTimeout(dock.fit); dock.fit = setTimeout(() => ui && onResize(), 60);
+    clearTimeout(dock.fit); dock.fit = setTimeout(() => restPass(fitRest), 60);
   }
+  // (The card's fit lays the chrome out again as a task between frames (rest-pass.js), never in the timer's own turn.)
+  function fitRest() { if (ui) onResize(); }
   // A slide whose data card does not fit (phoneTextCap, lowData) comes in closed, its handle showing, never folded to its header
   // behind Show; the next slide that fits brings it back. (After the pass that asked: dockTo lays the cards out again.)
   function autoDock(shut) {
@@ -3545,8 +3547,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // its smallest lettering allows, then comes in closed at the right, its edge and handle showing, as an upright phone's does
   // (autoDock; never folded to its header behind Show). Brought back, or opened fully, it zooms to fit as a last resort: the
   // reader asked for it, over the figure. Returns the smallest zoom the fit may take.
+  // (One probe for the caption size, built with the presenter and moved in and out of the card being fitted: no node made per fit.)
+  const smProbe = h('span', { style: 'position:absolute;visibility:hidden;font-size:var(--pz-sm, 12px)' });
+  const capProbe = h('span', { style: 'position:absolute;visibility:hidden;font-size:var(--s-cap)' });
   function lowData(el) {
-    const pr = h('span', { style: 'position:absolute;visibility:hidden;font-size:var(--s-cap)' }); el.append(pr);
+    const pr = capProbe; el.append(pr);
     const cap = parseFloat(readStyle(pr).fontSize) || 12; pr.remove();
     const floor = cap > 12 ? Math.ceil(12 / cap * 1000) / 1000 : 1;
     const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1; };
@@ -3747,7 +3752,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Its small size read with a probe once per look of the card and the screen, not on every fit.)
       const smKey = `${el.className}|${ui.root.className}|${innerWidth}x${innerHeight}|${devicePixelRatio}|${document.documentElement.style.cssText}|${app.style.cssText}|${ui.root.style.cssText}|${el.style.cssText.replace(/--pz-(fit|z):[^;]*;?/g, '')}`;
       let sm = smOf.get(el);
-      if (sm?.k !== smKey) { const pr = h('span', { style: 'position:absolute;visibility:hidden;font-size:var(--pz-sm, 12px)' }); el.append(pr); sm = { k: smKey, v: parseFloat(readStyle(pr).fontSize) || 12 }; pr.remove(); smOf.set(el, sm); }
+      if (sm?.k !== smKey) { const pr = smProbe; el.append(pr); sm = { k: smKey, v: parseFloat(readStyle(pr).fontSize) || 12 }; pr.remove(); smOf.set(el, sm); }
       sm = sm.v;
       const zMin = Math.max(0.5, Math.min(1, 11.5 / sm));
       for (let n = 0, z = 1; n < 8 && z > zMin; n++) {
@@ -4762,6 +4767,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // width and as tall as the pill reaches into the words (--pz-reach, measured), on its own line if the last line is too long
   // for it; so the pill only ever meets that last line. A box (buttons, a monitor, a diagram) ends just above the pill instead.
   // Run on every layout (fonts fitted, the screen turned): only a phone shows either.
+  // (The one spacer, moved to whichever block ends the words: no node made per layout.)
+  const pillGap = h('span', { class: 'pz-pillgap', 'aria-hidden': 'true' });
   function clearPill() {
     const text = ui.text, gap = text.querySelector('.pz-pillgap'), was = text.querySelector('.pz-pillclr');
     let end = null, box = null;
@@ -4784,7 +4791,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     fitKey();
     if (gap && gap.parentElement !== end) gap.remove();
-    if (end && !end.querySelector(':scope > .pz-pillgap')) end.append(h('span', { class: 'pz-pillgap', 'aria-hidden': 'true' }));
+    if (end && !end.querySelector(':scope > .pz-pillgap')) end.append(pillGap);
     if (was && was !== box) was.classList.remove('pz-pillclr');
     box?.classList.add('pz-pillclr');
   }
@@ -5646,11 +5653,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const T = () => document.getElementById('world')?.getAttribute('transform') || '';
       const settle = () => { if (!ui || !shown) return; if (sizeNow() !== sizeSeen) onResize({ type: 'resize' }); else if (cardSig() !== framedSig) reframe(0); };
       let a = T(), same = 0;
-      for (let i = 0; i < 40 && same < 5; i++) { await wait(60); settle(); const c = T(); same = c === a ? same + 1 : 0; a = c; }
+      // (Each settle is a task between frames (rest-pass.js): the layout it makes is never built in a timer's own turn.)
+      for (let i = 0; i < 40 && same < 5; i++) { await wait(60); await new Promise((done) => restPass(() => { try { settle(); } finally { done(); } })); const c = T(); same = c === a ? same + 1 : 0; a = c; }
       const runs = ui ? [...readAnims(ui.root, { subtree: true }), ...readAnims(ui.shade)].filter((x) => readTiming(x.effect).iterations !== Infinity) : [];
       await Promise.race([Promise.all(runs.map((x) => x.finished.catch(() => {}))), wait(1200)]);
       // (Once more as the entrances end: the slide's own framing, set outright for the cards where they now rest.)
-      if (ui && shown && booting) { settle(); clearTimeout(reframeT); reframeT = 0; reframe(0); }
+      await new Promise((done) => restPass(() => { try { if (ui && shown && booting) { settle(); clearTimeout(reframeT); reframeT = 0; reframe(0); } } finally { done(); } }));
       await new Promise((done) => nextFrame(() => nextFrame(done)));
     }
     clearTimeout(coverT); booting = false;

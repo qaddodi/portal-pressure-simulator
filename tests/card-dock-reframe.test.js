@@ -60,5 +60,6 @@ test('the camera\'s room uses the card\'s and its sheet edge\'s resting place, o
   assert.match(presenter, /class: 'pz-lip stage-blocker', type: 'button', hidden: true, 'data-safe-rest': ''/);
   assert.match(presenter, /if \(dd\.dataset\.safe\) ui\.lip\.dataset\.safe = dd\.dataset\.safe; else delete ui\.lip\.dataset\.safe;/);
   // (And the camera frames once the card is on its way: dockTo lays out and re-frames.)
-  assert.match(presenter, /layout\(\); {3}\/\/ \(the figure frames itself for where the card is going\)\n\s*clearTimeout\(dock\.fit\); dock\.fit = setTimeout\(\(\) => ui && onResize\(\), 60\);/);
+  assert.match(presenter, /layout\(\); {3}\/\/ \(the figure frames itself for where the card is going\)\n\s*clearTimeout\(dock\.fit\); dock\.fit = setTimeout\(\(\) => restPass\(fitRest\), 60\);/);
+  assert.match(presenter, /function fitRest\(\) \{ if \(ui\) onResize\(\); \}/);
 });

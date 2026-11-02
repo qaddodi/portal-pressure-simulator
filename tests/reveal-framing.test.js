@@ -17,8 +17,8 @@ test('under the start cover the camera is set outright, never a glide the reveal
 test('the cover reframes for a late resize or settled cards, and once more as the entrances end, before it lifts', () => {
   const cd = pz.slice(pz.indexOf('async function coverDown('), pz.indexOf('clearTimeout(coverT); booting = false;'));
   assert.match(cd, /if \(sizeNow\(\) !== sizeSeen\) onResize\(\{ type: 'resize' \}\); else if \(cardSig\(\) !== framedSig\) reframe\(0\);/);
-  assert.match(cd, /await wait\(60\); settle\(\);/);
-  assert.match(cd, /if \(ui && shown && booting\) \{ settle\(\); clearTimeout\(reframeT\); reframeT = 0; reframe\(0\); \}/);
+  assert.match(cd, /await wait\(60\); await new Promise\(\(done\) => restPass\(\(\) => \{ try \{ settle\(\); \} finally \{ done\(\); \} \}\)\);/);
+  assert.match(cd, /try \{ if \(ui && shown && booting\) \{ settle\(\); clearTimeout\(reframeT\); reframeT = 0; reframe\(0\); \} \} finally \{ done\(\); \}/);
 });
 
 test('the stage\'s first fit leaves a presenting slide\'s framing alone and glides when the figure already shows', () => {

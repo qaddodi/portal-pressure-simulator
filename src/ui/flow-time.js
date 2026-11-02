@@ -13,7 +13,7 @@ import { frameFor, cancelFrame } from './frame.js?v=26e2e46fff';
 import { classSoon } from './class-soon.js?v=26aa9fb253';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { RX, bandKeys } from './rx-bands.js?v=51e83c7c59';
-import { createSvgGL, svgModel, setWords } from './svg-gl.js?v=6eb300c790';
+import { createSvgGL, svgModel, setWords } from './svg-gl.js?v=b40997e8c9';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 const nextFrame = frameFor('flow-time');
 

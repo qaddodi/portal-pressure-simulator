@@ -1,7 +1,7 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=26e2e46fff';
 import { restPass } from './rest-pass.js?v=ed71462b47';
-import { glWords } from './gl-words.js?v=4af57a03b3';
+import { glWords } from './gl-words.js?v=808dd592ad';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7513a88c68';
 import { leaveFromHere } from './menu-leave.js?v=0557b9a306';
@@ -895,6 +895,11 @@ const bandTo = (back, top, kb) => {
   const m = back.querySelector('.modal');
   if (m?.animate && Math.abs(dy) > 0.5 && back.classList.contains('show')) m.animate([{ translate: `0 ${-dy}px` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_ARRIVE, composite: 'add' });
 };
+// (The dialog's classes that end after a delay are written as a task between frames (rest-pass.js), not in the timer's own turn.)
+const modalLeaveEnd = () => { document.getElementById('modalBack')?.classList.remove('leaving'); };
+const modalKbEnd = (back) => { back.classList.remove('kb'); back.style.removeProperty('--modal-kb'); back.style.removeProperty('--modal-top'); };
+const modalKbDown = () => { const back = document.getElementById('modalBack'); if (back && !back.classList.contains('leaving')) modalKbEnd(back); };
+const modalClosedDown = () => { const back = document.getElementById('modalBack'); if (back && !back.classList.contains('show')) { modalKbEnd(back); modalBand = [0, 0]; } };
 const fitModal = () => {
   // (A page pinched in is not a keyboard: only a visual viewport at the page's own scale counts. iOS also pans the page up to the field with the keyboard
   // up, so the dialog is held to the visible band, from its top down to the keyboard, and not to the band from the page's top.)
@@ -903,7 +908,7 @@ const fitModal = () => {
   if (kb > 80) { back.classList.add('kb'); bandTo(back, Math.max(0, Math.round(modalVV.offsetTop)), kb); back.style.setProperty('--modal-kb', `${kb}px`); back.style.setProperty('--modal-top', `${Math.max(0, Math.round(modalVV.offsetTop))}px`); }
   else if (back.classList.contains('kb')) {   // (the keyboard went: the dialog eases back down and out to the top, then the class goes)
     bandTo(back, 0, 0); back.style.setProperty('--modal-kb', '0px'); back.style.setProperty('--modal-top', '0px');
-    modalKbT = setTimeout(() => { if (!back.classList.contains('leaving')) { back.classList.remove('kb'); back.style.removeProperty('--modal-kb'); back.style.removeProperty('--modal-top'); } }, 320);
+    modalKbT = setTimeout(() => restPass(modalKbDown), 320);
   }
 };
 // compact: a question or a short form (Reset, Delete, a name), 440 px wide, not the reading dialogs' 720. onClose: told once when this
@@ -951,8 +956,8 @@ export function closeModal() {
   // (It fades out as it faded in, then is hidden: closed in one frame, Help, About and every dialog blinked out.)
   back.classList.remove('show'); back.classList.add('leaving');
   modalVV?.removeEventListener('resize', fitModalSoon); modalVV?.removeEventListener('scroll', fitModalSoon);
-  clearTimeout(modalLeaveT); modalLeaveT = setTimeout(() => back.classList.remove('leaving'), 220);
-  setTimeout(() => { if (!back.classList.contains('show')) { back.classList.remove('kb'); back.style.removeProperty('--modal-kb'); back.style.removeProperty('--modal-top'); modalBand = [0, 0]; } }, 240);   // (the dialog holds its place while it fades)
+  clearTimeout(modalLeaveT); modalLeaveT = setTimeout(() => restPass(modalLeaveEnd), 220);
+  setTimeout(() => restPass(modalClosedDown), 240);   // (the dialog holds its place while it fades)
   const appEl = document.getElementById('app'); if (appEl) appEl.inert = false;
   behindDialog(false);
   const back0 = modalReturn?.isConnected ? modalReturn : document.getElementById('btnMenu');

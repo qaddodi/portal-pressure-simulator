@@ -18,7 +18,8 @@ test('a dialog fades out as it faded in, with exit keyframes of its own', () => 
   assert.match(css, /@keyframes crossfade-out \{ to \{ opacity: 0; \} \}/);
   const close = util.slice(util.indexOf('export function closeModal'), util.indexOf('export const isModalOpen'));
   assert.match(close, /classList\.remove\('show'\); back\.classList\.add\('leaving'\);/);
-  assert.match(close, /setTimeout\(\(\) => back\.classList\.remove\('leaving'\), 220\)/);
+  assert.match(close, /setTimeout\(\(\) => restPass\(modalLeaveEnd\), 220\)/);
+  assert.match(util, /const modalLeaveEnd = \(\) => \{ document\.getElementById\('modalBack'\)\?\.classList\.remove\('leaving'\); \};/);
   // Opened again while it fades: it comes straight back.
   assert.match(util.slice(util.indexOf('export function openModal'), util.indexOf('export function closeModal')), /back\.classList\.remove\('leaving'\);/);
 });

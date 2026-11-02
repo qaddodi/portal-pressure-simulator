@@ -147,5 +147,6 @@ test('item 37: fitCards reads the tiles and scale-bar numbers in one layout, the
   assert.match(fc, /for \(const b of bars\) \{ b\.B = b\.bar\.getBoundingClientRect\(\); b\.rs = b\.ls\.map\(\(l\) => l\.getBoundingClientRect\(\)\); \}/);
   assert.match(fc, /l\.classList\.add\('lo'\); left \+= r\.width \/ 2; right \+= r\.width \/ 2;/);
   assert.equal((fc.match(/getBoundingClientRect/g) || []).length, 2, 'no rect read after a class is written');
-  assert.match(pz, /if \(sm\?\.k !== smKey\) \{ const pr = h\('span'/);
+  assert.match(pz, /const smProbe = h\('span'/);   // (built once with the presenter, never per look)
+  assert.match(pz, /if \(sm\?\.k !== smKey\) \{ const pr = smProbe;/);
 });

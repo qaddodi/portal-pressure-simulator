@@ -35,7 +35,8 @@ test('a card that gives way hands focus on to the opening card\'s button; a dial
   const u = read('src/ui/util.js');
   assert.match(u, /modalVV && modalVV\.scale <= 1\.05 \? Math\.round\(innerHeight - modalVV\.offsetTop - modalVV\.height\) : 0/);
   assert.match(u, /back\.style\.setProperty\('--modal-top', `\$\{Math\.max\(0, Math\.round\(modalVV\.offsetTop\)\)\}px`\)/);
-  assert.equal((u.match(/removeProperty\('--modal-top'\)/g) || []).length, 2, 'cleared with the keyboard and when the dialog has gone');
+  assert.equal((u.match(/removeProperty\('--modal-top'\)/g) || []).length, 1, 'cleared in modalKbEnd, which the keyboard going and the dialog gone both run');
+  assert.match(u, /modalKbEnd\(back\); modalBand = \[0, 0\]/);
   const css = read('styles/app.css');
   assert.match(css, /\.modal-back \{ position: fixed; inset: var\(--modal-top, 0px\) 0 var\(--modal-kb, 0px\) 0;/);
   assert.match(css, /calc\(100dvh - var\(--modal-kb, 0px\) - var\(--modal-top, 0px\) - 32px/);
