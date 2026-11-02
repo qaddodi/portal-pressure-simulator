@@ -9,52 +9,70 @@ import { readFileSync } from 'node:fs';
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
 const calls = [];
-// A stand-in element: `anims` is what getAnimations() returns before the leave, `exit` what it returns after; computed style is by phase.
-function fake({ coming, exit, now, end }) {
-  let phase = 'now';
-  const e = {
-    getAnimations: () => (phase === 'now' ? (coming ? [{ animationName: 'scale-settle' }] : []) : [exit]),
-    animate: (kf, o) => { calls.push({ kf, o }); return {}; },
-    _leave() { phase = 'left'; },
-    _cs: () => (phase === 'now' ? now : end),
-  };
-  return e;
-}
-globalThis.getComputedStyle = (el) => { const v = el._cs(); return { ...v, getPropertyValue: (k) => v[k] ?? '' }; };
-const exitAnim = (state) => ({
-  animationName: 'scale-settle-out', effect: { getTiming: () => ({ duration: 120, easing: 'ease-in-curve' }) }, state,
-  pause() { this.state.paused = true; }, play() { this.state.played = true; }, cancel() { this.state.cancelled = true; },
-  set currentTime(t) { this.state.t = t; },
+// A stand-in for the page: the animationstart listener menu-leave.js installs, and elements that record their animate() calls.
+const listeners = [];
+globalThis.addEventListener = (t, f) => { if (t === 'animationstart') listeners.push(f); };
+let clock = 1000;
+globalThis.performance = { now: () => clock };
+const fake = (...cls) => ({
+  classList: { contains: (c) => cls.includes(c) },
+  style: { getPropertyValue: () => '' },
+  animate: (kf, o) => { calls.push({ kf, o }); return {}; },
 });
+const begin = (el, animationName, t) => { for (const f of listeners) f({ target: el, animationName, timeStamp: t }); };
 const { leaveFromHere, menuLeaveOff } = await import('../src/ui/menu-leave.js');
+const { easeArrive, D_FLIP, D_SMALL, EASE_IN } = await import('../src/ui/ease.js');
 
-test('mid entrance: the exit runs from the look it had to the exit\'s own end, on the exit\'s own time and curve', () => {
+test('mid entrance: the exit runs from the look worked out from the entrance\'s time and curve to the exit\'s own end', () => {
   calls.length = 0;
-  const st = {}, el = fake({ coming: true, exit: exitAnim(st), now: { opacity: '0.5', transform: 'matrix(0.99,0,0,0.99,0,0)', '--sink': '0px' }, end: { opacity: '0', transform: 'matrix(0.98,0,0,0.98,0,0)', '--sink': '0px' } });
+  const el = fake('menu'); begin(el, 'scale-settle', 1000);
+  clock = 1060;   // half of the 120 ms entrance
   let left = 0;
-  assert.equal(leaveFromHere(el, () => { left++; el._leave(); }), true);
+  assert.equal(leaveFromHere(el, () => { left++; }), true);
   assert.equal(left, 1, 'the leaving class is set exactly once');
-  assert.deepEqual(calls[0].kf, [{ opacity: '0.5', transform: 'matrix(0.99,0,0,0.99,0,0)' }, { opacity: '0', transform: 'matrix(0.98,0,0,0.98,0,0)' }], '--sink did not change, so it is not animated');
-  assert.deepEqual(calls[0].o, { duration: 120, easing: 'ease-in-curve', fill: 'forwards' });
-  assert.equal(st.cancelled, true, 'the stylesheet\'s exit hands over');
+  const k = +easeArrive(0.5).toFixed(4);
+  assert.deepEqual(calls[0].kf, [{ opacity: k, transform: `scale(${+(0.98 + 0.02 * k).toFixed(4)})` }, { opacity: 0, transform: 'scale(0.98)' }]);
+  assert.deepEqual(calls[0].o, { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' });
 });
 
-test('an entrance that had finished: the leave is today\'s, nothing is read or played', () => {
+test('a sheet that slides in leaves from where it had slid, by its own edge variables; the main menu\'s sheet leaves on --d-small', () => {
   calls.length = 0;
-  const el = fake({ coming: false, exit: exitAnim({}), now: { opacity: '1' }, end: { opacity: '0' } });
+  const el = fake('umenu', 'sheet'); begin(el, 'slide-from-edge', 2000);
+  clock = 2000 + D_SMALL / 2;
+  assert.equal(leaveFromHere(el, () => {}), true);
+  const k = +easeArrive(0.5).toFixed(4), j = +(1 - k).toFixed(4);
+  assert.equal(calls[0].kf[0].transform, `translate(calc(var(--edge-x, 0px) * ${j}), calc(var(--edge-y, 0px) * ${j}))`);
+  assert.equal(calls[0].kf[1].transform, 'translate(var(--edge-x, 0px), var(--edge-y, 0px))');
+  assert.equal(calls[0].o.duration, D_SMALL);
+});
+
+test('the scrim fades from its look; the dock menu\'s entrance waits out --enter-delay', () => {
+  calls.length = 0;
+  const scrim = fake('um-scrim'); begin(scrim, 'crossfade', 3000);
+  clock = 3000 + D_SMALL / 4;
+  assert.equal(leaveFromHere(scrim, () => {}), true);
+  assert.deepEqual(calls[0].kf, [{ opacity: +easeArrive(0.25).toFixed(4) }, { opacity: 0 }]);
+  calls.length = 0;
+  const dock = fake('menu', 'from-dock'); dock.style.getPropertyValue = () => '100ms'; begin(dock, 'scale-settle', 4000);
+  clock = 4050;   // still inside the delay: it is not yet visible
+  assert.equal(leaveFromHere(dock, () => {}), true);
+  assert.deepEqual(calls[0].kf[0], { opacity: 0, transform: 'scale(0.98)' });
+});
+
+test('an entrance that had finished, or one never seen: the leave is today\'s, nothing is played', () => {
+  calls.length = 0;
+  const el = fake('menu'); begin(el, 'scale-settle', 5000);
+  clock = 5000 + D_FLIP;
   let left = 0;
-  assert.equal(leaveFromHere(el, () => { left++; el._leave(); }), false);
-  assert.equal(left, 1);
+  assert.equal(leaveFromHere(el, () => left++), false);
+  assert.equal(leaveFromHere(fake('menu'), () => left++), false);
+  assert.equal(left, 2);
   assert.equal(calls.length, 0);
 });
 
-test('an exit that moves nothing the entrance had moved is left to the stylesheet', () => {
-  calls.length = 0;
-  const st = {}, el = fake({ coming: true, exit: exitAnim(st), now: { opacity: '1', transform: 'none' }, end: { opacity: '1', transform: 'none' } });
-  assert.equal(leaveFromHere(el, () => el._leave()), false);
-  assert.equal(calls.length, 0);
-  assert.equal(st.played, true, 'the exit it had paused to read is put back and plays');
-  assert.equal(st.cancelled, undefined);
+test('nothing in menu-leave.js asks the page for a layout or style value', () => {
+  const src = read('src/ui/menu-leave.js').replace(/\/\/.*$/gm, '');
+  assert.doesNotMatch(src, /getComputedStyle|getAnimations|getComputedTiming|getBoundingClientRect|offset(Width|Height)/);
 });
 
 test('?menuleave=0 is read from the search string; an element without the Web Animations API just leaves', () => {

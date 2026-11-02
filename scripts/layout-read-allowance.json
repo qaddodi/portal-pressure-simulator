@@ -30,7 +30,6 @@
     "src/ui/visual-plane.js": 5,
     "src/ui/fibroscan.js": 4,
     "src/ui/flow-time.js": 4,
-    "src/ui/menu-leave.js": 4,
     "src/ui/svg-morph.js": 4,
     "src/ui/tool-causes.js": 4,
     "src/ui/tool-course.js": 4,

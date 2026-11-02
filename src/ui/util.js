@@ -4,7 +4,7 @@ import { restPass } from './rest-pass.js?v=75e0aa565d';
 import { glWords } from './gl-words.js?v=254f26bf73';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7513a88c68';
-import { leaveFromHere } from './menu-leave.js?v=e885166f40';
+import { leaveFromHere } from './menu-leave.js?v=4a15e9707c';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 import { measure as measureWords } from './glyph-measure.js?v=7fe8881ad6';
 
