@@ -102,7 +102,7 @@ globalThis.document = {
 };
 let glows = [];
 window.pps = { stage: { steadyGlows: () => glows } };
-globalThis.location = { ...(globalThis.location || {}), search: '?restpass=0' };   // (rest passes on a zero timer, which this test's fake setTimeout takes)
+globalThis.MessageChannel = undefined;   // (rest passes on a zero timer, which this test's fake setTimeout takes)
 const { organTest } = await import('../src/ui/credit.js');
 
 const wr = { left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 };

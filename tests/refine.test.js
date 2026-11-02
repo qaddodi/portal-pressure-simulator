@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createRefine, refineMsFrom, REFINE_MS } from '../src/ui/refine.js';
+import { createRefine, REFINE_MS } from '../src/ui/refine.js';
 
 // Optional refinement (the organ pictures made sharper, the gut's) shares one small CPU allowance per display frame, and waits out a
 // gesture. A fake frame clock and a fake probe stand in for the browser.
@@ -23,10 +23,9 @@ test('a frame gives its allowance to one job, the first to ask: the others wait 
   assert.equal(r.left(116.7), 1, 'the next frame has its own');
 });
 
-test('a step that ran over its allowance is noted by name, and the next frame starts clean (?refbound=0)', () => {
-  const r = createRefine({ ms: 1, probe: probe(), bound: false });
+test('a step that ran over its allowance is noted by name', () => {
+  const r = createRefine({ ms: 1, probe: probe() });
   r.left(1); r.spent(13, 'organ layer gut');
-  assert.equal(r.left(2), 1, 'not carried as debt: the one indivisible op is noted, the frames after it are not starved');
   assert.deepEqual({ ms: r.longest.ms, name: r.longest.name }, { ms: 13, name: 'organ layer gut' });
   r.spent(5, 'smaller'); assert.equal(r.longest.name, 'organ layer gut', 'the longest is kept');
 });
@@ -89,13 +88,8 @@ test('work that is no longer wanted is dropped while it waits, not after the ges
   assert.equal(got, null);
 });
 
-test('the allowance is 1 ms, or what ?refinems= says within a quarter ms and 16', () => {
+test('the allowance is 1 ms', () => {
   assert.equal(REFINE_MS, 1);
-  assert.equal(refineMsFrom(''), 1);
-  assert.equal(refineMsFrom('?perf&refinems=3'), 3);
-  assert.equal(refineMsFrom('?refinems=0'), 0.25);
-  assert.equal(refineMsFrom('?refinems=900'), 16);
-  assert.equal(refineMsFrom('?refinems=abc'), 1);
 });
 
 test('the stage gives every refinement a turn: the layer bake and the shapes read, none a fixed 6 ms of its own', () => {
@@ -113,7 +107,7 @@ test('the stage gives every refinement a turn: the layer bake and the shapes rea
 
 test('R18: a step past its allowance leaves debt the next frames pay back, and the overrun is counted', async () => {
   const { createRefine } = await import('../src/ui/refine.js');
-  const r = createRefine({ ms: 1, probe: { note() {}, gauge() {}, on: false }, bound: true });
+  const r = createRefine({ ms: 1, probe: { note() {}, gauge() {}, on: false } });
   assert.equal(r.left(1), 1);
   r.spent(4, 'big');
   assert.equal(r.stats.overruns, 1);

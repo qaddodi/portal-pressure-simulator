@@ -51,15 +51,6 @@ test('every measured motion has a ceiling, and the checks run one as a warning o
   assert.match(checks, /- name: Motion budget \(Anatomy to Circuit, phone\)\n\s+if: success\(\) \|\| failure\(\)\n\s+continue-on-error: true\n\s+timeout-minutes: 20\n\s+run: node scripts\/motion-budget\.mjs --only "anatomy to circuit" --check/);
 });
 
-test('room made on the GPU (no pixels, a buffer by size) is told apart from an upload', async () => {
-  const { isAlloc } = await import('../src/ui/motion-budget.js');
-  assert.equal(isAlloc([0xde1, 0, 0x8058, 8, 4, 0, 0x1908, 0x1401, null], true), true);
-  assert.equal(isAlloc([0xde1, 0, 0x8058, 8, 4, 0, 0x1908, 0x1401, new Uint8Array(128)], true), false);
-  assert.equal(isAlloc([0xde1, 0, 0x1908, 0x1908, 0x1401, { width: 10, height: 20 }], true), false);
-  assert.equal(isAlloc([0x8892, 1024, 0x88e4], false), true);
-  assert.equal(isAlloc([0x8892, new Float32Array(16), 0x88e4], false), false);
-});
-
 test('R02: each WebGL call is decoded by its own overload', async () => {
   const { decodeCall, texelBytes } = await import('../src/ui/motion-budget.js');
   assert.deepEqual(decodeCall('bufferSubData', [0x8892, 0, new Float32Array(16)]), { kind: 'upload', bytes: 64 }, 'the data, not the byte offset');

@@ -9,13 +9,12 @@
 // Nothing here queries the GPU. The registry is fed by gl-state.js's wrappers (R09), which already see every state call; a draw adds
 // two numbers. A frame that runs over the pass envelope, or a registry over the memory envelope, is pressure (overBudget()), which the
 // quality tiers read (adapt-tier.js, R07) to step the scene's resolution down before the motion skips frames.
-// Read it: ?perf (the readout's Surfaces block ends with the budget), or pps.budget() in the console. ?gpubudget=0: off (nothing counted).
+// Read it: ?perf (the readout's Surfaces block ends with the budget), or pps.budget() in the console.
 
-import { onGLCall, glRec, GL_STATE } from './gl-state.js?v=ca10f41a87';
+import { onGLCall, glRec } from './gl-state.js?v=3569b73302';
 import { onFrameEnd } from './frame.js?v=8c8f2f530e';
 
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
-export const GPU_BUDGET = GL_STATE && !/[?&]gpubudget=0\b/.test(SEARCH);
 // (With ?perf, each entry keeps the line of code that made it, so the readout names the biggest creators: a leak names itself.)
 const SITES = /[?&]perf\b/.test(SEARCH);
 const siteOf = () => {
@@ -201,14 +200,13 @@ export function budget() {
 /** A pass this registry cannot see through gl-state (a picture handed to another canvas: transferToImageBitmap, a texture upload
  *  from an image): kind 'transfer' or 'upload', area in device px. Counted with the frame's copies (review pass item 6). */
 export function notePass(kind, area) {
-  if (!GPU_BUDGET) return;
   if (kind === 'transfer') { cur.transfers++; cur.transferArea += area; } else { cur.uploads++; cur.uploadArea += area; }
   cur.copies++; cur.copyArea += area;
 }
 
 // ── The enforceable part (review pass item 8, 2 Nov 2026) ──
 // Counting is not a budget unless something gives memory back when it runs over. Every resource kept only so that a later frame need
-// not make it again registers here as a holder, with what it holds (bytes(), its own estimate, so this works with ?gpubudget=0 too)
+// not make it again registers here as a holder, with what it holds (bytes(), its own estimate)
 // and how to let it go (release()). Two kinds:
 //   - 'warm': kept for a view out of sight (the vessel layer under the lobule, the painter's targets after a paint). Held to WARM_SHARE
 //     of the envelope and WARM_MAX holders together, besides each one's own time (warm-views.js WARM_MS): past either, the one used
@@ -218,10 +216,8 @@ export function notePass(kind, area) {
 // Ownership: the holder's owner made the resource and is the only one that deletes it; release() is the owner's own disposal, called at
 // most once (the holder leaves the registry first), and the owner makes it again on its next use. A context lost forgets its holders
 // without a call (what they held is gone with it); a restored context's owners make theirs afresh, under fresh generations of their own,
-// and register again. enforce() runs on every hold() and twice a second while frames run. ?gpuevict=0: holders are counted
-// (pps.budget().holders) but never let go by this.
+// and register again. enforce() runs on every hold() and twice a second while frames run.
 export const WARM_SHARE = 0.25, WARM_MAX = 6;
-const EVICT = !/[?&]gpuevict=0\b/.test(SEARCH);
 const holders = new Set();
 let evictions = 0;
 const holderBytes = (h) => { try { return Math.max(0, +h.bytes() || 0); } catch { return 0; } };
@@ -250,7 +246,6 @@ function letGo(h) {
 /** Gives back held resources until the warm ones are within their share and count and the registry within its envelope. */
 export function enforce(env = ENVELOPES[deviceClass()]) {
   for (const h of holders) if (h.gl?.isContextLost?.()) holders.delete(h);   // (gone with its context: forgotten, nothing called)
-  if (!EVICT) return 0;
   // (The usual case, nothing to give back, is told by sums over the holders alone: no list is made, plan rev 2 §2.8.)
   {
     let wn = 0, wb = 0, held = 0;
@@ -268,7 +263,7 @@ export function enforce(env = ENVELOPES[deviceClass()]) {
   // (the whole: the registry's bytes, or the holders' own where it counts nothing)
   let total = registryBytes(), held = 0;
   for (const h of holders) held += holderBytes(h);
-  total = Math.max(total, held);   // (the registry already counts what holders hold; without it (?gpubudget=0), their own estimates)
+  total = Math.max(total, held);   // (the registry already counts what holders hold)
   const over = () => total > env.mb * 1e6;
   for (const kind of ['warm', 'retained']) for (const h of lru(kind)) { if (!over()) break; const b = holderBytes(h); if (letGo(h)) total -= b; }
   // (What is left over the envelope once every holder has been asked: pressure no release met, reported, never taken as solved.)
@@ -284,7 +279,6 @@ export function overBudget() { return overMem || overFrames >= 2; }
 
 /** The ?perf readout's lines. */
 export function budgetText() {
-  if (!GPU_BUDGET) return 'GPU budget: off (?gpubudget=0)';
   const b = budget();
   const lines = [`GPU budget (${b.device}): ${b.mb} of ${b.envelope.mb} MB${b.overMemory ? ' OVER' : ''} (canvases ${b.canvasesMb}); last frame ${b.frame.screens} of ${b.envelope.screens} screens drawn, ${b.frame.targets} target switches, ${b.frame.draws} passes, ${b.frame.copies} copies (${b.frame.copyScreens} screens); worst ${b.worstScreens}`];
   for (const o of b.owners.slice(0, 6)) lines.push(`  ${o.owner}: ${o.mb} MB in ${o.n}`);
@@ -293,26 +287,24 @@ export function budgetText() {
   return lines.join('\n');
 }
 
-if (GPU_BUDGET) {
-  onGLCall(onCall);
-  // (Each frame the scheduler runs: its passes become the last frame's, and are held against the pass envelope.)
-  onFrameEnd((f) => {
-    const scr = screenPx(), env = ENVELOPES[deviceClass()];
-    for (let i = 0; i < PASS_KEYS.length; i++) { const k = PASS_KEYS[i]; last[k] = cur[k]; cur[k] = 0; }
-    cur.lastFb = undefined;
-    const area = last.area + last.copyArea;
-    if (area > worst.area || f.now - worst.at > 5000) { worst.area = area; worst.at = f.now; }   // (in place: nothing made a frame)
-    overFrames = area > env.screens * scr ? overFrames + 1 : 0;
-    // (Memory is looked at twice a second, only while frames run (an idle page counts nothing): an envelope crossed is logged once,
-    // with what holds the most.)
-    if (f.now - memAt > 500) {
-      memAt = f.now;
-      const bytes = registryBytes();
-      overMem = bytes > env.mb * 1e6;
-      if (overMem && !warnedMem) { warnedMem = true; const b = budget(); console.warn(`GPU memory over its envelope: ${b.mb} of ${b.envelope.mb} MB`, b.owners.slice(0, 5)); }
-      if (!overMem) warnedMem = false;
-      enforce(env);
-      if (CTX_ASSERT) checkContexts();
-    }
-  });
-}
+onGLCall(onCall);
+// (Each frame the scheduler runs: its passes become the last frame's, and are held against the pass envelope.)
+onFrameEnd((f) => {
+  const scr = screenPx(), env = ENVELOPES[deviceClass()];
+  for (let i = 0; i < PASS_KEYS.length; i++) { const k = PASS_KEYS[i]; last[k] = cur[k]; cur[k] = 0; }
+  cur.lastFb = undefined;
+  const area = last.area + last.copyArea;
+  if (area > worst.area || f.now - worst.at > 5000) { worst.area = area; worst.at = f.now; }   // (in place: nothing made a frame)
+  overFrames = area > env.screens * scr ? overFrames + 1 : 0;
+  // (Memory is looked at twice a second, only while frames run (an idle page counts nothing): an envelope crossed is logged once,
+  // with what holds the most.)
+  if (f.now - memAt > 500) {
+    memAt = f.now;
+    const bytes = registryBytes();
+    overMem = bytes > env.mb * 1e6;
+    if (overMem && !warnedMem) { warnedMem = true; const b = budget(); console.warn(`GPU memory over its envelope: ${b.mb} of ${b.envelope.mb} MB`, b.owners.slice(0, 5)); }
+    if (!overMem) warnedMem = false;
+    enforce(env);
+    if (CTX_ASSERT) checkContexts();
+  }
+});

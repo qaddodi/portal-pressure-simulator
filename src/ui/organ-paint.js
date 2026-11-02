@@ -13,21 +13,18 @@
 // luminance). Anything else (a dash, a filter, a nested mask, a focal point) and the organ is not read: null, and the caller
 // keeps the organ's picture.
 
-import { flattenPath, flattenCmds, ellipsePoly, polyBox, polyMesh, prestartShapes } from './shape-gl.js?v=f64e82c981';
-import { prestart, linkProgram } from './gl-compile.js?v=63e54c6c92';
+import { flattenPath, flattenCmds, ellipsePoly, polyBox, polyMesh, prestartShapes } from './shape-gl.js?v=8a9a6cee94';
+import { prestart, linkProgram } from './gl-compile.js?v=3e750c4fef';
 import { strHash } from './liver-geo.js?v=977185f80a';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
 
 const ID = [1, 0, 0, 1, 0, 0];
 // A dashed stroke (the stent guide, the stented veins' mesh) cut into its dashes on the CPU once per outline and tolerance, each dash a
-// stroke of its own with the stroke's caps, painted on the GPU like any other. ?gpudash=0 in the address refuses dashes, as before.
+// stroke of its own with the stroke's caps, painted on the GPU like any other.
 // A clip inside a clip (the colon's shades and fold, each cut to its own bowel loop inside the colon's own clip): painted with both,
 // the inner one's coverage in the scratch's green and the outer one's in its blue, so the colon is painted on the GPU and not kept as
-// a picture rasterized from the SVG copy. ?nestclip=0: such a group is not read, as before (the layer stays a picture).
-const NEST_CLIP = typeof location === 'undefined' || !/[?&]nestclip=0\b/.test(location.search);
-const DASH = !(typeof location !== 'undefined' && /[?&]gpudash=0\b/.test(location.search));
-const REFBOUND = !(typeof location !== 'undefined' && /[?&]refbound=0\b/.test(location.search));
+// a picture rasterized from the SVG copy.
 const REFINE_OPS = 64;   // (shapes a refinement step hands the GPU at most: R18)
 /** A computed dash pattern → { a: lengths (user units, even count), off }, or null (a percentage, or nothing to draw). */
 function readDash(cs) {
@@ -68,9 +65,7 @@ export function dashPolys(polys, { a, off }) {
   }
   return out;
 }
-// An even-odd fill (the tamponade balloon's latex rim, a ring cut out of its outline) painted on the GPU by its parity; ?evenodd=0 in
-// the address refuses it, so its group and those above it stay in the SVG, as before.
-const EVENODD = !(typeof location !== 'undefined' && /[?&]evenodd=0\b/.test(location.search));
+// An even-odd fill (the tamponade balloon's latex rim, a ring cut out of its outline) painted on the GPU by its parity.
 
 // Shapes the app makes itself (the liver's outline and its nodules, stage.js morphLiver), handed over as numbers as they are made:
 // { d (the text written to the elements), cmds (shape-gl pathCmds' form), id }. A path whose `d` is still that text is cut from
@@ -261,7 +256,7 @@ export function readGroup(root, { withMask = true, nest = false, strict = false 
     const cid = el === root ? null : urlId(cs.clipPath && cs.clipPath !== 'none' ? cs.clipPath : el.getAttribute('clip-path'));
     if (cid) {
       // (Two clips, one inside the other: both painted (NEST_CLIP), never three.)
-      if (clip && (!NEST_CLIP || clip.outer)) { no('nested clip', el); return; }
+      if (clip && clip.outer) { no('nested clip', el); return; }
       cl = readClip(doc, cid, me);
       if (!cl) { no('clip', el); return; }
       cl.chain = ch;
@@ -289,12 +284,11 @@ export function readGroup(root, { withMask = true, nest = false, strict = false 
     if (geom.d && !el.getAttribute('d')) return;
     let dash = null;
     if (cs.strokeDasharray && cs.strokeDasharray !== 'none') {
-      dash = DASH ? readDash(cs) : null;
+      dash = readDash(cs);
       if (!dash) { no('dash', el); return; }
     }
     if (strict && geom.d && cs.stroke && cs.stroke !== 'none' && (cs.strokeLinejoin || 'miter') !== 'round' && /[LlHhVvZz]/.test(el.getAttribute('d'))) { no('miter join', el); return; }
     const eo = (cs.fillRule || 'nonzero') === 'evenodd';
-    if (eo && !EVENODD) { no('evenodd', el); return; }
     const fill = readPaintValue(doc, cs.fill), stroke = readPaintValue(doc, cs.stroke);
     if (fill === false || stroke === false) { no(`paint ${fill === false ? cs.fill : cs.stroke}`, el); return; }
     if (fill) {
@@ -626,7 +620,7 @@ export function createOrganPaint(gl, shape) {
   function runJob(job, until = Infinity) {
     let n = 0;
     job.ck = job.ck2 = null;
-    const bound = REFBOUND && until !== Infinity;
+    const bound = until !== Infinity;
     while (job.frames.length) {
       const f = job.frames[job.frames.length - 1];
       if (!f.lay && f.i >= f.ops.length) { job.frames.pop(); continue; }

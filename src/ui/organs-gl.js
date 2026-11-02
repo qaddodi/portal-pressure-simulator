@@ -58,9 +58,9 @@ void main() {
   }
 }`;
 
-import { createShapeGL } from './shape-gl.js?v=f64e82c981';
-import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=de4cbf1d4c';
-import { prestart, linkProgram } from './gl-compile.js?v=63e54c6c92';
+import { createShapeGL } from './shape-gl.js?v=8a9a6cee94';
+import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=9f3f5d0519';
+import { prestart, linkProgram } from './gl-compile.js?v=3e750c4fef';
 import { netChanged } from './idle-keys.js?v=81fbedda6b';
 import { uniformCache } from './uniform-cache.js?v=3c43b7a297';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';

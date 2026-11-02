@@ -10,13 +10,8 @@
 // - The wrappers are installed on the context object itself (own properties over the prototype's methods), so every module that holds
 //   the context, whichever made it, routes its state changes through the record. A deleted object that was bound reads back as null,
 //   as the context itself would.
-// - ?glstate=0: off. glGet / glOn / glCap ask the driver, as before; nothing is wrapped.
-// - ?glstate=check: the debug check. Every answer is compared with the driver's, and a difference is logged once per name.
 // The wrappers also hand each allocation to the resource registry (gpu-budget.js, R06): see onGLCall.
 
-const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
-export const GL_STATE = !/[?&]glstate=0\b/.test(SEARCH);
-const CHECK = /[?&]glstate=check\b/.test(SEARCH);
 const W2 = typeof WebGL2RenderingContext !== 'undefined' ? WebGL2RenderingContext : null;
 
 const recs = new WeakMap();
@@ -124,7 +119,7 @@ function wrap(gl, r) {
 function recOf(gl) {
   let r = recs.get(gl);
   if (r === undefined) {
-    if (!GL_STATE || !isGL2(gl)) { recs.set(gl, null); return null; }
+    if (!isGL2(gl)) { recs.set(gl, null); return null; }
     r = { fresh: false, gen: 1, fbOk: new Set(), errOk: new Set() };
     sweep(gl, r);
     wrap(gl, r);
@@ -135,17 +130,11 @@ function recOf(gl) {
   return r;
 }
 
-/** The record itself, for the registry (gpu-budget.js): what is bound now (null with ?glstate=0 or off WebGL2). Read only. */
+/** The record itself, for the registry (gpu-budget.js): what is bound now (null off WebGL2). Read only. */
 export function glRec(gl) { return recOf(gl); }
 
 /** Starts the record for context gl (from its creation, so the registry sees every allocation). Returns gl. */
 export function trackGL(gl) { if (gl) recOf(gl); return gl; }
-
-const warned = new Set();
-function check(gl, k, mine, real) {
-  const same = mine === real || (mine && real && typeof mine === 'object' && mine.length === real.length && Array.from(mine).every((v, i) => v === real[i]));
-  if (!same && !warned.has(k)) { warned.add(k); console.warn(`GL state record differs from the driver for 0x${Number(k).toString(16)}`, mine, real); }
-}
 
 function fromRec(gl, r, k) {
   switch (k) {
@@ -176,13 +165,12 @@ function fromRec(gl, r, k) {
   }
 }
 
-/** gl.getParameter(k), from the record where it keeps k (the driver otherwise, and with ?glstate=0). */
+/** gl.getParameter(k), from the record where it keeps k (the driver otherwise). */
 export function glGet(gl, k) {
   const r = recOf(gl);
   if (!r || !r.fresh) return gl.getParameter(k);
   const v = fromRec(gl, r, k);
   if (v === undefined) return gl.getParameter(k);
-  if (CHECK) check(gl, k, v, gl.getParameter(k));
   return v;
 }
 
@@ -190,9 +178,7 @@ export function glGet(gl, k) {
 export function glOn(gl, cap) {
   const r = recOf(gl);
   if (!r || !r.fresh || !r.caps.has(cap)) return gl.isEnabled(cap);
-  const v = r.caps.get(cap);
-  if (CHECK) check(gl, cap, v, gl.isEnabled(cap));
-  return v;
+  return r.caps.get(cap);
 }
 
 /** A limit of the context that never changes in its generation (MAX_TEXTURE_SIZE, MAX_SAMPLES, ...): asked once, then kept. */
@@ -205,7 +191,7 @@ export function glCap(gl, k) {
 }
 
 /** The context's generation: 1 from its creation, one more at each loss and restore (an object or verdict kept from an older
- *  generation is not this one's). 0 where nothing is recorded (?glstate=0, WebGL 1). */
+ *  generation is not this one's). 0 where nothing is recorded (WebGL 1). */
 export function glGen(gl) { const r = recOf(gl); return r ? r.gen : 0; }
 
 // Framebuffer completeness, asked once per attachment layout per context generation (R09 / review pass 2, item 9). checkFramebufferStatus
@@ -213,21 +199,16 @@ export function glGen(gl) { const r = recOf(gl); return r ? r.gen : 0; }
 // lobule tile copy, wide-copy tile and overlay target it made, often inside a frame. A layout's verdict does not change within a
 // generation (a colour texture of a renderable format, with or without a stencil buffer, at a size the context allows), so once one such
 // framebuffer was complete the next is taken as complete. Only a complete verdict is kept: an incomplete one is asked again next time.
-// A size of 0 (or past the texture limit) is never complete and never asked. ?fbcache=0: asked every time, as before;
-// ?glstate=check: asked every time and compared.
-const FB_CACHE = !/[?&]fbcache=0\b/.test(SEARCH);
+// A size of 0 (or past the texture limit) is never complete and never asked.
 /** gl.checkFramebufferStatus(target) === FRAMEBUFFER_COMPLETE for the framebuffer bound there, whose attachments have layout `key`
  *  (e.g. 'rgba8', 'rgba8+s8') and size w × h. */
 export function fbComplete(gl, target, key, w, h) {
   if (!(w > 0 && h > 0)) return false;
   const r = recOf(gl);
-  if (!r || !FB_CACHE || !r.fresh) return gl.checkFramebufferStatus(target) === gl.FRAMEBUFFER_COMPLETE;
+  if (!r || !r.fresh) return gl.checkFramebufferStatus(target) === gl.FRAMEBUFFER_COMPLETE;
   const max = glCap(gl, gl.MAX_TEXTURE_SIZE);
   if (max && (w > max || h > max)) return false;
-  if (r.fbOk.has(key)) {
-    if (CHECK) check(gl, `fb:${key}`, true, gl.checkFramebufferStatus(target) === gl.FRAMEBUFFER_COMPLETE);
-    return true;
-  }
+  if (r.fbOk.has(key)) return true;
   const ok = gl.checkFramebufferStatus(target) === gl.FRAMEBUFFER_COMPLETE;
   if (ok && !gl.isContextLost()) r.fbOk.add(key);
   return ok;
@@ -239,28 +220,27 @@ export const fbVerdicts = (gl) => recs.get(gl)?.fbOk?.size ?? 0;
 // support (a float table) or of memory (the wide copy's tiles, the resolution fade's copy, the sinusoid's kept picture) used to ask
 // gl.getError after every call: a synchronous trip to the GPU process, often inside a frame. Now the first of each layout in a context
 // generation is asked (any earlier error drained first), and once it went through the next ones are taken as going through: a context
-// that runs out of memory is lost, and a loss starts a new generation, asked afresh. ?errcache=0: asked every time, as before.
+// that runs out of memory is lost, and a loss starts a new generation, asked afresh.
 // (field-gl.js sendCanvas keeps its own check on every send: it is what keeps a texture the GPU had no room for from being sampled
 // as opaque black, the iPhone black flash of 1 Nov.)
-const ERR_CACHE = !/[?&]errcache=0\b/.test(SEARCH);
 /** Clears the errors before a call of layout `key` that is to be checked (nothing, once that layout went through in this generation). */
 export function glOkBefore(gl, key) {
   const r = recOf(gl);
-  if (ERR_CACHE && r?.fresh && r.errOk?.has(key)) return;
+  if (r?.fresh && r.errOk?.has(key)) return;
   for (let i = 0; i < 8 && gl.getError() !== gl.NO_ERROR && !gl.isContextLost(); i++);
 }
 /** Whether the calls since glOkBefore(gl, key) went through: asked of the driver the first time per layout and generation only. */
 export function glOkAfter(gl, key) {
   if (gl.isContextLost()) return false;
   const r = recOf(gl);
-  if (ERR_CACHE && r?.fresh && r.errOk?.has(key)) return true;
+  if (r?.fresh && r.errOk?.has(key)) return true;
   const ok = gl.getError() === gl.NO_ERROR;
   if (ok && r && !gl.isContextLost()) (r.errOk ||= new Set()).add(key);
   return ok;
 }
 
 // Every WebGL2 context the page makes is recorded from its creation (the registry then sees its first allocation too).
-if (GL_STATE && W2) {
+if (W2) {
   for (const C of [globalThis.HTMLCanvasElement, globalThis.OffscreenCanvas]) {
     const P = C?.prototype, get = P?.getContext;
     if (!get || get.__ppsGL) continue;

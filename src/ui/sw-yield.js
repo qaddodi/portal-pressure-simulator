@@ -28,15 +28,11 @@ export function softwareGL(gl) {
 // rasterizer (Firefox on llvmpipe, a headless Chrome given --ignore-gpu-blocklist, both hand out the context). Only the vaguer
 // "Software" match is still asked of the browser. (Review pass 2, item 12: a genuinely software renderer is never put on the GPU path.)
 const RASTERIZER = /SwiftShader|llvmpipe|softpipe|Basic Render/i;
-const SW_NAMED = !/[?&]swname=0\b/.test(typeof location !== 'undefined' ? location.search || '' : '');
 
 // The software path (8 frames a second at half the pixels) must never be taken on a device with a real GPU (120 Hz recs P3, 2 Nov 2026).
-// ?renderer=gpu always takes the GPU path, ?renderer=software always the software one. Otherwise a renderer named as software is asked
-// once more, of the browser itself: a context made with failIfMajorPerformanceCaveat is refused where the browser draws on the CPU, so a
-// context it does give means the drawing is accelerated whatever the name says, and the GPU path is kept. ?swcheck=0: the name alone.
-const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
-export const RENDERER_FORCE = /[?&]renderer=(gpu|software)\b/.exec(SEARCH)?.[1] || '';
-const SW_CHECK = !/[?&]swcheck=0\b/.test(SEARCH);
+// A renderer named as software is asked once more, of the browser itself: a context made with failIfMajorPerformanceCaveat is refused
+// where the browser draws on the CPU, so a context it does give means the drawing is accelerated whatever the name says, and the GPU
+// path is kept.
 let accel = null;
 /** Whether the browser says WebGL is hardware-accelerated here (a context with failIfMajorPerformanceCaveat given), asked once. */
 export function browserAccelerated() {
@@ -50,12 +46,11 @@ export function browserAccelerated() {
   } catch { accel = false; }
   return accel;
 }
-/** The final word on software, from the renderer's name (`named`), the address's override and the browser's own answer. */
+/** The final word on software, from the renderer's name (`named`) and the browser's own answer. */
 export function rendererVerdict(named, name = '') {
-  if (RENDERER_FORCE) return RENDERER_FORCE === 'software';
   if (!named) return false;
-  if (SW_NAMED && RASTERIZER.test(String(name))) return true;   // (?swname=0: the browser's answer overrides the name, as before)
-  return !(SW_CHECK && browserAccelerated());
+  if (RASTERIZER.test(String(name))) return true;
+  return !browserAccelerated();
 }
 
 const MAX_WAIT = 2000;   // (one frame held up by something else, a long layout or a paused tab, never stalls the vessels longer)

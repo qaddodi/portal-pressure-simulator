@@ -205,10 +205,9 @@ test("a picture's painting stops at its time limit at any depth of nested groups
   assert.match(bake, /const free = \(\) => \{ cur\?\.drop\(\); cur = null;/, 'a picture given up lets go of the nested layers');
 });
 
-test('a clip inside a clip is painted with both (the colon), the outer in the scratch blue; ?nestclip=0 refuses it as before', () => {
+test('a clip inside a clip is painted with both (the colon), the outer in the scratch blue', () => {
   const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
-  assert.match(paint, /const NEST_CLIP = typeof location === 'undefined' \|\| !\/\[\?&\]nestclip=0\\b\/\.test\(location\.search\);/);
-  assert.match(paint, /if \(clip && \(!NEST_CLIP \|\| clip\.outer\)\) \{ no\('nested clip', el\); return; \}/);
+  assert.match(paint, /if \(clip && clip\.outer\) \{ no\('nested clip', el\); return; \}/);
   assert.match(paint, /if \(clip\) cl\.outer = clip;/);
   assert.match(paint, /float c = cv\.r \* \(useClip >= 1 \? cv\.g : 1\.0\) \* \(useClip == 2 \? cv\.b : 1\.0\);/);
   assert.match(paint, /if \(newClip2\) \{ shape\.fill\(csh2\.mesh, cm2, sz, \[false, false, true, false\]\); job\.ck2 = ck2; \}/);

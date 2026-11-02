@@ -5,14 +5,14 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=afc4d7c743';
-import { createTraceGL, fitPen } from './trace-gl.js?v=e376046938';
-import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=e76c41f09a';
+import { createTraceGL, fitPen } from './trace-gl.js?v=9dea30e40a';
+import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=11bcccf78c';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=350e1db23b';
-import { ownsSideways, pageGo } from './swipe.js?v=f826ac05b8';
+import { pressureColor } from './colormap.js?v=d05f14308d';
+import { ownsSideways, pageGo } from './swipe.js?v=2e519aab2f';
 import { frameFor } from './frame.js?v=8c8f2f530e';
-import { restPass } from './rest-pass.js?v=ba7df6a6f6';
+import { restPass } from './rest-pass.js?v=e877681653';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { leaveFromHere, menuLeaveOff } from './menu-leave.js?v=e885166f40';
 import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=7513a88c68';

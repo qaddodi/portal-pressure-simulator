@@ -6,7 +6,7 @@
 // Publishing waits for the page to be left alone (quiet.js): the status read, the uniform lookups and the small draw are a few ms of
 // script, and a program that finishes mid pan or pinch had them land in a gesture's frame.
 import { leftAlone } from './quiet.js?v=388052eba8';
-import { glGet } from './gl-state.js?v=ca10f41a87';
+import { glGet } from './gl-state.js?v=3569b73302';
 
 // (Asked once per context where it is there: getExtension is a call into the browser each time. Not kept when it is missing, so a
 // context that came back from a loss is asked again; and one that is there is forgotten when its context is restored, as a restored
@@ -50,10 +50,9 @@ export function compileDone(gl, handles) {
 
 /** Reads a started program's status (it waits if the compile is not done); throws the info log on a failure. */
 // (The link's status first, as MDN's "WebGL best practices" advises: a program that linked had shaders that compiled, so their own status,
-// one more synchronous query each, is read only for a failure's log. ?linkfirst=0 in the address: every shader's status read first, as before.)
-const LINK_FIRST = !(typeof location !== 'undefined' && /[?&]linkfirst=0\b/.test(location.search));
+// one more synchronous query each, is read only for a failure's log.)
 export function checkProgram(gl, { p, sh }) {
-  if (LINK_FIRST && gl.getProgramParameter(p, gl.LINK_STATUS)) return p;
+  if (gl.getProgramParameter(p, gl.LINK_STATUS)) return p;
   for (const s of sh) if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
   return p;
@@ -63,14 +62,13 @@ export function checkProgram(gl, { p, sh }) {
 // everything to GPU"). The figure's renderer starts, in one go and side by side with its own, the programs its helpers would otherwise
 // compile one after another as each is first made or first drawn (the organs' painter and shapes, the overlays' stack, the resolution
 // fade): prestart() leaves each compiling, and the helper's own linkProgram() takes it up, by when the driver has long finished. A
-// helper made before or without that start compiles its own, as before. ?shaderwarm=0: every program compiled where it is first
-// needed, as before (with the status of each shader read first).
-export const SHADER_WARM = !(typeof location !== 'undefined' && /[?&]shaderwarm=0\b/.test(location.search || ''));
+// helper made before or without that start compiles its own, as before.
+export const SHADER_WARM = true;   // (switch deleted; kept for veins-gl.js, glass-gl.js, field-gl.js and res-fade-gl.js until their own pass)
 const pre = new WeakMap();   // gl → Map(sources → started program)
 const srcKey = (vs, fs) => `${vs}\u0000${fs}`;
 /** Starts a program (strings only) for a later linkProgram on the same context; nothing is read. Returns its handle (null: not started). */
 export function prestart(gl, vs, fs, bind = []) {
-  if (!SHADER_WARM || !gl || gl.isContextLost?.()) return null;
+  if (!gl || gl.isContextLost?.()) return null;
   let m = pre.get(gl);
   if (!m) pre.set(gl, (m = new Map()));
   const k = srcKey(vs, fs);
@@ -103,7 +101,7 @@ export function linkProgram(gl, vs, fs, bind = []) {
  *  every unit's own binding is put back. */
 // (Review pass 2, item 9: what is bound is read from the renderer's own record (gl-state.js), not asked of the driver 17 times; and the
 // host's framebuffers, viewport, program and vertex array are put back too: the warm-up used to leave the default framebuffer bound and
-// a 1 × 1 viewport behind, for whoever drew next in the same context. ?glstate=0: asked of the driver, as before.)
+// a 1 × 1 viewport behind, for whoever drew next in the same context.)
 export function exerciseDraw(gl, draw) {
   const fbo = gl.createFramebuffer(), tex = gl.createTexture(), blank = gl.createTexture();
   const g = (k) => glGet(gl, k);
@@ -146,9 +144,8 @@ export const PUBLISH_QUIET_MS = 200;
 // compile is done (compileDone: COMPLETION_STATUS_KHR); while it is not, the draw is skipped (the caller keeps what it showed) and the
 // program is marked WANTED, so the idle poller publishes it the moment the driver is done, without waiting out a gesture. And every
 // program still waiting can be published ahead of use by prepareShaders(), called from a slide's preparation (slide-prep.js), so a
-// slide change finds its programs published before its first frame. ?shaderready=0: publishing at the first draw, as before.
-export const SHADER_READY = !(typeof location !== 'undefined' && /[?&]shaderready=0\b/.test(location.search || ''));
-const POLL_FOREVER = !(typeof location !== 'undefined' && /[?&]pollforever=0\b/.test(location.search || ''));
+// slide change finds its programs published before its first frame.
+export const SHADER_READY = true;   // (switch deleted; kept for sinusoid-gl.js until its own pass)
 const waitingPub = new Set();   // { gl, handles, publish, wanted }: started programs not yet published
 // (recs-production-120hz §6/§17: a slide's preparation that found programs still compiling waits for the next one to be published, or
 // to fail, instead of reading a stale boolean; failures are counted, never taken for a publication.)
@@ -165,7 +162,6 @@ export const shaderPrepStats = () => ({ ...shaderStats, waiting: waitingPub.size
 /** Publishes, ahead of their first draw, every waiting program whose compile is done (asked without waiting), within `budgetMs` of
  *  script. Where the driver cannot say, the status is read here (a controlled preparation step, never a frame). Returns how many wait. */
 export function prepareShaders(budgetMs = 4) {
-  if (!SHADER_READY) return 0;
   const t0 = performance.now();
   for (const e of [...waitingPub]) {
     if (performance.now() - t0 > budgetMs) break;
@@ -180,7 +176,7 @@ export function prepareShaders(budgetMs = 4) {
 }
 /** True while these started programs are still compiling (asked without waiting; false where the driver cannot say). */
 export function stillCompiling(gl, handles) {
-  if (!SHADER_READY || !handles) return false;
+  if (!handles) return false;
   try { return !gl.isContextLost() && !compileDone(gl, handles); } catch { return false; }
 }
 
@@ -195,7 +191,7 @@ export function publishWhenDone(gl, handles, publish, tries = 400, calm = leftAl
   const idle = typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 250 }) : (f) => setTimeout(f, 32);
   // (R10: registered while it waits, so a slide's preparation can publish it first; a draw that wanted it lifts the wait for calm.)
   const entry = { gl, handles, wanted: false, publish: () => { if (dead) return; dead = true; waitingPub.delete(entry); try { publish(); } finally { moved(); } } };
-  if (SHADER_READY) waitingPub.add(entry);
+  waitingPub.add(entry);
   const tick = () => {
     if (dead) return;
     let done;
@@ -204,9 +200,8 @@ export function publishWhenDone(gl, handles, publish, tries = 400, calm = leftAl
     else if (--tries > 0) idle(tick);
     // (Review pass 2, item 2: past its `tries` the poll no longer gives up and leaves the publishing to the first draw, where reading
     // the status waits for the driver inside a frame. It slows to one ask every half second and keeps its place in the queue, so a
-    // slide's preparation (prepareShaders) can still publish it ahead of use. ?pollforever=0: it stops there, as before.)
-    else if (POLL_FOREVER) setTimeout(tick, 500);
-    else { waitingPub.delete(entry); moved(); }
+    // slide's preparation (prepareShaders) can still publish it ahead of use.)
+    else setTimeout(tick, 500);
   };
   idle(tick);
   const stop = () => { dead = true; if (waitingPub.delete(entry)) moved(); };

@@ -9,22 +9,16 @@
 //
 //   const id = restPass(fn)   fn runs once, between frames
 //   cancelRest(id)
-//
-// ?restpass=0 runs each on a plain zero timer of its own instead (no shared message port), still never inside a frame.
 
 import { PREP_BUDGET, prepLeft, prepSpend, prepWindowLeft, STARVE_MS, frameMs } from './prep-budget.js?v=5cd063266b';
 
-export const REST_PASS = !(typeof location !== 'undefined' && /[?&]restpass=0\b/.test(location.search || ''));
-
 let q = new Map(), next = 1, posted = false, port = null;
-const timers = new Map();
 // One deadline for all of it (2 Nov 2026, audit R03: a drain ran every queued pass in one task, so a burst of card fits, chart
 // lettering and glyph work as a slide's cards landed made one long task in the middle of the motion). A drain now runs passes until
 // REST_SLICE ms have gone (and stops sooner when the person's input is waiting, where the browser tells: isInputPending), then hands the
 // rest to a task of its own after the browser has had its turn (a zero timer: a frame can come between). The order asked for is kept,
 // each pass still runs once, and a pass cancelled before its turn never runs. restStats() counts slices, passes carried and the oldest
-// wait. ?restslice=0: every pass in one drain, as before.
-const SLICE_ON = !(typeof location !== 'undefined' && /[?&]restslice=0\b/.test(location.search || ''));
+// wait.
 export const REST_SLICE = 6;
 const asked = new Map();   // (id → when it was asked, for the wait)
 const stats = { drains: 0, sliced: 0, carried: 0, maxWait: 0, maxDrain: 0, waited: 0 };
@@ -40,7 +34,7 @@ const oldestWait = (t) => { let w = 0; for (const a of asked.values()) { w = Mat
 function drain() {
   posted = false;
   const t0 = performance.now();
-  const shared = SLICE_ON && PREP_BUDGET;
+  const shared = PREP_BUDGET;
   // (recs-production-120hz §15: the slice is at most half the target frame (4.2 ms at 120 Hz), and a pass is not started when the
   // passes' mean cost would carry the drain past it: a callback cannot be stopped once it runs, so it is judged before.)
   let slice = Math.min(REST_SLICE, frameMs() / 2);
@@ -62,7 +56,7 @@ function drain() {
     try { fn(); } catch (e) { setTimeout(() => { throw e; }); }
     const t1 = performance.now();
     passMean += (t1 - p0 - passMean) * 0.1;
-    if (SLICE_ON && now.size && (t1 - t0 > slice || t1 - t0 + passMean > slice || inputWaiting())) {
+    if (now.size && (t1 - t0 > slice || t1 - t0 + passMean > slice || inputWaiting())) {
       carry = now; stats.sliced++; stats.carried += now.size;
       setTimeout(drain, 0);
       posted = true;
@@ -83,7 +77,6 @@ function post() {
 /** Runs fn once, as a task between two frames (never inside one); returns an id for cancelRest (never 0). */
 export function restPass(fn) {
   const id = next++;
-  if (!REST_PASS) { timers.set(id, setTimeout(() => { timers.delete(id); fn(); }, 0)); return id; }
   q.set(id, fn);
   if (asked.size < 4096) asked.set(id, performance.now());
   post();
@@ -92,6 +85,6 @@ export function restPass(fn) {
 /** Cancels a rest pass not yet run (0 and spent ids are ignored). */
 export function cancelRest(id) {
   if (!id) return;
-  if (timers.has(id)) { clearTimeout(timers.get(id)); timers.delete(id); } else if (!q.delete(id)) carry?.delete(id);
+  if (!q.delete(id)) carry?.delete(id);
   asked.delete(id);
 }

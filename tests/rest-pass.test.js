@@ -7,12 +7,11 @@ import { unsnap } from './unsnap.js';
 
 let rafs = 0;
 globalThis.requestAnimationFrame = () => { rafs++; return rafs; };
-const { restPass, cancelRest, REST_PASS } = await import('../src/ui/rest-pass.js');
+const { restPass, cancelRest } = await import('../src/ui/rest-pass.js');
 // (Waits for a pass to land, up to 2 s: a loaded test machine can hold a message past a short timer.)
 const tick = async (until = () => true) => { for (let t = 0; t < 400; t++) { await new Promise((r) => setTimeout(r, 5)); if (until()) return; } };
 
 test('a rest pass runs once as a task of its own, never through the frame scheduler', async () => {
-  assert.equal(REST_PASS, true);
   const ran = [];
   const a = restPass(() => ran.push('a'));
   restPass(() => ran.push('b'));

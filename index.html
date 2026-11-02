@@ -20,9 +20,9 @@
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="fonts/source-serif-4-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
-  <script>document.documentElement.setAttribute('data-boot','hold');try{var t=localStorage.getItem('pps.theme'),pb=t==='navy'?'#0E1422':t==='black'?'#000000':'';if(pb){document.documentElement.setAttribute('data-theme','dark');document.documentElement.setAttribute('data-palette',t)}else if(t==='dark'||t==='light'||t==='soft')document.documentElement.setAttribute('data-theme',t);var d=!!pb||t==='dark'||(t!=='light'&&t!=='soft'&&matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.style.background=pb||'#1A1917';document.documentElement.style.colorScheme='dark'}if(typeof location!=='undefined'&&/[?&]noglass=1\b/.test(location.search))document.documentElement.setAttribute('data-noglass','');localStorage.removeItem('pps.uiZoom');(function(){if(localStorage.getItem('pps.figV')==='1')return;for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);if(k==='pps.renderScale'||(k&&k.indexOf('pps.fig.')===0))localStorage.removeItem(k)}localStorage.setItem('pps.figV','1')})();}catch(e){}</script>
+  <script>document.documentElement.setAttribute('data-boot','hold');try{var t=localStorage.getItem('pps.theme'),pb=t==='navy'?'#0E1422':t==='black'?'#000000':'';if(pb){document.documentElement.setAttribute('data-theme','dark');document.documentElement.setAttribute('data-palette',t)}else if(t==='dark'||t==='light'||t==='soft')document.documentElement.setAttribute('data-theme',t);var d=!!pb||t==='dark'||(t!=='light'&&t!=='soft'&&matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.style.background=pb||'#1A1917';document.documentElement.style.colorScheme='dark'}localStorage.removeItem('pps.uiZoom');(function(){if(localStorage.getItem('pps.figV')==='1')return;for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);if(k==='pps.renderScale'||(k&&k.indexOf('pps.fig.')===0))localStorage.removeItem(k)}localStorage.setItem('pps.figV','1')})();}catch(e){}</script>
   <link rel="preload" href="fonts/jetbrains-mono-latin.woff2" as="font" type="font/woff2" crossorigin />
-  <script>/* Fonts the first screen uses are asked for once the page's styles are in (the build puts them last) and the loading cover waits for them (1.5 s cap), so no text swaps typeface or changes width after the cover lifts. ?fonthold=0 turns it off. */(function(){try{if(/[?&]fonthold=0(&|$)/.test(location.search)||!document.fonts||!document.fonts.load||!window.Promise)return;var load=new Promise(function(done){function go(){try{Promise.all(['400 16px Inter','600 16px Inter','500 14px "JetBrains Mono"','600 24px "Source Serif 4"'].map(function(x){return document.fonts.load(x,'Ag0123456789').catch(function(){})})).then(function(){done()},function(){done()})}catch(e){done()}}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else go()});(window.ppsHold=window.ppsHold||[]).push(Promise.race([load,new Promise(function(r){setTimeout(r,1500)})]))}catch(e){}})();</script>
+  <script>/* Fonts the first screen uses are asked for once the page's styles are in (the build puts them last) and the loading cover waits for them (1.5 s cap), so no text swaps typeface or changes width after the cover lifts. */(function(){try{if(!document.fonts||!document.fonts.load||!window.Promise)return;var load=new Promise(function(done){function go(){try{Promise.all(['400 16px Inter','600 16px Inter','500 14px "JetBrains Mono"','600 24px "Source Serif 4"'].map(function(x){return document.fonts.load(x,'Ag0123456789').catch(function(){})})).then(function(){done()},function(){done()})}catch(e){done()}}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else go()});(window.ppsHold=window.ppsHold||[]).push(Promise.race([load,new Promise(function(r){setTimeout(r,1500)})]))}catch(e){}})();</script>
   <script>/* Can this browser run the app? ES5 on purpose so even Internet Explorer gets the message. Hard needs stop it with a plain note; soft ones only warn. */(function(){var w=window,why=[];try{if(!('noModule' in document.createElement('script')))why.push('modules');try{new Function('var a={};a.b??=1;return a?.b')}catch(e){if(!(e instanceof EvalError))throw e}if(typeof w.ResizeObserver!=='function')why.push('ResizeObserver');if(typeof w.structuredClone!=='function')why.push('structuredClone');if(!Array.prototype.at)why.push('Array.at')}catch(e){why.push('syntax')}w.ppsUnsupported=why.length?why:null;var soft=[];try{if(!CSS.supports('selector(:has(a))'))soft.push(':has');if(!CSS.supports('container-type','inline-size'))soft.push('container queries');if(!CSS.supports('color','color-mix(in srgb, red, blue)'))soft.push('color-mix')}catch(e){}w.ppsOldBrowser=soft.length?soft:null;w.ppsBootErrors=[];function note(m){if(w.ppsFigureReady)return;w.ppsBootErrors.push(String(m||'Unknown error').slice(0,300));if(w.ppsBootFail&&/SyntaxError/.test(m))w.ppsBootFail()}w.addEventListener('error',function(e){if(e&&e.message&&!/ResizeObserver loop/.test(e.message))note((e.error&&e.error.name?e.error.name+': ':'')+e.message+(e.filename?' ('+String(e.filename).split('/').pop().split('?')[0]+':'+e.lineno+')':''))});w.addEventListener('error',function(e){var t=e&&e.target;if(t&&t.tagName==='SCRIPT'){note('Could not load '+String(t.src).split('/').pop().split('?')[0]);if(w.ppsBootFail&&!w.ppsFigureReady)w.ppsBootFail()}},true);w.addEventListener('unhandledrejection',function(e){var r=e&&e.reason;note('Unhandled: '+(r&&r.message?r.message:r))})})();</script>
   <link rel="stylesheet" href="styles/tokens.css?v=1c1c1441ec" />
   <link rel="stylesheet" href="styles/icons.css?v=9152f9ba31" />
@@ -169,17 +169,17 @@ var lifting=false;function lift(){if(lifting||w.ppsUnsupported)return;failed=fal
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=929f226539" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=5db7d8066a" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=fe0f3d1f0e" />
-  <link rel="modulepreload" href="src/ui/util.js?v=e76c41f09a" />
+  <link rel="modulepreload" href="src/ui/util.js?v=11bcccf78c" />
   <link rel="modulepreload" href="src/ui/store.js?v=afc4d7c743" />
-  <link rel="modulepreload" href="src/ui/colormap.js?v=350e1db23b" />
-  <link rel="modulepreload" href="src/ui/inspector.js?v=26639c6a81" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=07dcc16883" />
-  <link rel="modulepreload" href="src/ui/charts.js?v=1232b54db2" />
-  <link rel="modulepreload" href="src/ui/instruments.js?v=bd8a4933cc" />
-  <link rel="modulepreload" href="src/ui/timeline.js?v=467ca31fb6" />
+  <link rel="modulepreload" href="src/ui/colormap.js?v=d05f14308d" />
+  <link rel="modulepreload" href="src/ui/inspector.js?v=1b317a920a" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=2af60958f1" />
+  <link rel="modulepreload" href="src/ui/charts.js?v=b552d12350" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=e29ac68bc5" />
+  <link rel="modulepreload" href="src/ui/timeline.js?v=5472f9aeda" />
   <link rel="modulepreload" href="src/engine/topology.js?v=4044766e96" />
-  <script type="module" src="src/ui/main.js?v=c8a15f100a"></script>
+  <script type="module" src="src/ui/main.js?v=8968fa8261"></script>
 </body>
 </html>

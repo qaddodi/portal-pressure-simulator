@@ -4,17 +4,12 @@
 // that can show an element full screen, the first tap or key goes full screen (it needs the person's own input), once a visit: leaving
 // full screen is the person's choice and is kept. The page looks the same, without the browser's bars.
 // iPhone Safari cannot show a page full screen (only video): there the Feature Flag, or the app added to the Home Screen, is the way.
-// On by default; ?highrefresh=0 off, ?highrefresh=1 on everywhere (a Mac or a PC too).
-const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
-export const HIGH_REFRESH = !/[?&]highrefresh=0\b/.test(SEARCH);
-const EVERYWHERE = /[?&]highrefresh=1\b/.test(SEARCH);
 
-/** Whether this device should go full screen for its refresh: a touch screen, or anywhere with ?highrefresh=1. */
+/** Whether this device should go full screen for its refresh: a touch screen. */
 export function wantsFullscreen(nav = globalThis.navigator, doc = globalThis.document) {
-  if (!HIGH_REFRESH || !doc) return false;
+  if (!doc) return false;
   const can = !!(doc.fullscreenEnabled || doc.webkitFullscreenEnabled);
   if (!can) return false;
-  if (EVERYWHERE) return true;
   return (nav?.maxTouchPoints || 0) > 1 && !/iPhone|iPod/.test(nav?.userAgent || '');
 }
 

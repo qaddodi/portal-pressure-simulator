@@ -36,19 +36,7 @@ const read = () => { tot.reads++; if (open) bump(READS, callerOf(new Error().sta
 // Upload accounting (recs_cgpt R02, 2 Nov 2026): each WebGL call decoded by its own argument layout, so a bufferSubData's bytes come
 // from its data (args[2]), not its byte offset (args[1]), a typed array's srcOffset and length are honoured, and a texture's bytes
 // per texel follow its format and type. CPU uploads, GPU room made (texStorage, renderbuffers), GPU-local copies (blits, copyTex,
-// pixel-buffer reads) and bitmap transfers are four counters, not one. ?statfix=0: the old guess (args[1] for every buffer call,
-// 4 bytes a texel), and the counters it did not have stay at zero.
-export const STATFIX = !(typeof location !== 'undefined' && /[?&]statfix=0\b/.test(location.search || ''));
-
-/** The old guess (?statfix=0): bytes in args[1] for a buffer, or width × height × 4 for a texture. */
-export function bytesOfOld(args, tex) {
-  if (!tex) { const d = args[1]; return typeof d === 'number' ? d : d?.byteLength || 0; }
-  for (const a of args) if (a && typeof a === 'object' && 'byteLength' in a) return a.byteLength;
-  const src = args.find((a) => a && typeof a === 'object' && 'width' in a && 'height' in a);
-  if (src) return (src.width | 0) * (src.height | 0) * 4;
-  const n = args.filter((a) => typeof a === 'number');
-  return n.length >= 6 ? Math.max(0, n[3] | 0) * Math.max(0, n[4] | 0) * 4 : 0;
-}
+// pixel-buffer reads) and bitmap transfers are four counters, not one.
 
 const CHANNELS = { 0x1908: 4, 0x1907: 3, 0x1903: 1, 0x8227: 2, 0x1909: 1, 0x1906: 1, 0x190a: 2, 0x8d99: 4, 0x8d98: 3, 0x8d94: 1, 0x8228: 2, 0x80e1: 4, 0x1902: 1, 0x84f9: 1 };
 const TYPE_BYTES = { 0x1400: 1, 0x1401: 1, 0x1402: 2, 0x1403: 2, 0x1404: 4, 0x1405: 4, 0x1406: 4, 0x140b: 2, 0x8d61: 2 };
@@ -127,18 +115,11 @@ export function decodeCall(m, a) {
 
 /** Bytes in an upload call. With `m` (the method), decoded by its overload (decodeCall); without, a buffer call is read as bufferData. */
 export function bytesOf(args, tex, m) {
-  if (!STATFIX) return bytesOfOld(args, tex);
   if (!m) {
     if (!tex) m = 'bufferData';
     else { const n = args.length; m = n === 6 ? 'texImage2D' : n === 7 ? 'texSubImage2D' : args[5] === 0 ? 'texImage2D' : 'texSubImage2D'; }
   }
   return Math.round(decodeCall(m, args).bytes);
-}
-
-/** Whether a call only makes room on the GPU (a texture with no pixels given, a buffer given by size): nothing crosses from the CPU. */
-export function isAlloc(args, tex) {
-  if (!tex) return typeof args[1] === 'number';
-  return !args.some((a) => a && typeof a === 'object') && args.length >= 9;
 }
 
 function wrapMethod(proto, name, fn) {
@@ -184,17 +165,12 @@ export function installMotionBudget({ root = document, skip = () => false } = {}
   };
   for (const G of [window.WebGL2RenderingContext, window.WebGLRenderingContext]) {
     if (!G) continue;
-    if (!STATFIX) {
-      for (const n of ['texImage2D', 'texSubImage2D', 'texImage3D', 'texSubImage3D']) wrapMethod(G.prototype, n, (_, a) => note(bytesOfOld(a, true), isAlloc(a, true) ? 'alloc' : 'upload'));
-      for (const n of ['bufferData', 'bufferSubData']) wrapMethod(G.prototype, n, (_, a) => note(bytesOfOld(a, false), isAlloc(a, false) ? 'alloc' : 'upload'));
-      continue;
-    }
     for (const n of ['texImage2D', 'texSubImage2D', 'texImage3D', 'texSubImage3D', 'bufferData', 'bufferSubData', 'texStorage2D', 'texStorage3D', 'renderbufferStorage', 'renderbufferStorageMultisample', 'copyTexImage2D', 'copyTexSubImage2D', 'copyTexSubImage3D', 'blitFramebuffer', 'copyBufferSubData']) {
       wrapMethod(G.prototype, n, (_, a) => { const d = decodeCall(n, a); note(Math.round(d.bytes), d.kind); });
     }
   }
   // (Bitmap transfers: an ImageBitmap handed to a bitmaprenderer canvas, counted by its pixels.)
-  if (STATFIX && window.ImageBitmapRenderingContext) wrapMethod(window.ImageBitmapRenderingContext.prototype, 'transferFromImageBitmap', (_, a) => { tot.bitmaps++; tot.bitmap += ((a[0]?.width | 0) * (a[0]?.height | 0) * 4); });
+  if (window.ImageBitmapRenderingContext) wrapMethod(window.ImageBitmapRenderingContext.prototype, 'transferFromImageBitmap', (_, a) => { tot.bitmaps++; tot.bitmap += ((a[0]?.width | 0) * (a[0]?.height | 0) * 4); });
   // Writes: everything the document sees change, by element and attribute (a MutationObserver cannot name the script that wrote).
   new MutationObserver((list) => {
     for (const m of list) {

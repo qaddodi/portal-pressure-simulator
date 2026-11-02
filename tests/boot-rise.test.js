@@ -64,8 +64,8 @@ test('the loading screen never swaps typeface in view and its mark does not anim
   assert.match(html, /document\.fonts\.load\('600 20px "Source Serif 4"'\)\.then\(n,n\)\}catch\(e\)\{n\(\)\}setTimeout\(n,900\)/);
 });
 
-test('the first screen\'s fonts are loaded under the cover (1.5 s cap, ?fonthold=0 off) and JetBrains Mono is preloaded', () => {
-  assert.match(html, /fonthold=0/);
+test('the first screen\'s fonts are loaded under the cover (1.5 s cap) and JetBrains Mono is preloaded', () => {
+  assert.match(html, /\(function\(\)\{try\{if\(!document\.fonts\|\|!document\.fonts\.load\|\|!window\.Promise\)return;/);
   assert.match(html, /document\.fonts\.load\(x,'Ag0123456789'\)/);
   assert.match(html, /\(window\.ppsHold=window\.ppsHold\|\|\[\]\)\.push\(Promise\.race\(\[load,new Promise\(function\(r\)\{setTimeout\(r,1500\)\}\)\]\)\)/);
   assert.match(html, /preload" href="fonts\/jetbrains-mono-latin\.woff2"/);
