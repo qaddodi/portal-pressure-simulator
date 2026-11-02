@@ -474,6 +474,12 @@ const liveFp = (fr) => fingerprintOf(fr.metrics, { P: fr.Pf || fr.P, Q: fr.Qf ||
 
 // A value counts from where it was to where it goes (eased, about a second); reduced motion jumps.
 // (Tiles glide on the compositor: see tileGlide, on the travelling curve.)
+// (A touch's history of points, [x or time, time or distance] pairs the drags read the last 100 ms of: kept pairs are written in place. A pair that
+// falls out of a window, or past PT_MAX points, is the next point's, so a drag allocates only for its first points.)
+const PT_FREE = [], PT_MAX = 48;
+// alloc-rare: the pool is empty only while a gesture's first points arrive (at most the points in its window)
+const ptNew = (a, b) => { const p = PT_FREE.pop() || [0, 0]; p[0] = a; p[1] = b; return p; };
+const ptPush = (pts, a, b) => { if (pts.length >= PT_MAX) PT_FREE.push(pts.shift()); pts.push(ptNew(a, b)); };
 // R19: a live model frame never writes the tiles while their card moves (a slide's slide or fold): the newest is kept and written
 // once the card is still. A slide's own paint (its arrival, a new set of tiles) is never held.
 // R19: a tile's changing number is drawn on the GPU (gl-words.js: Inter's outlines over the tile's own words, which are made clear and
@@ -487,7 +493,7 @@ function tweener(draw) {
     const from = { ...cur }, t0 = performance.now();
     const step = (now) => {
       const u = ease(clamp((now - t0) / ms, 0, 1));
-      for (const k of Object.keys(to)) cur[k] = from[k] == null || to[k] == null ? to[k] : from[k] + (to[k] - from[k]) * u;
+      for (const k in to) cur[k] = from[k] == null || to[k] == null ? to[k] : from[k] + (to[k] - from[k]) * u;
       draw(cur);
       if (u < 1) raf = nextFrame(step);
     };
@@ -586,6 +592,9 @@ function railBlock() {
 function bigTiles() {
   const el = h('div', { class: 'pz-tiles' });
   let sig = '', parts = [], draw = null, goal = false, tileArgs = null, tileAsk = 0, picT = null, tileRO = null, dead = false;
+  // (The newest paintTiles call's seven arguments, kept in one array written in place: a what-if drag calls it every frame. The paint, a task
+  // between frames, reads them; one pass is asked for however many calls land before it.)
+  const paintAsk = () => { tileAsk = 0; const a = tileArgs; if (a) paintTilesNow(a[0], a[1], a[2], a[3], a[4], a[5], a[6]); };
   // (R19: a tile's number as shown, and set: through its GPU words while the model ticks, into the page at once (now) while a slide's
   // roll is set up or the fit measures.)
   let sync = false;
@@ -744,7 +753,13 @@ function bigTiles() {
       for (const p of parts) { p.vw?.dispose(); p.pic?.dispose(); }
       parts = []; draw = null;
     },
-    paintTiles(...args) { if (dead) return; tileArgs = args; if (!tileAsk) tileAsk = restPass(() => { tileAsk = 0; paintTilesNow(...tileArgs); }); },
+    paintTiles(f, ks, key, ref, ms, tips, live) {
+      if (dead) return;
+      // alloc-rare: made once, with the first call
+      const a = tileArgs || (tileArgs = [0, 0, 0, 0, 0, 0, 0]);
+      a[0] = f; a[1] = ks; a[2] = key; a[3] = ref; a[4] = ms; a[5] = tips; a[6] = live;
+      if (!tileAsk) tileAsk = restPass(paintAsk);
+    },
   };
   function paintTilesNow(f, ks, key = [], ref = null, ms, tips = false, live = false) {
     {
@@ -1355,30 +1370,55 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (Read through the token cache, which a theme change clears: read afresh, it made every catheter frame restyle the page.)
   const wedgeInk = () => cssVar('--tr-wedge');
   function cathTrack(k, to, ms, delay = 0) { cath.tr[k] = { from: cath.v[k], to, t0: performance.now() + delay, ms: reduce.matches ? 0 : ms }; }
+  // (The readings kept between frames: a catheter frame builds nothing. They are made again only when the slide's numbers change
+  // (cath.fp is a new fingerprint); the wedge reading's words are written into its kept object as the column rises, and the list handed
+  // to the stage is one array written in place. The stage reads them in the frame and keeps none of these lists.)
+  // (The catheter's state handed to the stage each frame is one kept object, written in place.)
+  const cathSt = { u: 0, balloon: 0, column: 0, columnColor: '', ring: null, pulse: 0, clock: 0, opacity: 1, labels: null, ostium: false, probe: 0, follow: false };
+  const NO_LABELS = [], cathMemo = { fp: null, fh: NaN, wh: NaN, hv: NaN, L: null, wedge: null, wv: NaN, out: [] };
   function cathLabels() {
-    const f = cath.fp, v = cath.v;
-    if (!f) return [];
-    const sev = hvpgSev(f.hvpg);
-    const free = { key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(f.fhvp, 1), unit: 'mmHg', cls: 'free' };
-    const wedge = { key: 'w', at: 'ahead', kicker: 'WHVP', text: fmt(f.fhvp + (f.whvp - f.fhvp) * v.column, 1), unit: 'mmHg', cls: 'wedge' };
-    const L = { f: free, w: wedge,
-      sum: { key: 's', at: 'sum', rows: [{ ...wedge, text: fmt(f.whvp, 1) }, free], calc: { kicker: 'HVPG', text: fmt(f.hvpg, 1), unit: 'mmHg', cls: 'result ' + sev } },
-      occ: { key: 'p', at: 'tip', kicker: 'Hepatic vein', text: 'Occluded', unit: '', cls: 'wedge' },
-      abort: { key: 'a', at: 'tip', kicker: 'Unable to cannulate', text: 'No reading', unit: '', cls: 'result danger' } };
-    return cath.show.map((k) => L[k]);
+    const f = cath.fp, v = cath.v, m = cathMemo;
+    if (!f) return NO_LABELS;
+    if (m.fp !== f || m.fh !== f.fhvp || m.wh !== f.whvp || m.hv !== f.hvpg) {
+      m.fp = f; m.fh = f.fhvp; m.wh = f.whvp; m.hv = f.hvpg; m.wv = NaN;
+      const sev = hvpgSev(f.hvpg);
+      // alloc-rare: the slide's numbers changed (a new fingerprint), not each frame
+      const free = { key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(f.fhvp, 1), unit: 'mmHg', cls: 'free' };
+      // alloc-rare: the slide's numbers changed (a new fingerprint), not each frame
+      const wedge = { key: 'w', at: 'ahead', kicker: 'WHVP', text: '', unit: 'mmHg', cls: 'wedge' };
+      m.wedge = wedge;
+      // alloc-rare: the slide's numbers changed (a new fingerprint), not each frame
+      const sum = { key: 's', at: 'sum', rows: [{ ...wedge, text: fmt(f.whvp, 1) }, free], calc: { kicker: 'HVPG', text: fmt(f.hvpg, 1), unit: 'mmHg', cls: 'result ' + sev } };
+      // alloc-rare: the slide's numbers changed (a new fingerprint), not each frame
+      const occ = { key: 'p', at: 'tip', kicker: 'Hepatic vein', text: 'Occluded', unit: '', cls: 'wedge' };
+      // alloc-rare: the slide's numbers changed (a new fingerprint), not each frame
+      const abort = { key: 'a', at: 'tip', kicker: 'Unable to cannulate', text: 'No reading', unit: '', cls: 'result danger' };
+      // alloc-rare: the slide's numbers changed (a new fingerprint), not each frame
+      m.L = { f: free, w: wedge, sum, occ, abort };
+    }
+    // (The wedge reading's words follow the column; formatted only when the number moved.)
+    const wv = f.fhvp + (f.whvp - f.fhvp) * v.column;
+    if (wv !== m.wv) { m.wv = wv; m.wedge.text = fmt(wv, 1); }
+    const out = m.out, L = m.L;
+    out.length = 0;
+    for (const k of cath.show) out.push(L[k]);
+    return out;
   }
   function cathFrame() {
     const now = performance.now(), v = cath.v;
-    for (const [k, t] of Object.entries(cath.tr)) {
+    for (const k in cath.tr) {
+      const t = cath.tr[k];
       const u = t.ms ? clamp((now - t.t0) / t.ms, 0, 1) : now >= t.t0 ? 1 : 0;
       v[k] = t.from + (t.to - t.from) * ease(u);
       if (u >= 1) delete cath.tr[k];
     }
     // Three short pushes against the clot (Budd–Chiari), each easing in and back out.
     const pk = cath.probeT0 ? clamp((now - cath.probeT0) / 3600, 0, 1) : 1, probe = pk < 1 ? Math.sin(pk * 3 * Math.PI) ** 2 * 0.9 : 0;
-    stage.setCatheter({ u: v.u, balloon: v.balloon, column: v.column, columnColor: wedgeInk(), ring: cath.ring,
-      pulse: 0.5 + 0.5 * Math.sin((now - cath.t0) / 170), clock: now - cath.t0, opacity: v.opacity, labels: cathLabels(), ostium: cath.ostium, probe,
-      follow: cath.follow });   // (the view drifts after the tip as the stage lays out this frame: catheter, camera, readings)
+    const st = cathSt;
+    st.u = v.u; st.balloon = v.balloon; st.column = v.column; st.columnColor = wedgeInk(); st.ring = cath.ring;
+    st.pulse = 0.5 + 0.5 * Math.sin((now - cath.t0) / 170); st.clock = now - cath.t0; st.opacity = v.opacity; st.labels = cathLabels(); st.ostium = cath.ostium; st.probe = probe;
+    st.follow = cath.follow;
+    stage.setCatheter(st);   // (the view drifts after the tip as the stage lays out this frame: catheter, camera, readings)
     mon?.balloon(v.balloon);   // the monitor's trace rides the same balloon value
     ui?.tools.balloon(v.balloon);   // (and the data card's tracing, on a slide whose tool follows the catheter)
     cath.raf = nextFrame(cathFrame);
@@ -2895,7 +2935,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       });
     }
   }
-  const fpOf = (id) => { const i = slides.findIndex((x) => x.id === id); return i >= 0 ? states[stateOf[i]]?.fp : null; };
+  const fpOf = (id) => { for (let i = 0; i < slides.length; i++) if (slides[i].id === id) return states[stateOf[i]]?.fp; return null; };
   fpAt = fpOf;   // (for {key@slide} in the words: see liveVal)
   // What a deck visuals package's instrument, visual, column or figure hook gets for slide i (slide-ext.js): the slide, its
   // model state (snapshot, params, fingerprint), its extra work (st.extra, see stepOf), the live params (with any what-if slider
@@ -3211,7 +3251,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         : el === ui.data ? (wide && el.classList.contains('col') ? risePx(el, '--pz-lift') : 0) : 0;
     return v ? [0, -v] : null;
   };
-  const riseOn = (name) => (name === '--pz-lift' ? [ui?.data, ui?.lip] : [ui?.text, ui?.shade]);
+  // (The two cards a rise is written on, kept and refilled in place: a rise is written every frame the readings slide.)
+  const riseOn = (() => {
+    const lift = [null, null], words = [null, null];
+    return (name) => { if (name === '--pz-lift') { lift[0] = ui?.data; lift[1] = ui?.lip; return lift; } words[0] = ui?.text; words[1] = ui?.shade; return words; };
+  })();
   const setRise = (name, w) => { const v = w > 0.5 ? `${w.toFixed(1)}px` : ''; for (const el of riseOn(name)) if (el && el.style.getPropertyValue(name) !== v) { if (v) el.style.setProperty(name, v); else el.style.removeProperty(name); } };
   // (The words' card while a card is zoomed: it stays at its tucked, original place, whatever the readings do under the zoom, and the rise
   // owed to them is taken up once the card is back (Mohammad, 28 Oct: "when the stacked cards are zoomed in and i untuck the stacked card, the
@@ -3223,7 +3267,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // the glide's place.)
   const words = { held: false, u: 0, trav: 0, now: 0, anims: [] };
   const wordsAt = () => slip.base + (words.held ? 0 : words.u) * Math.max(0, words.trav - LIP);
-  const stopWords = () => { for (const a of words.anims) a.cancel(); words.anims = []; };
+  const stopWords = () => { for (const a of words.anims) a.cancel(); words.anims.length = 0; };
   const setWords = (w) => { if (Math.abs(w - words.now) > 0.5) stopWords(); words.now = w; setRise('--pz-rise', w); };
   function wordsGlide(ms) {
     const to = wordsAt(), els = [ui?.text, ui?.shade].filter(Boolean), from = els.map((el) => readStyle(el).translate), moves = Math.abs(to - words.now) > 0.5;
@@ -3312,14 +3356,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (Where the closed card goes, read at rest: by the layout, as a glide starts and as a finger lands. A glide's or a drag's frames
   // only write transforms from it, never read the page. Its offsets are the card's resting box: its translate never changes them.)
   const dockRest = () => (dock.vec = ui && !ui.data.hidden ? dockVec() : [0, 0]);
+  const DOCK_ZERO = [0, 0];
+  let rtEl = null, rtX = NaN, rtY = NaN, rtTo = NaN;   // (dockPaint: the rest place last written, and on which card)
   const dockPaint = () => {
     if (!ui) return;
-    const [x, y] = dock.vec || [0, 0];
+    const vec = dock.vec || DOCK_ZERO, x = vec[0], y = vec[1];
     // (A wide screen's stacked pair keeps its rise, --pz-lift, while the card docks: styles/app.css.)
     const ly = wideSheet(ui.data) ? ' - var(--pz-lift, 0px)' : '';
     ui.data.style.translate = dock.lvl ? `${(x * dock.lvl).toFixed(1)}px ${ly ? `calc(${(y * dock.lvl).toFixed(1)}px${ly})` : `${(y * dock.lvl).toFixed(1)}px`}` : '';
     // (Where the glide ends: the camera frames for the card there, util.js translateRest, never where it stands this frame.)
-    ui.data.dataset.restTranslate = `${(x * dock.to).toFixed(1)} ${(y * dock.to).toFixed(1)}`;
+    // (Where it ends is written when the card, its place or its target changes, not on each frame of a glide or a drag.)
+    if (rtEl !== ui.data || rtX !== x || rtY !== y || rtTo !== dock.to) {
+      rtEl = ui.data; rtX = x; rtY = y; rtTo = dock.to;
+      // alloc-rare: only when the card, its rest place or its target changed
+      ui.data.dataset.restTranslate = `${(x * dock.to).toFixed(1)} ${(y * dock.to).toFixed(1)}`;
+    }
     ui.data.classList.toggle('docked', dock.to === 1);
     dockFade(dock.to === 1);
     lipPaint();
@@ -4441,8 +4492,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // and nothing follows.)
   // (camSlide: the slide the view follows a card on; a move to another slide ends it, so the card put back for the new slide never takes
   // the view back to the old slide's framing.)
-  let camSlide = '';
-  const camAt = (u) => { if (!stage.following?.()) return; if (camSlide === `${want}|${gen}` && shown?.i === want) stage.followAt(u); else stage.followEnd?.(); };
+  let camSlide = -1, camSlideGen = -1;   // (the slide's index and generation, as numbers: camAt runs every frame of a slide and builds no key)
+  const camAt = (u) => { if (!stage.following?.()) return; if (camSlide === want && camSlideGen === gen && shown?.i === want) stage.followAt(u); else stage.followEnd?.(); };
   const camKind = () => { const s = figOf(shown.i); return s.visual ? s.cam : s.cam || 'fit'; };
   const camFollowOk = () => !!ui && !!shown && shown.i === want && shown.gen === gen && !(busy && !playing) && !leaving && !booting && !reduce.matches
     && dock.to === 0 && dock.lvl === 0 && !zoomOn() && !reframeT && !(cath.on && cath.cam) && !procRun?.running
@@ -4454,7 +4505,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const vTo = camAim();
     if (!vNow || !vTo || !stage.follow?.(open ? vNow : vTo, open ? vTo : vNow)) return false;
     stage.carryProbe?.();   // (a Doppler probe that shows rides it out)
-    camSlide = `${shown.i}|${shown.gen}`; framedSig = cardSig();
+    camSlide = shown.i; camSlideGen = shown.gen; framedSig = cardSig();
     return true;
   }
   // A finger takes the readings' card at rest: the framing for the other state is worked out with the card turned to it for the measure
@@ -4477,7 +4528,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     d.classList.toggle('tool-open', !open);
     let vOther;
     try { vOther = camAim(); } finally { d.classList.toggle('tool-open', open); if (sliding) d.classList.add('pz-sliding'); placeLip(); ui.lipMO?.takeRecords(); }
-    if (vOther && stage.follow?.(open ? vOther : vNow, open ? vNow : vOther)) { stage.carryProbe?.(); camSlide = `${shown.i}|${shown.gen}`; }
+    if (vOther && stage.follow?.(open ? vOther : vNow, open ? vNow : vOther)) { stage.carryProbe?.(); camSlide = shown.i; camSlideGen = shown.gen; }
   }
   // The camera eases to fit a slide's framing into the space its cards leave (the lobule refits itself on pps:occ).
   function fitAround(s, cam, ms) {
@@ -5025,8 +5076,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       cd.card.c.style.transition = 'none';
     }
     if (e.cancelable) e.preventDefault();
-    cd.pts.push([t.clientX, now]);
-    while (cd.pts.length > 2 && now - cd.pts[0][1] > 100) cd.pts.shift();
+    ptPush(cd.pts, t.clientX, now);
+    while (cd.pts.length > 2 && now - cd.pts[0][1] > 100) PT_FREE.push(cd.pts.shift());
     const c = cd.card.c, w = cd.w;
     cd.card.dx = dx;
     c.style.transform = `translateX(${dx}px) rotate(${(dx / w) * 6}deg)`;
@@ -5117,8 +5168,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (Math.abs(dx) < 8 || Math.abs(dx) <= SWIPE_RATIO * Math.abs(dy) || !pullCan(dx)) return;
       pull = { on: true, x: 0, pts: [] };
     }
-    pull.pts.push([t.clientX, now]);
-    while (pull.pts.length > 2 && now - pull.pts[0][1] > 80) pull.pts.shift();
+    ptPush(pull.pts, t.clientX, now);
+    while (pull.pts.length > 2 && now - pull.pts[0][1] > 80) PT_FREE.push(pull.pts.shift());
     pullTo(dx);
   }, { passive: true, capture: true });
   wrap.addEventListener('touchcancel', () => { sw = null; if (pull) pullLet(false); }, { passive: true, capture: true });
@@ -5149,13 +5200,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (ownsTouch). Upright only: where the card docks sideways its handle is a sideways drag. The figure is read-only while
   // presenting, so its vertical drags are free. (Touch events only, as the slide swipe: a mouse never drags the card.) ──
   let far = null;
+  // (The touch handed to the card is one kept event, written in place; the handlers read it as it is fed and keep none of it.)
+  const farT = { clientX: 0, clientY: 0 }, farLive = [farT], farNone = [], farTouches = [farT], farFlags = { stopped: false, kept: false };
+  const farE = { type: '', target: null, touches: farNone, changedTouches: farTouches, cancelable: true,
+    preventDefault: () => { farFlags.kept = true; }, stopImmediatePropagation: () => { farFlags.stopped = true; } };
   const farFeed = (type, x, y) => {
-    let stopped = false, kept = false;
-    const t = { clientX: x, clientY: y }, live = type === 'touchstart' || type === 'touchmove';
-    const e = { type, target: ui.data, touches: live ? [t] : [], changedTouches: [t], cancelable: true,
-      preventDefault: () => { kept = true; }, stopImmediatePropagation: () => { stopped = true; } };
-    for (const hs of ui.cardTouch) { hs[type]?.(e); if (stopped) break; }
-    return kept;
+    farFlags.stopped = farFlags.kept = false;
+    farT.clientX = x; farT.clientY = y;
+    farE.type = type; farE.target = ui.data; farE.touches = type === 'touchstart' || type === 'touchmove' ? farLive : farNone;
+    for (const hs of ui.cardTouch) { hs[type]?.(farE); if (farFlags.stopped) break; }
+    return farFlags.kept;
   };
   const farLet = (type, x, y) => { const g = far; far = null; if (g?.on && ui) farFeed(type, x ?? g.lx, y ?? g.ly); };
   wrap.addEventListener('touchstart', (e) => {
@@ -5299,7 +5353,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (e.cancelable) e.preventDefault();
       g.dl = along / g.k / comp;
       dock.lvl = clamp(g.lvl0 + g.dl, 0, 1);
-      (g.pts ||= []).push([performance.now(), along]);
+      // alloc-rare: the history is made once, as a drag starts
+      ptPush(g.pts ||= [], performance.now(), along);
       dockPaint();
       // Upright, a pull down on the closed card carried on past where the instrument card rests brings the readings' card out
       // after it, following the same finger (Mohammad, 17 Oct: "when I open I open the main card first but if I keep sliding I
@@ -5353,7 +5408,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (dy: how far the finger has moved since the part began to follow it, down positive.)
     const foldFollow = (gg, dy) => {
       const u = clamp(gg.u0 * gg.full + dy, 0, gg.full) / (gg.full || 1);
-      gg.u = u; gg.pts.push([performance.now(), dy]);
+      gg.u = u; ptPush(gg.pts, performance.now(), dy);
       if (gg.split) { el.classList.add('pz-sliding'); el.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); camAt(u); return; }
       if (gg.xf) { gg.p.style.translate = `0 ${(-(1 - u) * FOLD_SLIDE).toFixed(1)}px`; if (gg.fade) gg.p.style.opacity = u.toFixed(3); }
     };

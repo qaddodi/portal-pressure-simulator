@@ -65,7 +65,7 @@ test('the stage can say where a framing would go without moving, and follows a c
 test('the card\'s every move sets the view: a tap\'s ease, the finger, the end of the slide', () => {
   for (const call of ["liftTo(from); slideTell(); camAt(from);", "d.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); camAt(u); slip.raf", "el.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); camAt(u); return;", "ui.data.classList.remove('pz-sliding'); liftTo(underU(ui.data)); camAt(underU(ui.data));"])
     assert.ok(presenter.includes(call), call);
-  assert.match(presenter, /const camAt = \(u\) => \{ if \(!stage\.following\?\.\(\)\) return; if \(camSlide === `\$\{want\}\|\$\{gen\}` && shown\?\.i === want\) stage\.followAt\(u\); else stage\.followEnd\?\.\(\); \};/, 'another slide ends it');
+  assert.match(presenter, /const camAt = \(u\) => \{ if \(!stage\.following\?\.\(\)\) return; if \(camSlide === want && camSlideGen === gen && shown\?\.i === want\) stage\.followAt\(u\); else stage\.followEnd\?\.\(\); \};/, 'another slide ends it');
 });
 
 test('a tap frames the new state and follows from the view as it stood; a finger works out the other state as it takes the card', () => {

@@ -48,7 +48,7 @@ test('the catheter\'s step moves the camera before its readings are laid out, in
   assert.ok(paint.indexOf('if (st.follow) cathFollow();') > paint.indexOf('cathGL(st, r, tipD, rc)'));
   assert.ok(paint.indexOf('cathLabelsSoon();') > paint.indexOf('if (st.follow) cathFollow();'));
   assert.doesNotMatch(paint, /cathLabels\(\)/);
-  assert.match(read('src/ui/presenter.js'), /follow: cath\.follow \}\);/);
+  assert.match(read('src/ui/presenter.js'), /st\.follow = cath\.follow;\n\s*stage\.setCatheter\(st\);/);
   const hv = read('src/ui/hvpg-proc.js'), pa = read('src/ui/proc-anim.js');
   assert.equal((hv.match(/labels, follow,/g) || []).length, 2);
   // (a treatment follows its tip in only on its first step, once that shot has landed: proc-anim.js, his ask 29 Oct)
