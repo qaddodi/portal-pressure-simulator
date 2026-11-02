@@ -78,7 +78,7 @@ export function boxIn(ctl, btn) {
 // glide into or out of the sinusoid hold the home's centre still on screen). A glide whose control moved in that frame (the view
 // pill: Sinusoid to Lobule takes it from its two-button home to the four-button one) starts from where the piece was drawn on the
 // screen, not from its old numbers in the moved control: those drew it one or two buttons off (on Anatomy, 2 Nov, Mohammad).
-const CENTRED = '.nb-views, .sin-views';
+const CENTRED = '.nb-views';
 export function frameOf(ctl) {
   const p = ctl.parentElement;
   if (!p) return null;

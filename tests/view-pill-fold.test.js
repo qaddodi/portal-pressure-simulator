@@ -102,7 +102,7 @@ test('the fold is wired to every change of the pill\'s buttons, on the zoom\'s c
   assert.match(main, /pillChange\(\(\) => \{ sinBtn\.hidden = sinHide; app\.classList\.toggle\('sin-focus', inSin\); \}\);/);
   // Only compositor work on the buttons: transform, opacity and the row's clip; the face is a box with nothing in it.
   assert.doesNotMatch(motion.match(/export function foldPill[\s\S]*$/)[0], /\b(left|width|margin|padding)\b[^\n]*animate|animate\(\[\{ (left|margin|padding)/);
-  assert.match(css, /:is\(\.nb-views, \.sin-views\) > \.vp-face \{ position: absolute; z-index: -1;[^}]*background: var\(--glass\);/);
+  assert.match(css, /\.nb-views > \.vp-face \{ position: absolute; z-index: -1;[^}]*background: var\(--glass\);/);
   assert.match(main, /h\('span', \{ class: 'vp-face', 'aria-hidden': 'true' \}\)/);
   // A going button's ghost is nothing the page finds (no data-view, so neither the sinusoid view's rule nor any lookup sees it).
   assert.match(motion, /for \(const at of \['data-view', 'title', 'hidden'\]\) g\.removeAttribute\(at\);/);
