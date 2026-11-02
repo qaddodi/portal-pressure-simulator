@@ -94,12 +94,12 @@ test('the row is cut to the face, which at rest is the pill itself', () => {
 test('the fold is wired to every change of the pill\'s buttons, on the zoom\'s clock', () => {
   // (17 Oct, Mohammad: the folding "should be faster and eased".) Quicker than the zoom out (950 ms) and the dive, on the app's ease.
   assert.ok(FOLD_MS >= 300 && FOLD_MS <= 500, `${FOLD_MS} ms`);
-  assert.ok(FOLD_MS < +main.match(/PILL_OUT = (\d+)/)[1] / 2 && FOLD_MS < +stage.match(/RISE_MS = (\d+)/)[1] / 2);
+  assert.ok(FOLD_MS < +read('../src/ui/lobule-zoom.js').match(/ms = \(reduce\.matches \? 280 : on \? \d+ : (\d+)\)/)[1] / 2 && FOLD_MS < +stage.match(/RISE_MS = (\d+)/)[1] / 2);
   assert.equal(FOLD_EASE, read('../styles/tokens.css').match(/--ease-arrive: (cubic-bezier\([^)]*\))/)[1]);
   assert.match(read('../styles/tokens.css'), /--ease: var\(--ease-arrive\);/);
   assert.match(motion, /const opt = \{ duration: ms, easing: FOLD_EASE \}/);
   assert.match(main, /if \(before && box1\) foldPill\(seg, box1, before\);/);
-  assert.match(main, /sinWas !== inSin \? \(inSin \? 'in' : 'out'\) : sinHide \? 'up' : 'down'/);
+  assert.match(main, /pillChange\(\(\) => \{ sinBtn\.hidden = sinHide; app\.classList\.toggle\('sin-focus', inSin\); \}\);/);
   // Only compositor work on the buttons: transform, opacity and the row's clip; the face is a box with nothing in it.
   assert.doesNotMatch(motion.match(/export function foldPill[\s\S]*$/)[0], /\b(left|width|margin|padding)\b[^\n]*animate|animate\(\[\{ (left|margin|padding)/);
   assert.match(css, /:is\(\.nb-views, \.sin-views\) > \.vp-face \{ position: absolute; z-index: -1;[^}]*background: var\(--glass\);/);

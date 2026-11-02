@@ -132,14 +132,14 @@ export function readoutValue(t, m, hidden) {
 // Legacy pane names in content: flow and perfusion live in the readout strip, the pressure profile is the closest pane.
 const ALIAS = { flow: 'profile', perfusion: 'profile', chart: 'profile' };
 // (R11, review pass 2: the readout strip's tiles are not formatted or written while the strip cannot be seen: an instrument in focus,
-// the projector, the sinusoid view (its rule hides the dock). Read from the app's classes, never from layout. The shared shown numbers
+// the projector. (The sinusoid view keeps the dock and its strip, 2 Nov.) Read from the app's classes, never from layout. The shared shown numbers
 // (setShown: the charts and instruments read the tiles' numbers) are still kept; the strip is painted whole the moment it shows.
 // The new path only: no off switch.)
 function stripUnseen() {
   const app = typeof document !== 'undefined' ? document.getElementById('app') : null;
   if (!app) return false;
   const c = app.classList;
-  return c.contains('projector') || c.contains('instrument-focus') || (c.contains('sin-focus') && !document.getElementById('vdock')?.classList.contains('vd-out'));
+  return c.contains('projector') || c.contains('instrument-focus');
 }
 
 /** What this device last had open in the Instruments card (and its size): { open, h, w }, or {} when nothing is saved. */

@@ -148,7 +148,6 @@ test('a tile that leaves the page mid-glide lands on its share, so asking for th
 
 test('the same three easings are clamped at the source', () => {
   assert.match(read('src/ui/util.js'), /const k = clamp\(\(now - t0\) \/ ms, 0, 1\);/);
-  assert.match(read('src/ui/main.js'), /const u = Math\.max\(0, Math\.min\(1, \(now - t0\) \/ ms\)\), e = easeIO3\(u\);/);
   assert.match(stage, /dt = Math\.max\(0, \(now - el\._shAt\) \/ 1000\);/);
   assert.match(stage, /follow2\(el\._sh, el\._shW, T, dt, SHOWN_TAU, SPLIT_EPS\)/);
 });

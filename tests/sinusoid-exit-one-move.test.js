@@ -9,9 +9,9 @@ const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'u
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 
 test('the space that opens as the sinusoid closes re-aims the zoom out, instead of a refit after it lands', () => {
-  // (Why the framing moves: the sinusoid view hides the dock, which every screen's framing keeps clear of.)
-  // (Once it has slid away, main.js sinMotion: it counts as gone from the start of the slide, stage.js and publish.)
-  assert.match(css, /#app\.sin-focus #vdock:not\(\.vd-out\) \{ display: none !important; \}/);
+  // (Why the framing can move: the top bar or a card changing as the sinusoid closes. The dock no longer does: the sinusoid view
+  // keeps it since 2 Nov, so no rule hides it there.)
+  assert.doesNotMatch(css, /#app\.sin-focus #vdock[^{]*\{ display: none/);
   assert.match(lz, /function refit\(\) \{ if \(geo && reaimOut\(\)\) return;/, 'refit re-aims a zoom out under way first');
   const body = lz.match(/function reaimOut\(\) \{([\s\S]*?)\n {2}\}/)[1];
   assert.match(body, /if \(sinTo !== 0 \|\| sinU <= 0 \|\| !sinDive \|\| rubber\) return false;/, 'only on the way out');

@@ -256,16 +256,17 @@ export function createSinusoidView({ host, before = null }) {
     for (const n of [document.documentElement, document.body, document.getElementById('app'), host]) if (n) mo.observe(n, { attributes: true });
   }
   function freeRect(W, H) {
-    // The view has the stage to itself (the dock and the side panels are hidden in it), so their room is not kept.
+    // The side panels are hidden in the view, so their room is not kept; the dock, its timeline and readouts, and the view pill above
+    // it stay (2 Nov, Mohammad), so their room is, as the lobule keeps it (--bot-occ).
     // (--pz-l, --pz-r, --pz-t, --pz-b: the room a presenter slide's text, data and bar take; the credit line, just above
     // the dock or the bar, is kept clear.)
     const t = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 8 + (cssN('--pz-t') ? 0 : 40);
     // (A fixed strip, not the credit's current spot: the credit keeps clear of this view's labels, so a view sized to wherever
     // the credit sat moved the labels, which moved the credit, which resized the view, about once a second for good.)
-    // (Outside a presentation the view switch's pill sits centred at the bottom, its foot the gap plus 8 px up, 42 px tall:
-    // the vein's end, its arrow and its reading stay 8 px above it.)
+    // (Outside a presentation the dock and the view pill above it take --bot-occ: the vein's end, its arrow and its reading stay
+    // 8 px above the pill.)
     const app = document.getElementById('app'), pres = !app || app.classList.contains('presenting');
-    const pill = pres ? 0 : gapPx + 8 + 42 + 8;
+    const pill = pres ? 0 : (cssN('--bot-occ') || gapPx + 8 + 42) + 8;
     const b = H - cssN('--pz-b') - Math.max(34, pill), l = 12 + cssN('--pz-l'), r = W - 12 - cssN('--pz-r');
     return { l: Math.round(l), t: Math.round(t), r: Math.round(Math.max(l + 80, r)), b: Math.round(Math.max(t + 80, b)) };
   }

@@ -1724,9 +1724,6 @@ button.finding { cursor: pointer; }
 /* (The dock too, once it has slid away: main.js sinMotion keeps it shown, out of the framing and out of reach, while it slides
    down off the screen with the zoom into the sinusoid (vd-out), and slides it back up with the zoom out. Its views pill has moved
    to the sinusoid view's own home meanwhile.) */
-#app.sin-focus #vdock:not(.vd-out) { display: none !important; }
-#app.sin-focus #vdock { pointer-events: none; }
-#app.sin-focus .vdock > .nb-views { display: none; }
 #app.sin-focus #btnLayers { pointer-events: none; cursor: default; }
 #app.sin-focus #btnLayers .chev { display: none; }
 .sv-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; color: var(--text-2); transition: opacity var(--d-surface) var(--ease); }
@@ -6476,13 +6473,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* (The painted pill is 30 px; the touch reaches 6 px past it above and below, to the pill's edge, unseen.) */
 :is(.nb-views, .sin-views) #viewSeg button::after { content: ""; position: absolute; inset: -6px 0; }
 :is(.nb-views, .sin-views) #viewSeg button[aria-pressed="true"] { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: none; color: var(--text); }
-/* (The gliding piece, seg-glide.js, wears this look: a 30 px pill tinted with the text colour. Into or out of the sinusoid it travels on the zoom's clock.) */
+/* (The gliding piece, seg-glide.js, wears this look: a 30 px pill tinted with the text colour. While the pill folds it travels on the fold's clock, below.) */
 :is(.nb-views, .sin-views) #viewSeg.seg-glide::before { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: none; border-radius: 15px; }
 @media (forced-colors: none) { :is(.nb-views, .sin-views) #viewSeg.seg-glide button[aria-pressed="true"] { background: transparent; } }
-:is(.nb-views, .sin-views).vp-glide #viewSeg.seg-glide::before { transition-duration: var(--vp-ms, var(--d-camera)); transition-timing-function: var(--ease-move); }
-/* Into or out of the sinusoid (main.js glideViewPill): the pill glides to its new home and the selected button crossfades
-   on the zoom's clock and curve. */
-:is(.nb-views, .sin-views).vp-glide #viewSeg button { transition-duration: var(--vp-ms, var(--d-camera)); transition-timing-function: var(--ease-move); }
 @media (max-width: 359px) { :is(.nb-views, .sin-views) #viewSeg button { padding: 0 10px; font-size: var(--fs-12); } }   /* (the full 14 px pill is 340 px wide with four buttons, so it fits from 360 up) */
 @media (max-width: 299px) { :is(.nb-views, .sin-views) #viewSeg button { padding: 0 6px; } }   /* (Safari's page zoom lays a 390 phone out 260 wide: the pill is 245 px, not 278) */
 /* A phone: the cards (Tests, Treat, Details) and the menus sit above the dock, inset like it, round on every corner. */
@@ -6498,24 +6491,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
   .app.thumb :is(.panel-grab, .sheet-grab) { pointer-events: none; }
   html.thumb-ui .menu.as-sheet { box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); --thumb-bot: max(var(--thumb-occ, 0px), calc(env(safe-area-inset-bottom, 0px) + 6px)); bottom: var(--thumb-bot); max-height: calc(100dvh - var(--thumb-bot) - max(72px, var(--thumb-top, 0px) + 8px)); padding-bottom: 10px; border-radius: var(--r-sheet); }
 }
-/* The sinusoid view hides the dock: its history, play, settings and search come back to the top bar, after the key. */
-#app.thumb.sin-focus .top-right { display: flex !important; margin-left: auto; }
-/* (The key keeps its size: when the three do not fit one row, those four buttons take a second, at the right, rather than
-   squeezing the key to an empty pill as they did on a 390 px phone.) */
-#app.thumb.sin-focus .topbar .stage-bar.top { margin-left: auto; }
-/* (The bar is a size container, so its width ignores the key inside it: "flex: 0 0 auto" left it 0 px wide, the key's card a
-   4 px sliver with its scale spilling out under History. It takes the rest of the first row instead, as in the other views,
-   and never less than a compact key, so on a phone those four buttons go to the second row.) */
-#app.thumb.sin-focus .topbar .stage-bar.top { flex: 1 1 0; min-width: 112px; }
-/* (A phone from 360 px: the key's card on the first row and the buttons' card under it take one width, their edges lined up.) */
-@media (min-width: 360px) and (max-width: 767px), (min-width: 360px) and (max-width: 1100px) and (orientation: portrait) {
-  #app.thumb.sin-focus .topbar .stage-bar.top .sb-right, #app.thumb.sin-focus .top-right { width: 156px; box-sizing: border-box; }
-  #app.thumb.sin-focus .top-right { justify-content: space-between; }
-}
 /* Fit and the circuit's turn upright live in the Layers tab's menu (15 Oct, option 2), so nothing floats over the figure
-   above the dock. The sinusoid view hides the dock: there the zoom group (+, − back to the lobule, Fit) stays at the bottom right. */
-.app.thumb:not(.sin-focus) .zoom-pill { display: none !important; }
-#app.thumb.sin-focus .zoom-pill :is(#zoomIn, #zoomOut) { display: inline-grid !important; }
+   above the dock, the sinusoid view included, which keeps the dock (2 Nov): its view pill goes back out to the lobule. */
+.app.thumb .zoom-pill { display: none !important; }
 /* (The sinusoid view: the zoom group stands upright at the bottom right on every screen, as on a Mac, so the centred view pill
    has the bottom row to itself, even on a 320 px phone.) */
 #app.sin-focus .zoom-pill { flex-direction: column; }
@@ -7017,13 +6995,6 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 }
 @media (max-width: 359px) {
   .app.thumb .topbar .legend { gap: 9px; }   /* (the narrowest phones: 5 px between the caption and the first number) */
-}
-/* The sinusoid view brings history, play, settings and search back to the top bar: they take their own row under the key,
-   at the right, as before, and the key keeps its whole width on the first row, as in the other views. */
-@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
-  #app.thumb.sin-focus .topbar { flex-wrap: wrap; }
-  #app.thumb.sin-focus .topbar .stage-bar.top { flex: 0 1 auto; min-width: min-content; }
-  #app.thumb.sin-focus .topbar .stage-bar.top .sb-right { width: auto; }
 }
 
 /* Reduce Motion (P3): the same keyframes without the movement, so every entrance and exit still fades. (A @keyframes in a
@@ -7666,7 +7637,6 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 }
 .seg-glide.glide-gpu.glide-follow::before { transition-duration: var(--d-flip); }
 .seg-glide.glide-gpu.glide-still::before { transition: none; }
-:is(.nb-views, .sin-views).vp-glide #viewSeg.seg-glide.glide-gpu::before { transition-duration: var(--vp-ms, var(--d-camera)); transition-timing-function: var(--ease-move); }
 /* While the pill folds (pill-motion.js), the highlight moves on the fold's own clock and curve, from where it was drawn to its new
    button, landing with it and inside the face throughout (2 Nov, Mohammad: it went to Anatomy first, outside the pill). */
 :is(.nb-views, .sin-views) #viewSeg.vp-fold.seg-glide.glide-gpu:not(.glide-still)::before { transition-duration: var(--d-surface); transition-timing-function: var(--ease-arrive); }
