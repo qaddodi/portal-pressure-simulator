@@ -1,7 +1,7 @@
 // The FibroScan's elastogram on the GPU: the same map drawElastogram (fibroscan.js) computes pixel by pixel, from the same
 // noise grids and the same formula, one fragment per map pixel. On the CPU a map took 13 to 29 ms (140 to 300 pixels a
-// side), too long for a frame at 120 a second; here it costs a fraction of a millisecond. fibroscan.js falls back to its
-// own loop where WebGL2 is missing or the context is lost.
+// side), too long for a frame at 120 a second; here it costs a fraction of a millisecond. Where WebGL2 is missing or the
+// context is lost there is no map (fibroscan.js keeps the CPU's map only as the checks' reference).
 //
 // One small context serves every FibroScan panel: a map is drawn into it (resized to the map's size) and copied out
 // (drawImage) in the same task.

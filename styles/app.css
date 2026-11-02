@@ -1643,7 +1643,7 @@ button.finding { cursor: pointer; }
 .modal h2 { font-family: var(--font-display); letter-spacing: -.01em; }
 /* Δ halos: where pressure moved most after a change */
 .halo-in { transform: scale(var(--halo-k, 1)); }   /* (its size on screen at any zoom: stage.js applyClampFs) */
-.halo circle { fill: none; stroke-width: 2.5; animation: haloRing 1.5s var(--ease) forwards /*own pace*/; }
+.halo circle { fill: none; stroke-width: 2.5; vector-effect: non-scaling-stroke; transform-box: view-box; transform-origin: 0 0; animation: haloRing 1.5s var(--ease) forwards /*own pace*/; }
 /* The halos as shapes for the GPU painter (stage.js haloShapes, ?halogl=0 off): eased by stage.js haloStep, no CSS animation. */
 .halo.gl .halo-ring { fill: none; stroke: var(--text-2); stroke-width: 2.5; stroke-linejoin: round; }
 .halo.gl .halo-knock { fill: none; stroke: var(--bg); stroke-width: 4; stroke-linejoin: round; }
@@ -1651,7 +1651,7 @@ button.finding { cursor: pointer; }
 .halo circle { stroke: var(--text-2); }
 .halo text { font: 700 var(--fs-16) var(--font-num); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--bg); stroke-width: 4px; animation: haloText 1.5s var(--ease) forwards /*own pace*/; }
 .halo text { fill: var(--text); }
-@keyframes haloRing { 0% { r: 8px; opacity: 0; } 20% { opacity: .9; } 100% { r: 26px; opacity: 0; } }
+@keyframes haloRing { 0% { transform: scale(.5); opacity: 0; } 20% { opacity: .9; } 100% { transform: scale(1.625); opacity: 0; } }   /* (r 8 → 26 as a scale of its r 16, its stroke kept: no r animated) */
 @keyframes haloText { 0% { opacity: 0; } 12%, 70% { opacity: 1; } 100% { opacity: 0; } }   /* (fades in: it appeared in one frame) */
 /* Selection lift: the chosen vessel rises off the page */
 .vg.is-sel .v-shadow { transform: translate(0, 3px); opacity: .5; transition: transform var(--d-flip) var(--ease); }
