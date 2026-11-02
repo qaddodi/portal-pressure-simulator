@@ -2999,6 +2999,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // stacked card behind it"). There the readings' card is tucked behind the instrument card's top edge, its handle on top, and comes out
   // upward: the words' card rises with it and comes back down as it tucks away (Mohammad, 22 Oct: "make so I open the stacked card untuck
   // it to the TOP not to the bottom. Cuz that's easier to pull up and the teaching card goes up"; slip.lift, liftTo).)
+  const UNDER_FIRST = !/[?&]underfirst=0\b/.test(location.search);
   const splitSheet = (d) => !!ui && (ui.root.classList.contains('stack') || ui.root.classList.contains('pz-wide')) && d.classList.contains('pz-sheet');
   const wideSheet = (d) => !!ui?.root.classList.contains('pz-wide') && d.classList.contains('pz-sheet');
   // The readings' card slides out from behind the instrument card and back under it, one solid piece (Mohammad, 17 Oct: "The secondary
@@ -3740,6 +3741,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if ((p || low) && dd0.classList.contains('pz-folds')) dd0.classList.remove('pz-folds');   // (a wider screen's fold, left by a window made narrow)
     // (Mac and iPad landscape too: each slide comes in with its readings tucked, the words whole; they come out on a pull or a tap.)
     if (sheet && dd0.classList.contains('tool-open') && dd0.dataset.openFor !== String(want)) { stopUnder(); dd0.classList.remove('tool-open'); }
+    // (2 Nov 2026: an upright phone's card was planned with the last slide's readings travel (--pz-d) still on it, so its tucked height
+    // came out with its readings counted in (Varices 2 to 3: 434 px for a 213 px card), it was shut (autoDock), and the layout the shut
+    // made, measuring it as it is, opened it again: two layout passes more in the first frames of every such change, and a card that
+    // could slide shut and out again. Their travel is read for the new readings first, as placeLip does at rest. ?underfirst=0: as before.)
+    if (p && UNDER_FIRST && splitSheet(dd0) && !dd0.classList.contains('pz-sliding') && dock.lvl === dock.to && !dock.drag) measureUnder(dd0);
     const phoneCap = p ? phoneTextCap(lockKey, H, k) : null;
     if (phoneCap != null) ui.text.style.maxHeight = `${phoneCap.toFixed(1)}px`;
     if (p) autoDock(phoneShut); else if (!low) autoDock(false);

@@ -273,7 +273,8 @@ test('a stacked card zoomed is never measured: the card answers for where it res
   assert.match(zoomSrc, /r\.el\.style\.transformOrigin = /);
   assert.match(zoomSrc, /r\.el\.getBoundingClientRect = \(\) => \(\{ x: left, y: top, left, top, width, height,/);
   // (Nothing else reads the readings' travel from a box while the card is up: layout is held, and the fold does nothing.)
-  assert.deepEqual([...js.matchAll(/measureUnder\(/g)].length, 4, 'its definition and three callers: the handle, the layout, the fold');
+  // (2 Nov 2026: and the upright phone's plan, before its cap, so the card is planned with the new readings' travel: layout too.)
+  assert.deepEqual([...js.matchAll(/measureUnder\(/g)].length, 5, 'its definition and four callers: the handle, the layout (twice: the phone plan and the pair), the fold');
 });
 
 test('the card zooms while a time-lapse plays or its answer eases in: the slide has landed, only the figure is moving', () => {
