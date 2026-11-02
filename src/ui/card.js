@@ -373,10 +373,9 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   // (R11, review pass 2: the control in use is kept in place by a ResizeObserver on what can push it (the readout above and the rows
   // of the body), whose callback comes after the browser's own layout, so a drag reads no layout in a frame: the old way read the
   // control's place before and after every model frame's live writes, two forced layouts a frame while a slider was held.
-  // ?dragro=0: the reads around every update, as before.)
-  const DRAG_RO = !/[?&]dragro=0\b/.test(location.search) && typeof ResizeObserver === 'function';
+  // The new path only, no off switch.)
   let dragTop = 0;
-  const dragRO = DRAG_RO ? new ResizeObserver(() => {
+  const dragRO = typeof ResizeObserver === 'function' ? new ResizeObserver(() => {
     if (!dragEl?.isConnected) return;
     const t = dragEl.getBoundingClientRect().top, d = t - dragTop, sc = el.querySelector('.ac-scroll');
     if (d && sc) { const s0 = sc.scrollTop; sc.scrollTop = s0 + d; dragTop = t - (sc.scrollTop - s0); } else dragTop = t;
@@ -395,14 +394,8 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
 
   function update() {
     if (!model || el.hidden) return;
-    // The control in use stays exactly where it is: if text came or went above it, scroll the card back by the difference.
-    const held = dragEl && !DRAG_RO;   // (R11: with the observer, nothing is read here)
-    const t0 = held ? dragEl.getBoundingClientRect().top : 0;
+    // (The control in use is kept where it is by dragRO, above: nothing is read here.)
     for (const fn of live) fn();
-    if (held) {
-      const d = dragEl.getBoundingClientRect().top - t0, sc = el.querySelector('.ac-scroll');
-      if (d && sc) sc.scrollTop += d;
-    }
     position();
   }
 

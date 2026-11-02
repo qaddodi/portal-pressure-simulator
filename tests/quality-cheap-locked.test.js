@@ -11,7 +11,7 @@ test('the tiers\' targets are made once and kept through canvas resizes and tier
   const src = veins.slice(veins.indexOf('  function lowTargets(w, h) {'), veins.indexOf('  function lowPass(m, look) {'));
   let made = 0, pw = 1000, ph = 800;
   const gl = { FRAMEBUFFER: 1, TEXTURE_2D: 2, createFramebuffer: () => ({}), bindFramebuffer() {}, bindTexture() {}, texImage2D() { made++; }, framebufferTexture2D() {}, drawBuffers() {}, texParameteri() {}, TEXTURE_MIN_FILTER: 3, TEXTURE_MAG_FILTER: 4, LINEAR: 5 };
-  const env = { gl, PREALLOC: true, LOW_DIRECT: true, ATTACH: [0, 1, 2], dataTex: () => ({}), layerFmt: () => [[0, 0, 0], [0, 0, 0], [0, 0, 0]], PW: () => pw, PH: () => ph, lowTop: 0.85, lowMade: 0, lw: { fbo: null, tex: null, w: 0, h: 0, pw: 0, ph: 0 } };
+  const env = { gl, PREALLOC: true, ATTACH: [0, 1, 2], dataTex: () => ({}), layerFmt: () => [[0, 0, 0], [0, 0, 0], [0, 0, 0]], PW: () => pw, PH: () => ph, lowTop: 0.85, lowMade: 0, lw: { fbo: null, tex: null, w: 0, h: 0, pw: 0, ph: 0 } };
   const lowTargets = new Function('env', `with (env) { ${src} return lowTargets; }`)(env);
   lowTargets(850, 680);
   assert.equal(made, 3, 'made once (three attachments)');

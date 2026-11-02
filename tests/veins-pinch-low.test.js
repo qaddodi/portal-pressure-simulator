@@ -90,7 +90,7 @@ test('on, a hand zooming: each zoom frame drawn lower and stretched; the stop dr
   const ms = pinch(1, 1.02, 3);
   assert.deepEqual(frames(g, f, look, ms), ['lower', 'lower', 'lower']);
   const c = f.calls.slice(n0);
-  // (R10, review pass 2: the small targets are read by the composite as they are, ?lowdirect=0 stretches them back as before: no
+  // (R10, review pass 2: the small targets are read by the composite as they are: no
   // full-size blit on a tier frame.)
   assert.equal(blitsIn(f, n0).length, 0, 'nothing stretched into the full-size layer');
   void gl;

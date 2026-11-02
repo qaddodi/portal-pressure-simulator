@@ -133,8 +133,7 @@ const ALIAS = { flow: 'profile', perfusion: 'profile', chart: 'profile' };
 // (R11, review pass 2: the readout strip's tiles are not formatted or written while the strip cannot be seen: an instrument in focus,
 // the projector, the sinusoid view (its rule hides the dock). Read from the app's classes, never from layout. The shared shown numbers
 // (setShown: the charts and instruments read the tiles' numbers) are still kept; the strip is painted whole the moment it shows.
-// ?stripseen=0: painted whatever shows, as before.)
-const STRIP_SEEN = !(typeof location !== 'undefined' && /[?&]stripseen=0\b/.test(location.search || ''));
+// The new path only: no off switch.)
 function stripUnseen() {
   const app = typeof document !== 'undefined' ? document.getElementById('app') : null;
   if (!app) return false;
@@ -289,7 +288,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     paintStrip(frame);
   }
   function paintStrip(f, follow = false) {
-    const unseen = STRIP_SEEN && stripUnseen();
+    const unseen = stripUnseen();
     if (unseen && !stripObs && typeof MutationObserver === 'function') {
       // (one record per class change of the app or the dock, no layout read: the strip is painted as it shows again)
       stripObs = new MutationObserver(stripSeen);

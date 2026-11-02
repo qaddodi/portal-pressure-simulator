@@ -2339,7 +2339,6 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // fboOK: the vessel layer holds a whole draw of the current geometry, radii and organ covers, at baseM, so a redraw of
   // some of its cells (drawRows) leaves it exactly as a whole draw would. Cleared by anything else the vessel pass reads.
   let fboOK = false;
-  const LOW_DIRECT = !(typeof location !== 'undefined' && /[?&]lowdirect=0\b/.test(location.search || ''));
   let lowLive = null;
   // The layer at w × h for the picture as it is now (its targets made again only when w or h changed).
   function ensureFBO(w, h) {
@@ -2902,8 +2901,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let lowK = 0, lowOn = false, soft = false, lowTop = 0, lowMade = 0;   // (lowMade: how often the tiers' targets were made, R10)
   // (R10, review pass 2: a tier frame's small targets are read by the composite as they are (lowLive: the tier's [w, h] while they hold
   // the layer), not stretched into the full-size layer by three blits first: the layer's full-size writes are gone from a tier frame. Any
-  // other draw into the layer lets them go (draw, layOut, trim). ?lowdirect=0: blitted up, as before.)
-  // (LOW_DIRECT and lowLive are declared with fboOK, above: the layer's own functions use them.)
+  // other draw into the layer lets them go (draw, layOut, trim). The new path only, no off switch.)
+  // (lowLive is declared with fboOK, above: the layer's own functions use it.)
   const lw = { fbo: null, tex: null, w: 0, h: 0, pw: 0, ph: 0 };
   function lowTargets(w, h) {
     if (!lw.fbo) { lw.fbo = gl.createFramebuffer(); lw.tex = ATTACH.map(() => dataTex(gl)); }
@@ -2918,7 +2917,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       const fmt = layerFmt();
       lw.tex.forEach((t, i) => { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, fmt[i][0], lw.w, lw.h, 0, fmt[i][1], fmt[i][2], null); gl.framebufferTexture2D(gl.FRAMEBUFFER, ATTACH[i], gl.TEXTURE_2D, t, 0); });
       // (the colour read filtered by the composite on a tier frame, as the blit up filtered it; the integers stay nearest)
-      if (LOW_DIRECT) { gl.bindTexture(gl.TEXTURE_2D, lw.tex[0]); for (const k of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, k, gl.LINEAR); }
+      { gl.bindTexture(gl.TEXTURE_2D, lw.tex[0]); for (const k of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, k, gl.LINEAR); }
       gl.drawBuffers(ATTACH);
     }
   }
@@ -2934,24 +2933,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.disable(gl.SCISSOR_TEST);
     if (!cleared) clearLayer();
     vesselPass([m[0] * kx, m[1] * ky, m[2] * kx, m[3] * ky, m[4] * kx, m[5] * ky], look, [vao, nGen], [oneVAO, nSimple], false, false, [w, h]);
-    if (LOW_DIRECT) { lowLive = [w, h]; wrapNone(); return; }   // (R10: read as they are by the composite, compBind)
-    lowUp(w, h);
-  }
-  // The small targets stretched into the layer (each attachment, the colour filtered): the old way, and still the way for a program
-  // that cannot read them in place (compBind; R10).
-  function lowUp(w, h) {
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, lw.fbo);
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbo);
-    for (let i = 0; i < ATTACH.length; i++) {
-      gl.readBuffer(ATTACH[i]);
-      gl.drawBuffers(ATTACH.map((a, j) => (j === i ? a : gl.NONE)));
-      gl.blitFramebuffer(0, 0, w, h, 0, 0, fboW, fboH, gl.COLOR_BUFFER_BIT, i === 0 ? gl.LINEAR : gl.NEAREST);
-    }
-    gl.drawBuffers(ATTACH);
-    gl.readBuffer(gl.COLOR_ATTACHMENT0);
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-    wrapNone();   // (the layer laid whole, each pixel where it shows)
+    lowLive = [w, h]; wrapNone();   // (R10: read as they are by the composite, compBind)
   }
   function lowFree() {
     lowLive = null;
