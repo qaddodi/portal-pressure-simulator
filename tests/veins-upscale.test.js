@@ -124,9 +124,9 @@ test('the stage: off, the canvas and its early return are as before; on, the can
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   const fn = stage.slice(stage.indexOf('  function resizeCanvas() {'), stage.indexOf('  new ResizeObserver(resizeCanvas).observe(wrap);'));
   assert.match(fn, /else if \(figLab\('upscale'\) && veins\?\.setPicture && !SOFTWARE && vdpr < base - 1e-9\) \{ bw = Math\.max\(1, Math\.round\(r\.width \* base\)\); bh = Math\.max\(1, Math\.round\(r\.height \* base\)\); \}/);
-  assert.match(fn, /const pic = bw !== pw \|\| bh !== ph \? \[pw, ph\] : null;/);
-  assert.match(fn, /if \(resizeReady && bw === vCanvas\.width && bh === vCanvas\.height && vdpr === was && `\$\{pic\}` === `\$\{picNow\}` && lin === picLin\) \{/, 'off: pic and picNow both null, the old test');
-  assert.match(fn, /if \(pic \|\| picNow\) \{ picNow = pic; picLin = lin; veins\?\.setPicture\?\.\(pic, lin\); \}/, 'off: never called');
+  assert.match(fn, /const pic = bw !== pw \|\| bh !== ph \? picNext : null;\n\s+if \(pic\) \{ pic\[0\] = pw; pic\[1\] = ph; \}/);
+  assert.match(fn, /if \(resizeReady && bw === vCanvas\.width && bh === vCanvas\.height && vdpr === was && \(pic \? !!picNow && pic\[0\] === picNow\[0\] && pic\[1\] === picNow\[1\] : !picNow\) && lin === picLin\) \{/, 'off: pic and picNow both null, the old test');
+  assert.match(fn, /if \(pic \|\| picNow\) \{ if \(pic\) \{ picKept\[0\] = pic\[0\]; picKept\[1\] = pic\[1\]; picNow = picKept; \} else picNow = null; picLin = lin; veins\?\.setPicture\?\.\(pic, lin\); \}/, 'off: never called');
   // (The overlays on the GPU, wherever the GPU draws them: the canvas at the screen's density, the picture upscaled by a plain filtered copy.)
   // (At most the pixel budget since 1 Nov 2026: capDensity, gpu-fallback-guards.test.js.)
   assert.match(fn, /let full = veins\?\.overlay && \(!SOFTWARE \|\| OVER_ASK\) \? devicePixelRatio \|\| 1 : 0;\n[\s\S]*?full = capDensity\(full, r\.width, r\.height, figOpt\('cap'\)\);\n\s+let lin = false;\n\s+if \(full && vdpr < full - 1e-9\) \{ bw = Math\.max\(1, Math\.round\(r\.width \* full\)\); bh = Math\.max\(1, Math\.round\(r\.height \* full\)\); lin = !figLab\('upscale'\); \}/);

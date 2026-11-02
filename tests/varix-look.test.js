@@ -112,7 +112,7 @@ test('a real change in the varix is followed: a jump at once, a drift within sec
 
 test('stage.js draws the varices\' channels by it: width (anatomy, not the flow lens, not a closed shunt, never under the resting caliber), strands, opacity', () => {
   assert.match(stage, /import \{ LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity \} from '\.\/varix-look\.js/);
-  assert.match(stage, /const varixS = \{ VAR: varixSize\('VAR', varixHold\(varixHeld\.VAR, f\.metrics\?\.varix\?\.d\)\), GV: varixSize\('GV', varixHold\(varixHeld\.GV, f\.metrics\?\.gastricVarix\?\.d\)\) \};/);
+  assert.match(stage, /varixS\.VAR = varixSize\('VAR', varixHold\(varixHeld\.VAR, f\.metrics\?\.varix\?\.d\)\); varixS\.GV = varixSize\('GV', varixHold\(varixHeld\.GV, f\.metrics\?\.gastricVarix\?\.d\)\);/);
   assert.match(stage, /if \(LOOK_SITE\[e\.id\] && mode !== 'flow' && !isOccluded\(p, e\.id\)\) w = Math\.max\(Math\.min\(w, vesselPx\(dMinOf\(e\)\)\), w \* lerp\(varixWidthK\(varixS\[LOOK_SITE\[e\.id\]\]\), 1, t\)\);/);
   assert.match(stage, /LOOK_SITE\[e\.id\] \? varixOpacity\(varixS\[LOOK_SITE\[e\.id\]\]\) : 1\)/);
   assert.match(stage, /const fan = sd\.off \* \(1 - t\) \* \(g\.spr \?\? 1\);/);

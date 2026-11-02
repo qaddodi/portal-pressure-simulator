@@ -66,7 +66,7 @@ test('the refits to cards that moved are steady: the presenter\'s, the catheter\
   assert.match(fn(stage, 'function cathFocus('), /\{ both = false, near = false, arc = false, steady = false \}/);
   assert.equal((fn(stage, 'function cathFocus(').match(/steady/g) || []).length, 3, 'a treatment\'s shots and the route\'s framing pass it on');
   assert.match(proc, /refit\(ms = 700\) \{[^\n]*stage\.cathFocus\(shot, ms, \{ steady: true \}\)/);
-  assert.match(stage, /animateVT\(d, 400, \{ steady: true \}\)/, 'the home look');
+  assert.match(stage, /const OPT_STEADY = \{ steady: true \};[\s\S]*animateVT\(d, 400, OPT_STEADY\)/, 'the home look');
   assert.match(fn(stage, 'function refitRead('), /animateVT\(to, 420, \{ steady: true \}\)/, 'the Tests card\'s refit');
 });
 

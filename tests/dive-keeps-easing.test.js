@@ -72,9 +72,9 @@ test('no organ picture is dropped or swapped mid-zoom: it is made once the dive 
 });
 
 test('Figure resolution never changes the canvas mid-zoom: no fade copy that stands still, no soft rise from While moving', () => {
-  assert.match(fn('  function settleRes() {'), /if \(!leftAlone\(280\) \|\| vtGliding \|\| \(diveT > 0 && diveT < 1\)\) \{ autoT = setTimeout\(settled, 120\); return; \}/);
+  assert.match(fn('  function resSettled() {'), /if \(!leftAlone\(280\) \|\| vtGliding \|\| \(diveT > 0 && diveT < 1\)\) \{ autoT = setTimeout\(resSettled, 120\); return; \}/);
   assert.match(st, /if \(resizeReady && !moveLow && figOpt\('move'\) < 1 && !\(diveT > 0\)\) \{ moveLow = true;/);
-  assert.match(fn('  function easeRes() {'), /!\(lz\?\.isOpen\(\) \|\| lz\?\.covers\(\)\) && !diveOrig\) \{\n[^\n]*\n[^\n]*\n\s+frostHold = true;\n\s+try \{ glassGL\?\.release\(\); paneGL\?\.release\(\); fadeOver\(vCanvas, resFollow, \(\) => veins\?\.present\?\.\(\), veins && !veins\.lost \? veins\.top : null, \{ w: boxW, h: boxH \}\); \} finally \{ frostHold = false; \}/);
+  assert.match(fn('  function easeRes() {'), /!\(lz\?\.isOpen\(\) \|\| lz\?\.covers\(\)\) && !diveOrig\) \{\n[^\n]*\n[^\n]*\n\s+frostHold = true;\n\s+try \{ glassGL\?\.release\(\); paneGL\?\.release\(\); fadeBox\.w = boxW; fadeBox\.h = boxH; fadeOver\(vCanvas, resFollow, veinsPresent, veins && !veins\.lost \? veins\.top : null, fadeBox\); \} finally \{ frostHold = false; \}/);
   // (The cards' glass is kept through the fade, never flat for it, and never let go for it.)
   assert.doesNotMatch(st, /RES_FROST|resfrost=|for \(const g of cardGLs\) g\.release\(\)/);
   assert.match(st, /if \(!cards && fading\(vCanvas\)\) return 'the canvas is fading \(a resolution change\)';/);

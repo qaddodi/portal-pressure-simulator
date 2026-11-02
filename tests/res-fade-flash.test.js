@@ -29,7 +29,7 @@ test('without a renderer to mix in, or without its box, the change is taken at o
 
 test('stage.js gives the fade the box it last laid the canvas out at', () => {
   const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(st, /fadeOver\(vCanvas, resFollow, \(\) => veins\?\.present\?\.\(\), veins && !veins\.lost \? veins\.top : null, \{ w: boxW, h: boxH \}\);/);
+  assert.match(st, /fadeBox\.w = boxW; fadeBox\.h = boxH; fadeOver\(vCanvas, resFollow, veinsPresent, veins && !veins\.lost \? veins\.top : null, fadeBox\);/);
 });
 
 test('oldPlace: the old picture stays where it showed, through the canvas’s sub-pixel translate and a moving view', () => {

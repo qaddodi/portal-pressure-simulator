@@ -47,8 +47,8 @@ test('holdMotion: the longest hold wins, and afterMotion runs once it is over', 
 test('the zooms, the lobule crossfades and the cards use it', () => {
   const stage = read('src/ui/stage.js'), lz = read('src/ui/lobule-zoom.js'), pz = read('src/ui/presenter.js'), fr = read('src/ui/frame.js');
   assert.match(fr, /export const PACED = true;/);
-  assert.match(stage, /const t0 = PACED \? easeNow\(\) : performance\.now\(\);\s*const step = \(now, end = false\)/);
-  assert.match(stage, /afterMotion\(\(\) => \{ if \(lobuleOn && lz\.isOpen\(\)\) platePoke\(\); \}\)/);
+  assert.match(stage, /const t0 = PACED \? easeNow\(\) : performance\.now\(\);\s*lobOn = on;[\s\S]*function lobuleStep\(now, end = false\)/);
+  assert.match(stage, /const lobulePoke = \(\) => \{ if \(lobuleOn && lz\.isOpen\(\)\) platePoke\(\); \};\s*const lobuleRasterSoon = \(\) => afterMotion\(lobulePoke\);/);
   assert.match(lz, /const xfNow = \(now\) => \(PACED \? easeNow\(\) : now\);/);
   assert.doesNotMatch(lz, /xfT0 = now;|surT0 = now;|now - xfT0/);
   assert.match(lz, /\(\(PACED \? easeNow\(\) : now\) - t0\) \/ ms/);

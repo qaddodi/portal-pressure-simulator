@@ -61,7 +61,7 @@ test('the rise out of a zoomed-in lobule shrinks it whole, whichever way out', (
   assert.match(lz, /focusOn\(part, \{ zoom = 2, ms = 1400, ease = 'inOut' \} = \{\}\) \{[\s\S]*?const moved = [^\n]*> 0\.5;[\s\S]*?return moved;/, 'it waits whenever the view moves');
   // Every other way out (back to healthy, the view buttons, a key) from a zoomed-in view: the whole copy, before the rise's clock.
   const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.ok(st.indexOf('lz.stageRise();') > 0 && st.indexOf('lz.stageRise();') < st.indexOf('const t0 = PACED ? easeNow() : performance.now();\n    const step = (now, end = false) => {\n      const e0 = ms && !end ?'), 'built before the rise is timed');
+  assert.ok(st.indexOf('lz.stageRise();') > 0 && st.indexOf('lz.stageRise();') < st.indexOf('const t0 = PACED ? easeNow() : performance.now();\n    lobOn = on;'), 'built before the rise is timed');
   assert.match(st, /riseFast = true;\n\s+lz\.stageRise\(\);/);
   // The way back to the fit reaches it still moving (eased in only, Mohammad 20 Oct: Circulation 9 to 10 stopped midway), quick enough
   // to meet the rise at about its own speed, and the rise moves from its first frame.

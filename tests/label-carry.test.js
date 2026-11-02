@@ -61,7 +61,7 @@ test('a big move, or one across the zoom levels the labels turn on, keeps the fa
 });
 
 test('animateVT decides the carry after the arc, and a carry rides as a slow push does, without the fade', () => {
-  const fn = stage.match(/function animateVT\(to, ms = 700, opt = \{\}\) \{[\s\S]*?\n {2}\}\n/)[0];
+  const fn = stage.match(/function animateVT\(to, ms = 700, opt = NO_OPT\) \{[\s\S]*?\n {2}\}\n/)[0];
   assert.match(fn, /const carry = !drift && !arcRun && !sameView\(from, to\) && carryable\(from, to\);/);
   assert.ok(fn.indexOf('const carry =') > fn.indexOf('arcRun = { from, to, t0, ms, at }'), 'after the arc is known');
   assert.match(fn, /if \(carry\) \{ drifting = carrying = true; rideLeaders\(true\); \}\n\s+else if \(carrying\) \{ carrying = false; rideLeaders\(false\); \}/);

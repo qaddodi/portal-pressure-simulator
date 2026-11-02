@@ -43,7 +43,7 @@ test('the anatomy canvas, the lobule and the sinusoid read it; the instruments a
   const stage = src('stage.js');
   assert.match(stage, /vdpr = base \* figShare\(r\.width, r\.height, base\);/);
   assert.match(stage, /let k = \(renderSetting\(\) === 'auto' \? autoK : renderScale\(\)\) \* \(moveLow \? figOpt\('move'\) : 1\) \* adaptK;/);
-  assert.match(stage, /onRenderScale\(\(\) => \{ autoK = autoNow\(\); moveLow = false; adaptK = 1; moveGaps = \[\]; easeRes\(\); veinsDirty = true; forceDraw = true; stageWake\(\); settleRes\(\); \}\)/);
+  assert.match(stage, /onRenderScale\(\(\) => \{ autoK = autoNow\(\); moveLow = false; adaptK = 1; moveGaps\.length = 0; easeRes\(\); veinsDirty = true; forceDraw = true; stageWake\(\); settleRes\(\); \}\)/);
   assert.equal(src('lobule-zoom.js').split('* lzScale()').length - 1, 5);   // (draw; paintAhead reads draw's own; spareMake; rimOnGPU, the dive's rim drawn on the GPU; buildWideGL, the wide copy on the GPU. The 2D ones went 1 Nov)
   assert.equal(src('sinusoid-view.js').split('* svScale()').length - 1, 1);
   for (const f of ['util.js', 'label-gl.js', 'glass-gl.js', 'instruments.js']) assert.ok(!src(f).includes('renderScale'), f);
@@ -85,7 +85,7 @@ test('Auto: 1/zoom past the home framing, in steps down to 10%, changed only onc
 test('every resize for a share goes through easeRes; the copy is laid over first, then the canvas is resized', () => {
   const stage = src('stage.js');
   const fn = stage.slice(stage.indexOf('function easeRes('), stage.indexOf('// (The canvas\'s share of its pixels:'));
-  const at = fn.indexOf('fadeOver(vCanvas, resFollow, () => veins?.present?.(), veins && !veins.lost ? veins.top : null, { w: boxW, h: boxH })');
+  const at = fn.indexOf('fadeOver(vCanvas, resFollow, veinsPresent, veins && !veins.lost ? veins.top : null, fadeBox)');
   assert.ok(at >= 0 && at < fn.indexOf('resizeCanvas()'), 'copied before the resize clears it, the kept picture put on the canvas for each read');
   assert.ok(!/moveLow = true; resizeCanvas\(\)/.test(stage) && !/autoK = k; moveLow = false; resizeCanvas\(\)/.test(stage), 'no share change resizes without the fade');
   assert.match(src('../../styles/app.css'), /\.stage-view\.in-lobule \.res-fade/);
@@ -94,7 +94,7 @@ test('every resize for a share goes through easeRes; the copy is laid over first
 test('resFollow: the old picture moves from the transform it was drawn in to the one drawn now', () => {
   const stage = src('stage.js');
   const body = stage.slice(stage.indexOf('function resFollow('), stage.indexOf('function easeRes('));
-  const follow = (m0, m1) => new Function('fadeM0', 'glM', `${body}; return resFollow();`)(m0, m1);
+  const follow = (m0, m1) => new Function('fadeM0', 'glM', 'resFollowOut', `${body}; return resFollow();`)(m0, m1, [0, 0, 0, 0, 0, 0]);
   assert.deepEqual(follow([2, 0, 0, 2, 10, 20], [2, 0, 0, 2, 10, 20]), [1, 0, 0, 1, 0, 0]);
   // (zoomed in twice and panned: a world point drawn at p then is at 2p + t now)
   assert.deepEqual(follow([1, 0, 0, 1, 5, 5], [2, 0, 0, 2, 3, -4]), [2, 0, 0, 2, -7, -14]);
@@ -162,7 +162,7 @@ test('While moving drops the canvas once per move and back once it settles; the 
 test('Adapt: one step a move, down when frames ran half again as long as the fastest, up when they kept pace', () => {
   const stage = src('stage.js');
   const body = stage.slice(stage.indexOf('function adaptStep('), stage.indexOf('function noteMoveFrame('));
-  const run = (gaps, k0, fast = null, on = true) => new Function('figOpt', 'AUTO_STEPS', 'g0', 'k0', 'f0', `let moveGaps = g0, adaptK = k0, fastGap = Infinity, fastGaps = f0; ${body}; adaptStep(); return [adaptK, fastGap, moveGaps.length];`)(
+  const run = (gaps, k0, fast = null, on = true) => new Function('figOpt', 'AUTO_STEPS', 'g0', 'k0', 'f0', `let moveGaps = g0, adaptK = k0, fastGap = Infinity, fastGaps = f0; const moveGapsSorted = [], byValue = (a, b) => a - b; ${body}; adaptStep(); return [adaptK, fastGap, moveGaps.length];`)(
     () => on, [1, 0.75, 0.5, 0.35, 0.25, 0.18, 0.14, 0.1], gaps, k0, fast == null ? [] : [fast]);
   const steady = (ms, n = 40) => Array(n).fill(ms);
   assert.deepEqual(run(steady(8.3), 1), [1, 8.3, 0], 'keeping pace at Full: stays');
@@ -216,7 +216,7 @@ test('res-fade mixes old × a + new × (1 − a) on the GPU, the new picture who
 test('Adapt learns the screen again: after a few moves at 60 a second, 60 is the pace, and the figure steps back up', () => {
   const stage = src('stage.js');
   const body = stage.slice(stage.indexOf('function adaptStep('), stage.indexOf('function noteMoveFrame('));
-  const sim = new Function('figOpt', 'AUTO_STEPS', `let moveGaps = [], adaptK = 1, fastGap = Infinity, fastGaps = []; ${body};
+  const sim = new Function('figOpt', 'AUTO_STEPS', `let moveGaps = [], adaptK = 1, fastGap = Infinity, fastGaps = []; const moveGapsSorted = [], byValue = (a, b) => a - b; ${body};
     const move = (ms) => { moveGaps = Array(40).fill(ms); adaptStep(); return adaptK; };
     return { move, k: () => adaptK, fast: () => fastGap };`)(() => true, [1, 0.75, 0.5, 0.35, 0.25, 0.18, 0.14, 0.1]);
   sim.move(8.3);   // (a 120 Hz screen)
@@ -245,8 +245,8 @@ test('Below Full the canvas is moved by the part of a canvas pixel the renderer 
 test('A dive takes the canvas over at once from a resolution fade', () => {
   const stage = src('stage.js');
   const fade = stage.slice(stage.indexOf('function setDiveFade('), stage.indexOf('function setDiveFade(') + 600);
-  assert.ok(fade.indexOf('fadeStop(vCanvas)') > 0 && fade.indexOf('fadeStop(vCanvas)') < fade.indexOf('for (const el of diveEls())'));
-  assert.match(stage, /el\.style\.transformOrigin = o; \}\n\s*fadeStop\(vCanvas\);/);
+  assert.ok(fade.indexOf('fadeStop(vCanvas)') > 0 && fade.indexOf('fadeStop(vCanvas)') < fade.indexOf('const els = diveEls();'));
+  assert.match(stage, /el\.style\.transformOrigin = b\[i\]\[1\]; \}\n\s*fadeStop\(vCanvas\);/);
   assert.match(src('res-fade.js'), /export function fadeStop\(canvas\) \{ const f = fades\.get\(canvas\); if \(f\) endGpu\(canvas, f\); \}/);
 });
 

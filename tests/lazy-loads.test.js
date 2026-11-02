@@ -47,7 +47,7 @@ test('the stage builds the lobule layer when its code has come, in the place in 
   const stage = read('stage.js');
   assert.doesNotMatch(stage, /^import .*lobule-zoom/m, 'no static import');
   assert.match(stage, /const lzAnchor = document\.createComment\('lobule'\);\s*\n\s*wrap\.append\(lzAnchor\);/, 'a marker takes the layer\'s place where it was built');
-  assert.match(stage, /lz = createLobuleZoom\(\{ host: wrap, styles: wrapCS, before: lzAnchor, binAway: \(tubes, joins\) => sweepBin\(\{ kind: 'bin', tubes, joins \}\) \}\)/);   // (binAway: its network binned in the stage's worker, cold-start 2 Nov 2026)
+  assert.match(stage, /const lzOptions = \{ host: wrap, styles: wrapCS, before: lzAnchor, binAway: lzBinAway \};[\s\S]*lz = createLobuleZoom\(lzOptions\)/);   // (binAway: its network binned in the stage's worker, cold-start 2 Nov 2026)
   const lobule = read('lobule-zoom.js'), view = read('sinusoid-view.js');
   assert.match(lobule, /host\.insertBefore\(field, before\); host\.insertBefore\(el, before\);/);
   assert.match(lobule, /createSinusoidView\(\{ host, before \}\)/, 'the sinusoid view sits in the same place');
@@ -59,18 +59,20 @@ test('the stage builds the lobule layer when its code has come, in the place in 
 test('a dive asked for before the layer exists goes on when it does, with the slide\'s aim and the frame as they stand', () => {
   const stage = read('stage.js');
   const open = stage.slice(stage.indexOf('function openLobule('), stage.indexOf('function closeLobule()'));
-  assert.match(open, /if \(!lz\) \{\s*\n\s*if \(!lzWaiting\) \{[\s\S]*?lobuleReady\(\)\.then\(\(\) => \{ lzWaiting = false; if \(store\.get\(\)\.lobule\) openLobule\(\); \}/);
-  assert.ok(open.indexOf("store.set({ view: 'anatomic' })") < open.indexOf('if (!lz)'), 'the view turns to the anatomy while the code loads');
-  assert.match(open, /store\.set\(\{ lobule: false, sinusoid: false \}\)/, 'a load that fails puts the switch back');
-  const ready = stage.slice(stage.indexOf('function lobuleReady()'), stage.indexOf('// ── Detail'));
-  assert.ok(ready.indexOf('lz.aim(...aimWait)') > ready.indexOf('createLobuleZoom(') && ready.indexOf('lz.update(F)') > ready.indexOf('lz.aim('));
+  assert.match(open, /if \(!lz\) \{\s*\n\s*if \(!lzWaiting\) \{[\s\S]*?lobuleReady\(\)\.then\(lobuleArrived, lobuleNotArrived\)/);
+  assert.match(open, /const lobuleArrived = \(\) => \{ lzWaiting = false; if \(store\.get\(\)\.lobule\) openLobule\(\); \};/);
+  assert.ok(open.indexOf("store.set1('view', 'anatomic')") < open.indexOf('if (!lz)'), 'the view turns to the anatomy while the code loads');
+  assert.match(open, /const LOBULE_OFF_BOTH = \{ lobule: false, sinusoid: false \};[\s\S]*store\.set\(LOBULE_OFF_BOTH\)/, 'a load that fails puts the switch back');
+  const ready = stage.slice(stage.indexOf('const lobuleBuilt ='), stage.indexOf('// ── Detail'));
+  assert.ok(ready.indexOf('lz.aim(aimWait[0], aimWait[1])') > ready.indexOf('createLobuleZoom(') && ready.indexOf('lz.update(F)') > ready.indexOf('lz.aim('));
   assert.match(stage, /lobuleAim: \(part, opts\) => \{ if \(lz\) lz\.aim\(part, opts\); else \{ aimWait = \[part, opts\]; lobuleReady\(\)\.catch\(\(\) => \{\}\); \} \}/);
 });
 
 test('the first dive is prepared ahead as before: the code is fetched as the figure is shown, the layer built when the page is quiet', () => {
   const stage = read('stage.js');
   const prep = stage.slice(stage.indexOf('function prepLobule()'), stage.indexOf('let catchUp = false'));
-  assert.match(prep, /if \(figureShown && !lzLoad && !lzSoon\) \{ lzSoon = true; lobuleCode\(\)\.catch\(\(\) => \{\}\); prepIdle\(\(\) => lobuleReady\(\)\.then\(\(\) => prepLobule\(\)/);
+  assert.match(prep, /if \(figureShown && !lzLoad && !lzSoon\) \{ lzSoon = true; lobuleCode\(\)\.catch\(lobuleNoop\); prepIdle\(prepLoad\);/);
+  assert.match(stage, /const prepLoad = \(\) => lobuleReady\(\)\.then\(prepLobule, prepLoadLost\);/);
   assert.match(stage, /const lobuleCode = \(\) => \(lzCode \|\|= import\('\.\/lobule-zoom\.js'\)/);
   assert.match(prep, /if \(prepBusy \|\| !figureShown \|\| now - prepAt < 1000\) return;/);
   assert.match(prep, /lz\.preparePieces\(\)/);

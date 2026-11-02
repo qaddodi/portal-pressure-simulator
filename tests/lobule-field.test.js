@@ -27,7 +27,7 @@ test('the field starts with lobules about true to scale, deep in the liver, so t
 });
 
 test('the dive fades the lobules away from the landing one, in and out, rising to full focus', () => {
-  assert.match(stage, /focus: smoothT\(FIELD_WHOLE, lt, z\)/, 'focus follows the zoom (the clock\'s own function), so the rise out reverses it, and starts only once the field is whole');
+  assert.match(stage, /df\.focus = smoothT\(FIELD_WHOLE, lt, z\)/, 'focus follows the zoom (the clock\'s own function), so the rise out reverses it, and starts only once the field is whole');
   assert.match(lz, /const f = clamp\(d\.focus \?\? d\.quiet, 0, 1\)/);
   // At focus 1 the clear circle is the lobule view's resting surround (rd × 1.1), so the landing has no jump.
   assert.match(lz, /Math\.log\(Math\.min\(Math\.hypot\(W, H\) \* dpr \* 0\.45, rd \* 1\.1\)\), f\)\)/);
@@ -44,7 +44,7 @@ test('the dive does no full-size redraws or hidden compositing mid-zoom', () => 
   // The magnified anatomy is hidden while the whole field covers it (z ≥ FIELD_WHOLE, where the field is opaque), and shown again on every end.
   assert.match(stage, /if \(!landed\) setDiveHidden\(t > 0 && t < 1 && z >= FIELD_WHOLE,/);
   assert.match(stage, /if \(k <= 1\.0001\) \{\n\s+if \(!keep\) \{ setDiveHidden\(false, false\); setDiveFade\(null\); \}/);
-  assert.match(stage, /a: smoothT\(FIELD_IN, FIELD_WHOLE, z\)/, 'the field is whole exactly where the anatomy is hidden, and comes in only over its last stretch');
+  assert.match(stage, /df\.a = smoothT\(FIELD_IN, FIELD_WHOLE, z\)/, 'the field is whole exactly where the anatomy is hidden, and comes in only over its last stretch');
   // The hand-over spans about two octaves of zoom, ending before the anatomy's magnification stops (LC + 0.4), so it never pops.
   const [fin, fwh] = stage.match(/const FIELD_IN = LC - ([\d.]+), FIELD_WHOLE = LC \+ ([\d.]+);/).slice(1).map(Number);
   assert.ok(fin + fwh >= 1.4, `the field comes in over only ${(fin + fwh).toFixed(2)} of log zoom`);
@@ -56,7 +56,7 @@ test('the anatomy stays whole under the field until the field covers it, so the 
   // page through as a dark flash zooming in (Mohammad, 24 Oct).
   assert.match(stage, /setDiveFade\(t <= 0 \? null : landed \? 0 : 1\);/);
   assert.doesNotMatch(stage, /setDiveFade\([^\n]*1 - smoothT/);
-  assert.match(stage, /el\.style\.transition = q === null \? '' : 'none'; el\.style\.opacity = q === null \? '' : String\(q\)/, 'driven per frame with the CSS transition held off');
+  assert.match(stage, /el\.style\.transition = q === null \? '' : 'none'; el\.style\.opacity = q === null \? '' : q\b/, 'driven per frame with the CSS transition held off');
   // The field's emerging mask spreads past every corner by the time it is dropped (a = 1), so nothing vanishes in the far corners.
   assert.match(lz, /rho = Math\.hypot\(W, H\) \* dpr \* \(0\.2 \+ 1\.1 \* d\.a \+ 2 \* smooth\(0\.7, 1, d\.a\)\)/);
 });
@@ -74,7 +74,7 @@ test('every zoom into the lobule draws it first, for where it lands, then zooms;
   assert.match(lz, /if \(fade <= 0 && !staging\) return;/, 'update fills in the model while staging');
   // The way in (a tap or slide; manual zoom never dives) draws it before the zoom's clock starts.
   assert.match(stage, /lz\.prewarm\(diveLand\.r\);\n\s+lz\.stage\(\); {3}\/\/ the lobule is drawn now/);
-  assert.ok(stage.indexOf('lz.stage();   //') < stage.indexOf('const t0 = PACED ? easeNow() : performance.now();\n    const step = (now, end = false) => {\n      const e0 = ms && !end ?'), 'drawn before the zoom is timed');
+  assert.ok(stage.indexOf('lz.stage();   //') < stage.indexOf('const t0 = PACED ? easeNow() : performance.now();\n    lobOn = on;'), 'drawn before the zoom is timed');
   // The frame it starts to fade in draws nothing new when the framing still matches.
   assert.match(lz, /if \(staged && staged === api\.viewKey\(\) && model\) \{ if \(!raf\) raf = nextFrame\(loop\); \} else \{ diveDrawn = false; snapState\(\); if \(F\) update\(F\); \}/);
   // Its memory is given back when the zoom returns to the anatomy (never mid-zoom); the idle preparation keeps nothing.
@@ -83,7 +83,8 @@ test('every zoom into the lobule draws it first, for where it lands, then zooms;
   assert.match(lz, /draw\(0\); release\(\); prepKey = key;/);
   // Landed, the anatomy stays hidden under the lobule until it has settled; every other end shows it at once.
   assert.match(stage, /const landed = t >= 1 && !diveOut;\n\s+setDiveScale\(t >= 1 \? 1 : Math\.exp\(Math\.min\(z, LC \+ 0\.4\)\), landed\);/);
-  assert.match(stage, /if \(diveT >= 1 && lobuleOn\) \{ setDiveHidden\(false, false\); setDiveFade\(null\); \} \}, 500\)/);
+  assert.match(stage, /const diveUnhide = \(\) => \{ if \(diveT >= 1 && lobuleOn\) \{ setDiveHidden\(false, false\); setDiveFade\(null\); \} \};/);
+  assert.match(stage, /unhideAt = setTimeout\(diveUnhide, 500\)/);
 });
 
 test('nothing is built during the zoom: the field\'s tiles and their quieted copies are ready before it starts', () => {
@@ -148,7 +149,7 @@ test('the neighbouring lobules cover the whole screen at every moment of the div
 
 test('the GPU field comes in soft and sharpens, and keeps far lobules a little soft, sharp again at the landing', async () => {
   const { fieldDof } = await import('../src/ui/lobule-look.js');
-  assert.match(stage, /blur: 1 - smoothT\(FIELD_IN, FIELD_WHOLE \+ 0\.3, z\), dof: smoothT\(FIELD_IN \+ 0\.3, FIELD_WHOLE \+ 0\.6, z\) \* \(1 - smoothT\(lt - 0\.9, lt, z\)\),/);
+  assert.match(stage, /df\.blur = 1 - smoothT\(FIELD_IN, FIELD_WHOLE \+ 0\.3, z\); df\.dof = smoothT\(FIELD_IN \+ 0\.3, FIELD_WHOLE \+ 0\.6, z\) \* \(1 - smoothT\(lt - 0\.9, lt, z\)\);/);
   assert.match(lz, /dof: fieldDof\(d, rd, Math\.hypot\(fw, fh\)\),/);
   const fgl = read('../src/ui/field-gl.js');
   assert.match(fgl, /float bias = uDof\.x \+ uDof\.w \* smoothstep\(uDof\.y, uDof\.z, length\(p - uO\)\);/);

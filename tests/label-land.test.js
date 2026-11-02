@@ -38,7 +38,7 @@ test('not where the labels are hidden, held, mid-solve or placed against somethi
 test('the landing is solved dry, at the landing framing, and the view is always put back', () => {
   const s = body('function solveLanding(to) {');
   assert.ok(s, 'solveLanding is in stage.js');
-  assert.match(s, /vt = \{ \.\.\.to \}; CTM = null; refreshCTM\(\);\n\s*try \{/);
+  assert.match(s, /vt = solveVT; CTM = null; refreshCTM\(\);\n\s*try \{/);
   assert.match(s, /\} finally \{ vt = keep; CTM = null; refreshCTM\(\); \}/);
   assert.match(s, /if \(sig === solvedFor\.sig && Math\.abs\(Math\.atan2\(CTM\.b, CTM\.a\) - solvedFor\.th\) <= SOLVE_TURN\)/, 'what the labels show is the same there');
   assert.match(s, /landAt = performance\.now\(\);\n\s*if \(layoutLabels\(F, true, true\)\)/);
@@ -49,7 +49,7 @@ test('the landing is solved dry, at the landing framing, and the view is always 
 });
 
 test('the glide carries the labels from those slots: no solve on its way, no check for collisions, none as it lands', () => {
-  const a = body('function animateVT(to, ms = 700, opt = {}) {');
+  const a = body('function animateVT(to, ms = 700, opt = NO_OPT) {');
   assert.match(a, /landRide = false; landTo = null;\n/, 'each glide asks afresh');
   assert.match(a, /if \(!drift && !arcRun && !opt\.steady && !sameView\(from, to\) && landable\(from, to\) && solveLanding\(to\)\) \{ landRide = true; landTo = to; labelKey = null; updateLabels\(F\); \}/);
   assert.ok(a.indexOf('vtGliding = true;') < a.indexOf('solveLanding(to)'), 'laid out at the view as it is, as a glide');
