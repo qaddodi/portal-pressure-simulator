@@ -296,6 +296,10 @@ export function describeBlock(g, cs = getComputedStyle, boxOf) {   // (boxOf: a 
 }
 
 /** The look of a description, as a key: a picture is drawn again only when it changes (the opacity is the GPU's, not the picture's). */
+// The label layer's own canvas is capped at 2 device px per CSS px (the figure's cap, stage.js resizeCanvas): a 3x iPhone Pro Max made it a
+// 1320 x 2868 buffer. ?labeldpr=0 keeps the screen's full density.
+export const LABEL_DPR_MAX = 2;
+export const labelDensity = (dpr, full = false) => (full ? dpr || 1 : Math.min(dpr || 1, LABEL_DPR_MAX));
 export const lookKey = (d, rot, dpr) => JSON.stringify([d.filter, d.parts, rot, dpr]);
 
 const INTER = /^\s*"?Inter\b/i;
@@ -468,6 +472,7 @@ export function ringBox(d, dpr, frame) {
  * figure's overlays not all on the GPU, the labels' layer fading or hidden), it draws nothing and the SVG shows every label.
  * `force`: on a software renderer too (CI's visual check, ?stageover=gpu).
  */
+const FULL_DPR = typeof location !== 'undefined' && /[?&]labeldpr=0\b/.test(location.search);
 export function createLabelGL(svg, blocks, { software = false, off = false, marks = [], host = null, force = false, onBoxes = null } = {}) {
   if (off || (software && !force) || typeof WebGL2RenderingContext === 'undefined') return null;
   const canvas = host ? host.canvas : document.createElement('canvas');
@@ -729,7 +734,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (Its own canvas: sized from the stage's box when that changes (the ResizeObserver below, and a change of screen density), never in a frame.)
   function size() {
     if (host) return hostSize();
-    const r = svg.parentElement.getBoundingClientRect(), k = devicePixelRatio || 1;   // (the stage's box: the dive zooms the layer itself)
+    const r = svg.parentElement.getBoundingClientRect(), k = labelDensity(devicePixelRatio, FULL_DPR);   // (the stage's box: the dive zooms the layer itself)
     const w = Math.max(1, Math.round(r.width * k)), h = Math.max(1, Math.round(r.height * k));
     if (w === W && h === H && k === dpr) return false;
     W = w; H = h; dpr = k; canvas.width = w; canvas.height = h;

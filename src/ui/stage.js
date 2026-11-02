@@ -50,7 +50,7 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=f7d920b7d0';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=9644481473';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=df3c3152ad';
-import { createLabelGL } from './label-gl.js?v=6fc91bdde2';
+import { createLabelGL } from './label-gl.js?v=61ce89c077';
 import { createGlassGL } from './glass-gl.js?v=c9021b91cd';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=d9e0eb3300';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
