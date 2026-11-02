@@ -70,7 +70,9 @@ test('the lobule\'s vessel canvas keeps its own picture with ?lzone=0, as before
 });
 
 test('by default the lobule\'s vessel canvas draws into its kept picture too, so its overlay can be laid over each present (LZ_ONE)', async () => {
-  const { g, f, attrs, canvas, look } = await renderer('../src/ui/veins-gl.js', 'lobule');
+  globalThis.location = { search: '?direct=0' };
+  let r; try { r = await renderer('../src/ui/veins-gl.js?direct0lz', 'lobule'); } finally { delete globalThis.location; }
+  const { g, f, attrs, canvas, look } = r;
   assert.equal(attrs.preserveDrawingBuffer, false);
   assert.ok(g.top, 'a top for the overlay');
   const n0 = f.calls.length;
@@ -79,9 +81,24 @@ test('by default the lobule\'s vessel canvas draws into its kept picture too, so
   assert.ok(canvas.width > 0);
 });
 
-test('by default every picture is drawn into the kept texture and copied whole onto the canvas', async () => {
+test('a whole picture is drawn straight onto the canvas (no copy), and the next partial frame draws whole into the kept picture first (?direct=0 off)', async () => {
+  const { g, f, look } = await renderer('../src/ui/veins-gl.js?direct');
+  const n0 = f.calls.length;
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+  assert.equal(blits(f, n0).length, 0, 'no copy for a whole picture');
+  const binds = f.calls.slice(n0).filter((c) => c[0] === 'bindFramebuffer' && c[1] === f.gl.FRAMEBUFFER);
+  assert.ok(binds.some((c) => c[2] === null));
+  // (The blood's own frame next: the kept picture is out of date, so it is drawn whole into it and copied once.)
+  const n1 = f.calls.length;
+  g.composite(look, { on: true });
+  assert.equal(blits(f, n1).length, 1, 'drawn into the kept picture, then copied');
+});
+
+test('with ?direct=0 every picture is drawn into the kept texture and copied whole onto the canvas', async () => {
+  globalThis.location = { search: '?direct=0' };
+  let r; try { r = await renderer('../src/ui/veins-gl.js?direct0'); } finally { delete globalThis.location; }
   {
-    const { g, f, attrs, canvas, look } = await renderer('../src/ui/veins-gl.js');
+    const { g, f, attrs, canvas, look } = r;
     assert.equal(attrs.preserveDrawingBuffer, false);
     const n0 = f.calls.length;
     g.draw([1, 0, 0, 1, 0, 0], look, { on: false });

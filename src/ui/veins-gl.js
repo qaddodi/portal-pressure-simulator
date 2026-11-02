@@ -2616,6 +2616,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // (Sharper upscaling makes one too, while it is on, and gives it back after: the picture is drawn there and upscaled onto the canvas.)
   let own = ownBuf ? makeOwn() : null;
   const PRESENT_ONCE = !/[?&]presentonce=0\b/.test(globalThis.location?.search || '');
+  const DIRECT = !/[?&]direct=0\b/.test(globalThis.location?.search || '');
+  let directNow = false, ownStale = false, noDirect = false, lastComp = null;
   let capturedAt = -1, capturedKey = '';
   // (Sized to the canvas, cleared; true when it was just made, so the next picture is drawn whole.)
   function ownSize() {
@@ -2654,6 +2656,26 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     // (A canvas resized since the last picture holds nothing current: it is drawn whole by the next composite, which sizes the kept
     // picture first. Copied before that, the old picture would land in a corner of the new canvas.)
     if (own.w !== PW() || own.h !== PH()) return;
+    // (A whole picture drawn straight onto the canvas in this frame is there already; outside that frame the kept picture is out of
+    // date, so a reader then is given the canvas as it is and the next frame draws the picture whole.)
+    if (!directNow && ownStale) {
+      // (Asked outside the frame that drew it: the picture is drawn whole again, into the kept picture this time, and laid from there.)
+      ownStale = false;
+      if (lastComp) { noDirect = true; try { api.composite(lastComp[0], lastComp[1], true); } finally { noDirect = false; } }
+      return;
+    }
+    if (directNow) {
+      presents++;
+      gl.disable(gl.SCISSOR_TEST);
+      overLay();
+      if (top && tops.length) {
+        for (const t of tops.slice()) { try { t.prep?.(); } catch (e) { console.warn('Veins renderer: what is drawn over the figure failed.', e); tops.splice(tops.indexOf(t), 1); } }
+        for (const t of tops.slice()) { try { t.draw(); } catch (e) { console.warn('Veins renderer: what is drawn over the figure failed.', e); tops.splice(tops.indexOf(t), 1); } }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      }
+      directNow = false;
+      return;
+    }
     if (gpuProbe.on) gpuProbe.note(COUNTED.present, own.w * own.h * 4 / 1024);
     gl.disable(gl.SCISSOR_TEST);
     presents++;
@@ -3558,6 +3580,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * cells drawRows drew again (the vessel layer changed under them).
      */
     composite(look, blood = {}, full = false, part = 0) {
+      lastComp = [look, blood];
       if (!baseM || fboPW !== PW() || fboPH !== PH()) return;
       // (After one-pass frames the layer is empty: this picture has it drawn whole first, and is drawn whole on it. `fused`: the
       // one-pass frame itself, from draw.)
@@ -3627,6 +3650,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       }
       // (The kept picture made again, at a new canvas size: empty, so this picture is drawn whole into it.)
       if (own && ownSize()) full = true;
+      // A whole picture is drawn straight onto the canvas (audit R15; Mohammad's Mac, 2 Nov: 31 MB copied a frame, "kept picture onto the
+      // canvas", 1.8 GB in a 3 s slide change): drawn into the kept picture and copied whole onto the canvas, every pixel was written twice
+      // and read once more. The kept picture is then out of date, so the first frame that draws only part of the picture draws it whole,
+      // into the kept picture, first. Not with the upscale or the under picture (they lay the kept picture differently). ?direct=0 off.
+      const direct = DIRECT && !noDirect && !!own && full && !ownStale && !up && !(under && under.on()) && !(replace && replace.on());
+      if (own && ownStale && !full) full = true;
       if (full) dirt = 0;
       const fl = look.fluid && fluidRect ? look.fluid : null;
       const pool = full ? 0 : nPool;
@@ -3638,7 +3667,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // device → world: the inverse of [a c e; b d f].
       const ia = m[3] / det, ib = -m[1] / det, ic = -m[2] / det, id = m[0] / det;
       const ie = -(ia * m[4] + ic * m[5]), iff = -(ib * m[4] + id * m[5]);
-      if (own) gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo);
+      if (own) gl.bindFramebuffer(gl.FRAMEBUFFER, direct ? null : own.fbo);
+      directNow = direct; if (own) ownStale = direct;
       gl.viewport(0, 0, PW(), PH());
       gl.disable(gl.BLEND);
       // (The plain build where the frame has no dye, no origin colours and no bleed: the values its constants hold.)

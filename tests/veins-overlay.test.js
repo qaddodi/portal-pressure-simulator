@@ -56,6 +56,9 @@ test('the overlays need the kept picture: none with ?vesselbuf=keep', () => {
 });
 
 test('the plain upscale: the picture copied onto the whole canvas, filtered; at the canvas\'s size, copied as it is', () => {
+  // (The kept picture's own path: ?direct=0. By default a whole picture is drawn straight onto the canvas: veins-own-buffer.test.js.)
+  const was = globalThis.location; globalThis.location = { search: '?direct=0' };
+  try {
   const { g, f, look } = renderer();
   let n0 = f.calls.length;
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
@@ -69,9 +72,13 @@ test('the plain upscale: the picture copied onto the whole canvas, filtered; at 
   n0 = f.calls.length;
   g.draw([0.5, 0, 0, 0.5, 0, 0], look, { on: false });
   assert.equal(blits(f, n0).length, 0);
+  } finally { globalThis.location = was; }
 });
 
 test('nothing laid with no overlays; set with groups, their stack is drawn at the canvas\'s size and laid at each present', () => {
+  // (The kept picture's own path: ?direct=0. By default a whole picture is drawn straight onto the canvas: veins-own-buffer.test.js.)
+  const was = globalThis.location; globalThis.location = { search: '?direct=0' };
+  try {
   const { g, f, look } = renderer();
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
   g.overlay.set(new Map(), []);
@@ -100,4 +107,5 @@ test('nothing laid with no overlays; set with groups, their stack is drawn at th
   g.setPicture([400, 300], true);
   g.draw([0.5, 0, 0, 0.5, 3, 4], look, { on: false });
   assert.equal(g.overlay.stale, false, 'drawn with it');
+  } finally { globalThis.location = was; }
 });
