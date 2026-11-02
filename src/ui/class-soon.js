@@ -6,6 +6,10 @@
 //
 //   classSoon(el, 'name', true | false)   the class is on / off after a task of its own, straight after
 //   textSoon(el, 'words')                 the element's textContent after a task of its own, straight after
+//   attrSoon(el, 'name', value | null)    an attribute set (null: taken off) after the next rest pass
+//   dataSoon(el, 'key', value | null)     a data- key set (null: deleted) after the next rest pass
+//   propSoon(el, 'hidden', value)         a property (hidden, disabled, nodeValue, value) set after the next rest pass
+//   removeSoon(el)                        the element taken out of the page after the next rest pass
 //
 // A write that must land before the next frame paints (a class that holds a transition off while a transform is set) stays where it is.
 
@@ -15,6 +19,10 @@ import { frameFor } from './frame.js?v=26e2e46fff';
 const nextFrame = frameFor('classsoon');
 const classes = new Map();   // element → Map(class → on)
 const words = new Map();     // element → text
+const attrs = new Map();     // element → Map(attribute → value | null)
+const datas = new Map();     // element → Map(key → value | null)
+const props = new Map();     // element → Map(property → value)
+const gone = new Set();      // elements to take out
 let pending = false;
 const jobs = [];   // (whole functions asked for with runSoon)
 
@@ -24,6 +32,11 @@ function flush() {
   if (c.size) for (const [el, m] of c) for (const [name, on] of m) el.classList.toggle(name, on);
   if (w.size) for (const [el, t] of w) if (el.textContent !== t) el.textContent = t;
   c.clear(); w.clear();
+  for (const [el, m] of attrs) for (const [k, v] of m) { if (v == null) el.removeAttribute(k); else if (el.getAttribute(k) !== String(v)) el.setAttribute(k, v); }
+  for (const [el, m] of datas) for (const [k, v] of m) { if (v == null) delete el.dataset[k]; else if (el.dataset[k] !== String(v)) el.dataset[k] = v; }
+  for (const [el, m] of props) for (const [k, v] of m) if (el[k] !== v) el[k] = v;
+  for (const el of gone) el.remove();
+  attrs.clear(); datas.clear(); props.clear(); gone.clear();
   for (const fn of jobs.splice(0)) { try { fn(); } catch (e) { setTimeout(() => { throw e; }); } }
 }
 // (A task of its own right after the current one, not a rest pass: the rest passes share the preparation budget and may wait
@@ -66,3 +79,20 @@ export function restartSoon(el, name) {
   restartEls.push(el); restartNames.push(name);
   if (restartEls.length === 1) nextFrame(() => { for (let i = 0; i < restartEls.length; i++) classSoon(restartEls[i], restartNames[i], true); restartEls.length = restartNames.length = 0; });
 }
+// (An ask that leaves the value as it stands, with none pending, costs one read and no rest pass: a per-frame loop may ask every frame.)
+const into = (map, read, el, k, v) => {
+  const m = map.get(el);
+  const cur = m && m.has(k) ? m.get(k) : read(el, k);
+  if (cur === v) return;
+  if (!m) map.set(el, new Map([[k, v]])); else m.set(k, v);
+  ask();
+};
+const readAttr = (el, k) => el.getAttribute(k), readData = (el, k) => el.dataset[k] ?? null, readProp = (el, k) => el[k];
+/** Sets the attribute (null: removes it) in the next rest pass; the last ask wins. */
+export function attrSoon(el, name, value) { if (el) into(attrs, readAttr, el, name, value == null ? null : String(value)); }
+/** Sets the data- key (null: deletes it) in the next rest pass; the last ask wins. */
+export function dataSoon(el, key, value) { if (el) into(datas, readData, el, key, value == null ? null : String(value)); }
+/** Sets the property (hidden, disabled, nodeValue, value) in the next rest pass; the last ask wins. */
+export function propSoon(el, prop, value) { if (el) into(props, readProp, el, prop, value); }
+/** Takes the element out of the page in the next rest pass. */
+export function removeSoon(el) { if (el) { gone.add(el); ask(); } }

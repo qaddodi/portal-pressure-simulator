@@ -97,7 +97,7 @@ export function fadeReady(gl) {
  * for a compile, and none is mixed in 2D).
  *   draw(a, m, w, h, clear): lays it with weight a (0..1) at m ([a, b, c, d, e, f], CSS px), the canvas being w × h CSS px;
  *     clear first (the seed, on a canvas just resized).
- *   remove(): takes it out of the canvas's presents and frees the copy.
+ *   release(): takes it out of the canvas's presents and frees the copy.
  */
 export function keepOnGpu(host) {
   const { gl, canvas } = host || {};
@@ -139,6 +139,6 @@ export function keepOnGpu(host) {
     /** What the next presents lay: weight a, at m, in a canvas cw × ch CSS px. */
     set(a, m, cw, ch) { g.a = a; g.m = m; g.cw = cw; g.ch = ch; },
     draw,
-    remove() { g.off?.(); g.off = null; if (tex && !gl.isContextLost?.()) gl.deleteTexture(tex); tex = null; },
+    release() { g.off?.(); g.off = null; if (tex && !gl.isContextLost?.()) gl.deleteTexture(tex); tex = null; },
   };
 }

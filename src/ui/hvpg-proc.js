@@ -8,17 +8,17 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=2ed427fd06';
-import { glWords } from './gl-words.js?v=808dd592ad';
+import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=d9ebc1fd77';
+import { glWords } from './gl-words.js?v=99fb447a2d';
 import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { FONT } from './charts.js?v=86615ee6ff';
-import { pressureColor } from './colormap.js?v=a390c550fc';
+import { FONT } from './charts.js?v=1e8ddf9136';
+import { pressureColor } from './colormap.js?v=767873233a';
 import { store, logAction, hiddenNow, updateParams } from './store.js?v=afc4d7c743';
 import { shownOr } from './shown.js?v=331593cd88';
-import { classSoon, restartSoon } from './class-soon.js?v=26aa9fb253';
+import { classSoon, restartSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=fe4bf30794';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=95f13823ce';
 import { frameFor, cancelFrame } from './frame.js?v=26e2e46fff';
-import { createTraceGL, fitPen } from './trace-gl.js?v=2c10ed6b6e';
+import { createTraceGL, fitPen } from './trace-gl.js?v=671f8a9cea';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
 import { rateOf } from './table-marks.js?v=ff3ed0cc47';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=2bc5f69b17';
@@ -214,13 +214,13 @@ export function createHvpgProcedure() {
     // This runs on every model frame: write only what changed. Rewriting the button's label each frame
     // replaced its text under the finger, and Safari then takes a tap for a hover and drops the click.
     const sev = shown.hvpg ? sevOf(v.hvpg) : '';
-    if (vals.hvpg.dataset.sev !== sev) vals.hvpg.dataset.sev = sev;
+    dataSoon(vals.hvpg, 'sev', sev);
     for (const k of ['fhvp', 'whvp']) {
       const sk = shown[k] ? sevOfRead(k, v[k]) : '';
-      if (vals[k].dataset.sev !== sk) vals[k].dataset.sev = sk;
+      dataSoon(vals[k], 'sev', sk);
     }
     const cur = ph === 'abort' ? 1 : STEPS.findIndex((s) => s[0] === ph);
-    stepEls.forEach((li, i) => { const v2 = ph === 'idle' ? '' : ph === 'abort' ? (i === 0 ? 'done' : '') : i < cur || ph === 'result' ? 'done' : i === cur ? 'now' : ''; if (li.dataset.state !== v2) li.dataset.state = v2; });
+    stepEls.forEach((li, i) => { const v2 = ph === 'idle' ? '' : ph === 'abort' ? (i === 0 ? 'done' : '') : i < cur || ph === 'result' ? 'done' : i === cur ? 'now' : ''; dataSoon(li, 'state', v2); });
     const cap = ph === 'idle' ? 'A balloon catheter via the right internal jugular vein reads the free, then the wedged, hepatic vein pressure.'
       : ph === 'abort' ? `${ABORT_MSG}. The hepatic vein is thrombosed (Budd–Chiari), so the catheter cannot enter it and no free or wedged pressure can be read. HVPG is not measurable.`
       : blocked && t >= TB.probe0 ? 'The tip is at the hepatic vein ostium, but the vein is thrombosed: it will not advance.'
@@ -229,15 +229,15 @@ export function createHvpgProcedure() {
     const say = proc ? PROCS[procKind].steps[Math.max(0, procStep)][2] : cap;
     swapText(caption, say);   // (a new step's words crossfade in)
     const busy = (t0 != null && t < tEnd()) || !!proc;
-    if (startBtn.disabled !== busy) startBtn.disabled = busy;
+    propSoon(startBtn, 'disabled', busy);
     for (const [k, b] of Object.entries(procBtns)) {
-      if (b.disabled !== busy) b.disabled = busy;
+      propSoon(b, 'disabled', busy);
       // (BRTO and BATO are offered only while the patient has gastric varices: with none they are not shown at all.)
       const m = now()?.metrics, hide = !procOffered(k, st.params, m) && procKind !== k;
-      if (b.hidden !== hide) b.hidden = hide;
+      propSoon(b, 'hidden', hide);
       const off = !!procBlocked(k, st.params, m), on = procKind === k;
       classSoon(b, 'off', off);
-      if (b.getAttribute('aria-pressed') !== String(on)) b.setAttribute('aria-pressed', String(on));
+      attrSoon(b, 'aria-pressed', String(on));
     }
     const lbl = t0 != null && t < tEnd() ? 'Measuring…' : result ? 'Measure again' : 'Measure HVPG';
     btnW.set(lbl);

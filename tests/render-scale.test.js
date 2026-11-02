@@ -108,7 +108,7 @@ test('res-fade: the opacity eases 1 → 0 with no step at either end', async () 
   assert.ok(fadeAlpha(0.01) > 0.999 && fadeAlpha(0.99) < 0.001, 'flat at both ends');
   assert.ok(FADE_MS >= 250 && FADE_MS <= 500);
   const rf = src('res-fade.js');
-  assert.match(rf, /if \(was\) was\.gpu\.remove\(\);/, 'a second change starts from the mix as it shows (captured with the mix still in it)');
+  assert.match(rf, /if \(was\) was\.gpu\.release\(\);/, 'a second change starts from the mix as it shows (captured with the mix still in it)');
   assert.ok(!/style\.opacity/.test(rf), 'the canvas is never hidden: the mix is made in its own presents');
 });
 

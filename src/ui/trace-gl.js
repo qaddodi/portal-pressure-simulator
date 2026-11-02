@@ -877,7 +877,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
     upload(src, key = src, ver = 0) {
       if (!P || lost || failed || dead || gl.isContextLost()) return null;
       let e = images.get(key);
-      if (!e || e.ver !== ver || e.src !== src) {
+      if (!e || e.ver !== ver || e.img !== src) {
         if (!e) {
           // (a few kept at most: the oldest let go)
           if (images.size >= 6) { const [k0, e0] = images.entries().next().value; gl.deleteTexture(e0.tex); images.delete(k0); }
@@ -893,7 +893,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
         else { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src); e.w = sw; e.h = sh; sharedStats.uploads++; }
         gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
         notePass('upload', sw * sh);
-        e.ver = ver; e.src = src;
+        e.ver = ver; e.img = src;
       }
       return e;
     },

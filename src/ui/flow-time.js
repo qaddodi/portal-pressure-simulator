@@ -10,10 +10,10 @@
 // A line the model does not compute (weight lost, which the model has no body for) is given by the slide (tool.given: { wt: 12 }):
 // it climbs from 0 to that number in step with the time-lapse's ramp, and every other line is still the model's own.
 import { frameFor, cancelFrame } from './frame.js?v=26e2e46fff';
-import { classSoon } from './class-soon.js?v=26aa9fb253';
+import { classSoon } from './class-soon.js?v=fe4bf30794';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { RX, bandKeys } from './rx-bands.js?v=51e83c7c59';
-import { createSvgGL, svgModel, setWords } from './svg-gl.js?v=b40997e8c9';
+import { createSvgGL, svgModel, setWords } from './svg-gl.js?v=8f108a9bf4';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 const nextFrame = frameFor('flow-time');
 

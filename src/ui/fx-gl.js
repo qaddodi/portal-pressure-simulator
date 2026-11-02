@@ -152,7 +152,7 @@ export function createFxGL(canvas, { host = null } = {}) {
   try { build(); } catch (err) { console.warn('The lobule overlay falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
   // (Hosted, the host's owner makes the layer again with the renderer it makes after a loss.)
   if (!host) canvas.addEventListener('webglcontextlost', (e) => { lost = true; cov = null; lin = null; P = null; e.preventDefault?.(); });
-  if (!host) canvas.addEventListener('webglcontextrestored', () => { try { build(); lost = false; for (const k in bufs) { bufs[k].data = null; bufs[k].cap = 0; } } catch { failed = true; } });
+  if (!host) canvas.addEventListener('webglcontextrestored', () => { try { build(); lost = false; for (const k in bufs) { bufs[k].arr = null; bufs[k].cap = 0; } } catch { failed = true; } });
   function target(t, w, h) {
     if (t && t.w === w && t.h === h) return t;
     if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); }
@@ -169,12 +169,12 @@ export function createFxGL(canvas, { host = null } = {}) {
   }
   function feed(k, data) {
     const B = bufs[k];
-    if (B.data === data) return B.n;
+    if (B.arr === data) return B.n;
     gl.bindBuffer(gl.ARRAY_BUFFER, B.buf);
     // (R13: the buffer's storage kept and its used part rewritten while it fits; grown, to twice, only when outgrown.)
     if (data.byteLength <= B.cap) gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
     else { B.cap = Math.max(data.byteLength * 2, 1536); gl.bufferData(gl.ARRAY_BUFFER, B.cap, gl.DYNAMIC_DRAW); gl.bufferSubData(gl.ARRAY_BUFFER, 0, data); }
-    B.data = data; B.n = data.length / 6;
+    B.arr = data; B.n = data.length / 6;
     return B.n;
   }
   // One union layer: instances k into the channel of the bound target (colorMask), MAX blended.

@@ -19,9 +19,9 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=2ed427fd06';
-import { createSvgGL, svgModel } from './svg-gl.js?v=b40997e8c9';
-import { pressureColor } from './colormap.js?v=a390c550fc';
+import { h, fmt, clamp, lerp } from './util.js?v=d9ebc1fd77';
+import { createSvgGL, svgModel } from './svg-gl.js?v=8f108a9bf4';
+import { pressureColor } from './colormap.js?v=767873233a';
 import { isPaused } from './clock.js?v=d6c06e7017';
 import { store } from './store.js?v=afc4d7c743';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
@@ -31,7 +31,7 @@ import { placeFenDisse } from './fen-place.js?v=6e17fb8976';
 import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=26e2e46fff';
 import { softwareGL, softwareYield } from './sw-yield.js?v=1ec3c87eab';
 import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.js?v=622a3b9520';
-import { FADE_MS, fadeAlpha } from './res-fade.js?v=036209d791';
+import { FADE_MS, fadeAlpha } from './res-fade.js?v=531c1defc6';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { restPass, restClass } from './rest-pass.js?v=ed71462b47';

@@ -3,10 +3,10 @@
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
 import { store, updateParams } from './store.js?v=afc4d7c743';
-import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=2ed427fd06';
+import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=d9ebc1fd77';
 import { D_FLIP, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { restPass, cancelRest } from './rest-pass.js?v=ed71462b47';
-import { classSoon } from './class-soon.js?v=26aa9fb253';
+import { classSoon, attrSoon } from './class-soon.js?v=fe4bf30794';
 import { frame } from './frame.js?v=26e2e46fff';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
@@ -117,7 +117,7 @@ export function createPalette({ ctx }) {
   }
   // (The options are reached through the field, by arrow keys: it names the one that is current, and a screen reader reads it as the field's choice.)
   function syncActive() {
-    if (items.length) input.setAttribute('aria-activedescendant', `pal-opt-${sel}`); else input.removeAttribute('aria-activedescendant');
+    attrSoon(input, 'aria-activedescendant', items.length ? `pal-opt-${sel}` : null);
   }
   // The highlight goes to the active row: its top and height together on --d-flip (the CSS decides how). A new query, the first
   // placement and a resize put it there with no glide ('still' holds the transition for that one write).
@@ -157,7 +157,7 @@ export function createPalette({ ctx }) {
     frame(() => classSoon(hl, 'still', false), 'palette');
   }
   function mark() {
-    rows.forEach((b, i) => { const on = i === sel; classSoon(b, 'on', on); b.setAttribute('aria-selected', String(on)); });
+    rows.forEach((b, i) => { const on = i === sel; classSoon(b, 'on', on); attrSoon(b, 'aria-selected', String(on)); });
   }
   function renderList({ fadeIn = true } = {}) {
     items = search(input.value);

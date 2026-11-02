@@ -48,7 +48,7 @@ test('the abdomen\'s steppers (serum albumin, litres to drain) roll their number
   const ins = read('src/ui/instruments.js');
   assert.match(ins, /const stepNumOff = typeof location !== 'undefined' && \/\[\?&\]stepnum=0\\b\/\.test\(location\.search \|\| ''\);/);
   assert.match(ins, /if \(stepNumOff\) putText\(n, v\.toFixed\(dp\)\); else countTo\(n, v, dp\);/);
-  assert.match(ins, /paintStep\(out, v, dp, unit\); minus\.disabled/);
+  assert.match(ins, /paintStep\(out, v, dp, unit\); propSoon\(minus, 'disabled'/);
   assert.match(ins, /paintStep\(volOut, L, 1, 'L'\);/);
   assert.ok(!/replaceChildren\(L\.toFixed/.test(ins) && !/replaceChildren\(v\.toFixed/.test(ins), 'no stepper writes its number whole any more');
 });

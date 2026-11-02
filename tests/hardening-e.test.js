@@ -14,8 +14,8 @@ test('the search field is a combobox over a listbox, naming the current option, 
   assert.match(p, /id: 'pal-list', role: 'listbox'/);
   assert.match(p, /role: 'dialog', 'aria-modal': 'true'/);
   assert.match(p, /id: `pal-opt-\$\{i\}`, tabindex: '-1', role: 'option'/, 'options are reached through the field, not by Tab');
-  assert.match(p, /input\.setAttribute\('aria-activedescendant', `pal-opt-\$\{sel\}`\)/);
-  assert.match(p, /else input\.removeAttribute\('aria-activedescendant'\)/, 'no stale option named when nothing matches');
+  assert.match(p, /attrSoon\(input, 'aria-activedescendant', items\.length \? `pal-opt-\$\{sel\}` : null\)/);
+  assert.match(p, /items\.length \? `pal-opt-\$\{sel\}` : null/, 'no stale option named when nothing matches');
   assert.match(p, /else if \(e\.key === 'Tab'\) e\.preventDefault\(\)/);
 });
 

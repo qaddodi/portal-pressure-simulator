@@ -13,6 +13,7 @@
 // One speed per element, and no flow through a junction: each runs on its own vessel.
 
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7513a88c68';
+import { removeSoon } from './class-soon.js?v=fe4bf30794';
 
 // ── Geometry (pure: tested in tests/flow-dash.test.js) ───────────────────────
 
@@ -159,14 +160,14 @@ export function createFlowDash(host) {
   function anims(list) { for (const m of list) m.anim?.cancel(); }
   function dropSet(s, fade) {
     if (!s) return;
-    const done = () => { for (const t of s.tracks.values()) { anims(t.dashes); anims(t.chevs); } s.el.remove(); };
+    const done = () => { for (const t of s.tracks.values()) { anims(t.dashes); anims(t.chevs); } removeSoon(s.el); };
     if (!fade) { done(); return; }
     s.el.style.opacity = '0';
     setTimeout(done, D_SMALL + 80);
   }
   function dropTrack(t) {
     t.el.style.opacity = '0';
-    setTimeout(() => { anims(t.dashes); anims(t.chevs); t.el.remove(); }, D_SMALL + 80);
+    setTimeout(() => { anims(t.dashes); anims(t.chevs); removeSoon(t.el); }, D_SMALL + 80);
   }
   function marker(parent, cls, frames, loop, at, dir = 1) {
     const el = doc.createElement('div');

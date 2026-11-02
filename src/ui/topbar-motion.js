@@ -9,6 +9,7 @@
 // Nothing moves on a window resize or with reduced motion: the bar just takes its new layout.
 import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE } from './ease.js?v=7513a88c68';
 import { restPass } from './rest-pass.js?v=ed71462b47';
+import { removeSoon } from './class-soon.js?v=fe4bf30794';
 
 const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > button, .sb-right > :not(.tb-face), .top-right, .top-right > *';
 // Pills that grow reveal their new width from the old one instead of snapping wide.
@@ -147,7 +148,7 @@ export function initTopbarMotion() {
       // (A plate too short to have a flat middle: the old plate fades out over the new, each at its own fixed size.)
       const old = mk('none', w0);   // (its width set once, before it is placed)
       const a = tag(old.animate([{ translate: `${x0}px 0px`, opacity: 1 }, { translate: `${x0}px 0px`, opacity: 0 }], { ...timing, fill: 'forwards' }));
-      a.onfinish = a.oncancel = () => old.remove();
+      a.onfinish = a.oncancel = () => removeSoon(old);
       return tag(face.animate([{ opacity: 0 }, { opacity: 1 }], timing));
     }
     const hold = tag(face.animate([{ opacity: 0 }, { opacity: 0 }], timing));
@@ -233,7 +234,7 @@ export function initTopbarMotion() {
       g.animate([{ transform: `translate(${-pt.x}px, ${-pt.y}px)` }, { transform: 'none' }], { duration: MOVE_MS, easing: EASE }).id = 'tbm';
     }
     const a = g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: OUT_MS, easing: EASE_IN, fill: 'forwards' });
-    a.id = 'tbm'; a.onfinish = a.oncancel = () => g.remove();
+    a.id = 'tbm'; a.onfinish = a.oncancel = () => removeSoon(g);
   }
 
   // The bar is measured after the browser's own layout of the change and before its paint: a fresh ResizeObserver's first report

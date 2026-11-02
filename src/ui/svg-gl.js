@@ -13,13 +13,14 @@
 // round or butt ends, fill and stroke opacity, visibility, display none, vector-effect non-scaling-stroke. A drawing's viewBox is mapped to
 // the box as SVG maps it (preserveAspectRatio none, or meet in the middle). The picture covers the box exactly.
 
-import { createTraceGL, fitPen } from './trace-gl.js?v=2c10ed6b6e';
+import { createTraceGL, fitPen } from './trace-gl.js?v=671f8a9cea';
 import { flattenPath, elBox } from './shape-gl.js?v=d13987be06';
 import { finalFrameFor, easeNow } from './frame.js?v=26e2e46fff';
 import { restPass } from './rest-pass.js?v=ed71462b47';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
 import { morphSvg } from './svg-morph.js?v=979224c12c';
+import { attrSoon } from './class-soon.js?v=fe4bf30794';
 
 // (No bleed: a picture reaching past the box counts as overflow, and the card's fit then shrank the whole card to take it in.)
 export const BLEED = 0;
@@ -604,7 +605,7 @@ export function createSvgGL(box) {
         ctx.restore();
       }
       const label = models().at(-1)?.getAttribute('aria-label');
-      if (label && cv.getAttribute('aria-label') !== label) cv.setAttribute('aria-label', label);
+      if (label) attrSoon(cv, 'aria-label', label);
     } finally { ctx.end?.(); }
     g.drawn?.(!!pen.gpu && bw > 0 && bh > 0);   // (whether the GPU drew this frame: gl-words.js shows its picture only then)
     if (now < g.until || g.ins.size || easing) g.ask = finalFrame(draw);
@@ -653,7 +654,7 @@ export function createSvgGL(box) {
     box.append(root);
     g.place(root);
     g.fadeIn(root, D_SURFACE, EASE_ARRIVE);
-    setTimeout(() => { old.forEach((o) => o.remove()); g.paint(); }, 480);
+    setTimeout(() => restPass(() => { old.forEach((o) => o.remove()); g.paint(); }), 480);
   };
   // (A drawing built afresh in a frame, in place of the one before: its pieces take the looks of the ones before them like them.)
   // (Never put on the page in the frame: it is drawn from where it waits, with the looks of the pieces before it, and joins the box in a

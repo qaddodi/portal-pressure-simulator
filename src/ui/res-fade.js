@@ -6,7 +6,7 @@
 // made only on the GPU, inside the canvas's own presents (res-fade-gl.js); the canvas stays shown, so its opacity is never touched.
 import { finalFrameFor, noteDraw } from './frame.js?v=26e2e46fff';
 import { D_SURFACE } from './ease.js?v=7513a88c68';
-import { keepOnGpu } from './res-fade-gl.js?v=92ef9d68a5';
+import { keepOnGpu } from './res-fade-gl.js?v=e59f5568e0';
 
 export const FADE_MS = D_SURFACE;
 /** The old picture's weight u of the way through the fade: 1 to 0, smoothstep (no step at either end). */
@@ -30,7 +30,7 @@ export function oldPlace(m, at, now) {
 let asked = false;
 
 function endGpu(canvas, f) {
-  f.gpu.remove(); fades.delete(canvas);
+  f.gpu.release(); fades.delete(canvas);
   try { if (canvas.isConnected) f.capture?.(); } catch { /* (a lost context: nothing to lay) */ }   // (the picture alone, at once)
 }
 
@@ -61,7 +61,7 @@ export function fadeOver(canvas, follow = null, capture = null, host = null, box
   const keep = keepOnGpu(host);
   // (Its program still compiling (res-fade-gl warmFade), or a context that cannot: the new picture comes in as it is, no frame waits.)
   if (!keep) return;
-  if (was) was.gpu.remove();
+  if (was) was.gpu.release();
   const f = { gpu: keep, t0: performance.now(), follow, at: translateOf(canvas.style.translate), capture, w, h };
   keep.set(1, null, w, h);
   fades.set(canvas, f);

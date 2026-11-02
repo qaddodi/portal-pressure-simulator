@@ -5,15 +5,15 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=afc4d7c743';
-import { createTraceGL, fitPen } from './trace-gl.js?v=2c10ed6b6e';
-import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=2ed427fd06';
+import { createTraceGL, fitPen } from './trace-gl.js?v=671f8a9cea';
+import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=d9ebc1fd77';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=a390c550fc';
+import { pressureColor } from './colormap.js?v=767873233a';
 import { ownsSideways, pageGo } from './swipe.js?v=d2a811fd2d';
 import { frameFor } from './frame.js?v=26e2e46fff';
 import { restPass } from './rest-pass.js?v=ed71462b47';
-import { classSoon } from './class-soon.js?v=26aa9fb253';
+import { classSoon, removeSoon } from './class-soon.js?v=fe4bf30794';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { leaveFromHere, menuLeaveOff } from './menu-leave.js?v=0557b9a306';
 import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=7513a88c68';
@@ -217,7 +217,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       pvKey = key;
       const old = pv._in.firstElementChild, h0 = pv._h1 || pv.offsetHeight;
       const next = make();
-      if (old && pv.classList.contains('on')) { classSoon(old, 'um-pv-old', true); setTimeout(() => old.remove(), 130); } else old?.remove();
+      if (old && pv.classList.contains('on')) { classSoon(old, 'um-pv-old', true); setTimeout(() => removeSoon(old), 130); } else old?.remove();
       pv._in.append(next);
       if (old && h0 && !reduce.matches) pvResize(pv, h0, next.offsetHeight);
       $$rows().forEach((r) => classSoon(r, 'pv-on', r === row));
@@ -295,7 +295,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const p = pv; pv = null; pvKey = null;
     el?.querySelectorAll('.pv-on').forEach((r) => classSoon(r, 'pv-on', false));
     if (now || !p.classList.contains('on')) { p.remove(); return; }
-    classSoon(p, 'on', false); setTimeout(() => p.remove(), 140);
+    classSoon(p, 'on', false); setTimeout(() => removeSoon(p), 140);
   }
   // On touch, the ⓘ opens the preview under its row (one at a time), easing open and shut.
   function toggleInline(li, make, btn) {

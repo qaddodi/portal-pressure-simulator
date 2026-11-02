@@ -4,26 +4,26 @@
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
-import { pressureColor } from './colormap.js?v=a390c550fc';
-import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=2ed427fd06';
-import { wordSetter } from './gl-words.js?v=808dd592ad';
+import { pressureColor } from './colormap.js?v=767873233a';
+import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=d9ebc1fd77';
+import { wordSetter } from './gl-words.js?v=99fb447a2d';
 import { simTime, isPaused } from './clock.js?v=d6c06e7017';
-import { createEndoGL } from './endo-gl.js?v=0686cbd745';
+import { createEndoGL } from './endo-gl.js?v=63d43b2419';
 import { CTX_LAZY } from './gl-support.js?v=622a3b9520';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { renderEndo } from './endo-render.js?v=2b5a60cae5';
+import { renderEndo } from './endo-render.js?v=6fbe6112f5';
 import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=1dc4743d1e';
-import { drawScopeBleed } from './endo-bleed.js?v=29223f7c8e';
+import { drawScopeBleed } from './endo-bleed.js?v=dc71f53258';
 import { poolFill } from './blood.js?v=f6c91d8676';
-import { FONT } from './charts.js?v=86615ee6ff';
+import { FONT } from './charts.js?v=1e8ddf9136';
 import { store, updateParams, varicesPresent } from './store.js?v=afc4d7c743';
-import { classSoon } from './class-soon.js?v=26aa9fb253';
+import { classSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=fe4bf30794';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
 import { lateFrameFor, cancelFrame, framePhase, easeNow } from './frame.js?v=26e2e46fff';
 import { restPass } from './rest-pass.js?v=ed71462b47';
-import { createTraceGL, fitPen } from './trace-gl.js?v=2c10ed6b6e';
-import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=b40997e8c9';
+import { createTraceGL, fitPen } from './trace-gl.js?v=671f8a9cea';
+import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=8f108a9bf4';
 import { textWidth } from './text-gl.js?v=e5374005be';
 import { D_SURFACE, easeArrive } from './ease.js?v=7513a88c68';
 import { inkBox } from './glyph-measure.js?v=7fe8881ad6';
@@ -72,18 +72,18 @@ export function createEndoscopy({ onAction }) {
     const m = f.metrics;
     const vx = view === 'eso' ? m.varix : m.gastricVarix;
     const noVx = !varicesPresent(f, view === 'eso' ? 'VAR' : 'GV');
-    bandBtn.disabled = noVx; bandBtn.title = noVx ? 'No varices to band' : '';
+    propSoon(bandBtn, 'disabled', noVx); bandBtn.title = noVx ? 'No varices to band' : '';
     set(gradeLabel, vx.grade.label);
-    grade.dataset.sev = vx.grade.label === 'Small' ? 'caution' : vx.grade.label === 'None' ? 'ok' : 'danger';
+    dataSoon(grade, 'sev', vx.grade.label === 'Small' ? 'caution' : vx.grade.label === 'None' ? 'ok' : 'danger');
     // The size seen: the size at rest (the slide's own number when there is one) at the air's pressure (airRatio, the beat-averaged table).
     // The grade above stays the size at rest.
     const pinTo = view === 'eso' && pinned, rest = pinTo && Number.isFinite(pinned.d) ? pinned.d : vx.d, inV = pinTo && Number.isFinite(pinned.ptm) ? pinned.ptm : vx.ptm;
     set(diam, `${fmt(rest * airRatio(mv?.air ?? vx.air, opt.air), 1)} mm`); set(wall, `${fmt(vx.w, 1)} mm`);
     if (opt.readings) { set(pIn, `${fmt(inV, 1)} mmHg`); set(pLum, `${fmt(opt.air, 1)} mmHg`); set(pAcross, `${fmt(inV - opt.air, 1)} mmHg`); }
     const redV = !vx.present ? 'None' : (opt.red ?? vx.redWale) ? 'Red wale, cherry spots' : 'None';
-    set(redWord, redV === 'None' ? redV : 'Red wale'); set(redMore, redV === 'None' ? '' : ', cherry spots'); if (redV === 'None') delete red.dataset.long; else red.dataset.long = ''; red.parentNode.dataset.on = String(redV !== 'None');
+    set(redWord, redV === 'None' ? redV : 'Red wale'); set(redMore, redV === 'None' ? '' : ', cherry spots'); dataSoon(red, 'long', redV === 'None' ? null : ''); dataSoon(red.parentNode, 'on', String(redV !== 'None'));
     const nb = String(Math.round(f.bands || 0));
-    set(bands, nb); bands.parentNode.dataset.on = String(nb !== '0');
+    set(bands, nb); dataSoon(bands.parentNode, 'on', String(nb !== '0'));
     // A model frame taken in at the start of a frame is drawn by the field's own late callback of that frame (one already asked
     // for by an ease, or one asked now): the field is drawn once a frame, with the newest state. Anywhere else, at once.
     if (framePhase() === 'early') { last = { f, vx }; if (!raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); }); return; }
@@ -212,7 +212,7 @@ export function createEndoscopy({ onAction }) {
         // (taken up by the drawer as a texture at once, while the shader's picture is there: GPU to GPU; the one shown kept as the old one
         // first. A drawer not ready yet has the field shaded again when it is.)
         if (pen?.ready) { if (swap) { pen.keepImage('field', 'old'); swap = false; } pen.upload(gl.canvas, 'field', glVer); } else glKey = '';
-        cv.dataset.renders = String(+(cv.dataset.renders || 0) + 1);   // (read by the browser checks: a steady field is not redrawn)
+        dataSoon(cv, 'renders', String(cv._renders = (cv._renders || 0) + 1));   // (read by the browser checks: a steady field is not redrawn)
       }
       img = gl.canvas;
     } else {
@@ -368,7 +368,7 @@ export function createVarixWall() {
     set(ptm.v, wr.ptm); set(rad.v, wr.r); set(wal.v, wr.w); set(idx.v, wr.index);
     set(stressTxt, v.ratioShown > 1 ? 'above the tear point' : `${Math.round(v.ratioShown * 100)}% of the tear point`);
     const sev = v.ratioShown > 1 ? 'critical' : v.ratioShown > 0.7 ? 'danger' : v.ratioShown > 0.4 ? 'caution' : 'ok';
-    if (stressBar.dataset.sev !== sev) stressBar.dataset.sev = sev;
+    dataSoon(stressBar, 'sev', sev);
     // (The stress swings with each beat and each breath: the number is its mean over the last several breaths, a plain
     // average while that many have not passed yet, so it reads steady and the same on every screen, folded or open.)
     const now = performance.now();
@@ -378,7 +378,7 @@ export function createVarixWall() {
     if (Number.isFinite(wPin)) wMean = wPin;
     const ms = wMean > 1 ? 'critical' : wMean > 0.7 ? 'danger' : wMean > 0.4 ? 'caution' : 'ok';
     set(wPct, String(Math.round(wMean * 100))); set(wSev, WALL_SEV[ms]);
-    if (wSev.dataset.sev !== ms) wSev.dataset.sev = wBig.dataset.sev = ms;
+    dataSoon(wSev, 'sev', ms); dataSoon(wBig, 'sev', ms);
     const wPctW = `${Math.round(clamp(v.ratioShown, 0, 1) * 1000) / 10 - 100}% 0px`;   // (slid in from the left inside its track: app.css .endo-bar i)
     if (stressFill.style.translate !== wPctW) stressFill.style.translate = wPctW;
     const pen = fitPen(cv, wallGL), ctx = pen.ctx;
@@ -500,7 +500,7 @@ export function createVarixWall() {
     if (keep('muscle', Math.min(mp.g.outer, mp.g.band) >= 1)) put('muscle', f5, cx, mp.y, mp.g);
     // (What the picture shows, for the checks: the names drawn and how far each keeps from its neighbours.)
     const lab = drawn.join(',');
-    if (cv.dataset.labels !== lab) cv.dataset.labels = lab;
+    dataSoon(cv, 'labels', lab);
     gaps.picture = { R, cy, h: hh };
     cv.wallGaps = gaps;
   }
@@ -606,11 +606,11 @@ function iapDial() {
     last = n;
     const sev = iapSev(v);
     setWords(num, String(n)); setWords(word, IAP_WORD[sev]);
-    svg.dataset.sev = sev;
+    dataSoon(svg, 'sev', sev);
     for (const [a, b, lp] of live) lp.setAttribute('stroke-dasharray', `${(clamp((v - a) / (b - a), 0, 1) * 100).toFixed(1)} 100`);
     const to = 90 + (v / IAP_MAX) * 180;
     if (KNOB_STILL.matches) { turn = null; ang = to; knobAt(ang); } else { turn = { from: ang, to, t0: easeNow() }; if (!turnAsk) turnAsk = lateFrameFor('instruments')(knobStep); }
-    el.setAttribute('aria-label', `Intra-abdominal pressure ${n} mmHg, ${IAP_WORD[sev].toLowerCase()}`);
+    attrSoon(el, 'aria-label', `Intra-abdominal pressure ${n} mmHg, ${IAP_WORD[sev].toLowerCase()}`);
     if (fitK) fitWord(); else gl.paint();
   }
   el.setAttribute('role', 'img');
@@ -629,7 +629,7 @@ export function createAbdomen({ onAction }) {
   const stepper = (label, unit, min, max, stepBy, dp, start, onSet) => {
     let v = start;
     const out = stepOut(unit);
-    const paint = () => { paintStep(out, v, dp, unit); minus.disabled = v <= min; plus.disabled = v >= max; };
+    const paint = () => { paintStep(out, v, dp, unit); propSoon(minus, 'disabled', v <= min); propSoon(plus, 'disabled', v >= max); };
     const go = (d) => { v = +clamp(v + d, min, max).toFixed(dp); paint(); onSet(v); };
     const minus = h('button', { class: 'ab-dp-sb', 'aria-label': `${label}: less`, onclick: () => go(-stepBy) }, '−');
     const plus = h('button', { class: 'ab-dp-sb', 'aria-label': `${label}: more`, onclick: () => go(stepBy) }, '+');
@@ -656,7 +656,7 @@ export function createAbdomen({ onAction }) {
   function paintVol() {
     const warn = L > 5 && !albOn();
     paintStep(volOut, L, 1, 'L');
-    volMinus.disabled = L <= 1; volPlus.disabled = L >= 10;
+    propSoon(volMinus, 'disabled', L <= 1); propSoon(volPlus, 'disabled', L >= 10);
     // (Optional / Advised / grams crossfade into each other; the grams count on as the litres change.)
     const albTxt = albOn() ? `${Math.round(L * 8)} g` : warn ? 'Advised' : 'Optional', albKind = albTxt.replace(/\d+/, '#');
     if (albS._kind !== albKind) { albS._kind = albKind; swapText(albS, albTxt); } else putText(albS, albTxt);
@@ -664,7 +664,7 @@ export function createAbdomen({ onAction }) {
     classSoon(alb, 'ab-warn', warn);
     alb.title = warn ? `For >5 L, give albumin (${Math.round(L * 8)} g, 8 g per liter drained) to protect the kidneys.` : 'Albumin 8 g per liter drained: advised for >5 L, optional for ≤5 L.';
     swapText(drain, hasFluid ? 'Drain' : 'No fluid');
-    drain.disabled = !hasFluid;
+    propSoon(drain, 'disabled', !hasFluid);
   }
   paintVol();
   // Diuretics drives the same parameter as the Treatments chip.
@@ -720,8 +720,8 @@ export function createAbdomen({ onAction }) {
   // rewriting a text node or an attribute to the same value is enough to make the browser stop a scroll in flight.
   // (Its numbers and words change with the model: drawn on the GPU while they change, gl-words.js.)
   const setText = wordSetter([numEl, gradeEl, trendEl, iapNum, iapWord, saagV, tpV, albV, why]);
-  const setAttr = (el, k, v) => { if (v == null) { if (el.hasAttribute(k)) el.removeAttribute(k); } else if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
-  const setData = (el, k, v) => { if (el.dataset[k] !== v) el.dataset[k] = v; };
+  const setAttr = attrSoon;
+  const setData = dataSoon;
   function update(f) {
     const a = f.metrics.ascites, p = store.get().params;
     setText(numEl, fmt(a.volume / 1000, 1));

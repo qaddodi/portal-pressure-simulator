@@ -4,15 +4,16 @@
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
-import { h, clamp, cssAlpha, canvasSize } from './util.js?v=2ed427fd06';
-import { createTraceGL, fitPen } from './trace-gl.js?v=2c10ed6b6e';
-import { FONT } from './charts.js?v=86615ee6ff';
+import { h, clamp, cssAlpha, canvasSize } from './util.js?v=d9ebc1fd77';
+import { createTraceGL, fitPen } from './trace-gl.js?v=671f8a9cea';
+import { FONT } from './charts.js?v=1e8ddf9136';
 import { simTime, isPaused, fibroReading } from './clock.js?v=d6c06e7017';
 import { store } from './store.js?v=afc4d7c743';
 import { createElastogramGL, elastogramUnder } from './fibroscan-gl.js?v=e38330bf30';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=26e2e46fff';
 import { createFollow } from './display-state.js?v=8d062d39dc';
+import { attrSoon, dataSoon } from './class-soon.js?v=fe4bf30794';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the measurement window about 8 ms after the push
@@ -116,7 +117,7 @@ export function createFibroScan() {
   const makeMap = () => {
     if (map !== undefined || gone || !onScreen()) return map ?? null;
     map = createElastogramGL(fields(), { className: 'fs-map', onReady: () => { if (!gone) paint(performance.now()); } });
-    if (map) { mapCv = map.canvas; mapCv.setAttribute('aria-hidden', 'true'); mapCv.style.visibility = 'hidden'; cv.before(mapCv); }
+    if (map) { mapCv = map.canvas; attrSoon(mapCv, 'aria-hidden', 'true'); mapCv.style.visibility = 'hidden'; cv.before(mapCv); }
     return map;
   };
   const dropMap = () => { map?.dispose(); map = undefined; mapCv = null; mapGpu = null; };
@@ -172,7 +173,7 @@ export function createFibroScan() {
     if (w < 80 || hh < 80) return;
     const { t, c } = fr;
     const th = colors();
-    const reading = shown.toFixed(1); if (cv.dataset.reading !== reading) cv.dataset.reading = reading;
+    const reading = shown.toFixed(1); dataSoon(cv, 'reading', reading);
     fibroReading.txt = reading; fibroReading.cv = cv; fibroReading.show?.(reading);
     ctx.clearRect(0, 0, w, hh);
     // The map is the whole instrument: it fills the canvas, the depth labels inside its left edge, the time labels inside its bottom

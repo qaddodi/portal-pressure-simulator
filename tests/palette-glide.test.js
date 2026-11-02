@@ -53,7 +53,7 @@ test('the combobox, listbox and option semantics are unchanged', () => {
   assert.match(pal, /role: 'combobox', 'aria-autocomplete': 'list', 'aria-controls': 'pal-list', 'aria-expanded': 'true'/);
   assert.match(pal, /id: 'pal-list', role: 'listbox'/);
   assert.match(pal, /id: `pal-opt-\$\{i\}`, tabindex: '-1', role: 'option', 'aria-selected': String\(i === sel\)/);
-  assert.match(pal, /input\.setAttribute\('aria-activedescendant', `pal-opt-\$\{sel\}`\)/);
+  assert.match(pal, /attrSoon\(input, 'aria-activedescendant', items\.length \? `pal-opt-\$\{sel\}` : null\)/);
   assert.match(pal, /else if \(e\.key === 'Enter'\) \{ e\.preventDefault\(\); run\(sel\); \}/, 'Enter runs the highlighted row');
   assert.match(pal, /'aria-hidden': 'true' \}\)/, 'the highlight is not announced');
 });

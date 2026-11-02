@@ -8,14 +8,15 @@
 // parks it for a moment) the monitor goes on: the strip scrolls on this card's clock and lays beats at the heart rate shown, closing in as the
 // number climbs, then hands over to the live beat where the model's phase resumes, so the strip neither stalls nor jumps (ekg.js walkBeats).
 
-import { h, fmt, fitCanvas, fitBox, clamp, cssVar } from './util.js?v=2ed427fd06';
+import { h, fmt, fitCanvas, fitBox, clamp, cssVar } from './util.js?v=d9ebc1fd77';
 import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js?v=e7714602db';
-import { FONT } from './charts.js?v=86615ee6ff';
+import { FONT } from './charts.js?v=1e8ddf9136';
 import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating } from './frame.js?v=26e2e46fff';
 import { VITALS, vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js?v=f27505b539';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
 import { createStill } from './still-layer.js?v=d5a9373a74';
+import { attrSoon } from './class-soon.js?v=fe4bf30794';
 const nextFrame = frameFor('vitals-monitor');
 
 export const VITALS_DEFAULT = ['hr', 'map', 'hb'];
@@ -140,7 +141,7 @@ export function createVitalsMonitor({ stillLayer = true, gpu = VITALS_GL } = {})
     });
     last = now;
     const label = `Vital signs: ${cells.map((c) => `${c.title} ${Number.isFinite(c.v) ? fmt(c.v, c.d) : 'not available'} ${c.u}${c.bad ? ', past its limit' : ''}`).join('; ')}.`;
-    if (label !== lastLabel) { lastLabel = label; cv.setAttribute('aria-label', label); }
+    if (label !== lastLabel) { lastLabel = label; attrSoon(cv, 'aria-label', label); }
     // (While the strip scrolls its loop draws every frame, the easing numbers with it: a frame of their own would draw it twice.)
     eased = moving;
     if (moving && !raf && !ticking) raf = nextFrame((t) => { raf = 0; draw(t); });
@@ -213,7 +214,7 @@ export function createVitalsMonitor({ stillLayer = true, gpu = VITALS_GL } = {})
     if (!m) return;
     last = now;
     const label = `Vital signs: ${cells.map((c) => `${c.title} ${Number.isFinite(c.v) ? fmt(c.v, c.d) : 'not available'} ${c.u}${c.bad ? ', past its limit' : ''}`).join('; ')}.`;
-    if (label !== lastLabel) { lastLabel = label; cv.setAttribute('aria-label', label); }
+    if (label !== lastLabel) { lastLabel = label; attrSoon(cv, 'aria-label', label); }
     eased = moving;
     if (moving && !raf && !ticking) raf = nextFrame((t) => { raf = 0; draw(t); });
   }

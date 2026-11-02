@@ -3,17 +3,17 @@
 
 import { store, hiddenNow } from './store.js?v=afc4d7c743';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=2ed427fd06';
-import { lobuleFlows } from './lobule-model.js?v=a572a8e369';
-import { createProfile } from './charts.js?v=86615ee6ff';
-import { createPressureTime } from './pressure-time.js?v=54cca4863c';
-import { createHvpgProcedure } from './hvpg-proc.js?v=86e6766892';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=d42539e8d4';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=d9ebc1fd77';
+import { lobuleFlows } from './lobule-model.js?v=bf2831382e';
+import { createProfile } from './charts.js?v=1e8ddf9136';
+import { createPressureTime } from './pressure-time.js?v=e850fbddf3';
+import { createHvpgProcedure } from './hvpg-proc.js?v=43852d5465';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=58968af35e';
 import { ownsSideways, pageGo } from './swipe.js?v=d2a811fd2d';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=bb4c8be7aa';
-import { createReadoutsPane } from './readouts-pane.js?v=500f9ffbcf';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=6892d934e7';
+import { createReadoutsPane } from './readouts-pane.js?v=8514bcd20e';
 import { frameFor } from './frame.js?v=26e2e46fff';
-import { glWords } from './gl-words.js?v=808dd592ad';
+import { glWords } from './gl-words.js?v=99fb447a2d';
 import { restPass } from './rest-pass.js?v=ed71462b47';
 import { setClass, hasClass, setNow } from './class-batch.js?v=8f8669161e';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
@@ -23,6 +23,7 @@ import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/press
 import { compareRows } from './idle-keys.js?v=81fbedda6b';
 import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js?v=f87939cccb';
+import { attrSoon, dataSoon } from './class-soon.js?v=fe4bf30794';
 const nextFrame = frameFor('dock');
 const DRAG_GUIDE = !/[?&]dockdrag=0\b/.test(typeof location === 'object' ? location.search : '');
 
@@ -359,12 +360,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
           // A value crossing into a worse band flashes once, so a change is noticed without every number on screen.
           const RANKS = { none: -1, ok: 0, caution: 1, danger: 2, critical: 3 };
           if (x.sev && RANKS[sev] > RANKS[x.sev]) flashTile(el);
-          el.dataset.sev = sev; x.sev = sev;
+          dataSoon(el, 'sev', sev); x.sev = sev;
         }
       } else x.sevNext = null;
       if (sev === x.sev) { const un = v == null; swapText(x.st, s, () => setClass(x.st, 'unmeas', un)); }
       const aria = `${t.title || t.k}: ${v == null ? s.toLowerCase() : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
-      if (aria !== x.ariaTxt) { x.ariaTxt = aria; el.setAttribute('aria-label', aria); }
+      if (aria !== x.ariaTxt) { x.ariaTxt = aria; attrSoon(el, 'aria-label', aria); }
     }
     for (const x of vitEls) {
       if (unseen) { x.followKey = null; continue; }
@@ -637,11 +638,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const w = sideWidth(W);
     workspace.style.setProperty('--instrument-w', `${Math.round(w)}px`);
     app.style.setProperty('--side-ws-w', `${Math.round(w)}px`);   // (a sideways phone's play bar ends at the card)
-    divider.setAttribute('aria-valuenow', String(Math.round((w / W) * 100)));
+    attrSoon(divider, 'aria-valuenow', String(Math.round((w / W) * 100)));
   }
   function putHeight(H, max) {
     workspace.style.setProperty('--instrument-h', `${sheetHeight(H, max)}px`);
-    divider.setAttribute('aria-valuenow', String(Math.round(sheetRatio() * 100)));
+    attrSoon(divider, 'aria-valuenow', String(Math.round(sheetRatio() * 100)));
   }
   // A tab whose picture keeps its own shape (Ascites has none to stretch; HVPG and FibroScan are boxes of a fixed
   // aspect) has nothing to fill a tall card with, so its card is only as tall as its content: the height eases to
@@ -934,7 +935,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     // A new kind of status (Paused, a day count, an instrument's summary) crossfades in; the numbers inside one kind just count on.
     const kind = ls + '|' + txt.replace(/[\d.]+/g, '#');
     if (live._kind !== kind) { live._kind = kind; swapText(live, txt); } else putText(live, txt);
-    if (live.dataset.state !== ls) live.dataset.state = ls;
+    dataSoon(live, 'state', ls);
   }
   // The heartbeat (the model's pulsatile mode) runs while a waveform instrument is on screen.
   let beat = null;

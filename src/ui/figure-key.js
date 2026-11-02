@@ -16,7 +16,7 @@ export function createFigureKey({ el, app, ready = null, watch = [] }) {
   function off() {
     clearTimeout(hideT);
     el.classList.remove('on'); on = false;
-    hideT = setTimeout(() => { if (!on) el.hidden = true; }, 320);
+    hideT = setTimeout(() => restPass(() => { if (!on) el.hidden = true; }), 320);   // (the write lands between frames)
   }
   function check() {
     raf = 0;
