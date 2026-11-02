@@ -42,3 +42,65 @@ export function gridHits(grid, cell, r, margin, stamp, any = false) {
   }
   return n;
 }
+
+// ---- The line index, as data (plan rev 2 step 2: labels off the DOM, the solver headed for a worker). ----
+// Everything here is plain numbers in and out: no element, no stage state, so the same code runs on the page and in a worker.
+
+/** The vessels' lines as the labels' solver sees them: each line { pts: [[x, y]...] in world units, R: radii along it or null,
+ *  flat: the radius when R is null, wall: px added to it, id } cut into segments in stage px (toLocal(x, y) → [x, y], sc: px per
+ *  world unit), each in every `cell`-px bucket its box, grown by its half width, reaches. Returns { segs, grid, cell, stamp }. */
+export function lineIndex(lines, toLocal, sc, cell = 64) {
+  const segs = [], grid = new Map();
+  for (const ln of lines) {
+    const pts = ln.pts;
+    if (!pts || pts.length < 2) continue;
+    const R = ln.R, flat = ln.flat, wall = ln.wall || 0;
+    const cum = [0];
+    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    const L = cum[cum.length - 1] || 1, rAt = (u) => (R ? R[Math.round(Math.min(1, Math.max(0, u)) * (R.length - 1))] : flat);
+    let prev = toLocal(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) {
+      const cur = toLocal(pts[i][0], pts[i][1]);
+      const hw = (Math.max(rAt(cum[i - 1] / L), rAt(cum[i] / L)) + wall) * sc;
+      const sg = { x0: prev[0], y0: prev[1], x1: cur[0], y1: cur[1], hw, stamp: 0, id: ln.id };
+      segs.push(sg);
+      for (let gx = Math.floor((Math.min(sg.x0, sg.x1) - hw) / cell); gx <= Math.floor((Math.max(sg.x0, sg.x1) + hw) / cell); gx++) {
+        for (let gy = Math.floor((Math.min(sg.y0, sg.y1) - hw) / cell); gy <= Math.floor((Math.max(sg.y0, sg.y1) + hw) / cell); gy++) {
+          const k = gx * 4096 + gy;
+          (grid.get(k) || grid.set(k, []).get(k)).push(sg);
+        }
+      }
+      prev = cur;
+    }
+  }
+  return { segs, grid, cell, stamp: 0 };
+}
+
+/** How many of the index's segments the box touches, each one's own half width and `margin` px of air included. `skip`: true asks
+ *  only whether one does; a line's id leaves that one out; { only: id } counts just that one. */
+export function indexHits(idx, r, margin, skip = false) {
+  if (typeof skip === 'boolean') return gridHits(idx.grid, idx.cell, r, margin, ++idx.stamp, skip);
+  const stamp = ++idx.stamp, cell = idx.cell;
+  let n = 0;
+  for (let gx = Math.floor((r.x0 - margin) / cell); gx <= Math.floor((r.x1 + margin) / cell); gx++) {
+    for (let gy = Math.floor((r.y0 - margin) / cell); gy <= Math.floor((r.y1 + margin) / cell); gy++) {
+      const c = idx.grid.get(gx * 4096 + gy);
+      if (!c) continue;
+      for (let i = 0; i < c.length; i++) {
+        const sg = c[i];
+        if (sg.stamp === stamp) continue;
+        sg.stamp = stamp;
+        if ((skip?.only ? sg.id === skip.only : sg.id !== skip) && segHitsBox(sg, r, sg.hw + margin)) n++;
+      }
+    }
+  }
+  return n;
+}
+
+/** Do two segments cross (or touch)? Each is [x0, y0, x1, y1] or { x0, y0, x1, y1 }. */
+export function segsCross(a, b) {
+  const a0 = a.x0 ?? a[0], a1 = a.y0 ?? a[1], a2 = a.x1 ?? a[2], a3 = a.y1 ?? a[3];
+  const b0 = b.x0 ?? b[0], b1 = b.y0 ?? b[1], b2 = b.x1 ?? b[2], b3 = b.y1 ?? b[3];
+  const o = (px, py, qx, qy, rx, ry) => Math.sign((qx - px) * (ry - py) - (qy - py) * (rx - px));
+  return o(a0, a1, a2, a3, b0, b1) !== o(a0, a1, a2, a3, b2, b3) && o(b0, b1, b2, b3, a0, a1) !== o(b0, b1, b2, b3, a2, a3);
+}

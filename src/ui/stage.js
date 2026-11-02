@@ -28,7 +28,7 @@ import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fl
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { paintBox } from './plate-copy.js?v=20b30d30b0';
-import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
+import { segHitsBox, lineIndex, indexHits, segsCross } from './seg-hits.js?v=588177da67';
 import { glassCallout, withGlass } from './callout.js?v=0176ea0efa';
 import { flipFrom, flipAt } from './cath-flip.js?v=6b016952c4';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
@@ -10617,59 +10617,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // Vessel geometry as capsules in screen space, bucketed, so a label can ask exactly which vessels it touches.
   const SEG_CELL = 64;
-  let segs = [], segGrid = new Map(), segStamp = 0;
+  let segs = [], segIdx = lineIndex([], worldToLocal, 1, SEG_CELL);
   // (The vessels as drawn: every tube the GPU draws, the liver's grey branches, strands and tributaries included, each at its
   // drawn radius along its course plus its wall; a label kept clear of these is clear of the picture: Review 16 Oct.)
   function buildSegs() {
-    segs = []; segGrid = new Map();
     const items = glWanted() ? glItems() : EV.filter((x) => x.vis && geo[x.e.id]?.cur).map((x) => ({ x, obj: x, pts: geo[x.e.id].cur, kind: 'v' }));
     // (A resistor's zigzag stands as a band as wide as its teeth: "4.1" had sat on the liver's.)
     const zz = [...resMade.values()].filter((g) => g._segs?.length).flatMap((g) => g._segs.map((pts) => ({ x: { width: 22 }, obj: { w: 22 }, pts, kind: 'z' })));
+    // (The lines as plain data (seg-hits.js lineIndex), so the same index can be built where the solver runs: plan rev 2 step 2.)
+    const lines = [];
     for (const it of [...items, ...zz]) {
-      const pts = it.pts, x = it.x;
-      if (!pts || pts.length < 2) continue;
-      const R = it.obj.glR, wall = x.isArt ? 0 : x.wallPx || 0, flat = it.kind === 'v' ? (x.width || 4) / 2 : (it.obj.w || 2) / 2;
-      const cum = [0];
-      for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
-      const L = cum[cum.length - 1] || 1, rAt = (u) => (R ? R[Math.round(clamp(u, 0, 1) * (R.length - 1))] : flat);
-      let prev = worldToLocal(pts[0][0], pts[0][1]);
-      for (let i = 1; i < pts.length; i++) {
-        const cur = worldToLocal(pts[i][0], pts[i][1]);
-        const hw = (Math.max(rAt(cum[i - 1] / L), rAt(cum[i] / L)) + wall) * CTM.sc;
-        const sg = { x0: prev[0], y0: prev[1], x1: cur[0], y1: cur[1], hw, stamp: 0, id: x.e ? x.e.id : 'res' };   // (a resistor's zigzag has no vessel)
-        segs.push(sg);
-        for (let gx = Math.floor((Math.min(sg.x0, sg.x1) - hw) / SEG_CELL); gx <= Math.floor((Math.max(sg.x0, sg.x1) + hw) / SEG_CELL); gx++) {
-          for (let gy = Math.floor((Math.min(sg.y0, sg.y1) - hw) / SEG_CELL); gy <= Math.floor((Math.max(sg.y0, sg.y1) + hw) / SEG_CELL); gy++) {
-            const k = gx * 4096 + gy;
-            (segGrid.get(k) || segGrid.set(k, []).get(k)).push(sg);
-          }
-        }
-        prev = cur;
-      }
+      const x = it.x;
+      lines.push({ pts: it.pts, R: it.obj.glR, wall: x.isArt ? 0 : x.wallPx || 0, flat: it.kind === 'v' ? (x.width || 4) / 2 : (it.obj.w || 2) / 2, id: x.e ? x.e.id : 'res' });   // (a resistor's zigzag has no vessel)
     }
+    segIdx = lineIndex(lines, worldToLocal, CTM.sc, SEG_CELL);
+    segs = segIdx.segs;
   }
   // How many vessel segments the box touches, a vessel's own width and `margin` px of air included (`skip`: true asks only whether
   // one does; a vessel's id leaves that one out; { only: id } counts just that one).
-  const lineHits = (r, margin, skip = false) => {
-    if (typeof skip === 'boolean') return gridHits(segGrid, SEG_CELL, r, margin, ++segStamp, skip);
-    const stamp = ++segStamp;
-    let n = 0;
-    for (let gx = Math.floor((r.x0 - margin) / SEG_CELL); gx <= Math.floor((r.x1 + margin) / SEG_CELL); gx++) {
-      for (let gy = Math.floor((r.y0 - margin) / SEG_CELL); gy <= Math.floor((r.y1 + margin) / SEG_CELL); gy++) {
-        for (const sg of segGrid.get(gx * 4096 + gy) || []) {
-          if (sg.stamp === stamp) continue;
-          sg.stamp = stamp;
-          if ((skip?.only ? sg.id === skip.only : sg.id !== skip) && segHitsBox(sg, r, sg.hw + margin)) n++;
-        }
-      }
-    }
-    return n;
-  };
-  // Do two segments [x0, y0, x1, y1] cross (or touch)?
-  function segsCross(a, b) {
-    const o = (px, py, qx, qy, rx, ry) => Math.sign((qx - px) * (ry - py) - (qy - py) * (rx - px));
-    return o(a[0], a[1], a[2], a[3], b[0], b[1]) !== o(a[0], a[1], a[2], a[3], b[2], b[3]) && o(b[0], b[1], b[2], b[3], a[0], a[1]) !== o(b[0], b[1], b[2], b[3], a[2], a[3]);
-  }
+  const lineHits = (r, margin, skip = false) => indexHits(segIdx, r, margin, skip);
   // For the browser check (Review 16 Oct): every TIPS point callout, the slide's mark and the "60 %" on screen, with its drawn box
   // (halo or pill edge included) in screen px, its clearance from the nearest drawn vessel (negative: on it), the vessel, and for a
   // point how far its middle sits from its dot. The "60 %" leaves its own stent out; nothing else does.
