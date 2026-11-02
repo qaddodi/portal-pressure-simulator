@@ -376,11 +376,13 @@ vec4 lvItem(vec2 wp, float px, int o, vec4 acc) {
     if (dd < dm) { dm = dd; jb = i - 1; }
     pa = pc;
   }
-  // (The shadow: the faint pass's shape blurred, its sigma constant on the screen up to 1 px a world unit.)
+  // (The shadow: the faint pass's shape blurred, its sigma constant on the screen up to 1 px a world unit. tanh's argument is clamped:
+  // zoomed in, px and so sg are small and d1 / sg runs to the thousands, where tanh (e^x − e^−x) / (e^x + e^−x) gives inf / inf, a NaN
+  // that turned whole bins of the lobule black (2 Nov 2026). At ±10 tanh is ±1 to float precision, so nothing else changes.)
   float blur = h2.w;
   if (blur > 0.0) {
     float sg = max(0.5 * blur * min(px, 1.0), 1e-3);
-    acc = lvOver(lvTint(uLShd.rgb, uLShd.a * 0.12 * a * (0.5 - 0.5 * tanh(0.85 * d1 / sg))), acc);
+    acc = lvOver(lvTint(uLShd.rgb, uLShd.a * 0.12 * a * (0.5 - 0.5 * tanh(clamp(0.85 * d1 / sg, -10.0, 10.0)))), acc);
   }
   float c1 = lvCov(d1, px) * cl;
   acc = lvOver(lvTint(h1.rgb, 0.12 * a) * c1, acc);

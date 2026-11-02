@@ -28,11 +28,11 @@ import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-mode
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL, TILE_OVER } from './field-gl.js?v=f9e73234b6';
-import { createTissueGL } from './tissue-gl.js?v=41e78c110d';
+import { createTissueGL } from './tissue-gl.js?v=55d5197539';
 import { tileCopy } from './tile-gl.js?v=f3af2b699f';
 import { FX_GPU, createFxGL } from './fx-gl.js?v=6cd87e644d';
 import { WIDE_GL, createWideGL } from './wide-gl.js?v=2b90b1a0fe';
-import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=f100c25e77';
+import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=b585d4fb63';
 import { recordPaint, gpuPicture } from './paint-gl.js?v=3fb6599f48';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=ccb5ac5fe2';
@@ -2856,6 +2856,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (Recorded here, a moment's script, and painted on the GPU now, between frames.)
       free(spareCv); spareCv = paintWorld(sc, m, G, dark, cs); spare = { sc, ws, G };
       g.upload(spareCv, spareCv.ver);
+    }
+    if (bitmapUnseen()) {
+      // (And one painted sharper before the shader took over (the first open, while it compiled: up to 3600 px square, 50 MB on the
+      // GPU) is painted again, here between frames, at the sharpest it is ever seen: a few hundred px.)
+      const cap0 = seenCap(G);
+      if (worldSc > cap0 * 2.01 && worldCv.width && worldGeo === G && ws === worldState && !xfT0) {
+        free(worldCv); worldCv = paintWorld(cap0, m, G, dark, cs); worldSc = cap0; worldKey = cap0.toFixed(3) + '|' + ws;
+        g.upload(worldCv, worldCv.ver); wake();
+      }
     }
     // (The surround's tiles for that zoom too, each with its quieted copy, on the GPU.)
     const tone = shadeOf(stageBg(cs, dark), dark), { a, b } = fieldBlend(G.R * V.k * dpr * 0.55 * 2);
