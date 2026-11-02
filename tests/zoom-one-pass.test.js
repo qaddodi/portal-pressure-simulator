@@ -139,7 +139,7 @@ test('veins-gl: always, a zoom or turn only, plain frames only, the old two pass
   assert.match(src, /stencil: !ownBuf,/, 'no stencil on the canvas when the figure has its own buffer (its own has one)');
   assert.match(src, /let fuse = null;\n\s*try \{ const cf = plainText; fuse = \{ vs: fusedVS\(VS, ZOOM_VS\), gen: fusedFS\(vesselFS\(false\), cf, false\), one: fusedFS\(vesselFS\(true\), cf, true\) \}; \}/, 'the one-pass builds are always made');
   const draw = body(src, '    draw(m, look, blood, rows = null) {');
-  const fuse = draw.match(/if \(!pan && baseM && !sameLin\(m, baseM\) && fuseReady\(\) && bareOf\(blood \|\| \{\}\) && !gpuProbe\.skipGL && !lost\) \{([\s\S]*?)\n {6}\}/);
+  const fuse = draw.match(/if \(!pan && baseM && !sameLin\(m, baseM\) && fuseReady\(\) && bareOf\(blood \|\| NOBLOOD\) && !gpuProbe\.skipGL && !lost\) \{([\s\S]*?)\n {6}\}/);
   assert.ok(fuse, 'one pass only when the scale or turn changed, the builds are ready and the frame is plain');
   assert.match(fuse[1], /fboOK = false;/, 'the layer is not current after it');
   assert.match(fuse[1], /clearLayer\(\); stale = true;/, 'the layer is cleared once, for the pixels outside the cells');

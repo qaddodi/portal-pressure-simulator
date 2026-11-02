@@ -58,7 +58,7 @@ test('a rebinning writes its rows into the entries\' kept texture, taller only w
 
 test('the fluid, the row redraw and the rebinning use the kept storage', () => {
   assert.match(veins, /keepBuf\(fluidBuf, cells\);/);
-  assert.match(veins, /keepBuf\(partBuf, gen\); keepBuf\(partSBuf, one\);/);
+  assert.match(veins, /keepBuf\(partBuf, gen, g \* 6\); keepBuf\(partSBuf, one, o \* 6\);/);
   assert.match(veins, /keepRows\(entTex, gl\.RGBA32F, gl\.RGBA, gl\.FLOAT, ENT_W, bins\.rows \|\| 1,/);
   // (the cavity's spans: rewritten in place while the texture's width, which the shader reads with textureSize, holds)
   assert.match(veins, /if \(fluidN === n && fluidTexN === n\) \{ gl\.texSubImage2D\(gl\.TEXTURE_2D, 0, 0, 0, n, 2,/);

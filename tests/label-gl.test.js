@@ -217,7 +217,10 @@ test('the labels stay on their own canvas; what they drew is told to the glass d
   // (At the end of each picture laid, the glasses' turns: every blur first, then every glass, lowest turn first; a snapshot is the
   // figure alone, then laid again whole as it shows.)
   assert.match(VG, /function present\(top = true, again = false\) \{/);
-  assert.match(VG, /if \(top && tops\.length\) \{\n\s+for \(const t of tops\.slice\(\)\) \{ try \{ t\.prep\?\.\(\); t\.fails = 0; \}[^\n]*\n\s+for \(const t of tops\.slice\(\)\) \{ try \{ t\.draw\(\); t\.fails = 0; \}/);
+  assert.match(VG, /if \(top && tops\.length\) \{\n\s+runTops\(\);/);
+  // (runTops: each top's prep, then each top's draw, over the list as it stood when the phase began, in kept lists.)
+  assert.match(VG, /for \(let i = 0; i < snap\.length; i\+\+\) \{ const t = snap\[i\]; try \{ t\.prep\?\.\(\); t\.fails = 0; \}/);
+  assert.match(VG, /for \(let i = 0; i < snap\.length; i\+\+\) \{ const t = snap\[i\]; try \{ t\.draw\(\); t\.fails = 0; \}/);
   assert.match(VG, /add\(t\) \{ tops\.push\(t\); tops\.sort\(\(a, b\) => \(a\.order \|\| 0\) - \(b\.order \|\| 0\)\);/);
   assert.match(VG, /snapshot\(\) \{ present\(false\); const url = canvas\.toDataURL\('image\/png'\); if \(tops\.length\) present\(\); return url; \}/);
   // (Every box a picture drew: each label's, each mark's, the probes'; a change tells the stage, which wakes the glasses.)

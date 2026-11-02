@@ -87,7 +87,7 @@ test('the glass takes a new copy of the figure only when the figure, the region 
   // (But for a frame of the moving blood alone, whose streaks the glass's blur evens out: review H4, 30 Oct.)
   assert.match(VEINS, /pictured\(!full && !part && !dirt && !pool && !\(fl\?\.ripple && nFluid\) && !cath && bare && same && !figNew\);/);
   assert.match(VEINS, /clear\(\) \{ pictured\(\);/);
-  assert.match(VEINS, /const pictured = \(blood = false\) => \{ if \(blood\) \{ bloodSeq\+\+; return; \} pictureSeq\+\+; for \(const f of onPicture\) f\(\); \};/, 'and each time, it tells the glass');
+  assert.match(VEINS, /const pictured = \(blood = false\) => \{ if \(blood\) \{ bloodSeq\+\+; return; \} pictureSeq\+\+; onPicture\.forEach\(callPicture\); \};/, 'and each time, it tells the glass');
 });
 
 test('the glass is drawn on the shared final phase, once a frame, after the figure\'s own frame', () => {

@@ -20,8 +20,9 @@ export function retireRows(data, was, now, stride) {
  * The rows of `data` (its first `rows` rows) that differ from `last`, as one inclusive span [lo, hi], or null when none
  * does. The span is copied into `last`, so it then holds what the GPU holds once the caller uploads it. One span, not one
  * upload per changed row: the moving blood changes most rows of a frame, and one call costs less than many small ones.
+ * `out`: a pair kept by the caller, written with [lo, hi] and returned in place of a new one.
  */
-export function changedRows(data, last, stride, rows) {
+export function changedRows(data, last, stride, rows, out = null) {
   const n = rows * stride;
   let i = 0;
   while (i < n && data[i] === last[i]) i++;
@@ -29,7 +30,8 @@ export function changedRows(data, last, stride, rows) {
   let j = n - 1;
   while (j > i && data[j] === last[j]) j--;
   const lo = Math.floor(i / stride), hi = Math.floor(j / stride);
-  last.set(data.subarray(lo * stride, (hi + 1) * stride), lo * stride);
+  for (let k = lo * stride, e = (hi + 1) * stride; k < e; k++) last[k] = data[k];
+  if (out) { out[0] = lo; out[1] = hi; return out; }
   return [lo, hi];
 }
 

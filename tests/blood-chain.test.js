@@ -166,5 +166,5 @@ test('composite: with nothing chained, the streaks, the heads and the join are d
   assert.match(gl, /float dimK = mix\(mix\(0\.6, 0\.3, mn\), 0\.0, rel\);\n\s*float a = A\.a \* \(1\.0 - dimK \* smoothstep\(0\.02, 0\.5, b\)\);/);
   assert.match(gl, /c \*= 1\.0 - smoothstep\(0\.02, 0\.25, b\) \* \(1\.0 - rel\);/);
   // A root's noise block is built even when the root itself does not stream.
-  assert.match(gl, /const needs = \(r\) => streams\(data, stride, r\) \|\| rootOf\[r\] === 1;/);
+  assert.match(gl, /const needsNoise = \(r\) => streams\(noiseData, noiseStride, r\) \|\| rootOf\[r\] === 1;/);
 });

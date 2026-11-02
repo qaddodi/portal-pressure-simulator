@@ -111,7 +111,7 @@ test('H3: the glass canvases hold at most 2 device px per CSS px; the labels too
 
 test('H4: a frame of the moving blood alone takes no new copy for the glass and does not wake it; anything else does', () => {
   const v = src('veins-gl.js');
-  assert.match(v, /const pictured = \(blood = false\) => \{ if \(blood\) \{ bloodSeq\+\+; return; \} pictureSeq\+\+; for \(const f of onPicture\) f\(\); \};/);
+  assert.match(v, /const pictured = \(blood = false\) => \{ if \(blood\) \{ bloodSeq\+\+; return; \} pictureSeq\+\+; onPicture\.forEach\(callPicture\); \};/);
   assert.match(v, /pictured\(!full && !part && !dirt && !pool && !\(fl\?\.ripple && nFluid\) && !cath && bare && same && !figNew\);/);
   // Every upload a blood frame could show, other than the blood's own rows, counts the figure as drawn again.
   const api = v.slice(v.indexOf('  const api = {'));
@@ -135,8 +135,9 @@ test('H6: a still catheter repaints only its box (now and as last drawn), whole 
   const v = src('veins-gl.js');
   const comp = v.slice(v.indexOf('    composite(look, blood = NOBLOOD, full = false, part = 0) {'), v.indexOf('    /** Whether organ outlines can be drawn here'));
   assert.match(comp, /if \(cath && !moving && cathAt\) \{/);
-  assert.match(comp, /u = b && \[Math\.min\(b\[0\], cathAt\[0\]\), Math\.min\(b\[1\], cathAt\[1\]\), Math\.max\(b\[2\], cathAt\[2\]\), Math\.max\(b\[3\], cathAt\[3\]\)\];/);
-  assert.match(comp, /if \(u && \(u\[2\] - u\[0\]\) \* \(u\[3\] - u\[1\]\) <= PW\(\) \* PH\(\) \/ 2\) cathRect = u;/);
+  // (The boxes are kept arrays written in place: the box now, the box last drawn in and their union.)
+  assert.match(comp, /u\[0\] = Math\.min\(b\[0\], cathAt\[0\]\); u\[1\] = Math\.min\(b\[1\], cathAt\[1\]\); u\[2\] = Math\.max\(b\[2\], cathAt\[2\]\); u\[3\] = Math\.max\(b\[3\], cathAt\[3\]\);/);
+  assert.match(comp, /if \(\(u\[2\] - u\[0\]\) \* \(u\[3\] - u\[1\]\) <= PW\(\) \* PH\(\) \/ 2\) cathRect = u;/);
   assert.match(comp, /if \(\(cath && !cathRect\) \|\| cathWas && !cath\) full = true;/, 'a moving view, the first frame and the frame after it is gone: whole');
   // In the box: the whole build with no outline layer, the catheter, then the outlines: exactly the whole picture's order there.
   const box = comp.slice(comp.indexOf('      if (cathRect) {'), comp.indexOf('      } else if (cath) gpuProbe'));
@@ -144,9 +145,9 @@ test('H6: a still catheter repaints only its box (now and as last drawn), whole 
   let at = -1;
   for (const k of order) { const i = box.indexOf(k); assert.ok(i > at, k); at = i; }
   assert.match(comp, /const cathPass = cathRect \? \(bare \? plain : comp\) : null;/, 'the whole picture\'s own build');
-  assert.match(comp, /cathAt = cath \? cathBox\(m\) : null;/, 'where it was drawn, for the next frame');
+  assert.match(comp, /cathAt = cath \? cathBox\(m, BOX_AT\) : null;/, 'where it was drawn, for the next frame');
   // The box takes every vertex the draws use, base and frame alike, and a margin.
-  const fn = v.slice(v.indexOf('  function cathBox(m) {'), v.indexOf('  function drawCath(m) {'));
+  const fn = v.slice(v.indexOf('  function cathBox(m, into) {'), v.indexOf('  function drawCath(m) {'));
   assert.match(fn, /for \(let i = d\.first, e = d\.first \+ d\.count; i < e; i\+\+\) \{\n\s+const a = i < nb \? base : V, o = \(i < nb \? i : i - nb\) \* 6;/);
   assert.match(fn, /Math\.floor\(x0\) - 2/);
   assert.match(fn, /Math\.ceil\(y1\) \+ 2/);

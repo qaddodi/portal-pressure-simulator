@@ -183,11 +183,13 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   // (A non-scaling stroke's px: the canvas's own over its box's, given to the painter before each change check and paint.)
   assert.match(st, /veins\.overlay\.cssPx = boxW > 0 \? vCanvas\.width \/ boxW : 1;/);
   const vg = read('../src/ui/veins-gl.js');
-  assert.match(vg, /stack\.painter\.cssPx = overCss;\n\s+const kx = canvas\.width \/ PW\(\), ky = canvas\.height \/ PH\(\);\n\s+const om = overSnap \? whole\(overM, WO\) : overM;\n\s+return over\.stale\(\[om\[0\] \* kx/);
+  assert.match(vg, /stack\.painter\.cssPx = overCss;\n\s+return over\.stale\(overView\(\), canvas\.width, canvas\.height\);/);
+  assert.match(vg, /const om = overSnap \? whole\(overM, WO\) : overM;\n\s+const kx = canvas\.width \/ PW\(\), ky = canvas\.height \/ PH\(\);\n\s+OV_M\[0\] = om\[0\] \* kx;/);
   assert.match(vg, /stack\.painter\.cssPx = overCss;\n\s+if \(over\.stale\(m, canvas\.width, canvas\.height\)\) over\.render/);
   // (Below Full the canvas is moved by the vessels' sub-pixel rest: the overlays go at whole pixels with the vessels, in the check and the paint.)
   assert.match(st, /if \(veins\?\.overlay\) veins\.overlay\.snap = vdpr < vBase - 1e-9;/);
-  assert.equal((vg.match(/const om = overSnap \? whole\(overM, WO\) : overM;/g) || []).length, 2);
+  assert.equal((vg.match(/overSnap \? whole\(overM, WO\) : overM/g) || []).length, 1, 'one view for the check and the paint');
+  assert.equal((vg.match(/overView\(\)/g) || []).length, 3);
   assert.match(vg, /set snap\(v\) \{ overSnap = !!v; \}/);
   // (Read again when a class outside the overlays changes how they show: the app's, the page's, the stage's.)
   assert.match(st, /const overKey = \(\) => `\$\{gestureFree\(appEl\?\.className \|\| ''\)\}\|\$\{document\.documentElement\.className\}\|\$\{wrapCls\(\)\}\|/);

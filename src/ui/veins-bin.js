@@ -364,15 +364,25 @@ export function simpleCells(cells, nCells, ent) {
  * the general vessel program, and `one`, the cells flagged in `simple` (simpleCells; null: none), for the one-vessel build.
  * Every cell given lands in exactly one of them.
  */
-export function splitCells(cells, nCells, simple, mark = null) {
+export function splitCells(cells, nCells, simple, mark = null, out = null) {
   let g = 0, o = 0;
   for (let c = 0; c < nCells; c++) if (!mark || mark[c]) { if (simple?.[c]) o++; else g++; }
-  const gen = new Float32Array(g * 6), one = new Float32Array(o * 6); // alloc-rare: geometry upload: runs once per binning (a new patient, layout or reach change), sized by the cells, never on a steady frame
+  // (`out`: a record kept by the caller ({ gen, one, nGen, nOne }): its two lists are grown only when too small and rewritten in place, so a
+  // repeated call (a marked part of the cells going up again) makes nothing. Without it, two fresh lists, as before: they hold exactly the cells.)
+  let gen, one;
+  if (out) {
+    if (out.gen.length < g * 6) out.gen = new Float32Array(g * 6 * 2); // alloc-rare: grows only when the marked cells outgrow the kept list, never on a steady frame
+    if (out.one.length < o * 6) out.one = new Float32Array(o * 6 * 2); // alloc-rare: grows only when the marked cells outgrow the kept list, never on a steady frame
+    gen = out.gen; one = out.one;
+  } else {
+    gen = new Float32Array(g * 6); one = new Float32Array(o * 6); // alloc-rare: geometry upload: runs once per binning (a new patient, layout or reach change), sized by the cells, never on a steady frame
+  }
   for (let c = 0, i = 0, j = 0; c < nCells; c++) {
     if (mark && !mark[c]) continue;
-    const at = cells.subarray(c * 6, c * 6 + 6);
-    if (simple?.[c]) { one.set(at, j); j += 6; } else { gen.set(at, i); i += 6; }
+    const at = c * 6;
+    if (simple?.[c]) { for (let k = 0; k < 6; k++) one[j + k] = cells[at + k]; j += 6; } else { for (let k = 0; k < 6; k++) gen[i + k] = cells[at + k]; i += 6; }
   }
+  if (out) { out.nGen = g; out.nOne = o; return out; }
   return { gen, one, nGen: g, nOne: o }; // alloc-rare: geometry upload: runs once per binning (a new patient, layout or reach change), sized by the cells, never on a steady frame
 }
 

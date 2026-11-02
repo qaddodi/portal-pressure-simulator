@@ -17,7 +17,7 @@
 //     and its runs' radii hold the points of every sample, and the slack, so the passes they let the shader skip stay safe.
 //   - a join entry's first float is the join's index: its centre, reach, blend width and fillet are read from the frame's rows.
 
-import { CELL, ENT_W, RUN } from './veins-bin.js?v=49b311283d';
+import { CELL, ENT_W, RUN } from './veins-bin.js?v=212e62b33a';
 
 const d2 = (x, y) => x * x + y * y;
 function segDist2(px, py, ax, ay, bx, by) {

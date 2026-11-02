@@ -56,9 +56,9 @@ import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=9546e67879'
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=e6337f9cef';
 import { createLabelGL } from './label-gl.js?v=0b5554e721';
 import { createGlassGL } from './glass-gl.js?v=d830edee02';
-import { writePoints, writeJoinNow } from './veins-sweep.js?v=a38b10c598';
-import { ENT_W } from './veins-bin.js?v=49b311283d';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=d3ace919d4';
+import { writePoints, writeJoinNow } from './veins-sweep.js?v=3347bb42f7';
+import { ENT_W } from './veins-bin.js?v=212e62b33a';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=664aa97ee6';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=e669103117';
@@ -66,7 +66,7 @@ import { follow2, createColourFollow, SHOWN_TAU } from './display-state.js?v=e70
 import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS, PERIOD, DRIFT_PERIOD } from './blood.js?v=4892162325';
 import { createDyeRemote } from './dye-remote.js?v=4088f3b1b0';
 import { createSweepClient } from './sweep-client.js?v=82d428b46d';
-import { retireRows, flowClose } from './flow-rows.js?v=6cd335f84b';
+import { retireRows, flowClose } from './flow-rows.js?v=1b98c3bdba';
 import { createJunctionWidths } from './junction-widths.js?v=24af760f06';
 import { chainsOf, planChainInto, taperAt } from './vessel-taper.js?v=01b79bbfbd';
 import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=ca74a6f22a';
@@ -2597,7 +2597,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=2f6290d428').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=a6ba9aca05').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, binAway: (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins }) });
@@ -3998,7 +3998,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (The worker's lifecycle, sweep-client.js: a dead or stuck one is dropped and its requests rejected; the next request restarts it,
   // up to a few times in a row, and the callers fall back to the main thread on a rejection.)
-  const sweeper = createSweepClient(() => new Worker(new URL('./sweep-worker.js?v=633bb31cd5', import.meta.url), { type: 'module' }));
+  const sweeper = createSweepClient(() => new Worker(new URL('./sweep-worker.js?v=92c357769e', import.meta.url), { type: 'module' }));
   const sweepBin = (msg) => sweeper.request(msg);
   const FAR_ROW = Array.from({ length: N_SAMPLES }, () => [1e9, 1e9]);
   // How far (squared) a join's centre lies from the course of its centres through the stretch.
