@@ -3292,7 +3292,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     else { const u = (p - 0.45) / 0.55; for (let i = 0; i < 3; i++) out[i] = lerp(c.mid[i], c.hi[i], u); }
     return out;
   }
-  const lyInk = (m, dark) => lyInkInto([0, 0, 0], m, dark);
+  const LY_TMP = [0, 0, 0];   // (the lymph's colour, written in place for each drawGL pass to read at once)
   // The triad's outlines: dark blue, red and green (the venule, arteriole and ductule), against the common casing.
   const EDGE = { pv: [0.12, 0.27, 0.58], in: [0.12, 0.27, 0.58], ha: [0.55, 0.1, 0.16], tw: [0.55, 0.1, 0.16], bd: [0.27, 0.29, 0.12] }, BD_FILL = [0.48, 0.5, 0.24];   // bile: a dark, dull olive
   // Radius (in lobule radii) inside which the sinusoid outlines stop: the central vein's edge.
@@ -3322,12 +3322,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const from = lensFrom === 'origin' ? ORIGIN_RGB : rgb01(inkOf(lensFrom, seg, w));
     for (let i = 0; i < 3; i++) out[i] = from[i] + (to[i] - from[i]) * k;
     return out;
-  }
-  // The same as a [r, g, b] 0–1 to be kept: the colour itself (a stable array, read only), or mid-switch a new mix.
-  function inkRGB(seg, w = 0, k = lensK()) {
-    const M = model.mode, to = M === 'origin' ? ORIGIN_RGB : rgb01(inkOf(M, seg, w));
-    if (k >= 1) return to;
-    return inkMix([0, 0, 0], to, seg, w, k);
   }
   function inkOf(M, seg, w) {
     const m = model;
@@ -3362,8 +3356,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Capillarized sinusoids are drawn duller as fibSin rises (G21): drained toward the lobule's shade, never brighter.
   // (From the eased sinusoidal resistance, so a new patient's sinusoids dull gradually, as their calibers change.)
   const sinFib = () => clamp(Math.log(rzOf().sin) / 3.2, 0, 1);
-  const sinDull = (rgb) => { const f = sinFib(); return f > 0 ? dullSinusoid(rgb, cssRGB01('--lz-shade'), f) : rgb; };
-  const tubeRGB = (t, end, k) => { const c = inkRGB(segOf(t), tubeW(t, end), k); return segOf(t) === 'sin' ? sinDull(c) : c; };
+  const sinDull = (rgb) => { const f = sinFib(); return f > 0 ? dullSinusoid(rgb, cssRGB01('--lz-shade'), f, rgb) : rgb; };   // (the kept triple dulled in place)
+  const TUBE_TMP = [0, 0, 0];   // (a vessel end's colour, written in place and read at once by drawGL)
+  const tubeRGB = (t, end, k) => { const c = inkRGBInto(TUBE_TMP, segOf(t), tubeW(t, end), k); return segOf(t) === 'sin' ? sinDull(c) : c; };
   // A "Colored by" switch crossfades the lobule's vessels over a surface step (420 ms), on the quintic, as the anatomy's do (stage.js LENS_FADE).
   // lensFrom: the lens they are leaving, null when no switch is under way.
   const LENS_FADE = D_SURFACE, ORIGIN_RGB = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];
@@ -3522,7 +3517,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         // (The lymph's two inks only where its vessels are drawn: the lymph layer.)
         let LY = null;
         if (lymphOn) {
-          LY = lyInk(m, dark);   // lymph: clear, a faint green (paler than the bile duct), deeper with more protein
+          LY = lyInkInto(LY_TMP, m, dark);   // lymph: clear, a faint green (paler than the bile duct), deeper with more protein
           // The space of Disse fills as filtration rises: its tint deepens a little (it already widens).
           const deep = dark ? DISSE_DEEP_DARK : DISSE_DEEP, f = 0.45 * lyF(m);
           for (let i = 0; i < 3; i++) LYD[i] = lerp(LY[i], deep[i], f);
