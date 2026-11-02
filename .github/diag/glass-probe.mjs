@@ -38,6 +38,11 @@ async function report(page, name, dir) {
   await page.screenshot({ path: `${dir}/${name}.png` });
 }
 const scenarios = [
+  ['circuit-zoom-dark', '?script=circuit&slide=3', async (page, R) => {
+    await page.waitForTimeout(40000); await R('rest');
+    const z = await page.$('.pz-zbtn'); if (!z) { log('circuit: no zoom button'); return; }
+    await z.click(); await page.waitForTimeout(300); await R('zoom-mid'); await page.waitForTimeout(3000); await R('zoomed-3s'); await page.waitForTimeout(8000); await R('zoomed-11s');
+  }],
   ['hvpg3', '?script=hvpg&slide=3', async (page, R) => {
     await page.waitForTimeout(40000); await R('rest');
     const z = await page.$('.pz-zbtn'); if (z) { await z.click(); await page.waitForTimeout(300); await R('zoom-mid'); await page.waitForTimeout(3000); await R('zoomed'); await z.click(); await page.waitForTimeout(300); await R('unzoom-mid'); await page.waitForTimeout(3000); await R('unzoomed'); }
