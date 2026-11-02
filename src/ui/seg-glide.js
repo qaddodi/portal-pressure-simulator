@@ -17,7 +17,7 @@
 //   - ?glide=0: this file does nothing, so the page is today's, class for class.
 import { D_FLIP, D_SMALL } from './ease.js?v=7513a88c68';
 import { restPass } from './rest-pass.js?v=442dee98c9';
-import { readBox, readMetric, readStyle } from './layout-snap.js?v=49b358c305';
+import { readBox, readMetric, readStyle } from './layout-snap.js?v=49ac75f2f5';
 
 const SEL = '.seg, .instr-tabs, .um-tabs, .pressure-switch';
 /** ?glide=0 in a page's search string: this file does nothing and the page is today's. */
