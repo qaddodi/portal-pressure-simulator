@@ -7,7 +7,7 @@
 // (Next pressed mid-entrance, a swipe let go): its next move starts from there, never from a jump.
 
 import { frameFor, cancelFrame, easeNow, beginMotion } from './frame.js?v=1d147c7c9a';
-import { cubicBezier } from './ease.js?v=dc92422977';
+import { cubicBezier } from './ease.js?v=7d7bfe9a62';
 import { classSoon, runSoon } from './class-soon.js?v=60cf95af4a';
 
 /** How far (px) the new card comes in from, and the stagger (ms) of a second card behind the first. */

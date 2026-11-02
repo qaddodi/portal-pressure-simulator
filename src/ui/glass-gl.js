@@ -16,7 +16,7 @@ import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteD
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=f9222c848a';
 import { shiftOf, translateOf, motionAt, movesOnly, clockOf, clockAt, fillsAfter } from './glass-motion.js?v=2b98554adc';
 import { pathPolys, fanTriangles } from './path-poly.js?v=01766890c9';
-import { easeArrive, D_SURFACE } from './ease.js?v=dc92422977';
+import { easeArrive, D_SURFACE } from './ease.js?v=7d7bfe9a62';
 import { caught } from './caught.js?v=b96b17594a';
 import { viewSize } from './layout-snap.js?v=a48d65266b';
 import { parseCssColor } from './css-color.js?v=59ed182174';

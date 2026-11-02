@@ -18,12 +18,12 @@ import { ucOf } from './uniform-cache.js?v=6488216aa0';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=1b5b7b8ddd';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=f9222c848a';
 import { createAtlasPacker } from './atlas-pack.js?v=f51c5cf455';
-import { easeMove, D_SURFACE } from './ease.js?v=dc92422977';
+import { easeMove, D_SURFACE } from './ease.js?v=7d7bfe9a62';
 import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=0d23af9d17';
 import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=3a876f3513';
 import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=6ea0901c77';
 import { watchSize, sizeOf, rectSoon } from './geom.js?v=254133713c';
-import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=ca1cefc2f7';
+import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=23493a0e5d';
 import { caught } from './caught.js?v=b96b17594a';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);

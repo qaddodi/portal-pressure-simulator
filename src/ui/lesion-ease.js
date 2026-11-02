@@ -7,7 +7,7 @@
 //   const lesions = lesionEase();
 //   const p = lesions.view(rawParams, dt, quiet);    // the params with the lesions as drawn now (rawParams itself when they rest)
 //   lesions.differs(rawParams);                      // whether they are still on their way
-import { D_SMALL } from './ease.js?v=dc92422977';
+import { D_SMALL } from './ease.js?v=7d7bfe9a62';
 
 /** The time constant of the follow (s): about 90 % of the way in D_SMALL. */
 export const LESION_TAU = D_SMALL / 2400;

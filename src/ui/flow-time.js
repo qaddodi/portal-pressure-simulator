@@ -14,9 +14,9 @@ import { classSoon, attrSoon, dataSoon } from './class-soon.js?v=60cf95af4a';
 import { restPass } from './rest-pass.js?v=bb619a1659';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { RX, bandKeys } from './rx-bands.js?v=51e83c7c59';
-import { createSvgGL, svgModel, setWords, setGeo } from './svg-gl.js?v=8b92ad7b8f';
+import { createSvgGL, svgModel, setWords, setGeo } from './svg-gl.js?v=c795f42584';
 import { fix1, round1, tenths, printedKey } from './fix-text.js?v=b5d2f96c9e';
-import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=dc92422977';
+import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
 const nextFrame = frameFor('flow-time');
 
 // (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)

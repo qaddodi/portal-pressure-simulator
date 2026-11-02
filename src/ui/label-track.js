@@ -11,7 +11,7 @@
 // custom property, a paused or repeating animation, an easing written as steps) leaves the label to be read each frame, as before.
 // No DOM is touched here beyond the animation objects handed in, so tests can run it.
 
-import { cubicBezier } from './ease.js?v=dc92422977';
+import { cubicBezier } from './ease.js?v=7d7bfe9a62';
 
 const KW = { ease: [0.25, 0.1, 0.25, 1], 'ease-in': [0.42, 0, 1, 1], 'ease-out': [0, 0, 0.58, 1], 'ease-in-out': [0.42, 0, 0.58, 1] };
 const memo = new Map();

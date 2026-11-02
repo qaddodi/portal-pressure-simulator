@@ -1,10 +1,10 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=1d147c7c9a';
 import { restPass, restAttr, restRemove } from './rest-pass.js?v=bb619a1659';
-import { glWords } from './gl-words.js?v=dc0a4f535e';
-import { slideFold } from './fold-slide.js?v=4a28d2036e';
-import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=dc92422977';
-import { leaveFromHere } from './menu-leave.js?v=6d74094ee1';
+import { glWords } from './gl-words.js?v=07ea5b84de';
+import { slideFold } from './fold-slide.js?v=64e11227a9';
+import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7d7bfe9a62';
+import { leaveFromHere } from './menu-leave.js?v=a70cd0ac6e';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=3783649ed7';
 import { measure as measureWords } from './glyph-measure.js?v=fb732c3b0d';
 import { caught } from './caught.js?v=b96b17594a';

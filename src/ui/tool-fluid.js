@@ -7,13 +7,13 @@
 // compare button moves it.
 
 import { frame, cancelFrame } from './frame.js?v=1d147c7c9a';
-import { createSvgGL, svgModel } from './svg-gl.js?v=8b92ad7b8f';
-import { h, fmt, clamp } from './util.js?v=5f0ea736f1';
+import { createSvgGL, svgModel } from './svg-gl.js?v=c795f42584';
+import { h, fmt, clamp } from './util.js?v=49ce0f75c3';
 import { NODES } from '../engine/topology.js?v=512e725aea';
 import { store } from './store.js?v=2e6b562412';
 import { measure } from './glyph-measure.js?v=fb732c3b0d';
 import { txIndex, txWords, sxIndex, sxWords, SX_WHOLE, opWords } from './num-words.js?v=cf53d490d9';
-import { setGeo, setPts } from './svg-gl.js?v=8b92ad7b8f';
+import { setGeo, setPts } from './svg-gl.js?v=c795f42584';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const num = (x) => (Number.isFinite(+x) ? +x : null);

@@ -53,7 +53,9 @@ const curves = new Map();
 export function cssCurve(easing) {
   let f = curves.get(easing);
   if (!f) {
+    // alloc-rare: only the first time an easing text is met (the curve is then kept by its text)
     const m = /^cubic-bezier\(([^)]*)\)$/.exec(String(easing).trim()), v = m ? m[1].split(',').map(Number) : NAMED[easing];
+    // alloc-rare: only the first time an easing text is met
     f = v?.length === 4 && v.every(Number.isFinite) ? cubicBezier(...v) : (t) => t;
     if (curves.size > 32) curves.clear();
     curves.set(easing, f);

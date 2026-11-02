@@ -17,9 +17,9 @@ import { createTraceGL, fitPen } from './trace-gl.js?v=48fdded63b';
 import { flattenPath, elBox } from './shape-gl.js?v=0d23af9d17';
 import { finalFrameFor, easeNow, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
-import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=dc92422977';
+import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
 import { cssColor } from './css-color.js?v=59ed182174';
-import { morphSvg } from './svg-morph.js?v=19c1bbbb98';
+import { morphSvg } from './svg-morph.js?v=790c22da7f';
 import { attrSoon } from './class-soon.js?v=60cf95af4a';
 
 // (No bleed: a picture reaching past the box counts as overflow, and the card's fit then shrank the whole card to take it in.)
