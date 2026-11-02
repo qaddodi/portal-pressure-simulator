@@ -89,6 +89,47 @@ export function blurBoxes(boxes, ox, oy, t, bw, bh, keep = BLUR_KEEP) {
 const NUM = (v) => parseFloat(v) || 0;
 /** Shared, read-only: a clear colour, and no glasses. Handed out in a frame in place of a fresh [0, 0, 0, 0] or []. */
 const CLEAR4 = [0, 0, 0, 0], NONE = [];
+// A frame's "same as last time" test, kept as numbers and strings in arrays that are written in place and compared field by field: no key
+// string is built in a frame. (An array grows only when a frame has more glasses than any before it.)
+const newKey = () => ({ n: [], s: [], ln: 0, ls: 0 });
+const sameNum = (a, b) => a === b || (a !== a && b !== b);
+function sameKey(a, b) {
+  if (a.ln !== b.ln || a.ls !== b.ls) return false;
+  for (let i = 0; i < a.ln; i++) if (!sameNum(a.n[i], b.n[i])) return false;
+  for (let i = 0; i < a.ls; i++) if (a.s[i] !== b.s[i]) return false;
+  return true;
+}
+/** Everything a laid-out picture of the glasses is drawn from: the canvas's place, the stage colour, each glass's place, fade, shape,
+ *  tint and shadow (the numbers and strings the picture's key string held). */
+function fillPanesKey(K, panes, cr, bgs, bgVar) {
+  const N = K.n, S = K.s;
+  let n = 0, m = 0;
+  N[n++] = cr.left; N[n++] = cr.top; N[n++] = cr.width; N[n++] = cr.height; S[m++] = bgs; S[m++] = bgVar;
+  for (const p of panes) {
+    const r = p.r, e = p.er, sh = p.shadow, rad = p.rad;
+    N[n++] = r.left; N[n++] = r.top; N[n++] = r.width; N[n++] = r.height; N[n++] = p.a; N[n++] = p.lw; N[n++] = p.lh;
+    N[n++] = e.left; N[n++] = e.top; N[n++] = e.right; N[n++] = e.bottom;
+    if (sh) { N[n++] = 1; N[n++] = sh.c[0]; N[n++] = sh.c[1]; N[n++] = sh.c[2]; N[n++] = sh.c[3]; N[n++] = sh.x; N[n++] = sh.y; N[n++] = sh.blur; N[n++] = sh.spread; }
+    else { N[n++] = 0; N[n++] = 0; N[n++] = 0; N[n++] = 0; N[n++] = 0; N[n++] = 0; N[n++] = 0; N[n++] = 0; N[n++] = 0; }
+    if (rad) { N[n++] = 1; N[n++] = rad[0]; N[n++] = rad[1]; N[n++] = rad[2]; N[n++] = rad[3]; }
+    else { N[n++] = 0; N[n++] = 0; N[n++] = 0; N[n++] = 0; N[n++] = 0; }
+    S[m++] = p.d; S[m++] = p.tint;
+  }
+  K.ln = n; K.ls = m;
+}
+/** What the labels need of the glasses (tellHoles): each one's place, fade and shape. */
+function fillHolesKey(K, panes) {
+  const N = K.n, S = K.s;
+  let n = 0, m = 0;
+  for (const p of panes) {
+    const r = p.r, rad = p.rad;
+    N[n++] = r.left; N[n++] = r.top; N[n++] = r.width; N[n++] = r.height; N[n++] = p.a; N[n++] = p.lw; N[n++] = p.lh;
+    if (rad) { N[n++] = 1; N[n++] = rad[0]; N[n++] = rad[1]; N[n++] = rad[2]; N[n++] = rad[3]; }
+    else { N[n++] = 0; N[n++] = 0; N[n++] = 0; N[n++] = 0; N[n++] = 0; }
+    S[m++] = p.d;
+  }
+  K.ln = n; K.ls = m;
+}
 /** An element's box as the browser has it drawn, whatever the page has put in place of its getBoundingClientRect: a zoomed card (card-zoom.js
  *  pin) answers with the box it rests in, so its glass, read from that, stayed a small frosted patch at the card's old place while the card
  *  itself grew over the bare figure (Mohammad, 2 Nov 2026, the data card zoomed: "everything behind the glass glitches"). */
@@ -848,26 +889,36 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // level ('low' for a card host.low(g) names, the teaching card's shade; 'high' for the other cards; undefined for the callouts and the
   // pane): a glass drawn into the figure's canvas would show those sharp through it, where the browser's blurs them. The callouts and
   // the pane go back to their own way as a whole when any of theirs crosses one; a card, alone.)
-  const heldOut = new Map();
+  const heldOut = new Map(), heldPanes = [];
+  let heldEpoch = 0;
+  const keepBox = (s) => { for (let i = 0; i < s.nc; i++) s.box[i] = s.cur[i]; s.nb = s.nc; };
   // (What the figure's labels leave out (onHoles; 1 Nov 2026): the shapes of the glasses drawn in the figure's canvas, each with its fade. The
   // labels' own canvas lies over the figure's, under the callouts and the cards, so a label under a glass drawn there would show sharp
   // through it; the browser's blur makes such a label a faint smear, so here the labels are left out under it, as the glass's own copy
   // always left them. Told in the same task the glass is laid, so the two change in the same frame; [] when none is drawn there.)
-  let holesKey = '';
+  const holeList = [];
+  let holesA = newKey(), holesB = newKey();
   function tellHoles(panes) {
     if (!onHoles) return;
-    if (cards) panes = panes.filter((p) => colour(p.tint.trim(), 'transparent')[3] * p.k > 0);   // (as drawPanes: a card whose tint did not read is not drawn)
-    let key = '';
-    for (const p of panes) key += `|${p.r.left},${p.r.top},${p.r.width},${p.r.height},${p.a},${p.d || p.rad},${p.lw},${p.lh}`;
-    if (key === holesKey) return;
-    holesKey = key;
-    onHoles(panes.map((p) => ({ x: p.r.left, y: p.r.top, w: p.r.width, h: p.r.height, a: Math.min(1, p.a), rad: p.d ? null : p.rad || [0, 0, 0, 0], d: p.d || null, lw: p.lw, lh: p.lh, el: p.g })));
+    const L = holeList;
+    L.length = 0;
+    for (const p of panes) if (!cards || colour(p.tint, 'transparent')[3] * p.k > 0) L.push(p);   // (as drawPanes: a card whose tint did not read is not drawn)
+    fillHolesKey(holesA, L);
+    if (sameKey(holesA, holesB)) return;
+    const t = holesB; holesB = holesA; holesA = t;
+    if (!L.length) { onHoles(NONE); return; }
+    // (The labels keep the list they are given (frostHoles), so a changed set of glasses is a new list; an unchanged one is not told at all.)
+    const out = [];   // alloc-rare: the labels keep this list, so it is new only when a glass's place, fade or shape changed
+    for (const p of L) out.push({ x: p.r.left, y: p.r.top, w: p.r.width, h: p.r.height, a: Math.min(1, p.a), rad: p.d ? null : p.rad || [0, 0, 0, 0], d: p.d || null, lw: p.lw, lh: p.lh, el: p.g });   // alloc-rare: as above
+    onHoles(out);
   }
   // (Why a glass shows the browser's blur instead of being drawn in the figure's canvas, for the ?perf blur gauge (why(), below):
   // whyAll, for the glass as a whole; whyEl, for a card held out by itself. Written where the decision is made, read by nothing else.)
   const whyEl = new Map();
   let whyAll = '', heldWake = 0;
   const heldWakeFn = () => { heldWake = 0; ask(); };
+  const hfSet = { panes: NONE, cr: null, base: CLEAR4 };
+  let keyNow = newKey(), keyHf = newKey();
   let host = null, hk = null, hostOn = false, hf = null, hostTops = [], hostMo = null;
   const shareId = {};   // (this instance, as a user of its context's shared blurs: blur-share.js)
   const freeShare = (G) => (t) => {   // alloc-rare: a shared blur is let go (a lost context, the budget's release, the last user out), never per frame
@@ -945,37 +996,46 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       // moves: a label gliding clear of the readings' card as it rises, or a leader fading in or out as the view follows it, crossed it for a
       // few frames and swapped it out and back again. Only a pane past the canvas's edge, which the figure's canvas cannot draw whole, goes
       // to the browser's glass at once.)
-      const nowT = performance.now(), edge = new Set(), cross = new Set(), boxes = new Map();
+      const nowT = performance.now(), ep = ++heldEpoch;
       for (const p of panes) {
-        if (!inside(p, cr, vw, vh)) edge.add(p.g);
-        else if (crosses(p, !cards ? R.over.all : host.low?.(p.g) ? R.over.low : R.over.high)) cross.add(p.g);
-        boxes.set(p.g, (boxes.get(p.g) || '') + `${p.r.left},${p.r.top},${p.r.width},${p.r.height};`);
+        let s = heldOut.get(p.g);
+        if (!s) { s = { out: false, since: 0, box: [], nb: 0, cur: [], nc: 0, moved: -1e9, ep: 0, edge: false, cross: false, fresh: true }; heldOut.set(p.g, s); }   // alloc-rare: a card seen for the first time (once per card)
+        if (s.ep !== ep) { s.ep = ep; s.edge = false; s.cross = false; s.nc = 0; }
+        if (!inside(p, cr, vw, vh)) s.edge = true;
+        else if (crosses(p, !cards ? R.over.all : host.low?.(p.g) ? R.over.low : R.over.high)) s.cross = true;
+        const c = s.cur;
+        c[s.nc++] = p.r.left; c[s.nc++] = p.r.top; c[s.nc++] = p.r.width; c[s.nc++] = p.r.height;
       }
-      const out = new Set();
       let waiting = false;
-      for (const [g, box] of boxes) {
-        const want = edge.has(g) || cross.has(g);
-        let s = heldOut.get(g);
-        if (!s) { s = { out: want, since: 0, box, moved: -1e9 }; heldOut.set(g, s); }
-        if (s.box !== box) { s.box = box; s.moved = nowT; }
-        if (edge.has(g)) { s.out = true; s.since = 0; }
+      for (const [g, s] of heldOut) {
+        // (A card not shown this time starts afresh when it comes back.)
+        if (s.ep !== ep || !g.isConnected) { heldOut.delete(g); whyEl.delete(g); continue; }
+        const want = s.edge || s.cross;
+        if (s.fresh) { s.fresh = false; s.out = want; keepBox(s); }
+        else {
+          let diff = s.nb !== s.nc;
+          for (let i = 0; i < s.nc && !diff; i++) if (!sameNum(s.cur[i], s.box[i])) diff = true;
+          if (diff) { keepBox(s); s.moved = nowT; }
+        }
+        if (s.edge) { s.out = true; s.since = 0; }
         else if (want === s.out) s.since = 0;
         else if (nowT - s.moved < 250) s.since = 0;   // (moving, or just come to rest: it keeps the way it is on)
         else if (!s.since) { s.since = nowT; waiting = true; }
         else if (nowT - s.since >= 400) { s.out = want; s.since = 0; }
         else waiting = true;
-        if (want !== s.out && !edge.has(g)) waiting = true;
-        if (s.out) { out.add(g); whyEl.set(g, edge.has(g) ? 'reaches past the figure\'s canvas' : cross.has(g) ? 'crosses a label, a leader or a callout' : 'waiting 400 ms to change back'); } else whyEl.delete(g);
+        if (want !== s.out && !s.edge) waiting = true;
+        if (s.out) { whyEl.set(g, s.edge ? 'reaches past the figure\'s canvas' : s.cross ? 'crosses a label, a leader or a callout' : 'waiting 400 ms to change back'); } else whyEl.delete(g);
       }
-      // (A card not shown this time starts afresh when it comes back.)
-      for (const g of heldOut.keys()) if (!boxes.has(g) || !g.isConnected) { heldOut.delete(g); whyEl.delete(g); }
       if (waiting && !heldWake) heldWake = setTimeout(heldWakeFn, 120);
-      panes = panes.filter((p) => !out.has(p.g));
+      const shown = heldPanes;
+      shown.length = 0;
+      for (const p of panes) if (!heldOut.get(p.g).out) shown.push(p);
+      panes = shown;
     }
     if (!hk && !(hk = hostKit())) { whyAll = 'the figure\'s context cannot take the glass\'s programs'; dropHost(true); host = null; return undefined; }
     waitFor(panes);
     const { bgs, bg, bgVar } = R;
-    const key = `${cr.left}|${cr.top}|${cr.width}|${cr.height}|${bgs}|${bgVar}` + panesKey(panes);
+    fillPanesKey(keyNow, panes, cr, bgs, bgVar);
     if (!hostOn) {
       // (This canvas cleared and out of the page's layers; a copy on its way is not put in, and the next one here is taken afresh.)
       hostOn = true; hf = null; gen++; pending = false; ready = null; takenKey = '';
@@ -986,8 +1046,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         W = H = 1; canvas.width = 1; canvas.height = 1;   // (its memory given back while it stands aside; sized again when it draws)
       }
     }
-    if (hf && hf.key === key) return panes.length ? 'same' : false;
-    hf = { panes, cr, base: bg[3] > 0 ? bg : colour(bgVar, 'transparent'), key };
+    if (hf && sameKey(keyNow, keyHf)) return panes.length ? 'same' : false;
+    { const t = keyHf; keyHf = keyNow; keyNow = t; }
+    hf = hfSet;
+    hf.panes = panes; hf.cr = cr; hf.base = bg[3] > 0 ? bg : colour(bgVar, 'transparent');
     tellHoles(panes);
     host.now();
     return panes.length ? true : false;
@@ -1117,10 +1179,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // that picture) the region behind the glasses blurred from it, then each glass (drawInto) in its turn among the page's layers: the
   // pane under the labels, the teaching card's shade ('low'), the callouts, the other cards ('high'). The cards' two turns share one
   // blur and one set of marks, given back after the last turn (settleMarks).
-  let frameMarks = new Set(), blurOK = false;
+  const frameMarks = new Set(), passPanes = [];
+  let blurOK = false;
   const SHARED = GLASS_SHARE && !(reblur > 0);
   function prepInto() {
-    frameMarks = new Set(); blurOK = false;
+    frameMarks.clear(); blurOK = false;
     if (hk) hk.share = null;
     if (!hostOn || !hf || !hk || lost || dead) return;
     const G = hk.G;
@@ -1222,6 +1285,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     return S.ok;
   }
   // (pass: 'low', 'high' or 'all'; the last turn of the frame ('high', 'all') gives back the marks of the glasses not drawn.)
+  const maskFromKit = (p) => maskOf(p.g, p.d, p.lw, p.lh, hk);
   function drawInto(pass = 'all') {
     if (!hostOn || !hf || !hk || lost || dead) return;
     const G = hk.G;
@@ -1231,7 +1295,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const final = pass !== 'low';
     const { cr } = hf;
     if (blurOK && hk.share && (!runShare(hk.share, cr) || !hk.share.t)) blurOK = false;
-    const panes = !blurOK ? [] : pass === 'all' ? hf.panes : hf.panes.filter((p) => !!host.low?.(p.g) === (pass === 'low'));
+    let panes = NONE;
+    if (blurOK) {
+      if (pass === 'all') panes = hf.panes;
+      else { panes = passPanes; panes.length = 0; for (const p of hf.panes) if (!!host.low?.(p.g) === (pass === 'low')) panes.push(p); }
+    }
     if (!panes.length) { if (final) settleMarks(frameMarks); return; }
     const W2 = host.canvas.width, H2 = host.canvas.height, k = hk.k;
     noteDraw(cards ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
@@ -1247,7 +1315,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     G.uniform4f(U.uReg, R.x * k, R.y * k, R.w * k, R.h * k);
     G.uniform3f(U.uBg, hf.base[0], hf.base[1], hf.base[2]);
     G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, hk.share ? hk.share.t.blurred : hk.blurred);
-    drawPanes(G, U, panes, cr, k, (p) => maskOf(p.g, p.d, p.lw, p.lh, hk), frameMarks, final);
+    drawPanes(G, U, panes, cr, k, maskFromKit, frameMarks, final);
     // (The figure's context left as its other passes expect to find it.)
     G.disable(G.BLEND); G.bindVertexArray(null); G.useProgram(null);
     G.activeTexture(G.TEXTURE1); G.bindTexture(G.TEXTURE_2D, null); G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, null);

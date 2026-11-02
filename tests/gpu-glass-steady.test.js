@@ -51,7 +51,7 @@ test('only the part of a glass on the screen counts against the canvas\'s edge; 
 });
 
 test('the labels leave out every glass drawn in the figure\'s canvas, told in the same task, so labels never send a glass back', () => {
-  assert.match(GLASS, /hf = \{ panes, cr, base: [^\n]+\n\s+tellHoles\(panes\);/);
+  assert.match(GLASS, /hf = hfSet;\n\s+hf\.panes = panes; hf\.cr = cr; hf\.base = [^\n]+\n\s+tellHoles\(panes\);/);
   assert.match(LABELS, /if \(!host && holes\.length\) cutHoles\(\);/);
   assert.match(LABELS, /gl\.enable\(gl\.BLEND\); gl\.blendFunc\(gl\.ZERO, gl\.ONE_MINUS_SRC_ALPHA\);/);
   assert.match(LABELS, /if \(raf\) \{ cancelFrame\(raf\); raf = 0; \}\n\s+draw\(\);\n\s+\}/, 'drawn again at once');
