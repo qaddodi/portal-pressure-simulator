@@ -27,7 +27,7 @@ export function createFigureKey({ el, app, ready = null, watch = [] }) {
     if (on) return;
     // (Shown first and drawn once faded out, then faded in a frame later: the fade starts from nothing with no forced layout read.)
     clearTimeout(hideT); el.classList.remove('col'); el.hidden = false; on = true;
-    nextFrame(() => nextFrame(() => { if (on) el.classList.add('on'); }));
+    nextFrame(() => nextFrame(() => restPass(() => { if (on) el.classList.add('on'); })));
     dispatchEvent(new Event('pps:occ'));   // (the credit and the figure's labels keep clear of it)
   }
   // (A rest pass: whether it is in the page is read between two frames, never inside one.)

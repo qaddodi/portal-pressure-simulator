@@ -8,13 +8,14 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=19c1a3b464';
-import { glWords } from './gl-words.js?v=85c423f170';
+import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=bd4abbbff6';
+import { glWords } from './gl-words.js?v=34be3a62b0';
 import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { FONT } from './charts.js?v=a2edf96f44';
-import { pressureColor } from './colormap.js?v=f4d07b9c67';
+import { FONT } from './charts.js?v=a1d9b38c1d';
+import { pressureColor } from './colormap.js?v=217d2f8c0e';
 import { store, logAction, hiddenNow, updateParams } from './store.js?v=afc4d7c743';
 import { shownOr } from './shown.js?v=331593cd88';
+import { classSoon, restartSoon } from './class-soon.js?v=26aa9fb253';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=95f13823ce';
 import { frameFor, cancelFrame } from './frame.js?v=26e2e46fff';
 import { createTraceGL, fitPen } from './trace-gl.js?v=0eecfda6a8';
@@ -207,7 +208,7 @@ export function createHvpgProcedure() {
         valW[k].set(txt);
         // The difference arrives after the two readings have settled: it fades and rises in, never pops. (Not a live reading:
         // restarted with every new tenth, its fade held it blank on Mac, iPad and sideways, sweep 2 review item 5.)
-        if (k === 'hvpg' && shown.hvpg && !open) { vals.hvpg.classList.remove('in'); nextFrame(() => vals.hvpg.classList.add('in')); }   // (the next frame starts the fade again: no layout forced to restart it)
+        if (k === 'hvpg' && shown.hvpg && !open) { restartSoon(vals.hvpg, 'in'); }   // (the next frame starts the fade again: no layout forced to restart it)
       }
     }
     // This runs on every model frame: write only what changed. Rewriting the button's label each frame
@@ -235,7 +236,7 @@ export function createHvpgProcedure() {
       const m = now()?.metrics, hide = !procOffered(k, st.params, m) && procKind !== k;
       if (b.hidden !== hide) b.hidden = hide;
       const off = !!procBlocked(k, st.params, m), on = procKind === k;
-      if (b.classList.contains('off') !== off) b.classList.toggle('off', off);
+      classSoon(b, 'off', off);
       if (b.getAttribute('aria-pressed') !== String(on)) b.setAttribute('aria-pressed', String(on));
     }
     const lbl = t0 != null && t < tEnd() ? 'Measuring…' : result ? 'Measure again' : 'Measure HVPG';

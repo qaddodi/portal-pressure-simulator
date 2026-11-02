@@ -10,6 +10,9 @@
 // A write that must land before the next frame paints (a class that holds a transition off while a transform is set) stays where it is.
 
 
+import { frameFor } from './frame.js?v=26e2e46fff';
+
+const nextFrame = frameFor('classsoon');
 const classes = new Map();   // element → Map(class → on)
 const words = new Map();     // element → text
 let pending = false;
@@ -50,3 +53,16 @@ export function textSoon(el, text) {
 }
 /** Runs fn in the same task as the queued class and text writes, straight after the current one (asked first, run in order). */
 export function runSoon(fn) { jobs.push(fn); ask(); }
+
+/** The class as it will stand after the next rest pass: the ask waiting, else what the element carries. Reads of a flag written here use this, never a stale answer. */
+export function classHas(el, name) {
+  const v = classes.get(el)?.get(name);
+  return v === undefined ? el.classList.contains(name) : v;
+}
+const restartEls = [], restartNames = [];
+/** The class off now and on again a frame later, so a CSS fade restarts from nothing (no layout read to force it). */
+export function restartSoon(el, name) {
+  classSoon(el, name, false);
+  restartEls.push(el); restartNames.push(name);
+  if (restartEls.length === 1) nextFrame(() => { for (let i = 0; i < restartEls.length; i++) classSoon(restartEls[i], restartNames[i], true); restartEls.length = restartNames.length = 0; });
+}

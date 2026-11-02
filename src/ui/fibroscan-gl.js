@@ -129,11 +129,12 @@ export function elastogramGL(F, NB, t0, N, c, t) {
  * A panel's own map drawer, its canvas to put in the page (under the panel's words): { canvas, draw(F, NB, t0, N, c, t) → whether it
  * drew, lost }, or null without WebGL2. Each panel has its own, so two panels on screen never share one canvas.
  */
-export function createElastogramGL(F, { onReady = null } = {}) {
+export function createElastogramGL(F, { onReady = null, className = '' } = {}) {
   let s = null;
   try { s = make(F); } catch (e) { console.warn('FibroScan map: WebGL2 unavailable.', e); s = null; }
   if (!s) return null;
   s.onReady = onReady;
+  if (className) s.canvas.className = className;   // (set as the canvas is made, before it is in the page: no write to a live node)
   return { canvas: s.canvas, draw: (fMap, NB, t0, N, c, t) => !!drawMap(s, fMap, NB, t0, N, c, t), get lost() { return s.lost; },
     /** Lets the context go (the panel is off screen): a page holds only so many WebGL contexts, and past that the browser drops the oldest, the figure's. */
     dispose() { stopAll(s); } };

@@ -229,8 +229,15 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
     ALL.delete(ask); measureQ.delete(S); live.delete(S);
     clearTimeout(S.landT); S.landT = 0;
     if (S.landAsk) { cancelRest(S.landAsk); S.landAsk = 0; }
-    if (S.on) { S.on = false; S.el.classList.remove('glw-on'); }
-    if (S.gl) { try { S.gl.dispose?.(); } catch { /* a lost context: nothing left to free */ } S.gl.cv?.remove(); S.gl = null; S.host.classList.remove('glw'); }
+    // (The drawing and the flags that hide the page's own words leave together, in one rest pass: the words are never uncovered with
+    // the drawing gone, nor left hidden once it has.)
+    const gl = S.gl, wasOn = S.on, elx = S.el, host = S.host;
+    S.on = false; S.gl = null;
+    if (wasOn || gl) restPass(() => {
+      const again = [...live].some((o) => o.el === elx || o.host === host);   // (made over again for the same element since: leave its flags)
+      if (wasOn && !again) elx.classList.remove('glw-on');
+      if (gl) { try { gl.dispose?.(); } catch { /* a lost context: nothing left to free */ } gl.cv?.remove(); if (!again) host.classList.remove('glw'); }
+    });
     S.vPath = S.uPath = null; S.vSlots = S.uSlots = null;
   };
   return {

@@ -2,9 +2,9 @@
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=fe0f3d1f0e';
-import { pressureColor } from './colormap.js?v=f4d07b9c67';
+import { pressureColor } from './colormap.js?v=217d2f8c0e';
 import { store, hiddenNow } from './store.js?v=afc4d7c743';
-import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=19c1a3b464';
+import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=bd4abbbff6';
 import { frameFor, cancelFrame, paceMs } from './frame.js?v=26e2e46fff';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { shownOr } from './shown.js?v=331593cd88';
@@ -15,7 +15,7 @@ import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { createTraceGL, fitPen } from './trace-gl.js?v=0eecfda6a8';
 import { restPass, cancelRest } from './rest-pass.js?v=ed71462b47';
 import { measure } from './glyph-measure.js?v=7fe8881ad6';
-import { glWords } from './gl-words.js?v=85c423f170';
+import { glWords } from './gl-words.js?v=34be3a62b0';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

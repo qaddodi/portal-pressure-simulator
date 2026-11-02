@@ -24,7 +24,7 @@ import { store } from './store.js?v=afc4d7c743';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=1ec3c87eab';
-import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=56e4f31e9b';
+import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=9e9c493328';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL, TILE_OVER } from './field-gl.js?v=738576e5e6';
@@ -36,13 +36,13 @@ import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare
 import { recordPaint, gpuPicture } from './paint-gl.js?v=422be7e338';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=ccb5ac5fe2';
-import { h, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=19c1a3b464';
+import { h, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=bd4abbbff6';
 import { createSvgGL, svgModel } from './svg-gl.js?v=2bdf36a0fa';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=f4d07b9c67';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=217d2f8c0e';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=548e3ccb65';
+import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=33c05a1a79';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
-import { createSinusoidView } from './sinusoid-view.js?v=68e8103794';
+import { createSinusoidView } from './sinusoid-view.js?v=bbbabddf1e';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=26e2e46fff';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=036209d791';
@@ -50,6 +50,7 @@ import { createResCover, coverFollow } from './res-cover-gl.js?v=f7cebf59ef';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { restPass, cancelRest } from './rest-pass.js?v=ed71462b47';
+import { classSoon, classHas } from './class-soon.js?v=26aa9fb253';
 import { easeMove, carryRate, carried, cubicBezier, D_SMALL, D_SURFACE } from './ease.js?v=7513a88c68';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 // ?willchange=0 in the address: the lobule and sinusoid layers keep will-change always, as before.
@@ -351,7 +352,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (fade > 0 && geo) layoutLabels();
     // (Landed: the cards' boxes are read again in a task after this frame, and the labels laid out again should one have moved.)
     if (!restT) restT = restPass(readRest);
-    nextFrame(() => { if (camMove) return; el.classList.remove('lz-cam'); el.classList.add('lz-cam-in'); clearTimeout(camInT); camInT = setTimeout(() => el.classList.remove('lz-cam-in'), 400); });
+    nextFrame(() => { if (camMove) return; classSoon(el, 'lz-cam', false); classSoon(el, 'lz-cam-in', true); clearTimeout(camInT); camInT = setTimeout(() => classSoon(el, 'lz-cam-in', false), 400); });
   }
   // (ease 'in': from rest and still at speed where it lands, for a glide another move carries on from: the way out to the rise.)
   // (steady: a refit to cards that moved: timed by glideClock, so a slow frame at its start (the layout the same change set off) holds
@@ -367,7 +368,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const from = { ...V }, t0 = performance.now();
     // (Lite mode: the presenter's camera jumps, and the lobule fades in at its new framing.)
     if (reduce.matches || !fade) { camAim = null; Object.assign(V, to); viewChanged(); camSettle(); return; }
-    if (cam && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) { camMove = true; camUntil = t0 + ms + 50; el.classList.remove('lz-cam-in'); el.classList.add('lz-cam'); setTimeout(() => { if (camMove && performance.now() >= camUntil) camSettle(); }, ms + 80); } else camSettle();
+    if (cam && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) { camMove = true; camUntil = t0 + ms + 50; classSoon(el, 'lz-cam-in', false); classSoon(el, 'lz-cam', true); setTimeout(() => { if (camMove && performance.now() >= camUntil) camSettle(); }, ms + 80); } else camSettle();
     const clock = steady ? glideClock() : null;
     const c0 = v0 && CAM_M2 ? carryRate(v0, from, to, Math.max(1, snap.w)) * ms : 0;
     const step = (now) => {
@@ -546,11 +547,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const p = local(ev);
         if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8) return;
         down = null;
-        if (V.k > kFit * 1.001) { V.x += p[0] - drag.p[0]; V.y += p[1] - drag.p[1]; clampV(); viewChanged(); el.classList.add('lz-drag'); }
+        if (V.k > kFit * 1.001) { V.x += p[0] - drag.p[0]; V.y += p[1] - drag.p[1]; clampV(); viewChanged(); classSoon(el, 'lz-drag', true); }
         else if (geo) {   // at its framing there is nowhere to go: the lobule follows the hand on a rubber band and springs back on release
           const F0 = fitV(), o = drag.o || (drag.o = [0, 0]), Lx = 0.4 * (snap.w || 800), Ly = 0.4 * (snap.h || 600);   // near-free travel, easing toward 40% of the view
           cancelFrame(glide); gliding = false; rubber = true; o[0] += p[0] - drag.p[0]; o[1] += p[1] - drag.p[1];
-          V.x = F0.x + Lx * Math.tanh(o[0] / Lx); V.y = F0.y + Ly * Math.tanh(o[1] / Ly); atFit = false; viewChanged(); el.classList.add('lz-drag');
+          V.x = F0.x + Lx * Math.tanh(o[0] / Lx); V.y = F0.y + Ly * Math.tanh(o[1] / Ly); atFit = false; viewChanged(); classSoon(el, 'lz-drag', true);
         }
         drag.p = p;
         const now = performance.now();
@@ -558,7 +559,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         while (drag.trail.length > 2 && now - drag.trail[0][0] > 90) drag.trail.shift();
       }
     }
-    if (ev.pointerType === 'mouse' && !ev.buttons && geo && onScene(ev)) { const w = toWorld(local(ev)); el.classList.toggle('lz-hot', !!hit(w[0], w[1])); }
+    if (ev.pointerType === 'mouse' && !ev.buttons && geo && onScene(ev)) { const w = toWorld(local(ev)); classSoon(el, 'lz-hot', !!hit(w[0], w[1])); }
   });
   el.addEventListener('pointerup', (ev) => {
     if (down && touches.size <= 1 && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8 && performance.now() - down.t < 600 && onScene(ev)) {
@@ -585,7 +586,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     // Rebase the remaining finger after a pinch so it can carry on panning without a jump.
     drag = touches.size === 1 ? { p: pts2()[0], trail: [[performance.now(), V.x, V.y]] } : null;
-    if (!touches.size) el.classList.remove('lz-drag');
+    if (!touches.size) classSoon(el, 'lz-drag', false);
   });
   el.addEventListener('dblclick', (ev) => { if (!onScene(ev)) return; const p = local(ev); zoomAround(p[0], p[1], V.k < kFit * KMAX * 0.98 ? 2 : 1 / KMAX); });
   // (The lobule's place on the page is the one kept with its boxes: read again as a press begins and as the pointer comes over it.)
@@ -1362,16 +1363,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const OFF_MS = D_SMALL;
   function fadeOut(el, done) {
     if (el.hidden) { done?.(); return; }
-    if (el.classList.contains('lz-off')) return;
-    const end = () => { el._lzOff = 0; el.hidden = true; el.classList.remove('lz-off', 'edge'); done?.(); };
+    if (classHas(el, 'lz-off')) return;
+    const end = () => { el._lzOff = 0; el.hidden = true; classSoon(el, 'lz-off', false); el.classList.remove('edge'); done?.(); };
     if (reduce.matches) { end(); return; }
-    el.classList.add('lz-off');
-    clearTimeout(el._lzOff); el._lzOff = setTimeout(() => { if (el.classList.contains('lz-off')) end(); }, OFF_MS);
+    classSoon(el, 'lz-off', true);
+    clearTimeout(el._lzOff); el._lzOff = setTimeout(() => { if (classHas(el, 'lz-off')) end(); }, OFF_MS);
   }
-  function fadeIn(el) { clearTimeout(el._lzOff); el._lzOff = 0; el.classList.remove('lz-off'); el.hidden = false; }
-  const gone = (el) => el.hidden || el.classList.contains('lz-off');
-  const leadOff = (L) => { L.line.classList.add('ld-gone'); L.dotEl.classList.add('ld-gone'); };
-  const leadOn = (L) => { L.line.classList.remove('ld-gone'); L.dotEl.classList.remove('ld-gone'); };
+  function fadeIn(el) { clearTimeout(el._lzOff); el._lzOff = 0; classSoon(el, 'lz-off', false); el.hidden = false; }
+  const gone = (el) => el.hidden || classHas(el, 'lz-off');
+  const leadOff = (L) => { classSoon(L.line, 'ld-gone', true); classSoon(L.dotEl, 'ld-gone', true); };
+  const leadOn = (L) => { classSoon(L.line, 'ld-gone', false); classSoon(L.dotEl, 'ld-gone', false); };
   const ZONE_TPL = [['Zone 1', 'periportal'], ['Zone 2', 'midzonal'], ['Zone 3', 'centrilobular']].map(([t, d], i) => {
     const z = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true', 'data-target': `lobule:zone${i + 1}` }, h('b', {}, t), h('span', {}, d));
     z.style.setProperty('--zk', '1');
@@ -1840,9 +1841,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // it (one gliding past), the leader is hidden, and eases back once clear: a leader never runs across a label.
   function leadTo(L, ink, inks) {
     const e = leaderEnd(ink, L.a[0], L.a[1]);
-    if (!e) { L.line.classList.add('ld-gone'); return; }
+    if (!e) { classSoon(L.line, 'ld-gone', true); return; }
     L.line.setAttribute('x2', e.x); L.line.setAttribute('y2', e.y);
-    L.line.classList.toggle('lz-hid', inks.some((o) => o.L !== L && runInside(L.a, [e.x, e.y], o) > 0.5));
+    classSoon(L.line, 'lz-hid', inks.some((o) => o.L !== L && runInside(L.a, [e.x, e.y], o) > 0.5));
   }
   let glideRaf = 0, glideUntil = 0;
   // The glide cut short (its time is up): the labels land at once, and their leaders with them.
@@ -1860,8 +1861,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const on = fade > 0 ? Object.values(labs).filter((L) => !gone(L.el) && spot.has(L.el)) : [];
     const inks = on.map((L) => { const [x, y] = seenAt(L, now), [w, hh] = labWH(L); return lettersOf(L, x, y, w, hh); });
     on.forEach((L, i) => {
-      if (!L.a || L.el.classList.contains('edge') || L.dotEl.classList.contains('ld-gone')) return;
-      L.line.classList.remove('ld-gone');
+      if (!L.a || L.el.classList.contains('edge') || classHas(L.dotEl, 'ld-gone')) return;
+      classSoon(L.line, 'ld-gone', false);
       leadTo(L, inks[i], inks);
       moving ||= labGliding(L, now);
     });
@@ -3512,7 +3513,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     let D = sinDive;
     if (!D || u <= 0) {
       sinZ = 0;
-      el.style.transform = ''; el.style.transformOrigin = ''; el.style.visibility = ''; el.classList.remove('lz-sin');
+      el.style.transform = ''; el.style.transformOrigin = ''; el.style.visibility = ''; classSoon(el, 'lz-sin', false);
       sv.place({ opacity: 0 });
       return;
     }
@@ -3526,7 +3527,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     el.style.transformOrigin = rm ? '' : `${D.q[0].toFixed(2)}px ${D.q[1].toFixed(2)}px`;
     el.style.transform = rm ? '' : `rotate(${(D.rot * g).toFixed(5)}rad) scale(${(D.Z ** g).toFixed(5)})`;
     el.style.visibility = u >= 1 ? 'hidden' : '';
-    el.classList.add('lz-sin');
+    classSoon(el, 'lz-sin', true);
     // The sinusoid view: drawn by the GPU on the lobule's sinusoid each frame; it comes in over the lobule as the zoom lands.
     sv.place({
       opacity: (rm ? u : 1) * fade,
@@ -3637,7 +3638,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (Mid-zoom out, the canvases are given back when the zoom ends: freeing them there is one more thing in a moving frame.)
       if (fade === 0) { resCoverEnd(); cancelFrame(raf); raf = 0; last = 0; if (was > 0) { if (diveScaled) relLater = true; else release(); } }
       // Out of the lobule: a presenter's aim is spent (the next way in frames the whole lobule).
-      if (fade === 0 && was > 0) { aimed = null; camHeld = false; heldFree = null; if (camMove) { camMove = false; el.classList.remove('lz-cam'); } }
+      if (fade === 0 && was > 0) { aimed = null; camHeld = false; heldFree = null; if (camMove) { camMove = false; classSoon(el, 'lz-cam', false); } }
       // Leaving the lobule view from inside a sinusoid: the sinusoid fades out with it.
       if (sinU > 0) { if (fade === 0) resetSinusoid(); else placeSinusoid(); }
     },
@@ -3758,7 +3759,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // Already diving to an aim (a newer slide arrived on the way): that landing stands, unlabelled, and focusOn moves on from it.
       if (aimed && fade <= 0.98) {
         if (aimed.part === want.part && aimed.zoom === want.zoom) return;
-        camMove = camHeld = true; el.classList.remove('lz-cam-in'); el.classList.add('lz-cam'); return;
+        camMove = camHeld = true; classSoon(el, 'lz-cam-in', false); classSoon(el, 'lz-cam', true); return;
       }
       aimed = want;
     },

@@ -8,7 +8,7 @@
 
 import { frameFor, cancelFrame, easeNow, beginMotion } from './frame.js?v=26e2e46fff';
 import { cubicBezier } from './ease.js?v=7513a88c68';
-import { classSoon, runSoon } from './class-soon.js?v=6cc03f6a35';
+import { classSoon, runSoon } from './class-soon.js?v=26aa9fb253';
 
 /** How far (px) the new card comes in from, and the stagger (ms) of a second card behind the first. */
 export const THROW_IN = 56, THROW_STAGGER = 40;

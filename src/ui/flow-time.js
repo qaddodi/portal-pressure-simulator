@@ -10,6 +10,7 @@
 // A line the model does not compute (weight lost, which the model has no body for) is given by the slide (tool.given: { wt: 12 }):
 // it climbs from 0 to that number in step with the time-lapse's ramp, and every other line is still the model's own.
 import { frameFor, cancelFrame } from './frame.js?v=26e2e46fff';
+import { classSoon } from './class-soon.js?v=26aa9fb253';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { RX, bandKeys } from './rx-bands.js?v=51e83c7c59';
 import { createSvgGL, svgModel, setWords } from './svg-gl.js?v=2bdf36a0fa';
@@ -208,7 +209,7 @@ export function createFlowTime() {
       l.val.setAttribute('x', (hx + (left ? -0.6 : 0.6) * G.f).toFixed(1)); l.val.setAttribute('y', (hy - 0.7 * G.f).toFixed(1));
       l.val.setAttribute('text-anchor', left ? 'end' : 'start');
       setWords(l.val, txt);   // (kept on the piece and drawn by the picture: no text node, no mutation, nothing read again)
-      l.val.classList.toggle('off', m - ax().from < 0.36 * (ax().end - ax().from));   // (near the start the first value is already there)
+      classSoon(l.val, 'off', m - ax().from < 0.36 * (ax().end - ax().from));   // (near the start the first value is already there)
       return v;
     });
     // (Two heads close together, the bands short on a phone: the lower band's value goes under its head, clear of the other.)
