@@ -37,6 +37,7 @@ const TRACK = true, ATLAS_IDLE = !/[?&]atlasidle=0\b/.test(SEARCH);
 // frame whose animations are not taken yet keeps following the fade it had, instead of a reading of the fade's first frame (0), which
 // blinked the label out for one to three frames. ?fadehold=0: as before.)
 const FADE_HOLD = !/[?&]fadehold=0\b/.test(SEARCH);
+const HOLD_MAX = 400;   // (ms: the longest a label waits at its last drawn opacity for its animations, see takeAnims)
 const REDUCE = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 
 const nextFrame = frameFor('labels-gl');
@@ -628,17 +629,22 @@ void main() { o = texture(uT, vUV) * uA; }`;
     ringWant.clear();
     ask();
   }
-  /** The element's animations as kept in the last 100 ms, or null (then read just after this frame, and the element looked at again). */
+  /** The element's animations as kept in the last 100 ms, or kept as the answer to its own ask (any age), or null (then read just after
+   *  this frame, and the element looked at again).
+   *  (2 Nov 2026, "empty labels", "or faded": an answer had to be taken within 100 ms of the task that read it. A frame later than that
+   *  (a slow frame, the deck's way out of the lobule, a software renderer every frame) found it stale and asked again, for ever: the label
+   *  was held at the opacity it was last drawn at, 0 or a fade's midpoint, while the page showed it whole. An answer stays good until
+   *  the label is written again or a new event keeps a newer list; the animations carry their own clocks, so its age changes nothing.) */
   function takeAnims(el, sub) {
     const k = animsKept.get(el);
-    if (k && k.sub === sub && performance.now() - k.at < 100) { animsKept.delete(el); return k.a; }
+    if (k && k.sub === sub && (k.ans || performance.now() - k.at < 100)) { animsKept.delete(el); return k.a; }
     animsWant.set(el, sub);
     if (!animsT) animsT = setTimeout(fillAnims, 0);
     return null;
   }
   function fillAnims() {
     animsT = 0;
-    for (const [el, sub] of animsWant) { if (!el.isConnected) continue; keepAnims(el, sub); if (markOf(el)) markDirty.add(el); else dirty.add(el); }
+    for (const [el, sub] of animsWant) { if (!el.isConnected) continue; keepAnims(el, sub); const k = animsKept.get(el); if (k) k.ans = true; if (markOf(el)) markDirty.add(el); else dirty.add(el); }
     animsWant.clear();
     ask();
   }
@@ -689,7 +695,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // nothing (classList.add of a class it has) is passed over.)
   const changed = (r) => r.type !== 'attributes' || r.oldValue !== r.target.getAttribute(r.attributeName);
   // (The layer's own group: its text scale, --lbk, sets the halos' width: every label.)
-  const take = (rs) => { for (const r of rs) { if (!changed(r)) continue; if (r.target === blocks && r.type === 'attributes') { restyle(); for (const s of last) dirty.add(s.g); continue; } const g = labelOf(r.target); if (g) { dirty.add(g); ringKept.delete(g); } } };
+  const take = (rs) => { for (const r of rs) { if (!changed(r)) continue; if (r.target === blocks && r.type === 'attributes') { restyle(); for (const s of last) dirty.add(s.g); continue; } const g = labelOf(r.target); if (g) { dirty.add(g); ringKept.delete(g); if (animsKept.get(g)?.ans) animsKept.delete(g); } } };
   const mo = new MutationObserver((rs) => { take(rs); if (dirty.size) ask(); });
   mo.observe(blocks, { subtree: true, childList: true, characterData: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'x', 'y', 'dx', 'width', 'height', 'rx', 'fill', 'font-size', 'font-weight', 'letter-spacing', 'text-anchor'] });
   // Anything outside them that can change how they look (the theme, the glass setting, the text size, a mode's class): every label.
@@ -825,7 +831,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const prev = sprites.get(g), was = prev?.held, old = prev?.trk;
       const st0 = refresh(g, rot);
       st0.trk = null;
-      if (FADE_HOLD && st0.mode === 'gl' && !REDUCE?.matches) {
+      // (A hold never outlasts HOLD_MAX: whatever kept its animations from coming, the label is then drawn as the page shows it.)
+      st0.holdSince ??= now;
+      if (FADE_HOLD && st0.mode === 'gl' && !REDUCE?.matches && now - st0.holdSince < HOLD_MAX) {
         // (Its opacity held where it was: on the fade it had, while that runs, else as it was last drawn, a new label at 0.)
         if (old && !old.ended && old.ops?.length) st0.trk = { ops: old.ops, under: old.under, paint: null, end: old.end, carry: true };
         else if (was === null) st0.mode = 'svg';   // (the SVG drew it last frame, at an opacity not known here: it keeps it till then)
@@ -833,6 +841,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       }
       return st0;
     }
+    { const s0 = sprites.get(g); if (s0) s0.holdSince = null; }   // (its animations came: a later hold has its own HOLD_MAX)
     let m;
     try { m = trackOf(list, g, paintOk(g), now); } catch { m = null; }
     let st;
@@ -949,6 +958,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         // (Read at rest with a new opacity: its fade may only now be starting. Held where it was drawn, and followed from the next frame.)
         if (FADE_HOLD && !tracked && !isLive && st.mode === 'gl' && was !== null && !REDUCE?.matches && Math.abs((was ?? 0) - st.opacity) > 0.01) {
           st.opacity = was ?? 0;
+          st.holdSince = now;
           live.set(g, now + 700);
           moving = true;
         }
