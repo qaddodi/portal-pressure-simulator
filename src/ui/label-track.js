@@ -182,8 +182,23 @@ export function mixColour(a, b, w) {
   let t = MIX.get(key);
   if (t === undefined) {
     if (MIX.size >= 1024) MIX.clear();
-    t = `rgba(${r}, ${g}, ${bl}, ${a4 / 10000})`;   // alloc-rare: only a mixed colour not seen before (the text is kept by its channels); an ease repeats a few dozen values, then every frame reads the kept text
+    t = `rgba(${r}, ${g}, ${bl}, ${a4 / 10000})`;
     MIX.set(key, t);
   }
   return t;
+}
+/**
+ * mixColour as numbers, with no text made: the mix's straight r, g, b (0..255, whole numbers, as mixColour rounds them) and its alpha (to
+ * four places) are written into `out`, an array the caller keeps (a fully transparent mix is [0, 0, 0, 0]). Returns false, and writes
+ * nothing, where mixColour would not give an rgba() text (w at or past either end, a colour that is not rgb()/rgba()): the caller then
+ * reads mixColour's own answer, which for those makes no text either (it is the colour it was given, or 'transparent').
+ */
+export function mixRgbaInto(out, a, b, w) {
+  if (!(w > 0 && w < 1)) return false;
+  const A = rgbOf(a), B = rgbOf(b);
+  if (!A || !B) return false;
+  const al = A[3] + (B[3] - A[3]) * w;
+  if (!(al > 0)) { out[0] = 0; out[1] = 0; out[2] = 0; out[3] = 0; return true; }
+  out[0] = chan(A, B, 0, w, al); out[1] = chan(A, B, 1, w, al); out[2] = chan(A, B, 2, w, al); out[3] = Math.round(al * 10000) / 10000;
+  return true;
 }

@@ -25,17 +25,17 @@ import { glideClock } from './glide-clock.js?v=068ac73ef2';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=1bdcf2ecea';
 import { softwareYield } from './sw-yield.js?v=f7e0bc683b';
 import { lobuleStateInto, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=3e167259d9';
-import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=4368630f97';
+import { SIN_NARROW, dullSinusoidInto, NEIGHBOUR_FLAT, neighbourBlur, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=66ed33f179';
 import { isGreyLens } from './organ-dim.js?v=485d50a599';
 import { createFieldGL } from './field-gl.js?v=56cd41ef5e';
-import { createTissueGL } from './tissue-gl.js?v=dbe8d27cf6';
+import { createTissueGL } from './tissue-gl.js?v=07ff9acb9d';
 import { tileCopy } from './tile-gl.js?v=d66f6db5f2';
 import { FX_GPU, createFxGL } from './fx-gl.js?v=236309d4af';
 import { WIDE_GL, createWideGL } from './wide-gl.js?v=2bf24ba021';
-import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=44e9839c99';
+import { buildLive, buildDyn, buildItems, liveFibreInto, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=1d4294ab4b';
 import { recordPaint, gpuPicture } from './paint-gl.js?v=6544ed504b';
 import { cssColor8 } from './css-color.js?v=59ed182174';
-import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=7dc3ed62e9';
+import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=d8a68330cb';
 import { h, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=506da88dad';
 import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=ed4ab38166';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=5db2d15f8d';
@@ -3447,7 +3447,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Capillarized sinusoids are drawn duller as fibSin rises (G21): drained toward the lobule's shade, never brighter.
   // (From the eased sinusoidal resistance, so a new patient's sinusoids dull gradually, as their calibers change.)
   const sinFib = () => clamp(Math.log(rzOf().sin) / 3.2, 0, 1);
-  const sinDull = (rgb) => { const f = sinFib(); return f > 0 ? dullSinusoid(rgb, cssRGB01('--lz-shade'), f, rgb) : rgb; };   // (the kept triple dulled in place)
+  const sinDull = (rgb) => { const f = sinFib(); return f > 0 ? dullSinusoidInto(rgb, rgb, cssRGB01('--lz-shade'), f) : rgb; };   // (the kept triple dulled in place)
   const TUBE_TMP = [0, 0, 0];   // (a vessel end's colour, written in place and read at once by drawGL)
   const tubeRGB = (t, end, k) => { const c = inkRGBInto(TUBE_TMP, segOf(t), tubeW(t, end), k); return segOf(t) === 'sin' ? sinDull(c) : c; };
   // A "Colored by" switch crossfades the lobule's vessels over a surface step (420 ms), on the quintic, as the anatomy's do (stage.js LENS_FADE).
@@ -3862,7 +3862,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // texels were made from, the model values and colours they were made for, and the colours the shader reads (liveColours, remade
   // only when the colours it is made from, listed in LIVE_TOK, or the theme change).
   let dynVal = null, dynRad = null, dynSep = NaN, dynPre = NaN, dynPost = NaN, dynDark = null, dynCv = NaN, dynRgb = null;
-  const liveOut = { shape: null, data: null, dyn: null, fib: null, rs0: 0, share: 0, cu: 0, sj: 0, zones: false, dark: false, cen: [0, 0, 0], col: null };
+  const ITEM_O = { col: null, dark: false, cvIn: 0 };   // (buildItems' options, written over each time)
+  const FIBV = { sin: 0, act: 0, fibSin: 0, actV: 0 };   // (liveFibreInto's, written over each call)
+  const liveOut = { shape: null, data: null, dyn: null, fib: FIBV, rs0: 0, share: 0, cu: 0, sj: 0, zones: false, dark: false, cen: [0, 0, 0], col: null };
   const LIVE_TOK = ['--lz-plate-line', '--lz-nodule-ink', '--lz-zone-line', '--lz-nodule-shadow', '--lz-shade', '--lz-hsc-body', '--lz-hsc-nucleus', '--lz-nutmeg', '--lz-zone-1', '--lz-zone-2', '--lz-zone-3'];
   const colRaw = [];
   let colRgb = null, colDark = null, colVal = null;
@@ -3885,13 +3887,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     for (let i = 0; i < sinT.length; i++) { const r = radiusAt(sinT[i], N >> 1); if (dynRad[i] !== r) { moved = true; dynRad[i] = r; } }
     if (moved) {
       dynSep = m.septU; dynPre = m.fibPre; dynPost = m.fibPost; dynDark = dark; dynCv = cvIn; dynRgb = rgbW;
-      dynVal = buildDyn(S, dynRad, buildItems(S, m, { col: rgbW.col, dark, cvIn })); dynVal.S = S;   // alloc-rare: only when a caliber, the septa, the fibrosis, the theme or the colours the texels are made from changed
+      ITEM_O.col = rgbW.col; ITEM_O.dark = dark; ITEM_O.cvIn = cvIn;
+      dynVal = buildDyn(S, dynRad, buildItems(S, m, ITEM_O)); dynVal.S = S;
     }
     let colMoved = !colVal || colRgb !== rgbW || colDark !== dark;
     for (let i = 0; i < LIVE_TOK.length; i++) { const v = cssVar(LIVE_TOK[i]); if (colRaw[i] !== v) { colRaw[i] = v; colMoved = true; } }
     if (colMoved) { colRgb = rgbW; colDark = dark; colVal = liveColours(rgbW, dark, cssVar); }   // alloc-rare: only when the theme or a colour the shader reads changed
     const o = liveOut;
-    o.shape = S; o.data = data; o.dyn = dynVal; o.fib = liveFibre(m); o.rs0 = geo.rs0; o.share = liveShare; o.cu = m.congU; o.sj = m.septU; o.zones = zonesOn; o.dark = dark;
+    o.shape = S; o.data = data; o.dyn = dynVal; o.fib = liveFibreInto(FIBV, m); o.rs0 = geo.rs0; o.share = liveShare; o.cu = m.congU; o.sj = m.septU; o.zones = zonesOn; o.dark = dark;
     o.cen[0] = geo.cx; o.cen[1] = geo.cy; o.cen[2] = geo.R; o.col = colVal;
     return o;
   }

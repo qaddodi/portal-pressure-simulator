@@ -11,21 +11,26 @@ export const smooth01 = (v) => { const t = clamp(v, 0, 1); return t * t * (3 - 2
 // much in cirrhosis, to keep the vessels inside it"): the vessels never move, and the edge keeps KEEP clear of them.
 export const CIRR = { field: 0.5, scale: 0.8, nod: 5.5, lam: 1.4, sep: 1.6 };
 
-/** v.toFixed(1), the same text, about five times faster (the nodules' path is written with it on every frame of the ease):
- * built from the rounded tenths, except near a tie, a negative or a large value, where toFixed itself decides. */
+/** v.toFixed(1), the same text, about five times faster (the nodules' path is written with it on every frame of the ease): the text of
+ * every tenth of a drawn coordinate is made once when the module loads (below), and the tenth v rounds to is found with no allocation,
+ * exactly as toFixed does (a tie goes up, by the product's own error). Only a value outside -300 ... 2000, or NaN, is made by toFixed. */
 export function fix1(v) {
-  const t = v * 10, f = t - Math.floor(t);
-  if (!(v >= 0 && v < 1e9) || Math.abs(f - 0.5) < 1e-6) return v.toFixed(1);   // alloc-rare: only a value within a millionth of a tie (about one in a million), or a negative or huge one, which a drawn coordinate (0 … 1200) is not
-  const r = Math.round(t);
-  let txt = FIX1.get(r);
-  if (txt === undefined) {
-    txt = `${(r - r % 10) / 10}.${r % 10}`;   // alloc-rare: the first time this tenth is written (its text is then kept in FIX1), never on a frame that repeats a value
-    if (FIX1.size < 60000) FIX1.set(r, txt);   // (a drawn coordinate is 0 … 1200: 12,000 tenths at most; past the cap a text is built each time, as before)
-  }
-  return txt;
+  if (v >= 0 && v < FIX_MAX) return FIX_POS[tenthOf(v)];
+  if (v < 0 && v > -FIX_NEG_MAX) return FIX_NEG[tenthOf(-v)];
+  return v.toFixed(1);   // alloc-rare: only a value outside -300 ... 2000 or NaN, which no drawn coordinate is (the outline and nodules lie inside the stage)
 }
-// (The text of each tenth written so far: a nodule's path is made from these on every frame of the ease.)
-const FIX1 = new Map();
+// The tenth x (0 or more, under 2^40) rounds to, as toFixed(1) rounds the exact value of the double: half up. Within a millionth of a tie the
+// product's rounding error (Dekker's split, exact) says which side the exact value lies.
+function tenthOf(x) {
+  const p = x * 10, f = Math.floor(p), d = p - f;
+  if (Math.abs(d - 0.5) > 1e-6) return d < 0.5 ? f : f + 1;
+  const c = 134217729 * x, xh = c - (c - x), xl = x - xh;
+  return (p - (f + 0.5)) + ((xh * 10 - p) + xl * 10) >= 0 ? f + 1 : f;
+}
+const FIX_MAX = 2000, FIX_NEG_MAX = 300;
+// (The text of each tenth, made once at load: 20,000 and 3,000 short strings. A negative value near zero is "-0.0", as toFixed writes it.)
+const FIX_POS = Array.from({ length: FIX_MAX * 10 + 1 }, (_, k) => (k / 10).toFixed(1));
+const FIX_NEG = Array.from({ length: FIX_NEG_MAX * 10 + 1 }, (_, k) => '-' + (k / 10).toFixed(1));
 
 /** The liver's scale about (560, 350): a cirrhotic liver shrinks a little; a congested one swells. */
 export const liverShrink = (c, g) => 1 - 0.035 * c * CIRR.scale + 0.035 * g;

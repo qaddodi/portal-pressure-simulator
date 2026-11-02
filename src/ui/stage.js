@@ -34,7 +34,7 @@ import { flipFrom, flipAt } from './cath-flip.js?v=f58f60760c';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=67a532bc39';
 import { diaphragmLine, diaphragmD } from './diaphragm.js?v=e95d9e7e1e';
-import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline, fix1 } from './liver-morph.js?v=22fda0ba54';
+import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline, fix1 } from './liver-morph.js?v=890dd0f1d8';
 import { LIVER_GEO } from './liver-geo-data.js?v=41a20a25ac';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=a6a766d521';
 import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=5f4fb81b66';
@@ -54,7 +54,7 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenCmds, polyBoxInto, measurePath, elBoxInto, chainMat } from './shape-gl.js?v=2d7c7316ba';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=c91518a68c';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=877cff4117';
-import { createLabelGL } from './label-gl.js?v=17865e5db1';
+import { createLabelGL } from './label-gl.js?v=8f04a63148';
 import { createGlassGL } from './glass-gl.js?v=c540fc6de4';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=a38b10c598';
 import { ENT_W } from './veins-bin.js?v=49b311283d';
@@ -2639,7 +2639,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=3a4a57616d').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=cb2295e392').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, binAway: (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins }) });

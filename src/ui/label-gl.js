@@ -23,7 +23,7 @@ import { createShapeGL, flattenPath, polyMeshInto, ellipsePoly } from './shape-g
 import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=4bb7f3a808';
 import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=2411df4df2';
 import { watchSize, sizeOf, rectSoon } from './geom.js?v=ca69a8335e';
-import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=23493a0e5d';
+import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=bc7e86266b';
 import { caught } from './caught.js?v=b96b17594a';
 const HOLE_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (a hole's mask is meshed into it and released after its draw)
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)

@@ -25,15 +25,16 @@ export function cordToneInto(out, rgb, q, dark = false) {
  * A sinusoid's colour as it capillarizes (fibSin 0–1): drained toward a grey of its own lightness, tinted with the lobule's
  * shade (--lz-shade), so choked sinusoids look duller, never brighter. Healthy (fibSin 0) it is unchanged.
  */
-export function dullSinusoid(rgb, shade, fibSin, out = null) {
+export function dullSinusoidInto(out, rgb, shade, fibSin) {
   const f = 0.4 * Math.min(1, Math.max(0, fibSin || 0));
   if (!(f > 0)) return rgb;
   const l = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
-  // (With `out` the colour is written there and no array is made; without, a new one, as before. `out` may be `rgb` itself.)
-  if (!out) return rgb.map((x, i) => x + (l + (shade[i] - l) * 0.35 - x) * f);
+  // (The colour is written into `out`, an array the caller keeps, and that is returned; `out` may be `rgb` itself. Healthy, `rgb` is returned as it is.)
   for (let i = 0; i < 3; i++) out[i] = rgb[i] + (l + (shade[i] - l) * 0.35 - rgb[i]) * f;
   return out;
 }
+/** dullSinusoidInto into a new array (tests, and a caller that needs one it can keep). */
+export function dullSinusoid(rgb, shade, fibSin) { return dullSinusoidInto([0, 0, 0], rgb, shade, fibSin); }
 
 /** The neighbouring lobules' contrast, cut by this much (an overlay of the page's own colour) in the lobule view (G22). */
 export const NEIGHBOUR_FLAT = 0.3;

@@ -15,7 +15,7 @@ import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone 
 import { sendCanvas, SEND_RETRY } from './field-gl.js?v=56cd41ef5e';
 import { isTileCopy, createTileCopier } from './tile-gl.js?v=d66f6db5f2';
 import { isGpuPicture, paintGL } from './paint-gl.js?v=6544ed504b';
-import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=44e9839c99';
+import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=1d4294ab4b';
 import { fbComplete } from './gl-state.js?v=f33764e84c';
 import { uniformCache } from './uniform-cache.js?v=6488216aa0';
 
@@ -254,11 +254,12 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
   }
   // The per-state texels (lobule-live.js buildDyn), sent again only when they changed.
   function liveDyn(T, dyn) {
-    if (T.dyn === dyn) return;
+    // (buildDyn writes one object over each time and moves its `ver`, so the object alone no longer says whether the texels are the ones sent.)
+    if (T.dyn === dyn && T.dynVer === dyn.ver) return;
     gl.activeTexture(gl.TEXTURE0 + LIVE_UNIT + 4); gl.bindTexture(gl.TEXTURE_2D, T.t[4]);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, K_ROW, dyn.rows, 0, gl.RGBA, gl.FLOAT, dyn.k);
-    T.dyn = dyn;
+    T.dyn = dyn; T.dynVer = dyn.ver;
   }
   // The kept picture (a pan of the lobule drawn live). The live shader is the costly one, and a pan of a whole number of device px moves
   // every pixel of the picture by that number and changes nothing else (the surround, the bitmap, the live lobule and the fade into
@@ -358,7 +359,7 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
     if (rim) { sigPut(rim[0]); sigPut(rim[1]); sigPut(rim[2]); sigPut(rim[3]); }
     sigPut(W); sigPut(H); sigCv(qa); sigCv(qb); sigPut(mix); sigCv(qo); sigPut(qOld); sigCv(w); sigPut(wVer); sigCv(wo); sigPut(woVer);
     sigPut(wMix); sigPut(rect[2]); sigPut(rd); sigPut(fade[0]); sigPut(fade[1]); sigPut(mid);
-    sigPut(bg[0]); sigPut(bg[1]); sigPut(bg[2]); sigPut(grey ? grey[0] : 1); sigPut(grey ? grey[1] : 1); sigPut(live.shape); sigPut(live.data); sigPut(live.dyn);
+    sigPut(bg[0]); sigPut(bg[1]); sigPut(bg[2]); sigPut(grey ? grey[0] : 1); sigPut(grey ? grey[1] : 1); sigPut(live.shape); sigPut(live.data); sigPut(live.dyn); sigPut(live.dyn.ver);
     sigFlat(live.share); sigFlat(live.cu); sigFlat(live.sj); sigFlat(live.zones); sigFlat(live.dark); sigFlat(live.cen); sigFlat(live.rs0); sigFlat(live.fib); sigFlat(live.col);
     sigBuf.length = sigN;
     return sigBuf;
