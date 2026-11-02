@@ -154,3 +154,97 @@ export function go(el) {
   const cats = new Set(scan(root).map((h) => h.cat));
   assert.ok(cats.has('attrWrite') && cats.has('varWrite'), [...cats].join());
 });
+
+// ---- Blind spots closed 2 Nov 2026 (audit 1d83acc0) ----
+const fixture = (files) => {
+  const root = mkdtempSync(join(tmpdir(), 'offgpu-'));
+  mkdirSync(join(root, 'src/ui'), { recursive: true }); mkdirSync(join(root, 'styles'));
+  writeFileSync(join(root, 'index.html'), '<html></html>');
+  writeFileSync(join(root, 'src/ui/frame.js'), 'export function frame(cb) { return requestAnimationFrame(cb); }\n');
+  for (const [f, text] of Object.entries(files)) writeFileSync(join(root, f), text);
+  return scan({ root });
+};
+
+test('dynamic dispatch: a callback kept in a map, array, handler object or event bus runs where a frame calls through it', () => {
+  const hits = fixture({
+    'src/ui/bus.js': `
+const listeners = new Map();
+const hooks = [];
+const OPS = { grow(el) { el.textContent = 'ops'; } };
+export const bus = {
+  on(key, fn) { if (!listeners.has(key)) listeners.set(key, []); listeners.get(key).push(fn); },
+  emit(key, v) { const l = listeners.get(key); if (l) for (let i = 0; i < l.length; i++) l[i](v); },
+};
+export function onTick(fn) { hooks.push(fn); }
+export function runHooks() { for (const h of hooks) h(); }
+export function run(name, el) { OPS[name](el); }
+const table = new Map([['a', () => document.body.append('x')]]);
+export function viaGet(k) { table.get(k)?.(); }
+`,
+    'src/ui/app.js': `
+import { frame } from './frame.js';
+import { bus, onTick, runHooks, run, viaGet } from './bus.js';
+bus.on('go', () => document.body.getBoundingClientRect());
+function viaName(v) { document.body.offsetWidth; }
+bus.on('named', viaName);
+onTick(() => document.body.getBoundingClientRect.call(0));
+const handlers = {};
+handlers.pop = () => document.body.getAnimations();
+export function pass(k) { handlers[k](); }
+frame(() => { bus.emit('go', 1); bus.emit('named', 2); runHooks(); run('grow', document.body); viaGet('a'); pass('pop'); });
+`,
+    'src/ui/idle.js': `import { bus } from './bus.js';\nbus.on('never', () => document.body.getBoundingClientRect());\nexport function later() { bus.emit('never'); }\n`,
+  });
+  const reach = (cat, file, re) => hits.some((h) => h.cat === cat && h.file === file && re.test(h.detail) && / path: /.test(h.detail));
+  assert.ok(reach('layoutRead', 'src/ui/app.js', /getBoundingClientRect.*emit/), 'a subscriber handed to bus.on (imported object, listeners Map) is reached from emit');
+  assert.ok(reach('layoutRead', 'src/ui/app.js', /\.offsetWidth/), 'a named function handed to on() is reached');
+  assert.ok(reach('layoutRead', 'src/ui/app.js', /getAnimations/), 'a handler stored under a computed name and called as handlers[k]()');
+  assert.ok(reach('domWrite', 'src/ui/bus.js', /textContent/), 'a handler object called as OPS[name](…)');
+  assert.ok(reach('domWrite', 'src/ui/bus.js', /append/), 'a Map entry called as table.get(k)?.()');
+  // idle.js subscribes to the same bus, so its callback is reached too (the registry is the bus's, by design: conservative)
+  assert.ok(hits.some((h) => h.file === 'src/ui/idle.js' && h.cat === 'layoutRead'));
+});
+
+test('a style written through a computed name is counted (el.style[k] = v, Object.assign(el.style, …))', () => {
+  const hits = fixture({
+    'src/ui/w.js': `
+import { frame } from './frame.js';
+export function go(el, k, v) {
+  frame(() => {
+    el.style[k] = v;
+    el.style['width'] = '1px';
+    el.style['color'] = 'red';
+    el.style['--p'] = '1';
+    el.dataset[k] = v;
+    el['textContent'] = 'x';
+    Object.assign(el.style, { left: '1px', pointerEvents: 'none' });
+    Object.assign(el.style, k);
+  });
+}
+`,
+  });
+  const has = (cat, re) => hits.some((h) => h.file === 'src/ui/w.js' && h.cat === cat && re.test(h.detail) && / path: /.test(h.detail));
+  assert.ok(has('varWrite', /style\[<dynamic name>\]/), 'a name that is not a literal is a script-driven style write');
+  assert.ok(has('layoutWrite', /style\['width'\]/), 'a literal layout name is a layout write');
+  assert.ok(has('paintWrite', /style\['color'\]/), 'a literal repainting name is a paint write');
+  assert.ok(has('varWrite', /style\['--p'\]/));
+  assert.ok(has('attrWrite', /dataset\[/) && has('domWrite', /\['textContent'\]/));
+  assert.equal(hits.filter((h) => /Object\.assign\(style, \{ left, pointerEvents \}\)/.test(h.detail)).length, 1, 'one hit per Object.assign, of its heaviest kind');
+  assert.ok(has('layoutWrite', /Object\.assign\(style, \{ left, pointerEvents \}\)/) && has('varWrite', /Object\.assign\(style, <dynamic>\)/));
+});
+
+test('a site no frame path reaches is never credited as on the GPU (unreached)', () => {
+  const hits = fixture({
+    'src/ui/u.js': `
+import { frame } from './frame.js';
+export function setup(el) { el.textContent = 'a'; el.getBoundingClientRect(); el.style.left = '1px'; el.classList.add('x'); }
+frame(() => { document.body.offsetWidth; });
+`,
+  });
+  const un = hits.filter((h) => h.cat === 'unreached');
+  assert.ok(un.some((h) => /textContent/.test(h.detail)) && un.some((h) => /getBoundingClientRect/.test(h.detail)) && un.some((h) => /style\.left/.test(h.detail)) && un.some((h) => /classList\.add/.test(h.detail)), un.map((h) => h.detail).join());
+  assert.ok(!hits.some((h) => h.cat === 'layoutRead' && /getBoundingClientRect/.test(h.detail)), 'it is not a frame hit');
+  assert.equal(hits.sites, hits.onGpu + hits.length, 'every unreached site is a site and not on the GPU');
+  const lines = new Set(hits.map((h) => `${h.file}:${h.line}`));
+  assert.ok(lines.has('src/ui/u.js:3'), 'its line is not counted as on the GPU');
+});

@@ -32,6 +32,14 @@
 //                translate, scale, display, visibility…) written in a frame or motion callback: script-driven style, not compositor-only
 //                (2 Nov 2026 independent audit: 295 sites uncounted)
 //   observerRead a layout read in a MutationObserver callback, or anything it calls: a microtask straight after the writes
+//   unreached    a site of the categories above that no frame, motion or observer path was found to reach. Not proven off the frame and not
+//                proven on the GPU, so it is never credited as "on GPU" (2 Nov 2026 audit: the score had counted every such site as on the GPU)
+//
+// Blind spots closed 2 Nov 2026 (audit 1d83acc0): (1) dynamic dispatch: a callback kept in a map, array, set or handler object, or
+// handed to a function that keeps it (store.on, onChange(fn), handlers[k] = fn, OPS[op](…)), runs wherever a reached function calls
+// through that registry (listeners.get(k)[i](…), cb() over a list, map.get(k)()), so those callbacks are frame-reached with it;
+// (2) a style written through a computed name (el.style[k] = v, Object.assign(el.style, …)) is counted by its name, or as a script-driven
+// style when the name is not a literal; (3) a site no path reaches is `unreached`, never credited as on the GPU.
 //
 // "Frame or motion callback": a function handed to requestAnimationFrame or the scheduler (frame, lateFrame, finalFrame,
 // frameFor's raf) or to setInterval (a poll that lays out the page on a timer stalls whichever frame it lands in), a pointermove/touchmove/mousemove/scroll/wheel/gesture handler, a function named tick/loop/animate/…Frame,
@@ -62,6 +70,7 @@ export const CATS = {
   attrWrite: 'Attribute, dataset, hidden/disabled or node removal written in a frame or motion callback (setAttribute, dataset, removeAttribute, remove…: a style recalc, and a repaint for SVG attributes)',
   varWrite: 'Inline style or custom property written in a frame or motion callback (setProperty, style.transform/opacity/display…, cssText: script-driven style every frame)',
   observerRead: 'Layout read in a mutation observer callback (a microtask straight after the writes)',
+  unreached: 'Site no frame, motion or observer path was found to reach (not proven off the frame, not proven on the GPU: never credited)',
 };
 
 // The figure's two SVG trees in index.html are its model, not a drawing: stage.js lays the figure and its labels out there and the GPU
@@ -215,6 +224,20 @@ function calleeName(call) {
 }
 const strOf = (n) => n?.type === 'Literal' && typeof n.value === 'string' ? n.value : n?.type === 'TemplateLiteral' ? n.quasis.map((q) => q.value.cooked ?? q.value.raw).join('${}') : null;
 
+// The name of the registry an expression reads from or stores into: listeners, this.cbs, bus.handlers, X[k], X.get(k), X.values().
+function baseName(e) {
+  if (!e) return null;
+  if (e.type === 'Identifier') return e.name;
+  if (e.type === 'ThisExpression') return 'this';
+  if (e.type === 'ChainExpression') return baseName(e.expression);
+  if (e.type === 'MemberExpression') return e.computed ? baseName(e.object) : e.property.name;
+  if (e.type === 'CallExpression' && e.callee.type === 'MemberExpression' && !e.callee.computed && /^(get|slice|filter|values|keys|entries|from|flat)$/.test(e.callee.property.name)) return baseName(e.callee.object);
+  if (e.type === 'CallExpression' && e.callee.type === 'MemberExpression' && e.callee.object.type === 'Identifier' && /^(Object|Array)$/.test(e.callee.object.name)) return baseName(e.arguments[0]);
+  return null;
+}
+// A style key given by name: the kind of write it is (layout, repainting, or script-driven style).
+const styleKeyCat = (key) => { const k = camel(key); return LAYOUT_JS.has(k) ? 'layoutWrite' : PAINT_JS.test(k) && k !== 'transition' ? 'paintWrite' : 'varWrite'; };
+
 function parseJs(file, text) {
   try { return espree.parse(text, { ecmaVersion: 'latest', sourceType: 'module', loc: true }); } catch {
     return espree.parse(text, { ecmaVersion: 'latest', sourceType: 'script', loc: true });
@@ -240,7 +263,7 @@ export function scan({ root = ROOT } = {}) {
     }
     if (!file.endsWith('.js')) continue;
     const ast = parseJs(file, text);
-    const mod = { file, text, motionProps: [], fns: new Map(), origins: new Map(), calls: new Map(), imports: new Map(), exports: new Map(), seeds: new Set(), obsSeeds: new Set(), softSeeds: new Set(), late: [] };
+    const mod = { file, text, motionProps: [], fns: new Map(), origins: new Map(), calls: new Map(), imports: new Map(), exports: new Map(), seeds: new Set(), obsSeeds: new Set(), softSeeds: new Set(), late: [], regs: [], alias: new Map() };
     mods.set(file, mod);
     const frameCallers = new Set(['requestAnimationFrame', 'frame', 'lateFrame', 'finalFrame']);
     // (raf = frameFor('x'), and imported scheduler names under any local alias)
@@ -377,6 +400,76 @@ export function scan({ root = ROOT } = {}) {
           for (const part of v.split(',')) { const first = part.trim().replace(/^['"`]/, '').split(/\s+/)[0]; if (isPaint(first)) push('paintAnim', file, n.loc.start.line, label(enclosing(n)), `style.transition = ${part.trim()}`); if (LAYOUT_PROPS.has(first)) push('layoutAnim', file, n.loc.start.line, label(enclosing(n)), `style.transition = ${part.trim()}`); }
         }
       }
+      // ---- Dynamic dispatch (2 Nov 2026): registries, what is stored in them, and calls through them ----
+      {
+        const f0 = enclosing(n);
+        const note = (map, k, v) => { if (!map.has(k)) map.set(k, new Set()); map.get(k).add(v); };
+        const isVal = (v) => v && (isFn(v) || v.type === 'Identifier' || (v.type === 'MemberExpression' && !v.computed));
+        // a registry is kept under a local key and, when it is a property of some object, a global one (another file may store into it)
+        const store = (R, v, viaMember, at) => {
+          if (!R || !isVal(v)) return;
+          for (const key of viaMember ? [`${file}:${R}`, `*:${R}`] : [`${file}:${R}`]) mod.regs.push({ key, v, at });
+        };
+        if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && n.init && !isFn(n.init)) {
+          const i = n.init;
+          if ((i.type === 'MemberExpression' && i.computed) || (i.type === 'CallExpression' && i.callee.type === 'MemberExpression' && i.callee.property.name === 'get') || (i.type === 'ChainExpression')) { const R = baseName(i); if (R) note(mod.alias, n.id.name, R); }
+          if (i.type === 'ObjectExpression') for (const pr of i.properties) if (pr.type === 'Property') store(n.id.name, pr.value, false, f0);
+          if (i.type === 'ArrayExpression') for (const el of i.elements) store(n.id.name, el, false, f0);
+          if (i.type === 'NewExpression' && /^(Map|Set)$/.test(i.callee.name || '') && i.arguments[0]?.type === 'ArrayExpression') for (const el of i.arguments[0].elements) { if (el?.type === 'ArrayExpression') for (const e2 of el.elements) store(n.id.name, e2, false, f0); else store(n.id.name, el, false, f0); }
+        }
+        if (n.type === 'ForOfStatement' || n.type === 'ForInStatement') {
+          const d = n.left.type === 'VariableDeclaration' ? n.left.declarations[0]?.id : n.left;
+          const R = baseName(n.right);
+          if (R && d) for (const id of d.type === 'ArrayPattern' ? d.elements : [d]) if (id?.type === 'Identifier') note(mod.alias, id.name, R);
+        }
+        if (n.type === 'CallExpression') {
+          const c = n.callee, cn0 = calleeName(n);
+          // callbacks of forEach/map/... over a registry
+          if (c.type === 'MemberExpression' && !c.computed && /^(forEach|map|some|every|find|filter)$/.test(c.property.name) && isFn(n.arguments[0])) {
+            const R = baseName(c.object);
+            if (R) for (const pm of n.arguments[0].params) { const id = pm.type === 'ArrayPattern' ? pm.elements[pm.elements.length - 1] : pm; if (id?.type === 'Identifier') note(mod.alias, id.name, R); }
+          }
+          // calls through a registry: X[k](…), l[i](…), cb(…) over a list, X.get(k)(…)
+          let R = null;
+          if (c.type === 'MemberExpression' && c.computed) R = baseName(c.object);
+          else if (c.type === 'Identifier') R = c.name;
+          else if (c.type === 'CallExpression' && c.callee.type === 'MemberExpression' && c.callee.property.name === 'get') R = baseName(c.callee.object);
+          else if (c.type === 'ChainExpression') R = baseName(c.expression);
+          if (R && f0) (f0.__disp ||= new Set()).add(R);
+          // stores into a registry
+          if (c.type === 'MemberExpression' && !c.computed && /^(push|unshift|add|set)$/.test(c.property.name)) {
+            const RR = baseName(c.object), viaMember = c.object.type === 'MemberExpression' || c.object.type === 'CallExpression';
+            for (const a of n.arguments) store(RR, a, viaMember, f0);
+          }
+        }
+        if (n.type === 'AssignmentExpression' && n.left.type === 'MemberExpression' && n.operator === '=') {
+          const o = n.left.object;
+          store(baseName(o), n.right, o.type === 'MemberExpression' || o.type === 'CallExpression', f0);
+        }
+      }
+      // ---- Style and element properties written through a computed name (el.style[k] = v) ----
+      if (n.type === 'AssignmentExpression' && n.left.type === 'MemberExpression' && n.left.computed) {
+        const obj = n.left.object, f1 = enclosing(n), key = strOf(n.left.property);
+        const onStyle = obj.type === 'MemberExpression' && !obj.computed && obj.property.name === 'style';
+        const onData = obj.type === 'MemberExpression' && !obj.computed && obj.property.name === 'dataset';
+        if (onStyle && key != null) mod.late.push([styleKeyCat(key), n, f1, `style['${key}'] =`]);
+        else if (onStyle) mod.late.push(['varWrite', n, f1, 'style[<dynamic name>] =']);
+        else if (onData) mod.late.push(['attrWrite', n, f1, 'dataset[<name>] =']);
+        else if (key != null && /^(textContent|innerHTML|innerText|outerHTML|className)$/.test(key)) mod.late.push(['domWrite', n, f1, `['${key}'] =`]);
+        else if (key != null && /^(nodeValue|data|hidden|disabled|value|checked|src|href)$/.test(key)) mod.late.push(['attrWrite', n, f1, `['${key}'] =`]);
+      }
+      if (n.type === 'CallExpression' && n.callee.type === 'MemberExpression' && n.callee.object.name === 'Object' && n.callee.property.name === 'assign') {
+        const t0 = n.arguments[0], src0 = n.arguments[1];
+        if (t0?.type === 'MemberExpression' && !t0.computed && t0.property.name === 'style') {
+          const f1 = enclosing(n);
+          if (src0?.type === 'ObjectExpression' && src0.properties.every((pr) => pr.type === 'Property' && !pr.computed)) {
+            // (One hit per call, of the heaviest kind among its keys.)
+            const keys = [...new Set(src0.properties.map((pr) => String(pr.key.name ?? pr.key.value)))], cats = keys.map(styleKeyCat);
+            mod.late.push([['layoutWrite', 'paintWrite', 'varWrite'].find((c) => cats.includes(c)) || 'varWrite', n, f1, `Object.assign(style, { ${keys.join(', ')} })`]);
+          }
+          else mod.late.push(['varWrite', n, f1, 'Object.assign(style, <dynamic>)']);
+        }
+      }
       // Strings: SVG rasters, SVG markup, and CSS text (cssText, style sheets built in script).
       const s = (n.type === 'Literal' && typeof n.value === 'string') || n.type === 'TemplateLiteral' ? strOf(n) : null;
       if (s && n.parent?.type !== 'ImportDeclaration' && n.parent?.type !== 'TemplateLiteral') {
@@ -430,6 +523,12 @@ export function scan({ root = ROOT } = {}) {
     for (const nm of mod.exposed.get(call.name) || []) for (const g of mod.byName?.get(nm) || []) if (declKind(g) === 'binding') out.push([mod, g]);
     // (The receiver may be an object an imported module made: ui.zoom = createCardZoom(…), or named for the factory, stage for
     // createStage. That module's methods of the name are followed too.)
+    // (Or an object imported by name, store.on(…) with store from './store.js': that module's methods of the name, 2 Nov 2026.)
+    const imp = call.recv && mod.imports.get(call.recv);
+    if (imp && mods.get(imp[0])) {
+      const m = mods.get(imp[0]);
+      for (const g of m.byName?.get(call.name) || []) if (declKind(g) === 'method') out.push([m, g]);
+    }
     const origin = call.recv && mod.origins.get(call.recv);
     for (const m of origin ? [mods.get(origin)].filter(Boolean) : []) {
       for (const g of m.byName?.get(call.name) || []) if (declKind(g) === 'method') out.push([m, g]);
@@ -441,6 +540,37 @@ export function scan({ root = ROOT } = {}) {
   }
   // A function handed to the scheduler, setInterval or a motion listener is a frame callback; so is one handed to a function that
   // passes that parameter on to one of them (a "taker"), followed until nothing changes.
+  // ---- Registries (dynamic dispatch, 2 Nov 2026): what each one holds, filled by direct stores and through functions that keep their argument ----
+  const regs = new Map();     // registry key -> Map(fn key -> [mod, fn])
+  const sinks = new Map();    // fn -> [{ key, idx }]: a function that stores its idx-th parameter into the registry `key`
+  const addReg = (key, m, g) => { if (!regs.has(key)) regs.set(key, new Map()); const k = `${m.file}#${g.__key}`; if (regs.get(key).has(k)) return false; regs.get(key).set(k, [m, g]); return true; };
+  const addSink = (g, key, idx) => { if (!sinks.has(g)) sinks.set(g, []); if (sinks.get(g).some((x) => x.key === key && x.idx === idx)) return false; sinks.get(g).push({ key, idx }); return true; };
+  const targetsOf = (mod, v, at) => v.type === 'Identifier' ? resolveBare(mod, v.name, at) : isFn(v) ? [[mod, v]]
+    : v.type === 'MemberExpression' && !v.computed ? resolveCall(mod, { member: true, name: v.property.name, recv: v.object.type === 'ThisExpression' ? 'this' : v.object.name, at }) : [];
+  const paramOf = (v, at) => { if (v.type !== 'Identifier') return null; for (const e of chainOf(at)) { const i = paramIndex(e, v.name); if (i >= 0) return [e, i]; } return null; };
+  function fillRegistries() {
+    for (let changed = true, round = 0; changed && round < 12; round++) {
+      changed = false;
+      for (const mod of mods.values()) for (const r of mod.regs) {
+        const pm = r.at && paramOf(r.v, r.at);
+        if (pm) { changed = addSink(pm[0], r.key, pm[1]) || changed; continue; }
+        for (const [m, g] of targetsOf(mod, r.v, r.at)) changed = addReg(r.key, m, g) || changed;
+      }
+      if (sinks.size) for (const mod of mods.values()) for (const call of allCalls(mod)) for (const [, g] of resolveCall(mod, call)) for (const sk of sinks.get(g) || []) {
+        const arg = call.node.arguments[sk.idx];
+        if (!arg) continue;
+        const pm = call.at && paramOf(arg, call.at);
+        if (pm) changed = addSink(pm[0], sk.key, pm[1]) || changed;
+        else for (const [m, h] of targetsOf(mod, arg, call.at)) changed = addReg(sk.key, m, h) || changed;
+      }
+    }
+  }
+  // The callbacks a reached function can run by calling through a registry of its module (or one stored into from elsewhere by property).
+  const dispatched = (mod, f) => {
+    const out = [];
+    for (const R0 of f.__disp || []) for (const R of [R0, ...(mod.alias.get(R0) || [])]) for (const key of [`${mod.file}:${R}`, `*:${R}`]) for (const t of regs.get(key)?.values() || []) out.push(t);
+    return out;
+  };
   const takers = new Map();   // fn -> Set of argument indexes it hands to a frame
   const paramIndex = (fn, name) => fn ? fn.params.findIndex((p) => p.type === 'Identifier' && p.name === name) : -1;
   const seedArg = (mod, arg, at) => {
@@ -455,6 +585,7 @@ export function scan({ root = ROOT } = {}) {
     return changed;
   };
   const allCalls = (mod) => { const out = [...mod.top]; for (const g of mod.fns.values()) if (g.__calls) out.push(...g.__calls); return out; };
+  fillRegistries();
   for (let changed = true, round = 0; changed && round < 12; round++) {
     changed = false;
     for (const mod of mods.values()) for (const [v, at] of mod.motionProps) changed = seedArg(mod, v, at) || changed;
@@ -485,6 +616,7 @@ export function scan({ root = ROOT } = {}) {
         if (inline) add(mod, g);
       }
       for (const call of f.__calls || []) for (const [m, g] of resolveCall(mod, call)) add(m, g);
+      for (const [m, g] of dispatched(mod, f)) add(m, g);
     }
   };
   for (const mod of mods.values()) for (const f of mod.seeds) add(mod, f);
@@ -512,6 +644,7 @@ export function scan({ root = ROOT } = {}) {
         if (inline) add(mod, g);
       }
       for (const call of f.__calls || []) for (const [m, g] of resolveCall(mod, call)) add(m, g);
+      for (const [m, g] of dispatched(mod, f)) add(m, g);
     }
     for (const [k, v] of reach) obsReach.set(k, v);
     reach.clear();
@@ -527,7 +660,11 @@ export function scan({ root = ROOT } = {}) {
       for (let p = f; p && !hit; p = enclosing(p)) if (obsReach.has(`${mod.file}#${p.__key}`)) hit = `${mod.file}#${p.__key}`;
       if (hit) cat = 'observerRead';
     }
-    if (!hit) continue;
+    if (!hit) {
+      // (Looked at above, so it would be credited as on the GPU. No path reaches it: not proven, so it is a hit of its own, 2 Nov 2026.)
+      push('unreached', mod.file, n.loc.start.line, label(f), `${cat0}: ${detail}`);
+      continue;
+    }
     const R = cat === 'observerRead' ? obsReach : reach;
     // How a frame reaches it: the chain of calls back to the frame callback or motion listener (shortened).
     const chain = [];
