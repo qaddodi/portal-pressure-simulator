@@ -96,6 +96,7 @@ class Node {
   querySelector() { return null; }
   closest() { return null; }
   getBoundingClientRect() { return { width: 420, height: 200, left: 0, top: 0 }; }
+  testPen() { return this.getContext(); }   // (util.js fitCanvas: the recorder stands for the pen the charts draw with)
   getContext() { return (this.ctx ??= fakeCtx(this.rec)); }
   remove() {}
 }

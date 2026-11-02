@@ -89,6 +89,7 @@ class Node {
   querySelector() { return null; }
   closest(sel) { for (let n = this; n; n = n.parent) if (n.slide && sel.includes('.pz-tool')) return n; return null; }
   getBoundingClientRect() { return { width: this.bw ?? 400, height: this.bh ?? 220, left: 0, top: 0 }; }
+  testPen() { return this.getContext(); }   // (util.js fitCanvas: the recorder stands for the pen the charts draw with)
   getContext() {
     if (!this.ctx) { this.recOps = this.parent ? this.sink : []; this.ctx = recorder(this.recOps, !this.parent); }
     return this.ctx;

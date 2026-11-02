@@ -13,10 +13,11 @@
 // - words: the atlas's pictures, set at the canvas's own pixel grid, tinted (strokeText: the words' outline, set once as its own picture).
 //
 // Where WebGL2 is missing, the renderer is software, the shader is not yet ready, or the context is lost, ctx2d() returns null and the
-// chart draws on its own 2D canvas, as before (?tracegl=0 keeps that always).
+// chart is not drawn until the GPU can draw it (fitCanvas's pen draws nothing; no 2D canvas is drawn on), and it draws again the moment
+// the GPU can (publish). ?tracegl=0 keeps every chart undrawn.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
-import { canvasSize, fitCanvas, onCanvasSized } from './util.js?v=d03b80f2c6';
+import { canvasSize, fitCanvas, onCanvasSized } from './util.js?v=3ae1964b94';
 import { sdfAtlas } from './text-gl.js?v=ec353838fe';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
 import { fontOf, measure } from './glyph-measure.js?v=0385fe1e8a';
 export { measure };
@@ -301,7 +302,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
   if (!gl || typeof gl.createShader !== 'function' || typeof host?.after !== 'function') return null;
   // (A software renderer draws it too: a chart is a few hundred small shapes, well within one.)
 
-  let lost = false, dead = false, failed = false;
+  let lost = false, dead = false, failed = false, missed = false;   // (missed: a frame asked for the GPU while it could not draw)
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
   let P = null, started = null, stopPoll = null;
   let quad = null, quadVao = null, segBuf = null, segVao = null, fillBuf = null, fillVao = null, boxBuf = null, boxVao = null, textBuf = null, textVao = null;
@@ -351,15 +352,18 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
         gl.bindVertexArray(null);
       });
       P = out; lost = false;
+      // (A frame that came while the GPU could not draw (still compiling, or the context lost and now built again) drew nothing: the chart
+      // draws again now, at once, rather than at its next change.)
+      if (missed && redraw && !dead) { missed = false; try { redraw(); } catch (e2) { console.warn('Charts on the GPU: the redraw failed.', e2); } }
     } catch (e) {
       if (gl.isContextLost()) { P = null; return; }
-      failed = true; console.warn('Charts on the GPU: shader failed; the 2D chart stays.', e);
+      failed = true; console.warn('Charts on the GPU: shader failed; the chart is not drawn.', e);
     }
   }
-  try { build(); } catch (e) { console.warn('Charts on the GPU: could not start; the 2D chart stays.', e); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
+  try { build(); } catch (e) { console.warn('Charts on the GPU: could not start; the chart is not drawn.', e); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
   canvas.addEventListener('webglcontextrestored', () => {
     if (dead) return;
-    try { build(); } catch (e) { failed = true; console.warn('Charts on the GPU: could not be rebuilt; the 2D chart stays.', e); }
+    try { build(); } catch (e) { failed = true; console.warn('Charts on the GPU: could not be rebuilt; the chart is not drawn.', e); }
   });
   host.after(canvas);
 
@@ -483,6 +487,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
   const api = {
     canvas,
     get ready() {
+      missed = false;   // (published here, the frame asking draws it: no second draw from publish)
       publish();
       if (!glyphImage && redraw && !dead) waiting.add(redraw);
       if (!P || lost || failed || dead || gl.isContextLost() || !glyphImage) return false;
@@ -703,10 +708,10 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
     },
     /**
      * A 2D context for the chart's own drawing code, w × h CSS px at Wd × Hd device px, drawn by the GPU; null where it cannot draw now
-     * (the chart then takes its own canvas's context). The frame ends with the context's end().
+     * (the chart then takes fitCanvas's pen, which draws nothing, and is drawn again once the GPU can). The frame ends with the context's end().
      */
     ctx2d(w, h, Wd, Hd) {
-      if (!api.begin(w, h, Wd, Hd)) return null;
+      if (!api.begin(w, h, Wd, Hd)) { missed = true; return null; }
       return shim.reset(K);
     },
     get lost() { return lost || failed; },
@@ -913,7 +918,7 @@ function createShim(G) {
 const stopColour = (g) => (g && g.stops && g.stops.length ? g.stops[0][1] : 'transparent');
 
 /** The pen a chart draws with: the GPU drawer's 2D context where it can draw now ({ ctx, w, h }, ctx.end() ends the frame), else the chart's
- *  own canvas's context, fitted as fitCanvas fits it. */
+ *  canvas sized as fitCanvas sizes it and a pen that draws nothing (util.js), until the GPU can draw it. */
 export function fitPen(canvas, gpu) {
   if (gpu) {
     const z = canvasSize(canvas);

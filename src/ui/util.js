@@ -5,6 +5,7 @@ import { slideFold } from './fold-slide.js?v=f0b2c624d3';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=fc509dabe4';
 import { leaveFromHere } from './menu-leave.js?v=e885166f40';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
+import { measure as measureWords } from './glyph-measure.js?v=0385fe1e8a';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 for (const m of ['replaceChildren', 'append', 'prepend']) {
@@ -1003,11 +1004,31 @@ export function canvasSize(canvas) {
   const dpr = Math.min(saver() ? 2 : 3, (window.devicePixelRatio || 1) * canvasBoost);
   return { w: r.width, h: r.height, W: Math.max(1, Math.round(r.width * dpr)), H: Math.max(1, Math.round(r.height * dpr)), dpr };
 }
+// A pen that draws nothing: what a chart is handed where the GPU cannot draw it now (no WebGL2, its shader failed, a lost context, or
+// ?tracegl=0). No 2D canvas is drawn on anywhere (Mohammad, 1 Nov 2026: "block everything until everything is on GPU"): the chart's
+// GPU drawer redraws it the moment it can (trace-gl.js publish). It keeps the state a chart sets and answers what a chart asks (words
+// measured from the GPU atlas's own Inter, as the GPU sets them), so the drawing code runs as it does on the GPU, painting nothing.
+const NOOP = () => {}, NO_GRAD = { addColorStop: NOOP }, blankPens = new WeakMap();
+function blankPen(canvas) {
+  let p = blankPens.get(canvas);
+  if (p) return p;
+  const st = {
+    canvas, onGPU: false, blank: true, font: '10px sans-serif', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, globalAlpha: 1,   // colour-exempt: the 2D canvas's own defaults
+    textAlign: 'start', textBaseline: 'alphabetic', lineCap: 'butt', lineJoin: 'miter', lineDashOffset: 0, imageSmoothingEnabled: true,
+    measureText: (t) => { const px = parseFloat(/([\d.]+)px/.exec(st.font)?.[1]) || 10; return { width: measureWords(String(t), st.font), actualBoundingBoxAscent: px * 0.73, actualBoundingBoxDescent: px * 0.21 }; },
+    createLinearGradient: () => NO_GRAD, createRadialGradient: () => NO_GRAD, createPattern: () => null,
+    getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }), getLineDash: () => [], isPointInPath: () => false, isPointInStroke: () => false,
+  };
+  // (Any other call is a no-op; an unknown field reads as undefined, so the pen is never taken for a promise.)
+  p = new Proxy(st, { get: (o, k) => (k in o ? o[k] : typeof k === 'string' && k !== 'then' && k !== 'toJSON' ? NOOP : undefined) });
+  blankPens.set(canvas, p);
+  return p;
+}
+/** The canvas's buffer sized to its box (fitBox) and a pen that draws nothing ({ ctx, w, h }): the charts draw on the GPU (trace-gl.js fitPen),
+ *  and this is what they hold where it cannot draw now. */
 export function fitCanvas(canvas) {
-  const { w, h: hh, dpr } = fitBox(canvas);
-  const ctx = canvas.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  return { ctx, w, h: hh };
+  const { w, h: hh } = fitBox(canvas);
+  return { ctx: typeof canvas.testPen === 'function' ? canvas.testPen() : blankPen(canvas), w, h: hh };   // (testPen: a check's recorder, tests/instruments-draw.test.js)
 }
 /** The canvas's buffer sized to its box at fitCanvas's density, with no context asked for (a WebGL instrument sizes its buffer this way):
  *  { w, h } in CSS pixels and the dpr its buffer is drawn at. */
