@@ -15,7 +15,7 @@ test('two quick panel-width changes bring the words back', () => {
   assert.match(fn, /if \(!widthOwn\) widthOwn = !ui\.text\.classList\.contains\('pz-leave'\);/);
   assert.doesNotMatch(fn, /const had = /);
   // The words come back once the width is applied and a frame has passed, unless a newer change is waiting (its own timer brings them back).
-  assert.match(fn, /widthT = 0; apply\(\);\s*nextFrame\(\(\) => \{ if \(widthT \|\| !widthOwn\) return; widthOwn = false; ui\?\.text\.classList\.remove\('pz-leave'\); \}\);/);
+  assert.match(fn, /widthT = 0;\s*if \(!ui\) \{ widthOwn = false; return; \}[^\n]*\n\s*apply\(\);\s*nextFrame\(\(\) => \{ if \(widthT \|\| !widthOwn\) return; widthOwn = false; ui\?\.text\.classList\.remove\('pz-leave'\); \}\);/);
   // Each change still clears the timer of the one before it, and the fade is the same 240 ms.
   assert.match(fn, /clearTimeout\(widthT\);/);
   assert.match(fn, /\}, 240\);/);

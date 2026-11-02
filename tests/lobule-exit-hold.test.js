@@ -36,7 +36,7 @@ test('the presenter holds it before the new cards change the space, on every way
   const cam = pr.match(/async function camera\(cam, s, cut, early = 0, begun = null\) \{[\s\S]*?\n {2}\}/)[0];
   const lob = cam.slice(cam.indexOf('if (LOBULE_CAM.test(cam)) {'));
   assert.ok(lob.indexOf('stage.lobuleHold?.(false)') > 0 && lob.indexOf('stage.lobuleHold?.(false)') < lob.indexOf('stage.lobuleFocus(part'), 'back to a lobule slide: it follows that slide\'s cards again');
-  assert.match(pr, /app\.style\.removeProperty\(k\);\n\s+stage\.lobuleHold\?\.\(false\);/, 'and when the presentation ends');
+  assert.match(pr, /insets\.reset\(\);[^\n]*\n\s+stage\.lobuleHold\?\.\(false\);/, 'and when the presentation ends');
 });
 
 test('held, the way out never zooms in: the fit only changes when the space does', () => {

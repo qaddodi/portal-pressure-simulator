@@ -58,6 +58,7 @@ import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=95bf63dea2';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=462dba6050';
+import { createInsetHold } from './inset-hold.js?v=e34b1d5a56';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=e2988acc94';
 import { sheetPanes } from './sheet-glass.js?v=9bad2768f7';
@@ -1276,7 +1277,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Reduced motion keeps the glide, short: a jump of the whole figure is harder to follow than a quick move. Under the start's
     // cover it is set outright, so the reveal never catches it on its way.)
     const gl = booting ? 0 : ms || 300;
-    const held = insetHold;
+    const held = insets.held;
     insetsGo(true);   // (the room the new cards leave, written as the glide sets off: it frames for it, and the labels wait for its landing)
     frameTo(v === 'circuit' ? 'fit' : cam, s, gl);
     begun?.(); if (held) dispatchEvent(new Event('pps:occ'));   // (the glide has set off: the cards' last fitting runs under it, see transitionRun)
@@ -4188,7 +4189,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     frameL = !p && t ? (card ? sl + card + 24 : L + 48) : 0;
     ui.safe.style.width = p ? '' : `${frameL / k}px`;
     ui.safe.style.height = p ? `${(B + Math.max(34, lift * k + 4)) / k}px` : '';
-    const set = (k, v) => { const px = `${Math.max(0, Math.round(v))}px`; if (insetHold) insetPend.set(k, px); else app.style.setProperty(k, px); };
+    const set = (k, v) => { const px = `${Math.max(0, Math.round(v))}px`; insets.put(k, px); };
     set('--pz-l', frameL);
     set('--pz-r', !p && d ? W - (readMetric(ui.data, 'offsetLeft') + dock.to * dv[0]) * k + 8 : 0);   // (where the card comes to rest: past its entry shift, at its dock)
     set('--pz-t', p && d ? (readMetric(ui.data, 'offsetTop') + readMetric(ui.data, 'offsetHeight') + (lipOn(ui.data) ? LIP : 0) + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
@@ -4197,24 +4198,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The corner icon is offered where the card has room to grow, and only on a wide screen with an instrument: card-zoom.js.)
     ui.data.classList.toggle('pz-zoomable', wide && !ui.data.hidden && ui.data.classList.contains('has-tool') && !!ui.zoom.plan());
     placeBar();
-    if (!insetHold) dispatchEvent(new Event('pps:occ'));
+    if (!insets.held) dispatchEvent(new Event('pps:occ'));
   }
   // (2 Nov 2026, the labels thread: the room the new cards leave (--pz-l, --pz-t...) was written as their layout ran, before the camera set
   // off, so the figure's labels were laid out once for the new room under the old camera: an organ's name under the coming card faded out
   // for about 0.3 s, then came back where the glide landed. Through a slide change whose camera moves, that room is held back and written
   // as the glide starts (frameTo reads it then, to frame for it), and the labels are laid out once, where it lands.)
-  let insetHold = false, insetT = 0;
-  const insetPend = new Map();
-  function insetsHold() { insetHold = true; clearTimeout(insetT); insetT = setTimeout(() => insetsGo(), 2500); }
+  const insets = createInsetHold(app.style);
+  const occ = () => dispatchEvent(new Event('pps:occ'));
+  function insetsHold() { insets.hold(occ); }
   /** Writes the held room now; tells the figure (pps:occ) unless `quiet` (the glide about to start tells it once it has). */
-  function insetsGo(quiet = false) {
-    clearTimeout(insetT); insetT = 0;
-    if (!insetHold) return;
-    insetHold = false;
-    for (const [k, v] of insetPend) app.style.setProperty(k, v);
-    insetPend.clear();
-    if (!quiet) dispatchEvent(new Event('pps:occ'));
-  }
+  function insetsGo(quiet = false) { if (insets.go() && !quiet) occ(); }
   // A row of choices is one row: where its full names would wrap (five treatments on a 375 to 430 px iPhone), each button that has
   // one takes its compact label (the full name stays its accessible name and tooltip), never a second row or a smaller size.
   function abShort(root, may) {
@@ -4939,7 +4933,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!widthOwn) widthOwn = !ui.text.classList.contains('pz-leave');
     ui.text.classList.add('pz-leave');
     widthT = setTimeout(() => {
-      widthT = 0; apply();
+      widthT = 0;
+      if (!ui) { widthOwn = false; return; }   // (the talk ended inside the 240 ms: its width is set already, and Explore keeps its own label size)
+      apply();
       nextFrame(() => { if (widthT || !widthOwn) return; widthOwn = false; ui?.text.classList.remove('pz-leave'); });
     }, 240);
   }
@@ -5705,11 +5701,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     figureHooks('clear');
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in', 'pz-held'); heldNow = false; holdEase = false;
     cancelFrame(slip.raf); slip.d = null; slip.h0 = null; stage.followEnd?.();
+    clearTimeout(dataHideT); dataHideT = 0; clearTimeout(widthT); widthT = 0; widthOwn = false;   // (a panel width asked in the talk's last 240 ms: never applied after it, setPanelWidth)
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';
     dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
     pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.dispose(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null; app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
-    for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
+    insets.reset();   // (and a room held through the last slide change is never written back after the talk: inset-hold.js)
     stage.lobuleHold?.(false);   // (a way out of the lobule left unfinished: the lobule follows the free space again)
     stage.setProjection(false); labelsFor = '';
     document.documentElement.style.setProperty('--label-k', String(stage.labelEff())); document.documentElement.style.setProperty('--label-scale', String(stage.labelScale()));
