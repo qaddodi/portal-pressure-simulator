@@ -1603,7 +1603,7 @@ button.finding { cursor: pointer; }
 /* Drugs: a plain two-column list, name on the left and a check on the right when it runs; no chips with a radio circle
    (design giveaway DG5, 17 Oct). Three rows, as the chips were, so the Treat card keeps its height. */
 .order-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; }
-.order-chip { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; min-height: 38px; padding: 0 2px; border: 0; border-bottom: 1px solid var(--hairline); border-radius: 0; background: none; cursor: pointer; text-align: left; font: 500 var(--fs-14) var(--font-ui); color: var(--text-2); transition: font-weight var(--d-small) var(--ease); }
+.order-chip { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; min-height: 38px; padding: 0 2px; border: 0; border-bottom: 1px solid var(--hairline); border-radius: 0; background: none; cursor: pointer; text-align: left; font: 500 var(--fs-14) var(--font-ui); color: var(--text-2); transition: color var(--d-small) var(--ease); }   /* (the colour eases; the weight is set at once: a weight ease re-laid the chip's words every frame, Holding 120 Hz §3.11) */
 @media (hover: hover) { .order-chip:hover { color: var(--text); } }
 .order-chip .oc-t { min-width: 0; }
 .order-chip .oc-dot { flex: none; width: 16px; height: 16px; display: grid; place-items: center; border-radius: 5px; box-shadow: inset 0 0 0 1.5px var(--border-strong); transition: none; }
@@ -4839,7 +4839,7 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .vdock.mini { grid-template-columns: auto; grid-template-areas: "tl"; right: auto; width: max-content; }   /* a small pill in the lower-left corner: the lower-right is the zoom controls' */
 .vdock.mini .readouts { display: none; }
 .vdock.mini .stage-bar.bottom { height: 54px; min-height: 54px; padding: 0 12px 0 4px; }
-.app.figure-focus .zoom-pill { transition: opacity var(--d-surface, .42s) var(--ease), translate var(--d-small) var(--ease), transform var(--d-small) var(--ease), font-size var(--d-small) var(--ease); }
+.app.figure-focus .zoom-pill { transition: opacity var(--d-surface, .42s) var(--ease), translate var(--d-small) var(--ease), transform var(--d-small) var(--ease); }   /* (no font-size: nothing changes it here, and a font-size ease lays the pill out every frame; Holding 120 Hz §3.11) */
 /* The credit is never animated: no glide, no fade, no scale ease. When it must move it vanishes at once, stays hidden until the
    cards and camera settle, and appears at once at its new spot (src/ui/credit.js). */
 .stage-credit { transition: none; }
