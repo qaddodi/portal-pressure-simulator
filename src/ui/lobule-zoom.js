@@ -205,7 +205,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // the rise too (the rim past the lobule cleared by its shader). It follows that canvas's visibility and zoom.
   const tissueG = h('canvas', { class: 'lz-canvas lz-tissue-gl', 'aria-hidden': 'true', style: { opacity: '0', pointerEvents: 'none' } });
   // (The overlay on the GPU, fx-gl.js: shown in the 2D overlay's place while it draws it, see fxOnGPU.)
-  const fxG = h('canvas', { class: 'lz-canvas lz-fx lz-fx-gl', 'aria-hidden': 'true', style: { opacity: '0', pointerEvents: 'none' } });
+  const fxG = h('canvas', { class: 'lz-canvas lz-fx lz-fx-gl', 'aria-hidden': 'true', style: { pointerEvents: 'none' } });   // (shown by what is drawn on it: blank until fxGLShow(true)'s draw, and given back blank (width 0) by fxGLShow(false), so its style is never written to hide it)
   const el = h('div', { class: 'lz', 'aria-hidden': 'true' }, tissue, tissueG, glCv, fx, ...(FX_GPU ? [fxG] : []), leadersBox, labels);
   // The dive's field (below the view): the liver's lobules, few and large, that the camera falls through (those away from the landing lobule fade as it nears).
   const field = h('canvas', { class: 'lz-canvas lz-field', 'aria-hidden': 'true' });
@@ -4229,7 +4229,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function fxGLShow(on) {
     if (!on) fxArgs = null;
     if (on === fxGLShown) return;
-    fxGLShown = on; fxG.style.opacity = on ? '' : '0';
+    fxGLShown = on;
     if (!on) { fxGLKey = ''; fxGL?.release(); fxHostGL?.release(); if (fxG.width) { fxG.width = 0; fxG.height = 0; } }
   }
   function fxGLOff() { fxGLShow(false); }

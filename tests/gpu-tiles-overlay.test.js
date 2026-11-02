@@ -61,7 +61,7 @@ test('the tile is a picture recorded for the GPU, painted into the copier\'s tex
 test('the overlay is the GPU\'s for the screen, through the dive and the sinusoid\'s zoom (no 2D overlay since 1 Nov)', () => {
   assert.match(lz, /const fxOn = fxOnGPU\(W, H, dpr, dark, dt, g && !g\.lost\);\n\s+const laid = g\?\.top\?\.presents;\n\s+if \(g && !g\.lost\) drawGL\(W, H, dpr, dark, cs, dt\);/, 'scaled with the tissue\'s GPU canvas through the dive and the sinusoid\'s zoom, as it is');
   assert.doesNotMatch(lz, /paintFx|probe\(fx\)/);
-  assert.match(lz, /const fxG = h\('canvas', \{ class: 'lz-canvas lz-fx lz-fx-gl', 'aria-hidden': 'true', style: \{ opacity: '0', pointerEvents: 'none' \} \}\);/);
+  assert.match(lz, /const fxG = h\('canvas', \{ class: 'lz-canvas lz-fx lz-fx-gl', 'aria-hidden': 'true', style: \{ pointerEvents: 'none' \} \}\);/);
   assert.match(fgl, /failIfMajorPerformanceCaveat: false/, 'a software renderer draws it too: there is no 2D overlay');
   // The same layers in paintFx's order: ductules, drops, rings, beads, the eraser cutting all of them, the lining over.
   assert.match(fxShaders.compFS, /c = over\(c, uCLy, k\.r\);\n\s+c = over\(c, uCRing, k\.g\);\n\s+c = over\(c, uCBead, k\.b\);\n\s+c \*= 1\.0 - k\.a;\n\s+\}\n\s+if \(uLine > 0\) c = over\(c, uCLine/);

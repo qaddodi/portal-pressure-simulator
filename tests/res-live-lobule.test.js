@@ -112,3 +112,11 @@ test('res-cover-gl show(): the kept picture is cleared and drawn at the weight a
   assert.equal(g.show(1, null), false, 'nothing kept yet');
   assert.equal(calls.length, 0, 'and no GL call made');
 });
+
+test("lobule-zoom.js: the overlay's GPU canvas is shown by what is drawn on it, never by a style written to hide or show it", () => {
+  const lz = src('lobule-zoom.js');
+  assert.ok(!/fxG\.style\.opacity/.test(lz), 'no opacity written to fxG');
+  assert.ok(!/const fxG = h\('canvas'[^\n]*opacity/.test(lz), 'and none at its making');
+  const show = lz.slice(lz.indexOf('function fxGLShow('), lz.indexOf('function fxGLOff('));
+  assert.match(show, /if \(!on\) \{ fxGLKey = ''; fxGL\?\.release\(\); fxHostGL\?\.release\(\); if \(fxG\.width\) \{ fxG\.width = 0; fxG\.height = 0; \} \}/, 'given back blank when it goes off');
+});
