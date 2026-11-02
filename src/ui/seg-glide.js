@@ -16,7 +16,7 @@
 //   - High contrast keeps today's Highlight on the button and hides the piece (the stylesheet).
 import { D_SMALL } from './ease.js?v=dc92422977';
 import { restPass } from './rest-pass.js?v=bb619a1659';
-import { readBox, readMetric, readStyle } from './layout-snap.js?v=f609965236';
+import { readBox, readMetric, readStyle } from './layout-snap.js?v=a48d65266b';
 
 const SEL = '.seg, .instr-tabs, .um-tabs, .pressure-switch';
 const PICKED = '[aria-pressed="true"], [aria-selected="true"]';

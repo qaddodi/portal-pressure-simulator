@@ -9,7 +9,7 @@
 
 import { EASE_ARRIVE, easeArrive } from './ease.js?v=dc92422977';
 import { frameFor } from './frame.js?v=1d147c7c9a';
-import { readBox, readStyle } from './layout-snap.js?v=f609965236';
+import { readBox, readStyle } from './layout-snap.js?v=a48d65266b';
 export const ZOOM_MAX = 2.2;    // the most the card grows
 export const ZOOM_MIN = 1.2;    // under this the card is large enough; no zoom is offered
 export const ZOOM_MS = 520;     // in

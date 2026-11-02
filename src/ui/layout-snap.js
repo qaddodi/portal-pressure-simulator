@@ -54,6 +54,12 @@ export const stageBox = () => stage?.box?.() || null;
 export const worldCTM = () => stage?.ctm?.() || null;
 export const safeSides = () => stage?.sides?.() || { l: 0, r: 0 };
 
+// The window's size (the page's visible area, client px), kept from the last resize or turn: read once at first use and again in the
+// resize and orientationchange events, never in a frame. { w, h }; the object is the same until the window changes.
+let view = null;
+const readView = () => { note(); const d = typeof document !== 'undefined' ? document.documentElement : null; return { w: d?.clientWidth || (typeof innerWidth === 'number' ? innerWidth : 0) || 0, h: d?.clientHeight || (typeof innerHeight === 'number' ? innerHeight : 0) || 0 }; };
+export const viewSize = () => view ?? (view = readView());
+
 // What the presenter and the chrome place: a box per element, its size from the observer, its place from place().
 const kept = new Map();   // el → { w, h, x, y, placed }
 let ro = null;
@@ -89,7 +95,8 @@ export function boxOf(el) {
 // (A resize or a turn may move every kept box: the places are asked again once, as each is next wanted.)
 if (typeof addEventListener !== 'undefined') {
   const lost = () => { for (const k of kept.values()) k.placed = false; };
-  addEventListener('resize', lost);
-  addEventListener('orientationchange', lost);
+  const turned = () => { if (view) view = readView(); lost(); };   // (read in the event's own task, once)
+  addEventListener('resize', turned);
+  addEventListener('orientationchange', turned);
   addEventListener('scroll', lost, { capture: true, passive: true });
 }

@@ -28,11 +28,12 @@ test('the fans cover each polygon once per triangle from its first point, scaled
   assert.deepEqual([...t.slice(0, 6)], [0, 0, 20, 0, 20, 20]);
 });
 
-test('glass-gl has no 2D canvas: the masks are filled on the GPU and the colours resolved by CSS', async () => {
+test('glass-gl has no 2D canvas: the masks are filled on the GPU and the colours resolved in script', async () => {
   const g = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
   assert.doesNotMatch(g, /getContext\('2d'\)|Path2D/);
   assert.match(g, /G\.blendFuncSeparate\(G\.ONE_MINUS_DST_COLOR, G\.ZERO, G\.ONE_MINUS_DST_ALPHA, G\.ZERO\);/, 'filled by parity');
-  assert.match(g, /probe\.style\.color = `color-mix\(in srgb, \$\{k\} 100%, transparent\)`;/, 'any colour, in sRGB');
+  assert.match(g, /parseCssColor\(k\)/, 'any colour, in sRGB, worked out in script (css-color.js)');
+  assert.doesNotMatch(g, /createElement\('i'\)|probe\.style/, 'no probe element is written to or read back');
   const now = g.slice(g.indexOf('  function nowGeo(list) {'), g.indexOf('  // While a callout shows, every frame'));
   assert.doesNotMatch(now, /resolveColour/, 'never in a frame');
   const { parseColour } = await import('../src/ui/glass-gl.js');
@@ -41,5 +42,5 @@ test('glass-gl has no 2D canvas: the masks are filled on the GPU and the colours
   assert.deepEqual(parseColour('transparent'), [0, 0, 0, 0]);
   assert.deepEqual(parseColour('rgba(255, 0, 0, 0.5)'), [1, 0, 0, 0.5]);
   assert.deepEqual(parseColour('rgb(255 0 0 / 50%)'), [1, 0, 0, 0.5]);
-  assert.deepEqual(parseColour('oklab(0.5 0 0)'), [0, 0, 0, 0], 'left to the CSS (resolveColour)');
+  assert.deepEqual(parseColour('oklab(0.5 0 0)'), [0, 0, 0, 0], 'left to resolveColour');
 });

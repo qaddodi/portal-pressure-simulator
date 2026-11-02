@@ -8,7 +8,7 @@ import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multi
 import { CellGrid, geomOf } from './cell-grid.js?v=df776b5ebe';
 import { elBox, chainMat } from './shape-gl.js?v=2fdae8223d';
 import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js?v=6329c6ef1f';
-import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js?v=f609965236';
+import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js?v=a48d65266b';
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the
 // browser last drew, never after the frame's writes.)
 const nextFrame = readFrameFor('credit');

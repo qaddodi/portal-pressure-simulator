@@ -18,6 +18,8 @@ import { shiftOf, translateOf, motionAt, movesOnly, clockOf, clockAt, fillsAfter
 import { pathPolys, fanTriangles } from './path-poly.js?v=01766890c9';
 import { easeArrive, D_SURFACE } from './ease.js?v=dc92422977';
 import { caught } from './caught.js?v=b96b17594a';
+import { viewSize } from './layout-snap.js?v=a48d65266b';
+import { parseCssColor } from './css-color.js?v=e56f0c77ae';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
@@ -524,25 +526,17 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   let masks = new WeakMap();
   const maskTex = new Set(), maskFb = new Set(), marked = new Set(), paintMarks = new Set();
   // Any CSS colour as straight [r, g, b, a] (0–1). A colour the page gives as written (a custom property that is not registered: a
-  // color-mix(), a name, oklab) is resolved by the browser's own CSS once, when the page is read (resolveColour, from measureGeo, outside
-  // any frame), through a colour mixed into sRGB, so it always comes back as color(srgb ...); a frame only looks it up. (Through a 2D
+  // color-mix(), a name, oklab) is resolved in script once, when the page is read (resolveColour, from measureGeo, outside
+  // any frame), by css-color.js, so it always comes back as straight sRGB; a frame only looks it up. (Through a 2D
   // canvas's parser until 1 Nov 2026: no canvas 2D anywhere.)
   const colours = new Map();
-  let probe = null;
   function resolveColour(str) {
     const k = (str || '').trim();
     if (!k || colours.has(k)) return;
     let v = parseColour(k);
-    if (!(v[3] > 0) && k !== 'transparent' && !/^#|^rgba?\(|^color\(srgb/i.test(k)) {
-      try {
-        if (!probe) { probe = document.createElement('i'); probe.style.display = 'none'; document.head?.appendChild(probe); }
-        if (probe?.isConnected) {
-          probe.style.color = ''; probe.style.color = `color-mix(in srgb, ${k} 100%, transparent)`;
-          if (!probe.style.color) probe.style.color = k;
-          v = parseColour(getComputedStyle(probe).color);
-        }
-      } catch (e) { caught('glass-gl:479', e); /* (no CSS to ask: as parsed) */ }
-    }
+    // (CSS Color 4 in script, css-color.js: color-mix(), names, oklab, lab, hsl. No probe element is made, written to or read back, so no
+    // frame of a slide change writes the page's DOM or style to find a colour out; the same sRGB the browser's own CSS gives.)
+    if (!(v[3] > 0) && k !== 'transparent' && !/^#|^rgba?\(|^color\(srgb/i.test(k)) v = parseCssColor(k) || v;
     if (colours.size > 256) colours.clear();
     colours.set(k, v);
   }
@@ -1510,8 +1504,13 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (tgt) track(tgt);
     const flag = {};
     const cr = tgt ? tgt.getBoundingClientRect() : { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
+<<<<<<< HEAD
     const cm = tgt ? moveOf(tgt, flag) : MV, cmx = tgt ? cm.x : 0, cmy = tgt ? cm.y : 0;   // (read now: the next moveOf writes the same record)
     const vw = document.documentElement?.clientWidth || window.innerWidth || cr.right, vh = document.documentElement?.clientHeight || window.innerHeight || cr.bottom;
+=======
+    const cm = tgt ? moveOf(tgt, flag) : { t: [0, 0] };
+    const view = viewSize(), vw = view.w || cr.right, vh = view.h || cr.bottom;   // (the window's size kept from its last resize: layout-snap.js)
+>>>>>>> a039285e (Glass geometry off the page: the colour probe element is gone (css-color.js resolves colours in script), the window's size is layout-snap's kept value, the figure's canvas is read once for both its boxes; glass-gl's layout-read allowance 14 -> 11)
     const ws = getComputedStyle(wrap), bgs = ws.backgroundColor;
     resolveColour(bgs);
     const bg = colour(bgs, 'transparent');
@@ -1555,7 +1554,12 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       p.live = { ...p, r: newRect(), er: newRect(), a: 0 };
     }
     const over = host ? (cards ? { low: host.over?.('low') || [], high: host.over?.('high') || [] } : { all: host.over?.() || [] }) : null;
+<<<<<<< HEAD
     geo = { list, cr0: shift(cr, [-cmx, -cmy]), tgt, sr: source.getBoundingClientRect(), vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
+=======
+    geo = { list, cr0: shift(cr, [-cm.t[0], -cm.t[1]]), tgt, sr: tgt === source ? cr : source.getBoundingClientRect(),   // (the figure's canvas is both: one read, not two)
+       vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
+>>>>>>> a039285e (Glass geometry off the page: the colour probe element is gone (css-color.js resolves colours in script), the window's size is layout-snap's kept value, the figure's canvas is read once for both its boxes; glass-gl's layout-read allowance 14 -> 11)
     if (watchRo) { if (tgt) watchRo.observe(tgt); for (const g of list) watchRo.observe(g); }
     wake();
   }

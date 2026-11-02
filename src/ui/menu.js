@@ -6,10 +6,10 @@
 
 import { store } from './store.js?v=a21c31dcb5';
 import { createTraceGL, fitPen } from './trace-gl.js?v=0805d02fe9';
-import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=8511bc9f76';
+import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=ac15d08582';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=0ce4c0df18';
+import { pressureColor } from './colormap.js?v=9cfba4e88d';
 import { ownsSideways, pageGo } from './swipe.js?v=a61b093400';
 import { frameFor } from './frame.js?v=1d147c7c9a';
 import { restPass } from './rest-pass.js?v=bb619a1659';

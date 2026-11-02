@@ -4,7 +4,7 @@
 // (params.thrombus and params.stenosis for the vessel, combined as engine.js occlusion), so it moves with a clot-size slider,
 // a compare button or the days of anticoagulation, easing from one state to the next.
 
-import { h, clamp } from './util.js?v=8511bc9f76';
+import { h, clamp } from './util.js?v=ac15d08582';
 import { EDGES } from '../engine/topology.js?v=512e725aea';
 import { store } from './store.js?v=a21c31dcb5';
 import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
