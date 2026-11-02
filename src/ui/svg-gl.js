@@ -136,15 +136,61 @@ function keyOf(el, pk) {
   }
   return k;
 }
-/** Reads the looks of a model's pieces; returns the longest ease it started (ms), 0 for none. Fresh: as a new drawing, nothing eased. */
-function readLooks(root, fresh = false, cache = null) {
+// Looks read once are kept for every chart, by the piece's key under where its box stands in the page (the classes of the box and its
+// ancestors, the theme): the next slide's chart, built in the task that changes the slide, takes the looks of the pieces like it already
+// read, and only a new kind of piece asks the page (2 Nov 2026: the charts asked the page about 230 times in a slide change). Dropped
+// on a new theme or palette and on a resize (the stylesheet's media queries). ?lookshare=0 reads every chart's pieces afresh.
+const LOOK_SHARE = !(typeof location !== 'undefined' && /[?&]lookshare=0\b/.test(location.search || ''));
+const SHARED = new Map(), SCALE_VARS = ['--svk', '--pzh', '--ch-cap', '--s-cap'];
+export const sharedLooks = () => SHARED;
+function clearShared() { SHARED.clear(); ROOTS.clear(); }
+const ROOTS = new Map();   // (place key → the keys its roots' shared looks are kept by)
+/** Drops the shared looks of the roots of every box standing at place key pk. */
+function dropRoots(pk) { const ks = ROOTS.get(pk); if (ks) { ks.forEach((k) => SHARED.delete(k)); ROOTS.delete(pk); } }
+if (typeof addEventListener === 'function') addEventListener('resize', () => clearShared());
+// (A box's own inline style, and each ancestor's, minus what only moves it: a type size or a scale set there is part of where it stands.)
+const STYLE_PLACE = /(^|;)\s*(opacity|transform|translate|scale|rotate|clip-path|will-change|transition[\w-]*)\s*:[^;]*/g;
+/** Where a box stands, for the shared looks: its own and its ancestors' tags, classes, data attributes (the theme and palette among
+ *  them) and inline styles (less their motion). Nothing is read from the page's style or layout. */
+export function placeKey(box) {
+  let k = '';
+  for (let n = box; n && n.nodeType === 1; n = n.parentElement) {
+    const st = (n.getAttribute('style') || '').replace(STYLE_PLACE, '').replace(/[;\s]+$/, '');
+    let d = '';
+    for (const a of n.attributes) if (a.name.startsWith('data-')) d += `|${a.name}=${a.value}`;
+    k = `${n.localName}.${n.getAttribute('class') || ''}${st ? `{${st}}` : ''}${d ? `[${d}]` : ''}>${k}`;
+  }
+  return k;
+}
+/** Reads the looks of a model's pieces; returns the longest ease it started (ms), 0 for none. Fresh: as a new drawing, nothing eased.
+ *  shared: the box's place key, to take looks already read for a piece like it there (SHARED) and keep the ones read. */
+function readLooks(root, fresh = false, cache = null, shared = '') {
   const now = easeNow();
   let longest = 0;
+  if (SHARED.size > 20000) clearShared();
   const walk = (el, pr, po, pk) => {
-    const { raw, o, cs } = resolve(el, pr, po);
-    const key = cache ? keyOf(el, pk) : '';
-    const L = lookOf(o, num(raw.fontSize, 12)), was = looks.get(el), tr = opEase(cs);
-    L.tr = tr; L.trT = opEase(cs, 'transform');
+    let key = cache || shared ? keyOf(el, pk) : '';
+    // (A drawing's root takes from the page round it (its type size, colours, the scale its words take); what it took is in the key its
+    // pieces are kept by, so a piece's look sized in em, or by the card's own scale, is never taken from another size. A root is taken
+    // from the shared looks only for a box standing in the same place (placeKey), and dropped when that box changes size (rootsOf).)
+    const hit = shared && (pr || fresh) ? SHARED.get(key) : null;   // (a look read again because something changed reads its root)
+    let raw, o, L;
+    if (hit) { ({ raw, o, L } = hit); if (!pr && hit.full) { if (cache) cache.set(key, { raw, o, L, full: hit.full }); key = hit.full; } }
+    else {
+      const r = resolve(el, pr, po);
+      raw = r.raw; o = r.o;
+      L = lookOf(o, num(raw.fontSize, 12));
+      L.tr = opEase(r.cs); L.trT = opEase(r.cs, 'transform');
+      if (shared && !pr) {
+        const plain = key;
+        key += `|${PROPS.map(([k]) => raw[k]).join('|')}|${SCALE_VARS.map((v) => r.cs.getPropertyValue(v)).join('|')}`;
+        if (cache) cache.set(plain, { raw, o, L, full: key });   // (a drawing built again in a frame finds its root by its plain key: adoptLooks)
+        SHARED.set(plain, { raw, o, L, full: key });
+        let ks = ROOTS.get(shared); if (!ks) ROOTS.set(shared, ks = new Set()); ks.add(plain);
+      }
+      if (shared) SHARED.set(key, { raw, o, L });
+    }
+    const was = looks.get(el), tr = L.tr;
     if (fresh) { EASES.delete(el); INLINE.delete(el); MOVES.delete(el); }
     else if (was && was.op !== L.op && !el.style.opacity) {
       const e = EASES.get(el), shown = e ? easeAt(e, now).v : was.op;
@@ -155,18 +201,18 @@ function readLooks(root, fresh = false, cache = null) {
     if (cache) cache.set(key, { raw, o, L });
     for (const c of el.children) walk(c, raw, o, key);
   };
-  walk(root, null, null, 'root');
+  walk(root, null, null, shared ? `${shared}root` : 'root');
   return longest;
 }
 /** A model's pieces given the looks of the pieces before them with the same key (cache), with no page read; false if one has none yet. */
-function adoptLooks(root, cache) {
+function adoptLooks(root, cache, pk = 'root') {
   let all = true;
   const walk = (el, pk) => {
     const key = keyOf(el, pk), hit = cache.get(key);
     if (hit) { const was = looks.get(el); if (was !== hit.L) looks.set(el, hit.L); } else all = false;
-    for (const c of el.children) walk(c, key);
+    for (const c of el.children) walk(c, hit?.full || key);
   };
-  walk(root, 'root');
+  walk(root, pk);
   return all;
 }
 // (A strength the chart sets on a piece inline (style.opacity, each frame of its own glide or once, as a stent's ring comes): read as it
@@ -465,9 +511,9 @@ export function viewMap(vb, par, w, h) {
 const finalFrame = finalFrameFor('svg-gl');
 const live = new Set();
 let themeAsk = 0;
-function themeRead() { themeAsk = 0; for (const g of live) { if (!g.box.isConnected) continue; g.relook(); } }
+function themeRead() { themeAsk = 0; clearShared(); for (const g of live) { if (!g.box.isConnected) continue; g.relook(); } }
 if (typeof MutationObserver === 'function' && typeof document !== 'undefined') {
-  new MutationObserver(() => { if (!themeAsk && live.size) themeAsk = restPass(themeRead); })
+  new MutationObserver(() => { clearShared(); if (!themeAsk && live.size) themeAsk = restPass(themeRead); })
     .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] });
 }
 
@@ -515,18 +561,19 @@ export function createSvgGL(box) {
   }
   g.gpu = createTraceGL(cv, { redraw: () => draw() });
   // (Drawn again as its box first gets a size, or a new one: a chart built before its card was on the page drew nothing then.)
-  if (typeof ResizeObserver === 'function') { g.ro = new ResizeObserver(() => g.paint()); g.ro.observe(box); }
+  // (A box that changes size may take another type size or scale from the stylesheet: its roots' shared looks are read again.)
+  if (typeof ResizeObserver === 'function') { g.ro = new ResizeObserver(() => { if (g.pk) dropRoots(g.pk); g.paint(); }); g.ro.observe(box); }
   g.paint = () => { if (!g.ask) g.ask = finalFrame(draw); };
   g.wake = (ms) => { g.until = Math.max(g.until, easeNow() + ms); g.paint(); };
   g.cache = new Map();
-  function lookRead() { g.lookAsk = 0; g.cache.clear(); let ms = 0; for (const root of models()) ms = Math.max(ms, readLooks(root, false, g.cache)); if (ms) g.wake(ms + 20); else g.paint(); }
+  function lookRead() { g.lookAsk = 0; g.cache.clear(); g.pk = LOOK_SHARE ? placeKey(box) : ''; let ms = 0; for (const root of models()) ms = Math.max(ms, readLooks(root, false, g.cache, g.pk)); if (ms) g.wake(ms + 20); else g.paint(); }
   g.relook = () => { if (!g.lookAsk) g.lookAsk = restPass(lookRead); };
   // (A drawing's look is read as it is placed, once, in the task that builds it (a slide's change, a resize), so its first frame draws it
   // whole: a morph hides the old drawing's pieces in that same task.)
-  g.place = (root) => { live.add(g); g.cache.clear(); readLooks(root, true, g.cache); g.paint(); };
+  g.place = (root) => { live.add(g); g.cache.clear(); g.pk = LOOK_SHARE ? placeKey(box) : ''; readLooks(root, true, g.cache, g.pk); g.paint(); };
   // (Pieces built again in a frame (a redraw, a glide): each takes the look of the piece before it like it, read from nothing; a new kind of
   // piece is read between frames, and drawn from then.)
-  g.adopt = (root) => { if (!adoptLooks(root, g.cache)) g.relook(); g.paint(); };
+  g.adopt = (root) => { if (!adoptLooks(root, g.cache, g.pk ? `${g.pk}root` : 'root')) g.relook(); g.paint(); };
   // (A piece fading in, in the picture, from nothing to its own strength, over ms on easing.)
   g.fadeEl = (el, ms, easing = 'ease') => { EASES.set(el, { from: 0, to: 1, t0: easeNow(), ms, ease: cssCurve(easing) }); g.wake(ms + 20); };
   // (A class or a piece changed on a model after it was placed (a value turned on, a word's pieces rebuilt): its looks are read again
