@@ -21,6 +21,7 @@ import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
 import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=8a9a6cee94';
 import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=9f3f5d0519';
 import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=d1a9976923';
+import { watchSize, sizeOf, rectSoon } from './geom.js?v=254133713c';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=814746f511';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
@@ -743,8 +744,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (Its own canvas: sized from the stage's box when that changes (the ResizeObserver below, and a change of screen density), never in a frame.)
   function size() {
     if (host) return hostSize();
-    const r = svg.parentElement.getBoundingClientRect(), k = labelDensity(devicePixelRatio);   // (the stage's box: the dive zooms the layer itself)
-    const w = Math.max(1, Math.round(r.width * k)), h = Math.max(1, Math.round(r.height * k));
+    const r = sizeOf(svg.parentElement), k = labelDensity(devicePixelRatio);   // (the stage's box, kept by geom.js's observer: the dive zooms the layer itself; null until it first reports, and then the observer below asks again)
+    if (!r) return false;
+    const w = Math.max(1, Math.round(r.w * k)), h = Math.max(1, Math.round(r.h * k));
     if (w === W && h === H && k === dpr) return false;
     W = w; H = h; dpr = k; canvas.width = w; canvas.height = h;
     // (Exactly one canvas pixel per device pixel: a canvas scaled even a little would be filtered, and the words soften.)
@@ -753,7 +755,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     return true;
   }
   // (Its callback runs once the page is laid out: the canvas's place read there costs no extra layout.)
-  new ResizeObserver(() => { placeHoles(); if (size()) ask(); }).observe(svg.parentElement);
+  watchSize(svg.parentElement, () => { placeHoles(); if (size()) ask(); });
   let densT = 0;
   const densityChanged = () => { if (!densT) densT = setTimeout(() => { densT = 0; size(); ask(); }, 0); };
   matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener?.('change', densityChanged);
@@ -1083,7 +1085,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // frame's places, made the browser lay the page out again mid-frame.)
   let holeCr = { left: 0, top: 0 }, holeT = 0;
   function placeHoles() { if (!host) holeCr = canvas.getBoundingClientRect(); }
-  function placeSoon() { if (!host && !holeT) holeT = setTimeout(() => { holeT = 0; placeHoles(); }, 0); }
+  function placeSoon() { if (!host && !holeT) { holeT = 1; rectSoon(canvas).then((r) => { holeT = 0; holeCr = r; }); } }   // (the browser's own next layout hands the box over: no read)
   const holeOrigin = () => holeCr;
   if (!host) { addEventListener('resize', placeHoles); addEventListener('scroll', placeSoon, { capture: true, passive: true }); }
   function cutHoles() {

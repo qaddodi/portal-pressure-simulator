@@ -6,7 +6,7 @@ import { budget as gpuBudget } from './gpu-budget.js?v=2808cb3d0b';   // (the re
 import './gl-state.js?v=3569b73302';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host } from './host.js?v=be1d3992ea';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=afc4d7c743';
-import { createStage } from './stage.js?v=6a6431ebdf';
+import { createStage } from './stage.js?v=36845badf1';
 import { createCreditPlacer } from './credit.js?v=b8387e07d2';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=622a3b9520';
@@ -33,7 +33,7 @@ import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from '
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
 import { morphKey, crossfadeText } from './legend-morph.js?v=6fe17afef3';
 import { glideNow } from './seg-glide.js?v=f75052a7d6';
-import './focus-ring.js?v=3262cead68';
+import './focus-ring.js?v=f8dc91b065';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
 import { lookChooser } from './look-chooser.js?v=ededbe6e9c';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';

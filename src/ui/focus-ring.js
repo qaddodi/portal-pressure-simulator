@@ -15,6 +15,7 @@
 //     colour or 1 px off their control the focus colour and the 2 px of the rest.
 //   - ?focusring=0: this file does nothing and the page is today's.
 import { D_SMALL } from './ease.js?v=7513a88c68';
+import { restPass } from './rest-pass.js?v=e877681653';
 
 
 /** ?focusring=0 in a page's search string: this file does nothing. */
@@ -112,6 +113,15 @@ export function startFocusRing(root = typeof document !== 'undefined' ? document
   let held = null;   // { el, anims }: the effects on the control that has the ring
   const drop = () => { if (!held) return; for (const a of held.anims) { try { a.cancel(); } catch { /* gone */ } } held = null; };
 
+  // The ring measured again after the control's own scroll: a rest pass, so the reads sit between two frames.
+  function recheck() {
+    const el = held?.el;
+    if (!el || !el.isConnected) return;
+    try {
+      if (ringClipped(el.getBoundingClientRect(), clipBoxes(el), held.off + held.w)) held.anims.push(holdStyle(el, 'outline-offset', `${-held.w}px`));
+    } catch { /* leave the ring as it is */ }
+  }
+
   function lit(el) {
     if (!(el instanceof HTMLElement) || !el.animate) return;
     drop();
@@ -131,14 +141,9 @@ export function startFocusRing(root = typeof document !== 'undefined' ? document
       if (!mq('(prefers-reduced-motion: reduce)') && cs.outlineColor && RING_GPU) fadeCopy(el, cs, w, inset ? -w : off, ease(), anims);   // (faded on its own layer; where no copy can be made the ring shows at once)
       // (A scroll that focus itself causes can move the control against an edge after this point: measured once more, in a task of
       // its own after the next paint, never inside a frame.)
-      if (!inset) setTimeout(() => {
-        if (!held || held.el !== el || !el.isConnected) return;
-        try {
-          if (ringClipped(el.getBoundingClientRect(), clipBoxes(el), off + w)) held.anims.push(holdStyle(el, 'outline-offset', `${-w}px`));
-        } catch { /* leave the ring as it is */ }
-      }, 20);
+      if (!inset) setTimeout(() => restPass(recheck), 20);   // (then a rest pass, between frames: the measuring is never in a timer's callback)
     }
-    held = { el, anims };
+    held = { el, anims, off, w };
   }
 
   const onFocusIn = (e) => lit(e.target);

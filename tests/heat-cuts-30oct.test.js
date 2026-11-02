@@ -106,7 +106,7 @@ test('H3: the glass canvases hold at most 2 device px per CSS px; the labels too
   delete globalThis.devicePixelRatio;
   const g = src('glass-gl.js');
   assert.doesNotMatch(g.replace(/export const glassDpr = [^\n]+/, ''), /devicePixelRatio/, 'every density in the glass is the capped one');
-  assert.match(src('label-gl.js'), /const r = svg\.parentElement\.getBoundingClientRect\(\), k = labelDensity\(devicePixelRatio\);/, 'labels at the capped density');
+  assert.match(src('label-gl.js'), /const r = sizeOf\(svg\.parentElement\), k = labelDensity\(devicePixelRatio\);/, 'labels at the capped density');
 });
 
 test('H4: a frame of the moving blood alone takes no new copy for the glass and does not wake it; anything else does', () => {
