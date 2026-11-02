@@ -24,6 +24,12 @@ let GLYPHS = null, UPM = 2048, WEIGHTS = [], loading = null;
 export function loadGlyphs() {
   return (loading ||= import('./glyph-data.js?v=10f8176c7c').then((m) => { GLYPHS = m.GLYPHS; UPM = m.UPM; WEIGHTS = Object.keys(GLYPHS).map(Number); }));
 }
+// (The metrics at each optical size, glyph-metrics.js, 140 kB: fetched only where a paragraph is laid out, never with the outlines.)
+let MET = null, STOPS = [14, 32], metLoading = null;
+/** Fetches the paragraph metrics once (and the outlines' weights); resolves when layoutParagraph can run. */
+export function loadMetrics() {
+  return (metLoading ||= Promise.all([loadGlyphs(), import('./glyph-metrics.js?v=10480f66a1')]).then(([, k]) => { MET = k.METRICS; STOPS = k.STOPS; }));
+}
 /** Whether the outlines are here (text can be drawn now). */
 export const glyphsReady = () => !!GLYPHS;
 /** The weight cut nearest a CSS weight ('bold', 'normal', or a number). */
@@ -130,4 +136,116 @@ export function textBox(text, x, y, { anchor = 'start', weight = 400, size = 12,
   const asc = Math.round((1984 / 2048) * px) / k, desc = Math.round((494 / 2048) * px) / k;
   const x0 = anchor === 'end' ? x - w : anchor === 'middle' ? x - w / 2 : x;
   return { x: x0, y: y - asc, width: w, height: asc + desc };
+}
+
+// ── Paragraphs (3 Nov 2026): lines broken as the browser breaks them ──
+// The card's words are set by the browser today (a column of the card's width: font, size, weight, letter spacing, text-wrap); drawn on
+// the GPU they must break at the same words. The browser sets Inter at the optical size of the text (opsz 14 to 32 follows the font
+// size), so the advances and kerning here come from glyph-metrics.js, cut at several optical sizes and interpolated, not from the opsz-14
+// outlines (those run about 2 % wide at 17 px: enough to move a break). tests/e2e/paragraph-match.mjs compares every line break of every
+// deck's card words with the browser's, in Chromium.
+//
+//   const p = layoutParagraph([{ text: 'The portal', weight: 400, size: 17.4 }, { text: 'vein', weight: 600, size: 17.4 }], 320);
+//   p.lines   // [{ start, end, w, runs: [{ run, text, x, w }] }]  (start and end: character offsets in the runs' text joined; w: the line's width)
+//
+// A run is { text, weight, size, tnum, ls, nowrap }: its own style, kerned within itself (the browser shapes each inline element apart).
+// nowrap: the run is one unbreakable piece (a pill: .pz-nw). Spaces at a line's end hang and take no width; U+00A0 and U+2060 never break.
+
+// (Line break classes, the part of UAX #14 the cards use: where a line may break between two characters. Anything not listed is AL, a
+// letter: no break inside a word, a number, or between a word and a sign.)
+const CLS = { ' ': 'SP', '\u00a0': 'GL', '\u2060': 'GL', '\u0304': 'CM', '(': 'OP', '[': 'OP', '{': 'OP', ')': 'CP', ']': 'CP', '}': 'CP', '!': 'EX', '?': 'EX',
+  ',': 'IS', '.': 'IS', ';': 'IS', ':': 'IS', '/': 'SY', '-': 'HY', '\u2013': 'BA', '\u00ad': 'BA', '\u2014': 'B2', '"': 'QU', '\'': 'QU', '\u201c': 'QU',
+  '\u201d': 'QU', '\u2018': 'QU', '\u2019': 'QU', '\u2212': 'PR', '+': 'PR', '$': 'PR', '\u00b1': 'PR', '\u00b0': 'PO', '%': 'PO' };
+const brClass = (c) => CLS[c] || (c >= '0' && c <= '9' ? 'NU' : 'AL');
+/** Whether a line may break between character a and the character b that follows it, by their classes. */
+export function mayBreak(a, b) {
+  const x = brClass(a), y = brClass(b);
+  if (x === 'SP') return y !== 'SP' && y !== 'EX' && y !== 'CP' && y !== 'IS' && y !== 'SY' && y !== 'CM';   // (a break after spaces, but never before a stop or a closing bracket)
+  if (y === 'SP' || y === 'GL' || x === 'GL' || y === 'CM' || y === 'EX' || y === 'CP' || y === 'IS' || y === 'SY' || y === 'QU' || x === 'QU' || x === 'OP') return false;
+  if (x === 'B2' || y === 'B2') return true;
+  if (x === 'HY') return y !== 'NU';
+  if (x === 'BA') return true;
+  if (x === 'SY') return y !== 'NU';
+  return false;
+}
+
+// (The advance of a character at a weight and optical size, in font units: a table entry is a number, the same at every stop, or one value per stop.)
+function at(v, i, f) {
+  if (typeof v === 'number') return v;
+  if (!v) return 0;
+  return f && v[i + 1] !== undefined ? v[i] + (v[i + 1] - v[i]) * f : v[i];
+}
+function stopOf(size) {
+  const o = Math.min(STOPS[STOPS.length - 1], Math.max(STOPS[0], size));
+  let i = 0;
+  while (i < STOPS.length - 2 && o >= STOPS[i + 1]) i++;
+  return { i, f: (o - STOPS[i]) / (STOPS[i + 1] - STOPS[i]) };
+}
+/** Whether every character of the text has its metrics here (so none is measured as a stand-in). */
+export function metricsCover(text) {
+  if (!MET) return false;
+  const adv = MET[WEIGHTS[0]].adv;
+  for (const ch of String(text)) if (!(ch in adv)) return false;
+  return true;
+}
+// The widths of a run's characters, kerning included, as the browser shapes it: one number per character, the kerning with the next
+// character joined to this one (it is the pair's, set between the two glyphs).
+function runWidths(run) {
+  const w = weightOf(run.weight), m = MET[w], { i, f } = stopOf(run.size), s = run.size / UPM, cs = [...String(run.text)], out = new Array(cs.length);
+  for (let k = 0; k < cs.length; k++) {
+    const ch = cs[k], tn = run.tnum && ch >= '0' && ch <= '9';
+    let a = at(tn && m.tnum[ch] !== undefined ? m.tnum[ch] : m.adv[ch] !== undefined ? m.adv[ch] : m.adv['?'], i, f);
+    if (k < cs.length - 1 && !(run.tnum && /\d/.test(ch + cs[k + 1]))) a += at(m.kern[ch + cs[k + 1]], i, f);
+    out[k] = a * s + (run.ls || 0);
+  }
+  return out;
+}
+/**
+ * Lays runs out in a column of the given width, breaking as the browser does (a greedy fill at the break opportunities above, then the
+ * last lines evened out as `text-wrap: pretty` does when pretty is set). Returns { lines, width } with, per line, its character range
+ * and runs (positions in px from the column's left, y down not given: the caller's line height sets it). Pure: allocates only what it returns.
+ */
+export function layoutParagraph(runs, width, { pretty = false } = {}) {
+  const cells = [];   // { ch, run, w } per character, the run's index and the advance (px, letter spacing included)
+  runs.forEach((r, ri) => {
+    const ws = runWidths(r), cs = [...String(r.text)];
+    cs.forEach((ch, k) => cells.push({ ch, run: ri, w: ws[k], nw: !!r.nowrap }));
+  });
+  // (Break opportunities: a boundary index b means a break between cells b-1 and b.)
+  const ok = new Uint8Array(cells.length + 1);
+  for (let b = 1; b < cells.length; b++) {
+    const a = cells[b - 1], c = cells[b];
+    ok[b] = (a.nw && a.run === c.run) || (c.nw && a.run === c.run) ? 0 : mayBreak(a.ch, c.ch) ? 1 : 0;
+  }
+  // (Prefix widths, so a line's width is a difference; its hanging spaces, at its end, take none.)
+  const n = cells.length, pre = new Float64Array(n + 1);
+  for (let k = 0; k < n; k++) pre[k + 1] = pre[k] + cells[k].w;
+  const fit = (s0, e) => { let t = e; while (t > s0 && cells[t - 1].ch === ' ') t--; return pre[t] - pre[s0]; };
+  const lines = [];
+  let start = 0;
+  while (start < n) {
+    let end = -1;
+    for (let b = start + 1; b <= n; b++) {
+      if (b < n && !ok[b]) continue;
+      if (fit(start, b) <= width + 0.01) end = b; else { if (end < 0) end = b; break; }
+    }
+    if (end < 0) end = n;
+    lines.push({ start, end });
+    start = end;
+    while (start < n && cells[start].ch === ' ') start++;
+  }
+  if (pretty) prettyEnd(lines, cells, fit, ok, width);
+  return { lines: lines.map((l) => finishLine(cells, runs, l)), cells };
+}
+// text-wrap: pretty, as Chromium sets it (filled in below once measured against the browser).
+function prettyEnd() {}
+function finishLine(cells, runs, { start, end }) {
+  let e = end; while (e > start && cells[e - 1].ch === ' ') e--;
+  const parts = []; let x = 0;
+  for (let k = start; k < e; k++) {
+    const c = cells[k], last = parts[parts.length - 1];
+    if (last && last.run === c.run) { last.text += c.ch; last.w += c.w; } else parts.push({ run: c.run, text: c.ch, x, w: c.w });
+    x += c.w;
+  }
+  return { start, end: e, w: x, runs: parts };
 }
