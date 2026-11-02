@@ -98,6 +98,7 @@ function flush(now) {
 function run(batch, now, phase) {
   for (const [id, [tag, cb]] of batch) {
     batch.delete(id);
+    if (phase === 'early' && shedding(tag)) { queue.set(id, [tag, cb]); continue; }   // (carried to the next frame: see the watchdog)
     counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;
     const t0 = performance.now();
     try { if (gpuProbe.on) gpuProbe.time(null, `${tag} (script)`, () => cb(now)); else cb(now); } catch (e) { setTimeout(() => { throw e; }); }   // one surface's error never stops the others

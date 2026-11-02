@@ -7,10 +7,10 @@
 // occlusive clot) is a flat line on the baseline. Every row shares one scale (waveMax, 50 cm/s unless the slide sets it), so a slow
 // vein stays low and a stent's jet runs to the edge.
 
-import { h, fmt, cssVar } from './util.js?v=dde8245092';
+import { h, fmt, cssVar } from './util.js?v=4c82667c72';
 import { createTraceGL, fitPen } from './trace-gl.js?v=254a25fae0';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
-import { frameFor } from './frame.js?v=8f6a8cf4d8';
+import { frameFor } from './frame.js?v=31edc44488';
 
 const AWAY = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'IVCS_RA']);
 const NAME = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SMV_CONF: 'superior mesenteric vein', SV_CONF: 'splenic vein',
