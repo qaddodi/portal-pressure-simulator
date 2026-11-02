@@ -113,7 +113,7 @@ export function patchOf(path, v, also = null) {
 export function curveXs(t) {
   const a = +t.from, b = +t.to;
   if (!Number.isFinite(a) || !Number.isFinite(b) || a === b) return [];
-  const step = Math.max(Math.abs(+t.step || (b - a) / 10), Math.abs(b - a) / (MAX_PTS - 1)), n = Math.round(Math.abs(b - a) / step);
+  const step = Math.max(Math.abs(+t.step || (b - a) / 10), Math.abs(b - a) / (MAX_PTS - 1)), n = Math.max(1, Math.round(Math.abs(b - a) / step));
   return Array.from({ length: n + 1 }, (_, k) => +(a + (b - a) * (k / n)).toPrecision(10));
 }
 /** The x reading's key (x: a fingerprint key with a tile), or null for a curve across its setting. */

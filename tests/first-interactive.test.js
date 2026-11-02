@@ -18,7 +18,7 @@ test('the install precaches every file but the fonts other than the Latin ones, 
   assert.equal(later.length, woff.length - 3);
   assert.match(build, /const FILES = \$\{JSON\.stringify\(\['\.\/', \.\.\.install\]\)\};/);
   assert.match(build, /e\.data === 'pps:fill'/);
-  assert.match(build, /LATER\.some\(\(f\) => req\.url\.endsWith\(f\)\)/, 'a subset fetched on first use is kept');
+  assert.match(build, /if \(new URL\(req\.url\)\.pathname\.includes\('\/assets\/'\)\) \{ e\.respondWith\(caches\.match\(req\)\.then\(\(hit\) => hit \|\| fetch\(req\)\.then\(\(res\) => \{ keep\(e, req, res\)/, 'a subset (or optional chunk) fetched on first use is kept');
   assert.match(build, /const cached = files\.filter/, 'the lite art and guides stay out as before');
 });
 

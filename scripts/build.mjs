@@ -201,12 +201,14 @@ self.addEventListener('message', (e) => { if (e.data === 'pps:files' && e.ports[
 // The previous version's cache is kept (keys() lists caches oldest first): a tab left open across an update still finds
 // its own hashed files (the server has only the new ones), so it can start a presentation; any older cache goes.
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => { const prev = ks.filter((k) => k !== CACHE && k.startsWith(SCOPE)).at(-1); return Promise.all(ks.filter((k) => k !== CACHE && k !== prev && (k.startsWith(SCOPE) || k.startsWith('pps-'))).map((k) => caches.delete(k))); }).then(() => self.clients.claim())); });
+// (A response is stored under waitUntil, so the worker is kept alive until the write ends; a storage failure is swallowed, the response is still served.)
+const keep = (e, req, res) => { if (res.status === 200) { const copy = res.clone(); e.waitUntil(caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {})); } };
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
-  if (new URL(req.url).pathname.includes('/assets/')) { e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((res) => { if (res.ok && LATER.some((f) => req.url.endsWith(f))) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); } return res; }))); return; }
+  if (new URL(req.url).pathname.includes('/assets/')) { e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((res) => { keep(e, req, res); return res; }))); return; }
   const fresh = req.mode === 'navigate' ? fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }) : fetch(req, { cache: 'no-cache' });
-  e.respondWith(fresh.then((res) => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); } return res; })
+  e.respondWith(fresh.then((res) => { keep(e, req, res); return res; })
     .catch(() => caches.match(req).then((hit) => hit || (req.mode === 'navigate' ? caches.match('./') : Response.error()))));
 });
 `);
