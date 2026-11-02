@@ -11,8 +11,10 @@ const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8
 const block = stage.slice(stage.indexOf('  function renderBlock(it) {'), stage.indexOf('  const rectOf = (it) =>'));
 
 test('a label\'s structure signature leaves out its runs\' text, fill and class', () => {
-  const m = block.match(/const sig = JSON\.stringify\(\[it\.lines\.map\(\(line\) => line\.map\(\(\{([^}]*)\}\) => style\)\)/);
-  assert.ok(m, 'renderBlock builds its signature from each run\'s style alone');
+  // (The signature is blockSig since f9518d63, shared by renderBlock and the between-frames builder.)
+  const m = stage.match(/const blockSig = \(it\) => JSON\.stringify\(\[it\.lines\.map\(\(line\) => line\.map\(\(\{([^}]*)\}\) => style\)\)/);
+  assert.ok(m, 'blockSig builds the signature from each run\'s style alone');
+  assert.match(block, /sig = blockSig\(it\)/, 'renderBlock compares against blockSig');
   const left = m[1].split(',').map((x) => x.trim());
   for (const k of ['t', 'fill', 'cls', '...style']) assert.ok(left.includes(k), `the signature keeps "${k}" out of the style`);
 });

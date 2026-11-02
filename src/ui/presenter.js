@@ -1960,7 +1960,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // slide-prep.js; ?slideprep=0 off.)
   // (recs-production-120hz §6: the tool's warm is returned, so its completion is awaited; the manifests belong to this deck, this
   // presentation's states and this look: identity.)
-  const slidePrep = createSlidePrep({ count: () => slides.length, identity: () => `${deck?.id ?? ''}|${slides.length}|${prepRev}|${document.documentElement.dataset.theme || ''}`, steps: {
+  const slidePrep = createSlidePrep({ count: () => slides.length, identity: () => `${deck?.id ?? ''}|${slides.length}|${prepRev}|${document.documentElement.dataset.theme || ''}/${document.documentElement.dataset.palette || ''}`, steps: {
     state: (i) => stateReady(i),
     glyphs: () => loadGlyphs(),
     tool: (i) => { const s = slides[i], w = EXT.tools[s?.tool?.kind]?.warm; return w ? safe(() => w(s.tool, ctxOf(s, i)), null, 'warm') : null; },

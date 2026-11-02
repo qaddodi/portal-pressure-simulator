@@ -152,9 +152,11 @@ test('a canvas resized and not yet drawn again is not given the old picture (it 
   g.present(); g.capture();
   assert.equal(blits(f, n).length, 0, 'nothing copied onto the resized canvas');
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
-  const b = blits(f, n);
-  assert.equal(b.length, 1, 'the next picture, drawn whole at the new size, is copied');
-  assert.deepEqual(b[0].slice(3, 5), [1024, 700]);
+  // (Since 753bd6d5 consecutive whole pictures stay direct: the next one is drawn whole straight onto the canvas, at its new size.)
+  assert.equal(blits(f, n).length, 0, 'nothing copied: the next picture is drawn onto the canvas itself');
+  const c = f.calls.slice(n), last = c.findLastIndex((x) => x[0] === 'viewport');
+  assert.deepEqual(c[last].slice(1), [0, 0, 1024, 700], 'at the new size');
+  assert.deepEqual(c.slice(0, last).findLast((x) => x[0] === 'bindFramebuffer'), ['bindFramebuffer', f.gl.FRAMEBUFFER, null], 'on the canvas');
 });
 
 // (Which framebuffer each copy wrote to: null is the canvas.)
@@ -168,12 +170,14 @@ function blitTargets(f, from) {
   return out;
 }
 
-test('by default a pan copies only the kept picture onto the canvas, once (the layer wraps and is not copied)', async () => {
+test('by default a pan copies at most the kept picture onto the canvas, once (the layer wraps and is not copied)', async () => {
   const { g, f, look } = await renderer('../src/ui/veins-gl.js');
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
   const n = f.calls.length;
   g.draw([1, 0, 0, 1, 12, -7], look, { on: false });
-  assert.deepEqual(blitTargets(f, n), [null]);
+  // (Since 753bd6d5 a whole pan frame after a whole frame is drawn straight onto the canvas: no copy at all. Any copy goes to the canvas.)
+  const t = blitTargets(f, n);
+  assert.ok(t.length <= 1 && t.every((x) => x === null), `copies: ${JSON.stringify(t)}`);
 });
 
 test('by default a zoom frame draws in one pass even where the context has no stencil: the kept picture brings its own', async () => {
