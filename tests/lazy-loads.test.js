@@ -62,7 +62,7 @@ test('a dive asked for before the layer exists goes on when it does, with the sl
   assert.match(open, /if \(!lz\) \{\s*\n\s*if \(!lzWaiting\) \{[\s\S]*?lobuleReady\(\)\.then\(lobuleArrived, lobuleNotArrived\)/);
   assert.match(open, /const lobuleArrived = \(\) => \{ lzWaiting = false; if \(store\.get\(\)\.lobule\) openLobule\(\); \};/);
   assert.ok(open.indexOf("store.set1('view', 'anatomic')") < open.indexOf('if (!lz)'), 'the view turns to the anatomy while the code loads');
-  assert.match(open, /const LOBULE_OFF_BOTH = \{ lobule: false, sinusoid: false \};[\s\S]*store\.set\(LOBULE_OFF_BOTH\)/, 'a load that fails puts the switch back');
+  assert.match(open, /const LOBULE_OFF_BOTH = \{ lobule: false, sinusoid: false \}, [\s\S]*store\.set\(LOBULE_OFF_BOTH\)/, 'a load that fails puts the switch back');
   const ready = stage.slice(stage.indexOf('const lobuleBuilt ='), stage.indexOf('// ── Detail'));
   assert.ok(ready.indexOf('lz.aim(aimWait[0], aimWait[1])') > ready.indexOf('createLobuleZoom(') && ready.indexOf('lz.update(F)') > ready.indexOf('lz.aim('));
   assert.match(stage, /lobuleAim: \(part, opts\) => \{ if \(lz\) lz\.aim\(part, opts\); else \{ aimWait = \[part, opts\]; lobuleReady\(\)\.catch\(\(\) => \{\}\); \} \}/);

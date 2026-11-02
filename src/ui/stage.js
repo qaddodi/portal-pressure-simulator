@@ -2466,7 +2466,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function syncSemantic() {
     if (!lz) return;
     // Turning to the circuit closes the lobule view.
-    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; } cancelFrame(lobAnim); if (store.get().lobule) store.setSoon({ lobule: false }); }
+    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; } cancelFrame(lobAnim); if (store.get().lobule) store.setSoon(LOBULE_OFF); }
     const u = morphTarget === 0 ? lobU : 0;
     const wasOpen = lz.isOpen();
     lz.setFade(u);
@@ -2632,8 +2632,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!room || Math.abs(Math.log(to.k / from.k)) > CARRY_ZOOM || Math.hypot(to.x - from.x, to.y - from.y) > room.vb.w * CARRY_PAN) return false;
     // (The zoom levels the labels' signature turns on, 1.35x and 1.3x home, are on one side of it at both ends: a label never changes
     // what it says part way through.)
-    const side = (k) => `${k > 1.35}${k > (homeAt?.k || 1) * 1.3}`;
-    return side(from.k) === side(to.k) && solvedFor.sig === labelSig(F);
+    const home13 = (homeAt?.k || 1) * 1.3;
+    return (from.k > 1.35) === (to.k > 1.35) && (from.k > home13) === (to.k > home13) && solvedFor.sig === labelSig(F);
   }
   // The camera's curve and its time (ease.js; combined plan M2): the quintic, with no catch half way, and a glide asked to be scaled
   // (opt.scale: a slide's framing, a fit, a camera set) takes the time its reach on screen needs, 480 to 900 ms, never longer than
@@ -2814,13 +2814,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // Right after loading the liver may not be laid out yet: try again shortly.
     // From the circuit, ease into the anatomy first, then dive.
-    if (!liverBox() || morphTarget !== 0 || morph > 0.02) { if (tries < 40) setTimeout(() => { if (store.get().lobule) openLobule(tries + 1); }, 120); return; }
+    if (!liverBox() || morphTarget !== 0 || morph > 0.02) { if (tries < 40) setTimeout(lobuleRetry, 120, tries + 1); return; }
     // The anatomy's card (the liver's, usually) would sit over the lobule: the lobule's parts have their own.
     if (store.get().selection && store.get().selection.type !== 'lobule') store.set1('selection', null);
     setLobule(true);
   }
+  function lobuleRetry(tries) { if (store.get().lobule) openLobule(tries); }   // (the count rides on the timer: no closure carries it)
   const lobuleArrived = () => { lzWaiting = false; if (store.get().lobule) openLobule(); };
-  const LOBULE_OFF_BOTH = { lobule: false, sinusoid: false };   // (a patch the store reads and does not keep)
+  const LOBULE_OFF_BOTH = { lobule: false, sinusoid: false }, LOBULE_OFF = { lobule: false };   // (patches the store reads and does not keep)
   const lobuleNotArrived = (err) => { lzWaiting = false; loadFailed(err); store.set(LOBULE_OFF_BOTH); };
   function closeLobule() { setLobule(false); }
   store.on('lobule', (on) => (on ? openLobule() : closeLobule()));
@@ -3181,7 +3182,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       g.cur = pts;
       g.len = arcLen(pts);
-      if (x.tipFade) x.tipFade.line = [pts[0][0], pts[0][1], ...pointAt(pts, x.tipFade.frac)];
+      if (x.tipFade) { const ln = x.tipFade.line, pa = pointAt(pts, x.tipFade.frac); ln[0] = pts[0][0]; ln[1] = pts[0][1]; ln[2] = pa[0]; ln[3] = pa[1]; ln[4] = pa[2]; ln[5] = pa[3]; }   // (written in the vessel's own list)
       x.shadeKey = '';
       if (lazy) continue;
       g.lit = litNormals(pts);   // (a clot's layers follow the tube's lit side: updateOverlays)
@@ -3444,6 +3445,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   const varixSNow = { VAR: 0, GV: 0 }, coilingBuf = [], NO_VESSELS = [], selIdsNow = [], selIdsKept = [];   // (kept, written in place)
+  // A vessel's (or feeder's) two end colours, which the GPU's vessel rows take (syncVeins reads them at once and keeps none): the pair is made
+  // the first time and written in place after.
+  function setColPair(o, a, b) {
+    const c = o.col;
+    if (!c) o.col = [a, b];
+    else if (c[0] !== a || c[1] !== b) { c[0] = a; c[1] = b; }
+  }
   function updateInner(f) {
     // Covered by the lobule or the dive's field (anatCovered), the plate is left as it is (reading the cards' boxes and
     // restyling it each model frame, unseen, stalled the zoom); it catches up on the way out, with its eases already where they
@@ -3596,12 +3604,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (mode === 'neutral') { c1 = c2 = PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)'; }
       else { c1 = deltaColor(ref ? qHold(mode, k, 0, P1 - ref[NI[e.from]]) : 0); c2 = deltaColor(ref ? qHold(mode, k, 1, P2 - ref[NI[e.to]]) : 0); }
       // (Its two ends' colours, which the GPU's vessel rows take: syncVeins.)
-      if (x.col?.[0] !== c1 || x.col?.[1] !== c2) x.col = [c1, c2];
+      setColPair(x, c1, c2);
       if (x.feeders) for (const fd of x.feeders) {
         // A feeder that leaves a named vein is colored from that vein's pressure to the vessel's; a network that leaves the vessel's end
         // takes that end's color.
-        if (fd.src) { const c0 = mode === 'pressure' ? pressureColor(qP(PM[NI[fd.src]])) : c1; if (fd.col?.[0] !== c0 || fd.col?.[1] !== c1) fd.col = [c0, c1]; }
-        else if (FEEDERS[e.id].tone === 'end' && (fd.col?.[0] !== c2 || fd.col?.[1] !== c2)) fd.col = [c2, c2];
+        if (fd.src) { const c0 = mode === 'pressure' ? pressureColor(qP(PM[NI[fd.src]])) : c1; setColPair(fd, c0, c1); }
+        else if (FEEDERS[e.id].tone === 'end') setColPair(fd, c2, c2);
       }
       // Flow marks are white on dark lumens and ink on pale ones.
       x.inkDark = mode === 'pressure' ? luminance(pressureColor((P1 + P2) / 2)) > 0.36 : luminance(c1) > 0.36;

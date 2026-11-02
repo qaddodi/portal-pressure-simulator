@@ -7,7 +7,8 @@ import { readFileSync } from 'node:fs';
 const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 
 test('vessel colours are a field, replaced only when one of the two changes', () => {
-  assert.match(st, /if \(x\.col\?\.\[0\] !== c1 \|\| x\.col\?\.\[1\] !== c2\) x\.col = \[c1, c2\];/);
+  assert.match(st, /setColPair\(x, c1, c2\);/);
+  assert.match(st, /function setColPair\(o, a, b\) \{\n\s+const c = o\.col;\n\s+if \(!c\) o\.col = \[a, b\];\n\s+else if \(c\[0\] !== a \|\| c\[1\] !== b\) \{ c\[0\] = a; c\[1\] = b; \}/);
   assert.doesNotMatch(st, /set(G|Attr|Paint)?\([^)]*'stop-color'/);
 });
 
