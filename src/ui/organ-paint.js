@@ -21,6 +21,9 @@ import { getLive } from './live-style.js?v=334be862fb';
 const CLEAR0 = new Float32Array(4);
 
 const ID = [1, 0, 0, 1, 0, 0];
+// (The colour channels a coverage is written to, one array each: the shape drawer reads them at once, never keeps them.)
+const CH_R = [true, false, false, false], CH_G = [false, true, false, false], CH_B = [false, false, true, false];
+const same6 = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3] && a[4] === b[4] && a[5] === b[5];
 // A dashed stroke (the stent guide, the stented veins' mesh) cut into its dashes on the CPU once per outline and tolerance, each dash a
 // stroke of its own with the stroke's caps, painted on the GPU like any other.
 // A clip inside a clip (the colon's shades and fold, each cut to its own bowel loop inside the colon's own clip): painted with both,
@@ -89,7 +92,19 @@ export const mul = (a, b) => [a[0] * b[0] + a[2] * b[1], a[1] * b[0] + a[3] * b[
 // exact 0.2 / scale cut its outline again, and built and uploaded a new mesh, at every step of a zoom (T02, 26 Oct).
 export const detailTol = (sc) => Math.min(0.5, 2 ** Math.floor(Math.log2(0.2 / sc)));
 export const inv = (m) => { const d = m[0] * m[3] - m[1] * m[2] || 1e-12; return [m[3] / d, -m[1] / d, -m[2] / d, m[0] / d, (m[2] * m[5] - m[3] * m[4]) / d, (m[1] * m[4] - m[0] * m[5]) / d]; };
-const apply = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+/** a ∘ b written into `o` (which may be a or b): mul without the new array. Returns o. */
+export function mulTo(o, a, b) {
+  const a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3], a4 = a[4], a5 = a[5], b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3], b4 = b[4], b5 = b[5];
+  o[0] = a0 * b0 + a2 * b1; o[1] = a1 * b0 + a3 * b1; o[2] = a0 * b2 + a2 * b3; o[3] = a1 * b2 + a3 * b3;
+  o[4] = a0 * b4 + a2 * b5 + a4; o[5] = a1 * b4 + a3 * b5 + a5;
+  return o;
+}
+/** The inverse of m written into `o` (which may be m): inv without the new array. Returns o. */
+export function invTo(o, m) {
+  const m0 = m[0], m1 = m[1], m2 = m[2], m3 = m[3], m4 = m[4], m5 = m[5], d = m0 * m3 - m1 * m2 || 1e-12;
+  o[0] = m3 / d; o[1] = -m1 / d; o[2] = -m2 / d; o[3] = m0 / d; o[4] = (m2 * m5 - m3 * m4) / d; o[5] = (m1 * m4 - m0 * m5) / d;
+  return o;
+}
 
 /** A CSS colour as computed ("rgb(…)", "rgba(…)", "color(srgb r g b / a)", "transparent") → [r, g, b, a] in 0..1, or null. */
 export function parseColor(s) {
@@ -379,6 +394,48 @@ export function liveOf(op) {
   return { m, alpha: a, cm: op.clip ? mul(op.clip.chain ? chainM(op.clip.chain) : op.m, op.clip.km) : null, cm2: o ? (o.chain ? mul(chainM(o.chain), o.km) : o.m) : null };
 }
 
+// liveOf for the painter's own use, written into a kept record (newLive) with its matrices in place: the same numbers, none of the new
+// arrays and objects a frame's every op asked for. `hasCm`/`hasCm2`: whether the clip's frames are set (liveOf's cm/cm2 null or not).
+const matTmp = [1, 0, 0, 1, 0, 0], matTmp2 = [1, 0, 0, 1, 0, 0];
+function copy6(o, a) { o[0] = a[0]; o[1] = a[1]; o[2] = a[2]; o[3] = a[3]; o[4] = a[4]; o[5] = a[5]; return o; }
+/** matOf(el) written into o. */
+function matOfTo(o, el) {
+  const c = cssAny && CSS_M.get(el);
+  if (c) return copy6(o, c);
+  const t = el.transform?.baseVal;
+  if (!t || !t.numberOfItems) return copy6(o, ID);
+  const k = t.consolidate().matrix;
+  o[0] = k.a; o[1] = k.b; o[2] = k.c; o[3] = k.d; o[4] = k.e; o[5] = k.f;
+  return o;
+}
+/** chainM(chain) written into o. */
+function chainMTo(o, chain) {
+  copy6(o, ID);
+  for (const el of chain) mulTo(o, o, matOfTo(matTmp, el));
+  return o;
+}
+const newLive = () => ({ m: [1, 0, 0, 1, 0, 0], cm: [1, 0, 0, 1, 0, 0], cm2: [1, 0, 0, 1, 0, 0], hasCm: false, hasCm2: false, alpha: 1 });   // alloc-rare: the pool's records, made as a frame first needs them (a handful, kept)
+function liveInto(l, op) {
+  if (!op.chain) {
+    copy6(l.m, op.m); l.alpha = op.alpha;
+    l.hasCm = !!op.clip; if (op.clip) copy6(l.cm, op.clip.m);
+    l.hasCm2 = !!op.clip?.outer; if (op.clip?.outer) copy6(l.cm2, op.clip.outer.m);
+    return l;
+  }
+  let a = 1;
+  for (let i = op.a0 || 0; i < op.chain.length; i++) a *= liveO(op.chain[i], CS_O);
+  if (op.kind === 'group') { chainMTo(l.m, op.chain); l.alpha = a; l.hasCm = false; l.hasCm2 = false; return l; }
+  a *= op.kind === 'fill' ? livePO(op.el, 'fillOpacity', 'fill-opacity', CS_FO) : livePO(op.el, 'strokeOpacity', 'stroke-opacity', CS_SO);
+  chainMTo(l.m, op.chain);
+  const c = op.clip, o = c?.outer;
+  l.alpha = a;
+  l.hasCm = !!c;
+  if (c) { if (c.chain) chainMTo(matTmp2, c.chain); else copy6(matTmp2, op.m); mulTo(l.cm, matTmp2, c.km); }
+  l.hasCm2 = !!o;
+  if (o) { if (o.chain) { chainMTo(matTmp2, o.chain); mulTo(l.cm2, matTmp2, o.km); } else copy6(l.cm2, o.m); }
+  return l;
+}
+
 /** The element's paint's box in its own units (an objectBoundingBox gradient's), from its flattened outline. */
 function boxOf(polys) { const b = polyBox(polys); return [b[0], b[1], b[2] - b[0], b[3] - b[1]]; }
 
@@ -449,9 +506,9 @@ void main() {
 // (Linked through gl-compile.js: the programs the figure's renderer started at its setup (prestartOrganPaint), else compiled here.)
 function program(gl, vs, fs) {
   const p = linkProgram(gl, vs, fs);
-  const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
-  for (let k = 0; k < n; k++) { const name = gl.getActiveUniform(p, k).name.replace(/\[0\]$/, ''); u[name] = gl.getUniformLocation(p, name); }
-  return { p, u };
+  const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);   // alloc-rare: a program's uniform table, built once when it is linked
+  for (let k = 0; k < n; k++) { const name = gl.getActiveUniform(p, k).name.replace(/\[0\]$/, ''); u[name] = gl.getUniformLocation(p, name); }   // alloc-rare: a program's uniform table, built once when it is linked
+  return { p, u };   // alloc-rare: a program's uniform table, built once when it is linked
 }
 
 /** Starts the painter's programs and its shapes' on gl, nothing read (gl-compile.js prestart): createOrganPaint takes them up. */
@@ -465,28 +522,26 @@ export function createOrganPaint(gl, shape) {
   const paintP = program(gl, QUAD_VS, PAINT_FS), layP = program(gl, QUAD_VS, LAY_FS);
   const quad = gl.createBuffer(), vao = gl.createVertexArray();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   gl.bindVertexArray(vao);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   gl.bindVertexArray(null);
   // Canvas-sized targets: the coverage scratch (with the stencil the fills need), and a group and a mask layer for each depth.
-  const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); return t; };
-  const target = () => ({ tex: tex(), fbo: gl.createFramebuffer() });
+  const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); return t; };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  const target = () => ({ tex: tex(), fbo: gl.createFramebuffer() });   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   // (depths[d]: the group and mask layers of a group nested d deep, depths[0] the root's; made as a nesting first needs them.)
-  const scratch = target(), stencil = gl.createRenderbuffer(), depths = [[target(), target()]], layers = depths[0];
+  const scratch = target(), stencil = gl.createRenderbuffer(), depths = [[target(), target()]], layers = depths[0];   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   // W × H: the target painted now (the canvas, or a picture's texture: organs-gl bake), drawn from the targets' bottom-left
   // corner; AW × AH: what the targets hold, grown so a picture of another size never makes them all again, within the room
   // the canvas gives them (targetRoom); BW × BH: the canvas, the live painting's size.
   let W = 0, H = 0, AW = 0, AH = 0, BW = 0, BH = 0, allocVer = 0;
   // (The picture job painting with the nested layers now (bakeJob): one at a time.)
   let holder = null;
-  const alloc = (list) => {
-    for (const t of list) {
-      gl.bindTexture(gl.TEXTURE_2D, t.tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, AW, AH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo);
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t.tex, 0);
-    }
+  const allocOne = (t) => {   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+    gl.bindTexture(gl.TEXTURE_2D, t.tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, AW, AH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t.tex, 0);
   };
   function size(w, h, canvas = false) {
     W = w; H = h;
@@ -499,124 +554,184 @@ export function createOrganPaint(gl, shape) {
     const gw = Math.max(AW, w), gh = Math.max(AH, h);
     if (gw * gh <= targetRoom(BW, BH)) { AW = gw; AH = gh; } else { AW = Math.max(w, BW); AH = Math.max(h, BH); }
     allocVer++;   // (every target made again, what they held lost: a picture's job half done starts over)
-    alloc([scratch, ...depths.flat()]);
+    allocOne(scratch);
+    for (let d = 0; d < depths.length; d++) { allocOne(depths[d][0]); allocOne(depths[d][1]); }
     gl.bindRenderbuffer(gl.RENDERBUFFER, stencil);
     gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, AW, AH);
     gl.bindFramebuffer(gl.FRAMEBUFFER, scratch.fbo);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, stencil);
     gl.clearBufferfi(gl.DEPTH_STENCIL, 0, 1, 0);
   }
-  const depth = (d) => { while (depths.length <= d) { const pair = [target(), target()]; depths.push(pair); if (AW) alloc(pair); } return depths[d]; };
+  const depth = (d) => { while (depths.length <= d) { const pair = [target(), target()]; depths.push(pair); if (AW) { allocOne(pair[0]); allocOne(pair[1]); } } return depths[d]; };   // alloc-rare: a nesting depth's pair of layers is made the first time a picture needs that depth (never in a frame of the live painting)
   // Meshes by shape and tolerance: an outline written to several paths (the liver's fill, its shades, its clip) is cut once a frame.
-  let meshes = new Map(), meshesOld = new Map();
+  let meshes = new Map(), meshesOld = new Map();   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   // (The pictures' meshes (bake): kept across frames, so a picture made again at the same detail cuts no outline again. Each mesh's
   // arrays stay on the GPU while it is kept (shape-gl.js), and are given back when it is let go.)
   // (Each kept mesh carries the picture that last used it (tick): past the cap, those no picture of the last two used are let go,
   // so a picture made at a new zoom never drops the meshes of the one being made.)
-  let kept = new Map(), keeping = false, tick = 0;
+  let kept = new Map(), keeping = false, tick = 0;   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   const KEEP_CAP = 4000;
   // (A path's `d` named by its hash and length, worked out once a frame: the liver's is thousands of characters, the nodules'
   // tens of thousands, and an outline written to several paths is hashed once.)
-  let dKeys = new Map();
-  const dKey = (d) => { let k = dKeys.get(d); if (!k) { k = `${d.length}:${strHash(d)}`; dKeys.set(d, k); } return k; };
+  let dKeys = new Map();   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  const dKey = (d) => { let k = dKeys.get(d); if (!k) { k = `${d.length}:${strHash(d)}`; dKeys.set(d, k); } return k; };   // alloc-rare: the key of a `d` text, built when that text is new (a changed outline), kept after
   // A kept mesh no picture of the last two used, given back (its GPU arrays too, unless the live painting has it this frame).
   function evict() {
     for (const [k, v] of kept) if (v.tick < tick - 1) { kept.delete(k); if (!meshes.has(k) && !meshesOld.has(k)) shape.release(v.mesh); }
   }
-  // (A path's name: its shape source's, else its text's hash.)
-  const pathKey = (el) => { const s = srcOf(el); return s ? `n${s.id}` : dKey(el.getAttribute('d') || ''); };
+  // (A path's name: its shape source's, else its text's hash. Kept per element while its `d` is the same text, so no key is built
+  // again for an outline that did not change.)
+  const pathKeys = new WeakMap();   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  const pathKey = (el) => {   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+    const s = srcOf(el);
+    if (s) return s.key || (s.key = `n${s.id}`);   // alloc-rare: built once for each new shape source (the liver's, once per change of its outline), then kept on it
+    const d = el.getAttribute('d') || '';
+    let r = pathKeys.get(el);
+    if (r && r.d === d) return r.key;
+    if (!r) pathKeys.set(el, (r = { d: '', key: '' }));   // alloc-rare: one record per path element, the first time its key is asked
+    r.d = d; r.key = dKey(d);
+    return r.key;
+  };
   // (A clip's name: its path's, or a fixed shape's own number (a rect or a circle read once), so two such clips under one frame are
   // never taken for one another: both were named '' before.)
-  const polyIds = new WeakMap(); let polyN = 0;
-  const clipKey = (geom) => (geom.d ? pathKey(geom.el) : `p${polyIds.get(geom) ?? (polyIds.set(geom, ++polyN), polyN)}`);
+  const polyIds = new WeakMap(); let polyN = 0;   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  const clipKey = (geom) => (geom.d ? pathKey(geom.el) : polyIds.get(geom) ?? (polyIds.set(geom, `p${++polyN}`), polyIds.get(geom)));   // alloc-rare: a fixed shape is named once, the first time it is asked
+  // A mesh's name by shape, cap, tolerance and dash, kept per shape while those are the same (a frame that changed none of them
+  // builds no string and finds no mesh by a new one).
+  const meshKeys = new WeakMap();   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  function meshKey(geom, src, d, cap, tol, dash) {
+    let r = meshKeys.get(geom);
+    if (r && r.src === src && r.d === d && r.tol === tol && r.cap === cap && r.dash === dash) return r.key;
+    // (A dashed stroke's mesh is its dashes: named by its pattern too. A fixed shape dashed is named by the pattern on the shape.)
+    const dk = dash ? `|${dash.a.join(',')}@${dash.off}` : '';   // alloc-rare: built when the shape, its cap, tolerance or dash changed, not in a frame that kept them
+    let key = geom.d ? `${tol}|${cap}|${src ? `n${src.id}` : dKey(d)}${dk}` : geom;   // alloc-rare: as above
+    if (dash && !geom.d) { let m = DASHED.get(geom); if (!m) DASHED.set(geom, (m = new Map())); const k2 = `${cap}${dk}`; if (!m.has(k2)) m.set(k2, { k2 }); key = m.get(k2); }   // alloc-rare: a dashed fixed shape, named once per cap and pattern
+    if (!r) meshKeys.set(geom, (r = { src: null, d: null, tol: 0, cap: 0, dash: null, key: null }));   // alloc-rare: one record per shape, the first time its mesh is asked
+    r.src = src; r.d = d; r.tol = tol; r.cap = cap; r.dash = dash; r.key = key;
+    return key;
+  }
+  // The mesh's outline cut at tolerance tol (dashed into its dashes where it has a pattern): only where no mesh is kept for the key.
+  const flatOf = (src, geom, d, tol, dash) => {   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+    const polys = src ? flattenCmds(src.cmds, tol) : geom.d ? flattenPath(d, tol) : geom.poly;
+    return dash ? dashPolys(polys, dash) : polys;
+  };
   function meshOf(geom, cap, tol, dash = null) {
     const src = geom.d ? srcOf(geom.el) : null;
     const d = geom.d && !src ? geom.el.getAttribute('d') || '' : null;
-    // (A dashed stroke's mesh is its dashes: named by its pattern too. A fixed shape dashed is named by the pattern on the shape.)
-    const dk = dash ? `|${dash.a.join(',')}@${dash.off}` : '';
-    let key = geom.d ? `${tol}|${cap}|${src ? `n${src.id}` : dKey(d)}${dk}` : geom;
-    if (dash && !geom.d) { let m = DASHED.get(geom); if (!m) DASHED.set(geom, (m = new Map())); const k2 = `${cap}${dk}`; if (!m.has(k2)) m.set(k2, { k2 }); key = m.get(k2); }
-    const flat0 = () => (src ? flattenCmds(src.cmds, tol) : geom.d ? flattenPath(d, tol) : geom.poly);
-    const flat = dash ? () => dashPolys(flat0(), dash) : flat0;
+    const key = meshKey(geom, src, d, cap, tol, dash);
     if (keeping) {
       let k = kept.get(key);
       if (!k) {
         if (kept.size >= KEEP_CAP) evict();
-        const polys = flat();
-        kept.set(key, (k = { mesh: polyMesh(polys, cap), polys, box: boxOf(polys), tick }));
+        const polys = flatOf(src, geom, d, tol, dash);
+        kept.set(key, (k = { mesh: polyMesh(polys, cap), polys, box: boxOf(polys), tick }));   // alloc-rare: a mesh is made when none is kept for the shape at this detail (an outline that changed, a zoom past a bucket)
       }
       k.tick = tick;
       return k;
     }
     let r = meshes.get(key) || meshesOld.get(key) || kept.get(key);
     if (!r) {
-      const polys = flat();
-      r = { mesh: polyMesh(polys, cap), polys, box: boxOf(polys) };
+      const polys = flatOf(src, geom, d, tol, dash);
+      r = { mesh: polyMesh(polys, cap), polys, box: boxOf(polys) };   // alloc-rare: as above, a mesh for a shape that changed
     }
     meshes.set(key, r);
     return r;
   }
-  const scaleOf = (m) => Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) || 1;
+  const scaleOf = (m) => Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) || 1;   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   // Device px per CSS px of what is painted now (the overlays' canvas: veins-gl overLay), for a non-scaling stroke, whose width is
   // in the page's px whatever its frame: in its own units, that width over the frame's scale (sc, device px per unit).
   let cssPx = 1;
-  const wOf = (op, sc) => (op.nss ? (op.w * cssPx) / sc : op.w);
-  // A device box [x0, y0, x1, y1] (y down) of polylines under m, grown by `g` px, cut to the canvas; null if empty.
-  function devBox(box, m, g) {
+  const wOf = (op, sc) => (op.nss ? (op.w * cssPx) / sc : op.w);   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  // A device box [x0, y0, x1, y1] (y down) of polylines under m, grown by `g` px, cut to the canvas, written into `o`: true, or false if
+  // empty (o is then not to be read).
+  function devBoxTo(o, box, m, g) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (const [x, y] of [[box[0], box[1]], [box[0] + box[2], box[1]], [box[0], box[1] + box[3]], [box[0] + box[2], box[1] + box[3]]]) {
-      const [u, v] = apply(m, x, y);
+    for (let c = 0; c < 4; c++) {
+      const x = c & 1 ? box[0] + box[2] : box[0], y = c & 2 ? box[1] + box[3] : box[1];
+      const u = m[0] * x + m[2] * y + m[4], v = m[1] * x + m[3] * y + m[5];
       x0 = Math.min(x0, u); y0 = Math.min(y0, v); x1 = Math.max(x1, u); y1 = Math.max(y1, v);
     }
     x0 = Math.max(0, Math.floor(x0 - g)); y0 = Math.max(0, Math.floor(y0 - g)); x1 = Math.min(W, Math.ceil(x1 + g)); y1 = Math.min(H, Math.ceil(y1 + g));
-    return x1 > x0 && y1 > y0 ? [x0, y0, x1, y1] : null;
+    if (!(x1 > x0 && y1 > y0)) return false;
+    o[0] = x0; o[1] = y0; o[2] = x1; o[3] = y1;
+    return true;
   }
-  const scissor = (b) => { gl.enable(gl.SCISSOR_TEST); gl.scissor(b[0], H - b[3], b[2] - b[0], b[3] - b[1]); };
-  const mat = new Float32Array(9), stopO = new Float32Array(8), stopC = new Float32Array(32);
-  const drawQuad = () => { gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };
+  const scissor = (b) => { gl.enable(gl.SCISSOR_TEST); gl.scissor(b[0], H - b[3], b[2] - b[0], b[3] - b[1]); };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  const mat = new Float32Array(9), stopO = new Float32Array(8), stopC = new Float32Array(32);   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  const drawQuad = () => { gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
 
-  const meet = (a, c) => { if (!a || !c) return null; const r = [Math.max(a[0], c[0]), Math.max(a[1], c[1]), Math.min(a[2], c[2]), Math.min(a[3], c[3])]; return r[2] > r[0] && r[3] > r[1] ? r : null; };
-  const join = (a, c) => (a && c ? [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[2]), Math.max(a[3], c[3])] : a || c);
-  // An op under m: its mesh, its clip's, and the device box it paints within (with its stroke, its clip), or null for none.
+  // Boxes met and joined: the *To forms write into `o` (which may be a) and return it (or null for no overlap); meet and join make new
+  // ones, for the picture jobs' frames, which keep theirs.
+  const meetTo = (o, a, c) => {   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+    if (!a || !c) return null;
+    const r0 = Math.max(a[0], c[0]), r1 = Math.max(a[1], c[1]), r2 = Math.min(a[2], c[2]), r3 = Math.min(a[3], c[3]);
+    if (!(r2 > r0 && r3 > r1)) return null;
+    o[0] = r0; o[1] = r1; o[2] = r2; o[3] = r3;
+    return o;
+  };
+  const joinTo = (o, a, c) => {   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+    if (!a || !c) return a || c;
+    const r0 = Math.min(a[0], c[0]), r1 = Math.min(a[1], c[1]), r2 = Math.max(a[2], c[2]), r3 = Math.max(a[3], c[3]);
+    o[0] = r0; o[1] = r1; o[2] = r2; o[3] = r3;
+    return o;
+  };
+  const meet = (a, c) => { if (!a || !c) return null; const r = [Math.max(a[0], c[0]), Math.max(a[1], c[1]), Math.min(a[2], c[2]), Math.min(a[3], c[3])]; return r[2] > r[0] && r[3] > r[1] ? r : null; };   // alloc-rare: a picture job's frames keep their boxes (a nested group's step), never the live painting's
+  const join = (a, c) => (a && c ? [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[2]), Math.max(a[3], c[3])] : a || c);   // alloc-rare: as meet, a nested group's box
+  // The scratch the painting works in, each written in place and read at once (a call never keeps one past its own end, except where noted):
+  // an op's boxes and frames (opAt), its clips' boxes, the boxes of a paint, a group and a lay.
+  const BX = [0, 0, 0, 0], BX2 = [0, 0, 0, 0], PB = [0, 0, 0, 0], SB = [0, 0, 0, 0], SB2 = [0, 0, 0, 0], GB = [0, 0, 0, 0], LB = [0, 0, 0, 0], LW = [0, 0, 0, 0];   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  const OM = [1, 0, 0, 1, 0, 0], CM = [1, 0, 0, 1, 0, 0], CM2 = [1, 0, 0, 1, 0, 0], TG = [1, 0, 0, 1, 0, 0], TG2 = [1, 0, 0, 1, 0, 0], TGB = [1, 0, 0, 1, 0, 0];   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  const SZ = [0, 0];   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  // An op under m: its mesh, its clip's, and the device box it paints within (with its stroke, its clip), or null for none. The record
+  // is ONE object, rewritten by each call (a group's box is then a new array): read what is needed before asking for another op.
   // (An op's inline settings are read once a frame: describe and the paint both ask.)
-  let lives = new Map();
-  function liveAt(op) { let l = lives.get(op); if (!l) { l = liveOf(op); lives.set(op, l); } return l; }
+  const lives = new Map(), livePool = [];   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  let liveN = 0;
+  function liveAt(op) {
+    let l = lives.get(op);
+    if (!l) { l = livePool[liveN] || (livePool[liveN] = newLive()); liveN++; liveInto(l, op); lives.set(op, l); }
+    return l;
+  }
+  const forgetLives = () => { lives.clear(); liveN = 0; };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  const AT = { om: OM, sh: null, cm: CM, csh: null, cm2: CM2, csh2: null, b: null, alpha: 0, mm: [1, 0, 0, 1, 0, 0] };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   function opAt(op, m) {
     const lv = liveAt(op);
     if (op.kind === 'group') {
       let b = null;
-      for (const k of op.ops) b = join(b, opAt(k, m).b);
-      return { b: lv.alpha > 0 ? b : null, alpha: lv.alpha, mm: mul(m, lv.m) };
+      for (const k of op.ops) { const kb = opAt(k, m).b; b = join(b, kb && kb.slice()); }   // alloc-rare: a nested group (read only for a picture's job), never a live op
+      AT.b = lv.alpha > 0 ? b : null; AT.alpha = lv.alpha; mulTo(AT.mm, m, lv.m);
+      return AT;
     }
     // (The tolerance in powers of two, a fifth of a pixel or finer: a pinch reuses the meshes until the zoom doubles.)
-    const om = mul(m, lv.m), sc = scaleOf(om), tol = detailTol(sc);
+    const om = mulTo(OM, m, lv.m), sc = scaleOf(om), tol = detailTol(sc);
     const sh = meshOf(op.geom, op.kind === 'stroke' ? op.cap : 0, tol, op.kind === 'stroke' ? op.dash || null : null);
     const grow = op.kind === 'stroke' ? (wOf(op, sc) / 2) * sc + 2 : 2;
     // (At no opacity it paints nothing: no box, so a change check sees it come and go.)
-    let b = lv.alpha > 0 ? devBox(sh.box, om, grow) : null, cm = null, csh = null, cm2 = null, csh2 = null;
+    let b = lv.alpha > 0 && devBoxTo(BX, sh.box, om, grow) ? BX : null, csh = null, csh2 = null;
     if (op.clip) {
-      cm = mul(m, lv.cm);
+      const cm = mulTo(CM, m, lv.cm);
       csh = meshOf(op.clip.geom, 0, detailTol(scaleOf(cm)));
-      b = meet(b, devBox(csh.box, cm, 2));
+      b = meetTo(BX, b, devBoxTo(BX2, csh.box, cm, 2) ? BX2 : null);
       if (op.clip.outer) {
-        cm2 = mul(m, lv.cm2);
+        const cm2 = mulTo(CM2, m, lv.cm2);
         csh2 = meshOf(op.clip.outer.geom, 0, detailTol(scaleOf(cm2)));
-        b = meet(b, devBox(csh2.box, cm2, 2));
+        b = meetTo(BX, b, devBoxTo(BX2, csh2.box, cm2, 2) ? BX2 : null);
       }
     }
-    return { om, sh, cm, csh, cm2, csh2, b, alpha: lv.alpha };
+    AT.sh = sh; AT.csh = csh; AT.csh2 = csh2; AT.b = b; AT.alpha = lv.alpha;
+    return AT;
   }
   // Painting as a job: frames of ops (a group's, a nested group's into its own layer, its mask's into the mask layer, and the
   // layer laid over what it belongs to once both are in), painted in order and resumable between any two ops. A picture
   // (organs-gl bake) is painted a few ms a frame however deep its groups nest (a nested group was painted whole within one
   // op: the gut's see-through shades, all at once). `ck`: the clip whose coverage the scratch's green holds (none after a pause:
-  // the scratch is the live painting's between two steps).
-  const frameOf = (ops, m, into, within, d) => ({ ops, m, into, within, d, i: 0 });
+  // the scratch is the live painting's between two steps), with its frame in `cmv` (and `ck2`, `cmv2` for the outer clip).
+  const frameOf = (ops, m, into, within, d) => ({ ops, m, into, within, d, i: 0 });   // alloc-rare: the frames of a picture's job (a nested group's, a step of a bake), made as it begins
   /** Runs a job's frames until they are all painted (true) or, after at least one op, `until` (performance.now) has passed (false). */
   // (Bounded steps, recs_cgpt R18, 2 Nov 2026: each shape's paint is timed and its cost kept, so a step stops BEFORE an op that would
   // run past its deadline, not after it; a step also hands the GPU at most REFINE_OPS shapes, so a cheap CPU step cannot flood it.
   // The first op of a step always runs (progress). ?refbound=0: the old rule, stop only once past the deadline.)
-  const opCost = new WeakMap();
+  const opCost = new WeakMap();   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   let opMean = 0.05, layMean = 0.05;
   function runJob(job, until = Infinity) {
     let n = 0;
@@ -635,8 +750,8 @@ export function createOrganPaint(gl, shape) {
       if (n > 0 && performance.now() > until) return false;
       if (f.lay) {
         job.frames.pop(); n++;
-        const t0 = bound ? performance.now() : 0;
-        layOver(...f.lay); job.ck = job.ck2 = null;
+        const t0 = bound ? performance.now() : 0, y = f.lay;
+        layOver(y[0], y[1], y[2], y[3], y[4], y[5]); job.ck = job.ck2 = null;
         if (bound) layMean += (performance.now() - t0 - layMean) * 0.2;
         continue;
       }
@@ -647,10 +762,10 @@ export function createOrganPaint(gl, shape) {
         const at = opAt(op, f.m), b = f.within ? meet(at.b, f.within) : at.b;
         if (!b) continue;
         const [g, k] = depth(f.d + 1);
-        clearTargets(b, op.mask ? [g, k] : [g]);
+        clearTargets(b, g, op.mask ? k : null);
         // (Last in, first painted: its shapes, then its mask, then the layer laid.)
-        job.frames.push({ lay: [g, k, b, at.alpha, !!op.mask, f.into] });
-        if (op.mask) job.frames.push(frameOf(op.mask.ops, at.mm, k.fbo, b, f.d + 1));
+        job.frames.push({ lay: [g, k, b, at.alpha, !!op.mask, f.into] });   // alloc-rare: a nested group's frames, in a picture's job only
+        if (op.mask) job.frames.push(frameOf(op.mask.ops, at.mm.slice(), k.fbo, b, f.d + 1));   // alloc-rare: as above
         job.frames.push(frameOf(op.ops, f.m, g.fbo, b, f.d + 1));
         job.ck = job.ck2 = null;
         continue;
@@ -664,36 +779,44 @@ export function createOrganPaint(gl, shape) {
     }
     return true;
   }
+  // (The live painting's one job and frame, rewritten by each paintOps: it never nests, and is done before the next begins.)
+  const PJ = { frames: [], ck: null, ck2: null, cmv: [0, 0, 0, 0, 0, 0], cmv2: [0, 0, 0, 0, 0, 0] }, PF = { ops: null, m: null, into: null, within: null, d: 0, i: 0 };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   /** Paints the ops of a group into the bound target (cleared by the caller), under m; only within `within` (a device box) if given. */
   // (d: how deep in nested groups the ops are, whose layers are depths[d + 1].)
-  function paintOps(spec, m, into, within = null, d = 0) { runJob({ frames: [frameOf(spec.ops, m, into, within, d)] }); }
+  function paintOps(spec, m, into, within = null, d = 0) {
+    PF.ops = spec.ops; PF.m = m; PF.into = into; PF.within = within; PF.d = d; PF.i = 0;
+    PJ.frames.length = 0; PJ.frames.push(PF);
+    runJob(PJ);
+    PF.ops = PF.m = PF.into = PF.within = null;
+  }
   /** One shape's op painted over `into` under m, within `within`. */
   function paintOp(op, m, into, within, job) {
-    const sz = [W, H];
+    SZ[0] = W; SZ[1] = H;
     const at = opAt(op, m), { om, sh, cm, csh, cm2, csh2 } = at;
-    let b = within ? meet(at.b, within) : at.b;
+    const b = within ? meetTo(PB, at.b, within) : at.b;
     if (!b) return false;
     // The shape's coverage into the scratch's red, its clip's into green (kept while the next op has the same clip).
     gl.bindFramebuffer(gl.FRAMEBUFFER, scratch.fbo);
     gl.viewport(0, 0, W, H);
-    const ck = op.clip ? `${clipKey(op.clip.geom)}|${cm.join(',')}` : null;
-    const newClip = !!op.clip && ck !== job.ck;
+    const cv = job.cmv || (job.cmv = [0, 0, 0, 0, 0, 0]), cv2 = job.cmv2 || (job.cmv2 = [0, 0, 0, 0, 0, 0]);   // alloc-rare: a picture's job gets its two frames the first time it paints a clipped op
+    const ck = op.clip ? clipKey(op.clip.geom) : null;
+    const newClip = !!op.clip && !(ck === job.ck && same6(cv, cm));
     // (The outer clip of a clip inside a clip, in the blue, kept the same way.)
-    const ck2 = csh2 ? `${clipKey(op.clip.outer.geom)}|${cm2.join(',')}` : null;
-    const newClip2 = !!csh2 && ck2 !== job.ck2;
+    const ck2 = csh2 ? clipKey(op.clip.outer.geom) : null;
+    const newClip2 = !!csh2 && !(ck2 === job.ck2 && same6(cv2, cm2));
     // (A new clip's green is cleared over the clip's own box, with this op's: a later op with the same clip is cut to that box, so
     // it never reads the green outside it. It was the whole canvas, on every clipped group, every frame.)
     gl.colorMask(true, newClip, newClip2, false);
-    let sb = newClip ? join(b, devBox(csh.box, cm, 2)) : b;
-    if (newClip2) sb = join(sb, devBox(csh2.box, cm2, 2));
+    let sb = newClip && devBoxTo(SB2, csh.box, cm, 2) ? joinTo(SB, b, SB2) : b;
+    if (newClip2 && devBoxTo(SB2, csh2.box, cm2, 2)) sb = joinTo(SB, sb, SB2);
     scissor(sb);
     gl.clearBufferfv(gl.COLOR, 0, CLEAR0);
     gl.colorMask(true, true, true, true);
     gl.disable(gl.SCISSOR_TEST);
-    if (op.kind === 'fill') shape.fill(sh.mesh, om, sz, [true, false, false, false], false, !!op.eo);
-    else shape.stroke(sh.mesh, om, sz, [true, false, false, false], wOf(op, scaleOf(om)));
-    if (newClip) { shape.fill(csh.mesh, cm, sz, [false, true, false, false]); job.ck = ck; }
-    if (newClip2) { shape.fill(csh2.mesh, cm2, sz, [false, false, true, false]); job.ck2 = ck2; }
+    if (op.kind === 'fill') shape.fill(sh.mesh, om, SZ, CH_R, false, !!op.eo);
+    else shape.stroke(sh.mesh, om, SZ, CH_R, wOf(op, scaleOf(om)));
+    if (newClip) { shape.fill(csh.mesh, cm, SZ, CH_G); job.ck = ck; copy6(cv, cm); }
+    if (newClip2) { shape.fill(csh2.mesh, cm2, SZ, CH_B); job.ck2 = ck2; copy6(cv2, cm2); }
     // Painted over the target within the op's box.
     gl.bindFramebuffer(gl.FRAMEBUFFER, into);
     gl.viewport(0, 0, W, H);
@@ -710,15 +833,15 @@ export function createOrganPaint(gl, shape) {
     else {
       const g = p.grad;
       // device → the element's units → (its box) → the gradient's space (its transform undone).
-      let toG = inv(om);
-      if (g.box) { const bx = sh.box; toG = mul([1 / (bx[2] || 1), 0, 0, 1 / (bx[3] || 1), -bx[0] / (bx[2] || 1), -bx[1] / (bx[3] || 1)], toG); }
-      toG = mul(inv(g.gt), toG);
-      mat.set([toG[0], toG[1], 0, toG[2], toG[3], 0, toG[4], toG[5], 1]);
+      invTo(TG, om);
+      if (g.box) { const bx = sh.box; TGB[0] = 1 / (bx[2] || 1); TGB[1] = 0; TGB[2] = 0; TGB[3] = 1 / (bx[3] || 1); TGB[4] = -bx[0] / (bx[2] || 1); TGB[5] = -bx[1] / (bx[3] || 1); mulTo(TG, TGB, TG); }
+      mulTo(TG, invTo(TG2, g.gt), TG);
+      mat[0] = TG[0]; mat[1] = TG[1]; mat[2] = 0; mat[3] = TG[2]; mat[4] = TG[3]; mat[5] = 0; mat[6] = TG[4]; mat[7] = TG[5]; mat[8] = 1;
       gl.uniformMatrix3fv(U.toGrad, false, mat);
       gl.uniform1i(U.kind, g.kind);
       gl.uniform4f(U.gp, g.p[0], g.p[1], g.p[2], g.p[3] ?? 0);
       stopO.fill(0); stopC.fill(0);
-      g.stops.forEach((s, i) => { stopO[i] = s[0]; stopC.set(s.slice(1), 4 * i); });
+      for (let i = 0; i < g.stops.length; i++) { const s = g.stops[i]; stopO[i] = s[0]; stopC[4 * i] = s[1]; stopC[4 * i + 1] = s[2]; stopC[4 * i + 2] = s[3]; stopC[4 * i + 3] = s[4]; }
       gl.uniform1fv(U.stopO, stopO); gl.uniform4fv(U.stopC, stopC); gl.uniform1i(U.nStops, g.stops.length);
       gl.uniform4f(U.color, 0, 0, 0, 0);
     }
@@ -729,41 +852,88 @@ export function createOrganPaint(gl, shape) {
     return true;
   }
 
-  /** The device box of everything a group paints under m (with its strokes), or null. */
+  /** The device box of everything a group paints under m (with its strokes), or null. It is one kept array: read at once. */
   function groupBox(spec, m) {
-    let u = null;
-    for (const op of spec.ops) u = join(u, opAt(op, m).b);
-    return u;
+    let has = false;
+    for (const op of spec.ops) {
+      const b = opAt(op, m).b;
+      if (!b) continue;
+      if (has) joinTo(GB, GB, b); else { GB[0] = b[0]; GB[1] = b[1]; GB[2] = b[2]; GB[3] = b[3]; has = true; }
+    }
+    return has ? GB : null;
   }
   // What an op paints, as a string: what it is painted with (fixed while the spec lives: kept on the op) and where (its outline's
-  // `d` and its frame, read now). Two frames with the same string paint the same pixels in the same box.
-  const paintKey = (op) => op.pk || (op.pk = JSON.stringify([op.kind, op.w, op.cap, op.paint, op.eo ? 1 : 0, op.dash || 0]));
-  const opSig = (op, m) => { const lv = liveAt(op); return `${paintKey(op)}|${lv.alpha}|${lv.m.join(',')}|${lv.cm ? lv.cm.join(',') : ''}${lv.cm2 ? `|${lv.cm2.join(',')}` : ''}|${m.join(',')}|${op.geom.d ? pathKey(op.geom.el) : ''}|${op.clip ? clipKey(op.clip.geom) : ''}${op.clip?.outer ? `|${clipKey(op.clip.outer.geom)}` : ''}${op.nss ? `|${cssPx}` : ''}`; };
+  // `d` and its frame, read now). Two frames with the same string paint the same pixels in the same box. The string is kept on the
+  // op with the numbers and names it was built from, and built again only when one of them is not the same.
+  const paintKey = (op) => op.pk || (op.pk = JSON.stringify([op.kind, op.w, op.cap, op.paint, op.eo ? 1 : 0, op.dash || 0]));   // alloc-rare: once for each op, the first time it is described
+  const sigs = new WeakMap();   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  function opSig(op, m) {
+    const lv = liveAt(op), pk = op.geom.d ? pathKey(op.geom.el) : '', ck = op.clip ? clipKey(op.clip.geom) : '', ok = op.clip?.outer ? clipKey(op.clip.outer.geom) : '';
+    let r = sigs.get(op);
+    if (r && r.a === lv.alpha && r.hc === lv.hasCm && r.hc2 === lv.hasCm2 && r.pk === pk && r.ck === ck && r.ok === ok && r.css === (op.nss ? cssPx : 0)
+      && same6(r.m, lv.m) && (!lv.hasCm || same6(r.cm, lv.cm)) && (!lv.hasCm2 || same6(r.cm2, lv.cm2)) && same6(r.mm, m)) return r.str;
+    if (!r) sigs.set(op, (r = { a: 0, hc: false, hc2: false, pk: '', ck: '', ok: '', css: 0, m: [0, 0, 0, 0, 0, 0], cm: [0, 0, 0, 0, 0, 0], cm2: [0, 0, 0, 0, 0, 0], mm: [0, 0, 0, 0, 0, 0], str: '' }));   // alloc-rare: one record per op, the first time it is described
+    r.a = lv.alpha; r.hc = lv.hasCm; r.hc2 = lv.hasCm2; r.pk = pk; r.ck = ck; r.ok = ok; r.css = op.nss ? cssPx : 0;
+    copy6(r.m, lv.m); if (lv.hasCm) copy6(r.cm, lv.cm); if (lv.hasCm2) copy6(r.cm2, lv.cm2); copy6(r.mm, m);
+    return (r.str = `${paintKey(op)}|${lv.alpha}|${lv.m.join(',')}|${lv.hasCm ? lv.cm.join(',') : ''}${lv.hasCm2 ? `|${lv.cm2.join(',')}` : ''}|${m.join(',')}|${pk}|${ck}${op.clip?.outer ? `|${ok}` : ''}${op.nss ? `|${cssPx}` : ''}`);   // alloc-rare: built when the op's frame, opacity or outline changed since it was last described
+  }
+  // The mask's ops' strings are the op's own with a prefix, kept the same way.
+  function maskSig(op, m) {
+    const s = opSig(op, m), r = sigs.get(op);
+    if (r.msrc !== s) { r.msrc = s; r.ms = `mask|${s}`; }   // alloc-rare: built when the op's own string changed
+    return r.ms;
+  }
+  // The record a describe is writing (dd) and the entries written so far (dn).
+  let dd = null, dn = 0;
+  function put(sig, b) {
+    const e = dd.ops[dn] || (dd.ops[dn] = ['', null]);   // alloc-rare: an entry is made the first time a record has this many ops
+    e[0] = sig;
+    if (b) { const o = dd.bx[dn] || (dd.bx[dn] = [0, 0, 0, 0]); o[0] = b[0]; o[1] = b[1]; o[2] = b[2]; o[3] = b[3]; e[1] = o; } else e[1] = null;   // alloc-rare: as above, the entry's box
+    dn++;
+  }
+  function putNested(list, pre, m) {   // alloc-rare: nested groups are read only for a picture's job, never the live organs described here
+    for (const op of list) {
+      if (op.kind === 'group') { put(`${pre}group|${liveAt(op).alpha}|${liveAt(op).m.join(',')}`, opAt(op, m).b); putNested(op.ops, pre, m); if (op.mask) putNested(op.mask.ops, `${pre}gmask|`, m); }   // alloc-rare: nested groups are read only for a picture's job, never the live organs described here
+      else put(`${pre}${opSig(op, m)}`, opAt(op, m).b);   // alloc-rare: nested groups are read only for a picture's job, never the live organs described here
+    }
+  }
   /**
    * The group under m described for a change check: its own string (opacity, whether masked) and, per op (the mask's after its
-   * own), [string, device box]. The meshes it will paint are touched (kept for the frame).
+   * own), [string, device box]. The meshes it will paint are touched (kept for the frame). `out`: a record { sig, ops } to write the
+   * description into, and to be returned (the stack keeps two for each group, one for the frame before: nothing is made). Without
+   * one, a new record.
    */
-  function describe(spec, m) {
-    const ops = [];
-    const add = (list, pre) => { for (const op of list) if (op.kind === 'group') { ops.push([`${pre}group|${liveAt(op).alpha}|${liveAt(op).m.join(',')}`, opAt(op, m).b]); add(op.ops, pre); if (op.mask) add(op.mask.ops, `${pre}gmask|`); } else ops.push([`${pre}${opSig(op, m)}`, opAt(op, m).b]); };
-    if (spec.ops.some((op) => op.kind === 'group')) add(spec.ops, '');
-    else for (const op of spec.ops) ops.push([opSig(op, m), opAt(op, m).b]);
-    if (spec.mask) for (const op of spec.mask.ops) ops.push([`mask|${opSig(op, m)}`, opAt(op, m).b]);
-    return { sig: `${specOpacity(spec)}|${spec.mask ? 1 : 0}`, ops };
+  function describe(spec, m, out) {
+    dd = out || { sig: '', ops: [] };   // alloc-rare: only for a caller that passes no record (the tests); the stack always does
+    if (!dd.bx) dd.bx = [];   // alloc-rare: the record's box list, made with it
+    dn = 0;
+    let nested = false;
+    for (const op of spec.ops) if (op.kind === 'group') { nested = true; break; }
+    if (nested) putNested(spec.ops, '', m);
+    else for (const op of spec.ops) { const s = opSig(op, m); put(s, opAt(op, m).b); }
+    if (spec.mask) for (const op of spec.mask.ops) { const s = maskSig(op, m); put(s, opAt(op, m).b); }
+    dd.ops.length = dn;
+    const so = specOpacity(spec), sm = spec.mask ? 1 : 0;
+    if (dd.so !== so || dd.sm !== sm) { dd.so = so; dd.sm = sm; dd.base = `${so}|${sm}`; }   // alloc-rare: built when the group's opacity or mask changed
+    dd.sig = dd.base;
+    const r = dd; dd = null;
+    return r;
   }
 
   // The group's layer (and the mask's) cleared within b.
-  function clearTargets(b, list) {
+  function clearTargets(b, t1, t2 = null) {
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
-    for (const t of list) {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo);
-      gl.viewport(0, 0, W, H);
-      scissor(b); gl.clearBufferfv(gl.COLOR, 0, CLEAR0); gl.disable(gl.SCISSOR_TEST);
-    }
+    clearOne(b, t1);
+    if (t2) clearOne(b, t2);
   }
-  const clearIn = (b, withMask) => clearTargets(b, withMask ? layers : [layers[0]]);
+  function clearOne(b, t) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo);
+    gl.viewport(0, 0, W, H);
+    scissor(b); gl.clearBufferfv(gl.COLOR, 0, CLEAR0); gl.disable(gl.SCISSOR_TEST);
+  }
+  const clearIn = (b, withMask) => clearTargets(b, layers[0], withMask ? layers[1] : null);   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   // The group's layer laid over fbo within b, times opacity and, withMask, the mask layer's luminance.
-  const lay = (b, opacity, withMask, fbo) => layOver(layers[0], layers[1], b, opacity, withMask, fbo);
+  const lay = (b, opacity, withMask, fbo) => layOver(layers[0], layers[1], b, opacity, withMask, fbo);   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   function layOver(g, k, b, opacity, withMask, fbo) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.viewport(0, 0, W, H);
@@ -780,9 +950,13 @@ export function createOrganPaint(gl, shape) {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindVertexArray(null);
   }
+  const trimOne = (t) => { gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  const dropOne = (t) => { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fbo); };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   // The group's ops laid over fbo (the painter sized to w × h), within a device box if given.
   function layGroup(spec, m, w, h, fbo, within) {
-    const b = meet(groupBox(spec, m), within || [0, 0, w, h]);
+    let win = within;
+    if (!win) { LW[0] = 0; LW[1] = 0; LW[2] = w; LW[3] = h; win = LW; }
+    const b = meetTo(LB, groupBox(spec, m), win);
     if (!b) return;
     clearIn(b, !!spec.mask);
     paintOps(spec, m, layers[0].fbo, b);
@@ -790,10 +964,10 @@ export function createOrganPaint(gl, shape) {
     if (spec.mask) paintOps(spec.mask, m, layers[1].fbo, b);
     lay(b, specOpacity(spec), !!spec.mask, fbo);
   }
-  return {
+  return {   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
     /** Device px per CSS px of the target painted next (1 unless set): a non-scaling stroke's width. */
-    set cssPx(v) { cssPx = v > 0 ? v : 1; },
-    get cssPx() { return cssPx; },
+    set cssPx(v) { cssPx = v > 0 ? v : 1; },   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+    get cssPx() { return cssPx; },   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
     /** Lays the group `spec` (readGroup) under m over framebuffer `fbo` of size w × h, with its opacity and mask. */
     paintGroup(spec, m, w, h, fbo, within = null) {
       size(w, h, true);
@@ -820,7 +994,7 @@ export function createOrganPaint(gl, shape) {
      */
     bakeJob(spec, m, w, h, fbo, pic = tick) {
       let job = null, ver = -1;
-      const me = {
+      const me = {   // alloc-rare: a picture's job and frames, made once per group of a picture (a patient change), not in a frame of the live painting
         step(until = Infinity) {
           if (holder && holder !== me) return 'wait';
           holder = me;
@@ -830,35 +1004,35 @@ export function createOrganPaint(gl, shape) {
             if (!job) {
               ver = allocVer;
               if (spec.mask || specOpacity(spec) < 1) {
-                const b = meet(groupBox(spec, m), [0, 0, w, h]);
-                job = { frames: [] };
+                const b = meet(groupBox(spec, m), [0, 0, w, h]);   // alloc-rare: a picture's job and frames, made once per group of a picture (a patient change), not in a frame of the live painting
+                job = { frames: [] };   // alloc-rare: a picture's job and frames, made once per group of a picture (a patient change), not in a frame of the live painting
                 if (b) {
                   const [g, k] = depth(1);
-                  clearTargets(b, spec.mask ? [g, k] : [g]);
+                  clearTargets(b, g, spec.mask ? k : null);
                   // (A mask's content is in the user space of the element it masks: the group's frame.)
-                  job.frames.push({ lay: [g, k, b, specOpacity(spec), !!spec.mask, fbo] });
+                  job.frames.push({ lay: [g, k, b, specOpacity(spec), !!spec.mask, fbo] });   // alloc-rare: a picture's job and frames, made once per group of a picture (a patient change), not in a frame of the live painting
                   if (spec.mask) job.frames.push(frameOf(spec.mask.ops, m, k.fbo, b, 1));
                   job.frames.push(frameOf(spec.ops, m, g.fbo, b, 1));
                 }
-              } else job = { frames: [frameOf(spec.ops, m, fbo, [0, 0, w, h], 0)] };
+              } else job = { frames: [frameOf(spec.ops, m, fbo, [0, 0, w, h], 0)] };   // alloc-rare: a picture's job and frames, made once per group of a picture (a patient change), not in a frame of the live painting
             } else if (ver !== allocVer) { holder = null; return 'lost'; }
             if (!runJob(job, until)) return 'more';
             holder = null;
             return 'done';
-          } finally { keeping = false; lives = new Map(); dKeys = new Map(); }
+          } finally { keeping = false; forgetLives(); dKeys.clear(); }
         },
         drop() { if (holder === me) holder = null; job = null; },
       };
       return me;
     },
     /** A new picture begun (organs-gl bake): its number, passed to its groups' jobs (bakeJob), for the kept meshes' ages. */
-    beginPicture: () => ++tick,
+    beginPicture: () => ++tick,   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
     /** What it holds on the GPU: meshes with arrays there, and those the pictures keep. */
-    stats: () => ({ meshes: shape.count?.() ?? 0, kept: kept.size }),
+    stats: () => ({ meshes: shape.count?.() ?? 0, kept: kept.size }),   // alloc-rare: diagnostic counts for the ?perf readout, not read in a frame
     /** Lets go of the pictures' kept meshes (their GPU arrays too). */
-    dropKept() { if (holder) return; for (const [k, v] of kept) if (!meshes.has(k) && !meshesOld.has(k)) shape.release(v.mesh); kept = new Map(); },
+    dropKept() { if (holder) return; for (const [k, v] of kept) if (!meshes.has(k) && !meshesOld.has(k)) shape.release(v.mesh); kept.clear(); },
     /** The group's device box under m (groupBox), and its description (describe), for the stack's change check. */
-    box: (spec, m) => groupBox(spec, m),
+    box: (spec, m) => groupBox(spec, m),   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
     describe,
     /**
      * A layer drawn by `draw(fbo)` (a picture of some organs, under its own program) laid over framebuffer `fbo` (w × h) times the
@@ -867,8 +1041,8 @@ export function createOrganPaint(gl, shape) {
      */
     layMasked(draw, box, maskSpec, m, w, h, fbo, opacity = 1, within = null) {
       size(w, h, true);
-      let b = [Math.max(0, Math.floor(box[0])), Math.max(0, Math.floor(box[1])), Math.min(W, Math.ceil(box[2])), Math.min(H, Math.ceil(box[3]))];
-      if (within) b = meet(b, within);
+      LB[0] = Math.max(0, Math.floor(box[0])); LB[1] = Math.max(0, Math.floor(box[1])); LB[2] = Math.min(W, Math.ceil(box[2])); LB[3] = Math.min(H, Math.ceil(box[3]));
+      const b = within ? meetTo(LB, LB, within) : LB;
       if (!b || !(b[2] > b[0] && b[3] > b[1])) return;
       clearIn(b, true);
       gl.bindFramebuffer(gl.FRAMEBUFFER, layers[0].fbo);
@@ -881,14 +1055,14 @@ export function createOrganPaint(gl, shape) {
     endFrame() {
       // (A mesh let go is given back to the GPU, unless a picture keeps it.)
       for (const [k, v] of meshesOld) if (!meshes.has(k) && !kept.has(k)) shape.release(v.mesh);
-      meshesOld = meshes; meshes = new Map(); dKeys = new Map(); lives = new Map();
+      const spent = meshesOld; meshesOld = meshes; meshes = spent; meshes.clear(); dKeys.clear(); forgetLives();
     },
-    trim() { this.dropKept(); if (!AW) return; W = H = AW = AH = BW = BH = 0; for (const t of [scratch, ...depths.flat()]) { gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); } gl.bindRenderbuffer(gl.RENDERBUFFER, stencil); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, 1, 1); },
+    trim() { this.dropKept(); if (!AW) return; W = H = AW = AH = BW = BH = 0; trimOne(scratch); for (let d = 0; d < depths.length; d++) { trimOne(depths[d][0]); trimOne(depths[d][1]); } gl.bindRenderbuffer(gl.RENDERBUFFER, stencil); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, 1, 1); },
     dispose() {
       // (Every mesh's arrays given back with the shape drawer: those kept for pictures, the live frame's and the last frame's.)
-      kept = new Map(); meshes = new Map(); meshesOld = new Map(); holder = null;
+      kept.clear(); meshes.clear(); meshesOld.clear(); holder = null;
       shape.dispose();
-      for (const t of [scratch, ...depths.flat()]) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fbo); }
+      dropOne(scratch); for (let d = 0; d < depths.length; d++) { dropOne(depths[d][0]); dropOne(depths[d][1]); }
       gl.deleteRenderbuffer(stencil); gl.deleteBuffer(quad); gl.deleteVertexArray(vao); gl.deleteProgram(paintP.p); gl.deleteProgram(layP.p);
     },
   };

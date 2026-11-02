@@ -53,8 +53,9 @@ test('the bowel is a picture at rest gathered under the gut, moved by its float 
   assert.match(stage, /out\.set\(L, ok \? \{ groups, at: L === 'bowel' \? bowelDy\(\) : 0, key \} : null\);/);
   assert.match(stage, /if \(!fluidEasing\(\)\) bowelHeld = organG\.bowel\.getAttribute\('transform'\);\n\s+if \(liveOn\(\)\) return \['live', bowelHeld, /);
   // On the GPU: moved by whole device pixels, drawn under the gut's picture, laid with the gut's opacity.
-  assert.match(gl, /const dy = Math\.round\(\(\(u\.dy \|\| 0\) - U0\.at\) \* m\[3\]\), mm = mat\.slice\(\);\n\s+mm\[7\] \+= dy;/);
-  assert.match(gl, /for \(const \[U0, U1, mm\] of under\) drawLayer\(U0, U1, mm, b\); drawLayer\(L0, L1, mat, b\); \}, box, cut\.spec, mul\(m, cut\.m\), w, h, target, cut\.opacity \?\? 1, within\);/);
+  assert.match(gl, /const dy = Math\.round\(\(\(u\.dy \|\| 0\) - U0\.at\) \* m\[3\]\);\n[^\n]*\n\s+mm\.set\(mat\);\n\s+mm\[7\] \+= dy;/);
+  assert.match(gl, /for \(let i = 0; i < nUnder; i\+\+\) drawLayer\(underU0\[i\], underU1\[i\], underMM\[i\], b\);\n\s+drawLayer\(cutL0, cutL1, mat, b\);/);
+  assert.match(gl, /painter\.layMasked\(drawCut, box, cut\.spec, mulTo\(MM, m, cut\.m\), w, h, target, cut\.opacity \?\? 1, within\);/);
 });
 
 // A live organ's ease changes its own box, not the screen: the stack is drawn again only there (the boxes of the ops whose outline,
@@ -64,20 +65,20 @@ test('a live organ that changed is drawn again within its box, and only its cell
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
   const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  assert.match(gl, /setLive\(organs, masks\) \{ liveOrgans = organs \|\| new Map\(\); cuts = masks \|\| new Map\(\); liveVer\+\+; freeCache\(\); watchLive\(\); \}/, 'a live change moves its own version');
-  assert.match(gl, /stale: \(m, cw, ch\) => drawnKey !== keyOf\(m, cw, ch\) \|\| \(!watch && liveNow\(\)\) \|\| \(mvShown && performance\.now\(\) - mvAt >= MOVE_SETTLE_MS\),/);
-  assert.match(gl, /const keyOf = \(m, cw, ch\) => \{ pull\(\); return `\$\{ver\}\|\$\{liveVer\}\|\$\{watch \? pageVer : ''\}\|/);
-  assert.match(gl, /const at = `\$\{ver\}\|\$\{m\.join\(','\)\}\|\$\{cw\}x\$\{ch\}`, same = at === drawnAt && !!painter;/, 'the same view and layers: only what changed');
-  assert.match(gl, /if \(a\[i\]\.ops\[k\]\[0\] !== b\[i\]\.ops\[k\]\[0\]\) \{ add\(a\[i\]\.ops\[k\]\[1\]\); add\(b\[i\]\.ops\[k\]\[1\]\); \}/, "an op's old and new boxes");
-  assert.match(gl, /if \(!whole && !dirty\) \{ endFade\(\); painter\?\.endFrame\(\); exactAt = \{ m: m\.slice\(\), ck \}; return null; \}/, 'nothing changed: nothing drawn');
-  assert.match(gl, /return whole \? true : dirty;/);
-  assert.match(gl, /painter\.paintGroup\(o\.spec, mul\(m, o\.m\), w, h, target, within\)/);
+  assert.match(gl, /setLive\(organs, masks\) \{ liveOrgans = organs \|\| EMPTY_ORGANS; cuts = masks \|\| EMPTY_ORGANS; liveVer\+\+; freeCache\(\); watchLive\(\); \}/, 'a live change moves its own version');
+  assert.match(gl, /stale: \(m, cw, ch\) => !sameKey\(keyOf\(kNow, m, cw, ch\), kDrawn\) \|\| \(!watch && liveNow\(\)\) \|\| \(mvShown && performance\.now\(\) - mvAt >= MOVE_SETTLE_MS\),/);
+  assert.match(gl, /const keyOf = \(k, m, cw, ch\) => \{\n\s+pull\(\);\n\s+setView\(k, ver, m, cw, ch\);\n\s+k\.liveVer = liveVer; k\.page = watch \? pageVer : -1; k\.f = pending\(\) \? performance\.now\(\) : -1; k\.ok = true;/);
+  assert.match(gl, /const same = sameView\(kAt, ver, m, cw, ch\) && !!painter;\n\s+setView\(kAt, ver, m, cw, ch\); kAt\.ok = true;/, 'the same view and layers: only what changed');
+  assert.match(gl, /if \(a\[i\]\.ops\[k\]\[0\] !== b\[i\]\.ops\[k\]\[0\]\) \{ addBox\(a\[i\]\.ops\[k\]\[1\]\); addBox\(b\[i\]\.ops\[k\]\[1\]\); \}/, "an op's old and new boxes");
+  assert.match(gl, /if \(!whole && !dirtyOn\) \{ endFade\(\); painter\?\.endFrame\(\); setExact\(m, ck\); return null; \}/, 'nothing changed: nothing drawn');
+  assert.match(gl, /return whole \? true : DIRTY;/);
+  assert.match(gl, /painter\.paintGroup\(o\.spec, mulTo\(MM, m, o\.m\), w, h, target, within\)/);
   assert.match(gl, /cut\.opacity \?\? 1, within\);/);
   // The painter: every op's box is the one it paints within, so a signature's box covers its pixels.
-  assert.match(paint, /function paintOps\(spec, m, into, within = null, d = 0\) \{ runJob\(\{ frames: \[frameOf\(spec\.ops, m, into, within, d\)\] \}\); \}/);
-  assert.match(paint, /const at = opAt\(op, m\), \{ om, sh, cm, csh, cm2, csh2 \} = at;\n\s+let b = within \? meet\(at\.b, within\) : at\.b;/);
-  assert.match(paint, /for \(const op of spec\.ops\) ops\.push\(\[opSig\(op, m\), opAt\(op, m\)\.b\]\);/);
-  assert.match(paint, /const b = meet\(groupBox\(spec, m\), within \|\| \[0, 0, w, h\]\);/);
+  assert.match(paint, /function paintOps\(spec, m, into, within = null, d = 0\) \{\n\s+PF\.ops = spec\.ops; PF\.m = m; PF\.into = into; PF\.within = within; PF\.d = d; PF\.i = 0;\n\s+PJ\.frames\.length = 0; PJ\.frames\.push\(PF\);\n\s+runJob\(PJ\);/);
+  assert.match(paint, /const at = opAt\(op, m\), \{ om, sh, cm, csh, cm2, csh2 \} = at;\n\s+const b = within \? meetTo\(PB, at\.b, within\) : at\.b;/);
+  assert.match(paint, /for \(const op of spec\.ops\) \{ const s = opSig\(op, m\); put\(s, opAt\(op, m\)\.b\); \}/);
+  assert.match(paint, /const b = meetTo\(LB, groupBox\(spec, m\), win\);/);
   // The composite: the box's cells, not the whole picture, unless the whole stack was drawn.
   assert.match(veins, /if \(r === true\) full = true;\n\s+else if \(r\) \{ dirtCells\(r, m\); dirt = nDirt;/);
   assert.match(veins, /if \(dirt\) \{ gl\.bindVertexArray\(dirtVAO\); gl\.drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, dirt\); \}/);
@@ -103,7 +104,7 @@ test('a pinch reuses the live organs\' meshes: the tolerance moves in powers of 
 // with the same clip is cut to the clip's box, so clearing the clip's box (with the op's own) is the same. (Review item 5.)
 test("a clip's coverage is cleared over its own box, not the canvas", () => {
   const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
-  assert.match(paint, /let sb = newClip \? join\(b, devBox\(csh\.box, cm, 2\)\) : b;\n\s+if \(newClip2\) sb = join\(sb, devBox\(csh2\.box, cm2, 2\)\);\n\s+scissor\(sb\);\n\s+gl\.clearBufferfv\(gl\.COLOR, 0, CLEAR0\);/);
+  assert.match(paint, /let sb = newClip && devBoxTo\(SB2, csh\.box, cm, 2\) \? joinTo\(SB, b, SB2\) : b;\n\s+if \(newClip2 && devBoxTo\(SB2, csh2\.box, cm2, 2\)\) sb = joinTo\(SB, sb, SB2\);\n\s+scissor\(sb\);\n\s+gl\.clearBufferfv\(gl\.COLOR, 0, CLEAR0\);/);
   assert.doesNotMatch(paint, /if \(newClip\) gl\.disable\(gl\.SCISSOR_TEST\); else scissor\(b\);/);
 });
 
@@ -119,12 +120,12 @@ test('the live organs are read once per state; the painter reads the eased value
   // The painter: an op's frame, alpha and clip frame from its element chain's inline settings, else as read; at no opacity no box.
   assert.match(paint, /export function liveOf\(op\) \{/);
   assert.match(paint, /for \(let i = op\.a0 \|\| 0; i < op\.chain\.length; i\+\+\) a \*= liveO\(op\.chain\[i\], CS_O\);/);
-  assert.match(paint, /let b = lv\.alpha > 0 \? devBox\(sh\.box, om, grow\) : null, cm = null, csh = null, cm2 = null, csh2 = null;/);
+  assert.match(paint, /let b = lv\.alpha > 0 && devBoxTo\(BX, sh\.box, om, grow\) \? BX : null, csh = null, csh2 = null;/);
   assert.match(paint, /gl\.uniform1f\(U\.alpha, at\.alpha\);/);
   assert.match(paint, /if \(!\(o > 0\) && !ownO\(el\)\) return;/, 'a part at nothing by its own setting is kept, to show as it eases');
   // The stack asks the painter only after a write to a live group's elements (or, with no MutationObserver, every frame while
   // groups are live), and draws nothing when nothing changed.
-  assert.match(gl, /if \(key === drawnKey && \(watch \|\| !liveNow\(\)\) && !settle\) return null;/);
+  assert.match(gl, /if \(unchanged && \(watch \|\| !liveNow\(\)\) && !settle\) return null;/);
 });
 
 // Review item 3: with live organs the stack no longer describes every op as strings on every blood frame. It watches exactly the
@@ -169,7 +170,7 @@ test('the organ layers are painted on the GPU from their shapes, with no SVG pic
   // Nested groups laid in layers of their own, with their opacity and mask, as the browser lays them.
   assert.match(paint, /const own2 = nest && el !== root && el\.localName === 'g' && \(masked \|\| o < 1\);/);
   // (Last in, first painted: the nested group's shapes into its layer, its mask into the mask layer, then the layer laid over.)
-  assert.match(paint, /job\.frames\.push\(\{ lay: \[g, k, b, at\.alpha, !!op\.mask, f\.into\] \}\);\n\s+if \(op\.mask\) job\.frames\.push\(frameOf\(op\.mask\.ops, at\.mm, k\.fbo, b, f\.d \+ 1\)\);\n\s+job\.frames\.push\(frameOf\(op\.ops, f\.m, g\.fbo, b, f\.d \+ 1\)\);/);
+  assert.match(paint, /job\.frames\.push\(\{ lay: \[g, k, b, at\.alpha, !!op\.mask, f\.into\] \}\);[^\n]*\n\s+if \(op\.mask\) job\.frames\.push\(frameOf\(op\.mask\.ops, at\.mm\.slice\(\), k\.fbo, b, f\.d \+ 1\)\);[^\n]*\n\s+job\.frames\.push\(frameOf\(op\.ops, f\.m, g\.fbo, b, f\.d \+ 1\)\);/);
   // A group painted straight onto the picture only when that is the same picture (no opacity or mask of its own); otherwise in
   // its own layer, laid once whole; either way a few ops a step.
   assert.match(paint, /if \(spec\.mask \|\| specOpacity\(spec\) < 1\) \{\n\s+const b = meet\(groupBox\(spec, m\), \[0, 0, w, h\]\);/);
@@ -210,7 +211,8 @@ test('a clip inside a clip is painted with both (the colon), the outer in the sc
   assert.match(paint, /if \(clip && clip\.outer\) \{ no\('nested clip', el\); return; \}/);
   assert.match(paint, /if \(clip\) cl\.outer = clip;/);
   assert.match(paint, /float c = cv\.r \* \(useClip >= 1 \? cv\.g : 1\.0\) \* \(useClip == 2 \? cv\.b : 1\.0\);/);
-  assert.match(paint, /if \(newClip2\) \{ shape\.fill\(csh2\.mesh, cm2, sz, \[false, false, true, false\]\); job\.ck2 = ck2; \}/);
+  assert.match(paint, /if \(newClip2\) \{ shape\.fill\(csh2\.mesh, cm2, SZ, CH_B\); job\.ck2 = ck2; copy6\(cv2, cm2\); \}/);
+  assert.match(paint, /const CH_R = \[true, false, false, false\], CH_G = \[false, true, false, false\], CH_B = \[false, false, true, false\];/);
   assert.match(paint, /job\.ck = job\.ck2 = null;/);
 });
 
@@ -222,15 +224,15 @@ test('a camera-only frame moves the last exact picture on the GPU instead of pai
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   // Only the camera: the content key leaves the view out, and the base must be of the same content.
-  assert.match(gl, /const contentKey = \(cw, ch\) => `\$\{ver\}\|\$\{liveVer\}\|\$\{pageVer\}\|\$\{cw\}x\$\{ch\}`;/);
+  assert.match(gl, /const contentKey = \(cw, ch\) => \{\n\s+if \(ckVer !== ver \|\| ckLive !== liveVer \|\| ckPage !== pageVer \|\| ckW !== cw \|\| ckH !== ch\) \{\n\s+ckVer = ver; ckLive = liveVer; ckPage = pageVer; ckW = cw; ckH = ch;\n\s+ckStr = `\$\{ver\}\|\$\{liveVer\}\|\$\{pageVer\}\|\$\{cw\}x\$\{ch\}`;/);
   assert.match(gl, /const moveOk = \(ck, cw, ch\) => !!\(moveP && painter && watch && liveNow\(\) && !pending\(\) && w === cw && h === ch && \(base\?\.ck === ck \|\| exactAt\?\.ck === ck\)\);/);
-  assert.match(gl, /if \(key !== drawnKey && moveOk\(ck, cw, ch\)\) \{\n\s+if \(moveFrame\(m, ck, cw, ch\)\) \{ drawnKey = key; return true; \}/);
+  assert.match(gl, /if \(!unchanged && moveOk\(ck, cw, ch\)\) \{\n\s+if \(moveFrame\(m, ck, cw, ch\)\) \{ keepKey\(\); return true; \}/);
   // The moved frame paints no shape: one draw of the move program.
   const mf = gl.slice(gl.indexOf('function moveFrame('), gl.indexOf('  return {\n    /**\n     * A layer\'s raster'));
   assert.ok(mf.length > 200);
   assert.doesNotMatch(mf.replace(/paintStack\(p, null, mvM\.fb, cw, ch, null, null\);/, ''), /paintStack|paintGroup|layMasked/);
   assert.match(mf, /if \(s > base\.s \* MOVE_ZOOM_IN\) return false;/);
-  assert.match(mf, /exactAt = null; drawnAt = ''; mvShown = true;/, 'the next exact render draws the whole');
+  assert.match(mf, /exactAt = null; kAt\.ok = false; mvShown = true;/, 'the next exact render draws the whole');
   // The stage draws on until the exact paint; the overlays' stack (a shared painter) never moves.
   assert.match(gl, /get fading\(\) \{ return fading\(\) \|\| \(mvShown && performance\.now\(\) - mvAt < 4 \* MOVE_SETTLE_MS \+ 500\); \}/);
   assert.match(gl, /export function createOrganStack\(gl, \{ painter: shared = null, moves = !shared \} = \{\}\) \{/);
