@@ -22,6 +22,7 @@ import { createTraceGL, fitPen } from './trace-gl.js?v=a9f5ccfef7';
 import { createStill } from './still-layer.js?v=d5a9373a74';
 import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from './beat-card.js?v=89d9fda241';
 import { VITALS } from './vital-read.js?v=cbba41a6b7';
+import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
 import { shownOr } from './shown.js?v=d456014820';
 const nextFrame = frameFor('pressure-time');
 
@@ -252,10 +253,18 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
 
   // ── Crosshair ─────────────────────────────────────
   let cross = null; // CSS px x within the canvas, or null
-  const setCross = (e) => { const r = cv.getBoundingClientRect(); cross = e.clientX - r.left; draw(); };
+  // (The canvas's left edge, read as a pointer comes onto it or presses, and again between frames after a scroll or a resize, never
+  // in a move.)
+  let cvLeft = null, over = false, leftAsk = 0;
+  function readLeft() { leftAsk = 0; cvLeft = cv.getBoundingClientRect().left; }
+  const leftLater = () => { if (over) { cancelRest(leftAsk); leftAsk = restPass(readLeft); } };
+  addEventListener('scroll', leftLater, { capture: true, passive: true });
+  addEventListener('resize', leftLater, { passive: true });
+  const setCross = (e) => { if (cvLeft == null) return; cross = e.clientX - cvLeft; draw(); };
+  cv.addEventListener('pointerenter', () => { over = true; readLeft(); });
   cv.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' || e.buttons) setCross(e); });
-  cv.addEventListener('pointerdown', (e) => { setCross(e); });
-  for (const ev of ['pointerleave', 'pointercancel']) cv.addEventListener(ev, () => { cross = null; draw(); });
+  cv.addEventListener('pointerdown', (e) => { over = true; readLeft(); setCross(e); });
+  for (const ev of ['pointerleave', 'pointercancel']) cv.addEventListener(ev, () => { over = false; cross = null; draw(); });
   cv.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') { cross = null; draw(); } });
 
   // ── Drawing ───────────────────────────────────────
@@ -305,7 +314,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   let seen = false;
   const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { seen = es[es.length - 1].isIntersecting; wake(); }) : null;
   io?.observe(cv);
-  const live = () => frame?.running && range !== 'days' && (io ? seen : cv.offsetParent) && !document.hidden;
+  const live = () => frame?.running && range !== 'days' && (io ? seen : true) && !document.hidden;
   // (Battery saver or Settings › Figure performance › Motion at 60: the scroll is drawn at that pace, as the figure's steady motion is;
   // otherwise on every frame, as before. tickAt: when the loop last drew.)
   let tickAt = -Infinity;

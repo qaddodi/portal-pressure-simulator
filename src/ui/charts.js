@@ -13,6 +13,7 @@ import { glideMoving } from './idle-keys.js?v=81fbedda6b';
 import { plotFill } from './plot-look.js?v=5037697da7';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
 import { createTraceGL, fitPen } from './trace-gl.js?v=a9f5ccfef7';
+import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
 import { measure } from './glyph-measure.js?v=9f91f3677d';
 const nextFrame = frameFor('charts');
 
@@ -84,7 +85,7 @@ export function createProfile() {
     if (seen && !was && Fraw) { cancelFrame(easeRaf); easeRaf = nextFrame(() => { if (cv.isConnected && shown()) ease(); }); }
   }) : null;
   io?.observe(cv);
-  const shown = () => (seen == null ? !!cv.offsetParent : seen);
+  const shown = () => seen !== false;   // (until the observer's first word, or with none: drawn, never a layout read to find out)
   // (The pressures as shown: the model's beat-filtered ones on the shown state's filter, so the line, its dots and its numbers glide
   // between model frames as the bar and the vessels do; a drift under what the chart prints is taken at once, so a steady model
   // draws nothing. Premium-feel R4.)
@@ -579,16 +580,20 @@ export function createProfile() {
     }
   }
 
+  // (Where the canvas is on the page and its plot's layout, read as a press starts and again between frames after a scroll, never in a drag's move.)
+  let cvRect = null, cvGeo = null, rectAsk = 0;
+  function readRect() { rectAsk = 0; cvRect = cv.getBoundingClientRect(); cvGeo = geometry(); }
+  addEventListener('scroll', () => { if (dragging) { cancelRest(rectAsk); rectAsk = restPass(readRect); } }, { capture: true, passive: true });
   function predictAt(ev) {
-    const r = cv.getBoundingClientRect();
-    const g = geometry();
+    const r = cvRect, g = cvGeo;
+    if (!r || !g) return;
     const px = ev.clientX - r.left, py = ev.clientY - r.top;
     const i = clamp(Math.round((px - g.L) / g.slot - 0.5), 0, g.stations.length - 1);
     const v = clamp((1 - (py - g.T) / (g.hh - g.T - g.B)) * g.maxP, 0, g.maxP);
     predict.values.set(g.stations[i], v);
     draw();
   }
-  cv.addEventListener('pointerdown', (ev) => { if (!predict?.on) return; dragging = true; cv.setPointerCapture(ev.pointerId); predictAt(ev); });
+  cv.addEventListener('pointerdown', (ev) => { if (!predict?.on) return; readRect(); dragging = true; cv.setPointerCapture(ev.pointerId); predictAt(ev); });
   cv.addEventListener('pointermove', (ev) => { if (dragging && predict?.on) predictAt(ev); });
   cv.addEventListener('pointerup', () => { dragging = false; if (predict?.on && predict.values.size >= Math.min(4, geometry().stations.length)) predict.onChange?.(predict.values.size); });
 
