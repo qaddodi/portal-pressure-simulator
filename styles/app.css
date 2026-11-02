@@ -1662,7 +1662,8 @@ button.finding { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .halo circle, .halo text { animation: none; } }
 
 /* Semantic zoom: the lobule layer and the zoom trail */
-.lz { position: absolute; inset: 0; opacity: 0; pointer-events: none; z-index: var(--z-figure); transition: none; touch-action: none; will-change: transform, opacity; }
+.lz { position: absolute; inset: 0; opacity: 0; pointer-events: none; z-index: var(--z-figure); transition: none; touch-action: none; }
+.lz.lz-live, .sv.sv-live { will-change: transform, opacity; }   /* (a layer for the lobule and the sinusoid only while they are shown and moving: lobule-zoom.js setFade, sinusoid-view.js place; ?willchange=0 keeps it always) */
 .lz.on { pointer-events: auto; }
 .lz.lz-hot { cursor: pointer; }
 .lz.lz-drag { cursor: grabbing; }
@@ -1670,7 +1671,7 @@ button.finding { cursor: pointer; }
 .lz.lz-sin { pointer-events: none !important; }
 .lz.lz-sin .lz-leaders { opacity: 0; transition: opacity var(--d-flip) var(--ease); } .lz.lz-sin .lz-labels { opacity: 0; transition: opacity var(--d-flip) var(--ease); }
 /* One level deeper: the sinusoid view (sinusoid-view.js), over the lobule. */
-.sv { --label-k: var(--label-scale, 1); position: absolute; inset: 0; opacity: 0; visibility: hidden; pointer-events: none; z-index: var(--z-figure); touch-action: none; will-change: transform, opacity; }
+.sv { --label-k: var(--label-scale, 1); position: absolute; inset: 0; opacity: 0; visibility: hidden; pointer-events: none; z-index: var(--z-figure); touch-action: none; }
 .sv.on { pointer-events: auto; }
 .sv-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .sv .lz-leaders { transition: opacity var(--d-surface) var(--ease); } .sv .lz-labels { transition: opacity var(--d-surface) var(--ease); }
@@ -4162,7 +4163,8 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 .instrument-workspace.resizing { transition: none; user-select: none; -webkit-user-select: none; }
 /* The Tests card's resize guide: while the divider is dragged this line follows the pointer by a transform (no layout), and the card
    takes its size on release (dock.js, ?dockdrag=0 off). */
-.dock-guide { position: fixed; z-index: 60; pointer-events: none; border-radius: 1px; background: var(--accent); opacity: 0; transition: opacity var(--d-flip) var(--ease); will-change: transform, opacity; }
+.dock-guide { position: fixed; z-index: 60; pointer-events: none; border-radius: 1px; background: var(--accent); opacity: 0; transition: opacity var(--d-flip) var(--ease); }
+.dock-guide.dg-live { will-change: transform, opacity; }   /* (only while the divider is dragged: dock.js; ?willchange=0 keeps it always) */
 .dock-guide.on { opacity: 1; }
 .dock-guide::after { content: ''; position: absolute; left: 50%; top: 50%; width: 42px; height: 4px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--accent); }
 .dock-guide.side::after { width: 4px; height: 44px; }

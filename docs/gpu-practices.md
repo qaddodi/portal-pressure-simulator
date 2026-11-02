@@ -109,6 +109,12 @@ Mobile GPUs, Apple's included, are tile-based: the cost that heats the phone is 
 | Lower resolution before frame rate when hot or in Low Power Mode; lower rate only for things that do not move (idle rest). | Auto quality; idle rest. | Part |
 | Measure on the device: Safari Web Inspector Timelines (rendering frames, JavaScript), Xcode Instruments "Game Performance" / Metal System Trace for GPU time and thermal state on a tethered iPhone [3]. | Headless here is software GL and cannot show heat. | Note |
 
+## 11. Refresh rate: design every ease for 60 Hz
+
+iPhone Safari gives pages a 60 Hz `requestAnimationFrame` unless the user turns off "Prefer Page Rendering Updates near 60fps" in Safari's feature flags, and 30 Hz in Low Power Mode [5][6]. So design every ease to look right at 60 Hz (time-based, never per-frame steps), and budget 16.7 ms a frame with under 4 ms of script. A 120 Hz frame is a bonus, not the target.
+
+Layers (`will-change`) follow the same rule: an element that animates only sometimes gets `will-change` only while it moves, as a class added where the motion starts and removed where it ends (never a per-frame write). The lobule and sinusoid layers (`lz-live`, `sv-live`) and the dock divider guide (`dg-live`) do this; `?willchange=0` keeps them always, as before. Elements that exist only for a motion (`.pg-piece`, `.um-pv-plate`, `.lg-bar-was`, `.fd-m`) or move every frame (`.sp-beam-svg`, the Doppler `.dop-box`) keep it.
+
 ## Sources
 
 1. MDN, "WebGL best practices". https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices

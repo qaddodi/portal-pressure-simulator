@@ -3,12 +3,12 @@
 
 import { startHost, host } from './host.js?v=9eca545da1';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { createStage } from './stage.js?v=3d403a0712';
+import { createStage } from './stage.js?v=c0f5e7204d';
 import { createCreditPlacer } from './credit.js?v=7d2c0afdcc';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { createInspector } from './inspector.js?v=9cacc6228f';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=f443094186';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=cc1af7b215';
 import { setHvpgStage } from './hvpg-proc.js?v=eaea1033c6';
 import { createWhy } from './why.js?v=b73f2c487a';
 import { createTimeline, LAPSES } from './timeline.js?v=20b368e38d';

@@ -34,6 +34,8 @@ import { FADE_MS, fadeAlpha } from './res-fade.js?v=4ffac3ef7f';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
+// ?willchange=0 in the address: the layer keeps will-change always, as before.
+const SV_LAYER = !(typeof location !== 'undefined' && /[?&]willchange=0\b/.test(location.search));
 const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -125,7 +127,7 @@ export function createSinusoidView({ host, before = null }) {
     ln.setAttribute('x1', sx.toFixed(1)); ln.setAttribute('y1', sy.toFixed(1)); ln.setAttribute('x2', tx.toFixed(1)); ln.setAttribute('y2', ty.toFixed(1));
     dot.setAttribute('cx', tx.toFixed(1)); dot.setAttribute('cy', ty.toFixed(1)); dot.setAttribute('r', '1.8');
   }
-  const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, leaders, labels, legend);
+  const el = h('div', { class: SV_LAYER ? 'sv' : 'sv sv-live', 'aria-hidden': 'true' }, canvas, leaders, labels, legend);
   host.insertBefore(el, before);
   const gpu = createSinusoidGL(canvas);
   noteSinusoidSupport(!!gpu);
@@ -913,6 +915,7 @@ export function createSinusoidView({ host, before = null }) {
       shown = opacity; dive = dv;
       el.style.opacity = opacity.toFixed(3);
       el.style.visibility = opacity > 0 ? 'visible' : 'hidden';
+      if (SV_LAYER) el.classList.toggle('sv-live', opacity > 0);   // (its compositor layer only while it is shown)
       open = isOpen;
       el.classList.toggle('on', isOpen);
       el.setAttribute('aria-hidden', String(!isOpen));

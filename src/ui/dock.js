@@ -806,6 +806,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // moves, as before, still sized from what was measured at the start.)
   let drag = null;
   const guide = h('div', { class: 'dock-guide', 'aria-hidden': 'true' });
+  // (The guide has a compositor layer of its own only while the divider is dragged and while it fades out; ?willchange=0: always, as before.)
+  const GUIDE_LAYER = !(typeof location !== 'undefined' && /[?&]willchange=0\b/.test(location.search));
+  let guideLayerT = 0;
+  if (!GUIDE_LAYER) guide.classList.add('dg-live');
   divider.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     const side = isSide(), W = stageWrap.clientWidth, H = stageWrap.clientHeight;
@@ -817,7 +821,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       Object.assign(guide.style, side
         ? { left: `${d.left + d.width / 2 - 1}px`, top: `${c.top}px`, width: '2px', height: `${c.height}px`, transform: '' }
         : { left: `${c.left}px`, top: `${d.top + d.height / 2 - 1}px`, width: `${c.width}px`, height: '2px', transform: '' });
-      guide.classList.add('on');
+      clearTimeout(guideLayerT); guide.classList.add('dg-live', 'on');
     }
     workspace.classList.add('resizing');
     divider.setPointerCapture(e.pointerId);
@@ -832,7 +836,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   });
   for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) divider.addEventListener(ev, () => {
     if (!drag) return;
-    drag = null; guide.classList.remove('on'); workspace.classList.remove('resizing');
+    drag = null; guide.classList.remove('on'); if (GUIDE_LAYER) { clearTimeout(guideLayerT); guideLayerT = setTimeout(() => guide.classList.remove('dg-live'), 700); } workspace.classList.remove('resizing');
     updateSize(); remember(); dispatchEvent(new Event('resize'));
   });
   divider.addEventListener('keydown', (e) => {

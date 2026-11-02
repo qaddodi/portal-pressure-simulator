@@ -41,7 +41,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=36a333d50a';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
-import { createSinusoidView } from './sinusoid-view.js?v=2a7ebb8ed5';
+import { createSinusoidView } from './sinusoid-view.js?v=4e1e4a74a4';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=7710f677e2';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=4ffac3ef7f';
@@ -51,6 +51,8 @@ import { LIGHT } from './light.js?v=f0c4eefb81';
 import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
 import { easeMove, carryRate, carried, cubicBezier, D_SMALL, D_SURFACE } from './ease.js?v=fc509dabe4';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
+// ?willchange=0 in the address: the lobule and sinusoid layers keep will-change always, as before.
+const LZ_LAYER = !(typeof location !== 'undefined' && /[?&]willchange=0\b/.test(location.search));
 const CAM_M2 = !(typeof location !== 'undefined' && /[?&]camease=0\b/.test(location.search));
 const CARRY = !(typeof location !== 'undefined' && /[?&]carry=0\b/.test(location.search));   // (?carry=0: every glide starts from rest, as before)
 const nextFrame = frameFor('lobule-zoom');
@@ -167,7 +169,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const tissueG = h('canvas', { class: 'lz-canvas lz-tissue-gl', 'aria-hidden': 'true', style: { opacity: '0', pointerEvents: 'none' } });
   // (The overlay on the GPU, fx-gl.js: shown in the 2D overlay's place while it draws it, see fxOnGPU.)
   const fxG = h('canvas', { class: 'lz-canvas lz-fx lz-fx-gl', 'aria-hidden': 'true', style: { opacity: '0', pointerEvents: 'none' } });
-  const el = h('div', { class: 'lz', 'aria-hidden': 'true' }, tissue, tissueG, glCv, fx, ...(FX_GPU ? [fxG] : []), leaders, labels);
+  const el = h('div', { class: LZ_LAYER ? 'lz' : 'lz lz-live', 'aria-hidden': 'true' }, tissue, tissueG, glCv, fx, ...(FX_GPU ? [fxG] : []), leaders, labels);
   // The dive's field (below the view): the liver's lobules, few and large, that the camera falls through (those away from the landing lobule fade as it nears).
   const field = h('canvas', { class: 'lz-canvas lz-field', 'aria-hidden': 'true' });
   // The same field drawn on the GPU (field-gl.js), where it can be: the 2D canvas above is then left empty.
@@ -3484,6 +3486,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const was = fade;
       fade = clamp(u, 0, 1);
       el.style.opacity = fade.toFixed(3);
+      if (LZ_LAYER) el.classList.toggle('lz-live', fade > 0);   // (its compositor layer only while it is shown)
       // The tissue first, then its labels and card (and on the way out, those go first).
       applyChrome();
       el.classList.toggle('on', fade > 0.98);
