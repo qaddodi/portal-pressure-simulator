@@ -69,10 +69,10 @@
 
 import { TILE, SCALE, RATE } from './table-marks.js?v=ff3ed0cc47';
 import { HVPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { frameFor } from './frame.js?v=6c8b072dce';
-import { restPass } from './rest-pass.js?v=ab69733794';
+import { frameFor } from './frame.js?v=64dec3a4dd';
+import { restPass } from './rest-pass.js?v=3b9c8725ed';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=a48171b776';
+import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=a9eafadbc8';
 import { airRatio } from './endo-size.js?v=e0a58bf20e';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 const nextFrame = frameFor('tool-curve');
@@ -573,7 +573,7 @@ const ready = new WeakMap();
 const haveOf = (tool, c) => { const p = c?.snap && !overScope(tool) ? keepOf(c.deck).get(curveKey(tool, c)) : null; return p ? ready.get(p) ?? null : null; };
 /** Starts a slide's curve once the deck's states are in, so a curve that runs model days (seconds of work) is ready when its
  *  slide comes up (presenter.js, after the deck's states). */
-export function warmCurve(t, c) { if (t && c) curveWork(t, c)?.catch(() => null); }
+export function warmCurve(t, c) { return t && c ? curveWork(t, c)?.catch(() => null) ?? null : null; }
 
 export function createCurve() {
   const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');

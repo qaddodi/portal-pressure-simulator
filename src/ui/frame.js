@@ -17,7 +17,7 @@
 // its first read, so a page nobody measures has no listener for it.
 
 import { gpuProbe } from './gpu-probe.js?v=625c2c9315';
-import { createFrameRecorder } from './frame-stats.js?v=d41bb17a55';
+import { createFrameRecorder } from './frame-stats.js?v=5cd07c7e9b';
 import { createInputLatency, describeTarget } from './input-latency.js?v=3c0129b426';
 let queue = new Map();   // id -> [tag, cb], in request order
 let current = null;      // the batch running now
@@ -134,14 +134,25 @@ function noteGap(dt) {
   gapRing[gapAt] = dt; gapAt = (gapAt + 1) % gapRing.length; if (gapN < gapRing.length) gapN++;
   if (++hzAt >= 30) { hzAt = 0; hzNow = refreshFrom(Array.from(gapRing.subarray(0, gapN))); if (gapN >= 120) hzMax = Math.max(hzMax, hzNow); }
 }
-/** The refresh the browser offers the page now (Hz; 0 until enough frames have run). */
+/** The cadence the page's frames are observed at now (Hz; 0 until enough frames have run). A diagnostic: never the budget. */
 export const refreshHz = () => hzNow;
 /** The highest refresh seen offered on this page (Hz): the panel can do at least this, so less now is a throttle. */
 export const refreshMaxHz = () => Math.max(hzMax, +globalThis.screen?.refreshRate || 0);
 /** The intervals of the last frames that ran one after another (ms, oldest first). */
 export const recentGaps = () => { const a = Array.from(gapRing.subarray(0, gapN)); return gapN < gapRing.length ? a : [...a.slice(gapAt), ...a.slice(0, gapAt)]; };
-/** One frame's time at the refresh offered (ms): 8.3 at 120 Hz (and until the refresh is known), 16.7 at 60. */
-export const frameBudget = () => 1000 / (hzNow || 120);
+// The target (recs-production-120hz §1, §5; 2 Nov 2026): one fixed rate the engine holds itself to, never the rate it happens to get.
+// A slow stretch of frames is a miss against 120 Hz, not a reason to allow 33 ms a frame: the watchdog, the governor, the tiers and the
+// prep ledger all judge against this interval. refreshHz() stays an observation for the ?perf panel only. ?targethz=144|165|240 for a
+// faster panel (kept for the page's life; any other value is ignored).
+export const TARGET_RATES = [120, 144, 165, 240];
+const TARGET_HZ = (() => {
+  const q = typeof location !== 'undefined' ? +(/[?&]targethz=(\d+)\b/.exec(location.search || '')?.[1] || 0) : 0;
+  return TARGET_RATES.includes(q) ? q : 120;
+})();
+/** The rate the engine targets (Hz): 120 unless ?targethz= names a faster one. Fixed for the page's life. */
+export const targetHz = () => TARGET_HZ;
+/** One frame's time at the target (ms): 8.333 at 120 Hz, whatever cadence the page observes. */
+export const frameBudget = () => 1000 / TARGET_HZ;
 
 // ── The frame-time watchdog (recs P3): a frame's main-thread work is held to its budget ──
 // Locked (the default): once the frame's script has used WATCH_SHARE (70 %) of the budget, the surfaces that do not draw the moving

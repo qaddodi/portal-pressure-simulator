@@ -17,7 +17,7 @@
 // The allowance is REFINE_MS a frame (?refinems=3 in the address tries another).
 
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { createHistogram } from './frame-stats.js?v=d41bb17a55';
+import { createHistogram } from './frame-stats.js?v=5cd07c7e9b';
 
 export const REFINE_MS = 1;
 // A real bound (recs_cgpt R18, 2 Nov 2026): a step that ran past its allowance leaves the overrun as debt, paid back by the frames

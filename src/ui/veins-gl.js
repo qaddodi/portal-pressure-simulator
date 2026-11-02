@@ -36,21 +36,21 @@ import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS } from './blood.js?v=f6c91d8676';
-import { cssRGB } from './util.js?v=5326ad1cb3';
+import { cssRGB } from './util.js?v=271a1dc8c0';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=d72157dbac';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=6e462a9e6c';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { changedRows } from './flow-rows.js?v=59053c0155';
 import { leftAlone } from './quiet.js?v=388052eba8';
 import { uniformCache } from './uniform-cache.js?v=d2bd54b612';
-import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=62b8693f78';
-import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=c6a05b4d08';
-import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=1f8a9dc5e8';
-import { warmFade } from './res-fade-gl.js?v=3cf9d3504d';
+import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=c79638f168';
+import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=662f61f3d8';
+import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=ef399d184f';
+import { warmFade } from './res-fade-gl.js?v=97a8ecbbd0';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 import { rendererVerdict } from './sw-yield.js?v=703c656c2b';
-import { frameCount, framePhase } from './frame.js?v=6c8b072dce';
+import { frameCount, framePhase } from './frame.js?v=64dec3a4dd';
 
 export { binVeins };
 
@@ -3657,7 +3657,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // canvas", 1.8 GB in a 3 s slide change): drawn into the kept picture and copied whole onto the canvas, every pixel was written twice
       // and read once more. The kept picture is then out of date, so the first frame that draws only part of the picture draws it whole,
       // into the kept picture, first. Not with the upscale or the under picture (they lay the kept picture differently). ?direct=0 off.
-      const direct = DIRECT && who !== 'lobule' && !noDirect && !!own && full && !ownStale && !up && !(under && under.on()) && !(replace && replace.on());
+      // (Consecutive whole pictures stay on the canvas: a whole picture needs nothing from the kept one, so a stale kept picture no longer
+      // sends every other whole frame through it (recs 2 Nov, sec. 7: direct, kept, direct, kept). A one-pass frame marks its cells in a
+      // stencil: it goes straight onto the canvas only when the canvas's own buffer has one (recs sec. 4: the kept picture's stencil is
+      // not the canvas's), else it is drawn into the kept picture, which has, and laid from there.)
+      const direct = DIRECT && who !== 'lobule' && !noDirect && !!own && full && !up && !(under && under.on()) && !(replace && replace.on()) && !(fused && !ctxStencil);
       if (own && ownStale && !full) full = true;
       if (full) dirt = 0;
       const fl = look.fluid && fluidRect ? look.fluid : null;
@@ -3799,7 +3803,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         gl.disable(gl.STENCIL_TEST);
         // (The marks are spent: told so, the tile GPU (Apple's, under Safari's Metal) never writes the stencil back to memory at the end of
         // the pass; the next one-pass frame clears it before reading it. See INVALIDATE.)
-        if (INVALIDATE) gl.invalidateFramebuffer(gl.FRAMEBUFFER, [own ? gl.STENCIL_ATTACHMENT : gl.STENCIL]);
+        // (The enum follows the buffer bound, not whether a kept picture exists: the canvas's own takes STENCIL, a framebuffer object
+        // STENCIL_ATTACHMENT.)
+        if (INVALIDATE) gl.invalidateFramebuffer(gl.FRAMEBUFFER, [own && !direct ? gl.STENCIL_ATTACHMENT : gl.STENCIL]);
       } else if (full) {
         UC.i1(U.bloodOnly, 0);
         if (gpuProbe.on) gpuProbe.gauge('blood squares on screen', 'whole picture');

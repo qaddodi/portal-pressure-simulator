@@ -2,7 +2,7 @@
 //
 // The older Adapt to frame rate (stage.js adaptStep, off by default) steps once a move has ended, from a baseline it learns from the
 // move's own quick frames: a move that is slow all through teaches it that slow is normal. This one judges every frame of a move as it
-// runs, against the refresh the browser offers (frame.js refreshHz / frameBudget, the engine's own measure), so a pinch, a glide or a
+// runs, against the fixed target interval (frame.js frameBudget: 8.333 ms at 120 Hz, never the observed cadence), so a pinch, a glide or a
 // dive responds while the hand is still on it.
 // - Platform cadence and the app's work are kept apart: a frame missed its deadline when its interval ran past 1.5 frames; it was
 //   heavy when the app's own script took over 70 % of the frame, or the render graph ran past its envelope (gpu-budget.js, R06).
@@ -15,8 +15,8 @@
 // - Performance mode Quality (frame.js perfMode) never steps down. ?tiers=0: off (Full always, as before).
 // tierLog() keeps the last changes, each with why and the registry's size then. ?perf shows the tier with the budget.
 
-import { watchFrames, frameBudget, perfMode } from './frame.js?v=6c8b072dce';
-import { overBudget as graphOver, budget } from './gpu-budget.js?v=3b3d1eaf36';
+import { watchFrames, frameBudget, perfMode } from './frame.js?v=64dec3a4dd';
+import { overBudget as graphOver, budget } from './gpu-budget.js?v=daaf5ee8a0';
 
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
 export const TIERS_ON = !/[?&]tiers=0\b/.test(SEARCH);

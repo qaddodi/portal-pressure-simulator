@@ -22,8 +22,9 @@ const PHASES = ['early', 'late', 'final'];
 // in it (the page went hidden, was frozen or hidden by pagehide; or the frame says so with `suspended`), never for its length alone.
 // The whole session counts: interval and script times also go into streaming histograms (fixed log buckets, a few hundred counters,
 // nothing kept per frame), so a soak past the raw lists' last `keepFrames` frames still has its p50…p99.9 and worst. The raw lists
-// keep the newest frames, a bounded ring. And next to the 50 ms log, a cadence-relative miss log: a frame whose interval is past
-// 1.5 × the display's cadence (the median of recent intervals) missed round(gap / cadence) − 1 chances to draw.
+// keep the newest frames, a bounded ring. And next to the 50 ms log, a miss log against the fixed target: a frame whose interval is
+// past 1.5 × the target interval (8.333 ms at 120 Hz) missed round(gap / target) − 1 chances to draw; the observed cadence (the median
+// of recent intervals) is kept beside it, never the yardstick.
 export const STATFIX = !(typeof location !== 'undefined' && /[?&]statfix=0\b/.test(location.search || ''));
 let suspendedAt = -Infinity, lifecycle = false;
 // (Listened for from the first frame recorded, not at load: a page nobody records adds no listener.)
@@ -66,22 +67,25 @@ export function createHistogram() {
 /** A histogram's summary from its dump (the raw numbers a page hands the gate). */
 export function histSummary(d) { const h = createHistogram(); h.load(d); return h.summary(); }
 
-/** The cadence-relative miss counter: the display's cadence from recent intervals, and each frame's missed chances. */
-export function createMissLog({ keep = 120, ratio = 1.5 } = {}) {
+/** The miss counter: each frame's missed chances against the fixed target interval (recs-production-120hz §5: a sustained slow
+ * cadence never becomes the new normal), with the observed cadence kept beside it as a diagnostic only. `ratio`: the jitter tolerance,
+ * an interval past 1.5 target frames is a miss. target 0: judged against the observed cadence, the old rule. */
+export function createMissLog({ keep = 120, ratio = 1.5, target = 1000 / 120 } = {}) {
   const recent = [], log = [];
   let cadence = 0, frames = 0, misses = 0, missed = 0, run = 0, longestRun = 0;
   const add = (at, gap) => {
     if (!(gap > 0)) { run = 0; return; }
     frames++;
-    if (cadence && gap > ratio * cadence) {
-      const lost = Math.max(1, Math.round(gap / cadence) - 1);
+    const ref = target || cadence;
+    if (ref && gap > ratio * ref) {
+      const lost = Math.max(1, Math.round(gap / ref) - 1);
       misses++; missed += lost; run += lost; if (run > longestRun) longestRun = run;
-      log.push({ at, gap, cadence, missed: lost }); if (log.length > keep) log.shift();
+      log.push({ at, gap, cadence, target: ref, missed: lost }); if (log.length > keep) log.shift();
     } else run = 0;
     // (The cadence: the median of the last 15 intervals under 50 ms, a long frame not counted toward it.)
     if (gap < 50) { recent.push(gap); if (recent.length > 15) recent.shift(); cadence = [...recent].sort((a, b) => a - b)[recent.length >> 1]; }
   };
-  const summary = () => ({ frames, cadence, misses, missed, longestRun });
+  const summary = () => ({ frames, cadence, target, misses, missed, longestRun });
   const reset = () => { recent.length = 0; log.length = 0; cadence = 0; frames = 0; misses = 0; missed = 0; run = 0; longestRun = 0; };
   return { add, summary, log, reset };
 }

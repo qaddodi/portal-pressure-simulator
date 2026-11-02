@@ -13,14 +13,14 @@
 // once the context is lost, the SVG draws them all, as it always has.
 
 import { glGet, glCap } from './gl-state.js?v=554eb75e6c';
-import { frameFor, cancelFrame } from './frame.js?v=6c8b072dce';
+import { frameFor, cancelFrame } from './frame.js?v=64dec3a4dd';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
-import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=62b8693f78';
+import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=c79638f168';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
-import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=c6a05b4d08';
-import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=e0eecb7402';
-import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=b1a30d90ad';
+import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=662f61f3d8';
+import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=38f26a5836';
+import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=18b4da73fb';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=814746f511';
 
 // (1 Nov 2026, the GPU motion review.) A label's or a leader's fade or colour ease is followed from its animations (label-track.js), and its

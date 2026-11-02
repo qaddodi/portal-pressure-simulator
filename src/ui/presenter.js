@@ -16,12 +16,12 @@
 import { store, replaceParams } from './store.js?v=4ef2a6ffd8';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { glWords } from './gl-words.js?v=6e5661afdf';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=5326ad1cb3';
+import { glWords } from './gl-words.js?v=7e7d1edc47';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=271a1dc8c0';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=b1b536e463';
-import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=ac5c9f7f22';
-import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=a48171b776';
+import { liveText, wordsOf } from './live-text.js?v=b0d265665d';
+import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=e0562f8b0a';
+import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=a9eafadbc8';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
 import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=3c321f5f7f';
@@ -31,40 +31,40 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=332a753e2a';
-import { createTools } from './presenter-tools.js?v=e2c15c8b76';
+import { createHvpgMonitor } from './hvpg-proc.js?v=066c30b39a';
+import { createTools } from './presenter-tools.js?v=91eed20ebf';
 import { openHandout } from './handout.js?v=be99975ab1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js?v=ff3ed0cc47';
-import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=6c8b072dce';
-import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=b1a30d90ad';
-import { restPass, cancelRest } from './rest-pass.js?v=ab69733794';
-import { createSlidePrep, SLIDE_PREP } from './slide-prep.js?v=1775a0c6e1';
+import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=64dec3a4dd';
+import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=18b4da73fb';
+import { restPass, cancelRest } from './rest-pass.js?v=3b9c8725ed';
+import { createSlidePrep, SLIDE_PREP } from './slide-prep.js?v=a31f8e8e7d';
 import { createTxns, SLIDE_TXN } from './slide-txn.js?v=1fcea803eb';
-import { prepareShaders } from './gl-compile.js?v=62b8693f78';
-import { createFigureKey } from './figure-key.js?v=2bc07d9f2d';
+import { prepareShaders } from './gl-compile.js?v=c79638f168';
+import { createFigureKey } from './figure-key.js?v=faff083ee1';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=77fff869d4';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=ca32d1a0d0';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=5d6edb7a1b';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=de58cad72d';
 import { clotWords } from './callout-math.js?v=6ef2901a08';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=c53069a1bf';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=064ce89578';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=6252d9331c';
+import { anchorsOf, roomFor } from './cam-room.js?v=81bbc018b6';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
-import { flowTimeHeight, trailKeys } from './flow-time.js?v=76a080b7fc';
-import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=f1092b8ecf';
+import { flowTimeHeight, trailKeys } from './flow-time.js?v=9259c00230';
+import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=711e327f1e';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=1c7a3c485b';
 import { sheetPanes } from './sheet-glass.js?v=fc8b724c05';
-import { createScopeTile } from './scope-tile.js?v=022d5f5711';
+import { createScopeTile } from './scope-tile.js?v=977adb0da3';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=7513a88c68';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { pageOn, followOf, pageIn } from './card-page.js?v=ebb4448222';
-import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=441a46fbf1';
+import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=253e25f83d';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1048,7 +1048,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' && trailKeys(s.tool), before: s.procedure ? PROCS[s.procedure.kind || s.procedure]?.before : undefined } : {});
   // (With the extra work a deck visuals package asks for at the slide's state, kept with it as st.extra: slide-ext.js stepExtra.)
   const stepOf = (s) => { const x = stepExtra(s); return x ? { ...modelStep(s), ...x } : modelStep(s); };
+  let prepRev = 0;   // (bumped each time a presentation's states are set: the slide preparation's manifests belong to one of these)
   function prepare() {
+    prepRev++;
     const key = deck.mine ? null : deck.id;
     stateOf = []; let last = 0;
     slides.forEach((s, i) => { if (changes(s) || i === 0) last = i; stateOf[i] = last; });
@@ -1082,7 +1084,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         if (key) cache.set(key, { states: mine });
         // (A data-card chart that runs its own points (a curve over model days) starts now, behind the talk, so it is ready by
         // its slide: slide-ext.js tools' warm.)
-        if (states === mine) slides.forEach((s, i) => { const w = EXT.tools[s.tool?.kind]?.warm; if (w) safe(() => w(s.tool, ctxOf(s, i)), null, 'warm'); });
+        // (recs-production-120hz §16: only the working set, the slide shown and its neighbours, not every slide of a long deck at once;
+        // the rest are warmed by the slide preparation as the talk reaches them, its manifests owning them.)
+        if (states === mine) slides.forEach((s, i) => { if (Math.abs(i - want) > 2) return; const w = EXT.tools[s.tool?.kind]?.warm; if (w) safe(() => w(s.tool, ctxOf(s, i)), null, 'warm'); });
         return;
       }
       // The slides could not be computed (most often a page left open across an update): the next try starts a fresh
@@ -1953,10 +1957,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const lastBeat = (i) => beatCount(slides[i]) - 1;
   // (R05: the slide going in and its neighbours prepared as one set ahead of the press; a newer press cancels an older one's jobs.
   // slide-prep.js; ?slideprep=0 off.)
-  const slidePrep = createSlidePrep({ count: () => slides.length, steps: {
+  // (recs-production-120hz §6: the tool's warm is returned, so its completion is awaited; the manifests belong to this deck, this
+  // presentation's states and this look: identity.)
+  const slidePrep = createSlidePrep({ count: () => slides.length, identity: () => `${deck?.id ?? ''}|${slides.length}|${prepRev}|${document.documentElement.dataset.theme || ''}`, steps: {
     state: (i) => stateReady(i),
     glyphs: () => loadGlyphs(),
-    tool: (i) => { const s = slides[i], w = EXT.tools[s?.tool?.kind]?.warm; if (w) safe(() => w(s.tool, ctxOf(s, i)), null, 'warm'); },
+    tool: (i) => { const s = slides[i], w = EXT.tools[s?.tool?.kind]?.warm; return w ? safe(() => w(s.tool, ctxOf(s, i)), null, 'warm') : null; },
     shaders: (ms = 4) => prepareShaders(ms),
   } });
   // (Review pass 2, priority 3: each Next, Back or jump is one transaction, slide-txn.js. Its id supersedes the one before at once: that
@@ -5729,6 +5735,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (cover) coverDown(true);
     stopLapse(); procStop(); cathStop(); abSlow(); liveOff = false; handOn = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
     txn?.end(); txn = null;
+    slidePrep.cancel(); clearTimeout(prepT); prepT = 0;   // (recs §6: the preparation stops with the deck; nothing it started publishes after)
     deck = null; shown = null; entering = null; want = 0; gen++;   // (gen: a slide move still in flight is cut where it is, even if another talk starts before it notices)
     for (const w of waiters) w.res(null);
     waiters = [];

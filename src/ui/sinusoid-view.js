@@ -19,22 +19,22 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=5326ad1cb3';
-import { createSvgGL, svgModel } from './svg-gl.js?v=a48171b776';
-import { pressureColor } from './colormap.js?v=77fff869d4';
+import { h, fmt, clamp, lerp } from './util.js?v=271a1dc8c0';
+import { createSvgGL, svgModel } from './svg-gl.js?v=a9eafadbc8';
+import { pressureColor } from './colormap.js?v=5d6edb7a1b';
 import { isPaused } from './clock.js?v=16aba0e2eb';
 import { store } from './store.js?v=4ef2a6ffd8';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=26766aa4f9';
-import { placeFenDisse } from './fen-place.js?v=d6d7644146';
-import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=6c8b072dce';
+import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=562756ecc2';
+import { placeFenDisse } from './fen-place.js?v=18f303ce7d';
+import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=64dec3a4dd';
 import { softwareGL, softwareYield } from './sw-yield.js?v=703c656c2b';
 import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.js?v=38189f60f5';
-import { FADE_MS, fadeAlpha } from './res-fade.js?v=4d776c5cff';
+import { FADE_MS, fadeAlpha } from './res-fade.js?v=ea6abfab79';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { restPass } from './rest-pass.js?v=ab69733794';
+import { restPass } from './rest-pass.js?v=3b9c8725ed';
 // ?willchange=0 in the address: the layer keeps will-change always, as before.
 const SV_LAYER = !(typeof location !== 'undefined' && /[?&]willchange=0\b/.test(location.search));
 const nextFrame = frameFor('sinusoid-view');

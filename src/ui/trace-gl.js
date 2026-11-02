@@ -16,11 +16,11 @@
 // chart is not drawn until the GPU can draw it (fitCanvas's pen draws nothing; no 2D canvas is drawn on), and it draws again the moment
 // the GPU can (publish). ?tracegl=0 keeps every chart undrawn.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=62b8693f78';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=c79638f168';
 import { canvasSize, fitCanvas, onCanvasSized } from './util.js?v=92114c1315';
-import { sdfAtlas } from './text-gl.js?v=b1a30d90ad';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
-import { notePass, hold } from './gpu-budget.js?v=3b3d1eaf36';
-import { fontOf, measure } from './glyph-measure.js?v=5fc78d0edb';
+import { sdfAtlas } from './text-gl.js?v=18b4da73fb';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
+import { notePass, hold } from './gpu-budget.js?v=daaf5ee8a0';
+import { fontOf, measure } from './glyph-measure.js?v=550f86c98c';
 export { measure };
 const { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
 

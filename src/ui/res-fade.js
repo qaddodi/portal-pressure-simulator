@@ -4,9 +4,9 @@
 // (optional) gives the old picture's transform each frame ([a, b, c, d, e, f], CSS px), so it moves with a view that moves meanwhile
 // (stage.js). A second change while one still fades starts from the mix as it shows, so neither picture jumps. Since 1 Nov the mix is
 // made only on the GPU, inside the canvas's own presents (res-fade-gl.js); the canvas stays shown, so its opacity is never touched.
-import { finalFrameFor, noteDraw } from './frame.js?v=6c8b072dce';
+import { finalFrameFor, noteDraw } from './frame.js?v=64dec3a4dd';
 import { D_SURFACE } from './ease.js?v=7513a88c68';
-import { keepOnGpu } from './res-fade-gl.js?v=3cf9d3504d';
+import { keepOnGpu } from './res-fade-gl.js?v=97a8ecbbd0';
 
 export const FADE_MS = D_SURFACE;
 /** The old picture's weight u of the way through the fade: 1 to 0, smoothstep (no step at either end). */

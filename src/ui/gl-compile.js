@@ -139,6 +139,18 @@ export const PUBLISH_QUIET_MS = 200;
 // slide change finds its programs published before its first frame. ?shaderready=0: publishing at the first draw, as before.
 export const SHADER_READY = !(typeof location !== 'undefined' && /[?&]shaderready=0\b/.test(location.search || ''));
 const waitingPub = new Set();   // { gl, handles, publish, wanted }: started programs not yet published
+// (recs-production-120hz §6/§17: a slide's preparation that found programs still compiling waits for the next one to be published, or
+// to fail, instead of reading a stale boolean; failures are counted, never taken for a publication.)
+const movers = new Set();
+const shaderStats = { published: 0, failed: 0 };
+function moved() { for (const r of [...movers]) r(); movers.clear(); }
+/** Resolves when a waiting program is published or given up on, or after `ms` at most. */
+export function whenShadersMove(ms = 250) {
+  if (!waitingPub.size) return Promise.resolve();
+  return new Promise((res) => { const t = setTimeout(() => { movers.delete(done); res(); }, ms); const done = () => { clearTimeout(t); res(); }; movers.add(done); });
+}
+/** Programs published ahead of their draw, and publications that threw (each left to its first draw, which reports it). */
+export const shaderPrepStats = () => ({ ...shaderStats, waiting: waitingPub.size });
 /** Publishes, ahead of their first draw, every waiting program whose compile is done (asked without waiting), within `budgetMs` of
  *  script. Where the driver cannot say, the status is read here (a controlled preparation step, never a frame). Returns how many wait. */
 export function prepareShaders(budgetMs = 4) {
@@ -150,7 +162,8 @@ export function prepareShaders(budgetMs = 4) {
     try { done = e.gl.isContextLost() || compileDone(e.gl, e.handles); } catch { done = true; }
     if (!done) continue;
     waitingPub.delete(e);
-    try { e.publish(); } catch { /* read at the first draw, as before */ }
+    try { e.publish(); shaderStats.published++; } catch { shaderStats.failed++; /* read at the first draw, as before */ }
+    moved();
   }
   return waitingPub.size;
 }
@@ -170,7 +183,7 @@ export function publishWhenDone(gl, handles, publish, tries = 400, calm = leftAl
   let dead = false;
   const idle = typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 250 }) : (f) => setTimeout(f, 32);
   // (R10: registered while it waits, so a slide's preparation can publish it first; a draw that wanted it lifts the wait for calm.)
-  const entry = { gl, handles, wanted: false, publish: () => { if (dead) return; dead = true; waitingPub.delete(entry); publish(); } };
+  const entry = { gl, handles, wanted: false, publish: () => { if (dead) return; dead = true; waitingPub.delete(entry); try { publish(); } finally { moved(); } } };
   if (SHADER_READY) waitingPub.add(entry);
   const tick = () => {
     if (dead) return;
@@ -178,10 +191,10 @@ export function publishWhenDone(gl, handles, publish, tries = 400, calm = leftAl
     try { done = gl.isContextLost() || compileDone(gl, handles); } catch { done = true; }
     if (done) { if (entry.wanted || calm(PUBLISH_QUIET_MS)) entry.publish(); else idle(tick); }   // (a finished program waits out the gesture; no poll of it is counted)
     else if (--tries > 0) idle(tick);
-    else waitingPub.delete(entry);
+    else { waitingPub.delete(entry); moved(); }
   };
   idle(tick);
-  const stop = () => { dead = true; waitingPub.delete(entry); };
+  const stop = () => { dead = true; if (waitingPub.delete(entry)) moved(); };
   stop.want = () => { entry.wanted = true; };
   return stop;
 }

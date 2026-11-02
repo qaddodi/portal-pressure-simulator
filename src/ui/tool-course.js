@@ -22,9 +22,9 @@
 // These are the model's own speeds, not a patient's: a deck line that quotes them needs a source, or none.
 
 import { TILE, RATE } from './table-marks.js?v=ff3ed0cc47';
-import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js?v=7ab43ce309';
+import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js?v=bc48404363';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { createSvgGL, svgModel } from './svg-gl.js?v=a48171b776';
+import { createSvgGL, svgModel } from './svg-gl.js?v=a9eafadbc8';
 
 const CO_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
 const BRANCH_C = ['--tr-pv', '--tr-hv'];
@@ -219,7 +219,7 @@ function courseWork(t, c, myKey = courseKey(t, c)) {
 const ready = new WeakMap();
 const haveOf = (tool, cx) => { const p = cx?.snap ? keepOf(cx.deck).get(courseKey(tool, cx)) : null; return p ? ready.get(p) ?? null : null; };
 /** Starts a slide's course once the deck's states are in, so it is ready when its slide comes up (presenter.js, after the deck's states). */
-export function warmCourse(t, c) { if (t && c) courseWork(t, c)?.catch(() => null); }
+export function warmCourse(t, c) { return t && c ? courseWork(t, c)?.catch(() => null) ?? null : null; }
 
 export function createCourse() {
   const el = document.createElement('div');

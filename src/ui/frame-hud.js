@@ -1,10 +1,10 @@
 // The frame-time overlay (120 Hz recs, P0; 2 Nov 2026, Mohammad: "need to make this game engine 120hz"). Loaded only with ?perf in
 // the address (main.js), beside the lag readout; ?hud=0 leaves it out. A small panel at the top right that shows, for the last 2 s of
 // frames the app ran:
-//   - the refresh the browser offers the page, the highest seen, and whether the page is held under it (a throttle: Safari's 60 Hz cap
-//     for pages, Low Power Mode's 30, a hidden tab), told by the page's frames, a worker's own frame clock where the browser has one,
-//     and the device;
-//   - frames a second now and the 1 % low (the rate of the slowest 1 % of frames);
+//   - the fixed target (120 Hz, 8.333 ms) and, apart from it, the cadence the page's callbacks are observed at, the highest seen and a
+//     worker's own frame clock where the browser has one. A difference is reported as an observation, cause unclassified: these inputs
+//     cannot tell the browser, the power state, heat or the app's own work apart;
+//   - frames a second now and the p99-interval rate (1000 / the 99th-percentile interval), and the target chances missed;
 //   - frame intervals p50 / p95 / p99 / max, and the main thread's script per frame (p50, p95, max) against the budget;
 //   - each surface's main-thread ms a frame (frame.js totals), largest first;
 //   - the watchdog's mode, the callbacks it carried over and the priority governor's state (what yielded last frame);
@@ -12,9 +12,9 @@
 //     reported; Safari has neither), with the script that took most of it: work outside the scheduler's callbacks shows there too.
 // It reads only the scheduler's own numbers and writes its words once a second, between frames (rest-pass.js), never in a frame. It
 // adds no frame loop of its own: an idle page stays idle (the panel then says so).
-import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, watchdogStats } from './frame.js?v=6c8b072dce';
-import { restPass } from './rest-pass.js?v=ab69733794';
-import { sharedStats } from './trace-gl.js?v=0663c898ba';
+import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watchdogStats } from './frame.js?v=64dec3a4dd';
+import { restPass } from './rest-pass.js?v=3b9c8725ed';
+import { sharedStats } from './trace-gl.js?v=737eea363b';
 
 export const HUD_OFF = (search) => /[?&]hud=0\b/.test(String(search ?? ''));
 const KEEP = 600;
@@ -23,8 +23,10 @@ const KEEP = 600;
 export const pct = (sorted, q) => (sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))] : 0);
 
 /** The numbers the panel shows, from frame intervals and script times (ms). */
+// (Every foreground interval counts, a 2.5 s stall included (recs-production-120hz §5): only the intervals the panel itself marked as
+// spanning a hidden page or a sleep are left out, by the watcher below, before they reach this list.)
 export function hudStats(gaps, scripts) {
-  const g = gaps.filter((d) => d > 0 && d < 1000).sort((a, b) => a - b), s = scripts.slice().sort((a, b) => a - b);
+  const g = gaps.filter((d) => d > 0).sort((a, b) => a - b), s = scripts.slice().sort((a, b) => a - b);
   const mean = g.length ? g.reduce((a, b) => a + b, 0) / g.length : 0;
   return {
     fps: mean ? 1000 / mean : 0, low1: g.length ? 1000 / pct(g, 0.99) : 0,
@@ -33,15 +35,14 @@ export function hudStats(gaps, scripts) {
   };
 }
 
-/** Why the page may be held under the panel's rate, or '' when nothing says it is. */
-export function throttleOf({ hz, maxHz, workerHz, apple, hidden }) {
-  if (hidden) return 'hidden tab: no frames';
-  // (Not the app: nothing in it paces the page's frames (no Battery saver, no 60 Hz cap). Safari halves a page's frames in Low Power Mode,
-  // and when the Mac or the phone runs hot; its workers keep the display's rate, which is how the two are told apart.)
-  if (apple && hz && hz <= 30 && (workerHz >= 2 * hz - 5 || maxHz >= 2 * hz - 5)) return `held at ${hz} Hz by Safari: Low Power Mode is on (Mac: System Settings › Battery › Low Power Mode; iPhone: Settings › Battery), or the device is hot. The app does not pace its frames`;
-  if (workerHz && hz && workerHz > hz * 1.2) return `held at ${hz} Hz (a worker's frames come at ${workerHz} Hz: the browser, Low Power Mode or heat; not the app)`;
-  if (maxHz && hz && hz < maxHz * 0.9) return `held at ${hz} Hz (${maxHz} Hz seen: Low Power Mode, heat or the browser)`;
-  if (apple && hz && hz <= 60) return 'likely Safari\'s 60 Hz cap for pages (Settings › Apps › Safari › Advanced › Feature Flags: turn off "Prefer Page Rendering Updates near 60fps", or use High Refresh)';
+/** What the page's cadence is observed to be against the target and the worker's clock, or '' when nothing differs. Observations
+ * only (recs-production-120hz §5): the inputs cannot tell the browser, the power state, heat or the app's own work apart, so no cause
+ * is named. */
+export function throttleOf({ hz, maxHz, workerHz, target = 120, hidden }) {
+  if (hidden) return 'page hidden: no frames';
+  if (workerHz && hz && workerHz > hz * 1.2) return `page callbacks at ${hz} Hz, worker callbacks at ${workerHz} Hz: cause unclassified`;
+  if (maxHz && hz && hz < maxHz * 0.9) return `page callbacks at ${hz} Hz, ${maxHz} Hz seen earlier: cause unclassified`;
+  if (hz && hz < target * 0.9) return `page callbacks at ${hz} Hz, under the ${target} Hz target: cause unclassified`;
   return '';
 }
 
@@ -58,15 +59,15 @@ export function loafText(e) {
 export function hudText(st, o) {
   const f = (x) => x.toFixed(1);
   const lines = [
-    `${o.hz || '?'} Hz offered${o.maxHz ? ` (max seen ${o.maxHz})` : ''}${o.workerHz ? `, worker ${o.workerHz}` : ''}  budget ${f(o.budget)} ms`,
-    st.n ? `${f(st.fps)} fps  1% low ${f(st.low1)}  frames ${st.n}` : 'idle: no frames (nothing moving)',
+    `target ${o.target || 120} Hz, budget ${(o.budget).toFixed(3)} ms (fixed)  observed ${o.hz || 'unknown'}${o.hz ? ' Hz' : ''}${o.maxHz ? ` (max seen ${o.maxHz})` : ''}${o.workerHz ? `, worker ${o.workerHz}` : ''}`,
+    st.n ? `${f(st.fps)} fps  p99-interval rate ${f(st.low1)}  frames ${st.n}${o.missed != null ? `  missed ${o.missed} of ${st.n} at the target` : ''}` : 'idle: no frames (nothing moving)',
     st.n ? `interval p50 ${f(st.p50)}  p95 ${f(st.p95)}  p99 ${f(st.p99)}  max ${f(st.max)} ms` : '',
     st.n ? `script p50 ${f(st.s50)}  p95 ${f(st.s95)}  max ${f(st.smax)} ms${st.s95 > o.budget ? '  OVER' : ''}` : '',
     o.surfaces.length ? `per frame: ${o.surfaces.map(([k, ms]) => `${k} ${f(ms)}`).join(', ')}` : '',
     o.charts ? `charts: ${o.charts.resizes} buffer resizes, ${o.charts.transfers} pictures handed over (last second)` : '',
     `watchdog ${o.mode}, carried over ${o.shed}${o.gov == null || o.gov < 0 ? '' : `; governor ${['all run', 'P3 yielding', 'P2+P3 yielding'][o.gov]}, ${o.yielded} chart frames yielded, over budget ${o.streak} in a row`}`,
     o.loaf ? `longest frame (10 s): ${o.loaf}` : '',
-    o.throttle ? `throttle: ${o.throttle}` : 'throttle: none seen',
+    o.throttle ? `cadence: ${o.throttle}` : 'cadence: at the target',
   ];
   return lines.filter(Boolean).join('\n');
 }
@@ -88,8 +89,14 @@ export function startFrameHud() {
   if (HUD_OFF(location.search)) return null;
   const gaps = [], scripts = [];
   let last = perf().totals, lastFrames = last.frames, workerHz = 0, idleAt = 0, lastCharts = { ...sharedStats };
+  // (A visibility change is marked as it happens: the one interval that spans it is left out, by that published rule and no other;
+  // a foreground stall of any length stays in.)
+  let hiddenAt = -1;
+  document.addEventListener('visibilitychange', () => { hiddenAt = performance.now(); });
   watchFrames((fr) => {
-    if (fr.gap > 0) { gaps.push(fr.gap); if (gaps.length > KEEP) gaps.shift(); }
+    const spansHidden = hiddenAt >= 0 && hiddenAt >= fr.now - fr.gap - 1;
+    if (spansHidden) hiddenAt = -1;
+    if (fr.gap > 0 && !spansHidden) { gaps.push(fr.gap); if (gaps.length > KEEP) gaps.shift(); }
     scripts.push(fr.script); if (scripts.length > KEEP) scripts.shift();
   });
   // (Long animation frames, kept 10 s; the observer runs off the frame, and the panel reads the longest once a second.)
@@ -106,7 +113,6 @@ export function startFrameHud() {
   el.setAttribute('aria-hidden', 'true');
   el.style.cssText = 'position:fixed;right:max(8px, env(safe-area-inset-right));top:calc(56px + env(safe-area-inset-top));z-index:2147483001;max-width:min(420px, calc(100vw - 16px));padding:6px 8px;border-radius:8px;background:rgb(0 0 0 / .78);color:#fff;font:600 12px/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap;pointer-events:none;contain:content';   // colour-exempt: a measuring panel
   document.body.append(el);
-  const apple = /iP(hone|ad|od)/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
   const write = () => {
     const now = perf().totals, frames = now.frames - lastFrames;
     // (The last 2 s of frames, from the intervals and scripts kept; the surfaces' ms a frame from the totals' change since the last write.)
@@ -118,7 +124,9 @@ export function startFrameHud() {
     const cut = performance.now() - 10000;
     longs = longs.filter((e) => e.startTime + e.duration >= cut);
     const worst = longs.reduce((a, e) => (!a || e.duration > a.duration ? e : a), null);
-    el.textContent = hudText(st, { hz, maxHz, workerHz, budget: frameBudget(), surfaces, gov: w.governor, yielded: w.yielded, streak: w.streak, loaf: loafText(worst), charts: { resizes: sharedStats.resizes - lastCharts.resizes, transfers: sharedStats.transfers - lastCharts.transfers }, mode: w.mode, shed: w.shed, throttle: throttleOf({ hz, maxHz, workerHz, apple, hidden: document.hidden }) });
+    // (Missed target chances: an interval past the target by over half a frame (timestamp jitter) counts each frame it skipped.)
+    const b = frameBudget(), missed = gaps.slice(-k).reduce((n, g) => n + (g > b * 1.5 ? Math.max(1, Math.round(g / b) - 1) : 0), 0);
+    el.textContent = hudText(st, { hz, maxHz, workerHz, target: targetHz(), missed, budget: b, surfaces, gov: w.governor, yielded: w.yielded, streak: w.streak, loaf: loafText(worst), charts: { resizes: sharedStats.resizes - lastCharts.resizes, transfers: sharedStats.transfers - lastCharts.transfers }, mode: w.mode, shed: w.shed, throttle: throttleOf({ hz, maxHz, workerHz, target: targetHz(), hidden: document.hidden }) });
     last = now; lastFrames = now.frames; lastCharts = { ...sharedStats };
   };
   const tick = () => { if (!document.hidden) restPass(write); setTimeout(tick, 1000); };
