@@ -7676,6 +7676,9 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .seg-glide.glide-gpu.glide-follow::before { transition-duration: var(--d-flip); }
 .seg-glide.glide-gpu.glide-still::before { transition: none; }
 :is(.nb-views, .sin-views).vp-glide #viewSeg.seg-glide.glide-gpu::before { transition-duration: var(--vp-ms, var(--d-camera)); transition-timing-function: var(--ease-move); }
+/* While the pill folds (pill-motion.js), the highlight moves on the fold's own clock and curve, from where it was drawn to its new
+   button, landing with it and inside the face throughout (2 Nov, Mohammad: it went to Anatomy first, outside the pill). */
+:is(.nb-views, .sin-views) #viewSeg.vp-fold.seg-glide.glide-gpu:not(.glide-still)::before { transition-duration: var(--d-surface); transition-timing-function: var(--ease-arrive); }
 
 /* A menu's scroll-edge veils on the compositor (scroll-edges.js, ?edgesgpu=0: the variables ease, as above): the variables step and the
    veil's own opacity eases over the same --d-small on --ease-move. */

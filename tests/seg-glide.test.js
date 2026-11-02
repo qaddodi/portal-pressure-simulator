@@ -41,7 +41,7 @@ const control = (cls, picks, widths = [60, 60, 60]) => {
 };
 
 let observer = null, reduced = false;
-globalThis.MutationObserver = class { constructor(cb) { this.cb = cb; observer = this; } observe() {} disconnect() {} };
+globalThis.MutationObserver = class { constructor(cb) { this.cb = cb; observer = this; } observe() {} disconnect() {} takeRecords() { return []; } };
 globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
 globalThis.matchMedia = () => ({ get matches() { return reduced; } });
 globalThis.getComputedStyle = () => ({ left: '0px' });
@@ -150,8 +150,36 @@ test('the stylesheet: every piece rule sits behind .seg-glide, the chosen button
   assert.match(css, /\.um-tab\[aria-selected="true"\]::after \{ opacity: 1; transform: none; \}/);
 });
 
+test('the view pill: a glide whose row moved in its centred home (Sinusoid to Lobule) starts where the piece was drawn on the screen, not a tab or two off', async () => {
+  const ctl = control('seg', 1, [60, 60, 60]);
+  const home = el('div', { cls: ['nb-views'], box: { left: 0, top: 10, width: 384, height: 42 } });
+  ctl.parentElement = home; home.children.push(ctl);
+  const saved = globalThis.getComputedStyle;
+  const h = G.startSegGlide(root([ctl]), '');
+  const px = (k, d) => ctl._style.get(k) ?? d;
+  globalThis.getComputedStyle = (e, pseudo) => pseudo !== '::before' ? { left: '0px' } : ({ left: '0px', top: '0px', get width() { return px('--gw', '0px'); }, get height() { return px('--gh', '0px'); },
+    get translate() { return `${px('--gx', '0px')} ${px('--gy', '0px')}`; }, get scale() { return `${px('--gsx', '1')} ${px('--gsy', '1')}`; } });
+  const seen = [];
+  const set = ctl.style.setProperty; ctl.style.setProperty = (k, v) => { seen.push([k, v, ctl._cls.has('glide-still')]); set(k, v); };
+  try {
+    assert.equal(ctl._style.get('--gx'), '62px', 'on the second button (drawn at 162 px on the screen)');
+    // The row lays out 60 px further left in the same home (it grew about its centre), and the third button, now chosen, sits where the second was.
+    ctl._box = { ...ctl._box, left: 40 };
+    for (const b of ctl.children) b._box = { ...b._box, left: b._box.left - 60 };
+    const [, b, c] = ctl.children;
+    b._attrs['aria-pressed'] = 'false'; c._attrs['aria-pressed'] = 'true';
+    observer.cb([{ type: 'attributes', target: c, attributeName: 'aria-pressed' }]);
+    h.now(ctl);
+    const still = seen.filter((x) => x[2]), moving = seen.filter((x) => !x[2]);
+    assert.equal(still.filter((x) => x[0] === '--gx').at(-1)?.[1], '122px', 'starts at 162 px on the screen, in the moved row\'s own px');
+    assert.equal(moving.filter((x) => x[0] === '--gx').at(-1)?.[1], '122px', 'and ends on the new button: no detour');
+    seen.length = 0; await rest();
+    assert.equal(seen.length, 0, 'placed in the caller\'s task: the rest pass after finds nothing to do');
+  } finally { globalThis.getComputedStyle = saved; ctl.style.setProperty = set; h.stop(); }
+});
+
 test('main.js loads the file once', () => {
-  assert.equal((read('src/ui/main.js').match(/import '\.\/seg-glide\.js/g) || []).length, 1);
+  assert.equal((read('src/ui/main.js').match(/import (?:\{ glideNow \} from )?'\.\/seg-glide\.js/g) || []).length, 1);
 });
 
 test('on the compositor (the default): a change of choice sets the new size at once, starts the piece where it was drawn by its translate and scale, then lets both glide to the new box', async () => {

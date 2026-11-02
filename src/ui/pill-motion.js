@@ -79,10 +79,18 @@ export function coverFade({ l, r, dx0, dx1, o0, o1, e0, e1 }, steps = 16) {
 }
 
 const running = new Set();
+// While a fold plays, the row wears .vp-fold: the highlight (seg-glide.js, the row's ::before)
+// then travels on the fold's clock and curve, so it lands on its button as the button lands, inside the face as it grows or shrinks.
+let folding = null, foldTimer = 0;
+function unmark() {
+  clearTimeout(foldTimer); foldTimer = 0;
+  if (folding) { folding.classList.remove('vp-fold'); folding = null; }
+}
 /** Ends a fold where it stands: its animations dropped (each button at rest) and its ghosts removed. */
 export function stopFold() {
   for (const x of running) { if (x instanceof Element) x.remove(); else x.cancel(); }
   running.clear();
+  unmark();
 }
 
 /** What the pill draws now: its face's width and each button's edges and opacity, in its own px from its centre. */
@@ -113,6 +121,8 @@ export function foldPill(seg, box, before, ms = FOLD_MS) {
   const plan = foldPlan(before.btns, after.btns, order);
   const moves = Math.abs(before.w - after.w) > 0.5 || [...plan.values()].some((p) => p.kind !== 'stay' || Math.abs(p.dx0) > 0.5 || p.o0 < 0.99);
   if (!moves) return;
+  folding = seg; seg.classList.add('vp-fold');   // (app.css gives the highlight --d-surface on --ease-arrive: FOLD_MS, FOLD_EASE)
+  foldTimer = setTimeout(unmark, ms + 60);
   const opt = { duration: ms, easing: FOLD_EASE }, keep = (a) => { running.add(a); a.onfinish = a.oncancel = () => running.delete(a); return a; };
   // (The face's width eased on the compositor: two halves that only translate, face-split.js. The face is centred in the pill: its
   // edges are the pill's centre ± half its width. A face narrower than its two corners takes the new width at once: the pill never is.)

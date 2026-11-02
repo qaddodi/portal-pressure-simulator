@@ -17,6 +17,7 @@
 //   - ?glide=0: this file does nothing, so the page is today's, class for class.
 import { D_FLIP, D_SMALL } from './ease.js?v=7513a88c68';
 import { restPass } from './rest-pass.js?v=442dee98c9';
+import { readBox, readMetric, readStyle } from './layout-snap.js?v=49b358c305';
 
 const SEL = '.seg, .instr-tabs, .um-tabs, .pressure-switch';
 /** ?glide=0 in a page's search string: this file does nothing and the page is today's. */
@@ -41,7 +42,7 @@ export function chosen(ctl) {
  *  counts (the view pill's fold slides its buttons by translateX); a transform that scales or turns is left in. */
 export function shiftNow(btn) {
   if (typeof getComputedStyle !== 'function') return [0, 0];
-  const cs = getComputedStyle(btn);
+  const cs = readStyle(btn);
   let x = 0, y = 0;
   const m = /^matrix(3d)?\(([^)]*)\)$/.exec(String(cs?.transform ?? '').trim()), v = m ? m[2].split(',').map(Number) : null;
   if (v && !m[1] && v.length === 6 && v[0] === 1 && v[1] === 0 && v[2] === 0 && v[3] === 1) { x += v[4]; y += v[5]; }
@@ -61,15 +62,32 @@ export function borderW(cs) {
 /** The button's box in the control's own pixels (from its padding edge, in its scrolled content, where the piece is placed),
  *  whatever scale an ancestor is drawn at, where the button rests; null while either has no box (hidden, or its card not yet open). */
 export function boxIn(ctl, btn) {
-  const c = ctl.getBoundingClientRect(), b = btn.getBoundingClientRect();
-  const w = (typeof getComputedStyle === 'function' && borderW(getComputedStyle(ctl))) || ctl.offsetWidth;
+  const c = readBox(ctl), b = readBox(btn);
+  const w = (typeof getComputedStyle === 'function' && borderW(readStyle(ctl))) || readMetric(ctl, 'offsetWidth');
   if (!c.width || !b.width || !w) return null;
   const k = c.width / w;
   // (Where the button rests, not where a slide of its own draws it now: the view pill's buttons fold in and out by a translate
   // (pill-motion.js), and a box read mid-fold left the piece off its button once the fold ended, as no resize follows a transform:
   // the Lobule pill sat 13 px right of its word on iPhone, 2 Nov 2026.)
   const [dx, dy] = shiftNow(btn);
-  return { x: (b.left - c.left) / k - ctl.clientLeft - dx + (ctl.scrollLeft || 0), y: (b.top - c.top) / k - ctl.clientTop - dy + (ctl.scrollTop || 0), w: b.width / k, h: b.height / k };
+  return { x: (b.left - c.left) / k - readMetric(ctl, 'clientLeft') - dx + (readMetric(ctl, 'scrollLeft') || 0), y: (b.top - c.top) / k - readMetric(ctl, 'clientTop') - dy + (readMetric(ctl, 'scrollTop') || 0), w: b.width / k, h: b.height / k };
+}
+
+// The control's frame: where its padding edge sits in its parent, in its own px, from the parent's top left corner, or from its
+// centre for the view pill's homes, whose glass is centred and which the pill changes between (the pill-motion.js fold and the
+// glide into or out of the sinusoid hold the home's centre still on screen). A glide whose control moved in that frame (the view
+// pill: Sinusoid to Lobule takes it from its two-button home to the four-button one) starts from where the piece was drawn on the
+// screen, not from its old numbers in the moved control: those drew it one or two buttons off (on Anatomy, 2 Nov, Mohammad).
+const CENTRED = '.nb-views, .sin-views';
+export function frameOf(ctl) {
+  const p = ctl.parentElement;
+  if (!p) return null;
+  const c = readBox(ctl), P = readBox(p);
+  const w = (typeof getComputedStyle === 'function' && borderW(readStyle(ctl))) || readMetric(ctl, 'offsetWidth');
+  if (!c?.width || !P?.width || !w) return null;
+  const k = c.width / w, mid = !!p.matches?.(CENTRED);
+  const ax = mid ? P.left + P.width / 2 : P.left, ay = mid ? P.top + P.height / 2 : P.top;
+  return { x: (c.left - ax) / k + (readMetric(ctl, 'clientLeft') || 0), y: (c.top - ay) / k + (readMetric(ctl, 'clientTop') || 0) };
 }
 
 const same = (a, b) => !!a && !!b && Math.abs(a.x - b.x) < .05 && Math.abs(a.y - b.y) < .05 && Math.abs(a.w - b.w) < .05 && Math.abs(a.h - b.h) < .05;
@@ -107,12 +125,14 @@ export function startSegGlide(root = document.body, search = typeof location !==
     const [sx = 1, sy = sx] = String(ps.scale === 'none' ? '' : ps.scale).split(/\s+/).filter(Boolean).map((v) => parseFloat(v));
     return { x: (parseFloat(ps.left) || 0) + tx, y: (parseFloat(ps.top) || 0) + ty, w: (parseFloat(ps.width) || 0) * (Number.isFinite(sx) ? sx : 1), h: (parseFloat(ps.height) || 0) * (Number.isFinite(sy) ? sy : 1) };
   };
-  function put(ctl, box, still) {
+  // (moved: how far the control's frame moved its own origin since the piece was drawn, frameOf, taken off where it was.)
+  function put(ctl, box, still, moved = null) {
     const s = ctl.style;
     if (GPU && !still && !reduce() && ctl.classList.contains('glide-gpu')) {
       // FLIP: the piece's box as drawn now, then its new size set at once (no transition), the translate and scale that draw it where
       // it was, and from the next style pass the translate to its new place and the scale to 1, both transitioned.
-      const ps = getComputedStyle(ctl, '::before'), was = drawnBox(ps);
+      const ps = readStyle(ctl, '::before'), was = drawnBox(ps);
+      if (moved) { was.x += moved.x; was.y += moved.y; }
       ctl.classList.add('glide-still');
       s.setProperty('--gw', `${box.w}px`); s.setProperty('--gh', `${box.h}px`); s.setProperty('--gsx', '1'); s.setProperty('--gsy', '1');
       s.setProperty('--gx', '0px'); s.setProperty('--gy', '0px');
@@ -130,7 +150,7 @@ export function startSegGlide(root = document.body, search = typeof location !==
     if (still) ctl.classList.add('glide-still');
     ctl.classList.add('seg-glide');
     s.setProperty('--gx', `${box.x}px`); s.setProperty('--gy', `${box.y}px`); s.setProperty('--gw', `${box.w}px`); s.setProperty('--gh', `${box.h}px`);
-    if (still) { void getComputedStyle(ctl, '::before').left; ctl.classList.remove('glide-still'); }
+    if (still) { void readStyle(ctl, '::before').left; ctl.classList.remove('glide-still'); }
   }
   function drop(ctl) {
     ctl.classList.remove('seg-glide', 'glide-still', 'glide-follow');
@@ -144,11 +164,13 @@ export function startSegGlide(root = document.body, search = typeof location !==
   function settle(ctl, moved) {
     let st = states.get(ctl);
     if (!ctl.isConnected) { clearTimeout(st?.timer); states.delete(ctl); ro?.unobserve(ctl); return; }
-    if (!st) { st = { btn: null, box: null, until: 0, timer: 0 }; states.set(ctl, st); ro?.observe(ctl); }
+    if (!st) { st = { btn: null, box: null, org: null, until: 0, timer: 0 }; states.set(ctl, st); ro?.observe(ctl); }
     for (const b of ctl.children) if (b.localName === 'button') ro?.observe(b);
     const btn = chosen(ctl), box = btn ? boxIn(ctl, btn) : null;
-    if (!box) { clearTimeout(st.timer); st.btn = null; st.box = null; drop(ctl); return; }
-    const first = !st.box, now = performance.now();
+    if (!box) { clearTimeout(st.timer); st.btn = null; st.box = null; st.org = null; drop(ctl); return; }
+    const first = !st.box, now = performance.now(), org = frameOf(ctl);
+    const shift = st.org && org ? { x: st.org.x - org.x, y: st.org.y - org.y } : null;
+    st.org = org;
     moved = moved && !first && btn !== st.btn;
     if (!moved && st.btn === btn && same(st.box, box)) return;
     st.btn = btn; st.box = box;
@@ -161,10 +183,10 @@ export function startSegGlide(root = document.body, search = typeof location !==
         // The piece fades out where it was, then is placed and fades in (--d-flip each; the stylesheet gives opacity its step).
         ctl.style.setProperty('--go', '0');
         st.timer = setTimeout(() => { if (!ctl.isConnected || states.get(ctl) !== st) return; const b2 = st.btn && boxIn(ctl, st.btn); if (b2) { st.box = b2; put(ctl, b2, true); } ctl.style.setProperty('--go', '1'); }, D_FLIP);
-      } else put(ctl, box, false);
+      } else put(ctl, box, false, shift);
       return;
     }
-    if (now < st.until && !reduce()) { ctl.classList.add('glide-follow'); put(ctl, box, false); return; }
+    if (now < st.until && !reduce()) { ctl.classList.add('glide-follow'); put(ctl, box, false, shift); return; }
     ctl.classList.remove('glide-follow');
     put(ctl, box, true);
   }
@@ -175,7 +197,8 @@ export function startSegGlide(root = document.body, search = typeof location !==
     for (const c of node.querySelectorAll(SEL)) into.add(c);
   };
 
-  const mo = new MutationObserver((records) => {
+  const mo = new MutationObserver((records) => note(records));
+  function note(records) {
     const hit = new Map();   // control -> true when its choice may have changed
     for (const r of records) {
       if (r.type === 'attributes') {
@@ -191,12 +214,26 @@ export function startSegGlide(root = document.body, search = typeof location !==
       }
     }
     for (const [ctl, choice] of hit) queue(ctl, choice);
-  });
+  }
 
   const all = new Set(); gather(root, all);
   for (const c of all) settle(c, false);
   mo.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-pressed', 'aria-selected', 'hidden'] });
-  return { stop() { mo.disconnect(); ro?.disconnect(); for (const [c, s] of states) { clearTimeout(s.timer); drop(c); } states.clear(); } };
+  // (now: one control placed in the caller's task, with what its observers have not yet reported, so the frame the change is drawn
+  // in already has the piece leaving from where it was: a rest pass a frame later let one frame draw the old numbers in the new row.)
+  function now(ctl) {
+    note(mo.takeRecords());
+    if (!queued.has(ctl)) return;
+    const choice = queued.get(ctl);
+    queued.delete(ctl);
+    settle(ctl, choice);
+  }
+  return { now, stop() { mo.disconnect(); ro?.disconnect(); for (const [c, s] of states) { clearTimeout(s.timer); drop(c); } states.clear(); } };
 }
 
-if (typeof document !== 'undefined' && document.body) startSegGlide();
+let live = null;
+/** Places a control's piece now, in the caller's task, right after it changed its buttons (main.js, the view pill: at the tap, where
+ *  the fold has just read the row). Without it the next rest pass does it. */
+export function glideNow(ctl) { if (ctl) live?.now(ctl); }
+
+if (typeof document !== 'undefined' && document.body) live = startSegGlide();

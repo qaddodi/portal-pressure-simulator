@@ -32,7 +32,7 @@ import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js?v=b60
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=09fc291f37';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
 import { morphKey, crossfadeText } from './legend-morph.js?v=25ff961fb2';
-import './seg-glide.js?v=d4f8950764';
+import { glideNow } from './seg-glide.js?v=608e337195';
 import './focus-ring.js?v=3262cead68';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
 import { lookChooser } from './look-chooser.js?v=713764c036';
@@ -60,7 +60,7 @@ import { sizeOf, watchSize, rectsSoon, restTask, flushTask } from './geom.js?v=2
 import { feedbackDiagnostics } from './feedback-diag.js?v=a6fd7380e0';
 import { noteJump } from './display-state.js?v=8d062d39dc';
 import { createIdleRest } from './idle-rest.js?v=4d23822371';
-import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=8b7a9002b0';
+import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=adefe2fd4f';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
 import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=49b358c305';
 import './scroll-edges.js?v=d33400a8da';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
@@ -276,6 +276,8 @@ async function main() {
       pillChange(() => { sinBtn.hidden = sinHide; app.classList.toggle('sin-focus', inSin); }, sinWas !== inSin ? (inSin ? 'in' : 'out') : sinHide ? 'up' : 'down');
     }
     $$('#viewSeg button[data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur)));
+    // (The highlight leaves from where it is drawn in this same task, with the fold's row just read: seg-glide.js glideNow.)
+    glideNow($('#viewSeg'));
     $('#btnSinPlay').hidden = !inSin; $('#zoomIn').disabled = inSin;
     for (const [id, off, on] of [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoomFit', 'Fit the figure to the view', 'Back out to the lobule']]) { $(id).title = inSin ? on : off; $(id).setAttribute('aria-label', inSin ? on : off); }
   };
