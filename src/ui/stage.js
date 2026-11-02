@@ -2399,6 +2399,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A presenter's camera move: the labels ease out as it starts, are not laid out while it runs, and ease
   // back in at their new places once it settles (they never slide across the figure).
   let camMove = false;
+  // The change between the Anatomy and the Circuit fades the labels out as it starts and lays them out once, where it lands, as a
+  // presenter's camera move does (cam-move): each frame of it had carried every label with the moving vessels and solved them all
+  // again at its half, the longest frame of the change (his iPhone, 1 Nov: "going from anatomy to circuit is so laggy").
+  // ?morphlabels=0: they ride along and are solved at the half and the landing, as before.
+  const MORPH_FADE = !/[?&]morphlabels=0\b/.test(location.search);
+  // (The fade is a class on the two label layers themselves (app.css .morph-fade), not on the stage, and the liver label's pane an
+  // opacity, as a ride does it (rideStart): a class on the stage or the pane has a glass read the page again, 70 to 110 ms in the
+  // first frames of the change, headless; an opacity alone it takes as a motion.)
+  let morphFade = false;
+  const morphFadeEls = () => [labelSvg, wrap.querySelector('#labelGl')].filter(Boolean);
+  function morphFadeEnd() {
+    if (!morphFade) return;
+    morphFade = false;
+    labelKey = null;
+    camSettle();
+    nextFrame(() => { if (!morphFade) { for (const e of morphFadeEls()) e.classList.remove('morph-fade'); glass.style.opacity = ''; } });
+  }
   // (Whether the view is moving now: a glide, a pan or a pinch. Boxes kept for the frame's reads are not read again while it is.)
   const viewMoving = () => vtGliding || camMove || wrap.classList.contains('pinch-hide') || wrap.classList.contains('panning');
   // A slow push (opt.drift: a time-lapse's lapse.cam) is not a move of that kind: the labels stay up and ride with the figure, each kept
@@ -2455,7 +2472,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     camMove = true; dpr.carry = false; wrap.classList.add('cam-move');   // (and camSettle lays them out at their new places as the glide lands)
   }
   function camSettle() {
-    if (!camMove) return;
+    if (!camMove || morphFade) return;
     camMove = false; dpr.carry = false;
     rideStop();
     if (F) updateLabels(F);
@@ -9930,7 +9947,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function updateLabels(f, force = false) {
     labelPainted = false;
     // Laid out once the presenter's camera settles (see camSettle), or at once if its glide was cut short.
-    if (camMove) { if (!vtGliding) camSettle(); return; }
+    if (camMove) { if (!vtGliding && !morphFade) camSettle(); return; }
     // (Not while the HVPG catheter hides them (cath-on, after its .25 s fade): its view follows the tip every frame, and every frame
     // of it had laid out, drawn and sent to the GPU labels nobody could see. setCatheter lays them out as it goes. ?cathlabels=1: as before.)
     if (cathHid()) { labelKey = null; return; }
@@ -11923,6 +11940,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
       if (F) update(F); else updateGeometry(true);
+      // (Landed: the labels laid out once, in a task of their own after the landing frame's (it writes every path), then faded in.)
+      if (morph === morphTarget && morphFade) setTimeout(() => { if (morph === morphTarget) morphFadeEnd(); }, 0);
     } else if (widthEasing && F && !stepOrgans() && !stepWidths()) update(F);   // a width still easing to its target: one step a frame (stepWidths: the widths alone, when nothing else changed)
     if (rotU !== rotTarget) {
       rotU = clamp(rotU + Math.sign(rotTarget - rotU) * dt / 0.5, 0, 1);
@@ -12816,12 +12835,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (target === 0) { homeAt = d; fitted = true; }   // back to the anatomy: always its home framing
       else { markCirc(wasOut ? 'whole' : 'focus', d); fitted = true; }   // the circuit opens fitted: a turn of the device refits it
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
+      if (MORPH_FADE && F && !reduceMotion.matches && !(cath.st && !cath.st.keep) && !lobuleOn && !lz?.isOpen()) {
+        rideStop(); morphFade = true; camMove = true; dpr.carry = false;
+        for (const e of morphFadeEls()) e.classList.add('morph-fade');
+        glass.style.opacity = '0';
+      }
     },
     relayout() { refreshCTM(); if (F) updateLabels(F, true); },
     // How often the labels were laid out, skipped or only had their values refreshed, and the time spent (for perf checks).
     labelStats: () => ({ ...stats }),
-    // The change between the views on the GPU (morphFrame): frames drawn from a stretch made ahead, frames binned as before and why,
-    // and how many stretches are ready (for perf checks).
     // How the frames of the changes between the views were drawn (from the stretches made ahead, gpu, or binned there, cpu, and why), for tests.
     morphStats: () => ({ gpu: mt.stats.gpu, cpu: mt.stats.cpu, builds: mt.stats.builds, miss: { ...mt.stats.miss }, ready: (mt.pieces || []).filter((pc) => pc.set).length }),
     // The label slots as solved (key → side and pixel offset from the figure point it names), for tests.

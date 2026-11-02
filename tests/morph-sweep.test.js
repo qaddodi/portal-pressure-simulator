@@ -111,3 +111,17 @@ test('a frame of the change draws from a stretch only once every point, reach an
   // The worker is bundled with the build.
   assert.match(readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8'), /sweep-worker\.js/);
 });
+
+test('the change fades the labels out and lays them out once, where it lands; ?morphlabels=0 keeps them riding', () => {
+  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(stage, /const MORPH_FADE = !\/\[\?&\]morphlabels=0\\b\/\.test\(location\.search\);/);
+  // (No label work on a frame of the change: updateLabels returns at camMove, and nothing settles it before the landing.)
+  assert.match(stage, /if \(camMove\) \{ if \(!vtGliding && !morphFade\) camSettle\(\); return; \}/);
+  assert.match(stage, /function camSettle\(\) \{\n\s*if \(!camMove \|\| morphFade\) return;/);
+  assert.match(stage, /if \(morph === morphTarget && morphFade\) setTimeout\(\(\) => \{ if \(morph === morphTarget\) morphFadeEnd\(\); \}, 0\);/);
+  // (On the label layers, not the stage: a class on the stage has the glasses read the page again.)
+  const sv = stage.slice(stage.indexOf('    setView(v) {'), stage.indexOf('    relayout() {'));
+  assert.ok(sv.includes("e.classList.add('morph-fade')") && !sv.includes("wrap.classList.add('cam-move')"));
+  assert.match(css, /#labels\.morph-fade, #labelGl\.morph-fade \{ opacity: 0; \}/);
+});
