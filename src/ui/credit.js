@@ -10,6 +10,8 @@ import { layoutWatch, PLACED } from './idle-keys.js?v=81fbedda6b';
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the
 // browser last drew, never after the frame's writes.)
 const nextFrame = readFrameFor('credit');
+// (?creditstep=0: the art job reads the page's shapes the moment it starts, as before, even while the art is still being written.)
+const CREDIT_STEP = !(typeof location !== 'undefined' && /[?&]creditstep=0\b/.test(location.search || ''));
 const CREDIT_POLL = typeof location !== 'undefined' && /[?&]creditpoll=1\b/.test(location.search || '');
 
 // Corners in order of preference. A bottom corner rises above whatever covers it (up to the middle of the figure);
@@ -429,9 +431,28 @@ function spreadTest(world, wm, wr, sc, glows, gk, view, pad, done) {
   nextFrame(artStep);
   return PENDING;
 }
+// The shapes' facts are read from the page only once the art has held still for HOLD_STILL ms (a MutationObserver window on the art's own
+// groups, re-armed each time it fires: no per-frame read, no per-frame write). Every read of a shape after a write by the figure made
+// the browser redo style and layout for it, a flush a frame while the art moved (the trace's 2,294 invalidations under artStep, which
+// itself writes nothing); and facts read in the middle of a change were stale at once. After HOLD_MAX it reads anyway, so a
+// figure that never stops moving still lands its look.
+const HOLD_STILL = 100, HOLD_MAX = 600;
+function artHold(j, world) {
+  if (!CREDIT_STEP || j.quiet || j.stage !== 0 || j.list || j.ri) return false;
+  const now = performance.now();
+  if (now - j.at >= HOLD_MAX) { j.quiet = true; return false; }
+  if (j.armed === undefined || artDirty) { j.armed = now; artDirty = false; watchArt(world); return true; }
+  if (now - j.armed < HOLD_STILL) return true;
+  j.quiet = true;
+  return false;
+}
 function artStep() {
   const j = artJob;
   if (!j) return;
+  if (j.stage === 0 && !j.quiet && CREDIT_STEP) {
+    const w = document.getElementById('world');
+    if (w && w === j.world && artHold(j, w)) { setTimeout(() => { if (artJob === j) nextFrame(artStep); }, HOLD_STILL / 2); return; }
+  }
   const world = document.getElementById('world'), wm = world?.getScreenCTM?.(), inv = wm && invert(wm);
   if (world !== j.world || !inv || !world.closest('.stage-view')?.classList.contains('gl-on')) { artJob = null; artDirty = true; j.done?.(); return; }
   const wk = [wm.a, wm.b, wm.c, wm.d, wm.e, wm.f].join();
