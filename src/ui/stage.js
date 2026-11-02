@@ -5815,13 +5815,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     greyClear();
     if (greyFilter) { greyFilter = false; for (const g of [gOrgans, gBackdrop]) g.removeAttribute('filter'); }
   }
+  // (The dim's last key as its parts, not a string built a frame: organDimKey is '' for off or reset, 'on' with these two for a dim.)
+  let organDimD = 0, organDimS = 0;
   function syncOrganDim() {
     if (plateDim == null || reduceMotion.matches) [plateDim, plateSat, netA] = plateTargets();
     const on = !plateOn() && (plateDim < 1 || plateSat < 1);
     const grey = on && plateSat < 1;
-    const key = on ? `${plateDim}|${grey ? plateSat : 1}` : '';
-    if (key === organDimKey) return;
-    organDimKey = key;
+    const sat = grey ? plateSat : 1;
+    if (on ? organDimKey === 'on' && organDimD === plateDim && organDimS === sat : organDimKey === '') return;
+    organDimKey = on ? 'on' : ''; organDimD = plateDim; organDimS = sat;
     organDimA = on ? plateDim : 1; paintOrganAlpha();
     if (grey) greyOn(plateSat); else greyOff();
   }
@@ -5831,14 +5833,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // same curve (easeMove, the quintic), as the SVG organs' filter does when the GPU plate is off (app.css: --d-surface, --ease-move).
   const PLATE_FADE = LENS_FADE;
   let plateFrom = null, plateTo = null, plateT0 = 0;
+  const plateFromBuf = [0, 0, 0], plateToBuf = [0, 0, 0];   // (kept: plateFrom and plateTo point at these while an ease runs)
   function stepPlateEase() {
     if (lensFrom || colEasing) { veinsDirty = true; glowSync = true; }   // (each frame of the crossfade, or of the colours' follow, syncs the vessels, paused too, so it runs to its end)
     if (!spot.on && !plateEasing()) spot.live = false;   // (the spotlight's dim has eased away: the ascites goes back to its own)
     if (!plateEasing()) { plateFrom = null; return; }
     const to = plateTargets(), now = lensNow();
-    if (!plateFrom || to.some((v, i) => v !== plateTo[i])) { plateFrom = [plateDim, plateSat, netA]; plateTo = to; plateT0 = lensFrom && now - lensT0 < 60 ? lensT0 : now; }
+    if (!plateFrom || to[0] !== plateTo[0] || to[1] !== plateTo[1] || to[2] !== plateTo[2]) {
+      plateFromBuf[0] = plateDim; plateFromBuf[1] = plateSat; plateFromBuf[2] = netA; plateFrom = plateFromBuf;
+      plateToBuf[0] = to[0]; plateToBuf[1] = to[1]; plateToBuf[2] = to[2]; plateTo = plateToBuf;
+      plateT0 = lensFrom && now - lensT0 < 60 ? lensT0 : now;
+    }
     const u = easeMove(clamp((now - plateT0) / PLATE_FADE, 0, 1));
-    [plateDim, plateSat, netA] = u >= 1 ? to : plateFrom.map((v, i) => v + (to[i] - v) * u);
+    if (u >= 1) { plateDim = to[0]; plateSat = to[1]; netA = to[2]; }
+    else { plateDim = plateFrom[0] + (to[0] - plateFrom[0]) * u; plateSat = plateFrom[1] + (to[1] - plateFrom[1]) * u; netA = plateFrom[2] + (to[2] - plateFrom[2]) * u; }
     if (u >= 1) plateFrom = null;
     syncPlateLook(); veinsDirty = true;
   }
@@ -5856,6 +5864,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // flow, and, when it closes or is removed, retracted back the way it came. Nothing runs under
   // reduced motion or in the figure view.
   const track = {};
+  // (Each vessel's reveal record, made once here and written in place by revealOf: a reveal starting makes nothing.)
+  for (const x of EV) x.rv = { t0: 0, dur: 0, dir: 1, out: false };
+  const revealOf = (x, t0, dur, dir, out) => { const r = x.rv; r.t0 = t0; r.dur = dur; r.dir = dir; r.out = out; return r; };
   const appEl = document.getElementById('app');
   const quietFx = () => reduceMotion.matches || isImaging();
   // A vessel that opened or closed while the figure was covered draws on or off from that moment, not when it is shown again (followHidden).
@@ -5869,7 +5880,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const open = x.vis && !x.ghost && !x.reveal?.out;
       const was = track[e.id];
       track[e.id] = open;
-      if (was === false && open && canFade(x) && !quiet) setReveal(x, { t0: now, dur: e.kind === 'shunt' ? 900 : 1500, dir: q >= 0 ? 1 : -1 });
+      if (was === false && open && canFade(x) && !quiet) setReveal(x, revealOf(x, now, e.kind === 'shunt' ? 900 : 1500, q >= 0 ? 1 : -1, false));
     }
   }
   // The vessels that come and go with the disease (collaterals, shunts, the epigastric veins that
@@ -5877,7 +5888,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const canFade = (x) => !x.isArt && (x.e.kind === 'collateral' || x.e.kind === 'shunt' || NEEDS_C3.has(x.e.id));
   function startExit(x, f) {
     const q = f.Qf ? f.Qf[EI[x.e.id]] : f.Q[EI[x.e.id]];
-    setReveal(x, { t0: fxAt ?? performance.now(), dur: x.e.kind === 'shunt' ? 700 : 1100, dir: q >= 0 ? 1 : -1, out: true });
+    setReveal(x, revealOf(x, fxAt ?? performance.now(), x.e.kind === 'shunt' ? 700 : 1100, q >= 0 ? 1 : -1, true));
   }
   // When the retraction ends: hide the vessel, or leave the dotted outline of a closed collateral.
   function finishExit(x) {
@@ -5914,9 +5925,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the number its glyphs' outlines (text-gl.js, the font's own), over a knock-out stroke in the page's colour, as the text's
   // paint-order stroke was; both eased here a frame at a time (haloPlay) on the attributes the painter reads at each paint, as the
   // keyframes haloRing and haloText eased them. (Until the outlines are in, the SVG text and its CSS animation.)
-  setTimeout(() => loadGlyphs().catch(() => {}), 3000);   // (the outlines fetched ahead of the first halo, after start-up)
-  const ringD = (r) => `M${-r} 0A${r} ${r} 0 1 0 ${r} 0A${r} ${r} 0 1 0 ${-r} 0Z`;
-  const polysD = (polys) => polys.map((p) => { let d = ''; for (let k = 0; k < p.pts.length; k += 2) d += `${k ? 'L' : 'M'}${p.pts[k].toFixed(2)} ${p.pts[k + 1].toFixed(2)}`; return d + (p.closed ? 'Z' : ''); }).join('');
+  const haloNone = [];   // (no glow: the delta source is set to this, never to a fresh empty list)
+  const haloNoop = () => {};
+  setTimeout(() => loadGlyphs().catch(haloNoop), 3000);   // (the outlines fetched ahead of the first halo, after start-up)
+  // (A circle's path by its radius: the last one kept, so the three halos of a frame share one string, and a still frame builds none.)
+  let ringDr = NaN, ringDs = '';
+  function ringD(r) {
+    if (r !== ringDr) { ringDr = r; ringDs = `M${-r} 0A${r} ${r} 0 1 0 ${r} 0A${r} ${r} 0 1 0 ${-r} 0Z`; }
+    return ringDs;
+  }
+  function polysD(polys) {
+    let d = '';
+    for (let j = 0; j < polys.length; j++) {
+      const p = polys[j];
+      for (let k = 0; k < p.pts.length; k += 2) d += (k ? 'L' : 'M') + p.pts[k].toFixed(2) + ' ' + p.pts[k + 1].toFixed(2);
+      if (p.closed) d += 'Z';
+    }
+    return d;
+  }
   function haloShapes(txt) {
     const look = { weight: 700, size: 16, tnum: true }, w = textPolys(txt, 0, 0, look).w, d = polysD(textPolys(txt, -w / 2, -24, look).polys);
     return [s('path', { class: 'halo-ring', d: ringD(8), 'stroke-opacity': 0 }), s('path', { class: 'halo-knock', d, opacity: 0 }), s('path', { class: 'halo-num', d, opacity: 0 })];
@@ -5924,18 +5950,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (haloRing: r 8 → 26 over 1.5 s, its stroke at nothing, .9 at a fifth, nothing at the end; haloText: in by an eighth, held to 70 %,
   // out by the end; each stretch eased as the keyframes' own --ease.)
   const HALO_MS = 1500, seg = (p, a, b) => easeArrive(Math.min(1, Math.max(0, (p - a) / (b - a))));
-  let haloRaf = 0, haloT0 = 0;
+  let haloRaf = 0, haloT0 = 0, haloScaleK = NaN, haloScaleS = '';
   function haloStep(now) {
     haloRaf = 0;
     const p = Math.min(1, (now - haloT0) / HALO_MS), still = reduceMotion.matches;
     const r = still ? 16 : 8 + 18 * easeArrive(p), so = still ? 1 : p < 0.2 ? 0.9 * seg(p, 0, 0.2) : 0.9 * (1 - seg(p, 0.2, 1));
     const to = still ? 1 : p < 0.12 ? seg(p, 0, 0.12) : p < 0.7 ? 1 : 1 - seg(p, 0.7, 1);
+    // (the strings of this frame, made once and not for each of the halos)
+    const scaleK = +haloK || 1;
+    if (scaleK !== haloScaleK) { haloScaleK = scaleK; haloScaleS = `scale(${scaleK})`; }
+    const rD = ringD(+r.toFixed(2)), soS = so.toFixed(3), toS = to.toFixed(3);
     for (const g of gHalo.children) {
-      const [ring, knock, num] = g.firstChild?.children || [];
+      const ch = g.firstChild?.children;
+      const ring = ch?.[0], knock = ch?.[1], num = ch?.[2];
       if (!ring) continue;
-      g.firstChild.setAttribute('transform', `scale(${+haloK || 1})`);   // (its size on screen at any zoom, as --halo-k sets the SVG's: an attribute the painter reads)
-      ring.setAttribute('d', ringD(+r.toFixed(2))); ring.setAttribute('stroke-opacity', so.toFixed(3));
-      knock.setAttribute('opacity', to.toFixed(3)); num.setAttribute('opacity', to.toFixed(3));
+      g.firstChild.setAttribute('transform', haloScaleS);   // (its size on screen at any zoom, as --halo-k sets the SVG's: an attribute the painter reads)
+      ring.setAttribute('d', rD); ring.setAttribute('stroke-opacity', soS);
+      knock.setAttribute('opacity', toS); num.setAttribute('opacity', toS);
     }
     if (p < 1 && !still && gHalo.childElementCount) haloRaf = drawFrame(haloStep);
   }
@@ -5944,13 +5975,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let resumedAt = 0;
   document.addEventListener('visibilitychange', () => { resumedAt = performance.now(); });
   addEventListener('pageshow', () => { resumedAt = performance.now(); });
+  const haloBaseKept = { P: new Float64Array(NODES.length), t: 0, timer: 0 };
+  const haloBaseFire = () => { if (F && haloBase) { haloBase.t = 0; restPass(haloRest); } };
   store.on('params', () => {
     if (routeCustomShunts(store.get().params)) updateGeometry(true);
     // (A presentation explains its own changes: no halos over its slides.)
     if (!F || quietFx() || store.get().presenting || performance.now() < 5000 || performance.now() - resumedAt < 4000) return;
-    if (!haloBase) haloBase = { P: Float64Array.from(F.P), t: performance.now() };
+    if (!haloBase) {
+      const P = haloBaseKept.P, src = F.P;
+      for (let i = 0; i < P.length; i++) P[i] = src[i];   // (the nodes' pressures as they were: kept, written over, never made)
+      haloBaseKept.t = performance.now(); haloBaseKept.timer = 0; haloBase = haloBaseKept;
+    }
     clearTimeout(haloBase.timer);
-    haloBase.timer = setTimeout(() => { if (F && haloBase) { haloBase.t = 0; restPass(haloRest); } }, 1200);
+    haloBase.timer = setTimeout(haloBaseFire, 1200);
   });
   // Loading a patient (or going back to one) is not a change to explain: no halos, and none left
   // over in a view they no longer mark.
@@ -5958,12 +5995,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (haloBase) clearTimeout(haloBase.timer);
     haloBase = null;
     clearTimeout(haloTimer);
-    gHalo.replaceChildren(); setGlowSrc('delta', []);
+    gHalo.replaceChildren(); setGlowSrc('delta', haloNone);
   }
   store.on('presetId', dropHalos);
   store.on('view', dropHalos);
   // (The halos are built as a task between frames (rest-pass.js), once, 1.2 s after the change: never inside a frame or a timer's own turn.)
   function haloRest() { if (F) stepHalos(F, easeInOut(morph)); }
+  const haloClear = () => gHalo.replaceChildren();
+  const deltaClear = () => setGlowSrc('delta', haloNone);
   function stepHalos(f, t) {
     if (!haloBase || performance.now() - haloBase.t < 1100) return;
     const base = haloBase.P; haloBase = null;
@@ -5998,8 +6037,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return s('g', { class: 'halo ' + (d > 0 ? 'up' : 'down') + (gpu ? ' gl' : ''), transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` }, gpu ? s('g', { class: 'halo-gin', transform: `scale(${+haloK || 1})` }, ...inner) : s('g', { class: 'halo-in' }, ...inner));
     }));
     if (gpu) haloPlay();
-    haloTimer = setTimeout(() => gHalo.replaceChildren(), 1700);
-    clearTimeout(deltaT); deltaT = setTimeout(() => setGlowSrc('delta', []), 1000);
+    haloTimer = setTimeout(haloClear, 1700);
+    clearTimeout(deltaT); deltaT = setTimeout(deltaClear, 1000);
   }
 
   // The organ outlines (selected, hovered) are drawn on the GPU with the figure, so a drag, pinch
@@ -6011,19 +6050,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A selected organ is outlined in its own deep tone (--og-<tone>-3, read through the organ's tone class as --o3), not the
   // accent blue, with a soft glow of the same tone easing out from its edge (G20). Hovered, the same tone without the glow.
   const SEL_GLOW = { reach: 12, alpha: 0.22 };
-  const orgToneCache = new Map();
+  const orgToneCache = new Map();   // theme key → [light: Map(id → rgb), dark: Map(id → rgb)]
   function orgTone(id) {
-    const k = `${id}|${themeKey()}|${darkMQ.matches}`;
-    return orgToneCache.get(k) || olCol;
+    return orgToneCache.get(themeKey())?.[darkMQ.matches ? 1 : 0].get(id) || olCol;
   }
   // (Every organ's tone, read as the stage is made and in the theme's observer (never in a frame): a frame takes the one kept.)
   function orgToneRead() {
-    const t = `${themeKey()}|${matchMedia('(prefers-color-scheme: dark)').matches}`;   // (darkMQ, by its own query: declared further down)
+    const t = themeKey(), dk = matchMedia('(prefers-color-scheme: dark)').matches ? 1 : 0;   // (darkMQ, by its own query: declared further down)
+    let by = orgToneCache.get(t);
+    if (!by) orgToneCache.set(t, by = [new Map(), new Map()]);
     for (const id of Object.keys(organG)) {
-      const k = `${id}|${t}`;
-      if (orgToneCache.has(k)) continue;
+      if (by[dk].has(id)) continue;
       const g = organG[id], v = g && getComputedStyle(g).getPropertyValue('--o3').trim();
-      if (v) orgToneCache.set(k, [...toRGB(v, null)].slice(0, 3));
+      if (v) by[dk].set(id, [...toRGB(v, null)].slice(0, 3));
     }
   }
   orgToneRead();
