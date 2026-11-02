@@ -46,7 +46,8 @@ test('the sideways bar reads evenly spaced to the eye (the glyphs sit inside the
 test('a scrolling menu fades right to its own bottom edge, and Settings above the bar casts no shadow on it', () => {
   assert.match(css, /\.menu\.more::after \{ content: ''; position: sticky; bottom: calc\(-1 \* var\(--fade-pb, 8px\)\);/);
   assert.match(util, /el\.style\.setProperty\('--fade-pb', getComputedStyle\(el\)\.paddingBottom\)/);
-  assert.match(util, /el\.style\.clipPath = barAt == null \? '' : `inset\(-64px -64px \$\{\(-Math\.max\(0, gap\)\)\.toFixed\(2\)\}px -64px\)`/);
+  assert.match(util, /el\.style\.setProperty\('--bar-clip', barAt == null \? '' : `\$\{\(-Math\.max\(0, gap\)\)\.toFixed\(2\)\}px`\)/);
+  assert.match(css, /\.menu\.app-menu \{ clip-path: inset\(-64px -64px var\(--bar-clip, -64px\) -64px\); \}/);
 });
 
 test('the credit keeps off a steady vessel glow', () => {

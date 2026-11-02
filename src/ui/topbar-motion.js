@@ -185,11 +185,11 @@ export function initTopbarMotion() {
         for (const k of LOOK) look[k] = cs[k];
         Object.assign(lent.style, look, { position: 'absolute', zIndex: '-1', left: '0', top: '0', bottom: '0', width: '100%', pointerEvents: 'none', margin: '0', padding: '0' });
         const keep = { position: el.style.position, isolation: el.style.isolation };
-        el.style.setProperty('background', 'transparent', 'important'); el.style.setProperty('box-shadow', 'none', 'important');
+        // (the pill's own glass steps aside while the lent face is its child: `:has(> .tb-face-lent)` in app.css)
         if (cs.position === 'static') el.style.position = 'relative';
         el.style.isolation = 'isolate';
         el.prepend(lent);
-        lent._restore = () => { lent.remove(); el.style.removeProperty('background'); el.style.removeProperty('box-shadow'); el.style.position = keep.position; el.style.isolation = keep.isolation; };
+        lent._restore = () => { lent.remove(); el.style.position = keep.position; el.style.isolation = keep.isolation; };
         face = lent;
       }
     }

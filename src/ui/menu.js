@@ -5,11 +5,11 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=afc4d7c743';
-import { createTraceGL, fitPen } from './trace-gl.js?v=f947659020';
-import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=69859c1b97';
+import { createTraceGL, fitPen } from './trace-gl.js?v=6dada3bf61';
+import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=ef7ccb2dbe';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=43e177633e';
+import { pressureColor } from './colormap.js?v=268adefd01';
 import { ownsSideways, pageGo } from './swipe.js?v=3d5089a9bf';
 import { frameFor } from './frame.js?v=8c8f2f530e';
 import { restPass } from './rest-pass.js?v=75e0aa565d';
@@ -254,15 +254,15 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (H - p < 1 || p < 3 * R + 4) { card.style.height = ''; return; }
     card.style.height = H + 'px'; card._h1 = h1;
     classSoon(card, 'pv-resizing', true);
-    const plate = (top, height, clip, origin) => {
-      const d = h('i', { class: 'um-pv-plate', 'aria-hidden': 'true' });
-      Object.assign(d.style, { top: `${top}px`, height: `${height}px`, clipPath: clip, transformOrigin: origin || '50% 0' });
+    // (each plate's clip and square corners are CSS, by its class: um-pv-plate-foot / -mid; nothing painted is written here)
+    const plate = (top, height, kind) => {
+      const d = h('i', { class: 'um-pv-plate ' + kind, 'aria-hidden': 'true' });
+      Object.assign(d.style, { top: `${top}px`, height: `${height}px`, transformOrigin: '50% 0' });
       card.prepend(d); return d;
     };
-    const foot = plate(0, capH, 'inset(0px -64px -64px -64px)');
-    const mid = plate(p - R, H - p, 'inset(0px -64px 0px -64px)');
-    mid.style.borderRadius = '0'; foot.style.borderTopLeftRadius = foot.style.borderTopRightRadius = '0';
-    const top = plate(0, p, 'none');
+    const foot = plate(0, capH, 'um-pv-plate-foot');
+    const mid = plate(p - R, H - p, 'um-pv-plate-mid');
+    const top = plate(0, p, 'um-pv-plate-top');
     card.prepend(top, mid, foot);   // (top under the middle, the foot over both)
     const t = { duration: D_FLIP, easing: EASE_ARRIVE, fill: 'forwards' };
     const anims = [

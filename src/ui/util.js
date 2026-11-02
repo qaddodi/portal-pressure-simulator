@@ -1,7 +1,7 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=8c8f2f530e';
 import { restPass } from './rest-pass.js?v=75e0aa565d';
-import { glWords } from './gl-words.js?v=8e3ae656eb';
+import { glWords } from './gl-words.js?v=915cb34db5';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7513a88c68';
 import { leaveFromHere } from './menu-leave.js?v=4a15e9707c';
@@ -353,7 +353,8 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   let barAt = null;
   const clipBar = () => {
     const gap = barAt == null ? 0 : barAt - (parseFloat(el.style.top) + el.offsetHeight);
-    el.style.clipPath = barAt == null ? '' : `inset(-64px -64px ${(-Math.max(0, gap)).toFixed(2)}px -64px)`;
+    // (the clip itself is CSS, `.menu.app-menu`; only the gap it reads is written, as a custom property)
+    el.style.setProperty('--bar-clip', barAt == null ? '' : `${(-Math.max(0, gap)).toFixed(2)}px`);   // ('' removes it: the CSS fallback cuts nothing)
   };
   if (el.classList.contains('app-menu')) { const ro = new ResizeObserver(() => { if (!el.isConnected) ro.disconnect(); else clipBar(); }); ro.observe(el); }
   put();
