@@ -103,5 +103,6 @@ test('B04: tiles and the scope picture are disposed, and stopNow does it', () =>
   const s = strip(src('scope-tile.js'));
   assert.match(s, /dispose\(\) \{\s*if \(dead\) return;/);
   assert.match(s, /wordW\.dispose\(\);\s*pen\?\.dispose\(\)/);
-  assert.match(s, /clearTimeout\(timer\)/);
+  assert.match(s, /clearT\(timer\)/);
+  assert.match(s, /queue\.cancel\(\)/);
 });

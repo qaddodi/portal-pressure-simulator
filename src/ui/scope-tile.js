@@ -15,6 +15,22 @@ export const scopeKey = (d) => (Number.isFinite(d) && d >= NONE_MM ? Math.round(
 export const scopeWord = (d) => (!Number.isFinite(d) ? '' : d < NONE_MM ? 'No varices' : d >= LARGE_MM ? 'Large varices' : 'Small varices');
 const nextFrame = frameFor('scope-tile');
 
+/** The picture asked for in a task of its own (the first at once, a change 30 ms on, out of the model frame's own work). The newest ask
+ *  decides: one for the picture already showing cancels a picture still waiting, so a reading that went one way and came back (a
+ *  time-lapse scrubbed back, Back onto the slide) never ends on the picture it left while its word says the other. key(): the picture
+ *  showing; show(k): draws picture k. */
+export function pictureQueue(show, key, { setT = setTimeout, clearT = clearTimeout } = {}) {
+  let timer = 0;
+  return {
+    ask(k) {
+      clearT(timer); timer = 0;
+      if (k === key()) return;
+      timer = setT(() => { timer = 0; show(k); }, key() === null ? 0 : 30);
+    },
+    cancel() { clearT(timer); timer = 0; },
+  };
+}
+
 export function createScopeTile() {
   const top = h('canvas', { class: 'pzs-top', width: RES, height: RES, role: 'img', 'aria-label': 'Endoscopic view of the esophagus' });
   const word = h('span', { class: 'pzs-word' });
@@ -22,7 +38,7 @@ export function createScopeTile() {
   const el = h('div', { class: 'pzs-pic' }, disc, word);
   const wordW = glWords(word);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  let key = null, timer = 0, img = null, ver = 0, swap = false, fadeT0 = -1, asked = 0, dead = false;
+  let key = null, img = null, ver = 0, swap = false, fadeT0 = -1, asked = 0, dead = false;
   const pen = createTraceGL(top, { redraw: () => paint() });
   // (one frame of the picture: the old one under the new while it fades in)
   function paint() {
@@ -47,6 +63,7 @@ export function createScopeTile() {
     key = k;
     paint();
   }
+  const queue = pictureQueue(show, () => key);
   return {
     el,
     /** d: the varix diameter now, in mm. */
@@ -54,15 +71,13 @@ export function createScopeTile() {
       if (dead) return;
       const k = scopeKey(d), w = scopeWord(d);
       wordW.set(w);   // (drawn on the GPU while it changes, gl-words.js)
-      if (k === key) return;
-      clearTimeout(timer);
-      timer = setTimeout(() => show(k), key === null ? 0 : 30);   // (out of the model frame's own work)
+      queue.ask(k);   // (out of the model frame's own work)
     },
     /** Lets go of the picture's GPU drawer, its words, its pending frame and its timer. Idempotent; set() does nothing after. */
     dispose() {
       if (dead) return;
       dead = true;
-      clearTimeout(timer); timer = 0;
+      queue.cancel();
       cancelFrame(asked); asked = 0;
       wordW.dispose();
       pen?.dispose();

@@ -12,6 +12,11 @@ export function pageOn({ up, booting = false, reduce = false, caseCard = false, 
   return !!up && !booting && !reduce && !caseCard && !monKept;
 }
 
+/** Whether a swipe let go is held where the finger left it until the slide's own leave takes it on: the slide is on its way (a change
+ *  begun, whether it has reached run() or still waits for its slide to be prepared) and the card has no leave yet. A swipe let go while
+ *  nothing is changing eases back; one already leaving is thrown on. */
+export const swipeHeld = ({ gone, changing, out }) => !!gone && !!changing && !out;
+
 /** The finger follow: the card follows the whole way, never stopping, its move easing toward max px (k of the finger's travel at
  *  first), and fades with the finger's own travel toward fade over fadeAt px. */
 export const FOLLOW = { k: 0.3, max: 40, fade: 0.45, fadeAt: 160 };

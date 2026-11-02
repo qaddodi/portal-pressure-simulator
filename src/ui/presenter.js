@@ -63,11 +63,11 @@ import { createInsetHold } from './inset-hold.js?v=e34b1d5a56';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=e2988acc94';
 import { sheetPanes } from './sheet-glass.js?v=9bad2768f7';
-import { createScopeTile } from './scope-tile.js?v=b1510a8aca';
+import { createScopeTile } from './scope-tile.js?v=dc1a07a5db';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=7513a88c68';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
-import { pageOn, followOf, pageIn } from './card-page.js?v=a93b87f756';
+import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js?v=a63c512291';
 import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=307757fedb';
 import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js?v=f609965236';
 import { caught } from './caught.js?v=b96b17594a';
@@ -1993,6 +1993,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A zoomed card glides back first: the slide is laid out, and its cards kept or changed, with the card where it rests.)
     if (zoomOn()) { ui.zoom.close().then(() => { paintZoom(); zoomMissed = false; if (deck && !busy) run(); }); return; }   // (the slide lays everything out afresh)
     const goOn = () => {
+      clearTimeout(prepT); prepT = 0;   // (a wait for an earlier press that has not ended: this press is answered now, so nothing is waiting)
       if (busy) outNow();
       if (!busy) run();
     };
@@ -2013,6 +2014,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // change still runs (its landing and after-steps: busy) went to it only once that had finished. The cards that show leave now, on the
   // tap, together, as wordsOut throws them; the change for the new slide takes them from there (card-throw.js throwOutNow). ?instant=0:
   // as before.)
+  // (A slide change is under way from the press, not from run(): a press whose slide is not prepared yet waits in prepHold, up to PREP_MS,
+  // with busy still false. A swipe let go in that wait was taken for a swipe that changes nothing: its card eased back to the middle, and
+  // then, when the wait ended, left from there, and pageForce was dropped so a slide with the same words kept its card. 2 Nov 2026.)
+  const changing = () => busy || !!prepT;
   function outNow() {
     if (!INSTANT || !ui || reduce.matches || (turn !== 'next' && turn !== 'back')) return;
     const showing = (el) => !el.hidden && !!el.childElementCount && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide') && !throwing(el) && !throwPinned(el);
@@ -5041,7 +5046,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const turnsSlide = (dx) => dx < 0
     ? !caseLift && !lapseOn && !procRun && !procWait && !slides[want]?.procedure && beat >= lastBeat(want) && want < slides.length - 1
     : !procRun && !procWait && beat === 0 && want > 0;
-  const pullCan = (dx) => turnsSlide(dx) && !!ui && !busy && !caseCard && !zoomOn() && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
+  const pullCan = (dx) => turnsSlide(dx) && !!ui && !changing() && !caseCard && !zoomOn() && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
   function pullTo(dx) {
     // (The page: the glass and the words follow as one card, transform and opacity only, nothing read from the layout.)
     const f = followOf(dx);
@@ -5064,7 +5069,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       for (const el of els) if (!throwing(el) && !throwPinned(el) && el.style.transform) { const o0 = parseFloat(el.style.opacity); el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); el.animate?.([{ transform: `translateX(${x}px)`, opacity: Number.isFinite(o0) ? o0 : 1 }, { transform: 'none', opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
       return;
     }
-    if (gone && busy && !out) {
+    if (swipeHeld({ gone, changing: changing(), out })) {
       // (The slide is on its way: held here until its leave comes (wordsOut, pageHand); one that never comes eases back.)
       clearTimeout(pageHeld?.t);
       pageHeld = { x, o, els, t: setTimeout(() => { if (pageHeld) pageHand(false); }, 600) };
@@ -5131,7 +5136,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A swipe the card followed: its words leave even when the next slide's are the same, so the card never goes back where it was.)
     if (d && p?.on && Math.abs(p.x) > 0.5) pageForce = true;
     if (d > 0) next(); else if (d < 0) prev();
-    if (!busy) pageForce = false;   // (nothing moved: a stale force never reaches a later change)
+    if (!changing()) pageForce = false;   // (nothing moved: a stale force never reaches a later change)
     if (p) pullLet(!!d);
   }, { passive: true, capture: true });
 
@@ -5705,6 +5710,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     cancelFrame(slip.raf); slip.d = null; slip.h0 = null; stage.followEnd?.();
     clearTimeout(dataHideT); dataHideT = 0; clearTimeout(widthT); widthT = 0; widthOwn = false;   // (a panel width asked in the talk's last 240 ms: never applied after it, setPanelWidth)
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';
+    // (The throws let go of with the cards: a card out of sight, held or pinned at an inline 0, was kept by card-throw.js's sets after its talk,
+    // with the readings' pictures it carried; a talk that began meanwhile saw its move still running on a card that was gone.)
+    if (ui) for (const el of [ui.text, ui.shade, ui.data, ui.panel]) throwStop(el);
+    if (pageHeld) { clearTimeout(pageHeld.t); pageHeld = null; }
+    pull = null; pageForce = false; bare = false; throwDir = ''; throwD = 0;
     dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
     pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.dispose(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null; app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
