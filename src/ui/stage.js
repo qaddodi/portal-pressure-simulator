@@ -83,6 +83,7 @@ import { capDensity } from './pixel-budget.js?v=279a2b54f6';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
 import { CellGrid, geomOf } from './cell-grid.js?v=d92c0d94ae';
+import { restPass } from './rest-pass.js?v=bf0c42ead5';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
 // key pill, the readings' own sizes, the home look's room) are read first in a frame, before anything is written (frame.js readFrame),
@@ -8418,6 +8419,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Frosted pane behind the liver card: a backdrop blur needs an HTML element, and the labels are SVG.
   const glass = h('div', { class: 'lb-glass', 'aria-hidden': 'true', hidden: true });
   labelSvg.before(glass);
+  let glassWant = ['', ''], glassSizing = 0;
+  const sizeGlass = () => { glassSizing = 0; glass.style.width = glassWant[0]; glass.style.height = glassWant[1]; };
   // (Drawn on the GPU under the labels while it can be, as the callouts' glass is: glass-gl.js.)
   const paneGL = veins ? createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), pane: glass, version: () => veins.drawSeq, fresh: () => veins.bloodSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), copy: GLASS_COPY }) : null;
   onFigLab((k) => { if (k === 'glassCache') { glassGL?.redraw(); paneGL?.redraw(); for (const g of cardGLs) g.redraw(); } });
@@ -8836,7 +8839,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelStop(b, !!it.hide);
     if (it.key === 'liver') {
       glass.style.transform = `translate(${(it.x - it.padX).toFixed(1)}px, ${(it.y - it.padY).toFixed(1)}px)`;
-      glass.style.width = `${(it.w + 2 * it.padX).toFixed(1)}px`; glass.style.height = `${(it.h + 2 * it.padY).toFixed(1)}px`;
+      // (its size is laid out in a rest pass between frames, never in the frame that placed it: sizeGlass)
+      const gw = `${(it.w + 2 * it.padX).toFixed(1)}px`, gh = `${(it.h + 2 * it.padY).toFixed(1)}px`;
+      if (gw !== glassWant[0] || gh !== glassWant[1]) { glassWant = [gw, gh]; if (!glassSizing) glassSizing = restPass(sizeGlass); }
     }
     // A turned caption reads bottom to top: its box's top-left is (x, y), and its text runs up from the bottom.
     setA(b.g, 'transform', it.rot ? `translate(${it.x.toFixed(1)} ${(it.y + it.w).toFixed(1)}) rotate(-90)` : `translate(${it.x.toFixed(1)} ${it.y.toFixed(1)})`);

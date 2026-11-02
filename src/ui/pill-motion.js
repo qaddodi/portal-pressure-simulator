@@ -125,7 +125,8 @@ export function foldPill(seg, box, before, ms = FOLD_MS) {
       const at = after.btns.find((e) => e.key === k);
       if (p.kind === 'in' && at) {
         keep(real(k).animate([{ transform: `translateX(${p.dx0.toFixed(2)}px)` }, { transform: 'none' }], opt));
-        keep(real(k).animate(coverFade({ l: at.l, r: at.r, dx0: p.dx0, dx1: 0, o0: p.o0, o1: 1, e0: before.w / 2, e1: after.w / 2 }), opt));
+        const fade = coverFade({ l: at.l, r: at.r, dx0: p.dx0, dx1: 0, o0: p.o0, o1: 1, e0: before.w / 2, e1: after.w / 2 });   // (opacity keyframes only)
+        keep(real(k).animate(fade, opt));
       } else keep(real(k).animate([{ transform: `translateX(${p.dx0.toFixed(2)}px)`, opacity: p.o0 }, { transform: 'none', opacity: 1 }], opt));
       continue;
     }
@@ -137,7 +138,8 @@ export function foldPill(seg, box, before, ms = FOLD_MS) {
     Object.assign(g.style, { position: 'absolute', top: '0', left: `${(was.l - after.seg.l).toFixed(2)}px`, width: `${(was.r - was.l).toFixed(2)}px`, margin: '0', pointerEvents: 'none' });
     seg.append(g); running.add(g);
     g.animate([{ transform: 'none' }, { transform: `translateX(${p.dx1.toFixed(2)}px)` }], { ...opt, fill: 'forwards' });
-    const a = g.animate(coverFade({ l: was.l, r: was.r, dx0: 0, dx1: p.dx1, o0: p.o0, o1: 0, e0: before.w / 2, e1: after.w / 2 }), { ...opt, fill: 'forwards' });
+    const fade = coverFade({ l: was.l, r: was.r, dx0: 0, dx1: p.dx1, o0: p.o0, o1: 0, e0: before.w / 2, e1: after.w / 2 });   // (opacity keyframes only)
+    const a = g.animate(fade, { ...opt, fill: 'forwards' });
     a.onfinish = () => { g.remove(); running.delete(g); };
     running.add(a); a.oncancel = () => running.delete(a);
   }
