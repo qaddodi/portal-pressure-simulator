@@ -3,10 +3,10 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=103e271dec';
+import { store, updateParams } from './store.js?v=afc4d7c743';
 import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone } from './util.js?v=494d080ac6';
 import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
-import { cardFor, normalizeSel } from './actions.js?v=9a7c83e885';
+import { cardFor, normalizeSel } from './actions.js?v=8f9cdc257b';
 import { frameFor, cancelFrame } from './frame.js?v=897b4f8e7e';
 import { restPass, cancelRest } from './rest-pass.js?v=442dee98c9';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';

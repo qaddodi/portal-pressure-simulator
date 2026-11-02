@@ -2,7 +2,7 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js?v=103e271dec';
+import { store, updateParams } from './store.js?v=afc4d7c743';
 import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=494d080ac6';
 import { D_FLIP, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { restPass, cancelRest } from './rest-pass.js?v=442dee98c9';

@@ -11,8 +11,8 @@ import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf,
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
-import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=103e271dec';
-import { fibroReading } from './clock.js?v=5094398a49';
+import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=afc4d7c743';
+import { fibroReading } from './clock.js?v=d6c06e7017';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=494d080ac6';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
@@ -51,7 +51,7 @@ import { measure as measureWords } from './glyph-measure.js?v=e05ea36d6e';
 import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=de4cbf1d4c';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
 import { pathCmds, flattenCmds, polyBox, measurePath, elBox, chainMat } from './shape-gl.js?v=f64e82c981';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=03cd60a3bd';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=c67f85e492';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=5c7241a41a';
 import { createLabelGL } from './label-gl.js?v=a3297b40d2';
 import { createGlassGL } from './glass-gl.js?v=3a4a4c8121';
@@ -235,7 +235,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   for (const q of MQ) q.addEventListener?.('change', watch.touch);
   // (Not the model's frames, nor its parameters: a slide's time-lapse sets them several times a second for minutes, which kept the
   // cards' boxes read ten times a second through the slide; a card that grows with a new reading is seen by its own size watch.)
-  store.on('*', (keys) => { if (keys.some((k) => k !== 'frame' && k !== 'params')) watch.touch(); });
+  store.on('*', (keys) => { if (keys.some((k) => k !== 'frame' && k !== 'params')) watch.touch(); }, { frames: false });
   svg.setAttribute('viewBox', `0 0 ${VIEW.w} ${VIEW.h}`);
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
@@ -2792,7 +2792,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=9e26565ac1').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=57afbe2ada').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, binAway: (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins }) });
@@ -12712,8 +12712,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function wake() { if (!sleeping) return; sleeping = false; clearTimeout(sleepTimer); askAnimate(); }
   stageWake = wake;
-  store.on('*', wake);
-  store.on('*', () => { storeVer++; });
+  // (Not woken by a model frame alone: the frame's own update wakes the figure (update: stageWake), and nothing storeVer keys on is in it.
+  // Rev 2 step 3.)
+  store.on('*', wake, { frames: false });
+  store.on('*', () => { storeVer++; }, { frames: false });
   document.addEventListener('visibilitychange', wake);
   new MutationObserver(wake).observe(wrap, { attributes: true, attributeFilter: ['class'] });
   if (appEl) new MutationObserver(wake).observe(appEl, { attributes: true, attributeFilter: ['class'] });

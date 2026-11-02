@@ -10,7 +10,7 @@ import { frame } from './frame.js?v=897b4f8e7e';
 import { createSvgGL, svgModel } from './svg-gl.js?v=68051dbe93';
 import { h, fmt, clamp } from './util.js?v=494d080ac6';
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { store } from './store.js?v=103e271dec';
+import { store } from './store.js?v=afc4d7c743';
 import { measure } from './glyph-measure.js?v=e05ea36d6e';
 const FLUID_MEASURE = !(typeof location !== 'undefined' && /[?&]fluidmeasure=0\b/.test(location.search || ''));
 

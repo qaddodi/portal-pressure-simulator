@@ -5,24 +5,24 @@ import { motionBudget } from './motion-budget.js?v=ff13b79f5b';   // (first: cou
 import { budget as gpuBudget } from './gpu-budget.js?v=6537238017';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js?v=ca10f41a87';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host } from './host.js?v=b2e74450ff';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=103e271dec';
-import { createStage } from './stage.js?v=8be248695f';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=afc4d7c743';
+import { createStage } from './stage.js?v=8f91f50ef0';
 import { createCreditPlacer } from './credit.js?v=78e5006814';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=41d56de280';
-import { createInspector } from './inspector.js?v=8f821e892e';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=6e1e9dc96f';
-import { setHvpgStage } from './hvpg-proc.js?v=f6d40dfbc2';
+import { createInspector } from './inspector.js?v=313a7291a6';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=10362f6129';
+import { setHvpgStage } from './hvpg-proc.js?v=8bde56fa5e';
 import { createWhy } from './why.js?v=17da229dd1';
-import { createTimeline, LAPSES } from './timeline.js?v=83b0fd69b0';
-import { createCompare } from './compare.js?v=923bfecebb';
-import { createCard } from './card.js?v=415b3c6efa';
-import { createChart } from './chart.js?v=50e29eb0c6';
-import { createMenu } from './menu.js?v=b0a49cb6d0';
-import { caption } from './a11y.js?v=dd13f25707';
+import { createTimeline, LAPSES } from './timeline.js?v=0ce24ba0df';
+import { createCompare } from './compare.js?v=81acb56438';
+import { createCard } from './card.js?v=a5bdc63a0b';
+import { createChart } from './chart.js?v=f631720a9c';
+import { createMenu } from './menu.js?v=28ce777bb5';
+import { caption } from './a11y.js?v=21efa98efe';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=9a7c83e885';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=8f9cdc257b';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=35e98050ba';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
@@ -53,7 +53,7 @@ import { initTopbarMotion } from './topbar-motion.js?v=920d86079f';
 import { ORIGINS } from './blood.js?v=f6c91d8676';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0762d1b820';
-import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
+import { createPaintGate } from './paint-gate.js?v=880ebfff88';
 import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, afterMotion, mayTask, MAY_ON } from './frame.js?v=897b4f8e7e';
 import { restPass } from './rest-pass.js?v=442dee98c9';
 import { sizeOf, watchSize, rectsSoon, restTask, flushTask } from './geom.js?v=254133713c';
@@ -124,8 +124,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=5b33a3b3f8'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=1f5c345177'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=858387cd89'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=267026c9c5'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -136,7 +136,7 @@ async function main() {
   app.dataset.engine = kind;
   document.addEventListener('visibilitychange', () => host.send({ type: 'visibility', visible: !document.hidden }));
   host.send({ type: 'visibility', visible: !document.hidden });
-  host.send({ type: 'ackPaint', on: true });   // (each painted model frame is told back: paintFrame)
+  host.send({ type: 'ackPaint', on: true });   // (each model frame is told back as it is taken in: ingestFrame)
   bindParamSender((params, settle) => host.send({ type: 'setParams', params, settle }));
 
   // Both asked at once: one round trip to the engine before any UI, not two.
@@ -212,7 +212,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=8b565ed9cf'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=831d0f7c26'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -220,7 +220,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=e73c2d3391'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=a2860a6e86'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -453,6 +453,9 @@ function ingestFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id) && !(hid.has('COLL_*') && e.id.startsWith('COLL_'))) : f.events; if (ev.length) timeline.addEvents(ev); }
   dock?.ingest(f);   // every frame's samples, even one that is not painted
+  // (Rev 2 step 3: the worker is told a frame is taken in as it is ingested, in the scheduler's frame, not once it is painted: a page that
+  // paints late no longer holds the model's next frame back, and the gate paints only the newest anyway.)
+  host?.send({ type: 'painted' });
 }
 // R17: frames for a hidden consumer are kept, not fanned out to it; it takes the newest one the moment it shows.
 const SEEN_ONLY = !/[?&]seenonly=0\b/.test(location.search);
@@ -468,11 +471,10 @@ function watchInspectorSeen() {
   inspSeen = new MutationObserver(inspectorSeen);
   inspSeen.observe(app, { attributes: true, attributeFilter: ['class'] });
 }
-// (Plan §3.2: the worker builds its next clock frame only once this one is painted (worker-core.js ackPaint).)
+// (Plan §3.2: the worker builds its next clock frame only once this one is taken in (worker-core.js ackPaint; ingestFrame, rev 2 step 3).)
 let frameNext = null;
 const storeFrame = () => { const f = frameNext; frameNext = null; store.setFrame(f); };
 function paintFrame(f) {
-  host?.send({ type: 'painted' });
   watchInspectorSeen();
   const now = performance.now();
   if (jumpSeen) { jumpSeen = false; noteJump(); }

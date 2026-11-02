@@ -10,7 +10,8 @@ test('the idle loop looks again once a second and keys the blood setting on the 
   assert.match(st, /function sleep\(\) \{\s+sleeping = true; clearTimeout\(sleepTimer\); sleepTimer = setTimeout\(wake, 1000\);/);
   assert.match(st, /if \(still && bloodKeyVer !== storeVer\) \{ bloodKey = JSON\.stringify\(st\.blood\); bloodKeyVer = storeVer; \}/);
   assert.doesNotMatch(st, /\$\{JSON\.stringify\(st\.blood\)\}/);
-  assert.match(st, /store\.on\('\*', \(\) => \{ storeVer\+\+; \}\);/);
+  // (rev 2 step 3: a model frame alone does not bump it; nothing it keys on is in the frame)
+  assert.match(st, /store\.on\('\*', \(\) => \{ storeVer\+\+; \}, \{ frames: false \}\);/);
 });
 
 test('organ pictures that land outside a frame wake the loop', () => {

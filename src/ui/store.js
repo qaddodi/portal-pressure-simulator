@@ -50,17 +50,20 @@ export const shownVel = new Map();
 // out: a reader that follows the frame takes it by itself (its identity changes with every model frame).
 let rev = 0;
 const FRAME_KEYS = Object.freeze(['frame']);
+const REST = Symbol('rest');   // ('*' listeners that a model frame alone does not wake)
 export const store = {
   get: () => state,
   /** Bumped by every set() that changes something besides `frame` (a camera move never sets the store). */
   get rev() { return rev; },
   set(patch) {
     const keys = Object.keys(patch);
-    if (keys.some((k) => k !== 'frame')) rev++;
+    const rest = keys.some((k) => k !== 'frame');
+    if (rest) rev++;
     Object.assign(state, patch);
     for (const k of keys) { const l = listeners.get(k); if (l) for (let i = 0; i < l.length; i++) l[i](state[k], state); }
     const any = listeners.get('*');
     if (any) for (let i = 0; i < any.length; i++) any[i](keys, state);
+    if (rest && keys.some((k) => k !== 'frame')) { const r = listeners.get(REST); if (r) for (let i = 0; i < r.length; i++) r[i](keys, state); }
   },
   /** A model frame alone (the common set, several a second): the same as set({ frame: f }) without a patch, a key list or a
    *  closure made for it (plan "Holding 120 Hz" rev 2 step 3). The '*' listeners get one frozen ['frame']. */
@@ -71,7 +74,10 @@ export const store = {
     const any = listeners.get('*');
     if (any) for (let i = 0; i < any.length; i++) any[i](FRAME_KEYS, state);
   },
-  on(key, fn) {
+  /** `key` '*' hears every set; with { frames: false } it is not woken by a model frame alone (setFrame, or a set of `frame` only):
+   *  a listener of the rest of the state (rev 2 step 3: the store wakes only the listeners of what changed). */
+  on(key, fn, { frames = true } = {}) {
+    if (key === '*' && !frames) key = REST;
     if (!listeners.has(key)) listeners.set(key, []);
     listeners.get(key).push(fn);
     return () => listeners.set(key, listeners.get(key).filter((f) => f !== fn));
