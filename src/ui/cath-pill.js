@@ -30,7 +30,7 @@ export function placePills({ pills, W, top, lim, blockers = [] }) {
         let hit = off * p.w;
         for (const r of blockers) hit += overlap(b, r, 6);
         // Cost: anything covered first; then leaving the side and offset it has (no move without a reason); then its preferred side, near centre.
-        const kept = p.was ? (p.was.above === above ? 0 : 40) + Math.abs(p.was.dx - dx) * 0.5 : 0;
+        const kept = p.was ? (p.was.above === above ? 0 : 40) + Math.abs(p.was.dx - dx) * 3 : 0;   // (a placed reading moves least: the new one makes the room)
         out.push({ above, dx, b, hit, c: (above === p.prefer ? 0 : 20) + Math.abs(dx) * 0.3 + kept });
       }
     }
@@ -45,4 +45,20 @@ export function placePills({ pills, W, top, lim, blockers = [] }) {
     if (!best || c < best.c) best = { c, r: [a, b] };
   }
   return best.r.map((o) => ({ above: o.above, dx: o.dx }));
+}
+
+/**
+ * Whether the placements the readings already have (pills[i].was) still keep them clear of the cards, the free band's edges, the
+ * stage's sides and each other, with a smaller margin than placePills leaves, so a reading near a card's edge is not moved again
+ * and again. Only when this is false are they placed afresh (a reading never moves for no reason).
+ */
+export function pillsClear({ pills, W, top, lim, blockers = [] }) {
+  const bs = pills.map((p) => (p.was ? pillBox(p.x, p.y, p.w, p.h, p.was.above, p.was.dx) : null));
+  if (bs.some((b) => !b)) return false;
+  for (const b of bs) {
+    if (b.y0 < top - 4 || b.y1 > lim + 4 || b.x0 < 4 || b.x1 > W - 4) return false;
+    for (const r of blockers) if (overlap(b, r, 0) > 0) return false;
+  }
+  for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) if (overlap(bs[i], bs[j], 2) > 0) return false;
+  return true;
 }

@@ -2,7 +2,7 @@
 // the WHVP reading hung below its point onto the teaching card, HVPG slide 4, and the FHVP one stood close above it).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { placePills, pillBox } from '../src/ui/cath-pill.js';
+import { placePills, pillBox, pillsClear } from '../src/ui/cath-pill.js';
 import { readFileSync } from 'node:fs';
 
 const meets = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
@@ -39,7 +39,18 @@ test('any phone, iPad or Mac band: clear when a clear place exists, and a clear 
 
 test('the stage places, eases and turns the readings with it, with no CSS flip', () => {
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8'), css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(stage, /const res = placePills\(/);
+  assert.match(stage, /if \(first \|\| \(calm && !pillsClear\(q\)\)\) \{ const res = placePills\(q\);/);
+  assert.match(stage, /calm = !vtGliding && !cath\.glideRaf;/);
   assert.match(stage, /if \(ready\) \[cx, cy\] = cathGlide\(el, bx, by, x, y\); else el\._gl = null;/);
   assert.match(css, /\.cath-label\.cath-js, \.cath-label\.cath-js\[data-at="ahead"\], \.cath-label\.cath-js\[data-at="ahead"\]\.above \{ translate: -50% var\(--pre, 0px\); \}/);
+});
+
+test('a reading that is clear keeps its place; one that now covers a card is placed again', () => {
+  const W = 390, top = 202, lim = 563, blockers = [{ x0: 4, y0: 565, x1: 386, y1: 844 }];
+  const p = { x: 200, y: 400, w: 80, h: 70, prefer: true };
+  assert.equal(pillsClear({ pills: [{ ...p, was: { above: true, dx: 10 } }], W, top, lim, blockers }), true, 'off its best spot but clear: kept');
+  assert.equal(pillsClear({ pills: [{ ...p, y: 520, was: { above: false, dx: 0 } }], W, top, lim, blockers }), false, 'on the card: placed again');
+  assert.equal(pillsClear({ pills: [{ ...p, was: null }], W, top, lim, blockers }), false, 'not placed yet');
+  const two = [{ ...p, was: { above: true, dx: 0 } }, { ...p, x: 230, was: { above: true, dx: 0 } }];
+  assert.equal(pillsClear({ pills: two, W, top, lim, blockers }), false, 'on each other: placed again');
 });

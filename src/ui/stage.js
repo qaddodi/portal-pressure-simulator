@@ -73,7 +73,7 @@ import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-
 import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=db59be811c';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
-import { placePills, PILL_GAP } from './cath-pill.js?v=579ba5404c';
+import { placePills, pillsClear, PILL_GAP } from './cath-pill.js?v=3dccfa6cff';
 import { layoutWatch } from './idle-keys.js?v=81fbedda6b';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
@@ -8286,7 +8286,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       el._l = l;
       // (The transition runs from the hidden state: this frame's own style pass sees it hidden, and it is shown from the next, with no
       // layout forced for that.)
-      if (el.classList.contains('cath-pre')) nextFrame(() => { el.classList.remove('cath-pre'); });
+      // (A reading of its own, cath-js, comes in only once it has its place, below: shown at a first guess, it came in on the card
+      // and then glided off it.)
+      if (el.classList.contains('cath-pre') && !el.classList.contains('cath-js')) nextFrame(() => { el.classList.remove('cath-pre'); });
     }
     // Read, then write: every reading's new text first, then all the sizes (one layout), then the positions.
     // (The live labels: those shown, and those fading out, which follow the camera until they go.)
@@ -8306,12 +8308,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const pt = (el) => { const p = el.dataset.at === 'ahead' ? at.ahead : at.tip; return worldToLocal(p[0], p[1]); };
     const cur = [...want].filter(([, l]) => l.at !== 'sum').map(([k]) => made.get(k));
     const ready = room.t > 0 && cur.every((el) => size.get(el)[0] > 0);
+    // Calm (his ask, 2 Nov 2026, 3:12 AM ET: the readings "jumping around for no good reason"): a reading gets its place once, and is
+    // placed again only when that place now covers a card, the band's edge or the other reading, and only at rest: never while the
+    // camera glides or a reading is still gliding to a new place, so cards sliding through a slide change never send it to and fro.
     if (ready && cur.length) {
-      const res = placePills({ W, top: Math.max(0, sp.t) + 6, lim: lim - 6, blockers: room.blk, pills: cur.map((el) => {
+      const q = { W, top: Math.max(0, sp.t) + 6, lim: lim - 6, blockers: room.blk, pills: cur.map((el) => {
         const [x, y] = pt(el), [w, h] = size.get(el);
         return { x, y, w, h, prefer: el.dataset.at !== 'ahead', was: el._side || null };
-      }) });
-      cur.forEach((el, i) => { el._side = res[i]; });
+      }) };
+      const first = cur.some((el) => !el._side), calm = !vtGliding && !cath.glideRaf;
+      if (first || (calm && !pillsClear(q))) { const res = placePills(q); cur.forEach((el, i) => { el._side = res[i]; }); }
     }
     for (const [el] of pills) {
       const [w, h] = size.get(el), [x, y] = pt(el);
@@ -8320,6 +8326,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const bx = clamp(x + side.dx, Math.min(half + 8, W / 2), Math.max(W - half - 8, W / 2)), by = side.above ? y - PILL_GAP - h : y + PILL_GAP;
       let cx = bx, cy = by;
       if (ready) [cx, cy] = cathGlide(el, bx, by, x, y); else el._gl = null;
+      // Placed: it comes in there, from the frame after (the fade and small rise of cath-pre, never a slide from a first guess).
+      if (el._side && !el._shown && !el.classList.contains('cath-out')) { el._shown = true; nextFrame(() => { el.classList.remove('cath-pre'); }); }
       // The pointer is on the side facing its point: it turns as the gliding pill passes the point, not before.
       const above = cy + h / 2 < y;
       if (el.classList.contains('above') !== above) el.classList.toggle('above', above);
