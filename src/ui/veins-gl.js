@@ -2715,7 +2715,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
   // The kept picture onto the canvas, every pixel, as it is (no scaling, no filtering).
   // (top: with what is drawn over the figure in this canvas, the labels; false for a picture of the figure alone, snapshot.)
-  function present(top = true) {
+  // (again: a glass over the figure has changed (a card come in, moved or resized) and asks to be laid now: the canvas does not hold it
+  // as it is, so the picture is laid again with it even in the frame that drew it straight onto the canvas. Skipped there, the new card's
+  // glass waited for the figure's next picture, which a figure at rest never draws: the card showed clear, or solid once its wait ran out
+  // (2 Nov 2026, Mohammad's Mac and iPhone: "no blur", every card that opened).)
+  function present(top = true, again = false) {
     if (replace && !lost && replace.on()) {
       presents++;
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -2735,7 +2739,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (!directNow && ownStale) {
       // (Asked again in the frame that drew it straight onto the canvas, with nothing drawn since: the canvas holds it whole, the glass
       // over it included, so there is nothing to lay. 2 Nov, his Mac: a reader in the same frame had the picture drawn whole a second time.)
-      if (framePhase() && frameCount() === directFrame && directKey === `${pictureSeq}:${bloodSeq}`) return;
+      if (framePhase() && frameCount() === directFrame && directKey === `${pictureSeq}:${bloodSeq}` && !(again && top && tops.length)) return;
       // (Asked outside the frame that drew it: the picture is drawn whole again, into the kept picture this time, and laid from there.)
       ownStale = false;
       if (lastComp) { noDirect = true; try { api.composite(lastComp[0], lastComp[1], true); } finally { noDirect = false; } }
