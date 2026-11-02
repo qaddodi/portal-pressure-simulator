@@ -14,7 +14,7 @@ import { hold } from './gpu-budget.js?v=5a5dcd699f';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw } from './frame.js?v=1d147c7c9a';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=f9222c848a';
-import { shiftOf, translateOf, motionAt, movesOnly, clockOf, clockAt, fillsAfter } from './glass-motion.js?v=2b98554adc';
+import { Inline, inlineShift, inlineTranslate, Motion, compileKeyframes, motionAt, movesOnly, clockOf, clockAt } from './glass-motion.js?v=c45c2a76ac';
 import { pathPolys, fanTriangles } from './path-poly.js?v=01766890c9';
 import { easeArrive, D_SURFACE } from './ease.js?v=7d7bfe9a62';
 import { caught } from './caught.js?v=b96b17594a';
@@ -1347,18 +1347,18 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // a slide change. Its end comes from its timing, or its finish, cancel or remove event (a cancel() sends one).)
   const tlNow = () => { const t = document.timeline?.currentTime; return Number.isFinite(t) ? t : performance.now(); };
   // (stateOf answers in one kept record, read before the next call: nothing is made for each animation in a frame.)
-  const ST = { st: '', p: null, end: 0, fills: false, bad: false, live: undefined };
+  const ST = { st: '', has: false, p: 0, end: 0, fills: false, bad: false, live: undefined };
   function clockState(an, rec) {
     ST.live = undefined;
-    if (!rec.c) { ST.st = 'running'; ST.p = null; ST.end = Infinity; ST.fills = false; ST.bad = false; return ST; }
-    const r = clockAt(rec.c, tlNow());
-    ST.st = r.st; ST.p = r.p; ST.end = r.end; ST.fills = fillsAfter(rec.c); ST.bad = rec.c.bad;
+    if (!rec.c) { ST.st = 'running'; ST.has = false; ST.end = Infinity; ST.fills = false; ST.bad = false; return ST; }
+    clockAt(rec.c, tlNow(), ST);
+    ST.fills = rec.c.fwd; ST.bad = rec.c.bad;
     return ST;
   }
   const stateOf = clockState;
   function timeAnim(an) {
     const rec = { kf: null, c: null };   // alloc-rare: an animation is timed once, the first time it is seen (trackSoon/measureGeo), never per frame
-    try { rec.kf = an.effect?.getKeyframes?.() || null; } catch { rec.kf = null; }
+    try { rec.kf = compileKeyframes(an.effect?.getKeyframes?.() || null); } catch { rec.kf = null; }   // (its keyframes as numbers, once: motionAt reads them each frame and builds nothing)
     const c = rec.c = clockOf(an, tlNow());
     if (!c) return rec;
     const stop = (done) => () => { if (done) c.done = true; else c.idle = true; wake(); measureSoon(); };   // alloc-rare: an animation is timed once, the first time it is seen (trackSoon/measureGeo), never per frame
@@ -1411,7 +1411,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     try { t = an.effect?.getTiming?.() || null; } catch { t = null; }
     return !!t && t.iterations !== Infinity && !(typeof t.duration === 'number' && !Number.isFinite(t.duration));
   }
-  const MV = { x: 0, y: 0, o: null }, CM = { x: 0, y: 0, o: 1 };   // (moveOf's and chainMove's answers: kept records, read before the next call)
+  const MV = { x: 0, y: 0, o: null }, CM = { x: 0, y: 0, o: 1 }, AM = new Motion(), inlines = new WeakMap();   // (moveOf's and chainMove's answers: kept records, read before the next call)
   function moveOf(e, flag) {
     let tx = 0, ty = 0, hasT = false, o = null;
     const m = anims.get(e);
@@ -1420,19 +1420,19 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         const kf = rec.kf, S = stateOf(an, rec), st = S.st;
         if (st === 'idle' || (st === 'finished' && !S.fills)) {
           m.delete(an); flag.ended = true;
-          if (st === 'finished') { const v = kf && motionAt(kf, 1); if (v) { const was = ended.get(e) || {}; ended.set(e, { t: v.t || was.t || null, o: v.o ?? was.o ?? null }); } }   // alloc-rare: an animation has just finished (once per animation), not per frame
+          if (st === 'finished') { AM.at = 1; if (motionAt(kf, AM)) { const was = ended.get(e) || {}; ended.set(e, { t: AM.hasT ? [AM.tx, AM.ty] : was.t || null, o: AM.hasO ? AM.o : was.o ?? null }); } }   // alloc-rare: an animation has just finished (once per animation), not per frame
           continue;
         }
         if (S.bad) { flag.bad = true; continue; }
-        const p = S.p;
-        if (p == null) continue;
-        const v = motionAt(kf, p);
+        if (!S.has) continue;
+        AM.at = S.p;
+        const ok = motionAt(kf, AM);
         // (One that has finished and holds its end, a card zoomed up, is in the box the page was read at: nothing to put back, and its end
         // read the page again already, so it no longer asks for a read in every frame.)
-        if (!v && (st === 'finished' || e.zoomAffine)) continue;
-        if (!v) { flag.bad = true; if (st === 'running' && endsOf(an, rec)) flag.live = true; continue; }
-        if (v.t) { tx = v.t[0]; ty = v.t[1]; hasT = true; }
-        if (v.o != null) o = v.o;
+        if (!ok && (st === 'finished' || e.zoomAffine)) continue;
+        if (!ok) { flag.bad = true; if (st === 'running' && endsOf(an, rec)) flag.live = true; continue; }
+        if (AM.hasT) { tx = AM.tx; ty = AM.ty; hasT = true; }
+        if (AM.hasO) o = AM.o;
       }
       if (!m.size) anims.delete(e);
     }
@@ -1440,9 +1440,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (end) { if (!hasT && end.t && !e.style?.transform) { tx = end.t[0]; ty = end.t[1]; hasT = true; } if (o == null && end.o != null) o = end.o; }
     const s = e.style;
     if (s) {
-      if (!hasT && !e.zoomAffine) { const a = shiftOf(s.transform); if (!a) flag.bad = true; else { tx = a[0]; ty = a[1]; } }
-      const b = translateOf(s.translate);
-      if (!b) flag.bad = true; else { tx += b[0]; ty += b[1]; }
+      let im = inlines.get(e);
+      if (!im) inlines.set(e, (im = new Inline()));   // alloc-rare: an element's inline reading is made once, the first time it is seen
+      if (!hasT && !e.zoomAffine) { if (!inlineShift(im, s.transform)) flag.bad = true; else { tx = im.tx; ty = im.ty; } }
+      if (!inlineTranslate(im, s.translate)) flag.bad = true; else { tx += im.ux; ty += im.uy; }
       if (o == null && s.opacity !== '' && s.opacity != null && !inlineLoses.has(e)) o = NUM(s.opacity);
       // (A card the page moves by a custom property its stylesheet turns into a translate (the words' card's --pz-rise as the readings are
       // pulled out, the data card's --pz-lift): cards.shift(e) gives that move, read from the inline value each frame, so the glass rises
