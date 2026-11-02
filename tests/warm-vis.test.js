@@ -39,7 +39,7 @@ test('nothing glows outside the organ\'s outline', () => {
 test('the stage lights only the edges that show, and an outline\'s glow follows its line across a few points', () => {
   const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   assert.match(STAGE, /const seen = warmVis\(o\.id\);/);
-  assert.match(STAGE, /\(vis && !vis\[2 \* \(t < 0\.5 \? i0 : i1\) \+ \(side > 0 \? 1 : 0\)\]\)/);
+  assert.match(STAGE, /\(wmVis && !wmVis\[2 \* \(t < 0\.5 \? i0 : i1\) \+ \(side > 0 \? 1 : 0\)\]\)/);
   assert.match(STAGE, /ringGrid\(olRingsRaw\(id, true\)\)/, 'clipped to the organ\'s own outline');
   assert.match(STAGE, /sp = glow \? Math\.min\(GLOW_SPAN, \(n - 1\) >> 1\) : 1/);
   assert.ok(+/const GLOW_SPAN = (\d+)/.exec(STAGE)[1] >= 3, 'a glow\'s direction spans several points');

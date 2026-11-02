@@ -260,13 +260,13 @@ test('a lapse glow goes when the slide leaves, and is drawn from the pile\'s own
   const GL = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   assert.match(GL, /if \(warmOn == 1\) pl = over\(texelFetch\(warmL, ip, 0\), pl\);/);
   assert.ok(GL.indexOf('plateSat), pl.a) * plateAlpha') < GL.indexOf('warmOn == 1) pl'), 'after the dimming');
-  assert.match(STAGE, /soft: true, warm: true/);
+  assert.match(STAGE, /olDraw\(first, c, col, WARM\.alpha \* ease, true, true\)/);   // (soft and warm)
   assert.match(STAGE, /glLines && o\.warm/);
   assert.match(STAGE, /const lines = warmLines\(d\) \|\| olRingsRaw\(/);
   // Only the edges glow (Mohammad, 20 Oct: "just the outline glows"): a strip along each side of every tube, starting on the tube's
   // edge (its radius out from the centre line, read from the drawing's own pieces) and easing outward, none over the tube itself.
-  assert.match(STAGE, /for \(const side of \[-1, 1\]\)/);
-  assert.match(STAGE, /ex, ey, -ty, tx, 0, w, ex, ey, -ty, tx, side, w/);
+  assert.match(STAGE, /for \(let si = 0; si < 2; si\+\+\) \{\n\s+wmSide = si \? 1 : -1;/);
+  assert.match(STAGE, /ex, ey, -ty, tx, 0, w, ex, ey, -ty, tx, wmSide, w/);
   assert.match(STAGE, /querySelectorAll\('\.ob-edge'\)/);
   assert.ok(!/ -ty, tx, -1, WARM\.reach/.test(STAGE), 'no centred strip: the tubes\' insides are not filled');
   // The glow's reach stays under a tube's own half width (about 12.5), so a tube's middle is clear of its neighbours' glow.
@@ -276,14 +276,14 @@ test('a lapse glow goes when the slide leaves, and is drawn from the pile\'s own
   const GLSRC = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   assert.match(GLSRC, /if \(warm\) \{ gl\.blendEquation\(gl\.MAX\)/);
   assert.match(GLSRC, /if \(warm\) gl\.blendEquation\(gl\.FUNC_ADD\)/);
-  assert.match(STAGE, /underColon\(ex, ey\)/);
+  assert.match(STAGE, /wmUnder\(ex, ey\)/);
   assert.match(STAGE, /\(Rv - rad\) \* 0\.85/);
   assert.ok(!/function warmRings[\s\S]{0,120}consolidate/.test(STAGE) && !/function olRingsRaw[\s\S]{0,120}consolidate/.test(STAGE), 'the loop outlines read the transform without consolidate()');
   // A redrawn pile is noticed: the cached tubes and their radius are dropped when the old ones leave the page, and the radius is
   // read again when the bed's stroke width changes; it comes from the pieces' own stroke-width attribute (.ob-edge).
   assert.match(STAGE, /!l\[0\]\.isConnected/);
-  assert.match(STAGE, /c\.sw !== sw/);
-  assert.match(STAGE, /gone\(t\) \|\| gone\(e\)/, 'a redrawn piece is noticed too');
+  assert.match(STAGE, /wsSame\(c\.sw, c\.has, warmSwWalk, id\)/);   // (the bed's widths as parts, told apart in place)
+  assert.match(STAGE, /warmGone\(t\) \|\| warmGone\(e\)/, 'a redrawn piece is noticed too');
   // The colon cut is a grid look-up (filled once by scanlines), not a ring test per point; each run's reach eases off at both ends.
   assert.match(STAGE, /grid\.bits\[j \* grid\.w \+ i\] === 1/);
   assert.ok(!/inRing/.test(STAGE), 'no per-point ring test');
@@ -295,11 +295,11 @@ test('a lapse glow goes when the slide leaves, and is drawn from the pile\'s own
   assert.ok(+/const WARM = \{ reach: (\d+)/.exec(STAGE)[1] < 64, 'the reach fits under the fade packing (64 x the fade + the width)');
   assert.match(STAGE, /Math\.min\(63, WARM\.reach, 0\.8 \* rad\)/, 'the reach follows the measured tube radius');
   // A run starts and stops exactly on its cut (the colon's, or too little room on a bend), found between two points, so the fade moves smoothly.
-  assert.match(STAGE, /const cut = \(i, wasOk\) => \{/);
-  assert.match(STAGE, /if \(i > 0 && !prevOk\) run\.push\(cut\(i, false\)\)/);
-  assert.match(STAGE, /if \(prevOk\) run\.push\(cut\(i, true\)\)/);
+  assert.match(STAGE, /function wmCut\(i, wasOk\) \{/);
+  assert.match(STAGE, /if \(i > 0 && !prevOk\) \{ wmCut\(i, false\); wmPush\(\);/);
+  assert.match(STAGE, /if \(prevOk\) \{ wmCut\(i, true\); wmPush\(\);/);
   assert.ok(!/baseVal\.consolidate\(\)/.test(STAGE), 'no transform is consolidated: the keys stay the same across builds');
-  assert.match(STAGE, /el\.getAttribute\('stroke-width'\)/);
+  assert.match(STAGE, /edges\[i\]\.getAttribute\('stroke-width'\)/);
   assert.ok(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8').includes('ob-edge\\" d=\\"') && /class=\\"ob-edge\\" d=\\"[^"]*\\" stroke-width=\\"[\d.]+\\"/.test(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8')), 'the pieces carry a stroke-width attribute');
   assert.ok(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8').includes('class=\\"ob-deep\\"'), 'the pile still draws .ob-deep tubes');
 });

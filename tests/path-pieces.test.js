@@ -74,7 +74,7 @@ test('stage.js reads the outlines through the pieces, kept by path, and the Dopp
   assert.match(stage, /const mp = measurePath\(src\);/, 'measured in script, no element (2 Nov 2026)');
   const ol = stage.slice(stage.indexOf('  function olLocal(src, stride) {'), stage.indexOf('  function olRingsRaw('));
   assert.doesNotMatch(ol, /getTotalLength\(|getPointAtLength\(/, 'no outline measured by the page');
-  assert.match(stage, /if \(olLocalMemo\.size >= 48\) olLocalMemo\.delete/);
+  assert.match(stage, /if \(memo\.size >= 48\) memo\.delete/);
   const gl = readFileSync(new URL('../src/ui/doppler-gl.js', import.meta.url), 'utf8');
   assert.match(gl, /exerciseDraw\(gl, \(\) => \{\n\s+gl\.useProgram\(prog\);/);   // (one draw into a throwaway target once the program is published)
 });

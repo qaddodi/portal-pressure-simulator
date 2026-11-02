@@ -106,7 +106,7 @@ test('stage.js: every treatment mark is built through putMark, so none is added 
 });
 test('stage.js: the GPU draws a mark at its key\'s amount, the loop stays awake while one moves, and a finished one is taken out and read again', () => {
   assert.match(stage, /el\.closest\('\[data-mk\]'\)\?\.dataset\.mk/);
-  assert.match(stage, /alpha: d\.alpha \* fadeEase\(d\.fade\)/);
+  assert.match(stage, /c\.alpha = d\.alpha \* fadeEase\(d\.fade\)/);
   assert.equal((stage.match(/markA\.moving\(\)/g) || []).length >= 3, true);
   assert.match(stage, /for \(const el of r\.gone\) el\.remove\(\); mk\.ver\+\+;/);
   assert.match(stage, /markA\.end\(\(key, m, fading\) => m\.t === t && \(anat \|\| !m\.anatOnly\) && \(fading \|\| !m\.vessel \|\| E\[m\.vessel\]\?\.vis\)\)/);

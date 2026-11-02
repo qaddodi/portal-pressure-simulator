@@ -56,7 +56,7 @@ test("a narrowing's clamp and label fade out from their own group, which the lab
   assert.match(stage, /el\.classList\.replace\('clamp', 'clamp-out'\); el\.classList\.replace\('clamp-label', 'clamp-label-out'\);/);
   assert.doesNotMatch(stage, /ov\.clampsOut\.querySelectorAll\('\.clamp/);
   // (The GPU draws the arrows: their fade rides on the draw's alpha, never on a baked SVG opacity.)
-  assert.match(stage, /d\.fade \? \{ \.\.\.d, alpha: d\.alpha \* fadeEase\(d\.fade\) \}/);
+  assert.match(stage, /d\.fade \? olFaded\(d\) : d/);
   assert.match(stage, /const fadeEase = \(key\) => \(markA\.has\(key\) \? markA\.amount\(key\) : clampEase\(key\)\);/);
   assert.match(stage, /if \(el\.tagName === 'text' \|\| !glLines\) el\.style\.opacity = op;/);
   assert.match(stage, /!clampFading\(\) && !markA\.moving\(\) && !widthEasing/);
