@@ -9228,18 +9228,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // of it and never in under the letters, at any zoom (leader-end.js). (leaderEnd above still decides whether one shows.)
   // A haloed label is seen as its letters: each run of text (a name, a number, a unit) from its tallest figures' tops
   // (0.72 of its font) down to the next line, the last line's to just below its baseline, as wide as the run, plus the halo.
+  const LOW = /[acegmnopqrsuvwxyz]/, X_HEIGHT = 0.55;   // (Inter's x-height, 0.546 of its size; its round letters overshoot it a little)
   const inkRects = (it) => {
     const out = [], halo = 1;
     let y = it.y, prev = [];
     it.lines.forEach((line, li) => {
       const lh = LINE_H(line), lw = lineW(line) + (it.swatch ? 7 : 0), base = y + lh * 0.78;
       let x = (it.align === 'end' ? it.x + it.w - lw : it.align === 'middle' ? it.x + (it.w - lw) / 2 : it.x) + (it.swatch ? 7 : 0);
-      const row = line.map((r, i) => {
-        const f = fontPx(r.size), w = textW(r.t, f, r.weight, r.track || 0);
+      // (Within a run, letters that stand only to the x-height (a, e, o, v, …) are a box of their own that high: a leader coming down
+      // on "vein" from above stopped at the capitals' height, 3 px over the letters it met, as the zoom landed.)
+      const row = [];
+      line.forEach((r, i) => {
+        const f = fontPx(r.size), tr = r.track || 0, w = textW(r.t, f, r.weight, tr);
         if (i) x += (r.gap ?? 3) * labelK;
-        const b = { x0: x - halo, x1: x + w + halo, y0: base - f * 0.72 - halo, y1: base + halo };
+        let from = 0;
+        if (!r.t.length) row.push({ x0: x - halo, x1: x + w + halo, y0: base - f * 0.72 - halo, y1: base + halo });
+        for (let j = 1; j <= r.t.length; j++) {
+          if (j < r.t.length && LOW.test(r.t[j]) === LOW.test(r.t[from])) continue;
+          const a = from ? textW(r.t.slice(0, from), f, r.weight, tr) : 0, e = j === r.t.length ? w : textW(r.t.slice(0, j), f, r.weight, tr);
+          row.push({ x0: x + a - halo, x1: x + e + halo, y0: base - f * (LOW.test(r.t[from]) ? X_HEIGHT : 0.72) - halo, y1: base + halo });
+          from = j;
+        }
         x += w;
-        return b;
       });
       const top = Math.min(...row.map((b) => b.y0));
       for (const b of prev) b.y1 = Math.max(b.y1, top);

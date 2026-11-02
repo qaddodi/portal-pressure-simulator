@@ -88,3 +88,15 @@ test('a leader towards a pill\'s rounded corner stops on the curve, not the squa
   assert.deepEqual(leaderEnd({ ...pill, r: 0 }, 150, 20), { x: 100, y: 20 });
   assert.deepEqual(leaderEnd(pill, 150, 20), { x: 100, y: 20 });
 });
+
+test('an anatomy leader coming down on lowercase letters stops at their height, not the capitals\'', () => {
+  // (Desktop, four quick zoom-ins: the Right portal vein leader met "vein" from above and stopped 3.1 px over its x-height,
+  // at the capitals' 0.72 of the size.)
+  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const m = /const LOW = \/\[([a-z]+)\]\/, X_HEIGHT = ([\d.]+);/.exec(st);
+  assert.ok(m, 'inkRects has no box for the x-height letters');
+  for (const ch of 'aceomnrsuvwxz') assert.ok(m[1].includes(ch), `${ch} is not counted as an x-height letter`);
+  for (const ch of 'bdfhiklt') assert.ok(!m[1].includes(ch), `${ch} reaches above the x-height`);
+  assert.ok(+m[2] >= 0.5 && +m[2] <= 0.57, 'X_HEIGHT is off Inter\'s 0.546');
+  assert.match(st, /y0: base - f \* \(LOW\.test\(r\.t\[from\]\) \? X_HEIGHT : 0\.72\) - halo/);
+});
