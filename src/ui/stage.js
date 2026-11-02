@@ -93,6 +93,10 @@ const nextFrame = frameFor('stage');
 // cardSpace) is read on every call, as before.)
 const readFrame = readFrameFor('stage-read');
 const BOX_READ = !/[?&]boxread=0\b/.test(location.search);
+// (2 Nov 2026, the Anatomy to Circuit change on his iPhone: between the two views the frame does only what the screen shows. The SVG's
+// hidden paths wait for the landing (updateGeometry), and the labels are carried with the vessels, solved again as the change reaches
+// its second half and as it lands (labelSig, updateLabels). ?geolazy=0: every frame of the change as before.)
+const GEO_LAZY = !/[?&]geolazy=0\b/.test(location.search);
 // The page's look as one string for the caches below that are drawn in its colours: data-theme, and data-palette too (Navy and Black keep
 // data-theme="dark" and differ from Dark only by the palette: looks.js).
 const themeKey = () => { const d = document.documentElement.dataset; return d.palette ? `${d.theme || ''}/${d.palette}` : (d.theme || ''); };
@@ -2995,6 +2999,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lastMorph = t;
     const svgTubes = !wrap.classList.contains('gl-on'), hold = geoHolding();
     if (!svgTubes) tubesStale = true;
+    // (Between the two views, with the GPU drawing the vessels, nothing on screen shows the SVG's paths: the hit paths, the strands' and
+    // the gradients are written once the views have landed (t 0 or 1 is always a whole update), not at every frame of the change. Each
+    // frame had built every vessel's path text twice over and set it on four elements: a fifth of a frame's script on his iPhone, 1 Nov.)
+    const lazy = !svgTubes && t > 0 && t < 1 && GEO_LAZY;
     for (const x of full ? EV : only) {
       const g = geo[x.e.id];
       let pts;
@@ -3010,14 +3018,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         let sp = sd.span ? braid(base, fan, 0, sd.span, sd.ph) : wiggle(braid(base, fan, u0), (0.8 * g.wig + 3) * (1 - t), sd.ph);
         if (u0) sp = blendFrom(pts, sp, u0);
         sd.u0 = u0;
+        sd.cur = sp; sd.len = arcLen(sp);
+        if (lazy) continue;
         const d = polyD(sp);
         setG(sd.wall, 'd', d, hold); setG(sd.lumen, 'd', d, hold);
         if (!sd.hit) { sd.hit = s('path', { class: 'v-hit', 'data-id': x.e.id, 'aria-hidden': 'true' }); sd.hit.style.strokeWidth = 12; x.g.append(sd.hit); }   // each strand of a varix is part of its vessel
         setG(sd.hit, 'd', d, hold); setG(sd.hit, 'style:display', (sd.live ?? 1) >= 0.5 && morph < 0.5 ? '' : 'none', hold);
-        sd.cur = sp; sd.len = arcLen(sp);
       }
       g.cur = pts;
       g.len = arcLen(pts);
+      const a = pts[0], b = pts[pts.length - 1];
+      if (x.tipFade) x.tipFade.line = [a[0], a[1], ...pointAt(pts, x.tipFade.frac)];
+      x.shadeKey = '';
+      if (lazy) continue;
       const d = t === 1 ? g.dC : polyD(pts);
       setG(x.halo, 'd', d, hold); setG(x.hit, 'd', d, hold);
       // While the GPU draws the tubes their SVG layers are hidden (gl-on): their paths catch up when the SVG shows them again (syncVeins).
@@ -3026,14 +3039,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (x.lumen) x.lumen.setAttribute('d', d);
       }
       g.lit = litNormals(pts);
-      x.shadeKey = '';
-      const a = pts[0], b = pts[pts.length - 1];
       setG(x.grad, 'x1', a[0], hold); setG(x.grad, 'y1', a[1], hold);
       setG(x.grad, 'x2', b[0] === a[0] && b[1] === a[1] ? a[0] + 1 : b[0], hold); setG(x.grad, 'y2', b[1], hold);
       if (x.tipFade) {
         // From the tip (nothing) to `frac` of the way along (solid); in the circuit there is no fade.
-        const q = pointAt(pts, x.tipFade.frac);
-        x.tipFade.line = [a[0], a[1], q[0], q[1]];
+        const q = x.tipFade.line.slice(2);
         setG(x.tipFade.tg, 'x1', a[0], hold); setG(x.tipFade.tg, 'y1', a[1], hold);
         setG(x.tipFade.tg, 'x2', q[0], hold); setG(x.tipFade.tg, 'y2', q[1], hold);
         setG(x.tipFade.s0, 'stop-opacity', (x.tipFade.joined ? 1 : t).toFixed(2), hold);
@@ -9418,10 +9428,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // their text is built once per object, not on every call (review item 25).
   const paramJSONs = new WeakMap();
   const paramJSON = (o) => { if (!o || typeof o !== 'object') return JSON.stringify(o); let j = paramJSONs.get(o); if (j === undefined) paramJSONs.set(o, (j = JSON.stringify(o))); return j; };
+  let labelGeo = 0;
   function labelSig(f) {
     const st = store.get(), t = easeInOut(morph);
     const edges = EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
-    return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
+    // (Between the two views the vessels' geometry changes every frame: the labels are carried along with it, and solved again when the
+    // change reaches its second half and when it lands, as the geometry's version then stands. See GEO_LAZY.)
+    if (!(GEO_LAZY && morph > 0 && morph < 1)) labelGeo = geometryVersion;
+    return [labelGeo, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
       isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), fxSig, fx?.steps && slideGlow.map((g) => g.id + g.at).join(), (fx?.organs.some((o) => o.organ === 'spleen') || fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, scan.on, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges, ['TIPS', 'DIPS'].map((id) => +stentReady(id, f)).join(''), dop.key].join('|');
   }
   // Layout runs only when one of its inputs changed: the camera and stage box (the CTM), the label
@@ -9466,7 +9480,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (A slow push (ride) carries them however far it zooms, while none comes onto another: a label changing sides mid-push would
       // jump. They are solved again as it lands: driftEnd. A glide whose labels were solved for where it lands (landing) carries them
       // all the way, without that check: one may pass over another for a moment, the overlap pass below showing the more important.)
-      const dz = solvedFor ? Math.abs(Math.log(sc / solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && gestureOn(), land = landing() && !hand, ride = (drifting || land) && !hand;
+      // (Between the two views the labels ride with the change however far its camera zooms: solved again at its half and as it lands.)
+      const dz = solvedFor && !(GEO_LAZY && morph > 0 && morph < 1) ? Math.abs(Math.log(sc / solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && gestureOn(), land = landing() && !hand, ride = (drifting || land) && !hand;
       const solve = !solvedFor || solvedFor.sig !== sig || solvedFor.csig !== csig || solvedFor.ins !== ins || (!ride && dz > (hand ? SOLVE_ZOOM_HAND : SOLVE_ZOOM)) || Math.abs(th - solvedFor.th) > SOLVE_TURN;
       carryClear = hand; carryReslot = gestureOn();
       if (ride && !land && dz > SOLVE_ZOOM) carryClear = true;   // (carried, but never onto each other)
