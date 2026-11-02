@@ -45,6 +45,13 @@ const appClass = () => app.className.replace(/(?:^|\s)stage-busy(?=\s|$)/g, '');
 const view = $('#stageView');
 const isPhone = isPhoneLayout;
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
+const NAMED_DETAILS = ['edge', 'node', 'organ'];   // (the selections whose name is the panel's title itself)
+const NOATTR = Object.freeze({});   // (the attributes of an element that has none: h() only reads them)
+const INSTANT = { instant: true };   // (options for swapFade and the like: read, never written, so one object serves every call)
+const PASSIVE = { passive: true };
+const TOOL_CLASS = { select: 'tool-select' };   // (the figure's class for each armed tool; only 'select' is ever set, any other is made once on its first use)
+const toolClass = (t) => TOOL_CLASS[t] ||= 'tool-' + t;
+const ZOOM_TITLES = [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoomFit', 'Fit the figure to the view', 'Back out to the lobule']];   // (button, title, title in the sinusoid)
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
@@ -90,7 +97,10 @@ let stage, inspector, dock, why, timeline, compare, card, chart, mainMenu, idleR
 // on first use, so the first paint only waits for the model, the figure and the chart.
 function lazy(load, make) {
   let inst = null, pending = null;
-  const get = () => (pending ||= load().then((m) => (inst = make(m))).catch((err) => { pending = null; loadFailed(err); throw err; }));   // (a failed load is tried again on the next ask)
+  // (The two steps are made once here, not on each ask.)
+  const made = (m) => (inst = make(m));
+  const failed = (err) => { pending = null; loadFailed(err); throw err; };
+  const get = () => (pending ||= load().then(made).catch(failed));   // (a failed load is tried again on the next ask)
   // Fetching the module (without creating the surface) once the app is idle keeps it cached for
   // offline use and makes the first open instant.
   return { get, now: () => inst, warm: () => load().catch(() => {}) };
@@ -189,27 +199,44 @@ async function main() {
     const el = $('#panelTitle span'); if (el) el.textContent = d?.type === 'advanced' ? 'Advanced physiology' : d ? 'Details' : 'Compare';
     // A vessel, compartment or organ is the panel's title itself (its name, its kind small above it), so "Details" is
     // left to screen readers there (17 Oct, V9).
-    const named = ['edge', 'node', 'organ'].includes(d?.type);
+    const named = NAMED_DETAILS.includes(d?.type);
     $('#panelTitle')?.classList.toggle('sr-only', named); $('#panel')?.classList.toggle('named', named);
   });
   // The figure's labels the open menu covers are hidden while it is open: one tucked under its edge showed a sliver, the "S" of
   // Sinusoids R between the screen edge and the menu (sweep batches 02 and 04). The labels keep their places.
-  let underTok = 0;
+  // (The steps are made once and share these, not made again for each open: a second open before the first has its boxes drops the
+  // first, as its stale token did, and asks again once the first has landed.)
+  let underTok = 0, underQueued = 0, underFlight = 0, underAgain = false;
+  const underEls = [];   // (the menu, then the labels: rectsSoon copies the list as it is asked, so one kept list serves each ask)
+  let underMenu = null;
+  const underApply = (rs) => {
+    const stale = underFlight !== underTok;
+    underFlight = 0;
+    if (stale || !underMenu.isConnected || underMenu.classList.contains('out')) { if (underAgain) { underAgain = false; underStep(); } return; }
+    underAgain = false;
+    const r = rs[0];
+    for (let i = 1; i < underEls.length; i++) { const b = rs[i]; if (b.width && b.right > r.left - 8 && b.left < r.right + 8 && b.bottom > r.top - 8 && b.top < r.bottom + 8) classSoon(underEls[i], 'under-menu', true); }
+  };
+  const underStep = () => {
+    underQueued = 0;
+    const m = document.querySelector('.umenu:not(.out)');
+    if (!m || underWant !== underTok) return;
+    if (underFlight) { underAgain = true; return; }
+    underMenu = m;
+    underEls.length = 0;
+    underEls.push(m);
+    for (const g of document.querySelectorAll('#labels .lb')) underEls.push(g);
+    underFlight = underWant;
+    rectsSoon(underEls).then(underApply);
+  };
+  let underWant = 0;
   function labelsUnderMenu(on) {
     if (!on) underTok++;
     for (const g of document.querySelectorAll('#labels .lb.under-menu')) g.classList.remove('under-menu');
     // (The menu's box and the labels' come from the browser's own next layout, rectsSoon: nothing is laid out to read them.)
     if (!on) return;
-    const tok = ++underTok;
-    nextFrame(() => {
-      const m = document.querySelector('.umenu:not(.out)');
-      if (!m || tok !== underTok) return;
-      const gs = [...document.querySelectorAll('#labels .lb')];
-      rectsSoon([m, ...gs]).then(([r, ...bs]) => {
-        if (tok !== underTok || !m.isConnected || m.classList.contains('out')) return;
-        gs.forEach((g, i) => { const b = bs[i]; if (b.width && b.right > r.left - 8 && b.left < r.right + 8 && b.bottom > r.top - 8 && b.top < r.bottom + 8) classSoon(g, 'under-menu', true); });
-      });
-    });
+    underWant = ++underTok;
+    if (!underQueued) underQueued = nextFrame(underStep);
   }
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
@@ -269,17 +296,22 @@ async function main() {
   // The Sinusoid button shows only in the Lobule view: it is one level further down.
   // (Each change of its buttons plays as one move, pillChange: into or out of the sinusoid the bars slide away or back and the
   // pill glides with them; with the lobule the Sinusoid button slides out of the pill or back into it.)
+  // (The change is one step made once, reading these: pillChange runs it at once, so they are the ask's own.)
+  let viewSinBtn = null, viewSinHide = false, viewInSin = false, viewBtns = null;
+  const viewChange = () => { viewSinBtn.hidden = viewSinHide; app.classList.toggle('sin-focus', viewInSin); };
   const syncViewSeg = () => {
     const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view, inSin = !!(st.lobule && st.sinusoid);
     const sinBtn = $('#viewSeg [data-view="sinusoid"]'), sinHide = !st.lobule || !sinusoidSupported();
     if (app.classList.contains('sin-focus') !== inSin || sinBtn.hidden !== sinHide) {
-      pillChange(() => { sinBtn.hidden = sinHide; app.classList.toggle('sin-focus', inSin); });
+      viewSinBtn = sinBtn; viewSinHide = sinHide; viewInSin = inSin;
+      pillChange(viewChange);
     }
-    $$('#viewSeg button[data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur)));
+    viewBtns ||= $$('#viewSeg button[data-view]');   // (the view buttons are the page's own, none comes or goes)
+    for (let i = 0; i < viewBtns.length; i++) viewBtns[i].setAttribute('aria-pressed', viewBtns[i].dataset.view === cur ? 'true' : 'false');
     // (The highlight leaves from where it is drawn in this same task, with the fold's row just read: seg-glide.js glideNow.)
     glideNow($('#viewSeg'));
     $('#zoomIn').disabled = inSin;
-    for (const [id, off, on] of [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoomFit', 'Fit the figure to the view', 'Back out to the lobule']]) { $(id).title = inSin ? on : off; $(id).setAttribute('aria-label', inSin ? on : off); }
+    for (let i = 0; i < ZOOM_TITLES.length; i++) { const z = ZOOM_TITLES[i], t = inSin ? z[2] : z[1]; $(z[0]).title = t; $(z[0]).setAttribute('aria-label', t); }
   };
   store.on('view', (v) => { stage.setView(v); syncViewSeg(); dispatchEvent(new Event('pps:view')); });   // (pps:view: the ?perf readout's view-switch window)
   store.on('lobule', syncViewSeg);
@@ -288,8 +320,9 @@ async function main() {
   store.on('lobule', (on) => { if (on && !sinNoted && !sinusoidSupported()) { sinNoted = true; toast('This device cannot draw the sinusoid view (it needs WebGL2), so that button is hidden.'); } });
   store.on('sinusoid', syncViewSeg);
   store.on('tool', (t) => {
-    for (const c of [...view.classList]) if (c.startsWith('tool-')) view.classList.remove(c);
-    view.classList.add('tool-' + t);
+    // (Walked from the end, so taking one off leaves the places of those still to come: the same ones the copied list had.)
+    for (let i = view.classList.length - 1; i >= 0; i--) { const c = view.classList[i]; if (c.startsWith('tool-')) view.classList.remove(c); }
+    view.classList.add(toolClass(t));
     renderPaintHint();
   });
   store.on('shunting', renderPaintHint);
@@ -317,7 +350,7 @@ async function main() {
   // and the sinusoid's are set inside the dive's own frames: the key is built again between frames (rest-pass.js), and only when it is another
   // key; the banner is left alone. Before, each set rebuilt the legend and the banner in the frame the zoom landed in.)
   let legendAsk = 0;
-  const legendLater = () => { legendAsk = 0; if (legendKeyOf(legendModel()) !== legendKey) renderLegend(); };
+  const legendLater = () => { legendAsk = 0; const lm = legendModel(); if (!legendSame(lm.m, lm.ref)) renderLegend(); };
   for (const k of ['imaging', 'found', 'sinusoid', 'lobule']) store.on(k, () => { legendAsk ||= restPass(legendLater); redraw(); });
   // A lens switch: the key and the lens name move in the key press's own frame, and the figure's full update follows one frame later
   // (it set off with them on the same clock, D_SURFACE, so they still finish together within a frame) rather than holding that first
@@ -732,80 +765,136 @@ function buildHud() {
   $('#btnLayers').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && !sinLens()) { e.preventDefault(); e.stopPropagation(); openLayers(e.currentTarget); } });
   new ResizeObserver(() => stage.relayout()).observe(view);
 }
+// (The model is one kept object, written in place: its readers take what they need at once and keep none of it.)
+const LEGEND = { m: 'pressure', ref: 'healthy', imaging: false };
 function legendModel() {
   const st = store.get();
   const imaging = st.imaging;
   const cmp = !!st.compareSnap;
   // The sinusoid view shows pressure only (it has no lens).
-  const m = imaging ? 'neutral' : st.lobule && st.sinusoid ? 'pressure' : cmp && st.compareView === 'D' ? 'delta' : st.colorMode;
-  const ref = cmp ? st.compareSnap.when : 'healthy';
-  return { m, ref, imaging };
+  LEGEND.m = imaging ? 'neutral' : st.lobule && st.sinusoid ? 'pressure' : cmp && st.compareView === 'D' ? 'delta' : st.colorMode;
+  LEGEND.ref = cmp ? st.compareSnap.when : 'healthy';
+  LEGEND.imaging = imaging;
+  return LEGEND;
 }
 // A new lens or reference moves the key and the lens name on the figure's own 420 ms clock rather than swapping them in one frame
 // (motion review P11, premium-feel R12): the name crossfades, a bar mixes its colours in OKLab and slides its numbers, legend-morph.js.
 // The same key built again simply replaces itself.
-let legendKey = null;
-const legendKeyOf = ({ m, ref }) => (m === 'heat' || m === 'delta' ? `${m}|${ref}` : m);
+// (The key names only what the legend shows: the lens, and the reference only in the Congestion and Change keys. It is kept as the
+// two, compared, not as one string built from them.)
+let legendM = null, legendRef = null;
+const legendSame = (m, ref) => m === legendM && (!(m === 'heat' || m === 'delta') || ref === legendRef);
+// The pieces of a key that never change are made once, here at load: attribute sets that h() only reads (so every build shares them),
+// and each scale's ticks and numbers with their places as styles. A build then makes only the nodes.
+const NOT_INSTANT = { instant: false };
+const LG_TITLE = { class: 'lg-title' }, LG_CAP = { class: 'lg-cap', 'aria-hidden': 'true' }, LG_CATS = { class: 'lg-cats' }, LG_DOTS = { class: 'lg-cats lg-dots' }, LG_NOTE = { class: 'lg-note' };
+const LG_BAR_STYLE = { background: '' }, LG_BAR = { class: 'lg-bar', style: LG_BAR_STYLE };   // (the bar's colours are written into the one style before each build)
+const LG_DOT = { normal: { style: { background: 'var(--flow-normal)' } }, reversed: { style: { background: 'var(--flow-reversed)' } }, portal: { style: { background: 'var(--vein-portal)' } }, systemic: { style: { background: 'var(--vein-systemic)' } } };
+const LG_ORIGIN_ORDER = [0, 1, 2, 4, 3];
+const LG_ORIGIN = ORIGINS.map((o, i) => ({ span: { title: o[3] }, dot: { style: { background: ORIGIN_CSS[i] } }, name: o[2] }));
+// (Every number is centred on its tick; the scale stands in from its neighbours by half its end numbers' width (ch: a digit,
+// the scale's own font being the numbers'), so the first and last are never pulled in off their ticks: "30" had sat 7.5 px left of its tick.)
+// (One rule for every scale: the bar's own ends mark its first and last numbers; a short notch under the bar marks each
+// number between them, and any extra tick a key asks for (Velocity's normal band). A notch never crosses the colours.)
+function lgScaleSpec(nums, ticks = []) {
+  const marks = [...new Map([...ticks.map((p) => [p, false]), ...nums.filter(([p]) => p > 1 && p < 99).map(([p, , opt]) => [p, !!opt])]).entries()].filter(([p]) => p > 1 && p < 99);
+  return {
+    attrs: { class: 'lg-scale', style: { marginLeft: `${String(nums[0]?.[1] ?? '').length / 2}ch`, marginRight: `${String(nums.at(-1)?.[1] ?? '').length / 2}ch` } },
+    ticks: marks.map(([p, opt]) => ({ class: 'lg-tick' + (opt ? ' opt' : ''), style: { left: p + '%' } })),
+    nums: nums.map(([p, t, opt]) => ({ attrs: { class: 'lg-num' + (p >= 95 ? ' end' : p <= 1 ? ' start' : '') + (opt ? ' opt' : ''), style: { left: p + '%' } }, text: t })),
+  };
+}
+const LG_MAX = 30, LG_AT_P = (p) => (p / LG_MAX) * 100, LG_AT_FLOW = (v) => flowPos(v) * 100, LG_AT_HEAT = (v) => (v / HEAT_MAX) * 100, LG_AT_OXY = (p) => ((p / 100 - OXY_MIN) / (1 - OXY_MIN)) * 100;
+const LG_SCALE = {
+  pressure: lgScaleSpec(PRESSURE_TICKS.map((p) => [LG_AT_P(p), String(p)]), PRESSURE_TICKS.map(LG_AT_P)),
+  drop: lgScaleSpec([[0, '0'], [100, '≥12']]),
+  flow: lgScaleSpec([[LG_AT_FLOW(0.02), '0.02'], [LG_AT_FLOW(0.5), '0.5'], [LG_AT_FLOW(5), '5']], [LG_AT_FLOW(0.5)]),
+  velocity: lgScaleSpec([[0, 'Slow'], [100, 'Fast']], [33.3, 66.7]),
+  heat: lgScaleSpec([[LG_AT_HEAT(0), '0'], [LG_AT_HEAT(5), '5'], [LG_AT_HEAT(10), '10', 1], [LG_AT_HEAT(15), '≥15']], []),
+  oxygen: lgScaleSpec([[LG_AT_OXY(60), '60'], [LG_AT_OXY(80), '80'], [LG_AT_OXY(100), '100']], [LG_AT_OXY(80)]),
+  delta: lgScaleSpec([[0, '−12'], [50, '0'], [100, '+12']], [50]),
+};
+// (Each bar's colours, as CSS: asked of colormap.js once, on the lens's first showing. Its ramps are read from the page's styles once
+// and kept there, so the same text comes back each time.)
+const LG_GRAD = {};
+const LG_DELTA_GRAD = 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))';
+// The wording that names the reference (Congestion, Change): made again only when the reference is another one.
+let lgRef = null, lgHeatUnit = '', lgHeatAria = '', lgDeltaTitle = '', lgDeltaAria = '';
+function lgRefWords(ref) {
+  if (ref === lgRef) return;
+  lgRef = ref;
+  lgHeatUnit = `mmHg above ${ref}`;
+  lgHeatAria = `Legend: pressure above ${ref}, 0 to 15 millimeters of mercury, gray to yellow to deep red, with a glow where congestion is highest`;
+  lgDeltaTitle = `Change from ${ref}`;
+  lgDeltaAria = `Legend: change in pressure from ${ref}, blue lower, red higher, up to 12 millimeters of mercury`;
+}
+lgRefWords('healthy');
+const lgScale = (grad, spec) => {
+  LG_BAR_STYLE.background = grad;
+  const bar = h('div', LG_BAR);
+  bar._ramp = grad;
+  const sc = h('div', spec.attrs, bar);
+  for (let i = 0; i < spec.ticks.length; i++) sc.append(h('span', spec.ticks[i]));
+  for (let i = 0; i < spec.nums.length; i++) sc.append(h('span', spec.nums[i].attrs, spec.nums[i].text));
+  return sc;
+};
+// Where the full title is hidden (narrow screens), a two-word caption keeps the lens and its unit.
+const lgCap = (k, u) => h('div', LG_CAP, k, h('small', NOATTR, u));
+const lgTitle = (t, u) => h('div', LG_TITLE, t, h('small', NOATTR, u));
+const legendKids = [];   // (what a key is made of, handed to morphKey, which uses it before it returns, or in the one fill that a swap keeps)
+const lgPut = (el, same, a, b, c) => {
+  legendKids.length = 0;
+  legendKids.push(a);
+  if (b) legendKids.push(b, c);
+  morphKey(el, legendKids, same ? INSTANT : NOT_INSTANT);
+};
 function renderLegend() {
   const { m, ref } = legendModel();
   // (The key names only what the legend shows: the reference appears in the Congestion and Change keys alone, so turning
   // Compare on or off no longer fades an unchanged key out and in; round 2 review, NP8.)
-  const el = $('#legend'), key = legendKeyOf({ m, ref }), same = key === legendKey;
-  legendKey = key;
-  const put = (...kids) => morphKey(el, kids, { instant: same });
-  // (Every number is centred on its tick; the scale stands in from its neighbours by half its end numbers' width (ch: a digit,
-  // the scale's own font being the numbers'), so the first and last are never pulled in off their ticks: "30" had sat 7.5 px left of its tick.)
-  const scale = (grad, nums, ticks = []) => h('div', { class: 'lg-scale', style: { marginLeft: `${String(nums[0]?.[1] ?? '').length / 2}ch`, marginRight: `${String(nums.at(-1)?.[1] ?? '').length / 2}ch` } }, Object.assign(h('div', { class: 'lg-bar', style: { background: grad } }), { _ramp: grad }),
-    // (One rule for every scale: the bar's own ends mark its first and last numbers; a short notch under the bar marks each
-    // number between them, and any extra tick a key asks for (Velocity's normal band). A notch never crosses the colours.)
-    [...new Map([...ticks.map((p) => [p, false]), ...nums.filter(([p]) => p > 1 && p < 99).map(([p, , opt]) => [p, !!opt])]).entries()]
-      .filter(([p]) => p > 1 && p < 99).map(([p, opt]) => h('span', { class: 'lg-tick' + (opt ? ' opt' : ''), style: { left: p + '%' } })),
-    nums.map(([p, t, opt]) => h('span', { class: 'lg-num' + (p >= 95 ? ' end' : p <= 1 ? ' start' : '') + (opt ? ' opt' : ''), style: { left: p + '%' } }, t)));
-  // Where the full title is hidden (narrow screens), a two-word caption keeps the lens and its unit.
-  const cap = (k, u) => h('div', { class: 'lg-cap', 'aria-hidden': 'true' }, k, h('small', {}, u));
+  const el = $('#legend'), same = legendSame(m, ref);
+  legendM = m; legendRef = ref;
   if (m === 'pressure' || m === 'drop') {
-    const max = 30, at = (p) => (p / max) * 100;
-    put(h('div', { class: 'lg-title' }, m === 'pressure' ? 'Mean venous pressure' : 'Pressure drop', h('small', {}, 'mmHg')), cap(m === 'pressure' ? 'Pressure' : 'Drop', 'mmHg'),
-      m === 'pressure' ? scale(gradientCss('to right', max), PRESSURE_TICKS.map((p) => [at(p), String(p)]), PRESSURE_TICKS.map(at))
-        : scale(dropCss('to right'), [[0, '0'], [100, '≥12']]));
+    if (m === 'pressure') LG_GRAD.pressure ||= gradientCss('to right', LG_MAX); else LG_GRAD.drop ||= dropCss('to right');
+    lgPut(el, same, lgTitle(m === 'pressure' ? 'Mean venous pressure' : 'Pressure drop', 'mmHg'), lgCap(m === 'pressure' ? 'Pressure' : 'Drop', 'mmHg'), lgScale(m === 'pressure' ? LG_GRAD.pressure : LG_GRAD.drop, m === 'pressure' ? LG_SCALE.pressure : LG_SCALE.drop));
     el.setAttribute('aria-label', m === 'pressure' ? 'Legend: mean venous pressure at each vessel, 0 to 30 millimeters of mercury, pale blue to dark magenta' : 'Legend: pressure drop across each vessel, 0 to 12 or more millimeters of mercury, pale to deep green');
   } else if (m === 'flow') {
-    const at = (v) => flowPos(v) * 100;
-    put(h('div', { class: 'lg-title' }, 'Flow volume', h('small', {}, 'L/min · width ∝ √flow')), cap('Flow', 'L/min'),
-      scale(flowCss('to right'), [[at(0.02), '0.02'], [at(0.5), '0.5'], [at(5), '5']], [at(0.5)]));
+    LG_GRAD.flow ||= flowCss('to right');
+    lgPut(el, same, lgTitle('Flow volume', 'L/min · width ∝ √flow'), lgCap('Flow', 'L/min'), lgScale(LG_GRAD.flow, LG_SCALE.flow));
     el.setAttribute('aria-label', 'Legend: flow volume from 0.02 to 6 liters per minute on a log scale, pale mint to deep blue; line width grows with flow');
   } else if (m === 'velocity') {
-    put(h('div', { class: 'lg-title' }, 'Velocity', h('small', {}, 'vs normal')), cap('Velocity', 'vs normal'),
-      scale(velocityCss('to right'), [[0, 'Slow'], [100, 'Fast']], [33.3, 66.7]));
+    LG_GRAD.velocity ||= velocityCss('to right');
+    lgPut(el, same, lgTitle('Velocity', 'vs normal'), lgCap('Velocity', 'vs normal'), lgScale(LG_GRAD.velocity, LG_SCALE.velocity));
     el.setAttribute('aria-label', 'Legend: each vessel\'s mean velocity against its normal range: a continuous scale from sand (slower than normal) through teal (normal) to violet (faster), stronger the further from normal; collaterals stay gray');
   } else if (m === 'heat') {
-    const at = (v) => (v / HEAT_MAX) * 100;
-    put(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)), cap('Congestion', 'mmHg'),
-      scale(heatCss('to right'), [[at(0), '0'], [at(5), '5'], [at(10), '10', 1], [at(15), '≥15']], []));
-    el.setAttribute('aria-label', `Legend: pressure above ${ref}, 0 to 15 millimeters of mercury, gray to yellow to deep red, with a glow where congestion is highest`);
+    lgRefWords(ref);
+    LG_GRAD.heat ||= heatCss('to right');
+    lgPut(el, same, lgTitle('Congestion', lgHeatUnit), lgCap('Congestion', 'mmHg'), lgScale(LG_GRAD.heat, LG_SCALE.heat));
+    el.setAttribute('aria-label', lgHeatAria);
   } else if (m === 'oxygen') {
-    const at = (p) => ((p / 100 - OXY_MIN) / (1 - OXY_MIN)) * 100;
-    put(h('div', { class: 'lg-title' }, 'Oxygen saturation', h('small', {}, '%')), cap('Oxygen', '%'),
-      scale(oxygenCss('to right'), [[at(60), '60'], [at(80), '80'], [at(100), '100']], [at(80)]));
+    LG_GRAD.oxygen ||= oxygenCss('to right');
+    lgPut(el, same, lgTitle('Oxygen saturation', '%'), lgCap('Oxygen', '%'), lgScale(LG_GRAD.oxygen, LG_SCALE.oxygen));
     el.setAttribute('aria-label', 'Legend: oxygen saturation of the blood in each vessel, 60 to 100 percent, blue (hepatic venous blood, about 65) to red (arterial, 98); portal blood is about 85');
   } else if (m === 'direction') {
-    put(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--flow-normal)' } }), 'Physiological'), h('span', {}, h('i', { style: { background: 'var(--flow-reversed)' } }), 'Reversed')));
+    lgPut(el, same, h('div', LG_CATS, h('span', NOATTR, h('i', LG_DOT.normal), 'Physiological'), h('span', NOATTR, h('i', LG_DOT.reversed), 'Reversed')));
     el.setAttribute('aria-label', 'Legend: teal is physiological flow direction, orange is reversed');
   } else if (m === 'origin') {
     // Dots and the short names (SMV, IMV, SV, Sys, HA), so the key always fits in the top bar.
-    put(h('div', { class: 'lg-cats lg-dots' }, ...[0, 1, 2, 4, 3].map((i) => h('span', { title: ORIGINS[i][3] }, h('i', { style: { background: ORIGIN_CSS[i] } }), h('b', {}, ORIGINS[i][2])))));
+    const cats = h('div', LG_DOTS);
+    for (let k = 0; k < LG_ORIGIN_ORDER.length; k++) { const o = LG_ORIGIN[LG_ORIGIN_ORDER[k]]; cats.append(h('span', o.span, h('i', o.dot), h('b', NOATTR, o.name))); }
+    lgPut(el, same, cats);
     el.setAttribute('aria-label', 'Legend: blood colored by where it comes from, as streams side by side: amber SMV (with the coronary vein), teal IMV, violet SV (splenic vein), slate blue Sys (systemic), crimson HA (hepatic artery)');
   } else if (m === 'neutral') {
-    put(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--vein-portal)' } }), 'Portal veins'), h('span', {}, h('i', { style: { background: 'var(--vein-systemic)' } }), 'Systemic veins'),
-      h('span', { class: 'lg-note' }, svgIcon('info'), 'Pressures unmeasured')));
+    lgPut(el, same, h('div', LG_CATS, h('span', NOATTR, h('i', LG_DOT.portal), 'Portal veins'), h('span', NOATTR, h('i', LG_DOT.systemic), 'Systemic veins'),
+      h('span', LG_NOTE, svgIcon('info'), 'Pressures unmeasured')));
     el.setAttribute('aria-label', 'Legend: violet portal veins, blue systemic veins. Pressures are unmeasured in this case: investigate with the tools.');
   } else {
-    put(h('div', { class: 'lg-title' }, `Change from ${ref}`, h('small', {}, 'mmHg')), cap('Change', 'mmHg'),
-      scale('linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', [[0, '−12'], [50, '0'], [100, '+12']], [50]));
-    el.setAttribute('aria-label', `Legend: change in pressure from ${ref}, blue lower, red higher, up to 12 millimeters of mercury`);
+    lgRefWords(ref);
+    lgPut(el, same, lgTitle(lgDeltaTitle, 'mmHg'), lgCap('Change', 'mmHg'), lgScale(LG_DELTA_GRAD, LG_SCALE.delta));
+    el.setAttribute('aria-label', lgDeltaAria);
   }
   const lab = $('#colorModeLabel'), name = m === 'neutral' ? 'Anatomy' : m === 'delta' && st().compareSnap ? 'Change since then' : COLOR_MODES[m];
-  crossfadeText(lab, name, { instant: lab.textContent === name });
+  crossfadeText(lab, name, lab.textContent === name ? INSTANT : NOT_INSTANT);
 }
 const st = () => store.get();
 // ── Moving blood ─────────────────────────────────────
