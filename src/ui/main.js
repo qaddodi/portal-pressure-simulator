@@ -648,6 +648,7 @@ function buildHud() {
   if (!/[?&]chipopen=0\b/.test(location.search)) { document.documentElement.classList.add('chip-open'); for (const id of ['btnBlood', 'btnLobuleLayers', 'btnLayers']) $('#' + id).setAttribute('aria-expanded', 'false'); }
   // Press and hover on every other control eases and answers a finger (app.css, html.press-fx). ?pressfx=0 leaves all of it off.
   if (!/[?&]pressfx=0\b/.test(location.search)) document.documentElement.classList.add('press-fx');
+  if (!/[?&]modelcontain=0\b/.test(location.search)) document.documentElement.classList.add('model-contain');
   $('#btnBlood').onclick = (e) => openBlood(e.currentTarget);
   $('#btnLobuleLayers').onclick = (e) => openLobuleLayers(e.currentTarget);
   store.on('lobule', (on) => { $('#btnLobuleLayers').hidden = !on; if (!on) closePopover(); });
