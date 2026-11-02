@@ -23,7 +23,7 @@ import charts from './ext-charts.js?v=ecf45ccd60';
 import model from './ext-model.js?v=06bf4c760e';
 import panels from './ext-panels.js?v=9d85f40195';
 import callouts from './ext-callouts.js?v=63d28fc0a3';
-import instruments from './ext-instruments.js?v=e98e77e566';
+import instruments from './ext-instruments.js?v=236993f2fd';
 import teaching from './ext-teaching.js?v=4d4e58f3e3';
 
 export const PACKAGES = { A: highlights, B: charts, C: model, E: panels, F: callouts, G: instruments, H: teaching };

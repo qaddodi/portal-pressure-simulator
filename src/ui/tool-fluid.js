@@ -11,6 +11,8 @@ import { createSvgGL, svgModel } from './svg-gl.js?v=dd982f142c';
 import { h, fmt, clamp } from './util.js?v=1a6db9446e';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { store } from './store.js?v=4ef2a6ffd8';
+import { measure } from './glyph-measure.js?v=5fc78d0edb';
+const FLUID_MEASURE = !(typeof location !== 'undefined' && /[?&]fluidmeasure=0\b/.test(location.search || ''));
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const num = (x) => (Number.isFinite(+x) ? +x : null);
@@ -270,16 +272,26 @@ export function createFluid() {
   const dayOf = (f) => ({ carried: f.dCar, over: f.dOver, back: f.dBack, room: f.dRoom });
   // A label sits inside its part when it fits (the text and 1.05 em beside it), else it is hidden; decided from where the parts
   // are going, never from where they are mid-ease, so a label fades once, not as the part grows past it.
+  // (A label's width from Inter's own metrics, the ones the GPU sets words with (glyph-measure.js), not from the page: the strip's words
+  // change with every model step of a time-lapse, and each candidate was set into a hidden span and read back, a forced layout each,
+  // several a step (2 Nov, his Mac: Ascites 4 with Fluid balance open at 16 fps). The widths and the type size are read from the page
+  // only when the strip's size changes. ?fluidmeasure=0: measured on the page, as before.)
   const fit = (n, cands, room, em) => {
-    for (const c of cands) { meas.textContent = c; if (meas.offsetWidth + em * 1.05 <= room) { set(n, c); n.style.opacity = ''; return true; } }
-    n.style.opacity = '0'; return false;
+    for (const c of cands) {
+      let w;
+      if (FLUID_MEASURE) w = measure(c, `600 ${em}px Inter`); else { meas.textContent = c; w = meas.offsetWidth; }
+      if (w + em * 1.05 <= room) { set(n, c); if (n.style.opacity) n.style.opacity = ''; return true; }
+    }
+    if (n.style.opacity !== '0') n.style.opacity = '0';
+    return false;
   };
+  let sizeSig = '', roSeen = false;
   function labels() {
-    const tw = trk.clientWidth, fw = tug.clientWidth;
+    const sized = FLUID_MEASURE && roSeen, tw = sized ? TW : trk.clientWidth, fw = sized ? FW : tug.clientWidth;   // (the observer's widths once it has reported)
     const sig = `${tw}|${fw}|${day ? JSON.stringify(day) : ''}|${fGoal ? `${fmt(fGoal.out, 1)}${fmt(fGoal.pull, 1)}` : ''}`;
     if (sig === labSig) return;
     labSig = sig;
-    em = parseFloat(getComputedStyle(win).fontSize) || 14;
+    if (!FLUID_MEASURE || sizeSig !== `${tw}|${fw}` || !em) { sizeSig = `${tw}|${fw}`; em = parseFloat(getComputedStyle(win).fontSize) || 14; }
     if (opts.window && day && tw) {
       const P = stripParts(dayOf(goal), tw), sw = stripWords(day);
       const seen = fit(tCar, sw.carried, P.car.w, em);
@@ -339,7 +351,7 @@ export function createFluid() {
   }
   const kick = () => { if (!raf && typeof requestAnimationFrame === 'function') raf = frame(tick, 'tool-fluid'); };
   if (typeof ResizeObserver === 'function') {
-    const ro = new ResizeObserver(() => { W = flowBox.getBoundingClientRect().width; gl.relook(); TW = trk.clientWidth; FW = tug.clientWidth; labSig = ''; labels(); draw(); });
+    const ro = new ResizeObserver(() => { W = flowBox.getBoundingClientRect().width; gl.relook(); TW = trk.clientWidth; FW = tug.clientWidth; roSeen = true; labSig = ''; labels(); draw(); });
     ro.observe(el); ro.observe(trk); ro.observe(tug); ro.observe(flowBox);
   }
   document.fonts?.ready.then(() => { labSig = ''; labels(); });
