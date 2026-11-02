@@ -1622,10 +1622,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const t of clampW.querySelectorAll('.clamp-label')) clampLabelAt(t);
   }
   const GLIDE_PAINT = !/[?&]glidepaint=0\b/.test(location.search);
+  // (Holding 120 Hz §3.10, 2 Nov 2026: input is coalesced. A move, a wheel step or a pinch only sets the view (vt) and asks for the frame;
+  // the SVG world's transform is written once, in that frame (flushVT, first thing in syncView), however many events came before it: a
+  // trackpad reports a wheel step every few ms, and each wrote two transform attributes. The view's own maths (CTM, clientToVBFast) use
+  // vt, never the attribute; a reader of the attribute's matrix (clientToWorld) flushes first. ?vtcoalesce=0: written at each event.)
+  let vtDirty = false;
+  const VT_COALESCE = !/[?&]vtcoalesce=0\b/.test(location.search);
+  const flushVT = () => {
+    if (!vtDirty) return;
+    vtDirty = false;
+    const deg = rotDeg(), tr = `translate(${vt.x} ${vt.y}) scale(${vt.k})${deg ? ` rotate(${deg.toFixed(3)} ${CIRC_C[0]} ${CIRC_C[1]})` : ''}`;
+    world.setAttribute('transform', tr);
+    worldOver?.setAttribute('transform', tr);
+  };
   const applyVT = () => {
-    const deg = rotDeg();
-    world.setAttribute('transform', `translate(${vt.x} ${vt.y}) scale(${vt.k})${deg ? ` rotate(${deg.toFixed(3)} ${CIRC_C[0]} ${CIRC_C[1]})` : ''}`);
-    worldOver?.setAttribute('transform', world.getAttribute('transform'));
+    vtDirty = true;
+    if (!VT_COALESCE) flushVT();
     syncSemantic();
     CTM = null; viewVersion++; stageWake();
     // (While moving: the first step of a move drops the canvas to its moving share, once; it is back at rest when the view settles.)
@@ -1636,6 +1648,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   };
   function syncView() {
     viewRaf = 0;
+    flushVT();
     if (!F || lz?.isOpen()) return;
     refreshCTM();
     gpuProbe.time(null, 'labels (script)', () => updateLabels(F));
@@ -1728,6 +1741,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return [CTM.a * x + CTM.c * y + CTM.e - wrapRect.left, CTM.b * x + CTM.d * y + CTM.f - wrapRect.top];
   }
   function clientToWorld(cx, cy) {
+    flushVT();
     const m = world.getScreenCTM().inverse();
     return [m.a * cx + m.c * cy + m.e, m.b * cx + m.d * cy + m.f];
   }
