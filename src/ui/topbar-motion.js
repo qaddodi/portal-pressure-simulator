@@ -133,10 +133,10 @@ export function initTopbarMotion() {
     const p = Math.min(w0, w1), h = face.offsetHeight;
     const R = Math.min(h / 2, p / 2, parseFloat(getComputedStyle(face).borderTopLeftRadius) || 0);
     const mid = p - 2 * R;
-    const mk = (clip) => {
+    const mk = (clip, width = p) => {
       const g = face.cloneNode(false);
       g.dataset.ghost = ''; g.setAttribute('aria-hidden', 'true');
-      Object.assign(g.style, { width: `${p}px`, clipPath: clip, willChange: 'transform' });
+      Object.assign(g.style, { width: `${width}px`, clipPath: clip, willChange: 'transform' });
       face.after(g);
       return g;
     };
@@ -144,7 +144,7 @@ export function initTopbarMotion() {
     const at = (k) => (k ? { x: 0, w: w1 } : { x: x0, w: w0 });
     if (mid < 4) {
       // (A plate too short to have a flat middle: the old plate fades out over the new, each at its own fixed size.)
-      const old = mk('none'); old.style.width = `${w0}px`;
+      const old = mk('none', w0);   // (its width set once, before it is placed)
       const a = tag(old.animate([{ translate: `${x0}px 0px`, opacity: 1 }, { translate: `${x0}px 0px`, opacity: 0 }], { ...timing, fill: 'forwards' }));
       a.onfinish = a.oncancel = () => old.remove();
       return tag(face.animate([{ opacity: 0 }, { opacity: 1 }], timing));
