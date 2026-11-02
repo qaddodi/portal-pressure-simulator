@@ -124,7 +124,7 @@ export function createElastogramGL(F) {
   let s = null;
   try { s = make(F); } catch (e) { console.warn('FibroScan map: WebGL2 unavailable.', e); s = null; }
   if (!s) return null;
-  return { canvas: s.canvas, draw: (F2, NB, t0, N, c, t) => !!drawMap(s, F2, NB, t0, N, c, t), get lost() { return s.lost; } };
+  return { canvas: s.canvas, draw: (fMap, NB, t0, N, c, t) => !!drawMap(s, fMap, NB, t0, N, c, t), get lost() { return s.lost; } };
 }
 function drawMap(s, F, NB, t0, N, c, t) {
   if (s.lost) return null;
