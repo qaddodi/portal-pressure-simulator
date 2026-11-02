@@ -1,0 +1,19 @@
+{
+  "note": "Every dynamic import, and what reads its module in before a person can reach it (scripts/rules-lint.mjs). Nothing is imported on a user tap.",
+  "imports": {
+    "src/ui/host.js → ../worker-core.js": "only when a Worker cannot start (the engine runs on the page instead), at boot",
+    "src/ui/presenter.js → ../worker-core.js": "the same fallback for a presentation's own engine, when its Worker cannot start",
+    "src/ui/main.js → ./doppler.js": "main.js warmUp, idle after boot and under the loading cover",
+    "src/ui/main.js → ./fibroscan.js": "main.js warmUp, idle after boot and under the loading cover",
+    "src/ui/main.js → ./presenter.js": "main.js warmUp, idle after boot and under the loading cover",
+    "src/ui/main.js → ./palette.js": "main.js warmUp, idle after boot and under the loading cover",
+    "src/ui/main.js → ./frame-hud.js": "?perf only, at boot",
+    "src/ui/main.js → ./high-refresh.js": "at boot",
+    "src/ui/main.js → ./perf-readout.js": "?perf only, at boot",
+    "src/ui/main.js → ./offgpu-overlay.js": "?offgpu only, at boot",
+    "src/ui/presenter.js → ./test-decks/demo-all-new-visuals.js": "the preview copy only, when the presenter module is read in",
+    "src/ui/stage.js → ./lobule-zoom.js": "stage.js lobuleCode, once the figure is shown (prepIdle), long before the lobule can be opened",
+    "src/ui/stage.js → ./organ-art-lite.js": "NOT YET: syncArtLite imports it when Lighter organ art is turned on in Settings, a tap (to be read in when Settings opens)",
+    "src/ui/text-gl.js → ./glyph-data.js": "gl-words.js and label-gl.js call loadGlyphs at boot"
+  }
+}
