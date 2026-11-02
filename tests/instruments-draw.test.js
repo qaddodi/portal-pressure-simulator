@@ -99,6 +99,7 @@ async function modelFrames(preset, secs = 3) {
 const healthy = await modelFrames('healthy');
 const csph = await modelFrames('csph');
 
+const { recorderGL } = await import('./vitals-recorder.js');
 const { createVitalsMonitor } = await import('../src/ui/vitals-monitor.js');
 const { createHvpgCard } = await import('../src/ui/tool-hvpg.js');
 const { createPressureTime } = await import('../src/ui/pressure-time.js');
@@ -111,22 +112,21 @@ test('the model produced frames to draw with', () => {
 
 test('the vitals monitor draws the strip and its readings from a live frame, then from a slide\'s pinned numbers', () => {
   for (const show of [undefined, ['hr', 'map', 'co']]) {
-    const v = createVitalsMonitor();
+    const v = createVitalsMonitor({ makeGL: recorderGL });
     v.configure({ kind: 'vitals', show });
     const cv = canvasOf(v.el);
     cv.bw = 420; cv.bh = 200;
     for (const f of healthy) v.update({ ...f, running: true, speed: 1 });
     runFrames();
-    const ts = texts(cv);
+    const ts = cv.rec.texts;
     assert.ok(ts.includes('EKG'), 'the strip is named');
     assert.ok(ts.includes('HR') && ts.includes('MAP'), `readings named: ${ts}`);
     assert.ok(ts.some((s) => /^\d+$/.test(s)), 'a heart rate is written');
-    assert.deepEqual(cv.log.bad, [], 'every number handed to the canvas is finite');
-    assert.ok(cv.log.fonts.every((f) => parseFloat(/(\d+(\.\d+)?)px/.exec(f)?.[1]) >= 12), 'no lettering under 12 px');
-    fresh(cv);
+    assert.deepEqual(cv.rec.bad, [], 'every number handed to the GPU is finite');
+    assert.ok(cv.rec.sizes.every((px) => px >= 12), 'no lettering under 12 px');
     v.pin({ map: 62, hr: 131, co: 4.1, hb: 9.2, ra: 4 });
     for (let i = 0; i < 60 && frameQueue.length; i++) runFrames(performance.now() + i * 16);
-    assert.ok(texts(cv).includes('131') || texts(cv).some((s) => /^13\d$/.test(s) || /^12\d$/.test(s)), `the pinned heart rate is on the monitor: ${texts(cv)}`);
+    assert.ok(cv.rec.texts.includes('131') || cv.rec.texts.some((s) => /^13\d$/.test(s) || /^12\d$/.test(s)), `the pinned heart rate is on the monitor: ${cv.rec.texts}`);
     v.clear(); v.restart();
     v.dispose();
   }

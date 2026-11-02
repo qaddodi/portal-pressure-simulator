@@ -8,17 +8,15 @@
 // parks it for a moment) the monitor goes on: the strip scrolls on this card's clock and lays beats at the heart rate shown, closing in as the
 // number climbs, then hands over to the live beat where the model's phase resumes, so the strip neither stalls nor jumps (ekg.js walkBeats).
 
-import { h, fmt, fitCanvas, fitBox, clamp, cssVar } from './util.js?v=aef9bbf227';
-import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js?v=9995be9efc';
-import { FONT } from './charts.js?v=9e0b59f9ff';
-import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating } from './frame.js?v=07b68cf942';
+import { h, fmt, fitBox, clamp, cssVar } from './util.js?v=1926dc32f0';
+import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js?v=05e33019d1';
+import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating } from './frame.js?v=1d147c7c9a';
 import { VITALS, vitalReading } from './vital-read.js?v=eb683dfbdd';
 import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js?v=ee939fbe92';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
 import { dropFront } from './drop-front.js?v=21069ee0e8';
-import { createStill } from './still-layer.js?v=d5a9373a74';
-import { attrSoon } from './class-soon.js?v=af0dd2b529';
-import { restPass } from './rest-pass.js?v=fea7233cda';
+import { attrSoon } from './class-soon.js?v=60cf95af4a';
+import { restPass } from './rest-pass.js?v=bb619a1659';
 const nextFrame = frameFor('vitals-monitor');
 
 export const VITALS_DEFAULT = ['hr', 'map', 'hb'];
@@ -54,14 +52,11 @@ export function vitalCells(m, ids, xs, running, now) {
   return out;
 }
 
-// The fonts epoch: the words of the pictures below are drawn again when a font finishes loading (as the Pressure chart's are).
-let fontEpoch = 0;
-globalThis.document?.fonts?.addEventListener?.('loadingdone', () => { fontEpoch++; });
 
-/** `stillLayer`: false draws the still parts straight onto the canvas every frame, as before the pictures (the switch the tests compare with). */
-export function createVitalsMonitor({ stillLayer = true, gpu = true } = {}) {
+/** `makeGL`: how the GPU drawer is made (vitals-gl.js; the tests give a recorder). `gpu: false`: nothing is drawn (the strip's clock still runs). */
+export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}) {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Vital signs monitor' });
-  const glr = gpu ? createVitalsGL(cv) : null;   // (null where WebGL 2 is not there: the 2D canvas below, as before)
+  const glr = gpu ? makeGL(cv) : null;   // (null where WebGL 2 is not there: nothing is drawn; makeGL: the tests give a recorder)
   const el = h('div', { class: 'chart-box vitals-box' }, cv);
   const clock = createBeatClock();
   const trimClock = clock.trim.bind(clock);   // (the beat clock's own trim: not a string's)
@@ -76,10 +71,6 @@ export function createVitalsMonitor({ stillLayer = true, gpu = true } = {}) {
   const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { seen = es[es.length - 1].isIntersecting; wake(); }) : null;
   io?.observe(cv);
   const live = () => frame?.running && (io ? seen : true) && !document.hidden;   // (no IntersectionObserver: taken as on screen; no layout is read in a frame)
-  // (Laptop-heat Q6, 31 Oct: the parts of the monitor that do not move, the panel with its baseline and name and, under the strip, the vitals'
-  // names, numbers and units, are drawn into pictures of their own, again only when what they are drawn from changes (still-layer.js); the strip
-  // is drawn over the first each frame. The numbers change at most a few times a second.)
-  const stillTop = createStill(cv, { on: stillLayer }), stillCells = createStill(cv, { on: stillLayer });
 
   const C = (n) => cssVar(n);
   function headX() {
@@ -91,75 +82,7 @@ export function createVitalsMonitor({ stillLayer = true, gpu = true } = {}) {
   }
   function draw(now = performance.now()) {
     advanceSynth(now);
-    if (glr) return drawGL(now);
-    const { ctx, w, h: hh } = fitCanvas(cv);
-    if (w < 120 || hh < 90) return;
-    ctx.clearRect(0, 0, w, hh);
-    const bg = C('--mon-bg'), text = C('--mon-text'), bright = C('--mon-bright'), alarm = C('--mon-alarm'), grid = C('--mon-grid'), ecg = C('--mon-ecg') || bright, art = C('--mon-art') || bright;
-    // (As a bedside monitor colours them: the ECG and the heart rate green, the arterial pressure red, the rest in the monitor's white.)
-    const inkOf = (id) => (id === 'hr' ? ecg : id === 'map' ? art : bright);
-    const pad = 14, ew = w - 2 * pad, eh = Math.round(clamp(hh * 0.42, 34, 110)), top = pad, bot = pad + eh;
-    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
-    // The panel, the baseline and the strip's name: still.
-    stillTop.lay(ctx, JSON.stringify([cv.width, cv.height, w, hh, bg, text, grid, bot, pad, ew, top, fontEpoch]), (c) => {
-      c.beginPath(); c.roundRect ? c.roundRect(0, 0, w, hh, 12) : c.rect(0, 0, w, hh); c.fillStyle = bg; c.fill();
-      c.textBaseline = 'alphabetic'; c.textAlign = 'left';
-      // The strip: one QRS to a beat across the last few seconds, in the monitor's bright line.
-      c.strokeStyle = grid; c.lineWidth = 1; c.beginPath(); c.moveTo(pad, Math.round(bot - 6) + 0.5); c.lineTo(pad + ew, Math.round(bot - 6) + 0.5); c.stroke();
-      c.font = FONT(600, 12); c.fillStyle = text; c.fillText('EKG', pad, top + 11);
-    });
-    const x1 = headX(), x0 = Math.max(x1 - SPAN_S, firstT), hr = synth ? synth.w.bpm : frame?.metrics?.hr;
-    if (Number.isFinite(x1) && x1 > x0 + 0.05 && clock.times.length) {
-      const e = ekgSeries(clock.times, x0, x1, 60 / (hr > 20 ? hr : 70));
-      const X = (t) => pad + ((t - (x1 - SPAN_S)) / SPAN_S) * ew, Y = (v) => bot - 6 - ((v + 0.3) / 1.3) * (eh - 22);
-      if (e.x.length > 1) {
-        ctx.save(); ctx.beginPath(); ctx.rect(pad, top, ew, eh); ctx.clip();
-        ctx.strokeStyle = ecg; ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath();
-        for (let i = 0; i < e.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(e.x[i]), Y(e.v[i]));
-        ctx.stroke(); ctx.restore();
-      }
-    }
-    // The readings: each vital's name, its number large, its unit beside it.
-    const m = pinned ? metricsOfFp(pinned) : frame?.metrics;
-    if (!m) return;
-    const cells = vitalCells(m, ids, xs, !!frame?.running, now), y0 = bot + 12, rh = hh - pad - y0, cw = ew / cells.length;
-    let moving = false;
-    // (The numbers as eased to their readings: stepped here on every frame; drawn below only when a printed digit changes.)
-    const vals = cells.map((c) => {
-      if (Number.isFinite(c.v)) {
-        let s = shownV.get(c.id);
-        if (s == null) s = c.v;
-        else if (Math.abs(c.v - s) < Math.pow(10, -c.d) * 0.05) s = c.v;
-        else { s += (c.v - s) * (1 - Math.exp(-clamp((now - last) / 1000, 0, 0.1) / EASE_S)); moving = true; }
-        shownV.set(c.id, s);
-      }
-      return Number.isFinite(c.v) ? fmt(shownV.get(c.id), c.d) : '—';
-    });
-    stillCells.lay(ctx, JSON.stringify([cv.width, cv.height, w, hh, text, bright, alarm, ecg, art, bg, y0, rh, cw, pad, fontEpoch, cells.map((c, i) => [c.k, c.u, c.bad, vals[i]])]), (g) => {
-      g.textBaseline = 'alphabetic'; g.textAlign = 'left';
-      cells.forEach((c, i) => {
-        const x = pad + i * cw, val = vals[i];
-        g.font = FONT(600, 12); g.fillStyle = c.bad ? alarm : inkOf(c.id) === bright ? text : inkOf(c.id); g.fillText(c.k, x, y0 + 12);
-        let big = Math.round(clamp(Math.min(rh - 20, cw * 0.42, 46), 22, 46)), uw;
-        for (;;) {
-          g.font = FONT(500, 12); uw = g.measureText(c.u).width;
-          g.font = FONT(700, big);
-          if (g.measureText('88.8').width + uw + 10 <= cw - 6 || big <= 18) break;
-          big -= 2;
-        }
-        const by = y0 + 12 + 6 + big, nw = g.measureText(val).width;
-        // (A reading past its limit is shown as a monitor's parameter alarm is: the number in reverse video on a patch of the alarm colour.)
-        if (c.bad) { g.fillStyle = alarm; g.beginPath(); const px = x - 5, py = by - big * 0.78 - 4, pw = nw + 10, ph = big * 0.78 + 10; g.roundRect ? g.roundRect(px, py, pw, ph, 5) : g.rect(px, py, pw, ph); g.fill(); }
-        g.fillStyle = c.bad ? bg : inkOf(c.id); g.fillText(val, x, by);
-        g.font = FONT(500, 12); g.fillStyle = c.bad ? alarm : text; g.fillText(c.u, x + nw + 5, by);
-      });
-    });
-    last = now;
-    const label = `Vital signs: ${cells.map((c) => `${c.title} ${Number.isFinite(c.v) ? fmt(c.v, c.d) : 'not available'} ${c.u}${c.bad ? ', past its limit' : ''}`).join('; ')}.`;
-    if (label !== lastLabel) { lastLabel = label; attrSoon(cv, 'aria-label', label); }
-    // (While the strip scrolls its loop draws every frame, the easing numbers with it: a frame of their own would draw it twice.)
-    eased = moving;
-    if (moving && !raf && !ticking) raf = nextFrame(rafDraw);
+    if (glr) drawGL(now);
   }
   // ── The GPU's way (vitals-gl.js): the same layout, the same numbers, colours and eases, sent as rectangles, a line and glyphs. ──
   // (lay: the readings' font sizes, found again only when the size or the cells' words change, from the atlas's own advances (no canvas);
@@ -394,6 +317,6 @@ export function createVitalsMonitor({ stillLayer = true, gpu = true } = {}) {
     clear() { clock.reset(); raw.t.length = raw.ph.length = 0; lastT = -Infinity; firstT = Infinity; synth = null; off = 0; synthed = false; xs.clear(); shownV.clear(); if (frame) draw(); },
     backfill, historySecs: () => SPAN_S,
     restart() { this.clear(); },
-    dispose() { gone = true; cancelFrame(raf); raf = 0; cancelFrame(loopRaf); loopRaf = 0; if (ticking) frameAnimating('vitals-monitor', false); ticking = false; io?.disconnect(); ro?.disconnect(); stillTop.drop(); stillCells.drop(); glr?.dispose(); },
+    dispose() { gone = true; cancelFrame(raf); raf = 0; cancelFrame(loopRaf); loopRaf = 0; if (ticking) frameAnimating('vitals-monitor', false); ticking = false; io?.disconnect(); ro?.disconnect(); glr?.dispose(); },
   };
 }

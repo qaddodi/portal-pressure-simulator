@@ -16,9 +16,10 @@ test('colours become premultiplied rgba in 0 to 1', () => {
 });
 
 test('the GPU path is on by default and draws nothing with a 2D context', () => {
-  assert.match(mon, /export function createVitalsMonitor\(\{ stillLayer = true, gpu = true \} = \{\}\)/);
+  assert.match(mon, /export function createVitalsMonitor\(\{ gpu = true, makeGL = createVitalsGL \} = \{\}\)/);
   assert.doesNotMatch(mon, /vitalsgl|location\.search/);
-  assert.match(mon, /if \(glr\) return drawGL\(now\);/, 'the 2D drawing is never reached while the GPU draws');
+  assert.match(mon, /if \(glr\) drawGL\(now\);/, 'the GPU draws the monitor; there is no 2D drawing');
+  assert.doesNotMatch(mon, /fitCanvas|getContext|fillText|stroke\(|createStill/, 'no 2D context, no cached 2D pictures anywhere in the file');
   const body = mon.slice(mon.indexOf('function drawGL'), mon.indexOf("cv.addEventListener('webglcontextrestored'"));
   assert.ok(!/fitCanvas|getContext|fillText|stroke\(|stillTop|stillCells/.test(body), 'no 2D context, no cached 2D pictures');
   assert.match(body, /glr\.draw\(/);

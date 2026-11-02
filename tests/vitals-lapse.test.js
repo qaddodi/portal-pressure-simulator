@@ -1,12 +1,13 @@
 // The vitals monitor's strip through a disease time-lapse (a year in ten seconds with the model's beat parked) and the easing after it.
 // The strip used to stall and jump there; now it scrolls on its own clock and lays beats at the heart rate shown, landing on the live beat.
-// No browser: a fake page and a fake clock, frames made as the worker makes them, and the strip's polyline read back from a recording 2D context.
+// No browser: a fake page and a fake clock, frames made as the worker makes them, and the strip's polyline read back from the points the monitor sends the GPU (tests/vitals-recorder.js).
 import { test } from 'node:test';
 import { CanvasObserver } from './canvas-observer.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import './dom-shim.js';
 import { createBeatClock, beatWalk, walkBeats, seedBeats } from '../src/ui/ekg.js';
+import { recorderGL } from './vitals-recorder.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
@@ -161,7 +162,7 @@ function* scenario({ lapse = true, ease = true, live0 = 5, hr0 = 68, hr1 = 89, s
 
 /** Play a scenario at 60 draws a second (a frame every other draw), reading the strip after every draw. */
 function play(opts, setup) {
-  const v = createVitalsMonitor();
+  const v = createVitalsMonitor({ makeGL: recorderGL });
   v.configure({ kind: 'vitals', show: ['hr', 'map', 'co'] });
   const cv = canvasOf(v.el);
   setup?.(v);
@@ -213,12 +214,12 @@ test('the beats on the strip keep to the heart rate shown through the time-lapse
 
 test('a time-lapse opening on an empty strip is given its window of the steady state it starts from; an easing is not', () => {
   const cut = (opts) => [...scenario(opts)];
-  const first = (opts, n) => { const v = createVitalsMonitor(); v.configure({ kind: 'vitals', show: ['hr', 'map', 'co'] }); const cv = canvasOf(v.el); const fs = cut(opts); let p = []; for (const f of fs.slice(0, n)) { v.update(f); now += 17; const q = queue; queue = []; for (const fn of q) fn(now); p = peaksOf(cv.rec.strip); } v.dispose(); return p; };
+  const first = (opts, n) => { const v = createVitalsMonitor({ makeGL: recorderGL }); v.configure({ kind: 'vitals', show: ['hr', 'map', 'co'] }); const cv = canvasOf(v.el); const fs = cut(opts); let p = []; for (const f of fs.slice(0, n)) { v.update(f); now += 17; const q = queue; queue = []; for (const fn of q) fn(now); p = peaksOf(cv.rec.strip); } v.dispose(); return p; };
   const lapsed = first({ live0: 0 }, 3);
   assert.ok(lapsed.length >= 5, `a window of beats from the first frame: ${lapsed.length}`);
   assert.ok(lapsed.slice(1).every((s, i) => Math.abs(s - lapsed[i] - 60 / 68) < 0.1), 'at the rate the time-lapse starts from');
   const eased = (() => {
-    const v = createVitalsMonitor(); v.configure({ kind: 'vitals', show: ['hr', 'map', 'co'] }); const cv = canvasOf(v.el);
+    const v = createVitalsMonitor({ makeGL: recorderGL }); v.configure({ kind: 'vitals', show: ['hr', 'map', 'co'] }); const cv = canvasOf(v.el);
     for (let i = 0; i < 6; i++) { v.update({ running: true, clock: 'hemo', speed: 1, morphing: true, metrics: { hr: 70 }, phase: 0.4, parkSecs: 0.5, samples: null }); now += 17; const q = queue; queue = []; for (const fn of q) fn(now); }
     v.dispose(); return peaksOf(cv.rec.strip);
   })();

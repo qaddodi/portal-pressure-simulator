@@ -1,6 +1,7 @@
 // Heat, 26 Oct (steps 2 and 10): every surface draws at most once in a frame, and a closed one does no more work. The scheduler's
 // phases, the vitals monitor's strip and numbers (one loop, never a second frame of their own while it scrolls), and the instruments
 // a presentation lets go of (no frame, timer or observer left running).
+import { CanvasObserver } from './canvas-observer.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -61,7 +62,7 @@ globalThis.document.hidden = false;
 globalThis.document.documentElement = new Node('html');
 // (a browser reports an observed box a moment later, never inside observe())
 globalThis.IntersectionObserver = class { constructor(cb) { this.cb = cb; } observe() { queueMicrotask(() => this.cb([{ isIntersecting: true }])); } disconnect() {} };
-globalThis.ResizeObserver = class { observe() {} disconnect() {} };
+globalThis.ResizeObserver = CanvasObserver;   // (canvases report their box as a browser's observer does: tests/canvas-observer.js)
 
 const runFrames = (now = performance.now()) => { const q = frameQueue; frameQueue = []; for (const fn of q) fn(now); };
 const canvasOf = (el) => el.kids.find((k) => k.tag === 'canvas') || (function find(n) { for (const k of n.kids || []) { if (k.tag === 'canvas') return k; const r = find(k); if (r) return r; } return null; })(el);
@@ -100,15 +101,16 @@ async function modelFrames(preset) {
 }
 const healthy = await modelFrames('healthy');
 const { createVitalsMonitor } = await import('../src/ui/vitals-monitor.js');
+const { recorderGL } = await import('./vitals-recorder.js');
 
 test('the vitals monitor draws its strip once a frame while it scrolls, its easing numbers included, and stops when let go', async () => {
-  const v = createVitalsMonitor();
+  const v = createVitalsMonitor({ makeGL: recorderGL });
   const cv = canvasOf(v.el);
   cv.bw = 420; cv.bh = 200;
   await new Promise((r) => queueMicrotask(r));   // (on screen)
   v.update({ ...healthy[0], running: true, speed: 1 });
   // A new reading far from the one shown: the numbers ease over the next frames while the strip scrolls.
-  const strips = () => cv.log.texts.filter((t) => t.s === 'EKG').length;
+  const strips = () => cv.rec.draws;
   let now = 1000;
   for (let i = 1; i < healthy.length; i++) {
     const f = healthy[i];
@@ -117,6 +119,7 @@ test('the vitals monitor draws its strip once a frame while it scrolls, its easi
     runFrames(now += 16);
     assert.ok(strips() - before <= 1, `frame ${i}: drawn ${strips() - before} times`);
   }
+  assert.ok(cv.rec.draws > 0, 'it drew');
   assert.ok(frameQueue.length > 0, 'still scrolling');
   v.dispose();
   const before = strips();
