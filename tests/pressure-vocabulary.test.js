@@ -107,6 +107,6 @@ test('the stylesheet colours "mid" amber and "hi" red, everywhere', () => {
 // one above it) is red too, never amber (Mohammad, 31 Oct).
 test('the HVPG events are red, as the readings they name', () => {
   const ev = read('src/engine/events.js');
-  for (const id of ['CSPH', 'BLEED_RISK']) assert.match(ev, new RegExp(`id: '${id}', on: m\\.hvpg[^\\n]*severity: 'danger'`), id);
+  for (const id of ['CSPH', 'BLEED_RISK']) assert.match(ev, new RegExp(`id: '${id}', on: \\(m\\) => m\\.hvpg[^\\n]*severity: 'danger'`), id);
   assert.equal(hvpgSev(HVPG_CUTS.red), 'danger');
 });

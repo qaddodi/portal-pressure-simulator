@@ -59,27 +59,40 @@ export function ekgRate(times, last = 4) {
   return period > 1e-9 ? 60 / period : null;
 }
 
+// The beats' start times with the borrowed first one in front (written into a kept array: the strips ask every frame).
+function fillStarts(buf, times, period) {
+  const n = times.length, lead = n > 1 ? times[1] - times[0] : period;
+  let o = 0;
+  if (Number.isFinite(lead) && lead > 1e-6) buf[o++] = times[0] - lead;
+  for (let i = 0; i < n; i++) buf[o++] = times[i];
+  buf.length = o;
+  return buf;
+}
+const STARTS = [], LENS = [], PEAKS = [];
+// (The strips' points, kept: ekgSeries and leadIISeries each hand back one object that they write in place and the next call writes
+// again. Every caller draws from it at once and keeps neither it nor its arrays.)
+const EKG_OUT = { x: [], v: [] }, LEAD_OUT = { x: [], v: [] };
+
 /** The strip between two times as points { x, v } (v: the fraction of the R wave): every beat of `times` laid over its own period, the
  *  last one over `period` (60 over the heart rate) and only up to `x1`. A beat that began before the first wrap is borrowed from the
- *  first beat's length so the strip starts at the window's left edge. */
+ *  first beat's length so the strip starts at the window's left edge. The result is one kept object, valid until the next call. */
 export function ekgSeries(times, x0, x1, period) {
-  const x = [], v = [];
-  if (!times.length || !(x1 > x0)) return { x, v };
-  const starts = times.slice();
-  const lead = starts.length > 1 ? starts[1] - starts[0] : period;
-  if (Number.isFinite(lead) && lead > 1e-6) starts.unshift(starts[0] - lead);
+  const o = EKG_OUT, x = o.x, v = o.v;
+  x.length = 0; v.length = 0;
+  if (!times.length || !(x1 > x0)) return o;
+  const starts = fillStarts(STARTS, times, period);
   for (let k = 0; k < starts.length; k++) {
     const t0 = starts[k], len = k + 1 < starts.length ? starts[k + 1] - t0 : period;
     if (!(len > 1e-6) || t0 + len < x0 - 1e-9) continue;
     if (t0 > x1) break;
-    for (const ph of EKG_PHASES) {
-      const at = t0 + ph * len;
+    for (let j = 0; j < EKG_PHASES.length; j++) {
+      const ph = EKG_PHASES[j], at = t0 + ph * len;
       if (at < x0 - len * 0.02) continue;
       if (at > x1) break;
       x.push(at); v.push(ekgAt(ph));
     }
   }
-  return { x, v };
+  return o;
 }
 
 // ── A beat on the strip's own clock ──
@@ -138,16 +151,17 @@ export const leadIIAt = (dt, rr) => {
 };
 
 /** The strip between two times as points { x, v }, every 4 ms, from the beats' start times as ekgSeries takes them. Each point sums the
- *  waves of the beats around it, so a fast heart's T runs into the next P as it does on a monitor. Nothing is laid past the last beat's end. */
+ *  waves of the beats around it, so a fast heart's T runs into the next P as it does on a monitor. Nothing is laid past the last beat's end.
+ *  The result is one kept object, valid until the next call. */
 export function leadIISeries(times, x0, x1, period, step = 0.004) {
-  const x = [], v = [];
-  if (!times.length || !(x1 > x0)) return { x, v };
-  const starts = times.slice();
-  const lead = starts.length > 1 ? starts[1] - starts[0] : period;
-  if (Number.isFinite(lead) && lead > 1e-6) starts.unshift(starts[0] - lead);
-  const lens = starts.map((t, k) => (k + 1 < starts.length ? starts[k + 1] - t : period));
-  const peaks = starts.map((t, k) => t + 0.02 * lens[k]);
-  const end = Math.min(x1, starts[starts.length - 1] + period);
+  const o = LEAD_OUT, x = o.x, v = o.v;
+  x.length = 0; v.length = 0;
+  if (!times.length || !(x1 > x0)) return o;
+  const starts = fillStarts(STARTS, times, period), n = starts.length;
+  for (let k = 0; k < n; k++) { LENS[k] = k + 1 < n ? starts[k + 1] - starts[k] : period; PEAKS[k] = starts[k] + 0.02 * LENS[k]; }
+  LENS.length = PEAKS.length = n;
+  const lens = LENS, peaks = PEAKS;
+  const end = Math.min(x1, starts[n - 1] + period);
   let k = 0;
   for (let t = Math.max(x0, starts[0]); t <= end + 1e-9; t += step) {
     while (k + 1 < peaks.length && peaks[k + 1] <= t) k++;
@@ -155,5 +169,5 @@ export function leadIISeries(times, x0, x1, period, step = 0.004) {
     for (let j = Math.max(0, k - 1); j <= Math.min(peaks.length - 1, k + 2); j++) s += leadIIAt(t - peaks[j], lens[j]);
     x.push(t); v.push(s);
   }
-  return { x, v };
+  return o;
 }

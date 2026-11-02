@@ -21,25 +21,28 @@ export const RISE_PX = 6;   // (fade-rise: how far a word, row or chip rises int
 
 export const easeMove = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * t * (t * (6 * t - 15) + 10));
 
-/** A CSS cubic-bezier(x1, y1, x2, y2) as a function of 0..1 (Newton's method on x, with bisection when it stalls). */
+// (The curve's polynomial and its slope at t, for coefficients a, b, c: plain functions, so a curve makes no closure but its own.)
+const poly = (a, b, c, t) => ((a * t + b) * t + c) * t, slope = (a, b, c, t) => (3 * a * t + 2 * b) * t + c;
+/** A CSS cubic-bezier(x1, y1, x2, y2) as a function of 0..1 (Newton's method on x, with bisection when it stalls).
+ *  It makes the curve once: callers keep it (module constants, label-track's memo, cssCurve's map), never one per frame. */
 export function cubicBezier(x1, y1, x2, y2) {
   const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx;
   const cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
-  const X = (t) => ((ax * t + bx) * t + cx) * t, Y = (t) => ((ay * t + by) * t + cy) * t, dX = (t) => (3 * ax * t + 2 * bx) * t + cx;
+  // alloc-rare: the curve itself, made once per easing (callers memoize it: label-track memo, cssCurve curves, module constants)
   return (x) => {
     if (x <= 0) return 0;
     if (x >= 1) return 1;
     let t = x;
     for (let i = 0; i < 8; i++) {
-      const e = X(t) - x, d = dX(t);
-      if (Math.abs(e) < 1e-7) return Y(t);
+      const e = poly(ax, bx, cx, t) - x, d = slope(ax, bx, cx, t);
+      if (Math.abs(e) < 1e-7) return poly(ay, by, cy, t);
       if (Math.abs(d) < 1e-6) break;
       t -= e / d;
     }
     let lo = 0, hi = 1;
     t = x;
-    for (let i = 0; i < 40; i++) { const v = X(t); if (Math.abs(v - x) < 1e-7) break; if (v < x) lo = t; else hi = t; t = (lo + hi) / 2; }
-    return Y(t);
+    for (let i = 0; i < 40; i++) { const v = poly(ax, bx, cx, t); if (Math.abs(v - x) < 1e-7) break; if (v < x) lo = t; else hi = t; t = (lo + hi) / 2; }
+    return poly(ay, by, cy, t);
   };
 }
 export const easeArrive = cubicBezier(0.2, 0.8, 0.2, 1);
@@ -85,10 +88,10 @@ const LN2_2 = 2 * Math.LN2;   // (a doubling of the zoom counts as half a screen
 export function carryRate(v, from, to, w) {
   if (!v || !(w > 0) || !(from.k > 0) || !(to.k > 0)) return 0;
   const r = to.k / from.k, lr = Math.log(r), s = Math.abs(lr) < 1e-9 ? 1 : lr / (r - 1);   // (the pan moves with the zoom, as lerpVT ties them)
-  const T = [lr / LN2_2, ((to.x - from.x) * s) / w, ((to.y - from.y) * s) / w];
-  const tt = T[0] * T[0] + T[1] * T[1] + T[2] * T[2];
+  const T0 = lr / LN2_2, T1 = ((to.x - from.x) * s) / w, T2 = ((to.y - from.y) * s) / w;
+  const tt = T0 * T0 + T1 * T1 + T2 * T2;
   if (tt < 1e-12) return 0;
-  const dot = (v.dlogk / LN2_2) * T[0] + (v.x / w) * T[1] + (v.y / w) * T[2];
+  const dot = (v.dlogk / LN2_2) * T0 + (v.x / w) * T1 + (v.y / w) * T2;
   return Number.isFinite(dot) ? Math.max(0, dot / tt) : 0;
 }
 /** The glide's progress at its clock `raw` (0..1), its eased value `eased`, with the old speed (carryRate × ms) as `c`. */
@@ -122,6 +125,7 @@ export function settleSlope(v, dist, ms, max = 3) {
  * up to the .2/.8 curve's own, 4), so a slow let-go starts slowly and a flick carries on at its speed, and it comes to rest as every other curve
  * does. v: px per ms along +axis as the finger lifted; dist: px to go (+ or −, along the same axis); ms: the transition's time.
  */
+// alloc-rare: the curve's string is made once per let-go (a swipe or sheet release), not per frame
 export const carryCurve = (v, dist, ms) => `cubic-bezier(.2, ${(0.2 * settleSlope(v, dist, ms, 4)).toFixed(3)}, .2, 1)`;
 
 /**

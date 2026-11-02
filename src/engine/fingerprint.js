@@ -14,10 +14,21 @@ const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const LOBES = [['PRE_R', 'SIN_RR', 'POST_R_RHV'], ['PRE_L', 'SIN_LL', 'POST_L_LHV']];
 
+// (The lobes' edges and their end nodes as plain indices, so liverRes reads the network with no lookup and no closure.)
+const LOBE_K = LOBES.map((ids) => ids.map((id) => EI[id]));
+const EDGE_FROM = EDGES.map((ed) => NI[ed.from]), EDGE_TO = EDGES.map((ed) => NI[ed.to]);
+const NO_OPTS = {};
+
 /** The resistance inside the liver (mmHg per L/min) from the network's pressures and flows (smoothed, in the topology's order). */
 export function liverRes(P, Q) {
-  const r = (id) => { const k = EI[id], ed = EDGES[k]; return (P[NI[ed.from]] - P[NI[ed.to]]) / Math.max(1e-6, Math.abs(Q[k]) * 0.06); };
-  return 1 / LOBES.reduce((g, ids) => g + 1 / Math.max(1e-6, ids.reduce((s, id) => s + r(id), 0)), 0);
+  let g = 0;
+  for (let l = 0; l < LOBE_K.length; l++) {
+    const ks = LOBE_K[l];
+    let s = 0;
+    for (let j = 0; j < ks.length; j++) { const k = ks[j]; s += (P[EDGE_FROM[k]] - P[EDGE_TO[k]]) / Math.max(1e-6, Math.abs(Q[k]) * 0.06); }
+    g += 1 / Math.max(1e-6, s);
+  }
+  return 1 / g;
 }
 
 /** The fingerprint of model metrics `m` (computeMetrics). `P`, `Q`, `D`: the network as it stood (pressures and flows smoothed,
@@ -26,8 +37,12 @@ export function liverRes(P, Q) {
  *  (albumin, clot). `fluid`: the engine's starling(); only the engine side has it, and without it the lymph's overflow, take-back and
  *  net are left out (undefined, not null: tool-fluid.js reads a null as 0 and would pin the card to nothing), so the fluid card follows
  *  the live frames. */
-export function fingerprintOf(m, { P = null, Q = null, D = null, copy = false, params = null, fluid = null } = {}) {
+export function fingerprintOf(m, { P = null, Q = null, D = null, copy = false, params = null, fluid = null } = NO_OPTS) {
   const a = m.ascites;
+  // (The network as it stood, kept by the record. alloc-rare below: it is made with the record.)
+  // alloc-rare: made with the record: one per slide state in the worker, in the presenter only while a time-lapse plays, polled every 150 ms
+  const at = P && Q && D ? (copy ? { P: Float32Array.from(P), Q: Float32Array.from(Q), D } : { P, Q, D }) : null;
+  // alloc-rare: a state's fingerprint is a new record by design (callers keep it, e.g. cath.fp): one per slide state in the worker, in the presenter only while a time-lapse or what-if plays, polled every 150 ms (wait(150)), never per frame
   return {
     pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg), ra: m.vitals?.ra ?? m.ra, ivc: m.ivc, ppg: tenthGap(m.pv, m.ivc, m.ppg),
     asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: params?.albumin, sigma: a.lymphSigma, hepLymph: a.hepLymph, splLymph: a.splLymph,
@@ -36,5 +51,5 @@ export function fingerprintOf(m, { P = null, Q = null, D = null, copy = false, p
     rih: P && Q ? liverRes(P, Q) : null,
     lymphCap: a.lymphCap, lymphOver: fluid?.excess, lymphBack: fluid ? fluid.bulk + fluid.water : undefined, lymphNet: fluid?.net,
     clot: +params?.thrombus?.PV_TRUNK || 0,
-    at: P && Q && D ? (copy ? { P: Float32Array.from(P), Q: Float32Array.from(Q), D } : { P, Q, D }) : null };
+    at };
 }
