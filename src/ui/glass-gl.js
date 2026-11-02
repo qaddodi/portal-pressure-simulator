@@ -11,7 +11,7 @@
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { finalFrameFor, readFrameFor, framePhase, cancelFrame, noteDraw } from './frame.js?v=7710f677e2';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=e48e05cdb3';
-import { shiftOf, translateOf, motionAt, movesOnly } from './glass-motion.js?v=d367c59900';
+import { shiftOf, translateOf, motionAt, movesOnly, clockOf, clockAt, fillsAfter } from './glass-motion.js?v=2832add696';
 import { pathPolys, fanTriangles } from './path-poly.js?v=07f30beea9';
 import { easeArrive, D_SURFACE } from './ease.js?v=7513a88c68';
 
@@ -1081,7 +1081,39 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // after a change. Each frame puts the motion back (nowGeo): the translations and opacities written inline on a glass or on what holds
   // it, and each running animation of either, from its keyframes and timing. No layout or style is read in a frame.
   let geo = null, geoT = 0, restT = 0;
-  const anims = new Map();   // (element → Map(animation → its keyframes))
+  const anims = new Map();   // (element → Map(animation → { kf: its keyframes, c: its clock }))
+  // (2 Nov 2026, Mohammad: "MOVE. EVERYTHING. TO. GPU". Where each animation is in a frame comes from its clock (glass-motion.js clockOf,
+  // clockAt): its timing taken once when it is first seen, its start time once it has started, and the frame's time. A frame asked each
+  // one for its playState, pending and getComputedTiming(), and each of those brings a CSS animation's styles up to date, every frame of
+  // a slide change. Its end comes from its timing, or its finish, cancel or remove event (a cancel() sends one). ?glassclock=0: read
+  // from the animation every frame, as before (that path is picked here, once, and runs only with the switch).)
+  const CLOCK = !/[?&]glassclock=0\b/.test(SEARCH);
+  const tlNow = () => { const t = document.timeline?.currentTime; return Number.isFinite(t) ? t : performance.now(); };
+  function clockState(an, rec) {
+    if (!rec.c) return { st: 'running', p: null, end: Infinity, fills: false };
+    const r = clockAt(rec.c, tlNow());
+    return { st: r.st, p: r.p, end: r.end, fills: fillsAfter(rec.c), bad: rec.c.bad };
+  }
+  function readState(an) {
+    const ct = an.effect?.getComputedTiming?.();
+    return { st: an.playState, p: ct?.progress, end: ct?.endTime, fills: fillsOn(an), live: an.playState === 'running' || an.pending };
+  }
+  const stateOf = CLOCK ? clockState : readState;
+  function timeAnim(an) {
+    const rec = { kf: null, c: null };
+    try { rec.kf = an.effect?.getKeyframes?.() || null; } catch { rec.kf = null; }
+    if (!CLOCK) return rec;
+    const c = rec.c = clockOf(an, tlNow());
+    if (!c) return rec;
+    const stop = (done) => () => { if (done) c.done = true; else c.idle = true; wake(); measureSoon(); };
+    try {
+      an.addEventListener?.('finish', stop(true));
+      an.addEventListener?.('cancel', stop(false));
+      an.addEventListener?.('remove', stop(false));
+      if (c.s == null) an.ready?.then?.(() => { const s = an.startTime; if (Number.isFinite(s) && c.rate !== 0) c.s = s; wake(); }, () => {});
+    } catch { /* (a stand-in with no events: its timing alone) */ }
+    return rec;
+  }
   // (Where an animation that has just finished left its element, until the page is read again: { t, o } of its last keyframe. Mohammad,
   // 2 Nov 2026, the iPhone: "the glass appears alone, a solid flash". A card's fade carried by its transition (the data card's pz-hide)
   // was dropped as it finished, and until the read after it the card's glass was drawn at the fade it had been read with, whole, over a
@@ -1092,9 +1124,16 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function addAnim(e, an) {
     let m = anims.get(e);
     if (!m) anims.set(e, (m = new Map()));
-    if (!m.has(an)) { let kf; try { kf = an.effect?.getKeyframes?.() || null; } catch { kf = null; } m.set(an, kf); }
+    if (!m.has(an)) m.set(an, timeAnim(an));
   }
-  function track(e) { if (e?.getAnimations) for (const an of e.getAnimations()) addAnim(e, an); }
+  function track(e) {
+    if (!e?.getAnimations) return;
+    const list = e.getAnimations();
+    for (const an of list) addAnim(e, an);
+    // (One the page no longer lists has gone (cancelled, or ended with no fill): let go here, read outside any frame.)
+    const m = CLOCK && anims.get(e);
+    if (m) { for (const an of m.keys()) if (!list.includes(an)) m.delete(an); if (!m.size) anims.delete(e); }
+  }
   // (A script's animate() on a glass or on what holds it is followed from its first frame: no event announces one.)
   // (An element whose inline opacity a stylesheet's !important beats, as read at the last read of the page: the teaching card's shade keeps
   // style.opacity 1 while .pz-leave holds it at 0 !important. Its fade is then the computed one, never the inline value, or the glass
@@ -1114,14 +1153,15 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     let t = null, o = null;
     const m = anims.get(e);
     if (m) {
-      for (const [an, kf] of m) {
-        const st = an.playState;
-        if (st === 'idle' || (st === 'finished' && !fillsOn(an))) {
+      for (const [an, rec] of m) {
+        const kf = rec.kf, S = stateOf(an, rec), st = S.st;
+        if (st === 'idle' || (st === 'finished' && !S.fills)) {
           m.delete(an); flag.ended = true;
           if (ENDS && st === 'finished') { const v = kf && motionAt(kf, 1); if (v) { const was = ended.get(e) || {}; ended.set(e, { t: v.t || was.t || null, o: v.o ?? was.o ?? null }); } }
           continue;
         }
-        const p = an.effect?.getComputedTiming?.().progress;
+        if (S.bad) { flag.bad = true; continue; }
+        const p = S.p;
         if (p == null) continue;
         const v = motionAt(kf, p);
         if (!v) { flag.bad = true; continue; }
@@ -1181,7 +1221,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       if (p.line) resolveColour(p.line);
       for (const d of p.drops || []) resolveColour(d.c);
       const chain = chainOf(p.g);
-      for (const e of chain) { const so = e.style?.opacity; if (so !== '' && so != null && ![...(anims.get(e)?.keys() || [])].some((an) => an.playState === 'running') && Math.abs(fadeOf(e) - NUM(so)) > 0.01) inlineLoses.add(e); else inlineLoses.delete(e); }
+      for (const e of chain) { const so = e.style?.opacity; if (so !== '' && so != null && ![...(anims.get(e) || [])].some(([an, rec]) => stateOf(an, rec).st === 'running') && Math.abs(fadeOf(e) - NUM(so)) > 0.01) inlineLoses.add(e); else inlineLoses.delete(e); }
       const mv = chainMove(chain, flag);
       // (The fade of what does not move, read now; what moves is put back each frame.)
       let aS = p.oa ?? 1;
@@ -1227,8 +1267,13 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     trackQ.add(e);
     if (!trackAsk) trackAsk = readFrame(trackNow);
   }
+  // (2 Nov 2026: an observer that fires in the read phase fired after a write made there, so a read in it laid the page out in that
+  // microtask: it is read in the next frame's read phase too. ?glassobs=0: read at once there, as before; ?glassearly=0: always at once.
+  // Picked once, here.)
+  const OBS_LATER = !/[?&]glassobs=0\b/.test(SEARCH);
+  const measureAtOnce = GEO_EARLY && OBS_LATER ? null : measureGeo;
   function measureEarly() {
-    if (!GEO_EARLY || framePhase() === 'read') { measureGeo(); return; }
+    if (measureAtOnce && (!GEO_EARLY || framePhase() === 'read')) { measureAtOnce(); return; }
     if (!earlyAsk) earlyAsk = readFrame(measureEarlyNow);
   }
   /** The page read again just after this frame (or now, outside a frame), once however often asked. */
@@ -1278,8 +1323,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // (Any animation of a glass or of what holds it still running: no event says when a script's ends.)
   function moving() {
     for (const [e, m] of anims) {
-      for (const an of m.keys()) if ((an.playState === 'running' || an.pending) && Number.isFinite(an.effect?.getComputedTiming?.().endTime)) return true;   // (one that never ends does not hold it awake)
-      if (![...m.keys()].some((an) => an.playState !== 'idle' && (an.playState !== 'finished' || fillsOn(an)))) anims.delete(e);
+      const states = [...m].map(([an, rec]) => stateOf(an, rec));
+      if (states.some((S) => (S.live ?? S.st === 'running') && Number.isFinite(S.end))) return true;   // (one that never ends does not hold it awake)
+      if (!states.some((S) => S.st !== 'idle' && (S.st !== 'finished' || S.fills))) anims.delete(e);
     }
     return false;
   }

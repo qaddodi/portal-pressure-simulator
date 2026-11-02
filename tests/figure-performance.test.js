@@ -110,7 +110,7 @@ test('Callout glass kept (always, since 1 Nov 2026): no frame reads the page; it
   assert.match(g, /const again = \(\) => measureEarly\(\);/);
   assert.match(g, /if \(\/\(end\|cancel\)\$\/\.test\(e\?\.type \|\| ''\)\) \{ measureEarly\(\); return; \}/);
   // (2 Nov 2026: an observer's or an event's read waits for the next frame's read phase, never in the frame's writes.)
-  assert.match(g, /function measureEarly\(\) \{\n\s+if \(!GEO_EARLY \|\| framePhase\(\) === 'read'\) \{ measureGeo\(\); return; \}\n\s+if \(!earlyAsk\) earlyAsk = readFrame\(measureEarlyNow\);/);
+  assert.match(g, /const measureAtOnce = GEO_EARLY && OBS_LATER \? null : measureGeo;\n\s+function measureEarly\(\) \{\n\s+if \(measureAtOnce && \(!GEO_EARLY \|\| framePhase\(\) === 'read'\)\) \{ measureAtOnce\(\); return; \}\n\s+if \(!earlyAsk\) earlyAsk = readFrame\(measureEarlyNow\);/);
   assert.match(g, /parentsMo\.observe\(e, \{ attributes: true, attributeFilter: \['style', 'class', 'hidden'\] \}\)/);
   assert.match(g, /for \(const e of \[canvas, source, wrap\]\) if \(e\) watchRo\?\.observe\(e\);/);
   assert.match(g, /document\.addEventListener\?\.\('scroll', onScroll, true\);/);

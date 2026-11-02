@@ -114,19 +114,20 @@ test('a layer faded away leaves no glass: the canvas is cleared once and nothing
 test('it stays awake while a script\'s fade runs in the layer, which sends no event, and sleeps once it has ended', async () => {
   await frames(4);
   assert.equal(rafs.length, 0, 'asleep before');
-  const fade = { playState: 'running', effect: { getComputedTiming: () => ({ endTime: 220 }) } };
+  const on = {};
+  const fade = { playState: 'running', startTime: null, currentTime: 0, effect: { getTiming: () => ({ duration: 220, delay: 0, iterations: 1, fill: 'none', easing: 'linear' }), getComputedTiming: () => ({ endTime: 220 }) }, addEventListener: (t, f) => { on[t] = f; } };
   layer.anims = [fade];
   await write();
   await frames(6);
   assert.ok(rafs.length > 0, 'still asking for frames while the fade runs');
-  fade.playState = 'finished';   // (it ends: the browser marks it finished, and it is let go)
+  fade.playState = 'finished'; on.finish?.();   // (it ends: the browser marks it finished, sends its finish event, and it is let go)
   layer.anims = [];
   await frames(5);
   assert.equal(rafs.length, 0, 'asleep again once nothing animates');
 });
 
 test('an animation that never ends does not hold it awake', async () => {
-  layer.anims = [{ playState: 'running', effect: { getComputedTiming: () => ({ endTime: Infinity }) } }];
+  layer.anims = [{ playState: 'running', startTime: null, currentTime: 0, effect: { getTiming: () => ({ duration: 220, delay: 0, iterations: Infinity, fill: 'none', easing: 'linear' }), getComputedTiming: () => ({ endTime: Infinity }) } }];
   await write();
   await frames(5);
   assert.equal(rafs.length, 0);

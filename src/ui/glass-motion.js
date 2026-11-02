@@ -127,3 +127,54 @@ export function movesOnly(was, now) {
   }
   return true;
 }
+
+// ── An animation's clock (2 Nov 2026, Mohammad: "MOVE. EVERYTHING. TO. GPU") ──
+// Where an animation is, worked out from its timing as taken once (outside any frame: when it is first seen, and its start time when it
+// has started) and the frame's time, the Web Animations model's own steps (§4.8–4.11), so no frame asks the browser for its state: its
+// playState, pending, getComputedTiming() and getTiming() each bring a CSS animation's styles up to date when read.
+const FILLS_BACK = /backwards|both/, FILLS_FWD = /forwards|both/;
+/** An animation's clock, read once from it (its effect's timing, start or current time, rate): an object clockAt() reads, or null when
+ *  its effect gives no timing. now: the timeline's time it was read at. */
+export function clockOf(an, now) {
+  let t = null;
+  try { t = an?.effect?.getTiming?.() || null; } catch { t = null; }
+  if (!t) return null;
+  const dur = typeof t.duration === 'number' ? Math.max(0, t.duration) : 0;   // ('auto' is 0 for a keyframe effect)
+  const iters = Number.isFinite(t.iterations) || t.iterations === Infinity ? Math.max(0, t.iterations) : 1;
+  const ease = easeOf(t.easing || 'linear');
+  const st = an.playState;
+  const rate = st === 'paused' ? 0 : Number.isFinite(an.playbackRate) ? an.playbackRate : 1;
+  const c = {
+    delay: +t.delay || 0, endDelay: +t.endDelay || 0, dur, iters, iterStart: +t.iterationStart || 0, dir: t.direction || 'normal',
+    fill: t.fill || 'auto', ease, bad: !ease, rate, s: null, c0: 0, w0: now, idle: st === 'idle', done: false,
+  };
+  const s = an.startTime, ct = an.currentTime;
+  if (rate !== 0 && Number.isFinite(s)) c.s = s;
+  else c.c0 = Number.isFinite(ct) ? ct : 0;   // (pending, about to start: taken from now until its start time is known)
+  return c;
+}
+export const fillsAfter = (c) => FILLS_FWD.test(c.fill);
+/** The clock at the timeline's time `now`: { st: 'idle' | 'running' | 'finished', p (its transformed progress, or null outside its
+ *  active time with no fill there), end (its end time) }. */
+export function clockAt(c, now) {
+  const active = c.dur === 0 || c.iters === 0 ? 0 : c.dur * c.iters;
+  const end = Math.max(c.delay + active + c.endDelay, 0);
+  if (c.idle) return { st: 'idle', p: null, end };
+  const local = c.s != null ? (now - c.s) * c.rate : c.c0 + (now - c.w0) * c.rate;
+  const st = c.done || (c.rate > 0 && local >= end) || (c.rate < 0 && local <= 0) ? 'finished' : 'running';
+  const beforeEnd = Math.min(c.delay, end), activeEnd = Math.min(c.delay + active, end);
+  const phase = local < beforeEnd || (c.rate < 0 && local === beforeEnd) ? 'before' : local > activeEnd || (c.rate >= 0 && local === activeEnd) ? 'after' : 'active';
+  let at;
+  if (phase === 'before') at = FILLS_BACK.test(c.fill) ? Math.max(local - c.delay, 0) : null;
+  else if (phase === 'after') at = FILLS_FWD.test(c.fill) ? Math.max(Math.min(local - c.delay, active), 0) : null;
+  else at = local - c.delay;
+  if (at == null) return { st, p: null, end };
+  const overall = c.dur === 0 ? (phase === 'before' ? c.iterStart : c.iterStart + c.iters) : at / c.dur + c.iterStart;
+  let simple = overall === Infinity ? c.iterStart % 1 : overall % 1;
+  if (simple === 0 && phase !== 'before' && at === active && c.iters !== 0 && overall !== 0) simple = 1;
+  const iter = phase === 'after' && c.iters === Infinity ? Infinity : simple === 1 ? Math.floor(overall) - 1 : Math.floor(overall);
+  const odd = Number.isFinite(iter) && iter % 2 === 1;
+  const fwd = c.dir === 'reverse' ? false : c.dir === 'alternate' ? !odd : c.dir === 'alternate-reverse' ? odd : true;
+  const d = fwd ? simple : 1 - simple;
+  return { st, p: c.ease ? c.ease(d) : d, end };
+}
