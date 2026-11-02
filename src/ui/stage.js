@@ -9206,12 +9206,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return vc.display !== 'none' && vc.visibility === 'visible' && +vc.opacity >= 0.999 ? '' : 'the figure\'s canvas is hidden or faded';
   };
   let vcWhy = null, vcPass = 0, vcEasing = 0;
-  function readVcLook() { vcPass = 0; vcWhy = vcLook(); frostWake?.(); }
+  // (2 Nov 2026, Mohammad's iPhone: "fix the backgrounds", the teaching card a flat solid slab at rest. vcEasing counted the canvas's
+  // transitions and animations by their start and end events; one start without its end (Safari sends none for a transition replaced
+  // or dropped as its element changes, an animation that loops) left it above 0 for good, and every card's glass flat until a reload.
+  // Read again between frames, it is now taken from the canvas's own running animations, and a start is looked at again a little after
+  // its longest ease would have ended. ?vcheal=0: as before.)
+  const VC_HEAL = !/[?&]vcheal=0\b/.test(location.search);
+  function readVcLook() { vcPass = 0; vcWhy = vcLook(); if (VC_HEAL) vcEasing = vCanvas.getAnimations?.().filter((a) => a.playState === 'running').length ?? vcEasing; frostWake?.(); }
   function vcStale() { if (!vcPass) vcPass = restPass(readVcLook); }
   if (VC_CACHE) {
     const vcMo = new MutationObserver(vcStale);
     for (let e = vCanvas; e && e.nodeType === 1; e = e.parentElement) vcMo.observe(e, { attributes: true, attributeFilter: ['style', 'class', 'hidden', 'data-theme', 'data-palette'] });
-    const vcIn = (ev) => { if (ev.target === vCanvas) vcEasing++; };
+    const vcIn = (ev) => { if (ev.target === vCanvas) { vcEasing++; if (VC_HEAL) setTimeout(vcStale, 1600); } };
     const vcOut = (ev) => { if (ev.target === vCanvas) { vcEasing = Math.max(0, vcEasing - 1); vcStale(); } };
     vCanvas.addEventListener('transitionrun', vcIn); vCanvas.addEventListener('animationstart', vcIn);
     for (const t of ['transitionend', 'transitioncancel', 'animationend', 'animationcancel']) vCanvas.addEventListener(t, vcOut);

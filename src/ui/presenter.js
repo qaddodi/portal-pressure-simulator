@@ -59,7 +59,7 @@ import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX } from './ease.js?v=7513a88c68';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { pageOn, followOf, pageIn } from './card-page.js?v=ebb4448222';
-import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, railable, railHold, railIn, railAway, railGhosts, RAIL_GAP } from './card-throw.js?v=336b6d4abe';
+import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=85b1ae79a8';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1150,8 +1150,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Reduced motion keeps the glide, short: a jump of the whole figure is harder to follow than a quick move. Under the start's
     // cover it is set outright, so the reveal never catches it on its way.)
     const gl = booting ? 0 : ms || 300;
+    const held = insetHold;
+    insetsGo(true);   // (the room the new cards leave, written as the glide sets off: it frames for it, and the labels wait for its landing)
     frameTo(v === 'circuit' ? 'fit' : cam, s, gl);
-    begun?.();   // (the glide has set off: the cards' last fitting runs under it, see transitionRun)
+    begun?.(); if (held) dispatchEvent(new Event('pps:occ'));   // (the glide has set off: the cards' last fitting runs under it, see transitionRun)
     // (Timed by the glide itself, camMs or an arc's stretch, never the 1.5 s asked: the camera had landed long before that wait ended.)
     if (early && gl) {
       // (One timer to the point asked for, then a look: polled alone every 40 ms, a busy glide's late timers put the cards after its landing.)
@@ -1797,9 +1799,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         // (Thrown: the words and their glass come in on card-throw.js's clock, together, from the side the talk comes from.)
         // (Only a card that shows: a visual slide hides the words, and its glass stays out.)
         if (!t.hidden && t.childElementCount) {
-          if (!railIn(t, k)) throwIn(t, k);
-          if (!stayTurn && !ui.shade.classList.contains('pz-turn')) { if (!railIn(ui.shade, k)) throwIn(ui.shade, k); } else railAway(ui.shade);
+          if (!railIn(t, k)) throwIn(t, k, 0, throwD);
+          if (!stayTurn && !ui.shade.classList.contains('pz-turn')) { if (!railIn(ui.shade, k)) throwIn(ui.shade, k, 0, throwD); } else railAway(ui.shade);
         } else { railAway(t); railAway(ui.shade); }
+        for (const el of [ui.panel, ui.data]) if (railWaits(el) && !el.hidden && el.childElementCount && !el.classList.contains(el === ui.data ? 'pz-hide' : 'pz-leave')) railIn(el, k, el === ui.data ? THROW_STAGGER : 0);   // (the cards that waited to ride with the words)
         turnAnim = null; shadeAnim = null;
         return;
       }
@@ -1843,7 +1846,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A data card that stays (the same instrument) stays put. Transform and opacity only. ?cardthrow=0: as before.
   const CARD_THROW = CARD_PAGE && !/[?&]cardthrow=0\b/.test(location.search);
   // (Moved by card-throw.js, on one clock with the GPU glass: their inline transform and opacity written in the scheduler's frame.)
-  let throwDir = '';
+  let throwDir = '', throwD = 0;
   const throwDist = () => Math.min(420, Math.max(120, innerWidth * 0.3)) + 20;
   const glassStays = () => GLASS_STAY && !!ui && ui.shade.getAttribute('data-gl') === 'edge';
   let stayTurn = false;
@@ -1860,7 +1863,23 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     paintChrome();
     // (A zoomed card glides back first: the slide is laid out, and its cards kept or changed, with the card where it rests.)
     if (zoomOn()) { ui.zoom.close().then(() => { paintZoom(); zoomMissed = false; if (deck && !busy) run(); }); return; }   // (the slide lays everything out afresh)
+    if (busy) outNow();
     if (!busy) run();
+  }
+  // (Mohammad, 2 Nov 2026: "when i hit next it takes time to move out of the way. it should all be responsive". A Next while the last
+  // change still runs (its landing and after-steps: busy) went to it only once that had finished. The cards that show leave now, on the
+  // tap, together, as wordsOut throws them; the change for the new slide takes them from there (card-throw.js throwOutNow). ?instant=0:
+  // as before.)
+  function outNow() {
+    if (!INSTANT || !CARD_THROW || !ui || reduce.matches || (turn !== 'next' && turn !== 'back')) return;
+    const showing = (el) => !el.hidden && !!el.childElementCount && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide') && !throwing(el) && !throwPinned(el);
+    const els = [ui.text, ui.data, ui.panel].filter(showing);
+    if (!els.length) return;
+    if (els.includes(ui.text) && !ui.shade.classList.contains('pz-leave') && !ui.shade.classList.contains('pz-turn') && ui.shade.style.opacity !== '0') els.push(ui.shade);
+    const wOf = (el) => (el === ui.panel ? Math.min(el.offsetWidth, innerWidth * 0.5) : el.offsetWidth);
+    throwDir = turn;
+    throwD = Math.min(innerWidth, Math.max(120, ...els.filter((el) => el !== ui.shade).map(wOf)) + RAIL_GAP);
+    for (const el of els) throwOutNow(el, turn, throwD);
   }
   const next = () => {
     if (caseLift) { caseLift(); return; }
@@ -1961,6 +1980,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // Leaving the lobule: the organs' picture for the way out is begun at once, while the old words leave and the new ones come in,
     // so the rise does not wait for it (stage.js prepRise; it does nothing outside a landed lobule).
     if (!LOBULE_CAM.test(cam || '')) stage.prepRise?.();
+    insetsGo();   // (a change cut short: its held room goes now)
+    if (cam && !ct && !LOBULE_CAM.test(cam) && !booting && !reduce.matches && !store.get().lobule && !store.get().sinusoid) insetsHold();
     // And the lobule's framing is held in the space the leaving slide's cards left, before the new cards change it: they come in
     // before the rise, and a lobule that followed them zoomed in and down before going out (Mohammad, 21 Oct, Ascites 4 to 5).
     if ((!s.visual && s.cath) || (cam && !LOBULE_CAM.test(cam))) stage.lobuleHold?.(true);
@@ -2004,6 +2025,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = done && s.procedure ? to : -1;
     await wait(Math.max(0, outMs - (performance.now() - outAt)));
     if (throwDir) await throwsOut();   // (thrown: until the old cards are out of sight on the eases' clock, never mid-flight: card-throw.js)
+    if (throwDir) await railCopies();   // (and until each copy on the rail has its pictures and stands in for its card: card-throw.js)
     // (Nothing in the liver changes until its labels are gone.)
     if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['opacity'], 600, '.lz-labels'); if (cut()) return; }
     if (cut()) return;
@@ -2116,6 +2138,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (ct) await cathTo(ct, st.fp, cut);
     else if (lead) await lead;
     else if (cam) await camera(cam, fv, cut, plate ? CARDS_AT : 0, prepWith);
+    insetsGo();   // (no glide set off after all, a lobule's or a held one: the room is written now)
     if (cut()) return;
     if (bare) {
       // (A glide's last frame can land just after the wait that timed it: the cards wait for the camera to be still. In one move they
@@ -2216,14 +2239,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // at is the size they keep: keyed only once the slide was shown, the passes while the cards eased in measured afresh, and on a
   // tight iPad a reading settling or a chart lettered stepped the title or folded the ladder, so the card came in and then snapped.)
   // (While they fade in, the work that can wait does: frame.js holdMotion, the delay and the fade, app.css .pz-text.pz-enter.)
-  function cardsIn(at) { if (ui) { if (!reduce.matches) holdMotion(D_SURFACE + 220); if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); wordsTurnIn(); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); cardIn(ui.panel, 'pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; cardIn(ui.data, 'pz-hide', THROW_STAGGER); } if (!bare) { throwDir = ''; railAway(); } } }   // (bare: the words come in later, thrown too)
+  function cardsIn(at) { if (ui) { if (!reduce.matches) holdMotion(D_SURFACE + 220); if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); wordsTurnIn(); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); cardIn(ui.panel, 'pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { const p = ui.data.dataset.prep; delete ui.data.dataset.prep; if (!cardIn(ui.data, 'pz-hide', THROW_STAGGER)) ui.data.dataset.prep = p; } if (!bare) { const dir = throwDir || 'next'; for (const el of [ui.text, ui.shade, ui.data, ui.panel]) if (throwPinned(el)) { if (!el.hidden && el.childElementCount !== 0 && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide')) throwIn(el, dir, 0, throwD); else throwRelease(el); } throwDir = ''; railAway(); } } }   // (bare: the words come in later, thrown too)
   // (A data card or panel coming in: thrown in from the side the talk goes when the old cards were thrown (CARD_THROW), else as before.
   // Its way out is forgotten in the same style change, so the leave's place never runs back across the screen under the way in.)
   function cardIn(el, cls, delay = 0) {
-    if (!el.classList.contains(cls)) return;
-    if (throwDir && !el.hidden && el.childElementCount) { if (!railIn(el, throwDir, delay)) throwIn(el, throwDir, delay); } else railAway(el);
+    if (!el.classList.contains(cls)) return true;
+    // (Instant: bare, the words come in only once the camera lands, and a card thrown with them waits to come in with them, in that later
+    // pass of cardsIn: out together, in together.)
+    if (INSTANT && bare && throwDir && !el.hidden && el.childElementCount && !ui.text.hidden && ui.text.childElementCount && ui.text.classList.contains('pz-leave')) return false;
+    // (Bare, the words come in only once the camera lands: a card on the rail waits to ride with them, never on ahead of them. Mohammad,
+    // 2 Nov 2026: "the data card and the teaching cards move out at different paces; should go together".)
+    if (throwDir && !el.hidden && el.childElementCount) { if (bare && railWaits(el) && railWaits(ui.text)) { /* rides with the words: wordsTurnIn */ } else if (!railIn(el, throwDir, delay)) throwIn(el, throwDir, delay, throwD); } else railAway(el);
     delete el.dataset.out;
     el.classList.remove(cls);
+    return true;
   }
   // The last refits that used to run as the cards came in (a ladder's strip given back its plot, the charts lettered again, the
   // layout their new sizes call for, a frame later) run while the cards are still unseen, so they come in at their final size and
@@ -2367,7 +2396,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (textUp && !keep) { goes.push(ui.text); if (CARD_PAGE && !stayTurn && ui.shade.classList.contains('pz-leave')) goes.push(ui.shade); }
       if (dataOut) goes.push(data);
       if (panelUp) goes.push(ui.panel);
-      const dist = throwDist();
+      // (Instant, card-throw.js INSTANT: every card leaving sets off in this task, the tap's, on one clock and one distance, so the words,
+      // their glass, a data card and a panel go together (Mohammad, 2 Nov 2026: "should go together", "it should all be responsive"):
+      // a card's width and a gap, so an upright phone's card clears the screen, and the next cards come in from as far.)
+      const wOf = (el) => (el === ui.panel ? Math.min(el.offsetWidth, innerWidth * 0.5) : el.offsetWidth);
+      const sized = goes.filter((el) => el !== ui.shade);
+      const dist = INSTANT ? (throwD = Math.min(innerWidth, Math.max(120, ...sized.map(wOf)) + RAIL_GAP)) : throwDist();
       // (One track, card-throw.js RAIL: each card stays, as a copy of itself, until its next is laid out and drawn behind it; then both
       // ride the rail, a card's width and a gap apart. The words and their glass keep one spacing, so they never part. A card holding a
       // picture of the GPU's is thrown as before, the words with their glass. ?rail=0: thrown, as before.)
@@ -4009,14 +4043,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The words' rect carries the stacked pair's rise, --pz-rise, which the glass takes by its own translate: read back without it.)
     const lf = (parseFloat(ui.text.style.getPropertyValue('--pz-rise')) || 0) * k;
     ui.shade.style.top = p && t ? `${ui.text.offsetTop - lift}px` : cardOn && t ? `${(t.top - wr.top - padT + lf) / k}px` : '';
-    ui.shade.style.opacity = t ? '1' : '0';
+    if (ui.shade.style.getPropertyPriority('opacity') !== 'important') ui.shade.style.opacity = t ? '1' : '0';   // (not over a throw's own: card-throw.js writes it important while it moves the glass or holds it out)
     if (ui.shade.hasAttribute('data-gl-morph')) shadeRide(was);
     ui.safe.hidden = !t;
     ui.safe.dataset.safe = p ? 'bottom' : 'left';
     frameL = !p && t ? (card ? sl + card + 24 : L + 48) : 0;
     ui.safe.style.width = p ? '' : `${frameL / k}px`;
     ui.safe.style.height = p ? `${(B + Math.max(34, lift * k + 4)) / k}px` : '';
-    const set = (k, v) => app.style.setProperty(k, `${Math.max(0, Math.round(v))}px`);
+    const set = (k, v) => { const px = `${Math.max(0, Math.round(v))}px`; if (insetHold) insetPend.set(k, px); else app.style.setProperty(k, px); };
     set('--pz-l', frameL);
     set('--pz-r', !p && d ? W - (ui.data.offsetLeft + dock.to * dv[0]) * k + 8 : 0);   // (where the card comes to rest: past its entry shift, at its dock)
     set('--pz-t', p && d ? (ui.data.offsetTop + ui.data.offsetHeight + (lipOn(ui.data) ? LIP : 0) + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
@@ -4025,7 +4059,24 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The corner icon is offered where the card has room to grow, and only on a wide screen with an instrument: card-zoom.js.)
     ui.data.classList.toggle('pz-zoomable', wide && !ui.data.hidden && ui.data.classList.contains('has-tool') && !!ui.zoom.plan());
     placeBar();
-    dispatchEvent(new Event('pps:occ'));
+    if (!insetHold) dispatchEvent(new Event('pps:occ'));
+  }
+  // (2 Nov 2026, the labels thread: the room the new cards leave (--pz-l, --pz-t...) was written as their layout ran, before the camera set
+  // off, so the figure's labels were laid out once for the new room under the old camera: an organ's name under the coming card faded out
+  // for about 0.3 s, then came back where the glide landed. Through a slide change whose camera moves, that room is held back and written
+  // as the glide starts (frameTo reads it then, to frame for it), and the labels are laid out once, where it lands. ?insetglide=0: as before.)
+  const INSET_GLIDE = !/[?&]insetglide=0\b/.test(location.search);
+  let insetHold = false, insetT = 0;
+  const insetPend = new Map();
+  function insetsHold() { if (!INSET_GLIDE) return; insetHold = true; clearTimeout(insetT); insetT = setTimeout(() => insetsGo(), 2500); }
+  /** Writes the held room now; tells the figure (pps:occ) unless `quiet` (the glide about to start tells it once it has). */
+  function insetsGo(quiet = false) {
+    clearTimeout(insetT); insetT = 0;
+    if (!insetHold) return;
+    insetHold = false;
+    for (const [k, v] of insetPend) app.style.setProperty(k, v);
+    insetPend.clear();
+    if (!quiet) dispatchEvent(new Event('pps:occ'));
   }
   // A row of choices is one row: where its full names would wrap (five treatments on a 375 to 430 px iPhone), each button that has
   // one takes its compact label (the full name stays its accessible name and tooltip), never a second row or a smaller size.

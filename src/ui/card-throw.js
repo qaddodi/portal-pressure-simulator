@@ -15,7 +15,12 @@ const easeIn = cubicBezier(0.4, 0, 1, 1);   // (EASE_IN: the card gathers pace a
 const nextFrame = frameFor('card-throw');
 // (Look 1, "One track", Mohammad, 2 Nov 2026: "do what he recommends". The old card and the new ride one rail, a card's width and a gap
 // apart, as iOS pages: 560 ms on a calm curve that starts quick and settles long, no overshoot (its y never passes 1).)
-export const RAIL = typeof location === 'undefined' || !/[?&]rail=0\b/.test(location.search || '');
+// (The copies that held the old card until the new one was ready (railHold) are off by default since Mohammad's next note, the same day:
+// "it should all be responsive": every leaving card now sets off on the frame of the tap, on the rail's curve. ?railhold=1: the copies.)
+export const RAIL = typeof location !== 'undefined' && /[?&]railhold=1\b/.test(location.search || '');
+// (Instant: out on the rail's curve, which starts at once and fast, gone from sight by 85 % of its way (a few frames), and in on it from
+// the same distance. ?instant=0: the throw's own curves, as before.)
+export const INSTANT = typeof location === 'undefined' || !/[?&]instant=0\b/.test(location.search || '');
 export const RAIL_MS = 560, RAIL_GAP = 24;
 const easeRail = cubicBezier(0.32, 0.72, 0, 1);
 
@@ -27,6 +32,10 @@ export function throwAt(kind, k, from, to) {
     // (One track: both cards on the one curve, side by side; the old one fades only over the last half of its way, the new one is whole
     // by 40 % of its way, so the screen never holds an empty glass.)
     const e = easeRail(k), f = kind === 'rail-out' ? Math.max(0, (e - 0.5) / 0.5) : Math.min(1, e / 0.4);
+    return { x: from.x + (to.x - from.x) * e, o: from.o + (to.o - from.o) * f };
+  }
+  if (INSTANT) {
+    const e = easeRail(k), f = kind === 'out' ? Math.min(1, e / 0.85) : Math.min(1, e / 0.4);
     return { x: from.x + (to.x - from.x) * e, o: from.o + (to.o - from.o) * f };
   }
   const e = kind === 'out' ? easeIn(k) : easeMove(k);
@@ -56,7 +65,7 @@ function step() {
     if (k < 0) continue;   // (a staggered card waits where it starts)
     const p = throwAt(r.kind, k, r.from, r.to);
     r.x = p.x; r.o = p.o;
-    if (k >= 1) { runs.delete(el); if (r.kind === 'in' || r.kind === 'rail-in') rest(el); else write(el, p.x, p.o); r.done?.(); continue; }
+    if (k >= 1 || (INSTANT && r.kind === 'out' && p.o <= 0.001)) { runs.delete(el); if (r.kind === 'in' || r.kind === 'rail-in') rest(el); else write(el, p.x, p.o); r.done?.(); continue; }
     write(el, p.x, p.o);
   }
   if (runs.size) ask = nextFrame(step);
@@ -64,7 +73,7 @@ function step() {
 }
 function start(el, kind, to, ms, delay, done) {
   const from = here(el);
-  runs.delete(el);
+  runs.delete(el); pinned.delete(el);
   el.style.setProperty('transition', 'none', 'important');
   write(el, from.x, from.o);   // (at once, in the task that starts it: no frame shows the class's own place in between)
   runs.set(el, { kind, from, to, x: from.x, o: from.o, t0: easeNow() + delay, ms, done });
@@ -76,7 +85,7 @@ function start(el, kind, to, ms, delay, done) {
 export function throwOut(el, dir, dist, done) {
   if (!el) return;
   const s = dir === 'back' ? 1 : -1;
-  start(el, 'out', { x: s * dist, o: 0 }, D_SMALL, 0, () => { hold(el); done?.(); });
+  start(el, 'out', { x: s * dist, o: 0 }, INSTANT ? RAIL_MS : D_SMALL, 0, () => { hold(el); done?.(); });
 }
 
 // (2 Nov 2026, his iPhone: "the glass appears alone then flashes off then the new card slides over". A card's GPU glass (glass-gl.js)
@@ -108,12 +117,13 @@ export const throwHeld = (el) => held.has(el);
 
 /** Brings el in from the side the talk comes from (dir 'next': from the right, moving left; 'back': from the left), THROW_IN px, over
  *  D_SURFACE after delay ms, and lets go of it at rest. A card caught mid-way out comes back from where it is. */
-export function throwIn(el, dir, delay = 0) {
+export function throwIn(el, dir, delay = 0, dist = 0) {
   if (!el) return;
+  pinned.delete(el);
   const s = dir === 'back' ? -1 : 1, was = runs.get(el);
   held.delete(el);
-  if (!was || was.kind !== 'out') { el.style.setProperty('transition', 'none', 'important'); write(el, s * THROW_IN, 0); runs.delete(el); }
-  start(el, 'in', { x: 0, o: 1 }, D_SURFACE, delay);
+  if (!was || was.kind !== 'out') { el.style.setProperty('transition', 'none', 'important'); write(el, s * (INSTANT && dist ? dist : THROW_IN), 0); runs.delete(el); }
+  start(el, 'in', { x: 0, o: 1 }, INSTANT ? RAIL_MS : D_SURFACE, delay);
 }
 
 /** How long (ms) el's way out still has to run (0 when it is not on its way out). */
@@ -136,7 +146,7 @@ function outCheck() {
 export const throwing = (el) => runs.has(el);
 
 /** Stops el's move where it is (a finger takes it), its inline values kept for whoever takes it next. */
-export function throwStop(el) { runs.delete(el); held.delete(el); if (ghosts.has(el)) railAway(el); railHeld.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } outCheck(); }
+export function throwStop(el) { runs.delete(el); held.delete(el); pinned.delete(el); if (ghosts.has(el)) railAway(el); railHeld.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } outCheck(); }
 
 // ── One track (RAIL): the old card stays where it is, whole, as a copy of itself (its ghost), until the new card is laid out and drawn
 // behind it; then both ride the rail together. The copy is the old card's own markup, taken as it stood: words, tiles, glass (data-gl:
@@ -150,8 +160,22 @@ const stripped = ['pz-leave', 'pz-hide', 'pz-enter', 'glw-on'];
 /** Whether el can ride the rail: on the page, with no picture of the GPU's in it (a readout's own, gl-words.js, is empty at rest). */
 export function railable(el) {
   if (!RAIL || !el || el.hidden || !el.isConnected) return false;
-  for (const c of el.getElementsByTagName('canvas')) if (!c.classList.contains('glw-cv')) return false;
+  // (A GPU picture copies empty: its picture is copied into the copy's canvas (createImageBitmap), where the browser can; else thrown.)
+  if (!COPY_PICS) for (const c of el.getElementsByTagName('canvas')) if (!c.classList.contains('glw-cv')) return false;
   return true;
+}
+// (2 Nov 2026, Mohammad: "the data card and the teaching cards move out at different paces; should go together". The data card's charts
+// and instruments are drawn on the GPU into canvases of their own (trace-gl.js, shown through a bitmap renderer), which a copy of the card
+// takes empty; so the card was thrown, on its own clock, while the words rode the rail. Each picture is now copied into its copy's canvas,
+// the GPU's own bitmap, and the card rides the rail with the words. Until the pictures are in, the card itself stays as it is and its copy
+// waits unseen; they change places in one task. ?railpics=0: such a card is thrown, as before.)
+const COPY_PICS = typeof location === 'undefined' || (typeof createImageBitmap === 'function' && !/[?&]railpics=0\b/.test(location.search || ''));
+const copying = new Set();
+/** Resolves once every copy's pictures are in (at most PICS_MAX ms): the next words go into a card only once its copy stands in for it. */
+const PICS_MAX = 300;
+export function railCopies() {
+  if (!copying.size) return Promise.resolve();
+  return Promise.race([Promise.all([...copying]), new Promise((ok) => setTimeout(ok, PICS_MAX))]);
 }
 /** The copies on the page now (for the cards' GPU glass to draw). */
 export const railGhosts = () => [...ghostEls].filter((g) => g.isConnected);
@@ -171,17 +195,36 @@ export function railHold(el, d, tag, dir) {
   g.style.setProperty('pointer-events', 'none', 'important');
   g.style.setProperty('transition', 'none', 'important');
   const at = here(el);
-  write(g, at.x, Math.max(at.o, 0));
+  // (The pictures: each canvas's bitmap into the copy's, the same canvas by its place among them; a readout's own picture (gl-words) is left
+  // empty, its words being the page's own in the copy.)
+  const src = [...el.getElementsByTagName('canvas')], dst = [...g.getElementsByTagName('canvas')], pics = [];
+  if (COPY_PICS && src.length === dst.length) {
+    src.forEach((c, i) => {
+      if (c.classList.contains('glw-cv') || !(c.width > 0 && c.height > 0)) return;
+      pics.push(createImageBitmap(c).then((b) => { const r = dst[i].getContext('bitmaprenderer'); if (r) r.transferFromImageBitmap(b); else b.close?.(); }).catch(() => {}));
+    });
+  }
+  write(g, at.x, pics.length ? 0 : Math.max(at.o, 0));
   // (At the end of the card's layer, so no rule that reads a card's neighbour (the data card's edge, .pz-data + .pz-lip) sees it; the
   // teaching card's glass just after itself, under the cards' layer as it is.)
   if (tag === 'shade') el.after(g); else el.parentNode.append(g);
   ghostEls.add(g);
   // (In the same task: no frame shows the card and its copy both, or neither.)
-  el.style.setProperty('transition', 'none', 'important');
-  el.style.removeProperty('transform');
-  el.style.setProperty('opacity', '0', 'important');
+  const swap = () => {
+    if (!ghostEls.has(g) || ghosts.get(el)?.g !== g || runs.has(g)) return;
+    write(g, at.x, Math.max(at.o, 0));
+    el.style.setProperty('transition', 'none', 'important');
+    el.style.removeProperty('transform');
+    el.style.setProperty('opacity', '0', 'important');
+  };
   railHeld.add(el);
   ghosts.set(el, { g, d, dir, t: setTimeout(() => railAway(el), GHOST_MAX) });
+  if (!pics.length) { swap(); return; }
+  // (Meanwhile the card stands as it is, whole, whatever its leave class says.)
+  el.style.setProperty('transition', 'none', 'important');
+  el.style.setProperty('opacity', String(Math.max(at.o, 0)), 'important');
+  const p = Promise.race([Promise.all(pics), new Promise((ok) => setTimeout(ok, PICS_MAX))]).then(() => { copying.delete(p); swap(); });
+  copying.add(p);
 }
 function drop(g) { ghostEls.delete(g); g.remove(); }
 /** Rides el in on the rail from where its copy stands beside it, and its copy out, on one clock (delay ms after now). False when el has no copy. */
@@ -209,3 +252,23 @@ export function railAway(el) {
 }
 /** Whether el waits behind its copy for its next words. */
 export const railWaits = (el) => ghosts.has(el);
+
+// ── Out on the tap, while the slide before is still settling (Mohammad, 2 Nov 2026: "when i hit next it takes time to move out of the
+// way. it should all be responsive"). A Next pressed while the last change still runs (its landing, its after-steps) used to wait for it
+// to finish before the cards moved. The cards that show set off now; out of sight, each is pinned at an inline 0, with no class of its
+// own yet, until the change for the new slide takes it (its leave, a throw in), or lets it go (throwRelease).
+const pinned = new Set();
+export function throwOutNow(el, dir, dist) {
+  if (!el) return;
+  const s = dir === 'back' ? 1 : -1;
+  start(el, 'out', { x: s * dist, o: 0 }, INSTANT ? RAIL_MS : D_SMALL, 0, () => {
+    if (OUT_CLS.some((c) => el.classList.contains(c))) { hold(el); return; }
+    el.style.removeProperty('transform');
+    el.style.setProperty('opacity', '0', 'important');
+    pinned.add(el);
+  });
+}
+/** Whether el was sent out on the tap and waits, out of sight, for the new slide's change to take it. */
+export const throwPinned = (el) => pinned.has(el);
+/** Lets go of a pinned card: to its class's look (a leave class keeps it out). */
+export function throwRelease(el) { if (pinned.delete(el)) hold(el); }
