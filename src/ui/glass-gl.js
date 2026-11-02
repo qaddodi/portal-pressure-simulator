@@ -1029,7 +1029,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const own = e.animate;
     e.animate = function (...args) { const an = own.apply(this, args); if (an) { addAnim(this, an); wake(); } return an; };
   }
-  const fills = (an) => /forwards|both/.test(an.effect?.getTiming?.().fill || '');
+  const fillsOn = (an) => /forwards|both/.test(an.effect?.getTiming?.().fill || '');
   // One element's moving part now: { t: [x, y] (its translation), o (its opacity, or null when not moving) }; bad: something it cannot
   // follow (the page is read again just after this frame); ended: an animation of it has ended (likewise, for its end state).
   function moveOf(e, flag) {
@@ -1038,7 +1038,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (m) {
       for (const [an, kf] of m) {
         const st = an.playState;
-        if (st === 'idle' || (st === 'finished' && !fills(an))) { m.delete(an); flag.ended = true; continue; }
+        if (st === 'idle' || (st === 'finished' && !fillsOn(an))) { m.delete(an); flag.ended = true; continue; }
         const p = an.effect?.getComputedTiming?.().progress;
         if (p == null) continue;
         const v = motionAt(kf, p);
@@ -1140,7 +1140,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function moving() {
     for (const [e, m] of anims) {
       for (const an of m.keys()) if ((an.playState === 'running' || an.pending) && Number.isFinite(an.effect?.getComputedTiming?.().endTime)) return true;   // (one that never ends does not hold it awake)
-      if (![...m.keys()].some((an) => an.playState !== 'idle' && (an.playState !== 'finished' || fills(an)))) anims.delete(e);
+      if (![...m.keys()].some((an) => an.playState !== 'idle' && (an.playState !== 'finished' || fillsOn(an)))) anims.delete(e);
     }
     return false;
   }
