@@ -12558,6 +12558,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const askAnimate = () => { if (!animRaf) animRaf = drawFrame(animate); };
   function animate(now) {
     animRaf = 0;
+    // A view moved by a frame's own callback (a glide's step, the catheter's camera following the tip) asked its sync (labels, leaders,
+    // callouts, cards) for the NEXT frame (frame.js: a callback asked for while the frame runs waits), while this pass draws the vessels at
+    // the new view: the figure's names and their lines trailed it by a frame, "they don't stick" (Mohammad, 2 Nov 2026, the TIPS animation).
+    // Still waiting here, it runs first, so the labels, the lines and the vessels are all drawn for the same view in this frame.
+    if (viewRaf) { cancelFrame(viewRaf); syncView(); }
     cathLabelsNow();
     // The blood moves by elapsed time, so speeds and transitions are the same at any frame rate.
     if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; trimVeins(); sleep(); return; }
