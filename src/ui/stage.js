@@ -92,17 +92,11 @@ import { guardBlur } from './blur-guard.js?v=5228284718';
 import { capDensity } from './pixel-budget.js?v=279a2b54f6';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
-<<<<<<< HEAD
 import { CellGrid, geomOf } from './cell-grid.js?v=4e50135a67';
 import { restPass, cancelRest } from './rest-pass.js?v=d13e397f0b';
 import { createLateQueue } from './late-queue.js?v=d7da770ef7';
 import { dropLabel } from './drop-label.js?v=bb3f310054';
 import { glWords } from './gl-words.js?v=66e363c167';
-=======
-import { CellGrid, geomOf } from './cell-grid.js?v=4e50135a67';
-import { restPass } from './rest-pass.js?v=d13e397f0b';
-import { glWords } from './gl-words.js?v=66e363c167';
->>>>>>> b998a798 (Stamp)
 import { provideStage } from './layout-snap.js?v=f609965236';
 import { caught } from './caught.js?v=b96b17594a';
 const nextFrame = frameFor('stage');
