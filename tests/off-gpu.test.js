@@ -248,3 +248,32 @@ frame(() => { document.body.offsetWidth; });
   const lines = new Set(hits.map((h) => `${h.file}:${h.line}`));
   assert.ok(lines.has('src/ui/u.js:3'), 'its line is not counted as on the GPU');
 });
+
+test('unreached sites are triaged: setup is left out of the count and listed, use and no-caller sites stay flagged with their reason', () => {
+  const hits = fixture({
+    'src/ui/t.js': `
+import { frame } from './frame.js';
+function build(el) { el.textContent = 'built'; el.getBoundingClientRect(); }       // (called once, at load)
+build(document.body);
+const root = document.body; root.className = 'ready';                               // (module top level)
+function onTap() { document.body.classList.add('tapped'); }                          // (a click handler)
+document.body.addEventListener('click', onTap);
+setTimeout(() => { document.body.offsetWidth; }, 5);                                  // (a timer)
+function both() { document.body.setAttribute('a', 'b'); }
+both(); document.body.addEventListener('click', () => both());                        // (boot and use: use wins)
+function orphan() { document.body.hidden = true; }                                    // (nobody calls it)
+frame(() => {});
+`,
+  });
+  const un = (re) => hits.filter((h) => h.cat === 'unreached' && re.test(h.detail));
+  const setup = (re) => (hits.setup || []).filter((h) => re.test(h.detail));
+  assert.ok(setup(/textContent/).length && setup(/getBoundingClientRect/).length && setup(/\.className =/).length, 'load-time code is setup');
+  assert.ok(!hits.some((h) => /textContent|\.className =/.test(h.detail)), 'setup is not a hit');
+  assert.ok(un(/classList\.add.*runs during use \(event handler\)/).length, 'a click handler is flagged with its reason');
+  assert.ok(hits.some((h) => h.cat === 'layoutRead' && h.wide && /offsetWidth/.test(h.detail)), 'a timer callback is already a (wide) hit, not setup');
+  assert.ok(un(/setAttribute.*runs during use/).length && !setup(/setAttribute/).length, 'called at boot and during use: flagged, not setup');
+  assert.ok(un(/\.hidden =.*no caller found/).length && !setup(/\.hidden =/).length, 'an uncalled function is flagged, never assumed to be setup');
+  assert.equal(hits.sites, hits.onGpu + hits.length, 'setup sites are on neither side of the count');
+  assert.match(score(hits), /during use \d+, no caller found \d+; \d+ setup sites left out/);
+  assert.match(inventory(hits), /## Setup sites \(\d+\)/);
+});

@@ -32,8 +32,11 @@
 //                translate, scale, display, visibility…) written in a frame or motion callback: script-driven style, not compositor-only
 //                (2 Nov 2026 independent audit: 295 sites uncounted)
 //   observerRead a layout read in a MutationObserver callback, or anything it calls: a microtask straight after the writes
-//   unreached    a site of the categories above that no frame, motion or observer path was found to reach. Not proven off the frame and not
-//                proven on the GPU, so it is never credited as "on GPU" (2 Nov 2026 audit: the score had counted every such site as on the GPU)
+//   unreached    a site of the categories above that no frame, motion or observer path reaches, and that is not setup. Either it runs during use
+//                (reached from an event handler, timer, promise, observer or store listener; the reason is in its detail) or no caller was found.
+//                Never credited as "on GPU" (2 Nov 2026 audit: the score had counted every such site as on the GPU).
+//   setup        not a hit: a site in code that runs once at module load or boot (reached from module top level) and that nothing run during
+//                use calls. Left out of the count on both sides, listed in full in the inventory (out.setup).
 //
 // Blind spots closed 2 Nov 2026 (audit 1d83acc0): (1) dynamic dispatch: a callback kept in a map, array, set or handler object, or
 // handed to a function that keeps it (store.on, onChange(fn), handlers[k] = fn, OPS[op](…)), runs wherever a reached function calls
@@ -70,7 +73,7 @@ export const CATS = {
   attrWrite: 'Attribute, dataset, hidden/disabled or node removal written in a frame or motion callback (setAttribute, dataset, removeAttribute, remove…: a style recalc, and a repaint for SVG attributes)',
   varWrite: 'Inline style or custom property written in a frame or motion callback (setProperty, style.transform/opacity/display…, cssText: script-driven style every frame)',
   observerRead: 'Layout read in a mutation observer callback (a microtask straight after the writes)',
-  unreached: 'Site no frame, motion or observer path was found to reach (not proven off the frame, not proven on the GPU: never credited)',
+  unreached: 'Site no frame path reaches, that runs during use (event, timer, promise, listener) or has no caller the scan can find: never credited as on the GPU, with its reason',
 };
 
 // The figure's two SVG trees in index.html are its model, not a drawing: stage.js lays the figure and its labels out there and the GPU
@@ -650,6 +653,56 @@ export function scan({ root = ROOT } = {}) {
     reach.clear();
     for (const [k, v] of frameReach) reach.set(k, v);
   }
+  // ---- Triage of the sites no frame path reaches (2 Nov 2026) ----
+  // setup: in code that runs once, at module load or from it, and that nothing run during use calls: not during motion, not off the GPU.
+  // use: reached from an event handler, timer, promise, observer or store listener: runs while the app is used, flagged with that reason.
+  // neither: no caller found (dead code, or a call the scan cannot follow): flagged, never assumed to be setup.
+  function reachFrom(seeds, withDispatch) {
+    const r = new Map(), q = [];
+    const put = (m, g, fromK) => { const k = `${m.file}#${g.__key}`; if (!r.has(k)) { r.set(k, fromK); q.push([m, g]); } };
+    for (const [m, g] of seeds) put(m, g, null);
+    while (q.length) {
+      const [mod, f] = q.shift(), fk = `${mod.file}#${f.__key}`;
+      for (const g of mod.kids?.get(f) || []) {
+        const pr = g.parent;
+        if ((pr?.type === 'CallExpression' || pr?.type === 'NewExpression') && (pr.callee === g || pr.arguments.includes(g) && !DEFERRED.test(calleeName(pr) || pr.callee?.name || ''))) put(mod, g, fk);
+      }
+      for (const call of f.__calls || []) for (const [m, g] of resolveCall(mod, call)) put(m, g, fk);
+      if (withDispatch) for (const [m, g] of dispatched(mod, f)) put(m, g, fk);
+    }
+    return r;
+  }
+  const useSeeds = [], seedKind = new Map();
+  const addUse = (m, g, kind) => { useSeeds.push([m, g]); const k = `${m.file}#${g.__key}`; if (!seedKind.has(k)) seedKind.set(k, kind); };
+  const initSeeds = [];
+  for (const mod of mods.values()) {
+    for (const g of mod.fns.values()) {
+      const pr = g.parent;
+      if (pr?.type === 'CallExpression' && pr.arguments.includes(g)) {
+        const cn = calleeName(pr) || '';
+        if (/^(setTimeout|setInterval|requestIdleCallback|idle|afterMotion|whenQuiet|restPass|queueMicrotask|nextFrame)$/.test(cn)) addUse(mod, g, 'timer or rest pass');
+        else if (/^(then|catch|finally)$/.test(cn)) addUse(mod, g, 'promise');
+        else if (/Observer$/.test(pr.callee?.name || '')) addUse(mod, g, 'observer');
+        else if (cn === 'addEventListener' || cn === 'on' || cn === 'once' || cn === 'subscribe' || cn === 'listen') addUse(mod, g, 'event handler');
+        else if (!enclosing(g) && !DEFERRED.test(cn)) initSeeds.push([mod, g]);
+      } else if (pr?.type === 'CallExpression' && pr.callee === g && !enclosing(g)) initSeeds.push([mod, g]);
+      if (pr?.type === 'AssignmentExpression' && /^on[a-z]+$/.test(pr.left.property?.name || '')) addUse(mod, g, 'event handler');
+    }
+    // (A handler or callback handed in by name: addEventListener('click', onTap), setTimeout(tick, 5), p.then(done), store.on(k, fn).)
+    for (const call of allCalls(mod)) {
+      const cn = call.name, kind = /^(setTimeout|setInterval|requestIdleCallback|idle|afterMotion|whenQuiet|restPass|queueMicrotask|nextFrame)$/.test(cn) ? 'timer or rest pass' : /^(then|catch|finally)$/.test(cn) ? 'promise'
+        : /^(addEventListener|on|once|subscribe|listen)$/.test(cn) ? 'event handler' : /^(ResizeObserver|IntersectionObserver|MutationObserver|PerformanceObserver)$/.test(call.node.callee?.name || '') ? 'observer' : null;
+      if (kind) for (const a of call.node.arguments) if (a.type === 'Identifier' || (a.type === 'MemberExpression' && !a.computed)) for (const [m, g] of targetsOf(mod, a, call.at)) addUse(m, g, kind);
+    }
+    for (const g of mod.obsSeeds) addUse(mod, g, 'observer');
+    for (const call of mod.top) for (const [m, g] of resolveCall(mod, call)) initSeeds.push([m, g]);
+  }
+  for (const m of mods.values()) for (const g of m.seeds) addUse(m, g, 'motion handler');   // (a hit proper where it reaches)
+  for (const [key, set] of regs) { const file = key.slice(0, key.indexOf(':')); for (const [m, g] of set.values()) addUse(m, g, 'store or registry listener'); void file; }
+  for (const mod of mods.values()) for (const [v, at] of mod.motionProps) for (const [m, g] of targetsOf(mod, v, at)) addUse(m, g, 'motion handler');
+  const useReach = reachFrom(useSeeds, true), initReach = reachFrom(initSeeds, false);
+  const rootKindOf = (k) => { let guard = 0; while (guard++ < 200 && useReach.get(k)) k = useReach.get(k); return seedKind.get(k) || 'event or timer'; };
+  const setupLines = new Set(), setupList = [];
   for (const mod of mods.values()) for (const [cat0, n, f, detail] of mod.late) {
     let cat = cat0;
     look(cat, mod.file, n.loc.start.line);
@@ -661,8 +714,19 @@ export function scan({ root = ROOT } = {}) {
       if (hit) cat = 'observerRead';
     }
     if (!hit) {
-      // (Looked at above, so it would be credited as on the GPU. No path reaches it: not proven, so it is a hit of its own, 2 Nov 2026.)
-      push('unreached', mod.file, n.loc.start.line, label(f), `${cat0}: ${detail}`);
+      // (Looked at above, so it would be credited as on the GPU. No frame path reaches it, so it is triaged, never assumed fine, 2 Nov 2026.)
+      let useKey = null;
+      for (let p = f; p && !useKey; p = enclosing(p)) if (useReach.has(`${mod.file}#${p.__key}`)) useKey = `${mod.file}#${p.__key}`;
+      if (useKey) {
+        push('unreached', mod.file, n.loc.start.line, label(f), `${cat0}: ${detail} — runs during use (${rootKindOf(useKey)})`);
+        hits[hits.length - 1].why = 'use';
+      } else if (!f || initReach.has(`${mod.file}#${f.__key}`)) {
+        setupLines.add(`${mod.file}:${n.loc.start.line}`);
+        setupList.push({ cat: cat0, file: mod.file, line: n.loc.start.line, fn: label(f), detail: `${detail} — setup: runs once at load or boot, no event, timer or frame calls it`, owner: ownerOf(mod.file, cat0, label(f)) });
+      } else {
+        push('unreached', mod.file, n.loc.start.line, label(f), `${cat0}: ${detail} — no caller found (dead code, or a call the scan cannot follow)`);
+        hits[hits.length - 1].why = 'unresolved';
+      }
       continue;
     }
     const R = cat === 'observerRead' ? obsReach : reach;
@@ -677,8 +741,12 @@ export function scan({ root = ROOT } = {}) {
   const out = hits.filter((h) => { const k = `${h.cat}|${h.file}|${h.line}|${h.detail}`; if (seen.has(k)) return false; seen.add(k); return true; })
     .sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.cat.localeCompare(b.cat));
   const hitLines = new Set(out.map((h) => `${h.file}:${h.line}`));
-  const onGpu = [...sites].filter((k) => !hitLines.has(k)).length;
+  // (Setup sites leave the count altogether, on neither side, and are listed in out.setup and in the inventory.)
+  const onGpu = [...sites].filter((k) => !hitLines.has(k) && !setupLines.has(k)).length;
   out.onGpu = onGpu; out.sites = onGpu + out.length;
+  const seenS = new Set();
+  out.setup = setupList.filter((h) => { const k = `${h.cat}|${h.file}|${h.line}|${h.detail}`; if (seenS.has(k) || hitLines.has(`${h.file}:${h.line}`)) return false; seenS.add(k); return true; })
+    .sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
   out.wide = out.filter((h) => h.wide).length;   // class writes and timer/observer paths: in the honest total, not in the gate
   return out;
 }
@@ -722,7 +790,8 @@ export function readRatchet(found = directReads(), allowed = readAllowance()) {
 // honest scan reads 76%). The scan stays as strict as ever, every hit is listed, and the target is 100%: nothing off.
 export const TARGET_PCT = 100;
 export const honestPct = (hits) => (hits.sites ? Math.floor(100 * hits.onGpu / hits.sites) : 100);
-export const score = (hits) => `${hits.onGpu}/${hits.sites} on GPU (${honestPct(hits)}% honest, counting ${hits.wide || 0} class-write and timer/observer sites; target ${TARGET_PCT}%), ${hits.length} off`;
+export const split = (hits) => { const u = (w) => hits.filter((h) => h.why === w).length; return { frame: hits.filter((h) => h.cat !== 'unreached').length, use: u('use'), unresolved: u('unresolved'), setup: hits.setup?.length || 0 }; };
+export const score = (hits) => { const x = split(hits); return `${hits.onGpu}/${hits.sites} on GPU (${honestPct(hits)}% honest, counting ${hits.wide || 0} class-write and timer/observer sites; target ${TARGET_PCT}%), ${hits.length} off: frame path ${x.frame}, during use ${x.use}, no caller found ${x.unresolved}; ${x.setup} setup sites left out of the count and listed`; };
 
 const esc = (s) => String(s).replace(/\|/g, '\\|').replace(/`/g, "'").replace(/\n/g, ' ');
 export function inventory(hits, { commit = '' } = {}) {
@@ -741,6 +810,13 @@ export function inventory(hits, { commit = '' } = {}) {
   for (const [o, n] of Object.entries(byOwner).sort((a, b) => b[1] - a[1])) L.push(`| ${esc(o)} | ${n} |`);
   L.push('', '## Every hit', '', '| File:line | Category | Function | What | Owner |', '|---|---|---|---|---|');
   for (const h of hits) L.push(`| ${h.file}:${h.line} | ${h.cat} | ${esc(h.fn)} | ${esc(h.detail)} | ${esc(h.owner)} |`);
+  if (hits.setup?.length) {
+    const sf = {};
+    for (const h of hits.setup) sf[h.file] = (sf[h.file] || 0) + 1;
+    L.push('', `## Setup sites (${hits.setup.length}), left out of the count`, '', 'Code that runs once at module load or boot and that no event, timer, listener or frame calls. Listed in full so nothing is hidden; a site leaves this list (and returns to the count) when anything run during use calls it.', '',
+      `Per file: ${Object.entries(sf).sort((a, b) => b[1] - a[1]).map(([f, n]) => `${f} ${n}`).join(', ')}`, '', '| File:line | Category | Function | What |', '|---|---|---|---|');
+    for (const h of hits.setup) L.push(`| ${h.file}:${h.line} | ${h.cat} | ${esc(h.fn)} | ${esc(h.detail)} |`);
+  }
   L.push('', '## GPU 100% target: checklist', '', `Still off the GPU: ${hits.length}. Grouped by kind, then file; tick a box by moving the site to the GPU (the scan drops it on the next regeneration).`);
   const kinds = {};
   for (const h of hits) ((kinds[h.cat] ||= {})[h.file] ||= []).push(h);
