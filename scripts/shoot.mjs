@@ -104,7 +104,7 @@ export const CARDS_LANDED = () => {
 };
 
 /** Opens the app on a fresh page on the GPU path. Rejects (naming the cause) when that is not what it got. */
-export async function openApp({ device = 'mac', theme = 'light', query = '', dir = '.', url = '', timeout = 180000, dpr, browser: shared } = {}) {
+export async function openApp({ device = 'mac', theme = 'light', query = '', dir = '.', url = '', timeout = 180000, dpr, browser: shared, fakeClock = false } = {}) {
   const dev = DEVICES[device];
   if (!dev) throw new Error(`unknown device "${device}" (${Object.keys(DEVICES).join(', ')})`);
   const isTalk = /(^|[?&])script=/.test(query);   // (a deck slide: its cards are waited for, settle)
@@ -114,6 +114,7 @@ export async function openApp({ device = 'mac', theme = 'light', query = '', dir
   const page = await ctx.newPage();
   page.setDefaultTimeout(timeout);
   await page.addInitScript(GPU_NAME);
+  if (fakeClock) await page.clock.install();   // (frame-step.mjs: time runs by itself until it pauses it, so no timestamp the page took earlier is ahead of the clock)
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   const close = async () => { await ctx.close(); if (!shared) await browser.close(); server?.close(); };
