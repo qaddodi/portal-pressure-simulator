@@ -57,7 +57,7 @@ import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=8ad60ffaf8';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=ec08772016';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
-import { createCardZoom, tapTracker } from './card-zoom.js?v=1c7a3c485b';
+import { createCardZoom, tapTracker } from './card-zoom.js?v=55ab6fac65';
 import { sheetPanes } from './sheet-glass.js?v=098c165087';
 import { createScopeTile } from './scope-tile.js?v=de3d084847';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
@@ -5593,7 +5593,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const pscrim = h('div', { class: 'pz-pscrim', 'aria-hidden': 'true', onclick: () => zoom.close().then(paintZoom) });
     const zoom = createCardZoom({ card: data, along: [lip], scrim: zscrim, app, area: () => readBox(wrap),
       scale: (el) => (el && el !== data && readMetric(el, 'offsetWidth') ? readBox(el).width / readMetric(el, 'offsetWidth') : readBox(wrap).width / (readMetric(wrap, 'clientWidth') || 1)) || 1,
-      reduce: () => reduce.matches, boost: setCanvasBoost, hold: zoomCredit, settled: zoomSettled, behind: zoomBehind });
+      reduce: () => reduce.matches, boost: setCanvasBoost, hold: zoomCredit, settled: zoomSettled,
+      // (The words' card stays up while the card is zoomed; its words are cut away under the card, card-zoom.js, and it rests at slip.base's rise meanwhile.)
+      under: () => [text], shift: (el) => (el === text && root.classList.contains('pz-wide') ? [0, -slip.base] : null), behind: zoomBehind });
     tapTracker(data, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });
     tapTracker(panel, { ok: () => cellReady() || zoom.up, onTap: cellTap });
     const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);

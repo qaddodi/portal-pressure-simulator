@@ -8,6 +8,7 @@
 // is where it rests, so a measure of how far the readings travel would read none.
 
 import { EASE_ARRIVE } from './ease.js?v=7513a88c68';
+import { readBox, readStyle } from './layout-snap.js?v=837f2b793c';
 export const ZOOM_MAX = 2.2;    // the most the card grows
 export const ZOOM_MIN = 1.2;    // under this the card is large enough; no zoom is offered
 export const ZOOM_MS = 520;     // in
@@ -75,7 +76,7 @@ export function tapTracker(card, { ok = () => true, onTap }) {
  * the slides"): one of the six cells of the ladders panel, { card: cell, scrim: [the page's veil, the panel's], part: true }. A part is only
  * centred and enlarged: the instrument's boost, the credit's sitting out, the words' cue and the readings' follow are for the data card.
  */
-export function createCardZoom({ card, along = [], scrim, app, area, scale = () => 1, reduce = () => false, boost = () => {}, hold = () => {}, settled = () => {}, behind = () => {} }) {
+export function createCardZoom({ card, along = [], scrim, app, area, scale = () => 1, reduce = () => false, boost = () => {}, hold = () => {}, settled = () => {}, behind = () => {}, under = () => [], shift = () => null }) {
   let st = null;   // { card, veils, part, plan, riders: [{ el, rest, own, anim }], closing, steady, box, mid, k, s, boosted }
   // The card and what rides with it, as they rest: a stacked card's handle stands on its top edge (the readings' card tucked behind it), so the
   // box that is centred and fitted to the screen is the whole of them, never the card's box alone (Mohammad, 28 Oct: a stacked card sat off the
@@ -96,12 +97,35 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     prev?.cancel();
     return el.animate?.([{ [prop]: from }, { [prop]: to }], { duration: ms, easing: EASE, fill: 'forwards' }) || null;
   };
+  // The words' card stays up behind the zoomed card (Mohammad, 2 Nov 2026: it must not vanish when the card is maximised), but its words are
+  // cut away where the zoomed card lies, so they never show sharp through the frost. The cut is one polygon on the words' box that follows the
+  // card's corners (linear in the glide, as the card's own scale and translate are), eased with the card's own curve and time, so it needs no
+  // frame of script. under(): the elements cut; shift(el): the translate they will rest at ([x, y] css px, or null), as the glide may still be
+  // easing it. Written in each element's own box: where it lies now, less the translate it has now, plus the one it ends at.
+  const BIG = 9999;
+  const carve = (h, b) => {
+    const L = ((b.left - h.x) / h.k).toFixed(1), T = ((b.top - h.y) / h.k).toFixed(1), R = ((b.right - h.x) / h.k).toFixed(1), B = ((b.bottom - h.y) / h.k).toFixed(1);
+    return `polygon(evenodd, -${BIG}px -${BIG}px, ${BIG}px -${BIG}px, ${BIG}px ${BIG}px, -${BIG}px ${BIG}px, -${BIG}px -${BIG}px, ${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
+  };
+  const holesOf = (k) => under().filter((el) => el && !el.hidden).map((el) => {
+    const r = readBox(el);
+    if (!(r.width > 0)) return null;
+    const t = (readStyle(el).translate || 'none').split(/\s+/).map(parseFloat), sh = shift(el) || [0, 0];
+    return { el, k, anim: null, x: r.left - (t[0] || 0) * k + sh[0] * k, y: r.top - (t[1] || 0) * k + sh[1] * k };
+  }).filter(Boolean);
+  const holeTo = (h, box, ms) => {
+    const to = carve(h, box), from = readStyle(h.el).clipPath;
+    h.anim?.cancel();
+    h.anim = h.el.animate?.([{ clipPath: ms && from && from !== 'none' ? from : to }, { clipPath: to }], { duration: ms || 1, easing: EASE, fill: 'forwards' }) || null;
+  };
+  const boxAt = (b, mid, s, dx, dy) => { const f = (v, m, d) => m + (v - m) * s + d; const l = f(b.left, mid.x, dx), t = f(b.top, mid.y, dy); return { left: l, top: t, right: f(b.left + b.width, mid.x, dx), bottom: f(b.top + b.height, mid.y, dy) }; };
   const done = (list) => Promise.all(list.filter(Boolean).map((a) => a.finished.catch(() => {})));
 
   function end() {
     if (!st) return;
     const s = st; st = null;
     for (const r of s.riders) { r.anim?.cancel(); unpin(r); r.el.style.transformOrigin = ''; }
+    for (const h of s.holes) h.anim?.cancel();
     delete s.card.dataset.zoomed;
     app.classList.remove('pz-zoomed'); for (const v of s.veils) v.classList.remove('on');
     if (!s.part) { boost(1); hold(false); }
@@ -123,7 +147,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       const cx = q.left + q.width / 2, cy = q.top + q.height / 2;
       // (box and mid: the whole as it rests as the card zooms, and its middle, for follow below; steady: the glide in has ended, for the
       // data card only: a part has no readings to bring out.)
-      st = { card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s };
+      st = { card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, holes: part ? [] : holesOf(k) };
       for (const r of riders) {
         // (Each piece turns about the middle of them all, so they move as one.)
         r.el.style.transformOrigin = `${((cx - r.rest.left) / k).toFixed(2)}px ${((cy - r.rest.top) / k).toFixed(2)}px`;
@@ -134,6 +158,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       if (!part) { hold(true); boost(plan.s); behind(true, ms); }
       const to = `translate(${(plan.dx / k).toFixed(2)}px, ${(plan.dy / k).toFixed(2)}px) scale(${plan.s.toFixed(4)})`;
       for (const r of riders) r.anim = glide(r.el, 'transform', to, ms);
+      for (const h of st.holes) { holeTo(h, q, 0); holeTo(h, boxAt(q, st.mid, plan.s, plan.dx, plan.dy), ms); }
       for (const v of st.veils) v.classList.add('on');
       if (ms && !part) {
         // (A glide that never reports its end is let go after its time.)
@@ -163,6 +188,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       const to = `translate(${(dx / k).toFixed(2)}px, ${(dy / k).toFixed(2)}px) scale(${sc.toFixed(4)})`;
       // (A new frame over the last: the card's own CSS eases a transform written to its style, so the glide's own kind is used.)
       for (const r of st.riders) { const prev = r.anim; r.anim = r.el.animate?.([{ transform: to }, { transform: to }], { duration: 1, fill: 'forwards' }) || null; prev?.cancel(); }
+      for (const h of st.holes) holeTo(h, boxAt(b, mid, sc, dx, dy), 0);
       st.s = sc;
       if (sc > st.boosted + 0.01) { st.boosted = sc; boost(sc); }
       return true;
@@ -177,6 +203,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       s.card.dataset.zoomed = 'back';   // (on its way back: its shadow eases out, styles/app.css)
       if (!s.part) behind(false, SHUT_MS);
       for (const r of s.riders) r.anim = glide(r.el, 'transform', 'none', SHUT_MS, r.anim);
+      for (const h of s.holes) holeTo(h, s.box, SHUT_MS);
       // (A glide that never reports its end, a tab hidden mid-way, is let go after its time.)
       const guard = new Promise((res) => setTimeout(res, SHUT_MS + 120));
       s.closing = Promise.race([done(s.riders.map((r) => r.anim)), guard]).then(() => { if (st === s) end(); });

@@ -612,3 +612,30 @@ test('a tap on one of the six ladders zooms it, a tap on it, outside it, Esc, a 
   // (Only the six-ladders grid draws cells: nothing else needs it.)
   assert.equal([...js.matchAll(/class: 'pz-cell'/g)].length, 1);
 });
+
+// The words' card stays up while the data card is zoomed (Mohammad, 2 Nov 2026: it vanished): its words are cut away under the zoomed card.
+test('zoom: the words stay up behind the card, cut away under it by a clip eased with the glide, and the cut goes with the zoom', () => {
+  const words = new El({ left: 40, top: 40, width: 420, height: 200 });
+  const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
+  const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
+  const z = createCardZoom({ card, along: [lip], scrim, app, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }), scale: () => 1, under: () => [words], shift: () => [0, -10] });
+  const back = stands();
+  try {
+    assert.equal(z.open(), true);
+    const cuts = words.anims.filter((a) => a.prop === 'clipPath');
+    const glide = cuts[cuts.length - 1];
+    assert.equal(glide.o.duration, ZOOM_MS); assert.equal(glide.o.easing, 'cubic-bezier(.2, .8, .2, 1)');
+    const num = (s) => s.match(/-?\d+(\.\d+)?(?=px)/g).map(Number);
+    // (The cut starts on the card as it rests, in the words' own box with the rise it ends at: the words lie 10 px higher.)
+    const at = num(cuts[0].frames[1].clipPath).slice(10);
+    assert.deepEqual(at.slice(0, 2), [0, 246], 'its top left corner: the handle at 276, the words at 40 less the 10 px rise they end at');
+    // (And ends on the zoomed card: the same corners the glide gives it, larger.)
+    const end = num(glide.frames[1].clipPath).slice(10);
+    assert.ok(end[4] - end[0] > 420 && end[5] - end[1] > 380, 'wider and taller than at rest');
+    assert.equal(cuts.every((a) => !a.cancelled || a !== glide), true);
+    z.reset();
+    assert.ok(words.anims.every((a) => a.cancelled || a.prop !== 'clipPath'), 'the cut is lifted when the zoom ends');
+    assert.ok(/under: \(\) => \[text\]/.test(js), 'the presenter hands the words to the zoom');
+    assert.ok(!/\.pz-zoomed :is\(\.pz-text/.test(css), 'the words are not faded out by the zoom any more');
+  } finally { back(); }
+});

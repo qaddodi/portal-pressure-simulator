@@ -7700,9 +7700,10 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    soft dark spill under and round a frosted card read as smudges on the figure. Their 1 px edge stays. Both the page's box-shadow and the
    GPU's own (--gl-drop) take --pz-glass-drop from --glass-drop, so it is cleared here once. ?carddrop=1: the shadow as before. */
 :root:root:not([data-carddrop]) :is(.pz, .pz-shade) { --glass-drop: transparent; }
-/* A card zoomed up is a solid card (presenter.js ZOOM_GLASS): the words' card, its glass and the stage's labels step out from under it while it
-   is up, so nothing shows through it or sits over it (Mohammad, 2 Nov 2026, charts zoomed on HVPG 3 and 7: "wtf is this"). */
-.pz-zoomed :is(.pz-text, .pz-shade, #labelGl, #labels) { opacity: 0 !important; transition: opacity var(--d-small) var(--ease) !important; }
+/* A card zoomed up keeps its frost and the words' card stays up behind it (Mohammad, 2 Nov 2026: the teaching card must not vanish when the data card is
+   maximised, and its words and glass must come and go together). Its words are cut away under the zoomed card by card-zoom.js (a clip-path eased with the
+   card), so nothing of them shows sharp through the frost; only the stage's labels step out from under it. */
+.pz-zoomed :is(#labelGl, #labels) { opacity: 0 !important; transition: opacity var(--d-small) var(--ease) !important; }
 /* While the cards' glass is drawn in the figure's canvas (html[data-cardgl], glass-gl.js CARD_MARK), a card its glass has not drawn yet (its first
    frame coming in) shows no solid card: the solid card for a frame, then the frost, read as the blur flickering as each card opened (Mohammad,
    2 Nov 2026). Only a card about to be drawn there ([data-gl-wait], for at most 300 ms): one held out of that canvas or not drawn there keeps
