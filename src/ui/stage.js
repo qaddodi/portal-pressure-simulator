@@ -1301,6 +1301,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function putG(el, k, v) {
     if (k.startsWith('style:')) { const p = k.slice(6); if (el.style[p] !== v) el.style[p] = v; } else if (v == null) el.removeAttribute(k); else el.setAttribute(k, v);
   }
+  // (A vessel's own gradient colours on the hidden SVG: nothing reads them while the GPU draws (the vessels' colours go to it as their
+  // rows), so they wait until the SVG shows again (gl-off), not only for the shapes to hold still: a slide change wrote 1,200 of them at
+  // its rests (motion budget, 2 Nov). ?geohold=0 writes them at once.)
+  const paintHeld = new Map();
+  function setPaint(el, k, v) {
+    if (geoHolding()) { let m = paintHeld.get(el); if (!m) paintHeld.set(el, (m = {})); m[k] = v; return; }
+    const m = paintHeld.get(el);
+    if (m) delete m[k];
+    putG(el, k, v);
+  }
+  function flushPaint() { for (const [el, m] of paintHeld) for (const k in m) putG(el, k, m[k]); paintHeld.clear(); }
   function geoQuiet() { geoT = 0; if (!geoPass) geoPass = restPass(flushGeoPass); }
   function flushGeoPass() { geoPass = 0; flushGeo(); }
   function flushGeo() {
@@ -2759,7 +2770,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (OVER_GPU) overClear();   // (the overlays' SVG copies back with the vessels': their GPU picture is gone)
     if (wrap.classList.contains('gl-plate')) { wrap.classList.remove('gl-plate'); syncPlateLook(); }
     plateView = null; plateViewKey = ''; plateKey = ''; dropViewKeep();
-    tubesHidden = false; if (tubesHeld.size) flushTubes(); if (geoHeld.size) flushGeo();
+    tubesHidden = false; if (tubesHeld.size) flushTubes(); if (geoHeld.size) flushGeo(); if (paintHeld.size) flushPaint();
     if (tubesStale) { tubesStale = false; updateGeometry(true); }
     syncOrganDim();
     vLook = null; vBinKey = ''; binShown = null; bendShown = null; veinsDirty = true;
@@ -3493,11 +3504,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (The SVG lumen's gradient: held while the GPU draws the vessels (their colours go to the GPU from x.col), written once at rest,
       // as the hidden tree's shapes are (setG). A running model had rewritten every vessel's two stops on every frame it sent: about a
       // thousand writes in one slide change, 2 Nov. ?geohold=0: written each time, as before.)
-      if (x.col?.[0] !== c1) setG(x.st0, 'stop-color', c1);
-      if (x.col?.[1] !== c2) setG(x.st1, 'stop-color', c2);
+      if (x.col?.[0] !== c1) setPaint(x.st0, 'stop-color', c1);
+      if (x.col?.[1] !== c2) setPaint(x.st1, 'stop-color', c2);
       x.col = [c1, c2];
       if (x.feeders) for (const fd of x.feeders) {
-        if (fd.src) { const was = fd.col; fd.col = [mode === 'pressure' ? pressureColor(qP(PM[NI[fd.src]])) : c1, c1]; if (was?.[0] !== fd.col[0]) setG(fd.st0, 'stop-color', fd.col[0]); if (was?.[1] !== c1) setG(fd.st1, 'stop-color', c1); }
+        if (fd.src) { const was = fd.col; fd.col = [mode === 'pressure' ? pressureColor(qP(PM[NI[fd.src]])) : c1, c1]; if (was?.[0] !== fd.col[0]) setPaint(fd.st0, 'stop-color', fd.col[0]); if (was?.[1] !== c1) setPaint(fd.st1, 'stop-color', c1); }
         else if (FEEDERS[e.id].tone === 'end') { fd.col = [c2, c2]; setT(fd.lumen, 'stroke', c2); }   // a network that leaves the vessel's end takes that end's color
       }
       // Flow marks are white on dark lumens and ink on pale ones.
@@ -4558,6 +4569,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const on = glWanted(t);
     wrap.classList.toggle('gl-on', on);
     if (!on) { tubesHidden = false; if (tubesHeld.size) flushTubes(); if (geoHeld.size) flushGeo(); }
+    if (!on && paintHeld.size) flushPaint();
     if (!on && tubesStale) { tubesStale = false; updateGeometry(true); }
     const plateWas = plateOn();
     wrap.classList.toggle('gl-plate', on && veins.hasPlate(0));
