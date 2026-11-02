@@ -3524,6 +3524,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     },
     setDive: (d) => framePart('lz.setDive', () => paintField(d)),
     sinBusy: () => sinTo === 1 ? sinU < 1 : sinU > 0,
+    // (The vessel canvas keeps no picture between frames (veins-gl OWN_BUF with LZ_ONE): a reader outside the frame lays it first.)
+    capture: () => gl?.capture?.() ?? null,
     sinusoidOpen: () => sv.isOpen(),
     sinusoidMoving: () => !!sv.labelsMoving?.(),
     sinZoom: () => sinZ,

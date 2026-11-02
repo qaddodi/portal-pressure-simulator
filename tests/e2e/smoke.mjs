@@ -668,6 +668,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
     // The vessels' layer, read back after a frame; with the clock paused only the chevrons differ between on and off.
     const grab = () => page.evaluate(() => new Promise((res) => requestAnimationFrame(() => {
+      window.pps.stage.lobuleCapture?.();   // (no picture kept between frames: laid first)
       const g = document.querySelector('.lz-gl'), c = document.createElement('canvas'); c.width = g.width; c.height = g.height;
       const x = c.getContext('2d'); x.drawImage(g, 0, 0); res(Array.from(x.getImageData(0, 0, c.width, c.height).data.filter((_, i) => i % 4 === 0)));
     })));
@@ -2938,6 +2939,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (kind !== 'webgl2') throw new Error(`expected the lobule's vessels on the GPU, got ${kind}`);
     // The vessel layer actually holds a picture.
     const vesselPixels = () => {
+      // (The canvas keeps no picture between frames: the kept one is laid on it first, in this task, as every outside reader does.)
+      window.pps.stage.lobuleCapture?.();
       const g = document.querySelector('.lz-gl'), c = document.createElement('canvas');
       c.width = 160; c.height = 100;
       const x = c.getContext('2d');
