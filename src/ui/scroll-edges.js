@@ -7,16 +7,12 @@
 // Which lists: the menu's two columns, the Treat and Tests bodies, the docked cards' scroller and every popover menu (Settings, Blood,
 // Layers, the lens menu, and the phone's sheets). Left to their own: the History list (its own mask) and the search palette.
 //
-// ?edges=0 switches it off: nothing is observed, no class is added, and the page is as it was before this file.
-//
 // Cost: no scroll listener and no read of the page as it scrolls or in a frame: the browser reports the ends (IntersectionObserver), and
 // the box's overflow and padding are read only as it is resized; a list is only watched while it is in the page.
-import { restPass } from './rest-pass.js?v=826eefe7e5';
+import { restPass } from './rest-pass.js?v=d13e397f0b';
 
 const LISTS = '.um-col, .um-cols, .tc-body, .ac-scroll, .menu:not(.tl-history), .instrument-workspace .dock-pane';
 const SLOP = 1;   // (px: a fraction of a pixel of scroll, from zoom or rounding, is not "more")
-
-export const edgesOff = (search = typeof location !== 'undefined' ? location.search : '') => /[?&]edges=0\b/.test(search);
 
 /** Which ends of a scrolled box have more beyond them: [top, bottom] as 0 or 1. A box that does not scroll has neither. */
 export function edgeState(scrollTop, scrollHeight, clientHeight) {
@@ -24,13 +20,9 @@ export function edgeState(scrollTop, scrollHeight, clientHeight) {
   return [scrollTop > SLOP ? 1 : 0, scrollHeight - clientHeight - scrollTop > SLOP ? 1 : 0];
 }
 
-/** ?edgesgpu=0: a menu's veils ease by their registered variables (a style pass of the menu each frame), as before. Otherwise (the
- *  default) the variables step and the veils' own opacity eases, on the compositor (app.css :root.se-gpu). */
-export const edgesGpuOff = (search = typeof location !== 'undefined' ? location.search : '') => /[?&]edgesgpu=0\b/.test(search);
-
 export function initScrollEdges(root = document.body) {
-  if (!root || edgesOff()) return null;
-  if (!edgesGpuOff()) document.documentElement.classList.add('se-gpu');
+  if (!root) return null;
+  document.documentElement.classList.add('se-gpu');
   const lists = new WeakMap();   // list -> { el, drop, scrolls, pt, pb, kids, view, moreT, moreB }
   const owner = new WeakMap();   // (a child watched for the list it sits in -> that list's record)
   // What the page lays out is read only here, as a box is resized or its children change (never in a frame, never as it scrolls):

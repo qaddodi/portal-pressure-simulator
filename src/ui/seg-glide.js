@@ -14,14 +14,11 @@
 //     row) the piece follows the tab as it grows, on a short step.
 //   - Reduce Motion: the piece does not travel; it fades out where it was and in where it is (--d-flip).
 //   - High contrast keeps today's Highlight on the button and hides the piece (the stylesheet).
-//   - ?glide=0: this file does nothing, so the page is today's, class for class.
 import { D_SMALL } from './ease.js?v=7513a88c68';
-import { restPass } from './rest-pass.js?v=826eefe7e5';
-import { readBox, readMetric, readStyle } from './layout-snap.js?v=ed9aff412d';
+import { restPass } from './rest-pass.js?v=d13e397f0b';
+import { readBox, readMetric, readStyle } from './layout-snap.js?v=f609965236';
 
 const SEL = '.seg, .instr-tabs, .um-tabs, .pressure-switch';
-/** ?glide=0 in a page's search string: this file does nothing and the page is today's. */
-export const glideOff = (search) => /[?&]glide=0\b/.test(String(search ?? ''));
 const PICKED = '[aria-pressed="true"], [aria-selected="true"]';
 // The piece glides by its translate and scale only, on the compositor: its size is set at once and a scale from the old size to 1
 // plays over it (FLIP), so its edges travel as before. Reduce Motion keeps the fade. (No off switch: the glide by left, top, width
@@ -92,8 +89,8 @@ export function frameOf(ctl) {
 
 const same = (a, b) => !!a && !!b && Math.abs(a.x - b.x) < .05 && Math.abs(a.y - b.y) < .05 && Math.abs(a.w - b.w) < .05 && Math.abs(a.h - b.h) < .05;
 
-export function startSegGlide(root = document.body, search = typeof location !== 'undefined' ? location.search : '') {
-  if (glideOff(search) || typeof MutationObserver === 'undefined') return null;
+export function startSegGlide(root = document.body) {
+  if (typeof MutationObserver === 'undefined') return null;
   const states = new Map();   // control -> { btn, box, org, until, token }
   const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const GPU = true;

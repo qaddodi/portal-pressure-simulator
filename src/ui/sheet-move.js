@@ -6,11 +6,7 @@
 // the sheet's still clip (app.css, its cut at the resting foot) hides what slides below the tab row's top line; sideways it slides
 // past the screen's edge. A pull, a settle, a sink out and a refit are all this one offset: no height, top or clip animates, and
 // the compositor carries the eases (WAAPI on translate).
-//
-// ?sheetfx=0: the sheet still moves this way under the finger, but lands at once on release (no ease), for comparison.
 import { D_SMALL, EASE_ARRIVE, cssCurve } from './ease.js?v=7513a88c68';
-
-export const SHEET_EASE = !/[?&]sheetfx=0\b/.test(location.search);
 
 /** The sheet's moving parts (its plate first, put in once). */
 export function sheetParts(el) {
@@ -63,7 +59,7 @@ export function glideSheet(el, y, { easing = EASE_ARRIVE, duration = D_SMALL, do
   el._sheetOff = y;
   const v = y ? `0px ${y}px` : '';
   for (const c of parts) c.style.translate = v;
-  if (!SHEET_EASE || Math.abs(from - y) < 0.5 || typeof parts[0].animate !== 'function') { done?.(); return; }
+  if (Math.abs(from - y) < 0.5 || typeof parts[0].animate !== 'function') { done?.(); return; }
   const anims = parts.map((c) => c.animate([{ translate: `0px ${from}px` }, { translate: `0px ${y}px` }], { duration, easing }));
   const r = { anims, from, to: y, duration, ease: cssCurve(easing) };
   runs.set(el, r);

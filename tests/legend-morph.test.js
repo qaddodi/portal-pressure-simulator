@@ -118,7 +118,7 @@ test('a bar that meets a bar: the old key stands as a ghost, the numbers slide, 
   // The new bar
   const bar = el.querySelector('.lg-bar');
   assert.notEqual(bar, bar0);
-  // (its colour: two ramps painted once, the old fading out over the new by opacity, nothing repainted per frame; ?keymix=0 mixes --lg-k)
+  // (its colour: two ramps painted once, the old fading out over the new by opacity, nothing repainted per frame)
   assert.equal(bar.style.background, undefined, 'the new bar wears its own ramp, as built');
   assert.ok(!String(bar.className).includes('morphing'));
   const was = bar.children.find((c) => String(c.className).includes('lg-bar-was'));

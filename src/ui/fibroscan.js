@@ -4,16 +4,16 @@
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
-import { h, clamp, cssAlpha, canvasSize } from './util.js?v=45ddc23d2e';
-import { createTraceGL, fitPen } from './trace-gl.js?v=2ff80b9089';
-import { FONT } from './charts.js?v=865e3f61ab';
+import { h, clamp, cssAlpha, canvasSize } from './util.js?v=a60489211b';
+import { createTraceGL, fitPen } from './trace-gl.js?v=00e53d1f88';
+import { FONT } from './charts.js?v=6361c5176b';
 import { simTime, isPaused, fibroReading } from './clock.js?v=d6c06e7017';
 import { store } from './store.js?v=afc4d7c743';
 import { createElastogramGL, elastogramUnder } from './fibroscan-gl.js?v=e3585e7f6a';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=d641eeefa1';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=1d147c7c9a';
 import { createFollow } from './display-state.js?v=8d062d39dc';
-import { attrSoon, dataSoon } from './class-soon.js?v=ba07f06e7e';
+import { attrSoon, dataSoon } from './class-soon.js?v=97b9d0e0db';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the measurement window about 8 ms after the push

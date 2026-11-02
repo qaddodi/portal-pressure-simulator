@@ -6,13 +6,12 @@
 // (engine.js starling), read from the slide's fingerprint at rest and from the live model while a time-lapse, a what-if or a
 // compare button moves it.
 
-import { frame, cancelFrame } from './frame.js?v=d641eeefa1';
-import { createSvgGL, svgModel } from './svg-gl.js?v=86f3356eeb';
-import { h, fmt, clamp } from './util.js?v=45ddc23d2e';
+import { frame, cancelFrame } from './frame.js?v=1d147c7c9a';
+import { createSvgGL, svgModel } from './svg-gl.js?v=f8458ee9c3';
+import { h, fmt, clamp } from './util.js?v=a60489211b';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { store } from './store.js?v=afc4d7c743';
 import { measure } from './glyph-measure.js?v=450036b556';
-const FLUID_MEASURE = !(typeof location !== 'undefined' && /[?&]fluidmeasure=0\b/.test(location.search || ''));
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const num = (x) => (Number.isFinite(+x) ? +x : null);
@@ -248,12 +247,11 @@ export function createFluid() {
   const trk = h('div', { class: 'gs-trk' }, segCar, segBlue, segShrink, segBuild, segRoom);
   const legCar = h('span', {}, swCar, 'Carried ', sCarN);
   const lab = h('div', { class: 'gs-lab' }, legCar, h('span', {}, swBack, 'Reabsorbed ', sBack, h('span', { class: 'gs-gap' }, swBuild, nBuild, sBuildN)));
-  const meas = h('span', { class: 'gs-meas', 'aria-hidden': 'true' });
   const win = h('div', { class: 'gs' },
     h('div', { class: 'gs-hero' }, h('span', {}, 'Each day', sWord), sNet),
     h('div', { class: 'gs-cap' }, h('span', {}, 'Lymph made ', sMadeN), h('span', { class: 'gs-dim' }, 'Liver ', sLiv, ' + Gut ', sGut)),
     h('div', { class: 'gs-brkrow' }, brk, h('span', {}, 'Leaked ', sLeak)),
-    trk, lab, meas);
+    trk, lab);
   // The forces across the sinusoid wall (forces: true): a line naming the wall and the net, over one strip: the push from the
   // blood's side and the pull from the tissue's side as two arrows meeting at the wall, each as long as its pressure, named inside.
   const fNet = h('b'), tPush = inn(), tPull = inn();
@@ -275,11 +273,10 @@ export function createFluid() {
   // (A label's width from Inter's own metrics, the ones the GPU sets words with (glyph-measure.js), not from the page: the strip's words
   // change with every model step of a time-lapse, and each candidate was set into a hidden span and read back, a forced layout each,
   // several a step (2 Nov, his Mac: Ascites 4 with Fluid balance open at 16 fps). The widths and the type size are read from the page
-  // only when the strip's size changes. ?fluidmeasure=0: measured on the page, as before.)
+  // only when the strip's size changes.)
   const fit = (n, cands, room, em) => {
     for (const c of cands) {
-      let w;
-      if (FLUID_MEASURE) w = measure(c, `600 ${em}px Inter`); else { meas.textContent = c; w = meas.offsetWidth; }
+      const w = measure(c, `600 ${em}px Inter`);
       if (w + em * 1.05 <= room) { set(n, c); if (n.style.opacity) n.style.opacity = ''; return true; }
     }
     if (n.style.opacity !== '0') n.style.opacity = '0';
@@ -287,11 +284,11 @@ export function createFluid() {
   };
   let sizeSig = '', roSeen = false;
   function labels() {
-    const sized = FLUID_MEASURE && roSeen, tw = sized ? TW : trk.clientWidth, fw = sized ? FW : tug.clientWidth;   // (the observer's widths once it has reported)
+    const sized = roSeen, tw = sized ? TW : trk.clientWidth, fw = sized ? FW : tug.clientWidth;   // (the observer's widths once it has reported)
     const sig = `${tw}|${fw}|${day ? JSON.stringify(day) : ''}|${fGoal ? `${fmt(fGoal.out, 1)}${fmt(fGoal.pull, 1)}` : ''}`;
     if (sig === labSig) return;
     labSig = sig;
-    if (!FLUID_MEASURE || sizeSig !== `${tw}|${fw}` || !em) { sizeSig = `${tw}|${fw}`; em = parseFloat(getComputedStyle(win).fontSize) || 14; }
+    if (sizeSig !== `${tw}|${fw}` || !em) { sizeSig = `${tw}|${fw}`; em = parseFloat(getComputedStyle(win).fontSize) || 14; }
     if (opts.window && day && tw) {
       const P = stripParts(dayOf(goal), tw), sw = stripWords(day);
       const seen = fit(tCar, sw.carried, P.car.w, em);

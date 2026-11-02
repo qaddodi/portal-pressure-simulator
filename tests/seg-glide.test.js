@@ -1,6 +1,6 @@
 // The gliding selection (sprint 1 Nov, brief 1): src/ui/seg-glide.js measures the chosen button of every .seg, .instr-tabs and
 // .um-tabs and hands its box to the stylesheet, which draws ONE piece (the control's ::before) that travels between choices.
-// Here: the measuring (against a small stand-in for the page), the off switch (?glide=0 does nothing at all), that a button's
+// Here: the measuring (against a small stand-in for the page), that a button's
 // pressed / selected state is only ever read, and that the stylesheet keeps every piece rule behind .seg-glide, so without the class
 // the CSS in effect is today's.
 import test from 'node:test';
@@ -51,27 +51,9 @@ const root = (kids) => ({ nodeType: 1, matches: () => false, querySelectorAll: (
 const G = await import('../src/ui/seg-glide.js');
 const rest = () => new Promise((r) => setTimeout(r, 5));   // (the observers place the piece in a rest pass, between frames)
 
-test('?glide=0 is read from the search string, anywhere in it, and nothing else turns the file off', () => {
-  assert.equal(G.glideOff('?glide=0'), true);
-  assert.equal(G.glideOff('?script=hvpg&glide=0&slide=3'), true);
-  assert.equal(G.glideOff('?glide=1'), false);
-  assert.equal(G.glideOff('?glide=00'), false);
-  assert.equal(G.glideOff(''), false);
-  assert.equal(G.glideOff(undefined), false);
-});
-
-test('off: with ?glide=0 no observer is made and no control gets the class or a variable (today\'s DOM and CSS)', () => {
-  const ctl = control('seg', 1);
-  observer = null;
-  assert.equal(G.startSegGlide(root([ctl]), '?glide=0'), null);
-  assert.equal(observer, null, 'no MutationObserver');
-  assert.equal(ctl._cls.has('seg-glide'), false, 'no .seg-glide');
-  assert.equal(ctl._style.size, 0, 'no variables');
-});
-
 test('on: the chosen button\'s box is put on the control, in the control\'s own pixels, and the class turns the piece on', () => {
   const ctl = control('seg', 1, [50, 70, 60]);
-  const h = G.startSegGlide(root([ctl]), '');
+  const h = G.startSegGlide(root([ctl]));
   assert.ok(h, 'started');
   assert.ok(ctl._cls.has('seg-glide'));
   assert.equal(ctl._style.get('--gx'), '52px', 'left of the second button, from the control\'s padding edge (2 px in)');
@@ -85,7 +67,7 @@ test('on: the chosen button\'s box is put on the control, in the control\'s own 
 
 test('a change of choice moves the piece to the new button; a press on the chosen one does nothing', async () => {
   const ctl = control('seg', 0, [50, 70, 60]);
-  const h = G.startSegGlide(root([ctl]), '');
+  const h = G.startSegGlide(root([ctl]));
   assert.equal(ctl._style.get('--gx'), '2px');
   const [a, b] = ctl.children;
   // a press on the chosen button: the app sets the same state again
@@ -105,7 +87,7 @@ test('a change of choice moves the piece to the new button; a press on the chose
 
 test('the selected button keeps its aria state: the file only reads it', async () => {
   const ctl = control('instr-tabs', 2);
-  const h = G.startSegGlide(root([ctl]), '');
+  const h = G.startSegGlide(root([ctl]));
   const [a, b, c] = ctl.children;
   a._attrs['aria-pressed'] = 'false'; c._attrs['aria-pressed'] = 'false'; b._attrs['aria-pressed'] = 'true';
   observer.cb([{ type: 'attributes', target: b, attributeName: 'aria-pressed' }]); await rest();
@@ -117,7 +99,7 @@ test('the selected button keeps its aria state: the file only reads it', async (
 test('a control with no choice, or two, keeps today\'s look (no class)', () => {
   const none = control('seg', -1), two = control('seg', 0);
   two.children[1]._attrs['aria-pressed'] = 'true';
-  const h = G.startSegGlide(root([none, two]), '');
+  const h = G.startSegGlide(root([none, two]));
   assert.ok(!none._cls.has('seg-glide'));
   assert.ok(!two._cls.has('seg-glide'));
   h.stop();
@@ -127,7 +109,7 @@ test('Reduce Motion: the piece is faded out first (--go 0), not travelled', asyn
   reduced = true;
   try {
     const ctl = control('seg', 0);
-    const h = G.startSegGlide(root([ctl]), '');
+    const h = G.startSegGlide(root([ctl]));
     const [a, b] = ctl.children;
     a._attrs['aria-pressed'] = 'false'; b._attrs['aria-pressed'] = 'true';
     observer.cb([{ type: 'attributes', target: b, attributeName: 'aria-pressed' }]); await rest();
@@ -191,7 +173,7 @@ test('main.js loads the file once', () => {
 test('on the compositor (the default): a change of choice sets the new size at once, starts the piece where it was drawn by its translate and scale, then lets both glide to the new box', async () => {
   const ctl = control('seg', 0, [50, 70, 60]);
   const saved = globalThis.getComputedStyle;
-  const h = G.startSegGlide(root([ctl]), '');
+  const h = G.startSegGlide(root([ctl]));
   assert.ok(ctl._cls.has('glide-gpu'), 'the compositor rules are on');
   // The piece as the stylesheet draws it: left/top 0, its size the variables', its translate and scale the variables' too.
   const px = (k, d) => ctl._style.get(k) ?? d;

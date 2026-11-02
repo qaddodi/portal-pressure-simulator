@@ -17,7 +17,7 @@
 // its first read, so a page nobody measures has no listener for it.
 
 import { gpuProbe } from './gpu-probe.js?v=625c2c9315';
-import { createFrameRecorder } from './frame-stats.js?v=5cd07c7e9b';
+import { createFrameRecorder } from './frame-stats.js?v=c6ae854a8b';
 import { createInputLatency, describeTarget } from './input-latency.js?v=3c0129b426';
 import { caught } from './caught.js?v=b96b17594a';
 // A batch of asked-for callbacks, in request order (plan "Holding 120 Hz, always" rev 2 §2.8: zero allocation on the frame path). Three

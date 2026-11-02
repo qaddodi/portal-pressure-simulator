@@ -14,8 +14,8 @@
 import { glGet, glOn, glCap } from './gl-state.js?v=4163c507aa';
 import { ucOf } from './uniform-cache.js?v=b914b447dd';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
-import { hold } from './gpu-budget.js?v=5d0f98936a';
-import { WARM_VIEWS, WARM_MS, bucket } from './warm-views.js?v=510b2dee9e';
+import { hold } from './gpu-budget.js?v=5a5dcd699f';
+import { WARM_VIEWS, WARM_MS, bucket } from './warm-views.js?v=5709bebee7';
 import { startProgram, checkProgram, publishWhenDone, stillCompiling } from './gl-compile.js?v=79231d7c6b';
 import { caught } from './caught.js?v=b96b17594a';
 
@@ -554,7 +554,7 @@ export function createPaintGL(gl) {
       putState(st);
       if (out) gl.bindTexture(gl.TEXTURE_2D, out);
     }
-    clearTimeout(freeT); freeT = setTimeout(release, WARM_VIEWS ? WARM_MS : 3000);   // (R08: kept warm through the next slide's paints)
+    clearTimeout(freeT); freeT = setTimeout(release, WARM_MS);   // (R08: kept warm through the next slide's paints)
     if (res) { if (warmHold?.held) warmHold.touch(); else warmHold = hold({ owner: 'paint-gl', kind: 'warm', bytes: resBytes, release, gl }); }
     return out;
   }

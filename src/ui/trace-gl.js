@@ -19,7 +19,7 @@
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=79231d7c6b';
 import { canvasSize, fitCanvas, onCanvasSized } from './util.js?v=2262fd345c';
 import { sdfAtlas } from './text-gl.js?v=04fdb8b647';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
-import { notePass, hold } from './gpu-budget.js?v=5d0f98936a';
+import { notePass, hold } from './gpu-budget.js?v=5a5dcd699f';
 import { fontOf, measure } from './glyph-measure.js?v=450036b556';
 import { fbComplete } from './gl-state.js?v=4163c507aa';
 import { ucOf } from './uniform-cache.js?v=b914b447dd';

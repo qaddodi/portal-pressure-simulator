@@ -37,13 +37,13 @@ test('one clock: the scheduler frame and the eases clock, inline values only, no
   assert.doesNotMatch(src, /\.animate\(|requestAnimationFrame|getComputedStyle|getBoundingClientRect/);
 });
 
-test('presenter: thrown cards go out and come in by card-throw.js; a swipe hands over its place; ?cardthrow=0 off', () => {
-  assert.match(presenter, /const CARD_THROW = CARD_PAGE && !\/\[\?&\]cardthrow=0\\b\/\.test\(location\.search\);/);
+test('presenter: thrown cards go out and come in by card-throw.js; a swipe hands over its place', () => {
+  assert.doesNotMatch(presenter, /CARD_THROW|cardthrow/);
   assert.match(presenter, /if \(railOK\(el\)\) railHold\(el, [^;]+;\n\s+else throwOut\(el, throwDir, dist\);/, 'a card rides the rail, or is thrown');
-  assert.match(presenter, /if \(!t\.hidden && t\.childElementCount\) \{\n\s+if \(!railIn\(t, k\)\) throwIn\(t, k, 0, throwD\);\n\s+if \(!stayTurn && !ui\.shade\.classList\.contains\('pz-turn'\)\) \{ if \(!railIn\(ui\.shade, k\)\) throwIn\(ui\.shade, k, 0, throwD\); \} else railAway\(ui\.shade\);\n\s+\} else \{ railAway\(t\); railAway\(ui\.shade\); \}/, 'only a card that shows; a copy with no card to follow goes alone');
+  assert.match(presenter, /if \(!t\.hidden && t\.childElementCount\) \{\n\s+if \(!railIn\(t, k\)\) throwIn\(t, k, 0, throwD\);\n\s+if \(!railIn\(ui\.shade, k\)\) throwIn\(ui\.shade, k, 0, throwD\);\n\s+\} else \{ railAway\(t\); railAway\(ui\.shade\); \}/, 'only a card that shows; a copy with no card to follow goes alone');
   assert.match(presenter, /if \(throwDir && !el\.hidden && el\.childElementCount\) \{ if \(bare && railWaits\(el\) && railWaits\(ui\.text\)\) \{ \/\* rides with the words: wordsTurnIn \*\/ \} else if \(!railIn\(el, throwDir, delay\)\) throwIn\(el, throwDir, delay, throwD\); \} else railAway\(el\);/);
   assert.match(presenter, /const pairD = pair\.length \? Math\.max\(\.\.\.pair\.map\(\(el\) => el\.offsetWidth\)\) \+ RAIL_GAP : 0;/, 'the words and their glass keep one spacing on the rail');
-  assert.match(presenter, /railGhosts\(\)\.filter/, 'the copies are drawn by the cards\' GPU glass');
+  assert.match(presenter, /\.\.\.railGhosts\(\)\],/, 'the copies are drawn by the cards\' GPU glass');
   assert.match(presenter, /if \(throwDir\) await throwsOut\(\);/, 'the next words go in only once the old card is out of sight');
   assert.match(presenter, /if \(!bare\) \{ const dir = throwDir \|\| 'next'; for \(const el of \[ui\.text, ui\.shade, ui\.data, ui\.panel\]\) if \(throwPinned\(el\)\) \{[^\n]*throwIn\(el, dir, 0, throwD\); else throwRelease\(el\); \} throwDir = ''; railAway\(\); \}/, 'bare words still come in thrown after the camera; copies left over go; a card sent out on the tap and kept by the new slide comes back in');
   assert.match(presenter, /if \(busy\) outNow\(\);\n\s+if \(!busy\) run\(\);/, 'a Next while the last change still runs sends the cards out on the tap');
@@ -95,9 +95,10 @@ test('glass: a card raised by --pz-rise or --pz-lift (untucking) has its glass r
   assert.match(presenter, /el === ui\.data \? \(wide && el\.classList\.contains\('col'\) \? risePx\(el, '--pz-lift'\) : 0\)/);
 });
 
-test('R05: the cards that show wait for the slide going in to be prepared, at most PREP_MS, then leave (?prephold=0 off)', () => {
-  assert.match(presenter, /if \(PREP_HOLD && !slidePrep\.ready\(want\)\) prepHold\(want, goOn\); else goOn\(\);/);
-  assert.match(presenter, /const PREP_HOLD = SLIDE_PREP && !\/\[\?&\]prephold=0\\b\/\.test\(location\.search \|\| ''\), PREP_MS = 160;/);
+test('R05: the cards that show wait for the slide going in to be prepared, at most PREP_MS, then leave', () => {
+  assert.match(presenter, /if \(!slidePrep\.ready\(want\)\) prepHold\(want, goOn\); else goOn\(\);/);
+  assert.match(presenter, /const PREP_MS = 160;/);
+  assert.doesNotMatch(presenter, /PREP_HOLD|prephold/);
   assert.match(presenter, /if \(!deck \|\| want !== i \|\| !txnLive\(tx\)\) return;/, 'a newer press takes over (its transaction superseded too)');
 });
 

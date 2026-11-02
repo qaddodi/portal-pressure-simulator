@@ -36,5 +36,5 @@ test('with reduced motion the cards still fade (opacity only, no slide)', () => 
 });
 
 test('the cards are refitted and laid out at their final size while still unseen, then fade in', () => {
-  assert.match(src, /async function unseen\(cut\) \{\s*if \(ui\) \{ reFit\(\); layout\(\); await painted\(\); await painted\(\); if \(cut\(\) \|\| !ui\) return; layout\(\); \}\s*await smooth\(cut, QUICK_SLIDE \? QUICK_SMOOTH : 700\);/);
+  assert.match(src, /async function unseen\(cut\) \{\s*if \(ui\) \{ reFit\(\); layout\(\); await painted\(\); await painted\(\); if \(cut\(\) \|\| !ui\) return; layout\(\); \}\s*await smooth\(cut, QUICK_SMOOTH\);/);
 });

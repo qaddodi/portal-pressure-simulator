@@ -12,7 +12,7 @@
 // Read it: ?perf (the readout's Surfaces block ends with the budget), or pps.budget() in the console.
 
 import { onGLCall, glRec } from './gl-state.js?v=4163c507aa';
-import { onFrameEnd } from './frame.js?v=d641eeefa1';
+import { onFrameEnd } from './frame.js?v=1d147c7c9a';
 
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
 // (With ?perf, each entry keeps the line of code that made it, so the readout names the biggest creators: a leak names itself.)

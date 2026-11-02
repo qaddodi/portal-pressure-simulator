@@ -146,7 +146,7 @@ test('every recording instrument takes the history, and the presenter lets its i
   assert.match(tools, /ready\(ms\)/);
   // The presenter: released once the state is in (both ways a state lands), and the cards wait for the window, at most 900 ms.
   assert.match(pres, /if \(!later\) ui\?\.tools\.hold\(false\);/);
-  assert.match(pres, /if \(!await morphTo\(st, cut, ONE_MOVE \? MORPH_ONE_MS : MORPH_MS\)\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}/);
+  assert.match(pres, /if \(!await morphTo\(st, cut, MORPH_ONE_MS\)\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}/);
   assert.match(pres, /if \(morphP\) \{ if \(!await morphP\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}/);
   assert.match(pres, /await ui\.tools\.ready\(900\)/);
   // Patients: a loaded patient's traces open full.

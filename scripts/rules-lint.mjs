@@ -7,6 +7,8 @@
 //   import()   a dynamic import that is not in scripts/lazy-imports.json, where each one says what reads its module in before a person can
 //              reach it (an idle warm-up, the view before it, a measuring aid's own flag). A module first fetched in the tap that needs it
 //              parses tens of ms inside that frame: nothing is imported on a user tap.
+//   imports  a name imported from one of the app's own modules that the module does not export (a deleted switch's constant left in an
+//              import list breaks the page, and every test that loads it, only when the module loads).
 //   (The built chunks' 200 KB limit is held by scripts/build.mjs itself: the build fails on a chunk over it.)
 //
 //   node scripts/rules-lint.mjs            check
@@ -15,6 +17,7 @@
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse } from 'espree';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'script', 'slide', 'preset', 'home', 'back', 'v']);
@@ -44,6 +47,34 @@ for (const [n, at] of switches) if (!KEEP.has(n) && !left.includes(n)) errors.pu
 for (const n of left) if (!switches.has(n)) errors.push(`?${n} is no longer read: take it out of scripts/switches-left.json`);
 for (const l of new Set(lazy)) if (!(l in allowed)) errors.push(`dynamic import ${l} is not in scripts/lazy-imports.json: say what reads it in before a person can reach it`);
 for (const l of Object.keys(allowed)) if (!lazy.includes(l)) errors.push(`scripts/lazy-imports.json lists ${l}, which the source no longer has`);
+
+// Every name imported from one of the app's own modules is exported there (a deleted switch constant left in an import list fails only
+// when the module loads: the whole page, and every test that reads it).
+const exportsOf = new Map();
+const namesOf = (f) => {
+  if (exportsOf.has(f)) return exportsOf.get(f);
+  const out = new Set(), ast = parse(readFileSync(f, 'utf8'), { ecmaVersion: 'latest', sourceType: 'module' });
+  const names = (p) => (p.type === 'Identifier' ? [p.name] : p.type === 'ObjectPattern' ? p.properties.flatMap((q) => names(q.value || q.argument))
+    : p.type === 'ArrayPattern' ? p.elements.filter(Boolean).flatMap(names) : p.type === 'AssignmentPattern' ? names(p.left) : p.type === 'RestElement' ? names(p.argument) : []);
+  for (const n of ast.body) {
+    if (n.type === 'ExportAllDeclaration' || n.type === 'ExportDefaultDeclaration') out.add('*');
+    if (n.type !== 'ExportNamedDeclaration') continue;
+    const d = n.declaration;
+    if (d?.declarations) for (const v of d.declarations) for (const k of names(v.id)) out.add(k);
+    else if (d?.id) out.add(d.id.name);
+    for (const sp of n.specifiers || []) out.add(sp.exported.name ?? sp.exported.value);
+  }
+  exportsOf.set(f, out); return out;
+};
+for (const f of files.filter((x) => x.endsWith('.js'))) {
+  const t = readFileSync(f, 'utf8');
+  for (const m of t.matchAll(/^import\s*\{([^}]*)\}\s*from\s*'(\.{1,2}\/[^'?]+)(?:\?[^']*)?'/gm)) {
+    const target = resolve(dirname(f), m[2]);
+    let have; try { have = namesOf(target); } catch { errors.push(`${relative(ROOT, f)} imports ${m[2]}, which does not exist`); continue; }
+    if (have.has('*')) continue;
+    for (const n of m[1].split(',')) { const k = n.trim().split(/\s+as\s+/)[0].trim(); if (k && !have.has(k)) errors.push(`${relative(ROOT, f)} imports ${k} from ${m[2]}, which does not export it`); }
+  }
+}
 
 if (process.argv.includes('--list')) {
   console.log('switches:', [...switches.keys()].filter((n) => !KEEP.has(n)).sort().join(' '));

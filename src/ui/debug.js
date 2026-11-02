@@ -1,18 +1,14 @@
 // Debug overlay: FPS and frame time, zoom, pixel ratio and build. Off by default; choices persist.
 import { gpuProbe } from './gpu-probe.js?v=625c2c9315';
 
-import { propSoon } from './class-soon.js?v=ba07f06e7e';
-import { finalFrameFor, cancelFrame } from './frame.js?v=d641eeefa1';
+import { propSoon } from './class-soon.js?v=97b9d0e0db';
+import { finalFrameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { caught } from './caught.js?v=b96b17594a';
 // (The overlay's loop goes through the app's one frame scheduler, last in each frame, never a requestAnimationFrame of its own.)
 const nextFrame = finalFrameFor('debug');
 const KEY = 'pps.debug';
 const OPTS = [['fps', 'FPS and frame time'], ['zoom', 'Zoom level and scale'], ['res', 'Render resolution scale'], ['graph', 'Frame graph'], ['gpu', 'GPU time per step']];
 let st = {};
-// (A stored choice counts only where ?debug is in the address: the toggles live behind it, so one made on an earlier visit must not leave an
-// overlay on every plain load with no way to turn it off but Reset everything.)
-const asked = typeof location !== 'undefined' && /[?&]debug(?=[=&#]|$)/.test(location.search || '');
-try { st = asked ? JSON.parse(localStorage.getItem(KEY) || '{}') || {} : {}; } catch { st = {}; }
 let stamps = [], cv = null, hist = [], el = null, raf = 0, last = 0, fps = 0, ms = 0, getZoom = null;
 // GPU time per step (gpu-probe.js): each frame's interval with the steps' times in it; the slowest in the last 10 s stays shown.
 let frames = [], prevT = 0;

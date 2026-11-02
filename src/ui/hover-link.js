@@ -3,15 +3,14 @@
 // Hovering a vessel already lights it (stage.js setHover). Hovering its reading ("Portal vein 22.4", "Right sinusoids 22.0", "Varices 18.1")
 // lit nothing, so the learner followed the leader by eye to see which vessel a number belongs to. Now the two answer each other: the label
 // under the pointer lights what it names with the vessel's own hover glow, and a hovered vessel lifts its label (CSS: #labels.hovlink .lb.hov-link).
-// Only on a pointer that hovers, never a finger; never in a talk (its slides set the lights). ?hoverlink=0 turns it all off: no listener, no class.
+// Only on a pointer that hovers, never a finger; never in a talk (its slides set the lights).
 //
 // This file is the pure part: what a label names, and which labels name a vessel. stage.js does the lighting.
 
-import { normalizeSel } from './actions.js?v=cb54629f3c';
+import { normalizeSel } from './actions.js?v=7bc2b9ed06';
 import { LABEL_VESSEL } from './anatomy.js?v=fe0f3d1f0e';
 
-/** The switch: ?hoverlink=0 gives the app as it was (no listeners, no class on the label layer). */
-export const HOVER_LINK = !/[?&]hoverlink=0\b/.test(typeof location === 'undefined' ? '' : location.search);
+export const HOVER_LINK = true;   // (switch deleted; kept for stage.js until its own pass)
 
 // Organs a click on a station's label selects that also have a hover outline of their own (stage.js setOrganHover).
 const OUTLINED = new Set(['liver', 'heart', 'spleen']);

@@ -4,14 +4,14 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=afc4d7c743';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, releaseWords } from './util.js?v=45ddc23d2e';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, releaseWords } from './util.js?v=a60489211b';
 import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
-import { cardFor, normalizeSel } from './actions.js?v=cb54629f3c';
-import { frameFor, cancelFrame } from './frame.js?v=d641eeefa1';
-import { restPass, cancelRest } from './rest-pass.js?v=826eefe7e5';
-import { classSoon } from './class-soon.js?v=ba07f06e7e';
+import { cardFor, normalizeSel } from './actions.js?v=7bc2b9ed06';
+import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
+import { restPass, cancelRest } from './rest-pass.js?v=d13e397f0b';
+import { classSoon } from './class-soon.js?v=97b9d0e0db';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
-import { readBox, readMetric } from './layout-snap.js?v=ed9aff412d';
+import { readBox, readMetric } from './layout-snap.js?v=f609965236';
 const nextFrame = frameFor('card');
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number.
 const numOf = (t) => { const s = String(t).replace('−', '-'); return /^-?\d+(\.\d+)?$/.test(s) ? { n: +s, d: (s.split('.')[1] || '').length } : null; };

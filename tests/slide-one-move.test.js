@@ -1,5 +1,5 @@
 // A slide change is one move (premium-feel R1): over the plate the cards come in during the camera's last 40 percent, and a change
-// of patient eases under the glide, where the figure can move smoothly while its organs change. ?onemove=0 is the chain as before.
+// of patient eases under the glide, where the figure can move smoothly while its organs change.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -9,10 +9,10 @@ const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8
 const run = src.slice(src.indexOf('async function transitionRun('), src.indexOf('function paintOverlays('));
 const cam = src.slice(src.indexOf('async function camera('), src.indexOf('const cardsEntering ='));
 
-test('the flag, the share of the glide and the shared morph window', () => {
-  assert.match(src, /const ONE_MOVE = !\/\[\?&\]onemove=0\\b\/\.test\(location\.search\);/);
-  assert.match(src, /const CARDS_AT = QUICK_SLIDE \? 0\.75 : 0\.4, MORPH_ONE_MS = 1200;/);
-  assert.match(src, /const MORPH_MS = 2000;/, 'the old window stays for ?onemove=0 and a question\'s answer');
+test('always one move: the share of the glide and the shared morph window', () => {
+  assert.doesNotMatch(src, /ONE_MOVE|QUICK_SLIDE|onemove|quickslide/);
+  assert.match(src, /const CARDS_AT = 0\.75, MORPH_ONE_MS = 1200;/);
+  assert.match(src, /const MORPH_MS = 2000;/, 'the old window stays for a question\'s answer');
 });
 
 test('the stage says what is left of its glide, read from the glide itself', () => {
@@ -23,14 +23,14 @@ test('the stage says what is left of its glide, read from the glide itself', () 
 test('camera() resolves at the glide\'s last part only when asked, over the plate', () => {
   assert.match(cam, /async function camera\(cam, s, cut, early = 0, begun = null\)/);
   // (The glide has set off: the hook runs, then one timer to the point asked for and a look, never a poll alone: late timers in a busy glide put the cards after its landing.)
-  assert.match(cam, /frameTo\(v === 'circuit' \? 'fit' : cam, s, gl\);\s*begun\?\.\(\);[^\n]*\n\s*(?:\/\/[^\n]*\n\s*)*if \(early && gl\) \{\s*(?:\/\/[^\n]*\n\s*)*const g0 = stage\.glideLeft\?\.\(\);\s*if \(g0\?\.ms\) await wait\(Math\.max\(0, g0\.left - g0\.ms \* early - 40\)\);\s*await until\(\(\) => \{ if \(cut\(\)\) return true; const g = stage\.glideLeft\?\.\(\); return !g \|\| g\.left <= g\.ms \* early; \}, gl \+ 1500\); return;\s*\}\s*(?:\/\/[^\n]*\n\s*)*if \(ONE_MOVE && gl\) \{[^}]*\}\s*await wait\(gl\);/);
+  assert.match(cam, /frameTo\(v === 'circuit' \? 'fit' : cam, s, gl\);\s*begun\?\.\(\);[^\n]*\n\s*(?:\/\/[^\n]*\n\s*)*if \(early && gl\) \{\s*(?:\/\/[^\n]*\n\s*)*const g0 = stage\.glideLeft\?\.\(\);\s*if \(g0\?\.ms\) await wait\(Math\.max\(0, g0\.left - g0\.ms \* early - 40\)\);\s*await until\(\(\) => \{ if \(cut\(\)\) return true; const g = stage\.glideLeft\?\.\(\); return !g \|\| g\.left <= g\.ms \* early; \}, gl \+ 1500\); return;\s*\}\s*(?:\/\/[^\n]*\n\s*)*if \(gl\) \{[^}]*\}\s*await wait\(gl\);/);
   // (The lobule's way in keeps its own waits: its branch returns before the plate's glide.)
   const lob = cam.slice(cam.indexOf('if (LOBULE_CAM.test(cam))'), cam.indexOf("const v = s.view || 'anatomic';"));
   assert.doesNotMatch(lob, /early/);
 });
 
 test('what stays serial: the liver, a catheter, a case or question card, an instrument, a figure that cannot move smoothly', () => {
-  assert.match(run, /const plate = ONE_MOVE && bare && !ct && !!cam && !LOBULE_CAM\.test\(cam\) && !store\.get\(\)\.lobule && !store\.get\(\)\.sinusoid;/);
+  assert.match(run, /const plate = bare && !ct && !!cam && !LOBULE_CAM\.test\(cam\) && !store\.get\(\)\.lobule && !store\.get\(\)\.sinusoid;/);
   assert.match(run, /const under = plate && later && !caseCard && underTool\(s\.tool\) && !!stage\.canDrift\?\.\(\) && \(fv\.view \|\| 'anatomic'\) === store\.get\(\)\.view;/);
   assert.match(run, /else if \(cam\) await camera\(cam, fv, cut, plate \? CARDS_AT : 0, prepWith\);/);
 });
@@ -47,7 +47,7 @@ test('the change of patient starts with the glide, and is awaited only once the 
 
 test('a change after the landing never starts mid-glide, and the move ends only once the glide has landed', () => {
   assert.match(run, /if \(!plate \|\| \(later && !under\)\) await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), 1500\);/);
-  assert.match(run, /if \(later && !under\) \{ if \(!await morphTo\(st, cut, ONE_MOVE \? MORPH_ONE_MS : MORPH_MS\)\) return;/);
+  assert.match(run, /if \(later && !under\) \{ if \(!await morphTo\(st, cut, MORPH_ONE_MS\)\) return;/);
   assert.match(run, /await wait\(60\); await until\(\(\) => cut\(\) \|\| !cardsEntering\(bareSeen \? CARDS_SEEN : 0\), 1200\);\s*if \(cut\(\)\) return;\s*(?:\/\/[^\n]*\n\s*)*if \(plate\) \{ await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), 1500\); if \(cut\(\)\) return; \}/);
 });
 
@@ -59,7 +59,7 @@ test('same patient over the plate: the cards\' last fitting starts as the glide 
   const glide = run.indexOf('else if (cam) await camera(cam, fv, cut, plate ? CARDS_AT : 0, prepWith);');
   assert.ok(run.indexOf('const prepWith = ') > 0 && run.indexOf('const prepWith = ') < glide);
   // (the smooth-frames gate still runs right before the cards, as it always did: only the fitting started early)
-  assert.match(run, /if \(prep\) \{ if \(await prep\) await smooth\(cut, QUICK_SLIDE \? QUICK_SMOOTH : 700\); \} else await unseen\(cut\);\s*if \(cut\(\)\) return;/);
+  assert.match(run, /if \(prep\) \{ if \(await prep\) await smooth\(cut, QUICK_SMOOTH\); \} else await unseen\(cut\);\s*if \(cut\(\)\) return;/);
   assert.match(src, /async function unseenFit\(cut\) \{\s*if \(ui\) \{ reFit\(\); layout\(\); await painted\(\); await painted\(\); if \(cut\(\) \|\| !ui\) return false; layout\(\); \}\s*return true;\s*\}/);
   // (Every other path still fits the cards after the glide, or after the change of patient: no `prep` there.)
   assert.equal(run.split('prep ||= unseenFit(cut)').length, 2, 'one place starts the early fitting');
@@ -104,10 +104,10 @@ test('a move cut by a newer slide leaves its cards unseen instead of bringing th
 
 // A camera beat and a flip of the scale (they wait for no cards) used to wait a flat 1.5 s after the glide set off, though the glide lands in
 // 480 to 900 ms (camMs, and an arc's stretch), and at all when the framing did not change: their call-outs came late. Now the wait is the glide's.
-test('a move that waits for no cards ends with its glide: polled, cut by a newer beat; ?onemove=0 keeps the flat wait', () => {
-  const tail = cam.slice(cam.indexOf('if (ONE_MOVE && gl) {'), cam.indexOf('await wait(gl);') + 'await wait(gl);'.length);
-  assert.ok(tail.startsWith('if (ONE_MOVE && gl) {'), 'the flag gates the new wait');
-  assert.match(tail, /^if \(ONE_MOVE && gl\) \{ await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), gl \+ 1500\); return; \}\s*await wait\(gl\);$/);
+test('a move that waits for no cards ends with its glide: polled, cut by a newer beat', () => {
+  const tail = cam.slice(cam.indexOf('if (gl) { await until('), cam.indexOf('await wait(gl);') + 'await wait(gl);'.length);
+  assert.ok(tail.startsWith('if (gl) {'), 'a glide is waited for');
+  assert.match(tail, /^if \(gl\) \{ await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), gl \+ 1500\); return; \}\s*await wait\(gl\);$/);
   // (polled, never one timer: a beat pressed again while this one moves is noticed within a frame or two, not after the glide)
   assert.doesNotMatch(tail, /glideLeft/);
   // (the callers: a beat and a flip of the scale paint their call-outs right after the camera returns)
@@ -118,11 +118,11 @@ test('a move that waits for no cards ends with its glide: polled, cut by a newer
 });
 
 // Behind a case card the camera eases out to the whole patient: the new patient starts when that glide has landed (it takes 480 to 900 ms),
-// not a flat 1.5 s after it set off, and at once when the figure was already whole. ?onemove=0 keeps the flat wait.
-test('the case card\'s retreat ends with its glide, and ?onemove=0 keeps the flat wait', () => {
+// not a flat 1.5 s after it set off, and at once when the figure was already whole.
+test('the case card\'s retreat ends with its glide', () => {
   const rc = src.slice(src.indexOf('async function caseRun('), src.indexOf('// A question card (slide field question)'));
-  assert.match(rc, /stage\.fitSlow\(gl\);\s*(?:\/\/[^\n]*\n\s*)*if \(ONE_MOVE\) await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), gl \+ 600\); else await wait\(gl\);\s*await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), 600\); if \(cut\(\)\) return false;/);
-  assert.ok(rc.indexOf('else await wait(gl);') < rc.indexOf('await morphTo(st, cut'), 'the patient changes only once the camera is still');
+  assert.match(rc, /stage\.fitSlow\(gl\);\s*(?:\/\/[^\n]*\n\s*)*await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), gl \+ 600\);\s*await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), 600\); if \(cut\(\)\) return false;/);
+  assert.ok(rc.indexOf('gl + 600);') < rc.indexOf('await morphTo(st, cut'), 'the patient changes only once the camera is still');
 });
 
 // A leave takes the step below its entrance (motion-scale-shipped): a slide's halos come in over 500 ms and leave over one small step, with the

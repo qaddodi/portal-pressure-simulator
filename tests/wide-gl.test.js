@@ -1,6 +1,6 @@
 // The lobule's wide copy on the GPU (wide-gl.js, 1 Nov 2026: "move everything to GPU"). A dive aimed at a station, or a rise out of a
 // zoomed-in lobule, showed a box of 2D canvases, each tile the layers drawn onto it on the CPU and scaled by the compositor. Now each
-// tile is a texture laid from the layers' GPU canvases, and each frame of the zoom is one small pass; ?widegl=0 keeps the 2D tiles.
+// tile is a texture laid from the layers' GPU canvases, and each frame of the zoom is one small pass.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

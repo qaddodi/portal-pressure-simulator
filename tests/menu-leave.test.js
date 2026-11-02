@@ -1,6 +1,6 @@
 // A menu put away while it is still coming in (sprint 1 Nov, menu open/close): src/ui/menu-leave.js plays its exit from the look it
 // had at that instant, not from its resting look. Here: the hand-over against a stand-in for the page (an entrance running, an
-// entrance finished, the exit moving nothing the entrance had moved), the off switch, and that the three places a menu leaves from
+// entrance finished, the exit moving nothing the entrance had moved), and that the three places a menu leaves from
 // (util.js popover, menu.js, why.js) go through it and keep their class names.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,7 +20,7 @@ const fake = (...cls) => ({
   animate: (kf, o) => { calls.push({ kf, o }); return {}; },
 });
 const begin = (el, animationName, t) => { for (const f of listeners) f({ target: el, animationName, timeStamp: t }); };
-const { leaveFromHere, menuLeaveOff } = await import('../src/ui/menu-leave.js');
+const { leaveFromHere } = await import('../src/ui/menu-leave.js');
 const { easeArrive, D_FLIP, D_SMALL, EASE_IN } = await import('../src/ui/ease.js');
 
 test('mid entrance: the exit runs from the look worked out from the entrance\'s time and curve to the exit\'s own end', () => {
@@ -75,11 +75,7 @@ test('nothing in menu-leave.js asks the page for a layout or style value', () =>
   assert.doesNotMatch(src, /getComputedStyle|getAnimations|getComputedTiming|getBoundingClientRect|offset(Width|Height)/);
 });
 
-test('?menuleave=0 is read from the search string; an element without the Web Animations API just leaves', () => {
-  assert.equal(menuLeaveOff('?menuleave=0'), true);
-  assert.equal(menuLeaveOff('?a=1&menuleave=0'), true);
-  assert.equal(menuLeaveOff('?menuleave=1'), false);
-  assert.equal(menuLeaveOff(''), false);
+test('an element without the Web Animations API just leaves', () => {
   let left = 0;
   assert.equal(leaveFromHere({}, () => left++), false);
   assert.equal(left, 1);
@@ -92,5 +88,7 @@ test('the three places a menu leaves from go through it, and keep their classes'
   const m = read('src/ui/menu.js');
   assert.match(m, /leaveFromHere\(panel, \(\) => panel\.classList\.add\('out'\)\)/);
   assert.match(m, /leaveFromHere\(scrim, \(\) => scrim\.classList\.add\('out'\)\)/);
-  assert.match(m, /if \(leaveT && menuLeaveOff\(location\.search\)\)/, 'opened again while fading: the old panel is only removed at once with the flag off');
+  assert.doesNotMatch(m, /menuLeaveOff|menuleave=0/, 'opened again while fading: the old panel is left to finish, never removed at once');
+  assert.match(m, /\n\s+panel\.inert = true;/);
+  assert.match(m, /\n\s+settleFrom\(el, r, left, top\);/);
 });

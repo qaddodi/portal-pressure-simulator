@@ -39,14 +39,10 @@ test('a talk turns the figure\'s stops off before it takes the stage and back on
   assert.ok(back > 0 && p.indexOf("app.classList.remove('presenting', 'pz-hi')") < back, 'on again once the talk\'s classes are gone');
 });
 
-test('the debug overlay\'s stored choices count only where ?debug is in the address', () => {
+test('the debug overlay starts off on every load: no stored choice is read back', () => {
   const d = read('src/ui/debug.js');
-  assert.match(d, /const asked = typeof location !== 'undefined' && \/\[\?&\]debug\(\?=\[=&#\]\|\$\)\/\.test\(location\.search \|\| ''\);/);
-  assert.match(d, /st = asked \? JSON\.parse\(localStorage\.getItem\(KEY\) \|\| '\{\}'\) \|\| \{\} : \{\};/);
-  // The rule itself, run: ?debug, ?debug=1, ?a=1&debug count; ?debugger and ?nodebug do not.
-  const re = /[?&]debug(?=[=&#]|$)/;
-  for (const q of ['?debug', '?debug=1', '?a=1&debug', '?debug&x=2']) assert.ok(re.test(q), q);
-  for (const q of ['', '?debugger', '?nodebug', '?x=debug']) assert.ok(!re.test(q), q || '(none)');
+  assert.match(d, /\nlet st = \{\};\n/);
+  assert.doesNotMatch(d, /localStorage\.getItem|location\.search/);
 });
 
 test('Windows high contrast keeps the on and selected states and the switches visible', () => {

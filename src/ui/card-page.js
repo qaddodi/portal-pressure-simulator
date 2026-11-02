@@ -3,7 +3,6 @@
 // the finger moves them together, a Next or Back carries them out together the way the talk goes, and the new card comes in together
 // from the other side. Only transform and opacity change while they move (the compositor's own work on the GPU): no clip-path (a
 // repaint every frame), no size or place of the glass eased (a blurred glass resized in view stalled iPhone Safari), no layout read.
-// ?cardpage=0 turns it off: the words turn on their own inside the glass, which fades in place.
 
 /** Whether a slide change takes the page path: whenever the teaching card is up, for every kind of slide coming (question, case,
  *  visual, new patient, catheter and monitor slides included), except while starting, with reduced motion (fades only), a case card

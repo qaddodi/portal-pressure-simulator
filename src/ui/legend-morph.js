@@ -10,8 +10,8 @@
 // All of it is opacity and translate/scale on the compositor, but the bar's colour, which is repainted by CSS for the
 // 420 ms (one small bar, once per switch). A key switched again before it has landed finishes at once, the bar carrying
 // its colour on from where it had got to. Reduce Motion keeps the plain fade out and in (swapFade).
-import { rgb2oklab, oklab2rgb } from './colormap.js?v=626a4521e6';
-import { cssRGB, swapFade, hasBox } from './util.js?v=45ddc23d2e';
+import { rgb2oklab, oklab2rgb } from './colormap.js?v=4f42de15df';
+import { cssRGB, swapFade, hasBox } from './util.js?v=a60489211b';
 import { D_SURFACE, EASE_MOVE } from './ease.js?v=7513a88c68';
 
 export const MORPH_STOPS = 24;
@@ -85,8 +85,7 @@ export function pairItems(olds, news) {
 
 // The bar's colour change is a crossfade of two ramps painted once: the new bar wears its own ramp, and a layer on it wears the
 // old ramp (where it had got to, for a key switched again mid-way) and fades out by opacity on the compositor, riding the bar's
-// glide. Nothing is repainted per frame. ?keymix=0 takes the new ramp at once (no fade).
-const KEYFADE = typeof location === 'undefined' || !/[?&]keymix=0\b/.test(location.search);
+// glide. Nothing is repainted per frame.
 const jobs = new WeakMap();
 const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const opt = (extra = {}) => ({ duration: D_SURFACE, easing: EASE_MOVE, ...extra });
@@ -119,7 +118,7 @@ export function morphKey(el, kids, { instant = false } = {}) {
 
   el.replaceChildren(...kids);
 
-  // The pill hangs from its right edge (topbar-motion.js, ?keyglide=0 off): its key grows and shrinks to the left, so the old key
+  // The pill hangs from its right edge (topbar-motion.js): its key grows and shrinks to the left, so the old key
   // stands where it stood by the same distance in the new box.
   const r1 = btn.getBoundingClientRect(), hung = btn.closest?.('.sb-right.has-face') && Math.abs(r1.right - r0.right) + .5 < Math.abs(r1.left - r0.left) ? r1.width - r0.width : 0;
   if (hung) {
@@ -172,7 +171,7 @@ export function morphKey(el, kids, { instant = false } = {}) {
   }
 
   let toLab = null, timer = 0, layer = null;
-  if (morph && fromLab && KEYFADE) {
+  if (morph && fromLab) {
     toLab = labsOf(newBar);
     if (toLab) {
       layer = document.createElement('i');
@@ -181,7 +180,7 @@ export function morphKey(el, kids, { instant = false } = {}) {
       newBar.append(layer);
       anims.push(layer.animate([{ opacity: 1 }, { opacity: 0 }], opt({ fill: 'forwards' })));
     }
-  }   // (?keymix=0: the new ramp at once. No ramp is ever mixed by an eased variable: that repaints the gradient every frame.)
+  }   // (No ramp is ever mixed by an eased variable: that repaints the gradient every frame.)
   const job = {
     current: () => (toLab && fromLab ? mixLabs(fromLab, toLab, layer ? clamp01(1 - (parseFloat(getComputedStyle(layer).getPropertyValue('opacity')) || 0)) : 1) : null),
     finish() {

@@ -6,11 +6,11 @@
 // the clear ever advances a later injection. If the worker fails (an error, an unreadable reply, a step unanswered for DYE_TIMEOUT_MS)
 // it is terminated and the bolus goes on the main thread: the dye in transit is cancelled (the worker held it), the injections still
 // running (held ones included) start again where they were, and nothing is left running or pending. dispose() ends the worker.
-// An injection shows as active at once (the figure keeps drawing until the first table comes). Where no worker can be made, or with
-// ?dyeworker=0, it is createBolus itself, on the main thread as before.
+// An injection shows as active at once (the figure keeps drawing until the first table comes). Where no worker can be made, it is
+// createBolus itself, on the main thread as before.
 import { createBolus, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD } from './blood.js?v=a70439097a';
 
-export const DYE_WORKER = typeof Worker === 'function' && !(typeof location !== 'undefined' && /[?&]dyeworker=0\b/.test(location.search || ''));
+export const DYE_WORKER = typeof Worker === 'function';
 
 export const DYE_TIMEOUT_MS = 5000;
 

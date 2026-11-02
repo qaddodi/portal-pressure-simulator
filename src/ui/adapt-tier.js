@@ -14,12 +14,11 @@
 //   move stops at is always drawn at Full, and labels, text, cards and readings are on their own layers: never lowered.
 // tierLog() keeps the last changes, each with why and the registry's size then. ?perf shows the tier with the budget.
 
-import { onFrameEnd, frameBudget } from './frame.js?v=d641eeefa1';
-import { overBudget as graphOver, budget } from './gpu-budget.js?v=5d0f98936a';
+import { onFrameEnd, frameBudget } from './frame.js?v=1d147c7c9a';
+import { overBudget as graphOver, budget } from './gpu-budget.js?v=5a5dcd699f';
 import { caught } from './caught.js?v=b96b17594a';
 
-const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
-export const TIERS_ON = !/[?&]tiers=0\b/.test(SEARCH);
+export const TIERS_ON = true;   // (switch deleted; kept for stage.js until its own pass)
 /** The tiers' share of the vessel layer's width and height on a moving frame (0: Full). 0.71 is half the pixels, 0.5 a quarter. */
 export const TIERS = [0, 0.85, 0.71, 0.5];
 export const TIER_TOP = 0.85;
@@ -69,4 +68,4 @@ export function judgeFrame({ now, gap, script }) {
   if (tier > 0 && now - calmSince >= UP_CALM && now - changedAt >= UP_CALM) setTier(tier - 1, now, `${UP_CALM} ms of frames on time with light script`);
 }
 
-if (TIERS_ON) onFrameEnd(judgeFrame);   // (the cheap end-of-frame signal: no per-part tracing switched on for it)
+onFrameEnd(judgeFrame);   // (the cheap end-of-frame signal: no per-part tracing switched on for it)

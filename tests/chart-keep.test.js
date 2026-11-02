@@ -13,7 +13,7 @@ test('the drawer keeps a still layer by its signature, drawn into its own textur
   assert.doesNotMatch(tg.slice(tg.indexOf('function outline('), tg.indexOf('function flush(')), /bindFramebuffer\(gl\.FRAMEBUFFER, null\)/);
 });
 
-test('the Doppler keeps its velocity scale as a layer and trims its history in chunks (?histring=0 off)', () => {
+test('the Doppler keeps its velocity scale as a layer and trims its history in chunks', () => {
   assert.match(dp, /keepLayer\(ctx, 'scale', `\$\{w\}x\$\{hh\}\|\$\{scale\}\|\$\{baseY\}/);
-  assert.equal(dp.split('if (cut && (!HIST_RING || cut >= 256 || cut * 4 >= buf.length)) dropFront(buf, cut);').length - 1, 2);
+  assert.equal(dp.split('if (cut && (cut >= 256 || cut * 4 >= buf.length)) dropFront(buf, cut);').length - 1, 2);
 });

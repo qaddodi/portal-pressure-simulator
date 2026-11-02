@@ -1,20 +1,21 @@
 // WebGL contexts are made when their view is about to show and given back after (2 Nov, plan item 5): a page holds only so many
-// (iOS Safari about 16, dropping the oldest, which is the figure's). ?ctxlazy=0 restores the old behaviour.
+// (iOS Safari about 16, dropping the oldest, which is the figure's).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 
-test('the flag is on by default and ?ctxlazy=0 turns it off', () => {
-  const g = src('gl-support.js');
-  assert.match(g, /CTX_LAZY = !\(typeof location !== 'undefined' && \/\[\?&\]ctxlazy=0\\b\/\.test/);
+test('contexts are always made late: no switch to make them at the start', () => {
+  for (const f of ['gl-support.js', 'sinusoid-view.js', 'instruments.js']) assert.doesNotMatch(src(f), /CTX_LAZY|ctxlazy/, f);
+  assert.match(src('gl-support.js'), /if \(hostHolds\(\)\) support = true;\n\s+else if \(typeof WebGL2RenderingContext !== 'undefined'\) return true;/);
 });
 
 test('the sinusoid view makes its context at setModel / place, not with the lobule', () => {
   const v = src('sinusoid-view.js');
   assert.match(v, /let gpu = null, svYield = null, svSoft = false;/);
-  assert.match(v, /if \(!CTX_LAZY\) ensureGpu\(\);/);
+  assert.match(v, /let gpuTried = false;\n\s+\/\/ \(The \?perf surfaces list/);
+  assert.match(v, /warm: true, onReady/);
   assert.match(v, /setModel\(m\) \{ ensureGpu\(\);/);
   assert.match(v, /if \(opacity > 0\) ensureGpu\(\);/);
   assert.doesNotMatch(v, /^\s*const gpu = createSinusoidGL/m);
@@ -23,7 +24,7 @@ test('the sinusoid view makes its context at setModel / place, not with the lobu
 
 test('the endoscope makes its shader context when shown and gives it back when its tab leaves', () => {
   const i = src('instruments.js');
-  assert.match(i, /let gl = CTX_LAZY \? null : mkGl\(\)/);
+  assert.match(i, /let gl = null, wasGl = false,/);
   assert.match(i, /gl\.dispose\(\); gl = null; glKey = ''; glGone = true;/);
   assert.match(src('dock.js'), /p\.shown\?\.\(open\.includes\(p\.id\)\)/);
 });
@@ -37,7 +38,7 @@ test('the support question asks the figure\'s context first and gives a probe ba
 test('the support question asks the host (the figure, then any context the state record holds) before it would make one', () => {
   const g = src('gl-support.js');
   assert.match(g, /heldGL\(\)/);
-  assert.match(g, /if \(CTX_LAZY && hostHolds\(\)\) support = true;/);
+  assert.match(g, /if \(hostHolds\(\)\) support = true;/);
   assert.match(src('gl-state.js'), /export function heldGL\(\)/);
 });
 

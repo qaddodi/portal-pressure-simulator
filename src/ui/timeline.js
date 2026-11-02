@@ -11,16 +11,16 @@
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
 import { store, replaceParams, onParamChange } from './store.js?v=afc4d7c743';
-import { host } from './host.js?v=8d640e9c36';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=45ddc23d2e';
-import { activeInterventions } from './inspector.js?v=ebe382d885';
+import { host } from './host.js?v=8023cdf418';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=a60489211b';
+import { activeInterventions } from './inspector.js?v=77c0306071';
 import { removedLabel } from './removed-label.js?v=ea3de67900';
-import { frameFor } from './frame.js?v=d641eeefa1';
+import { frameFor } from './frame.js?v=1d147c7c9a';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
-import { createSvgGL, svgModel } from './svg-gl.js?v=86f3356eeb';
+import { createSvgGL, svgModel } from './svg-gl.js?v=f8458ee9c3';
 import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js?v=04fdb8b647';
-import { textSoon } from './class-soon.js?v=ba07f06e7e';
-import { restPass } from './rest-pass.js?v=826eefe7e5';
+import { textSoon } from './class-soon.js?v=97b9d0e0db';
+import { restPass } from './rest-pass.js?v=d13e397f0b';
 const nextFrame = frameFor('timeline');
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
@@ -75,9 +75,8 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
   // A jump's day count (900 ms, a new number most frames) is drawn on the GPU, over the clock (2 Nov 2026, "Move everything to GPU"):
   // Inter's own outlines with its tabular figures (text-gl.js), at the clock's size, weight, colour and place, filled by the charts'
   // painter (svg-gl.js), so no frame of it writes a word into the page. The clock's own words wait, hidden, and take the last day as
-  // the count lands, between frames. ?daygl=0 counts in the page, as before.
-  const DAY_GL = !/[?&]daygl=0\b/.test(location.search);
-  if (DAY_GL) loadGlyphs();
+  // the count lands, between frames.
+  loadGlyphs();
   let dayGL = null, dayPath = null, dayAt = null;
   const dayD = (t) => {
     const { size, weight, x, y, align } = dayAt, w = textBox(t, 0, 0, { weight, size, tnum: true }).width;
@@ -93,7 +92,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
   // drawn in that place: nothing beside it moves again as it lands. Where its words stand is read here, in the task that starts the jump,
   // never in a frame.)
   function dayStart(t, last) {
-    if (!DAY_GL || !glyphsReady()) return false;
+    if (!glyphsReady()) return false;
     timeLong.textContent = timeShort.textContent = last;
     timeEl.classList.add('tl-gpu');
     const vis = [timeLong, timeShort].find((e) => e.getClientRects().length);
@@ -214,7 +213,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     const t0 = performance.now();
     const dayOf = (u) => `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
     const gpu = days !== 'event' && dayStart(shownDay = dayOf(0), dayOf(1));
-    // (Where the count cannot be drawn on the GPU, its glyphs not loaded yet or ?daygl=0, the clock takes its last day here, in the task that
+    // (Where the count cannot be drawn on the GPU, its glyphs not loaded yet, the clock takes its last day here, in the task that
     // starts the jump: no frame writes its words. 2 Nov 2026, "Move everything to GPU".)
     if (!gpu && dayGL && timeEl.classList.contains('tl-gpu')) { timeEl.classList.remove('tl-gpu'); dayGL.clear(); }   // (an older count still drawn: the clock takes over from it)
     if (!gpu && days !== 'event') timeLong.textContent = timeShort.textContent = dayOf(1);

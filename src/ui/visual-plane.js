@@ -23,18 +23,16 @@
 // Everything that decides a place or a size is a pure function here (tests/panels-e.test.js); the drawing is at the
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
-import { h, fmt, clamp } from './util.js?v=45ddc23d2e';
+import { h, fmt, clamp } from './util.js?v=a60489211b';
 import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { TILE, tileShown } from './table-marks.js?v=ff3ed0cc47';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { frameFor } from './frame.js?v=d641eeefa1';
+import { frameFor } from './frame.js?v=1d147c7c9a';
 import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
-import { createSvgGL, svgModel } from './svg-gl.js?v=86f3356eeb';
+import { createSvgGL, svgModel } from './svg-gl.js?v=f8458ee9c3';
 const reduceDot = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
 
 const nextFrame = frameFor('plane');
-/** The switch for the patient's trail on the card (a tool's trail: Mohammad, 1 Nov, mock B): ?trail=0 gives the card as it was. */
-export const TRAIL = !/[?&]trail=0\b/.test(typeof location === 'undefined' ? '' : location.search);
 
 // ── Conditions: [key, op, value], all of which must hold ──
 const OPS = { '<': (a, b) => a < b, '<=': (a, b) => a <= b, '>': (a, b) => a > b, '>=': (a, b) => a >= b };
@@ -982,7 +980,7 @@ export function createPlaneTool() {
       const p = toolPlane(t);
       const k = JSON.stringify(t.plane ?? [t.x, t.y, t.zones, t.base]);
       // (Each slide sets its own trail, or none: a slide with none after one with a trail takes it away.)
-      const tr = TRAIL && Array.isArray(t.trail) && t.trail.length ? t.trail : null;
+      const tr = Array.isArray(t.trail) && t.trail.length ? t.trail : null;
       if (!(k === sig && plot)) {
         sig = k; pl = p; had = '';
         if (!pl) { el.replaceChildren(); plot = null; return; }

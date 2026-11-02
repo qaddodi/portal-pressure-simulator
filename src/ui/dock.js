@@ -3,30 +3,29 @@
 
 import { store, hiddenNow } from './store.js?v=afc4d7c743';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=45ddc23d2e';
-import { lobuleFlows } from './lobule-model.js?v=a76af6b04c';
-import { createProfile } from './charts.js?v=865e3f61ab';
-import { createPressureTime } from './pressure-time.js?v=a63ffd3d7d';
-import { createHvpgProcedure } from './hvpg-proc.js?v=e31fc2c5c7';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=5775a7d1ca';
-import { ownsSideways, pageGo } from './swipe.js?v=3130fa6ec0';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=68c3844da6';
-import { createReadoutsPane } from './readouts-pane.js?v=01decc091a';
-import { frameFor } from './frame.js?v=d641eeefa1';
-import { glWords } from './gl-words.js?v=d88e4bf43d';
-import { restPass } from './rest-pass.js?v=826eefe7e5';
-import { classSoon, classHas, classNow } from './class-soon.js?v=ba07f06e7e';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=a60489211b';
+import { lobuleFlows } from './lobule-model.js?v=4becd1ff4a';
+import { createProfile } from './charts.js?v=6361c5176b';
+import { createPressureTime } from './pressure-time.js?v=c070ac6921';
+import { createHvpgProcedure } from './hvpg-proc.js?v=a293ffc98b';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=cfb37f87a0';
+import { ownsSideways, pageGo } from './swipe.js?v=d0702c7a1b';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=83446e56fd';
+import { createReadoutsPane } from './readouts-pane.js?v=bdff8858ca';
+import { frameFor } from './frame.js?v=1d147c7c9a';
+import { glWords } from './gl-words.js?v=a9b411a88f';
+import { restPass } from './rest-pass.js?v=d13e397f0b';
+import { classSoon, classHas, classNow } from './class-soon.js?v=97b9d0e0db';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
-import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=c34889b63f';
+import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=f7d50db740';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { compareRows } from './idle-keys.js?v=81fbedda6b';
+import { compareRows } from './idle-keys.js?v=6329c6ef1f';
 import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=7513a88c68';
-import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js?v=ed9aff412d';
-import { attrSoon, dataSoon } from './class-soon.js?v=ba07f06e7e';
+import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js?v=f609965236';
+import { attrSoon, dataSoon } from './class-soon.js?v=97b9d0e0db';
 import { caught } from './caught.js?v=b96b17594a';
 const nextFrame = frameFor('dock');
-const DRAG_GUIDE = !/[?&]dockdrag=0\b/.test(typeof location === 'object' ? location.search : '');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
 
@@ -837,27 +836,22 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // keyboard; it changes the layout, never the simulation.
   // Everything the drag needs is measured once as it begins (the stage, the card, the sheet's ceiling). While it moves, a guide line
   // follows the pointer by a transform alone, showing where the card's edge will be, and the card takes that size once, on release:
-  // no read of the page and no new layout of the card on any frame of the drag. (?dockdrag=0: the card resizes as the pointer
-  // moves, as before, still sized from what was measured at the start.)
+  // no read of the page and no new layout of the card on any frame of the drag.
   let drag = null;
   const guide = h('div', { class: 'dock-guide', 'aria-hidden': 'true' });
-  // (The guide has a compositor layer of its own only while the divider is dragged and while it fades out; ?willchange=0: always, as before.)
-  const GUIDE_LAYER = !(typeof location !== 'undefined' && /[?&]willchange=0\b/.test(location.search));
+  // (The guide has a compositor layer of its own only while the divider is dragged and while it fades out.)
   let guideLayerT = 0;
-  if (!GUIDE_LAYER) guide.classList.add('dg-live');
   divider.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     const side = isSide(), W = readMetric(stageWrap, 'clientWidth'), H = readMetric(stageWrap, 'clientHeight');
     drag = { x: e.clientX, y: e.clientY, w: readMetric(workspace, 'clientWidth'), height: readMetric(workspace, 'clientHeight'), side, W, H, max: side ? 0 : sheetMax(H) };
-    if (DRAG_GUIDE) {
-      const d = readBox(divider), c = readBox(workspace);
-      if (!guide.isConnected) document.body.append(guide);
-      guide.classList.toggle('side', side);
-      Object.assign(guide.style, side
-        ? { left: `${d.left + d.width / 2 - 1}px`, top: `${c.top}px`, width: '2px', height: `${c.height}px`, transform: '' }
-        : { left: `${c.left}px`, top: `${d.top + d.height / 2 - 1}px`, width: `${c.width}px`, height: '2px', transform: '' });
-      clearTimeout(guideLayerT); guide.classList.add('dg-live', 'on'); classNow(guide, 'dg-live', true);
-    }
+    const d = readBox(divider), c = readBox(workspace);
+    if (!guide.isConnected) document.body.append(guide);
+    guide.classList.toggle('side', side);
+    Object.assign(guide.style, side
+      ? { left: `${d.left + d.width / 2 - 1}px`, top: `${c.top}px`, width: '2px', height: `${c.height}px`, transform: '' }
+      : { left: `${c.left}px`, top: `${d.top + d.height / 2 - 1}px`, width: `${c.width}px`, height: '2px', transform: '' });
+    clearTimeout(guideLayerT); guide.classList.add('dg-live', 'on'); classNow(guide, 'dg-live', true);
     workspace.classList.add('resizing');
     divider.setPointerCapture(e.pointerId);
   });
@@ -865,13 +859,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (!drag) return;
     if (drag.side) widthPx = drag.w + drag.x - e.clientX;
     else heightRatio = clamp((drag.height + drag.y - e.clientY) / drag.H, 0.25, 0.75);
-    if (DRAG_GUIDE) guide.style.transform = drag.side ? `translate3d(${Math.round(drag.w - sideWidth(drag.W))}px, 0, 0)` : `translate3d(0, ${Math.round(drag.height - sheetHeight(drag.H, drag.max))}px, 0)`;
-    else if (drag.side) putWidth(drag.W);
-    else putHeight(drag.H, drag.max);
+    guide.style.transform = drag.side ? `translate3d(${Math.round(drag.w - sideWidth(drag.W))}px, 0, 0)` : `translate3d(0, ${Math.round(drag.height - sheetHeight(drag.H, drag.max))}px, 0)`;
   });
   for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) divider.addEventListener(ev, () => {
     if (!drag) return;
-    drag = null; guide.classList.remove('on'); if (GUIDE_LAYER) { clearTimeout(guideLayerT); guideLayerT = setTimeout(() => classSoon(guide, 'dg-live', false), 700); } workspace.classList.remove('resizing');
+    drag = null; guide.classList.remove('on'); clearTimeout(guideLayerT); guideLayerT = setTimeout(() => classSoon(guide, 'dg-live', false), 700); workspace.classList.remove('resizing');
     updateSize(); remember(); dispatchEvent(new Event('resize'));
   });
   divider.addEventListener('keydown', (e) => {

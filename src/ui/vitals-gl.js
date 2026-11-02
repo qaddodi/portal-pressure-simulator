@@ -1,4 +1,4 @@
-// The vitals monitor on the GPU (vitals-monitor.js; ?vitalsgl=0 keeps the 2D canvas). Nothing is drawn with a 2D context while it runs:
+// The vitals monitor on the GPU (vitals-monitor.js). Nothing is drawn with a 2D context while it runs:
 // - the panel, the baseline and a reading's alarm patch are rounded rectangles, each one instance of a quad whose edge is found in the shader;
 // - the EKG strip is a line of capsules, one instance per segment, read from the strip's points (two floats a point, the only data sent a frame);
 // - every word and digit is a glyph of the shared SDF atlas of Inter (glyphs-inter.js, made offline by scripts/glyph-atlas.mjs and loaded
@@ -77,10 +77,9 @@ void main() {
 let atlasImage = null;
 const waiting = new Set();
 // (Review pass 2, item 2: each monitor's context takes the atlas up as the picture is decoded (a task of its own) or as its programs are
-// published, never in the first frame that draws words. ?atlasidle=0: sent in that frame, as before.)
-const ATLAS_IDLE = !(typeof location !== 'undefined' && /[?&]atlasidle=0\b/.test(location.search || ''));
+// published, never in the first frame that draws words.)
 const atlasTakers = new Set();
-if (typeof Image === 'function') { const im = new Image(); im.decoding = 'async'; im.onload = () => { atlasImage = im; if (ATLAS_IDLE) { for (const f of [...atlasTakers]) f(); atlasTakers.clear(); } for (const f of [...waiting]) f(); waiting.clear(); }; im.src = ATLAS_PNG; }
+if (typeof Image === 'function') { const im = new Image(); im.decoding = 'async'; im.onload = () => { atlasImage = im; for (const f of [...atlasTakers]) f(); atlasTakers.clear(); for (const f of [...waiting]) f(); waiting.clear(); }; im.src = ATLAS_PNG; }
 const WEIGHTS = Object.keys(GLYPHS).map(Number);
 const weightOf = (w) => WEIGHTS.reduce((a, b) => (Math.abs(b - w) < Math.abs(a - w) ? b : a));
 /** A word's width in CSS px at weight w and size px, from the atlas's advances and kerning (no canvas). */
@@ -133,10 +132,10 @@ export function createVitalsGL(cv) {
     };
     atlasIn = false;
     if (cancelPub) { try { cancelPub(); } catch { /* already done */ } cancelPub = null; }
-    if (ATLAS_IDLE) cancelPub = publishWhenDone(gl, Object.values(progs), () => { cancelPub = null; if (!dead && R && !lost && publish()) atlasReady(); });
+    cancelPub = publishWhenDone(gl, Object.values(progs), () => { cancelPub = null; if (!dead && R && !lost && publish()) atlasReady(); });
   }
   const taker = () => { if (!dead && R && !lost && !gl.isContextLost()) atlasReady(); };
-  if (ATLAS_IDLE && !atlasImage) atlasTakers.add(taker);
+  if (!atlasImage) atlasTakers.add(taker);
   function publish() {
     if (R.ready) return true;
     if (!compileDone(gl, Object.values(R.progs))) return false;

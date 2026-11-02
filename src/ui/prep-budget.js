@@ -21,14 +21,12 @@
 //   finally runs), onFail(error) is told once, error() answers it, and done settles false, never as a completion. The same with
 //   ?prepbudget=0.)
 //   prepLeft() → ms left in this interval        prepSpend(ms) charges work done elsewhere (a rest pass)
-//
-// ?prepbudget=0: no shared ledger (rest passes keep their own 6 ms slice; jobs run each step at once, as before).
-import { frameBudget, inMotion, watchdogStats, WATCH_SHARE } from './frame.js?v=d641eeefa1';
+import { frameBudget, inMotion, watchdogStats, WATCH_SHARE } from './frame.js?v=1d147c7c9a';
 import { caught } from './caught.js?v=b96b17594a';
 
 /** The target frame interval (ms), for the rest passes' slice (rest-pass.js reads it here: its one import). */
 export const frameMs = () => frameBudget();
-export const PREP_BUDGET = !(typeof location !== 'undefined' && /[?&]prepbudget=0\b/.test(location.search || ''));
+export const PREP_BUDGET = true;   // (switch deleted; kept for rest-pass.js until its own pass)
 export const REST_CAP_MS = 6;
 export const PREP_FLOOR_MS = 1;
 export const STARVE_MS = 250;
@@ -127,20 +125,6 @@ export function prepJob(tag, steps, { alive = () => true, onFail } = {}) {
   const done = new Promise((r) => { res = r; });
   let dead = false;
   const j = { tag, it, alive: () => !dead && alive(), since: now(), park: false, res, onFail, err: undefined };
-  if (!PREP_BUDGET) {
-    // (As before: every step at once, in order, waiting only on its promises; a step that throws or rejects fails the job.)
-    (async () => {
-      for (;;) {
-        if (!j.alive()) { j.over = true; close(it); res(false); return; }
-        let n;
-        try { n = it.next(); } catch (e) { failJob(j, e); return; }
-        if (n.done) break;
-        try { const f = n.value; await (typeof f === 'function' ? f() : f); } catch (e) { failJob(j, e); return; }
-      }
-      res(j.alive());
-    })();
-    return { cancel: () => { dead = true; }, done, error: () => j.err };
-  }
   jobs.push(j);
   post();
   return { cancel: () => { if (dead) return; dead = true; if (jobs.includes(j)) { stats.cancelled++; finish(j, false); } }, done, error: () => j.err };

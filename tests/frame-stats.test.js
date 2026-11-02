@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { percentile, summarize, createFrameRecorder, summarizeRaw, mergeRaw, topSurfaces, longFrameLine, LONG_FRAME_MS, SLEEP_MS } from '../src/ui/frame-stats.js';
+import { percentile, summarize, createFrameRecorder, summarizeRaw, mergeRaw, topSurfaces, longFrameLine, LONG_FRAME_MS } from '../src/ui/frame-stats.js';
 
 // The numbers the frame-time gate (scripts/frame-gate.mjs) and the ?perf long-frame log are built from.
 const frame = (o = {}) => ({ now: 1000, gap: 16.7, script: 4, parts: [['stage', 'early', 3], ['glass', 'final', 1]], ...o });
@@ -41,10 +41,10 @@ test('the recorder keeps intervals, script times, each surface in the frames it 
 
 test('an interval is dropped only when the page was suspended in it; a long foreground stall is kept (R02)', () => {
   const r = createFrameRecorder();
-  r.add(frame({ gap: SLEEP_MS + 1, suspended: true }));
+  r.add(frame({ gap: 2001, suspended: true }));
   r.add(frame({ gap: 2500, script: 1 }));
-  r.add(frame({ gap: SLEEP_MS - 1 }));
-  assert.deepEqual(r.raw().gaps, [2500, SLEEP_MS - 1]);
+  r.add(frame({ gap: 1999 }));
+  assert.deepEqual(r.raw().gaps, [2500, 1999]);
   assert.equal(r.raw().whole.suspended, 1);
 });
 

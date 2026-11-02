@@ -3,21 +3,20 @@
 // and tint, clipped to the shape's path); the outline is that same path stroked inside it (4 px, so only the inner 2 px shows; the
 // hairline of cl-hair strokes 2 px, so 1 px shows). The pointer reaches outside the card's box, so the child is the box grown by the pointer's depth.
 
-import { createSvgGL, svgModel } from './svg-gl.js?v=86f3356eeb';
-import { restPass } from './rest-pass.js?v=826eefe7e5';
+import { createSvgGL, svgModel } from './svg-gl.js?v=f8458ee9c3';
+import { restPass } from './rest-pass.js?v=d13e397f0b';
 
 const PTR = 11;   // how far the pointer reaches past the card's edge, and its half-width at the edge
 const KEEP = 28;  // the pointer stays this far from the card's sides, clear of the rounded corners
 const BORDER = 2; // the card's (transparent) border, which the glass covers
 // The printed-tag outline (1 Nov 2026): a 1 px hairline in the theme's strong border with a fifth of the reading's colour in it, not a
-// 2 px ring of the colour itself (app.css .cl-glass.cl-hair). ?cathtag=0 leaves the class off and the old ring as it was.
-const HAIR = !/[?&]cathtag=0\b/.test(globalThis.location?.search || '');
+// 2 px ring of the colour itself (app.css .cl-glass.cl-hair).
 
 // The glass is built into a callout's model (its template) once, ahead of time, and comes with every clone of it, so making a
 // callout on a frame writes nothing to the page for it (2 Nov 2026, "Move everything to GPU"). withGlass(tpl) gives a model its glass.
 export const withGlass = (el) => {
   const glass = document.createElement('i');
-  glass.className = HAIR ? 'cl-glass cl-hair' : 'cl-glass'; glass.setAttribute('aria-hidden', 'true');
+  glass.className = 'cl-glass cl-hair'; glass.setAttribute('aria-hidden', 'true');
   // (Its outline is a model drawn on the GPU (svg-gl) over the glass, never SVG the page paints: 2 Nov 2026, "Move everything to
   // GPU". The model is cloned with the callout; its picture is made between frames, after the clone joins the page: glassCallout.)
   // (The model is the glass's first child and its path the model's: the figure's GPU glass reads the shape there, glass-gl.js readPanes.)

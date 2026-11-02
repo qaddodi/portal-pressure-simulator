@@ -1,5 +1,5 @@
 // will-change is a layer held in memory: the lobule, sinusoid and divider-guide layers have it only while they are shown or dragged
-// (classes lz-live, sv-live, dg-live), and ?willchange=0 keeps them always, as before.
+// (classes lz-live, sv-live, dg-live); ?willchange=0 keeps the lobule's always, as before.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -15,13 +15,15 @@ test('lobule, sinusoid and guide hold will-change only under their live class', 
   assert.match(css, /\.dock-guide\.dg-live \{ will-change: transform, opacity; \}/);
 });
 
-test('the classes follow the motion, and ?willchange=0 keeps them on', () => {
+test('the classes follow the motion, and ?willchange=0 keeps the lobule\'s on', () => {
   const lz = src('lobule-zoom.js'), sv = src('sinusoid-view.js'), dock = src('dock.js');
   assert.match(lz, /classList\.toggle\('lz-live', fade > 0\)/);
   assert.match(lz, /LZ_LAYER \? 'lz' : 'lz lz-live'/);
   assert.match(sv, /restClass\(el, 'sv-live', opacity > 0\)/);
-  assert.match(sv, /SV_LAYER \? 'sv' : 'sv sv-live'/);
+  assert.match(sv, /\{ class: 'sv', 'aria-hidden'/);
+  assert.match(sv, /\n\s+restClass\(el, 'sv-live', opacity > 0\);/);
   assert.match(dock, /classList\.add\('dg-live', 'on'\)/);
-  assert.match(dock, /if \(!GUIDE_LAYER\) guide\.classList\.add\('dg-live'\)/);
-  for (const s of [lz, sv, dock]) assert.match(s, /willchange=0/);
+  assert.match(dock, /guideLayerT = setTimeout\(\(\) => classSoon\(guide, 'dg-live', false\), 700\);/);
+  assert.match(lz, /willchange=0/);
+  for (const s of [sv, dock]) assert.doesNotMatch(s, /willchange|GUIDE_LAYER|SV_LAYER/);
 });

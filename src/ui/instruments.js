@@ -4,26 +4,25 @@
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
-import { pressureColor } from './colormap.js?v=626a4521e6';
-import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=45ddc23d2e';
-import { wordSetter } from './gl-words.js?v=d88e4bf43d';
+import { pressureColor } from './colormap.js?v=4f42de15df';
+import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=a60489211b';
+import { wordSetter } from './gl-words.js?v=a9b411a88f';
 import { simTime, isPaused } from './clock.js?v=d6c06e7017';
-import { createEndoGL } from './endo-gl.js?v=89262a04e4';
-import { CTX_LAZY } from './gl-support.js?v=da6533dfef';
+import { createEndoGL } from './endo-gl.js?v=df15937424';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { renderEndo } from './endo-render.js?v=c84e1bb4cc';
+import { renderEndo } from './endo-render.js?v=019d9dedd0';
 import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=ea7ccb902e';
-import { drawScopeBleed } from './endo-bleed.js?v=8975ac3e74';
+import { drawScopeBleed } from './endo-bleed.js?v=c9f7e42247';
 import { poolFill } from './blood.js?v=a70439097a';
-import { FONT } from './charts.js?v=865e3f61ab';
+import { FONT } from './charts.js?v=6361c5176b';
 import { store, updateParams, varicesPresent } from './store.js?v=afc4d7c743';
-import { classSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=ba07f06e7e';
+import { classSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=97b9d0e0db';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
-import { lateFrameFor, cancelFrame, framePhase, easeNow } from './frame.js?v=d641eeefa1';
-import { restPass } from './rest-pass.js?v=826eefe7e5';
-import { createTraceGL, fitPen } from './trace-gl.js?v=2ff80b9089';
-import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=86f3356eeb';
+import { lateFrameFor, cancelFrame, framePhase, easeNow } from './frame.js?v=1d147c7c9a';
+import { restPass } from './rest-pass.js?v=d13e397f0b';
+import { createTraceGL, fitPen } from './trace-gl.js?v=00e53d1f88';
+import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=f8458ee9c3';
 import { textWidth } from './text-gl.js?v=04fdb8b647';
 import { D_SURFACE, easeArrive } from './ease.js?v=7513a88c68';
 import { inkBox } from './glyph-measure.js?v=450036b556';
@@ -95,11 +94,11 @@ export function createEndoscopy({ onAction }) {
   // The shader's WebGL context is made when the scope is about to show (shown(true) from the dock, or the first field drawn) and given
   // back when its tab leaves the screen (shown(false)): a page holds only so many (iOS Safari about 16, dropping the oldest, which is
   // the figure's). The picture on the page is the drawer's texture, so nothing blanks; the shader is made afresh, through gl-compile.js,
-  // on the way back. ?ctxlazy=0 makes it at the start and keeps it, as before.
+  // on the way back.
   const mkGl = () => createEndoGL({ onBack: () => { if (!raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); }); } });
-  let gl = CTX_LAZY ? null : mkGl(), wasGl = !!gl, glGone = false, noGl = false, away = false;   // (wasGl: which renderer drew the field last, so a change between them fades; glGone: the context was given back, not failed; away: the tab is off the screen)
+  let gl = null, wasGl = false, glGone = false, noGl = false, away = false;   // (wasGl: which renderer drew the field last, so a change between them fades; glGone: the context was given back, not failed; away: the tab is off the screen)
   function needGl() {
-    if (gl || noGl || away || !CTX_LAZY) return;
+    if (gl || noGl || away) return;
     gl = mkGl();
     if (!gl) noGl = true; else if (glGone) { glGone = false; glKey = ''; }
   }
@@ -297,7 +296,6 @@ export function createEndoscopy({ onAction }) {
   // The dock says when this tab is on the screen. Off it, the context goes back; on it, the shader starts compiling now (published when
   // the driver is done), ahead of the first field.
   function shown_(on) {
-    if (!CTX_LAZY) return;
     away = !on;
     if (!on) { if (gl) { gl.dispose(); gl = null; glKey = ''; glGone = true; } return; }
     if (!gl && !noGl) { needGl(); if (gl && last) { raf ||= drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); }); } }
@@ -617,12 +615,11 @@ function iapDial() {
   return { el, set };
 }
 /** A stepper's number rolls to its new value over a small step instead of jumping (the tiles' number roll, util.js countTo); the
- *  first paint is written at once, the unit stays put beside it. ?stepnum=0 writes every number at once, as before. */
-const stepNumOff = typeof location !== 'undefined' && /[?&]stepnum=0\b/.test(location.search || '');
+ *  first paint is written at once, the unit stays put beside it. */
 const stepOut = (unit, attrs = {}) => h('output', { class: 'ab-dp-l', ...attrs }, h('span', { class: 'ab-dp-n' }), h('small', {}, unit));
 const paintStep = (out, v, dp) => {
   const n = out.firstElementChild;   // (its number and unit are built with it, stepOut: never in a frame)
-  if (stepNumOff) putText(n, v.toFixed(dp)); else countTo(n, v, dp);
+  countTo(n, v, dp);
 };
 export function createAbdomen({ onAction }) {
   // The stepper for serum albumin: − value +, the value between the buttons, the same control as the litres to drain.
@@ -714,8 +711,8 @@ export function createAbdomen({ onAction }) {
     h('div', { class: 'ab-row' }, icon('drop'), h('span', { class: 'ab-txt' }, h('b', {}, 'Serum albumin')), h('span', { class: 'ab-end' }, sa.el)),
     diu);
   const el = h('div', { class: 'ab', 'data-pane': 'abdomen' }, h('div', { class: 'ab-main' }, read, ctl));
-  // (A small belly is 84 px, not 72: its "300 mL/day" line sits where the circle is only about 65 px across and the edge cut it. ?belly=0 keeps 72.)
-  if (!/[?&]belly=0\b/.test(location.search)) el.dataset.belly = '84';
+  // (A small belly is 84 px, not 72: its "300 mL/day" line sits where the circle is only about 65 px across and the edge cut it.)
+  el.dataset.belly = '84';
   // Every frame calls this, but a pane the learner is scrolling must not be touched when nothing changed: on a phone,
   // rewriting a text node or an attribute to the same value is enough to make the browser stop a scroll in flight.
   // (Its numbers and words change with the model: drawn on the GPU while they change, gl-words.js.)

@@ -1,6 +1,6 @@
 // No browser blur anywhere (1 Nov 2026, "Move everything to GPU"): no backdrop-filter and no CSS blur filter is declared in the styles,
 // a glass the GPU does not draw ([data-gl] absent) takes the solid look of Settings › Blur effect off, and the teaching card's shade is
-// one of the cards' GPU glasses (?shadegl=0 keeps it out, solid).
+// one of the cards' GPU glasses.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -24,9 +24,9 @@ test('every glass the GPU is not drawing is solid, never the GPU-drawn one', () 
   }
 });
 
-test('the teaching card\'s shade is on the cards\' GPU glass, with ?shadegl=0 as the way out', () => {
-  assert.match(pres, /const SHADE_GL = !\/\[\?&\]shadegl=0\\b\/\.test\(location\.search\);/);
-  assert.match(pres, /find: \(\) => \[\.\.\.\(shadeGL \? \[shade, data, vcase, bar, scl, fk\] : \[data, vcase, bar, scl, fk\]\), \.\.\.railGhosts\(\)\.filter\(\(g\) => shadeGL \|\| g\.dataset\.ghost !== 'shade'\)\]/, 'and the copies riding out on the rail, card-throw.js');
+test('the teaching card\'s shade is on the cards\' GPU glass', () => {
+  assert.doesNotMatch(pres, /SHADE_GL|shadegl/);
+  assert.match(pres, /find: \(\) => \[shade, data, vcase, bar, scl, fk, \.\.\.railGhosts\(\)\],/, 'and the copies riding out on the rail, card-throw.js');
   assert.match(css, /:root:root \.pz-shade \{ will-change: transform; \}/);
 });
 

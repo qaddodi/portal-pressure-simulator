@@ -110,7 +110,7 @@ export function marginView(m, cw, ch) {
 import { createShapeGL } from './shape-gl.js?v=ed16218b02';
 import { createOrganPaint, mul, inv, prestartOrganPaint } from './organ-paint.js?v=b0072dafe4';
 import { prestart, linkProgram, exerciseDraw } from './gl-compile.js?v=79231d7c6b';
-import { netChanged } from './idle-keys.js?v=81fbedda6b';
+import { netChanged } from './idle-keys.js?v=6329c6ef1f';
 import { uniformCache } from './uniform-cache.js?v=b914b447dd';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
@@ -122,9 +122,8 @@ export const cacheBudget = (cw, ch) => Math.min(cw * ch * 4 * 0.75, 12e6);
 // Settle and sharpen (combined plan step 12, 31 Oct): the view's sharper picture, made once a pan or a zoom has settled, fades in over
 // the same 350 ms smoothstep as a resolution change (res-fade FADE_MS) inside the organ stack alone, from what showed there before
 // (the view before where it lay, else the whole picture), so the blood over it is never mixed with a still picture of itself.
-// A view that lies inside the one before (the same pan, drawn again) takes its place at once, as before. ?viewfade=0 turns it off.
+// A view that lies inside the one before (the same pan, drawn again) takes its place at once, as before.
 export const VIEW_FADE_MS = D_SURFACE;   // (the lens crossfade's clock, on its curve: stage.js LENS_FADE)
-const VIEW_FADE = !(typeof location !== 'undefined' && /[?&]viewfade=0\b/.test(location.search || ''));
 const within4 = (a, b) => b[0] >= a[0] && b[1] >= a[1] && b[0] + b[2] <= a[0] + a[2] && b[1] + b[3] <= a[1] + a[3];
 
 // (Linked through gl-compile.js: the program the figure's renderer started at its setup (prestartOrganStack), else compiled here.)
@@ -488,7 +487,7 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
     stats: () => (painter ? { ...painter.stats(), cached: cache.size, cacheBytes, moves: { ...moveStats, shown: mvShown } } : null),
     /** Shows the staged set for `slot` in place of the one shown, drawn in the order of `names` (back to front). */
     commit(slot, names) {
-      if (slot === 1 && VIEW_FADE && live[0].size) {
+      if (slot === 1 && live[0].size) {
         const t = performance.now();
         for (const n of names) {
           const L = staged[1].get(n), was = live[1].get(n);

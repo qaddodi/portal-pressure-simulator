@@ -12,12 +12,8 @@
 //   - The exit is the stylesheet's own (its class is set first); ours is played over it, from the look to the same end, on the same
 //     time and curve, and holds the end (the stylesheet's keeps running underneath to the same end).
 //   - Reduce Motion: the entrance the page runs is the opacity-only one, named so by the event, and the exit follows it.
-//   - ?menuleave=0: this file does nothing and menus leave as they did.
 import { D_FLIP, D_SMALL, EASE_IN, easeArrive } from './ease.js?v=7513a88c68';
 
-/** ?menuleave=0 in a page's search string: menus (and the main menu's reopen and origin) behave as they did. */
-export const menuLeaveOff = (search) => /[?&]menuleave=0\b/.test(String(search ?? ''));
-const off = () => menuLeaveOff(typeof location === 'undefined' ? '' : location.search);
 
 // What leaves through here: the popover menu (and its sheet), the main menu and its sheet and scrim, the "why" card.
 const MENUS = ['menu', 'umenu', 'um-scrim', 'why-pop'];
@@ -54,7 +50,7 @@ function looks(name, k) {
  */
 export function leaveFromHere(el, leave) {
   const rec = started.get(el);
-  if (off() || !rec || typeof el.animate !== 'function') { leave(); return false; }
+  if (!rec || typeof el.animate !== 'function') { leave(); return false; }
   const x = (performance.now() - rec.t - delayOf(el)) / timeIn(el, rec.name);
   if (x >= 1) { leave(); return false; }   // (it had finished coming in)
   const [a, b] = looks(rec.name, easeArrive(Math.max(0, x)));

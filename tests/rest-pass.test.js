@@ -61,15 +61,16 @@ test('presenter: a dock glide\'s and a drag\'s frames write from what was read a
   assert.match(pz, /else dock\.rest = restPass\(\(\) => ui && placeLip\(\)\);/, 'landed: the edge measured between frames');
 });
 
-test('presenter: a finger\'s moves read nothing; the room and the card\'s width are read as it lands', () => {
-  assert.match(pz, /if \(sw\) sw\.room = ui && CARD_TURN && !CARD_PAGE \? turnRoom\(\) : 20;/);
-  assert.match(pz, /pull = \{ on: true, x: 0, pts: \[\], cap: g\.room \};/);
+test('presenter: a finger\'s moves read nothing; the card\'s width is read as it lands', () => {
+  assert.match(pz, /pull = \{ on: true, x: 0, pts: \[\] \};/);
+  assert.doesNotMatch(pz, /sw\.room|g\.room/);
   assert.match(pz, /cd\.w = caseCard\.c\.offsetWidth \|\| 1;/);
   assert.match(pz, /const c = cd\.card\.c, w = cd\.w;/);
 });
 
-test('presenter: a folding card follows a finger by transform and opacity; its height is set once at each end (?foldxf=0: no follow, never a height per move)', () => {
-  assert.match(pz, /const FOLD_XF = !\/\[\?&\]foldxf=0\\b\/\.test\(location\.search\)/);
+test('presenter: a folding card follows a finger by transform and opacity; its height is set once at each end (never a height per move)', () => {
+  assert.match(pz, /gg\.p\.style\.transition = 'none'; gg\.xf = true; gg\.fade = el\.classList\.contains\('pz-folds'\);/);
+  assert.doesNotMatch(pz, /FOLD_XF|foldxf/);
   assert.match(pz, /if \(gg\.xf\) \{ gg\.p\.style\.translate = `0 \$\{\(-\(1 - u\) \* FOLD_SLIDE\)\.toFixed\(1\)\}px`; if \(gg\.fade\) gg\.p\.style\.opacity = u\.toFixed\(3\); \}/);
   const ff = pz.slice(pz.indexOf('const foldFollow = (gg, dy) => {'), pz.indexOf('const settle = (gg, show) => {'));
   assert.doesNotMatch(ff, /maxHeight|style\.height/, 'no height written as the finger moves');

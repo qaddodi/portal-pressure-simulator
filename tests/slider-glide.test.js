@@ -44,10 +44,10 @@ test('the Pressure / Scope switch is a gliding control with the look its chosen 
   assert.match(css, /@media \(forced-colors: none\) \{ \.pressure-switch\.seg-glide \.ps-btn\[aria-pressed="true"\] \{ background: transparent; box-shadow: none; \} \}/);
 });
 
-test('the abdomen\'s steppers (serum albumin, litres to drain) roll their number instead of jumping, and ?stepnum=0 writes it at once', () => {
+test('the abdomen\'s steppers (serum albumin, litres to drain) roll their number instead of jumping', () => {
   const ins = read('src/ui/instruments.js');
-  assert.match(ins, /const stepNumOff = typeof location !== 'undefined' && \/\[\?&\]stepnum=0\\b\/\.test\(location\.search \|\| ''\);/);
-  assert.match(ins, /if \(stepNumOff\) putText\(n, v\.toFixed\(dp\)\); else countTo\(n, v, dp\);/);
+  assert.match(ins, /const n = out\.firstElementChild;[^\n]*\n\s+countTo\(n, v, dp\);\n\};/);
+  assert.doesNotMatch(ins, /stepNumOff|stepnum/);
   assert.match(ins, /paintStep\(out, v, dp, unit\); propSoon\(minus, 'disabled'/);
   assert.match(ins, /paintStep\(volOut, L, 1, 'L'\);/);
   assert.ok(!/replaceChildren\(L\.toFixed/.test(ins) && !/replaceChildren\(v\.toFixed/.test(ins), 'no stepper writes its number whole any more');

@@ -7,7 +7,7 @@
 //
 //   morphSvg(prev, next)          prev: the <svg> on the card now, next: the new one, built but not in the page. true when it took
 //                                 over (next is appended beside prev, which goes at the end); false when it did nothing at all
-//                                 and the caller does what it always did (a crossfade): ?chartmorph=0, Reduce Motion, a drawing
+//                                 and the caller does what it always did (a crossfade): Reduce Motion, a drawing
 //                                 in another coordinate system (a different viewBox), no piece in common, or a page that cannot.
 //
 // What is "the same piece": the same kind of element at the same place in the drawing's structure (its parents' first class and
@@ -26,14 +26,10 @@
 // quick run of slides never jumps; the earlier morph's leaving words finish fading on their own.
 // The clock is the eases' (frame.js easeNow: no leap after a long frame) and the writes come in the frame's late phase, after the
 // chart's own paints, so a frame shows the glide and nothing else.
-import { lateFrameFor, cancelFrame, easeNow } from './frame.js?v=d641eeefa1';
+import { lateFrameFor, cancelFrame, easeNow } from './frame.js?v=1d147c7c9a';
 import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, easeMove } from './ease.js?v=7513a88c68';
 
 const nextLate = lateFrameFor('svg-morph');
-
-/** ?chartmorph=0 in a page's search string: charts crossfade as they always did. */
-export const morphOff = (search) => /[?&]chartmorph=0\b/.test(String(search ?? ''));
-const OFF = morphOff(typeof location !== 'undefined' ? location.search : '');
 
 const GEO = new Set(['x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'rx', 'ry', 'width', 'height', 'd', 'points', 'transform']);
 const LEAF = new Set(['line', 'path', 'rect', 'circle', 'ellipse', 'text', 'polyline', 'polygon']);
@@ -168,7 +164,7 @@ const FULL = 0.999;
 
 export function morphSvg(prev, next) {
   try {
-    if (OFF || reduced() || !prev?.isConnected || !prev.parentNode || typeof prev.querySelectorAll !== 'function' || typeof next?.querySelectorAll !== 'function' || typeof prev.getAttributeNames !== 'function') return false;
+    if (reduced() || !prev?.isConnected || !prev.parentNode || typeof prev.querySelectorAll !== 'function' || typeof next?.querySelectorAll !== 'function' || typeof prev.getAttributeNames !== 'function') return false;
     for (const a of ['viewBox', 'width', 'height', 'preserveAspectRatio']) if ((prev.getAttribute(a) || '') !== (next.getAttribute(a) || '')) return false;
     const plan = planMorph(describe(prev), describe(next));
     if (!plan.pairs.length) return false;

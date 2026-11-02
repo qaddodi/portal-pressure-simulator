@@ -6,8 +6,7 @@ import { caught } from './caught.js?v=b96b17594a';
 let support = null;
 
 /** WebGL contexts are made when the view that draws with them is about to show, and given back when it leaves (a page holds only so many:
- *  iOS Safari about 16, dropping the oldest, which is the figure's). ?ctxlazy=0 makes them at the start, as before. */
-export const CTX_LAZY = !(typeof location !== 'undefined' && /[?&]ctxlazy=0\b/.test(location.search || ''));
+ *  iOS Safari about 16, dropping the oldest, which is the figure's). */
 
 /** Whether the page already holds a live WebGL2 context: the figure's canvas, or any other the state record tracks (the charts' pool).
  *  Asking one makes no new context. */
@@ -26,8 +25,8 @@ function hostHolds() {
 export function sinusoidSupported() {
   if (support == null) {
     try {
-      if (CTX_LAZY && hostHolds()) support = true;
-      else if (CTX_LAZY && typeof WebGL2RenderingContext !== 'undefined') return true;   // (a guess, not kept: asked again until a context answers)
+      if (hostHolds()) support = true;
+      else if (typeof WebGL2RenderingContext !== 'undefined') return true;   // (a guess, not kept: asked again until a context answers)
       else {
         const gl = document.createElement('canvas').getContext('webgl2');
         support = !!gl;

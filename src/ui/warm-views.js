@@ -6,9 +6,8 @@
 //     and the next one reuse them;
 //   - scratch targets are made in size buckets (bucket()), so a picture a few pixels larger reuses the one there instead of making
 //     another. Clearing content never deletes capacity; a lost context still drops every handle (a restored one makes them afresh).
-// ?warmviews=0: every target given back at once, as before.
-export const WARM_VIEWS = !(typeof location !== 'undefined' && /[?&]warmviews=0\b/.test(location.search || ''));
+export const WARM_VIEWS = true;   // (switch deleted; kept for stage.js until its own pass)
 /** How long a view out of sight keeps its GPU targets (ms). */
 export const WARM_MS = 12000;
-/** A size rounded up to its bucket (256 px steps; exact when warm views are off). */
-export const bucket = (n) => (WARM_VIEWS ? Math.ceil(n / 256) * 256 : n);
+/** A size rounded up to its bucket (256 px steps). */
+export const bucket = (n) => Math.ceil(n / 256) * 256;

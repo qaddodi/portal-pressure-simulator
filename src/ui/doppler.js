@@ -5,13 +5,13 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { glWords, wordsRect } from './gl-words.js?v=d88e4bf43d';
-import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=45ddc23d2e';
-import { FONT, textW } from './charts.js?v=865e3f61ab';
-import { classSoon } from './class-soon.js?v=ba07f06e7e';
+import { glWords, wordsRect } from './gl-words.js?v=a9b411a88f';
+import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=a60489211b';
+import { FONT, textW } from './charts.js?v=6361c5176b';
+import { classSoon } from './class-soon.js?v=97b9d0e0db';
 import { logAction, shownVel, store } from './store.js?v=afc4d7c743';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=0542295102';
-import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=d641eeefa1';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=867571ec0b';
+import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=15fc499dcd';
@@ -20,9 +20,9 @@ import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { olderThan } from './backfill.js?v=455d888760';
 import { createFollow } from './display-state.js?v=8d062d39dc';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7513a88c68';
-import { restPass } from './rest-pass.js?v=826eefe7e5';
-import { createTraceGL, fitPen, keepLayer } from './trace-gl.js?v=2ff80b9089';
-import { attrSoon, dataSoon, propSoon } from './class-soon.js?v=ba07f06e7e';
+import { restPass } from './rest-pass.js?v=d13e397f0b';
+import { createTraceGL, fitPen, keepLayer } from './trace-gl.js?v=00e53d1f88';
+import { attrSoon, dataSoon, propSoon } from './class-soon.js?v=97b9d0e0db';
 import { dropFront } from './drop-front.js?v=21069ee0e8';
 const nextFrame = frameFor('doppler');
 
@@ -56,8 +56,7 @@ const SWEEP_SECONDS = [6, 3, 12]; // Start at 6 s; first tap shortens the visibl
 const PAD_L = 12, PAD_R = 46;        // The trace's side margins (CSS px).
 const KEEP = 16;                 // Retain enough samples for the 12 s sweep and display lag.
 // (R16: the history is a bounded queue: samples past KEEP are dropped in chunks (256, or a quarter of it), not shifted out on every
-// model frame; every reader picks its seconds by time, so the few older ones kept meanwhile change nothing drawn. ?histring=0: as before.)
-const HIST_RING = !(typeof location !== 'undefined' && /[?&]histring=0\b/.test(location.search || ''));
+// model frame; every reader picks its seconds by time, so the few older ones kept meanwhile change nothing drawn.)
 const MINUS = '−';
 const num = (v, d = 0) => (v < 0 ? MINUS : '') + fmt(Math.abs(v), d);
 
@@ -285,7 +284,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const tNow = buf[buf.length - 1][0];
     if (f.settling) heldTo = tNow;
     let cut = 0; while (cut < buf.length && buf[cut][0] < tNow - KEEP) cut++;
-    if (cut && (!HIST_RING || cut >= 256 || cut * 4 >= buf.length)) dropFront(buf, cut);
+    if (cut && (cut >= 256 || cut * 4 >= buf.length)) dropFront(buf, cut);
   }
 
   // ── Reading ───────────────────────────────────────
@@ -1236,7 +1235,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     buf = rows.concat(buf);
     const tNow = buf[buf.length - 1][0];
     let cut = 0; while (cut < buf.length && buf[cut][0] < tNow - KEEP) cut++;
-    if (cut && (!HIST_RING || cut >= 256 || cut * 4 >= buf.length)) dropFront(buf, cut);
+    if (cut && (cut >= 256 || cut * 4 >= buf.length)) dropFront(buf, cut);
     redraw();
     return true;
   }

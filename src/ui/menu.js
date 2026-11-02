@@ -5,17 +5,17 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=afc4d7c743';
-import { createTraceGL, fitPen } from './trace-gl.js?v=2ff80b9089';
-import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=45ddc23d2e';
+import { createTraceGL, fitPen } from './trace-gl.js?v=00e53d1f88';
+import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=a60489211b';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=626a4521e6';
-import { ownsSideways, pageGo } from './swipe.js?v=3130fa6ec0';
-import { frameFor } from './frame.js?v=d641eeefa1';
-import { restPass } from './rest-pass.js?v=826eefe7e5';
-import { classSoon, removeSoon } from './class-soon.js?v=ba07f06e7e';
+import { pressureColor } from './colormap.js?v=4f42de15df';
+import { ownsSideways, pageGo } from './swipe.js?v=d0702c7a1b';
+import { frameFor } from './frame.js?v=1d147c7c9a';
+import { restPass } from './rest-pass.js?v=d13e397f0b';
+import { classSoon, removeSoon } from './class-soon.js?v=97b9d0e0db';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
-import { leaveFromHere, menuLeaveOff } from './menu-leave.js?v=0557b9a306';
+import { leaveFromHere } from './menu-leave.js?v=e71a0f16fe';
 import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=7513a88c68';
 const nextFrame = frameFor('menu');
 const profFrame = frameFor('menu-profile');
@@ -103,7 +103,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const sheetMQ = matchMedia(PHONE_MQ);
   const fine = matchMedia('(hover: hover) and (pointer: fine)');
-  let el = null, back = null, pv = null, coldOpen = false, open = false, leaveT = 0, hoverT = 0, hideT = 0, pvKey = null, pvTok = 0, mark = null, query = '', tab = 'present';
+  let el = null, back = null, pv = null, coldOpen = false, open = false, hoverT = 0, hideT = 0, pvKey = null, pvTok = 0, mark = null, query = '', tab = 'present';
 
   const close = (o = {}) => {
     if (!open) return;
@@ -113,7 +113,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     removeEventListener('keydown', typed, true);
     removeEventListener('resize', place);
     vv?.removeEventListener('resize', fitSheet); vv?.removeEventListener('scroll', fitSheet);
-    const panel = el, scrim = back, done = () => { leaveT = 0; panel.remove(); scrim?.remove(); };
+    const panel = el, scrim = back, done = () => { panel.remove(); scrim?.remove(); };
     el = back = null;
     onToggle?.(false);
     if (panel.contains(document.activeElement) || !document.activeElement || document.activeElement === document.body) anchor.focus({ preventScroll: true });
@@ -130,8 +130,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       }
     } else leaveFromHere(panel, () => panel.classList.add('out'));
     // (Inert from the first frame of its exit, as the popovers are; a menu opened again before it has gone leaves it fading, below.)
-    if (!menuLeaveOff(location.search)) panel.inert = true;
-    leaveT = setTimeout(done, sheet || o.dragged ? D_SMALL : D_FLIP);
+    panel.inert = true;
+    setTimeout(done, sheet || o.dragged ? D_SMALL : D_FLIP);
   };
   // Typing while the menu is open (and focus is elsewhere) goes to its search.
   const typed = (e) => {
@@ -466,7 +466,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     el.style.left = left + 'px';
     el.style.top = top + 'px';
     // It settles from, and leaves toward, the button's centre, as every other popover does (it had grown from its own top-left corner).
-    if (!menuLeaveOff(location.search)) settleFrom(el, r, left, top);
+    settleFrom(el, r, left, top);
   }
   // The panel opens with its groups rising into place one after another, 30 ms apart, over the panel's own entrance:
   // the eye reads it top down instead of seeing the whole list land at once. Only the first few in sight, so a long list
@@ -509,8 +509,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     // opts.query: words to start the search with (a mistyped ?preset= link).
     open(section, opts = {}) {
       // A menu opened again while the last is still fading leaves it to finish (it is inert, and its own timer removes it) under the new one,
-      // instead of snapping it away: that was a pop. ?menuleave=0: removed at once, as before.
-      if (leaveT && menuLeaveOff(location.search)) { clearTimeout(leaveT); leaveT = 0; document.querySelectorAll('.umenu.out, .um-scrim.out').forEach((x) => x.remove()); }
+      // instead of snapping it away: that was a pop.
       mark = opts.mark || null;
       if (section) setTab(section === 'patients' ? 'patients' : 'present');
       if (!open) {

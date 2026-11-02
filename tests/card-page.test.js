@@ -1,6 +1,6 @@
 // The slide change's teaching card as one page (Mohammad, 1 Nov 2026: "Steps of BRTO or HVPG TIPS during slides makes the text slide
 // with my finger then pops back ... This whole slide transition might need to be reimagined"). src/ui/card-page.js, presenter.js
-// CARD_PAGE, app.css .pz-page. Walks every slide of every deck, every view and every procedure step, as Next and Back would.
+// app.css .pz-page. Walks every slide of every deck, every view and every procedure step, as Next and Back would.
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -69,7 +69,7 @@ test('every slide of every deck takes the same page path: question, visual, case
   for (const deck of DECKS) for (const s of deck.slides) { assert.equal(pageOn({ up: true }), true, `${deck.id}: ${s.title || '?'}`); n++; }
   assert.ok(n > 250, `${n} slides`);
   const g = body('glassTurn');
-  assert.match(g, /\(CARD_PAGE \? pageOn\(\{ up, caseCard: !!caseCard, monKept \}\) : !s\.cath && !s\.monitor && !caseCard\)/, 'the page path asks nothing of the slide coming');
+  assert.match(g, /const on = up && !booting && !reduce\.matches && pageOn\(\{ up, caseCard: !!caseCard, monKept \}\);/, 'the page path asks nothing of the slide coming');
   for (const k of ['booting', 'reduce', 'caseCard', 'monKept']) assert.equal(pageOn({ up: true, [k]: true }), false, k);
   assert.equal(pageOn({ up: false }), false, 'a card not up has nothing to turn');
 });
@@ -95,13 +95,13 @@ test('the glass and the words come in by the same keyframes, transform and opaci
   assert.match(body('wordsFreeze'), /\[\[t, a\], \[ui\.shade, shadeAnim\]\]/, 'Next mid-entrance stops both where they are');
 });
 
-test('during motion the page changes only transform and opacity: no clip, no layout read, no glass resized; ?cardpage=0 off switch', () => {
-  assert.match(presenter, /const CARD_PAGE = CARD_TURN && !\/\[\?&\]cardpage=0\\b\/\.test\(location\.search\);/);
-  const pull = body('pullTo').slice(0, body('pullTo').indexOf('// (The words follow'));
+test('during motion the page changes only transform and opacity: no clip, no layout read, no glass resized', () => {
+  assert.doesNotMatch(presenter, /CARD_PAGE|CARD_TURN|cardpage|cardturn/);
+  const pull = body('pullTo');
   assert.match(pull, /for \(const el of \(pull\.els \?\?= swipeEls\(\)\)\)/, 'the glass and the words follow together');
-  assert.match(presenter, /const pageEls = \(\) => \(glassStays\(\) \? \[ui\.text\] : \[ui\.text, ui\.shade\]\);/, 'or the words alone in a glass that stays up');
+  assert.match(presenter, /const pageEls = \(\) => \[ui\.text, ui\.shade\];/);
   assert.doesNotMatch(pull + body('pullLet'), /clip|getBoundingClientRect|offset(Width|Height|Top|Left)/, 'the follow reads no layout and clips nothing');
-  assert.match(presenter, /const turnRoom = \(\) => \{\n\s+if \(CARD_PAGE\) return /, 'no box read at the change');
+  assert.match(presenter, /const turnRoom = \(\) => parseFloat\(readStyle\(ui\.root\)\.getPropertyValue\('--pz-turn-d'\)\) \|\| 20;/, 'no box read at the change');
   const i = css.indexOf('/* The teaching card as one page'), page = css.slice(i, css.indexOf('\n.', css.indexOf('[data-out="jump"]):not(.pz-leave)', i)));
   for (const k of ['next', 'back', 'jump']) assert.ok(page.includes(`.pz-page:is(.pz-card, .stack)[data-out="${k}"].pz-leave`), `the glass leaves ${k} with its words`);
   assert.doesNotMatch(page.replace(/\/\*[\s\S]*?\*\//g, ''), /clip|top|height|width/, 'no glass size or clip eased');
@@ -109,8 +109,7 @@ test('during motion the page changes only transform and opacity: no clip, no lay
   assert.match(presenter, /if \(pageForce\) \{ pageForce = false; if \(keepNow\.text\) keepNow = \{ \.\.\.keepNow, text: false \}; \}/, 'a card followed out never stays');
 });
 
-test('let go after a swipe, the card carries on out from where the finger left it, never back toward where it was (both paths)', () => {
-  const let_ = body('pullLet'), page = let_.slice(0, let_.indexOf('return;\n    }')), old = let_.slice(let_.indexOf('return;\n    }'));
-  assert.match(page, /if \(Math\.abs\(x\) > d\) for \(const el of els\) el\.style\.setProperty\('--pz-turn-d'/, 'as one page: the glass and the words both');
-  assert.match(old, /if \(out && Math\.abs\(x\) > [^\n]*setProperty\('--pz-turn-d'/, '?cardpage=0: the words');
+test('let go after a swipe, the card carries on out from where the finger left it, never back toward where it was', () => {
+  assert.match(body('pullLet'), /if \(out\) pageThrow\(x, els\);/, 'as one page: the glass and the words both');
+  assert.match(body('pageThrow'), /for \(const el of els\) \{ el\.style\.setProperty\('--pz-turn-d', `\$\{\(Math\.abs\(x\) \+ d\)\.toFixed\(1\)\}px`\);/);
 });

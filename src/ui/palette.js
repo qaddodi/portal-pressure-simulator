@@ -3,26 +3,25 @@
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
 import { store, updateParams } from './store.js?v=afc4d7c743';
-import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=45ddc23d2e';
+import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=a60489211b';
 import { D_FLIP, EASE_ARRIVE } from './ease.js?v=7513a88c68';
-import { restPass, cancelRest } from './rest-pass.js?v=826eefe7e5';
-import { classSoon, attrSoon } from './class-soon.js?v=ba07f06e7e';
-import { frame } from './frame.js?v=d641eeefa1';
+import { restPass, cancelRest } from './rest-pass.js?v=d13e397f0b';
+import { classSoon, attrSoon } from './class-soon.js?v=97b9d0e0db';
+import { frame } from './frame.js?v=1d147c7c9a';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
 import { HIDDEN_EDGES } from './anatomy.js?v=fe0f3d1f0e';
 import { LOOKS } from './looks.js?v=2d098211a4';
 
 // One highlight under the list that glides to the active row; the arrow keys and the pointer only move it (and aria-selected on two rows),
-// and the list is rebuilt only when the results change. ?palglide=0 gives the old list: the row paints its own highlight, a rebuild per move.
-const GLIDE = !/[?&]palglide=0\b/.test(location.search);
+// and the list is rebuilt only when the results change.
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
 export function createPalette({ ctx }) {
   const back = h('div', { class: 'pal-back', hidden: true });
   const input = h('input', { class: 'pal-input', type: 'text', placeholder: innerWidth < 600 ? 'Search vessels, patients, treatments' : 'Search a vessel, patient or treatment: “tips 10”, “+6 months”…', 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false', role: 'combobox', 'aria-autocomplete': 'list', 'aria-controls': 'pal-list', 'aria-expanded': 'true' });
-  const list = h('div', { class: GLIDE ? 'pal-list glides' : 'pal-list', id: 'pal-list', role: 'listbox', 'aria-label': 'Results' });
-  const hl = GLIDE ? h('div', { class: 'pal-glide', 'aria-hidden': 'true' }) : null;   // (the highlight: a sibling of the rows, in the list's scrolled space)
+  const list = h('div', { class: 'pal-list glides', id: 'pal-list', role: 'listbox', 'aria-label': 'Results' });
+  const hl = h('div', { class: 'pal-glide', 'aria-hidden': 'true' });   // (the highlight: a sibling of the rows, in the list's scrolled space)
   // (The same magnifier as the Search button that opens it. The key hints under the list are for a keyboard: a touch screen hides them.)
   const foot = h('div', { class: 'pal-foot', 'aria-hidden': 'true' }, h('span', {}, h('kbd', {}, '↑'), h('kbd', {}, '↓'), 'to move'), h('span', {}, h('kbd', {}, 'Enter'), 'to run'), h('span', {}, h('kbd', {}, 'Esc'), 'to close'));
   const box = h('div', { class: 'pal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Command palette' }, h('div', { class: 'pal-top' }, svgIcon('search', 'pal-ic'), input), list, foot);
@@ -163,14 +162,13 @@ export function createPalette({ ctx }) {
     items = search(input.value);
     sel = Math.min(sel, Math.max(0, items.length - 1));
     // (The same results as on screen: the rows stay, only the current one changes.)
-    const key = GLIDE ? (items.length ? items.map(({ c, num }) => `${c.group}|${c.title}|${num}`).join('\n') : `none:${input.value.trim()}`) : '';
-    if (GLIDE && key === shownKey && list.isConnected && !back.hidden) { mark(); place(false); syncActive(); return; }
+    const key = items.length ? items.map(({ c, num }) => `${c.group}|${c.title}|${num}`).join('\n') : `none:${input.value.trim()}`;
+    if (key === shownKey && list.isConnected && !back.hidden) { mark(); place(false); syncActive(); return; }
     rows = items.map(({ c, num }, i) => {
       const b = h('button', { class: 'pal-item' + (i === sel ? ' on' : ''), id: `pal-opt-${i}`, tabindex: '-1', role: 'option', 'aria-selected': String(i === sel) },
         h('span', { class: 'pal-g' }, c.group), h('span', { class: 'pal-t' }, c.title, num != null ? h('b', {}, ` → ${num} ${c.num}`) : null), c.hint && num == null ? h('span', { class: 'pal-h' }, c.hint) : null);
       b.addEventListener('click', () => run(i));
       b.addEventListener('pointermove', (e) => {
-        if (!GLIDE) { if (sel !== i) { sel = i; mark(); syncActive(); } return; }   // (the same rows: only the current one changes, nothing built in a move)
         // (A list that scrolls under a still pointer sends a move at the same spot: the keyboard keeps the highlight then.)
         if (e.clientX === ptX && e.clientY === ptY) return;
         ptX = e.clientX; ptY = e.clientY;
@@ -178,16 +176,14 @@ export function createPalette({ ctx }) {
       });
       return b;
     });
-    list.replaceChildren(...(GLIDE ? [hl] : []), ...(items.length ? rows : [h('div', { class: 'pal-empty' }, h('b', {}, input.value.trim() ? `Nothing matches “${input.value.trim()}”.` : 'No commands yet.'), 'Try a vessel (“portal vein”), a patient, a presentation or a treatment (“tips 8”).')]));
+    list.replaceChildren(hl, ...(items.length ? rows : [h('div', { class: 'pal-empty' }, h('b', {}, input.value.trim() ? `Nothing matches “${input.value.trim()}”.` : 'No commands yet.'), 'Try a vessel (“portal vein”), a patient, a presentation or a treatment (“tips 8”).')]));
     restPass(onInView);   // (2 Nov 2026: scrolled between frames, never in a pointer's move: scrollIntoView lays the page out)
     syncMore();
-    if (GLIDE) {
-      place(false);
-      // (New results come in on one fade for the whole list, no stagger; typing on carries the fade already under way.)
-      const was = shownKey; shownKey = key;
-      if (fadeIn && was && list.animate && !(fade && fade.playState === 'running')) {
-        fade = list.animate({ opacity: [0.35, 1] }, { duration: D_FLIP, easing: EASE_ARRIVE });
-      }
+    place(false);
+    // (New results come in on one fade for the whole list, no stagger; typing on carries the fade already under way.)
+    const was = shownKey; shownKey = key;
+    if (fadeIn && was && list.animate && !(fade && fade.playState === 'running')) {
+      fade = list.animate({ opacity: [0.35, 1] }, { duration: D_FLIP, easing: EASE_ARRIVE });
     }
     syncActive();
   }
@@ -195,7 +191,6 @@ export function createPalette({ ctx }) {
   function onInView() { list.querySelector('.on')?.scrollIntoView({ block: 'nearest' }); }
   function selInView() { rows[sel]?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() }); }
   function move(i, scroll) {
-    if (!GLIDE) { sel = i; mark(); syncActive(); restPass(onInView); return; }   // (?palglide=0: the same rows, the current one marked, nothing rebuilt)
     if (i === sel || !items.length) return;
     sel = i; mark(); syncActive(); place(true);
     if (scroll) restPass(selInView);

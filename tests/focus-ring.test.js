@@ -1,20 +1,12 @@
-// Keyboard focus rings (sprint 1 Nov): eased in, inside where a clip would cut them, none after a click, ?focusring=0 off.
-// The geometry and the switch are tested as functions; the wiring is read from source, as the repo's other review tests do.
+// Keyboard focus rings (sprint 1 Nov): eased in, inside where a clip would cut them, none after a click.
+// The geometry is tested as functions; the wiring is read from source, as the repo's other review tests do.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ringOff, ringClipped } from '../src/ui/focus-ring.js';
+import { ringClipped } from '../src/ui/focus-ring.js';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const box = (l, t, r, b) => ({ left: l, top: t, right: r, bottom: b });
-
-test('?focusring=0 switches the file off, and only that', () => {
-  assert.equal(ringOff('?focusring=0'), true);
-  assert.equal(ringOff('?a=1&focusring=0'), true);
-  assert.equal(ringOff('?focusring=1'), false);
-  assert.equal(ringOff(''), false);
-  assert.equal(ringOff(undefined), false);
-});
 
 test('a ring that would reach past a clipping box is clipped; one with room, or inside, is not', () => {
   const clip = box(0, 0, 200, 100);
@@ -35,7 +27,8 @@ test('the file is wired in once, eases with the app\'s own curve, and leaves hig
   assert.match(f, /--ease-arrive/);
   assert.match(f, /D_SMALL/);
   assert.match(f, /prefers-reduced-motion: reduce/);
-  assert.match(f, /if \(!root \|\| ringOff\(search\)/);
+  assert.match(f, /if \(!root \|\| typeof root\.addEventListener !== 'function'\) return null;/);
+  assert.doesNotMatch(f, /focusring=0|ringgpu=0|location\.search/);
   assert.match(f, /isTextEntry\(el\)/, 'a text field keeps its ring after a click');
   assert.match(f, /holdStyle\(el, 'outline-offset', `\$\{-w\}px`\)/, 'a clipped ring moves inside');
   assert.doesNotMatch(f, /animate\(\[?\{ ?outline/, 'an outline is never animated (it repaints the control each frame)');

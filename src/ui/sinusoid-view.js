@@ -19,33 +19,31 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=45ddc23d2e';
-import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=b31e011f2e';
+import { h, fmt, clamp, lerp } from './util.js?v=a60489211b';
+import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=1bde9c64b4';
 import { measure } from './glyph-measure.js?v=450036b556';
-import { readStyle } from './layout-snap.js?v=ed9aff412d';
-import { pressureColor } from './colormap.js?v=626a4521e6';
-import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=86f3356eeb';
+import { readStyle } from './layout-snap.js?v=f609965236';
+import { pressureColor } from './colormap.js?v=4f42de15df';
+import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=f8458ee9c3';
 import { isPaused } from './clock.js?v=d6c06e7017';
 import { store } from './store.js?v=afc4d7c743';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=42a18216f1';
 import { placeFenDisse } from './fen-place.js?v=6107ab850e';
-import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale, easeNow } from './frame.js?v=d641eeefa1';
+import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale, easeNow } from './frame.js?v=1d147c7c9a';
 import { softwareGL, softwareYield } from './sw-yield.js?v=0b6a0f94e9';
-import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.js?v=da6533dfef';
-import { FADE_MS, fadeAlpha } from './res-fade.js?v=e4978dde65';
+import { noteSinusoidSupport, sinusoidSupported } from './gl-support.js?v=6219c6f004';
+import { FADE_MS, fadeAlpha } from './res-fade.js?v=9c2e0f3c87';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { restPass, restClass, restAttr } from './rest-pass.js?v=826eefe7e5';
-// ?willchange=0 in the address: the layer keeps will-change always, as before.
-const SV_LAYER = !(typeof location !== 'undefined' && /[?&]willchange=0\b/.test(location.search));
+import { restPass, restClass, restAttr } from './rest-pass.js?v=d13e397f0b';
 const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
 
-export { sinusoidSupported } from './gl-support.js?v=da6533dfef';
+export { sinusoidSupported } from './gl-support.js?v=6219c6f004';
 
 /** `before`: a node of `host` to sit ahead of (the lobule layer, built late, takes the place it would have had). */
 export function createSinusoidView({ host, before = null }) {
@@ -174,19 +172,19 @@ export function createSinusoidView({ host, before = null }) {
     const on = vert ? Math.abs(ty - sy) > 6 : Math.abs(tx - sx) > 6 && Math.sign(tx - R.cx) === Math.sign(tx - sx);   // (none when the name already sits on it)
     Object.assign(L, { x1: sx, y1: sy, x2: tx, y2: ty, show: on ? 1 : 0, follow: false, sg: Math.sign(tx - R.cx), w: R.w });
   }
-  const el = h('div', { class: SV_LAYER ? 'sv' : 'sv sv-live', 'aria-hidden': 'true' }, canvas, labels, legend);
+  const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, labels, legend);
   // (The page's own names made clear while the GPU draws them: app.css .cap-gl-on.)
   if (cap.on) el.classList.add('cap-gl-on');
   host.insertBefore(el, before);
   // The WebGL2 context is made when the view is about to show (setModel at the start of the dive in, place), not with the lobule: a page
   // holds only so many contexts (iOS Safari about 16, dropping the oldest, which is the figure's), and the lobule opens far more often
-  // than the sinusoid. Its programs start compiling at once, through the dive, and are published when the driver is done. ?ctxlazy=0
-  // makes it at the start, as before. Until then `available` answers from gl-support's one probe (given back at once).
+  // than the sinusoid. Its programs start compiling at once, through the dive, and are published when the driver is done.
+  // Until then `available` answers from gl-support's one probe (given back at once).
   let gpu = null, svYield = null, svSoft = false;
   function ensureGpu() {
     if (gpu || gpuTried) return;
     gpuTried = true;
-    gpu = createSinusoidGL(canvas, { warm: CTX_LAZY, onReady: () => { gpuKey = ''; wake(); } });   // (published after a draw found it compiling: drawn now)
+    gpu = createSinusoidGL(canvas, { warm: true, onReady: () => { gpuKey = ''; wake(); } });   // (published after a draw found it compiling: drawn now)
     noteSinusoidSupport(!!gpu);
     // (A software renderer only: a frame of the view waits for the last to finish on the GPU and gives the page as long again,
     // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
@@ -195,7 +193,6 @@ export function createSinusoidView({ host, before = null }) {
     svYield = svSoft ? softwareYield(true, swGL) : null;
   }
   let gpuTried = false;
-  if (!CTX_LAZY) ensureGpu();
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
   surface('sinusoid', () => (!open ? null : gpu && !gpu.lost ? { on: svSoft ? 'fallback' : 'gpu', via: svSoft ? 'WebGL2 on the CPU' : 'WebGL2', why: svSoft ? 'software renderer' : '' } : { on: 'fallback', via: 'nothing drawn', why: gpu ? 'context lost (drawn again when it is given back)' : 'no WebGL2' }));   // (answered by this view's own context: sinusoidSupported need not make a throwaway one)
 
@@ -1063,7 +1060,7 @@ export function createSinusoidView({ host, before = null }) {
       shown = opacity; dive = dv;
       el.style.opacity = opacity.toFixed(3);
       el.style.visibility = opacity > 0 ? 'visible' : 'hidden';
-      if (SV_LAYER) restClass(el, 'sv-live', opacity > 0);   // (its compositor layer only while it is shown)
+      restClass(el, 'sv-live', opacity > 0);   // (its compositor layer only while it is shown)
       open = isOpen;
       restClass(el, 'on', isOpen);
       restAttr(el, 'aria-hidden', String(!isOpen));

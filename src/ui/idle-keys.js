@@ -22,10 +22,9 @@ export function compareRows(a, b, hvpg, model, fmt) {
 // stage-busy, and the phone's bars and zoom pill, figure-focus). GESTURE_MOVE_FREE: those of them that also move, size, hide or fade
 // no placed piece (PLACED), so no box a layout watch's readers measure changes with them.
 // (And off-home, which a slide's glide puts on as it leaves the fit: it brings the zoom pill to full ink, no label's look. Counted, it made
-// every label and mark read its style again on every frame of the first 0.7 s of the glide. ?glidekeys=0: counted, as before.)
-const GLIDE_KEYS = !(typeof location !== 'undefined' && /[?&]glidekeys=0\b/.test(location.search || ''));
+// every label and mark read its style again on every frame of the first 0.7 s of the glide.)
 export const GESTURE_LOOK = new Set(['panning', 'stage-busy', 'figure-focus', 'pinch-hide', 'cam-move', 'lb-ride']);
-if (GLIDE_KEYS) GESTURE_LOOK.add('off-home');
+GESTURE_LOOK.add('off-home');
 export const GESTURE_MOVE_FREE = new Set(['panning', 'pinch-hide', 'cam-move', 'lb-ride']);
 /** Whether two class attribute values differ only by classes in `set` (the same, too). */
 export function onlyClasses(a, b, set) {

@@ -11,10 +11,7 @@
 //   const txns = createTxns();
 //   const t = txns.begin({ to, dir });   t.live()  t.signal  t.onRelease(fn)  t.publish(fn) → bool  t.own(els)  t.restore(els)  t.end()
 //   txns.current()  txns.stats()
-//
-// ?slidetxn=0: the presenter keeps its own checks only (want and gen), as before.
 import { caught } from './caught.js?v=b96b17594a';
-export const SLIDE_TXN = !(typeof location !== 'undefined' && /[?&]slidetxn=0\b/.test(location.search || ''));
 
 export function createTxns() {
   let cur = null, ids = 0;

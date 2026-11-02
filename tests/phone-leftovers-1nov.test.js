@@ -18,8 +18,9 @@ test('menu rows keep their own height; the menu scrolls instead of squeezing the
   assert.match(css, /\.menu > :is\(\.menu-item, \.lens-opt, \.menu-title\) \{ flex-shrink: 0; \}/);
 });
 
-test('a small Ascites belly is 84 px (its mL/day line cleared the circle by less than the text), and ?belly=0 keeps 72', () => {
+test('a small Ascites belly is 84 px (its mL/day line cleared the circle by less than the text)', () => {
   const ins = readFileSync(new URL('../src/ui/instruments.js', import.meta.url), 'utf8');
-  assert.match(ins, /if \(!\/\[\?&\]belly=0\\b\/\.test\(location\.search\)\) el\.dataset\.belly = '84';/);
+  assert.match(ins, /\n\s+el\.dataset\.belly = '84';/);
+  assert.doesNotMatch(ins, /belly=0/);
   assert.match(css, /\.pz-tool \.ab\[data-belly\] \.ab-belly \{ width: clamp\(84px, calc\(10 \* var\(--pzh\)\), 120px\); height: clamp\(84px, calc\(10 \* var\(--pzh\)\), 120px\); \}/);
 });

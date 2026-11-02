@@ -4,7 +4,7 @@
 // compositor. Here each tile is a texture in this canvas's own context: the layers' canvases, drawn on the GPU at the tile's size,
 // are sent in as they are drawn (a copy between GPU canvases), laid one over the other into the tile in a framebuffer, premultiplied,
 // and mipmapped. Each frame of the zoom is one small pass: the tiles drawn as quads where the box's scale puts them, on a canvas the
-// size of the stage. Nothing is drawn or copied on the CPU, and no 2D canvas holds the copy. ?widegl=0: the 2D tiles, as before.
+// size of the stage. Nothing is drawn or copied on the CPU, and no 2D canvas holds the copy.
 //
 // Without WebGL2 (or on a software renderer), with a tile past the GPU's texture size, or if any send or framebuffer fails, build
 // returns false and the caller builds the 2D tiles instead. A context lost mid-zoom reports lost; the caller then drops the copy. When
@@ -13,7 +13,7 @@
 import { startProgram, checkProgram } from './gl-compile.js?v=79231d7c6b';
 import { fbComplete, glCap, glOkBefore, glOkAfter } from './gl-state.js?v=4163c507aa';
 
-export const WIDE_GL = !(typeof location !== 'undefined' && /[?&]widegl=0\b/.test(location.search || ''));
+export const WIDE_GL = true;   // (switch deleted; kept for lobule-zoom.js until its own pass)
 
 // Laying a layer into a tile: one texel of the layer per texel of the tile, from the layer's top left (a layer larger than the
 // tile, the vessels' canvas sized once for every tile, is cropped, as drawImage cropped it).

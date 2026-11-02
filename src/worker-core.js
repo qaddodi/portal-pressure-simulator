@@ -258,7 +258,7 @@ export function createCore(post) {
   // A frame goes out only when the model moved past a small hysteresis since the last one posted, or once a second as a heartbeat (the
   // samples taken meanwhile wait in `samples` and go out with it, so the traces lose nothing). Anything that changes the model sets
   // frameDirty/paramsDirty and posts at once, so nothing waits on the heartbeat.
-  let deltaOn = true, still = null;
+  let still = null;
   const HEARTBEAT_MS = 1000, EPS_REL = 2e-4, EPS_ABS = 1e-5;
   const near = (a, b) => { if (!b || a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > EPS_ABS + EPS_REL * Math.abs(b[i])) return false; return true; };
   // (The figure's colours, widths and readouts follow the eased Pf, Qf and D; the beat-by-beat P, Q and ext ride the heartbeat frame and the samples.)
@@ -326,9 +326,9 @@ export function createCore(post) {
     const due = running && now - lastFrame > 95 && (!ackOn || !unpainted || now - lastFrame > ACK_MAX_MS);
     // (Held only by the page's paint: owed, and built the moment its 'painted' comes, not on the next 33 ms tick (rev 2 step 3).)
     owed = running && !due && ackOn && unpainted && now - lastFrame > 95;
-    if (frameDirty || paramsDirty || eng.newEvents.length || (due && (!deltaOn || now - lastFrame > HEARTBEAT_MS || morph || lapse || eng.easing() || movedSincePost()))) {
+    if (frameDirty || paramsDirty || eng.newEvents.length || (due && (now - lastFrame > HEARTBEAT_MS || morph || lapse || eng.easing() || movedSincePost()))) {
       lastFrame = now; frame();
-      if (deltaOn) keepStill();
+      keepStill();
     }
   }
 
@@ -385,8 +385,7 @@ export function createCore(post) {
   }
 
   const handlers = {
-    init({ params, delta }) {
-      deltaOn = delta !== false;   // (?workerdelta=0 from the page: every tick posts, as before)
+    init({ params }) {
       if (params) { eng.setParams(sanitizeParams(params)); eng.settle(); }
       paramsDirty = true; jumpDirty = true;
       start();

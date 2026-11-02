@@ -94,7 +94,7 @@ test('slide preparation finishes a manifest when nothing supersedes it, and keep
 // ── The presenter (source pins: the transaction wired where it decides) ──
 const fn = (head) => { const i = PZ.indexOf(head); assert.ok(i >= 0, head); return PZ.slice(i, PZ.indexOf('\n  }\n', i)); };
 test('go() begins the transaction before anything else of the change, and the preparation serves it', () => {
-  assert.match(fn('function go(i) {'), /const tx = SLIDE_TXN \? \(txn = txns\.begin\(\{ to: want, dir: turn \}\)\) : null;\s*slidePrep\.aim\(want, turn, tx \? tx\.live : undefined\);/);
+  assert.match(fn('function go(i) {'), /const tx = \(txn = txns\.begin\(\{ to: want, dir: turn \}\)\);\s*slidePrep\.aim\(want, turn, tx \? tx\.live : undefined\);/);
   assert.match(fn('function prepHold(i, then) {'), /!txnLive\(tx\)/, 'a prep hold of a superseded change lets go');
   assert.match(PZ, /k = `\$\{want\}\|\$\{gen\}\|\$\{txn\?\.id \|\| 0\}\|/, 'a newer press is a new try');
 });

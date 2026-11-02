@@ -8,7 +8,7 @@
 // a glide is still playing is the true layout and an interrupted glide continues from where it was.
 // Nothing moves on a window resize or with reduced motion: the bar just takes its new layout.
 import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE } from './ease.js?v=7513a88c68';
-import { removeSoon } from './class-soon.js?v=ba07f06e7e';
+import { removeSoon } from './class-soon.js?v=97b9d0e0db';
 
 const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > button, .sb-right > :not(.tb-face), .top-right, .top-right > *';
 // Pills that grow reveal their new width from the old one instead of snapping wide.
@@ -16,21 +16,19 @@ const GROW = '.tb-id, .top-right, #viewSeg';
 const MOVE_MS = D_SMALL, IN_MS = D_SMALL, OUT_MS = D_FLIP, EASE = EASE_ARRIVE;
 // The lens pill (the Layers and Blood chips and the colour key) glides its plate to a new width on the key's own clock (a new lens
 // takes D_SURFACE on EASE_MOVE, legend-morph.js), anchored at its right edge so the chevron and the key stay put as it grows or
-// shrinks. ?keyglide=0 keeps the pill snapping to its new width, as before.
-const KEYGLIDE = !/[?&]keyglide=0\b/.test(location.search);
+// shrinks.
 // A plate that changes width glides by transform only: two fixed-size copies of the plate (the narrower of the old and new
 // widths, laid out once before the glide) slide apart or together, their union the pill from its old span to its new, and the
 // real face, already at its new width, shows again as they land. No width animates, so no layout runs per frame and the bar's
 // ResizeObserver never sees a moving size. A change of more than twice the narrower width crossfades the old plate out over the
-// new one instead (the two copies could not cover it). ?plateglide=0 animates the face's width, as before.
-const PLATEGLIDE = !/[?&]plateglide=0\b/.test(location.search);
+// new one instead (the two copies could not cover it).
 
 export function initTopbarMotion() {
   const bar = document.getElementById('topbar'), app = document.getElementById('app');
   if (!bar || !app || !bar.animate) return;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   // (The pill's glass moves onto a face of its own, as the patient pill's, so the plate can change width while the row inside is already laid out.)
-  const row = KEYGLIDE ? bar.querySelector('.sb-right') : null;
+  const row = bar.querySelector('.sb-right');
   if (row && !row.querySelector(':scope > .tb-face')) {
     const f = document.createElement('span');
     f.className = 'tb-face'; f.setAttribute('aria-hidden', 'true');
@@ -105,14 +103,13 @@ export function initTopbarMotion() {
         if (frames.length) { const a = el.animate(frames, inRow(el) ? { duration: D_SURFACE, easing: EASE_MOVE } : { duration: MOVE_MS, easing: EASE }); a.id = 'tbm'; }
         if (el === row && Math.abs(t.dw) > 2) {
           const face = row.querySelector(':scope > .tb-face');
-          if (face && PLATEGLIDE) plateGlide(face, hang ? t.dw : 0, s.w, n.w, { duration: D_SURFACE, easing: EASE_MOVE });
-          // (?plateglide=0: the face takes its new width at once, the row's glide carries it; nothing is laid out per frame)
+          if (face) plateGlide(face, hang ? t.dw : 0, s.w, n.w, { duration: D_SURFACE, easing: EASE_MOVE });
         }
         if (t.dw < -2 && el.matches(GROW)) {
           // A pill with its own face (the patient pill) glides its face from the old width to the new; others leave the old,
           // wider plate fading behind them.
           const face = el.querySelector(':scope > .tb-face');
-          if (face && PLATEGLIDE) plateGlide(face, 0, s.w, n.w, { duration: MOVE_MS, easing: EASE });
+          if (face) plateGlide(face, 0, s.w, n.w, { duration: MOVE_MS, easing: EASE });
           else if (!face) ghost(el, s, { own, tot, next }, true);
         }
         if (t.dw > 2 && el.matches(GROW)) growPill(el, s, n, next);
@@ -122,7 +119,7 @@ export function initTopbarMotion() {
     snap = next;
   }
 
-  // The plate's glide (PLATEGLIDE): the face spans [x0, x0 + w0] at the start and [0, w1] at the end, in its pill's new box.
+  // The plate's glide: the face spans [x0, x0 + w0] at the start and [0, w1] at the end, in its pill's new box.
   // Three copies of the face, each p wide (p = the narrower width, laid out once here, before the glide), each cut by a clip that
   // never changes: the left cap, the right cap and the flat middle. The caps ride translate; the middle rides translate and a
   // horizontal scale (its top and bottom hairlines stay 1 px, its rounded ends are cut off), all on the same curve, so together
@@ -178,7 +175,7 @@ export function initTopbarMotion() {
     if (!face) {
       const cs = getComputedStyle(el);
       const paints = !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(cs.backgroundColor) || cs.backgroundImage !== 'none' || cs.boxShadow !== 'none';
-      if (paints && PLATEGLIDE) {
+      if (paints) {
         lent = document.createElement('span');
         lent.className = 'tb-face tb-face-lent'; lent.setAttribute('aria-hidden', 'true');
         const look = {};
@@ -193,7 +190,7 @@ export function initTopbarMotion() {
         face = lent;
       }
     }
-    if (face && PLATEGLIDE) {
+    if (face) {
       const hold = plateGlide(face, 0, s.w, n.w, timing);
       if (lent) { const end = () => lent._restore(); if (hold) hold.addEventListener('finish', end), hold.addEventListener('cancel', end); else end(); }
     }

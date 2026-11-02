@@ -1,5 +1,5 @@
 // A reading and its vessel light together on hover (sprint brief 8, 1 Nov 2026): the label under the pointer lights what it names with the
-// vessel's own hover glow, a hovered vessel lifts its label, and ?hoverlink=0 leaves the app exactly as it was.
+// vessel's own hover glow, a hovered vessel lifts its label.
 import './dom-shim.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -53,10 +53,10 @@ test('a hovered vessel lifts the labels that name it, and only those', () => {
   assert.deepEqual(labelsOf(keys, null), []);
 });
 
-test('the switch: ?hoverlink=0 is the only way off, and it is on by default', () => {
+test('it is on: no switch in the address turns it off', () => {
   assert.equal(HOVER_LINK, true);
   const src = read('src/ui/hover-link.js');
-  assert.match(src, /\/\[\?&\]hoverlink=0\\b\//);
+  assert.doesNotMatch(src, /hoverlink=0|location\.search/);
 });
 
 test('off, the stage adds no class, no listener and no lift (stage.js)', () => {

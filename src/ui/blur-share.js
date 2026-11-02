@@ -10,11 +10,10 @@
 // are. Each instance's prep only enters what it needs (its glasses' boxes and the key of the picture under them); the first glass drawn
 // on that picture blurs once, the union of everyone's parts, and every instance then draws from it. A picture whose requests and parts
 // are all the same as the last blur's is not blurred again.
-// ?glassshare=0: each instance blurs on its own, as before. The 50 ms hold (?reblur=1) keeps the old way too (its hold is per instance).
+// The 50 ms hold (?reblur=1) keeps the old way (its hold is per instance).
 
 import { caught } from './caught.js?v=b96b17594a';
-const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
-export const GLASS_SHARE = !/[?&]glassshare=0\b/.test(SEARCH);
+export const GLASS_SHARE = true;   // (switch deleted; kept for glass-gl.js until its own pass)
 
 /** The share for one look in one context (made on first use). */
 export function shareFor(map, gl, look, scale) {

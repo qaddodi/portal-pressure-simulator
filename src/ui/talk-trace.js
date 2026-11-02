@@ -2,12 +2,12 @@
 // every state up to the slide, one point each, and the HVPG in its own lane with its cut-offs. (Moved here unchanged from
 // presenter-tools.js, so the deck visuals' chart package can extend it without touching the instruments' file.)
 
-import { h, fmt, clamp } from './util.js?v=45ddc23d2e';
+import { h, fmt, clamp } from './util.js?v=a60489211b';
 import { hvpgRate } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { bandKeys, bandRuns, bandSpan, namePlaces } from './rx-bands.js?v=51e83c7c59';
-import { createSvgGL, svgModel } from './svg-gl.js?v=86f3356eeb';
+import { createSvgGL, svgModel } from './svg-gl.js?v=f8458ee9c3';
 import { measure } from './glyph-measure.js?v=450036b556';
 
 // ── The talk so far: PV, WHVP and FHVP at each state, the HVPG in its own lane with its cut-offs ──
@@ -156,7 +156,7 @@ export function talkTrace() {
       pts.length ? sv('text', { class: 'ptk-v', 'data-rate': sev(pts[last].fp.hvpg), x: R + 10, y: Y(pts[last].fp.hvpg) + 0.35 * vfs }, fmt(pts[last].fp.hvpg, 1)) : null);
   }
   // The new chart takes over the old one: each line, point, gridline and word in both glides to its new place, the rest fades (svg-morph.js).
-  // Where that cannot be (?chartmorph=0, Reduce Motion, another size) the new chart fades in over the old one, which then goes (never a
+  // Where that cannot be (Reduce Motion, another size) the new chart fades in over the old one, which then goes (never a
   // jump); a new size just redraws.
   // (On the GPU: the old and new models stand in the box, hidden, and the picture draws them; the fade in is the picture's, on the
   // stylesheet's old ease, --d-surface on --ease.)

@@ -8,22 +8,21 @@
 // parks it for a moment) the monitor goes on: the strip scrolls on this card's clock and lays beats at the heart rate shown, closing in as the
 // number climbs, then hands over to the live beat where the model's phase resumes, so the strip neither stalls nor jumps (ekg.js walkBeats).
 
-import { h, fmt, fitCanvas, fitBox, clamp, cssVar } from './util.js?v=45ddc23d2e';
-import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js?v=7fc71cfe5b';
-import { FONT } from './charts.js?v=865e3f61ab';
-import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating } from './frame.js?v=d641eeefa1';
+import { h, fmt, fitCanvas, fitBox, clamp, cssVar } from './util.js?v=a60489211b';
+import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js?v=7357061ead';
+import { FONT } from './charts.js?v=6361c5176b';
+import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating } from './frame.js?v=1d147c7c9a';
 import { VITALS, vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js?v=e0e47eff4f';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
 import { dropFront } from './drop-front.js?v=21069ee0e8';
 import { createStill } from './still-layer.js?v=d5a9373a74';
-import { attrSoon } from './class-soon.js?v=ba07f06e7e';
+import { attrSoon } from './class-soon.js?v=97b9d0e0db';
 const nextFrame = frameFor('vitals-monitor');
 
 export const VITALS_DEFAULT = ['hr', 'map', 'hb'];
 // The monitor on the GPU (vitals-gl.js: rounded rectangles, the strip as a line of capsules, words and digits from one glyph atlas); no
-// 2D canvas is drawn while the strip scrolls. ?vitalsgl=0: the 2D canvas, as before.
-const VITALS_GL = typeof location === 'undefined' || !/[?&]vitalsgl=0\b/.test(location.search);
+// 2D canvas is drawn while the strip scrolls.
 const SPAN_S = 6, LAG_S = 0.12, EASE_S = 0.3, JUMP_S = 0.3, STEP_S = 0.004;   // (JUMP_S: more than this ahead of the last sample is a clock that was set, not the next frame)
 
 /** The vitals a slide asks for: up to three of the four the monitor knows, in the order given; the default otherwise. */
@@ -47,7 +46,7 @@ let fontEpoch = 0;
 globalThis.document?.fonts?.addEventListener?.('loadingdone', () => { fontEpoch++; });
 
 /** `stillLayer`: false draws the still parts straight onto the canvas every frame, as before the pictures (the switch the tests compare with). */
-export function createVitalsMonitor({ stillLayer = true, gpu = VITALS_GL } = {}) {
+export function createVitalsMonitor({ stillLayer = true, gpu = true } = {}) {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Vital signs monitor' });
   const glr = gpu ? createVitalsGL(cv) : null;   // (null where WebGL 2 is not there: the 2D canvas below, as before)
   const el = h('div', { class: 'chart-box vitals-box' }, cv);

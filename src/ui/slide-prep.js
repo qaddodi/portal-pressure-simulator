@@ -5,16 +5,14 @@
 // a direction just reversed) stops at its next step and publishes nothing; then it prepares the slide going in, at once, and the one
 // after it in the direction of travel, then the one behind, in idle time between frames (never in a frame of motion). At most three
 // manifests are kept (the slide and its two neighbours); one further away is dropped.
-// ?slideprep=0: nothing prepared ahead, as before.
 // (recs-production-120hz §6, 2 Nov 2026: readiness is an awaited, versioned contract. A tool's warm returns its completion and is
 // awaited; manifests are keyed by the deck's identity (identity(): deck id, revision, look, context generation) as well as the slide,
 // so deck B's slide 0 never inherits deck A's; a shader step that still waits resumes when a program is published (whenShadersMove),
 // up to SHADER_TRIES times, instead of leaving the slide unready for good; a step that fails marks the manifest failed, never ready;
 // cancel() is the presenter's teardown and drops every manifest. States: unprepared, preparing, ready, failed.)
-import { prepJob, prepLeft } from './prep-budget.js?v=ec9c655085';
+import { prepJob, prepLeft } from './prep-budget.js?v=8da4082ab5';
 import { whenShadersMove } from './gl-compile.js?v=79231d7c6b';
 import { caught } from './caught.js?v=b96b17594a';
-export const SLIDE_PREP = !(typeof location !== 'undefined' && /[?&]slideprep=0\b/.test(location.search || ''));
 
 // (Review pass 2, priorities 1 and 3: each slide's preparation is a job of the shared preparation budget, prep-budget.js, one step at a
 // time (its state, its glyphs, its data card's warm, its shaders), the deadline checked between steps, a promise's continuation admitted
@@ -76,7 +74,6 @@ export function createSlidePrep({ count, steps = {}, keep = 3, identity = () => 
    *  preparing ahead: their steps belong to the generation, the deck and the context, so they go on after the landing. A newer aim, a
    *  new deck, look or context generation, or cancel() stops them.) */
   function aim(i, dir = 'next', alive = () => true) {
-    if (!SLIDE_PREP) return;
     const g = ++gen;
     st.aims++;
     stopAll();

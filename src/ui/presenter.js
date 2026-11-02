@@ -16,13 +16,13 @@
 import { store, replaceParams } from './store.js?v=afc4d7c743';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { glWords } from './gl-words.js?v=d88e4bf43d';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=45ddc23d2e';
+import { glWords } from './gl-words.js?v=a9b411a88f';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=a60489211b';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=abc284ee6c';
-import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3130fa6ec0';
-import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=86f3356eeb';
-import { sinusoidSupported } from './gl-support.js?v=da6533dfef';
+import { liveText, wordsOf } from './live-text.js?v=1dd86e0fd5';
+import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=d0702c7a1b';
+import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=f8458ee9c3';
+import { sinusoidSupported } from './gl-support.js?v=6219c6f004';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
 import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=3c321f5f7f';
 import { NODE_POS } from './anatomy.js?v=fe0f3d1f0e';
@@ -31,43 +31,43 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=e31fc2c5c7';
-import { createTools } from './presenter-tools.js?v=27ec3b0160';
+import { createHvpgMonitor } from './hvpg-proc.js?v=a293ffc98b';
+import { createTools } from './presenter-tools.js?v=5debde852c';
 import { openHandout } from './handout.js?v=3aaa29b61a';
 import { noteResume, resumeFor } from './resume.js?v=c0f39f9446';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=1eeb480f5f';
 import { cleanEq } from './import-safety.js?v=9db53247a5';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js?v=ff3ed0cc47';
-import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=d641eeefa1';
+import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=1d147c7c9a';
 import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=04fdb8b647';
-import { restPass, cancelRest } from './rest-pass.js?v=826eefe7e5';
-import { createSlidePrep, SLIDE_PREP } from './slide-prep.js?v=89f30a4aa5';
-import { createTxns, SLIDE_TXN } from './slide-txn.js?v=aa2d6cb569';
+import { restPass, cancelRest } from './rest-pass.js?v=d13e397f0b';
+import { createSlidePrep } from './slide-prep.js?v=ce7a6bc089';
+import { createTxns } from './slide-txn.js?v=2b33d858d0';
 import { glEpoch, onGLRestored } from './gl-state.js?v=4163c507aa';
 import { prepareShaders, shaderFailures } from './gl-compile.js?v=79231d7c6b';
-import { createFigureKey } from './figure-key.js?v=855b2541d1';
+import { createFigureKey } from './figure-key.js?v=691383fd82';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=626a4521e6';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=3db2369768';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=4f42de15df';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=e99aae8980';
 import { clotWords } from './callout-math.js?v=6ef2901a08';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=86df20dae4';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=2bfa89bc8b';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=4b7b3c267f';
+import { anchorsOf, roomFor } from './cam-room.js?v=e3687c94d5';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
-import { flowTimeHeight, trailKeys } from './flow-time.js?v=f6c5098d7f';
-import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=7c00a1446b';
+import { flowTimeHeight, trailKeys } from './flow-time.js?v=a39d4f82e0';
+import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=462dba6050';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
-import { createCardZoom, tapTracker } from './card-zoom.js?v=57969a9f5f';
+import { createCardZoom, tapTracker } from './card-zoom.js?v=e2988acc94';
 import { sheetPanes } from './sheet-glass.js?v=9bad2768f7';
-import { createScopeTile } from './scope-tile.js?v=032ae4954b';
+import { createScopeTile } from './scope-tile.js?v=7aba66554f';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=7513a88c68';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
-import { pageOn, followOf, pageIn } from './card-page.js?v=ebb4448222';
-import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=ff94281751';
-import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js?v=ed9aff412d';
+import { pageOn, followOf, pageIn } from './card-page.js?v=a93b87f756';
+import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=307757fedb';
+import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js?v=f609965236';
 import { caught } from './caught.js?v=b96b17594a';
 const nextFrame = frameFor('presenter');
 
@@ -473,13 +473,10 @@ const liveFp = (fr) => fingerprintOf(fr.metrics, { P: fr.Pf || fr.P, Q: fr.Qf ||
 // A value counts from where it was to where it goes (eased, about a second); reduced motion jumps.
 // (Tiles glide on the compositor: see tileGlide, on the travelling curve.)
 // R19: a live model frame never writes the tiles while their card moves (a slide's slide or fold): the newest is kept and written
-// once the card is still. A slide's own paint (its arrival, a new set of tiles) is never held. ?tilefreeze=0: written every frame, as before.
+// once the card is still. A slide's own paint (its arrival, a new set of tiles) is never held.
 // R19: a tile's changing number is drawn on the GPU (gl-words.js: Inter's outlines over the tile's own words, which are made clear and
 // take the number back once it holds still), not written into the page on each model frame. A slide's count still rolls its digits
-// on the compositor (tileGlide), written into the page as it starts. ?tilegl=0: written into the page, as before.
-const TILE_GL = !(typeof location !== 'undefined' && /[?&]tilegl=0\b/.test(location.search || ''));
-const TILE_FREEZE = !(typeof location !== 'undefined' && /[?&]tilefreeze=0\b/.test(location.search || ''));
-const TILE_GLIDE = !(typeof location !== 'undefined' && /[?&]tileroll=0\b/.test(location.search || ''));
+// on the compositor (tileGlide), written into the page as it starts.
 function tweener(draw) {
   let cur = null, raf = 0;
   const run = (to, ms = 950) => {
@@ -628,7 +625,7 @@ function bigTiles() {
   let fitRaf = 0, fitShape = '';
   const fitSoon = () => { if (dead) return; cancelRest(fitRaf); fitRaf = restPass(fit); };   // (measured between frames, never in one: rest-pass.js)
   if (typeof ResizeObserver !== 'undefined') (tileRO = new ResizeObserver(fitSoon)).observe(el);
-  el.classList.toggle('tglide', TILE_GLIDE && odoOn());   // (the bar's marks glide on the compositor: tileGlide)
+  el.classList.toggle('tglide', odoOn());   // (the bar's marks glide on the compositor: tileGlide)
   document.fonts?.ready?.then(fitSoon);
   function buildTiles(ks, withRef) {
     if (dead) return;
@@ -652,7 +649,7 @@ function bigTiles() {
         : h('div', { class: 'pz-tile' + (S ? ' scaled' : '') }, h('span', { class: 'pzt-k', 'data-s': T.n || null }, T.t), h('span', { class: 'pzt-vu' + (T.u === '%' ? ' pct' : '') }, v, u), r, d, bar);
       // (R19: its number's GPU words, laid over the number and its unit's row: their canvas sits in that row, never inside the number,
       // which a roll's digit columns and the fit rewrite.)
-      const vw = TILE_GL && !pic ? glWords(v, { host: v.parentNode }) : null;
+      const vw = !pic ? glWords(v, { host: v.parentNode }) : null;
       return { k, T, tile, v, vw, u, r, d, S, bands, zs, link, was, now, zr: '', pic };
     });
     el.replaceChildren(...parts.map((p) => p.tile));
@@ -701,9 +698,9 @@ function bigTiles() {
   // through the camera's glide. They are written once, at their end, and the way there is the compositor's: each changed digit rolls in
   // its own column (util.js odoSwap) and each mark slides from where it stood by a transform, on the count's own curve. The rating's
   // word and colour take their new value as it starts. A number whose shape changes (9.9 to 10.1) shows its new value at once. Not
-  // with the endoscopic view (it draws each step), Reduce Motion, or ?tileroll=0 (counted frame by frame, as before).)
+  // with the endoscopic view (it draws each step), or Reduce Motion.)
   function tileGlide(to, ms = 950) {
-    if (!TILE_GLIDE || !odoOn() || !draw?.has() || reduce.matches || ms === 0 || parts.some((p) => p.pic)) return false;
+    if (!odoOn() || !draw?.has() || reduce.matches || ms === 0 || parts.some((p) => p.pic)) return false;
     const before = parts.map(vText);
     // (The marks' translate and the link's scale are set once (app.css .tglide): the compositor eases them there over --tile-ms.)
     el.style.setProperty('--tile-ms', `${ms}ms`);
@@ -750,7 +747,7 @@ function bigTiles() {
   function paintTilesNow(f, ks, key = [], ref = null, ms, tips = false, live = false) {
     {
       // (A live frame while the card moves: kept, the newest only, and painted when the card is still, on the card's own change.)
-      if (TILE_FREEZE && live && draw && ks.join() + (ref ? '|ref' : '') === sig) {
+      if (live && draw && ks.join() + (ref ? '|ref' : '') === sig) {
         const mc = movingCard();
         if (mc) {
           held = [f, ks, key, ref, ms, tips, false];
@@ -997,7 +994,7 @@ function makeCalc() {
   const ready = (async () => {
     let w = null;
     try {
-      w = new Worker(new URL('../worker.js?v=953a319878', import.meta.url), { type: 'module' });
+      w = new Worker(new URL('../worker.js?v=2118a304f6', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -1011,7 +1008,7 @@ function makeCalc() {
     } catch {
       if (w) { w.onmessage = w.onerror = null; w.terminate(); }   // (a worker that never said hello: not left running beside the page's own engine)
       try {
-        const { createCore } = await import('../worker-core.js?v=e201176995');
+        const { createCore } = await import('../worker-core.js?v=ec2d3407b3');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -1150,19 +1147,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // pressures and flows travel, the days run on); a newer slide mid-way eases on from wherever the model has got to.
   // Resolves once the slide's exact state is in, or early (the model left part way) when cut() says a newer slide was asked for.
   const MORPH_MS = 2000;
-  // A slide change is one move (premium-feel R1; ?onemove=0: the chain as before). Over the plate the cards come in during the
+  // A slide change is one move (premium-feel R1). Over the plate the cards come in during the
   // camera's last 40 percent (CARDS_AT), so it lands on a finished slide, and a change of patient eases under the glide itself, over
   // MORPH_ONE_MS (the glide's camMs, 480 to 900 ms, and a tail), not 2 s after it lands. A large change keeps easing under the cards:
   // the widths and colours follow it (display-state.js). Kept serial, as before: the lobule's way in and out, a catheter, a case card
   // over a loading patient, a slide with an instrument (it records the slide's own state), and a figure that cannot move smoothly
   // while its organs change (stage.canDrift: no live GPU organs, so a glide over the changing organs would paint them all each frame;
   // there the change still waits for the landing, over MORPH_ONE_MS).
-  const ONE_MOVE = !/[?&]onemove=0\b/.test(location.search);
   // (Quick slide, Mohammad 2 Nov 2026, "Do it" to review/slide-motion-recs-2nov: the screen sat with no card for 0.4 to 0.8 s while the
   // glide ran. The cards now come in once a quarter of the glide has run (CARDS_AT 0.75 of it left), the smooth-frames gate gives up after
-  // QUICK_SMOOTH ms, not 700, and the new card starts its way in at once, not 120 ms late. ?quickslide=0: as before.)
-  const QUICK_SLIDE = !/[?&]quickslide=0\b/.test(location.search), QUICK_SMOOTH = 240;
-  const CARDS_AT = QUICK_SLIDE ? 0.75 : 0.4, MORPH_ONE_MS = 1200;
+  // QUICK_SMOOTH ms, not 700, and the new card starts its way in at once, not 120 ms late.)
+  const QUICK_SMOOTH = 240;
+  const CARDS_AT = 0.75, MORPH_ONE_MS = 1200;
   // A chart or gauge that only reads the model as it eases (the pressure profile, a relation curve, the flows, the talk's trace, the criteria,
   // the plane) comes in over the change, riding it: its numbers and curve travel with the vessels, as a kept card's do. An instrument that
   // records the patient's flow (Doppler, beat by beat, vitals), plays on arrival, or is a deck package's own, still waits for the slide's state.
@@ -1231,7 +1227,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     await until(() => cut() || stage.lobuleSettled(), 6000); if (!cut()) await wait(80);
   }
   // Glide the camera to a slide's framing; resolves when it has landed (cut(): a newer slide was asked for).
-  // (early: a share of the glide over the plate; camera() resolves once only that much of it is left, the glide running on: see ONE_MOVE.)
+  // (early: a share of the glide over the plate; camera() resolves once only that much of it is left, the glide running on: one move, above.)
   async function camera(cam, s, cut, early = 0, begun = null) {
     const ms = reduce.matches || booting ? 0 : 1500;
     if (LOBULE_CAM.test(cam)) {
@@ -1294,7 +1290,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A camera beat or a flip of the scale, which wait for no cards: its call-outs come once the glide has landed, 480 to 900 ms and an arc's
     // stretch, not 1.5 s after it set off; and at once when the framing did not change, where no glide began. Polled, so a beat pressed
     // again while this one moves is noticed within a frame or two, not after the glide: nothing waits on the exact frame it lands.)
-    if (ONE_MOVE && gl) { await until(() => cut() || !stage.gliding(), gl + 1500); return; }
+    if (gl) { await until(() => cut() || !stage.gliding(), gl + 1500); return; }
     await wait(gl);
   }
   // (left: only the entrances with more than this many ms still to run count: 0 is all of them; CARDS_SEEN, the cards in sight.)
@@ -1810,7 +1806,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       stage.fitSlow(gl);
       // (One move: the new patient starts as the camera is still, which the glide's own landing says (480 to 900 ms), not 1.5 s after it set off;
       // and at once when it was already the whole patient. Polled, so a card lifted or a newer slide is not waited behind.)
-      if (ONE_MOVE) await until(() => cut() || !stage.gliding(), gl + 600); else await wait(gl);
+      await until(() => cut() || !stage.gliding(), gl + 600);
       await until(() => cut() || !stage.gliding(), 600); if (cut()) return false;
     }
     // Then, the camera still, the new patient eases in.
@@ -1909,87 +1905,60 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The words' box comes in after a turn (app.css: its lines stay at rest, so the fit, done unseen, measures them where they will stand;
   // a line offset sideways read as overflow and the words were fitted small, then grew in view): one composited move of the box,
   // from the side the talk comes from, with its fade, held at its start through the entrance's short delay.
-  // How far the words may move sideways: the slide's own step (--pz-turn-d), never more than the room between the words and the glass's
-  // edge, so they never show past the card (Mohammad, 1 Nov, iPhone: 12 px of room on an upright phone). px.
+  // How far the words may move sideways: the slide's own step (--pz-turn-d). px.
   // (As one page the glass goes with its words, so they have the slide's whole step, and no box is read.)
-  const turnRoom = () => {
-    if (CARD_PAGE) return parseFloat(readStyle(ui.root).getPropertyValue('--pz-turn-d')) || 20;
-    const d = parseFloat(readStyle(ui.root).getPropertyValue('--pz-turn-d')) || 20, t = readBox(ui.text), g = readBox(ui.shade);
-    return g.width > 0 && t.width > 0 ? Math.max(4, Math.min(d, t.left - g.left - 2, g.right - t.right - 2)) : d;
-  };
+  const turnRoom = () => parseFloat(readStyle(ui.root).getPropertyValue('--pz-turn-d')) || 20;
   function wordsTurnIn() {
     pageCaught();   // (a swipe's throw over: the way in is the slide's own distance)
     if (!turnIn || !ui) return;
     turnIn = false;
-    const t = ui.text, k = t.dataset.turn, thrown = CARD_THROW && !!throwDir && (k === 'next' || k === 'back');
+    const t = ui.text, k = t.dataset.turn, thrown = !!throwDir && (k === 'next' || k === 'back');
     const d = thrown ? THROW_IN : parseFloat(readStyle(t).getPropertyValue('--pz-turn-d')) || 20;   // (thrown: from further, and no style read)
-    const x = k === 'next' ? d : k === 'back' ? -d : 0, from = x ? `translateX(${x}px)` : `translateY(${RISE_PX}px)`;
-    if (CARD_PAGE) {
-      // (The page: the glass and its words come in as one card, the same keyframes on both, started in the same frame.)
-      if (thrown) {
-        // (Thrown: the words and their glass come in on card-throw.js's clock, together, from the side the talk comes from.)
-        // (Only a card that shows: a visual slide hides the words, and its glass stays out.)
-        if (!t.hidden && t.childElementCount) {
-          if (!railIn(t, k)) throwIn(t, k, 0, throwD);
-          if (!stayTurn && !ui.shade.classList.contains('pz-turn')) { if (!railIn(ui.shade, k)) throwIn(ui.shade, k, 0, throwD); } else railAway(ui.shade);
-        } else { railAway(t); railAway(ui.shade); }
-        for (const el of [ui.panel, ui.data]) if (railWaits(el) && !el.hidden && el.childElementCount && !el.classList.contains(el === ui.data ? 'pz-hide' : 'pz-leave')) railIn(el, k, el === ui.data ? THROW_STAGGER : 0);   // (the cards that waited to ride with the words)
-        turnAnim = null; shadeAnim = null;
-        return;
-      }
-      const frames = pageIn(k, d, RISE_PX), how = { duration: D_SURFACE, delay: QUICK_SLIDE || thrown ? 0 : 120, easing: thrown ? EASE_MOVE : EASE_ARRIVE, fill: 'backwards' };
-      // (No delay on the glass's own fade either, so it never runs on after the keyframes end and dips: app.css gives it .12s.)
-      if (QUICK_SLIDE && ui.shade.style.transitionDelay !== '0s') ui.shade.style.transitionDelay = '0s';
-      turnAnim = t.animate?.(frames, how) || null;
-      shadeAnim = stayTurn || ui.shade.classList.contains('pz-turn') ? null : ui.shade.animate?.(frames, how) || null;   // (a glass kept up does not come in again)
+    // (The page: the glass and its words come in as one card, the same keyframes on both, started in the same frame.)
+    if (thrown) {
+      // (Thrown: the words and their glass come in on card-throw.js's clock, together, from the side the talk comes from.)
+      // (Only a card that shows: a visual slide hides the words, and its glass stays out.)
+      if (!t.hidden && t.childElementCount) {
+        if (!railIn(t, k)) throwIn(t, k, 0, throwD);
+        if (!railIn(ui.shade, k)) throwIn(ui.shade, k, 0, throwD);
+      } else { railAway(t); railAway(ui.shade); }
+      for (const el of [ui.panel, ui.data]) if (railWaits(el) && !el.hidden && el.childElementCount && !el.classList.contains(el === ui.data ? 'pz-hide' : 'pz-leave')) railIn(el, k, el === ui.data ? THROW_STAGGER : 0);   // (the cards that waited to ride with the words)
+      turnAnim = null; shadeAnim = null;
       return;
     }
-    turnAnim = t.animate?.([{ transform: from, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: D_SURFACE, delay: 120, easing: EASE_ARRIVE, fill: 'backwards' });
+    const frames = pageIn(k, d, RISE_PX), how = { duration: D_SURFACE, delay: 0, easing: thrown ? EASE_MOVE : EASE_ARRIVE, fill: 'backwards' };
+    // (No delay on the glass's own fade either, so it never runs on after the keyframes end and dips: app.css gives it .12s.)
+    if (ui.shade.style.transitionDelay !== '0s') ui.shade.style.transitionDelay = '0s';
+    turnAnim = t.animate?.(frames, how) || null;
+    shadeAnim = ui.shade.animate?.(frames, how) || null;
   }
-  // (Off until it is right on his devices (Mohammad, 1 Nov: on Next the words slid half way and stuck, then the card popped out and back):
-  // The page-turn and the finger follow are on by default; ?cardturn=0 turns them off, and every card leaves and comes back whole, as before.)
-  const CARD_TURN = !/[?&]cardturn=0\b/.test(location.search);
   // The teaching card as one page (src/ui/card-page.js): the glass and the words move together, follow, leave and enter, and only
-  // transform and opacity change while they move. On by default; ?cardpage=0 keeps the words turning inside a glass that fades in place.
-  const CARD_PAGE = CARD_TURN && !/[?&]cardpage=0\b/.test(location.search);
-  // A folding card's part follows a finger by transform and opacity, its height set once at each end (foldTouch); ?foldxf=0: no follow.
-  const FOLD_XF = !/[?&]foldxf=0\b/.test(location.search), FOLD_SLIDE = 10;
+  // transform and opacity change while they move.
+  // A folding card's part follows a finger by transform and opacity, its height set once at each end (foldTouch).
+  const FOLD_SLIDE = 10;
   // (A swipe let go past its distance: the card is held where the finger left it (its inline transform and opacity kept) until the slide's
   // leave is set on the words and the glass, and the hold is dropped in that same style change, so the leave carries on from the finger.
   // Dropped at the touch's end, as before, the glass was laid out at rest for a frame before its leave came (go() reaches wordsOut after a
-  // task or two): it jumped back to the middle and slid out again from there, behind words that went on from the finger. ?swipehand=0: as before.)
-  const SWIPE_HAND = CARD_PAGE && !/[?&]swipehand=0\b/.test(location.search);
+  // task or two): it jumped back to the middle and slid out again from there, behind words that went on from the finger.)
   let pageHeld = null;
-  // (The teaching card's shade drawn by the cards' GPU glass, as every other card: see createPresenter's cardGlass. ?shadegl=0 keeps it on the browser's blur.)
-  const SHADE_GL = !/[?&]shadegl=0\b/.test(location.search);
-  // The glass stays (Mohammad, 2 Nov 2026: "Do it" to review/slide-motion-recs-2nov): on a slide change the teaching card's glass is never
-  // taken down and put up again. Only its words page out and in; the glass changes to the new words' size in view, on the GPU (glass-gl.js
-  // data-gl-morph, its edge and shadows drawn there too), and its tabs ride along by transform. Only where the GPU draws that glass, its
-  // edge and shadow ([data-gl="edge"]); elsewhere the card leaves and comes back whole, as before. ?glassstay=0: as before.
-  // (Opt-in now, ?glassstay=1: Mohammad, 2 Nov 2026, wants the whole card thrown and a new one brought in instead, CARD_THROW.)
-  const GLASS_STAY = CARD_PAGE && SHADE_GL && /[?&]glassstay=1\b/.test(location.search);
   // Next and Back throw the whole card out and bring the new one in (Mohammad, 2 Nov 2026: "Why don't we make the whole card go out throw
   // away just like the question and case card"; "throw to the left ... reappear from the right to the left"; "Same for outline and tables
   // and graphs conclusion cards too"): on Next every card leaving (the teaching card with its glass, a data card that changes, an outline,
   // table or conclusion panel) is thrown out to the left, gathering pace and fading (app.css .pz-throw), and the new one comes in from the
   // right, moving left, speeding up and slowing to rest evenly with no overshoot (THROW_IN, EASE_MOVE: not ease-arrive, whose first fifth
   // of the time covers four fifths of the way, which read as the card snapping in and settling like a spring). Back mirrors it; a jump still fades and rises in place.
-  // A data card that stays (the same instrument) stays put. Transform and opacity only. ?cardthrow=0: as before.
-  const CARD_THROW = CARD_PAGE && !/[?&]cardthrow=0\b/.test(location.search);
+  // A data card that stays (the same instrument) stays put. Transform and opacity only.
   // (Moved by card-throw.js, on one clock with the GPU glass: their inline transform and opacity written in the scheduler's frame.)
   let throwDir = '', throwD = 0;
   const throwDist = () => Math.min(420, Math.max(120, innerWidth * 0.3)) + 20;
-  const glassStays = () => GLASS_STAY && !!ui && ui.shade.getAttribute('data-gl') === 'edge';
-  let stayTurn = false;
-  const pageEls = () => (glassStays() ? [ui.text] : [ui.text, ui.shade]);
+  const pageEls = () => [ui.text, ui.shade];
   // (A swipe takes every card that shows with the words, the data card and the panel too, on the finger's one move, and lets them go
-  // together (Mohammad, 2 Nov 2026: "the cards are not following the text throwing swiping"). ?swipeall=0: the words and their glass only.)
-  const SWIPE_ALL = !/[?&]swipeall=0\b/.test(location.search);
-  const swipeEls = () => [...pageEls(), ...(SWIPE_ALL ? [ui.data, ui.panel].filter((el) => el && !el.hidden && el.childElementCount && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide') && !('zoomed' in el.dataset)) : [])];
+  // together (Mohammad, 2 Nov 2026: "the cards are not following the text throwing swiping").)
+  const swipeEls = () => [...pageEls(), ...[ui.data, ui.panel].filter((el) => el && !el.hidden && el.childElementCount && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide') && !('zoomed' in el.dataset))];
   let shadeAnim = null, pageForce = false;   // (the glass's entrance; pageForce: a swipe the card followed out, so its words leave even if the next slide's are the same)
   const lastBeat = (i) => beatCount(slides[i]) - 1;
   // (R05: the slide going in and its neighbours prepared as one set ahead of the press; a newer press cancels an older one's jobs.
-  // slide-prep.js; ?slideprep=0 off.)
+  // slide-prep.js.)
   // (recs-production-120hz §6: the tool's warm is returned, so its completion is awaited; the manifests belong to this deck, this
   // presentation's states and this look: identity.)
   const slidePrep = createSlidePrep({ count: () => slides.length, identity: () => `${deck?.id ?? ''}|${slides.length}|${prepRev}|${document.documentElement.dataset.theme || ''}/${document.documentElement.dataset.palette || ''}|${glEpoch()}`, steps: {
@@ -2004,17 +1973,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   onGLRestored(() => slidePrep.refresh());
   // (Review pass 2, priority 3: each Next, Back or jump is one transaction, slide-txn.js. Its id supersedes the one before at once: that
   // change's jobs stop, its prep hold lets go, and the move in flight is cut at its next step (cut() asks txn.live()). The cards on their
-  // way out are disowned (inert) from the press until this change's cards come in, so a card leaving or held out of sight takes no tap.
-  // ?slidetxn=0: the checks of want and gen only, as before.)
+  // way out are disowned (inert) from the press until this change's cards come in, so a card leaving or held out of sight takes no tap.)
   const txns = createTxns();
   let txn = null;
-  const txnLive = (t) => !SLIDE_TXN || !t || t.live();
+  const txnLive = (t) => !t || t.live();
   function go(i) {
     if (!deck || leaving) return;
     dispatchEvent(new Event('pps:go'));   // (the ?perf readout's slide-change window; nothing listens otherwise)
     turn = i === want + 1 || firstBeat ? 'next' : i === want - 1 ? 'back' : 'jump';   // (the slide before or after, by whatever key or button: a turn; further: a jump)
     want = clamp(i, 0, slides.length - 1);
-    const tx = SLIDE_TXN ? (txn = txns.begin({ to: want, dir: turn })) : null;
+    const tx = (txn = txns.begin({ to: want, dir: turn }));
     slidePrep.aim(want, turn, tx ? tx.live : undefined);
     noteResume(deck.id, want, slides.length);   // (the Present menu offers to resume here; the first or last slide forgets it)
     beat = firstBeat ? 0 : lastBeat(want);
@@ -2025,12 +1993,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (busy) outNow();
       if (!busy) run();
     };
-    if (PREP_HOLD && !slidePrep.ready(want)) prepHold(want, goOn); else goOn();
+    if (!slidePrep.ready(want)) prepHold(want, goOn); else goOn();
   }
   // (R05: the cards that show stay where they are until the slide going in is prepared (slide-prep.js ready: its state, glyphs, data card
-  // and shaders), so the new card never comes in empty; at most PREP_MS, so a Next is still answered at once. A newer press takes over.
-  // ?prephold=0: the cards leave on the press whatever is ready, as before.)
-  const PREP_HOLD = SLIDE_PREP && !/[?&]prephold=0\b/.test(location.search || ''), PREP_MS = 160;
+  // and shaders), so the new card never comes in empty; at most PREP_MS, so a Next is still answered at once. A newer press takes over.)
+  const PREP_MS = 160;
   let prepT = 0;
   function prepHold(i, then) {
     clearTimeout(prepT);
@@ -2043,17 +2010,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // change still runs (its landing and after-steps: busy) went to it only once that had finished. The cards that show leave now, on the
   // tap, together, as wordsOut throws them; the change for the new slide takes them from there (card-throw.js throwOutNow). ?instant=0:
   // as before.)
-  const KEEP_NOW = !/[?&]keepnow=0\b/.test(location.search || '');
   function outNow() {
-    if (!INSTANT || !CARD_THROW || !ui || reduce.matches || (turn !== 'next' && turn !== 'back')) return;
+    if (!INSTANT || !ui || reduce.matches || (turn !== 'next' && turn !== 'back')) return;
     const showing = (el) => !el.hidden && !!el.childElementCount && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide') && !throwing(el) && !throwPinned(el);
     // (A data card the next slide keeps (card-keep.js keepData: the same instrument, a patient it can ride to) stays where it is and glides
     // to the new numbers, never thrown out and built again (Mohammad, 2 Nov 2026: "if the graph is gonna change, it should TRANSITION not just
-    // pop out and in"). ?keepnow=0: thrown with the rest, as before.)
-    const nx = slides[want], keeps = KEEP_NOW && !!nx && !!shown && keepData({ from: dataOn, to: planOf(nx, want), prev: slides[shown.i], next: nx, swap: stateOf[want] !== shownState || liveOff });
+    // pop out and in").)
+    const nx = slides[want], keeps = !!nx && !!shown && keepData({ from: dataOn, to: planOf(nx, want), prev: slides[shown.i], next: nx, swap: stateOf[want] !== shownState || liveOff });
     const els = [ui.text, keeps ? null : ui.data, ui.panel].filter((el) => el && showing(el));
     if (!els.length) return;
-    if (els.includes(ui.text) && !ui.shade.classList.contains('pz-leave') && !ui.shade.classList.contains('pz-turn') && ui.shade.style.opacity !== '0') els.push(ui.shade);
+    if (els.includes(ui.text) && !ui.shade.classList.contains('pz-leave') && ui.shade.style.opacity !== '0') els.push(ui.shade);
     const wOf = (el) => (el === ui.panel ? Math.min(readMetric(el, 'offsetWidth'), innerWidth * 0.5) : readMetric(el, 'offsetWidth'));
     throwDir = turn;
     throwD = Math.min(innerWidth, Math.max(120, ...els.filter((el) => el !== ui.shade).map(wOf)) + RAIL_GAP);
@@ -2135,7 +2101,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     stage.holdHome(true);
     creditHolds++; clearTimeout(creditT); app.classList.add('pz-moving');
     // (A move that did not come by go (a new text size, a redraw) is a transaction of its own too.)
-    if (SLIDE_TXN && !txn?.live()) txn = txns.begin({ to, dir: 'redraw' });
+    if (!txn?.live()) txn = txns.begin({ to, dir: 'redraw' });
     const tx = txn;
     try { await transitionRun(to); } finally {
       keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
@@ -2283,7 +2249,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui?.root.classList.add('pz-prep');
     // (A catheter slide comes in at once: its teaching card carries the live tracing, which stays on screen through the
     // measurement while the catheter drives the camera.)
-    bare = !booting && !!ui && !ct && !(stayTurn && !swap && !caseCard);   // (a glass kept up is never left empty while the camera moves: its new words come in at once)
+    bare = !booting && !!ui && !ct;
     wordsIn(s, said, to, swap, lap, st);
     // (Bare, the teaching card and its glass stay out whole until the camera has landed, never an empty card first. Behind a case
     // card they also stay out until it is lifted, a catheter slide's included: its words would otherwise come in under the case.)
@@ -2305,10 +2271,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (ct && swap && glide) { await until(() => cut() || stage.organsSettled(), CATH_SETTLE_MS); if (cut()) return; }
     // Behind a case card the camera holds the whole patient until the tap; then it zooms to the slide as the card fades.
     if (caseCard) { await caseLifted(cut); if (cut()) return; }
-    // One move (ONE_MOVE): over the plate, outside the liver, the cards come in as the glide ends (plate), and a change of patient eases
+    // One move: over the plate, outside the liver, the cards come in as the glide ends (plate), and a change of patient eases
     // under the glide (under) where the figure can move smoothly while its organs change. (Not behind a question's card: the change
     // would play out unseen before the lift; there it waits for the landing, as before.)
-    const plate = ONE_MOVE && bare && !ct && !!cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !store.get().sinusoid;
+    const plate = bare && !ct && !!cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !store.get().sinusoid;
     const under = plate && later && !caseCard && underTool(s.tool) && !!stage.canDrift?.() && (fv.view || 'anatomic') === store.get().view;
     let morphP = null;
     if (under) {
@@ -2334,11 +2300,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // The camera is still: the patient changes now, unhurried, and the cards come in only once it has.
       // (A kept data card stays up through it, its readings riding the model as it eases: followData.)
       if (later && !under && keepNow.data && keepNow.swap) followData(s, to, st, cut);
-      if (later && !under) { if (!await morphTo(st, cut, ONE_MOVE ? MORPH_ONE_MS : MORPH_MS)) return; shownState = own ? -1 : si; ui?.tools.hold(false); }
+      if (later && !under) { if (!await morphTo(st, cut, MORPH_ONE_MS)) return; shownState = own ? -1 : si; ui?.tools.hold(false); }
       // The cards fade in once the figure is quiet: after a new patient, once the organs' picture is redrawn (its long frame
       // had eaten the fade), and in any case only when frames come smoothly (see smooth).
       if (swap) { await until(() => cut() || stage.organsSettled(), 1500); if (cut()) return; }
-      if (prep) { if (await prep) await smooth(cut, QUICK_SLIDE ? QUICK_SMOOTH : 700); } else await unseen(cut);
+      if (prep) { if (await prep) await smooth(cut, QUICK_SMOOTH); } else await unseen(cut);
       if (cut()) return;
       await ui.tools.ready(900); if (cut()) return;   // (a recording instrument's window is filled before its card comes in: tools.prime)
       await caseEnd(cut); if (cut()) return;
@@ -2427,7 +2393,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // tight iPad a reading settling or a chart lettered stepped the title or folded the ladder, so the card came in and then snapped.)
   // (While they fade in, the work that can wait does: frame.js holdMotion, the delay and the fade, app.css .pz-text.pz-enter.)
   function cardsIn(at) { if (ui) { if (!reduce.matches) holdMotion(D_SURFACE + 220); if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); txn?.restore(); wordsTurnIn(); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); cardIn(ui.panel, 'pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { const p = ui.data.dataset.prep; delete ui.data.dataset.prep; if (!cardIn(ui.data, 'pz-hide', THROW_STAGGER)) ui.data.dataset.prep = p; } if (!bare) { const dir = throwDir || 'next'; for (const el of [ui.text, ui.shade, ui.data, ui.panel]) if (throwPinned(el)) { if (!el.hidden && el.childElementCount !== 0 && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide')) throwIn(el, dir, 0, throwD); else throwRelease(el); } throwDir = ''; railAway(); } } }   // (bare: the words come in later, thrown too)
-  // (A data card or panel coming in: thrown in from the side the talk goes when the old cards were thrown (CARD_THROW), else as before.
+  // (A data card or panel coming in: thrown in from the side the talk goes when the old cards were thrown, else as before.
   // Its way out is forgotten in the same style change, so the leave's place never runs back across the screen under the way in.)
   function cardIn(el, cls, delay = 0) {
     if (!el.classList.contains(cls)) return true;
@@ -2446,7 +2412,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // never snap to it in view (an upright iPad's teaching card did). cardsIn's own reFit then finds nothing left to change.
   async function unseen(cut) {
     if (ui) { reFit(); layout(); await painted(); await painted(); if (cut() || !ui) return; layout(); }
-    await smooth(cut, QUICK_SLIDE ? QUICK_SMOOTH : 700);
+    await smooth(cut, QUICK_SMOOTH);
   }
   // The same, in two parts for a move over the plate: the fitting (true once the cards are fitted, still unseen) runs under the glide's
   // first frames, and the smooth-frames gate runs where it always did, right before the cards come in.
@@ -2487,43 +2453,24 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // words: which way they leave and come in, kept on them until they next leave or are built again, so nothing restarts their entrance.)
   function glassTurn(s, ask, ct) {
     if (!ui) return;
-    const up = !ui.text.hidden && ui.shade.style.opacity !== '0' && (ui.shade.classList.contains('pz-turn') || !ui.shade.classList.contains('pz-leave'));
+    const up = !ui.text.hidden && ui.shade.style.opacity !== '0' && !ui.shade.classList.contains('pz-leave');
     // (Every kind of slide coming, a question, a case, a visual, a new patient, gets the same leave: only a catheter or monitor slide,
     // whose words come in at once with the live tracing, and a case card still up (the words are already out) keep their own.)
     // (As one page, catheter and monitor slides too: only a monitor kept in place across the change keeps the old way.)
     const monKept = !!mon && !!s.monitor && !s.visual && mon.el.parentNode === ui.text;
-    const on = CARD_TURN && up && !booting && !reduce.matches && (CARD_PAGE ? pageOn({ up, caseCard: !!caseCard, monKept }) : !s.cath && !s.monitor && !caseCard);
+    const on = up && !booting && !reduce.matches && pageOn({ up, caseCard: !!caseCard, monKept });
     turnNow = on ? turn : '';
-    stayTurn = on && glassStays();
     if (on) ui.text.style.setProperty('--pz-turn-d', `${turnRoom().toFixed(1)}px`);
     if (!on) turnIn = false;   // (a slide that keeps its words, or leaves whole, never fires a stale entrance)
     clearTimeout(glassT);
     setTurn(on);
   }
-  // A glass kept up through a slide change eases to its new size on the GPU (glass-gl.js data-gl-morph, D_SURFACE, the arrival curve); the
-  // tabs on it (the deck's, the level's) and its credit ride along by transform from where they stood, on the same clock and curve: those
-  // at its top by the change of its top, the credit at its foot by the change of its foot. Nothing is read from the layout: the old and
-  // new places are the glass's own top and height as written.
-  function shadeRide(was) {
-    const nt = parseFloat(ui.shade.style.top), nh = parseFloat(ui.shade.style.height);
-    if (!Number.isFinite(was.top) || !Number.isFinite(nt)) return;
-    const dTop = was.top - nt, dFoot = Number.isFinite(was.h) && Number.isFinite(nh) ? was.top + was.h - (nt + nh) : 0;
-    for (const c of ui.shade.children) {
-      const d = c.classList.contains('pz-cred') ? dFoot : dTop;
-      if (Math.abs(d) > 0.5) c.animate?.([{ transform: `translateY(${d.toFixed(1)}px)` }, { transform: 'translateY(0)' }], { duration: D_SURFACE, easing: EASE_ARRIVE, composite: 'add' });
-    }
-  }
   function setTurn(on) {
     if (!ui) return;
     // (The glass itself always leaves and comes back with the words, never resized in view: easing a blurred glass's size made iPhone
     // Safari redraw its backdrop every frame (the camera's glide ran at a few frames a second) and drop it at once, Mohammad, 1 Nov.)
-    // (The glass kept up, stayTurn: pz-turn on it keeps it out of the words' leave (the class observer, below), and data-gl-morph has the GPU
-    // ease it to the new words' size.)
-    if (!on) stayTurn = false;
-    const stay = on && stayTurn;
-    ui.root.classList.toggle('pz-turn', on); ui.shade.classList.toggle('pz-turn', stay); ui.shade.classList.toggle('pz-turnfade', on && !stay);
-    if (stay) ui.shade.setAttribute('data-gl-morph', ''); else ui.shade.removeAttribute('data-gl-morph');
-    ui.shade.classList.toggle('pz-leave', !stay && ui.text.classList.contains('pz-leave'));
+    ui.root.classList.toggle('pz-turn', on); ui.shade.classList.toggle('pz-turnfade', on);
+    ui.shade.classList.toggle('pz-leave', ui.text.classList.contains('pz-leave'));
   }
   // (Once a move has landed, the glass's eases are let finish (its size: the camera's step at most) before they are switched off again,
   // so a resize or a turn of the device later moves it at once, as before; switched off mid-ease, a transition would jump to its end.)
@@ -2537,7 +2484,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!keepNow.text) wordsFreeze();
     // (The way the talk goes, by the key or swipe, whether or not the glass turns as a page: glassTurn leaves it off for a catheter or
     // monitor slide, a reading card and the like, and those cards are thrown too.)
-    throwDir = CARD_THROW && !reduce.matches && (turn === 'next' || turn === 'back') ? turn : '';
+    throwDir = !reduce.matches && (turn === 'next' || turn === 'back') ? turn : '';
     railAway();   // (a copy left from a change cut short goes now, before this change's copies are made: card-throw.js)
     const up = (el) => !el.hidden && !!el.childElementCount && !el.classList.contains('pz-leave');
     const textUp = !keepNow.text && up(ui.text), panelUp = up(ui.panel);
@@ -2558,7 +2505,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!keepNow.text) ui.text.dataset.out = turnNow;   // (set with the leave, in the same style change, so the words go the right way at once)
     // (Thrown: the data card and a panel go the same way as the words.)
     for (const el of [data, ui.panel]) { if (throwDir) el.dataset.out = throwDir; else delete el.dataset.out; }
-    if (!keepNow.text && CARD_PAGE && !stayTurn) {
+    if (!keepNow.text) {
       // (The glass goes the same way and the same distance as its words, as one card.)
       ui.shade.dataset.out = turnNow;
       const d = ui.text.style.getPropertyValue('--pz-turn-d');
@@ -2568,19 +2515,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (keep && el === ui.text) { for (const c of el.children) if (c !== mon.el) c.classList.add('pz-leave'); }
       else el.classList.add('pz-leave');
     }
-    if (SWIPE_HAND) {
+    {
       // (The glass takes its leave now, with the words, in the same style change, not in the class observer's microtask after them: a
       // style read in between (the glass's own observer reads the page) laid the glass at rest for a frame, so after a swipe it jumped
       // back to the middle and slid out from there. A swipe's hold, if any, goes in the same change.)
       const goes = !keepNow.text && ui.text.classList.contains('pz-leave');
-      if (goes && !ui.shade.classList.contains('pz-turn')) ui.shade.classList.add('pz-leave');
+      if (goes) ui.shade.classList.add('pz-leave');
       if (pageHeld) pageHand(goes);
     }
     if (throwDir && !leaving) {
       // (Thrown, each on card-throw.js's clock from where it stands (a swipe's finger included): the words and their glass as one, a data
       // card that changes and a panel with them. Not the words around a catheter's monitor kept up: they fade around it as before.)
       const goes = [];
-      if (textUp && !keep) { goes.push(ui.text); if (CARD_PAGE && !stayTurn && ui.shade.classList.contains('pz-leave')) goes.push(ui.shade); }
+      if (textUp && !keep) { goes.push(ui.text); if (ui.shade.classList.contains('pz-leave')) goes.push(ui.shade); }
       if (dataOut) goes.push(data);
       if (panelUp) goes.push(ui.panel);
       // (Instant, card-throw.js INSTANT: every card leaving sets off in this task, the tap's, on one clock and one distance, so the words,
@@ -2608,28 +2555,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function wordsFreeze() {
     const a = turnAnim; turnAnim = null; turnIn = false;
     const t = ui.text;
-    if (CARD_PAGE) {
-      // (The page: the glass and the words are stopped together where their entrance has got to, and leave from there.)
-      for (const [el, an] of [[t, a], [ui.shade, shadeAnim]]) {
-        if (!an || an.playState === 'finished' || an.playState === 'idle') continue;
-        const cs = readStyle(el), o = cs.opacity, tf = cs.transform;
-        an.cancel();
-        el.style.transition = 'none'; el.style.opacity = o; el.style.transform = tf;
-        void readStyle(el).opacity;
-        el.style.transition = ''; el.style.opacity = ''; el.style.transform = '';
-      }
-      shadeAnim = null;
-      return;
+    // (The page: the glass and the words are stopped together where their entrance has got to, and leave from there.)
+    for (const [el, an] of [[t, a], [ui.shade, shadeAnim]]) {
+      if (!an || an.playState === 'finished' || an.playState === 'idle') continue;
+      const cs = readStyle(el), o = cs.opacity, tf = cs.transform;
+      an.cancel();
+      el.style.transition = 'none'; el.style.opacity = o; el.style.transform = tf;
+      void readStyle(el).opacity;
+      el.style.transition = ''; el.style.opacity = ''; el.style.transform = '';
     }
-    if (!a || a.playState === 'finished' || a.playState === 'idle') {
-      // (the leave's clip starts from the box's own place, so it closes in step with the move, never cutting the words at once)
-      return;
-    }
-    const cs = readStyle(t), o = cs.opacity, tf = cs.transform;
-    a.cancel();
-    t.style.transition = 'none'; t.style.opacity = o; t.style.transform = tf;
-    void readStyle(t).opacity;
-    t.style.transition = ''; t.style.opacity = ''; t.style.transform = '';
+    shadeAnim = null;
   }
   // What is left, ms, of the longest fade still running on these cards (0 when none).
   const fadeLeft = (els) => els.reduce((m, el) => readAnims(el).reduce((n, a) => { const t = a.playState === 'running' && readTiming(a.effect); return t && Number.isFinite(t.endTime) ? Math.max(n, t.endTime - (t.localTime || 0)) : n; }, m), 0);
@@ -3230,7 +3165,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // stacked card behind it"). There the readings' card is tucked behind the instrument card's top edge, its handle on top, and comes out
   // upward: the words' card rises with it and comes back down as it tucks away (Mohammad, 22 Oct: "make so I open the stacked card untuck
   // it to the TOP not to the bottom. Cuz that's easier to pull up and the teaching card goes up"; slip.lift, liftTo).)
-  const UNDER_FIRST = !/[?&]underfirst=0\b/.test(location.search);
   const splitSheet = (d) => !!ui && (ui.root.classList.contains('stack') || ui.root.classList.contains('pz-wide')) && d.classList.contains('pz-sheet');
   const wideSheet = (d) => !!ui?.root.classList.contains('pz-wide') && d.classList.contains('pz-sheet');
   // The readings' card slides out from behind the instrument card and back under it, one solid piece (Mohammad, 17 Oct: "The secondary
@@ -3259,9 +3193,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // make, from the inline value as written this frame; null where no rule moves the element.)
   // (Cards are glass (Mohammad, 2 Nov 2026: "CARDS ARE GLASS"): a card zoomed up (card-zoom.js data-zoomed) keeps its GPU frost, its panes read
   // at the zoom's scale (sheet-glass.js) and again in each frame of its glide (glass-gl.js LIVE_READ); the words, their glass and the stage's
-  // labels step out from under it (app.css .pz-zoomed), so only the frosted figure lies behind it. ?zoomglass=0: the solid card instead.)
-  const ZOOM_GLASS = !/[?&]zoomglass=0\b/.test(location.search);
-  const unzoomed = (g) => ZOOM_GLASS || !g?.dataset || !('zoomed' in g.dataset);
+  // labels step out from under it (app.css .pz-zoomed), so only the frosted figure lies behind it.)
   const risePx = (el, name) => parseFloat(el.style.getPropertyValue(name)) || 0;
   const riseShift = (el) => {
     if (!ui) return null;
@@ -3996,8 +3928,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (2 Nov 2026: an upright phone's card was planned with the last slide's readings travel (--pz-d) still on it, so its tucked height
     // came out with its readings counted in (Varices 2 to 3: 434 px for a 213 px card), it was shut (autoDock), and the layout the shut
     // made, measuring it as it is, opened it again: two layout passes more in the first frames of every such change, and a card that
-    // could slide shut and out again. Their travel is read for the new readings first, as placeLip does at rest. ?underfirst=0: as before.)
-    if (p && UNDER_FIRST && splitSheet(dd0) && !dd0.classList.contains('pz-sliding') && dock.lvl === dock.to && !dock.drag) measureUnder(dd0);
+    // could slide shut and out again. Their travel is read for the new readings first, as placeLip does at rest.)
+    if (p && splitSheet(dd0) && !dd0.classList.contains('pz-sliding') && dock.lvl === dock.to && !dock.drag) measureUnder(dd0);
     const phoneCap = p ? phoneTextCap(lockKey, H, k) : null;
     if (phoneCap != null) ui.text.style.maxHeight = `${phoneCap.toFixed(1)}px`;
     if (p) autoDock(phoneShut); else if (!low) autoDock(false);
@@ -4239,7 +4171,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const L = t ? t.right - wr.left : 0, B = t ? H - readMetric(ui.text, 'offsetTop') * k : 0;
     // (The words' card: as far past the words on the right as its left edge is before them.)
     const card = cardOn && t ? L + pad - sl : 0;
-    const was = { top: parseFloat(ui.shade.style.top), h: parseFloat(ui.shade.style.height) };   // (a glass kept up: its tabs ride its change of size, below)
     ui.shade.style.width = !p && t ? `${(card || L + 36) / k}px` : '';
     ui.shade.style.height = !p && cardOn && t ? `${(t.height + pad + padT) / k}px` : '';
     // (A phone's glass reaches 16 px above the words, or the deck's tab and 8 px more: the tab never meets the title.)
@@ -4252,7 +4183,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const lf = (parseFloat(ui.text.style.getPropertyValue('--pz-rise')) || 0) * k;
     ui.shade.style.top = p && t ? `${readMetric(ui.text, 'offsetTop') - lift}px` : cardOn && t ? `${(t.top - wr.top - padT + lf) / k}px` : '';
     if (ui.shade.style.getPropertyPriority('opacity') !== 'important') ui.shade.style.opacity = t ? '1' : '0';   // (not over a throw's own: card-throw.js writes it important while it moves the glass or holds it out)
-    if (ui.shade.hasAttribute('data-gl-morph')) shadeRide(was);
     ui.safe.hidden = !t;
     ui.safe.dataset.safe = p ? 'bottom' : 'left';
     frameL = !p && t ? (card ? sl + card + 24 : L + 48) : 0;
@@ -4272,11 +4202,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (2 Nov 2026, the labels thread: the room the new cards leave (--pz-l, --pz-t...) was written as their layout ran, before the camera set
   // off, so the figure's labels were laid out once for the new room under the old camera: an organ's name under the coming card faded out
   // for about 0.3 s, then came back where the glide landed. Through a slide change whose camera moves, that room is held back and written
-  // as the glide starts (frameTo reads it then, to frame for it), and the labels are laid out once, where it lands. ?insetglide=0: as before.)
-  const INSET_GLIDE = !/[?&]insetglide=0\b/.test(location.search);
+  // as the glide starts (frameTo reads it then, to frame for it), and the labels are laid out once, where it lands.)
   let insetHold = false, insetT = 0;
   const insetPend = new Map();
-  function insetsHold() { if (!INSET_GLIDE) return; insetHold = true; clearTimeout(insetT); insetT = setTimeout(() => insetsGo(), 2500); }
+  function insetsHold() { insetHold = true; clearTimeout(insetT); insetT = setTimeout(() => insetsGo(), 2500); }
   /** Writes the held room now; tells the figure (pps:occ) unless `quiet` (the glide about to start tells it once it has). */
   function insetsGo(quiet = false) {
     clearTimeout(insetT); insetT = 0;
@@ -5059,8 +4988,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const t = e.touches[0];
     sw = deck && e.touches.length === 1 && !caseOn(e) && !ownsSideways(e.target, { stop: wrap, cardSideways: ui && !ui.data.hidden && !phone() && !ui.root.classList.contains('pz-wide') })
       ? { x: t.clientX, y: t.clientY, t: performance.now() } : null;
-    // (The room the words have to follow a finger in, read once as it lands, at rest: the moves after it read nothing.)
-    if (sw) sw.room = ui && CARD_TURN && !CARD_PAGE ? turnRoom() : 20;
   }, { passive: true, capture: true });
 
   // ── The case card on a touch screen: it follows a finger sideways (tilting a little) and flies off when let go far enough
@@ -5110,29 +5037,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // carry on from where the finger left them into their way out (app.css data-out, the same transform, eased from where it stands); short
   // of it, they ease back. At the first slide, where Back goes nowhere, they follow a tenth of the finger and do not fade. Only while
   // nothing is moving (no slide change, no case card) and the words are in.
-  const PULL_K = 0.25, PULL_FADE = 160, PULL_END_K = 0.1;
   let pull = null;
   // (Only a swipe that will change the slide moves the words: one that plays a procedure's next step, a beat of the figure, the rest of a
   // time-lapse or lifts a case card leaves them where they are, never following the finger and then springing back: Mohammad, 1 Nov, BRTO steps.)
   const turnsSlide = (dx) => dx < 0
     ? !caseLift && !lapseOn && !procRun && !procWait && !slides[want]?.procedure && beat >= lastBeat(want) && want < slides.length - 1
     : !procRun && !procWait && beat === 0 && want > 0;
-  const pullCan = (dx) => turnsSlide(dx) && CARD_TURN && !!ui && !busy && !caseCard && !zoomOn() && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
+  const pullCan = (dx) => turnsSlide(dx) && !!ui && !busy && !caseCard && !zoomOn() && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
   function pullTo(dx) {
-    if (CARD_PAGE) {
-      // (The page: the glass and the words follow as one card, transform and opacity only, nothing read from the layout.)
-      const f = followOf(dx);
-      pull.x = f.x; pull.o = f.o;
-      for (const el of (pull.els ??= swipeEls())) { throwStop(el); el.style.transition = 'none'; el.style.transform = `translateX(${f.x.toFixed(1)}px)`; el.style.opacity = f.o.toFixed(3); }
-      return;
-    }
-    // (The words follow the finger the whole way, never stopping: their move eases toward the room they have inside the glass (never past
-    // its edge) while they fade on with the finger's own travel.)
-    const end = dx > 0 && want === 0, k = end ? PULL_END_K : PULL_K, cap = pull.cap ?? 20;
-    const x = Math.sign(dx) * cap * (1 - Math.exp(-Math.abs(dx) * k / cap));
-    const o = end ? 1 : 1 - 0.6 * Math.min(1, Math.abs(dx) / PULL_FADE);
-    pull.x = x;
-    ui.text.style.transition = 'none'; ui.text.style.transform = `translateX(${x.toFixed(1)}px)`; ui.text.style.opacity = o.toFixed(3);
+    // (The page: the glass and the words follow as one card, transform and opacity only, nothing read from the layout.)
+    const f = followOf(dx);
+    pull.x = f.x; pull.o = f.o;
+    for (const el of (pull.els ??= swipeEls())) { throwStop(el); el.style.transition = 'none'; el.style.transform = `translateX(${f.x.toFixed(1)}px)`; el.style.opacity = f.o.toFixed(3); }
   }
   // (Let go: the inline styles go in one style change with the slide's own leave (gone: the words carry on out from where they stand),
   // or, staying, the lines ease back from where they are and the words' opacity eases back by the card's own transition.)
@@ -5140,38 +5056,27 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const g = pull; pull = null;
     if (!g?.on || !ui) return;
     const x = g.x;
-    if (CARD_PAGE) {
-      // (Let go: the card goes on out from where the finger left it, the glass and words together (their leave starts from the inline
-      // values, dropped in the same style change; further than the leave's own way, it carries on from there), or, the swipe given up,
-      // both ease back from there.)
-      const els = g.els || pageEls(), o = g.o ?? 1, out = gone && ui.text.classList.contains('pz-leave');
-      if (out && throwing(ui.text)) {
-        // (thrown: already going on out from the finger, card-throw.js. A card the swipe took along that the new slide keeps (the same
-        // data card) is not thrown: it eases back from the finger to its place.)
-        for (const el of els) if (!throwing(el) && !throwPinned(el) && el.style.transform) { const o0 = parseFloat(el.style.opacity); el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); el.animate?.([{ transform: `translateX(${x}px)`, opacity: Number.isFinite(o0) ? o0 : 1 }, { transform: 'none', opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
-        return;
-      }
-      if (SWIPE_HAND && gone && busy && !out) {
-        // (The slide is on its way: held here until its leave comes (wordsOut, pageHand); one that never comes eases back.)
-        clearTimeout(pageHeld?.t);
-        pageHeld = { x, o, els, t: setTimeout(() => { if (pageHeld) pageHand(false); }, 600) };
-        return;
-      }
-      for (const el of els) { el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); }
-      if (out) {
-        if (SWIPE_HAND) { pageThrow(x, els); return; }
-        const d = parseFloat(ui.text.style.getPropertyValue('--pz-turn-d')) || 20;
-        if (Math.abs(x) > d) for (const el of els) el.style.setProperty('--pz-turn-d', `${Math.abs(x).toFixed(1)}px`);
-      } else if (Math.abs(x) > 0.5 || o < 0.999) {
-        for (const el of els) el.animate?.([{ transform: `translateX(${x}px)`, opacity: o }, { transform: 'none', opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
-      }
+    // (Let go: the card goes on out from where the finger left it, the glass and words together (their leave starts from the inline
+    // values, dropped in the same style change; further than the leave's own way, it carries on from there), or, the swipe given up,
+    // both ease back from there.)
+    const els = g.els || pageEls(), o = g.o ?? 1, out = gone && ui.text.classList.contains('pz-leave');
+    if (out && throwing(ui.text)) {
+      // (thrown: already going on out from the finger, card-throw.js. A card the swipe took along that the new slide keeps (the same
+      // data card) is not thrown: it eases back from the finger to its place.)
+      for (const el of els) if (!throwing(el) && !throwPinned(el) && el.style.transform) { const o0 = parseFloat(el.style.opacity); el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); el.animate?.([{ transform: `translateX(${x}px)`, opacity: Number.isFinite(o0) ? o0 : 1 }, { transform: 'none', opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
       return;
     }
-    ui.text.style.removeProperty('transition'); ui.text.style.removeProperty('opacity'); ui.text.style.removeProperty('transform');
-    const out = gone && ui.text.classList.contains('pz-leave');
-    // (Dragged further than the leave's own way: the words carry on out from there, never back toward the card while they fade.)
-    if (out && Math.abs(x) > (parseFloat(ui.text.style.getPropertyValue('--pz-turn-d')) || 20)) ui.text.style.setProperty('--pz-turn-d', `${Math.abs(x).toFixed(1)}px`);
-    if (!out && Math.abs(x) > 0.5) ui.text.animate?.([{ transform: `translateX(${x}px)` }, { transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE });
+    if (gone && busy && !out) {
+      // (The slide is on its way: held here until its leave comes (wordsOut, pageHand); one that never comes eases back.)
+      clearTimeout(pageHeld?.t);
+      pageHeld = { x, o, els, t: setTimeout(() => { if (pageHeld) pageHand(false); }, 600) };
+      return;
+    }
+    for (const el of els) { el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); }
+    if (out) pageThrow(x, els);
+    else if (Math.abs(x) > 0.5 || o < 0.999) {
+      for (const el of els) el.animate?.([{ transform: `translateX(${x}px)`, opacity: o }, { transform: 'none', opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
+    }
   }
   // (A swipe's throw: the card carries on out from where the finger left it, the leave's own way further, decelerating from the finger's
   // pace (app.css pz-thrown: --ease-arrive, not the leave's --ease-in, which stood the card still at the finger before it went on). The
@@ -5207,7 +5112,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const dx = t.clientX - g.x, dy = t.clientY - g.y, now = performance.now();
     if (!pull) {
       if (Math.abs(dx) < 8 || Math.abs(dx) <= SWIPE_RATIO * Math.abs(dy) || !pullCan(dx)) return;
-      pull = { on: true, x: 0, pts: [], cap: g.room };
+      pull = { on: true, x: 0, pts: [] };
     }
     pull.pts.push([t.clientX, now]);
     while (pull.pts.length > 2 && now - pull.pts[0][1] > 80) pull.pts.shift();
@@ -5226,7 +5131,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (Math.abs(dx) >= SWIPE_MIN || (Math.abs(v) >= 0.3 && Math.abs(dx) >= SWIPE_MIN / 2 && Math.sign(v) === Math.sign(dx))) d = dx < 0 ? 1 : -1;
     }
     // (A swipe the card followed: its words leave even when the next slide's are the same, so the card never goes back where it was.)
-    if (CARD_PAGE && d && p?.on && Math.abs(p.x) > 0.5) pageForce = true;
+    if (d && p?.on && Math.abs(p.x) > 0.5) pageForce = true;
     if (d > 0) next(); else if (d < 0) prev();
     if (!busy) pageForce = false;   // (nothing moved: a stale force never reaches a later change)
     if (p) pullLet(!!d);
@@ -5440,15 +5345,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     };
     // (A card that folds in place, not a sheet (an iPad upright, a short screen): the part takes its full height once as the finger
     // starts, as a tap on Show gives the card its new size at once, and follows the finger by opacity and a short slide only, its
-    // height written again once at release (settle, setFold). ?foldxf=0: nothing follows the finger and the card changes at release; no
-    // height is ever written per move.)
-    const take = (gg) => { gg.on = true; if (gg.split) { cancelFrame(slip.raf); slideTell(); } else { gg.p.style.transition = 'none'; if (FOLD_XF) { gg.xf = true; gg.fade = el.classList.contains('pz-folds'); if (gg.fade) gg.p.style.opacity = String(gg.u0); gg.p.classList.add('pz-follow'); } } if (gg.split && (gg.u0 === 0 || gg.u0 === 1)) camGrab(); hold(true); };   // (camGrab: the view follows the finger, from rest)   // (fade: a part folded away fades in and out; a sheet's tiles, already in view, only slide)
+    // height written again once at release (settle, setFold). No height is ever written per move.)
+    const take = (gg) => { gg.on = true; if (gg.split) { cancelFrame(slip.raf); slideTell(); } else { gg.p.style.transition = 'none'; gg.xf = true; gg.fade = el.classList.contains('pz-folds'); if (gg.fade) gg.p.style.opacity = String(gg.u0); gg.p.classList.add('pz-follow'); } if (gg.split && (gg.u0 === 0 || gg.u0 === 1)) camGrab(); hold(true); };   // (camGrab: the view follows the finger, from rest)   // (fade: a part folded away fades in and out; a sheet's tiles, already in view, only slide)
     // (dy: how far the finger has moved since the part began to follow it, down positive.)
     const foldFollow = (gg, dy) => {
       const u = clamp(gg.u0 * gg.full + dy, 0, gg.full) / (gg.full || 1);
       gg.u = u; gg.pts.push([performance.now(), dy]);
       if (gg.split) { el.classList.add('pz-sliding'); el.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); camAt(u); return; }
-      if (gg.xf) { gg.p.style.translate = `0 ${(-(1 - u) * FOLD_SLIDE).toFixed(1)}px`; if (gg.fade) gg.p.style.opacity = u.toFixed(3); }   // (?foldxf=0: nothing follows; the card changes at release)
+      if (gg.xf) { gg.p.style.translate = `0 ${(-(1 - u) * FOLD_SLIDE).toFixed(1)}px`; if (gg.fade) gg.p.style.opacity = u.toFixed(3); }
     };
     // (From where the finger left it to the class's own state: the part's transition, or the readings' card's slide, eases the
     // rest. setFold reads where the finger left it before letting go of it.)
@@ -5641,8 +5545,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     tapTracker(data, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });
     tapTracker(panel, { ok: () => cellReady() || zoom.up, onTap: cellTap });
     const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);
-    if (CARD_PAGE) { root.classList.add('pz-page'); shade.classList.add('pz-page'); }   // (the teaching card as one page: card-page.js)
-    if (CARD_THROW) { root.classList.add('pz-throw'); shade.classList.add('pz-throw'); }   // (Next and Back throw the cards: app.css .pz-throw)
+    root.classList.add('pz-page'); shade.classList.add('pz-page');   // (the teaching card as one page: card-page.js)
+    root.classList.add('pz-throw'); shade.classList.add('pz-throw');   // (Next and Back throw the cards: app.css .pz-throw)
     veil.after(pscrim);   // (above the page's veil, under everything else)
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
@@ -5659,9 +5563,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // 2026, at 25a4f68f, and a layer of its own did not keep it). It keeps the browser's blur, as it had until that day.)
     // (1 Nov 2026, evening: the shade is on the GPU glass again, as every other card, now that no glass ever goes back to the browser's blur
     // (app.css: where the figure's canvas cannot take it, the shade turns solid; no backdrop-filter is declared anywhere) and the shade keeps one
-    // layer of its own throughout, so the swap that lost its picture on an iPhone no longer happens. ?shadegl=0 keeps it solid.)
-    const shadeGL = SHADE_GL;
-    const glass = stage.cardGlass?.({ find: () => [...(shadeGL ? [shade, data, vcase, bar, scl, fk] : [data, vcase, bar, scl, fk]), ...railGhosts().filter((g) => shadeGL || g.dataset.ghost !== 'shade')].filter(unzoomed), watch: [root, shade], before: shade, low: shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), shift: riseShift }) || null;
+    // layer of its own throughout, so the swap that lost its picture on an iPhone no longer happens.)
+    const glass = stage.cardGlass?.({ find: () => [shade, data, vcase, bar, scl, fk, ...railGhosts()], watch: [root, shade], before: shade, low: shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), shift: riseShift }) || null;
     return { root, shade, safe, load, text, data, lip, lipRO, lipMO, shadeMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.

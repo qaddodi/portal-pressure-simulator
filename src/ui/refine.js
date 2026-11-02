@@ -17,7 +17,7 @@
 // The allowance is REFINE_MS a frame.
 
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { createHistogram } from './frame-stats.js?v=5cd07c7e9b';
+import { createHistogram } from './frame-stats.js?v=c6ae854a8b';
 
 export const REFINE_MS = 1;
 // A cooperative bound, not a hard one (recs_cgpt R18; recs-production-120hz §15, 2 Nov 2026): a step that ran past its allowance leaves the

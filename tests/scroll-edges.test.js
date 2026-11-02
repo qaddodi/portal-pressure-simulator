@@ -1,8 +1,8 @@
-// Soft edges on lists that scroll (1 Nov 2026): a 12 px fade only at an end with more beyond it, eased, and off with ?edges=0.
+// Soft edges on lists that scroll (1 Nov 2026): a 12 px fade only at an end with more beyond it, eased.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { edgeState, edgesOff } from '../src/ui/scroll-edges.js';
+import { edgeState } from '../src/ui/scroll-edges.js';
 
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const js = readFileSync(new URL('../src/ui/scroll-edges.js', import.meta.url), 'utf8');
@@ -17,12 +17,9 @@ test('a list shows a fade only at the ends that have more beyond them', () => {
   assert.deepEqual(edgeState(499.5, 900, 400), [1, 0], 'a fraction short of the end counts as the end');
 });
 
-test('?edges=0 turns it off: nothing is observed, no class is added', () => {
-  assert.equal(edgesOff('?edges=0'), true);
-  assert.equal(edgesOff('?a=1&edges=0'), true);
-  assert.equal(edgesOff('?edges=1'), false);
-  assert.equal(edgesOff(''), false);
-  assert.match(js, /if \(!root \|\| edgesOff\(\)\) return null;/);
+test('it is always on: no switch in the address turns it off', () => {
+  assert.match(js, /if \(!root\) return null;/);
+  assert.doesNotMatch(js, /edges=0|edgesgpu=0|location\.search/);
 });
 
 test('nothing is read as a list scrolls or in a frame: the ends come from an IntersectionObserver on the list\'s children, the overflow and padding from a resize', () => {

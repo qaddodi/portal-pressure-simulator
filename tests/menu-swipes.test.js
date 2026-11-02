@@ -59,5 +59,5 @@ test('upright, the sheet follows the finger down (--sink) and the other list sho
 
 test('a popover pulled down fades as it slides, instead of being removed mid-slide', () => {
   assert.match(menu, /if \(!sheet\) panel\.style\.opacity = '0';/);
-  assert.match(menu, /leaveT = setTimeout\(done, sheet \|\| o\.dragged \? D_SMALL : D_FLIP\);/);
+  assert.match(menu, /\n\s+setTimeout\(done, sheet \|\| o\.dragged \? D_SMALL : D_FLIP\);/);
 });

@@ -5,10 +5,10 @@
 
 import { store, hiddenNow } from './store.js?v=afc4d7c743';
 import { hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn } from './util.js?v=45ddc23d2e';
+import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn } from './util.js?v=a60489211b';
 import { vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { SCALE, RATE } from './table-marks.js?v=ff3ed0cc47';
-import { shownState, shownOr, FILL_SMALL, fillQ } from './shown.js?v=c34889b63f';
+import { shownState, shownOr, FILL_SMALL, fillQ } from './shown.js?v=f7d50db740';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
 

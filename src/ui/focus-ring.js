@@ -13,19 +13,10 @@
 //     gets the ring at once.
 //   - Alike: the one class it puts on <html>, fr, switches on a short block in app.css that gives the rings that were the accent
 //     colour or 1 px off their control the focus colour and the 2 px of the rest.
-//   - ?focusring=0: this file does nothing and the page is today's.
 import { D_SMALL } from './ease.js?v=7513a88c68';
-import { restPass } from './rest-pass.js?v=826eefe7e5';
+import { restPass } from './rest-pass.js?v=d13e397f0b';
 import { caught } from './caught.js?v=b96b17594a';
 
-
-/** ?focusring=0 in a page's search string: this file does nothing. */
-export const ringOff = (search) => /[?&]focusring=0\b/.test(String(search ?? ''));
-
-/** ?ringgpu=0: the ring shows at once, with no fade (nothing of the ring is ever eased by its colour: that repaints the control each
- *  frame). Otherwise (the default) the fade is a copy of the ring, laid over the control on its own layer, whose opacity eases in
- *  (the compositor's), while the control's own outline waits clear; at the end the copy goes and the outline shows, in one task. */
-export const ringGpuOff = (search) => /[?&]ringgpu=0\b/.test(String(search ?? ''));
 
 /** The ring's copy as a box on the screen: the control's box r grown by the outline's offset and width (all scaled by k, the scale
  *  the control is drawn at), and its outer corner radius. */
@@ -84,10 +75,12 @@ export function holdStyle(el, prop, value) {
   return { cancel() { if (done) return; done = true; if (was) el.style.setProperty(prop, was, pri); else el.style.removeProperty(prop); } };
 }
 
-export function startFocusRing(root = typeof document !== 'undefined' ? document : null, search = typeof location !== 'undefined' ? location.search : '') {
-  if (!root || ringOff(search) || typeof root.addEventListener !== 'function') return null;
-  const RING_GPU = !ringGpuOff(search);
-  // The fade on the compositor (RING_GPU): false where it cannot be drawn so (then the outline colour eases, as before).
+export function startFocusRing(root = typeof document !== 'undefined' ? document : null) {
+  if (!root || typeof root.addEventListener !== 'function') return null;
+  // The fade is a copy of the ring, laid over the control on its own layer, whose opacity eases in (the compositor's), while the
+  // control's own outline waits clear; at the end the copy goes and the outline shows, in one task (nothing of the ring is ever eased
+  // by its colour: that repaints the control each frame).
+  // The fade on the compositor: false where it cannot be drawn so (then the outline colour eases, as before).
   function fadeCopy(el, cs, w, off, easing, anims) {
     const r = el.getBoundingClientRect(), k = el.offsetWidth ? r.width / el.offsetWidth : 1;
     if (!r.width || !r.height || !(w > 0) || !document.body) return false;
@@ -139,7 +132,7 @@ export function startFocusRing(root = typeof document !== 'undefined' ? document
       try { inset = ringClipped(el.getBoundingClientRect(), clipBoxes(el), off + w); } catch (e) { caught('focus-ring:138', e); /* measure again below */ }
       if (inset) anims.push(holdStyle(el, 'outline-offset', `${-w}px`));
       const ease = () => getComputedStyle(document.documentElement).getPropertyValue('--ease-arrive').trim() || 'ease-out';
-      if (!mq('(prefers-reduced-motion: reduce)') && cs.outlineColor && RING_GPU) fadeCopy(el, cs, w, inset ? -w : off, ease(), anims);   // (faded on its own layer; where no copy can be made the ring shows at once)
+      if (!mq('(prefers-reduced-motion: reduce)') && cs.outlineColor) fadeCopy(el, cs, w, inset ? -w : off, ease(), anims);   // (faded on its own layer; where no copy can be made the ring shows at once)
       // (A scroll that focus itself causes can move the control against an edge after this point: measured once more, in a task of
       // its own after the next paint, never inside a frame.)
       if (!inset) setTimeout(() => restPass(recheck), 20);   // (then a rest pass, between frames: the measuring is never in a timer's callback)

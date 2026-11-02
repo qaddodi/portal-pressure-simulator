@@ -7,14 +7,12 @@ import { readFileSync } from 'node:fs';
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const pal = read('src/ui/palette.js'), css = read('styles/app.css');
 
-test('?palglide=0 is the one switch: no highlight element and the row keeps its own background', () => {
-  assert.match(pal, /const GLIDE = !\/\[\?&\]palglide=0\\b\/\.test\(location\.search\);/);
-  assert.match(pal, /const hl = GLIDE \? h\('div', \{ class: 'pal-glide', 'aria-hidden': 'true' \}\) : null;/);
-  assert.match(pal, /class: GLIDE \? 'pal-list glides' : 'pal-list'/);
-  // the row's own highlight is taken away only under .glides, so the flag off leaves today's rule in effect
-  assert.match(css, /\.pal-item\.on \{ background: var\(--accent-soft\); \}/);
+test('the list always has the one highlight element, and the row paints no highlight of its own', () => {
+  assert.doesNotMatch(pal, /GLIDE|palglide/);
+  assert.match(pal, /const hl = h\('div', \{ class: 'pal-glide', 'aria-hidden': 'true' \}\);/);
+  assert.match(pal, /class: 'pal-list glides'/);
   assert.match(css, /\.pal-list\.glides \.pal-item\.on \{ background: transparent; \}/);
-  assert.match(pal, /list\.replaceChildren\(\.\.\.\(GLIDE \? \[hl\] : \[\]\)/);
+  assert.match(pal, /list\.replaceChildren\(hl, /);
 });
 
 test('the arrow keys and the pointer move the highlight, they do not rebuild the list', () => {
@@ -29,7 +27,7 @@ test('the arrow keys and the pointer move the highlight, they do not rebuild the
 });
 
 test('the list is rebuilt only when the results change; a new query puts the highlight on the first row with no glide', () => {
-  assert.match(pal, /if \(GLIDE && key === shownKey && list\.isConnected && !back\.hidden\) \{ mark\(\); place\(false\); syncActive\(\); return; \}/);
+  assert.match(pal, /if \(key === shownKey && list\.isConnected && !back\.hidden\) \{ mark\(\); place\(false\); syncActive\(\); return; \}/);
   assert.match(pal, /input\.addEventListener\('input', \(\) => \{ sel = 0; renderList\(\); \}\);/);
   assert.match(pal, /const snap = !glide \|\| hl\.style\.opacity !== '1';/);
   assert.match(pal, /hl\.classList\.add\('still'\)/);

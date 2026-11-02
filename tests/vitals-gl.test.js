@@ -1,4 +1,4 @@
-// The vitals monitor on the GPU (vitals-gl.js; ?vitalsgl=0 the 2D canvas): the panel, grid, strip, words and numbers all go to WebGL, and the
+// The vitals monitor on the GPU (vitals-gl.js): the panel, grid, strip, words and numbers all go to WebGL, and the
 // GPU path never asks the screen canvas for a 2D context. The glyph atlas is drawn only when the layout, density or fonts change.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,8 +15,9 @@ test('colours become premultiplied rgba in 0 to 1', () => {
   assert.deepEqual(colorOf('rgba(255, 255, 255, 0.5)'), [0.5, 0.5, 0.5, 0.5]);
 });
 
-test('the GPU path is on by default, off with ?vitalsgl=0, and draws nothing with a 2D context', () => {
-  assert.match(mon, /const VITALS_GL = typeof location === 'undefined' \|\| !\/\[\?&\]vitalsgl=0\\b\/\.test\(location\.search\);/);
+test('the GPU path is on by default and draws nothing with a 2D context', () => {
+  assert.match(mon, /export function createVitalsMonitor\(\{ stillLayer = true, gpu = true \} = \{\}\)/);
+  assert.doesNotMatch(mon, /vitalsgl|location\.search/);
   assert.match(mon, /if \(glr\) return drawGL\(now\);/, 'the 2D drawing is never reached while the GPU draws');
   const body = mon.slice(mon.indexOf('function drawGL'), mon.indexOf("cv.addEventListener('webglcontextrestored'"));
   assert.ok(!/fitCanvas|getContext|fillText|stroke\(|stillTop|stillCells/.test(body), 'no 2D context, no cached 2D pictures');

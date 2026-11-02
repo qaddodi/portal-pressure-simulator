@@ -31,7 +31,7 @@ globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 globalThis.matchMedia = () => ({ matches: false, addEventListener() {} });
 globalThis.getComputedStyle = (el) => ({ opacity: el.css });
 const M = await import('../src/ui/svg-morph.js');
-const { splitNums, joinNums, polyPoints, polyD, tweenOf, tweenAt, describe, planMorph, morphSvg, morphOff } = M;
+const { splitNums, joinNums, polyPoints, polyD, tweenOf, tweenAt, describe, planMorph, morphSvg } = M;
 
 const svgOf = (...kids) => new El('svg', { viewBox: '0 0 100 50' }, ...kids);
 const line = (x1, y1, x2, y2, extra = {}) => new El('line', { x1, y1, x2, y2, ...extra });
@@ -196,9 +196,7 @@ test('a morph begun mid-glide takes the drawing as it stands: no piece jumps, th
   assert.equal(b.children[0].getAttribute('x2'), String(mid), 'the released drawing was not written again');
 });
 
-test('?chartmorph=0 turns it off; the charts that morph keep their crossfade for it', () => {
-  assert.equal(morphOff('?chartmorph=0'), true); assert.equal(morphOff('?x=1&chartmorph=0'), true);
-  assert.equal(morphOff('?chartmorph=1'), false); assert.equal(morphOff(''), false); assert.equal(morphOff(undefined), false);
+test('the charts that morph keep their crossfade for when they cannot', () => {
   const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
   for (const f of ['talk-trace.js', 'tool-curve.js', 'tool-course.js']) {
     // (a chart drawn on the GPU hands its new drawing to its picture, svg-gl.js's show, which morphs or crossfades it)

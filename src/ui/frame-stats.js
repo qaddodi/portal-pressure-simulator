@@ -13,11 +13,9 @@
 
 /** A frame whose interval or script time is over this many ms goes in the long-frame log (P4: "?perf prints each frame over 50 ms"). */
 export const LONG_FRAME_MS = 50;
-/** An interval past this is a sleeping tab (or a debugger), not a frame time: it is dropped from the intervals. */
-export const SLEEP_MS = 2000;
 const PHASES = ['early', 'late', 'final'];
 
-// ── Honest statistics (recs_cgpt R02, 2 Nov 2026) ── ?statfix=0 turns all of this off (the old recorder, as it was).
+// ── Honest statistics (recs_cgpt R02, 2 Nov 2026) ──
 // A foreground stall is kept whatever its length: an interval is dropped as a sleeping tab only when the page really was suspended
 // in it (the page went hidden, was frozen or hidden by pagehide; or the frame says so with `suspended`), never for its length alone.
 // The whole session counts: interval and script times also go into streaming histograms (fixed log buckets, a few hundred counters,
@@ -25,11 +23,10 @@ const PHASES = ['early', 'late', 'final'];
 // keep the newest frames, a bounded ring. And next to the 50 ms log, a miss log against the fixed target: a frame whose interval is
 // past 1.5 × the target interval (8.333 ms at 120 Hz) missed round(gap / target) − 1 chances to draw; the observed cadence (the median
 // of recent intervals) is kept beside it, never the yardstick.
-export const STATFIX = !(typeof location !== 'undefined' && /[?&]statfix=0\b/.test(location.search || ''));
 let suspendedAt = -Infinity, lifecycle = false;
 // (Listened for from the first frame recorded, not at load: a page nobody records adds no listener.)
 function watchLifecycle() {
-  if (lifecycle || !STATFIX || typeof document === 'undefined' || typeof addEventListener !== 'function' || !document.addEventListener) return;
+  if (lifecycle || typeof document === 'undefined' || typeof addEventListener !== 'function' || !document.addEventListener) return;
   lifecycle = true;
   const mark = () => { suspendedAt = performance.now(); };
   document.addEventListener('visibilitychange', () => { if (document.hidden) mark(); else suspendedAt = Math.max(suspendedAt, performance.now()); });
@@ -121,24 +118,6 @@ export function createFrameRecorder({ longMs = LONG_FRAME_MS, keepLong = 60, kee
   const suspended = (f) => !!f.suspended || (f.gap > 0 && suspendedAt >= (f.now ?? 0) - f.gap - 1 && suspendedAt <= (f.now ?? Infinity) + 1);
   /** Takes one frame (the shape above). Matches watchFrames' callback, so `watchFrames(recorder.add)` works as it is. */
   const add = (f) => {
-    if (STATFIX) return addFix(f);
-    const gap = f.gap > 0 && f.gap < SLEEP_MS ? f.gap : 0;
-    const sum = {}, ph = { early: 0, late: 0, final: 0 };
-    for (const [tag, phase, ms] of f.parts || []) { sum[tag] = (sum[tag] || 0) + ms; if (phase in ph) ph[phase] += ms; }
-    if (count < keepFrames) {
-      count++;
-      if (gap) gaps.push(gap);
-      scripts.push(f.script);
-      for (const tag in sum) (byTag[tag] ||= []).push(sum[tag]);
-      for (const p of PHASES) phases[p].push(ph[p]);
-    }
-    if (gap > longMs || f.script > longMs) {
-      const top = (f.parts || []).slice().sort((a, b) => b[2] - a[2]).slice(0, 4).map(([tag, phase, ms]) => [tag, phase, ms]);
-      long.push({ at: f.now, gap, script: f.script, phases: ph, top, outside: Math.max(0, (gap || f.script) - f.script) });
-      if (long.length > keepLong) long.shift();
-    }
-  };
-  const addFix = (f) => {
     watchLifecycle();
     const sus = f.gap > 0 && suspended(f);
     if (sus) dropped++;
@@ -159,7 +138,7 @@ export function createFrameRecorder({ longMs = LONG_FRAME_MS, keepLong = 60, kee
     }
   };
   /** The recording as lists of numbers: intervals, script times, each surface's per-frame ms, each phase's per-frame ms. */
-  const raw = () => ({ frames: count, ...(STATFIX ? { whole: { gap: hGap.dump(), script: hScript.dump(), misses: miss.summary(), suspended: dropped, frames: seen } } : {}), gaps: gaps.slice(), scripts: scripts.slice(), byTag: Object.fromEntries(Object.entries(byTag).map(([k, v]) => [k, v.slice()])), phases: { early: phases.early.slice(), late: phases.late.slice(), final: phases.final.slice() } });
+  const raw = () => ({ frames: count, whole: { gap: hGap.dump(), script: hScript.dump(), misses: miss.summary(), suspended: dropped, frames: seen }, gaps: gaps.slice(), scripts: scripts.slice(), byTag: Object.fromEntries(Object.entries(byTag).map(([k, v]) => [k, v.slice()])), phases: { early: phases.early.slice(), late: phases.late.slice(), final: phases.final.slice() } });
   const snapshot = () => summarizeRaw(raw());
   return { add, raw, snapshot, reset, long, misses: miss.log };
 }
