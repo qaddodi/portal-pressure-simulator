@@ -60,7 +60,7 @@ test('the history is the live beat: the same moment of the same beat at the seam
   assert.ok(Math.abs(rate - hr) < hr * 0.06, `the history beats at ${rate.toFixed(1)}/min, the live heart at ${hr.toFixed(1)}`);
   // (The live pressures are in the same range as the history's last seconds: the mean of the last two seconds, portal vein and aorta.)
   const tail = (a, n) => a.slice(-n).reduce((x, y) => x + y, 0) / n;
-  const live = samples().flatMap((s) => s.CONF), liveAO = samples().flatMap((s) => s.AO);
+  const live = samples().flatMap((s) => [...s.CONF]), liveAO = samples().flatMap((s) => [...s.AO]);   // (each channel a Float64Array view: spread to flatten)
   assert.ok(live.length > 400 && Math.abs(tail(h.CONF, 500) - tail(live, 400)) < 2, `portal vein ${tail(h.CONF, 500).toFixed(1)} against the live ${tail(live, 400).toFixed(1)} mmHg`);
   assert.ok(Math.abs(tail(h.AO, 500) - tail(liveAO, 400)) < 8, `aorta ${tail(h.AO, 500).toFixed(1)} against the live ${tail(liveAO, 400).toFixed(1)} mmHg`);
   assert.ok(posted > 0);

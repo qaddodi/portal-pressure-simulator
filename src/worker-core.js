@@ -216,7 +216,7 @@ export function createCore(post) {
       bands: eng.bands,
       bleed: eng.bleed,
       events: eng.newEvents.splice(0),
-      samples,
+      samples: packSamples(samples),
       params: paramsDirty ? eng.paramsTarget() : undefined,
     };
     paramsDirty = false;
@@ -225,7 +225,17 @@ export function createCore(post) {
     if (samples) { postedT = sampT; postedCyc = sampCyc; }
     samples = null;
     unpainted = ackOn;
-    post(f, [f.P.buffer, f.Pf.buffer, f.Q.buffer, f.Qf.buffer, f.ext.buffer, f.D.buffer]);
+    const xfer = [f.P.buffer, f.Pf.buffer, f.Q.buffer, f.Qf.buffer, f.ext.buffer, f.D.buffer];
+    if (f.samples) xfer.push(f.samples.t.buffer);
+    post(f, xfer);
+  }
+  // (Plan "Holding 120 Hz" rev 2 step 3: a frame's samples go out as one Float64Array, transferred, not as a dozen arrays cloned: each channel
+  // is a view of its own stretch of it, so the page reads s.t[i], s.vel[i] and their lengths as before. Every sample is a number.)
+  function packSamples(s) {
+    if (!s) return null;
+    const keys = Object.keys(s), n = s.t.length, buf = new Float64Array(keys.length * n), out = {};
+    for (let j = 0; j < keys.length; j++) { const a = s[keys[j]], v = buf.subarray(j * n, (j + 1) * n); for (let i = 0; i < n; i++) v[i] = a[i]; out[keys[j]] = v; }
+    return out;
   }
 
   // An engine that throws, or whose pressures or flows stop being numbers, stops the clock and says so once

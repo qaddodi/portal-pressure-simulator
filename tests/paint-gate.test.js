@@ -86,3 +86,10 @@ test('main.js ingests every snapshot and paints through the gate; nothing is ble
   const gate = readFileSync(new URL('../src/ui/paint-gate.js', import.meta.url), 'utf8');
   assert.doesNotMatch(gate, /lerp|mix\(|interpolat\w+\(/);
 });
+
+test('a frame\'s samples go out as one transferred Float64Array, each channel a view of it (rev 2 step 3)', () => {
+  const w = readFileSync(new URL('../src/worker-core.js', import.meta.url), 'utf8');
+  assert.match(w, /samples: packSamples\(samples\),/);
+  assert.match(w, /if \(f\.samples\) xfer\.push\(f\.samples\.t\.buffer\);/);
+  assert.match(w, /buf\.subarray\(j \* n, \(j \+ 1\) \* n\)/);
+});
