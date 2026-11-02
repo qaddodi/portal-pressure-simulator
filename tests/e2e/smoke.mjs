@@ -132,7 +132,7 @@ const stationRoom = (page, fault = null) => page.evaluate((fault) => {
   const out = (l) => !!l && (l.hidden || l.classList.contains('lz-off'));
   if (fault === 'drop' && ly && !out(ly)) ly.hidden = true;
   const lines = [...document.querySelectorAll('.lz.on .lz-leaders line.leader')];
-  if (fault === 'long') { const l = lines.find((q) => q.style.display !== 'none' && !q.classList.contains('ld-gone') && q.getAttribute('x2') != null); const [x, y] = [+l.getAttribute('x1'), +l.getAttribute('y1')]; l.setAttribute('x2', x + 150); l.setAttribute('y2', y); }
+  if (fault === 'long') { const l = lines.find((q) => q.style.display !== 'none' && !q.classList.contains('ld-gone') && q.getAttribute('x2') != null); const [x, y] = [+l.getAttribute('x1'), +l.getAttribute('y1')]; l._g.x2 = x + 150; l._g.y2 = y; }   // (the ends are held on the piece, svg-gl setGeo, not written as attributes)
   for (const k of ['central', 'sinusoid', 'triad']) if (out(labs.find((l) => l.dataset.target === `lobule:${k}`))) bad.push(`the ${k} label is left out`);
   const shown = labs.filter((l) => !out(l) && l.offsetWidth);
   const segs = lines.filter((l) => l.style.display !== 'none' && !l.classList.contains('ld-gone') && l.getAttribute('x2') != null && !l.closest('[hidden]') && labs.find((q) => q.dataset.target === l.dataset.target && !out(q)))

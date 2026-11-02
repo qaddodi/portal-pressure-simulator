@@ -148,7 +148,7 @@ test('the lobule is drawn live with no setting: nothing reads a switch for it, t
 
 test('the live program starts compiling as soon as the tissue\'s GPU drawing is made; when it arrives, or fails, while the lobule shows, the share eases over 400 ms and the loop wakes; unseen, it starts at the goal', () => {
   const lz = uiSrc('lobule-zoom.js');
-  assert.match(lz, /tissueGL = createTissueGL\(tissueG, \{ onLive: liveCompiled \}\); if \(!tissueGL\) tissueG\.remove\(\); else tissueGL\.liveReady\(\);/, 'asked at once, ahead of the first look');
+  assert.match(lz, /tissueGL = createTissueGL\(tissueG, \{ onLive: liveCompiled \}\); if \(!tissueGL\) restRemove\(tissueG\); else tissueGL\.liveReady\(\);/, 'asked at once, ahead of the first look');
   assert.match(lz, /function liveChanged\(\) \{ if \(unseen\(\)\) liveE = -1; else \{ liveAt = performance\.now\(\); wake\(\); \} \}/);
   assert.match(lz, /function liveCompiled\(\) \{ liveChanged\(\); \}/);
   assert.match(lz, /if \(liveE < 0 \|\| unseen\(\)\) liveE = goal;\n\s+else liveE = liveEase\(liveE, goal, now - liveAt\);/);

@@ -13,8 +13,8 @@ const HTML = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 test('the lens chip (a div role="button") carries aria-expanded while its menu is open', () => {
   assert.match(HTML, /<div class="lens-btn" id="btnLayers" role="button"[^>]*aria-haspopup="dialog"/);
   // popover() sets it on whatever anchors the menu, and clears it on every way out (Escape, outside tap, another menu opening).
-  assert.match(UTIL, /anchor\.setAttribute\('aria-expanded', 'true'\)/);
-  assert.match(UTIL, /openMenu\.anchor\.setAttribute\('aria-expanded', 'false'\)/);
+  assert.match(UTIL, /restAttr\(anchor, 'aria-expanded', 'true'\)/);
+  assert.match(UTIL, /restAttr\(openMenu\.anchor, 'aria-expanded', 'false'\)/);
   assert.match(UTIL, /if \(openMenu\) \{ const same = openMenu\.anchor === anchor; closePopover\(\)/);
   // It starts as "false" on the three chips.
   assert.match(MAIN, /for \(const id of \['btnBlood', 'btnLobuleLayers', 'btnLayers'\]\) \$\('#' \+ id\)\.setAttribute\('aria-expanded', 'false'\)/);

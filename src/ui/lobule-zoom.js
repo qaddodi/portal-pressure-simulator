@@ -37,7 +37,7 @@ import { recordPaint, gpuPicture } from './paint-gl.js?v=422be7e338';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=ccb5ac5fe2';
 import { h, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=90f84b6450';
-import { createSvgGL, svgModel } from './svg-gl.js?v=bbe4d0d65d';
+import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=bbe4d0d65d';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=807729048f';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=99f4897134';
@@ -49,7 +49,7 @@ import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=531c1defc6';
 import { createResCover, coverFollow } from './res-cover-gl.js?v=f7cebf59ef';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 import { LIGHT } from './light.js?v=f0c4eefb81';
-import { restPass, cancelRest } from './rest-pass.js?v=ed71462b47';
+import { restPass, cancelRest, restAttr, restRemove, flushRestAttrs } from './rest-pass.js?v=ed71462b47';
 import { classSoon, classHas } from './class-soon.js?v=6ad82f25a8';
 import { easeMove, carryRate, carried, cubicBezier, D_SMALL, D_SURFACE } from './ease.js?v=7513a88c68';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
@@ -165,7 +165,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const callSet = (c) => {
     call = c;
     if (c) {
-      callEl.textContent = c.label; callEl.dataset.kind = callLine.dataset.kind = callRing.dataset.kind = c.kind || 'block';
+      callEl.textContent = c.label; for (const e of [callEl, callLine, callRing]) restAttr(e, 'data-kind', c.kind || 'block');   // (a style hook, written between frames; measureRun flushes it before it measures the pill)
       // (Its size measured between frames for its new words, before it is first placed: placeCall waits for it.)
       measQ.add(callEl); if (!measT) measT = restPass(measureRun);
     }
@@ -676,11 +676,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (glTried) return gl;
     glTried = true;
     gl = createVeinsGL(glCv, { tubes: MAXT, force: true, who: 'lobule' });
-    el.dataset.vessels = gl ? 'webgl2' : 'flat';
+    restAttr(el, 'data-vessels', gl ? 'webgl2' : 'flat');
     // (A software renderer only: each lobule frame waits for the last to finish on the GPU and gives the page as long again,
     // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
     lzYield = softwareYield(!!gl?.software, gl?.software ? glCv.getContext('webgl2') : null);
-    if (!gl) { glCv.remove(); return null; }
+    if (!gl) { restRemove(glCv); return null; }
     return gl;
   }
   // (Registered once: one per ensureGL would add another handler on every restore.)
@@ -991,7 +991,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const said = m.hide ? 'Liver lobule. Pressures not measured.'
       : m.mode === 'oxygen' && m.oxy ? `Liver lobule: oxygen saturation in the portal venule ${fmt(m.oxy[0] * 100, 0)}, sinusoids ${fmt(m.oxy[1] * 100, 0)}, central vein ${fmt(m.oxy[2] * 100, 0)} percent.`
       : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central vein ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal.`;
-    if (said !== tissueSaid) { tissueSaid = said; tissue.setAttribute('aria-label', said); }
+    if (said !== tissueSaid) { tissueSaid = said; restAttr(tissue, 'aria-label', said); }
     // Station cards on the figure.
     // Labels as in the anatomy: the station, its pressure, and the change from healthy once it reaches
     // 5 mmHg; while comparing, every change from the pinned moment (shown at 1, dropped below 0.7).
@@ -1031,7 +1031,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const measQ = new Set();
   let measT = 0, labWant = null;
   const labKey = (env, L) => `${env}|${L.el.className.replace(/(^| )(stack|lz-off)(?= |$)/g, '')}|${L.el.innerHTML.replace(/\d/g, '0')}`;
-  const sizeKeyOf = (e, env) => `${env}|${e.hidden}|${e.className.replace(/(^| )lz-off(?= |$)/g, '')}|${e.innerHTML.replace(/\d/g, '0')}|${e.style.maxWidth}`;
+  // (Whether a label shows is held on the label (_hid) the moment it changes, and written as the `hidden` attribute between frames
+  // (restAttr): a frame writes no attribute. measureRun flushes the writes first and then measures the page as it stands.)
+  const isHid = (el) => el._hid ?? el.hidden;
+  const setHid = (el, b) => { el._hid = b; restAttr(el, 'hidden', b ? '' : null); };
+  const sizeKeyOf = (e, env) => `${env}|${isHid(e)}|${e.className.replace(/(^| )lz-off(?= |$)/g, '')}|${e.innerHTML.replace(/\d/g, '0')}|${e.style.maxWidth}`;
   // A call pill's or a zone name's size as measured ([fw, fh] where it is unmeasured or takes no room), asking for it to be measured
   // when what decides it changed; the layout is done again once it has been (measureRun).
   let callFit = '', callFitT = 0;
@@ -1045,6 +1049,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     measT = 0;
     const env = sizeEnv(), els = [...measQ], want = labWant;
     measQ.clear(); labWant = null;
+    flushRestAttrs();   // (a pill's kind changes its border and so its size: written before it is measured)
     let moved = false;
     for (const e of els) { const w = e.offsetWidth, h = e.offsetHeight; if (w !== e._lzSz?.w || h !== e._lzSz?.h) moved = true; e._lzSz = { key: sizeKeyOf(e, env), w, h, txt: e.textContent }; }
     if (want) {
@@ -1079,7 +1084,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function measureShown() {
     if (!geo || fade <= 0) return;
     const f = freeRect();
-    labWant = { ks: Object.keys(labs).filter((k) => !labs[k].el.hidden), fw: (f.r - f.l) * 0.32 };
+    labWant = { ks: Object.keys(labs).filter((k) => !isHid(labs[k].el)), fw: (f.r - f.l) * 0.32 };
     for (const e of [callEl, ...zoneEls]) if (e.isConnected) measQ.add(e);
     cancelRest(measT); measureRun();
   }
@@ -1183,7 +1188,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     L.txt = txt; L.u = u;
     L.lk = `${name}|${short}|${uk}|${v === ''}|${!!d}`;   // what the layout depends on (a value of new length clears layoutKey above)
-    L.el.setAttribute('aria-label', `${name} ${v} ${u}${d ? `, ${d.startsWith('+') ? 'up' : 'down'} ${d.slice(1)} ${model?.cmp ? 'since then' : model?.since ? 'since the slide before' : 'from healthy'}` : ''}. Show details`);
+    restAttr(L.el, 'aria-label', `${name} ${v} ${u}${d ? `, ${d.startsWith('+') ? 'up' : 'down'} ${d.slice(1)} ${model?.cmp ? 'since then' : model?.since ? 'since the slide before' : 'from healthy'}` : ''}. Show details`);
   }
   // Which portal venule and which sinusoid carry the label: at first the left portal venule and the
   // sinusoid just below the middle of the left side; as the view is zoomed or panned, the label stays
@@ -1357,8 +1362,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     put(callEl, best.x - w / 2, best.y - hh / 2);
     // The leader starts on the ring's edge (not at its centre) and runs to the pill.
     const dl = Math.hypot(best.x - a[0], best.y - a[1]) || 1, e0 = rr / dl;
-    callLine.setAttribute('x1', a[0] + (best.x - a[0]) * e0); callLine.setAttribute('y1', a[1] + (best.y - a[1]) * e0); callLine.setAttribute('x2', best.x); callLine.setAttribute('y2', best.y);
-    callRing.setAttribute('cx', a[0]); callRing.setAttribute('cy', a[1]); callRing.setAttribute('r', rr);
+    setGeo(callLine, 'x1', a[0] + (best.x - a[0]) * e0); setGeo(callLine, 'y1', a[1] + (best.y - a[1]) * e0); setGeo(callLine, 'x2', best.x); setGeo(callLine, 'y2', best.y);
+    setGeo(callRing, 'cx', a[0]); setGeo(callRing, 'cy', a[1]); setGeo(callRing, 'r', rr);
+    leadGL.paint();
     return [[a[0] + (best.x - a[0]) * e0, a[1] + (best.y - a[1]) * e0], [best.x, best.y]];
   }
   // Zone names written in the bands themselves, as the organs are named on the anatomy: quiet capitals in each
@@ -1371,15 +1377,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // where it is. Its leader and dot fade with it (.ld-gone). They used to cut out and pop in (P15).
   const OFF_MS = D_SMALL;
   function fadeOut(el, done) {
-    if (el.hidden) { done?.(); return; }
+    if (isHid(el)) { done?.(); return; }
     if (classHas(el, 'lz-off')) return;
-    const end = () => { el._lzOff = 0; el.hidden = true; classSoon(el, 'lz-off', false); el.classList.remove('edge'); done?.(); };
+    const end = () => { el._lzOff = 0; setHid(el, true); classSoon(el, 'lz-off', false); el.classList.remove('edge'); done?.(); };
     if (reduce.matches) { end(); return; }
     classSoon(el, 'lz-off', true);
     clearTimeout(el._lzOff); el._lzOff = setTimeout(() => { if (classHas(el, 'lz-off')) end(); }, OFF_MS);
   }
-  function fadeIn(el) { clearTimeout(el._lzOff); el._lzOff = 0; classSoon(el, 'lz-off', false); el.hidden = false; }
-  const gone = (el) => el.hidden || classHas(el, 'lz-off');
+  function fadeIn(el) { clearTimeout(el._lzOff); el._lzOff = 0; classSoon(el, 'lz-off', false); setHid(el, false); }
+  const gone = (el) => isHid(el) || classHas(el, 'lz-off');
   const leadOff = (L) => { classSoon(L.line, 'ld-gone', true); classSoon(L.dotEl, 'ld-gone', true); };
   const leadOn = (L) => { classSoon(L.line, 'ld-gone', false); classSoon(L.dotEl, 'ld-gone', false); };
   const ZONE_TPL = [['Zone 1', 'periportal'], ['Zone 2', 'midzonal'], ['Zone 3', 'centrilobular']].map(([t, d], i) => {
@@ -1388,7 +1394,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return z;
   });
   function placeZones(fr0, hx, hy, lesion = null) {
-    if (!zonesOn) { while (zoneEls.length) { const z = zoneEls.pop(); fadeOut(z, () => z.remove()); } return []; }
+    if (!zonesOn) { while (zoneEls.length) { const z = zoneEls.pop(); fadeOut(z, () => restRemove(z)); } return []; }
     const { R, cx, cy } = geo, a = Math.PI / 2, ap = R * 0.866, boxes = [];
     [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
       let z = zoneEls[i];
@@ -1465,15 +1471,20 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (the pan carries them by the same translate a layout glides: no glide may run under it, or they would trail the hand)
       labels.classList.remove('lz-ease');
       rides = [];
-      for (const L of Object.values(labs)) if (L.a && !L.el.hidden && !L.el.classList.contains('edge')) rides.push({ a: [...L.a], els: [L.el, L.line, L.dotEl] });
+      for (const L of Object.values(labs)) if (L.a && !isHid(L.el) && !L.el.classList.contains('edge')) rides.push({ a: [...L.a], els: [L.el, L.line, L.dotEl] });
       for (const z of zoneEls) if (z.isConnected && spot.has(z)) rides.push({ a: [...spot.get(z)], els: [z] });
-      if (callRing.classList.contains('on')) rides.push({ a: [+callRing.getAttribute('cx'), +callRing.getAttribute('cy')], els: [callEl, callLine, callRing] });
+      if (callRing.classList.contains('on')) rides.push({ a: [+geoOf(callRing, 'cx'), +geoOf(callRing, 'cy')], els: [callEl, callLine, callRing] });
     }
     for (const r of rides) {
       r.d = at(r.a);
       const t = `${r.d[0].toFixed(2)}px ${r.d[1].toFixed(2)}px`;
       for (const e of r.els) { const p = spot.get(e); if (p) tr(e, p[0] + r.d[0], p[1] + r.d[1]); else e.style.translate = t; }
     }
+  }
+  // A model piece's ends and centre carried by the pan's shift (held on the piece, never written as attributes).
+  function shiftGeo(e, dx, dy) {
+    for (const [a, v] of [['x1', dx], ['x2', dx], ['cx', dx], ['y1', dy], ['y2', dy], ['cy', dy]]) { const o = geoOf(e, a); if (o != null && o !== '') setGeo(e, a, +o + v); }
+    leadGL.paint();
   }
   function bakeRides() {
     if (!rides) return false;
@@ -1487,7 +1498,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       for (const e of els) {
         const p = spot.get(e);
         if (p) put(e, p[0] + dx, p[1] + dy); else e.style.translate = '';
-        for (const [a, v] of [['x1', dx], ['x2', dx], ['cx', dx], ['y1', dy], ['y2', dy], ['cy', dy]]) { const o = e.getAttribute?.(a); if (o != null) e.setAttribute(a, +o + v); }
+        shiftGeo(e, dx, dy);
       }
     }
     rides = null;
@@ -1506,7 +1517,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!dx && !dy) return false;
     for (const e of labels.children) { const p = spot.get(e); if (p) put(e, p[0] + dx, p[1] + dy); }
     for (const L of Object.values(labs)) L.gl = null;
-    for (const e of leaders.children) for (const [a, d] of [['x1', dx], ['x2', dx], ['cx', dx], ['y1', dy], ['y2', dy], ['cy', dy]]) { const v = e.getAttribute(a); if (v != null) e.setAttribute(a, +v + d); }
+    for (const e of leaders.children) shiftGeo(e, dx, dy);
+    leadGL.paint();
     return true;
   }
   // (The layout's geometry, shared with the zoom's ride check: rideHolds.)
@@ -1570,7 +1582,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const wasFollow = follow, wasV = layoutV;   // (put back should the labels wait to be measured, below)
     layoutKey = key; layoutV = vKey; follow = { b: bKey, k: V.k, x: V.x, y: V.y, ride: null };
     pickAnchors(fr0);
-    leaders.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
+    if (setGeo(leaders, 'viewBox', `0 0 ${g.W} ${g.H}`)) leadGL.paint();
     // Every label has a leader to what it names, aimed at the label's centre and stopping on the edge of its letters.
     // Score nearby placements together so zooming, panning and narrow screens do not stack labels.
     const fr = fr0, placed = [];
@@ -1602,8 +1614,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const hit = (a, b) => overlap(a, b) > 0;
     // (What a label must keep clear of, for the browser check that proves a label left out had no clear spot.)
     const r1 = (v) => Math.round(v * 10) / 10;
-    labels.dataset.room = JSON.stringify({ fr: [fr.l, fr.t, fr.r, fr.b].map(r1), pad: r1(8 + 4 * lk), hx: r1(hx), hy: r1(hy), lead: LONG_LEAD,
-      keep: keep.map((q) => [q.x, q.y, q.r].map(r1)), cards: cards.map((c) => [c.l, c.t, c.r, c.b].map(r1)) });
+    restAttr(labels, 'data-room', JSON.stringify({ fr: [fr.l, fr.t, fr.r, fr.b].map(r1), pad: r1(8 + 4 * lk), hx: r1(hx), hy: r1(hy), lead: LONG_LEAD,
+      keep: keep.map((q) => [q.x, q.y, q.r].map(r1)), cards: cards.map((c) => [c.l, c.t, c.r, c.b].map(r1)) }));
     const zoneBoxes = placeZones(fr0, hx, hy, callRingAt(fr0));
     placed.push(...zoneBoxes);
     // Measured first; then placed one at a time, in a few orders, keeping the order that leaves no label on another
@@ -1615,7 +1627,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if ((k === 'lymph' && !lymphOn) || ((k === 'ha' || k === 'bd') && !named(k))) { fadeOut(L.el); leadOff(L); continue; }
       if (faded(`lobule:${LZ_TARGET[k] || k}`)) { fadeOut(L.el); leadOff(L); continue; }
       // (Shown to be measured; one that was hidden and stays out is hidden again before anything is drawn.)
-      L.peek = L.el.hidden; L.el.hidden = false;
+      L.peek = isHid(L.el); setHid(L.el, false);
       shown.push([k, L]);
     }
     // Too wide for the free space (large text, a narrow screen): the label stacks its second reading.
@@ -1637,7 +1649,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     } else {
       // Never measured at this width: measured in a task after this frame (measureRun), and laid out in the next frame. The labels
       // stay as they are seen until then (one frame); the frame itself never reads the page.
-      for (const [, L] of shown) if (L.peek) L.el.hidden = true;
+      for (const [, L] of shown) if (L.peek) setHid(L.el, true);
       labWant = { ks: shown.map(([k]) => k), fw };
       if (!measT) measT = restPass(measureRun);
       layoutKey = ''; follow = wasFollow; layoutV = wasV;
@@ -1650,7 +1662,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // What it names has left the screen: the label waits at the free space's edge, pointing the way (a tap brings it back into view).
       const chip = outside && k !== 'lymph';
       const off = (outside && !chip) || fr.r - fr.l < w + 16 || fr.b - fr.t < hh + 16;
-      if (off) { if (L.peek) { L.el.hidden = true; L.el.classList.remove('edge'); } else fadeOut(L.el); leadOff(L); continue; }
+      if (off) { if (L.peek) { setHid(L.el, true); L.el.classList.remove('edge'); } else fadeOut(L.el); leadOff(L); continue; }
       L.el.classList.toggle('edge', chip);
       let edge = null;
       if (chip) {
@@ -1795,7 +1807,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const isCore = (k) => CORE.includes(k) || named(k), outs = (s) => s.res.filter((r) => r.out && isCore(r.k)).length;
     const better = (p, q) => outs(p) < outs(q) || (outs(p) === outs(q) && p.total < q.total);
     if (sol.total >= 1e5 && !rough) {
-      const shown = { lead: callLead, prev: callPrev, cost: callCost, at: spot.get(callEl), line: ['x1', 'y1', 'x2', 'y2'].map((k) => callLine.getAttribute(k)) };
+      const shown = { lead: callLead, prev: callPrev, cost: callCost, at: spot.get(callEl), line: ['x1', 'y1', 'x2', 'y2'].map((k) => geoOf(callLine, k)) };
       let won = null;
       const core = items.filter((it) => isCore(it.k)), rest = items.filter((it) => !isCore(it.k));
       const coreFirst = () => {
@@ -1805,7 +1817,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const lead2 = placeCall(fr, pl2, cards, s1.ld, crosses, ring, hex, keep, into);
         if (callLead && callCost >= 1e6) return null;
         const s3 = solve(rest, pl2, lead2 ? [...s1.ld, lead2] : s1.ld);
-        return { res: [...s1.res, ...s3.res], total: s1.total + s3.total, lead: lead2, call: { prev: callPrev, cost: callCost, at: spot.get(callEl), line: ['x1', 'y1', 'x2', 'y2'].map((k) => callLine.getAttribute(k)) } };
+        return { res: [...s1.res, ...s3.res], total: s1.total + s3.total, lead: lead2, call: { prev: callPrev, cost: callCost, at: spot.get(callEl), line: ['x1', 'y1', 'x2', 'y2'].map((k) => geoOf(callLine, k)) } };
       };
       const pillFirst = () => {
         let s2 = solve(items, base, shown.lead ? [shown.lead] : []);
@@ -1830,7 +1842,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (won) callLead = won.lead;
       callPrev = c.prev; callCost = c.cost; if (c.at) put(callEl, c.at[0], c.at[1]); else { spot.delete(callEl); callEl.style.translate = ''; }
       // (A line never drawn has no ends to put back: setting "null" logged an error per end on a small phone.)
-      ['x1', 'y1', 'x2', 'y2'].forEach((k, i) => (c.line[i] == null ? callLine.removeAttribute(k) : callLine.setAttribute(k, c.line[i])));
+      ['x1', 'y1', 'x2', 'y2'].forEach((k, i) => setGeo(callLine, k, c.line[i] ?? null));
+      leadGL.paint();
     }
     // A label waiting at the edge (what it names is off screen) never lies across another label's leader: its place is
     // set by the way it points, so it gives way (at 200 % text on a phone the Central vein's chip covered the Sinusoids' node).
@@ -1850,8 +1863,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const inks = sol.res.filter((r) => !r.out).map(({ k, x, y }) => { const { L, w, hh } = items.find((it) => it.k === k); return lettersOf(L, x - w / 2, y - hh / 2, w, hh); });
     for (const { k, x, y, out } of sol.res) {
       const { L, w, hh, a, edge } = items.find((it) => it.k === k);
-      L.el.dataset.at = `${r1(a[0])},${r1(a[1])}`;
-      if (out) { if (L.peek) { L.el.hidden = true; L.el.classList.remove('edge'); } else fadeOut(L.el); leadOff(L); continue; }
+      restAttr(L.el, 'data-at', `${r1(a[0])},${r1(a[1])}`);
+      if (out) { if (L.peek) { setHid(L.el, true); L.el.classList.remove('edge'); } else fadeOut(L.el); leadOff(L); continue; }
       fadeIn(L.el);
       put(L.el, x - w / 2, y - hh / 2);
       noteAt(L);
@@ -1861,9 +1874,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (k === 'cv' && Math.hypot(Math.max(0, Math.abs(a[0] - x) - w / 2), Math.max(0, Math.abs(a[1] - y) - hh / 2)) <= cvKeep(g) + hx + 10) { leadOff(L); L.a = a; continue; }
       leadOn(L);
       L.a = a;
-      L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]);
+      setGeo(L.line, 'x1', a[0]); setGeo(L.line, 'y1', a[1]);
       leadTo(L, lettersOf(L, x - w / 2, y - hh / 2, w, hh), inks);
-      L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]);
+      setGeo(L.dotEl, 'cx', a[0]); setGeo(L.dotEl, 'cy', a[1]);
+      leadGL.paint();
     }
     // A label gliding to its new spot takes its leader's end with it, frame by frame, so the leader never runs
     // through it or stops short of it on the way.
@@ -1887,7 +1901,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function leadTo(L, ink, inks) {
     const e = leaderEnd(ink, L.a[0], L.a[1]);
     if (!e) { classSoon(L.line, 'ld-gone', true); return; }
-    L.line.setAttribute('x2', e.x); L.line.setAttribute('y2', e.y);
+    setGeo(L.line, 'x2', e.x); setGeo(L.line, 'y2', e.y);
     classSoon(L.line, 'lz-hid', inks.some((o) => o.L !== L && runInside(L.a, [e.x, e.y], o) > 0.5));
   }
   let glideRaf = 0, glideUntil = 0;
@@ -1993,7 +2007,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   function resCoverEnd() {
     if (!resCover) return;
-    resCover.remove(); resGL?.drop(); resCover = null;
+    restRemove(resCover); resGL?.drop(); resCover = null;
   }
   // The flow marks (shimmer and chevrons) fade out as the dive starts and back in once the lobule has landed, over about
   // 0.3 s each way. Ordinary panning and zooming inside the lobule view leave them alone.
@@ -3004,12 +3018,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         tisHostFor = gl; tissueGL = createTissueGL(tissueG, { onLive: liveCompiled, host: gl.top }) || null;
         tisHostOff = tissueGL ? gl.top.under({ on: tisUnder, draw: () => tissueGL.under(gl?.software ? 0.5 : 1) }) : null;
         tissueGL?.liveReady();
-        tissueG.remove();
+        restRemove(tissueG);
       }
       return tissueGL && !tissueGL.lost ? tissueGL : null;
     }
     if (tisHostFor) return null;   // (hosted, and the vessels' context lost: the 2D canvas until it is made again)
-    if (tissueGL === undefined) { tissueGL = createTissueGL(tissueG, { onLive: liveCompiled }); if (!tissueGL) tissueG.remove(); else tissueGL.liveReady(); }
+    if (tissueGL === undefined) { tissueGL = createTissueGL(tissueG, { onLive: liveCompiled }); if (!tissueGL) restRemove(tissueG); else tissueGL.liveReady(); }
     // (A context the browser takes back (Safari does, under GPU memory pressure or past its count of live contexts) leaves the canvas
     // with no picture. It was left showing until something drew the lobule again, a pan (Mohammad, 1 Nov: the cells went black
     // while zooming in, and came back when he panned; black on Lobule 5 in a talk, where nothing pans). It is put aside at once and the
@@ -3329,11 +3343,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         // picture, so it is frosted by the cards like the rest of it, never laid over them. At order 1 it tied with the cards' glass and,
         // added after it, drew the portal tracts and the lymph over the cards: Mohammad, 2 Nov 2026, iPhone, HVPG 6.)
         fxHostOff = fxHostGL ? gl.top.add({ order: LZ_UNDER_GLASS, draw: fxHostDraw }) : null;
-        fxG.remove();
+        restRemove(fxG);
       }
       return fxHostGL && !fxHostGL.lost && performance.now() >= fxHostBad ? fxHostGL : null;
     }
-    if (fxGL === undefined) { fxGL = FX_GPU && fxG.isConnected ? createFxGL(fxG) : null; if (!fxGL) fxG.remove(); }
+    if (fxGL === undefined) { fxGL = FX_GPU && fxG.isConnected ? createFxGL(fxG) : null; if (!fxGL) restRemove(fxG); }
     return fxGL && !fxGL.lost && fxG.isConnected ? fxGL : null;   // (its canvas taken out once the overlay was hosted: the 2D overlay)
   }
   function fxGLShow(on) {
@@ -3669,7 +3683,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       applyChrome();
       el.classList.toggle('on', fade > 0.98);
       if (fade > 0.98 && was <= 0.98) sinOnLanding();
-      el.setAttribute('aria-hidden', String(fade < 0.98));
+      restAttr(el, 'aria-hidden', String(fade < 0.98));
       // Entering: the lobule is framed.
       // (Its flow marks start faded and ease in once it has landed: left at full from an earlier visit, they made every frame of the
       // dive's first 0.3 s redraw the whole lobule at full size.)

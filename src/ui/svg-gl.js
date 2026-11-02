@@ -317,7 +317,24 @@ function flatOf(d, tol) {
   if (!f) { if (m.size > FLAT_MAX) m.clear(); f = flattenPath(d, tol); m.set(d, f); }
   return f;
 }
-const at = (el, k) => num(el.getAttribute(k));
+// (A model piece's moving numbers (a leader's ends, a ring's centre and size, a root's viewBox) are kept on the piece, not written as
+// attributes: no attribute write and no mutation to watch in a frame. setGeo returns whether the value changed; the owner asks the
+// picture to draw once it has set what moved. Read back with geoOf. A piece never given one reads its attribute, as before.)
+/** Sets a model piece's number or viewBox string held on the piece; returns true when it changed. */
+export function setGeo(el, k, v) {
+  let g = el._g;
+  if (!g) {
+    // (Read back as an attribute too, so what asks a piece for its ends or centre (the browser checks, svg-morph) finds them.)
+    g = el._g = {};
+    el.getAttribute = (n) => { const x = g[n]; return x === undefined ? Element.prototype.getAttribute.call(el, n) : x == null ? null : String(x); };
+  }
+  if (g[k] === v) return false;
+  g[k] = v;
+  return true;
+}
+/** A model piece's held value for k, else its attribute (null when it has neither). */
+export const geoOf = (el, k) => { const v = el._g?.[k]; return v !== undefined ? v : el.getAttribute?.(k) ?? null; };
+const at = (el, k) => { const v = el._g?.[k]; return v !== undefined ? +v || 0 : num(el.getAttribute(k)); };
 const firstNum = (el, k) => num(String(el.getAttribute(k) || '').split(/[\s,]+/)[0]);
 const paintOn = (p) => p && p !== 'none' && !/^url\(/.test(p);   // (gradient fills by url() are not drawn by any chart's model)
 function shapePath(ctx, el, tag, k) {
@@ -598,7 +615,7 @@ export function createSvgGL(box) {
         let a = 1;
         const fi = g.ins.get(root);
         if (fi) { const k = Math.min(1, (now - fi.t0) / fi.ms); a = fi.ease(k); if (k >= 1) g.ins.delete(root); }
-        const [sx, sy, tx, ty] = viewMap(root.getAttribute('viewBox'), root.getAttribute('preserveAspectRatio'), bw, bh);
+        const [sx, sy, tx, ty] = viewMap(geoOf(root, 'viewBox'), root.getAttribute('preserveAspectRatio'), bw, bh);
         ctx.save();
         ctx.translate(BLEED + tx, BLEED + ty); ctx.scale(sx, sy);
         for (const c of root.children) paintEl(ctx, root, c, a, Math.sqrt(sx * sy));

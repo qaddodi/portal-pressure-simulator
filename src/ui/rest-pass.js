@@ -109,4 +109,35 @@ export function restClass(el, name, on) {
   m[name] = on;
   classQ.push(el, name, on);
   if (!classAsk) classAsk = restPass(classFlush);
+// Attributes that only describe the page to a screen reader or tag it for the next lookup (aria-label, aria-hidden, data-*): nothing
+// on screen depends on them, so a frame never writes them. They are asked for here and written once, between frames, last value
+// wins (2 Nov 2026, "Remove attribute writes in lobule and sinusoid").
+const attrQ = new Map(), goneQ = new Set();   // (element → { name → value; null removes it })
+let attrId = 0;
+function flushAttrs() {
+  attrId = 0;
+  const m = attrQ;
+  for (const el of goneQ) el.remove();   // (taken out of the page)
+  goneQ.clear();
+  for (const [el, names] of m) {
+    attrQ.delete(el);
+    for (const [k, v] of names) {
+      if (v == null) el.removeAttribute?.(k);
+      else el.setAttribute(k, v);
+    }
+  }
+}
+/** Writes every attribute asked for through restAttr now (a pass about to measure the page that depends on them calls this first). */
+export function flushRestAttrs() { if (attrId) { cancelRest(attrId); flushAttrs(); } }
+/** Sets (or, with null, removes) an attribute between frames: the last value asked for before the pass runs is the one written. */
+export function restAttr(el, name, value) {
+  let names = attrQ.get(el);
+  if (!names) attrQ.set(el, names = new Map());
+  names.set(name, value);
+  if (!attrId) attrId = restPass(flushAttrs);
+}
+/** Takes a node out of the page between frames (an element nothing shows any more: a spent canvas, a faded-out name). */
+export function restRemove(el) {
+  goneQ.add(el);
+  if (!attrId) attrId = restPass(flushAttrs);
 }

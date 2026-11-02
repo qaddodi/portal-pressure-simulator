@@ -20,7 +20,7 @@
 // around it.
 
 import { h, fmt, clamp, lerp } from './util.js?v=90f84b6450';
-import { createSvgGL, svgModel } from './svg-gl.js?v=bbe4d0d65d';
+import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=bbe4d0d65d';
 import { pressureColor } from './colormap.js?v=807729048f';
 import { isPaused } from './clock.js?v=d6c06e7017';
 import { store } from './store.js?v=afc4d7c743';
@@ -34,7 +34,7 @@ import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.j
 import { FADE_MS, fadeAlpha } from './res-fade.js?v=531c1defc6';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { restPass, restClass } from './rest-pass.js?v=ed71462b47';
+import { restPass, restClass, restAttr } from './rest-pass.js?v=ed71462b47';
 // ?willchange=0 in the address: the layer keeps will-change always, as before.
 const SV_LAYER = !(typeof location !== 'undefined' && /[?&]willchange=0\b/.test(location.search));
 const nextFrame = frameFor('sinusoid-view');
@@ -68,7 +68,7 @@ export function createSinusoidView({ host, before = null }) {
     if (ch) { sizedNew = true; onSized?.(); }
   }) : null;
   const szOf = (n) => SZ.get(n) || [0, 0];
-  const sized = (n) => { if (sizeRO) { n.dataset.svSize = ''; sizeRO.observe(n); } };
+  const sized = (n) => { if (sizeRO) sizeRO.observe(n); };   // (its data-sv-size mark goes on with the box, pageRun)
   const SV_TARGET = { fen: 'fenestrae', hsc: 'stellate', kup: 'kupffer', hep: 'hepatocyte', sin: 'lumen', in: 'in', out: 'out' };
   // Page writes asked for inside a frame (a caption's words, a node put into the page, the fenestrae's share) land between frames
   // (rest-pass.js), in the order asked, so a frame does no DOM work (2 Nov 2026, "Move everything to GPU"). A caption's new size
@@ -76,10 +76,10 @@ export function createSinusoidView({ host, before = null }) {
   const mountQ = [], capQ = new Map();
   let pageT = 0, fenWant = null;
   const pageSoon = () => { if (!pageT) pageT = restPass(pageRun); };
-  const mount = (parent, el) => { mountQ.push([parent, el]); pageSoon(); };
+  const mount = (parent, el, attrs = null) => { mountQ.push([parent, el, attrs]); pageSoon(); };   // (attrs: written on it as it is put in)
   function pageRun() {
     pageT = 0;
-    for (const [parent, el] of mountQ.splice(0)) parent.append(el);   // (each asked for once, as it is made)
+    for (const [parent, el, attrs] of mountQ.splice(0)) { if (attrs) for (const k in attrs) el.setAttribute(k, attrs[k]); parent.append(el); }   // (each asked for once, as it is made)
     for (const [el, [name, lines]] of capQ) el.replaceChildren(h('span', {}, name), ...lines.map((l) => { const [v, u] = l.split('~'); return h('span', { class: 'v' }, h('b', {}, v), u ? ` ${u}` : ''); }));
     capQ.clear();
     if (fenWant != null) { const b = regions.fen?.el.querySelector('.v b'); if (b && b.textContent !== fenWant) b.textContent = fenWant; fenWant = null; }
@@ -89,7 +89,7 @@ export function createSinusoidView({ host, before = null }) {
     // (What a presenter slide's terms call each part: presentLit, see presenter.js TARGETS.)
     let R = regions[key];
     // (An empty box made here; its words are built and put in between frames, pageRun.)
-    if (!R) { const el = document.createElement('div'); el.setAttribute('class', cls); el.setAttribute('data-target', `sinusoid:${SV_TARGET[key] || key}`); R = regions[key] = { el, n: 0 }; mount(labels, R.el); sized(R.el); }
+    if (!R) { const el = document.createElement('div'); el.className = cls; R = regions[key] = { el, n: 0 }; mount(labels, R.el, { 'data-target': `sinusoid:${SV_TARGET[key] || key}`, ...(sizeRO ? { 'data-sv-size': '' } : null) }); sized(R.el); }
     const txt = name + '|' + value;
     if (R.text !== txt) {
       const same = R.text && R.text.split('|')[0] === name && R.n === 1 + (value ? value.split(' · ').length : 0);
@@ -139,8 +139,8 @@ export function createSinusoidView({ host, before = null }) {
   let leadVB = '';
   function leader(key, R, x, y) {
     let L = lead[key];
-    { const vb = `0 0 ${geo.W} ${geo.H}`; if (vb !== leadVB) { leadVB = vb; leaders.setAttribute('viewBox', vb); } }
-    if (!L) { L = lead[key] = LEAD_TPL.cloneNode(true); mount(leaders, L); }   // (cloned from its model: a frame builds nothing)
+    { const vb = `0 0 ${geo.W} ${geo.H}`; if (vb !== leadVB) { leadVB = vb; setGeo(leaders, 'viewBox', vb); leadGL.paint(); } }
+    if (!L) { L = lead[key] = LEAD_TPL.cloneNode(true); mount(leaders, L, { class: `sv-lead sv-lead-${key}`, 'data-target': `sinusoid:${SV_TARGET[key] || key}` }); }   // (cloned from its model: a frame builds nothing)
     // (The fenestrae's callout ends on a pore picked by where its name stands, so the pick can pass to another pore: the end slides
     // along the lining to that one, on the lining's own line, and never hops.)
     if (key === 'fen') { L.tx = x; const sd = L.sd || 0; y += halfW(x) - halfW(x + sd); x += sd; }
@@ -154,8 +154,9 @@ export function createSinusoidView({ host, before = null }) {
     const [ln, dot] = L.children;
     const on = vert ? Math.abs(ty - sy) > 6 : Math.abs(tx - sx) > 6 && Math.sign(tx - R.cx) === Math.sign(tx - sx);   // (none when the name already sits on it)
     L.style.opacity = on ? '' : '0';
-    ln.setAttribute('x1', sx.toFixed(1)); ln.setAttribute('y1', sy.toFixed(1)); ln.setAttribute('x2', tx.toFixed(1)); ln.setAttribute('y2', ty.toFixed(1));
-    dot.setAttribute('cx', tx.toFixed(1)); dot.setAttribute('cy', ty.toFixed(1)); dot.setAttribute('r', '1.8');
+    setGeo(ln, 'x1', +sx.toFixed(1)); setGeo(ln, 'y1', +sy.toFixed(1)); setGeo(ln, 'x2', +tx.toFixed(1)); setGeo(ln, 'y2', +ty.toFixed(1));
+    setGeo(dot, 'cx', +tx.toFixed(1)); setGeo(dot, 'cy', +ty.toFixed(1)); setGeo(dot, 'r', 1.8);
+    leadGL.paint();
   }
   const el = h('div', { class: SV_LAYER ? 'sv' : 'sv sv-live', 'aria-hidden': 'true' }, canvas, leadersBox, labels, legend);
   host.insertBefore(el, before);
@@ -773,7 +774,7 @@ export function createSinusoidView({ host, before = null }) {
       const covered = under(at(off[0], off[1], off[2]));
       if (covered !== !!R.covered) {
         R.covered = covered;
-        if (covered) R.el.style.opacity = '0'; else R.el.style.removeProperty('opacity');   // (eased: .sv-region's opacity has its transition, the compositor's)
+        R.el.style.opacity = covered ? '0' : '';   // (eased: .sv-region's opacity has its transition, the compositor's)
         if (lead[k]) lead[k].style.visibility = covered ? 'hidden' : '';
       }
       R.el.style.translate = off[0] || off[1] ? `${off[0].toFixed(1)}px ${off[1].toFixed(1)}px` : '';
@@ -786,9 +787,10 @@ export function createSinusoidView({ host, before = null }) {
           // (from the nearest point of the name's box to the cell)
           leader('kup', { cx: 0, cy: 0, w: 0, hh: 0 }, to[0], to[1]);
           const [kl, kd] = lead.kup.children;
-          kl.setAttribute('x1', clamp(tx, c.l, c.r).toFixed(1)); kl.setAttribute('y1', clamp(ty, c.t, c.b).toFixed(1));
-          kl.setAttribute('x2', tx.toFixed(1)); kl.setAttribute('y2', ty.toFixed(1));
-          kd.setAttribute('cx', tx.toFixed(1)); kd.setAttribute('cy', ty.toFixed(1));
+          setGeo(kl, 'x1', +clamp(tx, c.l, c.r).toFixed(1)); setGeo(kl, 'y1', +clamp(ty, c.t, c.b).toFixed(1));
+          setGeo(kl, 'x2', +tx.toFixed(1)); setGeo(kl, 'y2', +ty.toFixed(1));
+          setGeo(kd, 'cx', +tx.toFixed(1)); setGeo(kd, 'cy', +ty.toFixed(1));
+          leadGL.paint();
           lead.kup.style.opacity = '';
         } else if (lead.kup) lead.kup.style.opacity = '0';
         continue;
@@ -796,8 +798,9 @@ export function createSinusoidView({ host, before = null }) {
       const ln = lead[k]?.children[0];
       if (ln && (off[0] || off[1] || off[2] !== 1)) {
         // (Its near end follows the name, to the edge of the smaller box when the name was set smaller.)
-        const sg = Math.sign(parseFloat(ln.getAttribute('x2')) - cx), dx = off[0] - sg * (w / 2) * (1 - off[2]);
-        for (const [a, d] of [['x1', dx], ['y1', off[1]]]) ln.setAttribute(a, (parseFloat(ln.getAttribute(a)) + d).toFixed(1));
+        const sg = Math.sign(parseFloat(geoOf(ln, 'x2')) - cx), dx = off[0] - sg * (w / 2) * (1 - off[2]);
+        for (const [a, d] of [['x1', dx], ['y1', off[1]]]) setGeo(ln, a, +(parseFloat(geoOf(ln, a)) + d).toFixed(1));
+        leadGL.paint();
       }
     }
   }
@@ -879,7 +882,7 @@ export function createSinusoidView({ host, before = null }) {
       if (cssMiss || cssStale) { askRest(); settled = false; return; }   // (its colours read between frames first: this frame is not painted)
       const endA = [endShown('in'), endShown('out')];
       const ek = endA.map((v) => v.toFixed(2)).join(' ');
-      if (canvas.dataset.endArrows !== ek) canvas.dataset.endArrows = ek;   // (for the browser checks: how much each end arrow shows)
+      if (canvas._ek !== ek) { canvas._ek = ek; restAttr(canvas, 'data-end-arrows', ek); }   // (for the browser checks: how much each end arrow shows)
       // Device px ↔ local µm.
       const { C, k, ca, sa } = CAM, K = k * dpr;
       u.uI0 = [ca / K, sa / K, -(C[0] * ca + C[1] * sa) / k];
@@ -915,7 +918,7 @@ export function createSinusoidView({ host, before = null }) {
     if (gliding || layoutBusy) settled = false;
     svMoving = gliding || layoutBusy;   // (its names gliding to their places: the corner credit looks again, credit.js)
     const dk = [Math.round(S.por * 4), S.col > 0.15, S.act > 0.4, model.hide, model.P2.toFixed(0), model.lymph.toFixed(1), Math.round(model.lyProt * 100)].join('|');
-    if (dk !== descKey) { descKey = dk; canvas.setAttribute('aria-label', describe()); }
+    if (dk !== descKey) { descKey = dk; restAttr(canvas, 'aria-label', describe()); }
   }
   function describe() {
     const m = model;
@@ -974,7 +977,7 @@ export function createSinusoidView({ host, before = null }) {
       if (SV_LAYER) restClass(el, 'sv-live', opacity > 0);   // (its compositor layer only while it is shown)
       open = isOpen;
       restClass(el, 'on', isOpen);
-      el.setAttribute('aria-hidden', String(!isOpen));
+      restAttr(el, 'aria-hidden', String(!isOpen));
       // Closed: the drawing buffer is given back (it is sized again on the way in).
       if (opacity <= 0 && was > 0) { svFadeEnd(); canvas.width = 0; canvas.height = 0; gpuKey = ''; }
       if (opacity > 0 && was <= 0) {

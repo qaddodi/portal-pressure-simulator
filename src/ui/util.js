@@ -1,6 +1,6 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=26e2e46fff';
-import { restPass } from './rest-pass.js?v=ed71462b47';
+import { restPass, restAttr, restRemove } from './rest-pass.js?v=ed71462b47';
 import { glWords } from './gl-words.js?v=7a3eb186f0';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7513a88c68';
@@ -372,7 +372,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   const arm = setTimeout(() => { addEventListener('pointerdown', off, true); addEventListener('keydown', esc); }, 0);
   vv?.addEventListener('resize', onVV);
   openMenu = { el, anchor, put, cleanup: () => { clearTimeout(arm); removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); vv?.removeEventListener('resize', onVV); onClose?.(); } };
-  anchor.setAttribute('aria-expanded', 'true');
+  restAttr(anchor, 'aria-expanded', 'true');   // (a screen reader's state, written between frames)
   // Opened from the keyboard (the button shows its focus ring): focus goes in, so Tab does not have to cross the whole page to reach
   // the menu. A mouse or a touch leaves focus where it was.
   if (anchor.matches?.(':focus-visible')) setTimeout(() => { if (openMenu?.el === el) el.querySelector('button, input, [tabindex="0"]')?.focus({ preventScroll: true }); }, 0);
@@ -752,11 +752,11 @@ export function closePopover() {
   const el = openMenu.el;
   // (Focus inside the menu goes back to its button before the menu is made inert; otherwise it would fall to the page.)
   if (el.contains(document.activeElement) && openMenu.anchor.isConnected) openMenu.anchor.focus?.({ preventScroll: true });
-  if (!el.isConnected) el.remove();   // (with Reduce Motion it still fades: app.css turns popOut into a fade)
+  // (A menu already out of the page has nothing to fade or remove. With Reduce Motion it still fades: app.css turns popOut into a fade.)
   // A sheet swiped away is already sliding down; it leaves when it is out of sight.
   // (Over the thumb dock it sinks behind the tab row, as the cards do, in the same step: a leave is one flip, app.css thumbOut.)
-  else { const ms = D_FLIP; const leave = () => el.classList.add('leaving'); if (el.dataset.swiped) leave(); else leaveFromHere(el, leave); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => el.remove(), el.dataset.swiped ? D_SMALL : ms + 10); }
-  openMenu.anchor.setAttribute('aria-expanded', 'false'); openMenu.cleanup();
+  if (el.isConnected) { const ms = D_FLIP; const leave = () => el.classList.add('leaving'); if (el.dataset.swiped) leave(); else leaveFromHere(el, leave); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => restRemove(el), el.dataset.swiped ? D_SMALL : ms + 10); }
+  restAttr(openMenu.anchor, 'aria-expanded', 'false'); openMenu.cleanup();
   lastMenu = { anchor: openMenu.anchor, t: performance.now() };
   openMenu = null;
 }
