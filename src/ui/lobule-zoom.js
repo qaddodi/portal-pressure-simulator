@@ -42,7 +42,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=512e725aea';
 import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=71056d7b1f';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=ca0abd6caa';
-import { createSinusoidView } from './sinusoid-view.js?v=ca789402f8';
+import { createSinusoidView } from './sinusoid-view.js?v=9194e94aa6';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=1d147c7c9a';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=3a2c40fb21';
@@ -54,6 +54,7 @@ import { classSoon, classHas } from './class-soon.js?v=60cf95af4a';
 import { easeMove, carryRate, carried, cubicBezier, D_SMALL, D_SURFACE } from './ease.js?v=7d7bfe9a62';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { caught } from './caught.js?v=b96b17594a';
+import { createCaptionGL, mirrorOf } from './caption-gl.js?v=1370e2301d';
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -150,8 +151,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   leadGL.show(leaders, false);
   if (typeof MutationObserver === 'function') new MutationObserver(() => leadGL.paint()).observe(leaders, { subtree: true, childList: true, attributes: true, attributeFilter: ['x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'viewBox', 'style', 'transform'] });
   // (What a slide lights is a class on the app: the leaders' looks are read again when it changes.)
-  { const app = document.querySelector('.app') || document.getElementById('app'); if (app && typeof MutationObserver === 'function') new MutationObserver(() => leadGL.relook()).observe(app, { attributes: true, attributeFilter: ['data-lit', 'class'] }); }
+  { const app = document.querySelector('.app') || document.getElementById('app'); if (app && typeof MutationObserver === 'function') new MutationObserver(() => { leadGL.relook(); mirrorAll(); }).observe(app, { attributes: true, attributeFilter: ['data-lit', 'class'] }); }
   const labels = h('div', { class: 'lz-labels' });
+  // The labels, zone names and the slide's call are drawn by the GPU (caption-gl.js), each where the page set it (mirrorOf, read between
+  // frames) and moved in the frame that moves the lobule; the page's own are a clear model for clicks and screen readers, placed between
+  // frames (2 Nov 2026, "Move everything to GPU").
+  const cap = createCaptionGL(labels);
+  if (cap.on) labels.classList.add('cap-gl-on');
 
   // ── What sits on the lobule ──
   // Zones and Lymph are layers (the toolbar's Layers menu keeps them in the store). Nothing floats in a card.
@@ -1219,6 +1225,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       shown.forEach((L, i) => { L.el.hidden = peek[i]; L.el.classList.toggle('stack', had[i]); });
     }
     if (moved && fade > 0) relayout();
+    mirrorAll();
   }
   // A new text size (pps:labelscale, an event, not a frame): the labels on show, the call pill and the zone names are measured at once,
   // so their leaders and the next layout use the new sizes from the first frame.
@@ -1293,6 +1300,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       L.ver = (L.ver | 0) + 1;   // (its content may have changed: labKey makes its key again)
       if (L.aria) { L.aria = false; L.el.setAttribute('aria-label', ariaOf(L)); }
       if (L.relay) { L.relay = false; layoutKey = ''; }
+      mirrorSoon(L.el);
     }
     labQ.clear();
   }
@@ -1755,8 +1763,86 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Every label, zone name and pill stands where `translate` puts it (laid out once at the box's corner, so a move or glide is the
   // compositor's, never a layout per frame); its spot is kept here, and a pan's ride adds its shift on top.
   const spot = new WeakMap();
-  // (Written only when the place changed; the element keeps the last it was given, _tx and _ty, NaN where its translate was cleared.)
-  const tr = (e, x, y) => { if (e._tx === x && e._ty === y) return; e._tx = x; e._ty = y; e.style.translate = `${x.toFixed(2)}px ${y.toFixed(2)}px`; };
+  // (Where each piece is drawn: the GPU's names take it in this frame; the page's clear model is placed between frames, domFlush.)
+  const seenPos = new Map(), domQ = new Set();
+  let domT = 0;
+  const tr = (e, x, y) => {
+    // (Written only when the place changed; the element keeps the last it was given, _tx and _ty, NaN where its translate was cleared.)
+    if (!cap.on) { if (e._tx === x && e._ty === y) return; e._tx = x; e._ty = y; e.style.translate = `${x.toFixed(2)}px ${y.toFixed(2)}px`; return; }
+    let q = seenPos.get(e);
+    if (!q) seenPos.set(e, q = [0, 0]);   // alloc-rare: once a piece
+    q[0] = x; q[1] = y; domQ.add(e);
+    if (!domT) domT = restPass(domFlush);
+    cap.paint();
+  };
+  function domFlush() {
+    domT = 0;
+    if (rides) return;   // (a hand's ride: placed once it is baked, bakeRides)
+    for (const e of domQ) { const p = seenPos.get(e); if (p) e.style.translate = `${p[0].toFixed(2)}px ${p[1].toFixed(2)}px`; }
+    domQ.clear();
+  }
+  // ── The names on the GPU ──
+  // Each one's words as the page set them, read between frames when they, their classes or their looks change (mirrorRun), and kept.
+  const mirKeep = new WeakMap(), mirQ = new Set();
+  let mirT = 0;
+  // (The names, listed once and again only when a zone name is made: a frame makes no list.)
+  let capList = null, capZones = -1;
+  const capItems = () => {
+    if (capList && capZones === zoneEls.length) return capList;
+    capZones = zoneEls.length;   // alloc-rare: only when a zone name is first made
+    return (capList = [...Object.entries(labs).map(([k, L]) => [`lab:${k}`, L.el, L]), ...zoneEls.map((z, i) => [`zone:${i}`, z, null]), ['call', callEl, null]]);
+  };
+  function mirrorSoon(...els) { if (!cap.on) return; for (const e of els) if (e) mirQ.add(e); if (!mirT) mirT = restPass(mirrorRun); }
+  const mirrorAll = () => mirrorSoon(...Object.values(labs).map((L) => L.el), ...zoneEls, callEl);
+  function mirrorRun() {
+    mirT = 0;
+    flushRestAttrs();   // (shown or hidden, as the frame asked: written before the page is read)
+    for (const [key, e] of capItems()) {
+      if (!mirQ.has(e) || !e.isConnected || e.hidden) continue;
+      const m = mirrorOf(e, ['.n']);
+      if (m) { mirKeep.set(e, m); cap.mirror(key, m); }
+    }
+    mirQ.clear();
+    cap.paint();
+  }
+  // A label a slide's words leave unlit fades out (app.css, the presenting app's data-lit): the same test, on the lit terms kept.
+  const dimmed = (t) => {
+    const lit = litOf();
+    if (!litRaw || !/(^| )(lobule|sinusoid):/.test(litRaw) || !appEl?.classList.contains('presenting')) return false;
+    return !(LIT_OK.includes(t) && lit.has(t));
+  };
+  // Every name's place and show for this frame, drawn in it: a label gliding to its new spot on the page's curve (easeLab), one riding
+  // a pan at its spot's shift (tr), a zone name at its centre, the call pill easing in from a little smaller.
+  function capSync(t) {
+    if (fade <= 0) return false;
+    const now = tlNow();   // (the page's clock, which the labels' glides are noted on; t: the names' own, for their fades)
+    let moving = false;
+    for (const [key, e, L] of capItems()) {
+      const m = mirKeep.get(e);
+      let p = seenPos.get(e);
+      if (!m || !p) continue;
+      let x = p[0], y = p[1];
+      if (L && labGliding(L, now)) { const g = L.gl, k = easeLab(g, now); x = g.x0 + (g.x1 - g.x0) * k; y = g.y0 + (g.y1 - g.y0) * k; moving = true; }
+      const call = e === callEl, zone = !L && !call;
+      const off = !e.isConnected || gone(e) || (call ? !callEl.classList.contains('on') : dimmed(e.dataset.target));
+      cap.place(key, zone ? x : x + m.w / 2, zone ? y : y + m.h / 2, off ? 0 : 1, off && gone(e) ? D_SMALL : D_SURFACE, call ? (off ? 0.94 : 1) : -1, t);
+      if (L) {
+        const n = m.at['.n'];
+        cap.arrow(key, L.edgeA != null && L.el.classList.contains('edge') ? (L.arrow?.ang === L.edgeA && L.arrow.r === L.edgeR && L.arrow.w === m.w ? L.arrow
+          : (L.arrow = { x: m.w / 2, y: m.h / 2, ang: L.edgeA, r: L.edgeR, w: m.w, colour: n?.colour || m.lines[0]?.runs[0]?.r.fill || '' })) : null);
+      }
+    }
+    return moving;
+  }
+  cap.onFrame = capSync;
+  cap.onRest = () => { if (domQ.size && !domT) domT = restPass(domFlush); };
+  // (A hover or focus changes a name's ink; a slide's lit terms, the theme and the text size its look: read again.)
+  labels.addEventListener('pointerover', (ev) => mirrorSoon(ev.target.closest?.('.lz-lab')));
+  labels.addEventListener('pointerout', (ev) => mirrorSoon(ev.target.closest?.('.lz-lab')));
+  labels.addEventListener('focusin', (ev) => mirrorSoon(ev.target.closest?.('.lz-lab')));
+  labels.addEventListener('focusout', (ev) => mirrorSoon(ev.target.closest?.('.lz-lab')));
+  if (typeof MutationObserver === 'function') new MutationObserver(() => mirrorAll()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => mirrorAll());
   function put(e, x, y) {
     const p = spot.get(e);
     if (p) { p[0] = x; p[1] = y; } else spot.set(e, [x, y]);   // alloc-once: the first spot an element is given; after it the pair is written in place
@@ -1913,7 +1999,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // the leader stops on the pill's outline.
   const lettersInto = (o, L, l, t, w, hh) => {
     o.L = L;
-    if (litIn(L.el.dataset.target)) {
+    if (!cap.on && litIn(L.el.dataset.target)) {   // (the GPU draws no pill: the leader stops on the letters)
       // (Its pill's insets as measured with its size, measureRun; before that, app.css's own sums for them.)
       const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, q = L.pillQ;
       o.x0 = l + (q ? q[0] : -4 * lk); o.y0 = t + (q ? q[1] : -5 * lk); o.x1 = l + w - (q ? q[2] : -4 * lk); o.y1 = t + hh - (q ? q[3] : -5 * lk); o.r = q ? q[4] : 12;
@@ -2292,8 +2378,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         // (The strings made when the angle or the radius changed.)
         if (L.eAng !== ang) { L.eAng = ang; L.eAngS = `${ang}rad`; }   // alloc-rare: only when the chip's angle changed
         if (L.eRad !== er) { L.eRad = er; L.eRadS = `${er}px`; }   // alloc-rare: only when the chip's radius changed
-        L.el.style.setProperty('--edge-a', L.eAngS);
-        L.el.style.setProperty('--edge-r', L.eRadS);
+        L.edgeA = ang; L.edgeR = er;
+        if (!cap.on) { L.el.style.setProperty('--edge-a', L.eAngS); L.el.style.setProperty('--edge-r', L.eRadS); }
       }
       items.push(it);
     }

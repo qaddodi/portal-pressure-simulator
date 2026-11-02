@@ -20,7 +20,7 @@
 // around it.
 
 import { h, fmt, clamp, lerp } from './util.js?v=6aff9232ad';
-import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=6b7c3e4c13';
+import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=1370e2301d';
 import { measure } from './glyph-measure.js?v=89d38cd516';
 import { readStyle } from './layout-snap.js?v=a48d65266b';
 import { pressureColor } from './colormap.js?v=994e7de44c';

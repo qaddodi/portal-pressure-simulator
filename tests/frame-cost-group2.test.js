@@ -98,7 +98,10 @@ test('item 6: a short lobule glide carries the labels with their spots and lays 
   const rd = src.slice(src.indexOf('function ride()'), src.indexOf('function bakeFollow()'));
   // Each piece moves by its own spot's move at its own size (a translate), and is written into its place at landing.
   assert.match(rd, /e\.style\.translate = r\.ts;/);
-  assert.match(src, /const tr = \(e, x, y\) => \{[^\n]*e\.style\.translate = `\$\{x\.toFixed\(2\)\}px \$\{y\.toFixed\(2\)\}px`;/);
+  // (Where the GPU draws the names, caption-gl.js, tr hands each place to it in the frame and the page's clear model is placed between
+  // frames, domFlush; with no GPU names, tr writes the translate as before.)
+  assert.match(src, /const tr = \(e, x, y\) => \{\n[^\n]*\n\s*if \(!cap\.on\) \{[^\n]*e\.style\.translate = `\$\{x\.toFixed\(2\)\}px \$\{y\.toFixed\(2\)\}px`; return; \}/);
+  assert.match(src, /function domFlush\(\) \{[\s\S]{0,200}if \(rides\) return;[\s\S]{0,200}e\.style\.translate = /);
   assert.match(rd, /e\.style\.translate = '';/);
   assert.match(rd, /labels\.classList\.remove\('lz-ease'\);/);
   assert.match(src, /function bakeFollow\(\) \{\s*if \(bakeRides\(\)\)/);

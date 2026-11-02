@@ -22,8 +22,11 @@ import { finalFrameFor, easeNow } from './frame.js?v=1d147c7c9a';
 import { measure } from './glyph-measure.js?v=89d38cd516';
 import { D_SURFACE, easeArrive } from './ease.js?v=7d7bfe9a62';
 import { cssColor } from './css-color.js?v=59ed182174';
+import { readBox, readRects, readStyle } from './layout-snap.js?v=a48d65266b';
 
 const finalFrame = finalFrameFor('caption-gl');
+const NONE = [];
+const MIRROR = { lh: 1, gap: 0, halo: 0, haloC: '', runs: {} };   // (a mirrored caption's runs carry their own looks)
 /** A colour as the page computed it (rgb(), color(srgb …), oklab() from a color-mix, a token's raw value), as rgba() the GPU's pen reads; '' for none. */
 export function rgbaOf(c) {
   if (!c || c === 'none' || c === 'transparent') return '';
@@ -108,6 +111,60 @@ export function setLines(look, lines) {
   return { lines: out, w, h };
 }
 
+/**
+ * A page element's words as the page set them (its grid, its flex, its wraps), read between frames for the GPU to draw them in the same
+ * place: { lines: [{ runs: [{ t, r, x }], w, base }], w, h, marks, at }. Each text the element shows is one run at its own spot (a wrapped
+ * one, a run for each of its lines), in its own type, ink, letter spacing, opacity and halo (its -webkit-text-stroke). A background
+ * (a call's pill) is a mark drawn under the words. `at`: the boxes of the elements `sel` names, in the element's own px, for marks of
+ * the owner's (a label's arrow). Null when the element takes no room. Reads only; never called in a frame.
+ */
+export function mirrorOf(el, sel = []) {
+  const box = readBox(el);
+  if (!box || !(box.width > 0 && box.height > 0)) return null;
+  const px = (v) => parseFloat(v) || 0, opOf = (cs) => (cs.opacity === '' || cs.opacity == null ? 1 : +cs.opacity);
+  const lines = [], marks = [], at = {};
+  const cs0 = readStyle(el), bg = rgbaOf(cs0.backgroundColor);
+  if (bg) {
+    const bw = px(cs0.borderTopWidth);
+    marks.push({ kind: 'bg', fill: bg, rad: Math.min(px(cs0.borderTopLeftRadius), box.height / 2, box.width / 2), sh: shadowOf(cs0.boxShadow),
+      border: bw > 0 ? { w: bw, colour: rgbaOf(cs0.borderTopColor) } : null });
+  }
+  const rg = document.createRange(), tw = document.createTreeWalker(el, 4 /* NodeFilter.SHOW_TEXT */);
+  for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+    const txt = n.data.replace(/\s+/g, ' ');
+    if (!txt.trim()) continue;
+    const p = n.parentElement, cs = readStyle(p);
+    let op = 1;
+    for (let e = p; e && e !== el; e = e.parentElement) op *= opOf(e === p ? cs : readStyle(e));
+    rg.selectNodeContents(n);
+    const rs = readRects(rg);
+    if (!rs?.length) continue;   // (shown as display: none: a name's short form on a wide screen)
+    const size = px(cs.fontSize) || 12;
+    const r = { size, weight: parseFloat(cs.fontWeight) || 400, ls: px(cs.letterSpacing), fill: rgbaOf(cs.color), op, upper: cs.textTransform === 'uppercase', mr: 0,
+      halo: px(cs.webkitTextStrokeWidth), haloC: rgbaOf(cs.webkitTextStrokeColor) };
+    const put = (t, rc) => { if (t.trim()) lines.push({ runs: [{ t: upper(r, t), r, x: rc.left - box.left }], w: box.width, base: rc.bottom - box.top - DESC * size }); };
+    if (rs.length === 1) { put(txt.trimEnd(), rs[0]); continue; }
+    // (Wrapped: each of its lines from the words that sit on it.)
+    const words = [], re = /\S+/g;
+    for (let m = re.exec(n.data); m; m = re.exec(n.data)) {
+      rg.setStart(n, m.index); rg.setEnd(n, m.index + m[0].length);
+      const q = readRects(rg)?.[0];
+      if (q) words.push([m[0], q]);
+    }
+    let cur = null;
+    for (const [w, q] of words) {
+      if (cur && Math.abs(q.top - cur.q.top) < size / 2) cur.t += ` ${w}`;
+      else { if (cur) put(cur.t, cur.q); cur = { t: w, q }; }
+    }
+    if (cur) put(cur.t, cur.q);
+  }
+  for (const s of sel) {
+    const e = el.querySelector(s), b = e && readBox(e);
+    if (b?.width) at[s] = { x: b.left - box.left, y: b.top - box.top, w: b.width, h: b.height, colour: rgbaOf(readStyle(e, '::before').backgroundColor) };
+  }
+  return { lines, w: box.width, h: box.height, marks, at };
+}
+
 /** The names' layer in `box`: see above. */
 export function createCaptionGL(box) {
   const cv = document.createElement('canvas');
@@ -115,7 +172,7 @@ export function createCaptionGL(box) {
   cv.setAttribute('aria-hidden', 'true');
   box.prepend(cv);
   const items = new Map(), leads = new Map(), extras = new Map(), looks = new Map();
-  let ask = 0, gpu = null, drewOnce = false, onDrawn = null, onRest = null, wasMoving = false, lastT = 0;
+  let ask = 0, gpu = null, drewOnce = false, onDrawn = null, onRest = null, onFrame = null, wasMoving = false, lastT = 0, drawing = false;
   function draw() {
     ask = 0;
     if (!cv.isConnected) return;
@@ -123,7 +180,10 @@ export function createCaptionGL(box) {
     const now = easeNow();
     lastT = now;
     let more = false;
+    drawing = true;
     try {
+      // (The owner's places for this frame, set as it is drawn: a glide its page eased, a pan's ride.)
+      if (onFrame?.(now)) more = true;
       ctx.clearRect(0, 0, w, h);
       if (!(w > 0 && h > 0)) return;
       // Leaders under the names, as their layer was.
@@ -149,6 +209,14 @@ export function createCaptionGL(box) {
         const cx = I.x + dx, cy = I.y + dy, bw = I.w * s, bh = I.h * s, l = cx - bw / 2, t = cy - bh / 2;
         // A lit term (a slide's) shows in its colour on the name and figure alone, as the page's look reads it: no pill or chip behind
         // a figure's label (owner, 2 Nov: anatomy-style halo text, no pills).
+        // Its marks under its words (a call's pill: its shadow, fill and border, as the page drew it).
+        for (const M of I.set.marks || NONE) {
+          if (M.kind !== 'bg') continue;
+          const rr = M.rad * s;
+          if (M.sh) { ctx.globalAlpha = a; ctx.shadowBox(l, t, bw, bh, rr, M.sh.colour, M.sh.blur * s, M.sh.dy * s); }
+          ctx.globalAlpha = a; ctx.fillStyle = M.fill; ctx.beginPath(); ctx.roundRect(l, t, bw, bh, rr); ctx.fill();
+          if (M.border?.colour) { const bwd = M.border.w * s; ctx.strokeStyle = M.border.colour; ctx.lineWidth = bwd; ctx.beginPath(); ctx.roundRect(l + bwd / 2, t + bwd / 2, bw - bwd, bh - bwd, Math.max(0, rr - bwd / 2)); ctx.stroke(); }
+        }
         // Its words: each run's halo (the page's text stroke, laid first), then its ink, in the page's order.
         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
         for (const ln of I.set.lines) {
@@ -156,15 +224,25 @@ export function createCaptionGL(box) {
           for (const { t: txt, r, x } of ln.runs) {
             const ra = a * r.op;
             ctx.font = fontOf(r, s); ctx.letterSpacing = `${r.ls * s}px`;
-            if (lk.halo > 0 && lk.haloC) { ctx.globalAlpha = ra; ctx.strokeStyle = lk.haloC; ctx.lineWidth = lk.halo * s; ctx.strokeText(txt, x0 + x * s, by); }
+            const hw = r.halo ?? lk.halo, hc = r.haloC ?? lk.haloC;
+            if (hw > 0 && hc) { ctx.globalAlpha = ra; ctx.strokeStyle = hc; ctx.lineWidth = hw * s; ctx.strokeText(txt, x0 + x * s, by); }
             ctx.globalAlpha = ra; ctx.fillStyle = r.fill; ctx.fillText(txt, x0 + x * s, by);
           }
         }
         ctx.letterSpacing = '0px';
+        // (An owner's arrow: a small triangle about a point of the caption, turned to the way it points.)
+        if (I.arrow) {
+          const A = I.arrow, c = Math.cos(A.ang), sn = Math.sin(A.ang), ox = l + (A.x + c * A.r) * s, oy = t + (A.y + sn * A.r) * s;
+          ctx.globalAlpha = a; ctx.fillStyle = A.colour; ctx.beginPath();
+          ctx.moveTo(ox + (-4.5 * c + 5 * sn) * s, oy + (-4.5 * sn - 5 * c) * s);
+          ctx.lineTo(ox + 4.5 * c * s, oy + 4.5 * sn * s);
+          ctx.lineTo(ox + (-4.5 * c - 5 * sn) * s, oy + (-4.5 * sn + 5 * c) * s);
+          ctx.closePath(); ctx.fill();
+        }
       }
       ctx.globalAlpha = 1;
       for (const f of extras.values()) if (f(ctx, now)) more = true;
-    } finally { ctx.end?.(); }
+    } finally { drawing = false; ctx.end?.(); }
     if (pen.gpu && !drewOnce) { drewOnce = true; onDrawn?.(); }
     if (more) ask = finalFrame(draw);
     else if (wasMoving) onRest?.();   // (its eases done: the owner may place its page model, between frames)
@@ -178,6 +256,8 @@ export function createCaptionGL(box) {
     get on() { return !!gpu; },
     /** Called once, after the first frame the GPU drew the names. */
     set onDrawn(f) { onDrawn = f; if (drewOnce) f?.(); },
+    /** Called first in each frame the names are drawn (now): the owner sets their places there; true while one of them still moves. */
+    set onFrame(f) { onFrame = f; },
     /** Called after a frame in which the last of its eases ended. */
     set onRest(f) { onRest = f; },
     /** A caption's look (lookOf): its sizes are set again the next time it is measured. */
@@ -193,11 +273,22 @@ export function createCaptionGL(box) {
       else if (!lk) { I.lines = lines; I.sig = ''; }
       return lk ? [I.w, I.h] : [0, 0];
     },
+    /** Sets a caption from the page's own as it was set (mirrorOf): its words at their spots, its marks. */
+    mirror(key, m) {
+      let I = items.get(key);
+      if (!I) items.set(key, I = { key, a: easer(0), s: easer(1), dx: easer(0), dy: easer(0), x: 0, y: 0, w: 0, h: 0, shown: false });
+      if (!looks.has(key)) looks.set(key, MIRROR);
+      if (!m) { I.set = null; api.paint(); return; }
+      I.set = m; I.w = m.w; I.h = m.h; I.sig = ''; I.lines = null;
+      api.paint();
+    },
+    /** An arrow drawn with a caption ({ x, y, ang, r, colour }: about x, y of its box, turned ang, r out), or none (null). */
+    arrow(key, A) { const I = items.get(key); if (I && I.arrow !== A) { I.arrow = A; api.paint(); } },
     /**
      * Places a caption: x, y its box's centre (px), off [dx, dy, s] its step aside and scale (eased), show 0 or 1 (eased; a caption seen
      * for the first time fades in).
      */
-    put(key, { x, y, off = null, show = 1, now = easeNow() }) {
+    put(key, { x, y, off = null, show = 1, now = easeNow(), ms = D_SURFACE }) {
       const I = items.get(key);
       if (!I) return;
       lastT = now;
@@ -207,10 +298,18 @@ export function createCaptionGL(box) {
         else { easeTo(I.dx, off[0], now); easeTo(I.dy, off[1], now); easeTo(I.s, off[2], now); }
       }
       if (I.set) {
-        if (!I.placed) { I.placed = true; easeTo(I.a, show, now); }
-        else easeTo(I.a, show, now);
-        const lk = looks.get(key);
+        if (!I.placed) I.placed = true;
+        easeTo(I.a, show, now, ms);
       }
+      api.paint();
+    },
+    /** put() with no object made (a frame's call): s its eased scale, or -1 to leave it. */
+    place(key, x, y, show, ms, s, now) {
+      const I = items.get(key);
+      if (!I) return;
+      lastT = now; I.x = x; I.y = y;
+      if (s >= 0) { if (!I.placed) snap(I.s, s); else easeTo(I.s, s, now); }
+      if (I.set) { I.placed = true; easeTo(I.a, show, now, ms); }
       api.paint();
     },
     /** Hides a caption at once (as a view leaves): it fades in again the next time it is placed. */
@@ -238,7 +337,7 @@ export function createCaptionGL(box) {
       for (const L of leads.values()) if (easing(L.a, now)) return true;
       return false;
     },
-    paint() { if (!ask) ask = finalFrame(draw); },
+    paint() { if (!ask && !drawing) ask = finalFrame(draw); },
     /** Draws now, in this frame (the owner's frame moved the figure: its names move with it). */
     drawNow() { if (ask) return; draw(); },
     dispose() { gpu?.dispose?.(); gpu = null; },
