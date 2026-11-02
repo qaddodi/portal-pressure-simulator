@@ -17,10 +17,10 @@
 // the GPU can (publish). ?tracegl=0 keeps every chart undrawn.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=6c955f55d8';
-import { canvasSize, fitCanvas, onCanvasSized } from './util.js?v=f50c0c767b';
-import { sdfAtlas } from './text-gl.js?v=77b5de2d05';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
+import { canvasSize, fitCanvas, onCanvasSized } from './util.js?v=84ad46763c';
+import { sdfAtlas } from './text-gl.js?v=2411df4df2';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
 import { notePass, hold } from './gpu-budget.js?v=00c61687bd';
-import { fontOf, measure } from './glyph-measure.js?v=065ba67666';
+import { fontOf, measure } from './glyph-measure.js?v=9501dc0e53';
 import { fbComplete } from './gl-state.js?v=f33764e84c';
 import { ucOf } from './uniform-cache.js?v=6488216aa0';
 import { caught } from './caught.js?v=b96b17594a';

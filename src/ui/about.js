@@ -3,7 +3,7 @@
 // first sentence is fixed; the rest is read from the live model.
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=512e725aea';
-import { fmt, clamp } from './util.js?v=aef9bbf227';
+import { fmt, clamp } from './util.js?v=506da88dad';
 import { LABEL_VESSEL } from './anatomy.js?v=8768b1f623';
 import { judgeFlow } from './velNormal.js?v=ad0e95380d';
 

@@ -2,7 +2,7 @@
 
 import { classSoon } from './class-soon.js?v=af0dd2b529';
 import { host } from './host.js?v=654877cff9';
-import { h, fmt, svgIcon, visibleBottom, settleFrom, announce } from './util.js?v=aef9bbf227';
+import { h, fmt, svgIcon, visibleBottom, settleFrom, announce } from './util.js?v=506da88dad';
 import { leaveFromHere } from './menu-leave.js?v=a70cd0ac6e';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=7d7bfe9a62';
 import { glidePlate } from './plate-glide.js?v=b7c299896f';
