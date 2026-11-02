@@ -13,7 +13,7 @@
 // Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide, Esc. (The Guide lists them: PRESENT_KEYS in
 // main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=afc4d7c743';
+import { store, replaceParams } from './store.js?v=2ac7b3a9d2';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
 import { glWords } from './gl-words.js?v=a9b411a88f';

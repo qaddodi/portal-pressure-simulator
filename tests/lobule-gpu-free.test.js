@@ -27,10 +27,10 @@ test('a sweep only deletes the textures of canvases given back (width 0) or not 
   const gl = readFileSync(new URL('../src/ui/tissue-gl.js', import.meta.url), 'utf8');
   assert.match(gl, /sweep\(keep = \(\) => true\) \{\n\s+for \(const \[cv, t\] of texs\) if \(!cv\.width \|\| !keep\(cv\)\) \{ if \(!lost\) gl\.deleteTexture\(t\.tex\); texs\.delete\(cv\); \}/);
   // (Every draw looks a texture up by a canvas with pixels, so one swept is never sampled: an empty canvas binds the 1 px clear one.)
-  assert.match(gl, /w\?\.width \? texFor\(w, wVer, false\) : none,/);
+  assert.match(gl, /tx\[3\] = w\?\.width \? texFor\(w, wVer, false\) : none;/);
   // (and a texture the GPU could not take (null) is never bound: the 2D canvas draws that frame)
-  assert.match(gl, /if \(tx\.some\(\(t\) => !t\)\) \{\n\s+if \(hold && pictured && tgt\.width === W && tgt\.height === H\) \{ hostDone\(\); return 'held'; \}/);
+  assert.match(gl, /if \(!tx\[0\] \|\| !tx\[1\] \|\| !tx\[2\] \|\| !tx\[3\] \|\| !tx\[4\]\) \{\n\s+if \(hold && pictured && tgt\.width === W && tgt\.height === H\) \{ hostDone\(\); return 'held'; \}/);
   assert.match(gl, /for \(let i = 0; i < tx\.length; i\+\+\) if \(!tx\[i\]\) tx\[i\] = none;/, 'never sampled without a texture: the clear one in its place');
-  assert.match(gl, /tx\.forEach\(\(t, unit\) => bind\(unit, t\)\);/);
+  assert.match(gl, /for \(let unit = 0; unit < 5; unit\+\+\) \{ gl\.activeTexture\(gl\.TEXTURE0 \+ unit\); gl\.bindTexture\(gl\.TEXTURE_2D, tx\[unit\]\); \}/);
   assert.match(gl, /const old = wo\?\.width && wMix < 1;/);
 });

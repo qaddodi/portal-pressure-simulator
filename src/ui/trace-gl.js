@@ -56,15 +56,15 @@ export const sharedStats = { resizes: 0, transfers: 0, moves: 0, covAllocs: 0, u
 const SIZE_HOLD = 1000, MOVE_GAP = 2000, CAP_STEP = 256;
 export const capOf = (n) => Math.ceil(Math.max(1, n) / CAP_STEP) * CAP_STEP;
 function makePool() {
-  const pool = { dead: true, users: 0 };
+  const pool = { dead: true, users: 0 };   // alloc-rare: a drawing pool (a GL context) is made once, a timer ahead of the first chart that needs it
   if (typeof OffscreenCanvas !== 'function') return pool;
   let gl;
   const canvas = new OffscreenCanvas(1, 1);
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: true, preserveDrawingBuffer: false, powerPreference: 'low-power', failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
+  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: true, preserveDrawingBuffer: false, powerPreference: 'low-power', failIfMajorPerformanceCaveat: true }); } catch { gl = null; }   // alloc-rare: a drawing pool is made once
   if (!gl || typeof gl.createShader !== 'function' || typeof canvas.transferToImageBitmap !== 'function') return pool;
-  Object.assign(pool, { dead: false, canvas, gl, gen: 0, started: null, atlasTex: null, atlasIn: false, active: null, sizedAt: -1e9, sizedBy: null, cov: null });
-  canvas.addEventListener?.('webglcontextlost', (e) => { e.preventDefault(); pool.started = null; pool.atlasTex = null; pool.atlasIn = false; pool.cov = null; });
-  canvas.addEventListener?.('webglcontextrestored', () => { pool.gen++; });
+  Object.assign(pool, { dead: false, canvas, gl, gen: 0, started: null, atlasTex: null, atlasIn: false, active: null, sizedAt: -1e9, sizedBy: null, cov: null });   // alloc-rare: a drawing pool is made once
+  canvas.addEventListener?.('webglcontextlost', (e) => { e.preventDefault(); pool.started = null; pool.atlasTex = null; pool.atlasIn = false; pool.cov = null; });   // alloc-rare: a drawing pool is made once
+  canvas.addEventListener?.('webglcontextrestored', () => { pool.gen++; });   // alloc-rare: a drawing pool is made once
   return pool;
 }
 function sharedGL() {
@@ -76,13 +76,13 @@ function sharedGL() {
   best.users++;
   return best;
 }
-const startPool = (p) => (p.started ||= Object.fromEntries(Object.entries(SRC).map(([k, [vs, fs]]) => [k, startProgram(p.gl, vs, fs)])));
+const startPool = (p) => (p.started ||= Object.fromEntries(Object.entries(SRC).map(([k, [vs, fs]]) => [k, startProgram(p.gl, vs, fs)])));   // alloc-rare: a pool's programs are started once
 function atlasInto(p) {
   const gl = p.gl;
   if (p.atlasIn || !glyphImage || gl.isContextLost()) return;
   if (!p.atlasTex) {
     p.atlasTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, p.atlasTex);
-    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);   // alloc-rare: the glyph atlas goes up once per pool
   }
   gl.bindTexture(gl.TEXTURE_2D, p.atlasTex);
   gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
@@ -532,6 +532,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
 
   // ── A frame ──
   let W = 1, H = 1, K = 1, clipR = null, inFrame = false, lastEnd = true;
+  const clipBox = [0, 0, 0, 0];   // alloc-rare: made once with the drawer (the clip rectangle, written in place)
   // (R16: the target a frame's draws land in: the chart's canvas (null), or a kept layer's texture while keep() draws one.)
   let outFb = null;
   const layers = new Map();   // (a kept layer's name → { tex, fb, rb, w, h, gen, sig }: the still parts of a chart, drawn once per sig)
@@ -587,8 +588,8 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
     gl.enable(gl.STENCIL_TEST); gl.colorMask(false, false, false, false);
     gl.useProgram(P.fill.p); ucOf(gl).f2(P.fill.u.res, W, H); ucOf(gl).f1(P.fill.u.k, K);
     gl.bindVertexArray(fillVao); gl.bindBuffer(gl.ARRAY_BUFFER, fillBuf);
-    stack.forEach((pieces, i) => {
-      const m = fanData(pieces);
+    for (let i = 0; i < stack.length; i++) {
+      const pieces = stack[i], m = fanData(pieces);
       // (its windings counted in the low bits, within the clip so far)
       gl.stencilMask(0x7f);
       if (i) gl.stencilFunc(gl.EQUAL, 0x80, 0x80); else gl.stencilFunc(gl.ALWAYS, 0, 0);
@@ -599,7 +600,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
       if (i) { gl.stencilFunc(gl.EQUAL, 0x80, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.ZERO); fullQuad(); }
       // (inside it: in, its count cleared; the reference is 0x80, its low bits 0, so the test is "a count")
       gl.stencilFunc(gl.NOTEQUAL, 0x80, 0x7f); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); fullQuad();
-    });
+    }
     gl.colorMask(true, true, true, true);
     clipOn = true; clipState();
   }
@@ -776,7 +777,8 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
       if (canvas.style.visibility !== 'hidden') canvas.style.visibility = 'hidden';
       if (host.style.opacity) host.style.opacity = '';
     },
-    clip(r) { flush(); clipR = r; },
+    // (The rectangle is copied into the drawer's own: the shim's states each hold theirs, and a state given back would change this one.)
+    clip(r) { flush(); if (!r) clipR = null; else { clipR = clipBox; clipBox[0] = r[0]; clipBox[1] = r[1]; clipBox[2] = r[2]; clipBox[3] = r[3]; } },
     measure,
     /**
      * A stroke through pieces of line (CSS px): xs, ys (n points; a NaN starts a new piece). o: { alpha, paint (a colour or a gradient),
@@ -893,8 +895,8 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
           // (a few kept at most: the oldest let go)
           if (images.size >= 6) { const [k0, e0] = images.entries().next().value; gl.deleteTexture(e0.tex); images.delete(k0); }
           const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
-          for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
-          e = { tex }; images.set(key, e);
+          for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);   // alloc-rare: an image goes up to the GPU once (the first time it is drawn, then kept by its key)
+          e = { tex }; images.set(key, e);   // alloc-rare: an image goes up to the GPU once
         }
         gl.bindTexture(gl.TEXTURE_2D, e.tex);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
@@ -1063,10 +1065,14 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
 function createShim(G) {
   const TAU = Math.PI * 2;
   let st, stack, K = 1;
+  const keepSlots = [];   // alloc-rare: made once with the shim
+  let keepDepth = 0;
   // (only: the path is made of whole shapes and nothing else; lx, ly: the path's last point in the drawing's own space)
   let pieces = [], cur = null, shapes = [], only = true, lx = 0, ly = 0;
   let sx = new Float32Array(1024), sy = new Float32Array(1024);   // (a stroke's points, kept from frame to frame)
-  const fresh = () => ({ ls: 0, fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, lineCap: 'butt', lineJoin: 'miter', font: '10px sans-serif', textAlign: 'start', textBaseline: 'alphabetic', globalAlpha: 1, dash: [], lineDashOffset: 0, clip: null, clips: null, m: null });   // colour-exempt: the 2D canvas's own defaults
+  const NO_DASH = [], NO_CLIPS = [];   // alloc-rare: made once with the shim
+  const spare = [];   // alloc-rare: made once with the shim (the states given back by restore, used again by the next save)
+  const fresh = () => ({ ls: 0, fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, lineCap: 'butt', lineJoin: 'miter', font: '10px sans-serif', textAlign: 'start', textBaseline: 'alphabetic', globalAlpha: 1, dash: NO_DASH, lineDashOffset: 0, clip: null, clipA: [0, 0, 0, 0], clips: null, m: null });   // colour-exempt: the 2D canvas's own defaults
   // The transform (m: [a, b, c, d, e, f], null for none), as the 2D canvas's, over the drawer's own device scale. Paths are kept on the page.
   const X = (x, y) => (st.m ? st.m[0] * x + st.m[2] * y + st.m[4] : x), Y = (x, y) => (st.m ? st.m[1] * x + st.m[3] * y + st.m[5] : y);
   const moved = () => !st.m || (st.m[0] === 1 && st.m[1] === 0 && st.m[2] === 0 && st.m[3] === 1);   // (no turn or scale: shapes stay shapes)
@@ -1099,11 +1105,14 @@ function createShim(G) {
     gpu: G,
     onGPU: true,   // (what a chart asks to know it draws through this; a real context has no such field)
     canvas: null,
-    reset(k) { K = k; st = fresh(); stack = []; pieces = []; cur = null; shapes = []; only = true; return c; },
+    reset(k) { K = k; st = fresh(); stack = []; pieces = []; cur = null; shapes = []; only = true; return c; },   // alloc-rare: once a frame at most, the drawer's reset (a state, a stack and the path lists, then kept)
     /** R16: the still parts drawn by draw() kept as a GPU picture while sig holds (the drawer's keep); the context's state is as it was after. */
     keep(name, sig, draw) {
-      const kp = [pieces, cur, shapes, only];
-      return G.keep(name, sig, () => { c.save(); try { draw(); } finally { c.restore(); [pieces, cur, shapes, only] = kp; } });
+      // (The path state to put back, and the drawing to run, are kept in a slot for this depth: no array and no closure made for each call.)
+      const k = keepDepth++, slot = keepSlots[k] || (keepSlots[k] = { kp: [null, null, null, true], draw: null, run: null });   // alloc-rare: a slot is made once for each depth of nesting
+      slot.kp[0] = pieces; slot.kp[1] = cur; slot.kp[2] = shapes; slot.kp[3] = only; slot.draw = draw;
+      if (!slot.run) slot.run = () => { c.save(); try { slot.draw(); } finally { c.restore(); pieces = slot.kp[0]; cur = slot.kp[1]; shapes = slot.kp[2]; only = slot.kp[3]; } };   // alloc-rare: made once for each depth of nesting
+      try { return G.keep(name, sig, slot.run); } finally { slot.draw = null; keepDepth--; }
     },
     end() { return G.end(); },
     get fillStyle() { return st.fillStyle; }, set fillStyle(v) { st.fillStyle = v; },
@@ -1122,13 +1131,24 @@ function createShim(G) {
     imageSmoothingQuality: 'high',
     setLineDash(d) { st.dash = d.length % 2 ? [...d, ...d] : [...d]; },
     getLineDash() { return [...st.dash]; },
-    save() { stack.push({ ...st, dash: [...st.dash] }); },
+    // (A state saved is copied into one given back by an earlier restore, the dash list and the clip paths shared: they are replaced, never
+    // changed in place. The clip rectangle is copied into the saved state's own.)
+    save() {
+      const t = spare.pop() || fresh();   // alloc-rare: a state is made only until the stack has been this deep once
+      t.ls = st.ls; t.fillStyle = st.fillStyle; t.strokeStyle = st.strokeStyle; t.lineWidth = st.lineWidth; t.lineCap = st.lineCap; t.lineJoin = st.lineJoin;
+      t.font = st.font; t.textAlign = st.textAlign; t.textBaseline = st.textBaseline; t.globalAlpha = st.globalAlpha; t.dash = st.dash;
+      t.lineDashOffset = st.lineDashOffset; t.clips = st.clips; t.m = st.m;
+      if (st.clip) { const a = t.clipA, b = st.clipA; a[0] = b[0]; a[1] = b[1]; a[2] = b[2]; a[3] = b[3]; t.clip = a; } else t.clip = null;
+      stack.push(t);
+    },
     restore() {
       if (!stack.length) return;
       const prev = st;
       st = stack.pop();
-      if (st.clip !== prev.clip) G.clip(st.clip);
-      if (st.clips !== prev.clips) G.clipPaths(st.clips || []);
+      const a = st.clip, b = prev.clip;
+      if (a ? !b || a[0] !== b[0] || a[1] !== b[1] || a[2] !== b[2] || a[3] !== b[3] : b) G.clip(a);
+      if (st.clips !== prev.clips) G.clipPaths(st.clips || NO_CLIPS);
+      spare.push(prev);
     },
     // (The drawer's device scale is its own: a chart's setTransform to its device pixels sets none here.)
     setTransform() { st.m = null; }, resetTransform() { st.m = null; },
@@ -1214,8 +1234,12 @@ function createShim(G) {
     clip() {
       let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
       for (const p of pieces) for (let i = 0; i < p.length; i += 2) { x0 = Math.min(x0, p[i]); x1 = Math.max(x1, p[i]); y0 = Math.min(y0, p[i + 1]); y1 = Math.max(y1, p[i + 1]); }
-      let r = x1 > x0 && y1 > y0 ? [x0, y0, x1 - x0, y1 - y0] : [0, 0, 0, 0];
-      if (st.clip) { const q = st.clip, a0 = Math.max(r[0], q[0]), b0 = Math.max(r[1], q[1]), a1 = Math.min(r[0] + r[2], q[0] + q[2]), b1 = Math.min(r[1] + r[3], q[1] + q[3]); r = [a0, b0, Math.max(0, a1 - a0), Math.max(0, b1 - b0)]; }
+      // (The rectangle is written into the state's own four numbers, intersected with the clip so far.)
+      const r = st.clipA;
+      let rx = 0, ry = 0, rw = 0, rh = 0;
+      if (x1 > x0 && y1 > y0) { rx = x0; ry = y0; rw = x1 - x0; rh = y1 - y0; }
+      if (st.clip) { const q = st.clip, a0 = Math.max(rx, q[0]), b0 = Math.max(ry, q[1]), a1 = Math.min(rx + rw, q[0] + q[2]), b1 = Math.min(ry + rh, q[1] + q[3]); rx = a0; ry = b0; rw = Math.max(0, a1 - a0); rh = Math.max(0, b1 - b0); }
+      r[0] = rx; r[1] = ry; r[2] = rw; r[3] = rh;
       st.clip = r; G.clip(r);
       // (a rectangle is the scissor alone; any other shape is clipped by the stencil too)
       if (!(only && shapes.length === 1 && shapes[0].r === 0)) { st.clips = [...(st.clips || []), pieces.filter((p) => p.length >= 6).map((p) => p.slice())]; G.clipPaths(st.clips); }
@@ -1254,11 +1278,18 @@ const stopColour = (g) => (g && g.stops && g.stops.length ? g.stops[0][1] : 'tra
 
 /** The pen a chart draws with: the GPU drawer's 2D context where it can draw now ({ ctx, w, h }, ctx.end() ends the frame), else the chart's
  *  canvas sized as fitCanvas sizes it and a pen that draws nothing (util.js), until the GPU can draw it. */
+const PENS = new WeakMap();
 export function fitPen(canvas, gpu) {
   if (gpu) {
     const z = canvasSize(canvas);
     const ctx = gpu.ctx2d(z.w, z.h, z.W, z.H);
-    if (ctx) return { ctx, w: z.w, h: z.h, gpu: true };
+    if (ctx) {
+      // (The canvas's pen record is kept and written in place: every caller reads it at once, and a chart draws one canvas at a time.)
+      let p = PENS.get(canvas);
+      if (!p) PENS.set(canvas, p = { ctx: null, w: 0, h: 0, gpu: true });   // alloc-rare: one record for each canvas, the first time it is drawn
+      p.ctx = ctx; p.w = z.w; p.h = z.h;
+      return p;
+    }
   }
   return fitCanvas(canvas);
 }

@@ -22,10 +22,12 @@ import { caught } from './caught.js?v=b96b17594a';
  *  w, h: the tile's size. blank: the tile had no picture, so the copy is clear. It has the tile's size, so
  *  it stands where a canvas did; free() (width 0) gives its textures back. */
 export function tileCopy(src, w, h, look, blank = false) {
-  return { width: w, height: h, src, look, blank, tileCopy: true };
+  return { width: w, height: h, src, look, blank, tileCopy: true };   // alloc-rare: one description for each tile, made when the tile is first copied (lobule-zoom keeps it in the tile's slot)
 }
 export const isTileCopy = (cv) => !!cv && cv.tileCopy === true;
 
+// (The blur's directions, kept: a pass is told one of them.)
+const DIR_X = [1, 0], DIR_Y = [0, 1], DIR_0 = [0, 0];
 const VS = `#version 300 es
 in vec2 p;
 void main() { gl_Position = vec4(p, 0.0, 1.0); }`;
@@ -73,33 +75,33 @@ export function createTileCopier(gl) {
   // (Started with its context, and published by the idle poller once the driver is done (review pass 2, item 2): the first copy finds
   // its program, vertex array and uniforms ready, with no status read that waits inside a frame.)
   let early = null;
-  try { early = prestart(gl, VS, copyFS, [['p', 0]]); } catch (e) { caught('tile-gl:75', e); /* (compiled at the first copy, as before) */ }
+  try { early = prestart(gl, VS, copyFS, [['p', 0]]); } catch (e) { caught('tile-gl:75', e); /* (compiled at the first copy, as before) */ }   // alloc-rare: the copier is made once per GL context
   let prog = null, U = null, vao = null, raw = null, failed = false;
-  gl.canvas?.addEventListener?.('webglcontextlost', () => { prog = null; U = null; vao = null; raw = null; });
+  gl.canvas?.addEventListener?.('webglcontextlost', () => { prog = null; U = null; vao = null; raw = null; });   // alloc-rare: the copier is made once per GL context
   function ready() {
     if (prog) return true;
     if (failed || gl.isContextLost()) return false;
     // (Still compiling: no copy this frame (null: the tile keeps its last frame and is asked again shortly), never a wait for the driver.)
     const waiting = prestarted(gl, VS, copyFS);
-    if (waiting && stillCompiling(gl, [waiting])) return false;
+    if (waiting && stillCompiling(gl, [waiting])) return false;   // alloc-rare: only while the copy program is still compiling after the context starts
     try {
       // (Started with its context by createTileCopier, gl-compile.js prestart, and taken up here, its compile long done.)
-      const p = linkProgram(gl, VS, copyFS, [['p', 0]]);
-      U = Object.fromEntries(['uS', 'uDir', 'uSigma', 'uN', 'uTone', 'uK'].map((n) => [n, gl.getUniformLocation(p, n)]));
+      const p = linkProgram(gl, VS, copyFS, [['p', 0]]);   // alloc-rare: the program is linked once
+      U = Object.fromEntries(['uS', 'uDir', 'uSigma', 'uN', 'uTone', 'uK'].map((n) => [n, gl.getUniformLocation(p, n)]));   // alloc-rare: the program is linked once
       // (Its own vertex array, so the context's own attribute set-up is never changed.)
       vao = gl.createVertexArray();
       gl.bindVertexArray(vao);
       const buf = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);   // alloc-rare: the program's one triangle is uploaded once
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
       gl.bindVertexArray(null);
       prog = p;
       return true;
     } catch (err) { failed = true; console.warn('The lobule field\'s copies are made on the main thread.', err); return false; }
   }
-  if (early) publishWhenDone(gl, [early], () => { try { ready(); } catch (e) { caught('tile-gl:100', e); /* (read at the first copy) */ } });
-  const texture = (w, h, filter) => {
+  if (early) publishWhenDone(gl, [early], () => { try { ready(); } catch (e) { caught('tile-gl:100', e); /* (read at the first copy) */ } });   // alloc-rare: the copier is made once per GL context
+  const texture = (w, h, filter) => {   // alloc-rare: the copier is made once per GL context
     const t = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, t);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
@@ -112,11 +114,11 @@ export function createTileCopier(gl) {
     if (raw && raw.src === src && raw.w === src.width && raw.h === src.height) return raw.tex;
     if (raw) { gl.deleteTexture(raw.tex); raw = null; }
     if (isGpuPicture(src)) {
-      const tex = paintGL(gl).paint(src.rec, { mip: false });
+      const tex = paintGL(gl).paint(src.rec, { mip: false });   // alloc-rare: once for each tile put on the GPU (a new tile), never in a frame of the same tile
       if (!tex) return null;
       gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-      raw = { src, w: src.width, h: src.height, tex };
+      raw = { src, w: src.width, h: src.height, tex };   // alloc-rare: once for each tile put on the GPU (a new tile)
       return tex;
     }
     return null;   // (every tile is a recorded picture: no canvas is sent)
@@ -137,7 +139,7 @@ export function createTileCopier(gl) {
     const { width: w, height: h, look } = copy;
     // (Everything the context had set is put back: a copy is made from inside its draws, between their own settings.)
     // (From the renderer's own record of the context, gl-state.js: no query reaches the driver.)
-    const was = { prog: glGet(gl, gl.CURRENT_PROGRAM), fb: glGet(gl, gl.FRAMEBUFFER_BINDING), vp: glGet(gl, gl.VIEWPORT), unit: glGet(gl, gl.ACTIVE_TEXTURE), blend: glOn(gl, gl.BLEND), scissor: glOn(gl, gl.SCISSOR_TEST) };
+    const was = { prog: glGet(gl, gl.CURRENT_PROGRAM), fb: glGet(gl, gl.FRAMEBUFFER_BINDING), vp: glGet(gl, gl.VIEWPORT), unit: glGet(gl, gl.ACTIVE_TEXTURE), blend: glOn(gl, gl.BLEND), scissor: glOn(gl, gl.SCISSOR_TEST) };   // alloc-rare: once for each tile copy made, when a tile first reaches the GPU
     gl.activeTexture(gl.TEXTURE0 + 15);   // (a unit no draw of the lobule uses)
     const held = glGet(gl, gl.TEXTURE_BINDING_2D);
     const out = texture(w, h, gl.LINEAR_MIPMAP_LINEAR);
@@ -159,8 +161,8 @@ export function createTileCopier(gl) {
           const sigma = look.blur || 0, n = sigma > 0.5 ? Math.min(64, Math.ceil(sigma * 3)) : 0;
           if (n > 0) {
             mid = texture(w, h, gl.NEAREST);
-            ok = pass(fbo, src, mid, w, h, [1, 0], sigma, n, null) && pass(fbo, mid, out, w, h, [0, 1], sigma, n, look);
-          } else ok = pass(fbo, src, out, w, h, [0, 0], 1, 0, look);
+            ok = pass(fbo, src, mid, w, h, DIR_X, sigma, n, null) && pass(fbo, mid, out, w, h, DIR_Y, sigma, n, look);
+          } else ok = pass(fbo, src, out, w, h, DIR_0, 1, 0, look);
           gl.bindVertexArray(null);
         }
       }
@@ -178,7 +180,7 @@ export function createTileCopier(gl) {
     if (!ok) { gl.deleteTexture(out); return null; }
     return out;
   }
-  return {
+  return {   // alloc-rare: the copier is made once per GL context
     make,
     /** Gives back the tile kept for the next copy (its canvas given back, or not wanted any more). */
     sweep() { if (raw && (!raw.src.width || raw.w !== raw.src.width)) { if (!gl.isContextLost()) gl.deleteTexture(raw.tex); raw = null; } },

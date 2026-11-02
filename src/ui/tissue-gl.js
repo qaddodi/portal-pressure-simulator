@@ -29,12 +29,13 @@ export const tissueVS = VS;   // (for the shader lint in the unit tests)
 // new one fades in), then the fade into the page from r0 (clear) through FADE_MID halfway to whole at r1 and past it.
 // (A tile laid over the page's colour by its own alpha: the same picture for an opaque tile, the page's colour, not black, for one the
 // browser could not give memory to. See field-gl.js TILE_OVER; ?tileover=0 reads the rgb alone, as before.)
-const Q = (over, s) => (over ? `over(texture(${s}, uv))` : `texture(${s}, uv).rgb`);
+const Q = (over, s) => (over ? `over(texture(${s}, uv))` : `texture(${s}, uv).rgb`);   // alloc-rare: the shader source is built once, when the program is compiled
 // The dive and the rise on the GPU. While the zoom scales the lobule's
 // layers down, the screen's picture would show its surround as a pale card: so past the lobule's rim the picture is cleared (opaque to
 // DIVE_RIM.solid of the radius, gone by DIVE_RIM.clear), and only the lobule's own layer (the bitmap, and its live share) is kept whole
 // there, its portal tracts and the corners' triads reaching past the rim. The same picture as the 2D copy (lobule-zoom.js diveCopy):
 // the tissue × the fade, plus the lobule's own layer × the rest, premultiplied. Drawn once as the zoom starts; the compositor scales it.
+// alloc-rare: the shader source is built once, when the program is compiled
 export const tissueFS = (live, over = TILE_OVER) => `#version 300 es
 precision highp float;
 uniform sampler2D uQA, uQB, uQO, uW, uWO;   // the quiet tiles at the two sizes blended, the last state's tile; the bitmap, the last state's
@@ -83,7 +84,7 @@ void main() {
 
 /** opts.onLive(): called once the program that draws the lobule live has been published (liveReady() is true) or has failed (it never
  *  will be); the caller then asks again. */
-export function createTissueGL(canvas, opts = {}) {
+export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue is made once for each lobule view
   let gl = null;
   let ucache = null;   // (the uniform cache, made at the first draw)
   // Hosted (opts.host: { gl, canvas, under }, the lobule's vessel renderer's top, veins-gl.js; LZ_ONE): no context of its own. Each frame is
@@ -98,13 +99,13 @@ export function createTissueGL(canvas, opts = {}) {
   // hepatocytes and the background all went black while zooming).)
   // (On a software renderer too, as the lobule's vessels are (veins-gl.js force): the tissue has no other drawing; nothing is drawn on a
   // 2D canvas.)
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: false }); } catch { gl = null; }
+  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: false }); } catch { gl = null; }   // alloc-rare: the context is made once
   if (!gl) return null;
   // (Hosted, the picture's own target, sized to each frame; tgt: the size it holds (the canvas itself, on a context of its own); scr():
   // the framebuffer a frame ends in, null for the canvas.)
   let hostT = null;
-  const tgt = host ? { width: 0, height: 0 } : canvas;
-  const scr = () => (hostT ? hostT.fbo : null);
+  const tgt = host ? { width: 0, height: 0 } : canvas;   // alloc-rare: made once with the tissue
+  const scr = () => (hostT ? hostT.fbo : null);   // alloc-rare: made once with the tissue
   paintGL(gl);   // (the painter of the lobule's picture, paint-gl.js: its programs start compiling now, beside the tissue's)
   // The program is started here and published once the driver has finished it (gl-compile.js); a draw that comes first publishes it.
   // This one is the tissue as it was before the shader drew any of the lobule: the bitmap over the surround, nothing of lobule-live.js
@@ -112,10 +113,10 @@ export function createTissueGL(canvas, opts = {}) {
   // asks as soon as this exists), so a live program that fails to compile leaves this one working: the lobule keeps its painted
   // picture, and the bitmap alone is drawn by this program wherever the zoom gives the shader no share.
   let started;
-  try { started = startProgram(gl, VS, tissueFS(false), [['p', 0]]); } catch (err) { console.warn('The lobule tissue falls back to the 2D canvas.', err); if (!host) gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
+  try { started = startProgram(gl, VS, tissueFS(false), [['p', 0]]); } catch (err) { console.warn('The lobule tissue falls back to the 2D canvas.', err); if (!host) gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }   // alloc-rare: the program is started once, with the tissue
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);   // one triangle over the whole canvas
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);   // one triangle over the whole canvas   // alloc-rare: the program's one triangle is uploaded once
   // (Hosted, in a context whose own passes bind vertex arrays of their own: one of its own, bound for each of its draws.)
   const vao = host ? gl.createVertexArray() : null;
   if (vao) gl.bindVertexArray(vao);
@@ -125,13 +126,13 @@ export function createTissueGL(canvas, opts = {}) {
   // (A 1 px clear texture for a bitmap or tile not given: every sampler is bound to something.)
   const none = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, none);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));   // alloc-rare: the one clear texel is made once
   // (One level and a mipmap filter would leave it incomplete, and an incomplete texture reads opaque black.)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   let lost = false, pictured = false;   // (pictured: the canvas holds a frame at its present size, drawn by draw)
-  if (!host) canvas.addEventListener('webglcontextlost', (e) => { lost = true; pictured = false; texs.clear(); liveTex = null; pic = null; e.preventDefault?.(); });
+  if (!host) canvas.addEventListener('webglcontextlost', (e) => { lost = true; pictured = false; texs.clear(); liveTex = null; pic = null; e.preventDefault?.(); });   // alloc-rare: the context-loss handler is added once
   // (Hosted: the context as the host's own passes expect to find it, after each of this one's calls.)
   function hostDone() {
     if (!host) return;
@@ -142,9 +143,9 @@ export function createTissueGL(canvas, opts = {}) {
     gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND);
   }
   let prog = null, U0 = null, failed = false, liveTex = null;   // (liveTex: the lobule's shapes on the GPU, for the shape liveTex.for)
-  const COMMON_U = ['uQA', 'uQB', 'uQO', 'uW', 'uWO', 'uMix', 'uQOld', 'uO', 'uRd', 'uH', 'uRect', 'uWMix', 'uFade', 'uMid', 'uBg', 'uGrey', 'uRim'];
-  const LIVE_U = ['uLC', 'uLB', 'uLI', 'uLBox', 'uLN', 'uLEdge', 'uLCtr', 'uLCen', 'uLSt', 'uLGap', 'uLGap55', 'uLBase', 'uLNut', 'uLZ1', 'uLZ2', 'uLZ3', 'uLPlate', 'uLInk', 'uLZl', 'uLive', 'uLS', 'uLK', 'uLSin', 'uLFib', 'uLKB', 'uLShd', 'uLShade', 'uLHs', 'uLHB', 'uLHN'];   // (the lobule drawn live, lobule-live.js)
-  const locate = (p, names) => Object.fromEntries(names.map((n) => [n, gl.getUniformLocation(p, n)]));
+  const COMMON_U = ['uQA', 'uQB', 'uQO', 'uW', 'uWO', 'uMix', 'uQOld', 'uO', 'uRd', 'uH', 'uRect', 'uWMix', 'uFade', 'uMid', 'uBg', 'uGrey', 'uRim'];   // alloc-rare: the uniform names are listed once
+  const LIVE_U = ['uLC', 'uLB', 'uLI', 'uLBox', 'uLN', 'uLEdge', 'uLCtr', 'uLCen', 'uLSt', 'uLGap', 'uLGap55', 'uLBase', 'uLNut', 'uLZ1', 'uLZ2', 'uLZ3', 'uLPlate', 'uLInk', 'uLZl', 'uLive', 'uLS', 'uLK', 'uLSin', 'uLFib', 'uLKB', 'uLShd', 'uLShade', 'uLHs', 'uLHB', 'uLHN'];   // (the lobule drawn live, lobule-live.js)   // alloc-rare: the uniform names are listed once
+  const locate = (p, names) => Object.fromEntries(names.map((n) => [n, gl.getUniformLocation(p, n)]));   // alloc-rare: the uniform locations are found once, when the program is published
   // Reads the finished program, sets its samplers and runs one small offscreen draw, so the first real draw has no driver work left.
   function publish() {
     if (prog || failed || lost) return;
@@ -154,37 +155,43 @@ export function createTissueGL(canvas, opts = {}) {
       gl.useProgram(prog);
       gl.uniform1i(U0.uQA, 0); gl.uniform1i(U0.uQB, 1); gl.uniform1i(U0.uQO, 2); gl.uniform1i(U0.uW, 3); gl.uniform1i(U0.uWO, 4);
       if (vao) gl.bindVertexArray(vao);
-      exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));
+      exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));   // alloc-rare: the program is published once, when the driver is done compiling
     } catch (err) { failed = true; console.warn('The lobule tissue falls back to the 2D canvas.', err); if (!host) gl.getExtension('WEBGL_lose_context')?.loseContext(); }
     hostDone();
   }
-  publishWhenDone(gl, [started], publish);
+  publishWhenDone(gl, [started], publish);   // alloc-rare: the program is published once, when the driver is done compiling
   // The program that also draws the lobule live: started the first time liveReady() is asked,
   // published like the first, and used only by draws that carry a live share. If it fails, only the live drawing is lost: liveReady()
   // stays false, the first program keeps drawing the bitmap, and the caller is told (opts.onLive) so it stops waiting.
   let liveStarted = null, liveP = null, liveFailed = false;
   function startLive() {
     if (liveStarted || liveFailed || failed || lost) return;
-    try { liveStarted = startProgram(gl, VS, tissueFS(true), [['p', 0]]); } catch (err) { liveFailed = true; console.warn('The lobule cannot be drawn live; it keeps its painted picture.', err); return; }
-    publishWhenDone(gl, [liveStarted], publishLive);
+    try { liveStarted = startProgram(gl, VS, tissueFS(true), [['p', 0]]); } catch (err) { liveFailed = true; console.warn('The lobule cannot be drawn live; it keeps its painted picture.', err); return; }   // alloc-rare: the live program is started once, the first time the lobule is drawn live
+    publishWhenDone(gl, [liveStarted], publishLive);   // alloc-rare: the live program is started once
   }
   function publishLive() {
     if (liveP || liveFailed || failed || lost) return;
     try {
-      const p = checkProgram(gl, liveStarted), L = locate(p, [...COMMON_U, ...LIVE_U]);
+      const p = checkProgram(gl, liveStarted), L = locate(p, [...COMMON_U, ...LIVE_U]);   // alloc-rare: the live program is published once
       gl.useProgram(p);
       gl.uniform1i(L.uQA, 0); gl.uniform1i(L.uQB, 1); gl.uniform1i(L.uQO, 2); gl.uniform1i(L.uW, 3); gl.uniform1i(L.uWO, 4);
       gl.uniform1i(L.uLC, LIVE_UNIT); gl.uniform1i(L.uLB, LIVE_UNIT + 1); gl.uniform1i(L.uLI, LIVE_UNIT + 2); gl.uniform1i(L.uLS, LIVE_UNIT + 3); gl.uniform1i(L.uLK, LIVE_UNIT + 4);   // (the lobule's shapes, lobule-live.js)
       if (vao) gl.bindVertexArray(vao);
-      exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));
-      liveP = { prog: p, U: L };
+      exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));   // alloc-rare: the live program is published once
+      liveP = { prog: p, U: L };   // alloc-rare: the live program is published once
     } catch (err) { liveFailed = true; console.warn('The lobule cannot be drawn live; it keeps its painted picture.', err); }
     hostDone();
     try { opts.onLive?.(); } catch (err) { console.warn(err); }
   }
   // A canvas's texture, sent again only when the canvas was painted again (ver, the caller's count of its paints) or resized.
   // Tiles repeat; the lobule's bitmap is premultiplied (as the 2D canvas lays it) and stops at its edges.
-  const texs = new Map(), SCRATCH = 7, LIVE_UNIT = 8, copier = createTileCopier(gl);
+  const texs = new Map(), SCRATCH = 7, LIVE_UNIT = 8, copier = createTileCopier(gl);   // alloc-rare: made once with the tissue
+  // A canvas's texture record, written in place (a new one only the first time that canvas is sent).
+  function setTex(cv, t, tex, ver, bad) {
+    if (!t) { t = { tex, w: 0, h: 0, ver: NaN, bad: false, badVer: 0, retryAt: 0 }; texs.set(cv, t); }   // alloc-rare: the first record of a canvas
+    t.tex = tex; t.w = cv.width; t.h = cv.height; t.ver = bad ? NaN : ver; t.bad = bad;
+    if (bad) { t.badVer = ver; t.retryAt = performance.now() + SEND_RETRY; }
+  }
   function texFor(cv, ver, tile) {
     let t = texs.get(cv);
     if (t && t.w === cv.width && t.h === cv.height && t.ver === ver) return t.tex;
@@ -195,8 +202,8 @@ export function createTissueGL(canvas, opts = {}) {
       if (t) gl.deleteTexture(t.tex);
       gl.activeTexture(gl.TEXTURE0 + SCRATCH);
       const tex = paintGL(gl).paint(cv.rec);
-      if (!tex) { texs.set(cv, { tex: gl.createTexture(), w: cv.width, h: cv.height, ver: NaN, bad: true, badVer: ver, retryAt: performance.now() + SEND_RETRY }); return null; }
-      texs.set(cv, { tex, w: cv.width, h: cv.height, ver, bad: false });
+      if (!tex) { setTex(cv, t, gl.createTexture(), ver, true); return null; }
+      setTex(cv, t, tex, ver, false);
       return tex;
     }
     // (A copy of a tile made here on the GPU, tile-gl.js: drawn into its own texture from the tile, never sent from a canvas.)
@@ -205,11 +212,11 @@ export function createTissueGL(canvas, opts = {}) {
       gl.activeTexture(gl.TEXTURE0 + SCRATCH);
       const tex = copier.make(cv);
       copier.drop();   // (the surround needs one copy of each tile: the tile itself is not kept on the GPU)
-      if (!tex) { texs.set(cv, { tex: gl.createTexture(), w: cv.width, h: cv.height, ver: NaN, bad: true, badVer: ver, retryAt: performance.now() + SEND_RETRY }); return null; }
-      texs.set(cv, { tex, w: cv.width, h: cv.height, ver, bad: false });
+      if (!tex) { setTex(cv, t, gl.createTexture(), ver, true); return null; }
+      setTex(cv, t, tex, ver, false);
       return tex;
     }
-    if (!t) { t = { tex: gl.createTexture() }; texs.set(cv, t); }
+    if (!t) { t = { tex: gl.createTexture(), w: 0, h: 0, ver: NaN, bad: false, badVer: 0, retryAt: 0 }; texs.set(cv, t); }   // alloc-rare: the first send of a canvas
     gl.activeTexture(gl.TEXTURE0 + SCRATCH);   // (a unit no draw uses, so sending a canvas never replaces a texture already bound for the frame)
     gl.bindTexture(gl.TEXTURE_2D, t.tex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !tile);
@@ -218,15 +225,15 @@ export function createTissueGL(canvas, opts = {}) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     gl.generateMipmap(gl.TEXTURE_2D);
-    if (!sent) { Object.assign(t, { w: cv.width, h: cv.height, ver: NaN, bad: true, badVer: ver, retryAt: performance.now() + SEND_RETRY }); return null; }
-    Object.assign(t, { w: cv.width, h: cv.height, ver, bad: false });
+    if (!sent) { setTex(cv, t, t.tex, ver, true); return null; }
+    setTex(cv, t, t.tex, ver, false);
     return t.tex;
   }
   // The lobule's shapes (lobule-live.js buildLive) as float textures, sent once per shape. NEAREST and texelFetch: no filtering.
   function liveFor(shape, data) {
     if (liveTex && liveTex.for === shape) return liveTex;
     if (liveTex) for (const t of liveTex.t) gl.deleteTexture(t);
-    const make = (unit, fmt, base, w, h, arr) => {
+    const make = (unit, fmt, base, w, h, arr) => {   // alloc-rare: the lobule's shape textures are made once for each shape
       const t = gl.createTexture();
       gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
       gl.texImage2D(gl.TEXTURE_2D, 0, fmt, w, h, 0, base, gl.FLOAT, arr);
@@ -235,12 +242,12 @@ export function createTissueGL(canvas, opts = {}) {
       return t;
     };
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-    liveTex = { for: shape, data, t: [
+    liveTex = { for: shape, data, t: [   // alloc-rare: the lobule's shape textures are made once for each shape
       make(LIVE_UNIT, gl.RGBA32F, gl.RGBA, CELLS_PER_ROW * 3, data.cellRows, data.cellData),
       make(LIVE_UNIT + 1, gl.RGBA32F, gl.RGBA, data.nb, data.nb, data.bins),
       make(LIVE_UNIT + 2, gl.R32F, gl.RED, IDX_ROW, data.idxRows, data.idx),
       make(LIVE_UNIT + 3, gl.RGBA32F, gl.RGBA, SEG_ROW * 2, data.segRows, data.segData),
-      make(LIVE_UNIT + 4, gl.RGBA32F, gl.RGBA, K_ROW, 1, new Float32Array(K_ROW * 4)),   // (the per-state texels: sent by liveDyn)
+      make(LIVE_UNIT + 4, gl.RGBA32F, gl.RGBA, K_ROW, 1, new Float32Array(K_ROW * 4)),   // (the per-state texels: sent by liveDyn)   // alloc-rare: the lobule's shape textures are made once for each shape
     ], dyn: null };
     return liveTex;
   }
@@ -262,7 +269,7 @@ export function createTissueGL(canvas, opts = {}) {
   // draws straight to the canvas as ever.
   let keepOff = false;
   let pic = null;   // { cur, spare, W, H, sig, ref }: cur holds the kept picture; spare is the other of the pair, made at the first pan
-  const keepStats = { full: 0, shifted: 0, still: 0 };
+  const keepStats = { full: 0, shifted: 0, still: 0 };   // alloc-rare: made once with the tissue
   function makeTarget(w, h) {
     const tex = gl.createTexture(), fbo = gl.createFramebuffer();
     gl.activeTexture(gl.TEXTURE0 + SCRATCH);
@@ -275,9 +282,9 @@ export function createTissueGL(canvas, opts = {}) {
     const ok = fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', w, h);   // (asked per framebuffer, size and attachment set: gl-state.js)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D, null);   // (not left bound on a unit: the target is only ever drawn into and copied from)
-    return { tex, fbo, ok };
+    return { tex, fbo, ok };   // alloc-rare: a picture target is made once, when the first live frame is kept (and again if the canvas is resized)
   }
-  const freeTarget = (t) => { if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); } };
+  const freeTarget = (t) => { if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); } };   // alloc-rare: made once with the tissue
   function dropKept() { if (pic) { if (!lost) { freeTarget(pic.cur); freeTarget(pic.spare); } pic = null; } }
   // Copies a rectangle [x, y, w, h] of one target to [x, y, w, h] of another (dst null: the canvas), pixel for pixel.
   function blit(src, dst, s, d) {
@@ -285,14 +292,22 @@ export function createTissueGL(canvas, opts = {}) {
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, dst ? dst.fbo : null);
     gl.blitFramebuffer(s[0], s[1], s[0] + s[2], s[1] + s[3], d[0], d[1], d[0] + d[2], d[1] + d[3], gl.COLOR_BUFFER_BIT, gl.NEAREST);
   }
-  const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i] || (v !== v && b[i] !== b[i]));
+  // (Two signatures alike: the same numbers and textures, NaN equal to NaN. A loop, no closure made for the compare.)
+  function same(a, b) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) { const v = a[i], w = b[i]; if (v !== w && !(v !== v && w !== w)) return false; }
+    return true;
+  }
+  const tri = () => gl.drawArrays(gl.TRIANGLES, 0, 3);   // alloc-rare: made once per context
+  const TX = [null, null, null, null, null];   // alloc-rare: made once per context (the five textures of a frame, written in place)
+  const POS = [0, 0, 0, 0];   // alloc-rare: made once per context (where the lobule lies, written in place each live frame)
+  const FULL = [0, 0, 0, 0];   // alloc-rare: made once per context (the whole canvas as a blit rectangle, written in place)
   // The live program is in use and its uniforms are set: draw the frame (sig: everything the frame is made from except where it lies;
   // pos: the lobule's centre and the bitmap's corner, device px).
   function drawLive(W, H, sig, pos) {
-    const tri = () => gl.drawArrays(gl.TRIANGLES, 0, 3);
     if (keepOff || (host ? tgt.width !== W || tgt.height !== H : gl.drawingBufferWidth !== W || gl.drawingBufferHeight !== H)) { dropKept(); tri(); return; }
     if (pic && (pic.W !== W || pic.H !== H)) dropKept();
-    const full = [0, 0, W, H];
+    const full = FULL; full[2] = W; full[3] = H;
     if (pic && same(pic.sig, sig)) {
       const d = panShift(pic.ref, pos), plan = d && panPlan(W, H, d[0], d[1]);
       if (plan && !d[0] && !d[1]) {   // (nothing moved: the kept picture as it is)
@@ -310,38 +325,56 @@ export function createTissueGL(canvas, opts = {}) {
         blit(B, hostT, full, full);
         gl.bindFramebuffer(gl.FRAMEBUFFER, scr());
         pic.spare = pic.cur; pic.cur = B;
-        pic.ref = [pic.ref[0] + d[0], pic.ref[1] + d[1], pic.ref[2] + d[0], pic.ref[3] + d[1]];   // (what its pixels are drawn for: whole steps from the last full frame, so no error builds up)
+        { const r = pic.ref; r[0] += d[0]; r[1] += d[1]; r[2] += d[0]; r[3] += d[1]; }   // (what its pixels are drawn for: whole steps from the last full frame, so no error builds up)
         keepStats.shifted++;
         return;
       }
     }
-    if (!pic) { const a = makeTarget(W, H); if (!a.ok) { keepOff = true; freeTarget(a); tri(); return; } pic = { cur: a, spare: null, W, H, sig: null, ref: null }; }
+    if (!pic) { const a = makeTarget(W, H); if (!a.ok) { keepOff = true; freeTarget(a); tri(); return; } pic = { cur: a, spare: null, W, H, sig: null, ref: [0, 0, 0, 0] }; }   // alloc-rare: the kept picture is made once, when a live frame is first kept
     gl.bindFramebuffer(gl.FRAMEBUFFER, pic.cur.fbo);
     tri();
     blit(pic.cur, hostT, full, full);
     gl.bindFramebuffer(gl.FRAMEBUFFER, scr());
-    pic.sig = sig; pic.ref = pos.slice();
+    // (The signature just drawn is kept, and the array it replaces becomes the next one's scratch: no array is made for each frame.)
+    { const old = pic.sig; pic.sig = sig; sigBuf = old || []; }   // alloc-rare: the first kept frame only (the array is empty before it)
+    { const r = pic.ref; r[0] = pos[0]; r[1] = pos[1]; r[2] = pos[2]; r[3] = pos[3]; }
     keepStats.full++;
   }
-  // Everything a live frame is made from but where it lies (compared with the last one's: the same numbers, the same textures).
-  function liveSig(W, H, a, live) {
-    const cv = (c) => (c ? [c, c.width, c.height] : [null, 0, 0]);
-    return [...(a.rim || []), W, H, ...cv(a.qa), ...cv(a.qb), a.mix, ...cv(a.qo), a.qOld, ...cv(a.w), a.wVer, ...cv(a.wo), a.woVer, a.wMix, a.rect[2], a.rd, a.fade[0], a.fade[1], a.mid,
-      a.bg[0], a.bg[1], a.bg[2], a.grey ? a.grey[0] : 1, a.grey ? a.grey[1] : 1, live.shape, live.data, live.dyn,
-      JSON.stringify([live.share, live.cu, live.sj, live.zones, live.dark, live.cen, live.rs0, live.fib, live.col])];
+  // Everything a live frame is made from but where it lies (compared with the last one's: the same numbers, the same textures). Written
+  // into a kept array, in the order the frame's parts come, and the plain parts of `live` (numbers, flags, colours: nested arrays and
+  // objects) written flat after them: no array is made, and no JSON string, for each frame.
+  let sigBuf = [];   // alloc-rare: made once per context
+  let sigN = 0;
+  function sigPut(v) { sigBuf[sigN++] = v; }
+  function sigCv(c) { if (c) { sigBuf[sigN++] = c; sigBuf[sigN++] = c.width; sigBuf[sigN++] = c.height; } else { sigBuf[sigN++] = null; sigBuf[sigN++] = 0; sigBuf[sigN++] = 0; } }
+  function sigFlat(v) {
+    if (v === null || v === undefined || typeof v !== 'object') { sigBuf[sigN++] = v; return; }
+    if (ArrayBuffer.isView(v) || Array.isArray(v)) { sigBuf[sigN++] = v.length; for (let i = 0; i < v.length; i++) sigFlat(v[i]); return; }
+    for (const k in v) { sigBuf[sigN++] = k; sigFlat(v[k]); }
+  }
+  function liveSig(W, H, rim, qa, qb, mix, qo, qOld, w, wVer, wo, woVer, wMix, rect, rd, fade, mid, bg, grey, live) {
+    sigN = 0;
+    if (rim) { sigPut(rim[0]); sigPut(rim[1]); sigPut(rim[2]); sigPut(rim[3]); }
+    sigPut(W); sigPut(H); sigCv(qa); sigCv(qb); sigPut(mix); sigCv(qo); sigPut(qOld); sigCv(w); sigPut(wVer); sigCv(wo); sigPut(woVer);
+    sigPut(wMix); sigPut(rect[2]); sigPut(rd); sigPut(fade[0]); sigPut(fade[1]); sigPut(mid);
+    sigPut(bg[0]); sigPut(bg[1]); sigPut(bg[2]); sigPut(grey ? grey[0] : 1); sigPut(grey ? grey[1] : 1); sigPut(live.shape); sigPut(live.data); sigPut(live.dyn);
+    sigFlat(live.share); sigFlat(live.cu); sigFlat(live.sj); sigFlat(live.zones); sigFlat(live.dark); sigFlat(live.cen); sigFlat(live.rs0); sigFlat(live.fib); sigFlat(live.col);
+    sigBuf.length = sigN;
+    return sigBuf;
   }
   hostDone();
-  return {
-    get lost() { return lost || failed || gl.isContextLost(); },
+  return {   // alloc-rare: the tissue's handle is made once
+    get lost() { return lost || failed || gl.isContextLost(); },   // alloc-rare: the tissue's handle is made once
     /** How many live frames were drawn in full, as a shifted copy of the last (with only the strips the move uncovered drawn), or as
      *  the last again. */
-    get kept() { return { ...keepStats }; },
+    get kept() { return { ...keepStats }; },   // alloc-rare: read by tests and the debug panel, never by a frame
     /** Whether the lobule can be drawn live now: the program for it is published. The first ask starts its compile; opts.onLive is
      *  called when it is done, either way. False for good if it failed. */
     liveReady() { startLive(); return !!liveP && !this.lost; },
     /** Sends a canvas to the GPU now (painted ahead, so no frame of a gesture waits for it). */
     upload(cv, ver = 0, tile = false) { if (!this.lost && cv?.width) { texFor(cv, ver, tile); hostDone(); } },
     /** Gives back every texture whose canvas was given back (width 0) or is no longer wanted (keep(cv) false). */
+    // alloc-rare: the default test is made only when sweep() is called bare, on a snap or a trim, not in a frame
     sweep(keep = () => true) {
       for (const [cv, t] of texs) if (!cv.width || !keep(cv)) { if (!lost) gl.deleteTexture(t.tex); texs.delete(cv); }
       copier.sweep();
@@ -359,7 +392,7 @@ export function createTissueGL(canvas, opts = {}) {
       // no frame waits on a compile: still compiling, the tissue keeps the frame it shows (hold, at this size) or the 2D canvas draws this one.)
       if (!prog && !failed && !lost) {
         let ready;
-        try { ready = compileDone(gl, [started]); } catch { ready = true; }
+        try { ready = compileDone(gl, [started]); } catch { ready = true; }   // alloc-rare: only while the program is still compiling, the first frames of a view
         if (!ready) return hold && pictured && tgt.width === W && tgt.height === H ? 'held' : false;
       }
       publish();
@@ -370,8 +403,10 @@ export function createTissueGL(canvas, opts = {}) {
       // With hold (the canvas showing) and the canvas already at this size with a picture, it keeps that picture for the frame: the
       // last frame stays on screen, untouched, and the send is tried again shortly (field-gl.js SEND_RETRY). Otherwise drawn on the GPU without it, below.)
       const old = wo?.width && wMix < 1;
-      const tx = [texFor(qa, 0, true), qb ? texFor(qb, 0, true) : texFor(qa, 0, true), qo && qOld > 0 ? texFor(qo, 0, true) : none, w?.width ? texFor(w, wVer, false) : none, old ? texFor(wo, woVer, false) : none];
-      if (tx.some((t) => !t)) {
+      const tx = TX;
+      tx[0] = texFor(qa, 0, true); tx[1] = qb ? texFor(qb, 0, true) : tx[0]; tx[2] = qo && qOld > 0 ? texFor(qo, 0, true) : none;
+      tx[3] = w?.width ? texFor(w, wVer, false) : none; tx[4] = old ? texFor(wo, woVer, false) : none;
+      if (!tx[0] || !tx[1] || !tx[2] || !tx[3] || !tx[4]) {
         if (hold && pictured && tgt.width === W && tgt.height === H) { hostDone(); return 'held'; }
         // (No picture to keep: still drawn on the GPU, never stepped down to the 2D canvas. What did not go is the 1 px clear texture: a tile
         // laid over the page's colour by its alpha (TILE_OVER) shows the page's colour, a bitmap shows the surround under it, never black.)
@@ -391,8 +426,7 @@ export function createTissueGL(canvas, opts = {}) {
       // bitmap over the surround and nothing else.)
       const isLive = !!(live && live.share > 0 && liveP), U = isLive ? liveP.U : U0;
       gl.useProgram(isLive ? liveP.prog : prog);
-      const bind = (unit, tex) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); };
-      tx.forEach((t, unit) => bind(unit, t));
+      for (let unit = 0; unit < 5; unit++) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tx[unit]); }
       // (Uniforms go through the cache: a value the program already holds is not sent again, uniform-cache.js. Set nowhere else.)
       const UC = ucache || (ucache = uniformCache(gl));
       UC.f1(U.uMix, qb ? mix : 0); UC.f1(U.uQOld, qo ? qOld : 0);
@@ -402,10 +436,10 @@ export function createTissueGL(canvas, opts = {}) {
       UC.f2(U.uFade, fade[0], fade[1]); UC.f1(U.uMid, mid);
       UC.f3(U.uBg, bg[0], bg[1], bg[2]);
       UC.f2(U.uGrey, grey ? grey[0] : 1, grey ? grey[1] : 1);
-      { const r = rim || [0, 0, 0, 0]; UC.f4(U.uRim, r[0], r[1], r[2], r[3]); }
+      if (rim) UC.f4(U.uRim, rim[0], rim[1], rim[2], rim[3]); else UC.f4(U.uRim, 0, 0, 0, 0);
       if (isLive) {
         const T = liveFor(live.shape, live.data), D = live.data, C = live.col;
-        T.t.forEach((t, i) => { gl.activeTexture(gl.TEXTURE0 + LIVE_UNIT + i); gl.bindTexture(gl.TEXTURE_2D, t); });
+        for (let i = 0; i < T.t.length; i++) { gl.activeTexture(gl.TEXTURE0 + LIVE_UNIT + i); gl.bindTexture(gl.TEXTURE_2D, T.t[i]); }
         UC.f3(U.uLBox, D.box[0], D.box[1], D.box[2]); UC.f2(U.uLN, D.nb, BIN);
         UC.fv3(U.uLEdge, D.edges); UC.f2(U.uLCtr, D.ctr[0], D.ctr[1]);
         UC.f4(U.uLCen, live.cen[0], live.cen[1], live.cen[2], live.dark ? 1 : 0);
@@ -414,16 +448,19 @@ export function createTissueGL(canvas, opts = {}) {
         UC.fv3(U.uLNut, C.nut); UC.fv3(U.uLZ1, C.z1); UC.fv3(U.uLZ2, C.z2); UC.fv3(U.uLZ3, C.z3);
         UC.fv4(U.uLPlate, C.plate); UC.fv4(U.uLInk, C.ink); UC.fv4(U.uLZl, C.zl);
         liveDyn(T, live.dyn);
-        const F = live.fib, ac = { fibSin: F.fibSin, act: F.actV };   // (liveFibre: the sinusoid collagen's and the stellate cells' strengths)
-        UC.f4(U.uLSin, C.dis[0], C.dis[1], C.dis[2], 0.75 * ac.fibSin * F.sin); UC.f4(U.uLFib, ac.fibSin, live.dyn.margin, 0, 0);
+        const F = live.fib, acFibSin = F.fibSin, acAct = F.actV;   // (liveFibre: the sinusoid collagen's and the stellate cells' strengths)
+        UC.f4(U.uLSin, C.dis[0], C.dis[1], C.dis[2], 0.75 * acFibSin * F.sin); UC.f4(U.uLFib, acFibSin, live.dyn.margin, 0, 0);
         UC.f4(U.uLKB, live.dyn.nItems ? live.dyn.nk : 0, 32, live.dyn.bOff, live.dyn.iOff);
         UC.f4(U.uLShd, C.shd[0], C.shd[1], C.shd[2], C.shd[3]); UC.f4(U.uLShade, C.shade[0], C.shade[1], C.shade[2], 1);
-        UC.f4(U.uLHs, F.act > 0 ? live.dyn.nH : 0, ac.act, live.rs0, live.dyn.hOff);
-        UC.f4(U.uLHB, C.body[0], C.body[1], C.body[2], (0.22 + 0.3 * ac.act) * F.act);
-        UC.f4(U.uLHN, C.nuc[0], C.nuc[1], C.nuc[2], (0.3 + 0.3 * ac.act) * F.act);
+        UC.f4(U.uLHs, F.act > 0 ? live.dyn.nH : 0, acAct, live.rs0, live.dyn.hOff);
+        UC.f4(U.uLHB, C.body[0], C.body[1], C.body[2], (0.22 + 0.3 * acAct) * F.act);
+        UC.f4(U.uLHN, C.nuc[0], C.nuc[1], C.nuc[2], (0.3 + 0.3 * acAct) * F.act);
         UC.f1(U.uLive, live.share);
       }
-      if (isLive) drawLive(W, H, liveSig(W, H, { rim: rim || null, qa, qb: qb || null, mix: qb ? mix : 0, qo: qo && qOld > 0 ? qo : null, qOld: qo ? qOld : 0, w: w?.width ? w : null, wVer, wo: old ? wo : null, woVer: old ? woVer : 0, wMix: old ? wMix : 1, rect, rd, fade, mid, bg, grey }, live), [ox, oy, rect[0], rect[1]]);
+      if (isLive) {
+        POS[0] = ox; POS[1] = oy; POS[2] = rect[0]; POS[3] = rect[1];
+        drawLive(W, H, liveSig(W, H, rim, qa, qb || null, qb ? mix : 0, qo && qOld > 0 ? qo : null, qo ? qOld : 0, w?.width ? w : null, wVer, old ? wo : null, old ? woVer : 0, old ? wMix : 1, rect, rd, fade, mid, bg, grey, live), POS);
+      }
       else { dropKept(); gl.drawArrays(gl.TRIANGLES, 0, 3); }
       pictured = true;
       hostDone();
@@ -431,7 +468,7 @@ export function createTissueGL(canvas, opts = {}) {
     },
     /** Hosted: whether there is a picture to lay (the last frame drawn), and laying it on the host's canvas from its top left, pixel
      *  for pixel (the host's present, under its own picture). */
-    get pictured() { return pictured && !!hostT; },
+    get pictured() { return pictured && !!hostT; },   // alloc-rare: the tissue's handle is made once
     under(k = 1) {
       if (!hostT || !pictured || lost || gl.isContextLost()) return;
       // (k: the host canvas's pixels per this picture's, 0.5 where the vessels draw at half density on a software renderer: the picture
@@ -446,6 +483,6 @@ export function createTissueGL(canvas, opts = {}) {
     /** Gives back the picture's own target (hosted), as the canvas's memory would be. */
     release() { dropKept(); if (hostT && !lost && !gl.isContextLost()) freeTarget(hostT); hostT = null; tgt.width = tgt.height = 0; pictured = false; },
     /** The context it draws in (its own, or the host's). */
-    get gl() { return gl; },
+    get gl() { return gl; },   // alloc-rare: the tissue's handle is made once
   };
 }

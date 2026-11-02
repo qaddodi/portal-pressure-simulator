@@ -9,7 +9,7 @@ import { restPass, cancelRest } from './rest-pass.js?v=d13e397f0b';
 import { classSoon, attrSoon } from './class-soon.js?v=97b9d0e0db';
 import { frame } from './frame.js?v=1d147c7c9a';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
+import { DRUGS } from '../engine/scenario.js?v=d2669cef9b';
 import { HIDDEN_EDGES } from './anatomy.js?v=fe0f3d1f0e';
 import { LOOKS } from './looks.js?v=2d098211a4';
 

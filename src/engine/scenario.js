@@ -1,15 +1,15 @@
 // Scenario parameters, presets and drug effects (blueprint §8.4, §10.1, §10.2).
 
 export function defaultParams() {
-  return {
+  return {   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     cirrhosis: 0,                 // macro 0..1 (§8.4)
-    fibrosis: {                   // user fibrosis brush multipliers (≥ 1)
-      R: { pre: 1, sin: 1, post: 1 },
-      L: { pre: 1, sin: 1, post: 1 },
+    fibrosis: {                   // user fibrosis brush multipliers (≥ 1)   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+      R: { pre: 1, sin: 1, post: 1 },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+      L: { pre: 1, sin: 1, post: 1 },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     },
-    stenosis: {},                 // edgeId → 0..1 lumen narrowing
-    stenosisSite: {},             // stent edgeId → 'proximal' | 'mid' | 'distal': the segment a stent's narrowing sits in (distal if unset)
-    thrombus: {},                 // edgeId → 0..1 occlusion
+    stenosis: {},                 // edgeId → 0..1 lumen narrowing   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+    stenosisSite: {},             // stent edgeId → 'proximal' | 'mid' | 'distal': the segment a stent's narrowing sits in (distal if unset)   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+    thrombus: {},                 // edgeId → 0..1 occlusion   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     splenicRx: 0,                 // 0 none · 1 partial splenic artery embolization · 2 splenectomy
     splanchnicTone: 1,            // arteriolar resistance multiplier (<1 = vasodilated)
     meal: 0,                      // how far a meal has taken hold, 0..1 (0 fasting); see MEAL_TONE
@@ -24,13 +24,13 @@ export function defaultParams() {
     respiration: true,
     respDepth: 1,
     pulsatile: true,
-    spontaneous: { C5: false, C6: false },   // C5: gastrorenal shunt, an anatomical variant: absent by default (a preset or the user adds it); fundal varices need it
+    spontaneous: { C5: false, C6: false },   // C5: gastrorenal shunt, an anatomical variant: absent by default (a preset or the user adds it); fundal varices need it   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     isolatedGV: false,            // isolated fundal varices (IGV1): the coronary vein never forms esophageal varices
-    occluded: {},                 // collateral id → true (BRTO / plug)
-    tips: { on: false, d: 8 },
-    dips: { on: false, d: 8 },
+    occluded: {},                 // collateral id → true (BRTO / plug)   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+    tips: { on: false, d: 8 },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+    dips: { on: false, d: 8 },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     portocaval: false,
-    customShunts: {},
+    customShunts: {},   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     dsrs: false,
     mesocaval: false,
     balloonEso: false,            // the tamponade tube's esophageal balloon: the second step, filled only on a tube whose gastric balloon is up
@@ -38,10 +38,10 @@ export function defaultParams() {
     anticoag: false,
     diuretics: false,             // spironolactone + furosemide: renal sodium/water loss offsets ascites
     fenestrae: 0,                 // how far the sinusoid lining's pores are opened past what the disease leaves (0: as the disease has it, 1: all open); see starling()
-    drugs: { propranolol: false, carvedilol: false, terlipressin: false, octreotide: false },
+    drugs: { propranolol: false, carvedilol: false, terlipressin: false, octreotide: false },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     nsbbGain: 1,                  // how strongly this patient's portal pressure answers a beta-blocker: 1 the usual (an HVPG fall near 15 to 20%),
                                   // more for a good responder; it scales the splanchnic and sinusoidal parts of propranolol and carvedilol only
-    catheter: { vein: null, wedged: false },
+    catheter: { vein: null, wedged: false },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     bleeding: false,              // spontaneous variceal rupture (off: varices swell but never tear on their own)
     deterministicRupture: false,
     seed: 1,
@@ -127,27 +127,28 @@ const RANGES = {
   contractility: [0.15, 1.6], tr: [0, 1], pericardial: [0, 1], albumin: [1.5, 5], habrStrength: [0, 2],
   apShunt: [0, 1], respDepth: [0, 3], gestation: [0, 40], fenestrae: [0, 1], meal: [0, 1],
 };
+const RANGE_LIST = Object.entries(RANGES), LOBES = ['R', 'L'], ZONES = ['pre', 'sin', 'post'], CLAMPED = ['stenosis', 'thrombus'], SITES = ['proximal', 'mid', 'distal'], SWITCHED = ['tips', 'dips'];
 const num = (v, lo, hi, def) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def);
 
 /** A copy of params with every value of the wrong type replaced by its default and every number clamped to its range. */
 export function sanitizeParams(p) {
   const d = defaultParams();
   const out = isObj(p) ? deepMerge(d, p) : d;
-  for (const [k, [lo, hi]] of Object.entries(RANGES)) out[k] = num(out[k], lo, hi, d[k]);
+  for (const [k, [lo, hi]] of RANGE_LIST) out[k] = num(out[k], lo, hi, d[k]);
   out.splenicRx = Math.round(out.splenicRx);
-  for (const k of Object.keys(d)) {
+  for (const k of Object.keys(d)) {   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
     if (typeof d[k] === 'boolean') out[k] = !!out[k];
     else if (isObj(d[k]) && !isObj(out[k])) out[k] = d[k];
   }
-  for (const lobe of ['R', 'L']) {
+  for (const lobe of LOBES) {
     if (!isObj(out.fibrosis[lobe])) out.fibrosis[lobe] = d.fibrosis[lobe];
-    for (const z of ['pre', 'sin', 'post']) out.fibrosis[lobe][z] = num(out.fibrosis[lobe][z], 1, 80, 1);
+    for (const z of ZONES) out.fibrosis[lobe][z] = num(out.fibrosis[lobe][z], 1, 80, 1);
   }
-  for (const k of ['stenosis', 'thrombus']) for (const id of Object.keys(out[k])) out[k][id] = num(out[k][id], 0, k === 'stenosis' ? 0.95 : 1, 0);
-  for (const id of Object.keys(out.stenosisSite)) if (!['proximal', 'mid', 'distal'].includes(out.stenosisSite[id])) delete out.stenosisSite[id];
-  for (const k of ['tips', 'dips']) { out[k].on = !!out[k].on; out[k].d = num(out[k].d, 6, 12, 8); }
-  for (const id of Object.keys(out.customShunts)) if (out.customShunts[id]) out.customShunts[id] = num(out.customShunts[id], 4, 16, 10);
-  for (const k of Object.keys(out.drugs)) out.drugs[k] = !!out.drugs[k];
+  for (const k of CLAMPED) for (const id of Object.keys(out[k])) out[k][id] = num(out[k][id], 0, k === 'stenosis' ? 0.95 : 1, 0);   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
+  for (const id of Object.keys(out.stenosisSite)) if (!SITES.includes(out.stenosisSite[id])) delete out.stenosisSite[id];   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
+  for (const k of SWITCHED) { out[k].on = !!out[k].on; out[k].d = num(out[k].d, 6, 12, 8); }
+  for (const id of Object.keys(out.customShunts)) if (out.customShunts[id]) out.customShunts[id] = num(out.customShunts[id], 4, 16, 10);   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
+  for (const k of Object.keys(out.drugs)) out.drugs[k] = !!out.drugs[k];   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
   out.seed = num(out.seed, 0, 2 ** 31, 1);
   return out;
 }

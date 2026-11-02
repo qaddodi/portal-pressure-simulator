@@ -29,7 +29,7 @@ import { isPaused } from './clock.js?v=d6c06e7017';
 import { store } from './store.js?v=afc4d7c743';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=42a18216f1';
+import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAtInto, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=42a18216f1';
 import { placeFenDisse } from './fen-place.js?v=6107ab850e';
 import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale, easeNow } from './frame.js?v=1d147c7c9a';
 import { softwareGL, softwareYield } from './sw-yield.js?v=0b6a0f94e9';
@@ -38,6 +38,7 @@ import { FADE_MS, fadeAlpha } from './res-fade.js?v=9c2e0f3c87';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { restPass, restClass, restAttr } from './rest-pass.js?v=d13e397f0b';
+const HEP_CELL = { j: 0, x0: 0, x1: 0, nu: 0, nv: 0, nr: 0, bi: false };   // alloc-rare: made once (the hepatocyte's cell, written in place by each layout)
 const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -621,7 +622,7 @@ export function createSinusoidView({ host, before = null }) {
     const xd = pick(V ? 0.55 : 0.2), lymph = (x) => region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min\u00a0· Protein ${Math.round(m.lyProt * 100)}%`, x, hepIn(x) + 1.2, { side: 1 });
     let ly = lymph(xd);
     // A hepatocyte named on itself, clear of its nucleus.
-    const xh = pick(V ? 0.88 : 0.6), hc = cellAt(xh, SEED.plateDn), hep1 = (x) => region('hep', 'Hepatocyte', '', x, hepIn(x) + hep * (hc.nv < 0.5 ? 0.78 : 0.22));
+    const xh = pick(V ? 0.88 : 0.6), hc = cellAtInto(xh, SEED.plateDn, HEP_CELL), hep1 = (x) => region('hep', 'Hepatocyte', '', x, hepIn(x) + hep * (hc.nv < 0.5 ? 0.78 : 0.22));
     // The cell's name and the lymph's numbers share a plate: on a narrow view (a cell wider than its share of the
     // screen) the name slides back along its cell, then the numbers step on, until the two are clear.
     const gap = (a, b) => Math.abs(a.x - b.x) - a.half - b.half, pad = 16 / VW.k;   // (µm)

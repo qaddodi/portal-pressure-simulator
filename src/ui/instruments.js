@@ -2,7 +2,7 @@
 // varix cross-section, abdomen.
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
+import { gastricUp } from '../engine/scenario.js?v=d2669cef9b';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
 import { pressureColor } from './colormap.js?v=4f42de15df';
 import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=a60489211b';

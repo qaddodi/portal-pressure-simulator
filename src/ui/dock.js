@@ -1,7 +1,7 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, hiddenNow } from './store.js?v=afc4d7c743';
+import { store, hiddenNow } from './store.js?v=2ac7b3a9d2';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=a60489211b';
 import { lobuleFlows } from './lobule-model.js?v=4becd1ff4a';

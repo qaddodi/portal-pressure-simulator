@@ -22,6 +22,7 @@ export const sdfAtlas = Object.freeze({ GLYPHS: SDF_GLYPHS, KERN: SDF_KERN, BASE
 let GLYPHS = null, UPM = 2048, WEIGHTS = [], loading = null;
 /** Fetches the outlines once; resolves when text can be drawn. */
 export function loadGlyphs() {
+  // alloc-rare: the outlines are fetched once, the first time text is wanted
   return (loading ||= import('./glyph-data.js?v=10f8176c7c').then((m) => { GLYPHS = m.GLYPHS; UPM = m.UPM; WEIGHTS = Object.keys(GLYPHS).map(Number); }));
 }
 // (The metrics at each optical size, glyph-metrics.js, 140 kB: fetched only where a paragraph is laid out, never with the outlines.)
@@ -35,32 +36,57 @@ export const glyphsReady = () => !!GLYPHS;
 /** The weight cut nearest a CSS weight ('bold', 'normal', or a number). */
 export function weightOf(w) {
   const n = w === 'bold' ? 700 : w === 'normal' || w == null || w === '' ? 400 : Number(w) || 400;
-  return WEIGHTS.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a), WEIGHTS[0]);
+  // (A loop, not a reduce with a closure: a label a frame asks for its weight.)
+  let best = WEIGHTS[0];
+  for (let i = 1; i < WEIGHTS.length; i++) if (Math.abs(WEIGHTS[i] - n) < Math.abs(best - n)) best = WEIGHTS[i];
+  return best;
 }
+// (The options a call leaves out: one frozen object, not a new {} for each call.)
+const NO_OPTS = Object.freeze({});
+// (The one options object textBox hands textWidth, written afresh each call: textWidth reads it at once and keeps nothing.)
+const TW = { weight: 400, size: 12, tnum: false, ls: 0 };
+const twOpts = (weight, size, tnum, ls) => { TW.weight = weight; TW.size = size; TW.tnum = tnum; TW.ls = ls; return TW; };
+const strOf = (t) => (typeof t === 'string' ? t : String(t));   // alloc-rare: only a non-string (a number) is converted; the words drawn each frame are strings
 // (Each glyph's outline flattened once, in font units, finely enough for text far larger than the app draws: UPM / 1000.)
+// (One table per weight and figure style, keyed by the character: a lookup builds no key string.)
 const flat = new Map();
 function outline(w, ch, tnum) {
-  const key = `${w}|${tnum ? 't' : ''}${ch}`;
-  let g = flat.get(key);
+  const wk = w * 2 + (tnum ? 1 : 0);
+  let tab = flat.get(wk);
+  if (tab === undefined) { tab = new Map(); flat.set(wk, tab); }   // alloc-rare: one table per weight and figure style, the first time
+  let g = tab.get(ch);
   if (g === undefined) {
     const set = GLYPHS[w], src = (tnum && set.tnum[ch]) || set.chars[ch] || set.chars['?'];
-    g = src ? { adv: src[0], polys: src[1] ? flattenPath(src[1], UPM / 1000) : [] } : null;
-    flat.set(key, g);
+    g = src ? { adv: src[0], polys: src[1] ? flattenPath(src[1], UPM / 1000) : [] } : null;   // alloc-rare: each glyph's outline is flattened once, the first time it is drawn
+    tab.set(ch, g);
   }
   return g;
 }
-const kernOf = (w, a, b, tnum) => (tnum && /\d/.test(a + b) ? 0 : GLYPHS[w].kern[a + b] || 0);
+const isDigit = (c) => c >= '0' && c <= '9';
+// (A pair's kerning, looked up by the two characters one after the other: no 'ab' string made for each pair of each word. The font's own
+// table is read once for each pair, the first time it is met.)
+const kerns = new Map();
+function kernOf(w, a, b, tnum) {
+  if (tnum && (isDigit(a) || isDigit(b))) return 0;
+  let byA = kerns.get(w);
+  if (byA === undefined) { byA = new Map(); kerns.set(w, byA); }   // alloc-rare: one table per weight, the first time
+  let byB = byA.get(a);
+  if (byB === undefined) { byB = new Map(); byA.set(a, byB); }   // alloc-rare: one table per first character, the first time
+  let k = byB.get(b);
+  if (k === undefined) { k = GLYPHS[w].kern[a + b] || 0; byB.set(b, k); }   // alloc-rare: each pair is read from the font's table once
+  return k;
+}
 
 /** Whether every character of the text has its outline here (at every weight cut: they are cut alike), so none is drawn as '?'. */
 export function textCovers(text) {
   if (!GLYPHS) return false;
   const set = GLYPHS[WEIGHTS[0]].chars;
-  for (const ch of String(text)) if (!set[ch]) return false;
+  for (const ch of strOf(text)) if (!set[ch]) return false;
   return true;
 }
 /** The width (px) of text set in the given weight and size: its advances, its kerning and its letter spacing. */
-export function textWidth(text, { weight = 400, size = 12, tnum = false, ls = 0 } = {}) {
-  const w = weightOf(weight), s = size / UPM, str = String(text);
+export function textWidth(text, { weight = 400, size = 12, tnum = false, ls = 0 } = NO_OPTS) {
+  const w = weightOf(weight), s = size / UPM, str = strOf(text);
   // (Walked by code point with no array made of the characters, and no closure, a call a label a frame.)
   let x = 0, n = 0, ch = '', prev = '';
   for (const c of str) {
@@ -75,53 +101,76 @@ export function textWidth(text, { weight = 400, size = 12, tnum = false, ls = 0 
  * Text as polylines (px, y down) with its baseline's start at (x, y): every glyph's outline placed, ready for one non-zero fill.
  * { polys, w } (w: its width, as textWidth).
  */
-export function textPolys(text, x, y, { weight = 400, size = 12, tnum = false, ls = 0 } = {}) {
-  const w = weightOf(weight), s = size / UPM, cs = [...String(text)], polys = [];
-  let at = x;
-  cs.forEach((ch, i) => {
+export function textPolys(text, x, y, { weight = 400, size = 12, tnum = false, ls = 0 } = NO_OPTS) {
+  const w = weightOf(weight), s = size / UPM, polys = [];   // alloc-rare: the polylines are the answer, made for words drawn once (a label's picture, a probe's screen); a readout that changes each frame draws glyphRun's cached paths
+  let at = x, n = 0, prev = '', prevOk = false;
+  // (Walked by code point, the kerning of each pair added when its second character arrives: no array made of the characters.)
+  for (const ch of strOf(text)) {
+    if (n && prevOk) at += kernOf(w, prev, ch, tnum) * s;
+    n++; prev = ch;
     const g = outline(w, ch, tnum);
-    if (!g) return;
+    prevOk = !!g;
+    if (!g) continue;
     for (const p of g.polys) {
-      const q = new Float32Array(p.pts.length);
+      const q = new Float32Array(p.pts.length);   // alloc-rare: the answer's own points (see above)
       for (let k = 0; k < q.length; k += 2) { q[k] = at + p.pts[k] * s; q[k + 1] = y - p.pts[k + 1] * s; }
-      polys.push({ pts: q, closed: p.closed });
+      polys.push({ pts: q, closed: p.closed });   // alloc-rare: the answer's own polylines (see above)
     }
-    at += g.adv * s + ls + (i < cs.length - 1 ? kernOf(w, ch, cs[i + 1], tnum) * s : 0);
-  });
-  return { polys, w: cs.length ? at - x - ls : 0 };
+    at += g.adv * s + ls;
+  }
+  return { polys, w: n ? at - x - ls : 0 };   // alloc-rare: the answer (see above)
 }
 
 // (recs-production-120hz §9: a readout that changes draws each glyph from a path made once per weight, figure style, character and size,
 // placed by a translation, so a new number builds no polygons and no path string, and its paths' flattening is cached by the painter
 // (svg-gl.js shapePath). textPolys stays for setup and unusual text.)
+// (Keyed by weight and figure style, then size, then the character: a lookup builds no key string.)
 const glyphD = new Map();
+let glyphN = 0;
 function glyphPathOf(w, ch, tnum, size) {
-  const key = `${w}|${tnum ? 't' : ''}|${size}|${ch}`;
-  let d = glyphD.get(key);
+  const wk = w * 2 + (tnum ? 1 : 0);
+  let bySize = glyphD.get(wk);
+  if (bySize === undefined) { bySize = new Map(); glyphD.set(wk, bySize); }   // alloc-rare: one table per weight and figure style, the first time
+  let byCh = bySize.get(size);
+  if (byCh === undefined) { byCh = new Map(); bySize.set(size, byCh); }   // alloc-rare: one table per size, the first time a size is drawn
+  let d = byCh.get(ch);
   if (d === undefined) {
     const g = outline(w, ch, tnum), s = size / UPM;
     d = '';
     if (g) for (const p of g.polys) {
-      for (let k = 0; k < p.pts.length; k += 2) d += `${k ? 'L' : 'M'}${(p.pts[k] * s).toFixed(2)} ${(-p.pts[k + 1] * s).toFixed(2)}`;
+      for (let k = 0; k < p.pts.length; k += 2) d += `${k ? 'L' : 'M'}${(p.pts[k] * s).toFixed(2)} ${(-p.pts[k + 1] * s).toFixed(2)}`;   // alloc-rare: each glyph's path is built once, the first time it is drawn
       if (p.closed) d += 'Z';
     }
-    if (glyphD.size > 4096) glyphD.clear();
-    glyphD.set(key, d);
+    if (glyphN > 4096) { glyphD.clear(); glyphN = 0; bySize = new Map(); glyphD.set(wk, bySize); byCh = new Map(); bySize.set(size, byCh); }   // alloc-rare: the tables start over past 4096 glyphs, which one deck's figures never reach
+    byCh.set(ch, d); glyphN++;
   }
   return d;
 }
-/** Text as one cached path per glyph and the x of each (px from `x`), on a baseline at 0: { glyphs: [[d, x], ...], w }. */
-export function glyphRun(text, x = 0, { weight = 400, size = 12, tnum = false, ls = 0 } = {}, out = []) {
-  const w = weightOf(weight), s = size / UPM, cs = [...String(text)];
-  let at = x;
-  out.length = 0;
-  cs.forEach((ch, i) => {
+/** Text as one cached path per glyph and the x of each (px from `x`), on a baseline at 0: { glyphs: [[d, x], ...], w }. The pairs and the
+ *  returned object are kept (the pairs on `out`, which the caller owns; the object is shared), so a call builds nothing once `out` has held
+ *  as many glyphs: read the result before the next call. */
+const RUN = { glyphs: null, w: 0 };
+export function glyphRun(text, x = 0, { weight = 400, size = 12, tnum = false, ls = 0 } = NO_OPTS, out = null) {
+  const w = weightOf(weight), s = size / UPM;
+  if (out === null) out = [];   // alloc-rare: a caller with no array of its own (none today; every drawing caller keeps one)
+  const pool = out.pairs || (out.pairs = []);   // alloc-rare: the pair pool is made once for each array the caller keeps
+  let at = x, n = 0, count = 0, prev = '', prevOk = false;
+  for (const ch of strOf(text)) {
+    if (n && prevOk) at += kernOf(w, prev, ch, tnum) * s;
+    n++; prev = ch;
     const g = outline(w, ch, tnum);
-    if (!g) return;
-    if (g.polys.length) out.push([glyphPathOf(w, ch, tnum, size), at]);
-    at += g.adv * s + ls + (i < cs.length - 1 ? kernOf(w, ch, cs[i + 1], tnum) * s : 0);
-  });
-  return { glyphs: out, w: cs.length ? at - x - ls : 0 };
+    prevOk = !!g;
+    if (!g) continue;
+    if (g.polys.length) {
+      const pr = pool[count] || (pool[count] = [null, 0]);   // alloc-rare: a pair is made the first time the array reaches that many glyphs
+      pr[0] = glyphPathOf(w, ch, tnum, size); pr[1] = at;
+      out[count++] = pr;
+    }
+    at += g.adv * s + ls;
+  }
+  out.length = count;
+  RUN.glyphs = out; RUN.w = n ? at - x - ls : 0;
+  return RUN;
 }
 
 /**
@@ -130,12 +179,12 @@ export function glyphRun(text, x = 0, { weight = 400, size = 12, tnum = false, l
  * height. `x`, `y`: the baseline's anchor point; `anchor`: 'start', 'middle' or 'end'; `k`: screen px per unit of the text's own
  * space. Null until the outlines are here.
  */
-export function textBox(text, x, y, { anchor = 'start', weight = 400, size = 12, tnum = false, ls = 0, k = 1 } = {}) {
+export function textBox(text, x, y, { anchor = 'start', weight = 400, size = 12, tnum = false, ls = 0, k = 1 } = NO_OPTS) {
   if (!GLYPHS) return null;
-  const w = textWidth(text, { weight, size, tnum, ls }), px = size * k;
+  const w = textWidth(text, twOpts(weight, size, tnum, ls)), px = size * k;
   const asc = Math.round((1984 / 2048) * px) / k, desc = Math.round((494 / 2048) * px) / k;
   const x0 = anchor === 'end' ? x - w : anchor === 'middle' ? x - w / 2 : x;
-  return { x: x0, y: y - asc, width: w, height: asc + desc };
+  return { x: x0, y: y - asc, width: w, height: asc + desc };   // alloc-rare: the box is the answer; the callers that run in a frame cache theirs
 }
 
 // ── Paragraphs (3 Nov 2026): lines broken as the browser breaks them ──

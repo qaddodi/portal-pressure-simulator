@@ -1,12 +1,12 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=69f53f6860';
+import { Engine } from './engine/engine.js?v=7ac4b54380';
 import { computeMetrics } from './engine/metrics.js?v=703f122bba';
 import { fingerprintOf } from './engine/fingerprint.js?v=ca81723393';
 import { detectEvents } from './engine/events.js?v=3492d2d513';
-import { explain } from './engine/explain.js?v=94f742a47f';
-import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=0762d1b820';
+import { explain } from './engine/explain.js?v=cd86efac8a';
+import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=d2669cef9b';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
@@ -16,13 +16,13 @@ const fingerprint = (m, e) => fingerprintOf(m, {
   params: e.params, fluid: e.starling() });
 // A time-lapse's params on day d of n: each ramped key eased linearly from its first value to its last.
 // (A dotted key names a nested param: 'fibrosis.R.post'.)
-const rampAt = (ramp, d, n) => ramp.reduce((o, [k, [a, b]]) => {
-  const path = k.split('.'), last = path.pop();
+const rampAt = (ramp, d, n) => ramp.reduce((o, [k, [a, b]]) => {   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while a time-lapse ramp is under way
+  const path = k.split('.'), last = path.pop();   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while a time-lapse ramp is under way
   let at = o;
-  for (const p of path) at = at[p] ||= {};
+  for (const p of path) at = at[p] ||= {};   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while a time-lapse ramp is under way
   at[last] = a + (b - a) * Math.min(1, d / n);
   return o;
-}, {});
+}, {});   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while a time-lapse ramp is under way
 // The presenter's eased change of patient ('morph'): the live state blended from where it is to a slide's state. Numbers ease
 // (a number only one side has, such as a new thrombus or stenosis, grows from 0); a switch flips halfway; everything else
 // (events, bands, the random state) is the slide's from the start.
@@ -31,15 +31,15 @@ function mix(a, b, k) {
   if (typeof a === 'number' || typeof b === 'number') {
     if ((typeof a === 'number' || a === undefined) && (typeof b === 'number' || b === undefined)) return (a ?? 0) + ((b ?? 0) - (a ?? 0)) * k;
   } else if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length === b.length) return a.map((x, i) => mix(x, b[i], k));
+    if (a.length === b.length) return a.map((x, i) => mix(x, b[i], k));   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while an eased change of patient (a morph) is under way
   } else if (a && b && typeof a === 'object' && typeof b === 'object') {
-    const o = {};
-    for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) o[key] = mix(a[key], b[key], k);
+    const o = {};   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while an eased change of patient (a morph) is under way
+    for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) o[key] = mix(a[key], b[key], k);   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while an eased change of patient (a morph) is under way
     return o;
   }
   return k < 0.5 ? a : b;
 }
-const morphAt = (from, to, k) => ({ ...to, ...Object.fromEntries(MORPH_KEYS.map((key) => [key, mix(from[key], to[key], k)])) });
+const morphAt = (from, to, k) => ({ ...to, ...Object.fromEntries(MORPH_KEYS.map((key) => [key, mix(from[key], to[key], k)])) });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while an eased change of patient (a morph) is under way
 const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
 
 // A slide's extra work, asked for by a deck visuals package (slide-ext.js steps), on scratch engines so the chain is untouched:
@@ -101,7 +101,7 @@ export function createCore(post) {
   // Until this time (ms) every tick also relaxes a hidden copy of the model quietly, so a live change settles while the clock runs on.
   let relaxUntil = 0;
   let beat = true; // the heartbeat always runs (the Over time trace is beat to beat from the start)
-  const newSamples = () => ({ t: [], ph: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });
+  const newSamples = () => ({ t: [], ph: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; a sample set is begun when a history or a stretch of samples starts
 
   // One sample of model e into s, stamped t (the model's own time unless a history labels it, see history below).
   function takeSample(e, s, vessel, t = e.t) {
@@ -138,7 +138,7 @@ export function createCore(post) {
     clearTimeout(histTimer); histTimer = 0;
     if (!hist) return;
     const { reqId } = hist, h = hist; hist = null;
-    post({ type: 'history', reqId, samples: done ? h.s : null, probe: h.probe, t: h.T });
+    post({ type: 'history', reqId, samples: done ? h.s : null, probe: h.probe, t: h.T });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; once when a history ends
   }
   // The model was given another state (a patient, a restore, an action): the history under way is of the old one, and nothing posted is the new one's.
   // (jumpDirty: the next frame tells the page the model jumped, so nothing it shows is blended across the change: display-state.js noteJump.)
@@ -189,9 +189,9 @@ export function createCore(post) {
   }
   function frame() {
     const m = detectEvents(eng);
-    const D = new Float32Array(eng.E);
+    const D = new Float32Array(eng.E);   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; a posted frame's buffers are transferred to the page, so each frame needs fresh ones
     for (let k = 0; k < eng.E; k++) D[k] = eng.diameter(eng.edges[k].id);
-    const f = {
+    const f = {   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the posted frame message itself
       type: 'frame',
       changed: frameDirty,
       jump: jumpDirty || clock !== postedClock,
@@ -225,7 +225,7 @@ export function createCore(post) {
     if (samples) { postedT = sampT; postedCyc = sampCyc; }
     samples = null;
     unpainted = ackOn;
-    const xfer = [f.P.buffer, f.Pf.buffer, f.Q.buffer, f.Qf.buffer, f.ext.buffer, f.D.buffer];
+    const xfer = [f.P.buffer, f.Pf.buffer, f.Q.buffer, f.Qf.buffer, f.ext.buffer, f.D.buffer];   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the transfer list of the posted frame
     if (f.samples) xfer.push(f.samples.t.buffer);
     post(f, xfer);
   }
@@ -233,7 +233,7 @@ export function createCore(post) {
   // is a view of its own stretch of it, so the page reads s.t[i], s.vel[i] and their lengths as before. Every sample is a number.)
   function packSamples(s) {
     if (!s) return null;
-    const keys = Object.keys(s), n = s.t.length, buf = new Float64Array(keys.length * n), out = {};
+    const keys = Object.keys(s), n = s.t.length, buf = new Float64Array(keys.length * n), out = {};   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the samples go out as one transferred buffer
     for (let j = 0; j < keys.length; j++) { const a = s[keys[j]], v = buf.subarray(j * n, (j + 1) * n); for (let i = 0; i < n; i++) v[i] = a[i]; out[keys[j]] = v; }
     return out;
   }
@@ -247,7 +247,7 @@ export function createCore(post) {
   function crash(err) {
     stop();
     crashed = true; morph = null; lapse = null; samples = null;
-    post({ type: 'crash', message: String(err && err.stack || err) });
+    post({ type: 'crash', message: String(err && err.stack || err) });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; once, if the engine crashes
   }
   function tick() {
     try { tickOnce(); } catch (err) { crash(err); }
@@ -265,7 +265,7 @@ export function createCore(post) {
   // (The last posted state, kept in buffers made once and written in place: no arrays made a posted frame, rev 2 step 3.)
   function keepStill() {
     const pf = eng.Pf || eng.P, qf = eng.Qf || eng.Q;
-    if (!still || still.Pf.length !== pf.length || still.Qf.length !== qf.length || still.D.length !== eng.E) still = { Pf: new Float64Array(pf.length), Qf: new Float64Array(qf.length), D: new Float64Array(eng.E) };
+    if (!still || still.Pf.length !== pf.length || still.Qf.length !== qf.length || still.D.length !== eng.E) still = { Pf: new Float64Array(pf.length), Qf: new Float64Array(qf.length), D: new Float64Array(eng.E) };   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the kept copy is made once and written in place after (reallocated only if the engine's size changes)
     still.Pf.set(pf); still.Qf.set(qf);
     for (let k = 0; k < eng.E; k++) still.D[k] = eng.diameter(eng.edges[k].id);
   }
@@ -337,7 +337,7 @@ export function createCore(post) {
   function lapseDays(n) {
     for (let k = 0; k < n && lapse; k++) {
       if (lapse.ramp) eng.setParams(deepMerge(eng.paramsTarget(), rampAt(lapse.ramp, lapse.total - lapse.left + 1, lapse.total)));
-      eng.advanceDays(1, { noRupture: true, silent: true });
+      eng.advanceDays(1, { noRupture: true, silent: true });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; once for each day of a presenter time-lapse
       if (--lapse.left <= 0) { lapse = null; eng.settle(); clock = 'hemo'; speed = 1; diseaseAcc = 0; }
     }
     paramsDirty = true;

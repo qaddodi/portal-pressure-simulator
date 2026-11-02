@@ -9,7 +9,7 @@
 // ones 0.5 less theirs, the share of a pixel a straight edge leaves, as the browser's own edges are drawn. A shape is sharp at
 // any zoom: it is drawn again from its outline at the screen's resolution.
 
-import { ucOf } from './uniform-cache.js?v=b914b447dd';
+import { ucOf } from './uniform-cache.js?v=0fc6d08369';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { prestart, linkProgram } from './gl-compile.js?v=79231d7c6b';
 
@@ -321,9 +321,9 @@ void main() {
 // (Linked through gl-compile.js: the programs the figure's renderer started at its setup (prestartShapes), else compiled here.)
 function compile(gl, vs, fs) {
   const p = linkProgram(gl, vs, fs);
-  const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);   // alloc-rare: a program's uniform table is made once, when the program is linked
   for (let k = 0; k < n; k++) { const name = gl.getActiveUniform(p, k).name; u[name] = gl.getUniformLocation(p, name); }
-  return { p, u };
+  return { p, u };   // alloc-rare: a program's uniform table is made once, when the program is linked
 }
 
 /** Starts the drawer's two programs on gl, nothing read (gl-compile.js prestart): createShapeGL takes them up. */
@@ -338,15 +338,15 @@ export function createShapeGL(gl) {
   const posP = compile(gl, POS_VS, POS_FS), segP = compile(gl, SEG_VS, SEG_FS);
   const corner = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, corner);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, -1, 1, -1, 0, 1, 1, 1]), gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, -1, 1, -1, 0, 1, 1, 1]), gl.STATIC_DRAW);   // alloc-rare: the drawer's quad is uploaded once per context
   // Each mesh's arrays are uploaded once, into buffers of its own, and stay on the GPU for as long as the mesh is kept (release):
   // a shape drawn again, in the next frame or the next picture, sends nothing (they were sent again at every draw of another
   // shape). Its vertex arrays carry its buffers, so a draw only binds them.
-  const own = new Set();
+  const own = new Set();   // alloc-rare: made once with the drawer
   function gpuOf(mesh) {
     let g = mesh.gpu;
     if (g) return g;
-    g = mesh.gpu = { tri: null, seg: null, triVAO: null, segVAO: null };
+    g = mesh.gpu = { tri: null, seg: null, triVAO: null, segVAO: null };   // alloc-rare: a mesh's GPU record is made once, the first time that mesh is drawn
     if (mesh.nTri) {
       g.tri = gl.createBuffer(); g.triVAO = gl.createVertexArray();
       gl.bindVertexArray(g.triVAO);
@@ -367,18 +367,20 @@ export function createShapeGL(gl) {
     own.add(mesh);
     return g;
   }
-  const useTri = (mesh) => gl.bindVertexArray(gpuOf(mesh).triVAO);
-  const useSeg = (mesh) => gl.bindVertexArray(gpuOf(mesh).segVAO);
+  const useTri = (mesh) => gl.bindVertexArray(gpuOf(mesh).triVAO);   // alloc-rare: made once with the drawer
+  const useSeg = (mesh) => gl.bindVertexArray(gpuOf(mesh).segVAO);   // alloc-rare: made once with the drawer
   function release(mesh) {
     const g = mesh?.gpu;
     if (!g) return;
-    for (const b of [g.tri, g.seg]) if (b) gl.deleteBuffer(b);
-    for (const v of [g.triVAO, g.segVAO]) if (v) gl.deleteVertexArray(v);
+    if (g.tri) gl.deleteBuffer(g.tri);
+    if (g.seg) gl.deleteBuffer(g.seg);
+    if (g.triVAO) gl.deleteVertexArray(g.triVAO);
+    if (g.segVAO) gl.deleteVertexArray(g.segVAO);
     mesh.gpu = null; own.delete(mesh);
   }
-  const mat = new Float32Array(9);
-  const setWorld = (U, m) => { mat.set([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]); ucOf(gl).m3(U.world, mat); };
-  const scaleOf = (m) => Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2]));
+  const mat = new Float32Array(9);   // alloc-rare: made once with the drawer
+  const setWorld = (U, m) => { mat[0] = m[0]; mat[1] = m[1]; mat[2] = 0; mat[3] = m[2]; mat[4] = m[3]; mat[5] = 0; mat[6] = m[4]; mat[7] = m[5]; mat[8] = 1; ucOf(gl).m3(U.world, mat); };   // alloc-rare: made once with the drawer
+  const scaleOf = (m) => Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2]));   // alloc-rare: made once with the drawer
   function segs(mesh, m, size, ch, mode, hw, ext) {
     if (!mesh.nSeg) return;
     gl.useProgram(segP.p);
@@ -387,11 +389,11 @@ export function createShapeGL(gl) {
     ucOf(gl).f1(segP.u.hw, hw);
     ucOf(gl).f1(segP.u.ext, ext);
     ucOf(gl).i1(segP.u.mode, mode);
-    gl.colorMask(...ch);
+    gl.colorMask(ch[0], ch[1], ch[2], ch[3]);
     useSeg(mesh);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, mesh.nSeg);
   }
-  return {
+  return {   // alloc-rare: made once with the drawer
     /** A stroke `w` wide (in the shape's own units, scaled by m), into channels ch. */
     stroke(mesh, m, size, ch, w) {
       const hw = (w / 2) * scaleOf(m);
@@ -421,7 +423,7 @@ export function createShapeGL(gl) {
       gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
       gl.stencilFunc(gl.NOTEQUAL, 0, sm);
       gl.enable(gl.BLEND); gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE);
-      gl.colorMask(...ch);
+      gl.colorMask(ch[0], ch[1], ch[2], ch[3]);
       gl.drawArrays(gl.TRIANGLES, 0, mesh.nTri);
       if (!hard) {
         gl.blendEquation(gl.MIN);
@@ -447,11 +449,11 @@ export function createShapeGL(gl) {
     /** Gives back a mesh's arrays on the GPU (it is no longer kept: drawn again, it is sent again). */
     release,
     /** How many meshes hold arrays on the GPU now. */
-    count: () => own.size,
+    count: () => own.size,   // alloc-rare: made once with the drawer
     /** (Kept for callers that forgot every mesh at once: each is now given back on its own, by release.) */
     forget() {},
     dispose() {
-      for (const m of [...own]) release(m);
+      for (const m of own) release(m);   // (the set is walked as it shrinks: a deleted member is not visited again)
       gl.deleteBuffer(corner);
       gl.deleteProgram(posP.p); gl.deleteProgram(segP.p);
     },
@@ -465,7 +467,7 @@ export function createShapeGL(gl) {
  */
 export function measurePath(d, tol = 0.002) {
   const runs = flattenCmds(pathCmds(d), tol);
-  const xs = [], ys = [], cum = [];
+  const xs = [], ys = [], cum = [];   // alloc-rare: a path is measured once when it first appears (its callers keep the result by its d)
   let L = 0;
   for (const { pts, closed } of runs) {
     const n = pts.length / 2;
@@ -477,7 +479,7 @@ export function measurePath(d, tol = 0.002) {
       xs.push(x); ys.push(y); cum.push(L);
     }
   }
-  const at = (u) => {
+  const at = (u) => {   // alloc-rare: a path is measured once when it first appears
     if (!xs.length) return [0, 0];
     const t = Math.max(0, Math.min(L, u));
     let lo = 0, hi = cum.length - 1;
@@ -486,7 +488,7 @@ export function measurePath(d, tol = 0.002) {
     const a = cum[lo - 1], b = cum[lo], f = b > a ? (t - a) / (b - a) : 0;
     return [xs[lo - 1] + (xs[lo] - xs[lo - 1]) * f, ys[lo - 1] + (ys[lo] - ys[lo - 1]) * f];
   };
-  return { L, at };
+  return { L, at };   // alloc-rare: a path is measured once when it first appears
 }
 
 /**
@@ -530,10 +532,14 @@ function hiddenEl(el) {
   return el.hasAttribute?.('hidden') || el.getAttribute?.('display') === 'none' || el.style?.display === 'none';
 }
 function num(el, k) { const v = parseFloat(el.getAttribute(k)); return Number.isFinite(v) ? v : 0; }
+// (elBox4's answer for a shape with no cache of its own is written here and read at once by its caller, whether elBox or the group
+// above it: a nested call returns before the next is made, so one array serves them all.)
+const BOX4 = [0, 0, 0, 0];
+const box4 = (a, b, c, d) => { BOX4[0] = a; BOX4[1] = b; BOX4[2] = c; BOX4[3] = d; return BOX4; };
 function elBox4(el, textOf) {
   if (!el || hiddenEl(el)) return null;
   switch (el.localName) {
-    case 'text': { const t = textOf?.(el); return t ? [t.x, t.y, t.x + t.width, t.y + t.height] : null; }
+    case 'text': { const t = textOf?.(el); return t ? box4(t.x, t.y, t.x + t.width, t.y + t.height) : null; }
     case 'path': {
       const d = el.getAttribute('d');
       if (!d) return null;
@@ -542,17 +548,17 @@ function elBox4(el, textOf) {
       let b = BOX_D.get(d);
       if (b === undefined) {
         const polys = flattenCmds(pathCmds(d), 0.002);
-        b = polys.some((p) => p.pts.length) ? polyBox(polys) : null;
+        b = polys.some((p) => p.pts.length) ? polyBox(polys) : null;   // alloc-rare: a path's box is worked out once for each new d (BOX_EL and BOX_D keep it)
         if (BOX_D.size >= BOX_D_MAX) BOX_D.delete(BOX_D.keys().next().value);   // (the oldest out, never the whole table)
         BOX_D.set(d, b);
       }
-      if (kept) { kept.d = d; kept.b = b; } else BOX_EL.set(el, { d, b });
+      if (kept) { kept.d = d; kept.b = b; } else BOX_EL.set(el, { d, b });   // alloc-rare: a path's box is worked out once for each new d
       return b;
     }
-    case 'rect': { const x = num(el, 'x'), y = num(el, 'y'); return [x, y, x + num(el, 'width'), y + num(el, 'height')]; }
-    case 'circle': { const cx = num(el, 'cx'), cy = num(el, 'cy'), r = num(el, 'r'); return [cx - r, cy - r, cx + r, cy + r]; }
-    case 'ellipse': { const cx = num(el, 'cx'), cy = num(el, 'cy'), rx = num(el, 'rx'), ry = num(el, 'ry'); return [cx - rx, cy - ry, cx + rx, cy + ry]; }
-    case 'line': { const a = num(el, 'x1'), b = num(el, 'y1'), c = num(el, 'x2'), d = num(el, 'y2'); return [Math.min(a, c), Math.min(b, d), Math.max(a, c), Math.max(b, d)]; }
+    case 'rect': { const x = num(el, 'x'), y = num(el, 'y'); return box4(x, y, x + num(el, 'width'), y + num(el, 'height')); }
+    case 'circle': { const cx = num(el, 'cx'), cy = num(el, 'cy'), r = num(el, 'r'); return box4(cx - r, cy - r, cx + r, cy + r); }
+    case 'ellipse': { const cx = num(el, 'cx'), cy = num(el, 'cy'), rx = num(el, 'rx'), ry = num(el, 'ry'); return box4(cx - rx, cy - ry, cx + rx, cy + ry); }
+    case 'line': { const a = num(el, 'x1'), b = num(el, 'y1'), c = num(el, 'x2'), d = num(el, 'y2'); return box4(Math.min(a, c), Math.min(b, d), Math.max(a, c), Math.max(b, d)); }
     case 'polygon': case 'polyline': {
       const v = (el.getAttribute('points') || '').trim().split(/[\s,]+/).map(Number).filter(Number.isFinite);
       return v.length >= 2 ? polyBox([{ pts: v }]) : null;
@@ -563,10 +569,15 @@ function elBox4(el, textOf) {
         const b = elBox4(c, textOf);
         if (!b) continue;
         const m = c.transform?.baseVal?.numberOfItems ? c.transform.baseVal.consolidate()?.matrix : null;
-        const cs = m ? [[b[0], b[1]], [b[2], b[1]], [b[0], b[3]], [b[2], b[3]]].map(([x, y]) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f]) : [[b[0], b[1]], [b[2], b[3]]];
-        for (const [x, y] of cs) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+        // (The box's corners, each through the child's transform when it has one, folded in as they come: no list of corners made.)
+        const nc = m ? 4 : 2;
+        for (let k = 0; k < nc; k++) {
+          let x = m ? (k & 1 ? b[2] : b[0]) : (k ? b[2] : b[0]), y = m ? (k & 2 ? b[3] : b[1]) : (k ? b[3] : b[1]);
+          if (m) { const tx = m.a * x + m.c * y + m.e; y = m.b * x + m.d * y + m.f; x = tx; }
+          if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        }
       }
-      return x1 >= x0 ? [x0, y0, x1, y1] : null;
+      return x1 >= x0 ? box4(x0, y0, x1, y1) : null;
     }
     default: return null;
   }
