@@ -51,5 +51,6 @@ test('a new spot along a stent starts a new recording with its own scale, and th
 test("the figure's stent callout points at the third the Doppler samples", () => {
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   assert.match(stage, /if \(dop\.id === sid && dop\.seg && geo\[sid\]\?\.cur\?\.length > 1\) \[ax, ay\] = worldToLocal\(\.\.\.pointAt\(geo\[sid\]\.cur, STENT_SITES\[dop\.seg\]\)\);/);
-  assert.match(stage, /stentReady\(id, f\)\)\.join\(''\), dop\.key\]/);   // (a new gate lays the labels out again)
+  assert.match(stage, /edges, `\$\{tips\}\$\{dips\}`, dop\.key\]/);   // (R04: and dop.key is one of the signature's dependencies)
+  assert.match(stage, /d\[13\] = dop\.key;/);   // (a new gate lays the labels out again)
 });

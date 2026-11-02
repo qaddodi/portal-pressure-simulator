@@ -160,18 +160,29 @@ try {
 export const perfMode = () => perfModeNow;
 export function setPerfMode(m) { if (!PERF_MODES.includes(m)) return; perfModeNow = m; try { localStorage.setItem('pps.perfMode', m); } catch { /* storage unavailable */ } }
 let frameT0 = 0, lastScript = 0, overLast = false;
-const shedRun = new Map();
+const shedRun = new Map(), shedBy = new Map();
 let shedTotal = 0;
+// (R10, review pass 2: Locked never carries a surface over while it is animating on screen (the vitals strip scrolling, a reading
+// easing): a carried frame of a moving picture is a visible hitch, not detail that can wait. A surface says so with
+// frameAnimating(tag, true) while it animates. Whatever is carried is counted per surface (watchdogStats().byTag), so nothing is shed
+// silently. ?shedanim=1: animating surfaces shed too, as before.)
+const SHED_ANIM = typeof location !== 'undefined' && /[?&]shedanim=1\b/.test(location.search || '');
+const animatingTags = new Map();   // (tag → how many of its surfaces animate now: each on is paired with one off)
+/** A surface animating on screen (on) or still (off): Locked never carries its frames over while it animates. */
+export function frameAnimating(tag, on) {
+  const n = (animatingTags.get(tag) || 0) + (on ? 1 : -1);
+  if (n > 0) animatingTags.set(tag, n); else animatingTags.delete(tag);
+}
 /** True when the last frame's script went over 70 % of the budget (Locked and Balanced; never in Quality): drop detail that can wait. */
 export const overBudget = () => WATCHDOG && perfModeNow !== 'quality' && overLast;
 /** The last frame's main-thread script time (ms), and how many callbacks the watchdog has carried over since the page opened. */
-export const watchdogStats = () => ({ last: lastScript, shed: shedTotal, mode: perfModeNow, budget: frameBudget() });
+export const watchdogStats = () => ({ last: lastScript, shed: shedTotal, mode: perfModeNow, budget: frameBudget(), byTag: Object.fromEntries(shedBy), animating: [...animatingTags.keys()] });
 function shedding(tag) {
-  if (!WATCHDOG || perfModeNow === 'quality' || !frameT0 || !DEFERRABLE.has(tag)) { if (shedRun.size) shedRun.delete(tag); return false; }
+  if (!WATCHDOG || perfModeNow === 'quality' || !frameT0 || !DEFERRABLE.has(tag) || (!SHED_ANIM && animatingTags.has(tag))) { if (shedRun.size) shedRun.delete(tag); return false; }
   const share = perfModeNow === 'locked' ? WATCH_SHARE : 1;
   const n = shedRun.get(tag) || 0;
   if (n >= SHED_MAX || performance.now() - frameT0 < share * frameBudget()) { shedRun.delete(tag); return false; }
-  shedRun.set(tag, n + 1); shedTotal++;
+  shedRun.set(tag, n + 1); shedTotal++; shedBy.set(tag, (shedBy.get(tag) || 0) + 1);
   return true;
 }
 

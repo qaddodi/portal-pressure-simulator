@@ -45,10 +45,17 @@ const state = {
 // The Doppler's last mean per vessel (cm/s, with when it was read), so the figure's callout shows the same number.
 export const shownVel = new Map();
 
+// R04 (review pass 2): a revision number for everything but the model's frame, so a reader that depends on the state (the
+// figure's label signature) can tell "nothing changed" by one number instead of rebuilding a string from it. The frame is left
+// out: a reader that follows the frame takes it by itself (its identity changes with every model frame).
+let rev = 0;
 export const store = {
   get: () => state,
+  /** Bumped by every set() that changes something besides `frame` (a camera move never sets the store). */
+  get rev() { return rev; },
   set(patch) {
     const keys = Object.keys(patch);
+    if (keys.some((k) => k !== 'frame')) rev++;
     Object.assign(state, patch);
     for (const k of keys) (listeners.get(k) || []).forEach((fn) => fn(state[k], state));
     (listeners.get('*') || []).forEach((fn) => fn(keys, state));
