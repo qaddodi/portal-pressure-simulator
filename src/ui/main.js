@@ -384,7 +384,9 @@ async function main() {
   // The surfaces most sessions never open are fetched and read in once the page is idle, one at a time, each only after the page has been
   // left alone for a moment (quiet.js): a module's read-in is tens of ms of script on a phone, and a timer alone put it in a pan or pinch.
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
-  const warmUp = [() => paletteL.warm(), () => presenterL.warm(), () => dock.load()];
+  // (Holding 120 Hz §3.8: every chunk a view can reach is read in before it can be reached, the instruments' too: never an import() in
+  // the tap that needs it.)
+  const warmUp = [() => paletteL.warm(), () => presenterL.warm(), () => dock.load(), () => dopplerL?.warm(), () => fibroL?.warm()];
   const warmNext = () => { const step = warmUp.shift(); if (step) whenQuiet(() => idle(() => { step(); warmNext(); })); };
   setTimeout(warmNext, 3000);
   // While the loading cover is still up, the same modules are read in under it (the cover waits for them), not in the first seconds of use.
