@@ -176,6 +176,12 @@ export const savedInstruments = () => { try { return JSON.parse(localStorage.get
 const dopplerSlim = (f) => ({ probe: f.probe, clock: f.clock, resp: f.resp, running: f.running, settling: f.settling, samples: f.samples });
 
 /** `lazy`: the Doppler's and the FibroScan's loads (main.js lazy(): { doppler, fibroscan }), which come after the first paint. */
+// The header's day count, made when the day or the running state changes, not each frame.
+let dayKept = null, dayRun = null, dayWords = '';
+function dayText(running, day) {
+  if (dayKept !== day || dayRun !== running) { dayKept = day; dayRun = running; dayWords = running ? `Day ${day}` : `Paused · Day ${day}`; }   // alloc-rare: only when the day or the running state changes
+  return dayWords;
+}
 export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout, lazy }) {
   // One app-wide relayout for a burst of changes (a mode change also changes the lobule): every resize
   // listener (the figure, the timeline, the presenter) runs once, not once per key.
@@ -396,7 +402,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         const d = v - (lz ? (st0.compareSnap.frame ? t.v(st0.compareSnap.frame, st0) : v) : t.v(A));
         const same = Math.abs(d) < Math.pow(10, -t.d) * 0.5;
         // (Written only when they change, as in the readouts pane: each model frame rewrote every tile's.)
-        const ct = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`, cc = same ? 'same' : d > 0 ? 'up' : 'down';
+        // (Its words are made when the rounded difference changes, not each frame: dq is the difference in the tile's last place, signed.)
+        const dq = same ? 0 : (d > 0 ? 1 : -1) * Math.round(Math.abs(d) * Math.pow(10, t.d)), cc = same ? 'same' : d > 0 ? 'up' : 'down';
+        if (x.cmpQ !== dq) { x.cmpQ = dq; x.cmpT = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`; }   // alloc-rare: the compare words change only when the rounded difference does
+        const ct = x.cmpT;
         // (The words drawn on the GPU while they change, gl-words.js; a new colour (the change crossing zero) is taken by the page's own words,
         // between frames, and read again for the picture.)
         if (x.cmpCls !== cc) { if (x.cmpCls) classSoon(x.cmp, x.cmpCls, false); classSoon(x.cmp, cc, true); x.cmpCls = cc; x.cmpW.set(ct); x.cmpW.settle(); }
@@ -586,8 +595,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const tp = sw.trail.length >= 8 ? sw.trail.shift() : sw.pool.pop();
     tp[0] = performance.now(); tp[1] = t.clientX;
     sw.trail.push(tp);
-    sw.cur.style.transform = `translateX(${sw.dx}px)`;
-    if (nb) nb.style.transform = `translateX(${sw.dx + d * sw.w}px)`;
+    sw.cur.style.transform = `translateX(${sw.dx}px)`;   // alloc-rare: only while a finger drags the sheet, one string per input event
+    if (nb) nb.style.transform = `translateX(${sw.dx + d * sw.w}px)`;   // alloc-rare: only while a finger drags the sheet, one string per input event
   }, { passive: false });
   const endSwipe = () => {
     const s = sw; sw = null;
@@ -920,6 +929,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (!drag) return;
     if (drag.side) widthPx = drag.w + drag.x - e.clientX;
     else heightRatio = clamp((drag.height + drag.y - e.clientY) / drag.H, 0.25, 0.75);
+    // alloc-rare: only while the sheet's edge is dragged, one string per input event
     guide.style.transform = drag.side ? `translate3d(${Math.round(drag.w - sideWidth(drag.W))}px, 0, 0)` : `translate3d(0, ${Math.round(drag.height - sheetHeight(drag.H, drag.max))}px, 0)`;
   });
   for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) divider.addEventListener(ev, () => {
@@ -986,7 +996,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     }
     paintTitle();
     const txt = !frame ? '' : state === 'peek' && !st.imaging ? INFO[open[0]][1](frame)
-      : frame.clock === 'disease' ? (st.running ? `Day ${frame.day}` : `Paused · Day ${frame.day}`) : st.running ? '' : 'Paused';
+      : frame.clock === 'disease' ? dayText(st.running, frame.day) : st.running ? '' : 'Paused';
     const ls = state === 'peek' ? 'summary' : st.running ? 'live' : 'paused';
     // A new kind of status (Paused, a day count, an instrument's summary) crossfades in; the numbers inside one kind just count on.
     const sameKind = live._ls === ls && live._txt != null && sameShape(live._txt, txt);
