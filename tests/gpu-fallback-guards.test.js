@@ -136,7 +136,7 @@ test('lobule handoff: the 2D tissue stays under the GPU picture as it takes over
   // (A texture the GPU could not take keeps the last frame where one is showing: tissue and field.)
   // (And with no frame to keep, still drawn on the GPU with the clear texture in its place, never the 2D canvas.)
   assert.match(src('src/ui/field-gl.js'), /if \(hold && pictured && canvas\.width === W && canvas\.height === H\) return 'held';/);
-  // (tgt: the tissue's canvas, or its own picture in the vessels' context when it is hosted there, LZ_ONE)
+  // (tgt: the tissue's canvas, or its own picture in the vessels' context when it is hosted there)
   assert.match(src('src/ui/tissue-gl.js'), /if \(hold && pictured && tgt\.width === W && tgt\.height === H\) \{ hostDone\(\); return 'held'; \}/);
   assert.match(src('src/ui/tissue-gl.js'), /if \(!tx\[i\]\) tx\[i\] = none;/);
   assert.match(src('src/ui/field-gl.js'), /if \(!tx\[i\]\) tx\[i\] = clearTex\(\);/);

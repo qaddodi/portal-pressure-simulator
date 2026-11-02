@@ -14,7 +14,7 @@
 //   - Alike: the one class it puts on <html>, fr, switches on a short block in app.css that gives the rings that were the accent
 //     colour or 1 px off their control the focus colour and the 2 px of the rest.
 import { D_SMALL } from './ease.js?v=7d7bfe9a62';
-import { restPass } from './rest-pass.js?v=fea7233cda';
+import { restPass } from './rest-pass.js?v=de1b500aca';
 import { caught } from './caught.js?v=b96b17594a';
 
 

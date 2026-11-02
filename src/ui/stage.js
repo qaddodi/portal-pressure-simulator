@@ -1,8 +1,8 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
-import { TIERS_ON, TIER_TOP, tierK, onTierWarm } from './adapt-tier.js?v=c7a503ca25';
-import { hold as gpuHold } from './gpu-budget.js?v=00c61687bd';
+import { TIERS_ON, TIER_TOP, tierK, onTierWarm } from './adapt-tier.js?v=4db467a94a';
+import { hold as gpuHold } from './gpu-budget.js?v=f25a08a637';
 import { WARM_VIEWS, WARM_MS } from './warm-views.js?v=5709bebee7';
 import { gastricUp } from '../engine/scenario.js?v=d2669cef9b';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=512e725aea';
@@ -23,7 +23,7 @@ import { bandsStep } from './band-ease.js?v=9468ce58e2';
 import { glideClock } from './glide-clock.js?v=068ac73ef2';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=3449ef7691';
-import { runFlick, FLICK } from './flick.js?v=281c2b60aa';
+import { runFlick, FLICK } from './flick.js?v=fa5b937d7c';
 import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js?v=9eb0f16bcd';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=2a6fd38974';
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
@@ -69,7 +69,7 @@ import { createSweepClient } from './sweep-client.js?v=82d428b46d';
 import { retireRows, flowClose } from './flow-rows.js?v=6cd335f84b';
 import { createJunctionWidths } from './junction-widths.js?v=24af760f06';
 import { chainsOf, planChainInto, taperAt } from './vessel-taper.js?v=01b79bbfbd';
-import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=07b68cf942';
+import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=c99bae2398';
 import { softwareYield } from './sw-yield.js?v=f7e0bc683b';
 import { portalSplit } from './table-marks.js?v=a483b9975e';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -141,10 +141,9 @@ const REVERSAL_WATCH = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'LGV_CONF', '
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 // The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): on wherever the GPU draws the
-// vessels, ?stageover=svg goes back. Not on a software renderer (the CPU would paint them) unless asked for (?stageover=gpu), as
+// vessels. Not on a software renderer (the CPU would paint them) unless asked for (?stageover=gpu), as
 // CI's visual check asks, to compare it with the page's own drawing.
 const OVER_ASK = typeof location !== 'undefined' && /[?&]stageover=gpu\b/.test(location.search);
-const OVER_GPU = !(typeof location !== 'undefined' && /[?&]stageover=svg\b/.test(location.search));
 // Parcels and arrowheads carried through junctions (blood.js createStreamChain; combined plan B1 + C1).
 // A streak's length follows its vessel's display speed (veins-gl.js bloodAt): a fast vessel's streaks run long and a slow one's are short
 // dashes, so a still frame shows speed too.
@@ -2662,7 +2661,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The overlays on the GPU (stage-over.js, veins-gl overlay; ?stageover=gpu): see syncOver. Set here, before anything made with the
   // stage reads it: read before this line, it threw while the stage was made (31 Oct, d213d755).
   // (Both are read from the context the stage starts with, and again from the one a restore hands back: renderPath.)
-  let OVER_ON = OVER_GPU && !!veins?.overlay && (!SOFTWARE || OVER_ASK);
+  let OVER_ON = !!veins?.overlay && (!SOFTWARE || OVER_ASK);
   try { localStorage.removeItem('pps.quality'); localStorage.removeItem('pps.q'); } catch (e) { caught('stage:2826', e); /* storage unavailable */ }
   let quality = SOFTWARE ? Q_SOFTWARE : 0, saverOn = false;   // (saverOn: Settings › Battery saver, for the step a changed renderer returns to)
   // A context handed back by a restore is read again for what the start-up one decided: whether the renderer is software (the browser can
@@ -2671,7 +2670,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // when they were built, stands. Only on a restore: at start-up the lines above did it, before the things made after them read it.
   function renderPath() {
     const soft = !!veins?.software;
-    OVER_ON = OVER_GPU && !!veins?.overlay && (!soft || OVER_ASK);
+    OVER_ON = !!veins?.overlay && (!soft || OVER_ASK);
     if (OVER_ON) overWatch();
     if (soft === SOFTWARE) return;
     SOFTWARE = soft;
@@ -2686,7 +2685,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // default from happening). The vessels are drawn only by the GPU.
   vCanvas.addEventListener('webglcontextlost', () => {
     wrap.classList.remove('gl-on');
-    if (OVER_GPU) overClear();   // (the overlays' SVG copies back with the vessels': their GPU picture is gone)
+    overClear();   // (the overlays' SVG copies back with the vessels': their GPU picture is gone)
     if (wrap.classList.contains('gl-plate')) { wrap.classList.remove('gl-plate'); syncPlateLook(); }
     plateView = null; plateViewKey = ''; plateKey = ''; dropViewKeep();
     if (geoHeld.size) flushGeo();
@@ -2829,7 +2828,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const pw = bw, ph = bh;
     // (With the overlays on the GPU (?stageover=gpu) the canvas is at the screen's own density, as the SVG they replace is drawn, and
     // the figure, at its own, upscaled onto it by a plain filtered copy, as the page's compositor upscales a smaller canvas.)
-    let full = OVER_GPU && veins?.overlay && (!SOFTWARE || OVER_ASK) ? devicePixelRatio || 1 : 0;
+    let full = veins?.overlay && (!SOFTWARE || OVER_ASK) ? devicePixelRatio || 1 : 0;
     // (The pixel budget holds for that canvas too (figOpt('cap'), 8 MP): on a big external screen at the screen's own density it had been
     // 14.7 MP, the figure upscaled onto it past the budget. Every laptop, iPad and phone is under it, so none of them changes.)
     full = capDensity(full, r.width, r.height, figOpt('cap'));
@@ -4903,7 +4902,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function dropViewKeep() { viewKeeps.clear(); }
   const plateOn = () => wrap.classList.contains('gl-plate');
   // The organs drawn as layers painted on the GPU (organs-gl.js), on every renderer: the only picture of them there is (the one
-  // flattened picture the browser rasterized from an SVG copy is gone). Off (?gpuorgans=0, the ?perf switch): the page's own SVG.
+  // flattened picture the browser rasterized from an SVG copy is gone). Off (the ?perf switch): the page's own SVG.
   const gpuOrgansOn = () => !!(gpuProbe.gpuOrgans && veins?.organs);
   // With it, the organs that change (the liver, the spleen, the diaphragm, the falciform line: LIVE_LAYERS) are painted live on
   // the GPU from their own SVG at each frame they change (syncLiveOrgans), so their picture is never dropped while they ease; the
@@ -4996,7 +4995,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Why the organs are not painted live, in a few words.)
   function liveWhy() {
     if (!veins) return 'no WebGL2';
-    if (!gpuProbe.gpuOrgans) return 'GPU organs off: ?gpuorgans=0 or the ?perf switch';
+    if (!gpuProbe.gpuOrgans) return 'GPU organs off: the ?perf switch';
     if (!veins.organs) return 'no organ stack: its shader failed';
     if (!veins.organs.canLive) return 'the live painter failed to start';
     if (liveFailed) return `live painting off: ${liveFailWhy || 'an organ not readable'}`;
@@ -7077,11 +7076,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const frostSeq = () => (frostLiver ? `l${frostLiver.seq()}` : veins.drawSeq);
   const frostFresh = () => (frostLiver ? 0 : veins.bloodSeq);
   // The callouts' frosted glass, drawn on the GPU under both callout layers while it can be (glass-gl.js); else the browser's.
-  const glassGL = veins ? createGlassGL(wrap, vCanvas, [cath.labels, sites.el], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: () => veins.bloodSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), copy: false, onHoles: frostHoles('callouts') }) : null;
+  const glassGL = veins ? createGlassGL(wrap, vCanvas, [cath.labels, sites.el], { software: SOFTWARE, live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: () => veins.bloodSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), copy: false, onHoles: frostHoles('callouts') }) : null;
   wrap.dataset.glass = glassGL ? 'gpu' : 'css';
   // The Present cards' glass (recs A2, 31 Oct): the same renderer, one per presenter run (cardGlass, below), drawing each card's blur
   // and tint from the figure's canvas while the anatomy shows (not the lobule, nor a dive), so the browser re-blurs none of them as the
-  // blood moves. Off with the callouts' (?gpulabels=0, software, no GPU figure): the cards keep the browser's glass.
+  // blood moves. Off with the callouts' (software, no GPU figure): the cards keep the browser's glass.
   // (Drawn into the figure's own canvas (frostHost, below), never from a copy of it: the copy (31 Oct, A2) read the canvas back on Safari
   // on every figure frame and made the decks laggier than the browser's own blur. Where the figure's canvas cannot take a card's glass,
   // and with ?glasscopy=1, that card keeps the browser's glass, as before.)
@@ -7094,7 +7093,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!veins?.top) return null;
     const shade = cards.low;
     const key = {};
-    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0)), version: frostSeq, fresh: frostFresh, onFigure: (f) => veins.onPicture(f), copy: false, onHoles: frostHoles(key) });
+    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0)), version: frostSeq, fresh: frostFresh, onFigure: (f) => veins.onPicture(f), copy: false, onHoles: frostHoles(key) });
     if (!g) return null;
     hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: () => [], low: (el) => el === shade || el?.dataset?.ghost === 'shade' });
     cardGLs.add(g);
@@ -9012,7 +9011,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const glass = h('div', { class: 'lb-glass', 'aria-hidden': 'true', hidden: true });
   labelSvg.before(glass);
   // (Drawn on the GPU under the labels while it can be, as the callouts' glass is: glass-gl.js.)
-  const paneGL = veins ? createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), pane: glass, version: () => veins.drawSeq, fresh: () => veins.bloodSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), copy: false }) : null;
+  const paneGL = veins ? createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, live: () => wrap.classList.contains('gl-on'), pane: glass, version: () => veins.drawSeq, fresh: () => veins.bloodSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), copy: false }) : null;
   let glassWant = ['', ''], glassSizing = 0;
   const sizeGlass = () => { glassSizing = 0; glass.style.width = glassWant[0]; glass.style.height = glassWant[1]; };
   onFigLab((k) => { if (k === 'glassCache') { glassGL?.redraw(); paneGL?.redraw(); for (const g of cardGLs) g.redraw(); } });
@@ -9058,11 +9057,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // app.css. Never an SVG filter: the grown-glyph filter drew dark boxes on iPhone and was redrawn on every frame: 16 Oct.)
   labelSvg.append(gLeaders, gScan, gLabels);
   // The labels' words and pills, their leaders and dots drawn on the GPU (label-gl.js), the SVG kept as their model; the SVG draws them itself on a software
-  // renderer, without WebGL2, with ?gpulabels=0, or once the GPU's context is lost. Always on a canvas of their own (round 2, 2.2: the
+  // renderer, without WebGL2, or once the GPU's context is lost. Always on a canvas of their own (round 2, 2.2: the
   // labels change at other moments and at another density than the figure; drawn into the vessel canvas, 31 Oct, they went missing on
   // the iPhone).
   const frostWake = () => { glassGL?.redraw(); paneGL?.redraw(); for (const g of cardGLs) g.redraw(); };
-  const labelGL = createLabelGL(labelSvg, gLabels, { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), marks: [gLeaders, gScan], onBoxes: frostWake });
+  const labelGL = createLabelGL(labelSvg, gLabels, { software: SOFTWARE, marks: [gLeaders, gScan], onBoxes: frostWake });
   wrap.dataset.labels = labelGL ? 'gpu' : 'svg';
   labelRider = labelGL;
   labelHoles = labelGL?.setHoles ? labelGL : null;
@@ -9183,13 +9182,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     });
     surface('overlays (stents, balloons, catheter, guides)', () => {
       if (!anatOn() || !overNow.units) return null;
-      if (!OVER_ON) return { on: 'fallback', via: 'SVG', why: OVER_GPU ? notGPU() : '?stageover=svg' };
+      if (!OVER_ON) return { on: 'fallback', via: 'SVG', why: notGPU() };
       if (!overNow.painted) return { on: 'fallback', via: 'SVG', why: !wrap.classList.contains('gl-on') ? notGPU() : 'the first overlay group the painter cannot read is the lowest' };
       return overNow.whole ? { on: 'gpu', via: `WebGL2, ${overNow.painted} groups` } : { on: 'mixed', via: `${overNow.painted} groups on the GPU`, why: 'the first group the painter cannot read, and every group above it, stay SVG' };
     });
     surface('labels', () => {
       if (!anatOn() || !visible(labelSvg)) return null;
-      if (!labelGL || labelGL.lost) return { on: 'fallback', via: 'SVG', why: !labelGL ? (SOFTWARE ? 'software renderer' : /[?&]gpulabels=0\b/.test(location.search) ? '?gpulabels=0' : 'no WebGL2') : 'context lost' };
+      if (!labelGL || labelGL.lost) return { on: 'fallback', via: 'SVG', why: !labelGL ? (SOFTWARE ? 'software renderer' : 'no WebGL2') : 'context lost' };
       const c = labelGL.counts();
       if (!c.labels) return null;
       const svgN = c.svg + c.marks;
@@ -9201,7 +9200,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const gl = g();
       return gl ? gl.state() : none();
     };
-    const blurAsk = () => ({ on: 'fallback', via: 'browser blur', why: SOFTWARE ? 'software renderer' : /[?&]gpulabels=0\b/.test(location.search) ? '?gpulabels=0' : !veins ? 'no WebGL2' : 'no GPU glass made' });
+    const blurAsk = () => ({ on: 'fallback', via: 'browser blur', why: SOFTWARE ? 'software renderer' : !veins ? 'no WebGL2' : 'no GPU glass made' });
     surface('callout glass', glassRow(() => glassGL, () => (document.getElementsByClassName('cl-glass').length ? blurAsk() : null)));
     surface('liver label pane glass', glassRow(() => paneGL, () => (glass.hidden ? null : blurAsk())));
     surface('card glass', glassRow(() => { for (const g of cardGLs) if (g.state()) return g; return null; }, () => (document.querySelector('.pz-shade') ? { ...blurAsk(), why: blurAsk().why } : null)));

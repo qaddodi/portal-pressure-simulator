@@ -39,7 +39,7 @@ import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD } from './blood.js?v=ca0abd6caa';
 import { cssRGB } from './util.js?v=506da88dad';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=ff6a633152';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=49b311283d';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=94a4db0dc6';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=294bbe5874';
 import { changedRows } from './flow-rows.js?v=6cd335f84b';
 import { leftAlone } from './quiet.js?v=856a3cdf1e';
 import { uniformCache } from './uniform-cache.js?v=6488216aa0';
@@ -51,7 +51,7 @@ import { fusedVS, fusedFS } from './veins-fuse.js?v=b5cc409146';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 import { createNoiseFiller } from './noise-gl.js?v=441a34dc27';
 import { softwareGL } from './sw-yield.js?v=f7e0bc683b';
-import { frameCount, framePhase } from './frame.js?v=07b68cf942';
+import { frameCount, framePhase } from './frame.js?v=c99bae2398';
 import { caught } from './caught.js?v=b96b17594a';
 const ORGAN_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (the organ texture's shapes are meshed into it one at a time, each released after its draw)
 
@@ -98,8 +98,7 @@ export function laneSum(R, pxW) {
 }
 const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
 // One GPU context for the lobule (1 Nov, docs/gpu-practices.md, "one WebGL context for the whole figure"): its overlay (the ductules and
-// the lymph, fx-gl.js) drawn in its vessel canvas over the vessels instead of in a canvas and context of its own. ?lzone=0: apart, as before.
-export const LZ_ONE = !(typeof location !== 'undefined' && /[?&]lzone=0\b/.test(location.search));
+// the lymph, fx-gl.js) drawn in its vessel canvas over the vessels instead of in a canvas and context of its own.
 // Settings › Figure performance › Pinch frame reuse (frame.js pinchReuse, off by default; stage.js passes it only while a hand zooms):
 // on some of the one-pass zoom frames, the last picture the one-pass shader drew is laid again, moved and scaled by the zoom since,
 // instead of shading the figure afresh. REUSE_FS maps each pixel of the canvas now to where the same world point was in that picture
@@ -1766,13 +1765,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // (For the ?perf readout: who asked for a whole draw or a target sized again, gpu-probe.js BY.)
   const askedBy = () => (who === 'lobule' ? 'lobule' : gpuProbe.by || 'stage, outside a draw call');
   const noteAlloc = (kb) => { gpuProbe.note(COUNTED.fboAlloc, kb); gpuProbe.note(COUNTED.fboAllocBy + askedBy()); };
-  // (The kept picture is the stage's, and the lobule's where the lobule's other GPU layers are drawn in its vessel canvas (LZ_ONE: its
+  // (The kept picture is the stage's, and the lobule's where the lobule's other GPU layers are drawn in its vessel canvas (its
   // overlay over the vessels, at each present, as the figure's glass and labels are over the figure's); every reader of that canvas
-  // outside the task that drew it calls capture() first. ?lzone=0: the lobule's canvas keeps its own picture, as before.)
+  // outside the task that drew it calls capture() first.)
   // (Such a canvas keeps no picture of its own: it is made without preserveDrawingBuffer, and the picture the frames repaint in part
   // is kept in a texture of the renderer's own, copied whole to the canvas each time it is drawn on (see present). Nor a stencil: the
   // one-pass frames mark their cells in that buffer's stencil, never the canvas's.)
-  const ownBuf = who === 'stage' || (who === 'lobule' && LZ_ONE);
+  const ownBuf = who === 'stage' || who === 'lobule';
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: !ownBuf, preserveDrawingBuffer: !ownBuf, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (!gl) return null;
@@ -1796,7 +1795,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (t.fails === 1) console.warn('Veins renderer: what is drawn over the figure failed.', e);
     if (t.fails >= TOP_FAILS) { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); console.warn(`Veins renderer: what is drawn over the figure failed. It failed ${TOP_FAILS} pictures in a row and is taken out.`); }
   };
-  // What is drawn under the figure in this canvas (the lobule's tissue, tissue-gl.js host, LZ_ONE): { on(), draw() }. With one, each
+  // What is drawn under the figure in this canvas (the lobule's tissue, tissue-gl.js host): { on(), draw() }. With one, each
   // present lays it on the cleared canvas first and the kept picture over it (premultiplied, pixel for pixel), then the tops; null: the
   // kept picture is copied as it is. presents counts the pictures laid, so an owner can tell whether a frame laid one.
   let under = null, presents = 0;

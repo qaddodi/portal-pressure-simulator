@@ -27,7 +27,7 @@ import { h, fmt, clamp } from './util.js?v=506da88dad';
 import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { TILE, tileShown } from './table-marks.js?v=a483b9975e';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { frameFor } from './frame.js?v=07b68cf942';
+import { frameFor } from './frame.js?v=c99bae2398';
 import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
 import { createSvgGL, svgModel } from './svg-gl.js?v=ed4ab38166';
 const reduceDot = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };

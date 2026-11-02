@@ -174,8 +174,8 @@ test('a strict reading takes visibility as the page computes it, and refuses a m
 test('the stage: off unless asked for; the painted groups\' SVG hidden by an empty clip; read again on a change, and while a CSS ease runs', () => {
   const st = read('../src/ui/stage.js'), css = read('../styles/app.css');
   assert.match(st, /const OVER_ASK = typeof location !== 'undefined' && \/\[\?&\]stageover=gpu\\b\/\.test\(location\.search\);/);
-  assert.match(st, /const OVER_GPU = !\(typeof location !== 'undefined' && \/\[\?&\]stageover=svg\\b\/\.test\(location\.search\)\);/);
-  assert.match(st, /let OVER_ON = OVER_GPU && !!veins\?\.overlay && \(!SOFTWARE \|\| OVER_ASK\);/);
+  assert.doesNotMatch(st, /OVER_GPU|stageover=svg/);
+  assert.match(st, /let OVER_ON = !!veins\?\.overlay && \(!SOFTWARE \|\| OVER_ASK\);/);
   assert.match(css, /\.stage-view svg#stageOver \.gpu-over \{ clip-path: inset\(50%\) !important; \}/);
   // (All they show painted: the overlays' SVG composited at nothing; with no picture to paint in, every copy shown again.)
   assert.match(css, /\.stage-view svg#stageOver\.gpu-all \{ opacity: 0 !important; \}/);
@@ -192,7 +192,7 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   // (Read again when a class outside the overlays changes how they show: the app's, the page's, the stage's.)
   assert.match(st, /const overKey = \(\) => `\$\{gestureFree\(appEl\?\.className \|\| ''\)\}\|\$\{document\.documentElement\.className\}\|\$\{wrapCls\(\)\}\|/);
   assert.match(st, /if \(!veins\?\.overlay \|\| veins\.lost \|\| !wrap\.classList\.contains\('gl-on'\)\) \{ if \(overPainted\.length \|\| svgOver\?\.classList\.contains\(OVER_ALL\)\) overClear\(\); return; \}/);
-  assert.match(st, /vCanvas\.addEventListener\('webglcontextlost', \(\) => \{\n\s+wrap\.classList\.remove\('gl-on'\);\n\s+if \(OVER_GPU\) overClear\(\);/);
+  assert.match(st, /vCanvas\.addEventListener\('webglcontextlost', \(\) => \{\n\s+wrap\.classList\.remove\('gl-on'\);\n\s+overClear\(\);/);
   assert.match(st, /function overClear\(\) \{\n\s+for \(const u of overPainted\) u\.classList\.remove\(OVER_CLASS\);\n\s+overPainted = \[\];\n\s+svgOver\?\.classList\.remove\(OVER_ALL\);/);
   assert.match(st, /const spec = readGroup\(u, \{ nest: true, strict: true \}\);/);
   assert.match(st, /if \(easing\.some\(\(el\) => u\.contains\(el\)\)\) \{ why = \['easing', [^\n]*\]; return null; \}/);

@@ -6,8 +6,8 @@ import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=d2669cef9b';
 import { store, updateParams, hiddenNow } from './store.js?v=0f9c79ec87';
 import { h, fmt, fmtFlow, fp, ff, clamp, units, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js?v=506da88dad';
 import { liveBalance } from './balance-hold.js?v=1792704e7a';
-import { frameFor, cancelFrame } from './frame.js?v=07b68cf942';
-import { runSoon, propSoon, attrSoon } from './class-soon.js?v=af0dd2b529';
+import { frameFor, cancelFrame } from './frame.js?v=c99bae2398';
+import { runSoon, propSoon, attrSoon } from './class-soon.js?v=3cee49a7e1';
 const nextFrame = frameFor('inspector');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

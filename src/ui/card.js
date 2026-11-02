@@ -11,7 +11,7 @@ import { frameFor, cancelFrame } from './frame.js?v=07b68cf942';
 import { restPass, cancelRest } from './rest-pass.js?v=fea7233cda';
 import { classSoon, runSoon, propSoon, attrSoon, textSoon } from './class-soon.js?v=af0dd2b529';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
-import { readBox, readMetric } from './layout-snap.js?v=715abea938';
+import { readBox, readMetric } from './layout-snap.js?v=80a9b170ba';
 const nextFrame = frameFor('card');
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number.
 const numOf = (t) => { const s = String(t).replace('−', '-'); return /^-?\d+(\.\d+)?$/.test(s) ? { n: +s, d: (s.split('.')[1] || '').length } : null; };

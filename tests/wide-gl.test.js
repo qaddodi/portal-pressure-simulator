@@ -20,7 +20,7 @@ test('the copy is the GPU\'s, or none (no 2D tiles since 1 Nov: the dive then sc
   assert.match(fn('function buildWide(W, H, box) {'), /return WIDE_GL \? buildWideGL\(W, H, box\) : null;/);
   const b = fn('function buildWideGL(W, H, box) {');
   assert.match(b, /if \(!g \|\| g\.lost\) return null;/, 'no vessels on the GPU: no copy');
-  assert.match(b, /ok = onG && wg\.tile\(t, canvasPx\(w, dpr\), canvasPx\(hh, dpr\), dpr, \[\.\.\.\(tisIn \? \[\] : \[tissueG\]\), glCv, \.\.\.\(fxIn \|\| !fxOn \? \[\] : \[fxG\]\)\]\);/, 'the tissue, the vessels and the overlay, bottom first (the tissue under and the overlay over in the vessels\' canvas when they are hosted there: LZ_ONE)');
+  assert.match(b, /ok = onG && wg\.tile\(t, canvasPx\(w, dpr\), canvasPx\(hh, dpr\), dpr, \[\.\.\.\(tisIn \? \[\] : \[tissueG\]\), glCv, \.\.\.\(fxIn \|\| !fxOn \? \[\] : \[fxG\]\)\]\);/, 'the tissue, the vessels and the overlay, bottom first (the tissue under and the overlay over in the vessels\' canvas when they are hosted there)');
   assert.match(b, /if \(!ok\) \{ wg\.release\(\); return null; \}/);
   assert.doesNotMatch(b, /drawImage|getContext\('2d'\)/, 'nothing laid on the CPU');
 });
@@ -44,9 +44,10 @@ test('tiles are mipmapped, premultiplied, within the GPU\'s texture size, and no
   assert.match(wg, /gl\.texImage2D\(gl\.TEXTURE_2D, 0, gl\.RGBA8, 1, 1, 0, gl\.RGBA, gl\.UNSIGNED_BYTE, null\);/, 'the layer texture given back');
 });
 
-test('one context for the lobule: the copy is made and shown in the vessels\' own context (LZ_ONE), ?lzone=0 its own canvas as before', () => {
+test('one context for the lobule: the copy is made and shown in the vessels\' own context, always', () => {
   const on = fn('function wideGLOn() {');
-  assert.match(on, /if \(LZ_ONE && gl && !gl\.lost && gl\.top\?\.replace\) \{/);
+  assert.match(on, /if \(gl && !gl\.lost && gl\.top\?\.replace\) \{/);
+  assert.doesNotMatch(on, /LZ_ONE/);
   assert.match(on, /wideGL = createWideGL\(null, \{ host: gl\.top \}\) \|\| null;/, 'no canvas of its own');
   assert.match(on, /gl\.top\.replace\(\{ on: \(\) => !!wide\?\.host && !!wideView && wideA >= 1, draw: \(\) => wideShow\(1\) \}\)/, 'through the zoom the copy stands in for the whole picture');
   assert.match(on, /gl\.top\.add\(\{ order: LZ_UNDER_GLASS \+ 1, draw: \(\) => \{ if \(wideView && wideA > 0 && wideA < 1\) wideShow\(wideA\); \} \}\)/, 'fading out, laid over the landed layers and the overlay, under every glass');

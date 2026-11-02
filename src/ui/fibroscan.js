@@ -11,10 +11,10 @@ import { simTime, isPaused, fibroReading } from './clock.js?v=7542542ee7';
 import { store } from './store.js?v=0f9c79ec87';
 import { createElastogramGL, elastogramUnder } from './fibroscan-gl.js?v=9fc4176d3a';
 import { surface } from './gpu-surfaces.js?v=b62dfcfdd1';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=07b68cf942';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=c99bae2398';
 import { createFollow } from './display-state.js?v=3783649ed7';
 import { fix1 } from './fix-text.js?v=b5d2f96c9e';
-import { attrSoon, dataSoon } from './class-soon.js?v=af0dd2b529';
+import { attrSoon, dataSoon } from './class-soon.js?v=3cee49a7e1';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the measurement window about 8 ms after the push

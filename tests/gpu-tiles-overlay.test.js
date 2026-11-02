@@ -68,10 +68,10 @@ test('the overlay is the GPU\'s for the screen, through the dive and the sinusoi
   assert.match(fgl, /gl\.blendEquation\(gl\.MAX\)/, 'each layer one union, as one path\'s fill: overlaps never darken');
 });
 
-test('one context for the lobule: the overlay is laid in the vessels\' canvas at each of their presents (?lzone=0: its own canvas)', () => {
+test('one context for the lobule: the overlay is laid in the vessels\' canvas at each of their presents', () => {
   const vgl = read('../src/ui/veins-gl.js');
-  assert.match(vgl, /export const LZ_ONE = !\(typeof location !== 'undefined' && \/\[\?&\]lzone=0\\b\/\.test/);
-  assert.match(vgl, /const ownBuf = who === 'stage' \|\| \(who === 'lobule' && LZ_ONE\);/);
+  assert.doesNotMatch(vgl, /LZ_ONE|lzone=/);
+  assert.match(vgl, /const ownBuf = who === 'stage' \|\| who === 'lobule';/);
   // (Under every glass in that canvas: the cards frost the overlay, never lie under it. HVPG 6, 2 Nov 2026.)
   assert.match(lz, /export const LZ_UNDER_GLASS = -\d+;/);
   assert.match(lz, /fxHostGL = createFxGL\(fxG, \{ host: gl\.top \}\);[^\n]*\n(?:\s+\/\/[^\n]*\n)*\s+fxHostOff = fxHostGL \? gl\.top\.add\(\{ order: LZ_UNDER_GLASS, draw: fxHostDraw \}\) : null;/);
@@ -84,7 +84,7 @@ test('one context for the lobule: the overlay is laid in the vessels\' canvas at
   assert.match(fgl, /gl\.disable\(gl\.BLEND\); gl\.useProgram\(null\); gl\.bindVertexArray\(null\);/, 'the host\'s state put back');
 });
 
-test('one context for the lobule: the tissue is drawn in the vessels\' context and laid under them at each present (?lzone=0: its own canvas)', () => {
+test('one context for the lobule: the tissue is drawn in the vessels\' context and laid under them at each present', () => {
   const vgl = read('../src/ui/veins-gl.js'), tgl = read('../src/ui/tissue-gl.js');
   // The vessels' renderer: an under pass on the cleared canvas, the kept picture laid over it premultiplied, pixel for pixel.
   assert.match(vgl, /if \(!up && under && under\.on\(\) && underLay\(\)\)/);

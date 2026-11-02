@@ -5,20 +5,20 @@
 // (createImageBitmap), blurred once in two passes, and each callout's shape is cut from it.
 // What differs from the browser's glass: only the GPU's figure (veins-gl: the plate, the vessels, the blood) is under the blur;
 // the SVG drawn over it (stents, guides) and the labels are hidden behind the glass rather than blurred into it.
-// Off (the browser's glass, as before): no WebGL2, a software renderer, ?gpulabels=0, Settings' blur effect off, reduced
+// Off (the browser's glass, as before): no WebGL2, a software renderer, Settings' blur effect off, reduced
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
 import { shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=ea5ed71e09';
 import { glCap, fbComplete } from './gl-state.js?v=f33764e84c';
-import { hold } from './gpu-budget.js?v=00c61687bd';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=94a4db0dc6';
-import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw } from './frame.js?v=07b68cf942';
+import { hold } from './gpu-budget.js?v=f25a08a637';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=294bbe5874';
+import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw } from './frame.js?v=c99bae2398';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=6c955f55d8';
 import { Inline, inlineShift, inlineTranslate, Motion, compileKeyframes, motionAt, movesOnly, clockOf, clockAt } from './glass-motion.js?v=c45c2a76ac';
 import { pathPolys, fanTriangles } from './path-poly.js?v=01766890c9';
 import { easeArrive, D_SURFACE } from './ease.js?v=7d7bfe9a62';
 import { caught } from './caught.js?v=b96b17594a';
-import { viewSize } from './layout-snap.js?v=715abea938';
+import { viewSize } from './layout-snap.js?v=80a9b170ba';
 import { parseCssColor } from './css-color.js?v=59ed182174';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
@@ -497,7 +497,7 @@ export function dropsOf(v) {
   }
   return out;
 }
-export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = 0, fresh = null, full = false, onHoles = null } = {}) {
+export function createGlassGL(wrap, source, layers, { software = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = 0, fresh = null, full = false, onHoles = null } = {}) {
   if (reblur > 0) fresh = null;
   const look = pane ? PANE : cards ? CARD : GLASS;
   const SCALE = look.scale || SCALE0, MARGIN = look.margin || MARGIN0;
@@ -513,7 +513,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // into the figure's canvas (setHost). Without it (the default since 31 Oct, round 2, 2.1: on Safari that copy is a read of the GPU's
   // picture back to the page on every frame the figure changes, laggier than the browser's own blur) there is no canvas or context
   // here at all: the glass is drawn into the figure's canvas while it can be, and is otherwise the browser's.)
-  if (off || software || !source || typeof WebGL2RenderingContext === 'undefined' || (copy && typeof createImageBitmap !== 'function')) return null;
+  if (software || !source || typeof WebGL2RenderingContext === 'undefined' || (copy && typeof createImageBitmap !== 'function')) return null;
   let canvas = null, gl = null, progs = null;
   if (copy) {
     canvas = document.createElement('canvas');

@@ -31,13 +31,13 @@ import { STEP_MAX } from './glide-clock.js?v=068ac73ef2';
 import { sinusoidTargets } from './sinusoid-model.js?v=b8f1f7baa9';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAtInto, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=683399e66a';
 import { placeFenDisse } from './fen-place.js?v=c5830d6ff0';
-import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale, easeNow } from './frame.js?v=07b68cf942';
+import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale, easeNow } from './frame.js?v=c99bae2398';
 import { softwareGL, softwareYield } from './sw-yield.js?v=f7e0bc683b';
 import { noteSinusoidSupport, sinusoidSupported } from './gl-support.js?v=12efdaee3a';
 import { FADE_MS, fadeAlpha } from './res-fade.js?v=7f8ca96f1e';
 import { cssColor8 } from './css-color.js?v=59ed182174';
 import { surface } from './gpu-surfaces.js?v=b62dfcfdd1';
-import { restPass, restClass, restAttr } from './rest-pass.js?v=fea7233cda';
+import { restPass, restClass, restAttr } from './rest-pass.js?v=de1b500aca';
 const HEP_CELL = { j: 0, x0: 0, x1: 0, nu: 0, nv: 0, nr: 0, bi: false };   // alloc-rare: made once (the hepatocyte's cell, written in place by each layout)
 const nextFrame = frameFor('sinusoid-view');
 

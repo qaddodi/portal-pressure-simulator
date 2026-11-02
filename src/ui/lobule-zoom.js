@@ -19,8 +19,8 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=281c2b60aa';
-import { store } from './store.js?v=0f9c79ec87';
+import { runFlick, FLICK } from './flick.js?v=fa5b937d7c';
+import { store } from './store.js?v=160363b508';
 import { glideClock } from './glide-clock.js?v=068ac73ef2';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=1bdcf2ecea';
 import { softwareYield } from './sw-yield.js?v=f7e0bc683b';
@@ -49,8 +49,8 @@ import { FADE_MS, fadeAlpha } from './res-fade.js?v=7f8ca96f1e';
 import { createResCover, coverFollow, coverFollowInto } from './res-cover-gl.js?v=4b4b8edc24';
 import { leaderEnd, runInside } from './leader-end.js?v=56bb38b34d';
 import { LIGHT } from './light.js?v=f0c4eefb81';
-import { restPass, cancelRest, restAttr, restRemove, flushRestAttrs } from './rest-pass.js?v=fea7233cda';
-import { classSoon, classHas } from './class-soon.js?v=af0dd2b529';
+import { restPass, cancelRest, restAttr, restRemove, flushRestAttrs } from './rest-pass.js?v=de1b500aca';
+import { classSoon, classHas } from './class-soon.js?v=3cee49a7e1';
 import { easeMove, carryRate, carried, cubicBezier, D_SMALL, D_SURFACE } from './ease.js?v=7d7bfe9a62';
 import { surface } from './gpu-surfaces.js?v=b62dfcfdd1';
 import { caught } from './caught.js?v=b96b17594a';
@@ -2685,7 +2685,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     showTissueGL(paintTissue(W, H, dpr, dark, cs, !g, g ? tissueGLOn() : null));
     snapNext = false;
     framePart('lz.layoutLabels', layoutLabels);
-    // (The overlay first: in the vessels' own context (LZ_ONE) it is laid over them at their present, in drawGL.)
+    // (The overlay first: in the vessels' own context it is laid over them at their present, in drawGL.)
     const fxOn = fxOnGPU(W, H, dpr, dark, dt, g && !g.lost);
     const laid = g?.top?.presents;
     if (g && !g.lost) drawGL(W, H, dpr, dark, cs, dt);
@@ -2723,16 +2723,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // copy's own context; each frame of the zoom draws the tiles where the box's scale puts them (setDiveZoom). Null where the GPU
   // cannot (no WebGL2 for the vessels, a tile refused): no copy then.
   let wideCv = null, wideGL, wideGone = null;
-  // One context for the lobule (LZ_ONE, veins-gl.js): the copy is made and shown in the vessels' own context. Each tile is copied from
+  // One context for the lobule (veins-gl.js): the copy is made and shown in the vessels' own context. Each tile is copied from
   // their canvas inside the context, once the tissue, the vessels and the overlay are laid there for it (no canvas sent from one context
   // to another), and through the zoom the copy stands in for their whole picture (their replace), the canvas unscaled; fading out
   // over the landed layers, it is laid over them (a top) at its opacity (wideA). Made again with the vessels' renderer.
-  // ?lzone=0: its own canvas and context, as before.
   let wideHostFor = null, wideHostOff = null, wideView = null, wideA = 1;
   const wideShow = (a) => { const v = wideView; if (v && wideGL) wideGL.draw(v.W, v.H, v.dpr, v.box, v.k, v.x, v.y, v.tx, v.ty, a); };
   function wideGLOn() {
-    if (LZ_ONE && !glTried) glNow();
-    if (LZ_ONE && gl && !gl.lost && gl.top?.replace) {
+    if (!glTried) glNow();
+    if (gl && !gl.lost && gl.top?.replace) {
       if (wideHostFor !== gl) {
         wideHostOff?.(); if (wideHostFor) wideGL?.release();
         wideHostFor = gl; wideGL = createWideGL(null, { host: gl.top }) || null;
@@ -2774,7 +2773,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const tg = tissueGLOn();
         diveRim = rimOf(cx + ox, cy + oy, r); tissueKey = '';
         const onG = !!tg && paintTissue(w, hh, dpr, dark, cs, false, tg);
-        // (The overlay first: in the vessels' own context (LZ_ONE) it is laid over them as they are drawn, one canvas for both; and the
+        // (The overlay first: in the vessels' own context it is laid over them as they are drawn, one canvas for both; and the
         // tissue drawn on the GPU under them there too (tisWide), when it is hosted.)
         fxGLKey = ''; fxArgs = null;
         const fxOn = fxOnGPU(w, hh, dpr, dark, 0, true), fxIn = fxOn && !!fxArgs, tisIn = onG && !!tisHostFor;
@@ -3802,15 +3801,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The tissue's GPU drawing (tissue-gl.js): made the first time it is asked for; null where WebGL2 is missing or would run in
   // software, and set aside if its context is lost (the tissue then waits for the context back: nothing is painted on a 2D canvas).
   let tissueGL, tissueOnGL = false;
-  // One context for the lobule (LZ_ONE, veins-gl.js): the tissue is drawn in the vessels' own context, into a picture of its own, and
+  // One context for the lobule (veins-gl.js): the tissue is drawn in the vessels' own context, into a picture of its own, and
   // laid on their canvas under them at each picture they lay (their under), with no canvas or context of its own. Laid while it shows
   // (tissueG, out of the page, keeps the showing state: showTissueGL, the dive's copies) and, for a wide copy's tile, while the tile
-  // is drawn on the GPU (tisWide). Made again with the vessels' renderer (a new one after a lost context). ?lzone=0: its own canvas, as before.
+  // is drawn on the GPU (tisWide). Made again with the vessels' renderer (a new one after a lost context).
   let tisHostFor = null, tisHostOff = null, tisWide = false;
   const tisUnder = () => !!tissueGL && tissueGL.pictured && (wideBuild ? tisWide : tissueG.style.opacity !== '0' && tissueG.style.visibility !== 'hidden');
   function tissueGLOn() {
-    if (LZ_ONE && !glTried) glNow();
-    if (LZ_ONE && gl && !gl.lost && gl.top?.under) {
+    if (!glTried) glNow();
+    if (gl && !gl.lost && gl.top?.under) {
       if (tisHostFor !== gl) {
         tisHostOff?.(); if (tisHostFor) tissueGL?.release?.();
         tisHostFor = gl; tissueGL = createTissueGL(tissueG, { onLive: liveCompiled, host: gl.top }) || null;   // alloc-rare: only when the vessels' renderer is new (the first look, or after a lost context)
@@ -4203,12 +4202,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // not without the vessels' WebGL. Its old 2D canvas stays empty (given back). ?fxgpu=0: no overlay.
   let fxGL, fxGLKey = '', fxGLShown = false;
   let lyRaw = new Float32Array(0);   // the lymph's kept array of drops (R13, see lyDrops; their instance arrays are fxDI, fxBI)
-  // One context for the lobule (LZ_ONE, veins-gl.js): the overlay is drawn in the vessels' own canvas, over them, at the end of each
+  // One context for the lobule (veins-gl.js): the overlay is drawn in the vessels' own canvas, over them, at the end of each
   // picture they lay (their top), from the frame's arguments fxOnGPU leaves here (fxArgs; null: nothing laid, the 2D overlay draws),
   // with no canvas or context of its own. Made again with the vessels' renderer (a new one after a lost context). A draw the GPU
-  // refused there puts the overlay back on the 2D canvas for a moment. ?lzone=0: its own canvas, as before.
+  // refused there puts the overlay back on the 2D canvas for a moment.
   let fxHostGL = null, fxHostFor = null, fxHostOff = null, fxArgs = null, fxHostBad = 0;
-  const fxHosted = () => LZ_ONE && !!gl && !gl.lost && !!gl.top;
+  const fxHosted = () => !!gl && !gl.lost && !!gl.top;
   const fxHostPart = () => fxHostGL.draw(fxArgs);
   function fxHostDraw() {
     if (!fxArgs || !fxHostGL) return;   // (a wide copy's tile lays it too: buildWideGL; the 2D tiles leave fxArgs empty)
@@ -4691,7 +4690,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     },
     setDive: (d) => framePart('lz.setDive', () => paintField(d)),
     sinBusy: () => sinBusyNow(),
-    // (The vessel canvas keeps no picture between frames (veins-gl OWN_BUF with LZ_ONE): a reader outside the frame lays it first.)
+    // (The vessel canvas keeps no picture between frames (veins-gl.js ownBuf): a reader outside the frame lays it first.)
     capture: () => gl?.capture?.() ?? null,
     sinusoidOpen: () => sv.isOpen(),
     /** The GPU canvas the cards' frosted glass is drawn into while the liver shows (stage.js frostSrc; Mohammad, 2 Nov 2026: "No blur at all on

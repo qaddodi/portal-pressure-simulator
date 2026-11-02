@@ -43,7 +43,7 @@ test('the browser\'s glass stays with the blur effect off, reduced transparency,
 });
 
 test('the stage lays the GPU glass under both callout layers, off with the other GPU layers and on a software renderer', () => {
-  assert.match(STAGE, /const glassGL = veins \? createGlassGL\(wrap, vCanvas, \[cath\.labels, sites\.el\], \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\), live: \(\) => wrap\.classList\.contains\('gl-on'\), version: \(\) => veins\.drawSeq, fresh: \(\) => veins\.bloodSeq, capture: \(\) => veins\?\.capture\(\), onFigure: \(f\) => veins\.onPicture\(f\), keep: \(\) => figLab\('glassCache'\), due: \(\) => watch\.due\(\), copy: false, onHoles: frostHoles\('callouts'\) \}\) : null;/);
+  assert.match(STAGE, /const glassGL = veins \? createGlassGL\(wrap, vCanvas, \[cath\.labels, sites\.el\], \{ software: SOFTWARE, live: \(\) => wrap\.classList\.contains\('gl-on'\), version: \(\) => veins\.drawSeq, fresh: \(\) => veins\.bloodSeq, capture: \(\) => veins\?\.capture\(\), onFigure: \(f\) => veins\.onPicture\(f\), keep: \(\) => figLab\('glassCache'\), due: \(\) => watch\.due\(\), copy: false, onHoles: frostHoles\('callouts'\) \}\) : null;/);
   // (Drawn in the figure's canvas, its turn between the cards' two.)
   assert.match(STAGE, /hostFrost\(glassGL, \{ order: 2, over: \(\) => frostOver\('callouts'\) \}\);/);
   // (1 Nov 2026: off unless ?glasshost=1 at 759be3e1, the iPhone's callouts and sheet cards flickering; on again by default the same day, its causes
@@ -65,7 +65,7 @@ test('the liver label\'s frosted pane is drawn the same way, under the labels, w
   assert.match(CSS, /\.lb-glass \{[^}]*background: var\(--frost\);/, 'the CSS pane');
   assert.equal(PANE.blur, 9);
   assert.equal(PANE.sat, 1.2);
-  assert.match(STAGE, /labelSvg\.before\(glass\);\n.*\n\s+const paneGL = veins \? createGlassGL\(wrap, vCanvas, \[\], \{ software: SOFTWARE, off: \/\[\?&\]gpulabels=0\\b\/\.test\(location\.search\), live: \(\) => wrap\.classList\.contains\('gl-on'\), pane: glass, version: \(\) => veins\.drawSeq, fresh: \(\) => veins\.bloodSeq, capture: \(\) => veins\?\.capture\(\), onFigure: \(f\) => veins\.onPicture\(f\), keep: \(\) => figLab\('glassCache'\), due: \(\) => watch\.due\(\), copy: false \}\) : null;/);
+  assert.match(STAGE, /labelSvg\.before\(glass\);\n.*\n\s+const paneGL = veins \? createGlassGL\(wrap, vCanvas, \[\], \{ software: SOFTWARE, live: \(\) => wrap\.classList\.contains\('gl-on'\), pane: glass, version: \(\) => veins\.drawSeq, fresh: \(\) => veins\.bloodSeq, capture: \(\) => veins\?\.capture\(\), onFigure: \(f\) => veins\.onPicture\(f\), keep: \(\) => figLab\('glassCache'\), due: \(\) => watch\.due\(\), copy: false \}\) : null;/);
   assert.match(SRC, /if \(canvas\) \(cards \? cards\.before : pane \|\| layers\[0\]\)\.before\(canvas\);/, 'its canvas just before the pane, so under the labels');
   assert.match(STAGE, /hostFrost\(paneGL, \{ order: 0, over: \(\) => frostOver\('pane'\) \}\);/, 'in the figure\'s canvas: the first turn, under the labels');
   assert.match(CSS, /\.cl-glass\[data-gl\], \.lb-glass\[data-gl\] \{ background: none; \}/);

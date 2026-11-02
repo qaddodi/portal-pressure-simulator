@@ -13,7 +13,7 @@
 // Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide, Esc. (The Guide lists them: PRESENT_KEYS in
 // main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=0f9c79ec87';
+import { store, replaceParams } from './store.js?v=160363b508';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
 import { glWords } from './gl-words.js?v=8d3e1dcf47';
@@ -25,7 +25,7 @@ import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=ed4ab381
 import { sinusoidSupported } from './gl-support.js?v=12efdaee3a';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=0520d14d87';
 import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=04d2df8ec5';
-import { runSoon } from './class-soon.js?v=af0dd2b529';
+import { runSoon } from './class-soon.js?v=3cee49a7e1';
 import { NODE_POS } from './anatomy.js?v=8768b1f623';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
@@ -46,7 +46,7 @@ import { createSlidePrep } from './slide-prep.js?v=b2a392e663';
 import { createTxns } from './slide-txn.js?v=2b33d858d0';
 import { glEpoch, onGLRestored } from './gl-state.js?v=f33764e84c';
 import { prepareShaders, shaderFailures } from './gl-compile.js?v=6c955f55d8';
-import { createFigureKey } from './figure-key.js?v=7ba11e3102';
+import { createFigureKey } from './figure-key.js?v=2afa606159';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=5db2d15f8d';
 import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=c8eb161c84';
@@ -61,15 +61,15 @@ import { flowTimeHeight, trailKeys } from './flow-time.js?v=e697a8962e';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=3b89d00e25';
 import { createInsetHold } from './inset-hold.js?v=e34b1d5a56';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
-import { createCardZoom, tapTracker } from './card-zoom.js?v=3cb4eedf4f';
+import { createCardZoom, tapTracker } from './card-zoom.js?v=3aed9f6977';
 import { sheetPanes } from './sheet-glass.js?v=9bad2768f7';
 import { createScopeTile } from './scope-tile.js?v=c6ee93d444';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=7d7bfe9a62';
 import { slideFold } from './fold-slide.js?v=64e11227a9';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js?v=47c1239225';
-import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=4fbd7bee02';
-import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js?v=715abea938';
+import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=1c6b9fb8c0';
+import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js?v=80a9b170ba';
 import { caught } from './caught.js?v=b96b17594a';
 const nextFrame = frameFor('presenter');
 

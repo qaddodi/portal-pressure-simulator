@@ -9,11 +9,11 @@
 // the GPU draws is made see-through (#labels .lb[data-gl] > *: opacity 0), so the page does not paint it.
 //
 // A label whose look this drawing cannot give exactly (a filter or letter spacing the browser's Canvas 2D lacks, a part it does not
-// know, a keyboard focus ring) stays drawn by the SVG, label by label. Without WebGL2, on a software renderer, with ?gpulabels=0, or
+// know, a keyboard focus ring) stays drawn by the SVG, label by label. Without WebGL2, on a software renderer, or
 // once the context is lost, the SVG draws them all, as it always has.
 
 import { glGet, glCap } from './gl-state.js?v=f33764e84c';
-import { frameFor, cancelFrame } from './frame.js?v=07b68cf942';
+import { frameFor, cancelFrame } from './frame.js?v=c99bae2398';
 import { ucOf } from './uniform-cache.js?v=6488216aa0';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=1b5b7b8ddd';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=6c955f55d8';
@@ -479,8 +479,8 @@ export function ringBox(d, dpr, frame) {
  * figure's overlays not all on the GPU, the labels' layer fading or hidden), it draws nothing and the SVG shows every label.
  * `force`: on a software renderer too (CI's visual check, ?stageover=gpu).
  */
-export function createLabelGL(svg, blocks, { software = false, off = false, marks = [], host = null, force = false, onBoxes = null } = {}) {
-  if (off || (software && !force) || typeof WebGL2RenderingContext === 'undefined') return null;
+export function createLabelGL(svg, blocks, { software = false, marks = [], host = null, force = false, onBoxes = null } = {}) {
+  if ((software && !force) || typeof WebGL2RenderingContext === 'undefined') return null;
   const canvas = host ? host.canvas : document.createElement('canvas');
   if (!host) { canvas.id = 'labelGl'; canvas.setAttribute('aria-hidden', 'true'); }
   let gl = host ? host.gl : null;

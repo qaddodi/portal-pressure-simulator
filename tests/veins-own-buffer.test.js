@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 // The stage's vessel canvas keeps no picture of its own (120 fps addendum §7; on by default since 31 Oct, recs A3): it is made
 // without preserveDrawingBuffer, and the picture the frames repaint in part is kept in a texture of the renderer's own, copied whole
-// onto the canvas whenever it is drawn on. With ?lzone=0 the lobule's vessel renderer keeps its canvas's picture as before.
+// onto the canvas whenever it is drawn on. A renderer that is neither the stage's nor the lobule's keeps its canvas's picture itself.
 
 globalThis.ResizeObserver ??= class { observe() {} };
 globalThis.MutationObserver ??= class { observe() {} };
@@ -64,12 +65,12 @@ test('the stage\'s vessel canvas is made with no picture and no stencil of its o
   assert.equal(attrs.stencil, false);
 });
 
-test('the lobule\'s vessel canvas keeps its own picture with ?lzone=0, as before', async () => {
-  globalThis.location = { search: '?lzone=0' };
-  try { keepsItsOwn(await renderer('../src/ui/veins-gl.js?lzone', 'lobule')); } finally { delete globalThis.location; }
+test('a renderer neither the stage\'s nor the lobule\'s keeps its own picture; there is no ?lzone switch', async () => {
+  keepsItsOwn(await renderer('../src/ui/veins-gl.js', 'apart'));
+  assert.doesNotMatch(readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8'), /LZ_ONE|lzone=/);
 });
 
-test('by default the lobule\'s vessel canvas draws into its kept picture too, so its overlay can be laid over each present (LZ_ONE)', async () => {
+test('by default the lobule\'s vessel canvas draws into its kept picture too, so its overlay can be laid over each present', async () => {
   const { g, f, attrs, canvas, look } = await renderer('../src/ui/veins-gl.js', 'lobule');
   assert.equal(attrs.preserveDrawingBuffer, false);
   assert.ok(g.top, 'a top for the overlay');
@@ -190,7 +191,7 @@ test('by default a zoom frame draws in one pass even where the context has no st
   assert.equal(blitTargets(f, n).at(-1), null, 'then copied onto the canvas');
 });
 
-test('a stand-in for the whole picture (top.replace) is drawn alone at the present, on a cleared canvas, and nothing is copied (LZ_ONE)', async () => {
+test('a stand-in for the whole picture (top.replace) is drawn alone at the present, on a cleared canvas, and nothing is copied', async () => {
   const { g, f, look } = await renderer('../src/ui/veins-gl.js', 'lobule');
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
   let on = true, drawn = 0;

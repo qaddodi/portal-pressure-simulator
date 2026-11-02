@@ -36,9 +36,6 @@ function fakeGL() {
   return { gl, calls };
 }
 const mod = await import('../src/ui/veins-gl.js');
-globalThis.location = { search: '?lzone=0' };
-const apart = await import('../src/ui/veins-gl.js?lzone');
-delete globalThis.location;
 function renderer(m = mod, who = 'stage') {
   const f = fakeGL();
   const canvas = { width: 800, height: 600, getContext: () => f.gl, addEventListener() {}, removeEventListener() {}, toDataURL: () => 'data:' };
@@ -50,9 +47,10 @@ function renderer(m = mod, who = 'stage') {
 }
 const blits = (f, n0) => f.calls.slice(n0).filter((c) => c[0] === 'blitFramebuffer');
 
-test('the overlays need the kept picture: none on a canvas that keeps its own (the lobule\'s, with ?lzone=0)', () => {
+test('the overlays need the kept picture: none on a canvas that keeps its own (a renderer neither the stage\'s nor the lobule\'s)', () => {
   assert.ok(renderer().g.overlay, 'by default');
-  assert.equal(renderer(apart, 'lobule').g.overlay, null);
+  assert.ok(renderer(mod, 'lobule').g.overlay, 'the lobule\'s too: one context, no switch');
+  assert.equal(renderer(mod, 'apart').g.overlay, null);
 });
 
 test('the plain upscale: the picture copied onto the whole canvas, filtered; at the canvas\'s size, copied as it is', () => {

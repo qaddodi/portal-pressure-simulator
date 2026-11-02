@@ -2,7 +2,7 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { motionBudget } from './motion-budget.js?v=89246e0c5f';   // (first: counts from the start when ?perf or ?budget=1 asks)
-import { budget as gpuBudget } from './gpu-budget.js?v=00c61687bd';   // (the render graph's registry and pass counts, R06: before any context is made)
+import { budget as gpuBudget } from './gpu-budget.js?v=f25a08a637';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js?v=f33764e84c';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js?v=654877cff9';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=0f9c79ec87';
@@ -60,23 +60,23 @@ const ZOOM_TITLES = [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoom
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { initDebug } from './debug.js?v=47128cea94';
-import { initTopbarMotion } from './topbar-motion.js?v=287f9c8bc9';
+import { initDebug } from './debug.js?v=9536de3bef';
+import { initTopbarMotion } from './topbar-motion.js?v=a0ed557417';
 import { ORIGINS } from './blood.js?v=ca0abd6caa';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=d2669cef9b';
 import { createPaintGate } from './paint-gate.js?v=880ebfff88';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, afterMotion, mayTask } from './frame.js?v=07b68cf942';
-import { restPass } from './rest-pass.js?v=fea7233cda';
-import { classSoon, runSoon } from './class-soon.js?v=af0dd2b529';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, afterMotion, mayTask } from './frame.js?v=c99bae2398';
+import { restPass } from './rest-pass.js?v=de1b500aca';
+import { classSoon, runSoon } from './class-soon.js?v=3cee49a7e1';
 import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js?v=ca69a8335e';
 import { feedbackDiagnostics } from './feedback-diag.js?v=75097a9d74';
 import { noteJump } from './display-state.js?v=3783649ed7';
 import { createIdleRest } from './idle-rest.js?v=4d23822371';
-import { pillState, foldPill, stopFold } from './pill-motion.js?v=ec0b0c80ee';
+import { pillState, foldPill, stopFold } from './pill-motion.js?v=251347c161';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=1b5b7b8ddd';
-import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=715abea938';
-import './scroll-edges.js?v=e415639021';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
+import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=80a9b170ba';
+import './scroll-edges.js?v=0a724ae0f5';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 import { caught } from './caught.js?v=b96b17594a';
 const nextFrame = frameFor('main');
 
@@ -1168,9 +1168,9 @@ function wireTopbar() {
   if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=ae8f3c0b8b').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages.
   import('./high-refresh.js?v=d51eb37228').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=8e9b49edef').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=a8151a4899').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
-  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=3d7c1ab8a6').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
+  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=ca91cf1736').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());

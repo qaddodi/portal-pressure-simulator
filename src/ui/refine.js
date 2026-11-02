@@ -16,7 +16,7 @@
 // once the figure is let go the jobs that were waiting trickle through the allowance, not all at once.
 // The allowance is REFINE_MS a frame.
 
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=94a4db0dc6';
+import { gpuProbe, COUNTED } from './gpu-probe.js?v=294bbe5874';
 import { createHistogram } from './frame-stats.js?v=41fd97ed52';
 
 export const REFINE_MS = 1;

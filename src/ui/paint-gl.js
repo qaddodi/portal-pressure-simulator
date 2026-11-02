@@ -14,7 +14,7 @@
 import { glGet, glOn, glCap } from './gl-state.js?v=f33764e84c';
 import { ucOf } from './uniform-cache.js?v=6488216aa0';
 import { cssColor } from './css-color.js?v=59ed182174';
-import { hold } from './gpu-budget.js?v=00c61687bd';
+import { hold } from './gpu-budget.js?v=f25a08a637';
 import { WARM_MS, bucket } from './warm-views.js?v=5709bebee7';
 import { startProgram, checkProgram, publishWhenDone, stillCompiling } from './gl-compile.js?v=6c955f55d8';
 import { caught } from './caught.js?v=b96b17594a';

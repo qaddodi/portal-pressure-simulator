@@ -21,7 +21,7 @@
 //   finally runs), onFail(error) is told once, error() answers it, and done settles false, never as a completion. The same with
 //   ?prepbudget=0.)
 //   prepLeft() → ms left in this interval        prepSpend(ms) charges work done elsewhere (a rest pass)
-import { frameBudget, inMotion, watchdogStats, WATCH_SHARE } from './frame.js?v=07b68cf942';
+import { frameBudget, inMotion, watchdogStats, WATCH_SHARE } from './frame.js?v=c99bae2398';
 
 /** The target frame interval (ms), for the rest passes' slice (rest-pass.js reads it here: its one import). */
 export const frameMs = () => frameBudget();

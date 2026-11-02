@@ -1,7 +1,7 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, hiddenNow } from './store.js?v=0f9c79ec87';
+import { store, hiddenNow } from './store.js?v=160363b508';
 import { EDGES } from '../engine/topology.js?v=512e725aea';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=506da88dad';
 import { lobuleFlows } from './lobule-model.js?v=3e167259d9';
@@ -16,15 +16,15 @@ import { frameFor } from './frame.js?v=07b68cf942';
 import { glWords } from './gl-words.js?v=8d3e1dcf47';
 import { restPass } from './rest-pass.js?v=fea7233cda';
 import { dropFront } from './drop-front.js?v=21069ee0e8';
-import { classSoon, classHas, classNow } from './class-soon.js?v=af0dd2b529';
+import { classSoon, classHas, classNow } from './class-soon.js?v=3cee49a7e1';
 import { vitalReading, VITALS } from './vital-read.js?v=eb683dfbdd';
-import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=2bc5e1c629';
+import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=46a1041c44';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { compareRows } from './idle-keys.js?v=1b5b7b8ddd';
 import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
-import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js?v=715abea938';
-import { attrSoon, dataSoon } from './class-soon.js?v=af0dd2b529';
+import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js?v=80a9b170ba';
+import { attrSoon, dataSoon } from './class-soon.js?v=3cee49a7e1';
 import { caught } from './caught.js?v=b96b17594a';
 const nextFrame = frameFor('dock');
 

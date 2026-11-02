@@ -397,11 +397,9 @@ test('a zoom frame draws the vessel cells with the one-pass builds over a stenci
 
 test('without a stencil a zoom frame keeps the two passes', async () => {
   const f = fakeGL();
-  // (A canvas that keeps its own picture, the lobule's with ?lzone=0: the stencil is the context's. The kept picture brings a stencil of
+  // (A canvas that keeps its own picture, a renderer neither the stage's nor the lobule's: the stencil is the context's. The kept picture brings a stencil of
   // its own, so by default a context without one still draws zoom frames in one pass: veins-own-buffer.test.js.)
-  globalThis.location = { search: '?lzone=0' };
-  let r;
-  try { r = await renderer(f, '../src/ui/veins-gl.js?lzone', 'lobule'); } finally { delete globalThis.location; }
+  const r = await renderer(f, '../src/ui/veins-gl.js', 'apart');
   const { g, look } = r;
   g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
   const n = f.calls.length;

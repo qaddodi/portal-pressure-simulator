@@ -84,14 +84,15 @@ test('a live organ that changed is drawn again within its box, and only its cell
   assert.match(veins, /if \(dirt\) \{ gl\.bindVertexArray\(dirtVAO\); gl\.drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, dirt\); \}/);
 });
 
-// On by default (Mohammad, 22 Oct 00:17Z: "Do the GPU draw for everything"), off with ?gpuorgans=0 or the ?perf switch; never on
+// On by default (Mohammad, 22 Oct 00:17Z: "Do the GPU draw for everything"), no off switch (switches deleted, 2 Nov 2026); never on
 // a software renderer unless forced (the browser checks run there, and keep the one picture).
-test('the GPU organs are on by default and can be turned off from the address', async () => {
+test('the GPU organs are on by default, with no switch to turn them off', async () => {
   const { gpuProbe } = await import('../src/ui/gpu-probe.js');
   assert.equal(gpuProbe.gpuOrgans, true);
   const src = readFileSync(new URL('../src/ui/gpu-probe.js', import.meta.url), 'utf8');
-  assert.match(src, /gpuorgans=\(0\|1\|force\)/);
-  assert.match(src, /gpuOrgans: ORGANS_Q === 'force' \? 'force' : ORGANS_Q !== '0',/);
+  assert.match(src, /gpuorgans=\(force\)/);
+  assert.match(src, /gpuOrgans: ORGANS_Q === 'force' \? 'force' : true,/);
+  assert.doesNotMatch(src, /gpuorgans=\(0/);
 });
 
 test('a pinch reuses the live organs\' meshes: the tolerance moves in powers of two', () => {

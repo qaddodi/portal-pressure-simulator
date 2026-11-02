@@ -48,7 +48,7 @@ out vec4 o;
 void main() { o = texture(uT, vUv) * uA; }`;
 export const wideShaders = { LAY_VS, LAY_FS, SHOW_VS, SHOW_FS };   // (for the shader lint in the unit tests)
 
-/** host ({ gl, canvas }: the lobule's vessel renderer's top, veins-gl.js; LZ_ONE): no canvas or context of its own. Each tile is copied
+/** host ({ gl, canvas }: the lobule's vessel renderer's top, veins-gl.js): no canvas or context of its own. Each tile is copied
  *  from the host's canvas, inside the context, right after the layers were laid there for it (tile(…, 'host')), and each frame of the
  *  zoom is drawn on the host's canvas at its present (draw, from the host's replace or top), leaving the context as the host's passes
  *  expect it. The owner makes it again with the renderer it makes after a lost context. */

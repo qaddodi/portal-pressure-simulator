@@ -9,8 +9,8 @@
 // Its numbers are the slide's own (its fingerprint, as the tiles read it: the same on every screen), easing to each new
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
 
-import { frame, cancelFrame } from './frame.js?v=07b68cf942';
-import { restPass, cancelRest, restAttr } from './rest-pass.js?v=fea7233cda';
+import { frame, cancelFrame } from './frame.js?v=c99bae2398';
+import { restPass, cancelRest, restAttr } from './rest-pass.js?v=de1b500aca';
 import { PROFILE_PATHS } from './anatomy.js?v=8768b1f623';
 import { follow2, SHOWN_TAU } from './display-state.js?v=3783649ed7';
 import { NODES } from '../engine/topology.js?v=512e725aea';

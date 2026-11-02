@@ -88,7 +88,7 @@ void main() {
 export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue is made once for each lobule view
   let gl = null;
   let ucache = null;   // (the uniform cache, made at the first draw)
-  // Hosted (opts.host: { gl, canvas, under }, the lobule's vessel renderer's top, veins-gl.js; LZ_ONE): no context of its own. Each frame is
+  // Hosted (opts.host: { gl, canvas, under }, the lobule's vessel renderer's top, veins-gl.js): no context of its own. Each frame is
   // drawn into a picture of its own (hostT) in the host's context, and laid on the host's canvas under the vessels at each of its presents
   // (under). The owner makes it again with the renderer it makes after a lost context.
   const host = opts.host || null;

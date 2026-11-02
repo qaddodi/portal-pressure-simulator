@@ -23,8 +23,8 @@ import { createTraceGL, fitPen } from './trace-gl.js?v=ed1079d668';
 import { createStill } from './still-layer.js?v=d5a9373a74';
 import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from './beat-card.js?v=5681d06da2';
 import { VITALS } from './vital-read.js?v=eb683dfbdd';
-import { restPass, cancelRest } from './rest-pass.js?v=fea7233cda';
-import { shownOr } from './shown.js?v=2bc5e1c629';
+import { restPass, cancelRest } from './rest-pass.js?v=de1b500aca';
+import { shownOr } from './shown.js?v=46a1041c44';
 import { dropFront } from './drop-front.js?v=21069ee0e8';
 const nextFrame = frameFor('pressure-time');
 

@@ -15,8 +15,8 @@
 //   - Reduce Motion: the piece does not travel; it fades out where it was and in where it is (--d-flip).
 //   - High contrast keeps today's Highlight on the button and hides the piece (the stylesheet).
 import { D_SMALL } from './ease.js?v=7d7bfe9a62';
-import { restPass } from './rest-pass.js?v=fea7233cda';
-import { readBox, readMetric, readStyle } from './layout-snap.js?v=715abea938';
+import { restPass } from './rest-pass.js?v=de1b500aca';
+import { readBox, readMetric, readStyle } from './layout-snap.js?v=80a9b170ba';
 
 const SEL = '.seg, .instr-tabs, .um-tabs, .pressure-switch';
 const PICKED = '[aria-pressed="true"], [aria-selected="true"]';
