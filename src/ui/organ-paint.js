@@ -122,7 +122,9 @@ const urlId = (v) => String(v || '').match(/url\(\s*["']?#([^)"']+)["']?\s*\)/)?
 const num = (el, a, dflt) => { const v = el.getAttribute(a); if (v == null || v === '') return dflt; const n = parseFloat(v); return v.trim().endsWith('%') ? n / 100 : n; };
 
 /** A gradient by id → { kind: 1 linear | 2 radial, box (objectBoundingBox units), gt (gradientTransform), p (x1 y1 x2 y2 | cx cy r), stops: [[offset, r, g, b, a]] }, or null. */
+let refsOut = null;
 function readGradient(doc, id) {
+  refsOut?.add(id);
   const g = doc.getElementById(id);
   if (!g || !/^(linear|radial)Gradient$/.test(g.localName)) return null;
   if (g.getAttribute('href') || g.getAttribute('xlink:href')) return null;
@@ -204,6 +206,12 @@ export const readFail = () => lastFail;
 // stays in the SVG rather than painted otherwise than the browser paints it: a CSS animation, a marker, a vector effect other than a
 // non-scaling stroke (painted at its width in the page's px: the painter's cssPx), a paint order, crisp edges, or a stroke whose joins are not round on an outline with corners (the painter joins every stroke
 // round). A CSS transform (the caudate's growth, about its origin) is taken as the browser lays it (cssLocal).
+/** readGroup, and the ids of every gradient it read (a change to one of them changes what it reads). */
+export function readGroupRefs(root, opt) {
+  refsOut = new Set();
+  try { return { spec: readGroup(root, opt), refs: refsOut }; } finally { refsOut = null; }
+}
+
 export function readGroup(root, { withMask = true, nest = false, strict = false } = {}) {
   const doc = root.ownerDocument, ops = [];
   let ok = true;

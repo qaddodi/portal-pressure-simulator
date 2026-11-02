@@ -41,20 +41,20 @@ import { refine } from './refine.js?v=e6e17cc013';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=c217651b81';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
-import { cropToGrid } from './organs-gl.js?v=eb2f705aa2';
+import { cropToGrid } from './organs-gl.js?v=59d2639f41';
 import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js?v=8db702aacd';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { measure as measureWords } from './glyph-measure.js?v=131d137ce2';
-import { readGroup, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=106afca6f6';
+import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=5efccad6f4';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
 import { pathCmds, flattenCmds, polyBox, measurePath, elBox } from './shape-gl.js?v=1e2bc57a21';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=253381a873';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=37d9fdf180';
-import { createLabelGL } from './label-gl.js?v=020cf28e39';
+import { createLabelGL } from './label-gl.js?v=83b929f67e';
 import { createGlassGL } from './glass-gl.js?v=f464c7557d';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4d04207e0';
 import { ENT_W } from './veins-bin.js?v=7eb5e277a6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=2673b37b18';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=cd29839e42';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -2707,7 +2707,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=174c154762').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=0652360536').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -3490,10 +3490,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (mode === 'system') { c1 = c2 = SYSTEM_COLOR[systemOf(e, PORTAL_TERRITORY)]; }   // (a slide's vein system, deck visuals V7: the same on every patient)
       else if (mode === 'neutral') { c1 = c2 = PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)'; }
       else { c1 = deltaColor(ref ? qHold(mode, k, 0, P1 - ref[NI[e.from]]) : 0); c2 = deltaColor(ref ? qHold(mode, k, 1, P2 - ref[NI[e.to]]) : 0); }
-      setA(x.st0, 'stop-color', c1); setA(x.st1, 'stop-color', c2);
+      // (The SVG lumen's gradient: held while the GPU draws the vessels (their colours go to the GPU from x.col), written once at rest,
+      // as the hidden tree's shapes are (setG). A running model had rewritten every vessel's two stops on every frame it sent: about a
+      // thousand writes in one slide change, 2 Nov. ?geohold=0: written each time, as before.)
+      if (x.col?.[0] !== c1) setG(x.st0, 'stop-color', c1);
+      if (x.col?.[1] !== c2) setG(x.st1, 'stop-color', c2);
       x.col = [c1, c2];
       if (x.feeders) for (const fd of x.feeders) {
-        if (fd.src) { fd.col = [mode === 'pressure' ? pressureColor(qP(PM[NI[fd.src]])) : c1, c1]; setA(fd.st0, 'stop-color', fd.col[0]); setA(fd.st1, 'stop-color', c1); }
+        if (fd.src) { const was = fd.col; fd.col = [mode === 'pressure' ? pressureColor(qP(PM[NI[fd.src]])) : c1, c1]; if (was?.[0] !== fd.col[0]) setG(fd.st0, 'stop-color', fd.col[0]); if (was?.[1] !== c1) setG(fd.st1, 'stop-color', c1); }
         else if (FEEDERS[e.id].tone === 'end') { fd.col = [c2, c2]; setT(fd.lumen, 'stroke', c2); }   // a network that leaves the vessel's end takes that end's color
       }
       // Flow marks are white on dark lumens and ink on pale ones.
@@ -4959,6 +4963,60 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // lays them): { groups: [{ spec, m }], at } per layer, or null for a layer one of whose groups cannot be read (it is rasterized). The
   // gut's own mask and opacity, and the stomach's see-through liver, are not in them: they are laid over the pictures live (the cuts).
   // (The organs' own colours: a lens's grey is taken off for the read, as for the copy, plateBuild.)
+  // The organs' groups as read for painting (organ-paint readGroup), kept until something they were read from changes: a class, a
+  // shape's own geometry, a paint, a mask or clip, a part shown or hidden (an attribute or an inline display, visibility, paint or
+  // mask), a group added or taken away, or the stage's look (theme, lens classes, the organ colours). What eases (outlines' d, frames,
+  // opacities) the painter reads from the page at each paint, so a liver, a fluid or a fade easing keeps them. Reading them walks
+  // every organ element with a computed style: about 1,800 style reads in one Varices slide change, for groups that had not changed
+  // (motion budget, 2 Nov). ?organread=0: read each time, as before.
+  const READ_KEEP = !/[?&]organread=0\b/.test(location.search);
+  const READ_ATTRS = ['class', 'style', 'display', 'visibility', 'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'fill-rule',
+    'mask', 'clip-path', 'filter', 'href', 'offset', 'stop-color', 'stop-opacity', 'gradientTransform', 'gradientUnits', 'x1', 'y1', 'x2', 'y2', 'fx', 'fy',
+    'cx', 'cy', 'r', 'rx', 'ry', 'x', 'y', 'width', 'height', 'd'];
+  const READ_STYLE = /(?:^|;)\s*(display|visibility|fill|stroke|stroke-width|stroke-dasharray|mask|clip-path|filter|stop-color|stop-opacity|mix-blend-mode|fill-rule)\s*:\s*([^;]*)/g;
+  // (A paint set !important is the lens's grey (greySet), which is always taken off before a read: it changes nothing read.)
+  const styleSig = (v) => [...String(v || '').matchAll(READ_STYLE)].filter((m) => !/!\s*important/i.test(m[2])).map((m) => `${m[1]}:${m[2].trim()}`).sort().join(';');
+  // (Each reading is kept with what it was read from: its group, and the gradients it read. A change inside the group, or to one of
+  // those gradients' stops, drops that reading alone: a congested liver easing its colour reads the liver again, not every organ.
+  // Anything else in the organ defs (a mask, a clip, a pattern) or a group added or taken away under the organs drops them all.)
+  let readEpoch = 0, readMo = null;
+  const readKept = new Map();
+  const readGrad = (t) => t.closest?.('linearGradient, radialGradient')?.id || '';
+  function readDrop(t) {
+    if (t === gOrgans || t === gBackdrop || (defs.contains(t) && !readGrad(t))) { readEpoch++; readKept.clear(); return; }
+    const id = readGrad(t);
+    for (const [el, m] of readKept) {
+      if (el.contains(t) || t.contains(el) || (id && [...m.values()].some((k) => k.refs.has(id)))) readKept.delete(el);
+    }
+  }
+  function readSeen(list) {
+    for (const m of list) {
+      if (m.type !== 'attributes') { readDrop(m.target); continue; }
+      const now = m.target.getAttribute(m.attributeName);
+      // (An inline style that only eases an opacity or a transform, and a d that only moves an outline, change nothing read.)
+      if (m.attributeName === 'style') { if (styleSig(m.oldValue) !== styleSig(now)) readDrop(m.target); continue; }
+      if (m.attributeName === 'd') { if (!m.oldValue !== !now) readDrop(m.target); continue; }
+      if (m.oldValue !== now) readDrop(m.target);
+    }
+  }
+  const readLook = () => { const cs = wrapCS(); return `${readEpoch}|${themeKey()}|${gestureFree(wrap.className)}|${document.documentElement.className}|${cs.getPropertyValue('--stage-bg')}|${cs.getPropertyValue('--organ-liver')}|${wrap.classList.contains('imaging')}`; };
+  /** organ-paint's readGroup(el, opt), or the last reading of it with the same options while nothing it was read from has changed. */
+  function readGroup(el, opt) {
+    if (!READ_KEEP) return readGroupNow(el, opt);
+    if (!readMo) {
+      readMo = new MutationObserver(readSeen);
+      for (const root of [gOrgans, gBackdrop, defs]) readMo.observe(root, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: READ_ATTRS });
+    }
+    readSeen(readMo.takeRecords());
+    const look = readLook(), ok = opt ? `${!!opt.withMask}|${!!opt.nest}` : '';
+    let m = readKept.get(el);
+    const k = m?.get(ok);
+    if (k && k.look === look) return k.spec;
+    const { spec, refs } = readGroupRefs(el, opt);
+    readSeen(readMo.takeRecords());   // (a grey taken off for the read and put back is part of it, not a change after)
+    if (spec) { if (!(m = readKept.get(el))) readKept.set(el, (m = new Map())); m.set(ok, { look: readLook(), spec, refs }); }
+    return spec;
+  }
   function bakeAll() {
     const greyed = !!greyList;
     if (greyed) { greyClear(); organDimKey = ''; }
