@@ -6304,6 +6304,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* (A tile with a scale keeps its change line under the bar, where its ring already says where it started: the line's room is then
    the tile's foot, not a gap between the rating and the bar. A tile with no scale says its change over its unseen bar.) */
 .pz-tile.scaled .pzt-d { order: 1; }
+/* (The rating and change lines are one line high, fixed; and a rolling digit's column (.odo, 1.2em high, taller than the number's own
+   1.05 to 1.1 line) gives back the difference in its margins (.odo, below), so a tile never grows by 2 px while its number rolls:
+   Ascites 6 on an iPhone, where the time-lapse rolled the numbers and the card grew and shrank, 2 Nov 2026.) */
+.pz .pz-data .pz-tiles :is(.pzt-r, .pzt-d) { height: 1.3em; }
 .app.pz-hi .pz-tile .pzt-r:empty { background: none; padding-block: 0; }
 .pz-tiles { grid-auto-rows: 1fr; }
 .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles .pzt-k { min-height: 2.4em; display: flex; align-items: flex-end; justify-content: center; }
@@ -7667,7 +7671,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 /* A number rolling to its next value (util.js countTo, ?odo=0 off): each digit that changes is a column whose own glyph is kept for
    its width and hidden, and over it a strip of the digits between the old one and the new one (its data-s, one a line) is moved by a
    transform the compositor eases, clipped to the column's one line. Nothing is laid out or written while it rolls. */
-.odo { position: relative; display: inline-block; line-height: 1.2em; clip-path: inset(0 -0.2em); -webkit-text-fill-color: transparent; }   /* (its own line height: the column sits on the number's baseline whatever the line's) */
+.odo { position: relative; display: inline-block; line-height: 1.2em; margin-block: -0.1em; clip-path: inset(0 -0.2em); -webkit-text-fill-color: transparent; }   /* (its own line height: the column sits on the number's baseline whatever the line's; its margins give back the 0.2em it is taller than a 1.0 line, so a rolling number never makes its line, tile or card taller, 2 Nov 2026) */
 .odo::after { content: attr(data-s); position: absolute; left: 0; right: 0; top: 0; white-space: pre; text-align: center; -webkit-text-fill-color: currentColor; pointer-events: none;
   animation: odo-up var(--odo-ms, var(--d-small)) var(--odo-ease, var(--ease)) both /*own pace*/; }
 .odo.down::after { animation-name: odo-down; }
