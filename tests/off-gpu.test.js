@@ -136,3 +136,21 @@ test('only the figure\'s two model trees are left out of the SVG count, and the 
   const { MODEL_SVG } = await import('../scripts/off-gpu-scan.mjs');
   assert.deepEqual(MODEL_SVG, ['stage', 'labels']);
 });
+
+test('attribute and inline-style writes in a frame are counted (2 Nov 2026 audit)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'offgpu-'));
+  mkdirSync(join(root, 'src/ui'), { recursive: true }); mkdirSync(join(root, 'styles'));
+  writeFileSync(join(root, 'index.html'), '<html></html>');
+  writeFileSync(join(root, 'src/ui/frame.js'), 'export function frame(cb) { return requestAnimationFrame(cb); }\n');
+  writeFileSync(join(root, 'src/ui/q.js'), `
+import { frame } from './frame.js';
+export function go(el) {
+  frame(() => {
+    el.setAttribute('d', 'M0 0'); el.dataset.k = '1'; el.hidden = true; el.removeAttribute('x');
+    el.style.setProperty('--p', '1'); el.style.transform = 'none'; el.style.opacity = '1'; el.style.cssText = 'a:b';
+  });
+}
+`);
+  const cats = new Set(scan(root).map((h) => h.cat));
+  assert.ok(cats.has('attrWrite') && cats.has('varWrite'), [...cats].join());
+});

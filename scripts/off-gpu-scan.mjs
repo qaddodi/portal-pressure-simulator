@@ -26,6 +26,11 @@
 //   domWrite     textContent/innerHTML/innerText/outerHTML written, or nodes added (append, insertBefore, replaceChildren…), in a frame
 //                or motion callback (2 Nov 2026 review)
 //   paintWrite   a repainting style (colour, fill, stroke, shadow, filter, mask…) written in a frame or motion callback
+//   attrWrite    setAttribute/setAttributeNS/removeAttribute/toggleAttribute, dataset, .hidden/.disabled/.value/.data/.src/.href writes, and
+//                remove()/removeChild()/removeProperty() in a frame or motion callback (2 Nov 2026 independent audit: 498 sites uncounted)
+//   varWrite     style.setProperty (custom properties and dynamic names), style.cssText, and any other inline style (transform, opacity,
+//                translate, scale, display, visibility…) written in a frame or motion callback: script-driven style, not compositor-only
+//                (2 Nov 2026 independent audit: 295 sites uncounted)
 //   observerRead a layout read in a MutationObserver callback, or anything it calls: a microtask straight after the writes
 //
 // "Frame or motion callback": a function handed to requestAnimationFrame or the scheduler (frame, lateFrame, finalFrame,
@@ -54,6 +59,8 @@ export const CATS = {
   syncStatus: 'Synchronous shader compile/link status read',
   domWrite: 'DOM content written in a frame or motion callback (text, markup, nodes: the page laid out and painted again)',
   paintWrite: 'Repainting style written in a frame or motion callback (colour, fill, stroke, shadow, filter, mask…)',
+  attrWrite: 'Attribute, dataset, hidden/disabled or node removal written in a frame or motion callback (setAttribute, dataset, removeAttribute, remove…: a style recalc, and a repaint for SVG attributes)',
+  varWrite: 'Inline style or custom property written in a frame or motion callback (setProperty, style.transform/opacity/display…, cssText: script-driven style every frame)',
   observerRead: 'Layout read in a mutation observer callback (a microtask straight after the writes)',
 };
 
@@ -336,6 +343,13 @@ export function scan({ root = ROOT } = {}) {
         if (member && /^(insertAdjacentHTML|insertAdjacentText|replaceChildren|appendChild|insertBefore|replaceChild|replaceWith|prepend|append)$/.test(cn || '') && !(recv && mod.containers.has(recv) && recv !== 'document')) mod.late.push(['domWrite', n, f, `${cn}()`]);
         if (member && /^(add|remove|toggle|replace)$/.test(cn || '') && n.callee.object.type === 'MemberExpression' && n.callee.object.property.name === 'classList') mod.late.push(['domWrite', n, f, `classList.${cn}()`]);
         if (cn === 'setProperty' && /^(stroke|fill|color|background|border|outline|box-shadow|text-shadow|filter|mask|clip-path)/.test(strOf(a0) || '')) mod.late.push(['paintWrite', n, f, `setProperty('${strOf(a0)}')`]);
+        if (member && cn === 'setAttribute' && !/^['"`](class|id|role|aria-|data-|tabindex|type|href|width|height|viewBox|xmlns)/.test((strOf(a0)||'')) ) mod.late.push(['attrWrite', n, f, `setAttribute('${strOf(a0)}')`]);
+        if (member && cn === 'setAttribute' && /^(width|height|viewBox)$/.test(strOf(a0)||'')) mod.late.push(['attrWrite', n, f, `setAttribute('${strOf(a0)}')`]);
+        if (member && cn === 'setAttribute' && /^(class|data-|aria-)/.test(strOf(a0)||'')) mod.late.push(['attrWrite', n, f, `setAttribute('${strOf(a0)}')`]);
+        if (member && cn === 'setAttribute' && strOf(a0) == null) mod.late.push(['attrWrite', n, f, `setAttribute(<dyn>)`]);
+        if (member && cn === 'setProperty' && /^['"`]--/.test(text.slice(a0?.start ?? 0, a0?.end ?? 0))) mod.late.push(['varWrite', n, f, `setProperty('--var')`]);
+        if (member && cn === 'setProperty' && strOf(a0) == null) mod.late.push(['varWrite', n, f, `setProperty(<dyn>)`]);
+        if (member && /^(remove|removeChild|removeAttribute|toggleAttribute|setAttributeNS|removeProperty)$/.test(cn||'') && !(n.callee.object.type==='MemberExpression' && n.callee.object.property.name==='classList')) mod.late.push(['attrWrite', n, f, `${cn}()`]);
         if (cn === 'XMLSerializer') push('svgRaster', file, n.loc.start.line, label(f), 'XMLSerializer');
       }
       if (n.type === 'NewExpression' && n.callee.name === 'XMLSerializer') push('svgRaster', file, n.loc.start.line, label(enclosing(n)), 'new XMLSerializer()');
@@ -350,6 +364,10 @@ export function scan({ root = ROOT } = {}) {
         if (onStyle && /^(transition|filter|backdropFilter|webkitBackdropFilter)$/.test(prop) || prop === 'filter') look(prop, file, n.loc.start.line);
         if (onStyle && LAYOUT_JS.has(prop)) mod.late.push(['layoutWrite', n, enclosing(n), `style.${prop} =`]);
         if (onStyle && PAINT_JS.test(prop) && prop !== 'transition') mod.late.push(['paintWrite', n, enclosing(n), `style.${prop} =`]);
+        if (prop === 'cssText' && onStyle === false && obj.property?.name==='style') mod.late.push(['varWrite', n, enclosing(n), 'style.cssText =']);
+        if (onStyle && prop !== 'transition' && !LAYOUT_JS.has(prop) && !PAINT_JS.test(prop)) mod.late.push(['varWrite', n, enclosing(n), `style.${prop} =`]);
+        if (obj.type === 'MemberExpression' && !obj.computed && obj.property.name === 'dataset') mod.late.push(['attrWrite', n, enclosing(n), 'dataset write']);
+        if (/^(nodeValue|data|hidden|disabled|value|checked|src|href)$/.test(prop) && !onStyle) mod.late.push(['attrWrite', n, enclosing(n), `.${prop} =`]);
         if (/^(textContent|innerHTML|innerText|outerHTML|className)$/.test(prop)) mod.late.push(['domWrite', n, enclosing(n), `.${prop} =`]);
         if (onStyle && /^(webkitB|b)ackdropFilter$/.test(prop) && !/^['"`]none['"`]$/.test(text.slice(n.right.start, n.right.end))) push('backdrop', file, n.loc.start.line, label(enclosing(n)), text.slice(n.start, Math.min(n.end, n.start + 100)));
         if (prop === 'filter' && !onStyle && /blur\(/.test(text.slice(n.right.start, n.right.end))) push('cpuBlur', file, n.loc.start.line, label(enclosing(n)), `canvas filter: ${text.slice(n.right.start, Math.min(n.right.end, n.right.start + 80))}`);
