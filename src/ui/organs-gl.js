@@ -113,7 +113,7 @@ export function marginViewTo(o, m, cw, ch) {
 }
 
 import { createShapeGL } from './shape-gl.js?v=b2df24cdc0';
-import { createOrganPaint, mul, mulTo, invTo, prestartOrganPaint } from './organ-paint.js?v=34037e2ca8';
+import { createOrganPaint, mul, mulTo, invTo, prestartOrganPaint } from './organ-paint.js?v=46522b023c';
 import { prestart, linkProgram, exerciseDraw } from './gl-compile.js?v=6c955f55d8';
 import { netChanged } from './idle-keys.js?v=1b5b7b8ddd';
 import { uniformCache } from './uniform-cache.js?v=6488216aa0';

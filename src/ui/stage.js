@@ -44,21 +44,21 @@ import { refine } from './refine.js?v=aa60c97717';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=2990d71cce';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=856a3cdf1e';
-import { cropToGrid } from './organs-gl.js?v=df94041380';
+import { cropToGrid } from './organs-gl.js?v=b2f7216f3f';
 import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js?v=77b5de2d05';
 import { cssColor8 } from './css-color.js?v=59ed182174';
 import { measure as measureWords } from './glyph-measure.js?v=065ba67666';
-import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=34037e2ca8';
+import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=46522b023c';
 import { setLive, getLive, dropLive } from './live-style.js?v=1a585312ec';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=92f2104661';
 import { pathCmds, flattenCmds, polyBoxInto, measurePath, elBoxInto, chainMat } from './shape-gl.js?v=b2df24cdc0';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=ef60884541';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=66dd7e757b';
-import { createLabelGL } from './label-gl.js?v=cde4ee3686';
+import { createLabelGL } from './label-gl.js?v=a88662e98b';
 import { createGlassGL } from './glass-gl.js?v=c540fc6de4';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=a38b10c598';
 import { ENT_W } from './veins-bin.js?v=49b311283d';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=134fc424f4';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=97124d3b13';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=e669103117';
@@ -2655,7 +2655,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=e14f5fbf6e').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=c7fc7589d6').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, binAway: (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins }) });
