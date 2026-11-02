@@ -33,7 +33,7 @@ void main() { o = texture(t, uv); }`;
 const BIND = [['c', 0]];
 function program(gl) {
   const p = linkProgram(gl, VS, FS, BIND);
-  return { p, m: gl.getUniformLocation(p, 'm'), box: gl.getUniformLocation(p, 'box'), t: gl.getUniformLocation(p, 't') };
+  return { p, m: gl.getUniformLocation(p, 'm'), box: gl.getUniformLocation(p, 'box'), t: gl.getUniformLocation(p, 't') };   // alloc-rare: once per GL context, when the fade's program is first made
 }
 
 const kits = new WeakMap();   // gl → { P, vao, buf } (made once per context)
@@ -43,18 +43,19 @@ function kit(gl) {
   const P = program(gl), vao = gl.createVertexArray(), buf = gl.createBuffer();
   gl.bindVertexArray(vao);
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);   // alloc-rare: once per GL context, the quad's corners
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null);
-  kits.set(gl, k = { P, vao, buf });
+  kits.set(gl, k = { P, vao, buf });   // alloc-rare: once per GL context
   return k;
 }
 
 // The fade's draw, with the state it is drawn in (the blend's constant alpha): the program, the kit's quad, the texture on unit 0.
+const MAT = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);   // (the matrix handed to the program, written in place at each draw: the driver copies it)
 function lay(gl, k, a, m, w, h) {
-  const [ma, mb, mc, md, me, mf] = m || [1, 0, 0, 1, 0, 0];
+  MAT[0] = m ? m[0] : 1; MAT[1] = m ? m[1] : 0; MAT[3] = m ? m[2] : 0; MAT[4] = m ? m[3] : 1; MAT[6] = m ? m[4] : 0; MAT[7] = m ? m[5] : 0;
   gl.useProgram(k.P.p);
-  gl.uniformMatrix3fv(k.P.m, false, [ma, mb, 0, mc, md, 0, me, mf, 1]);
+  gl.uniformMatrix3fv(k.P.m, false, MAT);
   gl.uniform2f(k.P.box, w, h);
   gl.uniform1i(k.P.t, 0);
   gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD);
@@ -76,11 +77,11 @@ export function warmFade(gl) {
   if (!SHADER_WARM || !gl || kits.has(gl)) return null;
   const h = prestart(gl, VS, FS, BIND);
   if (!h) return null;
-  return {
-    done: () => kits.has(gl) || compileDone(gl, h),
-    run() {
+  return {   // alloc-rare: once per GL context, at its setup
+    done: () => kits.has(gl) || compileDone(gl, h),   // alloc-rare: once per GL context, at its setup
+    run() {   // alloc-rare: once per GL context, at its setup
       if (kits.has(gl) || gl.isContextLost?.()) return;
-      try { const k = kit(gl); exerciseDraw(gl, () => lay(gl, k, 0.5, null, 1, 1)); } catch (e) { caught('res-fade-gl:82', e); /* (failed: the first fade tries again, or mixes in 2D) */ }
+      try { const k = kit(gl); exerciseDraw(gl, () => lay(gl, k, 0.5, null, 1, 1)); } catch (e) { caught('res-fade-gl:82', e); /* (failed: the first fade tries again, or mixes in 2D) */ }   // alloc-rare: once per GL context, the warm-up draw
     },
   };
 }
@@ -101,7 +102,7 @@ export function fadeReady(gl) {
  *   release(): takes it out of the canvas's presents and frees the copy.
  */
 export function keepOnGpu(host) {
-  const { gl, canvas } = host || {};
+  const gl = host?.gl, canvas = host?.canvas;
   if (!gl || !canvas || gl.isContextLost?.()) return null;
   const W = canvas.width, H = canvas.height;
   if (W < 2 || H < 2) return null;
@@ -120,7 +121,7 @@ export function keepOnGpu(host) {
     gl.bindTexture(gl.TEXTURE_2D, null);
     if (!glOkAfter(gl)) throw new Error('copy');   // (asked of the driver each time: gl-state.js)
   } catch { if (tex) gl.deleteTexture(tex); return null; }
-  const g = { w: W, h: H, a: 1, m: null, cw: 0, ch: 0, off: null };
+  const g = { w: W, h: H, a: 1, m: null, cw: 0, ch: 0, off: null };   // alloc-rare: once per resolution fade (a resize), not per frame
   function draw(a, m, w, h, clear = false) {
     if (gl.isContextLost?.() || !tex) return;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -134,9 +135,9 @@ export function keepOnGpu(host) {
     gl.bindTexture(gl.TEXTURE_2D, null);
   }
   // (Laid first of everything drawn over the figure in its canvas, so the glasses drawn after it blur the mix as it shows.)
-  g.off = host.add({ order: -1e6, draw: () => draw(g.a, g.m, g.cw, g.ch) });
-  return {
-    get w() { return g.w; }, get h() { return g.h; },
+  g.off = host.add({ order: -1e6, draw: () => draw(g.a, g.m, g.cw, g.ch) });   // alloc-rare: once per resolution fade, the pass laid in the canvas's presents
+  return {   // alloc-rare: once per resolution fade, the handle its owner keeps
+    get w() { return g.w; }, get h() { return g.h; },   // alloc-rare: once per resolution fade, part of the handle
     /** What the next presents lay: weight a, at m, in a canvas cw × ch CSS px. */
     set(a, m, cw, ch) { g.a = a; g.m = m; g.cw = cw; g.ch = ch; },
     draw,

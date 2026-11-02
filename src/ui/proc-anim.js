@@ -38,7 +38,7 @@ export const PROCS = {
       ['done', 'Stent in', 'A covered stent holds the tract open: portal blood now reaches the hepatic vein without crossing the sinusoids.', 'Stent', 'tip', 'TIPS', ['RHV', 'RPV'], 0.5],
     ],
     can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : (p.thrombus?.RHV_IVC || 0) >= 0.8 ? 'The right hepatic vein is clotted, so a TIPS has no route.' : ''),
-    apply: (p) => { p.tips = { ...p.tips, on: true, d: p.tips?.d || 8 }; return p; },
+    apply: (p) => { p.tips = { ...p.tips, on: true, d: p.tips?.d || 8 }; return p; },   // alloc-rare: runs once, when the sequence passes T.apply: the model takes the change (a new params record)
     had: (p) => !!p.tips?.on,
     undo: (p) => { p.tips = { ...p.tips, on: false }; return p; },
     before: { tips: { on: false } },
@@ -102,7 +102,7 @@ export const markAt = (kind, i) => { const P = PROCS[kind]; return i >= P.stops.
  *  on its side and clear of every vessel (pin); ghost: it may name a vessel not drawn yet (the tract, before the stent is in). */
 export const stepMark = (kind, i) => {
   const s = PROCS[kind]?.steps[i];
-  return s ? { edges: [s[5]], label: `${STEP_NUM[i]} ${s[1]}`, kind: 'treat', f: s[7] ?? 0.5, pin: true, ghost: true } : null;
+  return s ? { edges: [s[5]], label: `${STEP_NUM[i]} ${s[1]}`, kind: 'treat', f: s[7] ?? 0.5, pin: true, ghost: true } : null;   // alloc-rare: only when the step on show changes (four times in a procedure); the mark is a new record the store keeps
 };
 
 /**
@@ -119,14 +119,14 @@ export function procFrame(kind, t, stops = null, into = null) {
     const tr = stops?.tract || TRACT, a = tr[0], b = tr[1];
     const u = (t < T.needle0 ? a * ease(k01(t, T.travel0, T.travel1)) : t < T.needle1 ? a + (b - a) * ease(k01(t, T.needle0, T.needle1)) : b + (1 - b) * ease(k01(t, T.needle1, T.wire1))) * (1 - back);
     const balloon = ease(k01(t, T.inflate0, T.inflate1)) * (1 - ease(k01(t, T.deflate0, T.deflate1)));
-    const f = into || {};
+    const f = into || {};   // alloc-rare: only a caller that gives no record (a test, a pure read); the run passes its own
     f.u = u; f.balloon = balloon; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot;
     return f;
   }
   const u = ease(k01(t, T.travel0, T.travel1)) * (1 - back);
   const balloon = ease(k01(t, T.inflate0, T.inflate1)) * (1 - ease(k01(t, T.deflate, T.back)));
   const column = ease(k01(t, T.fill0, T.fill1)) * (1 - ease(k01(t, T.fillOut, T.deflate)));
-  const f = into || {};
+  const f = into || {};   // alloc-rare: only a caller that gives no record (a test, a pure read); the run passes its own
   f.u = u; f.balloon = balloon; f.column = column; f.opacity = opacity; f.step = step; f.shot = shot;
   return f;
 }
@@ -168,7 +168,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     stops ||= stage.cathStops?.() || null;
     // The step's shot, glided to once (a slide's own glide, arcing on a long move). Until it lands nothing moves: no step starts
     // with the camera on its way. (A switch from the circuit takes a moment: cathFocus says no until the route is drawn.)
-    if (f.shot && f.shot !== shot && stage.cathFocus(f.shot, SHOT_MS, { arc: true })) shot = f.shot;
+    if (f.shot && f.shot !== shot && stage.cathFocus(f.shot, SHOT_MS, { arc: true })) shot = f.shot;   // alloc-rare: only when a new step's shot starts to glide (a few times in a procedure)
     if (!shot || stage.gliding?.()) landT = now;
     const still = !shot || now - landT < LAND_MS;
     if (!applied && t >= T.apply) { applied = true; apply?.(); }
@@ -185,9 +185,9 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
   function finish(rewound) {
     over = true; raf = 0;
     stage.setCatheter(null);
-    if (shot) stage.cathFocus('home', SHOT_MS, { arc: true });
+    if (shot) stage.cathFocus('home', SHOT_MS, { arc: true });   // alloc-rare: once, as the procedure ends
     onMark?.(null, null);
-    onEnd?.({ done: !rewound, rewound });
+    onEnd?.({ done: !rewound, rewound });   // alloc-rare: once, as the procedure ends
   }
   function stop({ home = true } = {}) {
     if (over) return;

@@ -20,14 +20,62 @@ const late = finalFrameFor('res-fade');
 // (no WebGL, a lost context) takes its new resolution at once.)
 const fades = new Map();   // canvas → { gpu, t0, follow, at (the translate it showed at), capture, w, h (its CSS box) }
 
-/** A CSS `translate` value as [x, y] px ('' is none). */
-export const translateOf = (v) => { const [x = 0, y = 0] = String(v || '').trim().split(/\s+/).filter(Boolean).map((t) => parseFloat(t) || 0); return [x, y]; };
-/** Where the old picture is drawn in the mix: it showed at p + at on screen, follow (m, CSS px) carries that to where it is now, and the
- *  mix itself shows moved by now: so q = m(p + at) − now. */
-export function oldPlace(m, at, now) {
-  const [a, b, c, d, e, f] = m || [1, 0, 0, 1, 0, 0];
-  return [a, b, c, d, a * at[0] + c * at[1] + e - now[0], b * at[0] + d * at[1] + f - now[1]];
+// (A CSS `translate` value is read as the browser writes it: "12px 4px", "1.5px", "" for none. Each of its first two blank-separated words
+// is parseFloat(word) || 0, read here digit by digit into a kept pair, so a frame that asks again builds no string and no list. A
+// number with an exponent or more digits than a double holds exactly takes parseFloat itself; so does any text that is not plain ASCII.)
+const POW10 = [1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22];
+const isSpace = (c) => c === 32 || (c >= 9 && c <= 13);
+function wordNumber(s, i, j) {
+  let k = i, neg = false;
+  const c0 = s.charCodeAt(k);
+  if (c0 === 45 || c0 === 43) { neg = c0 === 45; k++; }
+  let mant = 0, digits = 0, scale = 0, dot = false;
+  for (; k < j; k++) {
+    const c = s.charCodeAt(k);
+    if (c >= 48 && c <= 57) { mant = mant * 10 + (c - 48); digits++; if (dot) scale++; }
+    else if (c === 46 && !dot) dot = true;
+    else break;
+  }
+  const next = k < j ? s.charCodeAt(k) : 0;
+  if (digits > 15 || scale > 22 || next === 101 || next === 69 || (!digits && (next === 73 || next === 105))) return parseFloat(s.slice(i, j)) || 0;   // alloc-rare: an exponent, a very long number or "Infinity": the browser writes none of them into a translate
+  if (!digits) return 0;
+  const r = scale ? mant / POW10[scale] : mant;
+  return (neg ? -r : r) || 0;
 }
+/** A CSS `translate` value as [x, y] px ('' is none), written into out. */
+export function translateInto(out, v) {
+  out[0] = 0; out[1] = 0;
+  if (!v) return out;
+  if (typeof v !== 'string') v = String(v);   // alloc-rare: a translate is always a string; anything else is not a style read
+  const n = v.length;
+  for (let i = 0; i < n; i++) if (v.charCodeAt(i) > 127) return translateSlow(out, v);
+  let i = 0, w = 0;
+  while (w < 2) {
+    while (i < n && isSpace(v.charCodeAt(i))) i++;
+    if (i >= n) break;
+    let j = i;
+    while (j < n && !isSpace(v.charCodeAt(j))) j++;
+    out[w++] = wordNumber(v, i, j);
+    i = j;
+  }
+  return out;
+}
+function translateSlow(out, v) {
+  const [x = 0, y = 0] = v.trim().split(/\s+/).filter(Boolean).map((t) => parseFloat(t) || 0);   // alloc-rare: only text that is not plain ASCII, which the browser never writes into a translate
+  out[0] = x; out[1] = y;
+  return out;
+}
+/** A CSS `translate` value as [x, y] px ('' is none). */
+export const translateOf = (v) => translateInto([0, 0], v);   // alloc-rare: for a caller that keeps the pair (the fade's start); a frame uses translateInto
+/** Where the old picture is drawn in the mix, into out: it showed at p + at on screen, follow (m, CSS px) carries that to where it is now,
+ *  and the mix itself shows moved by now: so q = m(p + at) − now. */
+export function oldPlaceInto(out, m, at, now) {
+  const a = m ? m[0] : 1, b = m ? m[1] : 0, c = m ? m[2] : 0, d = m ? m[3] : 1, e = m ? m[4] : 0, f = m ? m[5] : 0;
+  out[0] = a; out[1] = b; out[2] = c; out[3] = d;
+  out[4] = a * at[0] + c * at[1] + e - now[0]; out[5] = b * at[0] + d * at[1] + f - now[1];
+  return out;
+}
+export const oldPlace = (m, at, now) => oldPlaceInto([0, 0, 0, 0, 0, 0], m, at, now);   // alloc-rare: for a caller that keeps the place (the seed after a resize); a frame uses oldPlaceInto
 let asked = false;
 
 function endGpu(canvas, f) {
@@ -41,7 +89,7 @@ function step() {
   for (const [canvas, f] of fades) {
     const u = (now - f.t0) / FADE_MS;
     if (u >= 1 || !canvas.isConnected) { endGpu(canvas, f); continue; }
-    f.gpu.set(fadeAlpha(u), oldPlace(f.follow?.(), f.at, translateOf(canvas.style.translate)), f.w, f.h);
+    f.gpu.set(fadeAlpha(u), oldPlaceInto(f.q, f.follow?.(), f.at, translateInto(f.now, canvas.style.translate)), f.w, f.h);
     try { f.capture?.(); } catch { endGpu(canvas, f); continue; }
     noteDraw('res-fade');
   }
@@ -63,11 +111,11 @@ export function fadeOver(canvas, follow = null, capture = null, host = null, box
   // (Its program still compiling (res-fade-gl warmFade), or a context that cannot: the new picture comes in as it is, no frame waits.)
   if (!keep) return;
   if (was) was.gpu.release();
-  const f = { gpu: keep, t0: performance.now(), follow, at: translateOf(canvas.style.translate), capture, w, h };
+  const f = { gpu: keep, t0: performance.now(), follow, at: translateOf(canvas.style.translate), capture, w, h, q: [1, 0, 0, 1, 0, 0], now: [0, 0] };   // alloc-rare: once per resolution fade (a resize), with the two pairs its frames write into
   keep.set(1, null, w, h);
   fades.set(canvas, f);
   // (The caller resizes the canvas next, which clears it: the picture before is laid on it at once, before the page shows it blank.)
-  queueMicrotask(() => {
+  queueMicrotask(() => {   // alloc-rare: once per resolution fade, right after the canvas is resized
     if (fades.get(canvas) !== f || (canvas.width === keep.w && canvas.height === keep.h)) return;
     try { keep.draw(1, oldPlace(null, f.at, translateOf(canvas.style.translate)), w, h, true); } catch (e) { caught('res-fade:71', e); /* (a lost context) */ }
   });
