@@ -52,7 +52,7 @@ import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindSh
 import { setLive, getLive, dropLive } from './live-style.js?v=1a585312ec';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=92f2104661';
 import { pathCmds, flattenCmds, polyBoxInto, measurePath, elBoxInto, chainMat } from './shape-gl.js?v=2d7c7316ba';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=bbe541f4b6';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=ef69d319d3';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=877cff4117';
 import { createLabelGL } from './label-gl.js?v=9c9ec45802';
 import { createGlassGL } from './glass-gl.js?v=91a09245cd';
@@ -2637,7 +2637,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=33a3dc0e31').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=70e25cc7fc').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, binAway: (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins }) });

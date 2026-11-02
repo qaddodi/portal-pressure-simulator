@@ -4,25 +4,25 @@
 import { motionBudget } from './motion-budget.js?v=89246e0c5f';   // (first: counts from the start when ?perf or ?budget=1 asks)
 import { budget as gpuBudget } from './gpu-budget.js?v=f25a08a637';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js?v=f33764e84c';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
-import { startHost, host, hostFailed, restartHost } from './host.js?v=654877cff9';
+import { startHost, host, hostFailed, restartHost } from './host.js?v=a9f7451db6';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=160363b508';
-import { createStage } from './stage.js?v=707743bdb0';
+import { createStage } from './stage.js?v=09d2189f3b';
 import { createCreditPlacer } from './credit.js?v=7eb9507e15';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=856a3cdf1e';
 import { sinusoidSupported } from './gl-support.js?v=12efdaee3a';
 import { createInspector } from './inspector.js?v=65e19846c1';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=073c50b350';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=fb44ffb2bd';
 import { setHvpgStage } from './hvpg-proc.js?v=3366c3f64c';
-import { createWhy } from './why.js?v=1a4d32aa7a';
-import { createTimeline, LAPSES } from './timeline.js?v=45d06b9ac6';
+import { createWhy } from './why.js?v=e3aed3111f';
+import { createTimeline, LAPSES } from './timeline.js?v=69e689e956';
 import { createCompare } from './compare.js?v=77fca67dbe';
-import { createCard } from './card.js?v=c0d7046c3b';
-import { createChart } from './chart.js?v=bdfcc67982';
+import { createCard } from './card.js?v=bba65deefd';
+import { createChart } from './chart.js?v=43f8f0f856';
 import { createMenu } from './menu.js?v=076ee6b6c6';
 import { caption } from './a11y.js?v=491ba3ab24';
 import { startLMS } from './lms.js?v=4506ad4622';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=5cb6d70321';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=26f2720f46';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=aa4a486fd3';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=512e725aea';
 import { dopplerVel } from './velNormal.js?v=ad0e95380d';
@@ -247,7 +247,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=aedd0ced0b'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=9ac178d39b'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
