@@ -36,9 +36,9 @@ for (const size of [[1280, 800], [1440, 900], [1180, 820]]) {
   await page.click('#tabInstruments');
   // (the camera has settled: the map's box holds still for a second)
   let last = '', same = 0;
-  for (let i = 0; i < 60 && same < 3; i++) { await sleep(400); const b = await page.evaluate(() => JSON.stringify(document.querySelector('#net').getBoundingClientRect())); same = b === last ? same + 1 : 0; last = b; }
+  for (let i = 0; i < 60 && same < 3; i++) { await sleep(400); const b = await page.evaluate(() => JSON.stringify(window.pps.stage.netRect())); same = b === last ? same + 1 : 0; last = b; }
   const r = await page.evaluate(() => {
-    const a = document.querySelector('#net').getBoundingClientRect(), p = document.querySelector('#zoomPill').getBoundingClientRect();
+    const a = window.pps.stage.netRect(), p = document.querySelector('#zoomPill').getBoundingClientRect();
     return { hit: a.right > p.left - 7.5 && a.bottom > p.top - 7.5 && p.width > 0, a: [a.right, a.bottom].map(Math.round), p: [p.left, p.top].map(Math.round) };
   });
   if (r.hit) fail(`${size}: the circuit runs under the zoom pill (map right/bottom ${r.a}, pill left/top ${r.p})`);
