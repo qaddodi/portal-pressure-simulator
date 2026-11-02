@@ -5,11 +5,11 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=a21c31dcb5';
-import { createTraceGL, fitPen } from './trace-gl.js?v=2d7b4b37ee';
-import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=c328c93806';
+import { createTraceGL, fitPen } from './trace-gl.js?v=cc06432bb2';
+import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=c25b62dc80';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=026724823d';
+import { pressureColor } from './colormap.js?v=8d1aaf123c';
 import { ownsSideways, pageGo } from './swipe.js?v=a61b093400';
 import { frameFor } from './frame.js?v=1d147c7c9a';
 import { restPass } from './rest-pass.js?v=bb619a1659';

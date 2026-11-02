@@ -23,13 +23,13 @@ let GLYPHS = null, UPM = 2048, WEIGHTS = [], loading = null;
 /** Fetches the outlines once; resolves when text can be drawn. */
 export function loadGlyphs() {
   // alloc-rare: the outlines are fetched once, the first time text is wanted
-  return (loading ||= import('./glyph-data.js?v=10f8176c7c').then((m) => { GLYPHS = m.GLYPHS; UPM = m.UPM; WEIGHTS = Object.keys(GLYPHS).map(Number); }));
+  return (loading ||= import('./glyph-data.js?v=df9fda5ad6').then((m) => { GLYPHS = m.GLYPHS; UPM = m.UPM; WEIGHTS = Object.keys(GLYPHS).map(Number); }));
 }
 // (The metrics at each optical size, glyph-metrics.js, 140 kB: fetched only where a paragraph is laid out, never with the outlines.)
 let MET = null, STOPS = [14, 32], metLoading = null;
 /** Fetches the paragraph metrics once (and the outlines' weights); resolves when layoutParagraph can run. */
 export function loadMetrics() {
-  return (metLoading ||= Promise.all([loadGlyphs(), import('./glyph-metrics.js?v=10480f66a1')]).then(([, k]) => { MET = k.METRICS; STOPS = k.STOPS; }));
+  return (metLoading ||= Promise.all([loadGlyphs(), import('./glyph-metrics.js?v=99846c0425')]).then(([, k]) => { MET = k.METRICS; STOPS = k.STOPS; }));
 }
 /** Whether the outlines are here (text can be drawn now). */
 export const glyphsReady = () => !!GLYPHS;

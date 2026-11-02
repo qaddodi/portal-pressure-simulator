@@ -6,8 +6,8 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js?v=a21c31dcb5';
-import { h, fmt, cssVar, cssAlpha, clamp } from './util.js?v=c328c93806';
-import { FONT as FONT0, FONT } from './charts.js?v=e3e7a85d7a';
+import { h, fmt, cssVar, cssAlpha, clamp } from './util.js?v=c25b62dc80';
+import { FONT as FONT0, FONT } from './charts.js?v=eb963abc1a';
 import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=1d147c7c9a';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
@@ -18,7 +18,7 @@ import { createBeatClock, ekgSeries, leadIISeries } from './ekg.js?v=ee939fbe92'
 import { laneRoom } from './trace-lanes.js?v=02d17cf83f';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
 import { plotFill } from './plot-look.js?v=5037697da7';
-import { createTraceGL, fitPen } from './trace-gl.js?v=2d7b4b37ee';
+import { createTraceGL, fitPen } from './trace-gl.js?v=cc06432bb2';
 import { createStill } from './still-layer.js?v=d5a9373a74';
 import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from './beat-card.js?v=89d9fda241';
 import { VITALS } from './vital-read.js?v=eb683dfbdd';
