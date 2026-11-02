@@ -93,9 +93,10 @@ function measure(S) {
     S.gl.cv.classList.add('glw-cv');
     host.classList.add('glw');
   }
-  const cv = S.gl.cv;
-  cv.style.inset = `${-pad.t}px ${-pad.r}px ${-pad.b}px ${-pad.l}px`;
-  cv.style.width = cv.style.height = 'auto';
+  // (The picture's place and size, for its canvas and the GPU drawer's canvas beside it (trace-gl.js): set outright, as a canvas is a
+  // replaced element that insets alone do not stretch. app.css .glw.)
+  host.style.setProperty('--glw-l', `${-pad.l}px`); host.style.setProperty('--glw-t', `${-pad.t}px`);
+  host.style.setProperty('--glw-w', `${pad.l + pad.r}px`); host.style.setProperty('--glw-h', `${pad.t + pad.b}px`);
   S.vPath = svgModel('path', { fill: L.fill, d: '' });
   S.uPath = svgModel('path', { fill: U.fill, d: '' });
   S.gl.show(svgModel('svg', { viewBox: `${-pad.l} ${-pad.t} ${at.w + pad.l + pad.r} ${at.h + pad.t + pad.b}`, preserveAspectRatio: 'none' }, S.vPath, S.uPath), false);

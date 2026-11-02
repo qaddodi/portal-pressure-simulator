@@ -7663,4 +7663,5 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    picture shows the new ones, and take them back once they hold still. The picture reaches a little past the box (never past a clipping
    ancestor), set inline as it is measured. */
 .glw-on, .glw-on * { color: transparent !important; -webkit-text-fill-color: transparent !important; fill: transparent !important; text-shadow: none !important; }
-.glw > .glw-cv { z-index: 1; }
+.glw > .glw-cv, .glw > .glw-cv + .trace-gl { z-index: 1; inset: auto; left: var(--glw-l, 0px); top: var(--glw-t, 0px);
+  width: calc(100% + var(--glw-w, 0px)); height: calc(100% + var(--glw-h, 0px)); }
