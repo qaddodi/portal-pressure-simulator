@@ -21,13 +21,9 @@ function crashed(message) {
 
 export const WORKER_WAIT = 15000;
 
-// ?boot=quick: the engine's worker is started as soon as this module runs, so it loads and answers its first questions while the
-// rest of the app's code is still being read, instead of after it (main() asks for it once every module is in). Off, it starts
-// in main() as before. Either way it starts once.
-const BOOT_QUICK = typeof location !== 'undefined' && /[?&]boot=quick\b/.test(location.search);
+// The engine's worker starts in main(), once every module is in. It starts once.
 let hostStart = null;
 export function startHost() { return (hostStart ??= startHostNow()); }
-if (BOOT_QUICK && typeof Worker === 'function') startHost().catch(() => {});
 
 async function startHostNow() {
   let w;
@@ -40,7 +36,7 @@ async function startHostNow() {
       const t = setTimeout(() => reject(new Error('worker timeout')), WORKER_WAIT);
       w.onmessage = (e) => { clearTimeout(t); w.onmessage = (ev) => dispatch(ev.data); dispatch(e.data); resolve(); };
       w.onerror = (e) => { clearTimeout(t); reject(e); };
-      w.postMessage({ type: 'init', delta: !(typeof location !== 'undefined' && /[?&]workerdelta=0\b/.test(location.search)) });
+      w.postMessage({ type: 'init', delta: true });
     });
     // After start-up an uncaught error inside the worker is a crash: say so (main.js offers Reload or Restart),
     // and settle every request still waiting, so nothing hangs on an engine that will not answer.
@@ -54,7 +50,7 @@ async function startHostNow() {
     const { createCore } = await import('../worker-core.js?v=6708da877c');
     const core = createCore((m) => setTimeout(() => dispatch(m), 0));
     impl = { post: (m) => core.handle(structuredClone(m)), kind: 'main' };
-    impl.post({ type: 'init', delta: !(typeof location !== 'undefined' && /[?&]workerdelta=0\b/.test(location.search)) });
+    impl.post({ type: 'init', delta: true });
   }
   return impl.kind;
 }

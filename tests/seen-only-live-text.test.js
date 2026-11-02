@@ -9,9 +9,9 @@ const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8')
 const fnOf = (src, a) => { const i = src.indexOf(a); return src.slice(i, src.indexOf('\n}\n', i) + 2); };
 
 test('a shut panel formats no Compare rows; the newest frame paints as it opens', () => {
-  // (Plan "Holding 120 Hz" §3.2: the panel's paint is a may task of the model frame (PAINT_PARTS), and paintRest with ?modelslice=0.)
+  // (Plan "Holding 120 Hz" §3.2: the panel's paint is a may task of the model frame (PAINT_PARTS).)
   const paint = main.slice(main.indexOf('const PAINT_PARTS = ['), main.indexOf('function paintChrome('));
-  assert.match(paint, /if \(!SEEN_ONLY \|\| panelShown\(\)\) \{ cmpStale = null; compare\.update\(f\); \}\n\s+else if \(store\.get\(\)\.compareSnap\) cmpStale = f;/);
+  assert.match(paint, /if \(panelShown\(\)\) \{ cmpStale = null; compare\.update\(f\); \}\n\s+else if \(store\.get\(\)\.compareSnap\) cmpStale = f;/);
   // The gate's behaviour, run with stand-ins: frames while shut are kept (the newest only), one paint when it shows.
   const seen = fnOf(main, 'function inspectorSeen() {');
   let shown = false, painted = [];
@@ -25,5 +25,5 @@ test('a shut panel formats no Compare rows; the newest frame paints as it opens'
 });
 
 test('the figure\'s screen-reader description waits for a still frame', () => {
-  assert.match(main, /if \(now - lastDesc > 3000 && !\(SEEN_ONLY && inMotion\(\)\)\) \{ lastDesc = now; \$\('#stage'\)\.setAttribute\('aria-description', caption\(f\)\); \}/);
+  assert.match(main, /if \(now - lastDesc > 3000 && !inMotion\(\)\) \{ lastDesc = now; \$\('#stage'\)\.setAttribute\('aria-description', caption\(f\)\); \}/);
 });

@@ -12,7 +12,7 @@
 //
 // ?restpass=0 runs each on a plain zero timer of its own instead (no shared message port), still never inside a frame.
 
-import { PREP_BUDGET, prepLeft, prepSpend, prepWindowLeft, STARVE_MS, frameMs } from './prep-budget.js?v=fcb1f6e030';
+import { PREP_BUDGET, prepLeft, prepSpend, prepWindowLeft, STARVE_MS, frameMs } from './prep-budget.js?v=5cd063266b';
 
 export const REST_PASS = !(typeof location !== 'undefined' && /[?&]restpass=0\b/.test(location.search || ''));
 

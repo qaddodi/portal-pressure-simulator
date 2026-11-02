@@ -1,7 +1,7 @@
 // DOM & formatting helpers.
-import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=897b4f8e7e';
-import { restPass } from './rest-pass.js?v=442dee98c9';
-import { glWords, GL_WORDS } from './gl-words.js?v=d8990c50bd';
+import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=8c8f2f530e';
+import { restPass } from './rest-pass.js?v=ba7df6a6f6';
+import { glWords, GL_WORDS } from './gl-words.js?v=516a1587b2';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7513a88c68';
 import { leaveFromHere } from './menu-leave.js?v=e885166f40';
@@ -652,9 +652,7 @@ const fadeNum = fadeIn;
 // frame, which laid its tile out again each frame of a slide change. Each digit that changes rolls in its own column, a strip of the
 // digits between the old one and the new one moved by a transform the compositor eases on the GPU (app.css .odo), and the text is
 // written twice: once as the roll starts (the element's text already reads the new number throughout: the strips are CSS content)
-// and once as it ends (the plain number again). A number whose shape changes (9.9 to 10.1, a sign) lands at once and fades in.
-// ?odo=0: counted frame by frame, as before.)
-const ODO = !(typeof location !== 'undefined' && /[?&]odo=0\b/.test(location.search || ''));
+// and once as it ends (the plain number again). A number whose shape changes (9.9 to 10.1, a sign) lands at once and fades in.)
 const odos = new WeakMap();   // el → { txt, timer } while its digits roll
 /** Ends a roll on el at once: its plain final text (unless something else has written over it meanwhile). */
 export function odoEnd(el) {
@@ -705,7 +703,7 @@ function odoBuildRest(el, o, a, b, up, ms, easing) {
   o.built = true;
   o.timer = setTimeout(() => { if (odos.get(el) === o) odoEnd(el); }, ms + 40);
 }
-export const odoOn = () => ODO;
+export const odoOn = () => true;   // (switch deleted; kept for presenter.js until its own pass)
 function odoRoll(el, c, from, to) {
   c.shown = to;
   if (!odoSwap(el, fmt(from, c.d), fmt(to, c.d), to > from)) { putNum(el, fmt(to, c.d)); fadeNum(el); }
@@ -716,7 +714,7 @@ export function countTo(el, v, d = 1, { eased = false } = {}) {
   c.d = d;
   const odo = odos.has(el);
   if (odo && (eased || v == null || !Number.isFinite(v) || reduceMotionMQ.matches)) odoEnd(el);
-  if (ODO && !eased && v != null && Number.isFinite(v) && c.t0 == null) {
+  if (!eased && v != null && Number.isFinite(v) && c.t0 == null) {
     // (A roll under way that is asked for the value it rolls to keeps going; any other value rolls on from the one it lands on.)
     if (odo) { if (Math.abs(v - c.shown) < Math.pow(10, -d) * 0.5) return; odoEnd(el); }
     const same = c.shown != null && fmt(c.shown, d) === fmt(v, d);
@@ -1130,8 +1128,6 @@ export function fitBox(canvas) {
   return { w, h, dpr };
 }
 
-/** ?sliderglide=0 in a page's search string: a slider's dot and fill always jump to a new value, as before. */
-export const sliderGlideOff = (search) => /[?&]sliderglide=0\b/.test(String(search ?? ''));
 /** The least a slider's value must jump, as a share of its range, before the dot travels there instead of taking it in one frame. */
 export const GLIDE_MIN = 0.04;
 const glides = new WeakMap();
@@ -1139,7 +1135,7 @@ const glides = new WeakMap();
  *  the new place in one frame. They now travel there over --d-surface on the quintic ease, the dot (the input's own value) and the
  *  fill (--p) together, so they never part. Only a jump of GLIDE_MIN of the range or more travels: a drag, a key step, the model
  *  following a time-lapse each frame, all smaller, are taken at once as before, and so is anything under a finger or a mouse button
- *  (the dot stays under the pointer). Reduce Motion, a hidden slider and ?sliderglide=0 take it at once too. */
+ *  (the dot stays under the pointer). Reduce Motion and a hidden slider take it at once too. */
 function glideFill(input, wrap, f, prev) {
   const min = +input.min || 0, max = +(input.max || 100), step = input.step === 'any' ? 0 : +input.step || 1, to = +input.value;
   const from = min + prev * (max - min);
@@ -1149,7 +1145,7 @@ function glideFill(input, wrap, f, prev) {
   if (g && Math.abs(g.f - f) < 1e-9) { input.value = g.cur; return; }
   if (g) { cancelFrame(g.raf); glides.delete(input); }
   const far = Math.abs(f - prev) >= GLIDE_MIN;
-  if (!far || held || reduceMotionMQ.matches || sliderGlideOff(typeof location !== 'undefined' ? location.search : '') || !input.isConnected || !hasBox(input)) { wrap.style.setProperty('--p', String(f)); return; }
+  if (!far || held || reduceMotionMQ.matches || !input.isConnected || !hasBox(input)) { wrap.style.setProperty('--p', String(f)); return; }
   const t0 = easeNow(), run = { raf: 0, f, cur: String(+(+input.value).toFixed(6)) };
   glides.set(input, run);
   const at = (k) => {

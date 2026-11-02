@@ -88,8 +88,8 @@ test('Motion at 60 in the figure loop: off, the interval and the gate are as bef
 
 test('Credit check in talks: off, Present looks every second as before; on, only on the same signs as outside a talk', () => {
   const credit = src('credit.js');
-  // (The lobule and the sinusoid no longer look every second since 1 Nov 2026 (?creditpoll=1 as before): their view and gliding names are in the key.)
-  assert.match(credit, /if \(watch\.due\(\) \|\| k !== polled \|\| \(CREDIT_POLL && \(st\?\.lobule \|\| st\?\.sinusoid\)\) \|\| \(app\?\.classList\.contains\('presenting'\) && !figLab\('creditLean'\)\)\) soon\(\);/);
+  // (The lobule and the sinusoid no longer look every second since 1 Nov 2026: their view and gliding names are in the key.)
+  assert.match(credit, /if \(watch\.due\(\) \|\| k !== polled \|\| \(app\?\.classList\.contains\('presenting'\) && !figLab\('creditLean'\)\)\) soon\(\);/);
   assert.match(src('stage.js'), /labelStamp: \(\) => `\$\{stats\.layouts\}\|\$\{vt\.k\},\$\{vt\.x\},\$\{vt\.y\}\|\$\{morph\}\|\$\{rotU\}\|\$\{lz\?\.isOpen\?\.\(\) \? lz\.viewKey\(\) : ''\}\|\$\{lz\?\.sinusoidMoving\?\.\(\) \? performance\.now\(\) : ''\}`,/);
 });
 

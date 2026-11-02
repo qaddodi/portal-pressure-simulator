@@ -1,28 +1,23 @@
 // The corner credit finds a free spot on the figure: never on or touching a card, a sheet, a bar or a menu.
 // It keeps its corner while that corner stays free and is never animated (no glide, no fade): any move hides it at once,
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
-import { readFrameFor, figLab, mayTask } from './frame.js?v=897b4f8e7e';
+import { readFrameFor, figLab, mayTask } from './frame.js?v=8c8f2f530e';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { restPass } from './rest-pass.js?v=442dee98c9';
+import { restPass } from './rest-pass.js?v=ba7df6a6f6';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
 import { CellGrid, geomOf } from './cell-grid.js?v=fb0e451b4d';
 import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
-import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js?v=49b358c305';
+import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js?v=837f2b793c';
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the
 // browser last drew, never after the frame's writes.)
 const nextFrame = readFrameFor('credit');
-// (?creditstep=0: the art job reads the page's shapes the moment it starts, as before, even while the art is still being written.)
-const CREDIT_STEP = !(typeof location !== 'undefined' && /[?&]creditstep=0\b/.test(location.search || ''));
-// (?creditcache=0: every shape and label is measured again on every look, as before. Otherwise a shape's facts and the labels' boxes are kept
-// until what they were read from changes, so a view switch re-reads only what moved, between two frames (rest-pass.js).)
-const CREDIT_CACHE = !(typeof location !== 'undefined' && /[?&]creditcache=0\b/.test(location.search || ''));
+// (A shape's facts and the labels' boxes are kept until what they were read from changes, so a view switch re-reads only what moved,
+// between two frames (rest-pass.js).)
 // The figure's shapes are never read while the figure is being moved by hand or by a glide (a pan, a pinch, a camera move: the app's
 // stage-busy, the stage's gesture classes): a pinch on the iPhone read every organ and vessel's box and style again some four times in
 // 8 s, as the zoom's own redraws of the art kept marking the facts stale (2 Nov 2026, "zoom is miserable"). The look waits and lands as
-// the figure stops. ?creditstill=0 reads them in a gesture, as before.
-const CREDIT_STILL = !(typeof location !== 'undefined' && /[?&]creditstill=0\b/.test(location.search || ''));
+// the figure stops.
 const figureMoving = (world) => {
-  if (!CREDIT_STILL) return false;
   if (document.getElementById('app')?.classList.contains('stage-busy')) return true;
   const sv = world?.closest('.stage-view');
   if (sv) for (const c of GESTURE_LOOK) if (sv.classList.contains(c)) return true;
@@ -36,7 +31,6 @@ function whenStill(world, done) {
   const go = () => { if (figureMoving(world)) { setTimeout(go, 120); return; } const w = stillWait; stillWait = null; w.done?.(); };
   setTimeout(go, 120);
 }
-const CREDIT_POLL = typeof location !== 'undefined' && /[?&]creditpoll=1\b/.test(location.search || '');
 
 // Corners in order of preference. A bottom corner rises above whatever covers it (up to the middle of the figure);
 // a top corner drops below whatever covers it.
@@ -170,7 +164,7 @@ function labelSig(wr, wrap, world) {
   return parts.join('|');
 }
 export function labelRects(wr, wrap, kept = null) {
-  if (!CREDIT_CACHE || typeof document === 'undefined') return labelRectsRead(wr, wrap, kept);
+  if (typeof document === 'undefined') return labelRectsRead(wr, wrap, kept);
   const sig = labelSig(wr, wrap, readCTM(document.getElementById('world')));
   // (A box is trusted once two reads of the same sig agreed, so a label mid-transition, whose attributes are already final, is read again.)
   if (labelMemo.sig === sig && labelMemo.confirmed) return labelMemo.out.map((o) => ({ ...o }));
@@ -356,7 +350,7 @@ function newEpoch() {
   shapeEpoch = [de.className, de.dataset?.theme, sv?.className, readMetric(globalThis, 'innerWidth'), readMetric(globalThis, 'innerHeight'), globalThis.devicePixelRatio, staleSalt].join('~');
 }
 function readShape(el, kind, inv) {
-  if (!CREDIT_CACHE || Math.abs(inv.b) > 1e-9 || Math.abs(inv.c) > 1e-9) return readShapeNow(el, kind, inv);
+  if (Math.abs(inv.b) > 1e-9 || Math.abs(inv.c) > 1e-9) return readShapeNow(el, kind, inv);
   const sig = shapeSig(el), m = shapeMemo.get(el);
   if (m && m.sig === sig && m.kind === kind) return m.fact;
   const fact = readShapeNow(el, kind, inv);
@@ -509,7 +503,7 @@ function spreadTest(world, wm, wr, sc, glows, gk, view, pad, done) {
 // figure that never stops moving still lands its look.
 const HOLD_STILL = 100, HOLD_MAX = 600;
 function artHold(j, world) {
-  if (!CREDIT_STEP || j.quiet || j.stage !== 0 || j.list || j.ri) return false;
+  if (j.quiet || j.stage !== 0 || j.list || j.ri) return false;
   const now = performance.now();
   if (figureMoving(world)) { j.at = j.armed = now; return true; }   // (a gesture is waited out whole: it ends, unlike a breath)
   if (now - j.at >= HOLD_MAX) { j.quiet = true; return false; }
@@ -523,7 +517,7 @@ function artStep() {
   if (!j) return;
   // (A job's reads stop while the figure is moved, part-way too, and go on where they were once it stops: its facts are in world units.)
   if (j.stage === 0 && figureMoving(j.world)) { j.quiet = false; setTimeout(() => { if (artJob === j) nextFrame(artStep); }, HOLD_STILL); return; }
-  if (j.stage === 0 && !j.quiet && CREDIT_STEP) {
+  if (j.stage === 0 && !j.quiet) {
     const w = document.getElementById('world');
     if (w && w === j.world && artHold(j, w)) { setTimeout(() => { if (artJob === j) nextFrame(artStep); }, HOLD_STILL / 2); return; }
   }
@@ -540,7 +534,7 @@ function artStep() {
   // the reads find it ready. The same reads of the same page, a slice a frame as before.)
   // (The grid's slices too run in that task straight after the frame, never inside it: a slice reads a lit vessel's stroke the first
   // time its glow asks for it.)
-  if (still) { if (CREDIT_CACHE) restPass(artReadJob); else setTimeout(artReadJob, 0); return; }
+  if (still) { restPass(artReadJob); return; }
   artNext(j);
 }
 const artReadJob = () => artRead(artJob);
@@ -843,11 +837,11 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   const poll = () => {
     mayTask('credit-poll', poll, { notBefore: performance.now() + POLL_MS });
     if (document.hidden) return;
-    const st = window.pps?.store?.get(), k = pollKey();
+    const k = pollKey();
     // (Settings › Figure performance › Credit check in talks (frame.js): in Present too, only when one of those may have changed.)
     // (Since 1 Nov 2026 not every second in the lobule and the sinusoid either: their views and gliding names are in the key (stage.js
-    // labelStamp), so a still lobule or sinusoid measures nothing. ?creditpoll=1 looks every second there again, as before.)
-    if (watch.due() || k !== polled || (CREDIT_POLL && (st?.lobule || st?.sinusoid)) || (app?.classList.contains('presenting') && !figLab('creditLean'))) soon();
+    // labelStamp), so a still lobule or sinusoid measures nothing.)
+    if (watch.due() || k !== polled || (app?.classList.contains('presenting') && !figLab('creditLean'))) soon();
     polled = k;
   };
   mayTask('credit-poll', poll, { notBefore: performance.now() + POLL_MS });

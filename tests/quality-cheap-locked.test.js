@@ -36,7 +36,7 @@ test('Locked never sheds an animating surface, and counts what it sheds', async 
   assert.deepEqual(fr.shedStats().animating, []);
   assert.equal(typeof fr.shedStats().byTag, 'object');
   const frame = readFileSync(new URL('../src/ui/frame.js', import.meta.url), 'utf8');
-  assert.match(frame, /!frameT0 \|\| \(!SHED_ANIM && animatingTags\.has\(tag\)\)\) \{/);   // (before the governor's and the watchdog's rules alike)
+  assert.match(frame, /!frameT0 \|\| animatingTags\.has\(tag\)\) \{/);   // (before the governor's and the watchdog's rules alike)
   assert.match(frame, /shedBy\.set\(tag, \(shedBy\.get\(tag\) \|\| 0\) \+ 1\);/);
   // The strip marks itself while it scrolls, and lets go when it stops or is disposed.
   assert.match(vitals, /ticking = true; frameAnimating\('vitals-monitor', true\);/);

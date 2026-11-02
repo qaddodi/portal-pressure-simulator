@@ -11,15 +11,15 @@
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
 import { store, replaceParams, onParamChange } from './store.js?v=afc4d7c743';
-import { host } from './host.js?v=b2e74450ff';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=494d080ac6';
-import { activeInterventions } from './inspector.js?v=313a7291a6';
+import { host } from './host.js?v=be1d3992ea';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=e76c41f09a';
+import { activeInterventions } from './inspector.js?v=26639c6a81';
 import { removedLabel } from './removed-label.js?v=ea3de67900';
-import { frameFor } from './frame.js?v=897b4f8e7e';
+import { frameFor } from './frame.js?v=8c8f2f530e';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
-import { createSvgGL, svgModel } from './svg-gl.js?v=68051dbe93';
+import { createSvgGL, svgModel } from './svg-gl.js?v=4ce4fb6533';
 import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js?v=d5f609cd4f';
-import { restPass } from './rest-pass.js?v=442dee98c9';
+import { restPass } from './rest-pass.js?v=ba7df6a6f6';
 const nextFrame = frameFor('timeline');
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };

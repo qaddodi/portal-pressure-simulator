@@ -207,14 +207,9 @@ export const refreshMaxHz = () => Math.max(hzMax, +globalThis.screen?.refreshRat
 export const recentGaps = () => { const a = Array.from(gapRing.subarray(0, gapN)); return gapN < gapRing.length ? a : [...a.slice(gapAt), ...a.slice(0, gapAt)]; };
 // The target (recs-production-120hz §1, §5; 2 Nov 2026): one fixed rate the engine holds itself to, never the rate it happens to get.
 // A slow stretch of frames is a miss against 120 Hz, not a reason to allow 33 ms a frame: the watchdog, the governor, the tiers and the
-// prep ledger all judge against this interval. refreshHz() stays an observation for the ?perf panel only. ?targethz=144|165|240 for a
-// faster panel (kept for the page's life; any other value is ignored).
-export const TARGET_RATES = [120, 144, 165, 240];
-const TARGET_HZ = (() => {
-  const q = typeof location !== 'undefined' ? +(/[?&]targethz=(\d+)\b/.exec(location.search || '')?.[1] || 0) : 0;
-  return TARGET_RATES.includes(q) ? q : 120;
-})();
-/** The rate the engine targets (Hz): 120 unless ?targethz= names a faster one. Fixed for the page's life. */
+// prep ledger all judge against this interval. refreshHz() stays an observation for the ?perf panel only.
+const TARGET_HZ = 120;
+/** The rate the engine targets (Hz): 120. Fixed for the page's life. */
 export const targetHz = () => TARGET_HZ;
 /** One frame's time at the target (ms): 8.333 at 120 Hz, whatever cadence the page observes. */
 export const frameBudget = () => 1000 / TARGET_HZ;
@@ -224,9 +219,8 @@ export const frameBudget = () => 1000 / TARGET_HZ;
 // picture (the credit's art, the timeline, the dock's strip, edges, the inspector and the like: DEFERRABLE) are carried to the next
 // frame instead of run in this one, up to SHED_MAX frames in a row each, so none starves. surfaces that can drop detail ask
 // overBudget(): true when the last frame went over the share. Balanced: shed only past the whole budget. Quality: never (full detail
-// whatever the frame time). ?perfmode=locked|balanced|quality chooses (and is kept); ?watchdog=0 never sheds.
+// whatever the frame time). setPerfMode chooses (and is kept).
 export const PERF_MODES = ['locked', 'balanced', 'quality'];
-const WATCHDOG = !(typeof location !== 'undefined' && /[?&]watchdog=0\b/.test(location.search || ''));
 export const WATCH_SHARE = 0.7;
 const SHED_MAX = 3;
 export const DEFERRABLE = new Set(['credit', 'timeline', 'scroll-edges', 'inspector', 'dock', 'figkey', 'scale select', 'menu-profile', 'menu', 'vitals-monitor', 'main', 'debug', 'perf readout']);
@@ -235,15 +229,13 @@ export const DEFERRABLE = new Set(['credit', 'timeline', 'scroll-edges', 'inspec
 // SECONDARY, priority 2) yield next, after the DEFERRABLE ones (priority 3): when the frame's script has passed 85 % of the budget, or
 // half of it while the last two frames went over, each is carried to the next frame, at most twice in a row (it still draws at least
 // every third frame; its motion is timed by the clock, so it keeps its pace). Glass is not among them: it rides with the card it lies
-// under and would part from it a frame late. ?governor=0 leaves priority 2 alone.
-const GOVERNOR = !(typeof location !== 'undefined' && /[?&]governor=0\b/.test(location.search || ''));
+// under and would part from it a frame late.
 export const SECONDARY = new Set(['charts', 'doppler', 'fibroscan', 'plane plot', 'pressure-time', 'flow-time', 'tool-curve', 'tool-causes', 'col-wave', 'scope-tile', 'sinusoid-view', 'lumen']);
 const SEC_SHARE = 0.85, SEC_STREAK_SHARE = 0.5, SEC_MAX = 2;
 let overStreak = 0, govLevel = 0, govFrameLevel = 0, govShed = 0;
 let perfModeNow = 'locked';
 try {
-  const q = typeof location !== 'undefined' ? /[?&]perfmode=(locked|balanced|quality)\b/.exec(location.search || '')?.[1] : null;
-  if (q) { perfModeNow = q; localStorage.setItem('pps.perfMode', q); } else { const v = localStorage.getItem('pps.perfMode'); if (PERF_MODES.includes(v)) perfModeNow = v; }
+  const v = localStorage.getItem('pps.perfMode'); if (PERF_MODES.includes(v)) perfModeNow = v;
 } catch { /* storage unavailable */ }
 /** The performance mode: 'locked' (hold the refresh, shed what can wait), 'balanced' or 'quality'. */
 export const perfMode = () => perfModeNow;
@@ -254,8 +246,7 @@ let shedTotal = 0;
 // (R10, review pass 2: Locked never carries a surface over while it is animating on screen (the vitals strip scrolling, a reading
 // easing): a carried frame of a moving picture is a visible hitch, not detail that can wait. A surface says so with
 // frameAnimating(tag, true) while it animates. Whatever is carried is counted per surface (watchdogStats().byTag), so nothing is shed
-// silently. ?shedanim=1: animating surfaces shed too, as before.)
-const SHED_ANIM = typeof location !== 'undefined' && /[?&]shedanim=1\b/.test(location.search || '');
+// silently.)
 const animatingTags = new Map();   // (tag → how many of its surfaces animate now: each on is paired with one off)
 /** A surface animating on screen (on) or still (off): Locked never carries its frames over while it animates. */
 export function frameAnimating(tag, on) {
@@ -263,16 +254,15 @@ export function frameAnimating(tag, on) {
   if (n > 0) animatingTags.set(tag, n); else animatingTags.delete(tag);
 }
 /** True when the last frame's script went over 70 % of the budget (Locked and Balanced; never in Quality): drop detail that can wait. */
-export const overBudget = () => WATCHDOG && perfModeNow !== 'quality' && overLast;
+export const overBudget = () => perfModeNow !== 'quality' && overLast;
 /** The last frame's main-thread script time (ms), and how many callbacks the watchdog has carried over since the page opened. */
-export const watchdogStats = () => ({ last: lastScript, shed: shedTotal, predicted: shedPredicted, mode: perfModeNow, budget: frameBudget(), task: lastTask, governor: GOVERNOR ? govLevel : -1, streak: overStreak, yielded: govShed });
+export const watchdogStats = () => ({ last: lastScript, shed: shedTotal, predicted: shedPredicted, mode: perfModeNow, budget: frameBudget(), task: lastTask, governor: govLevel, streak: overStreak, yielded: govShed });
 /** R10: what the watchdog and the governor carried over, per surface, and the surfaces animating now (never carried over). */
 export const shedStats = () => ({ byTag: Object.fromEntries(shedBy), animating: [...animatingTags.keys()] });
 // (Review pass 2, priority 1: a watchdog cannot stop a callback once it has started, so it judges each deferrable one before it starts,
 // by what it is predicted to cost (the moving average of its own last runs, costOf) added to the time the frame has used: one that would
 // carry the frame past its share waits, even when the frame has not reached the share yet. Still at most SHED_MAX frames in a row each,
-// so none starves. ?watchpredict=0: judged by the time used only, as before.)
-const PREDICT = !(typeof location !== 'undefined' && /[?&]watchpredict=0\b/.test(location.search || ''));
+// so none starves.)
 const costEma = new Map();
 function learnCost(tag, ms) { if (!DEFERRABLE.has(tag)) return; const c = costEma.get(tag); costEma.set(tag, c == null ? ms : c * 0.7 + ms * 0.3); }
 /** A deferrable surface's predicted cost per callback (ms; 0 until it has run). */
@@ -280,18 +270,18 @@ export const costOf = (tag) => costEma.get(tag) || 0;
 let shedPredicted = 0;
 /** Whether a deferrable callback of `tag` would be carried over with `used` ms of the frame gone (the rule itself, for the tests). */
 export function wouldShed(tag, used, budget = frameBudget(), mode = perfModeNow) {
-  if (!WATCHDOG || mode === 'quality' || !DEFERRABLE.has(tag)) return false;
+  if (mode === 'quality' || !DEFERRABLE.has(tag)) return false;
   const limit = (mode === 'locked' ? WATCH_SHARE : 1) * budget;
-  return used >= limit || (PREDICT && used + costOf(tag) > limit);
+  return used >= limit || used + costOf(tag) > limit;
 }
 /** Whether a priority-2 callback of `tag` (SECONDARY) yields with `used` ms of the frame gone after `streak` frames over budget. */
 export function wouldYield(tag, used, budget = frameBudget(), mode = perfModeNow, streak = overStreak) {
-  if (!WATCHDOG || !GOVERNOR || mode === 'quality' || !SECONDARY.has(tag)) return false;
+  if (mode === 'quality' || !SECONDARY.has(tag)) return false;
   return used >= (mode === 'locked' ? SEC_SHARE : 1) * budget || (streak >= 2 && used >= SEC_STREAK_SHARE * budget);
 }
 function shedding(tag) {
-  if (!WATCHDOG || perfModeNow === 'quality' || !frameT0 || (!SHED_ANIM && animatingTags.has(tag))) { if (shedRun.size) shedRun.delete(tag); return false; }
-  const sec = GOVERNOR && SECONDARY.has(tag);
+  if (perfModeNow === 'quality' || !frameT0 || animatingTags.has(tag)) { if (shedRun.size) shedRun.delete(tag); return false; }
+  const sec = SECONDARY.has(tag);
   if (sec) {
     const n = shedRun.get(tag) || 0;
     if (n >= SEC_MAX || !wouldYield(tag, performance.now() - frameT0)) { if (n) shedRun.delete(tag); return false; }
@@ -314,9 +304,7 @@ function shedding(tag) {
 // its own runs) would take the frame past that; then it waits for the next frame. One that has waited maxWait frames (4) runs anyway,
 // once, so none starves. fn(leftMs) returns true when it has more to do (a sliced task: it goes on next frame) and anything else when
 // done. One task per tag: asking again before it ran replaces its fn (the newest work only, as a model frame's paint). notBefore (a
-// performance.now() time) makes it a timer that runs in a frame, never in a task of its own between frames. ?maytasks=0: each runs in the
-// next frame whatever the budget, as with frameFor.
-export const MAY_ON = !(typeof location !== 'undefined' && /[?&]maytasks=0\b/.test(location.search || ''));
+// performance.now() time) makes it a timer that runs in a frame, never in a task of its own between frames.
 export const MAY_SHARE = 0.42, MAY_WAIT = 4;
 const mays = new Map();   // tag -> { tag, fn, waited, notBefore, maxWait }
 const mayCost = new Map(), mayBatch = [];
@@ -363,7 +351,7 @@ function runMay(now) {
     const t = performance.now();
     if (m.notBefore && m.notBefore > t) continue;
     const used = t - frameT0, aged = m.waited >= m.maxWait;
-    if (MAY_ON && !aged && (used >= limit || used + (mayCost.get(tag) || 0) > limit)) { m.waited++; mayStat.waited++; continue; }
+    if (!aged && (used >= limit || used + (mayCost.get(tag) || 0) > limit)) { m.waited++; mayStat.waited++; continue; }
     if (aged) mayStat.aged++;
     mays.delete(tag); mayStat.ran++;
     counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;
@@ -452,9 +440,9 @@ export function cancelFrame(id) {
 // in one step, and a zoom leaps ahead by the frame's length. easeNow() runs with the wall clock while frames come promptly, and
 // moves on by at most PACE_CAP ms (or twice the usual interval, see paceStep) from one frame to the next, so after a long frame an ease timed by it carries on from where the
 // screen last showed it instead of landing past it. The total time runs a little longer by what the long frames held back. Monotonic,
-// in performance.now()'s timebase while nothing has been held back. ?paced=0: the wall clock itself, as before.
+// in performance.now()'s timebase while nothing has been held back.
 export const PACE_CAP = 50;
-export const PACED = !(typeof location !== 'undefined' && /[?&]paced=0\b/.test(location.search || ''));
+export const PACED = true;   // (switch deleted; kept for stage.js, presenter.js and lobule-zoom.js until their own pass)
 // (Only a frame long against the ones before it is held back: the cap is twice the usual interval of the last frames that ran one
 // after another, PACE_CAP at least and PACE_MAX at most, so a device that draws a slow scene at 10 frames a second keeps its eases at
 // their own speed, and only its sudden long frames are smoothed over.)
@@ -468,21 +456,15 @@ const wall = () => performance.now();
 // says and the deferred work's holds (holdMotion, which run on the wall clock) agree with what is on screen. What a paced clock would
 // have hidden is still counted (clockStats: long frames, ms it would have held back), so a jump is reported, not smoothed over.
 // Transitions own their state (beginMotion → end): deferrable work waits for the real end, not a timer's guess, with a bounded
-// recovery (MOTION_MAX_MS) for a transition that never says it ended. ?honestclock=0: the paced clock, as before.
-export const HONEST = !(typeof location !== 'undefined' && /[?&]honestclock=0\b/.test(location.search || ''));
+// recovery (MOTION_MAX_MS) for a transition that never says it ended.
 export const clockStats = { frames: 0, long: 0, lostMs: 0, worstMs: 0, transitions: 0, overdue: 0, lastMs: 0, lastName: '' };
 function paceStep() {
   const t = wall();
   if (!paceReal) { paceReal = paceBase = t; return; }
   const gap = Math.max(0, t - paceReal);
-  if (HONEST) {
-    clockStats.frames++;
-    if (gap > paceCap) { clockStats.long++; clockStats.lostMs += gap - paceCap; clockStats.worstMs = Math.max(clockStats.worstMs, gap); }
-    paceBase = paceReal = t;
-    if (chained) paceNote(gap);
-    return;
-  }
-  paceBase += Math.min(gap, paceCap); paceReal = t;
+  clockStats.frames++;
+  if (gap > paceCap) { clockStats.long++; clockStats.lostMs += gap - paceCap; clockStats.worstMs = Math.max(clockStats.worstMs, gap); }
+  paceBase = paceReal = t;
   if (chained) paceNote(gap);
 }
 // (The median of the last 9 intervals, kept in a ring and sorted in a scratch array: no array made a frame, rev 2 §2.8.)
@@ -493,23 +475,20 @@ function paceNote(gap) {
 }
 /** The eases' clock (ms): performance.now() while frames come promptly, held to PACE_CAP ms of progress from frame to frame. */
 export function easeNow() {
-  if (!PACED) return wall();
   const t = wall();
   if (!paceReal) { paceReal = paceBase = t; return t; }
   if (current || lateNow || finalNow || readsNow) return paceBase;   // (one time for every surface in a frame, as the frame's timestamp is)
-  if (HONEST) return t;
-  return paceBase + Math.min(Math.max(0, t - paceReal), paceCap);
+  return t;
 }
 // A move on screen that a long frame would spoil (the slide's cards fading in, a dive landing): work that can wait (a sharper
 // picture painted ahead, the anatomy's raster under the lobule, the lobule's preparation pieces) waits until it is over.
 let holdUntil = 0;
 /** Keeps deferrable work out of the next `ms` (the longest of the holds asked for wins). */
-export function holdMotion(ms) { if (PACED) holdUntil = Math.max(holdUntil, wall() + ms); }
+export function holdMotion(ms) { holdUntil = Math.max(holdUntil, wall() + ms); }
 export const MOTION_MAX_MS = 5000;
 const moving = new Map();   // (transition token → { name, t0, until })
 /** A transition begins: deferrable work waits until the returned end() is called (or MOTION_MAX_MS passes, counted as overdue). */
 export function beginMotion(name = 'move', maxMs = MOTION_MAX_MS) {
-  if (!HONEST) return () => {};
   const tok = {}, t0 = wall();
   moving.set(tok, { name, t0, until: t0 + maxMs });
   clockStats.transitions++;
@@ -520,7 +499,7 @@ function anyMoving(t) {
   return moving.size > 0;
 }
 /** True while a move asked to be left alone (holdMotion), or a transition begun with beginMotion has not ended. */
-export const inMotion = () => { const t = wall(); return t < holdUntil || (HONEST && moving.size > 0 && anyMoving(t)); };
+export const inMotion = () => { const t = wall(); return t < holdUntil || (moving.size > 0 && anyMoving(t)); };
 /** Calls fn once no move holds the page (polled with timers, never a frame loop); returns a cancel. */
 export function afterMotion(fn, poll = 60) {
   let t = 0, dead = false;

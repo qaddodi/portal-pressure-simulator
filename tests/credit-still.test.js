@@ -1,5 +1,5 @@
 // The credit reads no figure shape while the figure is pinched, panned or glided (2 Nov 2026, "zoom is miserable": a pinch read every
-// organ's and vessel's box and style again, a few times a gesture). ?creditstill=0 reads them as before.
+// organ's and vessel's box and style again, a few times a gesture).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -16,10 +16,10 @@ test('a read under way stops while the figure moves, part-way too, and its hold 
   assert.match(src, /if \(figureMoving\(world\)\) \{ j\.at = j\.armed = now; return true; \}/);
 });
 
-test('moving: the app is busy or the stage carries a gesture class; ?creditstill=0 turns it off', () => {
+test('moving: the app is busy or the stage carries a gesture class', () => {
   assert.match(src, /classList\.contains\('stage-busy'\)/);
   assert.match(src, /for \(const c of GESTURE_LOOK\) if \(sv\.classList\.contains\(c\)\) return true;/);
-  assert.match(src, /\[\?&\]creditstill=0\\b/);
+  assert.doesNotMatch(src, /creditstill/);
 });
 
 test('gl-words: words that land in a box already measured keep its measure; a new box, a unit that comes or goes, or ?glwkeep=0 measures again', () => {

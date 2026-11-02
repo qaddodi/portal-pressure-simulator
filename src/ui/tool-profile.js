@@ -9,17 +9,17 @@
 // Its numbers are the slide's own (its fingerprint, as the tiles read it: the same on every screen), easing to each new
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
 
-import { frame, cancelFrame } from './frame.js?v=897b4f8e7e';
-import { restPass, cancelRest } from './rest-pass.js?v=442dee98c9';
+import { frame, cancelFrame } from './frame.js?v=8c8f2f530e';
+import { restPass, cancelRest } from './rest-pass.js?v=ba7df6a6f6';
 import { PROFILE_PATHS } from './anatomy.js?v=fe0f3d1f0e';
 import { follow2, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { RATE } from './table-marks.js?v=ff3ed0cc47';
 import { monotoneSegs } from './curve-near.js?v=663c98a29c';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { pressureColor } from './colormap.js?v=35e98050ba';
+import { pressureColor } from './colormap.js?v=350e1db23b';
 import { measure } from './glyph-measure.js?v=e05ea36d6e';
-import { createSvgGL, svgModel, FIRST_LOOK } from './svg-gl.js?v=68051dbe93';
+import { createSvgGL, svgModel, FIRST_LOOK } from './svg-gl.js?v=4ce4fb6533';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;

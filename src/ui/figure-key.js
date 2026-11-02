@@ -2,8 +2,8 @@
 // It is docked by the stylesheet, never floated: on a phone at the words' bottom-left corner, opposite the nav pill; on a wider
 // screen (Mac, iPad, a phone held sideways) right on top of the nav pill at the lower right, right-aligned with it (Mohammad,
 // 15 Oct: "put the legend on top of the zoom pill"). It waits for the cards to land and fades in there; it never slides.
-import { frameFor } from './frame.js?v=897b4f8e7e';
-import { restPass, cancelRest } from './rest-pass.js?v=442dee98c9';
+import { frameFor } from './frame.js?v=8c8f2f530e';
+import { restPass, cancelRest } from './rest-pass.js?v=ba7df6a6f6';
 const nextFrame = frameFor('figkey');
 
 // el: the key's element (inside the presenter's layer, beside the nav pill); app: the app's root (its pz-moving class marks a slide change).

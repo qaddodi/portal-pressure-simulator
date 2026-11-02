@@ -1,5 +1,5 @@
 // Polish sliders and toggles (1 Nov): a slider whose value is set from outside (Reset, a double click, a patient, an undo) glides its
-// dot and fill together instead of jumping (util.js paintRange → glideFill, ?sliderglide=0 off), and the Pressure / Scope tab's
+// dot and fill together instead of jumping (util.js paintRange → glideFill), and the Pressure / Scope tab's
 // two-way switch joins the gliding selection piece (seg-glide.js). Source checks: the page itself is not run here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,11 +8,6 @@ import { readFileSync } from 'node:fs';
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const util = read('src/ui/util.js'), css = read('styles/app.css'), seg = read('src/ui/seg-glide.js');
 const fn = (name) => { const at = util.indexOf(`function ${name}(`); assert.ok(at >= 0, name); return util.slice(at, util.indexOf('\n}\n', at)); };
-
-test('?sliderglide=0 is read from the search string and turns the glide off', () => {
-  assert.match(util, /export const sliderGlideOff = \(search\) => \/\[\?&\]sliderglide=0\\b\/\.test/);
-  assert.match(fn('glideFill'), /sliderGlideOff\(typeof location/);
-});
 
 test('only a big jump from outside the pointer\'s hand travels; a drag, a held finger, Reduce Motion and a hidden slider are taken at once', () => {
   const g = fn('glideFill');

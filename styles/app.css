@@ -1748,9 +1748,8 @@ button.finding { cursor: pointer; }
 /* The labels fade as layers, by opacity alone (the compositor's, no repaint; 1 Nov 2026): the whole set by .lz-labels' opacity (the camera, the dive, the sinusoid, a slide's hush), each label or zone name by its own (lit or not, coming or going, a caption's entrance), and a lit pill by its ::before's. Their glass is drawn on the GPU (lz-pills.js multiplies the three), so a faded ancestor hides no browser blur. */
 /* A Present card's glass tint, read by glass-gl.js (its card mode) as a colour: each glass rule declares its background through it. */
 /* The Present cards' frost tint (Mohammad, 2 Nov 2026: "the blur sucks now it's just transparent"): 66 % of the surface over a 22 px blur (74 % and 30 px read muddy)
-   (glass-gl.js CARD), so a card reads frosted, never see-through. ?cardfrost=soft (data-cardfrost on the root): 58 % and 16 px, as before. */
+   (glass-gl.js CARD), so a card reads frosted, never see-through. */
 :root { --pz-frost: 66%; }
-:root[data-cardfrost="soft"] { --pz-frost: 58%; }
 @property --gl-tint { syntax: '<color>'; inherits: false; initial-value: transparent; }
 /* A lobule label or zone name fades in where it comes and out where it goes (lobule-zoom.js fadeIn, fadeOut), never pops (P15). */
 .lz-lab, .lz-zone { transition: opacity var(--d-surface) var(--ease); animation: lz-in var(--d-small) var(--ease); }
@@ -2466,9 +2465,7 @@ html.label-fill-both :is(#labels .lb.scan, .app.presenting #labels .lb) { animat
 .pz.low .pz-prog { left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px); }
 .pz-prog i { display: block; height: 100%; width: 100%; transform: scaleX(var(--p, 0)); transform-origin: 0 0; background: color-mix(in srgb, var(--text) 42%, transparent); transition: transform var(--d-surface) var(--ease); }   /* (quiet ink: the accent is kept for what the learner touches, DG3) */
 /* (Since 1 Nov 2026 (Mohammad: "Move everything to GPU") the line grows by a scale the compositor eases on the GPU, alongside the slide change's
-   camera glide; it grew by its width, laid out and painted again on the main thread every frame of the change. ?progfx=0 (main.js
-   data-progcpu): by its width, as before.) */
-:root[data-progcpu] .pz-prog i { width: calc(var(--p, 0) * 100%); transform: none; transition: none; }   /* (?progfx=0 since the off-GPU gate: its width, taken at once) */
+   camera glide; it grew by its width, laid out and painted again on the main thread every frame of the change.) */
 /* Dark: the slide progress line was a 4 px bar of mid grey, the brightest line on a talk in a dark room; quieter ink keeps it readable without pulling the eye (dark sweep, 1 Nov). */
 :root[data-theme="dark"] .pz-prog i { background: color-mix(in srgb, var(--text) 30%, transparent); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-prog i { background: color-mix(in srgb, var(--text) 30%, transparent); } }

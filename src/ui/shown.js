@@ -4,7 +4,7 @@
 // The bar writes what it shows in each display frame (the shown state below), so a view that draws in the same frame reads it too.
 import { createShownState, FILL_SMALL, fillQ } from './display-state.js?v=8d062d39dc';
 export { FILL_SMALL, fillQ };
-import { frameFor, cancelFrame } from './frame.js?v=897b4f8e7e';
+import { frameFor, cancelFrame } from './frame.js?v=8c8f2f530e';
 const shown = new Map();
 export const setShown = (id, v) => { shown.set(id, v); };
 /** The bar's value for readout `id` when it has one, else `fallback`. */

@@ -2,40 +2,40 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { motionBudget } from './motion-budget.js?v=ff13b79f5b';   // (first: counts from the start when ?perf or ?budget=1 asks)
-import { budget as gpuBudget } from './gpu-budget.js?v=6537238017';   // (the render graph's registry and pass counts, R06: before any context is made)
+import { budget as gpuBudget } from './gpu-budget.js?v=d421adc09c';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js?v=ca10f41a87';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
-import { startHost, host } from './host.js?v=b2e74450ff';
+import { startHost, host } from './host.js?v=be1d3992ea';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=afc4d7c743';
-import { createStage } from './stage.js?v=4cd392ff54';
-import { createCreditPlacer } from './credit.js?v=78e5006814';
+import { createStage } from './stage.js?v=929f226539';
+import { createCreditPlacer } from './credit.js?v=59500a2765';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=41d56de280';
-import { createInspector } from './inspector.js?v=313a7291a6';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=10362f6129';
-import { setHvpgStage } from './hvpg-proc.js?v=8bde56fa5e';
-import { createWhy } from './why.js?v=17da229dd1';
-import { createTimeline, LAPSES } from './timeline.js?v=0ce24ba0df';
-import { createCompare } from './compare.js?v=81acb56438';
-import { createCard } from './card.js?v=a5bdc63a0b';
-import { createChart } from './chart.js?v=f631720a9c';
-import { createMenu } from './menu.js?v=28ce777bb5';
-import { caption } from './a11y.js?v=21efa98efe';
+import { createInspector } from './inspector.js?v=26639c6a81';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=07dcc16883';
+import { setHvpgStage } from './hvpg-proc.js?v=23d2a29c45';
+import { createWhy } from './why.js?v=9028607de9';
+import { createTimeline, LAPSES } from './timeline.js?v=467ca31fb6';
+import { createCompare } from './compare.js?v=c7f8d7da73';
+import { createCard } from './card.js?v=eccd7b88c9';
+import { createChart } from './chart.js?v=2741cccdf0';
+import { createMenu } from './menu.js?v=25d0fbac78';
+import { caption } from './a11y.js?v=61d6bbd423';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=8f9cdc257b';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=35e98050ba';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=504b7f59a9';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=350e1db23b';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js?v=494d080ac6';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js?v=e76c41f09a';
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js?v=b608fe722c';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=09fc291f37';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
-import { morphKey, crossfadeText } from './legend-morph.js?v=3aeb4aa0bc';
-import { glideNow } from './seg-glide.js?v=608e337195';
+import { morphKey, crossfadeText } from './legend-morph.js?v=f83b0700d3';
+import { glideNow } from './seg-glide.js?v=c768ad14b7';
 import './focus-ring.js?v=3262cead68';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
-import { lookChooser } from './look-chooser.js?v=a6734786c4';
+import { lookChooser } from './look-chooser.js?v=7841a3330c';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -48,22 +48,22 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=abf601563f';
+import { initDebug } from './debug.js?v=82db42dead';
 import { initTopbarMotion } from './topbar-motion.js?v=920d86079f';
 import { ORIGINS } from './blood.js?v=f6c91d8676';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0762d1b820';
 import { createPaintGate } from './paint-gate.js?v=880ebfff88';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, afterMotion, mayTask, MAY_ON } from './frame.js?v=897b4f8e7e';
-import { restPass } from './rest-pass.js?v=442dee98c9';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, afterMotion, mayTask, MAY_ON } from './frame.js?v=8c8f2f530e';
+import { restPass } from './rest-pass.js?v=ba7df6a6f6';
 import { sizeOf, watchSize, rectsSoon, restTask, flushTask } from './geom.js?v=254133713c';
 import { feedbackDiagnostics } from './feedback-diag.js?v=a6fd7380e0';
 import { noteJump } from './display-state.js?v=8d062d39dc';
 import { createIdleRest } from './idle-rest.js?v=4d23822371';
-import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=e24bea927c';
+import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=ab8c0f4b1d';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
-import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=49b358c305';
-import './scroll-edges.js?v=d33400a8da';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
+import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=837f2b793c';
+import './scroll-edges.js?v=19fe8e2203';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -124,8 +124,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=858387cd89'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=267026c9c5'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=b54d9036c5'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=c7ebe10d1d'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -212,7 +212,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=831d0f7c26'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=7fdf98d096'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -220,7 +220,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=a2860a6e86'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=9edfdf388e'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -458,7 +458,6 @@ function ingestFrame(f) {
   host?.send({ type: 'painted' });
 }
 // R17: frames for a hidden consumer are kept, not fanned out to it; it takes the newest one the moment it shows.
-const SEEN_ONLY = !/[?&]seenonly=0\b/.test(location.search);
 let inspStale = null, inspSeen = null, cmpStale = null;
 function inspectorSeen() {
   if (inspStale && panelShown()) { const f = inspStale; inspStale = null; inspector?.update(f); }
@@ -466,7 +465,7 @@ function inspectorSeen() {
   if (cmpStale && panelShown()) { const f = cmpStale; cmpStale = null; compare?.update(f); }
 }
 function watchInspectorSeen() {
-  if (!SEEN_ONLY || inspSeen || typeof MutationObserver !== 'function') return;
+  if (inspSeen || typeof MutationObserver !== 'function') return;
   // (the panel shows by a class on the app: opened, or an instrument's focus let go; one record per class change, no layout read)
   inspSeen = new MutationObserver(inspectorSeen);
   inspSeen.observe(app, { attributes: true, attributeFilter: ['class'] });
@@ -488,39 +487,26 @@ function paintFrame(f) {
   // (Plan "Holding 120 Hz, always" §3.2: the figure takes the model frame in the frame it lands (the blood reads it); everything else
   // that shows it, the cards, the dock, the panel, the timeline, the clock, is a may task of its own (frame.js mayTask), each run after
   // the frame's must work while the budget allows, at most four frames later, and each painting the newest frame it has. A model frame
-  // no longer lands as one long frame. ?modelslice=0: all of it in the one frame, as before.)
-  if (!MODEL_SLICE) { paintRest(f, now); return; }
+  // no longer lands as one long frame.)
   for (const [tag, fn] of PAINT_PARTS) mayTask(tag, () => fn(f, now));
 }
-const MODEL_SLICE = MAY_ON && !/[?&]modelslice=0\b/.test(location.search);
 // (Each part paints the frame it was given: the newest, since asking again replaces the task.)
 const PAINT_PARTS = [
   ['card update', (f) => card.update(f)],
   ['dock update', (f) => { dock.update(f); syncDoppler(f); }],
   ['inspector update', (f) => {
     // (R17: the side panel's readings are not worked out or written while the panel is shut or under an instrument; the frame is kept,
-    // and painted the moment the panel shows (see inspectorSeen). ?seenonly=0: every frame, as before.)
-    if (!SEEN_ONLY || panelShown()) { inspStale = null; inspector.update(f); }
+    // and painted the moment the panel shows (see inspectorSeen).)
+    if (panelShown()) { inspStale = null; inspector.update(f); }
     else inspStale = f;
     // (R11: the Compare table (in the side panel) formats its eleven rows and their signature only while the panel shows; else the
     // newest frame is kept and painted as it opens, with the inspector's.)
-    if (!SEEN_ONLY || panelShown()) { cmpStale = null; compare.update(f); }
+    if (panelShown()) { cmpStale = null; compare.update(f); }
     else if (store.get().compareSnap) cmpStale = f;
   }],
   ['timeline update', (f) => timeline.update(f)],
   ['frame chrome', (f, now) => paintChrome(f, now)],
 ];
-function paintRest(f, now) {
-  framePart('card update', () => card.update(f));
-  framePart('dock update', () => dock.update(f));
-  syncDoppler(f);
-  if (!SEEN_ONLY || panelShown()) { inspStale = null; framePart('inspector update', () => inspector.update(f)); }
-  else inspStale = f;
-  if (!SEEN_ONLY || panelShown()) { cmpStale = null; compare.update(f); }
-  else if (store.get().compareSnap) cmpStale = f;
-  framePart('timeline update', () => timeline.update(f));
-  paintChrome(f, now);
-}
 function paintChrome(f, now) {
   const txt = f.day > 0 ? `Day ${f.day}` : `${fmt(f.t, 0)} s`;
   if (txt !== lastClockTxt) { lastClockTxt = txt; stageClock.textContent = txt; }
@@ -528,8 +514,8 @@ function paintChrome(f, now) {
   syncBleeding(f);
   if (projector) updateProjector(f);
   // (R11: the screen reader's description of the figure is kept, at most every 3 s, but never written in a frame of a transition (a
-  // slide's cards moving, a dive): it waits for the first still frame. ?seenonly=0: written whenever 3 s have passed, as before.)
-  if (now - lastDesc > 3000 && !(SEEN_ONLY && inMotion())) { lastDesc = now; $('#stage').setAttribute('aria-description', caption(f)); }
+  // slide's cards moving, a dive): it waits for the first still frame.)
+  if (now - lastDesc > 3000 && !inMotion()) { lastDesc = now; $('#stage').setAttribute('aria-description', caption(f)); }
 }
 
 // ── Scenarios & share ───────────────────────────────
@@ -692,14 +678,12 @@ function zoomLobule() { store.set({ lobule: true, sinusoid: false }); }
 // ── Figure header: view, color, legend; banners ─────
 let tipEl, stageClock;
 function buildHud() {
-  // Moving blood: chevrons are remembered per device; ?blood=chevrons turns them on for a link.
+  // Moving blood: chevrons are remembered per device.
   let saved = null;
   // (pps.blood2: chevrons became the default, so a choice saved under the old default starts over.)
   try { saved = JSON.parse(localStorage.getItem('pps.blood2') || 'null'); } catch { /* storage unavailable */ }
   const blood = { look: 'shimmer', phasic: false, chevrons: true, ...(saved && typeof saved === 'object' ? saved : {}) };
   delete blood.origin;   // now the Blood origin lens
-  const asked = (new URLSearchParams(location.search).get('blood') || '').split(',');
-  if (asked.includes('chevrons')) blood.chevrons = true;
   blood.look = 'shimmer'; blood.phasic = false;   // the Blood menu offers streaks and chevrons only
   store.set({ blood });
   store.on('blood', (v) => {
@@ -707,11 +691,11 @@ function buildHud() {
     sendBeat(); syncBloodBtn();
     redraw();
   });
-  // A chip that opens a menu says so: aria-expanded from the start (popover() keeps it), which app.css turns into a turned chevron and a held tint. ?chipopen=0 leaves all of it off.
-  if (!/[?&]chipopen=0\b/.test(location.search)) { document.documentElement.classList.add('chip-open'); for (const id of ['btnBlood', 'btnLobuleLayers', 'btnLayers']) $('#' + id).setAttribute('aria-expanded', 'false'); }
-  // Press and hover on every other control eases and answers a finger (app.css, html.press-fx). ?pressfx=0 leaves all of it off.
-  if (!/[?&]pressfx=0\b/.test(location.search)) document.documentElement.classList.add('press-fx');
-  if (!/[?&]modelcontain=0\b/.test(location.search)) document.documentElement.classList.add('model-contain');
+  // A chip that opens a menu says so: aria-expanded from the start (popover() keeps it), which app.css turns into a turned chevron and a held tint.
+  document.documentElement.classList.add('chip-open'); for (const id of ['btnBlood', 'btnLobuleLayers', 'btnLayers']) $('#' + id).setAttribute('aria-expanded', 'false');
+  // Press and hover on every other control eases and answers a finger (app.css, html.press-fx).
+  document.documentElement.classList.add('press-fx');
+  document.documentElement.classList.add('model-contain');
   $('#btnBlood').onclick = (e) => openBlood(e.currentTarget);
   $('#btnLobuleLayers').onclick = (e) => openLobuleLayers(e.currentTarget);
   store.on('lobule', (on) => { $('#btnLobuleLayers').hidden = !on; if (!on) closePopover(); });
@@ -1008,12 +992,12 @@ function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
   // (And the frame-time overlay beside it, frame-hud.js: fps, 1% low, interval and script percentiles, surfaces, throttle. ?hud=0 off.)
-  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=b8c46f65bb').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=16d775c53e').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages. ?highrefresh=0 off.
   import('./high-refresh.js?v=a5fd03fdf7').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=9ae0512721').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=ad8d08c077').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
-  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=ef2d585f07').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
+  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=497098756d').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
@@ -1063,8 +1047,6 @@ function openSettings(anchor, withSearch = false) {
         store.set({ showHvpg: on });
       }),
       menuItem('Advanced physiology', { icon: 'sliders', onClick: () => { closePopover(); closeTreat(); store.set({ selection: null, details: { type: 'advanced' } }); openPanel(); } }),
-      // Debug toggles stay out of the sheet; ?debug in the address brings them back.
-      ...(new URLSearchParams(location.search).has('debug') ? [h('div', { class: 'menu-title' }, 'Debug'), ...debugOptions().map(([k, l]) => menuToggle(debugOn(k), 'activity', l, null, (on) => setDebug(k, on)))] : []),
       h('div', { class: 'menu-sep' }),
       menuItem('Reset everything…', { icon: 'reset', onClick: () => resetEverything() })]),
   ], withSearch ? { place: 'above', align: 'end', cls: 'app-menu' } : { align: 'start', cls: 'app-menu' });
@@ -1206,18 +1188,12 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
 });
 // (again once the figure's background has finished its .5 s fade)
 // (Not for a gesture's or a glide's own classes (idle-keys.js GESTURE_LOOK): the stage's colour comes from the theme alone, and each read
-// of it, right after the classes changed, was a style pass of the whole page as every pan, pinch and slide's zoom began and ended.
-// ?glidekeys=0: on every class change, as before.)
-const STATUS_GESTURE_FREE = !/[?&]glidekeys=0\b/.test(location.search);
-// (The slide progress line grows by a GPU scale (app.css .pz-prog i); ?progfx=0 grows it by its width, as before.)
-if (/[?&]progfx=0\b/.test(location.search)) document.documentElement.setAttribute('data-progcpu', '');
-if (/[?&]cardfrost=soft\b/.test(location.search)) document.documentElement.setAttribute('data-cardfrost', 'soft');   // (the cards' lighter frost, as before 2 Nov: glass-gl.js CARD, app.css --pz-frost)
-if (/[?&]carddrop=1\b/.test(location.search)) document.documentElement.setAttribute('data-carddrop', '');   // (the Present cards' drop shadow, as before 2 Nov: app.css --glass-drop)
+// of it, right after the classes changed, was a style pass of the whole page as every pan, pinch and slide's zoom began and ended.)
 // (2 Nov 2026: read between frames (rest-pass.js), not in the observer's microtask straight after the page's writes.)
 // (The late look, after the background's .5 s fade, waits out any move: a timer firing in the middle of a slide change read the page's colours then.)
 let statusLaterOff = null;
 const statusLater = () => { statusLaterOff?.(); statusLaterOff = afterMotion(() => { statusLaterOff = null; restPass(syncStatusBar); }); };
-new MutationObserver((rs) => { if (STATUS_GESTURE_FREE && rs.every((r) => classOnly(r, GESTURE_LOOK))) return; restPass(syncStatusBar); setTimeout(statusLater, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
+new MutationObserver((rs) => { if (rs.every((r) => classOnly(r, GESTURE_LOOK))) return; restPass(syncStatusBar); setTimeout(statusLater, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
 // ── Patient chart, Treat card and instrument workspace ─
 // The chart is a card floating over the right of the figure (a bottom sheet on a phone), opened

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 // Menu chips answer their menu (1 Nov 2026, Sonnet sprint brief 3): Blood, Layers and the lens chip turn their chevron over
-// and hold the pressed tint while their menu is open; a switch's thumb widens under a finger. ?chipopen=0 leaves all of it off.
+// and hold the pressed tint while their menu is open; a switch's thumb widens under a finger.
 
 const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const MAIN = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
@@ -16,12 +16,12 @@ test('the lens chip (a div role="button") carries aria-expanded while its menu i
   assert.match(UTIL, /anchor\.setAttribute\('aria-expanded', 'true'\)/);
   assert.match(UTIL, /openMenu\.anchor\.setAttribute\('aria-expanded', 'false'\)/);
   assert.match(UTIL, /if \(openMenu\) \{ const same = openMenu\.anchor === anchor; closePopover\(\)/);
-  // It starts as "false" on the three chips (the flag on).
+  // It starts as "false" on the three chips.
   assert.match(MAIN, /for \(const id of \['btnBlood', 'btnLobuleLayers', 'btnLayers'\]\) \$\('#' \+ id\)\.setAttribute\('aria-expanded', 'false'\)/);
 });
 
-test('?chipopen=0 turns it all off: the CSS hangs on html.chip-open, which main.js adds unless the flag is 0', () => {
-  assert.match(MAIN, /!\/\[\?&\]chipopen=0\\b\/\.test\(location\.search\)\) \{ document\.documentElement\.classList\.add\('chip-open'\)/);
+test('the CSS hangs on html.chip-open, which main.js adds', () => {
+  assert.match(MAIN, /\n {2}document\.documentElement\.classList\.add\('chip-open'\); for \(const id of/);
   const rules = CSS.split('\n').filter((l) => /chip-open/.test(l) && /\{/.test(l));
   assert.ok(rules.length >= 5);
   for (const l of rules) assert.match(l, /html\.chip-open/);

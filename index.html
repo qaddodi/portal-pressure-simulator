@@ -26,7 +26,7 @@
   <script>/* Can this browser run the app? ES5 on purpose so even Internet Explorer gets the message. Hard needs stop it with a plain note; soft ones only warn. */(function(){var w=window,why=[];try{if(!('noModule' in document.createElement('script')))why.push('modules');try{new Function('var a={};a.b??=1;return a?.b')}catch(e){if(!(e instanceof EvalError))throw e}if(typeof w.ResizeObserver!=='function')why.push('ResizeObserver');if(typeof w.structuredClone!=='function')why.push('structuredClone');if(!Array.prototype.at)why.push('Array.at')}catch(e){why.push('syntax')}w.ppsUnsupported=why.length?why:null;var soft=[];try{if(!CSS.supports('selector(:has(a))'))soft.push(':has');if(!CSS.supports('container-type','inline-size'))soft.push('container queries');if(!CSS.supports('color','color-mix(in srgb, red, blue)'))soft.push('color-mix')}catch(e){}w.ppsOldBrowser=soft.length?soft:null;w.ppsBootErrors=[];function note(m){if(w.ppsFigureReady)return;w.ppsBootErrors.push(String(m||'Unknown error').slice(0,300));if(w.ppsBootFail&&/SyntaxError/.test(m))w.ppsBootFail()}w.addEventListener('error',function(e){if(e&&e.message&&!/ResizeObserver loop/.test(e.message))note((e.error&&e.error.name?e.error.name+': ':'')+e.message+(e.filename?' ('+String(e.filename).split('/').pop().split('?')[0]+':'+e.lineno+')':''))});w.addEventListener('error',function(e){var t=e&&e.target;if(t&&t.tagName==='SCRIPT'){note('Could not load '+String(t.src).split('/').pop().split('?')[0]);if(w.ppsBootFail&&!w.ppsFigureReady)w.ppsBootFail()}},true);w.addEventListener('unhandledrejection',function(e){var r=e&&e.reason;note('Unhandled: '+(r&&r.message?r.message:r))})})();</script>
   <link rel="stylesheet" href="styles/tokens.css?v=1c1c1441ec" />
   <link rel="stylesheet" href="styles/icons.css?v=9152f9ba31" />
-  <link rel="stylesheet" href="styles/app.css?v=e37b67342f" />
+  <link rel="stylesheet" href="styles/app.css?v=f1348c300e" />
   <style>
     #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; overflow-y: auto; background: var(--bg, #FBFAF7); transition: opacity var(--d-surface) var(--ease), visibility var(--d-surface); animation: boot-failsafe .01s 20s forwards; }
     /* The last word, in CSS so it needs no script: if nothing has lifted the cover after 20 s (a script that never ran, a page whose
@@ -169,17 +169,17 @@ var lifting=false;function lift(){if(lifting||w.ppsUnsupported)return;failed=fal
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=4cd392ff54" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=929f226539" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=fe0f3d1f0e" />
-  <link rel="modulepreload" href="src/ui/util.js?v=494d080ac6" />
+  <link rel="modulepreload" href="src/ui/util.js?v=e76c41f09a" />
   <link rel="modulepreload" href="src/ui/store.js?v=afc4d7c743" />
-  <link rel="modulepreload" href="src/ui/colormap.js?v=35e98050ba" />
-  <link rel="modulepreload" href="src/ui/inspector.js?v=313a7291a6" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=10362f6129" />
-  <link rel="modulepreload" href="src/ui/charts.js?v=7e4a3fa7d4" />
-  <link rel="modulepreload" href="src/ui/instruments.js?v=454458a2d8" />
-  <link rel="modulepreload" href="src/ui/timeline.js?v=0ce24ba0df" />
+  <link rel="modulepreload" href="src/ui/colormap.js?v=350e1db23b" />
+  <link rel="modulepreload" href="src/ui/inspector.js?v=26639c6a81" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=07dcc16883" />
+  <link rel="modulepreload" href="src/ui/charts.js?v=1232b54db2" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=bd8a4933cc" />
+  <link rel="modulepreload" href="src/ui/timeline.js?v=467ca31fb6" />
   <link rel="modulepreload" href="src/engine/topology.js?v=4044766e96" />
-  <script type="module" src="src/ui/main.js?v=38aef4c29f"></script>
+  <script type="module" src="src/ui/main.js?v=c8a15f100a"></script>
 </body>
 </html>

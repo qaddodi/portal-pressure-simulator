@@ -3,13 +3,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 // Press and hover states for the controls that had none (1 Nov 2026): eased tints, a press sink, a tint under a finger.
-// ?pressfx=0 leaves all of it off.
 
 const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const MAIN = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
 
-test('?pressfx=0 turns it off: main.js adds html.press-fx unless the flag is 0, and every new rule hangs on it', () => {
-  assert.match(MAIN, /!\/\[\?&\]pressfx=0\\b\/\.test\(location\.search\)\) document\.documentElement\.classList\.add\('press-fx'\)/);
+test('main.js adds html.press-fx, and every new rule hangs on it', () => {
+  assert.match(MAIN, /\n {2}document\.documentElement\.classList\.add\('press-fx'\);\n/);
   const lines = CSS.split('\n').filter((l) => /press-fx/.test(l) && /\{/.test(l));
   assert.ok(lines.length >= 10);
   for (const l of lines) assert.match(l, /html\.press-fx/);

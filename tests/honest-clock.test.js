@@ -8,11 +8,10 @@ let T = 1000;
 Object.defineProperty(performance, 'now', { value: () => T, configurable: true, writable: true });
 let rafs = [];
 globalThis.requestAnimationFrame = (cb) => { rafs.push(cb); return rafs.length; };
-const { frame, easeNow, HONEST, clockStats, beginMotion, inMotion, PACE_CAP } = await import('../src/ui/frame.js');
+const { frame, easeNow, clockStats, beginMotion, inMotion, PACE_CAP } = await import('../src/ui/frame.js');
 function tick(t) { T = t; let seen = null; frame(() => { seen = easeNow(); }); const cbs = rafs; rafs = []; cbs.forEach((cb) => cb(t)); return seen; }
 
 test('on by default: a long frame moves the clock on by its whole length, and the lost time is counted', () => {
-  assert.equal(HONEST, true);
   tick(1000); tick(1016.7);
   const a = tick(1033.4), b = tick(1433.4);
   assert.equal(b - a, 400, 'no stretching');
