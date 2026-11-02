@@ -1,17 +1,30 @@
 name: Glass diagnosis (macOS, Apple GPU)
 on:
-  push:
-    branches: ['claude/glass-diag-preview']
   workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or commit to build and probe (empty: the live preview)'
+        required: false
+        default: ''
 jobs:
   probe:
     runs-on: macos-15
-    timeout-minutes: 40
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: mkdir -p /tmp/gd && cd /tmp/gd && npm init -y >/dev/null && npm i playwright@1.56.1 >/dev/null && npx playwright install webkit chromium
+      - name: Build the asked-for commit (production build, served locally)
+        if: ${{ inputs.ref != '' }}
+        run: |
+          git clone --quiet https://github.com/${{ github.repository }} /tmp/app
+          cd /tmp/app && git checkout --quiet "${{ inputs.ref }}" && git log --oneline -1
+          npm ci --ignore-scripts >/dev/null && npm run build >/dev/null
+          (cd dist && nohup python3 -m http.server 8080 >/tmp/serve.log 2>&1 &)
+          sleep 2 && curl -sf http://localhost:8080/ >/dev/null && echo served
+          printf 'branch: %s\ncommit: %s\n' "${{ inputs.ref }}" "$(git rev-parse --short HEAD)" > dist/preview-info.txt
+          echo "BASE=http://localhost:8080/" >> "$GITHUB_ENV"
       - run: cp .github/diag/glass-probe.mjs /tmp/gd/ && cd /tmp/gd && mkdir -p out && OUT=out node glass-probe.mjs
       - uses: actions/upload-artifact@v4
         if: always()
