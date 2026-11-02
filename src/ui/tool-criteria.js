@@ -32,7 +32,7 @@
 import { h, fmt } from './util.js?v=81aaed6aef';
 import { TILE } from './table-marks.js?v=ff3ed0cc47';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { createSvgGL, svgModel } from './svg-gl.js?v=665756452b';
+import { createSvgGL, svgModel } from './svg-gl.js?v=9fa22c5ccb';
 
 export const CRITERIA_MAX = 4;
 /** The graphs a criteria card can draw (zones), in their own units: x and y ranges, the zones, the hatched area and the axis marks. */

@@ -8,7 +8,7 @@ import { h, clamp } from './util.js?v=81aaed6aef';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { store } from './store.js?v=4ef2a6ffd8';
 import { frameFor } from './frame.js?v=7710f677e2';
-import { createSvgGL, svgModel, snapOp, setWords } from './svg-gl.js?v=665756452b';
+import { createSvgGL, svgModel, snapOp, setWords } from './svg-gl.js?v=9fa22c5ccb';
 const nextFrame = frameFor('lumen');
 
 const STENTS = new Set(['TIPS', 'DIPS']);

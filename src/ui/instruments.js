@@ -6,6 +6,7 @@ import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
 import { pressureColor } from './colormap.js?v=3d33c1ecd4';
 import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=81aaed6aef';
+import { wordSetter, glWords } from './gl-words.js?v=879395fa93';
 import { simTime, isPaused } from './clock.js?v=16aba0e2eb';
 import { createEndoGL } from './endo-gl.js?v=f6f2d6e030';
 import { CTX_LAZY } from './gl-support.js?v=38189f60f5';
@@ -15,7 +16,7 @@ import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=1dc4743d1e';
 import { drawScopeBleed } from './endo-bleed.js?v=9a15bbef00';
 import { poolFill } from './blood.js?v=f6c91d8676';
-import { FONT } from './charts.js?v=19d270763f';
+import { FONT } from './charts.js?v=fe861d7f95';
 import { store, updateParams, varicesPresent } from './store.js?v=4ef2a6ffd8';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
 import { lateFrameFor, cancelFrame, framePhase } from './frame.js?v=7710f677e2';
@@ -61,7 +62,8 @@ export function createEndoscopy({ onAction }) {
     h('div', { class: 'endo-chip endo-red', title: 'In the model, red wale marks and cherry spots show once the wall stress passes 70% of its tear point.' }, h('dt', {}, 'Stigmata'), red));
   const side = h('div', { class: 'chart-side' }, stats, bandBtn);
   el.append(stage, side);
-  const set = (node, v) => { if (node.textContent !== v) node.textContent = v; };
+  // (The readings change with the model: drawn on the GPU while they change, gl-words.js.)
+  const set = wordSetter([gradeLabel, diam, wall, pIn, pLum, pAcross, redWord, redMore, bands]);
   function update(f) {
     const m = f.metrics;
     const vx = view === 'eso' ? m.varix : m.gastricVarix;
@@ -343,7 +345,8 @@ export function createVarixWall() {
   const side = h('div', { class: 'chart-side' }, stats,
     h('div', { class: 'ctl-sub' }, 'A wider varix, higher transmural pressure and a thinner wall all raise the stress. Remodeling enlarges the varix and thins its wall over months; a balloon raises the pressure outside it.'));
   el.append(stage, side);
-  const set = (node, v) => { if (node.textContent !== v) node.textContent = v; };
+  // (The readings change with the model: drawn on the GPU while they change, gl-words.js.)
+  const set = wordSetter([ptm.v, rad.v, wal.v, idx.v, stressTxt, wPct, wSev]);
   let wMean = null, wT = 0, wN = 0, wPin = NaN, wPinT = 0;
   // (A what-if or a time-lapse pins a new state every few frames: each eases into the last, so the figure does not flicker.)
   function pin(fp) {
@@ -543,6 +546,8 @@ function iapDial() {
   const key = s('text', { class: 'ab-dial-k', x: TX, y: 43 }, 'IAP'), unit = s('text', { class: 'ab-dial-u', x: TX }, 'mmHg');
   svg.append(knob, key, num, unit, word);
   const el = h('div', { class: 'ab-dial-box', title: 'Intra-abdominal pressure. 12 mmHg and above: intra-abdominal hypertension. 20 mmHg and above: abdominal compartment syndrome.' }, svg);
+  // (The number and its word are drawn on the GPU while they change, over the dial, gl-words.js; the word's fit runs as it lands.)
+  const numW = glWords(num, { host: el }), wordW = glWords(word, { host: el, onLand: () => { if (fitK) fitWord(); } });
   // The small words are 12 px on screen at least, however small the dial is drawn (sweep batch 04: the ticks at about 7 px,
   // the caption at 9.6 px on a phone): their size in the drawing grows as the dial shrinks, the lines below the number move
   // down to make room, and the word under them is left out when it no longer fits inside the half circle (the number's
@@ -580,8 +585,7 @@ function iapDial() {
     if (n === last) return;
     last = n;
     const sev = iapSev(v);
-    num.textContent = String(n); word.textContent = IAP_WORD[sev];
-    if (fitK) fitWord();
+    numW.set(String(n)); wordW.set(IAP_WORD[sev]);
     svg.dataset.sev = sev;
     for (const [a, b, lp] of live) lp.setAttribute('stroke-dasharray', `${(clamp((v - a) / (b - a), 0, 1) * 100).toFixed(1)} 100`);
     knob.style.transform = `rotate(${(90 + (v / IAP_MAX) * 180).toFixed(1)}deg)`;
@@ -592,16 +596,16 @@ function iapDial() {
 /** A stepper's number rolls to its new value over a small step instead of jumping (the tiles' number roll, util.js countTo); the
  *  first paint is written at once, the unit stays put beside it. ?stepnum=0 writes every number at once, as before. */
 const stepNumOff = typeof location !== 'undefined' && /[?&]stepnum=0\b/.test(location.search || '');
-const paintStep = (out, v, dp, unit) => {
-  let n = out.firstElementChild;
-  if (!n?.classList.contains('ab-dp-n')) { n = h('span', { class: 'ab-dp-n' }); out.replaceChildren(n, h('small', {}, unit)); }
+const stepOut = (unit, attrs = {}) => h('output', { class: 'ab-dp-l', ...attrs }, h('span', { class: 'ab-dp-n' }), h('small', {}, unit));
+const paintStep = (out, v, dp) => {
+  const n = out.firstElementChild;   // (its number and unit are built with it, stepOut: never in a frame)
   if (stepNumOff) putText(n, v.toFixed(dp)); else countTo(n, v, dp);
 };
 export function createAbdomen({ onAction }) {
   // The stepper for serum albumin: − value +, the value between the buttons, the same control as the litres to drain.
   const stepper = (label, unit, min, max, stepBy, dp, start, onSet) => {
     let v = start;
-    const out = h('output', { class: 'ab-dp-l' });
+    const out = stepOut(unit);
     const paint = () => { paintStep(out, v, dp, unit); minus.disabled = v <= min; plus.disabled = v >= max; };
     const go = (d) => { v = +clamp(v + d, min, max).toFixed(dp); paint(); onSet(v); };
     const minus = h('button', { class: 'ab-dp-sb', 'aria-label': `${label}: less`, onclick: () => go(-stepBy) }, '−');
@@ -613,7 +617,7 @@ export function createAbdomen({ onAction }) {
   const toggle = (ic, title, sub, tip, onclick) => h('button', { class: 'ab-row ab-tg', role: 'switch', 'aria-checked': 'false', title: tip, onclick },
     ic ? icon(ic) : h('span'), h('span', { class: 'ab-txt' }, title, sub), h('span', { class: 'switch-vis', 'aria-hidden': 'true' }, h('i')));
   // Paracentesis: litres, Drain, and the albumin switch under it whose advice turns amber above 5 L without it.
-  const albT = h('b'), albS = h('small');
+  const albT = h('b', {}, 'Albumin'), albS = h('small');
   const alb = h('button', { class: 'ab-dp-alb', role: 'switch', 'aria-checked': 'false', onclick: () => { alb.setAttribute('aria-checked', String(!albOn())); paintVol(); } },
     h('span', { class: 'ab-dp-at' }, albT, albS), h('span', { class: 'switch-vis', 'aria-hidden': 'true' }, h('i')));
   alb.setAttribute('aria-checked', 'true');
@@ -621,7 +625,7 @@ export function createAbdomen({ onAction }) {
   let hasFluid = true;
   // The litres to drain: − value +, the value between the buttons like a dial's own reading.
   let L = 5;
-  const volOut = h('output', { class: 'ab-dp-l', 'aria-live': 'polite' });
+  const volOut = stepOut('L', { 'aria-live': 'polite' });
   const setL = (x) => { L = +clamp(x, 1, 10).toFixed(1); paintVol(); };
   const volMinus = h('button', { class: 'ab-dp-sb', 'aria-label': 'Liters to drain: less', onclick: () => setL(L - 0.5) }, '−');
   const volPlus = h('button', { class: 'ab-dp-sb', 'aria-label': 'Liters to drain: more', onclick: () => setL(L + 0.5) }, '+');
@@ -630,7 +634,6 @@ export function createAbdomen({ onAction }) {
     const warn = L > 5 && !albOn();
     paintStep(volOut, L, 1, 'L');
     volMinus.disabled = L <= 1; volPlus.disabled = L >= 10;
-    albT.textContent = 'Albumin';
     // (Optional / Advised / grams crossfade into each other; the grams count on as the litres change.)
     const albTxt = albOn() ? `${Math.round(L * 8)} g` : warn ? 'Advised' : 'Optional', albKind = albTxt.replace(/\d+/, '#');
     if (albS._kind !== albKind) { albS._kind = albKind; swapText(albS, albTxt); } else putText(albS, albTxt);
@@ -692,7 +695,8 @@ export function createAbdomen({ onAction }) {
   if (!/[?&]belly=0\b/.test(location.search)) el.dataset.belly = '84';
   // Every frame calls this, but a pane the learner is scrolling must not be touched when nothing changed: on a phone,
   // rewriting a text node or an attribute to the same value is enough to make the browser stop a scroll in flight.
-  const setText = (el, t) => { if (el.textContent !== t) el.textContent = t; };
+  // (Its numbers and words change with the model: drawn on the GPU while they change, gl-words.js.)
+  const setText = wordSetter([numEl, gradeEl, trendEl, iapNum, iapWord, saagV, tpV, albV, why]);
   const setAttr = (el, k, v) => { if (v == null) { if (el.hasAttribute(k)) el.removeAttribute(k); } else if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
   const setData = (el, k, v) => { if (el.dataset[k] !== v) el.dataset[k] = v; };
   function update(f) {

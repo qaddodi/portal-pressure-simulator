@@ -484,7 +484,9 @@ export function createSvgGL(box) {
   box.prepend(cv);
   const g = { box, cv, gpu: null, until: 0, ask: 0, lookAsk: 0, ins: new Map() };
   live.add(g);
-  const models = () => [...box.children].filter((c) => c.hasAttribute?.('data-svg-model'));
+  // (A drawing swapped in during a frame waits off the page, pending, and is drawn from there; it joins the box between frames.)
+  const models = () => { const m = [...box.children].filter((c) => c.hasAttribute?.('data-svg-model')); if (g.pending && !g.pending.isConnected) m.push(g.pending); return m; };
+  const connect = () => { g.connAsk = 0; const r = g.pending; g.pending = null; if (r && !r.isConnected) box.append(r); };
   function draw() {
     g.ask = 0;
     if (!cv.isConnected) return;
@@ -536,6 +538,7 @@ export function createSvgGL(box) {
   // A new drawing in place of the old: each piece in both glides to its new place (svg-morph.js); where that cannot be, the new one fades
   // in over the old, which then goes (never a jump); without a fade (a new size) it simply takes over.
   g.show = (root, fade) => {
+    if (g.pending) connect();
     const old = models();
     if (!fade) { old.forEach((o) => o.remove()); box.append(root); g.place(root); return; }
     if (old.length && morphSvg(old.at(-1), root)) { old.slice(0, -1).forEach((o) => o.remove()); g.place(root); return; }
@@ -545,10 +548,17 @@ export function createSvgGL(box) {
     setTimeout(() => { old.forEach((o) => o.remove()); g.paint(); }, 480);
   };
   // (A drawing built afresh in a frame, in place of the one before: its pieces take the looks of the ones before them like them.)
-  g.swap = (root) => { for (const o of models()) o.remove(); box.append(root); g.adopt(root); };
+  // (Never put on the page in the frame: it is drawn from where it waits, with the looks of the pieces before it, and joins the box in a
+  // rest pass, between frames, where a new kind of piece has its look read.)
+  g.swap = (root) => {
+    for (const o of models()) if (o !== root) o.remove();
+    g.pending = root;
+    if (!g.connAsk) g.connAsk = restPass(connect);
+    g.adopt(root);
+  };
   /** What the picture holds (the browser checks and ?perf read it): its drawings, those with their looks read, the looks kept. */
   g.stat = () => { const ms = models(); return { models: ms.length, looked: ms.filter((r) => looks.has(r)).length, pieces: ms.reduce((n, r) => n + r.querySelectorAll('*').length, 0), unlooked: ms.reduce((n, r) => n + [...r.querySelectorAll('*')].filter((e) => !looks.has(e)).length, 0), cache: g.cache.size, w: cv.width, h: cv.height }; };
-  g.clear = () => { for (const o of models()) o.remove(); g.paint(); };
+  g.clear = () => { for (const o of models()) o.remove(); g.pending = null; g.paint(); };
   g.dispose = () => { live.delete(g); g.mo?.disconnect?.(); g.ro?.disconnect?.(); g.gpu?.dispose(); };
   box._svgGL = g;
   return g;

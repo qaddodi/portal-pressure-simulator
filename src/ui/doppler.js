@@ -5,8 +5,9 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
+import { glWords, wordsRect } from './gl-words.js?v=879395fa93';
 import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=81aaed6aef';
-import { FONT, textW } from './charts.js?v=19d270763f';
+import { FONT, textW } from './charts.js?v=fe861d7f95';
 import { logAction, shownVel, store } from './store.js?v=4ef2a6ffd8';
 import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=2230df165f';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=7710f677e2';
@@ -137,10 +138,18 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const dirEl = h('b', { class: 'dop-dir' }, '—');
   const velEl = h('span', { class: 'dop-vel' }, h('b', {}, '—'), h('small', {}, 'cm/s', h('span', { class: 'dop-mean' })));
   // Normal-range gauge: a track with the usual band shaded and a marker for the current mean.
-  const bandEl = h('i', { class: 'dop-band' });
+  // (The usual band: its middle stretched by scale and its two round ends moved by translate, under one opacity, so a new range is
+  // only transforms, eased on the compositor: no corner radius is rewritten for the stretch. ?bandcaps=0: one piece, its corners redrawn.)
+  const BAND_CAPS = !/[?&]bandcaps=0\b/.test(location.search);
+  const bandMid = h('i', { class: 'dop-bm' }), bandL = h('i', { class: 'dop-bc' }), bandR = h('i', { class: 'dop-bc' });
+  const bandEl = BAND_CAPS ? h('i', { class: 'dop-band dop-band-caps' }, bandMid, bandL, bandR) : h('i', { class: 'dop-band' });
+  let trackW = 0;
   const markEl = h('i', { class: 'dop-mark' });
   const gLo = h('span', { class: 'dop-g-lo' }); const gHi = h('span', { class: 'dop-g-hi', 'data-u': 'cm/s' }); const gZero = h('span', { class: 'dop-g-zero' }, '0');
-  const rangeEl = h('div', { class: 'dop-range', hidden: true }, h('div', { class: 'dop-track' }, bandEl, markEl), h('div', { class: 'dop-ticks' }, gZero, gLo, gHi));
+  const trackEl = h('div', { class: 'dop-track' }, bandEl, markEl);
+  // (The track's width, for the band's middle: read as the browser reports a new one, never in a frame.)
+  if (BAND_CAPS && typeof ResizeObserver === 'function') new ResizeObserver((es) => { const w = es[0]?.contentRect?.width || 0; if (w && Math.abs(w - trackW) > 0.5) { trackW = w; if (lastGauge) updateGauge(...lastGauge); } }).observe(trackEl);
+  const rangeEl = h('div', { class: 'dop-range', hidden: true }, trackEl, h('div', { class: 'dop-ticks' }, gZero, gLo, gHi));
   const patternEl = h('div', { class: 'dop-pattern' });
   const noteEl = h('p', { class: 'dop-note' });
   const statEls = {};
@@ -159,6 +168,12 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // (the Peak tile is named Max: the highest point of the last 3 s, beside the big reading, which is the spectrum's peak averaged over time)
     const wrap = h('div', k === 'Peak' ? { title: 'Highest velocity in the last 3 s' } : {}, h('dt', {}, btn || (k === 'Peak' ? 'Max' : k)), dd); statEls[k] = { dd, wrap, btn }; return wrap;
   }));
+  // The report's words that change while the trace runs are drawn on the GPU while they change (gl-words.js, ?glwords=0 writes them
+  // into the page as before); the strip's fit, between frames, writes them in at once (now) to measure them.
+  const W = new Map([[velEl.firstChild, glWords(velEl.firstChild)], [dirEl, glWords(dirEl)], [patternEl, glWords(patternEl)],
+    [gLo, glWords(gLo, { after: true })], [gHi, glWords(gHi, { after: true })]]);
+  for (const k in statEls) W.set(statEls[k].dd, glWords(statEls[k].dd));
+  const wSet = (e, t, u) => W.get(e).set(t, u), wNow = (e, t) => W.get(e).now(t), wText = (e) => W.get(e).text;
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
   // The top strip's fitting steps (see fitStrip): [type scale, the direction's short form, the pattern on its own line].
   let stripKey = '', stripStep = 0, dirFull = '—', patFull = '', stripType = '', rng = null;
@@ -385,14 +400,15 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function setStat(dd, v, unit = '') {
     const key = `${v}|${unit}`;
     if (dd.dataset.v === key) return;
-    dd.dataset.v = key; dd.textContent = v;
-    if (unit) dd.append(' ', h('small', {}, unit));
+    dd.dataset.v = key; wSet(dd, v, unit);
   }
 
   // Place the normal band and the current mean on one scale: 0 to ~1.7x the top of the usual range, widened
   // when the mean falls outside (reversed flow reaches below zero). The marker eases there with CSS.
   // (expected: a reading the stent explains, as a branch running back toward a TIPS, is not flagged out of range.)
+  let lastGauge = null;
   function updateGauge(p, mean, expected = false) {
+    lastGauge = [p, mean, expected];
     const normal = normalOf(p);
     if (!normal) { rangeEl.hidden = true; velEl.dataset.out = 'false'; return; }
     // (A range with no ceiling, the portal vein with a stent in, runs its band to the gauge's end and names only its floor.)
@@ -405,7 +421,12 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // (by transform: the track and ticks are containers, so 1cqw is a hundredth of their width; the band is one full-width piece
     // stretched, its corners drawn back to 4 px for the stretch; the browser eases them on the compositor)
     const sw = Math.max(0.001, (pos(n1) - pos(n0)) / 100);
-    bandEl.style.translate = `${pos(n0)}cqw 0`; bandEl.style.scale = `${sw.toFixed(4)} 1`; bandEl.style.borderRadius = `${(4 / sw).toFixed(2)}px / 4px`;
+    if (BAND_CAPS) {
+      // (the middle runs between the ends' centres, 4 px in from each: its share of the track less the two half ends)
+      const kMid = trackW > 8 ? Math.max(0, (sw * trackW - 8) / (trackW - 8)) : sw;
+      bandMid.style.translate = `${pos(n0)}cqw 0`; bandMid.style.scale = `${kMid.toFixed(4)} 1`;
+      bandL.style.translate = `${pos(n0)}cqw 0`; bandR.style.translate = `calc(${pos(n1)}cqw - 8px) 0`;
+    } else { bandEl.style.translate = `${pos(n0)}cqw 0`; bandEl.style.scale = `${sw.toFixed(4)} 1`; bandEl.style.borderRadius = `${(4 / sw).toFixed(2)}px / 4px`; }
     markEl.style.translate = `${pos(mean)}cqw 0`;
     gZero.style.translate = `${pos(0)}cqw 0`; gLo.style.translate = `${pos(n0)}cqw 0`; gHi.style.translate = `${pos(n1)}cqw 0`;
     gHi.hidden = open;
@@ -423,7 +444,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (!pinAt || k == null) return NaN;
     return Math.abs(dopplerVel({ Q: pinAt.Q, D: pinAt.D }, k));
   }
-  const set2 = (e, t) => { if (e.textContent !== t) e.textContent = t; };
+  const set2 = (e, t) => wSet(e, t, e.dataset.u || '');
 
   // The running mean behind a slide's reading: eases toward the 3 s mean over about six seconds (about a second and a half after a clear
   // change, a what-if or a new disease state), and starts again on a new vessel or after a gap.
@@ -446,14 +467,14 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (!r) {
       setDir(frame?.clock === 'disease' ? 'Not available during time lapse' : 'Acquiring…'); dirEl.dataset.sev = '';
       rangeEl.hidden = true; velEl.dataset.out = 'false'; velEl.hidden = false;
-      for (const e of [velEl.firstChild, patternEl]) if (e.textContent) e.textContent = e === velEl.firstChild ? '—' : '';
+      for (const e of [velEl.firstChild, patternEl]) if (wText(e)) wSet(e, e === velEl.firstChild ? '—' : '');
       swapText(noteEl, '');
       for (const k in statEls) setStat(statEls[k].dd, '—');
       return;
     }
     const p = meta();
     const it = interpret(r, gateFactor());
-    const set = (e, t) => { if (e.textContent !== t) e.textContent = t; };
+    const set = wSet;
     setDir(it.dir); dirEl.dataset.sev = it.sev;
     // (In a slide's top strip the reading is signed as the trace is drawn, the scanner's way: a hepatic vein's forward flow runs away from the
     // probe, below the baseline, so it reads "−18 · Toward the heart", and the sign, the words and the drawing agree.)
@@ -719,7 +740,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function setDir(t) {
     dirFull = t;
     const s = STEPS[stripStep][1] ? SHORT_DIR[t] || t : t;
-    if (dirEl.textContent !== s) dirEl.textContent = s;
+    wSet(dirEl, s);
   }
   // (the pattern's short form; a resistive index keeps its own number)
   const shortPat = (t) => SHORT_PAT[t] || (/^Resistive index /.test(t) ? t.replace('Resistive index', 'RI') : t);
@@ -729,12 +750,12 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (report.style.getPropertyValue('--dop-k') !== String(k)) report.style.setProperty('--dop-k', String(k));
     report.classList.toggle('dop-nounit', tight > 1);
     const ps = tight ? shortPat(patFull) : patFull;
-    if (patFull && patternEl.textContent !== ps) patternEl.textContent = ps;
+    if (patFull && wText(patternEl) !== ps) wNow(patternEl, ps);
     const s = short ? SHORT_DIR[dirFull] || dirFull : dirFull;
-    if (dirEl.textContent !== s) dirEl.textContent = s;
+    if (wText(dirEl) !== s) wNow(dirEl, s);
   }
   function stripFits(i, have, spare) {
-    const box = (e) => { if (e.hidden || !e.textContent) return null; rng.selectNodeContents(e); const q = rng.getBoundingClientRect(); return q.width ? q : null; };
+    const box = (e) => { if (e.hidden || !e.textContent) return null; const q = wordsRect(e, rng); return q.width ? q : null; };
     const v = box(velEl), d = box(dirEl), p = box(patternEl), line = [v, d, p].filter(Boolean);
     if (!line.length) return true;
     // (the union of the line's words, the dot before the pattern included; 14 px for its end, which Safari's ranges leave out)
@@ -744,8 +765,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // Puts the widest of some words in an element (measured at the current step) and gives back that word.
   function widest(e, words, map = (t) => t) {
     let best = '', bw = -1;
-    for (const t of words) { e.textContent = map(t); rng.selectNodeContents(e); const q = rng.getBoundingClientRect().width; if (q > bw) { bw = q; best = map(t); } }
-    e.textContent = best;
+    for (const t of words) { wNow(e, map(t)); const q = wordsRect(e, rng).width; if (q > bw) { bw = q; best = map(t); } }
+    wNow(e, best);
     return { text: best, width: bw };
   }
   // (stripFit: the width, type sizes and vessel kind the base step was chosen for; stripKey, read by draw(), changes with the step.)
@@ -763,7 +784,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       if (have <= 0) return;
       stripFit = key;
       // The first step that holds the widest words, measured in place; the shown words are put back after.
-      const was = { v: velB.textContent, p: patternEl.textContent, vh: velEl.hidden, ph: patternEl.hidden }, words = stripWords();
+      const was = { v: wText(velB), p: wText(patternEl), vh: velEl.hidden, ph: patternEl.hidden }, words = stripWords();
       velEl.hidden = false; patternEl.hidden = false; velB.style.minWidth = '';
       let base = STEPS.length - 1;
       for (let i = 0; i < STEPS.length; i++) {
@@ -777,18 +798,18 @@ export function createDoppler({ onProbe, pickGate = true }) {
       // (the number's slot, in em of its own type so it scales with any step: as wide as the widest reading)
       const slot = widest(velB, words.vels).width / sc / (parseFloat(getComputedStyle(velB).fontSize) || 1);
       velB.style.minWidth = `${Math.ceil(slot * 100) / 100}em`;
-      velB.textContent = was.v; patternEl.textContent = was.p; velEl.hidden = was.vh; patternEl.hidden = was.ph;
+      wNow(velB, was.v); wNow(patternEl, was.p); velEl.hidden = was.vh; patternEl.hidden = was.ph;
       stripBase = base; stripHave = have; stripSc = sc; stripWordsKey = ''; stripSteps.clear();
     }
     // The words shown now: the base step holds them, unless they are wider than any reading (a notice), which take the
     // first smaller step that does, and give it back once they are gone.
-    const wk = `${velEl.hidden ? '' : velB.textContent}|${dirFull}|${patFull}`;
+    const wk = `${velEl.hidden ? '' : wText(velB)}|${dirFull}|${patFull}`;
     if (wk === stripWordsKey) return;
     stripWordsKey = wk;
     if (patternEl.hidden) patternEl.hidden = false;
     // (The step is remembered by the words' shape: the reading's digits are tabular, so −18 and −23 are the same width to the
     // pixel, and a new number measured the three words again, a forced layout on most model frames of a slide.)
-    const shape = `${velEl.hidden ? '' : velB.textContent.replace(/\d/g, '0')}|${dirFull}|${patFull}`;
+    const shape = `${velEl.hidden ? '' : wText(velB).replace(/\d/g, '0')}|${dirFull}|${patFull}`;
     let i = stripSteps.get(shape);
     if (i == null) {
       for (i = stripBase; i < STEPS.length - 1; i++) { stripStepSet(i); if (stripFits(i, stripHave * stripSc, 0)) break; }
@@ -803,12 +824,11 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function stripRect() {
     let l = Infinity, r = -Infinity, b = -Infinity;
     for (const e of [velEl, dirEl, patternEl]) {
-      rng.selectNodeContents(e);
-      const q = rng.getBoundingClientRect();
+      const q = wordsRect(e, rng);
       if (!q.width) continue;
       l = Math.min(l, q.left); r = Math.max(r, q.right); b = Math.max(b, e.getBoundingClientRect().bottom);
     }
-    return { width: r > l ? r - l + (patternEl.textContent && !patternEl.hidden ? 14 : 0) : 0, bottom: b };
+    return { width: r > l ? r - l + (wText(patternEl) && !patternEl.hidden ? 14 : 0) : 0, bottom: b };
   }
 
   // The strip laid out from the page as it stands just after a frame (see drawWith): its type, its fit, its height; the trace's window
@@ -864,7 +884,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // (Its height is read only when the strip was refitted or the size changed, and it gives back room only by more than 4 px.)
     // (The strip's fit, the words' type and the strip's height are worked out just after the frame, stripLayout, never inside it:
     // here only asked for, when the size, the words or half a second has moved on. The frame draws with the last fit.)
-    const ovKey = `${w}x${hh}`, sig = `${ovKey}|${velEl.firstChild?.textContent}|${dirFull}|${patFull}|${pickNext}`;
+    const ovKey = `${w}x${hh}`, sig = `${ovKey}|${wText(velEl.firstChild)}|${dirFull}|${patFull}|${pickNext}`;
     if (sig !== layoutSig || performance.now() - ovAt > 500) { layoutSig = sig; layW = w; layH = hh; if (!layoutSoon) layoutSoon = setTimeout(stripLayout, 0); }
     const padL = PAD_L, padR = PAD_R, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;
     // (A slide's paired trace takes a band at the foot of the trace area: the main trace is shorter by it, the card the same size.)

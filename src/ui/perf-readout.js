@@ -6,6 +6,7 @@
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
 import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=625c2c9315';
 import { perf, watchFrames, finalFrameFor } from './frame.js?v=7710f677e2';
+import { restPass } from './rest-pass.js?v=bf0c42ead5';
 // (The readout's own loop: through the app's one frame scheduler, last in each frame, not a requestAnimationFrame of its own.)
 const nextFrame = finalFrameFor('perf readout');
 import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js?v=9cd1d0c4e3';
@@ -287,7 +288,8 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   surfEl.style.cssText = 'margin-top:8px';
   const surfText = () => surfacesText(surfaceRows());
   let shownSurf = '';
-  const paintSurf = () => { const t = surfText(); if (t !== shownSurf) { shownSurf = t; surfEl.textContent = t; } };
+  // (The readout's own words are written between frames, never in one: rest-pass.js. Its monospace panel is a debugging tool, shown with ?perf.)
+  const paintSurf = () => restPass(() => { const t = surfText(); if (t !== shownSurf) { shownSurf = t; surfEl.textContent = t; } });
   setInterval(() => { if (!cur && !folded && !document.hidden) paintSurf(); }, 500);
   if (window.pps) window.pps.surfaces = () => surfaceRows();   // (for a headless run: pps.surfaces())
   const scan = () => blurText(scanBlurs(document, (el) => window.pps?.stage?.blurWhy?.(el) ?? null), document.querySelectorAll('[data-gl]').length);
@@ -307,7 +309,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   logEl.style.cssText = 'margin-top:8px';
   const logText = () => [longFramesText(frameLog.long), inputsText(perf().inputToPaint)].join('\n\n');
   let shownLog = '', folded = false;
-  const paintLog = () => { const t = logText(); if (t !== shownLog) { shownLog = t; logEl.textContent = t; } };
+  const paintLog = () => restPass(() => { const t = logText(); if (t !== shownLog) { shownLog = t; logEl.textContent = t; } });
   setInterval(() => { if (!cur && !document.hidden && !folded) paintLog(); }, 1000);   // (not while hidden or folded: nothing to see)
   paintLog();
   bar.append(title, rest, rec, hide, gpu, orgs, blurs, copy); el.append(bar, body, surfEl, blurEl, logEl);
@@ -322,6 +324,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
     }
     setTimeout(() => { copy.textContent = 'Copy'; }, 1500);
   };
-  function paint() { body.textContent = reports.map(gestureText).join('\n\n'); }
+  let paintAsk = 0;
+  function paint() { if (!paintAsk) paintAsk = restPass(() => { paintAsk = 0; body.textContent = reports.map(gestureText).join('\n\n'); }); }
   document.body.append(el);
 }

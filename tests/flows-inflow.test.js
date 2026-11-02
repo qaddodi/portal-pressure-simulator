@@ -45,7 +45,7 @@ const fp = (pv, ha, shunt = 0, via = {}) => {
   return { at: { Q }, shunt };
 };
 const healthy = fp(73, 27);
-const chart = (card) => card.el.kids.find((k) => k.tag === 'svg');   // (the bar's model, beside its GPU picture)
+const chart = (card) => card.el.kids.find((k) => k.tag === 'svg') || card.el._svgGL?.pending;   // (the bar's model, beside its GPU picture; one swapped in during a frame waits off the page until a rest pass)
 const walk = (n, out = []) => { out.push(n); for (const k of n.kids || []) if (k && typeof k === 'object') walk(k, out); return out; };
 const words = (n) => n.kids.filter((k) => typeof k === 'string').join('');
 const drain = () => { let n = 0; while (frames.length && n++ < 300) frames.shift()(); return n; };

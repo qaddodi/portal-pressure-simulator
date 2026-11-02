@@ -19,7 +19,7 @@ import { monotoneSegs } from './curve-near.js?v=663c98a29c';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { pressureColor } from './colormap.js?v=3d33c1ecd4';
 import { measure } from './glyph-measure.js?v=131d137ce2';
-import { createSvgGL, svgModel } from './svg-gl.js?v=665756452b';
+import { createSvgGL, svgModel } from './svg-gl.js?v=9fa22c5ccb';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;

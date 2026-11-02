@@ -5607,6 +5607,12 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .dop-range[hidden] { display: none; }
 .dop-track { position: relative; height: 8px; border-radius: 4px; background: var(--surface-2); container-type: inline-size; }
 .dop-band { position: absolute; top: 0; bottom: 0; left: 0; width: 100%; transform-origin: 0 50%; border-radius: 4px; background: var(--ok); opacity: .45; transition: translate var(--d-surface) var(--ease), scale var(--d-surface) var(--ease); }
+/* (The band in three pieces, doppler.js BAND_CAPS: a middle stretched by scale and two round ends moved by translate, all under the
+   band's one opacity, so where they overlap they show as one shape; every change is a transform eased on the compositor.) */
+.dop-band-caps { translate: none !important; scale: none !important; background: none; isolation: isolate; }
+.dop-band-caps > i { position: absolute; top: 0; bottom: 0; left: 0; background: var(--ok); transition: translate var(--d-surface) var(--ease), scale var(--d-surface) var(--ease); }
+.dop-band-caps > .dop-bm { left: 4px; width: calc(100% - 8px); transform-origin: 0 50%; }
+.dop-band-caps > .dop-bc { width: 8px; border-radius: 4px; }
 /* Where the reading sits on the usual range: a short upright tick, not a dot. */
 .dop-mark { position: absolute; top: 50%; left: 0; width: 4px; height: 18px; margin: -9px 0 0 -2px; border-radius: 2px; background: var(--text); box-shadow: 0 0 0 2px var(--surface, var(--bg)); box-sizing: border-box; transition: translate var(--d-surface) var(--ease); }
 .dop-mark::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--caution); opacity: 0; transition: opacity var(--d-small) var(--ease); }   /* (out of the usual range: the caution tint crossfades in over the tick, never an eased colour) */
@@ -7649,3 +7655,9 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    fit), and the model it is drawn from hidden. */
 :where(.svg-gl-box) { position: relative; }   /* (no weight: a box the stylesheet places absolutely, the ladder's chart, stays so, and holds the picture all the same) */
 .svg-gl, .svg-gl + .trace-gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+
+/* Words that change while they show, drawn on the GPU over their own box (gl-words.js): the page's own words are made clear while the
+   picture shows the new ones, and take them back once they hold still. The picture reaches a little past the box (never past a clipping
+   ancestor), set inline as it is measured. */
+.glw-on, .glw-on * { color: transparent !important; -webkit-text-fill-color: transparent !important; fill: transparent !important; text-shadow: none !important; }
+.glw > .glw-cv { z-index: 1; }

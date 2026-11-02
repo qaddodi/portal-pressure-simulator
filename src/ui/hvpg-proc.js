@@ -9,8 +9,9 @@
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
 import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=81aaed6aef';
+import { glWords } from './gl-words.js?v=879395fa93';
 import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { FONT } from './charts.js?v=19d270763f';
+import { FONT } from './charts.js?v=fe861d7f95';
 import { pressureColor } from './colormap.js?v=3d33c1ecd4';
 import { store, logAction, hiddenNow, updateParams } from './store.js?v=4ef2a6ffd8';
 import { shownOr } from './shown.js?v=d456014820';
@@ -62,6 +63,8 @@ export function createHvpgProcedure() {
   // (start() ignores the click that follows).
   const startBtn = h('button', { class: 'btn primary', onclick: () => start(), onpointerup: (e) => { if (e.pointerType !== 'mouse' && !startBtn.disabled) start(); } }, icon('catheter'), h('span', {}, 'Measure HVPG'));
   const note = h('p', { class: 'ctl-sub hvpg-note' });
+  // (The three readings and the button's words change as the catheter runs: drawn on the GPU while they change, gl-words.js.)
+  const valW = Object.fromEntries(Object.entries(vals).map(([k, e]) => [k, glWords(e)])), btnW = glWords(startBtn.lastChild);
   const bar = h('div', { class: 'hvpg-bar' }, startBtn, kv);
   // The treatments played on the same anatomy (proc-anim.js): each catheter on its own route, the model changed when it ends.
   // One the patient cannot have (a TIPS already in, a shunt already closed) stays dimmed, and a tap says why; BRTO and BATO
@@ -200,8 +203,8 @@ export function createHvpgProcedure() {
       : { fhvp: ph !== 'idle' && ph !== 'enter' && ph !== 'abort', whvp: ph === 'result' || (ph === 'wedge' && t >= T.callout), hvpg: ph === 'result' && (t0 == null || t >= T.sum) };
     for (const k of ['fhvp', 'whvp', 'hvpg']) {
       const txt = shown[k] ? fmt(v[k], 1) : '—';
-      if (vals[k].textContent !== txt) {
-        vals[k].textContent = txt;
+      if (valW[k].text !== txt) {
+        valW[k].set(txt);
         // The difference arrives after the two readings have settled: it fades and rises in, never pops. (Not a live reading:
         // restarted with every new tenth, its fade held it blank on Mac, iPad and sideways, sweep 2 review item 5.)
         if (k === 'hvpg' && shown.hvpg && !open) { vals.hvpg.classList.remove('in'); nextFrame(() => vals.hvpg.classList.add('in')); }   // (the next frame starts the fade again: no layout forced to restart it)
@@ -236,7 +239,7 @@ export function createHvpgProcedure() {
       if (b.getAttribute('aria-pressed') !== String(on)) b.setAttribute('aria-pressed', String(on));
     }
     const lbl = t0 != null && t < tEnd() ? 'Measuring…' : result ? 'Measure again' : 'Measure HVPG';
-    if (startBtn.lastChild.textContent !== lbl) startBtn.lastChild.textContent = lbl;
+    btnW.set(lbl);
     const n = st.mode === 'explore' && !st.presenting
       ? (st.showHvpg ? 'The HVPG readouts are always shown (Settings).' : st.hvpgMeasured ? 'Measured: the HVPG readouts are live for this patient until a new one.' : 'The HVPG readouts stay hidden until it is measured here.')
       : 'The same numbers as the HVPG tile.';

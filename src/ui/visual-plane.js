@@ -29,7 +29,7 @@ import { TILE, tileShown } from './table-marks.js?v=ff3ed0cc47';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { frameFor } from './frame.js?v=7710f677e2';
 import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
-import { createSvgGL, svgModel } from './svg-gl.js?v=665756452b';
+import { createSvgGL, svgModel } from './svg-gl.js?v=9fa22c5ccb';
 const reduceDot = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
 
 const nextFrame = frameFor('plane');

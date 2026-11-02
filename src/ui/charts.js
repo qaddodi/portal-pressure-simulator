@@ -15,6 +15,7 @@ import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { createTraceGL, fitPen } from './trace-gl.js?v=275432c81b';
 import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
 import { measure } from './glyph-measure.js?v=131d137ce2';
+import { glWords } from './gl-words.js?v=879395fa93';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -38,7 +39,6 @@ export const textW = (ctx, t) => {
 };
 // DOM writes only when something changed: a write on every frame, even of the same text, marks the page for a fresh
 // style and layout pass.
-const setText = (node, t) => { if (node && node.textContent !== t) node.textContent = t; };
 const setDisplay = (node, d) => { if (node && node.style.display !== d) node.style.display = d; };
 
 // A smooth curve through the points that never overshoots them (monotone cubic, Fritsch–Carlson),
@@ -69,7 +69,9 @@ export function createProfile() {
     h('span', { class: 'lg-compare', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--s1)', borderTopStyle: 'dotted' } }), 'Snapshot A'),
     h('span', { class: 'lg-pred', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--accent)', borderTopStyle: 'dashed' } }), 'Your prediction'));
   const note = h('div', { class: 'sub' }, 'Pressure from gut to heart. Where the line drops steeply, that is where the resistance is highest. The spans along the bottom show HVPG (wedged − free hepatic vein) and PPG (portal vein − IVC).');
-  const side = h('div', { class: 'chart-side' }, legend, note, h('div', { class: 'ctl-sub', id: 'profileOffscale' }));
+  // (The note under the profile changes with the drawing: drawn on the GPU while it changes, gl-words.js, never written in a frame.)
+  const offscale = h('div', { class: 'ctl-sub', id: 'profileOffscale' }), offscaleW = glWords(offscale);
+  const side = h('div', { class: 'chart-side' }, legend, note, offscale);
   el.append(box, side);
   let pathId = 'main';
   const curPath = () => PROFILE_PATHS.find((p) => p.id === pathId) || PROFILE_PATHS[0];
@@ -557,7 +559,7 @@ export function createProfile() {
     for (const v of vals) ctx.fillText(v.txt, v.x, (v.r.y0 + v.r.y1) / 2 + 0.5);
     if (pillMoving) { cancelFrame(easeRaf); easeRaf = nextFrame(() => { if (cv.isConnected && shown()) ease(); }); }
     ctx.textBaseline = 'alphabetic';
-    setText(el.querySelector('#profileOffscale'), hasArt ? 'Arterial pressure is drawn above the break (//) at its true value.' : '');
+    offscaleW.set(hasArt ? 'Arterial pressure is drawn above the break (//) at its true value.' : '');
     // prediction
     const lp = el.querySelector('.lg-pred');
     if (predict?.values?.size) {

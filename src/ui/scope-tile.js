@@ -3,6 +3,7 @@
 // instrument's own (endo-render.js, endo-size.js), made once for each step of 1/14 of its engorgement and eased in over the one before.
 // It is laid by the GPU's chart drawer (trace-gl.js) as a texture: the new picture fades in over the old one kept on the GPU, no 2D canvas.
 import { h } from './util.js?v=81aaed6aef';
+import { glWords } from './gl-words.js?v=879395fa93';
 import { renderEndo } from './endo-render.js?v=8b95dfe9dd';
 import { endoGrow, LARGE_MM } from './endo-size.js?v=e0a58bf20e';
 import { D_SURFACE, easeArrive } from './ease.js?v=7513a88c68';
@@ -19,6 +20,7 @@ export function createScopeTile() {
   const word = h('span', { class: 'pzs-word' });
   const disc = h('span', { class: 'pzs-disc' }, top);
   const el = h('div', { class: 'pzs-pic' }, disc, word);
+  const wordW = glWords(word);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   let key = null, timer = 0, img = null, ver = 0, swap = false, fadeT0 = -1, asked = 0;
   const pen = createTraceGL(top, { redraw: () => paint() });
@@ -48,7 +50,7 @@ export function createScopeTile() {
     /** d: the varix diameter now, in mm. */
     set(d) {
       const k = scopeKey(d), w = scopeWord(d);
-      if (word.textContent !== w) word.textContent = w;
+      wordW.set(w);   // (drawn on the GPU while it changes, gl-words.js)
       if (k === key) return;
       clearTimeout(timer);
       timer = setTimeout(() => show(k), key === null ? 0 : 30);   // (out of the model frame's own work)

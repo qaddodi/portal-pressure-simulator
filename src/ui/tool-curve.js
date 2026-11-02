@@ -72,7 +72,7 @@ import { HVPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { frameFor } from './frame.js?v=7710f677e2';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=665756452b';
+import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=9fa22c5ccb';
 import { airRatio } from './endo-size.js?v=e0a58bf20e';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 const nextFrame = frameFor('tool-curve');
@@ -771,7 +771,10 @@ export function createCurve() {
       const d = ys ? ys.map((y, i) => (Number.isFinite(y) ? [X(xs[i]), Y(y)] : null)).filter(Boolean).map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') : '';
       return { l, Y, path: sv('path', { class: `ptk-line pcv-line${l.ref ? ' pcv-ref' : l.dash ? ' pcv-dash' : ''}`, d, style: `stroke: var(${l.c})` }),
         ring: sv('circle', { class: 'pcv-ring off', r: Math.max(5, f * 0.45), style: `stroke: var(${l.c})`, 'data-nomorph': '' }),
-        val: sv('text', { class: 'pcv-v', style: `fill: var(${l.c})`, 'data-nomorph': '' }),
+        // (Its pieces for a merged readout, "5.3 mm · 72 %": a separator and a value in each line's colour, built with the drawing, so a
+        // frame only gives them words, never builds them.)
+        val: sv('text', { class: 'pcv-v', style: `fill: var(${l.c})`, 'data-nomorph': '' },
+          ls.flatMap((q, i) => [i ? sv('tspan', { class: 'pcv-sep' }, '') : null, sv('tspan', { style: `fill: var(${q.c})` }, '')]).filter(Boolean)),
         // (With against each line is named on the drawing, placed on every paint clear of the rings and the values.)
         name: G.ag ? sv('text', { class: 'pcv-name', style: `fill: var(${l.c})`, 'data-nomorph': '' }, l.name) : null };
     });
@@ -850,8 +853,18 @@ export function createCurve() {
       const txt = lead ? pieces.map((q) => q.t).join(' · ') : on && !gone ? (G.ag ? fmt(v, p.l.d) : `${fmt(v, p.l.d)} ${p.l.unit}`) : '';   // (with against the key carries the unit)
       if (p.val.dataset.k !== txt) {
         p.val.dataset.k = txt;
-        if (pieces) p.val._t = null, p.val.replaceChildren(...pieces.flatMap((q, i) => [i ? sv('tspan', { class: 'pcv-sep' }, ' · ') : null, sv('tspan', { style: `fill: var(${q.c})` }, q.t)]).filter(Boolean));
-        else setWords(p.val, txt);
+        if (pieces) {
+          // (The merged lines' own pieces take their words, every other piece none: the order is the lines', as ringed is.)
+          p.val._t = null;
+          const ts = [...p.val.children], on2 = new Set(ringed);
+          let first = true;
+          parts.lines.forEach((q, jj) => {
+            const vEl = ts[jj ? 2 * jj : 0], sEl = jj ? ts[2 * jj - 1] : null, has = on2.has(jj);
+            setWords(vEl, has ? `${fmt(r.ys[jj], q.l.d)} ${shortUnit(q.l.unit)}` : '');
+            if (sEl) setWords(sEl, has && !first ? ' · ' : '');
+            if (has) first = false;
+          });
+        } else setWords(p.val, txt);
       }
       if (!on || gone) return;
       const cands = [];

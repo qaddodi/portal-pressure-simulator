@@ -19,12 +19,12 @@
 // Every call into a package is guarded, so a package that throws loses its own feature and never stops a talk.
 
 import highlights from './ext-highlights.js?v=9e59667812';
-import charts from './ext-charts.js?v=fd3efc9afd';
-import model from './ext-model.js?v=d34ba9ff44';
-import panels from './ext-panels.js?v=947cb81f3e';
+import charts from './ext-charts.js?v=76ce6f721b';
+import model from './ext-model.js?v=2df4288188';
+import panels from './ext-panels.js?v=d83d3c1048';
 import callouts from './ext-callouts.js?v=63d28fc0a3';
-import instruments from './ext-instruments.js?v=ef99bd7185';
-import teaching from './ext-teaching.js?v=f81a93439d';
+import instruments from './ext-instruments.js?v=e7660d28fe';
+import teaching from './ext-teaching.js?v=51272ad438';
 
 export const PACKAGES = { A: highlights, B: charts, C: model, E: panels, F: callouts, G: instruments, H: teaching };
 const NAMED = ['targets', 'lenses', 'sets', 'tools', 'visuals', 'columns'];

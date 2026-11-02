@@ -12,6 +12,7 @@
 // The first few call sites in a moving frame are kept (from the stack) and the last one is shown, so a red flash names its cause.
 // window.pps.offgpu() returns the totals and the recent sites (for tests and the console).
 import { watchFrames } from './frame.js?v=7710f677e2';
+import { restPass } from './rest-pass.js?v=bf0c42ead5';
 
 const KINDS = ['2d', 'svg', 'layout', 'upload', 'shader'];
 const UPLOAD_RED = 512 * 1024;   // (small row updates every frame are the GPU's normal diet; a big re-upload is the stall)
@@ -106,7 +107,7 @@ let pointers = 0, wheelAt = -1e9, chained = false;
 const moveNow = () => chained || pointers > 0 || performance.now() - wheelAt < 150;
 
 // ---- the readout ----
-let el = null, shownAt = 0, red = false, redUntil = 0, sec = zero(), secAt = 0, secShown = zero(), redFrames = 0;
+let el = null, showAsk = 0, shownAt = 0, red = false, redUntil = 0, sec = zero(), secAt = 0, secShown = zero(), redFrames = 0;
 function ensureEl() {
   if (el) return el;
   quiet++;
@@ -150,7 +151,8 @@ function onFrame(f) {
   }
   if (f.now - secAt >= 1000) { secShown = sec; sec = zero(); secAt = f.now; }
   const r = f.now < redUntil;
-  if (r !== red || f.now - shownAt > 250) { red = r; show(f.now); }
+  // (The readout is written between frames, never in one: rest-pass.js.)
+  if ((r !== red || f.now - shownAt > 250) && !showAsk) { red = r; shownAt = f.now; showAsk = restPass(() => { showAsk = 0; show(performance.now()); }); }
 }
 
 export function startOffGpuOverlay() {

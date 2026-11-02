@@ -17,7 +17,7 @@ test('the strip is sized by width, type sizes and vessel kind, not by the words 
   assert.match(fit, /for \(i = stripBase; i < STEPS\.length - 1; i\+\+\)/);
   // (and the step is remembered by the words' shape, the reading's digits all one width: a new number measures nothing)
   assert.match(fit, /stripSteps\.get\(shape\)/);
-  assert.match(fit, /velB\.textContent\.replace\(\/\\d\/g, '0'\)/);
+  assert.match(fit, /wText\(velB\)\.replace\(\/\\d\/g, '0'\)/);   // (the words it shows, which the GPU draws while they change: gl-words.js)
   // (the number keeps a slot as wide as its widest reading)
   assert.match(fit, /velB\.style\.minWidth = `\$\{[^`]+\}em`/);
 });

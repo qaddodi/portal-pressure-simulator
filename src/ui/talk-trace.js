@@ -7,7 +7,7 @@ import { hvpgRate } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { bandKeys, bandRuns, bandSpan, namePlaces } from './rx-bands.js?v=51e83c7c59';
-import { createSvgGL, svgModel } from './svg-gl.js?v=665756452b';
+import { createSvgGL, svgModel } from './svg-gl.js?v=9fa22c5ccb';
 import { measure } from './glyph-measure.js?v=131d137ce2';
 
 // ── The talk so far: PV, WHVP and FHVP at each state, the HVPG in its own lane with its cut-offs ──
