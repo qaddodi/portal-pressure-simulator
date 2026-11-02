@@ -54,7 +54,7 @@ test('the tile is a picture recorded for the GPU, painted into the copier\'s tex
   assert.match(tgl, /if \(isGpuPicture\(src\)\) \{\n\s+const tex = paintGL\(gl\)\.paint\(src\.rec, \{ mip: false \}\);/);
   assert.match(tgl, /return null; {3}\/\/ \(every tile is a recorded picture: no canvas is sent\)/);
   assert.doesNotMatch(tgl, /texSubImage2D/, 'no canvas sent to the copier');
-  assert.match(fgl, /export const FX_GPU = !\(typeof location !== 'undefined' && \/\[\?&\]fxgpu=0\\b\/\.test/);
+  assert.match(fgl, /export const FX_GPU = true;/);
   assert.match(lz, /const g = can && FX_GPU \? fxGLOn\(\) : null;\n\s+if \(!g\) \{ fxGLShow\(false\); return false; \}/);
 });
 

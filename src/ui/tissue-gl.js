@@ -11,7 +11,7 @@
 // Without WebGL2 (or once the context is lost) createTissueGL returns null / reports lost, and the tissue is not drawn until the
 // context is back: there is no 2D drawing of it (1 Nov 2026, nothing off the GPU). A software renderer draws it too.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=3e750c4fef';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone } from './gl-compile.js?v=3e750c4fef';
 import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=dafce7cc02';
 import { isTileCopy, createTileCopier } from './tile-gl.js?v=37a6cec143';
 import { isGpuPicture, paintGL } from './paint-gl.js?v=a93cf170a9';
@@ -30,13 +30,12 @@ export const tissueVS = VS;   // (for the shader lint in the unit tests)
 // (A tile laid over the page's colour by its own alpha: the same picture for an opaque tile, the page's colour, not black, for one the
 // browser could not give memory to. See field-gl.js TILE_OVER; ?tileover=0 reads the rgb alone, as before.)
 const Q = (over, s) => (over ? `over(texture(${s}, uv))` : `texture(${s}, uv).rgb`);
-// The dive and the rise on the GPU (?divegpu=0: their copies made from the 2D canvas, as before). While the zoom scales the lobule's
+// The dive and the rise on the GPU. While the zoom scales the lobule's
 // layers down, the screen's picture would show its surround as a pale card: so past the lobule's rim the picture is cleared (opaque to
 // DIVE_RIM.solid of the radius, gone by DIVE_RIM.clear), and only the lobule's own layer (the bitmap, and its live share) is kept whole
 // there, its portal tracts and the corners' triads reaching past the rim. The same picture as the 2D copy (lobule-zoom.js diveCopy):
 // the tissue × the fade, plus the lobule's own layer × the rest, premultiplied. Drawn once as the zoom starts; the compositor scales it.
-export const DIVE_GPU = !(typeof location !== 'undefined' && /[?&]divegpu=0\b/.test(location.search || ''));
-export const tissueFS = (live, over = TILE_OVER, rim = DIVE_GPU) => `#version 300 es
+export const tissueFS = (live, over = TILE_OVER) => `#version 300 es
 precision highp float;
 uniform sampler2D uQA, uQB, uQO, uW, uWO;   // the quiet tiles at the two sizes blended, the last state's tile; the bitmap, the last state's
 uniform float uMix, uQOld;                   // how much of the larger tile; how much of the last state's tile is left
@@ -47,8 +46,8 @@ uniform vec2 uWMix;                          // the new bitmap's share, the old 
 uniform vec2 uFade;                          // r0, r1
 uniform float uMid;                          // FADE_MID
 uniform vec3 uBg;                            // the page's colour
-uniform vec2 uGrey;                          // the surround's grade in a lens other than Pressure: saturation, opacity (1, 1: as drawn)${rim ? `
-uniform vec4 uRim;                           // the dive's rim: centre (device px), solid to clear radii (w 0: none)` : ''}
+uniform vec2 uGrey;                          // the surround's grade in a lens other than Pressure: saturation, opacity (1, 1: as drawn)
+uniform vec4 uRim;                           // the dive's rim: centre (device px), solid to clear radii (w 0: none)
 out vec4 o;${live ? '\n' + LIVE_FS : ''}${over ? '\nvec3 over(vec4 t) { return t.rgb * t.a + uBg * (1.0 - t.a); }' : ''}
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uH - gl_FragCoord.y);
@@ -58,7 +57,8 @@ void main() {
   // Grey as the anatomy's liver is in this lens (lobule-look.js surroundGrade): toward its luma, then toward the page. Only the surround:
   // the lobule's bitmap, laid over it next, keeps the lens's colours.
   if (uGrey.x < 1.0 || uGrey.y < 1.0) c = mix(uBg, mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uGrey.x), uGrey.y);
-${rim ? '  vec4 own = vec4(0.0);   // (the lobule\'s own layer, for the rim)\n' : ''}  vec2 w = (p - uRect.xy) / uRect.z;${live ? '\n  vec3 c0 = c;' : ''}
+  vec4 own = vec4(0.0);   // (the lobule's own layer, for the rim)
+  vec2 w = (p - uRect.xy) / uRect.z;${live ? '\n  vec3 c0 = c;' : ''}
   if (w.x >= 0.0 && w.y >= 0.0 && w.x <= 1.0 && w.y <= 1.0) {
     // The bitmap's lookups sit in a branch only the pixels inside its box take, where the implicit derivatives that pick a mipmap level
     // are undefined: along the box's edge the first pixel of each pair read the coarsest level (the bitmap's average colour) and drew a
@@ -69,15 +69,16 @@ ${rim ? '  vec4 own = vec4(0.0);   // (the lobule\'s own layer, for the rim)\n' 
     vec4 l = textureGrad(uW, w, gx, gy) * uWMix.x;
     if (uWMix.y > 0.0) l += textureGrad(uWO, w, gx, gy) * uWMix.y;
     l *= e;
-    c = l.rgb + c * (1.0 - l.a);${rim ? '\n    own = l;' : ''}${live ? `
+    c = l.rgb + c * (1.0 - l.a);
+    own = l;${live ? `
     // The lobule drawn live (lobule-live.js) in the share uLive: (1 − u)·(bitmap over the surround) + u·(live over it), the same as
     // mixing the two pictures before laying them, as over is linear in the top picture.
-    if (uLive > 0.0) { vec4 ls = liveTissue(w) * e; c = mix(c, ls.rgb + c0 * (1.0 - ls.a), uLive);${rim ? ' own = mix(own, ls, uLive);' : ''} }` : ''}
+    if (uLive > 0.0) { vec4 ls = liveTissue(w) * e; c = mix(c, ls.rgb + c0 * (1.0 - ls.a), uLive); own = mix(own, ls, uLive); }` : ''}
   }
   float s = clamp((length(p - uO) - uFade.x) / max(uFade.y - uFade.x, 1e-6), 0.0, 1.0);
   float a = s < 0.5 ? uMid * s * 2.0 : uMid + (1.0 - uMid) * (s - 0.5) * 2.0;
-  o = vec4(mix(c, uBg, a), 1.0);${rim ? `
-  if (uRim.w > 0.0) { float f = clamp((uRim.w - length(p - uRim.xy)) / max(uRim.w - uRim.z, 1e-6), 0.0, 1.0); o = o * f + own * (1.0 - f); }` : ''}
+  o = vec4(mix(c, uBg, a), 1.0);
+  if (uRim.w > 0.0) { float f = clamp((uRim.w - length(p - uRim.xy)) / max(uRim.w - uRim.z, 1e-6), 0.0, 1.0); o = o * f + own * (1.0 - f); }
 }`;
 
 /** opts.onLive(): called once the program that draws the lobule live has been published (liveReady() is true) or has failed (it never
@@ -141,7 +142,7 @@ export function createTissueGL(canvas, opts = {}) {
     gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND);
   }
   let prog = null, U0 = null, failed = false, liveTex = null;   // (liveTex: the lobule's shapes on the GPU, for the shape liveTex.for)
-  const COMMON_U = ['uQA', 'uQB', 'uQO', 'uW', 'uWO', 'uMix', 'uQOld', 'uO', 'uRd', 'uH', 'uRect', 'uWMix', 'uFade', 'uMid', 'uBg', 'uGrey', ...(DIVE_GPU ? ['uRim'] : [])];
+  const COMMON_U = ['uQA', 'uQB', 'uQO', 'uW', 'uWO', 'uMix', 'uQOld', 'uO', 'uRd', 'uH', 'uRect', 'uWMix', 'uFade', 'uMid', 'uBg', 'uGrey', 'uRim'];
   const LIVE_U = ['uLC', 'uLB', 'uLI', 'uLBox', 'uLN', 'uLEdge', 'uLCtr', 'uLCen', 'uLSt', 'uLGap', 'uLGap55', 'uLBase', 'uLNut', 'uLZ1', 'uLZ2', 'uLZ3', 'uLPlate', 'uLInk', 'uLZl', 'uLive', 'uLS', 'uLK', 'uLSin', 'uLFib', 'uLKB', 'uLShd', 'uLShade', 'uLHs', 'uLHB', 'uLHN'];   // (the lobule drawn live, lobule-live.js)
   const locate = (p, names) => Object.fromEntries(names.map((n) => [n, gl.getUniformLocation(p, n)]));
   // Reads the finished program, sets its samplers and runs one small offscreen draw, so the first real draw has no driver work left.
@@ -258,8 +259,8 @@ export function createTissueGL(canvas, opts = {}) {
   // has changed, is that texture copied again, shifted, with only the strips the move uncovers drawn live: an exact copy of
   // pixels (a blit, no filtering), not a resampling, so it is the picture the shader would draw. Any other change, or a move
   // by a fraction of a pixel, is drawn live in full, so nothing is ever approximate. Only live frames are kept; the bitmap program
-  // draws straight to the canvas as ever. ?tissuekeep=0 turns it off.
-  let keepOff = typeof location !== 'undefined' && /[?&]tissuekeep=0\b/.test(location.search || '');
+  // draws straight to the canvas as ever.
+  let keepOff = false;
   let pic = null;   // { cur, spare, W, H, sig, ref }: cur holds the kept picture; spare is the other of the pair, made at the first pan
   const keepStats = { full: 0, shifted: 0, still: 0 };
   function makeTarget(w, h) {
@@ -352,12 +353,11 @@ export function createTissueGL(canvas, opts = {}) {
      *  rect: [x, y, side] of the bitmap; ox, oy, rd: the lobule's centre and radius; fade: [r0, r1]; mid: FADE_MID; bg: [r, g, b];
      *  grey: the surround's grade [saturation, opacity] (surroundGrade), null as drawn; live: the lobule drawn by the shader in a share
      *  of the picture, null for none (lobule-live.js): { shape, data (buildLive), share, cu, sj, zones, dark, cen: [x, y, R], col (liveColours) };
-     *  rim: the dive's rim [x, y, r solid, r clear] (device px), past which only the lobule's own layer is kept (DIVE_GPU), null for none. */
+     *  rim: the dive's rim [x, y, r solid, r clear] (device px), past which only the lobule's own layer is kept, null for none. */
     draw({ W, H, qa, qb, mix, qo = null, qOld = 0, w, wVer, wo = null, woVer = 0, wMix = 1, rect, ox, oy, rd, fade, mid, bg, live = null, grey = null, rim = null, hold = false }) {
       // (Published by the idle poll, long before a dive; a draw that comes first publishes it only once the driver says it is compiled, so
-      // no frame waits on a compile: still compiling, the tissue keeps the frame it shows (hold, at this size) or the 2D canvas draws this one.
-      // ?shaderwarm=0: published here whatever it costs, as before.)
-      if (!prog && !failed && !lost && SHADER_WARM) {
+      // no frame waits on a compile: still compiling, the tissue keeps the frame it shows (hold, at this size) or the 2D canvas draws this one.)
+      if (!prog && !failed && !lost) {
         let ready;
         try { ready = compileDone(gl, [started]); } catch { ready = true; }
         if (!ready) return hold && pictured && tgt.width === W && tgt.height === H ? 'held' : false;
@@ -402,7 +402,7 @@ export function createTissueGL(canvas, opts = {}) {
       UC.f2(U.uFade, fade[0], fade[1]); UC.f1(U.uMid, mid);
       UC.f3(U.uBg, bg[0], bg[1], bg[2]);
       UC.f2(U.uGrey, grey ? grey[0] : 1, grey ? grey[1] : 1);
-      if (DIVE_GPU) { const r = rim || [0, 0, 0, 0]; UC.f4(U.uRim, r[0], r[1], r[2], r[3]); }
+      { const r = rim || [0, 0, 0, 0]; UC.f4(U.uRim, r[0], r[1], r[2], r[3]); }
       if (isLive) {
         const T = liveFor(live.shape, live.data), D = live.data, C = live.col;
         T.t.forEach((t, i) => { gl.activeTexture(gl.TEXTURE0 + LIVE_UNIT + i); gl.bindTexture(gl.TEXTURE_2D, t); });
@@ -423,7 +423,7 @@ export function createTissueGL(canvas, opts = {}) {
         UC.f4(U.uLHN, C.nuc[0], C.nuc[1], C.nuc[2], (0.3 + 0.3 * ac.act) * F.act);
         UC.f1(U.uLive, live.share);
       }
-      if (isLive) drawLive(W, H, liveSig(W, H, { rim: DIVE_GPU && rim ? rim : null, qa, qb: qb || null, mix: qb ? mix : 0, qo: qo && qOld > 0 ? qo : null, qOld: qo ? qOld : 0, w: w?.width ? w : null, wVer, wo: old ? wo : null, woVer: old ? woVer : 0, wMix: old ? wMix : 1, rect, rd, fade, mid, bg, grey }, live), [ox, oy, rect[0], rect[1]]);
+      if (isLive) drawLive(W, H, liveSig(W, H, { rim: rim || null, qa, qb: qb || null, mix: qb ? mix : 0, qo: qo && qOld > 0 ? qo : null, qOld: qo ? qOld : 0, w: w?.width ? w : null, wVer, wo: old ? wo : null, woVer: old ? woVer : 0, wMix: old ? wMix : 1, rect, rd, fade, mid, bg, grey }, live), [ox, oy, rect[0], rect[1]]);
       else { dropKept(); gl.drawArrays(gl.TRIANGLES, 0, 3); }
       pictured = true;
       hostDone();

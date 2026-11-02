@@ -22,9 +22,8 @@ test('moving: the app is busy or the stage carries a gesture class', () => {
   assert.doesNotMatch(src, /creditstill/);
 });
 
-test('gl-words: words that land in a box already measured keep its measure; a new box, a unit that comes or goes, or ?glwkeep=0 measures again', () => {
+test('gl-words: words that land in a box already measured keep its measure; a new box, or a unit that comes or goes, measures again', () => {
   const glw = readFileSync(new URL('../src/ui/gl-words.js', import.meta.url), 'utf8');
-  assert.match(glw, /if \(!LAND_KEEP \|\| !S\.at \|\| S\.at\.sm !== \(!!S\.small && !S\.small\.hidden\)\) askMeasure\(S\);/);
+  assert.match(glw, /if \(!S\.at \|\| S\.at\.sm !== \(!!S\.small && !S\.small\.hidden\)\) askMeasure\(S\);/);
   assert.match(glw, /\(?(?:S\.ro = )?new ResizeObserver\(ask\)\)?\.observe\(el\)/, 'a box that changes size is measured again');   // (kept as S.ro for dispose(), a90d5609)
-  assert.match(glw, /\[\?&\]glwkeep=0\\b/);
 });

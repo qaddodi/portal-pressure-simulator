@@ -11,14 +11,12 @@
 // ductules are drawn analytically in that pass (six discs; every pixel tests the few near it).
 //
 // Without WebGL2, on a software renderer or once the context is lost, createFxGL returns null / reports lost, and paintFx draws.
-// ?fxgpu=0: paintFx always, as before.
 
 import { startProgram, checkProgram } from './gl-compile.js?v=3e750c4fef';
 import { fbComplete } from './gl-state.js?v=3569b73302';
 import { uniformCache } from './uniform-cache.js?v=3c43b7a297';
 
-const FX_KEEP = !(typeof location !== 'undefined' && /[?&]lykeep=0\b/.test(location.search || ''));
-export const FX_GPU = !(typeof location !== 'undefined' && /[?&]fxgpu=0\b/.test(location.search || ''));
+export const FX_GPU = true;   // (switch deleted; kept for lobule-zoom.js until its own pass)
 export const MAX_DUCTS = 8;
 
 // A capsule (a segment with round ends, or a disc where both ends meet), filled or as a ring, drawn into one coverage channel.
@@ -173,11 +171,9 @@ export function createFxGL(canvas, { host = null } = {}) {
     const B = bufs[k];
     if (B.data === data) return B.n;
     gl.bindBuffer(gl.ARRAY_BUFFER, B.buf);
-    // (R13: the buffer's storage kept and its used part rewritten while it fits; grown, to twice, only when outgrown.
-    // ?lykeep=0: new storage for every upload, as before.)
-    if (FX_KEEP && data.byteLength <= B.cap) gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
-    else if (FX_KEEP) { B.cap = Math.max(data.byteLength * 2, 1536); gl.bufferData(gl.ARRAY_BUFFER, B.cap, gl.DYNAMIC_DRAW); gl.bufferSubData(gl.ARRAY_BUFFER, 0, data); }
-    else gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+    // (R13: the buffer's storage kept and its used part rewritten while it fits; grown, to twice, only when outgrown.)
+    if (data.byteLength <= B.cap) gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
+    else { B.cap = Math.max(data.byteLength * 2, 1536); gl.bufferData(gl.ARRAY_BUFFER, B.cap, gl.DYNAMIC_DRAW); gl.bufferSubData(gl.ARRAY_BUFFER, 0, data); }
     B.data = data; B.n = data.length / 6;
     return B.n;
   }

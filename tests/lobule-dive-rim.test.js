@@ -40,7 +40,7 @@ test("the dive's copy fades the surround but never the lobule's own drawing", ()
 
 test('the tissue\'s shader builds that mix (1 Nov: the 2D copy, diveCopy, is gone), and nothing of the lobule is masked with the rim', async () => {
   const { tissueFS } = await import('../src/ui/tissue-gl.js');
-  assert.match(tissueFS(false, true, true), /if \(uRim\.w > 0\.0\) \{ float f = clamp\(\(uRim\.w - length\(p - uRim\.xy\)\) \/ max\(uRim\.w - uRim\.z, 1e-6\), 0\.0, 1\.0\); o = o \* f \+ own \* \(1\.0 - f\); \}/, 'tissue × keep + own × (1 − keep)');
+  assert.match(tissueFS(false, true), /if \(uRim\.w > 0\.0\) \{ float f = clamp\(\(uRim\.w - length\(p - uRim\.xy\)\) \/ max\(uRim\.w - uRim\.z, 1e-6\), 0\.0, 1\.0\); o = o \* f \+ own \* \(1\.0 - f\); \}/, 'tissue × keep + own × (1 − keep)');
   assert.match(lz, /return \[x \* kx, y \* ky, r \* k \* DIVE_RIM\.solid, r \* k \* DIVE_RIM\.clear\];/, 'at the rim\'s own radii');
   // The vessels' canvas (only the lobule's own vessels) carries no CSS mask that would fade the triads past the corners.
   assert.doesNotMatch(lz, /maskImage/);

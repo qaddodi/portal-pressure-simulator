@@ -6,9 +6,8 @@ import { readFileSync } from 'node:fs';
 const tg = readFileSync(new URL('../src/ui/trace-gl.js', import.meta.url), 'utf8');
 const dp = readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8');
 
-test('the drawer keeps a still layer by its signature, drawn into its own texture, and ?chartkeep=0 draws it every frame', () => {
-  assert.match(tg, /export const chartKeepOff = \(search\) => \/\[\?&\]chartkeep=0\\b\//);
-  assert.match(tg, /keep\(name, sig, draw\) \{\n\s+if \(!KEEP \|\| !inFrame \|\| !P \|\| clipR \|\| clipOn \|\| outFb\) \{ draw\(\); return false; \}/);
+test('the drawer keeps a still layer by its signature, drawn into its own texture', () => {
+  assert.match(tg, /keep\(name, sig, draw\) \{\n\s+if \(!inFrame \|\| !P \|\| clipR \|\| clipOn \|\| outFb\) \{ draw\(\); return false; \}/);
   assert.match(tg, /if \(e\.sig !== sig\) \{\n\s+outFb = e\.fb;/);
   // (every return from a coverage pass goes back to the frame's own target, the canvas or the layer being drawn)
   assert.doesNotMatch(tg.slice(tg.indexOf('function outline('), tg.indexOf('function flush(')), /bindFramebuffer\(gl\.FRAMEBUFFER, null\)/);

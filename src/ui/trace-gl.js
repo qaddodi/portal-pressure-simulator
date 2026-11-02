@@ -17,7 +17,7 @@
 // the GPU can (publish). ?tracegl=0 keeps every chart undrawn.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=3e750c4fef';
-import { canvasSize, fitCanvas, onCanvasSized } from './util.js?v=b8cade9065';
+import { canvasSize, fitCanvas, onCanvasSized } from './util.js?v=f8b1115cda';
 import { sdfAtlas } from './text-gl.js?v=d1a9976923';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
 import { notePass, hold } from './gpu-budget.js?v=f3506e8647';
 import { fontOf, measure } from './glyph-measure.js?v=415f89f38e';
@@ -25,42 +25,33 @@ import { fbComplete } from './gl-state.js?v=3569b73302';
 export { measure };
 const { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
 
-/** ?tracegl=0 in a page's search string: every chart and monitor draws on its 2D canvas, as before. */
-export const traceGLOff = (search) => /[?&]tracegl=0\b/.test(String(search ?? ''));
 // A chart off the screen for PARK_MS gives back its WebGL context (WEBGL_lose_context), and takes it again as it nears the screen:
 // a browser keeps 16 or so contexts a page and drops the oldest past that, which was the figure's (a FibroScan slide held about 20).
-// ?ctxpark=0 keeps every chart's context.
-export const ctxParkOff = (search) => /[?&]ctxpark=0\b/.test(String(search ?? ''));
 const PARK_MS = 4000;
 // (2 Nov 2026, the review's "a deck opens 12 contexts": every chart draws in ONE WebGL2 context, an OffscreenCanvas the charts share. A
 // chart's frame is drawn there at the chart's own size and handed whole to the chart's own canvas (transferToImageBitmap into its
 // 'bitmaprenderer' context: the picture moves on the GPU, nothing is copied by the CPU). Its programs are compiled and its glyph field
 // uploaded once for all charts, so a chart coming into view never waits for a compile or comes in blank, and none is parked. Where
-// OffscreenCanvas WebGL2 is missing, each chart has its own context, as before. ?ctxshare=0: each its own, as before.)
-/** ?chartkeep=0: a chart's still parts (axes, grid, ticks, units) are drawn again every frame, not kept as a picture on the GPU (R16). */
-export const chartKeepOff = (search) => /[?&]chartkeep=0\b/.test(String(search ?? ''));
+// OffscreenCanvas WebGL2 is missing, each chart has its own context, as before.)
 /** The still parts of a chart drawn through `ctx` kept on the GPU under `name` while `sig` holds (see the drawer's keep); any other pen draws them. */
 export function keepLayer(ctx, name, sig, draw) {
   if (ctx && typeof ctx.keep === 'function') return ctx.keep(name, sig, draw);
   draw();
   return false;
 }
-export const ctxShareOff = (search) => /[?&]ctxshare=0\b/.test(String(search ?? ''));
 // (2 Nov 2026, audit R04: each chart sets the shared drawing buffer to its own size as its frame begins, so two charts of different sizes
 // drawn in one frame reallocated it twice a frame, and a full-screen picture (the page's words) beside a small chart, every frame. The
 // charts are spread over a few shared contexts (POOLS, least used first), so charts that draw in the same frame mostly keep their
-// own buffer's size. Each pool compiles the programs and holds the glyph field once. ?ctxpools=1: one context for all, as before.)
-const POOLS = (() => { const m = /[?&]ctxpools=(\d)\b/.exec(globalThis.location?.search || ''); return m ? Math.max(1, Math.min(4, +m[1])) : 3; })();
+// own buffer's size. Each pool compiles the programs and holds the glyph field once.)
+const POOLS = 3;
 const pools = [];
 /** Size reallocations of the shared buffers and pictures handed over, since the page opened (the ?perf readout, audit R04). */
 export const sharedStats = { resizes: 0, transfers: 0, moves: 0, covAllocs: 0, uploads: 0, subUploads: 0 };
 // (Review pass item 6, 2 Nov 2026: a pool whose buffer was sized for another chart less than SIZE_HOLD ms ago and is asked for a
 // different size again is thrashing. The chart asking moves, once per MOVE_GAP ms at most, to a pool already at its size or idle in
 // size, and a pool is prepared in a timer for the next chart if none is (programs and glyph field in, never in a frame). Coverage
-// targets are one per pool, grown in CAP_STEP steps and never shrunk, so charts of different sizes never reallocate them. ?chartmove=0:
-// a chart stays in the pool it was given.)
+// targets are one per pool, grown in CAP_STEP steps and never shrunk, so charts of different sizes never reallocate them.)
 const SIZE_HOLD = 1000, MOVE_GAP = 2000, CAP_STEP = 256;
-const CHART_MOVE = !/[?&]chartmove=0\b/.test(globalThis.location?.search || '');
 export const capOf = (n) => Math.ceil(Math.max(1, n) / CAP_STEP) * CAP_STEP;
 function makePool() {
   const pool = { dead: true, users: 0 };
@@ -330,7 +321,6 @@ void main() {
 
 // The glyphs' field, decoded once for every chart (an image, no canvas).
 let glyphImage = null;
-const ATLAS_IDLE = !(typeof location !== 'undefined' && /[?&]atlasidle=0\b/.test(location.search || ''));
 // (A chart that drew on its own canvas while the field was still decoding is drawn again on the GPU once it is in.)
 const waiting = new Set();
 const SRC = { seg: [SEG_VS, SEG_FS], comp: [QUAD_VS, COMP_FS], fill: [FILL_VS, FILL_FS], box: [BOX_VS, BOX_FS], text: [TEXT_VS, TEXT_FS], img: [IMG_VS, IMG_FS] };
@@ -383,18 +373,18 @@ const rgba = parseColour;
 const premul = (c, alpha = 1) => { const v = rgba(c), a = v[3] * alpha; return [v[0] * a, v[1] * a, v[2] * a, a]; };
 
 /** The GPU drawer for one chart, over `host` (the chart's 2D canvas), or null where it cannot be (the 2D canvas draws the chart). */
-export function createTraceGL(host, { search = globalThis.location?.search, redraw = null, under = null } = {}) {
+export function createTraceGL(host, { redraw = null, under = null } = {}) {
   // (canvasSize never measures: a chart drawn before the observer reported its box drew nothing, and draws again once it has one,
   // with or without this drawer)
   if (redraw && host && typeof ResizeObserver !== 'undefined') onCanvasSized(host, redraw);
-  if (typeof document === 'undefined' || traceGLOff(search)) return null;
+  if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 1;
   canvas.setAttribute('aria-hidden', 'true');
   canvas.className = 'trace-gl';
   canvas.style.pointerEvents = 'none';
   let gl = null, glCanvas = canvas, shown = null;
-  let shared = !ctxShareOff(search) ? sharedGL() : null;
+  let shared = sharedGL();
   if (shared) {
     try { shown = canvas.getContext('bitmaprenderer'); } catch { shown = null; }
     if (shown) { gl = shared.gl; glCanvas = shared.canvas; }
@@ -480,7 +470,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
         gl.bindVertexArray(null);
       });
       P = out; lost = false;
-      if (ATLAS_IDLE) sendAtlas();   // (the glyphs go up with the programs, in the same idle moment, not in the first frame)
+      sendAtlas();   // (the glyphs go up with the programs, in the same idle moment, not in the first frame)
       // (A frame that came while the GPU could not draw (still compiling, or the context lost or parked and now built again) drew nothing:
       // the chart draws again now, at once, rather than at its next change.)
       if ((missed || back) && redraw && !dead) { missed = back = false; try { redraw(); } catch (e2) { console.warn('Charts on the GPU: the redraw failed.', e2); } }
@@ -526,7 +516,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
   host.after(canvas);
   // (Parking: the context is given back while the chart is off the screen, display:none included, and taken again as it comes near.)
   let parkT = 0, seen = null;
-  if (loser && !ctxParkOff(search) && typeof IntersectionObserver === 'function') {
+  if (loser && typeof IntersectionObserver === 'function') {
     seen = new IntersectionObserver((es) => {
       if (dead) return;
       const on = es[es.length - 1].isIntersecting;
@@ -542,7 +532,6 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
   // (R16: the target a frame's draws land in: the chart's canvas (null), or a kept layer's texture while keep() draws one.)
   let outFb = null;
   const layers = new Map();   // (a kept layer's name → { tex, fb, rb, w, h, gen, sig }: the still parts of a chart, drawn once per sig)
-  const KEEP = !chartKeepOff(search);
   // (Review pass item 8: a chart's kept layers are held in the global budget as 'retained': let go, least recently drawn first, only while the
   // registry is over its envelope; drawn again at the next frame. Let go inside a frame, they go when it ends.)
   let layerHold = null, dropAfter = false;
@@ -711,10 +700,8 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
       if (shown && shared.atlasIn) atlasIn = true;
       if (!atlasIn) {
         // (Review pass 2, item 2: the glyphs' 1 MB field is never sent inside the frame that first asks for it. It goes up as the
-        // programs are published (publish) or, if the picture was decoded later, at the next idle moment, and the chart is drawn then.
-        // ?atlasidle=0: sent here, in the first frame, as before.)
-        if (ATLAS_IDLE) { sendAtlasSoon(); return false; }
-        sendAtlas();
+        // programs are published (publish) or, if the picture was decoded later, at the next idle moment, and the chart is drawn then.)
+        sendAtlasSoon(); return false;
       }
       return true;
     },
@@ -727,7 +714,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
         shared.active = api;
         if (glCanvas.width !== Wd || glCanvas.height !== Hd) {
           const t = performance.now();
-          if (CHART_MOVE && shared.sizedBy !== api && t - shared.sizedAt < SIZE_HOLD && t - movedAt > MOVE_GAP) {   // (another chart sized it just now; a chart changing its own size stays)
+          if (shared.sizedBy !== api && t - shared.sizedAt < SIZE_HOLD && t - movedAt > MOVE_GAP) {   // (another chart sized it just now; a chart changing its own size stays)
             const p = poolFor(pools, shared, Wd, Hd, t, (q) => stillCompiling(q.gl, Object.values(q.started)));
             if (p) {
               movedAt = t;
@@ -984,10 +971,10 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
      * R16: the still parts of a chart (axes, grid, ticks, units, fixed labels) kept as a picture on the GPU. draw() is called, into the
      * layer's own texture, only when sig (what those parts are drawn from: the layout, the scale, the theme's colours) or the canvas's size
      * changed, or the context was made again; every other frame lays the kept picture, one textured quad, with no path, word or buffer
-     * built by the CPU. Inside a clip it simply draws (the layer is the whole canvas). ?chartkeep=0: drawn every frame, as before.
+     * built by the CPU. Inside a clip it simply draws (the layer is the whole canvas).
      */
     keep(name, sig, draw) {
-      if (!KEEP || !inFrame || !P || clipR || clipOn || outFb) { draw(); return false; }
+      if (!inFrame || !P || clipR || clipOn || outFb) { draw(); return false; }
       flush();
       let e = layers.get(name);
       if (e && e.gen !== gen) { layers.delete(name); e = null; }   // (a context made again holds none of the old ones)

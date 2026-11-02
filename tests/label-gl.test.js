@@ -45,8 +45,9 @@ test('drop shadows are read in whatever order the browser writes them', () => {
   assert.deepEqual(rgba('rgba(255, 0, 0, 0.5)'), [0.5, 0, 0, 0.5]);
 });
 
-test('a keyboard focus\'s ring and a rect\'s drop shadow are GPU shapes, never pixels in the picture; ?labelfx=0 hands both to the SVG', () => {
-  assert.match(LGL, /if \(focused && !GPU_FOCUS\) return \{ svg: 'focus' \};/);
+test('a keyboard focus\'s ring and a rect\'s drop shadow are GPU shapes, never pixels in the picture', () => {
+  assert.doesNotMatch(LGL, /GPU_FOCUS/);
+  assert.match(LGL, /st\.ring = ringBox\(d, dpr, st\.frame\);/);
   assert.match(LGL, /d\.ring = \{ w, color: gs\.outlineColor, off: NUM\(gs\.outlineOffset\), box: b\.map/);
   // (A focus, or its colour easing in, sends no picture: the ring is not in the look key.)
   assert.equal(lookKey(desc(), false, 2), lookKey({ ...desc(), ring: { w: 2, color: 'blue', off: 3, box: [0, 0, 10, 10] } }, false, 2));
@@ -141,7 +142,7 @@ test('the FibroScan probe is drawn on the GPU over the labels, from a model of p
   assert.match(CSS, /\.scan-probe > \.sp-svg \{ visibility: hidden; \}/);
   assert.doesNotMatch(STAGE.slice(STAGE.indexOf('function scanPaint('), STAGE.indexOf('function setScanProbe(')), /<svg|<path|<rect|<text|<g[ >]/);
   assert.match(LGL, /dirty\.clear\(\);\n\s+moving = drawScan\(now\) \|\| moving;/, 'over the labels, as its layer lay');
-  assert.match(LGL, /if \(!L \|\| !\(BEAM_GL && L\.beam\.stops\.length === 2 && beamSector\(L\.beam\)\)\) \{ if \(scanEl\.hasAttribute\('data-gl'\)\) scanEl\.removeAttribute\('data-gl'\)/, 'a beam the shader cannot draw: the SVG keeps the probe');
+  assert.match(LGL, /if \(!L \|\| !\(L\.beam\.stops\.length === 2 && beamSector\(L\.beam\)\)\) \{ if \(scanEl\.hasAttribute\('data-gl'\)\) scanEl\.removeAttribute\('data-gl'\)/, 'a beam the shader cannot draw: the SVG keeps the probe');
   // (No 2D canvas for the probes: their heads are painted on the GPU (picture), the reading from the font's outlines (text-gl.js), and
   // their looks are read after the frame, their eases followed from their own clocks.)
   assert.doesNotMatch(LGL, /headCv|beamCv|sHeadCv/);
@@ -151,7 +152,7 @@ test('the FibroScan probe is drawn on the GPU over the labels, from a model of p
   assert.match(LGL, /if \(!sLook\) return false;/);
   // (The beam a soft sector drawn by the shader, kind 7: no 2D picture through a CSS blur, so Safari's canvas without filter keeps it on the GPU.)
   assert.match(LGL, /if \(uKind == 7\) \{/);
-  assert.match(LGL, /const bsec = BEAM_GL && L\.beam\.stops\.length === 2 \? beamSector\(L\.beam\) : null;/);
+  assert.match(LGL, /const bsec = L\.beam\.stops\.length === 2 \? beamSector\(L\.beam\) : null;/);
   assert.doesNotMatch(CSS, /\.sp-beam \{[^}]*filter: blur/);
   // The waves' writes ask for a frame, not a new look (they are read as it draws).
   assert.match(LGL, /!r\.target\.closest\?\.\('\.sp-waves'\)/);

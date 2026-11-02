@@ -99,14 +99,14 @@ test('G3: a gesture\'s own classes keep no layout watch due and make no label re
   assert.match(lg, /const outer = new MutationObserver\(\(rs\) => \{ if \(rs\.some\(\(r\) => changed\(r\) && !classOnly\(r, GESTURE_LOOK\)\)\) all\(\); \}\);/);
 });
 
-test('H3: the glass canvases hold at most 2 device px per CSS px; the labels too (2 Nov: capped at 2x, ?labeldpr=0 keeps the screen\'s own)', async () => {
+test('H3: the glass canvases hold at most 2 device px per CSS px; the labels too (2 Nov: capped at 2x)', async () => {
   globalThis.window = globalThis;
   const { glassDpr } = await import('../src/ui/glass-gl.js');
   for (const [d, k] of [[3, 2], [2, 2], [1.5, 1.5], [1, 1], [undefined, 1]]) { globalThis.devicePixelRatio = d; assert.equal(glassDpr(), k, `${d}`); }
   delete globalThis.devicePixelRatio;
   const g = src('glass-gl.js');
   assert.doesNotMatch(g.replace(/export const glassDpr = [^\n]+/, ''), /devicePixelRatio/, 'every density in the glass is the capped one');
-  assert.match(src('label-gl.js'), /const r = svg\.parentElement\.getBoundingClientRect\(\), k = labelDensity\(devicePixelRatio, FULL_DPR\);/, 'labels at the capped density');
+  assert.match(src('label-gl.js'), /const r = svg\.parentElement\.getBoundingClientRect\(\), k = labelDensity\(devicePixelRatio\);/, 'labels at the capped density');
 });
 
 test('H4: a frame of the moving blood alone takes no new copy for the glass and does not wake it; anything else does', () => {

@@ -51,25 +51,16 @@ test('presenter: thrown cards go out and come in by card-throw.js; a swipe hands
   assert.match(presenter, /for \(const el of \(pull\.els \?\?= swipeEls\(\)\)\) \{ throwStop\(el\);/, 'a finger takes a card from the throw');
 });
 
-test('one track: both cards on one curve with no overshoot, the old whole for its first half, the new whole by 40 %, one spacing', async () => {
-  const { RAIL_MS, RAIL_GAP } = await import('../src/ui/card-throw.js');
+test('the rail\'s curve and spacing; no held copies: every card leaves on the tap', async () => {
+  const { RAIL_MS, RAIL_GAP, railable, railIn, railWaits, railGhosts } = await import('../src/ui/card-throw.js');
   assert.equal(RAIL_MS, 560);
   assert.equal(RAIL_GAP, 24);
   assert.match(src, /const easeRail = cubicBezier\(0\.32, 0\.72, 0, 1\);/);
-  const d = 400;
-  let lo = 0, li = d;
-  for (let k = 0; k <= 1.0001; k += 0.02) {
-    const o = throwAt('rail-out', k, { x: 0, o: 1 }, { x: -d, o: 0 }), n = throwAt('rail-in', k, { x: d, o: 0 }, { x: 0, o: 1 });
-    assert.ok(o.x <= lo + 1e-9 && o.x >= -d - 1e-9, `${k}: the old card moves one way, never past its end`);
-    assert.ok(n.x <= li + 1e-9 && n.x >= -1e-9, `${k}: the new card moves one way, never past rest`);
-    assert.ok(Math.abs((n.x - o.x) - d) < 1e-6, `${k}: the two keep one spacing`);
-    lo = o.x; li = n.x;
-  }
-  assert.equal(throwAt('rail-out', 0.05, { x: 0, o: 1 }, { x: -d, o: 0 }).o, 1, 'the old card is whole as it starts');
-  assert.deepEqual(throwAt('rail-in', 1, { x: d, o: 0 }, { x: 0, o: 1 }), { x: 0, o: 1 });
-  assert.match(src, /export const RAIL = typeof location !== 'undefined' && \/\[\?&\]railhold=1\\b\/\.test/, 'the held copies only with ?railhold=1: every card leaves on the tap');
-  assert.match(src, /export const INSTANT = typeof location === 'undefined' \|\| !\/\[\?&\]instant=0\\b\/\.test/, '?instant=0 off');
-  assert.match(src, /pics\.push\(createImageBitmap\(c\)\.then/, 'a GPU picture is copied into the copy\'s canvas (a canvas copies empty)');
+  assert.match(src, /export const INSTANT = true;/);
+  assert.equal(railable({}), false);
+  assert.equal(railIn({}, 'next'), false);
+  assert.equal(railWaits({}), false);
+  assert.deepEqual(railGhosts(), []);
 });
 
 test('instant: every leaving card sets off in the tap\'s task, on one distance, gone from sight within the first part of its way; in from as far', () => {
@@ -80,7 +71,7 @@ test('instant: every leaving card sets off in the tap\'s task, on one distance, 
   assert.ok(throwAt('out', 0.1, from, to).x < -80, 'it moves at once, fast');
   assert.match(presenter, /const dist = INSTANT \? \(throwD = Math\.min\(innerWidth, Math\.max\(120, \.\.\.sized\.map\(wOf\)\) \+ RAIL_GAP\)\) : throwDist\(\);/);
   assert.match(presenter, /if \(INSTANT && bare && throwDir && !el\.hidden && el\.childElementCount && !ui\.text\.hidden && ui\.text\.childElementCount && ui\.text\.classList\.contains\('pz-leave'\)\) return false;/, 'in together with the words');
-  assert.match(src, /if \(k >= 1 \|\| \(INSTANT && r\.kind === 'out' && p\.o <= 0\.001\)\) \{ runs\.delete\(el\);/, 'out of sight ends the way out, so the next words go in at once');
+  assert.match(src, /if \(k >= 1 \|\| \(r\.kind === 'out' && p\.o <= 0\.001\)\) \{ runs\.delete\(el\);/, 'out of sight ends the way out, so the next words go in at once');
 });
 
 test('glass: a card\'s fade carried by a transition that has just finished stays at its end until the page is read again (?glassend=0 off)', () => {
@@ -91,9 +82,8 @@ test('glass: a card\'s fade carried by a transition that has just finished stays
   assert.match(glass, /if \(dead \|\| lost\) return;\n\s+ended\.clear\(\);/, 'dropped at the next read, which sees the page as it is');
 });
 
-test('a card comes in from a little to its side (THROW_IN), not from where the old one went (?inshort=0 off); no drop shadow round the cards (?carddrop=1 off)', () => {
-  assert.match(src, /export const SHORT_IN = typeof location === 'undefined' \|\| !\/\[\?&\]inshort=0\\b\/\.test/);
-  assert.match(src, /write\(el, s \* \(INSTANT && dist && !SHORT_IN \? dist : THROW_IN\), 0\)/);
+test('a card comes in from a little to its side (THROW_IN), not from where the old one went; no drop shadow round the cards', () => {
+  assert.match(src, /write\(el, s \* THROW_IN, 0\)/);
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(css, /:root:root:not\(\[data-carddrop\]\) :is\(\.pz, \.pz-shade\) \{ --glass-drop: transparent; \}/);
 });

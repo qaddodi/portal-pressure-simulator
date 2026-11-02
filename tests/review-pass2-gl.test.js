@@ -171,8 +171,8 @@ test('no module asks the driver for framebuffer completeness itself: every check
 
 test('no glyph atlas is sent and no program published inside the frame that first draws', () => {
   const trace = src('trace-gl.js');
-  assert.match(trace, /if \(ATLAS_IDLE\) \{ sendAtlasSoon\(\); return false; \}/, 'charts: the atlas goes up at an idle moment, the chart drawn then');
-  assert.match(trace, /P = out; lost = false;\n\s+if \(ATLAS_IDLE\) sendAtlas\(\);/, 'charts: the atlas goes up with the programs');
+  assert.match(trace, /if \(!atlasIn\) \{\n(?:\s+\/\/[^\n]*\n)*\s+sendAtlasSoon\(\); return false;\n\s+\}/, 'charts: the atlas goes up at an idle moment, the chart drawn then');
+  assert.match(trace, /P = out; lost = false;\n\s+sendAtlas\(\);/, 'charts: the atlas goes up with the programs');
   const vitals = src('vitals-gl.js');
   assert.match(vitals, /if \(ATLAS_IDLE\) publishWhenDone\(gl, Object\.values\(progs\), \(\) => \{ if \(R && !lost && publish\(\)\) atlasReady\(\); \}\);/);
   assert.match(vitals, /dispose\(\) \{ atlasTakers\.delete\(taker\);/, 'a disposed monitor is let go of');

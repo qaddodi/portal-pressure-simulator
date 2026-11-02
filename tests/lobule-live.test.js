@@ -74,7 +74,7 @@ test('the shader follows paintLobule\'s order and numbers, and the bitmap path i
   const live = readFileSync(new URL('../src/ui/lobule-live.js', import.meta.url), 'utf8');
   // fill 1.015, gap fill 0.55/0.5, cells (fill 0.92/0.8, dead 0.6; membrane max 0.6; nucleus max 0.9), nutmeg 0.05–0.55 R, zones 0.2/0.17, hairline
   for (const s of ['lvHex(wp, 1.015)', 'dark ? 0.55 : 0.5', 'dark ? 0.8 : 0.92', 'max(0.6, 0.6 * px)', 'max(0.9, ww * 0.16)', 'min(lw, ww) * 0.38', '0.05 * R) / (0.5 * R)', 'dark ? 0.2 : 0.17', 'lvHex(wp, 0.66)', 'lvHex(wp, 0.36)', 'if (sj < 0.05)']) assert.ok(live.includes(s), s);
-  assert.match(gl, /if \(uLive > 0\.0\) \{ vec4 ls = liveTissue\(w\) \* e; c = mix\(c, ls\.rgb \+ c0 \* \(1\.0 - ls\.a\), uLive\);(\$\{rim \? ' own = mix\(own, ls, uLive\);' : ''\})? \}/, 'mixing the two pictures laid over the surround = laying their mix');
+  assert.match(gl, /if \(uLive > 0\.0\) \{ vec4 ls = liveTissue\(w\) \* e; c = mix\(c, ls\.rgb \+ c0 \* \(1\.0 - ls\.a\), uLive\); own = mix\(own, ls, uLive\); \}/, 'mixing the two pictures laid over the surround = laying their mix');
   assert.match(tissueFS(true), /vec3 c0 = c;\n\s+if \(w\.x >= 0\.0/, 'the surround before the bitmap');
   assert.doesNotMatch(tissueFS(false), /uL[A-Z]|uLive|liveTissue|\bc0\b|\blv[A-Z]/, 'the program without the live lobule has none of it in it: the picture as before');
   assert.doesNotMatch(live, /\btexture\(/, 'only texelFetch: no implicit derivatives in the live lookups');
@@ -560,17 +560,8 @@ test('the targets are given back with the canvas, and kept for it otherwise', as
   assert.equal(took(g).find((e) => e[0] === 'draw')[2], null, 'drawn whole afterwards');
 });
 
-test('no kept picture where it cannot be exact: ?tissuekeep=0, a drawing buffer of another size, a target the GPU cannot complete', async () => {
+test('no kept picture where it cannot be exact: a drawing buffer of another size, a target the GPU cannot complete', async () => {
   const straight = (c) => c.length && c.every((e) => e[0] === 'draw' && e[1] === 0 && e[2] === null);
-  const had = Object.getOwnPropertyDescriptor(globalThis, 'location');
-  globalThis.location = { search: '?x=1&tissuekeep=0' };
-  let off;
-  try { off = await liveGL(); } finally { if (had) Object.defineProperty(globalThis, 'location', had); else delete globalThis.location; }
-  off.g.calls.length = 0;
-  off.tg.draw(at(off.L)); off.tg.draw(at(off.L, 3, 0)); off.tg.draw(at(off.L, 3, 0));
-  assert.ok(straight(took(off.g)) && took(off.g).length === 0, 'every frame straight to the canvas');
-  assert.deepEqual(off.tg.kept, { full: 0, shifted: 0, still: 0 });
-  assert.ok(!off.g.calls.some((e) => e[0] === 'blit'));
   for (const opts of [{ shortBuffer: true }, { badFbo: true }]) {
     const { g, tg, L } = await liveGL(opts);
     g.calls.length = 0;

@@ -69,6 +69,6 @@ test('label-gl follows a label\'s own animations, hovers, focus and theme change
   assert.doesNotMatch(fn, /getComputedStyle/);
   // (The canvas's place is read only when the page may have moved it, never in a frame: no ?holecache=0 any more.)
   assert.match(src, /const holeOrigin = \(\) => holeCr;/);
-  assert.match(src, /atlasidle=0/);
-  assert.match(src, /if \(needRepack && \(!ATLAS_IDLE \|\| !moving\)\) repack\(\);/);
+  assert.match(src, /if \(needRepack && !moving\) repack\(\);/);
+  assert.match(src, /if \(!moving && !pageTex\[1\] && packer\.maxPages > 1/);
 });

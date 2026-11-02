@@ -13,7 +13,7 @@
 // round or butt ends, fill and stroke opacity, visibility, display none, vector-effect non-scaling-stroke. A drawing's viewBox is mapped to
 // the box as SVG maps it (preserveAspectRatio none, or meet in the middle). The picture covers the box exactly.
 
-import { createTraceGL, fitPen } from './trace-gl.js?v=9dea30e40a';
+import { createTraceGL, fitPen } from './trace-gl.js?v=002f09299f';
 import { flattenPath, elBox } from './shape-gl.js?v=8a9a6cee94';
 import { finalFrameFor, easeNow } from './frame.js?v=8c8f2f530e';
 import { restPass } from './rest-pass.js?v=e877681653';
@@ -152,9 +152,8 @@ function keyOf(el, pk) {
 // Looks read once are kept for every chart, by the piece's key under where its box stands in the page (the classes of the box and its
 // ancestors, the theme): the next slide's chart, built in the task that changes the slide, takes the looks of the pieces like it already
 // read, and only a new kind of piece asks the page (2 Nov 2026: the charts asked the page about 230 times in a slide change). Dropped
-// on a new theme or palette and on a resize (the stylesheet's media queries). ?lookshare=0 reads every chart's pieces afresh.
-export const FIRST_LOOK = !(typeof location !== 'undefined' && /[?&]firstlook=0\b/.test(location.search || ''));
-const LOOK_SHARE = !(typeof location !== 'undefined' && /[?&]lookshare=0\b/.test(location.search || ''));
+// on a new theme or palette and on a resize (the stylesheet's media queries).
+export const FIRST_LOOK = true;   // (switch deleted; kept for tool-profile.js until its own pass)
 const SHARED = new Map(), SCALE_VARS = ['--svk', '--pzh', '--ch-cap', '--s-cap'];
 export const sharedLooks = () => SHARED;
 function clearShared() { SHARED.clear(); ROOTS.clear(); }
@@ -358,8 +357,7 @@ const refOf = (root, p) => { const id = /^url\(\s*["']?#([^"')]+)["']?\s*\)/.exe
 // (A look shared between charts (keyOf drops a drawing's ids) holds the url() of the chart it was first read from, whose gradient or
 // pattern is gone or is another chart's: the id is taken from the piece's own fill or stroke, or the nearest ancestor's that sets it,
 // as written, never from the look. 2 Nov 2026: the profile chart's patient line, its fill and the block hatch went missing whenever the
-// chart was built again with a new id and took its looks from the one before. ?ownurl=0 off.)
-const OWN_URL = !(typeof location !== 'undefined' && /[?&]ownurl=0\b/.test(location.search || ''));
+// chart was built again with a new id and took its looks from the one before.)
 const urlIn = (el, prop) => {
   const st = el.getAttribute?.('style');
   if (st) { const m = new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*(url\\([^)]*\\))`).exec(st); if (m) return m[1]; }
@@ -367,7 +365,7 @@ const urlIn = (el, prop) => {
   return a && /^\s*url\(/.test(a) ? a.trim() : null;
 };
 export function ownPaint(el, prop, look) {
-  if (!OWN_URL || !/^url\(/.test(look || '')) return look;
+  if (!/^url\(/.test(look || '')) return look;
   for (let n = el; n && n.nodeType === 1; n = n.parentNode) { const u = urlIn(n, prop); if (u) return u; if (n.localName === 'svg') break; }
   return look;
 }
@@ -383,7 +381,7 @@ function gradientOf(ctx, g, el) {
     if (st.localName !== 'stop') continue;
     const S = looks.get(st), off = st.getAttribute('offset') || '0', o = /%$/.test(off) ? parseFloat(off) / 100 : parseFloat(off) || 0;
     // (A stop with no look read yet, a chart built in this frame, takes the colour it is written with: the line never draws empty.)
-    const sc = S?.stopAttr || (!S && OWN_URL) ? st.getAttribute('stop-color') : S?.stop;
+    const sc = S?.stopAttr || !S ? st.getAttribute('stop-color') : S?.stop;
     if (!sc) continue;
     const [r, gg, bb, a] = cssColor(sc);
     gr.addColorStop(Math.max(0, Math.min(1, o)), `rgba(${Math.round(r * 255)}, ${Math.round(gg * 255)}, ${Math.round(bb * 255)}, ${a * (S ? S.stopOp : 1)})`);
@@ -618,11 +616,11 @@ export function createSvgGL(box) {
   g.paint = () => { if (!g.ask) g.ask = finalFrame(draw); };
   g.wake = (ms) => { g.until = Math.max(g.until, easeNow() + ms); g.paint(); };
   g.cache = new Map();
-  function lookRead() { g.lookAsk = 0; g.cache.clear(); g.pk = LOOK_SHARE ? placeKey(box) : ''; let ms = 0; for (const root of models()) ms = Math.max(ms, readLooks(root, false, g.cache, g.pk)); if (ms) g.wake(ms + 20); else g.paint(); }
+  function lookRead() { g.lookAsk = 0; g.cache.clear(); g.pk = placeKey(box); let ms = 0; for (const root of models()) ms = Math.max(ms, readLooks(root, false, g.cache, g.pk)); if (ms) g.wake(ms + 20); else g.paint(); }
   g.relook = () => { if (!g.lookAsk) g.lookAsk = restPass(lookRead); };
   // (A drawing's look is read as it is placed, once, in the task that builds it (a slide's change, a resize), so its first frame draws it
   // whole: a morph hides the old drawing's pieces in that same task.)
-  g.place = (root) => { live.add(g); g.cache.clear(); g.pk = LOOK_SHARE ? placeKey(box) : ''; readLooks(root, true, g.cache, g.pk); g.paint(); };
+  g.place = (root) => { live.add(g); g.cache.clear(); g.pk = placeKey(box); readLooks(root, true, g.cache, g.pk); g.paint(); };
   // (Pieces built again in a frame (a redraw, a glide): each takes the look of the piece before it like it, read from nothing; a new kind of
   // piece is read between frames, and drawn from then.)
   // (A chart's first drawing in a new box (a slide's new data card) has no looks of its own yet: it takes those read for a chart like it
@@ -631,8 +629,8 @@ export function createSvgGL(box) {
   // 2 Nov 2026). ?firstlook=0 off.)
   g.adopt = (root) => {
     if (adoptLooks(root, g.cache, g.pk ? `${g.pk}root` : 'root')) { g.paint(); return; }
-    if (FIRST_LOOK && !g.cache.size) {
-      const pk = LOOK_SHARE ? placeKey(box) : '';
+    if (!g.cache.size) {
+      const pk = placeKey(box);
       if (pk && adoptLooks(root, SHARED, `${pk}root`, g.cache)) { g.pk = pk; g.relook(); g.paint(); return; }
     }
     g.relook(); g.paint();

@@ -7,8 +7,8 @@
 // occlusive clot) is a flat line on the baseline. Every row shares one scale (waveMax, 50 cm/s unless the slide sets it), so a slow
 // vein stays low and a stent's jet runs to the edge.
 
-import { h, fmt, cssVar } from './util.js?v=11bcccf78c';
-import { createTraceGL, fitPen } from './trace-gl.js?v=9dea30e40a';
+import { h, fmt, cssVar } from './util.js?v=4812d16a83';
+import { createTraceGL, fitPen } from './trace-gl.js?v=002f09299f';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
 import { frameFor } from './frame.js?v=8c8f2f530e';
 

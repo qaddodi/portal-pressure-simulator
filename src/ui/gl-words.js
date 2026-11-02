@@ -18,20 +18,18 @@
 // The words fall back to a write between frames (never in a frame) where the GPU cannot set them: no outlines yet, a character the
 // cut glyphs do not have, an element with no box. ?glwords=0: every change is written into the page between frames, with no picture.
 
-import { createSvgGL, svgModel } from './svg-gl.js?v=65ead09f04';
+import { createSvgGL, svgModel } from './svg-gl.js?v=1d7f190df1';
 import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=d1a9976923';
 import { restPass, cancelRest } from './rest-pass.js?v=e877681653';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
 
-export const GL_WORDS = !(typeof location !== 'undefined' && /[?&]glwords=0\b/.test(location.search || ''));
 /** How long the words hold still (ms) before the page's own words take them. */
 export const QUIET = 260;
 // Words that land in a box already measured keep its measure: their box's size, type and alignment hold, so the next words are set from the
 // same edge (start, end or middle) without reading the page again. A box that changes size is measured again by its ResizeObserver. A
 // readout that ticks with the model measured itself each time it landed, some 30 layout and style reads each, 2,000 in an 8 s pinch
-// of the anatomy (2 Nov 2026, "zoom is miserable"). ?glwkeep=0 measures at every landing, as before.
-const LAND_KEEP = !(typeof location !== 'undefined' && /[?&]glwkeep=0\b/.test(location.search || ''));
-if (GL_WORDS && typeof document !== 'undefined') loadGlyphs();
+// of the anatomy (2 Nov 2026, "zoom is miserable").
+if (typeof document !== 'undefined') loadGlyphs();
 
 const dOf = (polys) => {
   let d = '';
@@ -49,7 +47,7 @@ const lookOf = (cs, svgT = false, sc = 1) => ({
 
 // (A new theme or palette: every readout's colour is read again, between frames.)
 const ALL = new Set();
-if (GL_WORDS && typeof MutationObserver === 'function' && typeof document !== 'undefined') {
+if (typeof MutationObserver === 'function' && typeof document !== 'undefined') {
   new MutationObserver(() => { for (const f of ALL) f(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] });
   globalThis.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => { for (const f of ALL) f(); });
 }
@@ -75,7 +73,7 @@ function measurePass() {
 }
 function measureRead(S) {
   const { el, host, after } = S;
-  if (!GL_WORDS || S.on || S.dead) return;
+  if (S.on || S.dead) return;
   if (!el.isConnected || !glyphsReady() || !S.txt?.data || S.txt.parentNode !== el) { S.at = null; return; }
   const box = host.getBoundingClientRect();
   if (!(box.width > 0 && box.height > 0)) { S.at = null; return; }
@@ -208,7 +206,7 @@ function land(S) {
   S.onLand?.();
   S.pend = false;
   if (S.on) { S.on = false; el.classList.remove('glw-on'); S.vPath.setAttribute('d', ''); S.uPath.setAttribute('d', ''); clearSlots(S); S.gl.paint(); }
-  if (!LAND_KEEP || !S.at || S.at.sm !== (!!S.small && !S.small.hidden)) askMeasure(S);   // (a unit that came or went moves the words: measured again)
+  if (!S.at || S.at.sm !== (!!S.small && !S.small.hidden)) askMeasure(S);   // (a unit that came or went moves the words: measured again)
 }
 const askLand = (S) => { clearTimeout(S.landT); S.landT = 0; if (S.dead) return; if (!S.landAsk) S.landAsk = restPass(() => land(S)); };
 
@@ -247,7 +245,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
       if (S.dead || (t === S.want.t && u === S.want.u)) return;
       S.want.t = t; S.want.u = u;
       // (?glwords=0, no look read yet, no outlines, a character not cut, words gone or a unit that has no place yet: written between frames.)
-      if (!GL_WORDS || !S.at || !glyphsReady() || !t || !textCovers(t + u) || (u && !S.small && !after)) { askLand(S); return; }
+      if (!S.at || !glyphsReady() || !t || !textCovers(t + u) || (u && !S.small && !after)) { askLand(S); return; }
       draw(S, t, u);
       clearTimeout(S.landT);
       S.landT = setTimeout(() => askLand(S), QUIET);

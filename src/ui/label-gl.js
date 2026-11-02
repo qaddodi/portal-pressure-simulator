@@ -26,17 +26,14 @@ import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './lab
 const CLEAR0 = new Float32Array(4);
 
 // (1 Nov 2026, the GPU motion review.) A label's or a leader's fade or colour ease is followed from its animations (label-track.js), and its
-// style read off the frame (styleOf): nothing on the page is read in a frame. ?atlasidle=0: a full atlas is packed again at once, mid-move,
-// and its second page made only when a picture first needs it, as before.
-const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
-const TRACK = true, ATLAS_IDLE = !/[?&]atlasidle=0\b/.test(SEARCH);
+// style read off the frame (styleOf): nothing on the page is read in a frame.
+const TRACK = true;
 // (2 Nov 2026, "labels turn on and off randomly", iPhone. A label's opacity on the GPU is never taken from a kept at-rest style while its
 // CSS fade toward it may be starting: the kept style of a class (lb-off, or a new label's) is its end state, and drawn at once it made a
 // fade-out a snap off, a new label pop in at full before its fade, a step's number show before its turn. Such a label holds the opacity
 // it was drawn at (a new one 0, where its fade starts) and is followed from the next frame, when its fades are known. And mid-fade, a
 // frame whose animations are not taken yet keeps following the fade it had, instead of a reading of the fade's first frame (0), which
-// blinked the label out for one to three frames. ?fadehold=0: as before.)
-const FADE_HOLD = !/[?&]fadehold=0\b/.test(SEARCH);
+// blinked the label out for one to three frames.)
 const HOLD_MAX = 400;   // (ms: the longest a label waits at its last drawn opacity for its animations, see takeAnims)
 const REDUCE = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 
@@ -265,7 +262,6 @@ export function describeBlock(g, cs = getComputedStyle, boxOf) {   // (boxOf: a 
   if (g.style.display === 'none' || gs.display === 'none') return null;
   let focused;
   try { focused = g.matches(':focus-visible'); } catch { focused = g === document.activeElement; }
-  if (focused && !GPU_FOCUS) return { svg: 'focus' };
   const d = { opacity: NUM(gs.opacity), filter: gs.filter === 'none' ? '' : gs.filter, parts: [] };
   // (Focused from the keyboard: its ring, as the page's styles give it (an outline round the label's box, eased in by focus-ring.js), is
   // drawn into its picture; the label's own parts take their focus colours from the page's styles as any other state's. Read each frame
@@ -309,9 +305,9 @@ export function describeBlock(g, cs = getComputedStyle, boxOf) {   // (boxOf: a 
 
 /** The look of a description, as a key: a picture is drawn again only when it changes (the opacity is the GPU's, not the picture's). */
 // The label layer's own canvas is capped at 2 device px per CSS px (the figure's cap, stage.js resizeCanvas): a 3x iPhone Pro Max made it a
-// 1320 x 2868 buffer. ?labeldpr=0 keeps the screen's full density.
+// 1320 x 2868 buffer.
 export const LABEL_DPR_MAX = 2;
-export const labelDensity = (dpr, full = false) => (full ? dpr || 1 : Math.min(dpr || 1, LABEL_DPR_MAX));
+export const labelDensity = (dpr) => Math.min(dpr || 1, LABEL_DPR_MAX);
 export const lookKey = (d, rot, dpr) => JSON.stringify([d.filter, d.parts, rot, dpr]);
 
 const INTER = /^\s*"?Inter\b/i;
@@ -320,8 +316,8 @@ const INTER = /^\s*"?Inter\b/i;
 export function svgOnly(d, ready = glyphsReady()) {
   if (d.svg) return d.svg;
   // (A rect's drop shadows are drawn by the GPU, under its picture (shadowsOf, shadowBox); any other filter, or one on the whole label
-  // (none in the stylesheet), is the SVG's. ?labelfx=0: every filter is the SVG's.)
-  if (d.filter || d.parts.some((p) => p.filter && !(LABEL_FX && p.k === 'rect' && shadowsOf(p.filter)))) return 'filter';
+  // (none in the stylesheet), is the SVG's.)
+  if (d.filter || d.parts.some((p) => p.filter && !(p.k === 'rect' && shadowsOf(p.filter)))) return 'filter';
   const paints = (c) => !c || !!parseColor(c);
   for (const p of d.parts) {
     if (p.k === 'rect') { if (!paints(p.fill) || !paints(p.stroke)) return 'colour'; continue; }
@@ -334,9 +330,6 @@ export function svgOnly(d, ready = glyphsReady()) {
   }
   return '';
 }
-// ?labelfx=0: a label with a filter, or a keyboard focus, is drawn by the SVG, as before.
-const LABEL_FX = !(typeof location !== 'undefined' && /[?&]labelfx=0\b/.test(location.search || ''));
-const GPU_FOCUS = LABEL_FX;
 // A filter's functions, split at the top level: 'drop-shadow(<colour> 0px 1px 1.5px) blur(2px)' → ['drop-shadow(...)', 'blur(2px)'].
 function filterFns(f) {
   const out = [];
@@ -375,8 +368,6 @@ export function roundRectPoly(x, y, w, h, r) {
 }
 // How far a filter's drop shadows and blurs reach (px): the picture is grown by that much.
 // The FibroScan beam drawn by the shader as a soft sector (kind 7), not painted into a 2D picture through a CSS blur and uploaded.
-// ?beamgl=0: the 2D picture, as before.
-const BEAM_GL = !/[?&]beamgl=0\b/.test(SEARCH);
 // A callout's shaped hole (the glass's outline the labels leave out) filled into its mask by the GPU's shape drawer (shape-gl.js), not
 // painted on a 2D canvas and uploaded (the only way since 1 Nov: no 2D mask is made at all).
 /** The beam's path (apex, a side, an arc of radius r to the other side) and its blur as a sector, in its own units, or null. */
@@ -484,7 +475,6 @@ export function ringBox(d, dpr, frame) {
  * figure's overlays not all on the GPU, the labels' layer fading or hidden), it draws nothing and the SVG shows every label.
  * `force`: on a software renderer too (CI's visual check, ?stageover=gpu).
  */
-const FULL_DPR = typeof location !== 'undefined' && /[?&]labeldpr=0\b/.test(location.search);
 export function createLabelGL(svg, blocks, { software = false, off = false, marks = [], host = null, force = false, onBoxes = null } = {}) {
   if (off || (software && !force) || typeof WebGL2RenderingContext === 'undefined') return null;
   const canvas = host ? host.canvas : document.createElement('canvas');
@@ -607,7 +597,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const animsKept = new WeakMap(), animsWant = new Map();
   let animsT = 0;
   function keepAnims(el, sub) {
-    if (!el || (FADE_HOLD && !el.isConnected)) return;   // (not on the page yet: none of its animations runs; taken once it is)
+    if (!el || !el.isConnected) return;   // (not on the page yet: none of its animations runs; taken once it is)
     let a;
     try { a = sub ? el.getAnimations({ subtree: true }) : el.getAnimations(); } catch { a = []; }
     animsKept.set(el, { a, sub, at: performance.now() });
@@ -662,8 +652,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
       try { anims = el.getAnimations().filter((a) => a.playState !== 'finished' && a.playState !== 'idle'); } catch { anims = []; }
       if (!anims.length) { snaps.set(k, s); continue; }
       easing.set(el, { key: k, s });
-      // (Read mid-ease, this style is that moment's: the label's fades are followed from the next frame instead (FADE_HOLD).)
-      if (FADE_HOLD) { const g = labelOf(el); if (g?.isConnected && !markOf(g)) { keepAnims(g, true); live.set(g, performance.now() + 700); dirty.add(g); } }
+      // (Read mid-ease, this style is that moment's: the label's fades are followed from the next frame instead.)
+      { const g = labelOf(el); if (g?.isConnected && !markOf(g)) { keepAnims(g, true); live.set(g, performance.now() + 700); dirty.add(g); } }
       Promise.allSettled(anims.map((a) => a.finished)).then(() => { if (easing.get(el)?.key === k) easing.delete(el); unread.add(el); if (!fillT) fillT = setTimeout(fillStyles, 0); });
     }
     if (snaps.size > 2000) snaps.clear();
@@ -753,7 +743,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (Its own canvas: sized from the stage's box when that changes (the ResizeObserver below, and a change of screen density), never in a frame.)
   function size() {
     if (host) return hostSize();
-    const r = svg.parentElement.getBoundingClientRect(), k = labelDensity(devicePixelRatio, FULL_DPR);   // (the stage's box: the dive zooms the layer itself)
+    const r = svg.parentElement.getBoundingClientRect(), k = labelDensity(devicePixelRatio);   // (the stage's box: the dive zooms the layer itself)
     const w = Math.max(1, Math.round(r.width * k)), h = Math.max(1, Math.round(r.height * k));
     if (w === W && h === H && k === dpr) return false;
     W = w; H = h; dpr = k; canvas.width = w; canvas.height = h;
@@ -815,7 +805,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       paintSlot(st.slot, lay, blockOps(d, lay));
       Object.assign(st, { ox: lay.ox, oy: lay.oy, w: lay.w, h: lay.h, shadows: lay.shadows, frame: lay.frame }, { key });
     }
-    st.ring = GPU_FOCUS ? ringBox(d, dpr, st.frame) : null;
+    st.ring = ringBox(d, dpr, st.frame);
     st.opacity = d.opacity;
     return st;
   }
@@ -833,7 +823,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       st0.trk = null;
       // (A hold never outlasts HOLD_MAX: whatever kept its animations from coming, the label is then drawn as the page shows it.)
       st0.holdSince ??= now;
-      if (FADE_HOLD && st0.mode === 'gl' && !REDUCE?.matches && now - st0.holdSince < HOLD_MAX) {
+      if (st0.mode === 'gl' && !REDUCE?.matches && now - st0.holdSince < HOLD_MAX) {
         // (Its opacity held where it was: on the fade it had, while that runs, else as it was last drawn, a new label at 0.)
         if (old && !old.ended && old.ops?.length) st0.trk = { ops: old.ops, under: old.under, paint: null, end: old.end, carry: true };
         else if (was === null) st0.mode = 'svg';   // (the SVG drew it last frame, at an opacity not known here: it keeps it till then)
@@ -956,7 +946,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (!tracked) st.trk = isLive && st.trk === false ? false : null;
         st.rot = rot;
         // (Read at rest with a new opacity: its fade may only now be starting. Held where it was drawn, and followed from the next frame.)
-        if (FADE_HOLD && !tracked && !isLive && st.mode === 'gl' && was !== null && !REDUCE?.matches && Math.abs((was ?? 0) - st.opacity) > 0.01) {
+        if (!tracked && !isLive && st.mode === 'gl' && was !== null && !REDUCE?.matches && Math.abs((was ?? 0) - st.opacity) > 0.01) {
           st.opacity = was ?? 0;
           st.holdSince = now;
           live.set(g, now + 700);
@@ -970,7 +960,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (v.op != null) st.opacity = v.op;
         if (st.trk.ended && !exact.has(g)) live.delete(g);
       }
-      st.held = st.opacity;   // (the opacity it is drawn at this frame, its own: FADE_HOLD)
+      st.held = st.opacity;   // (the opacity it is drawn at this frame, its own)
       if (live.has(g)) moving = true;
       // (Marked in the same frame as the picture is drawn, so neither the SVG's copy and the picture both show, nor neither.)
       if (st.mode !== 'gl') st.held = st.mode === 'none' ? 0 : null;   // (nothing shown, or the SVG's own opacity, not known here: not held)
@@ -1028,11 +1018,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
       gl.disable(gl.BLEND); gl.bindVertexArray(null); gl.useProgram(null); gl.bindBuffer(gl.ARRAY_BUFFER, null);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     }
-    // (ATLAS_IDLE: a full atlas is packed again once nothing moves, not mid-move, where every picture drawn again at once is a burst of
+    // (A full atlas is packed again once nothing moves, not mid-move, where every picture drawn again at once is a burst of
     // work in one frame; the labels that did not fit stay the SVG's till then. And the second page is made at rest, ahead of the first
     // picture that needs it, once the first is more than half full.)
-    if (needRepack && (!ATLAS_IDLE || !moving)) repack();
-    if (ATLAS_IDLE && !moving && !pageTex[1] && packer.maxPages > 1 && packer.used > packer.size * packer.size * 0.5) reserve();
+    if (needRepack && !moving) repack();
+    if (!moving && !pageTex[1] && packer.maxPages > 1 && packer.used > packer.size * packer.size * 0.5) reserve();
     let key = '';
     for (const b of boxes) key += `${Math.floor(b[0])},${Math.floor(b[1])},${Math.ceil(b[2])},${Math.ceil(b[3])};`;
     if (key !== boxKey) { boxKey = key; try { onBoxes?.(); } catch { /* (a listener's failure is not the labels') */ } }
@@ -1505,7 +1495,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const live = easeStep(sTracks, now), L = sLook;
     // (The beam's blur needs the canvas's filter only where the 2D picture draws it: the shader's sector needs none, as on Safari.)
     // (A beam the shader cannot draw as its sector (another markup), or ?beamgl=0: the SVG keeps the probe.)
-    if (!L || !(BEAM_GL && L.beam.stops.length === 2 && beamSector(L.beam))) { if (scanEl.hasAttribute('data-gl')) scanEl.removeAttribute('data-gl'); return live; }
+    if (!L || !(L.beam.stops.length === 2 && beamSector(L.beam))) { if (scanEl.hasAttribute('data-gl')) scanEl.removeAttribute('data-gl'); return live; }
     if (!scanEl.hasAttribute('data-gl')) scanEl.setAttribute('data-gl', '');
     if (!(L.op > 0.001)) return live;
     const tm = /translate\(\s*(-?[\d.]+)px,\s*(-?[\d.]+)px\)/.exec(scanEl.style.transform || '');
@@ -1516,7 +1506,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     // (Its box, for the glass: everything it draws lies within 170 px of the tip: the beam's 150 px arc and its blur, the body.)
     boxAt((px - 170) * dpr, (py - 170) * dpr, (px + 170) * dpr, (py + 170) * dpr);
     // The beam: a soft sector drawn by the shader (kind 7), its blur worked out per pixel, so no picture of it is made off the GPU.
-    const bsec = BEAM_GL && L.beam.stops.length === 2 ? beamSector(L.beam) : null;
+    const bsec = L.beam.stops.length === 2 ? beamSector(L.beam) : null;
     if (bsec) {
       const [ax, ay] = at(bsec.apex[0], bsec.apex[1]), [gx, gy] = at(L.beam.grad[0], L.beam.grad[1]), R = bsec.r * dpr, sg = bsec.blur * dpr, m = R + 4 * sg + 2;
       const st = L.beam.stops.map(([o, col, a]) => [o, rgba(col).map((v) => v * a)]);   // (rgba: premultiplied; times the stop's opacity)
