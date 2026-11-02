@@ -777,8 +777,8 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .stent-rail { fill: none; stroke: var(--stent-metal); stroke-width: var(--stent-rail-w, 1.4); stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
 .stent-strut { fill: none; stroke: var(--stent-metal); stroke-width: var(--stent-strut-w, 1); stroke-linejoin: round; stroke-opacity: var(--stent-alpha, .95); }
 .stent-mark { fill: none; stroke: var(--stent-marker); stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
-.ligature { fill: none; stroke: var(--text); stroke-width: 2.6; stroke-linecap: round; }
-.suture { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.1; stroke-linecap: round; }
+.ligature { fill: none; stroke: var(--text); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.suture { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
 .clamp, .clamp-out { fill: var(--text); fill-opacity: .82; }
 .clamp-label, .clamp-label-out, .guide-label { font: 600 var(--fs-12) var(--font-ui); fill: var(--text); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 4px; stroke-linejoin: round; }
 .clamp-label, .clamp-label-out { font-size: var(--clamp-fs, var(--fs-12)); stroke-width: var(--clamp-sw, 4px); }
@@ -793,7 +793,7 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 :is(#grid, #nodes).gone { visibility: hidden; transition: opacity var(--d-surface) var(--ease), visibility 0s var(--d-surface); }   /* (at opacity 0, after the fade: stage.js setViewBox) */
 .circuit .circuit-only { opacity: 1; }
 .circuit .node-dot.off { opacity: 0; pointer-events: none; }   /* (one class more than the line above: a station with no vessel drawn at it shows no dot in the circuit either, faded as the vessels are) */
-.band-ring { fill: none; stroke: var(--text); stroke-width: 2.4; }
+.band-ring { fill: none; stroke: var(--text); stroke-width: 2.4; stroke-linejoin: round; }
 /* The tamponade tube's balloons (the gastric one in the stomach, drawn up against the cardia; the esophageal one on it) look like the HVPG wedge balloon (veins-gl.js mode 5): cream latex, clear in the middle, denser at the rim */
 .balloon-latex { fill: var(--latex); fill-opacity: .34; stroke: none; }
 .balloon-latex-rim { fill: var(--latex); fill-opacity: .2; fill-rule: evenodd; stroke: none; }
@@ -807,7 +807,9 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .balloon-pull-head { fill: var(--accent); stroke: var(--accent); stroke-width: 1; stroke-linejoin: round; }
 .ascites-fill { stroke: none; opacity: var(--fluid-fade, 1); }
 .ascites-line { fill: none; stroke: var(--ascites); stroke-opacity: calc(.3 * var(--fluid-fade, 1)); stroke-width: 4; stroke-linejoin: round; }   /* a soft meniscus band, not a hard rule */
-.stent-guide { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 6 4; stroke-linecap: round; }
+/* (Round joins on the overlays' strokes: the figure's GPU painter draws round joins only, so a sharp one kept the group, and every
+   group above it, on SVG (2 Nov 2026, "Move everything to GPU"). Their segments are single strokes or smooth curves: nothing shows.) */
+.stent-guide { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 6 4; stroke-linecap: round; stroke-linejoin: round; }
 .stent-guide.invalid { stroke: var(--danger); }
 .target-glow { fill: none; stroke: var(--accent); stroke-opacity: .35; stroke-linecap: round; }
 
@@ -3357,8 +3359,8 @@ html.label-fill-both :is(#labels .lb.scan, .app.presenting #labels .lb) { animat
 .cath-shadow { fill: none; stroke: var(--cath-shadow); stroke-linecap: round; stroke-linejoin: round; }
 .cath-body { fill: none; stroke: var(--cath-body); stroke-linecap: round; stroke-linejoin: round; }
 .cath-tip { fill: var(--cath-body); stroke: none; }
-.cath-ring { fill: none; stroke-width: .8; stroke-opacity: .85; }
-.cath-balloon { fill: var(--cath-balloon); stroke: var(--cath-shadow); stroke-width: .5; }
+.cath-ring { fill: none; stroke-width: .8; stroke-opacity: .85; stroke-linejoin: round; }
+.cath-balloon { fill: var(--cath-balloon); stroke: var(--cath-shadow); stroke-width: .5; stroke-linejoin: round; }
 .cath-column { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .9; }
 /* While the catheter is in, the figure's own readouts are hidden so its labels read clearly. */
 .stage-view #labels, .stage-view #labelGl { transition: opacity var(--d-surface) var(--ease); }

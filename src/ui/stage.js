@@ -1390,7 +1390,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   Object.values(ov).forEach((g) => gOver.append(g));
   // A slide's calipers (deck visuals V9) over the anatomy, and its brackets under the circuit (V25): ext-callouts.js, fxSync.
   const gFx = s('g', { class: 'fx-cal-g' }), gFxC = s('g', { class: 'fx-span-g circuit-only' });
-  gOver.append(gFx, gFxC);
+  // (A clamp's "60 %" stands in its own groups at the top of the overlays, never among the shapes: words are not the figure's GPU
+  // painter's, and as the lowest group they kept every overlay above them (stents, balloons, plugs) on SVG. 2 Nov 2026.)
+  const clampW = s('g'), clampWOut = s('g');
+  gOver.append(gFx, gFxC, clampWOut, clampW);
   // The caudate lobe and its veins (CAUDATE): shown only while a slide is about them (pinOrgans 'caudate'), eased in
   // and out (.caud.on), under the stents and other overlays. Each vein is a tapered tube (a wall, its lumen colored
   // from its pressures like the vessels, a sheen) that fades into the IVC's wall instead of ending on it.
@@ -1591,7 +1594,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // places it again by that one rule, so neither undoes the spot the layout gave it: the "60 %" had gone back to the vessel's side
   // under the stent's callouts after a redraw.
   function placeClampLabels() {
-    for (const t of ov.clamps.querySelectorAll('.clamp-label')) clampLabelAt(t);
+    for (const t of clampW.querySelectorAll('.clamp-label')) clampLabelAt(t);
   }
   const GLIDE_PAINT = !/[?&]glidepaint=0\b/.test(location.search);
   const applyVT = () => {
@@ -1689,8 +1692,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function applyClampFs() {
     const sk = CTM?.sc || 0, cfs = sk > 0 ? (clampBase / sk).toFixed(2) : '';
     const csw = sk > 0 ? `${(7 / sk).toFixed(2)}px` : '';   // (the clamps' halo, 7 px on screen: --clamp-sw, app.css)
-    if (csw && csw !== clampSw) { clampSw = csw; for (const g of [ov.clamps, ov.clampsOut]) g.style.setProperty('--clamp-sw', csw); }
-    if (cfs && cfs !== clampFs) { clampFs = cfs; for (const g of [ov.clamps, ov.clampsOut]) g.style.setProperty('--clamp-fs', `${cfs}px`); placeClampLabels(); }
+    if (csw && csw !== clampSw) { clampSw = csw; for (const g of [ov.clamps, ov.clampsOut, clampW, clampWOut]) g.style.setProperty('--clamp-sw', csw); }
+    if (cfs && cfs !== clampFs) { clampFs = cfs; for (const g of [ov.clamps, ov.clampsOut, clampW, clampWOut]) g.style.setProperty('--clamp-fs', `${cfs}px`); placeClampLabels(); }
     // (The pressure-change halos and the shunt's target name: their size on screen at any zoom, as above.)
     const hk = sk > 0 ? (1 / sk).toFixed(3) : '';
     if (hk && hk !== haloK) { haloK = hk; for (const g of haloEls) g.style.setProperty('--halo-k', hk); }
@@ -5930,7 +5933,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   };
   function clampShade(id) {
     const e = clampEase(id), op = e < 1 ? e.toFixed(3) : '';
-    for (const g of [ov.clamps, ov.clampsOut]) for (const el of g.querySelectorAll(`[data-id="${id}"]`)) if (el.tagName === 'text' || !glLines) el.style.opacity = op;
+    for (const g of [ov.clamps, ov.clampsOut, clampW, clampWOut]) for (const el of g.querySelectorAll(`[data-id="${id}"]`)) if (el.tagName === 'text' || !glLines) el.style.opacity = op;
   }
   // The heart a slide points at (the right atrium, the heart itself) is lit whole by a soft glow, not a line: one band
   // easing out from its edge (the GPU shades the falloff smoothly, behind the organs): reach in world units, peak opacity.
@@ -6247,7 +6250,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const [id, c] of clampA) {
       const t = c.on ? 1 : 0;
       if (c.a !== t) { c.a = t > c.a ? Math.min(1, c.a + cdu) : Math.max(0, c.a - cdu); clampMoved = true; clampShade(id); }
-      if (!c.on && c.a === 0) { for (const el of ov.clampsOut.querySelectorAll(`[data-id="${id}"]`)) el.remove(); clampA.delete(id); mk.ver++; }
+      if (!c.on && c.a === 0) { for (const el of [...ov.clampsOut.querySelectorAll(`[data-id="${id}"]`), ...clampWOut.querySelectorAll(`[data-id="${id}"]`)]) el.remove(); clampA.delete(id); mk.ver++; }
     }
     // The treatment marks, stepped on the frame's own time (a long frame moves them no further than a short one's worth).
     if (markA.size) {
@@ -7839,7 +7842,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const el of sites.made.values()) if (el._box && !el.classList.contains('cath-pre')) out.push(el._box);
     if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) if (el._box) out.push(el._box);
     // (A narrowing's "60 %" too: the probe stands on the side whose line of sight and flow axis keep off it: Mohammad, 20 Oct.)
-    for (const el of ov.clamps.querySelectorAll('.clamp-label')) if (el._box) out.push(el._box);
+    for (const el of clampW.querySelectorAll('.clamp-label')) if (el._box) out.push(el._box);
     return out;
   }
   // The organs' outlines (world units, every 4 or so along them), kept until an organ's shape or transform changes (olKey).
@@ -8891,7 +8894,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (m.busy) return;
     m.want = want;
     if (same(m.cur, want)) return;
-    const els = () => [...ov.clamps.querySelectorAll(`.clamp-label[data-id="${id}"]`)];
+    const els = () => [...clampW.querySelectorAll(`.clamp-label[data-id="${id}"]`)];
     m.busy = true;
     const dur = reduceMotion.matches ? 0 : D_SMALL;
     // (From and to its own opacity as it stands, the keyframe left out: no style read for it. 1 Nov 2026.)
@@ -9089,21 +9092,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // layout never counts them; one that comes, or comes back, fades in from where it stands.)
     const want = new Set(Object.entries(p.stenosis).filter(([id, v]) => !hideDx && v > 0 && E[id]?.vis).map(([id]) => id));
     if (!clampFading()) clampLast = performance.now();
-    for (const el of [...ov.clamps.children]) {
+    for (const el of [...ov.clamps.children, ...clampW.children]) {
       const id = el.dataset.id;
       if (want.has(id)) continue;
       const c = clampA.get(id);
       if (!c) { el.remove(); continue; }
       c.on = false;
       el.classList.replace('clamp', 'clamp-out'); el.classList.replace('clamp-label', 'clamp-label-out');
-      ov.clampsOut.append(el);
+      (el.tagName === 'text' ? clampWOut : ov.clampsOut).append(el);
     }
     for (const id of want) {
       const c = clampA.get(id);
       if (!c) clampA.set(id, { a: 0, on: true });
-      else if (!c.on) { c.on = true; for (const el of ov.clampsOut.querySelectorAll(`[data-id="${id}"]`)) el.remove(); }
+      else if (!c.on) { c.on = true; for (const el of [...ov.clampsOut.querySelectorAll(`[data-id="${id}"]`), ...clampWOut.querySelectorAll(`[data-id="${id}"]`)]) el.remove(); }
     }
-    ov.clamps.innerHTML = ''; ov.stents.innerHTML = ''; ov.plugs.innerHTML = '';
+    ov.clamps.innerHTML = ''; clampW.replaceChildren(); ov.stents.innerHTML = ''; ov.plugs.innerHTML = '';
     if (!markA.moving()) markLast = performance.now();
     markA.begin(); ovT = t;
     // Clots keep their own key: growing varices (the disease clock) rebuild the rest, not them.
@@ -9123,7 +9126,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       const lab = s('text', { class: 'clamp-label', 'data-id': id }, document.createTextNode(`${Math.round(v * 100)}%`));
       lab._c = { id, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
-      ov.clamps.append(lab);
+      clampW.append(lab);
       clampShade(id);
     }
     placeClampLabels();
@@ -10622,8 +10625,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         ptSide = clampFor === col && ptSide === 'W' ? (e + 5 < w ? 'E' : 'W') : (w + 5 < e ? 'W' : 'E');   // (a near tie keeps the side it had)
       } else ptSide = null;
       const away = col ? (ptSide === 'E' ? 'W' : 'E') : null;
-      if (away !== clampAway || col !== clampFor) { clampAway = away; clampFor = col; for (const el of ov.clamps.querySelectorAll('.clamp-label')) clampLabelAt(el); }
-      for (const el of ov.clamps.querySelectorAll('.clamp-label')) clampFontAt(el);
+      if (away !== clampAway || col !== clampFor) { clampAway = away; clampFor = col; for (const el of clampW.querySelectorAll('.clamp-label')) clampLabelAt(el); }
+      for (const el of clampW.querySelectorAll('.clamp-label')) clampFontAt(el);
       // (The column's "60 %" stands off the vessels on its side (Review 15 Oct: it sat on the grey vein): the nearest spot clear of
       // every vessel but its stent and of the credit, a step farther out or slid along the stent at a time, up to 64 px each way;
       // failing that, the one over the fewest.)
@@ -10648,7 +10651,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         }
         return false;
       };
-      if (col) for (const el of ov.clamps.querySelectorAll('.clamp-label')) {
+      if (col) for (const el of clampW.querySelectorAll('.clamp-label')) {
         if (el._c?.id !== col) continue;
         const k = 1 / Math.max(CTM.sc, 1e-3), steps = [];
         for (let px = 0; px <= 64; px += 4) for (let tp = -64; tp <= 64; tp += 8) steps.push([px, tp]);
@@ -10705,7 +10708,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // clamp's outer tip (clampLeads, below).
     if (solve && !isImaging()) {
       const probe = dpr.on && dpr.box ? [dpr.box, ...dpr.marks] : [], seen = new Set(), k = 1 / Math.max(CTM.sc, 1e-3);
-      for (const el of ov.clamps.querySelectorAll('.clamp-label')) {
+      for (const el of clampW.querySelectorAll('.clamp-label')) {
         const c = el._c, id = c?.id, m = clampMv.get(id);
         if (!c || id === clampFor || (!probe.length && !m?.cur)) continue;   // (a column's "60 %" has its own spot: clampD)
         seen.add(id);
@@ -10736,7 +10739,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       for (const [id, m] of clampMv) if (!seen.has(id) && !m.busy) clampMv.delete(id);
     }
-    if (solve && !isImaging()) for (const el of ov.clamps.querySelectorAll('.clamp-label')) { const b = boxOfEl(el, 6); if (b) placed.push(el._box = { ...b, lab: true }); }
+    if (solve && !isImaging()) for (const el of clampW.querySelectorAll('.clamp-label')) { const b = boxOfEl(el, 6); if (b) placed.push(el._box = { ...b, lab: true }); }
     // (The column's narrowing arrows, for the slide's mark: its leader keeps 6 px off them, as drawn (their triangles, not their
     // boxes, so a leader straight up between them still passes): Review 16 Oct.)
     const markArrows = solve && dop.all && clampFor && ptSide ? [...ov.clamps.querySelectorAll(`.clamp[data-id="${clampFor}"]`)].map((el) => {
@@ -11654,7 +11657,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (A "60 %" that stands off from its clamp, moved off the probe or put where the stent's column of callouts leaves room, is
     // joined to the clamp's nearer outer tip by a leader, fading with it; one at its usual spot has none. Read from the label as it
     // stands now, in a carried layout too, so a pan or a nudge of the figure keeps the line.)
-    if (!isImaging()) for (const el of ov.clamps.querySelectorAll('.clamp-label')) {
+    if (!isImaging()) for (const el of clampW.querySelectorAll('.clamp-label')) {
       const c = el._c, m = c && clampMv.get(c.id), own = c && c.id === clampFor && ptSide && clampD.get(c.id);
       if (!c || m?.busy || !(m?.cur || own)) continue;
       const b = boxOfEl(el, (6 * clampBase) / 12);   // (the leader stops short of the text by the same 6 px at 12 px text, in step with its size)
