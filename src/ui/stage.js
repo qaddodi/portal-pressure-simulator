@@ -2898,7 +2898,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (The picture kept for the fade is the figure without the glasses drawn in its canvas: they go back to their own way first, and
       // come back once the fade has ended, frostOn.)
       frostHold = true;
-      try { glassGL?.release(); paneGL?.release(); for (const g of cardGLs) g.release(); fadeOver(vCanvas, resFollow, () => veins?.present?.(), veins && !veins.lost ? veins.top : null, { w: boxW, h: boxH }); } finally { frostHold = false; }
+      try { glassGL?.release(); paneGL?.release(); if (!RES_FROST) for (const g of cardGLs) g.release(); fadeOver(vCanvas, resFollow, () => veins?.present?.(), veins && !veins.lost ? veins.top : null, { w: boxW, h: boxH }); } finally { frostHold = false; }
       fadeM0 = [...glM];
     }
     resizeCanvas();
@@ -7032,7 +7032,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const key = {};
     const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0)), version: frostSeq, fresh: frostFresh, onFigure: (f) => veins.onPicture(f), copy: false, onHoles: frostHoles(key) });
     if (!g) return null;
-    hostFrost(g, { order: { low: 1, high: 3 }, over: (level) => frostOver(level === 'low' ? 'low' : 'cards'), low: (el) => el === shade });
+    hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: (level) => frostOver(level === 'low' ? 'low' : 'cards'), low: (el) => el === shade });
     cardGLs.add(g);
     const dispose = g.dispose;
     g.dispose = () => { cardGLs.delete(g); frostHosts.delete(g); dispose(); if (holeSets.delete(key)) sendHoles(); };
@@ -8929,6 +8929,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // canvas (a resolution's fade, a dive, the lobule), the callouts and the pane go back to their own way (?glasscopy=1: their own canvas,
   // from a copy, as before 31 Oct; by default the browser's glass) and a card to the browser's glass.
   let frostHold = false;
+  const RES_FROST = !/[?&]resfrost=0\b/.test(location.search);
   // (2 Nov 2026, the iPhone trace: the glass asked the figure's canvas for its computed look on every frame it drew, which made the
   // browser restyle the page there and then, mid-frame. The look is read between frames instead: once at the start, after any write to
   // the canvas or what holds it, and when one of its transitions or animations ends; while one runs the canvas counts as easing, so no
@@ -8951,8 +8952,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     vcWhy = vcLook();
   }
   // (frostWhy: '' while the figure's canvas takes glass, else the first thing that stops it, in words for the ?perf blur gauge.)
-  const frostWhy = () => {
-    if (frostHold) return 'a change of canvas is under way';
+  // (cards: the cards' glass stays drawn through a resolution's fade (RES_FROST), never let go: the picture kept for the fade has the
+  // cards' glass in it where it stands, and the glass drawn over the fade covers it (inside its box the glass is opaque), its blur taken
+  // from the new picture (each glass's blur is taken before the fade is laid over it: veins-gl tops, every prep before any draw). Before, every card went flat for the fade's 420 ms, which with Figure resolution on Auto
+  // is every zoom's settle (review/ui-gpu-review-opus-2nov.md: "the card visibly switches from frosted to flat and back"). ?resfrost=0: as before.)
+  const frostWhy = (cards = false) => {
+    if (frostHold && !(cards && RES_FROST)) return 'a change of canvas is under way';
     if (!veins?.top) return 'the figure has no canvas to draw into';
     // (In the liver the glass is drawn into the lobule's or the open sinusoid's own GPU canvas (lobule-zoom.js glassHost), never let go
     // to a flat card: Mohammad, 2 Nov 2026, Circulation 6 on the iPhone, "No blur at all on top, solid card on bottom". ?liverfrost=0: as before.)
@@ -8965,7 +8970,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (frostLiver || frostCtx !== veins.top.gl) { rehostSoon(); return 'the glass is moving back to the figure\'s canvas'; }
     if (veins.lost) return 'the GPU context is lost';
     if (diveT > 0) return 'the dive is under way';
-    if (fading(vCanvas)) return 'the canvas is fading (a resolution change)';
+    if (!(cards && RES_FROST) && fading(vCanvas)) return 'the canvas is fading (a resolution change)';
     const wc = wrap.classList;
     if (!wc.contains('gl-on')) return 'the GPU figure is not showing';
     if (wc.contains('in-lobule')) return 'the lobule is showing';
