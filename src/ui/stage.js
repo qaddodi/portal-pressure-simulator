@@ -12454,6 +12454,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // An outline's d is not eased by any of the overlays' styles.)
         // (2 Nov 2026: its transitions are read in the next frame's read phase (overReadNow), not here, in the observer's microtask
         // straight after the page's writes, where the read laid the page out.)
+        // (The hiding classes' own coming and going (OVER_CLASS, OVER_ALL) is no write of the page's to look at: a group that fades (the
+        // circuit's, .circuit-only, 420 ms) was read as easing the moment the GPU took it, was handed back to the SVG, and again as that
+        // class came off, so the resistors' zigzags and the PPG bracket hopped between the two painters, which drew them a little apart:
+        // the flicker on the circuit slides. Mohammad, 2 Nov 2026.)
+        if (r.attributeName === 'class') continue;
         if (r.attributeName !== 'd' && r.target.nodeType === 1) {
           overCheck.add(r.target);
         }
