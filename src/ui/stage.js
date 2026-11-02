@@ -8661,7 +8661,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function cathRoomRead() {
     cathRoomAsk = 0;
     const b = stageBox();
-    cath.room = { t: performance.now(), W: b.width, H: b.height, sp: cardSpaceRead(), blk: blockerBoxes && !blockersStale ? blockerBoxes : readBlockersRead((el) => el.getBoundingClientRect(), b) };   // (the labels' own list when it is current)
+    // (The cards' boxes from the labels' own list, the browser's IntersectionObserver report: a stale list asks for a new one instead of
+    // reading every card's box here, a forced layout of each a quarter second through a catheter slide's change. ?cathio=0: read here.)
+    const io = CATH_IO && BLOCK_IO;
+    if (io && (!blockerBoxes || blockersStale) && !blockersAsk) { blockersAsk = 1; blockersRead(); }
+    cath.room = { t: performance.now(), W: b.width, H: b.height, sp: cardSpaceRead(), blk: io ? blockerBoxes || [] : blockerBoxes && !blockersStale ? blockerBoxes : readBlockersRead((el) => el.getBoundingClientRect(), b) };   // (the labels' own list when it is current)
     cath.lblKey = ''; nextFrame(cathLabelsSoon);
   }
   function cathSize(el, text, rows = null) {
@@ -10039,6 +10043,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // frame, so reading them forces no layout (a slide change read them ten times a second, ~385 forced layouts: 2 Nov 2026, "Move
   // everything to GPU"). ?blockio=0 reads them with getBoundingClientRect, as before.
   const BLOCK_IO = !/[?&]blockio=0\b/.test(location.search) && typeof IntersectionObserver === 'function';
+  const CATH_IO = !/[?&]cathio=0\b/.test(location.search);
   function blockersRead() {
     if (!BLOCK_IO) { blockersAsk = 0; blockersGot(readBlockersRead((el) => el.getBoundingClientRect(), stageBox())); return; }
     const els = [wrap, ...blockerEls()];

@@ -6,7 +6,7 @@ import { budget as gpuBudget } from './gpu-budget.js?v=eb9188fbae';   // (the re
 import './gl-state.js?v=554eb75e6c';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host } from './host.js?v=9eca545da1';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { createStage } from './stage.js?v=69c425983f';
+import { createStage } from './stage.js?v=f8c560c51b';
 import { createCreditPlacer } from './credit.js?v=c6b31468e0';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
@@ -964,7 +964,7 @@ function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
   // (And the frame-time overlay beside it, frame-hud.js: fps, 1% low, interval and script percentiles, surfaces, throttle. ?hud=0 off.)
-  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=6cbe4a91c9').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=8465699428').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages. ?highrefresh=0 off.
   import('./high-refresh.js?v=a5fd03fdf7').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
   if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=75e5c644c8').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
