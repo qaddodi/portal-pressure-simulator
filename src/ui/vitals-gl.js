@@ -8,7 +8,7 @@
 // before that draws nothing new. A lost context draws nothing until it is restored, when everything is made again.
 import { sdfAtlas } from './text-gl.js?v=d2e4e7d633';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
 const { GLYPHS, KERN, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
-import { startProgram, compileDone, checkProgram, publishWhenDone } from './gl-compile.js?v=79231d7c6b';
+import { startProgram, compileDone, checkProgram, publishWhenDone } from './gl-compile.js?v=f9222c848a';
 
 /** '#rgb', '#rrggbb', 'rgb()' or 'rgba()' as premultiplied [r, g, b, a] in 0–1. */
 export function colorOf(c) {

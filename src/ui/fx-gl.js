@@ -12,7 +12,7 @@
 //
 // Without WebGL2, on a software renderer or once the context is lost, createFxGL returns null / reports lost, and paintFx draws.
 
-import { startProgram, checkProgram } from './gl-compile.js?v=79231d7c6b';
+import { startProgram, checkProgram } from './gl-compile.js?v=f9222c848a';
 import { fbComplete } from './gl-state.js?v=4163c507aa';
 import { uniformCache } from './uniform-cache.js?v=6488216aa0';
 

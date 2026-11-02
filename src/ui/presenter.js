@@ -42,7 +42,7 @@ import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS
 import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=1d147c7c9a';
 import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=d2e4e7d633';
 import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
-import { createSlidePrep } from './slide-prep.js?v=09e5326bee';
+import { createSlidePrep } from './slide-prep.js?v=c805080b5b';
 import { createTxns } from './slide-txn.js?v=2b33d858d0';
 import { glEpoch, onGLRestored } from './gl-state.js?v=4163c507aa';
 import { prepareShaders, shaderFailures } from './gl-compile.js?v=79231d7c6b';

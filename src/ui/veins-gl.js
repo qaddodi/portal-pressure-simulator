@@ -41,7 +41,7 @@ import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=ea6dff6f6d';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=d805a40704';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { changedRows } from './flow-rows.js?v=6cd335f84b';
-import { leftAlone } from './quiet.js?v=388052eba8';
+import { leftAlone } from './quiet.js?v=856a3cdf1e';
 import { uniformCache } from './uniform-cache.js?v=6488216aa0';
 import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=79231d7c6b';
 import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=2fdae8223d';
@@ -49,7 +49,7 @@ import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl
 import { warmFade } from './res-fade-gl.js?v=0e7cf7da33';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=b5cc409146';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
-import { createNoiseFiller } from './noise-gl.js?v=0bf11d4293';
+import { createNoiseFiller } from './noise-gl.js?v=97605acd12';
 import { softwareGL } from './sw-yield.js?v=f7e0bc683b';
 import { frameCount, framePhase } from './frame.js?v=1d147c7c9a';
 import { caught } from './caught.js?v=b96b17594a';

@@ -16,7 +16,7 @@ import { ucOf } from './uniform-cache.js?v=6488216aa0';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
 import { hold } from './gpu-budget.js?v=5a5dcd699f';
 import { WARM_MS, bucket } from './warm-views.js?v=5709bebee7';
-import { startProgram, checkProgram, publishWhenDone, stillCompiling } from './gl-compile.js?v=79231d7c6b';
+import { startProgram, checkProgram, publishWhenDone, stillCompiling } from './gl-compile.js?v=f9222c848a';
 import { caught } from './caught.js?v=b96b17594a';
 
 const TAU = Math.PI * 2;

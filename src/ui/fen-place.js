@@ -5,7 +5,7 @@
 // threshold, so it is still an open pore in a cirrhotic wall) from those the nuclei's swells leave showing, by place only, so
 // the choice never moves as the pores open and close.
 
-import { underNucleus, poreOpenness } from './sinusoid-gl.js?v=06e0e2e67e';
+import { underNucleus, poreOpenness } from './sinusoid-gl.js?v=3950867cf5';
 
 // What the layout works in, kept and written in place (the sinusoid view lays its names out every frame it draws): the intervals to avoid
 // (flat, start and end), the Disse name's spot, the best placements tryGap finds and the answer. The spot and the answer are kept records,

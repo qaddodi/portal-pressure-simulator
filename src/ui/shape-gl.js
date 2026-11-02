@@ -11,7 +11,7 @@
 
 import { ucOf } from './uniform-cache.js?v=6488216aa0';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
-import { prestart, linkProgram } from './gl-compile.js?v=79231d7c6b';
+import { prestart, linkProgram } from './gl-compile.js?v=f9222c848a';
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
