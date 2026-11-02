@@ -20,7 +20,7 @@
 
 import { createSvgGL, svgModel } from './svg-gl.js?v=0ad330a216';
 import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=978a757555';
-import { restPass, cancelRest } from './rest-pass.js?v=ed71462b47';
+import { restPass, cancelRest } from './rest-pass.js?v=f6a3355959';
 import { readMetric } from './layout-snap.js?v=f87939cccb';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
 
