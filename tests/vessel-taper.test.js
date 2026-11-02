@@ -136,14 +136,7 @@ test('the GPU radii take the run\'s taper for vessels that run on at a two-vesse
   assert.match(stage, /if \(fork\) \{/);
 });
 
-test('the SVG tubes take the taper plan wherever the GPU does not draw them', () => {
-  assert.equal(stage.match(/const TP = !glWanted\(t\) \? svgTaper\(p, t\) : null;/g).length, 2);
-});
-
-test('the SVG tubes take the same plan from the model\'s own two-vessel nodes, and a vessel with none keeps its old radius expression', () => {
-  assert.match(stage, /function svgTaper\(p, t\) \{/);
-  assert.match(stage, /if \(e\.length !== 2 \|\| e\[0\]\[0\] === e\[1\]\[0\] \|\| !tube\(e\[0\]\[0\]\) \|\| !tube\(e\[1\]\[0\]\)\) continue;/);
-  assert.match(stage, /: u < 0\.3 \? lerp\(a, w, smooth\(u \/ 0\.3\)\) : u > 0\.7 \? lerp\(w, b, smooth\(\(u - 0\.7\) \/ 0\.3\)\) : w;/);
-  // (renderTube is called with the plan in both places the tubes are drawn.)
-  assert.equal(stage.match(/renderTube\(x, p, t, J, TP\);/g).length, 2);
+test('the GPU is the only drawer of the tubes: there is no SVG taper path left, and renderTube takes no plan', () => {
+  assert.doesNotMatch(stage, /svgTaper|const TP = /);
+  assert.equal(stage.match(/renderTube\(x, p, t, J\);/g).length, 2);
 });

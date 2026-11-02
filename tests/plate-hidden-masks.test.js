@@ -33,12 +33,11 @@ test('the caudate\'s veins build no mask once the lobe has faded out and hidden,
   assert.match(stage, /const veinsG = s\('g', \{ mask: 'url\(#caudMask\)', class: 'caud-veins' \}\);/);
 });
 
-test('under gl-on the vessel groups, whose drawn strokes are off and whose hit strokes are transparent, build no mask unless focused', () => {
-  assert.match(css, /\.stage-view\.gl-on #world :is\(\.v-shadow, \.v-wallP, \.v-lumenP, \.v-wall, \.v-lumen, \.v-shade, \.v-sheen, \.v-select, \.v-artery, \.v-strand, \.v-strand-wall\) \{ display: none; \}/);
-  assert.match(css, /\.v-halo \{ display: none; \}/);
+test('the vessels are drawn by the GPU alone: no SVG tube part, halo or vessel mask is left, and the hit strokes stay transparent', () => {
   assert.match(css, /#world \.v-hit \{ fill: none; stroke: transparent;/);
-  assert.match(css, /\.stage-view\.gl-on #world \.vg:not\(:focus-within\) \{ mask: none; \}/);
-  assert.match(stage, /g\.append\(lumen, lumenP, hit\);/, 'the hit stroke sits in the masked group');
+  assert.doesNotMatch(css, /\.v-(shadow|wallP|lumenP|wall|lumen|shade|sheen|select|artery|halo|strand-wall)\b/);
+  assert.doesNotMatch(css, /\.vg:not\(:focus-within\) \{ mask: none; \}/);
+  assert.doesNotMatch(stage, /class: 'v-(wall|lumen|halo|shadow|shade|sheen)'/);
 });
 
 test('the liver\'s disease layers are hidden while faded to 0 (a clipped path at opacity 0 still drew its layer)', () => {

@@ -214,7 +214,10 @@ function labelRectsRead(wr, wrap, kept = null) {
 // Organs and vessels are kept in two grids. On the GPU figure the vessel tubes are not in the page at all (their SVG tubes are
 // display:none), only their transparent hit strokes are, so those stand for the vessels there, at 0.7 of their width (a hit stroke is wider than its tube).
 const ORGANS = 'g.organ :is(path, circle, ellipse, rect, polygon):not(.org-shade)';
-const VESSELS = '#edges :is(.v-lumen, .v-lumenP, .v-strand), #world .v-hit';
+// (The vessels are drawn by the GPU alone: their hit strokes are what counts, as they did while the GPU drew them.)
+const VESSELS = '#world .v-hit';
+// A lit vessel's lumen width (world units), the glow's core: the stage's own number (a vein's drawn width), else its hit stroke's.
+const lumenW = (el) => window.pps?.stage?.lumenWidth?.(el.getAttribute('data-id')) ?? (parseFloat(readStyle(el).strokeWidth) || 0);
 // (The ascites fluid and the flanks' outline count as organs' art, as drawn: their fill where they have one, their stroke where
 // they have one. A small phone in Patients had put the credit on the fluid.)
 // (The diaphragm's line across the back wall counts too: the credit had sat on it with the menu open; sweep 02 #11.)
@@ -241,7 +244,7 @@ let organMemo = { key: '', test: null };
 // (the credit had landed on the hepatocytes).
 // The screen's own grid: the art drawn again, from the page, whenever the camera or the lobule's ring moved.
 function screenTest(wr, ring = null) {
-  window.pps?.stage?.flushHeld?.();   // (the lumens' widths the stage holds while the GPU draws them, written before they are read)
+  window.pps?.stage?.flushHeld?.();   // (the hit strokes' paths the stage holds while the GPU draws, written before they are read)
   const glows = ring ? [] : window.pps?.stage?.steadyGlows?.() || [];
   const world = readCTM(document.getElementById('world')), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2)), ring && ring.flat().map((v) => v.toFixed(1)), glows.flat().join()].join('|');
   if (organMemo.key === key) return organMemo.test;
@@ -287,10 +290,10 @@ function screenTest(wr, ring = null) {
       // (sweep 01 review: an iPad zoomed in had put the credit on a glow).
       if (glows.length) {
         for (const [id, wide] of glows) for (const el of document.querySelectorAll(`#world .v-hit[data-id="${CSS.escape(id)}"]`)) {
-          const m = readCTM(el), lumen = el.parentNode?.querySelector('.v-lumen');
+          const m = readCTM(el);
           if (!m) continue;
           ctx.setTransform(m.a / CELL, m.b / CELL, m.c / CELL, m.d / CELL, (m.e - wr.left) / CELL, (m.f - wr.top) / CELL);
-          ctx.lineWidth = (lumen ? parseFloat(readStyle(lumen).strokeWidth) || 0 : parseFloat(readStyle(el).strokeWidth) || 0) + 2 * 12 * Math.min(1.3, Math.max(0.5, wide));
+          ctx.lineWidth = lumenW(el) + 2 * 12 * Math.min(1.3, Math.max(0.5, wide));
           ctx.lineCap = ctx.lineJoin = 'round'; ctx.stroke(shapePath(el));
         }
         ctx.readInto(grids.ves);
@@ -393,9 +396,9 @@ function hitsOf(facts, id, inv) {
   if (out) return out;
   out = [];
   for (const el of document.querySelectorAll(`#world .v-hit[data-id="${CSS.escape(id)}"]`)) {
-    const m = readCTM(el), lumen = el.parentNode?.querySelector('.v-lumen');
+    const m = readCTM(el);
     if (!m) continue;
-    out.push({ path: shapePath(el), m: multiply(inv, m), w: (lumen ? parseFloat(readStyle(lumen).strokeWidth) || 0 : parseFloat(readStyle(el).strokeWidth) || 0) });
+    out.push({ path: shapePath(el), m: multiply(inv, m), w: lumenW(el) });
   }
   facts.hits.set(id, out);
   return out;

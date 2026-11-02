@@ -1049,7 +1049,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (cr.classList.contains('covered')) return out;   // (hidden where nothing is bare: allowed)
       // (the figure's vessels and organs under its drawn box, sampled every 3 px; the GPU figure's vessels are their hit strokes)
       const b = cr.getBoundingClientRect(), on = new Set();
-      for (let x = b.left; x <= b.right; x += 3) for (let y = b.top; y <= b.bottom; y += 3) for (const e of document.elementsFromPoint(x, y)) if (e.matches('.v-hit, .v-lumen, .v-strand, g.organ *, #labels .lb *')) on.add(e.matches('#labels .lb *') ? 'a label' : e.matches('g.organ *') ? 'an organ' : 'a vessel');
+      for (let x = b.left; x <= b.right; x += 3) for (let y = b.top; y <= b.bottom; y += 3) for (const e of document.elementsFromPoint(x, y)) if (e.matches('.v-hit, g.organ *, #labels .lb *')) on.add(e.matches('#labels .lb *') ? 'a label' : e.matches('g.organ *') ? 'an organ' : 'a vessel');
       if (on.size) out.push(`sits on ${[...on].join(' and ')} at ${b.left | 0},${b.top | 0}`);
       return out;
     });

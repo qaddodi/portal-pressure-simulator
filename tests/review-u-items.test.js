@@ -52,7 +52,7 @@ test('U10: failures are said in learner words', () => {
   assert.doesNotMatch(main, /see the console/);
   assert.match(main, /if \(kind === 'main'\) toast\(/);
   assert.match(main, /cannot draw the sinusoid view \(it needs WebGL2\)/);
-  assert.match(stage, /toast\('This device cannot draw moving blood/);
+  assert.match(stage, /toast\('This device could not start its graphics \(WebGL2\), so the vessels cannot be drawn/);
 });
 
 test('U11: the shunt hint is one target per line, says Tap on touch and shows Esc only with a keyboard', () => {
