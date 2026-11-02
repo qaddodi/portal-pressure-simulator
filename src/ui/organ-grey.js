@@ -16,10 +16,24 @@ export function parseColor(s) {
 }
 
 const greyMix = (l, c, sat) => +(l + (c - l) * sat).toFixed(6);
-/** The colour mixed toward its luma by `sat` (1: as it is, 0: grey), as the filter's matrix did; alpha kept. */
-export function greyOf(c, sat) {
+const greyBuild = (c, sat) => {   // alloc-rare: built once for a colour and saturation step, then handed back from its table
   const r = c[0], g = c[1], b = c[2], a = c[3], l = LUMA[0] * r + LUMA[1] * g + LUMA[2] * b;
   return `color(srgb ${greyMix(l, r, sat)} ${greyMix(l, g, sat)} ${greyMix(l, b, sat)}${a < 1 ? ` / ${+a.toFixed(6)}` : ''})`;
+};
+// (A colour's greys by saturation, each made the first time it is asked for and handed back after: stage.js asks at 1/256 steps, so an
+// ease writes the same few hundred strings every time and builds none in its frames. A step of 1/256 moves a channel by under half a
+// level of an 8-bit screen, so the picture is the same one. The table is cleared if a caller asks at more than 300 distinct values.)
+const GREYS = new WeakMap();
+/** The colour mixed toward its luma by `sat` (1: as it is, 0: grey), as the filter's matrix did; alpha kept. `c` is not changed while it is a key. */
+export function greyOf(c, sat) {
+  let t = GREYS.get(c);
+  if (!t) GREYS.set(c, t = new Map());   // alloc-rare: a colour's table, made the first time the colour is greyed
+  let s = t.get(sat);
+  if (s === undefined) {
+    if (t.size > 300) t.clear();
+    t.set(sat, s = greyBuild(c, sat));   // alloc-rare: built once per colour and saturation step, then handed back from its table
+  }
+  return s;
 }
 
 /** The ids a computed paint refers to ('url("#gLiver")' → 'gLiver'), or null. */

@@ -5447,7 +5447,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function greySet(sat) {
     if (greyFilter) { organDimFx.setAttribute('values', organDimMatrix(1, sat)); return; }
-    for (const g of greyList) g.el.style.setProperty(g.p, greyOf(g.c, sat), 'important');
+    const q = Math.round(sat * 256) / 256;   // (1/256 steps: under half a level of an 8-bit screen, and the strings are made once)
+    for (const g of greyList) g.el.style.setProperty(g.p, greyOf(g.c, q), 'important');
   }
   // The colours are read again when what they depend on changes (the theme, the stage's classes), before the next paint.
   const greyDeps = () => { const r = document.documentElement; return `${wrapCls()}|${r.className}|${themeKey()}|${matchMedia('(prefers-color-scheme: dark)').matches}`; };

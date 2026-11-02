@@ -29,7 +29,7 @@ test('a change drops only the readings it touches; a change to the organs\' own 
 test('what eases (outlines, opacities) and the lens grey (always taken off for a read) keep the readings', () => {
   assert.match(stage, /if \(m\.attributeName === 'd'\) \{ if \(!m\.oldValue !== !now\) readDrop\(m\.target\); continue; \}/);
   assert.match(stage, /filter\(\(m\) => !\/!\\s\*important\/i\.test\(m\[2\]\)\)/);
-  assert.match(stage, /g\.el\.style\.setProperty\(g\.p, greyOf\(g\.c, sat\), 'important'\)/, 'the grey is set !important');
+  assert.match(stage, /g\.el\.style\.setProperty\(g\.p, greyOf\(g\.c, q\), 'important'\)/, 'the grey is set !important');
   const sig = (v) => [...String(v || '').matchAll(/(?:^|;)\s*(display|visibility|fill|stroke|stroke-width|stroke-dasharray|mask|clip-path|filter|stop-color|stop-opacity|mix-blend-mode|fill-rule)\s*:\s*([^;]*)/g)]
     .filter((m) => !/!\s*important/i.test(m[2])).map((m) => `${m[1]}:${m[2].trim()}`).sort().join(';');
   assert.equal(sig('opacity: 0.4; transform: translate(2px)'), sig('opacity: 0.9'));
