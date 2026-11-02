@@ -14,6 +14,7 @@
     "src/ui/presenter.js → ./test-decks/demo-all-new-visuals.js": "the preview copy only, when the presenter module is read in",
     "src/ui/stage.js → ./lobule-zoom.js": "stage.js lobuleCode, once the figure is shown (prepIdle), long before the lobule can be opened",
     "src/ui/stage.js → ./organ-art-lite.js": "NOT YET: syncArtLite imports it when Lighter organ art is turned on in Settings, a tap (to be read in when Settings opens)",
-    "src/ui/text-gl.js → ./glyph-data.js": "gl-words.js and label-gl.js call loadGlyphs at boot"
+    "src/ui/text-gl.js → ./glyph-data.js": "gl-words.js and label-gl.js call loadGlyphs at boot",
+    "src/ui/text-gl.js → ./glyph-metrics.js": "NOT YET: loadMetrics fetches it where a paragraph is laid out, and no app code calls loadMetrics yet (only the tests); whoever wires layoutParagraph in must call it at boot or idle, never on a tap"
   }
 }
