@@ -20,11 +20,11 @@ export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
 /** The liver label's pane (app.css .lb-glass: blur(9px) saturate(1.2) over --frost, its corners its border radius). */
 export const PANE = { blur: 9, sat: 1.2 };
 /** The Present cards' frost (Mohammad, 2 Nov 2026, on the iPhone: "the blur sucks now it's just transparent"): the callouts' 16 px blur
- *  left the vessels and organs readable through a card, so a card reads as see-through rather than frosted. A card is blurred at 30 px
- *  (sigma 30 px), on a grid of 8 CSS px a texel (the blur still 3.75 texels, inside the 12 taps), from 3 sigmas of figure around it;
- *  its tint, app.css --pz-frost (74 % of the surface, 58 % before), is read from --gl-tint as before. ?cardfrost=soft: as before. */
+ *  left the vessels and organs readable through a card; 30 px under a 74 % tint (70ca81f6) read muddy, "not clean". A card is blurred at 22 px
+ *  (sigma 22 px), on a grid of 8 CSS px a texel (2.75 texels, inside the 12 taps), from 3 sigmas of figure around it;
+ *  its tint, app.css --pz-frost (66 % of the surface, 58 % before), is read from --gl-tint as before. ?cardfrost=soft: as before. */
 const SOFT = typeof location !== 'undefined' && /[?&]cardfrost=soft\b/.test(location.search);
-export const CARD = SOFT ? { ...GLASS } : { blur: 30, sat: 1.1, scale: 8, margin: 90 };
+export const CARD = SOFT ? { ...GLASS } : { blur: 22, sat: 1.15, scale: 8, margin: 66 };
 /** A rounded rectangle's outline (w × h, corner radius r), as an SVG path. */
 export function roundPath(w, h, r) {
   const f = (n) => +n.toFixed(2), q = Math.max(0, Math.min(r, w / 2, h / 2));

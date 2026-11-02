@@ -117,12 +117,15 @@ export const throwHeld = (el) => held.has(el);
 
 /** Brings el in from the side the talk comes from (dir 'next': from the right, moving left; 'back': from the left), THROW_IN px, over
  *  D_SURFACE after delay ms, and lets go of it at rest. A card caught mid-way out comes back from where it is. */
+// (A card comes in from a little to its side, THROW_IN px, fading in, never from where the old one went: Mohammad, 2 Nov 2026, on the Mac,
+// "they should kinda slide in from a little bit right, not all the way from the right". ?inshort=0: in from as far as the old one went.)
+export const SHORT_IN = typeof location === 'undefined' || !/[?&]inshort=0\b/.test(location.search);
 export function throwIn(el, dir, delay = 0, dist = 0) {
   if (!el) return;
   pinned.delete(el);
   const s = dir === 'back' ? -1 : 1, was = runs.get(el);
   held.delete(el);
-  if (!was || was.kind !== 'out') { el.style.setProperty('transition', 'none', 'important'); write(el, s * (INSTANT && dist ? dist : THROW_IN), 0); runs.delete(el); }
+  if (!was || was.kind !== 'out') { el.style.setProperty('transition', 'none', 'important'); write(el, s * (INSTANT && dist && !SHORT_IN ? dist : THROW_IN), 0); runs.delete(el); }
   start(el, 'in', { x: 0, o: 1 }, INSTANT ? RAIL_MS : D_SURFACE, delay);
 }
 

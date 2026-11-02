@@ -89,3 +89,10 @@ test('glass: a card\'s fade carried by a transition that has just finished stays
   assert.match(glass, /if \(end\) \{ if \(!t && end\.t && !e\.style\?\.transform\) t = end\.t; if \(o == null && end\.o != null\) o = end\.o; \}/);
   assert.match(glass, /if \(dead \|\| lost\) return;\n\s+ended\.clear\(\);/, 'dropped at the next read, which sees the page as it is');
 });
+
+test('a card comes in from a little to its side (THROW_IN), not from where the old one went (?inshort=0 off); no drop shadow round the cards (?carddrop=1 off)', () => {
+  assert.match(src, /export const SHORT_IN = typeof location === 'undefined' \|\| !\/\[\?&\]inshort=0\\b\/\.test/);
+  assert.match(src, /write\(el, s \* \(INSTANT && dist && !SHORT_IN \? dist : THROW_IN\), 0\)/);
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(css, /:root:root:not\(\[data-carddrop\]\) :is\(\.pz, \.pz-shade\) \{ --glass-drop: transparent; \}/);
+});

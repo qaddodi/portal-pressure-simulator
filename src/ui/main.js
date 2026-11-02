@@ -4,7 +4,7 @@
 import { motionBudget } from './motion-budget.js?v=f3b73ab0e1';   // (first: counts from the start when ?perf or ?budget=1 asks)
 import { startHost, host } from './host.js?v=9eca545da1';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { createStage } from './stage.js?v=3cf7154268';
+import { createStage } from './stage.js?v=37fe23b94b';
 import { createCreditPlacer } from './credit.js?v=fca5648dbf';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
@@ -208,7 +208,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=717430448a'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=dee082cdb9'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -1148,6 +1148,7 @@ const STATUS_GESTURE_FREE = !/[?&]glidekeys=0\b/.test(location.search);
 // (The slide progress line grows by a GPU scale (app.css .pz-prog i); ?progfx=0 grows it by its width, as before.)
 if (/[?&]progfx=0\b/.test(location.search)) document.documentElement.setAttribute('data-progcpu', '');
 if (/[?&]cardfrost=soft\b/.test(location.search)) document.documentElement.setAttribute('data-cardfrost', 'soft');   // (the cards' lighter frost, as before 2 Nov: glass-gl.js CARD, app.css --pz-frost)
+if (/[?&]carddrop=1\b/.test(location.search)) document.documentElement.setAttribute('data-carddrop', '');   // (the Present cards' drop shadow, as before 2 Nov: app.css --glass-drop)
 // (2 Nov 2026: read between frames (rest-pass.js), not in the observer's microtask straight after the page's writes.)
 new MutationObserver((rs) => { if (STATUS_GESTURE_FREE && rs.every((r) => classOnly(r, GESTURE_LOOK))) return; restPass(syncStatusBar); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
