@@ -52,9 +52,9 @@ import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=253381a873'
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=37d9fdf180';
 import { createLabelGL } from './label-gl.js?v=83b929f67e';
 import { createGlassGL } from './glass-gl.js?v=f464c7557d';
-import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4d04207e0';
-import { ENT_W } from './veins-bin.js?v=7eb5e277a6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=cd29839e42';
+import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4ad517372';
+import { ENT_W } from './veins-bin.js?v=6e462a9e6c';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=5ffca9c76e';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -2707,7 +2707,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=0652360536').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=6c52d571ba').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -3940,6 +3940,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!a) binFrom.set(it.row, a = { pts: pts.map((q) => q.slice()), m: Math.ceil((wigE ? Math.abs(g.wigT - g.wig) * 2 : 0) + (sprE ? Math.abs(it.obj.off || 0) * Math.abs(g.sprT - (g.spr ?? 1)) * 2.4 : 0) + 1) / 2 });
     return { id: it.row, pts, bin: a.pts, reach: reach + a.m, core: core + a.m };
   }
+  // (Each join's binning circle, kept while the join stays inside it: veins-bin lists the join in that circle's cells. The joins ease
+  // wider with their vessels on a slide change, and each new cell was a whole binning of every vessel and a 4 MB upload, 11 in one
+  // Varices slide change (motion budget, 2 Nov). Kept per set of vessels; ?joinroom=0 lists each join in its own cells, as before.)
+  const JOIN_ROOM = !/[?&]joinroom=0\b/.test(location.search);
+  const joinBin = new Map();
+  let joinBinIds = '';
+  function joinRoom(J, items) {
+    if (!JOIN_ROOM) return;
+    const ids = items.map((it) => it.row).join(',');
+    if (ids !== joinBinIds) { joinBinIds = ids; joinBin.clear(); }
+    for (const j of J) {
+      const k = `${j.members.join('.')}|${j.trunk ?? ''}`, b = joinBin.get(k);
+      if (!b || Math.hypot(j.x - b.x, j.y - b.y) + j.reach > b.r) joinBin.set(k, { x: j.x, y: j.y, r: Math.ceil((j.reach * 1.25) / 2) * 2 + 2 });
+      const c = joinBin.get(k);
+      j.binX = c.x; j.binY = c.y; j.binReach = c.r;
+    }
+  }
   let vBinKey = '', vBinReach = new Map(), veinsDirty = true, veinsDrawKey = '', vLook = null, glOrgans = false;
   const reachOf = (it) => Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 18) / 2) * 2;
 
@@ -4106,7 +4123,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function sweepBin(msg) {
     if (!mt.worker) {
       try {
-        mt.worker = new Worker(new URL('./sweep-worker.js?v=9bd2a5bc81', import.meta.url), { type: 'module' });
+        mt.worker = new Worker(new URL('./sweep-worker.js?v=82f80d173a', import.meta.url), { type: 'module' });
         mt.worker.onmessage = (e) => { const w = mt.wait.get(e.data.id); mt.wait.delete(e.data.id); if (w) (e.data.error ? w.no(e.data.error) : w.ok(e.data.b)); };
         mt.worker.onerror = () => { for (const w of mt.wait.values()) w.no('worker'); mt.wait.clear(); };
       } catch { return Promise.reject(new Error('no worker')); }
@@ -4581,6 +4598,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // hundred times in one slide change. (The reach only says which cells list a vessel; the drawing is unchanged.)
       vBinReach = new Map(items.map((it) => [it.row, grew ? Math.max(vBinReach.get(it.row) || 0, Math.ceil(reachOf(it) * 1.25 / 2) * 2) : reachOf(it)]));
       const J = veinJoins(items), smooth = smoothRunOn(items);
+      joinRoom(J, items);
       for (const it of items) if (it.kind === 'v') { it.obj.glPts = smooth.get(it.row) || it.pts; }
       // (Binned against the last binning: a coiling collateral re-tests only its own cells, and when nothing the GPU holds
       // changed (another vessel's coil easing while it is hidden), nothing is uploaded.)

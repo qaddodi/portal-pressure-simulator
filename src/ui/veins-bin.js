@@ -101,11 +101,14 @@ export function binVeins(tubes, joins, memo = null) {
   }
   const jCell = [];
   joins.forEach((j, ji) => {
-    const cx0 = Math.max(0, Math.floor((j.x - j.reach - x0) / CELL)), cx1 = Math.min(nx - 1, Math.floor((j.x + j.reach - x0) / CELL));
-    const cy0 = Math.max(0, Math.floor((j.y - j.reach - y0) / CELL)), cy1 = Math.min(ny - 1, Math.floor((j.y + j.reach - y0) / CELL));
-    const lim2 = (j.reach + HALF) ** 2;
+    // (Listed in the cells of its binning circle (binX, binY, binReach) when the caller gives one that holds it, else its own: a
+    // join easing wider or sliding a little inside it keeps its cells, so the binning is patched, not made again whole.)
+    const jx = j.binX ?? j.x, jy = j.binY ?? j.y, jr = j.binReach ?? j.reach;
+    const cx0 = Math.max(0, Math.floor((jx - jr - x0) / CELL)), cx1 = Math.min(nx - 1, Math.floor((jx + jr - x0) / CELL));
+    const cy0 = Math.max(0, Math.floor((jy - jr - y0) / CELL)), cy1 = Math.min(ny - 1, Math.floor((jy + jr - y0) / CELL));
+    const lim2 = (jr + HALF) ** 2;
     for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
-      if (d2(x0 + (cx + 0.5) * CELL - j.x, y0 + (cy + 0.5) * CELL - j.y) > lim2) continue;
+      if (d2(x0 + (cx + 0.5) * CELL - jx, y0 + (cy + 0.5) * CELL - jy) > lim2) continue;
       jCell.push(cy * nx + cx, ji);
     }
   });
