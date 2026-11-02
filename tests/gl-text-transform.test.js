@@ -10,7 +10,7 @@ const js = readFileSync(new URL('../src/ui/trace-gl.js', import.meta.url), 'utf8
 
 test('fillText and strokeText place the anchor through the full transform (X, Y), and turn about that point', () => {
   assert.match(js, /const textAt = \(t, x, y, colour, sw\) => \{\s*const m = st\.m, ang = m \? Math\.atan2\(m\[1\], m\[0\]\) : 0, px = X\(x, y\), py = Y\(x, y\);/);
-  assert.match(js, /G\.text\(t, px, py, st\.font, colour, align\(\), st\.textBaseline, st\.globalAlpha, sw, ang \? \[px, py, ang\] : null\);/);
+  assert.match(js, /G\.text\(t, px, py, st\.font, colour, align\(\), st\.textBaseline, st\.globalAlpha, sw, ang \? \[px, py, ang\] : null, st\.ls\);/);
   assert.match(js, /fillText\(t, x, y\) \{ textAt\(/);
   assert.match(js, /strokeText\(t, x, y\) \{ textAt\(/);
   assert.doesNotMatch(js, /G\.text\(t, x \+ ox\(\), y \+ oy\(\)/, 'no word is placed by the offset alone');
@@ -25,4 +25,11 @@ test('a scaled, translated anchor lands where the 2D canvas puts it, and a pure 
   const a = 0.7, c = Math.cos(a), si = Math.sin(a), r = [c, si, -si, c, 30, 40], x = 12, y = -5;
   const old = [30 + c * x - si * y, 40 + si * x + c * y];
   assert.ok(Math.abs(X(r, x, y) - old[0]) < 1e-9 && Math.abs(Y(r, x, y) - old[1]) < 1e-9);
+});
+
+// (The names drawn by the GPU, caption-gl.js, set their capitals' letter spacing as the page does: after every character, the last too.)
+test('letterSpacing is kept in the 2D context, added after each character and measured with the words', () => {
+  assert.match(js, /set letterSpacing\(v\) \{ st\.ls = parseFloat\(v\) \|\| 0; \}/);
+  assert.match(js, /const width = measure\(str, font\) \+ \(ls \? ls \* \[\.\.\.str\]\.length : 0\);/);
+  assert.match(js, /cx \+= e\[0\] \* f\.px \+ ls;/);
 });

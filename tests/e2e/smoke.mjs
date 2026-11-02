@@ -353,7 +353,7 @@ const svCovered = async (page) => {
       const bad = [];
       for (const e of document.querySelectorAll('.sv.on .sv-region')) {
         const k = e.firstElementChild, b = e.getBoundingClientRect();
-        if (e.hidden || !k || !b.width || +getComputedStyle(k).opacity < 0.05) continue;
+        if (e.hidden || !k || !b.width || +getComputedStyle(k).opacity < 0.05 || e.hasAttribute('data-covered')) continue;   // (covered: faded out by the GPU, caption-gl.js)
         for (const [c, q] of cards) if (b.left < q.right - 1 && q.left < b.right - 1 && b.top < q.bottom - 1 && q.top < b.bottom - 1) bad.push(`"${e.textContent.replace(/\s+/g, ' ').trim().slice(0, 24)}" under ${c.className.split(' ')[0]}`);
       }
       return bad.length ? 'sinusoid names over a card: ' + bad.join(', ') : null;
@@ -2002,8 +2002,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!c || !c.dataset.endArrows) return null;
     const a = c.dataset.endArrows.split(' ').map(Number), names = [...document.querySelectorAll('.sv.on .sv-end')];
     if (names.length !== 2) return `${names.length} end names`;
+    // (Names drawn by the GPU, caption-gl.js: how much each shows is the GPU's, with its layer's fade and its words' own strength.)
+    const gpuA = c.dataset.endNames ? c.dataset.endNames.split(' ').map(Number) : null, lab = document.querySelector('.sv.on .lz-labels');
     const bad = names.map((e, i) => {
-      const k = e.firstElementChild, shown = e.hidden || !k ? 0 : Math.min(1, (+getComputedStyle(e).opacity || 0) * (+getComputedStyle(k).opacity || 0) / 0.78);
+      const k = e.firstElementChild, own = gpuA ? gpuA[i] * (+getComputedStyle(lab).opacity || 0) : +getComputedStyle(e).opacity || 0;
+      const shown = e.hidden || !k ? 0 : Math.min(1, own * (+getComputedStyle(k).opacity || 0));
       return Math.abs(shown - a[i]) > 0.08 ? `${i ? 'central vein' : 'portal venule'} arrow ${a[i]} but its name shows ${shown.toFixed(2)}` : null;
     }).filter(Boolean);
     return bad.length ? bad.join('; ') : 'ok';

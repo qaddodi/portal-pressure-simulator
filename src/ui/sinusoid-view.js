@@ -19,16 +19,18 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=cc9228b2e0';
-import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=3d8a8687f5';
-import { pressureColor } from './colormap.js?v=c3165daaa9';
+import { h, fmt, clamp, lerp } from './util.js?v=141c5a0172';
+import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=9cfb86a0a3';
+import { measure } from './glyph-measure.js?v=752ae0a7bb';
+import { readStyle } from './layout-snap.js?v=f87939cccb';
+import { pressureColor } from './colormap.js?v=c442f8f208';
 import { isPaused } from './clock.js?v=d6c06e7017';
 import { store } from './store.js?v=afc4d7c743';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=ed7aac1c5c';
 import { placeFenDisse } from './fen-place.js?v=e755ab0d0d';
-import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=26e2e46fff';
+import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale, easeNow } from './frame.js?v=26e2e46fff';
 import { softwareGL, softwareYield } from './sw-yield.js?v=1ec3c87eab';
 import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.js?v=52a4c9c036';
 import { FADE_MS, fadeAlpha } from './res-fade.js?v=697067d495';
@@ -54,59 +56,87 @@ export function createSinusoidView({ host, before = null }) {
   // leader, with its reading (if any) beneath in the lobule's number style. Captions in a narrow band (the lumen,
   // Disse) run along the vessel; those in the hepatocyte plates stay level.
   const regions = {};
-  // Every name's size (and the legend's), as its observer reports it: the frames place the names from these, reading no layout. A name
-  // made new waits out of sight until its size is in (the observer reports before the frame paints), then the names are laid out again.
-  const SZ = new WeakMap();
+  // The names are drawn by the GPU (caption-gl.js: their words, halo, lit pills and leaders, and the legend), laid out here in script and
+  // placed in the frame that moves the view; the page's own names are a quiet model (screen readers, data-target, what reads their boxes
+  // at rest), made clear by .cap-gl-on and placed between frames (domPlace). Their sizes are set from the GPU's own type (their looks are
+  // read between frames, readLooks), so no layout is read for them. A name made new is drawn once its look is read, fading in.
+  const cap = createCaptionGL(labels);
   let sizedNew = false, onSized = null;
-  const sizeRO = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => {
-    let ch = false;
-    for (const e of es) {
-      const b = e.borderBoxSize?.[0], n = e.target, w = Math.round(b ? b.inlineSize : n.offsetWidth), hh = Math.round(b ? b.blockSize : n.offsetHeight), o = SZ.get(n);
-      if (!o || o[0] !== w || o[1] !== hh) { SZ.set(n, [w, hh]); ch = true; }
-      if (n.dataset?.svSize != null) delete n.dataset.svSize;   // (shown: app.css [data-sv-size] hides a caption until its first size is known)
-    }
-    if (ch) { sizedNew = true; onSized?.(); }
-  }) : null;
-  const szOf = (n) => SZ.get(n) || [0, 0];
-  const sized = (n) => { if (sizeRO) sizeRO.observe(n); };   // (its data-sv-size mark goes on with the box, pageRun)
+  const szOf = (R) => (R ? cap.measure(R.key, R.lines || []) : [0, 0]);
   const SV_TARGET = { fen: 'fenestrae', hsc: 'stellate', kup: 'kupffer', hep: 'hepatocyte', sin: 'lumen', in: 'in', out: 'out' };
-  // Page writes asked for inside a frame (a caption's words, a node put into the page, the fenestrae's share) land between frames
-  // (rest-pass.js), in the order asked, so a frame does no DOM work (2 Nov 2026, "Move everything to GPU"). A caption's new size
-  // reaches the layout through its ResizeObserver, as before.
+  // Page writes asked for inside a frame (a caption made, its words, the fenestrae's share) land between frames (rest-pass.js), in the
+  // order asked, so a frame does no DOM work (2 Nov 2026, "Move everything to GPU"); its look is read after it is in.
   const mountQ = [], capQ = new Map();
   let pageT = 0, fenWant = null;
   const pageSoon = () => { if (!pageT) pageT = restPass(pageRun); };
-  const mount = (parent, el, attrs = null) => { mountQ.push([parent, el, attrs]); pageSoon(); };   // (attrs: written on it as it is put in)
   function pageRun() {
     pageT = 0;
-    for (const [parent, el, attrs] of mountQ.splice(0)) { if (attrs) for (const k in attrs) el.setAttribute(k, attrs[k]); parent.append(el); }   // (each asked for once, as it is made)
-    for (const [el, [name, lines]] of capQ) el.replaceChildren(h('span', {}, name), ...lines.map((l) => { const [v, u] = l.split('~'); return h('span', { class: 'v' }, h('b', {}, v), u ? ` ${u}` : ''); }));
+    for (const R of mountQ.splice(0)) {   // (each made once, as it is first named)
+      const el = document.createElement('div');
+      el.setAttribute('class', R.cls); el.setAttribute('data-target', `sinusoid:${SV_TARGET[R.key] || R.key}`);
+      R.el = el; labels.append(el);
+    }
+    for (const [R, [name, lines]] of capQ) R.el?.replaceChildren(h('span', {}, name), ...lines.map((l) => { const [v, u] = l.split('~'); return h('span', { class: 'v' }, h('b', {}, v), u ? ` ${u}` : ''); }));
+    const fresh = capQ.size > 0;
     capQ.clear();
-    if (fenWant != null) { const b = regions.fen?.el.querySelector('.v b'); if (b && b.textContent !== fenWant) b.textContent = fenWant; fenWant = null; }
+    if (fenWant != null) { const b = regions.fen?.el?.querySelector('.v b'); if (b && b.textContent !== fenWant) b.textContent = fenWant; fenWant = null; }
+    if (fresh) readLooks();
   }
+  // A caption's lines as the GPU sets them: its name's lines (capitals), then each reading, its figure and its unit.
+  const linesOf = (name, vals) => [...name.split('\n').map((t) => [[t, 'name']]), ...vals.map((l) => { const [v, u] = l.split('~'); return [[v, 'fig'], [u ? ` ${u}` : '', 'unit']]; })];
   // One caption, built one way for every name in the view (the ends' venules are written exactly as the Sinusoid's own).
   function caption(key, cls, name, value) {
     // (What a presenter slide's terms call each part: presentLit, see presenter.js TARGETS.)
     let R = regions[key];
-    // (An empty box made here; its words are built and put in between frames, pageRun.)
-    if (!R) { const el = document.createElement('div'); el.className = cls; R = regions[key] = { el, n: 0 }; mount(labels, R.el, { 'data-target': `sinusoid:${SV_TARGET[key] || key}`, ...(sizeRO ? { 'data-sv-size': '' } : null) }); sized(R.el); }
+    // (Its page model is made between frames, pageRun.)
+    if (!R) { R = regions[key] = { key, cls, el: null, n: 0 }; mountQ.push(R); pageSoon(); }
     const txt = name + '|' + value;
     if (R.text !== txt) {
       const same = R.text && R.text.split('|')[0] === name && R.n === 1 + (value ? value.split(' · ').length : 0);
       R.text = txt;
-      if (same && key === 'fen') return R;   // (its value is kept by fenTick, which eases it: the caption is not rebuilt)
       const lines = value ? value.split(' · ') : [];
-      capQ.set(R.el, [name, lines]);
+      R.lines = linesOf(name, key === 'fen' && same ? [fenTxt()] : lines);   // (the GPU's words change in this frame)
+      if (same && key === 'fen') return R;   // (its value is kept by fenTick, which eases it: the page's caption is not rebuilt)
+      capQ.set(R, [name, lines]);
       R.n = 1 + lines.length; pageSoon();   // (put in between frames, pageRun)
     }
     return R;
   }
+  // (The looks, read between frames: each caption's type, ink, halo and pill as the stylesheet gives them (its class, the theme, the
+  // label size, a slide's lit terms), and the legend's. A change lays the names out again.)
+  let lookAsk = 0;
+  const askLooks = () => { if (!lookAsk) lookAsk = restPass(readLooks); };
+  function readLooks() {
+    lookAsk = 0;
+    let ch = false;
+    for (const R of Object.values(regions)) {
+      const el = R.el;
+      if (!el?.isConnected || !el.firstElementChild) continue;
+      const v = el.querySelector('.v'), b = v?.querySelector('b');
+      const lk = lookOf(readStyle(el), { name: readStyle(el.firstElementChild), fig: b && readStyle(b), unit: v && readStyle(v) }, readStyle(el, '::before'));
+      const sig = JSON.stringify(lk);
+      if (sig !== R.lookSig) { R.lookSig = sig; cap.look(R.key, lk); ch = true; }
+    }
+    if (legend.isConnected) {
+      const cs = readStyle(legend), dot = legend.querySelector('i'), ds = dot && readStyle(dot), sp = legend.querySelector('span'), ss = sp && readStyle(sp);
+      const px = (q) => parseFloat(q) || 0;
+      const L = {
+        size: px(cs.fontSize) || 12, weight: parseFloat(cs.fontWeight) || 500, ink: cs.color, lh: px(cs.lineHeight) || 1.3 * (px(cs.fontSize) || 12),
+        px: px(cs.paddingLeft), py: px(cs.paddingTop), bg: cs.backgroundColor, gap: px(ss?.columnGap) || 5,
+        dot: ds ? { d: px(ds.width) || 8, fill: ds.backgroundColor, ring: ringOf(ds.boxShadow) } : null, sh: shadowOf(cs.boxShadow),
+      };
+      const sig = JSON.stringify(L);
+      if (sig !== legLook.sig) { Object.assign(legLook, L, { sig }); ch = true; }
+    }
+    if (ch) { sizedNew = true; onSized?.(); }
+  }
+  const legLook = { sig: '' };
   function region(key, name, value, x, y, { along = false, side = 0, slide = false } = {}) {
     const R = caption(key, `sv-region sv-region-${key}`, name, value);
     if (slide) { R.tx = x; x += R.sd || 0; }   // (a place the layout moved at once starts where the name stood: see noteJumps)
     R.at = [x, y];   // (what it names, µm)
     // side ±1: the caption sits wholly on that side of y (across the vessel), its near edge at y.
-    const [w, hh] = szOf(R.el), ang = along && !geo.vert ? geo.ang : 0;   // (always level on a top-down sinusoid)
+    const [w, hh] = szOf(R), ang = along && !geo.vert ? geo.ang : 0;   // (always level on a top-down sinusoid)
     const across = along ? hh : Math.abs(w * Math.sin(geo.ang)) + Math.abs(hh * Math.cos(geo.ang));
     const yc = y + side * (across / 2) / VW.k;
     let [cx, cy] = toScreen(x, yc);
@@ -119,46 +149,33 @@ export function createSinusoidView({ host, before = null }) {
       cx = clamp(cx, Math.min(VW.fe.l + w / 2 + 4, geo.W / 2), Math.max(VW.fe.r - w / 2 - 4, geo.W / 2));
     }
     { const c = Math.abs(Math.cos(ang)), sn = Math.abs(Math.sin(ang)), bw = (w * c + hh * sn) / 2, bh = (w * sn + hh * c) / 2; R.box = { l: cx - bw, r: cx + bw, t: cy - bh, b: cy + bh }; }
-    R.el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px) translate(-50%, -50%)${ang ? ` rotate(${((ang * 180) / Math.PI).toFixed(2)}deg)` : ''}`;
+    R.cx = cx; R.cy = cy; R.end = false;   // (its box's centre: drawn there by the GPU, and the page's model placed there between frames)
     return { cx, cy, w, hh, x: x + (geo.vert ? 0 : (cx - cx0) / VW.k), half: (along ? w : Math.abs(w * Math.cos(geo.ang)) + Math.abs(hh * Math.sin(geo.ang))) / 2 / VW.k };
   }
   const legend = h('div', { class: 'sv-legend', 'aria-hidden': 'true' },
     h('span', {}, h('i', { class: 'alb' }), 'Protein'));
-  sizeRO?.observe(legend);
-  // Thin leaders from a name in the plate to the part it names (a portrait screen's narrow bands and cells).
-  // (A model drawn on the GPU, svg-gl, never SVG the page paints: leadersBox shows it, its fades the compositor's; a change to a leader asks
-  // for a frame of the picture. 2 Nov 2026, "Move everything to GPU".)
-  const leadersBox = h('div', { class: 'sv-leaders svg-gl-box', 'aria-hidden': 'true' });
-  const leaders = svgModel('svg', { viewBox: '0 0 1 1', preserveAspectRatio: 'none' });
-  const leadGL = createSvgGL(leadersBox);
-  leadGL.cv.setAttribute('aria-hidden', 'true'); leadGL.cv.removeAttribute('role');
-  leadGL.show(leaders, false);
-  if (typeof MutationObserver === 'function') new MutationObserver(() => leadGL.paint()).observe(leaders, { subtree: true, childList: true, attributes: true, attributeFilter: ['x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'viewBox', 'style', 'transform'] });
-  { const app = document.querySelector('.app') || document.getElementById('app'); if (app && typeof MutationObserver === 'function') new MutationObserver(() => leadGL.relook()).observe(app, { attributes: true, attributeFilter: ['data-lit', 'class'] }); }
-  const lead = {}, LEAD_TPL = svgModel('g', {}, svgModel('line'), svgModel('circle'));
-  let leadVB = '';
+  // Thin leaders from a name in the plate to the part it names (a portrait screen's narrow bands and cells): drawn by the GPU with the
+  // names (caption-gl.js), in the colour of what they name. A lit term, a theme or a class on the app reads the names' looks again.
+  { const app = document.querySelector('.app') || document.getElementById('app'); if (app && typeof MutationObserver === 'function') new MutationObserver(() => askLooks()).observe(app, { attributes: true, attributeFilter: ['data-lit', 'class'] }); }
+  const LEAD_INK = { disse: '--sv-disse', lymph: '--sv-disse', hsc: '--sv-hsc', fen: '--sv-fenestra' };
+  const tok = (n) => { let x = cssVals.get(n); if (x == null) { cssVals.set(n, null); cssMiss = true; x = ''; } return x; };
+  const lead = {};
   function leader(key, R, x, y) {
-    let L = lead[key];
-    { const vb = `0 0 ${geo.W} ${geo.H}`; if (vb !== leadVB) { leadVB = vb; setGeo(leaders, 'viewBox', vb); leadGL.paint(); } }
-    if (!L) { L = lead[key] = LEAD_TPL.cloneNode(true); mount(leaders, L, { class: `sv-lead sv-lead-${key}`, 'data-target': `sinusoid:${SV_TARGET[key] || key}` }); }   // (cloned from its model: a frame builds nothing)
+    const L = lead[key] ||= { key };
     // (The fenestrae's callout ends on a pore picked by where its name stands, so the pick can pass to another pore: the end slides
     // along the lining to that one, on the lining's own line, and never hops.)
     if (key === 'fen') { L.tx = x; const sd = L.sd || 0; y += halfW(x) - halfW(x + sd); x += sd; }
-    L.setAttribute('class', `sv-lead sv-lead-${key}`);
-    L.setAttribute('data-target', `sinusoid:${SV_TARGET[key] || key}`);
     const [tx, ty] = toScreen(x, y);
     // (A target above or below the name, within its width: the leader runs straight up or down from the name's edge to it, short;
     // else from the side of the name facing it.)
     const vert = Math.abs(tx - R.cx) < R.w / 2 - 2 && Math.abs(ty - R.cy) > R.hh / 2 + 6;
     const sx = vert ? tx : R.cx + Math.sign(tx - R.cx) * (R.w / 2 + 3), sy = vert ? R.cy + Math.sign(ty - R.cy) * (R.hh / 2 + 3) : clamp(ty, R.cy - R.hh / 2 + 4, R.cy + R.hh / 2 - 4);
-    const [ln, dot] = L.children;
     const on = vert ? Math.abs(ty - sy) > 6 : Math.abs(tx - sx) > 6 && Math.sign(tx - R.cx) === Math.sign(tx - sx);   // (none when the name already sits on it)
-    L.style.opacity = on ? '' : '0';
-    setGeo(ln, 'x1', +sx.toFixed(1)); setGeo(ln, 'y1', +sy.toFixed(1)); setGeo(ln, 'x2', +tx.toFixed(1)); setGeo(ln, 'y2', +ty.toFixed(1));
-    setGeo(dot, 'cx', +tx.toFixed(1)); setGeo(dot, 'cy', +ty.toFixed(1)); setGeo(dot, 'r', 1.8);
-    leadGL.paint();
+    Object.assign(L, { x1: sx, y1: sy, x2: tx, y2: ty, show: on ? 1 : 0, follow: false, sg: Math.sign(tx - R.cx), w: R.w });
   }
-  const el = h('div', { class: SV_LAYER ? 'sv' : 'sv sv-live', 'aria-hidden': 'true' }, canvas, leadersBox, labels, legend);
+  const el = h('div', { class: SV_LAYER ? 'sv' : 'sv sv-live', 'aria-hidden': 'true' }, canvas, labels, legend);
+  // (The page's own names made clear while the GPU draws them: app.css .cap-gl-on.)
+  if (cap.on) el.classList.add('cap-gl-on');
   host.insertBefore(el, before);
   // The WebGL2 context is made when the view is about to show (setModel at the start of the dive in, place), not with the lobule: a page
   // holds only so many contexts (iOS Safari about 16, dropping the oldest, which is the figure's), and the lobule opens far more often
@@ -244,7 +261,7 @@ export function createSinusoidView({ host, before = null }) {
   readHost(); readGap();
   const hostSize = () => hostWH;
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => { readHost(); readGap(); if (shown > 0 && !raf && model) raf = nextFrame(loop); }).observe(host);
-  addEventListener('resize', () => { readHost(); readGap(); });
+  addEventListener('resize', () => { readHost(); readGap(); askLooks(); });   // (the names' type follows the screen's size: --t-lab)
   // The page's look (the theme, a setting's class): a change counts up, and the colours read from the style sheet are
   // read again; otherwise they are kept (thirty property reads a frame before).
   const darkMQ = matchMedia('(prefers-color-scheme: dark)');
@@ -253,7 +270,7 @@ export function createSinusoidView({ host, before = null }) {
   // (2 Nov 2026: the gap is read in that rest pass too, not in the observer's microtask straight after the page's writes, where the
   // read laid the page out: 30 ms on a phone's slide change.)
   let gapStale = false;
-  const lookChanged = () => { cssStale = true; gapStale = true; askRest(); };
+  const lookChanged = () => { cssStale = true; gapStale = true; askRest(); askLooks(); };
   darkMQ.addEventListener?.('change', lookChanged);
   if (typeof MutationObserver === 'function') {
     // (Not the inline style: the presenter writes its room there as cards move; the colours never come from it.)
@@ -314,7 +331,7 @@ export function createSinusoidView({ host, before = null }) {
   // Its names are the lobule's size on every device (only the app's label-size setting scales them): the page's --label-k (times .9) is copied onto the
   // view when the size changes (pps:labelscale, an event) and once as it is made, never in a frame (the .sv rule would give the scale instead).
   const copyLabelK = () => { const lk = String(labelK()); if (el.style.getPropertyValue('--label-k') !== lk) el.style.setProperty('--label-k', lk); };
-  copyLabelK(); addEventListener('pps:labelscale', copyLabelK);
+  copyLabelK(); addEventListener('pps:labelscale', () => { copyLabelK(); askLooks(); });
   // f: the free space where it rests (tk, tC: the scale and centre that fit it); fe, ins: the same space and insets as the view has
   // glided to so far, which every name, arrow and the legend is laid against, so they go with the view and never ahead of it.
   // vel: how fast each of those is moving (viewVec's order), so a glide begins from rest and a new target carries it on.
@@ -544,9 +561,15 @@ export function createSinusoidView({ host, before = null }) {
   // Every frame: the share counts with S.por (the caption itself is built once; see caption).
   // (Written between frames, pageRun.)
   function fenTick() {
-    if (!regions.fen) return;
+    const R = regions.fen;
+    if (!R) return;
     const pct = fenPct();
-    if (pct !== fenShown) { fenShown = pct; fenWant = pct; pageSoon(); }
+    if (pct !== fenShown) {
+      fenShown = pct; fenWant = pct; pageSoon();
+      // (The GPU's words count in this frame, about the same centre.)
+      R.lines = linesOf(R.text.split('|')[0], [fenTxt()]);
+      if (R.cx != null && cap.hasLook('fen')) { cap.measure('fen', R.lines); cap.paint(); }
+    }
   }
   let fenShown = '';
   // The fenestra a callout points at: of the upper lining's pores near x, one in view that no endothelial cell body covers
@@ -560,7 +583,7 @@ export function createSinusoidView({ host, before = null }) {
     const num = (v, d, u) => (m.hide ? '?' : `${fmt(v, d)}~${u}`);
     // In the lumen: the sinusoid (mid-view), the Kupffer cell beside itself, and the fenestrae along the far wall.
     if (g.tall) { layoutTall(); return; }
-    for (const k in lead) if (k !== 'lymph' && k !== 'fen') lead[k].style.opacity = '0';   // (across the screen only the lymph and the fenestrae have leaders)
+    for (const k in lead) if (k !== 'lymph' && k !== 'fen') lead[k].show = 0;   // (across the screen only the lymph and the fenestrae have leaders)
     const xc = away(pick(0.5), g.xk, 30);
     region('sin', 'Sinusoid', num(m.P2, 1, ''), xc, 0, { along: true });
     kupName();
@@ -666,11 +689,12 @@ export function createSinusoidView({ host, before = null }) {
   const BAND = [0, 0];   // a portrait screen's band for the other names, between the ends' (px down the screen)
   // How much an end's name shows now (0 to 1): its pill's own fades (a presenter slide that is not about it, the names leaving).
   // In the presenter an end's arrow follows it, so no direction arrow shows without its name (Explore keeps both as they are).
+  // (Its own fade is the GPU's, caption-gl.js: the page's model is clear.)
   const endShown = (key) => {
     const e = regions[key]?.el;
     if (!document.getElementById('app')?.classList.contains('presenting')) return 1;
     if (!e || e.hidden || !e.firstElementChild) return 0;
-    return endOp[key] ?? 0;
+    return (endOp[key] ?? 0) * (cap.on ? cap.at(key, easeNow())?.a ?? 0 : 1);
   };
   // (The ends' fades as they stand, read between frames: a rest pass each frame the view is drawn.)
   const endOp = {};
@@ -678,7 +702,7 @@ export function createSinusoidView({ host, before = null }) {
     let ch = false;
     for (const key of ['in', 'out']) {
       const e = regions[key]?.el;
-      const v = !e || e.hidden || !e.firstElementChild ? 0 : Math.min(1, (+getComputedStyle(e).opacity || 0) * (+getComputedStyle(e.firstElementChild).opacity || 0) * (+getComputedStyle(labels).opacity || 0));
+      const v = !e || e.hidden || !e.firstElementChild ? 0 : Math.min(1, (cap.on ? 1 : +getComputedStyle(e).opacity || 0) * (+getComputedStyle(e.firstElementChild).opacity || 0) * (+getComputedStyle(labels).opacity || 0));
       if (Math.abs((endOp[key] ?? -1) - v) > 0.004) { endOp[key] = v; ch = true; }
     }
     return ch;
@@ -714,7 +738,7 @@ export function createSinusoidView({ host, before = null }) {
     if (gapStale) { gapStale = false; readGap(); }
     if (shown <= 0) return;
     let ch = false;
-    if (cssStale || cssMiss) { readCss(); cssMiss = false; ch = true; }
+    if (cssStale || cssMiss) { readCss(); cssMiss = false; ch = true; sizedNew = true; }   // (the leaders' inks too: laid out again)
     if (document.getElementById('app')?.classList.contains('presenting') && readEnds()) ch = true;
     if (performance.now() - bkAt >= 250 && readBlockers()) ch = true;
     if (ch) { gpuKey = ''; wake(); }
@@ -740,7 +764,7 @@ export function createSinusoidView({ host, before = null }) {
     // The ends' names and the lumen's are fixed; the rest give way in turn.
     for (const k of ['in', 'out', 'sin', 'fen', 'lymph', 'disse', 'hsc', 'hep', 'kup']) {
       const R = regions[k];
-      if (!R?.box || !R.el.isConnected) continue;
+      if (!R?.box || !cap.hasLook(k)) continue;
       const b = R.box, w = b.r - b.l, hh = b.b - b.t, cx = (b.l + b.r) / 2, cy = (b.t + b.b) / 2;
       // A box at offset (dx, dy) and scale s about the label's centre.
       const at = (dx, dy, s) => ({ l: cx + dx - (w / 2) * s, r: cx + dx + (w / 2) * s, t: cy + dy - (hh / 2) * s, b: cy + dy + (hh / 2) * s });
@@ -772,40 +796,27 @@ export function createSinusoidView({ host, before = null }) {
       }
       R.off = off;
       const covered = under(at(off[0], off[1], off[2]));
-      if (covered !== !!R.covered) {
-        R.covered = covered;
-        R.el.style.opacity = covered ? '0' : '';   // (eased: .sv-region's opacity has its transition, the compositor's)
-        if (lead[k]) lead[k].style.visibility = covered ? 'hidden' : '';
-      }
-      R.el.style.translate = off[0] || off[1] ? `${off[0].toFixed(1)}px ${off[1].toFixed(1)}px` : '';
-      R.el.style.scale = off[2] !== 1 ? String(off[2]) : '';
+      // (Covered, it fades out, and its leader goes at once; both eased by the GPU's picture, caption-gl.js.)
+      R.covered = covered;
+      if (lead[k]) lead[k].hide = covered;
       placed.push(at(off[0], off[1], off[2]));
       // The Kupffer cell's name, crowded off its cell, is tied back to it by a thin leader.
       if (k === 'kup') {
         const to = R.cell || R.at, [tx, ty] = toScreen(to[0], to[1]), c = at(off[0], off[1], off[2]);
         if (tx < c.l - 6 || tx > c.r + 6 || ty < c.t - 6 || ty > c.b + 6) {
           // (from the nearest point of the name's box to the cell)
-          leader('kup', { cx: 0, cy: 0, w: 0, hh: 0 }, to[0], to[1]);
-          const [kl, kd] = lead.kup.children;
-          setGeo(kl, 'x1', +clamp(tx, c.l, c.r).toFixed(1)); setGeo(kl, 'y1', +clamp(ty, c.t, c.b).toFixed(1));
-          setGeo(kl, 'x2', +tx.toFixed(1)); setGeo(kl, 'y2', +ty.toFixed(1));
-          setGeo(kd, 'cx', +tx.toFixed(1)); setGeo(kd, 'cy', +ty.toFixed(1));
-          leadGL.paint();
-          lead.kup.style.opacity = '';
-        } else if (lead.kup) lead.kup.style.opacity = '0';
+          const L = lead.kup ||= { key: 'kup' };
+          Object.assign(L, { x1: clamp(tx, c.l, c.r), y1: clamp(ty, c.t, c.b), x2: tx, y2: ty, show: 1, follow: false, hide: R.covered });
+        } else if (lead.kup) lead.kup.show = 0;
         continue;
       }
-      const ln = lead[k]?.children[0];
-      if (ln && (off[0] || off[1] || off[2] !== 1)) {
-        // (Its near end follows the name, to the edge of the smaller box when the name was set smaller.)
-        const sg = Math.sign(parseFloat(geoOf(ln, 'x2')) - cx), dx = off[0] - sg * (w / 2) * (1 - off[2]);
-        for (const [a, d] of [['x1', dx], ['y1', off[1]]]) setGeo(ln, a, +(parseFloat(geoOf(ln, a)) + d).toFixed(1));
-        leadGL.paint();
-      }
+      // (A leader's near end follows its name's step aside as the GPU eases it, to the edge of the smaller box when the name was set
+      // smaller: caption-gl.js, follow.)
+      const L = lead[k];
+      if (L) { L.follow = true; L.sg = Math.sign(L.x2 - cx); }
     }
   }
-  let legendMax = '', legendAsk = 0;
-  function writeLegendMax() { legendAsk = 0; if (legend.style.maxWidth !== legendMax) legend.style.maxWidth = legendMax; }
+  let legendMax = '';
   function layoutEnds() {
     const g = geo, f = VW.fe;
     // The ends: the portal venule the blood comes from and the central vein it goes to, with their pressures (as the lobule labels them).
@@ -813,17 +824,19 @@ export function createSinusoidView({ host, before = null }) {
     const lx = f.l + 2, ly = VW.ins[0] + 12;
     // (On a top-down sinusoid it stays in the plate on the left, clear of the vessel and the portal venule's name.)
     const lr = g.vert ? toScreen(0, hepIn(0))[0] - 8 : geo.W - 12;
-    // (Its room is written between frames, a rest pass; its observer then reports its new size and the names are laid out again.)
-    const mw = `${Math.max(90, lr - lx)}px`;
-    if (mw !== legendMax) { legendMax = mw; if (!legendAsk) legendAsk = restPass(writeLegendMax); }
-    legend.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px)`;
-    [LEG.w, LEG.h] = szOf(legend); LEG.x = lx; LEG.y = ly;
+    // (Its room, for the page's model: written between frames, domPlace.)
+    legendMax = `${Math.max(90, lr - lx)}px`;
+    // (Its size from its look, as the GPU sets it: a dot and a word in a rounded frost.)
+    const LL = legLook;
+    if (LL.sig) { LEG.w = 2 * LL.px + (LL.dot ? LL.dot.d + LL.gap : 0) + measure('Protein', `${LL.weight} ${LL.size}px Inter`); LEG.h = 2 * LL.py + LL.lh; }
+    else LEG.w = LEG.h = 0;
+    LEG.x = lx; LEG.y = ly;
     // (The unit is said once, in the pressure legend, as the anatomy's and the lobule's labels have it; looks review L2.)
     const m = model, val = (P) => (m.hide ? '?' : fmt(P, 1));
     for (const [key, name, value, u] of [['in', 'Portal venule', val(m.P1), 0], ['out', 'Central vein', val(m.P3), 1]]) {
       // (The Sinusoid's own caption, class and all: same capitals, size, ink, halo and reading.)
       const T = caption(key, 'sv-region sv-region-sin sv-end', name, value);
-      const [w, hh] = szOf(T.el);
+      const [w, hh] = szOf(T);
       let x, y;
       // Its arrow (drawn by the shader), outside the label, points toward the vessel off the view: the portal venule's
       // above it on a top-down sinusoid (left of it on a wide one), pointing up (left); the central vein's below it
@@ -833,7 +846,7 @@ export function createSinusoidView({ host, before = null }) {
       else { x = u ? f.r - w - 8 - A : f.l + 8 + A; y = VW.C[1] - hh / 2; }
       // (Large text: the portal venule's name drops below the legend rather than run into it.)
       if (g.vert && !u && LEG.w && LEG.x + LEG.w > x - 6) y = Math.max(y, LEG.y + LEG.h + A);
-      T.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+      T.cx = x + w / 2; T.cy = y + hh / 2; T.end = true; T.at0 = [x, y];   // (its box's top left, as the page's model is placed)
       T.box = { l: x, r: x + w, t: y, b: y + hh };
       ENDBOX[u] = g.vert ? null : { u, x0: u ? x : x - A, x1: u ? x + w + A : x + w, y0: y, y1: y + hh };
       if (g.vert) BAND[u] = u ? y - 6 : y + hh + 6;
@@ -844,6 +857,69 @@ export function createSinusoidView({ host, before = null }) {
     END[2] = Math.min(22 / VW.k, UM.lum * S.lum * 0.95);   // (a bold head, as wide as the names' capitals are tall, within the lumen)
     // (On a top-down sinusoid the other names keep below the legend too.)
     if (g.vert) BAND[0] = Math.max(BAND[0], VW.ins[0] + 12 + LEG.h + 8);
+  }
+
+  // ── The names, to the GPU (caption-gl.js) and to the page's model ──
+  const inkOf = (n) => rgbaOf(tok(n));
+  // (Each caption where the layout put it, its step aside, and whether a card covers it; each leader with its ink and its name.)
+  function putCaps() {
+    const now = easeNow();
+    for (const R of Object.values(regions)) {
+      if (R.cx == null || !cap.hasLook(R.key)) continue;
+      cap.measure(R.key, R.lines);
+      cap.put(R.key, { x: R.cx, y: R.cy, off: R.off || [0, 0, 1], show: R.covered ? 0 : 1, now });
+    }
+    for (const L of Object.values(lead)) {
+      if (L.x1 == null) continue;
+      cap.lead(L.key, { x1: L.x1, y1: L.y1, x2: L.x2, y2: L.y2, show: L.hide ? 0 : L.show, cut: !!L.hide, of: regions[L.key] ? L.key : null, follow: !!L.follow, sg: L.sg || 0, colour: inkOf(LEAD_INK[L.key] || '--text-2') });
+    }
+    cap.extra('legend', drawLegend);
+  }
+  // The legend: a dot and its word in a rounded frost, as its page model looks (app.css .sv-legend), drawn with the names.
+  function drawLegend(ctx) {
+    const L = legLook;
+    if (!L.sig || !LEG.w) return false;
+    const r = LEG.h / 2;
+    if (L.sh) ctx.shadowBox(LEG.x, LEG.y, LEG.w, LEG.h, r, L.sh.colour, L.sh.blur, L.sh.dy);
+    if (L.bg) { ctx.globalAlpha = 1; ctx.fillStyle = L.bg; ctx.beginPath(); ctx.roundRect(LEG.x, LEG.y, LEG.w, LEG.h, r); ctx.fill(); }
+    let x = LEG.x + L.px;
+    const cy = LEG.y + LEG.h / 2;
+    if (L.dot) {
+      const d = L.dot.d;
+      if (L.dot.fill) { ctx.fillStyle = L.dot.fill; ctx.beginPath(); ctx.arc(x + d / 2, cy, d / 2, 0, Math.PI * 2); ctx.fill(); }
+      if (L.dot.ring?.colour) { ctx.strokeStyle = L.dot.ring.colour; ctx.lineWidth = L.dot.ring.w; ctx.beginPath(); ctx.arc(x + d / 2, cy, d / 2 - L.dot.ring.w / 2, 0, Math.PI * 2); ctx.stroke(); }
+      x += d + L.gap;
+    }
+    // (The word's baseline set as the page sets a line: the half leading of its line height over Inter's ascent and descent.)
+    const by = LEG.y + L.py + (L.lh - 1.2099609375 * L.size) / 2 + 0.96875 * L.size;
+    ctx.font = `${L.weight} ${L.size}px Inter`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = L.ink;
+    ctx.fillText('Protein', x, by);
+    return false;
+  }
+  // The page's model of the names, placed where the GPU draws them, between frames and once they rest: for screen readers and what reads
+  // their boxes (credit.js keeps its art off them). A frame never writes it.
+  let domAsk = 0, domKey = '';
+  const domSoon = () => { if (!domAsk) domAsk = restPass(domPlace); };
+  cap.onRest = domSoon;
+  function domPlace() {
+    domAsk = 0;
+    if (svMoving || cap.moving()) return;   // (still on its way: the frame asks again once it rests)
+    let k = '';
+    for (const R of Object.values(regions)) k += `${R.key}:${R.cx?.toFixed(1)},${R.cy?.toFixed(1)},${R.off || ''},${!!R.covered}|`;
+    k += `${LEG.x.toFixed(1)},${LEG.y.toFixed(1)},${legendMax}`;
+    if (k === domKey) return;
+    domKey = k;
+    for (const R of Object.values(regions)) {
+      const e = R.el;
+      if (!e || R.cx == null) continue;
+      e.style.transform = R.end ? `translate(${R.at0[0].toFixed(1)}px, ${R.at0[1].toFixed(1)}px)` : `translate(${R.cx.toFixed(1)}px, ${R.cy.toFixed(1)}px) translate(-50%, -50%)`;
+      const o = R.off || [0, 0, 1];
+      e.style.translate = o[0] || o[1] ? `${o[0].toFixed(1)}px ${o[1].toFixed(1)}px` : '';
+      e.style.scale = o[2] !== 1 ? String(o[2]) : '';
+      if (R.covered) e.dataset.covered = ''; else delete e.dataset.covered;
+    }
+    legend.style.transform = `translate(${LEG.x.toFixed(1)}px, ${LEG.y.toFixed(1)}px)`;
+    if (legend.style.maxWidth !== legendMax) legend.style.maxWidth = legendMax;
   }
 
   // ── The frame ──
@@ -875,6 +951,7 @@ export function createSinusoidView({ host, before = null }) {
       if (noteJumps()) layoutTags();   // (laid out again from where the names stood, so the frame they move in shows no step)
       settleJumps();
       declutter();
+      putCaps();
     }
     fenTick();
     if (gpu) {
@@ -882,7 +959,8 @@ export function createSinusoidView({ host, before = null }) {
       if (cssMiss || cssStale) { askRest(); settled = false; return; }   // (its colours read between frames first: this frame is not painted)
       const endA = [endShown('in'), endShown('out')];
       const ek = endA.map((v) => v.toFixed(2)).join(' ');
-      if (canvas._ek !== ek) { canvas._ek = ek; restAttr(canvas, 'data-end-arrows', ek); }   // (for the browser checks: how much each end arrow shows)
+      const nk = cap.on ? ['in', 'out'].map((q) => (cap.at(q, easeNow())?.a ?? 0).toFixed(2)).join(' ') : '';
+      if (endKey !== ek || nameKey !== nk) { endKey = ek; nameKey = nk; attrSoon(); }   // (for the browser checks: how much each end arrow shows; written between frames)
       // Device px ↔ local µm.
       const { C, k, ca, sa } = CAM, K = k * dpr;
       u.uI0 = [ca / K, sa / K, -(C[0] * ca + C[1] * sa) / k];
@@ -917,8 +995,18 @@ export function createSinusoidView({ host, before = null }) {
     // sleep with the glide half done, which a paused simulation did.)
     if (gliding || layoutBusy) settled = false;
     svMoving = gliding || layoutBusy;   // (its names gliding to their places: the corner credit looks again, credit.js)
+    if (!svMoving && !cap.moving()) domSoon();   // (the page's model placed between frames once the names rest; nothing written when they did not move)
     const dk = [Math.round(S.por * 4), S.col > 0.15, S.act > 0.4, model.hide, model.P2.toFixed(0), model.lymph.toFixed(1), Math.round(model.lyProt * 100)].join('|');
-    if (dk !== descKey) { descKey = dk; restAttr(canvas, 'aria-label', describe()); }
+    if (dk !== descKey) { descKey = dk; descWant = describe(); attrSoon(); }
+  }
+  // (The canvas's words for screen readers and its end arrows' mark for the browser checks: written between frames, never in one.)
+  let endKey = '', nameKey = '', descWant = '', attrAsk = 0;
+  const attrSoon = () => { if (!attrAsk) attrAsk = restPass(writeAttrs); };
+  function writeAttrs() {
+    attrAsk = 0;
+    if (canvas.dataset.endArrows !== endKey) canvas.dataset.endArrows = endKey;
+    if (nameKey && canvas.dataset.endNames !== nameKey) canvas.dataset.endNames = nameKey;   // (how much the GPU shows each end's name)
+    if (descWant && canvas.getAttribute('aria-label') !== descWant) canvas.setAttribute('aria-label', descWant);
   }
   function describe() {
     const m = model;
@@ -1003,6 +1091,8 @@ export function createSinusoidView({ host, before = null }) {
       return { x: VW.tC[0], y: VW.tC[1], ang: geo.ang, k: VW.tk, lumen: 2 * UM.lum * (S.lum ?? 1) * VW.tk };
     },
     isOpen: () => open,
+    /** Where the GPU draws a name now (stage px: its box's centre; the legend's top left), by its key ('sin', 'fen', 'in', …, 'legend'). */
+    captionAt(key) { if (key === 'legend') return [LEG.x, LEG.y]; const c = cap.at(key); return c ? [c.x, c.y] : null; },
     /** Whether its names are gliding to new places this frame (the corner credit's look, credit.js). */
     labelsMoving: () => open && svMoving,
     get available() { return gpuTried ? !!gpu : sinusoidSupported(); },

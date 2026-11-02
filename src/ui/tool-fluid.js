@@ -7,8 +7,8 @@
 // compare button moves it.
 
 import { frame, cancelFrame } from './frame.js?v=26e2e46fff';
-import { createSvgGL, svgModel } from './svg-gl.js?v=3d8a8687f5';
-import { h, fmt, clamp } from './util.js?v=cc9228b2e0';
+import { createSvgGL, svgModel } from './svg-gl.js?v=8b9463392d';
+import { h, fmt, clamp } from './util.js?v=141c5a0172';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { store } from './store.js?v=afc4d7c743';
 import { measure } from './glyph-measure.js?v=752ae0a7bb';

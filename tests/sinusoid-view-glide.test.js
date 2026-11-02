@@ -50,6 +50,9 @@ const rootVars = {}, appVars = {}, appClasses = new Set(['presenting']);
 const listeners = {};
 let hostBox = { width: 390, height: 844, left: 0, top: 0 };
 globalThis.window = globalThis;
+// (The rest passes' shared time budget (prep-budget.js) counts wall time, which a hand-run frame loop does not keep: off here, so the
+// page's work between frames runs where a browser would run it, not by how fast this machine is.)
+globalThis.location = { search: '?prepbudget=0' };
 globalThis.Element = class {};
 globalThis.devicePixelRatio = 1;
 // (An observer reports its elements' sizes before the next frame paints, as a browser's does: here, before each frame run by hand.)
@@ -77,6 +80,10 @@ globalThis.requestAnimationFrame = (cb) => { flushNext = cb; return 1; };
 const restQ = [];
 globalThis.MessageChannel = class { constructor() { const p1 = { onmessage: null }; this.port1 = p1; this.port2 = { postMessage: () => restQ.push(() => p1.onmessage?.()) }; } };
 const rests = () => { while (restQ.length) restQ.shift()(); };
+// (A rest pass cut short by its time slice goes on in a zero timer (rest-pass.js): here, in the same hand-run drain, so the page's
+// models are made and their looks read between the frames, as a browser runs them.)
+const realTimeout = globalThis.setTimeout;
+globalThis.setTimeout = (fn, ms, ...a) => (ms > 16 ? realTimeout(fn, ms, ...a) : (restQ.push(() => fn(...a)), 0));
 let clock = 1000;
 // The view's own timers (a fade, the 250 ms the blockers' read waits) run on the same clock as the frames, not the wall's: on a busy machine
 // the wall clock moved on between two held frames, and a read or a fade landed in a frame the test did not expect it in.
@@ -87,9 +94,9 @@ const { createSinusoidView } = await import('../src/ui/sinusoid-view.js');
 const { store } = await import('../src/ui/store.js');
 
 const MODEL = { fibSin: 0.2, act: 0.2, zone: { sin: 1 }, congU: 0, flow: 1, rev: { sin: false }, lymph: 0.6, lymph0: 0.6, sigma: 0.2, lyProt: 0.8, hide: false, P1: 12, P2: 9, P3: 4 };
-const walk = (n, fn) => { fn(n); for (const c of n.children || []) if (c.nodeType === 1) walk(c, fn); };
-const find = (root, pred) => { let out = null; walk(root, (n) => { if (!out && pred(n)) out = n; }); return out; };
-const at = (n) => { const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec(n.style.transform || ''); return m ? [+m[1], +m[2]] : null; };
+// (Where the GPU draws each name this frame: the view's own placement, caption-gl.js, never the page's model, placed between frames.)
+const at = (p) => p;
+const KEY = { lumen: 'sin', fenestrae: 'fen', disse: 'disse', in: 'in', out: 'out' };
 
 function open(vars, box, { running = true, model = MODEL } = {}) {
   for (const k in appVars) delete appVars[k];
@@ -101,10 +108,10 @@ function open(vars, box, { running = true, model = MODEL } = {}) {
   view.setModel(model);
   view.place({ opacity: 1, isOpen: true });
   frames(40);
-  const name = (t) => find(view.el, (n) => n.classSet.has('sv-region') && n.attrs['data-target'] === `sinusoid:${t}`);
+  const name = (t) => view.captionAt(KEY[t]);
   return {
     view, name,
-    legend: () => find(view.el, (n) => n.classSet.has('sv-legend')),
+    legend: () => view.captionAt('legend'),
     set(v) { Object.assign(appVars, v); dispatchEvent({ type: 'pps:occ' }); },
   };
 }

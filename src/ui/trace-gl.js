@@ -933,7 +933,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
     },
     /** Words at (x, y) (CSS px) in `font`, aligned as the 2D canvas aligns them. sw: the words' outline that wide instead of the words.
      *  turn: [ox, oy, angle] turns them about (ox, oy) (CSS px) by the angle (radians, clockwise on the page, as the 2D canvas's rotate). */
-    text(str, x, y, font, color, align = 'left', base = 'alphabetic', alpha = 1, sw = 0, turn = null) {
+    text(str, x, y, font, color, align = 'left', base = 'alphabetic', alpha = 1, sw = 0, turn = null, ls = 0) {
       str = String(str);
       if (!str || typeof color !== 'string') return;
       // (An outline is laid as coverage first, glyph by glyph with MAX blending, then painted once in its colour: as the 2D canvas strokes
@@ -947,7 +947,8 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
       const hwd = sw ? Math.min((sw / 2) * K, (1 - CUTOFF) * RADIUS * sk - 0.75) : 0;
       const ink = sw ? [1, 1, 1, 1] : tint;
       let qx0 = Infinity, qy0 = Infinity, qx1 = -Infinity, qy1 = -Infinity;
-      const width = measure(str, font);
+      // (ls: letter spacing (CSS px), added after every character as the 2D canvas's letterSpacing and CSS add it, the last one too.)
+      const width = measure(str, font) + (ls ? ls * [...str].length : 0);
       const rx = turn ? turn[0] * K : 0, ry = turn ? turn[1] * K : 0, rc = turn ? Math.cos(turn[2]) : 1, rs = turn ? Math.sin(turn[2]) : 0;
       let cx = align === 'right' || align === 'end' ? x - width : align === 'center' ? x - width / 2 : x;
       const by = y + (BASELINES[f.w][base] ?? 0) * f.px;
@@ -966,7 +967,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
           textData[o + 14] = rx; textData[o + 15] = ry; textData[o + 16] = rc; textData[o + 17] = rs;
           textN++;
         }
-        cx += e[0] * f.px;
+        cx += e[0] * f.px + ls;
         prev = ch;
       }
       if (sw && textN) outline(tint, turn ? [0, 0, W / K, H / K] : [qx0 / K - 1, qy0 / K - 1, (qx1 - qx0) / K + 2, (qy1 - qy0) / K + 2]);
@@ -1064,7 +1065,7 @@ function createShim(G) {
   // (only: the path is made of whole shapes and nothing else; lx, ly: the path's last point in the drawing's own space)
   let pieces = [], cur = null, shapes = [], only = true, lx = 0, ly = 0;
   let sx = new Float32Array(1024), sy = new Float32Array(1024);   // (a stroke's points, kept from frame to frame)
-  const fresh = () => ({ fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, lineCap: 'butt', lineJoin: 'miter', font: '10px sans-serif', textAlign: 'start', textBaseline: 'alphabetic', globalAlpha: 1, dash: [], lineDashOffset: 0, clip: null, clips: null, m: null });   // colour-exempt: the 2D canvas's own defaults
+  const fresh = () => ({ ls: 0, fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, lineCap: 'butt', lineJoin: 'miter', font: '10px sans-serif', textAlign: 'start', textBaseline: 'alphabetic', globalAlpha: 1, dash: [], lineDashOffset: 0, clip: null, clips: null, m: null });   // colour-exempt: the 2D canvas's own defaults
   // The transform (m: [a, b, c, d, e, f], null for none), as the 2D canvas's, over the drawer's own device scale. Paths are kept on the page.
   const X = (x, y) => (st.m ? st.m[0] * x + st.m[2] * y + st.m[4] : x), Y = (x, y) => (st.m ? st.m[1] * x + st.m[3] * y + st.m[5] : y);
   const moved = () => !st.m || (st.m[0] === 1 && st.m[1] === 0 && st.m[2] === 0 && st.m[3] === 1);   // (no turn or scale: shapes stay shapes)
@@ -1074,7 +1075,7 @@ function createShim(G) {
   const sc = () => (st.m ? Math.sqrt(Math.abs(st.m[0] * st.m[3] - st.m[1] * st.m[2])) || 1 : 1);
   const textAt = (t, x, y, colour, sw) => {
     const m = st.m, ang = m ? Math.atan2(m[1], m[0]) : 0, px = X(x, y), py = Y(x, y);
-    G.text(t, px, py, st.font, colour, align(), st.textBaseline, st.globalAlpha, sw, ang ? [px, py, ang] : null);
+    G.text(t, px, py, st.font, colour, align(), st.textBaseline, st.globalAlpha, sw, ang ? [px, py, ang] : null, st.ls);
   };
   const ellPts = (cx, cy, rx, ry, rot, a0, a1, ccw) => {
     let sweep = a1 - a0;
@@ -1110,6 +1111,8 @@ function createShim(G) {
     get lineCap() { return st.lineCap; }, set lineCap(v) { st.lineCap = v; },
     get lineJoin() { return st.lineJoin; }, set lineJoin(v) { st.lineJoin = v; },
     get font() { return st.font; }, set font(v) { st.font = v; },
+    // (The 2D canvas's letterSpacing, '0.72px'; the words are measured with it too.)
+    get letterSpacing() { return `${st.ls}px`; }, set letterSpacing(v) { st.ls = parseFloat(v) || 0; },
     get textAlign() { return st.textAlign; }, set textAlign(v) { st.textAlign = v; },
     get textBaseline() { return st.textBaseline; }, set textBaseline(v) { st.textBaseline = v; },
     get globalAlpha() { return st.globalAlpha; }, set globalAlpha(v) { if (v >= 0 && v <= 1) st.globalAlpha = v; },
@@ -1232,7 +1235,7 @@ function createShim(G) {
     // (the Ascites pressure dial's IAP, number, unit and word piled on each other and on the 12, Mohammad, 2 Nov 2026).)
     fillText(t, x, y) { textAt(t, x, y, typeof st.fillStyle === 'string' ? st.fillStyle : stopColour(st.fillStyle), 0); },
     strokeText(t, x, y) { textAt(t, x, y, typeof st.strokeStyle === 'string' ? st.strokeStyle : stopColour(st.strokeStyle), st.lineWidth); },
-    measureText(t) { return { width: G.measure(String(t), st.font) }; },
+    measureText(t) { return { width: G.measure(String(t), st.font) + (st.ls ? st.ls * [...String(t)].length : 0) }; },
     createLinearGradient(x0, y0, x1, y1) { const g = { grad: [x0, y0, x1, y1], stops: [], addColorStop(o, col) { g.stops.push([o, col]); } }; return g; },
     createRadialGradient(x0, y0, r0, x1, y1, r1) { const g = { rad: [x0, y0, r0, x1, y1, r1], stops: [], addColorStop(o, col) { g.stops.push([o, col]); } }; return g; },
     /** A picture (canvas, image or ImageData) in a box, translated with the transform: drawImage(src, x, y) or (src, x, y, w, h). The
