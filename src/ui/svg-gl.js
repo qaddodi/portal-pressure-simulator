@@ -330,6 +330,22 @@ function shapePath(ctx, el, tag, k) {
 }
 // A fill or stroke by url(#id): a linear or radial gradient, as the GPU's own gradient, or a pattern, its tile drawn over the shape.
 const refOf = (root, p) => { const id = /^url\(\s*["']?#([^"')]+)["']?\s*\)/.exec(p || '')?.[1]; return id ? root.querySelector(`[id="${id}"]`) : null; };
+// (A look shared between charts (keyOf drops a drawing's ids) holds the url() of the chart it was first read from, whose gradient or
+// pattern is gone or is another chart's: the id is taken from the piece's own fill or stroke, or the nearest ancestor's that sets it,
+// as written, never from the look. 2 Nov 2026: the profile chart's patient line, its fill and the block hatch went missing whenever the
+// chart was built again with a new id and took its looks from the one before. ?ownurl=0 off.)
+const OWN_URL = !(typeof location !== 'undefined' && /[?&]ownurl=0\b/.test(location.search || ''));
+const urlIn = (el, prop) => {
+  const st = el.getAttribute?.('style');
+  if (st) { const m = new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*(url\\([^)]*\\))`).exec(st); if (m) return m[1]; }
+  const a = el.getAttribute?.(prop);
+  return a && /^\s*url\(/.test(a) ? a.trim() : null;
+};
+export function ownPaint(el, prop, look) {
+  if (!OWN_URL || !/^url\(/.test(look || '')) return look;
+  for (let n = el; n && n.nodeType === 1; n = n.parentNode) { const u = urlIn(n, prop); if (u) return u; if (n.localName === 'svg') break; }
+  return look;
+}
 function gradientOf(ctx, g, el) {
   const user = g.getAttribute('gradientUnits') === 'userSpaceOnUse', b = user ? null : elBox(el);
   if (!user && !(b && b.width > 0 && b.height > 0)) return null;
@@ -376,8 +392,8 @@ function fillByRef(ctx, root, el, tag, ref, alpha, k) {
 function paintShape(ctx, root, el, tag, L, alpha, k) {
   if (!shapePath(ctx, el, tag, k)) return;
   if (paintOn(L.fill) && tag !== 'line') { ctx.globalAlpha = alpha * L.fo; ctx.fillStyle = L.fill; ctx.fill(); }
-  else if (tag !== 'line' && /^url\(/.test(L.fill || '')) { const ref = refOf(root, L.fill); if (ref) { fillByRef(ctx, root, el, tag, ref, alpha * L.fo, k); if (ref.localName === 'pattern') shapePath(ctx, el, tag, k); } }
-  const sRef = !paintOn(L.stroke) && /^url\(/.test(L.stroke || '') ? refOf(root, L.stroke) : null;
+  else if (tag !== 'line' && /^url\(/.test(L.fill || '')) { const ref = refOf(root, ownPaint(el, 'fill', L.fill)); if (ref) { fillByRef(ctx, root, el, tag, ref, alpha * L.fo, k); if (ref.localName === 'pattern') shapePath(ctx, el, tag, k); } }
+  const sRef = !paintOn(L.stroke) && /^url\(/.test(L.stroke || '') ? refOf(root, ownPaint(el, 'stroke', L.stroke)) : null;
   const sGr = sRef && (sRef.localName === 'lineargradient' || sRef.localName === 'radialgradient') ? gradientOf(ctx, sRef, el) : null;
   if ((paintOn(L.stroke) || sGr) && L.sw > 0) {
     const s = L.fixed ? 1 / k : 1;

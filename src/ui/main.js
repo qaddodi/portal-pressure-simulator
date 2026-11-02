@@ -4,36 +4,36 @@
 import { motionBudget } from './motion-budget.js?v=f3b73ab0e1';   // (first: counts from the start when ?perf or ?budget=1 asks)
 import { startHost, host } from './host.js?v=9eca545da1';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { createStage } from './stage.js?v=2e63cd9868';
+import { createStage } from './stage.js?v=53b70fe43a';
 import { createCreditPlacer } from './credit.js?v=98754fab54';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
-import { createInspector } from './inspector.js?v=9ebb50b2a7';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=023a8ede8c';
-import { setHvpgStage } from './hvpg-proc.js?v=8bd1aa8b6c';
-import { createWhy } from './why.js?v=e9a35ea9e6';
-import { createTimeline, LAPSES } from './timeline.js?v=dc173ae16b';
-import { createCompare } from './compare.js?v=5226c116aa';
-import { createCard } from './card.js?v=e2aeb2a30a';
-import { createChart } from './chart.js?v=10e188199c';
-import { createMenu } from './menu.js?v=b6fa7d8a36';
-import { caption } from './a11y.js?v=b1c903b2ff';
+import { createInspector } from './inspector.js?v=af22b03038';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=02681c3d76';
+import { setHvpgStage } from './hvpg-proc.js?v=be5cabf551';
+import { createWhy } from './why.js?v=95b9da32e1';
+import { createTimeline, LAPSES } from './timeline.js?v=077a1c6830';
+import { createCompare } from './compare.js?v=d33b4cb1b0';
+import { createCard } from './card.js?v=0386fdb52a';
+import { createChart } from './chart.js?v=111c29d1cf';
+import { createMenu } from './menu.js?v=1a1b824d46';
+import { caption } from './a11y.js?v=db5c83263f';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=eb47887867';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=a1cdfdaef0';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=78f268025c';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=6e4c1c7b29';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js?v=b2f8943264';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js?v=5fee4041e0';
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js?v=b608fe722c';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=09fc291f37';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
-import { morphKey, crossfadeText } from './legend-morph.js?v=fe86709d4f';
+import { morphKey, crossfadeText } from './legend-morph.js?v=fdab3a4cfc';
 import './seg-glide.js?v=af9cd3de1a';
 import './focus-ring.js?v=5287153522';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
-import { lookChooser } from './look-chooser.js?v=72e74132f9';
+import { lookChooser } from './look-chooser.js?v=4e10a95786';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -121,8 +121,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=3f7896257f'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=f0949a1f5c'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=9b5605d9b1'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=73f5140637'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -208,7 +208,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=1430740bb7'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=2331714f03'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -216,7 +216,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=a67c9acc27'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=3435847a9a'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
