@@ -12,6 +12,9 @@ import { layoutWatch, PLACED } from './idle-keys.js?v=81fbedda6b';
 const nextFrame = readFrameFor('credit');
 // (?creditstep=0: the art job reads the page's shapes the moment it starts, as before, even while the art is still being written.)
 const CREDIT_STEP = !(typeof location !== 'undefined' && /[?&]creditstep=0\b/.test(location.search || ''));
+// (?creditcache=0: every shape and label is measured again on every look, as before. Otherwise a shape's facts and the labels' boxes are kept
+// until what they were read from changes, so a view switch re-reads only what moved, between two frames (rest-pass.js).)
+const CREDIT_CACHE = !(typeof location !== 'undefined' && /[?&]creditcache=0\b/.test(location.search || ''));
 const CREDIT_POLL = typeof location !== 'undefined' && /[?&]creditpoll=1\b/.test(location.search || '');
 
 // Corners in order of preference. A bottom corner rises above whatever covers it (up to the middle of the figure);
@@ -131,7 +134,30 @@ export const CHROME = '#topbar, .pz-fk, .pz-scales, #vdock, #zoomPill, #sinViews
 // The figure's own labels (station values, organ captions) and measuring callouts: each one's text and pill, padded and snapped outward to a small
 // grid, so a label that jitters by a pixel as its number changes does not read as a move.
 const GRID = 8;
+const LABEL_SEL = '.cath-labels .cath-label, .lz-lab, .lz-zone, .lz-call, .lz-call-r.on, .sv-region, .sv-legend';
+let labelMemo = { sig: '', out: null, confirmed: false };
+const at = (el, k) => el.getAttribute?.(k) || '';
+const attrSig = (el) => at(el, 'transform') + '~' + at(el, 'class') + '~' + at(el, 'style') + '~' + (el.hasAttribute?.('hidden') ? 1 : 0) + '~' + at(el, 'x') + at(el, 'y');
+// What the label boxes were read from, with no layout read: each label's and callout's attributes, text and ancestors' attributes, the
+// wrap's box and the figure's matrix (a label's box moves with the camera).
+function labelSig(wr, wrap, world) {
+  const parts = [wr.left, wr.top, wr.width, wr.height, world ? [world.a, world.b, world.c, world.d, world.e, world.f].map((v) => v.toFixed(2)).join() : '', globalThis.innerWidth, globalThis.innerHeight], anc = new Set();
+  for (const g of document.querySelectorAll('#labels .lb:not(.lb-off), ' + LABEL_SEL)) {
+    parts.push(attrSig(g), g.textContent);
+    for (let el = g.parentElement; el && el !== wrap && !anc.has(el); el = el.parentElement) { anc.add(el); parts.push(attrSig(el)); }
+  }
+  return parts.join('|');
+}
 export function labelRects(wr, wrap, kept = null) {
+  if (!CREDIT_CACHE || typeof document === 'undefined') return labelRectsRead(wr, wrap, kept);
+  const sig = labelSig(wr, wrap, document.getElementById('world')?.getScreenCTM?.());
+  // (A box is trusted once two reads of the same sig agreed, so a label mid-transition, whose attributes are already final, is read again.)
+  if (labelMemo.sig === sig && labelMemo.confirmed) return labelMemo.out.map((o) => ({ ...o }));
+  const out = labelRectsRead(wr, wrap, kept), same = labelMemo.sig === sig && JSON.stringify(labelMemo.out) === JSON.stringify(out);
+  labelMemo = { sig, out, confirmed: same };
+  return out.map((o) => ({ ...o }));
+}
+function labelRectsRead(wr, wrap, kept = null) {
   const out = [], seen = new Map();   // the shared ancestors' own opacity, read once per pass
   // (kept: the stage's own kept copy of its styles, for the figure's element: a live read made the browser bring its styles up to date)
   const own = (el) => { let v = seen.get(el); if (v === undefined) { const s = kept?.(el) || getComputedStyle(el), p = (n) => s.getPropertyValue(n); v = p('display') === 'none' || p('visibility') === 'hidden' ? 0 : +p('opacity'); seen.set(el, v); } return v; };
@@ -150,7 +176,7 @@ export function labelRects(wr, wrap, kept = null) {
   }
   // The measuring callouts (the catheter's WHVP and FHVP, the slide's site readings) and the lobule and sinusoid views' labels, names and
   // resistance pills (the figure key must never cover one), likewise.
-  for (const el of document.querySelectorAll('.cath-labels .cath-label, .lz-lab, .lz-zone, .lz-call, .lz-call-r.on, .sv-region, .sv-legend')) {
+  for (const el of document.querySelectorAll(LABEL_SEL)) {
     let o = 1;
     for (let q = el; q && q !== wrap && o > 0.01; q = q.parentElement) o *= own(q);
     if (o <= 0.01) continue;
@@ -295,7 +321,28 @@ function readShapes(sel, kind, inv) {
   return out;
 }
 // (One shape's facts, or null for one that draws nothing: shown nowhere, or not shown.)
+const shapeMemo = new WeakMap();
+let shapeEpoch = '', staleSalt = 0;
+// What a shape's facts are read from, without a layout read: its own attributes and those of every parent up to the figure, and the epoch
+// (the view's classes, the theme, the window's size). A camera move changes none of it: the facts are in the figure's own units.
+function shapeSig(el) {
+  let s = shapeEpoch + (el.tagName || '') + (at(el, 'd') || at(el, 'points')) + ['cx', 'cy', 'r', 'rx', 'ry', 'width', 'height'].map((k) => at(el, k)).join();
+  for (let q = el; q && q.id !== 'world'; q = q.parentElement) s += '|' + attrSig(q);
+  return s;
+}
+function newEpoch() {
+  const de = document.documentElement, sv = document.getElementById('world')?.closest('.stage-view');
+  shapeEpoch = [de.className, de.dataset?.theme, sv?.className, globalThis.innerWidth, globalThis.innerHeight, globalThis.devicePixelRatio, staleSalt].join('~');
+}
 function readShape(el, kind, inv) {
+  if (!CREDIT_CACHE || Math.abs(inv.b) > 1e-9 || Math.abs(inv.c) > 1e-9) return readShapeNow(el, kind, inv);
+  const sig = shapeSig(el), m = shapeMemo.get(el);
+  if (m && m.sig === sig && m.kind === kind) return m.fact;
+  const fact = readShapeNow(el, kind, inv);
+  shapeMemo.set(el, { sig, kind, fact });
+  return fact;
+}
+function readShapeNow(el, kind, inv) {
   const asDrawn = kind === 'fluid', vessel = kind === 'ves';
   const m = el.getScreenCTM?.(), r = el.getBoundingClientRect();
   if (!m || !r.width) return null;
@@ -332,6 +379,8 @@ function worldFacts(world, inv) {
   const now = performance.now();
   if (artFacts && !artDirty && artFacts.world === world && artFacts.kids === world.childElementCount && now - artFacts.at < ART_MAX_AGE) return artFacts;
   gpuProbe.note(COUNTED.creditRead);
+  if (artFacts && now - artFacts.at >= ART_MAX_AGE) staleSalt++;   // (the safety net: every shape measured again)
+  newEpoch();
   const facts = { at: now, world, kids: world.childElementCount, org: [...readShapes(ORGANS, 'organ', inv), ...readShapes(FLUID, 'fluid', inv)], ves: readShapes(VESSELS, 'ves', inv), hits: new Map() };
   watchArt(world);
   artDirty = !facts.org.length;   // (a figure with no organ in it is not built yet, or hidden: read again at the next look)
@@ -464,7 +513,7 @@ function artStep() {
   // the reads find it ready. The same reads of the same page, a slice a frame as before.)
   // (The grid's slices too run in that task straight after the frame, never inside it: a slice reads a lit vessel's stroke the first
   // time its glow asks for it.)
-  if (still) { setTimeout(artReadJob, 0); return; }
+  if (still) { if (CREDIT_CACHE) restPass(artReadJob); else setTimeout(artReadJob, 0); return; }
   artNext(j);
 }
 const artReadJob = () => artRead(artJob);
@@ -493,6 +542,7 @@ function artSlice(j, inv, until) {
         j.stage = 1;
         break;
       }
+      if (j.ri === 0) newEpoch();
       j.list = document.querySelectorAll(READS[j.ri][0]); j.i = 0;
     }
     const [, kind, into] = READS[j.ri];

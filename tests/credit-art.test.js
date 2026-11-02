@@ -102,6 +102,7 @@ globalThis.document = {
 };
 let glows = [];
 window.pps = { stage: { steadyGlows: () => glows } };
+globalThis.location = { ...(globalThis.location || {}), search: '?restpass=0' };   // (rest passes on a zero timer, which this test's fake setTimeout takes)
 const { organTest } = await import('../src/ui/credit.js');
 
 const wr = { left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 };
@@ -179,7 +180,7 @@ test('a change to a shape reads the page again; an overlay group changing does n
   assert.deepEqual(watching.targets, [], 'the watch stops at the first change: a morph writes thousands of attributes');
   organA.rect = [100, 100, 40, 40];
   const art = organTest(wr);
-  assert.equal(counts.shape, 2 * 3, 'every shape read again');
+  assert.equal(counts.shape, 2, 'only the shape that changed is read again (creditcache)');
   const a = screenOf(organA.rect);
   assert.equal(art({ l: a.l + 5, t: a.t + 5, r: a.l + 30, b: a.t + 30 }, { pad: 0 }), true);
   assert.equal(art({ l: a.l + 120, t: a.t + 80, r: a.l + 150, b: a.t + 100 }, { pad: 0 }), false, 'the organ that was there is gone');
@@ -226,6 +227,7 @@ test('spread over frames, the look answers PENDING, draws a slice a frame, and l
   try {
     const sync = organTest(wr);
     const boxes = [screenOf(organA.rect), screenOf(fluid.rect), screenOf(vessel.rect), { l: 700, t: 500, r: 760, b: 560 }];
+    const was = organA.rect; organA.rect = [was[0] + 1, was[1], was[2], was[3]];   // (a shape moved: that one is measured again, the unchanged ones are kept)
     for (const o of observers) o.cb([]);   // (the art changed: read again)
     let called = 0;
     assert.equal(organTest(wr, null, () => called++), PENDING);
@@ -252,7 +254,7 @@ test('spread over frames, the look answers PENDING, draws a slice a frame, and l
     assert.equal(readAfterDraw, 0, 'never in the frame that drew');
     // (The shapes' boxes and matrices are read just after a frame, where the layout is the one it drew, never inside one: read there,
     // after the figure's changes, they made the browser lay the page out mid-frame, 49 to 91 ms on his Mac, 1d32d326.)
-    assert.ok(shapesAfter >= 2 * 3, `the shapes read after the frame (${shapesAfter})`);
+    assert.ok(shapesAfter >= 2, `the shapes read after the frame (${shapesAfter})`);
     assert.equal(shapesInFrame, 0, 'no shape read inside a frame');
     assert.equal(called, 1, 'called back once its grid is in');
     assert.ok(frames > 2, `spread over ${frames} frames`);
