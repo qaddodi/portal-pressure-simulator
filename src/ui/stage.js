@@ -10527,6 +10527,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (solved) {
         carryClear = false;
         const sf = { sig, sc, th, csig, ins };
+        // (The labels already standing are carried to this frame's camera first: a solve that does not land inside its slice leaves them as
+        // they are, so each frame of a zoom or glide that asked for a fresh solve left them one more frame behind the figure, and
+        // dropped the sliced solve the next frame. Mohammad, 2 Nov: "the labels and callouts move slower than the figure camera".)
+        if (solvedFor && !(morph > 0 && morph < 1)) layoutLabels(f, false);
         const g = layoutLabelsGen(f, true);
         if (!labelSliceRun(g, LABEL_SLICE_MS)) {
           labelJob = { g, key: key.slice(), solvedFor: sf };
