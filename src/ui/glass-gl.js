@@ -1504,13 +1504,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (tgt) track(tgt);
     const flag = {};
     const cr = tgt ? tgt.getBoundingClientRect() : { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
-<<<<<<< HEAD
     const cm = tgt ? moveOf(tgt, flag) : MV, cmx = tgt ? cm.x : 0, cmy = tgt ? cm.y : 0;   // (read now: the next moveOf writes the same record)
-    const vw = document.documentElement?.clientWidth || window.innerWidth || cr.right, vh = document.documentElement?.clientHeight || window.innerHeight || cr.bottom;
-=======
-    const cm = tgt ? moveOf(tgt, flag) : { t: [0, 0] };
     const view = viewSize(), vw = view.w || cr.right, vh = view.h || cr.bottom;   // (the window's size kept from its last resize: layout-snap.js)
->>>>>>> a039285e (Glass geometry off the page: the colour probe element is gone (css-color.js resolves colours in script), the window's size is layout-snap's kept value, the figure's canvas is read once for both its boxes; glass-gl's layout-read allowance 14 -> 11)
     const ws = getComputedStyle(wrap), bgs = ws.backgroundColor;
     resolveColour(bgs);
     const bg = colour(bgs, 'transparent');
@@ -1554,12 +1549,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       p.live = { ...p, r: newRect(), er: newRect(), a: 0 };
     }
     const over = host ? (cards ? { low: host.over?.('low') || [], high: host.over?.('high') || [] } : { all: host.over?.() || [] }) : null;
-<<<<<<< HEAD
-    geo = { list, cr0: shift(cr, [-cmx, -cmy]), tgt, sr: source.getBoundingClientRect(), vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
-=======
-    geo = { list, cr0: shift(cr, [-cm.t[0], -cm.t[1]]), tgt, sr: tgt === source ? cr : source.getBoundingClientRect(),   // (the figure's canvas is both: one read, not two)
-       vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
->>>>>>> a039285e (Glass geometry off the page: the colour probe element is gone (css-color.js resolves colours in script), the window's size is layout-snap's kept value, the figure's canvas is read once for both its boxes; glass-gl's layout-read allowance 14 -> 11)
+    geo = { list, cr0: shift(cr, [-cmx, -cmy]), tgt, sr: tgt === source ? cr : source.getBoundingClientRect(),   // (the figure's canvas is both: one read, not two)
+      vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
     if (watchRo) { if (tgt) watchRo.observe(tgt); for (const g of list) watchRo.observe(g); }
     wake();
   }
