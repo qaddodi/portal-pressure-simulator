@@ -76,11 +76,12 @@ test('stage.js: widths and colours share the filter; the crossfade and Reduce Mo
   assert.match(stage, /const r = follow2\(x\.width, x\.w1, x\.wT, dt, W_TAU, Math\.max\(0\.005, edgeQ\(\)\)\);/);
   assert.match(stage, /colFollow\.step\(it\.row, colT, colDt, !!lensFrom \|\| reduceMotion\.matches\)/);
   // The filter runs before the crossfade, so what it shows is what the next crossfade starts from (shownCol).
-  const i = stage.indexOf('colFollow.step(it.row'), j = stage.indexOf('if (lensFrom) {\n        const was = lensFrom.get(it.row)'), k = stage.indexOf('shownCol.set(it.row, [c0, c1]);');
+  // (The shown colours are a pair kept per row since 2 Nov 2026, colPass: written from the filter, then crossfaded, then kept.)
+  const i = stage.indexOf('colFollow.step(it.row'), j = stage.indexOf('if (lensFrom) {\n        const was = lensFrom.get(it.row)'), k = stage.indexOf('shownCol.set(it.row, pair);');
   assert.ok(i > 0 && i < j && j < k);
   assert.match(stage, /colEasing = colFollow\.moving;/);
   assert.match(stage, /if \(lensFrom \|\| colEasing\) \{ veinsDirty = true; glowSync = true; \}/);
   assert.match(stage, /!lensFrom && !colEasing && ascShown === ascTarget/);
   assert.match(stage, /tubesNew \|\| lensFrom \|\| colEasing \|\|/);
-  assert.match(stage, /const colDt = Math\.min\(colEasing \? 0\.1 : 1 \/ 60, /);
+  assert.match(stage, /cpDt = Math\.min\(colEasing \? 0\.1 : 1 \/ 60, /);
 });

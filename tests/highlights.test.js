@@ -325,5 +325,5 @@ test('a spotlit vessel fades toward every end that meets no other lifted vessel'
   const fn = STAGE.match(/function selEnd\(id, n\) \{[\s\S]*?\n {2}\}/)?.[0] || '';
   assert.match(fn, /return liftEnd\(spot\.ids\.has\(id\) && spotOn\(\), joins\)/);
   assert.doesNotMatch(fn, /spotOn\(\)\) return 0/);
-  assert.match(STAGE, /\[easeInOut\(sa\), selEnd\(id, x\.e\.from\), selEnd\(id, x\.e\.to\), 0\]/);
+  assert.match(STAGE, /tubeData\[o \+ 49\] = selEnd\(id, x\.e\.from\); tubeData\[o \+ 50\] = selEnd\(id, x\.e\.to\);/);
 });

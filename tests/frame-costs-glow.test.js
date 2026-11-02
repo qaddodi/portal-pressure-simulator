@@ -55,8 +55,8 @@ test('the glow texels are written exactly as the whole vessel sync wrote them, o
 
 test('a glow ease runs the glow-only sync, which falls back to the whole sync unless nothing else changed', () => {
   assert.match(stage, /if \(glowSync && !syncGlowOnly\(easeInOut\(morph\)\)\) syncVeins\(easeInOut\(morph\)\);/);
-  assert.match(stage, /writeGlowTexels\(tubeData, o, kind, id, ra\?\.e\.id, obj\.len, glow\.lit, vh\.amt, rgbCs, easeInOut\);/, 'the whole sync writes them with the same helper');
-  assert.match(stage, /glowMemo = \{ items, t, netA, cs, mode, origin: originMode, cath: cathTint, F, geo: geometryVersion, plate: veins\.hasPlate\(0\), cls: wrapCls\(\), bits: glowBits\(items\), reach: vLook\.reach \};/);
+  assert.match(stage, /writeGlowTexels\(tubeData, o, kind, id, ra\?\.e\.id, obj\.len, glow\.lit, vh\.amt, cpRgb, easeInOut\);/, 'the whole sync writes them with the same helper');
+  assert.match(stage, /glowMemo = \{ items, t, netA, cs, mode, origin: cpOrigin, cath: cathTint, F, geo: geometryVersion, plate: veins\.hasPlate\(0\), cls: wrapCls\(\), bits: glowBits\(items\), reach: vLook\.reach \};/);
   const ok = stage.slice(stage.indexOf('function glowOnlyOk'), stage.indexOf('function syncGlowOnly'));
   for (const c of ['tubesNew', 'lensFrom', 'm.t !== t', 'm.F !== F', 'm.geo !== geometryVersion', 'm.netA !== netA', 'm.cs !== wrapCS()', 'm.mode !== layerMode()', 'm.origin !== originOn()', 'm.cath !== cathTint', 'm.plate !== veins.hasPlate(0)', 'm.cls !== wrapCls()', 'm.reach !==', 'b[i] !== m.bits[i]', 'b[i] & 64']) assert.ok(ok.includes(c), `checks ${c}`);
   for (const c of ["'is-sel'", "'hl'", "'coll-ghost'", 'it.x.lifted', 'it.x.reveal']) assert.ok(stage.slice(stage.indexOf('function glowBits'), stage.indexOf('function glowOnlyOk')).includes(c), `bits hold ${c}`);

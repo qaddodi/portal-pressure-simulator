@@ -26,5 +26,6 @@ test('the selected vessel eases back into the dimmed network toward its ends, wi
   assert.match(vg, /ssel\[s\] \*= \(t12\.y > 0\.5 \? smoothstep\(0\.0, fs, sv\[s\] \* Ls\) : 1\.0\) \* \(t12\.z > 0\.5 \? smoothstep\(0\.0, fs, \(1\.0 - sv\[s\]\) \* Ls\) : 1\.0\);/);
   assert.match(vg, /else if \(grp == 1\) \{ accN = over\(c, accN\); if \(wsel > 0\.0\) accT = over\(c \* wsel, accT\); \}/, 'its own share laid over the dimmed network');
   assert.match(vg, /grp == 1 \? mix\(netAlpha, 1\.0, wsel\)/, 'its blood stands out with it');
-  assert.match(stage, /tubeData\.set\(kind === 'v' \? \[easeInOut\(sa\), selEnd\(id, x\.e\.from\), selEnd\(id, x\.e\.to\), 0\] : \[easeInOut\(sa\), 0, 0, 0\], o \+ 48\);/);
+  // (Written texel by texel since 2 Nov 2026, colPass: no array per vessel per frame.)
+  assert.match(stage, /tubeData\[o \+ 48\] = easeInOut\(sa\);\s*\/\/[^\n]*\n\s*if \(kind === 'v'\) \{ tubeData\[o \+ 49\] = selEnd\(id, x\.e\.from\); tubeData\[o \+ 50\] = selEnd\(id, x\.e\.to\); \} else \{ tubeData\[o \+ 49\] = 0; tubeData\[o \+ 50\] = 0; \}/);
 });
