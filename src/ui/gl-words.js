@@ -103,8 +103,9 @@ function measureRead(S) {
   const { el, host, after } = S;
   if (S.dead) return;
   // (Words drawn or being drawn: the picture is not replaced under them, which left the page's words clear over an empty picture: a number that
-  // vanished as its width changed. It is measured again once they have landed.)
-  if (S.on || S.pend) { S.stale = true; return; }
+  // vanished as its width changed. It is measured again once they have landed. B02: with the picture up (a readout that never holds still)
+  // the ask is kept as stale and the picture is taken down in a rest pass of its own, so a resize or new theme still reaches the next draw.)
+  if (S.on || S.pend) { S.stale = true; if (S.on) askLand(S); return; }
   if (!el.isConnected || !glyphsReady() || !S.txt?.data || S.txt.parentNode !== el) { S.at = null; return; }
   const box = host.getBoundingClientRect();
   if (!(box.width > 0 && box.height > 0)) { S.at = null; return; }
@@ -167,7 +168,7 @@ function measureWrite(S, { at, pad, L, U }) {
   // translation. A change fills the slots it needs; longer words than the slots hold take the one-path way, as before.)
   S.vSlots = slotsOf(V_CAP, L.fill); S.uSlots = slotsOf(U_CAP, U.fill);
   S.gl.show(svgModel('svg', { viewBox: `${-pad.l} ${-pad.t} ${at.w + pad.l + pad.r} ${at.h + pad.t + pad.b}`, preserveAspectRatio: 'none' }, S.vPath, S.uPath, S.vSlots.map((q) => q.el), S.uSlots.map((q) => q.el)), false);
-  S.at = at;
+  S.at = at; S.stale = false;
   S.gl.paint();   // (a first, empty, drawing: the picture's canvas is sized now, between frames, so the first new words are drawn whole)
 }
 const askMeasure = (S) => { if (S.dead) return; measureQ.add(S); S.measureAsk = 1; if (!measureAll) measureAll = restPass(measurePass); };
@@ -240,7 +241,7 @@ function land(S) {
   S.onLand?.();
   S.pend = false;
   if (S.on) { S.on = false; el.classList.remove('glw-on'); S.vPath.setAttribute('d', ''); S.uPath.setAttribute('d', ''); clearSlots(S); S.gl.paint(); }
-  if (!S.at || S.stale || S.at.sm !== (!!S.small && !S.small.hidden)) { S.stale = false; askMeasure(S); }   // (a unit that came or went moves the words: measured again)
+  if (!S.at || S.stale || S.at.sm !== (!!S.small && !S.small.hidden)) askMeasure(S);   // (a unit that came or went moves the words: measured again)
 }
 const askLand = (S) => { clearTimeout(S.landT); S.landT = 0; if (S.dead) return; if (!S.landAsk) S.landAsk = restPass(() => land(S)); };
 
@@ -249,7 +250,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
   // (Its own text node, when it has one alone; otherwise one is made between frames, as the first words land: nothing is written here.)
   const only = el.firstChild?.nodeType === 3 && !el.firstChild.nextSibling ? el.firstChild : null, t0 = el.textContent || '';
   const S = { el, host, after, unitClass, onLand, txt: only, small: null, want: { t: t0, u: '' }, shown: { t: t0, u: '' },
-    at: null, gl: null, vPath: null, uPath: null, on: false, pend: false, landT: 0, measureAsk: 0, landAsk: 0, dead: false, ro: null };
+    at: null, gl: null, vPath: null, uPath: null, on: false, pend: false, stale: false, landT: 0, measureAsk: 0, landAsk: 0, dead: false, ro: null };
   if (!only && t0) askLand(S);
   const ask = S.ask = () => askMeasure(S);
   if (typeof ResizeObserver === 'function') (S.ro = new ResizeObserver(ask)).observe(el);
@@ -279,6 +280,8 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
     el,
     dispose,
     get disposed() { return S.dead; },
+    /** Whether its words are the element's own text node (not replaced by someone else since). */
+    get owns() { return !S.dead && !!S.txt && S.txt.parentNode === el; },
     get text() { return S.want.t; },
     get unit() { return S.want.u; },
     /** Sets the words (and a unit): drawn on the GPU now, written into the page once they hold still. */
@@ -288,7 +291,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
       wake(S);
       S.want.t = t; S.want.u = u;
       // (?glwords=0, no look read yet, no outlines, a character not cut, words gone or a unit that has no place yet: written between frames.)
-      if (!S.at || !glyphsReady() || !t || !textCovers(t + u) || (u && !S.small && !after)) { askLand(S); return; }
+      if (!S.at || S.stale || !glyphsReady() || !t || !textCovers(t + u) || (u && !S.small && !after)) { askLand(S); return; }
       draw(S, t, u);
       clearTimeout(S.landT);
       S.landT = setTimeout(() => askLand(S), QUIET);

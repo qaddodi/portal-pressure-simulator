@@ -607,6 +607,7 @@ export function createSvgGL(box) {
     const now = easeNow();
     easing = false;
     const bw = w - 2 * BLEED, bh = h - 2 * BLEED;
+    let handed;
     try {
       ctx.clearRect(0, 0, w, h);
       if (!(bw > 0 && bh > 0)) return;
@@ -623,8 +624,8 @@ export function createSvgGL(box) {
       }
       const label = models().at(-1)?.getAttribute('aria-label');
       if (label) attrSoon(cv, 'aria-label', label);
-    } finally { ctx.end?.(); }
-    g.drawn?.(!!pen.gpu && bw > 0 && bh > 0);   // (whether the GPU drew this frame: gl-words.js shows its picture only then)
+    } finally { handed = ctx.end?.() !== false; }   // (false: the picture could not be handed over, trace-gl.js end)
+    g.drawn?.(!!pen.gpu && bw > 0 && bh > 0 && handed);   // (whether the GPU drew this frame: gl-words.js shows its picture only then)
     if (now < g.until || g.ins.size || easing) g.ask = finalFrame(draw);
   }
   g.gpu = createTraceGL(cv, { redraw: () => draw() });

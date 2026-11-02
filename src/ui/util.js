@@ -620,6 +620,9 @@ function putFlush() {
   putAsk = 0;
   const now = [...putPend]; putPend.clear();
   for (const [el, t] of now) {
+    // (An element a GPU wrapper owns is landed through it: its canvas and unit are the wrapper's, and textContent would delete them.)
+    const w = wordsOfEl.get(el);
+    if (w && !w.disposed) { w.now(t); continue; }
     const n = el.firstChild;
     if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t;
   }
@@ -633,9 +636,13 @@ export const putText = (el, t) => {
     const n = el.firstChild;
     if (!n || (n.nodeType === 3 && !n.nextSibling)) wordsOfEl.set(el, w = glWords(el));
   }
-  if (w && !odos.has(el) && (!el.firstChild || (el.firstChild.nodeType === 3 && !el.firstChild.nextSibling))) {
-    // (Words written by hand since the last ones put here: the readout is drawn from what the page shows now.)
-    if (w.text !== t || el.textContent !== t) { if (el.textContent !== w.text && el.textContent !== t) putLater(el, t); else w.set(t); }
+  if (w?.disposed) { wordsOfEl.delete(el); w = null; }
+  if (w && !odos.has(el)) {
+    // (Once a wrapper exists every update goes through it, whatever its renderer put in the element: its canvas is a child, and a
+    // plain write of textContent would delete the picture without freeing it. Words written by hand since the last ones put here, or
+    // none of its own on the page: the readout is written between frames, as before.)
+    if (!w.owns) { if (el.textContent === t) return; if (el.firstChild) putLater(el, t); else w.set(t); return; }
+    if (w.text !== t) w.set(t);
     return;
   }
   if (el.textContent !== t) putLater(el, t);

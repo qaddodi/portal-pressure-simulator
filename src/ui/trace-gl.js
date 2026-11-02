@@ -529,7 +529,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
   }
 
   // ── A frame ──
-  let W = 1, H = 1, K = 1, clipR = null, inFrame = false;
+  let W = 1, H = 1, K = 1, clipR = null, inFrame = false, lastEnd = true;
   // (R16: the target a frame's draws land in: the chart's canvas (null), or a kept layer's texture while keep() draws one.)
   let outFb = null;
   const layers = new Map();   // (a kept layer's name → { tex, fb, rb, w, h, gen, sig }: the still parts of a chart, drawn once per sig)
@@ -748,17 +748,26 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
     },
     /** Ends the frame (what is batched is drawn) and shows the GPU's picture in place of the 2D canvas's. */
     end() {
-      if (!inFrame) return;
+      if (!inFrame) return lastEnd;
       flush(); gl.bindVertexArray(null); inFrame = false;
       if (dropAfter) { dropAfter = false; dropLayers(); }
       else if (layers.size) holdLayers();
+      // (B09: the picture's hand-over can throw (a lost or starved context). Then the chart's own picture is not hidden and the page's
+      // host keeps showing, the last completed picture stays in the canvas, and the caller is told: false. A bitmap made but not taken
+      // is closed.)
+      let ok = true;
       if (shown) {
         if (shared.active === api) shared.active = null;
         sharedStats.transfers++; notePass('transfer', W * H);
-        try { shown.transferFromImageBitmap(glCanvas.transferToImageBitmap()); } catch (e) { console.warn('Charts on the GPU: the picture could not be handed over.', e); }
+        let bmp = null;
+        try { bmp = glCanvas.transferToImageBitmap(); shown.transferFromImageBitmap(bmp); bmp = null; } catch (e) { ok = false; console.warn('Charts on the GPU: the picture could not be handed over.', e); }
+        if (bmp) { try { bmp.close?.(); } catch { /* already gone */ } }
       }
-      if (canvas.style.visibility) canvas.style.visibility = '';
-      if (host.style.opacity !== '0') host.style.opacity = '0';
+      if (ok) {
+        if (canvas.style.visibility) canvas.style.visibility = '';
+        if (host.style.opacity !== '0') host.style.opacity = '0';
+      }
+      return (lastEnd = ok);
     },
     /** The 2D canvas draws the chart (shown again); the GPU's picture is hidden. */
     hide() {
@@ -1089,7 +1098,7 @@ function createShim(G) {
       const kp = [pieces, cur, shapes, only];
       return G.keep(name, sig, () => { c.save(); try { draw(); } finally { c.restore(); [pieces, cur, shapes, only] = kp; } });
     },
-    end() { G.end(); },
+    end() { return G.end(); },
     get fillStyle() { return st.fillStyle; }, set fillStyle(v) { st.fillStyle = v; },
     get strokeStyle() { return st.strokeStyle; }, set strokeStyle(v) { st.strokeStyle = v; },
     get lineWidth() { return st.lineWidth; }, set lineWidth(v) { if (v > 0) st.lineWidth = v; },
