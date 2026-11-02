@@ -61,18 +61,46 @@ function start(el, kind, to, ms, delay, done) {
 }
 
 /** Throws el out the way the talk goes (dir 'next': to the left; 'back': to the right), dist px, fading to nothing over D_SMALL. It is
- *  left out of sight, its inline values dropped once it is there (its class keeps it out: app.css pz-leave, pz-hide). */
+ *  left out of sight, held at an inline 0 (no offset) until it comes in again or its leave class goes (hold, below). */
 export function throwOut(el, dir, dist, done) {
   if (!el) return;
   const s = dir === 'back' ? 1 : -1;
-  start(el, 'out', { x: s * dist, o: 0 }, D_SMALL, 0, () => { rest(el); done?.(); });
+  start(el, 'out', { x: s * dist, o: 0 }, D_SMALL, 0, () => { hold(el); done?.(); });
 }
+
+// (2 Nov 2026, his iPhone: "the glass appears alone then flashes off then the new card slides over". A card's GPU glass (glass-gl.js)
+// takes its fade from the inline opacity written here while one is there, and from the page's styles read between frames otherwise.
+// Dropping the inline 0 the moment a card was out left the glass, until the page was read again a frame later, with no fade of the
+// card's own: drawn whole, on its own, at its place, then out. So a card out of sight keeps its inline 0 (its offset goes, so its box
+// reads at its place) until it comes in again, or until its leave class goes without a throw (another way in), when it is let go then,
+// in the same frame as its class. ?throwhold=0: let go at once, as before.)
+const HOLD = typeof location === 'undefined' || !/[?&]throwhold=0\b/.test(location.search || '');
+const held = new Set();
+const OUT_CLS = ['pz-leave', 'pz-hide'];
+const holdMo = typeof MutationObserver === 'function' ? new MutationObserver(() => {
+  for (const el of [...held]) {
+    if (runs.has(el)) { held.delete(el); continue; }
+    if (!el.isConnected || !OUT_CLS.some((c) => el.classList.contains(c))) { held.delete(el); rest(el); }
+  }
+  if (!held.size) holdMo.disconnect();
+}) : null;
+function hold(el) {
+  if (!HOLD || !holdMo) { rest(el); return; }
+  el.style.removeProperty('transform');
+  el.style.setProperty('opacity', '0', 'important');
+  if (!OUT_CLS.some((c) => el.classList.contains(c))) { rest(el); return; }
+  held.add(el);
+  holdMo.observe(el, { attributes: true, attributeFilter: ['class'] });
+}
+/** Whether el is out of sight, held at an inline 0 by its throw. */
+export const throwHeld = (el) => held.has(el);
 
 /** Brings el in from the side the talk comes from (dir 'next': from the right, moving left; 'back': from the left), THROW_IN px, over
  *  D_SURFACE after delay ms, and lets go of it at rest. A card caught mid-way out comes back from where it is. */
 export function throwIn(el, dir, delay = 0) {
   if (!el) return;
   const s = dir === 'back' ? -1 : 1, was = runs.get(el);
+  held.delete(el);
   if (!was || was.kind !== 'out') { el.style.setProperty('transition', 'none', 'important'); write(el, s * THROW_IN, 0); runs.delete(el); }
   start(el, 'in', { x: 0, o: 1 }, D_SURFACE, delay);
 }
@@ -97,4 +125,4 @@ function outCheck() {
 export const throwing = (el) => runs.has(el);
 
 /** Stops el's move where it is (a finger takes it), its inline values kept for whoever takes it next. */
-export function throwStop(el) { runs.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } outCheck(); }
+export function throwStop(el) { runs.delete(el); held.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } outCheck(); }

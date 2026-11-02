@@ -1034,7 +1034,7 @@ export function fitPen(canvas, gpu) {
   if (gpu) {
     const z = canvasSize(canvas);
     const ctx = gpu.ctx2d(z.w, z.h, z.W, z.H);
-    if (ctx) return { ctx, w: z.w, h: z.h };
+    if (ctx) return { ctx, w: z.w, h: z.h, gpu: true };
   }
   return fitCanvas(canvas);
 }

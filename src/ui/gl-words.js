@@ -92,6 +92,7 @@ function measure(S) {
     S.gl.cv.setAttribute('aria-hidden', 'true'); S.gl.cv.removeAttribute('role');
     S.gl.cv.classList.add('glw-cv');
     host.classList.add('glw');
+    S.gl.drawn = (ok) => drawn(S, ok);
   }
   // (The picture's place and size, for its canvas and the GPU drawer's canvas beside it (trace-gl.js): set outright, as a canvas is a
   // replaced element that insets alone do not stretch. app.css .glw.)
@@ -114,8 +115,20 @@ function draw(S, t, u) {
   S.vPath.setAttribute('d', dOf(textPolys(tt, x, at.y, L).polys));
   // (after: the unit is the element's own ::after (attr(data-…)), set beside the words, outside the box, a no-break space after them)
   S.uPath.setAttribute('d', u ? dOf(textPolys(uu, x + wv + sp, S.small && !after ? at.uy : at.y, U).polys) : '');
-  if (!S.on) { S.on = true; S.el.classList.add('glw-on'); }
+  S.pend = true;
   S.gl.paint();
+}
+// (2 Nov 2026, his iPhone: "the information of the instrument data cards disappear". The page's words were made clear as the new words
+// were asked of the GPU, but the GPU does not always draw that frame (its shaders still being built, its context lost or busy, a canvas
+// with no size yet: trace-gl.js ctx2d), and a readout that changes every frame never lands, so its words stayed clear. The page's words
+// now go clear only in the frame the GPU has drawn the new ones; a frame it cannot draw shows the page's words again, and they are
+// written into the page between frames.)
+function drawn(S, ok) {
+  if (ok) { if (S.pend && !S.on) { S.on = true; S.el.classList.add('glw-on'); } S.pend = false; return; }
+  if (!S.pend && !S.on) return;
+  S.pend = false;
+  if (S.on) { S.on = false; S.el.classList.remove('glw-on'); }
+  askLand(S);
 }
 
 // ── Between frames: the page's own words take what the picture shows, and the picture goes ──
@@ -136,6 +149,7 @@ function land(S) {
   }
   shown.t = want.t; shown.u = want.u;
   S.onLand?.();
+  S.pend = false;
   if (S.on) { S.on = false; el.classList.remove('glw-on'); S.vPath.setAttribute('d', ''); S.uPath.setAttribute('d', ''); S.gl.paint(); }
   askMeasure(S);
 }
@@ -146,7 +160,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
   // (Its own text node, when it has one alone; otherwise one is made between frames, as the first words land: nothing is written here.)
   const only = el.firstChild?.nodeType === 3 && !el.firstChild.nextSibling ? el.firstChild : null, t0 = el.textContent || '';
   const S = { el, host, after, unitClass, onLand, txt: only, small: null, want: { t: t0, u: '' }, shown: { t: t0, u: '' },
-    at: null, gl: null, vPath: null, uPath: null, on: false, landT: 0, measureAsk: 0, landAsk: 0 };
+    at: null, gl: null, vPath: null, uPath: null, on: false, pend: false, landT: 0, measureAsk: 0, landAsk: 0 };
   if (!only && t0) askLand(S);
   const ask = () => askMeasure(S);
   if (typeof ResizeObserver === 'function') new ResizeObserver(ask).observe(el);

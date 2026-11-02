@@ -539,9 +539,9 @@ export function createSvgGL(box) {
     const pen = fitPen(cv, g.gpu), { ctx, w, h } = pen;
     const now = easeNow();
     easing = false;
+    const bw = w - 2 * BLEED, bh = h - 2 * BLEED;
     try {
       ctx.clearRect(0, 0, w, h);
-      const bw = w - 2 * BLEED, bh = h - 2 * BLEED;
       if (!(bw > 0 && bh > 0)) return;
       for (const root of models()) {
         if (!looks.has(root)) continue;
@@ -557,6 +557,7 @@ export function createSvgGL(box) {
       const label = models().at(-1)?.getAttribute('aria-label');
       if (label && cv.getAttribute('aria-label') !== label) cv.setAttribute('aria-label', label);
     } finally { ctx.end?.(); }
+    g.drawn?.(!!pen.gpu && bw > 0 && bh > 0);   // (whether the GPU drew this frame: gl-words.js shows its picture only then)
     if (now < g.until || g.ins.size || easing) g.ask = finalFrame(draw);
   }
   g.gpu = createTraceGL(cv, { redraw: () => draw() });
