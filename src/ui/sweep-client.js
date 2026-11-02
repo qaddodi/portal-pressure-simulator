@@ -18,7 +18,7 @@ export function createSweepClient(make, { timeout = SWEEP_TIMEOUT, maxFails = SW
     w = null; fails++;
     dead.onmessage = dead.onerror = dead.onmessageerror = null;
     try { dead.terminate(); } catch { /* (already gone) */ }
-    for (const id of [...wait.keys()]) settle(id)?.no(why);
+    for (const id of wait.keys()) settle(id)?.no(why);   // (a Map visits what is left when an entry is deleted during the walk)
   };
   const start = () => {
     const nw = make();

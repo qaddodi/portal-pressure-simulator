@@ -99,6 +99,7 @@ import { createLateQueue } from './late-queue.js?v=d7da770ef7';
 import { dropLabel } from './drop-label.js?v=bb3f310054';
 import { glWords } from './gl-words.js?v=c88abca3a4';
 import { provideStage } from './layout-snap.js?v=f609965236';
+const STENT_FACTORS = [0, 0, 0];   // alloc-rare: made once (stentSegments writes into it; the caller reads one entry at once)
 import { caught } from './caught.js?v=b96b17594a';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
@@ -9750,7 +9751,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const live = Number.isFinite(fixed) && Math.abs(now - fixed) < Math.max(4, fixed * 0.12) ? fixed : beatMean('v:' + sid, now, 6);
     // (Between Doppler reports, the callout reads the third the Doppler samples itself, so it never falls back to the open stent's number.)
     const gated = dopGateOf(sid), p = f.viewParams || store.get().params, pt = point || gated, fresh = dop && performance.now() - dop.t < 1000;
-    const factor = pt ? stentSegments(1, 1 - (1 - (p?.stenosis?.[sid] || 0)) * (1 - (p?.thrombus?.[sid] || 0)), stentSite(p, sid))[['proximal', 'mid', 'distal'].indexOf(pt)] : 1;
+    const factor = pt ? stentSegments(1, 1 - (1 - (p?.stenosis?.[sid] || 0)) * (1 - (p?.thrombus?.[sid] || 0)), stentSite(p, sid), STENT_FACTORS)[pt === 'proximal' ? 0 : pt === 'mid' ? 1 : 2] : 1;
     // (The sampled point reads the monitor's own number; the other two, the open stent's velocity the monitor's tiles read them from.)
     const vel = fresh && pt === gated ? dop.v : (fresh && Number.isFinite(dop.open) ? dop.open : live) * factor;
     // (Read by the Doppler at one third of the stent, the callout names it: "TIPS distal".)

@@ -28,6 +28,7 @@ const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // What the Doppler calls a vessel: a stent also names its course ("TIPS RPV → RHV"), read from where the model connects it.
+const STENT_OUT = [0, 0, 0];   // alloc-rare: made once (stentSegments writes into it; each reader uses it before the next call)
 const probeName = (p) => (p.kind === 'tips' ? `${p.short} ${stentCourse(EDGES[EI[p.id]])}` : p.short);
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
 // Positive velocity is the vessel's physiological direction (for a collateral: portal → systemic).
@@ -336,7 +337,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // A stent's proximal, mid and distal velocities from the open stent's velocity v: the narrowed segment runs faster.
   const stentReads = (v) => {
     const prm = store.get().params, s = 1 - (1 - (prm?.stenosis?.[probe] || 0)) * (1 - (prm?.thrombus?.[probe] || 0));
-    return stentSegments(v, s, stentSite(prm, probe));
+    return stentSegments(v, s, stentSite(prm, probe), STENT_OUT);
   };
   // The gated segment of a stent, and how much faster it runs than the open stent (1 elsewhere, and on any other vessel).
   const isStentProbe = () => meta().kind === 'tips';
@@ -410,7 +411,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       note = 'The hepatic artery buffers falling portal inflow by dilating (the hepatic arterial buffer response).';
     } else if (p.kind === 'tips') {
       dir = js.none ? 'No flow' : r.mean < 0 ? 'Reversed' : p.id === 'DIPS' ? 'Portal → IVC' : 'Portal → hepatic vein'; sev = js.none || r.mean < 0 ? 'critical' : js.slow || js.fast ? 'caution' : 'ok';
-      const jet = Math.max(a, ...stentReads(open));   // the fastest segment: a narrowing's jet
+      const sr = stentReads(open), jet = Math.max(a, sr[0], sr[1], sr[2]);   // the fastest segment: a narrowing's jet
       pattern = js.none ? 'Occluded' : js.slow ? (jet > 190 ? 'Low velocity, jet' : 'Low velocity') : jet > 190 ? 'High velocity' : 'Patent';
       if (sev === 'ok' && jet > 190) sev = 'caution';
       note = js.none ? 'No flow in the stent: occluded.' : 'Stent velocities <90 or >190 cm/s, or a change of >50 cm/s from the baseline scan, suggest stenosis.';

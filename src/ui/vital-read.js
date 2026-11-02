@@ -7,14 +7,16 @@ export const VITAL_HOLD = 1500;
 // x: the vital's own state ({ v: its VITALS entry }); now: ms; returns { v: the number to show, bad }.
 export function vitalReading(x, m, running, now) {
   const { v: def } = x, v = def.v(m);
-  if (!Number.isFinite(v)) { x.bad = null; x.badNext = null; return { v, bad: false }; }
+  const r = x.read || (x.read = { v: 0, bad: false });   // alloc-rare: one reading record per vital, made the first time it is read, then written in place
+  if (!Number.isFinite(v)) { x.bad = null; x.badNext = null; r.v = v; r.bad = false; return r; }
   const want = def.low ? (x.bad ? v < def.cut + def.hys : v < def.cut) : (x.bad ? v > def.cut - def.hys : v > def.cut);
   if (x.bad == null || !running) { x.bad = want; x.badNext = null; }
   else if (want !== x.bad) {
     if (x.badNext !== want) { x.badNext = want; x.badSince = now; }
     if (now - x.badSince >= VITAL_HOLD) { x.bad = want; x.badNext = null; }
   } else x.badNext = null;
-  return { v, bad: x.bad };
+  r.v = v; r.bad = x.bad;
+  return r;
 }
 
 // The vital signs the bottom bar, Tests > Readouts and a slide's vitals monitor show: id, short name, what it is, the value off the metrics, decimals,

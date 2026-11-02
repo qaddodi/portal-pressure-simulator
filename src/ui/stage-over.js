@@ -7,10 +7,12 @@
  * The overlay units, bottom to top: the children of the overlays' world group, with the overlays' own group (gOver) taken as its
  * children, each a unit of its own (the caudate, the stents, the varices, ...).
  */
+const UNITS = [];   // alloc-rare: made once
 export function overUnits(worldOver, gOver) {
-  const out = [];
+  const out = UNITS;
+  out.length = 0;
   for (const k of worldOver.children) {
-    if (k === gOver) out.push(...gOver.children);
+    if (k === gOver) { for (const c of gOver.children) out.push(c); }
     else out.push(k);
   }
   return out;

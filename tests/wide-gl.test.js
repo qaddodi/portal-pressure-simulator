@@ -29,7 +29,7 @@ test('each frame of the zoom draws the copy on the GPU, placed as the CSS transf
   const sd = fn('setDiveZoom(k, x, y, tx = x, ty = y) {');
   assert.match(sd, /if \(wide\?\.gl\) wide\.gl\.draw\(wide\.W, wide\.H, wide\.dpr, wide\.box, k, x, y, tx, ty\);/);
   assert.match(sd, /if \(wide\?\.gl\?\.lost\) dropWide\(\);/, 'a lost context drops the copy, never a blank lobule');
-  assert.match(wg, /const sx = \(q\) => \(tx \+ k \* \(q - x\)\) \* dpr, sy = \(q\) => \(ty \+ k \* \(q - y\)\) \* dpr;/);
+  assert.match(wg, /uniform4f\(uS\.rect, \(tx \+ k \* \(qx - x\)\) \* dpr, \(ty \+ k \* \(qy - y\)\) \* dpr, k/);
   // translate(tx − x, ty − y) scale(k) about (x, y): a point q goes to x + (tx − x) + k (q − x) = tx + k (q − x).
   const css = (q, x, tx, k) => x + (tx - x) + k * (q - x), gpu = (q, x, tx, k) => tx + k * (q - x);
   for (const [q, x, tx, k] of [[0, 100, 140, 0.3], [-50, 220, 80, 0.05], [900, 300, 300, 1]]) assert.ok(Math.abs(css(q, x, tx, k) - gpu(q, x, tx, k)) < 1e-9);

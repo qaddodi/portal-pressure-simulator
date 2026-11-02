@@ -162,11 +162,10 @@ export function createWideGL(canvas, { host = null } = {}) {
       gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
       gl.uniform1i(uS.T, 0); gl.uniform2f(uS.cv, cw, ch); gl.uniform1f(uS.a, alpha);
       gl.activeTexture(gl.TEXTURE0);
-      const sx = (q) => (tx + k * (q - x)) * dpr, sy = (q) => (ty + k * (q - y)) * dpr;
       for (const t of tiles) {
         const qx = t.x - box.l, qy = t.y - box.t;
         gl.bindTexture(gl.TEXTURE_2D, t.tex);
-        gl.uniform4f(uS.rect, sx(qx), sy(qy), k * t.w * dpr, k * t.h * dpr);
+        gl.uniform4f(uS.rect, (tx + k * (qx - x)) * dpr, (ty + k * (qy - y)) * dpr, k * t.w * dpr, k * t.h * dpr);
         gl.uniform2f(uS.uv, t.uw, t.uh);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }

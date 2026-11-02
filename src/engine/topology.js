@@ -183,7 +183,12 @@ const nodeLabel = (id) => { const n = NODES.find((x) => (Array.isArray(x) ? x[0]
 // A node's short name for a stent's course: its id (RPV, RHV), with the hilum portal vein as PV and both IVC levels as IVC.
 const NODE_SHORT = { PVH: 'PV', IVCI: 'IVC', IVCS: 'IVC' };
 // A stent's course from its portal end to its systemic end, read from the model's own connection: "RPV → RHV" for the TIPS.
-export const stentCourse = (e) => `${NODE_SHORT[e.from] || e.from} → ${NODE_SHORT[e.to] || e.to}`;
+const COURSES = new WeakMap();   // alloc-rare: made once; one kept entry per edge
+export const stentCourse = (e) => {
+  let c = COURSES.get(e);
+  if (!c || c.from !== e.from || c.to !== e.to) { c = { from: e.from, to: e.to, text: `${NODE_SHORT[e.from] || e.from} → ${NODE_SHORT[e.to] || e.to}` }; COURSES.set(e, c); }   // alloc-rare: built when an edge is first named, or when its ends change
+  return c.text;
+};
 export const customShuntId = (p, q) => `X_${p}_${q}`;
 for (const p of SHUNT_PORTAL) for (const q of SHUNT_SYSTEMIC) {
   if (NAMED_SHUNTS.has(`${p}>${q}`)) continue;
@@ -234,7 +239,11 @@ export const stentGate = (gate, p, id) => (gate === 'site' ? stentSite(p, id) : 
 // proximal 0.9×, mid 1×, distal 0.95×, well under the 50 cm/s change that suggests stenosis.
 // The spread fades out as a narrowing grows (gone by 30 %), so a narrowed stent reads its slow flow and its jet alone.
 export const STENT_GRADIENT = { proximal: 0.9, mid: 1, distal: 0.95 };
-export const stentSegments = (v, s = 0, site = 'distal') => {
+const STENT_KEYS = ['proximal', 'mid', 'distal'];   // alloc-rare: made once
+// `out` (optional): a list of 3 the numbers are written into and returned, so a drawn frame makes no list; without one a fresh list is made.
+export const stentSegments = (v, s = 0, site = 'distal', out = null) => {
   const w = Math.max(0, 1 - Math.max(0, s) / 0.3);
-  return ['proximal', 'mid', 'distal'].map((k) => (k === site && s > 0 && s < 0.995 ? v / ((1 - s) * (1 - s)) : v) * (1 + (STENT_GRADIENT[k] - 1) * w));
+  if (!out) out = [0, 0, 0];   // alloc-rare: only a caller that gives no list of its own (a test); the drawn paths pass one
+  for (let i = 0; i < 3; i++) { const k = STENT_KEYS[i]; out[i] = (k === site && s > 0 && s < 0.995 ? v / ((1 - s) * (1 - s)) : v) * (1 + (STENT_GRADIENT[k] - 1) * w); }
+  return out;
 };
