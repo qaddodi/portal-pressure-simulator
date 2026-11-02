@@ -66,31 +66,35 @@ const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t
 const lerp = (a, b, t) => a + (b - a) * t;
 
 // Deterministic jitter so the tissue does not shimmer between frames.
-function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
+function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }   // alloc-rare: build() only: geometry built only on a stage-size change (ensureGeo's geoKey)
 
 // A dense curve f(u), u 0…1, resampled to N points evenly spaced along its length.
 function curve(f, m = 160) {
-  const d = [], L = [0];
+  const d = [], L = [0];   // alloc-rare: build() only: geometry built only on a stage-size change (ensureGeo's geoKey)
   for (let i = 0; i <= m; i++) d.push(f(i / m));
   for (let i = 1; i <= m; i++) L.push(L[i - 1] + Math.hypot(d[i][0] - d[i - 1][0], d[i][1] - d[i - 1][1]));
-  const len = L[m] || 1e-6, pts = [];
+  const len = L[m] || 1e-6, pts = [];   // alloc-rare: build() only: geometry built only on a stage-size change (ensureGeo's geoKey)
   let j = 0;
   for (let k = 0; k < N; k++) {
     const t = (len * k) / (N - 1);
     while (j < m - 1 && L[j + 1] < t) j++;
     const w = clamp((t - L[j]) / (L[j + 1] - L[j] || 1), 0, 1);
-    pts.push([lerp(d[j][0], d[j + 1][0], w), lerp(d[j][1], d[j + 1][1], w)]);
+    pts.push([lerp(d[j][0], d[j + 1][0], w), lerp(d[j][1], d[j + 1][1], w)]);   // alloc-rare: build() only: geometry built only on a stage-size change (ensureGeo's geoKey)
   }
-  return { pts, len };
+  return { pts, len };   // alloc-rare: build() only: geometry built only on a stage-size change (ensureGeo's geoKey)
 }
 // The triad's layout, from the venule: the other three sit this far out (of R), the arteriole and ductule this
 // far round either side of the outward direction, and the lymphatic straight out.
 const TRIAD_D = 0.09, TRIAD_A = 0.98;
-const dot = (x, y) => curve((u) => [x + (u - 0.5) * 0.6, y], 4);   // a vessel seen end-on: a disc
-function at(pts, u) {
+// (A vessel seen end-on: a disc.)
+const dot = (x, y) => curve((u) => [x + (u - 0.5) * 0.6, y], 4);   // alloc-rare: build() only: geometry built only on a stage-size change (ensureGeo's geoKey)
+// The point a fraction u along a polyline, written into `out` ([x, y]) and returned: a caller that reads it at once keeps one out.
+function atInto(pts, u, out) {
   const f = clamp(u, 0, 1) * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(f)), t = f - i;
-  return [lerp(pts[i][0], pts[i + 1][0], t), lerp(pts[i][1], pts[i + 1][1], t)];
+  out[0] = lerp(pts[i][0], pts[i + 1][0], t); out[1] = lerp(pts[i][1], pts[i + 1][1], t);
+  return out;
 }
+function at(pts, u) { return atInto(pts, u, [0, 0]); }
 function distTo(pts, x, y) {
   let best = Infinity, bu = 0;
   for (let i = 0; i < pts.length - 1; i++) {
@@ -105,12 +109,23 @@ const rgbCache = new Map();
 function rgb01(c) {
   let o = rgbCache.get(c);
   if (o) return o;
-  o = cssColor8(c || 'black').slice(0, 3);
+  o = cssColor8(c || 'black').slice(0, 3);   // alloc-rare: only on a colour the cache has not seen (the Map above keeps each colour's triple)
   if (rgbCache.size > 256) rgbCache.clear();
   rgbCache.set(c, o);
   return o;
 }
-const css = (a, al = 1) => `rgba(${Math.round(a[0] * 255)},${Math.round(a[1] * 255)},${Math.round(a[2] * 255)},${al})`;
+// ([r, g, b] 0–1 → 'rgba(r,g,b,1)': each colour's text is made once and kept by its 8-bit value, as the canvas steps it.)
+const cssMemo = new Map();
+const css = (a) => {
+  const r = Math.round(a[0] * 255), g = Math.round(a[1] * 255), b = Math.round(a[2] * 255), k = (r * 256 + g) * 256 + b;
+  let s = cssMemo.get(k);
+  if (s === undefined) {
+    if (cssMemo.size > 4096) cssMemo.clear();
+    s = `rgba(${r},${g},${b},1)`;   // alloc-rare: only the first time this 8-bit colour is asked for (cssMemo keeps it)
+    cssMemo.set(k, s);
+  }
+  return s;
+};
 
 /** `before`: a node of `host` the layer sits ahead of. The stage builds the layer after the first paint, and in the page it takes the
  *  place it always had (a layer of the same z-index drawn later would otherwise cover the labels the stage adds after it). With the
@@ -140,10 +155,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
 
   // ── What sits on the lobule ──
   // Zones and Lymph are layers (the toolbar's Layers menu keeps them in the store). Nothing floats in a card.
-  const start = store.get().lobuleLayers || {};   // the first frame draws the layers the store starts with (lymph is on)
+  const NO_LAYERS = {};   // (read, never written: what stands in for a store with no layers set)
+  const start = store.get().lobuleLayers || NO_LAYERS;   // the first frame draws the layers the store starts with (lymph is on)
   let zonesOn = !!start.zones, lymphOn = !!start.lymph;
   const syncLayers = () => {
-    const l = store.get().lobuleLayers || {};
+    const l = store.get().lobuleLayers || NO_LAYERS;
     if (!!l.zones === zonesOn && !!l.lymph === lymphOn) return;
     zonesOn = !!l.zones; lymphOn = !!l.lymph;
     tissueKey = ''; layoutKey = ''; attrKey = '';
@@ -153,6 +169,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   store.on('lobuleLayers', () => syncLayers());
   // A presenter slide's pointer at the lesion (D4): { at: 'triad' | 'sin' | 'cv', label, kind: block | treat | note }.
   const callEl = h('div', { class: 'lz-call', 'aria-hidden': 'true' }), callLine = svgModel('line', { class: 'lz-call-l' }), callRing = svgModel('circle', { class: 'lz-call-r' });
+  const callParts = [callEl, callLine, callRing];   // (the pill, its leader and its ring: toggled together)
   let call = null, callWant = null, callSwap = 0;
   store.on('presentFp', () => { if (model) panel(); });   // (a slide's settled values arrive: the sinusoid label reads as its tile)
   // A pointer that changes while it shows (another spot, other words) fades out first, then fades in with its new words at its new
@@ -160,7 +177,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const callSet = (c) => {
     call = c;
     if (c) {
-      callEl.textContent = c.label; for (const e of [callEl, callLine, callRing]) restAttr(e, 'data-kind', c.kind || 'block');   // (a style hook, written between frames; measureRun flushes it before it measures the pill)
+      callEl.textContent = c.label; for (const e of callParts) restAttr(e, 'data-kind', c.kind || 'block');   // (a style hook, written between frames; measureRun flushes it before it measures the pill)
       // (Its size measured between frames for its new words, before it is first placed: placeCall waits for it.)
       measQ.add(callEl); if (!measT) measT = restPass(measureRun);
     }
@@ -168,11 +185,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   };
   const onCallout = () => {
     const c = store.get().lobuleCallout || null;
-    if (JSON.stringify(c) === JSON.stringify(callWant)) return;
+    if (JSON.stringify(c) === JSON.stringify(callWant)) return;   // alloc-rare: only when the store's lobuleCallout changes (a slide's pointer, once per slide change)
     callWant = c;
     const fading = !!callSwap;
     clearTimeout(callSwap); callSwap = 0;
-    if (c && !reduce.matches && (fading || (call && callEl.classList.contains('on')))) { if (call) callSet(null); callSwap = setTimeout(() => { callSwap = 0; callSet(callWant); }, 500); return; }
+    if (c && !reduce.matches && (fading || (call && callEl.classList.contains('on')))) { if (call) callSet(null); callSwap = setTimeout(() => { callSwap = 0; callSet(callWant); }, 500); return; }   // alloc-rare: only when a slide's pointer changes while one shows (store lobuleCallout)
     callSet(c);
   };
   store.on('lobuleCallout', onCallout);
@@ -247,11 +264,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // and down toward its bottom before it zoomed out (Mohammad, 21 Oct, Ascites 4 to 5 on a phone). Held, the way out only ever zooms out.
   // (Kept for this stage size only; given back when the lobule is framed for a slide again or has gone.)
   let heldFree = null;
+  // (freeRect's answer is read where it is asked for and not kept: one object, written again in place each time. liveFree makes its own,
+  // for heldFree, which keeps it.)
+  const freeNow = { l: 0, t: 0, r: 0, b: 0 };
   function freeRect() {
     if (heldFree && heldFree.W === geo.W && heldFree.H === geo.H) return heldFree.f;
-    return liveFree();
+    return liveFreeInto(freeNow);
   }
-  function liveFree() {
+  function liveFree() { return liveFreeInto({ l: 0, t: 0, r: 0, b: 0 }); }   // alloc-rare: only once, as a slide leaves the lobule (heldFree keeps it)
+  function liveFreeInto(o) {
     const W = geo.W, H = geo.H, phone = phoneMQ.matches;
     // (--pz-l, --pz-r, --pz-b: the room a presenter slide's text and data take.)
     let t = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 8, b = H - (cssN('--bot-occ') || 100) - cssN('--pz-b') - 8, l = 12 + cssN('--pz-l'), r = W - cssN('--right-occ') - cssN('--pz-r') - 12;
@@ -260,20 +281,28 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const q = phone && snap.zoom;
     if (q && q.top < H / 2) t = Math.max(t, q.bottom + 14);
     // The bottom stays above the vitals dock. With no room left, layoutLabels hides the labels rather than set them under it.
-    return { l, t, r: Math.max(l + 80, r), b };
+    o.l = l; o.t = t; o.r = Math.max(l + 80, r); o.b = b;
+    return o;
   }
   // The lobule and its labels' places, in world units.
+  const frameBuf = [0, 0, 0, 0];
   const frameBox = () => {
-    const { cx, cy, R } = geo, ph = phoneMQ.matches;
+    const { cx, cy, R } = geo, ph = phoneMQ.matches, wx = ph ? 1.05 : 1.52, hy = ph ? 1.02 : 1.04;
     // Even above and below the hexagon (its curved sides reach about 0.97 R), so a fitted lobule is centred in the free space.
-    return ph ? [cx - 1.05 * R, cy - 1.02 * R, cx + 1.05 * R, cy + 1.02 * R] : [cx - 1.52 * R, cy - 1.04 * R, cx + 1.52 * R, cy + 1.04 * R];
+    frameBuf[0] = cx - wx * R; frameBuf[1] = cy - hy * R; frameBuf[2] = cx + wx * R; frameBuf[3] = cy + hy * R;
+    return frameBuf;
   };
-  function fitV() {
-    if (!geo) return { k: 1, x: 0, y: 0 };
-    const f = freeRect(), [x0, y0, x1, y1] = frameBox();
+  // The framing, written into `o` ({ k, x, y }) where it is only read (the pan, the pinch, the clamp); fitV makes its own object, for a
+  // glide or a station that keeps it as its target.
+  function fitInto(o) {
+    if (!geo) { o.k = 1; o.x = 0; o.y = 0; return o; }
+    const f = freeRect(), fb = frameBox(), x0 = fb[0], y0 = fb[1], x1 = fb[2], y1 = fb[3];
     const k = clamp(Math.min((f.r - f.l) / (x1 - x0), (f.b - f.t) / (y1 - y0)), 0.3, 1.8);
-    return { k, x: (f.l + f.r) / 2 - k * (x0 + x1) / 2, y: (f.t + f.b) / 2 - k * (y0 + y1) / 2 };
+    o.k = k; o.x = (f.l + f.r) / 2 - k * (x0 + x1) / 2; o.y = (f.t + f.b) / 2 - k * (y0 + y1) / 2;
+    return o;
   }
+  const fitA = { k: 1, x: 0, y: 0 }, fitC = { k: 1, x: 0, y: 0 };   // (fitInto's scratch for a move event (fitA) and for clampV (fitC), which only read it in the same call)
+  function fitV() { return fitInto({ k: 1, x: 0, y: 0 }); }   // alloc-rare: only to start or end a gesture (a glide's target, a framing kept), never in a move event or frame
   // While the lobule is being dragged about at its framing (rubber band), nothing may snap it back to fit.
   let rubber = false, rubberT = 0;
   const bandOffset = (o, L) => L * Math.tanh(o / L);
@@ -285,7 +314,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!rawK) rawK = kFit;
     rawK = Math.max(kFit * 0.5, rawK * f);   // as the anatomy: the unresisted scale stops at half the framing
     stopInertia(); cancelFrame(glide); gliding = false; rubber = true; atFit = false;
-    const F0 = fitV();
+    const F0 = fitInto(fitA);
     if (rawK >= kFit) { rawK = 0; rubber = false; Object.assign(V, F0); atFit = true; viewChanged(); return; }
     // The stretch shrinks about the middle of the free space, not the fingers: the lobule stays where its framing puts it, so zooming
     // out at the framing never drifts it sideways or down and back.
@@ -296,7 +325,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function endStretch() { if (!rawK) return; rawK = 0; rubber = false; glideTo(fitV(), 380); atFit = true; }
   function clampV() {
     if (!geo || rubber) return;
-    const F0 = fitV();
+    const F0 = fitInto(fitC);
     kFit = F0.k;
     if (V.k <= kFit * 1.001) { Object.assign(V, F0); atFit = true; return; }
     atFit = false;
@@ -305,9 +334,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // The free space's centre stays over the lobule; fitted, it is the framing.
     // (The room to pan opens quickly: fully by a third past the framing, so a small zoom can already be moved.)
     const t = clamp((V.k / kFit - 1) * 3, 0, 1);
-    const fc = [(mx - F0.x) / F0.k, (my - F0.y) / F0.k];
+    const fcx = (mx - F0.x) / F0.k, fcy = (my - F0.y) / F0.k;
     const wx = (mx - V.x) / V.k, wy = (my - V.y) / V.k;
-    const x0 = lerp(fc[0], cx - R * 1.05, t), x1 = lerp(fc[0], cx + R * 1.05, t), y0 = lerp(fc[1], cy - R * 0.95, t), y1 = lerp(fc[1], cy + R * 0.95, t);
+    const x0 = lerp(fcx, cx - R * 1.05, t), x1 = lerp(fcx, cx + R * 1.05, t), y0 = lerp(fcy, cy - R * 0.95, t), y1 = lerp(fcy, cy + R * 0.95, t);
     const cxw = clamp(wx, Math.min(x0, x1), Math.max(x0, x1)), cyw = clamp(wy, Math.min(y0, y1), Math.max(y0, y1));
     V.x = mx - cxw * V.k; V.y = my - cyw * V.k;
   }
@@ -344,32 +373,36 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (fade > 0 && geo) layoutLabels();
     // (Landed: the cards' boxes are read again in a task after this frame, and the labels laid out again should one have moved.)
     if (!restT) restT = restPass(readRest);
-    nextFrame(() => { if (camMove) return; classSoon(el, 'lz-cam', false); classSoon(el, 'lz-cam-in', true); clearTimeout(camInT); camInT = setTimeout(() => classSoon(el, 'lz-cam-in', false), 400); });
+    nextFrame(camLanded);
   }
+  const camInEnd = () => classSoon(el, 'lz-cam-in', false);
+  const camLanded = () => { if (camMove) return; classSoon(el, 'lz-cam', false); classSoon(el, 'lz-cam-in', true); clearTimeout(camInT); camInT = setTimeout(camInEnd, 400); };
   // (ease 'in': from rest and still at speed where it lands, for a glide another move carries on from: the way out to the rise.)
   // (steady: a refit to cards that moved: timed by glideClock, so a slow frame at its start (the layout the same change set off) holds
   // the glide back a little instead of carrying it part of the way at once.)
   // (The in-out glide on the stage camera's curve, the quintic: ease.js, combined plan M2.)
   let glideVel = null, glideLast = null;   // (a glide's last frames: its speed per ms, so another begun on it carries that on, ease.js carryRate)
+  // (glideVel and glideLast are these two objects, written in place each frame, or null: a glide begun on one reads it at once, before its first frame writes.)
+  const glideVelO = { t: 0, dlogk: 0, x: 0, y: 0 }, glideLastO = { t: 0, k: 0, x: 0, y: 0 };
   function glideTo(to, ms = 260, cam = false, aim = null, ease = 'inOut', steady = false) {
     stopInertia();
     const v0 = gliding && glideVel && ease !== 'in' && performance.now() - glideVel.t < 80 ? glideVel : null;
     glideLast = null;
     cancelFrame(glide); gliding = false;
     camAim = aim;   // (any other glide, or a hand on the lobule, replaces the presenter's)
-    const from = { ...V }, t0 = performance.now();
+    const from = { ...V }, t0 = performance.now();   // alloc-rare: once as a glide begins (a button, a station, a resize), kept by its frames
     // (Lite mode: the presenter's camera jumps, and the lobule fades in at its new framing.)
     if (reduce.matches || !fade) { camAim = null; Object.assign(V, to); viewChanged(); camSettle(); return; }
-    if (cam && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) { camMove = true; camUntil = t0 + ms + 50; classSoon(el, 'lz-cam-in', false); classSoon(el, 'lz-cam', true); setTimeout(() => { if (camMove && performance.now() >= camUntil) camSettle(); }, ms + 80); } else camSettle();
+    if (cam && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) { camMove = true; camUntil = t0 + ms + 50; classSoon(el, 'lz-cam-in', false); classSoon(el, 'lz-cam', true); setTimeout(() => { if (camMove && performance.now() >= camUntil) camSettle(); }, ms + 80); } else camSettle();   // alloc-rare: once as a presenter's glide begins
     const clock = steady ? glideClock() : null;
     const c0 = v0 ? carryRate(v0, from, to, Math.max(1, snap.w)) * ms : 0;
-    const step = (now) => {
+    const step = (now) => {   // alloc-rare: once as a glide begins (the frames below allocate nothing)
       const u = clamp((clock ? clock(now) : now - t0) / ms, 0, 1), e = ease === 'in' ? u * u : easeMove(u);
       const ec = u < 1 ? carried(e, u, c0) : e;   // (with the speed of a glide this one took over from, if any: ease.js carried)
       const k = from.k * Math.pow(to.k / from.k, ec), a = (k - from.k) / ((to.k - from.k) || 1);
       V.k = k; V.x = from.x + (to.x - from.x) * (to.k === from.k ? ec : a); V.y = from.y + (to.y - from.y) * (to.k === from.k ? ec : a);
-      if (glideLast && now > glideLast.t && now - glideLast.t < 100) { const dt = now - glideLast.t; glideVel = { t: now, dlogk: Math.log(V.k / glideLast.k) / dt, x: (V.x - glideLast.x) / dt, y: (V.y - glideLast.y) / dt }; }
-      glideLast = { t: now, k: V.k, x: V.x, y: V.y };
+      if (glideLast && now > glideLast.t && now - glideLast.t < 100) { const dt = now - glideLast.t, gv = glideVelO; gv.t = now; gv.dlogk = Math.log(V.k / glideLast.k) / dt; gv.x = (V.x - glideLast.x) / dt; gv.y = (V.y - glideLast.y) / dt; glideVel = gv; }
+      const gl0 = glideLastO; gl0.t = now; gl0.k = V.k; gl0.x = V.x; gl0.y = V.y; glideLast = gl0;
       viewChanged();
       if (u < 1) glide = nextFrame(step); else { gliding = false; camAim = null; camSettle(); viewChanged(); }   // (landed: drawn once more at the sharpness the new zoom wants)
     };
@@ -400,7 +433,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (A presenter slide's cards change the space as the next slide comes in: on the way out of the lobule from a central-vein close-up
   // the clamp used to snap the lobule sideways before the zoom out began, 20 Oct, Mohammad.)
   function reclamp() {
-    const saved = { ...V }, wasFit = atFit; clampV(); const to = { ...V }, fit = atFit; Object.assign(V, saved); atFit = wasFit;
+    const sk = V.k, sx = V.x, sy = V.y, wasFit = atFit; clampV();
+    const to = { k: V.k, x: V.x, y: V.y }, fit = atFit;   // alloc-rare: only when the free space changes (refit: a resize, a card, a slide), the glide's target
+    V.k = sk; V.x = sx; V.y = sy; atFit = wasFit;
     if (Math.abs(to.k - V.k) + Math.abs(to.x - V.x) + Math.abs(to.y - V.y) > 0.5) { glideTo(to, 420, false, null, 'inOut', true); atFit = fit; } else { clampV(); viewChanged(); }
   }
   // (The cards' space changes on every slide change. With the lobule closed nothing is read: landing() reads its boxes as it opens.
@@ -419,8 +454,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // in drawGL waits for when the model is paused.)
   let viewBumps = 0;
   const viewChanged = () => { drawVersion++; viewBumps++; viewVer++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); };
-  const toWorld = (p) => [(p[0] - V.x) / V.k, (p[1] - V.y) / V.k];
-  const toScreen = (p) => [p[0] * V.k + V.x, p[1] * V.k + V.y];
+  // (A point to the screen and back, one number at a time: sX and sY, wX and wY make no array, as toScreen and toWorld do.)
+  const wX = (x) => (x - V.x) / V.k, wY = (y) => (y - V.y) / V.k;
+  const sX = (x) => x * V.k + V.x, sY = (y) => y * V.k + V.y;
+  const toWorld = (p) => [wX(p[0]), wY(p[1])];
+  const toScreen = (p) => [sX(p[0]), sY(p[1])];
   function resetView() {
     stopInertia(); if (!geo) { V.k = 1; V.x = 0; V.y = 0; return; }
     const F0 = fitV(); kFit = F0.k;
@@ -432,7 +470,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The presenter's framing of a part ('triad' | 'sinusoid' | 'central'), zoom × the fit; kFit must be current.
   function framing(part, zoom = 2) {
     const g = geo, tri = g.lobules[0].corners[3];
-    const w = part === 'triad' ? [lerp(tri[0], g.cx, 0.12), lerp(tri[1], g.cy, 0.12)] : part === 'central' ? [g.cx, g.cy] : [lerp(tri[0], g.cx, 0.5), lerp(tri[1], g.cy, 0.5)];
+    const wf = part === 'triad' ? 0.12 : part === 'central' ? 1 : 0.5;   // (how far from the portal corner toward the centre the station is)
+    const w0 = part === 'central' ? g.cx : lerp(tri[0], g.cx, wf), w1 = part === 'central' ? g.cy : lerp(tri[1], g.cy, wf);
     const f = freeRect(), mx = (f.l + f.r) / 2;
     let my = (f.t + f.b) / 2, k = clamp(kFit * zoom, kFit, kFit * KMAX);
     // A free space too short for a row of labels above or below what the slide is about, clear of the disc no label may cover
@@ -445,9 +484,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const row = 21 * lk + 2 * Math.max(4 + 2 * lk, 5 * lk + 5);
       if (H / 2 - Math.max(14, disc * k) < row) my = f.t + Math.min(H / 2, Math.max(14, disc * k) + 4);
     }
-    const saved = { ...V };
-    Object.assign(V, { k, x: mx - w[0] * k, y: my - w[1] * k }); clampV();
-    const to = { ...V }; Object.assign(V, saved);
+    const sk = V.k, sx = V.x, sy = V.y;
+    V.k = k; V.x = mx - w0 * k; V.y = my - w1 * k; clampV();
+    const to = { k: V.k, x: V.x, y: V.y };   // alloc-rare: once per slide station or resize (refit), the target a glide keeps
+    V.k = sk; V.x = sx; V.y = sy;
     return to;
   }
   // Glides the view, at its zoom, to bring a world point to the middle of the free space.
@@ -470,6 +510,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // As on the anatomy: a mouse wheel zooms about the pointer; a trackpad's two-finger scroll pans (once zoomed in)
   // and its pinch (ctrlKey) zooms; Ctrl/⌘ + wheel always zooms. A gesture is classified once, as it starts.
   let wheelKind = null, wheelAt = 0, wheelMute = false;
+  const rubberEnd = () => { rubber = false; const G0 = fitV(); glideTo(G0, 380); atFit = true; };   // (the wheel's rubber band lets go: springs back)
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     if (wheelMute) { const now = performance.now(); if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
@@ -480,28 +521,41 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     wheelAt = now;
     if (wheelKind === 'pad' && !ev.ctrlKey && !ev.metaKey) {
       if (V.k <= kFit * 1.001 && geo) {   // at its framing the lobule follows the scroll on a rubber band, and springs back when it stops
-        const F0 = fitV(), Lx = 0.4 * (snap.w || 800), Ly = 0.4 * (snap.h || 600);
+        const F0 = fitInto(fitA), Lx = 0.4 * (snap.w || 800), Ly = 0.4 * (snap.h || 600);
         const bx = rubber ? Math.atanh(clamp((V.x - F0.x) / Lx, -0.999, 0.999)) * Lx : 0, by = rubber ? Math.atanh(clamp((V.y - F0.y) / Ly, -0.999, 0.999)) * Ly : 0;
         rubber = true; atFit = false;
         V.x = F0.x + bandOffset(bx - dx, Lx); V.y = F0.y + bandOffset(by - dy, Ly); viewChanged();
         clearTimeout(rubberT);
-        rubberT = setTimeout(() => { rubber = false; const G0 = fitV(); glideTo(G0, 380); atFit = true; }, 220);
+        rubberT = setTimeout(rubberEnd, 220);
         return;
       }
       V.x -= dx; V.y -= dy; atFit = false; clampV(); viewChanged();
       return;
     }
     const f = ev.ctrlKey || ev.metaKey ? Math.exp(-clamp(dy, -50, 50) * 0.01) : Math.exp(-clamp(dy, -120, 120) * 0.0015);
+    const px = localX(ev), py = localY(ev);
     if (V.k <= kFit * 1.001 && f < 1) {
-      const p = local(ev); stretchBy(p[0], p[1], f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return;   // a zoom-out at its framing stretches and springs back
+      stretchBy(px, py, f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return;   // a zoom-out at its framing stretches and springs back
     }
-    if (rawK && f > 1) { const p = local(ev); stretchBy(p[0], p[1], f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return; }
-    const p = local(ev);
-    zoomAround(p[0], p[1], f);
+    if (rawK && f > 1) { stretchBy(px, py, f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return; }
+    zoomAround(px, py, f);
   }, { passive: false });
   const touches = new Map();
   let pinch = null, down = null, drag = null;
-  const pts2 = () => [...touches.values()];
+  // The last moments of a drag (time, x, y), for the flick when the finger lifts: a ring of 64, the oldest dropped as it fills, and
+  // those over 90 ms old dropped as it is added to (the drag that holds the pointer is the only one, so the one ring serves).
+  const TR_MASK = 63, trT = new Float64Array(64), trX = new Float64Array(64), trY = new Float64Array(64);
+  let trI = 0, trN = 0;
+  function trailStart() { trI = 0; trN = 0; trailPush(performance.now(), V.x, V.y); }
+  function trailPush(now, x, y) {
+    if (trN === 64) { trI = (trI + 1) & TR_MASK; trN--; }
+    const j = (trI + trN) & TR_MASK; trT[j] = now; trX[j] = x; trY[j] = y; trN++;
+    while (trN > 2 && now - trT[trI] > 90) { trI = (trI + 1) & TR_MASK; trN--; }
+  }
+  // The first two fingers down, as fingerA and fingerB (their own [x, y], read where they are asked for): no list made for each move.
+  let fingerA = null, fingerB = null, tN = 0;
+  const grab2 = (p) => { if (tN === 0) fingerA = p; else if (tN === 1) fingerB = p; tN++; };
+  const pts2 = () => { tN = 0; fingerA = fingerB = null; touches.forEach(grab2); };
   const labelOf = (ev) => Object.entries(labs).find(([, L]) => L.el.contains(ev.target))?.[0];
   const onScene = (ev) => !!ev.target.closest?.('.lz-lab') || ev.target === el || ev.target === fx || ev.target === leadersBox || ev.target === tissue || ev.target === glCv;
   el.addEventListener('pointerdown', (ev) => {
@@ -509,49 +563,50 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     readBox();
     stopInertia();
     if (ev.isPrimary) touches.clear();
-    touches.set(ev.pointerId, local(ev));
+    touches.set(ev.pointerId, local(ev));   // (one [x, y] a finger, kept and moved in place while it is down)
     cancelFrame(glide); gliding = false;
     // Captured, so a drag keeps going over the labels, the card or past the edge.
     try { el.setPointerCapture(ev.pointerId); } catch (e) { caught('lobule-zoom:527', e); /* gone */ }
     if (touches.size === 2) {
-      const [a, b] = pts2();
-      pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, k: V.k, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
+      pts2();
+      pinch = { d: Math.hypot(fingerA[0] - fingerB[0], fingerA[1] - fingerB[1]) || 1, k: V.k, mx: (fingerA[0] + fingerB[0]) / 2, my: (fingerA[1] + fingerB[1]) / 2, dl: 0 };
       down = null; drag = null;
-    } else { down = { x: ev.clientX, y: ev.clientY, t: performance.now(), label: labelOf(ev) }; drag = { p: local(ev), trail: [[performance.now(), V.x, V.y]] }; }
+    } else { down = { x: ev.clientX, y: ev.clientY, t: performance.now(), label: labelOf(ev) }; drag = { p: local(ev), ox: 0, oy: 0 }; trailStart(); }
   });
   el.addEventListener('pointermove', (ev) => {
-    if (touches.has(ev.pointerId)) {
-      touches.set(ev.pointerId, local(ev));
+    const tp = touches.get(ev.pointerId);
+    if (tp !== undefined) {
+      const lx = localX(ev), ly = localY(ev);
+      tp[0] = lx; tp[1] = ly;
       if (touches.size === 2 && pinch) {
-        const [a, b] = pts2(), d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-        V.x += m[0] - pinch.m[0]; V.y += m[1] - pinch.m[1]; pinch.m = m;
+        pts2();
+        const d = Math.hypot(fingerA[0] - fingerB[0], fingerA[1] - fingerB[1]), mx = (fingerA[0] + fingerB[0]) / 2, my = (fingerA[1] + fingerB[1]) / 2;
+        V.x += mx - pinch.mx; V.y += my - pinch.my; pinch.mx = mx; pinch.my = my;
         const dl = pinch.dl || pinch.d; pinch.dl = d;
         if (rawK || (V.k <= kFit * 1.001 && d < dl)) {
-          stretchBy(m[0], m[1], d / dl);
+          stretchBy(mx, my, d / dl);
           return;
         }
-        zoomAround(m[0], m[1], (pinch.k * d / pinch.d) / V.k);
+        zoomAround(mx, my, (pinch.k * d / pinch.d) / V.k);
       } else if (touches.size === 1 && drag && (ev.buttons || ev.pointerType !== 'mouse')) {
-        const p = local(ev);
+        const dp = drag.p;
         if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8) return;
         down = null;
-        if (V.k > kFit * 1.001) { V.x += p[0] - drag.p[0]; V.y += p[1] - drag.p[1]; clampV(); viewChanged(); classSoon(el, 'lz-drag', true); }
+        if (V.k > kFit * 1.001) { V.x += lx - dp[0]; V.y += ly - dp[1]; clampV(); viewChanged(); classSoon(el, 'lz-drag', true); }
         else if (geo) {   // at its framing there is nowhere to go: the lobule follows the hand on a rubber band and springs back on release
-          const F0 = fitV(), o = drag.o || (drag.o = [0, 0]), Lx = 0.4 * (snap.w || 800), Ly = 0.4 * (snap.h || 600);   // near-free travel, easing toward 40% of the view
-          cancelFrame(glide); gliding = false; rubber = true; o[0] += p[0] - drag.p[0]; o[1] += p[1] - drag.p[1];
-          V.x = F0.x + Lx * Math.tanh(o[0] / Lx); V.y = F0.y + Ly * Math.tanh(o[1] / Ly); atFit = false; viewChanged(); classSoon(el, 'lz-drag', true);
+          const F0 = fitInto(fitA), Lx = 0.4 * (snap.w || 800), Ly = 0.4 * (snap.h || 600);   // near-free travel, easing toward 40% of the view
+          cancelFrame(glide); gliding = false; rubber = true; drag.ox += lx - dp[0]; drag.oy += ly - dp[1];
+          V.x = F0.x + Lx * Math.tanh(drag.ox / Lx); V.y = F0.y + Ly * Math.tanh(drag.oy / Ly); atFit = false; viewChanged(); classSoon(el, 'lz-drag', true);
         }
-        drag.p = p;
-        const now = performance.now();
-        drag.trail.push([now, V.x, V.y]);
-        while (drag.trail.length > 2 && now - drag.trail[0][0] > 90) drag.trail.shift();
+        dp[0] = lx; dp[1] = ly;   // (the drag's own [x, y], moved in place)
+        trailPush(performance.now(), V.x, V.y);
       }
     }
-    if (ev.pointerType === 'mouse' && !ev.buttons && geo && onScene(ev)) { const w = toWorld(local(ev)); classSoon(el, 'lz-hot', !!hit(w[0], w[1])); }
+    if (ev.pointerType === 'mouse' && !ev.buttons && geo && onScene(ev)) { classSoon(el, 'lz-hot', !!hit(wX(localX(ev)), wY(localY(ev)))); }
   });
   el.addEventListener('pointerup', (ev) => {
     if (down && touches.size <= 1 && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8 && performance.now() - down.t < 600 && onScene(ev)) {
-      const w = down.label ? anchorOf(down.label) : toWorld(local(ev));
+      const w = down.label ? anchorOf(down.label) : toWorld(local(ev));   // (a tap, not a move)
       if (down.label && labs[down.label]?.el.classList.contains('edge')) centreOn(w);
       else select(down.label ? hitKind(down.label) : hit(w[0], w[1]), w);
     }
@@ -565,20 +620,21 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!touches.size) { rubber = false; rawK = 0; }
     if (!touches.size && geo && V.k <= kFit * 1.001) { const F0 = fitV(); if (Math.abs(V.x - F0.x) + Math.abs(V.y - F0.y) + Math.abs(V.k - F0.k) * 100 > 0.5) { glideTo(F0, 380); atFit = true; } }
     if (ev.type === 'pointerup' && !touches.size && finished) {   // every pointer type flicks the same way
-      const tr = finished.trail, a = tr[0], b = tr[tr.length - 1], dt = b[0] - a[0];
-      if (tr.length >= 3 && dt >= 30 && performance.now() - b[0] < 50 && V.k > kFit * 1.001) {
-        const vx = (b[1] - a[1]) / dt, vy = (b[2] - a[2]) / dt;
+      const n = trN, ia = trI, ib = (trI + n - 1) & TR_MASK, dt = trT[ib] - trT[ia];
+      if (n >= 3 && dt >= 30 && performance.now() - trT[ib] < 50 && V.k > kFit * 1.001) {
+        const vx = (trX[ib] - trX[ia]) / dt, vy = (trY[ib] - trY[ia]) / dt;
         const cap = Math.min(1, 2 / (Math.hypot(vx, vy) || 1));
         fling(vx * cap, vy * cap);
       }
     }
     // Rebase the remaining finger after a pinch so it can carry on panning without a jump.
-    drag = touches.size === 1 ? { p: pts2()[0], trail: [[performance.now(), V.x, V.y]] } : null;
+    if (touches.size === 1) { pts2(); drag = { p: [fingerA[0], fingerA[1]], ox: 0, oy: 0 }; trailStart(); } else drag = null;   // (p its own copy: a finger's [x, y] is moved in place)
     if (!touches.size) classSoon(el, 'lz-drag', false);
   });
-  el.addEventListener('dblclick', (ev) => { if (!onScene(ev)) return; const p = local(ev); zoomAround(p[0], p[1], V.k < kFit * KMAX * 0.98 ? 2 : 1 / KMAX); });
+  el.addEventListener('dblclick', (ev) => { if (!onScene(ev)) return; zoomAround(localX(ev), localY(ev), V.k < kFit * KMAX * 0.98 ? 2 : 1 / KMAX); });
   // (The lobule's place on the page is the one kept with its boxes: read again as a press begins and as the pointer comes over it.)
-  const local = (ev) => [ev.clientX - snap.l, ev.clientY - snap.t];
+  const localX = (ev) => ev.clientX - snap.l, localY = (ev) => ev.clientY - snap.t;
+  const local = (ev) => [localX(ev), localY(ev)];   // (for a press or a tap; a move uses localX and localY)
   el.addEventListener('pointerenter', () => { readBox(); });
 
   // ── Selection: the lobule's parts open the same action card as the anatomy's vessels ──
@@ -588,17 +644,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   const idsFor = (sl) => {
     const G = geo;
-    if (!G || sl?.type !== 'lobule') return new Set();
+    if (!G || sl?.type !== 'lobule') return new Set();   // alloc-rare: only when the selection changes (selIds keeps the set for the selection it was made for)
     const tr = sl.tri != null ? G.triads[sl.tri] : null;
-    if (sl.part === 'triad' && tr) return new Set([tr.pv.id, G.inlets[tr.i * 2].id, G.inlets[tr.i * 2 + 1].id]);
+    if (sl.part === 'triad' && tr) return new Set([tr.pv.id, G.inlets[tr.i * 2].id, G.inlets[tr.i * 2 + 1].id]);   // alloc-rare: only when the selection changes (selIds keeps the set for the selection it was made for)
     if (sl.part === 'sin' && sl.tube != null) return chainOf(sl.tube);
-    if (sl.part === 'ha' && tr) return new Set([tr.haT.id, ...G.tubes.filter((t) => t.kind === 'tw' && t.tri === tr.i).map((t) => t.id)]);
-    if (sl.part === 'bd' && tr) return new Set([tr.bdT.id]);
+    if (sl.part === 'ha' && tr) return new Set([tr.haT.id, ...G.tubes.filter((t) => t.kind === 'tw' && t.tri === tr.i).map((t) => t.id)]);   // alloc-rare: only when the selection changes (selIds keeps the set for the selection it was made for)
+    if (sl.part === 'bd' && tr) return new Set([tr.bdT.id]);   // alloc-rare: only when the selection changes (selIds keeps the set for the selection it was made for)
     if (sl.part === 'lv' && sl.tube != null) return chainOf(sl.tube);
-    if (sl.part === 'lv' && tr) return new Set([tr.lv.id]);
-    if (sl.part === 'cv') return new Set([G.cv.id]);
-    if (sl.tube != null) return new Set([sl.tube]);
-    return new Set();
+    if (sl.part === 'lv' && tr) return new Set([tr.lv.id]);   // alloc-rare: only when the selection changes (selIds keeps the set for the selection it was made for)
+    if (sl.part === 'cv') return new Set([G.cv.id]);   // alloc-rare: only when the selection changes (selIds keeps the set for the selection it was made for)
+    if (sl.tube != null) return new Set([sl.tube]);   // alloc-rare: only when the selection changes (selIds keeps the set for the selection it was made for)
+    return new Set();   // alloc-rare: only when the selection changes (selIds keeps the set for the selection it was made for)
   };
   let selFor = null, selIdsC = new Set();
   function selIds() {
@@ -609,7 +665,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   store.on('selection', () => { attrKey = ''; tissueKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
   // Pinning a moment puts the Then / Now / Change switch over the top: the lobule frames itself below it.
-  store.on('compareSnap', () => nextFrame(() => { if (geo && fade > 0) { layoutKey = ''; refit(); } }));
+  store.on('compareSnap', () => nextFrame(() => { if (geo && fade > 0) { layoutKey = ''; refit(); } }));   // alloc-rare: only when a moment is pinned or let go (store compareSnap)
 
   // ── State ──
   let F = null, fade = 0, raf = 0, last = 0, lastPaint = 0;
@@ -630,12 +686,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // rebuilt geometry (a resize, the phone's toolbar sliding) carries on from the same place, not a jump.
   const motion = new Map();
   let lyV = null;
-  const motionOf = (t) => { let mo = motion.get(t.id); if (!mo) motion.set(t.id, (mo = {})); return mo; };
+  const motionOf = (t) => { let mo = motion.get(t.id); if (!mo) motion.set(t.id, (mo = {})); return mo; };   // alloc-rare: only the first time a tube is asked for (kept by id across rebuilds)
   let drawVersion = 0, idleDrawn = '', lastSurface = 0;
   const binCache = new Map();
   // Any change may show in the lobule, except these, which never do (the model's frame arrives through update()).
   const UNSEEN = new Set(['frame', 'historyTick', 'details', 'found', 'presetLoading', 'presetList', 'lastHVPG', 'speed', 'lapse', 'tool', 'hiddenReadouts', 'hiddenEvents', 'booted']);
-  store.on('*', (keys) => { if (!Array.isArray(keys) || keys.some((k) => !UNSEEN.has(k))) { drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); } });
+  const seen = (k) => !UNSEEN.has(k);
+  store.on('*', (keys) => { if (!Array.isArray(keys) || keys.some(seen)) { drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); } });
   let lzYield = null;
   let surfKey = '', surfCs = null, flowG = null, flowAt = -1;   // what the last surface pass and flow upload in drawGL were made for (see there)
   let layoutV = '', gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', radCal = '', radNow = [], inkWas = [], attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
@@ -663,7 +720,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function ensureGL() {
     if (glTried) return gl;
     glTried = true;
-    gl = createVeinsGL(glCv, { tubes: MAXT, force: true, who: 'lobule' });
+    gl = createVeinsGL(glCv, { tubes: MAXT, force: true, who: 'lobule' });   // alloc-rare: only once, or after a lost context (glTried)
     restAttr(el, 'data-vessels', gl ? 'webgl2' : 'flat');
     // (A software renderer only: each lobule frame waits for the last to finish on the GPU and gives the page as long again,
     // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
@@ -725,125 +782,125 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     else R = Math.min(W * 0.3, H * 0.34);
     cx = W * 0.5; cy = H * 0.5;
     const r = rng(7);
-    const lob = [[cx, cy, 1]];
-    for (let i = 0; i < 6; i++) { const a = Math.PI / 6 + (i * Math.PI) / 3, d = Math.sqrt(3) * R; lob.push([cx + Math.cos(a) * d, cy + Math.sin(a) * d, 0]); }
-    const lobules = lob.map(([x, y, main]) => ({ x, y, main, corners: Array.from({ length: 6 }, (_, i) => [x + Math.cos((i * Math.PI) / 3) * R, y + Math.sin((i * Math.PI) / 3) * R]) }));
+    const lob = [[cx, cy, 1]];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    for (let i = 0; i < 6; i++) { const a = Math.PI / 6 + (i * Math.PI) / 3, d = Math.sqrt(3) * R; lob.push([cx + Math.cos(a) * d, cy + Math.sin(a) * d, 0]); }   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    const lobules = lob.map(([x, y, main]) => ({ x, y, main, corners: Array.from({ length: 6 }, (_, i) => [x + Math.cos((i * Math.PI) / 3) * R, y + Math.sin((i * Math.PI) / 3) * R]) }));   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     const C = lobules[0].corners;
-    const tubes = [], joins = [];
-    const add = (kind, c, o = {}) => { const t = { id: tubes.length, kind, pts: c.pts, len: c.len, ...o }; t.rho = t.pts.map(([x, y]) => Math.hypot(x - cx, y - cy) / R); tubes.push(t); return t; };
-    const join = (x, y, members, rSmall) => { const k = clamp(1.2 * rSmall + 1.2, 1.5, 9); joins.push({ x, y, k, reach: 2 * rSmall + k + 10, members: members.map((t) => t.id) }); };
+    const tubes = [], joins = [];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    const add = (kind, c, o = {}) => { const t = { id: tubes.length, kind, pts: c.pts, len: c.len, ...o }; t.rho = t.pts.map(([x, y]) => Math.hypot(x - cx, y - cy) / R); tubes.push(t); return t; };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    const join = (x, y, members, rSmall) => { const k = clamp(1.2 * rSmall + 1.2, 1.5, 9); joins.push({ x, y, k, reach: 2 * rSmall + k + 10, members: members.map((t) => t.id) }); };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     const rs0 = clamp(R * 0.0085, 1.7, 3);     // sinusoid lumen (healthy), before SIN_NARROW
     const rsN = rs0 * SIN_NARROW;              // as drawn: a quarter narrower than the cords' gap (G21)
     const rcv0 = R * 0.07;
-    const polar = (x, y) => [Math.hypot(x - cx, y - cy), Math.atan2(y - cy, x - cx)];
-    const unwrap = (a, ref) => a + Math.round((ref - a) / TAU) * TAU;
+    const polar = (x, y) => [Math.hypot(x - cx, y - cy), Math.atan2(y - cy, x - cx)];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    const unwrap = (a, ref) => a + Math.round((ref - a) / TAU) * TAU;   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     // A course between two polar points, radial at both ends (so siblings meet smoothly), with a little meander.
-    const radial = (p0, p1, amp) => {
-      const [r0, a0] = polar(...p0); let [r1, a1] = polar(...p1); a1 = unwrap(a1, a0);
+    const radial = (p0, p1, amp) => {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      const [r0, a0] = polar(...p0); let [r1, a1] = polar(...p1); a1 = unwrap(a1, a0);   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       const ph = r() * TAU, fq = 1.2 + r() * 1.2;
-      return curve((u) => {
+      return curve((u) => {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
         const e = u * u * (3 - 2 * u), rr = lerp(r0, r1, u);
         const a = lerp(a0, a1, e) + (amp * Math.sin(Math.PI * u) * Math.sin(fq * TAU * u + ph)) / Math.max(rr, 1);
-        return [cx + Math.cos(a) * rr, cy + Math.sin(a) * rr];
+        return [cx + Math.cos(a) * rr, cy + Math.sin(a) * rr];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       });
     };
     // Portal triads at the six corners: venule (end-on), arteriole, bile ductule.
     const rt = R * 0.1;
-    const triads = C.map(([x, y], i) => {
+    const triads = C.map(([x, y], i) => {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       // Arteriole, lymphatic and ductule side by side on an arc outside the venule, in the portal tract between
       // the two inlet venules' courses; each far enough out that none touches the venule or another.
       const a = Math.atan2(y - cy, x - cx), d = R * TRIAD_D;
-      const ha = [x + Math.cos(a + TRIAD_A) * d, y + Math.sin(a + TRIAD_A) * d];
-      const bd = [x + Math.cos(a - TRIAD_A) * d, y + Math.sin(a - TRIAD_A) * d];
-      return { i, x, y, a, ha, bd, pv: add('pv', dot(x, y), { tri: i }), haT: add('ha', dot(...ha), { tri: i }), bdT: add('bd', dot(...bd), { tri: i }) };
+      const ha = [x + Math.cos(a + TRIAD_A) * d, y + Math.sin(a + TRIAD_A) * d];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      const bd = [x + Math.cos(a - TRIAD_A) * d, y + Math.sin(a - TRIAD_A) * d];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      return { i, x, y, a, ha, bd, pv: add('pv', dot(x, y), { tri: i }), haT: add('ha', dot(...ha), { tri: i }), bdT: add('bd', dot(...bd), { tri: i }) };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     });
     // Inlet venules: from each triad along both of its edges, a little inside the lobule.
-    const inletF = (i, dir) => {
+    const inletF = (i, dir) => {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       const A = C[i], B = C[(i + dir + 6) % 6], mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2, nl = Math.hypot(cx - mx, cy - my);
-      const n = [(cx - mx) / nl, (cy - my) / nl], bow = R * 0.03;
-      return (u) => [A[0] + (B[0] - A[0]) * 0.5 * u + n[0] * bow * Math.sin(0.8 * Math.PI * u), A[1] + (B[1] - A[1]) * 0.5 * u + n[1] * bow * Math.sin(0.8 * Math.PI * u)];
+      const n = [(cx - mx) / nl, (cy - my) / nl], bow = R * 0.03;   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      return (u) => [A[0] + (B[0] - A[0]) * 0.5 * u + n[0] * bow * Math.sin(0.8 * Math.PI * u), A[1] + (B[1] - A[1]) * 0.5 * u + n[1] * bow * Math.sin(0.8 * Math.PI * u)];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     };
-    const inlets = [];
-    for (let i = 0; i < 6; i++) for (const dir of [1, -1]) {
-      const f = inletF(i, dir), t = add('in', curve(f), { tri: i, f });
+    const inlets = [];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    for (let i = 0; i < 6; i++) for (const dir of [1, -1]) {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      const f = inletF(i, dir), t = add('in', curve(f), { tri: i, f });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       inlets[i * 2 + (dir > 0 ? 0 : 1)] = t;
     }
-    for (const tr of triads) join(tr.x, tr.y, [tr.pv, inlets[tr.i * 2], inlets[tr.i * 2 + 1]], R * 0.011);
+    for (const tr of triads) join(tr.x, tr.y, [tr.pv, inlets[tr.i * 2], inlets[tr.i * 2 + 1]], R * 0.011);   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     // Inlet venules from neighbouring triads meet halfway along the edge.
-    for (let e = 0; e < 6; e++) { const a = inlets[e * 2], b = inlets[((e + 1) % 6) * 2 + 1], q = a.pts[N - 1]; join(q[0], q[1], [a, b], R * 0.009); }
+    for (let e = 0; e < 6; e++) { const a = inlets[e * 2], b = inlets[((e + 1) % 6) * 2 + 1], q = a.pts[N - 1]; join(q[0], q[1], [a, b], R * 0.009); }   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     // Sinusoids, in three generations that merge pairwise toward the central vein.
     const N0 = R > 190 ? 8 : 6;
-    const s0 = [];
+    const s0 = [];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     for (let e = 0; e < 6; e++) for (let k = 0; k < N0; k++) {
       const tt = (k + 0.5) / N0 + (r() - 0.5) * (0.3 / N0);
       const inl = tt < 0.5 ? inlets[e * 2] : inlets[((e + 1) % 6) * 2 + 1];
       const u = clamp(tt < 0.5 ? tt / 0.5 : (1 - tt) / 0.5, 0.08, 0.95);
-      s0.push({ p: inl.f(u), inl, e, k });
+      s0.push({ p: inl.f(u), inl, e, k });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     }
     const rho1 = R * 0.6, rho2 = R * 0.34, rIn = rcv0 * 0.55;
-    const node = (pa, pb, rho) => { const [, a] = polar(...pa); let [, b] = polar(...pb); b = unwrap(b, a); const m = (a + b) / 2 + (r() - 0.5) * 0.04; const rr = rho * (1 + (r() - 0.5) * 0.08); return [cx + Math.cos(m) * rr, cy + Math.sin(m) * rr]; };
-    const n1 = [], L0 = [], L1 = [], L2 = [];
+    const node = (pa, pb, rho) => { const [, a] = polar(...pa); let [, b] = polar(...pb); b = unwrap(b, a); const m = (a + b) / 2 + (r() - 0.5) * 0.04; const rr = rho * (1 + (r() - 0.5) * 0.08); return [cx + Math.cos(m) * rr, cy + Math.sin(m) * rr]; };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    const n1 = [], L0 = [], L1 = [], L2 = [];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     for (let m = 0; m < s0.length / 2; m++) n1.push(node(s0[2 * m].p, s0[2 * m + 1].p, rho1));
-    const n2 = [];
+    const n2 = [];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     for (let m = 0; m < Math.floor(n1.length / 2); m++) n2.push(node(n1[2 * m], n1[2 * m + 1], rho2));
     const amp = R * 0.012;
-    s0.forEach((st, j) => {
-      const t = add('s0', radial(st.p, n1[j >> 1], amp), { lvl: 0, edge: st.e, tri: st.k < N0 / 2 ? st.e : (st.e + 1) % 6, inl: st.inl.id });
+    s0.forEach((st, j) => {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      const t = add('s0', radial(st.p, n1[j >> 1], amp), { lvl: 0, edge: st.e, tri: st.k < N0 / 2 ? st.e : (st.e + 1) % 6, inl: st.inl.id });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       L0.push(t);
-      join(st.p[0], st.p[1], [st.inl, t], rsN);
+      join(st.p[0], st.p[1], [st.inl, t], rsN);   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     });
-    n1.forEach((p, m) => { const t = add('s1', radial(p, n2[Math.min(n2.length - 1, m >> 1)], amp), { lvl: 1 }); L1.push(t); join(p[0], p[1], [L0[2 * m], L0[2 * m + 1], t], rsN); L0[2 * m].parent = L0[2 * m + 1].parent = t.id; });
+    n1.forEach((p, m) => { const t = add('s1', radial(p, n2[Math.min(n2.length - 1, m >> 1)], amp), { lvl: 1 }); L1.push(t); join(p[0], p[1], [L0[2 * m], L0[2 * m + 1], t], rsN); L0[2 * m].parent = L0[2 * m + 1].parent = t.id; });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     // An odd first-generation node (6 per edge) joins its neighbour's second-generation course.
-    n2.forEach((p, m) => {
-      const [, a] = polar(...p);
-      const t = add('s2', radial(p, [cx + Math.cos(a) * rIn, cy + Math.sin(a) * rIn], amp * 0.6), { lvl: 2 });
+    n2.forEach((p, m) => {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      const [, a] = polar(...p);   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      const t = add('s2', radial(p, [cx + Math.cos(a) * rIn, cy + Math.sin(a) * rIn], amp * 0.6), { lvl: 2 });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       L2.push(t);
-      const kids = L1.filter((_, j) => Math.min(n2.length - 1, j >> 1) === m);
-      join(p[0], p[1], [...kids.slice(0, 3), t], rsN);
+      const kids = L1.filter((_, j) => Math.min(n2.length - 1, j >> 1) === m);   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      join(p[0], p[1], [...kids.slice(0, 3), t], rsN);   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       for (const k of kids) k.parent = t.id;
     });
     // Anastomoses: short cross-links between neighbouring sinusoids that do not merge.
-    const link = (a, b, ua, ub, lvl) => {
+    const link = (a, b, ua, ub, lvl) => {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       const pa = at(a.pts, ua), pb = at(b.pts, ub);
       if (Math.hypot(pa[0] - pb[0], pa[1] - pb[1]) > R * 0.24) return;
       const mx = (pa[0] + pb[0]) / 2, my = (pa[1] + pb[1]) / 2, k = (r() - 0.5) * 0.25;
-      const t = add('an', curve((u) => [lerp(pa[0], pb[0], u) + (pb[1] - pa[1]) * k * Math.sin(Math.PI * u), lerp(pa[1], pb[1], u) - (pb[0] - pa[0]) * k * Math.sin(Math.PI * u)]), { lvl, sign: r() < 0.5 ? -1 : 1, mid: [mx, my] });
-      join(pa[0], pa[1], [a, t], rsN * 0.7); join(pb[0], pb[1], [b, t], rsN * 0.7);
+      const t = add('an', curve((u) => [lerp(pa[0], pb[0], u) + (pb[1] - pa[1]) * k * Math.sin(Math.PI * u), lerp(pa[1], pb[1], u) - (pb[0] - pa[0]) * k * Math.sin(Math.PI * u)]), { lvl, sign: r() < 0.5 ? -1 : 1, mid: [mx, my] });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      join(pa[0], pa[1], [a, t], rsN * 0.7); join(pb[0], pb[1], [b, t], rsN * 0.7);   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     };
     for (let m = 0; m < L0.length / 2; m++) link(L0[2 * m + 1], L0[(2 * m + 2) % L0.length], 0.35 + r() * 0.25, 0.35 + r() * 0.25, 0);
     for (let m = 0; m < L1.length; m += 2) if (L1[m + 1] && L1[m + 2]) link(L1[m + 1], L1[(m + 2) % L1.length], 0.4 + r() * 0.2, 0.4 + r() * 0.2, 1);
     // Central vein (end-on), with the third generation entering it.
     const cv = add('cv', dot(cx, cy));
-    for (const t of L2) { const [, a] = polar(...t.pts[0]); join(cx + Math.cos(a) * rcv0, cy + Math.sin(a) * rcv0, [t, cv], rsN * 1.3); }
+    for (const t of L2) { const [, a] = polar(...t.pts[0]); join(cx + Math.cos(a) * rcv0, cy + Math.sin(a) * rcv0, [t, cv], rsN * 1.3); }   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     // Arterioles: from each triad's arteriole into the first stretch of a sinusoid (zone 1).
     for (const tr of triads) {
-      const target = L0.find((t) => t.edge === tr.i && t.tri === tr.i) || L0[tr.i * N0];
+      const target = L0.find((t) => t.edge === tr.i && t.tri === tr.i) || L0[tr.i * N0];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       const q = at(target.pts, 0.2), A = tr.ha;
       const cxp = lerp(A[0], q[0], 0.5) + (cx - tr.x) * 0.06, cyp = lerp(A[1], q[1], 0.5) + (cy - tr.y) * 0.06;
-      const t = add('tw', curve((u) => [(1 - u) ** 2 * A[0] + 2 * u * (1 - u) * cxp + u * u * q[0], (1 - u) ** 2 * A[1] + 2 * u * (1 - u) * cyp + u * u * q[1]]), { tri: tr.i });
-      join(A[0], A[1], [tr.haT, t], 1.2); join(q[0], q[1], [target, t], 1.6);
+      const t = add('tw', curve((u) => [(1 - u) ** 2 * A[0] + 2 * u * (1 - u) * cxp + u * u * q[0], (1 - u) ** 2 * A[1] + 2 * u * (1 - u) * cyp + u * u * q[1]]), { tri: tr.i });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      join(A[0], A[1], [tr.haT, t], 1.2); join(q[0], q[1], [target, t], 1.6);   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     }
     // Portal-central septa (advanced cirrhosis): from three triads into the central vein's
     // collagen cuff, so the bridges meet the venule and cut the lobule into three nodules.
-    const septaPC = [0, 2, 4].map((i) => {
+    const septaPC = [0, 2, 4].map((i) => {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       const [x, y] = C[i], ph = r() * TAU, nx = -(cy - y) / R, ny = (cx - x) / R;
-      return curve((u) => { const e = R * 0.05 * Math.sin(Math.PI * u) * Math.sin(1.5 * TAU * u + ph); return [lerp(x, cx, u * 0.94) + nx * e, lerp(y, cy, u * 0.94) + ny * e]; });
+      return curve((u) => { const e = R * 0.05 * Math.sin(Math.PI * u) * Math.sin(1.5 * TAU * u + ph); return [lerp(x, cx, u * 0.94) + nx * e, lerp(y, cy, u * 0.94) + ny * e]; });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     });
     // Hepatocytes: plates one cell thick, running from the central vein out to the portal tracts between
     // the sinusoids, with the space of Disse a thin gap on both sides. Ring by ring, each gap between
     // neighbouring sinusoids holds a plate (two side by side where the sinusoids are far apart, near
     // their forks); along a plate the cells stack outward like beads on a cord.
-    const cells = [];
-    const sinP = [...L0, ...L1, ...L2].map((t) => ({ rs: rsN * (t.kind === 's0' ? 1 : t.kind === 's1' ? 1.15 : 1.3), P: t.pts.map(([x, y]) => polar(x, y)) }));
-    const crossAt = (rr) => {
-      const out = [];
+    const cells = [];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    const sinP = [...L0, ...L1, ...L2].map((t) => ({ rs: rsN * (t.kind === 's0' ? 1 : t.kind === 's1' ? 1.15 : 1.3), P: t.pts.map(([x, y]) => polar(x, y)) }));   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    const crossAt = (rr) => {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      const out = [];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       for (const { rs, P } of sinP) for (let i = 0; i < P.length - 1; i++) {
         const [r1, a1] = P[i], [r2, b2] = P[i + 1];
         if ((r1 - rr) * (r2 - rr) > 0 || r1 === r2) continue;
         const a2 = unwrap(b2, a1), a = a1 + (a2 - a1) * ((rr - r1) / (r2 - r1));
-        out.push({ a: Math.atan2(Math.sin(a), Math.cos(a)), rs }); break;
+        out.push({ a: Math.atan2(Math.sin(a), Math.cos(a)), rs }); break;   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       }
-      return out.sort((p, q) => p.a - q.a);
+      return out.sort((p, q) => p.a - q.a);   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     };
     const cl = R * 0.052, dg = rs0 * 1.7, wT = R * 0.08;
     for (let rr = rcv0 * 1.55; rr < R * 1.02; rr += cl) {
@@ -858,58 +915,58 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           const a = A.a + (A.rs + dg + (c + 0.5) * w) / rr, x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
           const q = hexFrac(x, y, cx, cy, R);
           if (q > 0.975) continue;
-          cells.push({ x, y, a, l: cl * (0.84 + r() * 0.08), w: w * (n > 1 ? 0.86 : 0.94), tone: r(), nu: (r() - 0.5) * 0.3, q, drop: r(), jx: r() - 0.5, jy: r() - 0.5, ja: r() - 0.5 });
+          cells.push({ x, y, a, l: cl * (0.84 + r() * 0.08), w: w * (n > 1 ? 0.86 : 0.94), tone: r(), nu: (r() - 0.5) * 0.3, q, drop: r(), jx: r() - 0.5, jy: r() - 0.5, ja: r() - 0.5 });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
         }
       }
     }
     // Stellate cells in the space of Disse, beside sinusoids.
-    const hsc = [];
+    const hsc = [];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     for (let i = 0; i < (R > 190 ? 22 : 14); i++) {
-      const t = [...L0, ...L1][Math.floor(r() * (L0.length + L1.length))], u = 0.15 + r() * 0.7, [x, y] = at(t.pts, u), [x2, y2] = at(t.pts, u + 0.02);
+      const t = [...L0, ...L1][Math.floor(r() * (L0.length + L1.length))], u = 0.15 + r() * 0.7, [x, y] = at(t.pts, u), [x2, y2] = at(t.pts, u + 0.02);   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       const dx = x2 - x, dy = y2 - y, l = Math.hypot(dx, dy) || 1, sd = r() < 0.5 ? -1 : 1;
       r();   // (keeps the seeded sequence)
-      hsc.push({ x: x - (dy / l) * sd * (rsN + rs0 * 0.9), y: y + (dx / l) * sd * (rsN + rs0 * 0.9), a: Math.atan2(dy, dx), nx: (-dy / l) * sd, ny: (dx / l) * sd });
+      hsc.push({ x: x - (dy / l) * sd * (rsN + rs0 * 0.9), y: y + (dx / l) * sd * (rsN + rs0 * 0.9), a: Math.atan2(dy, dx), nx: (-dy / l) * sd, ny: (dx / l) * sd });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     }
     // Lymph droplets: start deep in the lobule, drift to the nearest triad.
     // Lymph shimmer: each streak rises deep in the lobule and drifts out through the tissue to the nearest triad.
-    const lymph = Array.from({ length: 140 }, () => ({ ph: r(), a: r() * TAU, r0: 0.1 + r() * 0.4, sp: 0.7 + r() * 0.6, w: r() * TAU, len: 0.07 + r() * 0.06 }));
+    const lymph = Array.from({ length: 140 }, () => ({ ph: r(), a: r() * TAU, r0: 0.1 + r() * 0.4, sp: 0.7 + r() * 0.6, w: r() * TAU, len: 0.07 + r() * 0.06 }));   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     // Lymphatics (shown with the Lymph toggle): plasma filtered into the space of Disse runs out along
     // each sinusoid (a thin channel beside it, between the sinusoid and its plate), against the blood,
     // to the edge of the lobule; there terminal lymphatics carry it along the limiting plate to the
     // lymphatic vessel in each portal tract.
     // The portal tract's own lymphatic, end-on beside the venule (on its outer side, away from the arteriole and ductule).
-    for (const tr of triads) { const d = R * TRIAD_D; tr.lv = add('lv', dot(tr.x + Math.cos(tr.a) * d, tr.y + Math.sin(tr.a) * d), { tri: tr.i, lymph: true }); }
+    for (const tr of triads) { const d = R * TRIAD_D; tr.lv = add('lv', dot(tr.x + Math.cos(tr.a) * d, tr.y + Math.sin(tr.a) * d), { tri: tr.i, lymph: true }); }   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     const lyOff = rsN + rs0 * 1.1;   // (rs0 × 2.1 before the sinusoids narrowed: the same gap from their wall)
-    const beside = (t) => t.pts.map((q, i) => { const a = t.pts[Math.max(0, i - 1)], b = t.pts[Math.min(N - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [q[0] - ((b[1] - a[1]) / L) * lyOff, q[1] + ((b[0] - a[0]) / L) * lyOff]; });
+    const beside = (t) => t.pts.map((q, i) => { const a = t.pts[Math.max(0, i - 1)], b = t.pts[Math.min(N - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [q[0] - ((b[1] - a[1]) / L) * lyOff, q[1] + ((b[0] - a[0]) / L) * lyOff]; });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     // Along each edge, from its midpoint to the triad at either end, in the portal tract just outside
     // the inlet venule: its course offset outward (so the venule stays in view, the lymph beneath it),
     // curving at the end into the tract's lymphatic.
-    const lt = [];
-    for (let i = 0; i < 6; i++) for (const dir of [1, -1]) {
+    const lt = [];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    for (let i = 0; i < 6; i++) for (const dir of [1, -1]) {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       const A = C[i], B = C[(i + dir + 6) % 6], mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2, nl = Math.hypot(cx - mx, cy - my);
       const nx = (mx - cx) / nl, ny = (my - cy) / nl, f = inlets[i * 2 + (dir > 0 ? 0 : 1)].f, lv = triads[i].lv.pts[0];
-      const t = add('lt', curve((u) => {
+      const t = add('lt', curve((u) => {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
         const q = f(1 - u), o = R * lerp(0.04, 0.025, 1 - u), e = smooth(0.78, 1, u), px = q[0] + nx * o, py = q[1] + ny * o;
-        return [lerp(px, lv[0], e), lerp(py, lv[1], e)];
-      }), { tri: i, lymph: true });
+        return [lerp(px, lv[0], e), lerp(py, lv[1], e)];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      }), { tri: i, lymph: true });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       lt[i * 2 + (dir > 0 ? 0 : 1)] = t;
     }
-    for (const tr of triads) { const a = lt[tr.i * 2], b = lt[tr.i * 2 + 1], q = tr.lv.pts[0]; join(q[0], q[1], [a, b, tr.lv], R * 0.008); }
-    for (let e = 0; e < 6; e++) { const a = lt[e * 2], b = lt[((e + 1) % 6) * 2 + 1], q = a.pts[0]; join(q[0], q[1], [a, b], R * 0.006); }
+    for (const tr of triads) { const a = lt[tr.i * 2], b = lt[tr.i * 2 + 1], q = tr.lv.pts[0]; join(q[0], q[1], [a, b, tr.lv], R * 0.008); }   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    for (let e = 0; e < 6; e++) { const a = lt[e * 2], b = lt[((e + 1) % 6) * 2 + 1], q = a.pts[0]; join(q[0], q[1], [a, b], R * 0.006); }   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     // The space of Disse beside each sinusoid; the first generation's reaches the limiting plate.
     for (const t of L0) {
       const P = beside(t), side = t.tri === t.edge ? lt[t.edge * 2] : lt[((t.edge + 1) % 6) * 2 + 1];
       let E = side.pts[0], bd = Infinity;
       for (const q of side.pts) { const d = Math.hypot(q[0] - P[0][0], q[1] - P[0][1]); if (d < bd) { bd = d; E = q; } }
-      const poly = [E, ...P];
-      const d = add('ly', curve((u) => at(poly, u)), { lymph: true, lvl: 0 });
-      join(E[0], E[1], [side, d], R * 0.004);
+      const poly = [E, ...P];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      const d = add('ly', curve((u) => at(poly, u)), { lymph: true, lvl: 0 });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      join(E[0], E[1], [side, d], R * 0.004);   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     }
-    for (const t of L1) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 1 });
+    for (const t of L1) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 1 });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     // …and on along the innermost sinusoids, thinning out toward the central vein (lymph forms all along
     // the sinusoid, least where the plates converge), so the channel fades in rather than starting abruptly.
-    for (const t of L2) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 2 });
-    return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, bloodTubes: tubes.filter((t) => !t.lymph), joins, triads, inlets, L0, L1, L2, cv, septaPC, cells, hsc, lymph };
+    for (const t of L2) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 2 });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, bloodTubes: tubes.filter((t) => !t.lymph), joins, triads, inlets, L0, L1, L2, cv, septaPC, cells, hsc, lymph };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
   }
   function hexFrac(x, y, cx, cy, R) {
     let m = 0;
@@ -922,13 +979,28 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let easeP = createEaser();
   // A change-since slide's reference (lens 'since', see lobule-model.js sinceOf), eased as the pressures are, so a new slide's
   // reference recolours the vessels over a moment instead of snapping them. Null where no slide counts one.
-  let easeS = createEaser();
+  let easeS = createEaser(), easeSUsed = false;
+  const NO_SINCE = { v: null, moving: false };   // (read, never written)
   const sinceStep = (st) => {
     const t = sinceOf(st);
-    if (t) return easeS.step(t);
-    easeS = createEaser();
-    return { v: null, moving: false };
+    if (t) { easeSUsed = true; return easeS.step(t); }
+    if (easeSUsed) { easeSUsed = false; easeS = createEaser(); }   // (a reference that was counted is let go once; an easer never stepped needs no new one)
+    return NO_SINCE;
   };
+  // The frame the model is made from, with the eased pressures in place of the engine's: one object, written again in place (lobuleState
+  // reads it and keeps none of it). The keys a frame may lack are cleared first, so nothing of the frame before shows through.
+  const fMix = {};
+  const mixFrame = (f, P) => { fMix.params = fMix.viewParams = fMix.Pf = fMix.Qf = fMix.metrics = undefined; Object.assign(fMix, f); fMix.P = P; return fMix; };
+  // The four lumen inks, from the page's styles, in one kept object. A value is trimmed again only when the style's text changed.
+  const INK_VARS = ['--flow-normal', '--flow-reversed', '--vein-portal', '--vein-systemic'];
+  const inksO = { normal: undefined, reversed: undefined, portal: undefined, systemic: undefined };
+  const inkRaw = ['', '', '', ''], inkVal = [undefined, undefined, undefined, undefined];
+  const inkVar = (hs, i) => {
+    const raw = hs.getPropertyValue(INK_VARS[i]);
+    if (raw !== inkRaw[i]) { inkRaw[i] = raw; inkVal[i] = raw.trim() || undefined; }   // alloc-rare: only when the style's text changed (a theme)
+    return inkVal[i];
+  };
+  const readInks = (hs) => { inksO.normal = inkVar(hs, 0); inksO.reversed = inkVar(hs, 1); inksO.portal = inkVar(hs, 2); inksO.systemic = inkVar(hs, 3); return inksO; };
   let easeRaf = 0;
   // Out of sight (closed, or drawn ahead for a dive): what the lobule showed on its last visit was never seen since, so nothing
   // eases or crossfades from it. The pressures, the calibers and the tissue take the patient's state at once; otherwise a
@@ -950,12 +1022,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // Pressures ease toward the model's beat-filtered values (shared with the Pressure card), so the
     // ladder, labels and colors glide rather than jump, every display frame between model frames.
     const eased = easeP.step(f.Pf || f.P), since = sinceStep(st);
-    model = lobuleState({ ...f, P: eased.v }, st, since.v);
+    model = lobuleState(mixFrame(f, eased.v), st, since.v);
     noteLens(model.mode);
     cancelFrame(easeRaf);
     if (eased.moving || since.moving) easeRaf = nextFrame(glideP);
-    const hs = styles(), cv = (n, d) => hs.getPropertyValue(n).trim() || d;
-    model.inks = { normal: cv('--flow-normal'), reversed: cv('--flow-reversed'), portal: cv('--vein-portal'), systemic: cv('--vein-systemic') };
+    model.inks = readInks(styles());
     if (originOn() && originsF !== f) { origins = originFractions(EDGES, NODES, f.Qf || f.Q, f.Pf || f.P); originsF = f; }
     panel();
     if (!raf) raf = nextFrame(loop);
@@ -972,7 +1043,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const st = store.get(), eased = easeP.step(F.Pf || F.P), since = sinceStep(st);
     const inks = model.inks;
     drawVersion++;
-    model = lobuleState({ ...F, P: eased.v }, st, since.v);
+    model = lobuleState(mixFrame(F, eased.v), st, since.v);
     noteLens(model.mode);
     model.inks = inks;
     panel();
@@ -980,67 +1051,142 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
 
   let tissueSaid = '';
+  // A number's text as fmt (util.js) prints it, made again only when the number reaches another printed value: its scaled, rounded value
+  // (q) is kept with the text in `slot`. A value within 1e-6 of a rounding edge (or not a number) is always made in full, so the text is
+  // always what fmt gives. The glide asks every frame; the text changes a few times a second.
+  const SCALE = [1, 10, 100];
+  const mkSlot = () => ({ q: NaN, d: -1, s: '' });
+  const shown = (slot, v, d) => {
+    const sc = v * SCALE[d], q = Math.round(sc), sure = Number.isFinite(sc) && Math.abs(sc - Math.floor(sc) - 0.5) > 1e-6;
+    if (sure && slot.q === q && slot.d === d && slot.s !== '') return slot.s;
+    const t = fmt(v, d);   // alloc-rare: only when the printed number changes, or a value sits on a rounding edge
+    slot.q = sure ? q : NaN; slot.d = d; slot.s = t;
+    return t;
+  };
+  // A whole number's text (String(n)), made again only when the number changes.
+  const shownInt = (slot, n) => { if (Object.is(slot.q, n) && slot.s !== '') return slot.s; slot.q = n; slot.s = `${n}`; return slot.s; };   // alloc-rare: only when the whole number changes
+  // A change from healthy, '+5' or '−5' (fmt of its size, a sign before it), made again only when its size or sign changes.
+  const shownDelta = (slot, d) => {
+    const a = Math.abs(d), q = Math.round(a), up = d > 0;
+    if (Number.isFinite(a) && slot.s !== '' && slot.q === q && slot.up === up) return slot.s;
+    slot.q = Number.isFinite(a) ? q : NaN; slot.up = up; slot.s = `${up ? '+' : '−'}${fmt(a, 0)}`;   // alloc-rare: only when the change's size or sign changes
+    return slot.s;
+  };
+  const stV = { triad: mkSlot(), sin: mkSlot(), cv: mkSlot() }, stD = { triad: mkSlot(), sin: mkSlot(), cv: mkSlot() };
+  const stLy = mkSlot(), stFlow = mkSlot(), stO = [mkSlot(), mkSlot(), mkSlot()], stP = [mkSlot(), mkSlot(), mkSlot()];
+  const OXY_AT = { triad: 0, sin: 1, cv: 2 };
+  // What the station card has to say: the number, its unit, the change and its colour, in one kept record (never an array made for it).
+  const reading = { v: '', u: '', d: '', col: null };
+  // The panel's words for the tissue canvas, as last said (what they were made from, to know when they have changed).
+  const say = { kind: -1, a: '', b: '', c: '', f: '' };
+  const SAY_HIDE = 'Liver lobule. Pressures not measured.';
+  function station(m, key, v, r) {
+    if (m.hide) { reading.v = '?'; reading.u = ''; reading.d = ''; reading.col = null; return; }
+    // (Colored by oxygen: the station's oxygen saturation, the value the lens colours it by.)
+    if (m.mode === 'oxygen' && m.oxy) { const sat = m.oxy[OXY_AT[key]]; badges[key] = null; reading.v = shown(stV[key], sat * 100, 0); reading.u = '% O₂'; reading.d = ''; reading.col = oxygenColor(sat); return; }
+    const d = r != null ? v - r : 0, on = m.cmp ? 1 : 5, off = m.cmp ? 0.7 : 4;
+    const showD = Math.abs(d) >= on || (badges[key] === m.cmp && Math.abs(d) >= off);
+    badges[key] = showD ? m.cmp : null;
+    // (The unit is said once, in the pressure legend, as the anatomy's labels have it; looks review L2, 31 Oct.)
+    reading.v = shown(stV[key], v, 1); reading.u = ''; reading.d = showD ? shownDelta(stD[key], d) : '';
+    reading.col = m.mode === 'delta' || m.mode === 'since' ? deltaColor(qP(d)) : pc(v);
+  }
   function panel() {
     const m = model;
     // On a slide, once settled the sinusoids read the slide's own value, as its tile does (lobule and sinusoid labels agree with it).
     { const st = store.get(), fs = st.presenting && st.presentFp?.sin; if (Number.isFinite(fs) && Math.abs(m.P2 - fs) < 0.6) m.P2 = fs; }
-    // (Written only when its words change: the glide reaches here every frame.)
-    const said = m.hide ? 'Liver lobule. Pressures not measured.'
-      : m.mode === 'oxygen' && m.oxy ? `Liver lobule: oxygen saturation in the portal venule ${fmt(m.oxy[0] * 100, 0)}, sinusoids ${fmt(m.oxy[1] * 100, 0)}, central vein ${fmt(m.oxy[2] * 100, 0)} percent.`
-      : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central vein ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal.`;
+    // (Written only when its words change: the glide reaches here every frame, so the words are made only when a printed number has changed.)
+    let said = tissueSaid;
+    if (m.hide) { if (say.kind !== 0) { say.kind = 0; said = SAY_HIDE; } }
+    else if (m.mode === 'oxygen' && m.oxy) {
+      const a = shown(stO[0], m.oxy[0] * 100, 0), b = shown(stO[1], m.oxy[1] * 100, 0), c = shown(stO[2], m.oxy[2] * 100, 0);
+      if (say.kind !== 1 || say.a !== a || say.b !== b || say.c !== c) { say.kind = 1; say.a = a; say.b = b; say.c = c; said = `Liver lobule: oxygen saturation in the portal venule ${a}, sinusoids ${b}, central vein ${c} percent.`; }   // alloc-rare: only when a printed number changes
+    } else {
+      const a = shown(stP[0], m.P1, 1), b = shown(stP[1], m.P2, 1), c = shown(stP[2], m.P3, 1), f = shownInt(stFlow, Math.round(m.flow * 100));
+      if (say.kind !== 2 || say.a !== a || say.b !== b || say.c !== c || say.f !== f) { say.kind = 2; say.a = a; say.b = b; say.c = c; say.f = f; said = `Liver lobule: portal venule ${a}, sinusoids ${b}, central vein ${c} millimeters of mercury; sinusoidal flow ${f} percent of normal.`; }   // alloc-rare: only when a printed number changes
+    }
     if (said !== tissueSaid) { tissueSaid = said; restAttr(tissue, 'aria-label', said); }
     // Station cards on the figure.
     // Labels as in the anatomy: the station, its pressure, and the change from healthy once it reaches
     // 5 mmHg; while comparing, every change from the pinned moment (shown at 1, dropped below 0.7).
     // In the Change view the bar takes the change's colour, as the vessels do.
-    const mv = (key, v, r) => {
-      if (m.hide) return ['?', '', '', null];
-      // (Colored by oxygen: the station's oxygen saturation, the value the lens colours it by.)
-      if (m.mode === 'oxygen' && m.oxy) { const sat = m.oxy[{ triad: 0, sin: 1, cv: 2 }[key]]; badges[key] = null; return [fmt(sat * 100, 0), '% O₂', '', oxygenColor(sat)]; }
-      const d = r != null ? v - r : 0, on = m.cmp ? 1 : 5, off = m.cmp ? 0.7 : 4;
-      const shown = Math.abs(d) >= on || (badges[key] === m.cmp && Math.abs(d) >= off);
-      badges[key] = shown ? m.cmp : null;
-      // (The unit is said once, in the pressure legend, as the anatomy's labels have it; looks review L2, 31 Oct.)
-      return [fmt(v, 1), '', shown ? `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), 0)}` : '', m.mode === 'delta' || m.mode === 'since' ? deltaColor(qP(d)) : pc(v)];
-    };
-    setLab('triad', 'Portal venule', 'Portal venule', ...mv('triad', m.P1, m.R[0]));
-    setLab('sin', 'Sinusoids', 'Sinusoids', ...mv('sin', m.P2, m.R[1]));
-    setLab('cv', 'Central vein', 'Central vein', ...mv('cv', m.P3, m.R[2]));
+    station(m, 'triad', m.P1, m.R[0]); setLab('triad', 'Portal venule', 'Portal venule', reading.v, reading.u, reading.d, reading.col);
+    station(m, 'sin', m.P2, m.R[1]); setLab('sin', 'Sinusoids', 'Sinusoids', reading.v, reading.u, reading.d, reading.col);
+    station(m, 'cv', m.P3, m.R[2]); setLab('cv', 'Central vein', 'Central vein', reading.v, reading.u, reading.d, reading.col);
     // Lymph (Lymph layer on): the whole liver's rate and its protein; the change from healthy is on its card.
     if (m.hide) setLab('lymph', 'Lymphatic', 'Lymph', '?', '', '', null);
-    else setLab('lymph', 'Lymphatic', 'Lymph', fmt(m.lymph, 1), `mL/min · Protein ${Math.round(m.lyProt * 100)}%`, '', null);
+    else setLab('lymph', 'Lymphatic', 'Lymph', shown(stLy, m.lymph, 1), lymphUnit(Math.round(m.lyProt * 100)), '', null);
     // The arteriole and the ductule: named only while a slide's term points at them (see named()).
     setLab('ha', 'Hepatic arteriole', 'Arteriole', '', '', '', 'var(--artery)');
     setLab('bd', 'Bile ductule', 'Ductule', '', '', '', 'var(--bile-duct)');
     if (sinTo || sinU > 0) sv.setModel(m);
   }
+  const lyUnitSlot = mkSlot();
+  const lymphUnit = (n) => { if (Object.is(lyUnitSlot.q, n) && lyUnitSlot.s !== '') return lyUnitSlot.s; lyUnitSlot.q = n; lyUnitSlot.s = `mL/min · Protein ${n}%`; return lyUnitSlot.s; };   // alloc-rare: only when the protein percentage changes
 
   // ── Station labels (HTML, styled as the anatomy's) with leaders ──
   const labs = {}, badges = {};
   // What a label's size depends on beyond its own text and classes (see layoutLabels).
   let fontVer = 0;
   document.fonts?.addEventListener?.('loadingdone', () => { fontVer++; });
-  const sizeEnv = () => `${innerWidth}x${innerHeight}|${devicePixelRatio}|${fontVer}|${document.fonts?.status}|${[...document.documentElement.attributes].map((a) => `${a.name}=${a.value}`).join(' ')}|${document.body.className}|${host.className}|${el.className}`;
+  // (The text is made again only when something it is made of has changed, found by comparing the parts one by one with those it was
+  // last made from: the layout asks for it for every label and name, and nothing is built to find that it is the same.)
+  const envMemo = { s: '', w: -1, h: -1, dpr: -1, fv: -1, fs: null, body: null, host: null, el: null, attrs: [] };
+  const sizeEnv = () => {
+    const at = document.documentElement.attributes, n = at.length, ea = envMemo.attrs, st = document.fonts?.status;
+    let same = envMemo.s !== '' && envMemo.w === innerWidth && envMemo.h === innerHeight && envMemo.dpr === devicePixelRatio && envMemo.fv === fontVer && envMemo.fs === st
+      && envMemo.body === document.body.className && envMemo.host === host.className && envMemo.el === el.className && ea.length === n * 2;
+    if (same) for (let i = 0; i < n; i++) { const a = at[i]; if (ea[2 * i] !== a.name || ea[2 * i + 1] !== a.value) { same = false; break; } }
+    if (same) return envMemo.s;
+    envMemo.w = innerWidth; envMemo.h = innerHeight; envMemo.dpr = devicePixelRatio; envMemo.fv = fontVer; envMemo.fs = st;
+    envMemo.body = document.body.className; envMemo.host = host.className; envMemo.el = el.className;
+    ea.length = 0;
+    for (let i = 0; i < n; i++) ea.push(at[i].name, at[i].value);
+    envMemo.s = `${envMemo.w}x${envMemo.h}|${envMemo.dpr}|${fontVer}|${st}|${[...at].map((a) => `${a.name}=${a.value}`).join(' ')}|${envMemo.body}|${envMemo.host}|${envMemo.el}`;   // alloc-rare: only when the window, the fonts, the page's attributes or classes changed
+    return envMemo.s;
+  };
   // ── Sizes, measured outside the frame ──
   // The labels', the call pill's and the zone names' sizes are read in a timer task of their own (measureRun), asked for by the frame
   // that found them unmeasured for what decides them (the look: sizeEnv; the element's classes; its words, with digits as zeros since
   // they are tabular; the pill's width limit), and kept. That frame leaves the labels as they are seen; the next one lays them out.
   const measQ = new Set();
   let measT = 0, labWant = null;
-  const labKey = (env, L) => `${env}|${L.el.className.replace(/(^| )(stack|lz-off)(?= |$)/g, '')}|${L.el.innerHTML.replace(/\d/g, '0')}`;
+  // (A label's key is made again only when the look (env), its classes or its content (L.ver, counted as pageRun writes it) changed.)
+  const labKey = (e, L) => {
+    const cls = L.el.className;
+    if (L.kEnv === e && L.kCls === cls && L.kVer === L.ver && L.kKey !== undefined) return L.kKey;
+    L.kEnv = e; L.kCls = cls; L.kVer = L.ver;
+    L.kKey = `${e}|${cls.replace(/(^| )(stack|lz-off)(?= |$)/g, '')}|${L.el.innerHTML.replace(/\d/g, '0')}`;   // alloc-rare: only when the look, the label's classes or its content changed
+    return L.kKey;
+  };
   // (Whether a label shows is held on the label (_hid) the moment it changes, and written as the `hidden` attribute between frames
   // (restAttr): a frame writes no attribute. measureRun flushes the writes first and then measures the page as it stands.)
   const isHid = (el) => el._hid ?? el.hidden;
   const setHid = (el, b) => { el._hid = b; restAttr(el, 'hidden', b ? '' : null); };
-  const sizeKeyOf = (e, env) => `${env}|${isHid(e)}|${e.className.replace(/(^| )lz-off(?= |$)/g, '')}|${e.innerHTML.replace(/\d/g, '0')}|${e.style.maxWidth}`;
+  // What decides a call pill's or a zone name's size, kept with the size it was measured at: the look (env), whether it shows, its
+  // classes (less lz-off), its words (numerals as zeros: they are tabular) and its width limit. Compared part by part (sizeCurrent).
+  // A zone name's words never change; a pill's are its one text node.
+  const clsOf = (c) => c.replace(/(^| )lz-off(?= |$)/g, '');   // alloc-rare: only when an element is measured (a rest pass) or its classes changed (sizeCurrent)
+  const zeroNums = (t) => t.replace(/\d/g, '0');   // alloc-rare: only when an element is measured (a rest pass) or a pill's words changed (sizeCurrent)
+  const textOf = (e) => { const c = e.firstChild; return c && c.nodeType === 3 && !c.nextSibling ? c.data : ''; };
+  const sizeRecord = (e, en, w, h) => { const cls = e.className, tx = textOf(e); return { env: en, hid: isHid(e), cls, clsN: clsOf(cls), mw: e.style.maxWidth, tx, txN: zeroNums(tx), w, h, txt: e.textContent }; };
+  function sizeCurrent(e, z, en) {
+    if (!z || z.env !== en || z.hid !== isHid(e) || z.mw !== e.style.maxWidth) return false;
+    const cls = e.className;
+    if (cls !== z.cls) { if (clsOf(cls) !== z.clsN) return false; z.cls = cls; }   // alloc-rare: only when the element's classes changed (a fade)
+    const tx = textOf(e);
+    if (tx !== z.tx) { const n = zeroNums(tx); if (n !== z.txN) return false; z.tx = tx; }   // alloc-rare: only when a pill's words changed
+    return true;
+  }
   // A call pill's or a zone name's size as measured ([fw, fh] where it is unmeasured or takes no room), asking for it to be measured
   // when what decides it changed; the layout is done again once it has been (measureRun).
   let callFit = '', callFitT = 0;
   function writeCallFit() { callFitT = 0; if (callEl.style.maxWidth === callFit) return; callEl.style.maxWidth = callFit; measQ.add(callEl); if (!measT) measT = restPass(measureRun); }
+  let szW = 0, szH = 0;   // (sizeOf's answer: the width and the height, read straight after the call)
   function sizeOf(e, fw, fh) {
     const z = e._lzSz;
-    if (z?.key !== sizeKeyOf(e, sizeEnv())) { measQ.add(e); if (!measT) measT = restPass(measureRun); }
-    return [z?.w || fw, z?.h || fh];
+    if (!sizeCurrent(e, z, sizeEnv())) { measQ.add(e); if (!measT) measT = restPass(measureRun); }
+    szW = z?.w || fw; szH = z?.h || fh;
   }
   function measureRun() {
     measT = 0;
@@ -1048,7 +1194,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     measQ.clear(); labWant = null;
     flushRestAttrs();   // (a pill's kind changes its border and so its size: written before it is measured)
     let moved = false;
-    for (const e of els) { const w = e.offsetWidth, h = e.offsetHeight; if (w !== e._lzSz?.w || h !== e._lzSz?.h) moved = true; e._lzSz = { key: sizeKeyOf(e, env), w, h, txt: e.textContent }; }
+    for (const e of els) { const w = e.offsetWidth, h = e.offsetHeight; if (w !== e._lzSz?.w || h !== e._lzSz?.h) moved = true; e._lzSz = sizeRecord(e, env, w, h); }
     if (want) {
       // (As the layout did in the frame before: unstacked to read the width, stacked where that is too wide, then read; written,
       // then read together. Put back as found, for the next frame to lay out.)
@@ -1086,27 +1232,39 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     cancelRest(measT); measureRun();
   }
   // A label's size as measured, for the stacking it has now.
-  const labWH = (L) => (L.sz && (L.el.classList.contains('stack') ? L.sz.s1 : L.sz.s0)) || [100, 40];
+  const LAB_WH = [100, 40];   // (read, never written: a label's size before it is measured)
+  const labWH = (L) => (L.sz && (L.el.classList.contains('stack') ? L.sz.s1 : L.sz.s0)) || LAB_WH;
   // ── Where a label is seen, mid-glide ──
   // A label moved while the labels glide (app.css .lz-ease: left and top on --d-surface with --ease) goes there on that curve from
   // where it was seen; its glide is noted as it is written (noteAt), and each frame's place worked out from it (seenAt), on the page's
   // animation clock, so the leaders follow it with no read of the page.
   const EASE_LAB = cubicBezier(0.2, 0.8, 0.2, 1);
   const tlNow = () => document.timeline?.currentTime ?? performance.now();
-  const posOf = (g, now) => { const e = EASE_LAB(clamp((now - g.t0) / D_SURFACE, 0, 1)); return [g.x0 + (g.x1 - g.x0) * e, g.y0 + (g.y1 - g.y0) * e]; };
+  const ZERO2 = [0, 0];   // (read, never written)
+  const easeLab = (g, now) => EASE_LAB(clamp((now - g.t0) / D_SURFACE, 0, 1));
   const labGliding = (L, now) => !!L.gl && (L.gl.x0 !== L.gl.x1 || L.gl.y0 !== L.gl.y1) && now - L.gl.t0 < D_SURFACE;
+  // A label's glide is one object on it, written again in place (a glide begun on another carries from where this one stands now).
+  const glOf = (L) => L.gl || (L.gl = { x0: 0, y0: 0, x1: 0, y1: 0, t0: 0 });   // alloc-rare: only the first time a label is placed
   function noteAt(L) {
-    const [x, y] = spot.get(L.el) || [0, 0], g = L.gl;
+    const sp = spot.get(L.el) || ZERO2, x = sp[0], y = sp[1], g = L.gl;
     if (g && g.x1 === x && g.y1 === y) return;
-    const now = tlNow(), p = g ? posOf(g, now) : [x, y];
+    const now = tlNow();
+    let px = x, py = y;
+    if (g) { const e = easeLab(g, now); px = g.x0 + (g.x1 - g.x0) * e; py = g.y0 + (g.y1 - g.y0) * e; }
     // (Only a label already shown glides: one coming out of hidden starts where it is written, as the page shows it.)
     const eased = !!g && !L.peek && !reduce.matches && labels.classList.contains('lz-ease');
-    L.gl = eased ? { x0: p[0], y0: p[1], x1: x, y1: y, t0: now } : { x0: x, y0: y, x1: x, y1: y, t0: now };
+    const o = glOf(L);
+    if (eased) { o.x0 = px; o.y0 = py; } else { o.x0 = x; o.y0 = y; }
+    o.x1 = x; o.y1 = y; o.t0 = now;
   }
+  // Where a label is seen now, in the label's own [x, y] (read straight away, never kept).
   function seenAt(L, now) {
-    const [x, y] = spot.get(L.el) || [0, 0];
-    if (!L.gl || L.gl.x1 !== x || L.gl.y1 !== y) L.gl = { x0: x, y0: y, x1: x, y1: y, t0: now };   // (written with no glide noted: there)
-    return posOf(L.gl, now);
+    const sp = spot.get(L.el) || ZERO2, x = sp[0], y = sp[1];
+    let g = L.gl;
+    if (!g || g.x1 !== x || g.y1 !== y) { g = glOf(L); g.x0 = x; g.y0 = y; g.x1 = x; g.y1 = y; g.t0 = now; }   // (written with no glide noted: there)
+    const e = easeLab(g, now), o = L.seenXY || (L.seenXY = [0, 0]);   // alloc-rare: only the first time a label's place is worked out
+    o[0] = g.x0 + (g.x1 - g.x0) * e; o[1] = g.y0 + (g.y1 - g.y0) * e;
+    return o;
   }
   // A unit with a second reading ('mL/min · Protein 48%'): the second part can drop to its own line when the label is wide.
   const unitParts = (u) => {
@@ -1122,7 +1280,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const mountQ = [], labQ = new Set();
   let pageT = 0;
   const pageSoon = () => { if (!pageT) pageT = restPass(pageRun); };
-  const mount = (parent, ...els) => { mountQ.push([parent, els]); pageSoon(); };
+  const mount = (parent, ...els) => { mountQ.push([parent, els]); pageSoon(); };   // alloc-rare: only when a node is first put into the page (callers skip one already there)
   const writeLab = (L) => { labQ.add(L); pageSoon(); };
   function pageRun() {
     pageT = 0;
@@ -1134,6 +1292,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         if (L.dEl && L.dEl.textContent !== L.dv) L.dEl.textContent = L.dv;
         if (L.uw != null) { const [a, ...rest] = L.uw.split(' · '); if (rest.length) { L.uEls[0].textContent = a; L.uEls[1].lastChild.textContent = rest.join(' · '); } else if (L.uw) L.uEls[0].textContent = L.uw; L.uw = null; }
       }
+      L.ver = (L.ver | 0) + 1;   // (its content may have changed: labKey makes its key again)
+      if (L.aria) { L.aria = false; L.el.setAttribute('aria-label', ariaOf(L)); }
       if (L.relay) { L.relay = false; layoutKey = ''; }
     }
     labQ.clear();
@@ -1160,61 +1320,74 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   for (const k of ['triad', 'sin', 'cv', 'lymph', 'ha', 'bd']) labMake(k);
   function setLab(key, name, short, v, u, d, col) {
     const L = labs[key];
-    const txt = `${name}|${v}|${u}|${d}|${col}`;
-    if (L.txt === txt) return;
+    // (What it last showed, compared part by part: no text is made to find that nothing changed.)
+    const textSame = L.sN === name && L.sV === v && L.sU === u && L.sD === d;
+    if (textSame && L.sC === col) return;
+    L.sN = name; L.sV = v; L.sU = u; L.sD = d; L.sC = col;
     // Only the number (or its change) moved: its text is updated in place, and the labels are laid out again
     // only when it takes more or fewer characters (the label is rebuilt only when its make-up changes). The same holds for
-    // a figure inside the unit ('Protein 48%', which moves with the pulse): its digits are tabular, so a new figure with
-    // as many digits leaves the label's size as it was.
+    // a figure inside the unit ('Protein 48%', which moves with the pulse): its numerals are tabular, so a new figure with
+    // as many numerals leaves the label's size as it was.
     // (Its colour is only a style on the label: a new one, which the pressure glide brings every frame, rebuilds nothing.)
     if (col !== L.col) { L.col = col; L.el.style.setProperty('--sw', col || 'var(--border-strong)'); }
-    const uk = u.replace(/\d/g, '0'), frame = `${name}|${short}|${uk}|${v === ''}|${!!d}`;
-    if (L.frame === frame && !L.empty) {
-      if (String(v).length !== L.bv.length || (d && d.length !== L.dv.length)) { layoutKey = ''; L.relay = true; }
+    if (L.ukSrc !== u) { L.ukSrc = u; L.uk = u.replace(/\d/g, '0'); }   // alloc-rare: only when the unit's words change (its figure moves a few times a second at most)
+    const uk = L.uk, hasD = !!d, empty = v === '';
+    const same = L.fN === name && L.fS === short && L.fU === uk && L.fE === empty && L.fD === hasD;   // (the label's make-up, part by part)
+    if (same && !L.empty) {
+      if (v.length !== L.bv.length || (d && d.length !== L.dv.length)) { layoutKey = ''; L.relay = true; }
       // (Each part is written only when its own text changed: a new colour alone, or a new unit figure, leaves the number be.
       // Written between frames, pageRun.)
-      if (L.bv !== String(v)) { L.bv = String(v); writeLab(L); }
+      if (L.bv !== v) { L.bv = v; writeLab(L); }
       if (d && L.dv !== d) { L.dv = d; writeLab(L); }
       if (u !== L.u) { L.uw = u; writeLab(L); }
     } else {
-      L.frame = frame;
-      L.spec = { name, short, u, hasD: !!d }; L.empty = v === '';
-      L.bv = String(v); L.dv = d || ''; L.uw = null;
+      L.fN = name; L.fS = short; L.fU = uk; L.fE = empty; L.fD = hasD;
+      L.lk = `${name}|${short}|${uk}|${empty}|${hasD}`;   // alloc-rare: only when the label's make-up changes (what the layout depends on; a value of new length clears layoutKey above)
+      L.spec = { name, short, u, hasD };   // alloc-rare: only when the label's make-up changes
+      L.empty = empty;
+      L.bv = v; L.dv = d || ''; L.uw = null;
       writeLab(L);
       layoutKey = ''; L.relay = true;
     }
-    L.txt = txt; L.u = u;
-    L.lk = `${name}|${short}|${uk}|${v === ''}|${!!d}`;   // what the layout depends on (a value of new length clears layoutKey above)
-    restAttr(L.el, 'aria-label', `${name} ${v} ${u}${d ? `, ${d.startsWith('+') ? 'up' : 'down'} ${d.slice(1)} ${model?.cmp ? 'since then' : model?.since ? 'since the slide before' : 'from healthy'}` : ''}. Show details`);
+    L.u = u;
+    // (Its spoken words are made between frames, pageRun, from what it shows then and the model's mode now.)
+    if (!textSame) { L.aCmp = !!model?.cmp; L.aSince = !!model?.since; L.aria = true; writeLab(L); }
   }
+  const ariaOf = (L) => `${L.sN} ${L.sV} ${L.sU}${L.sD ? `, ${L.sD.startsWith('+') ? 'up' : 'down'} ${L.sD.slice(1)} ${L.aCmp ? 'since then' : L.aSince ? 'since the slide before' : 'from healthy'}` : ''}. Show details`;
   // Which portal venule and which sinusoid carry the label: at first the left portal venule and the
   // sinusoid just below the middle of the left side; as the view is zoomed or panned, the label stays
   // on its vessel while that is comfortably in view, and otherwise moves to the one in view nearest
   // the middle of the free space (so it does not jump about).
   // A presenter slide that lights lobule terms fades every other label and zone name out (app.css, --lit-o: 0): those take no room.
   const LIT_OK = ['triad', 'arteriole', 'ductule', 'sinusoid', 'central', 'lymph', 'zone1', 'zone3'].map((t) => `lobule:${t}`);
+  const LIT_RE = /(^| )(lobule|sinusoid):/;
   const faded = (target) => {
-    const app = document.querySelector('.app'), lit = app?.dataset.lit;
-    if (!app?.classList.contains('presenting') || !lit || !/(^| )(lobule|sinusoid):/.test(lit)) return false;
-    return !(LIT_OK.includes(target) && lit.split(' ').includes(target));
+    const lit = litOf() && litRaw;   // (litOf keeps the page's app node and its lit terms current)
+    if (!appEl?.classList.contains('presenting') || !lit || !LIT_RE.test(lit)) return false;
+    return !(LIT_OK.includes(target) && litSet.has(target));
   };
   // (The lit terms split once each time they change, not a query and a split for every candidate spot of a layout.)
   let appEl = null, litRaw = null, litSet = new Set();
   const litOf = () => {
     if (!appEl?.isConnected) appEl = document.querySelector('.app');
     const r = appEl?.dataset.lit;
-    if (r !== litRaw) { litRaw = r; litSet = new Set(r ? r.split(' ') : []); }
+    if (r !== litRaw) { litRaw = r; litSet = new Set(r ? r.split(' ') : []); }   // alloc-rare: only when the lit terms change (a slide)
     return litSet;
   };
-  const named = (k) => litOf().has(`lobule:${LZ_TARGET[k]}`);
+  // (Each label's lit term, and each zone name's, written out once: no text is made to ask for them.)
+  const LIT_OF = {};
+  for (const k of Object.keys(LZ_TARGET)) LIT_OF[k] = `lobule:${LZ_TARGET[k]}`;
+  const ZONE_LIT = ['lobule:zone1', 'lobule:zone2', 'lobule:zone3'];
+  const named = (k) => litOf().has(LIT_OF[k]);
   const pick = { triad: 3, lt: null, sin: null, geo: null };
   // A sinusoid's reading sits half way from the portal tract to the central vein: along the middle generation's
   // course, or at the inner end of an outer one and the outer end of an inner one when only those are in view.
-  const sinAt = (t) => at(t.pts, t.lvl === 0 ? 0.95 : t.lvl === 2 ? 0.2 : 0.45);
+  // (A tube's spot never changes while the geometry stands, so it is worked out once and kept on the tube; read, never written.)
+  const sinAt = (t) => t.sinAt || (t.sinAt = atInto(t.pts, t.lvl === 0 ? 0.95 : t.lvl === 2 ? 0.2 : 0.45, [0, 0]));   // alloc-rare: only the first time a tube's spot is asked for (kept on the tube)
   const anchorOf = (key) => {
     const g = geo, C = g.lobules[0].corners;
     if (key === 'triad') return C[pick.triad];
-    if (key === 'cv') return [g.cx, g.cy];
+    if (key === 'cv') return g.cvAt || (g.cvAt = [g.cx, g.cy]);   // alloc-rare: only the first time for this geometry (kept on it; read, never written)
     if (key === 'lymph') return g.triads[pick.lt ?? pick.triad].lv.pts[0];
     if (key === 'ha' || key === 'bd') return g.triads[pick.triad][key];
     return sinAt(sinTube());
@@ -1234,35 +1407,51 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const sinTube = () => {
     const g = geo;
     if (pick.geo !== g) {   // a new lobule (or size): back to the left side
-      const ang = (t) => { const [x, y] = sinAt(t); return Math.abs(Math.atan2(y - g.cy, x - g.cx) - 2.75); };
-      pick.geo = g; pick.triad = 3; pick.sin = g.L1.reduce((b, t) => (ang(t) < ang(b) ? t : b), g.L1[0]).id;
+      const ang = (t) => { const p = sinAt(t); return Math.abs(Math.atan2(p[1] - g.cy, p[0] - g.cx) - 2.75); };   // alloc-rare: only for a new lobule or size (pick.geo)
+      pick.geo = g; pick.triad = 3; pick.sin = g.L1.reduce((b, t) => (ang(t) < ang(b) ? t : b), g.L1[0]).id;   // alloc-rare: only for a new lobule or size (pick.geo)
     }
     return g.tubes[pick.sin] || g.L1[0];
   };
+  // Where the labels' vessels are picked: the free space and its middle (set by pickAnchors), and the best spot found so far.
+  let paL = 0, paR = 0, paT = 0, paB = 0, paMx = 0, paMy = 0, bestC = null, bestS = Infinity;
+  const paInside = (x, y, m) => { const sx = sX(x), sy = sY(y); return sx > paL + m && sx < paR - m && sy > paT + m && sy < paB - m; };
+  const paSide = (x) => { const sx = sX(x); return Math.min(sx - paL, paR - sx) < 60; };
+  // Scans candidates (the six corners, or a list of tubes by their spot), keeping the best in bestC: kept clear of up to two other
+  // labelled spots (a, b), so the labels do not crowd each other. `list` null: the corners 0 to 5 of C.
+  function bestScan(list, C, m, na, ax, ay, bx, by) {
+    const n = list ? list.length : 6;
+    for (let i = 0; i < n; i++) {
+      const c = list ? list[i] : i, p = list ? sinAt(c) : C[c], px = p[0], py = p[1];
+      if (!paInside(px, py, m)) continue;
+      const x0 = sX(px), y0 = sY(py);
+      let pen = 0;
+      if (na > 0) pen = pen + Math.max(0, 110 - Math.hypot(sX(ax) - x0, sY(ay) - y0)) * 3;
+      if (na > 1) pen = pen + Math.max(0, 110 - Math.hypot(sX(bx) - x0, sY(by) - y0)) * 3;
+      const sc = Math.hypot(x0 - paMx, y0 - paMy) + pen;
+      if (sc < bestS) { bestS = sc; bestC = c; }
+    }
+  }
   function pickAnchors(fr) {
     const g = geo, C = g.lobules[0].corners;
     sinTube();
-    const inside = (p, m) => { const [x, y] = toScreen(p); return x > fr.l + m && x < fr.r - m && y > fr.t + m && y < fr.b - m; };
-    const mx = (fr.l + fr.r) / 2, my = (fr.t + fr.b) / 2, far = (p) => { const [x, y] = toScreen(p); return Math.hypot(x - mx, y - my); };
-    const best = (cands, posOf, avoid, m = 72) => {
-      let b = null, bs = Infinity;
-      for (const c of cands) {
-        const p = posOf(c);
-        if (!inside(p, m)) continue;
-        // Kept clear of the other labelled vessels, so the labels do not crowd each other.
-        const sc = far(p) + avoid.reduce((a, q) => { const [x0, y0] = toScreen(p), [x1, y1] = toScreen(q), d = Math.hypot(x1 - x0, y1 - y0); return a + Math.max(0, 110 - d) * 3; }, 0);
-        if (sc < bs) { bs = sc; b = c; }
-      }
-      return b;
-    };
+    paL = fr.l; paR = fr.r; paT = fr.t; paB = fr.b; paMx = (fr.l + fr.r) / 2; paMy = (fr.t + fr.b) / 2;
     // Framed to fit, the default pick stays wherever its vessel is in view (a lobule that fills a phone's width has its corners at the edge).
     const keep = atFit ? 4 : 36;
     // (A triad hard against the screen's side leaves its label no room beside it, only a long leader: another in view takes it.)
-    const side = (p) => { const [x] = toScreen(p); return Math.min(x - fr.l, fr.r - x) < 60; };
-    if (!inside(C[pick.triad], keep) || (side(C[pick.triad]) && C.some((q) => inside(q, 72) && !side(q)))) { const i = best([0, 1, 2, 3, 4, 5], (i) => C[i], [[g.cx, g.cy]]); if (i != null) pick.triad = i; }
+    let need = !paInside(C[pick.triad][0], C[pick.triad][1], keep);
+    if (!need && paSide(C[pick.triad][0])) for (let i = 0; i < 6; i++) if (paInside(C[i][0], C[i][1], 72) && !paSide(C[i][0])) { need = true; break; }
+    if (need) { bestC = null; bestS = Infinity; bestScan(null, C, 72, 1, g.cx, g.cy, 0, 0); if (bestC != null) pick.triad = bestC; }
     // The sinusoid's reading points at the middle of a sinusoid: a middle-generation one (half way from the portal tract
     // to the central vein), the outer or inner generation only when none of those is in view.
-    if (!inside(sinAt(sinTube()), keep) || (sinTube().lvl !== 1 && best(g.L1, sinAt, [], 44))) { const av = [[g.cx, g.cy], C[pick.triad]], t = best(g.L1, sinAt, av) || best(g.L1, sinAt, av, 44) || best([...g.L0, ...g.L2], sinAt, av); if (t) pick.sin = t.id; }
+    let sinNeed = !paInside(sinAt(sinTube())[0], sinAt(sinTube())[1], keep);
+    if (!sinNeed && sinTube().lvl !== 1) { bestC = null; bestS = Infinity; bestScan(g.L1, C, 44, 0, 0, 0, 0, 0); sinNeed = !!bestC; }
+    if (sinNeed) {
+      const tx = C[pick.triad][0], ty = C[pick.triad][1];
+      bestC = null; bestS = Infinity; bestScan(g.L1, C, 72, 2, g.cx, g.cy, tx, ty);
+      if (!bestC) { bestS = Infinity; bestScan(g.L1, C, 44, 2, g.cx, g.cy, tx, ty); }
+      if (!bestC) { bestS = Infinity; bestScan(g.L0, C, 72, 2, g.cx, g.cy, tx, ty); bestScan(g.L2, C, 72, 2, g.cx, g.cy, tx, ty); }
+      if (bestC) pick.sin = bestC.id;
+    }
   }
   const hitKind = (key) => (key === 'ha' || key === 'bd' ? { part: key, tri: pick.triad } : key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.lt ?? pick.triad } : { part: 'sin', tube: sinTube().id });
   // The lesion pointer: a pill near the spot, clear of the labels and cards, with a leader to a ring on it. Eases in and out.
@@ -1272,8 +1461,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // 2.4, which held every label 80 px off a tract on a Mac and forced the long leaders (Mohammad, 2 Nov 2026: "shorter callout lines").
   const CV_KEEP = 1.25, TRACT_KEEP = 1.3;
   const cvKeep = (g) => Math.max(14, g.rcv0 * CV_KEEP * V.k);
-  const keepDiscs = (g) => [[g.cx, g.cy, g.rcv0 * CV_KEEP], ...g.lobules[0].corners.map(([x, y]) => [x, y, (g.rt || 6) * TRACT_KEEP])]
-    .map(([x, y, r]) => { const [sx, sy] = toScreen([x, y]); return { x: sx, y: sy, r: Math.max(14, r * V.k) }; });
+  // The discs no label may cover, on screen: kept as seven objects and written again in place (read where asked for, within one layout).
+  const keepBuf = [{ x: 0, y: 0, r: 0 }, { x: 0, y: 0, r: 0 }, { x: 0, y: 0, r: 0 }, { x: 0, y: 0, r: 0 }, { x: 0, y: 0, r: 0 }, { x: 0, y: 0, r: 0 }, { x: 0, y: 0, r: 0 }];
+  const keepDiscs = (g) => {
+    const C = g.lobules[0].corners;
+    let d = keepBuf[0];
+    d.x = sX(g.cx); d.y = sY(g.cy); d.r = Math.max(14, g.rcv0 * CV_KEEP * V.k);
+    for (let i = 0; i < 6; i++) { d = keepBuf[i + 1]; d.x = sX(C[i][0]); d.y = sY(C[i][1]); d.r = Math.max(14, (g.rt || 6) * TRACT_KEEP * V.k); }
+    return keepBuf;
+  };
   const LONG_LEAD = 140;   // px: the longest leader an optional label may take (a vessel label pays steeply past it)
   const SHORT_LEAD = 45;   // px: a leader longer than this pays for every pixel past it (short callouts: Mohammad, 2 Nov 2026)
   const DESIGN = ['triad', 'lymph', 'cv', 'sin'];   // the labels with a designed spot (layoutLabels designed)
@@ -1285,37 +1481,58 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // how much of a box lies inside the outline (0 to 1), and `outside` lists spots just beyond the rim, on rays from a point
   // through the lobule, for a box of the given size. A frame too small to hold them clamps them back inside, where the
   // share costs the same for every spot, so the label falls back to the inside only when there is no room outside.
-  const hexOf = () => {
-    const hex = geo.lobules[0].corners.map(toScreen);
-    const inPoly = (x, y) => { let c = false; for (let i = 0, j = 5; i < 6; j = i++) { const [xi, yi] = hex[i], [xj, yj] = hex[j]; if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c; } return c; };
-    const memo = new Map();
-    const share = (b) => { const key = `${b.l | 0},${b.t | 0},${b.r | 0},${b.b | 0}`; let m = memo.get(key); if (m === undefined) memo.set(key, m = shareOf(b)); return m; };
-    const shareOf = (b) => { let n = 0; for (let i = 0; i < 5; i++) for (let k = 0; k < 3; k++) if (inPoly(b.l + ((b.r - b.l) * (i + 0.5)) / 5, b.t + ((b.b - b.t) * (k + 0.5)) / 3)) n++; return n / 15; };
-    const outside = (a, w, hh) => {
-      const out = [];
-      for (let i = 0; i < 24; i++) {
-        const t = (i / 24) * Math.PI * 2, dx = Math.cos(t), dy = Math.sin(t);
-        let exit = 0;
-        for (let e = 0; e < 6; e++) {
-          const [ax, ay] = hex[e], [bx, by] = hex[(e + 1) % 6], ex = bx - ax, ey = by - ay, den = dx * ey - dy * ex;
-          if (Math.abs(den) < 1e-9) continue;
-          const sv = ((ax - a[0]) * ey - (ay - a[1]) * ex) / den, u = ((ax - a[0]) * dy - (ay - a[1]) * dx) / den;
-          if (sv > 0 && u >= 0 && u <= 1) exit = Math.max(exit, sv);
-        }
-        if (!exit) continue;
-        const d = exit + Math.min(w / 2 / Math.max(Math.abs(dx), 1e-6), hh / 2 / Math.max(Math.abs(dy), 1e-6)) + 14;
-        out.push([a[0] + dx * d, a[1] + dy * d]);
+  // (The hexagon's six corners on screen, kept; share's answers kept by the box's whole numbers in a small table, cleared by hexOf; and
+  // outside's spots written into hexOut, its count returned.)
+  const hexX = new Float64Array(6), hexY = new Float64Array(6), hexOut = new Float64Array(48);
+  const SH_CAP = 1024, SH_MASK = SH_CAP - 1, shKey = new Int32Array(SH_CAP * 4), shVal = new Float64Array(SH_CAP), shGen = new Uint32Array(SH_CAP);
+  let shNow = 1, shN = 0;
+  const hexIn = (x, y) => { let c = false; for (let i = 0, j = 5; i < 6; j = i++) { const xi = hexX[i], yi = hexY[i], xj = hexX[j], yj = hexY[j]; if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c; } return c; };
+  const hexShareOf = (b) => { let n = 0; for (let i = 0; i < 5; i++) for (let k = 0; k < 3; k++) if (hexIn(b.l + ((b.r - b.l) * (i + 0.5)) / 5, b.t + ((b.b - b.t) * (k + 0.5)) / 3)) n++; return n / 15; };
+  const hexShare = (b) => {
+    const l = b.l | 0, t = b.t | 0, r = b.r | 0, bb = b.b | 0;
+    let i = (Math.imul(l, 73856093) ^ Math.imul(t, 19349663) ^ Math.imul(r, 83492791) ^ Math.imul(bb, 1013904223)) & SH_MASK;
+    while (shGen[i] === shNow) {
+      const k = i * 4;
+      if (shKey[k] === l && shKey[k + 1] === t && shKey[k + 2] === r && shKey[k + 3] === bb) return shVal[i];
+      i = (i + 1) & SH_MASK;
+    }
+    const m = hexShareOf(b);
+    if (shN < SH_CAP * 0.7) { const k = i * 4; shGen[i] = shNow; shKey[k] = l; shKey[k + 1] = t; shKey[k + 2] = r; shKey[k + 3] = bb; shVal[i] = m; shN++; }
+    return m;
+  };
+  const hexOutside = (a, w, hh) => {
+    let n = 0;
+    for (let i = 0; i < 24; i++) {
+      const t = (i / 24) * Math.PI * 2, dx = Math.cos(t), dy = Math.sin(t);
+      let exit = 0;
+      for (let e = 0; e < 6; e++) {
+        const ax = hexX[e], ay = hexY[e], bx = hexX[(e + 1) % 6], by = hexY[(e + 1) % 6], ex = bx - ax, ey = by - ay, den = dx * ey - dy * ex;
+        if (Math.abs(den) < 1e-9) continue;
+        const sv = ((ax - a[0]) * ey - (ay - a[1]) * ex) / den, u = ((ax - a[0]) * dy - (ay - a[1]) * dx) / den;
+        if (sv > 0 && u >= 0 && u <= 1) exit = Math.max(exit, sv);
       }
-      return out;
-    };
-    return { share, outside };
+      if (!exit) continue;
+      const d = exit + Math.min(w / 2 / Math.max(Math.abs(dx), 1e-6), hh / 2 / Math.max(Math.abs(dy), 1e-6)) + 14;
+      hexOut[n++] = a[0] + dx * d; hexOut[n++] = a[1] + dy * d;
+    }
+    return n >> 1;
+  };
+  const hexObj = { share: hexShare, outside: hexOutside };
+  const hexOf = () => {
+    const C = geo.lobules[0].corners;
+    for (let i = 0; i < 6; i++) { hexX[i] = sX(C[i][0]); hexY[i] = sY(C[i][1]); }
+    shNow++; shN = 0;
+    return hexObj;
   };
   const INSIDE_COST = 3000;   // a label wholly inside the lobule costs this much more than one wholly outside (far below any clash)
+  const ringO = { a: [0, 0], rr: 0, clear: 0 };   // (callRingAt's answer, written again in place: read within one layout, never kept)
   const callRingAt = (fr) => {
-    const a = call && toScreen(anchorOf(call.at));
-    if (!a || !(a[0] > fr.l && a[0] < fr.r && a[1] > fr.t && a[1] < fr.b)) return null;
+    if (!call) return null;
+    const q = anchorOf(call.at), ax = sX(q[0]), ay = sY(q[1]);
+    if (!(ax > fr.l && ax < fr.r && ay > fr.t && ay < fr.b)) return null;
     const rr = Math.max(10, (call.at === 'triad' ? (geo.rt || 6) * 1.6 : (geo.rcv0 || 6) * 1.1) * V.k);
-    return { a, rr, clear: rr + RING_STROKE / 2 + RING_GAP };
+    ringO.a[0] = ax; ringO.a[1] = ay; ringO.rr = rr; ringO.clear = rr + RING_STROKE / 2 + RING_GAP;
+    return ringO;
   };
   // How far a box reaches into the ring's clear zone (0 when it keeps out): the nearest point of the box to the centre.
   const ringDepth = (ring, b) => {
@@ -1323,46 +1540,65 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const dx = Math.max(b.l - ring.a[0], 0, ring.a[0] - b.r), dy = Math.max(b.t - ring.a[1], 0, ring.a[1] - b.b);
     return Math.max(0, ring.clear - Math.hypot(dx, dy));
   };
-  function placeCall(fr, placed, cards, leads, crosses, ring, hex, keep = [], into = () => 0) {
+  const NO_KEEP = [], ZERO_FN = () => 0;   // (read, never written: placeCall's defaults)
+  const CALL_RS = [70, 100, 140];
+  const candBuf = new Float64Array(3 * 80);   // (the pill's candidate spots: x, y and whether it is the one it sat at last time; 61 at most)
+  const candPQ = [0, 0], cBox = { l: 0, r: 0, t: 0, b: 0 };   // (a candidate's spot and box, handed to the checks)
+  let callFitN = -1, callFitS = '';
+  const boxOv = (p, q) => Math.max(0, Math.min(p.r, q.r) - Math.max(p.l, q.l)) * Math.max(0, Math.min(p.b, q.b) - Math.max(p.t, q.t));
+  function placeCall(fr, placed, cards, leads, crosses, ring, hex, keep = NO_KEEP, into = ZERO_FN) {
     if (!callEl.isConnected) { mount(labels, callEl); mount(leaders, callLine, callRing); }
     // (Not shown until its size is known for its words: placed at a guessed size, it slid sideways once measured, seconds in on a slow renderer.)
     const on = !!ring && callEl._lzSz?.txt === callEl.textContent;
     if (ring && !on) { measQ.add(callEl); if (!measT) measT = restPass(measureRun); }
-    for (const e of [callEl, callLine, callRing]) e.classList.toggle('on', on);
+    for (let i = 0; i < 3; i++) callParts[i].classList.toggle('on', on);
     if (!on) return null;
-    const { a, rr } = ring;
+    const a = ring.a, rr = ring.rr;
     // (A phone on its side keeps the data card's whole column out of the free space, though the card stands at its top only: the
     // pill may also stand below that card, clear of it, the key and the nav pill by their cost as cards. Kept to the free space's
     // 80 px strip there, Sites 6 had no clear spot and set it on the nav pill.)
-    if (document.querySelector('.pz.low')) fr = { ...fr, r: Math.max(fr.r, geo.W - cssN('--right-occ') - 12) };
+    let frR = fr.r;
+    if (document.querySelector('.pz.low')) frR = Math.max(frR, geo.W - cssN('--right-occ') - 12);
     // Never wider than the free space: a long line wraps instead of running off the screen.
-    const fit = `${Math.max(120, Math.round(fr.r - fr.l - 20))}px`;
+    const fitN = Math.max(120, Math.round(frR - fr.l - 20));
+    if (fitN !== callFitN) { callFitN = fitN; callFitS = `${fitN}px`; }   // alloc-rare: only when the free space's width changes
     // (Its room is written between frames, a rest pass, and the pill measured again there: never in the frame that lays it out.)
-    if (fit !== callFit) { callFit = fit; if (!callFitT) callFitT = restPass(writeCallFit); }
-    const [w, hh] = sizeOf(callEl, 120, 28), pad = 10;
-    const ov = (p, q) => Math.max(0, Math.min(p.r, q.r) - Math.max(p.l, q.l)) * Math.max(0, Math.min(p.b, q.b) - Math.max(p.t, q.t));
-    let best = null;
+    if (callFitS !== callFit) { callFit = callFitS; if (!callFitT) callFitT = restPass(writeCallFit); }
+    sizeOf(callEl, 120, 28);
+    const w = szW, hh = szH, pad = 10;
     // Where it sat last time (relative to the spot) is tried too and kept while it is still as good: a value easing or a
     // label that moved a pixel never flips the pill to another side, and the leader with it.
-    const cands = [];
-    for (const r0 of [70, 100, 140]) for (let i = 0; i < 12; i++) { const t = (i / 12) * Math.PI * 2 - Math.PI / 2, r = Math.max(r0, ring.clear + hh / 2 + 8 + r0 - 70); cands.push([a[0] + Math.cos(t) * (r + w / 3), a[1] + Math.sin(t) * r, 0]); }
-    for (const [px, py] of hex.outside(a, w, hh)) cands.push([px, py, 0]);
-    if (callPrev && callPrev.at === call.at) cands.push([a[0] + callPrev.dx, a[1] + callPrev.dy, 1]);
-    for (const [px, py, prev] of cands) {
-      const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad), y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
-      const box = { l: x - w / 2 - 6, r: x + w / 2 + 6, t: y - hh / 2 - 6, b: y + hh / 2 + 6 };
-      const cost = placed.reduce((c, o) => c + (ov(box, o) > 0 ? 1e6 + ov(box, o) * 100 : 0) + (crosses(a, [x, y], o) ? 1e5 : 0), 0)
-        + leads.reduce((c, [p, q]) => c + (crosses(p, q, box) ? 1e6 : 0), 0) + (ringDepth(ring, box) > 0 ? 1e6 + ringDepth(ring, box) * 1e4 : 0) + keep.reduce((c, q) => { const d = into(q, box); return c + (d > 0 ? 1e6 + d * 1e3 : 0); }, 0) + hex.share(box) * INSIDE_COST + cards.reduce((c, o) => c + (ov(box, o) > 0 ? 1e6 + ov(box, o) * 400 : 0), 0) + Math.hypot(x - a[0], y - a[1]) * 0.5 + Math.max(0, Math.hypot(x - a[0], y - a[1]) - w / 2 - 110) * 30 - (prev ? 60 : 0);
-      if (!best || cost < best.cost) best = { x, y, box, cost };
+    let nc = 0;
+    for (let ri = 0; ri < 3; ri++) {
+      const r0 = CALL_RS[ri];
+      for (let i = 0; i < 12; i++) { const t = (i / 12) * Math.PI * 2 - Math.PI / 2, r = Math.max(r0, ring.clear + hh / 2 + 8 + r0 - 70); candBuf[nc++] = a[0] + Math.cos(t) * (r + w / 3); candBuf[nc++] = a[1] + Math.sin(t) * r; candBuf[nc++] = 0; }
     }
-    placed.push(best.box); callPrev = { at: call.at, dx: best.x - a[0], dy: best.y - a[1] }; callCost = best.cost;
-    put(callEl, best.x - w / 2, best.y - hh / 2);
+    const nOut = hex.outside(a, w, hh);
+    for (let i = 0; i < nOut; i++) { candBuf[nc++] = hexOut[2 * i]; candBuf[nc++] = hexOut[2 * i + 1]; candBuf[nc++] = 0; }
+    if (callPrev && callPrev.at === call.at) { candBuf[nc++] = a[0] + callPrev.dx; candBuf[nc++] = a[1] + callPrev.dy; candBuf[nc++] = 1; }
+    let have = false, bx = 0, by = 0, bcost = 0, bl = 0, br = 0, bt = 0, bb = 0;
+    for (let ci = 0; ci < nc; ci += 3) {
+      const px = candBuf[ci], py = candBuf[ci + 1], prev = candBuf[ci + 2];
+      const x = clamp(px, fr.l + w / 2 + pad, frR - w / 2 - pad), y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
+      cBox.l = x - w / 2 - 6; cBox.r = x + w / 2 + 6; cBox.t = y - hh / 2 - 6; cBox.b = y + hh / 2 + 6;
+      candPQ[0] = x; candPQ[1] = y;
+      // (The same sum, in the same order, as it was when each part was a reduce.)
+      let c1 = 0; for (let i = 0; i < placed.length; i++) { const o = placed[i], v = boxOv(cBox, o); c1 = c1 + (v > 0 ? 1e6 + v * 100 : 0) + (crosses(a, candPQ, o) ? 1e5 : 0); }
+      let c2 = 0; for (let i = 0; i < leads.length; i++) c2 = c2 + (crosses(leads[i][0], leads[i][1], cBox) ? 1e6 : 0);
+      const rd0 = ringDepth(ring, cBox);
+      let c3 = 0; for (let i = 0; i < keep.length; i++) { const d = into(keep[i], cBox); c3 = c3 + (d > 0 ? 1e6 + d * 1e3 : 0); }
+      let c4 = 0; for (let i = 0; i < cards.length; i++) { const o = cards[i], v = boxOv(cBox, o); c4 = c4 + (v > 0 ? 1e6 + v * 400 : 0); }
+      const cost = c1 + c2 + (rd0 > 0 ? 1e6 + rd0 * 1e4 : 0) + c3 + hex.share(cBox) * INSIDE_COST + c4 + Math.hypot(x - a[0], y - a[1]) * 0.5 + Math.max(0, Math.hypot(x - a[0], y - a[1]) - w / 2 - 110) * 30 - (prev ? 60 : 0);
+      if (!have || cost < bcost) { have = true; bx = x; by = y; bcost = cost; bl = cBox.l; br = cBox.r; bt = cBox.t; bb = cBox.b; }
+    }
+    placed.push({ l: bl, r: br, t: bt, b: bb }); callPrev = { at: call.at, dx: bx - a[0], dy: by - a[1] }; callCost = bcost;   // (these two are kept by the caller: they are its answer)
+    put(callEl, bx - w / 2, by - hh / 2);
     // The leader starts on the ring's edge (not at its centre) and runs to the pill.
-    const dl = Math.hypot(best.x - a[0], best.y - a[1]) || 1, e0 = rr / dl;
-    setGeo(callLine, 'x1', a[0] + (best.x - a[0]) * e0); setGeo(callLine, 'y1', a[1] + (best.y - a[1]) * e0); setGeo(callLine, 'x2', best.x); setGeo(callLine, 'y2', best.y);
+    const dl = Math.hypot(bx - a[0], by - a[1]) || 1, e0 = rr / dl;
+    setGeo(callLine, 'x1', a[0] + (bx - a[0]) * e0); setGeo(callLine, 'y1', a[1] + (by - a[1]) * e0); setGeo(callLine, 'x2', bx); setGeo(callLine, 'y2', by);
     setGeo(callRing, 'cx', a[0]); setGeo(callRing, 'cy', a[1]); setGeo(callRing, 'r', rr);
     leadGL.paint();
-    return [[a[0] + (best.x - a[0]) * e0, a[1] + (best.y - a[1]) * e0], [best.x, best.y]];
+    return [[a[0] + (bx - a[0]) * e0, a[1] + (by - a[1]) * e0], [bx, by]];
   }
   // Zone names written in the bands themselves, as the organs are named on the anatomy: quiet capitals in each
   // zone's color, on the radius to the flat bottom edge, so each name runs along its band. The three elements are made
@@ -1373,13 +1609,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // room and no taps, only once the fade is over; one that comes back fades in (app.css lz-in) or, caught mid-fade, turns back from
   // where it is. Its leader and dot fade with it (.ld-gone). They used to cut out and pop in (P15).
   const OFF_MS = D_SMALL;
+  function offEnd(el, done) { el._lzOff = 0; setHid(el, true); classSoon(el, 'lz-off', false); el.classList.remove('edge'); done?.(); }
+  const offFire = (el, done) => { if (classHas(el, 'lz-off')) offEnd(el, done); };
   function fadeOut(el, done) {
     if (isHid(el)) { done?.(); return; }
     if (classHas(el, 'lz-off')) return;
-    const end = () => { el._lzOff = 0; setHid(el, true); classSoon(el, 'lz-off', false); el.classList.remove('edge'); done?.(); };
-    if (reduce.matches) { end(); return; }
+    if (reduce.matches) { offEnd(el, done); return; }
     classSoon(el, 'lz-off', true);
-    clearTimeout(el._lzOff); el._lzOff = setTimeout(() => { if (classHas(el, 'lz-off')) end(); }, OFF_MS);
+    clearTimeout(el._lzOff); el._lzOff = setTimeout(offFire, OFF_MS, el, done);
   }
   function fadeIn(el) { clearTimeout(el._lzOff); el._lzOff = 0; classSoon(el, 'lz-off', false); setHid(el, false); }
   const gone = (el) => isHid(el) || classHas(el, 'lz-off');
@@ -1390,36 +1627,53 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     z.style.setProperty('--zk', '1');
     return z;
   });
+  const NO_BOXES = [];   // (read, never written: no zone names on show)
+  const ZONE_Q = [0.83, 0.51, 0.2];
+  const zSx = new Float64Array(12), zSy = new Float64Array(12), zTx = new Float64Array(13), zTy = new Float64Array(13), zTd = new Float64Array(13);
+  const zBox = { l: 0, r: 0, t: 0, b: 0 };
   function placeZones(fr0, hx, hy, lesion = null) {
-    if (!zonesOn) { while (zoneEls.length) { const z = zoneEls.pop(); fadeOut(z, () => restRemove(z)); } return []; }
+    if (!zonesOn) { while (zoneEls.length) { const z = zoneEls.pop(); fadeOut(z, () => restRemove(z)); } return NO_BOXES; }   // alloc-rare: only when the Zones layer is switched off (the names are taken out once)
     const { R, cx, cy } = geo, a = Math.PI / 2, ap = R * 0.866, boxes = [];
-    [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
+    const midx = (fr0.l + fr0.r) / 2, midy = (fr0.t + fr0.b) / 2;
+    for (let i = 0; i < 3; i++) {
+      const q = ZONE_Q[i];
       let z = zoneEls[i];
-      if (!z) z = zoneEls[i] = ZONE_TPL[i].cloneNode(true);   // (cloned from its model, made with the view: a frame builds nothing)
+      if (!z) z = zoneEls[i] = ZONE_TPL[i].cloneNode(true);   // (cloned from its model, made with the view: a frame builds nothing)   // alloc-rare: only the first layout with the Zones layer on
       if (!z.isConnected) mount(labels, z);
       // Its usual spot (on the radius to the flat bottom edge); if that is out of view, the nearest in-view spot
       // of the same zone (the same ring, at the other five sides and corners), else clamped to the free edge.
-      const ring = [];
-      for (let k = 0; k < 6; k++) { const th = a + k * Math.PI / 3; ring.push([cx + Math.cos(th) * ap * q, cy + Math.sin(th) * ap * q], [cx + Math.cos(th + Math.PI / 6) * R * q * 0.95, cy + Math.sin(th + Math.PI / 6) * R * q * 0.95]); }
-      const inV = ([x, y]) => x > fr0.l + 40 && x < fr0.r - 40 && y > fr0.t + 20 && y < fr0.b - 20;
-      const mid = [(fr0.l + fr0.r) / 2, (fr0.t + fr0.b) / 2];
-      const spots = ring.map(toScreen), first = spots[0];
-      const tries = [...(inV(first) ? [first] : []), ...spots.slice(1).filter(inV).sort((u, v) => Math.hypot(u[0] - mid[0], u[1] - mid[1]) - Math.hypot(v[0] - mid[0], v[1] - mid[1]))];
-      if (!tries.length) tries.push([clamp(first[0], fr0.l + 40, fr0.r - 40), clamp(first[1], fr0.t + 20, fr0.b - 20)]);
-      put(z, tries[0][0], tries[0][1]);
-      const [w, hh] = sizeOf(z, 92, 36);
-      const boxAt = ([x, y]) => ({ l: x - w / 2 - hx, r: x + w / 2 + hx, t: y - hh / 2 - hy, b: y + hh / 2 + hy });
+      for (let k = 0; k < 6; k++) {
+        const th = a + k * Math.PI / 3;
+        zSx[2 * k] = sX(cx + Math.cos(th) * ap * q); zSy[2 * k] = sY(cy + Math.sin(th) * ap * q);
+        zSx[2 * k + 1] = sX(cx + Math.cos(th + Math.PI / 6) * R * q * 0.95); zSy[2 * k + 1] = sY(cy + Math.sin(th + Math.PI / 6) * R * q * 0.95);
+      }
+      let nT = 0;
+      if (zInV(fr0, zSx[0], zSy[0])) { zTx[0] = zSx[0]; zTy[0] = zSy[0]; nT = 1; }
+      const base = nT;
+      for (let k = 1; k < 12; k++) {
+        if (!zInV(fr0, zSx[k], zSy[k])) continue;
+        const d = Math.hypot(zSx[k] - midx, zSy[k] - midy);
+        let j = nT;
+        while (j > base && zTd[j - 1] > d) { zTx[j] = zTx[j - 1]; zTy[j] = zTy[j - 1]; zTd[j] = zTd[j - 1]; j--; }
+        zTx[j] = zSx[k]; zTy[j] = zSy[k]; zTd[j] = d; nT++;
+      }
+      if (!nT) { zTx[0] = clamp(zSx[0], fr0.l + 40, fr0.r - 40); zTy[0] = clamp(zSy[0], fr0.t + 20, fr0.b - 20); nT = 1; }
+      put(z, zTx[0], zTy[0]);
+      sizeOf(z, 92, 36);
+      const w = szW, hh = szH;
       // A zone's name never sits on the slide's lesion ring (the ring is what the slide points at): it takes another
       // spot on its band, or leaves the view for that slide.
-      const at = tries.find((p) => !ringDepth(lesion, boxAt(p)));
-      if (!at) { fadeOut(z); return; }
+      let at = -1;
+      for (let j = 0; j < nT; j++) { zBox.l = zTx[j] - w / 2 - hx; zBox.r = zTx[j] + w / 2 + hx; zBox.t = zTy[j] - hh / 2 - hy; zBox.b = zTy[j] + hh / 2 + hy; if (!ringDepth(lesion, zBox)) { at = j; break; } }
+      if (at < 0) { fadeOut(z); continue; }
       fadeIn(z);
-      put(z, at[0], at[1]);
+      put(z, zTx[at], zTy[at]);
       // (A zone the slide's words leave unlit fades out: its spot is free for the labels.)
-      if (!faded(`lobule:zone${i + 1}`)) boxes.push(boxAt(at));
-    });
+      if (!faded(ZONE_LIT[i])) boxes.push({ l: zTx[at] - w / 2 - hx, r: zTx[at] + w / 2 + hx, t: zTy[at] - hh / 2 - hy, b: zTy[at] + hh / 2 + hy });   // (the layout keeps these boxes)
+    }
     return boxes;
   }
+  const zInV = (fr0, x, y) => x > fr0.l + 40 && x < fr0.r - 40 && y > fr0.t + 20 && y < fr0.b - 20;
   // The layout the labels were last placed for ({ b: everything but the view, k, x, y }), which a pan carries them from.
   let follow = null, followT = 0, rough = false;
   // (A wheel or a trackpad's pinch is a hand too, as a scroll is: each of them changed the zoom on every frame and laid the labels out in
@@ -1430,27 +1684,47 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Whether the labels as laid out (follow.ride), each carried with its spot to the view now, still keep the layout's rules: no label on
   // another, a zone's name or a chip, none on another's leader, no two leaders crossed, none on a structure (which grows as the view
   // zooms in) or a card, each inside the free space and what it names still in it, and no chip's spot come back into view.
+  // (rideHolds' scratch: a spot carried to the view now, and the pieces carried: boxes and leaders, grown to the number on show.)
+  let mvx = 0, mvy = 0;
+  const rideMv = (f, ax, ay) => { mvx = (ax - f.x) / f.k * V.k + V.x; mvy = (ay - f.y) / f.k * V.k + V.y; };
+  const rhZ = [], rhB = [], rhP = [], rhQ = [];
+  const rhBox = (pool, i) => pool[i] || (pool[i] = { l: 0, r: 0, t: 0, b: 0 });   // alloc-rare: only grows to the most pieces ever shown
+  const rhPt = (pool, i) => pool[i] || (pool[i] = [0, 0]);   // alloc-rare: only grows to the most labels ever shown
   function rideHolds(fr) {
     const R = follow.ride, f = follow, g = geo;
     if (call && callRingAt(fr)) return false;
-    const mv = (a) => [(a[0] - f.x) / f.k * V.k + V.x, (a[1] - f.y) / f.k * V.k + V.y];
-    const shift = (b, a) => { const [x, y] = mv(a), dx = x - a[0], dy = y - a[1]; return { l: b.l + dx, r: b.r + dx, t: b.t + dy, b: b.b + dy }; };
-    const inFree = ([x, y]) => x >= fr.l - 4 && x <= fr.r + 4 && y >= fr.t - 4 && y <= fr.b + 4;
-    if (R.chips.some((c) => inFree(mv(c.a)))) return false;
-    const keep = keepDiscs(g);
-    const others = [...R.zones.map((b) => shift(b, [(b.l + b.r) / 2, (b.t + b.b) / 2])), ...R.chips.map((c) => c.box)];
-    const boxes = [], leads = [];
-    for (const it of R.labs) {
-      const a = mv(it.a), b = shift(it.box, it.a);
-      if (!inFree(a) || b.l < fr.l + R.ix - 0.5 || b.r > fr.r - R.ix + 0.5 || b.t < fr.t + R.iy - 0.5 || b.b > fr.b - R.iy + 0.5) return false;
-      if (keep.some((q) => into(q, b) > 0) || R.cards.some((c) => overlap(b, c) > 0)) return false;
-      boxes.push(b); leads.push([a, [it.c[0] + a[0] - it.a[0], it.c[1] + a[1] - it.a[1]]]);
+    const chips = R.chips, labsR = R.labs, zones = R.zones;
+    for (let i = 0; i < chips.length; i++) {
+      rideMv(f, chips[i].a[0], chips[i].a[1]);
+      if (mvx >= fr.l - 4 && mvx <= fr.r + 4 && mvy >= fr.t - 4 && mvy <= fr.b + 4) return false;
     }
-    for (let i = 0; i < boxes.length; i++) {
-      if (others.some((o) => overlap(boxes[i], o) > 0 || crosses(...leads[i], o))) return false;
-      for (let j = 0; j < boxes.length; j++) {
+    const keep = keepDiscs(g);
+    // The zone names, each moved by its own centre's move.
+    for (let i = 0; i < zones.length; i++) {
+      const b = zones[i], ax = (b.l + b.r) / 2, ay = (b.t + b.b) / 2;
+      rideMv(f, ax, ay);
+      const dx = mvx - ax, dy = mvy - ay, o = rhBox(rhZ, i);
+      o.l = b.l + dx; o.r = b.r + dx; o.t = b.t + dy; o.b = b.b + dy;
+    }
+    const n = labsR.length;
+    for (let i = 0; i < n; i++) {
+      const it = labsR[i], bx = it.box;
+      rideMv(f, it.a[0], it.a[1]);
+      const ax = mvx, ay = mvy, dx = ax - it.a[0], dy = ay - it.a[1], b = rhBox(rhB, i);
+      b.l = bx.l + dx; b.r = bx.r + dx; b.t = bx.t + dy; b.b = bx.b + dy;
+      if (!(ax >= fr.l - 4 && ax <= fr.r + 4 && ay >= fr.t - 4 && ay <= fr.b + 4) || b.l < fr.l + R.ix - 0.5 || b.r > fr.r - R.ix + 0.5 || b.t < fr.t + R.iy - 0.5 || b.b > fr.b - R.iy + 0.5) return false;
+      for (let k = 0; k < keep.length; k++) if (into(keep[k], b) > 0) return false;
+      for (let k = 0; k < R.cards.length; k++) if (overlap(b, R.cards[k]) > 0) return false;
+      const pa = rhPt(rhP, i), pq = rhPt(rhQ, i);
+      pa[0] = ax; pa[1] = ay; pq[0] = it.c[0] + ax - it.a[0]; pq[1] = it.c[1] + ay - it.a[1];
+    }
+    for (let i = 0; i < n; i++) {
+      const bi = rhB[i], pa = rhP[i], pq = rhQ[i];
+      for (let k = 0; k < zones.length; k++) { const o = rhZ[k]; if (overlap(bi, o) > 0 || crosses(pa, pq, o)) return false; }
+      for (let k = 0; k < chips.length; k++) { const o = chips[k].box; if (overlap(bi, o) > 0 || crosses(pa, pq, o)) return false; }
+      for (let j = 0; j < n; j++) {
         if (j === i) continue;
-        if ((j > i && overlap(boxes[i], boxes[j]) > 0) || crosses(...leads[i], boxes[j]) || (j > i && cut(...leads[i], ...leads[j]))) return false;
+        if ((j > i && overlap(bi, rhB[j]) > 0) || crosses(pa, pq, rhB[j]) || (j > i && cut(pa, pq, rhP[j], rhQ[j]))) return false;
       }
     }
     return true;
