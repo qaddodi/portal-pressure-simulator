@@ -81,7 +81,7 @@ test('the slide\'s marks start once the cards are in sight (CARDS_SEEN), and the
 test('words out: cards already out or on their way out make the move wait only for what is still fading', () => {
   const out = src.slice(src.indexOf('function wordsOut(next) {'), src.indexOf('const fadeLeft ='));
   assert.match(out, /const leaving = !dataOut && !out\.some\(/);
-  assert.match(out, /const fading = leaving \? fadeLeft\(\[\.\.\.out, data, ui\.scl, ui\.shade\]\) : 0;/);
+  assert.match(out, /const fading = leaving \? Math\.max\(fadeLeft\(\[\.\.\.out, data, ui\.scl, ui\.shade\]\), \.\.\.\[\.\.\.out, data, ui\.shade\]\.map\(throwLeft\)\) : 0;/, 'what is still fading, by the browser or thrown by card-throw.js');
   assert.match(out, /if \(leaving\) return fading \? fading \+ 20 : 0;\s*\n\s*return D_SMALL \+ 20;/);
   assert.match(src, /const fadeLeft = \(els\) => els\.reduce\(/);
 });
