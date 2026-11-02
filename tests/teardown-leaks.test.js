@@ -87,7 +87,7 @@ test('B03: putText wrappers are released with their view, and a sweep frees thos
   assert.match(u, /implicitW\.add\(el\)/, 'every implicit wrapper is registered');
   assert.match(u, /if \(!el\.isConnected\) dropWords\(el\)/, 'the sweep frees wrappers whose element left the page');
   assert.match(u, /w\.dispose\(\)/);
-  assert.match(u, /releaseWords\(el\); el\.remove\(\)/, 'a closed menu releases its readouts');
+  assert.match(u, /releaseWords\(el\); restRemove\(el\)/, 'a closed menu releases its readouts');
   const c = strip(src('card.js'));
   assert.ok((c.match(/releaseWords\(/g) || []).length >= 4, 'the card releases the readouts it replaces or hides');
 });

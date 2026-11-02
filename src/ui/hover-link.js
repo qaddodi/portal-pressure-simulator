@@ -7,7 +7,7 @@
 //
 // This file is the pure part: what a label names, and which labels name a vessel. stage.js does the lighting.
 
-import { normalizeSel } from './actions.js?v=a6cf0cae4b';
+import { normalizeSel } from './actions.js?v=bd42614da8';
 import { LABEL_VESSEL } from './anatomy.js?v=fe0f3d1f0e';
 
 /** The switch: ?hoverlink=0 gives the app as it was (no listeners, no class on the label layer). */
