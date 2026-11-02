@@ -43,9 +43,10 @@ test("a picture's job paints one op a step, through nested groups, and lays each
   const spec = { ops: [square(0, 0), square(20, 0), group([square(0, 20), group([square(10, 30)], 0.4), square(20, 20)]), square(40, 40)], opacity: 1, mask: null, root: null };
   const job = p.bakeJob(spec, ID, 100, 100, { fb: 1 });
   const results = withClock(() => { const r = []; for (let i = 0; i < 20 && r.at(-1) !== 'done'; i++) r.push(job.step(performance.now() + 5)); return r; });
-  // Seven ops (four shapes at the top, the group, three inside it with the inner group, one inside that): one a step.
-  assert.equal(results.length, 8, results.join());
-  assert.deepEqual(results.slice(0, -1), Array(7).fill('more'));
+  // Seven ops (four shapes at the top, the group, three inside it with the inner group, one inside that) and the two nested layers'
+  // composites, each a unit of its own (recs-production-120hz §15): one a step.
+  assert.equal(results.length, 10, results.join());
+  assert.deepEqual(results.slice(0, -1), Array(9).fill('more'));
   assert.equal(results.at(-1), 'done');
   assert.equal(shape.log.filter((l) => l[0] === 'fill').length, 6, 'every shape painted once');
   assert.equal(count(calls, 'drawArrays'), 6 + 2, 'six shapes painted over their targets, two nested layers laid');
@@ -77,8 +78,9 @@ test('a picture group with an opacity of its own is painted in a layer, a few op
   const { gl, calls } = fakeGL(), shape = fakeShape(), p = createOrganPaint(gl, shape);
   const spec = { ops: [square(0, 0), square(10, 0), square(20, 0)], opacity: 0.6, mask: null, root: null };
   const job = p.bakeJob(spec, ID, 100, 100, {});
-  const r = withClock(() => [job.step(performance.now() + 5), job.step(performance.now() + 5), job.step(performance.now() + 5)]);
-  assert.deepEqual(r, ['more', 'more', 'done']);
+  // (Three shapes and the layer's composite, each a unit of its own: recs-production-120hz §15.)
+  const r = withClock(() => { const out = []; for (let i = 0; i < 8 && out.at(-1) !== 'done'; i++) out.push(job.step(performance.now() + 5)); return out; });
+  assert.deepEqual(r, ['more', 'more', 'more', 'done']);
   const lays = calls.filter((c) => c[0] === 'uniform1f').map((c) => c[2]).filter((v) => v === 0.6);
   assert.equal(lays.length, 1, 'laid once, with its opacity');
 });

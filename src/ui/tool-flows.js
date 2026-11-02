@@ -18,11 +18,11 @@
 // so it counts as liver.
 
 import { frame, cancelFrame } from './frame.js?v=c67ad74ad8';
-import { restPass, cancelRest } from './rest-pass.js?v=0553dca9cc';
+import { restPass, cancelRest } from './rest-pass.js?v=6eb6322f82';
 import { EDGES, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from '../engine/topology.js?v=4044766e96';
 import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
 import { measure } from './glyph-measure.js?v=d02d2bd1bd';
-import { createSvgGL, svgModel } from './svg-gl.js?v=5a3e75df7a';
+import { createSvgGL, svgModel } from './svg-gl.js?v=8062ee2743';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const STENTS = new Set(['TIPS', 'DIPS']);

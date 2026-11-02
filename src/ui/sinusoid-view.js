@@ -19,9 +19,9 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=6dd9ffb490';
-import { createSvgGL, svgModel } from './svg-gl.js?v=5a3e75df7a';
-import { pressureColor } from './colormap.js?v=1f957035b7';
+import { h, fmt, clamp, lerp } from './util.js?v=12b3da4f99';
+import { createSvgGL, svgModel } from './svg-gl.js?v=8062ee2743';
+import { pressureColor } from './colormap.js?v=23bfb16a76';
 import { isPaused } from './clock.js?v=b2a395ebe7';
 import { store } from './store.js?v=bf85512db4';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
@@ -34,7 +34,7 @@ import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.j
 import { FADE_MS, fadeAlpha } from './res-fade.js?v=6b7cfd68e6';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { restPass } from './rest-pass.js?v=0553dca9cc';
+import { restPass } from './rest-pass.js?v=6eb6322f82';
 // ?willchange=0 in the address: the layer keeps will-change always, as before.
 const SV_LAYER = !(typeof location !== 'undefined' && /[?&]willchange=0\b/.test(location.search));
 const nextFrame = frameFor('sinusoid-view');

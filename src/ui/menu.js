@@ -6,13 +6,13 @@
 
 import { store } from './store.js?v=bf85512db4';
 import { createTraceGL, fitPen } from './trace-gl.js?v=a3efa5e0e4';
-import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=6dd9ffb490';
+import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=12b3da4f99';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=1f957035b7';
-import { ownsSideways, pageGo } from './swipe.js?v=ce09c5a3cc';
+import { pressureColor } from './colormap.js?v=23bfb16a76';
+import { ownsSideways, pageGo } from './swipe.js?v=8d5a6dd1d3';
 import { frameFor } from './frame.js?v=c67ad74ad8';
-import { restPass } from './rest-pass.js?v=0553dca9cc';
+import { restPass } from './rest-pass.js?v=6eb6322f82';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { leaveFromHere, menuLeaveOff } from './menu-leave.js?v=e885166f40';
 import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=7513a88c68';

@@ -12,8 +12,7 @@
 //
 // ?restpass=0 runs each on a plain zero timer of its own instead (no shared message port), still never inside a frame.
 
-import { PREP_BUDGET, prepLeft, prepSpend, prepWindowLeft, STARVE_MS } from './prep-budget.js?v=bd17380ca7';
-import { frameBudget } from './frame.js?v=c67ad74ad8';
+import { PREP_BUDGET, prepLeft, prepSpend, prepWindowLeft, STARVE_MS, frameMs } from './prep-budget.js?v=d0882598b5';
 
 export const REST_PASS = !(typeof location !== 'undefined' && /[?&]restpass=0\b/.test(location.search || ''));
 
@@ -44,7 +43,7 @@ function drain() {
   const shared = SLICE_ON && PREP_BUDGET;
   // (recs-production-120hz §15: the slice is at most half the target frame (4.2 ms at 120 Hz), and a pass is not started when the
   // passes' mean cost would carry the drain past it: a callback cannot be stopped once it runs, so it is judged before.)
-  let slice = Math.min(REST_SLICE, frameBudget() / 2);
+  let slice = Math.min(REST_SLICE, frameMs() / 2);
   if (shared) {
     const left = prepLeft(t0);
     if (left <= 0 && oldestWait(t0) < STARVE_MS) { stats.waited = (stats.waited || 0) + 1; posted = true; setTimeout(drain, Math.max(1, prepWindowLeft(t0))); return; }

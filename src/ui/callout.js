@@ -3,8 +3,8 @@
 // and tint, clipped to the shape's path); the outline is that same path stroked inside it (4 px, so only the inner 2 px shows; the
 // hairline of cl-hair strokes 2 px, so 1 px shows). The pointer reaches outside the card's box, so the child is the box grown by the pointer's depth.
 
-import { createSvgGL, svgModel } from './svg-gl.js?v=5a3e75df7a';
-import { restPass } from './rest-pass.js?v=0553dca9cc';
+import { createSvgGL, svgModel } from './svg-gl.js?v=8062ee2743';
+import { restPass } from './rest-pass.js?v=6eb6322f82';
 
 const PTR = 11;   // how far the pointer reaches past the card's edge, and its half-width at the edge
 const KEEP = 28;  // the pointer stays this far from the card's sides, clear of the rounded corners

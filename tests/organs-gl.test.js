@@ -188,7 +188,8 @@ test("a picture's painting stops at its time limit at any depth of nested groups
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   const run = paint.slice(paint.indexOf('function runJob('), paint.indexOf('function paintOps('));
   // The time is checked before every op of every frame, whatever its depth, after at least one op (so each step moves on).
-  assert.match(run, /if \(n > 0 && performance\.now\(\) > until\) return false;\n\s+const op = f\.ops\[f\.i\+\+\];\n\s+n\+\+;/);
+  // (A nested layer's composite is a unit of its own, checked the same way: Holding 120 Hz recs §15.)
+  assert.match(run, /if \(n > 0 && performance\.now\(\) > until\) return false;\n\s+if \(f\.lay\) \{\n\s+job\.frames\.pop\(\); n\+\+;[\s\S]*?continue;\n\s+\}\n\s+const op = f\.ops\[f\.i\+\+\];\n\s+n\+\+;/);
   assert.doesNotMatch(run, /paintOps\(|paintGroup\(/, 'no nested group painted whole inside a step');
   // The nested layers hold a half-painted group between steps: one picture's job at a time, and a job whose layers were made
   // again meanwhile (the canvas grew) starts its picture over rather than lay a wiped layer.

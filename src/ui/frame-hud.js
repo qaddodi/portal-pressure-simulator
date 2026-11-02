@@ -13,7 +13,7 @@
 // It reads only the scheduler's own numbers and writes its words once a second, between frames (rest-pass.js), never in a frame. It
 // adds no frame loop of its own: an idle page stays idle (the panel then says so).
 import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watchdogStats, mayStats } from './frame.js?v=c67ad74ad8';
-import { restPass } from './rest-pass.js?v=0553dca9cc';
+import { restPass } from './rest-pass.js?v=6eb6322f82';
 import { sharedStats } from './trace-gl.js?v=a3efa5e0e4';
 
 export const HUD_OFF = (search) => /[?&]hud=0\b/.test(String(search ?? ''));
