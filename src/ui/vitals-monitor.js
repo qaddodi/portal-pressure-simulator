@@ -8,9 +8,9 @@
 // parks it for a moment) the monitor goes on: the strip scrolls on this card's clock and lays beats at the heart rate shown, closing in as the
 // number climbs, then hands over to the live beat where the model's phase resumes, so the strip neither stalls nor jumps (ekg.js walkBeats).
 
-import { h, fmt, fitCanvas, fitBox, clamp, cssVar } from './util.js?v=24e63445fb';
-import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js?v=49c0b7fc0e';
-import { FONT } from './charts.js?v=cbfbe731ab';
+import { h, fmt, fitCanvas, fitBox, clamp, cssVar } from './util.js?v=45ddc23d2e';
+import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js?v=7fc71cfe5b';
+import { FONT } from './charts.js?v=865e3f61ab';
 import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating } from './frame.js?v=d641eeefa1';
 import { VITALS, vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js?v=e0e47eff4f';

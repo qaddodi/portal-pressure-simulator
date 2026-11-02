@@ -6,7 +6,7 @@
 // made only on the GPU, inside the canvas's own presents (res-fade-gl.js); the canvas stays shown, so its opacity is never touched.
 import { finalFrameFor, noteDraw } from './frame.js?v=d641eeefa1';
 import { D_SURFACE } from './ease.js?v=7513a88c68';
-import { keepOnGpu } from './res-fade-gl.js?v=f4783817a7';
+import { keepOnGpu } from './res-fade-gl.js?v=63814f4c2c';
 import { caught } from './caught.js?v=b96b17594a';
 
 export const FADE_MS = D_SURFACE;

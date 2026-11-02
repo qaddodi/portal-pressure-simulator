@@ -16,7 +16,10 @@
 // whatever the ledger says (one step), so nothing is deferred forever. prepStats() counts admitted and deferred steps, starved ones, the
 // longest wait, and what was spent.
 //
-//   prepJob(tag, steps, { alive }) → { cancel(), done: Promise<boolean> }   (steps: iterable of () => void | Promise)
+//   prepJob(tag, steps, { alive, onFail }) → { cancel(), done: Promise<boolean>, error() }   (steps: iterable of () => void | Promise)
+//   (B19: a step that throws, or whose promise rejects, FAILS its job: the job stops at once, its iterator is closed (a generator's
+//   finally runs), onFail(error) is told once, error() answers it, and done settles false, never as a completion. The same with
+//   ?prepbudget=0.)
 //   prepLeft() → ms left in this interval        prepSpend(ms) charges work done elsewhere (a rest pass)
 //
 // ?prepbudget=0: no shared ledger (rest passes keep their own 6 ms slice; jobs run each step at once, as before).
@@ -32,7 +35,7 @@ export const STARVE_MS = 250;
 const now = () => performance.now();
 
 let windowAt = -Infinity, spent = 0;
-const stats = { admitted: 0, deferred: 0, starved: 0, cancelled: 0, spentMs: 0, maxWait: 0, maxStep: 0, windows: 0 };
+const stats = { admitted: 0, deferred: 0, starved: 0, cancelled: 0, failed: 0, spentMs: 0, maxWait: 0, maxStep: 0, windows: 0 };
 /** The ledger's counts since the page opened. */
 export const prepStats = () => ({ ...stats, queued: jobs.length });
 
@@ -68,7 +71,10 @@ function post(delay = 0) {
   if (!port && typeof MessageChannel !== 'undefined') { const ch = new MessageChannel(); ch.port1.onmessage = pump; ch.port1.unref?.(); port = ch.port2; }
   if (port) port.postMessage(0); else timer = setTimeout(pump, 0);
 }
-function finish(j, ok) { if (j.over) return; j.over = true; const i = jobs.indexOf(j); if (i >= 0) jobs.splice(i, 1); j.res(ok); }
+function close(it) { try { it.return?.(); } catch { /* a cleanup that throws ends nothing more */ } }
+function finish(j, ok) { if (j.over) return; j.over = true; const i = jobs.indexOf(j); if (i >= 0) jobs.splice(i, 1); if (!ok) close(j.it); j.res(ok); }
+/** A step threw or rejected: the job is failed (told once), its iterator closed, and it leaves the queue. */
+function failJob(j, e) { if (j.over) return; j.err = e ?? new Error('prep step failed'); stats.failed++; try { j.onFail?.(j.err); } catch { /* the hook's own error */ } finish(j, false); }
 function pump() {
   posted = false; timer = 0;
   // (A parked job whose generation has gone is dropped now, even if its promise never settles: the queue never keeps the dead.)
@@ -86,17 +92,27 @@ function pump() {
     if (starved && left < predict(j.tag)) stats.starved++;
     stats.maxWait = Math.max(stats.maxWait, waited);
     let r, step;
-    try { step = j.it.next(); } catch { finish(j, false); continue; }
+    try { step = j.it.next(); } catch (e) { failJob(j, e); continue; }
     if (step.done) { finish(j, true); continue; }
     const t0 = now();
-    try { r = typeof step.value === 'function' ? step.value() : step.value; } catch { r = null; }
+    let threw = false;
+    try { r = typeof step.value === 'function' ? step.value() : step.value; } catch (e) { threw = true; r = null; j.err = e; }
     const ms = now() - t0;
     prepSpend(ms); learn(j.tag, ms); stats.admitted++; stats.maxStep = Math.max(stats.maxStep, ms);
+    if (threw) { failJob(j, j.err); continue; }
     j.since = now();   // (its turn taken: to the back of the line)
     if (r && typeof r.then === 'function') {
       j.park = true;
-      // (The continuation comes back through the ledger: the job is only marked ready here, and a pump is asked for.)
-      r.then(() => {}, () => {}).then(() => { if (j.over) return; j.park = false; if (!j.alive()) { stats.cancelled++; finish(j, false); return; } j.since = now(); post(); });
+      // (The continuation comes back through the ledger: the job is only marked ready here, and a pump is asked for. A rejection is kept
+      // and fails the job there, in its turn, rather than being swallowed.)
+      let bad = false, why;
+      r.then(() => {}, (e) => { bad = true; why = e; }).then(() => {
+        if (j.over) return;
+        if (bad) { failJob(j, why); return; }
+        j.park = false;
+        if (!j.alive()) { stats.cancelled++; finish(j, false); return; }
+        j.since = now(); post();
+      });
     }
   }
 }
@@ -105,21 +121,27 @@ function pump() {
  * Runs steps (an iterable of functions, each one small piece) through the shared budget, one at a time, between frames.
  * alive(): checked before each step and after each promise; false ends the job with done → false.
  */
-export function prepJob(tag, steps, { alive = () => true } = {}) {
+export function prepJob(tag, steps, { alive = () => true, onFail } = {}) {
   const it = steps[Symbol.iterator] ? steps[Symbol.iterator]() : steps;
   let res;
   const done = new Promise((r) => { res = r; });
   let dead = false;
-  const j = { tag, it, alive: () => !dead && alive(), since: now(), park: false, res };
+  const j = { tag, it, alive: () => !dead && alive(), since: now(), park: false, res, onFail, err: undefined };
   if (!PREP_BUDGET) {
-    // (As before: every step at once, in order, waiting only on its promises.)
+    // (As before: every step at once, in order, waiting only on its promises; a step that throws or rejects fails the job.)
     (async () => {
-      for (const f of it) { if (!j.alive()) { res(false); return; } try { await (typeof f === 'function' ? f() : f); } catch (e) { caught('prep-budget:116', e); /* next step */ } }
+      for (;;) {
+        if (!j.alive()) { j.over = true; close(it); res(false); return; }
+        let n;
+        try { n = it.next(); } catch (e) { failJob(j, e); return; }
+        if (n.done) break;
+        try { const f = n.value; await (typeof f === 'function' ? f() : f); } catch (e) { failJob(j, e); return; }
+      }
       res(j.alive());
     })();
-    return { cancel: () => { dead = true; }, done };
+    return { cancel: () => { dead = true; }, done, error: () => j.err };
   }
   jobs.push(j);
   post();
-  return { cancel: () => { if (dead) return; dead = true; if (jobs.includes(j)) { stats.cancelled++; finish(j, false); } }, done };
+  return { cancel: () => { if (dead) return; dead = true; if (jobs.includes(j)) { stats.cancelled++; finish(j, false); } }, done, error: () => j.err };
 }

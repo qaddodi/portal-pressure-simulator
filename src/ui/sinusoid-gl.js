@@ -521,9 +521,9 @@ uniform sampler2D uOld;
 in vec2 vT;
 out vec4 o;
 void main() { o = texture(uOld, vT); }`;
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling, SHADER_READY } from './gl-compile.js?v=b20e777952';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling, SHADER_READY } from './gl-compile.js?v=79231d7c6b';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
-import { glOkAfter, glOkBefore } from './gl-state.js?v=1cacfbbc3f';
+import { glOkAfter, glOkBefore } from './gl-state.js?v=4163c507aa';
 import { caught } from './caught.js?v=b96b17594a';
 
 export function createSinusoidGL(canvas, { warm = false, onReady = null } = {}) {

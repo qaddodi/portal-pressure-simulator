@@ -1,7 +1,7 @@
 // Presenter swipe: a quick, mostly sideways one-finger move anywhere on the slide goes on (left) or back (right).
 // Pure helpers, so the rule is unit-tested without a browser.
 
-import { restPass, cancelRest } from './rest-pass.js?v=0173e424ce';
+import { restPass, cancelRest } from './rest-pass.js?v=826eefe7e5';
 
 export const SWIPE_MIN = 50;      // px of sideways travel
 export const SWIPE_RATIO = 1.5;   // sideways must beat vertical by this much, so vertical scrolls and diagonals do not count

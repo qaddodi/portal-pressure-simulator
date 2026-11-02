@@ -4,16 +4,16 @@
 // (gpu-probe.js cpuOnly: no waiting for the GPU), every frame that missed the screen's refresh in the window is listed with the
 // steps that ran in it (and every interval counted in a histogram at that refresh, with p50/p95/p99), and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
-import { TIERS_ON, TIERS, sceneTier, tierLog } from './adapt-tier.js?v=1ced3aadf0';
+import { TIERS_ON, TIERS, sceneTier, tierLog } from './adapt-tier.js?v=a250a18f65';
 import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=625c2c9315';
-import { restPass } from './rest-pass.js?v=0173e424ce';
+import { restPass } from './rest-pass.js?v=826eefe7e5';
 import { textSoon } from './class-soon.js?v=ba07f06e7e';
 import { perf, watchFrames, finalFrameFor } from './frame.js?v=d641eeefa1';
 // (The readout's own loop: through the app's one frame scheduler, last in each frame, not a requestAnimationFrame of its own.)
 const nextFrame = finalFrameFor('perf readout');
 import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js?v=5cd07c7e9b';
 import { scanBlurs, blurText } from './blur-gauge.js?v=215cf3d483';
-import { budget as gpuBudget, budgetText as gpuBudgetText } from './gpu-budget.js?v=a460c5bd2e';
+import { budget as gpuBudget, budgetText as gpuBudgetText } from './gpu-budget.js?v=5d0f98936a';
 import { surfaceRows, surfacesText } from './gpu-surfaces.js?v=2af17044e7';
 import { motionBudget, budgetText } from './motion-budget.js?v=89246e0c5f';
 import { caught } from './caught.js?v=b96b17594a';

@@ -3,10 +3,10 @@
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
 import { readFrameFor, figLab, mayTask } from './frame.js?v=d641eeefa1';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { restPass, cancelRest } from './rest-pass.js?v=0173e424ce';
+import { restPass, cancelRest } from './rest-pass.js?v=826eefe7e5';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
-import { CellGrid, geomOf } from './cell-grid.js?v=ebac3dc21c';
-import { elBox, chainMat } from './shape-gl.js?v=7655fc8ec5';
+import { CellGrid, geomOf } from './cell-grid.js?v=6af997e290';
+import { elBox, chainMat } from './shape-gl.js?v=ed16218b02';
 import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
 import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js?v=ed9aff412d';
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the

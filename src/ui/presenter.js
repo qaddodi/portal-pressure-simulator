@@ -16,13 +16,13 @@
 import { store, replaceParams } from './store.js?v=afc4d7c743';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { glWords } from './gl-words.js?v=61d9404408';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=24e63445fb';
+import { glWords } from './gl-words.js?v=d88e4bf43d';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=45ddc23d2e';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=450dde39bc';
-import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=06015b6fb1';
-import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=6edf5b439f';
-import { sinusoidSupported } from './gl-support.js?v=d5f71321aa';
+import { liveText, wordsOf } from './live-text.js?v=abc284ee6c';
+import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=3130fa6ec0';
+import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=86f3356eeb';
+import { sinusoidSupported } from './gl-support.js?v=da6533dfef';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
 import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=3c321f5f7f';
 import { NODE_POS } from './anatomy.js?v=fe0f3d1f0e';
@@ -31,36 +31,37 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=d4f9a8f371';
-import { createTools } from './presenter-tools.js?v=6e4d4398d6';
+import { createHvpgMonitor } from './hvpg-proc.js?v=e31fc2c5c7';
+import { createTools } from './presenter-tools.js?v=27ec3b0160';
 import { openHandout } from './handout.js?v=3aaa29b61a';
 import { noteResume, resumeFor } from './resume.js?v=c0f39f9446';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=1eeb480f5f';
 import { cleanEq } from './import-safety.js?v=9db53247a5';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js?v=ff3ed0cc47';
 import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=d641eeefa1';
-import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=25a4727676';
-import { restPass, cancelRest } from './rest-pass.js?v=0173e424ce';
-import { createSlidePrep, SLIDE_PREP } from './slide-prep.js?v=a78b729ab7';
+import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=04fdb8b647';
+import { restPass, cancelRest } from './rest-pass.js?v=826eefe7e5';
+import { createSlidePrep, SLIDE_PREP } from './slide-prep.js?v=89f30a4aa5';
 import { createTxns, SLIDE_TXN } from './slide-txn.js?v=aa2d6cb569';
-import { prepareShaders, shaderFailures } from './gl-compile.js?v=b20e777952';
-import { createFigureKey } from './figure-key.js?v=612b9addf9';
+import { glEpoch, onGLRestored } from './gl-state.js?v=4163c507aa';
+import { prepareShaders, shaderFailures } from './gl-compile.js?v=79231d7c6b';
+import { createFigureKey } from './figure-key.js?v=855b2541d1';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=a2335c4afc';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=8fa9816f4f';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=626a4521e6';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=3db2369768';
 import { clotWords } from './callout-math.js?v=6ef2901a08';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=12df1f8f56';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=86df20dae4';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=77e41212ef';
+import { anchorsOf, roomFor } from './cam-room.js?v=4b7b3c267f';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
-import { flowTimeHeight, trailKeys } from './flow-time.js?v=924a6510b2';
+import { flowTimeHeight, trailKeys } from './flow-time.js?v=f6c5098d7f';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=7c00a1446b';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=57969a9f5f';
 import { sheetPanes } from './sheet-glass.js?v=9bad2768f7';
-import { createScopeTile } from './scope-tile.js?v=245a86fe34';
+import { createScopeTile } from './scope-tile.js?v=032ae4954b';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=7513a88c68';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
@@ -1991,13 +1992,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // slide-prep.js; ?slideprep=0 off.)
   // (recs-production-120hz §6: the tool's warm is returned, so its completion is awaited; the manifests belong to this deck, this
   // presentation's states and this look: identity.)
-  const slidePrep = createSlidePrep({ count: () => slides.length, identity: () => `${deck?.id ?? ''}|${slides.length}|${prepRev}|${document.documentElement.dataset.theme || ''}/${document.documentElement.dataset.palette || ''}`, steps: {
+  const slidePrep = createSlidePrep({ count: () => slides.length, identity: () => `${deck?.id ?? ''}|${slides.length}|${prepRev}|${document.documentElement.dataset.theme || ''}/${document.documentElement.dataset.palette || ''}|${glEpoch()}`, steps: {
     state: (i) => stateReady(i),
     glyphs: () => loadGlyphs(),
     tool: (i) => { const s = slides[i], w = EXT.tools[s?.tool?.kind]?.warm; return w ? w(s.tool, ctxOf(s, i)) : null; },   // (B16: a throw or rejection reaches slide-prep, which marks the manifest failed; safe() would have turned it into null = ready)
     shadersFailed: () => shaderFailures(),
     shaders: (ms = 4) => prepareShaders(ms),
   } });
+  // (B17: a GL context lost and restored drops every slide's readiness (its glyph, shader and card resources were that context's), and the
+  // slide in view and its neighbours are prepared afresh; glEpoch() is part of the identity above.)
+  onGLRestored(() => slidePrep.refresh());
   // (Review pass 2, priority 3: each Next, Back or jump is one transaction, slide-txn.js. Its id supersedes the one before at once: that
   // change's jobs stop, its prep hold lets go, and the move in flight is cut at its next step (cut() asks txn.live()). The cards on their
   // way out are disowned (inert) from the press until this change's cards come in, so a card leaving or held out of sight takes no tap.

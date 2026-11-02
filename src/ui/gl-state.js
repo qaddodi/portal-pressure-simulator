@@ -117,9 +117,9 @@ function wrap(gl, r) {
   own('copyTexSubImage2D', (f) => (t, l, a, b, x, y, w, h) => { f(t, l, a, b, x, y, w, h); if (hook) hook(gl, 'copy', w * h); });
   const c = gl.canvas;
   // (A loss ends the generation at once: nothing kept from it (limits, framebuffer verdicts, bindings) answers for the next one.)
-  const end = () => { r.fresh = false; r.lim = new Map(); r.fbOk = new WeakMap(); r.gen++; };
+  const end = () => { r.fresh = false; r.lim = new Map(); r.fbOk = new WeakMap(); r.gen++; epoch++; };
   c?.addEventListener?.('webglcontextlost', end);
-  c?.addEventListener?.('webglcontextrestored', () => { end(); if (hook) tell('restored', []); });
+  c?.addEventListener?.('webglcontextrestored', () => { end(); if (hook) tell('restored', []); for (const f of [...epochFns]) { try { f(); } catch { /* a listener's own error */ } } });
 }
 
 function recOf(gl) {
@@ -195,6 +195,15 @@ export function glCap(gl, k) {
   if (!r.lim.has(k)) { const v = gl.getParameter(k); if (gl.isContextLost()) return v; r.lim.set(k, v); }
   return r.lim.get(k);
 }
+
+// (B17, 2 Nov 2026: one count for every tracked context. It rises at each loss and each restore of any of them, so what was prepared
+// against the resources of an older generation (a slide's readiness) can tell it is no longer this one's: epoch() is part of its identity.)
+let epoch = 0;
+const epochFns = new Set();
+/** Rises at every loss and restore of any tracked context. 0 until the first. */
+export const glEpoch = () => epoch;
+/** fn() after any tracked context is restored (its resources are gone: rebuild what was ready). Returns the way to stop listening. */
+export function onGLRestored(fn) { epochFns.add(fn); return () => { epochFns.delete(fn); }; }
 
 /** The context's generation: 1 from its creation, one more at each loss and restore (an object or verdict kept from an older
  *  generation is not this one's). 0 where nothing is recorded (WebGL 1). */

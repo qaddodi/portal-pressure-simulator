@@ -11,7 +11,7 @@
 // down, or a wheel turned in the last 150 ms. Work done between frames (a timer, an event) counts with the next frame.
 // The first few call sites in a moving frame are kept (from the stack) and the last one is shown, so a red flash names its cause.
 // window.pps.offgpu() returns the totals and the recent sites (for tests and the console).
-import { restPass } from './rest-pass.js?v=0173e424ce';
+import { restPass } from './rest-pass.js?v=826eefe7e5';
 import { watchFrames } from './frame.js?v=d641eeefa1';
 
 const KINDS = ['2d', 'svg', 'layout', 'upload', 'shader'];

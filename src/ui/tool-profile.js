@@ -10,16 +10,16 @@
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
 
 import { frame, cancelFrame } from './frame.js?v=d641eeefa1';
-import { restPass, cancelRest } from './rest-pass.js?v=0173e424ce';
+import { restPass, cancelRest } from './rest-pass.js?v=826eefe7e5';
 import { PROFILE_PATHS } from './anatomy.js?v=fe0f3d1f0e';
 import { follow2, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { RATE } from './table-marks.js?v=ff3ed0cc47';
 import { monotoneSegs } from './curve-near.js?v=663c98a29c';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { pressureColor } from './colormap.js?v=a2335c4afc';
-import { measure } from './glyph-measure.js?v=5d9263708d';
-import { createSvgGL, svgModel, FIRST_LOOK } from './svg-gl.js?v=6edf5b439f';
+import { pressureColor } from './colormap.js?v=626a4521e6';
+import { measure } from './glyph-measure.js?v=450036b556';
+import { createSvgGL, svgModel, FIRST_LOOK } from './svg-gl.js?v=86f3356eeb';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;

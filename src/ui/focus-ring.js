@@ -15,7 +15,7 @@
 //     colour or 1 px off their control the focus colour and the 2 px of the rest.
 //   - ?focusring=0: this file does nothing and the page is today's.
 import { D_SMALL } from './ease.js?v=7513a88c68';
-import { restPass } from './rest-pass.js?v=0173e424ce';
+import { restPass } from './rest-pass.js?v=826eefe7e5';
 import { caught } from './caught.js?v=b96b17594a';
 
 

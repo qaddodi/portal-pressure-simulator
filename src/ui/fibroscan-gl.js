@@ -6,7 +6,7 @@
 // A panel's map is drawn inside its chart drawer's own context (elastogramUnder, under the words); elastogramGL's own small
 // context is kept for the checks and for a panel drawn without the chart drawer (?tracegl=0).
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=b20e777952';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=79231d7c6b';
 import { caught } from './caught.js?v=b96b17594a';
 
 const VS = `#version 300 es

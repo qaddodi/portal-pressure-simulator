@@ -6,7 +6,7 @@
 // Publishing waits for the page to be left alone (quiet.js): the status read, the uniform lookups and the small draw are a few ms of
 // script, and a program that finishes mid pan or pinch had them land in a gesture's frame.
 import { leftAlone } from './quiet.js?v=388052eba8';
-import { glGet } from './gl-state.js?v=1cacfbbc3f';
+import { glGet } from './gl-state.js?v=4163c507aa';
 import { caught } from './caught.js?v=b96b17594a';
 
 // (Asked once per context where it is there: getExtension is a call into the browser each time. Not kept when it is missing, so a
