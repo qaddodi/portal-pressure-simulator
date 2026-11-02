@@ -129,6 +129,10 @@ html.fr :is(.lens-btn, .ps-btn, .tl-pop-ic, .pz-zbtn, .ask-field, .pz-abb, .pzc-
 .stage-view svg#stageOver.gpu-all { opacity: 0 !important; }   /* (all it shows painted on the GPU: stage-over.js OVER_ALL) */
 /* The plate (backdrop, organs, ascites) is drawn by the GPU from a raster; the SVG stays for picking and exports. */
 .stage-view.gl-plate :is(#backdrop, #organs, #ascites, #ghosts) { visibility: hidden; }
+/* (The organs leave the page's layout altogether while the GPU draws them (plan "Holding 120 Hz" §3.5): nothing reads their layout (their
+   boxes, frames and picking are worked out in script from their own numbers), and the painter reads their styles, computed as well under
+   display: none. The SVG organs come back the moment the plate goes.) */
+.stage-view.gl-plate #organs { display: none; }
 /* The ghosts (a faint copy of a vein behind an organ) are SVG <use> copies of its group. While the GPU draws the vessels it fades
    them behind the organs itself (veins-gl VEIL_K), and the copies, whose styles under gl-on do not reach into a <use>, filled the
    vessels' outline paths black at the layer's 34 %: a dark grey blob on the cava (the veins of Retzius), a wedge over the liver

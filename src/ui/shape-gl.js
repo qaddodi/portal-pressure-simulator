@@ -494,6 +494,26 @@ export function measurePath(d, tol = 0.002) {
  * to measure (an empty group). Paths are cached by d.
  */
 const BOX_D = new Map();
+/**
+ * The frame from an element's own units to `top`'s (the element's transform attribute, then each parent's up to and not including
+ * `top`), as getCTM() of the element undone by top's gives it, worked out from the attributes in script ({a..f}; plan "Holding
+ * 120 Hz" §3.5: the organs leave the page's layout, so nothing may ask the browser for their frames). CSS transforms are not
+ * taken: the organs carry none.
+ */
+export function chainMat(el, top) {
+  let a = 1, b = 0, c = 0, d = 1, e = 0, f = 0;
+  for (let n = el; n && n !== top && n.transform; n = n.parentNode) {
+    const l = n.transform.baseVal;
+    if (!l?.numberOfItems) continue;
+    const m = l.consolidate()?.matrix;
+    if (!m) continue;
+    // (m · current: the parent's transform outside the child's)
+    const A = m.a * a + m.c * b, B = m.b * a + m.d * b, C = m.a * c + m.c * d, D = m.b * c + m.d * d;
+    const E = m.a * e + m.c * f + m.e, F = m.b * e + m.d * f + m.f;
+    a = A; b = B; c = C; d = D; e = E; f = F;
+  }
+  return { a, b, c, d, e, f };
+}
 export function elBox(el, textOf = null) {
   const b = elBox4(el, textOf);
   return b ? { x: b[0], y: b[1], width: b[2] - b[0], height: b[3] - b[1] } : null;

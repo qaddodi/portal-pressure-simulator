@@ -19,9 +19,9 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=12b3da4f99';
-import { createSvgGL, svgModel } from './svg-gl.js?v=8062ee2743';
-import { pressureColor } from './colormap.js?v=23bfb16a76';
+import { h, fmt, clamp, lerp } from './util.js?v=c6296ce3b2';
+import { createSvgGL, svgModel } from './svg-gl.js?v=e2ab99be12';
+import { pressureColor } from './colormap.js?v=627a0f3dbb';
 import { isPaused } from './clock.js?v=b2a395ebe7';
 import { store } from './store.js?v=bf85512db4';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';

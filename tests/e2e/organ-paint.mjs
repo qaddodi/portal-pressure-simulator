@@ -32,7 +32,7 @@ async function compare(state) {
   await page.waitForTimeout(3000);
   const out = await page.evaluate(async ({ INSIDE }) => {
     const { readGroup, createOrganPaint, mul } = await import('/src/ui/organ-paint.js');
-    const { createShapeGL } = await import('/src/ui/shape-gl.js');
+    const { createShapeGL, elBox } = await import('/src/ui/shape-gl.js');
     const { inlineStyles } = await import('/src/ui/svg-inline.js');
     const svg = document.querySelector('#organs').ownerSVGElement, defs = svg.querySelector('defs');
     const groups = [['liver', document.querySelector('#organs > .organ-liver')], ['spleen', document.querySelector('#organs > .organ-spleen')], ['ghost', document.querySelector('#organs > .org-ghost')], ['diaphragm', document.querySelector('#backdrop')], ['colon', document.querySelector('.organ-colon')]];
@@ -52,7 +52,7 @@ async function compare(state) {
       if (!g || getComputedStyle(g).display === 'none') continue;
       const spec = readGroup(g);
       if (!spec) { res.push({ name, unread: true }); continue; }
-      const bb = g.getBBox(), gm = g.transform.baseVal.numberOfItems ? (() => { const k = g.transform.baseVal.consolidate().matrix; return [k.a, k.b, k.c, k.d, k.e, k.f]; })() : [1, 0, 0, 1, 0, 0];
+      const bb = elBox(g), gm = g.transform.baseVal.numberOfItems ? (() => { const k = g.transform.baseVal.consolidate().matrix; return [k.a, k.b, k.c, k.d, k.e, k.f]; })() : [1, 0, 0, 1, 0, 0];
       const cx = gm[0] * (bb.x + bb.width / 2) + gm[2] * (bb.y + bb.height / 2) + gm[4], cy = gm[1] * (bb.x + bb.width / 2) + gm[3] * (bb.y + bb.height / 2) + gm[5];
       for (const k of [0.6, 1.4, 3.2]) {
         const view = [k, 0, 0, k, W / 2 - cx * k, H / 2 - cy * k];

@@ -7,11 +7,11 @@
 // compare button moves it.
 
 import { frame } from './frame.js?v=c67ad74ad8';
-import { createSvgGL, svgModel } from './svg-gl.js?v=8062ee2743';
-import { h, fmt, clamp } from './util.js?v=12b3da4f99';
+import { createSvgGL, svgModel } from './svg-gl.js?v=e2ab99be12';
+import { h, fmt, clamp } from './util.js?v=c6296ce3b2';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { store } from './store.js?v=bf85512db4';
-import { measure } from './glyph-measure.js?v=d02d2bd1bd';
+import { measure } from './glyph-measure.js?v=570fc5478f';
 const FLUID_MEASURE = !(typeof location !== 'undefined' && /[?&]fluidmeasure=0\b/.test(location.search || ''));
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
