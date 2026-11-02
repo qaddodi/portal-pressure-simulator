@@ -4044,8 +4044,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let cathTint = null;   // the HVPG's wedged vein, recolored (see cathPaint)
   const ORIGIN_LUMEN = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];   // the lumen while the blood is colored by origin (the GPU paints the streams on it)
   const binMemo = new Map();
-  // (Its cells' lists keep room, so a vessel that leaves or enters a cell is written there alone; ?relay=0 bins whole as before.)
-  binMemo.relay = !/[?&]relay=0\b/.test(location.search);
+  // (Its cells' lists keep room, so a vessel that leaves or enters a cell is written there alone.)
+  binMemo.relay = true;
   let binShown = null, bendShown = null;
   // A coiling collateral's cells are tested against its points when the coil began, reaching farther by as much as the coil
   // still has to go (each point moves toward its coiled place by at most the change in amplitude), so they list it wherever
@@ -4082,12 +4082,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (Each join's binning circle, kept while the join stays inside it: veins-bin lists the join in that circle's cells. The joins ease
   // wider with their vessels on a slide change, and each new cell was a whole binning of every vessel and a 4 MB upload, 11 in one
-  // Varices slide change (motion budget, 2 Nov). Kept per set of vessels; ?joinroom=0 lists each join in its own cells, as before.)
-  const JOIN_ROOM = !/[?&]joinroom=0\b/.test(location.search);
+  // Varices slide change (motion budget, 2 Nov). Kept per set of vessels.)
   const joinBin = new Map();
   let joinBinIds = '';
   function joinRoom(J, items) {
-    if (!JOIN_ROOM) return;
     const ids = items.map((it) => it.row).join(',');
     if (ids !== joinBinIds) { joinBinIds = ids; joinBin.clear(); }
     for (const j of J) {
@@ -4119,8 +4117,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // rest of what glItems gives, as they will be), and put on the GPU in a set of its own. A frame of the change then sends only its
   // vessels' points and joins, a few rows (morphFrame); the vessels are drawn from them exactly as from a binning of their own. A frame
   // whose vessels do not fit the stretch made for it (another vessel showing, one wider than it was binned for, a course off its samples
-  // by more than MORPH_SLACK) is binned as before. ?morphgpu=0: every frame binned, as before.
-  const MORPH_GPU = !/[?&]morphgpu=0\b/.test(location.search) && typeof Worker !== 'undefined';
+  // by more than MORPH_SLACK) is binned as before. (Without Worker, as in a test page, every frame is binned.)
+  const MORPH_GPU = typeof Worker !== 'undefined';
   const MORPH_PIECES = [[0, 1 / 6], [1 / 6, 1 / 3], [1 / 3, 0.5], [0.5, 2 / 3], [2 / 3, 5 / 6], [5 / 6, 1]];
   const MORPH_STEPS = 6, MORPH_SLACK = 6, MORPH_JSLACK = 30, MORPH_JSUB = 3;
   const mt = { key: '', pieces: null, using: null, gen: 0, seq: 0, checkT: 0, worker: null, wait: new Map(), reach: [null, null], landAt: 0, stats: { gpu: 0, cpu: 0, builds: 0, miss: {} } };
@@ -4298,8 +4296,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // as a stretch of the change between the views is (sweepPiece), for every collateral whether shown or not and every strand however
   // faded, so the vessels a slide change shows are in it too. Each frame of an ease then sends only its points and joins (frameFrom),
   // and the vessels are drawn from them exactly as from a binning of their own. A frame that leaves it (a vessel shown that was not
-  // there, one wider than it was binned for) is binned as before, and the envelope made again at the next rest. ?easegpu=0: every frame binned.
-  const EASE_GPU = MORPH_GPU && !/[?&]easegpu=0\b/.test(location.search), COIL_MAX = 5, COLL_REACH = 32;
+  // there, one wider than it was binned for) is binned as before, and the envelope made again at the next rest.
+  const EASE_GPU = MORPH_GPU, COIL_MAX = 5, COLL_REACH = 32;
   const ENV_AT = [[0, 0.55], [COIL_MAX / 2, 0.55], [COIL_MAX, 0.55], [COIL_MAX, 0.775], [COIL_MAX, 1], [COIL_MAX / 2, 1], [0, 1], [0, 0.775], [0, 0.55], [COIL_MAX / 2, 0.775], [COIL_MAX, 1]];
   let easeHeld = false;
   const et = { key: '', gen: 0, pc: null, restT: 0, checkT: 0, stats: { gpu: 0, builds: 0, miss: {} } };
@@ -4503,8 +4501,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let shownCol = new Map(), lensFrom = null, lensT0 = 0, lensMode = null;
   // The lumens' colours follow the model's through the widths' filter (display-state.js; combined plan M1), so a slider's step or
   // a model frame's is an ease, not a step. A crossfade (a lens change, a jump) carries its own change: the filter then shows the
-  // target at once, as does Reduce Motion. ?colfollow=0: the colours as the model has them, as before.
-  const COL_FOLLOW = !/[?&]colfollow=0\b/.test(location.search);
+  // target at once, as does Reduce Motion.
   const colFollow = createColourFollow({ tau: W_TAU }), colT = new Array(6), colRows = new Set();
   let colAt = 0, colEasing = false;
   let sinceP = null;   // (a "change since" slide's reference: see changeRef)
@@ -4976,12 +4973,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= 3.4;
       const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0) | (veil ? F_VEIL : 0) | (whole ? F_WHOLE : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
-      if (COL_FOLLOW) {
-        colT[0] = c0[0]; colT[1] = c0[1]; colT[2] = c0[2]; colT[3] = c1[0]; colT[4] = c1[1]; colT[5] = c1[2];
-        const k = colFollow.step(it.row, colT, colDt, !!lensFrom || reduceMotion.matches);
-        c0 = [k[0], k[1], k[2]]; c1 = [k[3], k[4], k[5]];
-        colRows.add(it.row);
-      }
+      colT[0] = c0[0]; colT[1] = c0[1]; colT[2] = c0[2]; colT[3] = c1[0]; colT[4] = c1[1]; colT[5] = c1[2];
+      const k = colFollow.step(it.row, colT, colDt, !!lensFrom || reduceMotion.matches);
+      c0 = [k[0], k[1], k[2]]; c1 = [k[3], k[4], k[5]];
+      colRows.add(it.row);
       if (lensFrom) {
         const was = lensFrom.get(it.row), u = easeMove(clamp(((PACED ? easeNow() : now) - lensT0) / LENS_FADE, 0, 1));
         if (was) { c0 = mix3(was[0], c0, u); c1 = mix3(was[1], c1, u); }
@@ -5032,8 +5027,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const sa = tier < TIER_LIFT && !x.back && !SIN_EDGES.has(id) ? vh.selA.get(id) || 0 : 0;
       if (sa > 0) tubeData.set(kind === 'v' ? [easeInOut(sa), selEnd(id, x.e.from), selEnd(id, x.e.to), 0] : [easeInOut(sa), 0, 0, 0], o + 48);
     } });
-    colEasing = COL_FOLLOW && colFollow.moving;
-    if (COL_FOLLOW) colFollow.prune(colRows);
+    colEasing = colFollow.moving;
+    colFollow.prune(colRows);
     // (Uploaded only when some vessel's attributes changed: most model frames in a steady state change none.)
     let tubesChanged = !tubesShown || tubesShown.length !== tubeData.length;
     if (!tubesChanged) for (let i = 0; i < tubeData.length; i++) if (tubeData[i] !== tubesShown[i]) { tubesChanged = true; break; }
@@ -5162,10 +5157,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Every layer painted live on the GPU while the organs' pictures are down (at start, and after a theme change drops them), instead of
   // the page's SVG organs: the stack shows the whole figure from the organs' own shapes until the new pictures land, then goes back to
   // painting only the changing organs live (2 Nov 2026: no SVG fallback; the SVG organs showed for seconds in a deck, the pictures
-  // waiting for a quiet frame). A layer the painter cannot read keeps the old way. ?fulllive=0: as before.
-  const FULL_LIVE = !/[?&]fulllive=0\b/.test(location.search);
+  // waiting for a quiet frame). A layer the painter cannot read keeps the old way.
   let fullSwap = false, fullFailed = false;
-  const fullOk = () => FULL_LIVE && !fullFailed && liveOn() && !!veins?.organs?.pictured;
+  const fullOk = () => !fullFailed && liveOn() && !!veins?.organs?.pictured;
   function keepForWhole() {
     if (!fullOk() || veins.lost) return false;
     fullSwap = true;
@@ -5243,25 +5237,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (liveFailed) return `live painting off: ${liveFailWhy || 'an organ not readable'}`;
     return 'painted live';
   }
-  /** The organs' drawing paths now: { mode, live, layers: [[name, path]], gpu } (the ?organpaths readout). */
+  /** The organs' drawing paths now: { mode, live, layers: [[name, path]], gpu } (window.pps, and the checks). */
   function organPathsNow() {
     const mode = !veins || veins.lost ? 'SVG (no GPU figure)' : !plateOn() ? 'SVG (live drawing, no picture shown)' : gpuOrgansOn() ? 'GPU layers' : 'one picture (GPU organs off)';
     return { mode, live: liveOn() ? 'liver, spleen, diaphragm, falciform: painted live' : liveWhy(), layers: gpuOrgansOn() ? [...organPaths] : [], gpu: veins?.organs?.stats?.() || null, renderer: SOFTWARE ? 'software' : 'gpu' };
-  }
-  // The readout itself, only with ?organpaths in the address: a small box at the top left, read again every second.
-  if (/[?&]organpaths\b/.test(location.search)) {
-    const box = document.createElement('div');
-    box.className = 'organ-paths';
-    box.setAttribute('aria-hidden', 'true');
-    document.body.append(box);
-    const boxText = document.createTextNode(''); box.append(boxText);
-    let was = '';
-    setInterval(() => {
-      const p = organPathsNow();
-      const t = [`Organs: ${p.mode} (${p.renderer} renderer)`, `Live: ${p.live}`, ...p.layers.map(([L, w]) => `${L}: ${w}`),
-        ...(p.gpu ? [`On the GPU: ${p.gpu.meshes} meshes, ${p.gpu.kept} kept for pictures`] : [])].join('\n');
-      if (t !== was) { was = t; boxText.data = t; console.info(`[organpaths]\n${t}`); }
-    }, 1000);
   }
   async function rasterLayers(slot, rect, scale) {
     // (Its turn first: reading every organ's box and shape is a step of its own, tens of ms on a phone, begun from a timer.)
@@ -5303,8 +5282,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // mask), a group added or taken away, or the stage's look (theme, lens classes, the organ colours). What eases (outlines' d, frames,
   // opacities) the painter reads from the page at each paint, so a liver, a fluid or a fade easing keeps them. Reading them walks
   // every organ element with a computed style: about 1,800 style reads in one Varices slide change, for groups that had not changed
-  // (motion budget, 2 Nov). ?organread=0: read each time, as before.
-  const READ_KEEP = !/[?&]organread=0\b/.test(location.search);
+  // (motion budget, 2 Nov).
   const READ_ATTRS = ['class', 'style', 'display', 'visibility', 'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'fill-rule',
     'mask', 'clip-path', 'filter', 'href', 'offset', 'stop-color', 'stop-opacity', 'gradientTransform', 'gradientUnits', 'x1', 'y1', 'x2', 'y2', 'fx', 'fy',
     'cx', 'cy', 'r', 'rx', 'ry', 'x', 'y', 'width', 'height', 'd'];
@@ -5354,7 +5332,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (Only what the watch below sees is kept: the organs, the backdrop and the defs. The overlays (#stageOver: the tamponade tube, the
     // stents, the clamps) are read again each time syncOver asks, which is only when its own watch saw them change; kept here, the
     // tube's first reading stood for every later frame and the GPU showed the balloon never filling, 2 Nov.)
-    if (!READ_KEEP || !(gOrgans.contains(el) || gBackdrop.contains(el) || defs.contains(el))) return readGroupNow(el, opt);
+    if (!(gOrgans.contains(el) || gBackdrop.contains(el) || defs.contains(el))) return readGroupNow(el, opt);
     if (!readMo) {
       readMo = new MutationObserver(readSeen);
       for (const root of [gOrgans, gBackdrop, defs]) readMo.observe(root, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: READ_ATTRS });
@@ -5891,9 +5869,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // sent the halos and every overlay above them back to the SVG for their 1.5 s): the ring a path whose outline grows and fades and
   // the number its glyphs' outlines (text-gl.js, the font's own), over a knock-out stroke in the page's colour, as the text's
   // paint-order stroke was; both eased here a frame at a time (haloPlay) on the attributes the painter reads at each paint, as the
-  // keyframes haloRing and haloText eased them. ?halogl=0: the SVG text and CSS animation, as before.
-  const HALO_GL = !/[?&]halogl=0\b/.test(location.search);
-  if (HALO_GL) setTimeout(() => loadGlyphs().catch(() => {}), 3000);   // (the outlines fetched ahead of the first halo, after start-up)
+  // keyframes haloRing and haloText eased them. (Until the outlines are in, the SVG text and its CSS animation.)
+  setTimeout(() => loadGlyphs().catch(() => {}), 3000);   // (the outlines fetched ahead of the first halo, after start-up)
   const ringD = (r) => `M${-r} 0A${r} ${r} 0 1 0 ${r} 0A${r} ${r} 0 1 0 ${-r} 0Z`;
   const polysD = (polys) => polys.map((p) => { let d = ''; for (let k = 0; k < p.pts.length; k += 2) d += `${k ? 'L' : 'M'}${p.pts[k].toFixed(2)} ${p.pts[k + 1].toFixed(2)}`; return d + (p.closed ? 'Z' : ''); }).join('');
   function haloShapes(txt) {
@@ -5965,7 +5942,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     glows.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
     if (!reduceMotion.matches) setGlowSrc('delta', glows.slice(0, 16).map(([x, d]) => ({ id: x.e.id, col: d > 0 ? 'var(--glow-up)' : 'var(--glow-down)', amt: 1.35, wide: 1.1, dur: 420 })));
-    const gpu = HALO_GL && glyphsReady();
+    const gpu = glyphsReady();
     gHalo.replaceChildren(...cand.slice(0, 3).map(([id, d]) => {
       const [x, y] = nodePos(id, t);
       // (Its ring and number keep their size on screen at any zoom, as the labels do: --halo-k, applyClampFs. Drawn in world units,
@@ -6596,7 +6573,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // overlays (below), in the same task: a rebuilt mark is an SVG shape without data-gl, shown until it is read, and the frame loop does not
   // come round in every frame (a paced or yielding frame, a step in between), so a pan or pinch painted the new marks as SVG a frame apart
   // from the vessels (the stent and the band rings, on a slow screen up to a quarter of a second after the model changed them).
-  const MARKS_BATCH = !/[?&]marksbatch=0\b/.test(location.search);
   function marksSync() {
     if (glLines && marksStale()) gpuProbe.time(null, 'vessel marks (script)', marksBuild);
   }
@@ -6633,12 +6609,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const disc = (p, r) => { const ring = ellipseRing(p[0], p[1], r, r).pts; let c = 0; for (let k = 0; k < ring.length; k++) { const a = ring[k], b = ring[(k + 1) % ring.length]; V.push(p[0], p[1], 1, 0, 0, 1e4, a[0], a[1], 1, 0, 0, 1e4, b[0], b[1], 1, 0, 0, 1e4); c += 3; } return c; };
     // (Every style is read before any data-gl is written: an attribute the style sheet matches, taken off and put back on one shape
     // after another, made each shape's read a style pass of its own, about 36 of them in a slide change on a phone. data-gl changes
-    // only the marks' visibility, which nothing here reads, so the reads are the same; the attributes end as before. ?marksbatch=0:
-    // taken off and put back shape by shape, as before.)
-    const drawn = MARKS_BATCH ? new Set() : null;
+    // only the marks' visibility, which nothing here reads, so the reads are the same; the attributes end as before.)
+    const drawn = new Set();
     for (const g of Object.values(ov)) {
       for (const el of g.querySelectorAll('path, circle, ellipse, rect')) {
-        if (!drawn) el.removeAttribute('data-gl');
         let cs = getComputedStyle(el), op = 1, M = null, ok = cs.display !== 'none' && cs.strokeDasharray === 'none';
         for (let e = el; ok && e && e !== gOver; e = e.parentNode) {
           const c = e === el ? cs : getComputedStyle(e);
@@ -6678,10 +6652,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             if (cap === 'round' && !r.closed && r.pts.length > 1) { push(sk, disc(r.pts[0], h), true); push(sk, disc(r.pts[r.pts.length - 1], h), true); }
           }
         }
-        if (drawn) drawn.add(el); else el.setAttribute('data-gl', '');
+        drawn.add(el);
       }
     }
-    if (drawn) for (const g of Object.values(ov)) for (const el of g.querySelectorAll('path, circle, ellipse, rect')) { if (drawn.has(el)) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); } else if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); }
+    for (const g of Object.values(ov)) for (const el of g.querySelectorAll('path, circle, ellipse, rect')) { if (drawn.has(el)) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); } else if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); }
     mk.verts = new Float32Array(V); mk.draws = draws; mk.dirty = true;
   }
 
@@ -7200,8 +7174,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // to where they stand by a group inside it (the inverse). Each frame moves only those two frames, the front's marker and the strength
   // (transforms and opacities, which the overlays' GPU painter reads as it paints: stage-over.js), so the CPU draws no path and the
   // page gets no new element while it unrolls. (The stented stretch is a quarter to three quarters of a hepatic vein or the IVC: it
-  // never turns far enough that a piece still to come lies behind the front.) ?vstroll=0: the mesh drawn again each frame, as before.
-  const VST_ROLL = typeof location === 'undefined' || !/[?&]vstroll=0\b/.test(location.search || '');
+  // never turns far enough that a piece still to come lies behind the front.)
   let vstN = 0;   // (each build's clip a name of its own: a clip put in under the name of one being taken out was not found by the page)
   function venousDraw(p) {
     const kids = []; late('kids', ov.venous, kids);
@@ -7209,7 +7182,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       v.parts = null;
       if (!(v.k > 0.002) || !E[id]?.vis || !geo[id]?.cur) continue;
       const L = geo[id].len;
-      if (!VST_ROLL) { kids.push(s('g', { opacity: Math.min(1, v.k * 3).toFixed(3) }, ...meshPaths(id, p, VST_SPAN[1] * L, VST_SPAN[0] * L, easeInOut(v.k)))); continue; }
       const cid = `vstClip-${id}-${++vstN}`;
       const R = meshR(id, p), d0 = VST_SPAN[1] * L, d1 = VST_SPAN[0] * L, r1 = R(d1);
       const far = Math.abs(d1 - d0) + 4 * r1 + 20;   // (the clip: the half of the plane behind the front, as far as the whole mesh reaches)
@@ -7251,7 +7223,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const was = v.k;
         v.k = goal ? Math.min(1, v.k + step) : Math.max(0, v.k - step);
         // (A rolled stent only moves its frames; one that comes in or goes out is built or taken away.)
-        if (v.parts && v.k > 0.002) venousMove(id, v); else if (v.parts || (v.k > 0.002) !== (was > 0.002) || !VST_ROLL) vstDirty = true;
+        if (v.parts && v.k > 0.002) venousMove(id, v); else if (v.parts || (v.k > 0.002) !== (was > 0.002)) vstDirty = true;
         if (v.k !== goal) moving = true;
       }
       if (v.k === 0 && !goal) { if (v.parts) vstDirty = true; vst.delete(id); }
@@ -7405,7 +7377,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const frostHoles = (key) => (list) => { if (list.length) holeSets.set(key, list); else holeSets.delete(key); sendHoles(); };
   // (The canvas the glasses are drawn into now: frostCtx, its context; frostLiver, the liver's canvas (lobule-zoom.js glassHost) while the
   // frost is taken from it, else null and the figure's. What the glass keys its blur on follows it: a new picture there, not the figure's.)
-  const LIVER_FROST = !/[?&]liverfrost=0\b/.test(location.search);
   let frostCtx = null, frostLiver = null;
   const frostSeq = () => (frostLiver ? `l${frostLiver.seq()}` : veins.drawSeq);
   const frostFresh = () => (frostLiver ? 0 : veins.bloodSeq);
@@ -7422,15 +7393,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A card is never kept out of its GPU glass by what lies between the figure's canvas and it: kept out, it showed no glass at all, the
   // figure sharp through it (Mohammad, 2 Nov 2026, HVPG 6 in the lobule: "CARDS ARE GLASS"), as the anatomy's overlay boxes, kept from
   // before the lobule covered it, still crossed it there. The labels the GPU draws already leave every card's glass out (setHoles); the
-  // card's own words lie over whatever else does. ?cardcross=1: kept out, as before.)
-  const CARD_CROSS = /[?&]cardcross=1\b/.test(location.search);
+  // card's own words lie over whatever else does.)
   const cardGlass = (cards) => {
     if (!veins?.top) return null;
     const shade = cards.low;
     const key = {};
     const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0)), version: frostSeq, fresh: frostFresh, onFigure: (f) => veins.onPicture(f), copy: false, onHoles: frostHoles(key) });
     if (!g) return null;
-    hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: (level) => (CARD_CROSS ? frostOver(level === 'low' ? 'low' : 'cards') : []), low: (el) => el === shade || el?.dataset?.ghost === 'shade' });
+    hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: () => [], low: (el) => el === shade || el?.dataset?.ghost === 'shade' });
     cardGLs.add(g);
     const dispose = g.dispose;
     g.dispose = () => { cardGLs.delete(g); frostHosts.delete(g); dispose(); if (holeSets.delete(key)) sendHoles(); };
@@ -8053,8 +8023,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return false;
   }
   // (Since 1 Nov 2026 the look runs only while the layout watch is due: started by the change that made it due (onTouch), every 200 ms
-  // while it stays due, and stopped once it has settled, so a still page has no timer for it at all. ?dprpoll=1: every 200 ms always.)
-  const DPR_POLL = /[?&]dprpoll=1\b/.test(location.search);
+  // while it stays due, and stopped once it has settled, so a still page has no timer for it at all.)
   let dprMonT = 0;
   const dprMonTick = () => {
     dprMonT = 0;
@@ -8063,7 +8032,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!dprQuiet()) { dpr.monAt = 0; on = dprMonitorOn(); }
       if (on !== dpr.mon || (on && !dpr.on && !dpr.swap)) { dpr.mon = on; dprobePaint(); }
     }
-    if (DPR_POLL || !dprQuiet()) dprMonT = setTimeout(dprMonTick, 200);
+    if (!dprQuiet()) dprMonT = setTimeout(dprMonTick, 200);
   };
   const dprMonSoon = () => { if (!dprMonT) dprMonT = setTimeout(dprMonTick, 200); };
   watch.onTouch(dprMonSoon);
@@ -9422,8 +9391,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (frostHold && !(cards && RES_FROST)) return 'a change of canvas is under way';
     if (!veins?.top) return 'the figure has no canvas to draw into';
     // (In the liver the glass is drawn into the lobule's or the open sinusoid's own GPU canvas (lobule-zoom.js glassHost), never let go
-    // to a flat card: Mohammad, 2 Nov 2026, Circulation 6 on the iPhone, "No blur at all on top, solid card on bottom". ?liverfrost=0: as before.)
-    if (LIVER_FROST && wrap.classList.contains('in-lobule')) {
+    // to a flat card: Mohammad, 2 Nov 2026, Circulation 6 on the iPhone, "No blur at all on top, solid card on bottom".)
+    if (wrap.classList.contains('in-lobule')) {
       const src = lz?.glassHost?.() || null;
       if (!src) return 'the lobule is moving';
       if (frostCtx !== src.gl) { rehostSoon(); return 'the glass is moving to the liver\'s canvas'; }
@@ -9454,8 +9423,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     rehostT = setTimeout(() => {
       rehostT = 0;
       if (!veins?.top) return;
-      const src = LIVER_FROST && wrap.classList.contains('in-lobule') ? lz?.glassHost?.() || null : null;
-      if (LIVER_FROST && wrap.classList.contains('in-lobule') && !src) return;
+      const src = wrap.classList.contains('in-lobule') ? lz?.glassHost?.() || null : null;
+      if (wrap.classList.contains('in-lobule') && !src) return;
       if (src ? frostCtx === src.gl : frostCtx === veins.top.gl && !frostLiver) return;
       frostLiver = src;
       frostCtx = src ? src.gl : veins.top.gl;
@@ -13812,7 +13781,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** For the checks (tests/e2e/fluid-pool.mjs): frames that composited only the fluid's pool, and whether the level is easing. */
     poolFrames: () => poolFrames, fluidEasing: () => fluidEasing(), layerStarts: () => [layerStarts, layerStartsEasing],
     organLayersShown: () => plateOn() && gpuOrgansOn() && !!veins?.organs?.has(0),
-    /** The organs' drawing paths (the ?organpaths readout), and the layer sets committed so far. */
+    /** The organs' drawing paths, and the layer sets committed so far. */
     organPaths: () => ({ ...organPathsNow(), commits: layerCommits }),
     /** The ?perf switch "GPU organs", for the checks: true, false, or 'force' (on the software renderer too). */
     gpuOrgans(v) { gpuProbe.gpuOrgans = v; gpuProbe.onOrgans?.(); },

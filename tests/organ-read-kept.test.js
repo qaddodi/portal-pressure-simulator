@@ -1,6 +1,6 @@
 // The organs' groups are read for painting (organ-paint readGroup) once and kept until something they were read from changes
 // (2 Nov 2026, merged GPU plan; motion budget: about 1,800 to 3,000 style reads in one Varices slide change were the same groups
-// read again). ?organread=0 reads them every time, as before.
+// read again).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -8,9 +8,8 @@ import { readFileSync } from 'node:fs';
 const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
 
-test('a reading is kept with its group and the gradients it read, and ?organread=0 reads every time', () => {
-  assert.match(stage, /const READ_KEEP = !\/\[\?&\]organread=0\\b\/\.test\(location\.search\);/);
-  assert.match(stage, /if \(!READ_KEEP \|\| !\(gOrgans\.contains\(el\) \|\| gBackdrop\.contains\(el\) \|\| defs\.contains\(el\)\)\) return readGroupNow\(el, opt\);/,
+test('a reading is kept with its group and the gradients it read', () => {
+  assert.match(stage, /if \(!\(gOrgans\.contains\(el\) \|\| gBackdrop\.contains\(el\) \|\| defs\.contains\(el\)\)\) return readGroupNow\(el, opt\);/,
     'only what the watch sees is kept: the overlays (the tamponade tube, rebuilt each frame it moves) are read afresh, or the GPU shows their first reading for good');
   assert.match(stage, /ok = opt \? `\$\{!!opt\.withMask\}\|\$\{!!opt\.nest\}\|\$\{!!opt\.strict\}`/, 'a strict reading is never handed out for a loose one');
   assert.match(paint, /function readGradient\(doc, id\) \{\n\s+refsOut\?\.add\(id\);/, 'every gradient read is named');

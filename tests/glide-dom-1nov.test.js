@@ -1,7 +1,7 @@
 // A slide's camera glide sets off no style passes of its own (1 Nov 2026, iPhone: the slide-change zoom at about 3 fps). Its classes
 // (cam-move, pinch-hide, off-home) change no colour the stage, the organs' grey, the vessel marks or the glow read, nor any label's
 // look; the vessel marks read every style before writing any data-gl; and a glide's own step paints the callouts and probes once a
-// frame. ?marksbatch=0 turns its part off.
+// frame.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -28,14 +28,13 @@ test('off-home changes no label\'s look (label-gl.js reads them again only for a
 
 test('the vessel marks read every style before writing any data-gl', () => {
   const at = STAGE.indexOf('  function marksBuild() {'), fn = STAGE.slice(at, STAGE.indexOf('\n  }\n', at));
-  assert.match(fn, /const drawn = MARKS_BATCH \? new Set\(\) : null;/);
-  assert.match(fn, /if \(!drawn\) el\.removeAttribute\('data-gl'\);\n\s+let cs = getComputedStyle\(el\)/);
-  assert.match(fn, /if \(drawn\) drawn\.add\(el\); else el\.setAttribute\('data-gl', ''\);/);
+  assert.match(fn, /const drawn = new Set\(\);/);
+  assert.match(fn, /\n\s+let cs = getComputedStyle\(el\)/);
+  assert.match(fn, / drawn\.add\(el\);/);
   // (Written once, after the reads, and only where it changes.)
-  const loop = fn.indexOf('if (drawn) for (const g of Object.values(ov))');
+  const loop = fn.indexOf('    for (const g of Object.values(ov)) for (const el of g.querySelectorAll(');
   assert.ok(loop > fn.indexOf('drawn.add(el)'), 'after the reading loop');
   assert.match(fn.slice(loop), /if \(drawn\.has\(el\)\) \{ if \(!el\.hasAttribute\('data-gl'\)\) el\.setAttribute\('data-gl', ''\); \} else if \(el\.hasAttribute\('data-gl'\)\) el\.removeAttribute\('data-gl'\);/);
-  assert.match(STAGE, /const MARKS_BATCH = !\/\[\?&\]marksbatch=0\\b\/\.test\(location\.search\);/);
   // (data-gl hides a mark and nothing else: the reads are the same with it on or off.)
   assert.match(CSS, /\.stage-view\.gl-on #overlays \[data-gl\] \{ visibility: hidden; \}/);
 });

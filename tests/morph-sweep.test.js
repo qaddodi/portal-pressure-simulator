@@ -102,7 +102,7 @@ test('a frame of the change draws from a stretch only once every point, reach an
   assert.ok(mf.indexOf("return morphMiss('course')") < mf.indexOf('veins.setMorphFrame(buf)'));
   assert.ok(mf.indexOf("return morphMiss('joins')") < mf.indexOf('veins.useMorphSet(pc.set)'));
   assert.ok(mf.includes("if (reachOf(it) > pc.reach.get(it.row)) return morphMiss('reach');"));
-  assert.match(stage, /const MORPH_GPU = !\/\[\?&\]morphgpu=0\\b\/\.test\(location\.search\)/);
+  assert.match(stage, /const MORPH_GPU = typeof Worker !== 'undefined';/);
   assert.match(stage, /if \(\(key !== vBinKey \|\| grew\) && gpuProbe\.time\(null, 'vessel sync: morph frame', \(\) => morphFrame\(items\)\)\) vBinKey = key;\n\s*else if \(key !== vBinKey \|\| grew\)/);
   // The shader reads the points and joins from the frame's rows only with morphOn.
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
