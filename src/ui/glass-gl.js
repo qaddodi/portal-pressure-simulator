@@ -13,7 +13,8 @@ import { hold } from './gpu-budget.js?v=47759d6d7b';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { finalFrameFor, readFrameFor, framePhase, cancelFrame, noteDraw } from './frame.js?v=c67ad74ad8';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=0ca233872f';
-import { shiftOf, translateOf, motionAt, movesOnly, clockOf, clockAt, fillsAfter } from './glass-motion.js?v=2b98554adc';
+import { shiftOf, translateOf, motionAt, movesOnly, clockOf, clockAt, fillsAfter, affineOf, affMul, aboutOrigin, mapBox, unmapBox, motionAffAt, AFFINE, layoutWidth } from './glass-motion.js?v=d7dcceeb8d';
+import { readOwnBox, readBox, readStyle, readMetric } from './layout-snap.js?v=8d28b1c421';
 import { pathPolys, fanTriangles } from './path-poly.js?v=07f30beea9';
 import { easeArrive, D_SURFACE } from './ease.js?v=7513a88c68';
 
@@ -182,6 +183,8 @@ uniform vec4 uD0B, uD1B;    // their boxes (device px: left, top, right, bottom;
 uniform vec2 uDS;           // their sigmas (device px)
 uniform vec4 uLine;         // a card's own 1 px edge (its --gl-line), straight; .a 0: none
 uniform float uLW;          // its width (device px)
+uniform vec4 uCut;          // a rounded box taken out of a card's shape (device px: left, top, width, height; .z 0: none): the split sheet's
+uniform vec4 uCutR;         // instrument card cut out of the readings' card behind it, its corners uCutR
 out vec4 o;
 // A rounded box's coverage at p (device px from its top left; wh its size): 1 inside, 0 outside, across one pixel at its edge, each
 // corner with its own radius (the signed distance to the box with that corner's radius; the CSS clips a backdrop to the border box).
@@ -198,6 +201,7 @@ float cover(float x, float a, float b, float s) { return 0.5 * (erfa((x - a) / (
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uView.y - gl_FragCoord.y);
   float m = uMode == 1 ? boxCover(p - uBox.xy, uBox.zw, uRad) : texture(uMask, (p - uBox.xy) / uBox.zw * uMS).a;
+  if (uMode == 1 && uCut.z > 0.0) m *= 1.0 - boxCover(p - uCut.xy, uCut.zw, uCutR);
   // (A card's drop shadows, outside its box only, as the CSS draws a box-shadow: so the card's box, its edge and its shadow are one GPU
   // shape that can change size in view with nothing of the page laid out again.)
   float d0 = uD0C.a > 0.0 ? uD0C.a * cover(p.x, uD0B.x, uD0B.z, max(uDS.x, 0.5)) * cover(p.y, uD0B.y, uD0B.w, max(uDS.x, 0.5)) : 0.0;
@@ -240,7 +244,7 @@ function programsOf(gl) {
 function uniformsOf(gl, bprog, pprog) {
   const uni = (p, ks) => Object.fromEntries(ks.map((k) => [k, gl.getUniformLocation(p, k)]));
   const BU = uni(bprog, ['uBox', 'uView', 'uT', 'uDir', 'uW']);
-  const PU = uni(pprog, ['uBox', 'uView', 'uMS', 'uReg', 'uScene', 'uMask', 'uBg', 'uTint', 'uSat', 'uA', 'uBB', 'uShC', 'uShB', 'uShS', 'uRad', 'uMode', 'uGrow', 'uD0C', 'uD1C', 'uD0B', 'uD1B', 'uDS', 'uLine', 'uLW']);
+  const PU = uni(pprog, ['uBox', 'uView', 'uMS', 'uReg', 'uScene', 'uMask', 'uBg', 'uTint', 'uSat', 'uA', 'uBB', 'uShC', 'uShB', 'uShS', 'uRad', 'uMode', 'uGrow', 'uD0C', 'uD1C', 'uD0B', 'uD1B', 'uDS', 'uLine', 'uLW', 'uCut', 'uCutR']);
   return { bprog, pprog, BU, PU };
 }
 // Shader warm-up for the glass drawn in the figure's canvas (GPU practice, MDN "WebGL best practices": compile and link early, read the
@@ -531,8 +535,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // takes a 2 × 2 average at its edge; through a 2D canvas until 1 Nov 2026. Made before any glass of a picture is drawn (masksFor), never
   // between two of them.
   // (K: the figure's context's kit when the glass is drawn there (host), with its own masks, at that canvas's density.)
-  function maskOf(g, d, w, h, K = null) {
-    const G = K ? K.G : gl, k = K ? K.k : dpr, store = K ? K.masks : masks;
+  // (z: a glass drawn larger than it is laid out (a card zoomed up) has its mask made at that density, in steps of a half, so its edge
+  // stays as sharp as at rest and the mask is made again only a few times in a zoom.)
+  function maskOf(g, d, w, h, K = null, z = 1) {
+    const G = K ? K.G : gl, k = (K ? K.k : dpr) * (z > 1 ? Math.ceil(z * 2) / 2 : 1), store = K ? K.masks : masks;
     const key = `${d}|${w}|${h}|${k}`;
     let m = store.get(g);
     if (m?.key === key) return m;
@@ -551,7 +557,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     return m;
   }
   // Every mask a picture's glasses need, made before the first of them is drawn (the state they are drawn with set after).
-  function masksFor(panes, K = null) { for (const p of panes) if (!p.rad && p.d) maskOf(p.g, p.d, p.lw, p.lh, K); }
+  function masksFor(panes, K = null) { for (const p of panes) if (!p.rad && p.d) maskOf(p.g, p.d, p.lw, p.lh, K, p.z); }
   // A new small copy of the figure behind the callouts, blurred once in two passes when it arrives.
   function take(reg, cr, sr) {
     if (!sr.width || !sr.height || !source.width) return;
@@ -627,7 +633,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       if (q !== undefined) {
         for (const one of [].concat(q || [])) {
           if (!one || !shows(a * one.a) || !one.r.width || !one.r.height) continue;
-          panes.push({ g, el, oa: one.a, a: a * one.a, r: one.r, d: one.d || null, rad: one.d ? null : one.rad, lw: one.r.width, lh: one.r.height, er: one.r, shadow: null, tint: one.tint, k: 1 });
+          const q1 = { g, el, oa: one.a, a: a * one.a, r: one.r, d: one.d || null, rad: one.d ? null : one.rad, lw: one.r.width, lh: one.r.height, er: one.r, shadow: null, tint: one.tint, k: 1 };
+          // (Read in page px at the card's scale as it stands (zs); a cut drawn on the GPU in place of a mask, and how the pane moves as a
+          // sheet's readings come out (u): see sheet-glass.js.)
+          if (AFFINE) { q1.zs = true; if (one.cut && one.rad) { q1.d = null; q1.rad = one.rad; q1.cut = one.cut; } if (one.u) q1.u = one.u; }
+          panes.push(q1);
         }
         continue;
       }
@@ -635,7 +645,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         // (Its CSS says whether this element's glass is its own (--gl-glass 1) and what its tint is; a filter on it (a brightness) would
         // not reach a glass drawn here, so such a card keeps the browser's.)
         if (cs.getPropertyValue('--gl-glass').trim() !== '1' || (cs.filter && cs.filter !== 'none')) continue;
-        const r = g.getBoundingClientRect();
+        const r = boxOf(g);
         if (!r.width || !r.height || !shows(a)) continue;
         // (A card's own edge and drop shadows, drawn here with its glass where its CSS names them (--gl-line, --gl-drop): the page's own
         // are taken off while it is drawn here ([data-gl="edge"]), so the card is one GPU shape that may change size in view.)
@@ -700,7 +710,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const base = bg[3] > 0 ? bg : colour(bgVar, 'transparent');
     gl.uniform3f(PU.uBg, base[0], base[1], base[2]);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, blurred);
-    drawPanes(gl, PU, panes, cr, dpr, (p) => maskOf(p.g, p.d, p.lw, p.lh));
+    drawPanes(gl, PU, panes, cr, dpr, (p) => maskOf(p.g, p.d, p.lw, p.lh, null, p.z));
     drawn = true; drawnKey = key;
     return true;
   }
@@ -710,6 +720,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     for (const p of panes) {
       const s = p.shadow, e = p.er;
       key += `|${p.r.left},${p.r.top},${p.r.width},${p.r.height},${p.a},${p.lw},${p.lh},${p.d},${p.rad || ''},${p.tint}`
+        + (p.cut ? `,${p.cut.r.left},${p.cut.r.top},${p.cut.r.width},${p.cut.r.height},${p.cut.rad}` : '') + (p.z && p.z !== 1 ? `,z${p.z}` : '')
         + (pane ? '' : `,${e.left},${e.top},${e.right},${e.bottom},${s ? `${s.c},${s.x},${s.y},${s.blur},${s.spread}` : '-'}`);
     }
     return key;
@@ -730,11 +741,15 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         G.uniform1i(U.uMode, 1);
         G.uniform4f(U.uRad, p.rad[0] * k, p.rad[1] * k, p.rad[2] * k, p.rad[3] * k);
         G.uniform2f(U.uMS, 1, 1);
+        const c = p.cut;
+        if (c) { G.uniform4f(U.uCut, (c.r.left - cr.left) * k, (c.r.top - cr.top) * k, c.r.width * k, c.r.height * k); G.uniform4f(U.uCutR, c.rad[0] * k, c.rad[1] * k, c.rad[2] * k, c.rad[3] * k); }
+        else G.uniform4f(U.uCut, 0, 0, 0, 0);
       } else {
         const m = maskFor(p);
         if (!m) continue;
         G.activeTexture(G.TEXTURE1); G.bindTexture(G.TEXTURE_2D, m.tex); G.activeTexture(G.TEXTURE0);
         G.uniform1i(U.uMode, 0);
+        G.uniform4f(U.uCut, 0, 0, 0, 0);
         G.uniform2f(U.uMS, m.ms[0], m.ms[1]);
       }
       G.uniform4f(U.uBox, bx, by, p.r.width * k, p.r.height * k);
@@ -742,25 +757,28 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       G.uniform1f(U.uA, Math.min(1, p.a));
       const e = p.er, L = (e.left - cr.left) * k, T = (e.top - cr.top) * k, R = (e.right - cr.left) * k, B = (e.bottom - cr.top) * k;
       G.uniform4f(U.uBB, L, T, R, B);
-      const s = p.shadow, sp = (s?.spread || 0) * k;
+      // (z: how many times larger the glass is drawn than it is laid out, a card zoomed up (card-zoom.js): its shadows, edge and corners
+      // grow with it, as the page's own do under its transform.)
+      const z = p.z || 1, kz = k * z;
+      const s = p.shadow, sp = (s?.spread || 0) * kz;
       G.uniform4f(U.uShC, ...(s ? s.c : [0, 0, 0, 0]));
-      G.uniform4f(U.uShB, L + (s?.x || 0) * k - sp, T + (s?.y || 0) * k - sp, R + (s?.x || 0) * k + sp, B + (s?.y || 0) * k + sp);
-      G.uniform1f(U.uShS, (s?.blur || 0) / 2 * k);
+      G.uniform4f(U.uShB, L + (s?.x || 0) * kz - sp, T + (s?.y || 0) * kz - sp, R + (s?.x || 0) * kz + sp, B + (s?.y || 0) * kz + sp);
+      G.uniform1f(U.uShS, (s?.blur || 0) / 2 * kz);
       // (The card's own edge and drop shadows: --gl-line, --gl-drop. Their colours were read with the page: resolveColour.)
       const ds = p.drops || [], lc = p.line ? colour(p.line, 'transparent') : [0, 0, 0, 0], edge = !!p.rad && (ds.length > 0 || lc[3] > 0);
       let gl0 = 0, gt0 = 0, gr0 = 0, gb0 = 0;
       for (let i = 0; i < 2; i++) {
         const d = edge ? ds[i] : null, C = i ? U.uD1C : U.uD0C, Bx = i ? U.uD1B : U.uD0B;
         if (!d) { G.uniform4f(C, 0, 0, 0, 0); continue; }
-        const c = colour(d.c, 'transparent'), sp = d.spread * k, reach = (d.blur * 1.5 + Math.max(0, d.spread)) * k;
+        const c = colour(d.c, 'transparent'), sp = d.spread * kz, reach = (d.blur * 1.5 + Math.max(0, d.spread)) * kz;
         G.uniform4f(C, c[0], c[1], c[2], c[3]);
-        G.uniform4f(Bx, bx + d.x * k - sp, by + d.y * k - sp, bx + p.r.width * k + d.x * k + sp, by + p.r.height * k + d.y * k + sp);
-        gl0 = Math.max(gl0, reach - d.x * k); gr0 = Math.max(gr0, reach + d.x * k); gt0 = Math.max(gt0, reach - d.y * k); gb0 = Math.max(gb0, reach + d.y * k);
+        G.uniform4f(Bx, bx + d.x * kz - sp, by + d.y * kz - sp, bx + p.r.width * k + d.x * kz + sp, by + p.r.height * k + d.y * kz + sp);
+        gl0 = Math.max(gl0, reach - d.x * kz); gr0 = Math.max(gr0, reach + d.x * kz); gt0 = Math.max(gt0, reach - d.y * kz); gb0 = Math.max(gb0, reach + d.y * kz);
       }
-      G.uniform2f(U.uDS, (ds[0]?.blur || 0) / 2 * k, (ds[1]?.blur || 0) / 2 * k);
+      G.uniform2f(U.uDS, (ds[0]?.blur || 0) / 2 * kz, (ds[1]?.blur || 0) / 2 * kz);
       G.uniform4f(U.uGrow, gl0, gt0, gr0, gb0);
       G.uniform4f(U.uLine, lc[0], lc[1], lc[2], edge ? lc[3] : 0);
-      G.uniform1f(U.uLW, k);
+      G.uniform1f(U.uLW, kz);
       G.drawArrays(G.TRIANGLE_STRIP, 0, 4);
       G.uniform4f(U.uGrow, 0, 0, 0, 0);
       // (Marked in the frame its glass is first drawn here: the browser's blur and this one never both show, nor neither. "edge": its own
@@ -1151,7 +1169,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     G.uniform4f(U.uReg, R.x * k, R.y * k, R.w * k, R.h * k);
     G.uniform3f(U.uBg, hf.base[0], hf.base[1], hf.base[2]);
     G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, hk.share ? hk.share.t.blurred : hk.blurred);
-    drawPanes(G, U, panes, cr, k, (p) => maskOf(p.g, p.d, p.lw, p.lh, hk), frameMarks, final);
+    drawPanes(G, U, panes, cr, k, (p) => maskOf(p.g, p.d, p.lw, p.lh, hk, p.z), frameMarks, final);
     // (The figure's context left as its other passes expect to find it.)
     G.disable(G.BLEND); G.bindVertexArray(null); G.useProgram(null);
     G.activeTexture(G.TEXTURE1); G.bindTexture(G.TEXTURE_2D, null); G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, null);
@@ -1185,13 +1203,19 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     return { st: an.playState, p: ct?.progress, end: ct?.endTime, fills: fillsOn(an), live: an.playState === 'running' || an.pending };
   }
   const stateOf = CLOCK ? clockState : readState;
-  function timeAnim(an) {
+  function timeAnim(an, e = null) {
     const rec = { kf: null, c: null };
     try { rec.kf = an.effect?.getKeyframes?.() || null; } catch { rec.kf = null; }
+    if (AFFINE) rec.props = propsOf(rec.kf);
     if (!CLOCK) return rec;
     const c = rec.c = clockOf(an, tlNow());
     if (!c) return rec;
-    const stop = (done) => () => { if (done) c.done = true; else c.idle = true; wake(); measureSoon(); };
+    // (An animation that ends where the glass already follows it needs no read of the page (AFFINE): one that holds its last frame
+    // (fill forwards: the zoom's glide, each frame of its follow), or one cancelled with another on the same element taking up all it moved
+    // (the zoom's glide back over its glide in, each follow over the last). Read, each frame of a tuck under a zoomed card read the page.)
+    // (One that moves nothing the glass follows (a shadow's or a colour's transition) changes nothing it draws as it ends.)
+    const needsRead = (done) => !AFFINE || !e || (!!rec.props?.size && (done ? !fillsAfter(c) : !covered(e, an)));
+    const stop = (done) => () => { if (done) c.done = true; else c.idle = true; wake(); if (needsRead(done)) measureSoon(); };
     try {
       an.addEventListener?.('finish', stop(true));
       an.addEventListener?.('cancel', stop(false));
@@ -1207,12 +1231,27 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const ENDS = !/[?&]glassend=0\b/.test(SEARCH);
   const ended = new Map();
   const RISE = !/[?&]glassrise=0\b/.test(SEARCH);
+  // (Cards are glass, 2 Nov 2026: a glass follows scales as well as translations, from the transform (moveAff), and a sheet's panes from its
+  // --pz-u (sheet-glass.js), with no read of the page in a frame. ?glassaffine=0: translations only, the rest read from the page.)
+  const FOLLOW = AFFINE && cards?.follows ? new Set(cards.follows) : null;
   const LIVE_READ = !/[?&]liveread=0\b/.test(SEARCH);
   const chainOf = (g) => { const c = []; for (let e = g; e && e !== stop && e.nodeType !== 9; e = e.parentElement) c.push(e); return c; };
   function addAnim(e, an) {
     let m = anims.get(e);
     if (!m) anims.set(e, (m = new Map()));
-    if (!m.has(an)) m.set(an, timeAnim(an));
+    if (!m.has(an)) m.set(an, timeAnim(an, e));
+  }
+  // (What an animation's keyframes move of what the glass follows; whether another on the same element, still running or holding its
+  // end, moves all of what `an` did, so the end of `an` changes nothing the glass draws.)
+  const propsOf = (kf) => { const out = new Set(); for (const k of kf || []) for (const n of ['transform', 'translate', 'opacity']) if (k[n] != null) out.add(n); return out; };
+  const liveRec = (r) => !r.c || (!r.c.idle && !(r.c.done && !fillsAfter(r.c)));
+  function covered(e, an) {
+    const m = anims.get(e), mine = m?.get(an)?.props;
+    if (!mine?.size) return true;
+    const got = new Set();
+    for (const [o, r] of m) if (o !== an && liveRec(r)) for (const n of r.props || []) got.add(n);
+    for (const n of mine) if (!got.has(n)) return false;
+    return true;
   }
   function track(e) {
     if (!e?.getAnimations) return;
@@ -1237,7 +1276,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const fillsOn = (an) => /forwards|both/.test(an.effect?.getTiming?.().fill || '');
   // One element's moving part now: { t: [x, y] (its translation), o (its opacity, or null when not moving) }; bad: something it cannot
   // follow (the page is read again just after this frame); ended: an animation of it has ended (likewise, for its end state).
-  function moveOf(e, flag) {
+  function moveShift(e, flag) {
     let t = null, o = null;
     const m = anims.get(e);
     if (m) {
@@ -1274,6 +1313,94 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     }
     return { t: t || [0, 0], o };
   }
+  // (2 Nov 2026, the coordinator: a zoomed card's frost driven from its transform, never read from the page while it glides.) One element's
+  // moving part as an affine on the page: { a: [sx, sy, tx, ty] (p → s·p + t, page px, about its transform-origin where it rests), o (its
+  // opacity, or null when not moving), m: its transform (layout px), tr: its translate property and the page's rise (layout px) }. Its
+  // transform as a list of translations and scales, from a running animation's keyframes (CSS's own interpolation, glass-motion.js
+  // motionAffAt), an ended one's last frame, or its inline style; its translate likewise (an animation's, else the inline value and the
+  // page's rise, cards.shift). A scale needs where the element's origin rests, read with the page (orgs, measureGeo): until then
+  // flag.org asks for that read, once. ?glassaffine=0: translations only, anything else read from the page each frame (LIVE_READ).
+  function moveAff(e, flag) {
+    let m = null, tr = null, o = null;
+    const A = anims.get(e);
+    if (A) {
+      let gone = false;
+      for (const [an, rec] of A) {
+        const kf = rec.kf, S = stateOf(an, rec), st = S.st;
+        if (st === 'idle' || (st === 'finished' && !S.fills)) {
+          // (Its end read from the page only when no other animation of the element takes up all it moved: covered.)
+          if (!covered(e, an)) gone = true;
+          A.delete(an);
+          if (ENDS && st === 'finished') { const v = kf && motionAffAt(kf, 1); if (v) { const was = ended.get(e) || {}; ended.set(e, { m: v.m || was.m || null, tr: v.tr || was.tr || null, o: v.o ?? was.o ?? null }); } }
+          continue;
+        }
+        if (S.bad) { flag.bad = true; continue; }
+        const p = S.p;
+        if (p == null) continue;
+        const v = motionAffAt(kf, p);
+        if (!v) { flag.bad = true; if (st === 'running' && Number.isFinite(S.end)) flag.live = true; continue; }
+        if (v.m) m = v.m;
+        if (v.tr) tr = v.tr;
+        if (v.o != null) o = v.o;
+      }
+      if (gone) flag.ended = true;
+      if (!A.size) anims.delete(e);
+    }
+    const s = e.style, end = ENDS && ended.get(e);
+    if (end) { if (!m && end.m && !s?.transform) m = end.m; if (!tr && end.tr && !s?.translate) tr = end.tr; if (o == null && end.o != null) o = end.o; }
+    if (s) {
+      if (!m) { const a = affineOf(s.transform); if (!a) flag.bad = true; else m = a; }
+      if (!tr) {
+        const b = translateOf(s.translate);
+        if (!b) flag.bad = true; else tr = b;
+        // (The page's rise by a custom property its stylesheet turns into a translate: see moveShift.)
+        if (RISE && cards?.shift && !s.translate) { const sh = cards.shift(e); if (sh) tr = tr ? [tr[0] + sh[0], tr[1] + sh[1]] : sh; }
+      }
+      if (o == null && s.opacity !== '' && s.opacity != null && !inlineLoses.has(e)) o = NUM(s.opacity);
+    }
+    m = m || ID; tr = tr || [0, 0];
+    const g = orgs.get(e), k = g?.k || 1;
+    let a;
+    if (m[0] === 1 && m[1] === 1) a = [1, 1, (tr[0] + m[2]) * k, (tr[1] + m[3]) * k];
+    else if (g) a = aboutOrigin(m, tr, g.o, k);
+    else { if (!orgs.has(e)) flag.org = true; a = [1, 1, tr[0] + m[2], tr[1] + m[3]]; }   // (null: an element with no box of its own to scale)
+    return { a, o, m, tr };
+  }
+  const ID = [1, 1, 0, 0];
+  // (The off path, translations only, as one affine.)
+  const moveOld = (e, flag) => { const v = moveShift(e, flag); return { a: [1, 1, v.t[0], v.t[1]], o: v.o }; };
+  const moveOf = AFFINE ? moveAff : moveOld;
+  // (Where each scaling element's transform-origin rests on the page, and its page px per layout px: read with the page, measureGeo.)
+  let orgs = new Map();
+  // (Whether an element may scale: an inline transform or an animation's keyframes that are more than a translation.)
+  const scalable = (e) => {
+    const t = e.style?.transform;
+    if (t && t !== 'none' && !shiftOf(t)) return true;
+    for (const rec of anims.get(e)?.values() || []) if (rec.kf?.some((k) => k.transform != null && !shiftOf(k.transform))) return true;
+    return false;
+  };
+  // The page's own box of an element, never a stand-in (card-zoom.js pins a zoomed card's getBoundingClientRect to where it rests).
+  const boxOf = (e) => (AFFINE ? readOwnBox(e) : readBox(e));
+  // (The origin of each element of a chain (glass first, outward) that may scale: its box as the page lays it now, its moving parts and
+  // those of everything outside it taken out, and its computed transform-origin. Read outside any frame, with the rest of the page.)
+  function readOrgs(chain, flag) {
+    for (let i = chain.length - 1; i >= 0; i--) {
+      const e = chain[i];
+      if (orgs.has(e) || !scalable(e)) continue;
+      const cs = readStyle(e), w = layoutWidth(e, cs), h = readMetric(e, 'offsetHeight');
+      if (!(w > 0) || !(h > 0)) { orgs.set(e, null); continue; }
+      let up = ID;
+      for (let j = i + 1; j < chain.length; j++) up = affMul(moveOf(chain[j], flag).a, up);
+      // (Solved against the transform and translate the page has on it as it is read, never the glass's own clock for them: a glide
+      // just started may be a frame apart from it, and the origin found would be off by that frame's move.)
+      const R = unmapBox(boxOf(e), up), S = affineOf(cs.transform), tr = translateOf(cs.translate);
+      if (!S || !tr || !(S[0] > 0)) { orgs.set(e, null); continue; }
+      const k = R.width / (S[0] * w) || 1;
+      const to = (cs.transformOrigin || '').split(/\s+/).map(NUM);
+      const L = R.left - k * to[0] * (1 - S[0]) - k * (tr[0] + S[2]), T = R.top - k * (to[1] || 0) * (1 - S[1]) - k * (tr[1] + S[3]);
+      orgs.set(e, { o: [L + k * to[0], T + k * (to[1] || 0)], k });
+    }
+  }
   const sameRect = (a, b) => Math.abs(a.left - b.left) < 0.5 && Math.abs(a.top - b.top) < 0.5 && Math.abs(a.width - b.width) < 0.5 && Math.abs(a.height - b.height) < 0.5;
   /** Where a card's box is drawn at time t, before its motion: its eased size (morph) or its box. */
   function morphAt(q, t) {
@@ -1285,12 +1412,17 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const W = a.width + (b.width - a.width) * e, H = a.height + (b.height - a.height) * e;
     return { left: L, top: T, right: L + W, bottom: T + H, width: W, height: H };
   }
-  const shift = (r, t) => (t[0] || t[1] ? { left: r.left + t[0], top: r.top + t[1], right: r.right + t[0], bottom: r.bottom + t[1], width: r.width, height: r.height } : r);
+  // (Glass first, outward: each holder's motion over what it holds.)
   function chainMove(chain, flag) {
-    let x = 0, y = 0, o = 1;
-    for (const e of chain) { const m = moveOf(e, flag); x += m.t[0]; y += m.t[1]; if (m.o != null) o *= m.o; }
-    return { t: [x, y], o };
+    let a = ID, o = 1;
+    for (const e of chain) { const m = moveOf(e, flag); a = affMul(m.a, a); if (m.o != null) o *= m.o; }
+    return { a, o };
   }
+  // A box whose top and bottom go down by dt and db (a sheet's pane as its readings come out).
+  const slideBox = (r, dt, db) => (dt || db ? { left: r.left, right: r.right, width: r.width, top: r.top + dt, bottom: r.bottom + db, height: r.height + db - dt } : r);
+  const scaleRad = (rad, z) => (rad && z !== 1 ? rad.map((v) => v * z) : rad);
+  // (How far a sheet's readings have come out since the page was read, and the pane moved by that: sheet-glass.js.)
+  const uMove = (r, u, du) => (u && du ? slideBox(r, du * u.top, du * u.bottom) : r);
   function measureGeo() {
     clearTimeout(geoT); geoT = 0;
     if (dead || lost) return;
@@ -1298,10 +1430,12 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const list = glassesOf();
     const tgt = host?.canvas || canvas;
     for (const g of list) for (const e of chainOf(g)) { track(e); hook(e); }
-    if (tgt) track(tgt);
+    if (tgt) { track(tgt); hook(tgt); }
     const flag = {};
-    const cr = tgt ? tgt.getBoundingClientRect() : { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
-    const cm = tgt ? moveOf(tgt, flag) : { t: [0, 0] };
+    orgs = new Map();
+    if (AFFINE) { if (tgt) readOrgs([tgt], flag); for (const g of list) readOrgs(chainOf(g), flag); }
+    const cr = tgt ? boxOf(tgt) : { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
+    const cm = tgt ? moveOf(tgt, flag) : { a: ID };
     const vw = document.documentElement?.clientWidth || window.innerWidth || cr.right, vh = document.documentElement?.clientHeight || window.innerHeight || cr.bottom;
     const ws = getComputedStyle(wrap), bgs = ws.backgroundColor;
     resolveColour(bgs);
@@ -1319,8 +1453,12 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       // (The fade of what does not move, read now; what moves is put back each frame.)
       let aS = p.oa ?? 1;
       for (const e of chain) { if (moveOf(e, flag).o != null) continue; const v = fadeOf(e); if (v < 1) aS *= v; }   // (a missing or odd value is no fade)
-      const back = [-mv.t[0], -mv.t[1]];
-      const r0 = shift(p.r, back), er0 = shift(p.er, back);
+      // (Its box, and all else of its shape, where it rests: the motion as it stands now taken out. Corners and a cut read in page px at
+      // the card's scale (zs) are taken back to its laid-out size; a sheet's pane remembers how far out its readings were.)
+      const A = mv.a, r0 = unmapBox(p.r, A), er0 = unmapBox(p.er, A), zs = p.zs ? 1 / A[0] : 1;
+      const rad0 = scaleRad(p.rad, zs), u0 = p.u ? p.u.at() : 0;
+      const ur = (u) => (u ? { at: u.at, top: u.top / A[1], bottom: u.bottom / A[1] } : null);
+      const cut0 = p.cut ? { r: unmapBox(p.cut.r, A), rad: scaleRad(p.cut.rad, zs), u: ur(p.cut.u) } : null;
       // (A card the page asks to change size in view (data-gl-morph: the teaching card's glass kept up through a slide change) eases from
       // where it is drawn now to its new box on the GPU, its edge and shadows with it; read again mid-way, it carries on from there.)
       let morph = null;
@@ -1333,10 +1471,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         }
       }
       if (morph) liveUntil = Math.max(liveUntil, morph.t0 + morph.ms + 34);
-      return { ...p, chain, r0, er0, aS, morph };
+      return { ...p, chain, r0, er0, aS, morph, rad0, cut0, u0, u: ur(p.u) };
     });
     const over = host ? (cards ? { low: host.over?.('low') || [], high: host.over?.('high') || [] } : { all: host.over?.() || [] }) : null;
-    geo = { list, cr0: shift(cr, [-cm.t[0], -cm.t[1]]), tgt, sr: source.getBoundingClientRect(), vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
+    geo = { list, cr0: unmapBox(cr, cm.a), tgt, sr: source.getBoundingClientRect(), vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
     if (watchRo) { if (tgt) watchRo.observe(tgt); for (const g of list) watchRo.observe(g); }
     wake();
   }
@@ -1379,14 +1517,21 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const G = geo;
     if (!G) { measureSoon(); return null; }
     if (!sameList(G.list, list)) measureSoon();
-    const flag = {}, cr = G.tgt ? shift(G.cr0, moveOf(G.tgt, flag).t) : G.cr0, panes = [];
+    const flag = {}, cr = G.tgt ? mapBox(G.cr0, moveOf(G.tgt, flag).a) : G.cr0, panes = [];
     for (const p of G.panes) {
       if (!p.g.isConnected) continue;
-      const mv = chainMove(p.chain, flag), a = p.aS * mv.o;
+      const mv = chainMove(p.chain, flag), a = p.aS * mv.o, A = mv.a;
       if (!(a > 0.001)) continue;
-      if (p.morph) { const m0 = shift(morphAt(p, performance.now()), mv.t); panes.push({ ...p, r: m0, er: m0, a }); continue; }
-      panes.push({ ...p, r: shift(p.r0, mv.t), er: shift(p.er0, mv.t), a });
+      // (Each pane where it rests, moved as far as a sheet's readings have come out since (u), then through the motion of everything that
+      // holds it: its box, its corners, its cut and its density all from the transform, so it is exactly the card in every frame.)
+      const du = p.u ? p.u.at() - p.u0 : 0, z = A[0];
+      const cut = p.cut0 ? { r: mapBox(uMove(p.cut0.r, p.cut0.u, du), A), rad: scaleRad(p.cut0.rad, z) } : null;
+      const rad = scaleRad(p.rad0, z);
+      if (p.morph) { const m0 = mapBox(morphAt(p, performance.now()), A); panes.push({ ...p, r: m0, er: m0, a, rad, cut, z }); continue; }
+      panes.push({ ...p, r: mapBox(uMove(p.r0, p.u, du), A), er: mapBox(uMove(p.er0, p.u, du), A), a, rad, cut, z });
     }
+    // (A scale whose origin was not read yet (a zoom asked in this frame's task): read in the next frame's read phase, once.)
+    if (flag.org) { flag.live = true; flag.bad = true; }
     // (A move the motion cannot put back by itself (a card zoomed up: a scale, in a glide that ends): read again in the next frame's read phase, so its glass is
     // drawn where the card is in that frame, never left a frame or more behind at its old box, an empty panel (Mohammad, 2 Nov 2026, a
     // chart zoomed on HVPG 3). ?liveread=0: just after this frame, as before.)
@@ -1415,7 +1560,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const loop = () => { raf = 0; if (changed(mo.takeRecords())) measureSoon(); settle(draw()); };
   function ask() { if (!raf && !lost && !dead) raf = later(loop); }
   /** Something the glass shows may have changed: it looks again (for two frames at least). */
-  function wake() { quiet = 0; ask(); }
+  // (Woken, its slow look while asleep is called off at once: due before the next frame, it read the page as a zoom or a tuck began.)
+  function wake() { quiet = 0; if (poll && AFFINE) { clearTimeout(poll); poll = 0; } ask(); }
   // (Any animation of a glass or of what holds it still running: no event says when a script's ends.)
   function moving() {
     for (const [e, m] of anims) {
@@ -1443,7 +1589,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     for (const r of recs) {
       if (!MOTION || r.type !== 'attributes' || r.attributeName !== 'style') return true;
       const e = r.target;
-      if (e.contains?.(stop) || !movesOnly(r.oldValue || '', e.getAttribute('style') || '')) return true;
+      if (e.contains?.(stop) || !movesOnly(r.oldValue || '', e.getAttribute('style') || '', FOLLOW)) return true;
     }
     return false;
   }
@@ -1468,7 +1614,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     for (const e of chain) parentsMo.observe(e, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
     observers.push(parentsMo);
   }
-  const watchRo = typeof ResizeObserver === 'function' ? new ResizeObserver(() => measureEarly()) : null;
+  // (A sheet whose size changes only as its readings slide out or back (pz-sliding: its --pz-u written each frame) is followed from that
+  // value (sheet-glass.js); any other size change reads the page.)
+  const followsSize = (g) => AFFINE && !!g?.classList?.contains('pz-sliding') && !!geo?.panes.some((p) => p.g === g && p.u);
+  const watchRo = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => { if (!es?.length || !es.every((en) => followsSize(en.target))) measureEarly(); }) : null;
   for (const e of [canvas, source, wrap]) if (e) watchRo?.observe(e);
   const onScroll = () => measureSoon();
   document.addEventListener?.('scroll', onScroll, true);
@@ -1476,14 +1625,18 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // (A CSS transition or animation starting anywhere: followed if it moves a glass or what holds it (its keyframes taken now, once); one
   // ending, anywhere: the page read again for where it ended.)
   const docStart = (e) => { trackSoon(e?.target); wake(); };
-  const docEnd = () => measureEarly();
+  // (A transition of what only paints (a zoomed card's shadow easing out as it glides back, a colour) moves no glass and changes nothing
+  // the glass reads (its tint is --gl-tint): its end reads nothing, so no read lands in the middle of a glide.)
+  const PAINT_ONLY = new Set(['box-shadow', 'color', 'background-color', 'border-color', 'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color', 'outline-color', 'text-shadow', 'fill', 'stroke', 'text-decoration-color', 'caret-color']);
+  const paintOnly = (e) => AFFINE && /^transition/.test(e?.type || '') && PAINT_ONLY.has(e.propertyName);
+  const docEnd = (e) => { if (!paintOnly(e)) measureEarly(); };
   const DOC_START = ['transitionrun', 'animationstart'], DOC_END = ['transitionend', 'transitioncancel', 'animationend', 'animationcancel'];
   for (const t of DOC_START) document.addEventListener?.(t, docStart, true);
   for (const t of DOC_END) document.addEventListener?.(t, docEnd, true);
   // A callout's fade, glide or hover moves its glass with no write to wake it: it is followed while it runs.
   const held = (e) => {
     liveUntil = performance.now() + 800;
-    if (/(end|cancel)$/.test(e?.type || '')) { measureEarly(); return; }   // (ended: read where it ended)
+    if (/(end|cancel)$/.test(e?.type || '')) { if (!paintOnly(e)) measureEarly(); return; }   // (ended: read where it ended)
     if (e?.target && /^(transition|animation)/.test(e.type)) trackSoon(e.target);
     wake();
   };

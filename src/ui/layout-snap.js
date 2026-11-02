@@ -25,6 +25,9 @@ export const layoutReads = () => ({ ...counts, afterWrites: counts.early + count
 // ---- The one place the browser is asked. ----
 // (Each takes the element first; a missing element gives undefined, as `el?.method()` did.)
 export const readBox = (el) => { if (el == null) return undefined; note(); return el.getBoundingClientRect(); };
+// (An element's own box from the browser, past any stand-in a script set on the element itself: card-zoom.js pins a zoomed card's
+// getBoundingClientRect to where it rests, and the glass that follows the zoom needs where the page really draws it.)
+export const readOwnBox = (el) => { if (el == null) return undefined; note(); return typeof Element !== 'undefined' && el instanceof Element ? Element.prototype.getBoundingClientRect.call(el) : el.getBoundingClientRect(); };
 export const readRects = (el) => { if (el == null) return undefined; note(); return el.getClientRects(); };
 export const readStyle = (el, pseudo) => { note(); return pseudo ? getComputedStyle(el, pseudo) : getComputedStyle(el); };
 export const readCTM = (el) => { if (el == null) return undefined; note(); return el.getScreenCTM?.() ?? null; };

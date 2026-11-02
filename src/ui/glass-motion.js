@@ -4,6 +4,8 @@
 // opacity written inline on the glass or on anything holding it, or a running animation of either (a CSS transition, a CSS keyframe
 // animation, a script's animate()), worked out from its keyframes and its timing, with no read of layout or style.
 
+import { readMetric } from './layout-snap.js?v=8d28b1c421';
+
 const NUM = (v) => parseFloat(v) || 0;
 const PX = /^(-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)(px)?$/i;
 const len = (v) => {
@@ -117,12 +119,15 @@ const QUIET = new Set(['transition', 'transition-property', 'transition-duration
 /** Whether a style attribute changed from `was` to `now` only in what the glass follows each frame (a translation or an opacity whose
  *  declaration was there before and is still there, so the sheet's value it overrides never comes into it), or in what changes nothing
  *  it draws (a transition's own settings). */
-export function movesOnly(was, now) {
+// (follow: custom properties the glass puts back each frame from the inline value itself (glass-gl cards.follows: a sheet's --pz-u, the
+// cards' --pz-lift and --pz-rise), written, changed or taken away.)
+export function movesOnly(was, now, follow = null) {
   if (was === now) return true;
   const a = declsOf(was), b = declsOf(now);
   for (const k of new Set([...a.keys(), ...b.keys()])) {
     if (a.get(k) === b.get(k) || QUIET.has(k)) continue;
     if (MOVES.has(k) && a.has(k) && b.has(k)) continue;
+    if (follow?.has(k)) continue;
     return false;
   }
   return true;
@@ -147,6 +152,9 @@ export function clockOf(an, now) {
   const c = {
     delay: +t.delay || 0, endDelay: +t.endDelay || 0, dur, iters, iterStart: +t.iterationStart || 0, dir: t.direction || 'normal',
     fill: t.fill || 'auto', ease, bad: !ease, rate, s: null, c0: 0, w0: now, idle: st === 'idle', done: false,
+    // (An animation waiting to start (pending: just asked for, its first frame not yet shown) holds its current time until its start time
+    // is known, as the page draws it: its clock run on from when it was asked put a zoom's glass ahead of its card, AFFINE.)
+    hold: AFFINE && !!an.pending && !Number.isFinite(an.startTime),
   };
   const s = an.startTime, ct = an.currentTime;
   if (rate !== 0 && Number.isFinite(s)) c.s = s;
@@ -160,7 +168,7 @@ export function clockAt(c, now) {
   const active = c.dur === 0 || c.iters === 0 ? 0 : c.dur * c.iters;
   const end = Math.max(c.delay + active + c.endDelay, 0);
   if (c.idle) return { st: 'idle', p: null, end };
-  const local = c.s != null ? (now - c.s) * c.rate : c.c0 + (now - c.w0) * c.rate;
+  const local = c.s != null ? (now - c.s) * c.rate : c.c0 + (c.hold ? 0 : (now - c.w0) * c.rate);
   const st = c.done || (c.rate > 0 && local >= end) || (c.rate < 0 && local <= 0) ? 'finished' : 'running';
   const beforeEnd = Math.min(c.delay, end), activeEnd = Math.min(c.delay + active, end);
   const phase = local < beforeEnd || (c.rate < 0 && local === beforeEnd) ? 'before' : local > activeEnd || (c.rate >= 0 && local === activeEnd) ? 'after' : 'active';
@@ -177,4 +185,119 @@ export function clockAt(c, now) {
   const fwd = c.dir === 'reverse' ? false : c.dir === 'alternate' ? !odd : c.dir === 'alternate-reverse' ? odd : true;
   const d = fwd ? simple : 1 - simple;
   return { st, p: c.ease ? c.ease(d) : d, end };
+}
+
+// ── Scale as well as translation (2 Nov 2026, Mohammad: "CARDS ARE GLASS"; the coordinator: a zoomed card's frost driven from its transform) ──
+// A card zoomed to the middle (card-zoom.js) glides by `translate(x, y) scale(s)` about an inline transform-origin. The glass follows it
+// from the keyframes as it follows a glide: each transform is taken as an axis-aligned affine [sx, sy, tx, ty] (p → s·p + t, CSS px), and
+// a pair of keyframes is interpolated as CSS does (CSS Transforms 1 and 2): a function list against 'none' or a list of the same functions
+// function by function, the rest of two lists that stop matching as matrices, their scale and translation each eased in a line (what a
+// decomposed 2D matrix with no turn or skew comes to). A turn, a skew, a percentage or a flip is left to the page's own read (null).
+
+/** Whether the glass follows scales as well as translations (?glassaffine=0: translations only, the rest read from the page). */
+export const AFFINE = typeof location === 'undefined' || !/[?&]glassaffine=0\b/.test(location.search || '');
+const ID = [1, 1, 0, 0];
+const num = (v) => { const s = String(v ?? '').trim(); return s === '' ? NaN : Number(s); };
+/** A CSS transform as its functions, each { k: 't' (translate [x, y]) | 's' (scale [x, y]) | 'm' (matrix [a, d, e, f], no turn or skew),
+ *  v }, or null for anything else. '' and 'none': []. */
+export function fnsOf(t) {
+  const s = (t || '').trim();
+  if (!s || s === 'none') return [];
+  const re = /([a-zA-Z0-9]+)\(([^)]*)\)/g, out = [];
+  let m, rest = s;
+  while ((m = re.exec(s))) {
+    rest = rest.replace(m[0], '');
+    const a = m[2].split(',').map((v) => v.trim()), f = m[1];
+    if (f === 'translate' || f === 'translate3d') {
+      const x = len(a[0]), y = len(a[1] ?? '0');
+      if (f === 'translate3d' && len(a[2]) !== 0) return null;
+      out.push({ k: 't', v: [x, y] });
+    } else if (f === 'translateX') out.push({ k: 't', v: [len(a[0]), 0] });
+    else if (f === 'translateY') out.push({ k: 't', v: [0, len(a[0])] });
+    else if (f === 'scale' || f === 'scale3d') {
+      const x = num(a[0]), y = a[1] != null ? num(a[1]) : x;
+      if (f === 'scale3d' && num(a[2]) !== 1) return null;
+      out.push({ k: 's', v: [x, y] });
+    } else if (f === 'scaleX') out.push({ k: 's', v: [num(a[0]), 1] });
+    else if (f === 'scaleY') out.push({ k: 's', v: [1, num(a[0])] });
+    else if (f === 'matrix') {
+      const n = a.map(Number);
+      if (n.length !== 6 || n[1] !== 0 || n[2] !== 0) return null;
+      out.push({ k: 'm', v: [n[0], n[3], n[4], n[5]] });
+    } else if (f === 'matrix3d') {
+      const n = a.map(Number);
+      if (n.length !== 16 || n.some((v, i) => ([0, 5, 12, 13].includes(i) ? false : [10, 15].includes(i) ? v !== 1 : v !== 0))) return null;
+      out.push({ k: 'm', v: [n[0], n[5], n[12], n[13]] });
+    } else return null;
+  }
+  if (rest.trim()) return null;
+  for (const f of out) if (!f.v.every(Number.isFinite) || (f.k !== 't' && !(f.v[0] > 0 && f.v[1] > 0))) return null;
+  return out;
+}
+const fnAff = (f) => (f.k === 't' ? [1, 1, f.v[0], f.v[1]] : f.k === 's' ? [f.v[0], f.v[1], 0, 0] : f.v.slice());
+/** a then b inside it: the affine of a transform list [..., a, b] is a∘b (b applied first). */
+export const affMul = (a, b) => [a[0] * b[0], a[1] * b[1], a[0] * b[2] + a[2], a[1] * b[3] + a[3]];
+const listAff = (fns) => fns.reduce((m, f) => affMul(m, fnAff(f)), ID);
+/** A CSS transform as one affine [sx, sy, tx, ty] (CSS px), or null when it is anything else. */
+export function affineOf(t) { const f = fnsOf(t); return f && listAff(f); }
+const idOf = (f) => ({ k: f.k, v: f.k === 't' ? [0, 0] : f.k === 's' ? [1, 1] : ID.slice() });
+const mix = (a, b, u) => a + (b - a) * u;
+/** Two transforms' function lists (fnsOf) at u of the way from a to b, as one affine. */
+export function lerpFns(a, b, u) {
+  if (!a || !b) return null;
+  const n = Math.max(a.length, b.length);
+  const A = Array.from({ length: n }, (_, i) => a[i] || idOf(b[i])), B = Array.from({ length: n }, (_, i) => b[i] || idOf(a[i]));
+  let m = ID, i = 0;
+  for (; i < n && A[i].k === B[i].k && A[i].k !== 'm'; i++) m = affMul(m, fnAff({ k: A[i].k, v: [mix(A[i].v[0], B[i].v[0], u), mix(A[i].v[1], B[i].v[1], u)] }));
+  if (i < n) { const x = listAff(A.slice(i)), y = listAff(B.slice(i)); m = affMul(m, x.map((v, j) => mix(v, y[j], u))); }
+  return m;
+}
+/** An element's transform about its origin, in the page's px: [sx, sy, tx, ty] for p → s·p + t. m: its transform (layout px); tr: its
+ *  translate property (layout px); o: its transform-origin (page px, where it rests); k: page px per layout px. */
+export function aboutOrigin(m, tr, o, k = 1) {
+  return [m[0], m[1], (tr[0] + m[2]) * k + o[0] * (1 - m[0]), (tr[1] + m[3]) * k + o[1] * (1 - m[1])];
+}
+/** A box through an affine, and back. */
+export const mapBox = (r, a) => {
+  const l = a[0] * r.left + a[2], t = a[1] * r.top + a[3], w = a[0] * r.width, h = a[1] * r.height;
+  return { left: l, top: t, right: l + w, bottom: t + h, width: w, height: h };
+};
+export const unmapBox = (r, a) => mapBox(r, [1 / a[0], 1 / a[1], -a[2] / a[0], -a[3] / a[1]]);
+/** The most an affine motion's keyframes grow anything (1 or more): the density a shape's mask is made at while it runs. */
+export function grows(kf) {
+  let g = 1;
+  for (const k of kf || []) { const a = k.transform != null && affineOf(k.transform); if (a) g = Math.max(g, a[0], a[1]); }
+  return g;
+}
+/** motionAt for a glass that follows scale too: { m: its transform as an affine (layout px), tr: its translate property, o: its opacity }
+ *  (each undefined when its keyframes do not move it), or null when they hold something it cannot follow. */
+export function motionAffAt(kf, p) {
+  if (!kf?.length || !Number.isFinite(p)) return null;
+  const hasT = kf.some((k) => k.transform != null), hasR = kf.some((k) => k.translate != null), hasO = kf.some((k) => k.opacity != null);
+  if (!hasT && !hasR && !hasO) return { m: undefined, tr: undefined, o: undefined };
+  if ((hasT && kf.some((k) => k.transform == null)) || (hasR && kf.some((k) => k.translate == null)) || (hasO && kf.some((k) => k.opacity == null))) return null;
+  const off = (k, i) => k.computedOffset ?? k.offset ?? (kf.length > 1 ? i / (kf.length - 1) : 0);
+  let i = 0;
+  while (i < kf.length - 2 && p > off(kf[i + 1], i + 1)) i++;
+  const a = kf[i], b = kf[Math.min(i + 1, kf.length - 1)], oa = off(a, i), ob = off(b, Math.min(i + 1, kf.length - 1));
+  const ease = easeOf(a.easing);
+  if (!ease) return null;
+  const u = ob > oa ? ease(Math.min(1, Math.max(0, (p - oa) / (ob - oa)))) : p >= ob ? 1 : 0;
+  const out = { m: undefined, tr: undefined, o: undefined };
+  if (hasT) { out.m = lerpFns(fnsOf(a.transform), fnsOf(b.transform), u); if (!out.m) return null; }
+  if (hasR) {
+    const ta = translateOf(a.translate), tb = translateOf(b.translate);
+    if (!ta || !tb) return null;
+    out.tr = [mix(ta[0], tb[0], u), mix(ta[1], tb[1], u)];
+  }
+  if (hasO) out.o = NUM(a.opacity) + (NUM(b.opacity) - NUM(a.opacity)) * u;
+  return out;
+}
+/** An element's laid-out border-box width in CSS px, unrounded (offsetWidth rounds it to a whole px, and a scale taken from that was off by
+ *  up to half a px in the card's width: a pane of a zoomed card a tenth of a px off). cs: its computed style. */
+export function layoutWidth(el, cs) {
+  const w = parseFloat(cs?.width);
+  if (!(w > 0)) return readMetric(el, 'offsetWidth');
+  if (cs.boxSizing === 'border-box') return w;
+  return w + NUM(cs.paddingLeft) + NUM(cs.paddingRight) + NUM(cs.borderLeftWidth) + NUM(cs.borderRightWidth);
 }

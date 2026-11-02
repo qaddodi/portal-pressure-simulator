@@ -21,7 +21,7 @@ import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { compareRows } from './idle-keys.js?v=81fbedda6b';
 import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=7513a88c68';
-import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js?v=10b6ed9eba';
+import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js?v=8d28b1c421';
 const nextFrame = frameFor('dock');
 const DRAG_GUIDE = !/[?&]dockdrag=0\b/.test(typeof location === 'object' ? location.search : '');
 

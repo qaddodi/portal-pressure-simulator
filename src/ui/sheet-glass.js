@@ -4,6 +4,8 @@
 // readings' card first, as that same shape (its rounded box with the instrument card's cut out, a mask path), then the instrument's
 // card over it, each with its own corners, tint and fade.
 import { rgbaOf } from './lz-pills.js?v=78a9c7ce60';
+import { readOwnBox } from './layout-snap.js?v=8d28b1c421';
+import { AFFINE, layoutWidth } from './glass-motion.js?v=d7dcceeb8d';
 
 const NUM = (v) => parseFloat(v) || 0;
 const radii = (s, w, h) => [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomRightRadius, s.borderBottomLeftRadius].map((v) => Math.max(0, Math.min(NUM(v), w / 2, h / 2)));
@@ -36,19 +38,37 @@ export function sheetPanes(el, gcs = getComputedStyle) {
   if (!el.classList.contains('pz-sheet') || !el.closest?.('.pz.stack, .pz.pz-wide')) return undefined;
   const es = gcs(el);
   if (es.getPropertyValue('--gl-glass').trim() !== '0') return undefined;   // (a sheet with its own glass after all)
-  const b = el.getBoundingClientRect(), bs = gcs(el, '::before'), as = gcs(el, '::after');
-  const k = el.offsetWidth > 0 && b.width > 0 ? b.width / el.offsetWidth : 1;
+  // (The page's own box, never the stand-in a zoomed card answers with (card-zoom.js pin): the glass takes the zoom back out itself.)
+  const b = AFFINE ? readOwnBox(el) : el.getBoundingClientRect();
+  const bs = gcs(el, '::before'), as = gcs(el, '::after');
+  const lw = AFFINE ? layoutWidth(el, es) : el.offsetWidth, k = lw > 0 && b.width > 0 ? b.width / lw : 1;
   const rk = (r) => (k === 1 ? r : r.map((v) => v * k));
   const shows = (s) => s && s.content !== 'none' && s.display !== 'none' && s.visibility !== 'hidden' && NUM(s.opacity) > 0.001;
   const front = shows(bs) ? boxOf(b, es, bs, k) : null, back = shows(as) ? boxOf(b, es, as, k) : null;
   const out = [];
   const fr = front ? rk(radii(bs, front.width / k, front.height / k)) : null;
+  // (How each pane's top and bottom move as the readings come out, page px per unit of --pz-u, as app.css lays them: the card's box grows
+  // down by --pz-d from a top that stays (a wide card's rise is its translate, --pz-lift, followed apart). The phone's instrument card
+  // keeps its place, and the readings' card under it travels with the box's foot less the 24 px it shows tucked; the wide card's
+  // instrument card goes down with the box's foot (its rise brings it back), and the readings' card above it by those 24 px. at(): how far
+  // out the readings are now, from the inline value as written this frame (presenter.js slideUnder, the finger), or the card's class at rest.
+  // So the glass rebuilds both panes, and the instrument card's cut out of the readings' card, every frame of a tuck with no read of the
+  // page (2 Nov 2026: the panes read again in the frame after each --pz-u, the glass a frame behind the card).)
+  const D = NUM(es.getPropertyValue('--pz-d')) * k, wide = !!el.closest('.pz.pz-wide'), L = 24 * k;
+  const at = () => uOf(el);
+  const fu = wide ? { at, top: D, bottom: D } : { at, top: 0, bottom: 0 };
   if (back) {
     const rad = rk(radii(as, back.width / k, back.height / k));
     // (Its own box, the instrument card's cut out of it the other way round, in its own coordinates.)
     const d = boxPath(0, 0, back.width, back.height, rad) + (front ? boxPath(front.left - back.left, front.top - back.top, front.width, front.height, fr, true) : '');
-    out.push({ r: back, d, a: Math.min(1, NUM(as.opacity)), tint: tintOf(as) });
+    // (cut: the same cut drawn on the GPU as a rounded box taken out of a rounded box, so it moves and grows with no mask made again.)
+    const bu = wide ? { at, top: L, bottom: L } : { at, top: D - L, bottom: D - L };
+    out.push({ r: back, d, rad, cut: front ? { r: front, rad: fr, u: fu } : null, u: bu, a: Math.min(1, NUM(as.opacity)), tint: tintOf(as) });
   }
-  if (front) out.push({ r: front, rad: fr, a: Math.min(1, NUM(bs.opacity)), tint: tintOf(bs) });
+  if (front) out.push({ r: front, rad: fr, u: fu, a: Math.min(1, NUM(bs.opacity)), tint: tintOf(bs) });
   return out;
+}
+/** How far out a split sheet's readings are (presenter.js underU): the inline --pz-u while it slides, else 1 out (tool-open) or 0. */
+export function uOf(el) {
+  return el.classList.contains('pz-sliding') ? parseFloat(el.style.getPropertyValue('--pz-u')) || 0 : el.classList.contains('tool-open') ? 1 : 0;
 }

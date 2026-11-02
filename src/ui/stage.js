@@ -54,7 +54,7 @@ import { pathCmds, flattenCmds, polyBox, measurePath, elBox, chainMat } from './
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=b61b4d3139';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=8c44d6c86f';
 import { createLabelGL } from './label-gl.js?v=384d1c38b9';
-import { createGlassGL } from './glass-gl.js?v=77ac0f070c';
+import { createGlassGL } from './glass-gl.js?v=59f7db6d60';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4ad517372';
 import { ENT_W } from './veins-bin.js?v=6e462a9e6c';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=5fee76cbe7';
@@ -93,7 +93,7 @@ import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath,
 import { CellGrid, geomOf } from './cell-grid.js?v=52b9227071';
 import { restPass } from './rest-pass.js?v=6eb6322f82';
 import { glWords } from './gl-words.js?v=5fa7e2c921';
-import { provideStage } from './layout-snap.js?v=10b6ed9eba';
+import { provideStage } from './layout-snap.js?v=8d28b1c421';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
 // key pill, the readings' own sizes, the home look's room) are read first in a frame, before anything is written (frame.js readFrame),
