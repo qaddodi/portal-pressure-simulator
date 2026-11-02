@@ -42,12 +42,21 @@ const common = { bundle: true, format: 'esm', minify: true, target: ['es2022'], 
 const worker = await build({ ...common, entryPoints: [join(ROOT, 'src/worker.js')], outdir: ASSETS, entryNames: 'worker-[hash]', write: true, metafile: true });
 const workerFile = basename(Object.keys(worker.metafile.outputs).find((f) => f.endsWith('.js')));
 
-// 2. The app. host.js and presenter.js (each starts an engine worker) point the Worker at the bundled worker file.
+// 1b. The stage's binning worker (sweep-worker.js: the change between the views), the same way.
+const sweep = await build({ ...common, entryPoints: [join(ROOT, 'src/ui/sweep-worker.js')], outdir: ASSETS, entryNames: 'sweep-[hash]', write: true, metafile: true });
+const sweepFile = basename(Object.keys(sweep.metafile.outputs).find((f) => f.endsWith('.js')));
+
+// 2. The app. host.js and presenter.js (each starts an engine worker) point the Worker at the bundled worker file, and stage.js at the
+// bundled binning worker.
 const workerUrl = {
   name: 'worker-url',
   setup(b) {
     b.onLoad({ filter: /[\\/]src[\\/]ui[\\/](host|presenter)\.js$/ }, (args) => ({
       contents: readFileSync(args.path, 'utf8').replace(/new URL\('\.\.\/worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/, `new URL('./${workerFile}', import.meta.url)`),
+      loader: 'js',
+    }));
+    b.onLoad({ filter: /[\\/]src[\\/]ui[\\/]stage\.js$/ }, (args) => ({
+      contents: readFileSync(args.path, 'utf8').replace(/new URL\('\.\/sweep-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/, `new URL('./${sweepFile}', import.meta.url)`),
       loader: 'js',
     }));
   },

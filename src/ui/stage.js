@@ -52,7 +52,9 @@ import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=74d62b2487'
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=37d9fdf180';
 import { createLabelGL } from './label-gl.js?v=f09b6dbba8';
 import { createGlassGL } from './glass-gl.js?v=f973cf9bfd';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=a57dd99beb';
+import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4d04207e0';
+import { ENT_W } from './veins-bin.js?v=7eb5e277a6';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=3e7721b578';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -2705,7 +2707,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=23903d7743').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=4fd1fb3303').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2990,6 +2992,27 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   let tubesStale = false;
+  // A vessel's course at t of the change between the views (eased: 0 the anatomy, 1 the circuit), as updateGeometry draws it; and its
+  // strands' (strandAt). Pure: the GPU morph (morphTrack) asks for moments ahead of the one drawn.
+  function vesselAt(x, t) {
+    const g = geo[x.e.id];
+    let pts;
+    if (t === 0) pts = g.A; else if (t === 1) pts = g.C; else pts = g.A.map((p, i) => [lerp(p[0], g.C[i][0], t), lerp(p[1], g.C[i][1], t)]);
+    const base = pts;
+    const u0 = STRAND_FROM[x.e.id] || 0;
+    if (x.e.kind === 'collateral' && !x.e.spontaneous && t < 1) { const wz = wiggle(pts, g.wig * (1 - t), x.e.id.length); pts = u0 ? blendFrom(base, wz, u0) : wz; }
+    return { pts, base, u0 };
+  }
+  // Strands fan out from the shared ends (or from where the trunk breaks up) and fold back
+  // onto the lane in the circuit.
+  function strandAt(x, sd, t, { pts, base, u0 }) {
+    const g = geo[x.e.id];
+    // (The varices' strands fan out as far as their varix is big: g.spr, eased, see varix-look.js.)
+    const fan = sd.off * (1 - t) * (g.spr ?? 1);
+    let sp = sd.span ? braid(base, fan, 0, sd.span, sd.ph) : wiggle(braid(base, fan, u0), (0.8 * g.wig + 3) * (1 - t), sd.ph);
+    if (u0) sp = blendFrom(pts, sp, u0);
+    return sp;
+  }
   // `only`: the vessels whose shape changed while the morph stayed put (a collateral coiling); the rest keep their paths.
   function updateGeometry(force, only) {
     const t = easeInOut(morph);
@@ -3004,19 +3027,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // frame had built every vessel's path text twice over and set it on four elements: a fifth of a frame's script on his iPhone, 1 Nov.)
     const lazy = !svgTubes && t > 0 && t < 1 && GEO_LAZY;
     for (const x of full ? EV : only) {
-      const g = geo[x.e.id];
-      let pts;
-      if (t === 0) pts = g.A; else if (t === 1) pts = g.C; else pts = g.A.map((p, i) => [lerp(p[0], g.C[i][0], t), lerp(p[1], g.C[i][1], t)]);
-      const base = pts;
-      const u0 = STRAND_FROM[x.e.id] || 0;
-      if (x.e.kind === 'collateral' && !x.e.spontaneous && t < 1) { const wz = wiggle(pts, g.wig * (1 - t), x.e.id.length); pts = u0 ? blendFrom(base, wz, u0) : wz; }
-      // Strands fan out from the shared ends (or from where the trunk breaks up) and fold back
-      // onto the lane in the circuit.
+      const g = geo[x.e.id], v = vesselAt(x, t), { u0 } = v;
+      const pts = v.pts;
       if (x.strands) for (const sd of x.strands) {
-        // (The varices' strands fan out as far as their varix is big: g.spr, eased, see varix-look.js.)
-        const fan = sd.off * (1 - t) * (g.spr ?? 1);
-        let sp = sd.span ? braid(base, fan, 0, sd.span, sd.ph) : wiggle(braid(base, fan, u0), (0.8 * g.wig + 3) * (1 - t), sd.ph);
-        if (u0) sp = blendFrom(pts, sp, u0);
+        const sp = strandAt(x, sd, t, v);
         sd.u0 = u0;
         sd.cur = sp; sd.len = arcLen(sp);
         if (lazy) continue;
@@ -3923,6 +3937,242 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { id: it.row, pts, bin: a.pts, reach: reach + a.m, core: core + a.m };
   }
   let vBinKey = '', vBinReach = new Map(), veinsDirty = true, veinsDrawKey = '', vLook = null, glOrgans = false;
+  const reachOf = (it) => Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 18) / 2) * 2;
+
+  // ── The change between the views on the GPU (2 Nov 2026, his iPhone: "going from anatomy to circuit is so laggy") ──
+  // Each frame of the change had binned every vessel again on the CPU and sent the 4 MB list up. Now the change is cut into stretches
+  // (MORPH_PIECES), and each stretch's binning, listing everything that can draw in a cell anywhere along it (veins-sweep.js), is made
+  // ahead while the figure rests, in a worker (sweep-worker.js), from the vessels' courses at a few moments of it (vesselAt and the
+  // rest of what glItems gives, as they will be), and put on the GPU in a set of its own. A frame of the change then sends only its
+  // vessels' points and joins, a few rows (morphFrame); the vessels are drawn from them exactly as from a binning of their own. A frame
+  // whose vessels do not fit the stretch made for it (another vessel showing, one wider than it was binned for, a course off its samples
+  // by more than MORPH_SLACK) is binned as before. ?morphgpu=0: every frame binned, as before.
+  const MORPH_GPU = !/[?&]morphgpu=0\b/.test(location.search) && typeof Worker !== 'undefined';
+  const MORPH_PIECES = [[0, 1 / 6], [1 / 6, 1 / 3], [1 / 3, 0.5], [0.5, 2 / 3], [2 / 3, 5 / 6], [5 / 6, 1]];
+  const MORPH_STEPS = 6, MORPH_SLACK = 6, MORPH_JSLACK = 30, MORPH_JSUB = 3;
+  const mt = { key: '', pieces: null, using: null, gen: 0, seq: 0, checkT: 0, worker: null, wait: new Map(), reach: [null, null], landAt: 0, stats: { gpu: 0, cpu: 0, builds: 0, miss: {} } };
+  const morphMiss = (why) => { mt.stats.miss[why] = (mt.stats.miss[why] || 0) + 1; return false; };
+  function morphOff() {
+    if (!mt.using) return;
+    mt.using = null;
+    veins?.useMorphSet(null);
+    binShown = null; bendShown = null;
+  }
+  function morphDrop() {
+    morphOff();
+    for (const pc of mt.pieces || []) if (pc.set) pc.set.owner.dropMorphSet(pc.set);
+    mt.pieces = null; mt.key = ''; mt.gen++;
+  }
+  // Whether a vessel shows on the anatomy's side of the change (anat) or the circuit's (edgeVisible, asked as if the change were there).
+  function visAt(x, anat) {
+    if (!F) return false;
+    const m = morph;
+    morph = anat ? 0.25 : 0.75;
+    try { return edgeVisible(x, F); } finally { morph = m; }
+  }
+  // What the vessels would be at t (eased) of the change, on its anatomy (anat) or circuit side: glItems' list, from vesselAt. `both`:
+  // the vessels either side shows (one leaving draws itself out as it goes, one arriving draws in: either can be on in a frame of the
+  // change), as the stretches are binned; else the side's own.
+  function itemsAt(t, anat, both = true) {
+    const items = [];
+    for (const x of EV) {
+      const vis = visAt(x, anat) || (both && visAt(x, !anat));
+      // (A vessel not drawn yet has no radius function (rOf) until its first draw: it is binned all the same, see joinsOf.)
+      if (!vis || !geo[x.e.id]?.cur) continue;
+      const v = vesselAt(x, t);
+      items.push({ x, obj: x, row: x.row, pts: v.pts, kind: 'v' });
+      if (!anat && x.cbr) for (const cb of x.cbr) if (cb.w) items.push({ x, obj: cb, row: cb.row, pts: cb.cur, kind: 'c' });
+      if (!anat || x.isArt || x.g.classList.contains('coll-ghost')) continue;
+      for (const sd of x.strands || []) if (sd.cur && (sd.live ?? 1) > 0.02) items.push({ x, obj: sd, row: sd.row, pts: strandAt(x, sd, t, v), kind: 's' });
+      for (const fd of x.feeders || []) if ((fd.live ?? 1) > 0.02 && fd.w) items.push({ x, obj: fd, row: fd.row, pts: fd.cur, kind: 'f' });
+    }
+    return cavaAsOne(items, (id, P) => arcLen(P));
+  }
+  // Joins and smoothed courses of a list (veinJoins, smoothRunOn), leaving the figure's own (glStraight, glRadDirty) as they were. A
+  // vessel not drawn yet (the other side's: the circuit's branches, a vessel the anatomy leaves out) is given its radii as they would
+  // be sent (itemRadii) for the while.
+  function joinsOf(items) {
+    const gs = glStraight, gd = glRadDirty, lent = [];
+    for (const it of items) {
+      if (it.obj.glR) continue;
+      const rf = it.kind === 'v' && !it.x.isArt && !it.x.rOf ? () => Math.max(0.5, (it.x.width || 2) / 2) : itemRadii(it)[1], R = Array.from({ length: N_SAMPLES }, (_, i) => rf(i));
+      let mx = 0;
+      for (const r of R) mx = Math.max(mx, r);
+      it.obj.glR = R; it.obj.glMaxR = mx; lent.push(it.obj);
+    }
+    try { const J = veinJoins(items); return { J, smooth: smoothRunOn(items), reach: new Map(items.map((it) => [it.row, reachOf(it)])) }; } finally {
+      glStraight = gs; glRadDirty = gd;
+      for (const o of lent) { delete o.glR; delete o.glMaxR; }
+    }
+  }
+  // A join by what it joins: its members, the trunk they end on, a fork.
+  const joinKey = (j) => j.members.join('.') + (j.trunk != null ? 't' + j.trunk + (j.fork ? 'f' : '') : '');
+  const rowKey = (items) => items.map((it) => it.row).join(',');
+  // What the stretches are made from, so they are made again when it changes (the vessels shown, their reach, a collateral's coil and a
+  // varix's spread, the joins that run on): checked a moment after the figure last binned at rest.
+  function morphTrackKey() {
+    return [rowKey(itemsAt(0, true)), rowKey(itemsAt(1, false)), EV.map((x) => { const g = geo[x.e.id]; return `${(g.wig || 0).toFixed(1)}/${(g.spr ?? 1).toFixed(2)}`; }).join(','),
+      EV.map((x) => (x.strands || []).map((sd) => +((sd.live ?? 1) > 0.02)).join('')).join('')].join('|');
+  }
+  function morphTrackSoon() {
+    if (!MORPH_GPU || mt.checkT) return;
+    mt.checkT = setTimeout(morphTrackCheck, 400);
+  }
+  function morphTrackCheck() {
+    mt.checkT = 0;
+    if (!veins || veins.lost || morph !== morphTarget || !wrap.classList.contains('gl-on') || lobuleOn) return;
+    if (inMotion()) { morphTrackSoon(); return; }
+    const key = morphTrackKey();
+    if (key === mt.key && mt.pieces && mt.pieces.every((pc) => !pc.set || pc.set.owner === veins)) return;
+    mt.stats.builds++;
+    // (The stretches made before stay on until each new one is up: a frame of the change still checks its courses against the one it
+    // draws from. Those of a figure since replaced are of no use.)
+    if (mt.pieces?.some((pc) => pc.set && pc.set.owner !== veins)) morphDrop();
+    mt.gen++; mt.key = key;
+    morphTrackBuild(mt.gen);
+  }
+  // The stretches, one at a time, each in its own task: its moments (itemsAt, joinsOf) here, its binning in the worker, its upload here.
+  function morphTrackBuild(gen) {
+    const blank = () => MORPH_PIECES.map(([t0, t1]) => ({ t0, t1, anat: t0 < 0.5, set: null }));
+    const pieces = blank();
+    mt.pieces ||= blank();
+    let k = 0, held = 0;
+    // A stretch made takes the place of the one before it.
+    const put = (pc) => {
+      const old = mt.pieces[k];
+      mt.pieces[k] = pc;
+      if (old?.set) { if (mt.using === old.set) morphOff(); old.set.owner.dropMorphSet(old.set); }
+      k++; held = 0;
+    };
+    const next = () => {
+      if (gen !== mt.gen || k >= pieces.length) return;
+      // (Not while the figure moves at rest, for a while: a moment is a pass over every vessel.)
+      if (inMotion() && morph === morphTarget && held++ < 12) { setTimeout(next, 120); return; }
+      const pc = pieces[k];
+      const ts = Array.from({ length: MORPH_STEPS + 1 }, (_, i) => pc.t0 + (pc.t1 - pc.t0) * i / MORPH_STEPS);
+      if (pc.t1 === 0.5) ts[MORPH_STEPS] = 0.5 - 1e-6;   // (the anatomy's side ends just short of the half, where the circuit's vessels take over)
+      // (One moment a task: each is a pass over every vessel and its joins.)
+      pc.snaps ||= [];
+      // (The joins of the side's own vessels too: a vessel binned for the other side changes the joins it takes part in.)
+      if (pc.snaps.length < ts.length) {
+        const t = ts[pc.snaps.length], items = itemsAt(t, pc.anat), own = itemsAt(t, pc.anat, false), o = joinsOf(own);
+        const sn = { t, items, ...joinsOf(items), J2: o.J, own: new Map(own.map((it) => [it.row, o.smooth.get(it.row) || it.pts])) };
+        // (The joins at moments between too: one can be there for less than a step, as two ends pass each other.)
+        if (pc.snaps.length) for (let q = 1; q < MORPH_JSUB; q++) { const u = lerp(pc.snaps[pc.snaps.length - 1].t, t, q / MORPH_JSUB); sn.J2 = sn.J2.concat(joinsOf(itemsAt(u, pc.anat, false)).J); }
+        pc.snaps.push(sn);
+        setTimeout(next, 0); return;
+      }
+      const snaps = pc.snaps;
+      pc.snaps = null;
+      const rows = rowKey(snaps[0].items);
+      if (snaps.some((sn) => rowKey(sn.items) !== rows)) { pc.bad = 'vessels'; put(pc); setTimeout(next, 0); return; }
+      const side = pc.anat ? 0 : 1;
+      pc.ts = ts; pc.rows = rows;
+      pc.reach = new Map(snaps[0].items.map((it) => [it.row, Math.ceil(Math.max(vBinReach.get(it.row) || 0, mt.reach[side]?.get(it.row) || 0, ...snaps.map((sn) => sn.reach.get(it.row) || 0)) * 1.25 / 2) * 2]));
+      // (A course as the side's own vessels smooth it where it is one of them: the vessels only the other side shows change which ends run on.)
+      pc.path = new Map(snaps[0].items.map((it) => [it.row, snaps.map((sn) => sn.own.get(it.row) || sn.smooth.get(it.row) || sn.items.find((o) => o.row === it.row).pts)]));
+      // (The joins come and go as the vessels' ends move (veinJoins finds them by where the ends lie): every join of any moment, each
+      // binned along its centres at the moments it is there; a frame lists the ones it has, the rest written as reaching nothing.)
+      // (Joins of the same vessels at two places, a strand's two ends on its varix, are told apart by where they lie.)
+      const U = [], byKey = new Map();
+      for (const sn of snaps) sn.J.concat(sn.J2).forEach((j) => {
+        const k = joinKey(j), list = byKey.get(k) || [];
+        byKey.set(k, list);
+        let u = null, best = 40 * 40;
+        for (const v of list) { const q = v.path[v.path.length - 1], d = (q[0] - j.x) ** 2 + (q[1] - j.y) ** 2; if (d < best) { best = d; u = v; } }
+        if (!u) { u = { path: [], reach: 0, j, i: U.length }; U.push(u); list.push(u); }
+        u.path.push([j.x, j.y]); u.reach = Math.max(u.reach, j.reach);
+      });
+      pc.jby = new Map([...byKey].map(([k, list]) => [k, list.map((u) => u.i)]));
+      pc.jpath = U.map((u) => u.path);
+      pc.jreach = U.map((u) => u.reach * 1.5 + 6);
+      const tubes = snaps[0].items.map((it) => { const r = pc.reach.get(it.row); return { id: it.row, path: pc.path.get(it.row), reach: r, core: r - 18 + BLOOD_PAD }; });
+      const joins = U.map(({ j }, ji) => ({ path: pc.jpath[ji], reach: pc.jreach[ji] + MORPH_JSLACK - MORPH_SLACK, k: j.k, fillet: j.fillet, members: j.members, trunk: j.trunk, fork: j.fork }));
+      sweepBin({ tubes, joins, opts: { rows: GL_ROWS, samples: N_SAMPLES, slack: MORPH_SLACK } }).then((b) => {
+        if (gen !== mt.gen || !b || !veins || veins.lost) return;
+        pc.set = veins.makeMorphSet(b);
+        pc.frame = new Float32Array((b.rows - b.entRows) * ENT_W * 4);
+        pc.posBase = b.posBase - b.entRows * ENT_W; pc.joinBase = b.joinBase - b.entRows * ENT_W;
+        put(pc);
+        setTimeout(next, 0);
+      }, (e) => { if (gen !== mt.gen) return; pc.bad = String(e); put(pc); setTimeout(next, 0); });
+    };
+    setTimeout(next, 0);
+  }
+  function sweepBin(msg) {
+    if (!mt.worker) {
+      try {
+        mt.worker = new Worker(new URL('./sweep-worker.js?v=9bd2a5bc81', import.meta.url), { type: 'module' });
+        mt.worker.onmessage = (e) => { const w = mt.wait.get(e.data.id); mt.wait.delete(e.data.id); if (w) (e.data.error ? w.no(e.data.error) : w.ok(e.data.b)); };
+        mt.worker.onerror = () => { for (const w of mt.wait.values()) w.no('worker'); mt.wait.clear(); };
+      } catch { return Promise.reject(new Error('no worker')); }
+    }
+    const id = ++mt.seq;
+    return new Promise((ok, no) => { mt.wait.set(id, { ok, no }); mt.worker.postMessage({ id, ...msg }); });
+  }
+  const FAR_ROW = Array.from({ length: N_SAMPLES }, () => [1e9, 1e9]);
+  // How far (squared) a join's centre lies from the course of its centres through the stretch.
+  function joinOff(x, y, C) {
+    if (C.length === 1) return (x - C[0][0]) ** 2 + (y - C[0][1]) ** 2;
+    let best = Infinity;
+    for (let i = 0; i + 1 < C.length; i++) {
+      const ax = C[i][0], ay = C[i][1], dx = C[i + 1][0] - ax, dy = C[i + 1][1] - ay, L2 = dx * dx + dy * dy || 1e-9;
+      const h = clamp(((x - ax) * dx + (y - ay) * dy) / L2, 0, 1), ex = ax + dx * h - x, ey = ay + dy * h - y;
+      best = Math.min(best, ex * ex + ey * ey);
+    }
+    return best;
+  }
+  // A frame of the change drawn from the stretch made for it, when its vessels fit it: their points and joins sent up; else false.
+  function morphFrame(items) {
+    if (!MORPH_GPU || !mt.pieces) return false;
+    const t = easeInOut(morph), now = performance.now();
+    if (morph !== morphTarget) mt.landAt = now;
+    else if (!mt.using || now - mt.landAt > 1000) return false;   // (at rest: binned as before; the landing frames stay on the stretch)
+    const anat = morph < 0.5;
+    const pc = mt.pieces.find((p) => p.anat === anat && t >= p.t0 && (anat ? t < p.t1 || p.t1 === 0.5 : t <= p.t1));
+    if (!pc?.set || pc.set.owner !== veins) return morphMiss(pc?.bad ? 'unfit stretch' : 'not ready');
+    if (items.some((it) => !pc.path.has(it.row))) return morphMiss('vessels');
+    const { J, smooth } = joinsOf(items);
+    // Where t falls among the stretch's moments, and every point within the slack of where it went between its two: the cells and the
+    // circles were swept over the hull of each piece of a vessel at the two, so a piece whose ends are within the slack of their
+    // courses is within the slack of that hull.
+    let s = 0;
+    while (s < pc.ts.length - 2 && t > pc.ts[s + 1]) s++;
+    const S2 = MORPH_SLACK * MORPH_SLACK;
+    const buf = pc.frame;
+    // (A vessel binned for the stretch that this frame does not draw is put far out of every cell's reach.)
+    const drawn = new Set(items.map((it) => it.row));
+    for (const row of pc.path.keys()) if (!drawn.has(row)) writePoints(buf, pc.posBase, N_SAMPLES, row, FAR_ROW);
+    for (const it of items) {
+      if (reachOf(it) > pc.reach.get(it.row)) return morphMiss('reach');
+      const P = smooth.get(it.row) || it.pts, R = pc.path.get(it.row), A = R[s], B = R[s + 1];
+      if (P.length !== N_SAMPLES) return morphMiss('samples');
+      for (let i = 0; i < N_SAMPLES; i++) {
+        const ax = A[i][0], ay = A[i][1], ux = B[i][0] - ax, uy = B[i][1] - ay, L2 = ux * ux + uy * uy || 1e-9;
+        const h = clamp(((P[i][0] - ax) * ux + (P[i][1] - ay) * uy) / L2, 0, 1), dx = P[i][0] - ax - ux * h, dy = P[i][1] - ay - uy * h;
+        if (dx * dx + dy * dy > S2) return morphMiss('course');
+      }
+      writePoints(buf, pc.posBase, N_SAMPLES, it.row, P);
+    }
+    const on = new Uint8Array(pc.jpath.length);
+    for (let ji = 0; ji < J.length; ji++) {
+      const j = J[ji];
+      let u = -1, off = MORPH_JSLACK ** 2;
+      for (const v of pc.jby.get(joinKey(j)) || []) { const d = joinOff(j.x, j.y, pc.jpath[v]); if (!on[v] && d <= off) { off = d; u = v; } }
+      if (u < 0) return morphMiss('joins');
+      if (j.reach > pc.jreach[u]) return morphMiss('join');
+      writeJoinNow(buf, pc.joinBase, u, j.x, j.y, j.reach, j.k, j.fillet);
+      on[u] = 1;
+    }
+    for (let u = 0; u < on.length; u++) if (!on[u]) writeJoinNow(buf, pc.joinBase, u, 0, 0, -1, 0, 0);
+    for (const it of items) if (it.kind === 'v') it.obj.glPts = smooth.get(it.row) || it.pts;
+    veins.useMorphSet(pc.set);
+    veins.setMorphFrame(buf);
+    for (const it of items) veins.setBend(it.row, smooth.get(it.row) || it.pts);
+    mt.using = pc.set; binShown = null; bendShown = null; tubesNew = true;
+    mt.stats.gpu++;
+    return true;
+  }
   const veinsRows = new Set();   // vessel rows whose attributes changed since the vessel layer was drawn (only those, while veinsDirty is false)
   let plateDim = null, plateSat = 1, netA = 1;
   // A lens switch crossfades every vessel from the colors it showed to the new lens's (no one-frame recolor).
@@ -3986,12 +4236,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const sd of x.strands || []) if (sd.cur && (sd.live ?? 1) > 0.02) items.push({ x, obj: sd, row: sd.row, pts: sd.cur, kind: 's' });
       for (const fd of x.feeders || []) if ((fd.live ?? 1) > 0.02 && fd.w) items.push({ x, obj: fd, row: fd.row, pts: fd.cur, kind: 'f' });
     }
+    return cavaAsOne(items, (id, P) => geo[id].len || arcLen(P));
+  }
+  function cavaAsOne(items, lenOf) {
     // The cava is drawn as one vessel: its two stretches (below and above the hepatic veins) are two
     // edges of the model, but one tube on screen, with one course, one shading and one chevron track.
     // Drawn where they would meet, two capped ends layered as an arc, a band and a seam.
     const a = items.find((it) => it.kind === 'v' && it.x.e.id === 'IVC_IS'), b = items.find((it) => it.kind === 'v' && it.x.e.id === 'IVCS_RA');
     if (a && b && a.pts.length > 1 && b.pts.length > 1) {
-      const P = a.pts, Q = b.pts, q = P[P.length - 1], La = geo.IVC_IS.len || arcLen(P), Lb = geo.IVCS_RA.len || arcLen(Q);
+      const P = a.pts, Q = b.pts, q = P[P.length - 1], La = lenOf('IVC_IS', P), Lb = lenOf('IVCS_RA', Q);
       // Re-sampled evenly by arc length to the usual count of samples (a sample's index is its place along the vessel).
       const C = P.concat(Math.hypot(Q[0][0] - q[0], Q[0][1] - q[1]) < 0.5 ? Q.slice(1) : Q), cum = [0];
       for (let i = 1; i < C.length; i++) cum.push(cum[i - 1] + Math.hypot(C[i][0] - C[i - 1][0], C[i][1] - C[i - 1][1]));
@@ -4311,10 +4564,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     shownCol = new Map();
     gpuProbe.time(null, 'vessel sync: radii', () => sendRadii(items));
     // Geometry: re-binned when the layout, the set of vessels or a vessel's reach grows.
-    const reachOf = (it) => Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 18) / 2) * 2;
     const key = `${geometryVersion}|` + items.map((it) => it.row).join(',');
     const grew = key === vBinKey && items.some((it) => reachOf(it) > (vBinReach.get(it.row) || 0));
-    if (key !== vBinKey || grew) gpuProbe.time(null, 'vessel sync: binning', () => {
+    // (Between the views, a binning made ahead for this stretch of the change, the frame's points sent up in a few rows: morphFrame.)
+    if ((key !== vBinKey || grew) && gpuProbe.time(null, 'vessel sync: morph frame', () => morphFrame(items))) vBinKey = key;
+    else if (key !== vBinKey || grew) gpuProbe.time(null, 'vessel sync: binning', () => {
+      morphOff();
+      if (morph !== morphTarget) mt.stats.cpu++;
       vBinKey = key;
       // A vessel that outgrows its reach gets a quarter more room than it needs: a widening vein (a congested IVC easing
       // in over a slide) was re-binned and its geometry uploaded again at every 2 px of growth, about 4 MB each time, a
@@ -4339,6 +4595,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (bins !== bendShown) { bendShown = bins; for (const it of items) veins.setBend(it.row, smooth.get(it.row) || it.pts); }
       if (patched) for (const r of patched) veinsRows.add(r);
       else if (whole) tubesNew = true;
+      if (morph === morphTarget) { mt.reach[morphTarget] = new Map(vBinReach); morphTrackSoon(); }
     });
     // Attributes, every frame.
     const T0 = easeInOut(morph), now = performance.now();
@@ -12376,6 +12633,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     relayout() { refreshCTM(); if (F) updateLabels(F, true); },
     // How often the labels were laid out, skipped or only had their values refreshed, and the time spent (for perf checks).
     labelStats: () => ({ ...stats }),
+    // The change between the views on the GPU (morphFrame): frames drawn from a stretch made ahead, frames binned as before and why,
+    // and how many stretches are ready (for perf checks).
+    // How the frames of the changes between the views were drawn (from the stretches made ahead, gpu, or binned there, cpu, and why), for tests.
+    morphStats: () => ({ gpu: mt.stats.gpu, cpu: mt.stats.cpu, builds: mt.stats.builds, miss: { ...mt.stats.miss }, ready: (mt.pieces || []).filter((pc) => pc.set).length }),
     // The label slots as solved (key → side and pixel offset from the figure point it names), for tests.
     labelSlots: () => Object.fromEntries([...labelSol].filter(([, r]) => !r.drop).map(([k, r]) => [k, `${r.dir}/${r.pi}/${Math.round(r.dx)},${Math.round(r.dy)}`])),
     setSaver(on) {

@@ -283,6 +283,9 @@ uniform int tierGroup[${MAX_TIERS}];   // 0 behind the organs, 1 the network, 2 
 uniform int redraw;                    // 1: some cells drawn again over the last picture (drawRows), not cleared first: a pixel left empty is written empty
 uniform int tint;                      // 1: a colour-only redraw (tintPass): only the pixels a lumen colour reaches (depL) are drawn
 uniform sampler2D depL;                // the last whole draw's outDep (tint 1 only)
+uniform int morphOn;                   // 1: a binning made for a stretch of the change between the views (veins-sweep.js): the points and joins from the frame's rows
+uniform int posBase;                   // (morphOn) the texel of the frame's points in ent: N_SAMPLES / 2 texels a vessel row, two points a texel
+uniform int joinBase;                  // (morphOn) the texel of the frame's joins: one a join (centre, reach, blend width and fillet)
 layout(location=0) out vec4 outColor;
 layout(location=1) out uvec4 outFlow;  // the lumen in front: vessel row + 1, 16 × (arc length + S_OFF), across (0–65535), visibility (high byte) | the second lumen's share (low byte)
 #if SIMPLE == 0
@@ -300,6 +303,8 @@ const float S_OFF = ${S_OFF}.0;
 
 vec4 E(int e, int k) { int t = e * 2 + k; return texelFetch(ent, ivec2(t % ENT_W, t / ENT_W), 0); }
 vec4 T(int id, int k) { return texelFetch(tube, ivec2(k, id), 0); }
+vec2 PT(int id, int i) { int t = posBase + id * ${N_SAMPLES / 2} + (i >> 1); vec4 v = texelFetch(ent, ivec2(t % ENT_W, t / ENT_W), 0); return (i & 1) == 0 ? v.xy : v.zw; }
+vec4 JT(int j) { int t = joinBase + j; return texelFetch(ent, ivec2(t % ENT_W, t / ENT_W), 0); }
 ${ALONG_GLSL}
 float smin(float a, float b, float k) {
   if (k <= 0.0) return min(a, b);
@@ -393,6 +398,8 @@ void main() {
       float lo = length(p - A.xy) - B.z - rmx, los = length(ps - A.xy) - B.z - rmx;
       if (lo > aM + 12.01 && los > bs + 0.01) { k += int(B.w + 0.5) - 1; continue; }
     }
+    // (Between the views, the segment as it is in this frame: the entry holds a sample's, for the passes above.)
+    if (morphOn == 1) { int si = int(B.y + 0.5); A = vec4(PT(id, si), PT(id, si + 1)); }
     // The part of this segment inside the drawn stretch (a vessel drawing on is cut short).
     float i = B.y, u0 = i / LAST, u1 = (i + 1.0) / LAST;
     if (u1 < clip.x || u0 > clip.y) continue;
@@ -432,6 +439,7 @@ void main() {
   for (int k = 0; k < min(vR.w, 64); k++) {
     if (jn == MAXJ) break;
     vec4 A = E(vR.z + k, 0), B = E(vR.z + k, 1);
+    if (morphOn == 1) A = JT(int(A.x + 0.5));
     float dc = length(p - A.xy);
     if (dc > A.z) continue;
     int mask = 0, c = 0, tm = 0, tfm = 0;
@@ -2033,8 +2041,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.bufferData(gl.ARRAY_BUFFER, QUAD, gl.STATIC_DRAW);
-  const vao = gl.createVertexArray();
-  const cellBuf = gl.createBuffer();
+  let vao = gl.createVertexArray();
+  let cellBuf = gl.createBuffer();
   gl.bindVertexArray(vao);
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
@@ -2043,7 +2051,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 24, 8); gl.vertexAttribDivisor(2, 1);
   gl.bindVertexArray(null);
   // The cells the one-vessel build draws (veins-bin simpleCells), out of cellBuf, which holds the rest; nGen, nSimple of each.
-  const simpleBuf = gl.createBuffer();
+  let simpleBuf = gl.createBuffer();
   const cellVAO = (buf) => {
     const v = gl.createVertexArray();
     gl.bindVertexArray(v);
@@ -2055,7 +2063,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.bindVertexArray(null);
     return v;
   };
-  const oneVAO = cellVAO(simpleBuf);
+  let oneVAO = cellVAO(simpleBuf);
   let nGen = 0, nSimple = 0, simpleOf = null;
   // Each cell to the program that draws it: the one-vessel build where the cell's list proves it can, else the general one.
   function uploadCells() {
@@ -2068,13 +2076,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     nGen = g; nSimple = o;
   }
   // The cells a lumen can reach (binVeins' `blood`): a frame where only the blood moved repaints these alone (see composite).
-  const bloodVAO = gl.createVertexArray(), bloodBuf = gl.createBuffer();
-  gl.bindVertexArray(bloodVAO);
-  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-  gl.bindBuffer(gl.ARRAY_BUFFER, bloodBuf);
-  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 24, 0); gl.vertexAttribDivisor(1, 1);
-  gl.bindVertexArray(null);
+  let bloodVAO = gl.createVertexArray(), bloodBuf = gl.createBuffer();
+  const bloodVAOOf = (v, buf) => {
+    gl.bindVertexArray(v);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 24, 0); gl.vertexAttribDivisor(1, 1);
+    gl.bindVertexArray(null);
+  };
+  bloodVAOOf(bloodVAO, bloodBuf);
   let nBlood = 0, bloodCell = CELL;   // (bloodCell: the size of those squares, world units)
   // (The blood's own pass draws the quarters of its cells a lumen can reach (binVeins bloodQ), or with ?blood=classic the cells.)
   function uploadBlood(bins) {
@@ -2145,7 +2156,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   gl.bindVertexArray(null);
 
-  const entTex = dataTex(gl), radTex = dataTex(gl), rmaxTex = dataTex(gl), tubeTex = dataTex(gl), organTex = dataTex(gl, gl.LINEAR);
+  let entTex = dataTex(gl);
+  const radTex = dataTex(gl), rmaxTex = dataTex(gl), tubeTex = dataTex(gl), organTex = dataTex(gl, gl.LINEAR);
   gl.bindTexture(gl.TEXTURE_2D, radTex);
   // (Per sample: the radius there and at the next sample, and the along curve there and at the next (pressure-along.js; −1
   // throughout a row with no waist: the colour mixes by arc).)
@@ -2528,6 +2540,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     UC.m3(u.world, M);
     UC.f2(u.size, SW, SH);
     UC.f1(u.cell, CELL);
+    UC.i1(u.morphOn, geo.morph ? 1 : 0);
+    if (geo.morph) { UC.i1(u.posBase, geo.morph.posBase); UC.i1(u.joinBase, geo.morph.joinBase); }
     UC.f1(u.px, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
     const det = m[0] * m[3] - m[1] * m[2] || 1e-9;
     UC.f4(u.invA, m[3] / det, -m[1] / det, -m[2] / det, m[0] / det);
@@ -2936,13 +2950,88 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     }
     return `${k} of ${n}, ${(px / 1e6).toFixed(1)} MP of ${(W * H / 1e6).toFixed(1)}, ${Math.round(sx * size)} px each`;
   }
+  // ── Geometry sets: the binnings made ahead for the change between the views (veins-sweep.js) ──
+  // A set holds what a binning puts on the GPU (the entry texture with the frame's rows after it, the cells of each build and the blood's)
+  // and what the draws read of it on the CPU. One is drawn from at a time: the figure's own (main), or a morph set while the change runs
+  // through its stretch (useMorphSet). A set is made and filled at a free moment (makeMorphSet), never in the change's frames.
+  const geo = { morph: null };
+  let geoMain = null, geoCur = null;
+  const geoSave = () => ({ entTex, vao, cellBuf, simpleBuf, oneVAO, bloodVAO, bloodBuf, nGen, nSimple, simpleOf, nBlood, bloodCell, bloodCPU, cellsCPU, entCPU, nCells, cellBox, rowCells, patchMark, patchK, morph: geo.morph });
+  function geoLoad(S) {
+    ({ entTex, vao, cellBuf, simpleBuf, oneVAO, bloodVAO, bloodBuf, nGen, nSimple, simpleOf, nBlood, bloodCell, bloodCPU, cellsCPU, entCPU, nCells, cellBox, rowCells, patchMark, patchK } = S);
+    geo.morph = S.morph;
+    figVer++; fboOK = false; movedAll = true;
+  }
+  function useMorphSet(S) {
+    if ((S || null) === geoCur || lost) return;
+    if (geoCur) Object.assign(geoCur, geoSave()); else geoMain = geoSave();
+    geoLoad(S || geoMain);
+    geoCur = S || null;
+  }
+  const morphSets = new Set();
+  function dropSet(S) {
+    if (geoCur === S) useMorphSet(null);
+    if (!morphSets.delete(S) || lost) return;
+    gl.deleteTexture(S.entTex);
+    for (const b of [S.cellBuf, S.simpleBuf, S.bloodBuf]) gl.deleteBuffer(b);
+    for (const v of [S.vao, S.oneVAO, S.bloodVAO]) gl.deleteVertexArray(v);
+  }
+
   const api = {
     get lost() { return lost; },
     /** Whether the browser renders WebGL on the CPU. */
     software,
+    /**
+     * A binning for a stretch of the change between the views (veins-sweep.js binSwept) put on the GPU in a set of its own, for
+     * useMorphSet. Made at a free moment: its upload is the size of a whole binning's.
+     */
+    makeMorphSet(bins) {
+      if (lost) return null;
+      const was = geoCur;
+      useMorphSet(null);
+      const v = gl.createVertexArray(), cb = gl.createBuffer();
+      gl.bindVertexArray(v);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, cb);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 24, 0); gl.vertexAttribDivisor(1, 1);
+      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 24, 8); gl.vertexAttribDivisor(2, 1);
+      gl.bindVertexArray(null);
+      const sb = gl.createBuffer(), bb = gl.createBuffer(), bv = gl.createVertexArray();
+      bloodVAOOf(bv, bb);
+      const S = { owner: api, entTex: dataTex(gl), vao: v, cellBuf: cb, simpleBuf: sb, oneVAO: cellVAO(sb), bloodVAO: bv, bloodBuf: bb, nGen: 0, nSimple: 0, simpleOf: null, nBlood: 0, bloodCell: CELL, bloodCPU: null, cellsCPU: null, entCPU: null, nCells: 0, cellBox: null, rowCells: null, patchMark: null, patchK: 0,
+        morph: { posBase: bins.posBase, joinBase: bins.joinBase, entRows: bins.entRows, rows: bins.rows } };
+      morphSets.add(S);
+      useMorphSet(S);
+      gl.bindTexture(gl.TEXTURE_2D, entTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, ENT_W, bins.rows, 0, gl.RGBA, gl.FLOAT, bins.ent);
+      if (gpuProbe.on) gpuProbe.note('uploaded: morph set', bins.ent.byteLength / 1024);
+      cellsCPU = bins.cells; entCPU = bins.ent; nCells = bins.nCells;
+      cellBox = boxOfCells(bins.cells, bins.nCells, CELL);
+      uploadCells();
+      uploadBlood(bins);
+      useMorphSet(was);
+      return S;
+    },
+    /** Draws from a morph set (null: the figure's own binning again). */
+    useMorphSet(S) { if (!S || (S.owner === api && morphSets.has(S))) useMorphSet(S); },
+    dropMorphSet(S) { if (S) dropSet(S); },
+    /**
+     * The frame's points and joins for the morph set in use: `rows` floats laid out as the set's rows after its entries (veins-sweep
+     * writePoints / writeJoinNow from posBase). A few rows: the whole vessel layer is drawn again from them.
+     */
+    setMorphFrame(data) {
+      const M = geo.morph;
+      if (!M || lost) return;
+      gl.bindTexture(gl.TEXTURE_2D, entTex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, M.entRows, ENT_W, M.rows - M.entRows, gl.RGBA, gl.FLOAT, data);
+      if (gpuProbe.on) gpuProbe.note('uploaded: morph frame', data.byteLength / 1024);
+      figVer++; fboOK = false; movedAll = true;
+    },
     /** Uploads the binned geometry (from binVeins). */
     setGeometry(bins) {
       figVer++;
+      useMorphSet(null);
       gl.bindTexture(gl.TEXTURE_2D, entTex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, ENT_W, bins.rows || 1, 0, gl.RGBA, gl.FLOAT, bins.ent.length ? bins.ent : new Float32Array(ENT_W * 4));
       cellsCPU = bins.cells; entCPU = bins.ent; nCells = bins.nCells;
@@ -2957,6 +3046,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      */
     patchGeometry(bins) {
       figVer++;
+      useMorphSet(null);
       gl.bindTexture(gl.TEXTURE_2D, entTex);
       for (const [r0, r1] of bins.patch) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, r0, ENT_W, r1 - r0 + 1, gl.RGBA, gl.FLOAT, bins.ent.subarray(r0 * ENT_W * 4, (r1 + 1) * ENT_W * 4));
       // A patch keeps every cell and its list as they were (binVeins): only entries' values changed, and a cell is drawn from its own
@@ -3758,6 +3848,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       canvas.removeEventListener('webglcontextlost', onLost);
       canvas.removeEventListener('webglcontextrestored', onRestored);
       if (!lost) {
+        useMorphSet(null);
+        for (const S of [...morphSets]) dropSet(S);
         for (const t of [entTex, radTex, bendTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, noiseTex, fluidTex, baseTex, gTex, gTex2, depTex, depNone, lineLayer.tex, glowLayer.tex, warmLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
         for (const b of [quad, cellBuf, simpleBuf, bloodBuf, partBuf, partSBuf, fluidBuf, poolBuf, dirtBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
         for (const v of [vao, oneVAO, bloodVAO, partVAO, partSVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);

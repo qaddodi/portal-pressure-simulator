@@ -310,7 +310,9 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
   assert.match(api, /radRows\.add\(row\); moved\[row\] = 1;/);
   assert.match(api, /markRows\(data, flowSent, stride\);\n\s*const span = changedRows/);
   assert.match(api, /if \(dyeSent\) markRows\(data, dyeSent, DYE_BINS\);/);
-  assert.equal((api.match(/fboOK = false; movedAll = true;/g) || []).length, 2);
+  // (setGeometry, patchGeometry and setMorphFrame: a frame of the change between the views writes every vessel's points, stage.js morphFrame.)
+  assert.equal((api.match(/fboOK = false; movedAll = true;/g) || []).length, 3);
+  assert.ok(body(api, 'setMorphFrame(data) {').includes('fboOK = false; movedAll = true;'));
   for (const f of ['paintOrgans(shapes, rect, k) {', 'setFluidSpans(halfWidths, rect) {', 'setFluidLiver(bottoms) {', 'dropPlate(slot) {', 'commit(slot, names) {']) assert.ok(body(api, f).includes('texVer++'), f);
   assert.ok(body(api, 'setPlate(slot, job, rect) {').includes('texVer++'));
 });
