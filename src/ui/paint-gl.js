@@ -11,7 +11,7 @@
 // and a context that is handed one in place of a canvas makes its texture from the record (isGpuPicture), the first time it is drawn.
 // No 2D context, no drawImage and no pixel read anywhere (the owner, 1 Nov 2026: "block everything until everything is on GPU").
 
-import { glGet, glOn, glCap } from './gl-state.js?v=7962476b4a';
+import { glGet, glOn, glCap } from './gl-state.js?v=554eb75e6c';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
 import { WARM_VIEWS, WARM_MS, bucket } from './warm-views.js?v=510b2dee9e';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=62b8693f78';

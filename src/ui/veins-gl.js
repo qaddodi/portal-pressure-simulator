@@ -31,7 +31,7 @@
 //
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
-import { glGet, glCap } from './gl-state.js?v=7962476b4a';
+import { glGet, glCap } from './gl-state.js?v=554eb75e6c';
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';

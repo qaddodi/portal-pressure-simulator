@@ -11,6 +11,7 @@ import { perf, watchFrames, finalFrameFor } from './frame.js?v=31edc44488';
 const nextFrame = finalFrameFor('perf readout');
 import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js?v=9cd1d0c4e3';
 import { scanBlurs, blurText } from './blur-gauge.js?v=215cf3d483';
+import { budget as gpuBudget, budgetText as gpuBudgetText } from './gpu-budget.js?v=f8ef8855bb';
 import { surfaceRows, surfacesText } from './gpu-surfaces.js?v=2af17044e7';
 import { motionBudget, budgetText } from './motion-budget.js?v=f3b73ab0e1';
 
@@ -293,10 +294,11 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   // written twice a second from each surface's own state while no gesture's window is open (a write during one would be measured).
   const surfEl = document.createElement('div');
   surfEl.style.cssText = 'margin-top:8px';
-  const surfText = () => surfacesText(surfaceRows());
+  const surfText = () => `${surfacesText(surfaceRows())}\n${gpuBudgetText()}`;   // (and the render graph's budget, gpu-budget.js, R06)
   pSurfEl = surfEl; pSurfText = surfText;
   setInterval(() => { if (!cur && !folded && !document.hidden) restPass(writeSurf); }, 500);
   if (window.pps) window.pps.surfaces = () => surfaceRows();   // (for a headless run: pps.surfaces())
+  if (window.pps) window.pps.budget = gpuBudget;   // (the registry and the passes: pps.budget())
   const scan = () => blurText(scanBlurs(document, (el) => window.pps?.stage?.blurWhy?.(el) ?? null), document.querySelectorAll('[data-gl]').length);
   blurs.textContent = 'Blurs';
   blurs.onclick = () => { blurEl.textContent = scan(); };

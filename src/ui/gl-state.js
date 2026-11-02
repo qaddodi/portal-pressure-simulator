@@ -106,6 +106,9 @@ function recOf(gl) {
   return r;
 }
 
+/** The record itself, for the registry (gpu-budget.js): what is bound now (null with ?glstate=0 or off WebGL2). Read only. */
+export function glRec(gl) { return recOf(gl); }
+
 /** Starts the record for context gl (from its creation, so the registry sees every allocation). Returns gl. */
 export function trackGL(gl) { if (gl) recOf(gl); return gl; }
 

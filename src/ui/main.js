@@ -2,10 +2,11 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { motionBudget } from './motion-budget.js?v=f3b73ab0e1';   // (first: counts from the start when ?perf or ?budget=1 asks)
-import './gl-state.js?v=7962476b4a';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
+import { budget as gpuBudget } from './gpu-budget.js?v=f8ef8855bb';   // (the render graph's registry and pass counts, R06: before any context is made)
+import './gl-state.js?v=554eb75e6c';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host } from './host.js?v=9eca545da1';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { createStage } from './stage.js?v=24f8b2dc39';
+import { createStage } from './stage.js?v=09776e6a3a';
 import { createCreditPlacer } from './credit.js?v=1fc0735042';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
@@ -327,7 +328,7 @@ async function main() {
   for (const k of ['focus', 'labelLevel', 'selection']) { let was = store.get()[k]; store.on(k, (v) => { if (v === was) return; was = v; redraw(); }); }
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, get credit() { return creditPlacer; } };
+  window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; } };
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
   const shared = readShare(), back = new URLSearchParams(location.search).has('back');
@@ -950,7 +951,7 @@ function wireTopbar() {
   if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=19b8bd5775').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages. ?highrefresh=0 off.
   import('./high-refresh.js?v=a5fd03fdf7').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=48da3a86df').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=924bb70984').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
   if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=76e717a973').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
