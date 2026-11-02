@@ -31,7 +31,7 @@ import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor,
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js?v=b608fe722c';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=09fc291f37';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
-import { morphKey, crossfadeText } from './legend-morph.js?v=1504ac8c55';
+import { morphKey, crossfadeText } from './legend-morph.js?v=8d6fd67d8f';
 import { glideNow } from './seg-glide.js?v=ac5fa1c3bd';
 import './focus-ring.js?v=1c2484200d';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';

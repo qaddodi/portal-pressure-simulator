@@ -100,7 +100,7 @@ function labsOf(bar) {
 /** Put the key's new children in el (the lens key), moving from the old on the figure's clock. instant: the same key again. */
 export function morphKey(el, kids, { instant = false } = {}) {
   const run = jobs.get(el), btn = el.parentElement;
-  if (instant || !el.animate || !el.isConnected || !el.firstChild || !btn || !hasBox(el)) { run?.finish(); el.replaceChildren(...kids); return; }
+  if (instant || !el.animate || !el.isConnected || !el.firstChild || !btn || !hasBox(el) || !shown(el)) { run?.finish(); el.replaceChildren(...kids); return; }   // (shown: a key the bar hides has no place to fade from)
   if (reduced()) { run?.finish(); swapFade(el, () => el.replaceChildren(...kids)); return; }
 
   const oldBar = el.querySelector('.lg-bar'), newScale = kids.find((k) => k.classList?.contains('lg-scale')), newBar = newScale?.querySelector('.lg-bar');
@@ -142,11 +142,11 @@ export function morphKey(el, kids, { instant = false } = {}) {
   const gScale = ghost.querySelector('.lg-scale');
   for (const g of ghost.children) {
     if (morph && g === gScale) continue;
-    fadeOut(g);
+    play(g, [{ opacity: 1 }, { opacity: 0 }], { fill: 'forwards', duration: D_SURFACE * .5 });   // (the old key is gone by half-way: both keys never read at once)
   }
   for (const k of kids) {
     if (morph && k === newScale) continue;
-    fadeIn(k);
+    play(k, [{ opacity: 0 }, { opacity: 1 }], { delay: D_SURFACE * .4, duration: D_SURFACE * .6, fill: 'backwards' });
   }
 
   if (morph) {
@@ -202,7 +202,7 @@ export function crossfadeText(el, txt, { instant = false } = {}) {
   const prev = jobs.get(el);
   if (!prev && el.textContent === txt) return;
   const old = el.textContent, btn = el.parentElement;
-  if (instant || !old || !el.animate || !el.isConnected || !btn || !hasBox(el)) { prev?.finish(); el.textContent = txt; return; }
+  if (instant || !old || !el.animate || !el.isConnected || !btn || !hasBox(el) || !shown(el)) { prev?.finish(); el.textContent = txt; return; }   // (shown: the phone's top bar hides the lens name (display: none); its ghost, forced to display: block at a zero box, stood at the screen's top left)
   if (reduced()) { prev?.finish(); swapFade(el, () => { el.textContent = txt; }); return; }
   prev?.finish();
   if (el.textContent === txt) return;
