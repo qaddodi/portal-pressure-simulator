@@ -22,7 +22,6 @@
 //   ?prepbudget=0.)
 //   prepLeft() → ms left in this interval        prepSpend(ms) charges work done elsewhere (a rest pass)
 import { frameBudget, inMotion, watchdogStats, WATCH_SHARE } from './frame.js?v=1d147c7c9a';
-import { caught } from './caught.js?v=b96b17594a';
 
 /** The target frame interval (ms), for the rest passes' slice (rest-pass.js reads it here: its one import). */
 export const frameMs = () => frameBudget();

@@ -15,11 +15,11 @@ test('the surface pass waits, paused, for the model, the theme, the canvas size 
   assert.match(gl, /if \(!panOnly && \(dt === 0 \|\| rzMoving \|\| lensFrom \|\| !attrKey \|\| !radAll \|\| bk !== binKey \|\| camDue \|\| now - lastSurface >= 80\)\) \{\n\s+lastSurface = now; surfKey = sKey; surfCs = cs;/);
 });
 
-test('running, a camera-only change rebuilds no attribute map (R12): the pass comes with the model, the styles or every 80 ms; ?camattr=0 restores every frame', () => {
+test('running, a camera-only change rebuilds no attribute map (R12): the pass comes with the model, the styles or every 80 ms', () => {
   assert.match(gl, /const panOnly = dt === 0 &&/);
-  assert.match(gl, /const camDue = CAM_ATTR \? cs !== surfCs \|\| sKey\.slice\(0, sKey\.lastIndexOf\('\|'\)\) !== surfKey\.slice\(0, surfKey\.lastIndexOf\('\|'\)\) : dk !== drawKey;/);
+  assert.match(gl, /const camDue = cs !== surfCs \|\| sKey\.slice\(0, sKey\.lastIndexOf\('\|'\)\) !== surfKey\.slice\(0, surfKey\.lastIndexOf\('\|'\)\);/);
   assert.match(gl, /\|\| camDue \|\| now - lastSurface >= 80\)\)/);
-  assert.match(src, /const CAM_ATTR = !\(typeof location !== 'undefined' && \/\[\?&\]camattr=0\\b\/\.test\(location\.search\)\);/);
+  assert.doesNotMatch(src, /CAM_ATTR|camattr/);
 });
 
 test('only the camera\'s own bumps of the version are left out of the model\'s: a label-size change still counts', () => {

@@ -13,11 +13,10 @@ const fn = (head) => { const i = lz.indexOf(head); assert.ok(i >= 0, head); retu
 
 test('the shader lays the picture the 2D passes did: surround, the bitmap over it premultiplied, then the fade into the page', () => {
   assert.match(gl, /vec2 uv = \(p - uO\) \/ \(uRd \* vec2\(6\.0, 3\.4641016151377544\)\);/, 'one repeat per 6 rd by 2√3 rd, as fieldFill');
-  // (Each tile laid over the page by its own alpha, the same picture for an opaque tile; ?tileover=0: its rgb alone, as before.)
-  assert.match(tissueFS(false, true), /vec3 c = mix\(over\(texture\(uQA, uv\)\), over\(texture\(uQB, uv\)\), uMix\);/);
-  assert.match(tissueFS(false, true), /if \(uQOld > 0\.0\) c = mix\(c, over\(texture\(uQO, uv\)\), uQOld\);/, 'the last state\'s tile over it as it fades out');
-  assert.match(tissueFS(false, false), /vec3 c = mix\(texture\(uQA, uv\)\.rgb, texture\(uQB, uv\)\.rgb, uMix\);/);
-  assert.match(tissueFS(false, false), /if \(uQOld > 0\.0\) c = mix\(c, texture\(uQO, uv\)\.rgb, uQOld\);/);
+  // (Each tile laid over the page by its own alpha, the same picture for an opaque tile.)
+  assert.match(tissueFS(false), /vec3 c = mix\(over\(texture\(uQA, uv\)\), over\(texture\(uQB, uv\)\), uMix\);/);
+  assert.match(tissueFS(false), /if \(uQOld > 0\.0\) c = mix\(c, over\(texture\(uQO, uv\)\), uQOld\);/, 'the last state\'s tile over it as it fades out');
+  assert.doesNotMatch(tissueFS(false), /texture\(uQ(A|B|O), uv\)\.rgb/, 'no tile read by its rgb alone');
   assert.match(gl, /vec4 l = textureGrad\(uW, w, gx, gy\) \* uWMix\.x;\n\s+if \(uWMix\.y > 0\.0\) l \+= textureGrad\(uWO, w, gx, gy\) \* uWMix\.y;\n\s+l \*= e;\n\s+c = l\.rgb \+ c \* \(1\.0 - l\.a\);/, '(1 − u)·old + u·new, laid over');
   assert.match(gl, /gl\.pixelStorei\(gl\.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !tile\);/);
   assert.match(gl, /gl\.TEXTURE_MIN_FILTER, gl\.LINEAR_MIPMAP_LINEAR\);\n\s+gl\.generateMipmap\(gl\.TEXTURE_2D\);/, 'mipmapped: a closer bitmap shown smaller stays sharp');

@@ -1,4 +1,4 @@
-// Past a packed lane, more flow draws denser, brighter streaks (combined plan B2; ?bloodsat=0 for the old look). Streaks only, at
+// Past a packed lane, more flow draws denser, brighter streaks (combined plan B2). Streaks only, at
 // every zoom: no beads, and the arrowheads never fade on a wide lumen (Mohammad, 31 Oct: "Dots suck. Keep streaks", "Without pop in
 // and pop out"). No GL in node: the shader as source, and its numbers mirrored here.
 import test from 'node:test';
@@ -21,13 +21,13 @@ test('B2: nothing changes up to a packed lane; past it the streaks grow denser a
     last = g;
   }
   assert.ok(Math.abs(gain(4) - 1.35) < 1e-12);
-  assert.match(gl, /float gS = sat == 1 \? 1\.0 \+ 0\.35 \* clamp\(2\.885 \* \(ovS - 1\.0\) \/ \(ovS \+ 1\.0\), 0\.0, 1\.0\) : 1\.0;/);
+  assert.match(gl, /float gS = 1\.0 \+ 0\.35 \* clamp\(2\.885 \* \(ovS - 1\.0\) \/ \(ovS \+ 1\.0\), 0\.0, 1\.0\);/);
   // The density feeds both the streaks' threshold (denser) and their strength (brighter).
   assert.match(gl, /float dens = sqrt\(clamp\(p, 0\.0, 1\.0\)\) \* gS;/);
   assert.match(gl, /float streak = smoothstep\(0\.46 - 0\.08 \* dens, 0\.9, nz\);/);
   assert.match(gl, /streak \* \(0\.32 \+ 0\.26 \* dens\)/);
-  assert.match(gl, /UC\.i1\(U\.sat, BLOOD_SAT \? 1 : 0\);/);
-  assert.match(gl, /const BLOOD_SAT = !\(typeof location !== 'undefined' && \/\[\?&\]bloodsat=0\\b\/\.test\(location\.search\)\);/);
+  // (Always: no switch back to every packed lane alike.)
+  assert.doesNotMatch(gl, /bloodsat|BLOOD_SAT|uniform int sat;/);
 });
 
 test('B2 never pops: the gain is continuous in the flow, so a flow easing past a packed lane eases the streaks with it', () => {

@@ -1,6 +1,6 @@
-// The blood's speed-ups of 26 Oct (review/blood-shading-ideas): the composite's `fast` build draws the same picture as the
-// classic one (?blood=classic) with less work a lumen pixel. Source patterns (no GL in node), checked on the shader text as
-// the GPU sees it: the #if blocks resolved for each build.
+// The blood's speed-ups of 26 Oct (review/blood-shading-ideas): the composite draws the same picture as before them with less
+// work a lumen pixel, and is the only composite (the classic one and its ?blood=classic went, 2 Nov). Source patterns (no GL in
+// node), checked on the shader text as the GPU sees it: the #if blocks resolved for each build.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -37,7 +37,7 @@ function resolve(src) {
   assert.equal(stack.length, 0, 'every #if is closed');
   return out.join('\n');
 }
-const builds = { fast: COMP_FS(false, true), fastPlain: COMP_FS(true, true), classic: COMP_FS(false, false), classicPlain: COMP_FS(true, false) };
+const builds = { full: COMP_FS(false), plain: COMP_FS(true) };
 const R = Object.fromEntries(Object.entries(builds).map(([k, s]) => [k, resolve(s)]));
 const body = (src, head) => {
   const i = src.indexOf(head);
@@ -57,12 +57,14 @@ test('every build of the composite has balanced brackets once its #if blocks are
   }
 });
 
-test('the classic build is the composite as it was: every layer under a lumen, every cut-out tested', () => {
-  for (const k of ['classic', 'classicPlain']) assert.match(R[k], /const bool under = true;/);
+test('there is no classic build: no switch to it, and no build lays every layer under a lumen', () => {
+  for (const k of Object.keys(R)) assert.doesNotMatch(R[k], /const bool under = true;|\bFAST\b/);
+  assert.doesNotMatch(glSrc, /blood=classic|CLASSIC/);
+  assert.equal(COMP_FS.length, 0, 'the build takes no switch (plain is its only, defaulted, argument)');
 });
 
 test('every build draws the streaks alone, at every zoom: no bead look anywhere, not even as a setting (Mohammad, 31 Oct)', () => {
-  for (const k of ['fast', 'fastPlain', 'classic', 'classicPlain']) {
+  for (const k of Object.keys(R)) {
     assert.doesNotMatch(R[k], /\blook\b/);
     assert.doesNotMatch(R[k], /beadField|\bbw\b|chevZoom/);
     // (the bead's stagnant-blood noise went with it)
@@ -74,8 +76,8 @@ test('every build draws the streaks alone, at every zoom: no bead look anywhere,
   assert.match(readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), /look: b\.look \|\| 'shimmer'/);
 });
 
-test('the fast build skips the layers under an opaque vessel pixel, and only those', () => {
-  for (const k of ['fast', 'fastPlain']) {
+test('the composite skips the layers under an opaque vessel pixel, and only those', () => {
+  for (const k of Object.keys(R)) {
     const main = body(R[k], 'void main()');
     assert.match(main, /bool under = v\.a < 1\.0;/);
     // The vessel layer is read before anything under it is.
@@ -89,40 +91,37 @@ test('the fast build skips the layers under an opaque vessel pixel, and only tho
   }
 });
 
-test('the fast build tests the arrowheads\' cut-outs only where a head is', () => {
-  const main = body(R.fast, 'void main()');
+test('the composite tests the arrowheads\' cut-outs only where a head is', () => {
+  const main = body(R.full, 'void main()');
   const chev = body(main, 'if (chev == 1 && f1.z > 0.0) {');
   const gate = body(chev, 'if (c.x + c.y > 0.0) {');
   assert.ok(gate.includes('noChev[i]') && gate.includes('chevHole[i]'), 'both cut-outs inside the test');
   // ...and the drawing still waits on the head surviving them.
   const after = chev.slice(chev.indexOf(gate) + gate.length);
   assert.ok(body(after, 'if (c.x + c.y > 0.0) {').includes('chevInk'));
-  // The classic build tests them on every lumen pixel.
-  const cc = body(body(R.classic, 'void main()'), 'if (chev == 1 && f1.z > 0.0) {');
-  assert.ok(cc.indexOf('noChev[i]') < cc.indexOf('if (c.x + c.y > 0.0) {'));
 });
 
 // ── Item 5: the zoom's numbers once per vertex, and the vessel's own values read once for the streaks and the arrowheads ──
 const glSrc = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
 const zoomVS = glSrc.slice(glSrc.indexOf('const ZOOM_VS = `'), glSrc.indexOf('}`;', glSrc.indexOf('const ZOOM_VS = `')));
 
-test('the vertex shaders work out the zoom\'s numbers with the very expressions the classic composite uses per pixel', () => {
-  const cls = R.classic;
+test('the vertex shaders work out the zoom\'s numbers (once per vertex, none per pixel)', () => {
   for (const e of [
     'max(2.6, 5.0 * pxW)',
     'clamp(log2(max(pxW, 1e-4) * 8.0 / SLOT), -1.0, 3.0)',
     'smoothstep(-0.2, 0.2, lx) + smoothstep(0.8, 1.2, lx)',
     'min(floor(li), 1.0), lf = li - lb',
     'SLOT * exp2(lb), sB = SLOT * exp2(lb + 1.0)',
-  ]) { assert.ok(zoomVS.includes(e), `vertex: ${e}`); assert.ok(cls.includes(e), `classic: ${e}`); }
-  // The fine octave's fade, per scale, as shimN works it out (cellA = 5.12 × the scale).
-  assert.ok(cls.includes('cellA = 5.12 * sx') && cls.includes('fw = smoothstep(1.2 * pxW, 2.0 * pxW, cellA * 0.5);'));
+  ]) assert.ok(zoomVS.includes(e), `vertex: ${e}`);
+  // The fine octave's fade, per scale (cellA = 5.12 × the scale): a stream carried on from another vessel works it out the same way
+  // in the composite, its cells |B| times shorter (2.56 = 5.12 × 0.5).
+  for (const sx of ['sA', 'sB']) assert.ok(R.full.includes(`smoothstep(1.2 * pxW, 2.0 * pxW, 2.56 * ${sx} / bs)`), sx);
   assert.ok(zoomVS.includes('cellA = 5.12 * sA, cellB = 5.12 * sB'));
   assert.ok(zoomVS.includes('smoothstep(1.2 * pxW, 2.0 * pxW, cellA * 0.5), smoothstep(1.2 * pxW, 2.0 * pxW, cellB * 0.5), mix(sA, sB, lf)'));
-  // Both vertex shaders hand them on; the fast composite takes them flat and works none of them out again.
+  // Both vertex shaders hand them on; the composite takes them flat and works none of them out again.
   assert.equal((glSrc.match(/\$\{ZOOM_VS\}/g) || []).length, 2);
   assert.equal((glSrc.match(/zoomOut\(\);/g) || []).length, 2);
-  for (const k of ['fast', 'fastPlain']) {
+  for (const k of Object.keys(R)) {
     assert.match(R[k], /flat in vec4 zoomA;/);
     assert.doesNotMatch(body(R[k], 'vec4 bloodAt('), /log2\(|exp2\(|max\(2\.6, 5\.0 \* pxW\)/);
     assert.doesNotMatch(body(R[k], 'float shimN('), /smoothstep\(1\.2 \* pxW/);
@@ -156,7 +155,7 @@ const consts = [...hshText.matchAll(/0x([0-9a-f]+)u/g)].map((m) => BigInt('0x' +
 const shifts = [...hshText.matchAll(/x >> (\d+)/g)].map((m) => BigInt(m[1]));
 const M32 = 0xffffffffn;
 const hshRef = (x) => { x = BigInt(x); x ^= x >> shifts[0]; x = (x * consts[0]) & M32; x ^= x >> shifts[1]; x = (x * consts[1]) & M32; x ^= x >> shifts[2]; return Number(x); };
-const vn = R.classic.match(/float vnoise\(vec2 q, uint seed, int period\) \{[\s\S]*?\n\}/)[0];
+const vn = R.full.match(/float vnoiseT\(vec2 q, uint seed, int period, ivec2 o, int yo, int ny\) \{[\s\S]*?\n\}/)[0];
 const [mx, my] = [...vn.matchAll(/\* (\d+)u\)/g)].slice(0, 2).map((m) => BigInt(m[1]));
 const cornerRef = (seed, x, y) => (hshRef((BigInt(seed) ^ ((BigInt(x) * mx) & M32) ^ ((BigInt(y) * my) & M32)) & M32) & 0xffffff) / 16777216;
 
@@ -169,14 +168,11 @@ test('the JS hash is the shader\'s, bit for bit', () => {
 });
 
 test('the seeds and periods are the shader\'s', () => {
-  const sh = body(R.classic, 'float shimN(');
-  assert.match(sh, /uint sd0 = uint\(id\) \* 31u, sd1 = uint\(id\) \* 57u \+ 11u;/);
-  assert.match(sh, /int per = 50;/);
-  assert.match(sh, /vnoise\(qa, sd0, per\)/);
-  assert.match(sh, /vnoise\(qa \* vec2\(2\.0, 1\.7\) \+ vec2\(0\.0, 7\.3\), sd1, per \* 2\)/);
+  const fs = body(R.full, 'float shimN(');
+  assert.match(fs, /uint sd0 = uint\(id\) \* 31u, sd1 = uint\(id\) \* 57u \+ 11u;/);
+  assert.match(fs, /int per = 50;/);
   assert.deepEqual(OCTAVES.map((o) => [o.mul, o.add, o.period]), [[31, 0, 50], [57, 11, 100]]);
-  // The fast build reads the same octaves from the table, with the same seeds and periods.
-  const fs = body(R.fast, 'float shimN(');
+  // The octaves read from the table, with those seeds and periods.
   assert.match(fs, new RegExp(`vnoiseT\\(qa, sd0, per, o0, ${OCTAVES[0].yo}, ${OCTAVES[0].rows}\\)`));
   assert.match(fs, new RegExp(`vnoiseT\\(qa \\* vec2\\(2\\.0, 1\\.7\\) \\+ vec2\\(0\\.0, 7\\.3\\), sd1, per \\* 2, o1, ${OCTAVES[1].yo}, ${OCTAVES[1].rows}\\)`));
   assert.match(fs, new RegExp(`ivec2 o0 = ivec2\\(\\(id % ${NOISE_PER_ROW}\\) \\* ${NOISE_W} \\+ ${OCTAVES[0].x}, \\(id / ${NOISE_PER_ROW}\\) \\* ${NOISE_H}\\), o1 = o0 \\+ ivec2\\(${OCTAVES[1].x}, 0\\);`));
@@ -219,7 +215,7 @@ test('the blocks tile the table without overlapping, within WebGL2\'s smallest t
 // y the lumen's across (−1 … 1 + 1/65535 from its 16-bit store), R ≥ 0.3, Lg ≥ 2.6. Its largest size is 7 / 0.88 of |y|: the
 // table's rows cover every lattice row that reaches, for both octaves, so the hashed fallback is never taken in the app.
 test('the table covers every lattice row the streaks can read', () => {
-  assert.match(R.classic, /float qy = y \* R \/ max\(0\.55 \* 1\.6 \* R \/ clamp\(1\.7 \* R \/ Lg, 1\.0, 7\.0\), 3\.2 \* pxW\);/);
+  assert.match(R.full, /float qy = y \* R \/ max\(0\.55 \* 1\.6 \* R \/ clamp\(1\.7 \* R \/ Lg, 1\.0, 7\.0\), 3\.2 \* pxW\);/);
   const yMax = 65535 / 32767.5 - 1, qMax = (yMax * 7) / (0.55 * 1.6);
   const rows = (lo, hi) => [Math.floor(lo), Math.floor(hi)];
   const [c0, c1] = rows(-qMax, qMax), [f0, f1] = rows(-qMax * 1.7 + 7.3, qMax * 1.7 + 7.3);
@@ -276,30 +272,28 @@ test('the lumen buffer flags a second lumen in its row\'s top bit, and the fast 
     assert.ok(at > 0 && at < main.indexOf('int id1 = int(g.x) - 1') && at < main.indexOf('float vis = g.x > 0u'));
     assert.match(main, /bool two = \(g\.x & 32768u\) != 0u;/);
   }
-  assert.match(body(R.fast, 'void main()'), /uvec4 g2 = two \? \(inL \? texelFetch\(gbuf2, lp, 0\) : uvec4\(0u\)\) : uvec4\(0u\);/);
-  assert.match(body(R.classic, 'void main()'), /uvec4 g2 = \(inL \? texelFetch\(gbuf2, lp, 0\) : uvec4\(0u\)\);/);
+  for (const k of Object.keys(R)) assert.match(body(R[k], 'void main()'), /uvec4 g2 = two \? \(inL \? texelFetch\(gbuf2, lp, 0\) : uvec4\(0u\)\) : uvec4\(0u\);/);
 });
 
 // ── Item 7: lumens whose vessels did not change are left as drawn in the blood's own pass ──
 test('the blood pass leaves a lumen alone only when neither of its vessels\' rows nor any uniform changed', () => {
-  const main = body(R.fast, 'void main()');
+  const main = body(R.full, 'void main()');
   assert.match(main, /if \(bloodOnly == 1 && stillOn == 1 && texelFetch\(flow, ivec2\(7, int\(g\.x\) - 1\), 0\)\.x == 0\.0\n\s*&& \(!two \|\| texelFetch\(flow, ivec2\(7, int\(\(inL \? texelFetch\(gbuf2, lp, 0\) : uvec4\(0u\)\)\.x & 2047u\) - 1\), 0\)\.x == 0\.0\)\) discard;/);
-  assert.doesNotMatch(R.classic, /stillOn/);
   const comp = glSrc.slice(glSrc.indexOf('    composite(look, blood = NOBLOOD, full = false, part = 0) {'), glSrc.indexOf('    /** Whether organ outlines can be drawn here'));
-  // Never in a whole picture, a bleed (the one uniform left out of the comparison, the clock, moves it), the classic build, or
-  // before every row has been seen.
+  // Never in a whole picture, a bleed (the one uniform left out of the comparison, the clock, moves it), or before every row has
+  // been seen.
   assert.match(comp, /let same = !!stillSig && sn === stillN && sn < sigNow\.length;/);
   assert.match(comp, /for \(let i = 0; same && i < sn; i\+\+\) if \(sigNow\[i\] !== stillSig\[i\]\) same = false;/);
-  assert.match(comp, /const still = !CLASSIC && !full && !movedAll && !bl\.length && same;/);
+  assert.match(comp, /const still = !full && !movedAll && !bl\.length && same;/);
   // The comparison takes every uniform the composite sets but the clock (and the bleed's, which it refuses), and the textures' version.
   const sig = comp.slice(comp.indexOf('sn = 0;'), comp.indexOf('let same'));
   for (const x of ['sg(m)', 'pm', 'plate?.alpha', 'plate?.sat', 'plates[0]?.rect', 'plates[1]?.rect', 'fluidRect', 'fl?.s', 'fl.ink', 'fl?.lv',
     'blood.on', 'blood.chev', 'blood.still', 'blood.alpha', 'blood.streakA', 'blood.chevA', 'blood.originA', 'blood.chevInk', 'blood.chevLight', 'blood.vdpr',
     'blood.origin', 'dyeAny', 'originColOf', 'blood.dyeCol', 'blood.revCol', 'blood.inkLight', 'blood.inkDark', 'ncv', 'ncN', 'hb', 'hr', 'hoN',
-    'BLOOD_SAT', 'blood.bt', 'layer', 'glow', 'warm', 'useStack', 'bare', 'texVer']) assert.ok(sig.includes(x), x);
+    'blood.streakLen', 'blood.bt', 'layer', 'glow', 'warm', 'useStack', 'bare', 'texVer']) assert.ok(sig.includes(x), x);
   const uniforms = [...comp.matchAll(/UC\.\w+\(U\.(\w+)/g)].map((m) => m[1]);
   for (const u of uniforms) assert.ok(['world', 'size', 'cell', 'inv', 'H', 'pxW', 'plates', 'plateAlpha', 'plateSat', 'plateRect0', 'plateRect1', 'fluidRect', 'fluidS', 'fluidInk', 'fluidLv',
-    'blood', 'chev', 'still', 'flowA', 'blendA', 'chevInk', 'chevLight', 'cssPx', 'sat', 'origin', 'dyeOn', 'clock', 'bT', 'rows', 'originCol', 'dyeCol', 'revCol', 'inkLight', 'inkDark',
+    'blood', 'chev', 'still', 'flowA', 'blendA', 'chevInk', 'chevLight', 'cssPx', 'origin', 'dyeOn', 'clock', 'bT', 'rows', 'originCol', 'dyeCol', 'revCol', 'inkLight', 'inkDark',
     'bleedE', 'bleedB', 'bleedN', 'noChev', 'noChevN', 'chevHole', 'chevHoleR', 'chevHoleN', 'lenOn', 'bloodOnly', 'stillOn'].includes(u), `uniform ${u} is accounted for`);
   // The rows and this picture's uniforms are taken as the last picture's only once it is drawn.
   assert.ok(comp.indexOf('moved.fill(0); movedAll = false;') > comp.indexOf('UC.i1(U.bloodOnly, 1);'));

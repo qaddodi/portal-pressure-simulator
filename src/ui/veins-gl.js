@@ -36,18 +36,18 @@ import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD } from './blood.js?v=a70439097a';
-import { cssRGB } from './util.js?v=5c99534b1f';
+import { cssRGB } from './util.js?v=3b6762a3d2';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=d72157dbac';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=6e462a9e6c';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { changedRows } from './flow-rows.js?v=6cd335f84b';
 import { leftAlone } from './quiet.js?v=388052eba8';
-import { uniformCache } from './uniform-cache.js?v=0fc6d08369';
+import { uniformCache } from './uniform-cache.js?v=6488216aa0';
 import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=79231d7c6b';
-import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=30afde474f';
-import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=e8bb95b557';
+import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=23dcebba43';
+import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=e8f1e97ac0';
 import { warmFade } from './res-fade-gl.js?v=63814f4c2c';
-import { fusedVS, fusedFS } from './veins-fuse.js?v=b34d325734';
+import { fusedVS, fusedFS } from './veins-fuse.js?v=f51a1ae66a';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 import { createNoiseFiller } from './noise-gl.js?v=03bdecea81';
 import { softwareGL } from './sw-yield.js?v=0b6a0f94e9';
@@ -96,44 +96,9 @@ export function laneSum(R, pxW) {
   return LANE_K[i] + (LANE_K[i + 1] - LANE_K[i]) * (x - i);
 }
 const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
-const PREALLOC = !(typeof location !== 'undefined' && /[?&]prealloc=0\b/.test(location.search || ''));
-// ?veins=generic in the address: every cell drawn by the general vessel program (the one-vessel build left off), for an A/B
-// on a device. The picture is the same either way.
-const GENERIC = typeof location !== 'undefined' && /[?&]veins=generic\b/.test(location.search);
-// The vessel canvas keeps no picture of its own (on by default since 31 Oct; ?vesselbuf=keep in the address goes back): it is made
-// without preserveDrawingBuffer, and the picture the frames repaint in part is kept in a texture of the renderer's own, copied whole
-// to the canvas each time it is drawn on (see present). The same pixels either way; the browser no longer keeps (and copies) a second
-// buffer for the canvas on every frame. Every reader of the canvas outside the frame that drew it calls capture() or present() first.
-const OWN_BUF = !(typeof location !== 'undefined' && /[?&]vesselbuf=keep\b/.test(location.search));
 // One GPU context for the lobule (1 Nov, docs/gpu-practices.md, "one WebGL context for the whole figure"): its overlay (the ductules and
 // the lymph, fx-gl.js) drawn in its vessel canvas over the vessels instead of in a canvas and context of its own. ?lzone=0: apart, as before.
 export const LZ_ONE = !(typeof location !== 'undefined' && /[?&]lzone=0\b/.test(location.search));
-// ?blood=classic in the address (an A/B, off by default): the composite built as it was before the blood's speed-ups of 26 Oct
-// (COMP_FS `fast`): every lumen pixel lays the layers under it, hashes its noise, works out the zoom's numbers itself and keeps the
-// slower path's code. The same picture either way; the switch is there to compare on a device.
-const CLASSIC = typeof location !== 'undefined' && /[?&]blood=classic\b/.test(location.search);
-// Past a packed lane, more flow draws denser, brighter streaks (combined plan B2). ?bloodsat=0: every packed lane alike, as before.
-const BLOOD_SAT = !(typeof location !== 'undefined' && /[?&]bloodsat=0\b/.test(location.search));
-// One-pass zoom frames (on by default since 26 Oct: the same look, a little smoother on Mohammad's Mac; ?zoompass=two in the
-// address goes back): a frame where the view zoomed or turned, which drew the vessel layer whole and then the picture whole, runs
-// the two as one shader over the vessel cells instead (veins-fuse.js), and the picture alone over the rest of the canvas (the
-// layer there is empty). The same arithmetic, so the same picture.
-const ONE_PASS = !(typeof location !== 'undefined' && /[?&]zoompass=two\b/.test(location.search));
-// The one-pass frames' stencil let go once used (GPU practice: Apple's Metal guide, "Load and Store Actions", and MDN "WebGL best
-// practices", invalidateFramebuffer on tiled mobile GPUs): a canvas-sized buffer no longer written out to memory on every zoom or pan
-// frame, bandwidth and heat the picture never needed. ?invalidate=0 in the address: kept as before.
-const INVALIDATE = !(typeof location !== 'undefined' && /[?&]invalidate=0\b/.test(location.search));
-// No stencil on the canvas's own buffer when the figure draws into a buffer of its own (OWN_BUF): the one-pass frames mark their cells in
-// that buffer's stencil, never the canvas's, so the canvas's was a second screen-sized stencil kept for nothing (GPU memory, and on a
-// tile GPU a buffer stored every frame). ?stencilfree=0 in the address: the canvas keeps one, as before.
-const CTX_STENCIL_FREE = !(typeof location !== 'undefined' && /[?&]stencilfree=0\b/.test(location.search));
-// A uniform is sent only when it differs from what its program holds, at every per-frame draw (uniform-cache.js). ?ucache=0 in the
-// address: every uniform is sent each draw, as before.
-const UNIFORM_CACHE = !(typeof location !== 'undefined' && /[?&]ucache=0\b/.test(location.search));
-// Tube depth (vessel depth pass, 31 Oct): a lumen darkens a little toward its wall, more on the side away from the light, and
-// a pale band of wall sits between the lumen and the casing; a vessel passing over another casts a slightly fuller contact
-// shadow. The centre of every lumen keeps its pressure or flow colour exactly. ALU only, no texture reads. ?depth=0: as before.
-const DEPTH = !(typeof location !== 'undefined' && /[?&]depth=0\b/.test(location.search));
 // Settings › Figure performance › Pinch frame reuse (frame.js pinchReuse, off by default; stage.js passes it only while a hand zooms):
 // on some of the one-pass zoom frames, the last picture the one-pass shader drew is laid again, moved and scaled by the zoom since,
 // instead of shading the figure afresh. REUSE_FS maps each pixel of the canvas now to where the same world point was in that picture
@@ -744,7 +709,7 @@ void main() {
     if (fx == 1 && (flags & ${F_SHADOW}) != 0) {
       float blur = sel ? 2.4 : 1.3;
       // A faint contact shadow only, so a vessel passing over another still reads as on top.
-      float as = ${DEPTH ? '0.55' : '0.4'} * shadow.a * (1.0 - smoothstep(-blur${DEPTH ? ' * 1.4' : ''}, blur${DEPTH ? ' * 1.4' : ''} + aa, Ds - wall));
+      float as = 0.55 * shadow.a * (1.0 - smoothstep(-blur * 1.4, blur * 1.4 + aa, Ds - wall));
       c = vec4(shadow.rgb * as, as);
     }
     if (sel) { float ar = ring.a * clamp(0.5 - (D - wall - 4.0) / aa, 0.0, 1.0); c = over(vec4(ring.rgb * ar, ar), c); }
@@ -773,7 +738,7 @@ void main() {
         float aLight = (1.0 - smoothstep(0.07, 0.07 + soft, abs(side - 0.5))) * thin * (1.0 - 0.5 * smoothstep(0.72, 0.9, lumY));
         lum = mix(lum, sheenInk.rgb, clamp(sheenInk.a * 0.75 * aLight, 0.0, 0.5));
       }
-${DEPTH ? `      // Depth: the tube rounds off toward its wall (cubed, so the middle is untouched), deeper on the side away from the
+      // Depth: the tube rounds off toward its wall (cubed, so the middle is untouched), deeper on the side away from the
       // light; then a pale band of wall about a device pixel and a half wide just inside the casing. Both left out on hairlines.
       float body = smoothstep(1.5, 3.5, R / aa);
       float rim = rho * rho * rho;
@@ -781,7 +746,7 @@ ${DEPTH ? `      // Depth: the tube rounds off toward its wall (cubed, so the mi
       float wallW = clamp(0.1 * R, 1.2 * aa, 2.4 * aa);
       float band = smoothstep(-wallW - aa, -wallW, D) * body;
       lum = mix(lum, mix(lum, sheenInk.rgb, 0.45), 0.32 * band * (1.0 - 0.6 * smoothstep(0.72, 0.9, lumY)));
-` : ''}    }
+    }
     if (sel && grp == 2) lum = min(lum * 1.12, vec3(1.0));
     if (shov[ow] > 0.0) {
       // The hovered vessel, a little brighter in its own hue, easing out toward each end that meets a vessel not lit with it
@@ -1022,14 +987,12 @@ void main() {
 // origin colours and no bleed, where those three switches are constants 0 instead of uniforms, so the compiler drops the
 // code they gate. The composite picks plain only when those are its uniforms' values (see composite): the same arithmetic,
 // without the branches that do nothing in such a frame.
-// `fast` (every build but ?blood=classic): the same picture with less work a lumen pixel (26 Oct, review/blood-shading-ideas):
-// the shimmer look alone (the app never draws the beads: main.js), the layers under a lumen skipped where it is opaque, the
-// arrowheads' cut-outs tested only where a head is.
-export const COMP_FS = (plain = false, fast = !CLASSIC) => `#version 300 es
+// Less work a lumen pixel (26 Oct, review/blood-shading-ideas): the shimmer look alone (the app never draws the beads: main.js),
+// the layers under a lumen skipped where it is opaque, the arrowheads' cut-outs tested only where a head is.
+export const COMP_FS = (plain = false) => `#version 300 es
 precision highp float;
 precision highp int;
 #define PLAIN ${plain ? 1 : 0}
-#define FAST ${fast ? 1 : 0}
 precision highp usampler2D;
 uniform sampler2D base;                // the vessel layer (premultiplied)
 uniform usampler2D gbuf;               // its frontmost lumen per pixel
@@ -1066,7 +1029,6 @@ uniform vec3 chevLight;                // a reversed chevron's head on an orange
 uniform float cssPx;                   // canvas px per CSS px (stage.js vdpr, at most 2)
 uniform float flowA;                   // 0..1: how visible the moving blood and chevrons are (they fade in once the view is still)
 uniform vec3 blendA;                   // 0..1 each: the streaks, the chevrons and the origin colours fading in or out (switched on or off)
-uniform int sat;                       // 1: past a packed lane, more flow draws denser, brighter streaks (combined plan B2)
 uniform int lenOn;                     // 1: a streak's length follows its vessel's display speed (streak length with speed; ?streaklen=0 turns it off)
 #if PLAIN == 0
 uniform int origin;                    // 1: color parcels by where their blood came from
@@ -1100,13 +1062,11 @@ uniform int glowOn;
 uniform sampler2D warmL;               // warm glows over the plate and under the vessels (the edges of a lit organ's loops), same drawing
 uniform int warmOn;
 uniform int bloodOnly;                // 1: a frame where only the blood moved (composite): a pixel with no lumen is left as drawn
-#if FAST
 flat in vec4 zoomA;                    // the zoom's numbers for the streaks, worked out per vertex (ZOOM_VS)
 flat in vec3 zoomB;
 uniform highp sampler2D noiseT;        // the streak noise's lattice corners, a block per vessel (blood-noise.js)
 uniform int noiseOn;                   // 1: the table is there (every row the streaks draw in filled before its flow goes up)
 uniform int stillOn;                   // 1: the uniforms are the last picture's; flow column FLOW_TEXELS says which rows moved since
-#endif
 out vec4 outColor;
 
 const float SLOT = ${SLOT_W}.0;
@@ -1122,21 +1082,9 @@ const vec2 STO[${STO_N}] = vec2[${STO_N}](${LUMEN.map(([l, r]) => `vec2(${l.toFi
 uint hsh(uint x) { x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16; return x; }
 float h01(uint x) { return float(hsh(x) & 0xffffffu) / 16777216.0; }
 vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }
-// Value noise along a periodic lattice (period cells), smooth across.
-float vnoise(vec2 q, uint seed, int period) {
-  vec2 i = floor(q), f = fract(q);
-  f = f * f * (3.0 - 2.0 * f);
-  int x0 = int(i.x) % period; if (x0 < 0) x0 += period;
-  int x1 = (x0 + 1) % period;
-  uint y0 = uint(int(i.y) + 4096), y1 = y0 + 1u;
-  float a = h01(seed ^ (uint(x0) * 73856093u) ^ (y0 * 19349663u)), b = h01(seed ^ (uint(x1) * 73856093u) ^ (y0 * 19349663u));
-  float c = h01(seed ^ (uint(x0) * 73856093u) ^ (y1 * 19349663u)), d = h01(seed ^ (uint(x1) * 73856093u) ^ (y1 * 19349663u));
-  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
-#if FAST
-// vnoise for the streaks, its cell's four corners read from the vessel's block of noiseT (o: the octave's first texel there; yo,
-// ny: the lattice row of the block's row 0, negated, and the block's rows) instead of hashed: the same values to the bit
-// (blood-noise.js builds them with the shader's hash), so the same noise. Outside the block, hashed as vnoise does.
+// Value noise along a periodic lattice (period cells), smooth across, for the streaks: its cell's four corners read from the vessel's
+// block of noiseT (o: the octave's first texel there; yo, ny: the lattice row of the block's row 0, negated, and the block's rows):
+// the corner hashes to the bit (blood-noise.js builds them with the shader's hash). Outside the block, hashed here.
 float vnoiseT(vec2 q, uint seed, int period, ivec2 o, int yo, int ny) {
   vec2 i = floor(q), f = fract(q);
   f = f * f * (3.0 - 2.0 * f);
@@ -1152,7 +1100,6 @@ float vnoiseT(vec2 q, uint seed, int period, ivec2 o, int yo, int ny) {
   }
   return mix(mix(k.x, k.y, f.x), mix(k.z, k.w, f.x), f.y);
 }
-#endif
 
 // The octaves' shares of the shimmer's noise (0.62 coarse, 0.38 fine), set per vessel by bloodAt: with the streaks' length following the
 // vessel's speed (lenOn) the fine octave's share falls toward 0 for a fast vessel (its streaks run long) and rises for a slow one (short
@@ -1168,19 +1115,10 @@ float shimN(int id, float s, float qy, float D, float k0, float t, float sx, flo
   vec2 qa = vec2((s - mod(D * k0 / 8.0, period)) / cellA + drift, qy);
   vec2 qb = vec2((s - mod(D * (k0 + 1.0) / 8.0, period)) / cellA + drift, qy);
   uint sd0 = uint(id) * 31u, sd1 = uint(id) * 57u + 11u;
-#if FAST == 0
-  fw = smoothstep(1.2 * pxW, 2.0 * pxW, cellA * 0.5);
-  if (bs != 1.0) fw = smoothstep(1.2 * pxW, 2.0 * pxW, cellA * 0.5 / bs);
-#endif
   bool fine = fw > 0.0 && lnWf > 0.0;
-#if FAST
   ivec2 o0 = ivec2((id % ${NOISE_PER_ROW}) * ${NOISE_W} + ${OCTAVES[0].x}, (id / ${NOISE_PER_ROW}) * ${NOISE_H}), o1 = o0 + ivec2(${OCTAVES[1].x - OCTAVES[0].x}, 0);
   float na = t < 1.0 ? lnWb * vnoiseT(qa, sd0, per, o0, ${OCTAVES[0].yo}, ${OCTAVES[0].rows}) + lnWf * (fine ? mix(0.5, vnoiseT(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2, o1, ${OCTAVES[1].yo}, ${OCTAVES[1].rows}), fw) : 0.5) : 0.0;
   float nb = t > 0.0 ? lnWb * vnoiseT(qb, sd0, per, o0, ${OCTAVES[0].yo}, ${OCTAVES[0].rows}) + lnWf * (fine ? mix(0.5, vnoiseT(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2, o1, ${OCTAVES[1].yo}, ${OCTAVES[1].rows}), fw) : 0.5) : 0.0;
-#else
-  float na = t < 1.0 ? lnWb * vnoise(qa, sd0, per) + lnWf * (fine ? mix(0.5, vnoise(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2), fw) : 0.5) : 0.0;
-  float nb = t > 0.0 ? lnWb * vnoise(qb, sd0, per) + lnWf * (fine ? mix(0.5, vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2), fw) : 0.5) : 0.0;
-#endif
   float nm = mix(na, nb, t);
   return lnS == 1.0 ? nm : 0.5 + (nm - 0.5) * lnS;
 }
@@ -1231,11 +1169,7 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
     lnS = sqrt(0.5288 / (lnWb * lnWb + lnWf * lnWf));
   }
   // Lanes ~5 device pixels apart (more when zoomed in), parcels at least ~8 apart along a lane.
-#if FAST
   float Lg = zoomA.x;
-#else
-  float Lg = max(2.6, 5.0 * pxW);
-#endif
   float lc = clamp(1.7 * R / Lg, 1.0, 7.0) - 1.0;   // (the continuous lane count, less one: LANE_K, laneSum)
   int lk = min(int(lc), 5);
   float sumK = mix(LANE_K[lk], LANE_K[lk + 1], lc - float(lk));
@@ -1263,7 +1197,6 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
   // and drift): the root's pattern at s_e = A + B s, mixed with the vessel's own by cw while a link forms or lets go.
   vec4 ch4 = texelFetch(flow, ivec2(4, id), 0);
   float cw = ch4.w;
-#if FAST
   float sA = zoomA.y, sB = zoomA.z, lf = zoomA.w;
   float nz = 0.0;
   if (cw < 1.0) {
@@ -1279,26 +1212,6 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
     nz = cw >= 1.0 ? nc : mix(nz, nc, cw);
   }
   float sx = zoomB.z;
-#else
-  float lx = clamp(log2(max(pxW, 1e-4) * 8.0 / SLOT), -1.0, 3.0);
-  float li = smoothstep(-0.2, 0.2, lx) + smoothstep(0.8, 1.2, lx);   // 0 … 2
-  float lb = min(floor(li), 1.0), lf = li - lb;
-  float sA = SLOT * exp2(lb), sB = SLOT * exp2(lb + 1.0);
-  float nz = 0.0;
-  if (cw < 1.0) {
-    nz = shimN(id, s, qy, D, k0, t, sA, drift, 0.0, 1.0);
-    if (lf > 0.0) nz = mix(nz, shimN(id, s, qy, D, k0, t, sB, drift, 0.0, 1.0), lf);
-  }
-  if (cw > 0.0) {
-    int rid = int(ch4.x + 0.5) - 1;
-    vec2 ch5 = rootDD(rid, texelFetch(flow, ivec2(5, id), 0).xy);
-    float se = ch4.y + ch4.z * s, bs = max(abs(ch4.z), 1e-3);
-    float nc = shimN(rid, se, qy, ch5.x, k0, t, sA, ch5.y, 0.0, bs);
-    if (lf > 0.0) nc = mix(nc, shimN(rid, se, qy, ch5.x, k0, t, sB, ch5.y, 0.0, bs), lf);
-    nz = cw >= 1.0 ? nc : mix(nz, nc, cw);
-  }
-  float sx = mix(sA, sB, lf);
-#endif
   float p = max(min(1.0, flux * sx / (max(abs(vd), 2.0) * sumK)), 0.45 * stasis);
   float ends = min(f1.x > 0.5 ? smoothstep(0.0, 1.5 * sx, s) : 1.0, f1.y > 0.5 ? smoothstep(0.0, 1.5 * sx, len - s) : 1.0);
   // Past a packed lane (B2): the streaks denser and brighter, up to 35 % more, by about log2 of the overflow (2.885 (x − 1) / (x + 1),
@@ -1306,7 +1219,7 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
   // twice a packed lane's flow reads as more blood than a portal vein just packed. Continuous in the flow: it never pops; 1 at or
   // under a packed lane.
   float ovS = max(flux * sx / (max(abs(vd), 2.0) * sumK), 1.0);
-  float gS = sat == 1 ? 1.0 + 0.35 * clamp(2.885 * (ovS - 1.0) / (ovS + 1.0), 0.0, 1.0) : 1.0;
+  float gS = 1.0 + 0.35 * clamp(2.885 * (ovS - 1.0) / (ovS + 1.0), 0.0, 1.0);
   float dens = sqrt(clamp(p, 0.0, 1.0)) * gS;
   // Soft-edged and subdued, so up close the sheen reads as moving light, not as stripes painted on the tube;
   // a steady glow along the axis carries most of the brightness.
@@ -1452,23 +1365,17 @@ void main() {
   // is, so the test above holds either way.)
   bool two = (g.x & ${LUMEN2}u) != 0u;
   g.x &= ${LUMEN2 - 1}u;
-#if FAST
   // ...and, in the same pass, a lumen whose vessels' rows have not changed since the last picture, which had the same uniforms
   // (stillOn: composite checks them): it would come out as it is (see moved in createVeinsGL).
   if (bloodOnly == 1 && stillOn == 1 && texelFetch(flow, ivec2(${FLOW_TEXELS}, int(g.x) - 1), 0).x == 0.0
       && (!two || texelFetch(flow, ivec2(${FLOW_TEXELS}, int((inL ? texelFetch(gbuf2, lp, 0) : uvec4(0u)).x & ${ROW2_MASK}u) - 1), 0).x == 0.0)) discard;
-#endif
   vec2 w = (inv * vec3(gl_FragCoord.x, H - gl_FragCoord.y, 1.0)).xy;
   vec4 v = (inL ? texelFetch(base, lp, 0) : vec4(0.0));
   if (lowSz.x > 0 && inL) v = texture(base, lowUV);   // (R10: a tier frame's colour, filtered as the blit up filtered it)
-#if FAST
   // Under a fully opaque vessel pixel (the inside of nearly every lumen) nothing laid below it can show: over(v, under) is
   // v + under × (1 − 1), exactly v. So the plate, its grey-down, the glows, the organ layers and the pool are not read there.
   // The vessel layer's alpha is 8-bit, so 1.0 is exact; an edge, a faded tube or a ghosted tier (alpha under 1) lays them all.
   bool under = v.a < 1.0;
-#else
-  const bool under = true;
-#endif
   vec4 pl = vec4(0.0);
   // The plate: the sharp view raster where it lies, else the whole-plate one.
   if (under) {
@@ -1532,12 +1439,8 @@ void main() {
   if ((blood == 1 || dyeOn == 1 || chev == 1 || origin == 1) && (vis > 0.005 || (dyeOn == 1 && g.x > 0u)) && v.a > 0.01) {
     vec3 col = v.rgb / v.a;
     // This lumen, and near a join the one it joins, cross-faded by its share.
-#if FAST
     // (Read only where there is one: everywhere else that target is zero, as the vessel shader writes it.)
     uvec4 g2 = two ? (inL ? texelFetch(gbuf2, lp, 0) : uvec4(0u)) : uvec4(0u);
-#else
-    uvec4 g2 = (inL ? texelFetch(gbuf2, lp, 0) : uvec4(0u));
-#endif
     // (The second lumen unpacked (ROW2_BITS): its row, its arc in quarters, its across at the middle of its 128th; its share beside the
     // front lumen's visibility.)
     uint r2 = g2.x & ${ROW2_MASK}u;
@@ -1620,11 +1523,9 @@ void main() {
       // mixed by share as the streaks are.
       if (rel > 0.0) c = mix(c, chevAt(id2, s2, y2, f0b, f1b, len2, R2), b * rel);
       c *= 1.0 - smoothstep(0.02, 0.25, b) * (1.0 - rel);
-#if FAST
       // (The cut-outs below only ever scale a head down: where there is none, c stays zero whatever they say, so they are not
       // tested at all. Most lumen pixels have no head.)
       if (c.x + c.y > 0.0) {
-#endif
       // None under a figure reading on its vessel (stage.js noChevBoxes): cut along the box's edge with a pixel of antialiasing,
       // as the stent points' holes are, instead of a hard unantialiased edge through a head (round 2 review, B8).
       for (int i = 0; i < 12; i++) {
@@ -1641,9 +1542,7 @@ void main() {
         else dh = length(max(max(h.xy - w, w - h.zw), 0.0)) - hr;
         c *= smoothstep(-pxW, pxW, dh);
       }
-#if FAST
       }
-#endif
       if (c.x + c.y > 0.0) {
         float rv = f1.w;
         // A faint light rim lifts the head off the lumen; the head itself dark, or orange if reversed.
@@ -1867,12 +1766,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // (The kept picture is the stage's, and the lobule's where the lobule's other GPU layers are drawn in its vessel canvas (LZ_ONE: its
   // overlay over the vessels, at each present, as the figure's glass and labels are over the figure's); every reader of that canvas
   // outside the task that drew it calls capture() first. ?lzone=0: the lobule's canvas keeps its own picture, as before.)
-  const ownBuf = OWN_BUF && (who === 'stage' || (who === 'lobule' && LZ_ONE));
+  // (Such a canvas keeps no picture of its own: it is made without preserveDrawingBuffer, and the picture the frames repaint in part
+  // is kept in a texture of the renderer's own, copied whole to the canvas each time it is drawn on (see present). Nor a stencil: the
+  // one-pass frames mark their cells in that buffer's stencil, never the canvas's.)
+  const ownBuf = who === 'stage' || (who === 'lobule' && LZ_ONE);
   let gl = null;
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: ONE_PASS && !(ownBuf && CTX_STENCIL_FREE), preserveDrawingBuffer: !ownBuf, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
+  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: !ownBuf, preserveDrawingBuffer: !ownBuf, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (!gl) return null;
   // The composite's per-frame uniforms are sent only when they changed (uniform-cache.js; laptop-heat Q2). They are set nowhere else.
-  const UC = uniformCache(gl, { on: UNIFORM_CACHE });
+  const UC = uniformCache(gl);
   // Settings › Figure performance › Sharper upscaling (frame.js upscale, off by default): the picture's own size, [w, h], when the stage
   // draws the figure under Full into a buffer of its own and the canvas stays at Full (setPicture); null otherwise, and then the picture
   // is the canvas, as ever. Every size inside reads PW() and PH().
@@ -1907,16 +1809,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     // (The two vessel builds share one vertex shader object, so a cell's corners land on the same device positions whichever
     // program draws it: neighbouring cells drawn by different programs meet edge to edge, no pixel left out or drawn twice.)
     const vesVS = shader(gl, gl.VERTEX_SHADER, VS);
-    // (The one-pass builds, with the switch: the vessel cells' vertex shader with the composite's zoom numbers, and one program per
+    // (The one-pass builds: the vessel cells' vertex shader with the composite's zoom numbers, and one program per
     // vessel build. Not needed to draw, so a text that cannot be made only leaves them out.)
     let fuse = null;
-    if (ONE_PASS) {
-      try { const cf = plainText; fuse = { vs: fusedVS(VS, ZOOM_VS), gen: fusedFS(vesselFS(false), cf, false), one: GENERIC ? null : fusedFS(vesselFS(true), cf, true) }; }
-      catch (e) { console.warn('Veins renderer: the one-pass shader could not be made; zoom frames keep two passes.', e); }
-    }
+    try { const cf = plainText; fuse = { vs: fusedVS(VS, ZOOM_VS), gen: fusedFS(vesselFS(false), cf, false), one: fusedFS(vesselFS(true), cf, true) }; }
+    catch (e) { console.warn('Veins renderer: the one-pass shader could not be made; zoom frames keep two passes.', e); }
     const fuseVS = fuse && shader(gl, gl.VERTEX_SHADER, fuse.vs);
     started = { fuseGen: fuse && startProgram(gl, fuseVS, fuse.gen), fuseOne: fuse?.one ? startProgram(gl, fuseVS, fuse.one) : null,
-      prog: startProgram(gl, vesVS, vesselFS(false)), simple: GENERIC ? null : startProgram(gl, vesVS, vesselFS(true)), comp: startProgram(gl, compVS, compFS), compCell: startProgram(gl, compCellVS, compFS), plain: startProgram(gl, compVS, plainFS), plainCell: startProgram(gl, compCellVS, plainFS), cath: startProgram(gl, CATH_VS, CATH_FS), line: startProgram(gl, LINE_VS, LINE_FS) };
+      prog: startProgram(gl, vesVS, vesselFS(false)), simple: startProgram(gl, vesVS, vesselFS(true)), comp: startProgram(gl, compVS, compFS), compCell: startProgram(gl, compCellVS, compFS), plain: startProgram(gl, compVS, plainFS), plainCell: startProgram(gl, compCellVS, plainFS), cath: startProgram(gl, CATH_VS, CATH_FS), line: startProgram(gl, LINE_VS, LINE_FS) };
   } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); return null; }
   // Every other program this context will draw with, started now beside these, before any is read (GPU practice §2, docs/gpu-practices.md;
   // ?shaderwarm=0: each compiled where it is first made or drawn, as before): the organs' stack, painter and shapes (taken up just below,
@@ -1934,7 +1834,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const startsOf = (k) => (k === 'plain' ? [started.plain, started.plainCell] : k === 'fused' ? [started.fuseGen, started.fuseOne].filter(Boolean) : [started.simple]);
   let prog;
   try { prog = finishProgram(gl, started.prog); } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); freeShaders(); return null; }
-  // The one-vessel build (see vesselFS): null when it is switched off or failed, and every cell keeps the general program.
+  // The one-vessel build (see vesselFS): null when it failed, and every cell keeps the general program.
   let simpleP = null;
   const finishSimple = () => {
     try { simpleP = finishProgram(gl, started.simple); } catch (e) { console.warn('Veins renderer: the one-vessel shader failed; every cell keeps the general one.', e); gl.deleteProgram(started.simple.p); simpleP = null; }
@@ -2148,9 +2048,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   };
   bloodVAOOf(bloodVAO, bloodBuf);
   let nBlood = 0, bloodCell = CELL;   // (bloodCell: the size of those squares, world units)
-  // (The blood's own pass draws the quarters of its cells a lumen can reach (binVeins bloodQ), or with ?blood=classic the cells.)
+  // (The blood's own pass draws the quarters of its cells a lumen can reach (binVeins bloodQ).)
   function uploadBlood(bins) {
-    const q = !CLASSIC && bins.bloodQ;
+    const q = bins.bloodQ;
     bloodCell = q ? CELL / 2 : CELL;
     const bl = q ? bins.bloodQ : bins.blood || bins.cells;
     gl.bindBuffer(gl.ARRAY_BUFFER, bloodBuf);
@@ -2197,8 +2097,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let nDirt = 0;
   // (Preallocated cell lists, recs.md item 7, 2 Nov 2026: the cells an ease redraws (the organs' changed box, the ascites pool) are
   // written into one kept Float32Array, grown by doubling only when a list outgrows it, and sent with bufferSubData into a GPU buffer
-  // kept at its largest size, so a moving frame makes no array and reallocates no GPU storage. ?prealloc=0: a new array and a
-  // bufferData every time, as before.)
+  // kept at its largest size, so a moving frame makes no array and reallocates no GPU storage.)
   const cellCap = new Map();
   const cellList = {
     a: new Float32Array(2048), n: 0,
@@ -2216,11 +2115,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   };
   // (R05, review pass 2: a dynamic buffer's GPU storage is kept and its used part rewritten with bufferSubData while the data fits;
   // it is grown, to 1.5 times, only when outgrown, so a fluid ease, a row redraw or a line rebuild allocates no GPU storage. The
-  // capacities are counted (keptStats) for the tests and the ?perf readout. ?prealloc=0: bufferData every time, as before.)
+  // capacities are counted (keptStats) for the tests and the ?perf readout.)
   const keptStats = { sub: 0, grow: 0, bytes: 0 };
   function keepBuf(buf, data) {
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    if (!PREALLOC) { gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW); return; }
     const need = data.byteLength, cap = (cellCap.get(buf) || 0) * 4;   // (cellCap counts floats, as cellList does)
     if (need > cap) {
       const c = Math.ceil(Math.max(need + (need >> 1), 1024) / 4) * 4;
@@ -2233,7 +2131,6 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const texRows = new WeakMap();
   function keepRows(tex, ifmt, fmt, type, w, rows, data) {
     gl.bindTexture(gl.TEXTURE_2D, tex);
-    if (!PREALLOC) { gl.texImage2D(gl.TEXTURE_2D, 0, ifmt, w, rows, 0, fmt, type, data); return; }
     const cap = texRows.get(tex) || 0;
     if (rows > cap) {
       const c = Math.max(rows + (rows >> 2), 16);
@@ -2249,17 +2146,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       const dx = px - m[4], dy = py - m[5], x = ia * dx + ic * dy, y = ib * dx + id * dy;
       x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
     }
-    if (PREALLOC) {
-      cellList.reset();
-      for (let y = Math.floor(y0 / CELL) * CELL; y < y1; y += CELL) for (let x = Math.floor(x0 / CELL) * CELL; x < x1; x += CELL) cellList.push(x, y);
-      nDirt = cellList.send(dirtBuf);
-      return;
-    }
-    const cells = [];
-    for (let y = Math.floor(y0 / CELL) * CELL; y < y1; y += CELL) for (let x = Math.floor(x0 / CELL) * CELL; x < x1; x += CELL) cells.push(x, y);
-    gl.bindBuffer(gl.ARRAY_BUFFER, dirtBuf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cells), gl.DYNAMIC_DRAW);
-    nDirt = cells.length / 2;
+    cellList.reset();
+    for (let y = Math.floor(y0 / CELL) * CELL; y < y1; y += CELL) for (let x = Math.floor(x0 / CELL) * CELL; x < x1; x += CELL) cellList.push(x, y);
+    nDirt = cellList.send(dirtBuf);
   }
   const fluidTex = dataTex(gl);
   let fluidRows = null, fluidTexN = 0;   // (R05: setFluidSpans' kept rows, and the width its texture was made at)
@@ -2297,15 +2186,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, FLOW_TEXELS + 1, nTubes, 0, gl.RGBA, gl.FLOAT, null);
   gl.bindTexture(gl.TEXTURE_2D, dyeTex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, DYE_BINS, nTubes, 0, gl.RED, gl.FLOAT, new Float32Array(DYE_BINS * nTubes));
-  // The streak noise's lattice (blood-noise.js), for the fast composite: allocated empty, and each vessel's block filled the first
+  // The streak noise's lattice (blood-noise.js), for the composite: allocated empty, and each vessel's block filled the first
   // time its flow says it draws streaks (setFlow), before that flow goes up, so no pixel ever reads a block not yet filled.
   // About 67 KB a vessel row, sized to the rows the streaks have drawn in so far (a line of 13 blocks at a time) and made again
   // larger when a row past it needs its block. A table the GPU cannot hold is given up, and the shader hashes the noise as
-  // before (noiseOn 0); ?blood=classic hashes it and makes none.
+  // before (noiseOn 0).
   // (Filled on the GPU where the context can (noise-gl.js): the whole table in one draw when it is made, so no row's block is hashed in
   // script, a frame of up to 70 ms headless as the blood began to stream after a load. In script, row by row, as before, while the fill's
   // program is still compiling or where the context has no float target.)
-  let noiseTex = CLASSIC ? null : dataTex(gl), noiseRows = 0, noiseBuf = null, noiseW = 0, noiseH = 0, noiseAll = false;
+  let noiseTex = dataTex(gl), noiseRows = 0, noiseBuf = null, noiseW = 0, noiseH = 0, noiseAll = false;
   const noiseGPU = noiseTex ? createNoiseFiller(gl) : null;
   const noiseDone = new Uint8Array(nTubes);
   const growNoise = (rows) => {
@@ -2704,14 +2593,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     compBind(P.u, layer, glow, warm, useStack);
     for (const [unit, tex, name] of [[0, entTex, 'ent'], [1, organTex, 'organ'], [8, rmaxTex, 'rmax']]) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); UC.i1(P.u[name], unit); }
   }
-  // The picture's own copy (on unless ?vesselbuf=keep): what the canvas would keep with preserveDrawingBuffer. Every composite draws
+  // The picture's own copy (ownBuf): what the canvas would keep with preserveDrawingBuffer. Every composite draws
   // into it and present() copies it whole onto the canvas, so the canvas always holds a whole, current picture, whatever the
-  // browser did with the last one. Null without the switch (the canvas keeps its picture itself).
+  // browser did with the last one. Null where ownBuf is not (the canvas keeps its picture itself).
   const makeOwn = () => { const o = { tex: dataTex(gl), fbo: gl.createFramebuffer(), w: 0, h: 0 }; gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); return o; };
   // (Sharper upscaling makes one too, while it is on, and gives it back after: the picture is drawn there and upscaled onto the canvas.)
   let own = ownBuf ? makeOwn() : null;
-  const PRESENT_ONCE = !/[?&]presentonce=0\b/.test(globalThis.location?.search || '');
-  const DIRECT = !/[?&]direct=0\b/.test(globalThis.location?.search || '');
   let directNow = false, ownStale = false, noDirect = false, compLook = null, compBlood = null, directFrame = -1, directKey = '';
   let capturedAt = -1, capturedKey = '';
   // (Sized to the canvas, cleared; true when it was just made, so the next picture is drawn whole.)
@@ -2723,14 +2610,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, own.w, own.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, own.tex, 0);
-    // (With one-pass zoom frames, the stencil the one-pass frames mark the vessel cells in: see composite.)
-    if (ONE_PASS) {
-      own.rb ||= gl.createRenderbuffer();
-      gl.bindRenderbuffer(gl.RENDERBUFFER, own.rb);
-      gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, own.w, own.h);
-      gl.bindRenderbuffer(gl.RENDERBUFFER, null);
-      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, own.rb);
-    }
+    // (The stencil the one-pass frames mark the vessel cells in: see composite.)
+    own.rb ||= gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, own.rb);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, own.w, own.h);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, own.rb);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     return true;
   }
@@ -2962,17 +2847,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // the layer), not stretched into the full-size layer by three blits first: the layer's full-size writes are gone from a tier frame. Any
   // other draw into the layer lets them go (draw, layOut, trim). The new path only, no off switch.)
   // (lowLive is declared with fboOK, above: the layer's own functions use it.)
-  const lw = { fbo: null, tex: null, w: 0, h: 0, pw: 0, ph: 0 };
+  const lw = { fbo: null, tex: null, w: 0, h: 0 };
   function lowTargets(w, h) {
     if (!lw.fbo) { lw.fbo = gl.createFramebuffer(); lw.tex = ATTACH.map(() => dataTex(gl)); }
     gl.bindFramebuffer(gl.FRAMEBUFFER, lw.fbo);
     // (R10, review pass 2: grown only, never remade because the canvas changed size: a resolution step or Figure resolution's moving
     // share mid-move had remade every target at its next zoom frame. They are made at the top tier's share of the canvas, rounded up
-    // to 64 px, and kept while the canvas is smaller; each tier draws in its corner (viewport and scissor, lowPass). ?prealloc=0: made
-    // again at every change of the canvas's size, as before.)
+    // to 64 px, and kept while the canvas is smaller; each tier draws in its corner (viewport and scissor, lowPass).)
     const needW = Math.max(w, Math.round(PW() * lowTop)), needH = Math.max(h, Math.round(PH() * lowTop));
-    if (PREALLOC ? lw.w < needW || lw.h < needH : lw.w < w || lw.h < h || lw.pw !== PW() || lw.ph !== PH()) {
-      lw.w = PREALLOC ? Math.ceil(needW / 64) * 64 : needW; lw.h = PREALLOC ? Math.ceil(needH / 64) * 64 : needH; lw.pw = PW(); lw.ph = PH(); lowMade++;
+    if (lw.w < needW || lw.h < needH) {
+      lw.w = Math.ceil(needW / 64) * 64; lw.h = Math.ceil(needH / 64) * 64; lowMade++;
       const fmt = layerFmt();
       lw.tex.forEach((t, i) => { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, fmt[i][0], lw.w, lw.h, 0, fmt[i][1], fmt[i][2], null); gl.framebufferTexture2D(gl.FRAMEBUFFER, ATTACH[i], gl.TEXTURE_2D, t, 0); });
       // (the colour read filtered by the composite on a tier frame, as the blit up filtered it; the integers stay nearest)
@@ -2999,7 +2883,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (!lw.fbo || lost) return;
     for (const t of lw.tex) gl.deleteTexture(t);
     gl.deleteFramebuffer(lw.fbo);
-    lw.fbo = lw.tex = null; lw.w = lw.h = lw.pw = lw.ph = 0;
+    lw.fbo = lw.tex = null; lw.w = lw.h = 0;
   }
   // The composite's textures, each on its unit (U: the program's uniforms; the flags: which of the layers it lays this frame).
   function compBind(U, layer, glow, warm, useStack) {
@@ -3358,11 +3242,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       texVer++;
       const n = halfWidths.length;
       // (R05: the rows written into one kept array, and into the texture's own storage while its width (the shader reads it) holds.)
-      const rows = PREALLOC && fluidRows?.length === n * 2 ? fluidRows : (fluidRows = new Float32Array(n * 2));
+      const rows = fluidRows?.length === n * 2 ? fluidRows : (fluidRows = new Float32Array(n * 2));
       rows.fill(-1e4); rows.set(halfWidths);
       if (fluidLiver?.length === n) rows.set(fluidLiver, n);
       gl.bindTexture(gl.TEXTURE_2D, fluidTex);
-      if (PREALLOC && fluidN === n && fluidTexN === n) { gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, n, 2, gl.RED, gl.FLOAT, rows); keptStats.sub++; }
+      if (fluidN === n && fluidTexN === n) { gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, n, 2, gl.RED, gl.FLOAT, rows); keptStats.sub++; }
       else { gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, n, 2, 0, gl.RED, gl.FLOAT, rows); fluidTexN = n; }
       fluidRect = rect; fluidN = n;
     },
@@ -3382,17 +3266,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     fluidPool(top) {
       if (!fluidRect) return false;
       const [x0, y0, w, h] = fluidRect;
-      if (PREALLOC) {
-        cellList.reset();
-        for (let y = Math.max(y0, top) - CELL; y < y0 + h + CELL; y += CELL) for (let x = x0 - CELL; x < x0 + w + CELL; x += CELL) cellList.push(x, y);
-        nPool = cellList.send(poolBuf);
-        return true;
-      }
-      const cells = [];
-      for (let y = Math.max(y0, top) - CELL; y < y0 + h + CELL; y += CELL) for (let x = x0 - CELL; x < x0 + w + CELL; x += CELL) cells.push(x, y);
-      gl.bindBuffer(gl.ARRAY_BUFFER, poolBuf);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cells), gl.DYNAMIC_DRAW);
-      nPool = cells.length / 2;
+      cellList.reset();
+      for (let y = Math.max(y0, top) - CELL; y < y0 + h + CELL; y += CELL) for (let x = x0 - CELL; x < x0 + w + CELL; x += CELL) cellList.push(x, y);
+      nPool = cellList.send(poolBuf);
       return true;
     },
     /** R05: how often a dynamic upload rewrote kept GPU storage (sub) and how often it had to grow it (grow, bytes added). */
@@ -3601,7 +3477,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     },
     /**
      * Sharper upscaling: `size` [w, h], the picture's own size under the canvas's, or null (the picture is the canvas). On, the picture
-     * is drawn into a buffer of its own (made here when ?vesselbuf=keep left the renderer without one) and upscaled onto the canvas; off, that buffer
+     * is drawn into a buffer of its own (made here when the renderer has none) and upscaled onto the canvas; off, that buffer
      * goes and the canvas is drawn on directly again. Either change draws the next picture whole.
      */
     setPicture(size, linear = false) {
@@ -3773,12 +3649,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // A whole picture is drawn straight onto the canvas (audit R15; Mohammad's Mac, 2 Nov: 31 MB copied a frame, "kept picture onto the
       // canvas", 1.8 GB in a 3 s slide change): drawn into the kept picture and copied whole onto the canvas, every pixel was written twice
       // and read once more. The kept picture is then out of date, so the first frame that draws only part of the picture draws it whole,
-      // into the kept picture, first. Not with the upscale or the under picture (they lay the kept picture differently). ?direct=0 off.
+      // into the kept picture, first. Not with the upscale or the under picture (they lay the kept picture differently).
       // (Consecutive whole pictures stay on the canvas: a whole picture needs nothing from the kept one, so a stale kept picture no longer
       // sends every other whole frame through it (recs 2 Nov, sec. 7: direct, kept, direct, kept). A one-pass frame marks its cells in a
       // stencil: it goes straight onto the canvas only when the canvas's own buffer has one (recs sec. 4: the kept picture's stencil is
       // not the canvas's), else it is drawn into the kept picture, which has, and laid from there.)
-      const direct = DIRECT && who !== 'lobule' && !noDirect && !!own && full && !up && !(under && under.on()) && !(replace && replace.on()) && !(fused && !ctxStencil);
+      const direct = who !== 'lobule' && !noDirect && !!own && full && !up && !(under && under.on()) && !(replace && replace.on()) && !(fused && !ctxStencil);
       if (own && ownStale && !full) full = true;
       if (full) dirt = 0;
       const fl = look.fluid && fluidRect ? look.fluid : null;
@@ -3848,7 +3724,6 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         UC.f3a(U.chevInk, blood.chevInk || CHEV_INK);
         UC.f3a(U.chevLight, blood.chevLight || CHEV_LIGHT);
         UC.f1(U.cssPx, blood.vdpr || 1);
-        UC.i1(U.sat, BLOOD_SAT ? 1 : 0);
         UC.i1(U.lenOn, blood.streakLen ? 1 : 0);
         UC.i1(U.origin, blood.origin ? 1 : 0);
         UC.i1(U.dyeOn, dyeAny && blood.dye !== false ? 1 : 0);
@@ -3868,19 +3743,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         UC.fv4(U.chevHole, hb); UC.fv1(U.chevHoleR, hr); UC.i1(U.chevHoleN, hoN);
       }
       const U = prg.u;
-      // The still lumens (see moved): only in the blood's own pass of the fast build, with no bleed (whose spray and pool move with
+      // The still lumens (see moved): only in the blood's own pass, with no bleed (whose spray and pool move with
       // the clock, the one uniform left out here), when every uniform above and every texture under a lumen is the last picture's.
       sn = 0;
       sg(m); sg(PW()); sg(PH()); sg(pm); sg(plate?.alpha ?? 0); sg(plate?.sat ?? 1); sg(plates[0]?.rect || R_UNIT); sg(plates[1]?.rect || R_UNIT);
       sg(fluidRect || R_UNIT); sg(fl?.s || V4_ZERO); sg(fl ? fl.ink : V4_ZERO); sg(fl?.lv || LV_DEF);
       sg(blood.on); sg(blood.chev); sg(blood.still); sg(blood.alpha ?? 1); sg(blood.streakA ?? 1); sg(blood.chevA ?? 1); sg(blood.originA ?? 1);
       sg(blood.chevInk || CHEV_INK); sg(blood.chevLight || CHEV_LIGHT); sg(blood.vdpr || 1); sg(blood.origin); sg(dyeAny && blood.dye !== false);
-      sg(BLOOD_SAT); sg(blood.streakLen); sg(blood.bt || 0);
+      sg(blood.streakLen); sg(blood.bt || 0);
       sg(originColOf(blood.originCol || ORIGIN_WHITE)); sg(blood.dyeCol || DYE_COL); sg(blood.revCol || REV_COL);
       sg(blood.inkLight || INK_LIGHT); sg(blood.inkDark || INK_DARK); sg(ncv); sg(ncN); sg(hb); sg(hr); sg(hoN); sg(layer); sg(glow); sg(warm); sg(useStack); sg(bare); sg(texVer);
       let same = !!stillSig && sn === stillN && sn < sigNow.length;
       for (let i = 0; same && i < sn; i++) if (sigNow[i] !== stillSig[i]) same = false;
-      const still = !CLASSIC && !full && !movedAll && !bl.length && same;
+      const still = !full && !movedAll && !bl.length && same;
       // Nothing to show that the canvas does not already: every uniform the last picture's, no row, texture or layer changed since,
       // nothing that moves by itself (a ripple, a pool, a bleed, the catheter, a one-pass frame) and no cells drawn again. The frame
       // is not drawn at all, so the canvas is not presented again and the compositor has nothing new to lay (the canvas keeps its
@@ -3921,10 +3796,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         gl.disable(gl.STENCIL_TEST);
         // (The marks are spent: told so, the tile GPU (Apple's, under Safari's Metal) never writes the stencil back to memory at the end of
-        // the pass; the next one-pass frame clears it before reading it. See INVALIDATE.)
+        // the pass; the next one-pass frame clears it before reading it: a canvas-sized buffer not written out to memory on every
+        // zoom or pan frame, Apple's Metal guide "Load and Store Actions", MDN "WebGL best practices".)
         // (The enum follows the buffer bound, not whether a kept picture exists: the canvas's own takes STENCIL, a framebuffer object
         // STENCIL_ATTACHMENT.)
-        if (INVALIDATE) { INV1[0] = own && !direct ? gl.STENCIL_ATTACHMENT : gl.STENCIL; gl.invalidateFramebuffer(gl.FRAMEBUFFER, INV1); }
+        INV1[0] = own && !direct ? gl.STENCIL_ATTACHMENT : gl.STENCIL; gl.invalidateFramebuffer(gl.FRAMEBUFFER, INV1);
       } else if (full) {
         UC.i1(U.bloodOnly, 0);
         if (gpuProbe.on) gpuProbe.gauge('blood squares on screen', 'whole picture');
@@ -4032,16 +3908,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * never depends on the canvas having kept its own picture. Every export of the figure goes through here.
      */
     // (Audit R15: the picture is laid on the canvas once a frame. A second reader in the same frame, with nothing drawn since, takes the
-    // canvas as it is: the same full-screen copy and glass draw were done again for each glass that asked. ?presentonce=0: every time.)
+    // canvas as it is: the same full-screen copy and glass draw were done again for each glass that asked.)
     capture() {
       const f = frameCount(), key = `${pictureSeq}:${bloodSeq}:${presents}`;
-      if (PRESENT_ONCE && f === capturedAt && key === capturedKey && !(replace && replace.on())) return canvas;
+      if (f === capturedAt && key === capturedKey && !(replace && replace.on())) return canvas;
       present(); capturedAt = f; capturedKey = `${pictureSeq}:${bloodSeq}:${presents}`;
       return canvas;
     },
     /**
      * Copies the kept picture onto the canvas again, so a reader of the canvas outside the frame that drew it (a copy for the glass,
-     * a resolution fade, a picture taken later) reads the whole current picture. Does nothing with ?vesselbuf=keep (the canvas keeps
+     * a resolution fade, a picture taken later) reads the whole current picture. Does nothing without a kept picture (the canvas keeps
      * its own) or when the canvas was resized and not yet drawn again (it holds nothing current).
      */
     present,

@@ -36,7 +36,7 @@ function resolve(src) {
   }
   return out.join('\n');
 }
-const builds = { fast: COMP_FS(false, true), fastPlain: COMP_FS(true, true), classic: COMP_FS(false, false), classicPlain: COMP_FS(true, false) };
+const builds = { full: COMP_FS(false), plain: COMP_FS(true) };
 const R = Object.fromEntries(Object.entries(builds).map(([k, s]) => [k, resolve(s)]));
 const body = (src, head) => {
   const i = src.indexOf(head);
@@ -60,7 +60,7 @@ test('the figure alone asks for it (the lobule draws as before)', () => {
   assert.match(gl, /uniform int lenOn;/);
   assert.match(gl, /UC\.i1\(U\.lenOn, blood\.streakLen \? 1 : 0\);/);
   // (Changing it draws the picture again: it is in the still-lumen signature with the other blood switches.)
-  assert.match(gl, /sg\(BLOOD_SAT\); sg\(blood\.streakLen\);/);
+  assert.match(gl, /\n\s+sg\(blood\.streakLen\); sg\(blood\.bt \|\| 0\);/);
   // The lobule's own composite never sets it, so it stays at 0 there: the lobule's streaks are as they were.
   assert.doesNotMatch(lobule, /streakLen/);
 });
@@ -90,14 +90,14 @@ test('nothing in a streak moves for it: the noise coordinates, the speeds and th
     assert.match(s, /vec2 qb = vec2\(\(s - mod\(D \* \(k0 \+ 1\.0\) \/ 8\.0, period\)\) \/ cellA \+ drift, qy\);/, `${k}: and the next lane's`);
   }
   // No new table, texture or sampler: the speed is the one the streaks already travel at (flow texel 0, y), eased by blood.js.
-  const b = body(R.fast, 'vec4 bloodAt(');
+  const b = body(R.full, 'vec4 bloodAt(');
   assert.match(b, /sqrt\(abs\(vd\) \/ 36\.0\)/);
-  assert.doesNotMatch(body(R.fast, 'if (lenOn == 1) {'), /texelFetch|texture\(/);
+  assert.doesNotMatch(body(R.full, 'if (lenOn == 1) {'), /texelFetch|texture\(/);
   assert.match(gl, /export const FLOW_TEXELS = 7;/);
 });
 
 test('the factor is the square root of the display speed over the healthy portal trunk\'s, kept to 0.6 … 1.6, and stagnation lets it go', () => {
-  const sw = body(R.fast, 'if (lenOn == 1) {');
+  const sw = body(R.full, 'if (lenOn == 1) {');
   assert.match(sw, /float kk = mix\(clamp\(sqrt\(abs\(vd\) \/ 36\.0\), 0\.6, 1\.6\), 1\.0, stasis\);/);
   assert.match(sw, /float lu = clamp\(kk >= 1\.0 \? \(kk - 1\.0\) \/ 0\.6 : \(kk - 1\.0\) \/ 0\.4, -1\.0, 1\.0\);/);
   assert.match(sw, /lnWf = lu >= 0\.0 \? 0\.38 \* \(1\.0 - lu\) : 0\.38 - 0\.27 \* lu;/);

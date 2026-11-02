@@ -33,7 +33,7 @@ test('without the readout the probe is off and never waits for the GPU; with it,
   const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   assert.match(src, /gpuProbe\.cpuOnly = true; gpuProbe\.on = true;/);
   // The panel is written only when a gesture's window closes, never on each frame.
-  const tick = src.slice(src.indexOf('const tick'), src.indexOf('const ALWAYS'));
+  const tick = src.slice(src.indexOf('const tick'), src.indexOf('let loop = 0, calUntil'));
   assert.equal((tick.match(/paint\(\)/g) || []).length, 1);
   assert.match(tick, /if \(t - cur\.t0 >= cur\.win\) \{\n[^}]*reports\.unshift\(cur\); reports\.length = Math\.min\(reports\.length, KEEP\); cur = null; paint\(\);\n\s+\}/);
 });
@@ -135,9 +135,10 @@ test("the lobule's tissue bitmap counts why it was painted again, from a fixed l
   assert.ok(COUNTED.tissueWhy.endsWith(' '));
 });
 
-test('the readout samples frames only while a window is open (or a bounded calibration), never in a hidden tab (?perfloop=1: always)', () => {
+test('the readout samples frames only while a window is open (or a bounded calibration), never in a hidden tab', () => {
   const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
-  assert.match(src, /const wanted = \(\) => !document\.hidden && \(ALWAYS \|\| !!cur \|\| performance\.now\(\) < calUntil\);/);
+  assert.match(src, /const wanted = \(\) => !document\.hidden && \(!!cur \|\| performance\.now\(\) < calUntil\);/);
+  assert.doesNotMatch(src, /perfloop|ALWAYS/);
   assert.match(src, /if \(wanted\(\)\) loop = nextFrame\(tick\) \|\| 1;/, 'the loop asks for its next frame only while wanted');
   assert.match(src, /addEventListener\('visibilitychange', kick\)/);
   const begin = src.slice(src.indexOf('const begin'), src.indexOf("addEventListener('pointerdown'"));

@@ -10,14 +10,14 @@ const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 // could not give memory to is transparent, and the shaders read only its rgb (0): solid black. Now each tile is laid over the page's
 // colour by its own alpha (an opaque tile: the same picture), and a blank tile is drawn again instead of being kept.
 test('the shaders lay the neighbour tiles over the page, so a blank tile is never black', () => {
-  for (const [name, fs] of [['field', fieldFS(true)], ['tissue', tissueFS(false, true)], ['tissue live', tissueFS(true, true)]]) {
+  for (const [name, fs] of [['field', fieldFS()], ['tissue', tissueFS(false)], ['tissue live', tissueFS(true)]]) {
     assert.match(fs, /vec3 over\(vec4 t\) \{ return t\.rgb \* t\.a \+ uBg \* \(1\.0 - t\.a\); \}/, name);
     assert.doesNotMatch(fs, /texture\(uQ?[AB], uv(, bias)?\)\.rgb/, `${name}: no tile read by its rgb alone`);
   }
-  // (?tileover=0: the shaders as they were.)
-  assert.doesNotMatch(fieldFS(false), /over\(/);
-  assert.match(fieldFS(false), /vec3 c = mix\(texture\(uA, uv, bias\)\.rgb, texture\(uB, uv, bias\)\.rgb, uMix\);/);
-  assert.match(tissueFS(false, false), /vec3 c = mix\(texture\(uQA, uv\)\.rgb, texture\(uQB, uv\)\.rgb, uMix\);/);
+  assert.match(fieldFS(), /vec3 c = mix\(over\(texture\(uA, uv, bias\)\), over\(texture\(uB, uv, bias\)\), uMix\);/);
+  assert.match(fieldFS(), /c = mix\(c, mix\(over\(texture\(uQA, uv, bias\)\), over\(texture\(uQB, uv, bias\)\), uMix\), uQuiet\);/);
+  assert.match(tissueFS(false), /vec3 c = mix\(over\(texture\(uQA, uv\)\), over\(texture\(uQB, uv\)\), uMix\);/);
+  for (const f of ['field-gl.js', 'tissue-gl.js']) assert.doesNotMatch(src(`src/ui/${f}`), /TILE_OVER|tileover/, f);
 });
 
 test('a blank tile is not kept: it is drawn again, at most every TILE_RETRY ms', () => {
@@ -26,7 +26,7 @@ test('a blank tile is not kept: it is drawn again, at most every TILE_RETRY ms',
   assert.match(lz, /const TILE_RETRY = 250;\n\s+const tileDue = \(q\) => !!q && !!q\.blank && performance\.now\(\) >= q\.blankAt \+ TILE_RETRY;/);
   assert.match(lz, /cv: gpuPicture\(rec, \+\+texVer\), blank: false, blankAt: 0 \}\);/);
   assert.match(lz, /if \(t\.cv && tileDue\(t\)\) \{ free\(t\.cv\); t\.cv = null;/);
-  assert.match(lz, /const blank = !t\.cv \|\| !t\.cv\.width \|\| \(TILE_OVER && t\.blank\);/, 'a copy of a missing tile is clear, never black');
+  assert.match(lz, /const blank = !t\.cv \|\| !t\.cv\.width \|\| t\.blank;/, 'a copy of a missing tile is clear, never black');
 });
 
 // Mohammad, 1 Nov (iPhone): once the lobule settled, the hepatocytes and the neighbours went black for a moment. A texture the GPU
@@ -48,10 +48,10 @@ test('a texture the GPU could not take is never drawn: the draw returns false, a
   } });
   // (The send: the level made clear at the canvas's size, then the canvas laid into it.)
   const cv = { width: 16, height: 8 };
-  assert.equal(sendCanvas(gl, cv, true), true);
+  assert.equal(sendCanvas(gl, cv), true);
   assert.deepEqual(calls.at(-2).slice(1), ['TEXTURE_2D', 0, 'RGBA8', 16, 8, 0, 'RGBA', 'UNSIGNED_BYTE', null]);
   assert.deepEqual(calls.at(-1), ['texSubImage2D', 'TEXTURE_2D', 0, 0, 0, 'RGBA', 'UNSIGNED_BYTE', cv]);
-  assert.equal(sendCanvas(gl, cv, false), true, '?texsafe=0: one send, unchecked');
+  assert.doesNotMatch(src('src/ui/field-gl.js'), /TEX_SAFE|texsafe/, 'every send checked');
   const g = createTissueGL({ width: 0, height: 0, getContext: () => gl, addEventListener() {} });
   const q = { width: 4, height: 4 }, w = { width: 64, height: 64 };
   const frame = (wVer) => ({ W: 100, H: 100, qa: q, qb: null, mix: 0, w, wVer, rect: [0, 0, 100], ox: 50, oy: 50, rd: 40, fade: [44, 128], mid: 0.5, bg: [1, 1, 1] });
@@ -92,11 +92,13 @@ test('showing, a frame whose texture did not go keeps the last picture: no black
   assert.equal(g.draw(frame(3, 120)), true, 'at another size there is no picture to keep: drawn on the GPU without the texture, not on the 2D canvas');
 });
 
-test('the GPU canvas taking over leaves the 2D canvas whole under it for a moment (?handoff=0: one frame, as before)', () => {
+test('the GPU canvas taking over leaves the 2D canvas whole under it for a moment', () => {
   const lz = src('src/ui/lobule-zoom.js');
-  assert.match(lz, /const HANDOFF = !\/\[\?&\]handoff=0\\b\/\.test\(location\.search\), HANDOFF_MS = 160;/);
+  assert.match(lz, /const HANDOFF_MS = 160;/);
+  assert.match(lz, /if \(on && !rimDrawn\) \{\n\s+tissueOnGL = true; tissueG\.style\.opacity = '';/);
+  assert.doesNotMatch(lz, /HANDOFF &&|handoff=0/);
   assert.match(lz, /handoffT = setTimeout\(\(\) => \{ handoffT = 0; if \(tissueOnGL\) \{ tissue\.style\.opacity = '0'; free\(tissue\); \} \}, HANDOFF_MS\);/);
-  assert.match(lz, /if \(!\(HANDOFF && \(!tissueOnGL \|\| handoffT\) && !rimDrawn\)\) free\(tissue\);/);
+  assert.match(lz, /if \(!\(\(!tissueOnGL \|\| handoffT\) && !rimDrawn\)\) free\(tissue\);/);
   assert.match(lz, /hold: tissueOnGL,/);
 });
 

@@ -73,22 +73,18 @@ test('a frame in which only the clock moved sends one uniform', () => {
 // The cache is only right if nothing else sets what it holds: these names are set through it and nowhere else.
 test('veins-gl.js sets the composite\'s per-frame uniforms through the cache and nowhere else', () => {
   const src = read('../src/ui/veins-gl.js');
-  const names = ['inv', 'H', 'pxW', 'plates', 'plateAlpha', 'plateSat', 'plateRect0', 'plateRect1', 'fluidRect', 'fluidS', 'fluidInk', 'fluidLv', 'blood', 'chev', 'still', 'flowA', 'blendA', 'chevInk', 'chevLight', 'cssPx', 'sat', 'origin', 'dyeOn', 'clock', 'rows', 'originCol', 'dyeCol', 'revCol', 'inkLight', 'inkDark', 'bleedE', 'bleedB', 'bleedN', 'noChev', 'noChevN', 'chevHole', 'chevHoleR', 'chevHoleN', 'lA', 'lWrap', 'lSize', 'lH', 'lineOn', 'glowOn', 'warmOn', 'stackOn', 'noiseOn'];
+  const names = ['inv', 'H', 'pxW', 'plates', 'plateAlpha', 'plateSat', 'plateRect0', 'plateRect1', 'fluidRect', 'fluidS', 'fluidInk', 'fluidLv', 'blood', 'chev', 'still', 'flowA', 'blendA', 'chevInk', 'chevLight', 'cssPx', 'origin', 'dyeOn', 'clock', 'rows', 'originCol', 'dyeCol', 'revCol', 'inkLight', 'inkDark', 'bleedE', 'bleedB', 'bleedN', 'noChev', 'noChevN', 'chevHole', 'chevHoleR', 'chevHoleN', 'lA', 'lWrap', 'lSize', 'lH', 'lineOn', 'glowOn', 'warmOn', 'stackOn', 'noiseOn'];
   for (const n of names) {
     const uses = src.split('\n').filter((l) => new RegExp(`(?<![\\w.])(?:U|u|P\\.u|cathPass\\.u)\\.${n}\\b`).test(l));
     assert.ok(uses.length >= 1, `${n} is set`);
     for (const l of uses) assert.match(l, /UC\.\w+\(U\./, `${n}: ${l.trim().slice(0, 90)}`);
   }
-  assert.match(src, /const UC = uniformCache\(gl, \{ on: UNIFORM_CACHE \}\);/);
+  assert.match(src, /const UC = uniformCache\(gl\);/);
   assert.match(src, /import \{ uniformCache \} from '\.\/uniform-cache\.js/);
 });
 
-test('ucache=0 sends every uniform; reset() forgets what is held (context loss and restore)', () => {
+test('reset() forgets what is held (context loss and restore)', () => {
   const gl = fakeGL(), a = loc('a'), m = loc('m');
-  const off = uniformCache(gl, { on: false });
-  off.f1(a, 1); off.f1(a, 1); off.m3(m, new Float32Array(9)); off.m3(m, new Float32Array(9));
-  assert.equal(gl.calls.length, 4, 'off: nothing is skipped');
-  gl.calls.length = 0;
   const U = uniformCache(gl);
   U.f1(a, 2); U.f1(a, 2); U.iv1(m, new Int32Array([1, 2])); U.iv1(m, new Int32Array([1, 2]));
   assert.equal(gl.calls.length, 2, 'equal sets are skipped');
@@ -100,8 +96,9 @@ test('ucache=0 sends every uniform; reset() forgets what is held (context loss a
 test('veins-gl.js sends no uniform around the cache, and forgets the cache on loss and restore', () => {
   const src = read('../src/ui/veins-gl.js');
   assert.equal(src.split('\n').filter((l) => /\bgl\.uniform/.test(l)).length, 0, 'every uniform goes through UC');
-  assert.match(src, /uniformCache\(gl, \{ on: UNIFORM_CACHE \}\)/);
-  assert.match(src, /ucache=0/);
+  assert.match(src, /uniformCache\(gl\)/);
+  assert.doesNotMatch(src, /ucache|UNIFORM_CACHE/, 'no address switch sends every uniform');
+  assert.doesNotMatch(read('../src/ui/uniform-cache.js'), /ucache|location\.search|\bon\b =/);
   assert.match(src, /onLost = \(e\) => \{[^}]*UC\.reset\(\)/);
   assert.match(src, /webglcontextrestored', onRestored/);
 });

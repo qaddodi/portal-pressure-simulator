@@ -19,12 +19,12 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=5c99534b1f';
-import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=474430fee3';
-import { measure } from './glyph-measure.js?v=d1e89aeb28';
+import { h, fmt, clamp, lerp } from './util.js?v=3b6762a3d2';
+import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=0eb6194e27';
+import { measure } from './glyph-measure.js?v=1e477bd6b3';
 import { readStyle } from './layout-snap.js?v=f609965236';
-import { pressureColor } from './colormap.js?v=687b52d514';
-import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=c37cd9a50a';
+import { pressureColor } from './colormap.js?v=95edc9ec7f';
+import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=d4e1cdea46';
 import { isPaused } from './clock.js?v=b93873f913';
 import { store } from './store.js?v=5174ae465b';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
@@ -37,7 +37,7 @@ import { noteSinusoidSupport, sinusoidSupported } from './gl-support.js?v=6219c6
 import { FADE_MS, fadeAlpha } from './res-fade.js?v=9c2e0f3c87';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { restPass, restClass, restAttr } from './rest-pass.js?v=d13e397f0b';
+import { restPass, restClass, restAttr } from './rest-pass.js?v=bb619a1659';
 const HEP_CELL = { j: 0, x0: 0, x1: 0, nu: 0, nv: 0, nr: 0, bi: false };   // alloc-rare: made once (the hepatocyte's cell, written in place by each layout)
 const nextFrame = frameFor('sinusoid-view');
 

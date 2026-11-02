@@ -195,11 +195,8 @@ test('any other change, or new radii, still draws the cells again whole', async 
 });
 
 test('a pan while colours change moves the layer and recolours, and the mark moves with it', async () => {
-  // (Counted on a canvas that keeps its own picture, ?vesselbuf=keep: by default one copy, the picture onto the canvas, follows.)
-  globalThis.location = { search: '?vesselbuf=keep' };
-  let sc;
-  try { sc = await scene('../src/ui/veins-gl.js?keep'); } finally { delete globalThis.location; }
-  const { g, gl, calls, data, put, look } = sc;
+  // (The pan's whole picture goes straight onto the canvas: no copy of the kept picture either.)
+  const { g, gl, calls, data, put, look } = await scene();
   put(0, [0.9, 0.9, 0.2]);
   g.setTubes(data);
   const t0 = g.tintCells, n0 = calls.length;

@@ -29,7 +29,7 @@ function fakeGL() {
         if (k === 'getActiveUniform') return { name: UNIFORMS[a[1]] };   // (the uniform cache skips a uniform with no location, as the GPU would ignore it)
         if (k === 'getExtension') return null;
         if (k === 'getParameter') return 'stand-in';
-        if (k === 'getContextAttributes') return { stencil: true };
+        if (k === 'getContextAttributes') return { stencil: false };   // (as the stage's canvas is made: the kept picture has the stencil)
         if (k === 'getUniformLocation') return { p: a[0]?.obj, name: a[1] };
         if (k.startsWith('create')) return { obj: nextObj++, kind: k };
         return undefined;
@@ -38,10 +38,7 @@ function fakeGL() {
   });
   return { gl, calls };
 }
-// (Written for the canvas that keeps its own picture: pinned to ?vesselbuf=keep. The kept-picture default is covered by veins-own-buffer.test.js.)
-globalThis.location = { search: '?vesselbuf=keep' };
 const mod = await import('../src/ui/veins-gl.js');
-delete globalThis.location;
 function renderer() {
   const f = fakeGL();
   const canvas = { width: 800, height: 600, getContext: () => f.gl, addEventListener() {}, removeEventListener() {}, toDataURL: () => 'data:' };
@@ -68,7 +65,16 @@ function frames(g, f, look, ms) {
   }
   return out;
 }
-const blitsIn = (f, n0) => f.calls.slice(n0).filter((c) => c[0] === 'blitFramebuffer');
+// (Copies other than the kept picture laid onto the canvas (null), which follows every picture drawn into it.)
+const blitsIn = (f, n0) => {
+  let draw = null;
+  const out = [];
+  for (const c of f.calls.slice(n0)) {
+    if (c[0] === 'bindFramebuffer' && (c[1] === f.gl.FRAMEBUFFER || c[1] === f.gl.DRAW_FRAMEBUFFER)) draw = c[2];
+    if (c[0] === 'blitFramebuffer' && draw !== null) out.push(c);
+  }
+  return out;
+};
 
 test('off: every zoom frame is shaded as before, with the layer\'s own size, and nothing is made', () => {
   const { g, f, look } = renderer();
@@ -126,7 +132,7 @@ test('on, a pan at the same zoom moves the layer as before; a blood frame after 
   assert.deepEqual(frames(g, f, look, [zoomAt(1.1)]), ['lower']);
   const n0 = f.calls.length;
   g.composite(look, { on: true });
-  assert.ok(!f.calls.slice(n0).some((c) => c[0] === 'clearBufferuiv' || c[0] === 'blitFramebuffer'), 'the layer laid as it is until the next draw (no vessel pass)');
+  assert.ok(!f.calls.slice(n0).some((c) => c[0] === 'clearBufferuiv') && !blitsIn(f, n0).length, 'the layer laid as it is until the next draw (no vessel pass)');
   // A pan after a lower frame: no kept layer to move, so drawn whole (at Full).
   const p = zoomAt(1.1); p[4] += 5;
   assert.deepEqual(frames(g, f, look, [p]), ['whole']);

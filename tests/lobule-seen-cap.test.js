@@ -19,10 +19,10 @@ test('the cap is sharp enough for every zoom at which the bitmap still shows, an
   }
 });
 
-test('the bitmap is capped only once the shader has fully eased in, with ?seencap=0 as the off switch', () => {
+test('the bitmap is capped only once the shader has fully eased in', () => {
   const lz = src('src/ui/lobule-zoom.js');
-  assert.match(lz, /const SEEN_CAP = !\/\[\?&\]seencap=0\\b\/\.test\(location\.search\);/);
-  assert.match(lz, /const seenCap = \(G\) => \(SEEN_CAP && liveE >= 1 && liveGoal\(\) === 1 && tissueOnGL \? 2 \*\* \(Math\.ceil\(Math\.log2\(6 \/ \(0\.052 \* G\.R\)\) \* 2\) \/ 2\) : Infinity\);/);
+  assert.doesNotMatch(lz, /SEEN_CAP|seencap/);
+  assert.match(lz, /const seenCap = \(G\) => \(liveE >= 1 && liveGoal\(\) === 1 && tissueOnGL \? 2 \*\* \(Math\.ceil\(Math\.log2\(6 \/ \(0\.052 \* G\.R\)\) \* 2\) \/ 2\) : Infinity\);/);
   // (paintTissue and the bitmap painted ahead both take it.)
   assert.match(lz, /const ws = worldStateOf\(m, G, dark, cs\);\n {4}const seen = seenCap\(G\);\n {4}if \(sc > seen\) \{ sc = seen;/);
   assert.match(lz, /\* 2, cap, seenCap\(G\)\);/);

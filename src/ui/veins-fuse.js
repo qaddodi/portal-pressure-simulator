@@ -1,4 +1,4 @@
-// The one-pass zoom drawing (on by default; ?zoompass=two goes back to two passes): while the view zooms or turns, the vessel layer cannot be
+// The one-pass zoom drawing: while the view zooms or turns, the vessel layer cannot be
 // moved as a pan moves it (every pixel shows a new spot of the figure, and its edges are smoothed over a new width), so each
 // such frame draws the layer whole and then composites it whole, two passes, the layer's four targets written (21 bytes a
 // pixel) and read back. The composite reads only its own pixel of them, so the two can run as one shader over the vessel
@@ -62,7 +62,7 @@ export function compPart(C) {
 }
 
 // The fragment shader: vessel part, then composite part, then a main that runs one into the other.
-// V: vesselFS(simple); C: COMP_FS(plain, fast); `simple`: V is the one-vessel build (no second lumen: zero, as its layer holds).
+// V: vesselFS(simple); C: COMP_FS(plain); `simple`: V is the one-vessel build (no second lumen: zero, as its layer holds).
 export function fusedFS(V, C, simple) {
   return `#version 300 es
 precision highp float;

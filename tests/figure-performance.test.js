@@ -175,10 +175,12 @@ test('H7: the credit looks again in a talk only when the layout may have changed
   delete globalThis.localStorage;
 });
 
-test('the lymph keeps its typed arrays (R13): drops, beads and their GPU buffers grow only when outgrown; ?lykeep=0 restores new arrays', () => {
+test('the lymph keeps its typed arrays (R13): drops, beads and their GPU buffers grow only when outgrown', () => {
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   const fx = readFileSync(new URL('../src/ui/fx-gl.js', import.meta.url), 'utf8');
-  assert.match(lz, /const LY_KEEP = !\(typeof location !== 'undefined' && \/\[\?&\]lykeep=0\\b\/\.test\(location\.search\)\);/);
-  assert.match(lz, /dI = lyDI\.subarray\(0, nd \* 6\); bI = lyBI\.subarray\(0, nd \* beads \* 6\);/);
+  assert.doesNotMatch(lz, /LY_KEEP|lykeep/);
+  assert.match(lz, /let drops = lyRaw, nd = 0;/);
+  assert.match(lz, /if \(nd \+ 4 > drops\.length\) \{ const nx = new Float32Array\(Math\.max\(64, drops\.length \* 2\)\); nx\.set\(drops\); drops = lyRaw = nx; \}/);
+  assert.match(lz, /const dI = lyDI\.subarray\(0, nd \* 6\), bI = lyBI\.subarray\(0, nd \* beads \* 6\);/);
   assert.match(fx, /if \(data\.byteLength <= B\.cap\) gl\.bufferSubData\(gl\.ARRAY_BUFFER, 0, data\);/);
 });

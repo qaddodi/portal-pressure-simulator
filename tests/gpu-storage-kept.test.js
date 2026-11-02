@@ -19,9 +19,9 @@ function fakeGL() {
   };
   return { gl, calls };
 }
-function helpers(gl, prealloc = true) {
+function helpers(gl) {
   const src = slice(veins, '  const keptStats = {', '  // The cells (world origins on the CELL grid)');
-  return new Function('gl', 'PREALLOC', 'cellCap', `${src}\nreturn { keepBuf, keepRows, keptStats };`)(gl, prealloc, new Map());
+  return new Function('gl', 'cellCap', `${src}\nreturn { keepBuf, keepRows, keptStats };`)(gl, new Map());
 }
 
 test('a fluid ease of a hundred steps grows the buffer a few times and rewrites it the rest', () => {
@@ -35,12 +35,14 @@ test('a fluid ease of a hundred steps grows the buffer a few times and rewrites 
   assert.ok(keptStats.bytes <= Math.ceil(1.5 * 4 * 499 / 4) * 4, `bounded: the storage ends at most 1.5x the largest list (${keptStats.bytes} bytes)`);
 });
 
-test('?prealloc=0 keeps the old path: new storage every upload', () => {
+test('a buffer that keeps its size makes its storage once: no address switch makes it every upload', () => {
   const { gl, calls } = fakeGL();
-  const { keepBuf } = helpers(gl, false);
-  for (let i = 0; i < 10; i++) keepBuf({}, new Float32Array(8));
-  assert.equal(calls.bufferData, 10);
-  assert.equal(calls.bufferSubData, 0);
+  const { keepBuf } = helpers(gl);
+  const buf = {};
+  for (let i = 0; i < 10; i++) keepBuf(buf, new Float32Array(8));
+  assert.equal(calls.bufferData, 1);
+  assert.equal(calls.bufferSubData, 10);
+  assert.doesNotMatch(veins, /prealloc|PREALLOC/);
 });
 
 test('a rebinning writes its rows into the entries\' kept texture, taller only when outgrown', () => {
@@ -59,7 +61,7 @@ test('the fluid, the row redraw and the rebinning use the kept storage', () => {
   assert.match(veins, /keepBuf\(partBuf, gen\); keepBuf\(partSBuf, one\);/);
   assert.match(veins, /keepRows\(entTex, gl\.RGBA32F, gl\.RGBA, gl\.FLOAT, ENT_W, bins\.rows \|\| 1,/);
   // (the cavity's spans: rewritten in place while the texture's width, which the shader reads with textureSize, holds)
-  assert.match(veins, /if \(PREALLOC && fluidN === n && fluidTexN === n\) \{ gl\.texSubImage2D\(gl\.TEXTURE_2D, 0, 0, 0, n, 2,/);
+  assert.match(veins, /if \(fluidN === n && fluidTexN === n\) \{ gl\.texSubImage2D\(gl\.TEXTURE_2D, 0, 0, 0, n, 2,/);
 });
 
 test('the ascites surface\'s hidden SVG copy is not rewritten for the ripple\'s phase while the GPU draws it', () => {

@@ -10,7 +10,7 @@
 // so deck B's slide 0 never inherits deck A's; a shader step that still waits resumes when a program is published (whenShadersMove),
 // up to SHADER_TRIES times, instead of leaving the slide unready for good; a step that fails marks the manifest failed, never ready;
 // cancel() is the presenter's teardown and drops every manifest. States: unprepared, preparing, ready, failed.)
-import { prepJob, prepLeft } from './prep-budget.js?v=8da4082ab5';
+import { prepJob, prepLeft } from './prep-budget.js?v=1e4ab0dd5c';
 import { whenShadersMove } from './gl-compile.js?v=79231d7c6b';
 import { caught } from './caught.js?v=b96b17594a';
 

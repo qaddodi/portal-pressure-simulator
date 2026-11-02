@@ -12,12 +12,12 @@
 // context is back: there is no 2D drawing of it (1 Nov 2026, nothing off the GPU). A software renderer draws it too.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone } from './gl-compile.js?v=79231d7c6b';
-import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=b1f6499339';
-import { isTileCopy, createTileCopier } from './tile-gl.js?v=c38da68fef';
-import { isGpuPicture, paintGL } from './paint-gl.js?v=32645ae338';
+import { sendCanvas, SEND_RETRY } from './field-gl.js?v=af29476207';
+import { isTileCopy, createTileCopier } from './tile-gl.js?v=e4c0cee6b8';
+import { isGpuPicture, paintGL } from './paint-gl.js?v=20f650e1bf';
 import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=b585d4fb63';
 import { fbComplete } from './gl-state.js?v=4163c507aa';
-import { uniformCache } from './uniform-cache.js?v=0fc6d08369';
+import { uniformCache } from './uniform-cache.js?v=6488216aa0';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -28,15 +28,15 @@ export const tissueVS = VS;   // (for the shader lint in the unit tests)
 // 2√3 rd device px, the lobule's centre at uO), the lobule's bitmap over it (premultiplied, mixed with the last state's while a
 // new one fades in), then the fade into the page from r0 (clear) through FADE_MID halfway to whole at r1 and past it.
 // (A tile laid over the page's colour by its own alpha: the same picture for an opaque tile, the page's colour, not black, for one the
-// browser could not give memory to. See field-gl.js TILE_OVER; ?tileover=0 reads the rgb alone, as before.)
-const Q = (over, s) => (over ? `over(texture(${s}, uv))` : `texture(${s}, uv).rgb`);   // alloc-rare: the shader source is built once, when the program is compiled
+// browser could not give memory to. See field-gl.js.)
+const Q = (s) => `over(texture(${s}, uv))`;   // alloc-rare: the shader source is built once, when the program is compiled
 // The dive and the rise on the GPU. While the zoom scales the lobule's
 // layers down, the screen's picture would show its surround as a pale card: so past the lobule's rim the picture is cleared (opaque to
 // DIVE_RIM.solid of the radius, gone by DIVE_RIM.clear), and only the lobule's own layer (the bitmap, and its live share) is kept whole
 // there, its portal tracts and the corners' triads reaching past the rim. The same picture as the 2D copy (lobule-zoom.js diveCopy):
 // the tissue × the fade, plus the lobule's own layer × the rest, premultiplied. Drawn once as the zoom starts; the compositor scales it.
 // alloc-rare: the shader source is built once, when the program is compiled
-export const tissueFS = (live, over = TILE_OVER) => `#version 300 es
+export const tissueFS = (live) => `#version 300 es
 precision highp float;
 uniform sampler2D uQA, uQB, uQO, uW, uWO;   // the quiet tiles at the two sizes blended, the last state's tile; the bitmap, the last state's
 uniform float uMix, uQOld;                   // how much of the larger tile; how much of the last state's tile is left
@@ -49,12 +49,13 @@ uniform float uMid;                          // FADE_MID
 uniform vec3 uBg;                            // the page's colour
 uniform vec2 uGrey;                          // the surround's grade in a lens other than Pressure: saturation, opacity (1, 1: as drawn)
 uniform vec4 uRim;                           // the dive's rim: centre (device px), solid to clear radii (w 0: none)
-out vec4 o;${live ? '\n' + LIVE_FS : ''}${over ? '\nvec3 over(vec4 t) { return t.rgb * t.a + uBg * (1.0 - t.a); }' : ''}
+out vec4 o;${live ? '\n' + LIVE_FS : ''}
+vec3 over(vec4 t) { return t.rgb * t.a + uBg * (1.0 - t.a); }
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uH - gl_FragCoord.y);
   vec2 uv = (p - uO) / (uRd * vec2(6.0, 3.4641016151377544));
-  vec3 c = mix(${Q(over, 'uQA')}, ${Q(over, 'uQB')}, uMix);
-  if (uQOld > 0.0) c = mix(c, ${Q(over, 'uQO')}, uQOld);
+  vec3 c = mix(${Q('uQA')}, ${Q('uQB')}, uMix);
+  if (uQOld > 0.0) c = mix(c, ${Q('uQO')}, uQOld);
   // Grey as the anatomy's liver is in this lens (lobule-look.js surroundGrade): toward its luma, then toward the page. Only the surround:
   // the lobule's bitmap, laid over it next, keeps the lens's colours.
   if (uGrey.x < 1.0 || uGrey.y < 1.0) c = mix(uBg, mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uGrey.x), uGrey.y);
@@ -409,7 +410,7 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
       if (!tx[0] || !tx[1] || !tx[2] || !tx[3] || !tx[4]) {
         if (hold && pictured && tgt.width === W && tgt.height === H) { hostDone(); return 'held'; }
         // (No picture to keep: still drawn on the GPU, never stepped down to the 2D canvas. What did not go is the 1 px clear texture: a tile
-        // laid over the page's colour by its alpha (TILE_OVER) shows the page's colour, a bitmap shows the surround under it, never black.)
+        // laid over the page's colour by its alpha (over) shows the page's colour, a bitmap shows the surround under it, never black.)
         for (let i = 0; i < tx.length; i++) if (!tx[i]) tx[i] = none;
       }
       if (host) {

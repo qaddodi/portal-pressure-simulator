@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { binVeins, simpleCells, splitCells } from '../src/ui/veins-bin.js';
+import { readFileSync } from 'node:fs';
 
 // The one-vessel vessel program (veins-gl.js vesselFS(true), addendum §4 Pilot A): cells whose list holds one vessel and no
 // join are drawn by a build of the vessel shader with one slot and no join code; every other cell by the general build.
@@ -165,10 +166,10 @@ function vesselDraws(f, from) {
   }
   return out;
 }
-async function renderer(f, url = '../src/ui/veins-gl.js') {
+async function renderer(f, url = '../src/ui/veins-gl.js', who = 'stage') {
   const { createVeinsGL, MAX_TIERS, TUBE_TEXELS } = await import(url);
   const canvas = { width: 1200, height: 900, getContext: () => f.gl, addEventListener() {}, removeEventListener() {} };
-  const g = createVeinsGL(canvas, { tubes: 6, force: true });
+  const g = createVeinsGL(canvas, { tubes: 6, force: true, who });
   const { tubes, joins } = scene();
   const bins = binVeins(tubes, joins);
   g.setGeometry(bins);
@@ -248,16 +249,16 @@ test('if the one-vessel build fails to compile, every cell is drawn by the gener
   } finally { console.warn = warn; }
 });
 
-test('?veins=generic keeps every cell on the general program', async () => {
-  globalThis.location = { search: '?veins=generic' };
-  try {
-    const f = fakeGL();
-    const { g, bins, look } = await renderer(f, '../src/ui/veins-gl.js?generic');
-    const n0 = f.calls.length;
-    g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
-    assert.deepEqual(vesselDraws(f, n0), [{ simple: false, count: bins.nCells }]);
-    assert.ok(!f.calls.some((c) => c[0] === 'shaderSource' && /#define SIMPLE 1/.test(c[2])), 'the one-vessel build is not even compiled');
-  } finally { delete globalThis.location; }
+test('the one-vessel build is always compiled, its cells drawn by it: no address switch keeps them on the general program', async () => {
+  const f = fakeGL();
+  const { g, bins, look } = await renderer(f);
+  const n0 = f.calls.length;
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+  const want = simpleCells(bins.cells, bins.nCells, bins.ent).reduce((a, v) => a + v, 0);
+  assert.ok(want > 0);
+  assert.deepEqual(vesselDraws(f, n0).sort((a, b) => a.simple - b.simple), [{ simple: false, count: bins.nCells - want }, { simple: true, count: want }]);
+  assert.ok(f.calls.some((c) => c[0] === 'shaderSource' && /#define SIMPLE 1/.test(c[2])), 'the one-vessel build is compiled');
+  assert.doesNotMatch(readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8'), /veins=generic/);
 });
 
 // ── The composite's two builds (addendum §9): full, and plain for frames with no dye, no origin colours and no bleed ──
@@ -362,7 +363,7 @@ test('without parallel compile the optional builds are finished at construction,
   assert.ok(bins.nCells > 0);
 });
 
-// ── One-pass zoom frames (on by default; ?zoompass=two goes back) ──
+// ── One-pass zoom frames ──
 test('a zoom frame draws the vessel cells with the one-pass builds over a stencil and the rest with the plain composite; a still frame after it draws the layer whole', async () => {
   const f = fakeGL({ stencil: true });
   const { g, bins, look } = await renderer(f);
@@ -394,13 +395,13 @@ test('a zoom frame draws the vessel cells with the one-pass builds over a stenci
   assert.equal(vesselDraws(f, n).length, 2);
 });
 
-test('without a stencil (or with ?zoompass=two) a zoom frame keeps the two passes', async () => {
+test('without a stencil a zoom frame keeps the two passes', async () => {
   const f = fakeGL();
-  // (A canvas that keeps its own picture, ?vesselbuf=keep: the stencil is the context's. The kept picture brings a stencil of its own,
-  // so by default a context without one still draws zoom frames in one pass: veins-own-buffer.test.js.)
-  globalThis.location = { search: '?vesselbuf=keep' };
+  // (A canvas that keeps its own picture, the lobule's with ?lzone=0: the stencil is the context's. The kept picture brings a stencil of
+  // its own, so by default a context without one still draws zoom frames in one pass: veins-own-buffer.test.js.)
+  globalThis.location = { search: '?lzone=0' };
   let r;
-  try { r = await renderer(f, '../src/ui/veins-gl.js?keep'); } finally { delete globalThis.location; }
+  try { r = await renderer(f, '../src/ui/veins-gl.js?lzone', 'lobule'); } finally { delete globalThis.location; }
   const { g, look } = r;
   g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
   const n = f.calls.length;

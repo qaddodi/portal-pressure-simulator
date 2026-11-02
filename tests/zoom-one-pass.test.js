@@ -1,4 +1,4 @@
-// The one-pass zoom drawing (on by default, ?zoompass=two goes back; veins-fuse.js): a frame where the view zoomed or turned runs the
+// The one-pass zoom drawing (veins-fuse.js): a frame where the view zoomed or turned runs the
 // vessel shader and the composite as one shader over the vessel cells. Source patterns (no GL in node), checked on the shader
 // text as the GPU sees it: the one-pass text is the two shaders' own, with only their inputs and outputs rewired.
 import test from 'node:test';
@@ -134,10 +134,10 @@ test('the one-pass vertex shader is the vessel cells\' with the composite\'s zoo
   assert.match(src, /fusedVS\(VS, ZOOM_VS\)/);
 });
 
-test('veins-gl: on by default (?zoompass=two goes back), a zoom or turn only, plain frames only, the old two passes otherwise', () => {
-  assert.match(src, /const ONE_PASS = !\(typeof location !== 'undefined' && \/\[\?&\]zoompass=two\\b\/\.test\(location\.search\)\);/);
-  assert.match(src, /stencil: ONE_PASS && !\(ownBuf && CTX_STENCIL_FREE\),/, 'no stencil with ?zoompass=two, nor on the canvas when the figure has its own buffer');
-  assert.match(src, /if \(ONE_PASS\) \{\s*try \{/, 'the one-pass builds are not made with ?zoompass=two');
+test('veins-gl: always, a zoom or turn only, plain frames only, the old two passes otherwise', () => {
+  assert.doesNotMatch(src, /zoompass|ONE_PASS/, 'no address switch back to two passes');
+  assert.match(src, /stencil: !ownBuf,/, 'no stencil on the canvas when the figure has its own buffer (its own has one)');
+  assert.match(src, /let fuse = null;\n\s*try \{ const cf = plainText; fuse = \{ vs: fusedVS\(VS, ZOOM_VS\), gen: fusedFS\(vesselFS\(false\), cf, false\), one: fusedFS\(vesselFS\(true\), cf, true\) \}; \}/, 'the one-pass builds are always made');
   const draw = body(src, '    draw(m, look, blood, rows = null) {');
   const fuse = draw.match(/if \(!pan && baseM && m\.slice\(0, 4\)\.some\(\(v, i\) => v !== baseM\[i\]\) && fuseReady\(\) && bareOf\(blood \|\| \{\}\) && !gpuProbe\.skipGL && !lost\) \{([\s\S]*?)\n {6}\}/);
   assert.ok(fuse, 'one pass only when the scale or turn changed, the builds are ready and the frame is plain');

@@ -8,16 +8,14 @@
 // same program would leave the cache believing in a value that is no longer there (veins-gl.js sets these names nowhere else; its
 // test pins that).
 
-// `on: false` (?ucache=0 in the address) sends every uniform as before. reset() forgets what every location holds: call it when the context
-// is lost or restored (the new programs hold their defaults, not the values this cache last sent).
-// Every per-frame draw that uses the cache reads the same ?ucache=0 switch (the figure's composite in veins-gl.js has its own copy).
-export const UCACHE_ON = !(typeof location !== 'undefined' && /[?&]ucache=0\b/.test(location.search));
+// reset() forgets what every location holds: call it when the context is lost or restored (the new programs hold their defaults,
+// not the values this cache last sent).
 
 // (A class, so the fifty-odd uniform calls a frame go through methods on its prototype: one closure per call kind per context is not
-// made, and the cache holds only its context, its switch and the map of what each location holds.)
+// made, and the cache holds only its context and the map of what each location holds.)
 class UniformCache {
-  constructor(gl, on) {
-    this.gl = gl; this.on = on;
+  constructor(gl) {
+    this.gl = gl;
     this.last = new WeakMap();   // alloc-rare: made once per GL context (ucOf keeps the cache)
   }
   // True when `loc` is not already holding these n numbers (and records them as now held).
@@ -26,7 +24,6 @@ class UniformCache {
     let s = this.last.get(loc);
     if (!s) { s = { n: -1, v: new Float64Array(4) }; this.last.set(loc, s); }   // alloc-rare: once per uniform location, the first time it is set
     const v = s.v;
-    if (!this.on) return true;
     if (s.n === n && v[0] === a && (n < 2 || v[1] === b) && (n < 3 || v[2] === c) && (n < 4 || v[3] === d)) return false;
     s.n = n; v[0] = a;
     if (n > 1) v[1] = b;
@@ -39,7 +36,6 @@ class UniformCache {
     if (typeof loc !== 'object') return true;
     let s = this.last.get(loc);
     if (!s || !s.arr || s.arr.length !== arr.length) { s = { arr: new Float32Array(arr.length), fresh: true }; this.last.set(loc, s); }   // alloc-rare: once per uniform location (again only if the array's length changes)
-    if (!this.on) return true;
     const held = s.arr;
     let diff = !!s.fresh;
     for (let i = 0; i < held.length; i++) if (held[i] !== Math.fround(arr[i])) { diff = true; break; }
@@ -66,8 +62,8 @@ class UniformCache {
   fv4(loc, arr) { if (loc && this.changedArr(loc, arr)) this.gl.uniform4fv(loc, arr); }
   m3(loc, arr) { if (loc && this.changedArr(loc, arr)) this.gl.uniformMatrix3fv(loc, false, arr); }
 }
-export function uniformCache(gl, opts) {
-  return new UniformCache(gl, opts && opts.on !== undefined ? opts.on : UCACHE_ON);
+export function uniformCache(gl) {
+  return new UniformCache(gl);
 }
 
 // One cache per context, shared by every file that draws on it (a program's uniforms are set only through it).

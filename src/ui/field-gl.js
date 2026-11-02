@@ -12,8 +12,8 @@
 // field is drawn on the 2D canvas as before.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=79231d7c6b';
-import { isTileCopy, createTileCopier } from './tile-gl.js?v=c38da68fef';
-import { uniformCache } from './uniform-cache.js?v=0fc6d08369';
+import { isTileCopy, createTileCopier } from './tile-gl.js?v=e4c0cee6b8';
+import { uniformCache } from './uniform-cache.js?v=6488216aa0';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -24,17 +24,14 @@ void main() { gl_Position = vec4(p, 0.0, 1.0); }`;
 // (A tile is opaque everywhere it is drawn, so laying it over the page's colour by its own alpha changes nothing. But a tile canvas the
 // browser could not give memory to (iPhone Safari, at the peak of the way out of a zoomed-in lobule, with the wide copy still held) is
 // transparent, and its rgb, read alone, is 0: the neighbouring lobules flashed solid black (Mohammad, 1 Nov). Laid over the page, such a
-// tile shows the page's colour for the frame or two until it is drawn again (lobule-zoom.js tileDue). ?tileover=0: the rgb alone, as before.)
-export const TILE_OVER = !(typeof location !== 'undefined' && /[?&]tileover=0\b/.test(location.search || ''));
-const R = (over, s) => (over ? `over(texture(${s}, uv, bias))` : `texture(${s}, uv, bias).rgb`);
+// tile shows the page's colour for the frame or two until it is drawn again (lobule-zoom.js tileDue).)
+const R = (s) => `over(texture(${s}, uv, bias))`;
 // A canvas sent to the bound texture, level 0. A canvas the browser had no memory for, or a send the GPU had no memory for, left the
 // texture without a picture, and a texture without its level reads opaque black: the lobule's hepatocytes and its neighbours went
 // black for a moment once it settled, as the sharper bitmap was sent (Mohammad, 1 Nov, iPhone). So the level is made first, clear, and
 // the canvas laid into it (an unsent canvas leaves it clear, never black), and the GPU is asked whether it all went: false if not, and
-// the caller draws that frame on the 2D canvas instead. ?texsafe=0: one send, unchecked, as before.
-export const TEX_SAFE = !(typeof location !== 'undefined' && /[?&]texsafe=0\b/.test(location.search || ''));
-export function sendCanvas(gl, cv, safe = TEX_SAFE) {
-  if (!safe) { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, cv); return true; }
+// the caller draws that frame on the 2D canvas instead.
+export function sendCanvas(gl, cv) {
   for (let i = 0; i < 8 && gl.getError() !== gl.NO_ERROR; i++);   // (errors left by earlier calls are not this send's)
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, cv.width, cv.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
   gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, cv);
@@ -42,7 +39,7 @@ export function sendCanvas(gl, cv, safe = TEX_SAFE) {
 }
 // (A texture whose send failed is asked for again at most this often: each try is a whole canvas's worth of GPU memory.)
 export const SEND_RETRY = 250;
-export const fieldFS = (over = TILE_OVER) => `#version 300 es
+export const fieldFS = () => `#version 300 es
 precision highp float;
 uniform sampler2D uA, uB, uQA, uQB;   // the liver-toned and the quieted tiles, at the two sizes blended
 uniform float uMix;                    // how much of the larger size (0 … 1)
@@ -55,15 +52,16 @@ uniform vec3 uBg;                      // the page's colour
 uniform vec4 uMask;                    // ox, oy, rho (the emerging mask), on (1 / 0)
 uniform vec4 uDof;                     // the softness as mip biases: the whole field's, depth of field from r0 to r1, its bias there
 uniform vec2 uGrey;                    // the grade in a lens other than Pressure: saturation, opacity (1, 1: as drawn)
-out vec4 o;${over ? '\nvec3 over(vec4 t) { return t.rgb * t.a + uBg * (1.0 - t.a); }   // (a tile over the page: its own rgb where it is opaque)' : ''}
+out vec4 o;
+vec3 over(vec4 t) { return t.rgb * t.a + uBg * (1.0 - t.a); }   // (a tile over the page: its own rgb where it is opaque)
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uH - gl_FragCoord.y);
   vec2 uv = (p - uO) / (uRd * vec2(6.0, 3.4641016151377544));
   // Soft by sampling a coarser level of the tiles' mipmaps (no extra pass): the field arrives blurred and sharpens, and the lobules
   // far from the landing one stay a little soft (fieldDof, lobule-look.js).
   float bias = uDof.x + uDof.w * smoothstep(uDof.y, uDof.z, length(p - uO));
-  vec3 c = mix(${R(over, 'uA')}, ${R(over, 'uB')}, uMix);
-  if (uQuiet > 0.0) c = mix(c, mix(${R(over, 'uQA')}, ${R(over, 'uQB')}, uMix), uQuiet);
+  vec3 c = mix(${R('uA')}, ${R('uB')}, uMix);
+  if (uQuiet > 0.0) c = mix(c, mix(${R('uQA')}, ${R('uQB')}, uMix), uQuiet);
   // Grey as the anatomy's liver is in this lens (lobule-look.js surroundGrade): toward its luma, then toward the page, so the field
   // coming in over the grey organs is the same grey.
   if (uGrey.x < 1.0 || uGrey.y < 1.0) c = mix(uBg, mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uGrey.x), uGrey.y);

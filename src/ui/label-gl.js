@@ -14,14 +14,14 @@
 
 import { glGet, glCap } from './gl-state.js?v=4163c507aa';
 import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
-import { ucOf } from './uniform-cache.js?v=0fc6d08369';
+import { ucOf } from './uniform-cache.js?v=6488216aa0';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=6329c6ef1f';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=79231d7c6b';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
-import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=30afde474f';
-import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=3a81e5cf75';
-import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=96ad9e26a5';
+import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=23dcebba43';
+import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=4223344335';
+import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=3203debbbd';
 import { watchSize, sizeOf, rectSoon } from './geom.js?v=254133713c';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=814746f511';
 import { caught } from './caught.js?v=b96b17594a';

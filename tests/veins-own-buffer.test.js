@@ -3,8 +3,7 @@ import assert from 'node:assert/strict';
 
 // The stage's vessel canvas keeps no picture of its own (120 fps addendum §7; on by default since 31 Oct, recs A3): it is made
 // without preserveDrawingBuffer, and the picture the frames repaint in part is kept in a texture of the renderer's own, copied whole
-// onto the canvas whenever it is drawn on. ?vesselbuf=keep goes back (the canvas keeps its own picture, nothing is copied), and the
-// lobule's vessel renderer keeps its canvas's picture as before.
+// onto the canvas whenever it is drawn on. With ?lzone=0 the lobule's vessel renderer keeps its canvas's picture as before.
 
 globalThis.ResizeObserver ??= class { observe() {} };
 globalThis.MutationObserver ??= class { observe() {} };
@@ -59,9 +58,10 @@ function keepsItsOwn({ g, f, attrs, look }) {
   assert.deepEqual(binds.at(-1), ['bindFramebuffer', f.gl.FRAMEBUFFER, null]);
 }
 
-test('with ?vesselbuf=keep the canvas keeps its picture and nothing is copied', async () => {
-  globalThis.location = { search: '?vesselbuf=keep' };
-  try { keepsItsOwn(await renderer('../src/ui/veins-gl.js?keep')); } finally { delete globalThis.location; }
+test('the stage\'s vessel canvas is made with no picture and no stencil of its own: the kept picture holds both', async () => {
+  const { attrs } = await renderer('../src/ui/veins-gl.js');
+  assert.equal(attrs.preserveDrawingBuffer, false);
+  assert.equal(attrs.stencil, false);
 });
 
 test('the lobule\'s vessel canvas keeps its own picture with ?lzone=0, as before', async () => {
@@ -70,9 +70,7 @@ test('the lobule\'s vessel canvas keeps its own picture with ?lzone=0, as before
 });
 
 test('by default the lobule\'s vessel canvas draws into its kept picture too, so its overlay can be laid over each present (LZ_ONE)', async () => {
-  globalThis.location = { search: '?direct=0' };
-  let r; try { r = await renderer('../src/ui/veins-gl.js?direct0lz', 'lobule'); } finally { delete globalThis.location; }
-  const { g, f, attrs, canvas, look } = r;
+  const { g, f, attrs, canvas, look } = await renderer('../src/ui/veins-gl.js', 'lobule');
   assert.equal(attrs.preserveDrawingBuffer, false);
   assert.ok(g.top, 'a top for the overlay');
   const n0 = f.calls.length;
@@ -81,7 +79,7 @@ test('by default the lobule\'s vessel canvas draws into its kept picture too, so
   assert.ok(canvas.width > 0);
 });
 
-test('a whole picture is drawn straight onto the canvas (no copy), and the next partial frame draws whole into the kept picture first (?direct=0 off)', async () => {
+test('a whole picture is drawn straight onto the canvas (no copy), and the next partial frame draws whole into the kept picture first', async () => {
   const { g, f, look } = await renderer('../src/ui/veins-gl.js?direct');
   const n0 = f.calls.length;
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
@@ -94,14 +92,14 @@ test('a whole picture is drawn straight onto the canvas (no copy), and the next 
   assert.equal(blits(f, n1).length, 1, 'drawn into the kept picture, then copied');
 });
 
-test('with ?direct=0 every picture is drawn into the kept texture and copied whole onto the canvas', async () => {
-  globalThis.location = { search: '?direct=0' };
-  let r; try { r = await renderer('../src/ui/veins-gl.js?direct0'); } finally { delete globalThis.location; }
+test('a picture drawn into the kept texture is copied whole onto the canvas', async () => {
   {
-    const { g, f, attrs, canvas, look } = r;
+    const { g, f, attrs, canvas, look } = await renderer('../src/ui/veins-gl.js');
     assert.equal(attrs.preserveDrawingBuffer, false);
-    const n0 = f.calls.length;
     g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+    // (The whole picture went straight onto the canvas; the blood's frame after it is drawn whole into the kept picture.)
+    const n0 = f.calls.length;
+    g.composite(look, { on: true });
     const b = blits(f, n0);
     assert.equal(b.length, 1, 'one copy for the drawn picture');
     assert.deepEqual(b[0].slice(1), [0, 0, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height, f.gl.COLOR_BUFFER_BIT, f.gl.NEAREST], 'whole, unscaled, unfiltered');
@@ -115,17 +113,18 @@ test('with ?direct=0 every picture is drawn into the kept texture and copied who
     // The composite drew into that same kept picture, not onto the canvas.
     const compBind = before.filter((c) => c[0] === 'bindFramebuffer' && c[1] === f.gl.FRAMEBUFFER && c[2] === read[2]);
     assert.ok(compBind.length >= 1);
-    // A blood-only frame: copied whole again (the canvas may have dropped the last one).
+    // A blood-only frame: copied whole again (the canvas may have dropped the last one). (Its blood fading, so it is not the last picture.)
     const n1 = f.calls.length;
-    g.composite(look, { on: true });
+    g.composite(look, { on: true, alpha: 0.5 });
     assert.equal(blits(f, n1).length, 1);
     // A picture taken (snapshot) copies first, and the first picture after a resize is drawn whole.
     const n2 = f.calls.length;
     assert.equal(g.snapshot(), 'data:');
     assert.equal(blits(f, n2).length, 1);
     canvas.width = 640;
-    const n3 = f.calls.length;
     g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+    const n3 = f.calls.length;
+    g.composite(look, { on: true });
     assert.deepEqual(blits(f, n3)[0].slice(3, 4), [640]);
     // Cleared: the kept picture is cleared too, so no part of the old one comes back in a later partial frame.
     const n4 = f.calls.length;

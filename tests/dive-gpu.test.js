@@ -12,10 +12,10 @@ const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'u
 const fn = (head) => { const i = lz.indexOf(head); assert.ok(i >= 0, head); return lz.slice(i, lz.indexOf('\n  }\n', i)); };
 
 test('the shader draws the rim', () => {
-  for (const live of [false, true]) for (const over of [false, true]) {
-    assert.match(tissueFS(live, over), /if \(uRim\.w > 0\.0\) \{ float f = clamp\(\(uRim\.w - length\(p - uRim\.xy\)\) \/ max\(uRim\.w - uRim\.z, 1e-6\), 0\.0, 1\.0\); o = o \* f \+ own \* \(1\.0 - f\); \}/);
+  for (const live of [false, true]) {
+    assert.match(tissueFS(live), /if \(uRim\.w > 0\.0\) \{ float f = clamp\(\(uRim\.w - length\(p - uRim\.xy\)\) \/ max\(uRim\.w - uRim\.z, 1e-6\), 0\.0, 1\.0\); o = o \* f \+ own \* \(1\.0 - f\); \}/);
   }
-  assert.match(tissueFS(true, true), /own = mix\(own, ls, uLive\);/, 'the live share is part of the lobule\'s own layer');
+  assert.match(tissueFS(true), /own = mix\(own, ls, uLive\);/, 'the live share is part of the lobule\'s own layer');
 });
 
 test("the shader's rim is the 2D copy's: the tissue × the fade, plus the lobule's own layer × the rest", () => {

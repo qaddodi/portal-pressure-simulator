@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 // Settings › Figure performance › Sharper upscaling (30 Oct, off by default): under Full the canvas stays at Full and the picture,
-// drawn at its share into the renderer's own buffer, is upscaled onto it by UP_FS. Off, the canvas is the picture, as before.
+// drawn at its share into the renderer's own buffer, is upscaled onto it by UP_FS. Off, the picture is drawn at the canvas's size.
 
 globalThis.ResizeObserver ??= class { observe() {} };
 globalThis.MutationObserver ??= class { observe() {} };
@@ -35,10 +35,7 @@ function fakeGL() {
   });
   return { gl, calls };
 }
-// (Written for the canvas that keeps its own picture: pinned to ?vesselbuf=keep. The kept-picture default is covered by veins-own-buffer.test.js.)
-globalThis.location = { search: '?vesselbuf=keep' };
 const mod = await import('../src/ui/veins-gl.js');
-delete globalThis.location;
 function renderer() {
   const f = fakeGL();
   const canvas = { width: 800, height: 600, getContext: () => f.gl, addEventListener() {}, removeEventListener() {}, toDataURL: () => 'data:' };
@@ -49,12 +46,13 @@ function renderer() {
   return { g, f, canvas, look };
 }
 const binds = (f, n0) => f.calls.slice(n0).filter((c) => c[0] === 'bindFramebuffer');
-const viewports = (f, n0) => f.calls.slice(n0).filter((c) => c[0] === 'viewport').map((c) => c.slice(1));
+// (Leaving out the one-pixel draw that warms a present's shader the first time, gl-compile.js exerciseDraw.)
+const viewports = (f, n0) => f.calls.slice(n0).filter((c) => c[0] === 'viewport' && !(c[3] === 1 && c[4] === 1)).map((c) => c.slice(1));
 // (A pass at the picture's size, or into the vessel layer at its own: since 31 Oct the layer is as large as the figure where that is
 // less than the picture, here 64 px steps across the two vessels' cells.)
 const at = (g, [x, y, w, h], W, H) => x === 0 && y === 0 && ((w === W && h === H) || (w === g.layerLayout.size[0] && h === g.layerLayout.size[1]));
 
-test('off: no buffer of its own, the picture drawn on the canvas at its size, nothing copied or upscaled', () => {
+test('off: the picture drawn on the canvas at its size, nothing copied or upscaled', () => {
   const { g, f, look } = renderer();
   const n0 = f.calls.length;
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
@@ -93,14 +91,15 @@ test('on: every pass at the picture\'s size into its own buffer, then one pass o
   assert.deepEqual(viewports(f, n2), [[0, 0, 800, 600]]);
 });
 
-test('off again: the buffer is given back and the picture goes on the canvas directly', () => {
+test('off again: the kept picture stays (the canvas keeps none of its own) and the picture goes on the canvas directly', () => {
   const { g, f, look } = renderer();
   g.setPicture([400, 300]);
   g.draw([0.5, 0, 0, 0.5, 0, 0], look, { on: false });
   const n0 = f.calls.length;
   g.setPicture(null);
   const del = f.calls.slice(n0).map((c) => c[0]);
-  assert.ok(del.includes('deleteTexture') && del.includes('deleteFramebuffer'));
+  assert.ok(!del.includes('deleteTexture') && !del.includes('deleteFramebuffer'));
+  assert.deepEqual(g.picSize(), [800, 600]);
   const n1 = f.calls.length;
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
   assert.ok(viewports(f, n1).every((v) => at(g, v, 800, 600)));

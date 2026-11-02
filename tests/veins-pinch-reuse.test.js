@@ -26,7 +26,7 @@ function fakeGL() {
         if (k === 'getProgramParameter') return a[1] === gl.ACTIVE_UNIFORMS ? 0 : true;
         if (k === 'getExtension') return null;
         if (k === 'getParameter') return 'stand-in';
-        if (k === 'getContextAttributes') return { stencil: true };
+        if (k === 'getContextAttributes') return { stencil: false };   // (as the stage's canvas is made: the kept picture has the stencil)
         if (k.startsWith('create')) return { obj: nextObj++, kind: k };
         return undefined;
       };
@@ -34,10 +34,7 @@ function fakeGL() {
   });
   return { gl, calls };
 }
-// (Written for the canvas that keeps its own picture: pinned to ?vesselbuf=keep. The kept-picture default is covered by veins-own-buffer.test.js.)
-globalThis.location = { search: '?vesselbuf=keep' };
 const mod = await import('../src/ui/veins-gl.js');
-delete globalThis.location;
 function renderer() {
   const f = fakeGL();
   const canvas = { width: 800, height: 600, getContext: () => f.gl, addEventListener() {}, removeEventListener() {}, toDataURL: () => 'data:' };
@@ -61,7 +58,16 @@ function frames(g, f, look, ms) {
   }
   return out;
 }
-const blitsIn = (f, n0) => f.calls.slice(n0).filter((c) => c[0] === 'blitFramebuffer').length;
+// (Copies other than the kept picture laid onto the canvas (null), which follows every picture drawn into it.)
+const blitsIn = (f, n0) => {
+  let draw = null;
+  const out = [];
+  for (const c of f.calls.slice(n0)) {
+    if (c[0] === 'bindFramebuffer' && (c[1] === f.gl.FRAMEBUFFER || c[1] === f.gl.DRAW_FRAMEBUFFER)) draw = c[2];
+    if (c[0] === 'blitFramebuffer' && draw !== null) out.push(c);
+  }
+  return out.length;
+};
 const pinch = (from, step, n) => Array.from({ length: n }, (_, i) => zoomAt(from * step ** (i + 1)));
 
 test('off: every zoom frame is shaded, and nothing is kept', () => {

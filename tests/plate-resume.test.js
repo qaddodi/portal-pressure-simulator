@@ -89,7 +89,7 @@ test('a fluid level that moves composites only the pool, from above the higher l
   assert.match(src, /if \(ascShown !== ascTarget\) \{\n\s+fluidFrom \?\?= fluidH;/, 'the level before the step, for a drain');
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   // The cavity's rect from `top` down, a cell's margin round it; drawn whole once, by the next composite that is not whole anyway.
-  assert.match(gl, /for \(let y = Math\.max\(y0, top\) - CELL; y < y0 \+ h \+ CELL; y \+= CELL\) for \(let x = x0 - CELL; x < x0 \+ w \+ CELL; x \+= CELL\) cells\.push\(x, y\);/);
+  assert.match(gl, /for \(let y = Math\.max\(y0, top\) - CELL; y < y0 \+ h \+ CELL; y \+= CELL\) for \(let x = x0 - CELL; x < x0 \+ w \+ CELL; x \+= CELL\) cellList\.push\(x, y\);\n\s+nPool = cellList\.send\(poolBuf\);/);
   assert.match(gl, /const pool = full \? 0 : nPool;\n\s+nPool = 0;\n\s+if \(!full && !nCells && !\(fl\?\.ripple && nFluid\) && !pool && !dirt && !cath\) return;/);
   assert.match(gl, /if \(pool\) \{ gl\.bindVertexArray\(poolVAO\); gl\.drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, pool\); \}/);
 });

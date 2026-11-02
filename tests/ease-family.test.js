@@ -60,6 +60,7 @@ test('stage and lobule glides run on the quintic; scaled glides take their reach
   assert.match(stage, /animateVT\(to, ms, \{ arc: true, steady: !!opt\.steady, scale: !opt\.steady \}\)/);
   assert.match(stage, /animateVT\(to, ms, opt\.steady \? \{ steady: true \} : \{ scale: true \}\); \},/);
   assert.match(stage, /animateVT\(\{ \.\.\.to \}, ms, \{ scale: true \}\); \},/);
-  assert.match(lob, /e = ease === 'in' \? u \* u : CAM_M2 \? easeMove\(u\) : u < 0\.5 \? 2 \* u \* u : 1 - \(-2 \* u \+ 2\) \*\* 2 \/ 2;/);
-  assert.match(lob, /const CAM_M2 = !\(typeof location !== 'undefined' && \/\[\?&\]camease=0\\b\/\.test\(location\.search\)\);/);
+  assert.match(lob, /e = ease === 'in' \? u \* u : easeMove\(u\);/);
+  assert.match(lob, /const c0 = v0 \? carryRate\(v0, from, to, Math\.max\(1, snap\.w\)\) \* ms : 0;/);
+  assert.doesNotMatch(lob, /CAM_M2|camease/);
 });

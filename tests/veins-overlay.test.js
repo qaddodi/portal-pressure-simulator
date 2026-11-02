@@ -36,13 +36,13 @@ function fakeGL() {
   return { gl, calls };
 }
 const mod = await import('../src/ui/veins-gl.js');
-globalThis.location = { search: '?vesselbuf=keep' };
-const keep = await import('../src/ui/veins-gl.js?keep');
+globalThis.location = { search: '?lzone=0' };
+const apart = await import('../src/ui/veins-gl.js?lzone');
 delete globalThis.location;
-function renderer(m = mod) {
+function renderer(m = mod, who = 'stage') {
   const f = fakeGL();
   const canvas = { width: 800, height: 600, getContext: () => f.gl, addEventListener() {}, removeEventListener() {}, toDataURL: () => 'data:' };
-  const g = m.createVeinsGL(canvas, { tubes: 4, force: true });
+  const g = m.createVeinsGL(canvas, { tubes: 4, force: true, who });
   const line = (y) => Array.from({ length: m.N_SAMPLES }, (_, i) => [40 + i * 10, y]);
   g.setGeometry(m.binVeins([{ id: 0, pts: line(100), reach: 30 }, { id: 1, pts: line(300), reach: 30 }], []));
   const look = { shOff: [0, 0], light: [0, -1], reach: 11, organs: 0, casing: [0, 0, 0, 1], shadow: [0, 0, 0, 0], sheen: [1, 1, 1, 0], shade: [0, 0, 0, 0], ring: [0, 0, 0, 0], netAlpha: 1, fx: true, tierAlpha: Array(m.MAX_TIERS).fill(1), tierGroup: Array(m.MAX_TIERS).fill(1) };
@@ -50,18 +50,17 @@ function renderer(m = mod) {
 }
 const blits = (f, n0) => f.calls.slice(n0).filter((c) => c[0] === 'blitFramebuffer');
 
-test('the overlays need the kept picture: none with ?vesselbuf=keep', () => {
+test('the overlays need the kept picture: none on a canvas that keeps its own (the lobule\'s, with ?lzone=0)', () => {
   assert.ok(renderer().g.overlay, 'by default');
-  assert.equal(renderer(keep).g.overlay, null);
+  assert.equal(renderer(apart, 'lobule').g.overlay, null);
 });
 
 test('the plain upscale: the picture copied onto the whole canvas, filtered; at the canvas\'s size, copied as it is', () => {
-  // (The kept picture's own path: ?direct=0. By default a whole picture is drawn straight onto the canvas: veins-own-buffer.test.js.)
-  const was = globalThis.location; globalThis.location = { search: '?direct=0' };
-  try {
+  // (A whole picture is drawn straight onto the canvas (veins-own-buffer.test.js); the blood's frame after it goes through the kept picture.)
   const { g, f, look } = renderer();
-  let n0 = f.calls.length;
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+  let n0 = f.calls.length;
+  g.composite(look, { on: true });
   assert.deepEqual(blits(f, n0).at(-1).slice(1), [0, 0, 800, 600, 0, 0, 800, 600, f.gl.COLOR_BUFFER_BIT, f.gl.NEAREST]);
   g.setPicture([400, 300], true);
   n0 = f.calls.length;
@@ -72,15 +71,13 @@ test('the plain upscale: the picture copied onto the whole canvas, filtered; at 
   n0 = f.calls.length;
   g.draw([0.5, 0, 0, 0.5, 0, 0], look, { on: false });
   assert.equal(blits(f, n0).length, 0);
-  } finally { globalThis.location = was; }
 });
 
 test('nothing laid with no overlays; set with groups, their stack is drawn at the canvas\'s size and laid at each present', () => {
-  // (The kept picture's own path: ?direct=0. By default a whole picture is drawn straight onto the canvas: veins-own-buffer.test.js.)
-  const was = globalThis.location; globalThis.location = { search: '?direct=0' };
-  try {
+  // (The blood's frame after the whole picture goes through the kept picture: each present then copies it.)
   const { g, f, look } = renderer();
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+  g.composite(look, { on: true });
   g.overlay.set(new Map(), []);
   assert.equal(g.overlay.shown, false);
   assert.equal(g.overlay.stale, false);
@@ -107,5 +104,4 @@ test('nothing laid with no overlays; set with groups, their stack is drawn at th
   g.setPicture([400, 300], true);
   g.draw([0.5, 0, 0, 0.5, 3, 4], look, { on: false });
   assert.equal(g.overlay.stale, false, 'drawn with it');
-  } finally { globalThis.location = was; }
 });
