@@ -1453,6 +1453,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .timeline .tl-restart { width: 32px; height: 32px; color: var(--text-2); flex: none; }
 .timeline .tl-restart :is(svg, .ic) { width: var(--ic-m); height: var(--ic-m); }
 /* "Now": a small passive dot on the progress line (it is not a scrubber; the markers are the way back). */
+.tl-gpu > .tl-t-long, .tl-gpu > .tl-t-short { visibility: hidden; }   /* (a jump's day count drawn on the GPU over them, timeline.js) */
+.tl-day-gl { fill: currentColor; }
 .tl-time { flex: none; min-width: 64px; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
 .tl-jumps { display: flex; align-items: center; gap: 2px; flex: none; }
 .tl-pin { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); color: var(--text); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }

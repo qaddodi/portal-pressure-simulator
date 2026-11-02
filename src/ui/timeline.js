@@ -17,6 +17,9 @@ import { activeInterventions } from './inspector.js?v=aee69b6a2c';
 import { removedLabel } from './removed-label.js?v=ea3de67900';
 import { frameFor } from './frame.js?v=7710f677e2';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
+import { createSvgGL, svgModel } from './svg-gl.js?v=665756452b';
+import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js?v=8db702aacd';
+import { restPass } from './rest-pass.js?v=bf0c42ead5';
 const nextFrame = frameFor('timeline');
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
@@ -68,6 +71,44 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
   // The full clock, and a short one (just the day) for a phone's play bar.
   const timeLong = h('span', { class: 'tl-t-long' }, '0:00'), timeShort = h('span', { class: 'tl-t-short', 'aria-hidden': 'true' }, '0:00');
   const timeEl = h('span', { class: 'tl-time', 'aria-live': 'off' }, timeLong, timeShort);
+  // A jump's day count (900 ms, a new number most frames) is drawn on the GPU, over the clock (2 Nov 2026, "Move everything to GPU"):
+  // Inter's own outlines with its tabular figures (text-gl.js), at the clock's size, weight, colour and place, filled by the charts'
+  // painter (svg-gl.js), so no frame of it writes a word into the page. The clock's own words wait, hidden, and take the last day as
+  // the count lands, between frames. ?daygl=0 counts in the page, as before.
+  const DAY_GL = !/[?&]daygl=0\b/.test(location.search);
+  if (DAY_GL) loadGlyphs();
+  let dayGL = null, dayPath = null, dayAt = null;
+  const dayD = (t) => {
+    const { size, weight, x, y, align } = dayAt, w = textBox(t, 0, 0, { weight, size, tnum: true }).width;
+    const x0 = align === 'end' ? x - w : align === 'middle' ? x - w / 2 : x;
+    return textPolys(t, x0, y, { weight, size, tnum: true }).polys
+      .map(({ pts, closed }) => { let d = ''; for (let i = 0; i < pts.length; i += 2) d += `${i ? 'L' : 'M'}${pts[i].toFixed(2)} ${pts[i + 1].toFixed(2)}`; return closed ? d + 'Z' : d; }).join('');
+  };
+  // (The count landed: the clock's own words take its last day between frames, and the picture goes.)
+  function dayLand() { if (dayEnd !== dayTok) return;   // (a newer jump's count is under way: it lands itself)
+    timeLong.textContent = timeShort.textContent = shownDay; timeEl.classList.remove('tl-gpu'); dayGL.clear(); jumping = false; }
+  let shownDay = '', dayTok = 0, dayEnd = -1;
+  // (The clock's own words take the last day at once, hidden, so the clock is laid out once, at the width it lands at, and the count is
+  // drawn in that place: nothing beside it moves again as it lands. Where its words stand is read here, in the task that starts the jump,
+  // never in a frame.)
+  function dayStart(t, last) {
+    if (!DAY_GL || !glyphsReady()) return false;
+    timeLong.textContent = timeShort.textContent = last;
+    timeEl.classList.add('tl-gpu');
+    const vis = [timeLong, timeShort].find((e) => e.getClientRects().length);
+    if (!vis) return false;
+    const cs = getComputedStyle(vis), size = parseFloat(cs.fontSize) || 12, weight = parseFloat(cs.fontWeight) || 600;
+    const b = timeEl.getBoundingClientRect(), r = vis.getBoundingClientRect(), k = devicePixelRatio || 1;
+    if (!(b.width > 0 && b.height > 0)) { timeEl.classList.remove('tl-gpu'); return false; }
+    const ta = getComputedStyle(timeEl).textAlign, align = /right|end/.test(ta) ? 'end' : ta === 'center' ? 'middle' : 'start';
+    const asc = -textBox('0', 0, 0, { weight, size, k }).y;   // (the baseline under the box's top, rounded as the browser rounds it)
+    dayAt = { size, weight, y: r.top - b.top + asc, x: align === 'end' ? r.right - b.left : align === 'middle' ? (r.left + r.right) / 2 - b.left : r.left - b.left, align };
+    if (!dayGL) { dayGL = createSvgGL(timeEl); dayGL.cv.setAttribute('aria-hidden', 'true'); dayGL.cv.removeAttribute('role'); }
+    dayPath = svgModel('path', { class: 'tl-day-gl', d: dayD(t) });
+    dayGL.show(svgModel('svg', { viewBox: `0 0 ${b.width} ${b.height}`, preserveAspectRatio: 'none' }, dayPath), false);
+    dayTok++;
+    return true;
+  }
   const histCount = h('span', { class: 'tl-hc' });
   const histBtn = h('button', { class: 'tl-hist', 'aria-haspopup': 'dialog', 'aria-label': 'History', title: 'History: every change and event, with a way back to each' }, svgIcon('clock', 'mi-ic'), h('span', { class: 'tl-hl' }, 'History'), histCount);
   histBtn.addEventListener('click', (e) => openHistory(e.currentTarget));
@@ -169,12 +210,17 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     onJump(days);
     jumping = true;
     const t0 = performance.now();
+    const dayOf = (u) => `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
+    const gpu = days !== 'event' && dayStart(shownDay = dayOf(0), dayOf(1));
     const tick = (now) => {
       const u = clamp((now - t0) / 900, 0, 1);
-      // (Written only when the day shown changes: most frames of the count keep it.)
-      const t = `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
-      if (days !== 'event' && (timeLong.textContent !== t || timeShort.textContent !== t)) timeLong.textContent = timeShort.textContent = t;
-      if (u < 1) nextFrame(tick); else jumping = false;
+      // (Drawn again only when the day shown changes: most frames of the count keep it.)
+      const t = dayOf(u);
+      if (gpu && t !== shownDay) { shownDay = t; dayPath.setAttribute('d', dayD(t)); dayGL.paint(); }
+      else if (!gpu && days !== 'event' && (timeLong.textContent !== t || timeShort.textContent !== t)) timeLong.textContent = timeShort.textContent = t;
+      if (u < 1) nextFrame(tick);
+      else if (gpu) { dayEnd = dayTok; restPass(dayLand); }
+      else jumping = false;
     };
     nextFrame(tick);
     const e = push({ kind: 'jump', label: days === 'event' ? 'Ran until the next event' : `+${long}` });
