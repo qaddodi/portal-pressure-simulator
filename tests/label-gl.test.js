@@ -200,12 +200,12 @@ test('batches split only where the page changes, keeping painter order', async (
 });
 
 test('labels draw as one instanced batch from the atlas, texel for texel', () => {
-  assert.match(LGL, /drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, run\.to - run\.from\)/);
+  assert.match(LGL, /drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, to - from\)/);
   assert.match(LGL, /texelFetch\(uT, q, 0\) \* vT\.z/);
   assert.match(LGL, /paintSlot\(st\.slot, lay, blockOps\(d, lay\)\);/, 'each picture drawn by the GPU into its atlas place');
   assert.match(LGL, /gl\.copyTexSubImage2D\(gl\.TEXTURE_2D, 0, slot\.x, slot\.y, 0, 0, lay\.w, lay\.h\);/);
   assert.doesNotMatch(LGL, /texSubImage2D\(|getContext\('2d'\)|measureText|fillText|strokeText/, 'no picture painted on a 2D canvas or uploaded');
-  assert.match(LGL, /for \(const run of batchRuns\(items\)\)/);
+  assert.match(LGL, /for \(to = from \+ 1; to < ni && ITEMS\[to\]\.page === page; to\+\+\);/, 'one draw per run of pictures on a page (atlas-pack batchRuns, inline)');
   assert.match(LGL, /maxPages: 2/);
 });
 
@@ -222,10 +222,10 @@ test('the labels stay on their own canvas; what they drew is told to the glass d
   assert.match(VG, /snapshot\(\) \{ present\(false\); const url = canvas\.toDataURL\('image\/png'\); if \(tops\.length\) present\(\); return url; \}/);
   // (Every box a picture drew: each label's, each mark's, the probes'; a change tells the stage, which wakes the glasses.)
   assert.match(LGL, /boxAt\(x, y, x \+ st\.w, y \+ st\.h\);/);
-  assert.match(LGL, /boxAt\(\.\.\.box\);/);
+  assert.match(LGL, /boxAt\(box\[0\], box\[1\], box\[2\], box\[3\]\);/);
   assert.match(LGL, /probeBox\(4 \* dpr\);/);
   assert.match(LGL, /boxAt\(\(px - 170\) \* dpr, \(py - 170\) \* dpr, \(px \+ 170\) \* dpr, \(py \+ 170\) \* dpr\);/);
-  assert.match(LGL, /if \(key !== boxKey\) \{ boxKey = key; try \{ onBoxes\?\.\(\); \}/);
+  assert.match(LGL, /if \(settleBoxes\(\)\) \{ try \{ onBoxes\?\.\(\); \}/);
   assert.match(STAGE, /marks: \[gLeaders, gScan\], onBoxes: frostWake \}\);/);
 });
 
@@ -257,12 +257,12 @@ test('a ticking value keeps its picture\'s size and place; a wider one gets a bi
 // (Laptop-heat, 31 Oct: the label canvas covers the whole stage and was put together with the figure on every frame the blood moved, even
 // when it held nothing. With no label, mark or probe drawn it is hidden; the first thing drawn back shows it in the same task.)
 test('a label canvas that drew nothing is hidden, and shows again in the task that draws something', () => {
-  assert.match(LGL, /if \(!host\) \{ const empty = boxes\.length === 0; if \(empty !== blank\) \{ blank = empty; canvas\.toggleAttribute\('data-blank', empty\); \} \}/);
-  assert.match(LGL, /let boxes = \[\], boxKey = '', blank = false;/);
+  assert.match(LGL, /if \(!host\) \{ const empty = nb === 0; if \(empty !== blank\) \{ blank = empty; canvas\.toggleAttribute\('data-blank', empty\); \} \}/);
+  assert.match(LGL, /let boxes = \[\], blank = false;/);
   assert.match(CSS, /\.stage-view > canvas#labelGl\[data-blank\] \{ visibility: hidden; \}/);
   // (Everything the canvas draws has a box: labels, marks, the probes.)
   assert.equal((LGL.match(/boxAt\(/g) || []).length >= 5, true);
   // (The toggle comes after the last draw call and the boxes' key, in the same draw.)
   const at = LGL.indexOf('canvas.toggleAttribute(\'data-blank\'');
-  assert.ok(at > LGL.indexOf('drawScan(now)') && at > LGL.indexOf('boxKey = key'));
+  assert.ok(at > LGL.indexOf('drawScan(now)') && at > LGL.indexOf('settleBoxes()'));
 });

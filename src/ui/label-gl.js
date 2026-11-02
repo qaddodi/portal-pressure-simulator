@@ -17,7 +17,7 @@ import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { ucOf } from './uniform-cache.js?v=6488216aa0';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=6329c6ef1f';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=79231d7c6b';
-import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
+import { createAtlasPacker } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
 import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=23dcebba43';
 import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=ebb6deb625';
@@ -558,8 +558,38 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (What the last picture drew, as boxes [left, top, right, bottom] in CSS px from the canvas's corner: each label's picture, each mark's,
   // the probes'. The figure's frosted glass is drawn under this canvas, so it is drawn only where it crosses none of them (stage.js
   // frostOver); onBoxes() is told when they change.)
-  let boxes = [], boxKey = '', blank = false;
-  const boxAt = (x0, y0, x1, y1) => boxes.push([x0 / dpr, y0 / dpr, x1 / dpr, y1 / dpr]);
+  // (Written into BX as each is drawn (four numbers a box), and compared with the frame before's BP: `boxes` is a new array only when one
+  // changed, so what keys on its identity keeps its picture while the labels stand still. BK holds the whole pixels onBoxes is told by.)
+  let boxes = [], blank = false;
+  let BX = new Float64Array(256), BP = new Float64Array(256), BK = new Int32Array(256), nb = 0, npb = 0, nbk = 0;
+  const BOXP = [];   // the box arrays handed out, kept to fill again
+  function growBoxes() {
+    // alloc-rare: only when a frame has more boxes than any before it (doubling)
+    const n = BX.length * 2, a = new Float64Array(n), b = new Float64Array(n), k = new Int32Array(n);
+    a.set(BX); b.set(BP); k.set(BK);
+    BX = a; BP = b; BK = k;
+  }
+  const boxAt = (x0, y0, x1, y1) => {
+    if (nb + 4 > BX.length) growBoxes();
+    BX[nb] = x0 / dpr; BX[nb + 1] = y0 / dpr; BX[nb + 2] = x1 / dpr; BX[nb + 3] = y1 / dpr; nb += 4;
+  };
+  // Every box of this frame drawn: the same array as last frame's when none moved, else a new one; says whether onBoxes is owed (a box
+  // changed by a whole pixel).
+  function settleBoxes() {
+    let same = nb === npb;
+    for (let i = 0; same && i < nb; i++) if (BX[i] !== BP[i]) same = false;
+    if (!same) {
+      const n = nb >> 2;
+      while (BOXP.length < n) BOXP.push([0, 0, 0, 0]);   // alloc-rare: one array per box the most there ever were
+      for (let i = 0; i < n; i++) { const b = BOXP[i], o = i << 2; b[0] = BX[o]; b[1] = BX[o + 1]; b[2] = BX[o + 2]; b[3] = BX[o + 3]; }
+      boxes = BOXP.slice(0, n);   // alloc-rare: a new array for a new picture, only in a frame where a box changed
+      BP.set(BX.subarray(0, nb)); npb = nb;
+    }
+    let pix = nb !== nbk;
+    for (let i = 0; i < nb; i++) { const v = (i & 2) ? Math.ceil(BX[i]) : Math.floor(BX[i]); if (BK[i] !== v) { BK[i] = v; pix = true; } }
+    nbk = nb;
+    return pix;
+  }
   const sprites = new WeakMap();   // group → { key, tex, ox, oy, w, h }
   // ── Styles, read off the frame (1 Nov 2026: no layout or style read in a frame) ──
   // A label's or mark's computed style is kept by what decides it: each element's tag, classes, inline style and attributes, up to the
@@ -738,7 +768,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       pageTex.length = 0; needRepack = false; packer.reset(); outgoing = []; glides.clear(); rideFrom = null;
       holeMasks = new WeakMap(); holeShape = null; picPaint = null; headSp = null; sHeadSp = null; slotTex = null;
       for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
-      pReadSoon(); sReadSoon(); allMarks(); boxKey = '';
+      pReadSoon(); sReadSoon(); allMarks(); nbk = -1;
       lost = false;
       ask();
     });
@@ -890,20 +920,30 @@ void main() { o = texture(uT, vUV) * uA; }`;
       gl.bindTexture(gl.TEXTURE_2D, was);
     }, 120);
   }
+  // (This frame's pictures, in painter order: records kept and written again each frame, with the count; and a scratch box.)
+  const ITEMS = [], SBOX = new Float64Array(4);
+  let ni = 0;
+  function takeItem(page, x, y, w, h, ax, ay, a, st) {
+    const it = ITEMS[ni] || (ITEMS[ni] = { page: 0, x: 0, y: 0, w: 0, h: 0, ax: 0, ay: 0, a: 0, st: null });   // alloc-rare: one record per picture the most there ever were
+    it.page = page; it.x = x; it.y = y; it.w = w; it.h = h; it.ax = ax; it.ay = ay; it.a = a; it.st = st;
+    ni++;
+  }
   // A drop shadow of a label's rect (kind 8), its centre at (x, y) device px; its reach is three standard deviations.
   function shadowBox(x, y, sh, a) {
-    const m = sh.sig * 3 + 1, box = [x - sh.hw - m, y - sh.hh - m, x + sh.hw + m, y + sh.hh + m];
+    const m = sh.sig * 3 + 1, box = SBOX;
+    box[0] = x - sh.hw - m; box[1] = y - sh.hh - m; box[2] = x + sh.hw + m; box[3] = y + sh.hh + m;
     if (box[0] > W || box[1] > H || box[2] < 0 || box[3] < 0) return;
-    boxAt(...box);
+    boxAt(box[0], box[1], box[2], box[3]);
     ucOf(gl).f4a(MU.uBox, box); ucOf(gl).f4(MU.uGeo, x, y, sh.hw, sh.hh); ucOf(gl).f1(MU.uW, sh.r);
     ucOf(gl).f2(MU.uDash, sh.sig, 0); ucOf(gl).f4a(MU.uFill, sh.col); ucOf(gl).f1(MU.uA, Math.min(1, a));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
   // A keyboard focus's ring (kind 9) over the label's picture at (x, y) device px.
   function ringDraw(x, y, r, a) {
-    const m = r.w / 2 + 1, box = [x + r.x0 - m, y + r.y0 - m, x + r.x1 + m, y + r.y1 + m];
+    const m = r.w / 2 + 1, box = SBOX;
+    box[0] = x + r.x0 - m; box[1] = y + r.y0 - m; box[2] = x + r.x1 + m; box[3] = y + r.y1 + m;
     if (box[0] > W || box[1] > H || box[2] < 0 || box[3] < 0) return;
-    boxAt(...box);
+    boxAt(box[0], box[1], box[2], box[3]);
     ucOf(gl).f4a(MU.uBox, box); ucOf(gl).f4(MU.uGeo, x + r.x0, y + r.y0, x + r.x1, y + r.y1); ucOf(gl).f1(MU.uW, r.w);
     ucOf(gl).f4a(MU.uStroke, r.col); ucOf(gl).f1(MU.uA, Math.min(1, a));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -917,7 +957,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (released) { released = false; for (const s of last) dirty.add(s.g); allMarks(); pReadSoon(); sReadSoon(); }
     }
     svgLeft.clear();
-    boxes = [];
+    nb = 0;
     const now = performance.now();
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, W, H);
@@ -928,19 +968,20 @@ void main() { o = texture(uT, vUV) * uA; }`;
     let moving = drawProbe(now);
     moving = drawMarks(now) || moving;
     // (Every label's box and atlas place, in painter order; drawn below as one batch per run of pictures on a page.)
-    const items = [];
+    ni = 0;
     // (The labels gone at a ride's landing first, under the rest, fading out where they rode; their pictures given back once faded.)
     if (outgoing.length) {
-      const keep = [];
-      for (const o of outgoing) {
+      let kept = 0;
+      for (let i = 0; i < outgoing.length; i++) {
+        const o = outgoing[i];
         const u = easeMove(Math.min(1, (now - o.t0) / RIDE_MS));
         if (u >= 1 || !o.st.slot) { if (o.st.slot) packer.free(o.st.slot); continue; }
-        keep.push(o); moving = true;
+        outgoing[kept++] = o; moving = true;
         if (o.x > W || o.y > H || o.x + o.st.w < 0 || o.y + o.st.h < 0) continue;
-        items.push({ page: o.st.slot.page, x: o.x, y: o.y, w: o.st.w, h: o.st.h, ax: o.st.slot.x, ay: o.st.slot.y, a: o.a * (1 - u), st: o.st });
+        takeItem(o.st.slot.page, o.x, o.y, o.st.w, o.st.h, o.st.slot.x, o.st.slot.y, o.a * (1 - u), o.st);
         boxAt(o.x, o.y, o.x + o.st.w, o.y + o.st.h);
       }
-      outgoing = keep;
+      outgoing.length = kept;
     }
     for (const s of last) {
       const { g } = s, rot = !!s.rot;
@@ -995,33 +1036,39 @@ void main() { o = texture(uT, vUV) * uA; }`;
       }
       st.dx = x; st.dy = y; st.drawn = now;
       if (x > W || y > H || x + st.w < 0 || y + st.h < 0) continue;
-      items.push({ page: st.slot.page, x, y, w: st.w, h: st.h, ax: st.slot.x, ay: st.slot.y, a, st });
+      takeItem(st.slot.page, x, y, st.w, st.h, st.slot.x, st.slot.y, a, st);
       boxAt(x, y, x + st.w, y + st.h);
     }
     // (Under the pictures, their rects' drop shadows; over them, a keyboard focus's ring: shapes the GPU draws, not pixels in the pictures.)
-    if (items.some((it) => it.st?.shadows?.length)) {
+    let anyShadow = false, anyRing = false;
+    for (let i = 0; i < ni; i++) { const q = ITEMS[i].st; if (q?.shadows?.length) anyShadow = true; if (q?.ring) anyRing = true; }
+    if (anyShadow) {
       gl.useProgram(mprog); ucOf(gl).f2(MU.uView, W, H); ucOf(gl).i1(MU.uKind, 8);
-      for (const it of items) for (const sh of it.st?.shadows || []) shadowBox(it.x + sh.cx, it.y + sh.cy, sh, it.a);
+      for (let i = 0; i < ni; i++) { const it = ITEMS[i], sw = it.st?.shadows; if (sw) for (let j = 0; j < sw.length; j++) shadowBox(it.x + sw[j].cx, it.y + sw[j].cy, sw[j], it.a); }
     }
-    if (items.length) {
-      if (inst.length < items.length * 8) inst = new Float32Array(Math.max(items.length * 8, inst.length * 2));
-      items.forEach((it, i) => inst.set([it.x, it.y, it.w, it.h, it.ax, it.ay, it.a, 0], i * 8));
+    if (ni) {
+      if (inst.length < ni * 8) inst = new Float32Array(Math.max(ni * 8, inst.length * 2));   // alloc-rare: only when there are more pictures than ever before (doubling)
+      for (let i = 0; i < ni; i++) { const it = ITEMS[i], o = i * 8; inst[o] = it.x; inst[o + 1] = it.y; inst[o + 2] = it.w; inst[o + 3] = it.h; inst[o + 4] = it.ax; inst[o + 5] = it.ay; inst[o + 6] = it.a; inst[o + 7] = 0; }
       gl.useProgram(aprog); gl.bindVertexArray(avao);
       ucOf(gl).f2(AU.uView, W, H); ucOf(gl).i1(AU.uT, 0);
       gl.bindBuffer(gl.ARRAY_BUFFER, abuf);
-      gl.bufferData(gl.ARRAY_BUFFER, inst.subarray(0, items.length * 8), gl.DYNAMIC_DRAW);
-      for (const run of batchRuns(items)) {
-        gl.bindTexture(gl.TEXTURE_2D, pageOf(run.page));
+      gl.bufferData(gl.ARRAY_BUFFER, inst, gl.DYNAMIC_DRAW, 0, ni * 8);
+      // (Consecutive pictures on one page are one draw: a run ends where the page changes.)
+      for (let from = 0, to; from < ni; from = to) {
+        const page = ITEMS[from].page;
+        for (to = from + 1; to < ni && ITEMS[to].page === page; to++);
+        gl.bindTexture(gl.TEXTURE_2D, pageOf(page));
         // (WebGL2 has no first-instance argument: the run's start is the attributes' byte offset.)
-        gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 32, run.from * 32); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 32, run.from * 32 + 16);
-        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.to - run.from);
+        gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 32, from * 32); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 32, from * 32 + 16);
+        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, to - from);
       }
       gl.bindVertexArray(vao);
     }
-    if (items.some((it) => it.st?.ring)) {
+    if (anyRing) {
       gl.useProgram(mprog); ucOf(gl).f2(MU.uView, W, H); ucOf(gl).i1(MU.uKind, 9);
-      for (const it of items) if (it.st?.ring) ringDraw(it.x, it.y, it.st.ring, it.a);
+      for (let i = 0; i < ni; i++) { const it = ITEMS[i]; if (it.st?.ring) ringDraw(it.x, it.y, it.st.ring, it.a); }
     }
+    for (let i = 0; i < ni; i++) ITEMS[i].st = null;   // (the pictures are not held past the frame)
     dirty.clear();
     moving = drawScan(now) || moving;   // (the FibroScan probe over the labels, as its layer lay)
     if (!host && holes.length) cutHoles();
@@ -1035,12 +1082,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
     // picture that needs it, once the first is more than half full.)
     if (needRepack && !moving) repack();
     if (!moving && !pageTex[1] && packer.maxPages > 1 && packer.used > packer.size * packer.size * 0.5) reserve();
-    let key = '';
-    for (const b of boxes) key += `${Math.floor(b[0])},${Math.floor(b[1])},${Math.ceil(b[2])},${Math.ceil(b[3])};`;
-    if (key !== boxKey) { boxKey = key; try { onBoxes?.(); } catch (e) { caught('label-gl:1031', e); /* (a listener's failure is not the labels') */ } }
+    if (settleBoxes()) { try { onBoxes?.(); } catch (e) { caught('label-gl:1031', e); /* (a listener's failure is not the labels') */ } }
     // (Nothing drawn at all (every label, mark and probe has a box): the canvas is hidden, so the compositor does not blend a full-stage layer of
     // nothing over the figure on every frame the blood moves. It shows again in the task that draws the first thing back. app.css [data-blank].)
-    if (!host) { const empty = boxes.length === 0; if (empty !== blank) { blank = empty; canvas.toggleAttribute('data-blank', empty); } }
+    if (!host) { const empty = nb === 0; if (empty !== blank) { blank = empty; canvas.toggleAttribute('data-blank', empty); } }
     if (moving) ask();
   }
   // ── Holes (1 Nov 2026): the frosted glasses drawn in the figure's canvas, under this one (glass-gl.js onHoles) ──
@@ -1177,6 +1222,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (lk.trk.paint) for (const q of lk.trk.paint.pairs) { const c = mixColour(q.from, q.to, v.w); out[q.prop] = none(c) ? null : rgba(c); }
     return out;
   };
+  const markGeo = new WeakMap(), MGEO = new Float64Array(4), MBOX = new Float64Array(4), CLEAR = new Float64Array(4);
   function drawMarks(now) {
     let moving = false;
     if (!marks.length) return false;
@@ -1190,8 +1236,16 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (markLive.has(el)) moving = true;
         let geo = null;
         if (st) {
-          if (el.tagName === 'path') { const q = lineOf(el.getAttribute('d')); geo = q && q.map((v) => v * dpr); }
-          else geo = [NUM(el.getAttribute('cx')) * dpr, NUM(el.getAttribute('cy')) * dpr, NUM(el.getAttribute('r')) * dpr, 0];
+          // (A leader's line is parsed when its path changes, a dot's centre when its attributes do: kept on the mark, scaled into a scratch.)
+          const isPath = el.tagName === 'path';
+          const a0 = el.getAttribute(isPath ? 'd' : 'cx'), a1 = isPath ? '' : el.getAttribute('cy'), a2 = isPath ? '' : el.getAttribute('r');
+          let mg = markGeo.get(el);
+          if (!mg || mg.a0 !== a0 || mg.a1 !== a1 || mg.a2 !== a2) {
+            // alloc-rare: only when the mark's own path or centre is written, which the layout does at rest
+            mg = { a0, a1, a2, v: isPath ? lineOf(a0) : [NUM(a0), NUM(a1), NUM(a2), 0] };
+            markGeo.set(el, mg);
+          }
+          if (mg.v) { geo = MGEO; for (let i = 0; i < 4; i++) geo[i] = mg.v[i] * dpr; }
         }
         // (A mark this drawing cannot give stays the SVG's; one it draws is hidden there, in the same frame.)
         if (st === false || (st && !geo)) { if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); svgLeft.add(el); continue; }
@@ -1199,8 +1253,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
         const a = (st?.op ?? 0) * (ro?.op ?? 1);
         if (!st || !(a > 0.001) || (!st.stroke && !st.fill)) continue;
         const w = st.stroke ? st.w * dpr : 0, m = w / 2 + 2;
-        const box = el.tagName === 'path' ? [Math.min(geo[0], geo[2]) - m, Math.min(geo[1], geo[3]) - m, Math.max(geo[0], geo[2]) + m, Math.max(geo[1], geo[3]) + m]
-          : [geo[0] - geo[2] - m, geo[1] - geo[2] - m, geo[0] + geo[2] + m, geo[1] + geo[2] + m];
+        const box = MBOX;
+        if (el.tagName === 'path') { box[0] = Math.min(geo[0], geo[2]) - m; box[1] = Math.min(geo[1], geo[3]) - m; box[2] = Math.max(geo[0], geo[2]) + m; box[3] = Math.max(geo[1], geo[3]) + m; }
+        else { box[0] = geo[0] - geo[2] - m; box[1] = geo[1] - geo[2] - m; box[2] = geo[0] + geo[2] + m; box[3] = geo[1] + geo[2] + m; }
         if (box[0] > W || box[1] > H || box[2] < 0 || box[3] < 0) continue;
         // (A leader's boxes follow its line in short pieces: one box round a long slanted leader covered a card it never touched, and the
         // card's glass left the figure's canvas while the leader faded with the view, stage.js frostOver.)
@@ -1210,14 +1265,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
             const ax = geo[0] + (geo[2] - geo[0]) * i / k, ay = geo[1] + (geo[3] - geo[1]) * i / k, bx = geo[0] + (geo[2] - geo[0]) * (i + 1) / k, by = geo[1] + (geo[3] - geo[1]) * (i + 1) / k;
             boxAt(Math.min(ax, bx) - m, Math.min(ay, by) - m, Math.max(ax, bx) + m, Math.max(ay, by) + m);
           }
-        } else boxAt(...box);
+        } else boxAt(box[0], box[1], box[2], box[3]);
         ucOf(gl).f4a(MU.uBox, box);
         ucOf(gl).i1(MU.uKind, el.tagName === 'path' ? 0 : 1);
         ucOf(gl).f4a(MU.uGeo, geo);
         ucOf(gl).f1(MU.uW, w);
         ucOf(gl).f2(MU.uDash, st.dash[0] * dpr, st.dash[1] * dpr);
-        ucOf(gl).f4a(MU.uStroke, (st.stroke || [0, 0, 0, 0]));
-        ucOf(gl).f4a(MU.uFill, (st.fill || [0, 0, 0, 0]));
+        ucOf(gl).f4a(MU.uStroke, st.stroke || CLEAR);
+        ucOf(gl).f4a(MU.uFill, st.fill || CLEAR);
         ucOf(gl).f1(MU.uA, Math.min(1, a));
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
