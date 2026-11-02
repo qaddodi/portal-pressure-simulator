@@ -7097,7 +7097,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function splitShow(el, sh) {
     const p = portalSplit(sh), lx = `To the liver ${p.liver}%`, sx = `Shunts ${p.shunt}%`;   // (a share of the portal blood: never read as the tile's liver flow, % of normal)
     // (Its three readings are drawn by glWords, never written in a frame: gl-words.js.)
-    const W = el._spW || (el._spW = [...el.querySelectorAll('.sp-n, .sp-lt, .sp-st')].map((e) => glWords(e)));
+    const W = el._spW;
     W[0].set(`${p.shunt}`); W[1].set(lx); W[2].set(sx);
     el.style.setProperty('--sp-lf', (1 - sh).toFixed(4)); el.style.setProperty('--sp-sf', sh.toFixed(4));
     el.style.setProperty('--sp-lm', p.liver ? '4px' : '0px'); el.style.setProperty('--sp-sm', p.shunt ? '4px' : '0px');   // a share that rounds above 0 keeps a sliver; 0 leaves none
@@ -7235,6 +7235,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (!d.res) el._glass = glassCallout(el);
         // (Its parts are cloned from a model made ahead and put in the page, with their words, between frames: late().)
         const [sm, b0, u, kk] = SITE_TPL.cloneNode(true).children, b = d.split ? SPLIT_B.cloneNode(true) : b0;
+        // (The share's three readings, taken from its own parts now: they join the callout only between frames (late), so a first paint
+        // that looked for them in the callout found none and threw, and the slide was not shown.)
+        if (d.split) el._spW = [...b.querySelectorAll('.sp-n, .sp-lt, .sp-st')].map((e) => glWords(e));
+        el._b = b;   // (its number's box, kept for the same reason)
         late('text', sm, d.kicker); late('text', u, d.split ? '' : d.unit ?? 'mmHg');
         late('append', el, d.res ? [sm, b, u, kk] : [sm, b, u]);
         if (d.res) late('text', kk, RES_KEY);
@@ -7247,7 +7251,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (d.split) splitTo(el, clamp((Number.isFinite(sites.fp?.shunt) ? sites.fp.shunt : beatMean('shunt', F.metrics?.shuntFraction, 2)) ?? 0, 0, 1));   // (the slide's own share, the tile's number; a what-if or a time-lapse moves it with the tiles)
       // (A new number counts there, as the data card's tiles do, never jumps: siteCount.)
       const n = d.split ? null : d.res ? (ratio == null ? null : siteCount(el, ratio, 0.15)) : siteCount(el, siteLive(Number.isFinite(sites.fp?.[k]) ? sites.fp[k] : pinned()?.at?.P[NI[d.node]], (F.Pf || F.P)[NI[d.node]], breath(Number.isFinite(sites.fp?.[k]) ? sites.fp[k] : (F.Pf || F.P)[NI[d.node]])), 0.5);
-      const b = el.querySelector('b'), v = d.split ? null : d.res ? (n == null ? '' : '×' + fmt(n, n < 10 ? 1 : 0)) : fmt(n, 1);
+      const b = el._b, v = d.split ? null : d.res ? (n == null ? '' : '×' + fmt(n, n < 10 ? 1 : 0)) : fmt(n, 1);
       if (v != null) putText(b, v);
       const ra = d.res ? resAt() : null;
       if (ra) { el.classList.toggle('low', ra.up); el.classList.toggle('keyed', k === resKeyed); }
