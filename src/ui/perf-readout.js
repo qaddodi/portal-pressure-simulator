@@ -11,7 +11,7 @@ const nextFrame = finalFrameFor('perf readout');
 import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js?v=9cd1d0c4e3';
 import { scanBlurs, blurText } from './blur-gauge.js?v=215cf3d483';
 import { surfaceRows, surfacesText } from './gpu-surfaces.js?v=2af17044e7';
-import { motionBudget, budgetText } from './motion-budget.js?v=4ff7c58a8f';
+import { motionBudget, budgetText } from './motion-budget.js?v=f3b73ab0e1';
 
 const WINDOW = 2000, KEEP = 5, GAP_LINES = 40, LONG_LINES = 15;
 // The display's own refresh, as the browser offers it, from the frame intervals the readout sees (30 Oct, review 6a: a list of gaps

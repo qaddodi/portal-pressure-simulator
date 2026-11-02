@@ -11,8 +11,8 @@
 // Windows nest and overlap: a window keeps a copy of the running totals at its start and reports the difference at its end.
 
 const SELF = /motion-budget\.js/;
-const READS = new Map(), WRITES = new Map();   // (caller or target → count, since install)
-const tot = { reads: 0, writes: 0, made: 0, lost: 0, restored: 0, upload: 0, uploads: 0 };
+const READS = new Map(), WRITES = new Map(), UPS = new Map();   // (caller or target → count, since install; UPS: caller → KB uploaded)
+const tot = { reads: 0, writes: 0, made: 0, lost: 0, restored: 0, upload: 0, uploads: 0, alloc: 0, allocs: 0 };
 let installed = false, live = 0;
 const seen = new WeakSet();
 
@@ -42,6 +42,12 @@ export function bytesOf(args, tex) {
   // texImage2D(target, level, internal, w, h, border, ...) / texSubImage2D(target, level, x, y, w, h, ...)
   const n = args.filter((a) => typeof a === 'number');
   return n.length >= 6 ? Math.max(0, n[3] | 0) * Math.max(0, n[4] | 0) * 4 : 0;
+}
+
+/** Whether a call only makes room on the GPU (a texture with no pixels given, a buffer given by size): nothing crosses from the CPU. */
+export function isAlloc(args, tex) {
+  if (!tex) return typeof args[1] === 'number';
+  return !args.some((a) => a && typeof a === 'object') && args.length >= 9;
 }
 
 function wrapMethod(proto, name, fn) {
@@ -81,8 +87,8 @@ export function installMotionBudget({ root = document, skip = () => false } = {}
   // Uploads: texture and buffer data handed to the GPU, in bytes.
   for (const G of [window.WebGL2RenderingContext, window.WebGLRenderingContext]) {
     if (!G) continue;
-    for (const n of ['texImage2D', 'texSubImage2D', 'texImage3D', 'texSubImage3D']) wrapMethod(G.prototype, n, (_, a) => { tot.uploads++; tot.upload += bytesOf(a, true); });
-    for (const n of ['bufferData', 'bufferSubData']) wrapMethod(G.prototype, n, (_, a) => { tot.uploads++; tot.upload += bytesOf(a, false); });
+    for (const n of ['texImage2D', 'texSubImage2D', 'texImage3D', 'texSubImage3D']) wrapMethod(G.prototype, n, (_, a) => { const b = bytesOf(a, true); if (isAlloc(a, true)) { tot.allocs++; tot.alloc += b; return; } tot.uploads++; tot.upload += b; if (open) bump(UPS, callerOf(new Error().stack), b / 1024); });
+    for (const n of ['bufferData', 'bufferSubData']) wrapMethod(G.prototype, n, (_, a) => { const b = bytesOf(a, false); if (isAlloc(a, false)) { tot.allocs++; tot.alloc += b; return; } tot.uploads++; tot.upload += b; if (open) bump(UPS, callerOf(new Error().stack), b / 1024); });
   }
   // Writes: everything the document sees change, by element and attribute (a MutationObserver cannot name the script that wrote).
   new MutationObserver((list) => {
@@ -98,23 +104,24 @@ export function installMotionBudget({ root = document, skip = () => false } = {}
 }
 
 /** A window: the totals now, to subtract at its end. */
-function start(kind = 'window') { open++; return { kind, t0: performance.now(), tot: { ...tot }, reads: new Map(READS), writes: new Map(WRITES), live }; }
+function start(kind = 'window') { open++; return { kind, t0: performance.now(), tot: { ...tot }, reads: new Map(READS), writes: new Map(WRITES), ups: new Map(UPS), live }; }
 const diff = (now, was, n) => [...now].map(([k, v]) => [k, v - (was.get(k) || 0)]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, n);
 /** The window's counts, with the top `n` readers and written element/attribute pairs. */
 function stop(w, n = 8) {
   if (!w.done) { w.done = true; open = Math.max(0, open - 1); }
   const d = {};
   for (const k in tot) d[k] = tot[k] - w.tot[k];
-  return { kind: w.kind, ms: performance.now() - w.t0, ...d, live, liveAtStart: w.live, readers: diff(READS, w.reads, n), written: diff(WRITES, w.writes, n) };
+  return { kind: w.kind, ms: performance.now() - w.t0, ...d, live, liveAtStart: w.live, readers: diff(READS, w.reads, n), written: diff(WRITES, w.writes, n), uploaders: diff(UPS, w.ups, n).map(([k, v]) => [k, Math.round(v)]) };
 }
 /** A window's result as lines of the ?perf report. */
 export function budgetText(r) {
   if (!r) return '';
   const kb = (r.upload / 1024).toFixed(0);
-  const head = `  motion budget (goal 0 / 0 / 0): ${r.reads} style+layout reads, ${r.writes} DOM writes, ${r.made} contexts made (${r.lost} lost, ${r.live} live), ${kb} KB uploaded in ${r.uploads} calls`;
+  const head = `  motion budget (goal 0 / 0 / 0): ${r.reads} style+layout reads, ${r.writes} DOM writes, ${r.made} contexts made (${r.lost} lost, ${r.live} live), ${kb} KB uploaded in ${r.uploads} calls${r.allocs ? `, ${(r.alloc / 1024).toFixed(0)} KB of GPU room made in ${r.allocs}` : ''}`;
   const rd = r.readers.length ? `\n    readers: ${r.readers.map(([k, v]) => `${k} ${v}`).join(', ')}` : '';
   const wr = r.written.length ? `\n    written: ${r.written.map(([k, v]) => `${k} ${v}`).join(', ')}` : '';
-  return head + rd + wr;
+  const up = r.uploaders?.length ? `\n    uploaded (KB): ${r.uploaders.map(([k, v]) => `${k} ${v}`).join(', ')}` : '';
+  return head + rd + wr + up;
 }
 
 const api = { start, stop, totals: () => ({ ...tot, live }), on: () => installed };

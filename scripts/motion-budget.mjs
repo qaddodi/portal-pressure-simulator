@@ -57,9 +57,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   for (const m of MOTIONS.filter((x) => !only || x.name === only)) {
     const r = await measure(m);
     rows.push(r);
-    console.log(`${r.name} (${device}${r.plate ? '' : ', organs still on SVG at the press'}): ${r.reads} reads, ${r.writes} writes, ${r.made} contexts made (${r.lost} lost), ${(r.upload / 1024).toFixed(0)} KB in ${r.uploads} uploads`);
+    console.log(`${r.name} (${device}${r.plate ? '' : ', organs still on SVG at the press'}): ${r.reads} reads, ${r.writes} writes, ${r.made} contexts made (${r.lost} lost), ${(r.upload / 1024).toFixed(0)} KB in ${r.uploads} uploads, ${((r.alloc || 0) / 1024).toFixed(0)} KB of GPU room made in ${r.allocs || 0}`);
     console.log(`  readers: ${r.readers.map(([k, v]) => `${k} ${v}`).join(', ')}`);
     console.log(`  written: ${r.written.map(([k, v]) => `${k} ${v}`).join(', ')}`);
+    console.log(`  uploaded (KB): ${(r.uploaders || []).map(([k, v]) => `${k} ${v}`).join(', ')}`);
   }
   if (out) writeFileSync(out, JSON.stringify(rows, null, 2));
   if (check) {
