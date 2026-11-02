@@ -8,7 +8,7 @@
 
 import { frame } from './frame.js?v=7710f677e2';
 import { createSvgGL, svgModel } from './svg-gl.js?v=98a5bbc2b7';
-import { h, fmt, clamp } from './util.js?v=6e2a5dd5ee';
+import { h, fmt, clamp } from './util.js?v=b2f8943264';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { store } from './store.js?v=4ef2a6ffd8';
 

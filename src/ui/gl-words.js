@@ -23,6 +23,11 @@ import { cssColor } from './css-color.js?v=e56f0c77ae';
 export const GL_WORDS = !(typeof location !== 'undefined' && /[?&]glwords=0\b/.test(location.search || ''));
 /** How long the words hold still (ms) before the page's own words take them. */
 export const QUIET = 260;
+// Words that land in a box already measured keep its measure: their box's size, type and alignment hold, so the next words are set from the
+// same edge (start, end or middle) without reading the page again. A box that changes size is measured again by its ResizeObserver. A
+// readout that ticks with the model measured itself each time it landed, some 30 layout and style reads each, 2,000 in an 8 s pinch
+// of the anatomy (2 Nov 2026, "zoom is miserable"). ?glwkeep=0 measures at every landing, as before.
+const LAND_KEEP = !(typeof location !== 'undefined' && /[?&]glwkeep=0\b/.test(location.search || ''));
 if (GL_WORDS && typeof document !== 'undefined') loadGlyphs();
 
 const dOf = (polys) => {
@@ -82,7 +87,7 @@ function measureRead(S) {
   const align = ta === 'center' ? 'middle' : /right/.test(ta) || (ta === 'end' && !rtl) || (ta === 'start' && rtl) ? 'end' : 'start';
   const k = devicePixelRatio || 1, asc = -textBox('0', 0, 0, { weight: L.weight, size: L.size, k }).y;
   const sAsc = small ? -textBox('0', 0, 0, { weight: U.weight, size: U.size, k }).y : 0;
-  const at = { L, U, align, w: box.width, h: box.height, y: tr.top - box.top + asc, uy: small ? small.getBoundingClientRect().top - box.top + sAsc : 0,
+  const at = { sm: !!small && !small.hidden, L, U, align, w: box.width, h: box.height, y: tr.top - box.top + asc, uy: small ? small.getBoundingClientRect().top - box.top + sAsc : 0,
     x0: all.left - box.left, x1: all.right - box.left };
   // (Room past the box on every side, so a longer number than the one laid out is drawn whole, never cut at the box's edge; but never
   // past an ancestor that clips or scrolls, where the picture would count as overflow and a card's fit would shrink the card for it.)
@@ -164,7 +169,7 @@ function land(S) {
   S.onLand?.();
   S.pend = false;
   if (S.on) { S.on = false; el.classList.remove('glw-on'); S.vPath.setAttribute('d', ''); S.uPath.setAttribute('d', ''); S.gl.paint(); }
-  askMeasure(S);
+  if (!LAND_KEEP || !S.at || S.at.sm !== (!!S.small && !S.small.hidden)) askMeasure(S);   // (a unit that came or went moves the words: measured again)
 }
 const askLand = (S) => { clearTimeout(S.landT); S.landT = 0; if (!S.landAsk) S.landAsk = restPass(() => land(S)); };
 
