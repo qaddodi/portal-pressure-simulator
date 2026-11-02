@@ -16,6 +16,7 @@
 import { store, replaceParams } from './store.js?v=4ef2a6ffd8';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
+import { glWords } from './gl-words.js?v=1cfbc177d8';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=21b73662d1';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
 import { liveText, wordsOf } from './live-text.js?v=98f6db6b89';
@@ -458,6 +459,10 @@ const liveFp = (fr) => fingerprintOf(fr.metrics, { P: fr.Pf || fr.P, Q: fr.Qf ||
 // (Tiles glide on the compositor: see tileGlide, on the travelling curve.)
 // R19: a live model frame never writes the tiles while their card moves (a slide's slide or fold): the newest is kept and written
 // once the card is still. A slide's own paint (its arrival, a new set of tiles) is never held. ?tilefreeze=0: written every frame, as before.
+// R19: a tile's changing number is drawn on the GPU (gl-words.js: Inter's outlines over the tile's own words, which are made clear and
+// take the number back once it holds still), not written into the page on each model frame. A slide's count still rolls its digits
+// on the compositor (tileGlide), written into the page as it starts. ?tilegl=0: written into the page, as before.
+const TILE_GL = !(typeof location !== 'undefined' && /[?&]tilegl=0\b/.test(location.search || ''));
 const TILE_FREEZE = !(typeof location !== 'undefined' && /[?&]tilefreeze=0\b/.test(location.search || ''));
 const TILE_GLIDE = !(typeof location !== 'undefined' && /[?&]tileroll=0\b/.test(location.search || ''));
 function tweener(draw) {
@@ -548,6 +553,11 @@ function railBlock() {
 function bigTiles() {
   const el = h('div', { class: 'pz-tiles' });
   let sig = '', parts = [], draw = null, goal = false;
+  // (R19: a tile's number as shown, and set: through its GPU words while the model ticks, into the page at once (now) while a slide's
+  // roll is set up or the fit measures.)
+  let sync = false;
+  const vText = (p) => (p.vw ? p.vw.text : p.v.textContent);
+  const vSet = (p, t) => { if (!p.vw) setT(p.v, t); else if (sync) p.vw.now(t); else p.vw.set(t); };
   // After TIPS the PPG is read against its target (below 12 mmHg), so a tile never says "High" under a line that
   // says the target is reached.
   const rated = (k, f) => (goal && k === 'ppg' && f.ppg != null ? tipsGoal(f.ppg) : rateOf(k, f));
@@ -565,12 +575,12 @@ function bigTiles() {
       p.v.style.fontSize = p.u.style.fontSize = p.v.style.lineHeight = '';
       const cs = getComputedStyle(p.tile), room = p.tile.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth);
       if (!(room > 0)) continue;
-      const cur = p.v.textContent, wide = (p.fin || '').length > cur.length ? p.fin : cur;
+      const cur = vText(p), wide = (p.fin || '').length > cur.length ? p.fin : cur;
       // (Written only when the number it counts to is longer: the same text measured as it stands keeps a roll's digit columns.)
-      if (wide !== cur) p.v.textContent = wide;
+      if (wide !== cur) { if (p.vw) p.vw.now(wide); else p.v.textContent = wide; }
       const vw = p.v.getBoundingClientRect().width, uw = p.u.hidden ? 0 : p.u.getBoundingClientRect().width;
       const gap = p.u.hidden ? 0 : parseFloat(getComputedStyle(vu).columnGap) || 0;
-      if (wide !== cur) p.v.textContent = cur;
+      if (wide !== cur) { if (p.vw) p.vw.now(cur); else p.v.textContent = cur; }
       const need = vw + gap + uw;
       if (need <= room) continue;
       const vs = getComputedStyle(p.v), vf = parseFloat(vs.fontSize), uf = parseFloat(getComputedStyle(p.u).fontSize);
@@ -603,7 +613,10 @@ function bigTiles() {
       const pic = k === 'scope' ? createScopeTile() : null;   // (the endoscopic view: a picture in place of a number; v, u and r stay unplaced)
       const tile = pic ? h('div', { class: 'pz-tile pz-scope' }, h('span', { class: 'pzt-k' }, T.t), pic.el)
         : h('div', { class: 'pz-tile' + (S ? ' scaled' : '') }, h('span', { class: 'pzt-k', 'data-s': T.n || null }, T.t), h('span', { class: 'pzt-vu' + (T.u === '%' ? ' pct' : '') }, v, u), r, d, bar);
-      return { k, T, tile, v, u, r, d, S, bands, zs, link, was, now, zr: '', pic };
+      // (R19: its number's GPU words, laid over the number and its unit's row: their canvas sits in that row, never inside the number,
+      // which a roll's digit columns and the fit rewrite.)
+      const vw = TILE_GL && !pic ? glWords(v, { host: v.parentNode }) : null;
+      return { k, T, tile, v, vw, u, r, d, S, bands, zs, link, was, now, zr: '', pic };
     });
     el.replaceChildren(...parts.map((p) => p.tile));
     el.classList.remove('pzb-nonum');   // (new bars keep their numbers' row until the card's fit has seen them: fitCards)
@@ -611,7 +624,7 @@ function bigTiles() {
     draw = tweener((f) => parts.forEach((p) => {
       if (p.pic) { p.pic.set(f.varix); return; }
       const [cls, word] = ratedShown(p.k, f), none = cls == null && (p.k === 'saag' || p.k === 'tp');
-      setT(p.v, none ? '—' : tileVal(p.k, f[p.k]));
+      vSet(p, none ? '—' : tileVal(p.k, f[p.k]));
       p.u.hidden = none || !p.T.u;
       setT(p.r, word);
       setA(p.tile, 'data-rate', cls || (none ? 'none' : 'plain'));
@@ -649,10 +662,11 @@ function bigTiles() {
   // with the endoscopic view (it draws each step), Reduce Motion, or ?tileroll=0 (counted frame by frame, as before).)
   function tileGlide(to, ms = 950) {
     if (!TILE_GLIDE || !odoOn() || !draw?.has() || reduce.matches || ms === 0 || parts.some((p) => p.pic)) return false;
-    const before = parts.map((p) => p.v.textContent);
+    const before = parts.map(vText);
     // (The marks' translate and the link's scale are set once (app.css .tglide): the compositor eases them there over --tile-ms.)
     el.style.setProperty('--tile-ms', `${ms}ms`);
-    draw.jump(to);
+    sync = true;
+    try { draw.jump(to); } finally { sync = false; }
     parts.forEach((p, i) => { const b = before[i], t = p.v.textContent; if (b !== t) odoSwap(p.v, b, t, parseFloat(t) > parseFloat(b), ms, EASE_MOVE); });
     return true;
   }
@@ -702,7 +716,7 @@ function bigTiles() {
       if (!tileGlide(to, ms)) draw(to, ms);
       // (Fitted again only when a number's shape changed, its final text or the length of the one shown: measuring the tiles forced a
       // layout on every model frame, with the same answer. A tile's own size change still refits through the observer below.)
-      const shape = parts.map((p) => `${p.fin}|${p.v.textContent.length}`).join();
+      const shape = parts.map((p) => `${p.fin}|${vText(p).length}`).join();
       if (shape !== fitShape) { fitShape = shape; fitSoon(); }
     },
   };
