@@ -50,11 +50,12 @@ const scenarios = [
   ['hvpg5', '?script=hvpg&slide=5', async (page, R) => { await page.waitForTimeout(40000); await R('rest'); }],
   ['circ-dark', '?script=circulation&slide=2&theme=dark', async (page, R) => { await page.waitForTimeout(40000); await R('rest'); }],
 ];
-for (const [bn, bt] of [['webkit', webkit], ['chromium', chromium]]) {
+try { log('preview-info', (await (await fetch(BASE + 'preview-info.txt')).text()).replace(/\s+/g, ' ')); } catch (e) { log('preview-info failed', e.message); }
+for (const [bn, bt] of [['webkit', webkit], ['chromium', chromium], ['iphone', webkit]]) {
   let browser;
   try { browser = await bt.launch(bn === 'chromium' ? { args: ['--enable-gpu', '--ignore-gpu-blocklist', '--use-angle=metal'] } : {}); } catch (e) { log(bn, 'launch failed', e.message); continue; }
   for (const [sn, q, fn] of scenarios) {
-    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, colorScheme: sn.includes('dark') ? 'dark' : 'light' });
+    const ctx = await browser.newContext({ ...(bn === 'iphone' ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true } : { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 }), colorScheme: sn.includes('dark') ? 'dark' : 'light' });
     const page = await ctx.newPage();
     const errs = []; page.on('pageerror', (e) => errs.push(String(e))); page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errs.push(`${m.type()}: ${m.text()}`.slice(0, 300)); });
     try {
