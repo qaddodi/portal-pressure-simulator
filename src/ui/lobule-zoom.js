@@ -55,6 +55,7 @@ import { surface } from './gpu-surfaces.js?v=2af17044e7';
 // ?willchange=0 in the address: the lobule and sinusoid layers keep will-change always, as before.
 const LZ_LAYER = !(typeof location !== 'undefined' && /[?&]willchange=0\b/.test(location.search));
 const CAM_M2 = !(typeof location !== 'undefined' && /[?&]camease=0\b/.test(location.search));
+const CAM_ATTR = !(typeof location !== 'undefined' && /[?&]camattr=0\b/.test(location.search));   // R12: a camera-only change rebuilds no attribute map
 const CARRY = !(typeof location !== 'undefined' && /[?&]carry=0\b/.test(location.search));   // (?carry=0: every glide starts from rest, as before)
 const nextFrame = frameFor('lobule-zoom');
 
@@ -2707,7 +2708,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const sKey = `${drawVersion - viewBumps}|${dark}|${cw}x${ch}|${(k * V.k).toFixed(3)}`;
     const panOnly = dt === 0 && !rzMoving && !lensFrom && !!attrKey && !!radAll && bk === binKey && sKey === surfKey && cs === surfCs && now - lastSurface < 1000;
     if (panOnly && gpuProbe.on) gpuProbe.note(COUNTED.lobuleSkip);
-    if (!panOnly && (dt === 0 || rzMoving || lensFrom || !attrKey || !radAll || bk !== binKey || dk !== drawKey || now - lastSurface >= 80)) {
+    // (?camattr=0: a running camera's every frame takes the pass again, as before. On, a matrix change alone is not a reason: the
+    // radii, colours and attribute maps follow the model, the lens and the calibers, never where the figure sits; the pass still
+    // comes every 80 ms while running, which also re-checks the zoom's radius tolerance, and the draw below moves the layer.)
+    const camDue = CAM_ATTR ? cs !== surfCs || sKey.slice(0, sKey.lastIndexOf('|')) !== surfKey.slice(0, surfKey.lastIndexOf('|')) : dk !== drawKey;
+    if (!panOnly && (dt === 0 || rzMoving || lensFrom || !attrKey || !radAll || bk !== binKey || camDue || now - lastSurface >= 80)) {
       lastSurface = now; surfKey = sKey; surfCs = cs;
       if (gpuProbe.on) gpuProbe.note(COUNTED.lobuleSurface);
       // Radii, re-sent when a tube's caliber changed (they follow only these few model values).

@@ -12,12 +12,14 @@ test('the surface pass waits, paused, for the model, the theme, the canvas size 
   // (Where the figure is — V.x, V.y — is not in the key: a translation changes none of the radii's tolerance.)
   assert.doesNotMatch(gl.match(/const sKey = .*/)[0], /V\.x|V\.y/);
   assert.match(gl, /const panOnly = dt === 0 && !rzMoving && !lensFrom && !!attrKey && !!radAll && bk === binKey && sKey === surfKey && cs === surfCs && now - lastSurface < 1000;/);
-  assert.match(gl, /if \(!panOnly && \(dt === 0 \|\| rzMoving \|\| lensFrom \|\| !attrKey \|\| !radAll \|\| bk !== binKey \|\| dk !== drawKey \|\| now - lastSurface >= 80\)\) \{\n\s+lastSurface = now; surfKey = sKey; surfCs = cs;/);
+  assert.match(gl, /if \(!panOnly && \(dt === 0 \|\| rzMoving \|\| lensFrom \|\| !attrKey \|\| !radAll \|\| bk !== binKey \|\| camDue \|\| now - lastSurface >= 80\)\) \{\n\s+lastSurface = now; surfKey = sKey; surfCs = cs;/);
 });
 
-test('running, nothing is throttled: panOnly needs a paused model, so a moving camera still takes the pass every frame', () => {
+test('running, a camera-only change rebuilds no attribute map (R12): the pass comes with the model, the styles or every 80 ms; ?camattr=0 restores every frame', () => {
   assert.match(gl, /const panOnly = dt === 0 &&/);
-  assert.match(gl, /\|\| dk !== drawKey \|\| now - lastSurface >= 80\)\)/);
+  assert.match(gl, /const camDue = CAM_ATTR \? cs !== surfCs \|\| sKey\.slice\(0, sKey\.lastIndexOf\('\|'\)\) !== surfKey\.slice\(0, surfKey\.lastIndexOf\('\|'\)\) : dk !== drawKey;/);
+  assert.match(gl, /\|\| camDue \|\| now - lastSurface >= 80\)\)/);
+  assert.match(src, /const CAM_ATTR = !\(typeof location !== 'undefined' && \/\[\?&\]camattr=0\\b\/\.test\(location\.search\)\);/);
 });
 
 test('only the camera\'s own bumps of the version are left out of the model\'s: a label-size change still counts', () => {
