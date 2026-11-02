@@ -8598,7 +8598,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function cathRoomRead() {
     cathRoomAsk = 0;
     const b = stageBox();
-    cath.room = { t: performance.now(), W: b.width, H: b.height, sp: cardSpaceRead(), blk: readBlockersRead() };
+    cath.room = { t: performance.now(), W: b.width, H: b.height, sp: cardSpaceRead(), blk: blockerBoxes && !blockersStale ? blockerBoxes : readBlockersRead((el) => el.getBoundingClientRect(), b) };   // (the labels' own list when it is current)
     cath.lblKey = ''; nextFrame(cathLabelsSoon);
   }
   function cathSize(el, text, rows = null) {
