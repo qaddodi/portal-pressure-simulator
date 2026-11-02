@@ -127,7 +127,7 @@ test('H4: a frame of the moving blood alone takes no new copy for the glass and 
 
 test('H4b: the glass observer asks for the glass\'s frame; it never draws in a microtask', () => {
   const g = src('glass-gl.js');
-  assert.match(g, /const mo = new MutationObserver\(\(recs\) => \{ if \(!recs\?\.length \|\| changed\(recs\)\) measureGeo\(\); quiet = 0; ask\(\); \}\);/);
+  assert.match(g, /const mo = new MutationObserver\(\(recs\) => \{ if \(!recs\?\.length \|\| changed\(recs\)\) measureEarly\(\); quiet = 0; ask\(\); \}\);/);
   assert.doesNotMatch(g, /queueMicrotask|batched/);
 });
 

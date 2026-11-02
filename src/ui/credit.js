@@ -729,7 +729,11 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   // looks every second as before.) A look with nothing changed had measured every card and label just to keep its spot.
   const watch = layoutWatch();
   let polled = '';
-  const pollKey = () => `${window.pps?.stage?.labelStamp?.() ?? Math.random()}|${document.querySelectorAll('#labels .lb:not(.lb-off), .cath-labels .cath-label').length}|${innerWidth}x${innerHeight}`;
+  // (2 Nov 2026, the iPhone trace: innerWidth and innerHeight read here, each second, made the browser bring the page's layout up to
+  // date then. The window's size is kept from its resize events instead.)
+  let winKey = `${innerWidth}x${innerHeight}`;
+  addEventListener('resize', () => { winKey = `${innerWidth}x${innerHeight}`; }, { passive: true });
+  const pollKey = () => `${window.pps?.stage?.labelStamp?.() ?? Math.random()}|${document.querySelectorAll('#labels .lb:not(.lb-off), .cath-labels .cath-label').length}|${winKey}`;
   setInterval(() => {
     if (document.hidden) return;
     const st = window.pps?.store?.get(), k = pollKey();

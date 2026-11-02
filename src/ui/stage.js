@@ -51,7 +51,7 @@ import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=f7d920b7d0';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=9644481473';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=df3c3152ad';
 import { createLabelGL } from './label-gl.js?v=8b38b2f511';
-import { createGlassGL } from './glass-gl.js?v=e210dbbba5';
+import { createGlassGL } from './glass-gl.js?v=c9021b91cd';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=d9e0eb3300';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
@@ -170,12 +170,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const MQ = ['(prefers-color-scheme: dark)', '(prefers-reduced-motion: reduce)', '(prefers-reduced-transparency: reduce)', '(hover: hover)', '(pointer: coarse)', 'print'].map((q) => matchMedia(q));
   // (1 Nov 2026, "Move everything to GPU": a dropped snapshot is taken again first in the next frame (readFrame), never between a frame's
   // writes; the frame in between keeps the last one.)
+  // (2 Nov 2026, the iPhone trace: the snapshot read each name only when first asked for, so the ascites' ink, the plate's theme and the
+  // other names asked late in a frame were read after that frame's writes, and the browser restyled the page there. Every name ever asked
+  // for is now read when the snapshot is taken, at the start of the frame, before any write; only a name asked for the first time is read
+  // late, once. ?cseager=0: read when asked, as before.)
+  const CS_EAGER = !/[?&]cseager=0\b/.test(location.search);
+  const csNames = new Set();
   let csLast = null, csAsk = 0;
   function wrapCSTake() {
     csAsk = 0;
     csMq = MQ.map((q) => q.matches);
     const live = getComputedStyle(wrap), m = new Map();
-    csSnap = csLast = { getPropertyValue: (n) => { let v = m.get(n); if (v === undefined) m.set(n, (v = live.getPropertyValue(n))); return v; } };
+    if (CS_EAGER) for (const n of csNames) m.set(n, live.getPropertyValue(n));
+    csSnap = csLast = { getPropertyValue: (n) => { let v = m.get(n); if (v === undefined) { m.set(n, (v = live.getPropertyValue(n))); if (CS_EAGER) csNames.add(n); } return v; } };
   }
   function wrapCS() {
     if (csSnap && MQ.some((q, i) => q.matches !== csMq[i])) csSnap = null;
@@ -1263,6 +1270,39 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (el._held) delete el._held['style:' + k];
     if (el.style[k] !== v) el.style[k] = v;
   };
+  // (2 Nov 2026, the iPhone trace of a slide change: every frame of a morph, a coil or a vessel's draw-on still rewrote the hidden SVG
+  // model's shapes, the hit paths, halos, strands, gradients and the draw-on dashes, and the browser restyled and laid out the whole tree
+  // each time, though none of it is painted while the GPU draws the vessels. Those writes are held while the GPU draws and written once,
+  // in a pass between frames, when the shapes have held still for GEO_QUIET ms (hit-testing and the corner credit take them first, flushGeo).
+  // ?geohold=0: written every frame, as before.)
+  const GEO_HOLD = !/[?&]geohold=0\b/.test(location.search), GEO_QUIET = 160;
+  const geoHeld = new Map();
+  let geoT = 0, geoPass = 0;
+  const geoHolding = () => GEO_HOLD && wrap.classList.contains('gl-on');
+  /** An attribute (v null: removed) or, as 'style:<prop>', a style of the SVG model, held while the GPU draws it. */
+  function setG(el, k, v, hold = geoHolding()) {
+    if (hold) {
+      let m = geoHeld.get(el);
+      if (!m) geoHeld.set(el, (m = {}));
+      m[k] = v;
+      if (geoT) clearTimeout(geoT);
+      geoT = setTimeout(geoQuiet, GEO_QUIET);
+      return;
+    }
+    const m = geoHeld.get(el);
+    if (m) delete m[k];
+    putG(el, k, v);
+  }
+  function putG(el, k, v) {
+    if (k.startsWith('style:')) { const p = k.slice(6); if (el.style[p] !== v) el.style[p] = v; } else if (v == null) el.removeAttribute(k); else el.setAttribute(k, v);
+  }
+  function geoQuiet() { geoT = 0; if (!geoPass) geoPass = restPass(flushGeoPass); }
+  function flushGeoPass() { geoPass = 0; flushGeo(); }
+  function flushGeo() {
+    if (geoT) { clearTimeout(geoT); geoT = 0; }
+    for (const [el, m] of geoHeld) for (const k in m) putG(el, k, m[k]);
+    geoHeld.clear();
+  }
   function flushTubes() {
     for (const el of tubesHeld) {
       for (const k in el._held) { const v = el._held[k]; if (k.startsWith('style:')) { const p = k.slice(6); if (el.style[p] !== v) el.style[p] = v; } else setA(el, k, v); }
@@ -2713,7 +2753,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (OVER_GPU) overClear();   // (the overlays' SVG copies back with the vessels': their GPU picture is gone)
     if (wrap.classList.contains('gl-plate')) { wrap.classList.remove('gl-plate'); syncPlateLook(); }
     plateView = null; plateViewKey = ''; plateKey = ''; dropViewKeep();
-    tubesHidden = false; if (tubesHeld.size) flushTubes();
+    tubesHidden = false; if (tubesHeld.size) flushTubes(); if (geoHeld.size) flushGeo();
     if (tubesStale) { tubesStale = false; updateGeometry(true); }
     syncOrganDim();
     vLook = null; vBinKey = ''; binShown = null; bendShown = null; veinsDirty = true;
@@ -2953,7 +2993,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!full && !only?.length) return;
     geometryVersion++;
     lastMorph = t;
-    const svgTubes = !wrap.classList.contains('gl-on');
+    const svgTubes = !wrap.classList.contains('gl-on'), hold = geoHolding();
     if (!svgTubes) tubesStale = true;
     for (const x of full ? EV : only) {
       const g = geo[x.e.id];
@@ -2971,15 +3011,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (u0) sp = blendFrom(pts, sp, u0);
         sd.u0 = u0;
         const d = polyD(sp);
-        sd.wall.setAttribute('d', d); sd.lumen.setAttribute('d', d);
+        setG(sd.wall, 'd', d, hold); setG(sd.lumen, 'd', d, hold);
         if (!sd.hit) { sd.hit = s('path', { class: 'v-hit', 'data-id': x.e.id, 'aria-hidden': 'true' }); sd.hit.style.strokeWidth = 12; x.g.append(sd.hit); }   // each strand of a varix is part of its vessel
-        sd.hit.setAttribute('d', d); sd.hit.style.display = (sd.live ?? 1) >= 0.5 && morph < 0.5 ? '' : 'none';
+        setG(sd.hit, 'd', d, hold); setG(sd.hit, 'style:display', (sd.live ?? 1) >= 0.5 && morph < 0.5 ? '' : 'none', hold);
         sd.cur = sp; sd.len = arcLen(sp);
       }
       g.cur = pts;
       g.len = arcLen(pts);
       const d = t === 1 ? g.dC : polyD(pts);
-      x.halo.setAttribute('d', d); x.hit.setAttribute('d', d);
+      setG(x.halo, 'd', d, hold); setG(x.hit, 'd', d, hold);
       // While the GPU draws the tubes their SVG layers are hidden (gl-on): their paths catch up when the SVG shows them again (syncVeins).
       if (svgTubes) {
         x.sel.setAttribute('d', d); x.wall.setAttribute('d', d); x.shadow.setAttribute('d', d);
@@ -2988,15 +3028,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       g.lit = litNormals(pts);
       x.shadeKey = '';
       const a = pts[0], b = pts[pts.length - 1];
-      x.grad.setAttribute('x1', a[0]); x.grad.setAttribute('y1', a[1]);
-      x.grad.setAttribute('x2', b[0] === a[0] && b[1] === a[1] ? a[0] + 1 : b[0]); x.grad.setAttribute('y2', b[1]);
+      setG(x.grad, 'x1', a[0], hold); setG(x.grad, 'y1', a[1], hold);
+      setG(x.grad, 'x2', b[0] === a[0] && b[1] === a[1] ? a[0] + 1 : b[0], hold); setG(x.grad, 'y2', b[1], hold);
       if (x.tipFade) {
         // From the tip (nothing) to `frac` of the way along (solid); in the circuit there is no fade.
         const q = pointAt(pts, x.tipFade.frac);
         x.tipFade.line = [a[0], a[1], q[0], q[1]];
-        x.tipFade.tg.setAttribute('x1', a[0]); x.tipFade.tg.setAttribute('y1', a[1]);
-        x.tipFade.tg.setAttribute('x2', q[0]); x.tipFade.tg.setAttribute('y2', q[1]);
-        x.tipFade.s0.setAttribute('stop-opacity', (x.tipFade.joined ? 1 : t).toFixed(2));
+        setG(x.tipFade.tg, 'x1', a[0], hold); setG(x.tipFade.tg, 'y1', a[1], hold);
+        setG(x.tipFade.tg, 'x2', q[0], hold); setG(x.tipFade.tg, 'y2', q[1], hold);
+        setG(x.tipFade.s0, 'stop-opacity', (x.tipFade.joined ? 1 : t).toFixed(2), hold);
       }
     }
     if (!full) return;
@@ -3360,7 +3400,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (x.tipFade && TIP_CONNECT[e.id]) {
         // Drawn solid to its end while something attaches there; otherwise it fades.
         const joined = TIP_CONNECT[e.id].some((c) => E[c]?.vis && collOpen(c, f));
-        if (joined !== x.tipFade.joined) { x.tipFade.joined = joined; x.tipFade.s0.setAttribute('stop-opacity', (joined ? 1 : easeInOut(morph)).toFixed(2)); }
+        if (joined !== x.tipFade.joined) { x.tipFade.joined = joined; setG(x.tipFade.s0, 'stop-opacity', (joined ? 1 : easeInOut(morph)).toFixed(2)); }
       }
       x.drawn = true;   // it has been on screen, so leaving it is worth animating
       const k = EI[e.id];
@@ -4233,7 +4273,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     glowSync = false;
     const on = glWanted(t);
     wrap.classList.toggle('gl-on', on);
-    if (!on) { tubesHidden = false; if (tubesHeld.size) flushTubes(); }
+    if (!on) { tubesHidden = false; if (tubesHeld.size) flushTubes(); if (geoHeld.size) flushGeo(); }
     if (!on && tubesStale) { tubesStale = false; updateGeometry(true); }
     const plateWas = plateOn();
     wrap.classList.toggle('gl-plate', on && veins.hasPlate(0));
@@ -5104,12 +5144,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const u = clamp((now - r.t0) / r.dur, 0, 1);
       const done = u >= 1 || quietFx();
       const off = (r.out ? easeInOut(u) : 1 - easeInOut(u)) * r.dir;
+      const hold = geoHolding();
       for (const el of REVEAL_PARTS.map((part) => x[part]).concat(x.strands ? x.strands.flatMap((sd) => [sd.wall, sd.lumen]) : [])) {
         if (!el) continue;
-        if (done) { el.removeAttribute('pathLength'); el.style.strokeDasharray = ''; el.style.strokeDashoffset = ''; continue; }
-        el.setAttribute('pathLength', '1');
-        el.style.strokeDasharray = '1 1';
-        el.style.strokeDashoffset = off.toFixed(4);
+        if (done) { setG(el, 'pathLength', null, hold); setG(el, 'style:strokeDasharray', '', hold); setG(el, 'style:strokeDashoffset', '', hold); continue; }
+        setG(el, 'pathLength', '1', hold);
+        setG(el, 'style:strokeDasharray', '1 1', hold);
+        setG(el, 'style:strokeDashoffset', off.toFixed(4), hold);
       }
       if (done) { x.reveal = null; finished = true; if (r.out) finishExit(x); }
     }
@@ -8471,6 +8512,27 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // canvas (a resolution's fade, a dive, the lobule), the callouts and the pane go back to their own way (?glasscopy=1: their own canvas,
   // from a copy, as before 31 Oct; by default the browser's glass) and a card to the browser's glass.
   let frostHold = false;
+  // (2 Nov 2026, the iPhone trace: the glass asked the figure's canvas for its computed look on every frame it drew, which made the
+  // browser restyle the page there and then, mid-frame. The look is read between frames instead: once at the start, after any write to
+  // the canvas or what holds it, and when one of its transitions or animations ends; while one runs the canvas counts as easing, so no
+  // glass is taken from it. ?frostcache=0: read in the frame, as before.)
+  const VC_CACHE = !/[?&]frostcache=0\b/.test(location.search);
+  const vcLook = () => {
+    const vc = getComputedStyle(vCanvas);
+    return vc.display !== 'none' && vc.visibility === 'visible' && +vc.opacity >= 0.999 ? '' : 'the figure\'s canvas is hidden or faded';
+  };
+  let vcWhy = null, vcPass = 0, vcEasing = 0;
+  function readVcLook() { vcPass = 0; vcWhy = vcLook(); frostWake?.(); }
+  function vcStale() { if (!vcPass) vcPass = restPass(readVcLook); }
+  if (VC_CACHE) {
+    const vcMo = new MutationObserver(vcStale);
+    for (let e = vCanvas; e && e.nodeType === 1; e = e.parentElement) vcMo.observe(e, { attributes: true, attributeFilter: ['style', 'class', 'hidden', 'data-theme', 'data-palette'] });
+    const vcIn = (ev) => { if (ev.target === vCanvas) vcEasing++; };
+    const vcOut = (ev) => { if (ev.target === vCanvas) { vcEasing = Math.max(0, vcEasing - 1); vcStale(); } };
+    vCanvas.addEventListener('transitionrun', vcIn); vCanvas.addEventListener('animationstart', vcIn);
+    for (const t of ['transitionend', 'transitioncancel', 'animationend', 'animationcancel']) vCanvas.addEventListener(t, vcOut);
+    vcWhy = vcLook();
+  }
   // (frostWhy: '' while the figure's canvas takes glass, else the first thing that stops it, in words for the ?perf blur gauge.)
   const frostWhy = () => {
     if (frostHold) return 'a change of canvas is under way';
@@ -8482,8 +8544,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!wc.contains('gl-on')) return 'the GPU figure is not showing';
     if (wc.contains('in-lobule')) return 'the lobule is showing';
     if (wc.contains('unframed')) return 'the figure is unframed';
-    const vc = getComputedStyle(vCanvas);
-    return vc.display !== 'none' && vc.visibility === 'visible' && +vc.opacity >= 0.999 ? '' : 'the figure\'s canvas is hidden or faded';
+    if (!VC_CACHE) return vcLook();
+    if (vcEasing > 0) return 'the figure\'s canvas is easing';
+    if (vcWhy == null) { vcStale(); return 'the figure\'s canvas is being read'; }
+    return vcWhy;
   };
   const frostOn = () => !frostWhy();
   const frostHost = (o) => ({ gl: veins.top.gl, canvas: veins.top.canvas, add: veins.top.add, warmIn: veins.top.warmIn, now: () => { if (veins && !veins.lost) veins.present(); }, active: frostOn, why: frostWhy, view: () => veins?.viewKey ?? null, ...o });
@@ -11233,8 +11297,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const now = performance.now();
     for (const [el, t] of overEasing) if (t < now || !el.isConnected) { overEasing.delete(el); overDirty = true; }
     const key = overKey();
-    if (!overDirty && key === overKeyWas) return;
-    overDirty = false; overKeyWas = key; overTrans = new WeakMap();
+    if (overDirty || key !== overKeyWas) {
+      overDirty = false; overKeyWas = key;
+      // (2 Nov 2026, the iPhone trace: the groups' styles were read here, after the frame's writes, and the browser restyled the page in
+      // the middle of the frame. They are read first thing in the next frame (readFrame), before any write, and laid then. ?overearly=0:
+      // read here, as before.)
+      if (!OVER_EARLY) overReadNow();
+      else if (!overAsk) overAsk = readFrame(overReadEarly);
+    }
+    if (!overGot) return;
+    const run = overGot;
+    overGot = null;
+    overApply(run);
+  }
+  const OVER_EARLY = !/[?&]overearly=0\b/.test(location.search);
+  let overAsk = 0, overGot = null;
+  function overReadEarly() { overAsk = 0; overReadNow(); askAnimate(); }
+  function overReadNow() {
+    if (!veins?.overlay || veins.lost || !wrap.classList.contains('gl-on')) return;
+    overTrans = new WeakMap();
     const easing = [...overEasing.keys()];
     let why = null;
     const read = (u) => {
@@ -11245,6 +11326,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     };
     const run = overRun(overUnits(worldOver, gOver), read);
     overStop = run.whole ? null : { unit: run.stop, why: why?.[0] || '?', el: why?.[1] || null };
+    overGot = run;
+  }
+  function overApply(run) {
     const groups = new Map(), names = [];
     run.forEach(([u, spec], i) => {
       const n = `o${i}`, up = u.parentNode === gOver ? gOver : null;
@@ -11432,6 +11516,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function geomEdge(ev) {
     if (ev.clientX == null || ev.pointerType === 'touch' || lobuleOn) return null;
     let best = null;
+    if (geoHeld.size) flushGeo();   // (the hit paths the stage holds while the GPU draws: written before they are tested)
     const inv = new Map();   // the pointer in each parent group's space: vessels share a few groups, so one getScreenCTM each
     for (const id of Object.keys(E)) {
       const h = E[id]?.hit;
@@ -12431,7 +12516,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lobuleRing: () => (lobuleOn && diveT >= 1 ? lz?.ring() ?? null : null),
     /** The vessels lit by a glow that stays (a selection, a slide's or step's vessels, the Doppler's), as [id, band width ×]: the corner
      *  credit keeps off their glow too. (A hover's or a change's glow comes and goes; the credit does not move for it.) */
-    flushHeld: () => { if (tubesHeld.size) flushTubes(); },   // (the corner credit reads the hidden lumens' widths: setL)
+    flushHeld: () => { if (tubesHeld.size) flushTubes(); if (geoHeld.size) flushGeo(); },   // (the corner credit reads the hidden lumens' widths: setL)
     steadyGlows: () => ['sel', 'dop', 'slide', 'focus'].flatMap((k) => [...(glow.src.get(k) || new Map()).values()].map((g) => [g.id, g.wide || 1])),
     /** A talk takes the figure out of the Tab order (its vessels, organ keys and labels); the end of the talk puts it back. */
     setKeyStops: (on) => {

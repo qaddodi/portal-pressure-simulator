@@ -116,7 +116,9 @@ test('hosted: a CSS transition anywhere on the page is followed with no read whi
   await frames(3);
   assert.equal(reads, r, 'no read while it runs');
   fire('transitionend');
-  assert.ok(reads > r, 'read once where it ended');
+  assert.equal(reads, r, 'not read in the event itself (2 Nov 2026: in the next frame\'s read phase, frame.js readFrame)');
+  await frames(1);
+  assert.ok(reads > r, 'read once where it ended, first thing in the next frame');
   clock += 700; await frames(3);
   r = reads;
   G.redraw(); await frames(3);

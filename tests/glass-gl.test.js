@@ -54,7 +54,7 @@ test('the stage lays the GPU glass under both callout layers, off with the other
   assert.match(SRC, /if \(canvas\) \(cards \? cards\.before : pane \|\| layers\[0\]\)\.before\(canvas\);/, 'under the callouts, which share its z-index and come after it');
   // A write to a callout asks for the glass's own frame (its final phase, before that frame shows), so it never trails the outline and is
   // drawn once in it; no draw of its own in a microtask (review H4b, 30 Oct).
-  assert.match(SRC, /const mo = new MutationObserver\(\(recs\) => \{ if \(!recs\?\.length \|\| changed\(recs\)\) measureGeo\(\); quiet = 0; ask\(\); \}\);/);
+  assert.match(SRC, /const mo = new MutationObserver\(\(recs\) => \{ if \(!recs\?\.length \|\| changed\(recs\)\) measureEarly\(\); quiet = 0; ask\(\); \}\);/);
   assert.doesNotMatch(SRC, /queueMicrotask/);
   // Until a copy of the figure is in, and after the browser refuses one, the browser's own glass stays.
   assert.match(SRC, /if \(!panes\.length\) \{ if \(cards\) unmark\(\); clear\(\); return false; \}\n\s+\/\/ \(Until the first copy is in, the browser's own glass stays\.\)\n\s+if \(!ready\) return true;/);
@@ -91,7 +91,7 @@ test('the glass takes a new copy of the figure only when the figure, the region 
 });
 
 test('the glass is drawn on the shared final phase, once a frame, after the figure\'s own frame', () => {
-  assert.match(SRC, /import \{ finalFrameFor, cancelFrame, noteDraw \} from '\.\/frame\.js\?v=[0-9a-f]+';/);
+  assert.match(SRC, /import \{ finalFrameFor, readFrameFor, framePhase, cancelFrame, noteDraw \} from '\.\/frame\.js\?v=[0-9a-f]+';/);
   assert.match(SRC, /const later = finalFrameFor\(cards \? 'glass-cards' : pane \? 'glass-pane' : 'glass'\);/);
   assert.match(SRC, /const loop = \(\) => \{ raf = 0; if \(changed\(mo\.takeRecords\(\)\)\) measureSoon\(\); settle\(draw\(\)\); \};/, 'the writes made before it in its frame are drawn by it (a glide or fade put back now; anything else read just after the frame), not again after');
   assert.match(SRC, /function ask\(\) \{ if \(!raf && !lost && !dead\) raf = later\(loop\); \}/);

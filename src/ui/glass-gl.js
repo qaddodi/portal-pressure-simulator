@@ -9,7 +9,7 @@
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { finalFrameFor, cancelFrame, noteDraw } from './frame.js?v=7710f677e2';
+import { finalFrameFor, readFrameFor, framePhase, cancelFrame, noteDraw } from './frame.js?v=7710f677e2';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=e48e05cdb3';
 import { shiftOf, translateOf, motionAt, movesOnly } from './glass-motion.js?v=d367c59900';
 import { pathPolys, fanTriangles } from './path-poly.js?v=07f30beea9';
@@ -1093,6 +1093,30 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (watchRo) { if (tgt) watchRo.observe(tgt); for (const g of list) watchRo.observe(g); }
     wake();
   }
+  // (2 Nov 2026, the iPhone trace: a write the observers saw, to the callouts, a card, the page's classes, was read at once, in the
+  // observer's task (a microtask straight after a frame's callbacks, or an event's), where the page's styles were not up to date: the
+  // animations and boxes read there made the browser restyle and lay out the page then, up to 14 ms on a slide change. Those reads wait
+  // for the first, read-only phase of the next frame (frame.js readFrame), where the page is as the browser last laid it, and the glass
+  // drawn in that frame's final phase still has them. ?glassearly=0: read at once, as before.)
+  const GEO_EARLY = !/[?&]glassearly=0\b/.test(SEARCH);
+  const readFrame = readFrameFor(cards ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
+  let earlyAsk = 0;
+  function measureEarlyNow() { earlyAsk = 0; if (trackQ.size) trackNow(); measureGeo(); }
+  // (Likewise a transition or animation that has just started: its keyframes are taken in the next frame's read phase, which comes after
+  // the browser sent the event, in the same frame.)
+  const trackQ = new Set();
+  let trackAsk = 0;
+  function trackNow() { trackAsk = 0; for (const e of trackQ) track(e); trackQ.clear(); }
+  function trackSoon(e) {
+    if (!e) return;
+    if (!GEO_EARLY || framePhase() === 'read') { track(e); return; }
+    trackQ.add(e);
+    if (!trackAsk) trackAsk = readFrame(trackNow);
+  }
+  function measureEarly() {
+    if (!GEO_EARLY || framePhase() === 'read') { measureGeo(); return; }
+    if (!earlyAsk) earlyAsk = readFrame(measureEarlyNow);
+  }
   /** The page read again just after this frame (or now, outside a frame), once however often asked. */
   function measureSoon(ms = 0) { if (!geoT) geoT = setTimeout(measureGeo, ms); }
   // (The labels drawn anew (their boxes may now lie across a glass): read once they rest, 250 ms after the last change.)
@@ -1170,40 +1194,40 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // final phase of the frame that shows it, so the glass still never trails its outline, and one made in a frame before the glass's turn
   // is taken by its loop (takeRecords). The microtask draw it was had drawn a second time in a frame while callouts moved; 30 Oct,
   // review H4b.)
-  const mo = new MutationObserver((recs) => { if (!recs?.length || changed(recs)) measureGeo(); quiet = 0; ask(); });
+  const mo = new MutationObserver((recs) => { if (!recs?.length || changed(recs)) measureEarly(); quiet = 0; ask(); });
   const watched = cards ? cards.watch : pane ? [pane] : layers;
   for (const l of watched) mo.observe(l, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['style', 'class', 'data-at', 'hidden'] });
-  const again = () => measureGeo();
+  const again = () => measureEarly();
   const observers = [mo, new MutationObserver(again), new MutationObserver(again)];
   observers[1].observe(document.documentElement, { attributes: true, attributeFilter: ['data-noglass', 'data-theme', 'data-palette', 'class'] });
   observers[2].observe(wrap, { attributes: true, attributeFilter: ['class'] });   // (the GPU figure on or off: live(); the stage's look)
   // (What can move the glasses, the canvas or the figure with no write in the layers: a style, class or hidden on any of their parents, a
   // size change, a scroll, a font come in. A parent's glide or fade above the layers is read again too: the motion follows only what lies
   // between a glass and its canvas.)
-  const parentsMo = new MutationObserver(() => measureGeo());
+  const parentsMo = new MutationObserver(() => measureEarly());
   {
     const chain = new Set();
     for (const el of [...watched, source]) for (let e = el === source ? el : el.parentElement; e && e.nodeType === 1; e = e.parentElement) chain.add(e);
     for (const e of chain) parentsMo.observe(e, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
     observers.push(parentsMo);
   }
-  const watchRo = typeof ResizeObserver === 'function' ? new ResizeObserver(() => measureGeo()) : null;
+  const watchRo = typeof ResizeObserver === 'function' ? new ResizeObserver(() => measureEarly()) : null;
   for (const e of [canvas, source, wrap]) if (e) watchRo?.observe(e);
   const onScroll = () => measureSoon();
   document.addEventListener?.('scroll', onScroll, true);
   document.fonts?.addEventListener?.('loadingdone', again);
   // (A CSS transition or animation starting anywhere: followed if it moves a glass or what holds it (its keyframes taken now, once); one
   // ending, anywhere: the page read again for where it ended.)
-  const docStart = (e) => { track(e?.target); wake(); };
-  const docEnd = () => measureGeo();
+  const docStart = (e) => { trackSoon(e?.target); wake(); };
+  const docEnd = () => measureEarly();
   const DOC_START = ['transitionrun', 'animationstart'], DOC_END = ['transitionend', 'transitioncancel', 'animationend', 'animationcancel'];
   for (const t of DOC_START) document.addEventListener?.(t, docStart, true);
   for (const t of DOC_END) document.addEventListener?.(t, docEnd, true);
   // A callout's fade, glide or hover moves its glass with no write to wake it: it is followed while it runs.
   const held = (e) => {
     liveUntil = performance.now() + 800;
-    if (/(end|cancel)$/.test(e?.type || '')) { measureGeo(); return; }   // (ended: read where it ended)
-    if (e?.target && /^(transition|animation)/.test(e.type)) track(e.target);
+    if (/(end|cancel)$/.test(e?.type || '')) { measureEarly(); return; }   // (ended: read where it ended)
+    if (e?.target && /^(transition|animation)/.test(e.type)) trackSoon(e.target);
     wake();
   };
   const EVENTS = ['transitionrun', 'transitionstart', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel', 'pointerover', 'pointerout'];
@@ -1253,7 +1277,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         ? [host.add({ order: h.order?.low ?? 1, prep: prepInto, draw: () => drawInto('low') }), host.add({ order: h.order?.high ?? 3, draw: () => drawInto('high') })]
         : [host.add({ order: h.order ?? 2, prep: prepInto, draw: () => drawInto('all') })];
       // (The figure's canvas faded, hidden or moved by a style of its own (a resolution's fade, a sub-pixel rest): looked at again.)
-      hostMo = new MutationObserver((recs) => { if (!recs?.length || changed(recs)) measureGeo(); else wake(); });
+      hostMo = new MutationObserver((recs) => { if (!recs?.length || changed(recs)) measureEarly(); else wake(); });
       hostMo.observe(host.canvas, { attributes: true, attributeOldValue: true, attributeFilter: ['style', 'class', 'hidden'] });
       measureGeo();
     },
