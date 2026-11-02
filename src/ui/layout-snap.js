@@ -28,20 +28,12 @@ export const readBox = (el) => { if (el == null) return undefined; note(); retur
 export const readRects = (el) => { if (el == null) return undefined; note(); return el.getClientRects(); };
 export const readStyle = (el, pseudo) => { note(); return pseudo ? getComputedStyle(el, pseudo) : getComputedStyle(el); };
 export const readCTM = (el) => { if (el == null) return undefined; note(); return el.getScreenCTM?.() ?? null; };
-export const readLocalCTM = (el) => { if (el == null) return undefined; note(); return el.getCTM?.() ?? null; };
-export const readBBox = (el, opts) => { if (el == null) return undefined; note(); return opts ? el.getBBox(opts) : el.getBBox(); };
-export const readLength = (el) => { if (el == null) return undefined; note(); return el.getTotalLength(); };
-export const readPoint = (el, s) => { if (el == null) return undefined; note(); return el.getPointAtLength(s); };
 // (offsetWidth, offsetHeight, offsetTop, offsetLeft, offsetParent, clientWidth, clientHeight, clientTop, clientLeft, scrollWidth,
 // scrollHeight, scrollTop, scrollLeft, innerWidth, innerHeight, innerText: one element's (or the window's) layout metric, by name.)
 export const readMetric = (el, k) => { if (el == null) return undefined; note(); return el[k]; };
 export const readElAt = (x, y) => { note(); return document.elementFromPoint(x, y); };
-export const readElsAt = (x, y) => { note(); return document.elementsFromPoint(x, y); };
 export const readAnims = (el, opts) => { if (el == null) return undefined; note(); return opts ? el.getAnimations?.(opts) : el.getAnimations?.(); };
 export const readTiming = (fx) => { if (fx == null) return undefined; note(); return fx.getComputedTiming?.(); };
-export const readVisible = (el, opts) => { if (el == null) return undefined; note(); return el.checkVisibility(opts); };
-export const readInStroke = (el, p) => { note(); return el.isPointInStroke(p); };
-export const readInFill = (el, p) => { note(); return el.isPointInFill(p); };
 export const scrollInto = (el, opts) => { if (el == null) return; note(); el.scrollIntoView?.(opts); };
 
 // ---- The snapshot. ----

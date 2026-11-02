@@ -11,14 +11,14 @@
 // into a string to be compared.
 
 import { store, updateParams } from './store.js?v=a51981892d';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, releaseWords } from './util.js?v=ae9dfc2acc';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, releaseWords } from './util.js?v=65ddc3912c';
 import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7d7bfe9a62';
-import { cardFor, normalizeSel } from './actions.js?v=a0ee9f69cc';
+import { cardFor, normalizeSel } from './actions.js?v=2a3ffbccb2';
 import { frameFor } from './frame.js?v=ca74a6f22a';
 import { restPass, cancelRest } from './rest-pass.js?v=b1da783ead';
 import { classSoon, runSoon, propSoon, attrSoon, textSoon } from './class-soon.js?v=d59b314e61';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4c4267f1e3';
-import { readBox, readMetric } from './layout-snap.js?v=890c8333b8';
+import { readBox, readMetric } from './layout-snap.js?v=e1329a7c70';
 const nextFrame = frameFor('card');
 
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number: `out` ({ n, d }, a kept

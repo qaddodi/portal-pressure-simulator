@@ -19,11 +19,11 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=ae9dfc2acc';
-import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=9cda2b1cd2';
+import { h, fmt, clamp, lerp } from './util.js?v=65ddc3912c';
+import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=8989873f3b';
 import { measure } from './glyph-measure.js?v=f7df9c8270';
-import { readStyle } from './layout-snap.js?v=890c8333b8';
-import { pressureColor } from './colormap.js?v=d866c865da';
+import { readStyle } from './layout-snap.js?v=e1329a7c70';
+import { pressureColor } from './colormap.js?v=13bbd7ea4e';
 import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=88731ae229';
 import { isPaused } from './clock.js?v=e507b54cba';
 import { store } from './store.js?v=a51981892d';

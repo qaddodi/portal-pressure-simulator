@@ -22,7 +22,7 @@ import { finalFrameFor, easeNow } from './frame.js?v=ca74a6f22a';
 import { measure } from './glyph-measure.js?v=f7df9c8270';
 import { D_SURFACE, easeArrive } from './ease.js?v=7d7bfe9a62';
 import { cssColor } from './css-color.js?v=59ed182174';
-import { readBox, readRects, readStyle } from './layout-snap.js?v=890c8333b8';
+import { readBox, readRects, readStyle } from './layout-snap.js?v=e1329a7c70';
 
 const finalFrame = finalFrameFor('caption-gl');
 const NONE = [];

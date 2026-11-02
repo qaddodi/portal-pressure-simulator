@@ -18,7 +18,7 @@ import { Inline, inlineShift, inlineTranslate, Motion, compileKeyframes, motionA
 import { pathPolys, fanTriangles } from './path-poly.js?v=01766890c9';
 import { easeArrive, D_SURFACE } from './ease.js?v=7d7bfe9a62';
 import { caught } from './caught.js?v=caf293c676';
-import { viewSize } from './layout-snap.js?v=890c8333b8';
+import { viewSize } from './layout-snap.js?v=e1329a7c70';
 import { parseCssColor } from './css-color.js?v=59ed182174';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */

@@ -21,7 +21,7 @@
 import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=88731ae229';
 import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=db56442a0b';
 import { restPass, cancelRest } from './rest-pass.js?v=b1da783ead';
-import { readMetric } from './layout-snap.js?v=890c8333b8';
+import { readMetric } from './layout-snap.js?v=e1329a7c70';
 import { cssColor } from './css-color.js?v=59ed182174';
 import { caught } from './caught.js?v=caf293c676';
 

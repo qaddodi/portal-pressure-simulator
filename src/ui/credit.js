@@ -8,7 +8,7 @@ import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multi
 import { CellGrid, geomOf } from './cell-grid.js?v=c53484b8dc';
 import { elBoxInto, chainMat } from './shape-gl.js?v=3efd12785d';
 import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js?v=1b5b7b8ddd';
-import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js?v=890c8333b8';
+import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js?v=e1329a7c70';
 const OWN_BOX = { x: 0, y: 0, width: 0, height: 0 };   // alloc-rare: made once (a shape's own box, read at once)
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the
 // browser last drew, never after the frame's writes.)

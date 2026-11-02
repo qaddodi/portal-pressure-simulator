@@ -7,13 +7,13 @@ import { WARM_VIEWS, WARM_MS } from './warm-views.js?v=5709bebee7';
 import { gastricUp } from '../engine/scenario.js?v=d2669cef9b';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=512e725aea';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=b75990ccb4';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=d866c865da';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=13bbd7ea4e';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=13643dbace';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=94a9372b68';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=ad0e95380d';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=a51981892d';
 import { fibroReading } from './clock.js?v=e507b54cba';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=ae9dfc2acc';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=65ddc3912c';
 import { riseCentre } from './rise-path.js?v=9a6cc7c969';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=7a94734b0b';
 import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=7d7bfe9a62';
@@ -52,13 +52,13 @@ import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, reshap
 import { setLive, getLive, dropLive } from './live-style.js?v=1a585312ec';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=92f2104661';
 import { pathCmds, flattenPath, newCmds, cmdsReset, cmdM, cmdL, cmdQ, cmdZ, polyBoxInto, measurePath, elBoxInto, chainMat } from './shape-gl.js?v=3efd12785d';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=9546e67879';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=32458f4b70';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=e6337f9cef';
 import { createLabelGL } from './label-gl.js?v=ae5e63e1f6';
-import { createGlassGL } from './glass-gl.js?v=d830edee02';
+import { createGlassGL } from './glass-gl.js?v=9797a3144c';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=3347bb42f7';
 import { ENT_W } from './veins-bin.js?v=212e62b33a';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=f62025d5ea';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=a94c6223f2';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=e669103117';
@@ -97,8 +97,8 @@ import { classSoon } from './class-soon.js?v=d59b314e61';
 import { restPass, cancelRest } from './rest-pass.js?v=b1da783ead';
 import { createLateQueue } from './late-queue.js?v=d7da770ef7';
 import { dropLabel } from './drop-label.js?v=90ece7f11f';
-import { glWords } from './gl-words.js?v=64c2621998';
-import { provideStage } from './layout-snap.js?v=890c8333b8';
+import { glWords } from './gl-words.js?v=a0e7624175';
+import { provideStage } from './layout-snap.js?v=e1329a7c70';
 const STENT_FACTORS = [0, 0, 0];   // alloc-rare: made once (stentSegments writes into it; the caller reads one entry at once)
 const EBOX = { x: 0, y: 0, width: 0, height: 0 }, SCAN_BOX = [0, 0, 0, 0];   // alloc-rare: made once (an element's box is read from EBOX at once; scanLvBox is SCAN_BOX)
 import { caught } from './caught.js?v=caf293c676';
@@ -2597,7 +2597,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=4fe0036cbd').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=e3e52363cd').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, binAway: (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins }) });
