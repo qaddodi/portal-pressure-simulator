@@ -64,7 +64,8 @@ import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacit
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
 import { follow2, createColourFollow, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS, PERIOD, DRIFT_PERIOD } from './blood.js?v=a70439097a';
-import { createDyeRemote } from './dye-remote.js?v=548f7a9b22';
+import { createDyeRemote } from './dye-remote.js?v=b353f4176d';
+import { createSweepClient } from './sweep-client.js?v=8a4d3ec2b6';
 import { retireRows, flowClose } from './flow-rows.js?v=6cd335f84b';
 import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=c75a610ea0';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
@@ -3795,7 +3796,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const MORPH_GPU = typeof Worker !== 'undefined';
   const MORPH_PIECES = [[0, 1 / 6], [1 / 6, 1 / 3], [1 / 3, 0.5], [0.5, 2 / 3], [2 / 3, 5 / 6], [5 / 6, 1]];
   const MORPH_STEPS = 6, MORPH_SLACK = 6, MORPH_JSLACK = 30, MORPH_JSUB = 3;
-  const mt = { key: '', pieces: null, using: null, gen: 0, seq: 0, checkT: 0, worker: null, wait: new Map(), reach: [null, null], landAt: 0, stats: { gpu: 0, cpu: 0, builds: 0, miss: {} } };
+  const mt = { key: '', pieces: null, using: null, gen: 0, checkT: 0, reach: [null, null], landAt: 0, stats: { gpu: 0, cpu: 0, builds: 0, miss: {} } };
   const morphMiss = (why) => { mt.stats.miss[why] = (mt.stats.miss[why] || 0) + 1; return false; };
   function morphOff() {
     if (!mt.using) return;
@@ -4074,17 +4075,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     vBinKey = ''; binShown = null; bendShown = null;
     syncVeins(easeInOut(morph));
   }
-  function sweepBin(msg) {
-    if (!mt.worker) {
-      try {
-        mt.worker = new Worker(new URL('./sweep-worker.js?v=95b43eb486', import.meta.url), { type: 'module' });
-        mt.worker.onmessage = (e) => { const w = mt.wait.get(e.data.id); mt.wait.delete(e.data.id); if (w) (e.data.error ? w.no(e.data.error) : w.ok(e.data.b)); };
-        mt.worker.onerror = () => { for (const w of mt.wait.values()) w.no('worker'); mt.wait.clear(); };
-      } catch { return Promise.reject(new Error('no worker')); }
-    }
-    const id = ++mt.seq;
-    return new Promise((ok, no) => { mt.wait.set(id, { ok, no }); mt.worker.postMessage({ id, ...msg }); });
-  }
+  // (The worker's lifecycle, sweep-client.js: a dead or stuck one is dropped and its requests rejected; the next request restarts it,
+  // up to a few times in a row, and the callers fall back to the main thread on a rejection.)
+  const sweeper = createSweepClient(() => new Worker(new URL('./sweep-worker.js?v=95b43eb486', import.meta.url), { type: 'module' }));
+  const sweepBin = (msg) => sweeper.request(msg);
   const FAR_ROW = Array.from({ length: N_SAMPLES }, () => [1e9, 1e9]);
   // How far (squared) a join's centre lies from the course of its centres through the stretch.
   function joinOff(x, y, C) {
