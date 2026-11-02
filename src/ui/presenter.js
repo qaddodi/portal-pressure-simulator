@@ -84,7 +84,7 @@ const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
 /** Poll (not frames: a hidden tab runs none) until fn() holds or ms pass. */
 async function until(fn, ms = 3000) { const t0 = performance.now(); while (!fn() && performance.now() - t0 < ms) await wait(40); }
 /** One painted frame (or 100 ms: a hidden tab paints none). */
-const painted = () => new Promise((r) => { const t = setTimeout(r, 100); nextFrame(() => { clearTimeout(t); r(); }); });
+const painted = () => new Promise((done) => { const t = setTimeout(done, 100); nextFrame(() => { clearTimeout(t); done(); }); });
 /** Until the page paints two frames in a row promptly, or ms pass. A card's fade is timed by the clock, not by the frames shown:
  *  one begun just before a long frame (a new organ picture, a lens repainting the figure) is over when that frame lands, and the
  *  card seems to pop. Begun once the frames come smoothly, it is seen whole. */
@@ -1061,7 +1061,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   async function drawn(st) {
     const n0 = frames;
     await until(() => frames > n0 && Math.abs((store.get().frame?.metrics?.pv ?? -99) - st.fp.pv) < 0.6, 900);
-    await new Promise((r) => nextFrame(() => nextFrame(r)));
+    await new Promise((done) => nextFrame(() => nextFrame(done)));
   }
 
   // ── The figure's moves ──
@@ -2195,7 +2195,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let bare = false;
   async function settleRun() {
     await Promise.race([document.fonts?.ready, wait(400)]);
-    await new Promise((r) => nextFrame(() => nextFrame(r)));
+    await new Promise((done) => nextFrame(() => nextFrame(done)));
     if (!ui) return;
     layout();
     await keepFall(keepCut);   // (a kept card this layout would change leaves after all, and is built again)
@@ -5318,7 +5318,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       await Promise.race([Promise.all(runs.map((x) => x.finished.catch(() => {}))), wait(1200)]);
       // (Once more as the entrances end: the slide's own framing, set outright for the cards where they now rest.)
       if (ui && shown && booting) { settle(); clearTimeout(reframeT); reframeT = 0; reframe(0); }
-      await new Promise((r) => nextFrame(() => nextFrame(r)));
+      await new Promise((done) => nextFrame(() => nextFrame(done)));
     }
     clearTimeout(coverT); booting = false;
     const c = cover; cover = null;

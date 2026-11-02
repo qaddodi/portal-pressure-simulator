@@ -23,7 +23,7 @@ test('the cards fade in only once the figure paints smoothly (after a new patien
   assert.ok(settle > 0 && quiet > settle && inn > quiet);
   // (Two frames in a row under 40 ms apart, at most 700 ms: paging is never held long; a hidden tab still moves on.)
   assert.match(src, /async function smooth\(cut, ms = 700\)[\s\S]*?t - last < 40/);
-  assert.match(src, /const painted = \(\) => new Promise\(\(r\) => \{ const t = setTimeout\(r, 100\);/);
+  assert.match(src, /const painted = \(\) => new Promise\(\(done\) => \{ const t = setTimeout\(done, 100\);/);
 });
 
 test('with reduced motion the cards still fade (opacity only, no slide)', () => {
