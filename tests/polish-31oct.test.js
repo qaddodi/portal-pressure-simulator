@@ -308,9 +308,9 @@ test('the Patients and Present previews opened by the (i) on touch scroll their 
   const m = src('src/ui/menu.js');
   const fn = m.slice(m.indexOf('function toggleInline('), m.indexOf('const $$rows'));
   assert.match(fn, /li\.scrollIntoView\(\{ block: 'nearest', behavior: reduce\.matches \? 'auto' : 'smooth' \}\)/);
-  // The wait counts from the moment the preview starts to open (a slow frame can start it late), ends on its transition, and the
-  // row leaves a margin above the footer and below the sticking heading.
-  assert.match(fn, /box\.classList\.add\('on'\);[\s\S]*addEventListener\('transitionend'[\s\S]*setTimeout\(show, /);
+  // It opens at the tap (a slide by transform, fold-slide.js), the scroll waits out the slide, and the row leaves a margin above the
+  // footer and below the sticking heading.
+  assert.match(fn, /fold\(box, li, true, \(v\) => box\.classList\.toggle\('on', v\)\);[\s\S]*setTimeout\(\(\) => \{ if \(box\.isConnected && box\.classList\.contains\('on'\)\) li\.scrollIntoView[\s\S]*D_SMALL \+ 30\);/);
   assert.match(css, /\.um-g li \{[^}]*scroll-margin: 28px 0 36px;/);
 });
 

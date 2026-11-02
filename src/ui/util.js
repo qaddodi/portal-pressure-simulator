@@ -1,6 +1,7 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame, easeNow } from './frame.js?v=7710f677e2';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
+import { slideFold } from './fold-slide.js?v=f0b2c624d3';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=fc509dabe4';
 import { leaveFromHere } from './menu-leave.js?v=e885166f40';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
@@ -199,8 +200,10 @@ export { announce } from './live.js?v=c7e9ac862b';
 // An ⓘ button: hover (or keyboard focus) shows the tooltip; a tap on touch opens the same text
 // under its row instead, easing open, and a second tap or a tap elsewhere closes it.
 function closeInfos(except) {
-  for (const r of document.querySelectorAll('.info-open')) if (r !== except) { r.classList.remove('info-open'); r.querySelector('.info-i')?.setAttribute('aria-expanded', 'false'); }
+  for (const r of document.querySelectorAll('.info-open')) if (r !== except) { r.querySelector('.info-i')?.setAttribute('aria-expanded', 'false'); foldInfo(r, false); }
 }
+// (The text slides down out from under its row, and what follows in the panel with it, by transform: fold-slide.js. No height eased.)
+const foldInfo = (row, open) => slideFold({ item: row, inner: row.querySelector(':scope > .ac-info > div'), root: row.parentElement?.parentElement, open, set: (v) => row.classList.toggle('info-open', v), ms: D_SMALL });
 let infoWired = false;
 export function infoButton(text) {
   const b = h('button', { class: 'info-i', type: 'button', 'aria-label': text, 'aria-expanded': 'false' }, icon('info'));
@@ -215,7 +218,7 @@ export function infoButton(text) {
     if (!row.querySelector(':scope > .ac-info')) row.append(h('div', { class: 'ac-info' }, h('div', {}, h('p', {}, text))));
     const open = !row.classList.contains('info-open');
     closeInfos(row);
-    row.classList.toggle('info-open', open); b.setAttribute('aria-expanded', String(open));
+    b.setAttribute('aria-expanded', String(open)); foldInfo(row, open);
   });
   return b;
 }

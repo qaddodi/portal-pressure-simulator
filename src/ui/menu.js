@@ -5,22 +5,23 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=4ef2a6ffd8';
-import { createTraceGL, fitPen } from './trace-gl.js?v=a9f5ccfef7';
-import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=1e57e65f0e';
+import { createTraceGL, fitPen } from './trace-gl.js?v=324698648b';
+import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=49565b3c73';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=211caa9134';
+import { pressureColor } from './colormap.js?v=7fd848fa1e';
 import { ownsSideways, pageGo } from './swipe.js?v=c1f19a57dd';
 import { frameFor } from './frame.js?v=7710f677e2';
+import { restPass } from './rest-pass.js?v=bf0c42ead5';
+import { slideFold } from './fold-slide.js?v=f0b2c624d3';
 import { leaveFromHere, menuLeaveOff } from './menu-leave.js?v=e885166f40';
 import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=fc509dabe4';
 const nextFrame = frameFor('menu');
 const profFrame = frameFor('menu-profile');
 // The hover preview's change of size and place runs without layout per frame: the card is laid out once at the taller of its old
 // and new heights, a clip (with the card's own round foot) eases from the old height to the new, and a move to a new row eases
-// by transform from where it stood; the card takes its new height once it has landed. ?pvglide=0 eases its height and top, as before.
-const PVGLIDE = !/[?&]pvglide=0\b/.test(location.search);
-if (!PVGLIDE) document.documentElement.setAttribute('data-pvcpu', '');
+// by transform from where it stood; the card takes its new height once it has landed. (No height or top is ever eased: the old
+// ?pvglide=0 path, which did, is gone, 1 Nov: nothing laid out in motion.)
 
 // Where each group's resistance sits along the pathway from the gut to the heart.
 const GROUP_WHERE = { Normal: 'No added resistance', 'Pre-hepatic': 'Before the liver', Presinusoidal: 'In the portal tracts', Sinusoidal: 'In the sinusoids', Postsinusoidal: 'At the central veins', 'Post-hepatic': 'Hepatic veins and IVC', Cardiac: 'The right heart' };
@@ -212,8 +213,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       const next = make();
       if (old && pv.classList.contains('on')) { old.classList.add('um-pv-old'); setTimeout(() => old.remove(), 130); } else old?.remove();
       pv._in.append(next);
-      if (old && h0 && !reduce.matches && PVGLIDE) pvResize(pv, h0, next.offsetHeight);
-      else if (old && h0 && !reduce.matches) { const h1 = next.offsetHeight; pv.style.height = h0 + 'px'; void pv.offsetHeight; pv.style.height = h1 + 'px'; setTimeout(() => { pv && (pv.style.height = ''); }, 140); }
+      if (old && h0 && !reduce.matches) pvResize(pv, h0, next.offsetHeight);
       $$rows().forEach((r) => r.classList.toggle('pv-on', r === row));
     }
     // Beside the panel, level with the row; over the other column when there is no room beside it.
@@ -221,7 +221,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     let x = pr.right + 8;
     if (x + w > innerWidth - 8) x = Math.max(8, innerWidth - w - 8);   // (no room beside the panel: over its right edge)
     const y = clamp(rr.top - 40, 8, visibleBottom() - ph - 8);
-    if (PVGLIDE) {
+    {
       // (A card already on show glides by transform from where it is drawn now to its new place; its top is written once.)
       const was = pv.classList.contains('on') ? pv._y : null;
       if (was != null && Math.abs(was - y) >= 1 && !reduce.matches && pv.animate) {
@@ -234,7 +234,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     pv.style.left = x + 'px'; pv.style.top = y + 'px';
     pv.classList.add('on');
   }
-  // (PVGLIDE) The card is laid out once at the taller height H for the change. Its glass moves onto three plates that ride
+  // The card is laid out once at the taller height H for the change. Its glass moves onto three plates that ride
   // transform only: the top (still, the shorter height p), a flat middle that scales down from it, and the round foot that slides
   // from the old height to the new; the words are cut at the foot by a clip. At the landing the card takes its new height and its
   // own glass back, the same size it is drawn, so nothing moves.
@@ -291,19 +291,16 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   // On touch, the ⓘ opens the preview under its row (one at a time), easing open and shut.
   function toggleInline(li, make, btn) {
     const was = li.querySelector('.um-inline');
-    el.querySelectorAll('.um-inline').forEach((x) => { x.classList.remove('on'); x.previousElementSibling?.setAttribute('aria-expanded', 'false'); const gone = x; setTimeout(() => gone.remove(), reduce.matches ? 0 : 220); });
+    // (It slides down out from under its row and the rows below with it, by transform, and back up shutting: fold-slide.js. No height eased.)
+    const fold = (box, item, open, set) => slideFold({ item, inner: box.firstElementChild, root: item.closest('.um-col') || el, open, set, ms: D_SMALL });
+    el.querySelectorAll('.um-inline').forEach((x) => { x.previousElementSibling?.setAttribute('aria-expanded', 'false'); const gone = x; fold(gone, gone.parentElement, false, (v) => { gone.classList.toggle('on', v); if (!v) gone.remove(); }); });
     if (was) return;
     const box = h('div', { class: 'um-inline' }, h('div', {}, make()));
     li.append(box); btn.setAttribute('aria-expanded', 'true');
-    // (A row near the foot of the list opened its preview below the fold: once the preview has eased open, the row and its preview scroll
-    // into view, clear of the footer. The wait counts from the moment it starts to open, not from the tap: a slow frame can start it late.)
-    nextFrame(() => nextFrame(() => {
-      box.classList.add('on');
-      let shown = false;
-      const show = () => { if (shown) return; shown = true; if (box.isConnected && box.classList.contains('on')) li.scrollIntoView({ block: 'nearest', behavior: reduce.matches ? 'auto' : 'smooth' }); };
-      box.addEventListener('transitionend', (e) => { if (e.target === box) show(); });
-      setTimeout(show, reduce.matches ? 0 : 450);
-    }));
+    fold(box, li, true, (v) => box.classList.toggle('on', v));
+    // (A row near the foot of the list opened its preview below the fold: once the preview has slid open, the row and its preview scroll
+    // into view, clear of the footer.)
+    setTimeout(() => { if (box.isConnected && box.classList.contains('on')) li.scrollIntoView({ block: 'nearest', behavior: reduce.matches ? 'auto' : 'smooth' }); }, reduce.matches ? 0 : D_SMALL + 30);
   }
   const $$rows = () => (el ? [...el.querySelectorAll('.um-row')] : []);
 
@@ -436,6 +433,21 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     // the footer give way, `kb-tight`, so the search row and some results stay in view.)
     if (kb > 80) { const room = Math.round(vvH - 16); el.style.setProperty('--menu-kb', `${kb}px`); el.style.setProperty('--menu-h', `${room}px`); if (room < 300) el.classList.add('kb-tight'); else el.classList.remove('kb-tight'); }
     else { el.style.removeProperty('--menu-kb'); el.style.removeProperty('--menu-h'); el.classList.remove('kb-tight'); }
+    sheetLiftSoon();
+  }
+  // The lift onto the keyboard and back eases by transform from where the sheet's top stood (its box takes the new bottom and height at
+  // once; no bottom or height is eased, 1 Nov: nothing laid out in motion). The top is read between frames (rest-pass.js), never in the
+  // viewport's scroll; offsetTop leaves out a transform still running.
+  let liftAsk = 0;
+  function sheetLiftSoon() { if (!liftAsk) liftAsk = restPass(sheetLift); }
+  function sheetLift() {
+    liftAsk = 0;
+    if (!el || !el.classList.contains('sheet')) return;
+    const t = el.offsetTop, was = el._top;
+    el._top = t;
+    if (was == null || Math.abs(was - t) < 1 || reduce.matches || !el.animate) return;
+    el._lift?.cancel();
+    el._lift = el.animate([{ transform: `translateY(${(was - t).toFixed(1)}px)` }, { transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE, composite: 'add' });
   }
   function place() {
     if (!el || el.classList.contains('sheet')) return;
@@ -502,6 +514,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         setTimeout(() => document.addEventListener('pointerdown', outside, true), 0);
         addEventListener('resize', place);
         vv?.addEventListener('resize', fitSheet); vv?.addEventListener('scroll', fitSheet);
+        if (sheet) { el._top = null; sheetLiftSoon(); }   // (where the sheet's top rests as it opens: the first lift eases from there)
         addEventListener('keydown', typed, true);
         onToggle?.(true, sheet);
         // Only a mouse or trackpad puts the caret in the search: on a touch screen (iPhone, iPad either way round)

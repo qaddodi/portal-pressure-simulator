@@ -16,9 +16,9 @@
 import { store, replaceParams } from './store.js?v=4ef2a6ffd8';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=1e57e65f0e';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=49565b3c73';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=1f1dc78c51';
+import { liveText, wordsOf } from './live-text.js?v=71be1cebba';
 import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=c1f19a57dd';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
@@ -29,8 +29,8 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=19ec04d93b';
-import { createTools } from './presenter-tools.js?v=c2d656745e';
+import { createHvpgMonitor } from './hvpg-proc.js?v=f6809e763d';
+import { createTools } from './presenter-tools.js?v=9a88ae2e02';
 import { openHandout } from './handout.js?v=be99975ab1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -40,13 +40,13 @@ import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=163ff46abf';
 import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
 import { createFigureKey } from './figure-key.js?v=c0737252d9';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=211caa9134';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=9f92f69643';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=7fd848fa1e';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=8865459ca6';
 import { clotWords } from './callout-math.js?v=6ef2901a08';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=ca904c5343';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=9c376539d3';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=74bfa99a0c';
+import { anchorsOf, roomFor } from './cam-room.js?v=8657001ec3';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=621af7a953';
@@ -54,9 +54,10 @@ import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=8413714371';
 import { sheetPanes } from './sheet-glass.js?v=fc8b724c05';
-import { createScopeTile } from './scope-tile.js?v=ea639668e4';
+import { createScopeTile } from './scope-tile.js?v=e779c7da0c';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX } from './ease.js?v=fc509dabe4';
+import { slideFold } from './fold-slide.js?v=f0b2c624d3';
 import { pageOn, followOf, pageIn } from './card-page.js?v=ebb4448222';
 const nextFrame = frameFor('presenter');
 
@@ -2857,7 +2858,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The closing quick check: a few questions to answer from memory; a tap on one shows its answer.
     check: (s) => h('ol', { class: 'pz-check' }, s.checks.map(([q, a], k) => {
       const li = h('li', {}, h('button', { type: 'button', class: 'pzc-q', 'aria-expanded': 'false', 'aria-controls': `pzc-a${k}`,
-        onclick: (e) => { const on = !li.classList.contains('open'); li.classList.toggle('open', on); e.currentTarget.setAttribute('aria-expanded', String(on)); } },
+        // (the answer slides down out from under its question and the rest of the list with it, by transform: fold-slide.js)
+        onclick: (e) => { const on = !li.classList.contains('open'); e.currentTarget.setAttribute('aria-expanded', String(on)); slideFold({ item: li, inner: li.querySelector('.pzc-a > p'), root: li.parentElement?.parentElement, open: on, set: (v) => li.classList.toggle('open', v), ms: D_SURFACE }); } },
       h('span', { class: 'pzc-t' }, q), h('span', { class: 'pzc-hint', 'aria-hidden': 'true' }, 'Show answer')),
       h('div', { class: 'pzc-a', id: `pzc-a${k}` }, h('p', {}, a)));
       return li;
