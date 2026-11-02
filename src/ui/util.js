@@ -10,9 +10,12 @@ import { measure as measureWords } from './glyph-measure.js?v=065ba67666';
 import { caught } from './caught.js?v=b96b17594a';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
+// (Nodes and strings alone, the usual call, go straight through: the flattened copy is made only for a list that holds an array, null or false.)
+const plainKids = (kids) => { for (let i = 0; i < kids.length; i++) { const k = kids[i]; if (k == null || k === false || Array.isArray(k)) return false; } return true; };
+const realKid = (k) => k != null && k !== false;
 for (const m of ['replaceChildren', 'append', 'prepend']) {
   const orig = Element.prototype[m];
-  Element.prototype[m] = function (...kids) { return orig.apply(this, kids.flat(Infinity).filter((k) => k != null && k !== false)); };
+  Element.prototype[m] = function (...kids) { return orig.apply(this, plainKids(kids) ? kids : kids.flat(Infinity).filter(realKid)); };
 }
 
 // The phone's layout: a phone held upright or on its side, and a tablet held upright (Mohammad, 17 Oct: the upright iPad takes
@@ -31,44 +34,81 @@ export const STACK_MQ = `(max-width: 767px), ${UPRIGHT_MQ}`;
 export const TABLET_UP_MQ = '(min-width: 700px) and (max-width: 1100px) and (orientation: portrait)';
 
 export const $ = (sel, root = document) => root.querySelector(sel);
+// alloc-rare: the matches come back as an array by contract; its callers run at a slide change or a tap, never in a frame loop
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-export function h(tag, attrs = {}, ...children) {
+// (Attributes and children are read where they stand: no entries list, no flattened copy. A default of one frozen empty object, not a new one.)
+const NO_ATTRS = Object.freeze({});
+const evNames = new Map();   // ('onclick' -> 'click', kept: a handler's event name is cut from its key once)
+function addKids(el, kids) {
+  for (let i = 0; i < kids.length; i++) {
+    const c = kids[i];
+    if (c == null || c === false) continue;
+    if (Array.isArray(c)) addKids(el, c);
+    else el.append(c.nodeType ? c : document.createTextNode(c));   // (createTextNode makes the text of a number or string itself)
+  }
+}
+export function h(tag, attrs = NO_ATTRS, ...children) {
   const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs || {})) {
+  if (attrs) for (const k in attrs) {
+    const v = attrs[k];
     if (v == null || v === false) continue;
     if (k === 'class') el.className = v;
-    else if (k === 'style' && typeof v === 'object') { for (const [sk, sv] of Object.entries(v)) { if (sk.startsWith('--')) el.style.setProperty(sk, sv); else el.style[sk] = sv; } }
-    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (k === 'style' && typeof v === 'object') { for (const sk in v) { if (sk.startsWith('--')) el.style.setProperty(sk, v[sk]); else el.style[sk] = v[sk]; } }
+    else if (k.startsWith('on') && typeof v === 'function') {
+      let ev = evNames.get(k);
+      if (ev === undefined) evNames.set(k, ev = k.slice(2).toLowerCase());   // alloc-rare: an event name met for the first time (kept in evNames)
+      el.addEventListener(ev, v);
+    }
     else if (k === 'html') el.innerHTML = v;
     else el.setAttribute(k, v === true ? '' : v);
   }
-  for (const c of children.flat(Infinity)) if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c)));
+  addKids(el, children);
   return el;
 }
 
 const SVGNS = 'http://www.w3.org/2000/svg';
-export function s(tag, attrs = {}, ...children) {
+export function s(tag, attrs = NO_ATTRS, ...children) {
   const el = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs || {})) if (v != null) el.setAttribute(k, v);
-  for (const c of children.flat()) if (c) el.append(c);
+  if (attrs) for (const k in attrs) { const v = attrs[k]; if (v != null) el.setAttribute(k, v); }
+  addSvgKids(el, children);
   return el;
+}
+function addSvgKids(el, kids) {
+  for (let i = 0; i < kids.length; i++) {
+    const c = kids[i];
+    if (!c) continue;
+    if (Array.isArray(c)) addSvgKids(el, c);
+    else el.append(c.nodeType ? c : document.createTextNode(c));
+  }
 }
 
 // An icon is a cell of the icon atlas (brand/icons, drawn once by scripts/icon-atlas.mjs) used as the element's mask and painted in
 // its colour: a bitmap the GPU composites, never an SVG the page draws. Its size, colour and line weight come from styles/app.css.
+const iconCls = new Map();   // (icon id -> its class text, joined once)
 export const icon = (id) => {
   const el = document.createElement('i');
-  el.className = 'ic ic-' + id;
+  let c = iconCls.get(id);
+  if (c === undefined) iconCls.set(id, c = 'ic ic-' + id);   // alloc-rare: an icon met for the first time (kept in iconCls)
+  el.className = c;
   el.setAttribute('aria-hidden', 'true');
   return el;
 };
 
+// (A value's text is made once and kept for the repeats: a readout that holds its value, or comes back to one, asks for the same text on
+// every frame. Keyed by the number itself, so the text is exactly what toFixed gave; cut when it grows.)
+const fmtTexts = [new Map(), new Map(), new Map(), new Map()];
 export function fmt(v, d = 1) {
   if (v == null || !Number.isFinite(v)) return '—';
-  const t = v.toFixed(d);
+  const m = fmtTexts[d] || (fmtTexts[d] = new Map());   // alloc-rare: a precision met for the first time
+  let r = m.get(v);
+  if (r !== undefined) return r;
+  const t = v.toFixed(d);   // alloc-rare: a value met for the first time; its text is kept in fmtTexts for the repeats
   // A value that rounds to zero has no sign ("−0" reads as an error).
-  return /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−');
+  r = /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−');   // alloc-rare: the same new value, signed text made once
+  if (m.size > 4096) m.clear();
+  m.set(v, r);
+  return r;
 }
 /** A value as fmt prints it, as a number, for the word beside it: a tile never reads "5.0 L · Grade 2". (−0 reads as 0.) */
 export const shownOf = (v, d = 1) => (Number.isFinite(v) ? +v.toFixed(d) + 0 : v);
@@ -77,7 +117,7 @@ export const shownOf = (v, d = 1) => (Number.isFinite(v) ? +v.toFixed(d) + 0 : v
 export function fmtFlow(v) {
   if (v == null || !Number.isFinite(v)) return '—';
   const a = Math.abs(v);
-  if (a > 0.0005 && a < 0.05) return (v < 0 ? '−' : '') + '< 0.1';
+  if (a > 0.0005 && a < 0.05) return v < 0 ? '−< 0.1' : '< 0.1';
   return fmt(v, 1);
 }
 const unitConv = {
@@ -92,8 +132,10 @@ const unitConv = {
   },
 };
 export const units = { pressure: 'mmHg', flow: 'L/min' };
-export function fp(v) { const c = unitConv.pressure[units.pressure]; return [fmt(c.f(v), c.d), c.u]; }
-export function ff(v) { const c = unitConv.flow[units.flow]; return [units.flow === 'L/min' ? fmtFlow(v) : fmt(c.f(v), c.d), c.u]; }
+// (fp and ff answer [text, unit] in a pair each keeps and writes in place: read it, or join it, before asking again. No caller holds one.)
+const fpPair = ['', ''], ffPair = ['', ''];
+export function fp(v) { const c = unitConv.pressure[units.pressure]; fpPair[0] = fmt(c.f(v), c.d); fpPair[1] = c.u; return fpPair; }
+export function ff(v) { const c = unitConv.flow[units.flow]; ffPair[0] = units.flow === 'L/min' ? fmtFlow(v) : fmt(c.f(v), c.d); ffPair[1] = c.u; return ffPair; }
 
 // Messages show as a card at the top, below the bars, never over the bottom bar.
 // opts: actions, [[label, fn], …] as buttons after the words (a tap runs it and closes the card); sticky, stays until
@@ -143,15 +185,16 @@ function toastFit(wrap, t, msg, actions) {
 // for it: toast is reached from the tick, and the build wrote the page there. The returned close works at once: asked before the card
 // exists, it closes the card as soon as it is built. ?restpass=0 runs it on a plain zero timer instead, still never in a frame.)
 const toastBuildRest = (job) => { job.close = toastBuild(job.msg, job.kind, job.opts); if (job.early) job.close(job.early); };
-export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false } = {}) {
-  if (!msg) return () => {};
+const NO_TOAST = Object.freeze({}), NOOP_CLOSE = () => {};
+export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false } = NO_TOAST) {
+  if (!msg) return NOOP_CLOSE;
   // While presenting, the projected figure stays clear: only errors, cards with buttons and what the presenter asked for
   // (present: a link copied, a slide number typed) show.
-  if (kind !== 'bad' && !actions?.length && !present && document.getElementById('app')?.classList.contains('presenting')) return () => {};
-  const opts = { actions, sticky, onClose };
-  const job = { msg, kind, opts, close: null, early: null };
-  restPass(() => toastBuildRest(job));
-  return (why = 'user') => { if (job.close) job.close(why); else job.early ||= why; };
+  if (kind !== 'bad' && !actions?.length && !present && document.getElementById('app')?.classList.contains('presenting')) return NOOP_CLOSE;
+  const opts = { actions, sticky, onClose };   // alloc-rare: one record for each message raised (a message, not a frame)
+  const job = { msg, kind, opts, close: null, early: null };   // alloc-rare: one record for each message raised
+  restPass(() => toastBuildRest(job));   // alloc-rare: one closure for each message raised
+  return (why = 'user') => { if (job.close) job.close(why); else job.early ||= why; };   // alloc-rare: the close handed back with each message raised
 }
 function toastBuild(msg, kind, { actions, sticky, onClose }) {
   const wrap = document.getElementById('toasts');
@@ -220,30 +263,39 @@ function closeInfos(except) {
 // (The text slides down out from under its row, and what follows in the panel with it, by transform: fold-slide.js. No height eased.)
 const foldInfo = (row, open) => slideFold({ item: row, inner: row.querySelector(':scope > .ac-info > div'), root: row.parentElement?.parentElement, open, set: (v) => row.classList.toggle('info-open', v), ms: D_SMALL });
 let infoWired = false;
+// (An ⓘ button is built with the card that holds it, at a slide change: its handlers are made with it, once, not in a frame.)
 export function infoButton(text) {
+  // alloc-rare: the button's attributes, made once when its card is built
   const b = h('button', { class: 'info-i', type: 'button', 'aria-label': text, 'aria-expanded': 'false' }, icon('info'));
   tooltipFor(b, text);
+  // alloc-rare: wired once, for the whole page, by the first button built
   if (!infoWired) { infoWired = true; document.addEventListener('pointerdown', (e) => { if (!e.target.closest?.('.info-i, .ac-info')) closeInfos(); }, true); }
   let touch = false;
+  // alloc-rare: the button's own handler, made once when its card is built
   b.addEventListener('pointerdown', (e) => { touch = e.pointerType === 'touch' || e.pointerType === 'pen'; });
+  // alloc-rare: the button's own handler, made once when its card is built
   b.addEventListener('click', (e) => {
     if (!touch && !matchMedia('(hover: none)').matches) return;
     e.preventDefault(); e.stopPropagation();
     const row = b.closest('.ac-slider, .ctl') || b.parentElement;
-    if (!row.querySelector(':scope > .ac-info')) row.append(h('div', { class: 'ac-info' }, h('div', {}, h('p', {}, text))));
+    // alloc-rare: the text's own row, built on a tap, once for each row
+    if (!row.querySelector(':scope > .ac-info')) row.append(h('div', { class: 'ac-info' }, h('div', null, h('p', null, text))));
     const open = !row.classList.contains('info-open');
     closeInfos(row);
-    b.setAttribute('aria-expanded', String(open)); foldInfo(row, open);
+    b.setAttribute('aria-expanded', open ? 'true' : 'false'); foldInfo(row, open);
   });
   return b;
 }
 
 export function tooltipFor(el, text, side = 'right') {
   const tip = document.getElementById('tooltip');
+  // alloc-rare: the tip's handlers, made once with the element they belong to (at a build, not in a frame)
   const hide = () => tip.classList.remove('show');
   // (The tip is placed when the pointer or focus arrives, an event, never in the code that builds the button: tipShow.)
+  // alloc-rare: the tip's handler, made once with the element it belongs to
   el.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch') tipShow(el, text, side, tip); });
   el.addEventListener('pointerleave', hide);
+  // alloc-rare: the tip's handler, made once with the element it belongs to
   el.addEventListener('focus', () => { if (el.matches(':focus-visible')) tipShow(el, text, side, tip); });
   el.addEventListener('blur', hide);
   el.addEventListener('click', hide);
@@ -284,6 +336,7 @@ let goneAt = 0;
 /** Notes that a card or menu is playing its way out for the next ms. */
 export function markGone(ms) { goneAt = Math.max(goneAt, performance.now() + ms); }
 /** Holds a card or menu that is about to come in until the one going out has gone. */
+// alloc-rare: the delay's text, made once as a card or menu opens (an open, not a frame)
 export function enterAfterGone(el) { el.style.setProperty('--enter-delay', Math.round(Math.max(0, goneAt - performance.now())) + 'ms'); }
 // sheet: on a phone the menu rises as a bottom sheet (full width, its text wraps) instead of a tall
 // popover; pass false for a menu that lays itself out.
@@ -376,6 +429,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   restAttr(anchor, 'aria-expanded', 'true');   // (a screen reader's state, written between frames)
   // Opened from the keyboard (the button shows its focus ring): focus goes in, so Tab does not have to cross the whole page to reach
   // the menu. A mouse or a touch leaves focus where it was.
+  // alloc-rare: only a menu opened from the keyboard, once, as it opens
   if (anchor.matches?.(':focus-visible')) setTimeout(() => { if (openMenu?.el === el) el.querySelector('button, input, [tabindex="0"]')?.focus({ preventScroll: true }); }, 0);
   return el;
 }
@@ -413,18 +467,23 @@ const swaps = new WeakMap();
 /** Changes what an element shows without a one-frame jump: the old content fades out (exit curve), fill() puts the new
  *  in, and it fades in. instant: fill now (the content reads the same), unless a swap is still under way, which then
  *  takes this fill instead. A hidden or empty element simply fills. */
-export function swapFade(el, fill, { instant = false, out = D_FLIP, inn = D_SMALL } = {}) {
+const NO_SWAP = Object.freeze({}), FADE_OUT = [{ opacity: 0 }], FADE_IN = [{ opacity: 0 }, { opacity: 1 }], SMALL_ARRIVE = { duration: D_SMALL, easing: EASE_ARRIVE };   // (kept: the keyframes and the options a swap or a fade starts with)
+export function swapFade(el, fill, { instant = false, out = D_FLIP, inn = D_SMALL } = NO_SWAP) {
   const job = swaps.get(el);
   if (job) { job.fill = fill; return; }
   if (instant || !el.animate || !el.isConnected || !el.firstChild || !hasBox(el)) { fill(); return; }
+  // alloc-rare: a swap starts only when the text it shows has changed (swapText returns at once for the same text): one record, the fade's options and its closure
   const me = { fill };
   swaps.set(el, me);
   // (From wherever the element is now: a fade-in still under way included, so a quick second swap never jumps to full.)
-  const a = el.animate([{ opacity: 0 }], { duration: out, easing: EASE_IN, fill: 'forwards' });
+  // alloc-rare: the fade-out's options, made as a swap starts (the text changed)
+  const a = el.animate(FADE_OUT, { duration: out, easing: EASE_IN, fill: 'forwards' });
+  // alloc-rare: the swap's close, made as it starts
   const done = () => {
     if (swaps.get(el) !== me) return;
     swaps.delete(el);
-    try { me.fill(); } finally { fadeIns.get(el)?.cancel(); a.cancel(); fadeIns.set(el, el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: inn, easing: EASE_ARRIVE })); }
+    // alloc-rare: the fade-in's options, made as a swap lands (the text changed)
+    try { me.fill(); } finally { fadeIns.get(el)?.cancel(); a.cancel(); fadeIns.set(el, el.animate(FADE_IN, inn === D_SMALL ? SMALL_ARRIVE : { duration: inn, easing: EASE_ARRIVE })); }
   };
   a.finished.then(done, done);
 }
@@ -434,13 +493,16 @@ export function swapFade(el, fill, { instant = false, out = D_FLIP, inn = D_SMAL
  * moment later), so every step is caught, each glide carrying on from where the last one had got to. Reduce Motion: no
  * glide (the bar's readings still fade). (The play bar jumped 15-20 px sideways entering the lobule; round 2 review, RF4.)
  */
-export function glideOnResize(root, sel, opts = {}) {
+const NO_OPTS = Object.freeze({});
+export function glideOnResize(root, sel, opts = NO_OPTS) {
   if (!root?.animate || reduceMotionMQ.matches || typeof ResizeObserver !== 'function') return;
   // (The places before the swap are measured between frames, a rest pass, never in the model frame that asked: the swap's own
   // change lands after its fade out, later still, so nothing it moves is missed.)
+  // alloc-rare: one rest-pass task as a swap starts (a view changes), not in a frame
   restPass(() => glideWatch(root, sel, opts));
 }
-function glideWatch(root, sel, { ms = 520, dur = D_SMALL, also = [] }) {
+const NO_ALSO = Object.freeze([]);
+function glideWatch(root, sel, { ms = 520, dur = D_SMALL, also = NO_ALSO }) {
   if (!root.isConnected) return;
   const pos = (el) => { let x = 0, y = 0; for (let n = el; n && n !== document.body; n = n.offsetParent) { x += n.offsetLeft; y += n.offsetTop; } return [x, y]; };
   const measure = () => new Map([...root.querySelectorAll(sel)].filter((el) => el.offsetParent).map((el) => [el, pos(el)]));
@@ -469,9 +531,11 @@ function glideWatch(root, sel, { ms = 520, dur = D_SMALL, also = [] }) {
  * before their fade ended (round 2 review, NP11).
  */
 export function afterExit(el, cls, fn, backstop = 450) {
+  // alloc-rare: an exit starts (a card or menu leaves): its token and its two closures, once
   const tok = {};
   el._exitTok = tok;
   let ran = false;
+  // alloc-rare: the exit's close, made as the exit starts
   const go = () => { if (ran || el._exitTok !== tok || !el.classList.contains(cls)) return; ran = true; fn(); };
   const t = setTimeout(go, backstop);
   // (The animations then running are listed in a rest pass, between frames, never in the frame that started the exit; the class that
@@ -560,6 +624,7 @@ export function foldHidden(el, hide) {
   const cur = folds.get(el);
   if (cur ? cur.hide === hide : el.hidden === hide) return;
   foldWant.set(el, hide);
+  // alloc-rare: a fold starts only when the wanted state differs from the shown (an early return above otherwise): one closure for the rest pass
   restPass(() => { const want = foldWant.get(el); foldWant.delete(el); foldRun(el, want); });
 }
 function foldRun(el, hide) {
@@ -596,9 +661,10 @@ function foldRun(el, hide) {
 export function swapText(el, txt, then) {
   const job = swaps.get(el);
   if (job ? job.txt === txt : textNow(el) === txt) return;
+  // alloc-rare: the text changed (an early return above otherwise): one closure for its fill
   const fill = () => { putText(el, txt); then?.(); };   // (drawn on the GPU, gl-words.js, or written between frames: never into the page in a frame)
   if (!job && !el.firstChild && txt && el.animate && el.isConnected && hasBox(el)) {
-    fill(); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); return;
+    fill(); el.animate(FADE_IN, SMALL_ARRIVE); return;
   }
   swapFade(el, fill);
   const j = swaps.get(el); if (j) j.txt = txt;
@@ -657,13 +723,13 @@ function sweepWords() {
 export function releaseWords(root) {
   if (!root) return 0;
   let n = 0;
-  for (const el of [...implicitW]) if (el === root || root.contains?.(el)) n += dropWords(el);
+  for (const el of implicitW) if (el === root || root.contains?.(el)) n += dropWords(el);   // (a Set may lose its current member while it is walked)
   return n;
 }
 /** How many implicit wrappers putText holds (the teardown checks read it). */
 export const implicitWordsLive = () => implicitW.size;
 export const putText = (el, t) => {
-  t = String(t ?? '');
+  if (typeof t !== 'string') t = t == null ? '' : String(t);   // alloc-rare: only a value that is not already text (the callers pass text)
   if (putPend.has(el)) { putPend.set(el, t); return; }
   let w = wordsOfEl.get(el);
   if (!w && el.isConnected && !odos.has(el)) {
@@ -701,7 +767,7 @@ function rollStep(now) {
 // A number that appears where "?" was (a tile measured again), or "?" where a number was, fades in rather than popping: the roll
 // above moves a number between two numbers, and this is the step it cannot take.
 /** An element that has just been shown comes up from nothing over a small step (Reduce Motion: at once). */
-export function fadeIn(el) { if (!reduceMotionMQ.matches && el.animate && el.isConnected && hasBox(el)) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
+export function fadeIn(el) { if (!reduceMotionMQ.matches && el.animate && el.isConnected && hasBox(el)) el.animate(FADE_IN, SMALL_ARRIVE); }
 const fadeNum = fadeIn;
 // (Since 1 Nov 2026 (Mohammad: "Move everything to GPU"; a 120 Hz frame budget) a roll no longer rewrites the number's text on every
 // frame, which laid its tile out again each frame of a slide change. Each digit that changes rolls in its own column, a strip of the
@@ -714,6 +780,7 @@ export function odoEnd(el) {
   const o = odos.get(el);
   if (!o) return;
   odos.delete(el); clearTimeout(o.timer);
+  // alloc-rare: a roll ends (its digits finished), once for each roll
   restPass(() => odoFinishRest(el, o));
 }
 function odoFinishRest(el, o) {
@@ -724,14 +791,23 @@ function odoFinishRest(el, o) {
 /** el's text a → b, each changed digit rolling in its own column (app.css .odo) over ms on easing; up: the value rose. False (nothing
  *  done) when the two are not the same shape: the same length, digits where digits are and every other character the same. The strips
  *  are built between frames (rest-pass.js), the roll itself runs on the compositor. */
+const isDigit = (ch) => ch >= '0' && ch <= '9';
+// (Both texts are the same shape: the same length, digits where digits are, every other character the same.)
+function sameShape(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) { const ch = a[i], d = isDigit(ch); if (d !== isDigit(b[i]) || (!d && ch !== b[i])) return false; }
+  return true;
+}
 export function odoSwap(el, a, b, up, ms = COUNT_MS, easing = null) {
   if (wordsOfEl.has(el)) return false;   // (its children are the GPU words' picture: see countTo)
   odoEnd(el);
-  a = String(a); b = String(b);
-  const dig = (ch) => ch >= '0' && ch <= '9';
-  if (a === b || a.length !== b.length || ![...a].every((ch, i) => dig(ch) === dig(b[i]) && (dig(ch) || ch === b[i]))) return false;
+  if (typeof a !== 'string') a = String(a);   // alloc-rare: only a value that is not already text (the callers pass fmt's text)
+  if (typeof b !== 'string') b = String(b);   // alloc-rare: only a value that is not already text (the callers pass fmt's text)
+  if (a === b || !sameShape(a, b)) return false;
+  // alloc-rare: a roll starts (a displayed number changed by a digit or more): its record and the task that builds its strips
   const o = { txt: b, timer: 0, built: false };
   odos.set(el, o);
+  // alloc-rare: the roll's build task, once for each roll
   restPass(() => odoBuildRest(el, o, a, b, up, ms, easing));
   return true;
 }
@@ -764,9 +840,10 @@ function odoRoll(el, c, from, to) {
   c.shown = to;
   if (!odoSwap(el, fmt(from, c.d), fmt(to, c.d), to > from)) { putNum(el, fmt(to, c.d)); fadeNum(el); }
 }
-export function countTo(el, v, d = 1, { eased = false } = {}) {
+const NO_COUNT = Object.freeze({});
+export function countTo(el, v, d = 1, { eased = false } = NO_COUNT) {
   let c = counts.get(el);
-  if (!c) counts.set(el, c = { shown: null, from: 0, to: 0, t0: null, d });
+  if (!c) counts.set(el, c = { shown: null, from: 0, to: 0, t0: null, d });   // alloc-rare: a number's first count on this element, kept in counts
   c.d = d;
   const odo = odos.has(el);
   if (odo && (eased || v == null || !Number.isFinite(v) || reduceMotionMQ.matches)) odoEnd(el);
@@ -798,32 +875,38 @@ export function closePopover() {
   // The menu fades out (it is inert at once, so nothing under it waits), then leaves the page.
   const el = openMenu.el;
   // (Focus inside the menu goes back to its button before the menu is made inert; otherwise it would fall to the page.)
-  if (el.contains(document.activeElement) && openMenu.anchor.isConnected) openMenu.anchor.focus?.({ preventScroll: true });
+  if (el.contains(document.activeElement) && openMenu.anchor.isConnected) openMenu.anchor.focus?.(NO_SCROLL);
   // (A menu already out of the page has nothing to fade or remove. With Reduce Motion it still fades: app.css turns popOut into a fade.)
   // A sheet swiped away is already sliding down; it leaves when it is out of sight.
   // (Over the thumb dock it sinks behind the tab row, as the cards do, in the same step: a leave is one flip, app.css thumbOut.)
+  // alloc-rare: a menu closes (a tap away or a choice): its leave closure and the timer's, once for each close
   if (el.isConnected) { const ms = D_FLIP; const leave = () => el.classList.add('leaving'); if (el.dataset.swiped) leave(); else leaveFromHere(el, leave); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => { releaseWords(el); restRemove(el); }, el.dataset.swiped ? D_SMALL : ms + 10); }
   restAttr(openMenu.anchor, 'aria-expanded', 'false'); openMenu.cleanup();
-  lastMenu = { anchor: openMenu.anchor, t: performance.now() };
+  lastMenu.anchor = openMenu.anchor; lastMenu.t = performance.now();   // (the one record, written in place)
   openMenu = null;
 }
 /** Over the thumb dock a card slides down behind the tab row by --sink (styles/app.css: it moves the card and cuts it at
  *  its resting bottom edge together). This eases --sink to px frame by frame, so the move and the cut stay in step on
  *  iOS too, then calls done. A new drag stops it (stopSink). */
+const NO_SCROLL = Object.freeze({ preventScroll: true });   // (the options of a focus that must not scroll: kept, not made at each call)
 const sinking = new WeakMap();
 export function stopSink(el) { const a = sinking.get(el); if (a) { cancelFrame(a.raf); clearTimeout(a.timer); } sinking.delete(el); }
 export function sinkTo(el, px, ms = 220, done, speed = null) {
   stopSink(el);
+  // alloc-rare: a sink starts (a sheet is let go or sent away): its record and closures, once for each release
   const from = parseFloat(el.style.getPropertyValue('--sink')) || 0, t0 = performance.now(), a = {};
   // (speed: the finger's, px per ms down, when it let go: the card carries it on and slows to rest, instead of leaving at the ease's own
   // speed, which a slow pull let go of felt as a lurch. Without it, the cubic ease out as before.)
   const m0 = speed == null ? null : settleSlope(speed, px - from, ms);
+  // alloc-rare: the sink's end, made once as the sink starts
   const finish = () => {
     if (sinking.get(el) !== a) return;
     stopSink(el);
+    // alloc-rare: the sink's resting value, written once as it ends
     if (px) el.style.setProperty('--sink', `${px}px`); else el.style.removeProperty('--sink');
     done?.();
   };
+  // alloc-rare: the sink's step, made once as the sink starts
   const step = (now) => {
     const k = clamp((now - t0) / ms, 0, 1);   // (the frame's time can be a few ms before t0, taken in the handler: held at 0, so the cubic ease out never starts backwards)
     if (k >= 1) { finish(); return; }
@@ -881,7 +964,9 @@ export function swipeSheet(panel, onClose) {
     }
     if (e.cancelable) e.preventDefault();
     s.dy = Math.max(0, t.clientY - s.y);
-    s.trail.push([performance.now(), t.clientY]); if (s.trail.length > 8) s.trail.shift();
+    // (The last eight touches, each a pair reused when it falls off the end: only the first eight moves of a drag make one.)
+    const tr = s.trail, pair = tr.length >= 8 ? tr.shift() : [0, 0];   // alloc-rare: the first eight moves of a drag, then the pairs are reused
+    pair[0] = performance.now(); pair[1] = t.clientY; tr.push(pair);
     if (thumbUi()) panel.style.setProperty('--sink', `${s.dy}px`);
     else panel.style.transform = `translateY(${s.dy}px)`;
   }, { passive: false });
@@ -901,8 +986,10 @@ export function swipeSheet(panel, onClose) {
     }
     // (The same, as a CSS curve: its opening slope is the finger's speed over the distance left, up to the .2/.8 curve's own, 4.)
     const left = gone ? H - s0.dy : -s0.dy;
+    // alloc-rare: the release's curve, written once as the finger lifts
     panel.style.transition = `transform ${D_SMALL}ms ${carryCurve(speed, left, D_SMALL)}`;   // (a let-go carries the finger's own speed, so the curve opens at its slope)
     if (gone) { panel.style.transform = 'translateY(100%)'; panel.dataset.swiped = '1'; onClose(); }
+    // alloc-rare: a sheet let go short of the line eases back: one timer and its closure, once for each release
     else { panel.style.transform = ''; clearTimeout(easeT); easeT = setTimeout(() => { if (!s) panel.style.transition = ''; }, D_SMALL); }
   };
   panel.addEventListener('touchend', end);
@@ -919,7 +1006,10 @@ export function menuItem(label, { checked, onClick, kb, icon: ic } = {}) {
   return b;
 }
 export function svgIcon(id, cls = '') {
-  const el = icon(id); if (cls) el.classList.add(...cls.split(/\s+/).filter(Boolean)); return el;
+  const el = icon(id);
+  // alloc-rare: only a menu row's mark with a class of its own, built as the menu opens (an open, not a frame)
+  if (cls) el.classList.add(...cls.split(/\s+/).filter(Boolean));
+  return el;
 }
 
 let modalReturn = null;
@@ -1015,14 +1105,22 @@ export function closeModal() {
 /** A question in the app's own dialog, not the browser's: resolves true on the confirming button, false on Cancel, Esc, the close
  *  button or a tap outside. The safe button has focus. danger: the confirming button is drawn as a warning. */
 export function confirmDialog({ title, body, yes = 'OK', no = 'Cancel', danger = false }) {
+  // alloc-rare: a question asked of the person, once for each dialog (a tap, never a frame)
   return new Promise((resolve) => {
     let answered = false;
+    // alloc-rare: the dialog's answer, made once with it
     const answer = (v) => { if (answered) return; answered = true; resolve(v); };
-    openModal(title, h('div', {},
-      ...(Array.isArray(body) ? body : [body]).map((t) => (typeof t === 'string' ? h('p', {}, t) : t)),
+    // alloc-rare: the dialog is built once, as it opens (its pieces, buttons and handlers)
+    openModal(title, h('div', null,
+      // alloc-rare: the dialog's paragraphs, built once as it opens
+      ...(Array.isArray(body) ? body : [body]).map((t) => (typeof t === 'string' ? h('p', null, t) : t)),
+      // alloc-rare: the dialog's buttons, built once as it opens
       h('div', { class: 'btn-row end' },
+        // alloc-rare: the dialog's No button, built once as it opens
         h('button', { class: 'btn', onclick: () => closeModal() }, no),
+        // alloc-rare: the dialog's Yes button, built once as it opens
         h('button', { class: 'btn ' + (danger ? 'danger-fill' : 'primary'), onclick: () => { answer(true); closeModal(); } }, yes))),
+    // alloc-rare: the dialog's options, built once as it opens
     { compact: true, onClose: () => answer(false) });
   });
 }
@@ -1056,8 +1154,9 @@ const varCache = new Map();
 const alphaCache = new Map();   // (cleared with the tokens: the instruments ask for the same few colours on every frame)
 const varNames = new Set();
 let varsAsk = 0;
+const NO_RULES = Object.freeze([]);
 function collectVarNames(rules) {
-  for (const r of rules || []) {
+  for (const r of rules || NO_RULES) {
     const st = r.style;
     if (st) for (let i = 0; i < st.length; i++) if (st[i].startsWith('--')) varNames.add(st[i]);
     let inner = null; try { inner = r.cssRules; } catch (e) { caught('util:1016', e); /* (a sheet from another origin: no tokens of ours) */ }
@@ -1068,10 +1167,10 @@ function readVars() {
   varsAsk = 0;
   if (typeof getComputedStyle !== 'function') return;   // (no page: the unit tests' stand-in)
   const root = document.documentElement;
-  for (const sh of document.styleSheets || []) { let rules = null; try { rules = sh.cssRules; } catch (e) { caught('util:1024', e); /* (another origin) */ } collectVarNames(rules); }
-  collectVarNames([root]);   // (the root's own style: --label-k and the like)
+  for (const sh of document.styleSheets || NO_RULES) { let rules = null; try { rules = sh.cssRules; } catch (e) { caught('util:1024', e); /* (another origin) */ } collectVarNames(rules); }
+  collectVarNames([root]);   // alloc-rare: a theme change reads every token once. (The root's own style: --label-k and the like.)
   const cs = getComputedStyle(root);
-  for (const n of varNames) varCache.set(n, cs.getPropertyValue(n).trim());
+  for (const n of varNames) varCache.set(n, cs.getPropertyValue(n).trim());   // alloc-rare: a theme change reads every token once
   alphaCache.clear();
 }
 const varsSoon = () => { if (!varsAsk) varsAsk = restPass(readVars); };
@@ -1091,22 +1190,56 @@ export function cssVar(name) {
   return '';
 }
 // A colour token as [r, g, b] in 0–255 (tokens are #rgb, #rrggbb, rgb() or rgba(); the alpha is dropped).
+// (Read once for each colour text and kept: the array is shared, so read it and never write into it. A token that changes with the theme
+// is a different text, so it finds its own.)
+const rgbOf = new Map(), rgb01Of = new WeakMap();
 export function parseRGB(c) {
-  c = (c || '').trim();
-  if (c[0] === '#') { const x = c.length < 6 ? [...c.slice(1, 4)].map((d) => d + d).join('') : c.slice(1, 7); return [0, 2, 4].map((k) => parseInt(x.slice(k, k + 2), 16)); }
-  const n = c.match(/[\d.]+/g) || [];
-  return [+n[0] || 0, +n[1] || 0, +n[2] || 0];
+  const raw = c || '';
+  let v = rgbOf.get(raw);
+  if (v !== undefined) return v;
+  c = raw.trim();   // alloc-rare: a colour text met for the first time (kept in rgbOf)
+  if (c[0] === '#') { const x = c.length < 6 ? [...c.slice(1, 4)].map((d) => d + d).join('') : c.slice(1, 7); v = [0, 2, 4].map((k) => parseInt(x.slice(k, k + 2), 16)); }   // alloc-rare: a colour text met for the first time
+  else { const n = c.match(/[\d.]+/g) || []; v = [+n[0] || 0, +n[1] || 0, +n[2] || 0]; }   // alloc-rare: a colour text met for the first time
+  if (rgbOf.size > 512) rgbOf.clear();
+  rgbOf.set(raw, v);
+  return v;
 }
 export const cssRGB = (name) => parseRGB(cssVar(name));
-export const cssRGB01 = (name) => cssRGB(name).map((v) => v / 255);
-/** A colour token with an alpha, for a canvas: cssAlpha('--white', .5) → 'rgba(255,255,255,0.5)' (colour-exempt). */
-export const cssAlpha = (name, a) => { const k = `${name}|${a}`; let v = alphaCache.get(k); if (v === undefined || !varCache.has(name)) { v = `rgba(${cssRGB(name).join(',')},${a})`; if (alphaCache.size > 2000) alphaCache.clear(); alphaCache.set(k, v); } return v; };   // (a fade asks for a new alpha every frame: the cache is cut at 2000)
-/** A colour ramp token ('#hex position, #hex position, …') as [[position, '#hex'], …]. */
-export const cssRamp = (name) => [...cssVar(name).matchAll(/(#[0-9a-f]{6})\s+(-?[\d.]+)/gi)].map((m) => [+m[2], m[1]]);
+/** A colour token in 0–1 (shared, like cssRGB's: read it, never write into it). */
+export const cssRGB01 = (name) => {
+  const rgb = cssRGB(name);
+  let v = rgb01Of.get(rgb);
+  if (v === undefined) rgb01Of.set(rgb, v = rgb.map((x) => x / 255));   // alloc-rare: a colour met for the first time (kept in rgb01Of)
+  return v;
+};
+/** A colour token with an alpha, for a canvas: cssAlpha('--white', .5) → 'rgba(255,255,255,0.5)' (colour-exempt). Its text is made once for
+ *  each token and alpha and kept for the repeats (a steady alpha, the usual ask); a fade asks for a new alpha every frame, so each token's
+ *  table is cut at 2000. */
+export const cssAlpha = (name, a) => {
+  let m = alphaCache.get(name);
+  let v = m?.get(a);
+  if (v === undefined || !varCache.has(name)) {
+    if (!m) alphaCache.set(name, m = new Map());   // alloc-rare: a colour token's first alpha (kept in alphaCache until a theme change)
+    v = `rgba(${cssRGB(name).join(',')},${a})`;
+    if (m.size > 2000) m.clear();
+    m.set(a, v);
+  }
+  return v;
+};
+/** A colour ramp token ('#hex position, #hex position, …') as [[position, '#hex'], …] (shared: read it, never write into it). */
+const rampOf = new Map();
+export const cssRamp = (name) => {
+  const t = cssVar(name);
+  let r = rampOf.get(t);
+  if (r === undefined) { r = [...t.matchAll(/(#[0-9a-f]{6})\s+(-?[\d.]+)/gi)].map((m) => [+m[2], m[1]]); if (rampOf.size > 64) rampOf.clear(); rampOf.set(t, r); }   // alloc-rare: a ramp text met for the first time (kept in rampOf)
+  return r;
+};
 // The blood's colours on the GPU (theme independent: they sit on the lumen, not on the page), in 0–1.
 // originCol follows ORIGINS (blood.js): SMV, IMV, splenic vein, hepatic artery, systemic.
 let bloodCols = null;
+// alloc-rare: made once, on the first ask, and kept in bloodCols
 export const bloodColors = () => bloodCols || (bloodCols = {
+  // alloc-rare: made once with the record above
   originCol: ['smv', 'imv', 'spleen', 'artery', 'systemic'].map((o) => cssRGB01(`--origin-${o}`)),
   dyeCol: cssRGB01('--blood-dye'), inkLight: cssRGB01('--blood-ink-light'), inkDark: cssRGB01('--blood-ink-dark'),
   revCol: cssRGB01('--blood-reversed'), chevInk: cssRGB01('--blood-chevron'), chevLight: cssRGB01('--blood-chevron-light'),
@@ -1151,13 +1284,18 @@ export function onCanvasSized(canvas, f) {
 // (It never measures, in a frame or out of one: a canvas the observer has not reported yet is 0 x 0, which every caller takes as
 // "wait for its measured size", and each chart's pen (createTraceGL's redraw, onCanvasSized) draws it again once it has a box.
 // 1 Nov 2026: no layout read in a frame.)
+// (The answer is a record each canvas keeps and writes in place, read by its caller at once, as it is: { w, h, W, H, dpr }.)
+const sizeOf = new WeakMap();
 export function canvasSize(canvas) {
   let r = boxes.get(canvas);
-  if (!r) { boxes.set(canvas, { width: 0, height: 0 }); boxObserver.observe(canvas); r = boxes.get(canvas); }
+  if (!r) { boxes.set(canvas, { width: 0, height: 0 }); boxObserver.observe(canvas); r = boxes.get(canvas); }   // alloc-rare: a canvas met for the first time (an observer may report its box at once, so it is read back)
   // The instruments (Doppler, FibroScan, the HVPG tracing, scope, wall, charts) at the screen's own density, up to 3x: a 3x iPhone drew
   // their words at 2x, slightly soft (#34). Battery saver keeps 2x.
   const dpr = Math.min(saver() ? 2 : 3, (window.devicePixelRatio || 1) * canvasBoost);
-  return { w: r.width, h: r.height, W: Math.max(1, Math.round(r.width * dpr)), H: Math.max(1, Math.round(r.height * dpr)), dpr };
+  let z = sizeOf.get(canvas);
+  if (!z) sizeOf.set(canvas, z = { w: 0, h: 0, W: 1, H: 1, dpr: 1 });   // alloc-rare: a canvas's record, made once with its first size
+  z.w = r.width; z.h = r.height; z.W = Math.max(1, Math.round(r.width * dpr)); z.H = Math.max(1, Math.round(r.height * dpr)); z.dpr = dpr;
+  return z;
 }
 // A pen that draws nothing: what a chart is handed where the GPU cannot draw it now (no WebGL2, its shader failed, a lost context, or
 // ?tracegl=0). No 2D canvas is drawn on anywhere (Mohammad, 1 Nov 2026: "block everything until everything is on GPU"): the chart's
@@ -1167,30 +1305,39 @@ const NOOP = () => {}, NO_GRAD = { addColorStop: NOOP }, blankPens = new WeakMap
 function blankPen(canvas) {
   let p = blankPens.get(canvas);
   if (p) return p;
+  // alloc-rare: a canvas's blank pen, made once and kept in blankPens (the lines below are its state and methods)
   const st = {
     canvas, onGPU: false, blank: true, font: '10px sans-serif', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, globalAlpha: 1,   // colour-exempt: the 2D canvas's own defaults
     textAlign: 'start', textBaseline: 'alphabetic', lineCap: 'butt', lineJoin: 'miter', lineDashOffset: 0, imageSmoothingEnabled: true,
+    // alloc-rare: the blank pen's measureText, made once with the pen
     measureText: (t) => { const px = parseFloat(/([\d.]+)px/.exec(st.font)?.[1]) || 10; return { width: measureWords(String(t), st.font), actualBoundingBoxAscent: px * 0.73, actualBoundingBoxDescent: px * 0.21 }; },
+    // alloc-rare: the blank pen's gradient methods, made once with the pen
     createLinearGradient: () => NO_GRAD, createRadialGradient: () => NO_GRAD, createPattern: () => null,
+    // alloc-rare: the blank pen's transform and path methods, made once with the pen
     getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }), getLineDash: () => [], isPointInPath: () => false, isPointInStroke: () => false,
   };
   // (Any other call is a no-op; an unknown field reads as undefined, so the pen is never taken for a promise.)
+  // alloc-rare: the blank pen's proxy, made once with the pen
   p = new Proxy(st, { get: (o, k) => (k in o ? o[k] : typeof k === 'string' && k !== 'then' && k !== 'toJSON' ? NOOP : undefined) });
   blankPens.set(canvas, p);
   return p;
 }
 /** The canvas's buffer sized to its box (fitBox) and a pen that draws nothing ({ ctx, w, h }): the charts draw on the GPU (trace-gl.js fitPen),
  *  and this is what they hold where it cannot draw now. */
+const fitOf = new WeakMap();   // (fitCanvas's answer, a record each canvas keeps and writes in place; its caller reads it at once)
 export function fitCanvas(canvas) {
   const { w, h: hh } = fitBox(canvas);
-  return { ctx: typeof canvas.testPen === 'function' ? canvas.testPen() : blankPen(canvas), w, h: hh };   // (testPen: a check's recorder, tests/instruments-draw.test.js)
+  let f = fitOf.get(canvas);
+  if (!f) fitOf.set(canvas, f = { ctx: null, w: 0, h: 0 });   // alloc-rare: a canvas's record, made once with its first fit
+  f.ctx = typeof canvas.testPen === 'function' ? canvas.testPen() : blankPen(canvas); f.w = w; f.h = hh;   // (testPen: a check's recorder, tests/instruments-draw.test.js)
+  return f;
 }
 /** The canvas's buffer sized to its box at fitCanvas's density, with no context asked for (a WebGL instrument sizes its buffer this way):
  *  { w, h } in CSS pixels and the dpr its buffer is drawn at. */
 export function fitBox(canvas) {
-  const { w, h, W, H, dpr } = canvasSize(canvas);
+  const z = canvasSize(canvas), W = z.W, H = z.H;
   if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
-  return { w, h, dpr };
+  return z;   // (the canvas's own record: w, h and dpr are its fields, W and H come with them)
 }
 
 /** The least a slider's value must jump, as a share of its range, before the dot travels there instead of taking it in one frame. */
@@ -1210,21 +1357,24 @@ function glideFill(input, wrap, f, prev) {
   if (g && Math.abs(g.f - f) < 1e-9) { input.value = g.cur; return; }
   if (g) { cancelFrame(g.raf); glides.delete(input); }
   const far = Math.abs(f - prev) >= GLIDE_MIN;
-  if (!far || held || reduceMotionMQ.matches || !input.isConnected || !hasBox(input)) { wrap.style.setProperty('--p', String(f)); return; }
+  if (!far || held || reduceMotionMQ.matches || !input.isConnected || !hasBox(input)) { wrap.style.setProperty('--p', String(f)); return; }   // (the fill's text: a CSS value is a string)
+  // alloc-rare: a glide starts only for a jump of GLIDE_MIN of the range or more (a reset, a patient, a preset): its record, its two closures and the dot's first text
   const t0 = easeNow(), run = { raf: 0, f, cur: String(+(+input.value).toFixed(6)) };
   glides.set(input, run);
+  // alloc-rare: the glide's position function, once for each glide
   const at = (k) => {
     let v = from + (to - from) * k;
     if (step && k < 1) v = Math.round((v - min) / step) * step + min;   // (the dot sits on a step; the fill follows the dot)
     return Math.min(max, Math.max(min, v));
   };
+  // alloc-rare: the glide's step, once for each glide
   const tick = () => {
     const u = Math.min(1, (easeNow() - t0) / D_SURFACE), v = u >= 1 ? to : at(easeMove(u));
     input.value = run.cur = String(+v.toFixed(6));
     wrap.style.setProperty('--p', String(max > min ? Math.min(1, Math.max(0, (v - min) / (max - min))) : 0));
     if (u < 1 && glides.get(input) === run) run.raf = frame(tick, 'numbers'); else if (glides.get(input) === run) glides.delete(input);
   };
-  input.value = run.cur = String(+at(0).toFixed(6)); wrap.style.setProperty('--p', String(Math.min(1, Math.max(0, prev))));
+  input.value = run.cur = String(+at(0).toFixed(6)); wrap.style.setProperty('--p', String(Math.min(1, Math.max(0, prev))));   // alloc-rare: the glide's first values, written once as it starts
   run.raf = frame(tick, 'numbers');
 }
 /** A slider's fill follows its value: the wrapper (.range-wrap, styles/app.css) draws them from --p, 0 to 1. The caller has set
@@ -1312,13 +1462,18 @@ export function enhanceRanges(root = document) {
  * the length of the target, 1 where the value is drawn) names the values that count: one it leaves out is taken at once and never keeps
  * the glide going (the Pressure chart draws eight stations of forty, and the arterial pressures' beat wobble kept it redrawing every frame).
  */
-export function createEaser(tau = SHOWN_TAU, { small = 0, eps = 0.02, jumps = false } = {}) {
+const NO_EASER = Object.freeze({});
+export function createEaser(tau = SHOWN_TAU, { small = 0, eps = 0.02, jumps = false } = NO_EASER) {
+  // alloc-rare: an easer is made once for the chart or ladder that holds it (and again when it is reset), never in a frame loop
   let v = null, w = null, last = 0, moved = false, epoch = jumpCount();
+  const out = { v: null, moving: false };   // alloc-rare: the one answer this easer writes in place; its caller reads it at once
+  // alloc-rare: the easer's object, made once with it
   return {
     step(target, watch = null) {
       const now = performance.now(), dt = last && moved ? Math.min(0.25, Math.max(0, (now - last) / 1000)) : 0;   // (from rest: no time has passed under the new target yet)
       last = now;
-      if (!v || v.length !== target.length || (jumps && epoch !== jumpCount())) { v = Float64Array.from(target); w = Float64Array.from(target); epoch = jumpCount(); moved = false; return { v, moving: false }; }
+      // alloc-rare: the first step, a target of another length, or a jump of the model: the two arrays are made again
+      if (!v || v.length !== target.length || (jumps && epoch !== jumpCount())) { v = Float64Array.from(target); w = Float64Array.from(target); epoch = jumpCount(); moved = false; out.v = v; out.moving = false; return out; }
       let moving = false;
       for (let i = 0; i < target.length; i++) {
         const T = target[i];
@@ -1329,7 +1484,8 @@ export function createEaser(tau = SHOWN_TAU, { small = 0, eps = 0.02, jumps = fa
         if (v[i] !== T || w[i] !== T) moving = true;
       }
       moved = moving;
-      return { v, moving };
+      out.v = v; out.moving = moving;
+      return out;
     },
   };
 }

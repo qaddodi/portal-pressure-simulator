@@ -14,14 +14,13 @@
 // the box as SVG maps it (preserveAspectRatio none, or meet in the middle). The picture covers the box exactly.
 
 import { createTraceGL, fitPen } from './trace-gl.js?v=3047e389f0';
-import { flattenPath, elBoxInto } from './shape-gl.js?v=b2df24cdc0';
+import { flattenPath, elBox4 } from './shape-gl.js?v=b2df24cdc0';
 import { finalFrameFor, easeNow, cancelFrame } from './frame.js?v=07b68cf942';
 import { restPass, cancelRest } from './rest-pass.js?v=fea7233cda';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
 import { cssColor } from './css-color.js?v=59ed182174';
 import { morphSvg } from './svg-morph.js?v=3d17d323fc';
 import { attrSoon } from './class-soon.js?v=af0dd2b529';
-const GBOX = { x: 0, y: 0, width: 0, height: 0 };   // alloc-rare: made once (an element's box, read at once)
 
 // (No bleed: a picture reaching past the box counts as overflow, and the card's fit then shrank the whole card to take it in.)
 export const BLEED = 0;
@@ -39,7 +38,10 @@ export function svgModel(tag, attrs = {}, ...kids) {
 // A piece's words changed in a frame (a value that counts as a chart glides): kept on the piece, not written into it, so no text node
 // is made, no mutation is seen and nothing is read again for it; the picture draws them from there. (2 Nov 2026, "Move everything to GPU".)
 /** Sets the words a model's text piece shows; a piece given words this way draws them alone, over any children it had. */
-export function setWords(el, t) { t = String(t); if (wordsOf(el) !== t) el._t = t; }
+export function setWords(el, t) {
+  if (typeof t !== 'string') t = String(t);   // alloc-rare: only a value that is not already text (the callers pass text)
+  if (wordsOf(el) !== t) el._t = t;
+}
 /** The words a model's text piece shows now. */
 export const wordsOf = (el) => el._t ?? el.textContent;
 
@@ -122,6 +124,8 @@ function lookOf(o, size) {
     stop: rgbaOf(o.stopColor), stopOp: num(o.stopOpacity, 1),
     // (a strength or a stop's colour the chart writes as an attribute, each frame of its glide: read from the piece as it stands)
     opAttr: !!o['@opacity'], stopAttr: !!o['@stop-color'], anchorAttr: !!o['@text-anchor'],
+    // (what paintText keeps on a look: its font text and the widths of the words set in it, for each of the last four scales it drew at)
+    slots: null, slotN: 0,
   };
 }
 const looks = new WeakMap();
@@ -129,7 +133,16 @@ const looks = new WeakMap();
 // picture runs that ease itself, from the strength it drew to the new one, on the stylesheet's duration and curve, since a model is never
 // styled by the page and its own transition would not run. [from, to, t0, ms, ease]
 const EASES = new WeakMap();
-const easeAt = (e, now) => { const k = e.ms > 0 ? Math.max(0, Math.min(1, (now - e.t0) / e.ms)) : 1; return { v: e.from + (e.to - e.from) * e.ease(k), done: k >= 1 }; };
+// (easeAt answers in a record it keeps and writes in place; its callers read v and done at once.)
+const EASED = { v: 0, done: false };
+const easeAt = (e, now) => { const k = e.ms > 0 ? Math.max(0, Math.min(1, (now - e.t0) / e.ms)) : 1; EASED.v = e.from + (e.to - e.from) * e.ease(k); EASED.done = k >= 1; return EASED; };
+// (A piece's ease is one record kept on it and written in place when a new ease starts: [from, to, t0, ms, ease].)
+function setEase(el, from, to, t0, ms, ease) {
+  let e = EASES.get(el);
+  if (!e) EASES.set(el, e = { from, to, t0, ms, ease });   // alloc-rare: a piece's first ease (its record is kept and written in place after)
+  else { e.from = from; e.to = to; e.t0 = t0; e.ms = ms; e.ease = ease; }
+  return e;
+}
 const secs = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? (/ms$/.test(String(v).trim()) ? n : n * 1000) : 0; };
 function opEase(cs, prop = 'opacity') {
   const ps = String(cs.transitionProperty || '').split(','), i = ps.findIndex((q) => q.trim() === prop || q.trim() === 'all');
@@ -170,10 +183,10 @@ const STYLE_PLACE = /(^|;)\s*(opacity|transform|translate|scale|rotate|clip-path
 export function placeKey(box) {
   let k = '';
   for (let n = box; n && n.nodeType === 1; n = n.parentElement) {
-    const st = (n.getAttribute('style') || '').replace(STYLE_PLACE, '').replace(/[;\s]+$/, '');
+    const st = (n.getAttribute('style') || '').replace(STYLE_PLACE, '').replace(/[;\s]+$/, '');   // alloc-rare: a box's place is keyed when its looks are read or its drawing is first adopted (the looks cache is empty), never in a drawing frame
     let d = '';
-    for (const a of n.attributes) if (a.name.startsWith('data-')) d += `|${a.name}=${a.value}`;
-    k = `${n.localName}.${n.getAttribute('class') || ''}${st ? `{${st}}` : ''}${d ? `[${d}]` : ''}>${k}`;
+    for (const a of n.attributes) if (a.name.startsWith('data-')) d += `|${a.name}=${a.value}`;   // alloc-rare: the same, a place key made for a new place
+    k = `${n.localName}.${n.getAttribute('class') || ''}${st ? `{${st}}` : ''}${d ? `[${d}]` : ''}>${k}`;   // alloc-rare: the same, a place key made for a new place
   }
   return k;
 }
@@ -220,38 +233,42 @@ function readLooks(root, fresh = false, cache = null, shared = '') {
   return longest;
 }
 /** A model's pieces given the looks of the pieces before them with the same key (cache), with no page read; false if one has none yet. */
+// (The walk is one function with its state in these three, not a closure made for each drawing.)
+let adoptCache = null, adoptInto = null, adoptAll = true;
+function adoptWalk(el, pk) {
+  const key = keyOf(el, pk), hit = adoptCache.get(key);
+  if (hit) { const was = looks.get(el); if (was !== hit.L) looks.set(el, hit.L); if (adoptInto) adoptInto.set(key, hit); } else adoptAll = false;
+  for (let c = el.firstElementChild; c; c = c.nextElementSibling) adoptWalk(c, hit?.full || key);
+}
 function adoptLooks(root, cache, pk = 'root', into = null) {
-  let all = true;
-  const walk = (el, pk) => {
-    const key = keyOf(el, pk), hit = cache.get(key);
-    if (hit) { const was = looks.get(el); if (was !== hit.L) looks.set(el, hit.L); if (into) into.set(key, hit); } else all = false;
-    for (const c of el.children) walk(c, hit?.full || key);
-  };
-  walk(root, pk);
+  adoptCache = cache; adoptInto = into; adoptAll = true;
+  adoptWalk(root, pk);
+  const all = adoptAll;
+  adoptCache = adoptInto = null;
   return all;
 }
 // (A strength the chart sets on a piece inline (style.opacity, each frame of its own glide or once, as a stent's ring comes): read as it
 // stands, and eased as the page would ease it when the piece's stylesheet has a transition on opacity.)
 const INLINE = new WeakMap();
 let easing = false;   // (a piece is still easing: the picture draws the next frame too)
-function opNow(el, L0, now) {
-  const L = L0.opAttr ? { ...L0, op: num(el.getAttribute('opacity'), 1) } : L0;
+function opNow(el, L, now) {
+  const base = L.opAttr ? num(el.getAttribute('opacity'), 1) : L.op;   // (a strength the chart writes as an attribute, read as it stands)
   const so = el.style.opacity;
   if (so) {
     const v = num(so, 1), was = INLINE.get(el);
     INLINE.set(el, v);
     if (was != null && was !== v && L.tr) {
       const e = EASES.get(el), shown = e ? easeAt(e, now).v : was;
-      EASES.set(el, { from: shown, to: v, t0: now + L.tr.delay, ms: L.tr.ms, ease: L.tr.ease });
+      setEase(el, shown, v, now + L.tr.delay, L.tr.ms, L.tr.ease);
     } else if (was == null || !L.tr) EASES.delete(el);
     if (!EASES.has(el)) return v;
   } else if (INLINE.has(el)) {   // (an inline strength taken off: back to the stylesheet's, eased the same way)
     const was = INLINE.get(el), e0 = EASES.get(el), shown = e0 ? easeAt(e0, now).v : was;
     INLINE.delete(el);
-    if (L.tr && shown !== L.op) EASES.set(el, { from: shown, to: L.op, t0: now + L.tr.delay, ms: L.tr.ms, ease: L.tr.ease }); else EASES.delete(el);
+    if (L.tr && shown !== base) setEase(el, shown, base, now + L.tr.delay, L.tr.ms, L.tr.ease); else EASES.delete(el);
   }
   const e = EASES.get(el);
-  if (!e) return L.op;
+  if (!e) return base;
   const r = easeAt(e, now);
   if (r.done) EASES.delete(el); else easing = true;
   return now < e.t0 ? e.from : r.v;
@@ -259,46 +276,75 @@ function opNow(el, L0, now) {
 /** A piece shown at its strength now, with no ease from the one before (a new vessel drawn at once, its stent's ring with it). */
 export function snapOp(el) { EASES.delete(el); INLINE.delete(el); }
 // (A piece the chart moves inline (style.transform, translate in px: a case's dot, a zone's words): drawn there, and glided there on the
-// piece's transition on transform, as the page would, from where it stood.) [x, y] of the translate; a move { from, to, t0, ms, ease }.
+// piece's transition on transform, as the page would, from where it stood.) One record kept on the piece and written in place:
+// { tx, ty (where it is going), fx, fy (where it came from), t0, ms, ease }, ms 0 when it rests. The answer is MV, [x, y], written in place.
 const MOVES = new WeakMap();
-const trXY = (t) => { const m = /translate\(\s*(-?[\d.]+)(?:px)?\s*,?\s*(-?[\d.]+)?(?:px)?\s*\)/.exec(t || ''); return m ? [+m[1], +(m[2] ?? 0)] : null; };
+const MV = [0, 0];
+const TR_RE = /translate\(\s*(-?[\d.]+)(?:px)?\s*,?\s*(-?[\d.]+)?(?:px)?\s*\)/;
+const trCache = new Map();   // (a transform's text -> its [x, y], or null: read once for each text)
+function trXY(t) {
+  if (!t) return null;
+  let r = trCache.get(t);
+  if (r === undefined) {
+    const m = TR_RE.exec(t);   // alloc-rare: a transform text met for the first time (kept in trCache)
+    r = m ? [+m[1], +(m[2] ?? 0)] : null;   // alloc-rare: the same, its numbers made once
+    if (trCache.size > 256) trCache.clear();
+    trCache.set(t, r);
+  }
+  return r;
+}
+function at2(q, now) {
+  const k = q.ease(Math.max(0, Math.min(1, (now - q.t0) / q.ms)));
+  MV[0] = q.fx + (q.tx - q.fx) * k; MV[1] = q.fy + (q.ty - q.fy) * k;
+}
 function moveNow(el, L, now) {
   const xy = trXY(el.style.transform);
   if (!xy) { MOVES.delete(el); return null; }
-  const r = MOVES.get(el);
-  if (!r) { MOVES.set(el, { to: xy }); return xy; }
-  if (r.to[0] !== xy[0] || r.to[1] !== xy[1]) {
-    const from = r.ms ? at2(r, now) : r.to;
-    MOVES.set(el, L.trT ? { from, to: xy, t0: now + L.trT.delay, ms: L.trT.ms, ease: L.trT.ease } : { to: xy });
+  let r = MOVES.get(el);
+  if (!r) {
+    MOVES.set(el, { tx: xy[0], ty: xy[1], fx: xy[0], fy: xy[1], t0: 0, ms: 0, ease: null });   // alloc-rare: a piece's first move (its record is kept and written in place after)
+    MV[0] = xy[0]; MV[1] = xy[1];
+    return MV;
   }
-  const q = MOVES.get(el);
-  if (!q.ms) return q.to;
-  const v = at2(q, now);
-  if (now - q.t0 >= q.ms) MOVES.set(el, { to: q.to }); else easing = true;
-  return v;
+  if (r.tx !== xy[0] || r.ty !== xy[1]) {
+    if (r.ms) { at2(r, now); r.fx = MV[0]; r.fy = MV[1]; } else { r.fx = r.tx; r.fy = r.ty; }
+    r.tx = xy[0]; r.ty = xy[1];
+    if (L.trT) { r.t0 = now + L.trT.delay; r.ms = L.trT.ms; r.ease = L.trT.ease; } else r.ms = 0;
+  }
+  if (!r.ms) { MV[0] = r.tx; MV[1] = r.ty; return MV; }
+  at2(r, now);
+  if (now - r.t0 >= r.ms) r.ms = 0; else easing = true;
+  return MV;
 }
-function at2(q, now) { const k = q.ease(Math.max(0, Math.min(1, (now - q.t0) / q.ms))); return [q.from[0] + (q.to[0] - q.from[0]) * k, q.from[1] + (q.to[1] - q.from[1]) * k]; }
 
 // ── Transforms ──
-const mulM = (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];
+const mulM = (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];   // alloc-rare: a transform text's matrix is worked out once (transformOf keeps it in tCache)
+// A matrix with a translation (tx, ty) laid on the outside of it, in SM (written in place, used at once): a piece's own move or loop.
+const SM = [1, 0, 0, 1, 0, 0];
+function shiftM(m, tx, ty) {
+  if (m) { SM[0] = m[0]; SM[1] = m[1]; SM[2] = m[2]; SM[3] = m[3]; SM[4] = m[4] + tx; SM[5] = m[5] + ty; }
+  else { SM[0] = 1; SM[1] = 0; SM[2] = 0; SM[3] = 1; SM[4] = tx; SM[5] = ty; }
+  return SM;
+}
 const tCache = new Map();
 /** An SVG transform attribute as a matrix [a, b, c, d, e, f] (translate, rotate about a point, scale, skewX/Y, matrix), or null. */
 export function transformOf(s) {
   if (!s) return null;
   let m = tCache.get(s);
   if (m !== undefined) return m;
+  // alloc-rare: a transform text met for the first time: its matrix is worked out below and kept in tCache (the lines through the end of the loop)
   m = [1, 0, 0, 1, 0, 0];
-  for (const [, fn, args] of s.matchAll(/(\w+)\s*\(([^)]*)\)/g)) {
-    const a = args.split(/[\s,]+/).filter(Boolean).map(Number);
+  for (const [, fn, args] of s.matchAll(/(\w+)\s*\(([^)]*)\)/g)) {   // alloc-rare: a transform text met for the first time
+    const a = args.split(/[\s,]+/).filter(Boolean).map(Number);   // alloc-rare: the same
     let n = null;
-    if (fn === 'translate') n = [1, 0, 0, 1, a[0] || 0, a[1] || 0];
-    else if (fn === 'scale') n = [a[0] ?? 1, 0, 0, a[1] ?? a[0] ?? 1, 0, 0];
+    if (fn === 'translate') n = [1, 0, 0, 1, a[0] || 0, a[1] || 0];   // alloc-rare: the same
+    else if (fn === 'scale') n = [a[0] ?? 1, 0, 0, a[1] ?? a[0] ?? 1, 0, 0];   // alloc-rare: the same
     else if (fn === 'rotate') {
       const r = ((a[0] || 0) * Math.PI) / 180, c = Math.cos(r), si = Math.sin(r), cx = a[1] || 0, cy = a[2] || 0;
-      n = [c, si, -si, c, cx - c * cx + si * cy, cy - si * cx - c * cy];
+      n = [c, si, -si, c, cx - c * cx + si * cy, cy - si * cx - c * cy];   // alloc-rare: the same
     } else if (fn === 'matrix' && a.length === 6) n = a;
-    else if (fn === 'skewX') n = [1, 0, Math.tan(((a[0] || 0) * Math.PI) / 180), 1, 0, 0];
-    else if (fn === 'skewY') n = [1, Math.tan(((a[0] || 0) * Math.PI) / 180), 0, 1, 0, 0];
+    else if (fn === 'skewX') n = [1, 0, Math.tan(((a[0] || 0) * Math.PI) / 180), 1, 0, 0];   // alloc-rare: the same
+    else if (fn === 'skewY') n = [1, Math.tan(((a[0] || 0) * Math.PI) / 180), 0, 1, 0, 0];   // alloc-rare: the same
     if (n) m = mulM(m, n);
   }
   if (tCache.size > 512) tCache.clear();
@@ -313,7 +359,7 @@ const FLAT_MAX = 2048, flatCache = new Map();
 function flatOf(d, tol) {
   tol = 2 ** (Math.floor(Math.log2(tol) * 4) / 4);   // (in quarter octaves, never coarser than asked: a zoom's every scale shares a few)
   let m = flatCache.get(tol);
-  if (!m) { if (flatCache.size > 8) flatCache.clear(); m = new Map(); flatCache.set(tol, m); }
+  if (!m) { if (flatCache.size > 8) flatCache.clear(); m = new Map(); flatCache.set(tol, m); }   // alloc-rare: a path tolerance met for the first time (quarter-octave steps; kept in flatCache)
   let f = m.get(d);
   if (!f) { if (m.size > FLAT_MAX) m.clear(); f = flattenPath(d, tol); m.set(d, f); }
   return f;
@@ -326,8 +372,9 @@ export function setGeo(el, k, v) {
   let g = el._g;
   if (!g) {
     // (Read back as an attribute too, so what asks a piece for its ends or centre (the browser checks, svg-morph) finds them.)
-    g = el._g = {};
+    g = el._g = {};   // alloc-rare: a piece's first held number (its record is kept on the piece)
     const base = el.getAttribute;   // (the piece's own, as it was)
+    // alloc-rare: the piece's own getAttribute, made once with its first held number
     el.getAttribute = (n) => { const x = g[n]; return x === undefined ? (base ? base.call(el, n) : Element.prototype.getAttribute.call(el, n)) : x == null ? null : String(x); };
   }
   if (g[k] === v) return false;
@@ -346,8 +393,21 @@ export function setPts(el, buf, n, closed = false) {
 /** A model piece's held value for k, else its attribute (null when it has neither). */
 export const geoOf = (el, k) => { const v = el._g?.[k]; return v !== undefined ? v : el.getAttribute?.(k) ?? null; };
 const at = (el, k) => { const v = el._g?.[k]; return v !== undefined ? +v || 0 : num(el.getAttribute(k)); };
-const firstNum = (el, k) => num(String(el.getAttribute(k) || '').split(/[\s,]+/)[0]);
+const firstNum = (el, k) => num(el.getAttribute(k));   // (parseFloat reads the first number of a list itself and stops at the space or comma after it)
 const paintOn = (p) => p && p !== 'none' && !/^url\(/.test(p);   // (gradient fills by url() are not drawn by any chart's model)
+// (A polyline's or polygon's points text read once for each text: its numbers, kept. Another text, as when the points glide, is read once more.)
+const ptsCache = new Map();
+const NO_PTS = new Float64Array(0);
+function pointsOf(text) {
+  if (!text) return NO_PTS;
+  let v = ptsCache.get(text);
+  if (v === undefined) {
+    v = Float64Array.from(String(text).trim().split(/[\s,]+/).map(Number));   // alloc-rare: a points text met for the first time (kept in ptsCache)
+    if (ptsCache.size > 512) ptsCache.clear();
+    ptsCache.set(text, v);
+  }
+  return v;
+}
 function shapePath(ctx, el, tag, k) {
   ctx.beginPath();
   if (tag === 'line') { ctx.moveTo(at(el, 'x1'), at(el, 'y1')); ctx.lineTo(at(el, 'x2'), at(el, 'y2')); return true; }
@@ -373,7 +433,7 @@ function shapePath(ctx, el, tag, k) {
     return drawn > 1;
   }
   if (tag === 'polyline' || tag === 'polygon') {
-    const v = String(el.getAttribute('points') || '').trim().split(/[\s,]+/).map(Number);
+    const v = pointsOf(el.getAttribute('points'));
     if (v.length < 4) return false;
     ctx.moveTo(v[0], v[1]);
     for (let i = 2; i + 1 < v.length; i += 2) ctx.lineTo(v[i], v[i + 1]);
@@ -394,59 +454,134 @@ function shapePath(ctx, el, tag, k) {
   return false;
 }
 // A fill or stroke by url(#id): a linear or radial gradient, as the GPU's own gradient, or a pattern, its tile drawn over the shape.
-const refOf = (root, p) => { const id = /^url\(\s*["']?#([^"')]+)["']?\s*\)/.exec(p || '')?.[1]; return id ? root.querySelector(`[id="${id}"]`) : null; };
+// (The node a url names is kept for each drawing and url text, and used while it is still inside the drawing; one not found is asked for again.)
+const REF_RE = /^\s*url\(\s*["']?#([^"')]+)["']?\s*\)/;
+const refKept = new WeakMap();
+function refOf(root, p) {
+  if (!p) return null;
+  let m = refKept.get(root);
+  const hit = m?.get(p);
+  if (hit && root.contains(hit)) return hit;
+  const id = REF_RE.exec(p)?.[1];   // alloc-rare: a url() met for the first time on this drawing (the node it names is kept in refKept)
+  const n = id ? root.querySelector(`[id="${id}"]`) : null;   // alloc-rare: the same
+  if (n) { if (!m) refKept.set(root, m = new Map()); m.set(p, n); }   // alloc-rare: the same
+  return n;
+}
 // (A look shared between charts (keyOf drops a drawing's ids) holds the url() of the chart it was first read from, whose gradient or
 // pattern is gone or is another chart's: the id is taken from the piece's own fill or stroke, or the nearest ancestor's that sets it,
 // as written, never from the look. 2 Nov 2026: the profile chart's patient line, its fill and the block hatch went missing whenever the
 // chart was built again with a new id and took its looks from the one before.)
+// (The url a style text sets for fill or for stroke is found once for each style text and kept.)
+const URL_RE = { fill: /(?:^|;)\s*fill\s*:\s*(url\([^)]*\))/, stroke: /(?:^|;)\s*stroke\s*:\s*(url\([^)]*\))/ };
+const URL_OF = { fill: new Map(), stroke: new Map() };
+const URL_ATTR = /^\s*url\(/;
 const urlIn = (el, prop) => {
   const st = el.getAttribute?.('style');
-  if (st) { const m = new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*(url\\([^)]*\\))`).exec(st); if (m) return m[1]; }
+  if (st) {
+    const kept = URL_OF[prop];
+    let u = kept.get(st);
+    if (u === undefined) { const m = URL_RE[prop].exec(st); u = m ? m[1] : ''; if (kept.size > 256) kept.clear(); kept.set(st, u); }   // alloc-rare: a style text met for the first time (kept in URL_OF)
+    if (u) return u;
+  }
   const a = el.getAttribute?.(prop);
-  return a && /^\s*url\(/.test(a) ? a.trim() : null;
+  return a && URL_ATTR.test(a) ? a : null;   // (refOf takes a url with space round it)
 };
 export function ownPaint(el, prop, look) {
   if (!/^url\(/.test(look || '')) return look;
   for (let n = el; n && n.nodeType === 1; n = n.parentNode) { const u = urlIn(n, prop); if (u) return u; if (n.localName === 'svg') break; }
   return look;
 }
-function gradientOf(ctx, g, el) {
-  const user = g.getAttribute('gradientUnits') === 'userSpaceOnUse', b = user ? null : elBoxInto(el, GBOX);
-  if (!user && !(b && b.width > 0 && b.height > 0)) return null;
-  const pt = (ax, dflt, w, o) => { const v = g.getAttribute(ax); const n = v == null ? dflt : /%$/.test(v) ? parseFloat(v) / 100 : parseFloat(v); return user ? n : o + n * w; };
-  const gr = g.localName === 'radialgradient'
-    ? (() => { const cx = pt('cx', 0.5, b?.width, b?.x), cy = pt('cy', 0.5, b?.height, b?.y), r = user ? at(g, 'r') : (g.hasAttribute('r') ? parseFloat(g.getAttribute('r')) / (/%$/.test(g.getAttribute('r')) ? 100 : 1) : 0.5) * Math.max(b.width, b.height);
-      return ctx.createRadialGradient(cx, cy, 0, cx, cy, r); })()
-    : ctx.createLinearGradient(pt('x1', 0, b?.width, b?.x), pt('y1', 0, b?.height, b?.y), pt('x2', 1, b?.width, b?.x), pt('y2', 0, b?.height, b?.y));
-  for (const st of g.children) {
+// A gradient attribute as a number: a percentage is a share, and a bare number is in the gradient's own units (user space or the shape's box).
+function gradPt(g, ax, dflt, user, w, o) {
+  const v = g.getAttribute(ax), n = v == null ? dflt : /%$/.test(v) ? parseFloat(v) / 100 : parseFloat(v);
+  return user ? n : o + n * w;
+}
+// A stop's colour text for the pen, kept on the stop for the colour and strength it was made from.
+function stopCss(st, sc, op) {
+  if (st._sc === sc && st._so === op) return st._sv;
+  const c = cssColor(sc);
+  st._sc = sc; st._so = op;
+  return (st._sv = `rgba(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)}, ${c[3] * op})`);   // alloc-rare: a stop's colour text, made when its colour or strength changes (kept on the stop)
+}
+// The gradient last made for a shape is kept with what it was made from (its ends or circles, and each stop's offset and colour text),
+// and handed to the pen again while all of that holds: a gradient whose numbers stand still costs nothing in the next frame.
+const GRADS = new WeakMap();
+const GP = new Float64Array(6);
+function gradientOf(ctx, g, el, slot) {
+  const user = g.getAttribute('gradientUnits') === 'userSpaceOnUse';
+  let bx = 0, by = 0, bw = 0, bh = 0;
+  if (!user) {
+    const b = elBox4(el);
+    if (!b) return null;
+    bx = b[0]; by = b[1]; bw = b[2] - b[0]; bh = b[3] - b[1];
+    if (!(bw > 0 && bh > 0)) return null;
+  }
+  const radial = g.localName === 'radialgradient';
+  if (radial) {
+    const cx = gradPt(g, 'cx', 0.5, user, bw, bx), cy = gradPt(g, 'cy', 0.5, user, bh, by);
+    const r = user ? at(g, 'r') : (g.hasAttribute('r') ? parseFloat(g.getAttribute('r')) / (/%$/.test(g.getAttribute('r')) ? 100 : 1) : 0.5) * Math.max(bw, bh);
+    GP[0] = cx; GP[1] = cy; GP[2] = 0; GP[3] = cx; GP[4] = cy; GP[5] = r;
+  } else {
+    GP[0] = gradPt(g, 'x1', 0, user, bw, bx); GP[1] = gradPt(g, 'y1', 0, user, bh, by); GP[2] = gradPt(g, 'x2', 1, user, bw, bx); GP[3] = gradPt(g, 'y2', 0, user, bh, by);
+  }
+  // (A shape's fill and its stroke may both be gradients: each keeps its own record, slot 0 for the fill and 1 for the stroke.)
+  let pair = GRADS.get(el);
+  if (!pair) GRADS.set(el, pair = [null, null]);   // alloc-rare: a shape's first gradient (the records are kept on the shape)
+  let kept = pair[slot];
+  if (!kept) pair[slot] = kept = { ctx: null, radial, p: new Float64Array(6), n: -1, offs: [], cols: [], gr: null };   // alloc-rare: a shape's first gradient (the records are kept on the shape)
+  let same = kept.gr !== null && kept.ctx === ctx && kept.radial === radial && kept.p[0] === GP[0] && kept.p[1] === GP[1] && kept.p[2] === GP[2] && kept.p[3] === GP[3] && kept.p[4] === GP[4] && kept.p[5] === GP[5];
+  // The stops, in turn: compared with the kept ones, and written into them where they differ.
+  let n = 0;
+  for (let st = g.firstElementChild; st; st = st.nextElementSibling) {
     if (st.localName !== 'stop') continue;
     const S = looks.get(st), off = st.getAttribute('offset') || '0', o = /%$/.test(off) ? parseFloat(off) / 100 : parseFloat(off) || 0;
     // (A stop with no look read yet, a chart built in this frame, takes the colour it is written with: the line never draws empty.)
     const sc = S?.stopAttr || !S ? st.getAttribute('stop-color') : S?.stop;
     if (!sc) continue;
-    const [r, gg, bb, a] = cssColor(sc);
-    gr.addColorStop(Math.max(0, Math.min(1, o)), `rgba(${Math.round(r * 255)}, ${Math.round(gg * 255)}, ${Math.round(bb * 255)}, ${a * (S ? S.stopOp : 1)})`);
+    const col = stopCss(st, sc, S ? S.stopOp : 1), off01 = Math.max(0, Math.min(1, o));
+    if (same && (kept.n <= n || kept.offs[n] !== off01 || kept.cols[n] !== col)) same = false;
+    kept.offs[n] = off01; kept.cols[n] = col;
+    n++;
   }
+  if (same && kept.n === n) return kept.gr;
+  kept.n = n; kept.radial = radial; kept.ctx = ctx;
+  for (let i = 0; i < 6; i++) kept.p[i] = GP[i];
+  kept.cols.length = n; kept.offs.length = n;
+  // alloc-rare: the gradient is made again only when its numbers or its stops changed (a glide), and handed on as it is while they stand still
+  const gr = radial ? ctx.createRadialGradient(GP[0], GP[1], GP[2], GP[3], GP[4], GP[5]) : ctx.createLinearGradient(GP[0], GP[1], GP[2], GP[3]);
+  for (let i = 0; i < n; i++) gr.addColorStop(kept.offs[i], kept.cols[i]);
+  kept.gr = gr;
   return gr;
+}
+// The tiles a pattern fill needs to lay over a shape's box b (x0, x1, y0, y1 in tiles, written in place): the box's four corners taken into the
+// pattern's own space (m is its patternTransform, or none), and the span of them in tiles of tw x th.
+const TILES = [0, 0, 0, 0];
+function tileSpan(bx, by, bw, bh, m, tw, th) {
+  let i0 = 1, i1 = 0, i2 = 0, i3 = 1, i4 = 0, i5 = 0;
+  if (m) { const d = m[0] * m[3] - m[1] * m[2]; i0 = m[3] / d; i1 = -m[1] / d; i2 = -m[2] / d; i3 = m[0] / d; i4 = (m[2] * m[5] - m[3] * m[4]) / d; i5 = (m[1] * m[4] - m[0] * m[5]) / d; }
+  let xa = Infinity, xb = -Infinity, ya = Infinity, yb = -Infinity;
+  for (let c = 0; c < 4; c++) {
+    const x = bx + (c & 1 ? bw : 0), y = by + (c & 2 ? bh : 0), px = i0 * x + i2 * y + i4, py = i1 * x + i3 * y + i5;
+    xa = Math.min(xa, px); xb = Math.max(xb, px); ya = Math.min(ya, py); yb = Math.max(yb, py);
+  }
+  TILES[0] = Math.floor(xa / tw); TILES[1] = Math.ceil(xb / tw); TILES[2] = Math.floor(ya / th); TILES[3] = Math.ceil(yb / th);
 }
 function fillByRef(ctx, root, el, tag, ref, alpha, k) {
   if (ref.localName === 'lineargradient' || ref.localName === 'radialgradient') {
-    const gr = gradientOf(ctx, ref, el);
+    const gr = gradientOf(ctx, ref, el, 0);
     if (gr) { ctx.globalAlpha = alpha; ctx.fillStyle = gr; ctx.fill(); }
     return;
   }
   if (ref.localName !== 'pattern') return;
-  const tw = at(ref, 'width'), th = at(ref, 'height'), b = elBoxInto(el, GBOX);
-  if (!(tw > 0 && th > 0 && b && b.width > 0 && b.height > 0)) return;
+  const tw = at(ref, 'width'), th = at(ref, 'height'), b = elBox4(el);
+  if (!(tw > 0 && th > 0 && b && b[2] - b[0] > 0 && b[3] - b[1] > 0)) return;
   ctx.save();
   ctx.clip();
   const m = transformOf(ref.getAttribute('patternTransform'));
-  if (m) ctx.transform(...m);
+  if (m) ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]);
   // (The shape's box in the pattern's own space, the tiles laid over it.)
-  const inv = m ? (() => { const d = m[0] * m[3] - m[1] * m[2]; return [m[3] / d, -m[1] / d, -m[2] / d, m[0] / d, (m[2] * m[5] - m[3] * m[4]) / d, (m[1] * m[4] - m[0] * m[5]) / d]; })() : [1, 0, 0, 1, 0, 0];
-  const cs = [[b.x, b.y], [b.x + b.width, b.y], [b.x, b.y + b.height], [b.x + b.width, b.y + b.height]].map(([x, y]) => [inv[0] * x + inv[2] * y + inv[4], inv[1] * x + inv[3] * y + inv[5]]);
-  const x0 = Math.floor(Math.min(...cs.map((c) => c[0])) / tw), x1 = Math.ceil(Math.max(...cs.map((c) => c[0])) / tw);
-  const y0 = Math.floor(Math.min(...cs.map((c) => c[1])) / th), y1 = Math.ceil(Math.max(...cs.map((c) => c[1])) / th);
+  tileSpan(b[0], b[1], b[2] - b[0], b[3] - b[1], m, tw, th);
+  const x0 = TILES[0], x1 = TILES[1], y0 = TILES[2], y1 = TILES[3];
   if ((x1 - x0) * (y1 - y0) <= 20000) for (let i = x0; i < x1; i++) for (let j = y0; j < y1; j++) {
     ctx.save(); ctx.translate(i * tw, j * th);
     for (const c of ref.children) paintEl(ctx, root, c, alpha, k);
@@ -454,77 +589,136 @@ function fillByRef(ctx, root, el, tag, ref, alpha, k) {
   }
   ctx.restore();
 }
+const DASH = [];   // (the scaled dash of the stroke being drawn, written in place: the pen copies it)
+const NO_DASH = Object.freeze([]);
 function paintShape(ctx, root, el, tag, L, alpha, k) {
   if (!shapePath(ctx, el, tag, k)) return;
   if (paintOn(L.fill) && tag !== 'line') { ctx.globalAlpha = alpha * L.fo; ctx.fillStyle = L.fill; ctx.fill(); }
   else if (tag !== 'line' && /^url\(/.test(L.fill || '')) { const ref = refOf(root, ownPaint(el, 'fill', L.fill)); if (ref) { fillByRef(ctx, root, el, tag, ref, alpha * L.fo, k); if (ref.localName === 'pattern') shapePath(ctx, el, tag, k); } }
   const sRef = !paintOn(L.stroke) && /^url\(/.test(L.stroke || '') ? refOf(root, ownPaint(el, 'stroke', L.stroke)) : null;
-  const sGr = sRef && (sRef.localName === 'lineargradient' || sRef.localName === 'radialgradient') ? gradientOf(ctx, sRef, el) : null;
+  const sGr = sRef && (sRef.localName === 'lineargradient' || sRef.localName === 'radialgradient') ? gradientOf(ctx, sRef, el, 1) : null;
   if ((paintOn(L.stroke) || sGr) && L.sw > 0) {
     const s = L.fixed ? 1 / k : 1;
     ctx.globalAlpha = alpha * L.so; ctx.strokeStyle = sGr || L.stroke; ctx.lineWidth = L.sw * s;
     ctx.lineCap = L.cap === 'round' ? 'round' : 'butt'; ctx.lineJoin = L.join || 'miter';
-    ctx.setLineDash(L.dash ? L.dash.map((v) => v * s) : []); ctx.lineDashOffset = L.dashOff * s;
+    // (A dashed stroke sets its dash and puts it back after; a plain one leaves the pen's dash, which is none, as it is.)
+    if (L.dash) { const n = L.dash.length; DASH.length = n; for (let i = 0; i < n; i++) DASH[i] = L.dash[i] * s; ctx.setLineDash(DASH); }
+    ctx.lineDashOffset = L.dashOff * s;
     ctx.stroke();
-    ctx.setLineDash([]);
+    if (L.dash) ctx.setLineDash(NO_DASH);
   }
 }
 // (Words: the shim sets them at their size on the screen, turned with the transform but not scaled by it, so the size is scaled here.)
-function paintText(ctx, el, L0, alpha, k) {
-  const runs = [];
-  let x = firstNum(el, 'x') + at(el, 'dx'), y = firstNum(el, 'y') + at(el, 'dy');
-  if (el._t != null) { if (el._t) runs.push({ t: el._t, L: L0, x: null, y: null }); }
-  else for (const n of el.childNodes) {
-    if (n.nodeType === 3) { if (n.data) runs.push({ t: n.data, L: L0, x: null, y: null }); continue; }
-    if (n.nodeType !== 1 || n.localName !== 'tspan') continue;
-    const L = looks.get(n) || L0;
-    if (L.none) continue;
-    runs.push({ t: wordsOf(n), L, x: n.hasAttribute('x') ? firstNum(n, 'x') : null, y: n.hasAttribute('y') ? firstNum(n, 'y') : null, dx: at(n, 'dx'), dy: at(n, 'dy') });
+// A look keeps its font text, and the widths of the words set in it, for each of the last four scales it drew at (a look is shared by the
+// charts of a kind, drawn at their own scales): the widths come from the atlas's own metrics (glyph-measure.js), so they do not change
+// while a scale stands. A scale it has not drawn at is a new slot, the oldest of four taken over.
+function slotFor(L, k) {
+  const ss = L.slots;
+  if (ss) for (let i = 0; i < ss.length; i++) if (ss[i].k === k) return ss[i];
+  const sl = { k, font: `${L.weight} ${(L.size * k).toFixed(2)}px Inter`, widths: new Map(), chars: new Map() };   // alloc-rare: a look's font text and width tables, made once for each scale it draws at (a zoom or a new box size)
+  if (!ss) L.slots = [sl];   // alloc-rare: a look's first scale
+  else if (ss.length < 4) ss.push(sl);
+  else ss[L.slotN++ & 3] = sl;
+  return sl;
+}
+const upperKept = new Map();   // (a word's upper-case text, made once for each word)
+function upperOf(t) {
+  let u = upperKept.get(t);
+  if (u === undefined) { u = t.toUpperCase(); if (upperKept.size > 512) upperKept.clear(); upperKept.set(t, u); }   // alloc-rare: a word met for the first time (kept in upperKept)
+  return u;
+}
+// A word's width in the drawing's units as the run sets it: its glyphs and the letter spacing between them.
+function wordW(ctx, L, sl, t, k) {
+  let w = sl.widths.get(t);
+  if (w === undefined) {
+    ctx.font = sl.font;
+    w = ctx.measureText(t).width / k + L.ls * [...t].length;   // alloc-rare: a word met for the first time at this scale (kept on the look)
+    if (sl.widths.size > 256) sl.widths.clear();
+    sl.widths.set(t, w);
   }
-  if (!runs.length) return;
-  const fontOf = (L) => `${L.weight} ${(L.size * k).toFixed(2)}px Inter`;
-  const widthOf = (r) => { const t = r.L.upper ? r.t.toUpperCase() : r.t; ctx.font = fontOf(r.L); return ctx.measureText(t).width / k + r.L.ls * [...t].length; };
+  return w;
+}
+// One letter's width, for words with letter spacing (they are set a letter at a time).
+function charW(ctx, sl, ch, k) {
+  let w = sl.chars.get(ch);
+  if (w === undefined) { ctx.font = sl.font; w = ctx.measureText(ch).width / k; if (sl.chars.size > 256) sl.chars.clear(); sl.chars.set(ch, w); }   // alloc-rare: a letter met for the first time at this scale (kept on the look)
+  return w;
+}
+// The runs of the text being painted, kept and written in place: { t, L, x, y, dx, dy } (x and y null: carry on from the one before).
+const RUNS = [];
+let nRuns = 0;
+function addRun(t, L, x, y, dx, dy) {
+  let r = RUNS[nRuns++];
+  if (!r) RUNS[nRuns - 1] = r = { t: '', L: null, x: null, y: null, dx: 0, dy: 0 };   // alloc-rare: the first paint that needs this many runs (the records are reused after)
+  r.t = t; r.L = L; r.x = x; r.y = y; r.dx = dx; r.dy = dy;
+}
+const runText = (r) => (r.L.upper ? upperOf(r.t) : r.t);
+// The offset from y to the baseline, by dominant-baseline: central sits the words' middle, between Inter's ascent and descent, on y;
+// middle, half the x-height; hanging and text-before-edge, the ascent.
+const baseShift = (L) => (L.base === 'central' ? 0.3638 : L.base === 'middle' ? 0.2729 : L.base === 'hanging' || L.base === 'text-before-edge' || L.base === 'text-top' ? 0.9688 : L.base === 'text-after-edge' || L.base === 'ideographic' || L.base === 'text-bottom' ? -0.2412 : 0) * L.size;
+// A run's words, filled or stroked: whole, or a letter at a time with the letter spacing between.
+function setRun(ctx, L, sl, t, cx, yb, k, stroke) {
+  if (!L.ls) { if (stroke) ctx.strokeText(t, cx, yb); else ctx.fillText(t, cx, yb); return; }
+  let px = cx;
+  for (const ch of t) { if (stroke) ctx.strokeText(ch, px, yb); else ctx.fillText(ch, px, yb); px += charW(ctx, sl, ch, k) + L.ls; }
+}
+function fillRun(ctx, L, sl, t, cx, yb, alpha, k) { if (paintOn(L.fill)) { ctx.globalAlpha = alpha * L.fo; ctx.fillStyle = L.fill; setRun(ctx, L, sl, t, cx, yb, k, false); } }
+function strokeRun(ctx, L, sl, t, cx, yb, alpha, k) { if (paintOn(L.stroke) && L.sw > 0) { ctx.globalAlpha = alpha * L.so; ctx.strokeStyle = L.stroke; ctx.lineWidth = L.sw * k; setRun(ctx, L, sl, t, cx, yb, k, true); } }
+function paintText(ctx, el, L0, alpha, k) {
+  nRuns = 0;
+  let x = firstNum(el, 'x') + at(el, 'dx'), y = firstNum(el, 'y') + at(el, 'dy');
+  if (el._t != null) { if (el._t) addRun(el._t, L0, null, null, 0, 0); }
+  else {
+    const kids = el.childNodes;
+    for (let i = 0; i < kids.length; i++) {
+      const n = kids[i];
+      if (n.nodeType === 3) { if (n.data) addRun(n.data, L0, null, null, 0, 0); continue; }
+      if (n.nodeType !== 1 || n.localName !== 'tspan') continue;
+      const L = looks.get(n) || L0;
+      if (L.none) continue;
+      addRun(wordsOf(n), L, n.hasAttribute('x') ? firstNum(n, 'x') : null, n.hasAttribute('y') ? firstNum(n, 'y') : null, at(n, 'dx'), at(n, 'dy'));
+    }
+  }
+  if (!nRuns) return;
   // (The anchor sets each chunk: a run with its own x starts a new one.)
   let i = 0;
-  while (i < runs.length) {
+  while (i < nRuns) {
     let j = i + 1;
-    while (j < runs.length && runs[j].x == null) j++;
-    const chunk = runs.slice(i, j);
-    if (chunk[0].x != null) x = chunk[0].x;
-    const total = chunk.reduce((s, r) => s + widthOf(r) + (r.dx || 0), 0), anchor = (L0.anchorAttr && el.getAttribute('text-anchor')) || L0.anchor;
+    while (j < nRuns && RUNS[j].x == null) j++;
+    if (RUNS[i].x != null) x = RUNS[i].x;
+    let total = 0;
+    for (let q = i; q < j; q++) { const r = RUNS[q]; total += wordW(ctx, r.L, slotFor(r.L, k), runText(r), k) + (r.dx || 0); }
+    const anchor = (L0.anchorAttr && el.getAttribute('text-anchor')) || L0.anchor;
     let cx = anchor === 'end' ? x - total : anchor === 'middle' ? x - total / 2 : x;
-    // (dominant-baseline: central sits the words' middle, between Inter's ascent and descent, on y; middle, half the x-height; hanging
-    // and text-before-edge, the ascent.)
-    const bs = (L) => (L.base === 'central' ? 0.3638 : L.base === 'middle' ? 0.2729 : L.base === 'hanging' || L.base === 'text-before-edge' || L.base === 'text-top' ? 0.9688 : L.base === 'text-after-edge' || L.base === 'ideographic' || L.base === 'text-bottom' ? -0.2412 : 0) * L.size;
-    for (const r of chunk) {
-      const L = r.L, t = L.upper ? r.t.toUpperCase() : r.t;
-      if (L.hidden) { cx += widthOf(r); continue; }
+    for (let q = i; q < j; q++) {
+      const r = RUNS[q], L = r.L, sl = slotFor(L, k), t = runText(r);
+      if (L.hidden) { cx += wordW(ctx, L, sl, t, k); continue; }
       cx += r.dx || 0; if (r.y != null) y = r.y; y += r.dy || 0;
-      ctx.font = fontOf(L); ctx.textAlign = 'left';
-      const yb = y + bs(L);
-      const one = (fn) => {
-        if (!L.ls) { ctx[fn](t, cx, yb); return; }
-        let px = cx;
-        for (const ch of t) { ctx[fn](ch, px, yb); px += ctx.measureText(ch).width / k + L.ls; }
-      };
-      const fillIt = () => { if (paintOn(L.fill)) { ctx.globalAlpha = alpha * L.fo; ctx.fillStyle = L.fill; one('fillText'); } };
-      const strokeIt = () => { if (paintOn(L.stroke) && L.sw > 0) { ctx.globalAlpha = alpha * L.so; ctx.strokeStyle = L.stroke; ctx.lineWidth = L.sw * k; one('strokeText'); } };
-      if (L.strokeFirst) { strokeIt(); fillIt(); } else { fillIt(); strokeIt(); }
-      cx += widthOf(r);
+      ctx.font = sl.font; ctx.textAlign = 'left';
+      const yb = y + baseShift(L);
+      if (L.strokeFirst) { strokeRun(ctx, L, sl, t, cx, yb, alpha, k); fillRun(ctx, L, sl, t, cx, yb, alpha, k); } else { fillRun(ctx, L, sl, t, cx, yb, alpha, k); strokeRun(ctx, L, sl, t, cx, yb, alpha, k); }
+      cx += wordW(ctx, L, sl, t, k);
     }
     i = j;
   }
 }
 const LEAVES = new Set(['line', 'rect', 'circle', 'ellipse', 'polyline', 'polygon', 'path']);
+// (The clipPath a piece names is found once for each clip-path text and kept on the piece, and used while it is still inside the drawing.)
+const CLIP_RE = /url\(#([^)]+)\)/;
 function clipTo(ctx, root, el, k) {
-  const id = /url\(#([^)]+)\)/.exec(el.getAttribute('clip-path') || '')?.[1];
-  const cp = id && root.querySelector(`[id="${id}"]`);
+  const attr = el.getAttribute('clip-path') || '';
+  let cp = el._cpn;
+  if (!cp || el._cpa !== attr || !root.contains(cp)) {
+    const id = CLIP_RE.exec(attr)?.[1];   // alloc-rare: a clip-path text met for the first time on this piece (the node it names is kept on the piece)
+    cp = id ? root.querySelector(`[id="${id}"]`) : null;   // alloc-rare: the same
+    el._cpa = attr; el._cpn = cp;
+  }
   if (!cp) return;
   ctx.beginPath();
   for (const c of cp.children) {
     const tag = c.localName;
     if (tag === 'rect') { const rx = at(c, 'rx'); if (rx > 0) ctx.roundRect(at(c, 'x'), at(c, 'y'), at(c, 'width'), at(c, 'height'), rx); else ctx.rect(at(c, 'x'), at(c, 'y'), at(c, 'width'), at(c, 'height')); }
-    else if (tag === 'path') for (const { pts } of flattenPath(c.getAttribute('d') || '', 0.25 / Math.max(k, 0.05))) { ctx.moveTo(pts[0], pts[1]); for (let q = 2; q < pts.length; q += 2) ctx.lineTo(pts[q], pts[q + 1]); ctx.closePath(); }
+    else if (tag === 'path') for (const { pts } of flatOf(c.getAttribute('d') || '', 0.25 / Math.max(k, 0.05))) { ctx.moveTo(pts[0], pts[1]); for (let q = 2; q < pts.length; q += 2) ctx.lineTo(pts[q], pts[q + 1]); ctx.closePath(); }
   }
   ctx.clip();
 }
@@ -532,28 +726,52 @@ function clipTo(ctx, root, el, k) {
 // clip is the white one less the black ones, the black ones first made into strips that never overlap, so the clip's winding rule cuts
 // each out once. Any other mask is not drawn (the piece shows whole).
 function holesOf(rs) {
-  const xs = [...new Set(rs.flatMap((r) => [r[0], r[2]]))].sort((a, b) => a - b), out = [];
+  const xs = [...new Set(rs.flatMap((r) => [r[0], r[2]]))].sort((a, b) => a - b), out = [];   // alloc-rare: worked out only when the mask's rectangles change (maskTo keeps the answer)
   for (let i = 0; i + 1 < xs.length; i++) {
-    const xa = xs[i], xb = xs[i + 1], ys = rs.filter((r) => r[0] <= xa && r[2] >= xb).map((r) => [r[1], r[3]]).sort((a, b) => a[0] - b[0]);
+    const xa = xs[i], xb = xs[i + 1], ys = rs.filter((r) => r[0] <= xa && r[2] >= xb).map((r) => [r[1], r[3]]).sort((a, b) => a[0] - b[0]);   // alloc-rare: the same
     let cur = null;
-    for (const [a, b] of ys) { if (cur && a <= cur[1]) cur[1] = Math.max(cur[1], b); else { if (cur) out.push([xa, cur[0], xb, cur[1]]); cur = [a, b]; } }
-    if (cur) out.push([xa, cur[0], xb, cur[1]]);
+    for (const [a, b] of ys) { if (cur && a <= cur[1]) cur[1] = Math.max(cur[1], b); else { if (cur) out.push([xa, cur[0], xb, cur[1]]); cur = [a, b]; } }   // alloc-rare: the same
+    if (cur) out.push([xa, cur[0], xb, cur[1]]);   // alloc-rare: the same
   }
   return out;
 }
+// What a mask drew last, with what it was made from: the numbers of its rectangles and each one's fill text. While they stand still the
+// clip is laid again from the kept strips; the strips are worked out again only when something moved (as a line glides to its end).
+const MASKS = new WeakMap();
 function maskTo(ctx, root, el) {
   const ref = refOf(root, el.getAttribute('mask'));
   if (!ref || ref.localName !== 'mask') return;
-  const kids = [...ref.children];
-  if (!kids.length || kids.some((c) => c.localName !== 'rect')) return;
-  const lum = (c) => { const [r, g, b] = cssColor(looks.get(c)?.fill || c.getAttribute('fill') || '#000'); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };   // colour-exempt: a mask's black
-  const box = (c) => [at(c, 'x'), at(c, 'y'), at(c, 'x') + at(c, 'width'), at(c, 'y') + at(c, 'height')];
-  const white = kids.filter((c) => lum(c) > 0.5);
-  if (white.length !== 1 || kids.indexOf(white[0]) !== 0) return;
-  const [x0, y0, x1, y1] = box(white[0]);
+  const kids = ref.children, n = kids.length;
+  if (!n) return;
+  let ms = MASKS.get(ref);
+  if (!ms) MASKS.set(ref, ms = { n: -1, ok: false, sig: [], fills: [], box: [0, 0, 0, 0], holes: [] });   // alloc-rare: a mask's first paint (the record is kept on the mask)
+  let same = ms.n === n;
+  for (let i = 0; i < n; i++) {
+    const c = kids[i];
+    if (c.localName !== 'rect') { ms.n = -1; return; }   // (not a mask of rectangles: the piece shows whole)
+    const x0 = at(c, 'x'), y0 = at(c, 'y'), x1 = x0 + at(c, 'width'), y1 = y0 + at(c, 'height'), f = looks.get(c)?.fill || c.getAttribute('fill') || '#000', j = i * 4;   // colour-exempt: a mask's black
+    if (same && (ms.sig[j] !== x0 || ms.sig[j + 1] !== y0 || ms.sig[j + 2] !== x1 || ms.sig[j + 3] !== y1 || ms.fills[i] !== f)) same = false;
+    ms.sig[j] = x0; ms.sig[j + 1] = y0; ms.sig[j + 2] = x1; ms.sig[j + 3] = y1; ms.fills[i] = f;
+  }
+  ms.n = n;
+  if (!same) {
+    // alloc-rare: the mask's rectangles changed: the strips are worked out again (a glide), and kept while they stand still
+    const lum = (c) => { const [r, g, b] = cssColor(looks.get(c)?.fill || c.getAttribute('fill') || '#000'); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };   // colour-exempt: a mask's black
+    const box = (c) => [at(c, 'x'), at(c, 'y'), at(c, 'x') + at(c, 'width'), at(c, 'y') + at(c, 'height')];   // alloc-rare: the same
+    const all = [...kids], white = all.filter((c) => lum(c) > 0.5);   // alloc-rare: the same
+    ms.ok = white.length === 1 && all.indexOf(white[0]) === 0;
+    if (ms.ok) {
+      const b0 = box(white[0]);   // alloc-rare: the same
+      ms.box[0] = b0[0]; ms.box[1] = b0[1]; ms.box[2] = b0[2]; ms.box[3] = b0[3];
+      ms.holes = holesOf(all.slice(1).map(box).filter((r) => r[2] > r[0] && r[3] > r[1]));   // alloc-rare: the same
+    }
+  }
+  if (!ms.ok) return;
+  const bx = ms.box, x0 = bx[0], y0 = bx[1], x1 = bx[2], y1 = bx[3];
   ctx.beginPath();
   ctx.moveTo(x0, y0); ctx.lineTo(x1, y0); ctx.lineTo(x1, y1); ctx.lineTo(x0, y1); ctx.closePath();
-  for (const [a, b, c, d] of holesOf(kids.slice(1).map(box).filter((r) => r[2] > r[0] && r[3] > r[1]))) { ctx.moveTo(a, b); ctx.lineTo(a, d); ctx.lineTo(c, d); ctx.lineTo(c, b); ctx.closePath(); }
+  const hs = ms.holes;
+  for (let i = 0; i < hs.length; i++) { const h = hs[i]; ctx.moveTo(h[0], h[1]); ctx.lineTo(h[0], h[3]); ctx.lineTo(h[2], h[3]); ctx.lineTo(h[2], h[1]); ctx.closePath(); }
   ctx.clip();
 }
 export { holesOf };
@@ -569,32 +787,42 @@ function paintEl(ctx, root, el, alpha, k) {
   const own = el.style.visibility === 'hidden' || (L.hidden && el.style.visibility !== 'visible');
   let m = transformOf(el.getAttribute('transform'));
   const mv = el.style.transform ? moveNow(el, L, easeNow()) : null, clip = el.hasAttribute('clip-path');
-  if (mv) m = m ? mulM([1, 0, 0, 1, mv[0], mv[1]], m) : [1, 0, 0, 1, mv[0], mv[1]];
+  if (mv) m = shiftM(m, mv[0], mv[1]);
   const lp = LOOPS.get(el);
   if (lp) {
     easing = true;   // (drawn again next frame: a loop never ends while it shows)
     const k = loopAt(lp, easeNow()), xy = lp.xy?.(k);   // (before its delay, the loop's start)
-    if (xy) m = m ? mulM([1, 0, 0, 1, xy[0], xy[1]], m) : [1, 0, 0, 1, xy[0], xy[1]];
+    if (xy) m = shiftM(m, xy[0], xy[1]);
     a *= Math.max(0, Math.min(1, lp.op ? lp.op(k) : 1));
     if (a <= 0.002) return;
   }
   const mask = el.hasAttribute('mask');
-  if (m || clip || mask) { ctx.save(); if (m) ctx.transform(...m); if (clip) clipTo(ctx, root, el, k); if (mask) maskTo(ctx, root, el); }
+  if (m || clip || mask) { ctx.save(); if (m) ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]); if (clip) clipTo(ctx, root, el, k); if (mask) maskTo(ctx, root, el); }
   const kk = m ? k * Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) : k;
   if (tag === 'text') { if (!own) paintText(ctx, el, L, a, kk); }
   else if (LEAVES.has(tag)) { if (!own) paintShape(ctx, root, el, tag, L, a, kk); }
   else for (const c of el.children) paintEl(ctx, root, c, a, kk);
   if (m || clip || mask) ctx.restore();
 }
-/** The viewBox's units mapped into a box w × h: [sx, sy, tx, ty]. */
+/** The viewBox's units mapped into a box w × h: [sx, sy, tx, ty]. The answer is the array viewMap keeps and writes in place: read it at once. */
+const VM = [1, 1, 0, 0];
+const vbKept = new Map();   // (a viewBox text -> its four numbers, or null for a text that is not one: read once for each text)
+const UNIT_VB = null;
 export function viewMap(vb, par, w, h) {
-  const v = String(vb || '').trim().split(/[\s,]+/).map(Number);
-  if (v.length !== 4 || !(v[2] > 0 && v[3] > 0)) return [1, 1, 0, 0];
+  let v = vbKept.get(vb);
+  if (v === undefined) {
+    const nums = String(vb || '').trim().split(/[\s,]+/).map(Number);   // alloc-rare: a viewBox text met for the first time (kept in vbKept)
+    v = nums.length !== 4 || !(nums[2] > 0 && nums[3] > 0) ? UNIT_VB : Float64Array.from(nums);   // alloc-rare: the same
+    if (vbKept.size > 64) vbKept.clear();
+    vbKept.set(vb, v);
+  }
+  if (v === UNIT_VB) { VM[0] = 1; VM[1] = 1; VM[2] = 0; VM[3] = 0; return VM; }
   const sx = w / v[2], sy = h / v[3];
-  if (/^none\b/.test(par || '')) return [sx, sy, -v[0] * sx + 0, -v[1] * sy + 0];
-  const s = /slice/.test(par || '') ? Math.max(sx, sy) : Math.min(sx, sy), al = String(par || 'xMidYMid').trim();
+  if (par && /^none\b/.test(par)) { VM[0] = sx; VM[1] = sy; VM[2] = -v[0] * sx + 0; VM[3] = -v[1] * sy + 0; return VM; }
+  const al = par || 'xMidYMid', s = /slice/.test(par || '') ? Math.max(sx, sy) : Math.min(sx, sy);
   const fx = /xMin/.test(al) ? 0 : /xMax/.test(al) ? 1 : 0.5, fy = /YMin/.test(al) ? 0 : /YMax/.test(al) ? 1 : 0.5;
-  return [s, s, (w - v[2] * s) * fx - v[0] * s + 0, (h - v[3] * s) * fy - v[1] * s + 0];
+  VM[0] = s; VM[1] = s; VM[2] = (w - v[2] * s) * fx - v[0] * s + 0; VM[3] = (h - v[3] * s) * fy - v[1] * s + 0;
+  return VM;
 }
 
 // ── The picture ──
@@ -605,6 +833,13 @@ function themeRead() { themeAsk = 0; clearShared(); for (const g of live) { if (
 if (typeof MutationObserver === 'function' && typeof document !== 'undefined') {
   new MutationObserver(() => { clearShared(); if (!themeAsk && live.size) themeAsk = restPass(themeRead); })
     .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] });
+}
+
+// (A box's roots are kept under its place key and "root"; the joined text is made once for each place key, not for each drawing.)
+function rootKeyOf(g) {
+  if (!g.pk) return 'root';
+  if (g.rkFor !== g.pk) { g.rkFor = g.pk; g.rk = `${g.pk}root`; }   // alloc-rare: a box's place key changed (a theme or size change), not a drawing
+  return g.rk;
 }
 
 /**
@@ -622,6 +857,30 @@ export function createSvgGL(box) {
   live.add(g);
   // (A drawing swapped in during a frame waits off the page, pending, and is drawn from there; it joins the box between frames.)
   const models = () => { const m = [...box.children].filter((c) => c.hasAttribute?.('data-svg-model')); if (g.pending && !g.pending.isConnected) m.push(g.pending); return m; };
+  // One drawing of the box, painted (the viewBox mapped to the box, then each piece in turn).
+  function drawModel(ctx, root, now, bw, bh) {
+    if (!looks.has(root)) return;
+    let a = 1;
+    const fi = g.ins.get(root);
+    if (fi) { const k = Math.min(1, (now - fi.t0) / fi.ms); a = fi.ease(k); if (k >= 1) g.ins.delete(root); }
+    const vm = viewMap(geoOf(root, 'viewBox'), root.getAttribute('preserveAspectRatio'), bw, bh), sx = vm[0], sy = vm[1];
+    ctx.save();
+    ctx.translate(BLEED + vm[2], BLEED + vm[3]); ctx.scale(sx, sy);
+    const kk = Math.sqrt(sx * sy);
+    for (let c = root.firstElementChild; c; c = c.nextElementSibling) paintEl(ctx, root, c, a, kk);
+    ctx.restore();
+  }
+  // The drawings of the box in order, then the one waiting off the page (models, walked in place with no list made); the last of them is returned.
+  function drawModels(ctx, now, bw, bh) {
+    let last = null;
+    for (let c = box.firstElementChild; c; c = c.nextElementSibling) {
+      if (!c.hasAttribute('data-svg-model')) continue;
+      drawModel(ctx, c, now, bw, bh); last = c;
+    }
+    const p = g.pending;
+    if (p && !p.isConnected) { drawModel(ctx, p, now, bw, bh); last = p; }
+    return last;
+  }
   const connect = () => { g.connAsk = 0; if (g.dead) { g.pending = null; return; } const r = g.pending; g.pending = null; if (r && !r.isConnected) box.append(r); };
   function draw() {
     g.ask = 0;
@@ -634,18 +893,8 @@ export function createSvgGL(box) {
     try {
       ctx.clearRect(0, 0, w, h);
       if (!(bw > 0 && bh > 0)) return;
-      for (const root of models()) {
-        if (!looks.has(root)) continue;
-        let a = 1;
-        const fi = g.ins.get(root);
-        if (fi) { const k = Math.min(1, (now - fi.t0) / fi.ms); a = fi.ease(k); if (k >= 1) g.ins.delete(root); }
-        const [sx, sy, tx, ty] = viewMap(geoOf(root, 'viewBox'), root.getAttribute('preserveAspectRatio'), bw, bh);
-        ctx.save();
-        ctx.translate(BLEED + tx, BLEED + ty); ctx.scale(sx, sy);
-        for (const c of root.children) paintEl(ctx, root, c, a, Math.sqrt(sx * sy));
-        ctx.restore();
-      }
-      const label = models().at(-1)?.getAttribute('aria-label');
+      const last = drawModels(ctx, now, bw, bh);
+      const label = last?.getAttribute('aria-label');
       if (label) attrSoon(cv, 'aria-label', label);
     } finally { handed = ctx.end?.() !== false; }   // (false: the picture could not be handed over, trace-gl.js end)
     g.drawn?.(!!pen.gpu && bw > 0 && bh > 0 && handed);   // (whether the GPU drew this frame: gl-words.js shows its picture only then)
@@ -670,9 +919,10 @@ export function createSvgGL(box) {
   // is placed instead (g.show), its looks read there. Its card never comes in empty with the chart popping in a moment later (Mohammad,
   // 2 Nov 2026). ?firstlook=0 off.)
   g.adopt = (root) => {
-    if (adoptLooks(root, g.cache, g.pk ? `${g.pk}root` : 'root')) { g.paint(); return; }
+    if (adoptLooks(root, g.cache, rootKeyOf(g))) { g.paint(); return; }
     if (!g.cache.size) {
       const pk = placeKey(box);
+      // alloc-rare: only while the drawing's looks cache is empty (its first drawing, or after a theme or size change)
       if (pk && adoptLooks(root, SHARED, `${pk}root`, g.cache)) { g.pk = pk; g.relook(); g.paint(); return; }
     }
     g.relook(); g.paint();
@@ -695,6 +945,7 @@ export function createSvgGL(box) {
     box.append(root);
     g.place(root);
     g.fadeIn(root, D_SURFACE, EASE_ARRIVE);
+    // alloc-rare: a new drawing that fades in over the old one, instead of a morph (a slide's change), once for each such change
     const t = setTimeout(() => { g.timers.delete(t); if (!g.dead) restPass(() => { if (g.dead) return; old.forEach((o) => o.remove()); g.paint(); }); }, 480);
     g.timers.add(t);
   };
@@ -702,14 +953,21 @@ export function createSvgGL(box) {
   // (Never put on the page in the frame: it is drawn from where it waits, with the looks of the pieces before it, and joins the box in a
   // rest pass, between frames, where a new kind of piece has its look read.)
   g.swap = (root) => {
-    for (const o of models()) if (o !== root) o.remove();
+    // (Every other drawing of the box goes, and the one waiting off the page: walked in place, with no list made.)
+    for (let c = box.firstElementChild, nx; c; c = nx) { nx = c.nextElementSibling; if (c !== root && c.hasAttribute('data-svg-model')) c.remove(); }
+    if (g.pending && g.pending !== root && !g.pending.isConnected) g.pending.remove();
     g.pending = root;
     if (!g.connAsk) g.connAsk = restPass(connect);
     g.adopt(root);
   };
   /** What the picture holds (the browser checks and ?perf read it): its drawings, those with their looks read, the looks kept. */
   g.stat = () => { const ms = models(); return { models: ms.length, looked: ms.filter((r) => looks.has(r)).length, pieces: ms.reduce((n, r) => n + r.querySelectorAll('*').length, 0), unlooked: ms.reduce((n, r) => n + [...r.querySelectorAll('*')].filter((e) => !looks.has(e)).length, 0), cache: g.cache.size, w: cv.width, h: cv.height }; };
-  g.clear = () => { for (const o of models()) o.remove(); g.pending = null; g.paint(); };
+  // (Every drawing of the box goes, and the one waiting off the page: walked in place, with no list made.)
+  g.clear = () => {
+    for (let c = box.firstElementChild, nx; c; c = nx) { nx = c.nextElementSibling; if (c.hasAttribute('data-svg-model')) c.remove(); }
+    if (g.pending && !g.pending.isConnected) g.pending.remove();
+    g.pending = null; g.paint();
+  };
   // (Disposed once and for good: the frame, the rest passes and the entrance timers are cancelled, the pending drawing and the entrance
   // records let go, and every mutator becomes a no-op, so nothing can attach a model or ask for a frame afterwards.)
   g.dispose = () => {

@@ -660,7 +660,8 @@ function num(el, k) { const v = parseFloat(el.getAttribute(k)); return Number.is
 // above it: a nested call returns before the next is made, so one array serves them all.)
 const BOX4 = [0, 0, 0, 0];
 const box4 = (a, b, c, d) => { BOX4[0] = a; BOX4[1] = b; BOX4[2] = c; BOX4[3] = d; return BOX4; };
-function elBox4(el, textOf) {
+/** elBox as four numbers [x0, y0, x1, y1] (or null): the array may be the one the next call writes, so read it at once. */
+export function elBox4(el, textOf) {
   if (!el || hiddenEl(el)) return null;
   switch (el.localName) {
     case 'text': { const t = textOf?.(el); return t ? box4(t.x, t.y, t.x + t.width, t.y + t.height) : null; }

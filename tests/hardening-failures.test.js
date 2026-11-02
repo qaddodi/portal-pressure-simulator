@@ -15,7 +15,7 @@ const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 test('cssAlpha: a fade that asks for a new alpha every frame does not grow the cache without end', () => {
   for (let i = 0; i < 10000; i++) assert.equal(cssAlpha('--white', 0.04 + i / 1e5), `rgba(255,255,255,${0.04 + i / 1e5})`);
   const u = read('src/ui/util.js');
-  assert.match(u, /if \(alphaCache\.size > 2000\) alphaCache\.clear\(\);/);
+  assert.match(u, /if \(m\.size > 2000\) m\.clear\(\);/);   // (each token's table of alphas is cut at 2000)
   assert.equal(cssAlpha('--white', 0.5), 'rgba(255,255,255,0.5)', 'a value after a cut is still right');
 });
 

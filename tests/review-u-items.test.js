@@ -76,7 +76,7 @@ test('U12 and U13: "colored by", never "lens", in words people see; platelets pe
 
 test('U16: no toast for what the figure already shows, and none but errors while presenting', () => {
   const util = read('../src/ui/util.js'), main = read('../src/ui/main.js');
-  assert.match(util, /if \(kind !== 'bad' && !actions\?\.length && !present && document\.getElementById\('app'\)\?\.classList\.contains\('presenting'\)\) return \(\) => \{\};/);
+  assert.match(util, /if \(kind !== 'bad' && !actions\?\.length && !present && document\.getElementById\('app'\)\?\.classList\.contains\('presenting'\)\) return NOOP_CLOSE;/);
   for (const f of ['../src/ui/main.js', '../src/ui/actions.js', '../src/ui/chart.js']) assert.doesNotMatch(read(f), /Band placed|Hemorrhage: 500 mL lost|Injecting dye/, f);
   assert.match(main, /store\.set\(\{ colorMode: next \}\); toast\(`Colored by /);
 });
