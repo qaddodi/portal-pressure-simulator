@@ -6,17 +6,17 @@ import { budget as gpuBudget } from './gpu-budget.js?v=82c7c5c48f';   // (the re
 import './gl-state.js?v=900a43dce7';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host } from './host.js?v=b2e74450ff';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=103e271dec';
-import { createStage } from './stage.js?v=d5982823a8';
-import { createCreditPlacer } from './credit.js?v=bb1dabcbd2';
+import { createStage } from './stage.js?v=803623b714';
+import { createCreditPlacer } from './credit.js?v=9bf7030aea';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
 import { createInspector } from './inspector.js?v=7d5a084e24';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=859fc3596b';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=51ac14666e';
 import { setHvpgStage } from './hvpg-proc.js?v=3dd06df0ae';
 import { createWhy } from './why.js?v=ff60774266';
 import { createTimeline, LAPSES } from './timeline.js?v=7f3f25cd1e';
 import { createCompare } from './compare.js?v=ccf38c603d';
-import { createCard } from './card.js?v=7c0836a7de';
+import { createCard } from './card.js?v=6058a04d48';
 import { createChart } from './chart.js?v=a39615004d';
 import { createMenu } from './menu.js?v=24d84a68cd';
 import { caption } from './a11y.js?v=2e91fb45b9';
@@ -32,7 +32,7 @@ import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js?v=b60
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=09fc291f37';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
 import { morphKey, crossfadeText } from './legend-morph.js?v=17917aefa4';
-import { glideNow } from './seg-glide.js?v=a4fba26b67';
+import { glideNow } from './seg-glide.js?v=330f7fcd58';
 import './focus-ring.js?v=3262cead68';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
 import { lookChooser } from './look-chooser.js?v=35ce0db22e';
@@ -62,8 +62,8 @@ import { noteJump } from './display-state.js?v=8d062d39dc';
 import { createIdleRest } from './idle-rest.js?v=4d23822371';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=adefe2fd4f';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
-import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=49ac75f2f5';
-import { recordDeviceReport, REPORT_S } from './device-report.js?v=d580fb31b8';
+import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=c1e0ef7c11';
+import { recordDeviceReport, mailBody, REPORT_S } from './device-report.js?v=2f5a2a2fd4';
 import './scroll-edges.js?v=d33400a8da';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 const nextFrame = frameFor('main');
 
@@ -213,7 +213,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=7f923f6bfc'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=732c19945f'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -1145,7 +1145,7 @@ function deviceReport() {
     done: (text) => {
       reportStop = null; note('done');
       const copy = () => navigator.clipboard?.writeText(text).then(() => toast('Device report copied.'), () => toast('Could not copy here: use Email it.', 'bad'));
-      toast('Device report ready.', '', { sticky: true, actions: [['Copy report', copy], ...(FEEDBACK_EMAIL ? [['Email it', () => { location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent('Portal Pressure Simulator device report')}&body=${encodeURIComponent(text)}`; }]] : []), ['Close', () => {}]] });
+      toast('Device report ready.', '', { sticky: true, actions: [['Copy report', copy], ...(FEEDBACK_EMAIL ? [['Email it', () => { location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent('Portal Pressure Simulator device report')}&body=${encodeURIComponent(mailBody(text))}`; }]] : []), ['Close', () => {}]] });
       window.pps && (window.pps.lastDeviceReport = text);
     },
   });
