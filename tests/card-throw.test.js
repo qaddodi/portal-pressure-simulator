@@ -78,7 +78,7 @@ test('glass: a card\'s fade carried by a transition that has just finished stays
   const glass = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
   assert.match(glass, /const ENDS = !\/\[\?&\]glassend=0\\b\/\.test\(SEARCH\);/);
   assert.match(glass, /if \(ENDS && st === 'finished'\) \{ const v = kf && motionAt\(kf, 1\);/, 'the last keyframe is kept as the element\'s place and fade');
-  assert.match(glass, /if \(end\) \{ if \(!t && end\.t && !e\.style\?\.transform\) t = end\.t; if \(o == null && end\.o != null\) o = end\.o; \}/);
+  assert.match(glass, /if \(end\) \{ if \(!hasT && end\.t && !e\.style\?\.transform\) \{ tx = end\.t\[0\]; ty = end\.t\[1\]; hasT = true; \} if \(o == null && end\.o != null\) o = end\.o; \}/);
   assert.match(glass, /if \(dead \|\| lost\) return;\n\s+ended\.clear\(\);/, 'dropped at the next read, which sees the page as it is');
 });
 
