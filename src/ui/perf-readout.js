@@ -4,10 +4,10 @@
 // (gpu-probe.js cpuOnly: no waiting for the GPU), every frame that missed the screen's refresh in the window is listed with the
 // steps that ran in it (and every interval counted in a histogram at that refresh, with p50/p95/p99), and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
-import { TIERS, sceneTier, tierLog } from './adapt-tier.js?v=a32da878fa';
+import { TIERS, sceneTier, tierLog } from './adapt-tier.js?v=211ae3fabd';
 import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=625c2c9315';
 import { restPass } from './rest-pass.js?v=bb619a1659';
-import { textSoon } from './class-soon.js?v=97b9d0e0db';
+import { textSoon } from './class-soon.js?v=60cf95af4a';
 import { perf, watchFrames, finalFrameFor } from './frame.js?v=1d147c7c9a';
 // (The readout's own loop: through the app's one frame scheduler, last in each frame, not a requestAnimationFrame of its own.)
 const nextFrame = finalFrameFor('perf readout');

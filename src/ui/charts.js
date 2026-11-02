@@ -1,10 +1,10 @@
 // Dock charts (blueprint §9.2): the pressure profile.
 
 import { NODES } from '../engine/topology.js?v=512e725aea';
-import { PROFILE_PATHS, SHORT } from './anatomy.js?v=fe0f3d1f0e';
-import { pressureColor } from './colormap.js?v=d5cbefd7dc';
-import { store, hiddenNow } from './store.js?v=a21c31dcb5';
-import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=7e36984879';
+import { PROFILE_PATHS, SHORT } from './anatomy.js?v=8768b1f623';
+import { pressureColor } from './colormap.js?v=fceca9cef5';
+import { store, hiddenNow } from './store.js?v=2e6b562412';
+import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=5f0ea736f1';
 import { frameFor, cancelFrame, paceMs } from './frame.js?v=1d147c7c9a';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { shownOr } from './shown.js?v=33ffa6d9eb';
@@ -15,7 +15,7 @@ import { D_SMALL, EASE_ARRIVE } from './ease.js?v=dc92422977';
 import { createTraceGL, fitPen } from './trace-gl.js?v=48fdded63b';
 import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
 import { measure } from './glyph-measure.js?v=fb732c3b0d';
-import { glWords } from './gl-words.js?v=b3a1e51d90';
+import { glWords } from './gl-words.js?v=dc0a4f535e';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

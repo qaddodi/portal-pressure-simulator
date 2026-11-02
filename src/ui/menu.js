@@ -4,16 +4,16 @@
 // same content as a bottom sheet. Hovering a row (or focusing it with the arrow keys) previews it beside
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
-import { store } from './store.js?v=a21c31dcb5';
+import { store } from './store.js?v=2e6b562412';
 import { createTraceGL, fitPen } from './trace-gl.js?v=48fdded63b';
-import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=7e36984879';
+import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=5f0ea736f1';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=d5cbefd7dc';
+import { pressureColor } from './colormap.js?v=fceca9cef5';
 import { ownsSideways, pageGo } from './swipe.js?v=a61b093400';
 import { frameFor } from './frame.js?v=1d147c7c9a';
 import { restPass } from './rest-pass.js?v=bb619a1659';
-import { classSoon, removeSoon } from './class-soon.js?v=97b9d0e0db';
+import { classSoon, removeSoon } from './class-soon.js?v=60cf95af4a';
 import { slideFold } from './fold-slide.js?v=4a28d2036e';
 import { leaveFromHere } from './menu-leave.js?v=6d74094ee1';
 import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=dc92422977';

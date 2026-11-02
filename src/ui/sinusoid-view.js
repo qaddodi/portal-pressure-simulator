@@ -19,14 +19,14 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=7e36984879';
-import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=f9a9eb0579';
+import { h, fmt, clamp, lerp } from './util.js?v=5f0ea736f1';
+import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=1802ec3651';
 import { measure } from './glyph-measure.js?v=fb732c3b0d';
 import { readStyle } from './layout-snap.js?v=a48d65266b';
-import { pressureColor } from './colormap.js?v=d5cbefd7dc';
-import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=5e0fb23c8f';
-import { isPaused } from './clock.js?v=ff76dd8529';
-import { store } from './store.js?v=a21c31dcb5';
+import { pressureColor } from './colormap.js?v=fceca9cef5';
+import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=8b92ad7b8f';
+import { isPaused } from './clock.js?v=0920941d54';
+import { store } from './store.js?v=2e6b562412';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=b8f1f7baa9';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAtInto, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=3950867cf5';
@@ -35,7 +35,7 @@ import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale, easeNow 
 import { softwareGL, softwareYield } from './sw-yield.js?v=f7e0bc683b';
 import { noteSinusoidSupport, sinusoidSupported } from './gl-support.js?v=6219c6f004';
 import { FADE_MS, fadeAlpha } from './res-fade.js?v=e7ef96bb3c';
-import { cssColor8 } from './css-color.js?v=e56f0c77ae';
+import { cssColor8 } from './css-color.js?v=59ed182174';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { restPass, restClass, restAttr } from './rest-pass.js?v=bb619a1659';
 const HEP_CELL = { j: 0, x0: 0, x1: 0, nu: 0, nv: 0, nr: 0, bi: false };   // alloc-rare: made once (the hepatocyte's cell, written in place by each layout)

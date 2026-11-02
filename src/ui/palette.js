@@ -2,15 +2,15 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js?v=a21c31dcb5';
-import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=7e36984879';
+import { store, updateParams } from './store.js?v=2e6b562412';
+import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=5f0ea736f1';
 import { D_FLIP, EASE_ARRIVE } from './ease.js?v=dc92422977';
 import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
-import { classSoon, attrSoon } from './class-soon.js?v=97b9d0e0db';
+import { classSoon, attrSoon } from './class-soon.js?v=60cf95af4a';
 import { frame } from './frame.js?v=1d147c7c9a';
 import { EDGES } from '../engine/topology.js?v=512e725aea';
 import { DRUGS } from '../engine/scenario.js?v=d2669cef9b';
-import { HIDDEN_EDGES } from './anatomy.js?v=fe0f3d1f0e';
+import { HIDDEN_EDGES } from './anatomy.js?v=8768b1f623';
 import { LOOKS } from './looks.js?v=2d098211a4';
 
 // One highlight under the list that glides to the active row; the arrow keys and the pointer only move it (and aria-selected on two rows),

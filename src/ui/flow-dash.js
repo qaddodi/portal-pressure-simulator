@@ -13,7 +13,7 @@
 // One speed per element, and no flow through a junction: each runs on its own vessel.
 
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=dc92422977';
-import { removeSoon } from './class-soon.js?v=97b9d0e0db';
+import { removeSoon } from './class-soon.js?v=60cf95af4a';
 
 // ── Geometry (pure: tested in tests/flow-dash.test.js) ───────────────────────
 

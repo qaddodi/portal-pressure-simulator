@@ -3,8 +3,8 @@
 // first sentence is fixed; the rest is read from the live model.
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=512e725aea';
-import { fmt, clamp } from './util.js?v=7e36984879';
-import { LABEL_VESSEL } from './anatomy.js?v=fe0f3d1f0e';
+import { fmt, clamp } from './util.js?v=5f0ea736f1';
+import { LABEL_VESSEL } from './anatomy.js?v=8768b1f623';
 import { judgeFlow } from './velNormal.js?v=ad0e95380d';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

@@ -11,17 +11,17 @@
 
 import { frame, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { restPass, cancelRest, restAttr } from './rest-pass.js?v=bb619a1659';
-import { PROFILE_PATHS } from './anatomy.js?v=fe0f3d1f0e';
-import { follow2, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
+import { PROFILE_PATHS } from './anatomy.js?v=8768b1f623';
+import { follow2, SHOWN_TAU } from './display-state.js?v=3783649ed7';
 import { NODES } from '../engine/topology.js?v=512e725aea';
 import { RATE } from './table-marks.js?v=a483b9975e';
 import { monotoneSegs } from './curve-near.js?v=6996ad536a';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { pressureColor } from './colormap.js?v=d5cbefd7dc';
+import { pressureColor } from './colormap.js?v=fceca9cef5';
 import { measure } from './glyph-measure.js?v=fb732c3b0d';
 import { hvpgRate, ppgRate } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { numWords } from './num-words.js?v=cf53d490d9';
-import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js?v=5e0fb23c8f';
+import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js?v=8b92ad7b8f';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;

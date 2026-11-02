@@ -21,7 +21,7 @@ import { createTraceGL, fitPen } from './trace-gl.js?v=48fdded63b';
 import { finalFrameFor, easeNow } from './frame.js?v=1d147c7c9a';
 import { measure } from './glyph-measure.js?v=fb732c3b0d';
 import { D_SURFACE, easeArrive } from './ease.js?v=dc92422977';
-import { cssColor } from './css-color.js?v=e56f0c77ae';
+import { cssColor } from './css-color.js?v=59ed182174';
 
 const finalFrame = finalFrameFor('caption-gl');
 /** A colour as the page computed it (rgb(), color(srgb …), oklab() from a color-mix, a token's raw value), as rgba() the GPU's pen reads; '' for none. */

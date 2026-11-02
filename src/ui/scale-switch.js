@@ -9,7 +9,7 @@
 //             lobule: { cam: 'lobule:triad', zoom: 2.6, glow: ['lobule:triad'], callout: { ... } },
 //             sinusoid: {} }                         full form: each scale's view (fields in VIEW_KEYS)
 
-import { camProblems } from './cam-frame.js?v=3c321f5f7f';
+import { camProblems } from './cam-frame.js?v=04d2df8ec5';
 
 export const SCALES = ['anatomy', 'lobule', 'sinusoid'];
 export const SCALE_NAME = { anatomy: 'Anatomy', lobule: 'Lobule', sinusoid: 'Sinusoid' };

@@ -8,14 +8,14 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=7e36984879';
-import { glWords } from './gl-words.js?v=b3a1e51d90';
+import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=5f0ea736f1';
+import { glWords } from './gl-words.js?v=dc0a4f535e';
 import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { FONT } from './charts.js?v=ddfaa3b885';
-import { pressureColor } from './colormap.js?v=d5cbefd7dc';
-import { store, logAction, hiddenNow, updateParams } from './store.js?v=a21c31dcb5';
-import { shownOr } from './shown.js?v=f7d50db740';
-import { classSoon, restartSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=97b9d0e0db';
+import { FONT } from './charts.js?v=b8e84b1238';
+import { pressureColor } from './colormap.js?v=fceca9cef5';
+import { store, logAction, hiddenNow, updateParams } from './store.js?v=2e6b562412';
+import { shownOr } from './shown.js?v=33ffa6d9eb';
+import { classSoon, restartSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=60cf95af4a';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=95f13823ce';
 import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { createTraceGL, fitPen } from './trace-gl.js?v=48fdded63b';

@@ -7,7 +7,7 @@
 // A name whose anchor lies inside its organ stays inside it; one that stands beside its organ (the spleen's above it, the kidney's below
 // it, the atrium's and the esophagus's at their side) stays within NEAR units of it. The spots are the centres of the caption's box
 // on a grid, nearest the anchor first, so the label rests where it always did whenever nothing is in the way.
-import { ORGANS, ORGAN_LABELS } from './anatomy.js?v=fe0f3d1f0e';
+import { ORGANS, ORGAN_LABELS } from './anatomy.js?v=8768b1f623';
 import { pathCmds, flattenCmds } from './shape-gl.js?v=0d23af9d17';
 
 /** The organ outline each caption belongs to (anatomy.js ORGANS ids; a band shape such as the colon takes its ring). */

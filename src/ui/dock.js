@@ -1,30 +1,30 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, hiddenNow } from './store.js?v=a21c31dcb5';
+import { store, hiddenNow } from './store.js?v=2e6b562412';
 import { EDGES } from '../engine/topology.js?v=512e725aea';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=7e36984879';
-import { lobuleFlows } from './lobule-model.js?v=ba8ac69cfb';
-import { createProfile } from './charts.js?v=ddfaa3b885';
-import { createPressureTime } from './pressure-time.js?v=f2b84eed76';
-import { createHvpgProcedure } from './hvpg-proc.js?v=734cc7d44f';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=6be38db1bf';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=5f0ea736f1';
+import { lobuleFlows } from './lobule-model.js?v=1833be7b23';
+import { createProfile } from './charts.js?v=b8e84b1238';
+import { createPressureTime } from './pressure-time.js?v=22175ab443';
+import { createHvpgProcedure } from './hvpg-proc.js?v=2c33dc1650';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=a0332f7b91';
 import { ownsSideways, pageGo } from './swipe.js?v=a61b093400';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=27ad2daa38';
-import { createReadoutsPane } from './readouts-pane.js?v=c3a8e95001';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=91ef09a314';
+import { createReadoutsPane } from './readouts-pane.js?v=8d8767836a';
 import { frameFor } from './frame.js?v=1d147c7c9a';
-import { glWords } from './gl-words.js?v=b3a1e51d90';
+import { glWords } from './gl-words.js?v=dc0a4f535e';
 import { restPass } from './rest-pass.js?v=bb619a1659';
 import { dropFront } from './drop-front.js?v=21069ee0e8';
-import { classSoon, classHas, classNow } from './class-soon.js?v=97b9d0e0db';
+import { classSoon, classHas, classNow } from './class-soon.js?v=60cf95af4a';
 import { vitalReading, VITALS } from './vital-read.js?v=eb683dfbdd';
-import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=f7d50db740';
+import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=33ffa6d9eb';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { compareRows } from './idle-keys.js?v=6329c6ef1f';
 import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=dc92422977';
 import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js?v=a48d65266b';
-import { attrSoon, dataSoon } from './class-soon.js?v=97b9d0e0db';
+import { attrSoon, dataSoon } from './class-soon.js?v=60cf95af4a';
 import { caught } from './caught.js?v=b96b17594a';
 const nextFrame = frameFor('dock');
 
