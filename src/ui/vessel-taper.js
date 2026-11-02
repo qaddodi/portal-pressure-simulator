@@ -73,6 +73,39 @@ export function monotoneSlopes(s, y) {
   return d;
 }
 
+/** monotoneSlopes into given arrays, allocating nothing (the figure's per-frame taper, stage.js sendRadii): s, y the first n
+ *  stations; d gets the slopes; h and k are scratch of at least n - 1. The same arithmetic as monotoneSlopes, in the same order. */
+export function slopesInto(s, y, n, d, h, k) {
+  for (let i = 0; i < n; i++) d[i] = 0;
+  if (n < 3) return d;
+  for (let i = 0; i < n - 1; i++) { h[i] = Math.max(s[i + 1] - s[i], 1e-9); k[i] = (y[i + 1] - y[i]) / h[i]; }
+  for (let i = 1; i < n - 1; i++) {
+    if (k[i - 1] * k[i] <= 0) { d[i] = 0; continue; }
+    const w1 = 2 * h[i] + h[i - 1], w2 = h[i] + 2 * h[i - 1];
+    d[i] = (w1 + w2) / (w1 / k[i - 1] + w2 / k[i]);
+  }
+  return d;
+}
+
+/** One chain's plan (planTaper's, for a chain from chainsOf) written into plans made once: plan(id) gives the object to fill
+ *  ({ y0, y1, d0, d1, j0, j1 }); bodyOf(id), lenOf(id) the vessel's caliber and length; S, Y, D, H, K scratch arrays of at least
+ *  chain.length + 1. Allocates nothing; the numbers are planTaper's. */
+export function planChainInto(chain, bodyOf, lenOf, plan, S, Y, D, H, K) {
+  const n = chain.length;
+  if (n < 2) return;
+  S[0] = 0; Y[0] = bodyOf(chain[0].id);
+  for (let i = 0; i < n; i++) {
+    S[i + 1] = S[i] + Math.max(lenOf(chain[i].id), 1e-6);
+    Y[i + 1] = i === n - 1 ? bodyOf(chain[i].id) : (bodyOf(chain[i].id) + bodyOf(chain[i + 1].id)) / 2;
+  }
+  slopesInto(S, Y, n + 1, D, H, K);
+  for (let i = 0; i < n; i++) {
+    const c = chain[i], first = i === 0, last = i === n - 1, p = plan(c.id);
+    if (c.enter === 0) { p.y0 = Y[i]; p.y1 = Y[i + 1]; p.d0 = D[i]; p.d1 = D[i + 1]; p.j0 = !first; p.j1 = !last; }
+    else { p.y0 = Y[i + 1]; p.y1 = Y[i]; p.d0 = -D[i + 1]; p.d1 = -D[i]; p.j0 = !last; p.j1 = !first; }
+  }
+}
+
 export function planTaper(vessels, links) {
   const plan = new Map(); // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
   if (!links.length) return plan;

@@ -69,7 +69,7 @@ import { createSweepClient } from './sweep-client.js?v=82d428b46d';
 import { retireRows, flowClose } from './flow-rows.js?v=6cd335f84b';
 import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=c70ffc2d55';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
-import { planTaper, taperAt } from './vessel-taper.js?v=0b60828ad9';
+import { chainsOf, planChainInto, taperAt } from './vessel-taper.js?v=01b79bbfbd';
 import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=1d147c7c9a';
 import { softwareYield } from './sw-yield.js?v=f7e0bc683b';
 import { portalSplit } from './table-marks.js?v=a483b9975e';
@@ -2732,7 +2732,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     renderPath();
     vBinKey = ''; binShown = null; bendShown = null; glOrgans = false; plateKey = ''; tubesShown = null;   // (a new context holds no vessels yet)
     liverKey = '';   // (nor the liver's lower edge the ascites stops at: morphLiver sends it again)
-    for (const x of EV) for (const o of [x, ...(x.strands || []), ...(x.feeders || [])]) { o.glRadKey = null; o.glRSent = null; }
+    for (const x of EV) for (const o of [x, ...(x.strands || []), ...(x.feeders || [])]) { o.gkC = 0; o.glRSent = null; }
     for (const [g, o] of frostHosts) hostFrost(g, o);   // (the glasses drawn in the new context's canvas)
     if (F) update(F);
   });
@@ -4425,7 +4425,56 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (Timed, binning included, for the debug overlay's GPU readout: gpu-probe.js.)
   // Radii: re-sent only when a tube changed.
-  let easedMemo = null;
+  // (Allocation-free, 2 Nov 2026: the radii sync ran on every model frame, about 80% of the figure's per-frame garbage: a key
+  // string, a [key, rOf] pair and a closure per vessel per sync, a new radii array per changed vessel, the eased radii in new
+  // arrays and Maps, and the taper's chains and stations made again whenever any caliber moved. Now each vessel keeps its own
+  // buffers (glR0 its radii, glE the eased, glRSent what the GPU has, which is glR), changes are told by numbers kept on it
+  // (gkC/gk1-3 the key, glR0v and glRv versions), and the taper's chains are found again only when the links change. The
+  // numbers sent are the same as before, in the same arithmetic.)
+  let radR = 0, radB = 0, radW = 0, radCase = 0;   // (the item's radii case and numbers, from radFresh, for radFill)
+  /** Whether the item's radii key changed (itemRadii's key, kept as numbers on the object); sets the case for radFill. */
+  function radFresh(it) {
+    const { x, kind } = it, o = it.obj;
+    let c, k1, k2 = 0, k3 = 0;
+    if (kind === 'v' && it.ra) { c = 1; k1 = x.shadeKey; k2 = it.ra.shadeKey; k3 = Math.round(it.f * 1e4); }
+    else if (kind === 'v' && !x.isArt) { c = 2; k1 = x.shadeKey; }
+    else {
+      // (As itemRadii: the esophageal balloon squeezes the varices' strands, a varix strand is beaded, a sinusoid strand narrows.)
+      const r = (kind === 'v' ? Math.max(0.5, x.width / 2) : kind === 's' ? Math.max(1.6, x.width * o.k) / 2 : o.w / 2) * (kind === 's' && x.e.id === 'C1a' ? balloonSqueeze : 1);
+      const b = kind === 's' ? o.bead || 0 : 0;
+      keep(o, 'kr', r, widthMoving(x) ? edgeQ() : 0);
+      radR = r; radB = b;
+      if (b > 0) { c = 3; k1 = o.kr; k2 = b; k3 = Math.round(o.len || 0); }
+      else if (kind === 's' && SIN_EDGES.has(x.e.id)) { c = 4; radW = x.width; k1 = Math.round(r * 100); k2 = Math.round(radW * 100); }
+      else { c = 5; k1 = o.kr; }
+    }
+    radCase = c;
+    if (o.glR0 && o.gkC === c && o.gk1 === k1 && o.gk2 === k2 && o.gk3 === k3) return false;
+    o.gkC = c; o.gk1 = k1; o.gk2 = k2; o.gk3 = k3;
+    return true;
+  }
+  /** The item's lumen radii (itemRadii's rOf at each sample) into out. */
+  function radFill(it, out) {
+    const { x } = it, o = it.obj, n1 = N_SAMPLES - 1;
+    if (radCase === 1) { const ra = it.ra, f = it.f; for (let i = 0; i < N_SAMPLES; i++) { const u = i / n1; out[i] = u < f ? x.rOf(u / f) : ra.rOf((u - f) / (1 - f)); } }
+    else if (radCase === 2) for (let i = 0; i < N_SAMPLES; i++) out[i] = x.rOf(i / n1);
+    else if (radCase === 3) for (let i = 0; i < N_SAMPLES; i++) out[i] = beadRadius(radR, radB, i / n1, o.len || 1, o.ph * 1.7, o.u0 || 0);
+    else if (radCase === 4) for (let i = 0; i < N_SAMPLES; i++) out[i] = sinStrandRadius(radR, radW, i / n1, o.span);
+    else out.fill(radR);
+  }
+  // The eased radii's generation: an object eased in the last pass that worked them out has glEs === easeGen (its glE holds them).
+  let easeGen = 0, memoPairs = null, memoN = 0;
+  const memoV = [];   // (the radii versions the last pass worked from, two per straight join: a vessel at each end, -1 for none)
+  const rowIt = [];   // (row → item, this sync's; cleared after)
+  // The taper's runs, found again only when the joins that make them change (chainsOf allocates): the links and chains of the last.
+  let tapLinksN = 0, tapChains = [], tapIds = new Set();
+  const tapLinks = [], tapPrev = [], tapPlan = new Map(), tapS = [], tapY = [], tapD = [], tapH = [], tapK = [];
+  const tapBody = new Map(), tapLen = new Map();
+  const tapBodyOf = (row) => tapBody.get(row), tapLenOf = (row) => tapLen.get(row);
+  const tapPlanOf = (row) => { let p = tapPlan.get(row); if (!p) tapPlan.set(row, (p = { y0: 0, y1: 0, d0: 0, d1: 0, j0: false, j1: false })); return p; };
+  const easeBuf = (O) => { if (O.glEs === easeGen) return O.glE; if (!O.glE || O.glE.length !== O.glR0.length) O.glE = new Float64Array(O.glR0.length); O.glE.set(O.glR0); O.glEs = easeGen; return O.glE; };
+  const SMOOTH = (u) => u * u * (3 - 2 * u);
+  const plainRow = (row) => { const it = rowIt[row]; return !!it && it.kind !== 's' && !it.ra && !!it.obj.glR0; };
   // Where a stenosed vessel's colour stands along it (pressure-along.js; combined plan V1): by the resistance its narrowing adds,
   // so the colour falls at the waist. Null for any other (the plain mix by arc, as before): a strand, a tributary drawn into a trunk,
   // a liver branch, a vessel with no stenosis. The cava drawn as one takes each stretch's own.
@@ -4442,88 +4491,121 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function sendRadii(items) {
     for (const it of items) {
-      const [key, rOf] = itemRadii(it), o = it.obj;
-      if (o.glRadKey === key && o.glR0) continue;
-      o.glRadKey = key; glRadDirty = true;
-      o.glR0 = Array.from({ length: N_SAMPLES }, (_, i) => rOf(i));
+      if (!radFresh(it)) continue;
+      const o = it.obj;
+      glRadDirty = true;
+      if (!o.glR0 || o.glR0.length !== N_SAMPLES) o.glR0 = new Float64Array(N_SAMPLES);
+      radFill(it, o.glR0);
+      o.glR0v = (o.glR0v || 0) + 1;
     }
+    if (!glRadDirty) return;
     // Where one vessel runs on into the next, both ends ease to the same caliber, so the tube is one
     // smooth course (no step and no swelling at the join): a run of vessels joined end to end at two-vessel nodes is one
     // continuous taper through the whole run (vessel-taper.js), in length, so caliber and slope meet at every join.
-    // (Kept while the radii they start from are the same arrays: the same eases, and those rows are then skipped below.)
-    let eased = new Map(), refs = null;
-    if (glRadDirty && glStraight.length) {
-      const objOf = new Map(items.map((it) => [it.row, it.obj]));
-      refs = glStraight.flatMap(({ a, b }) => [objOf.get(a)?.glR0, objOf.get(b)?.glR0]);
-      if (easedMemo?.pairs === glStraight && refs.every((r, i) => r === easedMemo.refs[i])) { eased = easedMemo.map; refs = null; }
+    // (Kept while the radii they start from are the same: the same versions, and those rows are then skipped below.)
+    for (const it of items) rowIt[it.row] = it;
+    let fresh = !glStraight.length;
+    if (glStraight.length) {
+      let same = memoPairs === glStraight && memoN === glStraight.length * 2;
+      for (let q = 0, j = 0; q < glStraight.length; q++) {
+        const L = glStraight[q], A = rowIt[L.a]?.obj, B = rowIt[L.b]?.obj;
+        const va = A?.glR0 ? A.glR0v : -1, vb = B?.glR0 ? B.glR0v : -1;
+        if (same && (memoV[j] !== va || memoV[j + 1] !== vb)) same = false;
+        memoV[j++] = va; memoV[j++] = vb;
+      }
+      memoN = glStraight.length * 2;
+      if (!same) { memoPairs = glStraight; fresh = true; }
     }
-    if (refs) {
-      const byRow = new Map(items.map((it) => [it.row, it.obj])), itOf = new Map(items.map((it) => [it.row, it]));
+    if (fresh) easeGen++;   // (nothing eased from before counts)
+    if (fresh && glStraight.length) {
       // The runs: vessels that run on into one another at a node of two vessels. (The cava drawn as one, with its caliber
       // eased to the heart's, and any strand keep the pairwise ease below; a fork has its funnel below too.)
-      const plain = (row) => { const it = itOf.get(row); return !!it && it.kind !== 's' && !it.ra && !!it.obj.glR0; };
-      const chained = new Set(), links = [];
-      for (const L of glStraight) if (!L.fork && plain(L.a) && plain(L.b)) { chained.add(L); links.push({ a: L.a, ea: L.ia, b: L.b, eb: L.ib }); }
-      if (links.length) {
-        const vessels = new Map();
-        for (const { a, b } of links) for (const row of [a, b]) if (!vessels.has(row)) { const it = itOf.get(row); vessels.set(row, { body: Math.max(...it.obj.glR0), len: arcLen(it.pts) }); }
-        for (const [row, p] of planTaper(vessels, links)) {
-          const O = itOf.get(row).obj, { body, len } = vessels.get(row);
-          // (Its own radii scaled by the plan over its own caliber: a stenosis's waist and a narrowed end ride on the taper, and where
-          // the plan is its own caliber the scale is exactly 1.)
-          if (body > 0) eased.set(O, Array.from(O.glR0, (r, i) => r * (taperAt(p, len, i / (N_SAMPLES - 1)) / body)));
+      let n = 0, linksSame = true;
+      for (const L of glStraight) {
+        L.chained = !L.fork && plainRow(L.a) && plainRow(L.b);
+        if (!L.chained) continue;
+        if (tapPrev[n] !== L) linksSame = false;
+        tapPrev[n++] = L;
+      }
+      if (n !== tapLinksN) linksSame = false;
+      tapLinksN = n;
+      if (n) {
+        if (!linksSame) {
+          tapLinks.length = 0;
+          for (let q = 0; q < n; q++) { const L = tapPrev[q]; tapLinks.push({ a: L.a, ea: L.ia, b: L.b, eb: L.ib }); }
+          tapIds = new Set();
+          for (const { a, b } of tapLinks) { tapIds.add(a); tapIds.add(b); }
+          tapChains = chainsOf(tapIds, tapLinks).filter((c) => c.length >= 2);
+        }
+        for (const row of tapIds) {
+          const it = rowIt[row], R = it.obj.glR0;
+          let mx = -Infinity;
+          for (let j = 0; j < R.length; j++) if (R[j] > mx) mx = R[j];
+          tapBody.set(row, mx); tapLen.set(row, arcLen(it.pts));
+        }
+        for (const chain of tapChains) {
+          planChainInto(chain, tapBodyOf, tapLenOf, tapPlanOf, tapS, tapY, tapD, tapH, tapK);
+          for (const c of chain) {
+            const O = rowIt[c.id].obj, body = tapBody.get(c.id), len = tapLen.get(c.id), p = tapPlan.get(c.id);
+            // (Its own radii scaled by the plan over its own caliber: a stenosis's waist and a narrowed end ride on the taper, and where
+            // the plan is its own caliber the scale is exactly 1.)
+            if (!(body > 0)) continue;
+            if (!O.glE || O.glE.length !== O.glR0.length) O.glE = new Float64Array(O.glR0.length);
+            const R0 = O.glR0, E = O.glE;
+            for (let i = 0; i < R0.length; i++) E[i] = R0[i] * (taperAt(p, len, i / (N_SAMPLES - 1)) / body);
+            O.glEs = easeGen;
+          }
         }
       }
       for (const L of glStraight) {
-        if (chained.has(L)) continue;
+        if (L.chained) continue;
         const { a, ia, b, ib, fork } = L;
-        const A = byRow.get(a), B = byRow.get(b);
+        const A = rowIt[a]?.obj, B = rowIt[b]?.obj;
         if (!A?.glR0 || !B?.glR0) continue;
         const ra = A.glR0[ia ? N_SAMPLES - 1 : 0], rb = B.glR0[ib ? N_SAMPLES - 1 : 0];
         // In a fork the narrower stretch widens to the wider one's caliber at the node instead (the wider never narrows):
         // a tributary there meets the trunk at full width, so its end stays inside the trunk's walls (the splenorenal
         // shunt on the splenic vein, where the splenic vein's last stretch carries little).
         if (fork) {
-          const m = Math.max(ra, rb), S = (u) => u * u * (3 - 2 * u);
-          for (const [O, i, r0, row] of [[A, ia, ra, a], [B, ib, rb, b]]) {
+          const m = Math.max(ra, rb);
+          for (let side = 0; side < 2; side++) {
+            const O = side ? B : A, i = side ? ib : ia, r0 = side ? rb : ra, row = side ? b : a;
             if (r0 >= m) continue;
             // (Over about three trunk radii, not half its course: a short funnel, not a long cone.)
-            const it = itOf.get(row), step = arcLen(it.pts) / (N_SAMPLES - 1) || 1;
-            const E = Math.min(runOnSamples(it, N_SAMPLES >> 1), Math.max(2, Math.round((3 * m) / step))), R = eased.get(O) || O.glR0.slice();
-            for (let s = 0; s < E; s++) R[i ? N_SAMPLES - 1 - s : s] += (m - r0) * (1 - S(s / E));
-            eased.set(O, R);
+            const it = rowIt[row], step = arcLen(it.pts) / (N_SAMPLES - 1) || 1;
+            const En = Math.min(runOnSamples(it, N_SAMPLES >> 1), Math.max(2, Math.round((3 * m) / step))), R = easeBuf(O);
+            for (let s = 0; s < En; s++) R[i ? N_SAMPLES - 1 - s : s] += (m - r0) * (1 - SMOOTH(s / En));
           }
           continue;
         }
         // One smoothstep from A's caliber (half A's course back) to B's (half B's course on), so the
         // taper runs steadily through the join: no plateau there, which read as a crease.
-        const S = (u) => u * u * (3 - 2 * u);
-        for (const [O, i, side, row] of [[A, ia, 0, a], [B, ib, 1, b]]) {
-          const E = runOnSamples(itOf.get(row), N_SAMPLES >> 1), R = eased.get(O) || O.glR0.slice();
-          for (let s = 0; s < E; s++) {
-            const u = side ? 0.5 + 0.5 * (s / E) : 0.5 - 0.5 * (s / E), j = i ? N_SAMPLES - 1 - s : s;
-            R[j] += side ? (ra - rb) * (1 - S(u)) : (rb - ra) * S(u);
+        for (let side = 0; side < 2; side++) {
+          const O = side ? B : A, i = side ? ib : ia, row = side ? b : a;
+          const En = runOnSamples(rowIt[row], N_SAMPLES >> 1), R = easeBuf(O);
+          for (let s = 0; s < En; s++) {
+            const u = side ? 0.5 + 0.5 * (s / En) : 0.5 - 0.5 * (s / En), j = i ? N_SAMPLES - 1 - s : s;
+            R[j] += side ? (ra - rb) * (1 - SMOOTH(u)) : (rb - ra) * SMOOTH(u);
           }
-          eased.set(O, R);
         }
       }
     }
-    if (refs) easedMemo = { pairs: glStraight, refs, map: eased };
-    if (glRadDirty) for (const it of items) {
-      const o = it.obj, R = eased.get(o) || o.glR0;
-      if (R === o.glR) continue;   // (the very array last sent)
+    for (const it of items) {
+      const o = it.obj, R = o.glEs === easeGen ? o.glE : o.glR0;
       // (Compared with a copy of the radii last sent, element by element, and copied only when they change: a joined string
       // per vessel per sync was megabytes a second of garbage; round 2 review, P6.)
       const sent = o.glRSent;
       if (sent && sent.length === R.length) { let j = 0; while (j < R.length && sent[j] === R[j]) j++; if (j === R.length) continue; }
       let mx = -Infinity;
       for (let j = 0; j < R.length; j++) if (R[j] > mx) mx = R[j];
-      // (The copy is refilled in place when it is the same size: no new array per changed vessel per frame of an ease.)
+      // (The copy is refilled in place when it is the same size: no new array per changed vessel per frame of an ease. It is the
+      // figure's glR, what the GPU draws: its version glRv moves with each change, for a reader that follows it, cathLive.)
       if (sent && sent.length === R.length) sent.set(R); else o.glRSent = Float64Array.from(R);
-      o.glR = R; o.glMaxR = mx;
+      o.glR = o.glRSent; o.glMaxR = mx; o.glRv = (o.glRv || 0) + 1;
       // (A vessel's new radii change only its own cells: drawn again as a colour change is, see drawVeins.)
       veins.setRadii(it.row, R, alongOf(it)); veinsRows.add(it.row);
     }
+    for (const it of items) rowIt[it.row] = undefined;
     glRadDirty = false;
   }
   function syncVeins(t) { return gpuProbe.time(null, 'vessel sync (script)', () => syncVeinsNow(t)); }
@@ -7925,9 +8007,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The route's lumen radii from the vessels' drawn caliber now, so the balloon and the still column hug the
   // walls as the vein widens and narrows (re-read only when a vessel's radii were sent again).
   function cathLive(r) {
-    const ids = [...new Set(r.src.map((q) => q[0]))], refs = ids.map((id) => E[id]?.glR);
-    if (r.refs && refs.every((R, i) => R === r.refs[i])) return;
-    r.refs = refs;
+    // (Each vessel's radii buffer is kept and refilled, so a change is told by its version, glRv, not by a new array.)
+    r.ids ||= [...new Set(r.src.map((q) => q[0]))];
+    const ids = r.ids;
+    let same = !!r.refs && r.refs.length === ids.length;
+    if (same) for (let i = 0; i < ids.length; i++) { const e = E[ids[i]]; if (r.refs[i] !== (e?.glR ? e.glRv : -1)) { same = false; break; } }
+    if (same) return;
+    r.refs = ids.map((id) => (E[id]?.glR ? E[id].glRv : -1));
     routeRadii(r.src, r.map, r.radOf || cathRadOf, r.rad);
   }
   /** The point, direction, the vein's own centre (w) and lumen radius at length d along the route. */

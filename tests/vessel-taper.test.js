@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { chainsOf, monotoneSlopes, planTaper, taperAt } from '../src/ui/vessel-taper.js';
+import { chainsOf, monotoneSlopes, planTaper, taperAt, slopesInto, planChainInto } from '../src/ui/vessel-taper.js';
 
 // Vessels that run on into one another narrow or widen as one continuous taper (Mohammad, 1 Nov: "those paths aren't smoothly
 // tapering"). Each used to keep its own caliber over its whole course and ease only its ends toward the neighbour, one smoothstep
@@ -125,15 +125,33 @@ test('the taper is a pure function of the calibers and lengths: nothing carries 
 const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 
 test('the GPU radii take the run\'s taper for vessels that run on at a two-vessel node; forks, strands and the cava drawn as one keep their own eases', () => {
-  assert.match(stage, /import \{ planTaper, taperAt \} from '\.\/vessel-taper\.js/);
-  assert.match(stage, /const plain = \(row\) => \{ const it = itOf\.get\(row\); return !!it && it\.kind !== 's' && !it\.ra && !!it\.obj\.glR0; \};/);
-  assert.match(stage, /for \(const L of glStraight\) if \(!L\.fork && plain\(L\.a\) && plain\(L\.b\)\)/);
-  assert.match(stage, /for \(const \[row, p\] of planTaper\(vessels, links\)\)/);
+  // (Allocation-free since 2 Nov 2026: the chains are found again only when the links change, each chain planned into kept plans.)
+  assert.match(stage, /import \{ chainsOf, planChainInto, taperAt \} from '\.\/vessel-taper\.js/);
+  assert.match(stage, /const plainRow = \(row\) => \{ const it = rowIt\[row\]; return !!it && it\.kind !== 's' && !it\.ra && !!it\.obj\.glR0; \};/);
+  assert.match(stage, /L\.chained = !L\.fork && plainRow\(L\.a\) && plainRow\(L\.b\);/);
+  assert.match(stage, /tapChains = chainsOf\(tapIds, tapLinks\)\.filter\(\(c\) => c\.length >= 2\);/);
+  assert.match(stage, /planChainInto\(chain, tapBodyOf, tapLenOf, tapPlanOf, tapS, tapY, tapD, tapH, tapK\);/);
   // (The vessel's own radii scaled by the plan over its own caliber: a stenosis's waist rides on the taper.)
-  assert.match(stage, /eased\.set\(O, Array\.from\(O\.glR0, \(r, i\) => r \* \(taperAt\(p, len, i \/ \(N_SAMPLES - 1\)\) \/ body\)\)\)/);
+  assert.match(stage, /E\[i\] = R0\[i\] \* \(taperAt\(p, len, i \/ \(N_SAMPLES - 1\)\) \/ body\);/);
   // The fork's funnel and the pairs left out of the plan go on as before.
-  assert.match(stage, /if \(chained\.has\(L\)\) continue;/);
+  assert.match(stage, /if \(L\.chained\) continue;/);
   assert.match(stage, /if \(fork\) \{/);
+});
+
+test('planChainInto and slopesInto give planTaper\'s and monotoneSlopes\'s numbers exactly, allocating nothing of their own', () => {
+  const s = [0, 3, 4.5, 10, 11], y = [2, 2.4, 1.1, 1.1, 3];
+  const d = new Array(5), h = new Array(5), k = new Array(5);
+  assert.deepEqual([...slopesInto(s, y, 5, d, h, k)], monotoneSlopes(s, y));
+  assert.deepEqual([...slopesInto([0, 1], [1, 2], 2, d, h, k)].slice(0, 2), monotoneSlopes([0, 1], [1, 2]));
+  const vessels = new Map([['a', { body: 3, len: 40 }], ['b', { body: 2, len: 10 }], ['c', { body: 2.5, len: 25 }], ['d', { body: 1, len: 0 }], ['e', { body: 4, len: 7 }]]);
+  const links = [{ a: 'a', ea: 1, b: 'b', eb: 0 }, { a: 'c', ea: 1, b: 'b', eb: 1 }, { a: 'd', ea: 0, b: 'e', eb: 1 }];
+  const want = planTaper(vessels, links), got = new Map();
+  const S = [], Y = [], D = [], H = [], K = [];
+  for (const chain of chainsOf(new Set(vessels.keys()), links)) {
+    planChainInto(chain, (id) => vessels.get(id).body, (id) => vessels.get(id).len, (id) => { if (!got.has(id)) got.set(id, {}); return got.get(id); }, S, Y, D, H, K);
+  }
+  assert.equal(got.size, want.size);
+  for (const [id, p] of want) assert.deepEqual(got.get(id), p, id);
 });
 
 test('the GPU is the only drawer of the tubes: there is no SVG taper path left, and renderTube takes no plan', () => {
