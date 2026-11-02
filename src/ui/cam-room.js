@@ -14,7 +14,7 @@
 import { NODE_POS, EDGE_PATH, LABEL_VESSEL, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES } from './anatomy.js?v=fe0f3d1f0e';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { pathCmds, flattenCmds } from './shape-gl.js?v=425612f909';
-import { expandIds } from './slide-ext.js?v=f0f7a3204c';
+import { expandIds } from './slide-ext.js?v=7a1fafb4b6';
 
 /** The room kept round an anchor that the frame grows to hold, in world units (a ring and a label's dot need a little air). */
 export const ROOM = 28;

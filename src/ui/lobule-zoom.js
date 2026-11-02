@@ -3612,7 +3612,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // Back out from the sinusoid after the screen changed size (turned, a window resized): the lobule is built and framed for the new size
     // first, so the zoom lands on it as it will stay (it landed at the old size and then refitted).
     if (!on && sinU === 1) {
-      const rect = host.getBoundingClientRect(), W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height)), was = geoKey;
+      const [W, H] = snap.hostWH || [Math.max(1, snap.w), Math.max(1, snap.h)], was = geoKey;   // (the host's box as the last rest read took it: the observer reads it on every resize, never in this frame)
       ensureGeo(W, H);
       if (geoKey !== was) sinPick = sinusoidPick();
       if (refitLater || geoKey !== was) { refitLater = false; const F0 = fitV(); kFit = F0.k; if (atFit) Object.assign(V, F0); else clampV(); }
@@ -3642,7 +3642,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function sinOnLanding() {
     if (diveScaled || !sinPending || fade <= 0.98) return;
     sinPending = false;
-    nextFrame(() => { const st = store.get(); if (st.lobule && !st.sinusoid && fade > 0.98) store.set({ sinusoid: true }); });
+    restPass(() => { const st = store.get(); if (st.lobule && !st.sinusoid && fade > 0.98) store.set({ sinusoid: true }); });   // (the store's listeners run between frames, not in one)
   }
   store.on('lobule', (on) => { if (!on) sinPending = false; if (!on && store.get().sinusoid) { quietSin = true; store.set({ sinusoid: false }); quietSin = false; } });
 

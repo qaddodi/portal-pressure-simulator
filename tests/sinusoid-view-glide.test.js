@@ -67,6 +67,9 @@ globalThis.document = {
   getElementById: (id) => (id === 'app' ? app : null), querySelector: () => null, querySelectorAll: () => [], addEventListener() {},
   documentElement: { dataset: {}, style: { getPropertyValue: (k) => rootVars[k] ?? '', setProperty: (k, v) => { rootVars[k] = String(v); } } },
 };
+// The rest passes run whole, by hand, after each frame: the time slice and the shared preparation budget are real-clock limits that, on a
+// busy machine (the whole suite running), cut a drain short and carried passes past the frame the test expects them in (3 flaky failures).
+globalThis.location = { search: '?restslice=0&prepbudget=0' };
 // The frame scheduler's browser frame: held here and run by hand, a frame at a time.
 let flushNext = null;
 globalThis.requestAnimationFrame = (cb) => { flushNext = cb; return 1; };
@@ -75,6 +78,9 @@ const restQ = [];
 globalThis.MessageChannel = class { constructor() { const p1 = { onmessage: null }; this.port1 = p1; this.port2 = { postMessage: () => restQ.push(() => p1.onmessage?.()) }; } };
 const rests = () => { while (restQ.length) restQ.shift()(); };
 let clock = 1000;
+// The view's own timers (a fade, the 250 ms the blockers' read waits) run on the same clock as the frames, not the wall's: on a busy machine
+// the wall clock moved on between two held frames, and a read or a fade landed in a frame the test did not expect it in.
+performance.now = () => clock;
 const frames = (n, ms = 1000 / 60) => { for (let i = 0; i < n; i++) { rests(); reportSizes(); clock += ms; const f = flushNext; flushNext = null; if (f) f(clock); rests(); } };
 
 const { createSinusoidView } = await import('../src/ui/sinusoid-view.js');

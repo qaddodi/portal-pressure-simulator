@@ -4,7 +4,7 @@
     "src/ui/stage.js": 87,
     "src/ui/util.js": 75,
     "src/ui/card.js": 10,
-    "src/ui/lobule-zoom.js": 26,
+    "src/ui/lobule-zoom.js": 25,
     "src/ui/menu.js": 20,
     "src/ui/focus-ring.js": 19,
     "src/ui/topbar-motion.js": 16,
