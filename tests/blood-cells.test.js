@@ -100,10 +100,10 @@ test('the figure bins each vessel with a core and repaints the redrawn cells who
   assert.match(stage, /reach: reach \+ a\.m, core: core \+ a\.m/);
   // drawRows changed the vessel layer under some cells: its composite repaints those cells whole (shape and tint both), the rest as the
   // blood's frame does (external review, 21 Oct: one changed cell repainted every cell).
-  assert.match(gl, /const both = part\.k \+ tintPart\.k;\n\s*if \(both\) \{ const mark = part\.mark; for \(let c = 0; c < nCells; c\+\+\) if \(tintPart\.mark\[c\]\) mark\[c\] = 1; uploadPart\(\{ mark, k: both \}\); \}\n\s*this\.composite\(look, blood, full, both\);/);
+  assert.match(gl, /const both = part\.k \+ tintPart\.k;\n\s*if \(both\) \{ const mark = part\.mark; for \(let c = 0; c < nCells; c\+\+\) if \(tintPart\.mark\[c\]\) mark\[c\] = 1; uploadPart\(mark\); \}\n\s*this\.composite\(look, blood, full, both\);/);
   // (Those cells come split by the vessel program that drew them, veins-bin splitCells: both lists are composited.)
   assert.match(gl, /if \(part\) \{ if \(partG\) \{ gl\.bindVertexArray\(partVAO\); gl\.drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, partG\); \} if \(partS\) \{ gl\.bindVertexArray\(partSVAO\); gl\.drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, partS\); \} \}/);
-  assert.match(gl, /function uploadPart\(\{ mark \}\) \{\n\s*const \{ gen, one, nGen: g, nOne: o \} = splitCells\(cellsCPU, nCells, simpleOf, mark\);/);
+  assert.match(gl, /function uploadPart\(mark\) \{\n\s*const \{ gen, one, nGen: g, nOne: o \} = splitCells\(cellsCPU, nCells, simpleOf, mark\);/);
 });
 
 test('a frame where only the blood moved leaves the pixels with no lumen as drawn, and every other pass draws them all', () => {

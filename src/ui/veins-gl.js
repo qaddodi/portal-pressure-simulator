@@ -153,17 +153,19 @@ void main() {
   o = vec4(min(col.rgb, vec3(col.a)), col.a);
 }`;
 /** Device px now → device px in the picture drawn with `then` (both world → device [a, b, c, d, e, f]): then ∘ now⁻¹, or null. */
-export function reuseMap(then, now) {
-  const [a, b, c, d, e, f] = now, det = a * d - b * c;
+export function reuseMap(then, now, out = [0, 0, 0, 0, 0, 0]) {   // (`out`: where the answer is written; a frame passes a kept one)
+  const a = now[0], b = now[1], c = now[2], d = now[3], e = now[4], f = now[5], det = a * d - b * c;
   if (!det) return null;
   const ia = d / det, ib = -b / det, ic = -c / det, id = a / det, ie = (c * f - d * e) / det, iff = (b * e - a * f) / det;
-  const [A, B, C, D, E, G] = then;
-  return [A * ia + C * ib, B * ia + D * ib, A * ic + C * id, B * ic + D * id, A * ie + C * iff + E, B * ie + D * iff + G];
+  const A = then[0], B = then[1], C = then[2], D = then[3], E = then[4], G = then[5];
+  out[0] = A * ia + C * ib; out[1] = B * ia + D * ib; out[2] = A * ic + C * id; out[3] = B * ic + D * id; out[4] = A * ie + C * iff + E; out[5] = B * ie + D * iff + G;
+  return out;
 }
 /** Whether the picture mapped by `k` (reuseMap) covers a w × h canvas: every corner lands inside it (half a pixel's slack). */
 export function reuseCovers(k, w, h) {
   if (!k) return false;
-  for (const [x, y] of [[0, 0], [w, 0], [0, h], [w, h]]) {
+  for (let i = 0; i < 4; i++) {
+    const x = i & 1 ? w : 0, y = i & 2 ? h : 0;
     const qx = k[0] * x + k[2] * y + k[4], qy = k[1] * x + k[3] * y + k[5];
     if (!(qx >= -0.5 && qx <= w + 0.5 && qy >= -0.5 && qy <= h + 0.5)) return false;
   }
@@ -2275,6 +2277,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   gl.bindTexture(gl.TEXTURE_2D, depNone);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 1, 1, 0, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array(1));
   let fboW = 0, fboH = 0, baseM = null, dyeAny = false, wasBleeding = false;
+  // (The view the layer was drawn in: BASEM, written in place; baseM is null while there is none. viewKeyStr is its text, made when it changes.)
+  const BASEM = new Float64Array(6);
+  let viewKeyStr = '';
+  function setBase(m) {
+    let ch = !baseM;
+    for (let i = 0; i < 6; i++) { if (BASEM[i] !== m[i]) { BASEM[i] = m[i]; ch = true; } }
+    baseM = BASEM;
+    if (ch) viewKeyStr = BASEM.join(',');   // alloc-rare: only when the view moved
+  }
   // (fboPW × fboPH: the picture's size the layer was laid out for. The layer itself, fboW × fboH, can be smaller: see layoutFor.)
   let fboPW = 0, fboPH = 0;
   // (The world box of every cell of the binning uploaded: [x0, y0, x1, y1], null with none.)
@@ -2285,6 +2296,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // some of its cells (drawRows) leaves it exactly as a whole draw would. Cleared by anything else the vessel pass reads.
   let fboOK = false;
   let lowLive = null;
+  const LOWLIVE = [0, 0];   // (the tier's [w, h] while lowLive holds it)
   // The layer at w × h for the picture as it is now (its targets made again only when w or h changed).
   function ensureFBO(w, h) {
     if (fboW === w && fboH === h && fboPW === PW() && fboPH === PH()) return;
@@ -2309,11 +2321,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
   // Clears the bound vessel framebuffer's four targets (within the scissor, when it is on).
+  const CLR_F = new Float32Array(4), CLR_U = new Uint32Array(4);
   function clearLayer() {
-    gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
-    gl.clearBufferuiv(gl.COLOR, 1, [0, 0, 0, 0]);
-    gl.clearBufferuiv(gl.COLOR, 2, [0, 0, 0, 0]);
-    gl.clearBufferfv(gl.COLOR, 3, [0, 0, 0, 0]);
+    gl.clearBufferfv(gl.COLOR, 0, CLR_F);
+    gl.clearBufferuiv(gl.COLOR, 1, CLR_U);
+    gl.clearBufferuiv(gl.COLOR, 2, CLR_U);
+    gl.clearBufferfv(gl.COLOR, 3, CLR_F);
   }
 
   // The catheter's box on the picture under m ([x0, y0, x1, y1], device px, y down, whole pixels, 2 px of margin), from every vertex its
@@ -2363,10 +2376,36 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // only the strips it uncovers have to be drawn. The layer is not copied for that: it wraps around at its edges (a torus), and a
   // pan moves the wrap (wo) instead, so each spot of the figure stays in the texel it was drawn in, and the strips the pan
   // uncovers are drawn into the texels the strips it hid gave up (wrapPieces). No second set of buffers, no copy.
-  const whole = (m) => (Number.isInteger(m[4]) && Number.isInteger(m[5]) ? m : [m[0], m[1], m[2], m[3], Math.round(m[4]), Math.round(m[5])]);
-  // What the vessel pass reads from the look (anything else in it only matters to the composite).
-  const lookKey = (k) => JSON.stringify([k.reach, k.shOff, k.casing, k.shadow, k.sheen, k.shade, k.ring, k.light, k.netAlpha, k.fx, k.tierAlpha, k.tierGroup, k.organs]);
-  let tubesNew = true, drawnLook = '';
+  // (`out`: the rounded copy is written into a scratch the caller names, not made: WM is draw's and drawRows's, WO the overlays'.)
+  const WM = new Float64Array(6), WO = new Float64Array(6), OVER = new Float64Array(6), LM = new Float64Array(6);
+  const whole = (m, out) => {
+    if (Number.isInteger(m[4]) && Number.isInteger(m[5])) return m;
+    out[0] = m[0]; out[1] = m[1]; out[2] = m[2]; out[3] = m[3]; out[4] = Math.round(m[4]); out[5] = Math.round(m[5]);
+    return out;
+  };
+  // The first four of two transforms alike (the scale and turn: a pan leaves them, a zoom or a turn does not).
+  const sameLin = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
+  // What the vessel pass reads from the look (anything else in it only matters to the composite): its numbers written into LKN, and
+  // compared with the look the layer was drawn from (LKD), no string made.
+  let LKN = new Float64Array(64), LKD = new Float64Array(64), nLKN = 0, nLKD = -1;
+  const lkPut = (v) => {
+    if (typeof v === 'number') { LKN[nLKN++] = v; return; }
+    if (v === true) { LKN[nLKN++] = 1; return; }
+    if (v === false || v == null) { LKN[nLKN++] = 0; return; }
+    for (let i = 0; i < v.length; i++) lkPut(v[i]);
+    LKN[nLKN++] = -7.25;   // (the end of a list)
+  };
+  const lookNow = (k) => {
+    if (LKN.length < 512) { LKN = new Float64Array(512); LKD = new Float64Array(512); nLKD = -1; }   // alloc-rare: once, the first look
+    nLKN = 0;
+    lkPut(k.reach); lkPut(k.shOff); lkPut(k.casing); lkPut(k.shadow); lkPut(k.sheen); lkPut(k.shade); lkPut(k.ring); lkPut(k.light);
+    lkPut(k.netAlpha); lkPut(k.fx); lkPut(k.tierAlpha); lkPut(k.tierGroup); lkPut(k.organs);
+    if (nLKN !== nLKD) return false;
+    for (let i = 0; i < nLKN; i++) if (LKN[i] !== LKD[i]) return false;
+    return true;
+  };
+  const keepLook = () => { LKD.set(LKN.subarray(0, nLKN)); nLKD = nLKN; };
+  let tubesNew = true;
   // After a one-pass frame (one-pass zoom frames) the layer is left empty (cleared once, as the picture outside the vessel cells reads it)
   // and not current: any picture but the next one-pass frame draws it whole first (see composite).
   let stale = false, fusing = false;
@@ -2379,29 +2418,49 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // the figure on an axis (lAnch) moves with it on a pan, and the layer stays as it is; one that is the picture's on an axis keeps
   // still and the wrap moves instead. After every whole draw wo is [0, 0], and with la [0, 0] and the layer the picture's size every
   // pass reads and writes the layer exactly as a layer the picture's size without a wrap.
-  let wo = [0, 0], la = [0, 0], lAnch = [false, false];
-  const wrapNone = () => { wo = [0, 0]; };
+  const wo = [0, 0], la = [0, 0], lAnch = [false, false];
+  const wrapNone = () => { wo[0] = 0; wo[1] = 0; };
   // (The vessel pass's lOff while it draws one piece: see wrapPieces. Zero everywhere else.)
-  let lOffNow = [0, 0];
-  const windowRect = () => [la[0], la[1], fboW, fboH];
-  // Runs fn once for each piece of the screen rectangle r ([x, y, w, h], device px, y down) as the layer holds it, with the scissor
-  // on that piece and the vessel pass's lOff set to its shift. One piece over the whole layer runs fn once with no scissor (with no
+  const lOffNow = [0, 0];
+  // Runs the vessel pass (pieceFn) once for each piece of the screen rectangle x, y, w, h (device px, y down) as the layer holds it, with the
+  // scissor on that piece and the vessel pass's lOff set to its shift. One piece over the whole layer runs it once with no scissor (with no
   // window offset and no wrap, the same calls as a layer without them). `scissored`: the caller has the scissor on (a pan's strips).
-  function eachPiece(r, fn, scissored = false) {
-    const W = fboW, H = fboH, ps = wrapPieces(r, [wo[0] - la[0], wo[1] - la[1]], W, H);
-    if (!scissored && ps.length === 1 && !ps[0][0] && !ps[0][1] && ps[0][2] === W && ps[0][3] === H) {
-      lOffNow = [ps[0][4], ps[0][5]];
-      fn();
-      lOffNow = [0, 0];
+  // (The pieces are wrapPieces's, worked out into AXX and AXY: the pieces of each axis, three numbers each: start, length, shift.)
+  const AXX = new Float64Array(6), AXY = new Float64Array(6);
+  function axisPieces(a, n, off, S, out) {
+    const s0 = (((a + off) % S) + S) % S, sh = s0 - a, n1 = Math.min(n, S - s0);
+    out[0] = s0; out[1] = n1; out[2] = sh;
+    if (n > n1) { out[3] = 0; out[4] = n - n1; out[5] = sh - S; return 2; }
+    return 1;
+  }
+  // (What the vessel pass draws in a piece, set by whoever asks: pMode 0 the whole layer, 1 the marked cells, 2 their colours only, 3 a pan's
+  // strip, cleared first.)
+  let pM = null, pLook = null, pMode = 0;
+  const gA = [null, 0], oA = [null, 0];
+  const pieceFn = () => {
+    if (pMode === 3) clearLayer();
+    if (pMode === 1 || pMode === 2) { gA[0] = partVAO; gA[1] = partG; oA[0] = partSVAO; oA[1] = partS; vesselPass(pM, pLook, gA, oA, true, pMode === 2); }
+    else { gA[0] = vao; gA[1] = nGen; oA[0] = oneVAO; oA[1] = nSimple; vesselPass(pM, pLook, gA, oA); }
+  };
+  function eachPiece(x, y, w, h, scissored = false) {
+    if (!(w > 0 && h > 0)) { lOffNow[0] = 0; lOffNow[1] = 0; return; }
+    const W = fboW, H = fboH;
+    const nx = axisPieces(x, w, wo[0] - la[0], W, AXX), ny = axisPieces(y, h, wo[1] - la[1], H, AXY);
+    if (!scissored && nx === 1 && ny === 1 && !AXX[0] && !AXY[0] && AXX[1] === W && AXY[1] === H) {
+      lOffNow[0] = AXX[2]; lOffNow[1] = AXY[2];
+      pieceFn();
+      lOffNow[0] = 0; lOffNow[1] = 0;
       return;
     }
     if (!scissored) gl.enable(gl.SCISSOR_TEST);
-    for (const q of ps) {
-      gl.scissor(q[0], H - q[1] - q[3], q[2], q[3]);
-      lOffNow = [q[4], q[5]];
-      fn();
+    for (let i = 0; i < nx; i++) {
+      for (let j = 0; j < ny; j++) {
+        gl.scissor(AXX[i * 3], H - AXY[j * 3] - AXY[j * 3 + 1], AXX[i * 3 + 1], AXY[j * 3 + 1]);
+        lOffNow[0] = AXX[i * 3 + 2]; lOffNow[1] = AXY[j * 3 + 2];
+        pieceFn();
+      }
     }
-    lOffNow = [0, 0];
+    lOffNow[0] = 0; lOffNow[1] = 0;
     if (!scissored) gl.disable(gl.SCISSOR_TEST);
   }
   // The layer for the view m: [w, h, x, y, follows x, follows y]. Per axis, where the figure's cells (their device box under m, a pixel
@@ -2410,43 +2469,47 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // what they need, so a zoom step does not make it again) and its window starts a pixel before them, and follows them. Every pixel the vessel pass can
   // write is inside a cell's square, so a window holding the cells holds every pixel the layer would hold that is not empty. Under
   // Vessels lower while pinching the layer is the picture's (its stretch lays the whole picture).
+  const LAY = [0, 0, 0, 0, false, false];
   function layoutFor(m) {
-    const P = [PW(), PH()];
-    if (lowK || !cellBox) return [P[0], P[1], 0, 0, false, false];
-    const xs = [], ys = [];
-    for (const [x, y] of [[cellBox[0], cellBox[1]], [cellBox[2], cellBox[1]], [cellBox[0], cellBox[3]], [cellBox[2], cellBox[3]]]) {
-      xs.push(m[0] * x + m[2] * y + m[4]); ys.push(m[1] * x + m[3] * y + m[5]);
+    const out = LAY, pw = PW(), ph = PH();
+    out[0] = 0; out[1] = 0; out[2] = 0; out[3] = 0; out[4] = false; out[5] = false;
+    if (lowK || !cellBox) { out[0] = pw; out[1] = ph; return out; }
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (let i = 0; i < 4; i++) {
+      const x = cellBox[(i & 1) * 2], y = cellBox[1 + (i >> 1) * 2];
+      const px = m[0] * x + m[2] * y + m[4], py = m[1] * x + m[3] * y + m[5];
+      if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py;
     }
-    const out = [0, 0, 0, 0, false, false];
-    [[xs, fboW], [ys, fboH]].forEach(([v, cur], k) => {
-      const a = Math.floor(Math.min(...v)) - 1, ext = Math.ceil(Math.max(...v)) + 1 - a, need = Math.ceil(ext / 64) * 64;
+    for (let k = 0; k < 2; k++) {
+      const lo = k ? y0 : x0, hi = k ? y1 : x1, cur = k ? fboH : fboW, P = k ? ph : pw;
+      const a = Math.floor(lo) - 1, ext = Math.ceil(hi) + 1 - a, need = Math.ceil(ext / 64) * 64;
       // (Made again with a quarter more room, so a zoom in without one-pass frames does not make it again every frame.)
-      const L = cur >= need && cur < P[k] && cur <= need * 2 ? cur : Math.ceil(ext * 1.25 / 64) * 64;
-      if (!(ext > 0) || L >= P[k]) { out[k] = P[k]; return; }
+      const L = cur >= need && cur < P && cur <= need * 2 ? cur : Math.ceil(ext * 1.25 / 64) * 64;
+      if (!(ext > 0) || L >= P) { out[k] = P; continue; }
       out[k] = L; out[k + 2] = a; out[k + 4] = true;
-    });
+    }
     return out;
   }
   // Lays the layer out as layoutFor gave it, its window where the figure is now and no wrap.
   function layOut(L) {
     ensureFBO(L[0], L[1]);
-    la = [L[2], L[3]]; lAnch = [L[4], L[5]]; wo = [0, 0];
+    la[0] = L[2]; la[1] = L[3]; lAnch[0] = L[4]; lAnch[1] = L[5]; wo[0] = 0; wo[1] = 0;
   }
   function shiftLayer(m, look, dx, dy) {
     // dx, dy: device pixels, y down. The figure moved by (dx, dy) on the screen. A window that follows it moves with it; on an axis
     // where the window is the picture, the layer keeps every texel where it is and the wrap moves.
     const W = fboW, H = fboH;
-    if (lAnch[0]) la = [la[0] + dx, la[1]]; else wo = [(((wo[0] - dx) % W) + W) % W, wo[1]];
-    if (lAnch[1]) la = [la[0], la[1] + dy]; else wo = [wo[0], (((wo[1] - dy) % H) + H) % H];
+    if (lAnch[0]) la[0] += dx; else wo[0] = (((wo[0] - dx) % W) + W) % W;
+    if (lAnch[1]) la[1] += dy; else wo[1] = (((wo[1] - dy) % H) + H) % H;
     // The uncovered strips (screen, y down, across the window): cleared, then drawn as a whole draw draws them.
-    const strips = [];
-    if (!lAnch[0]) { if (dx > 0) strips.push([0, la[1], dx, H]); else if (dx < 0) strips.push([W + dx, la[1], -dx, H]); }
-    if (!lAnch[1]) { if (dy > 0) strips.push([la[0], 0, W, dy]); else if (dy < 0) strips.push([la[0], H + dy, W, -dy]); }
-    if (!strips.length) return;
+    const sx = !lAnch[0] && dx !== 0, sy = !lAnch[1] && dy !== 0;
+    if (!sx && !sy) return;
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); lowLive = null;
     gl.viewport(0, 0, W, H);
     gl.enable(gl.SCISSOR_TEST);
-    for (const r of strips) eachPiece(r, () => { clearLayer(); vesselPass(m, look, [vao, nGen], [oneVAO, nSimple]); }, true);
+    pM = m; pLook = look; pMode = 3;
+    if (sx) { if (dx > 0) eachPiece(0, la[1], dx, H, true); else eachPiece(W + dx, la[1], -dx, H, true); }
+    if (sy) { if (dy > 0) eachPiece(la[0], 0, W, dy, true); else eachPiece(la[0], H + dy, W, -dy, true); }
     gl.disable(gl.SCISSOR_TEST);
   }
   // The binned cells on the CPU, and (built when first asked) each vessel row's cells: a row's attributes can change
@@ -2458,7 +2521,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let patchMark = null, patchK = 0;
   const clearMarks = () => { radRows.clear(); patchMark = null; patchK = 0; };
   let rowsStatus = '';
-  const radCovered = (rows) => !radRows.size || (!!rows && [...radRows].every((r) => rows.includes(r)));
+  const radCovered = (rows) => {
+    if (!radRows.size) return true;
+    if (!rows) return false;
+    for (const r of radRows) if (!rows.includes(r)) return false;
+    return true;
+  };
   // Every vessel's attributes as last sent (tubeNow) and as the layer shows them (tubeDrawn: copied at each draw, whole or
   // partial, since the rows a partial draw is given hold every change): a row whose lumen colours alone changed is
   // recoloured (tintPass) rather than drawn again (see splitRows).
@@ -2467,14 +2535,17 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const drawnNow = () => (tubeDrawn ||= new Float32Array(tubeNow.length)).set(tubeNow);
   // The changed rows' cells: drawn again whole (shape), and the others recoloured (tint), with the cells to do each in.
   const ROW_SPLIT = { shape: [], tint: [] };   // (kept: splitRows fills it again each time)
+  // (The two lists of cells, kept and filled again: their marks are pooled in each, the picture of a partial draw.)
+  const PART_A = { mark: null, k: 0 }, PART_B = { mark: null, k: 0 }, PARTS = { part: PART_A, tintPart: PART_B };
   function rowParts(rows) {
     const { shape, tint } = splitRows(rows, tubeNow, tubeDrawn, ROW_W, radRows, ROW_SPLIT);
-    const part = cellsOfRows(shape);
+    const part = cellsOfRows(shape, null, PART_A);
     if (patchK) for (let c = 0; c < nCells; c++) if (patchMark[c] && !part.mark[c]) { part.mark[c] = 1; part.k++; }
-    return { part, tintPart: cellsOfRows(tint, part.mark) };
+    cellsOfRows(tint, part.mark, PART_B);
+    return PARTS;
   }
   // The marked cells' quads, for partVAO (the general program's) and partSVAO (the one-vessel build's).
-  function uploadPart({ mark }) {
+  function uploadPart(mark) {
     const { gen, one, nGen: g, nOne: o } = splitCells(cellsCPU, nCells, simpleOf, mark);
     keepBuf(partBuf, gen); keepBuf(partSBuf, one);   // (R05: storage kept, rows rewritten)
     partG = g; partS = o;
@@ -2482,10 +2553,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // Draws the marked cells again over the layer (written whole: a pixel left empty is written empty).
   function cellsPass(m, look, part) {
     if (part.k) {
-      uploadPart(part);
+      uploadPart(part.mark);
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); lowLive = null;
       gl.viewport(0, 0, fboW, fboH);
-      eachPiece(windowRect(), () => vesselPass(m, look, [partVAO, partG], [partSVAO, partS], true));
+      pM = m; pLook = look; pMode = 1;
+      eachPiece(la[0], la[1], fboW, fboH);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
     partCells += part.k;
@@ -2495,18 +2567,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // the rest keep their colour, which depends on no lumen colour. Only for rows whose lumen colours alone changed.
   function tintPass(m, look, part) {
     if (part.k) {
-      uploadPart(part);
+      uploadPart(part.mark);
       gl.bindFramebuffer(gl.FRAMEBUFFER, tintFbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, baseTex, 0);
       gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
       gl.viewport(0, 0, fboW, fboH);
-      eachPiece(windowRect(), () => vesselPass(m, look, [partVAO, partG], [partSVAO, partS], true, true));
+      pM = m; pLook = look; pMode = 2;
+      eachPiece(la[0], la[1], fboW, fboH);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
     tintCells += part.k;
   }
   // The cells that list any of `rows` (marked), but not those marked in `skip`.
-  function cellsOfRows(rows, skip = null) {
+  function cellsOfRows(rows, skip, into) {
     if (!rowCells) {
       rowCells = new Map();
       for (let c = 0; c < nCells; c++) {
@@ -2522,10 +2595,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         }
       }
     }
-    const mark = new Uint8Array(nCells);
+    if (!into.mark || into.mark.length < nCells) into.mark = new Uint8Array(nCells);   // alloc-rare: once per size of the cell list (new geometry)
+    const mark = into.mark;
+    mark.fill(0, 0, nCells);
     let k = 0;
-    for (const r of rows) for (const c of rowCells.get(r) || []) if (!mark[c] && !skip?.[c]) { mark[c] = 1; k++; }
-    return { mark, k };
+    for (const r of rows) { const list = rowCells.get(r); if (list) for (let i = 0; i < list.length; i++) { const c = list[i]; if (!mark[c] && !(skip && skip[c])) { mark[c] = 1; k++; } } }
+    into.k = k;
+    return into;
   }
   // The vessel pass into the bound vessel framebuffer (draw() clears it first): `gen`, [vertex array, count] of cells for the
   // general program, and `one`, those for the one-vessel build (simpleCells). Each cell is drawn by exactly one of them.
@@ -2550,7 +2626,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // The vessel pass's program, uniforms and textures (vesselDraw; and the vessel half of a one-pass build, fuseBind).
   function vesselSet({ p, u }, m, look, redraw, tint, size = null) {
     const M = m3put(SCR.world, m[0], m[1], m[2], m[3], m[4], m[5]);
-    const [SW, SH] = size || [fboW, fboH];   // (the layer's; a one-pass build draws onto the picture: fuseBind)
+    const SW = size ? size[0] : fboW, SH = size ? size[1] : fboH;   // (the layer's; a one-pass build draws onto the picture: fuseBind)
     gl.useProgram(p);
     UC.m3(u.world, M);
     UC.f2(u.size, SW, SH);
@@ -2715,7 +2791,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (!over || !overShown || !overM) return;
     // (With the canvas moved by the vessels' sub-pixel rest (overlay.snap), the overlays are drawn where the vessels are, at whole
     // pixels, and the move takes both to the figure's place: drawn at the figure's own transform, they were off by that rest.)
-    const om = overSnap ? whole(overM) : overM;
+    const om = overSnap ? whole(overM, WO) : overM;
     const kx = canvas.width / PW(), ky = canvas.height / PH(), m = [om[0] * kx, om[1] * ky, om[2] * kx, om[3] * ky, om[4] * kx, om[5] * ky];
     stack.painter.cssPx = overCss;
     if (over.stale(m, canvas.width, canvas.height)) over.render(m, canvas.width, canvas.height);
@@ -2766,7 +2842,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // last one-pass picture kept in `rz.tex` with the transform it was drawn in (`rz.m`, null when none can be reused: any other picture
   // since, a new size, a lost context). `reused`: this draw laid the kept picture rather than shading the figure.
   let reuseEvery = 0, reuseOn = false, reuseN = 0, reused = false;
-  const rz = { tex: null, fbo: null, w: 0, h: 0, m: null, P: null };
+  const rz = { tex: null, fbo: null, w: 0, h: 0, m: null, P: null }, RZM = new Float64Array(6), RZK = new Float64Array(6);
   // A started variant (aux): its program finished and its shaders let go of; null while the driver is still compiling it (unless wait),
   // undefined when none was started. Throws a failed build's log.
   function auxTake(k, wait) {
@@ -2806,12 +2882,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, rz.fbo);
     gl.blitFramebuffer(0, 0, rz.w, rz.h, 0, 0, rz.w, rz.h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    rz.m = m;
+    for (let i = 0; i < 6; i++) RZM[i] = m[i];   // (a copy: m is the frame's scratch)
+    rz.m = RZM;
   }
   // The kept picture laid for the transform `m`, when it covers the whole canvas; false (nothing drawn) otherwise.
   function reuseDraw(m) {
     if (!rz.m || rz.w !== PW() || rz.h !== PH()) return false;
-    const k = reuseMap(rz.m, m);
+    const k = reuseMap(rz.m, m, RZK);
     if (!reuseCovers(k, rz.w, rz.h)) return false;
     if (rz.P === null) {
       // (Still compiling, started when reuse came on: this frame is shaded, as without reuse, never a wait.)
@@ -2877,8 +2954,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     const cleared = lw.w > w || lw.h > h;
     gl.disable(gl.SCISSOR_TEST);
     if (!cleared) clearLayer();
-    vesselPass([m[0] * kx, m[1] * ky, m[2] * kx, m[3] * ky, m[4] * kx, m[5] * ky], look, [vao, nGen], [oneVAO, nSimple], false, false, [w, h]);
-    lowLive = [w, h]; wrapNone();   // (R10: read as they are by the composite, compBind)
+    LM[0] = m[0] * kx; LM[1] = m[1] * ky; LM[2] = m[2] * kx; LM[3] = m[3] * ky; LM[4] = m[4] * kx; LM[5] = m[5] * ky;
+    LOWLIVE[0] = w; LOWLIVE[1] = h;
+    gA[0] = vao; gA[1] = nGen; oA[0] = oneVAO; oA[1] = nSimple;
+    vesselPass(LM, look, gA, oA, false, false, LOWLIVE);
+    lowLive = LOWLIVE; wrapNone();   // (R10: read as they are by the composite, compBind)
   }
   function lowFree() {
     lowLive = null;
@@ -3352,12 +3432,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * transform [a, b, c, d, e, f]; `look`: the theme's inks and the per-tier opacity and group.
      */
     draw(m, look, blood, rows = null) {
-      overM = m.slice();
-      m = whole(m);
+      for (let i = 0; i < 6; i++) OVER[i] = m[i];
+      overM = OVER;
+      m = whole(m, WM);
       reused = false; soft = false;
       lastLook = look;
       if (fboPW !== PW() || fboPH !== PH()) fboOK = false;   // (the picture's size changed: the layer is laid out again below)
-      const lk = lookKey(look);
+      const lkSame = lookNow(look);
       const dx = baseM ? m[4] - baseM[4] : 0, dy = baseM ? m[5] - baseM[5] : 0;
       // A pan at the same scale, with nothing else changed since the layer was drawn whole: the layer is moved by those
       // whole pixels and only the strips it uncovers are drawn (see shiftLayer). Otherwise it is drawn whole. `rows`
@@ -3366,28 +3447,28 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       let parts = null;
       // (On an axis where the layer's window follows the figure, a pan of any length moves the window and draws nothing.)
       const near = (lAnch[0] || Math.abs(dx) < fboW / 2) && (lAnch[1] || Math.abs(dy) < fboH / 2);
-      const panAt = fboOK && radCovered(rows) && lk === drawnLook && (dx || dy) && near && m.slice(0, 4).every((v, i) => v === baseM[i]);
-      if (panAt && (rows?.length || patchK)) { parts = rowParts(rows || []); if (parts.part.k > nCells * 0.6) parts = null; }
+      const panAt = fboOK && radCovered(rows) && lkSame && (dx || dy) && near && sameLin(m, baseM);
+      if (panAt && (rows?.length || patchK)) { parts = rowParts(rows || NONE); if (parts.part.k > nCells * 0.6) parts = null; }
       const pan = panAt && (!(tubesNew || radRows.size || patchK) || parts);
       // (Vessels lower while pinching, when on and Pinch frame reuse is off: a zoom frame under a hand draws the layer lower: lowPass.)
-      if (lowK && lowOn && !reuseEvery && !pan && baseM && m.slice(0, 4).some((v, i) => v !== baseM[i]) && !gpuProbe.skipGL && !lost) {
+      if (lowK && lowOn && !reuseEvery && !pan && baseM && !sameLin(m, baseM) && !gpuProbe.skipGL && !lost) {
         if (gpuProbe.on) gpuProbe.note('vessels: lower');
         layOut(layoutFor(m));   // (the picture's size: lowK is on)
         lowPass(m, look);
-        baseM = m; drawnLook = lk; tubesNew = false; clearMarks(); drawnNow();
+        setBase(m); keepLook(); tubesNew = false; clearMarks(); drawnNow();
         fboOK = false; stale = false; soft = true; rz.m = null;
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         this.composite(look, blood, true);
         return;
       }
       // A zoom or a turn with the one-pass builds (one-pass zoom frames): no vessel pass; the picture draws the vessels itself.
-      if (!pan && baseM && m.slice(0, 4).some((v, i) => v !== baseM[i]) && fuseReady() && bareOf(blood || {}) && !gpuProbe.skipGL && !lost) {
+      if (!pan && baseM && !sameLin(m, baseM) && fuseReady() && bareOf(blood || {}) && !gpuProbe.skipGL && !lost) {
         // (Pinch frame reuse, when on: this frame lays the last one-pass picture again, moved to the view now, if it covers the canvas.
         // The layer is left stale and baseM is the view now, so the next picture at this view (the pinch let go) is shaded whole.)
         if (reuseEvery && reuseOn && stale && reuseN % reuseEvery !== 0 && reuseDraw(m)) {
           if (gpuProbe.on) gpuProbe.note('vessels: reused');
           reuseN++;
-          baseM = m; fboOK = false; reused = true;
+          setBase(m); fboOK = false; reused = true;
           return;
         }
         if (gpuProbe.on) gpuProbe.note('vessels: one pass');
@@ -3395,7 +3476,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         if (!fboW || fboPW !== PW() || fboPH !== PH()) layOut(layoutFor(m));
         if (!stale) { gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, fboW, fboH); gl.disable(gl.SCISSOR_TEST); clearLayer(); stale = true; }
         wrapNone(); lowLive = null;   // (the layer empty, its texels where they show)
-        baseM = m; drawnLook = lk; tubesNew = false; clearMarks(); drawnNow();
+        setBase(m); keepLook(); tubesNew = false; clearMarks(); drawnNow();
         fboOK = false;
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         fusing = true;
@@ -3410,8 +3491,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         else {
           gpuProbe.note(COUNTED.whole);
           gpuProbe.note(COUNTED.wholeBy + askedBy());
-          gpuProbe.note(COUNTED.wholeWhy + (!fboOK ? 'no kept layer' : !radCovered(rows) ? 'radii changed' : lk !== drawnLook ? 'look changed' : !(dx || dy) ? 'same place'
-            : !near ? 'moved too far' : !m.slice(0, 4).every((v, i) => v === baseM[i]) ? 'zoom or turn' : 'tubes changed'));
+          gpuProbe.note(COUNTED.wholeWhy + (!fboOK ? 'no kept layer' : !radCovered(rows) ? 'radii changed' : !lkSame ? 'look changed' : !(dx || dy) ? 'same place'
+            : !near ? 'moved too far' : !sameLin(m, baseM) ? 'zoom or turn' : 'tubes changed'));
         }
       }
       if (pan) { shiftLayer(m, look, dx, dy); if (parts) { cellsPass(m, look, parts.part); tintPass(m, look, parts.tintPart); } }
@@ -3420,9 +3501,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); lowLive = null;
         gl.viewport(0, 0, fboW, fboH);
         clearLayer();
-        eachPiece(windowRect(), () => vesselPass(m, look, [vao, nGen], [oneVAO, nSimple]));
+        pM = m; pLook = look; pMode = 0;
+        eachPiece(la[0], la[1], fboW, fboH);
       }
-      baseM = m; drawnLook = lk; tubesNew = false; clearMarks(); drawnNow();
+      setBase(m); keepLook(); tubesNew = false; clearMarks(); drawnNow();
       fboOK = true; stale = false;
       if (gpuProbe.on) gpuProbe.gauge('vessel cells, one-vessel program', simpleP ? `${nSimple} of ${nCells}` : 'off');
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -3438,13 +3520,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * (nothing they hold is dropped by a refusal). `rowsStatus` says which: 'drawn', or why it was refused (ROWS_REFUSED).
      */
     drawRows(m, look, blood, rows, full = false) {
-      overM = m.slice();
-      m = whole(m);
+      for (let i = 0; i < 6; i++) OVER[i] = m[i];
+      overM = OVER;
+      m = whole(m, WM);
       const refuse = (why) => { rowsStatus = why; if (gpuProbe.on) gpuProbe.note(COUNTED.rowsRefused + why); return false; };
       if (!fboOK || !baseM) return refuse('no kept layer');
       if (lost) return refuse('context lost');
       if (fboPW !== PW() || fboPH !== PH()) return refuse('size changed');
-      if (m.some((v, i) => v !== baseM[i])) return refuse('moved');
+      if (!sameLin(m, baseM) || m[4] !== baseM[4] || m[5] !== baseM[5]) return refuse('moved');
       // (The caller's rows have to name every row whose radii changed, which this renderer keeps: they are not dropped here
       // to let a partial draw through.)
       if (!radCovered(rows)) return refuse('radii not listed');
@@ -3461,7 +3544,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // (Only the cells drawn again are composited whole; every other cell's pixels outside a lumen read what they read last frame, so
       // the blood's own frame does for them. It was every vessel cell whole for one changed cell. External review, 21 Oct.)
       const both = part.k + tintPart.k;
-      if (both) { const mark = part.mark; for (let c = 0; c < nCells; c++) if (tintPart.mark[c]) mark[c] = 1; uploadPart({ mark, k: both }); }
+      if (both) { const mark = part.mark; for (let c = 0; c < nCells; c++) if (tintPart.mark[c]) mark[c] = 1; uploadPart(mark); }
       this.composite(look, blood, full, both);
       return true;
     },
@@ -3528,7 +3611,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         if (!overShown || !overM || !own?.w) return false;
         stack.painter.cssPx = overCss;
         const kx = canvas.width / PW(), ky = canvas.height / PH();
-        const om = overSnap ? whole(overM) : overM;
+        const om = overSnap ? whole(overM, WO) : overM;
         return over.stale([om[0] * kx, om[1] * ky, om[2] * kx, om[3] * ky, om[4] * kx, om[5] * ky], canvas.width, canvas.height);
       },
       get shown() { return overShown; },
@@ -3898,7 +3981,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     /** The frames of the moving blood alone, which drawSeq leaves out. */
     get bloodSeq() { return bloodSeq; },
     /** The view the picture was last drawn for (the world matrix), as a string that changes whenever a pan, a zoom or a glide moves it (the glass blurs again at once then). */
-    get viewKey() { return baseM ? baseM.join(',') : ''; },
+    get viewKey() { return baseM ? viewKeyStr : ''; },
     /** Calls f each time drawSeq changes; returns the call that stops it. */
     onPicture(f) { onPicture.add(f); return () => onPicture.delete(f); },
     clear() { pictured(); if (own?.w) { gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo); gl.viewport(0, 0, own.w, own.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; },
