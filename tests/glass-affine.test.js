@@ -73,8 +73,9 @@ test('the sheet\'s panes move with --pz-u as app.css lays them, the instrument c
 
 test('glass-gl follows the zoom and the sheet from the transform and --pz-u, and no longer reads the page each frame for them', () => {
   const gg = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
-  assert.match(gg, /const moveOf = AFFINE \? moveAff : moveOld;/);
+  assert.match(gg, /function moveOf\(e, flag\) \{/);
+  assert.doesNotMatch(gg, /glassaffine|moveShift|moveOld/, 'one path, no off switch');
   assert.match(gg, /if \(uMode == 1 && uCut\.z > 0\.0\) m \*= 1\.0 - boxCover\(p - uCut\.xy, uCut\.zw, uCutR\);/, 'the cut drawn on the GPU');
   assert.match(gg, /panes\.push\(\{ \.\.\.p, r: mapBox\(uMove\(p\.r0, p\.u, du\), A\), er: mapBox\(uMove\(p\.er0, p\.u, du\), A\), a, rad, cut, z \}\);/);
-  assert.match(gg, /const boxOf = \(e\) => \(AFFINE \? readOwnBox\(e\) : readBox\(e\)\);/, 'the page\'s own box, never a zoomed card\'s stand-in');
+  assert.match(gg, /const boxOf = \(e\) => readOwnBox\(e\);/, 'the page\'s own box, never a zoomed card\'s stand-in');
 });

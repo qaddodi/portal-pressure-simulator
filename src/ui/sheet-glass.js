@@ -5,7 +5,7 @@
 // card over it, each with its own corners, tint and fade.
 import { rgbaOf } from './lz-pills.js?v=78a9c7ce60';
 import { readOwnBox } from './layout-snap.js?v=8d28b1c421';
-import { AFFINE, layoutWidth } from './glass-motion.js?v=d7dcceeb8d';
+import { layoutWidth } from './glass-motion.js?v=ef36fb5a2a';
 
 const NUM = (v) => parseFloat(v) || 0;
 const radii = (s, w, h) => [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomRightRadius, s.borderBottomLeftRadius].map((v) => Math.max(0, Math.min(NUM(v), w / 2, h / 2)));
@@ -39,9 +39,9 @@ export function sheetPanes(el, gcs = getComputedStyle) {
   const es = gcs(el);
   if (es.getPropertyValue('--gl-glass').trim() !== '0') return undefined;   // (a sheet with its own glass after all)
   // (The page's own box, never the stand-in a zoomed card answers with (card-zoom.js pin): the glass takes the zoom back out itself.)
-  const b = AFFINE ? readOwnBox(el) : el.getBoundingClientRect();
+  const b = readOwnBox(el);
   const bs = gcs(el, '::before'), as = gcs(el, '::after');
-  const lw = AFFINE ? layoutWidth(el, es) : el.offsetWidth, k = lw > 0 && b.width > 0 ? b.width / lw : 1;
+  const lw = layoutWidth(el, es), k = lw > 0 && b.width > 0 ? b.width / lw : 1;
   const rk = (r) => (k === 1 ? r : r.map((v) => v * k));
   const shows = (s) => s && s.content !== 'none' && s.display !== 'none' && s.visibility !== 'hidden' && NUM(s.opacity) > 0.001;
   const front = shows(bs) ? boxOf(b, es, bs, k) : null, back = shows(as) ? boxOf(b, es, as, k) : null;

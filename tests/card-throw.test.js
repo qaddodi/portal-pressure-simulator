@@ -86,8 +86,8 @@ test('instant: every leaving card sets off in the tap\'s task, on one distance, 
 test('glass: a card\'s fade carried by a transition that has just finished stays at its end until the page is read again (?glassend=0 off)', () => {
   const glass = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
   assert.match(glass, /const ENDS = !\/\[\?&\]glassend=0\\b\/\.test\(SEARCH\);/);
-  assert.match(glass, /if \(ENDS && st === 'finished'\) \{ const v = kf && motionAt\(kf, 1\);/, 'the last keyframe is kept as the element\'s place and fade');
-  assert.match(glass, /if \(end\) \{ if \(!t && end\.t && !e\.style\?\.transform\) t = end\.t; if \(o == null && end\.o != null\) o = end\.o; \}/);
+  assert.match(glass, /if \(ENDS && st === 'finished'\) \{ const v = kf && motionAffAt\(kf, 1\);/, 'the last keyframe is kept as the element\'s place and fade');
+  assert.match(glass, /if \(end\) \{ if \(!m && end\.m && !s\?\.transform\) m = end\.m; if \(!tr && end\.tr && !s\?\.translate\) tr = end\.tr; if \(o == null && end\.o != null\) o = end\.o; \}/);
   assert.match(glass, /if \(dead \|\| lost\) return;\n\s+ended\.clear\(\);/, 'dropped at the next read, which sees the page as it is');
 });
 
@@ -100,7 +100,7 @@ test('a card comes in from a little to its side (THROW_IN), not from where the o
 
 test('glass: a card raised by --pz-rise or --pz-lift (untucking) has its glass raised with it each frame (?glassrise=0 off)', () => {
   const glass = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
-  assert.match(glass, /if \(RISE && cards\?\.shift && !s\.translate && !anims\.get\(e\)\?\.size\) \{ const sh = cards\.shift\(e\);/);
+  assert.match(glass, /if \(!tr\) \{[^}]*\n[^\n]*\n(\s*\/\/[^\n]*\n)*\s*if \(RISE && cards\?\.shift && !s\.translate\) \{ const sh = cards\.shift\(e\);/, 'only when no animation moves its translate');
   assert.match(presenter, /shift: riseShift \}\)/);
   assert.match(presenter, /el === ui\.data \? \(wide && el\.classList\.contains\('col'\) \? risePx\(el, '--pz-lift'\) : 0\)/);
 });

@@ -13,8 +13,8 @@ import { hold } from './gpu-budget.js?v=47759d6d7b';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { finalFrameFor, readFrameFor, framePhase, cancelFrame, noteDraw } from './frame.js?v=c67ad74ad8';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=0ca233872f';
-import { shiftOf, translateOf, motionAt, movesOnly, clockOf, clockAt, fillsAfter, affineOf, affMul, aboutOrigin, mapBox, unmapBox, motionAffAt, AFFINE, layoutWidth } from './glass-motion.js?v=d7dcceeb8d';
-import { readOwnBox, readBox, readStyle, readMetric } from './layout-snap.js?v=8d28b1c421';
+import { shiftOf, translateOf, movesOnly, clockOf, clockAt, fillsAfter, affineOf, affMul, aboutOrigin, mapBox, unmapBox, motionAffAt, layoutWidth } from './glass-motion.js?v=ef36fb5a2a';
+import { readOwnBox, readStyle, readMetric } from './layout-snap.js?v=8d28b1c421';
 import { pathPolys, fanTriangles } from './path-poly.js?v=07f30beea9';
 import { easeArrive, D_SURFACE } from './ease.js?v=7513a88c68';
 
@@ -636,7 +636,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
           const q1 = { g, el, oa: one.a, a: a * one.a, r: one.r, d: one.d || null, rad: one.d ? null : one.rad, lw: one.r.width, lh: one.r.height, er: one.r, shadow: null, tint: one.tint, k: 1 };
           // (Read in page px at the card's scale as it stands (zs); a cut drawn on the GPU in place of a mask, and how the pane moves as a
           // sheet's readings come out (u): see sheet-glass.js.)
-          if (AFFINE) { q1.zs = true; if (one.cut && one.rad) { q1.d = null; q1.rad = one.rad; q1.cut = one.cut; } if (one.u) q1.u = one.u; }
+          { q1.zs = true; if (one.cut && one.rad) { q1.d = null; q1.rad = one.rad; q1.cut = one.cut; } if (one.u) q1.u = one.u; }
           panes.push(q1);
         }
         continue;
@@ -1206,15 +1206,15 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function timeAnim(an, e = null) {
     const rec = { kf: null, c: null };
     try { rec.kf = an.effect?.getKeyframes?.() || null; } catch { rec.kf = null; }
-    if (AFFINE) rec.props = propsOf(rec.kf);
+    rec.props = propsOf(rec.kf);
     if (!CLOCK) return rec;
     const c = rec.c = clockOf(an, tlNow());
     if (!c) return rec;
-    // (An animation that ends where the glass already follows it needs no read of the page (AFFINE): one that holds its last frame
+    // (An animation that ends where the glass already follows it needs no read of the page: one that holds its last frame
     // (fill forwards: the zoom's glide, each frame of its follow), or one cancelled with another on the same element taking up all it moved
     // (the zoom's glide back over its glide in, each follow over the last). Read, each frame of a tuck under a zoomed card read the page.)
     // (One that moves nothing the glass follows (a shadow's or a colour's transition) changes nothing it draws as it ends.)
-    const needsRead = (done) => !AFFINE || !e || (!!rec.props?.size && (done ? !fillsAfter(c) : !covered(e, an)));
+    const needsRead = (done) => !e || (!!rec.props?.size && (done ? !fillsAfter(c) : !covered(e, an)));
     const stop = (done) => () => { if (done) c.done = true; else c.idle = true; wake(); if (needsRead(done)) measureSoon(); };
     try {
       an.addEventListener?.('finish', stop(true));
@@ -1231,9 +1231,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const ENDS = !/[?&]glassend=0\b/.test(SEARCH);
   const ended = new Map();
   const RISE = !/[?&]glassrise=0\b/.test(SEARCH);
-  // (Cards are glass, 2 Nov 2026: a glass follows scales as well as translations, from the transform (moveAff), and a sheet's panes from its
-  // --pz-u (sheet-glass.js), with no read of the page in a frame. ?glassaffine=0: translations only, the rest read from the page.)
-  const FOLLOW = AFFINE && cards?.follows ? new Set(cards.follows) : null;
+  // (Cards are glass, 2 Nov 2026: a glass follows scales as well as translations, from the transform (moveOf), and a sheet's panes from its
+  // --pz-u (sheet-glass.js), with no read of the page in a frame.)
+  const FOLLOW = cards?.follows ? new Set(cards.follows) : null;
   const LIVE_READ = !/[?&]liveread=0\b/.test(SEARCH);
   const chainOf = (g) => { const c = []; for (let e = g; e && e !== stop && e.nodeType !== 9; e = e.parentElement) c.push(e); return c; };
   function addAnim(e, an) {
@@ -1274,53 +1274,14 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     e.animate = function (...args) { const an = own.apply(this, args); if (an) { addAnim(this, an); wake(); } return an; };
   }
   const fillsOn = (an) => /forwards|both/.test(an.effect?.getTiming?.().fill || '');
-  // One element's moving part now: { t: [x, y] (its translation), o (its opacity, or null when not moving) }; bad: something it cannot
-  // follow (the page is read again just after this frame); ended: an animation of it has ended (likewise, for its end state).
-  function moveShift(e, flag) {
-    let t = null, o = null;
-    const m = anims.get(e);
-    if (m) {
-      for (const [an, rec] of m) {
-        const kf = rec.kf, S = stateOf(an, rec), st = S.st;
-        if (st === 'idle' || (st === 'finished' && !S.fills)) {
-          m.delete(an); flag.ended = true;
-          if (ENDS && st === 'finished') { const v = kf && motionAt(kf, 1); if (v) { const was = ended.get(e) || {}; ended.set(e, { t: v.t || was.t || null, o: v.o ?? was.o ?? null }); } }
-          continue;
-        }
-        if (S.bad) { flag.bad = true; continue; }
-        const p = S.p;
-        if (p == null) continue;
-        const v = motionAt(kf, p);
-        if (!v) { flag.bad = true; if (st === 'running' && Number.isFinite(an.effect?.getComputedTiming?.().endTime)) flag.live = true; continue; }
-        if (v.t) t = v.t;
-        if (v.o != null) o = v.o;
-      }
-      if (!m.size) anims.delete(e);
-    }
-    const end = ENDS && ended.get(e);
-    if (end) { if (!t && end.t && !e.style?.transform) t = end.t; if (o == null && end.o != null) o = end.o; }
-    const s = e.style;
-    if (s) {
-      if (!t) { const a = shiftOf(s.transform); if (!a) flag.bad = true; else t = a; }
-      const b = translateOf(s.translate);
-      if (!b) flag.bad = true; else if (t) t = [t[0] + b[0], t[1] + b[1]]; else t = b;
-      if (o == null && s.opacity !== '' && s.opacity != null && !inlineLoses.has(e)) o = NUM(s.opacity);
-      // (A card the page moves by a custom property its stylesheet turns into a translate (the words' card's --pz-rise as the readings are
-      // pulled out, the data card's --pz-lift): cards.shift(e) gives that move, read from the inline value each frame, so the glass rises
-      // with its words. Before, it waited for the next read of the page and the words outran their card (Mohammad, 2 Nov 2026, untucking
-      // on the iPhone). ?glassrise=0: as before.)
-      if (RISE && cards?.shift && !s.translate && !anims.get(e)?.size) { const sh = cards.shift(e); if (sh) t = t ? [t[0] + sh[0], t[1] + sh[1]] : sh; }
-    }
-    return { t: t || [0, 0], o };
-  }
   // (2 Nov 2026, the coordinator: a zoomed card's frost driven from its transform, never read from the page while it glides.) One element's
   // moving part as an affine on the page: { a: [sx, sy, tx, ty] (p → s·p + t, page px, about its transform-origin where it rests), o (its
   // opacity, or null when not moving), m: its transform (layout px), tr: its translate property and the page's rise (layout px) }. Its
   // transform as a list of translations and scales, from a running animation's keyframes (CSS's own interpolation, glass-motion.js
   // motionAffAt), an ended one's last frame, or its inline style; its translate likewise (an animation's, else the inline value and the
   // page's rise, cards.shift). A scale needs where the element's origin rests, read with the page (orgs, measureGeo): until then
-  // flag.org asks for that read, once. ?glassaffine=0: translations only, anything else read from the page each frame (LIVE_READ).
-  function moveAff(e, flag) {
+  // flag.org asks for that read, once.
+  function moveOf(e, flag) {
     let m = null, tr = null, o = null;
     const A = anims.get(e);
     if (A) {
@@ -1353,7 +1314,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       if (!tr) {
         const b = translateOf(s.translate);
         if (!b) flag.bad = true; else tr = b;
-        // (The page's rise by a custom property its stylesheet turns into a translate: see moveShift.)
+        // (A card the page moves by a custom property its stylesheet turns into a translate (the words' card's --pz-rise as the readings are
+        // pulled out, the data card's --pz-lift): cards.shift(e) gives that move, read from the inline value each frame, so the glass rises
+        // with its words (Mohammad, 2 Nov 2026, untucking on the iPhone). ?glassrise=0: as before.)
         if (RISE && cards?.shift && !s.translate) { const sh = cards.shift(e); if (sh) tr = tr ? [tr[0] + sh[0], tr[1] + sh[1]] : sh; }
       }
       if (o == null && s.opacity !== '' && s.opacity != null && !inlineLoses.has(e)) o = NUM(s.opacity);
@@ -1367,9 +1330,6 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     return { a, o, m, tr };
   }
   const ID = [1, 1, 0, 0];
-  // (The off path, translations only, as one affine.)
-  const moveOld = (e, flag) => { const v = moveShift(e, flag); return { a: [1, 1, v.t[0], v.t[1]], o: v.o }; };
-  const moveOf = AFFINE ? moveAff : moveOld;
   // (Where each scaling element's transform-origin rests on the page, and its page px per layout px: read with the page, measureGeo.)
   let orgs = new Map();
   // (Whether an element may scale: an inline transform or an animation's keyframes that are more than a translation.)
@@ -1380,7 +1340,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     return false;
   };
   // The page's own box of an element, never a stand-in (card-zoom.js pins a zoomed card's getBoundingClientRect to where it rests).
-  const boxOf = (e) => (AFFINE ? readOwnBox(e) : readBox(e));
+  const boxOf = (e) => readOwnBox(e);
   // (The origin of each element of a chain (glass first, outward) that may scale: its box as the page lays it now, its moving parts and
   // those of everything outside it taken out, and its computed transform-origin. Read outside any frame, with the rest of the page.)
   function readOrgs(chain, flag) {
@@ -1433,7 +1393,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (tgt) { track(tgt); hook(tgt); }
     const flag = {};
     orgs = new Map();
-    if (AFFINE) { if (tgt) readOrgs([tgt], flag); for (const g of list) readOrgs(chainOf(g), flag); }
+    if (tgt) readOrgs([tgt], flag);
+    for (const g of list) readOrgs(chainOf(g), flag);
     const cr = tgt ? boxOf(tgt) : { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
     const cm = tgt ? moveOf(tgt, flag) : { a: ID };
     const vw = document.documentElement?.clientWidth || window.innerWidth || cr.right, vh = document.documentElement?.clientHeight || window.innerHeight || cr.bottom;
@@ -1561,7 +1522,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function ask() { if (!raf && !lost && !dead) raf = later(loop); }
   /** Something the glass shows may have changed: it looks again (for two frames at least). */
   // (Woken, its slow look while asleep is called off at once: due before the next frame, it read the page as a zoom or a tuck began.)
-  function wake() { quiet = 0; if (poll && AFFINE) { clearTimeout(poll); poll = 0; } ask(); }
+  function wake() { quiet = 0; if (poll) { clearTimeout(poll); poll = 0; } ask(); }
   // (Any animation of a glass or of what holds it still running: no event says when a script's ends.)
   function moving() {
     for (const [e, m] of anims) {
@@ -1616,7 +1577,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   }
   // (A sheet whose size changes only as its readings slide out or back (pz-sliding: its --pz-u written each frame) is followed from that
   // value (sheet-glass.js); any other size change reads the page.)
-  const followsSize = (g) => AFFINE && !!g?.classList?.contains('pz-sliding') && !!geo?.panes.some((p) => p.g === g && p.u);
+  const followsSize = (g) => !!g?.classList?.contains('pz-sliding') && !!geo?.panes.some((p) => p.g === g && p.u);
   const watchRo = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => { if (!es?.length || !es.every((en) => followsSize(en.target))) measureEarly(); }) : null;
   for (const e of [canvas, source, wrap]) if (e) watchRo?.observe(e);
   const onScroll = () => measureSoon();
@@ -1628,7 +1589,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // (A transition of what only paints (a zoomed card's shadow easing out as it glides back, a colour) moves no glass and changes nothing
   // the glass reads (its tint is --gl-tint): its end reads nothing, so no read lands in the middle of a glide.)
   const PAINT_ONLY = new Set(['box-shadow', 'color', 'background-color', 'border-color', 'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color', 'outline-color', 'text-shadow', 'fill', 'stroke', 'text-decoration-color', 'caret-color']);
-  const paintOnly = (e) => AFFINE && /^transition/.test(e?.type || '') && PAINT_ONLY.has(e.propertyName);
+  const paintOnly = (e) => /^transition/.test(e?.type || '') && PAINT_ONLY.has(e.propertyName);
   const docEnd = (e) => { if (!paintOnly(e)) measureEarly(); };
   const DOC_START = ['transitionrun', 'animationstart'], DOC_END = ['transitionend', 'transitioncancel', 'animationend', 'animationcancel'];
   for (const t of DOC_START) document.addEventListener?.(t, docStart, true);

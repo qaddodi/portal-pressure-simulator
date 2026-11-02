@@ -58,7 +58,7 @@ import { flowTimeHeight, trailKeys } from './flow-time.js?v=8496daaa69';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=34d61722d8';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=1c7a3c485b';
-import { sheetPanes } from './sheet-glass.js?v=cf4c798a97';
+import { sheetPanes } from './sheet-glass.js?v=c2c60da04b';
 import { createScopeTile } from './scope-tile.js?v=9d202bf34f';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=7513a88c68';
@@ -3223,7 +3223,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (The glass's view of those rises (glass-gl.js cards.shift): where app.css turns --pz-rise and --pz-lift into a translate, the move they
   // make, from the inline value as written this frame; null where no rule moves the element.)
   // (Cards are glass (Mohammad, 2 Nov 2026: "CARDS ARE GLASS"): a card zoomed up (card-zoom.js data-zoomed) keeps its GPU frost, its panes read
-  // at rest and carried through each frame of its glide by its transform (glass-gl.js moveAff); the words, their glass and the stage's
+  // at rest and carried through each frame of its glide by its transform (glass-gl.js moveOf); the words, their glass and the stage's
   // labels step out from under it (app.css .pz-zoomed), so only the frosted figure lies behind it. ?zoomglass=0: the solid card instead.)
   const ZOOM_GLASS = !/[?&]zoomglass=0\b/.test(location.search);
   // (What the cards' glass puts back each frame from the inline value itself, so a write of it reads nothing from the page: the sheet's

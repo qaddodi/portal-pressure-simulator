@@ -153,8 +153,8 @@ export function clockOf(an, now) {
     delay: +t.delay || 0, endDelay: +t.endDelay || 0, dur, iters, iterStart: +t.iterationStart || 0, dir: t.direction || 'normal',
     fill: t.fill || 'auto', ease, bad: !ease, rate, s: null, c0: 0, w0: now, idle: st === 'idle', done: false,
     // (An animation waiting to start (pending: just asked for, its first frame not yet shown) holds its current time until its start time
-    // is known, as the page draws it: its clock run on from when it was asked put a zoom's glass ahead of its card, AFFINE.)
-    hold: AFFINE && !!an.pending && !Number.isFinite(an.startTime),
+    // is known, as the page draws it: its clock run on from when it was asked put a zoom's glass ahead of its card.)
+    hold: !!an.pending && !Number.isFinite(an.startTime),
   };
   const s = an.startTime, ct = an.currentTime;
   if (rate !== 0 && Number.isFinite(s)) c.s = s;
@@ -194,8 +194,6 @@ export function clockAt(c, now) {
 // function by function, the rest of two lists that stop matching as matrices, their scale and translation each eased in a line (what a
 // decomposed 2D matrix with no turn or skew comes to). A turn, a skew, a percentage or a flip is left to the page's own read (null).
 
-/** Whether the glass follows scales as well as translations (?glassaffine=0: translations only, the rest read from the page). */
-export const AFFINE = typeof location === 'undefined' || !/[?&]glassaffine=0\b/.test(location.search || '');
 const ID = [1, 1, 0, 0];
 const num = (v) => { const s = String(v ?? '').trim(); return s === '' ? NaN : Number(s); };
 /** A CSS transform as its functions, each { k: 't' (translate [x, y]) | 's' (scale [x, y]) | 'm' (matrix [a, d, e, f], no turn or skew),
