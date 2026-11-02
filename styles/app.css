@@ -5987,7 +5987,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.pz-sheet.pz-sliding > .pz-tiles { transition: none; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet:not(.tool-open):not(.pz-sliding) > .pz-tiles { visibility: hidden; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform var(--d-small) var(--ease), visibility 0s linear var(--d-small); }
-.pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide) { visibility: visible; transition: transform var(--d-surface) var(--ease) .12s, top var(--d-surface) var(--ease), visibility 0s linear 0s; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide) { visibility: visible; transition: transform var(--d-surface) var(--ease) .12s, visibility 0s linear 0s; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet > :is(.pz-dh, .pz-tool) { transition: opacity var(--d-small) var(--ease); }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide)::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide)::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide) > :is(.pz-dh, .pz-tool) { transition-duration: var(--d-surface); transition-delay: .12s; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide > :is(.pz-dh, .pz-tool, .pz-tiles) { opacity: 0; }
@@ -7012,7 +7012,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* Wide chart-only cards allocate the room below the words before fitting. As with the other adaptive charts,
    keep their whole width and redraw at their own pixels; only their allocated height changes. */
 .pz.pz-wide .pz-data.pz-data.pz-data.pz-data.pz-data.pz-data.pz-flowfit > .pz-tool[data-kind="flowtime"] { width: 100%; zoom: 1; }
-.pz.pz-wide .pz-flowfit .pz-flowtime { height: var(--ft-room); min-height: 0; transition: height var(--d-small) var(--ease); }
+.pz.pz-wide .pz-flowfit .pz-flowtime { height: var(--ft-room); min-height: 0; }   /* (fitted while the card is out or the window changes: taken at once, never eased by its height) */
 .ppf-liver rect { fill: var(--chart-liver-band); }
 .ppf-pre rect { fill: var(--chart-pre-band); }
 .ppf-post rect { fill: var(--chart-post-band); }
