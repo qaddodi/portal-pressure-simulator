@@ -17,7 +17,7 @@ test('no label or leader entry fade fills forwards (it would block every later f
 
 test('GPU labels hold their opacity until a fade is known, and keep following one mid-way', () => {
   // (Read at rest with a new opacity: held where drawn, followed from the next frame.)
-  assert.match(gl, /if \(!tracked && !isLive && st\.mode === 'gl' && was !== null && !REDUCE\?\.matches && Math\.abs\(\(was \?\? 0\) - st\.opacity\) > 0\.01\) \{\s*st\.opacity = was \?\? 0;\s*live\.set\(g, now \+ 700\);/);
+  assert.match(gl, /if \(!tracked && !isLive && st\.mode === 'gl' && was !== null && !REDUCE\?\.matches && Math\.abs\(\(was \?\? 0\) - st\.opacity\) > 0\.01\) \{\s*st\.opacity = was \?\? 0;\s*st\.holdSince = now;\s*live\.set\(g, now \+ 700\);/);
   // (No animations taken yet: the fade it had carries on; one the SVG drew stays the SVG's for that frame.)
   assert.match(gl, /if \(old && !old\.ended && old\.ops\?\.length\) st0\.trk = \{ ops: old\.ops, under: old\.under, paint: null, end: old\.end, carry: true \};\s*else if \(was === null\) st0\.mode = 'svg';[^\n]*\n\s*else st0\.opacity = was \?\? 0;/);
   assert.match(gl, /\(isLive && \(exact\.has\(g\) \|\| !st\.trk \|\| st\.trk\.carry\)\)/);
