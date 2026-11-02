@@ -93,7 +93,9 @@ import { capDensity } from './pixel-budget.js?v=279a2b54f6';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
 import { CellGrid, geomOf } from './cell-grid.js?v=6af997e290';
-import { restPass } from './rest-pass.js?v=d13e397f0b';
+import { restPass, cancelRest } from './rest-pass.js?v=d13e397f0b';
+import { createLateQueue } from './late-queue.js?v=d7da770ef7';
+import { dropLabel } from './drop-label.js?v=bb3f310054';
 import { glWords } from './gl-words.js?v=a9b411a88f';
 import { provideStage } from './layout-snap.js?v=f609965236';
 import { caught } from './caught.js?v=b96b17594a';
@@ -159,11 +161,6 @@ function luminance(c) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-// (recs-production-120hz §8: a callout that goes lets go of its glass and its GPU words, their observers, timers and pictures.)
-function dropLabel(el) {
-  el._glass?.dispose();
-  for (const w of [el._kW, el._bW, el._uW, ...(el._spW || [])]) w?.dispose?.();   // (kept, disposed: a late set on them does nothing)
-}
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // (#30) The stage's styles, as the model's frames read them (colours, the plate's theme, whether the figure shows): read live, each
@@ -642,9 +639,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Overlay and label structure (nodes added or swapped) is written in a rest pass between two frames, never inside one
   // (the owner's rule, 2 Nov 2026: no DOM writes in a frame). A frame builds the nodes and queues them with late(op, a, b); the
   // pass applies them in the order asked, so the last ask wins. (?restpass=0, rest-pass.js, runs that pass on a plain zero timer.)
-  let lateQ = [], latePass = 0;
-  function late(op, a, b) { lateQ.push([op, a, b]); if (!latePass) latePass = restPass(lateFlush); }
-  function lateFlush() { latePass = 0; const q = lateQ; lateQ = []; for (const [op, a, b] of q) lateRun(op, a, b); }
+  const lateQueue = createLateQueue((op, a, b) => lateRun(op, a, b), restPass, cancelRest);
+  function late(op, a, b) { lateQueue.push(op, a, b); }
   function lateRun(op, a, b) {
     if (op === 'kids') a.replaceChildren(...b);   // (a label's pieces)
     else if (op === 'label') { if (!a.isConnected) gLabels.append(a); }   // (a new label)
@@ -9376,6 +9372,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // one is not there yet); the build lays it out at once, with the newest words asked for it.
   const blockWant = new Map();
   let blockAsk = 0;
+  // (The frame number of the layout that last wanted the labels it asked for: what a label built or rewritten between layouts counts as
+  // seen in. frameNo itself moves on when a layout starts, and a sliced solve runs across several frames before it lands: a label built
+  // meanwhile for the last layout's wishes was stamped with the unfinished layout's number, so that layout's sweep for labels it did not
+  // want skipped it and it stayed on screen, whole, until the next layout.)
+  let laidFrame = 0;
   function blockBuild() {
     blockAsk = 0;
     const its = [...blockWant.values()];
@@ -9385,6 +9386,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (sig !== b.sig) blockKids(b, it, sig);
       renderBlock(it);
     }
+    // (This pass is between frames already, and it moved each label to its place: its new pieces, fills and the label itself land in the
+    // same task, not a later one, in which a frame could draw its old words or pill against the new place.)
+    lateQueue.now();
   }
   const blockSig = (it) => JSON.stringify([it.lines.map((line) => line.map(({ t, fill, cls, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK, fontPx(14), it.fxw ?? (/^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')) : 0)]);
   function renderBlock(it) {
@@ -9392,10 +9396,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!b || sig !== b.sig) {
       blockWant.set(it.key, it);
       if (!blockAsk) blockAsk = restPass(blockBuild);
-      if (b) b.seen = frameNo;   // (kept as it stands until its new pieces are in)
+      if (b) b.seen = laidFrame;   // (kept as it stands until its new pieces are in)
       return;
     }
-    b.seen = frameNo;
+    b.seen = laidFrame;
     b.g.classList.toggle('ring', / ring\b/.test(it.cls));   // (a slide's pill that could find no spot off the vessels: see the focus callout)
     // A presenter slide's term (presentTerms): the station's label takes the term's colour, eased (.lb.term).
     const tone = it.node ? termTone(it.node) : null;
@@ -11466,6 +11470,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     const hk = holes.map((h) => h.map((v) => v.toFixed(1)).join(',')).join(';');
     if (hk !== holesKey) { holesKey = hk; chevHoles = holes; }
+    // (This layout's labels are the whole of what is wanted: a build asked for by an earlier one and not yet made is dropped, or it would
+    // make a label nothing then removes.)
+    laidFrame = frameNo; blockWant.clear();
     for (const it of out) renderBlock(it);
     lbRects = out.filter((it) => !it.hide && it.w && it.h).map((it) => it._r || rectOf(it));
     colShown = out.some((it) => it.point && !it.hide && it.w && it.h);
