@@ -128,7 +128,8 @@ test('the vitals monitor draws its strip once a frame while it scrolls, its easi
 test('the endoscope\'s field is drawn once a frame: a model frame taken in early is drawn by its own late callback', () => {
   const src = read('../src/ui/instruments.js');
   assert.match(src, /const drawFrame = lateFrameFor\('instruments'\);/);
-  assert.match(src, /if \(framePhase\(\) === 'early'\) \{ last = \{ f, vx \}; if \(!raf\) raf = drawFrame\(\(\) => \{ raf = 0; if \(last\) draw\(last\.f, last\.vx\); \}\); return; \}\n\s+draw\(f, vx\);/);
+  assert.match(src, /if \(framePhase\(\) === 'early'\) \{ last = lastS; lastS\.f = f; lastS\.vx = vx; if \(!raf\) raf = drawFrame\(redraw\); return; \}\n\s+draw\(f, vx\);/);
+  assert.match(src, /const redraw = \(\) => \{ raf = 0; if \(last\) draw\(last\.f, last\.vx\); \};/);
   assert.doesNotMatch(src.slice(src.indexOf('export function createEndoscopy'), src.indexOf('export function createVarixWall')), /nextFrame\(/, 'every follow-up draw on the same late callback');
 });
 

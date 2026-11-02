@@ -54,9 +54,9 @@ test('the scope takes its options from the slide, eases them in and keeps the gr
   assert.match(instruments, /\(opt\.red \?\? vx\.redWale\) \? 'Red wale, cherry spots' : 'None'/);
   // The drawing and the size seen share one air ratio, from the beat-averaged table.
   assert.match(instruments, /const kAir = airRatio\(mv\.air, opt\.air\), gAir = gNow \* airFlat\(mv\.d, kAir\);/);
-  assert.match(instruments, /set\(diam, `\$\{fmt\(rest \* airRatio\(mv\?\.air \?\? vx\.air, opt\.air\), 1\)\} mm`\)/);
+  assert.match(instruments, /set\(diam, shownNum\(cDiam, rest \* airRatio\(mv\?\.air \?\? vx\.air, opt\.air\), 1, ' mm'\)\)/);
   // The pressures: in the varix, in the lumen, and across the wall, the difference of the two as printed.
-  assert.match(instruments, /set\(pIn, `\$\{fmt\(inV, 1\)\} mmHg`\); set\(pLum, `\$\{fmt\(opt\.air, 1\)\} mmHg`\); set\(pAcross, `\$\{fmt\(inV - opt\.air, 1\)\} mmHg`\)/);
+  assert.match(instruments, /set\(pIn, shownNum\(cIn, inV, 1, ' mmHg'\)\); set\(pLum, shownNum\(cLum, opt\.air, 1, ' mmHg'\)\); set\(pAcross, shownNum\(cAcross, inV - opt\.air, 1, ' mmHg'\)\)/);
   const names = [...instruments.matchAll(/h\('dt', \{\}, '(In the varix|Lumen|Across the wall)'\)/g)].map((m) => m[1]);
   assert.deepEqual(names, ['In the varix', 'Lumen', 'Across the wall']);
   // Without the option the Tests card's scope is what it was: the rows are not in its list.

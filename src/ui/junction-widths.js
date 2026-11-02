@@ -3,13 +3,15 @@
 // one tally per node and one answer object are kept and reused instead of an array per node, a sort and two new objects.
 export function createJunctionWidths() {
   const tally = new Map(), out = {};
+  const nodes = []; // every node ever put, in first-seen order: walked by index so no iterator or closure is made per frame
   return {
     /** Starts a new count: every node reads as having no vessel. */
-    reset() { for (const v of tally.values()) v.n = 0; },
+    reset() { for (let i = 0; i < nodes.length; i++) tally.get(nodes[i]).n = 0; },
     /** One vessel of width w meeting at node n. */
     put(n, w) {
       let v = tally.get(n);
-      if (!v) tally.set(n, v = { a: 0, b: 0, n: 0 });
+      // alloc-rare: only the first time a node is seen (the tally is then kept for every later frame)
+      if (!v) { tally.set(n, v = { a: 0, b: 0, n: 0 }); nodes.push(n); }
       if (!v.n) { v.a = w; v.n = 1; return; }
       if (w > v.a) { v.b = v.a; v.a = w; } else if (v.n === 1 || w > v.b) v.b = w;
       v.n++;
@@ -17,7 +19,7 @@ export function createJunctionWidths() {
     /** node → width, the same object each time; a node no vessel met since reset reads undefined. */
     answer() {
       for (const n in out) out[n] = undefined;
-      tally.forEach((v, n) => { if (v.n) out[n] = v.n > 1 ? v.b : v.a; });
+      for (let i = 0; i < nodes.length; i++) { const n = nodes[i], v = tally.get(n); if (v.n) out[n] = v.n > 1 ? v.b : v.a; }
       return out;
     },
   };

@@ -25,7 +25,7 @@ test('the sinusoid view makes its context at setModel / place, not with the lobu
 test('the endoscope makes its shader context when shown and gives it back when its tab leaves', () => {
   const i = src('instruments.js');
   assert.match(i, /let gl = null, wasGl = false,/);
-  assert.match(i, /gl\.dispose\(\); gl = null; glKey = ''; glGone = true;/);
+  assert.match(i, /gl\.dispose\(\); gl = null; glId = 0; glGone = true;/);
   assert.match(src('dock.js'), /p\.shown\?\.\(open\.includes\(p\.id\)\)/);
 });
 

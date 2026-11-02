@@ -7,13 +7,27 @@
 export const glideMoving = (pressuresMoving, axisMoving) => pressuresMoving || axisMoving;
 
 // The comparison line's deltas as shown, [label, text]: what the line is rebuilt from, and only when one of them changes.
+// The rows (and the list of them) are kept and handed back each time, rewritten in place: a caller that keeps a result reads the
+// latest. A row's text is built only when its number (or the formatter) is not the one it was built from.
+const CMP_ROWS = [['HVPG', ''], ['Liver flow', ''], ['Shunting', '']];
+const cmpFrom = [undefined, undefined, undefined], cmpFmt = [null, null, null], cmpShown = [];
+function cmpRow(i, v, digits, unit, fmt) {
+  const row = CMP_ROWS[i];
+  if (!Object.is(cmpFrom[i], v) || cmpFmt[i] !== fmt) {
+    cmpFrom[i] = v; cmpFmt[i] = fmt;
+    // alloc-rare: only when this delta's number (or the formatter) differs from the one its text was built from
+    row[1] = `${v > 0 ? '+' : ''}${fmt(v, digits)} ${unit}`;
+  }
+  cmpShown[cmpShown.length] = row;
+}
 export function compareRows(a, b, hvpg, model, fmt) {
-  const delta = (label, v, digits, unit) => [label, `${v > 0 ? '+' : ''}${fmt(v, digits)} ${unit}`];
-  return [
-    hvpg ? delta('HVPG', b.hvpg - a.hvpg, 1, 'mmHg') : null,
-    model ? delta('Liver flow', b.liverPerfPct - a.liverPerfPct, 0, 'pts') : null,
-    model ? delta('Shunting', (b.shuntFraction - a.shuntFraction) * 100, 0, 'pts') : null,
-  ].filter(Boolean);
+  cmpShown.length = 0;
+  if (hvpg) cmpRow(0, b.hvpg - a.hvpg, 1, 'mmHg', fmt);
+  if (model) {
+    cmpRow(1, b.liverPerfPct - a.liverPerfPct, 0, 'pts', fmt);
+    cmpRow(2, (b.shuntFraction - a.shuntFraction) * 100, 0, 'pts', fmt);
+  }
+  return cmpShown;
 }
 
 // The classes a pan, a pinch or a slide's camera glide puts on and takes off. GESTURE_LOOK: what they change is no label's own look

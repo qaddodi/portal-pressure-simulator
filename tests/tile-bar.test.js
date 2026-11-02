@@ -76,7 +76,8 @@ test('WHVP and FHVP have bars like HVPG\'s (22 Oct): the portal pressure\'s band
 test('the Tests › HVPG readings carry their tile\'s colour too, and ease into it', () => {
   const js = readFileSync(new URL('../src/ui/hvpg-proc.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(js, /for \(const k of \['fhvp', 'whvp'\]\) \{\s*const sk = shown\[k\] \? sevOfRead\(k, v\[k\]\) : '';/);
+  assert.match(js, /for \(let ki = 0; ki < 2; ki\+\+\) \{\s*const k = KEYS2\[ki\];\s*const sk = shown\[k\] \? sevOfRead\(k, v\[k\]\) : '';/);
+  assert.match(js, /const KEYS3 = \['fhvp', 'whvp', 'hvpg'\], KEYS2 = \['fhvp', 'whvp'\];/);
   assert.match(css, /\.hvpg-kv dd \{[^}]*transition: none/, 'the colour is taken with the reading (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
 });
 

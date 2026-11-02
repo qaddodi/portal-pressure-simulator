@@ -31,6 +31,23 @@ const drawFrame = lateFrameFor('instruments');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
+// ── Words made once and kept ──
+// A text made from a whole number is built the first time that number is seen and kept (the readings run over a few hundred values), so
+// a frame that shows a number it has shown before builds nothing.
+const intCache = (make) => { const c = []; return (n) => c[n] ?? (c[n] = make(n)); };
+const intTxt = intCache((n) => String(n));   // alloc-rare: the first time that number is shown
+const tearTxt = intCache((n) => `${n}% of the tear point`);   // alloc-rare: the first time that percent is shown
+const slideTxt = intCache((k) => `${k / 10 - 100}% 0px`);   // alloc-rare: the first time that fill is set (slid in from the left inside its track, by tenths of a percent)
+const riseTxt = intCache((p) => `0px ${100 - p}%`);   // alloc-rare: the first time that height is set (risen by sliding up inside the belly, by whole percents)
+// A reading's words: fmt(v, d) then a suffix, rebuilt only when the number it shows changes (a cell is { k, s }, one for each place that prints).
+const numCell = () => ({ k: undefined, s: '' });
+function shownNum(c, v, d, suffix, prefix = '') {
+  const m = d ? 10 : 1, k = Number.isFinite(v) ? Math.round(v * m) : v;
+  if (!Object.is(c.k, k)) { c.k = k; c.s = `${prefix}${fmt(Number.isFinite(k) ? k / m : k, d)}${suffix}`; }   // alloc-rare: only when the number shown differs from the one its words were built from
+  return c.s;
+}
+const NO_PARAMS = {};   // (gastricUp reads a frame's params; a frame with none is read as this)
+
 // ── Endoscopy ───────────────────────────────────────
 export function createEndoscopy({ onAction }) {
   const el = h('div', { class: 'dock-pane', 'data-pane': 'endoscopy' });
@@ -67,6 +84,7 @@ export function createEndoscopy({ onAction }) {
   el.append(stage, side);
   // (The readings change with the model: drawn on the GPU while they change, gl-words.js.)
   const set = wordSetter([gradeLabel, diam, wall, pIn, pLum, pAcross, redWord, redMore, bands]);
+  const cDiam = numCell(), cWall = numCell(), cIn = numCell(), cLum = numCell(), cAcross = numCell();
   function update(f) {
     const m = f.metrics;
     const vx = view === 'eso' ? m.varix : m.gastricVarix;
@@ -77,15 +95,15 @@ export function createEndoscopy({ onAction }) {
     // The size seen: the size at rest (the slide's own number when there is one) at the air's pressure (airRatio, the beat-averaged table).
     // The grade above stays the size at rest.
     const pinTo = view === 'eso' && pinned, rest = pinTo && Number.isFinite(pinned.d) ? pinned.d : vx.d, inV = pinTo && Number.isFinite(pinned.ptm) ? pinned.ptm : vx.ptm;
-    set(diam, `${fmt(rest * airRatio(mv?.air ?? vx.air, opt.air), 1)} mm`); set(wall, `${fmt(vx.w, 1)} mm`);
-    if (opt.readings) { set(pIn, `${fmt(inV, 1)} mmHg`); set(pLum, `${fmt(opt.air, 1)} mmHg`); set(pAcross, `${fmt(inV - opt.air, 1)} mmHg`); }
+    set(diam, shownNum(cDiam, rest * airRatio(mv?.air ?? vx.air, opt.air), 1, ' mm')); set(wall, shownNum(cWall, vx.w, 1, ' mm'));
+    if (opt.readings) { set(pIn, shownNum(cIn, inV, 1, ' mmHg')); set(pLum, shownNum(cLum, opt.air, 1, ' mmHg')); set(pAcross, shownNum(cAcross, inV - opt.air, 1, ' mmHg')); }
     const redV = !vx.present ? 'None' : (opt.red ?? vx.redWale) ? 'Red wale, cherry spots' : 'None';
-    set(redWord, redV === 'None' ? redV : 'Red wale'); set(redMore, redV === 'None' ? '' : ', cherry spots'); dataSoon(red, 'long', redV === 'None' ? null : ''); dataSoon(red.parentNode, 'on', String(redV !== 'None'));
-    const nb = String(Math.round(f.bands || 0));
-    set(bands, nb); dataSoon(bands.parentNode, 'on', String(nb !== '0'));
+    set(redWord, redV === 'None' ? redV : 'Red wale'); set(redMore, redV === 'None' ? '' : ', cherry spots'); dataSoon(red, 'long', redV === 'None' ? null : ''); dataSoon(red.parentNode, 'on', redV !== 'None');
+    const nb = Math.round(f.bands || 0);
+    set(bands, intTxt(nb)); dataSoon(bands.parentNode, 'on', nb !== 0);
     // A model frame taken in at the start of a frame is drawn by the field's own late callback of that frame (one already asked
     // for by an ease, or one asked now): the field is drawn once a frame, with the newest state. Anywhere else, at once.
-    if (framePhase() === 'early') { last = { f, vx }; if (!raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); }); return; }
+    if (framePhase() === 'early') { last = lastS; lastS.f = f; lastS.vx = vx; if (!raf) raf = drawFrame(redraw); return; }
     draw(f, vx);
   }
   // Rendered endoscopic view (see endo-render.js): a per-pixel 3D shading of the lumen with raised,
@@ -95,21 +113,37 @@ export function createEndoscopy({ onAction }) {
   // back when its tab leaves the screen (shown(false)): a page holds only so many (iOS Safari about 16, dropping the oldest, which is
   // the figure's). The picture on the page is the drawer's texture, so nothing blanks; the shader is made afresh, through gl-compile.js,
   // on the way back.
-  const mkGl = () => createEndoGL({ onBack: () => { if (!raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); }); } });
+  // (What is asked of the frame clock and the shader's context is made once: a draw asks for the next frame again and again while it eases.)
+  const lastS = { f: null, vx: null };   // (the frame and its varix the field was last asked to draw: `last` is this, written in place, or null)
+  const redraw = () => { raf = 0; if (last) draw(last.f, last.vx); };
+  const glOpts = { onBack: () => { if (!raf) raf = drawFrame(redraw); } };
+  const mkGl = () => createEndoGL(glOpts);
   let gl = null, wasGl = false, glGone = false, noGl = false, away = false;   // (wasGl: which renderer drew the field last, so a change between them fades; glGone: the context was given back, not failed; away: the tab is off the screen)
   function needGl() {
     if (gl || noGl || away) return;
     gl = mkGl();
-    if (!gl) noGl = true; else if (glGone) { glGone = false; glKey = ''; }
+    if (!gl) noGl = true; else if (glGone) { glGone = false; glId = 0; }
   }
   // The scope's picture is laid by the GPU's chart drawer over this canvas (trace-gl.js): the field as a texture (taken from the shader's
   // canvas, GPU to GPU, once per state), the old one under it while the new fades in, the balloon, the bleed and the rim, clipped to the
   // lumen. Nothing is drawn on a 2D canvas (1 Nov: nothing off the GPU); ?tracegl=0 draws the overlays on this canvas and leaves the field out.
-  const pen = createTraceGL(cv, { redraw: () => { painted = ''; if (last) draw(last.f, last.vx); } });
+  const pen = createTraceGL(cv, { redraw: () => { pSig.ok = false; if (last) draw(last.f, last.vx); } });
   let glVer = 0, swap = false;   // (glVer: the shader canvas's content, counted; swap: the field shown is kept as the old one before the new goes up)
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
-  const offSurface = surface('endoscopy field', () => (!cv.isConnected ? null : gl && !gl.lost ? { on: cv.style.opacity === '0' ? 'gpu' : 'mixed', via: 'shaded WebGL2 once per state, laid by the GPU drawer' } : { on: 'fallback', via: 'CPU shading, laid by the GPU drawer', why: gl ? 'context lost' : 'no WebGL2, or its shader failed' }));
-  let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedLast = null, poolA = 0, cache = { key: '', img: null }, glKey = '', painted = '', mv = null, held = null, pinned = null;
+  // (Its answers are made once: the readout asks twice a second and reads them, never keeps or changes them.)
+  const SURF_GPU = { on: 'gpu', via: 'shaded WebGL2 once per state, laid by the GPU drawer' }, SURF_MIXED = { on: 'mixed', via: 'shaded WebGL2 once per state, laid by the GPU drawer' };
+  const SURF_LOST = { on: 'fallback', via: 'CPU shading, laid by the GPU drawer', why: 'context lost' }, SURF_NOGL = { on: 'fallback', via: 'CPU shading, laid by the GPU drawer', why: 'no WebGL2, or its shader failed' };
+  const offSurface = surface('endoscopy field', () => (!cv.isConnected ? null : gl && !gl.lost ? (cv.style.opacity === '0' ? SURF_GPU : SURF_MIXED) : gl ? SURF_LOST : SURF_NOGL));
+  let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedLast = null, poolA = 0, mv = null, held = null, pinned = null;
+  // What identifies the field shown, kept as numbers (a frame joins no text): glId, the shader field's (0: none shaded since a reset), cacheId, the CPU renderer's;
+  // the numbers they were made from, to tell whether a draw has a new one; and what was last painted over it (pSig, ok: false until painted).
+  const gkNow = new Float64Array(24), gkLast = new Float64Array(24), ckNow = new Float64Array(5), ckLast = new Float64Array(5), heldBuf = [0, 0, 0];
+  let glId = 0, cacheId = 0, glSeq = 0, cacheImg = null;
+  const pSig = { ok: false, cvW: 0, cvH: 0, w: 0, hh: 0, id: 0, balloon: false, shut: false, theme: null, palette: null, cls: '', dark: false };
+  // (The field's state for the shader, the CPU renderer's options, the bleed's and the targets of the tweens: kept, written in place each draw.)
+  const rOpt = { grow: 0, vis: 0, red: 0, def: [0, 0, 0, 0], kn: new Array(16).fill(0) }, cpuOpt = { grow: 0, bands: 0, vis: 0, red: 0 };
+  const bleedS = { rate: undefined, total: 0, hr: undefined }, bleedOpt = { cx: 0, cy: 0, R: 0, jx: 0, jy: 0, t: 0, a: 0, rate: undefined, fill: 0, hr: undefined };
+  const defT = [0, 0, 0, 0], knT = new Array(16).fill(0);
   // A slide's options for this scope (configure, below): air, the air's pressure in the lumen in mmHg (the varix is drawn and measured as it is seen
   // at that pressure; the grade, the pressure inside it and the model are not touched); red, true or false (the red wale marks shown or hidden whatever
   // the wall stress; absent: the model's rule); readings, three more rows (the pressure in the varix, in the lumen and across the wall).
@@ -125,7 +159,7 @@ export function createEndoscopy({ onAction }) {
     swap = true; fadeT0 = performance.now();
   }
   // An eased tween toward a target value: cur follows from -> to over dur ms after a delay.
-  const tw = (v) => ({ v, from: v, to: v, t0: 0, dur: 1, delay: 0, cur: v });
+  const tw = (v) => ({ v, from: v, to: v, t0: 0, dur: 1, delay: 0, cur: v });   // alloc-rare: only when the tweens are first made (the first draw)
   const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
   function tween(t, target, now, dur, delay) {
     if (target !== t.to) { t.from = t.cur; t.to = target; t.t0 = now; t.dur = dur; t.delay = delay; }
@@ -143,14 +177,14 @@ export function createEndoscopy({ onAction }) {
     const bands = Math.round(f.bands || 0);
     // Banding deflates the banded columns only. The model's single varix size falls as bands go on,
     // so unbanded columns keep the size seen before the first band.
-    last = { f, vx };
+    last = lastS; lastS.f = f; lastS.vx = vx;
     const now = simTime() * 1000, dt = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); lastT = now; // sim clock: frozen while paused
     // The field shows the varix over the beat, not each beat's swell: the model's size and wall stress rise and fall with every
     // heartbeat, and following them redrew the whole shaded field many times a second (a browser without a GPU spent a second on
     // each redraw and its page stopped answering), while the comment above promises a steady view. Averaged over about four seconds,
     // a breath and more: over one second the breath's swell still crossed the field's steps every second or two.
     const kb = 1 - Math.exp(-dt / 4);
-    if (!mv) mv = { d: vx.d, ratio: vx.ratio, air: vx.air?.slice() };
+    if (!mv) mv = { d: vx.d, ratio: vx.ratio, air: vx.air?.slice() };   // alloc-rare: only the first draw (mv is then kept and eased in place)
     else {
       mv.d += (vx.d - mv.d) * kb; mv.ratio += (vx.ratio - mv.ratio) * kb;
       if (mv.air && vx.air) for (let i = 0; i < mv.air.length; i++) mv.air[i] += (vx.air[i] - mv.air[i]) * kb;
@@ -166,15 +200,16 @@ export function createEndoscopy({ onAction }) {
     peakRed = bands > 0 ? Math.max(peakRed, rNow) : rNow;
     const tr = opt.red == null ? peakRed : +opt.red;
     // Targets: each column is deflated and knuckled once banded (the 4 bands fill columns in turn).
-    const defT = [0, 0, 0, 0], knT = new Array(16).fill(0);
+    defT.fill(0); knT.fill(0);
     for (let c = 0; c < 4; c++) {
       const nb = Math.floor(bands / 4) + (c < bands % 4 ? 1 : 0);
       defT[c] = nb > 0 ? 1 : 0;
       for (let k = 0; k < Math.min(nb, 4); k++) knT[c * 4 + k] = 1;
     }
     if (!an) {
+      // alloc-rare: only the first draw (the eased state is then kept and updated in place)
       an = { g: tg, v: tv, r: tr, def: defT.map((x) => tw(x)), kn: knT.map((x) => tw(x)) };
-      an.def.forEach((t, i) => { t.v = defT[i]; }); an.kn.forEach((t, i) => { t.v = knT[i]; });
+      an.def.forEach((t, i) => { t.v = defT[i]; }); an.kn.forEach((t, i) => { t.v = knT[i]; });   // alloc-rare: the same first draw
     }
     // Size and presence follow the model continuously (critically damped, ~0.2 s); banding plays a
     // slower eased tween: the vein deflates first, the knuckle and band follow.
@@ -187,11 +222,11 @@ export function createEndoscopy({ onAction }) {
     // The banded vein starts deflating at once; its band cinches in from a wide loop a beat later (endo-motion.js).
     for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, DEFLATE_MS, 0) || busy;
     for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], now, BAND_MS, knT[i] ? BAND_DELAY_MS : 0) || busy;
-    if (busy && !raf && !isPaused()) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
+    if (busy && !raf && !isPaused()) raf = drawFrame(redraw);
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
     let img;
     needGl();
-    if (gl && !gl.ready() && !gl.lost) { gl.dispose(); gl = null; glKey = ''; noGl = true; }   // (its shader failed: the CPU renderer below, as with no WebGL)
+    if (gl && !gl.ready() && !gl.lost) { gl.dispose(); gl = null; glId = 0; noGl = true; }   // (its shader failed: the CPU renderer below, as with no WebGL)
     // (A lost context is not a failure: the CPU renderer draws the field while it is gone, and the GPU takes over again, with the new
     // field fading in over the old, when the browser gives it back and builds the shader afresh: endo-gl.js.)
     const onGl = !!gl && !gl.lost;
@@ -200,34 +235,49 @@ export function createEndoscopy({ onAction }) {
       // Drawn once per state and kept as a 2D bitmap: a steady field costs no shader pass or GPU readback.
       // (Size, presence and stigmata redraw once they have moved a step and a half of 32 from the field shown, so a slow drift
       // or the last of the beat's swell does not redraw it to and fro across one step; banding redraws at every step.)
-      held = [an.g, an.v, an.r].map((x, i) => (held && Math.abs(x * 32 - held[i]) < 1.5 ? held[i] : Math.round(x * 32)));
-      const gk = [res, ...held, ...[...an.def.map((t) => t.cur), ...an.kn.map((t) => t.cur)].map((x) => Math.round(x * 32))].join('|');
+      for (let i = 0; i < 3; i++) { const x = i === 0 ? an.g : i === 1 ? an.v : an.r; heldBuf[i] = held && Math.abs(x * 32 - heldBuf[i]) < 1.5 ? heldBuf[i] : Math.round(x * 32); }
+      held = heldBuf;
+      // (The field's key: the size, the three held steps, and each column's and knuckle's step, as numbers compared with the last shaded.)
+      gkNow[0] = res; gkNow[1] = heldBuf[0]; gkNow[2] = heldBuf[1]; gkNow[3] = heldBuf[2];
+      for (let c = 0; c < 4; c++) gkNow[4 + c] = Math.round(an.def[c].cur * 32);
+      for (let i = 0; i < 16; i++) gkNow[8 + i] = Math.round(an.kn[i].cur * 32);
+      let sameKey = glId !== 0;
+      for (let i = 0; i < 24 && sameKey; i++) if (gkNow[i] !== gkLast[i]) sameKey = false;
       // (A shader still compiling draws no new field: the one shown stays, and endo-gl's onBack asks for this frame again once it is published.)
-      if (gk !== glKey && !gl.pending) {
-        if (glKey) keep(); else fadeT0 = -1;
-        glKey = gk;
-        gl.render(res, { grow: an.g, vis: an.v, red: an.r, def: an.def.map((t) => t.cur), kn: an.kn.map((t) => t.cur) });
+      if (!sameKey && !gl.pending) {
+        if (glId) keep(); else fadeT0 = -1;
+        gkLast.set(gkNow); glId = ++glSeq;
+        rOpt.grow = an.g; rOpt.vis = an.v; rOpt.red = an.r;
+        for (let c = 0; c < 4; c++) rOpt.def[c] = an.def[c].cur;
+        for (let i = 0; i < 16; i++) rOpt.kn[i] = an.kn[i].cur;
+        gl.render(res, rOpt);
         gl.canvas.glVer = ++glVer;
         // (taken up by the drawer as a texture at once, while the shader's picture is there: GPU to GPU; the one shown kept as the old one
         // first. A drawer not ready yet has the field shaded again when it is.)
-        if (pen?.ready) { if (swap) { pen.keepImage('field', 'old'); swap = false; } pen.upload(gl.canvas, 'field', glVer); } else glKey = '';
-        dataSoon(cv, 'renders', String(cv._renders = (cv._renders || 0) + 1));   // (read by the browser checks: a steady field is not redrawn)
+        if (pen?.ready) { if (swap) { pen.keepImage('field', 'old'); swap = false; } pen.upload(gl.canvas, 'field', glVer); } else glId = 0;
+        dataSoon(cv, 'renders', cv._renders = (cv._renders || 0) + 1);   // (read by the browser checks: a steady field is not redrawn)
       }
       img = gl.canvas;
     } else {
       // No WebGL: the CPU renderer draws the target state without transitions.
       const r2 = Math.min(res, 300), gq = Math.round(tg * 14) / 14;
-      const key = [r2, gq, bands, Math.round(tv * 10), Math.round(tr * 8)].join('|');
-      if (cache.key !== key) { if (cache.img) keep(); }
-      if (cache.key !== key) { cache = { key, img: renderEndo(r2, { grow: gq, bands, vis: tv, red: Math.round(tr * 8) / 8 }) }; cache.img.glVer = ++glVer; }
-      img = cache.img;
+      ckNow[0] = r2; ckNow[1] = gq; ckNow[2] = bands; ckNow[3] = Math.round(tv * 10); ckNow[4] = Math.round(tr * 8);
+      let sameCpu = cacheId !== 0;
+      for (let i = 0; i < 5 && sameCpu; i++) if (ckNow[i] !== ckLast[i]) sameCpu = false;
+      if (!sameCpu) {
+        if (cacheImg) keep();
+        cpuOpt.grow = gq; cpuOpt.bands = bands; cpuOpt.vis = tv; cpuOpt.red = Math.round(tr * 8) / 8;
+        cacheImg = renderEndo(r2, cpuOpt); cacheImg.glVer = ++glVer;
+        ckLast.set(ckNow); cacheId = ++glSeq;
+      }
+      img = cacheImg;
     }
     // Nothing on the field changed since the last paint (the same bitmap, size, balloon and theme, no bleeding): it is left
     // as it is. It is asked for on every frame of the model, and a full repaint each time (a scaled bitmap and the rim) held
     // a phone's or a browser without a GPU's main thread for most of every frame.
-    const bleedNow = !!(f.bleed?.active && f.bleed.site === 'VAR'), balloon = !!f.params?.balloonEso, shut = gastricUp(f.params || {}), root = document.documentElement;
+    const bleedNow = !!(f.bleed?.active && f.bleed.site === 'VAR'), balloon = !!f.params?.balloonEso, shut = gastricUp(f.params || NO_PARAMS), root = document.documentElement;
     // (The last bleed seen: its jet and pool keep drawing from it while they fade out after the bleed stops.)
-    if (bleedNow) bleedLast = { rate: f.metrics?.bleeding?.rate, total: f.bleed.total, hr: f.metrics?.vitals?.hr ?? f.metrics?.hr };
+    if (bleedNow) { bleedLast = bleedS; bleedS.rate = f.metrics?.bleeding?.rate; bleedS.total = f.bleed.total; bleedS.hr = f.metrics?.vitals?.hr ?? f.metrics?.hr; }
     // The new field fades in over the old; the balloon and the jet ease in and out (endo-motion.js). (The esophageal balloon, the tube's second
     // step, fills the view; the gastric one, the first, lies below it in the stomach and shows only as the jet easing out.)
     const tu = performance.now(), du = uiT ? Math.min(100, tu - uiT) : 0; uiT = tu;
@@ -242,14 +292,16 @@ export function createEndoscopy({ onAction }) {
     if (fadeA >= 1) fadeT0 = -1;
     shown = img;
     const moving = fadeT0 >= 0 || balA !== +balloon || shutA !== +shut || jetA !== +bleeding;
-    if (moving && !raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
+    if (moving && !raf) raf = drawFrame(redraw);
     if (!moving) uiT = 0;   // (the next ease starts from its first frame, not from the last one painted)
-    const sig = [cvW, cvH, w, hh, onGl ? glKey : cache.key, balloon, shut, root.getAttribute('data-theme'), root.getAttribute('data-palette'), root.className, dark.matches].join('|');
-    if (!bleeding && !moving && sig === painted) return;
-    painted = bleeding || moving ? '' : sig;
+    const fieldId = onGl ? glId : cacheId, theme = root.getAttribute('data-theme'), palette = root.getAttribute('data-palette'), cls = root.className, darkNow = dark.matches;
+    if (!bleeding && !moving && pSig.ok && pSig.cvW === cvW && pSig.cvH === cvH && pSig.w === w && pSig.hh === hh && pSig.id === fieldId && pSig.balloon === balloon && pSig.shut === shut
+      && pSig.theme === theme && pSig.palette === palette && pSig.cls === cls && pSig.dark === darkNow) return;
+    if (bleeding || moving) pSig.ok = false;
+    else { pSig.ok = true; pSig.cvW = cvW; pSig.cvH = cvH; pSig.w = w; pSig.hh = hh; pSig.id = fieldId; pSig.balloon = balloon; pSig.shut = shut; pSig.theme = theme; pSig.palette = palette; pSig.cls = cls; pSig.dark = darkNow; }
     const p = fitPen(cv, pen), ctx = p.ctx, G = ctx.onGPU === true ? ctx.gpu : null;
     try {
-    if (!G) painted = '';   // (no drawer: drawn again when it comes)
+    if (!G) pSig.ok = false;   // (no drawer: drawn again when it comes)
     ctx.clearRect(0, 0, w, hh);
     ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
     if (G) {
@@ -270,7 +322,9 @@ export function createEndoscopy({ onAction }) {
       // lowest part of the lumen (endo-bleed.js). On the model's clock, so a paused bleed holds still.
       // (the tear lies on the column as the field was last drawn)
       const tear = scopeTear(onGl && held ? held[0] / 32 : an.g);
-      drawScopeBleed(ctx, { cx, cy, R, jx: cx + tear.x * R, jy: cy + tear.y * R, t: still.matches ? 0.3 : simTime(), a: jetA, rate: bleedLast.rate, fill: poolA, hr: bleedLast.hr });
+      bleedOpt.cx = cx; bleedOpt.cy = cy; bleedOpt.R = R; bleedOpt.jx = cx + tear.x * R; bleedOpt.jy = cy + tear.y * R; bleedOpt.t = still.matches ? 0.3 : simTime();
+      bleedOpt.a = jetA; bleedOpt.rate = bleedLast.rate; bleedOpt.fill = poolA; bleedOpt.hr = bleedLast.hr;
+      drawScopeBleed(ctx, bleedOpt);
     }
     if (jetA <= 0 && !bleeding) { bleedLast = null; poolA = 0; }
     ctx.restore();
@@ -297,8 +351,8 @@ export function createEndoscopy({ onAction }) {
   // the driver is done), ahead of the first field.
   function shown_(on) {
     away = !on;
-    if (!on) { if (gl) { gl.dispose(); gl = null; glKey = ''; glGone = true; } return; }
-    if (!gl && !noGl) { needGl(); if (gl && last) { raf ||= drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); }); } }
+    if (!on) { if (gl) { gl.dispose(); gl = null; glId = 0; glGone = true; } return; }
+    if (!gl && !noGl) { needGl(); if (gl && last) { raf ||= drawFrame(redraw); } }
   }
   return { id: 'endoscopy', label: 'Endoscopy', el, update, configure, pin, shown: shown_, setView() {}, dispose() { offRun(); cancelFrame(raf); raf = 0; gl?.dispose(); pen?.dispose(); last = null; offSurface(); } };
 }
@@ -311,14 +365,38 @@ const WALL_SEV = { ok: 'Low', caution: 'High', danger: 'Near tear', critical: 'R
 // canvas is drawn and read back). Names are placed by the ink itself, not their line box.
 const inkRows = (font, t) => inkBox(t, font);
 // How far a name's ink at (x, y) keeps from things round it, in px: inside a circle (its edge), outside one, from a box.
-const inkIn = (rows, x, y, ox, oy, r) => Math.min(...rows.map(([t, b, l, rt]) => r - Math.hypot(Math.max(Math.abs(x + l - ox), Math.abs(x + rt - ox)), Math.max(Math.abs(y + t - oy), Math.abs(y + b - oy)))));
-const inkOut = (rows, x, y, ox, oy, r) => Math.min(...rows.map(([t, b, l, rt]) => Math.hypot(Math.max(0, x + l - ox, ox - x - rt), Math.max(0, y + t - oy, oy - y - b)) - r));
-const inkFrom = (rows, x, y, [bl, bt, br, bb]) => Math.min(...rows.map(([t, b, l, rt]) => {
-  const dx = Math.max(bl - (x + rt), x + l - br), dy = Math.max(bt - (y + b), y + t - bb);
-  return dx > 0 && dy > 0 ? Math.hypot(dx, dy) : Math.max(dx, dy);
-}));
+// (Each row is [top, bottom, left, right]; the rows are looked over by index, so a search that tries a name at hundreds of places makes nothing.)
+const inkIn = (rows, x, y, ox, oy, r) => {
+  let m = Infinity;
+  for (let i = 0; i < rows.length; i++) { const q = rows[i]; m = Math.min(m, r - Math.hypot(Math.max(Math.abs(x + q[2] - ox), Math.abs(x + q[3] - ox)), Math.max(Math.abs(y + q[0] - oy), Math.abs(y + q[1] - oy)))); }
+  return m;
+};
+const inkOut = (rows, x, y, ox, oy, r) => {
+  let m = Infinity;
+  for (let i = 0; i < rows.length; i++) { const q = rows[i]; m = Math.min(m, Math.hypot(Math.max(0, x + q[2] - ox, ox - x - q[3]), Math.max(0, y + q[0] - oy, oy - y - q[1])) - r); }
+  return m;
+};
+/** box: [left, top, right, bottom]. */
+const inkFrom = (rows, x, y, box) => {
+  const bl = box[0], bt = box[1], br = box[2], bb = box[3];
+  let m = Infinity;
+  for (let i = 0; i < rows.length; i++) {
+    const q = rows[i], dx = Math.max(bl - (x + q[3]), x + q[2] - br), dy = Math.max(bt - (y + q[1]), y + q[0] - bb);
+    m = Math.min(m, dx > 0 && dy > 0 ? Math.hypot(dx, dy) : Math.max(dx, dy));
+  }
+  return m;
+};
+/** The least / the most of column k (0 top, 1 bottom, 2 left, 3 right) over a name's rows. */
+const colMin = (rows, k) => { let m = Infinity; for (let i = 0; i < rows.length; i++) m = Math.min(m, rows[i][k]); return m; };
+const colMax = (rows, k) => { let m = -Infinity; for (let i = 0; i < rows.length; i++) m = Math.max(m, rows[i][k]); return m; };
+/** The ink box of rows set at (x, y), into out as [left, top, right, bottom]. */
+const inkBoxInto = (out, rows, x, y) => { out[0] = x + colMin(rows, 2); out[1] = y + colMin(rows, 0); out[2] = x + colMax(rows, 3); out[3] = y + colMax(rows, 1); };
+// The picture's names, in the order they are drawn, as the checks read them from data-labels: one text for each set of them drawn (bit i: name i).
+const WALL_NAMES = ['r', 'σ', 'w', 'lumen', 'muscle'];
+const WALL_LABELS = Array.from({ length: 32 }, (_, m) => WALL_NAMES.filter((_n, i) => m & (1 << i)).join(','));
+const DASH_RADIUS = [3, 3], NO_DASH = [];
 export function createVarixWall() {
-  const geo = { k: '', R: 0, cy: 0, off: new Set() };   // (the picture's fitted size and the names left out at it, update below)
+  const geo = { w: NaN, hh: NaN, fs: NaN, wc: NaN, R: 0, cy: 0, off: new Set() };   // (the picture's fitted size, for the size, type size and wall it was fitted to, and the names left out at it, drawWall below)
   const el = h('div', { class: 'dock-pane', 'data-pane': 'varixwall' });
   const box = h('div', { class: 'chart-box square' });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Varix cross-section: transmural pressure stretches the varix wall' });
@@ -358,13 +436,13 @@ export function createVarixWall() {
     wPinT = now;
   }
   // (The card's type size for the picture's labels: read between frames, never in one; a new size draws again.)
-  const readFs = () => { cv._fsAsk = 0; if (!cv.isConnected) return; cv._fsKey = cv._fsWant; const was = cv._fs; cv._fs = parseFloat(getComputedStyle(cv).fontSize) || 12; if (cv._fs !== was && lastF) update(lastF); };
+  const readFs = () => { cv._fsAsk = 0; if (!cv.isConnected) return; cv._fsKw = cv._fsWw; cv._fsKh = cv._fsWh; const was = cv._fs; cv._fs = parseFloat(getComputedStyle(cv).fontSize) || 12; if (cv._fs !== was && lastF) update(lastF); };
   function update(f) {
     lastF = f;
     const v = f.metrics.varix;
     const wr = wallRead(v);   // (the index is worked out from the shown ΔP, r and w, so the tiles multiply out)
     set(ptm.v, wr.ptm); set(rad.v, wr.r); set(wal.v, wr.w); set(idx.v, wr.index);
-    set(stressTxt, v.ratioShown > 1 ? 'above the tear point' : `${Math.round(v.ratioShown * 100)}% of the tear point`);
+    set(stressTxt, v.ratioShown > 1 ? 'above the tear point' : tearTxt(Math.round(v.ratioShown * 100)));
     const sev = v.ratioShown > 1 ? 'critical' : v.ratioShown > 0.7 ? 'danger' : v.ratioShown > 0.4 ? 'caution' : 'ok';
     dataSoon(stressBar, 'sev', sev);
     // (The stress swings with each beat and each breath: the number is its mean over the last several breaths, a plain
@@ -375,51 +453,71 @@ export function createVarixWall() {
     // (On a slide the figure is the slide's own, the state its tiles show (pin), so every screen reads the same number.)
     if (Number.isFinite(wPin)) wMean = wPin;
     const ms = wMean > 1 ? 'critical' : wMean > 0.7 ? 'danger' : wMean > 0.4 ? 'caution' : 'ok';
-    set(wPct, String(Math.round(wMean * 100))); set(wSev, WALL_SEV[ms]);
+    set(wPct, intTxt(Math.round(wMean * 100))); set(wSev, WALL_SEV[ms]);
     dataSoon(wSev, 'sev', ms); dataSoon(wBig, 'sev', ms);
-    const wPctW = `${Math.round(clamp(v.ratioShown, 0, 1) * 1000) / 10 - 100}% 0px`;   // (slid in from the left inside its track: app.css .endo-bar i)
+    const wPctW = slideTxt(Math.round(clamp(v.ratioShown, 0, 1) * 1000));   // (slid in from the left inside its track: app.css .endo-bar i)
     if (stressFill.style.translate !== wPctW) stressFill.style.translate = wPctW;
     const pen = fitPen(cv, wallGL), ctx = pen.ctx;
     try { drawWall(ctx, pen.w, pen.h, v, f); } finally { ctx.end?.(); }
   }
+  // drawWall's parts are made once and read this draw's values from W; its answers are written into kept objects (a draw makes none).
+  const W = { v: null, fs: 12, cx: 0, hh: 0, fsInk: NaN, f6: '', f5: '', inkT: null, inkR: null, inkW: null, inkL: null, inkM: null };
+  const PP = { Rl: 0, rr: 0, vy: 0, lw: 0, ro: 0, len: 0, tx: 0, ty: 0, top: 0 };
+  const boxDash = [0, 0, 0, 0], boxW = [0, 0, 0, 0], boxBrk = [0, 0, 0, 0];
+  const gR = { fill: 0, dash: 0 }, gSig = { ring: 0, top: 0 }, gW = {}, gLumen = { edge: 0, w: 0, arrows: 0 }, gMuscle = { outer: 0, band: 0 }, gPic = { R: 0, cy: 0, h: 0 };
+  const gaps = { r: undefined, 'σ': undefined, w: undefined, lumen: undefined, muscle: undefined, picture: gPic };   // (what the checks read as cv.wallGaps: a name not drawn is undefined)
+  // The varix and its marks for a picture of radius R round (cx, cy), at this beat's radius, wall and ΔP, into PP.
+  // (most: the largest varix and ΔP the picture can show, which set its size, so the ring holds still through every beat)
+  const parts = (R, cy, most) => {
+    const { v, fs, cx, inkT } = W;
+    const Rl = R * 0.52, rr = most ? R * 0.3 : clamp(v.r * R * 0.05, 4, R * 0.3), vy = cy - Rl - rr * 0.25, lw = clamp((most ? Math.ceil(v.w * 10) / 10 : v.w) * R / 20, 1, 10);
+    const ro = rr + lw / 2 + Math.max(5, R / 30), len = (most ? 30 : clamp(v.ptm, 0, 30)) / 30 * rr * 0.9 + 4;
+    // σ beside the ΔP arrow's shaft, just right of its head; where it would sit on the wall's outline it rises until its
+    // ink is 2 px or more clear of the line's soft edge (it follows the varix through the beat, so it never touches it).
+    const tx = cx + (4 + R / 60) * 0.45 + 2 - colMin(inkT, 2);
+    let ty = vy - ro - fs * 0.75;
+    if (inkIn(inkT, tx, ty, cx, cy, R - 1) < 2) for (let k = 0; k < 400 && inkOut(inkT, tx, ty, cx, cy, R + 1) < 2; k++) ty -= 0.25;
+    const tTop = ty + colMin(inkT, 0);
+    PP.Rl = Rl; PP.rr = rr; PP.vy = vy; PP.lw = lw; PP.ro = ro; PP.len = len; PP.tx = tx; PP.ty = ty;
+    PP.top = Math.min(vy - Math.max(rr + lw / 2, ro + 2.5, rr + 3 + len + 1), tTop);
+    return PP;
+  };
+  const atR = (R) => { const c0 = W.hh - 6 - R; return Math.min(W.hh - 1 - R, c0 + Math.max(0, 1 - parts(R, c0, true).top)); };
+  const okR = (R) => parts(R, atR(R), true).top >= 1;
+  // (A name that once misses at this size stays out until the size changes: r and the w label move with the beat, and a name
+  // blinking in and out with it would read as a glitch.)
+  const keepName = (t, ok) => { if (!ok) geo.off.add(t); return !geo.off.has(t); };
   function drawWall(ctx, w, hh, v, f) {
     if (w < 32 || hh < 32) return;
     ctx.clearRect(0, 0, w, hh);
     // (On a slide the labels take the card's small size, so they never fall under 12 px; 12 px is the floor in the Tests card too.)
     // (The card's type size is read between frames, rest-pass.js, when the picture's size changes; drawn meanwhile at the last one read.)
-    const onCard = !!cv.closest('.pz-tool'), fk = `${w}x${hh}`;
-    if (onCard && cv._fsKey !== fk && !cv._fsAsk) { cv._fsWant = fk; cv._fsAsk = restPass(readFs); }
+    const onCard = !!cv.closest('.pz-tool');
+    if (onCard && (cv._fsKw !== w || cv._fsKh !== hh) && !cv._fsAsk) { cv._fsWw = w; cv._fsWh = hh; cv._fsAsk = restPass(readFs); }
     const fs = onCard ? cv._fs || 12 : clamp((Math.min(w, hh) / 2 - 6) / 11, 12, 14);
-    const f6 = FONT(600, fs), f5 = FONT(500, fs), inkT = inkRows(f6, 'σ');
+    // (The names' type and their ink are looked up when the type size changes.)
+    if (W.fsInk !== fs) {
+      W.fsInk = fs;
+      // alloc-rare: only when the type size changes (a resize, or the card's size read)
+      W.f6 = FONT(600, fs); W.f5 = FONT(500, fs);
+      W.inkT = inkRows(W.f6, 'σ'); W.inkR = inkRows(W.f6, 'r'); W.inkW = inkRows(W.f6, 'w'); W.inkL = inkRows(W.f5, 'lumen'); W.inkM = inkRows(W.f5, 'muscle');
+    }
+    const { f6, f5, inkT, inkR, inkW, inkL, inkM } = W;
     const cx = w / 2;
-    // The varix and its marks for a picture of radius R round (cx, cy), at this beat's radius, wall and ΔP.
-    // (most: the largest varix and ΔP the picture can show, which set its size, so the ring holds still through every beat)
-    const parts = (R, cy, most) => {
-      const Rl = R * 0.52, rr = most ? R * 0.3 : clamp(v.r * R * 0.05, 4, R * 0.3), vy = cy - Rl - rr * 0.25, lw = clamp((most ? Math.ceil(v.w * 10) / 10 : v.w) * R / 20, 1, 10);
-      const ro = rr + lw / 2 + Math.max(5, R / 30), len = (most ? 30 : clamp(v.ptm, 0, 30)) / 30 * rr * 0.9 + 4;
-      // σ beside the ΔP arrow's shaft, just right of its head; where it would sit on the wall's outline it rises until its
-      // ink is 2 px or more clear of the line's soft edge (it follows the varix through the beat, so it never touches it).
-      const tx = cx + (4 + R / 60) * 0.45 + 2 - Math.min(...inkT.map((q) => q[2]));
-      let ty = vy - ro - fs * 0.75;
-      if (inkIn(inkT, tx, ty, cx, cy, R - 1) < 2) for (let k = 0; k < 400 && inkOut(inkT, tx, ty, cx, cy, R + 1) < 2; k++) ty -= 0.25;
-      const tTop = ty + Math.min(...inkT.map((q) => q[0]));
-      return { Rl, rr, vy, lw, ro, len, tx, ty, top: Math.min(vy - Math.max(rr + lw / 2, ro + 2.5, rr + 3 + len + 1), tTop) };
-    };
+    W.v = v; W.fs = fs; W.cx = cx; W.hh = hh;
     // The wall stress's σ and the ΔP arrow rise above the varix at the top of the wall: the picture, its foot 6 px above the box's
     // foot (or lower, into those 6 px, where that is all it needs), is the largest whose σ and arrow ink at the largest varix
     // and ΔP stays 1 px or more inside the canvas (a 12 px T, the symbol before σ, had its crossbar cut). The ring is set once for the box, and only
     // the varix and its marks move with the beat.
-    const gk = `${w}x${hh}x${fs}x${Math.ceil(v.w * 10)}`;
-    if (geo.k !== gk) {
-      const at = (R) => { const c0 = hh - 6 - R; return Math.min(hh - 1 - R, c0 + Math.max(0, 1 - parts(R, c0, true).top)); };
-      const ok = (R) => parts(R, at(R), true).top >= 1;
+    const wc = Math.ceil(v.w * 10);
+    if (geo.w !== w || geo.hh !== hh || geo.fs !== fs || geo.wc !== wc) {
       let lo = 20, hi = Math.min(w, hh) / 2 - 6;
-      if (ok(hi)) lo = hi; else for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (ok(m)) lo = m; else hi = m; }
-      if (geo.k.split('x').slice(0, 3).join('x') !== gk.split('x').slice(0, 3).join('x')) geo.off.clear();
-      Object.assign(geo, { k: gk, R: lo, cy: at(lo) });
+      if (okR(hi)) lo = hi; else for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (okR(m)) lo = m; else hi = m; }
+      if (geo.w !== w || geo.hh !== hh || geo.fs !== fs) geo.off.clear();
+      geo.w = w; geo.hh = hh; geo.fs = fs; geo.wc = wc; geo.R = lo; geo.cy = atR(lo);
     }
     const { R, cy } = geo;
-    const { Rl, rr, vy, lw, ro, len, tx, ty } = parts(R, cy);
+    const { Rl, rr, vy, lw, ro, len, tx, ty } = parts(R, cy, false);
     // The wall: muscle outside, mucosa inside, the lumen in the middle.
     ctx.fillStyle = cssVar('--organ-stomach'); ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill();
     ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.arc(cx, cy, R * 0.74, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
@@ -439,67 +537,66 @@ export function createVarixWall() {
     ctx.fillStyle = pressureColor(f.P[NI.VAR]); ctx.beginPath(); ctx.arc(cx, vy, rr, 0, 7); ctx.fill();
     ctx.strokeStyle = rim; ctx.lineWidth = lw; ctx.stroke();
     // The radius, drawn across the varix.
-    ctx.strokeStyle = cssAlpha('--white', 0.85); ctx.lineWidth = 1.25; ctx.setLineDash([3, 3]);
-    ctx.beginPath(); ctx.moveTo(cx, vy); ctx.lineTo(cx + rr, vy); ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = cssAlpha('--white', 0.85); ctx.lineWidth = 1.25; ctx.setLineDash(DASH_RADIUS);
+    ctx.beginPath(); ctx.moveTo(cx, vy); ctx.lineTo(cx + rr, vy); ctx.stroke(); ctx.setLineDash(NO_DASH);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    // (A name that once misses at this size stays out until the size changes: r and the w label move with the beat, and a name
-    // blinking in and out with it would read as a glitch.)
-    const keep = (t, ok) => { if (!ok) geo.off.add(t); return !geo.off.has(t); };
-    const drawn = [], gaps = {};
-    const put = (t, font, x, y, g) => { ctx.font = font; ctx.fillText(t, x, y); drawn.push(t); gaps[t] = g; };
+    gaps.r = gaps['σ'] = gaps.w = gaps.lumen = gaps.muscle = undefined;
+    let drawn = 0;   // (bit i: WALL_NAMES[i] is drawn)
     // "r" just under the dashed radius, its ink 2 px or more clear of the dashes and 1 px or more inside the varix's fill;
     // on a small varix it moves in toward the centre, still under the dashes.
-    const inkR = inkRows(f6, 'r'), rTop = Math.min(...inkR.map((q) => q[0])), rL = Math.min(...inkR.map((q) => q[2]));
-    const ry = vy + 3.4 - rTop, dash = [cx, vy - 1.1, cx + rr, vy + 1.1];   // (the dashes' soft edge included)
-    const rAt = (x) => ({ x, fill: inkIn(inkR, x, ry, cx, vy, rr - lw / 2 - 0.5), dash: inkFrom(inkR, x, ry, dash) });
-    let rp = rAt(cx + rr / 2);
-    if (rp.fill < 2) { const q = rAt(cx + 1.5 - rL); if (q.fill > rp.fill) rp = q; }
+    const rTop = colMin(inkR, 0), rL = colMin(inkR, 2);
+    const ry = vy + 3.4 - rTop;
+    boxDash[0] = cx; boxDash[1] = vy - 1.1; boxDash[2] = cx + rr; boxDash[3] = vy + 1.1;   // (the dashes' soft edge included)
+    let rx = cx + rr / 2, rFill = inkIn(inkR, rx, ry, cx, vy, rr - lw / 2 - 0.5), rDash = inkFrom(inkR, rx, ry, boxDash);
+    if (rFill < 2) {
+      const qx = cx + 1.5 - rL, qFill = inkIn(inkR, qx, ry, cx, vy, rr - lw / 2 - 0.5);
+      if (qFill > rFill) { rx = qx; rFill = qFill; rDash = inkFrom(inkR, qx, ry, boxDash); }
+    }
     ctx.fillStyle = cssVar('--white');
-    if (keep('r', rp.fill >= 1 && rp.dash >= 2)) put('r', f6, rp.x, ry, { fill: rp.fill, dash: rp.dash });
+    if (keepName('r', rFill >= 1 && rDash >= 2)) { ctx.font = f6; ctx.fillText('r', rx, ry); drawn |= 1; gR.fill = rFill; gR.dash = rDash; gaps.r = gR; }
     // Laplace's other two terms on the picture: the wall stress σ along the wall (two arrows pulling apart round the top,
     // heavier as the stress rises) and the wall thickness w across the rim (a bracket, in the faded label ink).
     const ink = cssVar('--text-3');
     ctx.strokeStyle = rim; ctx.fillStyle = rim; ctx.lineWidth = clamp(1.25 + 2.5 * clamp(v.ratio, 0, 1.2), 1.25, 4);
-    for (const s of [-1, 1]) {
+    for (let si = 0; si < 2; si++) {
+      const s = si === 0 ? -1 : 1;
       const a0 = -Math.PI / 2 + s * 0.22, a1 = -Math.PI / 2 + s * 1.05;
       ctx.beginPath(); ctx.arc(cx, vy, ro, Math.min(a0, a1), Math.max(a0, a1)); ctx.stroke();
-      const ex = cx + Math.cos(a1) * ro, ey = vy + Math.sin(a1) * ro, tx = -Math.sin(a1) * s, ty = Math.cos(a1) * s, hd = 5 + R / 50;
-      ctx.beginPath(); ctx.moveTo(ex + tx * hd * 0.2, ey + ty * hd * 0.2);
-      ctx.lineTo(ex - tx * hd + ty * hd * 0.55, ey - ty * hd - tx * hd * 0.55); ctx.lineTo(ex - tx * hd - ty * hd * 0.55, ey - ty * hd + tx * hd * 0.55); ctx.fill();
+      const ex = cx + Math.cos(a1) * ro, ey = vy + Math.sin(a1) * ro, ux = -Math.sin(a1) * s, uy = Math.cos(a1) * s, hd = 5 + R / 50;
+      ctx.beginPath(); ctx.moveTo(ex + ux * hd * 0.2, ey + uy * hd * 0.2);
+      ctx.lineTo(ex - ux * hd + uy * hd * 0.55, ey - uy * hd - ux * hd * 0.55); ctx.lineTo(ex - ux * hd - uy * hd * 0.55, ey - uy * hd + ux * hd * 0.55); ctx.fill();
     }
-    put('σ', f6, tx, ty, { ring: Math.max(inkIn(inkT, tx, ty, cx, cy, R - 0.5), inkOut(inkT, tx, ty, cx, cy, R + 0.5)), top: ty + Math.min(...inkT.map((q) => q[0])) });
+    ctx.font = f6; ctx.fillText('σ', tx, ty); drawn |= 2;
+    gSig.ring = Math.max(inkIn(inkT, tx, ty, cx, cy, R - 0.5), inkOut(inkT, tx, ty, cx, cy, R + 0.5)); gSig.top = ty + colMin(inkT, 0); gaps['σ'] = gSig;
     const aw = Math.PI * 0.62, bx = Math.cos(aw), by = Math.sin(aw);
     const i0 = rr - lw / 2, o0 = rr + lw / 2 + 3;
     ctx.strokeStyle = ink; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(cx + bx * i0, vy + by * i0); ctx.lineTo(cx + bx * (o0 + 6), vy + by * (o0 + 6)); ctx.stroke();
-    for (const d of [i0, rr + lw / 2]) { ctx.beginPath(); ctx.moveTo(cx + bx * d - by * 3, vy + by * d + bx * 3); ctx.lineTo(cx + bx * d + by * 3, vy + by * d - bx * 3); ctx.stroke(); }
-    const wx = cx + bx * (o0 + 6 + fs * 0.6), wy = vy + by * (o0 + 6 + fs * 0.6), inkW = inkRows(f6, 'w');
-    ctx.fillStyle = ink; put('w', f6, wx, wy, {});
+    for (let di = 0; di < 2; di++) { const d = di === 0 ? i0 : rr + lw / 2; ctx.beginPath(); ctx.moveTo(cx + bx * d - by * 3, vy + by * d + bx * 3); ctx.lineTo(cx + bx * d + by * 3, vy + by * d - bx * 3); ctx.stroke(); }
+    const wx = cx + bx * (o0 + 6 + fs * 0.6), wy = vy + by * (o0 + 6 + fs * 0.6);
+    ctx.fillStyle = ink; ctx.font = f6; ctx.fillText('w', wx, wy); drawn |= 4; gaps.w = gW;
     // "lumen" as high in the lumen as its ink keeps 1 px inside the lumen's edge and 2 px clear of the w label, its bracket
     // and the ΔP arrows; "muscle" where its ink keeps the most room inside the muscle ring, 1 px or more on each side.
     // A name is drawn only where its ink fits, never across a ring's edge.
     ctx.fillStyle = cssVar('--text-3');
-    const box = (rows, x, y) => [x + Math.min(...rows.map((q) => q[2])), y + Math.min(...rows.map((q) => q[0])), x + Math.max(...rows.map((q) => q[3])), y + Math.max(...rows.map((q) => q[1]))];
-    const wBox = box(inkW, wx, wy), brk = [cx + bx * (o0 + 6) - 3.5, vy + by * i0 - 3.5, cx + bx * i0 + 3.5, vy + by * (o0 + 6) + 3.5];
-    const inkL = inkRows(f5, 'lumen');
-    let lp = null;
+    inkBoxInto(boxW, inkW, wx, wy);
+    boxBrk[0] = cx + bx * (o0 + 6) - 3.5; boxBrk[1] = vy + by * i0 - 3.5; boxBrk[2] = cx + bx * i0 + 3.5; boxBrk[3] = vy + by * (o0 + 6) + 3.5;
+    let lumenY = 0, lumenFound = false;
     for (let y = cy + Rl * 0.35; y < cy + Rl; y += 0.25) {
-      const g = { edge: inkIn(inkL, cx, y, cx, cy, Rl - 0.35), w: Math.min(inkFrom(inkL, cx, y, wBox), inkFrom(inkL, cx, y, brk)), arrows: inkOut(inkL, cx, y, cx, vy, rr + 3 + len + 1) };
-      if (g.edge < 1) break;
-      if (g.w >= 2.5 && g.arrows >= 2) { lp = { y, g }; break; }   // (2.5: both names' soft edges)
+      const edge = inkIn(inkL, cx, y, cx, cy, Rl - 0.35), gw = Math.min(inkFrom(inkL, cx, y, boxW), inkFrom(inkL, cx, y, boxBrk)), arrows = inkOut(inkL, cx, y, cx, vy, rr + 3 + len + 1);
+      if (edge < 1) break;
+      if (gw >= 2.5 && arrows >= 2) { lumenFound = true; lumenY = y; gLumen.edge = edge; gLumen.w = gw; gLumen.arrows = arrows; break; }   // (2.5: both names' soft edges)
     }
-    if (keep('lumen', !!lp)) put('lumen', f5, cx, lp.y, lp.g);
-    const inkM = inkRows(f5, 'muscle');
-    let mp = null;
+    if (keepName('lumen', lumenFound)) { ctx.font = f5; ctx.fillText('lumen', cx, lumenY); drawn |= 8; gaps.lumen = gLumen; }
+    let muscleY = 0, muscleOuter = 0, muscleBand = 0, muscleFound = false;
     for (let y = cy + R * 0.74; y < cy + R; y += 0.25) {
-      const g = { outer: inkIn(inkM, cx, y, cx, cy, R - 0.5), band: inkOut(inkM, cx, y, cx, cy, R * 0.74) };
-      if (!mp || Math.min(g.outer, g.band) > Math.min(mp.g.outer, mp.g.band)) mp = { y, g };
+      const outer = inkIn(inkM, cx, y, cx, cy, R - 0.5), band = inkOut(inkM, cx, y, cx, cy, R * 0.74);
+      if (!muscleFound || Math.min(outer, band) > Math.min(muscleOuter, muscleBand)) { muscleFound = true; muscleY = y; muscleOuter = outer; muscleBand = band; }
     }
-    if (keep('muscle', Math.min(mp.g.outer, mp.g.band) >= 1)) put('muscle', f5, cx, mp.y, mp.g);
+    if (keepName('muscle', muscleFound && Math.min(muscleOuter, muscleBand) >= 1)) { ctx.font = f5; ctx.fillText('muscle', cx, muscleY); drawn |= 16; gMuscle.outer = muscleOuter; gMuscle.band = muscleBand; gaps.muscle = gMuscle; }
     // (What the picture shows, for the checks: the names drawn and how far each keeps from its neighbours.)
-    const lab = drawn.join(',');
-    dataSoon(cv, 'labels', lab);
-    gaps.picture = { R, cy, h: hh };
+    dataSoon(cv, 'labels', WALL_LABELS[drawn]);
+    gPic.R = R; gPic.cy = cy; gPic.h = hh;
     cv.wallGaps = gaps;
   }
   return { id: 'varixwall', label: 'Varix wall', el, update, pin };
@@ -521,6 +618,9 @@ const GRADE_TIP = ['No free fluid', 'Grade 1: seen on ultrasound only', 'Grade 2
 const IAP_MAX = 30, IAP_BANDS = [[0, 12, 'ok'], [12, 20, 'caution'], [20, 30, 'danger']];
 const iapSev = (v) => (v >= 20 ? 'danger' : v >= 12 ? 'caution' : 'ok');
 const IAP_WORD = { ok: 'Normal', caution: 'High', danger: 'Very high' };
+const IAP_SAY = ['· normal', '· high', '· compartment syndrome'];   // (the words beside the abdominal pressure's number, by band: below 12, to 20, from 20)
+const iapAria = intCache((n) => `Intra-abdominal pressure ${n} mmHg, ${IAP_WORD[iapSev(Math.min(n, IAP_MAX))].toLowerCase()}`);   // alloc-rare: the first time that whole mmHg is set
+const r1 = (x) => Math.round(x * 10) / 10;
 // (On the GPU, 2 Nov 2026, "Move everything to GPU": the dial is a model (svg-gl svgModel, never SVG the page paints) drawn by createSvgGL
 // in the charts' shared context; its knob eases round on the frame clock, its number and word are the model's words.)
 function iapDial() {
@@ -557,6 +657,7 @@ function iapDial() {
   // down to make room, and the word under them is left out when it no longer fits inside the half circle (the number's
   // colour and the arc still say how high it is; the dial's label reads the word). The dial's width comes from its observer.
   let fitK = 0, boxW = 0;
+  const fitOpt = { weight: 650, size: 9 };   // (textWidth's options for the word: the size written in place)
   const fit = () => {
     const w = boxW;
     if (!w) return;
@@ -579,7 +680,8 @@ function iapDial() {
   const fitWord = () => {
     const fw = parseFloat(word.style.fontSize) || 9, y = parseFloat(word.getAttribute('y')) || 92, top = y - 0.72 * fw;
     const dy = Math.max(Math.abs(y - C), Math.abs(top - C)), half = Math.sqrt(Math.max(0, (R - 4) ** 2 - dy * dy));
-    const tw = textWidth(wordsOf(word), { weight: 650, size: fw });
+    fitOpt.size = fw;
+    const tw = textWidth(wordsOf(word), fitOpt);
     word.style.display = tw > 0 && (tw / 2 > C - TX + 0 || TX - tw / 2 < C - half) ? 'none' : '';
     gl.paint();
   };
@@ -587,7 +689,8 @@ function iapDial() {
   // The knob's turn, eased on the frame clock as the page's transition was (D_SURFACE on the arrive curve); reduced motion: at once.
   let ang = 90, turn = null, turnAsk = 0;
   const KNOB_STILL = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
-  const knobAt = (a) => setGeo(knob, 'transform', `rotate(${a.toFixed(2)} ${C} ${C})`);
+  const rotTxt = [];   // (the knob's turn by hundredths of a degree, made the first time that angle is drawn and kept)
+  const knobAt = (a) => { const k = Math.round(a * 100); setGeo(knob, 'transform', rotTxt[k] ?? (rotTxt[k] = `rotate(${(k / 100).toFixed(2)} ${C} ${C})`)); };   // alloc-rare: only the first time that angle is drawn
   knobAt(ang);
   function knobStep() {
     turnAsk = 0;
@@ -595,20 +698,23 @@ function iapDial() {
     const u = clamp((easeNow() - turn.t0) / D_SURFACE, 0, 1);
     ang = turn.from + (turn.to - turn.from) * easeArrive(u);
     knobAt(ang); gl.paint();
-    if (u < 1) turnAsk = lateFrameFor('instruments')(knobStep); else turn = null;
+    if (u < 1) turnAsk = drawFrame(knobStep); else turn = null;
   }
   let last = null;
+  const turnS = { from: 0, to: 0, t0: 0 };   // (the knob's turn under way: `turn` is this, written in place, or null)
+  const dashText = live.map(() => []);   // (each band's dash by the pressure in whole mmHg: made the first time it is set and kept)
+  const dashOf = (i, v) => dashText[i][v] ?? (dashText[i][v] = `${(clamp((v - live[i][0]) / (live[i][1] - live[i][0]), 0, 1) * 100).toFixed(1)} 100`);   // alloc-rare: only the first time that pressure is set
   function set(iap) {
     const n = Math.max(0, Math.round(iap) || 0), v = Math.min(n, IAP_MAX);   // (whole mmHg, as the number reads, so the word and the arc agree with it)
     if (n === last) return;
     last = n;
     const sev = iapSev(v);
-    setWords(num, String(n)); setWords(word, IAP_WORD[sev]);
+    setWords(num, intTxt(n)); setWords(word, IAP_WORD[sev]);
     dataSoon(svg, 'sev', sev);
-    for (const [a, b, lp] of live) setGeo(lp, 'stroke-dasharray', `${(clamp((v - a) / (b - a), 0, 1) * 100).toFixed(1)} 100`);
+    for (let i = 0; i < live.length; i++) setGeo(live[i][2], 'stroke-dasharray', dashOf(i, v));
     const to = 90 + (v / IAP_MAX) * 180;
-    if (KNOB_STILL.matches) { turn = null; ang = to; knobAt(ang); } else { turn = { from: ang, to, t0: easeNow() }; if (!turnAsk) turnAsk = lateFrameFor('instruments')(knobStep); }
-    attrSoon(el, 'aria-label', `Intra-abdominal pressure ${n} mmHg, ${IAP_WORD[sev].toLowerCase()}`);
+    if (KNOB_STILL.matches) { turn = null; ang = to; knobAt(ang); } else { turn = turnS; turnS.from = ang; turnS.to = to; turnS.t0 = easeNow(); if (!turnAsk) turnAsk = drawFrame(knobStep); }
+    attrSoon(el, 'aria-label', iapAria(n));
     if (fitK) fitWord(); else gl.paint();
   }
   el.setAttribute('role', 'img');
@@ -655,11 +761,12 @@ export function createAbdomen({ onAction }) {
     paintStep(volOut, L, 1, 'L');
     propSoon(volMinus, 'disabled', L <= 1); propSoon(volPlus, 'disabled', L >= 10);
     // (Optional / Advised / grams crossfade into each other; the grams count on as the litres change.)
+    // alloc-rare: paintVol runs only when the litres, the albumin switch or whether there is fluid to drain changes (a tap, or update's hasFluid flip), never per frame
     const albTxt = albOn() ? `${Math.round(L * 8)} g` : warn ? 'Advised' : 'Optional', albKind = albTxt.replace(/\d+/, '#');
     if (albS._kind !== albKind) { albS._kind = albKind; swapText(albS, albTxt); } else putText(albS, albTxt);
     classSoon(albS, 'ab-warn', warn);
     classSoon(alb, 'ab-warn', warn);
-    alb.title = warn ? `For >5 L, give albumin (${Math.round(L * 8)} g, 8 g per liter drained) to protect the kidneys.` : 'Albumin 8 g per liter drained: advised for >5 L, optional for ≤5 L.';
+    alb.title = warn ? `For >5 L, give albumin (${Math.round(L * 8)} g, 8 g per liter drained) to protect the kidneys.` : 'Albumin 8 g per liter drained: advised for >5 L, optional for ≤5 L.';   // alloc-rare: the same, paintVol runs only on a change
     swapText(drain, hasFluid ? 'Drain' : 'No fluid');
     propSoon(drain, 'disabled', !hasFluid);
   }
@@ -680,10 +787,10 @@ export function createAbdomen({ onAction }) {
   const rateArrow = h('i', { class: 'ab-rate-a', 'aria-hidden': 'true' }), rateTxt = h('span');
   const rateEl = h('span', { class: 'ab-rate', 'data-dir': 'steady' }, rateArrow, rateTxt);
   const rateHold = balanceHold(), showRate = balanceLine(rateEl, rateArrow, rateTxt);
-  const rateLabel = (b) => (b === 0 ? ['steady', '', 'Steady'] : b > 0 ? ['up', '▲', `${fmt(b, 0)} mL/day`] : ['down', '▼', `${fmt(-b, 0)} mL/day`]);
+  const rateLabel = (b) => (b === 0 ? ['steady', '', 'Steady'] : b > 0 ? ['up', '▲', `${fmt(b, 0)} mL/day`] : ['down', '▼', `${fmt(-b, 0)} mL/day`]);   // alloc-rare: called only when the held balance changes (below)
   function paintRate(raw) {
     const b = rateHold.step(raw, performance.now());
-    if (b != null) showRate(...rateLabel(b));
+    if (b != null) showRate(...rateLabel(b));   // alloc-rare: balanceHold gives a value only when the shown hundred changes, at most once every 1.5 s
   }
   const belly = h('div', { class: 'ab-belly' }, bellyFill, h('div', { class: 'ab-big' }, bigEl, gradeEl, rateEl));
   const gauge = h('div', { class: 'ab-gauge' }, belly);
@@ -717,6 +824,8 @@ export function createAbdomen({ onAction }) {
   // rewriting a text node or an attribute to the same value is enough to make the browser stop a scroll in flight.
   // (Its numbers and words change with the model: drawn on the GPU while they change, gl-words.js.)
   const setText = wordSetter([numEl, gradeEl, trendEl, iapNum, iapWord, saagV, tpV, albV, why]);
+  // (Words built from the numbers: kept with the numbers they were built from, and rebuilt only when one differs.)
+  const cTrend = { k: undefined, up: false, w: '', s: '' }, cIap = numCell(), cIapAria = numCell(), cTip = { a: undefined, b: undefined, s: '' };
   const setAttr = attrSoon;
   const setData = dataSoon;
   function update(f) {
@@ -724,29 +833,43 @@ export function createAbdomen({ onAction }) {
     setText(numEl, fmt(a.volume / 1000, 1));
     setText(gradeEl, GRADE[a.grade] || a.label); setAttr(gradeEl, 'title', GRADE_TIP[a.grade] || '');
     setData(gradeEl, 'sev', SEV[a.grade] || 'danger'); setData(bigEl, 'sev', SEV[a.grade] || 'danger');
-    setAttr(diu, 'aria-checked', String(!!p.diuretics));
+    setAttr(diu, 'aria-checked', !!p.diuretics);
     if (sa.get() !== p.albumin) sa.set(p.albumin);
     const r = a.ratePerDay, trend = Math.abs(r) < 20 ? 'steady' : r > 0 ? 'building up' : 'resolving';
     paintRate(r);
-    setText(trendEl, `${r > 0 ? '+' : ''}${fmt(r, 0)} mL a day · ${trend}`);
+    const rk = Number.isFinite(r) ? Math.round(r) : r;
+    if (!Object.is(cTrend.k, rk) || cTrend.up !== r > 0 || cTrend.w !== trend) {
+      cTrend.k = rk; cTrend.up = r > 0; cTrend.w = trend;
+      cTrend.s = `${r > 0 ? '+' : ''}${fmt(rk, 0)} mL a day · ${trend}`;   // alloc-rare: only when the rounded rate, its sign or its word changes
+    }
+    setText(trendEl, cTrend.s);
     const sev = iapSev(a.iap);
     dial.set(a.iap);
-    setText(iapNum, `${fmt(a.iap, 0)} mmHg`);
-    setText(iapWord, `· ${a.iap >= 20 ? 'compartment syndrome' : a.iap >= 12 ? 'high' : 'normal'}`);
+    setText(iapNum, shownNum(cIap, a.iap, 0, ' mmHg'));
+    setText(iapWord, IAP_SAY[a.iap >= 20 ? 2 : a.iap >= 12 ? 1 : 0]);
     setData(iapWord, 'sev', sev); setData(iapFill, 'sev', sev);
-    const iw = `${Math.round(clamp(a.iap / 30, 0, 1) * 1000) / 10 - 100}% 0px`;   // (slid in from the left inside its track: app.css .ab-iap-fill)
+    const iw = slideTxt(Math.round(clamp(a.iap / 30, 0, 1) * 1000));   // (slid in from the left inside its track: app.css .ab-iap-fill)
     if (iapFill.style.translate !== iw) iapFill.style.translate = iw;
-    setAttr(iapBar, 'aria-label', `Abdominal pressure ${fmt(a.iap, 0)} mmHg`);
+    setAttr(iapBar, 'aria-label', shownNum(cIapAria, a.iap, 0, ' mmHg', 'Abdominal pressure '));
     // SAAG from the rounded parts, so serum − ascitic always adds up on screen.
     const tapped = a.volume > 150;
-    const r1 = (x) => Math.round(x * 10) / 10, saag = r1(r1(p.albumin) - r1(a.albumin));
+    const saag = r1(r1(p.albumin) - r1(a.albumin));
     setText(saagV, tapped ? fmt(saag, 1) : '—'); setText(tpV, tapped ? fmt(a.totalProtein, 1) : '—'); setText(albV, tapped ? fmt(a.albumin, 1) : '—');
-    setAttr(saagEl, 'title', tapped ? `SAAG ${fmt(p.albumin, 1)} − ${fmt(a.albumin, 1)} = ${fmt(saag, 1)} g/dL. ≥ 1.1 means portal hypertension.` : null);
+    let tip = null;
+    if (tapped) {
+      const ka = r1(p.albumin), kb = r1(a.albumin);   // (the two parts as the line prints them, to a tenth)
+      if (!Object.is(cTip.a, ka) || !Object.is(cTip.b, kb)) {
+        cTip.a = ka; cTip.b = kb;
+        cTip.s = `SAAG ${fmt(ka, 1)} − ${fmt(kb, 1)} = ${fmt(saag, 1)} g/dL. ≥ 1.1 means portal hypertension.`;   // alloc-rare: only when either albumin, to a tenth, changes
+      }
+      tip = cTip.s;
+    }
+    setAttr(saagEl, 'title', tip);
     setText(why, a.volume < 1 ? 'No fluid to tap' : 'Too little fluid to tap');
     setAttr(tiles, 'data-empty', tapped ? null : '');
     if (hasFluid !== a.volume > 150) { hasFluid = a.volume > 150; paintVol(); }
     // Whole percents only: rewriting the height every frame would keep restarting its ease.
-    const bh = `0px ${100 - Math.round(a.volume > 150 ? 15 + clamp(a.volume / 8000, 0, 1) * 70 : 0)}%`;   // (risen by sliding up inside the belly: app.css .ab-belly-fill)
+    const bh = riseTxt(Math.round(a.volume > 150 ? 15 + clamp(a.volume / 8000, 0, 1) * 70 : 0));   // (risen by sliding up inside the belly: app.css .ab-belly-fill)
     if (bellyFill.style.translate !== bh) bellyFill.style.translate = bh;
   }
   return { id: 'abdomen', label: 'Ascites & paracentesis', el, update };

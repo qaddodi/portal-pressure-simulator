@@ -199,5 +199,5 @@ test('no glyph atlas is sent and no program published inside the frame that firs
   assert.match(vitals, /atlasTakers\.delete\(taker\);/, 'a disposed monitor is let go of');
   assert.match(src('doppler-gl.js'), /if \(waitingDraw\) \{ waitingDraw = false; try \{ onReady\?\.\(\); \}/, 'the monitor is drawn again once published');
   assert.match(src('endo-gl.js'), /if \(lost \|\| wanted\) \{ lost = false; wanted = false; try \{ onBack\?\.\(\); \}/, 'the field is drawn again once published');
-  assert.match(src('instruments.js'), /if \(gk !== glKey && !gl\.pending\) \{/, 'no field is shaded while its program compiles');
+  assert.match(src('instruments.js'), /if \(!sameKey && !gl\.pending\) \{/, 'no field is shaded while its program compiles');
 });
