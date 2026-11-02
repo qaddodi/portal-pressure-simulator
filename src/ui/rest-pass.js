@@ -109,6 +109,8 @@ export function restClass(el, name, on) {
   m[name] = on;
   classQ.push(el, name, on);
   if (!classAsk) classAsk = restPass(classFlush);
+}
+
 // Attributes that only describe the page to a screen reader or tag it for the next lookup (aria-label, aria-hidden, data-*): nothing
 // on screen depends on them, so a frame never writes them. They are asked for here and written once, between frames, last value
 // wins (2 Nov 2026, "Remove attribute writes in lobule and sinusoid").

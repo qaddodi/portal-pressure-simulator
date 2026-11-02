@@ -3,7 +3,7 @@
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
 import { readFrameFor, figLab, mayTask } from './frame.js?v=26e2e46fff';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { restPass, cancelRest } from './rest-pass.js?v=ed71462b47';
+import { restPass, cancelRest } from './rest-pass.js?v=f6a3355959';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
 import { CellGrid, geomOf } from './cell-grid.js?v=8a51d713c4';
 import { elBox, chainMat } from './shape-gl.js?v=425612f909';

@@ -7,7 +7,7 @@ import { glWords } from './gl-words.js?v=7a3eb186f0';
 import { renderEndo } from './endo-render.js?v=17830c978a';
 import { endoGrow, LARGE_MM } from './endo-size.js?v=e0a58bf20e';
 import { D_SURFACE, easeArrive } from './ease.js?v=7513a88c68';
-import { createTraceGL, fitPen } from './trace-gl.js?v=8d560fcd89';
+import { createTraceGL, fitPen } from './trace-gl.js?v=8f42193f1c';
 import { frameFor } from './frame.js?v=26e2e46fff';
 
 const RES = 168, STEPS = 14, NONE_MM = 2.5;   // (2.5 mm: below it the metrics call it no varix)

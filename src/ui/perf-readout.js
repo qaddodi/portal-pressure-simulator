@@ -6,7 +6,7 @@
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
 import { TIERS_ON, TIERS, sceneTier, tierLog } from './adapt-tier.js?v=69f458c276';
 import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=625c2c9315';
-import { restPass } from './rest-pass.js?v=ed71462b47';
+import { restPass } from './rest-pass.js?v=f6a3355959';
 import { textSoon } from './class-soon.js?v=6ad82f25a8';
 import { perf, watchFrames, finalFrameFor } from './frame.js?v=26e2e46fff';
 // (The readout's own loop: through the app's one frame scheduler, last in each frame, not a requestAnimationFrame of its own.)

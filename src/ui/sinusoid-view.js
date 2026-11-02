@@ -34,7 +34,7 @@ import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.j
 import { FADE_MS, fadeAlpha } from './res-fade.js?v=531c1defc6';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { restPass, restClass, restAttr } from './rest-pass.js?v=ed71462b47';
+import { restPass, restClass, restAttr } from './rest-pass.js?v=f6a3355959';
 // ?willchange=0 in the address: the layer keeps will-change always, as before.
 const SV_LAYER = !(typeof location !== 'undefined' && /[?&]willchange=0\b/.test(location.search));
 const nextFrame = frameFor('sinusoid-view');
