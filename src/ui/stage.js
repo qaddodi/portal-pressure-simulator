@@ -7107,10 +7107,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       if (v.k === 0 && !goal) { if (v.parts) vstDirty = true; vst.delete(id); }
     }
-    if (vstDirty) { vstDirty = false; venousDraw(F?.viewParams || store.get().params); }
+    // (A stent that comes in or goes out is built between frames, never in one: its mesh is new page art, 2 Nov 2026, "Move everything to GPU".)
+    if (vstDirty) { vstDirty = false; if (!vstBuildAsk) vstBuildAsk = restPass(() => { vstBuildAsk = 0; venousDraw(F?.viewParams || store.get().params); }); }
     if (moving) vstRaf = nextFrame(venousTick); else vstAt = 0;
   }
-  let venousAnat = true;
+  let venousAnat = true, vstBuildAsk = 0;
   // Called from every overlay update: starts the ease when the slide's stented veins (or the view) changed, and redraws on a rebuild.
   function venousSync(p, anat, rebuilt) {
     venousAnat = anat;
