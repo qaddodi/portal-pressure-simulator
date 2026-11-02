@@ -108,7 +108,7 @@ export function keepOnGpu(host) {
   let k, tex;
   try {
     k = kit(gl);
-    glOkBefore(gl, 'res-fade');
+    glOkBefore(gl);
     tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
@@ -117,7 +117,7 @@ export function keepOnGpu(host) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.bindTexture(gl.TEXTURE_2D, null);
-    if (!glOkAfter(gl, 'res-fade')) throw new Error('copy');   // (asked once per context generation: gl-state.js)
+    if (!glOkAfter(gl)) throw new Error('copy');   // (asked of the driver each time: gl-state.js)
   } catch { if (tex) gl.deleteTexture(tex); return null; }
   const g = { w: W, h: H, a: 1, m: null, cw: 0, ch: 0, off: null };
   function draw(a, m, w, h, clear = false) {

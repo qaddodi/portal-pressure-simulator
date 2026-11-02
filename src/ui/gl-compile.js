@@ -157,6 +157,8 @@ export function whenShadersMove(ms = 250) {
   if (!waitingPub.size) return Promise.resolve();
   return new Promise((res) => { const t = setTimeout(() => { movers.delete(done); res(); }, ms); const done = () => { clearTimeout(t); res(); }; movers.add(done); });
 }
+/** Cumulative count of publications that threw (B16: a slide's preparation compares it before and after; an emptied waiting set is not proof of success). */
+export const shaderFailures = () => shaderStats.failed;
 /** Programs published ahead of their draw, and publications that threw (each left to its first draw, which reports it). */
 export const shaderPrepStats = () => ({ ...shaderStats, waiting: waitingPub.size });
 /** Publishes, ahead of their first draw, every waiting program whose compile is done (asked without waiting), within `budgetMs` of
@@ -169,7 +171,7 @@ export function prepareShaders(budgetMs = 4) {
     try { done = e.gl.isContextLost() || compileDone(e.gl, e.handles); } catch { done = true; }
     if (!done) continue;
     waitingPub.delete(e);
-    try { e.publish(); shaderStats.published++; } catch { shaderStats.failed++; /* read at the first draw, as before */ }
+    try { e.publish(); shaderStats.published++; } catch { /* counted by publish(); read at the first draw, as before */ }
     moved();
   }
   return waitingPub.size;
@@ -190,7 +192,7 @@ export function publishWhenDone(gl, handles, publish, tries = 400, calm = leftAl
   let dead = false;
   const idle = typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 250 }) : (f) => setTimeout(f, 32);
   // (R10: registered while it waits, so a slide's preparation can publish it first; a draw that wanted it lifts the wait for calm.)
-  const entry = { gl, handles, wanted: false, publish: () => { if (dead) return; dead = true; waitingPub.delete(entry); try { publish(); } finally { moved(); } } };
+  const entry = { gl, handles, wanted: false, publish: () => { if (dead) return; dead = true; waitingPub.delete(entry); try { publish(); } catch (e) { shaderStats.failed++; throw e; } finally { moved(); } } };
   waitingPub.add(entry);
   const tick = () => {
     if (dead) return;

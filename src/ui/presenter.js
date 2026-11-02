@@ -43,7 +43,7 @@ import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=978a757555';
 import { restPass, cancelRest } from './rest-pass.js?v=f6a3355959';
 import { createSlidePrep, SLIDE_PREP } from './slide-prep.js?v=60a65d4122';
 import { createTxns, SLIDE_TXN } from './slide-txn.js?v=1fcea803eb';
-import { prepareShaders } from './gl-compile.js?v=3e750c4fef';
+import { prepareShaders, shaderFailures } from './gl-compile.js?v=3e750c4fef';
 import { createFigureKey } from './figure-key.js?v=9088d5a22d';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=4a3f4f1c83';
@@ -1090,7 +1090,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         // its slide: slide-ext.js tools' warm.)
         // (recs-production-120hz §16: only the working set, the slide shown and its neighbours, not every slide of a long deck at once;
         // the rest are warmed by the slide preparation as the talk reaches them, its manifests owning them.)
-        if (states === mine) slides.forEach((s, i) => { if (Math.abs(i - want) > 2) return; const w = EXT.tools[s.tool?.kind]?.warm; if (w) safe(() => w(s.tool, ctxOf(s, i)), null, 'warm'); });
+        if (states === mine) slides.forEach((s, i) => { if (Math.abs(i - want) > 2) return; const w = EXT.tools[s.tool?.kind]?.warm; if (w) safe(() => w(s.tool, ctxOf(s, i)), null, 'warm')?.catch?.(() => {}); });   // (a rejection here is read by slide-prep's own warm, B16)
         return;
       }
       // The slides could not be computed (most often a page left open across an update): the next try starts a fresh
@@ -1966,7 +1966,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const slidePrep = createSlidePrep({ count: () => slides.length, identity: () => `${deck?.id ?? ''}|${slides.length}|${prepRev}|${document.documentElement.dataset.theme || ''}/${document.documentElement.dataset.palette || ''}`, steps: {
     state: (i) => stateReady(i),
     glyphs: () => loadGlyphs(),
-    tool: (i) => { const s = slides[i], w = EXT.tools[s?.tool?.kind]?.warm; return w ? safe(() => w(s.tool, ctxOf(s, i)), null, 'warm') : null; },
+    tool: (i) => { const s = slides[i], w = EXT.tools[s?.tool?.kind]?.warm; return w ? w(s.tool, ctxOf(s, i)) : null; },   // (B16: a throw or rejection reaches slide-prep, which marks the manifest failed; safe() would have turned it into null = ready)
+    shadersFailed: () => shaderFailures(),
     shaders: (ms = 4) => prepareShaders(ms),
   } });
   // (Review pass 2, priority 3: each Next, Back or jump is one transaction, slide-txn.js. Its id supersedes the one before at once: that

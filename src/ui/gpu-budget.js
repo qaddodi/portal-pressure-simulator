@@ -109,7 +109,7 @@ function onCall(gl, name, x) {
     const [, levels, ifmt, w, h, d = 1] = a, bpp = bppOf(gl, ifmt);
     e.fmt = FMT_NAME(gl, ifmt); e.w = w; e.h = h; e.d = d; e.levels.clear(); if (entries.get(e.id) === e) regBytes -= e.bytes; e.bytes = 0; e.gl = ctxRef(gl);
     let b = 0; for (let l = 0, lw = w, lh = h; l < levels; l++, lw = Math.max(1, lw >> 1), lh = Math.max(1, lh >> 1)) b += lw * lh * d * bpp;
-    setLevel(e, 0, b); e.nLevels = levels;
+    setLevel(e, 0, b); e.nLevels = levels; e.bpp = bpp;
   } else if (name === 'texImage2D') {
     if (a[0] !== gl.TEXTURE_2D) return;   // (a cube face or another target: not this app's)
     const tex = r.tex.get(r.unit), e = entryFor(gl, tex, 'texture'); if (!e) return;
@@ -118,7 +118,22 @@ function onCall(gl, name, x) {
     const bpp = bppOf(gl, a[2], type);
     if (a[1] === 0) { e.fmt = FMT_NAME(gl, a[2]); e.w = w; e.h = h; }
     e.gl = ctxRef(gl);
+    if (a[1] === 0) e.bpp = bpp;
     setLevel(e, a[1], w * h * bpp);
+  } else if (name === 'copyTexImage2D') {
+    // (B11: storage made by copying from the framebuffer: copyTexImage2D(target, level, internalformat, x, y, width, height, border).)
+    if (a[0] !== gl.TEXTURE_2D) return;
+    const tex = r.tex.get(r.unit), e = entryFor(gl, tex, 'texture'); if (!e) return;
+    const bpp = bppOf(gl, a[2]), w = a[5] | 0, h = a[6] | 0;
+    if (a[1] === 0) { e.fmt = FMT_NAME(gl, a[2]); e.w = w; e.h = h; e.bpp = bpp; }
+    e.gl = ctxRef(gl);
+    setLevel(e, a[1], w * h * bpp);
+  } else if (name === 'generateMipmap') {
+    // (B11: the levels below the base, down to 1 x 1, from the base level's size and format. An immutable texture (texStorage2D) already
+    // counted its whole chain.)
+    if (a[0] !== gl.TEXTURE_2D) return;
+    const tex = r.tex.get(r.unit), e = tex && byObj.get(tex); if (!e || e.nLevels || !(e.w > 0 && e.h > 0) || !e.bpp) return;
+    for (let l = 1, lw = e.w, lh = e.h; lw > 1 || lh > 1; l++) { lw = Math.max(1, lw >> 1); lh = Math.max(1, lh >> 1); setLevel(e, l, lw * lh * e.bpp); }
   } else if (name === 'renderbufferStorage' || name === 'renderbufferStorageMultisample') {
     const e = entryFor(gl, r.rb, 'renderbuffer'); if (!e) return;
     const ms = name === 'renderbufferStorageMultisample', samples = ms ? a[1] : 0, ifmt = ms ? a[2] : a[1], w = ms ? a[3] : a[2], h = ms ? a[4] : a[3];

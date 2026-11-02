@@ -560,7 +560,7 @@ const ready = new WeakMap();
 const haveOf = (tool, c) => { const p = c?.snap && !overScope(tool) ? keepOf(c.deck).get(curveKey(tool, c)) : null; return p ? ready.get(p) ?? null : null; };
 /** Starts a slide's curve once the deck's states are in, so a curve that runs model days (seconds of work) is ready when its
  *  slide comes up (presenter.js, after the deck's states). */
-export function warmCurve(t, c) { return t && c ? curveWork(t, c)?.catch(() => null) ?? null : null; }
+export function warmCurve(t, c) { return t && c ? curveWork(t, c) ?? null : null; }   // (B16: a rejection is returned, not turned into null: slide-prep marks the manifest failed)
 
 export function createCurve() {
   const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');

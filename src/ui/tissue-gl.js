@@ -272,7 +272,7 @@ export function createTissueGL(canvas, opts = {}) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-    const ok = fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', w, h);   // (asked once per layout and context generation: gl-state.js)
+    const ok = fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', w, h);   // (asked per framebuffer, size and attachment set: gl-state.js)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D, null);   // (not left bound on a unit: the target is only ever drawn into and copied from)
     return { tex, fbo, ok };

@@ -17,7 +17,7 @@ globalThis.WebGL2RenderingContext = W2;
 // (The browser's own answer for sw-yield.js: a context with failIfMajorPerformanceCaveat is given, as on a browser that calls it accelerated.)
 globalThis.OffscreenCanvas = class { getContext() { return { getExtension: () => null }; } };
 
-const { fbComplete, glGen, glGet, fbVerdicts, trackGL } = await import('../src/ui/gl-state.js');
+const { fbComplete, glGen, glGet, fbVerified, glOkBefore, glOkAfter, trackGL } = await import('../src/ui/gl-state.js');
 const { exerciseDraw, publishWhenDone, startProgram } = await import('../src/ui/gl-compile.js');
 const { rendererVerdict, softwareGL } = await import('../src/ui/sw-yield.js');
 
@@ -69,21 +69,42 @@ function fakeGL({ complete = true } = {}) {
   return trackGL(gl);
 }
 
-test('a framebuffer layout is asked once per context generation, and a loss and restore asks again', () => {
+test('a framebuffer verdict belongs to its framebuffer, size and attachments; a loss and restore asks again (B10)', () => {
   const gl = fakeGL();
   assert.equal(glGen(gl), 1);
-  for (let i = 0; i < 5; i++) assert.equal(fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', 64 + i, 64), true);
-  assert.equal(gl.n.status, 1, 'one driver query for five framebuffers of one layout');
-  assert.equal(fbComplete(gl, gl.FRAMEBUFFER, 'rgba8+s8', 64, 64), true);
-  assert.equal(gl.n.status, 2, 'a new layout is asked once');
-  assert.equal(fbVerdicts(gl), 2);
+  const fb = { fb: 1 };
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  assert.equal(fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', 64, 64), true);
+  assert.equal(fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', 64, 64), true);
+  assert.equal(gl.n.status, 1, 'the same framebuffer, as it was, is not asked twice');
+  assert.equal(fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', 64, 65), true);
+  assert.equal(gl.n.status, 2, 'resized storage is asked');
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, {}, 0);
+  assert.equal(fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', 64, 65), true);
+  assert.equal(gl.n.status, 3, 're-attached is asked');
+  const fb2 = { fb: 2 };
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb2);
+  assert.equal(fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', 64, 65), true);
+  assert.equal(gl.n.status, 4, 'a new framebuffer of the same layout is asked');
   gl.lost = true; gl.fire('webglcontextlost');
   assert.equal(glGen(gl), 2, 'a loss ends the generation');
-  assert.equal(fbVerdicts(gl), 0, 'no verdict survives a loss');
+  assert.equal(fbVerified(gl, fb2), false, 'no verdict survives a loss');
   gl.lost = false; gl.fire('webglcontextrestored');
   assert.equal(glGen(gl), 3);
-  fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', 64, 64);
-  assert.equal(gl.n.status, 3, 'the restored context is asked afresh');
+  fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', 64, 65);
+  assert.equal(gl.n.status, 5, 'the restored context is asked afresh');
+});
+
+test('B10: after one success, a second incomplete framebuffer and a failed second copy of the same layout are rejected', () => {
+  const gl = fakeGL();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, { a: 1 });
+  assert.equal(fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', 32, 32), true);
+  gl.checkFramebufferStatus = () => 0x8cd6;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, { a: 2 });
+  assert.equal(fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', 32, 32), false, 'the second framebuffer is its own');
+  let err = 0; gl.NO_ERROR = 0; gl.getError = () => err;
+  glOkBefore(gl); assert.equal(glOkAfter(gl), true);
+  glOkBefore(gl); err = 0x505; assert.equal(glOkAfter(gl), false, 'the second copy is checked, not taken from the first');
 });
 
 test('a size of 0 or past the texture limit is never complete and never asked; an incomplete verdict is not kept', () => {
@@ -94,7 +115,7 @@ test('a size of 0 or past the texture limit is never complete and never asked; a
   const bad = fakeGL({ complete: false });
   assert.equal(fbComplete(bad, bad.FRAMEBUFFER, 'rgba8', 64, 64), false);
   assert.equal(fbComplete(bad, bad.FRAMEBUFFER, 'rgba8', 64, 64), false);
-  assert.equal(bad.n.status, 2, 'an incomplete layout is asked again next time');
+  assert.equal(bad.n.status, 2, 'an incomplete framebuffer is asked again next time');
 });
 
 test('the record follows the driver: a call that throws leaves it as the driver has it', () => {

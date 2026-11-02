@@ -1002,7 +1002,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, e.fb);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, e.tex, 0);
         gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, e.rb);
-        const okFb = fbComplete(gl, gl.FRAMEBUFFER, 'rgba8+s8', W, H);   // (asked once per layout and context generation: gl-state.js)
+        const okFb = fbComplete(gl, gl.FRAMEBUFFER, 'rgba8+s8', W, H);   // (asked per framebuffer, size and attachment set: gl-state.js)
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         if (!okFb) { dropLayer(e); layers.delete(name); draw(); return false; }
         e.w = W; e.h = H; e.sig = null;

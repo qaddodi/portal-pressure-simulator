@@ -123,7 +123,7 @@ export function createTileCopier(gl) {
   // One pass from texture `from` into texture `to` (w × h).
   function pass(fbo, from, to, w, h, dir, sigma, n, look) {
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, to, 0);
-    if (!fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', w, h)) return false;   // (asked once per layout and context generation: gl-state.js)
+    if (!fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', w, h)) return false;   // (asked per framebuffer, size and attachment set: gl-state.js)
     gl.bindTexture(gl.TEXTURE_2D, from);
     gl.uniform2i(U.uDir, dir[0], dir[1]); gl.uniform1f(U.uSigma, Math.max(sigma, 1e-3)); gl.uniform1i(U.uN, n);
     if (look) { const c = look.tone; gl.uniform4f(U.uTone, c[0], c[1], c[2], 1); gl.uniform3f(U.uK, look.sat, look.toneA, look.flat || 0); }

@@ -92,14 +92,14 @@ export function createWideGL(canvas, { host = null } = {}) {
   }
   try { init(); } catch (err) { console.warn('The wide copy falls back to the 2D canvas.', err); hostDone(); return null; }
   let tiles = [];   // { tex, x, y, w, h (CSS px in the box, its own part), pw, ph (texels), uw, uh (its own part, 0 … 1) }
-  // (Its calls' errors asked once per context generation, gl-state.js glOkAfter: not after every layer and tile of every copy.)
-  const ok = () => !lost && !gl.isContextLost() && glOkAfter(gl, 'wide');
+  // (Its calls' errors asked of the driver each time, gl-state.js glOkAfter: an earlier success proves nothing for the next tile.)
+  const ok = () => !lost && !gl.isContextLost() && glOkAfter(gl);
   function clear() { if (!lost && !gl.isContextLost()) for (const t of tiles) gl.deleteTexture(t.tex); tiles = []; }
   return {
     get lost() { return lost || stale || gl.isContextLost(); },
     get count() { return tiles.length; },
     /** Starts a copy (the last one's tiles given back). */
-    begin() { clear(); if (!lost && !gl.isContextLost()) stale = false; glOkBefore(gl, 'wide'); return !this.lost; },
+    begin() { clear(); if (!lost && !gl.isContextLost()) stale = false; glOkBefore(gl); return !this.lost; },
     /** One tile: t { x, y, w, h } its own part in the box (CSS px), pw × ph its texture (device px, with the overlap), dpr; layers:
      *  the canvases to lay, bottom first, each drawn for this tile from its top left (larger ones cropped), or 'host' (hosted): the host's
      *  canvas, every layer laid there for this tile, copied from its top left inside the context. False if the GPU refused. */
@@ -115,7 +115,7 @@ export function createWideGL(canvas, { host = null } = {}) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
       const done = (good) => { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fbo); if (!good) gl.deleteTexture(tex); return good; };
-      if (!fbComplete(gl, gl.FRAMEBUFFER, 'rgba8mip', pw, ph) || !ok()) return done(false);   // (asked once per layout and generation: gl-state.js)
+      if (!fbComplete(gl, gl.FRAMEBUFFER, 'rgba8mip', pw, ph) || !ok()) return done(false);   // (asked per framebuffer, size and attachment set: gl-state.js)
       gl.viewport(0, 0, pw, ph);
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
       gl.useProgram(lay);

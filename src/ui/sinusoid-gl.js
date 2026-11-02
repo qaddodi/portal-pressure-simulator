@@ -687,14 +687,14 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null } = {}) 
     /** Copies the picture drawn in this task into the mix's texture; false where it cannot (no context, no program). */
     keep() {
       if (!ok || gl.isContextLost() || !canvas.width || !canvas.height || !mixReady()) return false;
-      glOkBefore(gl, 'sv-keep');
+      glOkBefore(gl);
       mTex ||= gl.createTexture();
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, mTex);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, canvas.width, canvas.height, 0);
       for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
-      return glOkAfter(gl, 'sv-keep');   // (asked once per context generation: gl-state.js)
+      return glOkAfter(gl);   // (asked of the driver each time: gl-state.js)
     },
     /** Lays the kept picture over the one just drawn, at weight a (1: the old picture alone, 0: the new). */
     mix(a) {

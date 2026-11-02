@@ -2296,12 +2296,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const noiseDone = new Uint8Array(nTubes);
   const growNoise = (rows) => {
     const [W, H] = tableSize(rows);
-    // (Its errors asked once per context generation, gl-state.js glOkBefore / glOkAfter: a float table the context takes once it takes again.)
-    glOkBefore(gl, 'noise-rgba32f');
+    // (Its errors asked of the driver each time, gl-state.js glOkBefore / glOkAfter.)
+    glOkBefore(gl);
     if (H <= glCap(gl, gl.MAX_TEXTURE_SIZE)) {
       gl.bindTexture(gl.TEXTURE_2D, noiseTex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, H, 0, gl.RGBA, gl.FLOAT, null);
-      if (glOkAfter(gl, 'noise-rgba32f')) {
+      if (glOkAfter(gl)) {
         noiseRows = Math.min(nTubes, H / NOISE_H * NOISE_PER_ROW); noiseW = W; noiseH = H;
         noiseAll = !!noiseGPU?.fill(noiseTex, W, H);
         noiseDone.fill(noiseAll ? 1 : 0);

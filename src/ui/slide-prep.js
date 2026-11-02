@@ -35,14 +35,20 @@ export function createSlidePrep({ count, steps = {}, keep = 3, identity = () => 
   const shaderMs = () => Math.max(0, Math.min(SHADER_MS, prepLeft()));
   const fail = (m) => () => { m.failed = true; };
   function* plan(i, m, ok) {
-    if (!m.state) yield () => Promise.resolve(steps.state?.(i)).then(() => { if (ok()) m.state = true; }, fail(m));
-    if (!m.glyphs) yield () => Promise.resolve(steps.glyphs?.()).then(() => { if (ok()) m.glyphs = true; }, fail(m));
+    // (B16: a step that throws before its promise exists, or rejects, marks the manifest failed; a failed manifest plans nothing more.)
+    const run = (f) => () => { try { return f(); } catch { m.failed = true; return null; } };
+    if (!m.state && !m.failed) yield run(() => Promise.resolve(steps.state?.(i)).then(() => { if (ok()) m.state = true; }, fail(m)));
+    if (!m.glyphs && !m.failed) yield run(() => Promise.resolve(steps.glyphs?.()).then(() => { if (ok()) m.glyphs = true; }, fail(m)));
     // (Awaited: a warm that returns a promise (a curve's model days) is done when it settles, not when it was started.)
-    if (!m.tool) yield () => { let r; try { r = steps.tool?.(i); } catch { m.failed = true; return null; } return Promise.resolve(r).then(() => { if (ok()) m.tool = true; }, fail(m)); };
+    if (!m.tool && !m.failed) yield () => { let r; try { r = steps.tool?.(i); } catch { m.failed = true; return null; } return Promise.resolve(r).then(() => { if (ok()) m.tool = true; }, fail(m)); };
     // (The shaders: published within the step's share; still waiting, the step waits for the next publication and tries again.)
     for (let t = 0; t < SHADER_TRIES && !m.shaders && !m.failed; t++) {
-      yield () => { m.shaders = steps.shaders ? steps.shaders(shaderMs()) === 0 : true; };
-      if (!m.shaders) yield () => whenShadersMove(250);
+      yield () => {
+        try { m.shaders = steps.shaders ? steps.shaders(shaderMs()) === 0 : true; } catch { m.failed = true; return; }
+        // (B16: a publication that failed leaves the waiting set too; an empty set is not proof, so a failure since this manifest began fails it.)
+        if ((steps.shadersFailed?.() ?? 0) > m.sf0) m.failed = true;
+      };
+      if (!m.shaders && !m.failed) yield () => whenShadersMove(250);
     }
     yield () => { m.done = !m.failed && m.state && m.glyphs && m.tool && m.shaders; };
   }
@@ -69,7 +75,7 @@ export function createSlidePrep({ count, steps = {}, keep = 3, identity = () => 
     // (The slide going in first, now: its shaders published in the press's own task, before its first frame, within the budget.)
     try { steps.shaders?.(shaderMs()); } catch { /* next time */ }
     const order = (dir === 'back' ? [i, i - 1, i + 1] : [i, i + 1, i - 1]).filter((k) => k >= 0 && k < count());
-    const mOf = (at) => { let m = made.get(at); if (!m || m.failed) made.set(at, (m = { state: false, tool: false, glyphs: false, shaders: false, done: false, failed: false, id: idNow })); return m; };
+    const mOf = (at) => { let m = made.get(at); if (!m || m.failed) made.set(at, (m = { state: false, tool: false, glyphs: false, shaders: false, done: false, failed: false, id: idNow, sf0: steps.shadersFailed?.() ?? 0 })); return m; };
     // (One job, the slide going in first, then the one ahead, then the one behind: each a list of small steps.)
     function* all() { for (const at of order) if (!made.get(at)?.done) yield* plan(at, mOf(at), ok); }
     const j = prepJob('slide-prep', all(), { alive: ok });
