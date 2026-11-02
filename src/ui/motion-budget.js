@@ -12,7 +12,7 @@
 
 const SELF = /motion-budget\.js/;
 const READS = new Map(), WRITES = new Map(), UPS = new Map();   // (caller or target → count, since install; UPS: caller → KB uploaded)
-const tot = { reads: 0, writes: 0, made: 0, lost: 0, restored: 0, upload: 0, uploads: 0, alloc: 0, allocs: 0 };
+const tot = { reads: 0, writes: 0, made: 0, lost: 0, restored: 0, upload: 0, uploads: 0, alloc: 0, allocs: 0, copy: 0, copies: 0, bitmaps: 0, bitmap: 0 };
 let installed = false, live = 0;
 const seen = new WeakSet();
 
@@ -33,15 +33,106 @@ const bump = (map, k, n = 1) => map.set(k, (map.get(k) || 0) + n);
 let open = 0;
 const read = () => { tot.reads++; if (open) bump(READS, callerOf(new Error().stack)); };
 
-/** Bytes in an upload call's data argument, or from width × height × 4 for a texture given by size or by image. */
-export function bytesOf(args, tex) {
+// Upload accounting (recs_cgpt R02, 2 Nov 2026): each WebGL call decoded by its own argument layout, so a bufferSubData's bytes come
+// from its data (args[2]), not its byte offset (args[1]), a typed array's srcOffset and length are honoured, and a texture's bytes
+// per texel follow its format and type. CPU uploads, GPU room made (texStorage, renderbuffers), GPU-local copies (blits, copyTex,
+// pixel-buffer reads) and bitmap transfers are four counters, not one. ?statfix=0: the old guess (args[1] for every buffer call,
+// 4 bytes a texel), and the counters it did not have stay at zero.
+export const STATFIX = !(typeof location !== 'undefined' && /[?&]statfix=0\b/.test(location.search || ''));
+
+/** The old guess (?statfix=0): bytes in args[1] for a buffer, or width × height × 4 for a texture. */
+export function bytesOfOld(args, tex) {
   if (!tex) { const d = args[1]; return typeof d === 'number' ? d : d?.byteLength || 0; }
   for (const a of args) if (a && typeof a === 'object' && 'byteLength' in a) return a.byteLength;
   const src = args.find((a) => a && typeof a === 'object' && 'width' in a && 'height' in a);
   if (src) return (src.width | 0) * (src.height | 0) * 4;
-  // texImage2D(target, level, internal, w, h, border, ...) / texSubImage2D(target, level, x, y, w, h, ...)
   const n = args.filter((a) => typeof a === 'number');
   return n.length >= 6 ? Math.max(0, n[3] | 0) * Math.max(0, n[4] | 0) * 4 : 0;
+}
+
+const CHANNELS = { 0x1908: 4, 0x1907: 3, 0x1903: 1, 0x8227: 2, 0x1909: 1, 0x1906: 1, 0x190a: 2, 0x8d99: 4, 0x8d98: 3, 0x8d94: 1, 0x8228: 2, 0x80e1: 4, 0x1902: 1, 0x84f9: 1 };
+const TYPE_BYTES = { 0x1400: 1, 0x1401: 1, 0x1402: 2, 0x1403: 2, 0x1404: 4, 0x1405: 4, 0x1406: 4, 0x140b: 2, 0x8d61: 2 };
+const PACKED = { 0x8033: 2, 0x8034: 2, 0x8363: 2, 0x8368: 4, 0x8c3b: 4, 0x8c3e: 4, 0x8dad: 8, 0x84fa: 4 };
+/** Bytes per texel of a (format, type) pair: packed types are whole texels, others channels × bytes per channel; 4 when unknown. */
+export function texelBytes(format, type) {
+  if (PACKED[type]) return PACKED[type];
+  return (CHANNELS[format] || 4) * (TYPE_BYTES[type] || 1);
+}
+// (Sized internal formats, for room made with texStorage / renderbufferStorage; 4 bytes a texel when unknown.)
+const SIZED = { 0x8229: 1, 0x822b: 2, 0x8051: 3, 0x8058: 4, 0x8c43: 4, 0x822d: 2, 0x822f: 4, 0x881a: 8, 0x822e: 4, 0x8230: 8, 0x8814: 16, 0x8d48: 1, 0x81a5: 2, 0x81a6: 3, 0x88f0: 4, 0x8cac: 4, 0x8cad: 8, 0x8c3a: 4, 0x8059: 4, 0x8d62: 2, 0x8056: 2, 0x8057: 2, 0x81a7: 4 };
+const sizedBytes = (f) => SIZED[f] || 4;
+const isView = (a) => !!a && typeof a === 'object' && ArrayBuffer.isView(a);
+const isImage = (a) => !!a && typeof a === 'object' && !isView(a) && 'width' in a && 'height' in a;
+const dims = (a) => [(a.width | 0) || (a.displayWidth | 0) || (a.videoWidth | 0), (a.height | 0) || (a.displayHeight | 0) || (a.videoHeight | 0)];
+// (A typed array's bytes from element srcOffset for `length` elements (0: to its end), as WebGL 2's overloads read them.)
+function viewBytes(v, srcOffset = 0, length = 0) {
+  const bpe = v.BYTES_PER_ELEMENT || 1, n = (v.byteLength / bpe) | 0;
+  const off = Math.max(0, Math.min(n, srcOffset | 0));
+  return (length > 0 ? Math.min(length, n - off) : n - off) * bpe;
+}
+
+/**
+ * One WebGL call decoded: { kind, bytes } where kind is 'upload' (crosses from the CPU), 'alloc' (room made, no pixels),
+ * 'copy' (GPU-local: a blit, a copyTex, a pixel buffer source) or null (not a transfer). `m` is the method's name.
+ */
+export function decodeCall(m, a) {
+  switch (m) {
+    case 'bufferData': {
+      if (typeof a[1] === 'number') return { kind: 'alloc', bytes: a[1] };
+      if (isView(a[1])) return { kind: 'upload', bytes: viewBytes(a[1], a[3], a[4]) };
+      return { kind: a[1] ? 'upload' : 'alloc', bytes: a[1]?.byteLength || 0 };
+    }
+    case 'bufferSubData': {
+      const d = a[2];
+      if (isView(d)) return { kind: 'upload', bytes: viewBytes(d, a[3], a[4]) };
+      return { kind: 'upload', bytes: d?.byteLength || 0 };
+    }
+    case 'texImage2D': case 'texSubImage2D': {
+      const sub = m === 'texSubImage2D';
+      // (Short form: (target, level, internal|x, [y], format, type, source); long form: ..., w, h, [border], format, type, data.)
+      const short = sub ? a.length === 7 : a.length === 6;
+      if (short) {
+        const src = a[a.length - 1], [w, h] = isImage(src) ? dims(src) : [0, 0];
+        return { kind: 'upload', bytes: w * h * texelBytes(a[a.length - 3], a[a.length - 2]) };
+      }
+      const w = a[sub ? 4 : 3] | 0, h = a[sub ? 5 : 4] | 0, fi = 6, f = a[fi], t = a[fi + 1], d = a[fi + 2];
+      const full = Math.max(0, w) * Math.max(0, h) * texelBytes(f, t);
+      if (d == null) return { kind: sub ? null : 'alloc', bytes: sub ? 0 : full };
+      if (typeof d === 'number') return { kind: 'copy', bytes: full };   // (from a bound pixel buffer: already on the GPU)
+      if (isView(d)) return { kind: 'upload', bytes: Math.min(full || Infinity, viewBytes(d, a[fi + 3])) };
+      if (isImage(d)) { const [iw, ih] = dims(d); return { kind: 'upload', bytes: (w * h || iw * ih) * texelBytes(f, t) }; }
+      return { kind: 'upload', bytes: full };
+    }
+    case 'texImage3D': case 'texSubImage3D': {
+      const sub = m === 'texSubImage3D', o = sub ? 5 : 3;
+      const w = a[o] | 0, h = a[o + 1] | 0, dp = a[o + 2] | 0, fi = sub ? 8 : 7, f = a[fi], t = a[fi + 1], d = a[fi + 2];
+      const full = Math.max(0, w) * Math.max(0, h) * Math.max(0, dp) * texelBytes(f, t);
+      if (d == null) return { kind: sub ? null : 'alloc', bytes: sub ? 0 : full };
+      if (typeof d === 'number') return { kind: 'copy', bytes: full };
+      if (isView(d)) return { kind: 'upload', bytes: Math.min(full || Infinity, viewBytes(d, a[fi + 3])) };
+      return { kind: 'upload', bytes: full };
+    }
+    case 'texStorage2D': return { kind: 'alloc', bytes: (a[3] | 0) * (a[4] | 0) * sizedBytes(a[2]) * (a[1] > 1 ? 4 / 3 : 1) };
+    case 'texStorage3D': return { kind: 'alloc', bytes: (a[3] | 0) * (a[4] | 0) * (a[5] | 0) * sizedBytes(a[2]) };
+    case 'renderbufferStorage': return { kind: 'alloc', bytes: (a[2] | 0) * (a[3] | 0) * sizedBytes(a[1]) };
+    case 'renderbufferStorageMultisample': return { kind: 'alloc', bytes: (a[3] | 0) * (a[4] | 0) * sizedBytes(a[2]) * Math.max(1, a[1] | 0) };
+    case 'copyTexImage2D': return { kind: 'copy', bytes: (a[5] | 0) * (a[6] | 0) * sizedBytes(a[2]) };
+    case 'copyTexSubImage2D': return { kind: 'copy', bytes: (a[6] | 0) * (a[7] | 0) * 4 };
+    case 'copyTexSubImage3D': return { kind: 'copy', bytes: (a[7] | 0) * (a[8] | 0) * 4 };
+    case 'blitFramebuffer': return { kind: 'copy', bytes: Math.abs((a[6] | 0) - (a[4] | 0)) * Math.abs((a[7] | 0) - (a[5] | 0)) * 4 };
+    case 'copyBufferSubData': return { kind: 'copy', bytes: a[4] | 0 };
+    default: return { kind: null, bytes: 0 };
+  }
+}
+
+/** Bytes in an upload call. With `m` (the method), decoded by its overload (decodeCall); without, a buffer call is read as bufferData. */
+export function bytesOf(args, tex, m) {
+  if (!STATFIX) return bytesOfOld(args, tex);
+  if (!m) {
+    if (!tex) m = 'bufferData';
+    else { const n = args.length; m = n === 6 ? 'texImage2D' : n === 7 ? 'texSubImage2D' : args[5] === 0 ? 'texImage2D' : 'texSubImage2D'; }
+  }
+  return Math.round(decodeCall(m, args).bytes);
 }
 
 /** Whether a call only makes room on the GPU (a texture with no pixels given, a buffer given by size): nothing crosses from the CPU. */
@@ -85,11 +176,25 @@ export function installMotionBudget({ root = document, skip = () => false } = {}
     C.prototype.getContext = function (type, ...rest) { const ctx = orig.call(this, type, ...rest); count(this, ctx, type); return ctx; };
   }
   // Uploads: texture and buffer data handed to the GPU, in bytes.
+  const note = (b, kind) => {
+    if (kind === 'alloc') { tot.allocs++; tot.alloc += b; return; }
+    if (kind === 'copy') { tot.copies++; tot.copy += b; return; }
+    if (kind !== 'upload') return;
+    tot.uploads++; tot.upload += b; if (open) bump(UPS, callerOf(new Error().stack), b / 1024);
+  };
   for (const G of [window.WebGL2RenderingContext, window.WebGLRenderingContext]) {
     if (!G) continue;
-    for (const n of ['texImage2D', 'texSubImage2D', 'texImage3D', 'texSubImage3D']) wrapMethod(G.prototype, n, (_, a) => { const b = bytesOf(a, true); if (isAlloc(a, true)) { tot.allocs++; tot.alloc += b; return; } tot.uploads++; tot.upload += b; if (open) bump(UPS, callerOf(new Error().stack), b / 1024); });
-    for (const n of ['bufferData', 'bufferSubData']) wrapMethod(G.prototype, n, (_, a) => { const b = bytesOf(a, false); if (isAlloc(a, false)) { tot.allocs++; tot.alloc += b; return; } tot.uploads++; tot.upload += b; if (open) bump(UPS, callerOf(new Error().stack), b / 1024); });
+    if (!STATFIX) {
+      for (const n of ['texImage2D', 'texSubImage2D', 'texImage3D', 'texSubImage3D']) wrapMethod(G.prototype, n, (_, a) => note(bytesOfOld(a, true), isAlloc(a, true) ? 'alloc' : 'upload'));
+      for (const n of ['bufferData', 'bufferSubData']) wrapMethod(G.prototype, n, (_, a) => note(bytesOfOld(a, false), isAlloc(a, false) ? 'alloc' : 'upload'));
+      continue;
+    }
+    for (const n of ['texImage2D', 'texSubImage2D', 'texImage3D', 'texSubImage3D', 'bufferData', 'bufferSubData', 'texStorage2D', 'texStorage3D', 'renderbufferStorage', 'renderbufferStorageMultisample', 'copyTexImage2D', 'copyTexSubImage2D', 'copyTexSubImage3D', 'blitFramebuffer', 'copyBufferSubData']) {
+      wrapMethod(G.prototype, n, (_, a) => { const d = decodeCall(n, a); note(Math.round(d.bytes), d.kind); });
+    }
   }
+  // (Bitmap transfers: an ImageBitmap handed to a bitmaprenderer canvas, counted by its pixels.)
+  if (STATFIX && window.ImageBitmapRenderingContext) wrapMethod(window.ImageBitmapRenderingContext.prototype, 'transferFromImageBitmap', (_, a) => { tot.bitmaps++; tot.bitmap += ((a[0]?.width | 0) * (a[0]?.height | 0) * 4); });
   // Writes: everything the document sees change, by element and attribute (a MutationObserver cannot name the script that wrote).
   new MutationObserver((list) => {
     for (const m of list) {
@@ -117,7 +222,7 @@ function stop(w, n = 8) {
 export function budgetText(r) {
   if (!r) return '';
   const kb = (r.upload / 1024).toFixed(0);
-  const head = `  motion budget (goal 0 / 0 / 0): ${r.reads} style+layout reads, ${r.writes} DOM writes, ${r.made} contexts made (${r.lost} lost, ${r.live} live), ${kb} KB uploaded in ${r.uploads} calls${r.allocs ? `, ${(r.alloc / 1024).toFixed(0)} KB of GPU room made in ${r.allocs}` : ''}`;
+  const head = `  motion budget (goal 0 / 0 / 0): ${r.reads} style+layout reads, ${r.writes} DOM writes, ${r.made} contexts made (${r.lost} lost, ${r.live} live), ${kb} KB uploaded in ${r.uploads} calls${r.allocs ? `, ${(r.alloc / 1024).toFixed(0)} KB of GPU room made in ${r.allocs}` : ''}${r.copies ? `, ${(r.copy / 1024).toFixed(0)} KB copied on the GPU in ${r.copies}` : ''}${r.bitmaps ? `, ${r.bitmaps} bitmap transfers` : ''}`;
   const rd = r.readers.length ? `\n    readers: ${r.readers.map(([k, v]) => `${k} ${v}`).join(', ')}` : '';
   const wr = r.written.length ? `\n    written: ${r.written.map(([k, v]) => `${k} ${v}`).join(', ')}` : '';
   const up = r.uploaders?.length ? `\n    uploaded (KB): ${r.uploaders.map(([k, v]) => `${k} ${v}`).join(', ')}` : '';

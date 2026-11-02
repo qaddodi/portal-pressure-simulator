@@ -17,7 +17,7 @@
 // its first read, so a page nobody measures has no listener for it.
 
 import { gpuProbe } from './gpu-probe.js?v=625c2c9315';
-import { createFrameRecorder } from './frame-stats.js?v=9cd1d0c4e3';
+import { createFrameRecorder } from './frame-stats.js?v=d41bb17a55';
 import { createInputLatency, describeTarget } from './input-latency.js?v=3c0129b426';
 let queue = new Map();   // id -> [tag, cb], in request order
 let current = null;      // the batch running now

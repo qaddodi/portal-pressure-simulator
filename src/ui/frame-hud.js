@@ -10,7 +10,7 @@
 //   - the watchdog's mode and the callbacks it carried over.
 // It reads only the scheduler's own numbers and writes its words once a second, between frames (rest-pass.js), never in a frame. It
 // adds no frame loop of its own: an idle page stays idle (the panel then says so).
-import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, watchdogStats } from './frame.js?v=31edc44488';
+import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, watchdogStats } from './frame.js?v=028685e44a';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
 import { sharedStats } from './trace-gl.js?v=ddb94858b8';
 

@@ -59,3 +59,14 @@ test('room made on the GPU (no pixels, a buffer by size) is told apart from an u
   assert.equal(isAlloc([0x8892, 1024, 0x88e4], false), true);
   assert.equal(isAlloc([0x8892, new Float32Array(16), 0x88e4], false), false);
 });
+
+test('R02: each WebGL call is decoded by its own overload', async () => {
+  const { decodeCall, texelBytes } = await import('../src/ui/motion-budget.js');
+  assert.deepEqual(decodeCall('bufferSubData', [0x8892, 0, new Float32Array(16)]), { kind: 'upload', bytes: 64 }, 'the data, not the byte offset');
+  assert.equal(decodeCall('bufferSubData', [0x8892, 256, new Float32Array(16), 4, 8]).bytes, 32, 'srcOffset and length are elements');
+  assert.equal(decodeCall('bufferData', [0x8892, new Float32Array(16), 0x88e4, 0, 4]).bytes, 16);
+  assert.equal(texelBytes(0x1908, 0x140b), 8, 'RGBA half float');
+  assert.equal(decodeCall('texImage2D', [0xde1, 0, 0x881a, 8, 4, 0, 0x1908, 0x140b, null]).kind, 'alloc');
+  assert.deepEqual(decodeCall('renderbufferStorageMultisample', [0x8d41, 4, 0x8058, 10, 10]), { kind: 'alloc', bytes: 1600 });
+  assert.equal(decodeCall('blitFramebuffer', [0, 0, 10, 10, 0, 0, 10, 20]).kind, 'copy');
+});

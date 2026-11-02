@@ -39,11 +39,28 @@ test('the recorder keeps intervals, script times, each surface in the frames it 
   assert.equal(s.phases.early.n, 3);
 });
 
-test('an interval past two seconds is a sleeping tab, not a frame time', () => {
+test('an interval is dropped only when the page was suspended in it; a long foreground stall is kept (R02)', () => {
   const r = createFrameRecorder();
-  r.add(frame({ gap: SLEEP_MS + 1 }));
+  r.add(frame({ gap: SLEEP_MS + 1, suspended: true }));
+  r.add(frame({ gap: 2500, script: 1 }));
   r.add(frame({ gap: SLEEP_MS - 1 }));
-  assert.deepEqual(r.raw().gaps, [SLEEP_MS - 1]);
+  assert.deepEqual(r.raw().gaps, [2500, SLEEP_MS - 1]);
+  assert.equal(r.raw().whole.suspended, 1);
+});
+
+test('streaming histograms keep the whole session past the raw ring, and misses count against the cadence (R02)', () => {
+  const r = createFrameRecorder({ keepFrames: 100 });
+  for (let i = 0; i < 1000; i++) r.add(frame({ now: i * 8.33, gap: 8.33, parts: [] }));
+  r.add(frame({ now: 9000, gap: 41.65, parts: [] }));
+  const raw = r.raw(), s = r.snapshot();
+  assert.ok(raw.gaps.length <= 125, 'the raw lists are a bounded ring');
+  assert.equal(s.whole.gap.n, 1001, 'every frame is in the histogram');
+  assert.ok(Math.abs(s.whole.gap.p50 - 8.33) / 8.33 < 0.05);
+  assert.equal(s.whole.gap.max, 41.65);
+  assert.equal(s.whole.misses.misses, 1);
+  assert.equal(s.whole.misses.missed, 4);
+  const m = summarizeRaw(mergeRaw([raw, raw]));
+  assert.equal(m.whole.gap.n, 2002);
 });
 
 test('a frame is long past 50 ms of interval or of script, and the log keeps the newest', () => {

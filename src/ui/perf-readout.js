@@ -6,14 +6,14 @@
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
 import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=625c2c9315';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
-import { perf, watchFrames, finalFrameFor } from './frame.js?v=31edc44488';
+import { perf, watchFrames, finalFrameFor } from './frame.js?v=028685e44a';
 // (The readout's own loop: through the app's one frame scheduler, last in each frame, not a requestAnimationFrame of its own.)
 const nextFrame = finalFrameFor('perf readout');
-import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js?v=9cd1d0c4e3';
+import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js?v=d41bb17a55';
 import { scanBlurs, blurText } from './blur-gauge.js?v=215cf3d483';
-import { budget as gpuBudget, budgetText as gpuBudgetText } from './gpu-budget.js?v=f8ef8855bb';
+import { budget as gpuBudget, budgetText as gpuBudgetText } from './gpu-budget.js?v=276d92fe14';
 import { surfaceRows, surfacesText } from './gpu-surfaces.js?v=2af17044e7';
-import { motionBudget, budgetText } from './motion-budget.js?v=f3b73ab0e1';
+import { motionBudget, budgetText } from './motion-budget.js?v=ff13b79f5b';
 
 const WINDOW = 2000, KEEP = 5, GAP_LINES = 40, LONG_LINES = 15;
 // The display's own refresh, as the browser offers it, from the frame intervals the readout sees (30 Oct, review 6a: a list of gaps
