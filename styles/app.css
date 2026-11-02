@@ -135,8 +135,8 @@ html.fr :is(.lens-btn, .ps-btn, .tl-pop-ic, .pz-zbtn, .ask-field, .pz-abb, .pzc-
    (HVPG, Budd–Chiari). They stay for picking, unseen. */
 /* While the GPU draws the figure the browser paints nothing in the two SVG model trees, but every write into them still
    invalidated style and layout of the whole page. Containing them keeps those writes inside (no size containment: their
-   size comes from layout; no visibility:hidden: it would turn off the hit paths). ?modelcontain=0 drops the class. */
-html.model-contain .stage-view.gl-on :is(svg#stage, svg#labels) { contain: layout paint style; }
+   size comes from layout; no visibility:hidden: it would turn off the hit paths). ?modelcontain=0 drops the class. No `paint` containment: on the phone (the stage inset 12 px each side, overflow visible) it painted solid black strips down both edges. */
+html.model-contain .stage-view.gl-on :is(svg#stage, svg#labels) { contain: layout style; }
 .stage-view.gl-on #ghosts { visibility: hidden; }
 /* The ascites is drawn by the GPU whenever it draws the vessels, plate or not (veins-gl.js fluidInk): its SVG copy, whose
    surface line was brighter, would show under the canvas while the plate is down. */
