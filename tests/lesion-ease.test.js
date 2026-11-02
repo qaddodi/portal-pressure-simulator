@@ -66,5 +66,5 @@ test('stage.js: the full update draws the lesions as they follow, and the width 
   assert.match(stage, /const pRaw = f\.viewParams \|\| st\.params, p = lesions\.view\(pRaw, dtW, reduceMotion\.matches\);/);
   assert.match(stage, /if \(lesions\.differs\(pRaw\)\) widthEasing = true;/);
   assert.match(stage, /catchUp \|\| bandsMoving\(\) \|\| lesionsMoving\(\)\) return false;/);
-  assert.match(stage, /bandsMoving\(\) \|\| lesionsMoving\(\) \|\| EV\.some\(\(x\) => x\.reveal \|\| \(x\.vis && widthMoving\(x\)\)\)\) return false;/);
+  assert.match(stage, /bandsMoving\(\) \|\| lesionsMoving\(\) \|\| anyReveal\(\) \|\| visWidthMoving\(\)\) return false;/);
 });

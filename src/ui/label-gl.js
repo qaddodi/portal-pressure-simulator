@@ -12,16 +12,18 @@
 // know, a keyboard focus ring) stays drawn by the SVG, label by label. Without WebGL2, on a software renderer, with ?gpulabels=0, or
 // once the context is lost, the SVG draws them all, as it always has.
 
-import { glGet, glCap } from './gl-state.js?v=900a43dce7';
+import { glGet, glCap } from './gl-state.js?v=ce1b6f1204';
 import { frameFor, cancelFrame } from './frame.js?v=897b4f8e7e';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
-import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=0ca233872f';
+import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=c4010cf467';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
-import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=785ee20a7f';
-import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=1221ba353e';
-import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=9ca0170f8c';
+import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=b6b160b28e';
+import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=8114d8757a';
+import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=a0d95272f2';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=814746f511';
+// (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
+const CLEAR0 = new Float32Array(4);
 
 // (1 Nov 2026, the GPU motion review.) A label's or a leader's fade or colour ease is followed from its animations (label-track.js), and its
 // style read off the frame (styleOf): nothing on the page is read in a frame. ?atlasidle=0: a full atlas is packed again at once, mid-move,
@@ -1064,7 +1066,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     gl.bindFramebuffer(gl.FRAMEBUFFER, m.fbo);
     gl.viewport(0, 0, mw, mh);
     gl.disable(gl.BLEND);
-    gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]); gl.clearBufferfi(gl.DEPTH_STENCIL, 0, 1, 0);
+    gl.clearBufferfv(gl.COLOR, 0, CLEAR0); gl.clearBufferfi(gl.DEPTH_STENCIL, 0, 1, 0);
     // (Path px → the target's y-down px, turned over so that its first row holds the path's top, as an uploaded canvas's does.)
     const mesh = polyMesh(flattenPath(h.d, Math.min(0.25, 0.2 / dpr)), 0);
     holeShape.fill(mesh, [dpr, 0, 0, -dpr, 0, mh], [mw, mh], [true, true, true, true]);
@@ -1266,7 +1268,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     gl.bindFramebuffer(gl.FRAMEBUFFER, sp.fbo);
     gl.viewport(0, 0, w, h);
     gl.disable(gl.BLEND);
-    gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+    gl.clearBufferfv(gl.COLOR, 0, CLEAR0);
     // (Turned over: the painter's top row is the target's last, the labels' shader reads the first row as the top.)
     picPaint.paintGroupInto({ ops, opacity: 1, mask: null }, [1, 0, 0, -1, 0, h], w, h, sp.fbo, w, h);
     picPaint.endFrame();
@@ -1294,7 +1296,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     gl.bindFramebuffer(gl.FRAMEBUFFER, slotFbo);
     gl.viewport(0, 0, lay.w, lay.h);
     gl.disable(gl.BLEND);
-    gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+    gl.clearBufferfv(gl.COLOR, 0, CLEAR0);
     // (Turned over: the painter's top row is the target's last; the copy below keeps the rows, and the atlas's first row is the top.)
     picPaint.paintGroupInto({ ops, opacity: 1, mask: null }, [1, 0, 0, -1, 0, lay.h], lay.w, lay.h, slotFbo, lay.w, lay.h);
     picPaint.endFrame();

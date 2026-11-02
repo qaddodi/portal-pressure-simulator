@@ -13,9 +13,11 @@
 // luminance). Anything else (a dash, a filter, a nested mask, a focal point) and the organ is not read: null, and the caller
 // keeps the organ's picture.
 
-import { flattenPath, flattenCmds, ellipsePoly, polyBox, polyMesh, prestartShapes } from './shape-gl.js?v=785ee20a7f';
-import { prestart, linkProgram } from './gl-compile.js?v=0ca233872f';
+import { flattenPath, flattenCmds, ellipsePoly, polyBox, polyMesh, prestartShapes } from './shape-gl.js?v=b6b160b28e';
+import { prestart, linkProgram } from './gl-compile.js?v=c4010cf467';
 import { strHash } from './liver-geo.js?v=977185f80a';
+// (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
+const CLEAR0 = new Float32Array(4);
 
 const ID = [1, 0, 0, 1, 0, 0];
 // A dashed stroke (the stent guide, the stented veins' mesh) cut into its dashes on the CPU once per outline and tolerance, each dash a
@@ -690,7 +692,7 @@ export function createOrganPaint(gl, shape) {
     let sb = newClip ? join(b, devBox(csh.box, cm, 2)) : b;
     if (newClip2) sb = join(sb, devBox(csh2.box, cm2, 2));
     scissor(sb);
-    gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+    gl.clearBufferfv(gl.COLOR, 0, CLEAR0);
     gl.colorMask(true, true, true, true);
     gl.disable(gl.SCISSOR_TEST);
     if (op.kind === 'fill') shape.fill(sh.mesh, om, sz, [true, false, false, false], false, !!op.eo);
@@ -761,7 +763,7 @@ export function createOrganPaint(gl, shape) {
     for (const t of list) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo);
       gl.viewport(0, 0, W, H);
-      scissor(b); gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]); gl.disable(gl.SCISSOR_TEST);
+      scissor(b); gl.clearBufferfv(gl.COLOR, 0, CLEAR0); gl.disable(gl.SCISSOR_TEST);
     }
   }
   const clearIn = (b, withMask) => clearTargets(b, withMask ? layers : [layers[0]]);

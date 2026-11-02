@@ -12,7 +12,7 @@ const body = (re) => { const m = re.exec(src); assert.ok(m, `${re} is in stage.j
 
 test('marksSync reads the marks for the GPU only when their key moved, and only with the GPU lines', () => {
   const b = body(/function marksSync\(\)/);
-  assert.match(b, /glLines && marksKey\(\) !== mk\.key/);
+  assert.match(b, /glLines && marksStale\(\)/);   // (rev 2 §2.8: the key's parts compared in place, no string a frame)
   assert.match(b, /marksBuild/);
 });
 

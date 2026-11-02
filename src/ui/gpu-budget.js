@@ -11,7 +11,7 @@
 // quality tiers read (adapt-tier.js, R07) to step the scene's resolution down before the motion skips frames.
 // Read it: ?perf (the readout's Surfaces block ends with the budget), or pps.budget() in the console. ?gpubudget=0: off (nothing counted).
 
-import { onGLCall, glRec, GL_STATE } from './gl-state.js?v=900a43dce7';
+import { onGLCall, glRec, GL_STATE } from './gl-state.js?v=ce1b6f1204';
 import { onFrameEnd } from './frame.js?v=897b4f8e7e';
 
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
@@ -59,11 +59,14 @@ const FMT_NAME = (gl, f) => { for (const k of ['RGBA8', 'RGBA16UI', 'RG16UI', 'R
 let nextId = 1;
 const entries = new Map();          // id -> entry
 const byObj = new WeakMap();        // GL object -> entry
-const gone = typeof FinalizationRegistry !== 'undefined' ? new FinalizationRegistry((id) => entries.delete(id)) : null;
+// (regBytes: the entries' bytes summed, kept as they change, so the memory check twice a second walks nothing and allocates nothing:
+// plan rev 2 §2.8. Every change to an entry's bytes or to the map goes through setLevel and forget.)
+let regBytes = 0;
+function forget(id) { const e = entries.get(id); if (!e) return; regBytes -= e.bytes; entries.delete(id); }
+const gone = typeof FinalizationRegistry !== 'undefined' ? new FinalizationRegistry(forget) : null;
 const owners0 = new WeakMap();      // gl -> owner name
 const ctxRefs = [];                 // WeakRef of each context (a context the page let go of drops out)
 const ownerOf = (gl) => owners0.get(gl) || 'webgl2';
-const liveCtxs = () => { const out = []; for (let i = ctxRefs.length - 1; i >= 0; i--) { const g = ctxRefs[i].deref(); if (g) out.push(g); else ctxRefs.splice(i, 1); } return out; };
 
 /** Names context gl's allocations in the registry (default: its canvas's id or first class). */
 export function budgetOwner(gl, name) { owners0.set(gl, name); }
@@ -78,12 +81,13 @@ function entryFor(gl, obj, kind) {
   return e;
 }
 const ctxRef = (gl) => (typeof WeakRef !== 'undefined' ? new WeakRef(gl) : { deref: () => gl });
-function setLevel(e, level, bytes) { e.levels.set(level, bytes); let b = 0; for (const v of e.levels.values()) b += v; e.bytes = b; }
-function drop(obj) { const e = obj && byObj.get(obj); if (e) { entries.delete(e.id); byObj.delete(obj); gone?.unregister?.(obj); } }
+function setLevel(e, level, bytes) { e.levels.set(level, bytes); let b = 0; for (const v of e.levels.values()) b += v; if (entries.get(e.id) === e) regBytes += b - e.bytes; e.bytes = b; }
+function drop(obj) { const e = obj && byObj.get(obj); if (e) { forget(e.id); byObj.delete(obj); gone?.unregister?.(obj); } }
 
 // This frame's passes, and the last frames'.
 const cur = { targets: 0, draws: 0, area: 0, copies: 0, copyArea: 0, transfers: 0, transferArea: 0, uploads: 0, uploadArea: 0, lastFb: undefined };
 const last = { targets: 0, draws: 0, area: 0, copies: 0, copyArea: 0, transfers: 0, transferArea: 0, uploads: 0, uploadArea: 0 };
+const PASS_KEYS = Object.keys(last);
 let worst = { area: 0, at: 0 }, overFrames = 0, overMem = false, warnedMem = false, memAt = 0;
 
 function onCall(gl, name, x) {
@@ -95,7 +99,7 @@ function onCall(gl, name, x) {
     if (typeof WeakRef !== 'undefined') ctxRefs.push(new WeakRef(gl));
     return;
   }
-  if (name === 'restored') { for (const [id, e] of entries) if (e.gl?.deref?.() === gl) entries.delete(id); return; }
+  if (name === 'restored') { for (const [id, e] of entries) if (e.gl?.deref?.() === gl) forget(id); return; }
   if (name.startsWith('delete')) { drop(x[0]); return; }
   const r = glRec(gl);
   if (!r) return;
@@ -104,7 +108,7 @@ function onCall(gl, name, x) {
     if (a[0] !== gl.TEXTURE_2D) return;   // (only the 2D binding is in the record: a 3D or array texture is left out, never credited to it)
     const tex = r.tex.get(r.unit), e = entryFor(gl, tex, 'texture'); if (!e) return;
     const [, levels, ifmt, w, h, d = 1] = a, bpp = bppOf(gl, ifmt);
-    e.fmt = FMT_NAME(gl, ifmt); e.w = w; e.h = h; e.d = d; e.levels.clear(); e.gl = ctxRef(gl);
+    e.fmt = FMT_NAME(gl, ifmt); e.w = w; e.h = h; e.d = d; e.levels.clear(); if (entries.get(e.id) === e) regBytes -= e.bytes; e.bytes = 0; e.gl = ctxRef(gl);
     let b = 0; for (let l = 0, lw = w, lh = h; l < levels; l++, lw = Math.max(1, lw >> 1), lh = Math.max(1, lh >> 1)) b += lw * lh * d * bpp;
     setLevel(e, 0, b); e.nLevels = levels;
   } else if (name === 'texImage2D') {
@@ -133,7 +137,11 @@ function onCall(gl, name, x) {
 // The canvases' own buffers: colour, and depth/stencil, at their backing size, twice (the one shown and the one drawn).
 function canvasBytes() {
   let b = 0;
-  for (const gl of liveCtxs()) { const c = gl.canvas; if (c && !gl.isContextLost?.()) b += c.width * c.height * 8 * 2; }
+  for (let i = ctxRefs.length - 1; i >= 0; i--) {
+    const gl = ctxRefs[i].deref();
+    if (!gl) { ctxRefs.splice(i, 1); continue; }   // (a context the page let go of drops out)
+    const c = gl.canvas; if (c && !gl.isContextLost?.()) b += c.width * c.height * 8 * 2;
+  }
   return b;
 }
 const screenPx = () => { const d = globalThis.devicePixelRatio || 1; return Math.max(1, (globalThis.innerWidth || 1) * (globalThis.innerHeight || 1) * d * d); };
@@ -216,6 +224,13 @@ function letGo(h) {
 export function enforce(env = ENVELOPES[deviceClass()]) {
   for (const h of holders) if (h.gl?.isContextLost?.()) holders.delete(h);   // (gone with its context: forgotten, nothing called)
   if (!EVICT) return 0;
+  // (The usual case, nothing to give back, is told by sums over the holders alone: no list is made, plan rev 2 §2.8.)
+  {
+    let wn = 0, wb = 0, held = 0;
+    for (const h of holders) { const hb = holderBytes(h); held += hb; if (h.kind === 'warm') { wn++; wb += hb; } }
+    const total = Math.max(registryBytes(), held);
+    if (wn <= WARM_MAX && wb <= env.mb * 1e6 * WARM_SHARE && total <= env.mb * 1e6) { unmet = 0; return 0; }
+  }
   const before = evictions;
   const lru = (kind) => [...holders].filter((h) => h.kind === kind).sort((a, b) => a.at - b.at);
   // (warm: by count, then by their share of the envelope)
@@ -233,7 +248,7 @@ export function enforce(env = ENVELOPES[deviceClass()]) {
   unmet = over() ? total - env.mb * 1e6 : 0;
   return evictions - before;
 }
-function registryBytes() { let b = canvasBytes(); for (const e of entries.values()) b += e.bytes; return b; }
+function registryBytes() { return canvasBytes() + regBytes; }
 /** The holders now (tests and ?perf). */
 export function holdersNow() { return { evictions, releaseFails, unmetMB: +(unmet / 1e6).toFixed(1), list: [...holders].map((h) => ({ owner: h.owner, kind: h.kind, mb: +(holderBytes(h) / 1e6).toFixed(1) })) }; }
 
@@ -256,16 +271,16 @@ if (GPU_BUDGET) {
   // (Each frame the scheduler runs: its passes become the last frame's, and are held against the pass envelope.)
   onFrameEnd((f) => {
     const scr = screenPx(), env = ENVELOPES[deviceClass()];
-    for (const k of Object.keys(last)) { last[k] = cur[k]; cur[k] = 0; }
+    for (let i = 0; i < PASS_KEYS.length; i++) { const k = PASS_KEYS[i]; last[k] = cur[k]; cur[k] = 0; }
     cur.lastFb = undefined;
     const area = last.area + last.copyArea;
-    if (area > worst.area || f.now - worst.at > 5000) worst = { area, at: f.now };
+    if (area > worst.area || f.now - worst.at > 5000) { worst.area = area; worst.at = f.now; }   // (in place: nothing made a frame)
     overFrames = area > env.screens * scr ? overFrames + 1 : 0;
     // (Memory is looked at twice a second, only while frames run (an idle page counts nothing): an envelope crossed is logged once,
     // with what holds the most.)
     if (f.now - memAt > 500) {
       memAt = f.now;
-      let bytes = canvasBytes(); for (const e of entries.values()) bytes += e.bytes;
+      const bytes = registryBytes();
       overMem = bytes > env.mb * 1e6;
       if (overMem && !warnedMem) { warnedMem = true; const b = budget(); console.warn(`GPU memory over its envelope: ${b.mb} of ${b.envelope.mb} MB`, b.owners.slice(0, 5)); }
       if (!overMem) warnedMem = false;
