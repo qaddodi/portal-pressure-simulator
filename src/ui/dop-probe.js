@@ -18,7 +18,7 @@ export const awayFromProbe = (id) => AWAY.has(id);
 // Abu-Yousef, RadioGraphics 2011, Fig 2; Ferraioli's EFSUMB slides; Lechowicz and Elwertowski, J Ultrason 2015, p. 214): 60° was the limit itself.
 // The line of sight always leaves the probe's face square, the body in line with it (Mohammad, 20 Oct: "The axis line of the Doppler
 // should always be perpendicular to the probe"): the probe turns by swinging round the gate (stage.js eases it there).
-export const PROBE = { ANGLE: 50, GAP: 80, SCALE: 1.35, LEN: 84, HALF: 17.5, EDGE: 8, BEAM_DEG: 7 };
+export const PROBE = { ANGLE: 50, GAP: 80, SCALE: 1.35, LEN: 84, HALF: 17.5, EDGE: 8, BEAM_DEG: 7, OUT: 110, OUT_MS: 420 };   // (OUT: how far, px at size 1, the probe draws back along its line of sight to clear the view; OUT_MS: that move)
 
 // ── Nothing is made while the probe is placed (2 Nov 2026, scripts/off-gpu-scan.mjs alloc: the search made some forty poses, each with
 // arrays of boxes, closures and spreads, every time a frame reached it). The search below writes into poses, lists and boxes made
@@ -443,17 +443,22 @@ export function createProbeMind() {
  *  figure (Mohammad, 20 Oct). The answer is the module's own, written over by the next call: read it where it is asked for. */
 const SHAPES = { wedge: '', beam: '', gate: '', axis: '', head: '' };
 const f1 = (v) => +v.toFixed(1);
-export function probeShapes(D, r, phi = PROBE.ANGLE, size = 1) {
-  // (The line of sight ends at the near gate bar, and the flow axis reaches a little past both bars: Mohammad, 20 Oct.)
-  const at = gateAt(r), half = gateHalf(r);
-  const L = Math.min(36, Math.max(16, 1.7 * r)), p = rad(phi), c = Math.cos(p), s = Math.sin(p);
+export function probeShapes(D, r, phi = PROBE.ANGLE, size = 1, out = 0) {
+  // (`out`, 0 … 1: the probe draws back out of the view (2 Nov 2026, Mohammad: "rotate out of the way, not disappear in place"). The whole
+  // probe, its face, line of sight and faded beam, slides back along the line of sight itself, so the line keeps its angle to the vessel
+  // and runs through the same point; the sample volume's bars and the flow axis, the target, close up about that point, which stays where
+  // it is. Every x below is on the line of sight and every y is symmetric about it: no mark leaves the line or the point.)
+  const gs = out <= 0 ? 1 : Math.max(0, 1 - out), sh = out <= 0 ? 0 : out * PROBE.OUT * size, at = gateAt(r) * gs, half = gateHalf(r) * gs;
+  const L = Math.min(36, Math.max(16, 1.7 * r)) * gs, p = rad(phi), c = Math.cos(p), s = Math.sin(p), Dh = D + sh;
   // (The faded ultrasound beam: a narrow wedge from the probe's face, fading out past the vessel's far wall, under the line of sight.)
-  const far = -(Math.max(0, r) + 10), k = Math.tan(rad(PROBE.BEAM_DEG)) * (D - far);
-  SHAPES.wedge = `M${f1(D)} 0 L${f1(far)} ${f1(-k)} L${f1(far)} ${f1(k)} Z`;
-  SHAPES.beam = `M${f1(D)} 0 L${f1(at)} 0`;
-  SHAPES.gate = `M${f1(-at)} ${f1(-half)} L${f1(-at)} ${f1(half)} M${f1(at)} ${f1(-half)} L${f1(at)} ${f1(half)}`;
-  SHAPES.axis = `M${f1(-L * c)} ${f1(-L * s)} L${f1(L * c)} ${f1(L * s)}`;
-  SHAPES.head = `translate(${f1(D)} 0) scale(${size === 1 ? PROBE.SCALE : +(PROBE.SCALE * size).toFixed(3)})`;
+  const far = -(Math.max(0, r) + 10) + sh, k = Math.tan(rad(PROBE.BEAM_DEG)) * (D - far + sh);
+  SHAPES.wedge = `M${f1(Dh)} 0 L${f1(far)} ${f1(-k)} L${f1(far)} ${f1(k)} Z`;
+  SHAPES.beam = `M${f1(Dh)} 0 L${f1(at + sh)} 0`;
+  // (A bar or the axis closed to nothing draws nothing: a round-ended line of no length is a dot.)
+  const open = gs > 0.04;
+  SHAPES.gate = open ? `M${f1(-at)} ${f1(-half)} L${f1(-at)} ${f1(half)} M${f1(at)} ${f1(-half)} L${f1(at)} ${f1(half)}` : '';
+  SHAPES.axis = open ? `M${f1(-L * c)} ${f1(-L * s)} L${f1(L * c)} ${f1(L * s)}` : '';
+  SHAPES.head = `translate(${f1(Dh)} 0) scale(${size === 1 ? PROBE.SCALE : +(PROBE.SCALE * size).toFixed(3)})`;
   return SHAPES;
 }
 

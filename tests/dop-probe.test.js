@@ -99,8 +99,9 @@ test('the figure places the gate where the callout points (the middle of the ves
   assert.equal((stage.match(/^\s*dprobePaint\(\);$/gm) || []).length, 4, 'view change, zoom glide, labels laid out, Doppler set');
   // It hides while the views morph and in the liver's own views, and moves by fading out and back in.
   assert.match(stage, /\(morph < 0\.01 \|\| morph > 0\.99\) && !camHides && !dpr\.hold && dprMonitorOn\(\) && !st\.lobule && !st\.sinusoid && !lz\?\.isOpen\(\)/);
-  assert.match(css, /\.dop-probe \{[^}]*transition: opacity var\(--d-surface\) var\(--ease\)/);
-  assert.match(css, /\.dop-probe\.off \{ opacity: 0; \}/);
+  assert.match(css, /\.dop-probe \{[^}]*transition: opacity var\(--d-small\) var\(--ease\)/);
+  // (going, it draws back first and fades only as it leaves: the fade is delayed, never in place)
+  assert.match(css, /\.dop-probe\.off \{ opacity: 0; transition: opacity var\(--d-small\) var\(--ease-in\) 180ms; \}/);
 });
 
 test('every mark and the probe are white-lined on a black rim, with no θ on the figure; the glow and the light share the Doppler glow colour', () => {
@@ -172,13 +173,14 @@ test('the line of sight stops at the near gate bar, the flow axis reaches past b
 
 test('the station dot under the gate fades with the probe: out while it shows on that vessel, back when it goes; the reading and leader stay', () => {
   assert.match(css, /\.lb-leaders > \.dpr-hid \{ opacity: 0; transition-duration: var\(--d-surface\); \}/);
-  assert.match(stage, /dpr\.gate = \[gx, gy\];\n\s+if \(!dpr\.on\) \{ dpr\.on = true; dpr\.el\.classList\.remove\('off'\); \}\n\s+dprDots\(\);/);
+  assert.match(stage, /dpr\.gate = \[gx, gy\];\n\s+dprDots\(\);/);
+  assert.match(stage, /if \(!dpr\.on\) \{ dpr\.on = true; dpr\.el\.classList\.remove\('off'\); \}\n\s+dprShape\(\);/);
   assert.match(stage, /const g = \(dpr\.on \|\| dpr\.swap\) && dpr\.gate;/);
   assert.match(stage, /if \(!\/\^\(d\|h\):\/\.test\(k\)\) continue;/, 'only the anchor dots and their discs, never a leader');
   assert.match(stage, /Math\.hypot\(\+a\.cx - g\[0\], \+a\.cy - g\[1\]\) < 6/);
   assert.match(stage, /\n\s+dprDots\(\);\n\s+for \(const \[k, el\] of leadEls\) \{\n\s+if \(keep\.has\(k\)/, 'leaders painted: dots read the probe state');
   // (Every way the probe hides goes through dprHide, which clears the gate and lets the dot back.)
-  assert.match(stage, /const dprHide = \(\) => \{ if \(dpr\.on\) \{ dpr\.on = false; dpr\.el\.classList\.add\('off'\); \} dpr\.box = null; dpr\.marks = \[\]; dpr\.key = ''; dpr\.gate = null; dprDots\(\); \};/);
+  assert.match(stage, /const dprHide = \(\) => \{ dprLeave\(\); dpr\.box = null; dpr\.marks = \[\]; dpr\.key = ''; dpr\.gate = null; dprDots\(\); \};/);
   assert.equal((stage.match(/\bdprHide\(\);/g) || []).length, 2, 'no show, and no place: the dot returns');
 });
 
@@ -305,7 +307,7 @@ test('the line of sight always leaves the probe square, the body in line with it
   assert.match(stage, /if \(dpr\.on && key !== dpr\.key\) \{/);
   assert.match(stage, /else dpr\.cur\.ang = tgt\.ang \+ angTo\(tgt\.ang, dpr\.cur\.ang\);/);
   assert.match(stage, /q\.ang \+= \(g\.ang - q\.ang\) \* f; q\.d \+= \(g\.d - q\.d\) \* f; q\.k \+= \(g\.k - q\.k\) \* f;/);
-  assert.match(stage, /probeShapes\(D, t\.r, angTo\(c\.ang, t\.ax\), c\.k\)/);
+  assert.match(stage, /probeShapes\(D, t\.r, angTo\(c\.ang, t\.ax\), c\.k, c\.o\)/);
   assert.match(stage, /ax: pose\.ang \+ pose\.phi/);
 });
 
@@ -391,9 +393,9 @@ test('a far move round the gate or in distance fades the probe rather than flyin
 
 test('stage: a probe shown afresh starts at its place, and a jump fades out and in', () => {
   const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(src, /if \(!dpr\.on \|\| !dpr\.cur \|\| reduceMotion\.matches\) dpr\.cur = \{ ang: tgt\.ang, d: tgt\.d, k: tgt\.k \}/);
-  assert.match(src, /if \(act === 'jump'\) \{\s*dpr\.on = false;[^}]*dpr\.swap = setTimeout/);
-  assert.ok(src.indexOf("act === 'jump'") < src.indexOf('if (!dpr.on || !dpr.cur || reduceMotion.matches) dpr.cur'));
+  assert.match(src, /if \(!dpr\.on \|\| !dpr\.cur \|\| reduceMotion\.matches\) \{ dpr\.oP = reduceMotion\.matches \? 0 : 1; dpr\.cur = \{ ang: tgt\.ang, d: tgt\.d, k: tgt\.k, o: dpr\.oP \}; \}/);
+  assert.match(src, /if \(act === 'jump'\) \{\s*dprLeave\(\);[^}]*dpr\.swap = setTimeout/);
+  assert.ok(src.indexOf("act === 'jump'") < src.indexOf('if (!dpr.on || !dpr.cur || reduceMotion.matches) { dpr.oP'));
   // (the jump itself is decided in dop-probe.js, from where the probe is drawn and where it would stand)
   assert.match(readFileSync(new URL('../src/ui/dop-probe.js', import.meta.url), 'utf8'), /if \(on && cur && !swing && probeJumps\(cur, tgt\)\) \{ at = ''; pend = ''; return 'jump'; \}/);
   assert.doesNotMatch(readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8'), /\.dop-probe \{[^}]*transition:[^;}]*transform/);
@@ -673,4 +675,62 @@ test('the labels keep off the faded wedge, past the vessel too (After the sinuso
   const inAny = (x, y) => b.some((q) => x >= q.x0 && x <= q.x1 && y >= q.y0 && y <= q.y1);
   for (const u of [D - 4, D / 2, 0, far + 0.15 * (D - far)]) for (const f of [-1, -0.5, 0, 0.5, 1]) assert.ok(inAny(g[0] + u, g[1] + f * tn * (D - u)), `wedge point at ${u}, ${f}`);
   assert.ok(!inAny(g[0] + D / 2, g[1] + tn * (D / 2) + 10), 'and not far wider than it');
+});
+
+// ── The probe draws back out of the view instead of fading in place (2 Nov 2026, Mohammad: "rotate out of the way, not disappear in place";
+// "the point the Doppler targets cannot move"; "also the angle of the thing") ──
+const pts = (d) => (d.match(/-?[\d.]+/g) || []).map(Number);
+test('drawing back keeps the target point and the angle exact: every mark stays on the line of sight, the bars and axis close up about the same point', () => {
+  for (const r of [3, 10, 24]) for (const phi of [-50, 50, 130]) for (const size of [0.8, 1, 1.3]) {
+    const D = PROBE.GAP + r, base = { ...probeShapes(D, r, phi, size, 0) };
+    assert.doesNotMatch(base.head, /NaN/);
+    const baseAxis = pts(base.axis), baseDir = Math.atan2(baseAxis[3] - baseAxis[1], baseAxis[2] - baseAxis[0]);
+    for (let o = 0; o <= 1.0001; o += 0.05) {
+      const p = probeShapes(D, r, phi, size, Math.min(1, o));
+      // The line of sight: its face, the beam and the wedge's tip all on y = 0 (the angle never changes), the wedge symmetric about it.
+      const [bx0, by0, bx1, by1] = pts(p.beam), w = pts(p.wedge), h = /translate\((-?[\d.]+) (-?[\d.]+)\)/.exec(p.head);
+      assert.equal(by0, 0); assert.equal(by1, 0); assert.equal(+h[2], 0);
+      assert.equal(w[1], 0, 'the wedge starts on the line'); assert.equal(w[3], -w[5], 'and spreads evenly either side of it');
+      assert.equal(bx0, +h[1], 'the line runs from the face');
+      // The target: the gate bars are centred on the point (x and y), the axis passes through it, at the same angle as before.
+      if (p.gate) { const g = pts(p.gate); assert.equal(g[0], -g[4]); assert.equal(g[1], -g[3]); assert.equal(g[2], -g[6]); assert.equal(g[0] + g[4], 0, 'bars symmetric about the point'); assert.equal(g[1] + g[3], 0); }
+      if (p.axis) { const a = pts(p.axis); assert.equal(+(a[0] + a[2]).toFixed(1), 0); assert.equal(+(a[1] + a[3]).toFixed(1), 0, 'the axis passes through the point'); if (Math.hypot(a[2] - a[0], a[3] - a[1]) > 8) assert.ok(Math.abs(Math.atan2(a[3] - a[1], a[2] - a[0]) - baseDir) < 0.02, 'at the same angle'); }
+    }
+  }
+});
+
+test('drawing back slides the probe along its line of sight, away from the target, the same distance for the whole probe', () => {
+  const r = 10, D = PROBE.GAP + r, size = 1;
+  const at0 = probeShapes(D, r, 50, size, 0), a = { head: +/translate\((-?[\d.]+)/.exec(at0.head)[1], wedge: pts(at0.wedge), beam: pts(at0.beam) };
+  const out = probeShapes(D, r, 50, size, 1), b = { head: +/translate\((-?[\d.]+)/.exec(out.head)[1], wedge: pts(out.wedge), beam: pts(out.beam) };
+  const shift = PROBE.OUT * size;
+  assert.equal(+(b.head - a.head).toFixed(1), shift, 'the face draws back by PROBE.OUT');
+  assert.equal(+(b.wedge[0] - a.wedge[0]).toFixed(1), shift); assert.equal(+(b.wedge[2] - a.wedge[2]).toFixed(1), shift, 'the wedge goes with it as one piece');
+  assert.equal(b.wedge[3], a.wedge[3], 'and keeps its width');
+  assert.equal(+(b.beam[0] - a.beam[0]).toFixed(1), shift);
+  assert.equal(out.gate, '', 'the closed bars draw nothing (no dot)'); assert.equal(out.axis, '');
+  // Halfway it moves part of the way, monotonically.
+  let last = -1;
+  for (let o = 0; o <= 1.001; o += 0.1) { const x = +/translate\((-?[\d.]+)/.exec(probeShapes(D, r, 50, size, Math.min(1, o)).head)[1]; assert.ok(x > last); last = x; }
+  assert.deepEqual({ ...probeShapes(D, r, 50, 1) }, { ...probeShapes(D, r, 50, 1, 0) }, 'drawn back by nothing it is the probe as ever');
+});
+
+test('stage: every way the probe goes draws it back along its line of sight (place, turn and target untouched) and every way it shows slides it in', () => {
+  const leave = stage.slice(stage.indexOf('function dprLeave('), stage.indexOf('const dprHide ='));
+  assert.match(leave, /dpr\.on = false; dpr\.el\.classList\.add\('off'\)/);
+  assert.match(leave, /dpr\.leaving = true;\s*dprShape\(\);/);
+  // Nothing in a leave moves the element, turns the model or changes the pose it stands at.
+  assert.doesNotMatch(leave, /style\.transform|rotate|dpr\.cur\.ang|dpr\.cur\.d\b|dpr\.tgt\s*=|dpr\.gate\s*=/);
+  const shape = stage.slice(stage.indexOf('function dprShape('), stage.indexOf('// The station dot'));
+  // While it goes, the step moves only the draw-back (the angle, distance and size stay as they were).
+  assert.match(shape, /if \(dpr\.on\) \{\s*q\.ang \+= /);
+  assert.match(shape, /dpr\.oP = dpr\.on \? Math\.max\(0, dpr\.oP - stepP\) : Math\.min\(1, dpr\.oP \+ stepP\);/);
+  assert.match(shape, /probeShapes\(D, t\.r, angTo\(c\.ang, t\.ax\), c\.k, c\.o\)/);
+  assert.doesNotMatch(shape, /elastic|spring|overshoot|Math\.sin|back\.out/i, 'calm, no overshoot');
+  // The hides: both fade-and-move paths and dprHide go through it; none sets the probe off by hand any more.
+  assert.equal((stage.match(/dprLeave\(\)/g) || []).length, 4, 'dprHide, the new vessel, the jump, and the definition');
+  assert.doesNotMatch(stage, /dpr\.on = false; dpr\.box = null; dpr\.marks = \[\]; dpr\.el\.classList\.add\('off'\)/);
+  // A probe still drawing back is let finish before one shows again.
+  assert.match(stage, /if \(!dpr\.on && dpr\.leaving\) \{ dpr\.leaveT \|\|= setTimeout/);
+  assert.equal(PROBE.OUT_MS, 420); assert.match(css, /PROBE\.OUT_MS = 420 ms/);
 });

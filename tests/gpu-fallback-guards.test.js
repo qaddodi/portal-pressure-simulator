@@ -149,5 +149,5 @@ test('idle rest: the FibroScan probe\'s waves stop with the figure and start aga
   // (The other loops of the figure's marks stop by themselves once nothing eases: the halos, the Doppler probe's ease and its card tracking.)
   assert.match(st, /glow\.raf = moving \? nextFrame\(glowStep\) : 0;/);
   assert.match(st, /dpr\.track = dprTrackQuiet <= 6;/);
-  assert.match(st, /if \(done\) \{ dpr\.eAt = 0; return; \}/);
+  assert.match(st, /if \(done\) \{ dpr\.eAt = 0; if \(!dpr\.on\) dpr\.leaving = false; return; \}/);   // (a probe that has drawn back to go, or settled in its place, stops its loop)
 });
