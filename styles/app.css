@@ -6903,7 +6903,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .app.thumb .vdock .timeline .tl-jumps { margin-left: 0; }
 /* A phone: the clock keeps only its own width (not the Mac's 64 px column), so the lobule's two readings fit whole. */
 @media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
-  .app.thumb .vdock .timeline .tl-time { min-width: 0; margin-left: 6px; }
+  .app.thumb .vdock .timeline .tl-time { min-width: 5ch; margin-left: 6px; }   /* (five tabular figures, "10:00": the clock's width holds as 9:59 turns to 10:00, so the fast-forward button and the readings beside it never step) */
   .app.thumb .vdock .readouts:not(.all) { padding-right: 6px; }
   .app.thumb .vdock .readouts:not(.all) .ro-tiles { column-gap: 2px; }   /* (a number stays 8 px from the next tile's flash; sweep 01 #17) */
 }
