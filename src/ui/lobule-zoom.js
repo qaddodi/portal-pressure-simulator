@@ -1000,6 +1000,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const sizeKeyOf = (e, env) => `${env}|${e.hidden}|${e.className.replace(/(^| )lz-off(?= |$)/g, '')}|${e.innerHTML.replace(/\d/g, '0')}|${e.style.maxWidth}`;
   // A call pill's or a zone name's size as measured ([fw, fh] where it is unmeasured or takes no room), asking for it to be measured
   // when what decides it changed; the layout is done again once it has been (measureRun).
+  let callFit = '', callFitT = 0;
+  function writeCallFit() { callFitT = 0; if (callEl.style.maxWidth === callFit) return; callEl.style.maxWidth = callFit; measQ.add(callEl); if (!measT) measT = restPass(measureRun); }
   function sizeOf(e, fw, fh) {
     const z = e._lzSz;
     if (z?.key !== sizeKeyOf(e, sizeEnv())) { measQ.add(e); if (!measT) measT = restPass(measureRun); }
@@ -1254,7 +1256,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (document.querySelector('.pz.low')) fr = { ...fr, r: Math.max(fr.r, geo.W - cssN('--right-occ') - 12) };
     // Never wider than the free space: a long line wraps instead of running off the screen.
     const fit = `${Math.max(120, Math.round(fr.r - fr.l - 20))}px`;
-    if (callEl.style.maxWidth !== fit) callEl.style.maxWidth = fit;
+    // (Its room is written between frames, a rest pass, and the pill measured again there: never in the frame that lays it out.)
+    if (fit !== callFit) { callFit = fit; if (!callFitT) callFitT = restPass(writeCallFit); }
     const [w, hh] = sizeOf(callEl, 120, 28), pad = 10;
     const ov = (p, q) => Math.max(0, Math.min(p.r, q.r) - Math.max(p.l, q.l)) * Math.max(0, Math.min(p.b, q.b) - Math.max(p.t, q.t));
     let best = null;
