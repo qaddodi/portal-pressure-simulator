@@ -99,7 +99,7 @@ test('the GPU canvas taking over leaves the 2D canvas whole under it for a momen
   assert.doesNotMatch(lz, /HANDOFF &&|handoff=0/);
   assert.match(lz, /handoffT = setTimeout\(\(\) => \{ handoffT = 0; if \(tissueOnGL\) \{ tissue\.style\.opacity = '0'; free\(tissue\); \} \}, HANDOFF_MS\);/);
   assert.match(lz, /if \(!\(\(!tissueOnGL \|\| handoffT\) && !rimDrawn\)\) free\(tissue\);/);
-  assert.match(lz, /hold: tissueOnGL,/);
+  assert.match(lz, /A\.hold = tissueOnGL;/);
 });
 
 test('the zoom into and out of a sinusoid keeps the tissue on the GPU (the only painter since 1 Nov)', () => {

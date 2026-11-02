@@ -248,5 +248,5 @@ test('the stage keeps its changed rows through a refused partial draw and lets t
   assert.match(fn, /if \(veins\.drawRows\(T, vLook, bloodLook\(\), pending, fullComposite\)\) \{ shown\(\); return true; \}/);
   assert.match(fn, /const rows = veinsDirty \? null : pending \|\| \[\];/);
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.match(lz, /if \(!g\.drawRows\(T, look, blood, rows\)\) g\.draw\(T, look, blood, rows\)/);
+  assert.match(lz, /if \(!g\.drawRows\(T, look, blood, rows\)\) \{ g\.draw\(T, look, blood, rows\); tLast \^= 1; \}/);
 });
