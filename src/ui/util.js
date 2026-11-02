@@ -934,17 +934,42 @@ export const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 export const systemEdge = (ev) => ev.pointerType === 'touch' && (ev.clientY > innerHeight - 34 || ev.clientX < 12 || ev.clientX > innerWidth - 12);
 export const lerp = (a, b, t) => a + (b - a) * t;
 
-// Theme tokens are read many times per frame by the canvas instruments. getComputedStyle after
-// the frame's DOM writes forces a style pass, so values are cached and dropped when the theme
-// can change (the data-theme attribute or the system color scheme).
+// Theme tokens are read many times per frame by the canvas instruments, and never from the page inside a frame: every token the
+// stylesheets declare (and those set on the root's own style) is read outside the frames, at load and whenever the theme can change
+// (the root's data-theme, data-palette, style or class, or the system colour scheme). A frame only looks them up. (A name no stylesheet declares has no value at the root: '' until the next pass reads it, as the page would give.)
 const varCache = new Map();
-const alphaCache = new Map();   // (cleared with varCache: the instruments ask for the same few colours on every frame)
-new MutationObserver(() => varCache.clear()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'style', 'class'] });
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => varCache.clear());
+const alphaCache = new Map();   // (cleared with the tokens: the instruments ask for the same few colours on every frame)
+const varNames = new Set();
+let varsAsk = 0;
+function collectVarNames(rules) {
+  for (const r of rules || []) {
+    const st = r.style;
+    if (st) for (let i = 0; i < st.length; i++) if (st[i].startsWith('--')) varNames.add(st[i]);
+    let inner = null; try { inner = r.cssRules; } catch { /* (a sheet from another origin: no tokens of ours) */ }
+    if (inner) collectVarNames(inner);
+  }
+}
+function readVars() {
+  varsAsk = 0;
+  if (typeof getComputedStyle !== 'function') return;   // (no page: the unit tests' stand-in)
+  const root = document.documentElement;
+  for (const sh of document.styleSheets || []) { let rules = null; try { rules = sh.cssRules; } catch { /* (another origin) */ } collectVarNames(rules); }
+  collectVarNames([root]);   // (the root's own style: --label-k and the like)
+  const cs = getComputedStyle(root);
+  for (const n of varNames) varCache.set(n, cs.getPropertyValue(n).trim());
+  alphaCache.clear();
+}
+const varsSoon = () => { if (!varsAsk) varsAsk = restPass(readVars); };
+// (A theme change is read in the observer's own task, before the frame that draws in it; the root's style, which a frame's work may set
+// (--label-k through a zoom), in a rest pass after it.)
+new MutationObserver((rs) => { if (rs.some((r) => r.attributeName !== 'style')) readVars(); else varsSoon(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'style', 'class'] });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readVars);
+readVars();   // (at load, before any frame: the stylesheets are in, a module runs after them)
 export function cssVar(name) {
-  let v = varCache.get(name);
-  if (v === undefined) { v = getComputedStyle(document.documentElement).getPropertyValue(name).trim(); varCache.set(name, v); }
-  return v;
+  const v = varCache.get(name);
+  if (v !== undefined) return v;
+  varNames.add(name); varsSoon();
+  return '';
 }
 // A colour token as [r, g, b] in 0–255 (tokens are #rgb, #rrggbb, rgb() or rgba(); the alpha is dropped).
 export function parseRGB(c) {

@@ -12,10 +12,10 @@ globalThis.requestAnimationFrame = (fn) => { frameQueue.push(fn); return frameQu
 globalThis.cancelAnimationFrame = () => {};
 globalThis.window.devicePixelRatio = 2;
 globalThis.Path2D = class { moveTo() {} lineTo() {} bezierCurveTo() {} };
-globalThis.getComputedStyle = () => ({
-  fontSize: '14px',
-  getPropertyValue: (n) => ({ '--mon-bg': '#050608', '--mon-text': '#9aa4ad', '--mon-bright': '#7cf08c', '--mon-alarm': '#ff5a4d', '--mon-grid': '#1c232a', '--mon-line': '#2a323a', '--white': '#ffffff', '--black': '#000000', '--text': '#222222', '--bg': '#ffffff', '--muted': '#667788', '--ramp-pressure': '#DCEBF7 0, #99C2ED 5, #718EDF 10, #8671CF 12, #9B2B6A 20, #661030 30' }[n] ?? '#808080'),
-});
+const TOKENS = { '--mon-bg': '#050608', '--mon-text': '#9aa4ad', '--mon-bright': '#7cf08c', '--mon-alarm': '#ff5a4d', '--mon-grid': '#1c232a', '--mon-line': '#2a323a', '--white': '#ffffff', '--black': '#000000', '--text': '#222222', '--bg': '#ffffff', '--muted': '#667788', '--ramp-pressure': '#DCEBF7 0, #99C2ED 5, #718EDF 10, #8671CF 12, #9B2B6A 20, #661030 30' };
+globalThis.getComputedStyle = () => ({ fontSize: '14px', getPropertyValue: (n) => TOKENS[n] ?? '#808080' });
+// (The page's tokens are the ones its stylesheets declare, read once outside the frames, util.js readVars: this page declares these.)
+globalThis.document.styleSheets = [{ cssRules: [{ style: Object.keys(TOKENS) }] }];
 
 // A context that accepts every call and property and writes down the words and the colours it was given.
 function fakeCtx(log, node = null) {

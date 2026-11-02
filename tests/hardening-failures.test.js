@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 globalThis.getComputedStyle = () => ({ getPropertyValue: () => '#ffffff' });
+globalThis.document.styleSheets = [{ cssRules: [{ style: ['--white'] }] }];   // (the tokens the page declares, util.js readVars)
 const { cssAlpha } = await import('../src/ui/util.js');
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
