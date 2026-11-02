@@ -479,8 +479,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (!el || el.classList.contains('sheet')) return;
     const r = anchor.getBoundingClientRect();
     const left = clamp(r.left, 12, Math.max(12, innerWidth - el.offsetWidth - 12)), top = r.bottom + 8;
-    el.style.left = left + 'px';
-    el.style.top = top + 'px';
+    // (Placed by translate from the window's corner, as util.js popover places a menu: left and top are never written, so nothing is laid out.)
+    el.style.translate = `${left}px ${top}px`;
     // It settles from, and leaves toward, the button's centre, as every other popover does (it had grown from its own top-left corner).
     settleFrom(el, r, left, top);
   }

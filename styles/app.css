@@ -981,7 +981,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .menu.as-sheet.leaving { animation: slide-to-edge var(--d-flip) var(--ease-in) forwards; }
 .menu.as-sheet .lens-d { white-space: normal; }
 
-.why-pop { position: fixed; z-index: var(--z-popover); width: min(440px, calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))); max-height: calc(100dvh - 16px); overflow: hidden auto; overscroll-behavior: contain; background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); padding: 16px 16px 16px; display: none; }
+.why-pop { position: fixed; left: 0; top: 0; /* (placed by translate: why.js) */ z-index: var(--z-popover); width: min(440px, calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))); max-height: calc(100dvh - 16px); overflow: hidden auto; overscroll-behavior: contain; background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); padding: 16px 16px 16px; display: none; }
 .why-pop.show { display: block; animation: scale-settle var(--d-flip) var(--ease); }
 .why-pop.leaving { display: block; pointer-events: none; animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
 .why-pop header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
@@ -3876,7 +3876,7 @@ button.finding { cursor: pointer; }
 /* The one menu (menu.js): search, Present and Patients side by side, footer. A popover under the menu
    button from 768 px; a bottom sheet on a phone. */
 .umenu {
-  position: fixed; z-index: var(--z-popover); display: flex; flex-direction: column; width: min(460px, calc(100vw - 24px));
+  position: fixed; left: 0; top: 0; /* (placed by translate: menu.js place) */ z-index: var(--z-popover); display: flex; flex-direction: column; width: min(460px, calc(100vw - 24px));
   height: min(640px, calc(100dvh - 76px)); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline);
   overflow: hidden; animation: scale-settle var(--d-flip) var(--ease); transform-origin: top left;
 }

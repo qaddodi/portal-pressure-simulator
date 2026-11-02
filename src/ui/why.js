@@ -2,24 +2,28 @@
 
 import { classSoon } from './class-soon.js?v=d59b314e61';
 import { host } from './host.js?v=a9f7451db6';
-import { h, fmt, svgIcon, visibleBottom, settleFrom, announce } from './util.js?v=ae9dfc2acc';
+import { h, fmt, svgIcon, visibleBottom, announce } from './util.js?v=ae9dfc2acc';
 import { leaveFromHere } from './menu-leave.js?v=a70cd0ac6e';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=7d7bfe9a62';
 import { glidePlate } from './plate-glide.js?v=b7c299896f';
 
 export function createWhy(pop) {
   let openFor = null, anchorEl = null;
+  // (Placed by translate from the window's corner, as util.js popover places a menu: left and top are never written, so nothing is laid
+  // out, and the left is not read back; the clamp keeps it clear of the notch (env() is 0 elsewhere) and inside the window.)
+  let placedTop = 0;
   function place(anchor) {
     const r = anchor.getBoundingClientRect();
     const pw = pop.offsetWidth || Math.min(440, innerWidth - 24);
-    // (Clear of the notch and the home indicator when the phone is held sideways; env() is 0 elsewhere.)
-    pop.style.left = `clamp(calc(12px + env(safe-area-inset-left, 0px)), ${r.left + r.width / 2 - pw / 2}px, calc(100% - ${pw}px - 12px - env(safe-area-inset-right, 0px)))`;
-    const x = pop.offsetLeft;
+    const cw = document.documentElement.clientWidth || innerWidth;
+    const leftCss = `clamp(calc(12px + env(safe-area-inset-left, 0px)), ${r.left + r.width / 2 - pw / 2}px, calc(${cw - pw - 12}px - env(safe-area-inset-right, 0px)))`;
     const ph = pop.offsetHeight || 260;
     const below = r.bottom + 10;
     const top = below + ph > visibleBottom() - 8 ? Math.max(8, r.top - ph - 10) : below;
-    pop.style.top = top + 'px';
-    settleFrom(pop, r, x, top);
+    placedTop = top;
+    pop.style.translate = `${leftCss} ${top}px`;
+    // It settles from, and leaves toward, the button's centre.
+    pop.style.transformOrigin = `calc(${(r.left + r.width / 2).toFixed(0)}px - ${leftCss}) ${(r.top + r.height / 2 - top).toFixed(0)}px`;
   }
   const head = (title) => h('header', {}, h('h3', {}, svgIcon('bulb'), title), h('button', { class: 'ib', 'aria-label': 'Close', onclick: close }, svgIcon('close')));
   // (The card's content replaced: focus that was on its Close button, the keyboard's way in, goes to the new one, not to the page.)
@@ -51,7 +55,7 @@ export function createWhy(pop) {
     if (shown.length && Math.abs(rest) >= Math.max(tiny, 0.05 * Math.abs(r.total))) shown.push({ label: 'Interaction and other', delta: rest, other: true });
     // A short name on the row ("Cirrhosis"), the full one with its amount in the tooltip ("Cirrhosis 85%").
     const short = (l) => l.replace(/\s[+×]?[\d.]+(\s?(%|mm|mL|L|g\/dL))?$/, '');
-    const h0 = pop.offsetHeight, t0 = pop.style.top;
+    const h0 = pop.offsetHeight, t0 = placedTop;
     const rows = shown.map((c) => {
       const wpct = (Math.abs(c.delta) / maxAbs) * 50;
       const bar = h('div', { class: 'wf-bar' }, h('i', { style: { left: c.delta >= 0 ? '50%' : `${50 - wpct}%`, width: `${Math.max(1, wpct)}%`, background: c.other ? 'var(--text-3)' : c.delta >= 0 ? 'var(--danger)' : 'var(--accent)' } }));
@@ -72,7 +76,7 @@ export function createWhy(pop) {
     const h1 = pop.offsetHeight, glide = pop.animate && h0 && Math.abs(h1 - h0) > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (glide) {
       glideEnd?.();
-      const w = pop.offsetWidth, dy = (parseFloat(t0) || 0) - (parseFloat(pop.style.top) || 0);
+      const w = pop.offsetWidth, dy = t0 - placedTop;
       glideEnd = glidePlate(pop, { x: 0, y: dy, w, h: h0 }, { x: 0, y: 0, w, h: h1 }, { R: 16, duration: D_SMALL, easing: EASE_MOVE, done: () => { glideEnd = null; } });
     }
     for (const k of pop.children) if (k.tagName !== 'HEADER' && !k.classList.contains('pg-piece')) k.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, delay: glide ? D_FLIP : 0, easing: EASE_ARRIVE, fill: 'backwards' });
