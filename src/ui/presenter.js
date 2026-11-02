@@ -456,6 +456,9 @@ const liveFp = (fr) => fingerprintOf(fr.metrics, { P: fr.Pf || fr.P, Q: fr.Qf ||
 
 // A value counts from where it was to where it goes (eased, about a second); reduced motion jumps.
 // (Tiles glide on the compositor: see tileGlide, on the travelling curve.)
+// R19: a live model frame never writes the tiles while their card moves (a slide's slide or fold): the newest is kept and written
+// once the card is still. A slide's own paint (its arrival, a new set of tiles) is never held. ?tilefreeze=0: written every frame, as before.
+const TILE_FREEZE = !(typeof location !== 'undefined' && /[?&]tilefreeze=0\b/.test(location.search || ''));
 const TILE_GLIDE = !(typeof location !== 'undefined' && /[?&]tileroll=0\b/.test(location.search || ''));
 function tweener(draw) {
   let cur = null, raf = 0;
@@ -663,9 +666,28 @@ function bigTiles() {
       p.zs.forEach((e, i) => { e.dataset.rate = rs[i]; });
     }
   }
-  return {
+  // (R19: the card the tiles sit in is moving: its slide or its fold, read from its class and data, never from layout.)
+  let held = null, heldObs = null;
+  const movingCard = () => el.closest('.pz-sliding, [data-folding]');
+  function release() {
+    if (movingCard()) return;
+    heldObs?.disconnect(); heldObs = null;
+    const a = held; held = null;
+    if (a) api.paintTiles(...a);
+  }
+  const api = {
     el,
-    paintTiles(f, ks, key = [], ref = null, ms, tips = false) {
+    paintTiles(f, ks, key = [], ref = null, ms, tips = false, live = false) {
+      // (A live frame while the card moves: kept, the newest only, and painted when the card is still, on the card's own change.)
+      if (TILE_FREEZE && live && draw && ks.join() + (ref ? '|ref' : '') === sig) {
+        const mc = movingCard();
+        if (mc) {
+          held = [f, ks, key, ref, ms, tips, false];
+          if (!heldObs && typeof MutationObserver === 'function') { heldObs = new MutationObserver(release); heldObs.observe(mc, { attributes: true, attributeFilter: ['class', 'data-folding'] }); }
+          return;
+        }
+      }
+      held = null;
       goal = !!tips;
       const sg = ks.join() + (ref ? '|ref' : '');
       if (sg !== sig || !draw) { sig = sg; buildTiles(ks, !!ref); }   // (no tiles at all is a build too)
@@ -684,6 +706,7 @@ function bigTiles() {
       if (shape !== fitShape) { fitShape = shape; fitSoon(); }
     },
   };
+  return api;
 }
 
 // The six levels along the route, portal vein to heart: [id, name]. The three middle levels are inside the liver.
@@ -1591,7 +1614,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }   // (a ladder already brackets the HVPG and PPG: tiles there would repeat them, rounded differently)
   function dataTo(s, f, ref, ms) {
     if (!ui) return;
-    if (s.data) ui.tiles.paintTiles(respFp(s, f), tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on);
+    if (s.data) ui.tiles.paintTiles(respFp(s, f), tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on, true);   // (live: held while the card moves, R19)
     ui.tools.pin(f);   // (an instrument's reading is the tiles' number)
     // (and the catheter's callouts and its monitor, on a catheter slide whose compare buttons or time-lapse move the model)
     if (s.cath && cath.on && cath.fp) { cath.fp = f; if (s.monitor) mon?.set(s.monitor, f); }
