@@ -31,14 +31,44 @@ const same6 = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] 
 // a picture rasterized from the SVG copy.
 const REFINE_OPS = 64;   // (shapes a refinement step hands the GPU at most: R18)
 /** A computed dash pattern → { a: lengths (user units, even count), off }, or null (a percentage, or nothing to draw). */
+// (Kept by the pattern's text and its offset's, found through two Maps with no key string built: a pattern met again, by any element or at
+// any later reading of a group, is the record already made, so a group read again allocates none for its dashes.)
+const DASH_KEPT = new Map();
+const DASH_N = new Float64Array(16);   // (the numbers of the pattern being read)
 function readDash(cs) {
-  const parts = String(cs.strokeDasharray).split(/[\s,]+/).filter(Boolean);
-  if (parts.some((v) => v.endsWith('%'))) return null;
-  let a = parts.map((v) => parseFloat(v));
-  if (a.some((v) => !(v >= 0)) || !a.some((v) => v > 0)) return null;
-  if (a.length % 2) a = [...a, ...a];
-  if (a.reduce((t, v) => t + v, 0) <= 1e-6) return null;
-  return { a, off: parseFloat(cs.strokeDashoffset) || 0 };
+  const ds = cs.strokeDasharray, offs = cs.strokeDashoffset;
+  let byOff = DASH_KEPT.get(ds);
+  if (byOff === undefined) { if (DASH_KEPT.size >= 64) DASH_KEPT.clear(); DASH_KEPT.set(ds, (byOff = new Map())); }
+  let r = byOff.get(offs);
+  if (r === undefined) { if (byOff.size >= 64) byOff.clear(); r = parseDash(ds, offs); byOff.set(offs, r); }
+  return r;
+}
+// The numbers of "6px, 4px", "6 4", "3.5, 2" read in place (digits, a point, an optional "px", split by spaces and commas). Any other form (a
+// percentage, an exponent, another unit) is not read: null, which the caller takes as a pattern the painter does not draw (the picture is kept).
+const sepAt = (c) => c === 32 || c === 44 || c === 9 || c === 10;
+export function parseDash(ds, offs) {
+  const L = ds.length;
+  let n = 0, sum = 0, anyPos = false;
+  for (let i = 0; i < L;) {
+    let c = ds.charCodeAt(i);
+    if (sepAt(c)) { i++; continue; }
+    let v = 0, fd = 0, seen = 0, dot = false;
+    for (; i < L; i++) {
+      c = ds.charCodeAt(i);
+      if (c >= 48 && c <= 57) { v = v * 10 + (c - 48); seen++; if (dot) fd++; } else if (c === 46 && !dot) dot = true; else break;
+    }
+    if (!seen || n >= 16) return null;
+    if (i < L && ds.charCodeAt(i) === 112 && ds.charCodeAt(i + 1) === 120) i += 2;
+    if (i < L && !sepAt(ds.charCodeAt(i))) return null;
+    if (fd) v /= 10 ** fd;
+    DASH_N[n++] = v; sum += v; if (v > 0) anyPos = true;
+  }
+  if (!n || !anyPos) return null;
+  const m = n % 2 ? 2 * n : n, a = new Array(m);
+  for (let k = 0; k < m; k++) a[k] = DASH_N[k % n];
+  if (m === 2 * n && n % 2) sum *= 2;
+  if (sum <= 1e-6) return null;
+  return { a, off: parseFloat(offs) || 0 };
 }
 /** Polylines cut into their dashes (SVG's rule: the pattern runs on along each subpath from its start, shifted by the offset). */
 export function dashPolys(polys, { a, off }) {
@@ -81,6 +111,8 @@ const DASHED = new WeakMap();
 let srcId = 0;
 /** A shape made by the app: its `d` and its commands, under a name of its own. */
 export const shapeSource = (d, cmds) => ({ d, cmds, id: ++srcId });
+/** Makes `src` (a record kept by the caller, made once by shapeSource) the shape { d, cmds } under a new name: no record is made for it. */
+export function reshape(src, d, cmds) { src.d = d; src.cmds = cmds; src.id = ++srcId; return src; }
 /** The element `el` now draws the shape `src` (its `d` written with src.d). */
 export function bindShape(el, src) { if (el) SRC.set(el, src); }
 /** The shape source of a path element whose `d` is still its text, or null. */
@@ -91,6 +123,7 @@ export const mul = (a, b) => [a[0] * b[0] + a[2] * b[1], a[1] * b[0] + a[3] * b[
 // two, so a pinch keeps the same meshes until the zoom doubles. One rule for fills, strokes and clips alike: a clip given the
 // exact 0.2 / scale cut its outline again, and built and uploaded a new mesh, at every step of a zoom (T02, 26 Oct).
 export const detailTol = (sc) => Math.min(0.5, 2 ** Math.floor(Math.log2(0.2 / sc)));
+/** The inverse of m (a new array: invTo writes into one). */
 export const inv = (m) => { const d = m[0] * m[3] - m[1] * m[2] || 1e-12; return [m[3] / d, -m[1] / d, -m[2] / d, m[0] / d, (m[2] * m[5] - m[3] * m[4]) / d, (m[1] * m[4] - m[0] * m[5]) / d]; };
 /** a ∘ b written into `o` (which may be a or b): mul without the new array. Returns o. */
 export function mulTo(o, a, b) {
@@ -137,17 +170,35 @@ const matAttr = (el) => { const t = el.transform?.baseVal; if (!t || !t.numberOf
 const CSS_M = new WeakMap();
 let cssAny = false;   // (none taken yet: the organs' paints never look)
 const matOf = (el) => (cssAny && CSS_M.get(el)) || matAttr(el);
+/** An element's own transform attribute written into `o` (or the identity, shared, where it has none): matAttr with no new array. Returns the matrix to read. */
+export function matAttrTo(o, el) { const t = el.transform?.baseVal; if (!t || !t.numberOfItems) return ID; const k = t.consolidate().matrix; o[0] = k.a; o[1] = k.b; o[2] = k.c; o[3] = k.d; o[4] = k.e; o[5] = k.f; return o; }
+/** elMat with no new array: the frame of `el` (its CSS one where a strict reading took one), written into `o` when it is its attribute's. Returns the matrix to read; not to be kept. */
+export const elMatTo = (o, el) => (cssAny && CSS_M.get(el)) || matAttrTo(o, el);
 /** An element's own frame, its CSS transform included where a strict reading took one. */
 export const elMat = (el) => matOf(el);
-/** An element's own transform as the browser lays it: its frame (getCTM) undone by its parent's, or null where either is not known. */
-export function cssLocal(el) {
+/** An element's own transform as the browser lays it: its frame (getCTM) undone by its parent's, or null where either is not known.
+ *  `into`: the record this element had (the one cssLocal made for it before), written again in place. */
+const CL_A = [1, 0, 0, 1, 0, 0], CL_B = [1, 0, 0, 1, 0, 0];   // (scratch: the two frames, one record each for every call)
+export function cssLocal(el, into = null) {
   const a = el.getCTM?.(), b = el.parentNode?.getCTM?.();
   if (!a || !b) return null;
-  const m = mul(inv([b.a, b.b, b.c, b.d, b.e, b.f]), [a.a, a.b, a.c, a.d, a.e, a.f]);
+  CL_B[0] = b.a; CL_B[1] = b.b; CL_B[2] = b.c; CL_B[3] = b.d; CL_B[4] = b.e; CL_B[5] = b.f;
+  CL_A[0] = a.a; CL_A[1] = a.b; CL_A[2] = a.c; CL_A[3] = a.d; CL_A[4] = a.e; CL_A[5] = a.f;
+  invTo(CL_B, CL_B);
+  const m = mulTo(into || [0, 0, 0, 0, 0, 0], CL_B, CL_A);
   return m.every(Number.isFinite) ? m : null;
 }
-const urlId = (v) => String(v || '').match(/url\(\s*["']?#([^)"']+)["']?\s*\)/)?.[1] || null;
-const num = (el, a, dflt) => { const v = el.getAttribute(a); if (v == null || v === '') return dflt; const n = parseFloat(v); return v.trim().endsWith('%') ? n / 100 : n; };
+// (An id by the paint value it is read from, kept: the same "url(#g)" gives the same id with nothing made.)
+const URL_IDS = new Map();
+const urlId = (v) => {
+  if (typeof v !== 'string') return null;
+  let r = URL_IDS.get(v);
+  if (r === undefined) { if (URL_IDS.size >= 512) URL_IDS.clear(); r = v.match(/url\(\s*["']?#([^)"']+)["']?\s*\)/)?.[1] || null; URL_IDS.set(v, r); }
+  return r;
+};
+// (A trailing percentage: the last character that is not a space.)
+const pct = (v) => { for (let i = v.length - 1; i >= 0; i--) { const c = v.charCodeAt(i); if (c > 32) return c === 37; } return false; };
+const num = (el, a, dflt) => { const v = el.getAttribute(a); if (v == null || v === '') return dflt; const n = parseFloat(v); return pct(v) ? n / 100 : n; };
 
 /** A gradient by id → { kind: 1 linear | 2 radial, box (objectBoundingBox units), gt (gradientTransform), p (x1 y1 x2 y2 | cx cy r), stops: [[offset, r, g, b, a]] }, or null. */
 let refsOut = null;
@@ -182,8 +233,7 @@ function readGradient(doc, id) {
 
 /** A paint (computed fill or stroke) → { solid: [r, g, b, a] } | { grad }, or null for none; false: not readable. */
 function readPaintValue(doc, v) {
-  v = String(v || '').trim();
-  if (!v || v === 'none') return null;
+  if (typeof v !== 'string' || !v || v === 'none') return null;   // (a computed paint: a string with no spaces round it)
   const id = urlId(v);
   if (id) { const grad = readGradient(doc, id); return grad ? { grad } : false; }
   const c = parseColor(v);
@@ -191,25 +241,29 @@ function readPaintValue(doc, v) {
 }
 
 /** The shape an element draws, in its own units: { el, d } (a path, read again at each paint), or { poly } (fixed), or null. */
+// (One record for each element while its numbers stay the same: a group read again finds the record it had, and the painter, which names a
+// fixed shape by its record, finds its mesh instead of cutting and uploading it again.)
+const GEOMS = new WeakMap();
 function readGeom(el) {
+  let g = GEOMS.get(el), a, b, c, d;
   switch (el.localName) {
-    case 'path': return { el, d: true };
-    case 'ellipse': return { poly: ellipsePoly(num(el, 'cx', 0), num(el, 'cy', 0), num(el, 'rx', 0), num(el, 'ry', 0)) };
-    case 'circle': { const r = num(el, 'r', 0); return { poly: ellipsePoly(num(el, 'cx', 0), num(el, 'cy', 0), r, r) }; }
-    case 'rect': {
-      if (el.getAttribute('rx') || el.getAttribute('ry')) return false;
-      const x = num(el, 'x', 0), y = num(el, 'y', 0), w = num(el, 'width', 0), h = num(el, 'height', 0);
-      return { poly: [{ pts: new Float32Array([x, y, x + w, y, x + w, y + h, x, y + h]), closed: true }] };
-    }
+    case 'path': if (!g) GEOMS.set(el, (g = { el, d: true })); return g;
+    case 'ellipse': a = num(el, 'cx', 0); b = num(el, 'cy', 0); c = num(el, 'rx', 0); d = num(el, 'ry', 0); break;
+    case 'circle': a = num(el, 'cx', 0); b = num(el, 'cy', 0); c = d = num(el, 'r', 0); break;
+    case 'rect': if (el.getAttribute('rx') || el.getAttribute('ry')) return false; a = num(el, 'x', 0); b = num(el, 'y', 0); c = num(el, 'width', 0); d = num(el, 'height', 0); break;
     default: return false;
   }
+  if (g && g.k0 === a && g.k1 === b && g.k2 === c && g.k3 === d) return g;
+  const poly = el.localName === 'rect' ? [{ pts: new Float32Array([a, b, a + c, b, a + c, b + d, a, b + d]), closed: true }] : ellipsePoly(a, b, c, d);
+  GEOMS.set(el, (g = { poly, k0: a, k1: b, k2: c, k3: d }));
+  return g;
 }
 
 /** A clip-path by id, in the user space `m` (to the group's frame) of the element it clips: { geom, m }, or false. */
 function readClip(doc, id, m) {
   const c = doc.getElementById(id);
   if (!c || c.localName !== 'clipPath' || (c.getAttribute('clipPathUnits') || 'userSpaceOnUse') !== 'userSpaceOnUse') return false;
-  const kids = [...c.children];
+  const kids = c.children;
   if (kids.length !== 1 || c.getAttribute('clip-path')) return false;
   const geom = readGeom(kids[0]);
   if (!geom) return false;
@@ -261,9 +315,10 @@ export function readGroup(root, { withMask = true, nest = false, strict = false 
     if (strict) {
       vis = cs.visibility === 'collapse' ? 'hidden' : cs.visibility || 'visible';
       { const r = strictRefused(el, cs, { cssTransforms: true }); if (r) { no(r, el); return; } }
+      const was = CSS_M.get(el);
       CSS_M.delete(el);
       if (cssTransformed(el, cs)) {
-        const lm = cssLocal(el);
+        const lm = cssLocal(el, was);
         if (!lm) { no('css transform', el); return; }
         CSS_M.set(el, lm); cssAny = true;
       }
