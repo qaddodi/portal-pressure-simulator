@@ -4,11 +4,11 @@
 // hairline of cl-hair strokes 2 px, so 1 px shows). The pointer reaches outside the card's box, so the child is the box grown by the pointer's depth.
 
 <<<<<<< HEAD
-import { createSvgGL, svgModel } from './svg-gl.js?v=949ac7fd0e';
+import { createSvgGL, svgModel } from './svg-gl.js?v=0351baf0a0';
 import { restPass } from './rest-pass.js?v=bb619a1659';
 =======
-import { createSvgGL, svgModel, setGeo } from './svg-gl.js?v=d5c69f5f25';
-import { restPass } from './rest-pass.js?v=d13e397f0b';
+import { createSvgGL, svgModel, setGeo } from './svg-gl.js?v=0351baf0a0';
+import { restPass } from './rest-pass.js?v=bb619a1659';
 >>>>>>> 3207b43b (Chart, dial, callout and glyph-slot models keep their moving numbers on the piece (setGeo); card and inspector control syncs land in a rest pass)
 
 const PTR = 11;   // how far the pointer reaches past the card's edge, and its half-width at the edge

@@ -3,7 +3,7 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { classSoon, runSoon, propSoon, attrSoon, textSoon } from './class-soon.js?v=0000000000';
+import { classSoon, runSoon, propSoon, attrSoon, textSoon } from './class-soon.js?v=97b9d0e0db';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 import { readBox, readMetric } from './layout-snap.js?v=f609965236';
 const nextFrame = frameFor('card');

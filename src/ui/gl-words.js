@@ -19,13 +19,13 @@
 // cut glyphs do not have, an element with no box. ?glwords=0: every change is written into the page between frames, with no picture.
 
 <<<<<<< HEAD
-import { createSvgGL, svgModel } from './svg-gl.js?v=949ac7fd0e';
+import { createSvgGL, svgModel } from './svg-gl.js?v=0351baf0a0';
 import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=3203debbbd';
 import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
 =======
-import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=d5c69f5f25';
-import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=96ad9e26a5';
-import { restPass, cancelRest } from './rest-pass.js?v=d13e397f0b';
+import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=0351baf0a0';
+import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=3203debbbd';
+import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
 >>>>>>> 3207b43b (Chart, dial, callout and glyph-slot models keep their moving numbers on the piece (setGeo); card and inspector control syncs land in a rest pass)
 import { readMetric } from './layout-snap.js?v=f609965236';
 import { cssColor } from './css-color.js?v=e56f0c77ae';

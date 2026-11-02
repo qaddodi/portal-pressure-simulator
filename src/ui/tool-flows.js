@@ -22,7 +22,7 @@ import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
 import { EDGES, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from '../engine/topology.js?v=4044766e96';
 import { portalSplit } from './table-marks.js?v=a483b9975e';
 import { measure } from './glyph-measure.js?v=1e477bd6b3';
-import { createSvgGL, svgModel } from './svg-gl.js?v=949ac7fd0e';
+import { createSvgGL, svgModel } from './svg-gl.js?v=0351baf0a0';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const STENTS = new Set(['TIPS', 'DIPS']);

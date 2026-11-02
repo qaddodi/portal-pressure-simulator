@@ -5,7 +5,7 @@
 
 import { store, hiddenNow } from './store.js?v=a21c31dcb5';
 import { hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn } from './util.js?v=ad6469643b';
+import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn } from './util.js?v=08dd1f0db5';
 import { vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { SCALE, RATE } from './table-marks.js?v=a483b9975e';
 import { shownState, shownOr, FILL_SMALL, fillQ } from './shown.js?v=f7d50db740';
