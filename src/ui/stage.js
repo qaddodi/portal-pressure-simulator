@@ -26,7 +26,7 @@ import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb64813
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { paintBox } from './plate-copy.js?v=20b30d30b0';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
-import { glassCallout } from './callout.js?v=5a8b4ada73';
+import { glassCallout } from './callout.js?v=bfa4eaf6ac';
 import { flipFrom, flipAt } from './cath-flip.js?v=6b016952c4';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
@@ -73,6 +73,7 @@ import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-
 import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=db59be811c';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
+import { placePills, PILL_GAP } from './cath-pill.js?v=579ba5404c';
 import { layoutWatch } from './idle-keys.js?v=81fbedda6b';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
@@ -8253,7 +8254,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     const pill = (l, cls = '') => {
       const el = document.createElement('div');
-      el.className = `cath-label ${l.cls || ''} ${cls}`; el.dataset.at = l.at || '';
+      el.className = `cath-label ${l.cls || ''} ${cls || 'cath-js'}`; el.dataset.at = l.at || '';
       const k = document.createElement('small'); k.textContent = l.kicker || ''; el.append(k);
       const b = document.createElement('b'); b.textContent = l.text; el.append(b);
       if (l.unit) { const u = document.createElement('span'); u.textContent = l.unit; el.append(u); }
@@ -8296,22 +8297,34 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The readings stay in the space the cards leave (a phone's Measure card sits over the bottom).
     const sp = room.sp, lim = H - sp.b;
     const size = new Map(pills.map(([el, l]) => [el, cathSize(el, `${l.kicker}|${l.text}|${l.unit}`)]));
-    const fEl = made.get('f'), fW = fEl ? (size.get(fEl) || [0])[0] : 0;
+    // Both readings are placed together (cath-pill.js): above or below their points and slid sideways, so neither sits on a card, the top
+    // sheet, the stage's edges or the other (2 Nov 2026, his ask: the callouts sat on the cards). Each keeps its place while it stays clear,
+    // and any move (a flip to the other side included) glides there (cathGlide), never jumps. Decided only once the cards' room and the
+    // readings' sizes are known; before that a reading takes its usual side and no glide starts from that guess.
+    const pt = (el) => { const p = el.dataset.at === 'ahead' ? at.ahead : at.tip; return worldToLocal(p[0], p[1]); };
+    const cur = [...want].filter(([, l]) => l.at !== 'sum').map(([k]) => made.get(k));
+    const ready = room.t > 0 && cur.every((el) => size.get(el)[0] > 0);
+    if (ready && cur.length) {
+      const res = placePills({ W, top: Math.max(0, sp.t) + 6, lim: lim - 6, blockers: room.blk, pills: cur.map((el) => {
+        const [x, y] = pt(el), [w, h] = size.get(el);
+        return { x, y, w, h, prefer: el.dataset.at !== 'ahead', was: el._side || null };
+      }) });
+      cur.forEach((el, i) => { el._side = res[i]; });
+    }
     for (const [el] of pills) {
-      const [w, h] = size.get(el);
-      const p = el.dataset.at === 'ahead' ? at.ahead : at.tip;
-      const [x, y] = worldToLocal(p[0], p[1]);
-      // A reading that hangs below its point goes above it when the bottom is covered (decided once, so it never jumps).
-      if (el._above == null && el.dataset.at === 'ahead') { el._above = y + 18 + h > lim - 8; el.classList.toggle('above', el._above); }
-      // Side by side with the free reading, the wedged one steps aside rather than overlap it.
-      let dx = 0;
-      if (el.dataset.at === 'ahead' && el._above && fEl) { const [tx] = worldToLocal(at.tip[0], at.tip[1]); dx = -clamp((x + w / 2) - (tx - fW / 2) + 6, 0, 14); }
+      const [w, h] = size.get(el), [x, y] = pt(el);
+      const side = el._side || { above: el.dataset.at !== 'ahead', dx: 0 }, half = w / 2;
       // Kept inside the stage: the box moves in and its pointer stays on the point.
-      const half = w / 2, [cx, cy] = cathGlide(el, clamp(x + dx, Math.min(half + 8, W / 2), Math.max(W - half - 8, W / 2)), y, x, y);
-      el.style.setProperty('--ax', `${(x + dx - cx).toFixed(1)}px`);
-      el._glass(x + dx - cx);
+      const bx = clamp(x + side.dx, Math.min(half + 8, W / 2), Math.max(W - half - 8, W / 2)), by = side.above ? y - PILL_GAP - h : y + PILL_GAP;
+      let cx = bx, cy = by;
+      if (ready) [cx, cy] = cathGlide(el, bx, by, x, y); else el._gl = null;
+      // The pointer is on the side facing its point: it turns as the gliding pill passes the point, not before.
+      const above = cy + h / 2 < y;
+      if (el.classList.contains('above') !== above) el.classList.toggle('above', above);
+      el.style.setProperty('--ax', `${(x - cx).toFixed(1)}px`);
+      el._glass(x - cx);
       el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px)`;
-      el._box = calloutBox(el, null, cx, cy, half, h);
+      el._box = above ? { x0: cx - half, y0: cy, x1: cx + half, y1: Math.max(y, cy + h) } : { x0: cx - half, y0: Math.min(y, cy), x1: cx + half, y1: cy + h };
     }
     live.forEach(([el, l]) => {
       if (!l || l.at !== 'sum') return;

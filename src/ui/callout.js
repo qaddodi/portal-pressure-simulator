@@ -51,7 +51,7 @@ export function glassCallout(el, { pointer = true } = {}) {
     if (!size) return;
     const [w, h] = size;
     if (!w) return;
-    const dir = !pointer || el.classList.contains('in-sum') ? 'none' : el.dataset.at === 'ahead' && !el.classList.contains('above') ? 'top' : 'bottom';
+    const dir = !pointer || el.classList.contains('in-sum') ? 'none' : (el.classList.contains('cath-js') || el.dataset.at === 'ahead') && !el.classList.contains('above') ? 'top' : 'bottom';
     const k = `${w.toFixed(2)}|${h.toFixed(2)}|${dir}|${ax.toFixed(1)}`;
     if (k === key) return;
     key = k;

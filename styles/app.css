@@ -3377,6 +3377,9 @@ button.finding { cursor: pointer; }
 #glassGl { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; }
 .cath-label[data-at="ahead"] { translate: -50% calc(18px + var(--pre, 0px)); }
 .cath-label[data-at="ahead"].above { translate: -50% calc(-100% - 18px + var(--pre, 0px)); }
+/* (The HVPG catheter's own readings: their side of the point is in their transform, placed and eased with their glass (stage.js
+   cathLabels, cath-pill.js), so a flip glides instead of switching here.) */
+.cath-label.cath-js, .cath-label.cath-js[data-at="ahead"], .cath-label.cath-js[data-at="ahead"].above { translate: -50% var(--pre, 0px); }
 .cath-label small { color: var(--c); font-weight: 700; font-size: 12px; letter-spacing: .06em; }
 .cath-label b { font-size: 26px; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c); }
 .cath-label b + span { color: var(--text-3); font-size: 12px; font-weight: 600; margin-top: -2px; }
