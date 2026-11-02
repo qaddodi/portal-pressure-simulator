@@ -8,57 +8,79 @@ const STENTS = new Set(['TIPS', 'DIPS']);   // the stents from the portal side: 
 
 // The grades judge the number every readout prints (a diameter to 0.1 mm, a volume to 0.1 L), so "5.0 mm" is never Small
 // and "5.0 L" never Grade 2.
-const tenth = (v) => Math.round(+v.toFixed(1) * 10) / 10;
+// (tenths(v) is Math.round(+v.toFixed(1) * 10) without the string: the integer n for which n / 10 is nearest v, a tie going away from
+// zero, decided on the exact value of the double as toFixed decides it. Checked against toFixed over millions of values, ties included.)
+function tenths(v) {
+  const a = v < 0 ? -v : v + 0;
+  const n = a * 10, f = Math.floor(n), d = n - f;
+  let k;
+  if (d < 0.499999 || d > 0.500001) k = d < 0.5 ? f : f + 1;
+  else {
+    // (A tie to the double's precision: 20a against 2f + 1, exactly, by two-sum.)
+    const x = 16 * a, y = 4 * a, p = x + y, bb = p - x, e = (x - (p - bb)) + (y - bb), q = p - (2 * f + 1);
+    k = q > 0 || (q === 0 && e >= 0) ? f + 1 : f;
+  }
+  return v < 0 ? -k : k;
+}
+const tenth = (v) => tenths(v) / 10;
 // A varix is graded by its size alone: None under 2.5 mm, Small under 5 mm, Large from 5 mm. There are no F-codes: they
 // describe shape and red signs as well as size, and the model reads size only.
 export const VARIX_NONE_MM = 2.5;
+// (The grades are three shared, frozen records: nothing writes to one, and each reader copies what it keeps.)
+const VARIX_NONE = Object.freeze({ label: 'None' }), VARIX_SMALL = Object.freeze({ label: 'Small' }), VARIX_LARGE = Object.freeze({ label: 'Large' });
 export function varixGrade(d0) {
   const d = Number.isFinite(d0) ? tenth(d0) : d0;
-  if (d < VARIX_NONE_MM) return { label: 'None' };
-  if (d < 5) return { label: 'Small' };
-  return { label: 'Large' };
+  if (d < VARIX_NONE_MM) return VARIX_NONE;
+  if (d < 5) return VARIX_SMALL;
+  return VARIX_LARGE;
 }
 // Whether there are varices to look at: the diameter reaches the "none" cut-off, or banded columns are still on the wall
 // (esophageal only; bands shrink a varix under the cut-off for weeks). The one answer every view reads (store.varicesPresent).
 const varixPresent = (d, banded) => d >= VARIX_NONE_MM || banded;
 
+const ASC_0 = Object.freeze({ grade: 0, label: 'None' }), ASC_1 = Object.freeze({ grade: 1, label: 'Grade 1 (ultrasound only)' });
+const ASC_2 = Object.freeze({ grade: 2, label: 'Grade 2 (moderate)' }), ASC_3 = Object.freeze({ grade: 3, label: 'Grade 3 (tense)' });
 export function ascitesGrade(V0) {
-  const V = Number.isFinite(V0) ? Math.round(+(V0 / 1000).toFixed(1) * 10) * 100 : V0;
-  if (V < 150) return { grade: 0, label: 'None' };
-  if (V < 1500) return { grade: 1, label: 'Grade 1 (ultrasound only)' };
-  if (V < 5000) return { grade: 2, label: 'Grade 2 (moderate)' };
-  return { grade: 3, label: 'Grade 3 (tense)' };
+  const V = Number.isFinite(V0) ? tenths(V0 / 1000) * 100 : V0;
+  if (V < 150) return ASC_0;
+  if (V < 1500) return ASC_1;
+  if (V < 5000) return ASC_2;
+  return ASC_3;
 }
+
+// (The catheter's vein → its hepatic vein node and its wedged node, read for every frame: no object or string built to look them up.)
+const HV_NODE = { R: 'RHV', M: 'MHV', L: 'LHV' }, WEDGE_NODE = { R: 'W_R', M: 'W_M', L: 'W_L' };
+const qf = (eng, id) => (eng.Qf ? eng.Qf[eng.ei[id]] : eng.Q[eng.ei[id]]);
 
 const lsmOf = (hv) => 5 + 2.2 * Math.max(0, Math.min(hv.hvpg, 12) - 3) + 0.8 * Math.max(0, hv.hvpg - 12) + 2 * Math.max(0, hv.fhvp - 6);
 
 export function computeMetrics(eng) {
-  const P = eng.Pf || eng.P, Q = eng.Q, ni = eng.ni, ei = eng.ei, p = eng.params;
-  const qf = (id) => (eng.Qf ? eng.Qf[ei[id]] : Q[ei[id]]);
+  const P = eng.Pf || eng.P, ni = eng.ni, ei = eng.ei, p = eng.params;
   if (!eng.baseHepFlow) eng.baseHepFlow = eng.refQ ? eng.refQ[ei.SIN_RR] + eng.refQ[ei.SIN_LL] : 25;
 
   const hv = eng.hvpgTrue(P);
-  const splIn = SPLANCHNIC_ARTERIES.reduce((s, id) => s + qf(id), 0);
-  const apIn = Math.max(0, qf('AP_R')) + Math.max(0, qf('AP_L'));
+  let splIn = 0;
+  for (let i = 0; i < SPLANCHNIC_ARTERIES.length; i++) splIn += qf(eng, SPLANCHNIC_ARTERIES[i]);
+  const apIn = Math.max(0, qf(eng, 'AP_R')) + Math.max(0, qf(eng, 'AP_L'));
   let shunted = 0;
   const collateralFlows = {};
-  const portalIn = Math.max(0, qf('PRE_R')) + Math.max(0, qf('PRE_L'));
+  const portalIn = Math.max(0, qf(eng, 'PRE_R')) + Math.max(0, qf(eng, 'PRE_L'));
   let stentQ = 0;
   for (const id of PORTOSYSTEMIC_EDGES) {
-    const v = qf(id);
+    const v = qf(eng, id);
     if (STENTS.has(id)) stentQ += Math.max(0, v); else shunted += Math.max(0, v);
     collateralFlows[id] = v;
   }
   // A stent (TIPS or DIPS) also drains arterial blood that recirculates through the sinusoids and back out by the
   // portal branches, so only the portal-trunk blood that no longer reaches the sinusoids counts as shunted portal blood.
-  shunted += clamp(Math.max(0, qf('PV_TRUNK')) - portalIn - Math.max(0, qf('C3')), 0, stentQ);
+  shunted += clamp(Math.max(0, qf(eng, 'PV_TRUNK')) - portalIn - Math.max(0, qf(eng, 'C3')), 0, stentQ);
   // Custom shunts the learner has made carry portal blood to systemic veins as well.
-  for (const e of EDGES) if (e.shunt === 'custom' && eng.params.customShunts?.[e.id]) shunted += Math.max(0, qf(e.id));
-  for (const e of EDGES) if (e.kind === 'collateral') collateralFlows[e.id] = qf(e.id);
+  for (const e of EDGES) if (e.shunt === 'custom' && eng.params.customShunts?.[e.id]) shunted += Math.max(0, qf(eng, e.id));
+  for (const e of EDGES) if (e.kind === 'collateral') collateralFlows[e.id] = qf(eng, e.id);
   const shuntFraction = clamp(shunted / Math.max(1e-6, splIn + apIn), 0, 1);
 
-  const hepFlow = qf('SIN_RR') + qf('SIN_LL');
-  const arterialIn = qf('A_HR') + qf('A_HL');
+  const hepFlow = qf(eng, 'SIN_RR') + qf(eng, 'SIN_LL');
+  const arterialIn = qf(eng, 'A_HR') + qf(eng, 'A_HL');
 
   const varE = eng.varix('VAR', P), varG = eng.varix('GV', P);
   const noGRS = eng.params.spontaneous?.C5 === false;   // no gastrorenal shunt, no fundal varices
@@ -78,8 +100,7 @@ export function computeMetrics(eng) {
   const cath = p.catheter;
   let measured = null;
   if (cath.vein) {
-    const hvId = { R: 'RHV', M: 'MHV', L: 'LHV' }[cath.vein];
-    measured = { vein: cath.vein, fhvp: P[ni[hvId]], wedged: cath.wedged, whvp: cath.wedged ? P[ni['W_' + cath.vein]] : null };
+    measured = { vein: cath.vein, fhvp: P[ni[HV_NODE[cath.vein]]], wedged: cath.wedged, whvp: cath.wedged ? P[ni[WEDGE_NODE[cath.vein]]] : null };
   }
 
   return {
@@ -99,9 +120,9 @@ export function computeMetrics(eng) {
     pvh: P[ni.PVH],
     sv: P[ni.SV],
     ra, ivc: P[ni.IVCS],
-    pvFlow: qf('PV_TRUNK') * 0.06,
+    pvFlow: qf(eng, 'PV_TRUNK') * 0.06,
     pvVel: eng.dopplerVelocity('PV_TRUNK'),
-    pvFlowMean: (eng.pvQm ?? qf('PV_TRUNK')) * 0.06,
+    pvFlowMean: (eng.pvQm ?? qf(eng, 'PV_TRUNK')) * 0.06,
     pvVelMean: eng.pvVm ?? eng.dopplerVelocity('PV_TRUNK'),
     // (the vitals over a breath, engine.js controllers: what the bar and Readouts show)
     vitals: { co: eng.vitM?.[0] ?? co, map: eng.vitM?.[1] ?? map, hr: eng.vitM?.[2] ?? eng.hr, ra: eng.vitM?.[3] ?? ra },
