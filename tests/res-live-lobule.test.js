@@ -63,7 +63,8 @@ test('lobule-zoom.js: the change waits for a still, whole lobule, and its GPU co
   assert.ok(!/stackInto|getContext|drawImage|hostSize\(/.test(swap), 'no 2D stack, no layout read');
   assert.ok(swap.indexOf('g?.ready && draw(0)') < swap.indexOf('g.build([tissue, tissueG, glCv, fx], prev)'), 'copied in the frame that drew it');
   assert.ok(swap.indexOf('g.build(') < swap.indexOf('lzK = k;'), 'at the share before');
-  assert.match(swap, /const fresh = \(\) => \{ tissueKey = ''; drawKey = ''; glDirty = true; idleDrawn = ''; \};/, 'every layer drawn whole');
+  assert.match(lz, /function freshDraw\(\) \{ tissueKey = ''; drawKey = ''; glDirty = true; idleDrawn = ''; \}/, 'every layer drawn whole');
+  assert.match(swap, /freshDraw\(\);[\s\S]*?freshDraw\(\);/, 'before the copy is made and again once the new resolution stands');
   assert.match(swap, /if \(!cv\.isConnected\) fx\.after\(cv\);/, 'over the layers, under the leaders and labels');
   assert.match(lz, /if \(u >= 1 \|\| diveScaled \|\| wide \|\| fade <= 0\) \{ resCoverEnd\(\); return; \}/);
   assert.match(lz, /setDiveZoom\(k, x, y, tx = x, ty = y\) \{\n\s*if \(k < 0\.9999\) resCoverEnd\(\);/, 'a dive takes it away before the layers scale');

@@ -63,8 +63,9 @@ test('an optional lobule label gives way rather than take a leader across the lo
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   const m = /const LONG_LEAD = (\d+);/.exec(lz);
   assert.ok(m && +m[1] <= 160, 'LONG_LEAD is missing or too long');
-  assert.match(lz, /!CORE\.includes\(k\) && !named\(k\) && lead > LONG_LEAD \? 1e6/);
-  assert.match(lz, /const drop = \(k\) => \(named\(k\) \? 2e7 : CORE\.includes\(k\) \? 1e7 : 3e4\);/);
+  assert.match(lz, /const nameless = !CORE\.includes\(k\) && !named\(k\);/);
+  assert.match(lz, /\(nameless && lead > LONG_LEAD \? 1e6/);
+  assert.match(lz, /const dropCost = \(k\) => \(named\(k\) \? 2e7 : CORE\.includes\(k\) \? 1e7 : 3e4\);/);
 });
 
 test('a zone name never sits on the slide\'s lesion ring', () => {

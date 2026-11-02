@@ -26,9 +26,10 @@ test('the boxes are read at rest boundaries only', () => {
 });
 
 test('a label waits a frame to be measured rather than read in the frame', () => {
-  const lay = between('function layoutLabels()', 'for (const [i, [k, L]] of shown.entries())');
+  const lay = between('function layoutLabels()', 'const p = anchorOf(k), ax = ');
   assert.doesNotMatch(lay, /offsetWidth|offsetHeight|getComputedStyle|getBoundingClientRect/);
-  assert.match(lay, /labWant = \{ ks: shown\.map\(\(\[k\]\) => k\), fw \};\n\s*if \(!measT\) measT = restPass\(measureRun\);/);
+  assert.match(lay, /wantLabels\(ns, fw\);\n\s*if \(!measT\) measT = restPass\(measureRun\);/);
+  assert.match(src, /function wantLabels\(ns, fw\) \{[\s\S]*?w\.fw = fw; labWant = w;/);
   assert.match(lay, /if \(bakeFollow\(\)\) \{ bakedEase = true; relayout\(\); return; \}/, 'a bake is drawn first, the glide starts next frame');
   assert.doesNotMatch(between('function bakeRides()', 'function bakeFollow()'), /offsetWidth/);
 });

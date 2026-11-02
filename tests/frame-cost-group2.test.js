@@ -30,10 +30,10 @@ test('item 36: the data-card plane skips a redraw whose size, font, points, read
 
 test("item 39: a lit lobule label's pill is read once per layout, not on every frame of its leaders' glide", () => {
   const src = read('../src/ui/lobule-zoom.js');
-  const lo = src.slice(src.indexOf('const lettersOf = '), src.indexOf('function leadTo('));
+  const lo = src.slice(src.indexOf('const lettersInto = '), src.indexOf('const dropCost = '));
   // (Since 1 Nov, evening: never read in a frame at all. The pill's insets are measured with the label's size, in a timer task of
   // their own (measureRun), and the leaders use them from there.)
-  assert.match(lo, /const q = L\.pillQ \|\| \[/);
+  assert.match(lo, /q = L\.pillQ;/);
   assert.doesNotMatch(lo, /getComputedStyle/);
   const run = src.slice(src.indexOf('function measureRun()'), src.indexOf('const labWH = '));
   assert.match(run, /getComputedStyle\(L\.el, '::before'\)/);
@@ -91,13 +91,14 @@ test("item 31: lobule pan and zoom frames reuse each tube's radii, compare inks 
 
 test('item 6: a short lobule glide carries the labels with their spots and lays them out once where it lands', () => {
   const src = read('../src/ui/lobule-zoom.js');
-  const lay = src.slice(src.indexOf('function layoutLabels()'), src.indexOf('const baked = bakeFollow();'));
+  const lay = src.slice(src.indexOf('function layoutLabels()'), src.indexOf('if (bakeFollow())'));
   // (Not a presenter's camera move, which hides the labels on the way, nor a hand's pan, which carries the whole layer.)
-  assert.match(lay, /if \(follow && bKey === follow\.b && gliding && !camMove && !handOn\(\) && !labels\.style\.transform\) \{ ride\(\); return; \}/);
-  assert.match(lay, /V\.k === follow\.k && handOn\(\) && !rides\)/);
+  assert.match(lay, /if \(sameB && gliding && !camMove && !handOn\(\) && !labels\.style\.transform\) \{ ride\(\); return; \}/);
+  assert.match(lay, /sameB && V\.k === follow\.k && handOn\(\) && !rides\)/);
   const rd = src.slice(src.indexOf('function ride()'), src.indexOf('function bakeFollow()'));
   // Each piece moves by its own spot's move at its own size (a translate), and is written into its place at landing.
-  assert.match(rd, /e\.style\.translate = t;/);
+  assert.match(rd, /e\.style\.translate = r\.ts;/);
+  assert.match(src, /const tr = \(e, x, y\) => \{[^\n]*e\.style\.translate = `\$\{x\.toFixed\(2\)\}px \$\{y\.toFixed\(2\)\}px`;/);
   assert.match(rd, /e\.style\.translate = '';/);
   assert.match(rd, /labels\.classList\.remove\('lz-ease'\);/);
   assert.match(src, /function bakeFollow\(\) \{\s*if \(bakeRides\(\)\)/);

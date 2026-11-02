@@ -17,7 +17,7 @@ test('the lesion leader starts on the ring\'s edge, and labels keep clear of the
   const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   assert.match(js, /setGeo\(callLine, 'x1', a\[0\] \+ \(bx - a\[0\]\) \* e0\)/, 'leader start is offset by the ring radius');
   assert.doesNotMatch(js, /callLine\.setAttribute\('x1', a\[0\]\); callLine/, 'leader no longer starts at the ring centre');
-  assert.match(js, /ringDepth\(ring, box\) > 0 \? 1e6/, 'labels pay the full clash cost for touching the ring');
+  assert.match(js, /const rd = ringDepth\(ring, cb\);[\s\S]*?\(rd > 0 \? 1e6 \+ rd \* 1e3 : 0\)/, 'labels pay the full clash cost for touching the ring');
   assert.match(js, /\(rd0 > 0 \? 1e6 \+ rd0 \* 1e4 : 0\)/, 'the pill pays the full clash cost for touching the ring too');
 });
 
@@ -35,22 +35,23 @@ test('lobule labels are pinned beside what they name and never cover the central
   assert.match(js, /const keep = keepDiscs\(g\);/, 'the layout keeps them clear');
   // (Discs as tight as the vessels themselves, so a tract's names sit right beside it on short leaders: Mohammad, 2 Nov 2026.)
   assert.match(js, /const CV_KEEP = 1\.25, TRACT_KEEP = 1\.3;/);
-  assert.match(js, /keep\.reduce\(\(sum, q\) => \{ const d = into\(q, box\); return sum \+ \(d > 0 \? 1e6/, 'covering one costs as much as a clash');
-  assert.match(js, /into\(\{ x: a\[0\], y: a\[1\], r: 10 \}, box\) > 0 \? 1e6/, 'a label never covers the spot it names');
+  assert.match(js, /for \(let i = 0; i < keep\.length; i\+\+\) \{ const d = into\(keep\[i\], cb\); keepS = keepS \+ \(d > 0 \? 1e6/, 'covering one costs as much as a clash');
+  assert.match(js, /disc: \{ x: 0, y: 0, r: 10 \}/);
+  assert.match(js, /disc\.x = a\[0\]; disc\.y = a\[1\];[\s\S]*?\(into\(disc, cb\) > 0 \? 1e6/, 'a label never covers the spot it names');
   assert.match(js, /lead \* 8/, 'short leaders are preferred');
   assert.match(js, /L\.el\.classList\.toggle\('edge'/, 'a label whose structure is off screen waits at the edge');
-  assert.match(js, /if \(best\.cost >= 1e6\) \{ res\.push\(\{ k, out: true \}\)/, 'a label with no clear spot is left out, never stacked on another');
-  assert.match(js, /let callLead = placeCall\(/, 'the slide\'s pointer pill is placed before the labels');
+  assert.match(js, /if \(bestCost >= 1e6\) \{ r\.out = true; total \+= dropCost\(k\); continue; \}/, 'a label with no clear spot is left out, never stacked on another');
+  assert.match(js, /(?:let|const) callLead = placeCall\(/, 'the slide\'s pointer pill is placed before the labels');
   assert.match(js, /if \(sol\.total >= 1e5 && !rough\)/, 'when a label is hidden or crowded, other layouts are tried');
-  assert.match(js, /const isCore = \(k\) => CORE\.includes\(k\) \|\| named\(k\)/, 'a label the slide names counts as a vessel label');
-  assert.match(js, /const better = \(p, q\) => outs\(p\) < outs\(q\)/, 'the layout hiding fewest vessel labels wins');
+  assert.match(js, /const isCoreK = \(k\) => CORE\.includes\(k\) \|\| named\(k\)/, 'a label the slide names counts as a vessel label');
+  assert.match(js, /const betterSol = \(p, q\) => outsOf\(p\) < outsOf\(q\)/, 'the layout hiding fewest vessel labels wins');
   assert.match(js, /placeCall\(fr, pl2, cards, s1\.ld,/, 'the pill can be placed after the vessel labels, clear of their leaders');
   assert.match(js, /if \(callLead && callCost >= 1e6\) return null/, 'never with the pill on a label');
-  assert.match(js, /sinIt\.a = winA/, 'another sinusoid takes the label when the first leaves no room');
+  assert.match(js, /sinIt\.a\[0\] = winX; sinIt\.a\[1\] = winY;/, 'another sinusoid takes the label when the first leaves no room');
   assert.match(js, /if \(!faded\(ZONE_LIT\[i\]\)\) boxes\.push/, 'a faded zone name takes no room');
   assert.match(js, /\(crosses\(leads\[i\]\[0\], leads\[i\]\[1\], cBox\) \? 1e6 : 0\)/, 'no label leader runs behind the pill');
   assert.match(js, /- w \/ 2 - 110\) \* 30/, 'the pill stays near its target');
-  assert.match(js, /hit\(box, c\) \? 1e6/, 'a label never sits on a card');
+  assert.match(js, /cardS = cardS \+ \(overlap\(cb, cards\[i\]\) > 0 \? 1e6/, 'a label never sits on a card');
   assert.match(js, /Math\.max\(0, lead - 3 \* hh\) \* 60/, 'long leaders cost steeply');
 });
 

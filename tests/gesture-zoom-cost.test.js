@@ -33,14 +33,14 @@ test('the lobule counts a wheel and a trackpad pinch as a hand, as a scroll', ()
 
 test('a hand\'s zoom carries the lobule\'s labels while every layout rule still holds, and lays them out once let go', () => {
   const ll = body(lobule, 'function layoutLabels(');
-  assert.match(ll, /if \(follow\?\.ride && bKey === follow\.b && V\.k !== follow\.k && handOn\(\) && rideHolds\(fr0\)\) \{/);
-  assert.match(ll, /follow\.ride = \{ labs:/);
+  assert.match(ll, /if \(sameB && follow\.ride && V\.k !== follow\.k && handOn\(\) && rideHolds\(fr0\)\) \{/);
+  assert.match(ll, /R\.nl = nl; R\.nc = nc; R\.nz = zoneBoxes\.length;[^\n]*\n\s*follow\.ride = R;/);
   assert.match(lobule, /if \(labels\.style\.transform \|\| rough \|\| rides\) \{ rough = false;/);
   const rh = body(lobule, 'function rideHolds(');
   // (No label on another, on a zone's name or chip, on another's leader, on a structure or a card; leaders uncrossed; inside the free space.)
-  for (const re of [/overlap\(bi, rhB\[j\]\) > 0/, /crosses\(pa, pq, rhB\[j\]\)/, /cut\(pa, pq, rhP\[j\], rhQ\[j\]\)/,
-    /overlap\(bi, o\) > 0 \|\| crosses\(pa, pq, o\)/, /if \(into\(keep\[k\], b\) > 0\) return false;/, /if \(overlap\(b, R\.cards\[k\]\) > 0\) return false;/,
-    /if \(mvx >= fr\.l - 4 && mvx <= fr\.r \+ 4 && mvy >= fr\.t - 4 && mvy <= fr\.b \+ 4\) return false;/, /if \(call && callRingAt\(fr\)\) return false;/]) assert.match(rh, re);
+  for (const re of [/\(j > i && overlap\(bi, bj\) > 0\)/, /crosses\(pi, qi, bj\)/, /\(j > i && cut\(pi, qi, rhLead\[j\]\[0\], rhLead\[j\]\[1\]\)\)/,
+    /overlap\(bi, rhOth\[o\]\) > 0 \|\| crosses\(pi, qi, rhOth\[o\]\)/, /if \(into\(keep\[q\], b\) > 0\) return false;/, /if \(overlap\(b, cards\[q\]\) > 0\) return false;/,
+    /x >= fr\.l - 4 && x <= fr\.r \+ 4 && y >= fr\.t - 4 && y <= fr\.b \+ 4\) return false;/, /if \(call && callRingAt\(fr\)\) return false;/]) assert.match(rh, re);
 });
 
 test('a trackpad pinch (Ctrl/⌘ + wheel) marks wheelAt, so the anatomy counts it as a hand like a wheel zoom or a pan', () => {
