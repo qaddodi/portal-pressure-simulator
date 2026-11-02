@@ -51,7 +51,7 @@ import { pathCmds, flattenCmds, polyBox, measurePath, elBox } from './shape-gl.j
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=58a0cda065';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=a901e8b4f3';
 import { createLabelGL } from './label-gl.js?v=3d82af840f';
-import { createGlassGL } from './glass-gl.js?v=33bb55a5ac';
+import { createGlassGL } from './glass-gl.js?v=71d0d5ba89';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4ad517372';
 import { ENT_W } from './veins-bin.js?v=6e462a9e6c';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=646a89b6f3';

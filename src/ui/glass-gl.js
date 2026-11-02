@@ -1120,6 +1120,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // card at 0. ?glassend=0: as before.)
   const ENDS = !/[?&]glassend=0\b/.test(SEARCH);
   const ended = new Map();
+  const RISE = !/[?&]glassrise=0\b/.test(SEARCH);
   const chainOf = (g) => { const c = []; for (let e = g; e && e !== stop && e.nodeType !== 9; e = e.parentElement) c.push(e); return c; };
   function addAnim(e, an) {
     let m = anims.get(e);
@@ -1178,6 +1179,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       const b = translateOf(s.translate);
       if (!b) flag.bad = true; else if (t) t = [t[0] + b[0], t[1] + b[1]]; else t = b;
       if (o == null && s.opacity !== '' && s.opacity != null && !inlineLoses.has(e)) o = NUM(s.opacity);
+      // (A card the page moves by a custom property its stylesheet turns into a translate (the words' card's --pz-rise as the readings are
+      // pulled out, the data card's --pz-lift): cards.shift(e) gives that move, read from the inline value each frame, so the glass rises
+      // with its words. Before, it waited for the next read of the page and the words outran their card (Mohammad, 2 Nov 2026, untucking
+      // on the iPhone). ?glassrise=0: as before.)
+      if (RISE && cards?.shift && !s.translate && !anims.get(e)?.size) { const sh = cards.shift(e); if (sh) t = t ? [t[0] + sh[0], t[1] + sh[1]] : sh; }
     }
     return { t: t || [0, 0], o };
   }

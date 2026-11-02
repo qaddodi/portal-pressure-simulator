@@ -96,3 +96,10 @@ test('a card comes in from a little to its side (THROW_IN), not from where the o
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(css, /:root:root:not\(\[data-carddrop\]\) :is\(\.pz, \.pz-shade\) \{ --glass-drop: transparent; \}/);
 });
+
+test('glass: a card raised by --pz-rise or --pz-lift (untucking) has its glass raised with it each frame (?glassrise=0 off)', () => {
+  const glass = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
+  assert.match(glass, /if \(RISE && cards\?\.shift && !s\.translate && !anims\.get\(e\)\?\.size\) \{ const sh = cards\.shift\(e\);/);
+  assert.match(presenter, /shift: riseShift \}\)/);
+  assert.match(presenter, /el === ui\.data \? \(wide && el\.classList\.contains\('col'\) \? risePx\(el, '--pz-lift'\) : 0\)/);
+});

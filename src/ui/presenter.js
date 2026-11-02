@@ -3084,6 +3084,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (Written on the cards that rise, never on the stage's box: a custom property there is inherited by the whole figure, so each frame of
   // a slide restyled every vessel, and the stage, which watches its box's style, dropped its style snapshot and synced every vessel again,
   // about 10 frames a second on a Mac, Mohammad, 25 Oct: "moving the cards up sliding tucking untucking is very very laggy".)
+  // (The glass's view of those rises (glass-gl.js cards.shift): where app.css turns --pz-rise and --pz-lift into a translate, the move they
+  // make, from the inline value as written this frame; null where no rule moves the element.)
+  const risePx = (el, name) => parseFloat(el.style.getPropertyValue(name)) || 0;
+  const riseShift = (el) => {
+    if (!ui) return null;
+    const wide = ui.root.classList.contains('pz-wide');
+    const v = el === ui.shade ? (el.classList.contains('pz-card') && !el.classList.contains('stack') && !el.classList.contains('low') ? risePx(el, '--pz-rise') : 0)
+      : el === ui.text ? (wide ? risePx(el, '--pz-rise') : 0)
+        : el === ui.data ? (wide && el.classList.contains('col') ? risePx(el, '--pz-lift') : 0) : 0;
+    return v ? [0, -v] : null;
+  };
   const riseOn = (name) => (name === '--pz-lift' ? [ui?.data, ui?.lip] : [ui?.text, ui?.shade]);
   const setRise = (name, w) => { const v = w > 0.5 ? `${w.toFixed(1)}px` : ''; for (const el of riseOn(name)) if (el && el.style.getPropertyValue(name) !== v) { if (v) el.style.setProperty(name, v); else el.style.removeProperty(name); } };
   // (The words' card while a card is zoomed: it stays at its tucked, original place, whatever the readings do under the zoom, and the rise
@@ -5459,7 +5470,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (app.css: where the figure's canvas cannot take it, the shade turns solid; no backdrop-filter is declared anywhere) and the shade keeps one
     // layer of its own throughout, so the swap that lost its picture on an iPhone no longer happens. ?shadegl=0 keeps it solid.)
     const shadeGL = SHADE_GL;
-    const glass = stage.cardGlass?.({ find: () => [...(shadeGL ? [shade, data, vcase, bar, scl, fk] : [data, vcase, bar, scl, fk]), ...railGhosts().filter((g) => shadeGL || g.dataset.ghost !== 'shade')], watch: [root, shade], before: shade, low: shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined) }) || null;
+    const glass = stage.cardGlass?.({ find: () => [...(shadeGL ? [shade, data, vcase, bar, scl, fk] : [data, vcase, bar, scl, fk]), ...railGhosts().filter((g) => shadeGL || g.dataset.ghost !== 'shade')], watch: [root, shade], before: shade, low: shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), shift: riseShift }) || null;
     return { root, shade, safe, load, text, data, lip, lipRO, lipMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.

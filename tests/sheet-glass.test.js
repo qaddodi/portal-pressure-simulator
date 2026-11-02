@@ -37,7 +37,7 @@ test('the presenter hands the sheet to the card glass, and the glass takes a lis
   const pr = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   const gg = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(pr, /read: \(g\) => \(g === data \|\| g\.dataset\?\.ghost === 'data' \? sheetPanes\(g\) : undefined\) \}\) \|\| null;/, 'the data card and its copy on the rail');
+  assert.match(pr, /read: \(g\) => \(g === data \|\| g\.dataset\?\.ghost === 'data' \? sheetPanes\(g\) : undefined\), shift: riseShift \}\) \|\| null;/, 'the data card and its copy on the rail');
   assert.match(gg, /for \(const one of \[\]\.concat\(q \|\| \[\]\)\) \{/);
   assert.match(gg, /d: one\.d \|\| null, rad: one\.d \? null : one\.rad,/);
   assert.match(css, /\.pz\.pz\.pz \.pz-data\.pz-data\.pz-sheet\.pz-sheet\[data-gl\]::before, \.pz\.pz\.pz \.pz-data\.pz-data\.pz-sheet\.pz-sheet\[data-gl\]::after \{ background: none; \}/);
