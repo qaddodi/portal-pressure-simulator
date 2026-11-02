@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-const read = st.slice(st.indexOf('  function frostOverRead(level) {'), st.indexOf('  if (!GLASS_COPY) {\n    hostFrost(paneGL'));
+const read = st.slice(st.indexOf('  function frostOverRead(level) {'), st.indexOf('  hostFrost(paneGL, { order: 0'));
 const carrySrc = st.slice(st.indexOf('  function frostCarry(v) {'), st.indexOf('  function frostOverRead(level) {'));
 
 test('each part between is read through its own count; the camera moving the overlays reads none of them', () => {

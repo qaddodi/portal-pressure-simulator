@@ -97,19 +97,14 @@ import { provideStage } from './layout-snap.js?v=49b358c305';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
 // key pill, the readings' own sizes, the home look's room) are read first in a frame, before anything is written (frame.js readFrame),
-// never between the frame's writes, and only when something they measure may have changed. ?boxread=0: the cards' room (safeInsets,
-// cardSpace) is read on every call, as before.)
+// never between the frame's writes, and only when something they measure may have changed.)
 const readFrame = readFrameFor('stage-read');
-const BOX_READ = !/[?&]boxread=0\b/.test(location.search);
 // (2 Nov 2026, the Anatomy to Circuit change on his iPhone: between the two views the frame does only what the screen shows. The SVG's
 // hidden paths wait for the landing (updateGeometry), and the labels are carried with the vessels, solved again as the change reaches
-// its second half and as it lands (labelSig, updateLabels). ?geolazy=0: every frame of the change as before.)
-const GEO_LAZY = !/[?&]geolazy=0\b/.test(location.search);
-const COIL_HOLD = !/[?&]coilhold=0\b/.test(location.search);   // (a collateral's coil target held either side of its threshold: see the coils below)
+// its second half and as it lands (labelSig, updateLabels).)
 // The page's look as one string for the caches below that are drawn in its colours: data-theme, and data-palette too (Navy and Black keep
 // data-theme="dark" and differ from Dark only by the palette: looks.js).
 // (R04: two dependency lists the same, element by element, by identity: no string is built to compare them.)
-const LABEL_REV = !(typeof location !== 'undefined' && /[?&]labelrev=0\b/.test(location.search));
 function sameDeps(a, b) { for (let i = 0; i < b.length; i++) if (a[i] !== b[i]) return false; return true; }
 const themeKey = () => { const d = document.documentElement.dataset; return d.palette ? `${d.theme || ''}/${d.palette}` : (d.theme || ''); };
 const easeFrame = frameFor('stage-ease');   // (the scheduler's, named so that no local `frame` can stand in for it: the grid's path helper once did, and every ease asked through it never ran)
@@ -138,32 +133,17 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 // CI's visual check asks, to compare it with the page's own drawing.
 const OVER_ASK = typeof location !== 'undefined' && /[?&]stageover=gpu\b/.test(location.search);
 const OVER_GPU = !(typeof location !== 'undefined' && /[?&]stageover=svg\b/.test(location.search));
-// Parcels and arrowheads carried through junctions (blood.js createStreamChain; combined plan B1 + C1). ?bloodchain=0: each
-// vessel's blood its own pattern, dimmed at every join, as before.
-const BLOOD_CHAIN = !(typeof location !== 'undefined' && /[?&]bloodchain=0\b/.test(location.search));
+// Parcels and arrowheads carried through junctions (blood.js createStreamChain; combined plan B1 + C1).
 // A streak's length follows its vessel's display speed (veins-gl.js bloodAt): a fast vessel's streaks run long and a slow one's are short
-// dashes, so a still frame shows speed too. ?streaklen=0 in the address draws every streak as it was before 1 Nov: the same picture exactly.
-const STREAK_LEN = !(typeof location !== 'undefined' && /[?&]streaklen=0\b/.test(location.search));
+// dashes, so a still frame shows speed too.
 // The blood on the GPU (plan "Holding 120 Hz" §3.7): each stream is anchored (its distance, drift, display speed and stasis at a blood
 // clock) and the shader runs it on from there (veins-gl flowD), so a steady flow leaves the table as it was and nothing goes up a frame;
 // a stream is anchored again only when its speed or stasis moves past a hair.
-// Vessels that run on into one another narrow or widen as one continuous taper through the run (vessel-taper.js). ?taper=0 in the
-// address draws each join as it was before 1 Nov (one ease over half of each vessel, counted in samples): the same picture exactly.
-const TAPER = !(typeof location !== 'undefined' && /[?&]taper=0\b/.test(location.search));
-// The organs' GPU picture kept up through a return from under the lobule when the changing organs are painted live (platePoke).
-const STALE_KEEP = !(typeof location !== 'undefined' && /[?&]stalekeep=0\b/.test(location.search));
+// Vessels that run on into one another narrow or widen as one continuous taper through the run (vessel-taper.js).
+// The organs' GPU picture is kept up through a return from under the lobule when the changing organs are painted live (platePoke).
 // A presenter's camera move: the labels ride it on the GPU instead of fading out for it (rideStart).
-const LABEL_RIDE = !(typeof location !== 'undefined' && /[?&]labelride=0\b/.test(location.search));
-// The glasses' own canvases, each blurring a copy of the figure (createImageBitmap), as before 31 Oct: only with ?glasscopy=1. By default
-// they are drawn inside the figure's canvas (frostHost) and are otherwise the browser's (round 2, 2.1).
-const GLASS_COPY = typeof location !== 'undefined' && /[?&]glasscopy=1\b/.test(location.search);
-// ?hostcards=0: the Present cards keep the browser's glass (isolates the cards' GPU frost).
-const CARD_FROST_OFF = typeof location !== 'undefined' && /[?&]hostcards=0\b/.test(location.search);
-// The FibroScan probe's waves stop at idle rest with the rest of the figure (scanTick); ?scanrest=0 keeps them running at rest.
-const SCAN_REST = !(typeof location !== 'undefined' && /[?&]scanrest=0\b/.test(location.search));
-// ?boot=quick: the loading screen lifts as soon as the framed figure has painted twice, without the flat 260 ms settle after it
-// (about a quarter second sooner to the first figure on every device). Off, the wait is unchanged.
-const BOOT_QUICK = typeof location !== 'undefined' && /[?&]boot=quick\b/.test(location.search);
+// The glasses are drawn inside the figure's canvas (frostHost) and are otherwise the browser's (round 2, 2.1).
+// The FibroScan probe's waves stop at idle rest with the rest of the figure (scanTick).
 // Relative luminance of an 'rgb(r,g,b)' string (non-rgb strings count as dark).
 function luminance(c) {
   const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c || '');
@@ -1814,10 +1794,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // is made, first in the frame after anything placed changes (layoutWatch's touch, readFrame), after a resize, and once more as the
   // watch settles; every framing in between (safeInsets, cardSpace, clearPill, centreDrawn) is worked out from that snapshot, with no
   // read. A read-phase caller about to frame (a refit, the home look, the first fit) takes a fresh one first if a change is waiting
-  // (snapFresh). ?boxread=0: the framings are not kept between calls, worked out from the snapshot each time.)
+  // (snapFresh).)
   const insMemo = new Map();
   function insKept(key, fn) {
-    if (!BOX_READ) return fn();
     const m = insMemo.get(key);
     if (m) return m;
     const v = fn();
@@ -2530,7 +2509,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function rideStart() {
     if (rideCTM) return true;   // (a move taken over by another: the labels ride on from where they were laid out)
     // (A treatment's catheter keeps the figure's labels on (keep): they ride its glides too. The HVPG catheter hides them: nothing to carry.)
-    if (!LABEL_RIDE || !labelRider?.canRide() || (cath.st && !cath.st.keep) || pinchHide || lobuleOn || lz?.isOpen() || diveT > 0 || wrap.classList.contains('cam-move') || reduceMotion.matches) return false;
+    if (!labelRider?.canRide() || (cath.st && !cath.st.keep) || pinchHide || lobuleOn || lz?.isOpen() || diveT > 0 || wrap.classList.contains('cam-move') || reduceMotion.matches) return false;
     refreshCTM();
     rideCTM = stagePx(CTM);
     rideLeaders(true); glass.style.opacity = '0';
@@ -3144,7 +3123,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (Between the two views, with the GPU drawing the vessels, nothing on screen shows the SVG's paths: the hit paths, the strands' and
     // the gradients are written once the views have landed (t 0 or 1 is always a whole update), not at every frame of the change. Each
     // frame had built every vessel's path text twice over and set it on four elements: a fifth of a frame's script on his iPhone, 1 Nov.)
-    const lazy = !svgTubes && t > 0 && t < 1 && GEO_LAZY;
+    const lazy = !svgTubes && t > 0 && t < 1;
     for (const x of full ? EV : only) {
       const g = geo[x.e.id], v = vesselAt(x, t), { u0 } = v;
       const pts = v.pts;
@@ -3227,7 +3206,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.classList.remove('unframed');
     if (figureShown) return;
     figureShown = true;
-    nextFrame(() => nextFrame(() => setTimeout(() => { window.ppsFigureReady = true; performance.mark?.('pps:figure-ready'); dispatchEvent(new Event('pps:figure-ready')); }, BOOT_QUICK ? 0 : 260)));
+    nextFrame(() => nextFrame(() => setTimeout(() => { window.ppsFigureReady = true; performance.mark?.('pps:figure-ready'); dispatchEvent(new Event('pps:figure-ready')); }, 260)));
   };
   setTimeout(showFigure, 4000);   // never left hidden
   function firstFrame() {
@@ -3519,7 +3498,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (Coiled once it has grown past a quarter, and straight again only below a fifth: a varix channel whose growth sat at the quarter
       // flipped its target between straight and coiled 25 times in one Varices slide change, each a new ease of its coil and a binning,
       // 3 Nov. ?coilhold=0: one threshold, as before.)
-      const g = geo[x.e.id], sf = shownFrac(x.e.id, f), coiled = COIL_HOLD && g.wigT > 0 ? sf > 0.2 : sf > 0.25;
+      const g = geo[x.e.id], sf = shownFrac(x.e.id, f), coiled = g.wigT > 0 ? sf > 0.2 : sf > 0.25;
       const w = coiled ? 1.5 + 3.5 * sf : 0;
       // Eased toward its target (a change of over 0.6 starts it), so the vessel coils gradually.
       if (g.wigT == null || Math.abs(w - g.wigT) > 0.6) g.wigT = w;
@@ -3662,7 +3641,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // dashed stroke from its first frame (never first as a full tube that then vanishes).
     trackChanges(f, p);
     stepReveals(performance.now());
-    const TP = TAPER && !glWanted(t) ? svgTaper(p, t) : null;
+    const TP = !glWanted(t) ? svgTaper(p, t) : null;
     gpuProbe.time(null, 'update: tubes', () => { for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J, TP); });
     if (glWanted(t)) clearJoins(); else updateJoins(t);
     // A selected vessel stays bright while the rest of the network recedes.
@@ -3816,7 +3795,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!moved) return;
     const J = junctionWidths();
     const p = lesions.view(f.viewParams || store.get().params);
-    const TP = TAPER && !glWanted(t) ? svgTaper(p, t) : null;
+    const TP = !glWanted(t) ? svgTaper(p, t) : null;
     for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J, TP);
     if (glWanted(t)) clearJoins(); else updateJoins(t);
     if (syncRadiiOnly(t)) gpuProbe.note(COUNTED.widthRadii);
@@ -4780,7 +4759,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // eased to the heart's, and any strand keep the pairwise ease below; a fork has its funnel below too.)
       const plain = (row) => { const it = itOf.get(row); return !!it && it.kind !== 's' && !it.ra && !!it.obj.glR0; };
       const chained = new Set(), links = [];
-      if (TAPER) for (const L of glStraight) if (!L.fork && plain(L.a) && plain(L.b)) { chained.add(L); links.push({ a: L.a, ea: L.ia, b: L.b, eb: L.ib }); }
+      for (const L of glStraight) if (!L.fork && plain(L.a) && plain(L.b)) { chained.add(L); links.push({ a: L.a, ea: L.ia, b: L.b, eb: L.ib }); }
       if (links.length) {
         const vessels = new Map();
         for (const { a, b } of links) for (const row of [a, b]) if (!vessels.has(row)) { const it = itOf.get(row); vessels.set(row, { body: Math.max(...it.obj.glR0), len: arcLen(it.pts) }); }
@@ -5068,8 +5047,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const T = [vdpr * m.a, vdpr * m.b, vdpr * m.c, vdpr * m.d, vdpr * (m.e - wrapRect.left), vdpr * (m.f - wrapRect.top)];
     subPixel(T);
     // (R04: the view the layer was drawn in is kept as numbers (thousandths) and compared one by one; a new view gets a new number
-    // as its key. Nothing is joined into a string on a camera frame. ?labelrev=0: the transform's text, as before.)
-    const key = LABEL_REV ? (viewSame(T, vCanvas.width, vCanvas.height) ? veinsDrawKey : ++viewKeyN) : T.map((v) => v.toFixed(3)).join(',') + `|${vCanvas.width}x${vCanvas.height}`;
+    // as its key. Nothing is joined into a string on a camera frame.)
+    const key = viewSame(T, vCanvas.width, vCanvas.height) ? veinsDrawKey : ++viewKeyN;
     // The rows changed since the layer was drawn, taken once and kept until a draw has shown them: a refused partial draw
     // passes them on to the whole draw that stands in for it, and they are let go only once one of the two has drawn.
     const pending = veinsRows.size ? [...veinsRows] : null;
@@ -5555,7 +5534,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // below: the GPU picture stays up and is made again behind it. Dropping it showed the page's SVG organs, which Safari draws again
     // on the CPU at the screen's full pixels on every frame the camera moves: the way out of the lobule and the slide's glide after it
     // ran at a few frames a second on an iPhone (Mohammad, 1 Nov). ?stalekeep=0: dropped, as before.)
-    const drop = themed || (stale && !(live && STALE_KEEP));
+    const drop = themed || (stale && !live);
     if (drop && veins.hasPlate(0)) {
       hidePlate();
     }
@@ -7380,7 +7359,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const frostSeq = () => (frostLiver ? `l${frostLiver.seq()}` : veins.drawSeq);
   const frostFresh = () => (frostLiver ? 0 : veins.bloodSeq);
   // The callouts' frosted glass, drawn on the GPU under both callout layers while it can be (glass-gl.js); else the browser's.
-  const glassGL = veins ? createGlassGL(wrap, vCanvas, [cath.labels, sites.el], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: () => veins.bloodSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), copy: GLASS_COPY, onHoles: frostHoles('callouts') }) : null;
+  const glassGL = veins ? createGlassGL(wrap, vCanvas, [cath.labels, sites.el], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: () => veins.bloodSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), copy: false, onHoles: frostHoles('callouts') }) : null;
   wrap.dataset.glass = glassGL ? 'gpu' : 'css';
   // The Present cards' glass (recs A2, 31 Oct): the same renderer, one per presenter run (cardGlass, below), drawing each card's blur
   // and tint from the figure's canvas while the anatomy shows (not the lobule, nor a dive), so the browser re-blurs none of them as the
@@ -7395,7 +7374,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // card's own words lie over whatever else does. ?cardcross=1: kept out, as before.)
   const CARD_CROSS = /[?&]cardcross=1\b/.test(location.search);
   const cardGlass = (cards) => {
-    if (!veins?.top || GLASS_COPY || CARD_FROST_OFF) return null;
+    if (!veins?.top) return null;
     const shade = cards.low;
     const key = {};
     const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0)), version: frostSeq, fresh: frostFresh, onFigure: (f) => veins.onPicture(f), copy: false, onHoles: frostHoles(key) });
@@ -7719,7 +7698,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // At idle rest (the figure drawn no more, the blood stopped: idle-rest.js) the probe's waves stop with it: no frame is asked for until
     // rest(false) starts them again from where they stood. It had been the one loop of the figure that kept every frame going at rest.
     // ?scanrest=0: they run on at rest, as before.
-    if (SCAN_REST && restStill()) { scan.last = 0; scan.parked = true; return; }
+    if (restStill()) { scan.last = 0; scan.parked = true; return; }
     // Under an open lobule the probe is covered: it looks again four times a second instead of every frame (leaving the
     // lobule uncovers it gradually, so it is moving again before it shows).
     if (lz?.isOpen()) { scan.last = 0; clearTimeout(scan.nap); scan.nap = setTimeout(() => { if (scan.on && !scan.raf) scan.raf = nextFrame(scanTick); }, 250); return; }
@@ -7880,7 +7859,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the cards on every frame: it stays where it is while it has room, swings out of a card's way, and fades only where no place is clear
   // (Mohammad, 22 Oct: "it should only hide once there is no space available; not hide and show during the tuck untuck").
   let dprTrackRaf = 0, dprTrackQuiet = 0;
-  // (With BOX_READ the cards are read first in each frame, before any write, and the probe placed against them after: dprCards.)
+  // (The cards are read first in each frame, before any write, and the probe placed against them after: dprCards.)
   // (1 Nov 2026, "Move everything to GPU": no layout read on the frames of a slide. The cards are read once as the readings' card starts to
   // move (pps:slide), with the room the sliding card may still take on its way out (its own --pz-u and --pz-d, written by the presenter),
   // so the probe moves out of its way as it starts rather than following it frame by frame; and read once more when it rests. The reads are
@@ -9292,7 +9271,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const glass = h('div', { class: 'lb-glass', 'aria-hidden': 'true', hidden: true });
   labelSvg.before(glass);
   // (Drawn on the GPU under the labels while it can be, as the callouts' glass is: glass-gl.js.)
-  const paneGL = veins ? createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), pane: glass, version: () => veins.drawSeq, fresh: () => veins.bloodSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), copy: GLASS_COPY }) : null;
+  const paneGL = veins ? createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), pane: glass, version: () => veins.drawSeq, fresh: () => veins.bloodSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), copy: false }) : null;
   let glassWant = ['', ''], glassSizing = 0;
   const sizeGlass = () => { glassSizing = 0; glass.style.width = glassWant[0]; glass.style.height = glassWant[1]; };
   onFigLab((k) => { if (k === 'glassCache') { glassGL?.redraw(); paneGL?.redraw(); for (const g of cardGLs) g.redraw(); } });
@@ -9489,7 +9468,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const blurAsk = () => ({ on: 'fallback', via: 'browser blur', why: SOFTWARE ? 'software renderer' : /[?&]gpulabels=0\b/.test(location.search) ? '?gpulabels=0' : !veins ? 'no WebGL2' : 'no GPU glass made' });
     surface('callout glass', glassRow(() => glassGL, () => (document.getElementsByClassName('cl-glass').length ? blurAsk() : null)));
     surface('liver label pane glass', glassRow(() => paneGL, () => (glass.hidden ? null : blurAsk())));
-    surface('card glass', glassRow(() => { for (const g of cardGLs) if (g.state()) return g; return null; }, () => (document.querySelector('.pz-shade') ? { ...blurAsk(), why: CARD_FROST_OFF ? 'card glass off by its switch' : GLASS_COPY ? '?glasscopy=1' : blurAsk().why } : null)));
+    surface('card glass', glassRow(() => { for (const g of cardGLs) if (g.state()) return g; return null; }, () => (document.querySelector('.pz-shade') ? { ...blurAsk(), why: blurAsk().why } : null)));
   }
   // (What the page lays between the figure's canvas and a glass, as client boxes. 'pane': the overlays the GPU does not paint (#stageOver's
   // SVG). 'low' (the teaching card's shade, z-index 1, over the whole stage view): those, the liver pane when the browser blurs it, the
@@ -9623,10 +9602,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }).out);
     return out;
   }
-  if (!GLASS_COPY) {
-    hostFrost(paneGL, { order: 0, over: () => frostOver('pane') });
-    hostFrost(glassGL, { order: 2, over: () => frostOver('callouts') });
-  }
+  hostFrost(paneGL, { order: 0, over: () => frostOver('pane') });
+  hostFrost(glassGL, { order: 2, over: () => frostOver('callouts') });
   const labelGlSync = () => { if (labelGL) labelGL.sync([...pool.values()].filter((b) => b.pos).map((b) => b.pos)); };
   const FONT = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
   // (Words measured from the GPU atlas's own Inter metrics, glyph-measure.js, as label-gl.js sets them: no 2D canvas.)
@@ -10429,18 +10406,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function labelSig(f) {
     const st = store.get(), t = easeInOut(morph);
     // (Between the two views the vessels' geometry changes every frame: the labels are carried along with it, and solved again when the
-    // change reaches its second half and when it lands, as the geometry's version then stands. See GEO_LAZY.)
-    if (!(GEO_LAZY && morph > 0 && morph < 1)) labelGeo = geometryVersion;
+    // change reaches its second half and when it lands, as the geometry's version then stands.)
+    if (!(morph > 0 && morph < 1)) labelGeo = geometryVersion;
     const tips = +stentReady('TIPS', f), dips = +stentReady('DIPS', f);
-    if (LABEL_REV) {
-      const d = sigNow;
-      d[0] = f; d[1] = store.rev; d[2] = labelGeo; d[3] = t >= 0.5; d[4] = rotU > 0.5; d[5] = labelBase(); d[6] = stageBox().width < 700;
-      d[7] = vt.k > 1.35; d[8] = zoomedIn(); d[9] = scan.on; d[10] = fxSig; d[11] = fx; d[12] = slideGlow; d[13] = dop.key; d[14] = edgeRev;
-      d[15] = tips; d[16] = dips; d[17] = projecting; d[18] = glowSetAt;
-      if (sigDeps.length === d.length && sameDeps(sigDeps, d)) return sigText;
-      for (let i = 0; i < d.length; i++) sigDeps[i] = d[i];
-      sigStats.builds++;
-    }
+    const d = sigNow;
+    d[0] = f; d[1] = store.rev; d[2] = labelGeo; d[3] = t >= 0.5; d[4] = rotU > 0.5; d[5] = labelBase(); d[6] = stageBox().width < 700;
+    d[7] = vt.k > 1.35; d[8] = zoomedIn(); d[9] = scan.on; d[10] = fxSig; d[11] = fx; d[12] = slideGlow; d[13] = dop.key; d[14] = edgeRev;
+    d[15] = tips; d[16] = dips; d[17] = projecting; d[18] = glowSetAt;
+    if (sigDeps.length === d.length && sameDeps(sigDeps, d)) return sigText;
+    for (let i = 0; i < d.length; i++) sigDeps[i] = d[i];
+    sigStats.builds++;
     const edges = EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
     return (sigText = [labelGeo, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
       isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), fxSig, fx?.steps && slideGlow.map((g) => g.id + g.at).join(), (fx?.organs.some((o) => o.organ === 'spleen') || fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, scan.on, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges, `${tips}${dips}`, dop.key].join('|'));
@@ -10478,11 +10453,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get(), sig = labelSig(f), b = stageBox();
     if (carrying && solvedFor?.sig !== sig) { carryAbort(); return; }   // (what the labels show changed mid-move: the usual fade, then laid out as it lands)
     // (R04: the key is a list of numbers and identities compared one by one, not a string joined on every camera frame: the camera's
-    // part (the transform in hundredths, the stage box, the morph and turn) and the revisions of the rest. ?labelrev=0: the string.)
-    const key = LABEL_REV ? labelKeyNow(st, sig, b) : [[CTM.a, CTM.b, CTM.e, CTM.f].map((v) => v.toFixed(2)).join(), b.width, b.height, morph, rotU, labelFonts, themeKey(),
-      pzInset('--pz-l'), pzInset('--pz-t'), st.mode, !!st.compareSnap, st.compareView, paramJSON(blockerBoxes), sig,
-      calloutBoxes().map((b) => [b.x0, b.y0].map((v) => Math.round(v / 8)).join()).join(';')].join('|');
-    if (!force && (LABEL_REV ? sameKey(key) : key === labelKey) && (LABEL_HOLD && inMotion() ? holdValues(f) : refreshValues(f))) { stats.skips++; stats.ms += performance.now() - t0; }
+    // part (the transform in hundredths, the stage box, the morph and turn) and the revisions of the rest.)
+    const key = labelKeyNow(st, sig, b);
+    if (!force && sameKey(key) && (LABEL_HOLD && inMotion() ? holdValues(f) : refreshValues(f))) { stats.skips++; stats.ms += performance.now() - t0; }
     else {
       const sc = CTM.sc, th = Math.atan2(CTM.b, CTM.a);
       const csig = calloutSig();
@@ -10493,7 +10466,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // jump. They are solved again as it lands: driftEnd. A glide whose labels were solved for where it lands (landing) carries them
       // all the way, without that check: one may pass over another for a moment, the overlap pass below showing the more important.)
       // (Between the two views the labels ride with the change however far its camera zooms: solved again at its half and as it lands.)
-      const dz = solvedFor && !(GEO_LAZY && morph > 0 && morph < 1) ? Math.abs(Math.log(sc / solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && gestureOn(), land = landing() && !hand, ride = (drifting || land) && !hand;
+      const dz = solvedFor && !(morph > 0 && morph < 1) ? Math.abs(Math.log(sc / solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && gestureOn(), land = landing() && !hand, ride = (drifting || land) && !hand;
       const solve = !solvedFor || solvedFor.sig !== sig || solvedFor.csig !== csig || solvedFor.ins !== ins || (!ride && dz > (hand ? SOLVE_ZOOM_HAND : SOLVE_ZOOM)) || Math.abs(th - solvedFor.th) > SOLVE_TURN;
       carryClear = hand; carryReslot = gestureOn();
       if (ride && !land && dz > SOLVE_ZOOM) carryClear = true;   // (carried, but never onto each other)
@@ -10503,7 +10476,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (hand || reslotted) labelSettleSoon();
       if (gpuProbe.on) gpuProbe.note(solved ? COUNTED.labelSolve : COUNTED.labelCarry);
       carryClear = false;
-      labelKey = LABEL_REV ? key.slice() : key; stats.layouts++; stats.ms += performance.now() - t0;
+      labelKey = key.slice(); stats.layouts++; stats.ms += performance.now() - t0;
     }
     if (sites.list) sitesPaint();
     if (scan.on) scanPaint();
@@ -12084,7 +12057,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The liver's branches in the circuit: a share of the vessel's flow by caliber.
       if (morph >= 0.5) for (const cb of x.cbr || NONE) if (cb.w) put(cb.row, k, q * 0.5 * (cb.w / Math.max(1, x.width)) ** 2, true, true, rs);
     }
-    if (on && BLOOD_CHAIN) {
+    if (on) {
       // (At idle rest the junctions' blends hold where the blood stopped: rewritten as they stand, no step taken, and a blend that was
       // still on its way does not keep the figure awake. It goes on from there when the motion comes back.)
       if (restStill()) { const was = bloodEasing; chainRows(0, 0); bloodEasing = was; }
@@ -12158,7 +12131,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get(), b = st.blood || {};
     // (Each drawn while it shows at all, by its eased share: stepBlood's blendA; its own switch before the first step.)
     const sA = blendA.s ?? (bloodOn() ? 1 : 0), cA = blendA.c ?? (chevOn() && !cath.st ? 1 : 0), oA = blendA.o ?? (originOn() ? 1 : 0);
-    return { on: sA > 0, still: reduceMotion.matches, chev: cA > 0, look: b.look, origin: oA > 0, streakA: sA, chevA: cA, originA: oA, streakLen: STREAK_LEN, clock: bloodClock, bt: bloodClock - bEpoch, dye: !st.imaging, bleed: bleedSpray(), noChev: noChevBoxes, holes: chevHoles, vdpr, ...bloodColors() };
+    return { on: sA > 0, still: reduceMotion.matches, chev: cA > 0, look: b.look, origin: oA > 0, streakA: sA, chevA: cA, originA: oA, streakLen: true, clock: bloodClock, bt: bloodClock - bEpoch, dye: !st.imaging, bleed: bleedSpray(), noChev: noChevBoxes, holes: chevHoles, vdpr, ...bloodColors() };
   }
 
   // ── ?flow=dashes: the motion as small layers (flow-dash.js) ──────────

@@ -45,9 +45,8 @@ test('the moments leave the coils and fans as they were, and the envelope before
   assert.ok(ck.includes('old.set.owner.dropMorphSet(old.set)'));
 });
 
-test('a coil target is held either side of its threshold (?coilhold=0: one threshold)', () => {
-  assert.match(st, /const COIL_HOLD = !\/\[\?&\]coilhold=0\\b\/\.test\(location\.search\);/);
-  assert.match(st, /coiled = COIL_HOLD && g\.wigT > 0 \? sf > 0\.2 : sf > 0\.25;/);
+test('a coil target is held either side of its threshold', () => {
+  assert.match(st, /coiled = g\.wigT > 0 \? sf > 0\.2 : sf > 0\.25;/);
 });
 
 test('landed, the figure goes back to a binning of its own once the page is quiet', () => {

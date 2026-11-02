@@ -48,8 +48,8 @@ test('a camera-only call reuses the labels\' signature; a revision rebuilds it',
 });
 
 test('the labels\' key and the drawn view are numbers, not joined text, on a camera frame', () => {
-  assert.match(stage, /const key = LABEL_REV \? labelKeyNow\(st, sig, b\) :/);
-  assert.match(stage, /const key = LABEL_REV \? \(viewSame\(T, vCanvas\.width, vCanvas\.height\) \? veinsDrawKey : \+\+viewKeyN\) :/);
+  assert.match(stage, /const key = labelKeyNow\(st, sig, b\);/);
+  assert.match(stage, /const key = viewSame\(T, vCanvas\.width, vCanvas\.height\) \? veinsDrawKey : \+\+viewKeyN;/);
   assert.match(stage, /veinsDrawKey = key; viewKeep\.set\(viewNext\);/);
   // Every place that changes what the signature reads of the vessels bumps edgeRev.
   assert.match(stage, /x\.vis = vis; edgeRev\+\+; \}/);

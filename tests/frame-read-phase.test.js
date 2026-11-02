@@ -25,7 +25,6 @@ test('read callbacks run before every other callback of their frame, and what th
 
 test('stage: the figure\'s boxes are read in the read phase at a change, never between the frame\'s writes', () => {
   const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(st, /const BOX_READ = !\/\[\?&\]boxread=0\\b\/\.test\(location\.search\);/);
   assert.match(st, /homeAsk \|\|= readFrame\(homeLookRead\);/, 'the home look');
   assert.match(st, /kpAsk \|\|= readFrame\(keyPillRead\);/, 'the key pill');
   assert.match(st, /dprCardsAsk \|\|= readFrame\(dprCardsRead\);/, 'the Doppler probe\'s cards');

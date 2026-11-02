@@ -134,7 +134,7 @@ test('capture() hands exports the canvas with the whole current picture; the gla
   const glass = read('../src/ui/glass-gl.js');
   assert.ok(glass.indexOf('capture?.()') > 0 && glass.indexOf('capture?.()') < glass.indexOf('p = createImageBitmap('));
   const stage = read('../src/ui/stage.js');
-  assert.equal((stage.match(/capture: \(\) => veins\?\.capture\(\)/g) || []).length, 2, 'the callouts\' glass and the liver pane, with ?glasscopy=1 (the Present cards take no copy)');
+  assert.equal((stage.match(/capture: \(\) => veins\?\.capture\(\)/g) || []).length, 2, 'the callouts\' glass and the liver pane (the Present cards take no copy)');
 });
 
 test('the vessel layer\'s second-lumen target is bounded: given back to a texel while the picture is not shown, and a pan makes no copy of it', async () => {

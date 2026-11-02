@@ -127,7 +127,7 @@ const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8
 test('the GPU radii take the run\'s taper for vessels that run on at a two-vessel node; forks, strands and the cava drawn as one keep their own eases', () => {
   assert.match(stage, /import \{ planTaper, taperAt \} from '\.\/vessel-taper\.js/);
   assert.match(stage, /const plain = \(row\) => \{ const it = itOf\.get\(row\); return !!it && it\.kind !== 's' && !it\.ra && !!it\.obj\.glR0; \};/);
-  assert.match(stage, /if \(TAPER\) for \(const L of glStraight\) if \(!L\.fork && plain\(L\.a\) && plain\(L\.b\)\)/);
+  assert.match(stage, /for \(const L of glStraight\) if \(!L\.fork && plain\(L\.a\) && plain\(L\.b\)\)/);
   assert.match(stage, /for \(const \[row, p\] of planTaper\(vessels, links\)\)/);
   // (The vessel's own radii scaled by the plan over its own caliber: a stenosis's waist rides on the taper.)
   assert.match(stage, /eased\.set\(O, Array\.from\(O\.glR0, \(r, i\) => r \* \(taperAt\(p, len, i \/ \(N_SAMPLES - 1\)\) \/ body\)\)\)/);
@@ -136,9 +136,8 @@ test('the GPU radii take the run\'s taper for vessels that run on at a two-vesse
   assert.match(stage, /if \(fork\) \{/);
 });
 
-test('?taper=0 draws every join as it was: no plan on the GPU, none for the SVG tubes', () => {
-  assert.match(stage, /const TAPER = !\(typeof location !== 'undefined' && \/\[\?&\]taper=0\\b\/\.test\(location\.search\)\);/);
-  assert.match(stage, /const TP = TAPER && !glWanted\(t\) \? svgTaper\(p, t\) : null;/);
+test('the SVG tubes take the taper plan wherever the GPU does not draw them', () => {
+  assert.equal(stage.match(/const TP = !glWanted\(t\) \? svgTaper\(p, t\) : null;/g).length, 2);
 });
 
 test('the SVG tubes take the same plan from the model\'s own two-vessel nodes, and a vessel with none keeps its old radius expression', () => {

@@ -1,6 +1,6 @@
 // Blood streaks say speed by their length (1 Nov, sprint brief 6): a fast vessel's streaks run long and a slow one's are short dashes,
 // so a still frame shows speed too. The composite moves the two noise layers' shares by the vessel's display speed (veins-gl.js bloodAt,
-// shimN); nothing in a streak moves for it (no coordinate changes), and ?streaklen=0 draws every streak as before. Source patterns (no GL
+// shimN); nothing in a streak moves for it (no coordinate changes). Source patterns (no GL
 // in node), checked on the shader text as the GPU sees it, and the arithmetic worked again here from the numbers in that text.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -55,9 +55,8 @@ const shares = (kk) => {
 };
 const factor = (vd, stasis = 0) => { const k = Math.min(1.6, Math.max(0.6, Math.sqrt(Math.abs(vd) / 36))); return k + (1 - k) * stasis; };
 
-test('the flag: on by default, ?streaklen=0 turns it off, and the figure alone asks for it (the lobule draws as before)', () => {
-  assert.match(stage, /const STREAK_LEN = !\(typeof location !== 'undefined' && \/\[\?&\]streaklen=0\\b\/\.test\(location\.search\)\);/);
-  assert.match(stage, /originA: oA, streakLen: STREAK_LEN, clock: bloodClock,/);
+test('the figure alone asks for it (the lobule draws as before)', () => {
+  assert.match(stage, /originA: oA, streakLen: true, clock: bloodClock,/);
   assert.match(gl, /uniform int lenOn;/);
   assert.match(gl, /UC\.i1\(U\.lenOn, blood\.streakLen \? 1 : 0\);/);
   // (Changing it draws the picture again: it is in the still-lumen signature with the other blood switches.)

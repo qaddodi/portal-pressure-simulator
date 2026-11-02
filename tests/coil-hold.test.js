@@ -6,7 +6,6 @@ import { readFileSync } from 'node:fs';
 
 const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 
-test('coiled past a quarter, straight again only below a fifth; ?coilhold=0 one threshold', () => {
-  assert.match(st, /const COIL_HOLD = !\/\[\?&\]coilhold=0\\b\/\.test\(location\.search\);/);
-  assert.match(st, /coiled = COIL_HOLD && g\.wigT > 0 \? sf > 0\.2 : sf > 0\.25;\n\s+const w = coiled \? 1\.5 \+ 3\.5 \* sf : 0;/);
+test('coiled past a quarter, straight again only below a fifth', () => {
+  assert.match(st, /coiled = g\.wigT > 0 \? sf > 0\.2 : sf > 0\.25;\n\s+const w = coiled \? 1\.5 \+ 3\.5 \* sf : 0;/);
 });

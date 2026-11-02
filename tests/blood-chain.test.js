@@ -140,9 +140,8 @@ test('a vessel drawn again after it went starts afresh, with no ease', () => {
 const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
 
-test('stage: ?bloodchain=0 turns it off; the links are written into the rows put() filled, by the model\'s mean speeds', () => {
-  assert.match(stage, /const BLOOD_CHAIN = !\(typeof location !== 'undefined' && \/\[\?&\]bloodchain=0\\b\/\.test\(location\.search\)\);/);
-  assert.match(stage, /if \(on && BLOOD_CHAIN\) \{[\s\S]{0,400}?else chainRows\(/);
+test('stage: the links are written into the rows put() filled, by the model\'s mean speeds', () => {
+  assert.match(stage, /if \(on\) \{[\s\S]{0,400}?else chainRows\(/);
   const fn = stage.slice(stage.indexOf('function chainRows('), stage.indexOf('function stepBlood('));
   assert.match(fn, /it\.m = displaySpeed\(sg \* Math\.max\(0, sg \* velQf\[k\]\)\);/);
   assert.match(fn, /flowData\[o \+ 15\] = c\.par\[i\] \+ 1;/);
@@ -150,7 +149,7 @@ test('stage: ?bloodchain=0 turns it off; the links are written into the rows put
   assert.match(fn, /flowData\[o \+ 20\] = rs\.aD; flowData\[o \+ 21\] = rs\.aR;/);
   assert.match(fn, /NO_CHAIN\.has\(x\.e\.id\)/);
   // (After the rows are filled and before they go up.)
-  assert.ok(stage.indexOf('if (on && BLOOD_CHAIN) {') > 0 && stage.indexOf('if (on && BLOOD_CHAIN) {') < stage.indexOf('const retired = retireRows(flowData, flowWas, flowNow, FLOW_TEXELS * 4);'));
+  assert.ok(stage.indexOf('    if (on) {\n      // (At idle rest the junctions') > 0 && stage.indexOf('    if (on) {\n      // (At idle rest the junctions') < stage.indexOf('const retired = retireRows(flowData, flowWas, flowNow, FLOW_TEXELS * 4);'));
 });
 
 test('composite: with nothing chained, the streaks, the heads and the join are drawn as before', () => {

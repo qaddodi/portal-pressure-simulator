@@ -11,7 +11,8 @@
 //
 //   node scripts/rules-lint.mjs            check
 //   node scripts/rules-lint.mjs --list     print what it finds
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+//   node scripts/rules-lint.mjs --prune    take the switches the source no longer reads out of scripts/switches-left.json
+import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,7 +35,9 @@ for (const f of files) {
   });
 }
 
-const left = JSON.parse(readFileSync(join(ROOT, 'scripts/switches-left.json'), 'utf8')).left;
+const leftFile = join(ROOT, 'scripts/switches-left.json'), leftDoc = JSON.parse(readFileSync(leftFile, 'utf8'));
+if (process.argv.includes('--prune')) { leftDoc.left = leftDoc.left.filter((n) => switches.has(n)); writeFileSync(leftFile, JSON.stringify(leftDoc, null, 1).replace(/\n {2,}"/g, ' "').replace(/\[\n /, '[') + '\n'); }
+const left = leftDoc.left;
 const allowed = JSON.parse(readFileSync(join(ROOT, 'scripts/lazy-imports.json'), 'utf8')).imports;
 const errors = [];
 for (const [n, at] of switches) if (!KEEP.has(n) && !left.includes(n)) errors.push(`new runtime switch ?${n} (${at.join(', ')}): no new switches; build the one path`);

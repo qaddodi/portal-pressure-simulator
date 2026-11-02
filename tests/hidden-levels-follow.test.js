@@ -33,8 +33,8 @@ test('shown again, the figure takes up where its eases have got to, and its stal
   const inner = fnBody('updateInner');
   assert.match(inner, /if \(hid\.at\) \{ followHidden\(f\);/);
   assert.match(inner, /plateStale = true/);
-  // (Dropped for the live SVG unless the changing organs are painted live on the GPU, whose pictures hold none of them: ?stalekeep=0 drops it always.)
-  assert.match(fnBody('platePoke'), /const drop = themed \|\| \(stale && !\(live && STALE_KEEP\)\);\n\s+if \(drop && veins\.hasPlate\(0\)\)/);
+  // (Dropped for the live SVG unless the changing organs are painted live on the GPU, whose pictures hold none of them.)
+  assert.match(fnBody('platePoke'), /const drop = themed \|\| \(stale && !live\);\n\s+if \(drop && veins\.hasPlate\(0\)\)/);
   // The drawn liver reads the hidden ease's own values (one shared state, one clock).
   assert.match(fnBody('updateOrgans'), /easeLiver\(f, p, Math\.min\(0\.1, \(performance\.now\(\) - lvAt\) \/ 1000\)\)/);
 });

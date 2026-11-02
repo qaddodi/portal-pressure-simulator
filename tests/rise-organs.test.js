@@ -40,9 +40,8 @@ test('the rise waits for it at rest in the lobule, then glides straight on and o
   const poke = st.match(/function platePoke\(\) \{[\s\S]*?\n {2}\}\n/)[0];
   assert.ok(poke.indexOf('if (key === plateKey && veins.hasPlate(0)) return;') < poke.indexOf('if (drop && veins.hasPlate(0))'));
   // With the changing organs painted live, a return from under the lobule keeps the GPU picture up (no SVG organs through the rise
-  // and the glide after it); ?stalekeep=0 drops it as before.
-  assert.match(poke, /const drop = themed \|\| \(stale && !\(live && STALE_KEEP\)\);/);
-  assert.match(st, /const STALE_KEEP = !\(typeof location !== 'undefined' && \/\[\?&\]stalekeep=0\\b\/\.test\(location\.search\)\);/);
+  // and the glide after it).
+  assert.match(poke, /const drop = themed \|\| \(stale && !live\);/);
 });
 
 test('the picture for the way out is begun early, so Next goes straight out: ahead on a settled lobule slide, and as the change begins', () => {

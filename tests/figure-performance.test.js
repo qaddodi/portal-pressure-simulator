@@ -115,7 +115,7 @@ test('Callout glass kept (always, since 1 Nov 2026): no frame reads the page; it
   assert.match(g, /for \(const e of \[canvas, source, wrap\]\) if \(e\) watchRo\?\.observe\(e\);/);
   assert.match(g, /document\.addEventListener\?\.\('scroll', onScroll, true\);/);
   const stage = src('stage.js');
-  assert.equal(stage.split("keep: () => figLab('glassCache'), due: () => watch.due(), copy: GLASS_COPY").length - 1, 2, 'the callouts and the liver pane (the Present cards take no copy: they are drawn in the figure\'s canvas or are the browser\'s)');
+  assert.equal(stage.split("keep: () => figLab('glassCache'), due: () => watch.due(), copy: false").length - 1, 2, 'the callouts and the liver pane (the Present cards take no copy: they are drawn in the figure\'s canvas or are the browser\'s)');
 });
 
 test('Callout glass kept: the page is read in one place, with each moving part taken out, and the copy taken from those reads', () => {

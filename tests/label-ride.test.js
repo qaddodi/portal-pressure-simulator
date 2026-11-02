@@ -1,5 +1,5 @@
 // A presenter's camera move with every label on the GPU: the labels ride it on the GPU (label-gl.js ride) instead of fading out for the
-// whole move, and glide on to their new places at the landing (Mohammad, 1 Nov: "Labels don't seem like GPU"). ?labelride=0: as before.
+// whole move, and glide on to their new places at the landing (Mohammad, 1 Nov: "Labels don't seem like GPU").
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -8,11 +8,10 @@ const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 const lg = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8');
 
 test('a presenter move rides the labels when it can, else fades them as before', () => {
-  assert.match(st, /const LABEL_RIDE = !\(typeof location !== 'undefined' && \/\[\?&\]labelride=0\\b\/\.test\(location\.search\)\);/);
   assert.match(st, /camMove = true; dpr\.carry = dpr\.on && performance\.now\(\) < dpr\.refitUntil; if \(!rideStart\(\)\) wrap\.classList\.add\('cam-move'\);/);
   // (Not under the HVPG catheter (which hides the labels), a pinch, the lobule or a dive, nor with a label the SVG draws, nor under reduced
   // motion. A treatment's catheter keeps the labels on: they ride.)
-  assert.match(st, /if \(!LABEL_RIDE \|\| !labelRider\?\.canRide\(\) \|\| \(cath\.st && !cath\.st\.keep\) \|\| pinchHide \|\| lobuleOn \|\| lz\?\.isOpen\(\) \|\| diveT > 0 \|\| wrap\.classList\.contains\('cam-move'\) \|\| reduceMotion\.matches\) return false;/);
+  assert.match(st, /if \(!labelRider\?\.canRide\(\) \|\| \(cath\.st && !cath\.st\.keep\) \|\| pinchHide \|\| lobuleOn \|\| lz\?\.isOpen\(\) \|\| diveT > 0 \|\| wrap\.classList\.contains\('cam-move'\) \|\| reduceMotion\.matches\) return false;/);
 });
 
 test('each frame of the glide carries them on the GPU; the landing ends the ride before the labels are laid out again', () => {

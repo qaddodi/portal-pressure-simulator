@@ -141,9 +141,9 @@ test('lobule handoff: the 2D tissue stays under the GPU picture as it takes over
   assert.match(src('src/ui/field-gl.js'), /if \(!tx\[i\]\) tx\[i\] = clearTex\(\);/);
 });
 
-test('idle rest: the FibroScan probe\'s waves stop with the figure and start again on waking (?scanrest=0 keeps them running)', () => {
+test('idle rest: the FibroScan probe\'s waves stop with the figure and start again on waking', () => {
   const st = src('src/ui/stage.js');
-  assert.match(st, /if \(SCAN_REST && restStill\(\)\) \{ scan\.last = 0; scan\.parked = true; return; \}/);
+  assert.match(st, /if \(restStill\(\)\) \{ scan\.last = 0; scan\.parked = true; return; \}/);
   assert.match(st, /if \(!on && scan\.parked\) \{ scan\.parked = false; if \(scan\.on && !scan\.raf\) \{ scan\.last = 0; scan\.raf = nextFrame\(scanTick\); \} \}/);
   // (The other loops of the figure's marks stop by themselves once nothing eases: the halos, the Doppler probe's ease and its card tracking.)
   assert.match(st, /glow\.raf = moving \? nextFrame\(glowStep\) : 0;/);
