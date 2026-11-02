@@ -137,6 +137,10 @@ export const fading = (canvas) => fades.has(canvas);
  *  ('' when the view has not moved). With transform-origin 0 0. */
 export function viewFollow(v0, v) {
   if (v0.k === v.k && v0.x === v.x && v0.y === v.y) return '';
+  // (The string of the last six numbers is kept: a view that stands still for a frame, or the cover's step run twice, builds none.)
+  if (v0.k === fk0 && v0.x === fx0 && v0.y === fy0 && v.k === fk && v.x === fx && v.y === fy) return fOut;
+  fk0 = v0.k; fx0 = v0.x; fy0 = v0.y; fk = v.k; fx = v.x; fy = v.y;
   const r = v.k / v0.k;
-  return `matrix(${r}, 0, 0, ${r}, ${v.x - v0.x * r}, ${v.y - v0.y * r})`;
+  return (fOut = `matrix(${r}, 0, 0, ${r}, ${v.x - v0.x * r}, ${v.y - v0.y * r})`);
 }
+let fk0 = NaN, fx0 = NaN, fy0 = NaN, fk = NaN, fx = NaN, fy = NaN, fOut = '';

@@ -115,123 +115,171 @@ export class PaintRecorder {
     this.lineTo(x, y + rr); if (rr) this.arc(x + rr, y + rr, rr, Math.PI, Math.PI * 1.5);
     this.closePath(); this.moveTo(x, y);
   }
-  // Painting
+  // Painting. The paint, the shadow and the triangles of a call are written into the kept scratch (PS, SHD, TR); only a shape that goes
+  // into the record (a stencil op, a clip, a batch) makes the record's own entries, which the picture keeps.
   _paint(style) {
+    const ps = PS;
     if (style instanceof Gradient) {
-      const { x0, y0, r0, x1, y1, r1, m } = style.g, k = scaleOf(m), ga = this.s.ga;
-      const c = [m[0] * x1 + m[2] * y1 + m[4], m[1] * x1 + m[3] * y1 + m[5]];
-      const stops = (style.stops.length ? style.stops : [[0, [0, 0, 0, 0]]]).slice(0, 8).map(([t, q]) => [t, q[0] * q[3] * ga, q[1] * q[3] * ga, q[2] * q[3] * ga, q[3] * ga]);
-      void x0; void y0;   // (concentric gradients only: the app's are)
-      return { grad: { cx: c[0], cy: c[1], r0: r0 * k, r1: r1 * k, stops } };
+      const { r0, x1, y1, r1, m } = style.g, k = scaleOf(m), ga = this.s.ga, st = style.stops;
+      ps.grad = true; ps.cx = m[0] * x1 + m[2] * y1 + m[4]; ps.cy = m[1] * x1 + m[3] * y1 + m[5]; ps.r0 = r0 * k; ps.r1 = r1 * k;
+      // (concentric gradients only: the app's are; no stops at all is one clear stop)
+      const n = st.length ? Math.min(8, st.length) : 1;
+      for (let i = 0; i < n; i++) {
+        const o = ps.st[i];
+        if (st.length) { const t = st[i][0], q = st[i][1]; o[0] = t; o[1] = q[0] * q[3] * ga; o[2] = q[1] * q[3] * ga; o[3] = q[2] * q[3] * ga; o[4] = q[3] * ga; }
+        else { o[0] = 0; o[1] = 0; o[2] = 0; o[3] = 0; o[4] = 0; }
+      }
+      ps.n = n;
+      return;
     }
-    const q = cssColor(style), a = q[3] * this.s.ga;
-    return { rgba: [q[0] * a, q[1] * a, q[2] * a, a] };
+    const q = cssColor(style), a = q[3] * this.s.ga, o = ps.rgba;
+    ps.grad = false; o[0] = q[0] * a; o[1] = q[1] * a; o[2] = q[2] * a; o[3] = a;
   }
-  _shadow(paint) {
-    if (!(this.s.sb > 0)) return null;
+  // The shadow of the paint just made, into SHD (false: none).
+  _shadow() {
+    if (!(this.s.sb > 0)) return false;
     const q = cssColor(this.s.sc);
-    if (!(q[3] > 0)) return null;
-    const pa = paint.rgba ? paint.rgba[3] : 1;
-    const a = q[3] * pa;
-    return { rgba: [q[0] * a, q[1] * a, q[2] * a, a], sigma: this.s.sb / 2 };
+    if (!(q[3] > 0)) return false;
+    const pa = PS.grad ? 1 : PS.rgba[3];
+    const a = q[3] * pa, o = SHD.rgba;
+    o[0] = q[0] * a; o[1] = q[1] * a; o[2] = q[2] * a; o[3] = a; SHD.sigma = this.s.sb / 2;
+    return true;
   }
   _end() { this.batch = null; }
-  _direct(tris, rgba) {
+  // The triangles in TR[0..tn), one colour (premultiplied).
+  _direct(rgba) {
     let b = this.batch;
-    if (!b || b.clip !== this.s.clip) { b = this.batch = { k: 'direct', from: this.cv.length / 6, count: 0, clip: this.s.clip }; this.ops.push(b); }
-    const [r, g, bb, a] = rgba, cv = this.cv;
-    for (let i = 0; i < tris.length; i += 2) cv.push(tris[i], tris[i + 1], r, g, bb, a);
-    b.count += tris.length / 2;
+    if (!b || b.clip !== this.s.clip) { b = this.batch = { k: 'direct', from: this.cv.length / 6, count: 0, clip: this.s.clip }; this.ops.push(b); }   // alloc-rare: the record's own batch (one per run of shapes under a clip), which the picture keeps: made as a picture is recorded, a tile drawn for a new look or size, never a frame that has its tile
+    const r = rgba[0], g = rgba[1], bb = rgba[2], a = rgba[3], cv = this.cv;
+    for (let i = 0; i < tn; i += 2) cv.push(TR[i], TR[i + 1], r, g, bb, a);
+    b.count += tn / 2;
   }
-  _stencil(k, tris, rule, paint, shadow) {
-    if (tris.length < 6) return;
+  // The triangles in TR[0..tn) as a stencil-and-cover op with the scratch's paint (and its shadow, when sh).
+  _stencil(k, rule, sh) {
+    if (tn < 6) return;
     this._end();
     const from = this.pv.length / 2;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (let i = 0; i < tris.length; i += 2) {
-      const x = tris[i], y = tris[i + 1];
+    for (let i = 0; i < tn; i += 2) {
+      const x = TR[i], y = TR[i + 1];
       this.pv.push(x, y);
       if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
     }
-    this.ops.push({ k, from, count: tris.length / 2, rule, paint, shadow, clip: this.s.clip, box: [x0, y0, x1, y1] });
+    const paint = keptPaint(), shadow = sh ? keptShadow() : null;
+    this.ops.push({ k, from, count: tn / 2, rule, paint, shadow, clip: this.s.clip, box: [x0, y0, x1, y1] });   // alloc-rare: the record's own op, which the picture keeps: made as a picture is recorded, a tile drawn for a new look or size, never a frame that has its tile
   }
   fill(rule = 'nonzero') {
     if (typeof rule === 'object') rule = 'nonzero';   // (a Path2D is not recorded)
-    const paint = this._paint(this.s.fill);
-    if (!paint.grad && !(paint.rgba[3] > 0)) return;
-    const subs = this.path.filter((s) => s.p.length >= 3), shadow = this._shadow(paint);
-    if (!subs.length) return;
-    if (subs.length === 1 && paint.rgba && !shadow && convex(subs[0].p)) { this._direct(fan(subs[0].p), paint.rgba); return; }
-    const tris = [];
-    for (const s of subs) for (const t of fan(s.p)) tris.push(t);
-    this._stencil('fill', tris, rule === 'evenodd' ? 'evenodd' : 'nonzero', paint, shadow);
+    this._paint(this.s.fill);
+    if (!PS.grad && !(PS.rgba[3] > 0)) return;
+    const path = this.path;
+    let ns = 0, only = null;
+    for (let i = 0; i < path.length; i++) if (path[i].p.length >= 3) { ns++; only = path[i]; }
+    const sh = this._shadow();
+    if (!ns) return;
+    tn = 0;
+    if (ns === 1 && !PS.grad && !sh && convex(only.p)) { fanTo(only.p); this._direct(PS.rgba); return; }
+    for (let i = 0; i < path.length; i++) if (path[i].p.length >= 3) fanTo(path[i].p);
+    this._stencil('fill', rule === 'evenodd' ? 'evenodd' : 'nonzero', sh);
   }
   stroke() {
-    const paint = this._paint(this.s.stroke);
-    if (!paint.grad && !(paint.rgba[3] > 0)) return;
+    this._paint(this.s.stroke);
+    const ps = PS;
+    if (!ps.grad && !(ps.rgba[3] > 0)) return;
     const k = scaleOf(this.s.m), w = this.s.lw * k, hair = w < 1, hw = Math.max(w, 1) / 2;
-    if (hair) { if (paint.rgba) paint.rgba = paint.rgba.map((v) => v * w); else paint.grad.stops = paint.grad.stops.map(([t, ...c]) => [t, ...c.map((v) => v * w)]); }
-    const subs = this.path.filter((s) => s.p.length >= 2), shadow = this._shadow(paint);
-    if (!subs.length) return;
-    if (subs.length === 1 && subs[0].closed && paint.rgba && !shadow) {
-      const ring = convexRing(subs[0].p, hw);
-      if (ring) { this._direct(ring, paint.rgba); return; }
+    if (hair) {
+      if (!ps.grad) { const o = ps.rgba; o[0] = o[0] * w; o[1] = o[1] * w; o[2] = o[2] * w; o[3] = o[3] * w; }
+      else for (let i = 0; i < ps.n; i++) { const o = ps.st[i]; o[1] = o[1] * w; o[2] = o[2] * w; o[3] = o[3] * w; o[4] = o[4] * w; }
     }
-    const tris = [];
-    for (const s of subs) strokeTris(s.p, s.closed, hw, this.s.cap, tris);
-    this._stencil('stroke', tris, 'nonzero', paint, shadow);
+    const path = this.path;
+    let ns = 0, only = null;
+    for (let i = 0; i < path.length; i++) if (path[i].p.length >= 2) { ns++; only = path[i]; }
+    const sh = this._shadow();
+    if (!ns) return;
+    tn = 0;
+    if (ns === 1 && only.closed && !ps.grad && !sh && convexRingTo(only.p, hw)) { this._direct(ps.rgba); return; }
+    tn = 0;
+    for (let i = 0; i < path.length; i++) if (path[i].p.length >= 2) strokeTris(path[i].p, path[i].closed, hw, this.s.cap);
+    this._stencil('stroke', 'nonzero', sh);
   }
   clip(rule = 'nonzero') {
-    const subs = this.path.filter((s) => s.p.length >= 3), tris = [];
-    for (const s of subs) for (const t of fan(s.p)) tris.push(t);
+    const path = this.path;
+    tn = 0;
+    for (let i = 0; i < path.length; i++) if (path[i].p.length >= 3) fanTo(path[i].p);
     this._end();
     const from = this.pv.length / 2;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (let i = 0; i < tris.length; i += 2) { const x = tris[i], y = tris[i + 1]; this.pv.push(x, y); if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-    const c = { from, count: tris.length / 2, rule: rule === 'evenodd' ? 'evenodd' : 'nonzero', box: tris.length ? [x0, y0, x1, y1] : [0, 0, 0, 0] };
-    this.s.clip = this.s.clip ? [...this.s.clip, c] : [c];
+    for (let i = 0; i < tn; i += 2) { const x = TR[i], y = TR[i + 1]; this.pv.push(x, y); if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    const c = { from, count: tn / 2, rule: rule === 'evenodd' ? 'evenodd' : 'nonzero', box: tn ? [x0, y0, x1, y1] : [0, 0, 0, 0] };   // alloc-rare: the record's own clip, which the picture keeps: made as a picture is recorded, a tile drawn for a new look or size, never a frame that has its tile
+    this.s.clip = this.s.clip ? [...this.s.clip, c] : [c];   // alloc-rare: the clip chain the record's ops keep: made as a picture is recorded, never a frame that has its tile
   }
-  fillRect(x, y, w, h) { const keep = [this.path, this.sub]; this.beginPath(); this.rect(x, y, w, h); this.fill(); [this.path, this.sub] = keep; }
-  strokeRect(x, y, w, h) { const keep = [this.path, this.sub]; this.beginPath(); this.rect(x, y, w, h); this.stroke(); [this.path, this.sub] = keep; }
+  fillRect(x, y, w, h) { const kp = this.path, ks = this.sub; this.beginPath(); this.rect(x, y, w, h); this.fill(); this.path = kp; this.sub = ks; }
+  strokeRect(x, y, w, h) { const kp = this.path, ks = this.sub; this.beginPath(); this.rect(x, y, w, h); this.stroke(); this.path = kp; this.sub = ks; }
   clearRect(x, y, w, h) {
     const m = this.s.m, full = !this.s.clip && m[1] === 0 && m[2] === 0 && this.ops.length === 0;
     const a = this._pt(x, y), b = this._pt(x + w, y + h);
     if (full && Math.min(a[0], b[0]) <= 0 && Math.min(a[1], b[1]) <= 0 && Math.max(a[0], b[0]) >= this.width && Math.max(a[1], b[1]) >= this.height) return;   // (the picture starts clear)
-    const keep = [this.path, this.sub]; this.beginPath(); this.rect(x, y, w, h);
-    const tris = fan(this.sub ? this.path[0].p : []);
-    [this.path, this.sub] = keep;
+    const kp = this.path, ks = this.sub; this.beginPath(); this.rect(x, y, w, h);
+    tn = 0;
+    if (this.sub) fanTo(this.path[0].p);
+    this.path = kp; this.sub = ks;
     this._end();
     const from = this.pv.length / 2;
-    for (const t of tris) this.pv.push(t);
-    this.ops.push({ k: 'clear', from, count: tris.length / 2, clip: this.s.clip, box: [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])] });
+    for (let i = 0; i < tn; i++) this.pv.push(TR[i]);
+    this.ops.push({ k: 'clear', from, count: tn / 2, clip: this.s.clip, box: [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])] });   // alloc-rare: the record's own op, which the picture keeps: made as a picture is recorded, never a frame that has its tile
   }
   // (Pixel calls a 2D painter might make are not recorded: a GPU picture has no pixels on the CPU.)
   drawImage() { throw new Error('paint-gl: drawImage is not recorded'); }
   /** The record, its arrays packed. */
   done() { this._end(); return { width: this.width, height: this.height, ops: this.ops, cv: new Float32Array(this.cv), pv: new Float32Array(this.pv) }; }   // alloc-rare: once per recorded picture, whose packed record is what it keeps
 }
+// ── Kept scratch (the recorder is single-threaded and none of its calls re-enter another): the paint, the shadow and the triangles of the
+// call in hand, and the points of a cleaned polygon. They grow to the biggest shape seen and are then reused, so a shape allocates nothing.
+const PS = { grad: false, cx: 0, cy: 0, r0: 0, r1: 0, n: 0, rgba: [0, 0, 0, 0], st: [[0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]] };
+const SHD = { rgba: [0, 0, 0, 0], sigma: 0 };
+let TR = new Float64Array(8192), tn = 0;   // the triangles (x, y each), TR[0..tn)
+let RING = new Float64Array(512);   // a ring's outer corners then its inner ones
+const QB = [];   // the cleaned polygon's points (the path's own, not copies)
+function trGrow(need) {
+  const b = new Float64Array(Math.max(need, TR.length * 2));   // alloc-rare: the triangle scratch grows only when a shape is bigger than every one before it, then it is reused
+  b.set(TR.subarray(0, tn)); TR = b;
+}
+function tri(a, b, c, d, e, f) {
+  if (tn + 6 > TR.length) trGrow(tn + 6);
+  TR[tn] = a; TR[tn + 1] = b; TR[tn + 2] = c; TR[tn + 3] = d; TR[tn + 4] = e; TR[tn + 5] = f; tn += 6;
+}
+// The record's own copy of the paint in PS (a stencil op keeps it), and of the shadow in SHD.
+function keptPaint() {
+  if (!PS.grad) return { rgba: [PS.rgba[0], PS.rgba[1], PS.rgba[2], PS.rgba[3]] };   // alloc-rare: the record's own paint, which the picture keeps: made as a picture is recorded, never a frame that has its tile
+  const stops = [];   // alloc-rare: the record's own paint, which the picture keeps: made as a picture is recorded, never a frame that has its tile
+  for (let i = 0; i < PS.n; i++) { const o = PS.st[i]; stops.push([o[0], o[1], o[2], o[3], o[4]]); }   // alloc-rare: the record's own stops, which the picture keeps: made as a picture is recorded, never a frame that has its tile
+  return { grad: { cx: PS.cx, cy: PS.cy, r0: PS.r0, r1: PS.r1, stops } };   // alloc-rare: the record's own paint, which the picture keeps: made as a picture is recorded, never a frame that has its tile
+}
+function keptShadow() { return { rgba: [SHD.rgba[0], SHD.rgba[1], SHD.rgba[2], SHD.rgba[3]], sigma: SHD.sigma }; }   // alloc-rare: the record's own shadow, which the picture keeps: made as a picture is recorded, never a frame that has its tile
+
 function invPt(m, [x, y]) {
   const det = m[0] * m[3] - m[1] * m[2] || 1, dx = x - m[4], dy = y - m[5];
   return [(m[3] * dx - m[2] * dy) / det, (-m[1] * dx + m[0] * dy) / det];
 }
-function fan(p) {
-  const out = [];
-  for (let i = 1; i + 1 < p.length; i++) out.push(p[0][0], p[0][1], p[i][0], p[i][1], p[i + 1][0], p[i + 1][1]);
-  return out;
+// A polygon's fan of triangles, appended to TR.
+function fanTo(p) {
+  const p0 = p[0];
+  for (let i = 1; i + 1 < p.length; i++) tri(p0[0], p0[1], p[i][0], p[i][1], p[i + 1][0], p[i + 1][1]);
+}
+// The polygon without repeated points, into QB; its count.
+function cleanTo(p) {
+  let n = 0;
+  for (let i = 0; i < p.length; i++) { const v = p[i], l = n ? QB[n - 1] : null; if (!l || Math.abs(l[0] - v[0]) > 1e-6 || Math.abs(l[1] - v[1]) > 1e-6) QB[n++] = v; }
+  while (n > 1 && Math.abs(QB[0][0] - QB[n - 1][0]) < 1e-6 && Math.abs(QB[0][1] - QB[n - 1][1]) < 1e-6) n--;
+  return n;
 }
 // (A polygon that turns one way only, once round: its fan never overlaps itself.)
-function clean(p) {
-  const q = [];
-  for (const v of p) { const l = q[q.length - 1]; if (!l || Math.abs(l[0] - v[0]) > 1e-6 || Math.abs(l[1] - v[1]) > 1e-6) q.push(v); }
-  while (q.length > 1 && Math.abs(q[0][0] - q[q.length - 1][0]) < 1e-6 && Math.abs(q[0][1] - q[q.length - 1][1]) < 1e-6) q.pop();
-  return q;
-}
-function convex(p) {
-  const q = clean(p), n = q.length;
+function convex(p) { return convexQ(cleanTo(p)); }
+function convexQ(n) {   // of the n points already in QB
   if (n < 3) return false;
   let sign = 0, turn = 0;
   for (let i = 0; i < n; i++) {
-    const a = q[i], b = q[(i + 1) % n], c = q[(i + 2) % n];
+    const a = QB[i], b = QB[(i + 1) % n], c = QB[(i + 2) % n];
     const ux = b[0] - a[0], uy = b[1] - a[1], vx = c[0] - b[0], vy = c[1] - b[1];
     const cr = ux * vy - uy * vx;
     if (Math.abs(cr) > 1e-9) { const s = Math.sign(cr); if (sign && s !== sign) return false; sign = s; }
@@ -239,63 +287,70 @@ function convex(p) {
   }
   return Math.abs(turn) < TAU + 0.01;
 }
-// The outline of a convex closed path as one ring of quads (half width hw), or null when it is not one (then stencil and cover).
-function convexRing(p, hw) {
-  const q = clean(p), n = q.length;
-  if (n < 3 || !convex(q)) return null;
+// The outline of a convex closed path as one ring of quads (half width hw), appended to TR; false when it is not one (then stencil and cover).
+function convexRingTo(p, hw) {
+  const n = cleanTo(p);
+  if (n < 3 || !convexQ(n)) return false;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, area = 0;
-  for (let i = 0; i < n; i++) { const [x, y] = q[i], [x2, y2] = q[(i + 1) % n]; area += x * y2 - x2 * y; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-  if (hw > 0.22 * Math.min(x1 - x0, y1 - y0)) return null;
-  const s = area > 0 ? 1 : -1, inn = [], out = [];
+  for (let i = 0; i < n; i++) { const x = QB[i][0], y = QB[i][1], x2 = QB[(i + 1) % n][0], y2 = QB[(i + 1) % n][1]; area += x * y2 - x2 * y; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (hw > 0.22 * Math.min(x1 - x0, y1 - y0)) return false;
+  if (RING.length < 4 * n) RING = new Float64Array(4 * n * 2);   // alloc-rare: the ring scratch grows only when a polygon has more corners than every one before it, then it is reused
+  const s = area > 0 ? 1 : -1, R = RING, I = 2 * n;   // (out at R[2i], in at R[I + 2i])
   for (let i = 0; i < n; i++) {
-    const a = q[(i + n - 1) % n], b = q[i], c = q[(i + 1) % n];
-    const e1 = norm(b[0] - a[0], b[1] - a[1]), e2 = norm(c[0] - b[0], c[1] - b[1]);
-    const n1 = [e1[1] * s, -e1[0] * s], n2 = [e2[1] * s, -e2[0] * s];   // (outward)
-    const mx = n1[0] + n2[0], my = n1[1] + n2[1], ml = Math.hypot(mx, my);
-    if (ml < 1e-6) return null;
-    const d = (mx / ml) * n1[0] + (my / ml) * n1[1];
-    if (d < 0.25) return null;   // (a corner sharper than about 150°: drawn by stencil and cover)
+    const a = QB[(i + n - 1) % n], b = QB[i], c = QB[(i + 1) % n];
+    let dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    const e1x = dx / l, e1y = dy / l;
+    dx = c[0] - b[0]; dy = c[1] - b[1]; l = Math.hypot(dx, dy) || 1;
+    const e2x = dx / l, e2y = dy / l;
+    const n1x = e1y * s, n1y = -e1x * s, n2x = e2y * s, n2y = -e2x * s;   // (outward)
+    const mx = n1x + n2x, my = n1y + n2y, ml = Math.hypot(mx, my);
+    if (ml < 1e-6) return false;
+    const d = (mx / ml) * n1x + (my / ml) * n1y;
+    if (d < 0.25) return false;   // (a corner sharper than about 150°: drawn by stencil and cover)
     const k = hw / d, ox = (mx / ml) * k, oy = (my / ml) * k;
-    out.push([b[0] + ox, b[1] + oy]); inn.push([b[0] - ox, b[1] - oy]);
+    R[2 * i] = b[0] + ox; R[2 * i + 1] = b[1] + oy; R[I + 2 * i] = b[0] - ox; R[I + 2 * i + 1] = b[1] - oy;
   }
-  const t = [];
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
-    t.push(out[i][0], out[i][1], out[j][0], out[j][1], inn[j][0], inn[j][1], out[i][0], out[i][1], inn[j][0], inn[j][1], inn[i][0], inn[i][1]);
+    tri(R[2 * i], R[2 * i + 1], R[2 * j], R[2 * j + 1], R[I + 2 * j], R[I + 2 * j + 1]);
+    tri(R[2 * i], R[2 * i + 1], R[I + 2 * j], R[I + 2 * j + 1], R[I + 2 * i], R[I + 2 * i + 1]);
   }
-  return t;
+  return true;
 }
-const norm = (x, y) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
-function disc(x, y, r, out) {
+function disc(x, y, r) {
   const n = Math.max(6, Math.min(48, Math.ceil(TAU / (2 * Math.acos(Math.max(-1, 1 - TOL / Math.max(r, TOL)))))));
   for (let i = 0; i < n; i++) {
     const a = (TAU * i) / n, b = (TAU * (i + 1)) / n;
-    out.push(x, y, x + r * Math.cos(a), y + r * Math.sin(a), x + r * Math.cos(b), y + r * Math.sin(b));
+    tri(x, y, x + r * Math.cos(a), y + r * Math.sin(a), x + r * Math.cos(b), y + r * Math.sin(b));
   }
 }
-// A stroke's triangles (they overlap at the joins: drawn by stencil and cover, so each pixel is laid once). Joins are round (a
-// disc at each bend), caps as asked.
-function strokeTris(p, closed, hw, cap, out) {
-  const q = clean(p);
-  if (q.length < 2) return;
-  const n = q.length, segs = closed ? n : n - 1;
+// A stroke's triangles, appended to TR (they overlap at the joins: drawn by stencil and cover, so each pixel is laid once). Joins are
+// round (a disc at each bend), caps as asked.
+function strokeTris(p, closed, hw, cap) {
+  const n = cleanTo(p);
+  if (n < 2) return;
+  const segs = closed ? n : n - 1;
   for (let i = 0; i < segs; i++) {
-    let a = q[i], b = q[(i + 1) % n];
-    const [dx, dy] = norm(b[0] - a[0], b[1] - a[1]);
+    const a = QB[i], b = QB[(i + 1) % n];
+    let ax = a[0], ay = a[1], bx = b[0], by = b[1];
+    const l = Math.hypot(bx - ax, by - ay) || 1, dx = (bx - ax) / l, dy = (by - ay) / l;
     if (cap === 'square' && !closed) {
-      if (i === 0) a = [a[0] - dx * hw, a[1] - dy * hw];
-      if (i === segs - 1) b = [b[0] + dx * hw, b[1] + dy * hw];
+      if (i === 0) { ax = ax - dx * hw; ay = ay - dy * hw; }
+      if (i === segs - 1) { bx = bx + dx * hw; by = by + dy * hw; }
     }
     const nx = -dy * hw, ny = dx * hw;
-    out.push(a[0] + nx, a[1] + ny, b[0] + nx, b[1] + ny, b[0] - nx, b[1] - ny, a[0] + nx, a[1] + ny, b[0] - nx, b[1] - ny, a[0] - nx, a[1] - ny);
+    tri(ax + nx, ay + ny, bx + nx, by + ny, bx - nx, by - ny);
+    tri(ax + nx, ay + ny, bx - nx, by - ny, ax - nx, ay - ny);
   }
   for (let i = closed ? 0 : 1; i < (closed ? n : n - 1); i++) {
-    const a = q[(i + n - 1) % n], b = q[i], c = q[(i + 1) % n];
-    const e1 = norm(b[0] - a[0], b[1] - a[1]), e2 = norm(c[0] - b[0], c[1] - b[1]);
-    if (e1[0] * e2[0] + e1[1] * e2[1] > 0.9995) continue;   // (all but straight on: no gap to fill)
-    disc(b[0], b[1], hw, out);
+    const a = QB[(i + n - 1) % n], b = QB[i], c = QB[(i + 1) % n];
+    let dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    const e1x = dx / l, e1y = dy / l;
+    dx = c[0] - b[0]; dy = c[1] - b[1]; l = Math.hypot(dx, dy) || 1;
+    if (e1x * (dx / l) + e1y * (dy / l) > 0.9995) continue;   // (all but straight on: no gap to fill)
+    disc(b[0], b[1], hw);
   }
-  if (!closed && cap === 'round') { disc(q[0][0], q[0][1], hw, out); disc(q[n - 1][0], q[n - 1][1], hw, out); }
+  if (!closed && cap === 'round') { disc(QB[0][0], QB[0][1], hw); disc(QB[n - 1][0], QB[n - 1][1], hw); }
 }
 
 /** Runs draw(ctx) against a recorder w × h (device px) and keeps the record. */

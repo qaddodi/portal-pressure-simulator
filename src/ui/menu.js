@@ -587,7 +587,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const shiftX = (el) => { try { const m = getComputedStyle(el).transform; return !m || m === 'none' ? 0 : new DOMMatrixReadOnly(m).m41 || 0; } catch { return 0; } };
     panel.addEventListener('touchstart', (e) => {
       // (A second swipe before the first has settled finishes the first once it moves, not on the touch: a tap leaves the lists easing.)
-      sw = e.touches.length === 1 && !ownsSideways(e.target, { stop: panel }) ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), on: false, dx: 0, trail: [], pool: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]] } : null;
+      sw = e.touches.length === 1 && !ownsSideways(e.target, { stop: panel }) ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), on: false, dx: 0, wCur: NaN, wNb: NaN, wNbEl: null, trail: [], pool: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]] } : null;
       // Everything the drag needs from the page is read here, at the touch, never as the finger moves: the lists' width, the room in
       // view (where the other list shows from), and where an easing list is drawn now.
       if (sw) {
@@ -615,7 +615,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       if (e.cancelable) e.preventDefault();
       const tdx = dx + sw.carry, d = tdx < 0 ? 1 : -1, j = sw.i + d, nb = j >= 0 && j < TABS.length ? colOf(TABS[j]) : null;
       if (nb !== sw.nb) {
-        unpeer(sw.nb); sw.nb = nb; sw.j = j;
+        unpeer(sw.nb); sw.nb = nb; sw.j = j; sw.wNbEl = null;
         // (The other list shows from its own top, over the part of the list in view: it lands there. Its place was set at the touch.)
         if (nb) classSoon(nb, 'um-peer', true);
       }
@@ -624,8 +624,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       const tp = sw.trail.length >= 8 ? sw.trail.shift() : sw.pool.pop();
       tp[0] = performance.now(); tp[1] = t.clientX;
       sw.trail.push(tp);
-      sw.cur.style.transform = `translateX(${sw.dx}px)`;
-      if (nb) nb.style.transform = `translateX(${sw.dx + d * sw.w}px)`;
+      // (Written only when the number has moved from what this swipe last wrote to that list.)
+      if (sw.dx !== sw.wCur) { sw.wCur = sw.dx; sw.cur.style.transform = `translateX(${sw.dx}px)`; }
+      if (nb) { const nx = sw.dx + d * sw.w; if (nx !== sw.wNb || nb !== sw.wNbEl) { sw.wNb = nx; sw.wNbEl = nb; nb.style.transform = `translateX(${nx}px)`; } }
     }, { passive: false });
     const endSwipe = () => {
       const s = sw; sw = null;

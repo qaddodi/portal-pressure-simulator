@@ -1831,7 +1831,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     const mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat), S = stops(), R = room() || readMetric(app, 'clientHeight');
     const sc = own ? null : scroller(e.target);
     const h0 = drawnHeight(), box = lay || readMetric(el, 'offsetHeight');
-    start = { id: e.pointerId, t0: performance.now(), x: e.clientX, y: e.clientY, h: h0, box, H: R, S, size, thumb: thumb(), phone: isPhone(), tx: mv[0] || 0, ty: mv[1] || 0, moved: false, trail: [], pool: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], loose: !own || headTab, sc, scTop: sc ? readMetric(sc, 'scrollTop') : 0, top: S[S.length - 1] * R };
+    start = { id: e.pointerId, t0: performance.now(), x: e.clientX, y: e.clientY, h: h0, box, H: R, S, size, thumb: thumb(), phone: isPhone(), tx: mv[0] || 0, ty: mv[1] || 0, moved: false, wx: NaN, wy: NaN, wOff: NaN, trail: [], pool: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], loose: !own || headTab, sc, scTop: sc ? readMetric(sc, 'scrollTop') : 0, top: S[S.length - 1] * R };
     // (Half's height, as apply() sets it: the content's own height when that is less)
     if (start.thumb && size === S.length - 1 && S.length > 1) { start.full = true; start.half = Math.min(h0, natural(), S[half()] * R); }
   });
@@ -1869,14 +1869,21 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     // stays on the tab row and its top follows the finger, slowing past Half, where it settles. Over the thumb dock a pull down
     // from Half slides the card down behind the tab row. Everything is the content's offset in the still box.
     let h;
-    if (!start.phone) { el.style.translate = `${start.tx + dx}px ${start.ty + dy}px`; return; }
+    if (!start.phone) {   // (written only when the card's place has moved from what this drag last wrote)
+      const tx = start.tx + dx, ty = start.ty + dy;
+      if (tx !== start.wx || ty !== start.wy) { start.wx = tx; start.wy = ty; el.style.translate = `${tx}px ${ty}px`; }
+      return;
+    }
     if (start.thumb && dy > 0 && start.full) { const lo = start.half, hh = start.h - dy; h = Math.max(60, hh >= lo ? hh : lo - (lo - hh) * 0.25); }
     else if (start.thumb && dy > 0) h = start.h - dy;
     else h = Math.max(60, start.h - dy);
     const box = lay || start.box;
     el._sheetOff = Math.max(0, box - h);
-    const v = el._sheetOff ? `0px ${el._sheetOff}px` : '';
-    for (const c of el.children) c.style.translate = v;
+    if (el._sheetOff !== start.wOff) {   // (written only when the offset has moved from what this drag last wrote)
+      start.wOff = el._sheetOff;
+      const v = el._sheetOff ? `0px ${el._sheetOff}px` : '';
+      for (const c of el.children) c.style.translate = v;
+    }
   });
   // Once the sheet follows the finger, the page must not scroll under it, and the lift is not a tap.
   // (iOS hands a pull on scrollable content to the page and cancels the pointer before it has moved 6 px: a pull down
