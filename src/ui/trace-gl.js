@@ -1068,6 +1068,10 @@ function createShim(G) {
   const startPiece = (x, y) => { lx = x; ly = y; cur = [X(x, y), Y(x, y)]; pieces.push(cur); };
   const add = (x, y) => { if (!cur) { startPiece(x, y); return; } lx = x; ly = y; cur.push(X(x, y), Y(x, y)); };
   const sc = () => (st.m ? Math.sqrt(Math.abs(st.m[0] * st.m[3] - st.m[1] * st.m[2])) || 1 : 1);
+  const textAt = (t, x, y, colour, sw) => {
+    const m = st.m, ang = m ? Math.atan2(m[1], m[0]) : 0, px = X(x, y), py = Y(x, y);
+    G.text(t, px, py, st.font, colour, align(), st.textBaseline, st.globalAlpha, sw, ang ? [px, py, ang] : null);
+  };
   const ellPts = (cx, cy, rx, ry, rot, a0, a1, ccw) => {
     let sweep = a1 - a0;
     if (!ccw && sweep < 0) sweep = (sweep % TAU) + TAU; if (ccw && sweep > 0) sweep = (sweep % TAU) - TAU;
@@ -1218,9 +1222,12 @@ function createShim(G) {
     },
     strokeRect(x, y, w, h) { G.box(x + ox(), y + oy(), w, h, 0, null, st.strokeStyle, st.lineWidth, st.globalAlpha); },
     clearRect() {},
-    // (Words at the transform's origin, turned with it; its scale is not applied to them.)
-    fillText(t, x, y) { const m = st.m, ang = m ? Math.atan2(m[1], m[0]) : 0; G.text(t, x + ox(), y + oy(), st.font, typeof st.fillStyle === 'string' ? st.fillStyle : stopColour(st.fillStyle), align(), st.textBaseline, st.globalAlpha, 0, ang ? [ox(), oy(), ang] : null); },
-    strokeText(t, x, y) { const m = st.m, ang = m ? Math.atan2(m[1], m[0]) : 0; G.text(t, x + ox(), y + oy(), st.font, typeof st.strokeStyle === 'string' ? st.strokeStyle : stopColour(st.strokeStyle), align(), st.textBaseline, st.globalAlpha, st.lineWidth, ang ? [ox(), oy(), ang] : null); },
+    // (Words placed where the transform puts their anchor (x, y), as the 2D canvas places them, and turned with it about that point; their
+    // size is not scaled by it (the caller sets the type at its size on the screen). The anchor used to take the transform's offset alone,
+    // not its scale: words in a model drawn into a box larger or smaller than its viewBox sat off their place, toward the box's corner
+    // (the Ascites pressure dial's IAP, number, unit and word piled on each other and on the 12, Mohammad, 2 Nov 2026).)
+    fillText(t, x, y) { textAt(t, x, y, typeof st.fillStyle === 'string' ? st.fillStyle : stopColour(st.fillStyle), 0); },
+    strokeText(t, x, y) { textAt(t, x, y, typeof st.strokeStyle === 'string' ? st.strokeStyle : stopColour(st.strokeStyle), st.lineWidth); },
     measureText(t) { return { width: G.measure(String(t), st.font) }; },
     createLinearGradient(x0, y0, x1, y1) { const g = { grad: [x0, y0, x1, y1], stops: [], addColorStop(o, col) { g.stops.push([o, col]); } }; return g; },
     createRadialGradient(x0, y0, r0, x1, y1, r1) { const g = { rad: [x0, y0, r0, x1, y1, r1], stops: [], addColorStop(o, col) { g.stops.push([o, col]); } }; return g; },
