@@ -1556,7 +1556,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const boxOv = (p, q) => Math.max(0, Math.min(p.r, q.r) - Math.max(p.l, q.l)) * Math.max(0, Math.min(p.b, q.b) - Math.max(p.t, q.t));
   // (placeCall's answer, the pill's box and its leader's two ends, written into the record it is handed: the layout's own, kept and written
   // again each time, or a fresh one in the settled re-layout that still has a clash, where the first answer must outlive the second.)
-  const mkCallOut = () => ({ box: { l: 0, r: 0, t: 0, b: 0 }, lead: [[0, 0], [0, 0]] });
+  const mkCallOut = () => ({ box: { l: 0, r: 0, t: 0, b: 0 }, lead: [[0, 0], [0, 0]] });   // alloc-rare: once at setup (callOutMain), else only in the settled clash retry (coreFirst), never a frame of a hand's move
   const callOutMain = mkCallOut();
   function placeCall(fr, placed, cards, leads, crosses, ring, hex, keep, into, out) {
     if (!callEl.isConnected) { mount(labels, callEl); mount(leaders, callLine, callRing); }
