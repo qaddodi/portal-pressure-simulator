@@ -17,7 +17,7 @@
 import { TILE, RATE, tileShown } from './table-marks.js?v=a483b9975e';
 import { cutsOf } from './tool-curve.js?v=d7c216e2c9';
 import { DRUGS } from '../engine/scenario.js?v=d2669cef9b';
-import { restClass } from './rest-pass.js?v=bb619a1659';
+import { restClass } from './rest-pass.js?v=3164fa18ba';
 import { frameFor } from './frame.js?v=1d147c7c9a';
 import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js?v=bdc1ac8a1f';
 import { numWords, signedWords } from './num-words.js?v=cf53d490d9';

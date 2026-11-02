@@ -114,7 +114,7 @@ export function restClass(el, name, on) {
 // Attributes that only describe the page to a screen reader or tag it for the next lookup (aria-label, aria-hidden, data-*): nothing
 // on screen depends on them, so a frame never writes them. They are asked for here and written once, between frames, last value
 // wins (2 Nov 2026, "Remove attribute writes in lobule and sinusoid").
-const attrQ = new Map(), goneQ = new Set();   // (element → { name → value; null removes it })
+const attrQ = new Map(), goneQ = new Set(), attrPool = [];   // (element → { name → value; null removes it })
 let attrId = 0;
 function flushAttrs() {
   attrId = 0;
@@ -127,6 +127,7 @@ function flushAttrs() {
       if (v == null) el.removeAttribute?.(k);
       else el.setAttribute(k, v);
     }
+    names.clear(); attrPool.push(names);   // (kept for the next element asked about: a glide's frames ask for the same few, so no Map is made per frame)
   }
 }
 /** Writes every attribute asked for through restAttr now (a pass about to measure the page that depends on them calls this first). */
@@ -134,7 +135,7 @@ export function flushRestAttrs() { if (attrId) { cancelRest(attrId); flushAttrs(
 /** Sets (or, with null, removes) an attribute between frames: the last value asked for before the pass runs is the one written. */
 export function restAttr(el, name, value) {
   let names = attrQ.get(el);
-  if (!names) attrQ.set(el, names = new Map());
+  if (!names) attrQ.set(el, names = attrPool.pop() || new Map());   // alloc-rare: a Map made only while the pool is empty (the first few asks of a page's life)
   names.set(name, value);
   if (!attrId) attrId = restPass(flushAttrs);
 }

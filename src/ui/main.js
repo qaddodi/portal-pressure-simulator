@@ -4,7 +4,7 @@
 import { motionBudget } from './motion-budget.js?v=89246e0c5f';   // (first: counts from the start when ?perf or ?budget=1 asks)
 import { budget as gpuBudget } from './gpu-budget.js?v=5a5dcd699f';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js?v=4163c507aa';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
-import { startHost, host, hostFailed, restartHost } from './host.js?v=00e68113c8';
+import { startHost, host, hostFailed, restartHost } from './host.js?v=6b1229a569';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=2e6b562412';
 import { createStage } from './stage.js?v=07d32f1165';
 import { createCreditPlacer } from './credit.js?v=91315f1c37';
@@ -67,7 +67,7 @@ import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=d2669cef9b';
 import { createPaintGate } from './paint-gate.js?v=880ebfff88';
 import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, afterMotion, mayTask } from './frame.js?v=1d147c7c9a';
-import { restPass } from './rest-pass.js?v=bb619a1659';
+import { restPass } from './rest-pass.js?v=3164fa18ba';
 import { classSoon, runSoon } from './class-soon.js?v=60cf95af4a';
 import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js?v=254133713c';
 import { feedbackDiagnostics } from './feedback-diag.js?v=75097a9d74';
@@ -76,7 +76,7 @@ import { createIdleRest } from './idle-rest.js?v=4d23822371';
 import { pillState, foldPill, stopFold } from './pill-motion.js?v=a7f2fe77db';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=1b5b7b8ddd';
 import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=a48d65266b';
-import './scroll-edges.js?v=2e0bd0ab5e';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
+import './scroll-edges.js?v=b008801883';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 import { caught } from './caught.js?v=b96b17594a';
 const nextFrame = frameFor('main');
 
@@ -1168,9 +1168,9 @@ function wireTopbar() {
   if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=e628ce41c7').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages.
   import('./high-refresh.js?v=d51eb37228').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=8521ed196d').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=cb5c07506f').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
-  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=50bb0c4c05').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
+  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=2432351b74').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());

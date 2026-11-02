@@ -46,7 +46,7 @@ import { createSlidePrep } from './slide-prep.js?v=c805080b5b';
 import { createTxns } from './slide-txn.js?v=2b33d858d0';
 import { glEpoch, onGLRestored } from './gl-state.js?v=4163c507aa';
 import { prepareShaders, shaderFailures } from './gl-compile.js?v=f9222c848a';
-import { createFigureKey } from './figure-key.js?v=ae6634ab0f';
+import { createFigureKey } from './figure-key.js?v=3d33c34ac3';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=dbc55f6cc5';
 import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=9d3ea8638d';
@@ -1031,7 +1031,7 @@ function makeCalc() {
   const ready = (async () => {
     let w = null;
     try {
-      w = new Worker(new URL('../worker.js?v=92c817831c', import.meta.url), { type: 'module' });
+      w = new Worker(new URL('../worker.js?v=a65cd5104a', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -1045,7 +1045,7 @@ function makeCalc() {
     } catch {
       if (w) { w.onmessage = w.onerror = null; w.terminate(); }   // (a worker that never said hello: not left running beside the page's own engine)
       try {
-        const { createCore } = await import('../worker-core.js?v=6942687ca7');
+        const { createCore } = await import('../worker-core.js?v=c05692922e');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

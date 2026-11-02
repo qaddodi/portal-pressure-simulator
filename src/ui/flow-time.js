@@ -11,7 +11,7 @@
 // it climbs from 0 to that number in step with the time-lapse's ramp, and every other line is still the model's own.
 import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { classSoon, attrSoon, dataSoon } from './class-soon.js?v=60cf95af4a';
-import { restPass } from './rest-pass.js?v=bb619a1659';
+import { restPass } from './rest-pass.js?v=3164fa18ba';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { RX, bandKeys } from './rx-bands.js?v=51e83c7c59';
 import { createSvgGL, svgModel, setWords, setGeo } from './svg-gl.js?v=bdc1ac8a1f';

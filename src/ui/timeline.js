@@ -20,7 +20,7 @@ import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7d7bfe9a62';
 import { createSvgGL, svgModel } from './svg-gl.js?v=bdc1ac8a1f';
 import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js?v=255ad66a41';
 import { textSoon } from './class-soon.js?v=60cf95af4a';
-import { restPass } from './rest-pass.js?v=bb619a1659';
+import { restPass } from './rest-pass.js?v=3164fa18ba';
 const nextFrame = frameFor('timeline');
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };

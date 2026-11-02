@@ -37,7 +37,7 @@ import { noteSinusoidSupport, sinusoidSupported } from './gl-support.js?v=6219c6
 import { FADE_MS, fadeAlpha } from './res-fade.js?v=3a2c40fb21';
 import { cssColor8 } from './css-color.js?v=59ed182174';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { restPass, restClass, restAttr } from './rest-pass.js?v=bb619a1659';
+import { restPass, restClass, restAttr } from './rest-pass.js?v=3164fa18ba';
 const HEP_CELL = { j: 0, x0: 0, x1: 0, nu: 0, nv: 0, nr: 0, bi: false };   // alloc-rare: made once (the hepatocyte's cell, written in place by each layout)
 const nextFrame = frameFor('sinusoid-view');
 

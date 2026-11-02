@@ -24,7 +24,8 @@ test('a bedside lapse runs time on the seconds clock, ramps the meal, keeps samp
   let now = 0;
   t.mock.method(performance, 'now', () => now);
   const msgs = [];
-  const core = createCore((m) => msgs.push(m));
+  // (A posted frame is cloned as it is posted; the worker writes its metrics record in place at the next tick, so a test that keeps frames keeps a copy.)
+  const core = createCore((m) => msgs.push(m.type === 'frame' ? { ...m, metrics: structuredClone(m.metrics) } : m));
   t.after(() => core.dispose());
   const advance = (ms) => { for (let k = 0; k < ms; k += 33) { now += 33; t.mock.timers.tick(33); } };
   core.handle({ type: 'init', params: { respiration: false } });

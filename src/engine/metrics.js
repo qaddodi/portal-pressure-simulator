@@ -54,7 +54,15 @@ const qf = (eng, id) => (eng.Qf ? eng.Qf[eng.ei[id]] : eng.Q[eng.ei[id]]);
 
 const lsmOf = (hv) => 5 + 2.2 * Math.max(0, Math.min(hv.hvpg, 12) - 3) + 0.8 * Math.max(0, hv.hvpg - 12) + 2 * Math.max(0, hv.fhvp - 6);
 
-export function computeMetrics(eng) {
+// (The tick's record: computeMetrics(eng, out) writes into the `out` it is given, and the records inside it, in place, so a frame makes none
+// of them; the frame is posted (cloned) before the next tick writes it again. With no `out` a call makes a record of its own, for the readers
+// that keep what they ask for: tests, the compare and explain requests.)
+const copyInto = (o, src) => { for (const k in src) o[k] = src[k]; return o; };
+// (The records a field switches between, kept beside the metrics record that holds one of them: not fields of it, so the posted frame carries only the fields.)
+const spares = new WeakMap();
+const spareOf = (r) => spares.get(r) || (spares.set(r, { meas: {}, gOn: {}, gOff: {}, bleed: {} }), spares.get(r));   // alloc-rare: made once for a record
+const part = (r, k) => r[k] || (r[k] = {});   // alloc-rare: a record inside the metrics, made when the metrics record is (once for the tick's, per call for a reader that gave none)
+export function computeMetrics(eng, out = null) {
   const P = eng.Pf || eng.P, ni = eng.ni, ei = eng.ei, p = eng.params;
   if (!eng.baseHepFlow) eng.baseHepFlow = eng.refQ ? eng.refQ[ei.SIN_RR] + eng.refQ[ei.SIN_LL] : 25;
 
@@ -63,7 +71,8 @@ export function computeMetrics(eng) {
   for (let i = 0; i < SPLANCHNIC_ARTERIES.length; i++) splIn += qf(eng, SPLANCHNIC_ARTERIES[i]);
   const apIn = Math.max(0, qf(eng, 'AP_R')) + Math.max(0, qf(eng, 'AP_L'));
   let shunted = 0;
-  const collateralFlows = {};
+  const r = out || {};   // alloc-rare: a reader that gives no record to write into gets one of its own; the tick always gives its kept record
+  const collateralFlows = part(r, 'collateralFlows');
   const portalIn = Math.max(0, qf(eng, 'PRE_R')) + Math.max(0, qf(eng, 'PRE_L'));
   let stentQ = 0;
   for (const id of PORTOSYSTEMIC_EDGES) {
@@ -100,49 +109,52 @@ export function computeMetrics(eng) {
   const cath = p.catheter;
   let measured = null;
   if (cath.vein) {
-    measured = { vein: cath.vein, fhvp: P[ni[HV_NODE[cath.vein]]], wedged: cath.wedged, whvp: cath.wedged ? P[ni[WEDGE_NODE[cath.vein]]] : null };
+    measured = spareOf(r).meas;
+    measured.vein = cath.vein; measured.fhvp = P[ni[HV_NODE[cath.vein]]]; measured.wedged = cath.wedged; measured.whvp = cath.wedged ? P[ni[WEDGE_NODE[cath.vein]]] : null;
   }
+  const vx = part(r, 'varix'), gx = noGRS ? spareOf(r).gOff : spareOf(r).gOn;
+  copyInto(vx, varE); vx.d = 2 * varE.r; vx.air = eng.varixAir('VAR', P); vx.grade = varixGrade(2 * varE.r); vx.present = varixPresent(2 * varE.r, eng.bands > 0); vx.redWale = varE.ratio > 0.7; vx.ratioMean = eng.vitM?.[4] ?? varE.ratio;
+  copyInto(gx, varG);
+  if (noGRS) { gx.d = 0; gx.grade = varixGrade(0); gx.present = false; gx.redWale = false; }
+  else { gx.d = 2 * varG.r; gx.grade = varixGrade(2 * varG.r); gx.present = varixPresent(2 * varG.r, false); gx.redWale = varG.ratio > 0.7; }
+  const ax = part(r, 'ascites');
+  ax.volume = eng.slow.ascites; ax.ratePerDay = st.net * 1440; ax.iap = eng.iap ?? 5; ax.grade = asc.grade; ax.label = asc.label;
+  ax.highProtein = st.highProtein; ax.totalProtein = st.ascTP; ax.albumin = st.ascAlb; ax.saag = st.saag; ax.lymphProt = st.prot.lymphProt; ax.lymphSigma = st.prot.sigma;
+  ax.hepLymph = st.hep; ax.splLymph = st.spl; ax.lymphCap = eng.slow.lymphCap;
+  const sp = part(r, 'spleen');
+  if (eng.params.splenicRx === 2) { sp.length = 0; sp.platelets = 380; } else { sp.length = eng.slow.spleen; sp.platelets = clamp(250 * Math.pow(11 / eng.slow.spleen, 3), 25, 400); }
+  const he = part(r, 'heRisk'); he.index = heIdx; he.label = heIdx < 0.2 ? 'Low' : heIdx < 0.45 ? 'Moderate' : 'High';
+  const bl = part(r, 'blood');
+  bl.volume = bv + eng.pregnancyPlasma(); bl.lossPct = lossPct; bl.lost = eng.blood.lost; bl.hct = hct; bl.hb = (hct * 100) / 3; bl.shock = shock;
+  let bleeding = null;
+  if (eng.bleed.active) { bleeding = spareOf(r).bleed; bleeding.site = eng.bleed.site; bleeding.rate = eng.Qbleed * 60; bleeding.total = eng.bleed.total; }
+  const vt = part(r, 'vitals');
+  vt.co = eng.vitM?.[0] ?? co; vt.map = eng.vitM?.[1] ?? map; vt.hr = eng.vitM?.[2] ?? eng.hr; vt.ra = eng.vitM?.[3] ?? ra;
 
-  return {
-    t: eng.t, day: eng.day,
-    // (The gradients are the difference of the two readings as every screen shows them, at one decimal: WHVP 16.6 and
-    // FHVP 4.9 read HVPG 11.7 in Tests, Over time, the figure's bracket and the bottom bar alike, never 11.6.)
-    hvpg: tenthGap(hv.whvp, hv.fhvp, hv.hvpg), whvp: hv.whvp, fhvp: hv.fhvp,
-    // Liver stiffness (transient elastography, kPa), an estimate from the model. It rises with the sinusoidal
-    // gradient (about 20 kPa at an HVPG of 10), flattens above an HVPG of 12 where fibrosis is already
-    // advanced, and with congestion at about 2 kPa per mmHg of free hepatic vein pressure above normal
-    // (heart failure and hepatic outflow block stiffen the liver too). It reads the gradient the liver would have without a
-    // beta-blocker (Engine.hvNoBlocker): the drug lowers the HVPG, not the stiffness (AASLD 2024 p. 1189).
-    lsm: lsmOf(eng.hvNoBlocker ? eng.hvNoBlocker(hv) : hv),
-    measured,
-    ppg: tenthGap(P[ni.CONF], P[ni.IVCS], P[ni.CONF] - P[ni.IVCS]),
-    pv: P[ni.CONF],
-    pvh: P[ni.PVH],
-    sv: P[ni.SV],
-    ra, ivc: P[ni.IVCS],
-    pvFlow: qf(eng, 'PV_TRUNK') * 0.06,
-    pvVel: eng.dopplerVelocity('PV_TRUNK'),
-    pvFlowMean: (eng.pvQm ?? qf(eng, 'PV_TRUNK')) * 0.06,
-    pvVelMean: eng.pvVm ?? eng.dopplerVelocity('PV_TRUNK'),
-    // (the vitals over a breath, engine.js controllers: what the bar and Readouts show)
-    vitals: { co: eng.vitM?.[0] ?? co, map: eng.vitM?.[1] ?? map, hr: eng.vitM?.[2] ?? eng.hr, ra: eng.vitM?.[3] ?? ra },
-    pvPI: p.pulsatile || eng.beat ? eng.pi.value : null,
-    hepaticFlow: hepFlow * 0.06,
-    liverPerfPct: (hepFlow / eng.baseHepFlow) * 100,
-    portalIn: portalIn * 0.06,
-    arterialIn: arterialIn * 0.06,
-    splanchnicIn: splIn * 0.06,
-    shuntFraction,
-    collateralFlows,
-    varix: { ...varE, d: 2 * varE.r, air: eng.varixAir('VAR', P), grade: varixGrade(2 * varE.r), present: varixPresent(2 * varE.r, eng.bands > 0), redWale: varE.ratio > 0.7, ratioMean: eng.vitM?.[4] ?? varE.ratio },
-    gastricVarix: noGRS ? { ...varG, d: 0, grade: varixGrade(0), present: false, redWale: false } : { ...varG, d: 2 * varG.r, grade: varixGrade(2 * varG.r), present: varixPresent(2 * varG.r, false), redWale: varG.ratio > 0.7 },
-    ascites: { volume: eng.slow.ascites, ratePerDay: st.net * 1440, iap: eng.iap ?? 5, ...asc, highProtein: st.highProtein, totalProtein: st.ascTP, albumin: st.ascAlb, saag: st.saag, lymphProt: st.prot.lymphProt, lymphSigma: st.prot.sigma, hepLymph: st.hep, splLymph: st.spl, lymphCap: eng.slow.lymphCap },
-    spleen: eng.params.splenicRx === 2 ? { length: 0, platelets: 380 } : { length: eng.slow.spleen, platelets: clamp(250 * Math.pow(11 / eng.slow.spleen, 3), 25, 400) },
-    map, co, hr: eng.hr, svr: (map - ra) / Math.max(0.5, co),
-    heRisk: { index: heIdx, label: heIdx < 0.2 ? 'Low' : heIdx < 0.45 ? 'Moderate' : 'High' },
-    blood: { volume: bv + eng.pregnancyPlasma(), lossPct, lost: eng.blood.lost, hct, hb: (hct * 100) / 3, shock },
-    bleeding: eng.bleed.active ? { site: eng.bleed.site, rate: eng.Qbleed * 60, total: eng.bleed.total } : null,
-    habr: eng.habr, baro: eng.baro,
-    splTone: eng.slow.splTone,
-  };
+  r.t = eng.t; r.day = eng.day;
+  // (The gradients are the difference of the two readings as every screen shows them, at one decimal: WHVP 16.6 and
+  // FHVP 4.9 read HVPG 11.7 in Tests, Over time, the figure's bracket and the bottom bar alike, never 11.6.)
+  r.hvpg = tenthGap(hv.whvp, hv.fhvp, hv.hvpg); r.whvp = hv.whvp; r.fhvp = hv.fhvp;
+  // Liver stiffness (transient elastography, kPa), an estimate from the model. It rises with the sinusoidal
+  // gradient (about 20 kPa at an HVPG of 10), flattens above an HVPG of 12 where fibrosis is already
+  // advanced, and with congestion at about 2 kPa per mmHg of free hepatic vein pressure above normal
+  // (heart failure and hepatic outflow block stiffen the liver too). It reads the gradient the liver would have without a
+  // beta-blocker (Engine.hvNoBlocker): the drug lowers the HVPG, not the stiffness (AASLD 2024 p. 1189).
+  r.lsm = lsmOf(eng.hvNoBlocker ? eng.hvNoBlocker(hv) : hv);
+  r.measured = measured;
+  r.ppg = tenthGap(P[ni.CONF], P[ni.IVCS], P[ni.CONF] - P[ni.IVCS]);
+  r.pv = P[ni.CONF]; r.pvh = P[ni.PVH]; r.sv = P[ni.SV]; r.ra = ra; r.ivc = P[ni.IVCS];
+  r.pvFlow = qf(eng, 'PV_TRUNK') * 0.06; r.pvVel = eng.dopplerVelocity('PV_TRUNK');
+  r.pvFlowMean = (eng.pvQm ?? qf(eng, 'PV_TRUNK')) * 0.06; r.pvVelMean = eng.pvVm ?? eng.dopplerVelocity('PV_TRUNK');
+  // (the vitals over a breath, engine.js controllers: what the bar and Readouts show)
+  r.vitals = vt;
+  r.pvPI = p.pulsatile || eng.beat ? eng.pi.value : null;
+  r.hepaticFlow = hepFlow * 0.06; r.liverPerfPct = (hepFlow / eng.baseHepFlow) * 100;
+  r.portalIn = portalIn * 0.06; r.arterialIn = arterialIn * 0.06; r.splanchnicIn = splIn * 0.06;
+  r.shuntFraction = shuntFraction; r.collateralFlows = collateralFlows;
+  r.varix = vx; r.gastricVarix = gx; r.ascites = ax; r.spleen = sp;
+  r.map = map; r.co = co; r.hr = eng.hr; r.svr = (map - ra) / Math.max(0.5, co);
+  r.heRisk = he; r.blood = bl; r.bleeding = bleeding;
+  r.habr = eng.habr; r.baro = eng.baro; r.splTone = eng.slow.splTone;
+  return r;
 }

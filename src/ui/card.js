@@ -8,7 +8,7 @@ import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPh
 import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7d7bfe9a62';
 import { cardFor, normalizeSel } from './actions.js?v=06e58c6e9c';
 import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
-import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
+import { restPass, cancelRest } from './rest-pass.js?v=3164fa18ba';
 import { classSoon, runSoon, propSoon, attrSoon, textSoon } from './class-soon.js?v=60cf95af4a';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 import { readBox, readMetric } from './layout-snap.js?v=a48d65266b';

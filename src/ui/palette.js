@@ -5,7 +5,7 @@
 import { store, updateParams } from './store.js?v=2e6b562412';
 import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=1926dc32f0';
 import { D_FLIP, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
-import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
+import { restPass, cancelRest } from './rest-pass.js?v=3164fa18ba';
 import { classSoon, attrSoon } from './class-soon.js?v=60cf95af4a';
 import { frame } from './frame.js?v=1d147c7c9a';
 import { EDGES } from '../engine/topology.js?v=512e725aea';

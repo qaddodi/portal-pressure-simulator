@@ -1,6 +1,6 @@
 // Event detectors with hysteresis (blueprint §10.3). Pure functions of engine state.
 
-import { computeMetrics } from './metrics.js?v=d909ca0ee4';
+import { computeMetrics } from './metrics.js?v=897614c6a8';
 import { FLOW_CUTS } from './flow-cuts.js?v=1c97536e9e';
 import { HVPG_CUTS } from './pressure-cuts.js?v=0cfa0c573a';
 
@@ -106,8 +106,13 @@ function held(s, eng, day) {
   if (s.since == null || s.sinceDay !== day || eng.t < s.since) { s.since = eng.t; s.sinceDay = day; return 0; }
   return eng.t - s.since;
 }
+// (Each engine's metrics record, written in place by every call and kept by no one: the worker posts the frame it is in (cloned) before the
+// next call, and nothing else keeps it. A reader that wants a record of its own calls computeMetrics(eng) with none.)
+const RECS = new WeakMap();
 export function detectEvents(eng, init = false) {
-  const m = computeMetrics(eng);
+  let rec = RECS.get(eng);
+  if (!rec) RECS.set(eng, rec = {});   // alloc-rare: once per engine
+  const m = computeMetrics(eng, rec);
   const day = (eng.day || 0) + (eng.dayFrac || 0);
   const v = breathAveraged(m, eng, init), splIn = Math.max(1e-6, m.splanchnicIn / 0.06), states = eng.evState;
   for (let i = 0; i < DEFS.length; i++) {

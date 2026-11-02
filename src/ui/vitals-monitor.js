@@ -18,7 +18,7 @@ import { olderThan, inFront } from './backfill.js?v=455d888760';
 import { dropFront } from './drop-front.js?v=21069ee0e8';
 import { createStill } from './still-layer.js?v=d5a9373a74';
 import { attrSoon } from './class-soon.js?v=60cf95af4a';
-import { restPass } from './rest-pass.js?v=bb619a1659';
+import { restPass } from './rest-pass.js?v=3164fa18ba';
 const nextFrame = frameFor('vitals-monitor');
 
 export const VITALS_DEFAULT = ['hr', 'map', 'hb'];
