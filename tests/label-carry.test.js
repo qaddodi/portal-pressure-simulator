@@ -117,7 +117,7 @@ test('the carry\'s class is a gesture\'s: no label is read again for it, no plac
   const keys = readFileSync(new URL('../src/ui/idle-keys.js', import.meta.url), 'utf8');
   assert.match(keys, /export const GESTURE_LOOK = new Set\(\[[^\]]*'lb-ride'\]\);/);
   assert.match(keys, /export const GESTURE_MOVE_FREE = new Set\(\[[^\]]*'lb-ride'\]\);/);
-  assert.match(stage, /\(\?:panning\|stage-busy\|figure-focus\|lb-ride\)\(\?=/);
+  assert.match(stage, /\(\?:panning\|stage-busy\|figure-focus\|lb-ride\|cam-move\|pinch-hide\|off-home\)\(\?=/);
   // (It sets no custom property and styles nothing in the figure, only the opacity of the leaders' layer: frame-costs-glow.test.js reads every rule that names it.)
   for (const m of css.matchAll(/([^{}]*\.lb-ride\b[^{}]*)\{([^{}]*)\}/g)) {
     assert.doesNotMatch(m[2], /--[\w-]+\s*:/);

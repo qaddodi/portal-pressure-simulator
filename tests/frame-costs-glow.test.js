@@ -81,7 +81,7 @@ test('the FibroScan packets write an opacity or a path only when its text change
 test('under the GPU the hidden SVG tubes are written when they show again; the lumens too, flushed for the credit', () => {
   assert.match(stage, /if \(!on\) \{ tubesHidden = false; if \(tubesHeld\.size\) flushTubes\(\); if \(geoHeld\.size\) flushGeo\(\); ascitesSvg\(\); \}/);
   assert.match(stage, /setL\(x\.lumen, 'stroke-width', w\.toFixed\(1\)\)/);
-  assert.match(stage, /const setL = \(el, k, v\) => \(TUBE_ALL \? setT\(el, k, v\) : setA\(el, k, v\)\);/, '?tubeall=0 writes them always');
+  assert.match(stage, /const setL = setT;/);
   assert.match(stage, /for \(const el of \[sd\.lumen, sd\.wall\]\) \{ setS\(el, 'display', vis\); setS\(el, 'opacity', op\); \}/);
   assert.match(stage, /flushHeld: \(\) => \{ if \(tubesHeld\.size\) flushTubes\(\); if \(geoHeld\.size\) flushGeo\(\); \}/);
   const credit = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
@@ -120,8 +120,7 @@ test("a pan or pinch's own classes never count as a change of the stage's look",
   // (panning, stage-busy and figure-focus come on as a gesture starts and off as it ends, and stage-busy 0.6 s later, as the menus
   // fade back in. Each dropped the stage's style snapshot and the glow-only, marks and gut-look memos: a style pass and a whole
   // vessel sync, the marks read again from the SVG, at every one (Mohammad, 21 Oct: "still lag after i pan or zoom").)
-  assert.match(stage, /const gestureFree = \(c\) => \(c \|\| ''\)\.replace\(GLIDE_KEYS \? \/\(\?:\^\|\\s\)\(\?:panning\|stage-busy\|figure-focus\|lb-ride\|cam-move\|pinch-hide\|off-home\)\(\?=\\s\|\$\)\/g : \/\(\?:\^\|\\s\)\(\?:panning\|stage-busy\|figure-focus\|lb-ride\)\(\?=\\s\|\$\)\/g, ''\);/);
-  assert.match(stage, /const GLIDE_KEYS = !\/\[\?&\]glidekeys=0\\b\/\.test\(location\.search\);/);
+  assert.match(stage, /const gestureFree = \(c\) => \(c \|\| ''\)\.replace\(\/\(\?:\^\|\\s\)\(\?:panning\|stage-busy\|figure-focus\|lb-ride\|cam-move\|pinch-hide\|off-home\)\(\?=\\s\|\$\)\/g, ''\);/);
   const obs = stage.slice(stage.indexOf('const drop = () => { csSnap = null; };'), stage.indexOf("addEventListener('resize', drop)"));
   assert.match(obs, /if \(r\.attributeName === 'class'\) \{ const c = gestureFree\(r\.target\.getAttribute\('class'\)\); if \(seen\.get\(r\.target\) === c\) continue; seen\.set\(r\.target, c\); \}\n\s+drop\(\); return;/);
   assert.match(stage, /const marksKey = \(\) => `\$\{mk\.ver\}\|\$\{wrapCls\(\)\}\|/);

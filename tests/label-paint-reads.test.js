@@ -19,7 +19,7 @@ test('a view change paints the callouts and probes once: again only when updateL
   const sv = body('syncView'), ul = body('updateLabels');
   assert.match(ul, /^\s+function updateLabels\(f, force = false\) \{\n\s+labelPainted = false;/);
   assert.match(ul, /dprobePaint\(\);\n\s+labelPainted = true;\n\s+labelGlSync\(\);[^\n]*\n\s+\}$/);
-  assert.match(sv, /if \(!labelPainted && !\(GLIDE_PAINT && vtGliding\)\) \{\n\s+if \(sites\.list\) sitesPaint\(\);\n\s+if \(scan\.on\) scanPaint\(\);\n\s+dprobePaint\(\);\n\s+\}/);
+  assert.match(sv, /if \(!labelPainted && !vtGliding\) \{\n\s+if \(sites\.list\) sitesPaint\(\);\n\s+if \(scan\.on\) scanPaint\(\);\n\s+dprobePaint\(\);\n\s+\}/);
 });
 
 test('the FibroScan beam is its own layer of the probe\'s model, under the waves', () => {

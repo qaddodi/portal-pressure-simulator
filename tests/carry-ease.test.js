@@ -89,7 +89,6 @@ test('a sheet let go is headed a little past where the finger left it, by its sp
 test('the camera, the lobule, the sheets and the paging take it', () => {
   const stage = read('src/ui/stage.js'), lz = read('src/ui/lobule-zoom.js'), util = read('src/ui/util.js'), main = read('src/ui/main.js'), card = read('src/ui/card.js'), menu = read('src/ui/menu.js'), dock = read('src/ui/dock.js');
   assert.match(stage, /c0 = carryRate\(v0, from, to, VIEW\.w\) \* ms;/);
-  assert.match(stage, /const CARRY = !\/\[\?&\]carry=0\\b\/\.test\(location\.search\);/);
   assert.match(stage, /!drift && vtVel && vtGliding/, 'a plain glide still under way, not a drift or a dead one');
   assert.match(lz, /carryRate\(v0, from, to, Math\.max\(1, snap\.w\)\) \* ms/);   // (the lobule's width as kept: never read in a frame)
   assert.match(lz, /ease !== 'in'/, 'the lobule\'s lead-in glide keeps its own curve');

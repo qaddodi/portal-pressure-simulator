@@ -112,10 +112,9 @@ test('a frame of the change draws from a stretch only once every point, reach an
   assert.match(readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8'), /sweep-worker\.js/);
 });
 
-test('the change fades the labels out and lays them out once, where it lands; ?morphlabels=0 keeps them riding', () => {
+test('the change fades the labels out and lays them out once, where it lands', () => {
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(stage, /const MORPH_FADE = !\/\[\?&\]morphlabels=0\\b\/\.test\(location\.search\);/);
   // (No label work on a frame of the change: updateLabels returns at camMove, and nothing settles it before the landing.)
   assert.match(stage, /if \(camMove\) \{ if \(!vtGliding && !morphFade\) camSettle\(\); return; \}/);
   assert.match(stage, /function camSettle\(\) \{\n\s*if \(!camMove \|\| morphFade\) return;/);

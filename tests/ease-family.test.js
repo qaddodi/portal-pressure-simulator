@@ -51,15 +51,12 @@ test('camMs: 480 ms up to half a screen, then in proportion, at most 900 ms', ()
   for (let x = 0; x <= 1500; x += 10) { const m = camMs(at, { k: 1, x, y: 0 }, W); assert.ok(m >= last); last = m; }
 });
 
-test('stage and lobule glides run on the quintic; scaled glides take their reach\'s time, never longer than asked; ?camease=0 as before', () => {
+test('stage and lobule glides run on the quintic; scaled glides take their reach\'s time, never longer than asked', () => {
   const stage = read('src/ui/stage.js'), lob = read('src/ui/lobule-zoom.js');
-  assert.match(stage, /const CAM_M2 = !\/\[\?&\]camease=0\\b\/\.test\(location\.search\);/);
-  assert.match(stage, /const camEase = \(u\) => \(CAM_M2 \? easeMove\(u\) : easeInOut\(u\)\);/);
-  // (camEase reads easeInOut when called, never at the line it is declared on: easeInOut is declared further down.)
-  assert.ok(stage.indexOf('const camEase = ') < stage.indexOf('const easeInOut = '));
+  assert.match(stage, /const camEase = easeMove;/);
   assert.match(stage, /const raw = clamp\(\(clock \? clock\(now\) : now - t0\) \/ ms, 0, 1\), u = \(drift \? driftEase : camEase\)\(raw\);/);
   assert.match(stage, /const u = camEase\(clamp\(\(performance\.now\(\) - prev\.t0\) \/ prev\.ms, 0, 1\)\);/);
-  assert.match(stage, /else if \(CAM_M2 && opt\.scale && !drift && ms > 0\) ms = Math\.min\(ms, camMs\(from, to, VIEW\.w\)\);/);
+  assert.match(stage, /else if \(opt\.scale && !drift && ms > 0\) ms = Math\.min\(ms, camMs\(from, to, VIEW\.w\)\);/);
   assert.match(stage, /animateVT\(to, ms, \{ arc: true, steady: !!opt\.steady, scale: !opt\.steady \}\)/);
   assert.match(stage, /animateVT\(to, ms, opt\.steady \? \{ steady: true \} : \{ scale: true \}\); \},/);
   assert.match(stage, /animateVT\(\{ \.\.\.to \}, ms, \{ scale: true \}\); \},/);

@@ -1,5 +1,5 @@
 // A vessel's gradient colours on the hidden SVG wait while the GPU draws, until the SVG shows again (2 Nov 2026, motion budget: a
-// Varices slide change wrote 1,200 stop colours at its rests). ?geohold=0 writes them at once.
+// Varices slide change wrote 1,200 stop colours at its rests).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -16,5 +16,5 @@ test('held while the GPU draws, and written wherever the SVG shows again (GPU no
   assert.match(st, /function setPaint\(el, k, v\) \{\n\s+if \(geoHolding\(\)\) \{/);
   assert.match(st, /if \(geoHeld\.size\) flushGeo\(\); if \(paintHeld\.size\) flushPaint\(\);\n\s+if \(tubesStale\)/, 'context lost');
   assert.match(st, /if \(!on && paintHeld\.size\) flushPaint\(\);/, 'the GPU not wanted');
-  assert.match(st, /const geoHolding = \(\) => GEO_HOLD && wrap\.classList\.contains\('gl-on'\);/);
+  assert.match(st, /const geoHolding = \(\) => wrap\.classList\.contains\('gl-on'\);/);
 });

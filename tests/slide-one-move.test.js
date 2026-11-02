@@ -127,9 +127,8 @@ test('the case card\'s retreat ends with its glide, and ?onemove=0 keeps the fla
 
 // A leave takes the step below its entrance (motion-scale-shipped): a slide's halos come in over 500 ms and leave over one small step, with the
 // cards and labels, so the camera does not set off under an old halo still fading. ?onemove=0 keeps the old fade.
-test('a slide\'s halos leave in one small step, and only the slide\'s own, and only without ?onemove=0', () => {
-  assert.match(stage, /const SLIDE_HALO_OUT = !\/\[\?&\]onemove=0\\b\/\.test\(location\.search\);/);
-  assert.match(stage, /for \(const \[id, l\] of glow\.lit\) if \(!want\.has\(id\)\) \{ l\.to = 0; if \(src === 'slide' && SLIDE_HALO_OUT\) l\.dur = Math\.min\(l\.dur, D_SMALL \/ 1000\); \}/);
+test('a slide\'s halos leave in one small step, and only the slide\'s own', () => {
+  assert.match(stage, /for \(const \[id, l\] of glow\.lit\) if \(!want\.has\(id\)\) \{ l\.to = 0; if \(src === 'slide'\) l\.dur = Math\.min\(l\.dur, D_SMALL \/ 1000\); \}/);
   // (the way in is unchanged: a slide's glow still eases in over its own 500 ms)
   assert.match(stage, /setGlowSrc\('slide', \(list \|\| \[\]\)\.map\(\(g\) => \(\{[^\n]*dur: 500 \}\)\)\);/);
 });

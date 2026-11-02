@@ -699,8 +699,7 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .fl-top { stop-color: var(--ascites); stop-opacity: calc(var(--ascites-a) * .5); } .fl-bot { stop-color: var(--ascites); stop-opacity: var(--ascites-a); }
 .sk-in { stop-color: var(--skin); stop-opacity: .5; } .sk-mid { stop-color: var(--skin); stop-opacity: .3; } .sk-out { stop-color: var(--skin); stop-opacity: 0; }
 .mt-a { stop-color: var(--stent-metal); } .mt-b { stop-color: var(--light-ink); }
-.abd-wall { pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
-.abd-wall.js-ease { transition: none; }   /* (stage.js abdTo eases it, so the overlays' GPU painter sees each step) */
+.abd-wall { pointer-events: none; }   /* (stage.js abdTo eases its opacity, so the overlays' GPU painter sees each step) */
 .flank { fill: none; stroke: var(--organ-body-line); stroke-width: 1.4; stroke-opacity: .8; stroke-linecap: round; }
 .thrombus-edge { fill: none; stroke: var(--thrombus-edge); stroke-opacity: .5; stroke-width: .6; stroke-linecap: round; stroke-linejoin: round; }
 .stent-rail-glint { fill: none; stroke: var(--light-ink); stroke-opacity: var(--stent-glint, .5); stroke-width: .5; stroke-linejoin: round; transform: translate(-.4px, -.4px); }

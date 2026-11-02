@@ -1,6 +1,6 @@
 // A glide with the labels up (premium-feel recs P2, 31 Oct): its labels are solved once, as it starts, for the framing it lands at,
 // then carried there with no solve while it runs and none as it lands. Only where nothing the labels are placed against moves with
-// the camera and what they show is the same at both ends; ?labelland=0 goes back.
+// the camera and what they show is the same at both ends.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -10,7 +10,7 @@ const body = (head) => stage.match(new RegExp(`${head.replace(/[()[\]{}.*+?^$|\\
 
 const landSrc = body('function landable(from, to) {');
 const base = () => ({
-  LABEL_LAND: true, landAt: -1e9, F: {}, inUpdate: false, catchUp: false, solvedFor: { sig: 'S', csig: 'C', ins: '' }, camMove: false, pinchHide: false,
+  landAt: -1e9, F: {}, inUpdate: false, catchUp: false, solvedFor: { sig: 'S', csig: 'C', ins: '' }, camMove: false, pinchHide: false,
   gestureOn: () => false, sameView: (a, b) => a.k === b.k && a.x === b.x && a.y === b.y,
   cath: { st: null }, lobuleOn: false, lz: null, morph: 0, morphTarget: 0, diveT: 0, sites: { list: null }, scan: { on: false }, dpr: { on: false },
   dop: { all: false }, E: {}, labelSig: () => 'S', calloutSig: () => 'C', labelIns: () => '',
@@ -27,7 +27,7 @@ test('a plain glide with the labels up is solved for its landing, however far it
 });
 
 test('not where the labels are hidden, held, mid-solve or placed against something the camera moves', () => {
-  for (const over of [{ LABEL_LAND: false }, { F: null }, { inUpdate: true }, { catchUp: true }, { solvedFor: null }, { camMove: true }, { pinchHide: true },
+  for (const over of [{ F: null }, { inUpdate: true }, { catchUp: true }, { solvedFor: null }, { camMove: true }, { pinchHide: true },
     { gestureOn: () => true }, { cath: { st: {} } }, { lobuleOn: true }, { lz: { isOpen: () => true } }, { morph: 0.4 }, { diveT: 0.2 },
     { sites: { list: [] } }, { scan: { on: true } }, { dpr: { on: true } }, { dop: { all: true } }, { E: { TIPS: { vis: true } } }, { E: { DIPS: { vis: true } } },
     { landAt: performance.now() }, { labelSig: () => 'other' }, { calloutSig: () => 'other' }, { labelIns: () => '1,2' }]) {
@@ -56,5 +56,4 @@ test('the glide carries the labels from those slots: no solve on its way, no che
   assert.match(a, /vtGliding = false; arcRun = null; landRide = false; landTo = null;/);
   assert.match(stage, /const landing = \(\) => landRide && vtGliding && vtTarget === landTo;/, 'only for the glide it was solved for');
   assert.match(stage, /land = landing\(\) && !hand, ride = \(drifting \|\| land\) && !hand;/);
-  assert.match(stage, /const LABEL_LAND = !\/\[\?&\]labelland=0\\b\/\.test\(location\.search\);/);
 });

@@ -169,9 +169,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (And a slide's camera glide's own classes: cam-move and pinch-hide fade only the label layer, off-home only the zoom pill, and none
   // of the readers keyed on this (the stage's colours, the organs' grey, the vessel marks, the glow) reads either. Counted, each glide
   // began and ended with the marks rebuilt shape by shape, every organ's colours read again and the stage's colours dropped: about
-  // 300 style passes on a phone's slide change. ?glidekeys=0: counted, as before.)
-  const GLIDE_KEYS = !/[?&]glidekeys=0\b/.test(location.search);
-  const gestureFree = (c) => (c || '').replace(GLIDE_KEYS ? /(?:^|\s)(?:panning|stage-busy|figure-focus|lb-ride|cam-move|pinch-hide|off-home)(?=\s|$)/g : /(?:^|\s)(?:panning|stage-busy|figure-focus|lb-ride)(?=\s|$)/g, '');
+  // 300 style passes on a phone's slide change.)
+  const gestureFree = (c) => (c || '').replace(/(?:^|\s)(?:panning|stage-busy|figure-focus|lb-ride|cam-move|pinch-hide|off-home)(?=\s|$)/g, '');
   // (bugs-recs 8, 2 Nov 2026: the figure's classes as the still-frame and look keys see them: the gesture and camera classes left out
   // (they move nothing the picture draws) and the rest sorted, so two toggles in one frame that leave the same set, in another order,
   // are no change and no redraw. Worked out again only when the class string itself changed.)
@@ -187,16 +186,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (2 Nov 2026, the iPhone trace: the snapshot read each name only when first asked for, so the ascites' ink, the plate's theme and the
   // other names asked late in a frame were read after that frame's writes, and the browser restyled the page there. Every name ever asked
   // for is now read when the snapshot is taken, at the start of the frame, before any write; only a name asked for the first time is read
-  // late, once. ?cseager=0: read when asked, as before.)
-  const CS_EAGER = !/[?&]cseager=0\b/.test(location.search);
+  // late, once.)
   const csNames = new Set();
   let csLast = null, csAsk = 0;
   function wrapCSTake() {
     csAsk = 0;
     csMq = MQ.map((q) => q.matches);
     const live = getComputedStyle(wrap), m = new Map();
-    if (CS_EAGER) for (const n of csNames) m.set(n, live.getPropertyValue(n));
-    csSnap = csLast = { getPropertyValue: (n) => { let v = m.get(n); if (v === undefined) { m.set(n, (v = live.getPropertyValue(n))); if (CS_EAGER) csNames.add(n); } return v; } };
+    for (const n of csNames) m.set(n, live.getPropertyValue(n));
+    csSnap = csLast = { getPropertyValue: (n) => { let v = m.get(n); if (v === undefined) { m.set(n, (v = live.getPropertyValue(n))); csNames.add(n); } return v; } };
   }
   function wrapCS() {
     if (csSnap && MQ.some((q, i) => q.matches !== csMq[i])) csSnap = null;
@@ -1081,9 +1079,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   gOver.before(abdWall);
   // The abdominal wall's fade, eased here a frame at a time (its opacity attribute, which the overlays' GPU painter reads at each paint),
   // not by a CSS transition: one the browser eases is invisible to the painter, so while it ran the wall and every overlay above it
-  // went back to the SVG (stage-over.js). Same length and curve as the transition it replaces. ?abdease=0: the CSS transition, as before.
-  const ABD_JS = !/[?&]abdease=0\b/.test(location.search);
-  if (ABD_JS) abdWall.classList.add('js-ease');
+  // went back to the SVG (stage-over.js).
   const abdE = { from: 0, to: 0, t0: 0, raf: 0 };
   const abdStep = (now) => {
     abdE.raf = 0;
@@ -1092,7 +1088,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (k < 1) abdE.raf = drawFrame(abdStep);
   };
   function abdTo(v) {
-    if (!ABD_JS || reduceMotion.matches) { if (abdE.raf) cancelFrame(abdE.raf); abdE.raf = 0; abdE.to = +v; putA(abdWall, 'opacity', v); return; }
+    if (reduceMotion.matches) { if (abdE.raf) cancelFrame(abdE.raf); abdE.raf = 0; abdE.to = +v; putA(abdWall, 'opacity', v); return; }
     if (+v === abdE.to) return;
     abdE.from = parseFloat(abdWall.getAttribute('opacity')) || 0; abdE.to = +v; abdE.t0 = performance.now();
     if (!abdE.raf) abdE.raf = drawFrame(abdStep);
@@ -1102,7 +1098,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   gAscites.append(ascitesPath, ascitesLine);
   let fluidSurf = null;   // the ascites surface y(x) while there is fluid; a tap below it opens the Ascites view
   // (R05: the ascites surface's SVG copy, written only when read while the GPU draws it; see the ripple in syncAscites.)
-  const ASC_LAZY = !/[?&]asclazy=0\b/.test(location.search);
   let ascStale = false, ascWroteH = NaN, ascWroteAmp = NaN, ascWroteAt = -1e9;
   function ascitesSvg() {
     if (!ascStale) return;
@@ -1316,23 +1311,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   };
   // (1 Nov 2026, "Move everything to GPU": the lumens' widths and the strands' and feeders' display and fade are held the same way while the
   // GPU draws the vessels. Written every frame of a width's ease, they restyled the hidden SVG on each one. The corner credit, the one
-  // reader of a hidden lumen's width, takes the held values first (flushHeld, credit.js screenTest). ?tubeall=0: written always, as before.)
-  const TUBE_ALL = !/[?&]tubeall=0\b/.test(location.search);
-  const setL = (el, k, v) => (TUBE_ALL ? setT(el, k, v) : setA(el, k, v));
+  // reader of a hidden lumen's width, takes the held values first (flushHeld, credit.js screenTest).)
+  const setL = setT;
   const setS = (el, k, v) => {
-    if (TUBE_ALL && tubesHidden) { (el._held ||= {})['style:' + k] = v; tubesHeld.add(el); return; }
+    if (tubesHidden) { (el._held ||= {})['style:' + k] = v; tubesHeld.add(el); return; }
     if (el._held) delete el._held['style:' + k];
     if (el.style[k] !== v) el.style[k] = v;
   };
   // (2 Nov 2026, the iPhone trace of a slide change: every frame of a morph, a coil or a vessel's draw-on still rewrote the hidden SVG
   // model's shapes, the hit paths, halos, strands, gradients and the draw-on dashes, and the browser restyled and laid out the whole tree
   // each time, though none of it is painted while the GPU draws the vessels. Those writes are held while the GPU draws and written once,
-  // in a pass between frames, when the shapes have held still for GEO_QUIET ms (hit-testing and the corner credit take them first, flushGeo).
-  // ?geohold=0: written every frame, as before.)
-  const GEO_HOLD = !/[?&]geohold=0\b/.test(location.search), GEO_QUIET = 160;
+  // in a pass between frames, when the shapes have held still for GEO_QUIET ms (hit-testing and the corner credit take them first, flushGeo).)
+  const GEO_QUIET = 160;
   const geoHeld = new Map();
   let geoT = 0, geoPass = 0;
-  const geoHolding = () => GEO_HOLD && wrap.classList.contains('gl-on');
+  const geoHolding = () => wrap.classList.contains('gl-on');
   /** An attribute (v null: removed) or, as 'style:<prop>', a style of the SVG model, held while the GPU draws it. */
   function setG(el, k, v, hold = geoHolding()) {
     if (hold) {
@@ -1478,7 +1471,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // light takes the colour of the last in GLOW_RANK. Each eases in and out on its own, so a change cross-fades.
   const GLOW_RANK = ['spot', 'sel', 'hover', 'flash', 'delta', 'dop', 'slide', 'focus', 'shunt'];
   const glow = { src: new Map(), lit: new Map(), raf: 0, t: 0 };
-  const SLIDE_HALO_OUT = !/[?&]onemove=0\b/.test(location.search);   // (the presenter's one-move flag: its switch for the old chain also keeps the old halo fade)
   // The glow and hover eases step at the display's rate, but the vessels are redrawn at the paced rate (animate): an
   // ease only marks the tubes stale, and the paced frame rebuilds and uploads them once.
   let glowSync = false;
@@ -1515,7 +1507,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // (A slide's halos leave in one small step with its cards and labels, not at the 500 ms they come in over: a leave takes the step below its
     // entrance, and the camera sets off as the cards are gone, so no old halo is still fading as it moves. ?onemove=0: as before.)
-    for (const [id, l] of glow.lit) if (!want.has(id)) { l.to = 0; if (src === 'slide' && SLIDE_HALO_OUT) l.dur = Math.min(l.dur, D_SMALL / 1000); }
+    for (const [id, l] of glow.lit) if (!want.has(id)) { l.to = 0; if (src === 'slide') l.dur = Math.min(l.dur, D_SMALL / 1000); }
     if (!glow.raf) { glow.t = now; glow.raf = nextFrame(glowStep); }
   }
   function glowStep(now) {
@@ -1619,13 +1611,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function placeClampLabels() {
     for (const t of clampW.querySelectorAll('.clamp-label')) clampLabelAt(t);
   }
-  const GLIDE_PAINT = !/[?&]glidepaint=0\b/.test(location.search);
   // (Holding 120 Hz §3.10, 2 Nov 2026: input is coalesced. A move, a wheel step or a pinch only sets the view (vt) and asks for the frame;
   // the SVG world's transform is written once, in that frame (flushVT, first thing in syncView), however many events came before it: a
   // trackpad reports a wheel step every few ms, and each wrote two transform attributes. The view's own maths (CTM, clientToVBFast) use
-  // vt, never the attribute; a reader of the attribute's matrix (clientToWorld) flushes first. ?vtcoalesce=0: written at each event.)
+  // vt, never the attribute; a reader of the attribute's matrix (clientToWorld) flushes first.)
   let vtDirty = false;
-  const VT_COALESCE = !/[?&]vtcoalesce=0\b/.test(location.search);
   const flushVT = () => {
     if (!vtDirty) return;
     vtDirty = false;
@@ -1635,7 +1625,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   };
   const applyVT = () => {
     vtDirty = true;
-    if (!VT_COALESCE) flushVT();
     syncSemantic();
     CTM = null; viewVersion++; stageWake();
     // (While moving: the first step of a move drops the canvas to its moving share, once; it is back at rest when the view settles.)
@@ -1655,7 +1644,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // only then, not a second time, whose reads came after the first paint's writes.)
     // (Nor while a glide runs: its own step paints them in this frame, after it has moved the view; painted here too, each was laid
     // out twice a frame, first at the view before the step. ?glidepaint=0: twice, as before.)
-    if (!labelPainted && !(GLIDE_PAINT && vtGliding)) {
+    if (!labelPainted && !vtGliding) {
       if (sites.list) sitesPaint();
       if (scan.on) scanPaint();
       dprobePaint();
@@ -2462,8 +2451,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   let vtAnim = 0, vtGliding = false;
   let vtUntil = 0, vtMs = 0;   // (the glide under way: when it lands and how long it runs in all, for the presenter's cards: glideLeft)
-  let vtVel = null, vtLast = null;   // (the last frames of a plain glide: its speed per ms, so another begun on it carries that on; ?carry=0 starts every glide from rest, as before)
-  const CARRY = !/[?&]carry=0\b/.test(location.search);
+  let vtVel = null, vtLast = null;   // (the last frames of a plain glide: its speed per ms, so another begun on it carries that on)
   const camMoves = [], logMove = (m) => { camMoves.push(m); if (camMoves.length > 60) camMoves.shift(); };   // every glide of the camera (and dive), kept for the tests: a way into or out of the lobule is a single move
   let vtTarget = null;   // where the last animated move was headed
   // A presenter's camera move: the labels ease out as it starts, are not laid out while it runs, and ease
@@ -2472,8 +2460,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The change between the Anatomy and the Circuit fades the labels out as it starts and lays them out once, where it lands, as a
   // presenter's camera move does (cam-move): each frame of it had carried every label with the moving vessels and solved them all
   // again at its half, the longest frame of the change (his iPhone, 1 Nov: "going from anatomy to circuit is so laggy").
-  // ?morphlabels=0: they ride along and are solved at the half and the landing, as before.
-  const MORPH_FADE = !/[?&]morphlabels=0\b/.test(location.search);
   // (The fade is a class on the two label layers themselves (app.css .morph-fade), not on the stage, and the liver label's pane an
   // opacity, as a ride does it (rideStart): a class on the stage or the pane has a glass read the page again, 70 to 110 ms in the
   // first frames of the change, headless; an opacity alone it takes as a motion.)
@@ -2499,8 +2485,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // from there all the way (updateLabels, landing): no solve while it runs, none as it lands, and no label changing sides part way.
   // Each label eases from its old spot to its new one (labelGlide), so nothing jumps as the glide starts. Only where nothing the labels
   // are placed against moves with the camera (a callout, a probe, a scan, a treatment's labels, the lobule) and what they show is the same
-  // at both ends; otherwise the glide solves as it always did. ?labelland=0: as before.
-  const LABEL_LAND = !/[?&]labelland=0\b/.test(location.search);
+  // at both ends; otherwise the glide solves as it always did.
   let landRide = false, landTo = null, landAt = -1e9;
   const landing = () => landRide && vtGliding && vtTarget === landTo;
   const rideLeaders = (on) => wrap.classList.toggle('lb-ride', on);
@@ -2614,14 +2599,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The camera's curve and its time (ease.js; combined plan M2): the quintic, with no catch half way, and a glide asked to be scaled
   // (opt.scale: a slide's framing, a fit, a camera set) takes the time its reach on screen needs, 480 to 900 ms, never longer than
-  // asked. ?camease=0: the quadratic in-out and the times as asked, as before. (A function, read when called: easeInOut is
-  // declared further down.)
-  const CAM_M2 = !/[?&]camease=0\b/.test(location.search);
-  const camEase = (u) => (CAM_M2 ? easeMove(u) : easeInOut(u));
+  // asked.
+  const camEase = easeMove;
   // Whether a glide from `from` to `to` can have its labels solved for where it lands (see landRide).
   function landable(from, to) {
     // (Not twice within 150 ms: a glide asked again and again, as refits can be, solves as it always did.)
-    if (!LABEL_LAND || !F || inUpdate || catchUp || !solvedFor || camMove || pinchHide || gestureOn() || sameView(from, to) || performance.now() - landAt < 150) return false;
+    if (!F || inUpdate || catchUp || !solvedFor || camMove || pinchHide || gestureOn() || sameView(from, to) || performance.now() - landAt < 150) return false;
     if (cath.st || lobuleOn || lz?.isOpen() || morph !== morphTarget || diveT > 0 || sites.list || scan.on || dpr.on || dop.all || E.TIPS?.vis || E.DIPS?.vis) return false;
     return solvedFor.sig === labelSig(F) && solvedFor.csig === calloutSig() && solvedFor.ins === labelIns();
   }
@@ -2656,7 +2639,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const from = { ...vt };
     let t0 = performance.now();
     if (reduceMotion.matches) ms = Math.min(ms, 300);   // (reduced motion: a short glide, never a jump)
-    else if (CAM_M2 && opt.scale && !drift && ms > 0) ms = Math.min(ms, camMs(from, to, VIEW.w));
+    else if (opt.scale && !drift && ms > 0) ms = Math.min(ms, camMs(from, to, VIEW.w));
     // Lite mode: a jump, and a move that changes the view (not a small refit) fades the figure in at its new framing.
     if (ms <= 0) {
       drifting = false;
@@ -2665,7 +2648,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     let at = (u) => (u >= 1 ? { ...to } : lerpVT(from, to, u));
     // (Another plain glide still moving: this one carries its speed on, instead of starting over from rest. The arcs blend their own.)
-    const v0 = CARRY && !drift && vtVel && vtGliding && performance.now() - vtVel.t < 80 ? vtVel : null;
+    const v0 = !drift && vtVel && vtGliding && performance.now() - vtVel.t < 80 ? vtVel : null;
     vtLast = null;
     const room = opt.arc && !reduceMotion.matches ? arcRoom() : null;   // (reduced motion: no pull-back, the plain short glide)
     if (room && prev && vtGliding && performance.now() < prev.t0 + prev.ms && viewsOverlap(prev.to, to, room.vb)) {
@@ -2704,7 +2687,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (vtTarget !== to) return;
       const raw = clamp((clock ? clock(now) : now - t0) / ms, 0, 1), u = (drift ? driftEase : camEase)(raw);
       vt = at(u, raw);
-      if (CARRY && !drift) {   // (the speed a glide begun now would carry on: per ms, the zoom as its logarithm)
+      if (!drift) {   // (the speed a glide begun now would carry on: per ms, the zoom as its logarithm)
         if (vtLast && now > vtLast.t && now - vtLast.t < 100) { const dt = now - vtLast.t; vtVel = { t: now, dlogk: Math.log(vt.k / vtLast.k) / dt, x: (vt.x - vtLast.x) / dt, y: (vt.y - vtLast.y) / dt }; }
         vtLast = { t: now, k: vt.k, x: vt.x, y: vt.y };
       }
@@ -2882,9 +2865,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Settings › Blur effect off, unless that switch was turned on.
   // (Glass is glass (Mohammad, 2 Nov 2026: "glass is glass and it doesn't suddenly become solid when there is movement"; his Mac's ?perf
   // showed every card "solid, no blur"): the cards' frost is drawn by the GPU in the figure's own frame, so Battery saver no longer turns it
-  // solid, nor does a stored Blur effect off (index.html: only ?noglass=1 does). ?saverglass=0: Battery saver turns it solid, as before.)
-  const GLASS_ALWAYS = !/[?&]saverglass=0\b/.test(location.search);
-  const blurGuard = () => { let asked = null; try { asked = localStorage.getItem('pps.noGlass'); } catch { /* storage unavailable */ } guardBlur(document.documentElement, { low: SOFTWARE || (!GLASS_ALWAYS && saverOn), asked: GLASS_ALWAYS && asked === '1' ? null : asked }); };
+  // solid, nor does a stored Blur effect off (index.html: only ?noglass=1 does).)
+  const blurGuard = () => { let asked = null; try { asked = localStorage.getItem('pps.noGlass'); } catch { /* storage unavailable */ } guardBlur(document.documentElement, { low: SOFTWARE, asked: asked === '1' ? null : asked }); };
   blurGuard();
   let vdpr = 1, vBase = 1, boxW = -1, boxH = -1;   // (vBase: the canvas's pixels per CSS pixel at Full)
   // Figure resolution › Auto: zoomed in past the home framing the canvas is drawn at 1/zoom of its pixels (each part of the figure
@@ -3062,10 +3044,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // A collateral is drawn as open once it has grown noticeably or carries meaningful flow
   // (≥ 0.3 mL/s), so a channel the model is using is never hidden.
-  // ?allroutes draws every collateral open, whatever the model says: a check that the circuit's lanes all fit at once.
-  const ALL_ROUTES = /[?&]allroutes\b/.test(location.search);
   function collOpen(id, f) {
-    if (ALL_ROUTES) return true;
     const k = EI[id];
     return shownFrac(id, f) > 0.12 || Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) > 0.3;
   }
@@ -7061,7 +7040,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (The level itself is still written as it moves, a quarter unit at a time, and at least once a second, so the credit's art
       // (credit.js FLUID) reads where the pool stands; only the ripple's phase is left out.)
       ascStale = true;
-      if (!(ASC_LAZY && wrap.classList.contains('gl-on')) || Math.abs(fluidH - ascWroteH) > 0.25 || fluidAmp !== ascWroteAmp || performance.now() - ascWroteAt > 1000) ascitesSvg();
+      if (!wrap.classList.contains('gl-on') || Math.abs(fluidH - ascWroteH) > 0.25 || fluidAmp !== ascWroteAmp || performance.now() - ascWroteAt > 1000) ascitesSvg();
       // The cells the rippling surface (and its light band) passes through, redrawn each frame on the GPU.
       if (veins && !veins.lost && Math.abs(fluidH - fluidBandH) > 0.25) {
         fluidBandH = fluidH;
@@ -13529,7 +13508,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (target === 0) { homeAt = d; fitted = true; }   // back to the anatomy: always its home framing
       else { markCirc(wasOut ? 'whole' : 'focus', d); fitted = true; }   // the circuit opens fitted: a turn of the device refits it
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
-      if (MORPH_FADE && F && !reduceMotion.matches && !(cath.st && !cath.st.keep) && !lobuleOn && !lz?.isOpen()) {
+      if (F && !reduceMotion.matches && !(cath.st && !cath.st.keep) && !lobuleOn && !lz?.isOpen()) {
         rideStop(); morphFade = true; camMove = true; dpr.carry = false;
         for (const e of morphFadeEls()) e.classList.add('morph-fade');
         glass.style.opacity = '0';

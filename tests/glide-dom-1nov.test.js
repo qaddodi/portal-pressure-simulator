@@ -1,7 +1,7 @@
 // A slide's camera glide sets off no style passes of its own (1 Nov 2026, iPhone: the slide-change zoom at about 3 fps). Its classes
 // (cam-move, pinch-hide, off-home) change no colour the stage, the organs' grey, the vessel marks or the glow read, nor any label's
 // look; the vessel marks read every style before writing any data-gl; and a glide's own step paints the callouts and probes once a
-// frame. ?glidekeys=0, ?marksbatch=0 and ?glidepaint=0 turn each off.
+// frame. ?marksbatch=0 turns its part off.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -11,7 +11,7 @@ const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8
 const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 
 test('the glide\'s classes are no look the stage\'s keyed readers depend on', () => {
-  const src = STAGE.match(/const gestureFree = \(c\) => \(c \|\| ''\)\.replace\(GLIDE_KEYS \? (\/[^ ]+\/g) :/)[1];
+  const src = STAGE.match(/const gestureFree = \(c\) => \(c \|\| ''\)\.replace\((\/[^ ]+\/g), ''\);/)[1];
   const re = new RegExp(src.slice(1, -2), 'g'), free = (c) => c.replace(re, '');
   assert.equal(free('stage-view gl-on cam-move'), free('stage-view gl-on'));
   assert.equal(free('stage-view gl-on off-home pinch-hide'), free('stage-view gl-on'));
@@ -43,7 +43,6 @@ test('the vessel marks read every style before writing any data-gl', () => {
 test('a glide\'s own step paints the callouts and probes; the view\'s frame does not paint them a second time', () => {
   const at = STAGE.indexOf('  function animateVT('), fn = STAGE.slice(at, STAGE.indexOf('\n  }\n', at));
   assert.match(fn, /if \(sites\.list\) \{ refreshCTM\(\); sitesPaint\(\); \}\n\s+if \(scan\.on\) scanPaint\(\);\n\s+dprobePaint\(\);/);
-  assert.match(STAGE, /const GLIDE_PAINT = !\/\[\?&\]glidepaint=0\\b\/\.test\(location\.search\);/);
 });
 
 test('the status bar\'s colour is not read again for a gesture\'s or a glide\'s own classes', () => {
