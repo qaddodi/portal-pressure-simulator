@@ -42,3 +42,9 @@ test('a hand\'s zoom carries the lobule\'s labels while every layout rule still 
     /overlap\(boxes\[i\], o\) > 0 \|\| crosses\(\.\.\.leads\[i\], o\)/, /keep\.some\(\(q\) => into\(q, b\) > 0\)/, /R\.cards\.some\(\(c\) => overlap\(b, c\) > 0\)/,
     /R\.chips\.some\(\(c\) => inFree\(mv\(c\.a\)\)\)/, /if \(call && callRingAt\(fr\)\) return false;/]) assert.match(rh, re);
 });
+
+test('a trackpad pinch (Ctrl/⌘ + wheel) marks wheelAt, so the anatomy counts it as a hand like a wheel zoom or a pan', () => {
+  const w = body(stage, 'const onWheel = ');
+  const zoomBranch = w.slice(w.indexOf('if (ev.ctrlKey || ev.metaKey) {'), w.indexOf('if (now - wheelAt > 250) {\n      panFit = null;\n      const pad'));
+  assert.match(zoomBranch, /wheelAt = now;\n\s+zoomAt\(ev\.clientX, ev\.clientY, Math\.exp\(-clamp\(dy, -50, 50\) \* 0\.01\), true\)/);
+});

@@ -13045,7 +13045,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (vtGliding) { cancelFrame(vtAnim); driftEnd(); vtGliding = false; camSettle(); }
     stopGlide(); userMoved = true; fitted = false;
     const dx = wheelPx(ev, ev.deltaX), dy = wheelPx(ev, ev.deltaY);
-    if (ev.ctrlKey || ev.metaKey) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -50, 50) * 0.01), true); settleSoon(); return; }
+    if (ev.ctrlKey || ev.metaKey) {
+      // (A trackpad pinch is a gesture like a drag: wheelAt marks it, so gestureOn() is true through it (the pinch frame reuse, the lowered
+      // vessels, the labels carried, refinement held), as it is for a wheel zoom or a pan below, and a button pressed mid-pinch mutes the
+      // pinch's tail (handsOff). It had returned before wheelAt was set, so none of those held for a Mac pinch. A new gesture, after a quiet
+      // quarter second, reads the fit framing afresh and forgets what kind of scroll came before.)
+      if (now - wheelAt > 250) { panFit = null; wheelKind = null; }
+      wheelAt = now;
+      zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -50, 50) * 0.01), true); settleSoon(); return;
+    }
     if (now - wheelAt > 250) {
       panFit = null;
       const pad = ev.deltaMode === 0 && (dx !== 0 || ev.wheelDeltaY == null || Math.abs(Math.abs(ev.wheelDeltaY) - Math.abs(ev.deltaY) * 3) < 1);
