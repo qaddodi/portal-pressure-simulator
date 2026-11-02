@@ -609,15 +609,18 @@ export function dotSize(fr) {
   const m = Math.min(fr.R - fr.L, fr.B - fr.T), r = clamp(m * 0.025, 4, 6.5);
   return { r, g: clamp(r * 0.6, 2.5, 4) };
 }
+const DOT_POOL = [], DOT_BOXES = [];   // (kept: the circles' records, and the list of the last dotBoxes call; the next call writes them again, so a caller uses them before asking again)
+const dotBox = (i, x, y, k) => { const b = DOT_POOL[i] || (DOT_POOL[i] = [0, 0, 0]); b[0] = x; b[1] = y; b[2] = k; DOT_BOXES[i] = b; };   // alloc-rare: a record is made the first time a way needs that many circles
 /** The circles [x, y, radius] the zones' words keep out of for the card's dot: the dot and its gap plus 4 px, where it stands
  *  and, when it moves, all along its way from where it was (at, from: { x, y } in px; R: the dot's radius with its gap). */
 export function dotBoxes(at, from, R) {
-  if (!at) return [];
-  const k = R + 4, box = (x, y) => [x, y, k];
-  if (!from || (Math.abs(from.x - at.x) < 0.5 && Math.abs(from.y - at.y) < 0.5)) return [box(at.x, at.y)];
-  const n = Math.max(1, Math.ceil(Math.hypot(at.x - from.x, at.y - from.y) / 4)), out = [];
-  for (let i = 0; i <= n; i++) out.push(box(from.x + (at.x - from.x) * i / n, from.y + (at.y - from.y) * i / n));
-  return out;
+  DOT_BOXES.length = 0;
+  if (!at) return DOT_BOXES;
+  const k = R + 4;
+  if (!from || (Math.abs(from.x - at.x) < 0.5 && Math.abs(from.y - at.y) < 0.5)) { dotBox(0, at.x, at.y, k); return DOT_BOXES; }
+  const n = Math.max(1, Math.ceil(Math.hypot(at.x - from.x, at.y - from.y) / 4));
+  for (let i = 0; i <= n; i++) dotBox(i, from.x + (at.x - from.x) * i / n, from.y + (at.y - from.y) * i / n, k);
+  return DOT_BOXES;
 }
 /** Every zone's words in the data card, each in its own zone, nearest the zone's point (`at`, else its middle): [{ z, x, y, lines,
  *  fs, box, onLine }], x the words' middle and y the first line's baseline. They keep clear of the dot (avoid: dotBoxes), of
