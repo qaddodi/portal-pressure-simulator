@@ -46,11 +46,19 @@ export function setup(el, cv) {
 }
 function step() { place(); measure(); document.body.textContent = 'x'; document.body.style.boxShadow = 'none'; }
 new MutationObserver(() => document.body.offsetHeight);
+setTimeout(() => { document.body.classList.add('t'); document.body.getCTM(); }, 9);
+setTimeout(() => svgEl.getTotalLength(), 1);
+function wip() { document.body.className = 'x'; }
+function step2() { wip(); }
+raf(step2);
 function place() { document.body.getAnimations(); svgEl.getBBox(); return document.body.getBoundingClientRect(); }
 `);
   writeFileSync(join(root, 'src/ui/n.js'), 'export function measure() { return getComputedStyle(document.body); }\nexport function idle() { return document.body.clientWidth; }\n');
   const hits = scan({ root });
   const has = (cat, file, re) => hits.some((h) => h.cat === cat && h.file === file && re.test(h.detail));
+  assert.ok(has('domWrite', 'src/ui/m.js', /classList\.add/) && has('layoutRead', 'src/ui/m.js', /getCTM/), 'a timer callback is followed, class writes counted');
+  assert.ok(has('layoutRead', 'src/ui/m.js', /getTotalLength/), 'a second timer callback is followed');
+  assert.ok(has('domWrite', 'src/ui/m.js', /\.className =/) && hits.filter((h) => h.wide).length >= 3, 'class writes and timer/observer hits are in the wide count');
   assert.ok(has('ctx2d', 'src/ui/m.js', /'2d'/), 'getContext 2d');
   assert.equal(hits.filter((h) => h.cat === 'ctx2d').length, 1, 'webgl2 is not a hit');
   assert.ok(has('draw2d', 'src/ui/m.js', /drawImage/));
