@@ -54,19 +54,27 @@ export const classOnly = (r, set) => r.type === 'attributes' && r.attributeName 
 // over on its model frames (a transform, a path); a write of the value already there changes nothing, and a value changed
 // and changed back within the batch does not either. (Each attribute is compared once: its first record holds the value it
 // had before the batch.)
+// (The map of what each target has been seen to change, and the sets in it, are kept and emptied: a batch makes none. The map is
+// emptied before this returns, so it holds no node between calls; nothing in here calls back into it.)
+const seenTargets = new Map(), seenSets = [];
 export function netChanged(records) {
-  const seen = new Map();
+  seenTargets.clear();
+  let used = 0, changed = false;
   for (const r of records) {
-    if (r.type === 'childList') { if (r.addedNodes?.length || r.removedNodes?.length) return true; continue; }
+    if (r.type === 'childList') { if (r.addedNodes?.length || r.removedNodes?.length) { changed = true; break; } continue; }
     const key = r.type === 'characterData' ? '#text' : r.attributeName;
-    let s = seen.get(r.target);
-    if (!s) seen.set(r.target, (s = new Set()));
+    let s = seenTargets.get(r.target);
+    if (!s) {
+      s = seenSets[used] || (seenSets[used] = new Set());   // alloc-rare: the pool grows only to the most targets one batch has touched
+      used++; s.clear(); seenTargets.set(r.target, s);
+    }
     if (s.has(key)) continue;
     s.add(key);
     const now = r.type === 'characterData' ? r.target.data : r.target.getAttribute(r.attributeName);
-    if (r.oldValue !== now) return true;
+    if (r.oldValue !== now) { changed = true; break; }
   }
-  return false;
+  seenTargets.clear();
+  return changed;
 }
 
 // The attributes that can move or hide a card, sheet or bar the framing and labels keep clear of (on it, or on a parent).
