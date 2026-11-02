@@ -309,4 +309,5 @@ test('an allocation marked alloc-rare with a reason leaves the count and is list
   const rare = scan({ root }).rare;
   assert.deepEqual(rare.map((h) => h.line), [5, 7]);
   assert.match(rare[0].detail, /first frame only/);
+  assert.ok(scan({ root }).rare.length === 2 && /tagged run-once\/rare allocations/.test(score(Object.assign(scan({ root }), {}))), "tagged lines are counted apart in the score line");
 });

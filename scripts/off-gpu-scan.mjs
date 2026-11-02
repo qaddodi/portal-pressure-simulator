@@ -36,7 +36,7 @@
 //                motion callback: garbage every frame, and the collector's pause lands in a frame (2 Nov 2026: 570 KB a frame measured on
 //                the must path by scripts/frame-alloc.mjs). One hit per line. The cure is a kept buffer or object, written in place.
 //   observerRead a layout read in a MutationObserver callback, or anything it calls: a microtask straight after the writes
-//                A line marked `// alloc-rare: <reason>` (or directly under a comment-only line that is) is a branch that never runs per frame
+//                A line marked `// alloc-rare: <reason>` (`alloc-once:` is accepted as the same tag) (or directly under a comment-only line that is) is a branch that never runs per frame
 //                (first use, a changed key, a resize, a context loss): it leaves the count and is listed with its reason (out.rare, inventory).
 //   unreached    a site of the categories above that no frame, motion or observer path reaches, and that is not setup. Either it runs during use
 //                (reached from an event handler, timer, promise, observer or store listener; the reason is in its detail) or no caller was found.
@@ -736,7 +736,7 @@ export function scan({ root = ROOT } = {}) {
   const setupLines = new Set(), setupList = [];
   const allocAt = new Map();
   const rareList = [];
-  const RARE = /\/\/\s*alloc-rare:\s*(\S.*?)\s*$/;
+  const RARE = /\/\/\s*alloc-(?:rare|once):\s*(\S.*?)\s*$/;   // (alloc-once is an alias of alloc-rare)
   const rareReason = (mod, line) => {
     const L = (mod.lines ||= mod.text.split('\n'));
     const same = RARE.exec(L[line - 1] || '');
@@ -853,7 +853,7 @@ export function readRatchet(found = directReads(), allowed = readAllowance()) {
 export const TARGET_PCT = 100;
 export const honestPct = (hits) => (hits.sites ? Math.floor(100 * hits.onGpu / hits.sites) : 100);
 export const split = (hits) => { const u = (w) => hits.filter((h) => h.why === w).length; return { frame: hits.filter((h) => h.cat !== 'unreached').length, use: u('use'), unresolved: u('unresolved'), setup: hits.setup?.length || 0 }; };
-export const score = (hits) => { const x = split(hits); return `${hits.onGpu}/${hits.sites} on GPU (${honestPct(hits)}% honest, counting ${hits.wide || 0} class-write and timer/observer sites; target ${TARGET_PCT}%), ${hits.length} off: frame path ${x.frame}, during use ${x.use}, no caller found ${x.unresolved}; ${x.setup} setup sites left out of the count and listed`; };
+export const score = (hits) => { const x = split(hits); return `${hits.onGpu}/${hits.sites} on GPU (${honestPct(hits)}% honest, counting ${hits.wide || 0} class-write and timer/observer sites; target ${TARGET_PCT}%), ${hits.length} off: frame path ${x.frame}, during use ${x.use}, no caller found ${x.unresolved}; ${x.setup} setup sites left out of the count and listed; ${hits.rare?.length || 0} tagged run-once/rare allocations (// alloc-rare: reason) also left out, listed with their reasons`; };
 
 const esc = (s) => String(s).replace(/\|/g, '\\|').replace(/`/g, "'").replace(/\n/g, ' ');
 export function inventory(hits, { commit = '' } = {}) {
