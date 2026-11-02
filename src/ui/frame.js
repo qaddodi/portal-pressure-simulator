@@ -33,6 +33,7 @@ let fin = new Map(), finalNow = null;
 // same frame (its early phase), after every read.
 let reads = new Map(), readsNow = null;
 let next = 1, pending = 0;
+let spareQ = new Map(), spareL = new Map(), spareF = new Map(), spareR = new Map();
 const counts = new Map(), rates = new Map(), draws = new Map(), drawRates = new Map(), totals = { asks: {}, drawn: {}, ms: {} };
 let windowAt = 0, frames = 0, fps = 0, allFrames = 0;
 // Frame watchers (watchFrames). `parts` is the running frame's callbacks (surface, phase, ms), kept only while someone watches.
@@ -65,22 +66,29 @@ function flush(now) {
   frameT0 = performance.now();
   const watching = watchers.size > 0, t0 = watching ? performance.now() : 0;
   parts = watching ? outsideParts.splice(0) : null;
+  // (Each queue swaps with its spare, emptied as it ran: no new Map a frame (plan "Holding 120 Hz" §3.1). A batch is emptied as it runs,
+  // and one cut short by a throw is cleared before it becomes the spare.)
   if (reads.size) {
     readsNow = reads;
-    reads = new Map();   // (asked for while they run: the next frame)
-    try { run(readsNow, now, 'read'); } finally { readsNow = null; }
+    reads = spareR.size ? new Map() : spareR;   // (asked for while they run: the next frame)
+    try { run(readsNow, now, 'read'); } finally { readsNow.clear(); spareR = readsNow; readsNow = null; }
   }
   current = queue;
-  queue = new Map();   // asked for while running: the next frame, as with requestAnimationFrame
+  queue = spareQ.size ? new Map() : spareQ;   // asked for while running: the next frame, as with requestAnimationFrame
   try {
     run(current, now, 'early');
     lateNow = late;
-    late = new Map();   // asked for while the late ones run: the next frame
+    late = spareL.size ? new Map() : spareL;   // asked for while the late ones run: the next frame
     run(lateNow, now, 'late');
     finalNow = fin;
-    fin = new Map();    // (likewise)
+    fin = spareF.size ? new Map() : spareF;    // (likewise)
     run(finalNow, now, 'final');
-  } finally { current = null; lateNow = null; finalNow = null; }
+    runMay(now);
+  } finally {
+    current.clear(); spareQ = current; current = null;
+    if (lateNow) { lateNow.clear(); spareL = lateNow; lateNow = null; }
+    if (finalNow) { finalNow.clear(); spareF = finalNow; finalNow = null; }
+  }
   const script = watching ? performance.now() - t0 : 0;
   lastScript = performance.now() - frameT0; frameT0 = 0;
   overLast = lastScript > WATCH_SHARE * frameBudget();
@@ -102,7 +110,8 @@ function flush(now) {
   }
   lastTask = performance.now() - taskT0;
   parts = null; lastNow = now;
-  if ((queue.size || late.size || fin.size || reads.size || FPS_FORCE) && !pending && !(FPS_FORCE && document.hidden)) pending = requestAnimationFrame(flush);
+  if ((queue.size || late.size || fin.size || reads.size || mayDue() || FPS_FORCE) && !pending && !(FPS_FORCE && document.hidden)) pending = requestAnimationFrame(flush);
+  else if (!pending) mayTimer();
   chained = !!pending;
 }
 
@@ -254,6 +263,75 @@ function shedding(tag) {
   shedRun.set(tag, n + 1); shedTotal++; shedBy.set(tag, (shedBy.get(tag) || 0) + 1);
   if (!govFrameLevel) govFrameLevel = 1;
   return true;
+}
+
+// ── Must and may (plan "Holding 120 Hz, always" §3.1; Mohammad, 2 Nov 2026) ──
+// Everything asked with frame/lateFrame/finalFrame is MUST: the camera, the input's answer, the blood, the picture laid. Work that
+// can wait a frame or two is MAY: mayTask(tag, fn, { notBefore, maxWait }). A may task runs after the frame's must work, while the
+// frame's script stays under MAY_SHARE of the budget (3.5 ms of 8.3 at 120 Hz), and not when its predicted cost (the moving average of
+// its own runs) would take the frame past that; then it waits for the next frame. One that has waited maxWait frames (4) runs anyway,
+// once, so none starves. fn(leftMs) returns true when it has more to do (a sliced task: it goes on next frame) and anything else when
+// done. One task per tag: asking again before it ran replaces its fn (the newest work only, as a model frame's paint). notBefore (a
+// performance.now() time) makes it a timer that runs in a frame, never in a task of its own between frames. ?maytasks=0: each runs in the
+// next frame whatever the budget, as with frameFor.
+export const MAY_ON = !(typeof location !== 'undefined' && /[?&]maytasks=0\b/.test(location.search || ''));
+export const MAY_SHARE = 0.42, MAY_WAIT = 4;
+const mays = new Map();   // tag -> { fn, waited, notBefore, maxWait }
+const mayCost = new Map(), mayBatch = [];
+const mayStat = { ran: 0, waited: 0, aged: 0 };
+let mayT = 0, mayTAt = 0;
+export function mayTask(tag, fn, { notBefore = 0, maxWait = MAY_WAIT } = {}) {
+  const was = mays.get(tag);
+  if (was) { was.fn = fn; was.notBefore = notBefore; was.maxWait = maxWait; }
+  else mays.set(tag, { fn, waited: 0, notBefore, maxWait });
+  if (!notBefore || notBefore <= performance.now()) { if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush); }
+  else if (!pending) mayTimer();
+  return () => cancelMay(tag);
+}
+/** Drops the may task of `tag` that has not run yet. */
+export function cancelMay(tag) { mays.delete(tag); }
+/** Whether a may task of `tag` waits to run. */
+export const mayWaiting = (tag) => mays.has(tag);
+/** The may tasks run, carried to a later frame and run past their wait since the page opened; the ones waiting now. */
+export const mayStats = () => ({ ...mayStat, queued: mays.size });
+function mayDue() {
+  if (!mays.size) return false;
+  const t = performance.now();
+  for (const m of mays.values()) if (!m.notBefore || m.notBefore <= t) return true;
+  return false;
+}
+// (Only timers in the future and no frame coming: one timeout asks for the frame the first of them is due in.)
+function mayTimer() {
+  if (!mays.size) return;
+  let at = Infinity;
+  for (const m of mays.values()) if (m.notBefore && m.notBefore < at) at = m.notBefore;
+  if (at === Infinity || (mayT && mayTAt <= at)) return;
+  clearTimeout(mayT); mayTAt = at;
+  mayT = setTimeout(() => { mayT = 0; if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush); }, Math.max(0, at - performance.now()));
+}
+function runMay(now) {
+  if (!mays.size) return;
+  const limit = MAY_SHARE * frameBudget();
+  // (The tasks due as the pass starts, once each: one asked again while the pass runs, or going on (more), waits for the next frame.)
+  mayBatch.length = 0;
+  for (const e of mays) mayBatch.push(e);
+  for (const [tag, m] of mayBatch) {
+    if (mays.get(tag) !== m) continue;
+    const t = performance.now();
+    if (m.notBefore && m.notBefore > t) continue;
+    const used = t - frameT0, aged = m.waited >= m.maxWait;
+    if (MAY_ON && !aged && (used >= limit || used + (mayCost.get(tag) || 0) > limit)) { m.waited++; mayStat.waited++; continue; }
+    if (aged) mayStat.aged++;
+    mays.delete(tag); mayStat.ran++;
+    counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;
+    let more = false;
+    try { more = m.fn(Math.max(0, limit - used), now) === true; } catch (e) { setTimeout(() => { throw e; }); }
+    const ms = performance.now() - t, c = mayCost.get(tag);
+    mayCost.set(tag, c == null ? ms : c * 0.7 + ms * 0.3);
+    totals.ms[tag] = (totals.ms[tag] || 0) + ms;
+    parts?.push([tag, 'may', ms]);
+    if (more && !mays.has(tag)) mays.set(tag, { fn: m.fn, waited: 0, notBefore: 0, maxWait: m.maxWait });
+  }
 }
 
 // ── ?fps=120 (recs, quick win 1): frames asked for every refresh while the page shows, and every overrun logged ──

@@ -12,9 +12,9 @@
 //     reported; Safari has neither), with the script that took most of it: work outside the scheduler's callbacks shows there too.
 // It reads only the scheduler's own numbers and writes its words once a second, between frames (rest-pass.js), never in a frame. It
 // adds no frame loop of its own: an idle page stays idle (the panel then says so).
-import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watchdogStats } from './frame.js?v=2cc59e19c4';
-import { restPass } from './rest-pass.js?v=ab96e02d7b';
-import { sharedStats } from './trace-gl.js?v=e058979508';
+import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watchdogStats, mayStats } from './frame.js?v=c67ad74ad8';
+import { restPass } from './rest-pass.js?v=0553dca9cc';
+import { sharedStats } from './trace-gl.js?v=955d5c2585';
 
 export const HUD_OFF = (search) => /[?&]hud=0\b/.test(String(search ?? ''));
 const KEEP = 600;
@@ -66,6 +66,7 @@ export function hudText(st, o) {
     o.surfaces.length ? `per frame: ${o.surfaces.map(([k, ms]) => `${k} ${f(ms)}`).join(', ')}` : '',
     o.charts ? `charts: ${o.charts.resizes} buffer resizes, ${o.charts.transfers} pictures handed over (last second)` : '',
     `watchdog ${o.mode}, carried over ${o.shed}${o.gov == null || o.gov < 0 ? '' : `; governor ${['all run', 'P3 yielding', 'P2+P3 yielding'][o.gov]}, ${o.yielded} chart frames yielded, over budget ${o.streak} in a row`}`,
+    o.may ? `may tasks: ${o.may.ran} run, ${o.may.waited} waits for budget, ${o.may.aged} run past their wait, ${o.may.queued} queued` : '',
     o.loaf ? `longest frame (10 s): ${o.loaf}` : '',
     o.throttle ? `cadence: ${o.throttle}` : 'cadence: at the target',
   ];
@@ -126,7 +127,7 @@ export function startFrameHud() {
     const worst = longs.reduce((a, e) => (!a || e.duration > a.duration ? e : a), null);
     // (Missed target chances: an interval past the target by over half a frame (timestamp jitter) counts each frame it skipped.)
     const b = frameBudget(), missed = gaps.slice(-k).reduce((n, g) => n + (g > b * 1.5 ? Math.max(1, Math.round(g / b) - 1) : 0), 0);
-    el.textContent = hudText(st, { hz, maxHz, workerHz, target: targetHz(), missed, budget: b, surfaces, gov: w.governor, yielded: w.yielded, streak: w.streak, loaf: loafText(worst), charts: { resizes: sharedStats.resizes - lastCharts.resizes, transfers: sharedStats.transfers - lastCharts.transfers }, mode: w.mode, shed: w.shed, throttle: throttleOf({ hz, maxHz, workerHz, target: targetHz(), hidden: document.hidden }) });
+    el.textContent = hudText(st, { hz, maxHz, workerHz, target: targetHz(), missed, budget: b, surfaces, gov: w.governor, yielded: w.yielded, streak: w.streak, loaf: loafText(worst), may: mayStats(), charts: { resizes: sharedStats.resizes - lastCharts.resizes, transfers: sharedStats.transfers - lastCharts.transfers }, mode: w.mode, shed: w.shed, throttle: throttleOf({ hz, maxHz, workerHz, target: targetHz(), hidden: document.hidden }) });
     last = now; lastFrames = now.frames; lastCharts = { ...sharedStats };
   };
   const tick = () => { if (!document.hidden) restPass(write); setTimeout(tick, 1000); };

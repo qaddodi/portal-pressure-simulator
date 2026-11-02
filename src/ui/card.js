@@ -4,11 +4,11 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=bf85512db4';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone } from './util.js?v=5f51c5b319';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone } from './util.js?v=598aaeb2a1';
 import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
-import { cardFor, normalizeSel } from './actions.js?v=4c38976f1c';
-import { frameFor, cancelFrame } from './frame.js?v=2cc59e19c4';
-import { restPass, cancelRest } from './rest-pass.js?v=ab96e02d7b';
+import { cardFor, normalizeSel } from './actions.js?v=248eea5fab';
+import { frameFor, cancelFrame } from './frame.js?v=c67ad74ad8';
+import { restPass, cancelRest } from './rest-pass.js?v=0553dca9cc';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number.

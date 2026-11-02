@@ -13,13 +13,13 @@
 // round or butt ends, fill and stroke opacity, visibility, display none, vector-effect non-scaling-stroke. A drawing's viewBox is mapped to
 // the box as SVG maps it (preserveAspectRatio none, or meet in the middle). The picture covers the box exactly.
 
-import { createTraceGL, fitPen } from './trace-gl.js?v=e058979508';
+import { createTraceGL, fitPen } from './trace-gl.js?v=955d5c2585';
 import { flattenPath, elBox } from './shape-gl.js?v=d8f75afcd5';
-import { finalFrameFor, easeNow } from './frame.js?v=2cc59e19c4';
-import { restPass } from './rest-pass.js?v=ab96e02d7b';
+import { finalFrameFor, easeNow } from './frame.js?v=c67ad74ad8';
+import { restPass } from './rest-pass.js?v=0553dca9cc';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
-import { morphSvg } from './svg-morph.js?v=9f8175a32b';
+import { morphSvg } from './svg-morph.js?v=6b28d51b74';
 
 // (No bleed: a picture reaching past the box counts as overflow, and the card's fit then shrank the whole card to take it in.)
 export const BLEED = 0;

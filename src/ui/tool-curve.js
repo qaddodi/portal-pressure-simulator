@@ -69,10 +69,10 @@
 
 import { TILE, SCALE, RATE } from './table-marks.js?v=ff3ed0cc47';
 import { HVPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { frameFor } from './frame.js?v=2cc59e19c4';
-import { restPass } from './rest-pass.js?v=ab96e02d7b';
+import { frameFor } from './frame.js?v=c67ad74ad8';
+import { restPass } from './rest-pass.js?v=0553dca9cc';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=3fc06e1e96';
+import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=04c7b267a2';
 import { airRatio } from './endo-size.js?v=e0a58bf20e';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 const nextFrame = frameFor('tool-curve');

@@ -72,7 +72,9 @@ test('one context for the lobule: the overlay is laid in the vessels\' canvas at
   const vgl = read('../src/ui/veins-gl.js');
   assert.match(vgl, /export const LZ_ONE = !\(typeof location !== 'undefined' && \/\[\?&\]lzone=0\\b\/\.test/);
   assert.match(vgl, /const ownBuf = OWN_BUF && \(who === 'stage' \|\| \(who === 'lobule' && LZ_ONE\)\);/);
-  assert.match(lz, /fxHostGL = createFxGL\(fxG, \{ host: gl\.top \}\);\n\s+fxHostOff = fxHostGL \? gl\.top\.add\(\{ order: 1, draw: fxHostDraw \}\) : null;/);
+  // (Under every glass in that canvas: the cards frost the overlay, never lie under it. HVPG 6, 2 Nov 2026.)
+  assert.match(lz, /export const LZ_UNDER_GLASS = -\d+;/);
+  assert.match(lz, /fxHostGL = createFxGL\(fxG, \{ host: gl\.top \}\);\n(?:\s+\/\/[^\n]*\n)*\s+fxHostOff = fxHostGL \? gl\.top\.add\(\{ order: LZ_UNDER_GLASS, draw: fxHostDraw \}\) : null;/);
   assert.match(lz, /if \(!fxArgs \|\| !fxHostGL\) return;/);
   // A wide copy on the GPU lays the overlay in the vessels' canvas, set before they are drawn.
   assert.match(lz, /const fxOn = fxOnGPU\(w, hh, dpr, dark, 0, true\), fxIn = fxOn && !!fxArgs, tisIn = onG && !!tisHostFor;\n\s+tisWide = tisIn;\n\s+drawKey = ''; drawGL\(TW, TH, dpr, dark, cs, 0\);/);

@@ -12,9 +12,9 @@
 // context is back: there is no 2D drawing of it (1 Nov 2026, nothing off the GPU). A software renderer draws it too.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=5096509185';
-import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=c2033d32e0';
-import { isTileCopy, createTileCopier } from './tile-gl.js?v=707c7f2df9';
-import { isGpuPicture, paintGL } from './paint-gl.js?v=01a776d883';
+import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=349ddf01b0';
+import { isTileCopy, createTileCopier } from './tile-gl.js?v=2e5a3dbcd4';
+import { isGpuPicture, paintGL } from './paint-gl.js?v=c0559ab80b';
 import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=b585d4fb63';
 import { fbComplete } from './gl-state.js?v=fb0dea79ba';
 
