@@ -945,9 +945,9 @@ function renderBanner() {
 function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=6be4b83666').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=33a3b7eeb3').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
-  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=3dca50e36f').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
+  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=4cbe391e30').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
