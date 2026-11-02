@@ -19,14 +19,23 @@ const z = (name) => +new RegExp(`--z-${name}:\\s*(\\d+)`).exec(tokens)[1];
 const GESTURE = /\.(?:stage-busy|figure-focus|panning|pinch-hide|cam-move|lb-ride|off-home)\b/;
 const CHROME = /\.float-ui|\.float-pill|\.topbar|\.vdock|\.zoom-pill|\.stage-bar|\.nb-views|#nbViews|\.stage-fit|\.stage-rotate|\.sb-center|\.instrument-workspace|\.treat-card|\.panel\b|#dock\b/;
 
-test('no gesture class makes a piece of the chrome translucent: opacity is 1 or 0, never a glass at half', () => {
-  const bad = [];
+test('no gesture class fades a piece of the chrome whose glass is its own: only frosted plates fade whole, the rest fade their ink', () => {
+  const OWN_GLASS = /^(?:\.float-ui|\.float-pill|\.topbar|\.vdock|\.zoom-pill|\.stage-bar|\.nb-views|#nbViews|\.stage-fit|\.stage-rotate|\.sb-center|\.instrument-workspace|\.treat-card|\.panel|#dock|#vdock|#topbar)(?![\w-])/;
+  const bad = [], seen = [];
   for (const [sel, body] of rules) {
     if (!GESTURE.test(sel) || !CHROME.test(sel)) continue;
     const o = /(?:^|;|\s)opacity:\s*([\d.]+)/.exec(body);
-    if (o && +o[1] > 0 && +o[1] < 1) bad.push(`${sel} { opacity: ${o[1]} }`);
+    if (!o || !(+o[1] > 0 && +o[1] < 1)) continue;
+    // (Each comma-separated subject: its last compound selector, the thing that fades.)
+    const subjects = sel.replace(/:is\((?:[^()]|\([^()]*\))*\)(?=[^,]*$)/g, (m) => m).split(/,(?![^(]*\))/).map((x) => x.trim());
+    for (const sub of subjects) {
+      const last = sub.replace(/:(?:not|is)\((?:[^()]|\([^()]*\))*\)/g, '').trim().split(/[\s>]+/).pop();
+      if (OWN_GLASS.test(last) && !/\.has-plate/.test(sub)) bad.push(`${sub} { opacity: ${o[1]} }`);
+    }
+    seen.push(sel);
   }
-  assert.deepEqual(bad, [], 'a bar or card at partial opacity lets the figure through it, unfrosted');
+  assert.deepEqual(bad, [], 'a bar or card whose glass is the page\'s own, at partial opacity, lets the figure through it unfrosted');
+  assert.ok(seen.length >= 1, 'the step back is still there');
 });
 
 test('the zoom pill is never dimmed as a whole: only its ink is, its glass stays whole', () => {

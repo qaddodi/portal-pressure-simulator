@@ -3783,11 +3783,15 @@ button.finding { cursor: pointer; }
 .float-ui, .stage-fit, .stage-rotate { transition: opacity var(--d-surface, .42s) var(--ease); }
 /* (The desktop card keeps its left/top glide with the fade: a new vessel moved it 23 px in one frame; round 2 review, RF7.) */
 .action-card:not(.docked) { transition: opacity var(--d-small) var(--ease); }   /* (its moves glide by translate: card.js moveTo, RF7) */
-/* The floating pieces never fade while the figure moves (3 Nov 2026, "the figure draws over the UI" on the iPhone, zoomed and panning):
-   stage-busy used to step every .float-ui back to .55, which made each glass bar and card 55 % of itself, so the GPU's vessels, arrows
-   and labels showed through the bars crisp and unfrosted and the bars' words went grey. Glass is glass at every moment: the chrome keeps
-   its full opacity (a bar's own glass is 95 % opaque, a card's is frosted on the GPU) and the figure stays under it, whatever it is doing.
-   stage-busy itself stays as a class (credit.js reads it as "the figure is moving"); no rule here fades anything for it. */
+/* The floating pieces step back while the figure moves (premium-feel R7: .55 once it has moved for 120 ms, over 240 ms, back over 420 ms), but
+   never as a see-through glass (3 Nov 2026, "the figure draws over the UI", iPhone): a bar's own glass at .55 let the GPU's vessels, arrows and
+   labels show through it crisp and unfrosted. So the piece fades as a whole only where its glass is the GPU's frosted plate (.has-plate: the
+   figure under it is blurred there at any opacity); every other piece keeps its glass whole and fades its ink (icons, words, numbers), which is
+   the same step back to the eye with nothing of the figure showing through. stage-busy styles only opacity here (the guard test pins it). */
+.app.stage-busy :is(.panel, .treat-card, .instrument-workspace.float-ui).has-plate:not(:hover):not(:focus-within) { opacity: .55; transition-duration: var(--d-small, .24s); }
+.float-ui :is(#viewSeg > button, :is(button, .lens-btn, .chip-btn) > :not(.chev), .metric, .tl-time) { transition: opacity var(--d-surface, .42s) var(--ease); }
+.app.stage-busy .float-ui:not(:hover):not(:focus-within) :is(#viewSeg > button, :is(button, .lens-btn, .chip-btn) > :not(.chev), .metric, .tl-time) { opacity: .55; transition-duration: var(--d-small, .24s); }
+@media (prefers-reduced-motion: reduce) { .app.stage-busy .float-ui :is(#viewSeg > button, :is(button, .lens-btn, .chip-btn) > :not(.chev), .metric, .tl-time) { opacity: 1; } .app.stage-busy :is(.panel, .treat-card, .instrument-workspace.float-ui).has-plate { opacity: 1; } }
 
 /* The instrument workspace floats over the bottom of the figure, above the vitals dock. */
 .instrument-workspace.float-ui {

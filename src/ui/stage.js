@@ -13451,6 +13451,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), organsPictured: () => !!veins?.organs?.pictured?.(0), lobuleViewKey: () => lz?.viewKey(), lobuleCapture: () => lz?.capture?.() ?? null,
     labelClearance: () => clearanceReport(),   // (the browser check's: see clearanceReport)
+    labelDrawn: () => labelGL?.boxes ?? null,   // (what the GPU labels' last picture drew, as boxes in px from their canvas's corner: the browser check of the labels' lag)
     lobuleSpot: () => lz?.spot() ?? null, lobuleLensFade: () => lz?.lensFade() ?? null, lobuleMem: (detail) => lz?.memBytes(detail) ?? 0, diveProgress: () => diveT, plateRasters: () => plateSeq,
     // (What the station labels' boxes follow: their layouts and the camera. The corner credit's poll looks again only when it changed.)
     // (And the lobule's view and state when it is open, and a fresh value each look while the sinusoid's names glide: the corner credit
