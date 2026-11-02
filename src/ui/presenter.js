@@ -5634,7 +5634,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     booting = true;
     clearTimeout(coverT); coverT = setTimeout(() => coverDown(true), 12000);   // (never left up)
     if (!cover) { cover = h('div', { class: 'pz-cover', 'aria-hidden': 'true' }, h('i')); document.body.append(cover); void readMetric(cover, 'offsetWidth'); }
+    // (A deck link opened cold: the loading cover is still up, and it lifts onto this one. This cover is on at once, not faded in, so the
+    // loading cover never lifts onto the plain app's bars and an empty figure for the length of a fade.)
+    const cold = document.documentElement.dataset.boot === 'hold';
+    if (cold) cover.classList.add('cut');
     cover.classList.add('on');
+    if (cold) { void readMetric(cover, 'offsetWidth'); nextFrame(() => nextFrame(() => cover?.classList.remove('cut'))); }
     return wait(reduce.matches ? 0 : 300);
   }
   // The slides' fonts, every subset they draw from (Latin, Latin Extended, Greek for μ or Δ), are loaded under the start's cover:
