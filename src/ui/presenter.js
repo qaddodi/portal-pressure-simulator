@@ -35,7 +35,8 @@ import { createHvpgMonitor } from './hvpg-proc.js?v=f8c6d022ce';
 import { createTools } from './presenter-tools.js?v=7123a68a3b';
 import { openHandout } from './handout.js?v=be99975ab1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
-import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
+import { parseDeckSource, checkDeck } from './deck-source.js?v=eb70fb8acf';
+import { cleanEq } from './import-safety.js?v=9db53247a5';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js?v=ff3ed0cc47';
 import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=26e2e46fff';
 import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=978a757555';
@@ -105,9 +106,10 @@ const LOBULE_CAM = /^(lobule|sinusoid)/;
 
 // ── Numbers ────────────────────────────────────────
 // A slide's equation (decks.js eq: [MathML, legend]): typeset by the browser's own MathML, the legend under it.
-function equation([ml, legend]) {
+function equation(eq) {
   const box = h('div', { class: 'pz-eq' });
-  box.innerHTML = `<math>${ml}</math>`;   // (the decks' own constant markup, never user text)
+  const [ml, legend] = cleanEq(eq) || ['', ''];   // (imported decks reach here too: only allowlisted MathML is set as markup)
+  box.innerHTML = ml ? `<math>${ml}</math>` : '';
   if (legend) box.append(h('p', { class: 'pz-eqk' }, legend));
   return box;
 }

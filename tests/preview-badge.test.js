@@ -1,5 +1,5 @@
 // The preview pill reloads the installed app onto the newest build: unregisters the service worker,
-// clears its caches, then reloads with a cache-busting URL.
+// clears this copy's own caches (nothing of the live site or other apps), then reloads with a cache-busting URL.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RELOAD_JS, badgeHtml } from '../scripts/preview-badge.mjs';
@@ -10,8 +10,8 @@ function setup({ failUnregister = false, resume } = {}) {
   const pill = { textContent: 'PREVIEW · abc1234', addEventListener: (_t, fn) => { click = fn; } };
   const g = {
     document: { getElementById: (id) => (id === 'preview-badge' ? pill : null) },
-    navigator: { serviceWorker: { getRegistrations: async () => [{ unregister: async () => { log.push('unregister'); if (failUnregister) throw new Error('x'); } }] } },
-    caches: { keys: async () => ['a', 'b'], delete: async (k) => { log.push('delete ' + k); } },
+    navigator: { serviceWorker: { getRegistrations: async () => [{ scope: 'https://x.github.io/portal/preview/', unregister: async () => { log.push('unregister'); if (failUnregister) throw new Error('x'); } }, { scope: 'https://x.github.io/portal/', unregister: async () => { log.push('LIVE unregister'); } }, { scope: 'https://x.github.io/other/', unregister: async () => { log.push('OTHER unregister'); } }] } },
+    caches: { keys: async () => ['pps@/portal/preview/@v1', 'pps@/portal/@v1', 'pps-v3', 'other-app'], delete: async (k) => { log.push('delete ' + k); } },
     pps: resume === undefined ? undefined : { resumeUrl: resume },
     location: { href: 'https://x.github.io/portal/preview/?lang=en', replace: (u) => log.push('replace ' + u) },
   };
@@ -26,10 +26,12 @@ test('tap drops the service worker and caches, then reloads with a fresh URL', a
   click(); click();
   await settle();
   assert.equal(pill.textContent, 'RELOADING…');
-  assert.deepEqual(log.slice(0, 3), ['unregister', 'delete a', 'delete b']);
+  assert.deepEqual(log.slice(0, 2), ['unregister', 'delete pps@/portal/preview/@v1']);
   const last = log.at(-1);
   assert.match(last, /^replace https:\/\/x\.github\.io\/portal\/preview\/\?lang=en&r=\d+$/);
   assert.equal(log.filter((l) => l.startsWith('replace')).length, 1);
+  // The live site's worker and cache, another app's, and the source site's un-scoped cache are left alone.
+  assert.deepEqual(log.filter((l) => !l.startsWith('replace')), ['unregister', 'delete pps@/portal/preview/@v1']);
 });
 
 test('a failing cleanup still reloads', async () => {

@@ -10,6 +10,7 @@ import { LEVELS, withOverview } from './decks.js?v=94784eec41';
 import { TILE, cutText } from './table-marks.js?v=ff3ed0cc47';
 import { plateletText } from './glue.js?v=5a0f63226b';
 import { citeText } from './teach-extras.js?v=5f5248f5a7';
+import { cleanEq } from './import-safety.js?v=9db53247a5';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
@@ -102,7 +103,7 @@ export function lineText(t, fp = null, at = () => null) {
 }
 
 function slideBlock(d, base, s, i, fp, at) {
-  const [ml, legend] = s.eq || [];
+  const [ml, legend] = cleanEq(s.eq) || [];
   const [q, a] = Array.isArray(s.ask) ? s.ask : s.ask ? [s.ask] : [];
   return `<article class="${s.visual ? 'wide' : ''}">
   ${fig(base, d, s)}

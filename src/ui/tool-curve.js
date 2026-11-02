@@ -75,6 +75,7 @@ import { plotPanel } from './plot-look.js?v=5037697da7';
 import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=0ad330a216';
 import { airRatio } from './endo-size.js?v=e0a58bf20e';
 import { NODES } from '../engine/topology.js?v=4044766e96';
+import { safeParamPath, pathOf, getAt, patchOf, mergeOf } from './import-safety.js?v=9db53247a5';
 const nextFrame = frameFor('tool-curve');
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -97,18 +98,8 @@ const LINE_ONLY = { wall: { t: 'Wall stress', u: '% of tear', x: 100, d: 0 }, se
 const COLOR = { ppg: '--tr-pv', pv: '--tr-pv', hvpg: '--tr-wedge', whvp: '--tr-wedge', sin: '--tr-wedge', fhvp: '--tr-hv', ivc: '--tr-ivc', ra: '--tr-ra', varix: '--tr-var', seen: '--tr-var', wall: '--tr-cav', across: '--tr-cav', liver: '--tr-hv', pvFlow: '--tr-hv', shunt: '--tr-cav' };
 const PLACE = ['--tr-pv', '--tr-hv'];
 
-export const pathOf = (p) => String(p || '').split('.').filter(Boolean);
-/** The value at a dotted path of a params object. */
-export const getAt = (o, path) => pathOf(path).reduce((x, k) => x?.[k], o);
-/** The params patch that sets path to v (a TIPS or DIPS diameter switches its shunt on), merged over also. */
-export function patchOf(path, v, also = null) {
-  const keys = pathOf(path), out = also ? structuredClone(also) : {};
-  let at = out;
-  keys.slice(0, -1).forEach((k) => { at = at[k] = at[k] && typeof at[k] === 'object' ? at[k] : {}; });
-  at[keys.at(-1)] = v;
-  if (keys.length === 2 && (keys[0] === 'tips' || keys[0] === 'dips') && keys[1] === 'd') at.on = true;
-  return out;
-}
+export { pathOf, getAt, patchOf };
+const ownKey = (o, k) => o !== null && typeof o === 'object' && Object.hasOwn(o, k);
 /** The setting's values along the axis, from `from` to `to` (both kept), at most 41 of them. */
 export function curveXs(t) {
   const a = +t.from, b = +t.to;
@@ -158,12 +149,7 @@ export function againstOf(t) {
   const own = [].concat(t.against).find((x) => typeof x?.own === 'string' && x.own)?.own;
   return { label: a.label, params: a.params, own: own || 'This case' };
 }
-/** b merged over a (objects key by key, anything else replaced), a fresh copy. */
-export function mergeOf(a, b) {
-  const out = a && typeof a === 'object' ? structuredClone(a) : {};
-  for (const [k, v] of Object.entries(b || {})) out[k] = v && typeof v === 'object' && !Array.isArray(v) && out[k] && typeof out[k] === 'object' ? mergeOf(out[k], v) : structuredClone(v);
-  return out;
-}
+export { mergeOf };
 /** The readings plotted (one or two fingerprint keys; one, drawn once per sweep, with against). */
 export const curveLines = (t) => [].concat(t.lines || 'ppg').filter((k) => typeof k === 'string').slice(0, againstOf(t) ? 1 : 2);
 /** Whether the own line is the x reading itself (the diagonal where nothing changed). */
@@ -460,9 +446,10 @@ export function ringAt(t, params, fp) {
 /** Whether params are the slide's own (base) with only the curve's setting moved: then the case sits on the curve. */
 export function onCurve(t, params, base) {
   if (!params || !base || !t.param || Array.isArray(t.points) || +t.days > 0 || patientOf(t) || overScope(t)) return false;
+  if (!safeParamPath(t.param)) return false;
   const a = structuredClone(params), keys = pathOf(t.param);
   let at = a;
-  for (const k of keys.slice(0, -1)) { if (!at[k] || typeof at[k] !== 'object') return false; at = at[k]; }
+  for (const k of keys.slice(0, -1)) { if (!ownKey(at, k) || !at[k] || typeof at[k] !== 'object') return false; at = at[k]; }
   at[keys.at(-1)] = getAt(base, t.param);
   if (keys.length === 2 && (keys[0] === 'tips' || keys[0] === 'dips') && keys[1] === 'd') at.on = getAt(base, `${keys[0]}.on`);
   return JSON.stringify(a) === JSON.stringify(base);
