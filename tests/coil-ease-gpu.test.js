@@ -41,7 +41,7 @@ test('the moments leave the coils and fans as they were, and the envelope before
   const ea = body('envItemsAt', '\n  }\n  function envSoon');
   assert.match(ea, /finally \{ for \(const \[g, wg, s0\] of saved\) \{ g\.wig = wg; g\.spr = s0; \} \}/);
   const ck = body('envCheck', '\n  }\n  // ');
-  assert.ok(ck.includes('sweepPiece(pc, snaps, vBinReach)'));
+  assert.ok(ck.includes('sweepPiece(pc, snaps, more)'));
   assert.ok(ck.includes('old.set.owner.dropMorphSet(old.set)'));
 });
 

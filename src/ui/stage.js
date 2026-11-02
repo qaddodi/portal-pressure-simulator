@@ -3449,7 +3449,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const varixS = { VAR: varixSize('VAR', varixHold(varixHeld.VAR, f.metrics?.varix?.d)), GV: varixSize('GV', varixHold(varixHeld.GV, f.metrics?.gastricVarix?.d)) };
     // collateral tortuosity
     const coiling = [];
-    for (const x of EV) {
+    for (const x of easeHeld ? [] : EV) {
       if (x.e.kind !== 'collateral' || x.e.spontaneous || STRAIGHT_COLL.has(x.e.id)) continue;
       // (Coiled once it has grown past a quarter, and straight again only below a fifth: a varix channel whose growth sat at the quarter
       // flipped its target between straight and coiled 25 times in one Varices slide change, each a new ease of its coil and a binning,
@@ -4198,6 +4198,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // there, one wider than it was binned for) is binned as before, and the envelope made again at the next rest. ?easegpu=0: every frame binned.
   const EASE_GPU = MORPH_GPU && !/[?&]easegpu=0\b/.test(location.search), COIL_MAX = 5;
   const ENV_AT = [[0, 0.55], [COIL_MAX / 2, 0.55], [COIL_MAX, 0.55], [COIL_MAX, 0.775], [COIL_MAX, 1], [COIL_MAX / 2, 1], [0, 1], [0, 0.775], [0, 0.55], [COIL_MAX / 2, 0.775], [COIL_MAX, 1]];
+  let easeHeld = false;
   const et = { key: '', gen: 0, pc: null, restT: 0, checkT: 0, stats: { gpu: 0, builds: 0, miss: {} } };
   // (A vessel it does not hold, or one wider than it was made for: made again at the next rest. A course or a join off it is binned as before.)
   const easeMiss = (why) => { et.stats.miss[why] = (et.stats.miss[why] || 0) + 1; if (why === 'vessels' || why === 'reach') { et.key = ''; envSoon(); } return false; };
@@ -4251,7 +4252,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       if (snaps.some((sn) => rowKey(sn.items) !== rows)) return;
       pc.rows = rows;
-      sweepPiece(pc, snaps, vBinReach).then((b) => {
+      // (A collateral widens as its varix grows through the change: its reach given 40% more room, past the quarter every vessel gets.
+      // A frame wider than that was binned on the CPU, 12 of the 35 frames of a Varices 2 to 3 change, headless phone. The reach only
+      // says which cells list a vessel; the drawing is unchanged.)
+      const coll = new Set(snaps[0].items.filter((it) => it.x.e.kind === 'collateral').map((it) => it.row));
+      const more = new Map(snaps[0].items.map((it) => [it.row, (vBinReach.get(it.row) || snaps[0].reach.get(it.row) || 0) * (coll.has(it.row) ? 1.4 : 1)]));
+      sweepPiece(pc, snaps, more).then((b) => {
         if (gen !== et.gen || !b || !veins || veins.lost) return;
         setOf(pc, b);
         const old = et.pc;
@@ -4277,6 +4283,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function easeRest() {
     et.restT = 0;
+    if (easeHeld) return;   // (held for a check: binned when it asks, rebinNow)
     if (!et.pc?.set || mt.using !== et.pc.set) return;
     if (coilEasing || inMotion() || inUpdate) { et.restT = setTimeout(easeRest, 600); return; }
     morphOff();
@@ -13110,6 +13117,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelStats: () => ({ ...stats }),
     // How the frames of the changes between the views were drawn (from the stretches made ahead, gpu, or binned there, cpu, and why), for tests.
     morphStats: () => ({ gpu: mt.stats.gpu, cpu: mt.stats.cpu, builds: mt.stats.builds, miss: { ...mt.stats.miss }, ready: (mt.pieces || []).filter((pc) => pc.set).length }),
+    // (For the check that an ease drawn on the GPU matches its binning: the coils and fans held where they are, then binned on the CPU.)
+    holdEase: (on) => { easeHeld = !!on; },
+    rebinNow: () => { morphOff(); vBinKey = ''; binShown = null; bendShown = null; syncVeins(easeInOut(morph)); },
     coilStats: () => ({ gpu: et.stats.gpu, builds: et.stats.builds, miss: { ...et.stats.miss }, ready: !!et.pc?.set }),
     // The label slots as solved (key → side and pixel offset from the figure point it names), for tests.
     labelSlots: () => Object.fromEntries([...labelSol].filter(([, r]) => !r.drop).map(([k, r]) => [k, `${r.dir}/${r.pi}/${Math.round(r.dx)},${Math.round(r.dy)}`])),
