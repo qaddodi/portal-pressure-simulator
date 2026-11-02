@@ -226,18 +226,114 @@ void main() {
 }`;
 
 const NUM = (v) => parseFloat(v) || 0;
-// A computed colour as premultiplied RGBA, 0 … 1.
-export function rgba(c) {
-  const m = /rgba?\(([^)]+)\)/.exec(c || '');
-  if (!m) {
-    // (A colour-mix() is computed as color(srgb r g b / a), each 0 … 1.)
-    const k = /color\(srgb\s+([^)]+)\)/.exec(c || '');
-    if (!k) return [0, 0, 0, 0];
-    const v = k[1].split(/[\s/]+/).filter(Boolean).map(Number), a = v.length > 3 ? v[3] : 1;
-    return [v[0] * a, v[1] * a, v[2] * a, a];
+// ── Numbers read in place (2 Nov 2026) ──
+// A colour, a path or a transform is read a character at a time into kept numbers: no match(), split(), map() or regular expression's
+// result array, so a frame that reads the probes' places or a leader's line makes no garbage. numFrom(s, i, strict) finds the next
+// number at or after i (strict: only white space and commas may come before it), sets NUM_V and returns the index after it, or -1. It
+// reads what Number() reads of these strings: digits, one point, an exponent; a % sign makes it NaN.
+const P10 = new Float64Array(23), SC = new Float64Array(4);
+for (let i = 0, p = 1; i < 23; i++, p *= 10) P10[i] = p;
+let NUM_V = 0;
+function numFrom(s, i, strict) {
+  const n = s.length;
+  for (; i < n; i++) {
+    let c = s.charCodeAt(i), j = i, neg = false;
+    if (c === 45) {
+      const d = j + 1 < n ? s.charCodeAt(j + 1) : 0;
+      if (!((d >= 48 && d <= 57) || d === 46)) { if (strict) return -1; continue; }
+      neg = true; j++; c = d;
+    }
+    if (!((c >= 48 && c <= 57) || c === 46)) { if (strict && c > 32 && c !== 44) return -1; continue; }
+    let mant = 0, scale = 0, exp = 0, dot = false, digits = 0, sig = 0;
+    for (; j < n; j++) {
+      c = s.charCodeAt(j);
+      if (c === 46) { if (dot) break; dot = true; continue; }
+      if (c < 48 || c > 57) break;
+      digits++;
+      if (sig < 15) { mant = mant * 10 + (c - 48); if (mant > 0) sig++; if (dot) scale++; } else if (!dot) exp++;
+    }
+    if (!digits) { i = j - 1; continue; }
+    if (j < n && (s.charCodeAt(j) | 32) === 101) {
+      let k = j + 1, eneg = false;
+      if (k < n && (s.charCodeAt(k) === 45 || s.charCodeAt(k) === 43)) { eneg = s.charCodeAt(k) === 45; k++; }
+      if (k < n && s.charCodeAt(k) >= 48 && s.charCodeAt(k) <= 57) {
+        let e = 0;
+        for (; k < n && s.charCodeAt(k) >= 48 && s.charCodeAt(k) <= 57; k++) e = e * 10 + (s.charCodeAt(k) - 48);
+        exp += eneg ? -e : e; j = k;
+      }
+    }
+    let v = scale > 22 ? mant / 10 ** scale : mant / P10[scale];
+    if (exp) v *= 10 ** exp;
+    if (j < n && s.charCodeAt(j) === 37) { v = NaN; j++; }
+    NUM_V = neg ? -v : v;
+    return j;
   }
-  const v = m[1].split(/[\s,/]+/).filter(Boolean).map(Number), a = v.length > 3 ? v[3] : 1;
-  return [v[0] / 255 * a, v[1] / 255 * a, v[2] / 255 * a, a];
+  return -1;
+}
+/** The numbers of `s` from index `i` into `out` (a Float64Array): how many were read (at most out.length). */
+export function readNums(s, i, out) {
+  let n = 0;
+  while (n < out.length) { i = numFrom(s || '', i, false); if (i < 0) break; out[n++] = NUM_V; }
+  return n;
+}
+// A computed colour as premultiplied RGBA, 0 … 1, written into `out` (4 numbers).
+export function rgbaInto(out, c) {
+  out[0] = out[1] = out[2] = out[3] = 0;
+  if (!c) return out;
+  // (A colour-mix() is computed as color(srgb r g b / a), each 0 … 1.)
+  let i = c.indexOf('rgb('), div = 255;
+  if (i >= 0) i += 4;
+  else if ((i = c.indexOf('rgba(')) >= 0) i += 5;
+  else if ((i = c.indexOf('color(srgb')) >= 0) { i += 10; div = 1; } else return out;
+  let n = 0;
+  for (; n < 4; n++) { i = numFrom(c, i, false); if (i < 0) break; SC[n] = NUM_V; }
+  if (n < 3) return out;
+  const a = n > 3 ? SC[3] : 1;
+  out[0] = SC[0] / div * a; out[1] = SC[1] / div * a; out[2] = SC[2] / div * a; out[3] = a;
+  return out;
+}
+// A computed colour as premultiplied RGBA, 0 … 1 (a new array: for what is made once, not in a frame; rgbaInto writes into one).
+export const rgba = (c) => rgbaInto([0, 0, 0, 0], c);
+/** A leader's path "M x y L x y" (and nothing else) written into `out` (4 numbers): whether it is one straight piece. */
+export function lineInto(d, out) {
+  if (!d) return false;
+  const n = d.length;
+  let i = 0;
+  while (i < n && d.charCodeAt(i) <= 32) i++;
+  if (d.charCodeAt(i) !== 77) return false;
+  i++;
+  for (let k = 0; k < 4; k++) {
+    if (k === 2) {
+      while (i < n && d.charCodeAt(i) <= 32) i++;
+      if (d.charCodeAt(i) !== 76) return false;
+      i++;
+    }
+    i = numFrom(d, i, true);
+    if (i < 0) return false;
+    out[k] = NUM_V;
+  }
+  while (i < n && d.charCodeAt(i) <= 32) i++;
+  return i >= n;
+}
+/** A path of straight pieces ("M x y L x y …") written into `out` as its segments, four numbers each: how many. */
+function segsInto(d, out) {
+  if (!d) return 0;
+  let n = 0, i = d.indexOf('M');
+  while (i >= 0 && n + 4 <= out.length) {
+    let j = i + 1;
+    for (let k = 0; k < 4; k++) {
+      if (k === 2) {
+        while (j < d.length && d.charCodeAt(j) <= 32) j++;
+        if (d.charCodeAt(j) !== 76) { j = -1; break; }
+        j++;
+      }
+      j = numFrom(d, j, true);
+      if (j < 0) break;
+      out[n + k] = NUM_V;
+    }
+    if (j >= 0) { n += 4; i = d.indexOf('M', j); } else i = d.indexOf('M', i + 1);
+  }
+  return n >> 2;
 }
 /** A leader's or dot's look: null when it draws nothing; false when it is not a shape drawn here (the SVG keeps it). */
 export function describeMark(el, cs = getComputedStyle) {
@@ -255,8 +351,8 @@ export function describeMark(el, cs = getComputedStyle) {
 }
 /** A leader's path as one straight piece [x0, y0, x1, y1], or null when it is anything else. */
 export function lineOf(d) {
-  const m = /^\s*M\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*L\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*$/.exec(d || '');
-  return m ? [+m[1], +m[2], +m[3], +m[4]] : null;
+  const o = [0, 0, 0, 0];
+  return lineInto(d, o) ? o : null;
 }
 const none = (c) => !c || c === 'none' || c === 'transparent' || /^rgba\([^)]*,\s*0\)$/.test(c);
 
@@ -543,13 +639,20 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (The labels' words are Inter's outlines (text-gl.js), fetched as the layer starts: till they come, the SVG shows every label.)
   if (!glyphsReady()) loadGlyphs().then(() => { for (const s of last) dirty.add(s.g); ask(); }, () => {});
   let lost = false, dpr = 1, W = 1, H = 1, last = [], raf = 0;
+  const rafDraw = () => { raf = 0; draw(); };   // (the frame's callback, made once)
   // A slide's camera glide (stage.js, ?labelride=0 off): the labels ride with the figure on the GPU instead of fading out for the whole
   // move. rideM maps where they were laid out (stage px) to where that point is now; each label's picture keeps its size, its centre
   // carried. At the landing they are laid out again, and each label glides from where it rode to its new place (one that stays), fades
   // in (a new one) or fades out where it rode (one that goes), over D_SURFACE on the app's curve: nothing jumps.
   let rideM = null, rideFrom = null, rideT0 = 0;
   const glides = new Map();   // group → { fx, fy (device px, where it rode), t0 } or { fadeIn: true, t0 }
-  let outgoing = [];          // [{ g, st, x, y, a, t0 }]: labels gone at the landing, fading out where they rode
+  const outgoing = [];        // [{ g, st, x, y, a, t0 }]: labels gone at the landing, fading out where they rode
+  // (These records are taken from a pool and given back when a glide or fade ends, so a landing makes none: x, y, a, t0 for a label that
+  // rode, fx, fy, t0, fadeIn for one that glides.)
+  const gpool = [];
+  const takeRec = () => gpool.pop() || { g: null, st: null, x: 0, y: 0, a: 0, t0: 0, fx: 0, fy: 0, fadeIn: false };   // alloc-rare: one record for each label that rides at once, the most there ever were
+  const dropGlide = (g) => { const r = glides.get(g); if (r) { glides.delete(g); gpool.push(r); } };
+  const fromMap = new Map();  // the labels that rode: group → { x, y, a } (rideEnd), read by the next layout (sync)
   const RIDE_MS = D_SURFACE;
   // (Host mode: whether a picture with the labels is owed to the host's canvas; whether the SVG was given every label back.)
   let owed = false, released = true;   // (at first the SVG shows every label: none is marked yet)
@@ -766,8 +869,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     publishWhenDone(gl, hs, () => {
       if (!lost || gl.isContextLost()) return;   // (lost again: the next restore starts over)
       try { finish(hs); } catch { return; }   // (the shaders will not build: the SVG keeps every label)
-      pageTex.length = 0; needRepack = false; packer.reset(); outgoing = []; glides.clear(); rideFrom = null;
-      holeMasks = new WeakMap(); holeShape = null; picPaint = null; headSp = null; sHeadSp = null; slotTex = null;
+      pageTex.length = 0; needRepack = false; packer.reset(); outgoing.length = 0; glides.clear(); rideFrom = null;
+      holeMasks = new WeakMap(); holeShape = null; picPaint = null; lostPic(headSp); lostPic(sHeadSp); slotTex = null;
       for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
       pReadSoon(); sReadSoon(); allMarks(); nbk = -1;
       lost = false;
@@ -798,14 +901,15 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (Its callback runs once the page is laid out: the canvas's place read there costs no extra layout.)
   watchSize(svg.parentElement, () => { placeHoles(); if (size()) ask(); });
   let densT = 0;
-  const densityChanged = () => { if (!densT) densT = setTimeout(() => { densT = 0; size(); ask(); }, 0); };
+  const densRun = () => { densT = 0; size(); ask(); };
+  const densityChanged = () => { if (!densT) densT = setTimeout(densRun, 0); };
   matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener?.('change', densityChanged);
   size();
   function ask() {
     if (lost) return;
     // (Given back to the SVG and still not to be drawn over the figure: no picture is laid again for them.)
     if (host) { if (released && !host.active()) return; owed = true; host.ask(); return; }
-    if (!raf) raf = nextFrame(() => { raf = 0; draw(); });
+    if (!raf) raf = nextFrame(rafDraw);
   }
   // Host mode, whenever something that decides whether the labels may be drawn over the figure changed (stage.js watches it): drawn
   // there and not to be any more, the picture is laid again now, without them, and the SVG given them in the same task, so they never
@@ -857,11 +961,16 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // eased colour as a token, filled in per frame (fillLook). One that cannot be followed exactly is read each frame, as before (trk false).
   const TOK = '\u0001';
   const paintOk = (g) => (el) => (el.tagName === 'rect' && el.parentElement === g) || (el.tagName === 'tspan' && el.parentElement?.tagName === 'text' && el.parentElement.parentElement === g);
+  // (A property of a style that an ease is moving: the token its colour will be filled in as, else the style's own.)
+  function easedOf(mine, k, o) {
+    for (let i = 0; i < mine.length; i++) if (mine[i][0] === k) return mine[i][1];
+    return o[k];
+  }
   function capture(g, rot, now) {
     let list;
     try { list = takeAnims(g, true); } catch { list = []; }
     if (!list) {   // (its animations taken just after this frame: followed from the next)
-      const prev = sprites.get(g), was = prev?.held, old = prev?.trk;
+      const prev = sprites.get(g), was = prev ? prev.held : svgLeft.has(g) ? null : undefined, old = prev?.trk;   // (no picture yet and the SVG drew it last frame: its opacity is not known here, as for a label the SVG drew)
       const st0 = refresh(g, rot);
       st0.trk = null;
       // (A hold never outlasts HOLD_MAX: whatever kept its animations from coming, the label is then drawn as the page shows it.)
@@ -883,7 +992,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const cs = (el) => {
         const c = styleOf(el), mine = [];
         pairs.forEach((q, i) => { if (q.el === el) mine.push([q.prop, TOK + i]); });
-        return mine.length ? new Proxy(c, { get: (o, k) => { const hit = mine.find((x) => x[0] === k); return hit ? hit[1] : o[k]; } }) : c;
+        return mine.length ? new Proxy(c, { get: (o, k) => easedOf(mine, k, o) }) : c;
       };
       let base;
       try { base = describeBlock(g, cs, ringBoxOf); } catch (e) { if (e !== MISS) throw e; base = null; }
@@ -900,26 +1009,71 @@ void main() { o = texture(uT, vUV) * uA; }`;
   }
   function fillLook(m, w) {
     const { pairs } = m.paint;
-    const sub = (v) => { if (typeof v !== 'string' || v[0] !== TOK) return v; const q = pairs[+v.slice(1)], c = mixColour(q.from, q.to, w); return none(c) ? '' : c; };
-    return { ...m.base, parts: m.base.parts.map((p) => (p.k === 'rect' ? { ...p, fill: sub(p.fill), stroke: sub(p.stroke) } : { ...p, runs: p.runs.map((r) => ({ ...r, fill: sub(r.fill), stroke: sub(r.stroke) })) })) };
+    const eased = (v) => { if (typeof v !== 'string' || v[0] !== TOK) return v; const q = pairs[+v.slice(1)], c = mixColour(q.from, q.to, w); return none(c) ? '' : c; };
+    return { ...m.base, parts: m.base.parts.map((p) => (p.k === 'rect' ? { ...p, fill: eased(p.fill), stroke: eased(p.stroke) } : { ...p, runs: p.runs.map((r) => ({ ...r, fill: eased(r.fill), stroke: eased(r.stroke) })) })) };
+  }
+  // ── Between frames (2 Nov 2026, "label-gl fully to the GPU") ──
+  // A label's look is described, laid out and painted into the atlas here, in a task of its own just after the frame that found it changed
+  // (as its style and animations are read: fillStyles, fillAnims), never inside a frame: a frame draws the pictures it has kept, from
+  // numbers it has kept, and makes nothing. A label with no picture yet is the SVG's till this has made one, and draws it in the next
+  // frame. todo: label → what it is owed (1 turned, 2 its look changed, 4 its colour ease moved, 8 read it again).
+  const todo = new Map();
+  let passT = 0, touched = false;
+  const passSoon = () => { if (!passT) passT = setTimeout(rebuildPass, 0); };
+  function rebuildPass() {
+    passT = 0;
+    if (lost || gl.isContextLost() || (host && !host.active())) { todo.clear(); return; }
+    const now = performance.now();
+    for (const [g, f] of todo) {
+      if (!g.isConnected) continue;
+      const rot = (f & 1) !== 0;
+      let st = sprites.get(g);
+      if (f & 8) {
+        const isLive = live.has(g), dirtyG = (f & 2) !== 0;
+        const tracked = TRACK && isLive && !exact.has(g) && (!st || st.trk !== false || dirtyG || st.rot !== rot);
+        const was = st ? st.held : svgLeft.has(g) ? null : undefined;
+        st = tracked ? capture(g, rot, now) : refresh(g, rot);
+        if (!tracked) st.trk = isLive && st.trk === false ? false : null;
+        st.rot = rot;
+        // (Read at rest with a new opacity: its fade may only now be starting. Held where it was drawn, and followed from the next frame.)
+        if (!tracked && !isLive && st.mode === 'gl' && was !== null && !REDUCE?.matches && Math.abs((was ?? 0) - st.opacity) > 0.01) {
+          st.opacity = was ?? 0;
+          st.holdSince = now;
+          live.set(g, now + 700);
+        }
+      } else if ((f & 4) && st?.trk?.base) {
+        const v = trackAt(st.trk, now);
+        if (v.w !== st.trk.w) { st.trk.w = v.w; refresh(g, st.rot, fillLook(st.trk, v.w)); }
+      }
+    }
+    todo.clear();
+    // (The host's context as its own passes expect to find it, as after a picture of the labels.)
+    if (host && touched) hostTail();
+    touched = false;
+    ask();
+  }
+  function hostTail() {
+    gl.disable(gl.BLEND); gl.bindVertexArray(null); gl.useProgram(null); gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
   }
   // The pages were full: every picture is given back and drawn again, packed afresh (at most one such frame in a while).
   function repack() {
     needRepack = false;
-    packer.reset(); outgoing = [];
+    packer.reset(); outgoing.length = 0;
     for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
     ask();
   }
   let reserveT = 0;
+  function reserveRun() {
+    reserveT = 0;
+    if (lost || gl.isContextLost() || pageTex[1]) return;
+    const was = glGet(gl, gl.TEXTURE_BINDING_2D);   // (gl-state.js: the record, not the driver)
+    pageOf(1);
+    gl.bindTexture(gl.TEXTURE_2D, was);
+  }
   function reserve() {
     if (reserveT) return;
-    reserveT = setTimeout(() => {
-      reserveT = 0;
-      if (lost || gl.isContextLost() || pageTex[1]) return;
-      const was = glGet(gl, gl.TEXTURE_BINDING_2D);   // (gl-state.js: the record, not the driver)
-      pageOf(1);
-      gl.bindTexture(gl.TEXTURE_2D, was);
-    }, 120);
+    reserveT = setTimeout(reserveRun, 120);
   }
   // (This frame's pictures, in painter order: records kept and written again each frame, with the count; and a scratch box.)
   const ITEMS = [], SBOX = new Float64Array(4);
@@ -976,7 +1130,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       for (let i = 0; i < outgoing.length; i++) {
         const o = outgoing[i];
         const u = easeMove(Math.min(1, (now - o.t0) / RIDE_MS));
-        if (u >= 1 || !o.st.slot) { if (o.st.slot) packer.free(o.st.slot); continue; }
+        if (u >= 1 || !o.st.slot) { if (o.st.slot) packer.free(o.st.slot); o.g = null; o.st = null; gpool.push(o); continue; }
         outgoing[kept++] = o; moving = true;
         if (o.x > W || o.y > H || o.x + o.st.w < 0 || o.y + o.st.h < 0) continue;
         takeItem(o.st.slot.page, o.x, o.y, o.st.w, o.st.h, o.st.slot.x, o.st.slot.y, o.a * (1 - u), o.st);
@@ -990,27 +1144,25 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (until != null && until < now) { live.delete(g); dirty.add(g); }   // (read once more as it ends)
       const ex = exact.get(g);
       if (ex != null && ex < now) exact.delete(g);
-      let st = sprites.get(g);
+      const st = sprites.get(g);
       if (st?.trk && !st.trk.ended && now >= st.trk.end) { st.trk.ended = true; dirty.add(g); }   // (its animations over: read once more)
       const isLive = live.has(g);
+      // (2 Nov 2026, "label-gl fully to the GPU": a label whose look may have changed is described, laid out and painted again between
+      // frames (rebuildPass), never here: a frame draws what it has kept, and the SVG shows a label that has no picture yet. todo holds
+      // what the pass owes each label: 1 turned, 2 its look changed, 4 its colour ease moved, 8 read it again.)
       if (!st || dirty.has(g) || st.rot !== rot || (isLive && (exact.has(g) || !st.trk || st.trk.carry))) {
-        const tracked = TRACK && isLive && !exact.has(g) && (!st || st.trk !== false || dirty.has(g) || st.rot !== rot);
-        const was = st ? st.held : undefined;
-        st = tracked ? capture(g, rot, now) : refresh(g, rot);
-        if (!tracked) st.trk = isLive && st.trk === false ? false : null;
-        st.rot = rot;
-        // (Read at rest with a new opacity: its fade may only now be starting. Held where it was drawn, and followed from the next frame.)
-        if (!tracked && !isLive && st.mode === 'gl' && was !== null && !REDUCE?.matches && Math.abs((was ?? 0) - st.opacity) > 0.01) {
-          st.opacity = was ?? 0;
-          st.holdSince = now;
-          live.set(g, now + 700);
-          moving = true;
-        }
+        todo.set(g, (todo.get(g) | 0) | 8 | (rot ? 1 : 0) | (dirty.has(g) ? 2 : 0));
+        passSoon();
+      }
+      if (!st || st.rot !== rot || (st.mode === 'gl' && !st.slot)) {   // (no picture of its own yet, or of the other way up, or its place in the atlas given back: the SVG draws it till the pass has made one)
+        if (g.hasAttribute('data-gl')) g.removeAttribute('data-gl');
+        svgLeft.add(g);
+        continue;
       }
       if (st.trk) {
-        // (Followed: this frame's colours and opacity from the track, nothing read; a colour ease's picture drawn again only as it changes.)
+        // (Followed: this frame's colours and opacity from the track, nothing read; a colour ease's picture drawn again as it changes, by the pass.)
         const v = trackAt(st.trk, now);
-        if (st.trk.base && v.w !== st.trk.w) { st.trk.w = v.w; refresh(g, rot, fillLook(st.trk, v.w)); }
+        if (st.trk.base && v.w !== st.trk.w) { todo.set(g, (todo.get(g) | 0) | 4); passSoon(); }
         if (v.op != null) st.opacity = v.op;
         if (st.trk.ended && !exact.has(g)) live.delete(g);
       }
@@ -1032,7 +1184,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (gl0) {
           const u = easeMove(Math.min(1, (now - gl0.t0) / RIDE_MS));
           if (gl0.fadeIn) a *= u; else { x = Math.round(gl0.fx + (x - gl0.fx) * u); y = Math.round(gl0.fy + (y - gl0.fy) * u); }
-          if (u >= 1) glides.delete(g); else moving = true;
+          if (u >= 1) dropGlide(g); else moving = true;
         }
       }
       st.dx = x; st.dy = y; st.drawn = now;
@@ -1074,10 +1226,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     moving = drawScan(now) || moving;   // (the FibroScan probe over the labels, as its layer lay)
     if (!host && holes.length) cutHoles();
     // (In the host's context: its state as its own passes expect to find it.)
-    if (host) {
-      gl.disable(gl.BLEND); gl.bindVertexArray(null); gl.useProgram(null); gl.bindBuffer(gl.ARRAY_BUFFER, null);
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-    }
+    if (host) hostTail();
     // (A full atlas is packed again once nothing moves, not mid-move, where every picture drawn again at once is a burst of
     // work in one frame; the labels that did not fit stay the SVG's till then. And the second page is made at rest, ahead of the first
     // picture that needs it, once the first is more than half full.)
@@ -1092,22 +1241,23 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // ── Holes (1 Nov 2026): the frosted glasses drawn in the figure's canvas, under this one (glass-gl.js onHoles) ──
   // The labels, marks and probes are left out under each, by its fade: what the browser's blur would show of them there is a faint smear.
   // A rounded box is cut as a shape (uKind 6); a callout's outline (its pointer included) from a mask drawn once from its path.
-  let holes = [], holesKey = '';
+  let holes = [], hpn = -1, HP = new Float64Array(128);
+  const HD = [], RAD = new Float64Array(4), HMAT = [1, 0, 0, -1, 0, 0], HSZ = [0, 0], HCH = [true, true, true, true];   // (the last list of holes as numbers; scratch for a mask and a corner: kept)
   let holeMasks = new WeakMap();
   function holeMask(h) {
-    const key = `${h.d}|${h.lw}|${h.lh}|${dpr}`;
-    let m = holeMasks.get(h.el);
-    if (m?.key === key) return m;
+    const m = holeMasks.get(h.el);
+    if (m && m.d === h.d && m.lw === h.lw && m.lh === h.lh && m.dpr === dpr) return m;
     const mw = Math.max(1, Math.ceil(h.lw * dpr)), mh = Math.max(1, Math.ceil(h.lh * dpr));
-    return holeMaskGL(h, m, key, mw, mh);
+    return holeMaskGL(h, m, mw, mh);
   }
   // The shaped hole's mask on the GPU: the path's coverage (shape-gl's stencil fill, its edge smoothed) in every channel of a texture of
   // its own, laid as the 2D one was (its first row the path's top). The blend cutHoles set is set again after (the fill leaves it off).
   let holeShape = null;
-  function holeMaskGL(h, m, key, mw, mh) {
+  function holeMaskGL(h, m, mw, mh) {
     holeShape ||= createShapeGL(gl);
     if (!m?.fbo) {
-      m = { tex: gl.createTexture(), fbo: gl.createFramebuffer(), st: gl.createRenderbuffer() };
+      m = m || { tex: null, fbo: null, st: null, w: 0, h: 0, d: null, lw: 0, lh: 0, dpr: 0, sw: 0, sh: 0 };   // alloc-rare: one record for each glass with a shaped hole, made the first time it is seen
+      m.tex = gl.createTexture(); m.fbo = gl.createFramebuffer(); m.st = gl.createRenderbuffer();
       gl.bindTexture(gl.TEXTURE_2D, m.tex);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -1127,12 +1277,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
     gl.clearBufferfv(gl.COLOR, 0, CLEAR0); gl.clearBufferfi(gl.DEPTH_STENCIL, 0, 1, 0);
     // (Path px → the target's y-down px, turned over so that its first row holds the path's top, as an uploaded canvas's does.)
     const mesh = polyMeshInto(flattenPath(h.d, Math.min(0.25, 0.2 / dpr)), 0, null, HOLE_MESH);
-    holeShape.fill(mesh, [dpr, 0, 0, -dpr, 0, mh], [mw, mh], [true, true, true, true]);
+    HMAT[0] = dpr; HMAT[3] = -dpr; HMAT[5] = mh; HSZ[0] = mw; HSZ[1] = mh;
+    holeShape.fill(mesh, HMAT, HSZ, HCH);
     holeShape.release(mesh);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, W, H);
     gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
-    Object.assign(m, { key, sw: h.lw * dpr / mw, sh: h.lh * dpr / mh });
+    m.d = h.d; m.lw = h.lw; m.lh = h.lh; m.dpr = dpr; m.sw = h.lw * dpr / mw; m.sh = h.lh * dpr / mh;
     holeMasks.set(h.el, m);
     return m;
   }
@@ -1141,7 +1292,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // frame's places, made the browser lay the page out again mid-frame.)
   let holeCr = { left: 0, top: 0 }, holeT = 0;
   function placeHoles() { if (!host) holeCr = canvas.getBoundingClientRect(); }
-  function placeSoon() { if (!host && !holeT) { holeT = 1; rectSoon(canvas).then((r) => { holeT = 0; holeCr = r; }); } }   // (the browser's own next layout hands the box over: no read)
+  const holeGot = (r) => { holeT = 0; holeCr = r; };
+  function placeSoon() { if (!host && !holeT) { holeT = 1; rectSoon(canvas).then(holeGot); } }   // (the browser's own next layout hands the box over: no read)
   const holeOrigin = () => holeCr;
   if (!host) { addEventListener('resize', placeHoles); addEventListener('scroll', placeSoon, { capture: true, passive: true }); }
   function cutHoles() {
@@ -1165,7 +1317,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
         ucOf(gl).f4(MU.uBox, x - 1, y - 1, x + w + 1, y + hh + 1);
         ucOf(gl).i1(MU.uKind, 6);
         ucOf(gl).f4(MU.uGeo, x, y, w, hh);
-        ucOf(gl).f4a(MU.uR4, h.rad.map((r) => r * dpr));
+        for (let i = 0; i < 4; i++) RAD[i] = h.rad[i] * dpr;
+        ucOf(gl).f4a(MU.uR4, RAD);
         ucOf(gl).f4(MU.uFill, 1, 1, 1, 1);
         ucOf(gl).f1(MU.uA, h.a);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -1175,35 +1328,55 @@ void main() { o = texture(uT, vUV) * uA; }`;
   }
   /** The glasses drawn in the figure's canvas now (client px boxes, their fades, their shapes): the labels leave them out, drawn again at
    *  once when they changed, so the labels and the glass change in the same frame. */
+  // (Whether this list of holes is the last one, number by number: no key string is made.)
+  function holesSame(list) {
+    if (list.length !== hpn) return false;
+    for (let i = 0; i < list.length; i++) {
+      const h = list[i], o = i * 11, r = h.rad;
+      if (HP[o] !== h.x || HP[o + 1] !== h.y || HP[o + 2] !== h.w || HP[o + 3] !== h.h || HP[o + 4] !== h.a || HP[o + 5] !== h.lw || HP[o + 6] !== h.lh || HD[i] !== (h.d || '')) return false;
+      if (r && (HP[o + 7] !== r[0] || HP[o + 8] !== r[1] || HP[o + 9] !== r[2] || HP[o + 10] !== r[3])) return false;
+    }
+    return true;
+  }
+  function holesKeep(list) {
+    if (list.length * 11 > HP.length) HP = new Float64Array(list.length * 22);   // alloc-rare: only when there are more holes than ever before (doubling)
+    for (let i = 0; i < list.length; i++) {
+      const h = list[i], o = i * 11, r = h.rad;
+      HP[o] = h.x; HP[o + 1] = h.y; HP[o + 2] = h.w; HP[o + 3] = h.h; HP[o + 4] = h.a; HP[o + 5] = h.lw; HP[o + 6] = h.lh; HD[i] = h.d || '';
+      HP[o + 7] = r ? r[0] : 0; HP[o + 8] = r ? r[1] : 0; HP[o + 9] = r ? r[2] : 0; HP[o + 10] = r ? r[3] : 0;
+    }
+    hpn = list.length;
+  }
   function setHoles(list) {
     if (host || lost) return;
-    let key = '';
-    for (const h of list) key += `|${h.x},${h.y},${h.w},${h.h},${h.a},${h.d || h.rad},${h.lw},${h.lh}`;
-    if (key === holesKey) return;
-    holesKey = key; holes = list;
+    if (holesSame(list)) return;
+    holesKeep(list);
+    holes = list;
     if (raf) { cancelFrame(raf); raf = 0; }
     draw();
   }
-  // A mark's look, read again while it may be changing.
+  // A mark's look, read again while it may be changing: a frame draws the look it has kept and, when it may have changed, owes it to the
+  // pass between frames (markPass, as the labels': 2 Nov 2026), which describes it again and keeps the result.
   // (TRACK: a fade or colour ease of its own is read once as it starts and followed (label-track.js); a theme or mode change, each frame.)
-  const lookOf = (el, now) => {
-    let lk = looks.get(el);
-    const until = markLive.get(el);
-    if (until != null && until < now) { markLive.delete(el); markDirty.add(el); }
-    const ex = markExact.get(el);
-    if (ex != null && ex < now) markExact.delete(el);
-    if (lk?.trk && !lk.trk.ended && now >= lk.trk.end) { lk.trk.ended = true; markDirty.add(el); }
-    const isLive = markLive.has(el), exactly = markExact.has(el);
-    if (!lk || markDirty.has(el) || (isLive && (exactly || !lk.trk))) {
-      const tracked = TRACK && isLive && !exactly && (!lk || lk.trk !== false || markDirty.has(el));
+  const mtodo = new Map();   // mark → what it is owed: 2 its look changed, 8 read it again
+  let mpassT = 0;
+  const mpassSoon = () => { if (!mpassT) mpassT = setTimeout(markPass, 0); };
+  function markPass() {
+    mpassT = 0;
+    if (lost || gl.isContextLost()) { mtodo.clear(); return; }
+    const now = performance.now();
+    for (const [el, f] of mtodo) {
+      if (!el.isConnected) continue;
+      const lk0 = looks.get(el), isLive = markLive.has(el), exactly = markExact.has(el);
+      const tracked = TRACK && isLive && !exactly && (!lk0 || lk0.trk !== false || (f & 2) !== 0);
       let st0;
       try { st0 = el.tagName === 'g' ? { op: NUM(styleOf(el).opacity) } : describeMark(el, styleOf); } catch (e) {
         if (e !== MISS) throw e;
         // (Its style not read yet: as it was, or the SVG's for this frame.)
         waiting.add(el); markDirty.delete(el);
-        return lk ? (lk.cur || lk.st) : false;
+        continue;
       }
-      lk = { st: st0, trk: tracked ? false : null };
+      const lk = { st: st0, trk: tracked ? false : null, cur: null };
       if (tracked && lk.st) {
         let m;
         let list;
@@ -1214,13 +1387,39 @@ void main() { o = texture(uT, vUV) * uA; }`;
           if (m) { if (m.end <= now) m.ended = true; lk.trk = m; }
         }
       }
+      // (A followed mark's look as this frame has it: its opacity and eased colours written into these, never a new object in a frame.)
+      if (lk.trk && lk.st) lk.cur = { ...lk.st, sa: new Float64Array(4), fa: new Float64Array(4) };
       looks.set(el, lk);
+      if (el.tagName !== 'g' && !markGeo.has(el)) markGeo.set(el, { a0: null, a1: null, a2: null, ok: false, v: new Float64Array(4) });
+    }
+    mtodo.clear();
+    ask();
+  }
+  const lookOf = (el, now) => {
+    const lk = looks.get(el);
+    const until = markLive.get(el);
+    if (until != null && until < now) { markLive.delete(el); markDirty.add(el); }
+    const ex = markExact.get(el);
+    if (ex != null && ex < now) markExact.delete(el);
+    if (lk?.trk && !lk.trk.ended && now >= lk.trk.end) { lk.trk.ended = true; markDirty.add(el); }
+    const isLive = markLive.has(el), exactly = markExact.has(el);
+    if (!lk || markDirty.has(el) || (isLive && (exactly || !lk.trk))) {
+      mtodo.set(el, (mtodo.get(el) | 0) | 8 | (markDirty.has(el) ? 2 : 0));
+      mpassSoon();
+      if (!lk) return false;   // (no look of its own yet: the SVG draws it till the pass has read it)
     }
     if (!lk.trk || !lk.st) return lk.st;
     if (lk.trk.ended && !exactly) markLive.delete(el);
-    const v = trackAt(lk.trk, now), out = lk.cur ||= { ...lk.st };
+    const v = trackAt(lk.trk, now), out = lk.cur;
     if (v.op != null) out.op = v.op;
-    if (lk.trk.paint) for (const q of lk.trk.paint.pairs) { const c = mixColour(q.from, q.to, v.w); out[q.prop] = none(c) ? null : rgba(c); }
+    if (lk.trk.paint) {
+      const prs = lk.trk.paint.pairs;
+      for (let i = 0; i < prs.length; i++) {
+        const q = prs[i], c = mixColour(q.from, q.to, v.w), off = none(c);
+        if (q.prop === 'stroke') out.stroke = off ? null : rgbaInto(out.sa, c);
+        else if (q.prop === 'fill') out.fill = off ? null : rgbaInto(out.fa, c);
+      }
+    }
     return out;
   };
   const markGeo = new WeakMap(), MGEO = new Float64Array(4), MBOX = new Float64Array(4), CLEAR = new Float64Array(4);
@@ -1240,13 +1439,15 @@ void main() { o = texture(uT, vUV) * uA; }`;
           // (A leader's line is parsed when its path changes, a dot's centre when its attributes do: kept on the mark, scaled into a scratch.)
           const isPath = el.tagName === 'path';
           const a0 = el.getAttribute(isPath ? 'd' : 'cx'), a1 = isPath ? '' : el.getAttribute('cy'), a2 = isPath ? '' : el.getAttribute('r');
-          let mg = markGeo.get(el);
-          if (!mg || mg.a0 !== a0 || mg.a1 !== a1 || mg.a2 !== a2) {
-            // alloc-rare: only when the mark's own path or centre is written, which the layout does at rest
-            mg = { a0, a1, a2, v: isPath ? lineOf(a0) : [NUM(a0), NUM(a1), NUM(a2), 0] };
-            markGeo.set(el, mg);
+          const mg = markGeo.get(el);
+          if (mg) {
+            if (mg.a0 !== a0 || mg.a1 !== a1 || mg.a2 !== a2) {
+              mg.a0 = a0; mg.a1 = a1; mg.a2 = a2;
+              if (isPath) mg.ok = lineInto(a0, mg.v);
+              else { mg.v[0] = NUM(a0); mg.v[1] = NUM(a1); mg.v[2] = NUM(a2); mg.v[3] = 0; mg.ok = true; }
+            }
+            if (mg.ok) { geo = MGEO; for (let i = 0; i < 4; i++) geo[i] = mg.v[i] * dpr; }
           }
-          if (mg.v) { geo = MGEO; for (let i = 0; i < 4; i++) geo[i] = mg.v[i] * dpr; }
         }
         // (A mark this drawing cannot give stays the SVG's; one it draws is hidden there, in the same frame.)
         if (st === false || (st && !geo)) { if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); svgLeft.add(el); continue; }
@@ -1318,10 +1519,16 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // organs' painter into a texture of its own, w × h, its first row the picture's top (as the labels' shader fetches it). The labels'
   // drawing state is set again after (the painter leaves its own).
   let picPaint = null;
+  // (A probe's picture: the record of its texture, kept for good and made again after a lost context; the painter's group and frame are
+  // kept too, written before each use: it reads them and keeps neither.)
+  const newPic = () => ({ tex: null, fbo: null, w: 0, h: 0, ox: 0, oy: 0, kq: NaN, k: NaN, dpr: 0, ver: -1 });
+  const headSp = newPic(), sHeadSp = newPic();
+  const lostPic = (sp) => { sp.tex = null; sp.fbo = null; sp.w = sp.h = 0; sp.ver = -1; };
+  const PSPEC = { ops: null, opacity: 1, mask: null }, PMAT = [1, 0, 0, -1, 0, 0];
   function picture(sp, w, h, ops) {
     picPaint ||= createOrganPaint(gl, createShapeGL(gl));
-    if (!sp?.fbo) {
-      sp = { tex: gl.createTexture(), fbo: gl.createFramebuffer() };
+    if (!sp.fbo) {
+      sp.tex = gl.createTexture(); sp.fbo = gl.createFramebuffer(); sp.w = sp.h = 0;
       gl.bindTexture(gl.TEXTURE_2D, sp.tex);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -1338,7 +1545,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
     gl.disable(gl.BLEND);
     gl.clearBufferfv(gl.COLOR, 0, CLEAR0);
     // (Turned over: the painter's top row is the target's last, the labels' shader reads the first row as the top.)
-    picPaint.paintGroupInto({ ops, opacity: 1, mask: null }, [1, 0, 0, -1, 0, h], w, h, sp.fbo, w, h);
+    PSPEC.ops = ops; PMAT[5] = h;
+    picPaint.paintGroupInto(PSPEC, PMAT, w, h, sp.fbo, w, h);
+    PSPEC.ops = null;
     picPaint.endFrame();
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, W, H);
@@ -1351,6 +1560,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // top first). Nothing crosses to the CPU and nothing is uploaded.
   let slotTex = null, slotFbo = null, slotW = 0, slotH = 0;
   function paintSlot(slot, lay, ops) {
+    touched = true;
     picPaint ||= createOrganPaint(gl, createShapeGL(gl));
     if (!slotTex) { slotTex = gl.createTexture(); slotFbo = gl.createFramebuffer(); slotW = slotH = 0; }
     if (slotW < lay.w || slotH < lay.h) {
@@ -1388,28 +1598,44 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // labels as the SVG lay. Its look (colours, widths, fades) is read from its elements while one may be changing.
   // Its look is read from the page after the frame that changed it (a task of its own, never inside a frame), and while a fade runs its
   // opacities are followed from the fade's own clock (easeCapture), with no read of the page in the frame.
-  let probe = null, pLook = null, pTracks = [], pReadT = 0;
+  let probe = null, pLook = null, pTracks = [], pReadT = 0, pVer = 0;
   const pRead = () => {
     pReadT = 0;
     if (!probe?.isConnected) return;
+    wireProbe();
     const now = performance.now();
     pLook = probeLookRead(probe);
     const L = pLook, head = probe.querySelector('.dpr-head');
+    // (What a frame needs of it, found once here: its parts, and its head's shapes as the painter's ops with a matrix of their own, which
+    // a frame writes the angle into to paint the head again, so no ops, shapes or arrays are made in a frame.)
+    L.ver = ++pVer;
+    L.rotEl = probe.querySelector('.dpr-rot'); L.wedgeEl = probe.querySelector('.dpr-wedge'); L.beamEl = probe.querySelector('.dpr-beam');
+    L.axisEl = probe.querySelector('.dpr-axis'); L.barsEl = probe.querySelector('.dpr-bars'); L.headEl = head;
+    L.hm = [1, 0, 0, 1, 0, 0]; L.headOps = [];
+    for (const h of L.head) {
+      const geom = { poly: h.circle ? ellipsePoly(h.circle[0], h.circle[1], h.circle[2], h.circle[2]) : flattenPath(h.d || '', 0.05) };
+      shapeOps(L.headOps, geom, L.hm, h.fill, h.stroke, h.w);
+    }
     pTracks = easeCapture([[probe, 'opacity', parseFloat, (v) => { L.op = v; }], [head, 'opacity', parseFloat, (v) => { L.headOp = v; }]], now);
     ask();
   };
   const pReadSoon = () => { if (!pReadT) pReadT = setTimeout(pRead, 0); };
   const pmo = new MutationObserver((rs) => { if (rs.some((r) => r.attributeName === 'class' && changed(r))) pReadSoon(); ask(); });
   const holdProbe = () => { pReadSoon(); ask(); };
-  let headSp = null;
+  // (Its observers and listeners are put on it by the read that follows (pRead), not where the stage hands it over.)
+  const NO_TRACKS = [];
+  let probeWired = null;
+  function wireProbe() {
+    if (probeWired === probe) return;
+    probeWired = probe;
+    pmo.observe(probe, { subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'transform', 'd'] });
+    for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend']) probe.addEventListener(t, holdProbe, true);
+  }
   function setProbe(el) {
     if (probe === el) return;
-    probe = el; pLook = null; pTracks = [];
-    if (el) pReadSoon();
+    probe = el; pLook = null; pTracks = NO_TRACKS;
     pmo.disconnect();
-    if (!el) return;
-    pmo.observe(el, { subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'transform', 'd'] });
-    for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend']) el.addEventListener(t, holdProbe, true);
+    if (el) pReadSoon();
   }
   const probeStroke = (el) => { const c = getComputedStyle(el); return { col: none(c.stroke) ? null : rgba(c.stroke), w: NUM(c.strokeWidth), cap: c.strokeLinecap, raw: c.stroke, fill: c.fill, join: c.strokeLinejoin }; };
   function probeLookRead(el) {
@@ -1426,9 +1652,28 @@ void main() { o = texture(uT, vUV) * uA; }`;
       head: ['.dpr-rim', '.dpr-body', '.dpr-face', '.dpr-light'].map((k) => { const e = q(k), c = getComputedStyle(e); return { d: e.getAttribute('d'), circle: e.hasAttribute('r') ? [NUM(e.getAttribute('cx')), NUM(e.getAttribute('cy')), NUM(e.getAttribute('r'))] : null, fill: none(c.fill) ? '' : c.fill, stroke: none(c.stroke) ? '' : c.stroke, w: NUM(c.strokeWidth), join: c.strokeLinejoin }; }),
     };
   }
-  // A path of straight pieces ("M x y L x y …") as its segments; a closed three-point one as its triangle.
-  const segsOf = (d) => { const out = [], re = /M\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*L\s*(-?[\d.]+)[\s,]+(-?[\d.]+)/g; let m; while ((m = re.exec(d || ''))) out.push([+m[1], +m[2], +m[3], +m[4]]); return out; };
-  const triOf = (d) => { const n = (d || '').match(/-?[\d.]+/g)?.map(Number); return n?.length === 6 ? [[n[0], n[1]], [n[2], n[3]], [n[4], n[5]]] : null; };
+  // (Its places are read off its elements each frame into these: no array made, no pattern matched.)
+  const BEAM = new Float64Array(64), AXIS = new Float64Array(64), BARS = new Float64Array(64), TRI = new Float64Array(8);
+  const HC = new Float64Array([-5, -14, 50, -14, -5, 14, 50, 14]), PT = new Float64Array(2);
+  let pgx = 0, pgy = 0, pca = 1, psa = 0, pex0 = 0, pey0 = 0, pex1 = 0, pey1 = 0;
+  // A point of the probe's own px (x along its axis) as its stage px × density, in PT, grown into the box of all it draws.
+  function pat(x, y) {
+    const px = (pgx + x * pca - y * psa) * dpr, py = (pgy + x * psa + y * pca) * dpr;
+    pex0 = Math.min(pex0, px); pey0 = Math.min(pey0, py); pex1 = Math.max(pex1, px); pey1 = Math.max(pey1, py);
+    PT[0] = px; PT[1] = py;
+  }
+  function pseg(a, o, st, op) {
+    if (!st.col || !(st.w > 0)) return;
+    pat(a[o], a[o + 1]);
+    const x0 = PT[0], y0 = PT[1];
+    pat(a[o + 2], a[o + 3]);
+    const x1 = PT[0], y1 = PT[1], w = st.w * dpr, m = w / 2 + 2;
+    ucOf(gl).i1(MU.uKind, st.cap === 'round' ? 2 : 0);
+    ucOf(gl).f4(MU.uBox, Math.min(x0, x1) - m, Math.min(y0, y1) - m, Math.max(x0, x1) + m, Math.max(y0, y1) + m);
+    ucOf(gl).f4(MU.uGeo, x0, y0, x1, y1); ucOf(gl).f1(MU.uW, w); ucOf(gl).f2(MU.uDash, 0, 0);
+    ucOf(gl).f4a(MU.uStroke, st.col); ucOf(gl).f1(MU.uA, Math.min(1, op));
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
   function drawProbe(now) {
     if (!probe?.isConnected) return false;
     if (!pLook) return false;   // (read after this frame: pReadSoon)
@@ -1436,88 +1681,130 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (!probe.hasAttribute('data-gl')) probe.setAttribute('data-gl', '');
     const L = pLook;
     if (!(L.op > 0.001)) return live;
-    const tm = /translate\(\s*(-?[\d.]+)px,\s*(-?[\d.]+)px\)/.exec(probe.style.transform || ''), rm = /rotate\((-?[\d.]+)\)/.exec(probe.querySelector('.dpr-rot')?.getAttribute('transform') || '');
-    if (!tm) return live;
-    const gx = +tm[1], gy = +tm[2], ang = rm ? +rm[1] : 0, ca = Math.cos(ang * Math.PI / 180), sa = Math.sin(ang * Math.PI / 180);
+    const tf = probe.style.transform || '';
+    let j = tf.indexOf('translate(');
+    if (j < 0) return live;
+    j = numFrom(tf, j + 10, true);
+    if (j < 0) return live;
+    const gx = NUM_V;
+    if (numFrom(tf, j, false) < 0) return live;
+    const gy = NUM_V, rt = L.rotEl ? L.rotEl.getAttribute('transform') : null, ri = rt ? rt.indexOf('rotate(') : -1;
+    const ang = ri >= 0 && numFrom(rt, ri + 7, true) >= 0 ? NUM_V : 0, ca = Math.cos(ang * Math.PI / 180), sa = Math.sin(ang * Math.PI / 180);
     // (Its box, for the glass: every point it is drawn through, grown by the head's reach.)
-    let ex0 = gx * dpr, ey0 = gy * dpr, ex1 = ex0, ey1 = ey0;
-    const at = (x, y) => { const p = [(gx + x * ca - y * sa) * dpr, (gy + x * sa + y * ca) * dpr]; ex0 = Math.min(ex0, p[0]); ey0 = Math.min(ey0, p[1]); ex1 = Math.max(ex1, p[0]); ey1 = Math.max(ey1, p[1]); return p; };
-    const probeBox = (m) => boxAt(ex0 - m, ey0 - m, ex1 + m, ey1 + m);
-    const seg = (q, st) => {
-      if (!st.col || !(st.w > 0)) return;
-      const [x0, y0] = at(q[0], q[1]), [x1, y1] = at(q[2], q[3]), w = st.w * dpr, m = w / 2 + 2;
-      ucOf(gl).i1(MU.uKind, st.cap === 'round' ? 2 : 0);
-      ucOf(gl).f4(MU.uBox, Math.min(x0, x1) - m, Math.min(y0, y1) - m, Math.max(x0, x1) + m, Math.max(y0, y1) + m);
-      ucOf(gl).f4(MU.uGeo, x0, y0, x1, y1); ucOf(gl).f1(MU.uW, w); ucOf(gl).f2(MU.uDash, 0, 0);
-      ucOf(gl).f4a(MU.uStroke, st.col); ucOf(gl).f1(MU.uA, Math.min(1, L.op));
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    };
+    pgx = gx; pgy = gy; pca = ca; psa = sa; pex0 = gx * dpr; pey0 = gy * dpr; pex1 = pex0; pey1 = pey0;
     gl.useProgram(mprog);
     ucOf(gl).f2(MU.uView, W, H);
     // The faded beam: its gradient runs across the wedge's box from its right edge (the probe's face) to its left (past the far wall).
-    const tri = triOf(probe.querySelector('.dpr-wedge')?.getAttribute('d'));
-    if (tri && L.stops.length === 3) {
-      const xs = tri.map((p) => p[0]), T = tri.map((p) => at(p[0], p[1])), g0 = at(Math.max(...xs), 0), g1 = at(Math.min(...xs), 0);
+    if (L.wedgeEl && readNums(L.wedgeEl.getAttribute('d'), 0, TRI) === 6 && L.stops.length === 3) {
+      pat(TRI[0], TRI[1]); const t0x = PT[0], t0y = PT[1];
+      pat(TRI[2], TRI[3]); const t1x = PT[0], t1y = PT[1];
+      pat(TRI[4], TRI[5]); const t2x = PT[0], t2y = PT[1];
+      pat(Math.max(TRI[0], TRI[2], TRI[4]), 0); const g0x = PT[0], g0y = PT[1];
+      pat(Math.min(TRI[0], TRI[2], TRI[4]), 0); const g1x = PT[0], g1y = PT[1];
       ucOf(gl).i1(MU.uKind, 3);
-      ucOf(gl).f4(MU.uBox, Math.min(...T.map((p) => p[0])) - 2, Math.min(...T.map((p) => p[1])) - 2, Math.max(...T.map((p) => p[0])) + 2, Math.max(...T.map((p) => p[1])) + 2);
-      ucOf(gl).f2a(MU.uT0, T[0]); ucOf(gl).f2a(MU.uT1, T[1]); ucOf(gl).f2a(MU.uT2, T[2]);
-      ucOf(gl).f4(MU.uG, g0[0], g0[1], g1[0], g1[1]);
+      ucOf(gl).f4(MU.uBox, Math.min(t0x, t1x, t2x) - 2, Math.min(t0y, t1y, t2y) - 2, Math.max(t0x, t1x, t2x) + 2, Math.max(t0y, t1y, t2y) + 2);
+      ucOf(gl).f2(MU.uT0, t0x, t0y); ucOf(gl).f2(MU.uT1, t1x, t1y); ucOf(gl).f2(MU.uT2, t2x, t2y);
+      ucOf(gl).f4(MU.uG, g0x, g0y, g1x, g1y);
       ucOf(gl).f4a(MU.uS0, L.stops[0][1]); ucOf(gl).f4a(MU.uS1, L.stops[1][1]); ucOf(gl).f4a(MU.uS2, L.stops[2][1]);
       ucOf(gl).f3(MU.uSO, L.stops[0][0], L.stops[1][0], L.stops[2][0]);
       ucOf(gl).f1(MU.uA, Math.min(1, L.op));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
     // Rim under line, the line of sight, then the flow axis, then the gate's bars on top (dop-probe.js PROBE_MODEL's order).
-    const beam = segsOf(probe.querySelector('.dpr-beam')?.getAttribute('d')), axis = segsOf(probe.querySelector('.dpr-axis')?.getAttribute('d')), bars = segsOf(probe.querySelector('.dpr-bars')?.getAttribute('d'));
-    for (const q of beam) seg(q, L.rimL);
-    for (const q of beam) seg(q, L.line);
-    for (const q of axis) seg(q, L.rimL);
-    for (const q of axis) seg(q, L.line);
-    for (const q of bars) seg(q, L.gateRim);
-    for (const q of bars) seg(q, L.gate);
-    // The head: its picture at its angle and size, drawn again only when either (or its look) changes.
-    const hm = /translate\((-?[\d.]+)[\s,]+(-?[\d.]+)\)\s*scale\((-?[\d.]+)\)/.exec(probe.querySelector('.dpr-head')?.getAttribute('transform') || '');
-    if (hm && L.headOp > 0.001) {
-      const D = +hm[1], k = +hm[3], key = JSON.stringify([L.head, ang.toFixed(2), k, dpr]);
-      if (!headSp || headSp.key !== key) {
+    const nBeam = L.beamEl ? segsInto(L.beamEl.getAttribute('d'), BEAM) : 0, nAxis = L.axisEl ? segsInto(L.axisEl.getAttribute('d'), AXIS) : 0, nBars = L.barsEl ? segsInto(L.barsEl.getAttribute('d'), BARS) : 0;
+    for (let i = 0; i < nBeam; i++) pseg(BEAM, i * 4, L.rimL, L.op);
+    for (let i = 0; i < nBeam; i++) pseg(BEAM, i * 4, L.line, L.op);
+    for (let i = 0; i < nAxis; i++) pseg(AXIS, i * 4, L.rimL, L.op);
+    for (let i = 0; i < nAxis; i++) pseg(AXIS, i * 4, L.line, L.op);
+    for (let i = 0; i < nBars; i++) pseg(BARS, i * 4, L.gateRim, L.op);
+    for (let i = 0; i < nBars; i++) pseg(BARS, i * 4, L.gate, L.op);
+    // The head: its picture at its angle and size, painted again only when either (or its look) changes: the ops are kept, the matrix written.
+    const ht = L.headEl ? L.headEl.getAttribute('transform') : null, ta = ht ? ht.indexOf('translate(') : -1, tb = ht ? ht.indexOf('scale(') : -1;
+    let hD = 0, hk = 0, hok = false;
+    if (ta >= 0 && tb >= 0) {
+      const e = numFrom(ht, ta + 10, true);
+      if (e >= 0) { hD = NUM_V; if (numFrom(ht, e, true) >= 0 && numFrom(ht, tb + 6, true) >= 0) { hk = NUM_V; hok = true; } }
+    }
+    if (hok && L.headOp > 0.001) {
+      const kq = Math.round(ang * 100);
+      if (headSp.ver !== L.ver || headSp.kq !== kq || headSp.k !== hk || headSp.dpr !== dpr) {
         // (Its box: the body's −3 … 48 along it, ±11 across, grown for the rim, turned with it.)
-        const pts = [[-5, -14], [50, -14], [-5, 14], [50, 14]].map(([u, v]) => [(u * ca - v * sa) * k * dpr, (u * sa + v * ca) * k * dpr]);
-        const x0 = Math.floor(Math.min(...pts.map((p) => p[0]))), y0 = Math.floor(Math.min(...pts.map((p) => p[1]))), x1 = Math.ceil(Math.max(...pts.map((p) => p[0]))), y1 = Math.ceil(Math.max(...pts.map((p) => p[1])));
-        // Its shapes filled and stroked on the GPU (the organs' painter, into a texture of its own): no 2D canvas.
-        const m = [ca * k * dpr, sa * k * dpr, -sa * k * dpr, ca * k * dpr, -x0, -y0], ops = [];
-        for (const h of L.head) {
-          const geom = { poly: h.circle ? ellipsePoly(h.circle[0], h.circle[1], h.circle[2], h.circle[2]) : flattenPath(h.d || '', 0.05) };
-          shapeOps(ops, geom, m, h.fill, h.stroke, h.w);
+        let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+        for (let i = 0; i < 8; i += 2) {
+          const u = HC[i], v = HC[i + 1], qx = (u * ca - v * sa) * hk * dpr, qy = (u * sa + v * ca) * hk * dpr;
+          bx0 = Math.min(bx0, qx); by0 = Math.min(by0, qy); bx1 = Math.max(bx1, qx); by1 = Math.max(by1, qy);
         }
-        headSp = picture(headSp, Math.max(1, x1 - x0), Math.max(1, y1 - y0), ops);
-        Object.assign(headSp, { key, ox: x0, oy: y0 });
+        const x0 = Math.floor(bx0), y0 = Math.floor(by0), x1 = Math.ceil(bx1), y1 = Math.ceil(by1), m = L.hm;
+        // Its shapes filled and stroked on the GPU (the organs' painter, into a texture of its own): no 2D canvas.
+        m[0] = ca * hk * dpr; m[1] = sa * hk * dpr; m[2] = -sa * hk * dpr; m[3] = ca * hk * dpr; m[4] = -x0; m[5] = -y0;
+        picture(headSp, Math.max(1, x1 - x0), Math.max(1, y1 - y0), L.headOps);
+        headSp.ver = L.ver; headSp.kq = kq; headSp.k = hk; headSp.dpr = dpr; headSp.ox = x0; headSp.oy = y0;
       }
-      const [hx, hy] = at(D, 0);
+      pat(hD, 0);
+      const hx = PT[0], hy = PT[1];
       gl.useProgram(prog);
       ucOf(gl).f2(U.uView, W, H); ucOf(gl).i1(U.uT, 0);
       gl.bindTexture(gl.TEXTURE_2D, headSp.tex);
       ucOf(gl).f4(U.uR, Math.round(hx) + headSp.ox, Math.round(hy) + headSp.oy, headSp.w, headSp.h); ucOf(gl).f1(U.uA, Math.min(1, L.op * L.headOp));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      ex0 = Math.min(ex0, Math.round(hx) + headSp.ox); ey0 = Math.min(ey0, Math.round(hy) + headSp.oy);
-      ex1 = Math.max(ex1, Math.round(hx) + headSp.ox + headSp.w); ey1 = Math.max(ey1, Math.round(hy) + headSp.oy + headSp.h);
+      pex0 = Math.min(pex0, Math.round(hx) + headSp.ox); pey0 = Math.min(pey0, Math.round(hy) + headSp.oy);
+      pex1 = Math.max(pex1, Math.round(hx) + headSp.ox + headSp.w); pey1 = Math.max(pey1, Math.round(hy) + headSp.oy + headSp.h);
     }
-    probeBox(4 * dpr);
+    const bm = 4 * dpr;
+    boxAt(pex0 - bm, pey0 - bm, pex1 + bm, pey1 + bm);
     return live;
   }
   // ── The FibroScan probe (stage.js scanPaint and scanTick write its SVGs, the model, as before) ──
   // Over the labels, as its layer lay. Its beam (blurred) is a picture drawn once and turned here; its waves are arcs and its cable a
   // line, drawn as shapes each frame; its body, screen and reading a picture drawn at its angle (again only when that or the reading
   // changes); the tip, which taps, a rounded rectangle at its place each frame.
-  let scanEl = null, sLook = null, sTracks = [], sReadT = 0, sHeadSp = null;
+  let scanEl = null, sLook = null, sTracks = [], sReadT = 0, sVer = 0;
   // (Its look read after the frame that changed it, never inside one, and its eases (the turn, the fades, the tip's tap) followed from
   // their own clocks: easeCapture. The waves' opacities and the probe's place change every frame and are read off their attributes.)
   const tipXOf = (t) => { const m = /matrix\(([^)]+)\)/.exec(t || ''); return m ? Number(m[1].split(',')[4]) : /translate(?:X)?\(\s*(-?[\d.]+)px/.exec(t || '') ? Number(/translate(?:X)?\(\s*(-?[\d.]+)px/.exec(t)[1]) : t === 'none' ? 0 : NaN; };
+  const PIV = [66, 48];   // (the tip: the point the probe turns about, in its SVGs' own px; stage.js SCAN_TIP)
+  // What a frame needs of its look as kept numbers, worked out once per read here (a task of its own): the beam's sector and its two
+  // stops premultiplied, the waves' colours with their opacity, the cable's two ends, the tip's colour, and the body, screen and reading
+  // as the painter's ops with a matrix of their own, which a frame writes the angle into to paint the head again. Nothing in a frame
+  // makes an array, a string or an op.
+  const WN = new Float64Array(16), CN = new Float64Array(64), SHC = new Float64Array([-14, 31, 62, 31, -14, 65, 62, 65]);
+  function prepScan(L) {
+    L.ver = ++sVer;
+    L.wavesEl = scanEl.querySelector('.sp-waves');
+    L.sec = L.beam.stops.length === 2 ? beamSector(L.beam) : null;
+    L.drawn = !!L.sec;
+    if (L.drawn) {
+      L.st0 = rgbaInto(new Float64Array(4), L.beam.stops[0][1]); L.st1 = rgbaInto(new Float64Array(4), L.beam.stops[1][1]);
+      for (let k = 0; k < 4; k++) { L.st0[k] *= L.beam.stops[0][2]; L.st1[k] *= L.beam.stops[1][2]; }
+    }
+    for (const w of [L.front, L.rip]) if (w) { w.pm = new Float64Array(4); for (let k = 0; k < 4; k++) w.pm[k] = w.col[k] * w.so; }
+    L.cp = null;
+    const nc = readNums(L.cable.d || '', 0, CN);
+    if (nc >= 4) L.cp = new Float64Array([CN[0], CN[1], CN[nc - 2], CN[nc - 1]]);
+    L.tip.fa = rgbaInto(new Float64Array(4), L.tip.fill);
+    L.hm = [1, 0, 0, 1, 0, 0]; L.headOps = null;
+    if (glyphsReady()) {
+      const ops = [];
+      for (const b of [L.body, L.screen]) shapeOps(ops, { poly: roundRectPoly(b.x, b.y, b.w, b.h, b.rx) }, L.hm, b.fill, b.stroke, b.sw);
+      const look = (r) => ({ weight: r.weight, size: r.size, tnum: r.tnum, ls: r.ls || 0 });
+      const ws = L.read.runs.map((r) => textWidth(r.t, look(r)));
+      let w = 0; ws.forEach((q, i) => { w += (i ? L.read.runs[i].dx : 0) + q; });
+      let x = L.read.anchor === 'middle' ? L.read.x - w / 2 : L.read.anchor === 'end' ? L.read.x - w : L.read.x;
+      L.read.runs.forEach((r, i) => {
+        if (i) x += r.dx;
+        if (r.fill) shapeOps(ops, { poly: textPolys(r.t, x, L.read.y, look(r)).polys }, L.hm, r.fill, '', 0);
+        x += ws[i];
+      });
+      L.headOps = ops;
+    }
+  }
   const sRead = () => {
     sReadT = 0;
     if (!scanEl?.isConnected) return;
     const now = performance.now(), q = (k) => scanEl.querySelector(k);
     sLook = scanLookRead(scanEl);
     const L = sLook;
+    if (L) prepScan(L);
     if (L) sTracks = easeCapture([[scanEl, 'opacity', parseFloat, (v) => { L.op = v; }], [scanEl.querySelectorAll(':scope > .sp-svg')[1], 'transform', (t) => (t === 'none' ? 0 : /matrix/.test(t) ? angOf(t) : NaN), (v) => { L.ang = v; }],
       [q('.sp-head'), 'opacity', parseFloat, (v) => { L.headOp = v; }], [q('.sp-cable'), 'opacity', parseFloat, (v) => { L.cableOp = v; }], [q('.sp-tip'), 'transform', tipXOf, (v) => { L.tipX = v; }]], now);
     ask();
@@ -1525,12 +1812,23 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const sReadSoon = () => { if (!sReadT) sReadT = setTimeout(sRead, 0); };
   const smo = new MutationObserver((rs) => { if (rs.some((r) => changed(r) && r.target !== scanEl && !r.target.closest?.('.sp-waves'))) sReadSoon(); ask(); });
   const holdScan = () => { sReadSoon(); ask(); };
-    function setScan(el) {
+  const noop = () => {};
+  const scanGlyphs = () => { sReadSoon(); ask(); };   // (the reading's outlines came: its head is made with them)
+  // (Handed over by the stage in a frame, taken up in a task of its own: its observers, listeners and glyph wait are set then.)
+  let scanWant = null, scanSwapT = 0;
+  function setScan(el) {
+    if (scanWant === el) return;
+    scanWant = el;
+    if (!scanSwapT) scanSwapT = setTimeout(scanSwap, 0);
+  }
+  function scanSwap() {
+    scanSwapT = 0;
+    const el = scanWant;
     if (scanEl === el) return;
     scanEl?.removeAttribute('data-gl');
-    scanEl = el; sLook = null; sTracks = []; sHeadSp = null;
+    scanEl = el; sLook = null; sTracks = []; lostPic(sHeadSp);
     if (el) sReadSoon();
-    if (el && !glyphsReady()) loadGlyphs().then(() => { sHeadSp = null; ask(); }, () => {});   // (the reading's outlines, ahead of its first picture)
+    if (el && !glyphsReady()) loadGlyphs().then(scanGlyphs, noop);   // (the reading's outlines, ahead of its first picture)
     smo.disconnect();
     ask();
     if (!el) return;
@@ -1556,89 +1854,100 @@ void main() { o = texture(uT, vUV) * uA; }`;
       rip: wave('.sp-rip'), front: wave('.sp-front'),
     };
   }
-  const PIV = [66, 48];   // (the tip: the point the probe turns about, in its SVGs' own px; stage.js SCAN_TIP)
+  // A point of the FibroScan probe's own px as its stage px × density, in PT (it turns about the tip).
+  let sgx = 0, sgy = 0, sca = 1, ssa = 0;
+  function sat(u, v) {
+    PT[0] = (sgx + (u - PIV[0]) * sca - (v - PIV[1]) * ssa) * dpr;
+    PT[1] = (sgy + (u - PIV[0]) * ssa + (v - PIV[1]) * sca) * dpr;
+  }
   function drawScan(now) {
     if (!scanEl?.isConnected) return false;
     if (!sLook) return false;   // (read after this frame: sReadSoon)
     const live = easeStep(sTracks, now), L = sLook;
     // (The beam's blur needs the canvas's filter only where the 2D picture draws it: the shader's sector needs none, as on Safari.)
     // (A beam the shader cannot draw as its sector (another markup), or ?beamgl=0: the SVG keeps the probe.)
-    if (!L || !(L.beam.stops.length === 2 && beamSector(L.beam))) { if (scanEl.hasAttribute('data-gl')) scanEl.removeAttribute('data-gl'); return live; }
+    if (!L.drawn) { if (scanEl.hasAttribute('data-gl')) scanEl.removeAttribute('data-gl'); return live; }
     if (!scanEl.hasAttribute('data-gl')) scanEl.setAttribute('data-gl', '');
     if (!(L.op > 0.001)) return live;
-    const tm = /translate\(\s*(-?[\d.]+)px,\s*(-?[\d.]+)px\)/.exec(scanEl.style.transform || '');
-    if (!tm) return live;
+    const tf = scanEl.style.transform || '';
+    let j = tf.indexOf('translate(');
+    if (j < 0) return live;
+    j = numFrom(tf, j + 10, true);
+    if (j < 0) return live;
+    const tx = NUM_V;
+    if (numFrom(tf, j, false) < 0) return live;
     // (Its box stands at the written place, raised by half its height (app.css translate: 0 −50%); its SVGs turn about the tip.)
-    const px = +tm[1] + PIV[0], py = +tm[2], ca = Math.cos(L.ang), sa = Math.sin(L.ang);
-    const at = (u, v) => [(px + (u - PIV[0]) * ca - (v - PIV[1]) * sa) * dpr, (py + (u - PIV[0]) * sa + (v - PIV[1]) * ca) * dpr];
+    const px = tx + PIV[0], py = NUM_V, ca = Math.cos(L.ang), sa = Math.sin(L.ang);
+    sgx = px; sgy = py; sca = ca; ssa = sa;
     // (Its box, for the glass: everything it draws lies within 170 px of the tip: the beam's 150 px arc and its blur, the body.)
     boxAt((px - 170) * dpr, (py - 170) * dpr, (px + 170) * dpr, (py + 170) * dpr);
     // The beam: a soft sector drawn by the shader (kind 7), its blur worked out per pixel, so no picture of it is made off the GPU.
-    const bsec = L.beam.stops.length === 2 ? beamSector(L.beam) : null;
-    if (bsec) {
-      const [ax, ay] = at(bsec.apex[0], bsec.apex[1]), [gx, gy] = at(L.beam.grad[0], L.beam.grad[1]), R = bsec.r * dpr, sg = bsec.blur * dpr, m = R + 4 * sg + 2;
-      const st = L.beam.stops.map(([o, col, a]) => [o, rgba(col).map((v) => v * a)]);   // (rgba: premultiplied; times the stop's opacity)
-      gl.useProgram(mprog);
-      ucOf(gl).f2(MU.uView, W, H);
-      ucOf(gl).i1(MU.uKind, 7);
-      ucOf(gl).f4(MU.uBox, ax - m, ay - m, ax + m, ay + m);
-      ucOf(gl).f4(MU.uGeo, ax, ay, R, L.beam.grad[2] * dpr);
-      ucOf(gl).f4(MU.uR4, bsec.dir + L.ang, bsec.half, gx, gy);
-      ucOf(gl).f1(MU.uW, sg);
-      ucOf(gl).f4a(MU.uS0, st[0][1]); ucOf(gl).f4a(MU.uS1, st[1][1]); ucOf(gl).f3(MU.uSO, st[0][0], st[1][0], 1);
-      ucOf(gl).f1(MU.uA, Math.min(1, L.op));
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    }
-    // The waves: each packet's arcs (read off the probe's model every frame, where scanTick writes them), at the packet's opacity.
+    const bsec = L.sec;
+    sat(bsec.apex[0], bsec.apex[1]);
+    const ax = PT[0], ay = PT[1];
+    sat(L.beam.grad[0], L.beam.grad[1]);
+    const gx = PT[0], gy = PT[1], R = bsec.r * dpr, sg = bsec.blur * dpr, bm = R + 4 * sg + 2;
     gl.useProgram(mprog);
     ucOf(gl).f2(MU.uView, W, H);
-    for (const pk of scanEl.querySelectorAll('.sp-waves > .sp-pk')) {
-      const po = NUM(pk.style.opacity === '' ? '1' : pk.style.opacity);
-      if (!(po > 0.001)) continue;
-      for (const path of pk.children) {
-        const n = (path.getAttribute('d') || '').match(/-?[\d.]+/g)?.map(Number);
-        if (!n || n.length < 9) continue;
-        const st = path.classList.contains('sp-front') ? L.front : L.rip;
-        if (!st) continue;
-        const r = n[2], a0 = Math.atan2(n[1] - PIV[1], n[0] - PIV[0]) + L.ang, a1 = Math.atan2(n[8] - PIV[1], n[7] - PIV[0]) + L.ang, [cx, cy] = at(PIV[0], PIV[1]), R = r * dpr, w = st.w * dpr;
-        ucOf(gl).i1(MU.uKind, 4);
-        ucOf(gl).f4(MU.uBox, cx - R - w - 2, cy - R - w - 2, cx + R + w + 2, cy + R + w + 2);
-        ucOf(gl).f4(MU.uGeo, cx, cy, R, 0); ucOf(gl).f4(MU.uR4, a0, a1 < a0 ? a1 + Math.PI * 2 : a1, 0, 0); ucOf(gl).f1(MU.uW, w);
-        ucOf(gl).f4a(MU.uStroke, st.col.map((v) => v * st.so)); ucOf(gl).f1(MU.uA, Math.min(1, L.op * po));
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    ucOf(gl).i1(MU.uKind, 7);
+    ucOf(gl).f4(MU.uBox, ax - bm, ay - bm, ax + bm, ay + bm);
+    ucOf(gl).f4(MU.uGeo, ax, ay, R, L.beam.grad[2] * dpr);
+    ucOf(gl).f4(MU.uR4, bsec.dir + L.ang, bsec.half, gx, gy);
+    ucOf(gl).f1(MU.uW, sg);
+    ucOf(gl).f4a(MU.uS0, L.st0); ucOf(gl).f4a(MU.uS1, L.st1); ucOf(gl).f3(MU.uSO, L.beam.stops[0][0], L.beam.stops[1][0], 1);
+    ucOf(gl).f1(MU.uA, Math.min(1, L.op));
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    // The waves: each packet's arcs (read off the probe's model every frame, where scanTick writes them), at the packet's opacity.
+    sat(PIV[0], PIV[1]);
+    const cx = PT[0], cy = PT[1], wv = L.wavesEl ? L.wavesEl.children : null;
+    if (wv) {
+      for (let a = 0; a < wv.length; a++) {
+        const pk = wv[a];
+        if (!pk.classList.contains('sp-pk')) continue;
+        const po = NUM(pk.style.opacity === '' ? '1' : pk.style.opacity);
+        if (!(po > 0.001)) continue;
+        const kids = pk.children;
+        for (let b = 0; b < kids.length; b++) {
+          const path = kids[b];
+          if (readNums(path.getAttribute('d') || '', 0, WN) < 9) continue;
+          const st = path.classList.contains('sp-front') ? L.front : L.rip;
+          if (!st) continue;
+          const r = WN[2], a0 = Math.atan2(WN[1] - PIV[1], WN[0] - PIV[0]) + L.ang, a1 = Math.atan2(WN[8] - PIV[1], WN[7] - PIV[0]) + L.ang, wr = r * dpr, w = st.w * dpr;
+          ucOf(gl).i1(MU.uKind, 4);
+          ucOf(gl).f4(MU.uBox, cx - wr - w - 2, cy - wr - w - 2, cx + wr + w + 2, cy + wr + w + 2);
+          ucOf(gl).f4(MU.uGeo, cx, cy, wr, 0); ucOf(gl).f4(MU.uR4, a0, a1 < a0 ? a1 + Math.PI * 2 : a1, 0, 0); ucOf(gl).f1(MU.uW, w);
+          ucOf(gl).f4a(MU.uStroke, st.pm); ucOf(gl).f1(MU.uA, Math.min(1, L.op * po));
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
       }
     }
     // The cable's short stub (a straight line written as a curve), round-ended, fading with the head.
-    const cn = (L.cable.d || '').match(/-?[\d.]+/g)?.map(Number);
-    if (cn?.length >= 4 && L.cable.col && L.cableOp > 0.001) {
-      const [x0, y0] = at(cn[0], cn[1]), [x1, y1] = at(cn[cn.length - 2], cn[cn.length - 1]), w = L.cable.w * dpr, m = w / 2 + 2;
+    if (L.cp && L.cable.col && L.cableOp > 0.001) {
+      sat(L.cp[0], L.cp[1]);
+      const x0 = PT[0], y0 = PT[1];
+      sat(L.cp[2], L.cp[3]);
+      const x1 = PT[0], y1 = PT[1], w = L.cable.w * dpr, m = w / 2 + 2;
       ucOf(gl).i1(MU.uKind, L.cable.cap === 'round' ? 2 : 0);
       ucOf(gl).f4(MU.uBox, Math.min(x0, x1) - m, Math.min(y0, y1) - m, Math.max(x0, x1) + m, Math.max(y0, y1) + m);
       ucOf(gl).f4(MU.uGeo, x0, y0, x1, y1); ucOf(gl).f1(MU.uW, w); ucOf(gl).f2(MU.uDash, 0, 0);
       ucOf(gl).f4a(MU.uStroke, L.cable.col); ucOf(gl).f1(MU.uA, Math.min(1, L.op * L.cableOp));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
-    if (L.headOp > 0.001 && glyphsReady()) {
-      // The body, its screen and the reading: a picture at the probe's angle, drawn again when that or the reading changes.
-      const hkey = JSON.stringify([L.body, L.screen, L.read, L.ang.toFixed(4), dpr]);
-      if (!sHeadSp || sHeadSp.key !== hkey) {
-        const pts = [[-14, 31], [62, 31], [-14, 65], [62, 65]].map(([u, v]) => [((u - PIV[0]) * ca - (v - PIV[1]) * sa) * dpr, ((u - PIV[0]) * sa + (v - PIV[1]) * ca) * dpr]);
-        const x0 = Math.floor(Math.min(...pts.map((p) => p[0]))), y0 = Math.floor(Math.min(...pts.map((p) => p[1]))), x1 = Math.ceil(Math.max(...pts.map((p) => p[0]))), y1 = Math.ceil(Math.max(...pts.map((p) => p[1])));
-        // Its body, screen and reading filled on the GPU (the organs' painter, the reading from the font's own outlines: text-gl.js), into
-        // a texture of its own: no 2D canvas.
-        const m = mul([ca * dpr, sa * dpr, -sa * dpr, ca * dpr, -x0, -y0], [1, 0, 0, 1, -PIV[0], -PIV[1]]), ops = [];
-        for (const b of [L.body, L.screen]) shapeOps(ops, { poly: roundRectPoly(b.x, b.y, b.w, b.h, b.rx) }, m, b.fill, b.stroke, b.sw);
-        const look = (r) => ({ weight: r.weight, size: r.size, tnum: r.tnum, ls: r.ls || 0 });
-        const ws = L.read.runs.map((r) => textWidth(r.t, look(r)));
-        let w = 0; ws.forEach((q, i) => { w += (i ? L.read.runs[i].dx : 0) + q; });
-        let x = L.read.anchor === 'middle' ? L.read.x - w / 2 : L.read.anchor === 'end' ? L.read.x - w : L.read.x;
-        L.read.runs.forEach((r, i) => {
-          if (i) x += r.dx;
-          if (r.fill) shapeOps(ops, { poly: textPolys(r.t, x, L.read.y, look(r)).polys }, m, r.fill, '', 0);
-          x += ws[i];
-        });
-        sHeadSp = picture(sHeadSp, Math.max(1, x1 - x0), Math.max(1, y1 - y0), ops);
-        Object.assign(sHeadSp, { key: hkey, ox: x0, oy: y0 });
+    if (L.headOp > 0.001 && L.headOps && glyphsReady()) {
+      // The body, its screen and the reading: a picture at the probe's angle, painted again when that or the reading changes.
+      const aq = Math.round(L.ang * 10000);
+      if (sHeadSp.ver !== L.ver || sHeadSp.kq !== aq || sHeadSp.dpr !== dpr) {
+        let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+        for (let i = 0; i < 8; i += 2) {
+          const qx = ((SHC[i] - PIV[0]) * ca - (SHC[i + 1] - PIV[1]) * sa) * dpr, qy = ((SHC[i] - PIV[0]) * sa + (SHC[i + 1] - PIV[1]) * ca) * dpr;
+          bx0 = Math.min(bx0, qx); by0 = Math.min(by0, qy); bx1 = Math.max(bx1, qx); by1 = Math.max(by1, qy);
+        }
+        const x0 = Math.floor(bx0), y0 = Math.floor(by0), x1 = Math.ceil(bx1), y1 = Math.ceil(by1), m = L.hm;
+        // (The turn about the tip, then the picture's corner: the ops' matrix, written in place.)
+        m[0] = ca * dpr; m[1] = sa * dpr; m[2] = -sa * dpr; m[3] = ca * dpr;
+        m[4] = ca * dpr * -PIV[0] + -sa * dpr * -PIV[1] - x0; m[5] = sa * dpr * -PIV[0] + ca * dpr * -PIV[1] - y0;
+        picture(sHeadSp, Math.max(1, x1 - x0), Math.max(1, y1 - y0), L.headOps);
+        sHeadSp.ver = L.ver; sHeadSp.kq = aq; sHeadSp.dpr = dpr; sHeadSp.ox = x0; sHeadSp.oy = y0;
       }
       gl.useProgram(prog);
       ucOf(gl).f2(U.uView, W, H); ucOf(gl).i1(U.uT, 0);
@@ -1648,19 +1957,21 @@ void main() { o = texture(uT, vUV) * uA; }`;
       // The tip, over the body, at its tap's place along the probe.
       const t = L.tip;
       if (t.fill) {
-        const [cx, cy] = at(t.x + t.w / 2 + L.tipX, t.y + t.h / 2);
+        sat(t.x + t.w / 2 + L.tipX, t.y + t.h / 2);
+        const tcx = PT[0], tcy = PT[1];
         gl.useProgram(mprog);
         ucOf(gl).f2(MU.uView, W, H);
         ucOf(gl).i1(MU.uKind, 5);
-        const R = Math.hypot(t.w, t.h) / 2 * dpr + 2;
-        ucOf(gl).f4(MU.uBox, cx - R, cy - R, cx + R, cy + R);
-        ucOf(gl).f4(MU.uGeo, cx, cy, t.w / 2 * dpr, t.h / 2 * dpr); ucOf(gl).f1(MU.uW, Math.min(t.rx, t.w / 2, t.h / 2) * dpr); ucOf(gl).f4(MU.uR4, L.ang, 0, 0, 0);
-        ucOf(gl).f4a(MU.uFill, rgba(t.fill)); ucOf(gl).f1(MU.uA, Math.min(1, L.op * L.headOp));
+        const TR = Math.hypot(t.w, t.h) / 2 * dpr + 2;
+        ucOf(gl).f4(MU.uBox, tcx - TR, tcy - TR, tcx + TR, tcy + TR);
+        ucOf(gl).f4(MU.uGeo, tcx, tcy, t.w / 2 * dpr, t.h / 2 * dpr); ucOf(gl).f1(MU.uW, Math.min(t.rx, t.w / 2, t.h / 2) * dpr); ucOf(gl).f4(MU.uR4, L.ang, 0, 0, 0);
+        ucOf(gl).f4a(MU.uFill, t.fa); ucOf(gl).f1(MU.uA, Math.min(1, L.op * L.headOp));
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
     }
     return live;
   }
+  const WAS = new Set(), NOW2 = new Set(), SVGL = [], CNT = { labels: 0, svg: 0, marks: 0 };   // (kept: a layout, the SVG's list and the counts make none)
   return {
     canvas,
     setProbe,
@@ -1677,9 +1988,15 @@ void main() { o = texture(uT, vUV) * uA; }`;
     /** Host mode: whether the host's canvas owes a picture with the labels. */
     get owed() { return owed; },
     /** The label groups and marks the SVG drew itself at the last picture (in host mode, none while it draws them all). */
-    svgLeft: () => [...svgLeft],
+    svgLeft: () => { SVGL.length = 0; for (const el of svgLeft) SVGL.push(el); return SVGL; },
     /** The ?perf surfaces list (gpu-surfaces.js): the labels laid out at the last picture, and how many of them the SVG drew itself. */
-    counts: () => ({ labels: last.length, svg: last.filter((s) => svgLeft.has(s.g)).length, marks: [...svgLeft].filter((el) => !last.some((s) => s.g === el)).length }),
+    counts: () => {
+      let sv = 0, mk = 0;
+      for (const s of last) if (svgLeft.has(s.g)) sv++;
+      for (const el of svgLeft) { let own = false; for (const s of last) if (s.g === el) { own = true; break; } if (!own) mk++; }
+      CNT.labels = last.length; CNT.svg = sv; CNT.marks = mk;
+      return CNT;
+    },
     /** What the last picture drew, as boxes [left, top, right, bottom] (CSS px from the canvas's corner). */
     get boxes() { return boxes; },
     get lost() { return lost; },
@@ -1689,29 +2006,51 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if ((devicePixelRatio || 1) !== dpr) densityChanged();   // (moved to a screen of another density: sized in a task of its own)
       take(mo.takeRecords());
       for (const r of mmo.takeRecords()) { if (!changed(r)) continue; const el = markOf(r.target); if (el) markDirty.add(el); }
-      const was = new Set(last.map((s) => s.g));
+      WAS.clear();
+      for (const s of last) WAS.add(s.g);
       // (The first layout after a ride: each label that stays glides from where it rode, a new one fades in, one that goes fades out.)
       const from = rideFrom;
       rideFrom = null;
       if (from) {
-        const t0 = performance.now(), now2 = new Set(list.map((s) => s.g));
-        for (const s of list) { const f = from.get(s.g); glides.set(s.g, f ? { fx: f.x, fy: f.y, t0 } : { fadeIn: true, t0 }); }
-        for (const [g, f] of from) if (!now2.has(g)) { const st = sprites.get(g); if (st?.slot && st.mode === 'gl') { outgoing.push({ g, st, x: f.x, y: f.y, a: f.a, t0 }); sprites.delete(g); } }
+        const t0 = performance.now();
+        NOW2.clear();
+        for (const s of list) NOW2.add(s.g);
+        for (const s of list) {
+          const f = from.get(s.g);
+          dropGlide(s.g);
+          const r = takeRec();
+          r.t0 = t0; r.fadeIn = !f;
+          if (f) { r.fx = f.x; r.fy = f.y; }
+          glides.set(s.g, r);
+        }
+        for (const [g, f] of from) {
+          if (NOW2.has(g)) continue;
+          const st = sprites.get(g);
+          if (st?.slot && st.mode === 'gl') { const o = takeRec(); o.g = g; o.st = st; o.x = f.x; o.y = f.y; o.a = f.a; o.t0 = t0; outgoing.push(o); sprites.delete(g); }
+        }
+        for (const f of from.values()) gpool.push(f);
+        from.clear();
       }
       last = list;
-      for (const s of list) was.delete(s.g);
-      for (const g of was) { g.removeAttribute('data-gl'); glides.delete(g); const st = sprites.get(g); if (st) { packer.free(st.slot); sprites.delete(g); } live.delete(g); }
+      for (const s of list) WAS.delete(s.g);
+      for (const g of WAS) { g.removeAttribute('data-gl'); todo.delete(g); dropGlide(g); const st = sprites.get(g); if (st) { packer.free(st.slot); sprites.delete(g); } live.delete(g); }
       if (host) { ask(); return; }
       if (raf) { cancelFrame(raf); raf = 0; }
       draw();
     },
     /** Whether the labels can ride a camera move on the GPU: every label on screen is drawn here (none left to the SVG). */
-    canRide() { return !lost && !host && ![...svgLeft].some((el) => el.classList?.contains('lb')); },
+    canRide() {
+      if (lost || host) return false;
+      for (const el of svgLeft) if (el.classList?.contains('lb')) return false;
+      return true;
+    },
     /** A camera move's carry, [a, b, c, d, e, f] (where the labels were laid out, stage px, to where that point is now), drawn now. */
     ride(m) {
       if (lost) return;
       if (m && !rideM) rideT0 = performance.now();
-      rideM = m; glides.clear();
+      rideM = m;
+      for (const r of glides.values()) gpool.push(r);
+      glides.clear();
       if (raf) { cancelFrame(raf); raf = 0; }
       draw();
     },
@@ -1719,9 +2058,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
     rideEnd() {
       if (!rideM) return;
       rideM = null;
-      const from = new Map();
-      for (const s of last) { const st = sprites.get(s.g); if (st && st.mode === 'gl' && st.drawn >= rideT0) from.set(s.g, { x: st.dx, y: st.dy, a: Math.min(1, st.opacity) }); }
-      rideFrom = from.size ? from : null;
+      for (const f of fromMap.values()) gpool.push(f);
+      fromMap.clear();
+      for (const s of last) {
+        const st = sprites.get(s.g);
+        if (st && st.mode === 'gl' && st.drawn >= rideT0) { const f = takeRec(); f.x = st.dx; f.y = st.dy; f.a = Math.min(1, st.opacity); fromMap.set(s.g, f); }
+      }
+      rideFrom = fromMap.size ? fromMap : null;
     },
     get riding() { return !!rideM; },
     /** A label animated by script (the Web Animations API, which sends no events): read each frame for `ms`. */

@@ -130,7 +130,7 @@ test('the Doppler probe is drawn on the GPU under the leaders, from a model of p
   assert.match(CSS, /\.dop-probe > \.dpr-svg \{ position: absolute; left: 0; top: 0; visibility: hidden; \}/);
   assert.match(LGL, /let moving = drawProbe\(now\);\n\s+moving = drawMarks\(now\) \|\| moving;/, 'the probe under the leaders and labels, as it lay under their SVG');
   // Its marks in PROBE_MODEL's order: beam, rim under line, axis, then the bars on top, then the head.
-  const order = ['for (const q of beam) seg(q, L.rimL);', 'for (const q of beam) seg(q, L.line);', 'for (const q of axis) seg(q, L.rimL);', 'for (const q of axis) seg(q, L.line);', 'for (const q of bars) seg(q, L.gateRim);', 'for (const q of bars) seg(q, L.gate);', "querySelector('.dpr-head')?.getAttribute('transform')"].map((k) => LGL.indexOf(k));
+  const order = ['pseg(BEAM, i * 4, L.rimL, L.op);', 'pseg(BEAM, i * 4, L.line, L.op);', 'pseg(AXIS, i * 4, L.rimL, L.op);', 'pseg(AXIS, i * 4, L.line, L.op);', 'pseg(BARS, i * 4, L.gateRim, L.op);', 'pseg(BARS, i * 4, L.gate, L.op);', "L.headEl.getAttribute('transform')"].map((k) => LGL.indexOf(k));
   assert.ok(order.every((v, i) => v > 0 && (!i || v > order[i - 1])), order.join());
 });
 
@@ -142,17 +142,17 @@ test('the FibroScan probe is drawn on the GPU over the labels, from a model of p
   assert.match(CSS, /\.scan-probe > \.sp-svg \{ visibility: hidden; \}/);
   assert.doesNotMatch(STAGE.slice(STAGE.indexOf('function scanPaint('), STAGE.indexOf('function setScanProbe(')), /<svg|<path|<rect|<text|<g[ >]/);
   assert.match(LGL, /dirty\.clear\(\);\n\s+moving = drawScan\(now\) \|\| moving;/, 'over the labels, as its layer lay');
-  assert.match(LGL, /if \(!L \|\| !\(L\.beam\.stops\.length === 2 && beamSector\(L\.beam\)\)\) \{ if \(scanEl\.hasAttribute\('data-gl'\)\) scanEl\.removeAttribute\('data-gl'\)/, 'a beam the shader cannot draw: the SVG keeps the probe');
+  assert.match(LGL, /if \(!L\.drawn\) \{ if \(scanEl\.hasAttribute\('data-gl'\)\) scanEl\.removeAttribute\('data-gl'\)/, 'a beam the shader cannot draw: the SVG keeps the probe');
   // (No 2D canvas for the probes: their heads are painted on the GPU (picture), the reading from the font's outlines (text-gl.js), and
   // their looks are read after the frame, their eases followed from their own clocks.)
   assert.doesNotMatch(LGL, /headCv|beamCv|sHeadCv/);
-  assert.match(LGL, /headSp = picture\(headSp, /);
-  assert.match(LGL, /sHeadSp = picture\(sHeadSp, /);
+  assert.match(LGL, /picture\(headSp, /);
+  assert.match(LGL, /picture\(sHeadSp, /);
   assert.match(LGL, /if \(!pLook\) return false;/);
   assert.match(LGL, /if \(!sLook\) return false;/);
   // (The beam a soft sector drawn by the shader, kind 7: no 2D picture through a CSS blur, so Safari's canvas without filter keeps it on the GPU.)
   assert.match(LGL, /if \(uKind == 7\) \{/);
-  assert.match(LGL, /const bsec = L\.beam\.stops\.length === 2 \? beamSector\(L\.beam\) : null;/);
+  assert.match(LGL, /L\.sec = L\.beam\.stops\.length === 2 \? beamSector\(L\.beam\) : null;/);
   assert.doesNotMatch(CSS, /\.sp-beam \{[^}]*filter: blur/);
   // The waves' writes ask for a frame, not a new look (they are read as it draws).
   assert.match(LGL, /!r\.target\.closest\?\.\('\.sp-waves'\)/);
@@ -226,7 +226,7 @@ test('the labels stay on their own canvas; what they drew is told to the glass d
   // (Every box a picture drew: each label's, each mark's, the probes'; a change tells the stage, which wakes the glasses.)
   assert.match(LGL, /boxAt\(x, y, x \+ st\.w, y \+ st\.h\);/);
   assert.match(LGL, /boxAt\(box\[0\], box\[1\], box\[2\], box\[3\]\);/);
-  assert.match(LGL, /probeBox\(4 \* dpr\);/);
+  assert.match(LGL, /boxAt\(pex0 - bm, pey0 - bm, pex1 \+ bm, pey1 \+ bm\);/);
   assert.match(LGL, /boxAt\(\(px - 170\) \* dpr, \(py - 170\) \* dpr, \(px \+ 170\) \* dpr, \(py \+ 170\) \* dpr\);/);
   assert.match(LGL, /if \(settleBoxes\(\)\) \{ try \{ onBoxes\?\.\(\); \}/);
   assert.match(STAGE, /marks: \[gLeaders, gScan\], onBoxes: frostWake \}\);/);
