@@ -117,7 +117,7 @@ test('a Gut to heart chart too tall for the room under the words lifts the pair 
 // (Mohammad, 25 Oct: "moving the cards up sliding tucking untucking is very very laggy. Like 10fps maybe".)
 test('a slide of the readings\' card never restyles the figure or lays the cards out again on every frame', () => {
   // (The rise is written on the four cards it moves, never on the stage's box, whose style the stage watches and every vessel inherits.)
-  assert.match(js, /const riseOn = \(name\) => \(name === '--pz-lift' \? \[ui\?\.data, ui\?\.lip\] : \[ui\?\.text, ui\?\.shade\]\);/);
+  assert.match(js, /const riseOn = \(\(\) => \{[\s\S]*?if \(name === '--pz-lift'\) \{ lift\[0\] = ui\?\.data; lift\[1\] = ui\?\.lip; return lift; \} words\[0\] = ui\?\.text; words\[1\] = ui\?\.shade; return words;/);
   const rise = js.match(/const setRise = [^\n]*/)?.[0] || '';
   assert.ok(rise && !/wrap\./.test(rise), 'the rise is not written on the stage\'s box');
   // (The data card's box changes size on every frame of a slide: its watchers wait until it rests, and foldStill lays it out once then.)

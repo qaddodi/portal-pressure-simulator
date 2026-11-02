@@ -77,6 +77,7 @@ const KEY = 'pps.scripts';
 // Only well-formed scripts: a damaged saved value is ignored rather than stopping the library.
 // (A script with no steps, or a null step, is dropped too: one bad entry from a hand-edited link or an old import used to stop every start.)
 const okScript = (x) => x && typeof x === 'object' && x.id && (x.deck ? typeof x.deck === 'object' : x.steps == null || (Array.isArray(x.steps) && x.steps.every((st) => st && typeof st === 'object')));
+// alloc-rare: the saved-scripts list: runs on a user edit (the scan reaches it only through the name remove)
 const readMine = () => { try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v.filter(okScript) : []; } catch { return []; } };
 // Test decks: on the /preview/ copy only (never the live site), listed under "Testing" in Present. Each plays exactly as
 // if imported (an "Outline and objectives" slide in front, so its slide numbers match the imported file's).
@@ -85,11 +86,13 @@ const PREVIEW = typeof location !== 'undefined' && /\/preview\//.test(location.p
 let TESTING = [];
 const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js?v=9fa2a9216f').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
 // (Says whether it kept them: storage that is full or blocked used to report "Script created" for a script that was not there.)
+// alloc-rare: the saved-scripts list: runs on a user edit (the scan reaches it only through the name remove)
 const writeMine = (list) => { try { localStorage.setItem(KEY, JSON.stringify(list)); return true; } catch { return false; } };
 const NO_ROOM = 'This device has no room to keep scripts. Free some browser storage and try again.';
 const enc = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const dec = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
 
+// alloc-rare: one timer per awaited step of a procedure, seconds apart, not per frame
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
@@ -192,6 +195,7 @@ const KEYWORDS = { hvpg: 'HVPG', ppg: 'PPG', pv: 'portal pressure', whvp: 'WHVP|
   ivc: 'IVC', varix: 'varix|varices', hr: 'heart rate', map: 'blood pressure', asc: 'ascites', plt: 'platelets?', lsm: 'stiffness', spleen: 'spleen',
   liver: 'liver blood flow', shunt: 'shunt', sin: 'sinusoidal pressure', saag: 'SAAG', tp: 'protein', hb: 'hemoglobin', pvFlow: 'portal flow', pvVel: 'portal vein velocity', clot: 'clot',
   co: 'cardiac output', bv: 'blood volume', he: 'encephalopathy risk|HE risk' };
+// alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
 const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // What a word in a line can point at on the figure (a term pill, M1): the station's label (node), the vessels that
 // glow (edges) or the organ outlined, in the station's colour (tone: --tr-<tone>), and the words that name it.
@@ -269,18 +273,25 @@ const valTone = (k, fp, tips) => PILL_TONE[pillRate(k, fp, tips)] || (BY_RATE.ha
 // same way needs no listing: the cavernoma is always a pill that lights its collaterals.
 const AUTO_TERMS = ['cavernoma'];
 function termList(s) {
+  // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   const t = s.terms || [];
+  // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   const own = Array.isArray(t) ? t.map((k) => [TARGETS[k]?.words, k]) : Object.entries(t).map(([w, k]) => [esc(w), k]);
+  // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   const have = new Set(own.map(([, k]) => k));
+  // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   return [...own, ...AUTO_TERMS.filter((k) => !have.has(k)).map((k) => [TARGETS[k].words, k])].filter(([w, k]) => w && TARGETS[k]);
 }
 /** Everything a slide points at on the figure: its terms (as the line names them) and its glow field. */
 // On a Doppler slide the vessel being read glows the Doppler's green (as in Explore), over the colour its word would give it.
 const isDop = (s) => s?.tool?.kind === 'doppler';
 export function slideTargets(s, line = s.line || '') {
+  // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   const keys = new Set();
   for (const m of line.matchAll(/\[([^\]]+)\]\(([\w:]+)\)/g)) if (TARGETS[m[2]]) keys.add(m[2]);
+  // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   for (const [w, k] of termList(s)) if (new RegExp(`\\b(?:${w})\\b`, 'i').test(line)) keys.add(k);
+  // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   const labels = [], terms = {}, soft = new Set(), glow = new Map(), organs = new Map(), res = new Map(), lit = new Set(), sites = new Set(), groups = [];
   for (const k of keys) {
     const t = TARGETS[k];
@@ -288,30 +299,39 @@ export function slideTargets(s, line = s.line || '') {
     if (t.lit) lit.add(k);
     if (t.site) sites.add(t.site);
     if (t.edges?.length) groups.push(t.edges);   // (groups: each thing the slide lights as the vessels that make it up, for the camera's room: cam-room.js)
+    // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
     for (const e of t.edges || []) glow.set(e, t.tone);
     if (t.organ) organs.set(t.organ, t.tone);
     if (t.res) res.set(t.res, t.tone);
   }
+  // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   for (const k of s.tint || []) { const t = TARGETS[k]; if (t?.node) terms[t.node] = t.tone; }   // (a label the line does not name, in its colour all the same)
   // glowSeq (ms): the glow field lights in its order, one step apart (pressure passing back from the heart, D6).
+  // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   const at = new Map();
   // (An entry may be a list of vessels, a step's group (V10): they light together, at the entry's moment.)
+  // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   expandIds(s.glow || []).forEach((g0, i) => { for (const g of Array.isArray(g0) ? expandIds(g0) : [g0]) {   // ('@name': a deck visuals package's named set, slide-ext.js)
     const id = typeof g === 'string' ? g : g.id, tone = typeof g === 'string' ? null : g.tone, ms = s.glowSeq ? i * s.glowSeq : 0;
     // { id, soft: true }: a supporting vessel, lit more gently than the one the slide is about.
+    // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
     const add = (e, tn) => { glow.delete(e); glow.set(e, tn); if (ms) at.set(e, ms); if (g.soft) soft.add(e); else soft.delete(e); };
+    // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
     if (TARGETS[id]) { const t = TARGETS[id]; if (t.lit) lit.add(id); if (t.res) res.set(t.res, tone || t.tone); if (t.edges?.length) groups.push(t.edges); for (const e of t.edges || []) add(e, tone || t.tone); if (t.organ) organs.set(t.organ, tone || t.tone); }
     else if (ORGANS.has(id)) organs.set(id, tone || TARGETS[id]?.tone);
+    // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
     else { groups.push([id]); add(id, tone || EDGE_TONE[id] || 'accent'); }
   } });
   // A lobule slide that lights the portal venule's or the central vein's reading lights the sinusoids' as well: the
   // sinusoidal pressure sits between the two, and the other labels are faded out (Mohammad, 16 Oct).
   if (lit.has('lobule:central') || lit.has('lobule:triad')) lit.add('lobule:sinusoid');
   if (isDop(s)) { const v = s.tool.vessel || 'PV_TRUNK'; if (glow.has(v)) glow.set(v, '--dop-glow'); }
+  // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone, at: at.get(id) || 0, soft: soft.has(id) || undefined })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites], groups };
 }
 /** What the names of a slide's `cam: { on: [names] }` point at, as { organs, edges, points, unknown }: the vessels, organs and station
  *  places the camera frames ('@name': a named set, slide-ext.js). The same names a glow takes, plus a station's id (CONF, AO). */
+// alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
 export const camOn = (on) => camNames(expandIds(on), { targets: TARGETS, organs: ORGANS, nodes: NODE_POS });
 // A live value pill ({pv}): the model's reading for this slide, to its usual decimal.
 // {ppg@before}: the value at another slide of the deck (its id), set by the presenter while a deck plays.
@@ -1345,6 +1365,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // at (its outlined organs as drawn now, an enlarged spleen whole), with a little room for the outline's glow, and room for its marks,
   // labels, lit vessels, probe and readings, so none of them stands outside the frame (cam-room.js).
   // The one move to a framing on the plate: the whole figure, or a slide's box (opt.drift: a slow push, see pushTo).
+  // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   function frameTo(cam, s, ms, opt = {}) {
     if (cam === 'fit') { if (opt.drift) stage.fitDrift(ms); else stage.fitSlow(ms, opt); } else stage.frameBox(camBox(cam, s), ms, s.kMax || 3.2, !!s.clear, opt);
   }
@@ -1352,10 +1373,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     let r = regionBox(isCamOn(cam) ? cam.near : cam, REGIONS);
     if (isCamOn(cam)) {
       // (cam: { on: [names] }: the vessels and organs as drawn now, the stations where they stand; a lone station or a thin vessel still gets room.)
+      // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
       const n = camOn(cam.on), pts = unionBox(n.points.map(([x, y]) => [x, y, x, y]));
+      // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
       r = growBox(r, unionBox([stage.focusBox(n), pts].filter(Boolean)), 30);
     }
     // (A slide with softly lit supporting veins frames every vessel it lights, so none runs off the edge.)
+    // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
     const tg = slideTargets(s), f = stage.focusBox({ organs: tg.organs.map((o) => o.id), edges: tg.glow.some((g) => g.soft) ? tg.glow.map((g) => g.id) : [] });
     return roomFor(growBox(r || REGIONS.route, f), anchorsOf(s, tg));
   }
@@ -1660,6 +1684,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (store.get().colorMode !== lens) store.set({ colorMode: lens });
     paintKey(lens, s);
   }
+  const LIVE_SET = { type: 'setParams', params: null, settle: false, ease: 1200 }, LIVE_RUN = { type: 'run', running: true, clock: 'hemo', speed: 1 };
+  // (The keys a what-if slide watches: the same for the slide until the screen changes shape, so made once for each.)
+  const LIVE_KEYS = new WeakMap();
+  function liveKeys(s) {
+    const ph = phone(), c = LIVE_KEYS.get(s);
+    if (c && c.ph === ph) return c.keys;
+    // alloc-rare: made once for a slide, again only if the screen changes shape
+    const keys = [...new Set([...tileKeys(s), ...(s.key || []), ...(s.tool?.kind === 'profile' ? ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'] : [])])];
+    // alloc-rare: made once for a slide, again only if the screen changes shape
+    LIVE_KEYS.set(s, { ph, keys });
+    return keys;
+  }
   async function liveSet(s, i, patch) {
     if (!deck || shown?.i !== i || slides[i] !== s) return;
     const g = ++abGen, ref = refOf(s, i), mine = () => g === abGen && shown?.i === i && !!deck;
@@ -1670,9 +1706,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const ms = clotMarks(markBase.marks, store.get().params);
       if (ms.map((m) => m.label).join('|') !== (store.get().focus?.marks || []).map((m) => m.label).join('|')) store.set({ focus: markFocus(ms) });
     }
-    host.send({ type: 'setParams', params: store.get().params, settle: false, ease: 1200 });
-    host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
-    const keys = [...new Set([...tileKeys(s), ...(s.key || []), ...(s.tool?.kind === 'profile' ? ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'] : [])])];
+    LIVE_SET.params = store.get().params; host.send(LIVE_SET);   // (the host copies a message as it posts it: one kept message)
+    host.send(LIVE_RUN);
+    const keys = liveKeys(s);
     let sig = null, still = performance.now();
     for (const t0 = performance.now(); mine();) {
       await wait(150);
@@ -1902,17 +1938,22 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (With reduced motion it only fades where it was let go.)
     const ms = reduce.matches ? 300 : caseFlight(left, v);
     const slope = (Math.abs(v) * ms) / left;   // the finger's speed as the curve's starting slope
+    // alloc-rare: a case card flies or returns: once per throw, not per frame
     c.style.transition = reduce.matches ? `opacity ${ms}ms linear`
+      // alloc-rare: a case card flies or returns: once per throw, not per frame
       : `transform ${ms}ms cubic-bezier(.33,${clamp(0.33 * slope, 0.12, 0.9).toFixed(2)},.45,1), opacity ${ms}ms cubic-bezier(.4,0,.6,1)`;   // motion-scale: own pace (a fling carries the finger's own speed, so its curve starts at the finger's slope)
+    // alloc-rare: a case card flies or returns: once per throw, not per frame
     if (!reduce.matches) c.style.transform = `translateX(${dir * dist}px) rotate(${dir * 10}deg)`;
     c.style.opacity = '0';
     card.flown = performance.now() + ms; caseGone(card);
   }
   function caseBack(card) {
     const c = card.c;
+    // alloc-rare: a case card flies or returns: once per throw, not per frame
     c.style.transition = `transform ${D_SURFACE}ms var(--ease), opacity ${D_SURFACE}ms var(--ease)`;
     c.style.removeProperty('transform'); c.style.removeProperty('opacity');
     card.dx = 0;
+    // alloc-rare: a case card flies or returns: once per throw, not per frame
     setTimeout(() => { if (!card.flown && !card.drag) c.style.removeProperty('transition'); }, D_SURFACE + 40);
   }
   // Before the slide's camera move: waits for the tap (the card fades as the camera sets off), and for the organs to be back on
@@ -1994,9 +2035,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (Moved by card-throw.js, on one clock with the GPU glass: their inline transform and opacity written in the scheduler's frame.)
   let throwDir = '', throwD = 0;
   const throwDist = () => Math.min(420, Math.max(120, innerWidth * 0.3)) + 20;
+  // alloc-rare: once per swipe, cached in pull.els as the first move lands
   const pageEls = () => [ui.text, ui.shade];
   // (A swipe takes every card that shows with the words, the data card and the panel too, on the finger's one move, and lets them go
   // together (Mohammad, 2 Nov 2026: "the cards are not following the text throwing swiping").)
+  // alloc-rare: once per swipe, cached in pull.els as the first move lands
   const swipeEls = () => [...pageEls(), ...[ui.data, ui.panel].filter((el) => el && !el.hidden && el.childElementCount && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide') && !('zoomed' in el.dataset))];
   let shadeAnim = null, pageForce = false;   // (the glass's entrance; pageForce: a swipe the card followed out, so its words leave even if the next slide's are the same)
   const lastBeat = (i) => beatCount(slides[i]) - 1;
@@ -2717,6 +2760,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.data.toggleAttribute('data-held', heldNow);
     app.classList.toggle('pz-held', heldNow);
     ui.tools.holdAnswer(heldNow, instant);
+    // alloc-rare: once per instant answer, not per frame
     if (instant) nextFrame(() => nextFrame(() => ui?.data.removeAttribute('data-held-now')));
   }
   // (Held on this slide: its own hold, or an answer slide straight after a held one, held until it lands.)
@@ -3224,6 +3268,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (Mac and iPad landscape: the stacked card's height cap is the room under the words and its readings' card's tucked edge, grown by what
   // is out of the readings (--pz-grow, styles/app.css), so the instrument is fitted to the tucked room and keeps that size open or tucked.)
   // (A Gut to heart chart too tall for it grows the cap by slip.base, the room the pair rises by: below.)
+  // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
   const capOf = (d, room) => (wideSheet(d) ? `calc(${(room + slip.base).toFixed(1)}px + var(--pz-grow, 0px))` : `${room.toFixed(1)}px`);
   // (The rise, frame by frame with the readings' card: u of the way out lifts the words' card, its glass and the data card's box by u of
   // slip.lift, the readings' travel (layout), so the instrument card stays where it is and the readings come out above it; tucking them
@@ -3290,8 +3335,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const d = ui.data;
     cancelFrame(slip.raf);
     if (reduce.matches) ms = 0; else ms *= Math.max(0.4, Math.abs(to - from));
+    // alloc-rare: the readings slide begins: once per slide of the card, not per frame
     d.classList.add('pz-sliding'); d.style.setProperty('--pz-u', from.toFixed(4)); liftTo(from); slideTell(); camAt(from);   // (camAt: the view with the card, camFollow)
     const t0 = performance.now();
+    // alloc-rare: the readings slide begins: once per slide of the card, not per frame
     const step = (now) => {
       const t = ms ? clamp((now - t0) / ms, 0, 1) : 1;
       if (t < 1) { const u = from + (to - from) * (1 - (1 - t) ** 3); d.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); camAt(u); slip.raf = nextFrame(step); }
@@ -3312,27 +3359,34 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // height, their travel comes out none, --pz-d 0, and their room opens above the header: a big empty card running off the bottom. It is
     // measured again the moment the card is back, zoomSettled.)
     if (zoomOn()) return;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const parts = [...d.children].filter((c) => c.matches('.pz-tiles') && readStyle(c).display !== 'none');
     if (!parts.length || !readRects(d).length) return;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const kw = readBox(wrap).width / (readMetric(wrap, 'clientWidth') || 1) || 1, hh = () => readBox(d).height / kw;
     // (Without the card's height cap, which is the tucked card's: out, the card is fitted again. The card's own style changes only
     // for the measure, so its watcher is not told: told, it measured again, for ever.)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const was = parts.map((c) => c.style.cssText), cap = d.style.maxHeight;
     d.style.maxHeight = 'none';
     parts[0].style.marginTop = wideSheet(d) ? '16px' : '14px';   // (out: styles/app.css)
     // (A part after the first rides under it with no travel of its own: the bleed clock's row, removed 30 Oct. Measured with the card's --pz-d in its
     // margin, the travel read back changed the travel, every write of --pz-d told the watcher again, and the page froze: Variceal bleed 3 to 4.)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     for (const c of parts.slice(1)) c.style.marginTop = '0px';
     const h1 = hh(), z = (parseFloat(readStyle(parts[0]).zoom) || 1) * kw;
     const o = parts[1] ? (readBox(parts[1]).top - readBox(parts[0]).top) / z : 0;
     for (const c of parts) c.style.display = 'none';
     const h0 = hh();
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     parts.forEach((c, i) => { c.style.cssText = was[i]; });
     d.style.maxHeight = cap; ui.lipMO?.takeRecords();
     slip.h0 = h0;
     // (Judged against the card's own --pz-d, never only the last measure: a deck started again builds a new card, and one whose
     // readings travel as far as the last deck's had none, so its readings' card stood out unpulled: Liver inflow 2, 18 Oct.)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     if (Math.abs((slip.d ?? -1) - (h1 - h0)) > 0.05 || !d.style.getPropertyValue('--pz-d')) { slip.d = h1 - h0; d.style.setProperty('--pz-d', `${slip.d.toFixed(2)}px`); }
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     if (parts[1] && parts[1].style.getPropertyValue('--pz-o') !== `${o.toFixed(2)}px`) parts[1].style.setProperty('--pz-o', `${o.toFixed(2)}px`);
   }
   // The screen's right safe-area inset, read once from a zero-size probe (an unregistered custom property hands env() back unresolved) and again after a resize.
@@ -3348,13 +3402,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   };
   const dockVec = () => {
     const d = ui.data;
+    // alloc-rare: read at rest as a dock glide starts or a finger lands: once per gesture, not per move
     if (phone()) return [0, GRIP - (lipOn(d) ? LIP : 0) - (readMetric(d, 'offsetTop') + readMetric(d, 'offsetHeight'))];   // (closed: the sheet's edge and 10 px of the card show)
+    // alloc-rare: read at rest as a dock glide starts or a finger lands: once per gesture, not per move
     if (d.classList.contains('under') || d.classList.contains('col')) return [GRIP - (readMetric(d, 'offsetLeft') + readMetric(d, 'offsetWidth')), 0];
     // (A phone on its side: the strip that stays on show, and its handle, sit inside the island's or notch's inset, not under it.)
+    // alloc-rare: read at rest as a dock glide starts or a finger lands: once per gesture, not per move
     return [readMetric(wrap, 'clientWidth') - GRIP - (ui.root.classList.contains('low') ? insetR() : 0) - readMetric(d, 'offsetLeft'), 0];
   };
   // (Where the closed card goes, read at rest: by the layout, as a glide starts and as a finger lands. A glide's or a drag's frames
   // only write transforms from it, never read the page. Its offsets are the card's resting box: its translate never changes them.)
+  // alloc-rare: read at rest as a dock glide starts or a finger lands: once per gesture, not per move
   const dockRest = () => (dock.vec = ui && !ui.data.hidden ? dockVec() : [0, 0]);
   const DOCK_ZERO = [0, 0];
   let rtEl = null, rtX = NaN, rtY = NaN, rtTo = NaN;   // (dockPaint: the rest place last written, and on which card)
@@ -3389,6 +3447,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (dock.drag) {
         if (!c._dockHand) {
           if (c._dockFade) { c._dockFade.cancel(); c._dockFade = null; }
+          // alloc-rare: the card docks or undocks, or a drag begins: once per change of state, not per frame
           c._dockHand = c.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, fill: 'both' }); c._dockHand.pause();   // (linear: its time is the drag's level)
         }
         c._dockHand.currentTime = dockShows() * D_SMALL;
@@ -3396,8 +3455,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       }
       let from = null;
       if (c._dockHand) { from = dockShows(); c._dockHand.cancel(); c._dockHand = null; }
+      // alloc-rare: the card docks or undocks, or a drag begins: once per change of state, not per frame
       if (shut && !c._dockFade) c._dockFade = c.animate([{ opacity: from ?? 1 }, { opacity: 0 }], { ...DOCK_FADE, duration: from == null && dock.lvl > 0.5 ? 0 : DOCK_FADE.duration });
+      // alloc-rare: the card docks or undocks, or a drag begins: once per change of state, not per frame
       else if (!shut && c._dockFade) { c._dockFade.cancel(); c._dockFade = null; c.animate([{ opacity: 0 }, { opacity: 1 }], { ...DOCK_FADE, fill: 'none' }); }
+      // alloc-rare: the card docks or undocks, or a drag begins: once per change of state, not per frame
       else if (!shut && from != null && from < 1) c.animate([{ opacity: from }, { opacity: 1 }], { ...DOCK_FADE, fill: 'none' });
     }
   }
@@ -3406,6 +3468,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function placeLip() {
     const d = ui?.data, l = ui?.lip;
     if (!l || d.hidden || !d.classList.contains('pz-sheet')) return;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const px = (v) => `${v.toFixed(1)}px`;
     const split = splitSheet(d), open = d.classList.contains('tool-open'), sliding = d.classList.contains('pz-sliding');
     // (Read before the writes below, with the card at rest, open or closed: it never changes while the card docks. Skipped while
@@ -3417,11 +3480,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Mac and iPad landscape: over the card's top, in the readings' card's top edge, tucked or out; the rise, --pz-lift, carries it up.)
     const ut = wideSheet(d) ? (sliding ? u : open ? 1 : 0) : 0;
     l.style.left = px(readMetric(d, 'offsetLeft')); l.style.width = px(readMetric(d, 'offsetWidth')); l.style.top = px(wideSheet(d) ? readMetric(d, 'offsetTop') - LIP * (1 - ut) : readMetric(d, 'offsetTop') + (sliding && slip.h0 != null ? slip.h0 + u * slip.d : readMetric(d, 'offsetHeight')));
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     if (sliding) l.style.setProperty('--pz-u', u.toFixed(4)); else l.style.removeProperty('--pz-u');
     // (Fully open on a phone the edge sits 24 px up, in the card's foot (app.css margin-top, taken at once): the step it makes is eased by a
     // transform from where it stood, on the compositor, never by the margin, a layout each frame.)
     const step = open && !wideSheet(d);
     if (lipStep != null && step !== lipStep && !l.hidden && !d.classList.contains('pz-hide') && !sliding && !reduce.matches)
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       l.animate?.([{ transform: `translateY(${step ? LIP : -LIP}px)` }, { transform: 'translateY(0)' }], { duration: D_SURFACE, easing: EASE_ARRIVE, composite: 'add' });
     lipStep = step;
     lipPaint();
@@ -3446,16 +3511,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (reduce.matches) ms = 0;
     const from = dock.lvl, t0 = performance.now();
     dockRest();
+    // alloc-rare: a dock glide begins or lands: once per glide, not per step
     const step = (now) => {
       const u = ms ? clamp((now - t0) / ms, 0, 1) : 1;
       dock.lvl = from + (to - from) * ease(u);
       dockPaint();
       if (u < 1) dock.raf = nextFrame(step);
+      // alloc-rare: a dock glide begins or lands: once per glide, not per step
       else dock.rest = restPass(() => ui && placeLip());   // (landed: the edge measured where the card now rests, between frames)
     };
     cancelRest(dock.rest);
     dock.raf = nextFrame(step);
     layout();   // (the figure frames itself for where the card is going)
+    // alloc-rare: a dock glide begins or lands: once per glide, not per step
     clearTimeout(dock.fit); dock.fit = setTimeout(() => restPass(fitRest), 60);
   }
   // (The card's fit lays the chrome out again as a task between frames (rest-pass.js), never in the timer's own turn.)
@@ -3463,9 +3531,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A slide whose data card does not fit (phoneTextCap, lowData) comes in closed, its handle showing, never folded to its header
   // behind Show; the next slide that fits brings it back. (After the pass that asked: dockTo lays the cards out again.)
   function autoDock(shut) {
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const key = `${gen}:${want}`, d = ui.data, ms = d.classList.contains('pz-hide') || d.hidden ? 0 : 380;
     // (Never while the reader's finger or a fold is moving the card: their pull opens the readings, it never closes the card.)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     if (shut && dock.to === 0 && dock.autoKey !== key && !dock.drag && !d.classList.contains('pz-sliding') && !('folding' in d.dataset)) { dock.autoKey = key; dock.auto = true; queueMicrotask(() => ui && dockTo(1, ms)); }
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     else if (!shut && dock.auto && dock.to === 1) { dock.auto = false; queueMicrotask(() => ui && dockTo(0, ms)); }
   }
   // A phone on its side: a table card's title that ends clear of the deck's tab stands level with it, the tab in the corner beside
@@ -3473,6 +3544,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // and given up for good on the slide should the fitted title reach the tab (then fitted again under it). True while it stands beside.
   let besideKey = '', besideNo = '';
   function tabBeside() {
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const pn = ui.panel, key = `${gen}:${want}`, tb = pn.classList.contains('tabbed') && pn.querySelector(':scope > .pz-tabname'), t1 = pn.querySelector(':scope > .pz-ph > .pz-h');
     let on = false;
     if (tb && t1 && besideNo !== key) {
@@ -3493,6 +3565,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     let used = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0), n = 0;
     // (An instrument with its tiles beside it shares one row with them: the row is counted once, at its taller side.)
     // (Only while the tool shows beside the tiles: folded, the tiles stand in their row alone, counted like any part.)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const rail = el.matches(RAIL), pair = rail && [...el.querySelectorAll(':scope > .pz-tool')].some((c) => readStyle(c).display !== 'none'), side = pair && el.querySelector(':scope > .pz-tiles');
     // (A wide screen's summary table clips what is wider than it, so the card's own scrollWidth never sees it: read from the table, in the
     // card's pixels. The fit then zooms the card until every column is in view. A phone's rows are a grid that fits its width by itself.)
@@ -3508,6 +3581,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (wideTable && c.classList.contains('pz-table')) sideways = Math.max(sideways, (readMetric(c, 'scrollWidth') - readMetric(c, 'clientWidth')) * cz);
       // (A phone's grid rows fit their width at the standard text size; at a large one a reading on the reference row can outgrow its
       // column, which the table's clip hides from the card, so the first row's readings are measured and the fit zooms for them.)
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       else if (bigText && c.classList.contains('pz-table')) for (const td of c.querySelectorAll('tbody tr:first-child td.num')) sideways = Math.max(sideways, (readMetric(td, 'scrollWidth') - readMetric(td, 'clientWidth') - 1) * cz);
       // (A part with a height cap clips by design, and mid-fold its clipped contents are not overflow either: counting them
       // shrank the card while a phone's tool folded, and the shrunk fit then stuck.)
@@ -3523,12 +3597,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       n++;
     }
     used += (parseFloat(cs.rowGap) || 0) * Math.max(0, n - 1);
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     return { v: used - readMetric(el, 'clientHeight'), h: Math.max(readMetric(el, 'scrollWidth') - readMetric(el, 'clientWidth'), sideways) };
   }
   // What a card's fit depends on: its box, its words (digits alike, so a number that eases fits as before) and which parts show.
   // A card whose signature is unchanged keeps its fit without being measured again (measuring forces layouts mid-animation).
   // (A card holding the quick check grows as its answers ease open and shut; it was fitted with every answer open, so its own
   // height is left out (the window's stands in): refitting mid-ease cut the easing short and jolted the words' size.)
+  // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
   const fitSig = (el) => `${readMetric(el, 'clientWidth')}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : readMetric(el, 'clientHeight')}|${el.className}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (readStyle(c).maxHeight !== 'none' ? ':' + readMetric(c, 'offsetHeight') : ''))).join()}|${(el.querySelector('.pzv') ? wordsOf(el) : el.textContent).replace(/\d/g, '0')}`;
   const fitDone = new WeakMap(), smOf = new WeakMap();
   // A narrow summary table's column heads are 12 px, never smaller: a row whose columns are too narrow for the words in one line
@@ -3537,6 +3613,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // iPad mini's nine columns had WHVP and FHVP, SAAG and PROT., touching. A phone's rule is as it was: the word inside its column.
   const headFits = (th) => { const b = readBox(th), g = document.createRange(), m = ui.root.classList.contains('tab') ? 2.5 : -0.5; g.selectNodeContents(th); return [...readRects(g)].every((q) => !q.width || (q.left >= b.left + m && q.right <= b.right - m)); };
   function fitHeadRow(tr) {
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const ths = [...tr.querySelectorAll('th.num')];
     if (!ths.length || !readBox(tr).width) return;
     tr.classList.remove('th-up');
@@ -3546,14 +3623,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let headRO = null;
   function fitHeads(el) {
     if (!headRO) {
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       headRO = new ResizeObserver((es) => { for (const e of es) fitHeadRow(e.target); });
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       document.fonts?.ready.then(() => document.querySelectorAll('.pz-table thead tr').forEach(fitHeadRow));
     }
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     for (const tr of el.querySelectorAll('.pz-table thead tr')) { headRO.observe(tr); fitHeadRow(tr); }
   }
   // An equation never runs past its card: one wider than its box is set smaller (--eq-k, the share of its size that fits).
   // (Measured at the card's final zoom; the math is a block of its own, so its box is the room the card gives it.)
   function fitEquations(el) {
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     for (const box of el.querySelectorAll('.pz-eq')) {
       box.style.removeProperty('--eq-k');
       let k = 1;
@@ -3561,6 +3642,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         const w = readMetric(box, 'clientWidth'), over = readMetric(box, 'scrollWidth') - w;
         if (!w || over <= 0.5) break;
         k = Math.max(0.4, k * (w / (w + over)) * 0.99);
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         box.style.setProperty('--eq-k', k.toFixed(3));
       }
     }
@@ -3580,13 +3662,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const pr = capProbe; el.append(pr);
     const cap = parseFloat(readStyle(pr).fontSize) || 12; pr.remove();
     const floor = cap > 12 ? Math.ceil(12 / cap * 1000) / 1000 : 1;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1; };
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const chosen = el.classList.contains('tool-open') && el.dataset.openFor === String(want);
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const done = (shut, z) => { autoDock(shut); return z; };
     el.classList.remove('pz-lt', 'pz-lt2');
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     for (const c of ['pz-lt', 'pz-lt2']) { if (fits()) return done(false, floor); el.classList.add(c); }
     if (chosen) return 0.5;
     if (fits()) return done(false, floor);
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     if (floor < 1) { el.style.setProperty('--pz-fit', String(floor)); const ok = fits(); el.style.removeProperty('--pz-fit'); if (ok) return done(false, floor); }
     return done(!!el.querySelector(':scope > :not(.pz-dh):not(.pz-grip):not(.pz-lip)'), 0.5);
   }
@@ -3596,8 +3683,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // text down to 7 px). Returns the smallest zoom the fit may take for that. (A card that still does not fit zooms further only as a
   // last resort, fitCards, rather than run out of its card.)
   function shortFit(el) {
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1; };
     el.classList.remove('pz-lt', 'pz-lt2');
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     for (const c of ['pz-lt', 'pz-lt2']) { if (fits()) break; el.classList.add(c); }
     return textFloor(el);
   }
@@ -3616,7 +3705,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     return px > 12 && isFinite(px) ? Math.max(0.5, Math.ceil(12 / px * 1000) / 1000) : 1;
   }
   function wordsHeightAt(z) {
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const ts = ui.text.style, sv = [ts.maxHeight, ts.getPropertyValue('--pz-fit'), ts.getPropertyValue('--pz-z')];
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     ts.maxHeight = 'none'; ts.removeProperty('--pz-z'); ts.setProperty('--pz-fit', String(z));
     const v = readMetric(ui.text, 'offsetHeight');
     ts.maxHeight = sv[0]; if (sv[1]) ts.setProperty('--pz-fit', sv[1]); else ts.removeProperty('--pz-fit'); if (sv[2]) ts.setProperty('--pz-z', sv[2]);
@@ -3629,6 +3720,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     for (let n; (n = w.nextNode());) {
       const e = n.parentElement;
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       if (!e || !n.textContent.trim() || !readRects(e).length) continue;
       const fs = parseFloat(readStyle(e).fontSize);
       if (!fs) continue;
@@ -3644,9 +3736,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const chart = el.querySelector(':scope > .pz-tool[data-kind="flowtime"] > .pz-flowtime');
     const eligible = chart && el.classList.contains('tool-only') && ui.root.classList.contains('pz-wide') && !ui.root.classList.contains('stack') && !ui.root.classList.contains('low');
     el.classList.toggle('pz-flowfit', !!eligible);
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const clear = () => { el.style.removeProperty('--ft-room'); el.style.removeProperty('--ft-card'); };
     if (!eligible) { clear(); return; }
     // Measure at full width, without the previous fit. The chart's own height never enters its budget.
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const cs = readStyle(el), px = (v) => parseFloat(v) || 0;
     const z = readMetric(el, 'offsetWidth') ? readBox(el).width / readMetric(el, 'offsetWidth') : 1;
     const f = Math.max(px(readStyle(chart).fontSize), 12 / (z || 1));
@@ -3660,8 +3754,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     chrome += px(cs.rowGap) * Math.max(0, n - 1);
     const room = parseFloat(cs.maxHeight) - chrome - 1;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const h = flowTimeHeight(readMetric(chart, 'clientWidth'), f, room, chart.dataset.lines.split(','), px(readStyle(chart).getPropertyValue('--band-room'))).height;
     if (h == null) { el.classList.remove('pz-flowfit'); clear(); }
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     else { el.style.setProperty('--ft-room', `${h.toFixed(2)}px`); el.style.setProperty('--ft-card', `${(h + chrome).toFixed(2)}px`); }
   }
   function fitCards(...els) {
@@ -3689,8 +3785,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (A tile's name in full when it fits on one line in its tile, else its short form: Liver flow, Protein ...)
       // (All read in one layout, then written: the tiles' columns are equal shares of the row, so one tile's short name never
       // changes another's room. Read and written tile by tile, each read laid the card out again.)
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const names = [...el.querySelectorAll('.pz-tiles .pzt-k[data-s]')];
       for (const k of names) k.classList.remove('short');
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const shorts = names.filter((k) => { const t = k.parentElement, cs = readStyle(t), room = readMetric(t, 'clientWidth') - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight); return room > 0 && readMetric(k, 'scrollWidth') > room + 0.5; });
       for (const k of shorts) k.classList.add('short');
       // (A scale bar's cut-off numbers stay inside the bar, and where two would come within 8 px of each other the bar shows none of
@@ -3698,11 +3796,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // 17 Oct). The coloured bands still show where the cut-offs fall.)
       // (Every bar's numbers read in one layout and then written. A number is centred on its cut-off (translate −50 %); .lo sets it
       // to start there (0) and .hi to end there (−100 %), a shift of half its width, worked out rather than measured again.)
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const bars = [...el.querySelectorAll('.pz-tiles .pzt-bar')].map((bar) => ({ bar, ls: [...bar.querySelectorAll('.pzb-l')] }));
       for (const { ls } of bars) for (const l of ls) l.classList.remove('lo', 'hi', 'off');
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       for (const b of bars) { b.B = readBox(b.bar); b.rs = b.ls.map((l) => readBox(l)); }
       for (const { B, ls, rs } of bars) {
         let end = -Infinity, clash = false;
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         ls.forEach((l, i) => {
           const r = rs[i];
           if (!r.width) return;
@@ -3716,10 +3817,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // under HVPG's bar (5 and 10 too close to number) and, the tiles one height, under WHVP's and FHVP's too, Sites 3 on an iPhone,
       // 20 Oct, where the stacked cards ran into the words. Decided by the bars' widths only, so a tile never resizes as its numbers change.)
       // (Widths only, which the numbers' classes above do not change: the bars' and numbers' read before, then each row written.)
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const rowW = new Map(bars.map((b) => [b.bar, b]));
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       for (const row of el.querySelectorAll('.pz-tiles')) {
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         const rb = [...row.querySelectorAll('.pzt-bar')].map((b) => rowW.get(b));
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         if (!rb.length || rb.some((b) => !b?.B.width)) continue;
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         row.classList.toggle('pzb-nonum', !rb.some((b) => b.ls.some((l, i) => !l.classList.contains('off') && b.rs[i].width)));
       }
       fitHeads(el);
@@ -3740,11 +3846,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const tableFloor = !small && !lowFloor && !shortFloor && el === ui.panel && !ui.root.classList.contains('stack') && el.querySelector(':scope > .pz-table') ? textFloor(el) : 0;
       const ln = small ? el.querySelector('.pz-line, p') : null, lb = ln ? parseFloat(readStyle(ln).fontSize) : 0;
       const floor = lb > 12 ? Math.ceil(12 / lb * 1000) / 1000 : 0.5;
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const mins = small ? [...new Set([floor, phone() ? floor : 0.5])] : [lowFloor || floor];
       if (shortFloor > mins[0]) mins.unshift(shortFloor);   // (the compact layout's 12 px first; past it only as a last resort)
       else if (tableFloor > mins[0]) mins.unshift(tableFloor);
       let k = 1, over = 1;   // (over: the largest fit tried that still overflowed)
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1 ? null : o; };
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       if (small && fits()) { k = over = Math.max(COMPACT, floor); el.style.setProperty('--pz-fit', String(k)); }   // (Compact; over: no search back up past it)
       for (const kMin of mins) {
         for (let n = 0; n < 8 && k > kMin; n++) {
@@ -3752,6 +3861,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           if (!o) break;
           over = k;
           k = Math.max(kMin, k * Math.min(0.97, (readMetric(el, 'clientHeight') / (readMetric(el, 'clientHeight') + Math.max(o.v, 0))) ** 0.9, (readMetric(el, 'clientWidth') / (readMetric(el, 'clientWidth') + Math.max(o.h, 0))) ** 0.9));
+          // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
           el.style.setProperty('--pz-fit', k.toFixed(3));
         }
         if (!fits()) break;
@@ -3761,23 +3871,29 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // between it and the last that did not.)
       if (k < over && !fits()) for (let n = 0; n < 6 && over - k > 0.005; n++) {
         const m = (k + over) / 2;
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         el.style.setProperty('--pz-fit', m.toFixed(3));
         if (fits()) over = m; else k = m;
       }
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       if (k < 1) el.style.setProperty('--pz-fit', k.toFixed(3));
       // (A fit within a hair of the last one keeps the last one, when the card still fits with it: a phone's words had flipped
       // between 0.850 and 0.851 with every pass, moving the card a pixel and restyling the whole page about twice a second.)
       if (was !== k && Math.abs(was - k) < 0.01) {
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         if (was < 1) el.style.setProperty('--pz-fit', was.toFixed(3)); else el.style.removeProperty('--pz-fit');
         const o = overflowOf(el);
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         if (o.v > 1 || o.h > 1) { if (k < 1) el.style.setProperty('--pz-fit', k.toFixed(3)); else el.style.removeProperty('--pz-fit'); }
       }
       // (Parts whose words keep their size (styles/app.css: zoom var(--pz-z)) let the fit shorten only their pictures; when even
       // the shortest pictures leave the card too full, a large text setting, the words then zoom down too, to half at most.)
       // (Never past the 12 px floor: the card's small size, --pz-sm, zoomed, stays at least 11.5 px.)
       // (Its small size read with a probe once per look of the card and the screen, not on every fit.)
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const smKey = `${el.className}|${ui.root.className}|${innerWidth}x${innerHeight}|${devicePixelRatio}|${document.documentElement.style.cssText}|${app.style.cssText}|${ui.root.style.cssText}|${el.style.cssText.replace(/--pz-(fit|z):[^;]*;?/g, '')}`;
       let sm = smOf.get(el);
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       if (sm?.k !== smKey) { const pr = smProbe; el.append(pr); sm = { k: smKey, v: parseFloat(readStyle(pr).fontSize) || 12 }; pr.remove(); smOf.set(el, sm); }
       sm = sm.v;
       const zMin = Math.max(0.5, Math.min(1, 11.5 / sm));
@@ -3785,6 +3901,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         const o = overflowOf(el);
         if (o.v <= 1 && o.h <= 1) break;
         z = Math.max(zMin, z * Math.min(0.97, (readMetric(el, 'clientHeight') / (readMetric(el, 'clientHeight') + Math.max(o.v, 0))) ** 0.9, (readMetric(el, 'clientWidth') / (readMetric(el, 'clientWidth') + Math.max(o.h, 0))) ** 0.9));
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         el.style.setProperty('--pz-z', z.toFixed(3));
       }
       fitEquations(el);
@@ -3892,19 +4009,26 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let textLock = null, foldHeld = null;   // (foldHeld: the foldKey the data card was last folded for, layout)
   let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0, paneRaf = 0, fitKids = [], clearFor = null;
   const fitWatch = () => {
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     fitRO ||= new ResizeObserver(() => {
       cancelRest(fitRaf);
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       fitRaf = restPass(() => { if (ui && cardMoving()) return; if (ui && cardsStill()) { fitCards(ui.data); return; } if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (el.style.getPropertyValue('--pz-fit') || (({ v, h }) => v > 1 || h > 1)(overflowOf(el))))) layout(); });   // (a shrunk card is fitted again when it changes, so it can grow back)
     });
     // (Watched again only when the cards' children changed: observing a box reports it at once, so re-observing on every pass
     // ran the layout again every frame on a slide sitting still, Circuit 7 on an iPhone some four times a second.)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const kids = [ui.text, ui.data, ui.panel].flatMap((el) => [...el.children]);
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     if (kids.length !== fitKids.length || kids.some((c, i) => c !== fitKids[i])) { fitRO.disconnect(); for (const c of kids) fitRO.observe(c); fitKids = kids; }
     // A slide that keeps its figure clear of the cards frames it again as the cards settle to their size (a chart arriving, a line wrapping).
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const again = () => { if (!ui) return; if (!shown || 'folding' in ui.data.dataset) { clearT = setTimeout(again, 150); return; }   // (a slide still coming in: once it is in; a card still folding or pulled: once it rests, so the figure and its labels hold still under the finger)
       if (cardSig() !== framedSig) reframe(400); };   // (only when the cards really changed: the camera framed them once; any slide, so a card that grew never covers its box)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const soon = () => { clearTimeout(clearT); clearT = setTimeout(again, 120); };
     // (The words' glass pane and the figure's insets follow a card that grows after the layout, a chart arriving under the words.)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     clearRO ||= new ResizeObserver(() => { cancelRest(paneRaf); paneRaf = restPass(() => { if (!ui || cardMoving()) return; if (cardsStill()) fitCards(ui.data); else layout(); }); soon(); });
     if (clearFor !== ui) { clearRO.disconnect(); clearRO.observe(ui.data); clearRO.observe(ui.text); clearFor = ui; }
     ui.data.ontransitionend = ui.text.ontransitionend = soon;   // (a card slides into place: its edge is where it ends, not where it was measured)
@@ -3946,15 +4070,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const cardOn = TEXT_CARD && !p;   // (a phone held sideways too: its words in a floating card, not a panel at the edge)
     ui.root.classList.toggle('pz-card', cardOn); ui.shade.classList.toggle('pz-card', cardOn);
     ui.root.classList.toggle('low', low); ui.shade.classList.toggle('low', low);
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const off = (el) => el.hidden || (el === ui.data ? 'gone' in el.dataset : el.classList.contains('pz-hide'));   // (a card only easing out and back in for the next slide still counts, where it rests: the camera frames once)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const r = (el) => (off(el) ? null : restBox(el));
     // The words' sizes settle once per slide, before its cards enter: a later pass (a reading ticking, the data card growing)
     // keeps them, so the teaching card's text never changes size while it is in view. (A new text size in Settings is a new layout:
     // kept, a card folded at 200% stayed folded back at 100%.)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const at = shown || entering, lockKey = at ? `${at.gen}:${at.i}:${W.toFixed(0)}x${H.toFixed(0)}:${stage.labelScale()}` : null, lock = lockKey && textLock?.key === lockKey ? textLock : null;
     // (A ladder's fold holds for the slide being drawn, from its first measure: keyed by the slide wanted, not the one shown, so
     // the fold found while its cards come in is kept once it shows. Keyed by the slide shown, the card unfolded for a moment
     // as it came in at 200%, then folded again.)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const foldKey = `${gen}:${want}:${W.toFixed(0)}x${H.toFixed(0)}:${stage.labelScale()}`;
     ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); ui.text.classList.remove('pz-nocauses');
     ui.text.style.maxHeight = '';   // (the last pass's cap would shrink the words to a room they no longer have)
@@ -3983,6 +4111,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!p) dd0.classList.toggle('pz-beside', !sheet && dd0.hasAttribute('data-beside') && !dd0.classList.contains('pz-folds'));   // (the readings' card holds the tiles: none beside the instrument)
     if ((p || low) && dd0.classList.contains('pz-folds')) dd0.classList.remove('pz-folds');   // (a wider screen's fold, left by a window made narrow)
     // (Mac and iPad landscape too: each slide comes in with its readings tucked, the words whole; they come out on a pull or a tap.)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     if (sheet && dd0.classList.contains('tool-open') && dd0.dataset.openFor !== String(want)) { stopUnder(); dd0.classList.remove('tool-open'); }
     // (2 Nov 2026: an upright phone's card was planned with the last slide's readings travel (--pz-d) still on it, so its tucked height
     // came out with its readings counted in (Varices 2 to 3: 434 px for a 213 px card), it was shut (autoDock), and the layout the shut
@@ -3990,6 +4119,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // could slide shut and out again. Their travel is read for the new readings first, as placeLip does at rest.)
     if (p && splitSheet(dd0) && !dd0.classList.contains('pz-sliding') && dock.lvl === dock.to && !dock.drag) measureUnder(dd0);
     const phoneCap = p ? phoneTextCap(lockKey, H, k) : null;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     if (phoneCap != null) ui.text.style.maxHeight = `${phoneCap.toFixed(1)}px`;
     if (p) autoDock(phoneShut); else if (!low) autoDock(false);
     // A phone held sideways: its card stands level with the data card at the top right (one margin from the top without one), its
@@ -4001,6 +4131,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       pad0 = (readMetric(ui.text, 'offsetLeft') - readMetric(ui.shade, 'offsetLeft')) * k; const tab = ui.shade.querySelector('.pz-tabname') || ui.shade.querySelector('.pz-sitetab:not([hidden])');
       padT = Math.max(pad0, readMetric(tab, 'offsetHeight') ? (readMetric(tab, 'offsetHeight') + 6) * k : 0);
       const top = off(ui.data) ? vm : r(ui.data).top - wr.top;
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       ui.text.style.maxHeight = `${Math.max(0, (H - top - padT - pad0 - vm) / k).toFixed(1)}px`;
     }
     fitCards(ui.text);
@@ -4019,6 +4150,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Folding the instrument behind Show is the last step, below: each new measure starts unfolded. It snaps while the card is
       // measured, so the measure sees where it rests; a tap on Show or Hide then eases it.)
       const canFold = dd.classList.contains('has-tool') && !dd.classList.contains('tool-only') && !dd.classList.contains('tool-lead') && !dd.classList.contains('pz-sheet');   // (a stacked card tucks its readings instead)
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const setFolds = (on) => {
         if (dd.classList.contains('pz-folds') === on) return;   // (unchanged: a pass mid-ease must not cut a Show or Hide short)
         if (on) dd.classList.remove('pz-lt', 'pz-lt2');   // (folded, the compact layout's steps run again from the loosest)
@@ -4044,13 +4176,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // stays stacked and the data card's own fit does the rest.
       // (trim: the words' card's last steps, below. 1: the title one step further down (WIDE.tight); 2: and the CAUSES line gone.)
       let trim = 0;
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', trim ? Math.min(tk, WIDE.tight) : tk); ui.text.style.setProperty('--pz-bk', bk); ui.text.classList.toggle('pz-nocauses', trim > 1); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const title = () => put(1, 1) || put(WIDE.title, WIDE.words);   // (Regular, else Compact)
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const foldH = (s) => colHeight(cw / k, s);
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const stepDk = (s) => { dk = s; ch = foldH(s) * k; };
       // (The words stay Compact while the blocks step down: one size for the words, whatever the data card needs.)
       // (The compact layout steps its blocks tighter instead (.pz-lt, .pz-lt2), never smaller: its lettering stays 12 px, shortFit.)
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const ladder = () => {
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         if (short) { for (const c of ['pz-lt', 'pz-lt2']) { if (below) break; dd.classList.add(c); ch = colHeight(cw / k) * k; below = put(WIDE.title, WIDE.words); } return; }
         for (const s of DK) { if (below) break; stepDk(s); below = put(WIDE.title, WIDE.words); }   // (the data card's blocks a step or two smaller: no further, or the words would squeeze)
       };
@@ -4058,7 +4196,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // step down, then the CAUSES line gone, the blocks stepping again from full size under each (Mohammad, 23 Oct, Sites 4 on a Mac at a
       // larger text size: a tall title and a long CAUSES line left the Gut to heart chart cut off). Only a slide the steps above could not fit
       // comes here, so every slide that fitted stays as it was.
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const squeeze = () => {
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         for (const n of [1, 2]) {
           trim = n; dd.classList.remove('pz-lt', 'pz-lt2'); stepDk(1);
           below = put(WIDE.title, WIDE.words);
@@ -4090,6 +4230,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       }
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
       foldHeld = dd.classList.contains('pz-folds') ? foldKey : null;
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       if (lockKey && !lock) textLock = { key: lockKey, below, dk, folds: dd.classList.contains('pz-folds'), nc: ui.text.classList.contains('pz-nocauses'), vars: ['--pz-tk', '--pz-bk'].map((n) => [n, ts.getPropertyValue(n)]) };
       // (A Gut to heart chart is drawn at its own size, never zoomed by the fit, and has a smallest height. Where the pair is too tall for it
       // even at the smallest steps, the words' card eases up with the data card, its top slipping behind the screen's top if need be, so the
@@ -4110,6 +4251,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         below = isCol;
         if (!dd.classList.contains('pz-hide')) {
           dd.classList.add('pz-hide'); dd.dataset.colswap = '';
+          // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
           colT = setTimeout(() => { colT = 0; if (!ui) return; const mine = 'colswap' in ui.data.dataset; delete ui.data.dataset.colswap; swapNow = true; try { layout(); } finally { swapNow = false; } if (mine) ui.data.classList.remove('pz-hide'); }, 340);
         }
       }
@@ -4121,10 +4263,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (dd.dataset.safe) ui.lip.dataset.safe = dd.dataset.safe; else delete ui.lip.dataset.safe;
     const lipK = below && wideSheet(dd) ? LIP * k : 0;   // (a wide stacked card: its readings' card's tucked edge above it)
     let y = top0 + t?.height + 2 * pad + gap + lipK;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     dd.style.left = below ? `${(sl / k).toFixed(1)}px` : '';
     // (One width on every slide: stacked or at the top right, the data card is always the teaching card's width, whatever it holds.)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     dd.style.width = cw ? `${(cw / k).toFixed(1)}px` : '';
     dd.style.maxWidth = cw ? 'none' : '';   // (no per-content cap: tiles, an instrument or a chart never make it narrower)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     dd.style.top = below ? `${(y / k).toFixed(1)}px` : '';
     dd.style.maxHeight = below ? capOf(dd, (foot - y) / k) : '';
     // (A phone: the data card ends 8 px short of the teaching card (where its glass begins, glassLift), however much it holds: an opened instrument had grown over the words.)
@@ -4143,18 +4288,23 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // readings came out, and its chart snapped to the new size, Sites 3 on an iPhone, 20 Oct. fitCards fits it with --pz-grow at the readings' share (--pz-d),
       // so open or tucked it is fitted against one cap and keeps one size.)
       if (splitSheet(dd)) {
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         const tuck = cs.getPropertyValue('--pz-cap').trim() || 'none';
         const base = (t.top - wr.top) / k - (parseFloat(cs.top) || 0) - glassLift(k) - 8;
         const roomT = Math.floor(base - LIP - (phoneCap != null && !phoneShut ? Math.max(0, phoneFig / k - LIP - 2) : 0)), roomO = Math.floor(base);
         // (No tucked room at all, a tiny screen or a very large text size: the tucked cap is the card's own, as before, and the opened card's
         // room still caps it, so it never runs under the words. The same cap open or tucked either way, so the fit never changes on opening.)
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         const capT = roomT > 0 ? (tuck === 'none' ? `${roomT}px` : `min(${tuck}, ${roomT}px)`) : tuck;
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         if (roomO > 0) dd.style.maxHeight = capT === 'none' ? `${roomO}px` : `min(calc(${capT} + var(--pz-grow, 0px)), ${roomO}px)`;
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       } else if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
     // (A wider screen: a data card at the top right ends 8 px above the colour key standing on the nav pill (a phone held sideways had covered it).)
     if (!p && !below && ui.fk.dataset.empty == null && !ui.bar.hidden) {
       const f = ui.fk, was = f.hidden; f.hidden = false; const q = readBox(f); f.hidden = was;
       const cs = readStyle(dd), room = Math.floor((q.top - wr.top) / k - (parseFloat(cs.top) || 0) - 8 - (lipOn(dd) ? LIP : 0));
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       if (q.width && room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`;
     }
     if (below !== isCol) { void readMetric(dd, 'offsetWidth'); dd.style.transition = ''; }
@@ -4177,9 +4327,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         if (z >= 1) break;
         const room = Math.max(wordsHeightAt(z), have - cut);
         if (!(room < have - 0.5)) break;
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         wordsCap = room; ts.maxHeight = `${room.toFixed(1)}px`;
         fitDone.delete(ui.text); fitCards(ui.text); t = r(ui.text);
         y = top0 + t.height + 2 * pad + gap + lipK;
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         dd.style.top = `${(y / k).toFixed(1)}px`; dd.style.maxHeight = capOf(dd, (foot - y) / k);
         fitDone.delete(ui.data); fitCards(ui.data);
       }
@@ -4201,7 +4353,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       shift = Math.max(0, Math.min((H - stackH) / 2 - top0, foot - top0 - stackH));
       // (Centred once per slide: while only the data card's readings change (a time-lapse, a what-if slider), the pair keeps the place
       // it came in at, so the words never ride up and down with a reading that measured a pixel taller.)
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       if (lockKey && shiftLock?.key === lockKey && readingsOnly()) shift = shiftLock.v; else if (lockKey) shiftLock = { key: lockKey, v: shift };
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       if (shift > 0.5) { dd.style.top = `${((y + shift) / k).toFixed(1)}px`; dd.style.maxHeight = capOf(dd, (foot - y - shift) / k); } else shift = 0;
       // (How far the words rise with the readings all out: the readings' whole travel, so the instrument card never moves (Mohammad, 22 Oct:
       // "It's ok if the top of the teaching card slips behind upper part of the screen as the info below is more pertinent").)
@@ -4219,8 +4373,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // top and the foot; the deck's tab sits in its taller top padding, padT.)
     const lvl = cardOn && low && t ? (d ? d.top - wr.top : Math.max(vm, (H - t.height - pad - padT) / 2)) + padT
       : cardOn && t ? (d && !below ? d.top - wr.top : off(dd) ? Math.max(sl, (H - t.height - 2 * pad) / 2) : top0 + shift) + pad : null;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     ts.top = lvl != null ? `${(lvl / k).toFixed(1)}px` : ''; ts.bottom = ts.marginBlock = lvl != null ? 'auto' : '';
     if (lvl != null) ts.marginBlock = '0';
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     ts.maxHeight = lvl != null ? `${Math.min((H - lvl - pad - (low ? vm : sl)) / k, wordsCap).toFixed(1)}px` : phoneCap != null ? `${phoneCap.toFixed(1)}px` : '';   // (one margin at the bottom too)
     if (t) t = r(ui.text);   // (always: the words may already stand there, and the glass is sized to where they are)
     // The words sit on a frosted glass pane: the figure shows through it blurred, behind a crisp edge with a soft
@@ -4230,7 +4386,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const L = t ? t.right - wr.left : 0, B = t ? H - readMetric(ui.text, 'offsetTop') * k : 0;
     // (The words' card: as far past the words on the right as its left edge is before them.)
     const card = cardOn && t ? L + pad - sl : 0;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     ui.shade.style.width = !p && t ? `${(card || L + 36) / k}px` : '';
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     ui.shade.style.height = !p && cardOn && t ? `${(t.height + pad + padT) / k}px` : '';
     // (A phone's glass reaches 16 px above the words, or the deck's tab and 8 px more: the tab never meets the title.)
     // (The level's tab and the deck's share the glass's top edge; where they would come within 8 px of each other, a long deck
@@ -4240,13 +4398,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const lift = p && t ? glassLift(k) : 16;
     // (The words' rect carries the stacked pair's rise, --pz-rise, which the glass takes by its own translate: read back without it.)
     const lf = (parseFloat(ui.text.style.getPropertyValue('--pz-rise')) || 0) * k;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     ui.shade.style.top = p && t ? `${readMetric(ui.text, 'offsetTop') - lift}px` : cardOn && t ? `${(t.top - wr.top - padT + lf) / k}px` : '';
     if (ui.shade.style.getPropertyPriority('opacity') !== 'important') ui.shade.style.opacity = t ? '1' : '0';   // (not over a throw's own: card-throw.js writes it important while it moves the glass or holds it out)
     ui.safe.hidden = !t;
     ui.safe.dataset.safe = p ? 'bottom' : 'left';
     frameL = !p && t ? (card ? sl + card + 24 : L + 48) : 0;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     ui.safe.style.width = p ? '' : `${frameL / k}px`;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     ui.safe.style.height = p ? `${(B + Math.max(34, lift * k + 4)) / k}px` : '';
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const set = (k, v) => { const px = `${Math.max(0, Math.round(v))}px`; insets.put(k, px); };
     set('--pz-l', frameL);
     set('--pz-r', !p && d ? W - (readMetric(ui.data, 'offsetLeft') + dock.to * dv[0]) * k + 8 : 0);   // (where the card comes to rest: past its entry shift, at its dock)
@@ -4270,16 +4432,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A row of choices is one row: where its full names would wrap (five treatments on a 375 to 430 px iPhone), each button that has
   // one takes its compact label (the full name stays its accessible name and tooltip), never a second row or a smaller size.
   function abShort(root, may) {
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     for (const row of root.querySelectorAll('.pz-ab')) {
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const bs = [...row.querySelectorAll('.pz-abb[data-short]')];
       if (!bs.length) continue;
       for (const b of bs) b.textContent = b.dataset.full;
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const tops = () => new Set([...row.querySelectorAll('.pz-abb')].map((b) => Math.round(readMetric(b, 'offsetTop')))).size;
       if (may && (tops() > 1 || readMetric(row, 'scrollWidth') > readMetric(row, 'clientWidth') + 1)) for (const b of bs) b.textContent = b.dataset.short;
     }
     // (A phone on its side: the row of choices at the largest size that holds it on one line, never under 12 px on the screen nor
     // over its own size; the card's fit, which took the four lens buttons to 11 px at 150 %, never sets it.)
     if (!ui.root.classList.contains('low')) return;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     for (const row of root.querySelectorAll(':scope > .pz-ab')) {
       const b = row.querySelector('.pz-abb'), host = row.parentElement;
       if (!b || !readMetric(host, 'clientWidth')) continue;
@@ -4287,6 +4453,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const nat = readBox(row).width + 2, cs = readStyle(host), avail = readMetric(host, 'clientWidth') - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
       row.style.flexWrap = row.style.width = row.style.maxWidth = '';
       const fs = parseFloat(readStyle(b).fontSize) || 12;
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       row.style.zoom = String(Math.max(12 / fs, Math.min(1, avail / nat)).toFixed(3));
     }
   }
@@ -4310,9 +4477,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // bounced as the days passed, Endoscopy 3 on an iPhone, 18 Oct.)
     if (held && (held.shut || gone || readingsOnly())) { phoneShut = held.shut; phoneFig = held.fig; return held.cap; }
     phoneShut = false; phoneFig = FIG_MIN(H);
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const natural = (el, st, fit = 0) => {   // (as it stands unfitted and uncapped; or at that fit)
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const sv = [st.maxHeight, st.getPropertyValue('--pz-fit'), st.getPropertyValue('--pz-z')];
       st.maxHeight = 'none'; st.removeProperty('--pz-fit'); st.removeProperty('--pz-z');
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       if (fit) st.setProperty('--pz-fit', String(fit));
       const v = readMetric(el, 'offsetHeight') * k;
       st.maxHeight = sv[0]; if (sv[1]) st.setProperty('--pz-fit', sv[1]); else st.removeProperty('--pz-fit'); if (sv[2]) st.setProperty('--pz-z', sv[2]);
@@ -4334,8 +4504,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const line = ui.text.querySelector('.pz-line, p'), body = line ? parseFloat(readStyle(line).fontSize) : 0;
     // (Measured at that size, not scaled from the full size: zoomed down, the lines take more words each and the card comes
     // out shorter than its full height times the zoom. Scaled, HVPG 5 on a 667 px iPhone asked 263 px for words that take 230.)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const textAt = (z) => (z < 1 ? (() => {
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const sv = [ts.maxHeight, ts.getPropertyValue('--pz-fit'), ts.getPropertyValue('--pz-z')];
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       ts.maxHeight = 'none'; ts.removeProperty('--pz-z'); ts.setProperty('--pz-fit', String(z));
       const v = readMetric(ui.text, 'offsetHeight') * k;
       ts.maxHeight = sv[0]; if (sv[1]) ts.setProperty('--pz-fit', sv[1]); else ts.removeProperty('--pz-fit'); if (sv[2]) ts.setProperty('--pz-z', sv[2]);
@@ -4352,12 +4525,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Never folded to its header behind Show any more: Mohammad, 17 Oct, "The data card should not glitch like this on the iPhone".)
     const dcs = readStyle(dd), dtop = (parseFloat(dcs.top) || 0) * k;
     // (The cap with the readings tucked: out, it grows by their height, styles/app.css .pz-sheet.has-tool.tool-open.)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const dmax = (() => { const sv = ds.maxHeight; ds.maxHeight = ''; const m = readStyle(dd).maxHeight; ds.maxHeight = sv; if (m === 'none') return Infinity; let v = 0; m.replace(/(-?[\d.]+)(%|px)/g, (_, n, u) => { v += u === '%' ? n * H / 100 : n * k; }); return v; })()
       - (splitSheet(dd) && dd.classList.contains('tool-open') && dd.classList.contains('has-tool') ? (parseFloat(ds.getPropertyValue('--pz-d')) || 0) * k : 0);
     const reach = glassLift(k) * k;
     let both = H - foot - reach - 8 - dtop - FIG_MIN(H);
     // (Measured as the slide arrives, partly open with its sheet's edge below it, whatever the reader opened: the part's ease held
     // back so the measure sees where it rests.)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const arriving = (fit = 0) => {
       const p = dd.classList.contains('pz-sheet') && dd.classList.contains('tool-open') ? ui.partOf() : null;
       if (!p) return natural(dd, ds, fit) + lip;
@@ -4396,6 +4571,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const cap = Math.max(120, shut
       ? Math.min(room - GRIP * k, Math.max(Math.min(mine, room - dtop - Math.min(data, dmax + sheetLip)), compact))
       : reg ? regular : Math.min(room - dtop - data, Math.max(Math.min(mine, both - data), floorCap))) / k;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     if (key) phoneLock = { key, cap, shut, data: full, fig: phoneFig };   // (data: at full size, as the check above measures it)
     return cap;
   }
@@ -4416,23 +4592,32 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!f) return;
     const cs = readStyle(f), fs = parseFloat(cs.fontSize) || 0, ls = parseFloat(cs.letterSpacing) || 0;
     if (!fs) return;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     if (!glyphsReady() && !chipWait) { chipWait = true; loadGlyphs().then(() => restPass(() => { if (ui && !ui.data.hidden) chipRoom(ui.data); })).catch(() => {}); }
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const w = Math.max(...['Show', 'Hide'].map((t) => {
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const x = cs.textTransform === 'uppercase' ? t.toUpperCase() : t;
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       return (glyphsReady() ? textWidth(x, { weight: cs.fontWeight, size: fs }) : x.length * fs * 0.68) + ls * x.length;
     }));
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     dd.style.setProperty('--pz-chip-em', (w / fs).toFixed(3));
   }
   function colHeight(w, dk = 1) {
     // (Unfitted, its zoom (--pz-z) cleared with the fit: kept, the card measured at the last fit's zoom, so the words' step depended on
     // what was fitted before (a live text-size change took a larger title than a fresh load at that size).)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const d = ui.data, ds = d.style, sv = [d.className, ds.width, ds.maxHeight, ds.getPropertyValue('--pz-fit'), ds.getPropertyValue('--pz-dk'), ds.getPropertyValue('--pz-z'), ds.getPropertyValue('--pz-u')];
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     d.classList.add('col'); if (dk < 1) ds.setProperty('--pz-dk', dk); else ds.removeProperty('--pz-dk'); ds.width = `${w}px`; ds.maxHeight = 'none'; ds.removeProperty('--pz-fit'); ds.removeProperty('--pz-z');
     // (A stacked card with its readings tucked, their card's foot below it: the room it keeps; brought out, the pair rises to make room for
     // them where the screen is short, slip.lift.)
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const sheet = d.classList.contains('pz-sheet'), parts = sheet ? [...d.children].filter((c) => c.matches('.pz-tiles')) : [], was = parts.map((c) => c.style.display);
     if (sheet) { d.classList.remove('tool-open', 'pz-sliding'); ds.removeProperty('--pz-u'); for (const c of parts) c.style.display = 'none'; }
     const hh = readMetric(d, 'offsetHeight') + (sheet ? LIP : 0);
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     parts.forEach((c, i) => { c.style.display = was[i]; });
     d.className = sv[0]; ds.width = sv[1]; ds.maxHeight = sv[2]; if (sv[3]) ds.setProperty('--pz-fit', sv[3]); if (sv[4]) ds.setProperty('--pz-dk', sv[4]); else ds.removeProperty('--pz-dk'); if (sv[5]) ds.setProperty('--pz-z', sv[5]); if (sv[6]) ds.setProperty('--pz-u', sv[6]);
     ui.lipMO?.takeRecords();
@@ -4454,7 +4639,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (q.width) { pill.t = Math.min(pill.t, q.top - wr.top); pill.l = Math.min(pill.l, q.left - wr.left); }
     }
     // Each obstacle splits a rectangle it overlaps into the open parts left, right, above and below it.
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const split = (q, o) => (o.r <= q.l || o.l >= q.r || o.b <= q.t || o.t >= q.b ? [q]
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       : [{ ...q, r: o.l - G }, { ...q, l: o.r + G }, { ...q, b: o.t - G }, { ...q, t: o.b + G }].filter((x) => x.r - x.l > 0 && x.b - x.t > 0));
     // First choice: the space between the words' card and the data card, full height (clear of the controls), so a subject
     // sits centred between the cards rather than in the strip under a short corner card.
@@ -4471,6 +4658,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const onFonts = () => { if (ui) layout(); };
   // Where the cards stand, rounded: the camera framed this space last; the same space needs no second glide.
   let framedSig = '';
+  // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   const cardSig = () => (ui ? [ui.text, ui.data].map((el) => (el.hidden ? '-' : ((r) => [r.left, r.top, r.width, r.height].map((v) => Math.round(v / 4)).join())(readBox(el)))).join('|') : '');
   function reframe(ms) {
     const s = figOf(shown.i);
@@ -4497,8 +4685,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const camKind = () => { const s = figOf(shown.i); return s.visual ? s.cam : s.cam || 'fit'; };
   const camFollowOk = () => !!ui && !!shown && shown.i === want && shown.gen === gen && !(busy && !playing) && !leaving && !booting && !reduce.matches
     && dock.to === 0 && dock.lvl === 0 && !zoomOn() && !reframeT && !(cath.on && cath.cam) && !procRun?.running
+    // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
     && !(push && push.i === shown.i && push.until > performance.now()) && !store.get().lobule && ((c) => !!c && !LOBULE_CAM.test(c))(camKind());
   // (Where the slide's camera would frame the cards as they stand now: the handle placed at the card's foot first, as it rests.)
+  // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   const camAim = () => { placeLip(); const s = figOf(shown.i); return stage.aimView?.(() => frameTo(camKind(), s, 400, { steady: true })); };
   // From the view now, framed for the readings as they rest (open: out), to the framing for the cards as they stand now (the other state).
   function camFollow(vNow, open) {
@@ -4534,11 +4724,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function fitAround(s, cam, ms) {
     framedSig = cardSig();
     // (Steady: timed so a slow frame at its start holds the glide back instead of carrying it part of the way at once, glide-clock.js.)
+    // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
     if (cath.on && cath.cam) stage.cathFocus(cath.cam, ms, { both: true, steady: true });
     else if (procRun?.refit(ms)) return;   // (a procedure holds its own shot: the cards changing frame that shot again)
     else if (cam && !LOBULE_CAM.test(cam) && !store.get().lobule) {
       // (While a time-lapse pushes, a refit (the cards moved, the screen turned) keeps pushing, to the new fit, over the seconds left.)
       const left = push && push.i === shown?.i ? push.until - performance.now() : 0;
+      // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
       frameTo(cam, s, left > 0 ? left : ms, left > 0 ? { drift: true } : { steady: true });
     }
   }
@@ -4599,10 +4791,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let labelsFor = '';
   function setLabels(unchanged = false) {
     const k = (phone() ? 1.15 : clamp(Math.min(innerHeight / 540, innerWidth / 960), 1.25, 2.4));
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const key = `${k}|${stage.labelScale()}`;
     if (unchanged && key === labelsFor) return;
     labelsFor = key;
     stage.setProjection(k);
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     { const lv = String(Math.min(k, 2.2) * stage.labelScale()); document.documentElement.style.setProperty('--label-k', lv); document.documentElement.style.setProperty('--label-scale', String(Math.max(1, Math.min(k, 2.2) / 1.5) * stage.labelScale())); }   // (font roles: the projector's size over Explore's, never below it)
     labelling = true; dispatchEvent(new Event('pps:labelscale')); labelling = false;
   }
@@ -4634,6 +4828,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function restRect(el) {
     let dx = 0, dy = 0, left = 0;
     for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const run = readAnims(n).filter((a) => a.playState === 'running' && Number.isFinite(readTiming(a.effect).endTime));
       if (!run.length) continue;
       for (const a of run) left = Math.max(left, readTiming(a.effect).endTime - (a.currentTime || 0));
@@ -4643,11 +4838,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       dx += m.e * z; dy += m.f * z;
     }
     const r = readBox(el);
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     return { top: r.top - dy, right: r.right - dx, height: r.height, width: r.width, left };
   }
   // The pill's width, for the words' last line to keep clear of (--pz-pill-w); then the words keep clear of it (clearPill).
   function placeBar() {
     if (!ui) return;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     if (phone() && readMetric(ui.bar, 'offsetWidth') && readMetric(ui.bar, 'offsetWidth') !== pillW) { pillW = readMetric(ui.bar, 'offsetWidth'); app.style.setProperty('--pz-pill-w', `${pillW}px`); }
     clearPill();
     placeScales();
@@ -4680,8 +4877,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // eased by layout: its laid-out width is the first word's it stood under, kept until the pill is built again.
   function pzsThumb(el, on) {
     const w = readMetric(on, 'offsetWidth');
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     if (!el._pzsW0 || el.classList.contains('pzs-new')) { el._pzsW0 = w; el.style.setProperty('--pzs-w0', `${w}px`); }
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     el.style.setProperty('--pzs-x', `${readMetric(on, 'offsetLeft')}px`);
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     el.style.setProperty('--pzs-s', (w / el._pzsW0).toFixed(4));
   }
   // The selected word, and the soft inner pill eased under it (as Explore's selection eases from one word to the next).
@@ -4693,6 +4893,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const want = k === 'sinusoid' && !el.querySelector('[data-scale="sinusoid"]') ? 'lobule' : k;
     for (const b of el.querySelectorAll('button')) { const yes = b.dataset.scale === want; b.setAttribute('aria-pressed', String(yes)); if (yes) on = b; }
     if (on) pzsThumb(el, on);
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     if (el.classList.contains('pzs-new')) { const nf = frameFor('scale select'); nf(() => nf(() => el.classList.remove('pzs-new'))); }
   }
   function placeScales() {
@@ -4704,9 +4905,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (p) {
       const wr = readBox(wrap), k = wr.width / (readMetric(wrap, 'clientWidth') || wr.width) || 1, r = restRect(ui.shade);
       if (r.width) {
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         el.style.setProperty('--pzs-b', `${Math.max(0, (wr.bottom - r.top) / k + 8).toFixed(1)}px`);
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         el.style.setProperty('--pzs-cx', `${((r.left + r.width / 2 - wr.left) / k).toFixed(1)}px`);
       }
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     } else if (readMetric(ui.bar, 'offsetWidth')) el.style.setProperty('--pzs-r', `${readMetric(ui.bar, 'offsetWidth')}px`);
     const on = el.querySelector('[aria-pressed="true"]');
     if (on) pzsThumb(el, on);
@@ -4789,6 +4993,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const text = ui.text, gap = text.querySelector('.pz-pillgap'), was = text.querySelector('.pz-pillclr');
     let end = null, box = null;
     if (phone() && !text.hidden) {
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const shown = (c) => readBox(c).height > 0, last = [...text.children].filter(shown).at(-1);   // (an svg has no offsetHeight)
       const tail = last;
       // (A colour key docked at the words' bottom-left (figure-key.js) takes a row of its own beside the pill: the words end above it.)
@@ -4798,11 +5003,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const wr = restRect(ui.root), k = wr.width / (readMetric(ui.root, 'clientWidth') || wr.width) || 1, bar = ui.bar;
       const reach = readMetric(bar, 'offsetParent') && readMetric(bar, 'offsetParent') === readMetric(text, 'offsetParent') ? readMetric(text, 'offsetTop') + readMetric(text, 'offsetHeight') - readMetric(bar, 'offsetTop')
         : (restRect(text).top + readMetric(text, 'offsetHeight') * k - readBox(bar).top) / k;
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       text.style.setProperty('--pz-reach', `${Math.max(0, Math.ceil(reach) + 3)}px`);
       // A box ends 8 px above the pill on a tablet, measured to the fraction (offsetTop rounds; the rounded reach had left it at 5,
       // sweep 03 #23). A phone's
       // keeps the reach's 3 px: its words are fitted to the last pixel, and 5 more cost them a size step (Right heart 7 at 390
       // went from 0.70 to 0.58 and its What-if slider from 236 to 56 px; sweep 01 review).
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       text.style.setProperty('--pz-reach-box', ui.root.classList.contains('tab') ? `${Math.max(0, (restRect(text).top + restRect(text).height - restRect(bar).top) / k + 8).toFixed(2)}px` : `${Math.max(0, Math.ceil(reach) + 3)}px`);
     }
     fitKey();
@@ -4818,15 +5025,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     let lo = Math.floor(maxW / 2), hi = Math.floor(maxW);
     while (hi - lo > 2) {
       const mid = (lo + hi) >> 1;
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       fk.style.setProperty('--pz-fk-room', `${mid}px`);
       if (readMetric(fk, 'offsetHeight') > h0 + 1) lo = mid; else hi = mid;
     }
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     fk.style.setProperty('--pz-fk-room', `${hi}px`);
   }
   // A phone's docked colour key and the nav pill never overlap. It sits on one line beside the pill when it fits; else on two lines
   // beside it (fk-two, as tall as the pill's row); else on its own row just above the pill's row (fk-up; a 320 px phone), one line,
   // shrunk to the card's width if even that is too narrow. The words end above whatever the key takes (--pz-fkrow).
   function fitKey() {
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const fk = ui.fk, root = ui.root, set = (two, up, wrap = false, flow = false, short = false) => { root.classList.toggle('fk-two', two); root.classList.toggle('fk-up', up); root.classList.toggle('fk-wrap', wrap); root.classList.toggle('fk-flow', flow); root.classList.toggle('fk-short', short); };
     const on = phone() && !ui.text.hidden && fk.dataset.empty == null;
     if (!on) { set(false, false); return; }
@@ -4842,6 +5052,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     else if (root.classList.contains('tab')) {
       // (An upright iPad has the width for the key on its own row above the pill, one line across the card, rather than two lines
       // squeezed beside it: 17 Oct design review. Wrapped, and balanced, only if even the card's width is too narrow.)
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       if (w > full) fk.style.setProperty('--pz-fk-room', `${Math.floor(full)}px`);
       set(false, true, w > full);
       if (w > full) balanceKey(fk, full);
@@ -4852,11 +5063,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // took a whole line from the words and left the room beside the pill empty: Mohammad, 20 Oct, TIPS Doppler 3 on an iPhone,
       // "The legend of the lens could be on two lines ... Can use abbreviations".)
       const sh = !!fk.querySelector('.pz-lk-s');
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const two = (flow, short) => { set(true, false, false, flow, short); fk.style.setProperty('--pz-fk-room', `${Math.floor(room)}px`); return readMetric(fk, 'scrollWidth') <= room + .5 && readMetric(fk, 'offsetHeight') <= barH + 1.5; };
       if (two(false, false) || two(true, false) || (sh && (two(false, true) || two(true, true)))) {
         balanceKey(fk, room); row = Math.max(0, readMetric(fk, 'offsetHeight') - barH) + 2; }
       else {
         // (Wider than the card too: wrapped to its width, at its own size; it had been scaled down, its words under 12 px.)
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         if (w > full) fk.style.setProperty('--pz-fk-room', `${Math.floor(full)}px`);
         set(false, true, w > full);
         if (w > full) balanceKey(fk, full);
@@ -4864,6 +5077,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       }
     }
     fk.hidden = was;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     ui.text.style.setProperty('--pz-fkrow', `${row}px`);
   }
   // A phone held sideways: the colour key stands on the nav pill at the lower right, beside the teaching card. A key too long for
@@ -4871,17 +5085,22 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // the room under the data card), where that clears the card and the data card; else the words end above it, fitted a little smaller (Mohammad, 18 Oct, "wrap first": Pre-hepatic 6 and TIPS
   // Doppler 3 at 667 x 375 ran the key under the words). True when the words' room was cut, so they are fitted again.
   function lowKey(t, d, padT, pad0, vm, wr, H, k) {
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const fk = ui.fk, root = ui.root, plain = () => { root.classList.remove('fk-side'); fk.style.removeProperty('--pz-fk-room'); };
     plain();
     if (fk.dataset.empty != null) return false;
     const was = fk.hidden; fk.hidden = false;
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const card = { left: t.left - pad0, right: t.right + pad0, top: t.top - padT, bottom: t.bottom + pad0 };
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const hits = (q, a, g) => !!a && Math.min(q.right, a.right) - Math.max(q.left, a.left) > -g && Math.min(q.bottom, a.bottom) - Math.max(q.top, a.top) > -g;
     let q = readBox(fk), cut = false;
     if (hits(q, card, 6)) {
       const room = Math.floor((q.right - card.right - 8) / k);
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       root.classList.add('fk-side'); fk.style.setProperty('--pz-fk-room', `${room}px`);
       q = readBox(fk);
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const lines = new Set([...fk.querySelectorAll(':scope > b, .pz-lens-k')].map((e) => Math.round(readBox(e).top))).size;
       if (room > 0 && lines <= 2 && readMetric(fk, 'scrollWidth') <= readMetric(fk, 'clientWidth') + .5 && !hits(q, card, 6) && !hits(q, d, 4)) balanceKey(fk, room);
       else {
@@ -4890,6 +5109,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         // may stand on the card's glass below them, as an upright phone's stands inside its card.)
         const foot = q.top - wr.top - 4, top = d ? d.top - wr.top + padT : vm + padT;
         const h = d ? foot - top : Math.min(foot - top, 2 * (foot + pad0) - H + pad0 - padT);
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         ui.text.style.maxHeight = `${Math.max(0, h / k).toFixed(1)}px`; cut = true;
       }
     }
@@ -4985,6 +5205,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     pzWidth = w;
     try { localStorage.setItem(PW, w); } catch (e) { caught('presenter:4970', e); /* storage unavailable */ }
     if (!ui) { app.style.setProperty('--pz-wk', String(PW_K[w])); return; }
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const apply = () => { app.style.setProperty('--pz-wk', String(PW_K[pzWidth])); layout(); setLabels(); };
     if (phone() || ui.text.hidden || reduce.matches) { apply(); return; }
     clearTimeout(widthT);
@@ -4994,6 +5215,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       widthT = 0;
       if (!ui) { widthOwn = false; return; }   // (the talk ended inside the 240 ms: its width is set already, and Explore keeps its own label size)
       apply();
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       nextFrame(() => { if (widthT || !widthOwn) return; widthOwn = false; ui?.text.classList.remove('pz-leave'); });
     }, 240);
   }
@@ -5117,18 +5339,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (out && throwing(ui.text)) {
       // (thrown: already going on out from the finger, card-throw.js. A card the swipe took along that the new slide keeps (the same
       // data card) is not thrown: it eases back from the finger to its place.)
+      // alloc-rare: a swipe is let go: once per gesture
       for (const el of els) if (!throwing(el) && !throwPinned(el) && el.style.transform) { const o0 = parseFloat(el.style.opacity); el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); el.animate?.([{ transform: `translateX(${x}px)`, opacity: Number.isFinite(o0) ? o0 : 1 }, { transform: 'none', opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
       return;
     }
     if (swipeHeld({ gone, changing: changing(), out })) {
       // (The slide is on its way: held here until its leave comes (wordsOut, pageHand); one that never comes eases back.)
       clearTimeout(pageHeld?.t);
+      // alloc-rare: a swipe is let go: once per gesture
       pageHeld = { x, o, els, t: setTimeout(() => { if (pageHeld) pageHand(false); }, 600) };
       return;
     }
     for (const el of els) { el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); }
     if (out) pageThrow(x, els);
     else if (Math.abs(x) > 0.5 || o < 0.999) {
+      // alloc-rare: a swipe is let go: once per gesture
       for (const el of els) el.animate?.([{ transform: `translateX(${x}px)`, opacity: o }, { transform: 'none', opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
     }
   }
@@ -5138,7 +5363,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let pageThrown = null;
   function pageThrow(x, els) {
     const d0 = ui.text.style.getPropertyValue('--pz-turn-d'), d = parseFloat(d0) || 20;
+    // alloc-rare: a swipe is let go: once per gesture
     pageThrown = d0.trim();
+    // alloc-rare: a swipe is let go: once per gesture
     for (const el of els) { el.style.setProperty('--pz-turn-d', `${(Math.abs(x) + d).toFixed(1)}px`); el.classList.add('pz-thrown'); }
   }
   function pageCaught() {
@@ -5156,6 +5383,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     for (const el of h.els) { el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); }
     if (out) pageThrow(h.x, h.els);
     else if (Math.abs(h.x) > 0.5 || h.o < 0.999) {
+      // alloc-rare: a swipe is let go: once per gesture
       for (const el of h.els) el.animate?.([{ transform: `translateX(${h.x}px)`, opacity: h.o }, { transform: 'none', opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
     }
   }
@@ -5166,6 +5394,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const dx = t.clientX - g.x, dy = t.clientY - g.y, now = performance.now();
     if (!pull) {
       if (Math.abs(dx) < 8 || Math.abs(dx) <= SWIPE_RATIO * Math.abs(dy) || !pullCan(dx)) return;
+      // alloc-rare: a swipe takes hold: once per gesture
       pull = { on: true, x: 0, pts: [] };
     }
     ptPush(pull.pts, t.clientX, now);
@@ -5265,6 +5494,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!a) return;
     // (The gesture's one action runs as its own task right after this event, where the slide's cards are measured once before they
     // move (rest-pass.js): the wheel's events, dozens a second, read nothing.)
+    // alloc-rare: the wheel gesture's one action: once per gesture
     restPass(() => wheelAct(a));
   }, { passive: false, capture: true });
   function wheelAct(a) {
@@ -5339,10 +5569,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (e.touches.length > 1) abort();   // (a second finger: a drag under way lands first)
       if (e.touches.length !== 1 || !deck || ui?.root.classList.contains('pz-wide')) { reset(); return; }   // (Mac and iPad landscape: the card never closes to the side, Mohammad, 22 Oct)
       const t = e.touches[0], vec = dockRest(), k = readBox(wrap).width / (readMetric(wrap, 'clientWidth') || 1) || 1;
+      // alloc-rare: once per gesture (a finger landing or lifting), not per move
       g = { x: t.clientX, y: t.clientY, t: performance.now(), lvl0: dock.lvl, vec, k, on: false, last: 0 };
     }, { passive: true });
     on('touchmove', (e) => {
       if (!g) return;
+      // alloc-rare: once per gesture (a finger landing or lifting), not per move
       if (e.touches.length > 1) { const gg = g; reset(); restPass(() => landCut(gg)); return; }   // (landed between frames: a touch move lays nothing out)
       const t = e.touches[0], dx = t.clientX - g.x, dy = t.clientY - g.y, vert = !!g.vec[1];
       const along = vert ? dy : dx, across = vert ? dx : dy, comp = vert ? g.vec[1] : g.vec[0];
@@ -5371,6 +5603,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const dt = performance.now() - gg.t;
       if (gg.on) {
         // A quick flick (over 0.5 px/ms across the last 100 ms, just before letting go) decides by its direction; otherwise how far it got.
+        // alloc-rare: once per gesture (a finger landing or lifting), not per move
         const now = performance.now(), end = gg.pts.at(-1), from = gg.pts.find((q) => end[0] - q[0] <= 100) || end;
         const v = end[0] > from[0] ? (end[1] - from[1]) / (end[0] - from[0]) : 0;
         const flick = now - end[0] < 100 && Math.abs(v) > 0.5 ? Math.sign(v / gg.vec[gg.vec[1] ? 1 : 0]) : 0;   // (toward docking is +1)
@@ -5399,11 +5632,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // is taken up where it stands.)
     const grab = (x, y, open) => {
       const p = part(), split = splitSheet(el);
+      // alloc-rare: once per gesture (a finger landing or lifting), not per move
       return { x, y, p, open, shown: open, split, u0: split ? underU(el) : open ? 1 : 0, full: split ? slip.d || readMetric(p, 'scrollHeight') : Math.min(readMetric(p, 'scrollHeight'), innerHeight * 0.4), on: false, pts: [] };   // (open: its part shown, the tiles under a lead instrument or the instrument over its tiles)
     };
     // (A card that folds in place, not a sheet (an iPad upright, a short screen): the part takes its full height once as the finger
     // starts, as a tap on Show gives the card its new size at once, and follows the finger by opacity and a short slide only, its
     // height written again once at release (settle, setFold). No height is ever written per move.)
+    // alloc-rare: once per gesture (a finger landing or lifting), not per move
     const take = (gg) => { gg.on = true; if (gg.split) { cancelFrame(slip.raf); slideTell(); } else { gg.p.style.transition = 'none'; gg.xf = true; gg.fade = el.classList.contains('pz-folds'); if (gg.fade) gg.p.style.opacity = String(gg.u0); gg.p.classList.add('pz-follow'); } if (gg.split && (gg.u0 === 0 || gg.u0 === 1)) camGrab(); hold(true); };   // (camGrab: the view follows the finger, from rest)   // (fade: a part folded away fades in and out; a sheet's tiles, already in view, only slide)
     // (dy: how far the finger has moved since the part began to follow it, down positive.)
     const foldFollow = (gg, dy) => {
@@ -5451,6 +5686,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const gg = g; g = null;
       if (!gg?.on) return;
       e.stopImmediatePropagation();
+      // alloc-rare: once per gesture (a finger landing or lifting), not per move
       const last = gg.pts.at(-1), from = gg.pts.find((q) => last[0] - q[0] <= 100) || last;
       const v = last[0] > from[0] ? (last[1] - from[1]) / (last[0] - from[0]) : 0;
       // (A card folded behind Show has nothing to follow the finger: a pull of 24 px or more opens it, a push shuts it.)
@@ -5484,7 +5720,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         // (The view as the readings rest now, to follow from: camFollow. Already following (a finger let go), it follows on.)
         const vNow = !stage.following?.() && (u0 === 0 || u0 === 1) && camFollowOk() ? stage.viewNow?.() : null;
         stopUnder();
+        // alloc-rare: a card is built or tapped open: once per tap, not per frame
         data.classList.toggle('tool-open', open); fold.setAttribute('aria-expanded', String(open)); fold.textContent = open ? 'Hide' : 'Show';
+        // alloc-rare: a card is built or tapped open: once per tap, not per frame
         data.dataset.openFor = String(want);
         delete data.dataset.folding; fitDone.delete(data); layout();
         measureUnder(data);
@@ -5494,9 +5732,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         clearTimeout(foldT); foldT = setTimeout(foldStill, reduce.matches ? 0 : 450);
         return;
       }
+      // alloc-rare: a card is built or tapped open: once per tap, not per frame
       const p = partOf(), cs = readStyle(p), from = ['maxHeight', 'opacity', 'marginTop', 'marginBottom'].map((n) => [n, cs[n]]);
       p.style.transition = 'none'; for (const [n] of from) p.style[n] = '';
+      // alloc-rare: a card is built or tapped open: once per tap, not per frame
       data.classList.toggle('tool-open', open); fold.setAttribute('aria-expanded', String(open)); fold.textContent = open ? 'Hide' : 'Show';
+      // alloc-rare: a card is built or tapped open: once per tap, not per frame
       data.dataset.openFor = String(want);   // (the slide it was tapped on: kept open there, layout and phoneTextCap)
       delete data.dataset.folding; fitDone.delete(data); layout();
       // (Then back to where the part stood, from which it eases to its rest.)
@@ -5622,6 +5863,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (1 Nov 2026, evening: the shade is on the GPU glass again, as every other card, now that no glass ever goes back to the browser's blur
     // (app.css: where the figure's canvas cannot take it, the shade turns solid; no backdrop-filter is declared anywhere) and the shade keeps one
     // layer of its own throughout, so the swap that lost its picture on an iPhone no longer happens.)
+    // alloc-rare: a card is built or tapped open: once per tap, not per frame
     const glass = stage.cardGlass?.({ find: () => [shade, data, vcase, bar, scl, fk, ...railGhosts()], watch: [root, shade], before: shade, low: shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), shift: riseShift }) || null;
     return { root, shade, safe, load, text, data, lip, lipRO, lipMO, shadeMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
@@ -5636,6 +5878,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const cold = document.documentElement.dataset.boot === 'hold';
     if (cold) cover.classList.add('cut');
     cover.classList.add('on');
+    // alloc-rare: boot cover: once per load
     if (cold) { void readMetric(cover, 'offsetWidth'); nextFrame(() => nextFrame(() => cover?.classList.remove('cut'))); }
     return wait(reduce.matches ? 0 : 300);
   }
@@ -5652,21 +5895,29 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // resize (the projector layout landing), or cards that settled after the camera framed them, are framed again under the
       // cover, outright. Left to the looks that follow those changes, the figure showed beside where it belonged and then moved
       // to the middle just after the reveal.
+      // alloc-rare: boot cover: once per load
       const T = () => document.getElementById('world')?.getAttribute('transform') || '';
+      // alloc-rare: boot cover: once per load
       const settle = () => { if (!ui || !shown) return; if (sizeNow() !== sizeSeen) onResize({ type: 'resize' }); else if (cardSig() !== framedSig) reframe(0); };
       let a = T(), same = 0;
       // (Each settle is a task between frames (rest-pass.js): the layout it makes is never built in a timer's own turn.)
+      // alloc-rare: boot cover: once per load
       for (let i = 0; i < 40 && same < 5; i++) { await wait(60); await new Promise((done) => restPass(() => { try { settle(); } finally { done(); } })); const c = T(); same = c === a ? same + 1 : 0; a = c; }
+      // alloc-rare: boot cover: once per load
       const runs = ui ? [...readAnims(ui.root, { subtree: true }), ...readAnims(ui.shade)].filter((x) => readTiming(x.effect).iterations !== Infinity) : [];
+      // alloc-rare: boot cover: once per load
       await Promise.race([Promise.all(runs.map((x) => x.finished.catch(() => {}))), wait(1200)]);
       // (Once more as the entrances end: the slide's own framing, set outright for the cards where they now rest.)
+      // alloc-rare: boot cover: once per load
       await new Promise((done) => restPass(() => { try { if (ui && shown && booting) { settle(); clearTimeout(reframeT); reframeT = 0; reframe(0); } } finally { done(); } }));
+      // alloc-rare: boot cover: once per load
       await new Promise((done) => nextFrame(() => nextFrame(done)));
     }
     clearTimeout(coverT); booting = false;
     const c = cover; cover = null;
     if (!c) return;
     c.classList.remove('on');
+    // alloc-rare: boot cover: once per load
     setTimeout(() => c.remove(), reduce.matches ? 0 : 700);
   }
   // Everything the audience's slides will change, kept so Esc, ✕ or Finish can put the viewer's own settings back (the patient itself returns to healthy, see putHealthy).
@@ -5839,8 +6090,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     rerenderHome?.();
   }
   async function remove(id) {
+    // alloc-rare: the saved-scripts list: runs on a user edit (the scan reaches it only through the name remove)
     const s = readMine().find((x) => x.id === id);
+    // alloc-rare: the saved-scripts list: runs on a user edit (the scan reaches it only through the name remove)
     if (!await confirmDialog({ title: 'Delete this script?', body: s ? `“${s.title}” and its slides will be removed from this device. A link or an exported file you made of it still opens.` : 'It will be removed from this device.', yes: 'Delete', danger: true })) return;
+    // alloc-rare: the saved-scripts list: runs on a user edit (the scan reaches it only through the name remove)
     if (!writeMine(readMine().filter((x) => x.id !== id))) { toast(NO_ROOM, 'bad'); return; }
     rerenderHome?.();
   }

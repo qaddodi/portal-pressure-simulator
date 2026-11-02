@@ -142,7 +142,7 @@ test('item 37: fitCards reads the tiles and scale-bar numbers in one layout, the
   const pz = read('../src/ui/presenter.js');
   const fc = pz.slice(pz.indexOf('function fitCards(...els)'), pz.indexOf('fitHeads(el);', pz.indexOf('function fitCards(...els)')));
   // Short tile names: every class taken off, then every room read, then the short ones set.
-  assert.match(fc, /for \(const k of names\) k\.classList\.remove\('short'\);\s+const shorts = names\.filter/);
+  assert.match(fc, /for \(const k of names\) k\.classList\.remove\('short'\);\s+(?:\/\/ alloc-rare[^\n]*\s+)*const shorts = names\.filter/);
   // Scale-bar numbers: classes off, every rect read, then .lo/.hi placed by half the number's width, not measured again.
   assert.match(fc, /for \(const b of bars\) \{ b\.B = b\.bar\.getBoundingClientRect\(\); b\.rs = b\.ls\.map\(\(l\) => l\.getBoundingClientRect\(\)\); \}/);
   assert.match(fc, /l\.classList\.add\('lo'\); left \+= r\.width \/ 2; right \+= r\.width \/ 2;/);
