@@ -25,17 +25,24 @@ const easeRail = cubicBezier(0.32, 0.72, 0, 1);
 
 /** Where a card is at k (0 to 1) of its move, on the rail's curve: out, gone from sight by 85 % of its way; in, with no overshoot,
  *  whole by 40 % of its way. */
-export function throwAt(kind, k, from, to) {
+export function throwAt(kind, k, from, to) { return throwInto({ x: 0, o: 0 }, kind, k, from, to); }
+/** The same, written into out ({x, o}) in place: what the frame uses, so a moving card costs no object a frame. */
+export function throwInto(out, kind, k, from, to) {
   k = k <= 0 ? 0 : k >= 1 ? 1 : k;
   const e = easeRail(k), f = kind === 'out' ? Math.min(1, e / 0.85) : Math.min(1, e / 0.4);
-  return { x: from.x + (to.x - from.x) * e, o: from.o + (to.o - from.o) * f };
+  out.x = from.x + (to.x - from.x) * e; out.o = from.o + (to.o - from.o) * f;
+  return out;
 }
 
 const runs = new Map();
 let ask = 0;
 // (Written important: a card's leave class holds its opacity at 0 with !important (app.css .pz-shade.stack.pz-leave), which put the glass
 // out at once while its words were still going.)
-const write = (el, x, o) => { el.style.setProperty('transform', `translateX(${x.toFixed(2)}px)`, 'important'); el.style.setProperty('opacity', o.toFixed(3), 'important'); };
+// (A card's opacity is written as one of 1001 strings, each made the first time its thousandth is wanted and kept: the fade costs no
+// string a frame. The transform's text takes the card's own x, which no table can hold, so it is the one string a moving card makes.)
+const OPACITY = new Array(1001);
+const opacityText = (o) => { const i = o > 0 ? (o < 1 ? Math.round(o * 1000) : 1000) : 0; return OPACITY[i] ?? (OPACITY[i] = (i / 1000).toFixed(3)); };   // alloc-rare: fills each of the 1001 table entries once, ever
+const write = (el, x, o) => { el.style.setProperty('transform', `translateX(${x.toFixed(2)}px)`, 'important'); el.style.setProperty('opacity', opacityText(o), 'important'); };
 // (pz-throwing: the card is moved here, from its first frame out until it is let go at rest (or out of sight, held, until its class lets it go).
 // Mohammad, 2 Nov 2026: "the teaching card moves away, the data card just pops out disappears, and they don't go away same time". The data
 // card on the Mac, iPad and phone is a readings sheet whose leave class (.pz-sheet.pz-hide) faded its parts and its two glass pieces on a CSS
@@ -51,15 +58,22 @@ function here(el) {
   const o = parseFloat(el.style.opacity);
   return { x: m ? +m[1] : 0, o: Number.isFinite(o) ? o : 1 };
 }
+// (Cards that have just landed, to be let go a task after the frame: kept in one list and let go by one function, so landing makes no closure.)
+const landed = [];
+function restLanded() {
+  for (let i = 0; i < landed.length; i++) { const el = landed[i]; if (!runs.has(el) && !held.has(el) && !pinned.has(el)) rest(el); }
+  landed.length = 0;
+}
+const pos = { x: 0, o: 0 };   // (where the card being stepped is: one object for every card, every frame)
 function step() {
   ask = 0;
   const now = easeNow();
   for (const [el, r] of runs) {
     const k = r.ms > 0 ? (now - r.t0) / r.ms : 1;
     if (k < 0) continue;   // (a staggered card waits where it starts)
-    const p = throwAt(r.kind, k, r.from, r.to);
+    const p = throwInto(pos, r.kind, k, r.from, r.to);
     r.x = p.x; r.o = p.o;
-    if (k >= 1 || (r.kind === 'out' && p.o <= 0.001)) { runs.delete(el); write(el, p.x, p.o); if (r.kind === 'in') runSoon(() => { if (!runs.has(el) && !held.has(el) && !pinned.has(el)) rest(el); }); r.done?.(); continue; }   // (in: at rest now, its inline values let go a task after the frame, unless a new move took it: class-soon.js)
+    if (k >= 1 || (r.kind === 'out' && p.o <= 0.001)) { runs.delete(el); write(el, p.x, p.o); if (r.kind === 'in') { landed.push(el); runSoon(restLanded); } r.done?.(); continue; }   // (in: at rest now, its inline values let go a task after the frame, unless a new move took it: class-soon.js)
     write(el, p.x, p.o);
   }
   if (runs.size) ask = nextFrame(step);
@@ -135,14 +149,18 @@ export function throwLeft(el) { const r = runs.get(el); return r && r.kind === '
 /** Resolves once no card is on its way out (at once when none is). The slide's next words go in only then: a wall-clock wait could end
  *  while the eases' clock, held back by a long frame, still showed the old card on its way, and its words would change mid-flight. */
 const outWaits = new Set();
+const anyOut = () => { for (const r of runs.values()) if (r.kind === 'out') return true; return false; };
 export function throwsOut() {
-  if (![...runs.values()].some((r) => r.kind === 'out')) return Promise.resolve();
+  if (!anyOut()) return Promise.resolve();
   return new Promise((done) => outWaits.add(done));
 }
+const waitBuf = [];   // (the waiters being called: kept, so a card landing makes no list)
 function outCheck() {
-  if (!outWaits.size || [...runs.values()].some((r) => r.kind === 'out')) return;
-  const w = [...outWaits]; outWaits.clear();
-  for (const f of w) f();
+  if (!outWaits.size || anyOut()) return;
+  for (const f of outWaits) waitBuf.push(f);
+  outWaits.clear();
+  for (let i = 0; i < waitBuf.length; i++) waitBuf[i]();
+  waitBuf.length = 0;
 }
 
 /** Whether el is being moved here now. */
@@ -155,7 +173,8 @@ export function throwStop(el) { classSoon(el, THROWING, false); runs.delete(el);
 // frame of the tap. These are kept, as what they did with no copy, for presenter.js until its own pass.)
 export const railable = () => false;   // (switch deleted; kept for presenter.js until its own pass)
 export function railCopies() { return Promise.resolve(); }   // (switch deleted; kept for presenter.js until its own pass)
-export const railGhosts = () => [];   // (switch deleted; kept for presenter.js until its own pass)
+const NO_GHOSTS = Object.freeze([]);
+export const railGhosts = () => NO_GHOSTS;   // (switch deleted; kept for presenter.js until its own pass)
 export function railHold() {}   // (switch deleted; kept for presenter.js until its own pass)
 export function railIn() { return false; }   // (switch deleted; kept for presenter.js until its own pass)
 export function railAway() {}   // (switch deleted; kept for presenter.js until its own pass)
