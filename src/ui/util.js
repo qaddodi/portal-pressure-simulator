@@ -725,6 +725,7 @@ function odoFinishRest(el, o) {
  *  done) when the two are not the same shape: the same length, digits where digits are and every other character the same. The strips
  *  are built between frames (rest-pass.js), the roll itself runs on the compositor. */
 export function odoSwap(el, a, b, up, ms = COUNT_MS, easing = null) {
+  if (wordsOfEl.has(el)) return false;   // (its children are the GPU words' picture: see countTo)
   odoEnd(el);
   a = String(a); b = String(b);
   const dig = (ch) => ch >= '0' && ch <= '9';
@@ -773,7 +774,9 @@ export function countTo(el, v, d = 1, { eased = false } = {}) {
     // (A roll under way that is asked for the value it rolls to keeps going; any other value rolls on from the one it lands on.)
     if (odo) { if (Math.abs(v - c.shown) < Math.pow(10, -d) * 0.5) return; odoEnd(el); }
     const same = c.shown != null && fmt(c.shown, d) === fmt(v, d);
-    if (!same && c.shown != null && !reduceMotionMQ.matches && el.isConnected && hasBox(el)) { odoRoll(el, c, c.shown, v); return; }
+    // (Not on a readout the GPU words own (putText made them): a roll's strips replace the element's children, picture and canvases with
+    // them, while the page's words are clear, so the number vanished for the roll's length. Such a number counts up through GPU words instead.)
+    if (!same && c.shown != null && !reduceMotionMQ.matches && el.isConnected && hasBox(el) && !wordsOfEl.has(el)) { odoRoll(el, c, c.shown, v); return; }
   }
   if (v == null || !Number.isFinite(v)) { rolling.delete(el); c.t0 = null; const was = c.shown != null; c.shown = null; putNum(el, '?'); if (was) fadeNum(el); return; }
   if (c.t0 != null) {   // (a roll under way)

@@ -37,7 +37,9 @@ for w in WEIGHTS:
         if not n: continue
         chars[ch] = glyph(n); names[ch] = n
     tab = {}
-    for d in '0123456789':
+    # (Every character the tnum feature swaps, not only the figures: tabular figures also set a full stop, comma, colon, sign, bracket
+    # or space on the figures' pitch (a "." is 0.55 em, not 0.6 em, wide, in Inter), so a number the GPU draws keeps the width the page gives it.)
+    for d in CHARS:
         n = tn.get(names.get(d))
         if n: tab[d] = glyph(n); names['tnum:' + d] = n
     kern_g = kerning(f, list(names.values()))

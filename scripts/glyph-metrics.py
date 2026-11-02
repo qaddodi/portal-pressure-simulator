@@ -42,7 +42,7 @@ for w in WEIGHTS:
             adv[w][ch][si] = a
         f0 = fonts[0]
         tmap = H.tnum_map(f0)
-        for d in '0123456789':
+        for d in names:   # (every character the tnum feature swaps: the figures, and a full stop, comma, colon, sign, bracket or space on their pitch)
             n = tmap.get(names.get(d))
             if n:
                 tn[w].setdefault(d, [None] * len(STOPS))[si] = f0['hmtx'][n][0]

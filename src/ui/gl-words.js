@@ -79,7 +79,7 @@ function sleep(S) {
   ALL.delete(S.ask); measureQ.delete(S); live.delete(S);
   clearTimeout(S.landT); S.landT = 0;
   if (S.on) { S.on = false; S.el.classList.remove('glw-on'); }
-  S.pend = false;
+  S.pend = false; S.handOver = false; clearTimeout(S.handT); S.handT = 0;
   if (S.gl) { try { S.gl.dispose?.(); } catch (e) { caught('gl-words:82', e); /* a lost context: nothing left to free */ } S.gl.cv?.remove(); S.gl = null; S.host.classList.remove('glw'); }
   S.vPath = S.uPath = null; S.vSlots = S.uSlots = null; S.at = null;
 }
@@ -172,6 +172,11 @@ function measureWrite(S, { at, pad, L, U }) {
   S.at = at; S.stale = false;
   S.gl.paint();   // (a first, empty, drawing: the picture's canvas is sized now, between frames, so the first new words are drawn whole)
 }
+// (2 Nov 2026, "the HVPG and PPG numbers disappear now and then": the picture's two canvases join the box once, as the picture is made.
+// Anything that rewrote the box's children since (a rolling digit's replaceChildren, a plain textContent, the page's own words landing
+// into a box someone emptied) left them out of the page for good, and a draw that reported "drawn" put the page's words clear over
+// nothing: a blank number for the whole QUIET wait, every time. A picture is shown only while both are in the page.)
+const attached = (S) => !!S.gl && S.gl.cv.isConnected && (S.gl.gpu?.canvas ? S.gl.gpu.canvas.isConnected : true) && !!S.txt && S.txt.parentNode === S.el;
 const askMeasure = (S) => { if (S.dead) return; measureQ.add(S); S.measureAsk = 1; if (!measureAll) measureAll = restPass(measurePass); };
 
 // ── A frame: the new words drawn, nothing written into the page ──
@@ -205,6 +210,7 @@ function draw(S, t, u) {
     setGeo(S.uPath, 'd', u ? dOf(textPolys(uu, x + wv + sp, uy, U).polys) : '');
   }
   S.pend = true;
+  S.handOver = false;   // (new words drawn: a hand-over to the page's own words that was waiting for its cleared picture is off)
   S.gl.paint();
 }
 // (2 Nov 2026, his iPhone: "the information of the instrument data cards disappear". The page's words were made clear as the new words
@@ -214,6 +220,9 @@ function draw(S, t, u) {
 // written into the page between frames.)
 function drawn(S, ok) {
   if (S.dead || S.asleep) return;
+  // (The hand-over: the picture was asked to clear as the page's words landed (land). Its words stay clear until that frame, so the page's
+  // words and the cleared picture appear in the same frame: never both (a number a pixel or two wider, then narrower), never neither.)
+  if (S.handOver) { handOff(S); return; }
   if (ok) { if (S.pend && !S.on) { S.on = true; S.el.classList.add('glw-on'); } S.pend = false; return; }
   if (!S.pend && !S.on) return;
   S.pend = false;
@@ -222,6 +231,14 @@ function drawn(S, ok) {
 }
 
 // ── Between frames: the page's own words take what the picture shows, and the picture goes ──
+function handOff(S) {
+  S.handOver = false; clearTimeout(S.handT); S.handT = 0;
+  S.pend = false;
+  if (S.on) { S.on = false; S.el.classList.remove('glw-on'); }
+}
+// (Where a frame never comes to clear the picture (its canvas out of the page, the page hidden), the words are handed over after a moment:
+// the page's own words never stay clear.)
+const HAND_MAX = 120;
 function land(S) {
   S.landAsk = 0;
   if (S.dead) return;
@@ -229,7 +246,8 @@ function land(S) {
   // (Words written into the element by someone else, or none yet: its content is taken over here, between frames, as its words and unit.)
   if (!S.txt || S.txt.parentNode !== el) {
     S.txt = document.createTextNode(want.t); S.small = null;
-    el.replaceChildren(...(S.gl && S.host === el ? [S.gl.cv] : []), S.txt);
+    // (Both canvases of the picture go back with the words: only its drawing canvas went back before, and the picture then showed in none.)
+    el.replaceChildren(...(S.gl && S.host === el ? [S.gl.cv, S.gl.gpu?.canvas].filter(Boolean) : []), S.txt);
     if (S.gl && S.host === el) S.gl.show(svgModel('svg', { viewBox: '0 0 1 1' }), false);
     shown.u = '';
   } else if (want.t !== S.txt.data) S.txt.data = want.t;
@@ -241,7 +259,12 @@ function land(S) {
   shown.t = want.t; shown.u = want.u;
   S.onLand?.();
   S.pend = false;
-  if (S.on) { S.on = false; el.classList.remove('glw-on'); S.vPath.setAttribute('d', ''); S.uPath.setAttribute('d', ''); clearSlots(S); S.gl.paint(); }
+  if (S.on) {
+    // (The words are in the page now, still made clear: the picture is asked to clear, and they show in the frame it does (drawn → handOff).)
+    S.vPath.setAttribute('d', ''); S.uPath.setAttribute('d', ''); clearSlots(S);
+    S.handOver = true; clearTimeout(S.handT); S.handT = setTimeout(() => { S.handT = 0; if (S.handOver && !S.dead) handOff(S); }, HAND_MAX);
+    S.gl.paint();
+  }
   if (!S.at || S.stale || S.at.sm !== (!!S.small && !S.small.hidden)) askMeasure(S);   // (a unit that came or went moves the words: measured again)
 }
 const askLand = (S) => { clearTimeout(S.landT); S.landT = 0; if (S.dead) return; if (!S.landAsk) S.landAsk = restPass(() => land(S)); };
@@ -251,7 +274,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
   // (Its own text node, when it has one alone; otherwise one is made between frames, as the first words land: nothing is written here.)
   const only = el.firstChild?.nodeType === 3 && !el.firstChild.nextSibling ? el.firstChild : null, t0 = el.textContent || '';
   const S = { el, host, after, unitClass, onLand, txt: only, small: null, want: { t: t0, u: '' }, shown: { t: t0, u: '' },
-    at: null, gl: null, vPath: null, uPath: null, on: false, pend: false, stale: false, landT: 0, measureAsk: 0, landAsk: 0, dead: false, ro: null };
+    at: null, gl: null, vPath: null, uPath: null, on: false, pend: false, handOver: false, handT: 0, stale: false, landT: 0, measureAsk: 0, landAsk: 0, dead: false, ro: null };
   if (!only && t0) askLand(S);
   const ask = S.ask = () => askMeasure(S);
   if (typeof ResizeObserver === 'function') (S.ro = new ResizeObserver(ask)).observe(el);
@@ -264,7 +287,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
     S.dead = true; S.asleep = false;
     S.ro?.disconnect(); S.ro = null;
     ALL.delete(ask); measureQ.delete(S); live.delete(S);
-    clearTimeout(S.landT); S.landT = 0;
+    clearTimeout(S.landT); S.landT = 0; clearTimeout(S.handT); S.handT = 0; S.handOver = false;
     if (S.landAsk) { cancelRest(S.landAsk); S.landAsk = 0; }
     // (The drawing and the flags that hide the page's own words leave together, in one rest pass: the words are never uncovered with
     // the drawing gone, nor left hidden once it has.)
@@ -292,7 +315,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
       wake(S);
       S.want.t = t; S.want.u = u;
       // (?glwords=0, no look read yet, no outlines, a character not cut, words gone or a unit that has no place yet: written between frames.)
-      if (!S.at || S.stale || !glyphsReady() || !t || !textCovers(t + u) || (u && !S.small && !after)) { askLand(S); return; }
+      if (!S.at || S.stale || !glyphsReady() || !t || !textCovers(t + u) || (u && !S.small && !after) || !attached(S)) { askLand(S); return; }
       draw(S, t, u);
       clearTimeout(S.landT);
       S.landT = setTimeout(() => askLand(S), QUIET);

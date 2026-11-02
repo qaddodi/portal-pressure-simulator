@@ -62,12 +62,11 @@ function outline(w, ch, tnum) {
   }
   return g;
 }
-const isDigit = (c) => c >= '0' && c <= '9';
 // (A pair's kerning, looked up by the two characters one after the other: no 'ab' string made for each pair of each word. The font's own
 // table is read once for each pair, the first time it is met.)
 const kerns = new Map();
 function kernOf(w, a, b, tnum) {
-  if (tnum && (isDigit(a) || isDigit(b))) return 0;
+  if (tnum && (GLYPHS[w].tnum[a] !== undefined || GLYPHS[w].tnum[b] !== undefined)) return 0;   // (tabular figures and the signs set on their pitch (a full stop, a comma, a minus) are not kerned: the font's own rule)
   let byA = kerns.get(w);
   if (byA === undefined) { byA = new Map(); kerns.set(w, byA); }   // alloc-rare: one table per weight, the first time
   let byB = byA.get(a);
@@ -242,9 +241,9 @@ export function metricsCover(text) {
 function runWidths(run) {
   const w = weightOf(run.weight), m = MET[w], { i, f } = stopOf(run.size), s = run.size / UPM, cs = [...String(run.text)], out = new Array(cs.length);
   for (let k = 0; k < cs.length; k++) {
-    const ch = cs[k], tn = run.tnum && ch >= '0' && ch <= '9';
-    let a = at(tn && m.tnum[ch] !== undefined ? m.tnum[ch] : m.adv[ch] !== undefined ? m.adv[ch] : m.adv['?'], i, f);
-    if (k < cs.length - 1 && !(run.tnum && /\d/.test(ch + cs[k + 1]))) a += at(m.kern[ch + cs[k + 1]], i, f);
+    const ch = cs[k], tn = run.tnum && m.tnum[ch] !== undefined;   // (tabular: the figures and the signs the feature sets on their pitch)
+    let a = at(tn ? m.tnum[ch] : m.adv[ch] !== undefined ? m.adv[ch] : m.adv['?'], i, f);
+    if (k < cs.length - 1 && !(run.tnum && (tn || m.tnum[cs[k + 1]] !== undefined))) a += at(m.kern[ch + cs[k + 1]], i, f);
     out[k] = a * s + (run.ls || 0);
   }
   return out;
