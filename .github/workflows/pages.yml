@@ -4,9 +4,13 @@ name: Pages (live site + preview)
 #   /          the tip of main (the live site)
 #   /preview/  the branch that triggered the run (a claude/** branch), or main again after a merge
 # Every run rebuilds both from scratch, so the newest run always wins: the deploy job shares one
-# concurrency group across branches. Lint and unit run for every push and gate the deploy.
-# This workflow only checks lint and unit, then deploys: two jobs, about two minutes. On the integration
-# branch a newer push cancels the older push's waiting lint. A preview deploy that is already publishing
+# concurrency group across branches.
+# On main, lint and unit gate the deploy. On the integration branch (owner, 2 Nov 2026: "there must be a
+# middle ground than to wait 10 min for every deploy") the deploy starts at once, about a minute to live,
+# and lint and unit run beside it as a warning only (job "preview tests"): the threads run them before
+# every push already. Before this, a push every two minutes cancelled the previous push's 2.5-minute
+# tests, so nothing deployed until the pushes paused. The preview tests never cancel a running test run:
+# a burst of pushes queues only its newest commit behind it, so results always arrive. A preview deploy that is already publishing
 # is never cancelled (main included): the newest waiting one queues behind it and older waiting ones are
 # dropped, so a burst of pushes always ends with the newest commit deployed. Every deploy rebuilds /
 # from main's current tip, so a preview deploy never publishes a stale root.
@@ -29,9 +33,9 @@ permissions:
   actions: write   # (the deploy deletes its site artifact once Pages has it)
 
 jobs:
-  # Quick checks gate the deploy (about a minute end to end), so a preview is never held up by
-  # the browser tests.
+  # Gates main's deploy. Skipped on the integration branch, whose deploy does not wait for it.
   validate:
+    if: github.ref_name != 'claude/settings-topbar-icon-flvft1'
     runs-on: ubuntu-24.04
     concurrency:
       group: validate-${{ github.ref }}
@@ -64,11 +68,52 @@ jobs:
       - name: Lint and unit tests
         run: npm run lint && npm test
 
+  # The same checks on the integration branch, beside the deploy and never blocking it: a red run is a
+  # warning to fix in a follow-up push. One run at a time; a newer push replaces only the waiting one.
+  preview-tests:
+    name: preview tests
+    if: github.ref_name == 'claude/settings-topbar-icon-flvft1'
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: preview-tests
+      cancel-in-progress: false
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The unit tests keep every deck's slide states in node_modules/.cache (tests/deck-states.js), keyed by a hash of the engine, the worker and the decks (tests/deck-states.js STATE_SOURCES);
+      # restored after npm ci, which empties node_modules. A miss or a failed restore only warns and the tests compute afresh.
+      - name: Restore saved deck states
+        uses: actions/cache@v4
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+        with:
+          path: node_modules/.cache/pps-deck-states
+          key: deck-states-${{ hashFiles('src/engine/**', 'src/worker-core.js', 'src/worker.js', 'src/ui/decks/**') }}
+          restore-keys: deck-states-
+      # Nothing off the GPU (owner, 1 Nov 2026: "block everything until everything is on GPU"): scripts/off-gpu-scan.mjs lists every
+      # canvas 2D, SVG, CSS blur, layout animation, per-frame layout read, raw requestAnimationFrame and synchronous shader status
+      # read, and fails while less than 85% is on the GPU (owner, 6:45 PM ET: "ok let things through now at 85%"); the run's summary shows the full list with owners. npm run lint runs it too.
+      - name: Nothing off the GPU
+        run: node scripts/off-gpu-scan.mjs --summary
+      - name: Lint and unit tests
+        run: npm run lint && npm test
+
   # Only main and the one integration branch publish. Other claude/** branches are still checked,
   # but their pushes no longer replace /preview/.
   deploy:
     needs: validate
-    if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
+    # validate is skipped on the integration branch, so the preview deploys without waiting; on main it must pass.
+    if: >-
+      !cancelled() &&
+      ((github.ref_name == 'main' && needs.validate.result == 'success') ||
+       (github.ref_name == 'claude/settings-topbar-icon-flvft1' && needs.validate.result == 'skipped'))
     runs-on: ubuntu-24.04
     concurrency:
       group: pages
