@@ -7648,4 +7648,4 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    remember; one rule here makes it hold for every element, and for any rule written later. Nothing draws proportional digits on purpose
    (no rule asks for them), so !important changes only the elements the shorthand had caught. The GPU words read this computed value to draw
    their digits (gl-words.js), so the picture and the page set a number the same width. tests/numbers-tabular.test.js pins it. */
-*, *::before, *::after { font-variant-numeric: tabular-nums lining-nums !important; }   /* (lining too: the rules that asked for lining figures in the serif keep them) */
+*, *::before, *::after { font-variant-numeric: tabular-nums lining-nums !important; font-feature-settings: 'cv11', 'ss01' !important; }   /* (lining too: the rules that asked for lining figures in the serif keep them; and the body's cv11 and ss01, which the shorthand also resets, so the page sets its digits as the GPU words' atlas does (glyph-atlas.mjs STYLE): in the fonts as shipped the two features change no glyph, checked pixel for pixel in Inter, Source Serif 4 and JetBrains Mono) */

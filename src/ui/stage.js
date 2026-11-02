@@ -8690,7 +8690,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!glyphsReady()) { if (!clampGlyphAsk) { clampGlyphAsk = true; loadGlyphs().then(() => { if (F) updateLabels(F); }); } return null; }
     const a = (k) => parseFloat(el.getAttribute(k)) || 0, cls = el.getAttribute('class') || '';
     const size = parseFloat(el.style.fontSize) || (/clamp-label/.test(cls) && parseFloat(clampFs)) || 12;
-    return textBox(el.textContent, a('x') + a('dx'), a('y') + a('dy'), { anchor: el.getAttribute('text-anchor') || 'start', weight: 600, size, k: CTM?.sc > 0 ? CTM.sc : 1 });
+    return textBox(el.textContent, a('x') + a('dx'), a('y') + a('dy'), { anchor: el.getAttribute('text-anchor') || 'start', weight: 600, size, tnum: true, k: CTM?.sc > 0 ? CTM.sc : 1 });   // (tnum: the "60 %" is drawn in tabular figures (#labels text), so its box is one width whatever its digits are)
   }
   // Where clampLabelAt puts a clamp's percentage (its spot, which side its text runs and its offset), without writing it.
   function clampLabelPos(el) {
