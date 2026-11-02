@@ -3981,7 +3981,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (ids !== joinBinIds) { joinBinIds = ids; joinBin.clear(); }
     for (const j of J) {
       const k = `${j.members.join('.')}|${j.trunk ?? ''}`, b = joinBin.get(k);
-      if (!b || Math.hypot(j.x - b.x, j.y - b.y) + j.reach > b.r) joinBin.set(k, { x: j.x, y: j.y, r: Math.ceil((j.reach * 1.25) / 2) * 2 + 2 });
+      if (!b || Math.hypot(j.x - b.x, j.y - b.y) + j.reach > b.r) joinBin.set(k, { x: j.x, y: j.y, r: Math.ceil((j.reach * 1.5) / 2) * 2 + 8 });
       const c = joinBin.get(k);
       j.binX = c.x; j.binY = c.y; j.binReach = c.r;
     }
@@ -6630,7 +6630,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lvMoving = moving;
     if (moving) widthEasing = organsEasing = true;
     gpuProbe.time(null, 'organs: liver', () => morphLiver(lvC, lvG, moving));
-    for (const el of [lv.cong, lv.isl, lv.gloss]) if (el.style.visibility !== (imaging ? 'hidden' : '')) el.style.visibility = imaging ? 'hidden' : '';
+    // (The congestion's shades stay hidden at no opacity, as lvFade leaves them: showing them here undid lvFade on every liver frame, a
+    // flip of the SVG's visibility each frame that also read the liver for the GPU again each time (motion budget, 2 Nov).)
+    for (const el of [lv.cong, lv.isl, lv.gloss]) { const v = imaging || (el !== lv.gloss && !(+el.style.opacity > 0)) ? 'hidden' : ''; if (el.style.visibility !== v) el.style.visibility = v; }
     // A cirrhotic liver shrinks a little; a congested one swells.
     const shrink = liverShrink(lvC, lvG);
     liverScale = shrink;
