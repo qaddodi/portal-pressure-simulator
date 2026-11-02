@@ -19,7 +19,7 @@ import { finalFrameFor, easeNow, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
-import { morphSvg } from './svg-morph.js?v=938cdaa7bb';
+import { morphSvg } from './svg-morph.js?v=b317c2e535';
 import { attrSoon } from './class-soon.js?v=97b9d0e0db';
 
 // (No bleed: a picture reaching past the box counts as overflow, and the card's fit then shrank the whole card to take it in.)
@@ -326,13 +326,20 @@ export function setGeo(el, k, v) {
   if (!g) {
     // (Read back as an attribute too, so what asks a piece for its ends or centre (the browser checks, svg-morph) finds them.)
     g = el._g = {};
-    const got = el.getAttribute?.bind(el);
-    el.getAttribute = (n) => { const x = g[n]; return x === undefined ? (got ? got(n) : null) : x == null ? null : String(x); };
-    const had = el.hasAttribute?.bind(el);
-    el.hasAttribute = (n) => { const x = g[n]; return x === undefined ? !!had?.(n) : x != null; };
+    const base = el.getAttribute;   // (the piece's own, as it was)
+    el.getAttribute = (n) => { const x = g[n]; return x === undefined ? (base ? base.call(el, n) : Element.prototype.getAttribute.call(el, n)) : x == null ? null : String(x); };
   }
   if (g[k] === v) return false;
   g[k] = v;
+  return true;
+}
+// (A path's or polygon's outline held on the piece as points, not written as a `d` string: x, y pairs in a typed array the owner keeps
+// and writes in place, n pairs used, closed or not; a pair with an x that is NaN lifts the pen, the next pair starts a new stretch.
+// No string is made in a frame; the picture draws from the points. A piece never given points reads its `d` or `points`, as before.)
+/** Sets the points a model path/polygon/polyline piece is drawn from: buf holds x, y pairs, n of them used; returns true (the owner asks the picture to draw). */
+export function setPts(el, buf, n, closed = false) {
+  const P = el._pts;
+  if (P) { P.buf = buf; P.n = n; P.closed = closed; } else el._pts = { buf, n, closed };
   return true;
 }
 /** A model piece's held value for k, else its attribute (null when it has neither). */
@@ -352,6 +359,18 @@ function shapePath(ctx, el, tag, k) {
   }
   if (tag === 'circle') { const r = at(el, 'r'); if (!(r > 0)) return false; ctx.arc(at(el, 'cx'), at(el, 'cy'), r, 0, Math.PI * 2); return true; }
   if (tag === 'ellipse') { const rx = at(el, 'rx'), ry = at(el, 'ry'); if (!(rx > 0 && ry > 0)) return false; ctx.ellipse(at(el, 'cx'), at(el, 'cy'), rx, ry, 0, 0, Math.PI * 2); return true; }
+  if (el._pts && (tag === 'path' || tag === 'polyline' || tag === 'polygon')) {
+    const { buf, n, closed } = el._pts;
+    let pen = false, drawn = 0;
+    for (let i = 0; i < n; i++) {
+      const x = buf[2 * i], y = buf[2 * i + 1];
+      if (x !== x) { pen = false; continue; }
+      if (pen) ctx.lineTo(x, y); else { ctx.moveTo(x, y); pen = true; }
+      drawn++;
+    }
+    if (closed && drawn > 1) ctx.closePath();
+    return drawn > 1;
+  }
   if (tag === 'polyline' || tag === 'polygon') {
     const v = String(el.getAttribute('points') || '').trim().split(/[\s,]+/).map(Number);
     if (v.length < 4) return false;

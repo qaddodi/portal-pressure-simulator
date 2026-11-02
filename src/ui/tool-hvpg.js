@@ -10,7 +10,7 @@
 // every frame), and the slide's readings are the ones the catheter's callouts print. The same card stays up from one such slide to the
 // next (card-keep.js), and the trace carries on from where the last slide left it.
 
-import { createHvpgMonitor } from './hvpg-proc.js?v=c5e8d3cc00';
+import { createHvpgMonitor } from './hvpg-proc.js?v=5b0daea772';
 import { T, ease, k01 } from './hvpg-clock.js?v=95f13823ce';
 import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
@@ -25,6 +25,7 @@ export const SWEEP_SETTLE_MS = T.callout - T.wedge;
 /** The catheter steps a card can follow (a slide's cath). */
 export const STEPS = ['free', 'wedge', 'result'];
 
+const KEYS = ['fhvp', 'whvp'];
 export function createHvpgCard() {
   const mon = createHvpgMonitor();
   const el = mon.el;
@@ -36,15 +37,17 @@ export function createHvpgCard() {
   const gone = (my) => my !== token || !shown;
   // The levels ease to the target on each frame they move; the monitor reads `cur` in place, so a sweep in progress picks them up too.
   // (On the shown state's filter, display-state.js follow2, premium-feel R4: the bar's and the figure's one clock. curW: its first stage.)
-  let curW = null;
+  const curW = { fhvp: 0, whvp: 0 };   // (kept: written in place; curWOn says it holds a first stage)
+  let curWOn = false;
   function tween(now) {
     raf = 0;
     if (!cur || !target) return;
     const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
     last = now;
     let moving = false;
-    if (!curW) curW = { fhvp: cur.fhvp, whvp: cur.whvp };
-    for (const key of ['fhvp', 'whvp']) {
+    if (!curWOn) { curW.fhvp = cur.fhvp; curW.whvp = cur.whvp; curWOn = true; }
+    for (let i = 0; i < KEYS.length; i++) {
+      const key = KEYS[i];
       if (REDUCED()) { cur[key] = curW[key] = target[key]; continue; }
       const r = follow2(cur[key], curW[key], target[key], dt, SHOWN_TAU, 0.02);
       cur[key] = r.v; curW[key] = r.w;
@@ -78,7 +81,7 @@ export function createHvpgCard() {
   }
   function start(how) {
     token++;
-    cur = { ...target }; curW = null;
+    cur = { ...target }; curWOn = false;
     done = false;
     if (how === 'sweep' && !REDUCED()) sweep(token);
     else { done = true; mon.set('result', cur, 1, true); }

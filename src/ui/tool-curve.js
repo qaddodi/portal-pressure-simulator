@@ -67,12 +67,12 @@
 //   zone: { fall: 10, under: 12, label: 'Response' }
 //                     a soft band in the ok colour under y = max(under, x less fall %), dashed along its top and named in it.
 
-import { TILE, SCALE, RATE } from './table-marks.js?v=a483b9975e';
+import { TILE, SCALE, RATE } from './table-marks.js?v=ff3ed0cc47';
 import { HVPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { frameFor } from './frame.js?v=1d147c7c9a';
-import { restPass, restClass } from './rest-pass.js?v=bb619a1659';
+import { restPass, restClass } from './rest-pass.js?v=d13e397f0b';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=0351baf0a0';
+import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js?v=0fa4da9d8b';
 import { airRatio } from './endo-size.js?v=e0a58bf20e';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { safeParamPath, pathOf, getAt, patchOf, mergeOf } from './import-safety.js?v=9db53247a5';
@@ -568,7 +568,7 @@ export function createCurve() {
   el.className = 'pz-curve';
   const gl = createSvgGL(el);
   let t = null, ctx = null, ser = null, dots = [], parts = null, G = null, key = '', lastSz = '', raf = 0;
-  let ring = null, goal = null;   // ({ x, ys } in shown units: where the rings are drawn, and where they glide to)
+  let ring = null, goal = null, settleId = 0;   // ({ x, ys } in shown units: where the rings are drawn, and where they glide to)
   let altNow = false;   // (with against: the lines' key stands in, with rows of its own, because their names did not fit on the drawing)
 
   const size = () => {
@@ -807,7 +807,7 @@ export function createCurve() {
   function paint(r) {
     if (!parts || !r) return;
     const ok = Number.isFinite(r.x), cx = ok ? X(clamp(r.x, Math.min(G.x0, G.x1), Math.max(G.x0, G.x1))) : 0, f = G.f;
-    parts.at.setAttribute('x1', cx.toFixed(1)); parts.at.setAttribute('x2', cx.toFixed(1));
+    setGeo(parts.at, 'x1', cx); setGeo(parts.at, 'x2', cx);
     restClass(parts.at, 'off', !ok);
     parts.svg.dataset.ring = ok ? [r.x, ...r.ys.map((v) => (Number.isFinite(v) ? v.toFixed(2) : ''))].join(' ') + (goal?.on ? ' curve' : ' live') : '';   // (the browser checks read it)
     const left = cx > (G.L + G.R) / 2, fs = 1.1 * f, rr = Math.max(5, f * 0.45) + 2;
@@ -972,19 +972,44 @@ export function createCurve() {
     const sp = placeDotNames(nd.map((d) => ({ x: d.first[0], y: d.first[1], w: 1.08 * cw(d.full, f, true) })), f, half, { ...ob, boxes, lines: ob.lines.map((l) => ({ ...l, w: 3 })) });
     return namesCrowded(sp, f);
   }
-  // The rings glide after their goal (never a jump).
+  // The rings glide after their goal (never a jump). A frame of the glide moves the dashed line through the rings and nothing else, with no
+  // object or string made (2 Nov 2026, zero-allocation pass): the words round it (the values, the cut-offs' and the dots' names, the key)
+  // are placed once at the goal, in a rest pass between frames (settle), so they stand still and the line glides across the plot.
+  const ringBuf = { x: NaN, ys: [] };   // (the glide's own place, kept and written in place; `ring` is this, or the goal once it has arrived)
+  function moveAt(r) {
+    if (!parts || !G || !r) return;
+    const x = Number.isFinite(r.x) ? X(clamp(r.x, Math.min(G.x0, G.x1), Math.max(G.x0, G.x1))) : 0;
+    setGeo(parts.at, 'x1', x); setGeo(parts.at, 'x2', x);
+  }
   function tick() {
     raf = 0;
     if (!goal) return;
-    const k = reduceMQ.matches || !ring ? 1 : 0.18, mix = (a, b) => (Number.isFinite(a) && Number.isFinite(b) ? a + (b - a) * k : b);
-    ring = { x: mix(ring?.x, goal.x), ys: goal.ys.map((y, j) => mix(ring?.ys[j], y)) };
-    const near = Math.abs((ring.x ?? 0) - (goal.x ?? 0)) < 1e-3 * Math.abs((G?.x1 ?? 1) - (G?.x0 ?? 0)) && ring.ys.every((y, j) => !Number.isFinite(y) || Math.abs(y - goal.ys[j]) < 0.005);
-    if (near) ring = goal;
-    paint(ring);
-    gl.paint();   // (the picture draws the moved rings and words in this same frame)
-    // (Drawn again with the key as a rest pass, between frames: a new chart is measured and laid out, never inside a glide's frame.)
-    if (G?.ag && !altNow && parts?.fits === false) { altNow = true; restPass(() => redraw(false)); return; }
+    const from = ring, k = reduceMQ.matches || !from ? 1 : 0.18, rb = ringBuf, n = goal.ys.length;
+    if (rb.ys.length !== n) rb.ys.length = n;
+    // (A reading that is not a number is taken straight to the goal's, as before.)
+    const fx = from ? from.x : NaN;
+    rb.x = Number.isFinite(fx) && Number.isFinite(goal.x) ? fx + (goal.x - fx) * k : goal.x;
+    let near = Math.abs((rb.x ?? 0) - (goal.x ?? 0)) < 1e-3 * Math.abs((G?.x1 ?? 1) - (G?.x0 ?? 0));
+    for (let j = 0; j < n; j++) {
+      const a = from ? from.ys[j] : NaN, b = goal.ys[j];
+      const y = Number.isFinite(a) && Number.isFinite(b) ? a + (b - a) * k : b;
+      rb.ys[j] = y;
+      if (Number.isFinite(y) && !(Math.abs(y - b) < 0.005)) near = false;
+    }
+    ring = near ? goal : rb;
+    moveAt(ring);
+    gl.paint();   // (the picture draws the moved line in this same frame)
     if (ring !== goal) raf = nextFrame(tick);
+  }
+  // The words placed at the goal, between frames: asked for once however many aims came before it runs.
+  function settle() {
+    settleId = 0;
+    if (!parts || !goal || !t) return;
+    paint(goal);
+    // (With against, a chart whose lines' names found no clear spot is drawn again with the key of the lines above the plot.)
+    if (G?.ag && !altNow && parts.fits === false) { altNow = true; redraw(false); }
+    if (ring && ring !== goal) moveAt(ring);   // (a glide still on its way: its line is where it has got to)
+    gl.paint();
   }
   // A new chart (a new curve, or its points arriving) fades in over the old one.
   function redraw(fade) {
@@ -998,12 +1023,13 @@ export function createCurve() {
     if (needSteps()) { const g2 = geo(w, hh, f, true, altNow); if (g2.B - g2.T >= 5 * f) { G = g2; parts = build(); } }
     // (The lines' names are placed on every paint: if one finds no clear spot on the drawing, the chart is drawn again with the lines' key
     // above the plot and rows for it, the plot a little shorter.)
-    paint(ring || goal);
+    paint(goal || ring);
     if (G.ag && !altNow && parts.fits === false) { altNow = true; G = geo(w, hh, f, !!G.stepKey, true); parts = build(); }
     // (A new chart takes over the old one's lines, gridlines and numbers, each gliding to its new place (svg-morph.js; the words the chart places on every
     // paint and its rings are data-nomorph and fade); where that cannot be, it fades in over the old one.)
     gl.show(parts.svg, !!(fade && old));
-    paint(ring || goal);
+    paint(goal || ring);
+    if (ring && ring !== goal) moveAt(ring);   // (a glide on its way: the line is where it has got to, the words stand at the goal)
     gl.place(parts.svg);   // (its looks as this paint left them, as the page would first style it: nothing eased in)
   }
   const remake = () => {
@@ -1026,6 +1052,7 @@ export function createCurve() {
     // (With against, the other lines' rings are read from their curves at the case's x.)
     else if (ser && againstOf(t)) { const at = curveAt(ser, goal.x); goal = { x: goal.x, ys: goal.ys.map((y, j) => (j ? at?.[j] ?? null : y)) }; }
     if (!raf) raf = nextFrame(tick);
+    if (!settleId) settleId = restPass(settle);
   }
   async function fetchCurve(myKey, c) {
     const p = curveWork(t, c, myKey);

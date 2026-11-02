@@ -206,7 +206,7 @@ test('V19: the % in the cross-section is large, and "100 %" still clears the inn
 
 test('V19: the % in the cross-section fades with the share filled, so nothing shows at 0 %', () => {
   const src = readFileSync(new URL('../src/ui/tool-lumen.js', import.meta.url), 'utf8');
-  assert.match(src, /inWord\.style\.opacity = inNum\.style\.opacity = b\.numOpacity/);
+  assert.match(src, /setGeo\(inWord, 'opacity', numOp\); setGeo\(inNum, 'opacity', numOp\)/);
   assert.equal(lumenBlock(0).numOpacity, 0, 'nothing filled: no number');
   assert.equal(lumenBlock(0.06).numOpacity, 1, 'shown in full by 6 %');
   for (let o = 0; o < 0.06; o += 0.001) assert.ok(lumenBlock(o + 0.001).numOpacity >= lumenBlock(o).numOpacity, 'it fades in steadily');
@@ -216,7 +216,7 @@ test('V19: "occluded" sits under the % as one block, fades with it, and is never
   const src = readFileSync(new URL('../src/ui/tool-lumen.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(src, /inWord\.textContent = 'occluded'/);
-  assert.match(src, /inWord\.style\.opacity = inNum\.style\.opacity/);
+  assert.match(src, /setGeo\(inWord, 'opacity', numOp\); setGeo\(inNum, 'opacity', numOp\)/);
   assert.match(src, /inNum = sv\('text'[^)]*y: LUMEN_NUM_Y/);
   assert.match(src, /inWord = sv\('text'[^)]*y: LUMEN_WORD_Y/);
   const yn = LUMEN_NUM_Y, yw = LUMEN_WORD_Y;
@@ -238,7 +238,7 @@ test('V19: the vessel\'s name sits above the % in the circle, stays at 0 %, fits
   assert.ok(Math.abs((ya + yw) / 2 - 50) <= 2, 'name, number and word are one block centred on the vessel');
   assert.match(src, /inName = sv\('text', \{ class: 'gl-in gl-word gl-name'/, 'the name is the size of "occluded", so it keeps the 12 px floor');
   assert.doesNotMatch(src, /inName\.style\.opacity/, 'the name never fades: the circle always says what it is');
-  assert.match(src, /inName\.setAttribute\('y', b\.nameY/);
+  assert.match(src, /setGeo\(inName, 'y', lumenNameY\(occlusion\)\)/);
   assert.equal(lumenBlock(0).nameY, 50, 'alone, the name sits at the vessel\'s centre');
   assert.equal(lumenBlock(0.06).nameY, ya, 'with a clot it sits above the %');
   assert.equal(lumenLabel('PV_TRUNK'), 'Portal vein');

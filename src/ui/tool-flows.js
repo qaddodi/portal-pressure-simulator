@@ -18,11 +18,12 @@
 // so it counts as liver.
 
 import { frame, cancelFrame } from './frame.js?v=1d147c7c9a';
-import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
+import { restPass, cancelRest } from './rest-pass.js?v=d13e397f0b';
 import { EDGES, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from '../engine/topology.js?v=4044766e96';
-import { portalSplit } from './table-marks.js?v=a483b9975e';
-import { measure } from './glyph-measure.js?v=1e477bd6b3';
-import { createSvgGL, svgModel } from './svg-gl.js?v=0351baf0a0';
+import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
+import { measure } from './glyph-measure.js?v=d1e89aeb28';
+import { createSvgGL, svgModel, setGeo, setPts, setWords } from './svg-gl.js?v=0fa4da9d8b';
+import { pctWords } from './num-words.js?v=cf53d490d9';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const STENTS = new Set(['TIPS', 'DIPS']);
@@ -251,11 +252,21 @@ function routeOnce(parts, w, hh, f, measure, hParts) {
 }
 
 // (2 Nov 2026: the bar is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
+// The model is built once for a card's kind and size (build, between frames) with a piece for everything the bar can show: a segment, a pill
+// of each wording and the words on the bar for each part, and the Healthy mark. A frame only writes numbers into those pieces (setGeo, setWords,
+// setPts) and asks the picture to draw: no tree, string or object is made in it. A piece is shown by its strength: 0 is not drawn.
 const sv = svgModel;
 // (a word's width as Inter sets it, from the GPU atlas's own metrics: no canvas)
 const textW = (t, f, wt = 600) => measure(t, `${wt} ${f}px Inter`);
 // Every part the bar can show.
 const ALL = [LIVER, ...ROUTES, OTHER];
+const PORTAL_IDS = ALL.map(([id]) => id), INFLOW_IDS = INFLOW.map(([id]) => id);
+const NAME_OF = Object.fromEntries(ALL.concat(INFLOW).map(([id, name]) => [id, name]));
+const TONE_OF = Object.fromEntries(ALL.concat(INFLOW).map(([id, , tone]) => [id, tone]));
+const MIXK = ['x', 'pct', 'lx', 'row'];
+// (The inflow's leader line's words for each whole percent ('Portal 20%'), made once at load.)
+const LEAD_WORDS = {};
+for (const [id] of INFLOW) { LEAD_WORDS[id] = []; for (let p = 0; p <= 100; p++) LEAD_WORDS[id].push(`${INFLOW_SHORT[id]} ${p}%`); }
 let uid = 0;
 
 export function createFlowsTool() {
@@ -264,8 +275,11 @@ export function createFlowsTool() {
   const gl = createSvgGL(el);
   const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
   const clip = `pfl-clip-${++uid}`;
-  let of = 'portal', params = null, goal = null, hGoal = null, ctx0 = null, shown = null, raf = 0, size = '', memo = null, wait = 0;
-  let tiers = {};   // (each part's words: the wording they are drawn in now, and their opacity while they swap for another)
+  let of = 'portal', params = null, goal = null, hGoal = null, ctx0 = null, raf = 0, size = '', memo = null, wait = 0;
+  // What a frame eases and draws, kept (made when the model is built): each part's numbers (x, pct, op, lx, row, hop) in shownP, the bar's
+  // (top, hop) in shownM, each part's wording and its strength while it swaps for another in tierP; hasShown: they hold a state.
+  let ids = PORTAL_IDS, shownP = {}, shownM = { top: 0, hop: 0 }, tierP = {}, hasShown = false;
+  let model = null, modelKey = '';
   // The card's size, zoom and lettering, read between frames (a new slide, a new size: rest-pass.js), never in a glide's frame.
   let box = null, measuring = 0;
   const measureBox = () => {
@@ -274,15 +288,14 @@ export function createFlowsTool() {
     box = [Math.max(160, w || 420), Math.max(6 * f, el.clientHeight || 160), f];
   };
   const sizeNow = () => box || [420, 160, 12];
-  const order = () => (of === 'inflow' ? INFLOW : ALL).map(([id]) => id);
-  const info = (id) => ALL.concat(INFLOW).find(([k]) => k === id);
-  // The segments, each as wide as its share of the blood, a hairline of card between them (the bar's clip rounds its ends).
-  const segments = (ids, yT, barH, w) => sv('g', { 'clip-path': `url(#${clip})` }, ids.filter((id) => shown[id].pct > 0.05).map((id) => {
-    const x = (shown[id].x / 100) * w, wd = (shown[id].pct / 100) * w, inner = x > 0.5;
-    return sv('rect', { class: 'pfl-seg', 'data-part': id, style: `--tone: var(${info(id)[2]}); opacity: ${shown[id].op.toFixed(3)}`,
-      x: x + (inner ? 0.75 : 0), y: yT, width: Math.max(0.5, wd - (inner ? 0.75 : 0) - (x + wd < w - 0.5 ? 0.75 : 0)), height: barH });
-  }));
-  // The layout the shares are heading for (computed once per goal and size: the name search is not per frame).
+  const order = () => (of === 'inflow' ? INFLOW_IDS : PORTAL_IDS);
+  const resetShown = () => {
+    hasShown = false; ids = order(); shownP = {}; tierP = {};
+    for (const id of ids) { shownP[id] = { x: 0, pct: 0, lx: 0, row: 0, op: 0, hop: 0 }; tierP[id] = { init: false, drawn: 4, o: 1 }; }
+    shownM.top = 0; shownM.hop = 0;
+  };
+  resetShown();
+  // The layout the shares are heading for (computed once per goal and size, between frames: the name search is not per frame).
   const target = () => (of === 'inflow' ? targetInflow() : targetRoutes());
   // The portal blood's layout: the one bar across the card, the Healthy bracket over it, the pills under it (routeLayout). Per
   // part: x, pct (the bar's segment), lx and row (its pill's centre and row), tier (their wording).
@@ -292,47 +305,17 @@ export function createFlowsTool() {
     if (memo?.key === key) return memo;
     const lay = routeLayout(goal, w, hh, f, textW, hGoal);
     const at = Object.fromEntries(lay.spans.map((s, i) => [s.id, [s, lay.tiers[i], lay.pills.find((p) => p.id === s.id)]]));
-    const zero = { ld: 0, dn: 0, hx: 0, hpct: 0, hop: 0, hn: 0, hv: 0 };
-    const want = Object.fromEntries(order().map((id) => {
-      const [s, t, pill] = at[id] || [], o = shown?.[id], first = id === order()[0];
+    const want = {};
+    for (const id of ids) {
+      const [s, t, pill] = at[id] || [], o = hasShown ? shownP[id] : null, first = id === ids[0];
       // (A part not on this slide shrinks where it stood; the liver, first on the bar, stays at 0.)
-      if (!s) return [id, { ...zero, x: o ? o.x : (first ? 0 : 100), pct: 0, op: 0, lx: o?.lx ?? w / 2, ex: o?.lx ?? w / 2, row: o?.row ?? 0, tier: tiers[id]?.drawn ?? 4 }];
+      if (!s) { want[id] = { x: o ? o.x : (first ? 0 : 100), pct: 0, op: 0, hop: 0, lx: o ? o.lx : w / 2, row: o ? o.row : 0, tier: tierP[id].init ? tierP[id].drawn : 4 }; continue; }
       const cx = pill ? pill.cx : (s.a + s.b) / 2;
-      return [id, { ...zero, x: (s.a / w) * 100, pct: s.pct, op: 1, lx: cx, ex: cx, row: pill ? pill.row : 0, tier: t }];
-    }));
-    want._ = { ...zero, top: lay.top, nowOp: 1, x: 0, pct: 0, op: 0, lx: 0, ex: 0, row: 0, hop: lay.mark ? 1 : 0 };
+      want[id] = { x: (s.a / w) * 100, pct: s.pct, op: 1, hop: 0, lx: cx, row: pill ? pill.row : 0, tier: t };
+    }
+    want._ = { top: lay.top, hop: lay.mark ? 1 : 0 };
     memo = { key, want, w, hh, f, geo: lay.geo, mark: lay.mark, rows: lay.rows, hide: sameShares(goal, hGoal) };
     return memo;
-  }
-  // The portal blood bar, drawn from the eased shares: the segments, the Healthy bracket, each part's words on its segment, the pills.
-  function drawRoutes() {
-    const { w, hh, f, geo, mark } = memo, top0 = shown._.top, yT = top0 + geo.barT;
-    size = `${Math.round(w)}x${Math.round(hh)}`;
-    const ids = order().filter((id) => shown[id] && shown[id].op > 0.01);
-    const kids = [sv('defs', {}, sv('clipPath', { id: clip }, sv('rect', { x: 0, y: yT, width: w, height: geo.barH, rx: Math.min(6, geo.barH / 2) }))), segments(ids, yT, geo.barH, w)];
-    // The healthy split: a dashed bracket over the whole bar, its words centred above.
-    if (mark && shown._.hop > 0.01) {
-      const yb = top0 + geo.brY, x0 = mark.x0 + 1, x1 = mark.x1 - 1;
-      kids.push(sv('g', { class: 'pfl-mk', style: `opacity: ${shown._.hop.toFixed(3)}` },
-        sv('path', { d: `M${x0} ${(yb + geo.brTick).toFixed(1)}V${yb.toFixed(1)}H${x1.toFixed(1)}V${(yb + geo.brTick).toFixed(1)}` }),
-        sv('text', { x: (mark.L + mark.R) / 2, y: top0 + geo.base, 'text-anchor': 'middle' }, mark.text)));
-    }
-    for (const id of ids) {
-      const s = shown[id], t = tiers[id] || { drawn: memo.want[id].tier, o: 1 }, op = s.op * t.o, v = `${Math.round(s.pct)}%`, name = info(id)[1];
-      if (op <= 0.01 || t.drawn > 3) continue;
-      if (t.drawn === 3 || t.drawn === 2) {
-        // A pill in the part's colour, like the app's other value pills, in the bar's order under it (its name alone where its percent is on the bar).
-        const words = t.drawn === 3 ? `${name} ${v}` : name;
-        const pw = Math.min(w, textW(words, f, 700) + 2 * geo.px), px = Math.min(Math.max(s.lx - pw / 2, 0), w - pw), py = top0 + geo.pillsT + s.row * (geo.ph + geo.pg);
-        kids.push(sv('g', { class: 'ppf-pill pfl-pill', 'data-part': id, style: `--tone: var(${info(id)[2]}); opacity: ${op.toFixed(3)}` }, sv('rect', { x: px, y: py, width: pw, height: geo.ph, rx: geo.ph / 2 }),
-          sv('text', { x: px + pw / 2, y: py + geo.ph / 2 + 0.36 * f, 'text-anchor': 'middle' }, t.drawn === 3 ? [sv('tspan', { class: 'k' }, `${name} `), v] : name)));
-        if (t.drawn === 3) continue;
-      }
-      const cx = ((s.x + s.pct / 2) / 100) * w, lab = (...k) => sv('g', { class: 'pfl-lab', 'data-part': id, style: `opacity: ${op.toFixed(3)}` }, ...k);
-      const text = (cls, y, t2) => sv('text', { class: cls, x: cx, y, 'text-anchor': 'middle' }, t2);
-      kids.push(t.drawn === 0 ? lab(text('n', yT + geo.n1, name), text('v', yT + geo.n2, v)) : lab(text('v', yT + geo.mid, v)));
-    }
-    finish(kids);
   }
   // The inflow's layout: the one bar across the card, the Healthy line over it, the words' places (inflowLabels). Per part:
   // x, pct (the bar's segment), lx (its words' centre), tier (their wording).
@@ -342,84 +325,222 @@ export function createFlowsTool() {
     if (memo?.key === key) return memo;
     const geo = inflowGeo(f), mark = inflowMarker(hGoal, w, f, textW), spans = inflowSpans(barOrder(goal, 'inflow'), w);
     const labs = inflowLabels(spans, w, geo, textW, mark), at = Object.fromEntries(spans.map((s, i) => [s.id, [s, labs[i]]]));
-    const zero = { row: 0, ld: 0, dn: 0, hx: 0, hpct: 0, hop: 0, hn: 0, hv: 0 };
-    const want = Object.fromEntries(order().map((id, i) => {
-      const [s, l] = at[id] || [], o = shown?.[id];
+    const want = {};
+    ids.forEach((id, i) => {
+      const [s, l] = at[id] || [], o = hasShown ? shownP[id] : null;
       // (A part not on this slide shrinks where it stood; the portal vein, first on the bar, stays at 0.)
-      if (!s) return [id, { ...zero, x: o ? o.x : (i ? 100 : 0), pct: 0, op: 0, lx: o?.lx ?? w / 2, ex: o?.lx ?? w / 2, tier: tiers[id]?.drawn ?? 4 }];
-      return [id, { ...zero, x: (s.a / w) * 100, pct: s.pct, op: 1, lx: l.cx, ex: l.cx, tier: l.tier }];
-    }));
-    want._ = { ...zero, top: Math.max(0, (hh - geo.h) / 2), nowOp: 1, x: 0, pct: 0, op: 0, lx: 0, ex: 0, hop: mark ? 1 : 0 };
+      if (!s) { want[id] = { x: o ? o.x : (i ? 100 : 0), pct: 0, op: 0, hop: 0, lx: o ? o.lx : w / 2, row: 0, tier: tierP[id].init ? tierP[id].drawn : 4 }; return; }
+      want[id] = { x: (s.a / w) * 100, pct: s.pct, op: 1, hop: 0, lx: l.cx, row: 0, tier: l.tier };
+    });
+    want._ = { top: Math.max(0, (hh - geo.h) / 2), hop: mark ? 1 : 0 };
     memo = { key, want, w, hh, f, geo, mark, hide: sameShares(goal, hGoal) };
     return memo;
   }
-  // The inflow bar, drawn from the eased shares: the segments, the Healthy line with its words, then each part's words.
-  function drawInflow() {
-    const { w, hh, f, geo, mark } = memo, top0 = shown._.top, yT = top0 + geo.top, yB = top0 + geo.bottom;
-    size = `${Math.round(w)}x${Math.round(hh)}`;
-    const X = (pc) => (pc / 100) * w, ids = order().filter((id) => shown[id] && shown[id].op > 0.01);
-    const kids = [sv('defs', {}, sv('clipPath', { id: clip }, sv('rect', { x: 0, y: yT, width: w, height: geo.barH, rx: Math.min(6, geo.barH / 2) })))];
-    kids.push(segments(ids, yT, geo.barH, w));
-    // The healthy split: a dashed line over the bar where its portal blood ends, its words above.
-    if (mark && shown._.hop > 0.01) {
-      kids.push(sv('g', { class: 'pfl-mk', style: `opacity: ${shown._.hop.toFixed(3)}` },
-        sv('line', { x1: mark.x, y1: top0 + geo.base + 0.4 * f, x2: mark.x, y2: yB + 0.5 * f }),
-        sv('text', { x: (mark.L + mark.R) / 2, y: top0 + geo.base, 'text-anchor': 'middle' }, mark.text)));
-    }
-    // Each part's words: on its segment where they fit (tiers 0 to 2), else above the bar on a short leader (tier 3).
+
+  // ── The model (built between frames) ──
+  // A piece's strength is held on it as a number (setGeo), set before its look is read, so the picture reads it live.
+  const strength = (n, v = 0) => { setGeo(n, 'opacity', v); return n; };
+  const tspan = (cls) => sv('tspan', cls ? { class: cls } : {});
+  // Widths of the words a pill carries for each whole percent (the name and its percent as one, then the name alone), measured once per size
+  // here, so a frame sets a pill's width from a table, never measures a string.
+  let pillF = 0, pillW = {};
+  function pillWidths(f) {
+    if (pillF !== f) { pillF = f; pillW = {}; }
     for (const id of ids) {
-      const s = shown[id], t = tiers[id] || { drawn: memo.want[id].tier, o: 1 }, op = s.op * t.o, v = `${Math.round(s.pct)}%`;
-      if (op <= 0.01 || t.drawn > 3) continue;
-      const lab = (...k) => sv('g', { class: 'pfl-lab', 'data-part': id, style: `opacity: ${op.toFixed(3)}` }, ...k);
-      const text = (cls, y, t2) => sv('text', { class: cls, x: s.lx, y, 'text-anchor': 'middle' }, t2);
-      if (t.drawn <= 1) kids.push(lab(text('n', yT + geo.n1, t.drawn ? INFLOW_SHORT[id] : info(id)[1]), text('v', yT + geo.n2, v)));
-      else if (t.drawn === 2) kids.push(lab(text('v', yT + geo.mid, v)));
-      else {
-        const line = `${INFLOW_SHORT[id]} ${v}`, half = textW(line, f, 600) / 2, cx = Math.min(Math.max(X(s.x + s.pct / 2), s.lx - half), s.lx + half);
-        kids.push(lab(sv('path', { class: 'pfl-lead', d: `M${cx.toFixed(1)} ${yT.toFixed(1)}V${(top0 + geo.base + 0.3 * f).toFixed(1)}` }), text('n', top0 + geo.base, line)));
+      if (pillW[id]) continue;
+      const a = new Float64Array(102), name = NAME_OF[id];
+      for (let p = 0; p <= 100; p++) a[p] = textW(`${name} ${p}%`, f, 700);
+      a[101] = textW(name, f, 700);
+      pillW[id] = a;
+    }
+  }
+  // (The inflow's leader line over a segment too narrow for its words: that line's width at each whole percent.)
+  let leadF = 0, leadW = {};
+  function leadWidths(f) {
+    if (leadF !== f) { leadF = f; leadW = {}; }
+    for (const id of ids) {
+      if (leadW[id]) continue;
+      const a = new Float64Array(101);
+      for (let p = 0; p <= 100; p++) a[p] = textW(`${INFLOW_SHORT[id]} ${p}%`, f, 600);
+      leadW[id] = a;
+    }
+  }
+  function build() {
+    const { w, hh, f } = memo, inflow = of === 'inflow';
+    size = `${Math.round(w)}x${Math.round(hh)}`;
+    const clipRect = sv('rect', { x: 0, width: w });
+    const segG = sv('g', { 'clip-path': `url(#${clip})` });
+    const mkText = sv('text', { 'text-anchor': 'middle' }), mkLine = sv(inflow ? 'line' : 'path', {});
+    const mk = strength(sv('g', { class: 'pfl-mk' }, mkLine, mkText));
+    const pieces = {};
+    const kids = [sv('defs', {}, sv('clipPath', { id: clip }, clipRect)), segG, mk];
+    for (const id of ids) {
+      const p = pieces[id] = {};
+      p.seg = strength(sv('rect', { class: 'pfl-seg', 'data-part': id, style: `--tone: var(${TONE_OF[id]})` }));
+      segG.append(p.seg);
+      if (!inflow) {
+        // The wordings of a part in a pill under the bar: the name and its percent (tier 3), the name alone (tier 2).
+        p.pillRectV = sv('rect', {}); p.pillKV = tspan('k'); p.pillV = tspan('');
+        p.pillTextV = sv('text', { 'text-anchor': 'middle' }, p.pillKV, p.pillV);
+        p.pillGV = strength(sv('g', { class: 'ppf-pill pfl-pill', 'data-part': id, style: `--tone: var(${TONE_OF[id]})` }, p.pillRectV, p.pillTextV));
+        p.pillRectN = sv('rect', {}); p.pillTextN = sv('text', { 'text-anchor': 'middle' });
+        p.pillGN = strength(sv('g', { class: 'ppf-pill pfl-pill', 'data-part': id, style: `--tone: var(${TONE_OF[id]})` }, p.pillRectN, p.pillTextN));
+        setWords(p.pillKV, `${NAME_OF[id]} `); setWords(p.pillTextN, NAME_OF[id]);
+        kids.push(p.pillGV, p.pillGN);
+      }
+      p.n = sv('text', { class: 'n', 'text-anchor': 'middle' }); p.v = sv('text', { class: 'v', 'text-anchor': 'middle' });
+      p.lead = inflow ? sv('line', { class: 'pfl-lead' }) : null;
+      p.lab = strength(sv('g', { class: 'pfl-lab', 'data-part': id }, ...(p.lead ? [p.lead, p.n, p.v] : [p.n, p.v])));
+      kids.push(p.lab);
+    }
+    const root = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px` }, kids);
+    if (inflow) leadWidths(f); else pillWidths(f);
+    model = { root, clipRect, mk, mkText, mkLine, pieces, bracket: inflow ? null : new Float64Array(8), key: of };
+    modelKey = `${of}|${size}|${f}`;
+    gl.show(root, false);
+  }
+  // What a new layout changes in the model: the words, the places that stay, and what a screen reader is told.
+  function apply() {
+    const { geo, mark } = memo, inflow = of === 'inflow', say = (ps) => barOrder(ps, of).map((p) => `${p.name} ${p.pct}%`).join(', ');
+    const br = flowView(goal, of).bracket;
+    model.root.setAttribute('aria-label', `${inflow ? 'The liver\'s inflow' : 'Where the portal blood goes'}, ${memo.hide ? `healthy, and now the same: ${say(goal)}` : `now: ${say(goal)}${br ? `; ${br[0]} ${br[1]}%` : ''}${hGoal ? `; healthy: ${say(hGoal)}` : ''}`}`);
+    setGeo(model.clipRect, 'height', geo.barH); setGeo(model.clipRect, 'rx', Math.min(6, geo.barH / 2));
+    setWords(model.mkText, mark ? mark.text : '');
+    if (mark) setGeo(model.mkText, 'x', (mark.L + mark.R) / 2);
+    for (const id of ids) {
+      const p = model.pieces[id];
+      if (!inflow) { setGeo(p.pillRectV, 'height', geo.ph); setGeo(p.pillRectV, 'rx', geo.ph / 2); setGeo(p.pillRectN, 'height', geo.ph); setGeo(p.pillRectN, 'rx', geo.ph / 2); }
+    }
+  }
+  // The bar and its words laid out for what the card holds now (between frames): the layout, the model rebuilt where the card's size changed,
+  // and the first state shown at once.
+  function retarget() {
+    if (!goal) return;
+    target();
+    if (!model || modelKey !== `${of}|${Math.round(memo.w)}x${Math.round(memo.hh)}|${memo.f}`) { if (model) { resetShown(); memo = null; target(); } build(); }
+    apply();
+    if (!hasShown) tick();   // (the first state is drawn at once: the card never comes in empty)
+  }
+  // The bar, drawn from the eased numbers.
+  function draw() {
+    if (!goal || !hasShown || !memo || !model) return;
+    if (of === 'inflow') drawInflow(); else drawRoutes();
+    gl.paint();
+  }
+  function drawRoutes() {
+    const { w, geo, mark, f } = memo, top0 = shownM.top, yT = top0 + geo.barT;
+    setGeo(model.clipRect, 'y', yT);
+    // The healthy split: a dashed bracket over the whole bar, its words centred above.
+    const on = mark && shownM.hop > 0.01;
+    setGeo(model.mk, 'opacity', on ? shownM.hop : 0);
+    if (on) {
+      const yb = top0 + geo.brY, x0 = mark.x0 + 1, x1 = mark.x1 - 1, B = model.bracket;
+      B[0] = x0; B[1] = yb + geo.brTick; B[2] = x0; B[3] = yb; B[4] = x1; B[5] = yb; B[6] = x1; B[7] = yb + geo.brTick;
+      setPts(model.mkLine, B, 4, false);
+      setGeo(model.mkText, 'y', top0 + geo.base);
+    }
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i], s = shownP[id], t = tierP[id], p = model.pieces[id], op = s.op * t.o, pi = Math.round(s.pct), pc = pi > 100 ? 100 : pi < 0 ? 0 : pi;
+      // The segment: as wide as its share, a hairline of card between them (the bar's clip rounds its ends).
+      if (s.op > 0.01 && s.pct > 0.05) {
+        const x = (s.x / 100) * w, wd = (s.pct / 100) * w, inner = x > 0.5;
+        setGeo(p.seg, 'x', x + (inner ? 0.75 : 0)); setGeo(p.seg, 'y', yT);
+        setGeo(p.seg, 'width', Math.max(0.5, wd - (inner ? 0.75 : 0) - (x + wd < w - 0.5 ? 0.75 : 0))); setGeo(p.seg, 'height', geo.barH);
+        setGeo(p.seg, 'opacity', s.op);
+      } else setGeo(p.seg, 'opacity', 0);
+      const shown = s.op > 0.01 && op > 0.01 && t.drawn <= 3, d = t.drawn;
+      // A pill in the part's colour, like the app's other value pills, in the bar's order under it (the name and its percent where its percent is
+      // not on the bar, its name alone where the percent is).
+      const pillV = shown && d === 3, pillN = shown && d === 2;
+      setGeo(p.pillGV, 'opacity', pillV ? op : 0); setGeo(p.pillGN, 'opacity', pillN ? op : 0);
+      if (pillV || pillN) {
+        const pw = Math.min(w, pillW[id][pillV ? pc : 101] + 2 * geo.px), px = Math.min(Math.max(s.lx - pw / 2, 0), w - pw), py = top0 + geo.pillsT + s.row * (geo.ph + geo.pg);
+        const rect = pillV ? p.pillRectV : p.pillRectN, text = pillV ? p.pillTextV : p.pillTextN;
+        setGeo(rect, 'x', px); setGeo(rect, 'y', py); setGeo(rect, 'width', pw);
+        setGeo(text, 'x', px + pw / 2); setGeo(text, 'y', py + geo.ph / 2 + 0.36 * f);
+        if (pillV) setWords(p.pillV, pctWords(pc));
+      }
+      // The words on the bar: the name and percent (tier 0), the percent alone (tier 2).
+      const lab = shown && (d === 0 || d === 2);
+      setGeo(p.lab, 'opacity', lab ? op : 0);
+      if (lab) {
+        const cx = ((s.x + s.pct / 2) / 100) * w;
+        setWords(p.v, pctWords(pc)); setGeo(p.v, 'x', cx); setGeo(p.v, 'y', d === 0 ? yT + geo.n2 : yT + geo.mid);
+        setWords(p.n, d === 0 ? NAME_OF[id] : ''); setGeo(p.n, 'x', cx); setGeo(p.n, 'y', yT + geo.n1);
       }
     }
-    finish(kids);
   }
-  // The card's drawing: the svg round the kids, with what it shows said for a screen reader.
-  function finish(kids) {
-    const { w, hh, f } = memo, say = (ps) => barOrder(ps, of).map((p) => `${p.name} ${p.pct}%`).join(', ');
-    const br = flowView(goal, of).bracket;
-    gl.swap(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
-      'aria-label': `${of === 'inflow' ? 'The liver\'s inflow' : 'Where the portal blood goes'}, ${memo.hide ? `healthy, and now the same: ${say(goal)}` : `now: ${say(goal)}${br ? `; ${br[0]} ${br[1]}%` : ''}${hGoal ? `; healthy: ${say(hGoal)}` : ''}`}` }, kids));
+  function drawInflow() {
+    const { w, geo, mark, f } = memo, top0 = shownM.top, yT = top0 + geo.top, yB = top0 + geo.bottom;
+    setGeo(model.clipRect, 'y', yT);
+    // The healthy split: a dashed line over the bar where its portal blood ends, its words above.
+    const on = mark && shownM.hop > 0.01;
+    setGeo(model.mk, 'opacity', on ? shownM.hop : 0);
+    if (on) {
+      setGeo(model.mkLine, 'x1', mark.x); setGeo(model.mkLine, 'x2', mark.x); setGeo(model.mkLine, 'y1', top0 + geo.base + 0.4 * f); setGeo(model.mkLine, 'y2', yB + 0.5 * f);
+      setGeo(model.mkText, 'y', top0 + geo.base);
+    }
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i], s = shownP[id], t = tierP[id], p = model.pieces[id], op = s.op * t.o, pi = Math.round(s.pct), pc = pi > 100 ? 100 : pi < 0 ? 0 : pi;
+      if (s.op > 0.01 && s.pct > 0.05) {
+        const x = (s.x / 100) * w, wd = (s.pct / 100) * w, inner = x > 0.5;
+        setGeo(p.seg, 'x', x + (inner ? 0.75 : 0)); setGeo(p.seg, 'y', yT);
+        setGeo(p.seg, 'width', Math.max(0.5, wd - (inner ? 0.75 : 0) - (x + wd < w - 0.5 ? 0.75 : 0))); setGeo(p.seg, 'height', geo.barH);
+        setGeo(p.seg, 'opacity', s.op);
+      } else setGeo(p.seg, 'opacity', 0);
+      // Each part's words: on its segment where they fit (tiers 0 to 2), else above the bar on a short leader (tier 3).
+      const shown = s.op > 0.01 && op > 0.01 && t.drawn <= 3, d = t.drawn;
+      setGeo(p.lab, 'opacity', shown ? op : 0);
+      if (!shown) continue;
+      if (d <= 1) {
+        setWords(p.n, d ? INFLOW_SHORT[id] : NAME_OF[id]); setGeo(p.n, 'x', s.lx); setGeo(p.n, 'y', yT + geo.n1);
+        setWords(p.v, pctWords(pc)); setGeo(p.v, 'x', s.lx); setGeo(p.v, 'y', yT + geo.n2);
+        setGeo(p.lead, 'x1', 0); setGeo(p.lead, 'x2', 0); setGeo(p.lead, 'y1', 0); setGeo(p.lead, 'y2', 0);
+      } else if (d === 2) {
+        setWords(p.n, ''); setWords(p.v, pctWords(pc)); setGeo(p.v, 'x', s.lx); setGeo(p.v, 'y', yT + geo.mid);
+        setGeo(p.lead, 'x1', 0); setGeo(p.lead, 'x2', 0); setGeo(p.lead, 'y1', 0); setGeo(p.lead, 'y2', 0);
+      } else {
+        const half = leadW[id][pc] / 2, cx = Math.min(Math.max((((s.x + s.pct / 2) / 100) * w), s.lx - half), s.lx + half);
+        setWords(p.v, ''); setWords(p.n, LEAD_WORDS[id][pc]); setGeo(p.n, 'x', s.lx); setGeo(p.n, 'y', top0 + geo.base);
+        setGeo(p.lead, 'x1', cx); setGeo(p.lead, 'x2', cx); setGeo(p.lead, 'y1', yT); setGeo(p.lead, 'y2', top0 + geo.base + 0.3 * f);
+      }
+    }
   }
-  function draw() {
-    if (!goal || !shown || !memo) { gl.clear(); return; }
-    if (of === 'inflow') drawInflow(); else drawRoutes();
-  }
+  const fade = (a, b, k) => (k === 1 ? b : a + (b - a) * (b < a ? 0.4 : 0.2));
+  const mixTo = (a, b, k) => a + (b - a) * k;
   function tick() {
     raf = 0;
-    if (!goal) return;
+    if (!goal || !memo || !model) return;
     // (Every share, place and name eases together, so a segment that overtakes another glides past it.)
-    const { want } = target();
-    const k = reduceMQ.matches || !shown ? 1 : 0.2, mix = (a, b) => a + (b - a) * k;
+    const want = memo.want, k = reduceMQ.matches || !hasShown ? 1 : 0.2;
     // (A part that goes fades out faster than the others move; one that comes fades in where it will stay.)
-    const fade = (a, b) => (k === 1 ? b : a + (b - a) * (b < a ? 0.4 : 0.2));
-    const KEYS = ['x', 'pct', 'lx', 'ex', 'row', 'top', 'nowOp', 'dn', 'hx', 'hpct', 'hn', 'hv'];
-    shown = Object.fromEntries(Object.keys(want).map((id) => {
-      const w0 = want[id], s0 = shown?.[id] || { ...w0, op: 0, ld: 0, pct: 0 };
-      const s = { op: fade(s0.op, w0.op), ld: fade(s0.ld, w0.ld), hop: fade(s0.hop ?? 0, w0.hop) };
-      for (const key of KEYS) if (key in w0) s[key] = mix(s0[key] ?? w0[key], w0[key]);
-      return [id, s];
-    }));
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i], w0 = want[id], s = shownP[id];
+      s.op = fade(s.op, w0.op, k); s.hop = fade(s.hop, w0.hop, k);
+      for (let j = 0; j < MIXK.length; j++) s[MIXK[j]] = mixTo(s[MIXK[j]], w0[MIXK[j]], k);
+    }
+    shownM.top = mixTo(shownM.top, want._.top, k); shownM.hop = fade(shownM.hop, want._.hop, k);
     // (A part's words: one whose wording changes (the full name for the short one, the percent alone, a pill…) fades out, is
     // reworded and fades back in, so a word never changes under the eye.)
     let swapping = false;
-    for (const id of order()) {
-      const goalTier = want[id].tier, t = (tiers[id] ||= { drawn: goalTier, o: 1 });
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i], goalTier = want[id].tier, t = tierP[id];
+      if (!t.init) { t.init = true; t.drawn = goalTier; t.o = 1; }
       if (t.drawn === goalTier) t.o = k === 1 ? 1 : Math.min(1, t.o + 0.2);
       else if (t.drawn > 3) { t.drawn = goalTier; t.o = 0; }   // (nothing was drawn: its words fade in as they are)
       else { t.o = k === 1 ? 0 : Math.max(0, t.o - 0.25); if (t.o <= 0.02) { t.drawn = goalTier; t.o = 0; } }
       if (t.drawn !== goalTier || t.o < 0.999) swapping = true;
     }
-    const done = !swapping && Object.keys(want).every((id) => ['x', 'pct', 'op', 'ld', 'row', 'top', 'nowOp', 'dn', 'hx', 'hpct', 'hop', 'hn', 'hv'].every((key) => !(key in want[id]) || Math.abs(shown[id][key] - want[id][key]) < 0.01)
-      && Math.abs(shown[id].lx - want[id].lx) < 0.2 && Math.abs(shown[id].ex - want[id].ex) < 0.2);
-    if (done) shown = Object.fromEntries(Object.keys(want).map((id) => [id, { ...want[id] }]));
+    let done = !swapping && Math.abs(shownM.top - want._.top) < 0.01 && Math.abs(shownM.hop - want._.hop) < 0.01;
+    for (let i = 0; done && i < ids.length; i++) {
+      const id = ids[i], w0 = want[id], s = shownP[id];
+      done = Math.abs(s.x - w0.x) < 0.01 && Math.abs(s.pct - w0.pct) < 0.01 && Math.abs(s.op - w0.op) < 0.01 && Math.abs(s.row - w0.row) < 0.01 && Math.abs(s.hop - w0.hop) < 0.01 && Math.abs(s.lx - w0.lx) < 0.2;
+    }
+    if (done) {
+      for (let i = 0; i < ids.length; i++) { const id = ids[i], w0 = want[id], s = shownP[id]; s.x = w0.x; s.pct = w0.pct; s.op = w0.op; s.row = w0.row; s.hop = w0.hop; s.lx = w0.lx; }
+      shownM.top = want._.top; shownM.hop = want._.hop;
+    }
+    hasShown = true;
     draw();
     if (!done) raf = frame(tick, 'tool-flows');
   }
@@ -428,7 +549,8 @@ export function createFlowsTool() {
     if (!p) return;
     goal = p;
     healthyNow();
-    if (!box) { if (!measuring) measuring = restPass(() => { measuring = 0; measureBox(); if (goal && !raf) raf = frame(tick, 'tool-flows'); }); return; }
+    if (!box) { if (!measuring) measuring = restPass(() => { measuring = 0; measureBox(); retarget(); if (goal && !raf) raf = frame(tick, 'tool-flows'); }); return; }
+    retarget();
     if (!raf) raf = frame(tick, 'tool-flows');
   }
   // The healthy model's parts (the presenter's healthy fingerprint, the one the profile's dashed line uses): it can arrive
@@ -439,19 +561,22 @@ export function createFlowsTool() {
     if (hp) { hGoal = hp; return; }
     hGoal = null;
     let tries = 0;
-    const again = () => { wait = 0; const h = flowParts(ctx0?.healthy?.(), of); if (h) { hGoal = h; if (!raf && goal) raf = frame(tick, 'tool-flows'); } else if (++tries < 40 && el.isConnected !== false) wait = setTimeout(again, 250); };
+    const again = () => { wait = 0; const h = flowParts(ctx0?.healthy?.(), of); if (h) { hGoal = h; retarget(); if (!raf && goal) raf = frame(tick, 'tool-flows'); } else if (++tries < 40 && el.isConnected !== false) wait = setTimeout(again, 250); };
     wait = setTimeout(again, 250);
   }
   // (A new size lays the names out afresh and shows them there at once: the places are in pixels.)
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (el.isConnected) measureBox(); if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { if (raf) cancelFrame(raf); shown = null; tiers = {}; tick(); } }).observe(el);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => {
+    if (el.isConnected) measureBox();
+    if (hasShown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { if (raf) cancelFrame(raf); resetShown(); memo = null; retarget(); tick(); }
+  }).observe(el);
   return {
     el,
     configure(t, ctx) {
       const of2 = t?.of === 'inflow' ? 'inflow' : 'portal';
-      if (of2 !== of) { shown = null; memo = null; tiers = {}; }   // (the other split: drawn afresh)
+      if (of2 !== of) { of = of2; resetShown(); memo = null; model = null; modelKey = ''; gl.clear(); }   // (the other split: drawn afresh)
       of = of2; params = ctx?.params || null; ctx0 = ctx || null; el.dataset.of = of;
       // (A new slide's card, as the slide is set up: read now the first time, else again between frames, the last read kept until then.)
-      if (!box) measureBox(); else if (!measuring) measuring = restPass(() => { measuring = 0; measureBox(); });
+      if (!box) measureBox(); else if (!measuring) measuring = restPass(() => { measuring = 0; measureBox(); retarget(); });
       if (ctx?.fp) aim(ctx.fp);
     },
     pin(fp) { if (el.isConnected && fp) aim(fp); },

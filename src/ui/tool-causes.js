@@ -14,13 +14,15 @@
 // While a compare button or what-if slider moves the live model, the causes are worked out again on the live state and the
 // steps ease to their new places. These are the model's own shares: a deck line that quotes them needs a source.
 
-import { TILE, RATE, tileShown } from './table-marks.js?v=a483b9975e';
-import { cutsOf } from './tool-curve.js?v=ef34d68770';
+import { TILE, RATE, tileShown } from './table-marks.js?v=ff3ed0cc47';
+import { cutsOf } from './tool-curve.js?v=409609ce74';
 import { DRUGS } from '../engine/scenario.js?v=d2669cef9b';
-import { restClass } from './rest-pass.js?v=bb619a1659';
+import { restClass } from './rest-pass.js?v=d13e397f0b';
 import { frameFor } from './frame.js?v=1d147c7c9a';
-import { createSvgGL, svgModel, setWords } from './svg-gl.js?v=0351baf0a0';
+import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js?v=0fa4da9d8b';
+import { numWords, signedWords } from './num-words.js?v=cf53d490d9';
 const nextFrame = frameFor('tool-causes');
+const mix = (a, b, k) => a + (b - a) * k;   // (one step toward b)
 
 const CS_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
 export const METRICS = ['ppg', 'hvpg', 'pv'];
@@ -108,7 +110,7 @@ export function domainOf(rows, metric = 'ppg') {
 const fmt = (v, d) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
 const signed = (v, d) => (Math.abs(v) < 0.5 * Math.pow(10, -d) ? fmt(0, d) : (v > 0 ? '+' : '−') + Math.abs(v).toFixed(d));
 export const shownText = (r, d) => (r.kind === 'step' ? signed(r.shown, d) : fmt(r.shown, d));
-const cw = (t, f, b) => String(t).length * f * (b ? 0.6 : 0.56);   // (a text's width, near enough: laid out before it is drawn)
+const cw = (t, f, b) => t.length * f * (b ? 0.6 : 0.56);   // (a text's width, near enough: laid out before it is drawn)
 /** A label in lines no wider than w (type f): split at the space nearest its middle when it does not fit on one, and only a
  *  label too long for two lines takes a third (filled word by word). */
 export function wrapLabel(label, w, f) {
@@ -179,7 +181,12 @@ export function createCauses({ host } = {}) {
   const gl = createSvgGL(el);
   let t = null, ctx = null, G = null, parts = null, lastSz = '', raf = 0, raw = null, data = null, list = [], gen = 0, busy = false, again = null, mode = 'own';
   const rows = new Map();   // key → { els, cur: { a, b, y, o }, goal, label, group, kind }
-  let dom = null, domGoal = { lo: 0, hi: 1 };   // (the scale, easing after its goal)
+  const rowList = [];       // (the same rows in the order they came, walked by index in a frame: no iterator made)
+  const alive = [];         // (the rows at their goal this frame, in the order of their places: kept, emptied each paint)
+  const domCur = { lo: 0, hi: 1 }, domGoal = { lo: 0, hi: 1 };   // (the scale, easing after its goal: both kept, written in place)
+  let hasDom = false;
+  // (The dashed links' points: three pairs a link (its top, its foot, a lifted pen), kept.)
+  const linkBuf = new Float64Array(6 * 32);
 
   const size = () => {
     const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
@@ -192,6 +199,8 @@ export function createCauses({ host } = {}) {
     const bar = sv('rect', { class: 'pcs-b', rx: 2, style: r.kind === 'total' ? null : `fill: ${colourOf(r.group)}` });
     const val = sv('text', { class: 'pcs-v' });
     const g = sv('g', { class: 'pcs-row' + (r.key === OTHER ? ' other' : '') + (r.kind === 'total' ? ' total' : '') + (r.key === NOW ? ' now' : '') }, label, bar, val);
+    setGeo(g, 'opacity', r.cur.o);   // (the strength is held on the piece as a number: set before its look is read)
+    r.left = null;
     r.els = { g, label, bar, val, lines: lines.length };
     parts.rowsG.append(g);
   }
@@ -210,66 +219,75 @@ export function createCauses({ host } = {}) {
     const svg = sv('svg', { viewBox: `0 0 ${w} ${h}`, width: w, height: h, role: 'img', style: `font-size: ${f.toFixed(2)}px` }, cutsG, links, rowsG, axG);
     return { svg, rowsG, links, cuts, unit, uw: cw(unit.textContent, f) };
   }
-  const X = (v) => G.bx0 + (v - dom.lo) * (G.bx1 - G.bx0) / Math.max(1e-6, dom.hi - dom.lo);
+  const X = (v) => G.bx0 + (v - domCur.lo) * (G.bx1 - G.bx0) / Math.max(1e-6, domCur.hi - domCur.lo);
   function paint() {
-    if (!parts || !dom) return;
+    if (!parts || !hasDom) return;
     const { f, bh, vgap, bx0, gap, w } = G, dg = data?.digits ?? 1;
     // (The cut-offs inside the scale, each numbered under its line; a number that would come within the gap of the one
     // before it, or of the unit at the right, is left out (its line stays).)
     let lastR = -Infinity;
     const ux0 = w - parts.uw;
-    for (const c of parts.cuts) {
-      const x = X(c.v), on = c.v > dom.lo && c.v < dom.hi, xs = x.toFixed(1);
-      c.line.setAttribute('x1', xs); c.line.setAttribute('x2', xs); c.num.setAttribute('x', xs);
+    for (let i = 0; i < parts.cuts.length; i++) {
+      const c = parts.cuts[i], x = X(c.v), on = c.v > domCur.lo && c.v < domCur.hi;
+      setGeo(c.line, 'x1', x); setGeo(c.line, 'x2', x); setGeo(c.num, 'x', x);
       restClass(c.line.parentNode, 'off', !on);
       const l = x - c.tw / 2, r = x + c.tw / 2, show = on && l >= lastR + gap && r <= ux0 - gap;
       restClass(c.num.parentNode, 'off', !show);
       if (show) lastR = r;
     }
-    const alive = [];
-    for (const r of rows.values()) {
-      const { label, bar, val, g, lines } = r.els, { a, b, y, o } = r.cur;
-      g.style.opacity = o.toFixed(3);
-      label.setAttribute('y', (y + 0.35 * f - (lines - 1) * LH * 0.5 * f).toFixed(1));
+    alive.length = 0;
+    for (let i = 0; i < rowList.length; i++) {
+      const r = rowList[i], { label, bar, val, g, lines } = r.els, c = r.cur, a = c.a, b = c.b, y = c.y;
+      setGeo(g, 'opacity', c.o);
+      setGeo(label, 'y', y + 0.35 * f - (lines - 1) * LH * 0.5 * f);
       const x0 = X(Math.min(a, b)), x1 = X(Math.max(a, b));
       const wd = r.goal?.shown ? Math.max(3, x1 - x0) : Math.max(0, x1 - x0);   // (a printed step shows at least a stub)
       const bl = r.kind === 'step' && b < a ? x1 - wd : x0;
-      bar.setAttribute('x', bl.toFixed(1)); bar.setAttribute('width', wd.toFixed(1));
-      bar.setAttribute('y', (y - bh / 2).toFixed(1)); bar.setAttribute('height', bh.toFixed(1));
+      setGeo(bar, 'x', bl); setGeo(bar, 'width', wd);
+      setGeo(bar, 'y', y - bh / 2); setGeo(bar, 'height', bh);
       if (r.rate !== undefined && g.dataset.rate !== (r.rate || '')) g.dataset.rate = r.rate || '';   // (only when it changes: a change is read again for its colour)
       // (The number at the step's end: right of a rise or a total, left of a fall when it has room there (clear of the words),
       // else right of it.)
-      const settled = r.goal && Math.abs(b - r.goal.b) < 1e-9 && Math.abs(a - r.goal.a) < 1e-9;
-      const txt = settled ? shownText({ kind: r.kind, shown: r.goal.shown }, dg) : shownText({ kind: r.kind, shown: r.kind === 'step' ? b - a : b }, dg);
+      const settled = r.goal && Math.abs(b - r.goal.b) < 1e-9 && Math.abs(a - r.goal.a) < 1e-9, step = r.kind === 'step';
+      const v = settled ? r.goal.shown : step ? b - a : b;
+      const txt = step ? signedWords(v, dg) : numWords(v, dg);
       setWords(val, txt);
-      const vw = cw(txt, f, true), left = r.kind === 'step' && b < a && bl - vgap - vw >= bx0;
-      val.setAttribute('x', (left ? bl - vgap : bl + wd + vgap).toFixed(1));
-      val.setAttribute('text-anchor', left ? 'end' : 'start');
-      val.setAttribute('y', (y + 0.35 * f).toFixed(1));
+      const vw = cw(txt, f, true), left = step && b < a && bl - vgap - vw >= bx0;
+      setGeo(val, 'x', left ? bl - vgap : bl + wd + vgap);
+      if (r.left !== left) { r.left = left; val.setAttribute('text-anchor', left ? 'end' : 'start'); }
+      setGeo(val, 'y', y + 0.35 * f);
       if (r.goal?.o === 1) alive.push(r);
     }
-    // (Dashed links carry the running total from each bar's end down to the next bar.)
-    alive.sort((p, q) => p.cur.y - q.cur.y);
-    let d = '';
-    for (let i = 0; i + 1 < alive.length; i++) {
-      const p = alive[i], q = alive[i + 1], x = X(p.cur.b).toFixed(1), y0 = p.cur.y + bh / 2, y1 = q.cur.y - bh / 2;
-      if (y1 - y0 > 1) d += `M${x} ${y0.toFixed(1)}V${y1.toFixed(1)}`;
+    // (Dashed links carry the running total from each bar's end down to the next bar: the rows in the order of their places, by insertion.)
+    for (let i = 1; i < alive.length; i++) {
+      const r = alive[i];
+      let j = i - 1;
+      while (j >= 0 && alive[j].cur.y > r.cur.y) { alive[j + 1] = alive[j]; j--; }
+      alive[j + 1] = r;
     }
-    parts.links.setAttribute('d', d);
+    let n = 0;
+    for (let i = 0; i + 1 < alive.length && n + 3 <= 96; i++) {
+      const p = alive[i].cur, q = alive[i + 1].cur, x = X(p.b), y0 = p.y + bh / 2, y1 = q.y - bh / 2;
+      if (y1 - y0 > 1) {
+        linkBuf[2 * n] = x; linkBuf[2 * n + 1] = y0; linkBuf[2 * n + 2] = x; linkBuf[2 * n + 3] = y1; linkBuf[2 * n + 4] = NaN; linkBuf[2 * n + 5] = 0;
+        n += 3;
+      }
+    }
+    setPts(parts.links, linkBuf, n, false);
   }
   // Every row glides after its goal: its ends, place and fade (never a jump), and the scale with them.
   function tick() {
     raf = 0;
-    const kk = reduceMQ.matches ? 1 : 0.18, mix = (a, b) => a + (b - a) * kk;
-    dom = dom ? { lo: mix(dom.lo, domGoal.lo), hi: mix(dom.hi, domGoal.hi) } : { ...domGoal };
-    let moving = Math.abs(dom.lo - domGoal.lo) + Math.abs(dom.hi - domGoal.hi) > 1e-3;
-    if (!moving) dom = { ...domGoal };
-    for (const [key, r] of rows) {
-      const c = r.cur, g = r.goal;
-      const n = { a: mix(c.a, g.a), b: mix(c.b, g.b), y: mix(c.y, g.y), o: mix(c.o, g.o) };
-      if (Math.abs(n.a - g.a) < 0.005 && Math.abs(n.b - g.b) < 0.005 && Math.abs(n.y - g.y) < 0.2 && Math.abs(n.o - g.o) < 0.01) Object.assign(n, { a: g.a, b: g.b, y: g.y, o: g.o }); else moving = true;
-      r.cur = n;
-      if (g.o === 0 && n.o === 0) { r.els?.g.remove(); rows.delete(key); }
+    const kk = reduceMQ.matches ? 1 : 0.18;
+    if (!hasDom) { domCur.lo = domGoal.lo; domCur.hi = domGoal.hi; hasDom = true; }
+    else { domCur.lo = mix(domCur.lo, domGoal.lo, kk); domCur.hi = mix(domCur.hi, domGoal.hi, kk); }
+    let moving = Math.abs(domCur.lo - domGoal.lo) + Math.abs(domCur.hi - domGoal.hi) > 1e-3;
+    if (!moving) { domCur.lo = domGoal.lo; domCur.hi = domGoal.hi; }
+    for (let i = rowList.length - 1; i >= 0; i--) {
+      const r = rowList[i], c = r.cur, g = r.goal;
+      c.a = mix(c.a, g.a, kk); c.b = mix(c.b, g.b, kk); c.y = mix(c.y, g.y, kk); c.o = mix(c.o, g.o, kk);
+      if (Math.abs(c.a - g.a) < 0.005 && Math.abs(c.b - g.b) < 0.005 && Math.abs(c.y - g.y) < 0.2 && Math.abs(c.o - g.o) < 0.01) { c.a = g.a; c.b = g.b; c.y = g.y; c.o = g.o; } else moving = true;
+      if (g.o === 0 && c.o === 0) { r.els?.g.remove(); rows.delete(r.key); rowList.splice(i, 1); }
     }
     paint();
     gl.paint();   // (the picture draws the moved bars in this same frame)
@@ -284,12 +302,12 @@ export function createCauses({ host } = {}) {
       seen.add(s.key);
       const y = G.rows[i].y;
       let r = rows.get(s.key);
-      if (!r) { r = { key: s.key, label: s.label, group: s.group, kind: s.kind, cur: { a: s.a, b: s.kind === 'step' ? s.a : s.b, y, o: 0 } }; rows.set(s.key, r); makeRow(r); }
+      if (!r) { r = { key: s.key, label: s.label, group: s.group, kind: s.kind, left: null, cur: { a: s.a, b: s.kind === 'step' ? s.a : s.b, y, o: 0 } }; rows.set(s.key, r); rowList.push(r); makeRow(r); }
       r.rate = s.rate;
       r.goal = { a: s.a, b: s.b, y, o: 1, shown: s.shown };
     });
     for (const [key, r] of rows) if (!seen.has(key)) r.goal = { ...r.cur, o: 0, shown: r.goal?.shown };
-    domGoal = list.length ? domainOf(list, metricOf(t)) : { lo: 0, hi: 1 };
+    { const d0 = list.length ? domainOf(list, metricOf(t)) : null; domGoal.lo = d0 ? d0.lo : 0; domGoal.hi = d0 ? d0.hi : 1; }
     const m = TILE[metricOf(t)]?.t || 'The reading';
     parts.svg.setAttribute('aria-label', data ? `${m}: healthy ${fmt(data.baseShown, data.digits)}, now ${fmt(data.currentShown, data.digits)} ${data.unit}. `
       + list.filter((s) => s.kind === 'step').map((s) => `${s.label} ${signed(s.shown, data.digits)}`).join(', ') : `${m}: what raises it, being worked out`);
@@ -306,7 +324,7 @@ export function createCauses({ host } = {}) {
     parts = build();
     gl.show(parts.svg, false);
     for (const r of rows.values()) makeRow(r);
-    if (!dom) dom = list.length ? domainOf(list, k) : { lo: 0, hi: 1 };
+    if (!hasDom) { const d0 = list.length ? domainOf(list, k) : null; domCur.lo = d0 ? d0.lo : 0; domCur.hi = d0 ? d0.hi : 1; hasDom = true; }
     paint(); aim();
     gl.place(parts.svg);   // (its looks as this paint left them)
   }
@@ -343,7 +361,7 @@ export function createCauses({ host } = {}) {
       const fresh = t?.metric !== tool?.metric || ctx?.slide !== c?.slide || !parts;
       t = tool; ctx = c || null;
       const g = ++gen;
-      if (fresh) { raw = null; data = null; for (const r of rows.values()) r.els?.g.remove(); rows.clear(); dom = null; redraw(); }
+      if (fresh) { raw = null; data = null; for (const r of rows.values()) r.els?.g.remove(); rows.clear(); rowList.length = 0; hasDom = false; redraw(); }
       mode = 'own';
       if (ctx) own(ctx, g);
     },
@@ -355,6 +373,6 @@ export function createCauses({ host } = {}) {
       if (mode === 'own') own(ctx, gen); else live(ctx, gen);
     },
     update() {}, clear() {},
-    dispose() { t = null; ctx = null; parts = null; rows.clear(); gl.dispose(); el.replaceChildren(); },
+    dispose() { t = null; ctx = null; parts = null; rows.clear(); rowList.length = 0; gl.dispose(); el.replaceChildren(); },
   };
 }

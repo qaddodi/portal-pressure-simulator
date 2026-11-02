@@ -4,11 +4,12 @@
 // (params.thrombus and params.stenosis for the vessel, combined as engine.js occlusion), so it moves with a clot-size slider,
 // a compare button or the days of anticoagulation, easing from one state to the next.
 
-import { h, clamp } from './util.js?v=08dd1f0db5';
+import { h, clamp } from './util.js?v=1c1de943b7';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { store } from './store.js?v=a21c31dcb5';
+import { store } from './store.js?v=2ac7b3a9d2';
 import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
-import { createSvgGL, svgModel, snapOp, setWords } from './svg-gl.js?v=0351baf0a0';
+import { createSvgGL, svgModel, snapOp, setWords, setGeo, setPts } from './svg-gl.js?v=0fa4da9d8b';
+import { restPass } from './rest-pass.js?v=d13e397f0b';
 const nextFrame = frameFor('lumen');
 
 const STENTS = new Set(['TIPS', 'DIPS']);
@@ -57,23 +58,45 @@ export function lumenShape({ stenosis = 0, thrombus = 0 }) {
  *  two shapes blend across the middle grades, so the slider eases from one to the other. On the vertical axis the clot's
  *  edge always sits at top, so the remnant lumen drawn is the one read out. */
 const smooth = (a, b, x) => { const u = clamp((x - a) / (b - a), 0, 1); return u * u * (3 - 2 * u); };
-export function clotPath(g) {
-  if (g.t < 0.0005) return '';
-  const { cx, cy, ri, top, bot, t } = g, N = 48;
-  if (t > 0.995) return `M${cx - ri} ${cy}A${ri} ${ri} 0 1 0 ${cx + ri} ${cy}A${ri} ${ri} 0 1 0 ${cx - ri} ${cy}Z`;
-  const level = smooth(0.32, 0.62, t), T = bot - top;
+// (The clot's top edge, N + 1 points from the left wall to the right, written into buf as x, y pairs: shared by the outline's string
+// (clotPath) and the points the picture draws from (clotPts), so the two cannot differ.)
+const CLOT_N = 48, CLOT_ARC = 48;
+function clotEdge(buf, cx, cy, ri, top, bot, t) {
+  const N = CLOT_N, level = smooth(0.32, 0.62, t), T = bot - top;
   // Unevenness: odd in x (none on the axis), largest mid-grade, fading as the clot fills the lumen.
   const amp = Math.min(2.6, ri * 0.13) * Math.sin(Math.PI * t);
-  const pts = [];
   for (let i = 0; i <= N; i++) {
     const u = -Math.cos(Math.PI * i / N), x = u * ri, half = Math.sqrt(Math.max(0, 1 - u * u)) * ri;
     const lo = cy + half, hi = cy - half, bump = amp * (Math.sin(u * 5.3) * 0.7 + Math.sin(u * 9.1 + 0.4) * 0.3 - Math.sin(0.4) * 0.3);
     const layer = lo - T * Math.pow(Math.max(0, 1 - u * u), 1.6) + bump * (1 - u * u);
     const flat = top + bump * Math.sqrt(Math.max(0, 1 - u * u));
-    const y = clamp(layer + (flat - layer) * level, hi, lo);
-    pts.push(`${(cx + x).toFixed(2)} ${y.toFixed(2)}`);
+    buf[2 * i] = cx + x; buf[2 * i + 1] = clamp(layer + (flat - layer) * level, hi, lo);
   }
+}
+export function clotPath(g) {
+  if (g.t < 0.0005) return '';
+  const { cx, cy, ri, top, bot, t } = g, N = CLOT_N;
+  if (t > 0.995) return `M${cx - ri} ${cy}A${ri} ${ri} 0 1 0 ${cx + ri} ${cy}A${ri} ${ri} 0 1 0 ${cx - ri} ${cy}Z`;
+  const buf = new Float64Array(2 * (N + 1));
+  clotEdge(buf, cx, cy, ri, top, bot, t);
+  const pts = [];
+  for (let i = 0; i <= N; i++) pts.push(`${buf[2 * i].toFixed(2)} ${buf[2 * i + 1].toFixed(2)}`);
   return `M${pts.join('L')}A${ri.toFixed(2)} ${ri.toFixed(2)} 0 0 1 ${(cx - ri).toFixed(2)} ${cy.toFixed(2)}Z`;
+}
+/** The clot's outline as points for the picture (setPts): the same edge as clotPath, then the lumen's lower half back to the left wall
+ *  (a full clot, the whole circle), written into buf (2 × (CLOT_N + CLOT_ARC + 2) numbers at least). Returns the pairs used (0: no clot). */
+export const CLOT_PTS = 2 * (CLOT_N + CLOT_ARC + 2);
+export function clotPts(buf, cx, cy, ri, top, bot, t) {
+  if (t < 0.0005) return 0;
+  let n = 0;
+  if (t > 0.995) {
+    for (let j = 0; j <= 2 * CLOT_ARC; j++, n++) { const a = Math.PI * j / CLOT_ARC; buf[2 * n] = cx - ri * Math.cos(a); buf[2 * n + 1] = cy - ri * Math.sin(a); }
+    return n;
+  }
+  clotEdge(buf, cx, cy, ri, top, bot, t);
+  n = CLOT_N + 1;
+  for (let j = 1; j <= CLOT_ARC; j++, n++) { const a = Math.PI * j / CLOT_ARC; buf[2 * n] = cx + ri * Math.cos(a); buf[2 * n + 1] = cy + ri * Math.sin(a); }
+  return n;
 }
 
 /** The words for the state. A clot takes EASL 2025's grades (Table 4): minimally occlusive up to half the lumen,
@@ -93,6 +116,9 @@ export function lumenFacts({ thrombus = 0, stenosis = 0 }, stentD = null) {
   return out.join(' · ');
 }
 const pct = (x) => `${Math.round(clamp(x, 0, 1) * 100)}`;
+// (The open share's words for each whole percent, made once at load: a frame picks one, makes none.)
+const PCT_WORDS = Array.from({ length: 101 }, (_, i) => `${i}%`);
+const pctI = (x) => Math.round(clamp(x, 0, 1) * 100);
 
 /** Where the words in the circle sit for a filled share (0 to 1), in the 100-unit picture. Nothing filled: the name alone at
  *  the centre, no number. As a clot appears (over the first 6 %, the clot's own fade) the name first eases up to its place
@@ -100,9 +126,11 @@ const pct = (x) => `${Math.round(clamp(x, 0, 1) * 100)}`;
  *  name and the number never overlap at any frame of the move. */
 export const LUMEN_NAME_Y = 35, LUMEN_NUM_Y = 52, LUMEN_WORD_Y = 68;
 export function lumenBlock(occlusion) {
-  const m = Math.max(0, occlusion) / 0.06;
-  return { nameY: 50 + (LUMEN_NAME_Y - 50) * smooth(0, 0.5, m), numOpacity: smooth(0.5, 1, m) };
+  return { nameY: lumenNameY(occlusion), numOpacity: lumenNumOpacity(occlusion) };
 }
+// (The two numbers alone, for a frame: no object made.)
+export const lumenNameY = (occlusion) => 50 + (LUMEN_NAME_Y - 50) * smooth(0, 0.5, Math.max(0, occlusion) / 0.06);
+export const lumenNumOpacity = (occlusion) => smooth(0.5, 1, Math.max(0, occlusion) / 0.06);
 
 // (2 Nov 2026: the picture is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
 const sv = (tag, attrs = {}) => svgModel(tag, attrs);
@@ -133,33 +161,51 @@ export function createLumen() {
   const set = setWords;   // (words kept on the piece, drawn by the picture: no text node made in a frame)
   const reduce = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
   // What the picture shows now, easing to the model's state (a compare button or a new slide jumps the params; the picture eases).
-  let shown = null, goal = null, raf = 0, at = 0;
+  // (shown and goal are kept and written in place; hasShown says shown holds the picture's state.)
+  const shown = { stenosis: 0, thrombus: 0 }, goal = { stenosis: 0, thrombus: 0 };
+  let hasShown = false, raf = 0, at = 0;
+  const clotBuf = new Float64Array(CLOT_PTS);
+  // (The words a screen reader gets are written between frames, when the whole percents they name have changed: not built in a frame.)
+  let ariaOcc = -1, ariaThr = -1, ariaSte = -1, ariaStent = false, ariaAsk = 0;
+  const writeAria = () => {
+    ariaAsk = 0;
+    pic.setAttribute('aria-label', `${lumenName(id)} in cross-section${ariaStent ? ' with a stent' : ''}: ${ariaOcc}% of the lumen filled, clot ${ariaThr}%, narrowing ${ariaSte}%`);
+  };
+  // (Opacity is held on the piece as a number, the picture reads it from there: set once so its look is read as a strength the chart moves.)
+  for (const e of [clot, tissue, inNum, inWord]) setGeo(e, 'opacity', e === tissue || e === clot ? 0 : 1);
   function paint(x) {
-    const g = lumenShape(x), stent = hasStent(id, store.get().stented), L = { ...x, occlusion: 1 - (1 - x.stenosis) * (1 - x.thrombus), stent };
-    lumen.setAttribute('r', g.ri.toFixed(2));
-    clot.setAttribute('d', clotPath(g));
+    const sten = x.stenosis, thr = x.thrombus, R0 = LUMEN_R - LUMEN_WALL;
+    const ri = R0 * clamp(1 - sten, 0, 1), t = clamp(thr, 0, 1), bot = 50 + ri, top = 50 + ri - 2 * ri * t;
+    const stent = hasStent(id, store.get().stented), occlusion = 1 - (1 - sten) * (1 - thr);
+    setGeo(lumen, 'r', ri);
+    setPts(clot, clotBuf, clotPts(clotBuf, 50, 50, ri, top, bot, t), true);
     // A clot appears and leaves by growing from the wall and fading, never popping in.
-    clot.style.opacity = Math.min(1, g.t / 0.06).toFixed(3);
+    setGeo(clot, 'opacity', Math.min(1, t / 0.06));
     tissue.style.display = stent ? '' : 'none';
     // The ring eases in and out as the slide stents the vein or lets it go (a vessel drawn afresh shows it at once: configure).
     ring.style.opacity = stent ? '1' : '0';
-    tissue.style.opacity = Math.min(1, x.stenosis / 0.06).toFixed(3);
-    set(inNum, `${pct(L.occlusion)}%`);
+    setGeo(tissue, 'opacity', Math.min(1, sten / 0.06));
+    const occ = pctI(occlusion);
+    set(inNum, PCT_WORDS[occ]);
     // With nothing filled there is no number and the name sits at the centre; as the clot comes the name eases up and the
     // number fades in under it once clear (and back as it leaves), following the easing picture, never popping.
-    const b = lumenBlock(L.occlusion);
-    inWord.style.opacity = inNum.style.opacity = b.numOpacity.toFixed(3);
-    inName.setAttribute('y', b.nameY.toFixed(2));
-    pic.setAttribute('aria-label', `${lumenName(id)} in cross-section${stent ? ' with a stent' : ''}: ${pct(L.occlusion)}% of the lumen filled, clot ${pct(x.thrombus)}%, narrowing ${pct(x.stenosis)}%`);
+    const numOp = lumenNumOpacity(occlusion);
+    setGeo(inWord, 'opacity', numOp); setGeo(inNum, 'opacity', numOp);
+    setGeo(inName, 'y', lumenNameY(occlusion));
+    const thrI = pctI(thr), steI = pctI(sten);
+    if (occ !== ariaOcc || thrI !== ariaThr || steI !== ariaSte || stent !== ariaStent) {
+      ariaOcc = occ; ariaThr = thrI; ariaSte = steI; ariaStent = stent;
+      if (!ariaAsk) ariaAsk = restPass(writeAria);
+    }
     gl.paint();   // (the picture draws it in this same frame)
   }
   function tick(now) {
     raf = 0;
     const dt = at ? Math.min(0.1, (now - at) / 1000) : 0; at = now;
     const k = 1 - Math.exp(-dt / 0.16);
-    shown = { stenosis: shown.stenosis + (goal.stenosis - shown.stenosis) * k, thrombus: shown.thrombus + (goal.thrombus - shown.thrombus) * k };
+    shown.stenosis += (goal.stenosis - shown.stenosis) * k; shown.thrombus += (goal.thrombus - shown.thrombus) * k;
     const done = Math.abs(goal.stenosis - shown.stenosis) < 0.002 && Math.abs(goal.thrombus - shown.thrombus) < 0.002;
-    if (done) shown = { ...goal };
+    if (done) { shown.stenosis = goal.stenosis; shown.thrombus = goal.thrombus; }
     paint(shown);
     if (!done) raf = nextFrame(tick); else at = 0;
   }
@@ -168,17 +214,17 @@ export function createLumen() {
     set(inName, lumenLabel(id, tool?.name, site));
     // A stent cut away from its narrowed segment shows an open stent there (a clot fills the whole stent).
     if (L.stent && site !== lumenSite(prm, id)) L.stenosis = 0;
-    goal = { stenosis: L.stenosis, thrombus: L.thrombus };
-    if (shown && !raf && goal.stenosis === shown.stenosis && goal.thrombus === shown.thrombus) paint(shown);
-    if (!shown || reduce?.matches || !el.isConnected) { shown = { ...goal }; paint(shown); return; }
+    goal.stenosis = L.stenosis; goal.thrombus = L.thrombus;
+    if (hasShown && !raf && goal.stenosis === shown.stenosis && goal.thrombus === shown.thrombus) paint(shown);
+    if (!hasShown || reduce?.matches || !el.isConnected) { shown.stenosis = goal.stenosis; shown.thrombus = goal.thrombus; hasShown = true; paint(shown); return; }
     if ((goal.stenosis !== shown.stenosis || goal.thrombus !== shown.thrombus) && !raf) raf = nextFrame(tick);
   }
   /** The slide's vessel (tool.vessel), where along a stent it is cut (tool.site: 'proximal', 'mid' or 'distal'; else the
    *  narrowing's segment) and the name written in it (tool.name, else the vessel's own). A new vessel is drawn at once. */
   function configure(t) {
     const v = t?.vessel || 'PV_TRUNK';
-    const fresh = v !== id || !shown;
-    if (fresh) { id = v; shown = null; }
+    const fresh = v !== id || !hasShown;
+    if (fresh) { id = v; hasShown = false; }
     el.dataset.vessel = SYSTEMIC.has(id) ? 'systemic' : id.startsWith('A_') ? 'artery' : 'portal';
     tool = t || null;
     if (fresh) {   // (a new vessel is drawn at once, its ring with it: no fade from the vessel before)

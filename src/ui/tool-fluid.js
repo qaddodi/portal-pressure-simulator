@@ -7,11 +7,13 @@
 // compare button moves it.
 
 import { frame, cancelFrame } from './frame.js?v=1d147c7c9a';
-import { createSvgGL, svgModel } from './svg-gl.js?v=0351baf0a0';
-import { h, fmt, clamp } from './util.js?v=08dd1f0db5';
+import { createSvgGL, svgModel } from './svg-gl.js?v=0fa4da9d8b';
+import { h, fmt, clamp } from './util.js?v=1c1de943b7';
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { store } from './store.js?v=a21c31dcb5';
-import { measure } from './glyph-measure.js?v=1e477bd6b3';
+import { store } from './store.js?v=2ac7b3a9d2';
+import { measure } from './glyph-measure.js?v=d1e89aeb28';
+import { txIndex, txWords, sxIndex, sxWords, SX_WHOLE, opWords } from './num-words.js?v=cf53d490d9';
+import { setGeo, setPts } from './svg-gl.js?v=0fa4da9d8b';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const num = (x) => (Number.isFinite(+x) ? +x : null);
@@ -101,31 +103,41 @@ export function stripWords(d) {
  *  makes a step; STRIP_GAP px keep the parts apart. The bracket spans what leaked, from where the carried part ends.
  *  Returns px: car, blue, shrink, build and room ({ x, w }; room also op, its opacity, which follows its width) and brk ({ x, w, op }). */
 export const STRIP_GAP = 2, STRIP_MARK = 2.5;
-export function stripParts(g, W) {
+const STRIP_ORDER = ['car', 'blue', 'shrink', 'build', 'room'];
+/** A set of strip parts to write into (stripPartsInto): kept by the caller, so a frame makes none. */
+export const newStripParts = () => ({ car: { x: 0, w: 0 }, blue: { x: 0, w: 0 }, shrink: { x: 0, w: 0 }, build: { x: 0, w: 0 }, room: { x: 0, w: 0, op: 0 }, brk: { x: 0, w: 0, op: 0 } });
+const STRIP_W = { car: 0, blue: 0, shrink: 0, build: 0, room: 0 };   // (scratch: each part's full length)
+const mark = (v, k) => { const px = v * k; return px + STRIP_MARK * clamp(px / 0.5, 0, 1); };
+/** stripParts into `out` (from newStripParts()), the day's numbers read from g in place. Returns out. */
+export function stripPartsInto(out, g, W) {
   const carried = Math.max(0, g.carried), over = Math.max(0, g.over), back = Math.max(0, g.back), room = Math.max(0, g.room);
-  const k = W / Math.max(carried + Math.max(back, over) + room, 1);
-  const mark = (v) => { const px = v * k; return px + STRIP_MARK * clamp(px / 0.5, 0, 1); };
-  const w = { blue: mark(Math.min(back, over)), shrink: mark(Math.max(0, back - over)), build: mark(Math.max(0, over - back)), room: room * k };
+  const k = W / Math.max(carried + Math.max(back, over) + room, 1), w = STRIP_W;
+  w.blue = mark(Math.min(back, over), k); w.shrink = mark(Math.max(0, back - over), k); w.build = mark(Math.max(0, over - back), k); w.room = room * k;
   w.car = Math.max(0, Math.min(carried * k, W - w.blue - w.shrink - w.build - w.room));
   // (the parts run end to end, each drawn short of the next by the gap once anything follows it)
-  const order = ['car', 'blue', 'shrink', 'build', 'room'], out = {};
   let x = 0;
-  order.forEach((id, i) => {
-    const after = order.slice(i + 1).reduce((a, n) => a + w[n], 0);
-    out[id] = { x, w: Math.max(0, w[id] - (id === 'room' ? 0 : STRIP_GAP * clamp(after / (STRIP_MARK + STRIP_GAP), 0, 1))) };
+  for (let i = 0; i < STRIP_ORDER.length; i++) {
+    const id = STRIP_ORDER[i];
+    let after = 0;
+    for (let j = i + 1; j < STRIP_ORDER.length; j++) after += w[STRIP_ORDER[j]];
+    out[id].x = x; out[id].w = Math.max(0, w[id] - (id === 'room' ? 0 : STRIP_GAP * clamp(after / (STRIP_MARK + STRIP_GAP), 0, 1)));
     x += w[id];
-  });
+  }
   out.room.op = clamp(w.room / 12, 0, 1);
-  out.brk = { x: w.car, w: w.blue + w.build, op: clamp(over * k / 0.5, 0, 1) };
+  out.brk.x = w.car; out.brk.w = w.blue + w.build; out.brk.op = clamp(over * k / 0.5, 0, 1);
   return out;
 }
+export const stripParts = (g, W) => stripPartsInto(newStripParts(), g, W);
 
 /** The forces strip's parts, as px of a track W wide: the push from the blood's side and the pull from the tissue's side as two
  *  arrows meeting at the wall, each as long as its pressure (their sum is the track). */
-export function tugParts(out, pull, W) {
+export const newTugParts = () => ({ push: { x: 0, w: 0 }, pull: { x: 0, w: 0 }, wall: 0 });
+export function tugPartsInto(T, out, pull, W) {
   const o = Math.max(0, out), p = Math.max(0, pull), wall = o + p > 0 ? (o / (o + p)) * W : W / 2;
-  return { push: { x: 0, w: Math.max(0, wall - 1.5) }, pull: { x: wall + 1.5, w: Math.max(0, W - wall - 1.5) }, wall };
+  T.push.x = 0; T.push.w = Math.max(0, wall - 1.5); T.pull.x = wall + 1.5; T.pull.w = Math.max(0, W - wall - 1.5); T.wall = wall;
+  return T;
 }
+export const tugParts = (out, pull, W) => tugPartsInto(newTugParts(), out, pull, W);
 
 const mlMin = (x) => fmt(Math.max(0, x), x < 10 ? 1 : 0);
 
@@ -135,52 +147,83 @@ const mlMin = (x) => fmt(Math.max(0, x), x < 10 ? 1 : 0);
  *  leaves the left arrives on the right. The lymphatics' node runs on, dashed, to their capacity (the room they still have).
  *  Labels sit beside their nodes, centres at least 18 px apart (13 px text with a gap over 4 px). */
 export const FLOW_H = 128;
-export function fluidFlows(f, W, H = FLOW_H) {
-  const LW = 78, RW = 142, NW = 8, MAXB = 64, LINE = 18, MIN = 2;
-  const xL = LW, xR = Math.max(xL + NW + 40, W - RW - NW);
+// (The picture's nodes and bands are kept, one of each there can be, and written in place: a frame makes none. fluidFlows hands
+// the same shape back as it always did: left and right (nodes with id, v, h, lh, y, cy, room), bands (from, to, ly, ry, t).)
+const FLOW_MAXB = 64, FLOW_LW = 78, FLOW_RW = 142, FLOW_NW = 8, FLOW_LINE = 18, FLOW_MIN = 2;
+const flowNode = (id) => ({ id, v: 0, h: 0, lh: 0, y: 0, cy: 0, room: 0, show: false });
+const FLOW_BANDS = [];
+for (const a of ['liver', 'gut']) for (const b of ['carried', 'back', 'build']) FLOW_BANDS.push({ from: a, to: b, key: `${a}-${b}`, ly: 0, ry: 0, t: 0 });
+/** A layout to write into (fluidFlowsInto): kept by the caller. */
+export const newFlows = () => ({ xL: 0, xR: 0, NW: FLOW_NW, left: [], right: [], bands: [], W: 0, H: 0,
+  nodes: { liver: flowNode('liver'), gut: flowNode('gut'), carried: flowNode('carried'), back: flowNode('back'), build: flowNode('build') } });
+const thick = (v, k) => (v > 0.005 ? Math.max(FLOW_MIN, v * k) : 0);
+// (a column: nodes stacked with gaps so the labels at their centres keep LINE apart, then centred in H)
+function flowColumn(nodes, H) {
+  let y = 0, prev = null;
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i];
+    if (prev) y += Math.max(6, FLOW_LINE - prev.lh / 2 - n.lh / 2);
+    n.y = y; y += n.h; prev = n;
+  }
+  const top = Math.max(0, (H - y) / 2);
+  for (let i = 0; i < nodes.length; i++) { const n = nodes[i]; n.y += top; n.cy = n.y + n.lh / 2; }
+}
+export function fluidFlowsInto(L, f, W, H = FLOW_H) {
+  const xL = FLOW_LW, xR = Math.max(xL + FLOW_NW + 40, W - FLOW_RW - FLOW_NW);
   const into = Math.max(0, f.made - f.carried), back = Math.min(Math.max(0, f.back), into), build = Math.max(0, into - back);
-  const k = MAXB / Math.max(f.made, f.cap + into, 0.1);
-  const th = (v) => (v > 0.005 ? Math.max(MIN, v * k) : 0);
-  // (a column: nodes stacked with gaps so the labels at their centres keep LINE apart, then centred in H)
-  const column = (nodes) => {
-    let y = 0, prev = null;
-    for (const n of nodes) {
-      if (prev) y += Math.max(6, LINE - prev.lh / 2 - n.lh / 2);
-      n.y = y; y += n.h; prev = n;
-    }
-    const top = Math.max(0, (H - y) / 2);
-    for (const n of nodes) { n.y += top; n.cy = n.y + n.lh / 2; }
-    return nodes;
-  };
-  const left = column([{ id: 'liver', v: f.hep }, { id: 'gut', v: f.spl }].map((n) => ({ ...n, h: th(n.v), lh: th(n.v) })));
+  const k = FLOW_MAXB / Math.max(f.made, f.cap + into, 0.1);
+  const N = L.nodes, liver = N.liver, gut = N.gut, carried = N.carried, nBack = N.back, nBuild = N.build;
+  liver.show = gut.show = carried.show = nBack.show = nBuild.show = false;
+  liver.v = f.hep; gut.v = f.spl;
+  liver.h = liver.lh = thick(f.hep, k); gut.h = gut.lh = thick(f.spl, k); liver.room = gut.room = 0;
+  liver.show = gut.show = true;
+  L.left.length = 0; L.left.push(liver, gut);
+  flowColumn(L.left, H);
   const roomH = f.spare > 0.005 ? f.spare * k : 0;
-  const rightAll = [
-    { id: 'carried', v: f.carried, h: th(f.carried) + roomH, lh: th(f.carried), room: roomH },
-    { id: 'back', v: back, h: th(back), lh: th(back), show: f.back > 0.005 },
-    { id: 'build', v: build, h: th(build), lh: th(build), show: f.net > 0.005 || f.perDay <= -10 },
-  ];
-  const right = column(rightAll.filter((n) => n.id === 'carried' || n.show));
+  carried.v = f.carried; carried.h = thick(f.carried, k) + roomH; carried.lh = thick(f.carried, k); carried.room = roomH; carried.show = true;
+  nBack.v = back; nBack.h = nBack.lh = thick(back, k); nBack.room = 0; nBack.show = f.back > 0.005;
+  nBuild.v = build; nBuild.h = nBuild.lh = thick(build, k); nBuild.room = 0; nBuild.show = f.net > 0.005 || f.perDay <= -10;
+  L.right.length = 0; L.right.push(carried);
+  if (nBack.show) L.right.push(nBack);
+  if (nBuild.show) L.right.push(nBuild);
+  flowColumn(L.right, H);
   // (each band: where the left node's share starts and the right node's share starts, by running totals)
-  const bands = [];
+  L.bands.length = 0;
   let a0 = 0;
-  for (const L of left) {
-    const a1 = a0 + L.v; let b0 = 0;
-    for (const R of right) {
-      const b1 = b0 + R.v, lo = Math.max(a0, b0), hi = Math.min(a1, b1);
+  for (let i = 0; i < L.left.length; i++) {
+    const Ln = L.left[i], a1 = a0 + Ln.v; let b0 = 0;
+    for (let j = 0; j < L.right.length; j++) {
+      const R = L.right[j], b1 = b0 + R.v, lo = Math.max(a0, b0), hi = Math.min(a1, b1);
       if (hi - lo > 1e-6) {
-        const tk = (hi - lo) * k, ly = L.y + (lo - a0) * k * (L.lh / Math.max(L.v * k, 1e-9)), ry = R.y + (lo - b0) * k * (R.lh / Math.max(R.v * k, 1e-9));
-        bands.push({ from: L.id, to: R.id, ly, ry, t: Math.max(1, Math.min(tk, L.lh, R.lh)) });
+        const tk = (hi - lo) * k, ly = Ln.y + (lo - a0) * k * (Ln.lh / Math.max(Ln.v * k, 1e-9)), ry = R.y + (lo - b0) * k * (R.lh / Math.max(R.v * k, 1e-9));
+        const B = FLOW_BANDS[(Ln === liver ? 0 : 3) + (R === carried ? 0 : R === nBack ? 1 : 2)];
+        B.ly = ly; B.ry = ry; B.t = Math.max(1, Math.min(tk, Ln.lh, R.lh));
+        L.bands.push(B);
       }
       b0 = b1;
     }
     a0 = a1;
   }
-  return { xL, xR, NW, left, right, bands, W, H };
+  L.xL = xL; L.xR = xR; L.W = W; L.H = H;
+  return L;
 }
+export const fluidFlows = (f, W, H = FLOW_H) => fluidFlowsInto(newFlows(), f, W, H);
 
 // (2 Nov 2026: the flow picture is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
 const sv = (tag, a = {}) => svgModel(tag, a);
-const band = (x0, y0, x1, y1, t) => { const m = (x0 + x1) / 2; return `M${x0},${y0}C${m},${y0} ${m},${y1} ${x1},${y1}L${x1},${y1 + t}C${m},${y1 + t} ${m},${y0 + t} ${x0},${y0 + t}Z`; };
+// (A band's outline as points for the picture: its top edge, a cubic from (x0, y0) to (x1, y1) with its ends' tangents level, then its
+// lower edge back, BAND_N segments each: the same curve the path's C commands drew.)
+const BAND_N = 40, BAND_PTS = 4 * (BAND_N + 1);
+const bandPts = (buf, x0, y0, x1, y1, t) => {
+  const m = (x0 + x1) / 2;
+  for (let i = 0; i <= BAND_N; i++) {
+    const u = i / BAND_N, v = 1 - u, c0 = v * v * v, c1 = 3 * v * v * u, c2 = 3 * v * u * u, c3 = u * u * u;
+    const x = c0 * x0 + (c1 + c2) * m + c3 * x1;
+    buf[2 * i] = x; buf[2 * i + 1] = (c0 + c1) * y0 + (c2 + c3) * y1;
+    const r = 2 * (2 * BAND_N + 1 - i);   // (the lower edge, running back from (x1, y1 + t) to (x0, y0 + t))
+    buf[r] = x; buf[r + 1] = (c0 + c1) * (y0 + t) + (c2 + c3) * (y1 + t);
+  }
+};
 const NAMES = { liver: 'Liver', gut: 'Gut', carried: 'Lymphatics', back: 'Taken back', build: 'Ascites' };
 const FILL = { liver: 'gf-liver', gut: 'gf-gut', carried: 'gf-carried', back: 'gf-back', build: 'gf-build' };
 
@@ -200,7 +243,12 @@ function span(cls, label, ends = [0.4, 0.4]) {
   const el = document.createElement('i');
   el.className = `gs-span ${cls}`;
   el.append(a, endL, endR);
-  const T = (e, x, sx = 1) => { e.style.translate = `${x.toFixed(2)}px 0`; if (e.style.scale !== `${sx.toFixed(4)} 1`) e.style.scale = sx === 1 ? '' : `${sx.toFixed(4)} 1`; };
+  // (The place and the scale are words from tables (num-words.js), written only when they change: a frame makes no string.)
+  const T = (e, x, sx = 1) => {
+    const i = txIndex(x), j = sxIndex(sx);
+    if (e._ti !== i) { e._ti = i; e.style.translate = txWords(i); }
+    if (e._si !== j) { e._si = j; e.style.scale = j === SX_WHOLE ? '' : sxWords(j); }
+  };
   el._at = (x, w, tw, em) => {
     if (!tw || !em) return;
     w = Math.max(0, w);
@@ -228,7 +276,9 @@ export function createFluid() {
     const t = sv('text', { class: 'gf-t' }), n = sv('tspan', {}), v = sv('tspan', { class: 'gf-tv', dx: 5 });
     t.append(n, v); n.textContent = NAMES[id]; textEls[id] = { t, v }; gText.append(t);
   }
-  for (const a of ['liver', 'gut']) for (const b of ['carried', 'back', 'build']) { bandEls[`${a}-${b}`] = sv('path', { class: `gf-band ${FILL[b]}` }); gBands.append(bandEls[`${a}-${b}`]); }
+  const bandBufs = {};   // (each band's points, kept)
+  for (const a of ['liver', 'gut']) for (const b of ['carried', 'back', 'build']) { bandEls[`${a}-${b}`] = sv('path', { class: `gf-band ${FILL[b]}` }); bandBufs[`${a}-${b}`] = new Float64Array(BAND_PTS); gBands.append(bandEls[`${a}-${b}`]); }
+  for (const id of ['liver', 'gut']) textEls[id].t.setAttribute('text-anchor', 'end');   // (the left names stand left of their nodes)
   const unit = h('span', { class: 'gf-unit' }, 'mL/min');
   const words = h('p', { class: 'gf-words' });
   const caveat = h('p', { class: 'gf-caveat' }, 'Model rates, not clinical figures.');
@@ -260,14 +310,19 @@ export function createFluid() {
   const forces = h('div', { class: 'gs-forces' }, h('div', { class: 'gs-fcap' }, h('span', {}, 'Across the sinusoid wall · mmHg'), h('span', {}, 'net ', fNet)), tug);
   const el = h('div', { class: 'gf', role: 'img' }, win, flowBox, unit, words, forces, caveat);
   const set = (n, t) => { if (n.textContent === t) return false; n.textContent = t; return true; };
-  const px = (v) => `${v.toFixed(2)}px`;
   // (A part goes where its pieces are slid: span() below; the wall is a line, slid.)
   let em = 0;   // (the strip's type size, px: read with the labels' fit)
   const place = (n, p, tw) => n._at(p.x, p.w, tw, em);
   let W = 0, TW = 0, FW = 0, goal = null, shown = null, fGoal = null, fShown = null, raf = 0, last = 0, day = null, labSig = '';
+  // (What a frame writes into: kept, so it makes none.)
+  const goalO = {}, shownO = {}, fShownO = { out: 0, pull: 0 };
+  const dayO = { carried: 0, over: 0, back: 0, room: 0 };
+  const stripP = newStripParts(), tugP = newTugParts(), flowL = newFlows();
+  const NODE_IDS = Object.keys(NAMES), shownNode = {}, flowKeys = Object.keys(bandEls);   // (which node pieces are on, which band pieces drew: kept)
+  let roomOn = null;
   // (everything eases: the drawn values follow the goal over about half a second; the numbers swap in place)
-  const KEYS = ['hep', 'spl', 'made', 'cap', 'carried', 'spare', 'back', 'net', 'perDay'];
-  const dayOf = (f) => ({ carried: f.dCar, over: f.dOver, back: f.dBack, room: f.dRoom });
+  const KEYS = ['hep', 'spl', 'made', 'cap', 'carried', 'spare', 'back', 'net', 'perDay'], GKEYS = KEYS.concat(['dCar', 'dOver', 'dBack', 'dRoom']);
+  const dayOf = (f) => { dayO.carried = f.dCar; dayO.over = f.dOver; dayO.back = f.dBack; dayO.room = f.dRoom; return dayO; };
   // A label sits inside its part when it fits (the text and 1.05 em beside it), else it is hidden; decided from where the parts
   // are going, never from where they are mid-ease, so a label fades once, not as the part grows past it.
   // (A label's width from Inter's own metrics, the ones the GPU sets words with (glyph-measure.js), not from the page: the strip's words
@@ -307,29 +362,51 @@ export function createFluid() {
     if (opts.window) {
       const tw = TW;   // (the widths as the observer last read them: a glide's frame reads no layout)
       if (shown && tw > 0 && 'dCar' in shown) {
-        const P = stripParts(dayOf(shown), tw);
+        const P = stripPartsInto(stripP, dayOf(shown), tw);
         place(segCar, P.car, tw); place(segBlue, P.blue, tw); place(segShrink, P.shrink, tw); place(segBuild, P.build, tw); place(segRoom, P.room, tw);
-        segRoom.style.opacity = P.room.op.toFixed(3);
-        place(brk, P.brk, tw); brk.style.opacity = P.brk.op.toFixed(3);
+        setOp(segRoom, P.room.op);
+        place(brk, P.brk, tw); setOp(brk, P.brk.op);
       }
     } else if (shown && W > 0) {
-      const L = fluidFlows(shown, W);
-      for (const id in bandEls) bandEls[id].setAttribute('d', '');
-      for (const b of L.bands) bandEls[`${b.from}-${b.to}`].setAttribute('d', band(L.xL + L.NW, b.ly, L.xR, b.ry, b.t));
-      for (const id of Object.keys(NAMES)) { const on = [...L.left, ...L.right].find((n) => n.id === id); nodeEls[id].style.display = on ? '' : 'none'; textEls[id].t.style.display = on ? '' : 'none'; }
-      for (const n of L.left) { Object.entries({ x: L.xL, y: n.y, width: L.NW, height: Math.max(n.lh, 0.01) }).forEach(([a, v]) => nodeEls[n.id].setAttribute(a, v)); Object.entries({ x: L.xL - 6, y: n.cy, 'text-anchor': 'end' }).forEach(([a, v]) => textEls[n.id].t.setAttribute(a, v)); }
-      for (const n of L.right) {
-        Object.entries({ x: L.xR, y: n.y, width: L.NW, height: Math.max(n.lh, 0.01) }).forEach(([a, v]) => nodeEls[n.id].setAttribute(a, v));
-        Object.entries({ x: L.xR + L.NW + 6, y: n.cy }).forEach(([a, v]) => textEls[n.id].t.setAttribute(a, v));
-        if (n.id === 'carried') { roomEl.style.display = n.room > 0.5 ? '' : 'none'; Object.entries({ x: L.xR + 0.75, y: n.y + n.lh, width: L.NW - 1.5, height: Math.max(0, n.room - 0.75) }).forEach(([a, v]) => roomEl.setAttribute(a, v)); }
+      const L = fluidFlowsInto(flowL, shown, W);
+      for (let i = 0; i < flowKeys.length; i++) setPts(bandEls[flowKeys[i]], bandBufs[flowKeys[i]], 0, true);
+      for (let i = 0; i < L.bands.length; i++) {
+        const b = L.bands[i];
+        bandPts(bandBufs[b.key], L.xL + L.NW, b.ly, L.xR, b.ry, b.t);
+        setPts(bandEls[b.key], bandBufs[b.key], 2 * (BAND_N + 1), true);
+      }
+      for (let i = 0; i < NODE_IDS.length; i++) shownNode[NODE_IDS[i]] = false;
+      for (let i = 0; i < L.left.length; i++) shownNode[L.left[i].id] = true;
+      for (let i = 0; i < L.right.length; i++) shownNode[L.right[i].id] = true;
+      for (let i = 0; i < NODE_IDS.length; i++) {
+        const id = NODE_IDS[i], on = shownNode[id];
+        if (nodeEls[id]._on !== on) { nodeEls[id]._on = on; nodeEls[id].style.display = on ? '' : 'none'; textEls[id].t.style.display = on ? '' : 'none'; }
+      }
+      for (let i = 0; i < L.left.length; i++) {
+        const n = L.left[i], r = nodeEls[n.id], t = textEls[n.id].t;
+        setGeo(r, 'x', L.xL); setGeo(r, 'y', n.y); setGeo(r, 'width', L.NW); setGeo(r, 'height', Math.max(n.lh, 0.01));
+        setGeo(t, 'x', L.xL - 6); setGeo(t, 'y', n.cy);
+      }
+      for (let i = 0; i < L.right.length; i++) {
+        const n = L.right[i], r = nodeEls[n.id], t = textEls[n.id].t;
+        setGeo(r, 'x', L.xR); setGeo(r, 'y', n.y); setGeo(r, 'width', L.NW); setGeo(r, 'height', Math.max(n.lh, 0.01));
+        setGeo(t, 'x', L.xR + L.NW + 6); setGeo(t, 'y', n.cy);
+        if (n.id === 'carried') {
+          const on = n.room > 0.5;
+          if (roomOn !== on) { roomOn = on; roomEl.style.display = on ? '' : 'none'; }
+          setGeo(roomEl, 'x', L.xR + 0.75); setGeo(roomEl, 'y', n.y + n.lh); setGeo(roomEl, 'width', L.NW - 1.5); setGeo(roomEl, 'height', Math.max(0, n.room - 0.75));
+        }
       }
     }
     const fw = FW;
     if (fShown && fw > 0) {
-      const T = tugParts(fShown.out, fShown.pull, fw);
-      place(segPush, T.push, fw); place(segPull, T.pull, fw); wall.style.translate = `${px(T.wall)} 0`;
+      const T = tugPartsInto(tugP, fShown.out, fShown.pull, fw), wi = txIndex(T.wall);
+      place(segPush, T.push, fw); place(segPull, T.pull, fw);
+      if (wall._ti !== wi) { wall._ti = wi; wall.style.translate = txWords(wi); }
     }
   }
+  // (A strength written when its word changes, from the table.)
+  const setOp = (n, v) => { const w = opWords(v); if (n._ow !== w) { n._ow = w; n.style.opacity = w; } };
   function tick(now) {
     raf = 0;
     if (dead) return;
@@ -337,12 +414,18 @@ export function createFluid() {
     const a = 1 - Math.exp(-dt / 0.15);
     let moving = false;
     if (goal) {
-      if (!shown) shown = { ...goal };
-      for (const k of Object.keys(goal)) { if (!(k in shown)) shown[k] = goal[k]; const d = goal[k] - shown[k]; if (Math.abs(d) > (k[0] === 'd' ? 0.05 : 1e-4)) { shown[k] += a * d; moving = true; } else shown[k] = goal[k]; }
+      if (!shown) { for (let i = 0; i < GKEYS.length; i++) if (GKEYS[i] in goal) shownO[GKEYS[i]] = goal[GKEYS[i]]; shown = shownO; }
+      for (let i = 0; i < GKEYS.length; i++) {
+        const k = GKEYS[i];
+        if (!(k in goal)) continue;
+        if (!(k in shown)) shown[k] = goal[k];
+        const d = goal[k] - shown[k];
+        if (Math.abs(d) > (k.charCodeAt(0) === 100 ? 0.05 : 1e-4)) { shown[k] += a * d; moving = true; } else shown[k] = goal[k];
+      }
     }
     if (fGoal) {
-      if (!fShown) fShown = { ...fGoal };
-      for (const k of ['out', 'pull']) { const d = fGoal[k] - fShown[k]; if (Math.abs(d) > 1e-3) { fShown[k] += a * d; moving = true; } else fShown[k] = fGoal[k]; }
+      if (!fShown) { fShownO.out = fGoal.out; fShownO.pull = fGoal.pull; fShown = fShownO; }
+      for (let i = 0; i < 2; i++) { const k = i ? 'pull' : 'out', d = fGoal[k] - fShown[k]; if (Math.abs(d) > 1e-3) { fShown[k] += a * d; moving = true; } else fShown[k] = fGoal[k]; }
     }
     draw();
     if (moving) raf = frame(tick, 'tool-fluid'); else last = 0;
@@ -357,7 +440,8 @@ export function createFluid() {
   let opts = {}, pinned = null;
   function paint(f) {
     if (!f) return;
-    goal = Object.fromEntries(KEYS.map((k) => [k, f[k]]));
+    for (let i = 0; i < KEYS.length; i++) goalO[KEYS[i]] = f[KEYS[i]];
+    goal = goalO;
     const into = Math.max(0, f.made - f.carried);
     set(textEls.liver.v, mlMin(f.hep)); set(textEls.gut.v, mlMin(f.spl));
     set(textEls.carried.v, f.spare > 0.05 ? `${mlMin(f.carried)} of ${mlMin(f.cap)}` : mlMin(f.carried));
