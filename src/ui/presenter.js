@@ -29,8 +29,13 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
+<<<<<<< HEAD
 import { createHvpgMonitor } from './hvpg-proc.js?v=0d7f6de8bf';
-import { createTools } from './presenter-tools.js?v=65214d1685';
+import { createTools } from './presenter-tools.js?v=6f71f220bf';
+=======
+import { createHvpgMonitor } from './hvpg-proc.js?v=0d7f6de8bf';
+import { createTools } from './presenter-tools.js?v=6f71f220bf';
+>>>>>>> abaa360f (Callouts, lobule labels and zones, sinusoid captions, timeline count, Doppler band and the top bar's glides build and read nothing in a frame or a mutation callback)
 import { openHandout } from './handout.js?v=be99975ab1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';

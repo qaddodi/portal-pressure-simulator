@@ -139,16 +139,16 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const velEl = h('span', { class: 'dop-vel' }, h('b', {}, '—'), h('small', {}, 'cm/s', h('span', { class: 'dop-mean' })));
   // Normal-range gauge: a track with the usual band shaded and a marker for the current mean.
   // (The usual band: its middle stretched by scale and its two round ends moved by translate, under one opacity, so a new range is
-  // only transforms, eased on the compositor: no corner radius is rewritten for the stretch. ?bandcaps=0: one piece, its corners redrawn.)
-  const BAND_CAPS = !/[?&]bandcaps=0\b/.test(location.search);
+  // only transforms, eased on the compositor: no corner radius is rewritten for the stretch. The one-piece band, its corners redrawn each
+  // change, is gone with its ?bandcaps=0: 2 Nov 2026, "Move everything to GPU".)
   const bandMid = h('i', { class: 'dop-bm' }), bandL = h('i', { class: 'dop-bc' }), bandR = h('i', { class: 'dop-bc' });
-  const bandEl = BAND_CAPS ? h('i', { class: 'dop-band dop-band-caps' }, bandMid, bandL, bandR) : h('i', { class: 'dop-band' });
+  const bandEl = h('i', { class: 'dop-band dop-band-caps' }, bandMid, bandL, bandR);
   let trackW = 0;
   const markEl = h('i', { class: 'dop-mark' });
   const gLo = h('span', { class: 'dop-g-lo' }); const gHi = h('span', { class: 'dop-g-hi', 'data-u': 'cm/s' }); const gZero = h('span', { class: 'dop-g-zero' }, '0');
   const trackEl = h('div', { class: 'dop-track' }, bandEl, markEl);
   // (The track's width, for the band's middle: read as the browser reports a new one, never in a frame.)
-  if (BAND_CAPS && typeof ResizeObserver === 'function') new ResizeObserver((es) => { const w = es[0]?.contentRect?.width || 0; if (w && Math.abs(w - trackW) > 0.5) { trackW = w; if (lastGauge) updateGauge(...lastGauge); } }).observe(trackEl);
+  if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const w = es[0]?.contentRect?.width || 0; if (w && Math.abs(w - trackW) > 0.5) { trackW = w; if (lastGauge) updateGauge(...lastGauge); } }).observe(trackEl);
   const rangeEl = h('div', { class: 'dop-range', hidden: true }, trackEl, h('div', { class: 'dop-ticks' }, gZero, gLo, gHi));
   const patternEl = h('div', { class: 'dop-pattern' });
   const noteEl = h('p', { class: 'dop-note' });
@@ -418,15 +418,12 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const pos = (v) => Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
     rangeEl.hidden = false;
     rangeEl.dataset.out = velEl.dataset.out = !expected && (mean < n0 || mean > n1) ? 'true' : 'false';
-    // (by transform: the track and ticks are containers, so 1cqw is a hundredth of their width; the band is one full-width piece
-    // stretched, its corners drawn back to 4 px for the stretch; the browser eases them on the compositor)
+    // (by transform: the track and ticks are containers, so 1cqw is a hundredth of their width; the browser eases them on the compositor)
     const sw = Math.max(0.001, (pos(n1) - pos(n0)) / 100);
-    if (BAND_CAPS) {
-      // (the middle runs between the ends' centres, 4 px in from each: its share of the track less the two half ends)
-      const kMid = trackW > 8 ? Math.max(0, (sw * trackW - 8) / (trackW - 8)) : sw;
-      bandMid.style.translate = `${pos(n0)}cqw 0`; bandMid.style.scale = `${kMid.toFixed(4)} 1`;
-      bandL.style.translate = `${pos(n0)}cqw 0`; bandR.style.translate = `calc(${pos(n1)}cqw - 8px) 0`;
-    } else { bandEl.style.translate = `${pos(n0)}cqw 0`; bandEl.style.scale = `${sw.toFixed(4)} 1`; bandEl.style.borderRadius = `${(4 / sw).toFixed(2)}px / 4px`; }
+    // (the middle runs between the ends' centres, 4 px in from each: its share of the track less the two half ends)
+    const kMid = trackW > 8 ? Math.max(0, (sw * trackW - 8) / (trackW - 8)) : sw;
+    bandMid.style.translate = `${pos(n0)}cqw 0`; bandMid.style.scale = `${kMid.toFixed(4)} 1`;
+    bandL.style.translate = `${pos(n0)}cqw 0`; bandR.style.translate = `calc(${pos(n1)}cqw - 8px) 0`;
     markEl.style.translate = `${pos(mean)}cqw 0`;
     gZero.style.translate = `${pos(0)}cqw 0`; gLo.style.translate = `${pos(n0)}cqw 0`; gHi.style.translate = `${pos(n1)}cqw 0`;
     gHi.hidden = open;

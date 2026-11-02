@@ -41,7 +41,11 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=26aafefac3';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
-import { createSinusoidView } from './sinusoid-view.js?v=36733b5552';
+<<<<<<< HEAD
+import { createSinusoidView } from './sinusoid-view.js?v=8ae90b9fdc';
+=======
+import { createSinusoidView } from './sinusoid-view.js?v=8ae90b9fdc';
+>>>>>>> abaa360f (Callouts, lobule labels and zones, sinusoid captions, timeline count, Doppler band and the top bar's glides build and read nothing in a frame or a mutation callback)
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=7710f677e2';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=c217651b81';
@@ -1107,7 +1111,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     pageT = 0;
     for (const [parent, els] of mountQ.splice(0)) parent.append(...els.filter((e) => !e.isConnected));
     for (const L of labQ) {
-      if (L.kids) { L.el.replaceChildren(...L.kids); L.kids = null; }
+      if (L.spec) labBuild(L);
       else {
         if (L.b && L.b.textContent !== L.bv) L.b.textContent = L.bv;
         if (L.dEl && L.dEl.textContent !== L.dv) L.dEl.textContent = L.dv;
@@ -1117,15 +1121,28 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     labQ.clear();
   }
+  // A label's parts, built between frames (pageRun) from what the frame asked for (L.spec): a frame builds no elements (2 Nov 2026).
+  function labBuild(L) {
+    const { name, short, u, hasD } = L.spec, uw = L.uw ?? u;
+    L.spec = null; L.uw = null;
+    L.b = L.empty ? null : h('b', {}, L.bv);
+    L.dEl = hasD ? h('span', { class: 'd' }, L.dv) : null;
+    L.uEls = unitParts(uw);
+    L.el.replaceChildren(...[h('span', { class: 'n' }, h('span', { class: 'n-long' }, name), h('span', { class: 'n-short' }, short)),
+      L.empty ? null : h('span', { class: 'v' }, L.b, ...L.uEls, L.dEl)].filter(Boolean));
+  }
+  // Every label and its leader are made with the view, hidden, in the order the panel names them (so their tab order is the panel's):
+  // a frame that first names one finds it made.
+  function labMake(key) {
+    const L = labs[key] = { el: h('button', { class: 'lz-lab', type: 'button', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), line: s('line', { class: 'leader', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), dotEl: s('circle', { class: 'leader-dot', r: 3, 'data-target': `lobule:${LZ_TARGET[key] || key}` }) };
+    L.el.addEventListener('click', (ev) => { if (!geo || ev.detail !== 0) return; const q = anchorOf(key); if (L.el.classList.contains('edge')) centreOn(q); else select(hitKind(key), [q[0], q[1]]); });
+    // (Hidden until it is first placed, where it fades in: a label its slide does not name never shows at all.)
+    L.el.hidden = true;
+    labels.append(L.el); leaders.append(L.line, L.dotEl);
+  }
+  for (const k of ['triad', 'sin', 'cv', 'lymph', 'ha', 'bd']) labMake(k);
   function setLab(key, name, short, v, u, d, col) {
-    let L = labs[key];
-    if (!L) {
-      L = labs[key] = { el: h('button', { class: 'lz-lab', type: 'button', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), line: s('line', { class: 'leader', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), dotEl: s('circle', { class: 'leader-dot', r: 3, 'data-target': `lobule:${LZ_TARGET[key] || key}` }) };
-      L.el.addEventListener('click', (ev) => { if (!geo || ev.detail !== 0) return; const q = anchorOf(key); if (L.el.classList.contains('edge')) centreOn(q); else select(hitKind(key), [q[0], q[1]]); });
-      // (Hidden until it is first placed, where it fades in: a label its slide does not name never shows at all.)
-      L.el.hidden = true;
-      mount(labels, L.el); mount(leaders, L.line, L.dotEl);
-    }
+    const L = labs[key];
     const txt = `${name}|${v}|${u}|${d}|${col}`;
     if (L.txt === txt) return;
     // Only the number (or its change) moved: its text is updated in place, and the labels are laid out again
@@ -1135,7 +1152,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (Its colour is only a style on the label: a new one, which the pressure glide brings every frame, rebuilds nothing.)
     if (col !== L.col) { L.col = col; L.el.style.setProperty('--sw', col || 'var(--border-strong)'); }
     const uk = u.replace(/\d/g, '0'), frame = `${name}|${short}|${uk}|${v === ''}|${!!d}`;
-    if (L.frame === frame && L.b) {
+    if (L.frame === frame && !L.empty) {
       if (String(v).length !== L.bv.length || (d && d.length !== L.dv.length)) { layoutKey = ''; L.relay = true; }
       // (Each part is written only when its own text changed: a new colour alone, or a new unit figure, leaves the number be.
       // Written between frames, pageRun.)
@@ -1144,12 +1161,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (u !== L.u) { L.uw = u; writeLab(L); }
     } else {
       L.frame = frame;
-      L.b = v === '' ? null : h('b', {}, v);
-      L.dEl = d ? h('span', { class: 'd' }, d) : null;
-      L.uEls = unitParts(u);
+      L.spec = { name, short, u, hasD: !!d }; L.empty = v === '';
       L.bv = String(v); L.dv = d || ''; L.uw = null;
-      L.kids = [h('span', { class: 'n' }, h('span', { class: 'n-long' }, name), h('span', { class: 'n-short' }, short)),
-        v === '' ? null : h('span', { class: 'v' }, L.b, ...L.uEls, L.dEl)].filter(Boolean);
       writeLab(L);
       layoutKey = ''; L.relay = true;
     }
@@ -1345,15 +1358,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const gone = (el) => el.hidden || el.classList.contains('lz-off');
   const leadOff = (L) => { L.line.classList.add('ld-gone'); L.dotEl.classList.add('ld-gone'); };
   const leadOn = (L) => { L.line.classList.remove('ld-gone'); L.dotEl.classList.remove('ld-gone'); };
+  const ZONE_TPL = [['Zone 1', 'periportal'], ['Zone 2', 'midzonal'], ['Zone 3', 'centrilobular']].map(([t, d], i) => {
+    const z = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true', 'data-target': `lobule:zone${i + 1}` }, h('b', {}, t), h('span', {}, d));
+    z.style.setProperty('--zk', '1');
+    return z;
+  });
   function placeZones(fr0, hx, hy, lesion = null) {
     if (!zonesOn) { while (zoneEls.length) { const z = zoneEls.pop(); fadeOut(z, () => z.remove()); } return []; }
     const { R, cx, cy } = geo, a = Math.PI / 2, ap = R * 0.866, boxes = [];
     [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
       let z = zoneEls[i];
-      if (!z) {
-        z = zoneEls[i] = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true', 'data-target': `lobule:zone${i + 1}` }, h('b', {}, t), h('span', {}, d));
-        z.style.setProperty('--zk', '1');
-      }
+      if (!z) z = zoneEls[i] = ZONE_TPL[i].cloneNode(true);   // (cloned from its model, made with the view: a frame builds nothing)
       if (!z.isConnected) mount(labels, z);
       // Its usual spot (on the radius to the flat bottom edge); if that is out of view, the nearest in-view spot
       // of the same zone (the same ring, at the other five sides and corners), else clamped to the free edge.
@@ -1883,7 +1898,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // into a texture once at the change and the picture kept there; no 2D canvas, no drawImage. Where that context cannot be had or its
   // program is not ready yet, the new share is taken at once.)
   let resCover = null, resT0 = 0, resV0 = null, resGL;
-  const coverGL = () => (resGL === undefined ? (resGL = createResCover(() => h('canvas', { class: 'lz-canvas lz-res', 'aria-hidden': 'true', style: { transformOrigin: '0 0' } }))) : resGL);
+  // (Its canvas is made with the view, its context only at the first change: a frame makes no element for it. 2 Nov 2026.)
+  const resCv = h('canvas', { class: 'lz-canvas lz-res', 'aria-hidden': 'true', style: { transformOrigin: '0 0' } });
+  const coverGL = () => (resGL === undefined ? (resGL = createResCover(() => resCv)) : resGL);
   const resSteady = () => fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !staging && !!geo && !!model;
   function resSwap() {
     const k = lzWant;

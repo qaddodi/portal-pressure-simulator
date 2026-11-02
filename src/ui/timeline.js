@@ -212,12 +212,14 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     const t0 = performance.now();
     const dayOf = (u) => `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
     const gpu = days !== 'event' && dayStart(shownDay = dayOf(0), dayOf(1));
+    // (Where the count cannot be drawn on the GPU, its glyphs not loaded yet or ?daygl=0, the clock takes its last day here, in the task that
+    // starts the jump: no frame writes its words. 2 Nov 2026, "Move everything to GPU".)
+    if (!gpu && days !== 'event') timeLong.textContent = timeShort.textContent = dayOf(1);
     const tick = (now) => {
       const u = clamp((now - t0) / 900, 0, 1);
       // (Drawn again only when the day shown changes: most frames of the count keep it.)
       const t = dayOf(u);
       if (gpu && t !== shownDay) { shownDay = t; dayPath.setAttribute('d', dayD(t)); dayGL.paint(); }
-      else if (!gpu && days !== 'event' && (timeLong.textContent !== t || timeShort.textContent !== t)) timeLong.textContent = timeShort.textContent = t;
       if (u < 1) nextFrame(tick);
       else if (gpu) { dayEnd = dayTok; restPass(dayLand); }
       else jumping = false;

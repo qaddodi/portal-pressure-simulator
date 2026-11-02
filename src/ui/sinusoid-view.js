@@ -79,7 +79,7 @@ export function createSinusoidView({ host, before = null }) {
   function pageRun() {
     pageT = 0;
     for (const [parent, el] of mountQ.splice(0)) parent.append(el);   // (each asked for once, as it is made)
-    for (const [el, kids] of capQ) el.replaceChildren(...kids);
+    for (const [el, [name, lines]] of capQ) el.replaceChildren(h('span', {}, name), ...lines.map((l) => { const [v, u] = l.split('~'); return h('span', { class: 'v' }, h('b', {}, v), u ? ` ${u}` : ''); }));
     capQ.clear();
     if (fenWant != null) { const b = regions.fen?.el.querySelector('.v b'); if (b && b.textContent !== fenWant) b.textContent = fenWant; fenWant = null; }
   }
@@ -87,14 +87,15 @@ export function createSinusoidView({ host, before = null }) {
   function caption(key, cls, name, value) {
     // (What a presenter slide's terms call each part: presentLit, see presenter.js TARGETS.)
     let R = regions[key];
-    if (!R) { R = regions[key] = { el: h('div', { class: cls, 'data-target': `sinusoid:${SV_TARGET[key] || key}` }), n: 0 }; mount(labels, R.el); sized(R.el); }
+    // (An empty box made here; its words are built and put in between frames, pageRun.)
+    if (!R) { const el = document.createElement('div'); el.setAttribute('class', cls); el.setAttribute('data-target', `sinusoid:${SV_TARGET[key] || key}`); R = regions[key] = { el, n: 0 }; mount(labels, R.el); sized(R.el); }
     const txt = name + '|' + value;
     if (R.text !== txt) {
       const same = R.text && R.text.split('|')[0] === name && R.n === 1 + (value ? value.split(' · ').length : 0);
       R.text = txt;
       if (same && key === 'fen') return R;   // (its value is kept by fenTick, which eases it: the caption is not rebuilt)
       const lines = value ? value.split(' · ') : [];
-      capQ.set(R.el, [h('span', {}, name), ...lines.map((l) => { const [v, u] = l.split('~'); return h('span', { class: 'v' }, h('b', {}, v), u ? ` ${u}` : ''); })]);
+      capQ.set(R.el, [name, lines]);
       R.n = 1 + lines.length; pageSoon();   // (put in between frames, pageRun)
     }
     return R;

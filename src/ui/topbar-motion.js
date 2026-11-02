@@ -235,6 +235,16 @@ export function initTopbarMotion() {
     a.id = 'tbm'; a.onfinish = a.oncancel = () => g.remove();
   }
 
+  // The bar is measured after the browser's own layout of the change and before its paint: a fresh ResizeObserver's first report
+  // comes at that point of the next frame, so the glide starts on the very frame the change shows (no pop) and nothing here forces a
+  // layout (the mutation callback, a microtask straight after the writes, reads nothing: 2 Nov 2026, "Move everything to GPU").
+  // A bar that is not drawn sends no first report: a task measures it instead.
+  function runAfterLayout() {
+    const once = new ResizeObserver(() => { once.disconnect(); if (pending) run(); });
+    once.observe(bar);
+    setTimeout(() => { once.disconnect(); if (pending) run(); }, 250);
+  }
+
   // What counts as a change: a button's hidden flag, a class or fit step on the bar, the sinusoid focus
   // class on the app. Repeated writes of the same value (a class re-added while the figure is dragged) do not.
   const was = new Map();
@@ -252,7 +262,7 @@ export function initTopbarMotion() {
       else if (el.getAttribute(key) !== old) hit = true;
     }
     was.clear();
-    if (hit && !pending) { pending = true; run(); }
+    if (hit && !pending) { pending = true; runAfterLayout(); }
   });
   app._sin = app.classList.contains('sin-focus');
   mo.observe(bar, { attributes: true, subtree: true, attributeFilter: ['hidden', 'class', 'data-fit'], attributeOldValue: true });
@@ -262,7 +272,8 @@ export function initTopbarMotion() {
   for (const id of ['scenarioName', 'legend', 'colorModeLabel']) { const e = document.getElementById(id); if (e) mo.observe(e, { childList: true, characterData: true, subtree: true }); }
 
   // Layout that changes with no mutation of ours (fonts, a resize) is only recorded, never animated.
-  const ro = new ResizeObserver(() => { if (snap) resnap(); });
+  // (Not while a change waits for its measure: the layout it would record is the change's own, which the glide starts from.)
+  const ro = new ResizeObserver(() => { if (snap && !pending) resnap(); });
   ro.observe(bar);
   for (const el of bar.querySelectorAll(ITEMS)) ro.observe(el);
 

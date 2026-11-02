@@ -26,7 +26,7 @@ import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb64813
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { paintBox } from './plate-copy.js?v=20b30d30b0';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
-import { glassCallout } from './callout.js?v=bfa4eaf6ac';
+import { glassCallout, withGlass } from './callout.js?v=bd49f1733c';
 import { flipFrom, flipAt } from './cath-flip.js?v=6b016952c4';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
@@ -2761,7 +2761,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=3351847dc4').catch((err) => { lzCode = null; throw err; }));
+<<<<<<< HEAD
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=00e7b9811f').catch((err) => { lzCode = null; throw err; }));
+=======
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=00e7b9811f').catch((err) => { lzCode = null; throw err; }));
+>>>>>>> abaa360f (Callouts, lobule labels and zones, sinusoid captions, timeline count, Doppler band and the top bar's glides build and read nothing in a frame or a mutation callback)
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -7025,6 +7029,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return d + ` L${b[0].toFixed(1)} ${b[1].toFixed(1)}`;
   };
   // (The readings' parts, made ahead: a frame clones them, never builds them.)
+  // (A reading's own box, with its glass in it already for those that have one: cloned on a frame, nothing built there. callout.js withGlass)
+  const SITE_EL = [document.createElement('div'), withGlass(document.createElement('div'))];
   const SITE_TPL = (() => { const e = document.createElement('div'); e.innerHTML = '<small></small><b></b><span></span><i class="res-k"></i>'; return e; })();
   const SPLIT_B = (() => { const e = document.createElement('b'); e.innerHTML = '<span class="sp-h"><em class="sp-n"></em>% bypasses the liver</span><span class="sp-bar"><i class="sp-l"></i><i class="sp-s"></i></span><span class="sp-cap"><em class="sp-lt"></em><em class="sp-st"></em></span>'; return e; })();
   function resPaint(k, d, ratio) {
@@ -7235,7 +7241,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (d.res) resPaint(k, d, ratio);
       let el = made.get(k);
       if (!el) {
-        el = document.createElement('div'); el.className = `cath-label site ${d.cls} cath-pre`;
+        el = SITE_EL[d.res ? 0 : 1].cloneNode(true); el.className = `cath-label site ${d.cls} cath-pre`;
         if (!d.res) el._glass = glassCallout(el);
         // (Its parts are cloned from a model made ahead and put in the page, with their words, between frames: late().)
         const [sm, b0, u, kk] = SITE_TPL.cloneNode(true).children, b = d.split ? SPLIT_B.cloneNode(true) : b0;
@@ -8284,7 +8290,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (left(el._gl)[2] && !cath.glideRaf) cath.glideRaf = nextFrame(() => { cath.glideRaf = 0; cath.lblKey = ''; cathLabelsSoon(); });
     return [x + ox, y + oy];
   }
-  const PILL_TPL = [0, 1].map((u) => { const e = document.createElement('div'); e.innerHTML = '<small></small><b></b>' + (u ? '<span></span>' : ''); return e; });
+  const PILL_TPL = [0, 1].map((u) => { const e = document.createElement('div'); e.innerHTML = '<small></small><b></b>' + (u ? '<span></span>' : ''); return withGlass(e); });   // (its glass built in: callout.js withGlass)
   const SUM_TPL = (() => { const e = document.createElement('div'), box = document.createElement('div'), col = document.createElement('div'); e.className = 'cath-sum'; box.className = 'cath-sum-box'; col.className = 'cath-sum-col'; box.append(col, s('svg', { class: 'cath-brace', width: 22 }, s('path', {}))); e.append(s('svg', { class: 'cath-leads' }), box); return e; })();
   function cathLabels() {
     const st = cath.st, at = cath.at;
@@ -8313,7 +8319,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const pill = (l, cls = '') => {
       const el = PILL_TPL[l.unit ? 1 : 0].cloneNode(true);
       el.className = `cath-label ${l.cls || ''} ${cls || 'cath-js'}`; el.dataset.at = l.at || '';
-      const [k, b, u] = el.children;
+      const [, k, b, u] = el.children;   // (the first is its glass)
       el._kW = glWords(k); el._bW = glWords(b); el._kW.set(l.kicker || ''); el._bW.set(l.text);
       if (u) glWords(u).set(l.unit);
       el._glass = glassCallout(el);

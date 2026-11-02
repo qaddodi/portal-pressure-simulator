@@ -11,14 +11,16 @@ const BORDER = 2; // the card's (transparent) border, which the glass covers
 // 2 px ring of the colour itself (app.css .cl-glass.cl-hair). ?cathtag=0 leaves the class off and the old ring as it was.
 const HAIR = !/[?&]cathtag=0\b/.test(globalThis.location?.search || '');
 
-const make = (el) => {
+// The glass is built into a callout's model (its template) once, ahead of time, and comes with every clone of it, so making a
+// callout on a frame writes nothing to the page for it (2 Nov 2026, "Move everything to GPU"). withGlass(tpl) gives a model its glass.
+export const withGlass = (el) => {
   const glass = document.createElement('i');
   glass.className = HAIR ? 'cl-glass cl-hair' : 'cl-glass'; glass.setAttribute('aria-hidden', 'true');
   const svg = document.createElementNS(NS, 'svg');
   svg.append(document.createElementNS(NS, 'path'));
   glass.append(svg);
   el.prepend(glass);
-  return glass;
+  return el;
 };
 
 // The outline: a rounded rectangle (w × h at y = top) with the pointer on its bottom or top edge at x = px.
@@ -42,7 +44,7 @@ function observedSize(el, es) {
 /** Gives `el` its glass body and returns `update(ax)`: call it whenever the pointer's offset `ax` (px from the card's
  *  centre) may have changed. It also redraws itself when the card is resized (a reading's text changing). */
 export function glassCallout(el, { pointer = true } = {}) {
-  const glass = make(el), path = glass.firstChild.firstChild;
+  const glass = el.firstElementChild, path = glass.firstChild.firstChild;   // (its glass, cloned with it from a model: withGlass)
   // size: the card's exact (fractional) border box, and rad its corner radius, both taken when it is observed (its size changes): the
   // update itself, called on the figure's frames, reads no layout or style (1 Nov 2026, "Move everything to GPU").
   let ax = 0, key = '', size = null, rad = 14;
