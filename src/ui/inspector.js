@@ -7,7 +7,7 @@ import { store, updateParams, hiddenNow } from './store.js?v=a21c31dcb5';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js?v=ad6469643b';
 import { liveBalance } from './balance-hold.js?v=1792704e7a';
 import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
-import { runSoon, propSoon, attrSoon } from './class-soon.js?v=0000000000';
+import { runSoon, propSoon, attrSoon } from './class-soon.js?v=97b9d0e0db';
 const nextFrame = frameFor('inspector');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
