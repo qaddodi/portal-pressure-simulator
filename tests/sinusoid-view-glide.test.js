@@ -61,8 +61,12 @@ globalThis.document = {
 // The frame scheduler's browser frame: held here and run by hand, a frame at a time.
 let flushNext = null;
 globalThis.requestAnimationFrame = (cb) => { flushNext = cb; return 1; };
+// The rest passes (rest-pass.js, a message between two frames: the page writes a frame asks for land there) run by hand too, after each frame.
+const restQ = [];
+globalThis.MessageChannel = class { constructor() { const p1 = { onmessage: null }; this.port1 = p1; this.port2 = { postMessage: () => restQ.push(() => p1.onmessage?.()) }; } };
+const rests = () => { while (restQ.length) restQ.shift()(); };
 let clock = 1000;
-const frames = (n, ms = 1000 / 60) => { for (let i = 0; i < n; i++) { reportSizes(); clock += ms; const f = flushNext; flushNext = null; if (f) f(clock); } };
+const frames = (n, ms = 1000 / 60) => { for (let i = 0; i < n; i++) { rests(); reportSizes(); clock += ms; const f = flushNext; flushNext = null; if (f) f(clock); rests(); } };
 
 const { createSinusoidView } = await import('../src/ui/sinusoid-view.js');
 const { store } = await import('../src/ui/store.js');

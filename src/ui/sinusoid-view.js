@@ -19,7 +19,7 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=81aaed6aef';
+import { h, s, fmt, clamp, lerp } from './util.js?v=81aaed6aef';
 import { pressureColor } from './colormap.js?v=3d33c1ecd4';
 import { isPaused } from './clock.js?v=16aba0e2eb';
 import { store } from './store.js?v=4ef2a6ffd8';
@@ -69,18 +69,33 @@ export function createSinusoidView({ host, before = null }) {
   const szOf = (n) => SZ.get(n) || [0, 0];
   const sized = (n) => { if (sizeRO) { n.dataset.svSize = ''; n.style.visibility = 'hidden'; sizeRO.observe(n); } };
   const SV_TARGET = { fen: 'fenestrae', hsc: 'stellate', kup: 'kupffer', hep: 'hepatocyte', sin: 'lumen', in: 'in', out: 'out' };
+  // Page writes asked for inside a frame (a caption's words, a node put into the page, the fenestrae's share) land between frames
+  // (rest-pass.js), in the order asked, so a frame does no DOM work (2 Nov 2026, "Move everything to GPU"). A caption's new size
+  // reaches the layout through its ResizeObserver, as before.
+  const mountQ = [], capQ = new Map();
+  let pageT = 0, fenWant = null;
+  const pageSoon = () => { if (!pageT) pageT = restPass(pageRun); };
+  const mount = (parent, el) => { mountQ.push([parent, el]); pageSoon(); };
+  function pageRun() {
+    pageT = 0;
+    for (const [parent, el] of mountQ.splice(0)) parent.append(el);   // (each asked for once, as it is made)
+    for (const [el, kids] of capQ) el.replaceChildren(...kids);
+    capQ.clear();
+    if (fenWant != null) { const b = regions.fen?.el.querySelector('.v b'); if (b && b.textContent !== fenWant) b.textContent = fenWant; fenWant = null; }
+  }
   // One caption, built one way for every name in the view (the ends' venules are written exactly as the Sinusoid's own).
   function caption(key, cls, name, value) {
     // (What a presenter slide's terms call each part: presentLit, see presenter.js TARGETS.)
     let R = regions[key];
-    if (!R) { R = regions[key] = { el: h('div', { class: cls, 'data-target': `sinusoid:${SV_TARGET[key] || key}` }) }; labels.append(R.el); sized(R.el); }
+    if (!R) { R = regions[key] = { el: h('div', { class: cls, 'data-target': `sinusoid:${SV_TARGET[key] || key}` }), n: 0 }; mount(labels, R.el); sized(R.el); }
     const txt = name + '|' + value;
     if (R.text !== txt) {
-      const same = R.text && R.text.split('|')[0] === name && R.el.children.length === 1 + (value ? value.split(' · ').length : 0);
+      const same = R.text && R.text.split('|')[0] === name && R.n === 1 + (value ? value.split(' · ').length : 0);
       R.text = txt;
       if (same && key === 'fen') return R;   // (its value is kept by fenTick, which eases it: the caption is not rebuilt)
       const lines = value ? value.split(' · ') : [];
-      R.el.replaceChildren(h('span', {}, name), ...lines.map((l) => { const [v, u] = l.split('~'); return h('span', { class: 'v' }, h('b', {}, v), u ? ` ${u}` : ''); }));
+      capQ.set(R.el, [h('span', {}, name), ...lines.map((l) => { const [v, u] = l.split('~'); return h('span', { class: 'v' }, h('b', {}, v), u ? ` ${u}` : ''); })]);
+      R.n = 1 + lines.length; pageSoon();   // (put in between frames, pageRun)
     }
     return R;
   }
@@ -114,7 +129,7 @@ export function createSinusoidView({ host, before = null }) {
   const lead = {};
   function leader(key, R, x, y) {
     let L = lead[key];
-    if (!L) { L = lead[key] = document.createElementNS(NS, 'g'); for (const t of ['line', 'circle']) L.append(document.createElementNS(NS, t)); leaders.append(L); }
+    if (!L) { L = lead[key] = s('g', {}, s('line'), s('circle')); mount(leaders, L); }
     // (The fenestrae's callout ends on a pore picked by where its name stands, so the pick can pass to another pore: the end slides
     // along the lining to that one, on the lining's own line, and never hops.)
     if (key === 'fen') { L.tx = x; const sd = L.sd || 0; y += halfW(x) - halfW(x + sd); x += sd; }
@@ -507,12 +522,13 @@ export function createSinusoidView({ host, before = null }) {
   const fenPct = () => `${Math.round(S.por * 100)}%`;
   const fenTxt = () => `${fenPct()}~open`;
   // Every frame: the share counts with S.por (the caption itself is built once; see caption).
+  // (Written between frames, pageRun.)
   function fenTick() {
-    const b = regions.fen?.el.querySelector('.v b');
-    if (!b) return;
+    if (!regions.fen) return;
     const pct = fenPct();
-    if (b.textContent !== pct) b.textContent = pct;
+    if (pct !== fenShown) { fenShown = pct; fenWant = pct; pageSoon(); }
   }
+  let fenShown = '';
   // The fenestra a callout points at: of the upper lining's pores near x, one in view that no endothelial cell body covers
   // (the swell over a nucleus hides the pores under it), the one that stays open longest (by place only, so the line does
   // not hop as the pores close).

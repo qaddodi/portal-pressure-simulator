@@ -126,6 +126,9 @@ test('Compare words on the dock tiles and the lobule label numbers are written o
   const dock = read('src/ui/dock.js'), lz = read('src/ui/lobule-zoom.js');
   assert.match(dock, /if \(x\.cmp\.textContent !== ct\) x\.cmp\.textContent = ct;/);
   assert.match(dock, /if \(x\.cmp\.className !== cc\) x\.cmp\.className = cc;/);
-  assert.match(lz, /if \(L\.b\.textContent !== String\(v\)\) L\.b\.textContent = v;/);
-  assert.match(lz, /if \(d && L\.dEl\.textContent !== d\) L\.dEl\.textContent = d;/);
+  // (Asked for in the frame, written between frames: pageRun.)
+  assert.match(lz, /if \(L\.bv !== String\(v\)\) \{ L\.bv = String\(v\); writeLab\(L\); \}/);
+  assert.match(lz, /if \(d && L\.dv !== d\) \{ L\.dv = d; writeLab\(L\); \}/);
+  assert.match(lz, /if \(L\.b && L\.b\.textContent !== L\.bv\) L\.b\.textContent = L\.bv;/);
+  assert.match(lz, /if \(L\.dEl && L\.dEl\.textContent !== L\.dv\) L\.dEl\.textContent = L\.dv;/);
 });

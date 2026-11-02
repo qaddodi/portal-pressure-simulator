@@ -41,7 +41,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=5ffca9c76e';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
-import { createSinusoidView } from './sinusoid-view.js?v=adf3dd75ec';
+import { createSinusoidView } from './sinusoid-view.js?v=aa4dae0b6e';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=7710f677e2';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=c217651b81';
@@ -1086,6 +1086,28 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   };
   // What a presenter slide's terms call each label (presentLit, see presenter.js TARGETS).
   const LZ_TARGET = { ha: 'arteriole', bd: 'ductule', triad: 'triad', sin: 'sinusoid', cv: 'central', lymph: 'lymph' };
+  // Page writes asked for inside a frame (a label's words, a node put into the page) land between frames (rest-pass.js), in the order
+  // asked, so a frame does no DOM work (2 Nov 2026, "Move everything to GPU"; scripts/off-gpu-scan.mjs domWrite). A label whose
+  // words take more or fewer characters is laid out again once they are in.
+  const mountQ = [], labQ = new Set();
+  let pageT = 0;
+  const pageSoon = () => { if (!pageT) pageT = restPass(pageRun); };
+  const mount = (parent, ...els) => { mountQ.push([parent, els]); pageSoon(); };
+  const writeLab = (L) => { labQ.add(L); pageSoon(); };
+  function pageRun() {
+    pageT = 0;
+    for (const [parent, els] of mountQ.splice(0)) parent.append(...els.filter((e) => !e.isConnected));
+    for (const L of labQ) {
+      if (L.kids) { L.el.replaceChildren(...L.kids); L.kids = null; }
+      else {
+        if (L.b && L.b.textContent !== L.bv) L.b.textContent = L.bv;
+        if (L.dEl && L.dEl.textContent !== L.dv) L.dEl.textContent = L.dv;
+        if (L.uw != null) { const [a, ...rest] = L.uw.split(' · '); if (rest.length) { L.uEls[0].textContent = a; L.uEls[1].lastChild.textContent = rest.join(' · '); } else if (L.uw) L.uEls[0].textContent = L.uw; L.uw = null; }
+      }
+      if (L.relay) { L.relay = false; layoutKey = ''; }
+    }
+    labQ.clear();
+  }
   function setLab(key, name, short, v, u, d, col) {
     let L = labs[key];
     if (!L) {
@@ -1093,7 +1115,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       L.el.addEventListener('click', (ev) => { if (!geo || ev.detail !== 0) return; const q = anchorOf(key); if (L.el.classList.contains('edge')) centreOn(q); else select(hitKind(key), [q[0], q[1]]); });
       // (Hidden until it is first placed, where it fades in: a label its slide does not name never shows at all.)
       L.el.hidden = true;
-      labels.append(L.el); leaders.append(L.line, L.dotEl);
+      mount(labels, L.el); mount(leaders, L.line, L.dotEl);
     }
     const txt = `${name}|${v}|${u}|${d}|${col}`;
     if (L.txt === txt) return;
@@ -1105,19 +1127,22 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (col !== L.col) { L.col = col; L.el.style.setProperty('--sw', col || 'var(--border-strong)'); }
     const uk = u.replace(/\d/g, '0'), frame = `${name}|${short}|${uk}|${v === ''}|${!!d}`;
     if (L.frame === frame && L.b) {
-      if (String(v).length !== L.b.textContent.length || (d && d.length !== L.dEl.textContent.length)) layoutKey = '';
-      // (Each part is written only when its own text changed: a new colour alone, or a new unit figure, leaves the number be.)
-      if (L.b.textContent !== String(v)) L.b.textContent = v;
-      if (d && L.dEl.textContent !== d) L.dEl.textContent = d;
-      if (u !== L.u) { const [a, ...rest] = u.split(' · '); if (rest.length) { L.uEls[0].textContent = a; L.uEls[1].lastChild.textContent = rest.join(' · '); } else if (u) L.uEls[0].textContent = u; }
+      if (String(v).length !== L.bv.length || (d && d.length !== L.dv.length)) { layoutKey = ''; L.relay = true; }
+      // (Each part is written only when its own text changed: a new colour alone, or a new unit figure, leaves the number be.
+      // Written between frames, pageRun.)
+      if (L.bv !== String(v)) { L.bv = String(v); writeLab(L); }
+      if (d && L.dv !== d) { L.dv = d; writeLab(L); }
+      if (u !== L.u) { L.uw = u; writeLab(L); }
     } else {
       L.frame = frame;
       L.b = v === '' ? null : h('b', {}, v);
       L.dEl = d ? h('span', { class: 'd' }, d) : null;
       L.uEls = unitParts(u);
-      L.el.replaceChildren(h('span', { class: 'n' }, h('span', { class: 'n-long' }, name), h('span', { class: 'n-short' }, short)),
-        v === '' ? null : h('span', { class: 'v' }, L.b, ...L.uEls, L.dEl));
-      layoutKey = '';
+      L.bv = String(v); L.dv = d || ''; L.uw = null;
+      L.kids = [h('span', { class: 'n' }, h('span', { class: 'n-long' }, name), h('span', { class: 'n-short' }, short)),
+        v === '' ? null : h('span', { class: 'v' }, L.b, ...L.uEls, L.dEl)].filter(Boolean);
+      writeLab(L);
+      layoutKey = ''; L.relay = true;
     }
     L.txt = txt; L.u = u;
     L.lk = `${name}|${short}|${uk}|${v === ''}|${!!d}`;   // what the layout depends on (a value of new length clears layoutKey above)
@@ -1251,7 +1276,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return Math.max(0, ring.clear - Math.hypot(dx, dy));
   };
   function placeCall(fr, placed, cards, leads, crosses, ring, hex, keep = [], into = () => 0) {
-    if (!callEl.isConnected) { labels.append(callEl); leaders.append(callLine, callRing); }
+    if (!callEl.isConnected) { mount(labels, callEl); mount(leaders, callLine, callRing); }
     // (Not shown until its size is known for its words: placed at a guessed size, it slid sideways once measured, seconds in on a slow renderer.)
     const on = !!ring && callEl._lzSz?.txt === callEl.textContent;
     if (ring && !on) { measQ.add(callEl); if (!measT) measT = restPass(measureRun); }
@@ -1320,7 +1345,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         z = zoneEls[i] = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true', 'data-target': `lobule:zone${i + 1}` }, h('b', {}, t), h('span', {}, d));
         z.style.setProperty('--zk', '1');
       }
-      if (!z.isConnected) labels.append(z);
+      if (!z.isConnected) mount(labels, z);
       // Its usual spot (on the radius to the flat bottom edge); if that is out of view, the nearest in-view spot
       // of the same zone (the same ring, at the other five sides and corners), else clamped to the free edge.
       const ring = [];
