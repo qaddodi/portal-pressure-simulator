@@ -20,6 +20,7 @@ export const markEase = (a) => a * a * (3 - 2 * a);
 export function markFade({ inMs = MARK_IN_MS, outMs = MARK_OUT_MS } = {}) {
   const marks = new Map();   // key → { a (0 … 1 shown), on (wanted), seen (wanted in the build now running), el, meta }
   let built = false;         // a first build has happened: a mark that appears after it fades in
+  const stepped = { moving: false, gone: [] };   // what step() returns: one record, written in place at each step (read it before the next one)
   const api = {
     /** A build of the overlays starts. */
     begin() { for (const m of marks.values()) m.seen = false; },
@@ -53,11 +54,12 @@ export function markFade({ inMs = MARK_IN_MS, outMs = MARK_OUT_MS } = {}) {
     },
     /**
      * Moves every mark toward its goal by `dt` ms. { moving: any still moves, gone: the elements of the marks that have finished going,
-     * which leave the list }.
+     * which leave the list }. (The same record each time, written in place.)
      */
     step(dt, quiet = false) {
       let moving = false;
-      const gone = [];
+      const gone = stepped.gone;
+      gone.length = 0;
       for (const [key, m] of marks) {
         const goal = m.on ? 1 : 0;
         if (m.a !== goal) {
@@ -66,7 +68,8 @@ export function markFade({ inMs = MARK_IN_MS, outMs = MARK_OUT_MS } = {}) {
         }
         if (!m.on && m.a === 0) { if (m.el) gone.push(m.el); marks.delete(key); }
       }
-      return { moving, gone };
+      stepped.moving = moving;
+      return stepped;
     },
     /** How much of `key` shows (eased 0 … 1); 1 for a key that is not a mark. */
     amount(key) { const m = marks.get(key); return m ? markEase(m.a) : 1; },

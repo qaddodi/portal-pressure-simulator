@@ -162,7 +162,7 @@ export function createTools({ host, stage }) {
      *  the slide's own options with patch over them, or the slide's own alone when patch is null. */
     option(patch) { if (cur && lastTool) cur.configure?.(patch ? { ...lastTool, ...patch } : lastTool, lastCtx); },
     /** The numbers the slide's tiles and words show (a fingerprint): a reading instrument shows the same, not the beat-to-beat live value. */
-    pin(fp) { for (const inst of Object.values(made)) inst?.pin?.(fp); },
+    pin(fp) { for (const k in made) made[k]?.pin?.(fp); },
     progress(k, trail) { if (kind === 'flowtime') cur.set(trail, k); },
     /** The card has been fitted (its zoom may have changed with the chart's box the same size): a chart redraws at the type its zoom now asks for. */
     refit() { cur?.refit?.(); },
