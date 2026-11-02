@@ -9,7 +9,7 @@
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
 import { GLASS_SHARE, shareFor, sharePrep, sharePlan, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=00eb65ddf2';
-import { hold } from './gpu-budget.js?v=f3506e8647';
+import { hold } from './gpu-budget.js?v=2808cb3d0b';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { finalFrameFor, readFrameFor, framePhase, cancelFrame, noteDraw } from './frame.js?v=8c8f2f530e';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=3e750c4fef';

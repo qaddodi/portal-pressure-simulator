@@ -135,10 +135,10 @@ function onCall(gl, name, x) {
 
 // The context budget (plan item 5, 2 Nov 2026): at most CTX_MAX live contexts of the page's own plus the charts' (the offscreen pool
 // contexts that trace-gl.js hands to whichever charts show). A page holds only so many (iOS Safari about 16, dropping the oldest, which is
-// the figure's). Dev only (?perf, ?ctxassert, or a local host): a count above it is logged once per new high, with the owners. Walks the
+// the figure's). Dev only (?perf or a local host): a count above it is logged once per new high, with the owners. Walks the
 // weak list in place and allocates nothing unless it speaks.
 export const CTX_MAX = 2;
-const CTX_ASSERT = GPU_BUDGET && (SITES || /[?&]ctxassert\b/.test(SEARCH) || (typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(location.hostname || '')));
+const CTX_ASSERT = SITES || (typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(location.hostname || ''));
 let ctxWarned = 0;
 /** Live contexts now: { own, charts } (charts: the offscreen pool contexts). */
 export function contextCount() {
