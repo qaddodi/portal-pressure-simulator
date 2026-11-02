@@ -638,6 +638,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const gNodes = s('g', { id: 'nodes', class: 'circuit-only' });
   const gFocus = s('g', { id: 'focus' });
   const gGuides = s('g', { id: 'guides' });
+  // Overlay and label structure (nodes added or swapped) is written in a rest pass between two frames, never inside one
+  // (the owner's rule, 2 Nov 2026: no DOM writes in a frame). A frame builds the nodes and queues them with late(op, a, b); the
+  // pass applies them in the order asked, so the last ask wins. (?restpass=0, rest-pass.js, runs that pass on a plain zero timer.)
+  let lateQ = [], latePass = 0;
+  function late(op, a, b) { lateQ.push([op, a, b]); if (!latePass) latePass = restPass(lateFlush); }
+  function lateFlush() { latePass = 0; const q = lateQ; lateQ = []; for (const [op, a, b] of q) lateRun(op, a, b); }
+  function lateRun(op, a, b) {
+    if (op === 'kids') a.replaceChildren(...b);   // (a label's pieces)
+    else if (op === 'label') { if (!a.isConnected) gLabels.append(a); }   // (a new label)
+    else if (op === 'lead') { for (let i = a.length - 1, next = null; i >= 0; i--) { if (!a[i].isConnected) gLeaders.insertBefore(a[i], next); next = a[i]; } }   // (a new leader goes in just before the next one wanted that is already in)
+    else if (op === 'fill') a.style.fill = b;   // (a reading's colour)
+    else if (op === 'hover') gHovO.replaceChildren(...a);
+    else if (op === 'guide') { if (shunt) for (const el of a) if (el.parentNode !== gGuides) gGuides.append(el); }   // (a drag that has ended since leaves none)
+  }
   // The venous network is one group, so that fading it (when a vessel is selected or hovered) fades
   // its union once: casings, lumens and overlaps together, not tier by tier. The focused vessel is
   // lifted out of it, into a layer above that stays bright.
@@ -8693,7 +8707,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     balloonSqueeze = 1 - 0.45 * balEase(bal.eso);
     if (bal.dirty) { bal.dirty = false; balloonDraw(anat); }
   }
+  // The balloons' drawing is built between frames, from the state it finds then (the last ask wins).
+  let balloonAnat = false, balloonAsked = false;
   function balloonDraw(anat) {
+    balloonAnat = anat;
+    if (!balloonAsked) { balloonAsked = true; restPass(balloonCommit); }
+  }
+  function balloonCommit() {
+    balloonAsked = false;
+    const anat = balloonAnat;
     ov.balloons.innerHTML = '';
     if (!anat || bal.adv <= 0) return;
     // Drawn as the HVPG catheter's wedge balloon is (veins-gl.js mode 5): cream latex, clear in the middle and denser toward
@@ -8773,6 +8795,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     venousSync(p, t < 0.5, key !== overlayKey);
     if (key === overlayKey) return;
     overlayKey = key;
+    ovAsk = { f, p, t };
+    if (!ovAsked) { ovAsked = true; restPass(overlayCommit); }
+  }
+  // The overlays' structure (clamps, clots, shunt meshes, marks, bands) is rebuilt between frames from what the frame last asked for.
+  let ovAsk = null, ovAsked = false;
+  function overlayCommit() {
+    ovAsked = false;
+    if (!ovAsk) return;
+    const { f, p, t } = ovAsk;
     const anat = t < 0.5;
     // stenosis clamps & thrombi
     const hideDx = store.get().found ? findingHidden('clot') : isImaging();
@@ -9303,7 +9334,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       g.addEventListener('focus', () => { try { if (g.matches(':focus-visible')) linkFocus(key); } catch { /* an engine without :focus-visible: no link from focus */ } });
       g.addEventListener('blur', () => linkFocus(null, key));
     }
-    gLabels.append(g);
+    late('label', g);
     b = { g, sig: '', seen: 0 };
     pool.set(key, b);
     return b;
@@ -9354,7 +9385,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       els.push(el);
     }
     // (A new one goes in just before the next one wanted that is already in, so every line still lies under every dot.)
-    for (let i = els.length - 1, next = null; i >= 0; i--) { if (!els[i].isConnected) gLeaders.insertBefore(els[i], next); next = els[i]; }
+    late('lead', els);
     dprDots();
     for (const [k, el] of leadEls) {
       if (keep.has(k) || el._gone) continue;
@@ -9384,7 +9415,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       b.spans = [];
       b.textLines = [];
       // (A label's pill has 6 px corners, the cards' tile family; only a numbered marker, a round chip, takes its full height: it.chip.)
-      if (it.bg) kids.push(s('rect', { class: 'lb-bg', x: -it.padX, y: -it.padY, width: it.w + 2 * it.padX, height: it.h + 2 * it.padY, rx: it.chip ? (it.h + 2 * it.padY) / 2 : 6 }));
+      let swEl = null, bgEl = null;
+      if (it.bg) kids.push(bgEl = s('rect', { class: 'lb-bg', x: -it.padX, y: -it.padY, width: it.w + 2 * it.padX, height: it.h + 2 * it.padY, rx: it.chip ? (it.h + 2 * it.padY) / 2 : 6 }));
       // A clickable caption is a larger target than its small letters.
       if (it.hit) kids.push(s('rect', { class: 'lb-hit', x: -10, y: -8, width: it.w + 20, height: it.h + 16, rx: 8 }));
       let y = 0;
@@ -9397,29 +9429,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const sp = s('tspan', { class: r.cls || '', 'font-size': +fontPx(r.size).toFixed(2), 'font-weight': r.weight || 500 });
           if (i) sp.setAttribute('dx', +((r.gap ?? 3) * labelK).toFixed(2));
           if (r.track) sp.setAttribute('letter-spacing', `${r.track}em`);
-          sp.textContent = r.t;
           b.spans.push(sp);
           t.append(sp);
         });
         kids.push(t);
         y += lh;
       }
-      if (it.swatch) kids.unshift(s('rect', { class: 'lb-sw', x: it.align === 'end' ? it.w - 3 : 0, y: 1, width: 3, height: Math.max(8, it.h - 2), rx: 1.5 }));
-      b.g.replaceChildren(...kids);
+      if (it.swatch) kids.unshift(swEl = s('rect', { class: 'lb-sw', x: it.align === 'end' ? it.w - 3 : 0, y: 1, width: 3, height: Math.max(8, it.h - 2), rx: 1.5 }));
+      late('kids', b.g, kids);
       // (A slide's mark that stays but takes new words fades the new words in, never swaps them in at once.)
       // (A live callout's words keep their shape as its numbers tick: it.fxw, so only a new slide's words fade in.)
       const words = it.fxw ?? (/^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')).join('\n') : null);
       if (words != null && b.words != null && words !== b.words && b.g.style.display !== 'none' && !reduceMotion.matches) { b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SURFACE, easing: EASE_ARRIVE }); labelGL?.hold(b.g, D_SURFACE); }
       b.words = words;
-      b.sw = it.swatch ? b.g.querySelector('.lb-sw') : null;
-      b.bg = b.g.querySelector('.lb-bg');
+      b.sw = swEl;
+      b.bg = bgEl;
     }
     let i = 0;
     for (const line of it.lines) for (const r of line) {
       const sp = b.spans[i++];
       putText(sp, r.t);
       if (sp.getAttribute('class') !== (r.cls || '')) sp.setAttribute('class', r.cls || '');
-      if ((sp._fill || '') !== (r.fill || '')) { sp._fill = r.fill || ''; sp.style.fill = sp._fill; }
+      if ((sp._fill || '') !== (r.fill || '')) { sp._fill = r.fill || ''; late('fill', sp, sp._fill); }
     }
     for (const text of b.textLines) setA(text, 'x', it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : it.swatch ? 7 : 0);
     if (b.bg) { setA(b.bg, 'width', it.w + 2 * it.padX); setA(b.bg, 'height', it.h + 2 * it.padY); }
@@ -12202,28 +12233,27 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const key = o ? o + (lobe || '') : '';
     if (key === hovO) return;
     hovO = key;
-    gHovO.replaceChildren();
     const byOrgan = o && { liver: 'liver', heart: 'heart', spleen: 'spleen' }[o];
     if (glLines) olSet('hov', byOrgan || null);
-    if (!o) return;
+    late('hover', organHoverNodes(o, byOrgan));
+  }
+  // (The soft outline's nodes, built here and put in the page between frames: late('hover').)
+  function organHoverNodes(o, byOrgan) {
+    if (!o) return [];
     if (byOrgan) {
-      if (glLines) return;
+      if (glLines) return [];
       const d = organEls[byOrgan]?.getAttribute('d');
-      if (!d) return;
+      if (!d) return [];
       const el = s('path', { class: 'org-hov-line', d, style: `stroke: rgb(${orgTone(byOrgan).map((x) => Math.round(x * 255))})` }), tr = organG[byOrgan].getAttribute('transform');
       if (tr) el.setAttribute('transform', tr);
-      gHovO.append(el);
-      return;
+      return [el];
     }
     if (o === 'abdomen') {   // the fluid itself, clipped as it is drawn, so it grows with the ascites
       const fd = ascitesPath.getAttribute('d');
-      if (!fd) return;
-      const cg = s('g', { 'clip-path': 'url(#abdomenClip)' });
-      cg.append(s('path', { class: 'org-hov-fluid', d: fd }), s('path', { class: 'org-hov-line', d: ascitesLine.getAttribute('d') || '' }));
-      gHovO.append(cg);
-      return;
+      if (!fd) return [];
+      return [s('g', { 'clip-path': 'url(#abdomenClip)' }, s('path', { class: 'org-hov-fluid', d: fd }), s('path', { class: 'org-hov-line', d: ascitesLine.getAttribute('d') || '' }))];
     }
-    
+    return [];
   }
   // Nothing stays lit once the pointer is gone, cancelled or lifted (a finger has no hover).
   function clearHover() { hoverEv = null; setHover(null); setOrganHover(null); onHoverInfo(null); if (linkPtr) { linkPtr = null; linkApply(); } }
@@ -12767,20 +12797,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const tgt = edgeFromEvent(ev);
     nextFrame(() => { if (shunt) shuntMove(ev, tgt); });
   }
+  const guideLine = s('path', { class: 'stent-guide' }), guideGlow = s('path', { class: 'target-glow' }), guideLab = s('text', { class: 'guide-label' });
   function shuntMove(ev, tgt) {
     const [wx, wy] = clientToWorldFast(ev.clientX, ev.clientY);   // (the kept transform: no layout read among the guide's writes)
     const ok = tgt && shunt.targets.has(tgt);
     if ((ok ? tgt : null) !== shunt.hover) shuntGlow(ok ? tgt : null);
     shunt.hover = ok ? tgt : null;
-    gGuides.innerHTML = '';
-    gGuides.append(s('path', { class: 'stent-guide' + (tgt && !ok && tgt !== shunt.src ? ' invalid' : ''), d: `M${shunt.wx} ${shunt.wy} L ${wx} ${wy}` }));
+    // (The guide's three pieces are kept and only their attributes move; one not in the page yet goes in between frames: late('guide').)
+    guideLine.setAttribute('class', 'stent-guide' + (tgt && !ok && tgt !== shunt.src ? ' invalid' : ''));
+    guideLine.setAttribute('d', `M${shunt.wx} ${shunt.wy} L ${wx} ${wy}`);
+    const need = [guideLine];
     if (ok) {
-      gGuides.append(s('path', { class: 'target-glow', d: E[tgt].wall.getAttribute('d'), 'stroke-width': E[tgt].width + 16 }));
+      guideGlow.setAttribute('d', E[tgt].wall.getAttribute('d')); guideGlow.setAttribute('stroke-width', E[tgt].width + 16);
       const r = shunt.targets.get(tgt);
       // (Placed and sized in screen pixels, as the halos: in world units it was 3 to 8 px.)
       const k = CTM?.sc > 0 ? 1 / CTM.sc : 1;
-      gGuides.append(s('text', { x: wx + 14 * k, y: wy - 10 * k, class: 'guide-label' }, document.createTextNode(r.label)));
-    }
+      guideLab.setAttribute('x', wx + 14 * k); guideLab.setAttribute('y', wy - 10 * k); putText(guideLab, r.label);
+      need.push(guideGlow, guideLab);
+    } else { guideGlow.remove(); guideLab.remove(); }
+    if (need.some((el) => el.parentNode !== gGuides)) late('guide', need);
   }
   function shuntDrop(ev) {
     const tgt = edgeFromEvent(ev);

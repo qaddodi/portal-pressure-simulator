@@ -17,7 +17,7 @@ test('marksSync reads the marks for the GPU only when their key moved, and only 
 });
 
 test('the overlay update that rebuilds the marks reads them in the same task, after its last change to them', () => {
-  const b = body(/function updateOverlays\(/);
+  const b = body(/function overlayCommit\(/);
   const bump = b.lastIndexOf('mk.ver++');
   assert.ok(bump > 0, 'the update marks the marks as changed');
   assert.ok(b.indexOf('marksSync()', bump) > bump, 'and reads them right after');
