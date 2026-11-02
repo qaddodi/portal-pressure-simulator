@@ -174,3 +174,11 @@ test('H7: the credit looks again in a talk only when the layout may have changed
   assert.equal(again.f.figLab('creditLean'), false, 'a stored off is read back');
   delete globalThis.localStorage;
 });
+
+test('the lymph keeps its typed arrays (R13): drops, beads and their GPU buffers grow only when outgrown; ?lykeep=0 restores new arrays', () => {
+  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const fx = readFileSync(new URL('../src/ui/fx-gl.js', import.meta.url), 'utf8');
+  assert.match(lz, /const LY_KEEP = !\(typeof location !== 'undefined' && \/\[\?&\]lykeep=0\\b\/\.test\(location\.search\)\);/);
+  assert.match(lz, /dI = lyDI\.subarray\(0, nd \* 6\); bI = lyBI\.subarray\(0, nd \* beads \* 6\);/);
+  assert.match(fx, /if \(FX_KEEP && data\.byteLength <= B\.cap\) gl\.bufferSubData\(gl\.ARRAY_BUFFER, 0, data\);/);
+});

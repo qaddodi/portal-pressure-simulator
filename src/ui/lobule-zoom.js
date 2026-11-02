@@ -56,6 +56,7 @@ import { surface } from './gpu-surfaces.js?v=2af17044e7';
 const LZ_LAYER = !(typeof location !== 'undefined' && /[?&]willchange=0\b/.test(location.search));
 const CAM_M2 = !(typeof location !== 'undefined' && /[?&]camease=0\b/.test(location.search));
 const CAM_ATTR = !(typeof location !== 'undefined' && /[?&]camattr=0\b/.test(location.search));   // R12: a camera-only change rebuilds no attribute map
+const LY_KEEP = !(typeof location !== 'undefined' && /[?&]lykeep=0\b/.test(location.search));   // R13: the lymph's typed arrays kept, not made again each frame
 const CARRY = !(typeof location !== 'undefined' && /[?&]carry=0\b/.test(location.search));   // (?carry=0: every glide starts from rest, as before)
 const nextFrame = frameFor('lobule-zoom');
 
@@ -3205,7 +3206,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     lyV = lyV == null ? lyR : lyV + (lyR - lyV) * -Math.expm1(-dt / 0.5);
     const vW = G.R * 0.035 * Math.sqrt(lyV);
     // (Every drop is drawn, on the screen or not: the GPU draws them as one instanced pass.)
-    const drops = [];
+    // (R13: written into a kept array that grows only when the count outgrows it, not a new one each frame; ?lykeep=0: a new list, as before.)
+    let drops = LY_KEEP ? lyRaw : [], nd = 0;
+    const put = LY_KEEP ? (a, b, c, d) => {
+      if (nd + 4 > drops.length) { const nx = new Float32Array(Math.max(64, drops.length * 2)); nx.set(drops); drops = lyRaw = nx; }
+      drops[nd++] = a; drops[nd++] = b; drops[nd++] = c; drops[nd++] = d;
+    } : (a, b, c, d) => { drops.push(a, b, c, d); nd += 4; };
     for (const t of G.tubes) {
       if (t.kind !== 'ly' && t.kind !== 'lt') continue;
       const L = t.len || 1, n = Math.max(1, Math.round(L / gapW)), dir = t.kind === 'ly' ? -1 : 1;   // the space of Disse is drawn from the edge inward
@@ -3217,16 +3223,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         if (e < 0.25) continue;
         const [x, y] = at(t.pts, u), tp = t.kind === 'ly' ? lyTaper(Math.hypot(x - G.cx, y - G.cy) / G.R) : 1;
         if (tp < 0.2) continue;   // too far in: the channel has thinned out
-        drops.push(x, y, r * Math.min(1, e) * smooth(0.2, 0.8, tp), t.id + i);
+        put(x, y, r * Math.min(1, e) * smooth(0.2, 0.8, tp), t.id + i);
       }
     }
-    return { lw, seal, beads, minR, drops };
+    return { lw, seal, beads, minR, drops, nd };
   }
   // ── The overlay on the GPU (fx-gl.js) ──
   // The lobule's overlay (with WebGL vessels: the ductules, and with the Lymph layer the drops, beads, eraser and lining), drawn by
   // the GPU in the 2D overlay's place, scaled with the others through the dive and the rise as the tissue's GPU canvas is;
   // not without the vessels' WebGL. Its old 2D canvas stays empty (given back). ?fxgpu=0: no overlay.
   let fxGL, fxGLKey = '', fxGLShown = false;
+  let lyRaw = new Float32Array(0), lyDI = new Float32Array(0), lyBI = new Float32Array(0);   // the lymph's kept arrays (R13, see lyDrops)
   // One context for the lobule (LZ_ONE, veins-gl.js): the overlay is drawn in the vessels' own canvas, over them, at the end of each
   // picture they lay (their top), from the frame's arguments fxOnGPU leaves here (fxArgs; null: nothing laid, the 2D overlay draws),
   // with no canvas or context of its own. Made again with the vessels' renderer (a new one after a lost context). A draw the GPU
@@ -3312,8 +3319,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (key && key === fxGLKey && fxGLShown && !hosted) { fx2D(); return true; }
     let lymph = null;
     if (lymphOn && !m.hide) {
-      const { lw, seal, beads, minR, drops } = lyDrops(G, m, dt, W, H, dpr);
-      const nd = drops.length / 4, dI = new Float32Array(nd * 6), bI = new Float32Array(nd * beads * 6);
+      const { lw, seal, beads, minR, drops, nd: n4 } = lyDrops(G, m, dt, W, H, dpr);
+      const nd = n4 / 4;
+      // (R13: the drops' and the beads' instance arrays kept, grown only when outgrown, and handed on as views of their used length.)
+      let dI, bI;
+      if (LY_KEEP) {
+        if (lyDI.length < nd * 6) lyDI = new Float32Array(Math.max(nd * 6, lyDI.length * 2));
+        if (lyBI.length < nd * beads * 6) lyBI = new Float32Array(Math.max(nd * beads * 6, lyBI.length * 2));
+        dI = lyDI.subarray(0, nd * 6); bI = lyBI.subarray(0, nd * beads * 6);
+        dI.fill(0); bI.fill(0);
+      } else { dI = new Float32Array(nd * 6); bI = new Float32Array(nd * beads * 6); }
       for (let j = 0, b6 = 0; j < nd; j++) {
         const x = drops[j * 4], y = drops[j * 4 + 1], rr = drops[j * 4 + 2], br = rr * 0.3, a0 = drops[j * 4 + 3] * 1.7;
         dI[j * 6] = x; dI[j * 6 + 1] = y; dI[j * 6 + 2] = x; dI[j * 6 + 3] = y; dI[j * 6 + 4] = rr;
