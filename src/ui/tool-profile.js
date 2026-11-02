@@ -17,9 +17,9 @@ import { NODES } from '../engine/topology.js?v=4044766e96';
 import { RATE } from './table-marks.js?v=ff3ed0cc47';
 import { monotoneSegs } from './curve-near.js?v=663c98a29c';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { pressureColor } from './colormap.js?v=0950873052';
-import { measure } from './glyph-measure.js?v=aeb959e398';
-import { createSvgGL, svgModel, FIRST_LOOK } from './svg-gl.js?v=912f4f35c0';
+import { pressureColor } from './colormap.js?v=1daa0c198c';
+import { measure } from './glyph-measure.js?v=d1e89aeb28';
+import { createSvgGL, svgModel, FIRST_LOOK } from './svg-gl.js?v=7ec29eda07';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;
