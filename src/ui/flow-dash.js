@@ -12,8 +12,7 @@
 // vessel runs behind an organ or another vessel in front of it, or where a reading sits on the vessel.
 // One speed per element, and no flow through a junction: each runs on its own vessel.
 
-import { frameFor } from './frame.js?v=8c8f2f530e';
-import { D_SMALL } from './ease.js?v=7513a88c68';
+import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 
 // ── Geometry (pure: tested in tests/flow-dash.test.js) ───────────────────────
 
@@ -109,7 +108,8 @@ export const rateOf = (v) => (Math.abs(v) < 1e-3 ? 0 : v);
  * compositor again, so the model's own wobble is not. */
 export const rateMoved = (was, v) => was == null || Math.sign(was) !== Math.sign(v) || Math.abs(v - was) > 0.05 * Math.max(Math.abs(was), 0.5);
 
-const nextFrame = frameFor('flow-dash');
+// (A track or set added fades in by a compositor animation of its opacity, made once: no inline style written, none cleared a frame later.)
+const fadeIn = (el) => { el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); };
 // Every animation plays forward from a small time, at a rate of zero or more. Reversed flow swaps in the same keyframes run
 // backwards (revFrames) instead of a negative rate. (31 Oct, "not even half as smooth": the first build started each loop a million
 // times round so a reversed one could play backwards for days. That put the animations' times near 10^8 s, where the system
@@ -285,16 +285,15 @@ export function createFlowDash(host) {
           }
         }
         // (A track added to a kept set fades in on its own.)
-        if (!whole) el.style.opacity = '0';
         set.el.append(el);
         set.tracks.set(tr.key, t);
-        if (!whole) nextFrame(() => { el.style.opacity = ''; });
+        if (!whole) fadeIn(el);
       }
       if (!whole) {
         for (const [key, t] of [...set.tracks]) if (!keep.has(key)) { dropTrack(t); set.tracks.delete(key); }
       } else {
         // The new set fades in as the old one fades out (a zoom's new sizes), never in one frame.
-        if (old) { set.el.style.opacity = '0'; cam.append(set.el); nextFrame(() => { set.el.style.opacity = ''; }); }
+        if (old) { cam.append(set.el); fadeIn(set.el); }
         else cam.append(set.el);
         dropSet(old, true);
       }
