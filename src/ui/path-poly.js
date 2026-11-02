@@ -7,27 +7,27 @@ const TAU = Math.PI * 2;
 
 /** The path `d` as closed polygons: [[x0, y0, x1, y1, ...], ...] (CSS px). A subpath of fewer than three points is dropped. */
 export function pathPolys(d, tol = 0.2) {
-  const out = [];
-  const toks = String(d || '').match(/[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g) || [];
+  const out = [];   // alloc-rare: runs only when a glass mask is rebuilt (glass-gl maskOf: only when the outline or its size changes), never in a steady frame
+  const toks = String(d || '').match(/[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g) || [];   // alloc-rare: same: only when a glass mask is rebuilt
   let i = 0, cmd = '', x = 0, y = 0, sx = 0, sy = 0, cx = 0, cy = 0, qx = 0, qy = 0, pts = null, last = '';
-  const num = () => +toks[i++];
-  const more = () => i < toks.length && !/^[A-Za-z]$/.test(toks[i]);
-  const flush = () => { if (pts && pts.length >= 6) out.push(pts); pts = null; };
-  const put = (px, py) => { if (!pts) pts = [x, y]; pts.push(px, py); x = px; y = py; };
-  const steps = (len) => Math.max(1, Math.min(64, Math.ceil(Math.sqrt(len / Math.max(0.01, tol)))));
-  const cubic = (x1, y1, x2, y2, x3, y3) => {
+  const num = () => +toks[i++];   // alloc-rare: same: only when a glass mask is rebuilt
+  const more = () => i < toks.length && !/^[A-Za-z]$/.test(toks[i]);   // alloc-rare: same: only when a glass mask is rebuilt
+  const flush = () => { if (pts && pts.length >= 6) out.push(pts); pts = null; };   // alloc-rare: same: only when a glass mask is rebuilt
+  const put = (px, py) => { if (!pts) pts = [x, y]; pts.push(px, py); x = px; y = py; };   // alloc-rare: same: only when a glass mask is rebuilt
+  const steps = (len) => Math.max(1, Math.min(64, Math.ceil(Math.sqrt(len / Math.max(0.01, tol)))));   // alloc-rare: same: only when a glass mask is rebuilt
+  const cubic = (x1, y1, x2, y2, x3, y3) => {   // alloc-rare: same: only when a glass mask is rebuilt
     const x0 = x, y0 = y, n = steps(Math.hypot(x1 - x0, y1 - y0) + Math.hypot(x2 - x1, y2 - y1) + Math.hypot(x3 - x2, y3 - y2));
     for (let k = 1; k <= n; k++) {
       const t = k / n, u = 1 - t, a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, e = t * t * t;
       put(a * x0 + b * x1 + c * x2 + e * x3, a * y0 + b * y1 + c * y2 + e * y3);
     }
   };
-  const quad = (x1, y1, x2, y2) => {
+  const quad = (x1, y1, x2, y2) => {   // alloc-rare: same: only when a glass mask is rebuilt
     const x0 = x, y0 = y, n = steps(Math.hypot(x1 - x0, y1 - y0) + Math.hypot(x2 - x1, y2 - y1));
     for (let k = 1; k <= n; k++) { const t = k / n, u = 1 - t; put(u * u * x0 + 2 * u * t * x1 + t * t * x2, u * u * y0 + 2 * u * t * y1 + t * t * y2); }
   };
   // (SVG's arc from its endpoints to its centre: the implementation notes of SVG 1.1, F.6.5.)
-  const arc = (rx, ry, rot, large, sweep, x2, y2) => {
+  const arc = (rx, ry, rot, large, sweep, x2, y2) => {   // alloc-rare: same: only when a glass mask is rebuilt
     const x1 = x, y1 = y;
     if (x1 === x2 && y1 === y2) return;
     rx = Math.abs(rx); ry = Math.abs(ry);
@@ -41,7 +41,7 @@ export function pathPolys(d, tol = 0.2) {
     if (!!large === !!sweep) co = -co;
     const cxp = (co * rx * yp) / ry, cyp = (-co * ry * xp) / rx;
     const ccx = cs * cxp - sn * cyp + (x1 + x2) / 2, ccy = sn * cxp + cs * cyp + (y1 + y2) / 2;
-    const ang = (ux, uy, vx, vy) => Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy);
+    const ang = (ux, uy, vx, vy) => Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy);   // alloc-rare: same: only when a glass mask is rebuilt
     const t1 = ang(1, 0, (xp - cxp) / rx, (yp - cyp) / ry);
     let dt = ang((xp - cxp) / rx, (yp - cyp) / ry, (-xp - cxp) / rx, (-yp - cyp) / ry);
     if (!sweep && dt > 0) dt -= TAU; else if (sweep && dt < 0) dt += TAU;
@@ -54,12 +54,12 @@ export function pathPolys(d, tol = 0.2) {
   while (i < toks.length) {
     if (/^[A-Za-z]$/.test(toks[i])) cmd = toks[i++];
     else if (!cmd) { i++; continue; }
-    const rel = cmd === cmd.toLowerCase(), C = cmd.toUpperCase(), ox = rel ? x : 0, oy = rel ? y : 0;
+    const rel = cmd === cmd.toLowerCase(), C = cmd.toUpperCase(), ox = rel ? x : 0, oy = rel ? y : 0;   // alloc-rare: same: only when a glass mask is rebuilt
     if (C === 'Z') { if (pts) { x = sx; y = sy; } flush(); last = 'Z'; continue; }
     if (!more()) continue;   // (a command with no numbers: the next is a command)
     if (C === 'M') {
       flush();
-      x = num() + ox; y = num() + oy; sx = x; sy = y; pts = [x, y];
+      x = num() + ox; y = num() + oy; sx = x; sy = y; pts = [x, y];   // alloc-rare: same: only when a glass mask is rebuilt
       cmd = rel ? 'l' : 'L'; last = 'M'; continue;
     }
     if (C === 'L') put(num() + ox, num() + oy);
@@ -82,7 +82,7 @@ export function pathPolys(d, tol = 0.2) {
       const rx = num(), ry = num(), rot = num(), large = num(), sweep = num(), x2 = num() + ox, y2 = num() + oy;
       arc(rx, ry, rot, large, sweep, x2, y2);
     } else { i++; continue; }
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return [];
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return [];   // alloc-rare: same: only when a glass mask is rebuilt
     last = C;
   }
   flush();
@@ -94,7 +94,7 @@ export function pathPolys(d, tol = 0.2) {
 export function fanTriangles(polys, k = 1) {
   let n = 0;
   for (const p of polys) n += Math.max(0, p.length / 2 - 2) * 6;
-  const out = new Float32Array(n);
+  const out = new Float32Array(n);   // alloc-rare: same: only when a glass mask is rebuilt (the fan is uploaded once for the mask)
   let o = 0;
   for (const p of polys) {
     for (let j = 2; j + 3 < p.length; j += 2) {
