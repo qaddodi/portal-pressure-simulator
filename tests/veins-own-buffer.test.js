@@ -169,3 +169,24 @@ test('by default a zoom frame draws in one pass even where the context has no st
   assert.ok(f.calls.some((x) => x[0] === 'renderbufferStorage' && x[2] === f.gl.STENCIL_INDEX8), 'a stencil of the kept picture\'s own');
   assert.equal(blitTargets(f, n).at(-1), null, 'then copied onto the canvas');
 });
+
+test('a stand-in for the whole picture (top.replace) is drawn alone at the present, on a cleared canvas, and nothing is copied (LZ_ONE)', async () => {
+  const { g, f, look } = await renderer('../src/ui/veins-gl.js', 'lobule');
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+  let on = true, drawn = 0;
+  const off = g.top.replace({ on: () => on, draw: () => { drawn++; } });
+  const p0 = g.top.presents, n = f.calls.length;
+  g.present();
+  assert.equal(drawn, 1, 'the stand-in drawn');
+  assert.equal(g.top.presents, p0 + 1, 'counted as a present, so the owner does not present again');
+  assert.equal(blits(f, n).length, 0, 'the kept picture is not copied under it');
+  assert.ok(f.calls.slice(n).some((c) => c[0] === 'clear'), 'over a cleared canvas');
+  on = false;
+  const m = f.calls.length;
+  g.present();
+  assert.equal(drawn, 1, 'switched off: not drawn');
+  assert.equal(blits(f, m).length, 1, 'the kept picture laid again');
+  on = true; off();
+  g.present();
+  assert.equal(drawn, 1, 'removed: not drawn');
+});

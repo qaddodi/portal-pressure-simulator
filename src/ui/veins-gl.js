@@ -1830,6 +1830,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // present lays it on the cleared canvas first and the kept picture over it (premultiplied, pixel for pixel), then the tops; null: the
   // kept picture is copied as it is. presents counts the pictures laid, so an owner can tell whether a frame laid one.
   let under = null, presents = 0;
+  // What stands in for the whole picture while it shows (the lobule's wide copy through a station dive, wide-gl.js host): { on(), draw() }.
+  // While on(), each present clears the canvas and draws only it (the canvas's own size need not match the kept picture's then).
+  let replace = null;
   const PW = () => (up ? up[0] : canvas.width), PH = () => (up ? up[1] : canvas.height);
   const pcx = gl.getExtension('KHR_parallel_shader_compile');
   let started;
@@ -2589,6 +2592,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // The kept picture onto the canvas, every pixel, as it is (no scaling, no filtering).
   // (top: with what is drawn over the figure in this canvas, the labels; false for a picture of the figure alone, snapshot.)
   function present(top = true) {
+    if (replace && !lost && replace.on()) {
+      presents++;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.BLEND);
+      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      try { replace.draw(); } catch (e) { console.warn('Veins renderer: what stands in for the figure failed.', e); replace = null; }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return;
+    }
     if (!own?.w || lost) return;
     // (A canvas resized since the last picture holds nothing current: it is drawn whole by the next composite, which sizes the kept
     // picture first. Copied before that, the old picture would land in a corner of the new canvas.)
@@ -3329,6 +3342,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       /** What is drawn under the figure in this canvas ({ on(), draw() }, one at a time): drawn first at each present while on() says so,
        *  onto the cleared canvas, the kept picture laid over it. Returns the call that takes it out. */
       under(u) { under = u; auxStart('lay'); return () => { if (under === u) under = null; }; },
+      /** What stands in for the whole picture while its on() says so ({ on(), draw() }, one at a time): the canvas cleared and only it
+       *  drawn at each present. Returns the call that takes it out. */
+      replace(r) { replace = r; return () => { if (replace === r) replace = null; }; },
       /** How many pictures have been laid on the canvas (present): an owner that drew under the figure lays one if a frame laid none. */
       get presents() { return presents; },
       /** A warm-up of something drawn over the figure here ({ done(), run() }): run once done() says its programs are compiled, at a free

@@ -43,3 +43,35 @@ test('tiles are mipmapped, premultiplied, within the GPU\'s texture size, and no
   assert.match(wg, /gl\.generateMipmap\(gl\.TEXTURE_2D\);/);
   assert.match(wg, /gl\.texImage2D\(gl\.TEXTURE_2D, 0, gl\.RGBA8, 1, 1, 0, gl\.RGBA, gl\.UNSIGNED_BYTE, null\);/, 'the layer texture given back');
 });
+
+test('one context for the lobule: the copy is made and shown in the vessels\' own context (LZ_ONE), ?lzone=0 its own canvas as before', () => {
+  const on = fn('function wideGLOn() {');
+  assert.match(on, /if \(LZ_ONE && gl && !gl\.lost && gl\.top\?\.replace\) \{/);
+  assert.match(on, /wideGL = createWideGL\(null, \{ host: gl\.top \}\) \|\| null;/, 'no canvas of its own');
+  assert.match(on, /gl\.top\.replace\(\{ on: \(\) => !!wide\?\.host && !!wideView && wideA >= 1, draw: \(\) => wideShow\(1\) \}\)/, 'through the zoom the copy stands in for the whole picture');
+  assert.match(on, /gl\.top\.add\(\{ order: 10, draw: \(\) => \{ if \(wideView && wideA > 0 && wideA < 1\) wideShow\(wideA\); \} \}\)/, 'fading out, laid over the landed layers');
+  assert.match(on, /if \(wideHostFor\) return null;/, 'a lost host: no copy rather than a second context');
+  const b = fn('function buildWideGL(W, H, box) {');
+  assert.match(b, /if \(hosted\) ok = onG && tisIn && \(fxIn \|\| !fxOn\) && \(g\.present\(\), wg\.tile\(t, [^;]*'host'\)\);/, 'every layer laid in the vessels\' canvas, then the tile copied inside the context');
+  assert.doesNotMatch(b, /drawImage|getContext\('2d'\)|texImage2D/, 'no canvas sent from one context to another');
+  const sd = fn('setDiveZoom(k, x, y, tx = x, ty = y) {');
+  assert.match(sd, /if \(wide\?\.host\) glCv\.style\.visibility = '';/);
+  assert.match(sd, /if \(k >= 0\.9999 \|\| \(wide\?\.host && e === glCv\)\) \{ e\.style\.transform = ''; e\.style\.transformOrigin = ''; continue; \}/, 'the canvas that shows the copy is never scaled by CSS');
+  assert.match(sd, /wideView = \{ W: wide\.W, H: wide\.H, dpr: wide\.dpr, box: wide\.box, k, x, y, tx, ty \};\n\s*if \(gl && !gl\.lost\) gl\.present\(\);/);
+  const dw = fn('function dropWide(ease = false) {');
+  assert.match(dw, /if \(w\.host\) \{ wideView = null; wideA = 1; idleDrawn = ''; if \(gl && !gl\.lost\) gl\.present\(\); wake\(\); \}/, 'gone: the landed layers laid again at once');
+  assert.match(dw, /nextFrame\(step\)/, 'the fade on the frame scheduler');
+  assert.doesNotMatch(dw, /requestAnimationFrame/);
+});
+
+test('hosted, the copy uses the host\'s context and canvas, its own vertex array, puts the context back, and never sizes or clears the host\'s canvas', () => {
+  assert.match(wg, /if \(host\) \{ gl = host\.gl; canvas = host\.canvas; \}/);
+  assert.match(wg, /if \(host\) \{ vao = gl\.createVertexArray\(\); gl\.bindVertexArray\(vao\); \}/);
+  assert.match(wg, /const cw = host \? canvas\.width : /);
+  assert.match(wg, /if \(!host && \(canvas\.width !== cw \|\| canvas\.height !== ch\)\)/);
+  assert.match(wg, /release\(\) \{ clear\(\); if \(!host && canvas\.width\)/);
+  assert.match(wg, /if \(layers === 'host'\) return fromHost\(t, pw, ph, dpr\);/);
+  assert.match(wg, /uniform float uA;/);
+  const hd = wg.slice(wg.indexOf('function hostDone() {'), wg.indexOf('\n  }\n', wg.indexOf('function hostDone() {')));
+  for (const s of ['useProgram(null)', 'bindVertexArray(null)', 'bindFramebuffer(gl.FRAMEBUFFER, null)']) assert.ok(hd.includes(s), s);
+});

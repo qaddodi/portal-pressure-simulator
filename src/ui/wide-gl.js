@@ -41,18 +41,34 @@ void main() {
 const SHOW_FS = `#version 300 es
 precision highp float;
 uniform sampler2D uT;
+uniform float uA;     // its opacity (1 but while it fades out over the layers, hosted)
 in vec2 vUv;
 out vec4 o;
-void main() { o = texture(uT, vUv); }`;
+void main() { o = texture(uT, vUv) * uA; }`;
 export const wideShaders = { LAY_VS, LAY_FS, SHOW_VS, SHOW_FS };   // (for the shader lint in the unit tests)
 
-export function createWideGL(canvas) {
+/** host ({ gl, canvas }: the lobule's vessel renderer's top, veins-gl.js; LZ_ONE): no canvas or context of its own. Each tile is copied
+ *  from the host's canvas, inside the context, right after the layers were laid there for it (tile(…, 'host')), and each frame of the
+ *  zoom is drawn on the host's canvas at its present (draw, from the host's replace or top), leaving the context as the host's passes
+ *  expect it. The owner makes it again with the renderer it makes after a lost context. */
+export function createWideGL(canvas, { host = null } = {}) {
   let gl = null;
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
+  if (host) { gl = host.gl; canvas = host.canvas; }
+  else try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl) return null;
   let lost = false, stale = false;   // (stale: the copy was lost with the context, until the next begin)
-  canvas.addEventListener('webglcontextlost', (e) => { lost = true; stale = true; tiles = []; e.preventDefault?.(); });
-  canvas.addEventListener('webglcontextrestored', () => { try { init(); lost = false; } catch (err) { console.warn('The wide copy falls back to the 2D canvas.', err); } });
+  if (!host) {
+    canvas.addEventListener('webglcontextlost', (e) => { lost = true; stale = true; tiles = []; e.preventDefault?.(); });
+    canvas.addEventListener('webglcontextrestored', () => { try { init(); lost = false; } catch (err) { console.warn('The wide copy falls back to the 2D canvas.', err); } });
+  }
+  // (Hosted: a vertex array of its own, as the host's passes bind theirs, and the context put back after each call.)
+  let vao = null;
+  function hostDone() {
+    if (!host) return;
+    gl.useProgram(null); gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.disable(gl.BLEND);
+  }
   // (Through gl-compile.js: both programs started before either is read, so the driver compiles them side by side; the copy's context is
   // made by the lobule's idle preparation, ahead of the first dive, so no dive's frame compiles them.)
   const prog = (h) => { try { return checkProgram(gl, h); } catch (e) { throw new Error('wide-gl: ' + e.message, { cause: e }); } finally { for (const s of h.sh) gl.deleteShader(s); } };
@@ -62,28 +78,32 @@ export function createWideGL(canvas) {
   function init() {
     const hl = startProgram(gl, LAY_VS, LAY_FS, [['p', 0]]), hs = startProgram(gl, SHOW_VS, SHOW_FS, [['p', 0]]);
     lay = prog(hl); show = prog(hs);
-    uL = { S: U(lay, 'uS'), size: U(lay, 'uSize') }; uS = { T: U(show, 'uT'), rect: U(show, 'uRect'), cv: U(show, 'uCv'), uv: U(show, 'uUv') };
+    uL = { S: U(lay, 'uS'), size: U(lay, 'uSize') }; uS = { T: U(show, 'uT'), rect: U(show, 'uRect'), cv: U(show, 'uCv'), uv: U(show, 'uUv'), a: U(show, 'uA') };
     tri = gl.createBuffer(); quad = gl.createBuffer();
+    if (host) { vao = gl.createVertexArray(); gl.bindVertexArray(vao); }
     gl.bindBuffer(gl.ARRAY_BUFFER, tri); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.disable(gl.DEPTH_TEST);
     MAX = gl.getParameter(gl.MAX_TEXTURE_SIZE);
     scratch = gl.createTexture();
+    hostDone();
   }
-  try { init(); } catch (err) { console.warn('The wide copy falls back to the 2D canvas.', err); return null; }
+  try { init(); } catch (err) { console.warn('The wide copy falls back to the 2D canvas.', err); hostDone(); return null; }
   let tiles = [];   // { tex, x, y, w, h (CSS px in the box, its own part), pw, ph (texels), uw, uh (its own part, 0 … 1) }
   const ok = () => !lost && !gl.isContextLost() && gl.getError() === gl.NO_ERROR;
-  function clear() { if (!lost) for (const t of tiles) gl.deleteTexture(t.tex); tiles = []; }
+  function clear() { if (!lost && !gl.isContextLost()) for (const t of tiles) gl.deleteTexture(t.tex); tiles = []; }
   return {
     get lost() { return lost || stale || gl.isContextLost(); },
     get count() { return tiles.length; },
     /** Starts a copy (the last one's tiles given back). */
     begin() { clear(); if (!lost && !gl.isContextLost()) stale = false; while (gl.getError() !== gl.NO_ERROR && !gl.isContextLost()); return !this.lost; },
     /** One tile: t { x, y, w, h } its own part in the box (CSS px), pw × ph its texture (device px, with the overlap), dpr; layers:
-     *  the canvases to lay, bottom first, each drawn for this tile from its top left (larger ones cropped). False if the GPU refused. */
+     *  the canvases to lay, bottom first, each drawn for this tile from its top left (larger ones cropped), or 'host' (hosted): the host's
+     *  canvas, every layer laid there for this tile, copied from its top left inside the context. False if the GPU refused. */
     tile(t, pw, ph, dpr, layers) {
       if (this.lost || pw > MAX || ph > MAX || pw < 1 || ph < 1) return false;
+      if (layers === 'host') return fromHost(t, pw, ph, dpr);
       const tex = gl.createTexture(), fbo = gl.createFramebuffer();
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -123,18 +143,22 @@ export function createWideGL(canvas) {
       tiles.push({ tex, x: t.x, y: t.y, w: t.w, h: t.h, uw: Math.min(1, (t.w * dpr) / pw), uh: Math.min(1, (t.h * dpr) / ph) });
       return done(true);
     },
+    /** Hosted: the canvas holds a copy to show. */
+    get shown() { return tiles.length > 0 && !this.lost; },
     /** One frame: the box (placed at (−l, −t) on the stage) scaled by k about the stage point (x, y), moved by (tx − x, ty − y), as
      *  the 2D copy's CSS transform placed it; the canvas sized W × H CSS px at dpr. */
-    draw(W, H, dpr, box, k, x, y, tx, ty) {
+    draw(W, H, dpr, box, k, x, y, tx, ty, alpha = 1) {
       if (this.lost) return false;
-      const cw = Math.max(1, Math.round(W * dpr)), ch = Math.max(1, Math.round(H * dpr));
-      if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
+      // (Hosted: on the host's canvas as its owner sized it, over what the host cleared or laid (premultiplied); dpr its density.)
+      const cw = host ? canvas.width : Math.max(1, Math.round(W * dpr)), ch = host ? canvas.height : Math.max(1, Math.round(H * dpr));
+      if (!host && (canvas.width !== cw || canvas.height !== ch)) { canvas.width = cw; canvas.height = ch; }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, cw, ch);
-      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      if (host) { gl.bindVertexArray(vao); gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); }
+      else { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
       gl.useProgram(show);
       gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-      gl.uniform1i(uS.T, 0); gl.uniform2f(uS.cv, cw, ch);
+      gl.uniform1i(uS.T, 0); gl.uniform2f(uS.cv, cw, ch); gl.uniform1f(uS.a, alpha);
       gl.activeTexture(gl.TEXTURE0);
       const sx = (q) => (tx + k * (q - x)) * dpr, sy = (q) => (ty + k * (q - y)) * dpr;
       for (const t of tiles) {
@@ -144,9 +168,34 @@ export function createWideGL(canvas) {
         gl.uniform2f(uS.uv, t.uw, t.uh);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
+      hostDone();
       return true;
     },
-    /** Gives the copy back: its tiles, and the canvas's pixels. */
-    release() { clear(); if (canvas.width) { canvas.width = 0; canvas.height = 0; } },
+    /** Gives the copy back: its tiles, and the canvas's pixels (hosted: the host's canvas is its owner's). */
+    release() { clear(); if (!host && canvas.width) { canvas.width = 0; canvas.height = 0; } },
   };
+  // A tile copied from the host's canvas: its top left pw × ph, flipped so the texture's row 0 is the picture's top (as a layer sent from a
+  // canvas is), inside the context (no copy through a canvas), then mipmapped.
+  function fromHost(t, pw, ph, dpr) {
+    const ch = canvas.height;
+    if (pw > canvas.width || ph > ch) return false;
+    const tex = gl.createTexture(), fbo = gl.createFramebuffer();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texStorage2D(gl.TEXTURE_2D, Math.floor(Math.log2(Math.max(pw, ph))) + 1, gl.RGBA8, pw, ph);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    const done = (good) => { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fbo); if (!good) gl.deleteTexture(tex); hostDone(); return good; };
+    if (gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE || !ok()) return done(false);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.blitFramebuffer(0, ch - ph, pw, ch, 0, ph, pw, 0, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    if (!ok()) return done(false);
+    tiles.push({ tex, x: t.x, y: t.y, w: t.w, h: t.h, uw: Math.min(1, (t.w * dpr) / pw), uh: Math.min(1, (t.h * dpr) / ph) });
+    return done(true);
+  }
 }

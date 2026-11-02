@@ -31,7 +31,7 @@ import { createFieldGL, TILE_OVER } from './field-gl.js?v=f9e73234b6';
 import { createTissueGL } from './tissue-gl.js?v=41e78c110d';
 import { tileCopy } from './tile-gl.js?v=f3af2b699f';
 import { FX_GPU, createFxGL } from './fx-gl.js?v=6cd87e644d';
-import { WIDE_GL, createWideGL } from './wide-gl.js?v=b0622c784c';
+import { WIDE_GL, createWideGL } from './wide-gl.js?v=2b90b1a0fe';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=f100c25e77';
 import { recordPaint, gpuPicture } from './paint-gl.js?v=3fb6599f48';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
@@ -39,7 +39,7 @@ import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, use
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=79b7c7454f';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=3e75c1fc60';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=584196e324';
+import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=764621f5d4';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
 import { createSinusoidView } from './sinusoid-view.js?v=2a915d4af9';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=7710f677e2';
@@ -1950,7 +1950,28 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // copy's own context; each frame of the zoom draws the tiles where the box's scale puts them (setDiveZoom). Null where the GPU
   // cannot (no WebGL2 for the vessels, a tile refused): no copy then.
   let wideCv = null, wideGL, wideGone = null;
+  // One context for the lobule (LZ_ONE, veins-gl.js): the copy is made and shown in the vessels' own context. Each tile is copied from
+  // their canvas inside the context, once the tissue, the vessels and the overlay are laid there for it (no canvas sent from one context
+  // to another), and through the zoom the copy stands in for their whole picture (their replace), the canvas unscaled; fading out
+  // over the landed layers, it is laid over them (a top) at its opacity (wideA). Made again with the vessels' renderer.
+  // ?lzone=0: its own canvas and context, as before.
+  let wideHostFor = null, wideHostOff = null, wideView = null, wideA = 1;
+  const wideShow = (a) => { const v = wideView; if (v && wideGL) wideGL.draw(v.W, v.H, v.dpr, v.box, v.k, v.x, v.y, v.tx, v.ty, a); };
   function wideGLOn() {
+    if (LZ_ONE && !glTried) ensureGL();
+    if (LZ_ONE && gl && !gl.lost && gl.top?.replace) {
+      if (wideHostFor !== gl) {
+        wideHostOff?.(); if (wideHostFor) wideGL?.release();
+        wideHostFor = gl; wideGL = createWideGL(null, { host: gl.top }) || null;
+        if (wideGL) {
+          const offR = gl.top.replace({ on: () => !!wide?.host && !!wideView && wideA >= 1, draw: () => wideShow(1) });
+          const offT = gl.top.add({ order: 10, draw: () => { if (wideView && wideA > 0 && wideA < 1) wideShow(wideA); } });
+          wideHostOff = () => { offR(); offT(); };
+        } else wideHostOff = null;
+      }
+      return wideGL && !wideGL.lost ? wideGL : null;
+    }
+    if (wideHostFor) return null;   // (hosted, and the vessels' context lost: no copy until it is made again)
     if (wideGL === undefined) {
       wideCv = h('canvas', { class: 'lz-canvas lz-wide-gl', 'aria-hidden': 'true', style: { visibility: 'hidden', pointerEvents: 'none' } });
       wideGL = createWideGL(wideCv);
@@ -1964,6 +1985,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (wideFadeT) { clearTimeout(wideFadeT); wideFadeT = 0; const f = wideGone; wideGone = null; f?.(); }
     const wg = wideGLOn();
     if (!wg || !wg.begin()) return null;
+    const hosted = !!wideHostFor, res = hosted && g.software ? 0.5 : 1;   // (hosted: the tiles at the vessels' canvas's density, as drawGL sizes it)
     const dpr0 = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), dpr = wideDpr(dpr0, box.w, box.h, apple());
     const dark = isDark(), cs = styles(), [cx, cy] = toScreen([geo.cx, geo.cy]), r = geo.R * V.k;
     // (Each tile reaches OV under its right and lower neighbours, as above: there it only feeds the filtering at the tile's edge.)
@@ -1985,13 +2007,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const fxOn = fxOnGPU(w, hh, dpr, dark, 0, true), fxIn = fxOn && !!fxArgs, tisIn = onG && !!tisHostFor;
         tisWide = tisIn;
         drawKey = ''; drawGL(TW, TH, dpr, dark, cs, 0);
-        ok = onG && wg.tile(t, canvasPx(w, dpr), canvasPx(hh, dpr), dpr, [...(tisIn ? [] : [tissueG]), glCv, ...(fxIn || !fxOn ? [] : [fxG])]);
+        // (Hosted: every layer is in the vessels' canvas now, laid by its present, and the tile is copied from it in the context.)
+        if (hosted) ok = onG && tisIn && (fxIn || !fxOn) && (g.present(), wg.tile(t, Math.max(1, Math.round(w * dpr * res)), Math.max(1, Math.round(hh * dpr * res)), dpr * res, 'host'));
+        else ok = onG && wg.tile(t, canvasPx(w, dpr), canvasPx(hh, dpr), dpr, [...(tisIn ? [] : [tissueG]), glCv, ...(fxIn || !fxOn ? [] : [fxG])]);
       } finally { V.x -= ox; V.y -= oy; }
       if (!ok) break;
     } } finally { wideBuild = false; fxArgs = null; tisWide = false; }
     diveRim = null;
     tissueKey = ''; drawKey = ''; glDirty = true; fxGLKey = ''; idleDrawn = '';
     if (!ok) { wg.release(); return null; }
+    if (hosted) { wideA = 1; wideView = null; return { el: h('div'), gl: wg, host: true, tiles: [], box, soft: dpr < dpr0, W, H, dpr: dpr0 * res }; }
     Object.assign(wideCv.style, { visibility: 'hidden', opacity: '', transition: '' });
     if (wideCv.parentNode !== el) el.insertBefore(wideCv, leaders);
     return { el: wideCv, gl: wg, tiles: [], box, soft: dpr < dpr0, W, H, dpr: dpr0 };
@@ -2007,8 +2032,21 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!wide) return;
     const w = wide; wide = null;
     for (const e of WIDE_HIDE) e.style.visibility = '';
-    const gone = () => { wideGone = null; for (const cv of w.tiles) free(cv); w.gl?.release(); w.el.remove(); };
+    const gone = () => {
+      wideGone = null; for (const cv of w.tiles) free(cv); w.gl?.release(); w.el.remove();
+      // (Hosted: the vessels' canvas lays the landed layers again, at once.)
+      if (w.host) { wideView = null; wideA = 1; idleDrawn = ''; if (gl && !gl.lost) gl.present(); wake(); }
+    };
     clearTimeout(wideFadeT);
+    if (w.host && ease && w.soft && !reduce.matches && wideView) {
+      // (Hosted: laid over the landed layers at full size, fading out on the GPU over D_SMALL, as the CSS copy's opacity did.)
+      wideGone = gone; wideView = { ...wideView, k: 1, x: 0, y: 0, tx: 0, ty: 0 };
+      const t0 = performance.now();
+      const step = () => { if (wideGone !== gone) return; wideA = Math.max(1e-3, 1 - smooth(0, 1, (performance.now() - t0) / D_SMALL)); if (gl && !gl.lost) gl.present(); if (wideA > 1e-3) nextFrame(step); };
+      wideA = 0.999; step();
+      wideFadeT = setTimeout(gone, D_SMALL + 40);
+      return;
+    }
     // (A copy drawn softer than the screen, past the budget, fades into the sharp layers below it rather than switching to them.)
     // (On the GPU it is drawn once more at full size, where the CSS copy's transform was cleared.)
     if (ease && w.soft && !reduce.matches) { wideGone = gone; if (w.gl) w.gl.draw(w.W, w.H, w.dpr, w.box, 1, 0, 0, 0, 0); w.el.style.transform = ''; w.el.style.transition = `opacity ${D_SMALL}ms var(--ease)`; w.el.style.opacity = '0'; wideFadeT = setTimeout(gone, D_SMALL + 40); }
@@ -3506,14 +3544,22 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const vis = wide ? 'hidden' : '';
       if (tissueG.style.visibility !== vis) tissue.style.visibility = tissueG.style.visibility = vis;
       if (wide) { for (const e of WIDE_HIDE) e.style.visibility = 'hidden'; wide.el.style.visibility = ''; }
+      // (A copy in the vessels' own canvas: that canvas shows it, unscaled; the copy is placed on the GPU.)
+      if (wide?.host) glCv.style.visibility = '';
       for (const e of [tissue, tissueG, glCv, fx, fxG, leaders, labels]) {
-        if (k >= 0.9999) { e.style.transform = ''; e.style.transformOrigin = ''; continue; }
+        if (k >= 0.9999 || (wide?.host && e === glCv)) { e.style.transform = ''; e.style.transformOrigin = ''; continue; }
         // Scaled about its own centre, which sits where the field's lobule at the dive's focus is (tx, ty), so it morphs out of that one.
         e.style.transformOrigin = `${x.toFixed(1)}px ${y.toFixed(1)}px`;
         e.style.transform = `translate(${(tx - x).toFixed(1)}px, ${(ty - y).toFixed(1)}px) scale(${k.toFixed(4)})`;
       }
       // (The wide copy's box about the same stage point, in its own frame.)
-      if (wide?.gl) wide.gl.draw(wide.W, wide.H, wide.dpr, wide.box, k, x, y, tx, ty);   // (on the GPU: one pass, no CSS transform)
+      if (wide?.host) {
+        // (The canvas at the screen's size for it, then laid: the copy alone, through the vessels' replace.)
+        const cw = Math.max(1, Math.round(wide.W * wide.dpr)), ch = Math.max(1, Math.round(wide.H * wide.dpr));
+        if (glCv.width !== cw || glCv.height !== ch) { glCv.width = cw; glCv.height = ch; glDirty = true; drawKey = ''; }
+        wideView = { W: wide.W, H: wide.H, dpr: wide.dpr, box: wide.box, k, x, y, tx, ty };
+        if (gl && !gl.lost) gl.present();
+      } else if (wide?.gl) wide.gl.draw(wide.W, wide.H, wide.dpr, wide.box, k, x, y, tx, ty);   // (on the GPU: one pass, no CSS transform)
     },
     /** Where the sinusoid's reading and the lesion pointer meet their sinusoid (for the checks): its generation, how far
      *  out from the central vein (0) to the lobule's rim (1) along that ray, and where on screen. */
