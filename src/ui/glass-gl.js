@@ -484,23 +484,33 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // it never flashes solid then frost. Only such a card: one held out of this canvas (past its edge, crossing a label), or not drawn here
   // for any reason, keeps the solid card (the browser's glass), never a bare one. Mohammad, 2 Nov 2026, iPhone, HVPG 6: both cards bare,
   // the lobule showing through them unfrosted. A wait not met within WAIT_MS is given up: the solid card shows.)
-  const waiting = new Map(), WAIT_MS = 300;
+  // (Given up only when the glass has had its turns and not drawn the card: WAIT_MS of the clock AND WAIT_PASSES passes that listed it, or
+  // WAIT_CAP of the clock whatever. A slow first frame (a shader linking, the first blur copy) is not a refusal: a clock alone gave up in
+  // the middle of it and showed the solid card for the frame before the frost, the flash on a card opening. Mohammad, 2 Nov 2026.)
+  const waiting = new Map(), WAIT_MS = 300, WAIT_PASSES = 3, WAIT_CAP = 2500;
   let waitT = 0;
   function unwait() { for (const g of waiting.keys()) g.removeAttribute('data-gl-wait'); waiting.clear(); gaveUp.clear(); wasDrawn.clear(); clearTimeout(waitT); waitT = 0; }
   const wasDrawn = new Set();   // (cards whose glass this canvas has drawn while they stayed listed: only a first draw is waited for)
-  const gaveUp = new Set();   // (waited WAIT_MS and not drawn: solid until it is drawn here, or leaves the list and comes back)
+  const gaveUp = new Set();   // (waited and not drawn: solid until it is drawn here, or leaves the list and comes back)
+  const waitOver = (w, t) => { const d = t - w.at; return d > WAIT_CAP || (d > WAIT_MS && w.n >= WAIT_PASSES); };
+  function sweepWait() {
+    waitT = 0;
+    const n = performance.now();
+    for (const [g, w] of waiting) if (n - w.at > WAIT_CAP) { g.removeAttribute('data-gl-wait'); waiting.delete(g); gaveUp.add(g); }
+    if (waiting.size) waitT = setTimeout(sweepWait, 200);
+  }
   function waitFor(list) {
     if (!cards || !CARD_MARK) return;
     const t = performance.now(), want = new Set();
     for (const p of list) if (!marked.has(p.g) && !wasDrawn.has(p.g)) want.add(p.g);   // (a card drawn here before and not now: solid at once)
     for (const g of gaveUp) if (!want.has(g)) gaveUp.delete(g);
     if (wasDrawn.size) { const inList = new Set(list.map((p) => p.g)); for (const g of wasDrawn) if (!inList.has(g)) wasDrawn.delete(g); }
-    for (const [g, at] of waiting) {
+    for (const [g, w] of waiting) {
       if (!want.has(g)) { g.removeAttribute('data-gl-wait'); waiting.delete(g); }
-      else if (t - at > WAIT_MS) { g.removeAttribute('data-gl-wait'); waiting.delete(g); gaveUp.add(g); }
+      else { w.n++; if (waitOver(w, t)) { g.removeAttribute('data-gl-wait'); waiting.delete(g); gaveUp.add(g); } }
     }
-    for (const g of want) if (!waiting.has(g) && !gaveUp.has(g)) { waiting.set(g, t); g.setAttribute('data-gl-wait', ''); }
-    if (waiting.size && !waitT) waitT = setTimeout(() => { waitT = 0; const n = performance.now(); for (const [g, at] of waiting) if (n - at > WAIT_MS) { g.removeAttribute('data-gl-wait'); waiting.delete(g); gaveUp.add(g); } }, WAIT_MS + 20);
+    for (const g of want) if (!waiting.has(g) && !gaveUp.has(g)) { waiting.set(g, { at: t, n: 0 }); g.setAttribute('data-gl-wait', ''); }
+    if (waiting.size && !waitT) waitT = setTimeout(sweepWait, WAIT_CAP + 20);
   }
 
   const wanted = glassCheck(document, window);
