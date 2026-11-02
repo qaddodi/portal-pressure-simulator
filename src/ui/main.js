@@ -450,7 +450,20 @@ function ingestFrame(f) {
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id) && !(hid.has('COLL_*') && e.id.startsWith('COLL_'))) : f.events; if (ev.length) timeline.addEvents(ev); }
   dock?.ingest(f);   // every frame's samples, even one that is not painted
 }
+// R17: frames for a hidden consumer are kept, not fanned out to it; it takes the newest one the moment it shows.
+const SEEN_ONLY = !/[?&]seenonly=0\b/.test(location.search);
+let inspStale = null, inspSeen = null;
+function inspectorSeen() {
+  if (inspStale && panelShown()) { const f = inspStale; inspStale = null; inspector?.update(f); }
+}
+function watchInspectorSeen() {
+  if (!SEEN_ONLY || inspSeen || typeof MutationObserver !== 'function') return;
+  // (the panel shows by a class on the app: opened, or an instrument's focus let go; one record per class change, no layout read)
+  inspSeen = new MutationObserver(inspectorSeen);
+  inspSeen.observe(app, { attributes: true, attributeFilter: ['class'] });
+}
 function paintFrame(f) {
+  watchInspectorSeen();
   const now = performance.now();
   if (jumpSeen) { jumpSeen = false; noteJump(); }
   // running and clock only when they change: their listeners (the endoscopy redraw among them) need not re-run every frame.
@@ -461,7 +474,10 @@ function paintFrame(f) {
   framePart('card update', () => card.update(f));
   framePart('dock update', () => dock.update(f));
   syncDoppler(f);
-  framePart('inspector update', () => inspector.update(f));
+  // (R17: the side panel's readings are not worked out or written while the panel is shut or under an instrument; the frame is kept,
+  // and painted the moment the panel shows (see inspectorSeen). ?seenonly=0: every frame, as before.)
+  if (!SEEN_ONLY || panelShown()) { inspStale = null; framePart('inspector update', () => inspector.update(f)); }
+  else inspStale = f;
   compare.update(f);
   framePart('timeline update', () => timeline.update(f));
   const txt = f.day > 0 ? `Day ${f.day}` : `${fmt(f.t, 0)} s`;
