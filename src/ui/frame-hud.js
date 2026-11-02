@@ -14,7 +14,7 @@
 // adds no frame loop of its own: an idle page stays idle (the panel then says so).
 import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watchdogStats, mayStats } from './frame.js?v=c99bae2398';
 import { restPass } from './rest-pass.js?v=de1b500aca';
-import { sharedStats } from './trace-gl.js?v=7d99796e14';
+import { sharedStats } from './trace-gl.js?v=4424366c62';
 import { caught } from './caught.js?v=b96b17594a';
 
 const KEEP = 600;

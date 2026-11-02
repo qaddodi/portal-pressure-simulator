@@ -4,9 +4,9 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=160363b508';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, releaseWords } from './util.js?v=ce3c367684';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, releaseWords } from './util.js?v=82c337aa75';
 import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7d7bfe9a62';
-import { cardFor, normalizeSel } from './actions.js?v=26f2720f46';
+import { cardFor, normalizeSel } from './actions.js?v=6bf605f6fc';
 import { frameFor, cancelFrame } from './frame.js?v=c99bae2398';
 import { restPass, cancelRest } from './rest-pass.js?v=de1b500aca';
 import { classSoon, runSoon, propSoon, attrSoon, textSoon } from './class-soon.js?v=3cee49a7e1';
