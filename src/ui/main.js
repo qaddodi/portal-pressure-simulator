@@ -18,7 +18,7 @@ import { createTimeline, LAPSES } from './timeline.js?v=a8d13b8d37';
 import { createCompare } from './compare.js?v=708d535f79';
 import { createCard } from './card.js?v=3a1f1f7e16';
 import { createChart } from './chart.js?v=01dce7c841';
-import { createMenu } from './menu.js?v=2a539d2b02';
+import { createMenu } from './menu.js?v=7efcd77bdd';
 import { caption } from './a11y.js?v=f3ddc54aa4';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
@@ -56,6 +56,7 @@ import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0762d1b820';
 import { createPaintGate } from './paint-gate.js?v=880ebfff88';
 import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, afterMotion, mayTask, MAY_ON } from './frame.js?v=8c8f2f530e';
 import { restPass } from './rest-pass.js?v=e877681653';
+import { classSoon } from './class-soon.js?v=c6a18a782a';
 import { sizeOf, watchSize, rectsSoon, restTask, flushTask } from './geom.js?v=254133713c';
 import { feedbackDiagnostics } from './feedback-diag.js?v=a6fd7380e0';
 import { noteJump } from './display-state.js?v=8d062d39dc';
@@ -205,7 +206,7 @@ async function main() {
       const gs = [...document.querySelectorAll('#labels .lb')];
       rectsSoon([m, ...gs]).then(([r, ...bs]) => {
         if (tok !== underTok || !m.isConnected || m.classList.contains('out')) return;
-        gs.forEach((g, i) => { const b = bs[i]; if (b.width && b.right > r.left - 8 && b.left < r.right + 8 && b.bottom > r.top - 8 && b.top < r.bottom + 8) g.classList.add('under-menu'); });
+        gs.forEach((g, i) => { const b = bs[i]; if (b.width && b.right > r.left - 8 && b.left < r.right + 8 && b.bottom > r.top - 8 && b.top < r.bottom + 8) classSoon(g, 'under-menu', true); });
       });
     });
   }
@@ -220,7 +221,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=abc29b7dbb'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=a7149966f4'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -997,7 +998,7 @@ function wireTopbar() {
   if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=017714b504').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages.
   import('./high-refresh.js?v=c4ddc053d5').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=a563d6c004').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=111bff99ef').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
   if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=2e73c17edc').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
@@ -1045,7 +1046,7 @@ function openSettings(anchor, withSearch = false) {
       menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show HVPG without measuring it first', (on) => {
         try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
         document.body.classList.remove('hvpg-swap'); void readMetric(document.body, 'offsetWidth'); document.body.classList.add('hvpg-swap');
-        setTimeout(() => document.body.classList.remove('hvpg-swap'), 600);
+        setTimeout(() => classSoon(document.body, 'hvpg-swap', false), 600);
         store.set({ showHvpg: on });
       }),
       menuItem('Advanced physiology', { icon: 'sliders', onClick: () => { closePopover(); closeTreat(); store.set({ selection: null, details: { type: 'advanced' } }); openPanel(); } }),
@@ -1454,8 +1455,8 @@ function wireFloating() {
   // The pieces dim only once the figure has moved for BUSY_DELAY (premium-feel R7): a tap, or a drag that is over inside it, dims nothing.
   const BUSY_DELAY = 120;
   const busy = (ms) => {
-    clearTimeout(busyT); busyT = setTimeout(() => { clearTimeout(armT); armT = 0; app.classList.remove('stage-busy'); }, ms);
-    if (!armT && !app.classList.contains('stage-busy')) armT = setTimeout(() => { armT = 0; if (!app.classList.contains('stage-busy')) app.classList.add('stage-busy'); }, BUSY_DELAY);
+    clearTimeout(busyT); busyT = setTimeout(() => { clearTimeout(armT); armT = 0; classSoon(app, 'stage-busy', false); }, ms);
+    if (!armT && !app.classList.contains('stage-busy')) armT = setTimeout(() => { armT = 0; if (!app.classList.contains('stage-busy')) classSoon(app, 'stage-busy', true); }, BUSY_DELAY);
   };
   // A gesture over: the pieces already dimmed stay so for ms more; ones still waiting to dim never do.
   const busyEnd = (ms) => { if (app.classList.contains('stage-busy')) busy(ms); else { clearTimeout(armT); armT = 0; clearTimeout(busyT); } };
@@ -1463,12 +1464,13 @@ function wireFloating() {
   // lower-left corner (play and clock; the zoom buttons take the lower right) and the top bar's second row (view, colour legend) slides away, while the figure moves and
   // for three seconds after. A tap anywhere, or an event on the timeline, brings them back at once.
   let focusT = 0;
-  const unfocus = () => { clearTimeout(focusT); if (!app.classList.contains('figure-focus')) return; app.classList.remove('figure-focus'); foldDock(false); };
+  let focused = false;   // (the class itself is put on and taken off between frames, class-soon.js: this holds the state meanwhile)
+  const unfocus = () => { clearTimeout(focusT); if (!focused) return; focused = false; classSoon(app, 'figure-focus', false); foldDock(false); };
   const figureFocus = (ms) => {
     clearTimeout(focusT);
     // (The thumb dock stays put: its tab row is how the tools are reached, and it is slim already.)
     if (!isPhone() || app.classList.contains('thumb') || $('#strip').classList.contains('all') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    if (!app.classList.contains('figure-focus')) app.classList.add('figure-focus');
+    if (!focused) { focused = true; classSoon(app, 'figure-focus', true); }
     foldDock(true);
     if (ms) focusT = setTimeout(unfocus, ms);
   };
@@ -1579,7 +1581,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   const pxOf = (v) => (/px$/.test(v) ? parseFloat(v) : (parseFloat(v) / 100) * readMetric(app, 'clientHeight'));
   // Commits the sheet at rest: its own height, the content in place (the same picture: what was drawn lay - off tall now is).
   const commit = (v) => {
-    el.classList.toggle('sheet-half', thumb() && size === half());   // (a phone's Tests card hides its longer words at Half)
+    classSoon(el, 'sheet-half', thumb() && size === half());   // (a phone's Tests card hides its longer words at Half)
     el.style.setProperty('--sheet-size', v);
     el.style.height = ''; lay = 0;
     setSheetOffset(el, 0);
@@ -1592,7 +1594,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     const h1 = pxOf(v), H = Math.max(h0, h1);
     if (Math.abs(h1 - h0) < 1) { stopSheet(el); commit(v); return; }
     if (lay !== H) { stopSheet(el); el.style.height = `${H}px`; lay = H; setSheetOffset(el, H - h0); }
-    el.classList.toggle('sheet-half', thumb() && size === half());
+    classSoon(el, 'sheet-half', thumb() && size === half());
     glideSheet(el, H - h1, { easing, done: () => commit(v) });
   };
   const drawnHeight = () => (lay || readMetric(el, 'offsetHeight')) - sheetOffset(el);

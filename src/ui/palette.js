@@ -6,6 +6,7 @@ import { store, updateParams } from './store.js?v=afc4d7c743';
 import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=b7ab8223ab';
 import { D_FLIP, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { restPass, cancelRest } from './rest-pass.js?v=e877681653';
+import { classSoon } from './class-soon.js?v=c6a18a782a';
 import { frame } from './frame.js?v=8c8f2f530e';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
@@ -153,10 +154,10 @@ export function createPalette({ ctx }) {
     hl._w = w; hl._h = hh; hl.style.width = `${w}px`; hl.style.height = `${hh}px`;
     hl.style.translate = `${x}px ${y}px`; hl.style.scale = ''; hl.style.opacity = '1';
     // ('still' holds the transition through the frame that shows the new place, and is let go after it, with no style read.)
-    frame(() => restPass(() => hl.classList.remove('still')), 'palette');
+    frame(() => classSoon(hl, 'still', false), 'palette');
   }
   function mark() {
-    rows.forEach((b, i) => { const on = i === sel; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); });
+    rows.forEach((b, i) => { const on = i === sel; classSoon(b, 'on', on); b.setAttribute('aria-selected', String(on)); });
   }
   function renderList({ fadeIn = true } = {}) {
     items = search(input.value);

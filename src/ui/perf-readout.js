@@ -7,6 +7,7 @@
 import { TIERS_ON, TIERS, sceneTier, tierLog } from './adapt-tier.js?v=66ebe0e217';
 import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=625c2c9315';
 import { restPass } from './rest-pass.js?v=e877681653';
+import { textSoon } from './class-soon.js?v=c6a18a782a';
 import { perf, watchFrames, finalFrameFor } from './frame.js?v=8c8f2f530e';
 // (The readout's own loop: through the app's one frame scheduler, last in each frame, not a requestAnimationFrame of its own.)
 const nextFrame = finalFrameFor('perf readout');
@@ -285,7 +286,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   orgsLabel();
   const rec = document.createElement('button');
   rec.textContent = 'Record 6 s';
-  rec.onclick = () => { begin('recording', 6000); rec.textContent = 'Recording…'; setTimeout(() => { rec.textContent = 'Record 6 s'; }, 6000); };
+  rec.onclick = () => { begin('recording', 6000); rec.textContent = 'Recording…'; setTimeout(() => textSoon(rec, 'Record 6 s'), 6000); };
   // Blurs: the browser's backdrop blurs showing now and why each is not a glass drawn in the figure (blur-gauge.js; laptop-heat recs H2).
   // Read on the tap (a scan of the page's styles, never while a window measures), shown until the next tap, and in Copy.
   const blurs = document.createElement('button');
@@ -311,7 +312,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   title.textContent = 'Lag after slides and gestures (tap to fold)';
   copy.textContent = 'Copy';
   rest.textContent = 'At rest';
-  rest.onclick = () => { rest.textContent = 'Wait 3 s'; setTimeout(() => { begin('at rest'); setTimeout(() => { rest.textContent = 'At rest'; }, 2000); }, 1000); };
+  rest.onclick = () => { rest.textContent = 'Wait 3 s'; setTimeout(() => { begin('at rest'); setTimeout(() => textSoon(rest, 'At rest'), 2000); }, 1000); };
   const body = document.createElement('div');
   body.textContent = 'Change slide, switch view, or pan, pinch or scroll-zoom the figure, then wait 3 s.';
   // Under the gestures: the long frames and the slowest inputs, written once a second and never while a gesture's window is open
@@ -333,7 +334,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
       try { document.execCommand('copy'); copy.textContent = 'Copied'; } catch { copy.textContent = 'Select the text'; }
       ta.remove();
     }
-    setTimeout(() => { copy.textContent = 'Copy'; }, 1500);
+    setTimeout(() => textSoon(copy, 'Copy'), 1500);
   };
   pBody = body; pReports = reports;
   function paint() { restPass(writeBody); }

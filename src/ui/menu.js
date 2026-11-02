@@ -13,6 +13,7 @@ import { pressureColor } from './colormap.js?v=00375d4fcd';
 import { ownsSideways, pageGo } from './swipe.js?v=2e519aab2f';
 import { frameFor } from './frame.js?v=8c8f2f530e';
 import { restPass } from './rest-pass.js?v=e877681653';
+import { classSoon } from './class-soon.js?v=c6a18a782a';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { leaveFromHere, menuLeaveOff } from './menu-leave.js?v=e885166f40';
 import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=7513a88c68';
@@ -216,10 +217,10 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       pvKey = key;
       const old = pv._in.firstElementChild, h0 = pv._h1 || pv.offsetHeight;
       const next = make();
-      if (old && pv.classList.contains('on')) { old.classList.add('um-pv-old'); setTimeout(() => old.remove(), 130); } else old?.remove();
+      if (old && pv.classList.contains('on')) { classSoon(old, 'um-pv-old', true); setTimeout(() => old.remove(), 130); } else old?.remove();
       pv._in.append(next);
       if (old && h0 && !reduce.matches) pvResize(pv, h0, next.offsetHeight);
-      $$rows().forEach((r) => r.classList.toggle('pv-on', r === row));
+      $$rows().forEach((r) => classSoon(r, 'pv-on', r === row));
     }
     // Beside the panel, level with the row; over the other column when there is no room beside it.
     const pr = el.getBoundingClientRect(), rr = row.getBoundingClientRect(), w = 360, ph = pv._h1 || pv.offsetHeight;
@@ -237,7 +238,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       pv._y = y;
     }
     pv.style.left = x + 'px'; pv.style.top = y + 'px';
-    pv.classList.add('on');
+    classSoon(pv, 'on', true);
   }
   // The card is laid out once at the taller height H for the change. Its glass moves onto three plates that ride
   // transform only: the top (still, the shorter height p), a flat middle that scales down from it, and the round foot that slides
@@ -249,7 +250,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const R = parseFloat(getComputedStyle(card).borderBottomLeftRadius) || 0, capH = Math.ceil(2 * R + 2);
     if (H - p < 1 || p < 3 * R + 4) { card.style.height = ''; return; }
     card.style.height = H + 'px'; card._h1 = h1;
-    card.classList.add('pv-resizing');
+    classSoon(card, 'pv-resizing', true);
     const plate = (top, height, clip, origin) => {
       const d = h('i', { class: 'um-pv-plate', 'aria-hidden': 'true' });
       Object.assign(d.style, { top: `${top}px`, height: `${height}px`, clipPath: clip, transformOrigin: origin || '50% 0' });
@@ -279,7 +280,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       for (const x of anims) x.cancel();
       top.remove(); mid.remove(); foot.remove();
       if (cut) cut.style.height = '';
-      card.classList.remove('pv-resizing'); card._h1 = 0; card.style.height = '';
+      classSoon(card, 'pv-resizing', false); card._h1 = 0; card.style.height = '';
       if (card._size === done) card._size = null;
     };
     card._size = done;
@@ -289,9 +290,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   function hidePreview(now) {
     clearTimeout(hideT); pvTok++; if (!pv) return;
     const p = pv; pv = null; pvKey = null;
-    el?.querySelectorAll('.pv-on').forEach((r) => r.classList.remove('pv-on'));
+    el?.querySelectorAll('.pv-on').forEach((r) => classSoon(r, 'pv-on', false));
     if (now || !p.classList.contains('on')) { p.remove(); return; }
-    p.classList.remove('on'); setTimeout(() => p.remove(), 140);
+    classSoon(p, 'on', false); setTimeout(() => p.remove(), 140);
   }
   // On touch, the ⓘ opens the preview under its row (one at a time), easing open and shut.
   function toggleInline(li, make, btn) {
@@ -437,8 +438,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const { offsetTop: vvTop, height: vvH } = vv, kb = Math.round(innerHeight - vvTop - vvH);
     // (No floor under the room: a floor above it put a phone held sideways' search row above the screen. With under 300 px the handle and
     // the footer give way, `kb-tight`, so the search row and some results stay in view.)
-    if (kb > 80) { const room = Math.round(vvH - 16); el.style.setProperty('--menu-kb', `${kb}px`); el.style.setProperty('--menu-h', `${room}px`); if (room < 300) el.classList.add('kb-tight'); else el.classList.remove('kb-tight'); }
-    else { el.style.removeProperty('--menu-kb'); el.style.removeProperty('--menu-h'); el.classList.remove('kb-tight'); }
+    if (kb > 80) { const room = Math.round(vvH - 16); el.style.setProperty('--menu-kb', `${kb}px`); el.style.setProperty('--menu-h', `${room}px`); classSoon(el, 'kb-tight', room < 300); }
+    else { el.style.removeProperty('--menu-kb'); el.style.removeProperty('--menu-h'); classSoon(el, 'kb-tight', false); }
     sheetLiftSoon();
   }
   // The lift onto the keyboard and back eases by transform from where the sheet's top stood (its box takes the new bottom and height at

@@ -113,7 +113,7 @@ test('the phone menu sheet is lifted above the on-screen keyboard and put back w
   assert.match(mn, /const \{ offsetTop: vvTop, height: vvH \} = vv, kb = Math\.round\(innerHeight - vvTop - vvH\);/);
   assert.match(mn, /if \(kb > 80\) \{ const room = Math\.round\(vvH - 16\); el\.style\.setProperty\('--menu-kb', `\$\{kb\}px`\); el\.style\.setProperty\('--menu-h', `\$\{room\}px`\);/);
   assert.match(mn, /const room = Math\.round\(vvH - 16\);/, 'no floor under the room: a floor above it put a sideways phone\'s search row off the screen');
-  assert.match(mn, /else \{ el\.style\.removeProperty\('--menu-kb'\); el\.style\.removeProperty\('--menu-h'\); el\.classList\.remove\('kb-tight'\); \}/);
+  assert.match(mn, /else \{ el\.style\.removeProperty\('--menu-kb'\); el\.style\.removeProperty\('--menu-h'\); classSoon\(el, 'kb-tight', false\); \}/);
   assert.match(mn, /vv\?\.addEventListener\('resize', fitSheet\); vv\?\.addEventListener\('scroll', fitSheet\);/);
   assert.match(mn, /vv\?\.removeEventListener\('resize', fitSheet\); vv\?\.removeEventListener\('scroll', fitSheet\);/);
   assert.match(mn, /for \(const v of \['--menu-kb', '--menu-h'\]\)/, 'a rebuilt sheet keeps them');
