@@ -69,8 +69,8 @@ import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
-import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=49e37b0228';
-import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=db59be811c';
+import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=a56c97a289';
+import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=eecd53bc92';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { placePills, pillsClear, PILL_GAP } from './cath-pill.js?v=3dccfa6cff';
@@ -5050,13 +5050,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const readLook = () => { const cs = wrapCS(); return `${readEpoch}|${themeKey()}|${gestureFree(wrap.className)}|${document.documentElement.className}|${cs.getPropertyValue('--stage-bg')}|${cs.getPropertyValue('--organ-liver')}|${wrap.classList.contains('imaging')}`; };
   /** organ-paint's readGroup(el, opt), or the last reading of it with the same options while nothing it was read from has changed. */
   function readGroup(el, opt) {
-    if (!READ_KEEP) return readGroupNow(el, opt);
+    // (Only what the watch below sees is kept: the organs, the backdrop and the defs. The overlays (#stageOver: the tamponade tube, the
+    // stents, the clamps) are read again each time syncOver asks, which is only when its own watch saw them change; kept here, the
+    // tube's first reading stood for every later frame and the GPU showed the balloon never filling, 2 Nov.)
+    if (!READ_KEEP || !(gOrgans.contains(el) || gBackdrop.contains(el) || defs.contains(el))) return readGroupNow(el, opt);
     if (!readMo) {
       readMo = new MutationObserver(readSeen);
       for (const root of [gOrgans, gBackdrop, defs]) readMo.observe(root, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: READ_ATTRS });
     }
     readSeen(readMo.takeRecords());
-    const look = readLook(), ok = opt ? `${!!opt.withMask}|${!!opt.nest}` : '';
+    const look = readLook(), ok = opt ? `${!!opt.withMask}|${!!opt.nest}|${!!opt.strict}` : '';
     let m = readKept.get(el);
     const k = m?.get(ok);
     if (k && k.look === look) return k.spec;
@@ -8747,7 +8750,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const sb of bands) {
       if (sb < 0 || sb > path.total) continue;
       const { p, t } = pathAt(sb, path), turn = (Math.atan2(t[1], t[0]) * 180) / Math.PI - 90;
-      ov.balloons.append(s('rect', { x: p[0] - BALLOON.shaftR - 0.3, y: p[1] - 0.5, width: 2 * BALLOON.shaftR + 0.6, height: 1, rx: 0.3, class: 'balloon-marker', transform: `rotate(${turn.toFixed(1)} ${p[0].toFixed(2)} ${p[1].toFixed(2)})` }));
+      // (A path, not a rect with rounded corners, which the GPU's reader does not take: it sent the tube and every overlay above it back to the SVG.)
+      const x0 = p[0] - BALLOON.shaftR - 0.3, x1 = p[0] + BALLOON.shaftR + 0.3, y0 = p[1] - 0.5, y1 = p[1] + 0.5, r = 0.3, f = (v) => v.toFixed(2);
+      const d = `M${f(x0 + r)} ${f(y0)}H${f(x1 - r)}Q${f(x1)} ${f(y0)} ${f(x1)} ${f(y0 + r)}V${f(y1 - r)}Q${f(x1)} ${f(y1)} ${f(x1 - r)} ${f(y1)}H${f(x0 + r)}Q${f(x0)} ${f(y1)} ${f(x0)} ${f(y1 - r)}V${f(y0 + r)}Q${f(x0)} ${f(y0)} ${f(x0 + r)} ${f(y0)}Z`;
+      ov.balloons.append(s('path', { d, class: 'balloon-marker', transform: `rotate(${turn.toFixed(1)} ${p[0].toFixed(2)} ${p[1].toFixed(2)})` }));
     }
     // The traction, shown as the tube is drawn up: an arrow up the esophagus's side, easing in with it.
     if (pull > 0.01) {

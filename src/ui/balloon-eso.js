@@ -22,6 +22,13 @@ export function esoAt(y) {
   return { c: (l + r) / 2, h: (r - l) / 2 };
 }
 
+// The tube's own line through the esophagus (x at height y), set by balloon-gas.js once it has laid the tube: the tube starts its bend at
+// the cardia a little above this balloon's lower end, so there it runs off the esophagus's middle. The balloon lies on the tube when it
+// is collapsed and centres in the lumen as it fills. Until it is set, the tube is the esophagus's middle.
+let tubeLine = null;
+export function setTubeLine(fn) { tubeLine = fn; }
+const tubeX = (y) => (tubeLine ? tubeLine(y) : esoAt(y).c);
+
 export const BALLOON = { top: 170, bottom: 244, shaftR: 0.8, sleeve: 1.6, wall: 2.2, from: -40 };
 /** How long the tube takes to go in (adv: it slides down to the stomach), its gastric balloon to fill and be drawn up against the cardia
  *  (inflate), and then the esophageal balloon to fill on top of it (eso), in ms, on screen (stage.js balloonStep).
@@ -61,6 +68,7 @@ export function balloonShape(k, n = 64) {
   // Denser toward the ends, where the outline turns.
   const ys = [];
   for (let i = 0; i <= n; i++) ys.push(mid - rx * Math.cos((Math.PI * i) / n));
-  const L = ys.map((y) => [esoAt(y).c - half(y), y]), R = ys.map((y) => [esoAt(y).c + half(y), y]).reverse();
+  const cx = (y) => { const c = esoAt(y).c; return c + (tubeX(y) - c) * (1 - k); };
+  const L = ys.map((y) => [cx(y) - half(y), y]), R = ys.map((y) => [cx(y) + half(y), y]).reverse();
   return { outline: [...L, ...R], bands: [top + 3, bottom - 3], half };
 }

@@ -16,13 +16,14 @@
 // out from the stomach's own outline (wallPress), so it follows a redrawn stomach too, and never goes through the wall.
 import { ORGANS, SEAM_D } from './anatomy.js?v=fe0f3d1f0e';
 import { pathCmds, flattenCmds } from './shape-gl.js?v=1e2bc57a21';
-import { esoAt, BALLOON } from './balloon-eso.js?v=49e37b0228';
+import { esoAt, BALLOON, setTubeLine } from './balloon-eso.js?v=a56c97a289';
 
 export const GAS = {
   margin: 3.5,   // how far inside the wall the balloon stays, in world units: the wall's line and glow, and the balloon's own edge
   slack: 8,      // how far down the tube the balloon sits before the traction, in world units; the traction draws it up this far
   neck: 1.6,     // the half width of the collapsed balloon: a sheath on the tube (the esophageal one: BALLOON.sleeve)
-  bend: 10,      // the radius of the tube's bend at the cardia, from the esophagus's line into the balloon's axis, in world units (a real tube curves, it does not corner)
+  lead: 5,       // how far above the esophageal balloon's lower end the bend starts, in world units (a wide bend starts higher, so it still ends at the cardia)
+  bend: 16,      // the radius of the tube's bend at the cardia, from the esophagus's line into the balloon's axis, in world units (a real tube curves, it does not corner; 10 read as an elbow on the phone, 2 Nov)
   tail: 7,       // the tube past the balloon's lower end
   bMax: 20,      // the half width it is drawn at when the stomach has room for it (about twice the esophagus's)
   ratio: 2.9,    // its length over its half width
@@ -131,7 +132,7 @@ function pearOutline(p0, dir, L, b, h0, n) {
 
 /** The esophagus's line where the esophageal balloon ends and the tube starts to bend: its point E and its unit direction t (down the esophagus). */
 const eso = () => {
-  const eb = BALLOON.bottom, c = esoAt(eb).c, d = [c - esoAt(eb - 8).c, 8], l = Math.hypot(d[0], d[1]);
+  const eb = BALLOON.bottom - GAS.lead, c = esoAt(eb).c, d = [c - esoAt(eb - 8).c, 8], l = Math.hypot(d[0], d[1]);
   return { E: [c, eb], t: [d[0] / l, d[1] / l] };
 };
 /**
@@ -221,18 +222,26 @@ let PATH = null;
 export function tubePath(f = fit()) {
   if (PATH && PATH.f === f) return PATH;
   const pts = [];
-  for (let y = BALLOON.from; y <= BALLOON.bottom; y += 4) pts.push([esoAt(y).c, y]);
+  const { E } = eso();
+  // (Stepped up from where the bend starts, at the bend's own step (about 2) for the last stretch into it and 4 above: a curve drawn through
+  // steps that change length sharply kinks where they do.)
+  const ys = [];
+  for (let y = E[1], st = 0; y > BALLOON.from + 1; y -= (st += 1) <= 6 ? 2 : 4) ys.push(y);
+  pts.push([esoAt(BALLOON.from).c, BALLOON.from]);
+  for (const y of ys.reverse()) pts.push([esoAt(y).c, y]);
   // The bend: a circular arc from the esophagus's middle at the esophageal balloon's lower end (so the balloon lies on the tube all its length) into the axis
   // at the gastric balloon's upper end (bendArc), then the axis itself.
-  const { E } = eso();
   for (const [dx, dy] of bendArc(f.deg)) pts.push([E[0] + dx, E[1] + dy]);
   const p0i = pts.length - 1, run = f.L + GAS.tail + GAS.slack;
-  for (let u = 4; u < run; u += 4) pts.push([f.p0[0] + f.dir[0] * u, f.p0[1] + f.dir[1] * u]);
+  for (let u = 2; u < run; u += u < 12 ? 2 : 4) pts.push([f.p0[0] + f.dir[0] * u, f.p0[1] + f.dir[1] * u]);   // (the bend's step for the first stretch out of it, as above)
   pts.push([f.p0[0] + f.dir[0] * run, f.p0[1] + f.dir[1] * run]);
   const arc = [0];
   for (let i = 1; i < pts.length; i++) arc.push(arc[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
   const total = arc[arc.length - 1];
-  return (PATH = { f, pts, arc, total, final: total - GAS.slack, p0Arc: arc[p0i], mouth: f.mouth });
+  PATH = { f, pts, arc, total, final: total - GAS.slack, p0Arc: arc[p0i], mouth: f.mouth };
+  // (The esophageal balloon lies on this line where the bend has begun inside it: balloon-eso.js.)
+  setTubeLine((y) => (y <= E[1] ? esoAt(y).c : pathAt(arcAtY(y, PATH), PATH).p[0]));
+  return PATH;
 }
 /** The point and the unit tangent at length s along the path (clamped to its ends). */
 export function pathAt(s, path = tubePath()) {

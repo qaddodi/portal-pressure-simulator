@@ -10,7 +10,9 @@ const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url),
 
 test('a reading is kept with its group and the gradients it read, and ?organread=0 reads every time', () => {
   assert.match(stage, /const READ_KEEP = !\/\[\?&\]organread=0\\b\/\.test\(location\.search\);/);
-  assert.match(stage, /if \(!READ_KEEP\) return readGroupNow\(el, opt\);/);
+  assert.match(stage, /if \(!READ_KEEP \|\| !\(gOrgans\.contains\(el\) \|\| gBackdrop\.contains\(el\) \|\| defs\.contains\(el\)\)\) return readGroupNow\(el, opt\);/,
+    'only what the watch sees is kept: the overlays (the tamponade tube, rebuilt each frame it moves) are read afresh, or the GPU shows their first reading for good');
+  assert.match(stage, /ok = opt \? `\$\{!!opt\.withMask\}\|\$\{!!opt\.nest\}\|\$\{!!opt\.strict\}`/, 'a strict reading is never handed out for a loose one');
   assert.match(paint, /function readGradient\(doc, id\) \{\n\s+refsOut\?\.add\(id\);/, 'every gradient read is named');
   assert.match(paint, /export function readGroupRefs\(root, opt\) \{\n\s+refsOut = new Set\(\);\n\s+try \{ return \{ spec: readGroup\(root, opt\), refs: refsOut \}; \} finally \{ refsOut = null; \}/);
   assert.match(stage, /m\.set\(ok, \{ look: readLook\(\), spec, refs \}\)/);

@@ -71,7 +71,7 @@ test('the traction draws it up the tube to the cardia, and the cone seats there'
   const f = fitGas(), loose = gasShape(1, 0), seated = gasShape(1, 1);
   assert.ok(Math.abs(dist(seated.p0, loose.p0) - GAS.slack) < 1e-9, 'drawn up by the slack, along the tube');
   // Its upper end is where the tube's bend ends, at the cardia: the bend from the esophageal balloon's lower end into the axis.
-  const end = bendArc(f.deg).at(-1), E = [esoAt(BALLOON.bottom).c, BALLOON.bottom];
+  const end = bendArc(f.deg).at(-1), eb = BALLOON.bottom - GAS.lead, E = [esoAt(eb).c, eb];
   assert.ok(dist(seated.p0, [E[0] + end[0], E[1] + end[1]]) < 1e-9, 'its upper end is where the bend ends');
   const near = (s) => Math.min(...s.outline.map((p) => dist(p, MOUTH)));
   assert.ok(near(seated) < near(loose) - 1, 'the balloon is closer to the cardia once drawn up');
@@ -87,7 +87,7 @@ test('the tube runs down the middle of the esophagus, bends at the cardia, and g
   const P = tubePath(), f = fitGas();
   assert.equal(P.pts[0][1], BALLOON.from);
   for (const [x, y] of P.pts) {
-    if (y <= BALLOON.bottom) assert.ok(Math.abs(x - esoAt(y).c) < 1e-9, `the middle of the esophagus at ${y}, all the esophageal balloon's length`);
+    if (y <= BALLOON.bottom - GAS.lead) assert.ok(Math.abs(x - esoAt(y).c) < 1e-9, `the middle of the esophagus at ${y}, down to where the bend starts`);
     else if (y <= 249) { const e = esoAt(y); assert.ok(e.h - Math.abs(x - e.c) >= 4, `inside the esophagus's walls at ${y}`); }
     else if (y <= 253) assert.ok(Math.abs(x - MOUTH[0]) <= esoAt(251).h - 3, `through the cardia's opening at ${y}`);
     else assert.ok(clearance([x, y], STOMACH) >= 3, `inside the stomach at ${x.toFixed(1)}, ${y.toFixed(1)}`);
@@ -157,7 +157,9 @@ test('the balloons lie collapsed on the tube and ride in with it: each sits its 
 test('the sheath of the esophageal balloon is the balloon at no inflation, so it fills out of it without a jump', () => {
   const a = sheathArcs(tubeTip(1, 1)), half = (t) => Math.max(BALLOON.shaftR, BALLOON.sleeve * Math.sqrt(Math.max(0, 1 - (2 * t - 1) ** 2)));
   const sh = sheath(a.eso[0], a.eso[1], half), ball = balloonShape(0);
-  for (const [x, y] of sh.ring) assert.ok(Math.abs(Math.abs(x - esoAt(y).c) - ball.half(y)) < 0.25, `at ${y.toFixed(1)}`);
+  // (Its middle is the tube's line: the esophagus's middle, and the start of the bend at its lower end.)
+  const mid = (y) => pathAt(arcAtY(y)).p[0];
+  for (const [x, y] of sh.ring) assert.ok(Math.abs(Math.abs(x - mid(y)) - ball.half(y)) < 0.25, `at ${y.toFixed(1)}`);
   assert.ok(Math.abs(arcAtY(BALLOON.bottom) - a.eso[1]) < 1e-9);
 });
 
@@ -289,10 +291,13 @@ test('the tube is drawn as one smooth curve from the esophagus into the balloon,
   }
   // The radius of the bend is about GAS.bend where it is tightest (the drawn curve is the arc, not a corner rounded off).
   const line = sample(tubeTo(1, 1, P));
+  // (Each radius is the circle through three samples half a step apart: the path's numbers are written to two decimals, and at a
+  // twelfth of a step that rounding alone reads as a bend several units tight.)
   let tight = Infinity;
-  for (let i = 2; i < line.length; i += 1) {
-    const a = [line[i - 1][0] - line[i - 2][0], line[i - 1][1] - line[i - 2][1]], b = [line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]], turn = Math.acos(Math.max(-1, Math.min(1, (a[0] * b[0] + a[1] * b[1]) / (Math.hypot(...a) * Math.hypot(...b) || 1))));
-    if (turn > 1e-4) tight = Math.min(tight, ((Math.hypot(...a) + Math.hypot(...b)) / 2) / turn);
+  for (let i = 6; i + 6 < line.length; i += 1) {
+    const A = line[i - 6], B = line[i], C = line[i + 6], ab = dist(A, B), bc = dist(B, C), ca = dist(C, A);
+    const area2 = Math.abs((B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]));
+    if (area2 > 1e-6 && ab > 1e-6 && bc > 1e-6) tight = Math.min(tight, (ab * bc * ca) / (2 * area2));
   }
   assert.ok(tight >= GAS.bend * 0.6, `the tightest curve has a radius of ${tight.toFixed(1)}, the bend's is ${GAS.bend}`);
 });
