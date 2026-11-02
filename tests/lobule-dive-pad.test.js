@@ -12,7 +12,7 @@ test('an aimed dive shows the whole lobule, built before the zoom, the layers th
   const box = lz.match(/function padBox\(W, H\) \{[\s\S]*?\n {2}\}/)?.[0];
   assert.ok(box);
   assert.match(box, /if \(!geo \|\| atFit\) return null;/, 'the fit view (no aim) keeps the layers alone');
-  assert.match(box, /return padRect\(x, y, geo\.R \* V\.k \* 1\.35, W, H\);/, 'out past the rim and the corners\' triads');
+  assert.match(box, /return padRect\(sX\(geo\.cx\), sY\(geo\.cy\), geo\.R \* V\.k \* 1\.35, W, H\);/, 'out past the rim and the corners\' triads');
   // (Reduced motion fades the dive, magnifying nothing: no copy is built then.)
   const st = lz.match(/function stage\(\) \{[\s\S]*?\n {2}\}/)[0];
   assert.match(st, /const \[W, H\] = hostSize\(\), box = reduce\.matches \? null : padBox\(W, H\), wd = box \? buildWide\(W, H, box\) : null;/);

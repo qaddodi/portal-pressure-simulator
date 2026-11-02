@@ -39,7 +39,7 @@ test('the dive and the rise draw the rim on the GPU and make no 2D copy (none is
   assert.match(sd, /if \(!diveRim && rimDrawn\) \{ rimDrawn = false; tissueKey = ''; idleDrawn = ''; if \(fade > 0 && !wide\) rimOnGPU\(\); \}/, 'landed: drawn again without the rim before the scale goes');
   assert.doesNotMatch(lz, /paint2D|diveCopy|diveCv|rimCv|keep2D|wideChecked/, 'no 2D canvas or copy for the dive or the rise');
   assert.match(fn('function tissueOnGPU('), /A\.rim = rimArg\(tw, th\);/);
-  assert.match(fn('function stage() {'), /if \(!wd && !reduce\.matches && geo\) \{ const \[x, y\] = toScreen\(\[geo\.cx, geo\.cy\]\); diveRim = rimOf\(x, y, geo\.R \* V\.k\); \}/, 'staged on the GPU, rim and all');
+  assert.match(fn('function stage() {'), /if \(!wd && !reduce\.matches && geo\) diveRim = rimOf\(sX\(geo\.cx\), sY\(geo\.cy\), geo\.R \* V\.k\);/, 'staged on the GPU, rim and all');
   assert.match(fn('function buildWide(W, H, box) {'), /return WIDE_GL \? buildWideGL\(W, H, box\) : null;/, "the wide copy only on the GPU");
   assert.match(fn('function paintTissue('), /if \(same\) return gpu && keyGPU;/, 'a key the GPU did not draw is never reported as on the GPU');
 });

@@ -48,7 +48,7 @@ test('lobule labels are pinned beside what they name and never cover the central
   assert.match(js, /placeCall\(fr, pl2, cards, s1\.ld,/, 'the pill can be placed after the vessel labels, clear of their leaders');
   assert.match(js, /if \(callLead && callCost >= 1e6\) return null/, 'never with the pill on a label');
   assert.match(js, /sinIt\.a\[0\] = winX; sinIt\.a\[1\] = winY;/, 'another sinusoid takes the label when the first leaves no room');
-  assert.match(js, /if \(!faded\(ZONE_LIT\[i\]\)\) boxes\.push/, 'a faded zone name takes no room');
+  assert.match(js, /if \(!faded\(ZONE_LIT\[i\]\)\) \{[^\n]*boxes\.push\(zb\)/, 'a faded zone name takes no room');
   assert.match(js, /\(crosses\(leads\[i\]\[0\], leads\[i\]\[1\], cBox\) \? 1e6 : 0\)/, 'no label leader runs behind the pill');
   assert.match(js, /- w \/ 2 - 110\) \* 30/, 'the pill stays near its target');
   assert.match(js, /cardS = cardS \+ \(overlap\(cb, cards\[i\]\) > 0 \? 1e6/, 'a label never sits on a card');

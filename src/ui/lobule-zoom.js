@@ -95,16 +95,21 @@ function atInto(pts, u, out) {
   out[0] = lerp(pts[i][0], pts[i + 1][0], t); out[1] = lerp(pts[i][1], pts[i + 1][1], t);
   return out;
 }
-function at(pts, u) { return atInto(pts, u, [0, 0]); }
+// A new point on the line (the geometry's build and a sinusoid pick, once per gesture; every frame's caller writes with atInto into its own scratch).
+function at(pts, u) { return atInto(pts, u, [0, 0]); }   // alloc-rare: a new point for build() and a once-per-gesture sinusoid pick; per-frame callers use atInto
+// The distance from (x, y) to the line, and where along it (0-1) in distU: nothing made, for the hit test of every move.
+let distU = 0;
 function distTo(pts, x, y) {
   let best = Infinity, bu = 0;
   for (let i = 0; i < pts.length - 1; i++) {
-    const [ax, ay] = pts[i], [bx, by] = pts[i + 1], dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1e-9;
+    const a = pts[i], b = pts[i + 1], ax = a[0], ay = a[1], dx = b[0] - ax, dy = b[1] - ay, L2 = dx * dx + dy * dy || 1e-9;
     const t = clamp(((x - ax) * dx + (y - ay) * dy) / L2, 0, 1), d = Math.hypot(ax + dx * t - x, ay + dy * t - y);
     if (d < best) { best = d; bu = (i + t) / (pts.length - 1); }
   }
-  return [best, bu];
+  distU = bu;
+  return best;
 }
+const lyAt = [0, 0], diveAt = [0, 0];   // (the scratch points of the lymph's beads and of the sinusoid zoom's geometry)
 // Any CSS colour → [r, g, b] 0–1, in the canvas's 8-bit steps (css-color.js: read in script, no canvas made).
 const rgbCache = new Map();
 function rgb01(c) {
@@ -460,11 +465,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // in drawGL waits for when the model is paused.)
   let viewBumps = 0;
   const viewChanged = () => { drawVersion++; viewBumps++; viewVer++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); };
-  // (A point to the screen and back, one number at a time: sX and sY, wX and wY make no array, as toScreen and toWorld do.)
+  // (A point to the screen and back, one number at a time: sX and sY, wX and wY make no array.)
   const wX = (x) => (x - V.x) / V.k, wY = (y) => (y - V.y) / V.k;
   const sX = (x) => x * V.k + V.x, sY = (y) => y * V.k + V.y;
-  const toWorld = (p) => [wX(p[0]), wY(p[1])];
-  const toScreen = (p) => [sX(p[0]), sY(p[1])];
   function resetView() {
     stopInertia(); if (!geo) { V.k = 1; V.x = 0; V.y = 0; return; }
     const F0 = fitV(); kFit = F0.k;
@@ -612,7 +615,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   });
   el.addEventListener('pointerup', (ev) => {
     if (down && touches.size <= 1 && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8 && performance.now() - down.t < 600 && onScene(ev)) {
-      const w = down.label ? anchorOf(down.label) : toWorld(local(ev));   // (a tap, not a move)
+      const w = down.label ? anchorOf(down.label) : [wX(localX(ev)), wY(localY(ev))];   // alloc-rare: a tap (once per gesture), not a move
       if (down.label && labs[down.label]?.el.classList.contains('edge')) centreOn(w);
       else select(down.label ? hitKind(down.label) : hit(w[0], w[1]), w);
     }
@@ -1461,7 +1464,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   const hitKind = (key) => (key === 'ha' || key === 'bd' ? { part: key, tri: pick.triad } : key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.lt ?? pick.triad } : { part: 'sin', tube: sinTube().id });
   // The lesion pointer: a pill near the spot, clear of the labels and cards, with a leader to a ring on it. Eases in and out.
-  let callPrev = null, callCost = 0;
+  let cpOn = false, cpAt = null, cpDx = 0, cpDy = 0, callCost = 0;   // (where the pill sat last time, relative to its spot, and what it cost)
   // What no label may cover, a disc on screen each: the central vein (1.25 of its radius: the vein and the mouths of its sinusoids) and
   // every portal tract (1.3 of its radius: the venule and the arc of arteriole, ductule and lymphatic beside it). They were 1.7 and
   // 2.4, which held every label 80 px off a tract on a Mac and forced the long leaders (Mohammad, 2 Nov 2026: "shorter callout lines").
@@ -1546,13 +1549,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const dx = Math.max(b.l - ring.a[0], 0, ring.a[0] - b.r), dy = Math.max(b.t - ring.a[1], 0, ring.a[1] - b.b);
     return Math.max(0, ring.clear - Math.hypot(dx, dy));
   };
-  const NO_KEEP = [], ZERO_FN = () => 0;   // (read, never written: placeCall's defaults)
   const CALL_RS = [70, 100, 140];
   const candBuf = new Float64Array(3 * 80);   // (the pill's candidate spots: x, y and whether it is the one it sat at last time; 61 at most)
   const candPQ = [0, 0], cBox = { l: 0, r: 0, t: 0, b: 0 };   // (a candidate's spot and box, handed to the checks)
   let callFitN = -1, callFitS = '';
   const boxOv = (p, q) => Math.max(0, Math.min(p.r, q.r) - Math.max(p.l, q.l)) * Math.max(0, Math.min(p.b, q.b) - Math.max(p.t, q.t));
-  function placeCall(fr, placed, cards, leads, crosses, ring, hex, keep = NO_KEEP, into = ZERO_FN) {
+  // (placeCall's answer, the pill's box and its leader's two ends, written into the record it is handed: the layout's own, kept and written
+  // again each time, or a fresh one in the settled re-layout that still has a clash, where the first answer must outlive the second.)
+  const mkCallOut = () => ({ box: { l: 0, r: 0, t: 0, b: 0 }, lead: [[0, 0], [0, 0]] });
+  const callOutMain = mkCallOut();
+  function placeCall(fr, placed, cards, leads, crosses, ring, hex, keep, into, out) {
     if (!callEl.isConnected) { mount(labels, callEl); mount(leaders, callLine, callRing); }
     // (Not shown until its size is known for its words: placed at a guessed size, it slid sideways once measured, seconds in on a slow renderer.)
     const on = !!ring && callEl._lzSz?.txt === callEl.textContent;
@@ -1581,7 +1587,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     const nOut = hex.outside(a, w, hh);
     for (let i = 0; i < nOut; i++) { candBuf[nc++] = hexOut[2 * i]; candBuf[nc++] = hexOut[2 * i + 1]; candBuf[nc++] = 0; }
-    if (callPrev && callPrev.at === call.at) { candBuf[nc++] = a[0] + callPrev.dx; candBuf[nc++] = a[1] + callPrev.dy; candBuf[nc++] = 1; }
+    if (cpOn && cpAt === call.at) { candBuf[nc++] = a[0] + cpDx; candBuf[nc++] = a[1] + cpDy; candBuf[nc++] = 1; }
     let have = false, bx = 0, by = 0, bcost = 0, bl = 0, br = 0, bt = 0, bb = 0;
     for (let ci = 0; ci < nc; ci += 3) {
       const px = candBuf[ci], py = candBuf[ci + 1], prev = candBuf[ci + 2];
@@ -1597,14 +1603,18 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const cost = c1 + c2 + (rd0 > 0 ? 1e6 + rd0 * 1e4 : 0) + c3 + hex.share(cBox) * INSIDE_COST + c4 + Math.hypot(x - a[0], y - a[1]) * 0.5 + Math.max(0, Math.hypot(x - a[0], y - a[1]) - w / 2 - 110) * 30 - (prev ? 60 : 0);
       if (!have || cost < bcost) { have = true; bx = x; by = y; bcost = cost; bl = cBox.l; br = cBox.r; bt = cBox.t; bb = cBox.b; }
     }
-    placed.push({ l: bl, r: br, t: bt, b: bb }); callPrev = { at: call.at, dx: bx - a[0], dy: by - a[1] }; callCost = bcost;   // (these two are kept by the caller: they are its answer)
+    const ob = out.box;
+    ob.l = bl; ob.r = br; ob.t = bt; ob.b = bb; placed.push(ob);
+    cpOn = true; cpAt = call.at; cpDx = bx - a[0]; cpDy = by - a[1]; callCost = bcost;   // (where it sat, kept as numbers: callState saves and puts them back)
     put(callEl, bx - w / 2, by - hh / 2);
     // The leader starts on the ring's edge (not at its centre) and runs to the pill.
     const dl = Math.hypot(bx - a[0], by - a[1]) || 1, e0 = rr / dl;
     setGeo(callLine, 'x1', a[0] + (bx - a[0]) * e0); setGeo(callLine, 'y1', a[1] + (by - a[1]) * e0); setGeo(callLine, 'x2', bx); setGeo(callLine, 'y2', by);
     setGeo(callRing, 'cx', a[0]); setGeo(callRing, 'cy', a[1]); setGeo(callRing, 'r', rr);
     leadGL.paint();
-    return [[a[0] + (bx - a[0]) * e0, a[1] + (by - a[1]) * e0], [bx, by]];
+    const ld = out.lead;
+    ld[0][0] = a[0] + (bx - a[0]) * e0; ld[0][1] = a[1] + (by - a[1]) * e0; ld[1][0] = bx; ld[1][1] = by;
+    return ld;
   }
   // Zone names written in the bands themselves, as the organs are named on the anatomy: quiet capitals in each
   // zone's color, on the radius to the flat bottom edge, so each name runs along its band. The three elements are made
@@ -1637,9 +1647,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const ZONE_Q = [0.83, 0.51, 0.2];
   const zSx = new Float64Array(12), zSy = new Float64Array(12), zTx = new Float64Array(13), zTy = new Float64Array(13), zTd = new Float64Array(13);
   const zBox = { l: 0, r: 0, t: 0, b: 0 };
+  const zoneBoxesBuf = [], zoneBoxPool = [{ l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }];   // (placeZones' answer: the boxes of the names on show, kept and written again)
   function placeZones(fr0, hx, hy, lesion = null) {
     if (!zonesOn) { while (zoneEls.length) { const z = zoneEls.pop(); fadeOut(z, () => restRemove(z)); } return NO_BOXES; }   // alloc-rare: only when the Zones layer is switched off (the names are taken out once)
-    const { R, cx, cy } = geo, a = Math.PI / 2, ap = R * 0.866, boxes = [];
+    const { R, cx, cy } = geo, a = Math.PI / 2, ap = R * 0.866, boxes = zoneBoxesBuf;
+    boxes.length = 0;
     const midx = (fr0.l + fr0.r) / 2, midy = (fr0.t + fr0.b) / 2;
     for (let i = 0; i < 3; i++) {
       const q = ZONE_Q[i];
@@ -1675,7 +1687,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       fadeIn(z);
       put(z, zTx[at], zTy[at]);
       // (A zone the slide's words leave unlit fades out: its spot is free for the labels.)
-      if (!faded(ZONE_LIT[i])) boxes.push({ l: zTx[at] - w / 2 - hx, r: zTx[at] + w / 2 + hx, t: zTy[at] - hh / 2 - hy, b: zTy[at] + hh / 2 + hy });   // (the layout keeps these boxes)
+      if (!faded(ZONE_LIT[i])) { const zb = zoneBoxPool[i]; zb.l = zTx[at] - w / 2 - hx; zb.r = zTx[at] + w / 2 + hx; zb.t = zTy[at] - hh / 2 - hy; zb.b = zTy[at] + hh / 2 + hy; boxes.push(zb); }   // (the layout keeps these boxes, one a zone, written again each layout: placed holds them only until the next layout)
     }
     return boxes;
   }
@@ -2159,7 +2171,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const outsOf = (s) => { let n = 0; for (let i = 0; i < s.n; i++) if (s.res[i].out && isCoreK(s.res[i].k)) n++; return n; };
   const betterSol = (p, q) => outsOf(p) < outsOf(q) || (outsOf(p) === outsOf(q) && p.total < q.total);
   // The pill's state as it stands (where it was put, its ends, what it cost), kept to put back should a layout not win.
-  const callState = (lead) => ({ lead, prev: callPrev, cost: callCost, hasAt: spot.has(callEl), ax: spot.has(callEl) ? spot.get(callEl)[0] : 0, ay: spot.has(callEl) ? spot.get(callEl)[1] : 0, line: [geoOf(callLine, 'x1'), geoOf(callLine, 'y1'), geoOf(callLine, 'x2'), geoOf(callLine, 'y2')] });   // alloc-rare: only the settled re-layout that still has a clash (sol.total >= 1e5, the hand up), never a frame of a hand's move
+  const callState = (lead) => ({ lead, pOn: cpOn, pAt: cpAt, pDx: cpDx, pDy: cpDy, cost: callCost, hasAt: spot.has(callEl), ax: spot.has(callEl) ? spot.get(callEl)[0] : 0, ay: spot.has(callEl) ? spot.get(callEl)[1] : 0, line: [geoOf(callLine, 'x1'), geoOf(callLine, 'y1'), geoOf(callLine, 'x2'), geoOf(callLine, 'y2')] });   // alloc-rare: only the settled re-layout that still has a clash (sol.total >= 1e5, the hand up), never a frame of a hand's move
   // A vessel label hidden or crowded: two more layouts are tried, and the one hiding the fewest vessel labels (central
   // vein, sinusoids, portal tract, and any the slide names), then crowding least, is kept. First, the vessel labels
   // placed before the slide's pill, the pill clear of them and their leaders, the optional labels in what is left.
@@ -2175,7 +2187,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     permStart(idx, core.length);
     do { if (s1.total < 1e5) break; const t = solve(permOf(core, idx, ord), LC.pre, LC.none, tb); if (t.total < s1.total) { tb = s1; s1 = t; } } while (nextPerm(idx, core.length));
     const pl2 = s1.pl.slice();   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
-    const lead2 = placeCall(fr, pl2, cards, s1.ld, crosses, ring, hex, keep, into);
+    const lead2 = placeCall(fr, pl2, cards, s1.ld, crosses, ring, hex, keep, into, mkCallOut());   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
     if (callLead && callCost >= 1e6) return null;
     const s3 = solve(rest, pl2, lead2 ? [...s1.ld, lead2] : s1.ld, mkSol());   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
     const out = mkSol();   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
@@ -2207,7 +2219,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const g = geo, cx = (fr.l + fr.r) / 2, cy = (fr.t + fr.b) / 2, a0x = sinIt.a[0], a0y = sinIt.a[1];
       const cands = [];   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
       for (const list of [g.L1, g.L2, g.L0]) for (const t of list) {   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
-        const p = toScreen(sinAt(t));
+        const q = sinAt(t), p = [sX(q[0]), sY(q[1])];   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
         if (p[0] > fr.l + 30 && p[0] < fr.r - 30 && p[1] > fr.t + 30 && p[1] < fr.b - 30) cands.push([t, p]);   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
       }
       cands.sort((p, q) => Math.hypot(p[1][0] - cx, p[1][1] - cy) - Math.hypot(q[1][0] - cx, q[1][1] - cy));   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
@@ -2224,7 +2236,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       sinIt.a[0] = winX; sinIt.a[1] = winY;
     }
     const c = won ? won.call : shown;
-    callPrev = c.prev; callCost = c.cost;
+    cpOn = c.pOn; cpAt = c.pAt; cpDx = c.pDx; cpDy = c.pDy; callCost = c.cost;
     if (c.hasAt) put(callEl, c.ax, c.ay); else { spot.delete(callEl); callEl.style.translate = ''; callEl._tx = NaN; }
     for (let i = 0; i < 4; i++) setGeo(callLine, CALL_ENDS[i], c.line[i] ?? null);
     leadGL.paint();
@@ -2388,7 +2400,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // The slide's pointer pill is placed first (it is the slide's point): the labels then keep clear of it and its leader.
     const pre = LC.pre, base = LC.base;
     pre.length = 0; for (let i = 0; i < placed.length; i++) pre.push(placed[i]);
-    const callLead = placeCall(fr, placed, cards, LC.none, crosses, ring, hex, keep, into);
+    const callLead = placeCall(fr, placed, cards, LC.none, crosses, ring, hex, keep, into, callOutMain);
     base.length = 0; for (let i = 0; i < placed.length; i++) base.push(placed[i]);
     LC.ld0.length = 0; if (callLead) LC.ld0.push(callLead);
     // The designed spots: where the portal tract stands, outward from the central vein.
@@ -2709,8 +2721,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const WIDE_HIDE = [tissue, tissueG, glCv, fx, fxG];
   function padBox(W, H) {
     if (!geo || atFit) return null;
-    const [x, y] = toScreen([geo.cx, geo.cy]);
-    return padRect(x, y, geo.R * V.k * 1.35, W, H);
+    return padRect(sX(geo.cx), sY(geo.cy), geo.R * V.k * 1.35, W, H);
   }
   function buildWide(W, H, box) {
     resCoverEnd();
@@ -2759,7 +2770,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!wg || !wg.begin()) return null;
     const hosted = !!wideHostFor, res = hosted && g.software ? 0.5 : 1;   // (hosted: the tiles at the vessels' canvas's density, as drawGL sizes it)
     const dpr0 = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), dpr = wideDpr(dpr0, box.w, box.h, apple());
-    const dark = isDark(), cs = styles(), [cx, cy] = toScreen([geo.cx, geo.cy]), r = geo.R * V.k;
+    const dark = isDark(), cs = styles(), cx = sX(geo.cx), cy = sY(geo.cy), r = geo.R * V.k;
     // (Each tile reaches OV under its right and lower neighbours, as above: there it only feeds the filtering at the tile's edge.)
     const OV = 2 / dpr, parts = wideTiles(box.w, box.h, dpr), TW = Math.max(...parts.map((t) => t.w)) + OV, TH = Math.max(...parts.map((t) => t.h)) + OV;
     let ok = true;
@@ -2849,7 +2860,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     else clampV();
   }
   function viewSpot() {
-    const f = freeRect(), [wx, wy] = toWorld([(f.l + f.r) / 2, (f.t + f.b) / 2]);   // alloc-rare: only when the lobule's size changed (a new build), never a frame's own
+    const f = freeRect(), wx = wX((f.l + f.r) / 2), wy = wY((f.t + f.b) / 2);
     return { u: (wx - geo.cx) / geo.R, v: (wy - geo.cy) / geo.R, z: V.k / (kFit || V.k) };   // alloc-rare: only when the lobule's size changed (a new build), never a frame's own
   }
   function toSpot(p) {
@@ -3287,7 +3298,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const [W, H] = hostSize(), box = reduce.matches ? null : padBox(W, H), wd = box ? buildWide(W, H, box) : null;
     // (The tissue drawn on the GPU now, unseen, with the rim the dive will scale it down with (setDiveZoom, about the landing), so the
     // zoom's first frame has nothing to draw. Landed, it is drawn once more without the rim.)
-    if (!wd && !reduce.matches && geo) { const [x, y] = toScreen([geo.cx, geo.cy]); diveRim = rimOf(x, y, geo.R * V.k); }
+    if (!wd && !reduce.matches && geo) diveRim = rimOf(sX(geo.cx), sY(geo.cy), geo.R * V.k);
     idleDrawn = ''; draw(0); diveDrawn = true; staged = api.viewKey(); relLater = true; wide = wd;
     // (The landing frame sends the bitmap to the GPU itself (tissueOnGPU), not this staging: a send here showed the lobule's tissue
     // black on a Mac while zooming into it, until a pan, 1 Nov 2026.)
@@ -4187,7 +4198,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       for (let i = 0; i < n; i++) {
         const u = (mo.lu + i / n) % 1, e = Math.min(u, 1 - u) * n;   // fading in and out at the ends
         if (e < 0.25) continue;
-        const [x, y] = at(t.pts, u), tp = t.kind === 'ly' ? lyTaper(Math.hypot(x - G.cx, y - G.cy) / G.R) : 1;
+        atInto(t.pts, u, lyAt);
+        const x = lyAt[0], y = lyAt[1], tp = t.kind === 'ly' ? lyTaper(Math.hypot(x - G.cx, y - G.cy) / G.R) : 1;
         if (tp < 0.2) continue;   // too far in: the channel has thinned out
         lyPut(x, y, r * Math.min(1, e) * smooth(0.2, 0.8, tp), t.id + i);
       }
@@ -4404,7 +4416,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     let best = null, bd = Infinity;
     for (const t of G.tubes) {
       if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd' || (t.lymph && !lymphOn)) continue;
-      const [d] = distTo(t.pts, x, y), r = radiusAt(t, N >> 1), tol = Math.max(r + (t.kind === 'tw' ? 6 : 5), 10 / V.k);
+      const d = distTo(t.pts, x, y), r = radiusAt(t, N >> 1), tol = Math.max(r + (t.kind === 'tw' ? 6 : 5), 10 / V.k);
       const score = d - r - (t.kind === 'tw' ? 2 : 0);
       if (d < tol && score < bd) { bd = score; best = t; }
     }
@@ -4412,7 +4424,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (m.septU > 0.1) {
       const C = G.lobules[0].corners, w = G.R * (0.02 + 0.05 * m.septU) / 2 + 4;
       for (let i = 0; i < 6; i++) { const A = C[i], B = C[(i + 1) % 6], dx = B[0] - A[0], dy = B[1] - A[1], L2 = dx * dx + dy * dy, t = clamp(((x - A[0]) * dx + (y - A[1]) * dy) / L2, 0, 1); if (Math.hypot(A[0] + dx * t - x, A[1] + dy * t - y) < w) { if (o) o.part = 'septum'; return true; } }
-      if (m.septU > 0.18) for (const sp of G.septaPC) if (distTo(sp.pts, x, y)[0] < w) { if (o) o.part = 'septum'; return true; }
+      if (m.septU > 0.18) for (const sp of G.septaPC) if (distTo(sp.pts, x, y) < w) { if (o) o.part = 'septum'; return true; }
     }
     const q = hexFrac(x, y, G.cx, G.cy, G.R);
     if (q < 1) { if (o) { o.part = 'hep'; o.zone = zoneOf(q); } return true; }
@@ -4445,7 +4457,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function sinusoidPick() {
     const sl = store.get().selection, G = geo, P = sinPickObj;
     const own = sl?.type === 'lobule' && (sl.part === 'sin' || sl.part === 'an') && G.tubes[sl.tube];
-    if (own) { P.tube = own.id; P.w = sl.at || at(own.pts, 0.45); return P; }
+    if (own) { P.tube = own.id; P.w = sl.at || at(own.pts, 0.45); return P; }   // alloc-rare: once per sinusoid zoom (a pick), never a frame's
     // Otherwise a long, straight stretch of a sinusoid that already runs the way the sinusoid view does (from
     // the portal side toward the central vein, across a landscape screen, down a portrait one), near the
     // middle of the screen: the zoom then only grows it, with hardly any turn, and the straight vessel of
@@ -4464,7 +4476,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     if (found) return P;
     const t = sinTube();
-    P.tube = t.id; P.w = at(t.pts, 0.45);
+    P.tube = t.id; P.w = at(t.pts, 0.45);   // alloc-rare: once per sinusoid zoom (a pick), never a frame's
     return P;
   }
   // At sample i of a sinusoid: the blood's direction (toward the central vein), and how far the vessel stays
@@ -4490,9 +4502,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (keep: an earlier geometry whose sinusoid end is kept, so only the lobule end moves.)
   const diveObj = { p: [0, 0], c: [0, 0], q: [0, 0], rot: 0, Z: 1, run: [0, 0], k: 1, ang: 0, lumen: 0 };   // (the zoom's geometry, one object kept and written in place: sinDive is it, or null)
   function diveGeometry(keep) {
-    const G = geo, t = G.tubes[sinPick.tube], [, u] = distTo(t.pts, sinPick.w[0], sinPick.w[1]);
-    const i = clamp(Math.round(u * (N - 1)), 1, N - 2), sr = straightRun(t, i), th = sr.th;
-    const pt = at(t.pts, u), p0 = pt[0] * V.k + V.x, p1 = pt[1] * V.k + V.y;
+    const G = geo, t = G.tubes[sinPick.tube];
+    distTo(t.pts, sinPick.w[0], sinPick.w[1]);
+    const u = distU, i = clamp(Math.round(u * (N - 1)), 1, N - 2), sr = straightRun(t, i), th = sr.th;
+    atInto(t.pts, u, diveAt);
+    const p0 = diveAt[0] * V.k + V.x, p1 = diveAt[1] * V.k + V.y;
     // (The frame the zoom lands on, as the sinusoid view rests, or the earlier geometry's own: taken before anything is written, keep being this same object.)
     let Fx, Fy, Fang, Fk, Flumen;
     if (keep) { Fx = keep.c[0]; Fy = keep.c[1]; Fang = keep.ang; Fk = keep.k; Flumen = keep.lumen; }
@@ -4679,14 +4693,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       ensureGeo(Math.max(1, Math.round(rect.width)), Math.max(1, Math.round(rect.height)));
 
       resetView();
-      const [x, y] = toScreen([geo.cx, geo.cy]);
-      return { x, y, r: geo.R * V.k };
+      return { x: sX(geo.cx), y: sY(geo.cy), r: geo.R * V.k };
     },
     /** Where the lobule is now (it may be zoomed or panned), for the way out. */
     current() {
       if (!geo) return this.landing();
-      const [x, y] = toScreen([geo.cx, geo.cy]);
-      return { x, y, r: geo.R * V.k };
+      return { x: sX(geo.cx), y: sY(geo.cy), r: geo.R * V.k };
     },
     setDive: (d) => framePart('lz.setDive', () => paintField(d)),
     sinBusy: () => sinBusyNow(),
@@ -4752,13 +4764,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
      *  out from the central vein (0) to the lobule's rim (1) along that ray, and where on screen. */
     sinAnchor() {
       if (!geo) return null;
-      const t = sinTube(), p = sinAt(t), [x, y] = toScreen(p);
-      return { lvl: t.lvl, f: rimFrac(p), x, y };
+      const t = sinTube(), p = sinAt(t);
+      return { lvl: t.lvl, f: rimFrac(p), x: sX(p[0]), y: sY(p[1]) };
     },
     /** Where a lobule selection is on screen (for the action card), as the stage's anchorFor. */
     anchorFor(sl) {
       if (!geo || sl?.type !== 'lobule') return null;
-      const w = sl.at || [geo.cx, geo.cy], [x, y] = toScreen(w);
+      const w = sl.at, x = sX(w ? w[0] : geo.cx), y = sY(w ? w[1] : geo.cy);
       return { x, y, path: [[x, y]] };
     },
     resetView,
@@ -4820,7 +4832,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     ring() {
       if (!geo || fade <= 0.98 || sinU > 0 || sinTo) return null;
       const r = host.getBoundingClientRect();
-      const at = (p) => { const [x, y] = toScreen(p); return [x + r.left, y + r.top]; };
+      const at = (p) => [sX(p[0]) + r.left, sY(p[1]) + r.top];
       const out = geo.lobules[0].corners.map(at);
       // (Drawn round it, the credit keeps off these too: every portal tract (each lobule's corners, with the arteriole, ductule
       // and lymphatic beside the venule) and the neighbouring lobules' central veins, as [x, y, radius] in client px.)
