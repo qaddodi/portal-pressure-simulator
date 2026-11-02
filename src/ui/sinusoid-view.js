@@ -25,8 +25,8 @@ import { isPaused } from './clock.js?v=16aba0e2eb';
 import { store } from './store.js?v=4ef2a6ffd8';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=85e18568b4';
-import { placeFenDisse } from './fen-place.js?v=d019fd9268';
+import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=9d02fbd374';
+import { placeFenDisse } from './fen-place.js?v=e872f8cbb4';
 import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=7710f677e2';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
@@ -902,6 +902,11 @@ export function createSinusoidView({ host, before = null }) {
 
   return {
     el,
+    /** The canvas the cards' frosted glass is drawn into while the sinusoid is open and still (lobule-zoom.js glassHost), else null. */
+    glassHost() {
+      if (!gpu || gpu.lost || !open || shown < 1 || dive || !canvas.width || !canvas.height) return null;
+      return { gl: gpu.top.gl, canvas, add: gpu.top.add, warmIn: gpu.top.warmIn, now: () => { gpu.present(); }, seq: () => gpu.drawSeq, onPicture: (f) => gpu.onPicture(f) };
+    },
     /** The lobule's model (lobuleState), each time it changes. */
     setModel(m) { model = m; if (shown > 0 && !raf) raf = nextFrame(loop); },
     /**

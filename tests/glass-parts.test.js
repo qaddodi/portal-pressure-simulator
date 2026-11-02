@@ -41,7 +41,10 @@ test('an offset copy: parts are counted from its corner', () => {
 });
 
 test('by default the glass is blurred again on the blood\'s frames and only in its parts; ?glasshold=1 and ?glassfull=1 give the old way back', () => {
-  assert.equal((STAGE.match(/version: \(\) => veins\.drawSeq, fresh: \(\) => veins\.bloodSeq, /g) || []).length, 3, 'the callouts, the cards and the liver\'s pane');
+  assert.equal((STAGE.match(/version: \(\) => veins\.drawSeq, fresh: \(\) => veins\.bloodSeq, /g) || []).length, 2, 'the callouts and the liver\'s pane');
+  // (The cards follow the canvas their frost is taken from: the figure's blood frames there, none in the liver's: frostSeq, frostFresh.)
+  assert.match(STAGE, /cards, live: [^\n]*version: frostSeq, fresh: frostFresh, /);
+  assert.match(STAGE, /const frostFresh = \(\) => \(frostLiver \? 0 : veins\.bloodSeq\);/);
   assert.match(SRC, /const key = `\$\{version \? version\(\) : performance\.now\(\)\}\|\$\{fresh \? fresh\(\) : ''\}\|\$\{rest\}`;/);
   assert.match(SRC, /let parts = full \? null : blurBoxes\(/);
   assert.match(SRC, /const ok = hostBlur\(grid, parts\);/);

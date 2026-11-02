@@ -1022,6 +1022,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   }
   function track(e) { if (e?.getAnimations) for (const an of e.getAnimations()) addAnim(e, an); }
   // (A script's animate() on a glass or on what holds it is followed from its first frame: no event announces one.)
+  // (An element whose inline opacity a stylesheet's !important beats, as read at the last read of the page: the teaching card's shade keeps
+  // style.opacity 1 while .pz-leave holds it at 0 !important. Its fade is then the computed one, never the inline value, or the glass
+  // drew the card's shell where the page showed none: the ghost panel left behind a case card (2 Nov 2026).)
+  const inlineLoses = new WeakSet();
   const hooked = new WeakSet();
   function hook(e) {
     if (!e || hooked.has(e) || typeof e.animate !== 'function') return;
@@ -1053,7 +1057,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       if (!t) { const a = shiftOf(s.transform); if (!a) flag.bad = true; else t = a; }
       const b = translateOf(s.translate);
       if (!b) flag.bad = true; else if (t) t = [t[0] + b[0], t[1] + b[1]]; else t = b;
-      if (o == null && s.opacity !== '' && s.opacity != null) o = NUM(s.opacity);
+      if (o == null && s.opacity !== '' && s.opacity != null && !inlineLoses.has(e)) o = NUM(s.opacity);
     }
     return { t: t || [0, 0], o };
   }
@@ -1081,7 +1085,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     resolveColour(bgVar);
     const panes = readPanes(list, MOTION).map((p) => {
       resolveColour(p.tint);
-      const chain = chainOf(p.g), mv = chainMove(chain, flag);
+      const chain = chainOf(p.g);
+      for (const e of chain) { const so = e.style?.opacity; if (so !== '' && so != null && ![...(anims.get(e)?.keys() || [])].some((an) => an.playState === 'running') && Math.abs(fadeOf(e) - NUM(so)) > 0.01) inlineLoses.add(e); else inlineLoses.delete(e); }
+      const mv = chainMove(chain, flag);
       // (The fade of what does not move, read now; what moves is put back each frame.)
       let aS = p.oa ?? 1;
       for (const e of chain) { if (moveOf(e, flag).o != null) continue; const v = fadeOf(e); if (v < 1) aS *= v; }   // (a missing or odd value is no fade)

@@ -608,7 +608,55 @@ export function createSinusoidGL(canvas) {
     return mOk;
   };
   canvas.addEventListener('webglcontextlost', () => { M = null; mTex = null; mOk = null; });
+  // What is drawn over the sinusoid in this canvas (the cards' frosted glass, glass-gl.js setHost; Mohammad, 2 Nov 2026: "No blur at
+  // all on top, solid card on bottom"): the same top hook as the figure's canvas (veins-gl top), laid at the end of every draw, so the
+  // glass is blurred from the sinusoid's own picture on the GPU. last: the last draw's arguments, so present() lays it again at once.
+  const tops = [], pics = new Set();
+  let presents = 0, seq = 0, last = null;
+  const runTops = () => {
+    if (!tops.length) return;
+    for (const t of tops.slice()) { try { t.prep?.(); } catch (e) { console.warn('sinusoid: what is drawn over it failed.', e); tops.splice(tops.indexOf(t), 1); } }
+    for (const t of tops.slice()) { try { t.draw(); } catch (e) { console.warn('sinusoid: what is drawn over it failed.', e); tops.splice(tops.indexOf(t), 1); } }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  };
+  const top = {
+    gl, canvas,
+    add(t) { tops.push(t); tops.sort((a, b) => (a.order || 0) - (b.order || 0)); return () => { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); }; },
+    // (A warm-up of what is drawn over it: run once its programs say they are compiled, between frames.)
+    warmIn(t) {
+      if (!t) return;
+      const go = () => { if (gl.isContextLost()) return; if (t.done && !t.done()) { setTimeout(go, 50); return; } try { t.run(); } catch { /* (a warm-up that fails changes nothing drawn) */ } };
+      setTimeout(go, 0);
+    },
+    get presents() { return presents; },
+  };
+  function drawNow(u, pts, n) {
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.disable(gl.BLEND);
+    tissue(u, 0);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    if (n > 0) {
+      gl.useProgram(P.p);
+      set(P.U, 'size', [canvas.width, canvas.height]);
+      for (const k in u) set(P.U, k, u[k]);
+      gl.bindVertexArray(pvao); gl.bindBuffer(gl.ARRAY_BUFFER, pbuf);
+      gl.bufferData(gl.ARRAY_BUFFER, pts.subarray(0, n * 5), gl.STREAM_DRAW);
+      gl.drawArrays(gl.POINTS, 0, n);
+    }
+    tissue(u, 1);
+    gl.bindVertexArray(null);
+    presents++;
+  }
   return {
+    /** The top hook for the cards' glass: { gl, canvas, add, warmIn, presents }. */
+    top,
+    /** Lays the last picture again (with what is drawn over it), at once: the glass changed, the sinusoid did not. */
+    present() { if (last && ready() && !gl.isContextLost()) { drawNow(...last); runTops(); } },
+    /** How many new pictures have been drawn (the glass blurs again only when this changes). */
+    get drawSeq() { return seq; },
+    /** Calls f each time a new picture is drawn; returns the call that stops it. */
+    onPicture(f) { pics.add(f); return () => pics.delete(f); },
     get ok() { return ready(); },
     /** Copies the picture drawn in this task into the mix's texture; false where it cannot (no context, no program). */
     keep() {
@@ -623,7 +671,7 @@ export function createSinusoidGL(canvas) {
     },
     /** Lays the kept picture over the one just drawn, at weight a (1: the old picture alone, 0: the new). */
     mix(a) {
-      if (!mTex || !M || gl.isContextLost() || !(a > 0)) return;
+      if (!mTex || !M || gl.isContextLost() || !(a > 0)) { if (!gl.isContextLost()) runTops(); return; }
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.useProgram(M.p); gl.bindVertexArray(vao);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, mTex);
@@ -631,6 +679,7 @@ export function createSinusoidGL(canvas) {
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.bindVertexArray(null);
+      runTops();
     },
     /** Lets the kept picture go. */
     drop() { if (mTex && !gl.isContextLost()) gl.deleteTexture(mTex); mTex = null; },
@@ -640,21 +689,11 @@ export function createSinusoidGL(canvas) {
     /** u: uniforms by name; pts: Float32Array of (x, y, r, alpha, kind) × n. The tissue, the particles, then the cells over them. */
     draw(u, pts, n) {
       if (!ready()) return;
-      gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.disable(gl.BLEND);
-      tissue(u, 0);
-      gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      if (n > 0) {
-        gl.useProgram(P.p);
-        set(P.U, 'size', [canvas.width, canvas.height]);
-        for (const k in u) set(P.U, k, u[k]);
-        gl.bindVertexArray(pvao); gl.bindBuffer(gl.ARRAY_BUFFER, pbuf);
-        gl.bufferData(gl.ARRAY_BUFFER, pts.subarray(0, n * 5), gl.STREAM_DRAW);
-        gl.drawArrays(gl.POINTS, 0, n);
-      }
-      tissue(u, 1);
-      gl.bindVertexArray(null);
+      last = [u, pts, n];
+      drawNow(u, pts, n);
+      seq++;
+      for (const f of pics) f();
+      if (!mTex) runTops();   // (a resolution's fade under way lays the old picture over this one first: mix lays the glass after it)
     },
   };
 }

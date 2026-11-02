@@ -41,7 +41,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=36a333d50a';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
-import { createSinusoidView } from './sinusoid-view.js?v=4e1e4a74a4';
+import { createSinusoidView } from './sinusoid-view.js?v=3b0daa69f0';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=7710f677e2';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=4ffac3ef7f';
@@ -1943,6 +1943,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // simply show again, already drawn: the same picture at the same detail, with no redraw. A tile the browser refuses (its
   // canvas memory spent) drops the copy, and the dive shows the layers as before rather than a blank lobule.
   let wideBuild = false;   // (buildWide is drawing the copy's tiles)
+  const sinBusyNow = () => (sinTo === 1 ? sinU < 1 : sinU > 0);
   let wide = null;   // { el, tiles, box, soft }: the copy, its tiles in one box placed at (−l, −t) in the stage
   const WIDE_HIDE = [tissue, tissueG, glCv, fx, fxG];
   function padBox(W, H) {
@@ -3526,10 +3527,20 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       return { x, y, r: geo.R * V.k };
     },
     setDive: (d) => framePart('lz.setDive', () => paintField(d)),
-    sinBusy: () => sinTo === 1 ? sinU < 1 : sinU > 0,
+    sinBusy: () => sinBusyNow(),
     // (The vessel canvas keeps no picture between frames (veins-gl OWN_BUF with LZ_ONE): a reader outside the frame lays it first.)
     capture: () => gl?.capture?.() ?? null,
     sinusoidOpen: () => sv.isOpen(),
+    /** The GPU canvas the cards' frosted glass is drawn into while the liver shows (stage.js frostSrc; Mohammad, 2 Nov 2026: "No blur at all on
+     *  top, solid card on bottom"): the open sinusoid's, or the landed lobule's vessel canvas (its tissue is laid in it too), or null while
+     *  either is moving (a dive, the zoom into or out of a sinusoid), drawn as tiles, or has no such canvas. { gl, canvas, add, warmIn, now,
+     *  seq, onPicture }. */
+    glassHost() {
+      if (sinU > 0 || sinTo === 1) return !sinBusyNow() && sv.isOpen() ? sv.glassHost?.() ?? null : null;
+      if (fade <= 0.98 || diveScaled || !gl || gl.lost || !gl.top || wide || el.style.transform || glCv.style.visibility === 'hidden') return null;
+      const g = gl;
+      return { gl: g.top.gl, canvas: g.top.canvas, add: g.top.add, warmIn: g.top.warmIn, now: () => { if (!g.lost) g.present(); }, seq: () => g.drawSeq, onPicture: (f) => g.onPicture(f) };
+    },
     sinusoidMoving: () => !!sv.labelsMoving?.(),
     sinZoom: () => sinZ,
     prewarm, warm, stage: () => framePart('lz.stage', stage), stageRise: () => framePart('lz.stageRise', stageRise), paintAhead, preparePieces, prepareRun,

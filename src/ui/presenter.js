@@ -1031,7 +1031,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // while its organs change (stage.canDrift: no live GPU organs, so a glide over the changing organs would paint them all each frame;
   // there the change still waits for the landing, over MORPH_ONE_MS).
   const ONE_MOVE = !/[?&]onemove=0\b/.test(location.search);
-  const CARDS_AT = 0.4, MORPH_ONE_MS = 1200;
+  // (Quick slide, Mohammad 2 Nov 2026, "Do it" to review/slide-motion-recs-2nov: the screen sat with no card for 0.4 to 0.8 s while the
+  // glide ran. The cards now come in once a quarter of the glide has run (CARDS_AT 0.75 of it left), the smooth-frames gate gives up after
+  // QUICK_SMOOTH ms, not 700, and the new card starts its way in at once, not 120 ms late. ?quickslide=0: as before.)
+  const QUICK_SLIDE = !/[?&]quickslide=0\b/.test(location.search), QUICK_SMOOTH = 240;
+  const CARDS_AT = QUICK_SLIDE ? 0.75 : 0.4, MORPH_ONE_MS = 1200;
   // A chart or gauge that only reads the model as it eases (the pressure profile, a relation curve, the flows, the talk's trace, the criteria,
   // the plane) comes in over the change, riding it: its numbers and curve travel with the vessels, as a kept card's do. An instrument that
   // records the patient's flow (Doppler, beat by beat, vitals), plays on arrival, or is a deck package's own, still waits for the slide's state.
@@ -1787,7 +1791,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const x = k === 'next' ? d : k === 'back' ? -d : 0, from = x ? `translateX(${x}px)` : `translateY(${RISE_PX}px)`;
     if (CARD_PAGE) {
       // (The page: the glass and its words come in as one card, the same keyframes on both, started in the same frame.)
-      const frames = pageIn(k, d, RISE_PX), how = { duration: D_SURFACE, delay: 120, easing: EASE_ARRIVE, fill: 'backwards' };
+      const frames = pageIn(k, d, RISE_PX), how = { duration: D_SURFACE, delay: QUICK_SLIDE ? 0 : 120, easing: EASE_ARRIVE, fill: 'backwards' };
+      // (No delay on the glass's own fade either, so it never runs on after the keyframes end and dips: app.css gives it .12s.)
+      if (QUICK_SLIDE && ui.shade.style.transitionDelay !== '0s') ui.shade.style.transitionDelay = '0s';
       turnAnim = t.animate?.(frames, how) || null;
       shadeAnim = ui.shade.animate?.(frames, how) || null;
       return;
@@ -2088,7 +2094,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // The cards fade in once the figure is quiet: after a new patient, once the organs' picture is redrawn (its long frame
       // had eaten the fade), and in any case only when frames come smoothly (see smooth).
       if (swap) { await until(() => cut() || stage.organsSettled(), 1500); if (cut()) return; }
-      if (prep) { if (await prep) await smooth(cut); } else await unseen(cut);
+      if (prep) { if (await prep) await smooth(cut, QUICK_SLIDE ? QUICK_SMOOTH : 700); } else await unseen(cut);
       if (cut()) return;
       await ui.tools.ready(900); if (cut()) return;   // (a recording instrument's window is filled before its card comes in: tools.prime)
       await caseEnd(cut); if (cut()) return;
@@ -2181,7 +2187,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // never snap to it in view (an upright iPad's teaching card did). cardsIn's own reFit then finds nothing left to change.
   async function unseen(cut) {
     if (ui) { reFit(); layout(); await painted(); await painted(); if (cut() || !ui) return; layout(); }
-    await smooth(cut);
+    await smooth(cut, QUICK_SLIDE ? QUICK_SMOOTH : 700);
   }
   // The same, in two parts for a move over the plate: the fitting (true once the cards are fitted, still unseen) runs under the glide's
   // first frames, and the smooth-frames gate runs where it always did, right before the cards come in.

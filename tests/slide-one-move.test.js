@@ -11,7 +11,7 @@ const cam = src.slice(src.indexOf('async function camera('), src.indexOf('const 
 
 test('the flag, the share of the glide and the shared morph window', () => {
   assert.match(src, /const ONE_MOVE = !\/\[\?&\]onemove=0\\b\/\.test\(location\.search\);/);
-  assert.match(src, /const CARDS_AT = 0\.4, MORPH_ONE_MS = 1200;/);
+  assert.match(src, /const CARDS_AT = QUICK_SLIDE \? 0\.75 : 0\.4, MORPH_ONE_MS = 1200;/);
   assert.match(src, /const MORPH_MS = 2000;/, 'the old window stays for ?onemove=0 and a question\'s answer');
 });
 
@@ -59,7 +59,7 @@ test('same patient over the plate: the cards\' last fitting starts as the glide 
   const glide = run.indexOf('else if (cam) await camera(cam, fv, cut, plate ? CARDS_AT : 0, prepWith);');
   assert.ok(run.indexOf('const prepWith = ') > 0 && run.indexOf('const prepWith = ') < glide);
   // (the smooth-frames gate still runs right before the cards, as it always did: only the fitting started early)
-  assert.match(run, /if \(prep\) \{ if \(await prep\) await smooth\(cut\); \} else await unseen\(cut\);\s*if \(cut\(\)\) return;/);
+  assert.match(run, /if \(prep\) \{ if \(await prep\) await smooth\(cut, QUICK_SLIDE \? QUICK_SMOOTH : 700\); \} else await unseen\(cut\);\s*if \(cut\(\)\) return;/);
   assert.match(src, /async function unseenFit\(cut\) \{\s*if \(ui\) \{ reFit\(\); layout\(\); await painted\(\); await painted\(\); if \(cut\(\) \|\| !ui\) return false; layout\(\); \}\s*return true;\s*\}/);
   // (Every other path still fits the cards after the glide, or after the change of patient: no `prep` there.)
   assert.equal(run.split('prep ||= unseenFit(cut)').length, 2, 'one place starts the early fitting');

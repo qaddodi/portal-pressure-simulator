@@ -51,7 +51,7 @@ import { pathCmds, flattenCmds, polyBox, measurePath } from './shape-gl.js?v=977
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=0fa4a4ee45';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=f960b96951';
 import { createLabelGL } from './label-gl.js?v=e9a4ab1e0b';
-import { createGlassGL } from './glass-gl.js?v=c9021b91cd';
+import { createGlassGL } from './glass-gl.js?v=ebe96d8dd3';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=36a333d50a';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
@@ -2704,7 +2704,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=b544210479').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=37756266bd').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -6605,6 +6605,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let labelHoles = null;
   const sendHoles = () => labelHoles?.setHoles([].concat(...holeSets.values()));
   const frostHoles = (key) => (list) => { if (list.length) holeSets.set(key, list); else holeSets.delete(key); sendHoles(); };
+  // (The canvas the glasses are drawn into now: frostCtx, its context; frostLiver, the liver's canvas (lobule-zoom.js glassHost) while the
+  // frost is taken from it, else null and the figure's. What the glass keys its blur on follows it: a new picture there, not the figure's.)
+  const LIVER_FROST = !/[?&]liverfrost=0\b/.test(location.search);
+  let frostCtx = null, frostLiver = null;
+  const frostSeq = () => (frostLiver ? `l${frostLiver.seq()}` : veins.drawSeq);
+  const frostFresh = () => (frostLiver ? 0 : veins.bloodSeq);
   // The callouts' frosted glass, drawn on the GPU under both callout layers while it can be (glass-gl.js); else the browser's.
   const glassGL = veins ? createGlassGL(wrap, vCanvas, [cath.labels, sites.el], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: () => veins.bloodSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), copy: GLASS_COPY, onHoles: frostHoles('callouts') }) : null;
   wrap.dataset.glass = glassGL ? 'gpu' : 'css';
@@ -6619,7 +6625,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!veins?.top || GLASS_COPY || CARD_FROST_OFF) return null;
     const shade = cards.low;
     const key = {};
-    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), cards, live: () => wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0), version: () => veins.drawSeq, fresh: () => veins.bloodSeq, onFigure: (f) => veins.onPicture(f), copy: false, onHoles: frostHoles(key) });
+    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0)), version: frostSeq, fresh: frostFresh, onFigure: (f) => veins.onPicture(f), copy: false, onHoles: frostHoles(key) });
     if (!g) return null;
     hostFrost(g, { order: { low: 1, high: 3 }, over: (level) => frostOver(level === 'low' ? 'low' : 'cards'), low: (el) => el === shade });
     cardGLs.add(g);
@@ -8531,6 +8537,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const frostWhy = () => {
     if (frostHold) return 'a change of canvas is under way';
     if (!veins?.top) return 'the figure has no canvas to draw into';
+    // (In the liver the glass is drawn into the lobule's or the open sinusoid's own GPU canvas (lobule-zoom.js glassHost), never let go
+    // to a flat card: Mohammad, 2 Nov 2026, Circulation 6 on the iPhone, "No blur at all on top, solid card on bottom". ?liverfrost=0: as before.)
+    if (LIVER_FROST && wrap.classList.contains('in-lobule')) {
+      const src = lz?.glassHost?.() || null;
+      if (!src) return 'the lobule is moving';
+      if (frostCtx !== src.gl) { rehostSoon(); return 'the glass is moving to the liver\'s canvas'; }
+      return '';
+    }
+    if (frostLiver || frostCtx !== veins.top.gl) { rehostSoon(); return 'the glass is moving back to the figure\'s canvas'; }
     if (veins.lost) return 'the GPU context is lost';
     if (diveT > 0) return 'the dive is under way';
     if (fading(vCanvas)) return 'the canvas is fading (a resolution change)';
@@ -8544,7 +8559,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return vcWhy;
   };
   const frostOn = () => !frostWhy();
-  const frostHost = (o) => ({ gl: veins.top.gl, canvas: veins.top.canvas, add: veins.top.add, warmIn: veins.top.warmIn, now: () => { if (veins && !veins.lost) veins.present(); }, active: frostOn, why: frostWhy, view: () => veins?.viewKey ?? null, ...o });
+  const frostHost = (o, src = null) => (src
+    ? { gl: src.gl, canvas: src.canvas, add: src.add, warmIn: src.warmIn, now: src.now, active: frostOn, why: frostWhy, view: () => null, ...o }
+    : { gl: veins.top.gl, canvas: veins.top.canvas, add: veins.top.add, warmIn: veins.top.warmIn, now: () => { if (veins && !veins.lost) veins.present(); }, active: frostOn, why: frostWhy, view: () => veins?.viewKey ?? null, ...o });
+  // (Every glass moved together to the canvas the frost is taken from now: the liver's (lobule-zoom.js glassHost) while it shows, else
+  // the figure's. Between frames, never inside the glass's own frame, which asked.)
+  let rehostT = 0;
+  function rehostSoon() {
+    if (rehostT) return;
+    rehostT = setTimeout(() => {
+      rehostT = 0;
+      if (!veins?.top) return;
+      const src = LIVER_FROST && wrap.classList.contains('in-lobule') ? lz?.glassHost?.() || null : null;
+      if (LIVER_FROST && wrap.classList.contains('in-lobule') && !src) return;
+      if (src ? frostCtx === src.gl : frostCtx === veins.top.gl && !frostLiver) return;
+      frostLiver = src;
+      frostCtx = src ? src.gl : veins.top.gl;
+      for (const [g, o] of frostHosts) g.setHost(frostHost(o, src));
+      frostWake();
+    }, 0);
+  }
   // The ?perf blur gauge's question: why the browser's blur, not a glass drawn in the figure's canvas, shows on `el` (null: no glass
   // here is meant to own it, as the toast or the fold chip; '' : its glass is drawn, a mark is about to be set).
   const blurWhy = (el) => { for (const g of [glassGL, paneGL, ...cardGLs]) { const w = g?.why?.(el); if (w != null) return w; } return null; };
@@ -8556,7 +8590,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // labels leave every glass drawn here out (sendHoles), so they never send one back; and what still does (an overlay the GPU does not
   // paint, a callout under a card) changes it only after it has rested 400 ms, never while anything moves (glass-gl.js hostDraw).)
   const FROST_HOST = !/[?&]glasshost=0\b/.test(location.search);
-  function hostFrost(g, o) { if (!FROST_HOST || !g || !veins?.top) return; frostHosts.set(g, o); g.setHost(frostHost(o)); }
+  function hostFrost(g, o) { if (!FROST_HOST || !g || !veins?.top) return; frostHosts.set(g, o); g.setHost(frostHost(o, frostLiver)); if (!frostLiver) frostCtx = veins.top.gl; }
   // The ?perf surfaces list (gpu-surfaces.js): the anatomy's own surfaces, each from state this file already keeps. Read by the readout
   // only (twice a second while it is open); without ?perf no getter here is ever called.
   {
