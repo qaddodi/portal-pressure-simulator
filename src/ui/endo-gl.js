@@ -6,7 +6,7 @@
 // the four columns a deflation (0 engorged .. 1 strangulated) and up to four knuckle strengths
 // (0 none .. 1 a cinched band with its dusky knuckle).
 
-import { cssRGB } from './util.js?v=21b73662d1';
+import { cssRGB } from './util.js?v=2aaef6d01f';
 import { columnConsts } from './endo-columns.js?v=381d1443b7';
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=62b8693f78';
 

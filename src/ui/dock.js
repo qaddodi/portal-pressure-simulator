@@ -1,22 +1,22 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, hiddenNow } from './store.js?v=4ef2a6ffd8';
+import { store, hiddenNow } from './store.js?v=bf85512db4';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=21b73662d1';
-import { lobuleFlows } from './lobule-model.js?v=ce552ee378';
-import { createProfile } from './charts.js?v=0898d0aa61';
-import { createPressureTime } from './pressure-time.js?v=e5d9766399';
-import { createHvpgProcedure } from './hvpg-proc.js?v=8dc994ee02';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=0dc8b20ec4';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=2aaef6d01f';
+import { lobuleFlows } from './lobule-model.js?v=4a35b10959';
+import { createProfile } from './charts.js?v=eead0c22ca';
+import { createPressureTime } from './pressure-time.js?v=abf27a287d';
+import { createHvpgProcedure } from './hvpg-proc.js?v=3e5ac2b3f0';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=9d7eed8fe4';
 import { ownsSideways, pageGo } from './swipe.js?v=2e7bdde4d5';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=918b7a65f8';
-import { createReadoutsPane } from './readouts-pane.js?v=8a32783e0a';
-import { frameFor } from './frame.js?v=43da9d808a';
-import { glWords } from './gl-words.js?v=1cfbc177d8';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=5ba328f693';
+import { createReadoutsPane } from './readouts-pane.js?v=99a5ab46fc';
+import { frameFor } from './frame.js?v=9151a68f47';
+import { glWords } from './gl-words.js?v=16e914ccae';
 import { restPass } from './rest-pass.js?v=a36f0b90ba';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
-import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=d8f2957f1e';
+import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=edcaf3cde2';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { compareRows } from './idle-keys.js?v=81fbedda6b';

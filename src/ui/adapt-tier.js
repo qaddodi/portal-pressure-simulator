@@ -15,8 +15,8 @@
 // - Performance mode Quality (frame.js perfMode) never steps down. ?tiers=0: off (Full always, as before).
 // tierLog() keeps the last changes, each with why and the registry's size then. ?perf shows the tier with the budget.
 
-import { watchFrames, frameBudget, perfMode } from './frame.js?v=43da9d808a';
-import { overBudget as graphOver, budget } from './gpu-budget.js?v=5a4095e6db';
+import { watchFrames, frameBudget, perfMode } from './frame.js?v=9151a68f47';
+import { overBudget as graphOver, budget } from './gpu-budget.js?v=2fca5bfd57';
 
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
 export const TIERS_ON = !/[?&]tiers=0\b/.test(SEARCH);

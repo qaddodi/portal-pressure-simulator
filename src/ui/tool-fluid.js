@@ -6,11 +6,11 @@
 // (engine.js starling), read from the slide's fingerprint at rest and from the live model while a time-lapse, a what-if or a
 // compare button moves it.
 
-import { frame } from './frame.js?v=43da9d808a';
-import { createSvgGL, svgModel } from './svg-gl.js?v=ed61366d32';
-import { h, fmt, clamp } from './util.js?v=21b73662d1';
+import { frame } from './frame.js?v=9151a68f47';
+import { createSvgGL, svgModel } from './svg-gl.js?v=f0be1ab6ad';
+import { h, fmt, clamp } from './util.js?v=2aaef6d01f';
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { store } from './store.js?v=4ef2a6ffd8';
+import { store } from './store.js?v=bf85512db4';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const num = (x) => (Number.isFinite(+x) ? +x : null);

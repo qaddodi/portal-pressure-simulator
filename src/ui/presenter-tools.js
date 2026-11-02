@@ -38,20 +38,20 @@
 // has landed, the model sends the steady state's last seconds (worker-core.js, History) and the instrument takes them in front of what it
 // has recorded (backfill.js), so the trace sweeps on live from there instead of in from empty.
 
-import { store } from './store.js?v=4ef2a6ffd8';
-import { h } from './util.js?v=21b73662d1';
+import { store } from './store.js?v=bf85512db4';
+import { h } from './util.js?v=2aaef6d01f';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=181a5759eb';
-import { createFibroScan } from './fibroscan.js?v=78dc3cc875';
-import { createPressureTime } from './pressure-time.js?v=e5d9766399';
-import { createVitalsMonitor } from './vitals-monitor.js?v=2c20b982db';
-import { createHvpgCard } from './tool-hvpg.js?v=29036f89f0';
-import { createFlowTime } from './flow-time.js?v=f49b955d14';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=918b7a65f8';
-import { frameFor } from './frame.js?v=43da9d808a';
+import { createDoppler } from './doppler.js?v=26e295498c';
+import { createFibroScan } from './fibroscan.js?v=476811132e';
+import { createPressureTime } from './pressure-time.js?v=abf27a287d';
+import { createVitalsMonitor } from './vitals-monitor.js?v=896af1c80f';
+import { createHvpgCard } from './tool-hvpg.js?v=72d61ca7d0';
+import { createFlowTime } from './flow-time.js?v=7c614692cb';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=5ba328f693';
+import { frameFor } from './frame.js?v=9151a68f47';
 import { restPass, cancelRest } from './rest-pass.js?v=a36f0b90ba';
-import { talkTrace } from './talk-trace.js?v=55de48d412';
-import { EXT, guard, safe } from './slide-ext.js?v=1cc686e06c';
+import { talkTrace } from './talk-trace.js?v=0f7002106d';
+import { EXT, guard, safe } from './slide-ext.js?v=f6852c2f24';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',

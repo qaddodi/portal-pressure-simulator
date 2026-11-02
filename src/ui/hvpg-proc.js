@@ -8,19 +8,19 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=21b73662d1';
-import { glWords } from './gl-words.js?v=1cfbc177d8';
+import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=2aaef6d01f';
+import { glWords } from './gl-words.js?v=16e914ccae';
 import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { FONT } from './charts.js?v=0898d0aa61';
-import { pressureColor } from './colormap.js?v=cb8b6ac696';
-import { store, logAction, hiddenNow, updateParams } from './store.js?v=4ef2a6ffd8';
-import { shownOr } from './shown.js?v=d8f2957f1e';
+import { FONT } from './charts.js?v=eead0c22ca';
+import { pressureColor } from './colormap.js?v=f9b9b04855';
+import { store, logAction, hiddenNow, updateParams } from './store.js?v=bf85512db4';
+import { shownOr } from './shown.js?v=edcaf3cde2';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=95f13823ce';
-import { frameFor, cancelFrame } from './frame.js?v=43da9d808a';
+import { frameFor, cancelFrame } from './frame.js?v=9151a68f47';
 import { createTraceGL, fitPen } from './trace-gl.js?v=ddb94858b8';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
 import { rateOf } from './table-marks.js?v=ff3ed0cc47';
-import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=02dd930ac8';
+import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=dbacbaaa99';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;
