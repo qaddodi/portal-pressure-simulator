@@ -123,8 +123,10 @@ export function throwIn(el, dir, delay = 0) {
   pinned.delete(el);
   const s = dir === 'back' ? -1 : 1, was = runs.get(el);
   held.delete(el);
-  if (!was || was.kind !== 'out') { el.style.setProperty('transition', 'none', 'important'); write(el, s * THROW_IN, 0); runs.delete(el); }
-  start(el, 'in', { x: 0, o: 1 }, RAIL_MS, delay);
+  // (A card already coming in is taken from where it is, never put back at its start: a second call for it mid-way (a repeated pass of
+  // cardsIn, a staggered card asked again) used to drop it from full to nothing and slide it in again, a blink.)
+  if (!was) { el.style.setProperty('transition', 'none', 'important'); write(el, s * THROW_IN, 0); runs.delete(el); }
+  start(el, 'in', { x: 0, o: 1 }, RAIL_MS, was?.kind === 'in' ? 0 : delay);
 }
 
 /** How long (ms) el's way out still has to run (0 when it is not on its way out). */
