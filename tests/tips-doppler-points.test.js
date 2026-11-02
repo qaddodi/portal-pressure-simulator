@@ -61,7 +61,7 @@ test('one callout per point, at its own third, the three in a column beside thei
   assert.match(stage, /held \? \(ps\.clear \? \(it\.point && it\.col \? 5e3 : 1e5\) : 4\) : 0\)/);
   // (the mark keeps 2 px off its own stent's drawn mesh in every pass; the "60 %" halo fills its digits' counters)
   assert.match(stage, /if \(mk && dop\.id && lineHits\(r, 3, \{ only: dop\.id \}\)\) return;/);
-  assert.match(stage, /strokeWidth = CTM\.sc > 0 \? `\$\{\(7 \/ CTM\.sc\)\.toFixed\(2\)\}px`/);
+  assert.match(stage, /const csw = sk > 0 \? `\$\{\(7 \/ sk\)\.toFixed\(2\)\}px` : ''/);   // (7 px on screen: --clamp-sw on the clamps' groups, app.css)
   assert.match(stage, /holes\.push\(\[x0, y0, x1, y1, -5 \* k\]\)/);   // and along every leader ending at a point
   assert.match(gl, /if \(hr < 0\.0\) \{ vec2 ab = h\.zw - h\.xy;/);
   assert.match(stage, /holes: chevHoles/);

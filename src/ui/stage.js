@@ -88,6 +88,7 @@ import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
 import { CellGrid, geomOf } from './cell-grid.js?v=92b12a8464';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
+import { glWords } from './gl-words.js?v=7b15d230de';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
 // key pill, the readings' own sizes, the home look's room) are read first in a frame, before anything is written (frame.js readFrame),
@@ -648,6 +649,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (op === 'kids') a.replaceChildren(...b);   // (a label's pieces)
     else if (op === 'label') { if (!a.isConnected) gLabels.append(a); }   // (a new label)
     else if (op === 'lead') { for (let i = a.length - 1, next = null; i >= 0; i--) { if (!a[i].isConnected) gLeaders.insertBefore(a[i], next); next = a[i]; } }   // (a new leader goes in just before the next one wanted that is already in)
+    else if (op === 'place') placeNow(a);   // (a vessel's parts moved to their tier)
+    else if (op === 'add') { if (a !== b.parentNode) a.append(b); }   // (a node new to its parent)
+    else if (op === 'append') a.append(...b);
+    else if (op === 'text') a.textContent = b;   // (words a node is made with)
+    else if (op === 'defs') defs.append(...a);
+    else if (op === 'cathadd') { a.append(b); cath.lblKey = ''; cathLabelsSoon(); }   // (a reading new to the catheter's layer: laid out again once it is in)
     else if (op === 'fill') a.style.fill = b;   // (a reading's colour)
     else if (op === 'hover') gHovO.replaceChildren(...a);
     else if (op === 'guide') { if (shunt) for (const el of a) if (el.parentNode !== gGuides) gGuides.append(el); }   // (a drag that has ended since leaves none)
@@ -1154,7 +1161,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const fd of feeders) { const d = polyD(fd.cur); fd.wall.setAttribute('d', d); fd.lumen.setAttribute('d', d); }
         gc.prepend(...feeders.map((fd) => fd.wall)); g.prepend(...feeders.map((fd) => fd.lumen));
         // A drawn trunk (the azygos) is part of its vessel: it takes hover and clicks, not only the short arch path.
-        for (const fd of feeders) if (!fd.fan) { const fh = s('path', { class: 'v-hit', 'data-id': e.id, d: polyD(fd.cur), 'aria-hidden': 'true' }); fh.style.strokeWidth = 12; g.append(fh); }
+        for (const fd of feeders) if (!fd.fan) { const fh = s('path', { class: 'v-hit', 'data-id': e.id, d: polyD(fd.cur), 'aria-hidden': 'true', style: '--hit-w: 12' }); g.append(fh); }
       }
       gShadowL.append(gs); gCaseL.append(gc); gEdges.append(g); gHiMid.append(gh);
     }
@@ -1234,7 +1241,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Where a vessel's parts (shadow, casing, lumen, highlights) go: on top when it is the focus
   // (selected or hovered), in the stack of its opacity level when translucent, else in the opaque
   // network. A vessel behind the organs is never lifted (it would jump in front of them).
-  function place(x) {
+  function place(x) { late('place', x); }
+  function placeNow(x) {
     if (x.isArt) { (x.lifted ? gTopL : gArt).append(x.g); return; }
     if (x.lifted && !x.back) { gTopS.append(x.gs); gTopC.append(x.gc); gTopL.append(x.g); gTopH.append(x.gh); return; }
     const st = (x.level ?? 1) < 1 && (x.back ? backStacks : midStacks)[x.level];
@@ -1256,7 +1264,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // Within the focus tier the portal tree stays in front (as in the resting order), so a
     // lifted collateral (paraumbilical) never draws over a lifted portal vein.
-    for (const x of EV) if (x.lifted && x.front && !x.isArt && !x.back) { gTopS.append(x.gs); gTopC.append(x.gc); gTopL.append(x.g); gTopH.append(x.gh); }
+    for (const x of EV) if (x.lifted && x.front && !x.isArt && !x.back) place(x);   // (the same four moves, in the page between frames)
   }
   const cls = (x, c, on) => { for (const g of x.groups) g.classList.toggle(c, on); };
   const setStyle = (x, k, v) => { if (x['_s' + k] === v) return; x['_s' + k] = v; for (const g of x.groups) g.style[k] = v; };
@@ -1571,7 +1579,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
   let glM = null;   // the world → stage transform (CSS px) the vessels were last drawn in (for the tests; and res-fade's follow)
   let moveLow = false;   // Figure resolution › While moving: the canvas is at its moving share until the view settles (see settleRes)
-  let clampFs = '', clampBase = 12, haloK = '';
+  let clampFs = '', clampSw = '', clampBase = 12, haloK = '';
   const haloEls = [gGuides];   // (the groups that take --halo-k: the halos' joins once it is built)   // clampBase: the "60 %"'s size on screen (clampFontAt: the labels' own name size)
   // A narrowing's label stands level on screen whatever the figure's turn, at the spot the layout chose for it (clampLabelAt: the
   // column's side, a spot off the probe) or, where it chose none, just clear of its clamp on the vessel's side, at the labels' name size
@@ -1676,6 +1684,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A narrowing's "60 %" is drawn in the figure: its size there is that of the labels' names on screen at any zoom, sweep batch 03 at 6–7 px.)
   function applyClampFs() {
     const sk = CTM?.sc || 0, cfs = sk > 0 ? (clampBase / sk).toFixed(2) : '';
+    const csw = sk > 0 ? `${(7 / sk).toFixed(2)}px` : '';   // (the clamps' halo, 7 px on screen: --clamp-sw, app.css)
+    if (csw && csw !== clampSw) { clampSw = csw; for (const g of [ov.clamps, ov.clampsOut]) g.style.setProperty('--clamp-sw', csw); }
     if (cfs && cfs !== clampFs) { clampFs = cfs; for (const g of [ov.clamps, ov.clampsOut]) g.style.setProperty('--clamp-fs', `${cfs}px`); placeClampLabels(); }
     // (The pressure-change halos and the shunt's target name: their size on screen at any zoom, as above.)
     const hk = sk > 0 ? (1 / sk).toFixed(3) : '';
@@ -3079,7 +3089,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (lazy) continue;
         const d = polyD(sp);
         setG(sd.wall, 'd', d, hold); setG(sd.lumen, 'd', d, hold);
-        if (!sd.hit) { sd.hit = s('path', { class: 'v-hit', 'data-id': x.e.id, 'aria-hidden': 'true' }); sd.hit.style.strokeWidth = 12; x.g.append(sd.hit); }   // each strand of a varix is part of its vessel
+        if (!sd.hit) { sd.hit = s('path', { class: 'v-hit', 'data-id': x.e.id, 'aria-hidden': 'true', style: '--hit-w: 12' }); late('add', x.g, sd.hit); }   // each strand of a varix is part of its vessel
         setG(sd.hit, 'd', d, hold); setG(sd.hit, 'style:display', (sd.live ?? 1) >= 0.5 && morph < 0.5 ? '' : 'none', hold);
       }
       g.cur = pts;
@@ -3321,7 +3331,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function widthWrites(x, w, t, f, k) {
     const e = x.e;
     // The hit stroke is never thinner than the drawn tube (the IVC is wide, behind the liver) and never under ~10 px on screen.
-    { const narrow = CONTEXT_EDGES.has(e.id) || BACK_EDGES.has(e.id), hw = Math.round(Math.max(narrow ? 8 : 20, w + 6, 10 / ((CTM && CTM.sc) || 1))); if (x.hitW !== hw) { x.hitW = hw; x.hit.style.strokeWidth = hw; } }
+    { const narrow = CONTEXT_EDGES.has(e.id) || BACK_EDGES.has(e.id), hw = Math.round(Math.max(narrow ? 8 : 20, w + 6, 10 / ((CTM && CTM.sc) || 1))); if (x.hitW !== hw) { x.hitW = hw; x.hit.style.setProperty('--hit-w', hw); } }
     if (x.isArt) { setT(x.wall, 'stroke-width', w.toFixed(1)); return; }
     const wallPx = x.wallPx;
     setT(x.wall, 'stroke-width', (w + 2 * wallPx).toFixed(1));
@@ -3888,16 +3898,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!key) { for (const g of x.groups) g.removeAttribute('mask'); continue; }
       if (!x.join) {
         const id = x.e.id;
-        const m = s('mask', { id: `jm-${id}`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: VIEW.w, height: VIEW.h });
-        m.append(s('rect', { x: 0, y: 0, width: VIEW.w, height: VIEW.h, fill: '#fff' }));   // colour-exempt: a mask
-        x.join = [0, 1].map((i) => {
-          const gr = s('linearGradient', { id: `jg-${id}-${i}`, gradientUnits: 'userSpaceOnUse' });
-          gr.append(s('stop', { offset: '0', 'stop-color': '#fff' }), s('stop', { offset: '1', 'stop-color': '#000' }));   // colour-exempt: a mask
-          const box = s('path', { fill: `url(#jg-${id}-${i})` });
-          defs.append(gr); m.append(box);
-          return { gr, box };
-        });
-        defs.append(m);
+        x.join = [0, 1].map((i) => ({ gr: s('linearGradient', { id: `jg-${id}-${i}`, gradientUnits: 'userSpaceOnUse' },
+          s('stop', { offset: '0', 'stop-color': '#fff' }), s('stop', { offset: '1', 'stop-color': '#000' })),   // colour-exempt: a mask
+          box: s('path', { fill: `url(#jg-${id}-${i})` }) }));
+        const m = s('mask', { id: `jm-${id}`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: VIEW.w, height: VIEW.h },
+          s('rect', { x: 0, y: 0, width: VIEW.w, height: VIEW.h, fill: '#fff' }), x.join[0].box, x.join[1].box);   // colour-exempt: a mask
+        late('defs', [x.join[0].gr, x.join[1].gr, m]);
       }
       for (const i of [0, 1]) {
         const { gr, box } = x.join[i];
@@ -4982,12 +4988,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     box.className = 'organ-paths';
     box.setAttribute('aria-hidden', 'true');
     document.body.append(box);
+    const boxText = document.createTextNode(''); box.append(boxText);
     let was = '';
     setInterval(() => {
       const p = organPathsNow();
       const t = [`Organs: ${p.mode} (${p.renderer} renderer)`, `Live: ${p.live}`, ...p.layers.map(([L, w]) => `${L}: ${w}`),
         ...(p.gpu ? [`On the GPU: ${p.gpu.meshes} meshes, ${p.gpu.kept} kept for pictures`] : [])].join('\n');
-      if (t !== was) { was = t; box.textContent = t; console.info(`[organpaths]\n${t}`); }
+      if (t !== was) { was = t; boxText.data = t; console.info(`[organpaths]\n${t}`); }
     }, 1000);
   }
   async function rasterLayers(slot, rect, scale) {
@@ -6003,9 +6010,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function fxLine(key, parent, d, cls) {
     let el = fxEls.get(key);
     if (!el) {
-      el = s('g', { class: cls });
-      el.append(s('path', { class: 'fx-halo' }), s('path', { class: 'fx-ink' }));
-      parent.append(el); fxEls.set(key, el);
+      el = s('g', { class: cls }, s('path', { class: 'fx-halo' }), s('path', { class: 'fx-ink' }));
+      late('add', parent, el); fxEls.set(key, el);
       if (!reduceMotion.matches) nextFrame(() => nextFrame(() => el.classList.add('on'))); else el.classList.add('on');
     }
     el.seen = true;
@@ -6414,7 +6420,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (key === selOKey) return;
     selOKey = key;
     for (const g of Object.values(organG)) g.classList.remove('org-sel');
-    gSelO.replaceChildren(); selLine = null; selFluid = null;
+    const selKids = []; late('kids', gSelO, selKids); selLine = null; selFluid = null;
     const byOrgan = o && { liver: ['liver'], heart: ['heart'], spleen: ['spleen'] }[o];
     if (glLines) olSet('sel', byOrgan?.[0] || null);
     if (!o) return;
@@ -6423,13 +6429,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (glLines) return;
       // The outline follows the organ as drawn now (a cirrhotic liver's reshaped contour, an
       // enlarged spleen), not its healthy outline.
-      if (organEls[byOrgan[0]]?.getAttribute('d')) { selLine = { id: byOrgan[0], el: s('path', { class: 'org-sel-line', style: `stroke: rgb(${orgTone(byOrgan[0]).map((x) => Math.round(x * 255))})` }) }; syncSelLine(); gSelO.append(selLine.el); }
+      if (organEls[byOrgan[0]]?.getAttribute('d')) { selLine = { id: byOrgan[0], el: s('path', { class: 'org-sel-line', style: `stroke: rgb(${orgTone(byOrgan[0]).map((x) => Math.round(x * 255))})` }) }; syncSelLine(); selKids.push(selLine.el); }
       return;
     }
     if (o === 'abdomen') {   // the fluid as drawn; it follows the volume (see syncSelFluid)
-      const cg = s('g', { 'clip-path': 'url(#abdomenClip)' });
-      selFluid = { g: cg, fill: s('path', { class: 'org-sel-fluid' }), line: s('path', { class: 'org-sel-line' }) };
-      cg.append(selFluid.fill, selFluid.line); gSelO.append(cg); syncSelFluid();
+      const fill = s('path', { class: 'org-sel-fluid' }), line = s('path', { class: 'org-sel-line' }), cg = s('g', { 'clip-path': 'url(#abdomenClip)' }, fill, line);
+      selFluid = { g: cg, fill, line };
+      selKids.push(cg); syncSelFluid();
       return;
     }
     
@@ -6450,12 +6456,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function updateBridges(t) {
     // The GPU draws crossings itself (each tier passes over the one below with its own border).
-    if (wrap.classList.contains('gl-on')) { if (bridgeKey) { bridgeKey = ''; gBridges.replaceChildren(); } return; }
+    if (wrap.classList.contains('gl-on')) { if (bridgeKey) { bridgeKey = ''; late('kids', gBridges, []); } return; }
     const vis = t === 1 ? EV.filter((x) => x.vis && !x.isArt && !x.g.classList.contains('coll-ghost') && x.g.style.display !== 'none') : [];
     const key = vis.map((x) => x.e.id + ':' + x.width.toFixed(0)).join(',');
     if (key === bridgeKey) return;
     bridgeKey = key;
-    gBridges.replaceChildren();
+    const bridgeKids = []; late('kids', gBridges, bridgeKids);
     if (!vis.length) return;
     const order = new Map([...gNet.querySelectorAll('.vg[data-id]'), ...gTopL.querySelectorAll('.vg[data-id]')].map((g, i) => [g, i]));
     const box = (pts) => pts.reduce((b, p) => [Math.min(b[0], p[0]), Math.min(b[1], p[1]), Math.max(b[2], p[0]), Math.max(b[3], p[1])], [Infinity, Infinity, -Infinity, -Infinity]);
@@ -6487,7 +6493,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           s('path', { class: 'v-lumen bridge-lumen', d, stroke: `url(#gr-${up.e.id})`, 'stroke-width': up.width.toFixed(1) }));
       }
     }
-    gBridges.append(...out);
+    bridgeKids.push(...out);
   }
 
   // Where the figure asks the viewer to look (store.focus).
@@ -6884,12 +6890,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let vstRaf = 0, vstAt = 0, vstDirty = false;
   const vstGoal = (id, anat) => (anat && store.get().stented?.includes(id) && E[id]?.vis && !E[id].reveal && geo[id]?.cur ? 1 : 0);
   function venousDraw(p) {
-    ov.venous.innerHTML = '';
+    const kids = []; late('kids', ov.venous, kids);
     for (const [id, v] of vst) {
       if (!(v.k > 0.002) || !E[id]?.vis || !geo[id]?.cur) continue;
-      const L = geo[id].len, g = s('g', { opacity: Math.min(1, v.k * 3).toFixed(3) });
-      g.append(...meshPaths(id, p, VST_SPAN[1] * L, VST_SPAN[0] * L, easeInOut(v.k)));
-      ov.venous.append(g);
+      const L = geo[id].len;
+      kids.push(s('g', { opacity: Math.min(1, v.k * 3).toFixed(3) }, ...meshPaths(id, p, VST_SPAN[1] * L, VST_SPAN[0] * L, easeInOut(v.k))));
     }
   }
   function venousTick(now) {
@@ -7012,11 +7017,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (let i = 0; i < n; i++) { const u = (i + 0.5) / n, sgn = i % 2 ? -1 : 1; d += ` L${(a[0] + dx * u + nx * amp * sgn).toFixed(1)} ${(a[1] + dy * u + ny * amp * sgn).toFixed(1)}`; }
     return d + ` L${b[0].toFixed(1)} ${b[1].toFixed(1)}`;
   };
+  // (The readings' parts, made ahead: a frame clones them, never builds them.)
+  const SITE_TPL = (() => { const e = document.createElement('div'); e.innerHTML = '<small></small><b></b><span></span><i class="res-k"></i>'; return e; })();
+  const SPLIT_B = (() => { const e = document.createElement('b'); e.innerHTML = '<span class="sp-h"><em class="sp-n"></em>% bypasses the liver</span><span class="sp-bar"><i class="sp-l"></i><i class="sp-s"></i></span><span class="sp-cap"><em class="sp-lt"></em><em class="sp-st"></em></span>'; return e; })();
   function resPaint(k, d, ratio) {
     let g = resMade.get(k);
     const want = sites.list?.includes(k) && ratio != null;
     if (!want) { if (g) { resMade.delete(k); g.style.opacity = 0; setTimeout(() => g.remove(), 700); } return; }   // (faded out whole first: .res-one, .6 s)
-    if (!g) { g = s('g', { class: 'res-one' }); g.style.opacity = 0; resG.append(g); resMade.set(k, g); nextFrame(() => nextFrame(() => { g.style.opacity = 1; })); }
+    if (!g) { g = s('g', { class: 'res-one' }); g.style.opacity = 0; late('add', resG, g); resMade.set(k, g); nextFrame(() => nextFrame(() => { g.style.opacity = 1; })); }
     const segs = d.res === 'liver' ? [[[812, 303], [888, 303]], [[812, 387], [888, 387]]] : (() => {
       const q = d.res === 'gut' ? geo.A_SMA?.cur && pointAt(geo.A_SMA.cur, 0.5) : geo.C1b && pointAt(geo.C1b.cur, 0.5);
       return q ? [[[q[0] - q[2] * 34, q[1] - q[3] * 34], [q[0] + q[2] * 34, q[1] + q[3] * 34]]] : [];
@@ -7084,10 +7092,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // glides in, a share that keeps moving (a running model's mean, a what-if slider) is followed as it goes, and the callout's
   // size never changes.
   function splitShow(el, sh) {
-    const p = portalSplit(sh), [n, lt, st] = el.querySelectorAll('.sp-n, .sp-lt, .sp-st'), lx = `To the liver ${p.liver}%`, sx = `Shunts ${p.shunt}%`;   // (a share of the portal blood: never read as the tile's liver flow, % of normal)
-    if (n.textContent !== `${p.shunt}`) n.textContent = `${p.shunt}`;
-    if (lt.textContent !== lx) lt.textContent = lx;
-    if (st.textContent !== sx) st.textContent = sx;
+    const p = portalSplit(sh), lx = `To the liver ${p.liver}%`, sx = `Shunts ${p.shunt}%`;   // (a share of the portal blood: never read as the tile's liver flow, % of normal)
+    // (Its three readings are drawn by glWords, never written in a frame: gl-words.js.)
+    const W = el._spW || (el._spW = [...el.querySelectorAll('.sp-n, .sp-lt, .sp-st')].map((e) => glWords(e)));
+    W[0].set(`${p.shunt}`); W[1].set(lx); W[2].set(sx);
     el.style.setProperty('--sp-lf', (1 - sh).toFixed(4)); el.style.setProperty('--sp-sf', sh.toFixed(4));
     el.style.setProperty('--sp-lm', p.liver ? '4px' : '0px'); el.style.setProperty('--sp-sm', p.shunt ? '4px' : '0px');   // a share that rounds above 0 keeps a sliver; 0 leaves none
   }
@@ -7222,17 +7230,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!el) {
         el = document.createElement('div'); el.className = `cath-label site ${d.cls} cath-pre`;
         if (!d.res) el._glass = glassCallout(el);
-        const sm = document.createElement('small'); sm.textContent = d.kicker;
-        const b = document.createElement('b'), u = document.createElement('span'); u.textContent = d.unit ?? 'mmHg';
-        el.append(sm, b, u);
-        if (d.res) { const kk = document.createElement('i'); kk.className = 'res-k'; kk.textContent = RES_KEY; el.append(kk); }
-        if (d.split) {
-          b.innerHTML = '<span class="sp-h"><em class="sp-n"></em>% bypasses the liver</span>'
-            + '<span class="sp-bar"><i class="sp-l"></i><i class="sp-s"></i></span>'
-            + '<span class="sp-cap"><em class="sp-lt"></em><em class="sp-st"></em></span>';   // (constant markup)
-          u.textContent = '';
-        }
-        sites.el.append(el); made.set(k, el);
+        // (Its parts are cloned from a model made ahead and put in the page, with their words, between frames: late().)
+        const [sm, b0, u, kk] = SITE_TPL.cloneNode(true).children, b = d.split ? SPLIT_B.cloneNode(true) : b0;
+        late('text', sm, d.kicker); late('text', u, d.split ? '' : d.unit ?? 'mmHg');
+        late('append', el, d.res ? [sm, b, u, kk] : [sm, b, u]);
+        if (d.res) late('text', kk, RES_KEY);
+        late('add', sites.el, el); made.set(k, el);
         // (Its first look at cath-pre is the frame's own style pass: it comes in from there next frame, with no layout forced for it.)
         nextFrame(() => { el.classList.remove('cath-pre'); sitesAgain(); });
       }
@@ -7482,22 +7485,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (The cable stays a short stub behind the body at every angle: laid flatter it used to run on to the screen's edge, a long
     // straight wire across the stage and under the cards, 18 Oct.)
   }
-  function scanPaint() {
-    if (!scan.el) {
-      const el = document.createElement('div');
-      el.className = 'scan-probe cath-pre'; el.setAttribute('aria-hidden', 'true');
-      // The probe's model: plain elements carrying its shapes' numbers (x, y, width, height, rx, d; the beam's gradient and stops), styled
-      // by app.css, from which label-gl.js reads its look and draws it on the GPU over the labels. Nothing of it is drawn by the page: no
-      // SVG (1 Nov 2026: nothing off the GPU). The rects and the reading take their boxes too, for what keeps clear of the probe's body.
+  // The scan probe's model, made ahead (a frame clones it): plain elements carrying its shapes' numbers, styled by app.css, from which
+  // label-gl.js reads its look and draws it on the GPU over the labels (nothing of it is drawn by the page).
+  const SCAN_TPL = (() => {
+    const el = document.createElement('div');
       const box = (cls, x, y, w, hh, rx) => `<i class="${cls}" x="${x}" y="${y}" width="${w}" height="${hh}" rx="${rx}" style="left:${x}px;top:${y}px;width:${w}px;height:${hh}px"></i>`;
-      el.innerHTML = '<div class="sp-svg sp-beam-svg"><i id="sp-beam" cx="66" cy="48" r="150">'
+    el.innerHTML = '<div class="sp-svg sp-beam-svg"><i id="sp-beam" cx="66" cy="48" r="150">'
         + '<i class="sp-stop" offset="0" style="stop-color:var(--scan);stop-opacity:.22"></i><i class="sp-stop" offset="1" style="stop-color:var(--scan);stop-opacity:0"></i></i>'
         + '<i class="sp-beam" d="M66 48 L197.6 -23.9 A150 150 0 0 1 197.6 119.9 Z"></i></div><div class="sp-svg"><i class="sp-waves">'
         + '<i class="sp-pk"><i class="sp-rip"></i><i class="sp-front"></i><i class="sp-rip"></i></i>'.repeat(SCAN_N) + '</i>'
         + '<i class="sp-cable" d="M-26 48 C-18 48 -14 48 -8 48"></i><i class="sp-head">' + box('sp-body', -10, 35, 68, 26, 11)
         + box('sp-tip', 54, 39, 10, 18, 3) + box('sp-screen', -3, 39.5, 54, 17, 4)
         + '<i class="sp-read" x="24" y="52.3" text-anchor="middle"><i class="sp-val">5.0</i><i class="sp-unit" dx="2">kPa</i></i></i></div>';   // (constant markup; the screen on the body shows the live stiffness)
-      sites.el.append(el); scan.el = el; scan.deg = 45;
+
+    return el;
+  })();
+  function scanPaint() {
+    if (!scan.el) {
+      const el = SCAN_TPL.cloneNode(true);
+      el.className = 'scan-probe cath-pre'; el.setAttribute('aria-hidden', 'true');
+      // The probe's model: plain elements carrying its shapes' numbers (x, y, width, height, rx, d; the beam's gradient and stops), styled
+      // by app.css, from which label-gl.js reads its look and draws it on the GPU over the labels. Nothing of it is drawn by the page: no
+      // SVG (1 Nov 2026: nothing off the GPU). The rects and the reading take their boxes too, for what keeps clear of the probe's body.
+      late('add', sites.el, el); scan.el = el; scan.deg = 45;
       labelGL?.setScan(el);   // (drawn over the labels on their GPU layer while it can be; label-gl.js)
       const t0 = scanTipLocal(); if (t0) scanTurn(t0.tx, t0.y);   // (turned before it first shows, so it fades in at its angle rather than swinging to it)
       nextFrame(() => el.classList.remove('cath-pre'));   // (its first look at cath-pre is this frame's own style pass: no layout forced for the fade)
@@ -7700,6 +7710,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (dop-probe.js createProbeMind: the cure for the probe flashing on and off, Right heart 6 on an iPhone, 21 Oct).
   const dprMind = createProbeMind();
   const dprHide = () => { if (dpr.on) { dpr.on = false; dpr.el.classList.add('off'); } dpr.box = null; dpr.marks = []; dpr.key = ''; dpr.gate = null; dprDots(); };
+  const PROBE_TPL = (() => { const e = document.createElement('div'); e.innerHTML = PROBE_MODEL; return e; })();   // (made ahead; a frame clones it)
   function dprobePaint() {
     if (!dpr.ready) return;
     const st = store.get(), id = dop.id, pts = id && geo[id]?.cur;
@@ -7718,8 +7729,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return;
     }
     if (!dpr.el) {
-      const el = document.createElement('div');
-      el.className = 'dop-probe off'; el.setAttribute('aria-hidden', 'true'); el.innerHTML = PROBE_MODEL;
+      const el = PROBE_TPL.cloneNode(true);
+      el.className = 'dop-probe off'; el.setAttribute('aria-hidden', 'true');
       // (Beneath the figure's labels and the callouts, above the figure: where no side is clear of them, they read over its marks.)
       labelSvg.before(el); dpr.el = el;
       labelGL?.setProbe(el);   // (drawn on the GPU with the labels from its model of plain elements: label-gl.js)
@@ -8208,7 +8219,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       catheterGone();
       cath.labels.hidden = true;
       for (const el of cath.made?.values() || []) el._glass?.dispose();
-      cath.labels.replaceChildren(); cath.made?.clear();
+      late('kids', cath.labels, []); cath.made?.clear();
     };
     const step = (now) => {
       const el = Math.max(0, now - t0), k = Math.min(1, el / CATH_OUT_MS);   // (the frame's clock can be a few ms before t0: 0, not a negative k that would draw the catheter brighter than it was)
@@ -8262,9 +8273,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (left(el._gl)[2] && !cath.glideRaf) cath.glideRaf = nextFrame(() => { cath.glideRaf = 0; cath.lblKey = ''; cathLabelsSoon(); });
     return [x + ox, y + oy];
   }
+  const PILL_TPL = [0, 1].map((u) => { const e = document.createElement('div'); e.innerHTML = '<small></small><b></b>' + (u ? '<span></span>' : ''); return e; });
+  const SUM_TPL = (() => { const e = document.createElement('div'), box = document.createElement('div'), col = document.createElement('div'); e.className = 'cath-sum'; box.className = 'cath-sum-box'; col.className = 'cath-sum-col'; box.append(col, s('svg', { class: 'cath-brace', width: 22 }, s('path', {}))); e.append(s('svg', { class: 'cath-leads' }), box); return e; })();
   function cathLabels() {
     const st = cath.st, at = cath.at;
-    if (!st || !at) { for (const el of [...(cath.made?.values() || []), ...(cath.leaving?.keys() || [])]) el._glass?.dispose(); cath.labels.replaceChildren(); cath.made?.clear(); cath.leaving?.clear(); cath.lblKey = ''; return; }
+    if (!st || !at) { for (const el of [...(cath.made?.values() || []), ...(cath.leaving?.keys() || [])]) el._glass?.dispose(); late('kids', cath.labels, []); cath.made?.clear(); cath.leaving?.clear(); cath.lblKey = ''; return; }
     // Laid out once per change of the camera or the catheter (a glide and the procedure's step both ask in one frame).
     const lk = `${viewVersion}|${cathVer}`;
     if (lk === cath.lblKey) return;
@@ -8285,34 +8298,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       el.classList.add('cath-pre', 'cath-out'); leaving.set(el, el._l);
       setTimeout(() => { el._glass?.dispose(); el.remove(); leaving.delete(el); }, 450);
     }
+    // (A reading is cloned from a model made ahead; its words are drawn by glWords, never written in a frame: gl-words.js.)
     const pill = (l, cls = '') => {
-      const el = document.createElement('div');
+      const el = PILL_TPL[l.unit ? 1 : 0].cloneNode(true);
       el.className = `cath-label ${l.cls || ''} ${cls || 'cath-js'}`; el.dataset.at = l.at || '';
-      const k = document.createElement('small'); k.textContent = l.kicker || ''; el.append(k);
-      const b = document.createElement('b'); b.textContent = l.text; el.append(b);
-      if (l.unit) { const u = document.createElement('span'); u.textContent = l.unit; el.append(u); }
+      const [k, b, u] = el.children;
+      el._kW = glWords(k); el._bW = glWords(b); el._kW.set(l.kicker || ''); el._bW.set(l.text);
+      if (u) glWords(u).set(l.unit);
       el._glass = glassCallout(el);
       return el;
     };
-    const fill = (el, l) => { const sm = el.querySelector('small'); if (sm.textContent !== l.kicker) sm.textContent = l.kicker || ''; const b = el.querySelector('b'); if (b.textContent !== l.text) b.textContent = l.text; };
+    const fill = (el, l) => { el._kW.set(l.kicker || ''); el._bW.set(l.text); };
     const build = (l) => {
       if (l.at !== 'sum') return pill(l);
       // The two readings stacked (wedged above free, as on the tracing), a bracket joining them and
       // the difference beside it; thin leaders run from each reading to where it was taken.
-      const el = document.createElement('div'); el.className = 'cath-sum';
-      const svg = s('svg', { class: 'cath-leads' });
-      const col = document.createElement('div'); col.className = 'cath-sum-col';
-      col.append(...l.rows.map((r) => pill(r, 'in-sum')));
-      const brace = s('svg', { class: 'cath-brace', width: 22 });
-      brace.append(s('path', {}));
-      const box = document.createElement('div'); box.className = 'cath-sum-box';
-      box.append(col, brace, pill(l.calc, 'in-sum calc'));
-      el.append(svg, box);
+      const el = SUM_TPL.cloneNode(true);
+      const box = el.querySelector('.cath-sum-box'), col = box.firstChild;
+      el._rows = l.rows.map((r) => pill(r, 'in-sum')); el._calc = pill(l.calc, 'in-sum calc');
+      late('append', col, el._rows); late('append', box, [el._calc]);   // (in the page between frames; the frame keeps its own references)
       return el;
     };
     for (const [k, l] of want) {
       if (made.has(k)) continue;
-      const el = build(l); el.classList.add(l.at === 'sum' && travel ? 'cath-travel' : 'cath-pre'); cath.labels.append(el); made.set(k, el);
+      const el = build(l); el.classList.add(l.at === 'sum' && travel ? 'cath-travel' : 'cath-pre'); late('cathadd', cath.labels, el); made.set(k, el);
       if (l.at === 'sum' && travel) el._from = from;
       el._l = l;
       // (The transition runs from the hidden state: this frame's own style pass sees it hidden, and it is shown from the next, with no
@@ -8369,9 +8378,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     live.forEach(([el, l]) => {
       if (!l || l.at !== 'sum') return;
-      const box = el.querySelector('.cath-sum-box'), rows = [...box.querySelectorAll('.cath-sum-col .cath-label')];
+      const box = el.querySelector('.cath-sum-box'), rows = el._rows;
       rows.forEach((r, j) => fill(r, l.rows[j]));
-      fill(box.querySelector('.calc'), l.calc);
+      fill(el._calc, l.calc);
       const A = Object.fromEntries(['tip', 'ahead'].map((k) => [k, worldToLocal(at[k][0], at[k][1])]));
       // (read before any write below; kept while the readings' texts and classes stay as they are)
       const [bw, bh, R] = cathSize(box, [...l.rows, l.calc].map((q) => `${q.kicker}|${q.text}|${q.unit}|${q.cls}`).join('/'), rows);
@@ -8399,14 +8408,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const below = (A.tip[1] + A.ahead[1]) / 2 > y + bh / 2, near = below ? rows.length - 1 : 0;
       const c0 = R[0], c1 = R[R.length - 1], colTop = y + c0[1], colBot = y + c1[1] + c1[3];
       // Updated in place (a path and a dot per reading), rebuilt only when the readings change.
-      if (svg.childElementCount !== rows.length * 2) svg.replaceChildren(...rows.flatMap(() => [s('path', {}), s('circle', { r: 4.5 })]));
+      if (svg._k?.length !== rows.length * 2) { svg._k = rows.flatMap(() => [s('path', {}), s('circle', { r: 4.5 })]); late('kids', svg, svg._k); }
       rows.forEach((r, j) => {
         const [px, py] = A[l.rows[j].at];
         const rx0 = x + R[j][0], ry0 = y + R[j][1], rx1 = rx0 + R[j][2], ry1 = ry0 + R[j][3];
         let d;
         if (j === near) d = `M${clamp(px, rx0 + 12, rx1 - 12).toFixed(1)} ${(below ? ry1 : ry0).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
         else { const ex = rx0 - 12, ey = below ? colBot + 14 : colTop - 14; d = `M${rx0.toFixed(1)} ${((ry0 + ry1) / 2).toFixed(1)} H${ex.toFixed(1)} V${ey.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`; }
-        const lead = svg.children[j * 2], dot = svg.children[j * 2 + 1], cls = l.rows[j].cls || '';
+        const lead = svg._k[j * 2], dot = svg._k[j * 2 + 1], cls = l.rows[j].cls || '';
         if (lead.getAttribute('class') !== 'lead ' + cls) { lead.setAttribute('class', 'lead ' + cls); dot.setAttribute('class', 'lead-dot ' + cls); }
         lead.setAttribute('d', d); dot.setAttribute('cx', px.toFixed(1)); dot.setAttribute('cy', py.toFixed(1));
       });
@@ -8617,7 +8626,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const px = fontPx(11.5);
     if (Math.abs(px - clampBase) > 0.01) { clampBase = px; applyClampFs(); }
     el.style.fontSize = CTM.sc > 0 && CTM.sc < 1 ? `${(clampBase / CTM.sc).toFixed(2)}px` : '';
-    el.style.strokeWidth = CTM.sc > 0 ? `${(7 / CTM.sc).toFixed(2)}px` : '';
   };
   // Moves a "60 %" to `want` ({ d, t } or null: back where it belongs): it fades out where it stands, then in at the new place.
   const clampFades = new WeakMap();
