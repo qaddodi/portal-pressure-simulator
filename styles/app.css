@@ -6,14 +6,14 @@
    content, painted once with --hv-bg (and --hv-bd over a 1px border, --hv-bw), that fades in and out by its opacity. */
 :where(.brand, .chip-btn, .lens-btn, .metric, .check-row, .ib, .btn, .menu-item, .lens, .tl-pin, .tl-ff, .tl-hist, .tl-pop-ic, .menu-credit, button.finding, .order-btn, .pz-abb, .pzj-list button, .pal-btn, .tb-act, .menu-btn, .um-row, .um-link, button.pzb-n, .pzc-q) { position: relative; isolation: isolate; }
 :where(.brand, .chip-btn, .lens-btn, .metric, .check-row, .ib, .btn, .menu-item, .lens, .tl-pin, .tl-ff, .tl-hist, .tl-pop-ic, .menu-credit, button.finding, .order-btn, .pz-abb, .pzj-list button, .pal-btn, .tb-act, .menu-btn, .um-row, .um-link, button.pzb-n)::before, :where(.pzc-q)::after { content: ''; position: absolute; inset: calc(-1 * var(--hv-bw, 0px)); border-radius: inherit; background: var(--hv-bg, transparent); box-shadow: inset 0 0 0 var(--hv-bw, 0px) var(--hv-bd, transparent); opacity: 0; transition: opacity var(--d-flip) var(--ease); pointer-events: none; z-index: -1; }
-/* Hover ink eases without a repaint (1 Nov 2026, nothing snaps): a quiet icon button's content is drawn in the hover ink (--text)
-   at the quiet ink's strength (--ink-rest, text-2 over the surface) and comes up to full by its opacity on hover. */
-@media (hover: hover) {
-  :is(.ib, .tl-pop-ic, .tb-act, .nb-tab, .instr-tab):not([aria-pressed="true"], [aria-selected="true"], [aria-expanded="true"], .on, :disabled, .pzb-next, .play, .lapse) { color: var(--text); --ink-rest: .76; }
-  :is(.ib, .tl-pop-ic, .tb-act, .nb-tab, .instr-tab):not([aria-pressed="true"], [aria-selected="true"], [aria-expanded="true"], .on, :disabled, .pzb-next, .play, .lapse) > :not(.tb-hc) { opacity: var(--ink-rest); transition: opacity var(--d-flip) var(--ease); }
-  :is(.ib, .tl-pop-ic, .tb-act, .nb-tab, .instr-tab):not([aria-pressed="true"], [aria-selected="true"], [aria-expanded="true"], .on, :disabled, .pzb-next, .play, .lapse):hover > :not(.tb-hc) { opacity: 1; }
-  .app.pz-hi .pz-bar .ib > * { opacity: 1; }   /* (full ink there: its quiet ink is --text) */
-}
+/* Hover and selection ink ease without a repaint (1 Nov 2026, nothing snaps): a quiet icon button, tab or menu link draws its content
+   in the full ink (--text) at the quiet ink's strength (--ink-rest, text-2 over the surface) and comes up to full by its opacity when it
+   is hovered, or chosen (a pressed, selected or open one keeps its own ink, at full strength). */
+:is(.ib, .tl-pop-ic, .tb-act, .nb-tab, .instr-tab, .um-tab, .um-link):not(:disabled, .pzb-next, .play, .lapse) { color: var(--text); --ink-rest: .76; }
+:is(.ib, .tl-pop-ic, .tb-act, .nb-tab, .instr-tab, .um-tab, .um-link):not(:disabled, .pzb-next, .play, .lapse) > :not(.tb-hc) { opacity: var(--ink-rest); transition: opacity var(--d-flip) var(--ease); }
+:is(.ib, .tl-pop-ic, .tb-act, .nb-tab, .instr-tab, .um-tab, .um-link):not(:disabled, .pzb-next, .play, .lapse):is([aria-pressed="true"], [aria-selected="true"], [aria-expanded="true"], .on) > :not(.tb-hc) { opacity: 1; }
+@media (hover: hover) { :is(.ib, .tl-pop-ic, .tb-act, .nb-tab, .instr-tab, .um-tab, .um-link):not(:disabled, .pzb-next, .play, .lapse):hover > :not(.tb-hc) { opacity: 1; } }
+.app.pz-hi .pz-bar .ib > * { opacity: 1; }   /* (full ink there: its quiet ink is --text) */
 html, body { height: 100%; }
 /* Installed on an iPhone or iPad, the page runs edge to edge under the status bar. The top bar
    owns that strip (its own color runs up behind the clock), and the document never scrolls, so

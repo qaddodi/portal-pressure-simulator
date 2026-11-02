@@ -331,8 +331,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         h('div', { class: 'um-g scripts' },
           h('div', { class: 'um-gl', id: 'umt-mine' }, h('b', {}, 'Your scripts'),
             h('span', { class: 'um-gacts' },
-              h('button', { class: 'um-link', title: 'A new script from the current model', onclick: () => lib.newScript() }, icon('plus'), 'New'),
-              h('button', { class: 'um-link', title: 'Import a deck file or a script', onclick: () => lib.importFile() }, icon('download'), 'Import'))),
+              h('button', { class: 'um-link', title: 'A new script from the current model', onclick: () => lib.newScript() }, icon('plus'), h('span', {}, 'New')),
+              h('button', { class: 'um-link', title: 'Import a deck file or a script', onclick: () => lib.importFile() }, icon('download'), h('span', {}, 'Import')))),
           mine.length ? h('ul', { 'aria-labelledby': 'umt-mine' }, mine.map((s) => deckRow(s, lib, true)))
             : h('p', { class: 'um-note' }, 'Capture states of the model and play them like a presentation.')));
     }
@@ -345,12 +345,12 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         h('button', { class: 'ib um-x', 'aria-label': 'Close the menu', onclick: () => close() }, icon('close'))),
       h('div', { class: 'um-tabs', role: 'tablist', 'aria-label': 'Menu' },
         [['present', 'Present', 'projector'], ['patients', 'Patients', 'scenario']].map(([k, label, ic]) => h('button', { class: 'um-tab', role: 'tab', id: 'umtab-' + k, 'data-tab': k,
-          'aria-selected': String(tab === k), 'aria-controls': 'umcol-' + k, onclick: () => setTab(k, true) }, svgIcon(ic, 'um-hi'), label))),
+          'aria-selected': String(tab === k), 'aria-controls': 'umcol-' + k, onclick: () => setTab(k, true) }, svgIcon(ic, 'um-hi'), h('span', {}, label)))),
       h('div', { class: 'um-cols' }, present, patients),
       h('p', { class: 'um-empty', hidden: true }, h('span', {}), h('button', { class: 'um-link um-other', hidden: true, onclick: () => setTab(tab === 'present' ? 'patients' : 'present', true) })),
       h('footer', { class: 'um-foot' },
-        h('button', { class: 'um-link', onclick: () => { close(); share(); } }, icon('share'), 'Copy link to this view'),
-        h('button', { class: 'um-link', onclick: () => { close(); help(anchor); } }, icon('help'), 'Help'),
+        h('button', { class: 'um-link', onclick: () => { close(); share(); } }, icon('share'), h('span', {}, 'Copy link to this view')),
+        h('button', { class: 'um-link', onclick: () => { close(); help(anchor); } }, icon('help'), h('span', {}, 'Help')),
         h('span', { class: 'um-esc' }, 'Esc closes')));
     panel.dataset.tab = tab;
     for (const c of panel.querySelectorAll('.um-col')) { c.id = 'umcol-' + c.dataset.col; c.setAttribute('role', 'tabpanel'); c.setAttribute('aria-labelledby', 'umtab-' + c.dataset.col); }
