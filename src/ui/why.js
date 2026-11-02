@@ -1,5 +1,6 @@
 // "Why?" popover (blueprint §9.3): one causal sentence, a contribution waterfall and the formula.
 
+import { classSoon } from './class-soon.js?v=86393a213e';
 import { host } from './host.js?v=5138a6333c';
 import { h, fmt, svgIcon, visibleBottom, settleFrom, announce } from './util.js?v=58f652be63';
 import { leaveFromHere } from './menu-leave.js?v=4a15e9707c';
@@ -82,7 +83,7 @@ export function createWhy(pop) {
   function close() {
     if (pop.classList.contains('show')) {
       leaveFromHere(pop, () => { pop.classList.remove('show'); pop.classList.add('leaving'); });
-      clearTimeout(leaveT); leaveT = setTimeout(() => pop.classList.remove('leaving'), 200);
+      clearTimeout(leaveT); leaveT = setTimeout(() => classSoon(pop, 'leaving', false), 200);
     }
     openFor = null; anchorEl?.focus?.({ preventScroll: true }); anchorEl = null;
   }

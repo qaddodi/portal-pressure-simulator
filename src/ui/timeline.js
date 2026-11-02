@@ -19,6 +19,7 @@ import { frameFor } from './frame.js?v=8c8f2f530e';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
 import { createSvgGL, svgModel } from './svg-gl.js?v=374ad51afe';
 import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js?v=e5374005be';
+import { textSoon } from './class-soon.js?v=86393a213e';
 import { restPass } from './rest-pass.js?v=75e0aa565d';
 const nextFrame = frameFor('timeline');
 
@@ -293,7 +294,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     if (!force && key === lastRenderKey && t - lastRenderAt < 1000) return;
     lastRenderKey = key; lastRenderAt = t;
     const n = entries.filter((x) => x.kind !== 'start').length;
-    if (histCount.textContent !== (n ? String(n) : '')) histCount.textContent = n ? String(n) : '';
+    textSoon(histCount, n ? String(n) : '');
   }
   // The history rows, shared by the phone sheet and the History card on larger screens.
   function historyRows() {
