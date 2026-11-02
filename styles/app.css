@@ -5586,8 +5586,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .dop-track { position: relative; height: 8px; border-radius: 4px; background: var(--surface-2); container-type: inline-size; }
 .dop-band { position: absolute; top: 0; bottom: 0; left: 0; width: 100%; transform-origin: 0 50%; border-radius: 4px; background: var(--ok); opacity: .45; transition: translate var(--d-surface) var(--ease), scale var(--d-surface) var(--ease); }
 /* Where the reading sits on the usual range: a short upright tick, not a dot. */
-.dop-mark { position: absolute; top: 50%; left: 0; width: 4px; height: 18px; margin: -9px 0 0 -2px; border-radius: 2px; background: var(--text); box-shadow: 0 0 0 2px var(--surface, var(--bg)); box-sizing: border-box; transition: translate var(--d-surface) var(--ease), background-color var(--d-small) var(--ease); }
-.dop-range[data-out="true"] .dop-mark { background: var(--caution); }
+.dop-mark { position: absolute; top: 50%; left: 0; width: 4px; height: 18px; margin: -9px 0 0 -2px; border-radius: 2px; background: var(--text); box-shadow: 0 0 0 2px var(--surface, var(--bg)); box-sizing: border-box; transition: translate var(--d-surface) var(--ease); }
+.dop-mark::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--caution); opacity: 0; transition: opacity var(--d-small) var(--ease); }   /* (out of the usual range: the caution tint crossfades in over the tick, never an eased colour) */
+.dop-range[data-out="true"] .dop-mark::after { opacity: 1; }
 .dop-vel b { transition: none; }
 .dop-vel[data-out="true"] b { color: var(--caution-ink); }
 /* A stent's three segments: one outside 90–190 cm/s reads in the caution colour; the gated one is underlined in the Doppler's green. */
