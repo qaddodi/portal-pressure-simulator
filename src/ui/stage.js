@@ -5061,7 +5061,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (m.oldValue !== now) readDrop(m.target);
     }
   }
-  const readLook = () => { const cs = wrapCS(); return `${readEpoch}|${themeKey()}|${gestureFree(wrap.className)}|${document.documentElement.className}|${cs.getPropertyValue('--stage-bg')}|${cs.getPropertyValue('--organ-liver')}|${wrap.classList.contains('imaging')}`; };
+  // (Of the stage's and the page's classes, only those the style sheets use in a rule over the organs count: a class that styles
+  // something else (data-layer, thumb-ui) changing as a slide changes read every organ again (motion budget, 2 Nov). The sheets are
+  // walked once, and again when their number changes; a sheet that cannot be read keeps every class, as before.)
+  const ORGAN_SEL = /organ|tone-|lv-|og-|backdrop|flank|abdomen|cavity|gut|bowel|colon|stomach|spleen|liver|kidney|heart|eso|duoden|seam|diaphragm|plate/;
+  let organCls = null, organClsN = -1;
+  function organClasses() {
+    const n = document.styleSheets.length;
+    if (n === organClsN) return organCls;
+    organClsN = n; organCls = new Set();
+    const walk = (rules) => { for (const r of rules) { if (r.cssRules) walk(r.cssRules); const sel = r.selectorText; if (sel && ORGAN_SEL.test(sel)) for (const m of sel.matchAll(/\.([\w-]+)/g)) organCls.add(m[1]); } };
+    try { for (const sh of document.styleSheets) walk(sh.cssRules); } catch { organCls = null; }
+    return organCls;
+  }
+  const organKey = (el) => { const c = organClasses(); return c ? [...el.classList].filter((k) => c.has(k)).sort().join(' ') : el.className; };
+  const readLook = () => { const cs = wrapCS(); return `${readEpoch}|${themeKey()}|${organKey(wrap)}|${organKey(document.documentElement)}|${cs.getPropertyValue('--stage-bg')}|${cs.getPropertyValue('--organ-liver')}|${wrap.classList.contains('imaging')}`; };
   /** organ-paint's readGroup(el, opt), or the last reading of it with the same options while nothing it was read from has changed. */
   function readGroup(el, opt) {
     // (Only what the watch below sees is kept: the organs, the backdrop and the defs. The overlays (#stageOver: the tamponade tube, the

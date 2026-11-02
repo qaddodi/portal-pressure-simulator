@@ -22,7 +22,9 @@ test('a change drops only the readings it touches; a change to the organs\' own 
   assert.match(stage, /if \(el\.contains\(t\) \|\| t\.contains\(el\) \|\| \(id && \[\.\.\.m\.values\(\)\]\.some\(\(k\) => k\.refs\.has\(id\)\)\)\) readKept\.delete\(el\);/);
   assert.match(stage, /if \(t === gOrgans \|\| t === gBackdrop \|\| \(defs\.contains\(t\) && !readGrad\(t\)\)\) \{ readEpoch\+\+; readKept\.clear\(\); return; \}/);
   for (const root of ['gOrgans', 'gBackdrop', 'defs']) assert.ok(stage.includes(`for (const root of [gOrgans, gBackdrop, defs]) readMo.observe(root, { subtree: true, childList: true, attributes: true, attributeOldValue: true`), root);
-  assert.match(stage, /const readLook = \(\) => \{[^\n]*themeKey\(\)[^\n]*gestureFree\(wrap\.className\)/, 'a theme or lens change reads again');
+  assert.match(stage, /const readLook = \(\) => \{[^\n]*themeKey\(\)[^\n]*organKey\(wrap\)\}\|\$\{organKey\(document\.documentElement\)\}/, 'a theme or lens change reads again');
+  assert.match(stage, /try \{ for \(const sh of document\.styleSheets\) walk\(sh\.cssRules\); \} catch \{ organCls = null; \}/, 'a sheet that cannot be read keeps every class');
+  assert.match(stage, /const organKey = \(el\) => \{ const c = organClasses\(\); return c \? \[\.\.\.el\.classList\]\.filter\(\(k\) => c\.has\(k\)\)\.sort\(\)\.join\(' '\) : el\.className; \};/);
 });
 
 test('what eases (outlines, opacities) and the lens grey (always taken off for a read) keep the readings', () => {
