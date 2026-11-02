@@ -16,15 +16,16 @@ test('#31 a drag adds stage-busy and figure-focus only when they are missing', (
 
 // Premium feel R7: the pieces dim only after 120 ms of motion, so a tap, or a drag over inside 120 ms, never dims anything; a
 // gesture that ends while the dim is still waiting cancels it; the dim is .55 over 240 ms and the return 420 ms.
-test('R7 the floating pieces dim only after 120 ms of motion, to .55', () => {
+test('R7 the stage-busy class still arms only after 120 ms of motion (it no longer dims anything)', () => {
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(main, /const BUSY_DELAY = 120;/);
   assert.match(main, /const busyEnd = \(ms\) => \{ if \(app\.classList\.contains\('stage-busy'\)\) busy\(ms\); else \{ clearTimeout\(armT\); armT = 0; clearTimeout\(busyT\); \} \};/);
   assert.match(main, /addEventListener\('pointerup', \(\) => \{ if \(down\) \{ down = null; busyEnd\(600\);/);
   assert.match(main, /addEventListener\('pointercancel', \(\) => \{ if \(down\) \{ down = null; busyEnd\(300\);/);
-  assert.match(css, /\.app\.stage-busy \.float-ui:not\(:hover\):not\(:focus-within\) \{ opacity: \.55; transition-duration: var\(--d-small, \.24s\); \}/);
+  // (3 Nov 2026: the pieces no longer dim: a glass bar at .55 let the GPU's figure show through it unfrosted, tests/chrome-over-figure.test.js.
+  // The class still comes and goes with the gesture, for credit.js and the guards above.)
+  assert.doesNotMatch(css, /\.stage-busy[^{]*\{[^}]*opacity/);
   assert.match(css, /\.float-ui, \.stage-fit, \.stage-rotate \{ transition: opacity var\(--d-surface, \.42s\) var\(--ease\); \}/);
-  // (Dimmed once, as a whole: the pill's buttons must not dim again inside it.)
   assert.doesNotMatch(css, /\.stage-busy[^{]*(?:\.stage-fit|\.stage-rotate|\.zoom-pill)[^{]*\{/);
   // Every piece the dim reaches eases its opacity: none of them may have a transition list without it.
   for (const sel of ['.panel { transform: none; transition: opacity', '.instrument-workspace.float-ui.fit { height: var(--fit-h); transition: opacity', '.panel, .treat-card { transform: none; transition: opacity']) assert.ok(css.includes(sel), sel);

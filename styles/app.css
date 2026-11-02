@@ -3792,10 +3792,11 @@ button.finding { cursor: pointer; }
 .float-ui, .stage-fit, .stage-rotate { transition: opacity var(--d-surface, .42s) var(--ease); }
 /* (The desktop card keeps its left/top glide with the fade: a new vessel moved it 23 px in one frame; round 2 review, RF7.) */
 .action-card:not(.docked) { transition: opacity var(--d-small) var(--ease); }   /* (its moves glide by translate: card.js moveTo, RF7) */
-/* R7: the pieces step back to .55 (not .28), over 240 ms, once the figure has moved for 120 ms (main.js), and return over 420 ms. The zoom pill's buttons
-   no longer dim again inside the pill (that made them .08). Only opacity and its duration: the guard test pins that nothing else changes. */
-.app.stage-busy .float-ui:not(:hover):not(:focus-within) { opacity: .55; transition-duration: var(--d-small, .24s); }
-@media (prefers-reduced-motion: reduce) { .app.stage-busy .float-ui { opacity: 1; } }
+/* The floating pieces never fade while the figure moves (3 Nov 2026, "the figure draws over the UI" on the iPhone, zoomed and panning):
+   stage-busy used to step every .float-ui back to .55, which made each glass bar and card 55 % of itself, so the GPU's vessels, arrows
+   and labels showed through the bars crisp and unfrosted and the bars' words went grey. Glass is glass at every moment: the chrome keeps
+   its full opacity (a bar's own glass is 95 % opaque, a card's is frosted on the GPU) and the figure stays under it, whatever it is doing.
+   stage-busy itself stays as a class (credit.js reads it as "the figure is moving"); no rule here fades anything for it. */
 
 /* The instrument workspace floats over the bottom of the figure, above the vitals dock. */
 .instrument-workspace.float-ui {
@@ -4108,10 +4109,11 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 @media (hover: hover) { .zoom-pill .ib { --hv-bg: var(--surface-3); } .zoom-pill .ib:hover::before { opacity: 1 } }
 /* On a pointer device (a trackpad or wheel zooms) the pill rests at low ink and comes to full ink under the pointer, with focus, or while
    the view is away from its fit, where Fit is the button that matters (looks review L6). Touch keeps it at full: it is a real control there.
-   The busy dim of the floating pieces (more specific) still applies while the figure moves. */
+   The ink is dimmed, never the pill: its glass stays whole, so the figure never shows through it (a pill at half opacity let the vessels
+   and arrows under it through, unfrosted). */
 @media (hover: hover) and (pointer: fine) {
-  .zoom-pill { opacity: .5; }
-  .zoom-pill:hover, .zoom-pill:focus-within, .stage-wrap.off-home .zoom-pill { opacity: 1; }
+  .zoom-pill .ib:not(.stage-rotate):not(:disabled) { opacity: .5; transition: opacity var(--d-surface, .42s) var(--ease), scale var(--d-flip) var(--ease); }
+  .zoom-pill:hover .ib:not(:disabled), .zoom-pill:focus-within .ib:not(:disabled), .stage-wrap.off-home .zoom-pill .ib:not(:disabled) { opacity: 1; }
 }
 .zoom-pill .stage-rotate { display: inline-grid; }
 .zoom-pill.no-room { visibility: hidden; }

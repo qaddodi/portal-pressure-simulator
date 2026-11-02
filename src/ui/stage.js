@@ -9899,8 +9899,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     nextFrame(() => { if (F && !camMove && !lz?.isOpen()) updateLabels(F); });   // (a new list: the labels' key changes with it)
   }
   // (Everything whose box the labels keep clear of: the credit, the presenter's pill, the cards and the clock.)
+  // (One list of what is chrome over the figure, read by both the observer's targets and the boxes made from them: they must never differ,
+  // or a piece one of them forgets, like the view switcher that sits outside its holder's box, is drawn under by a label. 3 Nov 2026.)
+  const BLOCKER_SEL = '.stage-blocker:not([hidden]), .pz-shade, #nbViews, .stage-clock';
   const blockerEls = () => [document.querySelector('.stage-credit'), store.get().presenting && document.querySelector('.pz-bar.pzb-pill'),
-    ...document.querySelectorAll('.stage-blocker:not([hidden]), .pz-shade, #nbViews, .stage-clock')].filter(Boolean);
+    ...document.querySelectorAll(BLOCKER_SEL)].filter(Boolean);
   let creditKept = null;
   function readBlockersRead(rectOf, wr, els = null) {
     { const el = document.querySelector('.stage-credit'), r = el && (!els || els.includes(el)) ? rectOf(el) : null;
@@ -9912,7 +9915,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (And the view switcher's holder over the play bar while it holds the switcher: reading labels sat under Circuit / Anatomy /
     // Lobule. By id, not the .stage-blocker class, which the credit and pan starts also read; round 2 review, G3-7.)
     // (And the phone's clock at the bottom left, "Day 30": a label there sat under it. It is display: none off the phone, so no box.)
-    return [...document.querySelectorAll('.stage-blocker:not([hidden]), .pz-shade, #nbViews, .stage-clock')].map((el) => {
+    return [...document.querySelectorAll(BLOCKER_SEL)].map((el) => {
       if (el.id === 'nbViews' && !el.querySelector('#viewSeg')) return null;
       // A closed card can stay in place, invisible (the patient chart does): it hides nothing. (So does a glass with no words on it.)
       // (Nor does a card on its way out, a panel included: 2 Nov, the organs' names went off for half a second as a slide's panel left,
