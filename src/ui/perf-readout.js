@@ -5,8 +5,8 @@
 // steps that ran in it (and every interval counted in a histogram at that refresh, with p50/p95/p99), and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
 import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=625c2c9315';
-import { perf, watchFrames, finalFrameFor } from './frame.js?v=7710f677e2';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
+import { perf, watchFrames, finalFrameFor } from './frame.js?v=7710f677e2';
 // (The readout's own loop: through the app's one frame scheduler, last in each frame, not a requestAnimationFrame of its own.)
 const nextFrame = finalFrameFor('perf readout');
 import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js?v=9cd1d0c4e3';
@@ -119,6 +119,13 @@ export function gestureText(r) {
   const tasks = r.tasks.map((t) => `  long task +${t.at.toFixed(0)} ms: ${t.dt.toFixed(0)} ms${t.src ? ` (${t.src})` : ''}`);
   return [head, ...(r.budget ? [budgetText(r.budget)] : []), ...gauges, ...gaps, ...tasks].join('\n');
 }
+
+// The panel's page writes, as top-level functions run between frames (restPass): never a closure inside the sampler, so none
+// is reached from a frame. The elements and texts they need are module state, set once by startPerfReadout.
+let pSurfEl = null, pSurfText = null, pShownSurf = '', pLogEl = null, pLogText = null, pShownLog = '', pBody = null, pReports = null;
+function writeSurf() { const t = pSurfText(); if (t !== pShownSurf) { pShownSurf = t; pSurfEl.textContent = t; } }
+function writeLog() { const t = pLogText(); if (t !== pShownLog) { pShownLog = t; pLogEl.textContent = t; } }
+function writeBody() { pBody.textContent = pReports.map(gestureText).join('\n\n'); }
 
 export function startPerfReadout({ zoom = () => '?' } = {}) {
   gpuProbe.cpuOnly = true; gpuProbe.on = true; gpuProbe.take();
@@ -287,10 +294,8 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   const surfEl = document.createElement('div');
   surfEl.style.cssText = 'margin-top:8px';
   const surfText = () => surfacesText(surfaceRows());
-  let shownSurf = '';
-  // (The readout's own words are written between frames, never in one: rest-pass.js. Its monospace panel is a debugging tool, shown with ?perf.)
-  const paintSurf = () => restPass(() => { const t = surfText(); if (t !== shownSurf) { shownSurf = t; surfEl.textContent = t; } });
-  setInterval(() => { if (!cur && !folded && !document.hidden) paintSurf(); }, 500);
+  pSurfEl = surfEl; pSurfText = surfText;
+  setInterval(() => { if (!cur && !folded && !document.hidden) restPass(writeSurf); }, 500);
   if (window.pps) window.pps.surfaces = () => surfaceRows();   // (for a headless run: pps.surfaces())
   const scan = () => blurText(scanBlurs(document, (el) => window.pps?.stage?.blurWhy?.(el) ?? null), document.querySelectorAll('[data-gl]').length);
   blurs.textContent = 'Blurs';
@@ -308,10 +313,10 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   const logEl = document.createElement('div');
   logEl.style.cssText = 'margin-top:8px';
   const logText = () => [longFramesText(frameLog.long), inputsText(perf().inputToPaint)].join('\n\n');
-  let shownLog = '', folded = false;
-  const paintLog = () => restPass(() => { const t = logText(); if (t !== shownLog) { shownLog = t; logEl.textContent = t; } });
-  setInterval(() => { if (!cur && !document.hidden && !folded) paintLog(); }, 1000);   // (not while hidden or folded: nothing to see)
-  paintLog();
+  let folded = false;
+  pLogEl = logEl; pLogText = logText;
+  setInterval(() => { if (!cur && !document.hidden && !folded) restPass(writeLog); }, 1000);   // (not while hidden or folded: nothing to see)
+  restPass(writeLog);
   bar.append(title, rest, rec, hide, gpu, orgs, blurs, copy); el.append(bar, body, surfEl, blurEl, logEl);
   title.onclick = () => { folded = !folded; for (const e of [body, surfEl, blurEl, logEl]) e.style.display = folded ? 'none' : ''; };
   const text = () => [`${navigator.userAgent}`, `screen ${innerWidth}x${innerHeight} @${devicePixelRatio}x, refresh offered to the page ${refreshOf(recent) || '?'} Hz, ${location.pathname}${document.getElementById('preview-badge') ? ` ${document.getElementById('preview-badge').textContent.trim()}` : ''}`, ...reports.map(gestureText), surfText(), ...(blurEl.textContent ? [blurEl.textContent] : []), logText()].join('\n\n');
@@ -324,7 +329,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
     }
     setTimeout(() => { copy.textContent = 'Copy'; }, 1500);
   };
-  let paintAsk = 0;
-  function paint() { if (!paintAsk) paintAsk = restPass(() => { paintAsk = 0; body.textContent = reports.map(gestureText).join('\n\n'); }); }
+  pBody = body; pReports = reports;
+  function paint() { restPass(writeBody); }
   document.body.append(el);
 }

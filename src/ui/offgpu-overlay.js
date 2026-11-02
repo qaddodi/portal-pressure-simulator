@@ -11,8 +11,8 @@
 // down, or a wheel turned in the last 150 ms. Work done between frames (a timer, an event) counts with the next frame.
 // The first few call sites in a moving frame are kept (from the stack) and the last one is shown, so a red flash names its cause.
 // window.pps.offgpu() returns the totals and the recent sites (for tests and the console).
-import { watchFrames } from './frame.js?v=7710f677e2';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
+import { watchFrames } from './frame.js?v=7710f677e2';
 
 const KINDS = ['2d', 'svg', 'layout', 'upload', 'shader'];
 const UPLOAD_RED = 512 * 1024;   // (small row updates every frame are the GPU's normal diet; a big re-upload is the stall)
@@ -107,7 +107,7 @@ let pointers = 0, wheelAt = -1e9, chained = false;
 const moveNow = () => chained || pointers > 0 || performance.now() - wheelAt < 150;
 
 // ---- the readout ----
-let el = null, showAsk = 0, shownAt = 0, red = false, redUntil = 0, sec = zero(), secAt = 0, secShown = zero(), redFrames = 0;
+let el = null, shownAt = 0, red = false, redUntil = 0, sec = zero(), secAt = 0, secShown = zero(), redFrames = 0;
 function ensureEl() {
   if (el) return el;
   quiet++;
@@ -125,7 +125,7 @@ function ensureEl() {
   return el;
 }
 const line = (c) => `2D ${c['2d']} · SVG ${c.svg} · layout ${c.layout} · upload ${c.upload} (${(c.bytes / 1048576).toFixed(1)} MB) · shader ${c.shader}`;
-function show(t) {
+function writeShow() {
   quiet++;
   try {
     const e = ensureEl();
@@ -133,8 +133,11 @@ function show(t) {
     e.lastChild.textContent = `off GPU, last second: ${line(secShown)}\nwhile moving, since load: ${line(inMotion)}  (${redFrames} red frames)\n`
       + (sites.length ? `last: ${sites[sites.length - 1]}` : 'last: none');
   } finally { quiet--; }
-  shownAt = t;
 }
+let askedShow = false;
+function runShow() { askedShow = false; writeShow(); }
+// (Asked from a frame, written between frames: shownAt is stamped now so a frame does not ask again before it runs.)
+function show(t) { shownAt = t; if (!askedShow) { askedShow = true; restPass(runShow); } }
 
 function onFrame(f) {
   chained = f.gap > 0;
@@ -152,7 +155,7 @@ function onFrame(f) {
   if (f.now - secAt >= 1000) { secShown = sec; sec = zero(); secAt = f.now; }
   const r = f.now < redUntil;
   // (The readout is written between frames, never in one: rest-pass.js.)
-  if ((r !== red || f.now - shownAt > 250) && !showAsk) { red = r; shownAt = f.now; showAsk = restPass(() => { showAsk = 0; show(performance.now()); }); }
+  if (r !== red || f.now - shownAt > 250) { red = r; show(f.now); }
 }
 
 export function startOffGpuOverlay() {
@@ -164,6 +167,7 @@ export function startOffGpuOverlay() {
   addEventListener('pointercancel', up, { capture: true, passive: true });
   addEventListener('wheel', () => { wheelAt = performance.now(); }, { capture: true, passive: true });
   watchFrames(onFrame);
+  ensureEl();   // (built once, here, outside any frame)
   // (Shown at once and kept current when nothing moves: a timer, never a frame of its own.)
   show(performance.now());
   setInterval(() => { if (performance.now() - shownAt > 1000) { red = performance.now() < redUntil; secShown = sec; sec = zero(); secAt = performance.now(); show(performance.now()); } }, 1000);
