@@ -8,6 +8,7 @@ import { pressureColor } from './colormap.js?v=b4f74b7b7f';
 import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=a7a76dfc36';
 import { simTime, isPaused } from './clock.js?v=16aba0e2eb';
 import { createEndoGL } from './endo-gl.js?v=c036e30503';
+import { CTX_LAZY } from './gl-support.js?v=38189f60f5';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { renderEndo } from './endo-render.js?v=bf946a8c29';
 import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
@@ -85,7 +86,17 @@ export function createEndoscopy({ onAction }) {
   // Rendered endoscopic view (see endo-render.js): a per-pixel 3D shading of the lumen with raised,
   // winding varices, drawn once per state into a cached bitmap, so it is perfectly steady. Balloon,
   // bleeding and the scope mask are drawn on top.
-  let gl = createEndoGL({ onBack: () => { if (!raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); }); } }), wasGl = !!gl;   // (wasGl: which renderer drew the field last, so a change between them fades)
+  // The shader's WebGL context is made when the scope is about to show (shown(true) from the dock, or the first field drawn) and given
+  // back when its tab leaves the screen (shown(false)): a page holds only so many (iOS Safari about 16, dropping the oldest, which is
+  // the figure's). The picture on the page is the drawer's texture, so nothing blanks; the shader is made afresh, through gl-compile.js,
+  // on the way back. ?ctxlazy=0 makes it at the start and keeps it, as before.
+  const mkGl = () => createEndoGL({ onBack: () => { if (!raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); }); } });
+  let gl = CTX_LAZY ? null : mkGl(), wasGl = !!gl, glGone = false, noGl = false, away = false;   // (wasGl: which renderer drew the field last, so a change between them fades; glGone: the context was given back, not failed; away: the tab is off the screen)
+  function needGl() {
+    if (gl || noGl || away || !CTX_LAZY) return;
+    gl = mkGl();
+    if (!gl) noGl = true; else if (glGone) { glGone = false; glKey = ''; }
+  }
   // The scope's picture is laid by the GPU's chart drawer over this canvas (trace-gl.js): the field as a texture (taken from the shader's
   // canvas, GPU to GPU, once per state), the old one under it while the new fades in, the balloon, the bleed and the rim, clipped to the
   // lumen. Nothing is drawn on a 2D canvas (1 Nov: nothing off the GPU); ?tracegl=0 draws the overlays on this canvas and leaves the field out.
@@ -174,7 +185,8 @@ export function createEndoscopy({ onAction }) {
     if (busy && !raf && !isPaused()) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
     let img;
-    if (gl && !gl.ready() && !gl.lost) { gl.dispose(); gl = null; glKey = ''; }   // (its shader failed: the CPU renderer below, as with no WebGL)
+    needGl();
+    if (gl && !gl.ready() && !gl.lost) { gl.dispose(); gl = null; glKey = ''; noGl = true; }   // (its shader failed: the CPU renderer below, as with no WebGL)
     // (A lost context is not a failure: the CPU renderer draws the field while it is gone, and the GPU takes over again, with the new
     // field fading in over the old, when the browser gives it back and builds the shader afresh: endo-gl.js.)
     const onGl = !!gl && !gl.lost;
@@ -275,7 +287,15 @@ export function createEndoscopy({ onAction }) {
     pinned = fp && Number.isFinite(fp.varix) ? { d: fp.varix, ptm: P ? P[NI.VAR] : NaN } : null;
     if (last) update(last.f);
   }
-  return { id: 'endoscopy', label: 'Endoscopy', el, update, configure, pin, setView() {}, dispose() { offRun(); cancelFrame(raf); raf = 0; gl?.dispose(); pen?.dispose(); last = null; offSurface(); } };
+  // The dock says when this tab is on the screen. Off it, the context goes back; on it, the shader starts compiling now (published when
+  // the driver is done), ahead of the first field.
+  function shown_(on) {
+    if (!CTX_LAZY) return;
+    away = !on;
+    if (!on) { if (gl) { gl.dispose(); gl = null; glKey = ''; glGone = true; } return; }
+    if (!gl && !noGl) { needGl(); if (gl && last) { raf ||= drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); }); } }
+  }
+  return { id: 'endoscopy', label: 'Endoscopy', el, update, configure, pin, shown: shown_, setView() {}, dispose() { offRun(); cancelFrame(raf); raf = 0; gl?.dispose(); pen?.dispose(); last = null; offSurface(); } };
 }
 
 // ── Varix wall cross-section (L3) ───────────────────

@@ -52,7 +52,7 @@ test('the cover lifts only once start-up work is done and the page is calm: held
   const quiet = readFileSync(new URL('../src/ui/quiet.js', import.meta.url), 'utf8');
   assert.match(quiet, /export function holdCover\(p\) \{\n {2}if \(booting\(\) && p && typeof p\.then === 'function'\) \(globalThis\.ppsHold \|\|= \[\]\)\.push\(p\);/);
   const sin = readFileSync(new URL('../src/ui/sinusoid-gl.js', import.meta.url), 'utf8');
-  assert.match(sin, /if \(booting\(\)\) holdCover\(new Promise\(\(done\) => setTimeout\(\(\) => \{ try \{ ready\(\); \} finally \{ done\(\); \} \}, 0\)\)\);/, 'the sinusoid compile runs under the cover');
+  assert.match(sin, /if \(!warm && booting\(\)\) holdCover\(new Promise\(\(done\) => setTimeout\(\(\) => \{ try \{ ready\(\); \} finally \{ done\(\); \} \}, 0\)\)\);/, 'the sinusoid compile runs under the cover');
   const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
   assert.match(main, /const warmUnder = \(\) => \{ if \(!booting\(\)\) return; while \(warmUp\.length\) holdCover\(/);
 });

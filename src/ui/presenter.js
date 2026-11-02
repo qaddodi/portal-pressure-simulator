@@ -20,7 +20,7 @@ import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
 import { liveText, wordsOf } from './live-text.js?v=cfbb8ec234';
 import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=c1f19a57dd';
-import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
+import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
 import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=3c321f5f7f';
 import { NODE_POS } from './anatomy.js?v=fe0f3d1f0e';
@@ -30,7 +30,7 @@ import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { createHvpgMonitor } from './hvpg-proc.js?v=eaea1033c6';
-import { createTools } from './presenter-tools.js?v=d60d33b21d';
+import { createTools } from './presenter-tools.js?v=f49e6e03b6';
 import { openHandout } from './handout.js?v=be99975ab1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';

@@ -25,11 +25,11 @@ import { isPaused } from './clock.js?v=16aba0e2eb';
 import { store } from './store.js?v=4ef2a6ffd8';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=9d02fbd374';
-import { placeFenDisse } from './fen-place.js?v=e872f8cbb4';
+import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=796f147c72';
+import { placeFenDisse } from './fen-place.js?v=69bf814ef2';
 import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=7710f677e2';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
-import { noteSinusoidSupport } from './gl-support.js?v=94ad2a7ff1';
+import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.js?v=38189f60f5';
 import { FADE_MS, fadeAlpha } from './res-fade.js?v=4ffac3ef7f';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
@@ -41,7 +41,7 @@ const nextFrame = frameFor('sinusoid-view');
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
 
-export { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
+export { sinusoidSupported } from './gl-support.js?v=38189f60f5';
 
 /** `before`: a node of `host` to sit ahead of (the lobule layer, built late, takes the place it would have had). */
 export function createSinusoidView({ host, before = null }) {
@@ -129,12 +129,24 @@ export function createSinusoidView({ host, before = null }) {
   }
   const el = h('div', { class: SV_LAYER ? 'sv' : 'sv sv-live', 'aria-hidden': 'true' }, canvas, leaders, labels, legend);
   host.insertBefore(el, before);
-  const gpu = createSinusoidGL(canvas);
-  noteSinusoidSupport(!!gpu);
-  // (A software renderer only: a frame of the view waits for the last to finish on the GPU and gives the page as long again,
-  // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
-  const swGL = gpu ? canvas.getContext('webgl2') : null, svYield = swGL && softwareGL(swGL) ? softwareYield(true, swGL) : null;
-  const svSoft = !!(swGL && softwareGL(swGL));   // (for the ?perf surfaces list below)
+  // The WebGL2 context is made when the view is about to show (setModel at the start of the dive in, place), not with the lobule: a page
+  // holds only so many contexts (iOS Safari about 16, dropping the oldest, which is the figure's), and the lobule opens far more often
+  // than the sinusoid. Its programs start compiling at once, through the dive, and are published when the driver is done. ?ctxlazy=0
+  // makes it at the start, as before. Until then `available` answers from gl-support's one probe (given back at once).
+  let gpu = null, svYield = null, svSoft = false;
+  function ensureGpu() {
+    if (gpu || gpuTried) return;
+    gpuTried = true;
+    gpu = createSinusoidGL(canvas, { warm: CTX_LAZY });
+    noteSinusoidSupport(!!gpu);
+    // (A software renderer only: a frame of the view waits for the last to finish on the GPU and gives the page as long again,
+    // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
+    const swGL = gpu ? canvas.getContext('webgl2') : null;
+    svSoft = !!(swGL && softwareGL(swGL));   // (for the ?perf surfaces list below)
+    svYield = svSoft ? softwareYield(true, swGL) : null;
+  }
+  let gpuTried = false;
+  if (!CTX_LAZY) ensureGpu();
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
   surface('sinusoid', () => (!open ? null : gpu && !gpu.lost ? { on: svSoft ? 'fallback' : 'gpu', via: svSoft ? 'WebGL2 on the CPU' : 'WebGL2', why: svSoft ? 'software renderer' : '' } : { on: 'fallback', via: 'nothing drawn', why: gpu ? 'context lost (drawn again when it is given back)' : 'no WebGL2' }));   // (answered by this view's own context: sinusoidSupported need not make a throwaway one)
 
@@ -908,7 +920,7 @@ export function createSinusoidView({ host, before = null }) {
       return { gl: gpu.top.gl, canvas, add: gpu.top.add, warmIn: gpu.top.warmIn, now: () => { gpu.present(); }, seq: () => gpu.drawSeq, onPicture: (f) => gpu.onPicture(f) };
     },
     /** The lobule's model (lobuleState), each time it changes. */
-    setModel(m) { model = m; if (shown > 0 && !raf) raf = nextFrame(loop); },
+    setModel(m) { ensureGpu(); model = m; if (shown > 0 && !raf) raf = nextFrame(loop); },
     /**
      * Placement during the zoom from the lobule (lobule-zoom.js): opacity; the zoom's state, if it is
      * running (`dive`: g, its eased progress; p, the lobule's sinusoid point on screen at rest; q, the zoom's
@@ -916,6 +928,7 @@ export function createSinusoidView({ host, before = null }) {
      * lumen radii); whether it is fully open (takes input).
      */
     place({ opacity, dive: dv = null, isOpen = false }) {
+      if (opacity > 0) ensureGpu();
       const was = shown;
       shown = opacity; dive = dv;
       el.style.opacity = opacity.toFixed(3);
@@ -951,6 +964,6 @@ export function createSinusoidView({ host, before = null }) {
     isOpen: () => open,
     /** Whether its names are gliding to new places this frame (the corner credit's look, credit.js). */
     labelsMoving: () => open && svMoving,
-    available: !!gpu,
+    get available() { return gpuTried ? !!gpu : sinusoidSupported(); },
   };
 }

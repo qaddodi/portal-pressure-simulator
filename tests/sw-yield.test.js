@@ -60,8 +60,8 @@ test('on a GPU the frame loop never enters the yield', () => {
   assert.match(lob, /lzYield = softwareYield\(!!gl\?\.software, gl\?\.software \? glCv\.getContext\('webgl2'\) : null\);/);
   for (const u of lob.match(/lzYield\b[^;]*/g).slice(2)) assert.match(u, /^lzYield(\?\.drew\(now\)|\s*&&\s*!lzYield\.ready\()/, `lobule-zoom.js: unguarded use: ${u}`);
   const sv = readFileSync(new URL('sinusoid-view.js', SRC), 'utf8');
-  assert.match(sv, /svYield = swGL && softwareGL\(swGL\) \? softwareYield\(true, swGL\) : null;/);
-  for (const u of sv.match(/svYield\b[^;]*/g).slice(1)) assert.match(u, /^svYield(\?\.drew\(performance\.now\(\)\)|\s*&&\s*!dive && !drewNow && !svYield\.ready\()/, `sinusoid-view.js: unguarded use: ${u}`);
+  assert.match(sv, /svYield = svSoft \? softwareYield\(true, swGL\) : null;/);
+  for (const u of sv.match(/svYield\b[^;]*/g).slice(2)) assert.match(u, /^svYield(\?\.drew\(performance\.now\(\)\)|\s*&&\s*!dive && !drewNow && !svYield\.ready\()/, `sinusoid-view.js: unguarded use: ${u}`);
 });
 
 test('a pan, zoom, glide or forced draw is drawn in its own frame, never held by the yield', () => {

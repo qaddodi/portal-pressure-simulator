@@ -10,7 +10,7 @@ import { createPressureTime } from './pressure-time.js?v=3f9356657d';
 import { createHvpgProcedure } from './hvpg-proc.js?v=eaea1033c6';
 import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=0d6df59723';
 import { ownsSideways, pageGo } from './swipe.js?v=c1f19a57dd';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=035aacfd09';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=9d8b064350';
 import { createReadoutsPane } from './readouts-pane.js?v=8ae331e33a';
 import { frameFor } from './frame.js?v=7710f677e2';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
@@ -700,7 +700,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (open.length > 1 && !canSplit()) open = open.slice(0, 1);
     else if (open.length === 1 && tabOf(open[0]) === 'profile' && roomy()) open = [...PAIR];
     else if (open.length > 1 && tabOf(open[0]) === tabOf(open[1]) && !roomy()) open = open.slice(0, 1);
-    for (const p of panes) p.el.classList.toggle('active', open.includes(p.id));
+    for (const p of panes) { p.el.classList.toggle('active', open.includes(p.id)); p.shown?.(open.includes(p.id)); }
     body.classList.toggle('split', open.length > 1);
     body.classList.toggle('stack', open.length > 1 && (isPair() || (isSide() && state !== 'focus')));
     body.classList.toggle('pair', isPair());
