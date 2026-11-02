@@ -100,6 +100,7 @@ const BOX_READ = !/[?&]boxread=0\b/.test(location.search);
 // hidden paths wait for the landing (updateGeometry), and the labels are carried with the vessels, solved again as the change reaches
 // its second half and as it lands (labelSig, updateLabels). ?geolazy=0: every frame of the change as before.)
 const GEO_LAZY = !/[?&]geolazy=0\b/.test(location.search);
+const COIL_HOLD = !/[?&]coilhold=0\b/.test(location.search);   // (a collateral's coil target held either side of its threshold: see the coils below)
 // The page's look as one string for the caches below that are drawn in its colours: data-theme, and data-palette too (Navy and Black keep
 // data-theme="dark" and differ from Dark only by the palette: looks.js).
 const themeKey = () => { const d = document.documentElement.dataset; return d.palette ? `${d.theme || ''}/${d.palette}` : (d.theme || ''); };
@@ -3450,9 +3451,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const coiling = [];
     for (const x of EV) {
       if (x.e.kind !== 'collateral' || x.e.spontaneous || STRAIGHT_COLL.has(x.e.id)) continue;
-      const w = shownFrac(x.e.id, f) > 0.25 ? 1.5 + 3.5 * shownFrac(x.e.id, f) : 0;
+      // (Coiled once it has grown past a quarter, and straight again only below a fifth: a varix channel whose growth sat at the quarter
+      // flipped its target between straight and coiled 25 times in one Varices slide change, each a new ease of its coil and a binning,
+      // 3 Nov. ?coilhold=0: one threshold, as before.)
+      const g = geo[x.e.id], sf = shownFrac(x.e.id, f), coiled = COIL_HOLD && g.wigT > 0 ? sf > 0.2 : sf > 0.25;
+      const w = coiled ? 1.5 + 3.5 * sf : 0;
       // Eased toward its target (a change of over 0.6 starts it), so the vessel coils gradually.
-      const g = geo[x.e.id];
       if (g.wigT == null || Math.abs(w - g.wigT) > 0.6) g.wigT = w;
       if (g.wig !== g.wigT) { const d = g.wigT - g.wig; g.wig = Math.abs(d) < 0.03 ? g.wigT : g.wig + d * kW; coiling.push(x); if (g.wig !== g.wigT) widthEasing = coilEasing = true; }
       // The varices' strands fan out less as their varix shrinks, eased the same way (a closed shunt keeps its full spread).
