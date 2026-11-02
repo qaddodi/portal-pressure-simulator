@@ -480,6 +480,33 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
     gl.colorMask(true, true, true, true);
     clipOn = true; clipState();
   }
+  // The outline glyphs batched by text() (white, so their coverage is their red), laid into the coverage target with MAX blending and
+  // painted once in the outline's premultiplied colour over r (CSS px).
+  const outPC = new Float32Array(64);   // (the outline's colour as the paint's one stop, kept: nothing made per frame)
+  function outline(tint, box) {
+    const r = inter(box), n = textN;
+    textN = 0;
+    if (!r) return;
+    coverTarget();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    if (!scissor(r)) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); return; }
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE);
+    gl.useProgram(P.text.p);
+    gl.uniform2f(P.text.u.res, W, H); gl.uniform2f(P.text.u.asz, ATLAS_W, ATLAS_H); gl.uniform2f(P.text.u.sdf, RADIUS, CUTOFF);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.uniform1i(P.text.u.atlas, 0);
+    gl.bindVertexArray(textVao); gl.bindBuffer(gl.ARRAY_BUFFER, textBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, textData.subarray(0, n * TS), gl.STREAM_DRAW);
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.useProgram(P.comp.p);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, covTex); gl.uniform1i(P.comp.u.cov, 0);
+    gl.uniform2f(P.comp.u.res, W, H); gl.uniform1f(P.comp.u.k, K);
+    outPC.set(tint);
+    gl.uniform4fv(P.comp.u.pc, outPC); gl.uniform1i(P.comp.u.pn, 1); gl.uniform1f(P.comp.u.ga, 1);
+    gl.bindVertexArray(quadVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
   function flush() {
     if (textN) {
       if (scissor(clipR)) {
@@ -752,10 +779,17 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
     text(str, x, y, font, color, align = 'left', base = 'alphabetic', alpha = 1, sw = 0, turn = null) {
       str = String(str);
       if (!str || typeof color !== 'string') return;
-      if (boxN) flush();
+      // (An outline is laid as coverage first, glyph by glyph with MAX blending, then painted once in its colour: as the 2D canvas strokes
+      // a line of words in one go. Blended glyph by glyph, a see-through outline came out darker where two letters' outlines met.)
+      if (boxN || sw) flush();
       const tint = premul(color, alpha);
       if (tint[3] <= 0) return;
       const f = fontOf(font), g = GLYPHS[f.w], kw = KERN[f.w], s = f.px / BASE, sk = s * K;
+      // (An outline never reaches past the atlas's field, which ends (1 - CUTOFF) * RADIUS atlas px from a glyph's edge: wider, the whole
+      // glyph's cell read as inside it and the outline drew as a box, FibroScan's "kPa" on a dark block, 2 Nov 2026.)
+      const hwd = sw ? Math.min((sw / 2) * K, (1 - CUTOFF) * RADIUS * sk - 0.75) : 0;
+      const ink = sw ? [1, 1, 1, 1] : tint;
+      let qx0 = Infinity, qy0 = Infinity, qx1 = -Infinity, qy1 = -Infinity;
       const width = measure(str, font);
       const rx = turn ? turn[0] * K : 0, ry = turn ? turn[1] * K : 0, rc = turn ? Math.cos(turn[2]) : 1, rs = turn ? Math.sin(turn[2]) : 0;
       let cx = align === 'right' || align === 'end' ? x - width : align === 'center' ? x - width / 2 : x;
@@ -769,14 +803,16 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
           const o = textN * TS;
           textData[o] = (cx - e[5] * s) * K; textData[o + 1] = (by - e[6] * s) * K; textData[o + 2] = e[3] * sk; textData[o + 3] = e[4] * sk;
           textData[o + 4] = e[1]; textData[o + 5] = e[2]; textData[o + 6] = e[3]; textData[o + 7] = e[4];
-          textData.set(tint, o + 8);
-          textData[o + 12] = sk; textData[o + 13] = sw ? (sw / 2) * K : 0;
+          textData.set(ink, o + 8);
+          textData[o + 12] = sk; textData[o + 13] = hwd;
+          if (sw) { qx0 = Math.min(qx0, textData[o]); qy0 = Math.min(qy0, textData[o + 1]); qx1 = Math.max(qx1, textData[o] + textData[o + 2]); qy1 = Math.max(qy1, textData[o + 1] + textData[o + 3]); }
           textData[o + 14] = rx; textData[o + 15] = ry; textData[o + 16] = rc; textData[o + 17] = rs;
           textN++;
         }
         cx += e[0] * f.px;
         prev = ch;
       }
+      if (sw && textN) outline(tint, turn ? [0, 0, W / K, H / K] : [qx0 / K - 1, qy0 / K - 1, (qx1 - qx0) / K + 2, (qy1 - qy0) / K + 2]);
     },
     /**
      * A 2D context for the chart's own drawing code, w × h CSS px at Wd × Hd device px, drawn by the GPU; null where it cannot draw now
