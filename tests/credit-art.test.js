@@ -77,12 +77,11 @@ const shape = (cls, rect, { w = 0, fill = 'rgb(1, 1, 1)', stroke = 'none', tf = 
   getBoundingClientRect() { counts.shape++; const r = this.rect, b = boxThrough(multiply(cam, this.tf), r[0], r[1], r[0] + r[2], r[1] + r[3]); return { left: b.l, top: b.t, right: b.r, bottom: b.b, width: b.r - b.l, height: b.b - b.t }; },
   cs: { display: 'inline', strokeWidth: String(w), fill, stroke, strokeLinecap: 'butt', strokeLinejoin: 'miter' },
 });
-const lumen = { cs: { strokeWidth: '40' }, classList: { contains: () => false } };
 const organA = shape('organ', [100, 100, 200, 150]);
 const fluid = shape('ascites-fill', [500, 100, 100, 100], { fill: 'rgb(1, 1, 1)' });
-const vessel = shape('v-hit', [400, 300, 10, 300], { w: 12, fill: 'none', stroke: 'rgba(0,0,0,0)', id: 'V1', parent: { querySelector: () => lumen } });
+const vessel = shape('v-hit', [400, 300, 10, 300], { w: 12, fill: 'none', stroke: 'rgba(0,0,0,0)', id: 'V1' });
 const scene = { organs: [organA], fluid: [fluid], hits: [vessel] };
-const bySelector = (sel) => (sel.startsWith('#world .v-hit[data-id=') ? scene.hits.filter((h) => sel.includes(`"${h.getAttribute('data-id')}"`)) : sel.includes('g.organ') ? scene.organs : sel.includes('#ascites') ? scene.fluid : sel.includes('.v-lumen') ? scene.hits : []);
+const bySelector = (sel) => (sel.startsWith('#world .v-hit[data-id=') ? scene.hits.filter((h) => sel.includes(`"${h.getAttribute('data-id')}"`)) : sel.includes('g.organ') ? scene.organs : sel.includes('#ascites') ? scene.fluid : sel === '#world .v-hit' ? scene.hits : []);
 // (The grid class credit.js imports, at its stamped URL: the same module, so counting its reads counts the credit's.)
 const gridUrl = /from '\.\/(cell-grid\.js[^']*)'/.exec(readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8'))[1];
 const { CellGrid } = await import(`../src/ui/${gridUrl}`);
@@ -101,7 +100,7 @@ globalThis.document = {
   createElement: () => { const cv = { width: 1, height: 1, getContext: () => { throw new Error('the credit draws on no canvas'); } }; canvases.push(cv); return cv; },
 };
 let glows = [];
-window.pps = { stage: { steadyGlows: () => glows } };
+window.pps = { stage: { steadyGlows: () => glows, lumenWidth: (id) => (id === 'V1' ? 40 : null) } };   // (the vein's drawn width: the stage's number)
 globalThis.MessageChannel = undefined;   // (rest passes on a zero timer, which this test's fake setTimeout takes)
 const { organTest } = await import('../src/ui/credit.js');
 

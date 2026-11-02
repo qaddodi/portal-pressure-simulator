@@ -32,7 +32,7 @@ test('a start that failed reaches the page\'s boot card; a script that cannot be
   // The gate itself, run: under a CSP with no eval, `new Function` throws an EvalError, which must not read as "syntax".
   const gate = html.match(/<script>(\/\* Can this browser run the app\?[\s\S]*?)<\/script>/)[1];
   const run = (fnImpl) => {
-    const w = { addEventListener() {}, ResizeObserver: function () {}, structuredClone: () => {}, CSS: { supports: () => true }, matchMedia: () => ({ matches: false }) };
+    const w = { addEventListener() {}, ResizeObserver: function () {}, structuredClone: () => {}, WebGL2RenderingContext: function () {}, CSS: { supports: () => true }, matchMedia: () => ({ matches: false }) };
     const ctx = vm.createContext({ window: w, document: { createElement: () => ({ noModule: true }) }, CSS: w.CSS, Function: fnImpl, Array, EvalError, SyntaxError });
     // (A fresh `Function` in the sandbox; the script reads `window` as `w` and the rest as globals.)
     vm.runInContext(gate, ctx);

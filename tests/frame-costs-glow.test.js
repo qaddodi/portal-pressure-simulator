@@ -78,17 +78,18 @@ test('the FibroScan packets write an opacity or a path only when its text change
   assert.match(stage, /scan\.el = null; scan\.packs = null;/, 'a new probe looks its packets up again');
 });
 
-test('under the GPU the hidden SVG tubes are written when they show again; the lumens too, flushed for the credit', () => {
-  assert.match(stage, /if \(!on\) \{ tubesHidden = false; if \(tubesHeld\.size\) flushTubes\(\); if \(geoHeld\.size\) flushGeo\(\); ascitesSvg\(\); \}/);
-  assert.match(stage, /setL\(x\.lumen, 'stroke-width', w\.toFixed\(1\)\)/);
-  assert.match(stage, /const setL = setT;/);
-  assert.match(stage, /for \(const el of \[sd\.lumen, sd\.wall\]\) \{ setS\(el, 'display', vis\); setS\(el, 'opacity', op\); \}/);
-  assert.match(stage, /flushHeld: \(\) => \{ if \(tubesHeld\.size\) flushTubes\(\); if \(geoHeld\.size\) flushGeo\(\); \}/);
+test('the vessels are records the GPU draws: no SVG tube, gradient or mask is made for them; the hit paths held while the GPU draws are written for the credit', () => {
+  const build = stage.slice(stage.indexOf('  // Edge groups: each vessel is a record'), stage.indexOf('  ALL_EDGES.forEach((e, i) => { E[e.id].row = i; });'));
+  assert.ok(build.length > 0, 'the vessel builder is found');
+  for (const c of ['v-wall', 'v-lumen', 'v-shadow', 'v-sheen', 'v-shade', 'v-select', 'v-halo', 'v-strand', 'v-artery', 'linearGradient', 'mask']) assert.ok(!build.includes(c), `no ${c} built for a vessel`);
+  assert.doesNotMatch(stage, /tubesHidden|tubesHeld|flushTubes|setPaint|svgTaper|updateJoins|REVEAL_PARTS/, 'nothing left that wrote the SVG tubes');
+  assert.match(stage, /if \(!on\) \{ if \(geoHeld\.size\) flushGeo\(\); ascitesSvg\(\); \}/);
+  assert.match(stage, /flushHeld: \(\) => \{ if \(geoHeld\.size\) flushGeo\(\); \}/);
   const credit = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
-  assert.match(credit, /function screenTest\(wr, ring = null\) \{\n {2}window\.pps\?\.stage\?\.flushHeld\?\.\(\);/, 'credit.js reads a lit lumen\'s width: held values are written first');
+  assert.match(credit, /function screenTest\(wr, ring = null\) \{\n {2}window\.pps\?\.stage\?\.flushHeld\?\.\(\);/, 'the credit reads the hit paths: held values are written first');
+  assert.match(credit, /window\.pps\?\.stage\?\.lumenWidth\?\.\(el\.getAttribute\('data-id'\)\)/, 'a lit vein\'s width is the stage\'s number');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  const hidden = css.match(/\.stage-view\.gl-on #world :is\(([^)]*)\) \{ display: none; \}/)[1];
-  for (const c of ['.v-wall', '.v-artery', '.v-strand', '.v-strand-wall', '.v-select']) assert.ok(hidden.includes(c), `${c} is hidden under gl-on`);
+  for (const c of ['.v-wall', '.v-lumen', '.v-artery', '.v-strand', '.v-select', '.v-shadow', '.tier-casing']) assert.ok(!css.includes(c + ' ') && !css.includes(c + ','), `no style left for ${c}`);
 });
 
 test('label widths are kept by their digit-normalised text, and the narrowings\' text by object', () => {

@@ -29,7 +29,7 @@ test('both paths write a width the same way and draw the same width-led layers',
   assert.match(body('updateInner'), /widthWrites\(x, w, t, f, k\);/);
   const inner = body('stepWidthsInner');
   assert.match(inner, /widthWrites\(x, w, t, f, EI\[x\.e\.id\]\);/);
-  for (const call of ['renderTube(x, p, t, J, TP)', 'clearJoins()', 'updateJoins(t)', 'syncVeins(t)', 'updateOverlays(', 'updateBridges(t)', 'updateLabels(f)']) {
+  for (const call of ['renderTube(x, p, t, J)', 'syncVeins(t)', 'updateOverlays(', 'updateLabels(f)']) {
     assert.ok(inner.includes(call), `the width step calls ${call}`);
   }
   // The labels are laid out again when a width moves past its 2 px band, as the full update's signature has it (sigWidth).
@@ -49,12 +49,12 @@ test('between model frames, an organ ease alone steps the organs alone, under th
   assert.match(fn, /if \(!organsEasing \|\| !f \|\| f !== widthF \|\| storeVer !== widthVer \|\| !CTM \|\| !widthCTM \|\| CTM\.sc !== widthCTM\.sc \|\| CTM\.a !== widthCTM\.a \|\| CTM\.b !== widthCTM\.b \|\| coilEasing \|\| catchUp\) return false;/, 'a pan takes the organ step, a zoom or turn the full update');
   assert.match(STAGE, /function syncView\(\) \{\n\s+viewRaf = 0;\n\s+flushVT\(\);\n\s+if \(!F \|\| lz\?\.isOpen\(\)\) return;\n\s+refreshCTM\(\);\n\s+gpuProbe\.time\(null, 'labels \(script\)', \(\) => updateLabels\(F\)\);/, 'a view change lays out the labels itself');
   assert.match(fn, /if \(anatCovered\(\) \|\| hid\.at \|\| plateStale \|\| blockersStale \|\| \(performance\.now\(\) - blockersAt > 100 && watch\.due\(\)\)\) return false;/);
-  assert.match(fn, /if \(morph !== morphTarget \|\| tubesHidden !== wrap\.classList\.contains\('gl-on'\) \|\| bandsMoving\(\) \|\| lesionsMoving\(\) \|\| anyReveal\(\) \|\| visWidthMoving\(\)\) return false;/, 'any vessel width, band or lesion still moving takes the full update');
+  assert.match(fn, /if \(morph !== morphTarget \|\| glAtUpdate !== wrap\.classList\.contains\('gl-on'\) \|\| bandsMoving\(\) \|\| lesionsMoving\(\) \|\| anyReveal\(\) \|\| visWidthMoving\(\)\) return false;/, 'any vessel width, band or lesion still moving takes the full update');
   assert.match(fn, /widthEasing = organsEasing = false;\n\s+updateOrgans\(f, f\.viewParams \|\| store\.get\(\)\.params, t\);/, 'the organs set their own easing flags again');
   assert.match(fn, /if \(plateRedraw\) \{ plateRedraw = false; drawVeins\(false, 'plate hidden'\); \}/, 'a plate redraw it asks for is drawn, as after an update');
   assert.match(src, /\} else if \(widthEasing && F && !stepOrgans\(\) && !stepWidths\(\)\) update\(F\);/);
   // Nothing else in the update follows the liver's ease: only the organs and the fluid read it.
-  for (const name of ['updateOverlays', 'updateLabels', 'updateBridges', 'updateNodesCircuit', 'fxSync', 'updateFocus', 'updateOrganSel']) {
+  for (const name of ['updateOverlays', 'updateLabels', 'updateNodesCircuit', 'fxSync', 'updateFocus', 'updateOrganSel']) {
     const at = src.indexOf(`  function ${name}(`), next = src.indexOf('\n  function ', at + 10);
     assert.ok(at > 0, name);
     assert.doesNotMatch(src.slice(at, next), /\blvC\b|\blvG\b|liverScale|liverFloor|liverDome/, `${name} reads the liver's ease`);

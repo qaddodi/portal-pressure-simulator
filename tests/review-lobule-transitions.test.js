@@ -23,7 +23,7 @@ test('G18: organs and vessels ease on one clock and one curve', () => {
   assert.match(stage, /u = easeMove\(clamp\(\(\(PACED \? easeNow\(\) : now\) - lensT0\) \/ LENS_FADE, 0, 1\)\)/);
   assert.match(stage, /const u = easeMove\(clamp\(\(now - plateT0\) \/ PLATE_FADE, 0, 1\)\);/);
   assert.match(read('../src/ui/organs-gl.js'), /L\.k = easeMove\(\(now - L\.from\) \/ VIEW_FADE_MS\);/);
-  for (const rule of ['#net { transition: opacity var(--d-surface) var(--ease-move); }', '#backEdges .vg { transition: none; }']) assert.ok(app.includes(rule), rule);
+  assert.doesNotMatch(app, /#net \{ transition|#backEdges \.vg/, 'the vessels have no CSS fade left (the GPU draws them)');
   // The live SVG organs take the plate's own eased values (stepPlateEase → syncPlateLook → syncOrganDim), so they share its clock.
   assert.match(stage, /function syncPlateLook\(\) \{\n {4}syncOrganDim\(\);/);
   assert.doesNotMatch(app, /#heatGlow[^}]*\.28s|#backEdges \.vg \{ transition: filter \.28s/, 'no lens or selection fade left on the old .28 s clock');

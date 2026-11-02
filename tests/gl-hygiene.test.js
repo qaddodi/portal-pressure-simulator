@@ -5,12 +5,12 @@ import { readFileSync } from 'node:fs';
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
 // 22 Oct review items 1, 2, 4, 11 and 12: the GPU is let go of, or fallen back from, where the figure or an instrument is not shown.
-test('a lost vessel context brings the SVG vessels and organs back at once', () => {
+test('a lost vessel context drops the GPU classes at once (the vessels are drawn only by the GPU, sent again on its restore)', () => {
   const s = src('src/ui/stage.js');
   const lost = s.slice(s.indexOf("vCanvas.addEventListener('webglcontextlost'"), s.indexOf("vCanvas.addEventListener('webglcontextrestored'"));
   assert.match(lost, /wrap\.classList\.remove\('gl-on'\)/);
   assert.match(lost, /wrap\.classList\.remove\('gl-plate'\); syncPlateLook\(\)/);
-  assert.match(lost, /if \(tubesStale\) \{ tubesStale = false; updateGeometry\(true\); \}/);
+  assert.match(lost, /if \(geoHeld\.size\) flushGeo\(\);/);
   assert.match(lost, /stageWake\(\)/);
   // and a restore that gets no context leaves the SVG showing, with no GPU classes behind
   assert.match(s, /if \(!veins\) \{ wrap\.classList\.remove\('gl-on', 'gl-plate'\); syncPlateLook\(\); return; \}/);

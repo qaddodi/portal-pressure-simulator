@@ -154,10 +154,6 @@ html.model-contain .stage-view.gl-on :is(svg#stage, svg#labels) { contain: layou
    over the liver and spleen, and with ascites the flank stretched it over the whole abdomen. The organs' copy for the GPU
    is cloned with the mask attributes, which this rule does not change, so the plate keeps them. */
 .stage-view.gl-plate :is(#backdrop, #backdrop [mask], #organs [mask], #ascites [mask], #ghosts [mask]) { mask: none; }
-.stage-view.gl-on #world :is(.v-shadow, .v-wallP, .v-lumenP, .v-wall, .v-lumen, .v-shade, .v-sheen, .v-select, .v-artery, .v-strand, .v-strand-wall) { display: none; }
-/* Their groups' masks (a vein's fade into the vessel it joins, a tip's fade) were still built for the hit strokes, which are
-   transparent, on every repaint of the figure: off under gl-on, the same pixels. A focused vessel keeps its mask, for its ring. */
-.stage-view.gl-on #world .vg:not(:focus-within) { mask: none; }
 .stage-view canvas { pointer-events: none; }
 .stage-view svg#labels { pointer-events: none; overflow: visible; }
 #overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
@@ -706,19 +702,6 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 #organs, #ascites, #grid, #overlays, #nodes, #guides, #focus { pointer-events: none; }
 .stage-view.gl-on #overlays [data-gl] { visibility: hidden; }   /* drawn on the GPU with the vessels (stage.js marksBuild) */
 #organs { transition: opacity var(--d-surface) var(--ease); }
-/* Borders and contact shadows are solid, with their transparency set once per tier, so where two
-   vessels' borders overlap (every junction, every bend) they read as one shape, not a darker patch. */
-.tier-casing { opacity: var(--casing-a); }
-.tier-shadow { opacity: var(--shadow-a); }
-#net { transition: opacity var(--d-surface) var(--ease-move); }
-.stage-view.has-sel #net { opacity: .42; }
-/* A selected vessel stays bright; the rest of the network and the organs recede. */
-.stage-view.has-sel #backEdges .vg:not(.is-sel):not(.hl) { filter: opacity(.42); }
-.stage-view.has-sel .vg.is-sel .v-lumen, .stage-view.has-sel .vg.is-sel .v-lumenP { filter: brightness(1.12) saturate(1.1); }
-
-.v-wall { fill: none; stroke: rgb(var(--casing-rgb)); stroke-linecap: round; stroke-linejoin: round; }
-.v-lumen { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.v-artery { fill: none; stroke: var(--artery); stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .85; }
 /* Only the invisible hit strokes take the pointer: the browser then never tests the thousands of
    drawn paths under it (a hit test runs on every pointer move, and after every repaint). */
 #world :is(g, path, circle, ellipse, rect, use, line, polyline, polygon, text) { pointer-events: none; }
@@ -734,30 +717,10 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
    vessels behind the organs only a narrow one, so a click near them rarely lands there by accident. */
 #world .vg.ctx .v-hit, #world #backEdges .v-hit { stroke-width: var(--hit-w, 8); }
 #world .vg.no-hit .v-hit { pointer-events: none; cursor: auto; }
-.v-halo { display: none; }
-/* Tubes: contact shadow, casing, lumen, then the shading of a cylinder lit from above. */
-.v-shadow { fill: rgb(var(--shadow-rgb)); stroke: none; transform: translate(1.4px, 2.8px); }
-.v-shade { fill: var(--tube-shade-ink); fill-opacity: var(--tube-shade); stroke: none; pointer-events: none; }
-.v-sheen { fill: var(--light-ink); fill-opacity: var(--tube-sheen); stroke: none; pointer-events: none; }
-/* Veins are filled, tapered tubes; strokes are used in the circuit, for closed collaterals and
-   while a vessel is being drawn on. */
-.v-wallP, .v-lumenP { stroke: none; }
-.v-wallP { fill: rgb(var(--casing-rgb)); }
-.vg .v-wall, .vg .v-lumen { display: none; }
-.vg.stroked .v-wall, .vg.stroked .v-lumen { display: inline; }
-.vg.stroked .v-wallP, .vg.stroked .v-lumenP, .vg.stroked .v-shadow { display: none; }
-/* Cavernoma: the extra channels of a braided collateral, shown only while it is open in the anatomy. */
-.v-strand-wall { fill: none; stroke: rgb(var(--casing-rgb)); stroke-linecap: round; stroke-linejoin: round; }
-.v-strand { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.coll-ghost :is(.v-strand, .v-strand-wall), .circuit :is(.v-strand, .v-strand-wall) { display: none; }
-.circuit .v-shadow, .circuit .v-shade, .circuit .v-sheen { display: none; }
-.coll-ghost .v-shade, .coll-ghost .v-sheen, .ctx .v-sheen, #backEdges .v-sheen, #backEdges .v-shadow { display: none; }
 .org-ra.org-fill { fill: color-mix(in srgb, var(--organ-heart) calc(var(--organ-tint) + 14%), var(--stage-bg)); }
 .organ-heart-ra { color: color-mix(in srgb, var(--organ-heart) 80%, var(--shade-ink)); }
 /* Data layers and a selection step the anatomy back (#organs, #backdrop) with the GPU's values, eased on its clock: stage.js
    syncOrganDim, an SVG filter, since WebKit draws no CSS filter functions on SVG elements. */
-/* A lens or a selection eases the anatomy back (no one-frame dim or grey). */
-#backEdges .vg { transition: none; }
 .map-dot { fill: var(--map-accent); }
 /* Background plane: the diaphragm (no body-cavity shading). */
 #backdrop { pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
@@ -767,16 +730,10 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .lit-hi { stop-color: var(--light-ink); stop-opacity: var(--lit-hi); }
 .lit-mid { stop-color: var(--light-ink); stop-opacity: 0; }
 .lit-lo { stop-color: var(--lit-lo-ink); stop-opacity: var(--lit-lo); }
-.v-select { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-opacity: .34; opacity: 0; transition: opacity var(--d-small) var(--ease); }   /* (eased by its opacity, never its stroke's) */
-.v-select.on { opacity: 1; }
-.vg { transition: opacity var(--d-small) var(--ease); }
-#backEdges { opacity: .85; }
 /* (A band with no tint has no fill at all: a fill at opacity 0 was still painted over its whole band, the whole screen when zoomed,
    on every pan or zoom frame in the circuit. The same pixels.) */
 .zone { fill: none; }
 .zone.alt { fill: var(--text); fill-opacity: .028; }
-.coll-ghost .v-lumen { stroke-dasharray: 1.5 4.5; }
-.coll-ghost .v-wall { stroke-opacity: .35; stroke-dasharray: 1.5 4.5; }
 .stent-rail { fill: none; stroke: var(--stent-metal); stroke-width: var(--stent-rail-w, 1.4); stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
 .stent-strut { fill: none; stroke: var(--stent-metal); stroke-width: var(--stent-strut-w, 1); stroke-linejoin: round; stroke-opacity: var(--stent-alpha, .95); }
 .stent-mark { fill: none; stroke: var(--stent-marker); stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
@@ -1441,9 +1398,6 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 
 /* Shunt gesture: the source and every valid target glow */
 .stage-view.shunting #stage { cursor: crosshair; }
-.vg.shunt-target .v-lumen, .vg.shunt-target .v-lumenP { filter: drop-shadow(0 0 4px var(--accent)); }
-.vg.shunt-src .v-lumen, .vg.shunt-src .v-lumenP { filter: drop-shadow(0 0 5px var(--flow-normal)); }
-.stage-view.shunting .vg:not(.shunt-target):not(.shunt-src) { opacity: .35; }
 .tool-card .tc-title .btn { margin: -4px -4px -4px 0; }
 
 /* ── Timeline: time, history, events and comparison on one strip ── */
@@ -1672,8 +1626,6 @@ button.finding { cursor: pointer; }
 .halo text { fill: var(--text); }
 @keyframes haloRing { 0% { transform: scale(.5); opacity: 0; } 20% { opacity: .9; } 100% { transform: scale(1.625); opacity: 0; } }   /* (r 8 → 26 as a scale of its r 16, its stroke kept: no r animated) */
 @keyframes haloText { 0% { opacity: 0; } 12%, 70% { opacity: 1; } 100% { opacity: 0; } }   /* (fades in: it appeared in one frame) */
-/* Selection lift: the chosen vessel rises off the page */
-.vg.is-sel .v-shadow { transform: translate(0, 3px); opacity: .5; transition: transform var(--d-flip) var(--ease); }
 @media (prefers-reduced-motion: reduce) { .halo circle, .halo text { animation: none; } }
 
 /* Semantic zoom: the lobule layer and the zoom trail */
@@ -1794,9 +1746,6 @@ button.finding { cursor: pointer; }
   .lz-lab { padding: 3px 7px 4px; }
   .stage-view.in-lobule .stage-clock { display: none; }
 }
-/* Circuit bridges: a line that crosses another hops over it */
-#bridges path { fill: none; stroke-linecap: butt; pointer-events: none; }
-#bridges .bridge-gap { stroke: var(--stage-bg, var(--bg)); }
 
 
 /* Bedside monitor */
@@ -3254,9 +3203,6 @@ html.label-fill-both :is(#labels .lb.scan, .app.presenting #labels .lb) { animat
 :root[data-theme="soft"] :is(.ob-deep, .ob-space, .ob-rim, .ob-edge, .ob-wall, .ob-shade, .ob-hi) { --o1: color-mix(in srgb, var(--og-gut-1) 65%, var(--og-gut-2)); }
 .du-ao { fill: var(--og-ao); stroke: var(--og-ao); stroke-width: 8; stroke-linejoin: round; }
 .du-wall { fill: var(--o1); stroke: color-mix(in srgb, var(--o1) 58%, var(--o3)); stroke-width: 2; stroke-linejoin: round; }
-/* Vessels are cut out of the tissue beneath them by a thin paper-colored edge, so a pressure
-   color never merges with an organ's tone. */
-.v-shadow { fill: var(--knockout); stroke: var(--knockout); stroke-width: 3.2; stroke-linejoin: round; transform: none; }
 
 .org-detail .org-lobules { fill: url(#texLobules); opacity: .55; }
 .org-detail .od-fold { stroke: var(--o3); stroke-width: 1.4; stroke-opacity: .16; }
