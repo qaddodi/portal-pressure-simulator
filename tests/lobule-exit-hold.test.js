@@ -14,7 +14,8 @@ test('the lobule frames itself in the held space while a way out is under way', 
   assert.ok(fr, 'freeRect');
   assert.match(fr, /if \(heldFree && heldFree\.W === geo\.W && heldFree\.H === geo\.H\) return heldFree\.f;/, 'held for this stage size');
   // Every framing (fit, clamp, refit, a station, the zoom buttons) reads freeRect; the live space only through it and the hold.
-  assert.equal((lz.match(/(?<!function )liveFree\(\)/g) || []).length, 2, 'liveFree is read only by freeRect and holdFrame');
+  assert.match(fr, /return liveFreeInto\(freeNow\);/, 'the live space is read by freeRect');
+  assert.equal((lz.match(/(?<!function )liveFree\(\)/g) || []).length, 1, 'liveFree is read only by holdFrame (freeRect writes the live space into its one kept object)');
   assert.match(lz, /function fitV\(\) \{[\s\S]*?const f = freeRect\(\)/, 'the fit reads the held space');
   const hold = lz.match(/holdFrame\(on\) \{[\s\S]*?\n {4}\},/)?.[0];
   assert.ok(hold, 'holdFrame');

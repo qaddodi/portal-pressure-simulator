@@ -21,7 +21,7 @@ test('the boxes are read at rest boundaries only', () => {
   assert.match(src, /if \(fade <= 0 && !store\.get\(\)\.lobule\) \{ snap\.cardKey = '~'; return; \}\n\s*if \(!occT\) occT = restPass\(onOcc\);/, 'a slide change reads nothing with the lobule closed, and between frames with it open');
   assert.match(src, /if \(!onScene\(ev\) \|\| systemEdge\(ev\)\) return;\n\s*readBox\(\);/, 'a press reads the lobule\'s place first');
   assert.match(src, /landing\(\) \{\n\s*readAll\(\);/);
-  assert.match(src, /const local = \(ev\) => \[ev\.clientX - snap\.l, ev\.clientY - snap\.t\];/);
+  assert.match(src, /const localX = \(ev\) => ev\.clientX - snap\.l, localY = \(ev\) => ev\.clientY - snap\.t;/);
   assert.match(src, /if \(!restT\) restT = restPass\(readRest\);/, 'a landed glide reads the cards again in a task of its own');
 });
 

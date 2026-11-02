@@ -71,7 +71,7 @@ test('a zone name never sits on the slide\'s lesion ring', () => {
   // (CI #32, a phone: lobule slide 7, "Zone 3 centrilobular" 7 px from the ring's centre as the view settled.)
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   assert.match(lz, /placeZones\(fr0, hx, hy, callRingAt\(fr0\)\)/);
-  assert.match(lz, /tries\.find\(\(p\) => !ringDepth\(lesion, boxAt\(p\)\)\)/);
+  assert.match(lz, /if \(!ringDepth\(lesion, zBox\)\) \{ at = j; break; \}/);
 });
 
 test('a leader towards a pill\'s rounded corner stops on the curve, not the square corner short of it', () => {

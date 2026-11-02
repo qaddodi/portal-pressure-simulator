@@ -38,9 +38,9 @@ test('a hand\'s zoom carries the lobule\'s labels while every layout rule still 
   assert.match(lobule, /if \(labels\.style\.transform \|\| rough \|\| rides\) \{ rough = false;/);
   const rh = body(lobule, 'function rideHolds(');
   // (No label on another, on a zone's name or chip, on another's leader, on a structure or a card; leaders uncrossed; inside the free space.)
-  for (const re of [/overlap\(boxes\[i\], boxes\[j\]\)/, /crosses\(\.\.\.leads\[i\], boxes\[j\]\)/, /cut\(\.\.\.leads\[i\], \.\.\.leads\[j\]\)/,
-    /overlap\(boxes\[i\], o\) > 0 \|\| crosses\(\.\.\.leads\[i\], o\)/, /keep\.some\(\(q\) => into\(q, b\) > 0\)/, /R\.cards\.some\(\(c\) => overlap\(b, c\) > 0\)/,
-    /R\.chips\.some\(\(c\) => inFree\(mv\(c\.a\)\)\)/, /if \(call && callRingAt\(fr\)\) return false;/]) assert.match(rh, re);
+  for (const re of [/overlap\(bi, rhB\[j\]\) > 0/, /crosses\(pa, pq, rhB\[j\]\)/, /cut\(pa, pq, rhP\[j\], rhQ\[j\]\)/,
+    /overlap\(bi, o\) > 0 \|\| crosses\(pa, pq, o\)/, /if \(into\(keep\[k\], b\) > 0\) return false;/, /if \(overlap\(b, R\.cards\[k\]\) > 0\) return false;/,
+    /if \(mvx >= fr\.l - 4 && mvx <= fr\.r \+ 4 && mvy >= fr\.t - 4 && mvy <= fr\.b \+ 4\) return false;/, /if \(call && callRingAt\(fr\)\) return false;/]) assert.match(rh, re);
 });
 
 test('a trackpad pinch (Ctrl/⌘ + wheel) marks wheelAt, so the anatomy counts it as a hand like a wheel zoom or a pan', () => {

@@ -26,7 +26,9 @@ test('lobule labels, zone names and leaders never cut out', () => {
 });
 
 test('a label\'s colour change does not rebuild it', () => {
-  assert.match(js, /frame = `\$\{name\}\|\$\{short\}\|\$\{uk\}\|\$\{v === ''\}\|\$\{!!d\}`/);
+  // (The label's make-up, part by part: name, short name, unit with numerals as zeros, whether it has a number, whether it has a change.)
+  assert.match(js, /const same = L\.fN === name && L\.fS === short && L\.fU === uk && L\.fE === empty && L\.fD === hasD;/);
+  assert.match(js, /L\.lk = `\$\{name\}\|\$\{short\}\|\$\{uk\}\|\$\{empty\}\|\$\{hasD\}`;/);
 });
 
 test('the lobule\'s frame keeps its size, theme query and styles', () => {

@@ -15,23 +15,23 @@ test('the lobule callout ring and leader are at least 4px thick, in every kind',
 
 test('the lesion leader starts on the ring\'s edge, and labels keep clear of the ring', () => {
   const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.match(js, /setGeo\(callLine, 'x1', a\[0\] \+ \(best\.x - a\[0\]\) \* e0\)/, 'leader start is offset by the ring radius');
+  assert.match(js, /setGeo\(callLine, 'x1', a\[0\] \+ \(bx - a\[0\]\) \* e0\)/, 'leader start is offset by the ring radius');
   assert.doesNotMatch(js, /callLine\.setAttribute\('x1', a\[0\]\); callLine/, 'leader no longer starts at the ring centre');
   assert.match(js, /ringDepth\(ring, box\) > 0 \? 1e6/, 'labels pay the full clash cost for touching the ring');
-  assert.match(js, /\(ringDepth\(ring, box\) > 0 \? 1e6 \+ ringDepth\(ring, box\) \* 1e4 : 0\)/, 'the pill pays the full clash cost for touching the ring too');
+  assert.match(js, /\(rd0 > 0 \? 1e6 \+ rd0 \* 1e4 : 0\)/, 'the pill pays the full clash cost for touching the ring too');
 });
 
 test('the pointer pill prefers spots outside the lobule, falling back inside only when there is no room', () => {
   const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   assert.match(js, /const hexOf = \(\) =>/, 'the lobule outline on screen is measured each layout');
-  assert.match(js, /\+ hex\.share\(box\) \* INSIDE_COST \+ cards\.reduce/, 'the pill prefers outside');
+  assert.match(js, /\+ hex\.share\(cBox\) \* INSIDE_COST \+ c4/, 'the pill prefers outside');
   const cost = Number(js.match(/INSIDE_COST = (\d+)/)?.[1]);
   assert.ok(cost > 0 && cost * 6 < 1e5, 'the inside cost stays well below the clash costs, so it never causes overlaps');
 });
 
 test('lobule labels are pinned beside what they name and never cover the central vein, a portal tract or their own spot', () => {
   const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.match(js, /const keepDiscs = \(g\) => \[\[g\.cx, g\.cy, g\.rcv0 \* CV_KEEP\], \.\.\.g\.lobules\[0\]\.corners\.map/, 'the central vein and every portal tract are kept clear');
+  assert.match(js, /const keepDiscs = \(g\) => \{[^}]*d\.r = Math\.max\(14, g\.rcv0 \* CV_KEEP \* V\.k\);[^}]*\(g\.rt \|\| 6\) \* TRACT_KEEP \* V\.k/s, 'the central vein and every portal tract are kept clear');
   assert.match(js, /const keep = keepDiscs\(g\);/, 'the layout keeps them clear');
   // (Discs as tight as the vessels themselves, so a tract's names sit right beside it on short leaders: Mohammad, 2 Nov 2026.)
   assert.match(js, /const CV_KEEP = 1\.25, TRACT_KEEP = 1\.3;/);
@@ -47,8 +47,8 @@ test('lobule labels are pinned beside what they name and never cover the central
   assert.match(js, /placeCall\(fr, pl2, cards, s1\.ld,/, 'the pill can be placed after the vessel labels, clear of their leaders');
   assert.match(js, /if \(callLead && callCost >= 1e6\) return null/, 'never with the pill on a label');
   assert.match(js, /sinIt\.a = winA/, 'another sinusoid takes the label when the first leaves no room');
-  assert.match(js, /if \(!faded\(`lobule:zone\$\{i \+ 1\}`\)\) boxes\.push/, 'a faded zone name takes no room');
-  assert.match(js, /\(crosses\(p, q, box\) \? 1e6 : 0\)/, 'no label leader runs behind the pill');
+  assert.match(js, /if \(!faded\(ZONE_LIT\[i\]\)\) boxes\.push/, 'a faded zone name takes no room');
+  assert.match(js, /\(crosses\(leads\[i\]\[0\], leads\[i\]\[1\], cBox\) \? 1e6 : 0\)/, 'no label leader runs behind the pill');
   assert.match(js, /- w \/ 2 - 110\) \* 30/, 'the pill stays near its target');
   assert.match(js, /hit\(box, c\) \? 1e6/, 'a label never sits on a card');
   assert.match(js, /Math\.max\(0, lead - 3 \* hh\) \* 60/, 'long leaders cost steeply');

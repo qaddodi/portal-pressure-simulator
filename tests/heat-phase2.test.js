@@ -129,7 +129,7 @@ test('Compare words on the dock tiles and the lobule label numbers are written o
   assert.match(dock, /else x\.cmpW\.set\(ct\);/);
   assert.match(read('src/ui/gl-words.js'), /if \((?:S\.dead \|\| \()?t === S\.want\.t && u === S\.want\.u\)?\) return;/);   // (S.dead: a disposed set does nothing, a90d5609)
   // (Asked for in the frame, written between frames: pageRun.)
-  assert.match(lz, /if \(L\.bv !== String\(v\)\) \{ L\.bv = String\(v\); writeLab\(L\); \}/);
+  assert.match(lz, /if \(L\.bv !== v\) \{ L\.bv = v; writeLab\(L\); \}/);
   assert.match(lz, /if \(d && L\.dv !== d\) \{ L\.dv = d; writeLab\(L\); \}/);
   assert.match(lz, /if \(L\.b && L\.b\.textContent !== L\.bv\) L\.b\.textContent = L\.bv;/);
   assert.match(lz, /if \(L\.dEl && L\.dEl\.textContent !== L\.dv\) L\.dEl\.textContent = L\.dv;/);

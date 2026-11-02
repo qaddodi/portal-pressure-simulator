@@ -23,7 +23,7 @@ test('the sinusoids label has a lit pill and is kept when lit (not faded)', () =
   assert.ok(pill.includes('.app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"]'), 'a lit Sinusoids label takes the pill');
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   assert.match(lz, /const LIT_OK = \[[^\]]*'sinusoid'/);
-  assert.match(lz, /setLab\('sin', 'Sinusoids', 'Sinusoids', \.\.\.mv\('sin', m\.P2, m\.R\[1\]\)\)/, 'the reading is the model\'s sinusoidal pressure, one decimal');
+  assert.match(lz, /station\(m, 'sin', m\.P2, m\.R\[1\]\); setLab\('sin', 'Sinusoids', 'Sinusoids', reading\.v, reading\.u, reading\.d, reading\.col\)/, 'the reading is the model\'s sinusoidal pressure, one decimal');
 });
 
 test('"Most patients recover" and the other central-vein slides get the sinusoids reading', () => {
