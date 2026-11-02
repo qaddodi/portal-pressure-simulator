@@ -32,7 +32,7 @@ function lineGL(S) {
   S.gl = createSvgGL(S.glass);
   S.gl.cv.setAttribute('aria-hidden', 'true'); S.gl.cv.removeAttribute('role');
   S.gl.show(S.svg, false);
-  S.glass.append(S.gl.cv);   // (after the model: the model stays the glass's first child, as the GPU glass reads it)
+  S.glass.prepend(S.svg);   // (the model first, before the GPU drawer's canvases: the figure's GPU glass reads the shape there)
 }
 
 // The outline: a rounded rectangle (w × h at y = top) with the pointer on its bottom or top edge at x = px.
@@ -81,7 +81,10 @@ export function glassCallout(el, { pointer = true } = {}) {
   };
   // A live observation keeps the observer and the card alive: it ends with dispose(), or when the card leaves the page.
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => {
-    if (!el.isConnected) { ro.disconnect(); return; }
+    // (A report while the card is off the page, as it is built before it joins the page between frames, is passed over, and the
+    // observation kept: ending it there left a summary's readings with no shape at all, so no glass ("the callouts are transparent", 2 Nov
+    // 2026). The observation ends with dispose(), which every caller makes as the card goes.)
+    if (!el.isConnected) return;
     [size, rad] = observedSize(el, es);
     update();
   }) : null;
