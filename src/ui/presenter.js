@@ -1870,10 +1870,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // change still runs (its landing and after-steps: busy) went to it only once that had finished. The cards that show leave now, on the
   // tap, together, as wordsOut throws them; the change for the new slide takes them from there (card-throw.js throwOutNow). ?instant=0:
   // as before.)
+  const KEEP_NOW = !/[?&]keepnow=0\b/.test(location.search || '');
   function outNow() {
     if (!INSTANT || !CARD_THROW || !ui || reduce.matches || (turn !== 'next' && turn !== 'back')) return;
     const showing = (el) => !el.hidden && !!el.childElementCount && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide') && !throwing(el) && !throwPinned(el);
-    const els = [ui.text, ui.data, ui.panel].filter(showing);
+    // (A data card the next slide keeps (card-keep.js keepData: the same instrument, a patient it can ride to) stays where it is and glides
+    // to the new numbers, never thrown out and built again (Mohammad, 2 Nov 2026: "if the graph is gonna change, it should TRANSITION not just
+    // pop out and in"). ?keepnow=0: thrown with the rest, as before.)
+    const nx = slides[want], keeps = KEEP_NOW && !!nx && !!shown && keepData({ from: dataOn, to: planOf(nx, want), prev: slides[shown.i], next: nx, swap: stateOf[want] !== shownState || liveOff });
+    const els = [ui.text, keeps ? null : ui.data, ui.panel].filter((el) => el && showing(el));
     if (!els.length) return;
     if (els.includes(ui.text) && !ui.shade.classList.contains('pz-leave') && !ui.shade.classList.contains('pz-turn') && ui.shade.style.opacity !== '0') els.push(ui.shade);
     const wOf = (el) => (el === ui.panel ? Math.min(el.offsetWidth, innerWidth * 0.5) : el.offsetWidth);
