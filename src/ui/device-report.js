@@ -8,7 +8,7 @@
 import { watchFrames, shedStats, mayStats, targetHz, frameBudget } from './frame.js?v=897b4f8e7e';
 import { createFrameRecorder, summarize, longFrameLine } from './frame-stats.js?v=5cd07c7e9b';
 import { tierLog } from './adapt-tier.js?v=cf7fd31cd8';
-import { countReads, layoutReads } from './layout-snap.js?v=49ac75f2f5';
+import { countReads, layoutReads } from './layout-snap.js?v=c1e0ef7c11';
 
 export const REPORT_S = 60;
 const OVERRUN_LINES = 24;
@@ -50,6 +50,18 @@ export function reportText({ gaps, scripts, overruns, t0 = 0, seconds = REPORT_S
   return L.join('\n');
 }
 
+// The email's body: a mail link has a length past which some mail apps open an empty draft or nothing, so the body keeps the summary
+// whole and as many overrun lines as fit, and says so when lines were left out (Copy report always has the whole text).
+export const MAIL_MAX = 6000;
+export function mailBody(text, max = MAIL_MAX) {
+  if (text.length <= max) return text;
+  const note = '\n  (more overruns left out of this email: Copy report in the app has the whole report)';
+  const lines = text.split('\n'), out = [];
+  let n = note.length;
+  for (const l of lines) { if (n + l.length + 1 > max) break; out.push(l); n += l.length + 1; }
+  return out.join('\n') + note;
+}
+
 /**
  * Records for `seconds` and hands the report's text to done(text). Returns a stop function (ends it early, with what it has).
  * header: lines put at the top (the build, the device, the screen).
@@ -57,19 +69,25 @@ export function reportText({ gaps, scripts, overruns, t0 = 0, seconds = REPORT_S
 export function recordDeviceReport({ seconds = REPORT_S, header = [], done = () => {} } = {}) {
   const hz = targetHz();
   const rec = createFrameRecorder({ longMs: 2 * frameBudget(), keepLong: 400 });
-  const shed0 = { ...shedStats().byTag }, aged0 = mayStats().aged, t0 = performance.now();
+  const shed0 = { ...shedStats().byTag }, aged0 = mayStats().aged, reads0 = layoutReads(), t0 = performance.now();
   countReads(true);
   const unwatch = watchFrames(rec.add);
-  let over = false;
+  // (A minute with the app in the background has one long gap that is not the app's: the report says how long it was hidden.)
+  let over = false, hidAt = 0, hidden = 0;
+  const vis = () => { if (document.hidden) hidAt = performance.now(); else if (hidAt) { hidden += performance.now() - hidAt; hidAt = 0; } };
+  document.addEventListener('visibilitychange', vis);
   const finish = () => {
     if (over) return;
-    over = true; clearTimeout(timer); unwatch();
-    const reads = layoutReads();
+    over = true; clearTimeout(timer); unwatch(); document.removeEventListener('visibilitychange', vis);
+    if (hidAt) hidden += performance.now() - hidAt;
+    const r = layoutReads(), reads = {};
+    for (const k of Object.keys(r)) reads[k] = r[k] - (reads0[k] || 0);
     countReads(false);
     const raw = rec.raw();
     done(reportText({
       gaps: raw.gaps, scripts: raw.scripts, overruns: rec.long.slice(), t0, seconds: Math.round((performance.now() - t0) / 1000), hz,
-      shed: delta(shedStats().byTag, shed0), aged: mayStats().aged - aged0, tiers: tierLog().filter((t) => t.at >= t0), reads, header,
+      shed: delta(shedStats().byTag, shed0), aged: mayStats().aged - aged0, tiers: tierLog().filter((t) => t.at >= t0), reads,
+      header: hidden >= 500 ? [...header, `In the background for ${(hidden / 1000).toFixed(1)} s of it (those gaps are not the app's)`] : header,
     }));
   };
   const timer = setTimeout(finish, seconds * 1000);

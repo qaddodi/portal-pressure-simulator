@@ -22,8 +22,9 @@ const counts = { read: 0, early: 0, late: 0, final: 0, task: 0 };
 let watching = WATCH;
 const note = () => { if (watching) counts[framePhase() || 'task']++; };
 export const layoutReads = () => ({ ...counts, afterWrites: counts.early + counts.late + counts.final });
-// (The device report (device-report.js) counts them for its minute: on, from zero; off again after, unless ?perf or ?offgpu asked.)
-export function countReads(on) { if (on) for (const k in counts) counts[k] = 0; watching = on || WATCH; }
+// (The device report (device-report.js) counts them for its minute: on, then off again after unless ?perf or ?offgpu asked. The counts
+// are never reset here, so ?perf's own totals stay whole: the report takes the difference.)
+export function countReads(on) { watching = on || WATCH; }
 
 // ---- The one place the browser is asked. ----
 // (Each takes the element first; a missing element gives undefined, as `el?.method()` did.)

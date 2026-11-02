@@ -29,3 +29,13 @@ test('device report: one tap in the Help menu, no new switch', () => {
   assert.match(src, /menuItem\(reportStop \? 'Device report: finish now' : 'Device report'/);
   assert.doesNotMatch(readFileSync(new URL('../src/ui/device-report.js', import.meta.url), 'utf8'), /location\.search/);
 });
+
+test('device report: a long report is cut for the email at whole lines, with a note', async () => {
+  const { mailBody } = await import('../src/ui/device-report.js');
+  const text = ['Device report', 'Frames: x', ...Array.from({ length: 400 }, (_, i) => `  ${i} s: 30 ms between frames`)].join('\n');
+  const b = mailBody(text, 2000);
+  assert.ok(b.length <= 2000);
+  assert.match(b, /^Device report\nFrames: x/);
+  assert.match(b, /Copy report in the app has the whole report\)$/);
+  assert.equal(mailBody('short', 2000), 'short');
+});
