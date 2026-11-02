@@ -4,23 +4,23 @@
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
-import { pressureColor } from './colormap.js?v=11c5e79e8a';
-import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=7889f271cd';
+import { pressureColor } from './colormap.js?v=b4f74b7b7f';
+import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=a7a76dfc36';
 import { simTime, isPaused } from './clock.js?v=16aba0e2eb';
-import { createEndoGL } from './endo-gl.js?v=d8df89dd3d';
+import { createEndoGL } from './endo-gl.js?v=c036e30503';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { renderEndo } from './endo-render.js?v=821ef6242d';
+import { renderEndo } from './endo-render.js?v=bf946a8c29';
 import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=1dc4743d1e';
-import { drawScopeBleed } from './endo-bleed.js?v=13f565914b';
+import { drawScopeBleed } from './endo-bleed.js?v=6f2d31c8e7';
 import { poolFill } from './blood.js?v=f6c91d8676';
-import { FONT } from './charts.js?v=8e7431eeff';
+import { FONT } from './charts.js?v=8349ffa754';
 import { store, updateParams, varicesPresent } from './store.js?v=4ef2a6ffd8';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
 import { lateFrameFor, cancelFrame, framePhase } from './frame.js?v=7710f677e2';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
-import { createTraceGL, fitPen } from './trace-gl.js?v=3905285ca2';
-import { inkBox } from './glyph-measure.js?v=0385fe1e8a';
+import { createTraceGL, fitPen } from './trace-gl.js?v=38c6766e5b';
+import { inkBox } from './glyph-measure.js?v=b3d35eceef';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
 const drawFrame = lateFrameFor('instruments');
 

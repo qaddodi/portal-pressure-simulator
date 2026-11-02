@@ -13,7 +13,7 @@
 // luminance). Anything else (a dash, a filter, a nested mask, a focal point) and the organ is not read: null, and the caller
 // keeps the organ's picture.
 
-import { flattenPath, flattenCmds, ellipsePoly, polyBox, polyMesh, prestartShapes } from './shape-gl.js?v=f7d920b7d0';
+import { flattenPath, flattenCmds, ellipsePoly, polyBox, polyMesh, prestartShapes } from './shape-gl.js?v=9778d0e19e';
 import { prestart, linkProgram } from './gl-compile.js?v=e48e05cdb3';
 import { strHash } from './liver-geo.js?v=977185f80a';
 

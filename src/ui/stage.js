@@ -4,13 +4,13 @@
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=fe0f3d1f0e';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=11c5e79e8a';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=b4f74b7b7f';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=4ef2a6ffd8';
 import { fibroReading } from './clock.js?v=16aba0e2eb';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=7889f271cd';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=a7a76dfc36';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
@@ -41,18 +41,18 @@ import { refine } from './refine.js?v=e6e17cc013';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=4ffac3ef7f';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
-import { cropToGrid } from './organs-gl.js?v=ecf7b49c24';
-import { textPolys, loadGlyphs, glyphsReady } from './text-gl.js?v=ec353838fe';
+import { cropToGrid } from './organs-gl.js?v=050bb08f99';
+import { textPolys, loadGlyphs, glyphsReady } from './text-gl.js?v=deadb4ae54';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
-import { measure as measureWords } from './glyph-measure.js?v=0385fe1e8a';
-import { readGroup, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=1c406a11a6';
+import { measure as measureWords } from './glyph-measure.js?v=b3d35eceef';
+import { readGroup, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=2b4e833536';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
-import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=f7d920b7d0';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=9644481473';
-import { nameSpots, NAME_BREAK } from './organ-names.js?v=df3c3152ad';
-import { createLabelGL } from './label-gl.js?v=61ce89c077';
+import { pathCmds, flattenCmds, polyBox, measurePath } from './shape-gl.js?v=9778d0e19e';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=0fa4a4ee45';
+import { nameSpots, NAME_BREAK } from './organ-names.js?v=f960b96951';
+import { createLabelGL } from './label-gl.js?v=e9a4ab1e0b';
 import { createGlassGL } from './glass-gl.js?v=c9021b91cd';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=292aa92f15';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=36a333d50a';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -68,7 +68,7 @@ import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=49e37b0228';
-import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=a427721422';
+import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=d22e9b46bf';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { layoutWatch } from './idle-keys.js?v=81fbedda6b';
@@ -76,7 +76,6 @@ import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=8aac338ee0';
 import { fitPose, probeShapes, beamBoxes, gateBoxes, wedgeBoxes, awayFromProbe, createProbeMind, NONE_MS, SLACK, PROBE, PROBE_MODEL } from './dop-probe.js?v=3950fb1e3a';
-import { pathPieces, piecesLength, pointsAlong } from './path-pieces.js?v=e486672c9b';
 import { organDimMatrix } from './organ-dim.js?v=9e19f2fc30';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=02072c578d';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
@@ -84,7 +83,7 @@ import { guardBlur } from './blur-guard.js?v=5228284718';
 import { capDensity } from './pixel-budget.js?v=279a2b54f6';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
-import { CellGrid, geomOf } from './cell-grid.js?v=d92c0d94ae';
+import { CellGrid, geomOf } from './cell-grid.js?v=18110c68a3';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
@@ -888,10 +887,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let L, pts = [];
     if (pre) { L = pre.L; for (let i = 0; i < n; i++) pts.push([pre.pts[i * 2], pre.pts[i * 2 + 1]]); }
     else {
-      const tmp = s('path', { d: liverD }); svg.append(tmp);
-      L = tmp.getTotalLength();
-      for (let i = 0; i < n; i++) { const q = tmp.getPointAtLength((L * i) / n); pts.push([q.x, q.y]); }
-      tmp.remove();
+      // (Measured in script (shape-gl.js measurePath), not by an element put in the page: 2 Nov 2026, no layout in a frame.)
+      const mp = measurePath(liverD);
+      L = mp.L;
+      for (let i = 0; i < n; i++) pts.push(mp.at((L * i) / n));
     }
     const nm = outlineNormals(pts), nod = contourNodules(L, n);
     const sites = [];
@@ -2705,7 +2704,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=f3086e76d9').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=3ba049a39d').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -5323,7 +5322,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The heart a slide points at (the right atrium, the heart itself) is lit whole by a soft glow, not a line: one band
   // easing out from its edge (the GPU shades the falloff smoothly, behind the organs): reach in world units, peak opacity.
   const HEART_GLOW = { reach: 46, alpha: 0.34 };
-  let olPath = null;   // sampled in <defs>: the organ itself is hidden while the GPU draws the plate
+
   // A tube (the bowel, colon, duodenum: a stroke along a centre line) is outlined along both its edges (bandRing), at the
   // width its edge is stroked. bare: the organ's own path at its normal size, not as the figure now scales it (the normal
   // spleen, V18).
@@ -5353,35 +5352,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // on every call, and the first Doppler probe read every organ so (the colon's 608 pieces at 1752 points), a second or two
   // with the page held as a monitor first opened (Mohammad, 22 Oct). The same points, measured once per path.
   const olLocalMemo = new Map();
-  let olPieceG = null;
   function olLocal(src, stride) {
     const mk = `${stride}|${src}`;
     let r = olLocalMemo.get(mk);
     if (r) return r;
     let L, at;
-    const pieces = pathPieces(src);
-    if (pieces) {
-      // (Each curve its own fresh element, all put in at once and taken out after: a reused element can keep measuring its last
-      // course in Chromium, sample() above.)
-      if (!olPieceG) { olPieceG = s('g'); defs.append(olPieceG); }
-      const els = [];
-      for (const q of pieces) if (q.c) { const el = s('path', { d: q.c }); q.el = el; els.push(el); }
-      olPieceG.replaceChildren(...els);
-      try {
-        L = piecesLength(pieces, ({ el }) => ({ len: el.getTotalLength(), at: (u) => { const p = el.getPointAtLength(u); return [p.x, p.y]; } }));
-      } catch { olPieceG.replaceChildren(); return null; }
-      at = (ls) => pointsAlong(pieces, ls);
-    } else {
-      if (!olPath) { olPath = s('path'); defs.append(olPath); }
-      const el = olPath;
-      el.setAttribute('d', src);
-      try { L = el.getTotalLength(); } catch { return null; }
-      at = (ls) => ls.map((u) => { const q = el.getPointAtLength(u); return [q.x, q.y]; });
-    }
+    // (2 Nov 2026: measured in script (shape-gl.js measurePath), with no element and no layout: the probe's and the warm outlines'
+    // frames read the page here.)
+    const mp = measurePath(src);
+    if (!(mp.L > 0)) return null;
+    L = mp.L;
+    at = (ls) => ls.map(mp.at);
     const n = Math.max(48, Math.ceil(L / stride)), step = L / n, ls = [];
     for (let i = 0; i <= n; i++) ls.push(i * step);
     r = { step, pts: at(ls) };
-    olPieceG?.replaceChildren();
     if (olLocalMemo.size >= 48) olLocalMemo.delete(olLocalMemo.keys().next().value);
     olLocalMemo.set(mk, r);
     return r;
@@ -6164,8 +6148,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function outlinePts(d, el) {
     if (!/[CQSAcqsa]/.test(d)) { const n = d.match(/-?\d+(\.\d+)?/g).map(Number); return n.flatMap((v, i) => (i % 2 ? [] : [[v, n[i + 1]]])); }
     if (!outlineCache.has(d)) {
-      const L = el.getTotalLength(), out = [];
-      for (let u = 0; u < L; u += 4) { const q = el.getPointAtLength(u); out.push([q.x, q.y]); }
+      const mp = measurePath(d), out = [];   // (in script: no layout in the diaphragm's frame, 2 Nov 2026)
+      for (let u = 0; u < mp.L; u += 4) out.push(mp.at(u));
       outlineCache.set(d, out);
     }
     return outlineCache.get(d);

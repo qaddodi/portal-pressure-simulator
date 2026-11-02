@@ -5,7 +5,7 @@ import { readFrameFor, figLab } from './frame.js?v=7710f677e2';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
-import { CellGrid, geomOf } from './cell-grid.js?v=d92c0d94ae';
+import { CellGrid, geomOf } from './cell-grid.js?v=18110c68a3';
 import { layoutWatch, PLACED } from './idle-keys.js?v=81fbedda6b';
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the
 // browser last drew, never after the frame's writes.)

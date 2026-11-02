@@ -454,3 +454,34 @@ export function createShapeGL(gl) {
     },
   };
 }
+
+/**
+ * A path measured in script, as the browser's getTotalLength and getPointAtLength measure it, with no element and no layout (2 Nov 2026:
+ * those reads, in a frame of the liver's or the diaphragm's ease, laid the page out). { L, at(u) → [x, y] }: the length of every
+ * subpath's pieces (a move adds none, a close adds its edge), and the point u along them, from curves flattened to within `tol`.
+ */
+export function measurePath(d, tol = 0.002) {
+  const runs = flattenCmds(pathCmds(d), tol);
+  const xs = [], ys = [], cum = [];
+  let L = 0;
+  for (const { pts, closed } of runs) {
+    const n = pts.length / 2;
+    if (!n) continue;
+    const first = xs.length;
+    for (let k = 0; k <= (closed ? n : n - 1); k++) {
+      const j = (k % n) * 2, x = pts[j], y = pts[j + 1];
+      if (xs.length > first) L += Math.hypot(x - xs[xs.length - 1], y - ys[ys.length - 1]);
+      xs.push(x); ys.push(y); cum.push(L);
+    }
+  }
+  const at = (u) => {
+    if (!xs.length) return [0, 0];
+    const t = Math.max(0, Math.min(L, u));
+    let lo = 0, hi = cum.length - 1;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (cum[m] < t) lo = m + 1; else hi = m; }
+    if (lo === 0) return [xs[0], ys[0]];
+    const a = cum[lo - 1], b = cum[lo], f = b > a ? (t - a) / (b - a) : 0;
+    return [xs[lo - 1] + (xs[lo] - xs[lo - 1]) * f, ys[lo - 1] + (ys[lo] - ys[lo - 1]) * f];
+  };
+  return { L, at };
+}
